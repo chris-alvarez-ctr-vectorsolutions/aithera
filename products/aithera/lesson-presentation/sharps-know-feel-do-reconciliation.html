@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sharps — Know·Feel·Do Reconciliation</title>
+<style>
+  :root {
+    --ground: #fafbfc;
+    --panel: #ffffff;
+    --panel-soft: #f1f4f6;
+    --ink: #1a2330;
+    --ink-soft: #45525f;
+    --ink-mute: #5b6773;
+    --line: #dde3e8;
+    --accent: #0b6e63;
+    --accent-soft: #e3f1ef;
+    --know: #1d4ed8;   --know-bg: #e6ecfd;
+    --feel: #9333ea;   --feel-bg: #f3e8fd;
+    --do:   #b45309;   --do-bg:   #fdeeda;
+    --ok:   #1a7f37;   --ok-bg:   #e2f2e6;
+    --warn: #9a6700;   --warn-bg: #fbf0d7;
+    --bad:  #b42318;   --bad-bg:  #fce4e2;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131820; --panel: #1a212b; --panel-soft: #212a35;
+      --ink: #e6ecf2; --ink-soft: #b3bfca; --ink-mute: #8b97a3; --line: #303b47;
+      --accent: #4cc4b4; --accent-soft: #17332f;
+      --know: #8ab0ff; --know-bg: #16203a;
+      --feel: #c99bf5; --feel-bg: #2a1638;
+      --do:   #eda03c; --do-bg:   #38260c;
+      --ok:   #57c576; --ok-bg:   #16301d;
+      --warn: #e3b341; --warn-bg: #362a08;
+      --bad:  #f2726a; --bad-bg:  #3b1614;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131820; --panel: #1a212b; --panel-soft: #212a35;
+    --ink: #e6ecf2; --ink-soft: #b3bfca; --ink-mute: #8b97a3; --line: #303b47;
+    --accent: #4cc4b4; --accent-soft: #17332f;
+    --know: #8ab0ff; --know-bg: #16203a;
+    --feel: #c99bf5; --feel-bg: #2a1638;
+    --do:   #eda03c; --do-bg:   #38260c;
+    --ok:   #57c576; --ok-bg:   #16301d;
+    --warn: #e3b341; --warn-bg: #362a08;
+    --bad:  #f2726a; --bad-bg:  #3b1614;
+  }
+  :root[data-theme="light"] {
+    --ground: #fafbfc; --panel: #ffffff; --panel-soft: #f1f4f6;
+    --ink: #1a2330; --ink-soft: #45525f; --ink-mute: #5b6773; --line: #dde3e8;
+    --accent: #0b6e63; --accent-soft: #e3f1ef;
+    --know: #1d4ed8; --know-bg: #e6ecfd;
+    --feel: #9333ea; --feel-bg: #f3e8fd;
+    --do:   #b45309; --do-bg:   #fdeeda;
+    --ok:   #1a7f37; --ok-bg:   #e2f2e6;
+    --warn: #9a6700; --warn-bg: #fbf0d7;
+    --bad:  #b42318; --bad-bg:  #fce4e2;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 400 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  a { color: var(--accent); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  code { font-family: var(--mono); font-size: .84em; background: var(--panel-soft); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---------- header ---------- */
+  .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+             color: var(--accent); font-weight: 700; margin: 0 0 10px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -.015em; text-wrap: balance; }
+  .subtitle { color: var(--ink-soft); max-width: 66ch; margin: 0 0 8px; }
+  .meta-line { font-size: 13px; color: var(--ink-mute); margin: 0 0 36px; max-width: 74ch; }
+
+  h2 { font-size: 21px; margin: 56px 0 6px; letter-spacing: -.01em; }
+  h2 + .section-note { margin-top: 0; }
+  .section-note { color: var(--ink-soft); font-size: 14.5px; max-width: 70ch; margin: 4px 0 20px; }
+  h3.sub { font-size: 16px; margin: 30px 0 4px; }
+  p { max-width: 74ch; }
+
+  /* ---------- stat strip ---------- */
+  .verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 28px 0 8px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .stat .num { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 13px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
+
+  /* ---------- domain chips ---------- */
+  .dm { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+        padding: 2px 8px; border-radius: 999px; white-space: nowrap; text-transform: uppercase; }
+  .dm.know { color: var(--know); background: var(--know-bg); }
+  .dm.feel { color: var(--feel); background: var(--feel-bg); }
+  .dm.do   { color: var(--do);   background: var(--do-bg); }
+
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px;
+          border-radius: 999px; white-space: nowrap; }
+  .pill.ok   { color: var(--ok);   background: var(--ok-bg); }
+  .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  .pill.bad  { color: var(--bad);  background: var(--bad-bg); }
+
+  .tag { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+         text-transform: uppercase; border-radius: 5px; padding: 1px 6px; margin-left: 6px; vertical-align: 2px; }
+  .tag.new  { color: var(--accent); border: 1.5px solid var(--accent); }
+  .tag.rev  { color: var(--warn);   border: 1.5px solid var(--warn); }
+
+  /* ---------- tables ---------- */
+  .tbl-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  th { text-align: left; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+       color: var(--ink-mute); font-weight: 700; padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.id { font-family: var(--mono); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  td.nm { font-weight: 600; }
+  td.soft { color: var(--ink-soft); font-size: 13.5px; }
+  tr.is-new td { background: var(--accent-soft); }
+  tr.is-gap td.id { box-shadow: inset 3px 0 0 var(--bad); }
+
+  /* ---------- callouts ---------- */
+  .callout { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px;
+             padding: 16px 20px; margin: 24px 0; }
+  .callout h3 { margin: 0 0 6px; font-size: 15.5px; color: var(--accent); }
+  .callout p { margin: 0 0 8px; font-size: 13.8px; color: var(--ink-soft); max-width: none; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout.revise { background: var(--warn-bg); border-color: var(--warn); }
+  .callout.revise h3 { color: var(--warn); }
+  .callout.alarm { background: var(--bad-bg); border-color: var(--bad); }
+  .callout.alarm h3 { color: var(--bad); }
+
+  /* ---------- source quote ---------- */
+  blockquote.src {
+    margin: 12px 0; padding: 10px 16px; border-left: 3px solid var(--line);
+    background: var(--panel-soft); border-radius: 0 6px 6px 0;
+    font-size: 14px; color: var(--ink-soft);
+  }
+  blockquote.src p { margin: 0 0 6px; max-width: none; }
+  blockquote.src p:last-child { margin-bottom: 0; }
+  blockquote.src cite { display: block; margin-top: 6px; font-style: normal;
+                        font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-mute); }
+
+  /* ---------- finding cards ---------- */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+          padding: 20px 22px; margin-bottom: 16px; }
+  .card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .card-head h3 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
+  .card p { font-size: 14.2px; color: var(--ink-soft); margin: 0 0 10px; }
+  .card p:last-child { margin-bottom: 0; }
+  .card .where { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); }
+  .fix { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); font-size: 14px; }
+  .fix b { color: var(--ink); }
+
+  /* ---------- sequenced plan ---------- */
+  ol.seq { padding-left: 22px; font-size: 15px; }
+  ol.seq li { margin-bottom: 16px; max-width: 74ch; }
+  ol.seq strong { display: block; }
+  ol.seq .seq-note { color: var(--ink-soft); font-size: 14px; }
+
+  ul.tight { margin: 8px 0 0; padding-left: 20px; font-size: 14.2px; color: var(--ink-soft); }
+  ul.tight li { margin-bottom: 8px; max-width: 74ch; }
+  ul.tight li:last-child { margin-bottom: 0; }
+  ul.tight b, ul.tight strong { color: var(--ink); }
+
+  .footnote { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
+              font-size: 13px; color: var(--ink-mute); max-width: 76ch; }
+  .footnote p { max-width: none; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <p class="eyebrow">Content reconciliation · CLARA prototype</p>
+  <h1>Sharps — Know·Feel·Do Reconciliation</h1>
+  <p class="subtitle">The re-composed Bloodborne&nbsp;Pathogens course and the current course storyboard, read against
+     the built module — Module&nbsp;4, &ldquo;Contain the Sharp.&rdquo; What to add, what to re-source, what is broken,
+     and where the source documents contradict themselves.</p>
+  <p class="meta-line">September 4, 2026 · Sources: <code>RVCT-303B_SB.pdf</code> (current storyboard, 2&nbsp;slides:
+     Sharps + Knowledge Check) and <code>bloodborne-pathogens-rvct303b.led.pdf</code> (re-composed full course,
+     33&nbsp;pages, 6 outcomes / 26 objectives / 2 flagged gaps). Built module read in full at the time of the
+     analysis — <code>js/layered-sharps.js</code> (then 1,654&nbsp;lines, 2,335 after the changes below),
+     <code>clara/sharps.html</code>, <code>css/layered-beats.css</code>.</p>
+
+  <div class="verdict">
+    <div class="stat"><div class="num">4 of 8</div><div class="lbl">of our objectives match the re-composition near-verbatim — the module boundary is validated</div></div>
+    <div class="stat"><div class="num">8</div><div class="lbl">pieces of sourced Know content the module is currently missing</div></div>
+    <div class="stat"><div class="num">6</div><div class="lbl">defects found in the built module while diffing</div></div>
+    <div class="stat"><div class="num">100%</div><div class="lbl">of the re-composition's pass/fail checks sit on recall objectives</div></div>
+  </div>
+
+  <div class="callout" style="margin-bottom:12px">
+    <h3>Status — the whole plan below has landed</h3>
+    <p>All seven steps of the sequenced plan are built and verified in the module as of
+       <b>September 4, 2026</b>. The findings are kept here as the record of <em>why</em> each change was made, so
+       the sections below are written in the present tense of the analysis rather than rewritten as a changelog.</p>
+    <p><b>Built:</b> the Know/Understand objective as a new premise beat (“Why It Is Dangerous”) · the
+       controls-versus-shortcuts beat (“Gloves or Containers”) · pre/post measures on both movable Feel objectives ·
+       the disposal-route decision so the two Do objectives have separate evidence · the six copy additions · the
+       overfilled container re-based on the maintenance principle · sub-scales renamed to the re-composition's
+       vocabulary with our three extensions declared · the sector premise flag corrected and now actually read by
+       the procedure. Module is 13 → 15 steps, 8 → 9 objectives, ≈16 → ≈19 minutes.</p>
+    <p><b>Found while building, and fixed:</b> one icon in the new beat was Font Awesome Pro-only on a page that
+       loads the Free set, so it rendered as a zero-width invisible glyph with no console error — exactly the silent
+       failure the repo guidance warns about. A sweep of all 62 icon classes in the module now comes back clean.</p>
+    <p><b>Outstanding:</b> the premise beat's clip is a placeholder path with no file behind it, so that beat serves
+       its written version until a clip exists — deliberately, and the screen says so. The cohort figures are still
+       ours and are now labelled illustrative on the screen. The regulatory citation still needs checking against
+       the regulation text.</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>The headline</h2>
+  <p class="section-note">Three things came out of the comparison, in descending order of how much they should
+     change what we do next.</p>
+
+  <p><strong>Our module boundary is right.</strong> The re-composition's Outcome&nbsp;4 &mdash;
+     &ldquo;Handle and Dispose of Sharps Safely&rdquo; &mdash; is four objectives, one Know, two Feel, one Do, and
+     four of our eight are near-verbatim matches for them. We independently landed on the same decomposition, which
+     is the single most useful thing either document tells us.</p>
+
+  <p><strong>The module has no &ldquo;why.&rdquo;</strong> It teaches a four-step procedure and never defines a sharp,
+     never explains that a used needle keeps a trace of blood on it, and never names what that blood can carry. The
+     words <em>hepatitis</em>, <em>HBV</em>, <em>HCV</em> and <em>HIV</em> appear nowhere in the file except the course
+     title. Every other outcome in the re-composition carries a Know/Understand objective; sharps carries none &mdash;
+     so this is a gap in their document too, and it is the same gap.</p>
+
+  <p><strong>The re-composition gates recall and nothing else.</strong> Across all 26 objectives there are exactly six
+     scored pass/fail checks, one per outcome, and every one is attached to a Recall&nbsp;(Know) objective. All four
+     Feel objectives get an agreement scale with, in the document's own words, &ldquo;no remediation, no gate.&rdquo;
+     All six Do objectives get a low-stakes multiple-choice question. A course whose premise is know&ndash;feel&ndash;do
+     is, at the pass line, entirely know.</p>
+
+  <div class="callout">
+    <h3>Worth leading the client conversation with</h3>
+    <p>In the current course, <strong>nothing assesses sharps at all.</strong> The knowledge check that closes
+       &ldquo;Transmission and Risks&rdquo; asks <em>&ldquo;Bloodborne pathogens ______&rdquo;</em> against the
+       objective <em>&ldquo;Define the term &lsquo;bloodborne pathogen&rsquo;&rdquo;</em> &mdash; a definition from
+       the previous section, which the earlier knowledge check already closed. So transmission, workplace risk,
+       sharps and at-risk workers are taught across five slides and tested by none of them. That item is also
+       <code>[type: checkall]</code> with three of four options correct and <strong>the same feedback paragraph on
+       all four</strong>, so the learner reads identical text whether they were right or wrong.</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>How the two objective sets line up</h2>
+  <p class="section-note">Our identifiers on the left, the re-composition's on the right. This table is the lookup
+     for every identifier used further down &mdash; nothing below assumes you memorised it.</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr>
+      <th scope="col">Ours</th><th scope="col">Name</th><th scope="col">Domain</th>
+      <th scope="col">Theirs</th><th scope="col">Fit</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td class="id">K1</td><td class="nm">The safe handling procedure</td>
+        <td><span class="dm know">Know · Remember</span></td>
+        <td class="soft">LO 4.1 — Recall (Know)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr class="is-new">
+        <td class="id">K2 <span class="tag new">New</span></td><td class="nm">Why a used sharp is dangerous</td>
+        <td><span class="dm know">Know · Understand</span></td>
+        <td class="soft">Missing from both — teach content exists at LO 4.1 and LO 4.2, unused</td>
+        <td><span class="pill bad">Gap</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">K3</td><td class="nm">Spotting the conditions <span class="soft">(currently K2)</span></td>
+        <td><span class="dm know">Know · Observe</span></td>
+        <td class="soft">No counterpart. Nearest support: LO 3.2, LO 3.3</td>
+        <td><span class="pill warn">Re-source</span></td>
+      </tr>
+      <tr>
+        <td class="id">F1</td><td class="nm">It protects your coworkers</td>
+        <td><span class="dm feel">Feel · Believe</span></td>
+        <td class="soft">LO 4.2 — Believe (Feel)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr>
+        <td class="id">F2</td><td class="nm">Controls prevent the injury</td>
+        <td><span class="dm feel">Feel · Value</span></td>
+        <td class="soft">LO 4.3 — Value (Feel)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">F3</td><td class="nm">What your shift actually does</td>
+        <td><span class="dm feel">Feel · Perceive</span></td>
+        <td class="soft">No counterpart anywhere in the course</td>
+        <td><span class="pill warn">Extension</span></td>
+      </tr>
+      <tr>
+        <td class="id">D1</td><td class="nm">Acting while the moment is open</td>
+        <td><span class="dm do">Do · Activate</span></td>
+        <td class="soft">Type exists as &ldquo;Respond in the moment,&rdquo; used at LO 6.2 — not in Outcome 4</td>
+        <td><span class="pill warn">Extension</span></td>
+      </tr>
+      <tr>
+        <td class="id">D2</td><td class="nm">Doing it in context</td>
+        <td><span class="dm do">Do · Apply</span></td>
+        <td class="soft">LO 4.4 — Perform (Do)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">D3</td><td class="nm">Keeping it up afterwards</td>
+        <td><span class="dm do">Do · Sustain</span></td>
+        <td class="soft">No counterpart anywhere in the course</td>
+        <td><span class="pill warn">Extension</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p style="margin-top:14px"><strong>Scope note for the client conversation.</strong> Their Outcome&nbsp;4 is not the
+     current Sharps slide. It is re-composed from at least four &mdash; Sharps, Engineering Controls, the Needlestick
+     Incident scenario, and Personal Protective Equipment. The Chris-and-Jacob chain of harm that our whole
+     coworker-responsibility case rests on comes from the PPE slide, not the sharps one. That is <em>why</em> sharps
+     got bigger, and it means &ldquo;the current sharps lesson&rdquo; and &ldquo;Outcome 4&rdquo; are not the same
+     scope.</p>
+
+  <!-- ================================================================= -->
+  <h2>Know content to add</h2>
+  <p class="section-note">All eight items below are drawn from the re-composition and are absent from the built
+     module today. Every quotation is from the re-composed course document.</p>
+
+  <h3 class="sub">1. What a sharp is, and why a used one is dangerous</h3>
+  <blockquote class="src">
+    <p>&ldquo;A sharp is a medical needle or other sharp object that can puncture or cut the skin; a used medical
+       needle is dangerous because it retains a small amount of blood after use and its extreme sharpness creates
+       high probability of accidentally penetrating someone else's skin and exposing them to that retained
+       blood.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.1, first teach point</cite>
+  </blockquote>
+  <p>This is the missing spine. Without it the four steps are arbitrary compliance, and the retained-blood mechanism
+     is what makes the whole module's central image &mdash; a sharp at rest where somebody else will find it &mdash;
+     mean anything.</p>
+
+  <h3 class="sub">2. What counts as a sharp besides a needle</h3>
+  <blockquote class="src">
+    <p>&ldquo;Cuts from contaminated sharps including broken glass, scalpels, exposed dental wires, and broken
+       capillary tubes can transmit bloodborne pathogens.&rdquo;</p>
+    <cite>Outcome 1 · LO 1.4</cite>
+  </blockquote>
+  <p>This enumeration is what makes our four sectors legitimate rather than decorative: a box-cutter blade and
+     contaminated glass are sharps by the source's own definition, not by our extension of it. The companion clause
+     sits in the procedure itself &mdash; step one is to plan disposal <em>&ldquo;before using a needle or other sharp
+     instrument or cleaning up broken glass&rdquo;</em> &mdash; and our procedure copy currently drops the broken-glass
+     half, which is the only clause that carries the step into the three non-medical sectors.</p>
+
+  <h3 class="sub">3. What the next person can actually catch</h3>
+  <blockquote class="src">
+    <p>&ldquo;Needlestick injuries can result in exposure to bloodborne pathogens including HIV, hepatitis B, and
+       hepatitis C, which could result in severe health complications.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.2, first teach point</cite>
+  </blockquote>
+  <p>One sentence, once. Our four sector accounts land the consequence as <em>procedure</em> &mdash; &ldquo;five months
+     of testing,&rdquo; &ldquo;bloodwork every few weeks,&rdquo; &ldquo;post-exposure protocol for six months&rdquo;
+     &mdash; and never as the thing being tested for. This is also the only tie from Module 4 back to Module 1 and
+     forward to the post-exposure module.</p>
+
+  <h3 class="sub">4. The transfer mechanism</h3>
+  <blockquote class="src">
+    <p>&ldquo;For bloodborne pathogens to pose a danger, they must transfer into your bloodstream.&rdquo;</p>
+    <p>&ldquo;A needlestick &mdash; unintentional being poked with a needle &mdash; transmits bloodborne pathogens the
+       same way as deliberate needle sharing if the needle has been contaminated.&rdquo;</p>
+    <cite>Outcome 1 · LO 1.4</cite>
+  </blockquote>
+  <p>This is the reasoning content the module has none of: why the point matters, why the trace matters, and why a
+     puncture is categorically different from the casual contact the course spends Outcome&nbsp;1 ruling out.</p>
+
+  <h3 class="sub">5. The complete prohibition — five, not one</h3>
+  <blockquote class="src">
+    <p>&ldquo;In healthcare settings, used needles must not be bent, broken, recapped, removed, or separated from
+       syringes; they must be placed in a sharps disposal container immediately or as soon as possible after
+       use.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.1 and LO 4.4</cite>
+  </blockquote>
+  <p>The module currently says <em>&ldquo;recapping is the one absolute&mdash;every other rule here has an
+     &lsquo;unless&rsquo;; that one does not&rdquo;</em> and builds a scored entry item on the claim. That is five
+     absolutes compressed into one, and the copy has to change in both places it appears.</p>
+
+  <h3 class="sub">6. The no-container-available rule, stated plainly</h3>
+  <blockquote class="src">
+    <p>&ldquo;If no sharps container is immediately available, do not place the needle in general waste. Use the
+       device's safety feature if available, seek a proper sharps container before disposal, and never use improvised
+       soft-material wrapping.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.4, misconception correction</cite>
+  </blockquote>
+  <p>Our overfilled-container case circles this across three answer options without ever stating it. Stating the rule
+     is also what lets the harder variant of that case be genuinely arguable instead of merely ambiguous.</p>
+
+  <h3 class="sub">7. What a designated container actually is</h3>
+  <blockquote class="src">
+    <p>&ldquo;Contaminated sharps and other contaminated waste must be handled and disposed of as regulated waste in
+       closeable, leak-proof containers that are colored red or marked with the universal biohazard symbol.&rdquo;</p>
+    <p>&ldquo;Safety-engineered sharps disposal containers are designed to encapsulate sharp objects upon
+       disposal.&rdquo;</p>
+    <cite>Outcome 3 · LO 3.3 and LO 3.2</cite>
+  </blockquote>
+  <p>The module says &ldquo;designated container&rdquo; more than twenty times and never once describes one. A learner
+     on a renovation site or a plant floor has no idea what they are looking for &mdash; which is precisely the
+     population the module claims to serve.</p>
+
+  <h3 class="sub">8. The correction on gloves</h3>
+  <blockquote class="src">
+    <p>&ldquo;Heavy-duty protective gloves made of materials like nitrile, latex, vinyl, or neoprene can protect hands
+       from cuts, punctures, and exposure to hazardous substances, but PPE alone is less effective than engineering
+       controls at preventing needlestick injuries.&rdquo;</p>
+    <p>Misconception corrected: &ldquo;Wearing heavy-duty gloves is a reliable substitute for proper sharps disposal
+       containers. &rarr; Even thick gloves can be penetrated by needles.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.3</cite>
+  </blockquote>
+  <p>All four of our sector accounts already end with the needle going <em>through a glove</em>. The argument is
+     dramatized and never named. This is the factual backing for the controls-versus-shortcuts beat described below.</p>
+
+  <div class="callout">
+    <h3>Where the added content lands</h3>
+    <p><strong>Items 1, 3 and 4 become one new objective</strong> &mdash; a Know/Understand objective, the type sharps
+       is missing and every other outcome has: <em>&ldquo;Explain why a used sharp is dangerous &mdash; it retains a
+       trace of blood and its point breaks skin &mdash; and what that exposes the next person to.&rdquo;</em> Flag it
+       to add instruction on a weak answer rather than to gate.</p>
+    <p><strong>Items 2, 5, 6 and 7 are procedural detail on objectives we already have</strong> &mdash; they belong in
+       the procedure beat and the recognition cases, not in new objectives. <strong>Item 8</strong> backs the
+       controls-versus-shortcuts beat.</p>
+    <p>This takes the module from eight objectives to nine, which <em>strengthens</em> the compression story rather
+       than diluting it: reasoning content is the most defensible thing in the module to let a learner test out of,
+       and right now the procedure is the only thing a strong entry result can buy.</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>Where we are ungrounded</h2>
+  <p class="section-note">Three claims the built module makes that the source material does not support as written.</p>
+
+  <div class="callout revise">
+    <h3>Revised call — the overfilled container can be saved <span class="tag rev">Changed</span></h3>
+    <p>My first read was that this case had no support anywhere in the 33&nbsp;pages. The specific claim &mdash; a fill
+       line, a container packed above it, pressing contents down to make room &mdash; still has none: no occurrence of
+       &ldquo;fill line,&rdquo; &ldquo;overfilled,&rdquo; or anything equivalent. But the <em>principle</em> the case
+       needs is signed, in Outcome 3:</p>
+    <blockquote class="src" style="background:transparent;border-left-color:var(--warn)">
+      <p>&ldquo;Engineering controls must be inspected and maintained or replaced on a regular basis.&rdquo;</p>
+      <p>Misconception corrected: &ldquo;Engineering controls, once installed, require no ongoing attention.&rdquo;</p>
+      <p>&ldquo;Safety-engineered sharps disposal containers are designed to encapsulate sharp objects upon
+         disposal.&rdquo;</p>
+      <cite>Outcome 3 · LO 3.2</cite>
+    </blockquote>
+    <p>A container above its fill line is an engineering control that has stopped encapsulating &mdash; which is
+       exactly the misconception LO 3.2 names. So the case does not need cutting; it needs <strong>re-basing on that
+       principle</strong>, with the fill-line specifics sourced from the customer's own exposure control plan rather
+       than asserted by us. That also removes the awkwardness of the module's most memorable screen being its least
+       defensible one.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>The cohort survey has no source</h3><span class="pill warn">Label or source</span></div>
+    <p class="where">js/layered-sharps.js — DEBRIEF_DATA, and the &ldquo;214 responses · representative data&rdquo;
+       caption</p>
+    <p>Neither document contains any norm or cohort data at all, so the shift-norms objective is entirely our
+       construct. That is fine for a prototype, with one catch: here <em>the number is the intervention.</em> A
+       norm-correction beat whose figure is invented is teaching something we made up. It needs either a real source
+       or a visible &ldquo;illustrative&rdquo; label.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>The regulatory citation is asserted, not checked</h3><span class="pill warn">Verify</span></div>
+    <p class="where">js/layered-sharps.js — the case-2 reviewer caption</p>
+    <p>We cite <code>1910.1030(g)(2)(vii)(E)</code> on a reviewer-facing caption as the basis for content-locking the
+       recognition objective. The paragraph most likely does support it &mdash; it is the training element covering
+       recognition of tasks that may involve exposure &mdash; but that has not been read against the regulation here,
+       and we are stating it as settled fact in a document a customer may see.</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>Defects found in the built module</h2>
+  <p class="section-note">Six, ordered by how visible they are to a reviewer. All were found by diffing the module
+     against the two documents rather than by testing it.</p>
+
+  <div class="card">
+    <div class="card-head"><h3>1. The record reports an answer that was never collected</h3><span class="pill bad">Bug</span></div>
+    <p class="where">js/layered-sharps.js:1471</p>
+    <p>The entry battery asks four items: two on the procedure, one on coworker responsibility, one on shift norms.
+       The controls-versus-shortcuts objective is asked <em>nowhere in the module</em> &mdash; and the record screen
+       prints &ldquo;Recorded &middot; From your own answer &middot; Noted and passed on&rdquo; for it anyway. On a
+       screen whose entire argument is that every line points at a real moment, this is the worst possible line to
+       have invented.</p>
+    <p class="fix"><b>Fix:</b> build the beat, using the scenario the source already wrote for it &mdash;
+       <em>a facility decides between cut-resistant gloves for every waste handler, or more sharps containers
+       throughout the building.</em> Grounded, and it closes the hole.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>2. One sector's norm figure inverts the beat's own message</h3><span class="pill bad">Bug</span></div>
+    <p class="where">js/layered-sharps.js:1169 and :1226</p>
+    <p>The construction sector is set at 48% &ldquo;use the container immediately&rdquo; &mdash; so a majority
+       <em>don't</em>. The copy then tells the learner the real figure is &ldquo;higher than most people guess&rdquo;
+       and that &ldquo;the person who sets one down is the outlier, not the norm,&rdquo; and the
+       &ldquo;most&rdquo;-answer response congratulates them on a match. The highlight rule keys off 50% or better,
+       so nothing highlights either.</p>
+    <p class="fix"><b>Fix:</b> either raise that sector above 50, or branch the copy so a minority figure reads as the
+       finding it actually is. A norms intervention that argues against its own data is worse than no norms
+       intervention.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>3. Two Do objectives are scored from one button press</h3><span class="pill bad">Bug</span></div>
+    <p class="where">js/layered-sharps.js:1478 and :1483</p>
+    <p>The timed moment captures a single decision and its latency. The record then reports both the
+       act-while-the-moment-is-open objective and the do-it-in-context objective from it, with the second one claiming
+       &ldquo;timing, technique, route and recovery all held.&rdquo; There was no route and no recovery. There was one
+       button.</p>
+    <p class="fix"><b>Fix:</b> either build the remaining simulation beats &mdash; the walked disposal, the adaptive
+       complication, the open close &mdash; so the second objective has evidence of its own, or merge the two into one
+       objective and report one result.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>4. Two Feel objectives promise a post-measure that does not exist</h3><span class="pill bad">Bug</span></div>
+    <p class="where">js/layered-sharps.js:59 and :65</p>
+    <p>Both are marked as measured &ldquo;Pre + post.&rdquo; Both are asked once, at entry. Nothing re-asks them.</p>
+    <p class="fix"><b>Fix:</b> build the post-measure rather than downgrading the metadata &mdash; see the mapping
+       recommendations below, where this turns out to be the most differentiating thing available to us.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>5. The sector premise field is dead and wrong</h3><span class="pill warn">Cleanup</span></div>
+    <p class="where">js/layered-sharps.js:112 and :154</p>
+    <p>Every sector carries a <code>premise</code> flag distinguishing &ldquo;you found somebody else's sharp&rdquo;
+       from &ldquo;you used one yourself,&rdquo; and the comment above it explains that this is two premise families
+       rather than four coats of paint. The field is never read anywhere. It is also wrong for two of the four
+       sectors: the education lens opens with the learner performing a finger-stick and the manufacturing lens with
+       the learner changing a blade &mdash; both are use-premises by their own case text and their own simulation
+       premise. Only the construction lens is genuinely a find. The source backs the use reading: its central
+       manufacturing character is a worker who self-administers insulin.</p>
+    <p class="fix"><b>Fix:</b> correct the two flags and read the field somewhere, or delete it and the comment.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>6. An objective clause that is taught and never assessed</h3><span class="pill warn">Cleanup</span></div>
+    <p class="where">js/layered-sharps.js — K1 objective text and the procedure beat</p>
+    <p>&ldquo;Use needle alternatives when possible&rdquo; is in the objective statement, taught as step two of the
+       procedure, and assessed nowhere in the module. It is also meaningless in the construction lens &mdash; there is
+       no alternative to a syringe you pulled out of a wall cavity.</p>
+    <p class="fix"><b>Fix:</b> assess it with a sector-gated item, or drop it from the objective statement and keep it
+       as teach-only content. Right now it is in the signed objective and unevidenced, which is the one combination
+       the record screen exists to make impossible.</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>Mapping more honestly to know&ndash;feel&ndash;do</h2>
+  <p class="section-note">Five changes. The first two are corrections; the last three are where the prototype has
+     something the re-composition structurally cannot produce.</p>
+
+  <h3 class="sub">Reconcile the two vocabularies, or declare the divergence</h3>
+  <p>The re-composition uses six types: Recall and Understand for Know, Believe and Value for Feel, Perform and
+     Respond-in-the-moment for Do. We use eight sub-scales: Remember and Observe, Believe and Value and Perceive,
+     Activate and Apply and Sustain. Nobody reading both can tell whether we diverged on purpose. Rename where we
+     overlap &mdash; Remember to Recall, Apply to Perform, Activate to Respond-in-the-moment &mdash; and label
+     Observe, Perceive and Sustain as <strong>declared extensions</strong>, each with a line of justification.</p>
+
+  <h3 class="sub">Add the Know/Understand objective</h3>
+  <p>Covered above under Know content. It is the largest structural gap on either side, and it is what makes the
+     coworker-harm account land clinically rather than only emotionally.</p>
+
+  <h3 class="sub">Build the Feel post-measure</h3>
+  <p>Their attitude checks are one-shot, with &mdash; explicitly &mdash; no remediation and no gate. A pre/post pair
+     around the coworker-harm account and the norms beat is something their pipeline cannot express at all, and
+     <strong>the shift is the reportable number, not the level.</strong> This is the most defensible piece of Feel
+     evidence available to us, and it retires defect 4.</p>
+
+  <h3 class="sub">Resolve the attitude-check conflict as a stated decision</h3>
+  <p>Their specification says attitude checks carry no remediation and no gate. We flag both Feel objectives in the
+     entry battery to <em>add or harden</em> a beat on a weak answer. I would keep ours and record their line as a
+     limitation of their pipeline rather than a design rule &mdash; but it has to be written down, because at the
+     moment our build silently contradicts the specification that is supposed to sit upstream of it.</p>
+
+  <h3 class="sub">Make the gate contrast explicit in the reviewer captions</h3>
+  <p>Their six pass/fail checks are all on recall. Ours gates a Do objective and marks three Do objectives as never
+     skippable. That is the strongest single argument the prototype makes about the re-composition's output, and it is
+     currently only legible to somebody who has read both documents side by side.</p>
+
+  <!-- ================================================================= -->
+  <h2>Flags in the source documents</h2>
+  <p class="section-note">Nine things that do not hold up, in the order I would raise them.</p>
+
+  <ul class="tight">
+    <li><b>Every gate is a recall gate.</b> 26 objectives; 16 Know, 4 Feel, 6 Do. Six scored pass/fail checks, one per
+        outcome, <em>all</em> on Recall (Know). Four attitude scales with no gate and no remediation by design. Six
+        low-stakes multiple-choice questions for the Do objectives. Nothing about feeling or doing can affect whether
+        a learner passes.</li>
+
+    <li><b>Every Do objective is assessed by multiple choice</b> &mdash; including the sharps one, typed Perform (Do)
+        and assessed with a single question. Meanwhile two other outcomes each flagged a &ldquo;designed gap&rdquo; on
+        the grounds that their content was &ldquo;not a performable sequence&rdquo; and needed an authored scenario.
+        The sharps Do objective is no more performable in a multiple-choice item than those were. Either the gap
+        standard applies to it too, or the two flagged gaps did not need flagging.</li>
+
+    <li><b>Outcome 4's prerequisite is wrong, and it decides module order.</b> It declares that it builds on
+        Outcome&nbsp;2, universal precautions. But its Value objective is entirely engineering-controls-versus-PPE
+        &mdash; which is Outcome&nbsp;3's content. Sharps needs Outcome&nbsp;3, not just Outcome&nbsp;2.</li>
+
+    <li><b>The post-exposure outcome diagnoses an attitude barrier and then assigns no Feel objectives.</b> Its own
+        text says workers &ldquo;may freeze, minimize, or delay because the moment is frightening,&rdquo; and its
+        misconceptions are pure shame and paperwork avoidance &mdash; &ldquo;better to handle it quietly without
+        reporting.&rdquo; That is a stronger attitude signal than the sharps outcome's, and the sharps outcome got two
+        Feel objectives from it. Post-exposure reporting should have a Believe objective.</li>
+
+    <li><b>The controls Value objective measures knowledge.</b> Its agreement statement is an empirical claim
+        &mdash; that containers and safety-engineered needles prevent <em>more</em> injuries than PPE or training alone
+        &mdash; rated one to five with no remediation, so a learner who disagrees with a true fact is never corrected.
+        And its practice activity, choosing between gloves and containers, is a decision task, which is Do, not Feel.
+        <strong>Our version inherits this verbatim</strong>, so fixing defect 1 is the chance to fix it properly: make
+        the choice the evidence and the scale the self-report.</li>
+
+    <li><b>Pipeline identifiers leaked into a review document.</b> &ldquo;TB&rdquo; is used without ever being
+        expanded (&ldquo;a foundational knowledge TB&rdquo; &mdash; presumably <em>target behavior</em>), alongside
+        content references like <code>ref a8a06f6f</code> and <code>cl-0091/92/93</code> and the line
+        &ldquo;Verify_grounding confirmed all three elements fail the performance lens.&rdquo; Nobody reviewing this
+        can act on any of it.</li>
+
+    <li><b>Two referenced files were not provided.</b> The document opens by telling the reader to &ldquo;read LED
+        Instructions in this folder &mdash; it explains how to give feedback and defines every field below (and how
+        each traces back to the Know&ndash;Feel&ndash;Do model),&rdquo; and says the matching source transcript is in
+        the same folder. Without the instructions, the field definitions and the know&ndash;feel&ndash;do trace are
+        asserted rather than checkable. Without the transcript we cannot spot-check grounding &mdash; which is exactly
+        what the fill-line question needed. Worth asking for both.</li>
+
+    <li><b>The slide numbering disagrees.</b> The storyboard excerpt labels Sharps as <code>P012</code> and the
+        knowledge check as <code>P013</code>; the course outline has Sharps at <code>P011</code> with Workers Most At
+        Risk at <code>P012</code>. One of the two is off by one, and it matters as soon as we trace objectives back to
+        slides.</li>
+
+    <li><b>Nothing in the current course assesses sharps.</b> Detailed at the top &mdash; the section-closing
+        knowledge check tests a definition from the previous section, and gives identical feedback for right and wrong
+        answers. This is the strongest available argument for the re-composition and should be presented as one.</li>
+  </ul>
+
+  <!-- ================================================================= -->
+  <h2>Sequenced plan</h2>
+  <p class="section-note">Ordered so that each step either closes a defect or unblocks the next one. Steps 1&ndash;4
+     are the content pass; 5&ndash;7 are cleanup.</p>
+
+  <ol class="seq">
+    <li><strong>Build the controls-versus-shortcuts beat.</strong>
+        <span class="seq-note">Closes the invented record line, plugs the one hole in the Feel triad, and takes a
+        grounded scenario straight from the source. Assess the choice, then ask the agreement item &mdash; which fixes
+        the type mismatch our version inherited.</span></li>
+
+    <li><strong>Add the Know/Understand objective.</strong>
+        <span class="seq-note">Definition of a sharp, the retained-blood mechanism, the transfer rule, and the three
+        pathogens named once. Largest real gap, and a gap in their document too.</span></li>
+
+    <li><strong>Re-base the overfilled-container case on the maintenance principle.</strong>
+        <span class="seq-note">A control that is not maintained stops being a control. Fill-line specifics come from
+        the customer's exposure control plan, not from us.</span></li>
+
+    <li><strong>Pay the copy debts.</strong>
+        <span class="seq-note">Five prohibitions rather than one; broken glass restored to step one; the
+        not-just-healthcare sentence; the no-container rule stated; a designated container actually described.</span></li>
+
+    <li><strong>Build the Feel post-measure</strong> and retire the &ldquo;Pre&nbsp;+&nbsp;post&rdquo; promise the
+        module does not currently keep.
+        <span class="seq-note">Report the shift, not the level.</span></li>
+
+    <li><strong>Fix the sector norm figure, and split or merge the two Do objectives.</strong>
+        <span class="seq-note">Both are cases of the record claiming more than the interaction produced.</span></li>
+
+    <li><strong>Rename the sub-scales to their vocabulary, declare our three extensions, and clean up the dead
+        premise field.</strong></li>
+  </ol>
+
+  <div class="footnote">
+    <p><strong>Prototype document.</strong> Line references are to <code>js/layered-sharps.js</code> as of
+       September&nbsp;4, 2026 and will drift as the module changes. Quotations are from the re-composed course
+       document; the regulatory citation noted above has <em>not</em> been verified against the regulation text and
+       should be before it reaches a customer.</p>
+    <p>Related: <a href="clara/sharps.html">the built module</a> &middot;
+       <a href="clara/structures.html">the Learning Layer view</a> &middot;
+       <a href="clara/course.html">the assembled course</a>.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

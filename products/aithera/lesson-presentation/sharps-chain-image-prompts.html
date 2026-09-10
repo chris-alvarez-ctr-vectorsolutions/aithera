@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contain the Sharp — Chain Image Prompts</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+<style>
+  :root {
+    --bg: #0a0f18; --panel-2: #0d1521;
+    --line: rgba(255,255,255,.1); --ink: #dfe7f0; --soft: #9fb0c4; --faint: #6b7d93;
+    --teal: #2ee6cf; --amber: #f1b34a;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 "Open Sans", system-ui, -apple-system, sans-serif;
+    padding: 48px 24px 96px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { margin: 0 0 6px; font-size: 30px; font-weight: 800; letter-spacing: -.01em; color: #fff; }
+  .sub { margin: 0 0 8px; color: var(--soft); max-width: 76ch; }
+  .meta { margin: 0 0 36px; font-size: 13px; color: var(--faint); }
+  .meta a { color: var(--teal); }
+  h2 {
+    margin: 52px 0 14px; font-size: 12px; font-weight: 800; letter-spacing: .14em;
+    text-transform: uppercase; color: var(--teal);
+    padding-bottom: 9px; border-bottom: 1px solid var(--line);
+  }
+  h3 { margin: 40px 0 4px; font-size: 20px; font-weight: 800; color: #fff; }
+  h3 + .where { margin: 0 0 6px; font-size: 14px; color: var(--faint); }
+  h4 {
+    margin: 26px 0 0; font-size: 15px; font-weight: 700; color: #fff;
+    display: flex; align-items: baseline; gap: 11px; flex-wrap: wrap;
+  }
+  h4 .t {
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    color: var(--teal); background: rgba(46,230,207,.1);
+    border: 1px solid rgba(46,230,207,.3); border-radius: 999px; padding: 2px 10px;
+  }
+  p { max-width: 78ch; }
+  .note { font-size: 14px; color: var(--soft); max-width: 78ch; }
+  .carries { margin: 4px 0 0; font-size: 13.5px; color: var(--faint); max-width: 78ch; }
+  .warn {
+    margin: 18px 0; padding: 14px 17px; border-radius: 11px;
+    border: 1px solid rgba(241,179,74,.34); background: rgba(241,179,74,.08);
+    font-size: 14.5px; color: #f6dcae; max-width: 78ch;
+  }
+  .warn b { color: var(--amber); }
+  .pair {
+    margin: 20px 0 8px; padding: 12px 16px; border-radius: 10px;
+    border-left: 3px solid rgba(46,230,207,.5); background: rgba(255,255,255,.03);
+    font-size: 14px; color: var(--soft); max-width: 78ch;
+  }
+
+  .block { position: relative; margin: 10px 0 22px; }
+  .block pre {
+    margin: 0; padding: 18px 19px 18px; overflow-x: auto;
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 13px;
+    font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: #cfe3f2;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  .block--full pre { max-height: 300px; overflow-y: auto; }
+  .copy {
+    position: absolute; top: 10px; right: 10px; z-index: 2;
+    font: inherit; font-size: 11px; font-weight: 800; letter-spacing: .06em;
+    text-transform: uppercase; cursor: pointer;
+    color: #04211d; background: var(--teal); border: 0; border-radius: 999px;
+    padding: 6px 14px; transition: filter .15s ease;
+  }
+  .copy:hover { filter: brightness(1.08); }
+  .copy.done { background: var(--amber); }
+  .lab {
+    display: inline-block; margin-bottom: 7px;
+    font-size: 10.5px; font-weight: 800; letter-spacing: .11em;
+    text-transform: uppercase; color: var(--faint);
+  }
+  ul { max-width: 78ch; padding-left: 22px; }
+  li { margin-bottom: 7px; }
+  details { max-width: 78ch; margin: 14px 0 0; }
+  summary {
+    cursor: pointer; font-size: 13.5px; font-weight: 700; color: var(--teal);
+    padding: 8px 0;
+  }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
+  .toc a {
+    font-size: 13px; font-weight: 700; text-decoration: none; color: var(--ink);
+    background: rgba(255,255,255,.05); border: 1px solid var(--line);
+    border-radius: 999px; padding: 7px 15px;
+  }
+  .toc a:hover { border-color: rgba(46,230,207,.5); color: var(--teal); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Chain image prompts</h1>
+  <p class="sub">Twenty-four fully assembled prompts for the &ldquo;One Decision&rdquo; beat in
+     <b>Contain the Sharp</b> &mdash; six moments across each of the four sectors. Every block below
+     is complete and ready to paste: the locked style and constraint text is already baked into each
+     one, so nothing needs joining together.</p>
+  <p class="meta">Uncatalogued working doc &middot; sibling to
+     <a href="sharps-module-flow.html">sharps-module-flow.html</a></p>
+
+  <div class="toc">    <a href="#public">Public Sector</a>
+    <a href="#manufacturing">Manufacturing</a>
+    <a href="#education">Education</a>
+    <a href="#aec">Commercial AEC</a>
+    <a href="#reference">Style reference</a>
+    <a href="#notes">Notes</a>
+  </div>
+
+  <div class="warn">
+    <b>Two things to get right or the set is unusable.</b> <b>Faces:</b> every camera line specifies
+    the framing that excludes them rather than saying &ldquo;no faces&rdquo; &mdash; a negative prompt
+    reliably produces a mangled one. <b>The injury:</b> it is the pivot of the beat and it is written
+    to be implied, not shown. No blood, no wound, no needle entering skin &mdash; the contact and the
+    flinch carry it.
+  </div>
+
+  <div class="pair">
+    <b>Moments 2 and 3 are alternatives, not a sequence.</b> The learner picks a route, so one run
+    shows the container act or the shortcut act &mdash; never both. Generate both; the beat serves
+    whichever they chose.
+  </div>
+  <h2 id="public">Public Sector</h2>
+  <p class="where" style="margin-top:-4px;font-size:14px;color:var(--faint)">EMS · a broken ampoule in the back of a rig</p>
+  <h4>1 &middot; Setup <span class="t">2:10 AM</span></h4>
+  <p class="carries">The sharp is in hand and <em>both</em> destinations are visible in one frame. The whole decision has to be readable without a caption.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Public Sector · Setup</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: The cramped rear compartment of a parked ambulance at night. A broken glass ampoule held between gloved fingers over a drug-box tray. A red wall-mounted sharps container behind the bench seat, further in. An open trash bag hanging from the equipment rail at knee height, immediate and close.
+
+CAMERA: Over-the-shoulder from behind, the subject&#x27;s head out of frame above the top edge. The sharp in the near hand, sharp focus. Both destinations visible in the same frame — the correct container deeper in and softly out of focus; the wrong receptacle close and immediate.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>2 &middot; Act — container <span class="t">2:11 AM</span></h4>
+  <p class="carries">Reaching past the easy option to the right one. The effort is the point.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Public Sector · Act — container</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A gloved hand reaching back past the bench seat to drop broken glass into the red wall-mounted sharps container of an ambulance interior at night.
+
+CAMERA: Tight on hands and forearms only, cropped at the elbows. The arm extended into the container opening, body weight committed to the reach. The wrong receptacle sits in the blurred foreground, unused.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>3 &middot; Act — shortcut <span class="t">2:11 AM</span></h4>
+  <p class="carries">How ordinary it looks. This must not read as villainous — that is the entire argument.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Public Sector · Act — shortcut</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A gloved hand releasing broken glass into an open trash bag hanging on an ambulance equipment rail at knee height.
+
+CAMERA: Tight on one hand releasing the sharp into the wrong receptacle, cropped at the wrist. Unhurried, casual, almost absent-minded. Amber accent light catching the sharp as it leaves the fingers. The correct container visible far behind, out of focus.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>4 &middot; The next person <span class="t">6:30 AM</span></h4>
+  <p class="carries">A different worker, hours later, who cannot possibly know. Emptiness and shift-change quiet.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Public Sector · The next person</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: Dawn. A different medic in uniform, seen from behind, stepping up into the back of the same ambulance carrying a supply crate. The trash bag still hanging on the rail.
+
+CAMERA: Wide, the figure small in the frame and turned fully away, seen from behind in a doorway or aisle. The receptacle between camera and figure. A different light temperature from the earlier frames — later, colder, emptier.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>5 &middot; Contact <span class="t">6:31 AM</span></h4>
+  <p class="carries">The moment of the stick, implied only. The flinch, not the wound.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Public Sector · Contact</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A trash bag squeezed flat against a gloved forearm inside an ambulance, the hand snapping open and pulling back.
+
+CAMERA: Extremely tight on the bag or sack pressed against a gloved forearm, cropped so no face or body is in frame. The hand caught mid-flinch, fingers splayed, pulling back. A single amber pinpoint at the contact point. No blood, no visible puncture, no needle in shot.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>6 &middot; Aftermath <span class="t">Over the next twelve weeks</span></h4>
+  <p class="carries">Weeks of waiting, compressed into one still object. No hospital drama.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Public Sector · Aftermath</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A folded lab requisition form on a clinic counter under flat overhead light, one pen beside it, wide empty surface.
+
+CAMERA: Still life, no figure at all, or one pair of hands resting in a lap cropped at the forearms. A clinical waiting-room surface or a folded paper form under flat overhead light. Empty space dominating the frame. Quiet, procedural, boring.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h2 id="manufacturing">Manufacturing</h2>
+  <p class="where" style="margin-top:-4px;font-size:14px;color:var(--faint)">An insulin needle in a plant break room</p>
+  <h4>1 &middot; Setup <span class="t">4:52 PM</span></h4>
+  <p class="carries">The sharp is in hand and <em>both</em> destinations are visible in one frame. The whole decision has to be readable without a caption.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Manufacturing · Setup</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: An industrial plant break room at the end of shift. A used insulin syringe held over a laminate table. Through the doorway, a red sharps container mounted far across the plant floor past a press line. A grey lidded waste bin two feet from the table.
+
+CAMERA: Over-the-shoulder from behind, the subject&#x27;s head out of frame above the top edge. The sharp in the near hand, sharp focus. Both destinations visible in the same frame — the correct container deeper in and softly out of focus; the wrong receptacle close and immediate.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>2 &middot; Act — container <span class="t">4:53 PM</span></h4>
+  <p class="carries">Reaching past the easy option to the right one. The effort is the point.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Manufacturing · Act — container</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A hand dropping a syringe into a red wall-mounted sharps container across an industrial plant floor, press line machinery blurred behind.
+
+CAMERA: Tight on hands and forearms only, cropped at the elbows. The arm extended into the container opening, body weight committed to the reach. The wrong receptacle sits in the blurred foreground, unused.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>3 &middot; Act — shortcut <span class="t">4:53 PM</span></h4>
+  <p class="carries">How ordinary it looks. This must not read as villainous — that is the entire argument.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Manufacturing · Act — shortcut</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A hand releasing a syringe into a grey lidded break-room bin, a crumpled paper towel already inside.
+
+CAMERA: Tight on one hand releasing the sharp into the wrong receptacle, cropped at the wrist. Unhurried, casual, almost absent-minded. Amber accent light catching the sharp as it leaves the fingers. The correct container visible far behind, out of focus.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>4 &middot; The next person <span class="t">11:20 PM</span></h4>
+  <p class="carries">A different worker, hours later, who cannot possibly know. Emptiness and shift-change quiet.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Manufacturing · The next person</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: Late night. A sanitation worker in coveralls, small in frame and turned away, wheeling a cart into an empty plant break room. The lidded bin ahead of them.
+
+CAMERA: Wide, the figure small in the frame and turned fully away, seen from behind in a doorway or aisle. The receptacle between camera and figure. A different light temperature from the earlier frames — later, colder, emptier.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>5 &middot; Contact <span class="t">11:21 PM</span></h4>
+  <p class="carries">The moment of the stick, implied only. The flinch, not the wound.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Manufacturing · Contact</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A refuse bag gathered against a gloved leg and forearm, the hand caught mid-flinch, fingers splayed.
+
+CAMERA: Extremely tight on the bag or sack pressed against a gloved forearm, cropped so no face or body is in frame. The hand caught mid-flinch, fingers splayed, pulling back. A single amber pinpoint at the contact point. No blood, no visible puncture, no needle in shot.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>6 &middot; Aftermath <span class="t">Over the next six months</span></h4>
+  <p class="carries">Weeks of waiting, compressed into one still object. No hospital drama.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Manufacturing · Aftermath</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: Two hands resting in a lap on plastic waiting-room seating, cropped at the forearms, flat institutional light.
+
+CAMERA: Still life, no figure at all, or one pair of hands resting in a lap cropped at the forearms. A clinical waiting-room surface or a folded paper form under flat overhead light. Empty space dominating the frame. Quiet, procedural, boring.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h2 id="education">Education</h2>
+  <p class="where" style="margin-top:-4px;font-size:14px;color:var(--faint)">A broken beaker in a middle-school classroom</p>
+  <h4>1 &middot; Setup <span class="t">3:15 PM</span></h4>
+  <p class="carries">The sharp is in hand and <em>both</em> destinations are visible in one frame. The whole decision has to be readable without a caption.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Education · Setup</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A middle-school science classroom at the end of the day. Broken beaker glass held in a folded paper towel over a scarred back bench. Through an open prep-room door, a red sharps bin on the wall. A plastic classroom bin under the sink, right at hand.
+
+CAMERA: Over-the-shoulder from behind, the subject&#x27;s head out of frame above the top edge. The sharp in the near hand, sharp focus. Both destinations visible in the same frame — the correct container deeper in and softly out of focus; the wrong receptacle close and immediate.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>2 &middot; Act — container <span class="t">3:16 PM</span></h4>
+  <p class="carries">Reaching past the easy option to the right one. The effort is the point.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Education · Act — container</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A hand lowering paper-towel-wrapped glass into a red sharps bin in a school prep room, bench clutter blurred behind.
+
+CAMERA: Tight on hands and forearms only, cropped at the elbows. The arm extended into the container opening, body weight committed to the reach. The wrong receptacle sits in the blurred foreground, unused.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>3 &middot; Act — shortcut <span class="t">3:16 PM</span></h4>
+  <p class="carries">How ordinary it looks. This must not read as villainous — that is the entire argument.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Education · Act — shortcut</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A hand releasing a paper-towel bundle into a plastic classroom bin under a sink, ordinary and unhurried.
+
+CAMERA: Tight on one hand releasing the sharp into the wrong receptacle, cropped at the wrist. Unhurried, casual, almost absent-minded. Amber accent light catching the sharp as it leaves the fingers. The correct container visible far behind, out of focus.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>4 &middot; The next person <span class="t">9:40 PM</span></h4>
+  <p class="carries">A different worker, hours later, who cannot possibly know. Emptiness and shift-change quiet.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Education · The next person</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: Night. A custodian, small in frame and turned fully away, pushing a cart down a dark empty school corridor lined with lockers.
+
+CAMERA: Wide, the figure small in the frame and turned fully away, seen from behind in a doorway or aisle. The receptacle between camera and figure. A different light temperature from the earlier frames — later, colder, emptier.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>5 &middot; Contact <span class="t">9:41 PM</span></h4>
+  <p class="carries">The moment of the stick, implied only. The flinch, not the wound.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Education · Contact</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A sagging bin liner gathered against a gloved forearm, the hand snapping open, fingers splayed.
+
+CAMERA: Extremely tight on the bag or sack pressed against a gloved forearm, cropped so no face or body is in frame. The hand caught mid-flinch, fingers splayed, pulling back. A single amber pinpoint at the contact point. No blood, no visible puncture, no needle in shot.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>6 &middot; Aftermath <span class="t">Over the next four months</span></h4>
+  <p class="carries">Weeks of waiting, compressed into one still object. No hospital drama.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Education · Aftermath</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: An empty clinic waiting room, rows of chairs, one folded appointment card on a seat, flat overhead light.
+
+CAMERA: Still life, no figure at all, or one pair of hands resting in a lap cropped at the forearms. A clinical waiting-room surface or a folded paper form under flat overhead light. Empty space dominating the frame. Quiet, procedural, boring.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h2 id="aec">Commercial AEC</h2>
+  <p class="where" style="margin-top:-4px;font-size:14px;color:var(--faint)">A utility blade left on a ledge in an occupied renovation</p>
+  <h4>1 &middot; Setup <span class="t">2:40 PM</span></h4>
+  <p class="carries">The sharp is in hand and <em>both</em> destinations are visible in one frame. The whole decision has to be readable without a caption.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Commercial AEC · Setup</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A stripped second-floor room in an occupied renovation, dust suspended in the light. A used utility blade resting on a window ledge. A debris sack open on the floor underfoot. A stairwell visible, leading down and away.
+
+CAMERA: Over-the-shoulder from behind, the subject&#x27;s head out of frame above the top edge. The sharp in the near hand, sharp focus. Both destinations visible in the same frame — the correct container deeper in and softly out of focus; the wrong receptacle close and immediate.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>2 &middot; Act — container <span class="t">2:41 PM</span></h4>
+  <p class="carries">Reaching past the easy option to the right one. The effort is the point.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Commercial AEC · Act — container</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A gloved hand placing a utility blade into a sharps container inside a site trailer, daylight through a small window.
+
+CAMERA: Tight on hands and forearms only, cropped at the elbows. The arm extended into the container opening, body weight committed to the reach. The wrong receptacle sits in the blurred foreground, unused.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>3 &middot; Act — shortcut <span class="t">2:41 PM</span></h4>
+  <p class="carries">How ordinary it looks. This must not read as villainous — that is the entire argument.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Commercial AEC · Act — shortcut</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A gloved hand dropping a utility blade into an open debris sack among timber offcuts on a bare floor.
+
+CAMERA: Tight on one hand releasing the sharp into the wrong receptacle, cropped at the wrist. Unhurried, casual, almost absent-minded. Amber accent light catching the sharp as it leaves the fingers. The correct container visible far behind, out of focus.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>4 &middot; The next person <span class="t">6:15 PM</span></h4>
+  <p class="carries">A different worker, hours later, who cannot possibly know. Emptiness and shift-change quiet.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Commercial AEC · The next person</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: Early evening. A labourer in a hard hat, small in frame and seen from behind, carrying two debris sacks against his chest down a bare corridor.
+
+CAMERA: Wide, the figure small in the frame and turned fully away, seen from behind in a doorway or aisle. The receptacle between camera and figure. A different light temperature from the earlier frames — later, colder, emptier.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>5 &middot; Contact <span class="t">6:16 PM</span></h4>
+  <p class="carries">The moment of the stick, implied only. The flinch, not the wound.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Commercial AEC · Contact</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A debris sack pressed against a gloved forearm, the hand jerking open, fingers splayed, dust in the light.
+
+CAMERA: Extremely tight on the bag or sack pressed against a gloved forearm, cropped so no face or body is in frame. The hand caught mid-flinch, fingers splayed, pulling back. A single amber pinpoint at the contact point. No blood, no visible puncture, no needle in shot.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+  <h4>6 &middot; Aftermath <span class="t">Over the next eleven weeks</span></h4>
+  <p class="carries">Weeks of waiting, compressed into one still object. No hospital drama.</p>
+      <div class="block block--full">
+        <span class="lab">Full prompt — Commercial AEC · Aftermath</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.
+
+SCENE: A single plastic chair against a bare clinic wall, a folded form on the seat, wide empty floor.
+
+CAMERA: Still life, no figure at all, or one pair of hands resting in a lap cropped at the forearms. A clinical waiting-room surface or a folded paper form under flat overhead light. Empty space dominating the frame. Quiet, procedural, boring.
+
+Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+
+  <h2 id="reference">Style reference</h2>
+  <p class="note">Already included in all twenty-four prompts above. Here on its own only so you can
+     see what is doing the work, or edit it and regenerate the set.</p>
+      <div class="block">
+        <span class="lab">Locked style block</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Desaturated documentary photograph. Near-black blue-grey environment, deep
+shadow holding most of the frame. One cold practical light source in shot
+(fluorescent tube, dome light, work lamp) throwing a narrow teal-cyan pool;
+everything outside it falls to near-black. Anamorphic 40mm feel, shallow depth
+of field, focus locked on the object of the action. Fine 35mm grain, muted
+palette, no colour outside the teal-cyan light and one warm amber accent
+where a hazard sits. Restrained and unglamorous. Realistic workplace surfaces
+with wear on them. Editorial, not stock.</pre>
+      </div>
+      <div class="block">
+        <span class="lab">Locked constraints block</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Framing: the figure is never the subject. Crop below the collarbone, shoot from
+behind, or turn the body fully away from camera. Hands, forearms and the object
+carry the whole story. No eye contact, no recognisable face, no portrait
+framing at any distance.
+
+Do not render: blood, wounds, punctures entering skin, medical gore, visible
+injury detail, brand names, readable text, logos, watermarks, signage copy.
+
+Keep it plausible: real protective equipment worn correctly for the trade,
+correct-scale tools, no decorative sparks or lens flare, no dramatic sky, no
+heroic posing. This is a shift, not an emergency.
+
+3:2 landscape.</pre>
+      </div>
+
+  <h3 style="font-size:17px">If the photographic look fights the page</h3>
+  <p class="note">The beat sits on teal line-art SVG figures. If twenty-four photographs read as too
+     heavy beside those, swap the opening paragraph of the style block for this and keep everything
+     else identical &mdash; the camera and constraint lines still do their job on an illustration.</p>
+      <div class="block">
+        <span class="lab">Alternate style — replaces the style block</span>
+        <button class="copy" type="button">Copy</button>
+<pre>Flat editorial vector illustration, two-tone: near-black blue-grey ground with
+a single teal-cyan line weight and one amber accent. No gradients, no texture,
+no rendered lighting. Geometric, confident line, generous negative space.</pre>
+      </div>
+
+  <h2 id="notes">Notes on using these</h2>
+  <ul>
+    <li><b>Generate the setup frame first, per sector.</b> It establishes the location, light and
+        wear. Once one looks right, feed it back as a reference image for the other five so the
+        space stays the same room.</li>
+    <li><b>Moment 4 is the one that will fight you.</b> Generators want to centre and light a person.
+        If a face creeps in, push the figure further into the frame and add distance rather than
+        adding negatives.</li>
+    <li><b>Moment 5 may get refused</b> depending on the tool. If so, drop the word
+        &ldquo;flinch&rdquo; and describe only the bag against the forearm and the open hand &mdash;
+        the timeline text already names what happened, so the image only has to hold the instant.</li>
+    <li><b>Generate at 3:2, display at about 16:9.</b> The timeline stacks five nodes, so a tall
+        image makes the screen enormous. Generating wide gives you crop room.</li>
+  </ul>
+
+</div>
+
+<script>
+  // Copy the <pre> inside the same .block as the button.
+  document.querySelectorAll('.copy').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pre = btn.parentElement.querySelector('pre');
+      if (!pre) return;
+      navigator.clipboard.writeText(pre.textContent).then(function () {
+        btn.textContent = 'Copied';
+        btn.classList.add('done');
+        setTimeout(function () { btn.textContent = 'Copy'; btn.classList.remove('done'); }, 1400);
+      });
+    });
+  });
+</script>
+</body>
+</html>

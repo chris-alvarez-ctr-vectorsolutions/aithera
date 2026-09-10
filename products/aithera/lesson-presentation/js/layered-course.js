@@ -264,8 +264,8 @@
     ]
   };
   // Prototype-only on-video skip (mirrors the scenario's cold-open .intro-skip):
-  // jump past the clip so CLARA's beat fires — her question on the pre-roll,
-  // her reflection on the close.
+  // jump past the clip so CLARA's beat fires — their question on the pre-roll,
+  // their reflection on the close.
   function wireVideoSkip(video) {
     var skip = document.getElementById('cvSkip');
     if (!skip) return;
@@ -281,7 +281,7 @@
     var video = document.getElementById('courseVideo');
     var asked = false, answered = false;
     if (entryStrength() === 'compressed') {
-      // She leads here: nothing on the page explains why this build is shorter.
+      // They lead here: nothing on the page explains why this build is shorter.
       ctx.setCoachSay('This is the short cut — the lessons you already showed me are gone. Press play; one quick question at the end.');
       ctx.floatOpen();
     }
@@ -445,7 +445,7 @@
   //  rationale (which constructs this maps to, why skills are never quizzed)
   //  is presenter material and lives in the step caption behind the footer "?".
   //  CLARA keeps the floating bubble for a short reaction after each pick;
-  //  she no longer carries the stem or the options.
+  //  they no longer carry the stem or the options.
   // ==========================================================================
   var BASELINE_CONTENT =
     '<main class="ll-object">' +
@@ -497,8 +497,8 @@
     var optsEl = document.getElementById('blOptions');
 
     // While a question is up, CLARA is the orb only — one thing on screen to
-    // read. Her line waits behind it for anyone who taps, and she rises with a
-    // reaction the moment an answer lands.
+    // read. Their line waits behind it for anyone who taps, and they rise with
+    // a reaction the moment an answer lands.
     ctx.setCoachSay('No grade here, and no trick — I just want to know where to aim.');
     ctx.floatClose();
 
@@ -509,8 +509,8 @@
 
     // The beat between the two questions is the one moment nothing else is
     // clickable: the learner has answered, CLARA is replying, and Continue is
-    // still gated. The way forward therefore rides in her bubble, under the
-    // line she just said — and it waits rather than counting, because a timer
+    // still gated. The way forward therefore rides in their bubble, under the
+    // line they just said — and it waits rather than counting, because a timer
     // would decide how long that line is worth reading.
     function offerNext(run) { ctx.setCoachAction('Next question', run); }
 
@@ -1284,7 +1284,7 @@
   //  chain. None of that is a learner's language or a learner's question;
   //  it's presenter material and lives in the step caption behind the "?".
   //
-  //  CLARA crowns the stack rather than sitting in a rail: she says WHY in a
+  //  CLARA crowns the stack rather than sitting in a rail: they say WHY in a
   //  sentence, the rows say WHAT, and they arrive one at a time so the change
   //  reads as something happening rather than a list that was always there.
   //  Presenter override: "Demo: flip entry result".

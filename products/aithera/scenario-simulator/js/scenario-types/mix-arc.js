@@ -840,11 +840,217 @@
   /* Named curated examples this type ships, addressed via
      scenario-live.html?type=mix-arc&scenario=<id>. The generic DEFAULT still
      plays when no ?scenario= is given and nothing is published. */
+  /* =======================================================================
+     EXAMPLE — "End of Shift", the culminating activity for Bloodborne
+     Pathogens Module 4 (clara/sharps.html, objective D2 / Do · Perform).
+
+     Authored as a mix-arc example rather than guided-arc for one structural
+     reason: guided-arc holds ONE roleplay scene at the end with a two-action
+     structure, and this scenario is FOUR sequential moments — the decision,
+     the pressure, the complication, the transfer. Beat 3 in particular has to
+     be its own moment, because it is the one that separates following a rule
+     from exercising judgment; folding it into beat 2's second action would
+     lose exactly the thing it tests. Four beats is mix-arc's native shape, so
+     the content stays intact and no engine learns a new trick.
+
+     Reached from the sharps module as a curated example — no page edits:
+       composed-scenarios/index.html?type=mix-arc&scenario=end-of-shift-sharps
+
+     Additive: this object and its one EXAMPLES key are the whole change. No
+     existing example, default, or published scenario is touched.
+     ======================================================================= */
+  const EXAMPLE_SHARPS = {
+    v: 1, type: 'mix-arc',
+    title: 'End of Shift: The Sharp in Chris’s Hand',
+    course: 'Bloodborne Pathogens — Module 4, Contain the Sharp',
+    learnerName: 'you', characterName: 'Chris',
+    elevatedStakes: false, involvesMinors: false, threatContent: false,
+    framing: 'the culminating activity for a module on safe sharps handling and disposal. The learner has already been taught the four-step procedure, has walked the causal chain from one deferred disposal to a coworker’s needlestick, and has rated their own confidence in carrying a sharp to the container under time pressure. This scenario is where that rating meets a real moment.',
+    learnerRole: 'a co-worker on second shift, walking out at the end of the day',
+    establishing: {
+      eyebrow: 'The moment', title: 'End of shift',
+      // Kept to two lines on purpose: the player centres this block, and a
+      // centred paragraph of prose is harder to read the longer it runs.
+      sub: 'It is 4:52. Chris is holding the syringe, and the container is on the far side of the plant floor.',
+    },
+    openingImage: 'The break room at the end of second shift. Chris is standing by the table with an uncapped syringe in his hand; a lidded waste bin is two feet away.',
+    // No cold open and no warm-up reflection: the module that hands off to
+    // this scenario has already spent nine minutes establishing every piece of
+    // context, and an un-graded reflection here would be the third time the
+    // learner is asked what they think before anybody asks what they DO.
+    intro: { type: 'none', video: { sound: false, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
+    voice: { persona: 'a plain-spoken safety lead who has worked a floor — direct, never preachy, and completely uninterested in reciting policy at somebody. You treat time pressure as a real constraint rather than an excuse to be corrected', guidance: '' },
+    reflection: { enabled: false, prompt: '', feedbackGuidance: '' },
+    state: [],
+
+    // The character card, authored once and carried by every beat Chris is in.
+    // The load-bearing line is the driver: his objection is NEVER "I didn't
+    // know". A learner who argues the rule at him is answering a question he
+    // did not ask, and the scenario has to let that fail.
+    beats: [
+      {
+        id: 'decision', label: 'The Decision', level: 'Beat 1 · the first move', type: 'roleplay', maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', text: '4:52 PM. Chris has just injected. The cap rolled under the counter. The nearest sharps container is across the plant floor, past the press line. There’s a lidded bin two feet away.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Chris', text: 'You headed out? Hold up, I’ll walk with you.' },
+            { speaker: 'character', kind: 'narration', text: 'He’s still holding the uncapped syringe, gesturing with the hand that holds it.' },
+          ],
+          cta: 'Step into the break room' },
+        inputPlaceholder: 'What do you do or say?',
+        exitCriteria: 'the learner has stated a first action — correct or not. Advance on ANY stated action; the coach responds either way. Do not hold this beat waiting for the right answer.',
+        reactionGuidance: 'Chris is friendly and in a hurry. If the learner names the sheath or the container, he complies but keeps moving toward the door. If they suggest the bin, recapping, or setting it on the counter, he takes the out gladly — it is what he already wanted — and the moment closes badly rather than being corrected in the scene.',
+        hasRightAnswer: true,
+        throughLine: 'The safety feature goes on while the device is still in your hand, and the route to the container was decided before the sharp was ever picked up.',
+        character: {
+          name: 'Chris',
+          backstory: '41, second-shift machine operator, eleven years at the site. Type 1 diabetic — he injects at the start of his break, in the break room. He has taken this training twice and he knows the rule; he will say so if he is challenged on it.',
+          driver: 'Time. His objection is never "I didn’t know" — it is "I don’t have time." He never claims the shortcut is safe, and he never argues that the rule is wrong.',
+          reactions: [
+            { when: 'the learner acknowledges the time pressure as real before pushing back', then: 'he softens noticeably and becomes willing to move' },
+            { when: 'the learner recites the rule or the procedure at him', then: 'he gets shorter and more defensive, and says he has sat through this training twice' },
+            { when: 'the learner suggests the bin, recapping, or setting it down', then: 'he takes the out immediately and gratefully' },
+            { when: 'the learner offers to walk it to the container themselves', then: 'he hesitates, then hands it over — this is the thing that actually works on him' },
+          ],
+          styleNotes: 'Practical, not careless. Mildly defensive when corrected. Short sentences, plant-floor register, no profanity. He never mentions Jacob unprompted.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'suggests recapping, the lidded bin, or setting the syringe down on the counter — any of which is the failure the whole module is about' },
+          { tier: 'PARTIAL', guidance: 'gestures at the container or at "dealing with it" without getting the safety feature activated first, or leaves the sharp in Chris’s hand un-sheathed while they talk' },
+          { tier: 'SOUND', guidance: 'activates the safety sheath, or names getting to the container, before anything else happens' } ],
+        debrief: {
+          talkItThrough: 'Before we go further — the first thing you said there is the whole beat, so let’s look at it.',
+          points: 'quote their actual first action back to them; land that the sheath goes on while the device is still in the hand that used it, and that a lidded bin two feet away is the same decision as the bin in the chain they walked earlier' },
+        transitions: [ { onTier: '', next: 'pressure', set: {} } ],
+      },
+      {
+        id: 'pressure', label: 'The Pressure', level: 'Beat 2 · holding the line', type: 'roleplay', maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', text: 'Chris’s radio goes. Line three is down and the supervisor wants him now.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Chris', text: 'Look, it’s sheathed. It’s fine. I’m not walking to the other side of the building right now, man.' },
+          ],
+          cta: '' },
+        inputPlaceholder: 'What do you say?',
+        exitCriteria: 'the learner either holds the position that the container is the only option, or concedes. Both close the beat — a concession is a real answer and is recorded as one.',
+        reactionGuidance: 'This is where the character card does the work. Chris ALREADY KNOWS the rule, so a learner who explains it to him is answering a question he did not ask — he gets shorter and repeats that he has taken this twice. A learner who names the time pressure as real first gets a genuine softening. If they offer to carry it themselves, he hesitates and hands it over. Never let him claim the shortcut is safe; his whole case is that he does not have the minutes.',
+        hasRightAnswer: true,
+        throughLine: 'A sheathed sharp in transit is allowed; a parked one is not. Acknowledging the constraint is what makes the ask land, and taking it yourself is always available.',
+        character: {
+          name: 'Chris',
+          backstory: '41, second-shift machine operator, eleven years at the site. Type 1 diabetic, injects at the start of his break. He has taken this training twice and knows the rule.',
+          driver: 'Time, and now a supervisor waiting on him. His objection is never "I didn’t know" — it is "I don’t have time."',
+          reactions: [
+            { when: 'the learner acknowledges the time pressure as real before pushing back', then: 'he softens and stops arguing' },
+            { when: 'the learner recites the rule at him', then: 'he gets shorter — "I know. I’ve taken this twice." — and does not move' },
+            { when: 'the learner agrees to "just this once"', then: 'he is relieved, drops it in the bin on his way past, and the moment closes badly' },
+            { when: 'the learner offers to take it to the container themselves', then: 'he hesitates, then hands it over' },
+          ],
+          styleNotes: 'Practical, not careless. Mildly defensive when corrected. Short sentences. He never mentions Jacob unprompted.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'agrees to "just this once", or lectures — recites the procedure at a man who has told them he already knows it' },
+          { tier: 'PARTIAL', guidance: 'holds the line, but only by restating the requirement; the constraint Chris named goes unacknowledged' },
+          { tier: 'SOUND', guidance: 'maintains that the container is the only option AND treats the time pressure as real. Bonus: offers to walk it there themselves' } ],
+        debrief: {
+          talkItThrough: 'Worth pausing on, because this is the beat people lose while being completely correct.',
+          points: 'the point that lands it — Chris was never missing the rule, so the rule was never the thing to give him; naming the pressure first is what makes the same ask land, and offering to carry it yourself removes the objection entirely' },
+        transitions: [ { onTier: '', next: 'container', set: {} } ],
+      },
+      {
+        id: 'container', label: 'The Complication', level: 'Beat 3 · when the control has failed', type: 'roleplay', maxTurns: 3,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', text: 'You get to the container. It’s filled above the line and the lid mechanism won’t close.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Chris', text: 'Great. Now what.' },
+          ],
+          cta: '' },
+        inputPlaceholder: 'What do you do?',
+        exitCriteria: 'the learner has said what happens to the sharp now — an escalation, or an improvisation. Either closes the beat.',
+        reactionGuidance: 'Chris is out of patience and will accept whatever the learner decides, which is what makes this beat honest: nobody stops them improvising. If they force it in, leave it on top, or fall back to general waste, he shrugs and goes — do not have him object, because the whole point is that no one is watching. If they locate a second container or report the full one first, he waits.',
+        hasRightAnswer: true,
+        throughLine: 'A container past its fill line has stopped being an engineering control and is now a hazard wearing the label of a safeguard. The sharp stays in your hand until there is a real container for it.',
+        character: {
+          name: 'Chris',
+          backstory: '41, second-shift machine operator, eleven years at the site. Out of patience — the supervisor is still waiting.',
+          driver: 'Getting to line three. He will go along with whatever the learner decides and will not argue for the shortcut himself here.',
+          reactions: [
+            { when: 'the learner improvises — forces it in, leaves it on top, general waste', then: 'he shrugs, accepts it, and leaves. Nobody objects, which is the point' },
+            { when: 'the learner locates a second container or reports the full one', then: 'he waits, mildly impressed, and goes along with it' },
+          ],
+          styleNotes: 'Short, flat, tired. No lecturing, no sudden conversion to safety advocate.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'forces it in, presses the contents down, leaves it balanced on top, or falls back to general waste' },
+          { tier: 'PARTIAL', guidance: 'refuses to improvise but stops there — waits, or hands the problem to Chris, without locating a route for the sharp' },
+          { tier: 'SOUND', guidance: 'locates a second container, or reports the full container before disposing. The sharp never leaves their control in the meantime' } ],
+        debrief: {
+          talkItThrough: 'This is the one that separates knowing the procedure from being able to run it when the procedure’s own equipment has failed.',
+          points: 'name what they actually did; land that a container above its fill line has stopped containing, that pressing contents down is the most direct route to a stick in the entire module, and that the sharp staying in a sheathed hand is always better than a sharp parked somewhere undesignated' },
+        transitions: [ { onTier: '', next: 'transfer', set: {} } ],
+      },
+      {
+        id: 'transfer', label: 'The Transfer', level: 'Beat 4 · the person downstream', type: 'roleplay', maxTurns: 1,
+        entry: { bridge: '', signpost: '', prompt: '',
+          beats: [
+            { speaker: 'character', kind: 'narration', text: 'Walking back, you pass Jacob pulling bags from the break room bin.' },
+            { speaker: 'character', kind: 'dialogue', name: 'Jacob', text: 'Hey. Long night.' },
+          ],
+          cta: '' },
+        inputPlaceholder: 'Say something, or walk on…',
+        // The one beat in the scenario that cannot be failed. Anything at all
+        // is bonus; saying nothing is a legitimate ending and is RECORDED
+        // rather than punished. Never hold this beat open.
+        exitCriteria: 'ANYTHING the learner offers closes this beat, INCLUDING declining to say anything, moving on, or a one-word acknowledgement. This beat is never held open and never re-asked. Silence is not a failure and must not be treated as a non-answer.',
+        reactionGuidance: 'Jacob is friendly, tired, and has no idea what is in the bags. He never raises the subject himself and never hints. If the learner says something about what ends up in the bins, he takes it in plainly — mild surprise, no speech about it. If they walk on, he says goodnight and the scene ends without comment.',
+        hasRightAnswer: false,
+        throughLine: 'The person who empties the bin is the person the whole module has been about, and they are standing right there.',
+        character: {
+          name: 'Jacob',
+          backstory: 'Collects waste on second shift — eighty or ninety bags a night. He has never handled a syringe and has never been in a room where one was used.',
+          driver: 'Getting through the round. He is not looking for a conversation and is not suspicious of anything.',
+          reactions: [
+            { when: 'the learner says anything about what is in the bins', then: 'he takes it in plainly, with mild surprise — no speech, no gratitude scene' },
+            { when: 'the learner walks on or says nothing', then: 'he says goodnight and the scene ends without comment or judgement' },
+          ],
+          styleNotes: 'Warm, brief, unremarkable. He never mentions needles first and never editorializes.',
+        },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'SILENT', guidance: 'says nothing, or acknowledges Jacob without raising what is in the bins. NOT a failure — record it, note it in the debrief, and do not correct it' },
+          { tier: 'BONUS', guidance: 'says something to Jacob about what ends up in the bins, or resolves to raise the missing break-room container with someone who can fix it' } ],
+        debrief: {
+          talkItThrough: 'That’s the end of it. Let’s look at the whole thing rather than the last thirty seconds.',
+          points: 'whatever happened at the last beat, name it without inflating it — if they said nothing, say plainly that they did and that it cost nothing here, while noting that Jacob is the person every earlier beat was about; then close on the behaviour the module opened with, which is that the disposal route gets decided before the sharp is ever picked up' },
+        transitions: [ { onTier: '', next: '', set: {} } ],
+      },
+    ],
+    playbook: [
+      { title: 'Decide the route before you pick it up', body: 'Know where the container is and how you reach it before the sharp is ever in your hand. Distance is a problem you solve early, not one you discover holding a used needle.' },
+      { title: 'The safety feature goes on in your hand', body: 'Sheath, retract, or blunt it the moment you are done, while the device is still under your control and nobody else is near it.' },
+      { title: 'Carrying is allowed; parking is not', body: 'A sheathed sharp travelling to a container is fine, and sometimes it is the only option. An unsheathed one set down "for a second" belongs to whoever finds it next.' },
+      { title: 'A full container is not a container', body: 'Past the fill line your site’s plan sets, it has stopped swallowing the point — so it is a hazard wearing the label of a safeguard. Seal it and walk; never put a hand inside one.' },
+      { title: 'Acknowledge the pressure, then hold the line', body: 'Almost nobody taking the shortcut has forgotten the rule. Naming the time pressure as real is what makes the same ask land — and offering to carry it yourself removes the objection completely.' },
+    ],
+    resources: {
+      lead: 'The decision this scenario turns on is made in about four seconds, so it is worth having these where you can reach them:',
+      items: [
+        { title: 'Your site’s exposure control plan', body: 'Where it says the fill line sits, and who to tell when a container is past it. It is a specific document with a specific owner, not a general principle.' },
+        { title: 'What to do after a needlestick', body: 'Worth reading before you need it. The window for post-exposure follow-up is measured in hours.' },
+        { title: 'Where every container on your route is', body: 'The first step of the procedure is knowledge you either have before the shift or do not. Walk it once and it stops being a decision.' },
+      ],
+    },
+  };
+
   const EXAMPLES = {
     'reading-the-warning-signs': EXAMPLE_WPV,
     'the-kendra-situation': EXAMPLE_KENDRA,
     'the-marshall-scenario': EXAMPLE_MARSHALL,
     'hazmat-scene-size-up': EXAMPLE_HAZMAT,
+    'end-of-shift-sharps': EXAMPLE_SHARPS,
   };
 
   /* =======================================================================
