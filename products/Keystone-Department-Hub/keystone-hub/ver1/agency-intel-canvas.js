@@ -51,6 +51,10 @@
 
   function vizBar(spec) {
     var data = spec.data || [];
+    // One series, so one colour — the metric's. "Overdue inspections" used to
+    // render in teal, i.e. green, for a count you want at zero. The biggest
+    // bar takes the darkest step of the same ramp so the peak still reads.
+    var barColor = spec.color || 'var(--azure-500)';
     var max = Math.max.apply(null, data.map(function (d) { return d.value; })) || 1;
     return '<div style="display:flex;flex-direction:column;gap:9px">' +
       data.map(function (d) {
@@ -60,7 +64,7 @@
           'overflow:hidden;text-overflow:ellipsis">' + esc(d.label) + '</span>' +
           '<div style="flex:1;height:18px;background:var(--ink-100);border-radius:5px;overflow:hidden">' +
           '<div style="width:' + (d.value / max * 100) + '%;height:100%;border-radius:5px;transition:width .6s;background:' +
-          (worst ? 'var(--coral-300)' : 'var(--teal-300)') + '"></div></div>' +
+          (worst ? window.KEYSTONE_CUSTOM.tonePeak(spec.tone) : barColor) + '"></div></div>' +
           '<span style="width:38px;text-align:right;font-family:var(--font-numeric);font-weight:700;' +
           'color:var(--ink-700);font-variant-numeric:tabular-nums">' + esc(d.value) + '</span></div>';
       }).join('') + '</div>';
@@ -70,7 +74,8 @@
   function vizPair(spec) {
     var data = spec.data || [];
     var labels = spec.labels || [];
-    var colors = ['var(--amber-400)', 'var(--teal-300)'];
+    // Per-metric, from buildCorrelationSpec — never by slot position.
+    var colors = spec.colors || ['var(--azure-500)', 'var(--coral-400)'];
     var vals = [];
     data.forEach(function (d) { vals.push(d.a, d.b); });
     var max = Math.max.apply(null, vals) * 1.05 || 1;
@@ -180,7 +185,7 @@
   function vizLine(spec) {
     // Dual-series correlation line vs. a single series.
     if (spec.series) {
-      var colors = ['var(--amber-400)', 'var(--teal-400)'];
+      var colors = spec.colors || ['var(--azure-500)', 'var(--coral-400)'];
       var W = 380, H = 190, P = 30;
       var allY = [];
       spec.series.forEach(function (s) { s.data.forEach(function (d) { allY.push(d.y); }); });
@@ -214,25 +219,37 @@
             Math.round(hi - (hi - lo) * t) + '</text>';
         }).join('') + paths + xLabels + '</svg></div>';
     }
-    return KXCharts.pdLine(spec.data || [], 'var(--teal-400)', spec.unit === '%' ? '%' : '');
+    return KXCharts.pdLine(spec.data || [], spec.color || 'var(--azure-500)', spec.unit === '%' ? '%' : '');
   }
 
   function vizStack(spec) {
+    // Segment colour follows the segment's MEANING (spec.legendTone), not its
+    // position. Slot 0 used to be hard-coded coral and slot 1 teal, so a stack
+    // that happened to list its good value first — "Compliant, Lapsed" —
+    // painted compliant red and lapsed green.
+    var segColors = spec.legendColor ||
+      (spec.legend || []).map(function () { return 'var(--azure-500)'; });
     var legend = (spec.legend || []).map(function (l, i) {
-      return { label: l, color: i === 0 ? 'var(--coral-400)' : 'var(--teal-300)' };
+      return { label: l, color: segColors[i] };
     });
     return '<div>' + KXCharts.chartLegend(legend) +
       '<div style="display:flex;flex-direction:column;gap:9px">' +
       (spec.data || []).map(function (d) {
         var total = d.a + d.b + (d.c || 0);
+        // The called-out number is the FIRST segment, so it wears that
+        // segment's colour rather than a fixed red.
         return '<div><div style="display:flex;justify-content:space-between;font-size:11.5px;' +
           'color:var(--ink-700);margin-bottom:4px">' +
           '<span style="font-weight:500">' + esc(d.label) + '</span>' +
-          '<span style="font-family:var(--font-mono);color:var(--coral-500)">' + d.a +
+          '<span style="font-family:var(--font-mono);color:' + segColors[0] + '">' + d.a +
           ' <span style="color:var(--ink-400)">/ ' + total + '</span></span></div>' +
           '<div style="height:12px;border-radius:6px;background:var(--ink-100);overflow:hidden;display:flex">' +
-          '<div style="width:' + (d.a / total * 100) + '%;background:var(--coral-400)"></div>' +
-          '<div style="flex:1;background:var(--teal-300);opacity:0.5"></div></div></div>';
+          '<div style="width:' + (d.a / total * 100) + '%;background:' + segColors[0] + '"></div>' +
+          (d.c
+            ? '<div style="width:' + (d.b / total * 100) + '%;background:' + (segColors[1] || 'var(--ink-300)') + '"></div>' +
+              '<div style="flex:1;background:' + (segColors[2] || 'var(--ink-300)') + '"></div>'
+            : '<div style="flex:1;background:' + (segColors[1] || 'var(--ink-300)') + '"></div>') +
+          '</div></div>';
       }).join('') + '</div></div>';
   }
 

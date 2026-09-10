@@ -560,12 +560,24 @@
   // table in pdOutlierScatter's header. --src-sched is borrowed because the
   // palette has no other distinct fifth hue; the shape encoding and the
   // "Division N" legend labels keep it from reading as the Scheduling chip.
+  // A division is an identity, not a verdict, so none of these may be a status
+  // hue: teal for "Division 1" and amber for "Division 3" quietly told the
+  // reader which divisions were the good and bad ones. All five are now
+  // status-free and each clears 3:1 on the surface.
+  //
+  // KNOWN LIMIT: five series in a scatter is an all-pairs colour problem — any
+  // two points can sit side by side — and no five-hue set from this palette
+  // clears the >= 15 normal-vision separation floor. This set gets the worst
+  // pair to 13.8 (it was 10.4). The mitigation is the SHAPE encoding each
+  // division also carries plus the labelled legend, per the rule that a
+  // sub-floor pair is legal only with secondary encoding; the real fix is
+  // fewer series or facets, not another palette.
   var OT_INJURY_DIVISIONS = [
-    { id: 1, label: 'Division 1', color: 'var(--teal-400)' },
-    { id: 2, label: 'Division 2', color: 'var(--status-due)' },
-    { id: 3, label: 'Division 3', color: 'var(--amber-600)' },
-    { id: 4, label: 'Division 4', color: 'var(--src-sched)' },
-    { id: 5, label: 'Division 5', color: 'var(--ink-600)' }
+    { id: 1, label: 'Division 1', color: 'var(--status-due)' },
+    { id: 2, label: 'Division 2', color: 'var(--src-sched)' },
+    { id: 3, label: 'Division 3', color: 'var(--src-gt)' },
+    { id: 4, label: 'Division 4', color: 'var(--ink-600)' },
+    { id: 5, label: 'Division 5', color: 'var(--azure-400)' }
   ];
 
   // Headcount terciles → the renderer's 3 size steps. Computed from the
@@ -971,12 +983,16 @@
       var ls = w.metricId ? CC.buildSpec(w.metricId, 'line') : null;
       icon = icon || (ls ? ls.icon : 'show_chart');
       title = title || (ls ? ls.label : '');
-      body = KXCharts.pdLine(w.data || (ls ? ls.data : []), w.color, w.ySuffix);
+      // w.color is the widget author's override; otherwise the metric's own
+      // tone colour, so a rising failure count is never drawn in green.
+      body = KXCharts.pdLine(w.data || (ls ? ls.data : []),
+                             w.color || (ls ? ls.color : null), w.ySuffix);
     } else if (kind === 'bar') {
       var bs = w.metricId ? CC.buildSpec(w.metricId, 'bar') : null;
       icon = icon || (bs ? bs.icon : 'bar_chart');
       title = title || (bs ? bs.label : '');
-      body = KXCharts.pdBar(w.data || (bs ? bs.data : []));
+      body = KXCharts.pdBar(w.data || (bs ? bs.data : []),
+                            w.color || (bs ? bs.color : null), bs ? bs.tone : null);
     } else if (kind === 'donut') {
       var ds = w.metricId ? CC.buildSpec(w.metricId, 'donut') : null;
       icon = icon || (ds ? ds.icon : 'donut_large');

@@ -161,6 +161,166 @@
     CEU_ROWS.reduce(function (a, r) { return a + parseInt(r[3], 10); }, 0) / CEU_ROWS.length
   );
 
+  /* ---------- Semantic colour ----------------------------------------
+     Chart colour here encodes MEANING, not series order. Every renderer used
+     to assign by position — slot 0 coral, slot 1 teal — which made the colour
+     depend on which value the data happened to list first. That is how
+     "Compliant" ended up red and "Overdue inspections" ended up green.
+
+     Two rules, from the collision rule for status colour: a series that MEANS
+     good-or-bad wears a status token; a series that is merely an identity
+     wears a neutral one. Never both in the same chart.
+
+     POLARITY is the metric's direction of virtue:
+       good    — more is better (completion, acknowledgement, progress)
+       warn    — a backlog or countdown you want to clear, not yet a failure
+       bad     — a failure count you want at zero
+       neutral — no good-or-bad direction at all; colour must not imply one
+     -------------------------------------------------------------------- */
+  const METRIC_POLARITY = {
+    training_completion:    'good',
+    ceu_progress:           'good',
+    policy_acks:            'good',
+
+    open_shifts:            'warn',
+    credential_expirations: 'warn',
+    ot_trend:               'warn',
+    sick_leave:             'warn',
+    pto_pending:            'warn',
+    trade_requests:         'warn',
+
+    overdue_inspections:    'bad',
+    apparatus_downtime:     'bad',
+    equipment_failures:     'bad',
+    response_time:          'bad',
+
+    // Call demand and task volume are workload, not performance. Nothing here
+    // is an achievement or a failure, so neither green nor red may claim it.
+    incident_volume:        'neutral',
+    tasks_by_app:           'neutral',
+  };
+
+  // The single mark colour for a one-series chart. Each clears 3:1 on the
+  // chart surface (#fcfcfb): teal-400 5.05, amber-500 3.10, coral-400 3.67,
+  // azure-500 5.36. amber-400 is deliberately NOT here — at 2.09:1 it is too
+  // pale to carry a fill on its own.
+  const TONE_MARK = {
+    good:    'var(--teal-400)',
+    warn:    'var(--amber-500)',
+    bad:     'var(--coral-400)',
+    neutral: 'var(--azure-500)',
+  };
+
+  // Ordinal ramps, DARKEST FIRST — a donut that splits one metric into
+  // categories is not four different things, it is one thing cut up, so the
+  // slices separate by lightness inside the metric's own hue rather than
+  // borrowing three unrelated status colours. Sorted descending, the biggest
+  // slice takes the darkest step. Each ramp validated: monotone lightness,
+  // adjacent dL >= 0.06, light end >= 2:1 on surface, single hue.
+  const TONE_RAMP = {
+    good:    ['var(--teal-500)',  'var(--teal-400)',  'var(--teal-300)',  'var(--teal-200)'],
+    warn:    ['var(--amber-600)', 'var(--amber-500)', 'var(--amber-400)', 'var(--ink-300)'],
+    bad:     ['var(--coral-500)', 'var(--coral-400)', 'var(--coral-300)', 'var(--coral-200)'],
+    neutral: ['var(--azure-600)', 'var(--azure-500)', 'var(--azure-400)', 'var(--azure-300)'],
+  };
+
+  /* When two series on ONE chart share a tone, a single colour cannot carry
+     both — "sick leave x overtime" are both 'warn'. These two steps of the
+     shared hue can: every pair clears the >= 15 normal-vision separation floor
+     (19.4-23.9) and both marks clear 3:1 on the chart surface, so the reader
+     still sees one meaning in two distinguishable marks. */
+  // NB these are NOT the same steps as TONE_RAMP. The ramp starts a step
+  // lighter because a three-slice donut of amber-700 reads brown and stops
+  // looking like a warning; the pair can afford the darker step because two
+  // marks with a legend is not a gradient, and 700/500 clears 3:1 on both
+  // where 600/400 leaves the light end at 2.09 needing a relief channel.
+  const TONE_PAIR = {
+    good:    ['var(--teal-500)',  'var(--teal-300)'],
+    warn:    ['var(--amber-700)', 'var(--amber-500)'],
+    bad:     ['var(--coral-600)', 'var(--coral-400)'],
+    neutral: ['var(--azure-600)', 'var(--azure-400)'],
+  };
+
+  /* Two tone PAIRINGS land too close together at their default marks, so one
+     side steps down when they meet — the snap-to-passing move. Measured on the
+     chart surface: warn x bad at amber-500/coral-400 is dE 8.8 to a normal eye
+     and 3.1 under deuteranopia (effectively one colour); good x neutral at
+     teal-400/azure-500 is 14.9, just under the 15 floor. Moving ONE side a step
+     darker clears both (22.8 and 17.0) and keeps every mark above 3:1. */
+  const TONE_ADJUST = [
+    { pair: ['warn', 'bad'],     move: 'bad',     to: 'var(--coral-600)' },
+    { pair: ['good', 'neutral'], move: 'neutral', to: 'var(--azure-600)' },
+  ];
+
+  /* Resolve a list of TONES into distinguishable colours.
+
+     Shared by both places a chart carries more than one meaning at once: the
+     series of a correlation (paired bars, dual line) and the segments of a
+     stack. Both used to assign by POSITION — slot 0 amber, slot 1 teal — which
+     is how a correlation ended up telling the reader that overdue inspections
+     were the good news, and how a three-segment neutral stack came out as one
+     solid blue bar.
+
+     Two things have to hold at once. A repeated tone must still be readable
+     (three 'neutral' segments are one measure cut three ways, so they step
+     through that hue's ramp), and two DIFFERENT tones that happen to sit close
+     together get nudged apart (see TONE_ADJUST). */
+  function resolveToneColors(tones) {
+    tones = tones || [];
+    const total = {};
+    tones.forEach(function (t) { total[t] = (total[t] || 0) + 1; });
+
+    // Single-occurrence tones that have to shift because of their neighbour.
+    const shifted = {};
+    TONE_ADJUST.forEach(function (adj) {
+      if (adj.pair.every(function (t) { return total[t]; }) && total[adj.move] === 1) {
+        shifted[adj.move] = adj.to;
+      }
+    });
+
+    const seen = {};
+    return tones.map(function (t) {
+      // Alone in its tone: the documented mark colour (or its nudged step), so
+      // a single-series chart of this metric and a multi-series one agree.
+      if (total[t] === 1) return shifted[t] || TONE_MARK[t] || TONE_MARK.neutral;
+      const i = seen[t] = (seen[t] == null ? 0 : seen[t] + 1);
+      // Two of a tone get the validated two-step pair; three or more walk the
+      // ordinal ramp, which is the same hue at increasing lightness.
+      if (total[t] === 2) {
+        const pair = TONE_PAIR[t] || TONE_PAIR.neutral;
+        return i < pair.length ? pair[i] : toneStep(t, i);
+      }
+      return toneStep(t, i);
+    });
+  }
+
+  // Colours for the series of a multi-metric chart, by each metric's polarity.
+  function seriesColors(metricIds) {
+    return resolveToneColors((metricIds || []).map(metricTone));
+  }
+
+  // The emphasis colour for the biggest bar in a one-series chart: exactly one
+  // step darker than that metric's mark, so the peak reads without switching
+  // to a different status hue (a red bar inside a green chart used to say
+  // "this one is bad" when it only meant "this one is largest").
+  const TONE_PEAK = {
+    good:    'var(--teal-500)',
+    warn:    'var(--amber-600)',
+    bad:     'var(--coral-500)',
+    neutral: 'var(--azure-600)',
+  };
+  function tonePeak(tone) { return TONE_PEAK[tone] || TONE_PEAK.neutral; }
+
+  function metricTone(metricId) { return METRIC_POLARITY[metricId] || 'neutral'; }
+  function metricColor(metricId) { return TONE_MARK[metricTone(metricId)]; }
+  function toneColor(tone) { return TONE_MARK[tone] || TONE_MARK.neutral; }
+  // nth step of a metric's ramp, wrapping to a flat gray past the fourth so a
+  // long breakdown degrades rather than inventing hues.
+  function toneStep(tone, i) {
+    const ramp = TONE_RAMP[tone] || TONE_RAMP.neutral;
+    return i < ramp.length ? ramp[i] : 'var(--ink-300)';
+  }
+
   // ---------- Seeded mock data per metric ----------
   // Each entry carries enough fields to render any viz type the user might
   // pick. Numbers were chosen to look believable, not random.
@@ -169,8 +329,8 @@
       kpi:   { num: '14', delta: '+3 vs. last week', tone: 'bad' },
       bar:   [{ label: 'Sta. 4', value: 7 }, { label: 'Sta. 7', value: 4 }, { label: 'Sta. 11', value: 2 }, { label: 'Sta. 1', value: 1 }, { label: 'Sta. 9', value: 0 }],
       line:  [{ x: 'Jan', y: 8 }, { x: 'Feb', y: 9 }, { x: 'Mar', y: 11 }, { x: 'Apr', y: 10 }, { x: 'May', y: 14 }],
-      stack: { legend: ['Overdue', 'In window'], rows: [{ label: 'Engine', a: 8, b: 22 }, { label: 'Ladder', a: 4, b: 11 }, { label: 'Medic', a: 2, b: 14 }] },
-      donut: [{ label: 'Engine',  value: 8, color: 'var(--coral-400)' }, { label: 'Ladder', value: 4, color: 'var(--amber-400)' }, { label: 'Medic',  value: 2, color: 'var(--teal-300)' }],
+      stack: { legend: ['Overdue', 'In window'], tone: ['bad', 'good'], rows: [{ label: 'Engine', a: 8, b: 22 }, { label: 'Ladder', a: 4, b: 11 }, { label: 'Medic', a: 2, b: 14 }] },
+      donut: [{ label: 'Engine',  value: 8 }, { label: 'Ladder', value: 4 }, { label: 'Medic',  value: 2 }],
       // 14 rows — one per overdue inspection, matching the headline count and
       // the bar's 7 / 4 / 2 / 1 / 0 split across the houses.
       table: { cols: ['Apparatus', 'Station', 'Inspection', 'Days late'], rows: [
@@ -195,8 +355,8 @@
       kpi:   { num: '79%', delta: '−4 pts vs. last quarter', tone: 'bad' },
       bar:   [{ label: 'Sta. 1', value: 91 }, { label: 'Sta. 4', value: 68 }, { label: 'Sta. 7', value: 71 }, { label: 'Sta. 9', value: 88 }, { label: 'Sta. 11', value: 82 }],
       line:  [{ x: 'Jan', y: 84 }, { x: 'Feb', y: 82 }, { x: 'Mar', y: 81 }, { x: 'Apr', y: 80 }, { x: 'May', y: 79 }],
-      stack: { legend: ['Compliant', 'Lapsed'], rows: [{ label: 'Sta. 1', a: 22, b: 2 }, { label: 'Sta. 4', a: 14, b: 7 }, { label: 'Sta. 7', a: 16, b: 6 }, { label: 'Sta. 9', a: 21, b: 3 }] },
-      donut: [{ label: 'Compliant', value: 73, color: 'var(--teal-300)' }, { label: 'In window', value: 18, color: 'var(--amber-300)' }, { label: 'Lapsed', value: 9, color: 'var(--coral-400)' }],
+      stack: { legend: ['Compliant', 'Lapsed'], tone: ['good', 'bad'], rows: [{ label: 'Sta. 1', a: 22, b: 2 }, { label: 'Sta. 4', a: 14, b: 7 }, { label: 'Sta. 7', a: 16, b: 6 }, { label: 'Sta. 9', a: 21, b: 3 }] },
+      donut: [{ label: 'Compliant', value: 73, tone: 'good' }, { label: 'In window', value: 18, tone: 'warn' }, { label: 'Lapsed', value: 9, tone: 'bad' }],
       table: { cols: ['Station', 'Compliant', 'In window', 'Lapsed'], rows: [['Sta. 1', '22', '2', '0'], ['Sta. 4', '14', '4', '3'], ['Sta. 7', '16', '4', '2'], ['Sta. 9', '21', '2', '1']] },
       unit:  '%',
     },
@@ -204,8 +364,8 @@
       kpi:   { num: '9', delta: '6 unfilled at Sta. 7', tone: 'warn' },
       bar:   [{ label: 'Sta. 7', value: 6 }, { label: 'Sta. 4', value: 2 }, { label: 'Sta. 1', value: 1 }, { label: 'Sta. 9', value: 0 }],
       line:  [{ x: 'Wk 1', y: 4 }, { x: 'Wk 2', y: 5 }, { x: 'Wk 3', y: 7 }, { x: 'Wk 4', y: 9 }],
-      stack: { legend: ['Unfilled', 'Backfill pending'], rows: [{ label: 'Sta. 7', a: 4, b: 2 }, { label: 'Sta. 4', a: 1, b: 1 }, { label: 'Sta. 1', a: 1, b: 0 }] },
-      donut: [{ label: 'A-shift', value: 4, color: 'var(--coral-400)' }, { label: 'B-shift', value: 3, color: 'var(--amber-400)' }, { label: 'C-shift', value: 2, color: 'var(--teal-300)' }],
+      stack: { legend: ['Unfilled', 'Backfill pending'], tone: ['bad', 'warn'], rows: [{ label: 'Sta. 7', a: 4, b: 2 }, { label: 'Sta. 4', a: 1, b: 1 }, { label: 'Sta. 1', a: 1, b: 0 }] },
+      donut: [{ label: 'A-shift', value: 4 }, { label: 'B-shift', value: 3 }, { label: 'C-shift', value: 2 }],
       // 9 rows — the 9 open shifts in the headline, split 6 / 2 / 1 across
       // Sta. 7 / 4 / 1 exactly as the bar reads it.
       table: { cols: ['Date', 'Station', 'Role', 'Shift', 'Status'], rows: [
@@ -225,8 +385,8 @@
       kpi:   { num: '11', delta: 'expire in 60 days', tone: 'warn' },
       bar:   [{ label: 'Paramedic', value: 4 }, { label: 'EVOC', value: 3 }, { label: 'HazMat', value: 2 }, { label: 'Pump Op', value: 1 }, { label: 'CPR/AED', value: 1 }],
       line:  [{ x: 'Jul', y: 6 }, { x: 'Aug', y: 9 }, { x: 'Sep', y: 11 }, { x: 'Oct', y: 14 }, { x: 'Nov', y: 18 }],
-      stack: { legend: ['At risk', 'On track'], rows: [{ label: 'Paramedic', a: 4, b: 2 }, { label: 'EVOC', a: 3, b: 6 }, { label: 'HazMat', a: 2, b: 4 }, { label: 'CPR/AED', a: 1, b: 11 }] },
-      donut: [{ label: 'Paramedic', value: 4, color: 'var(--coral-400)' }, { label: 'EVOC', value: 3, color: 'var(--amber-400)' }, { label: 'HazMat', value: 2, color: 'var(--teal-300)' }, { label: 'Other', value: 2, color: 'var(--ink-300)' }],
+      stack: { legend: ['At risk', 'On track'], tone: ['warn', 'good'], rows: [{ label: 'Paramedic', a: 4, b: 2 }, { label: 'EVOC', a: 3, b: 6 }, { label: 'HazMat', a: 2, b: 4 }, { label: 'CPR/AED', a: 1, b: 11 }] },
+      donut: [{ label: 'Paramedic', value: 4 }, { label: 'EVOC', value: 3 }, { label: 'HazMat', value: 2 }, { label: 'Other', value: 2 }],
       // 11 rows — the 11 credentials in the 60-day window, split by type the
       // way the bar reads it: 4 Paramedic, 3 EVOC, 2 HazMat, 1 Pump Op, 1 CPR.
       table: { cols: ['Person', 'Station', 'Credential', 'Expires', 'CEU %'], rows: [
@@ -248,8 +408,8 @@
       kpi:   { num: '6', delta: '3 in coverage-critical windows', tone: 'warn' },
       bar:   [{ label: 'Sta. 7', value: 3 }, { label: 'Sta. 4', value: 2 }, { label: 'Sta. 1', value: 1 }, { label: 'Sta. 9', value: 0 }],
       line:  [{ x: 'Jan', y: 3 }, { x: 'Feb', y: 4 }, { x: 'Mar', y: 5 }, { x: 'Apr', y: 6 }, { x: 'May', y: 6 }],
-      stack: { legend: ['Conflicts coverage', 'Clean'], rows: [{ label: 'Jun', a: 3, b: 1 }, { label: 'Jul', a: 1, b: 4 }, { label: 'Aug', a: 0, b: 6 }] },
-      donut: [{ label: 'Vacation', value: 4, color: 'var(--teal-300)' }, { label: 'Medical', value: 1, color: 'var(--amber-400)' }, { label: 'Family',   value: 1, color: 'var(--coral-400)' }],
+      stack: { legend: ['Conflicts coverage', 'Clean'], tone: ['warn', 'good'], rows: [{ label: 'Jun', a: 3, b: 1 }, { label: 'Jul', a: 1, b: 4 }, { label: 'Aug', a: 0, b: 6 }] },
+      donut: [{ label: 'Vacation', value: 4 }, { label: 'Medical', value: 1 }, { label: 'Family',   value: 1 }],
       // 6 rows — the 6 pending requests, 3 / 2 / 1 across Sta. 7 / 4 / 1, and
       // the 3 in coverage-critical windows the KPI calls out.
       table: { cols: ['Person', 'Dates', 'Station', 'Days', 'Coverage'], rows: [
@@ -266,8 +426,8 @@
       kpi:   { num: '42 hrs', delta: '+12 hrs vs. last month', tone: 'bad' },
       bar:   [{ label: 'Engine 4-A', value: 14 }, { label: 'Ladder 7', value: 11 }, { label: 'Engine 4-B', value: 8 }, { label: 'Medic 11', value: 5 }, { label: 'Engine 1', value: 4 }],
       line:  [{ x: 'Jan', y: 18 }, { x: 'Feb', y: 24 }, { x: 'Mar', y: 22 }, { x: 'Apr', y: 30 }, { x: 'May', y: 42 }],
-      stack: { legend: ['Scheduled', 'Unscheduled'], rows: [{ label: 'Jan', a: 10, b: 8 }, { label: 'Feb', a: 12, b: 12 }, { label: 'Mar', a: 14, b: 8 }, { label: 'Apr', a: 12, b: 18 }, { label: 'May', a: 16, b: 26 }] },
-      donut: [{ label: 'Pump',  value: 18, color: 'var(--coral-400)' }, { label: 'Aerial',value: 14, color: 'var(--amber-400)' }, { label: 'Other', value: 10, color: 'var(--teal-300)' }],
+      stack: { legend: ['Scheduled', 'Unscheduled'], tone: ['good', 'bad'], rows: [{ label: 'Jan', a: 10, b: 8 }, { label: 'Feb', a: 12, b: 12 }, { label: 'Mar', a: 14, b: 8 }, { label: 'Apr', a: 12, b: 18 }, { label: 'May', a: 16, b: 26 }] },
+      donut: [{ label: 'Pump',  value: 18 }, { label: 'Aerial',value: 14 }, { label: 'Other', value: 10 }],
       // One row per downtime EVENT rather than per apparatus — a pump rebuild
       // spans several visits, and the per-apparatus totals are what the bar
       // already shows. Hours sum to the headline 42, and per apparatus they
@@ -293,8 +453,8 @@
       kpi:   { num: '6:42', delta: '+18 sec vs. last quarter', tone: 'warn' },
       bar:   [{ label: 'Sta. 1', value: 5.4 }, { label: 'Sta. 4', value: 6.1 }, { label: 'Sta. 7', value: 7.8 }, { label: 'Sta. 9', value: 6.2 }, { label: 'Sta. 11', value: 7.0 }],
       line:  [{ x: 'Jan', y: 6.4 }, { x: 'Feb', y: 6.5 }, { x: 'Mar', y: 6.7 }, { x: 'Apr', y: 6.6 }, { x: 'May', y: 6.7 }],
-      stack: { legend: ['< 5 min', '5–8 min', '> 8 min'], rows: [{ label: 'Sta. 1', a: 60, b: 35, c: 5 }, { label: 'Sta. 7', a: 25, b: 45, c: 30 }] },
-      donut: [{ label: '< 5 min', value: 48, color: 'var(--teal-300)' }, { label: '5–8 min', value: 38, color: 'var(--amber-300)' }, { label: '> 8 min', value: 14, color: 'var(--coral-400)' }],
+      stack: { legend: ['< 5 min', '5–8 min', '> 8 min'], tone: ['good', 'warn', 'bad'], rows: [{ label: 'Sta. 1', a: 60, b: 35, c: 5 }, { label: 'Sta. 7', a: 25, b: 45, c: 30 }] },
+      donut: [{ label: '< 5 min', value: 48, tone: 'good' }, { label: '5–8 min', value: 38, tone: 'warn' }, { label: '> 8 min', value: 14, tone: 'bad' }],
       table: { cols: ['Station', 'P50', 'P90', 'Trend'], rows: [['Sta. 1', '5:24', '7:10', '↘'], ['Sta. 4', '6:08', '8:22', '→'], ['Sta. 7', '7:48', '11:02', '↗'], ['Sta. 9', '6:12', '8:00', '→']] },
       unit:  'min',
     },
@@ -302,8 +462,8 @@
       kpi:   { num: '412 hrs', delta: '+18 % MoM (projected)', tone: 'bad' },
       bar:   [{ label: 'Sta. 7', value: 248 }, { label: 'Sta. 4', value: 92 }, { label: 'Sta. 1', value: 42 }, { label: 'Sta. 9', value: 30 }],
       line:  [{ x: 'Feb', y: 286 }, { x: 'Mar', y: 312 }, { x: 'Apr', y: 305 }, { x: 'May', y: 348 }, { x: 'Jun*', y: 412, projected: true }],
-      stack: { legend: ['Voluntary', 'Forced'], rows: [{ label: 'Sta. 7', a: 140, b: 108 }, { label: 'Sta. 4', a: 60, b: 32 }, { label: 'Sta. 1', a: 30, b: 12 }] },
-      donut: [{ label: 'Voluntary', value: 240, color: 'var(--teal-300)' }, { label: 'Forced',    value: 172, color: 'var(--coral-400)' }],
+      stack: { legend: ['Voluntary', 'Forced'], tone: ['warn', 'bad'], rows: [{ label: 'Sta. 7', a: 140, b: 108 }, { label: 'Sta. 4', a: 60, b: 32 }, { label: 'Sta. 1', a: 30, b: 12 }] },
+      donut: [{ label: 'Voluntary', value: 240, tone: 'warn' }, { label: 'Forced',    value: 172, tone: 'bad' }],
       table: { cols: ['Month', 'Hours', 'Cost', 'Driver'], rows: [['Feb', '286', '$21.4K', '—'], ['Mar', '312', '$23.6K', 'Sta. 4 vacancies'], ['Apr', '305', '$23.0K', '—'], ['May', '348', '$26.4K', 'Sta. 4 sick leave'], ['Jun (proj.)', '412', '$31.2K', 'Sta. 7 vacancies × PTO']] },
       unit:  'hours',
     },
@@ -311,7 +471,7 @@
       kpi:   { num: '143', delta: 'open across 5 apps', tone: 'neutral' },
       bar:   [{ label: 'TS',         value: 54 }, { label: 'Check It',   value: 38 }, { label: 'Scheduling', value: 24 }, { label: 'Guardian',   value: 17 }, { label: 'EV+',        value: 10 }],
       line:  [{ x: 'Mon', y: 132 }, { x: 'Tue', y: 138 }, { x: 'Wed', y: 144 }, { x: 'Thu', y: 141 }, { x: 'Fri', y: 143 }],
-      stack: { legend: ['Open', 'Closed today'], rows: [{ label: 'TS', a: 54, b: 22 }, { label: 'Check It', a: 38, b: 9 }, { label: 'Scheduling', a: 24, b: 12 }, { label: 'Guardian', a: 17, b: 4 }, { label: 'EV+', a: 10, b: 3 }] },
+      stack: { legend: ['Open', 'Closed today'], tone: ['warn', 'good'], rows: [{ label: 'TS', a: 54, b: 22 }, { label: 'Check It', a: 38, b: 9 }, { label: 'Scheduling', a: 24, b: 12 }, { label: 'Guardian', a: 17, b: 4 }, { label: 'EV+', a: 10, b: 3 }] },
       // These five slices ARE the five source apps, in SOURCES order, so they use
       // the per-source tokens (styles.css) rather than the raw hex they used to
       // carry — the same tokens that color the source chips beside them wherever
@@ -327,8 +487,8 @@
       kpi:   { num: CEU_OVERALL + '%', delta: '−6 pts vs. last quarter', tone: 'warn' },
       bar:   CEU_BAR,
       line:  [{ x: 'Jan', y: 71 }, { x: 'Feb', y: 70 }, { x: 'Mar', y: 68 }, { x: 'Apr', y: 66 }, { x: 'May', y: 64 }],
-      stack: { legend: ['On track', 'At risk'], rows: [{ label: 'Paramedic', a: 6, b: 4 }, { label: 'EVOC', a: 8, b: 3 }, { label: 'HazMat', a: 5, b: 2 }, { label: 'CPR/AED', a: 12, b: 1 }] },
-      donut: [{ label: 'On track', value: 64, color: 'var(--teal-300)' }, { label: 'Slipping', value: 24, color: 'var(--amber-300)' }, { label: 'At risk', value: 12, color: 'var(--coral-400)' }],
+      stack: { legend: ['On track', 'At risk'], tone: ['good', 'warn'], rows: [{ label: 'Paramedic', a: 6, b: 4 }, { label: 'EVOC', a: 8, b: 3 }, { label: 'HazMat', a: 5, b: 2 }, { label: 'CPR/AED', a: 12, b: 1 }] },
+      donut: [{ label: 'On track', value: 64, tone: 'good' }, { label: 'Slipping', value: 24, tone: 'warn' }, { label: 'At risk', value: 12, tone: 'bad' }],
       // Whole roster — 92 rows, the table that actually needs a pager.
       table: { cols: ['Person', 'Station', 'Credential', 'CEU %', 'Cohort'], rows: CEU_ROWS },
       unit:  '%',
@@ -337,8 +497,8 @@
       kpi:   { num: '88%', delta: '+5 pts vs. last month', tone: 'good' },
       bar:   [{ label: 'Sta. 1', value: 100 }, { label: 'Sta. 4', value: 71 }, { label: 'Sta. 7', value: 78 }, { label: 'Sta. 9', value: 96 }, { label: 'Sta. 11', value: 92 }],
       line:  [{ x: 'Jan', y: 78 }, { x: 'Feb', y: 81 }, { x: 'Mar', y: 84 }, { x: 'Apr', y: 86 }, { x: 'May', y: 88 }],
-      stack: { legend: ['Acknowledged', 'Outstanding'], rows: [{ label: 'PPE SOP v3', a: 88, b: 12 }, { label: 'Mayday update', a: 73, b: 27 }, { label: 'EV decon', a: 91, b: 9 }] },
-      donut: [{ label: 'Acknowledged', value: 88, color: 'var(--teal-300)' }, { label: 'Outstanding', value: 12, color: 'var(--amber-400)' }],
+      stack: { legend: ['Acknowledged', 'Outstanding'], tone: ['good', 'warn'], rows: [{ label: 'PPE SOP v3', a: 88, b: 12 }, { label: 'Mayday update', a: 73, b: 27 }, { label: 'EV decon', a: 91, b: 9 }] },
+      donut: [{ label: 'Acknowledged', value: 88, tone: 'good' }, { label: 'Outstanding', value: 12, tone: 'warn' }],
       // 12 policies in circulation. Acks total 1,057 of 1,200 sent = 88%,
       // the headline rate.
       table: { cols: ['Policy', 'Issued', 'Sent', 'Acks', 'Open'], rows: [
@@ -361,8 +521,8 @@
       kpi:   { num: '17', delta: '+4 vs. last month', tone: 'bad' },
       bar:   [{ label: 'SCBA', value: 6 }, { label: 'Pump', value: 4 }, { label: 'Hose', value: 3 }, { label: 'Radio', value: 2 }, { label: 'AED', value: 2 }],
       line:  [{ x: 'Jan', y: 9 }, { x: 'Feb', y: 11 }, { x: 'Mar', y: 12 }, { x: 'Apr', y: 13 }, { x: 'May', y: 17 }],
-      stack: { legend: ['In-service', 'OOS'], rows: [{ label: 'Sta. 4', a: 3, b: 4 }, { label: 'Sta. 7', a: 4, b: 3 }, { label: 'Sta. 1', a: 6, b: 1 }] },
-      donut: [{ label: 'SCBA', value: 6, color: 'var(--coral-400)' }, { label: 'Pump', value: 4, color: 'var(--amber-400)' }, { label: 'Other', value: 7, color: 'var(--teal-300)' }],
+      stack: { legend: ['In-service', 'OOS'], tone: ['good', 'bad'], rows: [{ label: 'Sta. 4', a: 3, b: 4 }, { label: 'Sta. 7', a: 4, b: 3 }, { label: 'Sta. 1', a: 6, b: 1 }] },
+      donut: [{ label: 'SCBA', value: 6 }, { label: 'Pump', value: 4 }, { label: 'Other', value: 7 }],
       // 17 rows — the 17 failures behind the headline, by type: 6 SCBA,
       // 4 Pump, 3 Hose, 2 Radio, 2 AED.
       table: { cols: ['Item', 'Type', 'Station', 'Reason', 'Status'], rows: [
@@ -390,8 +550,8 @@
       kpi:   { num: '1,284', delta: '+9% YoY', tone: 'neutral' },
       bar:   [{ label: 'Sta. 1', value: 188 }, { label: 'Sta. 4', value: 312 }, { label: 'Sta. 7', value: 401 }, { label: 'Sta. 9', value: 214 }, { label: 'Sta. 11', value: 169 }],
       line:  [{ x: 'Jan', y: 232 }, { x: 'Feb', y: 248 }, { x: 'Mar', y: 261 }, { x: 'Apr', y: 271 }, { x: 'May', y: 272 }],
-      stack: { legend: ['EMS', 'Fire', 'Other'], rows: [{ label: 'Sta. 7', a: 280, b: 78, c: 43 }, { label: 'Sta. 4', a: 210, b: 62, c: 40 }, { label: 'Sta. 1', a: 132, b: 38, c: 18 }] },
-      donut: [{ label: 'EMS', value: 880, color: 'var(--teal-300)' }, { label: 'Fire', value: 244, color: 'var(--coral-400)' }, { label: 'Other', value: 160, color: 'var(--amber-300)' }],
+      stack: { legend: ['EMS', 'Fire', 'Other'], tone: ['neutral', 'neutral', 'neutral'], rows: [{ label: 'Sta. 7', a: 280, b: 78, c: 43 }, { label: 'Sta. 4', a: 210, b: 62, c: 40 }, { label: 'Sta. 1', a: 132, b: 38, c: 18 }] },
+      donut: [{ label: 'EMS', value: 880 }, { label: 'Fire', value: 244 }, { label: 'Other', value: 160 }],
       table: { cols: ['Station', 'EMS', 'Fire', 'Total'], rows: [['Sta. 7', '280', '78', '401'], ['Sta. 4', '210', '62', '312'], ['Sta. 9', '142', '38', '214'], ['Sta. 1', '132', '38', '188']] },
       unit:  'calls',
     },
@@ -399,8 +559,8 @@
       kpi:   { num: '184 hrs', delta: '+22% vs. last month', tone: 'bad' },
       bar:   [{ label: 'Sta. 4', value: 72 }, { label: 'Sta. 7', value: 56 }, { label: 'Sta. 1', value: 28 }, { label: 'Sta. 9', value: 18 }, { label: 'Sta. 11', value: 10 }],
       line:  [{ x: 'Feb', y: 120 }, { x: 'Mar', y: 132 }, { x: 'Apr', y: 151 }, { x: 'May', y: 184 }],
-      stack: { legend: ['Approved', 'Unverified'], rows: [{ label: 'Sta. 4', a: 60, b: 12 }, { label: 'Sta. 7', a: 44, b: 12 }, { label: 'Sta. 1', a: 24, b: 4 }] },
-      donut: [{ label: 'Sta. 4', value: 72, color: 'var(--coral-400)' }, { label: 'Sta. 7', value: 56, color: 'var(--amber-400)' }, { label: 'Other', value: 56, color: 'var(--teal-300)' }],
+      stack: { legend: ['Approved', 'Unverified'], tone: ['good', 'warn'], rows: [{ label: 'Sta. 4', a: 60, b: 12 }, { label: 'Sta. 7', a: 44, b: 12 }, { label: 'Sta. 1', a: 24, b: 4 }] },
+      donut: [{ label: 'Sta. 4', value: 72 }, { label: 'Sta. 7', value: 56 }, { label: 'Other', value: 56 }],
       table: { cols: ['Station', 'Hours', 'Incidents', 'Trend'], rows: [['Sta. 4', '72', '11', '↗'], ['Sta. 7', '56', '8', '↗'], ['Sta. 1', '28', '5', '→']] },
       unit:  'hours',
     },
@@ -408,8 +568,8 @@
       kpi:   { num: '23', delta: '8 awaiting approval', tone: 'neutral' },
       bar:   [{ label: 'Sta. 7', value: 9 }, { label: 'Sta. 4', value: 6 }, { label: 'Sta. 1', value: 4 }, { label: 'Sta. 9', value: 3 }, { label: 'Sta. 11', value: 1 }],
       line:  [{ x: 'Jan', y: 14 }, { x: 'Feb', y: 17 }, { x: 'Mar', y: 19 }, { x: 'Apr', y: 21 }, { x: 'May', y: 23 }],
-      stack: { legend: ['Approved', 'Pending'], rows: [{ label: 'Sta. 7', a: 6, b: 3 }, { label: 'Sta. 4', a: 4, b: 2 }, { label: 'Sta. 1', a: 3, b: 1 }] },
-      donut: [{ label: 'Approved', value: 15, color: 'var(--teal-300)' }, { label: 'Pending', value: 8, color: 'var(--amber-400)' }],
+      stack: { legend: ['Approved', 'Pending'], tone: ['good', 'warn'], rows: [{ label: 'Sta. 7', a: 6, b: 3 }, { label: 'Sta. 4', a: 4, b: 2 }, { label: 'Sta. 1', a: 3, b: 1 }] },
+      donut: [{ label: 'Approved', value: 15, tone: 'good' }, { label: 'Pending', value: 8, tone: 'warn' }],
       // 23 rows — every trade request behind the headline. Station split
       // matches the bar (9 / 6 / 4 / 3 / 1) and 8 sit in Pending, which is
       // what the KPI's "8 awaiting approval" is counting.
@@ -492,7 +652,9 @@
       line:  months.map(function (m, i) { return { x: m, y: ln[i] }; }),
       stack: { legend: ['Primary', 'Secondary'], rows: stations.slice(0, 4).map(function (s, i) { return { label: s, a: sa[i], b: sb[i] }; }) },
       donut: stations.slice(0, 4).map(function (s, i) {
-        return { label: s, value: ba[i], color: ['var(--coral-400)', 'var(--amber-400)', 'var(--teal-300)', 'var(--ink-300)'][i] };
+        // No colour: a synthesized metric's breakdown is nominal, so buildSpec
+        // fills it from that metric's ordinal ramp rather than cycling status hues.
+        return { label: s, value: ba[i] };
       }),
       table: { cols: ['Bucket', 'Value', 'Trend'], rows: stations.map(function (s, i) { return [s, String(ba[i]), i % 2 ? '↗' : '→']; }) },
       unit:  '',
@@ -550,12 +712,47 @@
     if (!m) return null;
     const inc = opts && opts.include && opts.include.length ? opts.include : null;
     const keep = function (label) { return !inc || inc.indexOf(label) !== -1; };
-    const out = { metric: metricId, label: meta.label, icon: meta.icon, viz: viz, unit: m.unit, synthesized: !!m._synthesized };
+    const tone = metricTone(metricId);
+    // `tone` and `color` travel with every spec so a renderer never has to
+    // guess a colour from series position. See METRIC_POLARITY.
+    const out = { metric: metricId, label: meta.label, icon: meta.icon, viz: viz, unit: m.unit,
+                  tone: tone, color: TONE_MARK[tone], synthesized: !!m._synthesized };
     if (viz === 'kpi')   { Object.assign(out, m.kpi); return out; }
     if (viz === 'bar')   { out.data = inc ? m.bar.filter(function (d) { return keep(d.label); }) : m.bar; return out; }
     if (viz === 'line')  { out.data = m.line;  return out; }
-    if (viz === 'stack') { out.data = inc ? m.stack.rows.filter(function (r) { return keep(r.label); }) : m.stack.rows; out.legend = m.stack.legend; return out; }
-    if (viz === 'donut') { out.data = inc ? m.donut.filter(function (d) { return keep(d.label); }) : m.donut; return out; }
+    if (viz === 'stack') {
+      out.data = inc ? m.stack.rows.filter(function (r) { return keep(r.label); }) : m.stack.rows;
+      out.legend = m.stack.legend;
+      // Per-segment tones, so the renderer colours by meaning rather than by
+      // which segment the data happens to list first.
+      out.legendTone = m.stack.tone || m.stack.legend.map(function () { return tone; });
+      out.legendColor = resolveToneColors(out.legendTone);
+      return out;
+    }
+    if (viz === 'donut') {
+      const slices = inc ? m.donut.filter(function (d) { return keep(d.label); }) : m.donut;
+      // A slice that declares a TONE is a state — Compliant / In window /
+      // Lapsed — and goes through the same resolver the stacks and correlation
+      // series use, so good/warn/bad mean one set of colours everywhere and the
+      // close warn-vs-bad pair gets nudged apart here too.
+      if (slices.some(function (d) { return d.tone; })) {
+        const resolved = resolveToneColors(slices.map(function (d) { return d.tone || tone; }));
+        out.data = slices.map(function (d, i) {
+          return d.color ? d : Object.assign({}, d, { color: resolved[i] });
+        });
+        return out;
+      }
+      // Otherwise every slice is the same thing cut up — a plain category — so
+      // it takes a step of this metric's ordinal ramp, biggest slice darkest.
+      const order = slices.map(function (d, i) { return i; })
+        .sort(function (a, b) { return slices[b].value - slices[a].value; });
+      const rank = {};
+      order.forEach(function (idx, r) { rank[idx] = r; });
+      out.data = slices.map(function (d, i) {
+        return d.color ? d : Object.assign({}, d, { color: toneStep(tone, rank[i]) });
+      });
+      return out;
+    }
     if (viz === 'table') {
       out.cols = m.table.cols;
       // The category filter comes from the BAR's labels (stations, credential
@@ -660,6 +857,9 @@
         metricIds: metricIds,
         viz: 'pair',
         labels: metas.map(m => m.label),
+        // One colour per METRIC, by that metric's polarity — never by slot.
+        colors: seriesColors(metricIds),
+        tones: metricIds.map(metricTone),
         data: data,
         kind: 'bar-pair',
       };
@@ -677,6 +877,8 @@
         metricIds: metricIds,
         viz: 'line',
         labels: metas.map(m => m.label),
+        colors: seriesColors(metricIds),
+        tones: metricIds.map(metricTone),
         series: series,
         kind: 'line-dual',
       };
@@ -750,6 +952,14 @@
     sharedBarLabels: sharedBarLabels,
     metricsCorrelatable: metricsCorrelatable,
     METRIC_DATA: METRIC_DATA,
+    METRIC_POLARITY: METRIC_POLARITY,
+    metricTone: metricTone,
+    seriesColors: seriesColors,
+    resolveToneColors: resolveToneColors,
+    metricColor: metricColor,
+    toneColor: toneColor,
+    toneStep: toneStep,
+    tonePeak: tonePeak,
     buildSpec: buildSpec,
     metricCategories: metricCategories,
     buildCorrelationSpec: buildCorrelationSpec,
