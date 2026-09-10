@@ -1355,6 +1355,18 @@
         font-weight: 600;
       }
       .input-done i { color: #16a34a; }
+      /* The confirmation and the way onward share the settled bar: the status
+         reads first, the CTA sits beside it. On a narrow screen the CTA takes
+         the full width and the status tucks underneath it. */
+      .input-done { gap: 18px; }
+      .done-mark { display: inline-flex; align-items: center; gap: 9px; }
+      .done-next i { color: currentColor; }
+      /* Narrow: the CTA takes the lead and the status tucks under it. It stays
+         a centred pill rather than stretching — that matches every other CTA
+         in this footer (.enter-cta / .debrief-cta are all centred pills). */
+      @media (max-width: 560px) {
+        .input-done { flex-direction: column-reverse; gap: 12px; }
+      }
 
       /* Debrief CTA — opens the queued coach debrief. Wears the coach indigo to
          preview the destination (mirroring the amber "Step into the scene"). */
@@ -1538,11 +1550,16 @@
             Continue <i class="fa-solid fa-arrow-right arrow"></i>
           </button>
         </div>
-        <!-- Settled state — no further action, just confirmation. Focusable
-             (tabindex="-1") because the experience-rating screen hands focus
-             back here when it closes; there is no control left to return to. -->
+        <!-- Settled state: the practice really is complete here, and THEN the
+             learner is offered the way on to the experience rating — which is
+             a page of its own (experience-rating.html), not an overlay on a
+             finished practice. Focusable (tabindex="-1") so focus has somewhere
+             to land once the last CTA is replaced. -->
         <div class="input-done" id="inputDone" hidden tabindex="-1">
-          <i class="fa-solid fa-circle-check"></i> Practice complete
+          <span class="done-mark"><i class="fa-solid fa-circle-check"></i> Practice complete</span>
+          <button class="debrief-cta done-next" id="nextCtaBtn">
+            Next <i class="fa-solid fa-arrow-right arrow"></i>
+          </button>
         </div>
       </footer>
 
@@ -1581,12 +1598,6 @@
     <script src="js/sim-surfaces.js?v=1"></script>
     <script src="js/sim-context.js?v=1"></script>
     <script src="js/sim-debrief.js?v=6"></script>
-    <!-- The post-scenario experience rating (js/sim-rating.js): the LAST step,
-         after the close has fully delivered. Kept out of sim-debrief on purpose —
-         the debrief is feedback the learner RECEIVES, this is feedback the learner
-         GIVES, and folding a survey into the results report makes it read like
-         part of their score. -->
-    <script src="js/sim-rating.js?v=3"></script>
     <script src="js/sim-chat-history.js?v=5"></script>
     <script src="js/sim-coach-sheet.js?v=4"></script>
     <!-- Writer Studio engine + the Mix & Match type: this page RUNS whatever
@@ -1844,7 +1855,6 @@
       resultsPage: 0,           // 0 = strengths, 1 = growth areas
       resultsViewed: false,     // learner has been through the modal (unlocks the resources message)
       continued: false,         // learner tapped the final "Continue" — the practice is fully settled
-      experienceRating: null,   // { rating, comment, skipped } from the post-scenario rating screen
       awaitingReturn: false,    // the coach is ready to send the learner back into the scene; waiting for them to choose
       pendingReturn: null,      // { mode, inputTarget, sceneTarget } to apply once they do
       debriefReturn: null,      // if the debrief the learner is about to open is a coach-led transition BACK into the scene (e.g. "check in with Marshall"), the return context to arm once it's read
@@ -2084,6 +2094,7 @@
     const inputContinue = document.getElementById('inputContinue');
     const continueCtaBtn= document.getElementById('continueCtaBtn');
     const inputDone      = document.getElementById('inputDone');
+    const nextCtaBtn     = document.getElementById('nextCtaBtn');
 
     function el(tag, cls, html) {
       const n = document.createElement(tag);
@@ -2639,45 +2650,12 @@
       },
     });
 
-    /* ---- the post-scenario experience rating (js/sim-rating.js) ---------
-       The practice's real last step. Ordering is deliberate: the rating comes
-       AFTER the results report and after the coach's resources have landed,
-       never before them. Two reasons — the learner should never have to pass
-       a survey to reach the takeaways they earned, and asking "how was this?"
-       while feedback is still arriving gets you a rating of an unfinished
-       experience.
-
-       The learner crosses INTO it on their own command (the bottom-bar
-       Continue, wired below) and OUT of it the same way, with nothing filled
-       in if that's their choice — `skipped: true` is a real outcome here, not
-       an abandoned form. */
-    const RATING = SimRating.attach({
-      appEl:    app,                       // inert while the screen is up
-      eyebrow:  'Before you go',
-      question: 'How was this experience?',
-      sub:      'Your rating helps us improve these scenarios.',
-      commentLabel: 'Anything you\u2019d like to add?',
-      commentPlaceholder: 'What worked, what didn\u2019t, anything you\u2019d change\u2026',
-      note:     'This is optional \u2014 you can continue without answering.',
-      onSubmit: (result) => {
-        // Prototype capture only. For the build: POST this alongside the
-        // scenario id and the attempt/session id the LMS already carries —
-        // a rating is meaningless without knowing WHICH scenario it rates.
-        state.experienceRating = result;
-        window.SIM_RATING_RESULT = result;
-        console.log('[experience rating]', result);
-        // No wording change down here: the thank-you is shown INSIDE the
-        // rating card, where the learner actually gave the feedback, so the
-        // footer stays the plain end-of-practice marker it has always been.
-        // (onSubmit fires as the screen closes — after the receipt's own
-        // Continue when they rated, immediately when they skipped.)
-        finishPractice();      // settles the close → reveals #inputDone
-        // Focus lands here explicitly: the screen's own restore aims at the
-        // Continue button that opened it, and finishPractice() has just
-        // replaced that button with this confirmation.
-        inputDone.focus();
-      },
-    });
+    /* ---- the post-scenario experience rating ---------------------------
+       No longer built into this page. It is a SCREEN OF ITS OWN
+       (composed-scenarios/experience-rating.html) reached from the settled
+       state's "Next" — the practice completes here, and the rating comes
+       after it rather than as an overlay on top of a finished practice.
+       Wiring lives with the #nextCtaBtn handler further down. */
 
     /* =====================================================================
        RENDER  — paint everything from state
@@ -4099,11 +4077,6 @@
         scenePlaceholder: '', entryLabel: '',
       });
       (ACTIVE_SCENARIO.state || []).forEach((v) => { if (v && v.key) state.vars[v.key] = v.initial || ''; });
-      // A fresh run gets a fresh rating form and a fresh confirmation line —
-      // otherwise a restart re-opens the survey with the last run's stars
-      // still lit, and the settled state still thanking them for it.
-      state.experienceRating = null;
-      if (typeof RATING !== 'undefined') RATING.reset();
       app.classList.remove('was-trap');
       followStage = true;
       announce('Practice restarted.');
@@ -4224,33 +4197,30 @@
     // Results bar: opens the shared debrief's results modal (never auto-shown).
     // Modal-footer nav is delegated INSIDE the shared debrief (makeFlow).
     resultsCtaBtn.addEventListener('click', DEBRIEF.openResults);
-    // Settling the practice for good. DEBRIEF.finish() settles the close in
-    // place — correct for a scenario opened directly, but it leaves a learner
-    // who arrived FROM a module with nowhere to go but the frame's small back
-    // arrow. When the caller named a destination, hand back to it: `back` is
-    // the same contract js/frame.js reads for that arrow, so a module names
-    // its return once and both the arrow and the natural completion path
-    // honour it. The delay lets the "Practice complete" announcement land
-    // before the page moves. With no `back` — which is every scenario link
-    // that exists today — nothing navigates.
-    function finishPractice() {
-      DEBRIEF.finish();
-      var back = new URLSearchParams(location.search).get('back');
-      if (!back) return;
-      var url;
-      try { url = new URL(back, location.href); } catch (e) { return; }
-      if (url.origin !== location.origin) return;      // `back` is untrusted query input
-      setTimeout(function () { window.location.href = url.href; }, 700);
-    }
-
-    // The bottom-bar Continue, once the resources have landed, is now the
-    // TRANSITION INTO the experience rating rather than the end of the run —
-    // the same "you cross on your own tap" contract as every other move in
-    // this player. `finishPractice()` moves to the RATING screen's own
-    // Continue (see RATING.onSubmit above), which is what actually settles
-    // the practice — including a rating the learner chose to skip.
+    // The bottom-bar Continue, once the resources have landed, settles the
+    // practice — which is where the run genuinely ends.
     continueCtaBtn.addEventListener('click', function () {
-      RATING.open();
+      DEBRIEF.finish();
+      inputDone.focus();
+    });
+
+    // …and THEN the way onward. "Next" leaves this page for the experience
+    // rating, carrying the scenario's identity so the feedback can be
+    // attributed, and passing `back` STRAIGHT THROUGH so the round trip a
+    // calling module set up still completes — the rating page is now the one
+    // that hands the learner back, one screen later than before.
+    nextCtaBtn.addEventListener('click', function () {
+      // REQ_ID / REQ_SCEN, not PLAY_TYPE — the latter is the resolved type
+      // OBJECT (it serialised as "[object Object]" the first time round). These
+      // are the id STRINGS this player was opened with, which is exactly the
+      // identity the feedback needs to be attributed to.
+      var q = new URLSearchParams();
+      q.set('title', SCENARIO.title || document.title);
+      if (REQ_ID) q.set('type', REQ_ID);
+      if (REQ_SCEN) q.set('scenario', REQ_SCEN);
+      var back = new URLSearchParams(location.search).get('back');
+      if (back) q.set('back', back);
+      window.location.href = 'composed-scenarios/experience-rating.html?' + q.toString();
     });
 
     // "Full conversation" — the SHARED coach-sheet expander
@@ -4345,15 +4315,16 @@
           state.awaitingResults = true;
           DEBRIEF.openResults();
         },
-        rating() {                           // the post-scenario experience rating
+        complete() {                         // the settled bar, with its "Next"
           restart();
           state.started = true;
           state.complete = true;
           state.resultsViewed = true;        // as if the report + resources had landed
+          state.continued = true;            // …and the practice already settled
           state.messages.push({ speaker: 'coach', kind: 'coaching',
             text: `That's your practice done \u2014 nice work.` });
           render();
-          RATING.open();
+          inputDone.focus();
         },
       };
       window.SIM_SKIP = {
@@ -4363,7 +4334,7 @@
           { id: 'practice',   label: 'Main practice',       icon: 'fa-comments',        go: JUMPS.practice },
           { id: 'recap',      label: 'Closing recap',       icon: 'fa-clipboard-check', go: JUMPS.recap },
           { id: 'summary',    label: 'Final summary',       icon: 'fa-flag-checkered',  go: JUMPS.summary },
-          { id: 'rating',     label: 'Experience rating',   icon: 'fa-star',            go: JUMPS.rating },
+          { id: 'complete',   label: 'Practice complete',   icon: 'fa-circle-check',    go: JUMPS.complete },
         ],
       };
     })();
