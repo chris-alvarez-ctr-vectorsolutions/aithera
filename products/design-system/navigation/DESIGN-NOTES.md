@@ -1,6 +1,21 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-09 round (logo)
+
+- **The top-bar mark is now the OFFICIAL Vector Solutions logo**, replacing the placeholder
+  geometric V. It is not redrawn here: every version loads the repo's shared copy at
+  `assets/vector-solutions-logo.svg`, the same asset the Bridge, Check-It and Keystone mocks
+  already use, referenced as `<img src="../../../assets/vector-solutions-logo.svg">` at 32px,
+  which is the height those mocks use in a top bar. The placeholder `#i-vector` symbol is
+  gone from all eight files.
+- The mark is no longer boxed in a navy chip: the official artwork carries its own colour
+  and clear space, so it sits unboxed beside the product name. The Dashboard entry is not a
+  product, so it keeps its tiles glyph in a chip.
+- **Still a placeholder:** the `--brand-*` colour tokens. The logo is real, the palette is
+  not, and the token comment in each file now says exactly that.
+
 ## Changelog · 2026-09-09 round
+
 
 - **New version: V3b, `v3b-tabs-left.html`.** V3's shell with the top bar's two ends
   swapped, so the pair isolates where each control belongs:
@@ -334,10 +349,9 @@ every product and only the name changes. "Vector" is set heavier than the produc
 with the name behind a hairline, so the shared half reads as the mark and the variable half
 reads as the label. The Dashboard is not a product, so it keeps its tiles glyph.
 
-**Both the mark and the colour are placeholders and are labelled as such.** The mark is
-the `#i-vector` symbol (a plain geometric V) and the colour is `--brand-navy`. Every lockup
-references that one symbol and that one token, so dropping in official artwork and hex is a
-two-place edit. The identity is deliberately the only branded surface: surfaces, content and
+**The mark is the official artwork; the colour is still a placeholder.** The mark loads from
+the repo's shared `assets/vector-solutions-logo.svg`, so it is never redrawn or recoloured
+here, and `--brand-navy` remains stand-in hex to be swapped for an official value. The identity is deliberately the only branded surface: surfaces, content and
 active states stay neutral so the structure, not the palette, is what gets reviewed.
 
 ## Shared side-nav interaction spec (V3 + V4)
