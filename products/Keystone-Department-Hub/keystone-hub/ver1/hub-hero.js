@@ -1272,10 +1272,88 @@
       AI.html() + grid + '</div>';
   }
 
+  /* ---------------------------------------------------------------------
+     UNSHARED — what a viewer sees after the owner revokes their access
+     ---------------------------------------------------------------------
+     Removing someone from a dashboard's audience is now possible in Agency
+     Intelligence, which raises the question that removal always raises and
+     that this prototype previously had no answer for: what does the person on
+     the other end see the next morning?
+
+     Not a hole where their dashboard was, and not a dead card. They fall back
+     to the starter dashboard for their role — the one the department publishes
+     to everyone — with a one-time note saying what went and who to ask. The
+     note is dismissible because it is news, not a permanent condition; the
+     fallback underneath is simply their homepage from then on.
+     --------------------------------------------------------------------- */
+  var unshared = false;          // demo switch — see hub.js mountPrototypeFab
+  var unsharedDismissed = false;
+  function setUnshared(on) {
+    unshared = !!on;
+    if (on) unsharedDismissed = false;   // re-arm so the note shows each demo
+  }
+
+  // Only a RECEIVED dashboard can be taken away. The Chief owns theirs, so
+  // there is nobody who could revoke it and the scenario does not apply.
+  function isUnshared(variant, cfg) {
+    return unshared && !cfg.owned;
+  }
+
+  /* What you land on depends on what you lost, and there are two cases — the
+     second is easy to forget and is the one that actually strands someone.
+
+     Lose a dashboard built FOR your crew and you fall back to the department
+     starter: still a homepage, just a more general one. But the starter is the
+     floor. Lose that and there is nothing underneath, so the honest answer is
+     an empty state that says so and names who can give it back — not a blank
+     region, and not a pretend dashboard with no data behind it. */
+  function hasFallback(cfg) { return cfg !== FF_DASH; }
+
+  function noDashboardState(cfg) {
+    return '<div class="kx-nodash">' +
+      '<span class="mark">' + micon('dashboard_customize', { size: 30 }) + '</span>' +
+      '<div class="t">No dashboard on your homepage</div>' +
+      '<div class="s">\u201c' + esc(cfg.name) + '\u201d was removed by ' +
+      esc(cfg.publisher || cfg.ownerShort || 'its owner') + ', and you have no other ' +
+      'dashboard published to you. Your tasks below are unaffected.</div>' +
+      '<div class="s" style="margin-top:6px">Ask ' +
+      esc(cfg.ownerShort || 'your training officer') + ' to publish one.</div>' +
+      '</div>';
+  }
+
+  function unsharedNotice(cfg, fellBack) {
+    if (unsharedDismissed) return '';
+    return '<div class="kx-unshared" role="status">' +
+      '<span class="mark">' + micon('person_remove', { size: 17, fill: 1 }) + '</span>' +
+      '<span class="body">' +
+      '<span class="t">\u201c' + esc(cfg.name) + '\u201d is no longer shared with you</span>' +
+      '<span class="s">' + esc(cfg.ownerShort || 'The owner') + ' removed it from your homepage. ' +
+      // The second sentence has to match what is actually below the notice —
+      // promising "your standard dashboard" above an empty state is worse
+      // than saying nothing.
+      (fellBack
+        ? 'You\u2019re seeing your department\u2019s standard dashboard instead \u2014 ' +
+          'ask them if you still need it.'
+        : 'Ask them if you still need it.') +
+      '</span>' +
+      '</span>' +
+      '<button class="kx-unshared-x" data-unshared-dismiss aria-label="Dismiss">' +
+      micon('close', { size: 16 }) + '</button></div>';
+  }
+
   function publishedDashboard(variant) {
     var cfg = variant === 'chief' ? CHIEF_DASH
             : variant === 'firefighter' ? FF_DASH
             : LT_DASH;
+    // Access revoked: the dashboard they were sent is gone, and what they get
+    // is the starter every member of the department has. FF_DASH *is* that
+    // starter ("Readiness Hub starter template"), so it is what they land on.
+    var revoked = isUnshared(variant, cfg);
+    var notice = revoked ? unsharedNotice(cfg, hasFallback(cfg)) : '';
+    // Nothing underneath: the starter is the floor, so this role is left with
+    // no dashboard at all rather than a fallback.
+    if (revoked && !hasFallback(cfg)) return notice + noDashboardState(cfg);
+    if (revoked) cfg = FF_DASH;
     // Which dashboard the export handlers are acting on. Recorded here because
     // the handlers fire after the render, and the role can change under them.
     pdCurrent = { cfg: cfg, variant: variant };
@@ -1300,7 +1378,8 @@
       ? micon('edit', { size: 12 }) + ' You own this · edit in Agency Intelligence'
       : micon('lock', { size: 12 }) + ' Read-only · explore freely, only ' + esc(cfg.ownerShort) + ' can edit';
 
-    return '<div class="kx-pubdash" data-pubdash="' + KX.attr(variant) + '">' +
+    return notice +
+      '<div class="kx-pubdash" data-pubdash="' + KX.attr(variant) + '">' +
       '<div class="kx-pubhead">' +
       '<span class="kx-pubmark">' + micon('dashboard_customize', { size: 18, fill: 1 }) + '</span>' +
       '<div style="min-width:0;flex:1">' +
@@ -1359,6 +1438,12 @@
       var jump = e.target.closest('[data-jump-view]');
       if (jump) {
         window.dispatchEvent(new CustomEvent('kx-jump-view', { detail: { viewId: jump.getAttribute('data-jump-view') } }));
+        return;
+      }
+
+      if (e.target.closest('[data-unshared-dismiss]')) {
+        unsharedDismissed = true;
+        window.KXHub.render();
         return;
       }
 
@@ -1560,6 +1645,7 @@
     coverageHero: coverageHero,
     complianceHero: complianceHero,
     publishedDashboard: publishedDashboard,
+    setUnshared: setUnshared,
     computePulse: computePulse,
     wire: wire
   };

@@ -95,6 +95,8 @@
        default onto the dashboard instead. */
     dashRangeOpen: false,
     localDashRange: {},
+    // Which dashboard row has its actions menu open (home list).
+    rowMenu: null,
     lastSavedAt: Date.now() - 7 * 60 * 1000,
     saving: false,
     builder: freshBuilder(),
@@ -250,7 +252,9 @@
     var inds = (a && a.individuals) || [];
     var groups = (a && a.groups) || [];
     if (!titles.length && !inds.length && !groups.length) {
-      return '<span style="font-size:13px;color:var(--ink-300)">—</span>';
+      return '<button type="button" class="cp-aud-cell" data-dash-audience="' + KX.attr(d.id) + '" ' +
+        'title="Not published to anyone — click to choose an audience" ' +
+        'style="color:var(--ink-300);font-size:13px">—</button>';
     }
     var RS = window.AGENCY_INTEL_ROSTER;
     var tip = titles.map(function (id) {
@@ -274,7 +278,12 @@
         '<span class="dot" style="background:' + mode.dot + '"></span>' + esc(mode.label) + '</span>'
       : '';
 
-    return '<span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap" title="' + KX.attr(tip) + '">' +
+    /* Clickable: this cell is where someone looks to answer "who has this?",
+       so it is also where they should be able to act on the answer. It opens
+       the audience dialog straight on the review step, which itemises every
+       group / title / person with its own Remove. */
+    return '<button type="button" class="cp-aud-cell" data-dash-audience="' + KX.attr(d.id) + '" ' +
+      'title="' + KX.attr(tip + ' — click to manage') + '">' +
       modePill +
       (groups.length ? '<span class="cp-aud-title" style="background:var(--amber-50);' +
         'border-color:var(--amber-400);color:var(--amber-700)">' +
@@ -283,7 +292,7 @@
       (titles.length ? '<span class="cp-aud-title">' + micon('badge', { size: 12, fill: 1 }) + ' ' +
         titles.length + ' title' + (titles.length === 1 ? '' : 's') + '</span>' : '') +
       (inds.length ? '<span class="cp-aud-ind">' + micon('person', { size: 12 }) + ' ' + inds.length + '</span>' : '') +
-      '</span>';
+      '</button>';
   }
 
   /* =====================================================================
@@ -374,7 +383,31 @@
       '<td class="cp-num" title="Estimated people reached"' +
       (reach ? '' : ' style="color:var(--ink-300)"') + '>' + (reach || '—') + '</td>' +
       '<td class="cp-num" style="font-family:inherit;font-size:12px;color:var(--ink-600);font-weight:400">' +
-      esc(fmtDate(d.updatedAt)) + '</td></tr>';
+      esc(fmtDate(d.updatedAt)) + '</td>' +
+      '<td class="cp-row-act">' + rowMenu(d) + '</td></tr>';
+  }
+
+  /* Per-dashboard actions. Lives in its own column rather than on hover, so
+     it is reachable by keyboard and visible on touch. Stops propagation on the
+     way out — the whole row is a link into the dashboard. */
+  function rowMenu(d) {
+    var open = state.rowMenu === d.id;
+    return '<span style="position:relative;display:inline-flex">' +
+      '<button class="cp-kebab" data-dash-menu="' + KX.attr(d.id) + '" ' +
+      'aria-haspopup="menu" aria-expanded="' + open + '" ' +
+      'aria-label="Actions for ' + KX.attr(d.name) + '">' +
+      micon('more_vert', { size: 18 }) + '</button>' +
+      (open
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:210px;top:calc(100% + 4px)">' +
+          '<button class="kx-menu-row" data-dash-audience="' + KX.attr(d.id) + '">' +
+          micon('groups', { size: 16 }) + '<span class="label">Manage audience</span></button>' +
+          '<button class="kx-menu-row" data-dash-duplicate="' + KX.attr(d.id) + '">' +
+          micon('content_copy', { size: 16 }) + '<span class="label">Duplicate</span></button>' +
+          '<div class="kx-menu-sep"></div>' +
+          '<button class="kx-menu-row is-danger" data-dash-delete="' + KX.attr(d.id) + '">' +
+          micon('delete', { size: 16 }) + '<span class="label">Delete</span></button>' +
+          '</div>'
+        : '') + '</span>';
   }
 
   function dashCard(d) {
@@ -405,7 +438,9 @@
       '<div class="cp-dcard-foot">' +
       '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap">' +
       (CP.deliveryEnabled() ? deliveryPill(d) : '') + audienceCell(d) + '</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0">' +
       '<span style="font-size:11.5px;color:var(--ink-500);white-space:nowrap">Updated ' + esc(fmtDate(d.updatedAt)) + '</span>' +
+      rowMenu(d) + '</span>' +
       '</div></div>';
   }
 
@@ -467,6 +502,7 @@
         (CP.deliveryEnabled() ? '<th>Delivery</th>' : '') + '<th>Published to</th>' +
         sortTh('Reach', 'reach', { num: true }) +
         sortTh('Updated', 'updated', { num: true }) +
+        '<th class="cp-row-act"><span class="cp-sr-only">Actions</span></th>' +
         '</tr></thead><tbody>' + rows.map(dashRow).join('') + '</tbody></table></div></div>';
     }
 
@@ -1453,10 +1489,14 @@
 
   // The audience picker (job titles / named individuals / AI groups) lives
   // in agency-intel-audience.js — this is just the hand-off.
-  function openAssignDialog(d) {
+  // `opts.step` opens the dialog straight on a step — 'review' is the
+  // itemised "Published to" roster, which is what the audience cell and the
+  // row menu both want: see who has it, take someone off.
+  function openAssignDialog(d, opts) {
     advertiseFlow('publish');
     AGENCY_INTEL_AUDIENCE.open({
       dashboard: d,
+      step: (opts && opts.step) || 'audience',
       // How many OTHER dashboards ride on this group — editing a live rule
       // changes their audience too, so the dialog warns before saving.
       groupUsage: function (gid) {
@@ -1625,6 +1665,75 @@
           return ws.map(function (x) { return x.id === w.id ? Object.assign({}, x, { state: 'live' }) : x; });
         });
       }, 600 + i * 380);
+    });
+  }
+
+  function dashById(id) {
+    return state.dashboards.find(function (d) { return d.id === id; }) || null;
+  }
+
+  /* Duplicate — a copy nobody is subscribed to yet. Audience and delivery are
+     deliberately NOT carried over: a copy is a draft, and silently publishing
+     a half-edited clone to the original's audience is the kind of accident
+     this feature would otherwise introduce. */
+  function duplicateDash(id) {
+    var src = dashById(id);
+    if (!src) return;
+    var copy = Object.assign({}, src, {
+      id: 'dash_copy_' + Date.now().toString(36),
+      name: src.name + ' (copy)',
+      status: 'draft',
+      assignedTo: null,
+      delivery: null,
+      createdAt: TODAY,
+      updatedAt: TODAY,
+      widgets: (src.widgets || []).map(function (w) { return Object.assign({}, w); })
+    });
+    state.dashboards = [copy].concat(state.dashboards);
+    render();
+    KX.pushToast({
+      title: 'Duplicated', body: '“' + copy.name + '” is a draft — nobody sees it yet.',
+      icon: 'content_copy', tone: 'success'
+    });
+  }
+
+  /* Delete — permanent, and the confirm says so in the same breath as who
+     loses it. Reach is the number that actually matters here: "delete this
+     dashboard" reads as housekeeping right up until you learn twelve people
+     have it on their homepage. */
+  function confirmDeleteDash(id) {
+    var d = dashById(id);
+    if (!d) return;
+    var reach = reachOf(d);
+    var live = CP.statusOf(d) === 'published' && reach > 0;
+    KX.confirm({
+      title: 'Delete “' + d.name + '”?',
+      icon: 'delete',
+      body: (live
+        ? '<b>' + reach + ' ' + (reach === 1 ? 'person' : 'people') + '</b> currently see this on ' +
+          'their homepage. It disappears for them and they fall back to their default dashboard.<br><br>'
+        : '') +
+        'Its ' + (d.widgets || []).length + ' widget' + ((d.widgets || []).length === 1 ? '' : 's') +
+        ' and audience go with it. <b>This cannot be undone.</b>',
+      confirmLabel: 'Delete dashboard',
+      onConfirm: function () {
+        state.dashboards = state.dashboards.filter(function (x) { return x.id !== id; });
+        // If the deleted one was open, there is nothing to return to.
+        if (state.activeId === id) { state.activeId = null; state.view = 'home'; }
+        // Keep the pager honest when the last row of a page goes.
+        var perPage = 10;
+        var maxPage = Math.max(1, Math.ceil(state.dashboards.length / perPage));
+        if (state.page > maxPage) state.page = maxPage;
+        render();
+        KX.pushToast({
+          title: 'Dashboard deleted',
+          body: live
+            ? '“' + d.name + '” is gone. ' + reach + ' ' + (reach === 1 ? 'person' : 'people') +
+              ' fell back to their default.'
+            : '“' + d.name + '” is gone.',
+          icon: 'delete', tone: 'neutral'
+        });
+      }
     });
   }
 
@@ -2282,6 +2391,45 @@
 
       if (e.target.closest('#cpNewDash')) { newDash(); return; }
 
+      /* ---- dashboard row actions ----
+         All of these sit INSIDE the row, which is itself a link into the
+         dashboard, so each returns before the row handler below runs. */
+      var am = e.target.closest('[data-dash-menu]');
+      if (am) {
+        e.stopPropagation();
+        var amid = am.getAttribute('data-dash-menu');
+        state.rowMenu = state.rowMenu === amid ? null : amid;
+        render();
+        return;
+      }
+      // "Who is this published to?" — opens the audience dialog on the review
+      // step, which lists every group / title / person with its own Remove.
+      var ac = e.target.closest('[data-dash-audience]');
+      if (ac) {
+        e.stopPropagation();
+        var acd = dashById(ac.getAttribute('data-dash-audience'));
+        // Close the menu FIRST — it renders in the page, the dialog renders in
+        // an overlay above it, and an open menu left behind reads as a second
+        // live surface competing with the one you just opened.
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        if (acd) openAssignDialog(acd, { step: 'review' });
+        return;
+      }
+      var dup = e.target.closest('[data-dash-duplicate]');
+      if (dup) {
+        e.stopPropagation();
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        duplicateDash(dup.getAttribute('data-dash-duplicate'));
+        return;
+      }
+      var del = e.target.closest('[data-dash-delete]');
+      if (del) {
+        e.stopPropagation();
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        confirmDeleteDash(del.getAttribute('data-dash-delete'));
+        return;
+      }
+
       var openRow = e.target.closest('[data-open-dash]');
       if (openRow) { openDash(openRow.getAttribute('data-open-dash')); return; }
 
@@ -2757,6 +2905,9 @@
       }
       if (state.dashRangeOpen && !e.target.closest('.kx-menu') && !e.target.closest('[data-dash-range]')) {
         state.dashRangeOpen = false; changed = true;
+      }
+      if (state.rowMenu && !e.target.closest('.kx-menu') && !e.target.closest('[data-dash-menu]')) {
+        state.rowMenu = null; changed = true;
       }
       if (KXCanvas.getOpenCols() && !e.target.closest('.kx-menu') && !e.target.closest('[data-tbl-cols]')) {
         KXCanvas.setOpenCols(null); changed = true;
