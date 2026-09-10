@@ -1319,8 +1319,13 @@
     var preview = builderPreviewWidget();
     return '<div style="display:grid;grid-template-columns:minmax(0, 0.85fr) minmax(0, 1.15fr);gap:20px;align-items:start">' +
       '<div><div class="cp-step"><span class="n">1</span><span class="t">Pick a metric</span></div>' +
-      '<div style="max-height:340px;overflow-y:auto;padding-right:4px;margin-right:-4px;' +
-      'display:flex;flex-direction:column;gap:12px">' + metricPickerHtml() + '</div></div>' +
+      // No inner scroller. A 340px box with its own scrollbar cut the list off
+      // mid-category and gave no sign there were more metrics below it — the
+      // Compliance and Scheduling groups were simply invisible unless you
+      // happened to scroll inside a region that did not look scrollable. The
+      // full list renders instead and the page (or the dialog) scrolls.
+      '<div style="display:flex;flex-direction:column;gap:12px">' +
+      metricPickerHtml() + '</div></div>' +
       '<div>' +
       (!b.metric
         ? '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;' +
