@@ -29,7 +29,7 @@ const KIT_FILES = ['index.html', 'object-manager.html', 'demo.css'];
    manager, which loads them from `assets/` relative to the course folder.
    Without this a new course shows a BROKEN IMAGE when a rep generates
    media, since only lockout-tagout happened to have the file. */
-const KIT_ASSETS = ['generate-img-sample.png'];
+const KIT_ASSETS = ['generate-img-sample.jpeg'];
 
 function fmtMSS(t) {
   return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
@@ -121,8 +121,14 @@ function courseSeconds(course) {
 function courseProgress(course) {
   let done = 0, total = 0;
   course.sections.forEach(s => s.objects.forEach(o => {
+    // A hidden object isn't on the overview yet, so it can't be counted --
+    // otherwise the denominator jumps when the rep reveals it.
+    if (o.hidden) return;
     total++;
-    if (o.state === 'complete') done++;
+    // Shipped content is finalized, so it counts as complete. The
+    // generated flag marks the LO revealed during the demo: it never went
+    // through publishing, so it stays outstanding. Same rule the rows use.
+    if (o.state === 'complete' || !o.generated) done++;
   }));
   return { done, total };
 }

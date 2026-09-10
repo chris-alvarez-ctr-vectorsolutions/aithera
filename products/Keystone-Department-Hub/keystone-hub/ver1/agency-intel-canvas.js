@@ -51,6 +51,10 @@
 
   function vizBar(spec) {
     var data = spec.data || [];
+    // One series, so one colour — the metric's. "Overdue inspections" used to
+    // render in teal, i.e. green, for a count you want at zero. The biggest
+    // bar takes the darkest step of the same ramp so the peak still reads.
+    var barColor = spec.color || 'var(--azure-500)';
     var max = Math.max.apply(null, data.map(function (d) { return d.value; })) || 1;
     return '<div style="display:flex;flex-direction:column;gap:9px">' +
       data.map(function (d) {
@@ -60,7 +64,7 @@
           'overflow:hidden;text-overflow:ellipsis">' + esc(d.label) + '</span>' +
           '<div style="flex:1;height:18px;background:var(--ink-100);border-radius:5px;overflow:hidden">' +
           '<div style="width:' + (d.value / max * 100) + '%;height:100%;border-radius:5px;transition:width .6s;background:' +
-          (worst ? 'var(--coral-300)' : 'var(--teal-300)') + '"></div></div>' +
+          (worst ? window.KEYSTONE_CUSTOM.tonePeak(spec.tone) : barColor) + '"></div></div>' +
           '<span style="width:38px;text-align:right;font-family:var(--font-numeric);font-weight:700;' +
           'color:var(--ink-700);font-variant-numeric:tabular-nums">' + esc(d.value) + '</span></div>';
       }).join('') + '</div>';
@@ -70,7 +74,8 @@
   function vizPair(spec) {
     var data = spec.data || [];
     var labels = spec.labels || [];
-    var colors = ['var(--amber-400)', 'var(--teal-300)'];
+    // Per-metric, from buildCorrelationSpec — never by slot position.
+    var colors = spec.colors || ['var(--azure-500)', 'var(--coral-400)'];
     var vals = [];
     data.forEach(function (d) { vals.push(d.a, d.b); });
     var max = Math.max.apply(null, vals) * 1.05 || 1;
@@ -180,7 +185,7 @@
   function vizLine(spec) {
     // Dual-series correlation line vs. a single series.
     if (spec.series) {
-      var colors = ['var(--amber-400)', 'var(--teal-400)'];
+      var colors = spec.colors || ['var(--azure-500)', 'var(--coral-400)'];
       var W = 380, H = 190, P = 30;
       var allY = [];
       spec.series.forEach(function (s) { s.data.forEach(function (d) { allY.push(d.y); }); });
@@ -214,25 +219,37 @@
             Math.round(hi - (hi - lo) * t) + '</text>';
         }).join('') + paths + xLabels + '</svg></div>';
     }
-    return KXCharts.pdLine(spec.data || [], 'var(--teal-400)', spec.unit === '%' ? '%' : '');
+    return KXCharts.pdLine(spec.data || [], spec.color || 'var(--azure-500)', spec.unit === '%' ? '%' : '');
   }
 
   function vizStack(spec) {
+    // Segment colour follows the segment's MEANING (spec.legendTone), not its
+    // position. Slot 0 used to be hard-coded coral and slot 1 teal, so a stack
+    // that happened to list its good value first — "Compliant, Lapsed" —
+    // painted compliant red and lapsed green.
+    var segColors = spec.legendColor ||
+      (spec.legend || []).map(function () { return 'var(--azure-500)'; });
     var legend = (spec.legend || []).map(function (l, i) {
-      return { label: l, color: i === 0 ? 'var(--coral-400)' : 'var(--teal-300)' };
+      return { label: l, color: segColors[i] };
     });
     return '<div>' + KXCharts.chartLegend(legend) +
       '<div style="display:flex;flex-direction:column;gap:9px">' +
       (spec.data || []).map(function (d) {
         var total = d.a + d.b + (d.c || 0);
+        // The called-out number is the FIRST segment, so it wears that
+        // segment's colour rather than a fixed red.
         return '<div><div style="display:flex;justify-content:space-between;font-size:11.5px;' +
           'color:var(--ink-700);margin-bottom:4px">' +
           '<span style="font-weight:500">' + esc(d.label) + '</span>' +
-          '<span style="font-family:var(--font-mono);color:var(--coral-500)">' + d.a +
+          '<span style="font-family:var(--font-mono);color:' + segColors[0] + '">' + d.a +
           ' <span style="color:var(--ink-400)">/ ' + total + '</span></span></div>' +
           '<div style="height:12px;border-radius:6px;background:var(--ink-100);overflow:hidden;display:flex">' +
-          '<div style="width:' + (d.a / total * 100) + '%;background:var(--coral-400)"></div>' +
-          '<div style="flex:1;background:var(--teal-300);opacity:0.5"></div></div></div>';
+          '<div style="width:' + (d.a / total * 100) + '%;background:' + segColors[0] + '"></div>' +
+          (d.c
+            ? '<div style="width:' + (d.b / total * 100) + '%;background:' + (segColors[1] || 'var(--ink-300)') + '"></div>' +
+              '<div style="flex:1;background:' + (segColors[2] || 'var(--ink-300)') + '"></div>'
+            : '<div style="flex:1;background:' + (segColors[1] || 'var(--ink-300)') + '"></div>') +
+          '</div></div>';
       }).join('') + '</div></div>';
   }
 
@@ -417,53 +434,28 @@
   }
 
   /* =====================================================================
-     DATE-RANGE CONTROL
+     REPORTING WINDOW
      ---------------------------------------------------------------------
-     The owner's choice persists; a viewer can change it to explore, but the
-     change stays local and is flagged as unsaved. `openRange` / `localRange`
-     are module state keyed by widget id, since the canvas re-renders wholesale.
+     A widget no longer owns its date range and has no picker of its own —
+     the dashboard carries ONE range and every time-bounded widget reports on
+     it. The dashboard bar is the single place that window is stated, so a
+     card that follows it says nothing; repeating "Last 90 days" on eight
+     cards is chrome, not information.
+
+     The one thing a card DOES state is a horizon it does NOT share with the
+     dashboard: a countdown metric like open shifts or expiring credentials
+     reports forward on a fixed window the metric defines (see
+     AGENCY_INTEL.METRIC_HORIZON). That differs from the dashboard's window,
+     so it has to be visible — as static text, deliberately not a control.
      ===================================================================== */
 
-  var openRange = null;
-  var localRange = {};
-
-  function dateRangeControl(widget, canSave) {
-    var saved = widget.dateRange || window.AGENCY_INTEL.DEFAULT_RANGE;
-    var local = localRange[widget.id];
-    var dirty = local != null && local !== saved;
-    var current = dirty ? local : saved;
-
-    return '<span style="position:relative;display:inline-flex;min-width:0;max-width:100%">' +
-      '<button data-range-open="' + KX.attr(widget.id) + '" class="kx-range-btn' + (dirty ? ' is-dirty' : '') + '" ' +
-      'title="' + (canSave
-        ? 'Set the default date range for this widget'
-        : 'Change date range (exploring — only the owner can save the default)') + '">' +
-      micon('calendar_today', { size: 13 }) +
-      '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-      esc(window.AGENCY_INTEL.rangeLabel(current)) + '</span>' +
-      (dirty ? '<span title="Unsaved — exploring" style="width:5px;height:5px;border-radius:99px;' +
-        'background:var(--amber-500);flex-shrink:0"></span>' : '') +
-      micon('expand_more', { size: 14 }) + '</button>' +
-      (dirty ? '<button data-range-clear="' + KX.attr(widget.id) + '" title="Reset to the saved default" ' +
-        'style="margin-left:2px;background:none;border:none;color:var(--lumo-primary-text-color);font-size:11px;' +
-        'font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
-      (openRange === widget.id
-        ? '<div class="kx-menu kx-menu--left" style="width:200px;top:calc(100% + 4px)">' +
-          window.AGENCY_INTEL.DATE_RANGES.map(function (r) {
-            return '<button class="kx-menu-row" data-range-set="' + KX.attr(widget.id) + '" data-range-val="' +
-              KX.attr(r.value) + '">' +
-              micon('calendar_today', { size: 14, color: r.value === current ? 'var(--amber-600)' : 'var(--ink-400)' }) +
-              '<span class="label">' + esc(r.label) + '</span>' +
-              (r.value === current ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
-          }).join('') +
-          (!canSave
-            ? '<div style="display:flex;gap:6px;padding:7px 8px 3px;margin-top:4px;border-top:1px solid var(--ink-100);' +
-              'font-size:10.5px;color:var(--ink-400);line-height:1.45">' + micon('info', { size: 13 }) +
-              '<span>Only the dashboard owner can save this as the default.</span></div>'
-            : '') +
-          '</div>'
-        : '') +
-      '</span>';
+  function horizonLabel(widget) {
+    var h = window.AGENCY_INTEL.widgetHorizon(widget);
+    if (!h) return '';
+    return '<span class="cpw-horizon" ' +
+      'title="This widget looks forward on a fixed window and is not affected by the dashboard date range">' +
+      micon('event_upcoming', { size: 13 }) +
+      '<span>' + esc(window.AGENCY_INTEL.rangeLabel(h)) + '</span></span>';
   }
 
   /* =====================================================================
@@ -499,7 +491,7 @@
     var title = window.AGENCY_INTEL.widgetTitle(widget);
     var icon = window.AGENCY_INTEL.widgetIcon(widget);
     var srcs = window.AGENCY_INTEL.widgetSources(widget).map(function (s) { return KX.srcChip(s); }).join('');
-    var supportsRange = window.AGENCY_INTEL.widgetSupportsRange(widget);
+    var horizon = horizonLabel(widget);
     var selected = o.selected;
 
     var menu = openMenu === widget.id
@@ -563,7 +555,7 @@
           micon('more_vert', { size: 18 }) + '</button>' + menu + '</span>'
         : '<span style="margin-left:auto"></span>') +
       '</div>' +
-      (supportsRange ? '<div class="cpw-range">' + dateRangeControl(widget, editable) + '</div>' : '') +
+      (horizon ? '<div class="cpw-range">' + horizon + '</div>' : '') +
       '<div class="cpw-body">' +
       widgetBody(widget, { editable: editable, interactive: true, report: !!o.report }) + '</div>' +
       // Corner grip. Pointer-only and hidden from the a11y tree on purpose —
@@ -589,15 +581,13 @@
     sizeLabel: sizeLabel,
     widgetBody: widgetBody,
     buildWidgetSpec: buildWidgetSpec,
-    dateRangeControl: dateRangeControl,
+    horizonLabel: horizonLabel,
     noDataState: noDataState,
     SIZE_OPTIONS: SIZE_OPTIONS,
-    // Menu/range state accessors so the page layer can drive them.
+    // Kebab-menu state accessor so the page layer can drive it. There is no
+    // range state here any more — the range belongs to the dashboard.
     setOpenMenu: function (id) { openMenu = id; },
     getOpenMenu: function () { return openMenu; },
-    setOpenRange: function (id) { openRange = id; },
-    getOpenRange: function () { return openRange; },
-    setLocalRange: function (id, v) { if (v == null) delete localRange[id]; else localRange[id] = v; },
 
     /* ---- table controls ---------------------------------------------
        Straight pass-throughs to the shared engine in charts.js. The page

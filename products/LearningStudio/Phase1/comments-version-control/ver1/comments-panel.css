@@ -16,6 +16,43 @@
 #commentsDrawer {
   --vwc-drawer-width: 420px;
   --vwc-drawer-max-width: 420px;
+
+  /* The page shell lives in this drawer's `content` slot, so the drawer is
+     the page's outermost layout box below the global header and must size
+     itself — otherwise the shell's height resolves against a collapsed
+     parent.
+
+     The header is hoisted out of the drawer (see the markup) so it stays
+     clickable while the panel is open, which makes this host the header's
+     next sibling: it fills the space that is left below it. The shell inside
+     uses the same expression, so the two stay in step. */
+  display: block;
+  height: calc(100vh - var(--vwc-header-h, 72px));
+  overflow: hidden;
+
+  /* Hold the panel below the live header.
+
+     In overlay mode the drawer column is `position: fixed`, so it is placed
+     against the VIEWPORT and ignores the fact that this host already starts
+     below the header — without an explicit offset the panel would cover the
+     header it is meant to leave clickable.
+
+     The drawer's own default is `var(--vwc-topnav-height, 72px)`, sized for
+     a `vwc-topnav` these pages do not use, so it is driven off the real
+     measured header instead. */
+  --vwc-drawer-offset-top: var(--vwc-header-h, 72px);
+}
+
+/* The slot wrapper has to pass the drawer's full height through to the page
+   shell, which sizes itself against it.
+
+   Note the related fix in the markup: the drawer also pads this container
+   (8px 16px) for the common case of slotted content that wants breathing
+   room. On a full-bleed app frame that padding insets the entire UI and
+   reintroduces a gap, so both pages set `theme="no-content-padding"` — the
+   component's own opt-out — on the `<vwc-drawer>` element. */
+#commentsDrawer::part(content-container) {
+  height: 100%;
 }
 
 /* ---- Header ---- */
@@ -86,7 +123,11 @@
 .cm-resolve:hover { text-decoration: underline; }
 
 /* ---- Thread ---- */
-.cm-thread { overflow-y: auto; min-height: 0; }
+/* `overflow-y: auto` alone leaves the x-axis `auto` too, so any child that
+   overhangs — a reaction menu, a long unbroken token — puts a horizontal
+   scrollbar on the thread. The panel is a fixed-width column; nothing here
+   should ever scroll sideways, so pin x to hidden and let y scroll. */
+.cm-thread { overflow-y: auto; overflow-x: hidden; min-height: 0; }
 
 .cm-item + .cm-item { margin-top: 18px; }
 .cm-item-head {
@@ -370,7 +411,19 @@
 .cm-thread.is-collapsed .cm-thread-body { display: none; }
 
 
-/* First comment. */
+/* ---- Root comment + replies ----
+   Both put their message first and hang everything that annotates it — the
+   "(edited)" mark, reaction chips, and the reaction/Edit triggers — in one
+   row BENEATH it (see .cm-reactions). The root comment has no byline of its
+   own; the thread header above already names the author. */
+
+/* The reply's byline row. A reply needs it because nothing above names its
+   author; it carries the name and time only. */
+.cm-reply-head {
+  display: flex; align-items: baseline; gap: 6px;
+  margin-bottom: 3px;
+}
+
 .cm-bubble {
   background: #f9fafb; border: 1px solid #f0f0f0; border-radius: 8px;
   padding: 9px 11px;
@@ -390,47 +443,191 @@
   display: grid; place-items: center;
   font-size: 10px; font-weight: var(--font-weight-semibold); color: #fff;
 }
-.cm-reply-body { min-width: 0; }
+/* min-width:0 lets a long unbroken word wrap instead of widening the row. */
+.cm-reply-body { min-width: 0; flex: 1 1 auto; }
 .cm-reply-author { font-size: 11.5px; font-weight: var(--font-weight-semibold); color: var(--ink); }
-.cm-reply-time { font-size: 10.5px; color: var(--ink-mute); margin-left: 6px; }
+.cm-reply-time { font-size: 10.5px; color: var(--ink-mute); }
 .cm-reply-text {
-  display: block; margin-top: 3px;
+  display: block;
   font-size: var(--font-size-m); color: var(--ink); line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-/* Inline reply box. */
-.cm-reply-row {
-  display: flex; gap: 6px; align-items: center;
-  padding-left: 12px; margin-top: 8px;
+/* "(edited)" leads the annotation row under the message, so an edited
+   comment is never silently different from what someone replied to. */
+.cm-edited {
+  font-size: 10.5px; color: var(--ink-mute); font-style: italic;
+  flex: 0 0 auto;
+}
+
+/* ---- Per-comment actions (Edit) ----
+   Sits at the far right of the annotation row, immediately after the
+   reaction trigger, so the two icon controls read as one group.
+
+   ALWAYS VISIBLE, matching that trigger. It was hover-revealed while it
+   lived in a row of its own, but now that the two sit side by side as a
+   pair, one fading in on hover while its neighbour stayed put made the row
+   twitch and the pair look inconsistent. Same treatment as the smiley: a
+   muted glyph that gains contrast and a background on hover/focus. */
+.cm-edit-btn {
+  width: 24px; height: 24px;          /* WCAG 2.5.8 target floor */
+  display: grid; place-items: center;
+  border: none; border-radius: 5px;
+  background: none; color: var(--ink-mute);
+  font-size: 11.5px; cursor: pointer;
+  transition: color .12s ease, background-color .12s ease;
+}
+.cm-edit-btn:hover { background: var(--lumo-contrast-5pct); color: var(--ink); }
+.cm-edit-btn:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+
+/* ---- Reactions ----
+   Chips for what has been used, then the trigger that opens the picker.
+
+   The row is always present now that the trigger no longer hides, so the
+   top margin is tighter than it was for a row that only appeared on hover:
+   at 6px an always-visible smiley sat too far off the comment it belongs
+   to and read as a control for the thread rather than that comment. */
+.cm-reactions {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 4px;
+  /* Deliberately NOT wrapping: the spacer below relies on one line to push
+     the triggers right, and a wrapped row would drop them onto their own
+     line away from the comment. Chips shrink before that happens. */
+  flex-wrap: nowrap;
+}
+
+/* Pushes the reaction + Edit triggers to the far right of the row, whatever
+   sits on the left (nothing, "(edited)", or a run of chips). */
+.cm-rx-spacer { flex: 1 1 auto; min-width: 4px; }
+.cm-rx-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  min-height: 24px; padding: 2px 8px;
+  border: 1px solid var(--border); border-radius: 999px;
+  background: var(--lumo-base-color);
+  font: inherit; font-size: 11.5px; color: var(--ink-soft);
+  cursor: pointer; line-height: 1;
+}
+.cm-rx-chip:hover { border-color: var(--brand-2); }
+/* Your own reaction reads as selected, and clicking it removes you. */
+.cm-rx-chip.is-mine {
+  background: var(--lumo-primary-color-10pct);
+  border-color: var(--brand-2);
+  color: var(--brand-2);
+  font-weight: var(--font-weight-semibold);
+}
+.cm-rx-emoji { font-size: 12.5px; }
+.cm-rx-count { font-variant-numeric: tabular-nums; }
+
+/* The trigger: one smiley at rest, whatever the vocabulary's size.
+
+   ALWAYS VISIBLE, not hover-revealed. Reacting is a primary way to respond
+   to a comment — often the only response needed — so the affordance should
+   be discoverable without probing each row with the pointer. A hover-only
+   control is also invisible to touch and easy to miss entirely on a long
+   thread. It is toned down instead of hidden: a muted glyph that gains
+   contrast and a background on hover/focus, so it reads as available
+   without competing with the comment text. */
+.cm-rx-picker { position: relative; display: inline-flex; align-items: center; }
+.cm-rx-trigger {
+  width: 24px; height: 24px;          /* WCAG 2.5.8 target floor */
+  display: grid; place-items: center;
+  border: none; border-radius: 5px;
+  background: none; color: var(--ink-mute);
+  font-size: 12.5px; cursor: pointer; line-height: 1;
+  transition: color .12s ease, background-color .12s ease;
+}
+.cm-rx-trigger:hover { background: var(--lumo-contrast-5pct); color: var(--ink); }
+.cm-rx-trigger:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+.cm-rx-trigger.is-open { background: var(--lumo-contrast-5pct); color: var(--ink); }
+
+/* The menu. Absolutely positioned so it overlays the thread instead of
+   reflowing it — a grid that pushed the replies down would move the very
+   comment you were reacting to.
+
+   Opens DOWNWARD from the trigger. Opening upward put the grid on top of the
+   comment text you are reacting to, hiding the thing you are responding to
+   at the moment of responding; below the row it covers the next reply or the
+   composer instead, which is the better thing to obscure briefly.
+
+   Anchored to the trigger's RIGHT edge (`right: 0`, not `left: 0`). The
+   trigger now sits at the far right of the annotation row, so a
+   left-anchored grid opened rightward past the panel's edge and put a
+   horizontal scrollbar on the thread — 130px of menu with ~24px of room to
+   grow into. Right-anchoring makes it open inward, back across the comment,
+   where there is always space. */
+.cm-rx-menu {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 5;
+  display: grid; grid-template-columns: repeat(4, 28px); gap: 2px;
+  padding: 5px;
+  background: var(--lumo-base-color);
+  border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(15, 25, 45, .16);
+}
+.cm-rx-opt {
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: none; border-radius: 6px;
+  background: none; font-size: 15px; cursor: pointer; line-height: 1;
+}
+.cm-rx-opt:hover { background: var(--lumo-contrast-5pct); }
+.cm-rx-opt:focus-visible { outline: 2px solid var(--brand-2); outline-offset: -2px; }
+/* A reaction you already hold reads as selected, and picking it removes you. */
+.cm-rx-opt.is-mine { background: var(--lumo-primary-color-10pct); }
+
+/* ---- Inline editor ----
+   Replaces the comment's text in place, so the surrounding thread keeps its
+   position and the reader does not lose their spot. */
+.cm-editor { display: flex; flex-direction: column; gap: 6px; }
+.cm-editor-input {
+  width: 100%; min-height: 60px; resize: vertical;
+  border: 1px solid var(--brand-2); border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit; font-size: var(--font-size-m); color: var(--ink);
+  line-height: 1.5; background: var(--lumo-base-color); outline: none;
+}
+.cm-editor-actions { display: flex; justify-content: flex-end; gap: 6px; }
+
+/* ---- Composer, production's anatomy ----
+   A full-width field with LABELLED actions beneath, replacing an icon-only
+   send + resolve pair that read as two competing glyphs. */
+.cm-composer-row {
+  padding-left: 12px; margin-top: 10px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 .cm-reply-input {
-  flex: 1 1 auto; min-width: 0; height: 32px;
+  width: 100%; min-height: 34px; resize: vertical;
   border: 1px solid var(--border); border-radius: 6px;
-  padding: 0 10px; font: inherit; font-size: var(--font-size-m);
+  padding: 8px 10px; font: inherit; font-size: var(--font-size-m);
   color: var(--ink); background: #f9fafb; outline: none;
+  line-height: 1.4;
 }
 .cm-reply-input:focus { border-color: var(--brand-2); background: var(--lumo-base-color); }
-.cm-reply-send {
-  width: 32px; height: 32px; flex: 0 0 auto;
+.cm-composer-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+
+/* Text button — "Resolve Thread" / "Reopen Thread" / "Cancel". Production
+   states these in words rather than an icon, which is the point of adopting
+   it: a circle-check next to a paper-plane gave no clue which did what. */
+.cm-btn-text {
+  min-height: 30px; padding: 6px 8px;
+  border: none; border-radius: 6px; background: none;
+  font: inherit; font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold);
+  color: var(--brand-2); cursor: pointer;
+}
+.cm-btn-text:hover { background: var(--lumo-primary-color-10pct); }
+.cm-btn-text:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
+
+.cm-btn-primary {
+  min-height: 30px; padding: 6px 16px;
   border: none; border-radius: 6px;
   background: var(--brand-2); color: #fff;
-  font-size: 12px; cursor: pointer;
-  display: grid; place-items: center;
+  font: inherit; font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
 }
-.cm-reply-send:hover { background: var(--brand); }
-
-/* Resolve / reopen — an icon sharing the reply row instead of a text button
-   on a row of its own. */
-.cm-resolve-btn {
-  width: 32px; height: 32px; flex: 0 0 auto;
-  display: grid; place-items: center;
-  border: 1px solid var(--border); border-radius: 6px;
-  background: var(--lumo-base-color);
-  color: var(--ink-soft); font-size: 13px; cursor: pointer;
-}
-.cm-resolve-btn:hover { border-color: #1c7a44; color: #1c7a44; }
-.cm-thread.is-resolved .cm-resolve-btn { border-color: #bbf7d0; color: #1c7a44; }
+.cm-btn-primary:hover { background: var(--brand); }
+.cm-btn-primary:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.cm-btn-sm { padding: 5px 12px; }
 
 
 /* The jump to the screen a thread is attached to — icon only, pinned to the

@@ -15,7 +15,7 @@ const NAV = [
     'Quizzes','Surveys','Tasklists','Signatures','Classes' ] },
   { id:'files', label:'Files', icon:'fa-folder', children:['Repositories'] },
   { id:'activities', label:'Activities', icon:'fa-layer-group', children:['Activities'] },
-  { id:'qualifications', label:'Qualifications', icon:'fa-medal', children:[
+  { id:'qualifications', label:'Qualifications', icon:'fa-graduation-cap', children:[
     'Requirements','Qualifications','Copy Qualifications' ] },
   { id:'assignments', label:'Assignments', icon:'fa-user-plus', children:[
     'Assign Training Wizard','Assignments' ] },
@@ -147,7 +147,7 @@ const TRAINING = {
 };
 
 const VIEW_BY = [
-  { id:'qual',   icon:'fa-medal',            label:'Qualification' },
+  { id:'qual',   icon:'fa-graduation-cap',   label:'Qualification' },
   { id:'alpha',  icon:'fa-arrow-down-a-z',   label:'Alphabetical list' },
   { id:'status', icon:'fa-circle-half-stroke', label:'Completion status' },
   { id:'due',    icon:'fa-calendar-days',    label:'Due date' },

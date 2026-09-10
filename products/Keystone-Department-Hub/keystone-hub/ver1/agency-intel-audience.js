@@ -317,6 +317,77 @@
   /* Step 2 — review                                                   */
   /* ---------------------------------------------------------------- */
 
+  /* Everything this dashboard is published to, itemised, each removable.
+
+     Counting chips ("2 groups · 5 people") answered "how many" but never
+     "who" — the only way to find out was to open a tab and read the ticks,
+     and an AI group could not be taken off at all without hunting for its
+     row. An audience you cannot enumerate is an audience you cannot revoke,
+     so the review step lists every entry by name with its own Remove. */
+  function audienceRows() {
+    var rows = [];
+
+    S.groups.forEach(function (id) {
+      var g = R.groupById(id);
+      var n = g ? R.evaluate(g).count : 0;
+      rows.push({
+        kind: 'group', id: id,
+        name: g ? g.name : id,
+        icon: 'auto_awesome',
+        // A live rule's reach is today's count — it moves on its own, which is
+        // exactly why the owner needs to see the number before dropping it.
+        sub: 'Live rule · ' + n + ' ' + (n === 1 ? 'person' : 'people') + ' today',
+        reach: n
+      });
+    });
+
+    S.titles.forEach(function (id) {
+      var t = CP.titleById(id);
+      rows.push({
+        kind: 'title', id: id,
+        name: t ? t.label : id,
+        icon: 'badge',
+        sub: 'Job title · ' + ((t && t.count) || 0) + ' people',
+        reach: (t && t.count) || 0
+      });
+    });
+
+    S.individuals.forEach(function (id) {
+      var p = R.personById(id) ||
+        (CP.INDIVIDUALS || []).find(function (x) { return x.id === id; });
+      rows.push({
+        kind: 'person', id: id,
+        name: p ? p.name : id,
+        icon: 'person',
+        sub: p ? personLine(p) : 'Named individual',
+        reach: 1
+      });
+    });
+
+    return rows;
+  }
+
+  function publishedToHtml() {
+    var rows = audienceRows();
+    if (!rows.length) {
+      return '<div class="au-sec">Published to</div>' +
+        '<div class="au-empty" style="margin-bottom:4px">Nobody yet — this stays a draft ' +
+        'until you add someone.</div>';
+    }
+    return '<div class="au-sec">Published to<span class="au-sec-n">' + rows.length + '</span></div>' +
+      '<div class="au-roster">' + rows.map(function (r) {
+        return '<div class="au-rrow">' +
+          '<span class="au-rmark au-rmark--' + r.kind + '">' + micon(r.icon, { size: 14, fill: 1 }) + '</span>' +
+          '<span style="flex:1;min-width:0">' +
+          '<span class="au-row-name">' + esc(r.name) + '</span>' +
+          '<span class="au-row-sub">' + esc(r.sub) + '</span></span>' +
+          '<button class="au-rdrop" data-au-remove="' + attr(r.kind) + '" ' +
+          'data-au-remove-id="' + attr(r.id) + '" ' +
+          'title="Remove from this dashboard" aria-label="Remove ' + attr(r.name) + '">' +
+          micon('close', { size: 15 }) + '</button></div>';
+      }).join('') + '</div>';
+  }
+
   function reviewHtml() {
     var ids = reach();
     var parts = [];
@@ -324,10 +395,11 @@
     if (S.individuals.length) parts.push(S.individuals.length + ' named');
     if (S.groups.length) parts.push(S.groups.length + ' AI group' + (S.groups.length === 1 ? '' : 's'));
 
-    return '<div class="au-sec">Audience</div>' +
+    return publishedToHtml() +
+      '<div class="au-sec" style="margin-top:14px">Reach</div>' +
       '<div class="au-review">' + micon('groups', { size: 18, fill: 1 }) +
       '<span><b>' + ids.length + ' people</b> — ' + esc(parts.join(' + ') || 'nothing selected') + '</span>' +
-      '<button class="au-link" data-au-step="audience">Change</button></div>' +
+      '<button class="au-link" data-au-step="audience">Add more</button></div>' +
       (S.groups.length
         ? '<div class="au-note">' + micon('bolt', { size: 13, fill: 1 }) +
           ' AI groups are live rules — people who match later receive this automatically.</div>'
@@ -479,7 +551,9 @@
 
     OPTS = opts;
     S = {
-      step: 'audience', tab: tabs()[0].id,
+      // Callers can open straight on the roster — see openAssignDialog.
+      step: opts.step === 'review' ? 'review' : 'audience',
+      tab: tabs()[0].id,
       titles: (a.titles || []).slice(),
       individuals: (a.individuals || []).slice(),
       groups: (a.groups || []).slice(),
@@ -555,6 +629,40 @@
           }
           if (e.target.closest('[data-au-morechips]')) {
             S.showAllChips = !S.showAllChips; paint(); return;
+          }
+          /* Remove one audience entry from the review roster.
+
+             Nothing here is destructive on its own — the dialog still commits
+             on Publish — but a group can carry a dozen people who lose the
+             dashboard, and that number is not visible from a close button. So
+             an entry with real reach asks first; an empty one just goes. */
+          if ((el = e.target.closest('[data-au-remove]'))) {
+            var rk = el.getAttribute('data-au-remove');
+            var rid = el.getAttribute('data-au-remove-id');
+            var row = audienceRows().find(function (x) {
+              return x.kind === rk && x.id === rid;
+            });
+            var drop = function () {
+              if (rk === 'group') S.groups = S.groups.filter(function (x) { return x !== rid; });
+              else if (rk === 'title') S.titles = S.titles.filter(function (x) { return x !== rid; });
+              else S.individuals = S.individuals.filter(function (x) { return x !== rid; });
+              paint();
+            };
+            // One person removing themselves is self-evident; a rule that
+            // covers fourteen is not.
+            if (row && row.reach > 1) {
+              KX.confirm({
+                title: 'Remove “' + row.name + '”?',
+                body: row.reach + ' people lose this dashboard from their homepage ' +
+                  'when you publish. It falls back to their default.',
+                confirmLabel: 'Remove',
+                tone: 'warn',
+                onConfirm: drop
+              });
+            } else {
+              drop();
+            }
+            return;
           }
           if ((el = e.target.closest('[data-au-unpick]'))) {
             var uid = el.getAttribute('data-au-unpick');

@@ -478,6 +478,88 @@ Lab). Verified headlessly: zero invisible icons after the Pro swap, collapse-all
 every disc, expand-all opens all groups, and the elective toggle adds/removes the two
 E-tagged rows with correct pressed states.
 
+## Round 8: qualification icon + canvas/table contrast
+
+- **Qualifications are the graduation cap everywhere.** The medal glyph is gone from the
+  side nav, the plan's qualification rows, the View-by list and the qualification detail
+  hero; `fa-graduation-cap` now matches the legacy product, the catalog qualification cards
+  and the detail thumbnails. Requirements keep the award ribbon.
+- **The canvas moved to the gray ground** (`#f0f2f5`, as in location-nav and the
+  assigned-training wizard) at designer direction, so white panels and tables clearly
+  separate from the page. Superseded in Round 10: the canvas is back on the product
+  default `#f5f9fd` (below); the retuned table colours from this round stay.
+- **Table colours retuned for the darker ground, gently:** header/footer bands
+  `--c-surface-alt` to `#f3f5f9`, the plan-group band `--c-surface-alt2` to `#edf1f7`,
+  structural borders `--c-line` to `#dbe0e8`, row hairlines `--c-line-soft` to `#e9edf3`.
+  Secondary text `--c-meta` darkened to `#5b6779` so every pairing stays WCAG AA on the new
+  surfaces (re-measured: meter labels on bands 5.06, canvas-level captions 5.11, links 4.93).
+
+## Round 9: accordion tier separation
+
+The three plan tiers were blending (near-white bands on a light page). They now read as
+three distinct levels through stepped surface tones alone. Shadows and left accent bars
+were tried and removed as too busy; this round's treatment was flat:
+
+| Tier | Surface |
+|---|---|
+| Group + qualification headers | `--c-surface-deep` #e6ebf3 (one new named step in the same neutral family) |
+| Requirement headers | `--c-surface-alt` #f3f5f9 |
+| Activity rows | `--c-surface` white, hairline separators |
+
+Hierarchy is also structural, not just fill: stepped indents (16/32/44/60) and header
+weights (18/700 group, 16/600 qualification and requirement), so it survives
+low-contrast displays and colour-blindness. All text on the new surfaces re-measured AA:
+titles 14.8/9.6, meter labels 4.79/5.26, notice 5.2, carets 4.79. The page canvas stays
+the canvas tint outside the bordered panel, so all four grounds stay distinct.
+
+Superseded in Round 10: the surfaces lightened to two quieter steps, whisper shadows
+returned at much lower strength, and the header rows became clickable; see Round 10
+for the final treatment.
+
+## Round 10: quick polish
+
+- **Icon-only page actions.** Refresh and Help in the page header drop their text labels and
+  become square icon buttons (36x32, `.btn-iconic`), with the name kept in `aria-label` and
+  a `title` tooltip. Applied to every screen's action row. Refresh later dropped its outline
+  too: both are plain tertiary icons now.
+- **Flat type glyphs.** The accordion type icons lose the `--c-primary-soft` chip fill:
+  plain 14px `--c-primary` icons (the chip read as a second box on the tier bands). The
+  chip remains only where an icon stands alone (detail heroes, catalog type column).
+- **Accordion, final treatment: white headers, one shaded activity layer.** Three
+  shading versions were explored behind a temporary V1/V2/V3 page control (darkest-first
+  bands; reversed white-to-dark; white headers with tinted activities). The designer
+  picked the third and the control was removed - the treatment is now baked in:
+  every header level, the sticky column header included, sits on the base white surface;
+  hierarchy is carried by structure (stepped indents 16/32/44/60 and header weight,
+  18/700 group, 16/600 qualification and requirement); only the activity rows and the
+  card-view wrap take the light `--tier-act` tint `#f2f5f9`, so leaf content reads as
+  one shaded layer inside the white frame. No accent bars, no shadows.
+  Interactions stay: the WHOLE header row toggles on click (controls inside excluded),
+  header rows get the `--tier-head-hover` `#f3f6f9` fill with cursor pointer, activity
+  rows hover to `--tier-act-hover` `#ecf0f5`, and the caret keeps its rotate transition.
+  AA on the final surfaces: meta text 5.25 on the activity tint, 5.01 on its hover,
+  5.7+ on the white headers.
+- **Padding on the 4px grid.** Every padding now sits on the design-system 4px/8px grid.
+  Snapped: status pills `0 8` (was 0 10), location chips `0 8` (1 7), the inline notice
+  `4 12` (5 10), the card duration badge `4 8` (2 7), the detail kind chip `4 8` (2 9),
+  the spec-strip summary `4 8` (6 10), the segmented control inset `4` (2), and the
+  caret hit target grew to 24px (22). Accordion rows, cards, banners and tables already
+  used the `--s-*` scale.
+- **Canvas back to the product default.** `--c-canvas` returns to `#f5f9fd` (the
+  Convergence CLAUDE.md value) at designer direction, replacing the Round 8 gray
+  `#f0f2f5`. The Round 8 table retune (bands, borders, hairlines, darkened `--c-meta`)
+  stays. AA re-checked on the lighter ground: meta text 5.42, links 4.66, ink 16.1.
+- **Card type moved out of the title.** Cards no longer carry an icon beside the title;
+  the activity type is its own meta line styled exactly like the due date: `icon Tasklist`
+  over `icon Due 08-21-2026`, both 12px `--c-meta`, icons on a fixed 14px column so the
+  two lines' text aligns, 4px apart so they read as one block. Catalog cards get the same
+  type line (they have no due date). Bonus: the type is now readable text, not icon-only.
+- **Card padding pass.** Card interiors move to the modern 16px inset: body `16 16 12` with
+  an 8px stack gap, footer `0 16 16` pinned to the card bottom. The due-date line follows
+  the title at the plain 8px gap - no reserved title slot, and `.tcard-title` / `.tcard-meta`
+  zero their default h3/p margins, which had been stacking 36px of phantom space between
+  title and meta. Card height drops ~56px. Dense cards: `12 12 8` / `0 12 12`.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest

@@ -249,7 +249,7 @@ on.
   disappears. Edit `course.md` for one course, or `_kit/` for all of them.
 - **Changing the shared UI in `_kit/` doesn't reach existing courses until
   you rebuild them.** Run `node _kit/build-course.js --all`.
-- **`generate-img-sample.png` is owned by the kit** and copied into every
+- **`generate-img-sample.jpeg` is owned by the kit** and copied into every
   course. Don't name one of your scene images that.
 - **Nothing is saved.** Refreshing resets the demo to its authored state —
   fine for a scripted walkthrough, but a rep can't reload after generating

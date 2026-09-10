@@ -378,6 +378,7 @@ function boot() {
       ? 'fa-solid fa-chevrons-down' : 'fa-solid fa-chevrons-up';
   });
 
+
   // Show electives: reveals elective activities (E-tagged) in the plan.
   $('#fpElectives').addEventListener('click', () => {
     state.showElectives = !state.showElectives;

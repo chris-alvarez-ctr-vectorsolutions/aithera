@@ -391,19 +391,42 @@
      PUBLISHED DASHBOARD (Lieutenant / Firefighter heroes)
      ===================================================================== */
 
+  // ONE date range per DASHBOARD, never one per widget — the same rule the
+  // Agency Intelligence builder follows, because it is the same dashboard.
+  // A dashboard's data is queried as a whole, so the picker sits in the card
+  // header beside Export and scopes every widget under it.
   var PD_RANGES = [
     { value: 'last_7', label: 'Last 7 days' },
     { value: 'last_30', label: 'Last 30 days' },
     { value: 'last_90', label: 'Last 90 days' },
     { value: 'qtd', label: 'Quarter to date' },
     { value: 'ytd', label: 'Year to date' },
-    { value: 'last_12mo', label: 'Last 12 months' },
-    { value: 'next_14', label: 'Next 14 days' },
-    { value: 'next_30', label: 'Next 30 days' }
+    { value: 'last_12mo', label: 'Last 12 months' }
   ];
+  // Forward horizons — deliberately absent from the picker. A dashboard range
+  // is a window over data that already exists; "last 90 days of open shifts"
+  // means nothing. Countdown metrics carry a fixed horizon of their own and
+  // print it as static text, sitting out the dashboard range.
+  var PD_HORIZONS = {
+    next_14: 'Next 14 days',
+    next_30: 'Next 30 days'
+  };
   function rangeLabel(v) {
+    if (PD_HORIZONS[v]) return PD_HORIZONS[v];
     var r = PD_RANGES.find(function (x) { return x.value === v; });
     return r ? r.label : 'Last 30 days';
+  }
+  function pdDashRange(cfg) { return (cfg && cfg.range) || 'last_30'; }
+  // The fixed forward window a widget reports on, or null if it follows the
+  // dashboard. Read off the metric where there is one so a hand-authored
+  // widget and a metric-backed one agree.
+  function pdHorizonOf(w) {
+    var CP = window.AGENCY_INTEL;
+    if (CP && CP.widgetHorizon && (w.metricId || w.metricIds)) {
+      var h = CP.widgetHorizon(w);
+      if (h) return h;
+    }
+    return PD_HORIZONS[w.range] ? w.range : null;
   }
 
   // Abbreviated forms for narrow (w:4) widgets, where the full label would eat
@@ -418,13 +441,16 @@
   var LT_DASH = {
     name: 'B-Shift Readiness', scope: 'Station 4 · B-Shift',
     publisher: 'Chief Smith · Battalion 1', ownerShort: 'Chief Smith',
+    // The dashboard's ONE reporting window — every time-bounded widget on it
+    // reads this value. A crew-readiness read is a quarter-to-date story.
+    range: 'qtd',
     widgets: [
-      { id: 'lt1', metricId: 'training_completion',    viz: 'kpi',   w: 4,  range: 'qtd',       source: ['ts'],    title: 'Crew training complete' },
-      { id: 'lt2', metricId: 'credential_expirations', viz: 'kpi',   w: 4,  range: 'next_30',   source: ['ts'],    title: 'Credentials expiring' },
-      { id: 'lt3', metricId: 'open_shifts',            viz: 'kpi',   w: 4,  range: 'next_14',   source: ['sched'], title: 'Open shifts · 14d' },
-      { id: 'lt4', metricId: 'ot_trend',               viz: 'line',  w: 7,  range: 'last_12mo', source: ['sched'], title: 'Overtime hours', color: 'var(--amber-500)' },
-      { id: 'lt5', metricId: 'overdue_inspections',    viz: 'bar',   w: 5,  range: 'last_90',   source: ['ci'],    title: 'Overdue inspections by station' },
-      { id: 'lt6', metricId: 'open_shifts',            viz: 'table', w: 12, range: 'next_14',   source: ['sched'], title: 'Open shifts · next 14 days' }
+      { id: 'lt1', metricId: 'training_completion',    viz: 'kpi',   w: 4,  source: ['ts'],    title: 'Crew training complete' },
+      { id: 'lt2', metricId: 'credential_expirations', viz: 'kpi',   w: 4,  source: ['ts'],    title: 'Credentials expiring' },
+      { id: 'lt3', metricId: 'open_shifts',            viz: 'kpi',   w: 4,  source: ['sched'], title: 'Open shifts · 14d' },
+      { id: 'lt4', metricId: 'ot_trend',               viz: 'line',  w: 7,  source: ['sched'], title: 'Overtime hours', color: 'var(--amber-500)' },
+      { id: 'lt5', metricId: 'overdue_inspections',    viz: 'bar',   w: 5,  source: ['ci'],    title: 'Overdue inspections by station' },
+      { id: 'lt6', metricId: 'open_shifts',            viz: 'table', w: 12, source: ['sched'], title: 'Open shifts · next 14 days' }
     ]
   };
 
@@ -534,12 +560,24 @@
   // table in pdOutlierScatter's header. --src-sched is borrowed because the
   // palette has no other distinct fifth hue; the shape encoding and the
   // "Division N" legend labels keep it from reading as the Scheduling chip.
+  // A division is an identity, not a verdict, so none of these may be a status
+  // hue: teal for "Division 1" and amber for "Division 3" quietly told the
+  // reader which divisions were the good and bad ones. All five are now
+  // status-free and each clears 3:1 on the surface.
+  //
+  // KNOWN LIMIT: five series in a scatter is an all-pairs colour problem — any
+  // two points can sit side by side — and no five-hue set from this palette
+  // clears the >= 15 normal-vision separation floor. This set gets the worst
+  // pair to 13.8 (it was 10.4). The mitigation is the SHAPE encoding each
+  // division also carries plus the labelled legend, per the rule that a
+  // sub-floor pair is legal only with secondary encoding; the real fix is
+  // fewer series or facets, not another palette.
   var OT_INJURY_DIVISIONS = [
-    { id: 1, label: 'Division 1', color: 'var(--teal-400)' },
-    { id: 2, label: 'Division 2', color: 'var(--status-due)' },
-    { id: 3, label: 'Division 3', color: 'var(--amber-600)' },
-    { id: 4, label: 'Division 4', color: 'var(--src-sched)' },
-    { id: 5, label: 'Division 5', color: 'var(--ink-600)' }
+    { id: 1, label: 'Division 1', color: 'var(--status-due)' },
+    { id: 2, label: 'Division 2', color: 'var(--src-sched)' },
+    { id: 3, label: 'Division 3', color: 'var(--src-gt)' },
+    { id: 4, label: 'Division 4', color: 'var(--ink-600)' },
+    { id: 5, label: 'Division 5', color: 'var(--azure-400)' }
   ];
 
   // Headcount terciles → the renderer's 3 size steps. Computed from the
@@ -601,6 +639,8 @@
   var CHIEF_DASH = {
     name: 'B-1 Coverage Snapshot', scope: 'Battalion 1 · all stations',
     owned: true, ownerShort: 'you',
+    // The dashboard's ONE reporting window — see PD_RANGES.
+    range: 'last_90',
     widgets: [
       // Sources: overtime/scheduling data is Scheduling ('sched') — the same
       // source the 'Overtime hours' widget on the Lieutenant's dashboard
@@ -627,13 +667,12 @@
       // measures, and a control reading "Last 30 days" over a 90-day metric
       // would be stating something false in the one piece of card chrome a
       // viewer can act on.
-      { id: 'ch1', viz: 'scatter', w: 5,
-        range: 'last_90', source: ['sched'], sourceTodo: 'Injury / OSHA recordables',
+      { id: 'ch1', viz: 'scatter', w: 5, source: ['sched'], sourceTodo: 'Injury / OSHA recordables',
         title: 'Overtime exposure × injury rate',
         subtitle: 'by battalion, rolling 90 days',
         scatter: otInjurySpec },
-      { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, range: 'last_30', source: ['ci'] },
-      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 4, range: 'last_30',
+      { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, source: ['ci'] },
+      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 4,
         source: ['ts', 'ci', 'sched', 'gt', 'ev'] }
     ]
   };
@@ -661,57 +700,95 @@
   var FF_DASH = {
     name: 'My Readiness', scope: 'Riley Brennan · FF / EMT',
     publisher: 'Training Officer Whitfield', ownerShort: 'Training',
+    // The dashboard's ONE reporting window — see PD_RANGES.
+    range: 'ytd',
     template: 'Readiness Hub starter template',
     widgets: [
-      { id: 'ff1', kind: 'kpi', w: 4, range: 'ytd', source: ['ts'], icon: 'school',
+      { id: 'ff1', kind: 'kpi', w: 4, source: ['ts'], icon: 'school',
         title: 'My required training', num: '92%', delta: '2 courses remaining', tone: 'good',
         trend: [{ x: 'Feb', y: 61 }, { x: 'Mar', y: 68 }, { x: 'Apr', y: 74 },
                 { x: 'May', y: 83 }, { x: 'Jun', y: 88 }, { x: 'Jul', y: 92 }] },
       { id: 'ff2', kind: 'kpi', w: 4, range: 'next_30', source: ['ts'], icon: 'workspace_premium',
         title: 'Next credential due', num: '18', unit: 'days',
         delta: 'Paramedic recert · renew by Jul 12', tone: 'warn' },
-      { id: 'ff3', kind: 'progress', w: 4, range: 'ytd', source: ['ev'], icon: 'school',
+      { id: 'ff3', kind: 'progress', w: 4, source: ['ev'], icon: 'school',
         title: 'CEU progress', num: '38%', pct: 38, delta: '14 of 36 hours · due Dec 31',
         tone: 'neutral', color: 'var(--teal-400)' }
     ]
   };
 
-  // Viewer-side date-range override. The viewer can explore, but only the
-  // owner can save the default — the same rule as the builder's preview.
+  // Viewer-side override of the DASHBOARD's range. The viewer can explore,
+  // but only the owner can save the default — the same rule as the builder's
+  // preview, one level up now that the range belongs to the dashboard.
+  // Keyed by dashboard variant, since that is what identifies the card.
   var pdOverrides = {};
 
-  function pdRangeControl(w, ownerLabel, compact) {
-    var saved = w.range || 'last_30';
-    var local = pdOverrides[w.id];
+  function pdCurrentRange(cfg, variant) {
+    var saved = pdDashRange(cfg);
+    var local = pdOverrides[variant];
+    return (local != null && local !== saved) ? local : saved;
+  }
+
+  // The dashboard's one date picker. Lives in the card header cluster with
+  // Export and Switch dashboard — controls that act on the whole card.
+  function pdDashRangeControl(cfg, variant) {
+    var saved = pdDashRange(cfg);
+    var local = pdOverrides[variant];
     var dirty = local != null && local !== saved;
     var current = dirty ? local : saved;
-    return '<span style="position:relative;display:inline-flex;align-items:center;flex-shrink:0">' +
-      '<button class="kx-range-btn' + (dirty ? ' is-dirty' : '') + '" data-range-toggle="' + KX.attr(w.id) + '" ' +
-      'title="' + esc(rangeLabel(current)) + ' — ' +
-      (dirty ? 'exploring, only the owner can save this default' : 'change date range') + '">' +
-      micon('calendar_today', { size: 13 }) +
-      '<span>' + esc(compact ? rangeLabelShort(current) : rangeLabel(current)) + '</span>' +
-      (dirty ? '<span title="Exploring — unsaved" style="width:5px;height:5px;border-radius:99px;background:var(--amber-500)"></span>' : '') +
-      micon('expand_more', { size: 14 }) + '</button>' +
-      (dirty ? '<button data-range-reset="' + KX.attr(w.id) + '" title="Reset to the owner\'s default" ' +
-        'style="margin-left:2px;background:none;border:none;color:var(--lumo-primary-text-color);font-size:11px;' +
-        'font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
-      (openRangeMenu === w.id
-        ? '<div class="kx-menu kx-menu--right" style="width:214px;top:calc(100% + 4px)">' +
+    var owner = cfg.owned ? 'you' : esc(cfg.ownerShort || 'the owner');
+
+    return '<span style="position:relative;display:inline-flex;align-items:center">' +
+      '<button class="kx-dashrange-btn' + (dirty ? ' is-dirty' : '') + '" data-pd-range-toggle ' +
+      'aria-haspopup="menu" aria-expanded="' + (openRangeMenu ? 'true' : 'false') + '" ' +
+      'title="Date range for this dashboard — it scopes every widget on it">' +
+      micon('calendar_today', { size: 14 }) +
+      // Two labels, swapped by CSS. Every other control in this header goes
+      // icon-only on a narrow card, but this one cannot — the WINDOW is the
+      // information, and a bare calendar icon says nothing. So it shortens
+      // instead ("Last 90 days" → "Last 90d") rather than disappearing.
+      '<span class="lbl lbl-full">' + esc(rangeLabel(current)) + '</span>' +
+      '<span class="lbl lbl-short">' + esc(rangeLabelShort(current)) + '</span>' +
+      (dirty ? '<span title="Exploring — unsaved" style="width:5px;height:5px;border-radius:99px;' +
+        'background:var(--amber-500);flex-shrink:0"></span>' : '') +
+      micon('expand_more', { size: 15 }) + '</button>' +
+      (dirty ? '<button data-pd-range-reset title="Reset to the saved range" ' +
+        'style="margin-left:4px;background:none;border:none;color:var(--lumo-primary-text-color);' +
+        'font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
+      (openRangeMenu
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:238px;top:calc(100% + 4px)">' +
+          '<div class="kx-menu-label">Scopes every widget</div>' +
           PD_RANGES.map(function (r) {
-            return '<button class="kx-menu-row" data-range-pick="' + KX.attr(w.id) + '" data-range-val="' + r.value + '">' +
+            return '<button class="kx-menu-row" data-pd-range-pick="' + r.value + '">' +
               micon('calendar_today', { size: 14, color: r.value === current ? 'var(--amber-600)' : 'var(--ink-400)' }) +
               '<span class="label">' + esc(r.label) + '</span>' +
               (r.value === current ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
           }).join('') +
-          '<div style="display:flex;gap:6px;padding:7px 8px 3px;margin-top:4px;border-top:1px solid var(--ink-100);' +
+          '<div style="display:flex;gap:6px;padding:8px 9px 4px;margin-top:4px;border-top:1px solid var(--ink-100);' +
           'font-size:10.5px;color:var(--ink-400);line-height:1.45">' + micon('info', { size: 13 }) +
-          '<span>Exploring only — ' + esc(ownerLabel || 'the owner') + ' can save the default.</span></div></div>'
+          // Even the owner cannot save from here — this card is a read-only
+          // view of a published dashboard; the saved range is set where the
+          // dashboard is built.
+          '<span>Exploring only — ' + (cfg.owned
+            ? 'save the default in Agency Intelligence'
+            : owner + ' saves the default') +
+          '. Countdown widgets report ahead and ignore this window.</span></div></div>'
         : '') +
       '</span>';
   }
 
-  var openRangeMenu = null;
+  // A widget that reports on a fixed forward window instead of the
+  // dashboard's. Static text, deliberately not a control — see .kx-horizon.
+  function pdHorizonLabel(w, compact) {
+    var h = pdHorizonOf(w);
+    if (!h) return '';
+    return '<span class="kx-horizon" ' +
+      'title="This widget looks forward on a fixed window and is not affected by the dashboard date range">' +
+      micon('event_upcoming', { size: 13 }) +
+      '<span>' + esc(compact ? rangeLabelShort(h) : rangeLabel(h)) + '</span></span>';
+  }
+
+  var openRangeMenu = false;   // the dashboard's range menu — one per card
 
   /* ---------------------------------------------------------------------
      EXPORT — dashboard-level and per-widget
@@ -822,8 +899,8 @@
     return tables;
   }
 
-  function pdWidgetsOf(cfg, variant) {
-    return cfg.widgets.concat(addedFor(variant));
+  function pdWidgetsOf(cfg) {
+    return cfg.widgets;
   }
 
   function pdExportAvailable() {
@@ -851,8 +928,12 @@
 
   function pdExportDashboard(kind) {
     if (!pdCurrent || !pdExportAvailable()) return;
-    var cfg = pdCurrent.cfg, widgets = pdWidgetsOf(cfg, pdCurrent.variant);
-    var meta = cfg.scope + ' · Readiness Hub · ' + KX.fmtDate(new Date());
+    var cfg = pdCurrent.cfg, widgets = pdWidgetsOf(cfg);
+    // The window is load-bearing on paper: a printed number with no period
+    // on it can't be checked. One dashboard range covers the lot, so it is
+    // stated once here rather than under each widget.
+    var meta = cfg.scope + ' · Readiness Hub · ' + KX.fmtDate(new Date()) +
+      ' · ' + rangeLabel(pdCurrentRange(cfg, pdCurrent.variant));
     if (kind === 'csv') window.AGENCY_INTEL_EXPORT.csv(cfg.name, pdTables(widgets));
     else window.AGENCY_INTEL_EXPORT.print(pdPrintDoc(cfg.name, meta, widgets, cfg.ownerShort));
   }
@@ -860,12 +941,13 @@
   function pdExportWidget(id, kind) {
     if (!pdCurrent || !pdExportAvailable()) return;
     var cfg = pdCurrent.cfg;
-    var w = pdWidgetsOf(cfg, pdCurrent.variant).find(function (x) { return x.id === id; });
+    var w = pdWidgetsOf(cfg).find(function (x) { return x.id === id; });
     if (!w) return;
     var title = pdTitleOf(w);
     if (kind === 'csv') { window.AGENCY_INTEL_EXPORT.csv(title, pdTables([w])); return; }
     // One widget prints full-width — it is the whole document now, not a cell.
-    var meta = cfg.name + ' · ' + cfg.scope + ' · ' + KX.fmtDate(new Date());
+    var meta = cfg.name + ' · ' + cfg.scope + ' · ' + KX.fmtDate(new Date()) +
+      ' · ' + rangeLabel(pdHorizonOf(w) || pdCurrentRange(cfg, pdCurrent.variant));
     window.AGENCY_INTEL_EXPORT.print(
       pdPrintDoc(title, meta, [Object.assign({}, w, { w: 12 })], cfg.ownerShort));
   }
@@ -901,12 +983,16 @@
       var ls = w.metricId ? CC.buildSpec(w.metricId, 'line') : null;
       icon = icon || (ls ? ls.icon : 'show_chart');
       title = title || (ls ? ls.label : '');
-      body = KXCharts.pdLine(w.data || (ls ? ls.data : []), w.color, w.ySuffix);
+      // w.color is the widget author's override; otherwise the metric's own
+      // tone colour, so a rising failure count is never drawn in green.
+      body = KXCharts.pdLine(w.data || (ls ? ls.data : []),
+                             w.color || (ls ? ls.color : null), w.ySuffix);
     } else if (kind === 'bar') {
       var bs = w.metricId ? CC.buildSpec(w.metricId, 'bar') : null;
       icon = icon || (bs ? bs.icon : 'bar_chart');
       title = title || (bs ? bs.label : '');
-      body = KXCharts.pdBar(w.data || (bs ? bs.data : []));
+      body = KXCharts.pdBar(w.data || (bs ? bs.data : []),
+                            w.color || (bs ? bs.color : null), bs ? bs.tone : null);
     } else if (kind === 'donut') {
       var ds = w.metricId ? CC.buildSpec(w.metricId, 'donut') : null;
       icon = icon || (ds ? ds.icon : 'donut_large');
@@ -985,15 +1071,11 @@
         '<span class="dot"></span>TBD</span>';
     }
 
-    // Only widgets the assistant put here get a remove control. The dashboard's
-    // own widgets are its content — there is nothing to take back, and an ✕ on
-    // them would read as "delete from the published dashboard", which a viewer
-    // cannot do. Duplicates from chat are allowed, so this is the way back out.
-    var rm = w.fromChat
-      ? '<button class="kx-pubwidget-rm" data-kx-ai-remove="' + KX.attr(w.id) + '" ' +
-        'title="Remove this widget" aria-label="Remove the ' + KX.attr(title) + ' widget">' +
-        micon('close', { size: 15 }) + '</button>'
-      : '';
+    // No remove control on any widget here. A published dashboard's widgets are
+    // its content, decided by whoever built it; a reader of this card cannot
+    // add one and cannot take one away. (This used to carry an ✕ for widgets
+    // the assistant had dropped in from chat — that route is gone.)
+    var rm = '';
 
     // Per-widget export, in the widget's own top-right corner. Same two options
     // as the card-level control, scoped to this widget alone — and the same
@@ -1060,7 +1142,12 @@
       // the top and span the full width, which styles.css overrides by class.
       '<div class="kx-pubwidget-body" ' +
       'style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
-      '<div class="kx-pubwidget-foot">' + pdRangeControl(w, ownerLabel, narrow) + '</div>' +
+      // Only widgets on their OWN forward horizon say anything here. The
+      // dashboard's window is stated once, in the card header — repeating it
+      // under every widget is chrome, and there is nothing to click either way.
+      (pdHorizonLabel(w, narrow)
+        ? '<div class="kx-pubwidget-foot">' + pdHorizonLabel(w, narrow) + '</div>'
+        : '') +
       '</div>';
   }
 
@@ -1090,7 +1177,12 @@
 
     var out = '<div class="kx-pubhead-ctl">';
 
-    // Export sits FIRST — left of the switcher — because it acts on the
+    // The date range leads the cluster: it changes what every widget below is
+    // SHOWING, where Export and the switcher act on the card as a whole. It is
+    // also the only calendar on this card now — widgets have none.
+    out += pdDashRangeControl(cfg, variant);
+
+    // Export sits next — left of the switcher — because it acts on the
     // dashboard you are looking at, while the switcher replaces it. Every
     // published dashboard gets it, owned or received: the Firefighter's card
     // used to render no control cluster at all when they had nothing to switch
@@ -1150,15 +1242,6 @@
   // The dashboard body. Without a grant this is exactly the grid that shipped
   // before — no wrapper, no panel, no height change. The ungranted case is a
   // real no-op, not a hidden element.
-  // The chat-added widgets for this variant. publishedDashboard() needs them for
-  // the header's source-chip union and dashBody() needs them for the grid; two
-  // derivations from different inputs is exactly how a widget added from a new
-  // source app ended up with no chip in the header.
-  function addedFor(variant) {
-    var AI = window.KXAIPanel;
-    return (AI && AI.hasAccess(VARIANT_ROLE[variant])) ? AI.addedWidgets() : [];
-  }
-
   /* True once any widget carries an authored height. That is the signal that a
      human laid this dashboard out on the Agency Intelligence canvas, and the only
      case where reproducing exact heights is faithful rather than invented. A
@@ -1172,22 +1255,13 @@
     var granted = AI && AI.hasAccess(VARIANT_ROLE[variant]);
     if (granted) AI.setContext(VARIANT_ROLE[variant], cfg);
 
-    var added = addedFor(variant);
-    var all = cfg.widgets.concat(added);
+    // Exactly the widgets the dashboard was built with. Chat used to be able to
+    // append to this — it can't now, so there is no merge and no landing-zone
+    // placeholder for answers to drop into.
+    var all = cfg.widgets;
     var sized = anySized(all);
     var cells = all
       .map(function (w) { return pubWidget(w, cfg.ownerShort, { sized: sized }); }).join('');
-
-    // Expanded with nothing added yet: name the empty row rather than leave a
-    // hole. It is the landing zone for "Add as a widget" — so it only opens once
-    // the thread actually holds an addable answer. A refusal resolves to no
-    // metric, and promising a landing zone for something that turn can never
-    // produce is worse than not growing the container at all.
-    if (granted && AI.isExpanded() && AI.hasAddable() && !added.length && cfg.owned) {
-      cells += '<div class="kx-ai-drop" style="grid-column:span 12">' +
-        micon('add_chart', { size: 26, fill: 1 }) +
-        '<span>Answers you add land here</span></div>';
-    }
 
     // The modifier switches the grid onto the fixed row track. Without it the
     // grid keeps auto rows and nothing about the published look changes.
@@ -1195,21 +1269,98 @@
     if (!granted) return grid;
 
     return '<div class="kx-pubbody' + (AI.isExpanded() ? ' is-expanded' : '') + '">' +
-      AI.html(cfg) + grid + '</div>';
+      AI.html() + grid + '</div>';
+  }
+
+  /* ---------------------------------------------------------------------
+     UNSHARED — what a viewer sees after the owner revokes their access
+     ---------------------------------------------------------------------
+     Removing someone from a dashboard's audience is now possible in Agency
+     Intelligence, which raises the question that removal always raises and
+     that this prototype previously had no answer for: what does the person on
+     the other end see the next morning?
+
+     Not a hole where their dashboard was, and not a dead card. They fall back
+     to the starter dashboard for their role — the one the department publishes
+     to everyone — with a one-time note saying what went and who to ask. The
+     note is dismissible because it is news, not a permanent condition; the
+     fallback underneath is simply their homepage from then on.
+     --------------------------------------------------------------------- */
+  var unshared = false;          // demo switch — see hub.js mountPrototypeFab
+  var unsharedDismissed = false;
+  function setUnshared(on) {
+    unshared = !!on;
+    if (on) unsharedDismissed = false;   // re-arm so the note shows each demo
+  }
+
+  // Only a RECEIVED dashboard can be taken away. The Chief owns theirs, so
+  // there is nobody who could revoke it and the scenario does not apply.
+  function isUnshared(variant, cfg) {
+    return unshared && !cfg.owned;
+  }
+
+  /* What you land on depends on what you lost, and there are two cases — the
+     second is easy to forget and is the one that actually strands someone.
+
+     Lose a dashboard built FOR your crew and you fall back to the department
+     starter: still a homepage, just a more general one. But the starter is the
+     floor. Lose that and there is nothing underneath, so the honest answer is
+     an empty state that says so and names who can give it back — not a blank
+     region, and not a pretend dashboard with no data behind it. */
+  function hasFallback(cfg) { return cfg !== FF_DASH; }
+
+  function noDashboardState(cfg) {
+    return '<div class="kx-nodash">' +
+      '<span class="mark">' + micon('dashboard_customize', { size: 30 }) + '</span>' +
+      '<div class="t">No dashboard on your homepage</div>' +
+      '<div class="s">\u201c' + esc(cfg.name) + '\u201d was removed by ' +
+      esc(cfg.publisher || cfg.ownerShort || 'its owner') + ', and you have no other ' +
+      'dashboard published to you. Your tasks below are unaffected.</div>' +
+      '<div class="s" style="margin-top:6px">Ask ' +
+      esc(cfg.ownerShort || 'your training officer') + ' to publish one.</div>' +
+      '</div>';
+  }
+
+  function unsharedNotice(cfg, fellBack) {
+    if (unsharedDismissed) return '';
+    return '<div class="kx-unshared" role="status">' +
+      '<span class="mark">' + micon('person_remove', { size: 17, fill: 1 }) + '</span>' +
+      '<span class="body">' +
+      '<span class="t">\u201c' + esc(cfg.name) + '\u201d is no longer shared with you</span>' +
+      '<span class="s">' + esc(cfg.ownerShort || 'The owner') + ' removed it from your homepage. ' +
+      // The second sentence has to match what is actually below the notice —
+      // promising "your standard dashboard" above an empty state is worse
+      // than saying nothing.
+      (fellBack
+        ? 'You\u2019re seeing your department\u2019s standard dashboard instead \u2014 ' +
+          'ask them if you still need it.'
+        : 'Ask them if you still need it.') +
+      '</span>' +
+      '</span>' +
+      '<button class="kx-unshared-x" data-unshared-dismiss aria-label="Dismiss">' +
+      micon('close', { size: 16 }) + '</button></div>';
   }
 
   function publishedDashboard(variant) {
     var cfg = variant === 'chief' ? CHIEF_DASH
             : variant === 'firefighter' ? FF_DASH
             : LT_DASH;
+    // Access revoked: the dashboard they were sent is gone, and what they get
+    // is the starter every member of the department has. FF_DASH *is* that
+    // starter ("Readiness Hub starter template"), so it is what they land on.
+    var revoked = isUnshared(variant, cfg);
+    var notice = revoked ? unsharedNotice(cfg, hasFallback(cfg)) : '';
+    // Nothing underneath: the starter is the floor, so this role is left with
+    // no dashboard at all rather than a fallback.
+    if (revoked && !hasFallback(cfg)) return notice + noDashboardState(cfg);
+    if (revoked) cfg = FF_DASH;
     // Which dashboard the export handlers are acting on. Recorded here because
     // the handlers fire after the render, and the role can change under them.
     pdCurrent = { cfg: cfg, variant: variant };
-    // Chips describe what this card is actually showing, so the union spans the
-    // chat-added widgets too — add a Scheduling answer to a dashboard with no
-    // Scheduling widget and the header must gain a Sched chip.
+    // Chips describe what this card is actually showing. That is now just the
+    // dashboard's own widgets — the set can't change while someone reads it.
     var union = {};
-    cfg.widgets.concat(addedFor(variant)).forEach(function (w) {
+    cfg.widgets.forEach(function (w) {
       (w.source || []).forEach(function (s) { union[s] = true; });
     });
 
@@ -1227,7 +1378,8 @@
       ? micon('edit', { size: 12 }) + ' You own this · edit in Agency Intelligence'
       : micon('lock', { size: 12 }) + ' Read-only · explore freely, only ' + esc(cfg.ownerShort) + ' can edit';
 
-    return '<div class="kx-pubdash" data-pubdash="' + KX.attr(variant) + '">' +
+    return notice +
+      '<div class="kx-pubdash" data-pubdash="' + KX.attr(variant) + '">' +
       '<div class="kx-pubhead">' +
       '<span class="kx-pubmark">' + micon('dashboard_customize', { size: 18, fill: 1 }) + '</span>' +
       '<div style="min-width:0;flex:1">' +
@@ -1289,25 +1441,34 @@
         return;
       }
 
-      /* -- published-dashboard range control -- */
-      var rt = e.target.closest('[data-range-toggle]');
-      if (rt) {
-        var id = rt.getAttribute('data-range-toggle');
-        openRangeMenu = openRangeMenu === id ? null : id;
+      if (e.target.closest('[data-unshared-dismiss]')) {
+        unsharedDismissed = true;
+        window.KXHub.render();
+        return;
+      }
+
+      /* -- published-dashboard range control --
+         Dashboard-level, so it is keyed by the dashboard variant rather than
+         by a widget. A published dashboard is read-only: the pick is always a
+         local exploration, and Reset puts the owner's saved range back. */
+      if (e.target.closest('[data-pd-range-toggle]')) {
+        openRangeMenu = !openRangeMenu;
         pdCloseMenus({ keepRange: true });   // one menu open at a time, all directions
         window.KXHub.render();
         return;
       }
-      var rp = e.target.closest('[data-range-pick]');
+      var rp = e.target.closest('[data-pd-range-pick]');
       if (rp) {
-        var wid = rp.getAttribute('data-range-pick');
-        pdOverrides[wid] = rp.getAttribute('data-range-val');
-        openRangeMenu = null;
+        if (pdCurrent) pdOverrides[pdCurrent.variant] = rp.getAttribute('data-pd-range-pick');
+        openRangeMenu = false;
         window.KXHub.render();
         return;
       }
-      var rr = e.target.closest('[data-range-reset]');
-      if (rr) { delete pdOverrides[rr.getAttribute('data-range-reset')]; window.KXHub.render(); return; }
+      if (e.target.closest('[data-pd-range-reset]')) {
+        if (pdCurrent) delete pdOverrides[pdCurrent.variant];
+        window.KXHub.render();
+        return;
+      }
 
       /* -- table widget: columns, reset, clear filter --
          A published dashboard is read-only, so every one of these is a LOCAL
@@ -1431,7 +1592,7 @@
   // re-derive from pdCurrent rather than closing over the widget list.
   function pdWidgetById(id) {
     if (!pdCurrent) return null;
-    var ws = pdWidgetsOf(pdCurrent.cfg, pdCurrent.variant) || [];
+    var ws = pdWidgetsOf(pdCurrent.cfg) || [];
     return ws.find(function (w) { return w.id === id; }) || null;
   }
 
@@ -1473,7 +1634,7 @@
   // closes the rest. Centralised because there are now four of them, and the
   // pairwise resets this used to do missed a combination each time one was added.
   function pdCloseMenus(keep) {
-    if (!(keep && keep.keepRange)) openRangeMenu = null;
+    if (!(keep && keep.keepRange)) openRangeMenu = false;
     openDashMenu = false;
     openExportMenu = false;
     openWidgetMenu = null;
@@ -1484,6 +1645,7 @@
     coverageHero: coverageHero,
     complianceHero: complianceHero,
     publishedDashboard: publishedDashboard,
+    setUnshared: setUnshared,
     computePulse: computePulse,
     wire: wire
   };

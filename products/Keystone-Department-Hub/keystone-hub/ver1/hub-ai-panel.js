@@ -65,20 +65,20 @@
      ===================================================================== */
 
   // NOT SCOPED PER DASHBOARD — deliberate, and a real limitation to carry into
-  // any implementation. state.thread and state.added are page-global, while
-  // dashBody() concatenates addedWidgets() onto whichever dashboard variant is
-  // currently rendering. Today nothing exposes it: the Chief is the only role
-  // that is both granted an assistant and the owner of their dashboard. But
-  // granting a non-owning role — a pure seedGrants() data change, no code
-  // involved — would render the Chief's chat-added widgets on that role's
-  // read-only dashboard and show them the Chief's conversation. A production
-  // build must key both arrays by dashboard identity.
+  // any implementation. state.thread is page-global, so granting the assistant
+  // to a second role — a pure seedGrants() data change, no code involved —
+  // would show that role the Chief's conversation. A production build must key
+  // the thread by dashboard identity.
+  //
+  // (This used to be the more serious of two leaks: chat-added widgets were
+  // page-global too, so they could render on a role's read-only dashboard.
+  // Adding from chat is gone, so only the thread remains.)
   //
   // The same applies to every other piece of module state in this file. The full
   // list: state.draft, state.thinking, state.collapsed, the currentPerson /
-  // currentOwned pair below, sendEpoch (the monotonic send id, near send()) and
-  // addSeq (the widget-id counter, near makeWidgetSpec) are all one-per-page, not
-  // one-per-dashboard. If you add module state here, add it to this list too.
+  // currentOwned pair below, and sendEpoch (the monotonic send id, near send())
+  // are all one-per-page, not one-per-dashboard. If you add module state here,
+  // add it to this list too.
   //
   // And setContext() is
   // called only from the granted branch of dashBody(), so currentPerson /
@@ -89,24 +89,12 @@
     thread: [],      // { role:'user', text } | { role:'assistant', text, metricId, denied }
     draft: '',
     thinking: false,
-    collapsed: false,
-    added: []        // widget specs added to the grid from chat
+    collapsed: false
   };
 
   // A collapsed panel reports as not expanded, so the container returns to
   // compact height with no extra bookkeeping in the hero.
   function isExpanded() { return !state.collapsed && (state.thread.length > 0 || state.thinking); }
-  function addedWidgets() { return state.added; }
-
-  // Whether the thread holds an answer that could become a widget. A refusal
-  // resolves to no metric, so a thread of nothing but refusals must not open the
-  // "Answers you add land here" placeholder — that row promises a landing zone
-  // for something the turn never produced.
-  function hasAddable() {
-    return state.thread.some(function (m) {
-      return m.role === 'assistant' && !!m.metricId;
-    });
-  }
 
   function mark(size) {
     size = size || 28;
@@ -117,8 +105,11 @@
   // Set every render from the variant the hero is drawing, so respond() and the
   // suggestion filter always use the right asker.
   var currentPerson = null;
-  // Only the dashboard's owner may change it. A read-only published dashboard
-  // ("only Training can edit") must never offer an edit affordance.
+  // Whether the reader owns the dashboard they are looking at. It no longer
+  // gates an edit — nothing on this page edits a dashboard — but it still
+  // decides whether we offer the way INTO the builder, since someone reading a
+  // dashboard published to them has nothing there to edit. Matches the
+  // Agency Intelligence link in the card header, which is owner-only too.
   var currentOwned = false;
   function setContext(roleId, cfg) {
     currentPerson = personFor(roleId);
@@ -189,11 +180,15 @@
     }).join('');
   }
 
-  function turnHtml(msg, idx) {
+  function turnHtml(msg) {
     if (msg.role === 'user') {
       return '<div class="kx-ai-user"><div class="bubble">' + esc(msg.text) + '</div></div>';
     }
-    var canAdd = msg.metricId && currentOwned && !msg.added;
+    // The homepage is a VIEW of a published dashboard, never an editing
+    // surface — nothing here changes which widgets it carries. Where an answer
+    // is chartable and the reader owns the dashboard, point at the one place
+    // that CAN change it rather than doing it from the card.
+    var canBuild = msg.metricId && currentOwned;
     return '<div class="kx-ai-turn">' + mark(24) +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">' +
       '<div class="bubble">' + bubbleText(msg.text) + '</div>' +
@@ -201,14 +196,13 @@
         ? '<div class="kx-ai-denied">' + micon('block', { size: 13, fill: 1 }) +
           '<span>' + esc(msg.deniedNote || 'Outside your data permissions.') + '</span></div>'
         : '') +
-      (canAdd
-        ? '<button class="kx-ai-add" data-kx-ai-add="' + KX.attr(msg.metricId) + '" ' +
-          'data-kx-ai-add-turn="' + idx + '">' +
-          micon('add_chart', { size: 14, fill: 1 }) + 'Add as a widget</button>'
-        : '') +
-      (msg.added
-        ? '<div class="kx-ai-added">' + micon('check_circle', { size: 14, fill: 1 }) +
-          'Added ' + esc(msg.added) + ' to the dashboard</div>'
+      (canBuild
+        ? '<a class="kx-ai-build" href="agency-intelligence-dashboard.html" ' +
+          'target="_blank" rel="noreferrer" ' +
+          'title="Build this into a widget in Agency Intelligence">' +
+          micon('auto_awesome', { size: 14, fill: 1 }) +
+          '<span>Open in Agency Intelligence</span>' +
+          micon('open_in_new', { size: 13 }) + '</a>'
         : '') +
       '</div></div>';
   }
@@ -250,13 +244,18 @@
       // Only once there are answers to caveat. The compact panel spends that
       // vertical space on suggestion chips instead, and has none to spare.
       (expanded
-        ? '<div class="kx-ai-legal">Charts land on the dashboard, never in chat. ' +
+        ? '<div class="kx-ai-legal">Answers here don\'t change the dashboard — ' +
+          'widgets are added in Agency Intelligence. ' +
           'Agency Intelligence can be wrong — verify before acting.</div>'
         : '') +
       '</div>';
   }
 
-  function html(cfg) {
+  // No `cfg` argument any more: the header used to name the dashboard
+  // ("Ask about B-1 Coverage Snapshot"), which framed the assistant as
+  // scoped to that one card. It isn't — you can ask it about anything in
+  // the suite — so the subtitle is gone and nothing here needs the config.
+  function html() {
     if (state.collapsed) {
       return '<button class="kx-ai-collapsed" id="kxAiExpand" ' +
         'title="Open Agency Intelligence" aria-label="Open Agency Intelligence">' +
@@ -269,7 +268,6 @@
       '<div class="kx-ai-head">' + mark(28) +
       '<div style="flex:1;min-width:0">' +
       '<div class="t">Agency Intelligence</div>' +
-      '<div class="s">Ask about ' + esc((cfg && cfg.name) || 'your dashboard') + '</div>' +
       '</div>' +
       (state.thread.length
         ? '<button class="kx-ai-iconbtn" id="kxAiNew" title="New chat" aria-label="New chat">' +
@@ -408,92 +406,11 @@
      re-renders never stack handlers.
      ===================================================================== */
 
-  var addSeq = 0;
-
-  // The date range each metric should carry when it lands on the grid. A single
-  // hard-coded 'last_30' put a backward-looking label under a forward-looking
-  // count — an added "Credentials expiring" read "Last 30d" directly beneath the
-  // seeded "Credentials expiring · Next 30d". These match the ranges the seeded
-  // dashboards already use for the same metrics (hub-hero.js CHIEF_DASH/LT_DASH).
-  var METRIC_RANGE = {
-    // forward-looking: a countdown, not a history
-    credential_expirations: 'next_30',
-    open_shifts:            'next_14',
-    pto_pending:            'next_30',
-    trade_requests:         'next_14',
-    // progress against a stated requirement, measured from the period start
-    training_completion:    'qtd',
-    policy_acks:            'qtd',
-    ceu_progress:           'ytd',
-    // backward-looking
-    overdue_inspections:    'last_30',
-    apparatus_downtime:     'last_30',
-    tasks_by_app:           'last_30',
-    equipment_failures:     'last_90',
-    response_time:          'last_90',
-    incident_volume:        'last_90',
-    sick_leave:             'last_90',
-    ot_trend:               'last_12mo'
-  };
-
-  // The ONE place a chat-added widget's shape is decided. Everything visual —
-  // label, number, delta, tone, sparkline — is re-derived by pubWidget() from
-  // metricId via buildSpec(), so this carries only what it cannot: identity,
-  // width, range, source apps, and the fromChat flag that earns the widget its
-  // remove control. Returns null for a metric buildSpec() does not know.
-  function makeWidgetSpec(metricId, viz) {
-    var CC = window.KEYSTONE_CUSTOM;
-    var CP = window.AGENCY_INTEL;
-    var spec = CC.buildSpec(metricId, viz);
-    if (!spec) return null;
-    addSeq += 1;
-    return {
-      id: 'ai' + addSeq,
-      metricId: metricId,
-      viz: viz,
-      // w:4 matches the seeded widgets, so an added one joins the existing row
-      // rather than announcing itself as a different class of thing.
-      w: 4,
-      range: METRIC_RANGE[metricId] || 'last_30',
-      source: CP.metricSources(metricId),
-      title: spec.label,
-      fromChat: true
-    };
-  }
-
-  function addWidget(metricId, turnIdx) {
-    var w = makeWidgetSpec(metricId, 'kpi');
-    if (!w) return;
-    state.added.push(w);
-    var turn = state.thread[turnIdx];
-    // Duplicates are allowed on purpose — asking twice is not an error, and the
-    // remove control is the way back out. addedId ties the confirmation to the
-    // widget so removing it restores this turn's Add button.
-    if (turn) { turn.added = w.title; turn.addedId = w.id; }
-    renderKeepingCaret();
-  }
-
-  // Session-only, like everything else here: drop it from state.added, clear the
-  // confirmation on whichever turn put it there, re-render.
-  //
-  // FOCUS, and why this does NOT just call renderKeepingCaret(). The ✕ that
-  // triggers this lives in the widget GRID, outside #kxAiPanel, so at click time
-  // focusIsOurs() sees an element that is neither <body> nor inside the panel and
-  // returns false — renderKeepingCaret() would render and then deliberately
-  // decline to reclaim the caret, and once render() has thrown the ✕ away focus
-  // falls to <body>, which is the bug. So move focus explicitly instead. The
-  // draft box is the right landing spot: it is where the conversation continues,
-  // and the Add button this removal just restored is sitting in the thread right
-  // above it. Guarded because a collapsed or absent panel has no draft box.
-  function removeWidget(id) {
-    state.added = state.added.filter(function (w) { return w.id !== id; });
-    state.thread.forEach(function (m) {
-      if (m.addedId === id) { m.added = null; m.addedId = null; }
-    });
-    window.KXHub.render();
-    var draft = document.getElementById('kxAiDraft');
-    if (draft) draft.focus({ preventScroll: true });
-  }
+  // NOTE: this file used to build widget specs here (makeWidgetSpec /
+  // addWidget / removeWidget, plus a METRIC_RANGE table) so a chat answer could
+  // land on the published grid. All of it is gone: a dashboard's widgets are
+  // decided by whoever built it, while they are editing it in Agency
+  // Intelligence. The homepage reads a dashboard; it does not compose one.
 
   var wired = false;
   function wire() {
@@ -519,8 +436,6 @@
         // The button is live during the thinking beat, so cancel that beat too —
         // otherwise the answer lands in the fresh thread a moment later.
         sendEpoch += 1;
-        // Widgets already added stay on the dashboard — clearing the chat is
-        // not undoing a publish.
         window.KXHub.render();
         return;
       }
@@ -531,17 +446,6 @@
         if (s) { state.draft = s.q; send(); }
         return;
       }
-      var add = e.target.closest('[data-kx-ai-add]');
-      if (add) {
-        addWidget(add.getAttribute('data-kx-ai-add'),
-                  Number(add.getAttribute('data-kx-ai-add-turn')));
-        return;
-      }
-      // The ✕ on a chat-added widget. The button is rendered by pubWidget() over
-      // in hub-hero.js, but the state it removes lives here, so the handler joins
-      // this listener set rather than opening a second one.
-      var rm = e.target.closest('[data-kx-ai-remove]');
-      if (rm) { removeWidget(rm.getAttribute('data-kx-ai-remove')); return; }
       if (e.target.closest('#kxAiSend')) { send(); return; }
     });
 
@@ -573,8 +477,6 @@
     setContext: setContext,
     html: html,
     isExpanded: isExpanded,
-    hasAddable: hasAddable,
-    addedWidgets: addedWidgets,
     wire: wire
   };
 

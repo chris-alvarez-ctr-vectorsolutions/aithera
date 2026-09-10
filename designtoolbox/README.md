@@ -35,6 +35,15 @@ simply doesn't appear — the comment widget still does.
 
 `?toolbox=off` in the URL disables everything for that visit.
 
+**Dismissing during a review.** The dock has two controls at its right end. The
+**chevron** minimizes it to a small "Tools" handle you can click to bring it
+back. The **×** dismisses the review tooling outright — the pill, the "Tools"
+handle, the comment pins and panels, and the flow map all disappear, so the
+design can be presented or screenshotted clean. Dismissal lasts for that page
+view only: **reload and the tools are back.** Nothing is stored, so a dismissed
+widget can never follow someone to another mock or a shared link. Reach for
+`?toolbox=off` when you want a bare page that stays bare.
+
 ### Toolbox dock (the bottom-center pill)
 
 `toolbox.js` defines `window.ToolboxDock` — a shared bottom-center pill (the
@@ -57,6 +66,18 @@ V1, V2, V2.x, V10…** — regardless of how the manifest is ordered, and **alwa
 opens V1 (the lowest version) by default**. The dock's version buttons appear in
 that same order. To land a reviewer on a later version, share a `?v=<id>` deep
 link (e.g. `?v=ver2`); manifest order alone can't change the default.
+
+**Version overflow → dropdown (automatic):** when a feature has many versions or
+long labels (e.g. `V2 · Concierge (Vector sets up)`), the segmented version
+buttons can push the pill wider than the screen. The dock measures this: if the
+fully-expanded pill would overflow the viewport, it **collapses the version
+buttons into a single trigger** showing the current version, which opens an
+**upward menu** listing every version (the active one highlighted) — so you can
+still "shop around" the versions from a compact control. It reverses
+automatically when the window is widened, needs no per-mock setup (it keys off
+the loader's `#loader-version-group`), and applies to every mock that runs the
+toolbox. Only the loader-docked version buttons collapse this way; a mock's own
+in-page `.version-switcher` is left as-is.
 
 ---
 

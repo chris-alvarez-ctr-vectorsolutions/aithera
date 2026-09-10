@@ -14,35 +14,109 @@ tab beside Emails / Login Page / Training Plan / Certificate / Integrations. The
 sidebar's active item is Settings; inside the tab, **Manual import / Automated
 sync** is a secondary segmented control (not a second row of page tabs).
 
-**Versions (2026-09-03).** The tabbed-vs-one-page layout question is settled:
-**all versions are one-page** (manual import centered; automated sync stacked in a
-full-width, **edge-to-edge** band beneath it). What varies between versions is now
-the **automated-sync setup model** and the **error-help style**, not the layout:
+**Versions — reworked 2026-09-03 (round 2).** Automated sync moved **off** the main
+page onto a **deeper page**; the main page shows manual import + a compact **status
+banner** (green "everything's clean" / amber "needs attention" / neutral progress),
+click → the deeper sync detail. Each version is genuinely distinct, with a
+different error-help style. (Earlier round's near-identical self-serve gate-3/gate-4
+twins were merged; the reimagined triage split into three directions.)
 
-- **V1 — Self-serve · gate 3:** automated sync auto-unlocks after **3** clean
-  manual imports in a row (the designer’s threshold). Progress tracker + expanders.
-- **V2 — Self-serve · gate 4:** same, but the **PRD’s 4-clean-imports** threshold.
-  V1 vs V2 is the live A/B on the exact gate number (was flagged as an open call).
-- **V3 — Concierge:** automated sync is **not self-serve** — **Vector sets it up
-  for you.** An intro + "Request automated sync setup" CTA; after requesting, a
-  confirmation with the setup timeline (Vector reaches out → configures & tests
-  with you → goes live). Fits the "SAML / complex = CX-only" PRD thread.
-- **V4 — Earn it @4 + tooltips:** locked until **4** clean imports; the review
-  **error descriptions move into help tooltips.** Each alert is a compact
-  one-liner + a **Help** button opening: what it means, an **A→B before/after**
-  example with a visual, and a **"Usually the answer is…"** heuristic. Deep-links
-  to Vector Help (User Data File Upload Errors).
-- **V5 — Reimagined:** a **triage workspace** instead of a forward-only wizard.
-  The file shows as a **live grid** with problem cells flagged **in place**, beside
-  an **Issues panel grouped by category** (Sign-in & SSO, Duplicates, Required
-  fields, Names & changes) — each with an A→B fix and a **jump-to-cell**. Fix in
-  any order; **Run unlocks when no blockers remain**; import scope sits under the
-  grid. Categories mirror the Vector Help error article.
+- **V1 — Earn it:** self-serve automated sync **locked until 4 clean imports**, sitting
+  at **3 of 4** (next submit unlocks). Banner shows the progress; deeper page = tracker
+  + streak history. Error helper = **inline A→B click-tooltip** (a Help button per alert).
+- **V2 — Concierge:** automated sync is **set up by Vector**. Banner "isn't set up →
+  Set it up"; deeper page = intro + "Request automated sync setup" → request-received
+  timeline. **No recent sync activity until it's set up.** Error helper = **always-on
+  inline "How to fix it"** block (A→B shown, no click).
+- **V3 — Reimagined · Guided assistant:** no wizard/list — **one issue per screen**, a
+  short question, an A→B, two big choices (fix / leave) + skip, progress dots. Minimal
+  text; ends on "all set" → Run.
+- **V4 — Reimagined · Fix-in-place spreadsheet:** the file **is** the workspace. Flagged
+  cells are clickable → **inline cell editor** (prefilled with the suggested value) +
+  a **docked helper** (why + A→B + "usually"). Apply → cell turns green. Run unlocks
+  when no red cells remain.
+- **V5 — Reimagined · Three big screens:** **Upload → Fix → Done**, each a single
+  focused full-screen moment with a step rail and almost no words. The Fix screen is a
+  few big issue rows, each one button.
+- **V6 — Reimagined · Guided interview (tax-style, 2026-09-03):** the whole import is a
+  **TurboTax / FreeTaxUSA-style interview** — one plain-language question per screen, a
+  **left section rail** (Your file · Your columns · Existing users · Double-check ·
+  Review & import) with checkmarks + a **"Question X of Y" / % complete** bar, an
+  **Import Assistant** helper line, and a persistent **"Import summary" monitor** on the
+  right (the refund-tracker analog: New / Updates / Deactivations / Removed + a live
+  "Ready to import ✓ / Almost there / Can't import yet" status). The deactivate/remove
+  model becomes two interview questions (recommended-safe default + "Why are we
+  asking?" expander); errors become **double-checks** — confirm-tier as a Yes/No with an
+  A→B example, blocked/escalate as a **hard stop** with "How to fix it" + a fix path.
+  Ends on a **"here's what you told us"** review that restates every answer with per-row
+  **Edit** jumps, then **Import N rows** (enabled only when ready). This is the whole
+  return, not just the fix step — that's what sets it apart from V3's error-only assistant.
 
-**Edge-to-edge sync + scroll fix (2026-09-03):** the one-page automated-sync band
-now stretches the full main width (only the sidebar bounds it). Also fixed a
-latent shell bug where tall screens couldn’t scroll (`.main`/`.scroll` needed
-`min-height:0`; grid row pinned to `100vh`).
+Different helper per version was a deliberate ask ("try different tooltips for all the
+different versions").
+
+**Automated-sync PLACEMENT now varies per version (2026-09-03).** Client ask: "try
+different placements of the automated sync for each version." Previously all six shared
+one placement (deeper page + banner). Each version now surfaces automated sync in a
+genuinely different spot, so the placements can be compared head-to-head:
+
+- **V1 — Deeper page + status banner** (unchanged): a compact banner on the manual-import
+  landing (carrying the earn-it 3-of-4 progress) → a separate deeper sync page.
+- **V2 — Right-rail concierge card:** a persistent card beside the manual import on the
+  landing ("Let Vector set it up · Request automated sync setup"), fitting the concierge
+  model as a standing offer. Details + request status live on the deeper page.
+- **V3 — Post-import offer:** no sync surface while importing; it appears on the success
+  screen once a clean import lands ("Do this automatically next time?"), where it's most
+  relevant.
+- **V4 — Segmented sub-tab:** a Manual import | Automated sync segmented control under the
+  User Import tab flips between the two in place (no separate page); a red dot flags the
+  sync tab when it needs attention.
+- **V5 — Stacked full-width band:** automated sync is an edge-to-edge band stacked directly
+  under the manual import on one page — scroll down to it; flow-map sync states scroll the
+  band into view.
+- **V6 — Optional interview section:** sync is a 6th, optional section of the guided
+  interview (rail shows the import sections done + "Automated sync · optional"), reached
+  from the Review screen and the done screen, rendered inside the interview chrome.
+
+**Attention-needed step — a distinct MODE, one treatment per version (2026-09-03).**
+Client liked the interview text style and asked that an *attention-needed* element look
+different from routine steps, with a few variations across versions. Two rules baked in:
+
+- **Color carries who fixes it.** **Amber = the customer can fix it** in the file and
+  re-upload. **Red is reserved for a true blocker only Vector can resolve** — e.g. two
+  accounts already on the site share one email; only Vector can merge them. Red never
+  means "you fix it"; it means **"our team takes it from here"** (→ a CARE reference).
+  Every treatment shows both severities so the rule reads at a glance.
+- **It reads as its own mode**, not a routine question — colored header band / tinted
+  panel / full-screen focus, in the warm interview text style.
+
+Each version got a different treatment of that problem-solving step (all reachable from
+the flow map as **Attention · amber** / **Attention · red**):
+
+- **V1 — Alert mode (inline):** the step flips to a distinct colored card (amber/red)
+  right in the flow — header band, A→B, "how to fix," one action.
+- **V2 — Full-screen takeover:** the moment fills the screen ("Let’s fix this together" /
+  "Leave this one to us"); big icon, the one problem, A→B, action.
+- **V3 — Guided sub-steps:** the fix is a 2-step mini wizard (step 1 *what’s wrong* →
+  step 2 *how to fix* / *what happens next*), matching the assistant’s pacing.
+- **V4 — Split coach panel:** problem + involved rows on the left, a docked "How to fix
+  it" coach on the right (why · A→B · "usually the answer is…" · action).
+- **V5 — Dynamic before/after explorer:** flip through suggested fixes and a live
+  side-by-side "your file now → after this fix" updates with each choice (recommended /
+  risky options flagged). The red variant has nothing to choose — only Vector can merge.
+- **V6 — Interview attention step:** the interview’s attention screen as its own amber/red
+  mode (colored header band + tinted "how to fix" panel), distinct from the calm questions.
+
+**Before → after AutoSync preview (2026-09-03).** The Claude-Design "prototype
+variants" panel (bottom-left) is repurposed as a **"Preview · AutoSync"** before→after
+toggle so reviewers can watch automated sync go from unavailable → available in each
+version:
+- **V1:** ① Locked 3/4 → ② **4th clean import comes in** (an "unlocked!" celebration,
+  4/4) → ③ Running → ④ Needs attention.
+- **V2:** ① Not set up → ② Setup requested → ③ Set up & running → ④ Needs attention.
+- **V3–V5:** ① Not available → ② Available (running) → ③ Needs attention.
+The banner (main page) and the deeper sync page both reflect the chosen state; the
+panel has an "open the sync page →" link.
 
 **Note on the error catalog source:** the Vector support article
 (support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors) is a

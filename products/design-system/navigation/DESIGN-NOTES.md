@@ -1,5 +1,101 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-09 round (logo)
+
+- **The top-bar mark is now the OFFICIAL Vector Solutions logo**, replacing the placeholder
+  geometric V. It is not redrawn here: every version loads the repo's shared copy at
+  `assets/vector-solutions-logo.svg`, the same asset the Bridge, Check-It and Keystone mocks
+  already use, referenced as `<img src="../../../assets/vector-solutions-logo.svg">` at 32px,
+  which is the height those mocks use in a top bar. The placeholder `#i-vector` symbol is
+  gone from all eight files.
+- The mark is no longer boxed in a navy chip: the official artwork carries its own colour
+  and clear space, so it sits unboxed beside the product name. The Dashboard entry is not a
+  product, so it keeps its tiles glyph in a chip.
+- **Still a placeholder:** the `--brand-*` colour tokens. The logo is real, the palette is
+  not, and the token comment in each file now says exactly that.
+
+## Changelog · 2026-09-09 round
+
+
+- **New version: V3b, `v3b-tabs-left.html`.** V3's shell with the top bar's two ends
+  swapped, so the pair isolates where each control belongs:
+  - **Mode tabs move TOP-LEFT**, immediately after the product identity, so product and mode
+    read as one group at the start of the scan rather than at opposite ends of the bar.
+  - **The location picker moves TOP-RIGHT**, beside alerts, help and the avatar, treating
+    context as a universal control rather than a navigation one. Its menu right-aligns to
+    the control. V3 keeps tabs right and location in the side nav.
+  - Search keeps the middle. Everything else is V3 verbatim: the full-height rail and side
+    nav, the L-shaped inset bar, the licence-split launcher, the interaction frames and the
+    collapse-placement toggle.
+  - It is numbered **V3b**, not V4, because it varies one axis of V3, which is the same
+    relationship V2a and V2b already have. The existing V4 to V6 hierarchy versions keep
+    their numbers and their URLs.
+  - **Finding worth noting:** with content at both ends AND V3's bar inset past the side nav,
+    the bar is genuinely tight. Search has to shrink to about 190px before the avatar would
+    be pushed off, which truncates its placeholder. That cost is real and belongs in the
+    comparison: tabs-left buys grouping at the price of a cramped bar in this shell.
+
+## Changelog · 2026-09-04 round
+
+Two tenant-branding switches, both driven by what marketing needs to vary per customer:
+
+- **Accent bar under the top nav** (all versions). `Bar` in the review pill turns it on;
+  the COLOUR is chosen from the profile menu, under a new "Top nav accent" section with a
+  row of swatches. Picking a swatch also turns the bar on, since that is the intent.
+  It is one token and one class, `--brand-bar` and `body.tb-bar`, so a tenant's colour is a
+  single custom-property write rather than a theme fork. Deep link `?bar` (default colour)
+  or `?bar=7048e8` (any hex). In V3 the stripe spans only the inset top bar, which is
+  correct for that shell, since the nav owns the left edge.
+- **Customer logo at the top OR the bottom of the side nav** (all versions). `Logo: top` /
+  `Logo: bottom` in the pill, or `?logopos=top|bottom`. At the bottom it gets its own sticky
+  footer zone so the item list keeps scrolling independently above it. V3 already docked its
+  logo at the bottom, so that is now expressed through this shared switch and V3 simply
+  defaults to `bottom` rather than carrying its own rule.
+
+Both are customization, not design decisions, so neither is a new version: every version
+can show either state. Nothing is stored, so a reload is a fresh tenant.
+
+## Changelog · 2026-09-01 round
+
+- **Vector branding on the product identity.** The top-bar app name is now a "Vector
+  <Product>" wordmark lockup: one shared mark (`#i-vector`, a PLACEHOLDER geometric V) plus
+  the product name, with "Vector" set heavier as the constant half and the name behind a
+  hairline. This follows how the suite actually brands, a unified wordmark system rather
+  than a separate logo per product, so the mark is identical in every product and only the
+  name changes. `--brand-navy` carries it. The identity is the ONLY branded surface: the
+  rest of the shell stays neutral so the structure keeps the focus. Official artwork drops
+  into that one symbol; official hex into that one token.
+- **The collapse control is back to the side-nav panel icon** in every version (the double
+  carets are gone, and so is the flip-when-collapsed rule the carets needed).
+- **V3's side nav runs full height** alongside the rail: both left columns start at y=0 and
+  the top bar is inset past both, spanning only the content area. The collapse control keeps
+  the SAME top-right spot every other version uses, which now sits level with the top bar.
+  The rail still persists when the nav closes, the logo stays sticky at the nav's bottom,
+  and the hover-overlay / pin / close frames still work (the overlay is full height too,
+  with the bar inset to its edge so the identity is never covered).
+- **V3 swaps where search and location live.** Search is now V1's scoped global search in
+  the TOP BAR, same styling and the same All / product scope control, and the LOCATION
+  selector moved into the SIDE NAV (V2b's treatment, a full-width bordered control at the
+  top). The product-scoped side-nav search that used to be V3's distinguishing feature is
+  gone, so V3 is now a layout study: the L-shaped shell with V1's search and V2b's location
+  placement. Because the nav is duplicated per mode pane, the location control is driven by
+  class rather than by a single id, so every copy stays live and picking a location updates
+  all of them.
+- **V3: the collapse control's placement is a toggle.** In an L-shaped shell the two
+  placements are not interchangeable decorations, they decide the geometry, so the switch
+  moves both together:
+  - **Collapse: nav** (default) - the control is part of the SIDE PANEL, top-right, and
+    the panel runs full height beside the rail with the top bar inset past both columns.
+  - **Collapse: top** - the control is a FIXED top-bar item. For it to sit over the nav's
+    edge the bar has to span above the nav, so the side panel starts below the bar: the
+    conventional shell every other version uses.
+  Switch it with the pill button (its label names the current placement) or deep-link
+  `?toggle=top` / `?toggle=nav`.
+- **V2b's location selector moved into the side nav**, at the top above the Learning/Admin
+  switch, so V2b holds both context controls in the nav and leaves the top bar as search
+  plus universal actions. They stay distinct: a full-width bordered control over a segmented
+  pair. Every other version keeps location in the top bar, so the two placements compare.
+
 ## Changelog · 2026-08-28 round
 
 - **Tighter side-nav indentation.** Child groups indent 12px (was 18px) with an 8px
@@ -24,9 +120,9 @@
 - **Distinct Dashboard icon.** The cross-product Dashboard entry now uses a tiles /
   panels glyph (`i-dash`) everywhere (launcher row, Dashboard brand, V3 rail) so it never
   collides with a product Home icon. Still pinned above the switcher divider.
-- **Two ways to close the side nav** (all versions): a **double-caret** control in the side
-  nav's own top-right corner, plus the top-bar toggle. Either collapses the nav; the carets
-  point at the edge the nav moves toward and flip where the control stays visible collapsed.
+- **Two ways to close the side nav** (all versions): a control in the side nav's own
+  top-right corner, plus the top-bar toggle. Either collapses the nav. (Round 4 note: this
+  briefly used double carets; it is back to the side-nav panel icon.)
 - **Shared side-nav interaction spec** (V3 + V4): collapsed → hover/peek overlay → pin →
   close, represented as labeled frames via `?state=collapsed|peek|pinned` (see below).
 - **V2b**: the Learning/Admin switch moved INTO the side nav as a segmented control above
@@ -74,8 +170,7 @@ differently** (see below): its launcher drops pinning for a licence split.
   location · scoped search (where the version has it) · notifications · help · avatar.
   No + New action. V3 is the exception by design: its full-height rail owns the left
   edge, and its nav toggle tops the side-nav column instead.
-- The side nav ALSO closes from a double-caret control in its own top-right corner (every
-  version),
+- The side nav ALSO closes from a control in its own top-right corner (every version),
   so there are two ways to collapse it. In the V3/V4 interaction frames that same slot
   holds the pin (hover overlay) and swaps to close when docked.
 - One accent token (`--accent`) reserved for active/selection states; everything else grayscale.
@@ -135,8 +230,9 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 |---|---|---|
 | V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
 | V2a | `v2a-subproducts-filter-panel.html` | Vector LMS splits into Learner/Admin sub-products switched from the TOP-BAR BRAND (subtitle shows the active experience); NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
-| V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav, and the Training Plan filters are DROPDOWN chips above the table |
-| V3 | `v3-app-rail.html` | L-SHAPED SHELL: full-height app rail (Dashboard on top), top bar inset to its right, nav toggle on the side-nav column; search in the side nav, product-scoped; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
+| V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav; the LOCATION SELECTOR also sits in the nav above it (top bar = search + universal actions only); Training Plan filters are DROPDOWN chips above the table |
+| V3b | `v3b-tabs-left.html` | V3's shell with the top bar's ends swapped: MODE TABS top-left beside the identity, LOCATION picker top-right with the universal actions, search in the middle |
+| V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both (toggleable: `?toggle=top` puts the collapse control in the top bar instead, which returns the side panel to starting below the bar); V1's scoped global search in the top bar and the LOCATION selector in the side nav; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
 | V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right; Jira-like (closed by default, click-away to dismiss, no mouse-leave closing) |
 | V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
 | V6 | `v6-color-hierarchy.html` | Side-nav hierarchy only: open accordion headers take the accent, tint deepens with level |
@@ -146,6 +242,22 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 The original six-version exploration (placeholder products, two-pane nav, dense dark
 flyout build, dedicated tab row, synthesis) moved to `archive/` when the brief was
 updated. Their review pills still reference the old set; they are kept for history only.
+
+## Tenant customization (what marketing can vary per customer)
+
+Three things in the shell are customer-branding surfaces rather than design decisions, so
+they are switches every version can show, not separate versions:
+
+| Surface | Control | Deep link |
+|---|---|---|
+| Customer logo, shown or hidden | `Logo` in the review pill | `?logo=off` |
+| Customer logo, top or bottom of the side nav | `Logo: top` / `Logo: bottom` in the pill | `?logopos=top\|bottom` |
+| Accent bar under the top nav, and its colour | `Bar` in the pill; colour swatches under "Top nav accent" in the profile menu | `?bar`, `?bar=<hex>` |
+
+The accent bar is one token and one class (`--brand-bar`, `body.tb-bar`), so setting a
+tenant's colour is a single custom-property write. The colour picker lives in the profile
+menu for now because that is the only per-user surface in the mock; in a real build it
+would sit in an admin branding screen, not under the end user's avatar.
 
 ## Customer logo slot (platform customization)
 
@@ -182,8 +294,8 @@ confirmed. The location selector is the Vector LMS nested tree picker: chevron t
 node name + level label (Organization / Region / Site), a check on the selected node, and
 selection allowed at any level. The scope control reads "All" or the current
 product's name (never the generic "This product"), and the placeholder mirrors it (Search
-all products / Search Vector LMS). In V2, search moves into the side nav and is scoped to
-the current product only, typing live-filters the menu. Per review, the top bar carries no
+all products / Search Vector LMS). V3 carries the same top-bar search, and puts its location
+selector in the side nav instead. Per review, the top bar carries no
 + New action.
 
 - **Real Vector products.** Vector LMS and Vector EHS Management are fully built and
@@ -229,6 +341,19 @@ commercial question instead of a preference one:
 This is a V3-only content model right now; the other versions keep the pinned + All-products
 launcher so the two approaches can be compared directly.
 
+## Product identity: the Vector wordmark lockup
+
+Vector brands its suite as "Vector <Product>" lockups over ONE shared mark, not as a
+separate logo per product, so the top-bar identity does the same: the mark is constant in
+every product and only the name changes. "Vector" is set heavier than the product name,
+with the name behind a hairline, so the shared half reads as the mark and the variable half
+reads as the label. The Dashboard is not a product, so it keeps its tiles glyph.
+
+**The mark is the official artwork; the colour is still a placeholder.** The mark loads from
+the repo's shared `assets/vector-solutions-logo.svg`, so it is never redrawn or recoloured
+here, and `--brand-navy` remains stand-in hex to be swapped for an official value. The identity is deliberately the only branded surface: surfaces, content and
+active states stay neutral so the structure, not the palette, is what gets reviewed.
+
 ## Shared side-nav interaction spec (V3 + V4)
 
 Versions with an icon-collapsed side nav follow one interaction cycle, represented as
@@ -250,7 +375,9 @@ sections never auto-collapse on mouse-leave, only on click-away or explicit coll
 
 Every version file carries a small dark pill at the **bottom center**, stacked just above the
 Design Toolbox comment dock: `All` (back to the gallery) followed by V1 to V6, with the
-current version highlighted and each button titled with its pattern. It exists so reviewers can flip between explorations in place instead of returning
+current version highlighted and each button titled with its pattern. Its toggles are **Logo**
+(customer logo on/off), **Loc** (location picker), **Bar** (the tenant accent bar), **Logo:
+top / bottom** (where the customer logo sits) and **Tabs** where tabs exist. It exists so reviewers can flip between explorations in place instead of returning
 to the gallery each time. The pill also carries review toggles: **Logo** (customer logo slot), **Loc** (location
 picker) and **Tabs** (mode tabs), plus `?logo=off` / `?loc=off` / `?tabs=off` deep links. It is a single self-contained block at the end of each file
 (one `<style>` plus one `<nav class="vswitch">`) marked `REVIEW TOOLING - NOT PART OF THE
@@ -265,7 +392,7 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 |---|---|
 | V1, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?logo=off` · `?loc=off` · `?tabs=off` |
 | V2a, V2b | Same minus `?search`/`?mode`/`?tabs=off`, plus `?sub=admin` (Admin sub-product) |
-| V3 | Same as V1 minus `?search` (search is the side-nav filter), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames); the rail persists under `?nav=closed` |
+| V3 | Same as V1 (`?search` and `?location` both work; location opens in the nav), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames) and `?toggle=top\|nav` (where the collapse control lives, which also sets whether the side panel is full height); the rail persists under `?nav=closed` |
 | V4 | V1's set plus `?state=collapsed\|peek\|pinned` (interaction frames) |
 
 ## Review feedback incorporated

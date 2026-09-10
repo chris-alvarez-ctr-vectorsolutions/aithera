@@ -1907,7 +1907,20 @@
 
   KX.mountPrototypeFab({
     role: state.role,
-    onRoleChange: function (roleId) { setRole(roleId); }
+    onRoleChange: function (roleId) { setRole(roleId); },
+    extrasLabel: 'Scenario',
+    extras: [{
+      id: 'unshared',
+      label: 'Dashboard unshared from me',
+      desc: 'Shows what a viewer sees after an owner removes them from a ' +
+        'published dashboard\u2019s audience.',
+      icon: 'person_remove',
+      on: false,
+      // This state is caused by someone ELSE — an owner revoking access in
+      // Agency Intelligence — so it can never be reached from this page's own
+      // controls. The panel is the only honest way to demo it.
+      onChange: function (on) { KXHero.setUnshared(on); render(); }
+    }]
   });
 
   // Gated roles are phase-2 only. If the flag goes off while we're on one,

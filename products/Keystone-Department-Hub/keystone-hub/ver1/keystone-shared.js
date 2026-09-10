@@ -429,11 +429,30 @@
         '<vwc-switch id="kxFutureFlag" accessibleName="Future functionality"' +
         (flags.futureOn ? ' checked' : '') + '></vwc-switch></div>';
 
+      /* Page-specific demo states. A state that only exists as the RESULT of
+         someone else's action — a dashboard being unshared from you — has no
+         way to be reached from your own screen, so the page that owns it hands
+         the panel a switch. Optional: pages that pass none render as before. */
+      var extraRows = (o.extras || []).map(function (x) {
+        return '<div class="kx-proto-row" style="cursor:default">' +
+          '<span class="icon-chip"' + (x.on ? ' style="background:var(--amber-50);color:var(--amber-700)"' : '') + '>' +
+          micon(x.icon || 'visibility', { size: 18, fill: x.on ? 1 : 0 }) + '</span>' +
+          '<span style="flex:1;line-height:1.25;min-width:0">' +
+          '<span style="font-weight:600;font-size:13px">' + esc(x.label) + '</span>' +
+          '<span class="meta" style="display:block;margin-top:2px">' + esc(x.desc || '') + '</span></span>' +
+          '<vwc-switch data-proto-extra="' + attr(x.id) + '" accessibleName="' + attr(x.label) + '"' +
+          (x.on ? ' checked' : '') + '></vwc-switch></div>';
+      }).join('');
+
       return '<div class="kx-proto-panel">' +
         '<div class="kx-proto-head"><span class="mark">' + micon('science', { size: 17, fill: 1 }) + '</span>' +
         '<span><span class="t" style="display:block">Prototype controls</span>' +
         '<span class="s">Demo-only — not part of the product UI</span></span></div>' +
         '<div class="kx-proto-section">Viewing as</div>' + roleRows +
+        (extraRows
+          ? '<div class="kx-menu-divider"></div>' +
+            '<div class="kx-proto-section">' + esc(o.extrasLabel || 'Scenario') + '</div>' + extraRows
+          : '') +
         '<div class="kx-menu-divider"></div>' +
         '<div class="kx-proto-section">Engineering scope</div>' + flagRow +
         '<div class="kx-menu-divider"></div>' +
@@ -453,6 +472,14 @@
         // vwc-switch fires change on the host element.
         sw.addEventListener('change', function () { setFlag('futureOn', !!sw.checked); });
       }
+      el.querySelectorAll('[data-proto-extra]').forEach(function (x) {
+        x.addEventListener('change', function () {
+          var id = x.getAttribute('data-proto-extra');
+          var def = (o.extras || []).find(function (e2) { return e2.id === id; });
+          if (def) { def.on = !!x.checked; def.onChange && def.onChange(!!x.checked); }
+          render();
+        });
+      });
     }
 
     el.addEventListener('click', function (e) {
@@ -568,6 +595,39 @@
     });
     dlg.opened = true;
     return dlg;
+  }
+
+  /**
+   * Confirm before something that costs a person something — revoking an
+   * audience, deleting a dashboard. A thin wrapper over openDialog() so every
+   * such prompt has the same shape: what it is called, what it costs, and a
+   * destructive-tone confirm that is never the default-looking button.
+   *
+   * @param {object} o { title, body, confirmLabel, cancelLabel, tone, icon, onConfirm }
+   *   tone: 'danger' (irreversible) | 'warn' (reversible but affects people)
+   */
+  function confirm(o) {
+    o = o || {};
+    var danger = o.tone !== 'warn';
+    var accent = danger ? 'var(--coral-400)' : 'var(--amber-500)';
+    return openDialog({
+      title: o.title || 'Are you sure?',
+      icon: o.icon || (danger ? 'delete' : 'person_remove'),
+      accent: accent,
+      width: '440px',
+      body: '<div style="font-size:13.5px;line-height:1.6;color:var(--ink-700)">' +
+        (o.body || '') + '</div>',
+      actions: [
+        { label: o.cancelLabel || 'Cancel', theme: 'tertiary' },
+        {
+          label: o.confirmLabel || 'Confirm',
+          // 'error primary' is Lumo's destructive fill — the action that
+          // cannot be taken back must not look like the safe default.
+          theme: danger ? 'primary error' : 'primary',
+          onClick: function () { if (o.onConfirm) o.onConfirm(); }
+        }
+      ]
+    });
   }
 
   /* ---------------------------------------------------------------------
@@ -747,7 +807,7 @@
     pushToast: pushToast,
     getFlags: getFlags, setFlag: setFlag, onFlagsChange: onFlagsChange,
     roleBadge: roleBadge, mountPrototypeFab: mountPrototypeFab,
-    openDialog: openDialog, autoCloseMenus: autoCloseMenus,
+    openDialog: openDialog, confirm: confirm, autoCloseMenus: autoCloseMenus,
     setToggleGroup: setToggleGroup, reapplyTheme: reapplyTheme,
     // ---- dashboard layout grid (shared by the canvas and the Hub) ----
     GRID: GRID, DEFAULT_H: DEFAULT_H,
