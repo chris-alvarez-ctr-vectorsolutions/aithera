@@ -887,8 +887,8 @@
     return tables;
   }
 
-  function pdWidgetsOf(cfg, variant) {
-    return cfg.widgets.concat(addedFor(variant));
+  function pdWidgetsOf(cfg) {
+    return cfg.widgets;
   }
 
   function pdExportAvailable() {
@@ -916,7 +916,7 @@
 
   function pdExportDashboard(kind) {
     if (!pdCurrent || !pdExportAvailable()) return;
-    var cfg = pdCurrent.cfg, widgets = pdWidgetsOf(cfg, pdCurrent.variant);
+    var cfg = pdCurrent.cfg, widgets = pdWidgetsOf(cfg);
     // The window is load-bearing on paper: a printed number with no period
     // on it can't be checked. One dashboard range covers the lot, so it is
     // stated once here rather than under each widget.
@@ -929,7 +929,7 @@
   function pdExportWidget(id, kind) {
     if (!pdCurrent || !pdExportAvailable()) return;
     var cfg = pdCurrent.cfg;
-    var w = pdWidgetsOf(cfg, pdCurrent.variant).find(function (x) { return x.id === id; });
+    var w = pdWidgetsOf(cfg).find(function (x) { return x.id === id; });
     if (!w) return;
     var title = pdTitleOf(w);
     if (kind === 'csv') { window.AGENCY_INTEL_EXPORT.csv(title, pdTables([w])); return; }
@@ -1055,15 +1055,11 @@
         '<span class="dot"></span>TBD</span>';
     }
 
-    // Only widgets the assistant put here get a remove control. The dashboard's
-    // own widgets are its content — there is nothing to take back, and an ✕ on
-    // them would read as "delete from the published dashboard", which a viewer
-    // cannot do. Duplicates from chat are allowed, so this is the way back out.
-    var rm = w.fromChat
-      ? '<button class="kx-pubwidget-rm" data-kx-ai-remove="' + KX.attr(w.id) + '" ' +
-        'title="Remove this widget" aria-label="Remove the ' + KX.attr(title) + ' widget">' +
-        micon('close', { size: 15 }) + '</button>'
-      : '';
+    // No remove control on any widget here. A published dashboard's widgets are
+    // its content, decided by whoever built it; a reader of this card cannot
+    // add one and cannot take one away. (This used to carry an ✕ for widgets
+    // the assistant had dropped in from chat — that route is gone.)
+    var rm = '';
 
     // Per-widget export, in the widget's own top-right corner. Same two options
     // as the card-level control, scoped to this widget alone — and the same
@@ -1230,15 +1226,6 @@
   // The dashboard body. Without a grant this is exactly the grid that shipped
   // before — no wrapper, no panel, no height change. The ungranted case is a
   // real no-op, not a hidden element.
-  // The chat-added widgets for this variant. publishedDashboard() needs them for
-  // the header's source-chip union and dashBody() needs them for the grid; two
-  // derivations from different inputs is exactly how a widget added from a new
-  // source app ended up with no chip in the header.
-  function addedFor(variant) {
-    var AI = window.KXAIPanel;
-    return (AI && AI.hasAccess(VARIANT_ROLE[variant])) ? AI.addedWidgets() : [];
-  }
-
   /* True once any widget carries an authored height. That is the signal that a
      human laid this dashboard out on the Agency Intelligence canvas, and the only
      case where reproducing exact heights is faithful rather than invented. A
@@ -1252,22 +1239,13 @@
     var granted = AI && AI.hasAccess(VARIANT_ROLE[variant]);
     if (granted) AI.setContext(VARIANT_ROLE[variant], cfg);
 
-    var added = addedFor(variant);
-    var all = cfg.widgets.concat(added);
+    // Exactly the widgets the dashboard was built with. Chat used to be able to
+    // append to this — it can't now, so there is no merge and no landing-zone
+    // placeholder for answers to drop into.
+    var all = cfg.widgets;
     var sized = anySized(all);
     var cells = all
       .map(function (w) { return pubWidget(w, cfg.ownerShort, { sized: sized }); }).join('');
-
-    // Expanded with nothing added yet: name the empty row rather than leave a
-    // hole. It is the landing zone for "Add as a widget" — so it only opens once
-    // the thread actually holds an addable answer. A refusal resolves to no
-    // metric, and promising a landing zone for something that turn can never
-    // produce is worse than not growing the container at all.
-    if (granted && AI.isExpanded() && AI.hasAddable() && !added.length && cfg.owned) {
-      cells += '<div class="kx-ai-drop" style="grid-column:span 12">' +
-        micon('add_chart', { size: 26, fill: 1 }) +
-        '<span>Answers you add land here</span></div>';
-    }
 
     // The modifier switches the grid onto the fixed row track. Without it the
     // grid keeps auto rows and nothing about the published look changes.
@@ -1285,11 +1263,10 @@
     // Which dashboard the export handlers are acting on. Recorded here because
     // the handlers fire after the render, and the role can change under them.
     pdCurrent = { cfg: cfg, variant: variant };
-    // Chips describe what this card is actually showing, so the union spans the
-    // chat-added widgets too — add a Scheduling answer to a dashboard with no
-    // Scheduling widget and the header must gain a Sched chip.
+    // Chips describe what this card is actually showing. That is now just the
+    // dashboard's own widgets — the set can't change while someone reads it.
     var union = {};
-    cfg.widgets.concat(addedFor(variant)).forEach(function (w) {
+    cfg.widgets.forEach(function (w) {
       (w.source || []).forEach(function (s) { union[s] = true; });
     });
 
@@ -1514,7 +1491,7 @@
   // re-derive from pdCurrent rather than closing over the widget list.
   function pdWidgetById(id) {
     if (!pdCurrent) return null;
-    var ws = pdWidgetsOf(pdCurrent.cfg, pdCurrent.variant) || [];
+    var ws = pdWidgetsOf(pdCurrent.cfg) || [];
     return ws.find(function (w) { return w.id === id; }) || null;
   }
 
