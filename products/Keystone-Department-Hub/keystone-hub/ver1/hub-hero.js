@@ -731,7 +731,12 @@
       'aria-haspopup="menu" aria-expanded="' + (openRangeMenu ? 'true' : 'false') + '" ' +
       'title="Date range for this dashboard — it scopes every widget on it">' +
       micon('calendar_today', { size: 14 }) +
-      '<span class="lbl">' + esc(rangeLabel(current)) + '</span>' +
+      // Two labels, swapped by CSS. Every other control in this header goes
+      // icon-only on a narrow card, but this one cannot — the WINDOW is the
+      // information, and a bare calendar icon says nothing. So it shortens
+      // instead ("Last 90 days" → "Last 90d") rather than disappearing.
+      '<span class="lbl lbl-full">' + esc(rangeLabel(current)) + '</span>' +
+      '<span class="lbl lbl-short">' + esc(rangeLabelShort(current)) + '</span>' +
       (dirty ? '<span title="Exploring — unsaved" style="width:5px;height:5px;border-radius:99px;' +
         'background:var(--amber-500);flex-shrink:0"></span>' : '') +
       micon('expand_more', { size: 15 }) + '</button>' +
