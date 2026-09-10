@@ -29,7 +29,7 @@ const KIT_FILES = ['index.html', 'object-manager.html', 'demo.css'];
    manager, which loads them from `assets/` relative to the course folder.
    Without this a new course shows a BROKEN IMAGE when a rep generates
    media, since only lockout-tagout happened to have the file. */
-const KIT_ASSETS = ['generate-img-sample.png'];
+const KIT_ASSETS = ['generate-img-sample.jpeg'];
 
 function fmtMSS(t) {
   return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');

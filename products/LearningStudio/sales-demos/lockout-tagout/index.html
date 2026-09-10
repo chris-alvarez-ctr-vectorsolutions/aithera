@@ -222,6 +222,30 @@
   </div>
 </div>
 
+<!-- ===== Confirm Deletion modal =====
+     Shown before deleting a section or a learning object from the course
+     overview. Deliberately generic: one dialog serves both, with the
+     pending target held in PENDING_DELETE until Continue confirms. -->
+<div class="modal-overlay" id="confirmDeleteModal" role="dialog" aria-modal="true"
+     aria-labelledby="confirmDeleteTitle" aria-describedby="confirmDeleteMsg">
+  <div class="modal modal-sm">
+    <div class="modal-head">
+      <h3 id="confirmDeleteTitle">Confirm Deletion</h3>
+    </div>
+
+    <div class="modal-body">
+      <p class="confirm-msg" id="confirmDeleteMsg">
+        Learning object will be deleted. Do you want to continue?
+      </p>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-secondary" type="button" id="confirmDeleteExit">Exit</button>
+      <button class="btn btn-primary" type="button" id="confirmDeleteContinue">Continue</button>
+    </div>
+  </div>
+</div>
+
 <script src="course-data.js"></script>
 <script>
 /* ============================================================
@@ -1100,7 +1124,48 @@ function renameSection(sectionId) {
   input.addEventListener('click', (e) => e.stopPropagation());
 }
 
+/* ── Delete, gated by the Confirm Deletion dialog ───────────
+   deleteSection / deleteObject are what the overflow menus call. They
+   no longer delete outright: each stages the target and opens the
+   dialog. The actual splice lives in the commit* pair below, which
+   only Continue reaches. */
+
+/* The staged target, or null when no dialog is open. Cleared on both
+   Continue and Exit so a dismissed dialog can't delete later. */
+let PENDING_DELETE = null;
+
+const confirmModal    = document.getElementById('confirmDeleteModal');
+const confirmMsg      = document.getElementById('confirmDeleteMsg');
+const confirmExit     = document.getElementById('confirmDeleteExit');
+const confirmContinue = document.getElementById('confirmDeleteContinue');
+
+function openConfirmDelete(message) {
+  confirmMsg.textContent = message;
+  confirmModal.classList.add('open');
+  confirmContinue.focus();               // primary action is keyboard-ready
+}
+
+function closeConfirmDelete() {
+  confirmModal.classList.remove('open');
+  PENDING_DELETE = null;
+}
+
 function deleteSection(sectionId) {
+  const section = COURSE.sections.find(s => s.id === sectionId);
+  if (!section) return;
+  PENDING_DELETE = { kind: 'section', sectionId };
+  openConfirmDelete('Section will be deleted. Do you want to continue?');
+}
+
+function deleteObject(objectId, sectionId) {
+  const section = COURSE.sections.find(s => s.id === sectionId);
+  if (!section) return;
+  if (!section.objects.some(o => o.id === objectId)) return;
+  PENDING_DELETE = { kind: 'object', objectId, sectionId };
+  openConfirmDelete('Learning object will be deleted. Do you want to continue?');
+}
+
+function commitDeleteSection(sectionId) {
   const i = COURSE.sections.findIndex(s => s.id === sectionId);
   if (i === -1) return;
   COURSE.sections.splice(i, 1);
@@ -1109,7 +1174,7 @@ function deleteSection(sectionId) {
   renderCourseMeta();
 }
 
-function deleteObject(objectId, sectionId) {
+function commitDeleteObject(objectId, sectionId) {
   const section = COURSE.sections.find(s => s.id === sectionId);
   if (!section) return;
   const i = section.objects.findIndex(o => o.id === objectId);
@@ -1119,6 +1184,24 @@ function deleteObject(objectId, sectionId) {
   renderSections();
   renderCourseMeta();
 }
+
+confirmContinue.addEventListener('click', () => {
+  const target = PENDING_DELETE;
+  closeConfirmDelete();                  // clears PENDING_DELETE first
+  if (!target) return;
+  if (target.kind === 'section') commitDeleteSection(target.sectionId);
+  else commitDeleteObject(target.objectId, target.sectionId);
+});
+
+confirmExit.addEventListener('click', closeConfirmDelete);
+
+// Backdrop click and Escape both dismiss without deleting.
+confirmModal.addEventListener('click', (e) => {
+  if (e.target === confirmModal) closeConfirmDelete();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && confirmModal.classList.contains('open')) closeConfirmDelete();
+});
 
 /* Move an object to the LAST position of the target section. */
 function moveObjectToSection(objectId, fromSectionId, toSectionId) {

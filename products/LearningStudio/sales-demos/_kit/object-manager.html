@@ -541,6 +541,19 @@
       color: #fff;
     }
 
+    /* A completed scene: light green fill, green border, green check.
+       This is the real per-scene completion state -- gating just means
+       every scene already carries it. Tokens quoted from themes v1.9.3:
+       --lumo-success-color #158444, --lumo-success-color-10pct #1688461a. */
+    .scene.is-complete {
+      background: var(--lumo-success-color-10pct);
+      border-color: var(--lumo-success-color);
+    }
+    .scene.is-complete.selected {
+      border-color: var(--lumo-success-color);
+      box-shadow: 0 0 0 2px rgba(21, 132, 68, .18);
+    }
+
     .scene-body textarea {
       width: 100%; border: none; outline: none; resize: none;
       font: inherit; font-size: var(--font-size-m); line-height: 1.55; color: var(--ink);
@@ -1127,51 +1140,6 @@
     /* While the enhance step is showing, the route picker is irrelevant. */
     .modal-body.is-enhancing .media-tabs { display: none; }
 
-    /* ---- Stock library ---- */
-    .stock-search {
-      display: flex; align-items: center; gap: 10px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px; background: #fff;
-      padding: 6px 6px 6px 14px; margin-bottom: 16px;
-    }
-    .stock-search > i { color: var(--ink-mute); flex: 0 0 auto; }
-    .stock-search input {
-      flex: 1 1 auto; border: none; outline: none; background: transparent;
-      font: inherit; font-size: var(--font-size-m); color: var(--ink);
-    }
-    .stock-search input::placeholder { color: var(--ink-mute); }
-
-    .stock-empty {
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 10px; min-height: 180px;
-      border: 1px dashed var(--border-strong);
-      border-radius: 8px; background: #fbfcfe;
-      color: var(--ink-mute); font-size: var(--font-size-m);
-    }
-    .stock-empty i { font-size: var(--font-size-xl); opacity: .7; }
-
-    .stock-grid {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 12px; max-height: 42vh; overflow-y: auto; padding: 2px;
-    }
-    .stock-item {
-      border: 2px solid transparent; border-radius: 8px;
-      padding: 0; cursor: pointer; background: none;
-      overflow: hidden; text-align: left;
-    }
-    .stock-thumb {
-      aspect-ratio: 4 / 3; border-radius: 6px;
-      display: grid; place-items: center;
-      color: #fff; font-size: var(--font-size-xl);
-    }
-    .stock-caption {
-      display: block; font-size: var(--font-size-xs); color: var(--ink-soft);
-      padding: 5px 2px 2px;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .stock-item:hover { border-color: #b9c2cf; }
-    .stock-item.is-selected { border-color: var(--brand-2); }
-    .stock-item.is-selected .stock-caption { color: var(--brand-2); font-weight: var(--font-weight-semibold); }
 
     /* ---- Rich text editor modal --------------------------------------- */
     .modal.modal-wide { max-width: 640px; width: 92vw; }
@@ -1315,6 +1283,142 @@
     .btn-primary:hover { background: var(--brand); }
 
     :focus-visible { outline: 2px solid #4d8bf0; outline-offset: 2px; }
+
+    /* ---- Gated (finalized) learning object -----------------------------
+       Vector-provided content that has been finalized, rendered and
+       published. It opens read-only: the author can look but not change
+       anything until they explicitly break the link to the source object.
+       The generated LO is NOT gated -- it never went through publishing. */
+
+    /* Bottom banner. Sits above the app chrome, full width. */
+    .gate-banner {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 2500;
+      display: none; align-items: center; gap: 14px;
+      padding: 14px 24px;
+      background: #e8f5ee;
+      border-top: 1px solid #b7dcc6;
+    }
+    body.is-gated .gate-banner { display: flex; }
+    .gate-check {
+      flex: 0 0 auto;
+      width: 26px; height: 26px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #1a8b52; color: #fff; font-size: 13px;
+    }
+    .gate-text { flex: 1 1 auto; min-width: 0; }
+    .gate-title {
+      margin: 0;
+      font-size: var(--font-size-l);
+      font-weight: var(--font-weight-semibold);
+      color: var(--ink);
+    }
+    .gate-sub {
+      margin: 3px 0 0;
+      font-size: var(--font-size-m);
+      color: var(--ink-mute);
+      display: flex; align-items: center; gap: 7px;
+    }
+    .gate-sub i { color: var(--ink-mute); font-size: 12px; }
+    .gate-edit { flex: 0 0 auto; }
+
+    /* Keep the banner from covering the bottom of the page content.
+       .app is a fixed-height flex column with overflow:hidden, so make
+       room by SHRINKING it -- padding would push content out of view. */
+    body.is-gated .app { height: calc(100vh - 74px); }
+
+    /* Read-only chrome. Disabled controls stay visible -- the point is to
+       show what WOULD be available, not to hide the product's surface. */
+    /* Everything that MUTATES the LO is inert until the author confirms
+       the edit modal. Read and navigation affordances stay live -- prev /
+       next scene, Play, the Knowledge Check / Assessment / Citations tabs,
+       panel collapse, help and search -- because looking around finalized
+       content is exactly what a gated LO is for.
+
+       Locked here: Add/Replace Media, Complete Scene, the transcript view
+       toggles, the title rename pencil, and the toolbar's Regenerate and
+       Delete. Those three toolbar buttons are addressed by title because
+       .sq-btn is shared with the harmless nav arrows. */
+    body.is-gated .pill-btn:not(.gate-allowed),
+    body.is-gated .vt,
+    body.is-gated .scene-media-add,
+    body.is-gated .mt-toggle button,
+    body.is-gated .right-scroll .tpl-select-wrap,
+    body.is-gated .right-scroll .prop-field,
+    body.is-gated .title-block .edit,
+    body.is-gated .sq-btn[title="Regenerate"],
+    body.is-gated .sq-btn[title="Delete"] {
+      opacity: .45;
+      pointer-events: none;
+    }
+    /* The media/template panels are a read-only readout while gated: the
+       author can SEE what the finalized LO uses, but not swap it. The
+       remove "x" on the current asset goes entirely -- a disabled-looking
+       delete still reads as an available action. */
+    body.is-gated .media-prop-del { display: none; }
+    /* Scene cards: the per-scene edit affordances go away entirely while
+       gated (they'd be dead controls), and the textarea becomes read-only.
+       A lock on the card is what signals WHY, matching the reference. */
+    /* Specificity note: .scene.selected .scene-head .mini-btn (0,3,1)
+       re-shows these for the active card, so match that weight or the
+       selected scene keeps its buttons while gated. */
+    body.is-gated .scene.selected .scene-head .mini-btn,
+    body.is-gated .scene .scene-head .mini-btn,
+    body.is-gated .scene .scene-insert {
+      display: none !important;
+    }
+    /* The completion check STAYS visible while gated -- it's the signal
+       that every scene was completed before publishing. It just stops
+       being a control. */
+    body.is-gated .scene .scene-head .status {
+      pointer-events: none;
+      cursor: default;
+    }
+    body.is-gated .scene textarea { pointer-events: none; resize: none; }
+    body.is-gated .scene { cursor: default; }
+
+    /* Lock marker, rendered to the left of the scene card. */
+    body.is-gated .scene::before {
+      content: "\f023";                       /* fa-lock */
+      font-family: "Font Awesome 6 Pro", "Font Awesome 6 Free";
+      font-weight: 900;
+      position: absolute; left: -17px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--ink-mute); font-size: 14px;
+      opacity: .75;
+    }
+
+    /* The authoring empty state ("Ready to start creating?") is an invite
+       to author -- wrong on finalized content that simply has no media. */
+    body.is-gated .stage-card .empty-icon,
+    body.is-gated .stage-card h3,
+    body.is-gated .stage-card p { display: none; }
+
+    /* ---- Edit Learning Object confirmation ---------------------------- */
+    .modal.modal-edit { width: min(480px, 100%); }
+    .edit-lead {
+      margin: 0 0 16px;
+      font-size: var(--font-size-m);
+      color: var(--ink-mute);
+    }
+    .edit-choice {
+      display: flex; align-items: center; gap: 10px;
+      font-size: var(--font-size-l);
+      color: var(--ink);
+      margin-bottom: 16px;
+    }
+    .edit-warn {
+      display: flex; gap: 11px;
+      background: #fdf6e3;
+      border-left: 4px solid #e0a800;
+      border-radius: 4px;
+      padding: 13px 15px;
+      font-size: var(--font-size-m);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .edit-warn i { color: #e0a800; flex: 0 0 auto; margin-top: 2px; }
+    .edit-warn strong { font-weight: var(--font-weight-semibold); }
+
   </style>
 </head>
 <body>
@@ -1421,7 +1525,8 @@
             <i class="fa-solid fa-wand-magic-sparkles grad"></i>
             <span id="addMediaLabel">Add Media</span>
           </button>
-          <button class="pill-btn"><i class="fa-solid fa-play"></i> Preview</button>
+          <!-- Preview reads, it doesn't edit, so it stays live while gated. -->
+          <button class="pill-btn gate-allowed"><i class="fa-solid fa-play"></i> Preview</button>
           <button class="pill-btn" id="btnCompleteScene"><i class="fa-regular fa-circle" id="completeIcon"></i> <span id="completeLabel">Complete Scene</span></button>
         </div>
 
@@ -1555,10 +1660,12 @@
             <div class="tpl-select-wrap">
               <select class="tpl-select" id="audioVoice">
                 <option>Eric(M)-American</option>
-                <option>Ava(F)-American</option>
-                <option>Marcus(M)-American</option>
-                <option>Sophie(F)-British</option>
-                <option>Diego(M)-Spanish</option>
+                <option>Sarah(F)-American</option>
+                <option>Aria(F)-American</option>
+                <option>Laura(F)-American</option>
+                <option>River(F)-American</option>
+                <option>Will(M)-American</option>
+                <option>Chris(M)-American</option>
               </select>
               <i class="fa-solid fa-chevron-down caret"></i>
             </div>
@@ -1585,9 +1692,61 @@
     </div>
   </div>
 
+  <!-- ===== Gated-LO banner =====
+       Shown for finalized, Vector-provided content. Hidden entirely for a
+       non-gated LO (the generated one), so it costs nothing there. -->
+  <div class="gate-banner" id="gateBanner">
+    <span class="gate-check"><i class="fa-solid fa-check"></i></span>
+    <div class="gate-text">
+      <p class="gate-title">Learning Object Completed!</p>
+      <p class="gate-sub">
+        <i class="fa-solid fa-link"></i>
+        This content is Vector provided content. Click Edit to create an editable copy and enable customization features.
+      </p>
+    </div>
+    <button class="btn btn-secondary gate-edit" id="gateEditBtn" type="button">Edit</button>
+  </div>
+
+  <!-- ===== Edit Learning Object confirmation =====
+       The gate. Start Editing severs the link to the source object, which
+       is permanent -- hence the warning rather than a bare confirm. -->
+  <div class="modal-overlay" id="editLoModal" role="dialog" aria-modal="true"
+       aria-labelledby="editLoTitle">
+    <div class="modal modal-edit">
+      <div class="modal-head">
+        <h3 id="editLoTitle">Edit Learning Object</h3>
+      </div>
+
+      <div class="modal-body">
+        <p class="edit-lead">Select how your changes should be applied:</p>
+
+        <vaadin-radio-group class="edit-choice" id="editScope" value="instance">
+          <vaadin-radio-button value="instance" label="Edit only this instance"></vaadin-radio-button>
+        </vaadin-radio-group>
+
+        <div class="edit-warn">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>
+            Removing the link to the source object will prevent automatic
+            updates to this content in the future. This will also remove the
+            finalized status of the content.
+            <strong>This link cannot be reconnected</strong>
+          </span>
+        </div>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn btn-secondary" type="button" id="editLoCancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="editLoStart">Start Editing</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ===== Add / Replace Media =====
-       Three routes to a media asset: AI generation, manual upload via the
-       design-system upload component, and a searchable stock library. -->
+       Two routes to a media asset: AI generation, and manual upload via
+       the design-system upload component. (A Stock Library route was
+       removed -- customers don't have access to a stock library, so
+       demoing one would misrepresent the product.) -->
   <div class="modal-overlay" id="mediaModal" role="dialog" aria-modal="true" aria-labelledby="mediaModalTitle">
     <div class="modal modal-wide">
       <div class="modal-head media-head">
@@ -1604,8 +1763,7 @@
         <div class="media-tabs" id="mediaTabs" role="tablist">
           <button class="media-tab active" data-mtab="generate" role="tab" aria-selected="true">Generate Media</button>
           <button class="media-tab" data-mtab="upload" role="tab" aria-selected="false">Upload Media</button>
-          <button class="media-tab" data-mtab="stock" role="tab" aria-selected="false">Stock Library</button>
-        </div>
+          </div>
 
         <!-- ---- AI generation ---- -->
         <section class="media-pane active" id="mpane-generate">
@@ -1657,7 +1815,7 @@
           <div class="enhance-preview">
             <!-- Same asset the confirm applies (GENERATED_IMAGE), so the
                  preview and what lands on the scene can't diverge. -->
-            <img id="enhanceImg" src="assets/generate-img-sample.png" alt="Generated image preview" />
+            <img id="enhanceImg" src="assets/generate-img-sample.jpeg" alt="Generated image preview" />
           </div>
 
           <div class="enhance-row">
@@ -1673,27 +1831,6 @@
                     placeholder="Describe your changes…"></textarea>
         </section>
 
-        <!-- ---- Stock library ---- -->
-        <section class="media-pane" id="mpane-stock">
-          <h4 class="media-pane-title">
-            <i class="fa-solid fa-photo-film"></i>
-            Search the stock library
-          </h4>
-
-          <div class="stock-search">
-            <i class="fa-solid fa-magnifying-glass"></i>
-            <input type="text" id="stockQuery" placeholder="Search by keyword — e.g. garden, soil, seedling…" />
-            <button class="btn btn-primary" id="stockSearchBtn" type="button">Search</button>
-          </div>
-
-          <div class="stock-empty" id="stockEmpty">
-            <i class="fa-regular fa-images"></i>
-            <span>Search to browse the stock library</span>
-          </div>
-
-          <!-- Results render here as a selectable gallery. -->
-          <div class="stock-grid" id="stockGrid" hidden></div>
-        </section>
       </div>
 
       <div class="modal-foot media-foot">
@@ -1967,6 +2104,7 @@
     let editorTarget = null;
 
     function openTextEditor(tplKey, field) {
+      if (document.body.classList.contains('is-gated')) return;
       editorTarget = { tplKey, field };
       const modal = document.getElementById('textModal');
       const area = document.getElementById('rteBody');
@@ -2169,6 +2307,25 @@
       label.textContent = done ? 'Scene Complete' : 'Complete Scene';
     }
 
+    /* Editing a scene invalidates its completion: the green "done" state
+       described content that no longer exists, so the card reverts to the
+       normal (blue) treatment and the author re-completes it deliberately.
+       Exposed on window so the media handlers -- which live in a separate
+       IIFE -- can call it too. */
+    function markSceneIncomplete(card) {
+      if (!card || !card.classList.contains('is-complete')) return;
+      card.classList.remove('is-complete');
+      const st = card.querySelector('.status');
+      if (st) {
+        st.classList.remove('is-complete');
+        st.setAttribute('aria-pressed', 'false');
+        st.title = 'Mark scene complete';
+        st.setAttribute('aria-label', st.title);
+      }
+      syncCompleteButton();
+    }
+    window.markSceneIncomplete = markSceneIncomplete;
+
     // Selecting a card syncs the read-only view from the textarea first, so
     // the outgoing scene shows whatever was just typed into it.
     function selectScene(card) {
@@ -2288,6 +2445,8 @@
       ta.addEventListener('input', () => {
         const ro = ta.closest('.scene-body').querySelector('.scene-read');
         if (ro) ro.textContent = ta.value;
+        // Typing changes the scene, so it is no longer "complete".
+        markSceneIncomplete(ta.closest('.scene'));
       });
       grow();
     }
@@ -2375,6 +2534,7 @@
 
     // ---- Modal open/close ------------------------------------------------
     function openSoundModal(titleTpl) {
+      if (document.body.classList.contains('is-gated')) return;
       pendingTpl = titleTpl;
       modalTplName.textContent = titleTpl.label;
       modalSoundName.textContent = titleTpl.sound;
@@ -2518,6 +2678,64 @@
   <script src="course-data.js"></script>
   <script>
     (function () {
+      /* CSS pointer-events blocks the mouse, but not the keyboard: a
+         focused button still fires on Enter/Space, and Tab still lands on
+         it. So mirror the CSS with real `disabled` + removal from the tab
+         order, and hard-block the edit gestures in a capture listener. */
+      const GATED_LOCK_SEL = [
+        '.pill-btn:not(.gate-allowed)',
+        '.vt',
+        '.mt-toggle button',
+        '.title-block .edit',
+        '.sq-btn[title="Regenerate"]',
+        '.sq-btn[title="Delete"]',
+        '.scene .mini-btn',
+        '.scene .status',
+        '.scene-insert',
+        '.media-prop-del'
+      ].join(',');
+
+      function setGatedControls(on) {
+        document.querySelectorAll(GATED_LOCK_SEL).forEach(el => {
+          if (on) {
+            el.setAttribute('disabled', '');
+            el.setAttribute('tabindex', '-1');
+          } else {
+            el.removeAttribute('disabled');
+            el.removeAttribute('tabindex');
+          }
+        });
+        // The transcript textareas are the edit surface itself.
+        document.querySelectorAll('#scenes .scene textarea').forEach(ta => {
+          ta.readOnly = on;
+          if (on) ta.setAttribute('tabindex', '-1');
+          else ta.removeAttribute('tabindex');
+        });
+      }
+
+      /* Last line of defence: swallow any edit gesture that reaches the
+         document while gated, whatever fired it.
+
+         mousedown matters as much as click: the transcript body opens the
+         Edit Audio modal on mousedown, which fires FIRST -- a click-only
+         guard let that modal through. keydown covers Enter/Space on a
+         focused control. The gate banner's Edit button and anything inside
+         a modal are exempt. */
+      ['click', 'mousedown', 'dblclick', 'keydown'].forEach(type => {
+        document.addEventListener(type, (e) => {
+          if (!document.body.classList.contains('is-gated')) return;
+          if (e.target.closest('#gateBanner')) return;
+          if (e.target.closest('.modal-overlay')) return;
+          if (type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+          if (e.target.closest(GATED_LOCK_SEL) ||
+              e.target.closest('#scenes .scene-body') ||
+              e.target.closest('#scenes .scene textarea')) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+          }
+        }, true);
+      });
+
       // --- Resolve the object that was clicked on the overview ---
       const params = new URLSearchParams(location.search);
       const objectId = params.get('object');
@@ -2530,12 +2748,20 @@
         document.title = hit.obj.name + ' — Learning Studio';
         // Build this LO's scenes. One page serves every object.
         renderScenes(hit.obj);
+
+        /* Gating. Every LO in the course shipped as finalized, rendered,
+           Vector-provided content, so it opens read-only. The exception is
+           the LO the rep generates during the demo (`hidden` in
+           course-data until revealed): it never went through finalization,
+           so gating it would misrepresent the flow. */
+        setGated(!hit.obj.hidden);
       } else {
         // Direct-open fallback so the file still renders on its own.
         document.getElementById('omEyebrow').textContent = 'Section:';
         document.getElementById('omTitle').textContent = 'Learning Object';
         document.getElementById('omDur').textContent = fmtCourse(0);
         renderScenes(null);   // one empty scene, so the panel isn't blank
+        setGated(false);      // nothing to gate on a blank canvas
       }
 
       // --- Back arrow returns to the Course Overview ---
@@ -2552,6 +2778,66 @@
           }
         });
       }
+
+      /* ---- Gated (finalized) learning object ------------------------
+         setGated(true) puts the page in read-only mode: the green banner
+         appears and the editing chrome is dimmed and click-blocked via
+         body.is-gated. Start Editing calls setGated(false), which is a
+         one-way door in the demo -- matching the real product, where
+         severing the source link can't be undone. */
+      function setGated(on) {
+        document.body.classList.toggle('is-gated', on);
+        setGatedControls(on);
+
+        /* A finalized LO is finalized because every scene was completed --
+           that's the precondition for publishing. So mark them all complete
+           on the way in, which paints the green card treatment. Unlocking
+           does NOT clear it: the scenes really were completed; the author
+           has simply regained the ability to change them. */
+        if (on) {
+          document.querySelectorAll('#scenes .scene').forEach(card => {
+            card.classList.add('is-complete');
+            const st = card.querySelector('.status');
+            if (st) {
+              st.classList.add('is-complete');
+              st.setAttribute('aria-pressed', 'true');
+              st.title = 'Mark scene incomplete';
+              st.setAttribute('aria-label', st.title);
+            }
+          });
+          syncCompleteButton();
+        }
+      }
+
+      const editModal  = document.getElementById('editLoModal');
+      const gateEdit   = document.getElementById('gateEditBtn');
+      const editCancel = document.getElementById('editLoCancel');
+      const editStart  = document.getElementById('editLoStart');
+
+      function openEditModal() {
+        editModal.classList.add('open');
+        editStart.focus();
+      }
+      function closeEditModal() {
+        editModal.classList.remove('open');
+      }
+
+      gateEdit.addEventListener('click', openEditModal);
+      editCancel.addEventListener('click', closeEditModal);
+
+      // Start Editing severs the link: banner goes, chrome unlocks.
+      editStart.addEventListener('click', () => {
+        closeEditModal();
+        setGated(false);
+      });
+
+      // Backdrop and Escape dismiss without unlocking.
+      editModal.addEventListener('click', (e) => {
+        if (e.target === editModal) closeEditModal();
+      });
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && editModal.classList.contains('open')) closeEditModal();
+      });
     })();
 
     /* ============================================================
@@ -2589,6 +2875,8 @@
       });
 
       function openAudio(card) {
+        // A gated LO is read-only: no edit modal may open at all.
+        if (document.body.classList.contains('is-gated')) return;
         sourceScene = card;
         const ta = card.querySelector('.scene-body textarea');
         baseline = ta ? ta.value : '';
@@ -2718,6 +3006,8 @@
         if (active) {
           active.__media = null;
           window.fillSceneMediaSlot(active);
+          // Removing media changes the scene: drop its completed state.
+          if (window.markSceneIncomplete) window.markSceneIncomplete(active);
         }
         sceneMedia = null;
         labelEl.textContent = 'Add Media';
@@ -2770,7 +3060,6 @@
         }
       }
       let route = 'generate';
-      let stockPick = null;
       let generated = false;   // a finished generation is waiting to be applied
 
       /* The demo's single generated-image result. Every generation resolves
@@ -2782,22 +3071,10 @@
          panel lists after "Add to Scene", and a filename is what a real
          asset would show there. */
       const GENERATED_IMAGE = {
-        name: 'generate-img-sample.png',
-        src: 'assets/generate-img-sample.png'
+        name: 'generate-img-sample.jpeg',
+        src: 'assets/generate-img-sample.jpeg'
       };
 
-      // Deterministic stock results — no network, works on file://.
-      const STOCK = [
-        { name: 'Raised garden beds',  hue: 122 },
-        { name: 'Seedlings in tray',   hue: 96  },
-        { name: 'Watering can',        hue: 200 },
-        { name: 'Compost pile',        hue: 32  },
-        { name: 'Tomato vine',         hue: 6   },
-        { name: 'Garden trowel',       hue: 210 },
-        { name: 'Herb planter',        hue: 142 },
-        { name: 'Greenhouse interior', hue: 168 },
-        { name: 'Sun over rows',       hue: 45  }
-      ];
 
       function setRoute(next) {
         route = next;
@@ -2808,13 +3085,11 @@
           t.classList.toggle('active', on);
           t.setAttribute('aria-selected', String(on));
         });
-        ['generate', 'upload', 'stock'].forEach(r => {
+        ['generate', 'upload'].forEach(r => {
           document.getElementById('mpane-' + r).classList.toggle('active', r === next);
         });
         // The primary action is named for the route it completes.
-        confirm.textContent =
-          next === 'generate' ? 'Generate' :
-          next === 'upload'   ? 'Use Upload' : 'Use Selected';
+        confirm.textContent = next === 'generate' ? 'Generate' : 'Use Upload';
       }
 
       tabs.addEventListener('click', (e) => {
@@ -2822,58 +3097,6 @@
         if (t) setRoute(t.dataset.mtab);
       });
 
-      /* ---- Stock search ---- */
-      function runStockSearch() {
-        const q = document.getElementById('stockQuery').value.trim().toLowerCase();
-        const grid = document.getElementById('stockGrid');
-        const empty = document.getElementById('stockEmpty');
-
-        // Keyword filter; an empty query shows the whole library.
-        const hits = q
-          ? STOCK.filter(i => i.name.toLowerCase().includes(q))
-          : STOCK.slice();
-
-        grid.innerHTML = '';
-        stockPick = null;
-
-        if (!hits.length) {
-          empty.hidden = false;
-          grid.hidden = true;
-          empty.querySelector('span').textContent = 'No results for "' + q + '"';
-          return;
-        }
-
-        hits.forEach(item => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'stock-item';
-          const thumb = document.createElement('span');
-          thumb.className = 'stock-thumb';
-          // Placeholder art — a tinted panel, not invented photography.
-          thumb.style.background =
-            'linear-gradient(135deg, hsl(' + item.hue + ' 42% 62%), hsl(' + item.hue + ' 38% 44%))';
-          thumb.innerHTML = '<i class="fa-regular fa-image"></i>';
-          const cap = document.createElement('span');
-          cap.className = 'stock-caption';
-          cap.textContent = item.name;
-          btn.appendChild(thumb); btn.appendChild(cap);
-
-          btn.addEventListener('click', () => {
-            grid.querySelectorAll('.stock-item').forEach(b => b.classList.remove('is-selected'));
-            btn.classList.add('is-selected');
-            stockPick = item;
-          });
-          grid.appendChild(btn);
-        });
-
-        empty.hidden = true;
-        grid.hidden = false;
-      }
-
-      document.getElementById('stockSearchBtn').addEventListener('click', runStockSearch);
-      document.getElementById('stockQuery').addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); runStockSearch(); }
-      });
 
       /* ---- Apply the chosen asset ---- */
       function applyMedia(media) {
@@ -2883,9 +3106,11 @@
         // Persist on the scene element so switching away and back restores it.
         const active = document.querySelector('.scene.selected');
         if (active) active.__media = media;
+        // New media is a change to the scene: drop its completed state.
+        if (window.markSceneIncomplete) window.markSceneIncomplete(active);
 
-        // A real file renders as an <img>; the stock/upload placeholders
-        // fall back to a tinted swatch.
+        // A real file renders as an <img>; anything without a src
+        // falls back to a tinted swatch.
         const visual = media.src
           ? '<img class="scene-media-img" src="' + media.src + '" alt="" />'
           : '<span class="scene-media-thumb" style="background:' + media.swatch + '">' +
@@ -2937,19 +3162,11 @@
             enterEnhance();
           }, 3000);
 
-        } else if (route === 'upload') {
-          // An uploaded file resolves to the same demo image -- the file a
-          // rep picks on a call can't be rendered, and a fixed outcome is
-          // the point. Was a flat colour swatch; now shows real media.
-          applyMedia({ ...GENERATED_IMAGE });
-
         } else {
-          if (!stockPick) return;                            // nothing selected
-          applyMedia({
-            name: stockPick.name,
-            swatch: 'linear-gradient(135deg, hsl(' + stockPick.hue + ' 42% 62%), hsl(' +
-                    stockPick.hue + ' 38% 44%))'
-          });
+          // Upload. An uploaded file resolves to the same demo image -- the
+          // file a rep picks on a call can't be rendered, and a fixed
+          // outcome is the point.
+          applyMedia({ ...GENERATED_IMAGE });
         }
       });
 
@@ -2959,7 +3176,7 @@
       function enterEnhance() {
         generated = true;
         document.querySelector('.modal-body').classList.add('is-enhancing');
-        ['generate', 'upload', 'stock'].forEach(r => {
+        ['generate', 'upload'].forEach(r => {
           document.getElementById('mpane-' + r).classList.remove('active');
         });
         document.getElementById('mpane-enhance').classList.add('active');
@@ -2987,6 +3204,7 @@
       }
 
       function openMedia() {
+        if (document.body.classList.contains('is-gated')) return;
         titleEl.textContent = sceneMedia ? 'Replace Media' : 'Add Media';
         resetGenerate();
         document.getElementById('genDesc').value = '';

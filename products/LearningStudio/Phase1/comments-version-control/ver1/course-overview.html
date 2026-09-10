@@ -29,7 +29,8 @@
 
   <!-- Shared comment model + panel controller. Loaded by BOTH pages so the
        thread data and the panel behaviour cannot drift between them. -->
-  <script src="comments-data.js"></script>
+  <script src="version-data.js"></script>
+<script src="comments-data.js"></script>
   <script src="comments-panel.js"></script>
 </head>
 <body>
@@ -49,54 +50,133 @@
      hand-typed — so the content pass can't desync the roll-ups.
      ============================================================ -->
 
+<!-- ===== Row 1: global header =====
+     Deliberately OUTSIDE the drawer below, not in its `content` slot.
+
+     The drawer marks its `content` slot inert while the comments panel is
+     open. The header has to stay usable in that state — it carries the
+     Comments toggle itself, plus Export, Help and Publish — so it sits here
+     as a sibling of the drawer and is never inert.
+
+     The panel is then held below this row by `--vwc-drawer-offset-top`,
+     which comments-panel.js sets from this header's measured height. That is
+     also why the shell below is `height: calc(100vh - <header>)` rather than
+     a plain 100vh: this row is no longer one of its flex children. -->
+<!-- Row 1: global header -->
+<header class="ov-topbar">
+  <div class="ov-ident">
+    <div class="ov-sku">SKU: <span id="hdr-sku"></span></div>
+    <div class="ov-course-title" id="hdr-title"></div>
+  </div>
+
+  <div class="search-wrap">
+    <label class="ai-search">
+      <i class="fa-solid fa-wand-magic-sparkles spark"></i>
+      <input type="text" placeholder="Describe the content you want to search for…" />
+    </label>
+  </div>
+
+  <div class="ov-top-right">
+    <!-- Export: a real <select> so the internal view reads as the
+         production control rather than a styled-up button. Options are
+         presentational in this prototype. -->
+    <label class="sr-only" for="exportSelect">Export course</label>
+    <select class="ov-export" id="exportSelect">
+      <option value="">Export</option>
+      <option value="scorm">SCORM 1.2 package</option>
+      <option value="scorm2004">SCORM 2004 package</option>
+      <option value="pdf">Outline as PDF</option>
+      <option value="csv">Transcript as CSV</option>
+    </select>
+
+    <button class="ov-icon-btn" id="btnHelp" type="button"
+            title="Help" aria-label="Help">
+      <i class="fa-regular fa-circle-question"></i>
+    </button>
+
+    <!-- Comments entry point for the internal reviewer flow. The badge
+         shows the open-comment count; it is hidden when the count is 0
+         so a clean course shows a plain icon. -->
+    <button class="ov-icon-btn ov-comments" id="btnComments" type="button"
+            title="Comments" aria-label="Comments">
+      <i class="fa-solid fa-comments"></i>
+      <span class="ov-comment-count" id="commentCount" data-comment-count>0</span>
+    </button>
+
+    <button class="btn-publish">Publish</button>
+  </div>
+</header>
+
+<!-- ===== Publish =====
+     Captures a PUBLISH NOTE, which is the point of the dialog. Version
+     history is only as useful as its notes: without them someone has to open
+     each published version and search it to find the one they want; with
+     them they read "DEI resolution for 2026" and go straight there.
+
+     So the note field is the dialog's main content, with examples in the
+     placeholder, and it is optional — blocking a publish on it would get it
+     filled with "update" and teach people to ignore it. -->
+<div class="modal-overlay" id="publishModal" role="dialog" aria-modal="true"
+     aria-labelledby="publishTitle" slot="content">
+  <div class="modal pub-modal">
+    <div class="modal-head">
+      <h3 id="publishTitle">Publish course</h3>
+      <p class="pub-sub">This version becomes what learners see.</p>
+    </div>
+
+    <div class="modal-body">
+      <label class="pub-label" for="publishNote">
+        What changed in this version?
+        <span class="pub-optional">Optional</span>
+      </label>
+      <!-- `theme="outlined"` is REQUIRED on every Vaadin text-input field:
+           without it Vaadin's default "filled" style renders, which is not
+           the Vector standard. -->
+      <vaadin-text-area class="pub-note" id="publishNote" theme="outlined"
+                        rows="4"
+                        placeholder="e.g. Updated for Title IX — reworked the reporting-obligations language, or DEI resolution for 2026"></vaadin-text-area>
+      <p class="pub-hint">
+        <i class="fa-regular fa-lightbulb"></i>
+        Shown in this course's version history. A specific note is what lets
+        someone find the right version later without opening each one.
+      </p>
+    </div>
+
+    <div class="modal-foot">
+      <vaadin-button theme="secondary" id="publishCancel">Cancel</vaadin-button>
+      <vaadin-button theme="primary" id="publishConfirm">Publish</vaadin-button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Comments panel wraps the page =====
+     `vwc-drawer` is a LAYOUT component, not a floating box: it renders the
+     drawer column and its `content` slot as siblings and owns the relationship
+     between them. So the page shell has to live INSIDE it, in `slot="content"`.
+
+     That placement is what makes overlay mode actually work:
+       - the component applies `inert` to the `content` slot while open, so the
+         page behind genuinely stops taking clicks and tab stops;
+       - the backdrop sizes itself to the slotted content, so the scrim covers
+         the viewport instead of collapsing to nothing;
+       - `closeOnOverlayClick` has a real backdrop to receive the click;
+       - the drawer clears the page header structurally, with no JS measuring.
+
+     Earlier this element sat AFTER the shell with an empty `content` slot. It
+     looked right, but nothing was inert (the page stayed clickable and
+     tabbable underneath), the backdrop collapsed to a 16px sliver at the
+     bottom of the viewport, and the host added a stray box below the fold.
+
+     `position="end"` also makes the component render content first and the
+     drawer column second, so the panel paints above the scrim. -->
+<vwc-drawer id="commentsDrawer" position="end" overlay
+            theme="no-content-padding">
+
 <!-- ===== AREA 1: Course Overview ===== -->
-<div class="area" id="area-overview">
+<div class="area" id="area-overview" slot="content">
   <div class="app">
 
-    <!-- Row 1: global header -->
-    <header class="ov-topbar">
-      <div class="ov-ident">
-        <div class="ov-sku">SKU: <span id="hdr-sku"></span></div>
-        <div class="ov-course-title" id="hdr-title"></div>
-      </div>
 
-      <div class="search-wrap">
-        <label class="ai-search">
-          <i class="fa-solid fa-wand-magic-sparkles spark"></i>
-          <input type="text" placeholder="Describe the content you want to search for…" />
-        </label>
-      </div>
-
-      <div class="ov-top-right">
-        <!-- Export: a real <select> so the internal view reads as the
-             production control rather than a styled-up button. Options are
-             presentational in this prototype. -->
-        <label class="sr-only" for="exportSelect">Export course</label>
-        <select class="ov-export" id="exportSelect">
-          <option value="">Export</option>
-          <option value="scorm">SCORM 1.2 package</option>
-          <option value="scorm2004">SCORM 2004 package</option>
-          <option value="pdf">Outline as PDF</option>
-          <option value="csv">Transcript as CSV</option>
-        </select>
-
-        <button class="ov-icon-btn" id="btnHelp" type="button"
-                title="Help" aria-label="Help">
-          <i class="fa-regular fa-circle-question"></i>
-        </button>
-
-        <!-- Comments entry point for the internal reviewer flow. The badge
-             shows the open-comment count; it is hidden when the count is 0
-             so a clean course shows a plain icon. -->
-        <button class="ov-icon-btn ov-comments" id="btnComments" type="button"
-                title="Comments" aria-label="Comments">
-          <i class="fa-solid fa-comments"></i>
-          <span class="ov-comment-count" id="commentCount" data-comment-count>0</span>
-        </button>
-
-        <button class="btn-publish">Publish</button>
-      </div>
-    </header>
 
     <!-- Row 2: course overview bar + tabs -->
     <div class="ov-subbar">
@@ -172,7 +252,7 @@
      Two routes: Manual Creation (inert -- present so the choice reads as
      real) and AI Generation, which drives the demo's reveal. -->
 <div class="modal-overlay" id="addLoModal" role="dialog" aria-modal="true"
-     aria-labelledby="addLoTitle">
+     aria-labelledby="addLoTitle" slot="content">
   <div class="modal">
     <div class="modal-head">
       <h3 id="addLoTitle">Add Learning Object</h3>
@@ -254,24 +334,15 @@
   </div>
 </div>
 
-<!-- ===== Comments panel =====
-     Built on `vwc-drawer`, the design-system slide-out.
+  <!-- Panel chrome. These slots render inside the drawer column above.
 
-     `overlay` (not sidebar) mode: this page's shell is a 100vh flex column
-     with `overflow: hidden`, so routing the whole layout through the drawer's
-     `content` slot would mean restructuring it. Overlay floats the panel above
-     the page instead. Documented consequence: anything in the `content` slot
-     goes inert while an overlay drawer is open, which is why the page markup
-     deliberately stays OUTSIDE this element.
+       Thread UI follows Phase2/objectManager.html — the future-state target:
+       threads live INLINE in one scrolling list, each collapsing to a header
+       and expanding to show its bubble, replies and reply box. There is no
+       separate detail view.
 
-     Thread UI follows Phase2/objectManager.html — the future-state target:
-     threads live INLINE in one scrolling list, each collapsing to a header
-     and expanding to show its bubble, replies and reply box. There is no
-     separate detail view.
-
-     SCOPE IS COURSE + LO ONLY. Phase 2 also has a scene level; that is
-     deliberately out of scope here. -->
-<vwc-drawer id="commentsDrawer" position="end" overlay>
+       SCOPE IS COURSE + LO ONLY. Phase 2 also has a scene level; that is
+       deliberately out of scope here. -->
 
   <div slot="drawer-header" class="cm-head">
     <h2 class="cm-title" id="cmTitle">Comments</h2>
@@ -822,6 +893,72 @@ function openObjectManager(objectId) {
 /* ── Header + meta rendering (all computed) ───────────────── */
 
 document.getElementById('hdr-sku').textContent = COURSE.sku;
+
+/* ---- Publish ----
+   Captures a publish note and appends a publish event to this course's
+   version history, which the course lookup's "Version history" modal reads.
+
+   NOTE ON THE KEY: the lookup lists this course with a leading "#"
+   ("#DEMO-LOTO-101") while COURSE.sku omits it. The history is keyed by the
+   LOOKUP's form, so a publish here shows up in the history opened there —
+   normalising at this single boundary rather than letting the two pages
+   disagree and silently write to a course that does not exist. */
+const PUBLISH_SKU = COURSE.sku.startsWith('#') ? COURSE.sku : '#' + COURSE.sku;
+
+const publishModal = document.getElementById('publishModal');
+const publishNote = document.getElementById('publishNote');
+
+document.querySelector('.btn-publish').addEventListener('click', () => {
+  publishNote.value = '';
+  publishModal.classList.add('open');
+  publishNote.focus();
+});
+
+function closePublish() { publishModal.classList.remove('open'); }
+
+document.getElementById('publishCancel').addEventListener('click', closePublish);
+publishModal.addEventListener('click', (e) => {
+  if (e.target === publishModal) closePublish();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && publishModal.classList.contains('open')) closePublish();
+});
+
+document.getElementById('publishConfirm').addEventListener('click', () => {
+  const ev = vhPublish(PUBLISH_SKU, publishNote.value, 'Dev Llama');
+  /* Confirm IN the dialog rather than with a toast: this page has no
+     notification component, and swapping the body for a short confirmation
+     also names the version that was created — which is what makes the link
+     between publishing here and the history in the lookup visible in a
+     walkthrough. */
+  showPublished(ev);
+});
+
+function showPublished(ev) {
+  const body = publishModal.querySelector('.modal-body');
+  const foot = publishModal.querySelector('.modal-foot');
+  const head = publishModal.querySelector('.modal-head');
+  head.innerHTML = '<h3>Published ' + ev.id + '</h3>';
+  body.innerHTML =
+    '<p class="pub-done">' +
+      '<span class="pub-done-icon"><i class="fa-solid fa-check"></i></span>' +
+      'This course is now live at <b>' + ev.id + '</b>.' +
+    '</p>' +
+    (ev.note
+      ? '<blockquote class="pub-done-note">' + ev.note.replace(/[&<>]/g,
+          c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c])) + '</blockquote>'
+      : '<p class="pub-done-nonote">Published without a note — it will show as ' +
+        '“No publish note” in version history.</p>') +
+    '<p class="pub-done-where">Find it under <b>Version history</b> in this ' +
+      'course\'s row on the course lookup.</p>';
+  foot.innerHTML = '<vaadin-button theme="primary" id="publishDone">Done</vaadin-button>';
+  document.getElementById('publishDone').addEventListener('click', () => {
+    closePublish();
+    // Restore the form so a second publish in the same session works.
+    setTimeout(() => location.reload(), 120);
+  });
+  document.getElementById('publishDone').focus();
+}
 document.getElementById('hdr-title').textContent = COURSE.title;
 
 function renderCourseMeta() {
