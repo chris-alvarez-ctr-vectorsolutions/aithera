@@ -29,10 +29,14 @@
   --c-surface:        #ffffff;
   --c-surface-alt:    #f3f5f9;   /* level-2 band (header/footer strips) */
   --c-surface-alt2:   #edf1f7;   /* level-1 band */
+  --tier-1:           #f2f5f9;   /* accordion group + qualification headers */
+  --tier-1-hover:     #ecf0f5;
+  --tier-2:           #f9fafc;   /* accordion requirement headers */
+  --tier-2-hover:     #f3f6f9;
   /* Canvas: the gray ground the other Convergence prototypes use
      (location-nav, assigned-training wizard), chosen over the lighter
      #f5f9fd so white panels and tables clearly separate from the page. */
-  --c-canvas:         #f0f2f5;
+  --c-canvas:         #f5f9fd;
   --c-hover:          #f4f7fb;
 
   /* Status semantics - used identically by pills, dots and badges */
@@ -178,7 +182,7 @@ a { color: var(--c-primary); }
 .loc-away {
   display: none; align-items: center; gap: 4px;
   background: var(--c-warn-bg); border: 1px solid var(--c-warn-line); color: var(--c-warn-ink);
-  border-radius: var(--r-pill); padding: 1px 7px; font-size: var(--t-micro); font-weight: 600;
+  border-radius: var(--r-pill); padding: 0 8px; font-size: var(--t-micro); font-weight: 600;
 }
 .loc-trigger.is-away .loc-away { display: inline-flex; }
 
@@ -201,7 +205,7 @@ a { color: var(--c-primary); }
 .beta {
   background: var(--c-primary-soft); color: var(--c-primary);
   border: 1px solid var(--c-primary-line);
-  border-radius: var(--r-pill); padding: 1px 7px;
+  border-radius: var(--r-pill); padding: 0 8px;
   font-size: var(--t-micro); font-weight: 700;
 }
 .nav-icons { display: flex; align-items: center; gap: var(--s-1); margin-left: var(--s-2); }
@@ -377,8 +381,10 @@ vwc-tree-list { display: block; }
 .searchbox input::placeholder { color: var(--c-faint); }
 .searchbox input:focus { border-color: var(--c-primary); box-shadow: var(--focus-ring); }
 
-/* Segmented control - shared by the page bar and the filter panel (Area 3/4) */
-.segmented { display: inline-flex; background: var(--c-surface-alt); border: 1px solid var(--c-line); border-radius: var(--r-sm); padding: 2px; gap: 2px; }
+/* Segmented control - shared by the page bar and the filter panel (Area 3/4).
+   Text segments (the V1/V2/V3 shading versions) size to their label. */
+#tierSeg button { width: auto; padding: 0 8px; font-size: var(--t-micro); font-weight: 600; }
+.segmented { display: inline-flex; background: var(--c-surface-alt); border: 1px solid var(--c-line); border-radius: var(--r-sm); padding: 4px; gap: 2px; }
 .segmented button {
   width: 34px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
   background: none; border: 0; border-radius: var(--r-xs);
@@ -405,7 +411,7 @@ vwc-tree-list { display: block; }
    Badge text sits on the 12px small-label floor. */
 .pill {
   display: inline-flex; align-items: center; gap: 6px;
-  height: 24px; padding: 0 10px;
+  height: 24px; padding: 0 8px;
   border-radius: var(--r-pill); border: 1px solid transparent;
   font-size: var(--t-micro); font-weight: 600; white-space: nowrap;
 }
@@ -433,7 +439,7 @@ vwc-tree-list { display: block; }
 /* Inline notice: an intentional notice, not a raw orange block */
 .notice {
   display: inline-flex; align-items: center; gap: var(--s-2);
-  padding: 5px 10px;
+  padding: 4px 12px;
   background: var(--c-warn-bg); border: 1px solid var(--c-warn-line); border-radius: var(--r-sm);
   color: var(--c-warn-ink); font-size: var(--t-meta); font-weight: 600; line-height: 1.3;
 }
@@ -476,6 +482,9 @@ vwc-tree-list { display: block; }
 /* Compact Vector buttons for dense rows. The tertiary theme adds an underline
    by default; the shared button system keeps every variant underline-free. */
 .btn-compact { --lumo-size-m: 32px; --lumo-font-size-m: var(--t-meta); }
+/* Icon-only page actions (Refresh, Help): square hit target, label via aria/title */
+vaadin-button.btn-iconic { width: 36px; min-width: 36px; padding: 0; }
+.btn-iconic i { font-size: 15px; margin: 0; }
 vaadin-button { cursor: pointer; }
 vaadin-button::part(label) { text-decoration: none !important; }
 vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
@@ -510,29 +519,90 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 }
 .tp-head .col-actions { text-align: right; }
 
-/* Depth 1: the plan group */
+/* Accordion tiers: two quiet neutral steps over the white base. Elevation
+   marks the working depth: only the DEEPEST opened level carries the whisper
+   shadow (the renderer sets .is-deep-open on an open header none of whose
+   child headers is open), so one soft edge shows where the open container
+   meets its content. Header rows toggle on click anywhere in the row
+   (buttons inside excepted) with a hover fill:
+     tier 1  group + qualification headers  --tier-1
+     tier 2  requirement headers            --tier-2
+     tier 3  activity rows                  --c-surface (base) */
+
+/* Tier 1a: the plan group */
 .tp-group {
   padding: var(--s-4);
-  background: var(--c-surface-alt2);
+  background: var(--tier-1);
   border-bottom: 1px solid var(--c-line);
+  position: relative; z-index: 3;
+  cursor: pointer; transition: background .12s;
 }
+.tp-group:hover { background: var(--tier-1-hover); }
 .tp-group .tp-name { font-size: var(--t-section); font-weight: 700; color: var(--c-ink); }
 
-/* Depth 2: qualification */
+/* Tier 1b: qualification (same surface as the group; type + indent step it) */
 .tp-qual {
   padding: var(--s-3) var(--s-4) var(--s-3) var(--s-8);
-  background: var(--c-surface-alt);
-  border-bottom: 1px solid var(--c-line-soft);
+  background: var(--tier-1);
+  border-bottom: 1px solid var(--c-line);
+  position: relative; z-index: 2;
+  cursor: pointer; transition: background .12s;
 }
+.tp-qual:hover { background: var(--tier-1-hover); }
 .tp-qual .tp-name { font-size: var(--t-row); font-weight: 600; color: var(--c-ink); }
 
-/* Depth 3: requirement */
+/* Tier 2: requirement, one quiet step above the base */
 .tp-req {
-  padding: var(--s-2) var(--s-4) var(--s-2) var(--s-10);
-  background: #fbfcfe;
+  padding: var(--s-2) var(--s-4) var(--s-2) 44px;
+  background: var(--tier-2);
   border-bottom: 1px solid var(--c-line-soft);
+  position: relative; z-index: 1;
+  cursor: pointer; transition: background .12s;
 }
+.tp-req:hover { background: var(--tier-2-hover); }
 .tp-req .tp-name { font-size: var(--t-body); font-weight: 600; color: var(--c-body); }
+
+/* The one whisper shadow, on the deepest opened level only. The stepped
+   z-index above keeps it painting onto the rows below it. */
+.tp-group.is-deep-open, .tp-qual.is-deep-open, .tp-req.is-deep-open {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .06);
+}
+
+/* Reversed tier shading (filter-panel toggle): the scheme mirrors around the
+   requirement - the accordion starts on white and gets progressively darker
+   as levels open: group + qualification white, requirement --tier-2 (same as
+   default), activities --tier-1. Shadows and z-order are unchanged, so
+   parents still cast onto their children in either direction. */
+.tier-reverse .tp-group,
+.tier-reverse .tp-qual { background: var(--c-surface); }
+.tier-reverse .tp-group:hover,
+.tier-reverse .tp-qual:hover { background: var(--tier-2-hover); }
+.tier-reverse .tp-act { background: var(--tier-1); border-bottom-color: var(--c-line); }
+.tier-reverse .tp-act:hover { background: var(--tier-1-hover); }
+.tier-reverse .tp-cardwrap { background: var(--tier-1); }
+.tier-reverse .tp-head { background: var(--c-surface); }
+
+/* V3 tier shading: every HEADER level (column header included) on the base
+   white surface, with indentation and weight carrying the hierarchy; only
+   the activity rows (and the card wrap) take a light tint, so leaf content
+   reads as one shaded layer. The deepest-open shadow is off in this mode. */
+.tier-flat .tp-head,
+.tier-flat .tp-group,
+.tier-flat .tp-qual,
+.tier-flat .tp-req { background: var(--c-surface); }
+.tier-flat .tp-act,
+.tier-flat .tp-cardwrap { background: var(--tier-1); border-bottom-color: var(--c-line); }
+.tier-flat .tp-act:hover { background: var(--tier-1-hover); }
+.tier-flat .tp-group:hover,
+.tier-flat .tp-qual:hover,
+.tier-flat .tp-req:hover { background: var(--tier-2-hover); }
+.tier-flat .is-deep-open { box-shadow: none; }
+
+/* Accordion type glyphs are plain icons - the chip fill was one box too many
+   on the tinted tier bands. Cards and detail heroes keep the chip. */
+.tp-group .tglyph, .tp-qual .tglyph, .tp-req .tglyph, .tp-act .tglyph {
+  background: transparent; color: var(--c-primary); font-size: 14px;
+}
 /* The notice stays inline beside the label while it fits, then wraps onto its
    own line rather than truncating either piece of text. */
 .tp-req .tp-name-cell { flex-wrap: wrap; row-gap: 6px; }
@@ -544,7 +614,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 
 /* Depth 4: activity row */
 .tp-act {
-  padding: var(--s-2) var(--s-4) var(--s-2) 56px;
+  padding: var(--s-2) var(--s-4) var(--s-2) 60px;
   min-height: 52px;
   background: var(--c-surface);
   border-bottom: 1px solid var(--c-line-soft);
@@ -565,7 +635,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 
 /* Disclosure caret used at every depth of the accordion */
 .disc {
-  width: 22px; height: 22px; flex-shrink: 0;
+  width: 24px; height: 24px; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
   background: none; border: 0; border-radius: var(--r-xs);
   color: var(--c-meta); cursor: pointer; font-size: 10px;
@@ -658,27 +728,34 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 .tcard-dur {
   position: absolute; bottom: var(--s-2); right: var(--s-2);
   background: rgba(16,24,40,.78); color: #fff;
-  border-radius: var(--r-xs); padding: 2px 7px;
+  border-radius: var(--r-xs); padding: 4px 8px;
   font-size: var(--t-micro); font-weight: 600; font-variant-numeric: tabular-nums;
 }
-.tcard-body { padding: var(--s-3); display: flex; flex-direction: column; gap: 6px; flex: 1; }
+.tcard-body { padding: var(--s-4) var(--s-4) var(--s-3); display: flex; flex-direction: column; gap: var(--s-2); flex: 1; }
 .tcard-title {
   display: flex; align-items: flex-start; gap: var(--s-2);
+  margin: 0; /* h3 default margins would stack on the body's flex gap */
   font-size: var(--t-row); font-weight: 600; color: var(--c-ink); line-height: 1.35;
 }
-.tcard-title span {
+.tcard-title span:last-child {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; min-width: 0;
 }
-.tcard-meta { display: flex; align-items: center; gap: 6px; font-size: var(--t-micro); color: var(--c-meta); margin-top: auto; }
+/* Meta block: activity type, then due date - one icon-led 12px line each,
+   4px apart so they read as one unit under the title */
+.tcard-metas { display: flex; flex-direction: column; gap: var(--s-1); }
+.tcard-metas p { margin: 0; }
+.tcard-meta i { width: 14px; text-align: center; flex-shrink: 0; }
+.tcard-meta { display: flex; align-items: center; gap: 6px; margin: 0; font-size: var(--t-micro); color: var(--c-meta); }
 .tcard-meta.is-overdue { color: var(--c-err-ink); font-weight: 600; }
 .tcard-foot {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-2);
-  padding: var(--s-2) var(--s-3) var(--s-3);
+  padding: 0 var(--s-4) var(--s-4);
+  margin-top: auto;
 }
 .tp-cards.dense .tcard-title { font-size: var(--t-meta); }
-.tp-cards.dense .tcard-body { padding: 10px; }
-.tp-cards.dense .tcard-foot { padding: 6px 10px 10px; }
+.tp-cards.dense .tcard-body { padding: var(--s-3) var(--s-3) var(--s-2); }
+.tp-cards.dense .tcard-foot { padding: 0 var(--s-3) var(--s-3); }
 
 /* ---------------------------------------------------------------------------
    9. AREA 5 - CATALOG TABLE
@@ -1062,7 +1139,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 .d-info { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; flex: 1; }
 .d-kind {
   align-self: flex-start;
-  padding: 2px 9px; border-radius: var(--r-pill);
+  padding: 4px 8px; border-radius: var(--r-pill);
   background: var(--c-primary-soft); color: var(--c-primary);
   font-size: var(--t-micro); font-weight: 600;
 }
@@ -1225,7 +1302,6 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
    Training Plan card: same sizing, thumbnail ratio, badges, XS shadow). */
 .ccard { flex: 0 0 208px; scroll-snap-align: start; cursor: default; }
 .ccard:focus { outline: none; box-shadow: var(--focus-ring), var(--e-2); }
-.ccard .tcard-title span:last-child { min-height: 2.6em; }
 
 /* Elective corner tag. The legacy maroon square is off-system; the marker
    keeps its top-right corner placement on the ink neutral. */
@@ -1284,7 +1360,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 #view-wizard .spec { max-width: 780px; }
 .spec > summary {
   display: inline-flex; align-items: center; gap: var(--s-2);
-  padding: 6px 10px; border-radius: var(--r-sm);
+  padding: 4px 8px; border-radius: var(--r-sm);
   color: var(--c-meta); font-size: var(--t-micro); font-weight: 600;
   cursor: pointer; user-select: none; list-style: none;
 }

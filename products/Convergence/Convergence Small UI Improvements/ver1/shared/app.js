@@ -23,6 +23,7 @@ const state = {
   dismissedBanners: new Set(),   // banner ids dismissed this session
   showElectives: false,          // filter-panel toggle: elective activities
   allCollapsed: false,           // filter-panel toggle: collapse/expand all
+  tierMode: 'reverse',           // tier shading version; V2 'reverse' is the default ('default' = V1 darkest-first, 'flat' = V3)
   filterOpen: false,
   navOpen: new Set(['training']),
   navActive: 'dashboard',
@@ -377,6 +378,26 @@ function boot() {
     b.querySelector('i').className = state.allCollapsed
       ? 'fa-solid fa-chevrons-down' : 'fa-solid fa-chevrons-up';
   });
+
+  // Accordion shading versions: the V1/V2/V3 segmented control in the page
+  // action row. Pure CSS class swap on the plan root, nothing re-renders.
+  //   V1 'default' - darkest at the group, lighter as you drill in
+  //   V2 'reverse' - starts white, darkens as levels open (column header
+  //                  white too). This is the DEFAULT version.
+  //   V3 'flat'    - white headers; only the activity rows carry a light tint
+  const applyTierMode = () => {
+    document.querySelectorAll('#tierSeg [data-tier]').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.tier === state.tierMode)));
+    $('#tp').classList.toggle('tier-reverse', state.tierMode === 'reverse');
+    $('#tp').classList.toggle('tier-flat', state.tierMode === 'flat');
+  };
+  document.querySelectorAll('#tierSeg [data-tier]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.tierMode = btn.dataset.tier;
+      applyTierMode();
+    });
+  });
+  applyTierMode();
 
   // Show electives: reveals elective activities (E-tagged) in the plan.
   $('#fpElectives').addEventListener('click', () => {

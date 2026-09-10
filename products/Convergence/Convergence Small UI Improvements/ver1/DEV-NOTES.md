@@ -7,6 +7,7 @@
 - Area 1: expand/collapse carets are RIGHT-ALIGNED in the row (margin-left auto), per designer direction in round 3.
 - Area 1: icons are one 15px Font Awesome glyph in a fixed 20px column. Children indent 24px behind a 1px guide line.
 - Area 1 round 3: labels wrap to TWO lines instead of truncating (2-line clamp, rows grow from a 44px minimum). Do not restore single-line ellipsis.
+- Round 10: the page header Refresh and Help actions are icon-only buttons (36x32, `.btn-iconic`) with `aria-label` + `title` carrying the name; the text labels are gone. Applies to every screen's action row.
 - Area 1: the four section headers (Overview / Manage / Insights / Configuration) are a PROPOSAL: the current nav model has no section level. OUT OF SCOPE as CSS; drop them if the IA is fixed.
 - Area 1: the collapse button is the FIRST child of .sn-head, before the search field, so it keeps exactly the same x and y whether the nav is open or collapsed (left 12px, centre 29px). Do not move it back to the right of the search field.
 - Area 1: collapsed 58px icon-only state is preserved (labels, carets and children hidden, `title` tooltips kept). 58px is chosen so the collapse button and the row icons share the same centre line. Below 900px the nav goes off-canvas behind the burger.
@@ -33,9 +34,24 @@
 - Selecting a location updates the page-header breadcrumb.
 
 ## t-list - Accordion list (Area 3)
-- Four explicit depth levels: indent 16 / 32 / 40 / 56px, bands `--c-surface-alt2` → `--c-surface-alt` → `#fbfcfe` → `--c-surface`, label weights 14/700 → 13.5/600 → 13/600 → 13.5/500.
+- Round 10 accordion tiers (final, supersedes rounds 8-9 band values): two quiet neutral steps over the white base -
+  tier 1 = group + qualification headers on `--tier-1` (#f2f5f9);
+  tier 2 = requirement headers on `--tier-2` (#f9fafc);
+  tier 3 = activity rows on base `--c-surface`, hairline separators.
+- Elevation: ONLY the deepest opened level carries the shadow. The renderer sets `.is-deep-open` on an open header none of whose child headers is open (`0 1px 2px rgba(16,24,40,.06)`); closed and intermediate headers stay flat. This is render-time logic in views.js, not a CSS-only state.
+- Every header keeps `position: relative` + z-index 3/2/1 so the shadowed row paints onto the rows below it; keep the z-order or the shadow paints the wrong way.
+- Tier shading versions: the `#tierSeg` V1/V2/V3 segmented control in the PAGE action row (beside the view toggle, not in the filter panel); text segments, `aria-pressed` marks the active one; class swap on `#tp` only, no re-render:
+  V2 is the DEFAULT at load (state boots to 'reverse' and applyTierMode() runs once at wiring time - keep that call or a fresh page renders V1 colours with V2 pressed);
+  V1 'default' id = darkest-first;
+  V2 `.tier-reverse` = mirrors around the requirement (group + qualification white, activities and card wrap on `--tier-1`) AND turns the sticky column header row white, so the darkest surface is always the deepest content;
+  V3 `.tier-flat` = white headers everywhere (column header included), indentation + weight carry depth, ONLY activity rows + card wrap take the `--tier-1` tint; the deepest-open shadow is suppressed (`box-shadow: none`).
+- Padding sits on the 4px grid everywhere: pills `0 8`, location chips `0 8`, notice `4 12`, duration badge `4 8`, kind chip `4 8`, spec summary `4 8`, segmented inset `4`, caret buttons 24px squares.
+- Interactions: the WHOLE header row toggles on click - the handler ignores clicks on `button`, `a` and `vaadin-button` inside the row so the info action and caret keep their own behaviour. Rows have `cursor: pointer` and hover fills (`--tier-1-hover` #ecf0f5, `--tier-2-hover` #f3f6f9); the caret button stays the keyboard path (rotate transition on `aria-expanded`).
+- Indents step 16 / 32 / 44 / 60px; hierarchy also carries through indent and weight (18/700 group, 16/600 qualification, 16/600 requirement), so it holds without colour.
+- AA on the final surfaces: meta/meter text 5.25 on tier-1, 5.49 on tier-2, 5.01 on the darkest hover; titles are ink at 15+.
+- Round 10: accordion type glyphs are plain icons (14px, `--c-primary`), no chip fill. The 24px `--c-primary-soft` chip remains only where an icon stands alone (detail hero, catalog type column, View-by list).
 - Round 8: qualification rows use `fa-graduation-cap` (never the medal); requirements keep `fa-award`. Same cap in the side nav, View-by list, detail hero and catalog cards.
-- Round 8 contrast: the canvas is `#f0f2f5` (the gray the other Convergence prototypes use; a deliberate deviation from the product CLAUDE.md `#f5f9fd`), with bands `#f3f5f9` / `#edf1f7`, borders `#dbe0e8`, hairlines `#e9edf3`, and `--c-meta` darkened to `#5b6779` to hold WCAG AA on the new surfaces.
+- Canvas: `--c-canvas` is `#f5f9fd`, the product CLAUDE.md default (round 8 tried the gray `#f0f2f5`; round 10 reverted it at designer direction). The round 8 table retune stays: bands `#f3f5f9` / `#edf1f7`, borders `#dbe0e8`, hairlines `#e9edf3`, `--c-meta` darkened to `#5b6779`. AA on the canvas: meta 5.42, links 4.66.
 - ONE column grid is declared once and reused by the header and every depth, so group, qualification, requirement and activity rows align their Completion / Duration / Time spent / Due / Actions values under the same headings.
 - Dropping a column at a breakpoint must hide that cell at EVERY depth, or the deeper rows spill onto a second grid line.
 - The empty completion capsule with the tiny caption is replaced by `.meter`: a 76px bar plus a single-line label, "**0 of 5** qualifications", vertically centred. Needs a completion ratio in the row model; if only the counts exist, derive the bar from them.
@@ -55,6 +71,7 @@
 - Round 4: the circle-info details action is ALWAYS the leftmost icon in an action row; the paperclip follows it. Applies to list rows, both card sizes and catalog cards.
 
 ## t-filter - Filter panel open (Area 3)
+- Two bordered icon-button toggles: chevrons collapse/expand all, square-star shows electives; both keep `title`/`aria-label` in sync with state. (The tier-shading control lives in the page action row as the V1/V2/V3 segmented, not in this panel.)
 - The funnel that opens the panel lives INSIDE the panel header, top-left, NOT in the page-header actions. The panel is always a column in the layout: closed it is a 58px rail holding just the funnel, open it is the full 244px panel with the funnel in exactly the same position. Do not move the funnel back to the right-hand page actions; the control and the surface it controls have to read as one column.
 - Open and closed are a `filters-closed` class on the training view, animated on `width` with `overflow: hidden` - the same pattern as the side nav's collapse, so both collapsible columns behave identically.
 - The funnel uses the shared icon-button pressed state (blue soft fill) when the panel is open, and its `title` flips between Show filters and Hide filters.
@@ -73,12 +90,17 @@
 - Thumbnail ratio, badge placement, radius, shadow and controls must not change between densities.
 - Round 4 worked example: the 12-activity requirement (RV - HSEML - Site Hazards) demonstrates the responsive grid. Measured: large cards 4 / 3 / 2 per row and small cards 5 / 4 / 2 per row at 1600 / 1180 / 820px, 16px gutters at every size. Auto-fill min-max tracks derive the count from the width; do not hardcode column counts.
 - Round 2: cards carry the design-system XS shadow (`--e-xs`) as their ONLY elevation: no border. Type icons are centred with grid place-items + line-height 1 and one normalised size per thumbnail size.
+- Round 10 padding (dense): body `12 12 8`, footer `0 12 12` - the same model as the large card, one spacing step tighter.
 
 ## t-cards-l - Large cards (Area 4)
 - `--card-min: 248px; --card-max: 300px`. Grid tracks are CAPPED so a partial row keeps the card size instead of stretching a few cards across the page. That plus moving the group progress meter into the Completion column removes the "cards clustered left, capsule floating right" gap.
 - Fixed 16:9 thumbnail (`aspect-ratio`). Status badge top-left using the shared pill on a translucent white plate; duration badge bottom-right.
 - The due date moved from the thumbnail corner to a meta line under the title (red when overdue) so it can never collide with the duration badge.
 - Title is 13.5/600 clamped to two lines, content-type glyph aligned to the first line. Footer: tertiary details icon button left, primary Launch right: the same pills and buttons as the list view.
+- Round 10 padding: body `16 16 12` with an 8px stack gap; footer `0 16 16` pinned to the card bottom (`margin-top: auto`). No reserved title slot - the due-date line follows the title at the flex gap.
+- GOTCHA: `.tcard-title` is an `h3` and `.tcard-meta` a `p`; both zero their margins in CSS. Without that the UA default margins stack ~36px of phantom space onto the 8px gap. Keep `margin: 0` if the elements change.
+- The card title carries NO type icon. The activity type is a meta line under the title, styled identically to the due-date line: `.tcard-metas` stacks `icon + type label` then `icon + due`, 12px `--c-meta`, 4px apart; `.tcard-meta i` sits in a fixed 14px centred column so both lines' text left-aligns.
+- The 2-line clamp lives on `.tcard-title span:last-child`.
 - Card hover: `--e-2` + blue border + 2px lift.
 - Thumbnails here are CSS placeholders tinted per content type. Real course art comes from the LMS; only the frame, ratio and overlay positions are specified.
 

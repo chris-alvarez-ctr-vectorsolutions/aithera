@@ -36,8 +36,13 @@ const SPECS = {
   ]),
   training: specHTML([
     ['List columns', 'minmax(0,1fr) 248 96 96 108 84 · gap 12'],
-    ['Depth indents', '16 / 32 / 40 / 56px'],
-    ['Depth bands', '--c-surface-alt2 · -alt · #fbfcfe · --c-surface'],
+    ['Depth indents', '16 / 32 / 44 / 60px'],
+    ['Type glyphs', 'accordion rows: plain --c-primary icons, no chip'],
+    ['Card meta', 'type line + due line · 12px --c-meta · icons 14px col'],
+    ['Tier surfaces', 'tier-1 #f2f5f9 · tier-2 #f9fafc · base #fff'],
+    ['Tier elevation', 'deepest OPEN level only · 0 1px 2px ink 6% · z 3/2/1'],
+    ['Spacing grid', 'all padding on the 4px grid'],
+    ['Tier interaction', 'whole header row toggles · hover fill · caret rotates'],
     ['Activity rows', 'min 52px · hairline --c-line-soft'],
     ['Status pills', 'h 24 · text 12/600 · status tokens'],
     ['Progress meter', 'bar 72x6 · label 14'],
@@ -45,10 +50,12 @@ const SPECS = {
     ['Cards (small)', 'tracks 184-224 · title 14/600'],
     ['Cards (large)', 'tracks 256-312 · title 16/600'],
     ['Card grid', 'gap 16 · thumb 16:9 · shadow --e-xs, no border'],
+    ['Card padding', 'body 16 · foot 0 16 16 · dense 12 · no reserved title slot'],
     ['Card badges', 'status top-left · duration bottom-right'],
     ['Row actions', 'info leftmost · icon-btn 34 · column 84'],
     ['Elective marker', '20px E tag inline · hidden until toggled'],
     ['Panel toggles', 'chevrons-up/down = all · square-star = electives'],
+    ['Tier shading', 'page V1/V2/V3 segmented · V2 reversed is the DEFAULT · V1 darkest-first · V3 white headers + shaded activities'],
   ]),
   details: specHTML([
     ['Hero thumbnail', '232px wide · 16:9 · radius 8'],
@@ -162,23 +169,28 @@ const SPECS = {
         <div class="pagebar-actions">
           <!-- Home -->
           <div class="action-group" data-for="home">
-            <vaadin-button theme="secondary" class="btn-compact"><i class="fa-solid fa-rotate-right" style="margin-right:6px"></i>Refresh</vaadin-button>
-            <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Refresh" title="Refresh"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Help" title="Help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></vaadin-button>
           </div>
           <!-- Training -->
           <div class="action-group" data-for="training">
             <div class="searchbox"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search my training" aria-label="Search my training"></div>
+            <div class="segmented" id="tierSeg" role="group" aria-label="Accordion shading version">
+              <button data-tier="default" aria-pressed="false" title="V1: darkest at the top, lighter as you drill in">V1</button>
+              <button data-tier="reverse" aria-pressed="true" title="V2: white at the top, darker as levels open (default)">V2</button>
+              <button data-tier="flat" aria-pressed="false" title="V3: white headers, shaded activity rows">V3</button>
+            </div>
             <div class="segmented" id="viewToggle" role="group" aria-label="View">
               <button data-view="list" aria-pressed="true" title="List view"><i class="fa-solid fa-list"></i></button>
               <button data-view="dense" aria-pressed="false" title="Compact cards"><i class="fa-solid fa-grip"></i></button>
               <button data-view="large" aria-pressed="false" title="Large cards"><i class="fa-solid fa-table-cells-large"></i></button>
             </div>
-            <vaadin-button theme="secondary" class="btn-compact"><i class="fa-solid fa-rotate-right" style="margin-right:6px"></i>Refresh</vaadin-button>
-            <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Refresh" title="Refresh"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i></vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Help" title="Help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></vaadin-button>
           </div>
           <!-- Details drill-in -->
           <div class="action-group" data-for="details">
-            <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Help" title="Help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></vaadin-button>
             <vaadin-button theme="secondary" class="btn-compact" id="detailsClose"><i class="fa-solid fa-xmark" style="margin-right:6px"></i>Close</vaadin-button>
           </div>
           <!-- Catalog -->
@@ -188,16 +200,16 @@ const SPECS = {
               <button data-cview="cards" aria-pressed="true" title="Category cards"><i class="fa-solid fa-grip"></i></button>
               <button data-cview="table" aria-pressed="false" title="Table view"><i class="fa-solid fa-list"></i></button>
             </div>
-            <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Help" title="Help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></vaadin-button>
             <vaadin-button theme="secondary" class="btn-compact"><i class="fa-solid fa-xmark" style="margin-right:6px"></i>Close</vaadin-button>
           </div>
           <!-- Wizard -->
           <div class="action-group" data-for="wizard">
-            <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Help" title="Help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></vaadin-button>
           </div>
           <!-- Guide -->
           <div class="action-group" data-for="guide">
-            <vaadin-button theme="tertiary" class="btn-compact"><i class="fa-regular fa-circle-question" style="margin-right:6px"></i>Help</vaadin-button>
+            <vaadin-button theme="tertiary" class="btn-compact btn-iconic" aria-label="Help" title="Help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i></vaadin-button>
           </div>
         </div>
       </div>

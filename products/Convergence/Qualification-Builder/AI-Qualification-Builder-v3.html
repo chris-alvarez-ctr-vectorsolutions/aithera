@@ -2494,7 +2494,7 @@ let chatGen = 0;   // conversation generation: bumped on start-over so stale tim
 const ENTRY_GUIDED = 'Guided, step by step';
 const ENTRY_UPLOAD = 'Upload a description';
 const TOPIC_OPTIONS    = ['Safety', 'Onboarding', 'HR Compliance', 'Equipment and tool usage', 'Regulatory compliance', 'Role-specific skills'];
-const DURATION_OPTIONS = ['1 month', '3 months', '6 months', '1 year'];
+const DURATION_OPTIONS = ['2 hours', '4 hours', '6 hours', '10 hours'];
 /* Path A: four questions, then the assistant drafts the requirement set itself.
    The old requirement-count question is absorbed by the topics question: one
    requirement is drafted per topic picked. The title is asked AFTER the goals,
@@ -2504,7 +2504,7 @@ const A2_STEPS = [
   { qid:'goals',    label:'Goals',    ask:'Describe the goals of this qualification. What should a learner who finishes it have learned?', type:'text', ph:'Describe the goals of this qualification', suggest:true },
   { qid:'title',    label:'Title',    ask:'What should this qualification be called?', type:'chips', dynOptions: titleSuggestions,
     note: () => (guided.answers.goals ? 'Based on your description, here are a few title suggestions. ' : 'Here are a few title suggestions from your answers so far. ') + 'Pick one, or tap Other to write your own. ' },
-  { qid:'duration', label:'Duration', ask:'Last one: how long should this qualification take to complete? I use this to size the draft.', type:'chips', options:DURATION_OPTIONS },
+  { qid:'duration', label:'Duration', ask:'Last one: how long will this qualification take to complete? I use this to size the draft.', type:'chips', options:DURATION_OPTIONS },
 ];
 const B_MENU = ['Add a requirement', 'Change an existing requirement', 'Look up a course', 'Edit the title or description', 'Change the duration', 'Reorder requirements'];
 const RESTART_YES  = 'Yes, start over';
@@ -2567,8 +2567,8 @@ function mkDraftReq(s){
 function newGuided(path){
   return { path, stage:'entry', stepIdx:0, answers:{}, drafted:false,
            changes:[], bField:null, a1:null, a1ReqIds:[],
-           bDuration:'6 months', pendingDocs:[], sumOpen:false, q:null,
-           descTouched:false, _prog:false, cmp:null, slots:null, course:null };
+           bDuration:'6 hours', pendingDocs:[], sumOpen:false, q:null,
+           descTouched:false, _prog:false, cmp:null, slots:null, course:null, ctx:null };
 }
 function gv(id){ const el=document.getElementById(id); return el ? (el.value||'').trim() : ''; }
 function cap(s){ s = String(s || '').trim(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
@@ -2712,7 +2712,7 @@ function qAffordanceHtml(q){
   const st = guided ? (guided.stage || '') : '';
   let skipLabel = 'Skip this question';
   if (st === 'slot-choice' && guided.slots) skipLabel = guided.slots.skipLabel || 'Skip this requirement';
-  else if (guided && (guided.path === 'B' || st.startsWith('b-') || st.startsWith('course'))) skipLabel = 'Never mind';
+  else if (guided && (guided.path === 'B' || st === 'ctx' || st.startsWith('b-') || st.startsWith('course'))) skipLabel = 'Never mind';
   const skip = q.noSkip ? '' : `<button class="sp-skip-link" onclick="gSkip()">${skipLabel}</button>`;
   if (q.type === 'chips'){
     const chips = q.options.map((o, i) => `<button class="sp-chip${q.current === o ? ' cur' : ''}" onclick="gPickOption(${i})">${esc(o)}</button>`).join('');
@@ -2887,6 +2887,7 @@ function reAsk(){
   if (st === 'b-again')     return askBAgain();
   if (st === 'slot-choice') return aiMsg('<span class="sp-q-ask">Tap a card to preview it in the builder, then confirm your pick.</span>', { type:'compare' });
   if (st === 'slot-fill')   return aiMsg('One moment, I am filling in the requirements.', null);
+  if (st === 'ctx')         return askCtxStep();
   if (st === 'course-topic') return aiMsg('<span class="sp-q-ask">What topic should I look for courses about?</span>', { type:'text' });
   if (st === 'course-pick') return aiMsg('<span class="sp-q-ask">Pick the courses you want, then confirm.</span>', { type:'courses' });
   if (st === 'course-level') return askCourseLevel();
@@ -2913,7 +2914,7 @@ function routeExact(label){
   if (st === 'b-text-mode'){ label === 'Rewrite it myself' ? respond(bRewrite) : bAlts(); return; }
   if (st === 'b-duration'){ bApplyDuration(label); return; }
   if (st === 'b-pick-field'){ bTextMode(label); return; }
-  if (st === 'b-change-pick'){ guided.changeName = label; respond(bChangeWhy); return; }
+  if (st === 'ctx'){ ctxAnswer(label); return; }
   if (st === 'b-remove-confirm'){ label === 'Yes, remove it' ? bRemoveDo() : bDone('Kept it. Nothing was changed.'); return; }
   routeAnswer(label);
 }
@@ -2948,9 +2949,7 @@ function routeAnswer(text){
   if (st === 'b-duration'){ return bApplyDuration(text); }
   if (st === 'b-pick-field'){ const m = matchOption(text, ['Title', 'Description']); if (m) return bTextMode(m); return respond(bPickField); }
   if (st === 'b-order'){ respond(() => aiMsg('Use the arrows above, then press Done reordering.', { type:'reorder' })); return; }
-  if (st === 'b-add-why'){ return bAutoAddFromReason(text); }
-  if (st === 'b-change-pick'){ const m = matchOption(text, requirements.map(r => r.name)); if (m){ guided.changeName = m; return respond(bChangeWhy); } return respond(bChangePick); }
-  if (st === 'b-change-why'){ return bApplyReqChange(text); }
+  if (st === 'ctx'){ return ctxAnswer(text); }
   if (st === 'slot-choice'){
     if (/\b(first|1st)\b/i.test(text)) return gCmpPick(0);
     if (/\b(second|2nd)\b/i.test(text)) return gCmpPick(1);
@@ -3001,10 +3000,10 @@ function routeAdjust(text){
   if (ord && /requirement/i.test(text)){
     const idxMap = { first:0, '1st':0, second:1, '2nd':1, third:2, '3rd':2, fourth:3, '4th':3, fifth:4, '5th':4 };
     const r = requirements[idxMap[ord[1].toLowerCase()]];
-    if (r){ guided.changeName = r.name; return respond(bChangeWhy); }
+    if (r){ guided.changeName = r.name; return bChangeWhy(); }
   }
-  if (/\b(add|new)\b/i.test(text) && /requirement/i.test(text)) return respond(bAddWhy);
-  if (/requirement/i.test(text)) return respond(bChangePick);
+  if (/\b(add|new)\b/i.test(text) && /requirement/i.test(text)) return bAddWhy();
+  if (/requirement/i.test(text)) return bChangePick();
   if (/activit/i.test(text)){
     respond(() => aiMsg('I can add courses as activities under a requirement. Name the topic, for example: show me courses about lockout/tagout.', null)); return;
   }
@@ -3022,7 +3021,8 @@ function gSkip(){
   if (st === 'entry'){ startA2("No problem, we'll go step by step. "); return; }
   if (st === 'a1-await'){ startA2("No problem. Let's answer a few questions instead. "); return; }
   if (st === 'a2'){ guided.answers[curStep().qid] = null; afterAnswer(); return; }
-  if (st && st.startsWith('course')){ courseCancel(); return; }                            // never mind: back to the menu
+  if (st === 'ctx'){ ctxCancel(); return; }                                                // never mind: back to the menu
+  if (st && st.startsWith('course')){ courseCancel(); return; }
   if (st && (st === 'b-menu' || st.startsWith('b-'))){ guided.stage = 'b-again'; respond(askBAgain); return; }
   respond(() => reAsk());
 }
@@ -3414,12 +3414,12 @@ function askBMenu(intro){
 }
 function askBAgain(){
   guided.stage = 'b-again';
-  aiMsg('<span class="sp-q-ask">Anything else you would like to do?</span> Saving stays in the <strong>Save</strong> footer whenever you are ready.', { type:'chips', options:B_MENU, noSkip:true });
+  aiMsg('<span class="sp-q-ask">Anything else you would like to do?</span>', { type:'chips', options:B_MENU, noSkip:true });
   setPh('Pick an action, or type what you need');
 }
 function bRoute(label){
-  if (label === 'Add a requirement') return respond(bAddWhy);
-  if (label === 'Change an existing requirement') return respond(bChangePick);
+  if (label === 'Add a requirement') return bAddWhy();
+  if (label === 'Change an existing requirement') return bChangePick();
   if (label === 'Look up a course') return respond(bCourseAsk);
   if (label === 'Edit the title or description') return respond(bPickField);
   if (label === 'Change the duration') return bDurationAsk();
@@ -3514,14 +3514,51 @@ function bApplyDuration(val){
   markQualDirty(); pushVersion('Duration updated'); showToast('Duration updated');
   bDone('Done. I will size future suggestions for ' + esc(val) + '. The duration does not appear on the qualification itself.');
 }
+/* ── Context questions: once an action is recognized (from a menu tap or free
+     text), the assistant gathers the context it needs ONE QUESTION AT A TIME,
+     using the exact same question grammar as the guided from-scratch view
+     (step pill + helper note + question line + chip/text affordances). ── */
+function startCtxFlow(spec){
+  guided.ctx = { steps: spec.steps, idx: 0, answers: {}, onDone: spec.onDone };
+  guided.stage = 'ctx';
+  respond(() => askCtxStep(spec.intro || ''));
+}
+function askCtxStep(note){
+  const C = guided.ctx; if (!C) return;
+  const s = C.steps[C.idx];
+  const q = s.type === 'chips'
+    ? { type:'chips', options: (typeof s.options === 'function' ? s.options() : s.options), noCustom: !!s.noCustom }
+    : { type:'text', ph: s.ph };
+  const pill = `<span class="sp-q-step">Question ${C.idx + 1} of ${C.steps.length}</span>`;
+  const noteAll = (note || '') + (s.note || '');
+  aiMsg((noteAll ? '<span class="sp-q-note">' + noteAll + '</span>' : '') + pill + '<span class="sp-q-ask">' + s.ask + '</span>', q);
+  if (s.type === 'chips') setPh('Pick an option above, or type your answer');
+  else { setPh(s.ph || 'Type your answer'); prefillComposer(''); }
+}
+function ctxAnswer(val){
+  const C = guided.ctx; if (!C) return;
+  C.answers[C.steps[C.idx].qid] = val;
+  C.idx++;
+  if (C.idx < C.steps.length) respond(() => askCtxStep());
+  else { const done = C.onDone; guided.ctx = null; done(C.answers); }
+}
+function ctxCancel(){
+  guided.ctx = null;
+  guided.stage = 'b-again';
+  respond(askBAgain);
+}
 /* Requirement actions ask WHY, so the assistant has the context to build the right
    candidates (library first, drafts for gaps, revisions in place). */
-/* Add: ask what it should cover and why, then offer 3 candidates through the slot flow */
+/* Add: what should it cover, then why is it needed, then 3 candidates */
 function bAddWhy(){
-  guided.stage = 'b-add-why';
-  aiMsg('I check your library for a fit before drafting anything new, and I keep your reason with the requirement. <span class="sp-q-ask">What should the new requirement cover, and why is it needed?</span>', { type:'text' });
-  setPh('Describe what it should cover and why');
-  prefillComposer('');
+  startCtxFlow({
+    intro: 'I check your library for a fit before drafting anything new. ',
+    steps: [
+      { qid:'cover', ask:'What should the new requirement cover?', type:'text', ph:'Describe what it should cover' },
+      { qid:'why', ask:'Why is it needed?', type:'text', ph:'Why is this requirement needed', note:'I keep your reason with the requirement. ' },
+    ],
+    onDone: a => bAutoAddFromReason([a.cover, a.why].filter(Boolean).join('. ')),
+  });
 }
 /* Meaningful words from a typed reason: short domain terms like "ppe" stay in,
    glue words stay out, so library matching sees what the user actually named */
@@ -3608,17 +3645,32 @@ function cmpDiscard(){
 }
 /* Change: pick the requirement, then ask what needs to change and why.
    The reason drives the edit: revise in place, swap for a library fit, or remove. */
+/* Change: which requirement, what needs to change, why, then the candidates.
+   When free text already named the requirement (bChangeWhy), the which step drops. */
 function bChangePick(){
   if (!requirements.length) return bDone('There are no requirements to change yet.');
-  guided.stage = 'b-change-pick';
-  aiMsg('<span class="sp-q-ask">Which requirement needs to change?</span>', { type:'chips', options:requirements.map(r => r.name), noCustom:true });
-  setPh('Pick a requirement above');
+  startCtxFlow({
+    steps: [
+      { qid:'which', ask:'Which requirement needs to change?', type:'chips', options: () => requirements.map(r => r.name), noCustom:true },
+      { qid:'what', ask:'What needs to change about it?', type:'text', ph:'Describe the change', note:'I can revise it, swap it for a library fit, or remove it. ' },
+      { qid:'why', ask:'Why does it need to change?', type:'text', ph:'Why is the change needed' },
+    ],
+    onDone: a => {
+      guided.changeName = matchOption(String(a.which || ''), requirements.map(r => r.name)) || a.which;
+      bApplyReqChange([a.what, a.why].filter(Boolean).join('. '));
+    },
+  });
 }
 function bChangeWhy(){
-  guided.stage = 'b-change-why';
-  aiMsg('The context helps me make the right edit: I can revise it, swap it for a library fit, or remove it. <span class="sp-q-ask">What needs to change about <strong>' + esc(guided.changeName) + '</strong>, and why?</span>', { type:'text' });
-  setPh('Describe the change and why it is needed');
-  prefillComposer('');
+  const name = guided.changeName;
+  startCtxFlow({
+    intro: 'Sure, <strong>' + esc(name) + '</strong>. ',
+    steps: [
+      { qid:'what', ask:'What needs to change about it?', type:'text', ph:'Describe the change', note:'I can revise it, swap it for a library fit, or remove it. ' },
+      { qid:'why', ask:'Why does it need to change?', type:'text', ph:'Why is the change needed' },
+    ],
+    onDone: a => bApplyReqChange([a.what, a.why].filter(Boolean).join('. ')),
+  });
 }
 function bApplyReqChange(reason){
   const name = guided.changeName;

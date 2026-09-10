@@ -78,7 +78,10 @@ function renderTraining() {
   }
 
   const planOpen = isOpen('plan', true);
-  out.push(`<div class="tp-group">
+  // Only the DEEPEST opened level carries the elevation shadow: a node is
+  // 'deep-open' when it is open and none of its child headers is open.
+  const planDeep = planOpen && !TRAINING.quals.some(q => isOpen(q.id, q.open));
+  out.push(`<div class="tp-group${planDeep ? ' is-deep-open' : ''}">
     <span class="tp-name-cell">
       ${disc('plan', planOpen)}
       <span class="tp-name">${esc(TRAINING.name)}</span>
@@ -90,7 +93,8 @@ function renderTraining() {
 
   if (planOpen) TRAINING.quals.forEach(q => {
     const qOpen = isOpen(q.id, q.open);
-    out.push(`<div class="tp-qual">
+    const qDeep = qOpen && !q.reqs.some(r => isOpen(r.id, r.open));
+    out.push(`<div class="tp-qual${qDeep ? ' is-deep-open' : ''}">
       <span class="tp-name-cell">
         ${disc(q.id, qOpen)}
         <span class="tglyph"><i class="fa-solid fa-graduation-cap"></i></span>
@@ -104,7 +108,7 @@ function renderTraining() {
 
     q.reqs.forEach(r => {
       const rOpen = isOpen(r.id, r.open);
-      out.push(`<div class="tp-req">
+      out.push(`<div class="tp-req${rOpen ? ' is-deep-open' : ''}">
         <span class="tp-name-cell">
           ${disc(r.id, rOpen)}
           <span class="tglyph"><i class="fa-solid fa-award"></i></span>
@@ -131,6 +135,16 @@ function renderTraining() {
   root.innerHTML = out.join('');
   root.querySelectorAll('.disc').forEach(b =>
     b.addEventListener('click', () => toggleNode(b.dataset.node)));
+  // Modern accordion pattern: the whole header row toggles, not just the
+  // caret. Clicks on real controls inside the row (info button, links,
+  // the caret itself) are excluded so they keep their own behaviour.
+  root.querySelectorAll('.tp-group, .tp-qual, .tp-req').forEach(row => {
+    row.addEventListener('click', e => {
+      if (e.target.closest('button, a, vaadin-button')) return;
+      const d = row.querySelector('.disc');
+      if (d) toggleNode(d.dataset.node);
+    });
+  });
   wireOpenRefs(root);
 }
 
@@ -164,12 +178,14 @@ function cardHTML(a) {
     </div>
     <div class="tcard-body">
       <h3 class="tcard-title">
-        <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}"></i></span>
         <span title="${esc(a.name)}">${esc(a.name)}</span>
       </h3>
-      <p class="tcard-meta ${overdue ? 'is-overdue' : ''}">
-        <i class="fa-regular fa-calendar"></i>${a.due ? 'Due ' + esc(a.due) : 'No due date'}
-      </p>
+      <div class="tcard-metas">
+        <p class="tcard-meta"><i class="fa-solid ${t.icon}" aria-hidden="true"></i>${t.label}</p>
+        <p class="tcard-meta ${overdue ? 'is-overdue' : ''}">
+          <i class="fa-regular fa-calendar" aria-hidden="true"></i>${a.due ? 'Due ' + esc(a.due) : 'No due date'}
+        </p>
+      </div>
     </div>
     <div class="tcard-foot">
       <span class="row-acts">${detailsBtn('act', a.id, a.name)}${a.attachment ? attachBtn('act', a.id, a.name) : ''}</span>
@@ -758,9 +774,9 @@ function ccardHTML(c) {
     </div>
     <div class="tcard-body">
       <h3 class="tcard-title">
-        <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}" aria-hidden="true"></i></span>
         <span title="${esc(c.name)}">${esc(c.name)}</span>
       </h3>
+      <p class="tcard-meta"><i class="fa-solid ${t.icon}" aria-hidden="true"></i>${t.label}</p>
     </div>
     <div class="tcard-foot">
       <span class="row-acts"><button class="icon-btn" title="View details: ${esc(c.name)}" aria-label="View details: ${esc(c.name)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button></span>
