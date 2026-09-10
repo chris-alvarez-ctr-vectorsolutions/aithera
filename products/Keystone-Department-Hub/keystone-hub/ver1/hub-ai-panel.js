@@ -256,7 +256,11 @@
       '</div>';
   }
 
-  function html(cfg) {
+  // No `cfg` argument any more: the header used to name the dashboard
+  // ("Ask about B-1 Coverage Snapshot"), which framed the assistant as
+  // scoped to that one card. It isn't — you can ask it about anything in
+  // the suite — so the subtitle is gone and nothing here needs the config.
+  function html() {
     if (state.collapsed) {
       return '<button class="kx-ai-collapsed" id="kxAiExpand" ' +
         'title="Open Agency Intelligence" aria-label="Open Agency Intelligence">' +
@@ -269,7 +273,6 @@
       '<div class="kx-ai-head">' + mark(28) +
       '<div style="flex:1;min-width:0">' +
       '<div class="t">Agency Intelligence</div>' +
-      '<div class="s">Ask about ' + esc((cfg && cfg.name) || 'your dashboard') + '</div>' +
       '</div>' +
       (state.thread.length
         ? '<button class="kx-ai-iconbtn" id="kxAiNew" title="New chat" aria-label="New chat">' +

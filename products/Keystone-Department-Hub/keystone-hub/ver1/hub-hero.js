@@ -1275,7 +1275,7 @@
     if (!granted) return grid;
 
     return '<div class="kx-pubbody' + (AI.isExpanded() ? ' is-expanded' : '') + '">' +
-      AI.html(cfg) + grid + '</div>';
+      AI.html() + grid + '</div>';
   }
 
   function publishedDashboard(variant) {
