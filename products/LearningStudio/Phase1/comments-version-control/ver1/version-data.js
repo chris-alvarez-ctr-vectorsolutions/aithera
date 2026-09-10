@@ -143,25 +143,17 @@ function vhSaveAdded(sku, events) {
 
 /* ---- Display helpers ---- */
 
-/* Absolute date plus a relative hint. The requirement calls date "key info",
-   and for compliance work the absolute date is what matters ("what went out
-   in August?"), with the relative form for recency at a glance. */
+/* Absolute date only. The requirement calls date "key info", and for
+   compliance work it is the absolute date that answers the question ("what
+   went out in August?"). A "3h ago" hint alongside it added a second way to
+   read the same fact without helping that question, so the row carries the
+   date and the tooltip adds the time. */
 function vhWhen(iso) {
   const d = new Date(iso);
   const date = d.toLocaleDateString(undefined,
     { year: 'numeric', month: 'short', day: 'numeric' });
   const time = d.toLocaleTimeString(undefined,
     { hour: 'numeric', minute: '2-digit' });
-  return { date, time, rel: vhRel(iso) };
+  return { date, time };
 }
 
-function vhRel(iso) {
-  const mins = Math.round((Date.now() - new Date(iso)) / 60000);
-  if (mins < 60) return mins <= 1 ? 'just now' : mins + 'm ago';
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return hrs + 'h ago';
-  const days = Math.round(hrs / 24);
-  if (days < 30) return days + 'd ago';
-  const mo = Math.round(days / 30);
-  return mo < 12 ? mo + 'mo ago' : Math.round(mo / 12) + 'y ago';
-}
