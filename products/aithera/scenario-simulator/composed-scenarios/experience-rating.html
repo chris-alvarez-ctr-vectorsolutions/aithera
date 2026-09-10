@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <!-- Same <base> depth as the player next door, so the shared js/ modules and
+         the lesson-presentation frame resolve identically from both pages. -->
+    <base href="../">
+    <title>How was this experience? — Scenario Simulator</title>
+
+    <!-- Dark mode is OPT-IN, exactly as in the player: Vector products are
+         light-only, so this page defaults to light regardless of the OS
+         setting. Set window.SCENARIO_ALLOW_DARK = true (before this runs) to
+         restore OS-driven dark — the gated dark CSS is still in the head. -->
+    <script>
+      (function () {
+        if (window.SCENARIO_ALLOW_DARK === true) {
+          document.documentElement.classList.add('allow-dark');
+          document.documentElement.style.colorScheme = 'light dark';
+        }
+      })();
+    </script>
+
+    <!-- Vector Web Components: Core -->
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <!-- Vector Web Components: Themes (import as plain script) -->
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <!-- Open Sans -->
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+    <!-- Course-delivery frame (production Vector Training chrome) -->
+    <link rel="stylesheet" href="../lesson-presentation/css/frame.css?v=5" />
+
+    <style>
+      /* ==================================================================
+         Design tokens — the SAME set the player defines inline, copied
+         verbatim so this page and the scenario it follows cannot drift
+         apart. (Tokens live per-page in this repo; there is no shared
+         stylesheet to import, and inventing one would touch every other
+         page.) If you change a value here, change it in
+         composed-scenarios/index.html too.
+         ================================================================== */
+      :root {
+        color-scheme: light;   /* default light-only; the opt-in dark flag restores 'light dark' */
+
+        --c-bg:          #f5f7fb;
+        --c-surface:     #ffffff;
+        --c-surface-2:   #eef1f7;
+        --c-ink:         #1a2030;
+        --c-ink-soft:    #5a6379;
+        --c-ink-faint:   #67718a;
+        --c-line:        #e3e7f0;
+        --c-accent:      #0271ce;   /* Vector primary blue (--lumo-primary-color) */
+        --c-accent-strong:#015aa8;
+        --c-accent-soft: #e6f1fb;
+        --c-on-accent:   #ffffff;
+
+        --radius:   16px;
+        --radius-sm:10px;
+        --shadow-sm: 0 1px 4px -1px #1c304a85;
+        --shadow-md: 0 2px 4px -1px #1c375a29, 0 3px 12px -1px #1c345442;
+        --shadow-lg: 0 3px 18px -2px #1c375a29, 0 12px 48px -6px #1c324f61;
+        --ease: cubic-bezier(.4, 0, .2, 1);
+      }
+
+      /* Dark is gated behind html.allow-dark (see the boot snippet above), so
+         it applies only when SCENARIO_ALLOW_DARK is set. */
+      @media (prefers-color-scheme: dark) {
+        :root.allow-dark {
+          --c-bg:          #0c0f17;
+          --c-surface:     #161b27;
+          --c-surface-2:   #1e2433;
+          --c-ink:         #e9ecf4;
+          --c-ink-soft:    #9aa3b8;
+          --c-ink-faint:   #8b94a8;
+          --c-line:        #29303f;
+          --c-accent:      #8092ff;
+          --c-accent-strong:#9aa8ff;
+          --c-accent-soft: #1b2236;
+          --c-on-accent:   #0c0f17;
+          --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+          --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+          --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+        }
+      }
+
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        background: var(--c-bg);
+        color: var(--c-ink);
+        font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      /* The page shell: the frame's chrome sits at the top (mounted into #page
+         by frame.js), and the rating panel is centred in the space left over.
+         min-height 0 lets the flex child scroll rather than push the frame. */
+      #page {
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+      .rating-stage {
+        flex: 1 1 auto;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px 56px;
+      }
+      /* A short lead-in above the panel. The learner has just been told the
+         practice is complete on the previous screen, so this only has to
+         confirm where they've landed — it is NOT a second completion notice. */
+      .rating-lead {
+        max-width: 600px;
+        margin: 0 auto 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--c-ink-soft);
+      }
+      .rating-lead i { color: #16a34a; }
+      .rating-wrap { width: 100%; max-width: 600px; }
+
+      @media (max-width: 520px) {
+        .rating-stage { padding: 24px 12px 40px; }
+      }
+    </style>
+</head>
+<body>
+    <div id="page">
+      <div class="rating-stage">
+        <div class="rating-wrap">
+          <p class="rating-lead">
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span id="leadText">Practice complete</span>
+          </p>
+          <!-- The panel is built by js/sim-rating.js into this host -->
+          <div id="ratingHost"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Polite live region for the outcome announcement -->
+    <div class="sr-only" id="liveRegion" aria-live="polite"
+         style="position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;"></div>
+
+    <!-- ===== Course-delivery frame ===================================== -->
+    <script>
+      // Named from the query string so the page reads as a continuation of the
+      // scenario the learner just finished, rather than an unrelated screen.
+      (function () {
+        var q = new URLSearchParams(location.search);
+        window.LESSON_FRAME = {
+          mount: '#page',
+          lesson: q.get('title') || 'Scenario Simulator',
+          step: '',
+          progress: null
+        };
+      })();
+    </script>
+    <script src="../lesson-presentation/js/frame.js?v=6"></script>
+
+    <!-- ===== The rating panel ========================================== -->
+    <script src="js/sim-rating.js?v=5"></script>
+    <script>
+      (function () {
+        'use strict';
+        var q = new URLSearchParams(location.search);
+        var live = document.getElementById('liveRegion');
+
+        /* `back` is the SAME contract js/frame.js reads for its back arrow: a
+           relative, same-origin URL naming where the learner came from. The
+           scenario player passes its own `back` straight through to here, so
+           the module → scenario → rating → module round trip stays intact with
+           this page inserted in the middle. Untrusted query input, so it is
+           resolved and origin-checked before any navigation. */
+        function backHref() {
+          var back = q.get('back');
+          if (!back) return null;
+          var url;
+          try { url = new URL(back, location.href); } catch (e) { return null; }
+          if (url.origin !== location.origin) return null;
+          return url.href;
+        }
+        var dest = backHref();
+
+        var RATING = SimRating.mount({
+          into: '#ratingHost',
+          eyebrow: 'Before you go',
+          question: 'How was this experience?',
+          sub: 'Your rating helps us improve these scenarios.',
+          // Only offer a forward move when there is somewhere to go. Opened
+          // directly (every scenario link that exists today) the receipt is
+          // the end of the road, and a button leading nowhere is worse than none.
+          finishLabel: dest ? 'Continue' : null,
+          onSubmit: function (result) {
+            /* Prototype capture only. For the build: POST this alongside the
+               scenario id and the attempt/session id the LMS already carries —
+               a rating is meaningless without knowing WHICH scenario it rates.
+               `scenario` and `type` ride the query string here purely so the
+               shape of that payload is visible in the prototype. */
+            var payload = {
+              scenario: q.get('scenario') || null,
+              type: q.get('type') || null,
+              title: q.get('title') || null,
+              rating: result.rating,
+              comment: result.comment,
+              skipped: result.skipped,
+              at: result.at
+            };
+            window.SIM_RATING_RESULT = payload;
+            console.log('[experience rating]', payload);
+            live.textContent = result.skipped
+              ? 'You’re all set. Your practice is complete.'
+              : 'Thanks for the feedback.';
+            document.getElementById('leadText').textContent = 'Scenario complete';
+          },
+          onFinish: function () { if (dest) window.location.href = dest; }
+        });
+
+        // Handy for driving the page in review without clicking through.
+        window.SIM_RATING = RATING;
+      })();
+    </script>
+</body>
+</html>
