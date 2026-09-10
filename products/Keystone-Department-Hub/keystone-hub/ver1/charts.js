@@ -1189,7 +1189,7 @@
         micon('close', { size: 13 }) + '</button>' : '') +
       '</span>' +
       '<span style="position:relative;display:inline-flex">' +
-      '<button class="kx-range-btn" data-tbl-cols="' + id + '" title="Choose which columns show">' +
+      '<button class="kx-tbar-btn" data-tbl-cols="' + id + '" title="Choose which columns show">' +
       micon('view_column', { size: 13 }) + '<span>Columns</span>' +
       (hidden.length ? '<span class="cpw-tpip">' + (cols.length - hidden.length) + '/' + cols.length + '</span>' : '') +
       micon('expand_more', { size: 14 }) + '</button>' +

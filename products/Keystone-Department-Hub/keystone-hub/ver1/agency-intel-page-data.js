@@ -165,10 +165,15 @@
     return gaps; // [] = clean
   }
 
-  // ---------- Date ranges ----------
-  // Every data widget carries a default date range the owner sets when it's
-  // created. Viewers can change it to explore, but only the owner's choice
-  // persists as the saved default.
+  // ---------- Date range ----------
+  // ONE range per DASHBOARD, never one per widget. The query that backs a
+  // dashboard is scoped as a whole — engineering cannot window each widget
+  // independently — so the picker lives on the dashboard bar and every
+  // time-bounded widget reads from it. Widgets no longer carry a `dateRange`.
+  //
+  // The owner's choice is the dashboard's saved default; a viewer can change
+  // it to explore, but that stays local and is flagged unsaved. Same ownership
+  // split the per-widget control used to have, moved up one level.
   const DATE_RANGES = [
     { value: 'last_7',    label: 'Last 7 days' },
     { value: 'last_30',   label: 'Last 30 days' },
@@ -176,11 +181,33 @@
     { value: 'qtd',       label: 'Quarter to date' },
     { value: 'ytd',       label: 'Year to date' },
     { value: 'last_12mo', label: 'Last 12 months' },
-    { value: 'next_14',   label: 'Next 14 days' },
-    { value: 'next_30',   label: 'Next 30 days' },
   ];
   const DEFAULT_RANGE = 'last_30';
-  function rangeLabel(v) { const r = DATE_RANGES.find(function (x) { return x.value === v; }); return r ? r.label : 'Last 30 days'; }
+
+  // Forward-looking horizons — deliberately NOT in the picker above.
+  // A dashboard range is a reporting window over data that already exists;
+  // "Last 90 days of open shifts" is meaningless. A few metrics are inherently
+  // a countdown instead, so they sit out the dashboard range and report on a
+  // fixed horizon the METRIC defines, shown as static text on the card rather
+  // than as a control. That keeps engineering's rule intact — there is still
+  // exactly one thing a person can pick, and it is the dashboard's.
+  const HORIZONS = [
+    { value: 'next_14', label: 'Next 14 days' },
+    { value: 'next_30', label: 'Next 30 days' },
+  ];
+  const METRIC_HORIZON = {
+    open_shifts: 'next_14',
+    credential_expirations: 'next_30',
+  };
+  function rangeLabel(v) {
+    const r = DATE_RANGES.concat(HORIZONS).find(function (x) { return x.value === v; });
+    return r ? r.label : 'Last 30 days';
+  }
+  // The range a dashboard reports on. Falls back for anything built before the
+  // range moved up to the dashboard.
+  function dashboardRange(d) {
+    return (d && d.dateRange) || DEFAULT_RANGE;
+  }
   // A date range only makes sense for time-bounded data — the narrative
   // 'summary' read, author-written text, and the cross-metric summary table
   // aren't scoped to an arbitrary window, so they opt out.
@@ -188,6 +215,29 @@
   function widgetSupportsRange(spec) {
     if (!spec) return false;
     return !NO_RANGE_VIZ[spec.kind] && !NO_RANGE_VIZ[spec.viz];
+  }
+  /**
+   * The fixed forward window this widget reports on, or null if it reads the
+   * dashboard range like everything else.
+   *
+   * A correlation counts as forward-looking only when BOTH metrics are, on the
+   * SAME horizon — pair one countdown with one historical metric and the
+   * shared axis has to be the dashboard's window, or the two sides aren't
+   * plotted against the same thing.
+   */
+  function widgetHorizon(spec) {
+    if (!spec || !widgetSupportsRange(spec)) return null;
+    const ids = (spec.metricIds && spec.metricIds.length)
+      ? spec.metricIds
+      : (spec.metricId ? [spec.metricId] : []);
+    if (!ids.length) return null;
+    const first = METRIC_HORIZON[ids[0]] || null;
+    if (!first) return null;
+    return ids.every(function (id) { return METRIC_HORIZON[id] === first; }) ? first : null;
+  }
+  // What a given widget is actually windowed by, for labels and exports.
+  function effectiveRange(spec, d) {
+    return widgetHorizon(spec) || dashboardRange(d);
   }
 
   // ---------- Report delivery ----------
@@ -385,7 +435,10 @@
     WID += 1;
     const base = { id: 'w' + Date.now().toString(36) + '_' + WID, state: 'live', w: defaultWidth(spec) };
     const out = Object.assign(base, spec);
-    if (widgetSupportsRange(out) && !out.dateRange) out.dateRange = DEFAULT_RANGE;
+    // The range is the DASHBOARD's now. A widget that still carries one is
+    // pre-move data (or a caller that hasn't caught up) — drop it rather than
+    // let a stale window shadow the dashboard's.
+    delete out.dateRange;
     return out;
   }
 
@@ -560,6 +613,9 @@
     return [
       {
         id: 'dash_readiness',
+        // The dashboard's reporting window — every time-bounded widget on it
+        // reads this one value. A battalion readiness read is a quarter-to-date story.
+        dateRange: 'qtd',
         name: 'Battalion Readiness — B-1',
         icon: 'shield',
         owner: 'You',
@@ -579,16 +635,19 @@
           nextSend: nextSendFrom('monthly'), lastSent: '2026-05-01',
         },
         widgets: [
-          W({ metricId: 'training_completion', viz: 'kpi', w: 3, dateRange: 'qtd' }),
-          W({ metricId: 'open_shifts', viz: 'kpi', w: 3, dateRange: 'next_14' }),
-          W({ metricIds: ['training_completion', 'overdue_inspections'], viz: 'pair', w: 6, dateRange: 'last_90' }),
-          W({ metricId: 'ot_trend', viz: 'line', w: 6, dateRange: 'last_12mo' }),
-          W({ metricId: 'open_shifts', viz: 'table', w: 6, dateRange: 'next_14' }),
+          W({ metricId: 'training_completion', viz: 'kpi', w: 3 }),
+          W({ metricId: 'open_shifts', viz: 'kpi', w: 3 }),
+          W({ metricIds: ['training_completion', 'overdue_inspections'], viz: 'pair', w: 6 }),
+          W({ metricId: 'ot_trend', viz: 'line', w: 6 }),
+          W({ metricId: 'open_shifts', viz: 'table', w: 6 }),
           W({ metricId: 'training_completion', viz: 'summary', w: 12 }),
         ],
       },
       {
         id: 'dash_fleet',
+        // The dashboard's reporting window — every time-bounded widget on it
+        // reads this one value. Fleet problems are a this-month conversation.
+        dateRange: 'last_30',
         name: 'Fleet Status',
         icon: 'fire_truck',
         owner: 'You',
@@ -599,15 +658,18 @@
         status: 'published',
         assignedTo: { titles: [], individuals: [], groups: ['grp_airport_c'] },
         widgets: [
-          W({ metricId: 'apparatus_downtime', viz: 'kpi', w: 3, dateRange: 'last_30' }),
-          W({ metricId: 'equipment_failures', viz: 'kpi', w: 3, dateRange: 'last_30' }),
-          W({ metricId: 'apparatus_downtime', viz: 'line', w: 6, dateRange: 'last_12mo' }),
-          W({ metricId: 'overdue_inspections', viz: 'bar', w: 6, dateRange: 'last_90' }),
+          W({ metricId: 'apparatus_downtime', viz: 'kpi', w: 3 }),
+          W({ metricId: 'equipment_failures', viz: 'kpi', w: 3 }),
+          W({ metricId: 'apparatus_downtime', viz: 'line', w: 6 }),
+          W({ metricId: 'overdue_inspections', viz: 'bar', w: 6 }),
           W({ metricId: 'overdue_inspections', viz: 'table', w: 6 }),
         ],
       },
       {
         id: 'dash_compliance',
+        // The dashboard's reporting window — every time-bounded widget on it
+        // reads this one value. Compliance is measured against the calendar year.
+        dateRange: 'ytd',
         name: 'Compliance Pulse',
         icon: 'verified',
         owner: 'You',
@@ -616,15 +678,18 @@
         status: 'draft',
         assignedTo: null,
         widgets: [
-          W({ metricId: 'policy_acks', viz: 'kpi', w: 3, dateRange: 'ytd' }),
-          W({ metricId: 'credential_expirations', viz: 'kpi', w: 3, dateRange: 'next_30' }),
-          W({ metricId: 'credential_expirations', viz: 'stack', w: 6, dateRange: 'next_30' }),
-          W({ metricId: 'ceu_progress', viz: 'bar', w: 6, dateRange: 'qtd' }),
+          W({ metricId: 'policy_acks', viz: 'kpi', w: 3 }),
+          W({ metricId: 'credential_expirations', viz: 'kpi', w: 3 }),
+          W({ metricId: 'credential_expirations', viz: 'stack', w: 6 }),
+          W({ metricId: 'ceu_progress', viz: 'bar', w: 6 }),
           W({ metricId: 'credential_expirations', viz: 'summary', w: 12 }),
         ],
       },
       {
         id: 'dash_council',
+        // The dashboard's reporting window — every time-bounded widget on it
+        // reads this one value. It is the QUARTERLY council brief.
+        dateRange: 'qtd',
         name: 'Quarterly Council Brief',
         icon: 'gavel',
         owner: 'You',
@@ -641,8 +706,8 @@
         widgets: [
           W({ kind: 'text', viz: 'text', w: 12, heading: 'Where the department stands', body: 'This quarter the department held response times inside the target window while absorbing a 9% rise in call volume. Training completion slipped four points, concentrated at Stations 4 and 7 — the same two houses carrying the inspection backlog. We are requesting two additional line positions at Station 7 to break the overtime cycle documented below.' }),
           W({ kind: 'metrics_table', viz: 'metrics_table', w: 12, heading: 'Readiness at a glance', metricIds: ['training_completion', 'overdue_inspections', 'response_time', 'ot_trend', 'incident_volume'] }),
-          W({ metricId: 'ot_trend', viz: 'line', w: 6, dateRange: 'last_12mo' }),
-          W({ metricId: 'incident_volume', viz: 'bar', w: 6, dateRange: 'qtd' }),
+          W({ metricId: 'ot_trend', viz: 'line', w: 6 }),
+          W({ metricId: 'incident_volume', viz: 'bar', w: 6 }),
         ],
       },
     ].concat(generateSeededDashboards());
@@ -769,6 +834,8 @@
         createdAt: iso(months[ci], 1 + Math.floor(rnd() * 27)),
         updatedAt: iso(months[ui], 1 + Math.floor(rnd() * 27)),
         status: status,
+        // One window for the whole dashboard — see DATE_RANGES.
+        dateRange: DATE_RANGES[Math.floor(rnd() * DATE_RANGES.length)].value,
         assignedTo: assignedTo,
         delivery: delivery,
         widgets: widgets,
@@ -890,11 +957,23 @@
     if (ctx.hasWidgets && has(q, /by station|per station|break.*station|break it out/)) {
       return { kind: 'refine', patch: { scope: 'by station', viz: 'bar' }, text: 'Broke it out by station and switched to a bar chart so the houses are comparable.' };
     }
+    // A period ask moves the DASHBOARD's window, not one widget's — that is
+    // the only place a range exists now, so the reply has to say so plainly
+    // rather than imply the one selected card moved on its own.
     if (ctx.hasWidgets && has(q, /last 90|90 days|last quarter|past quarter/)) {
-      return { kind: 'refine', patch: { scope: 'last 90 days' }, text: 'Re-scoped the widget to the last 90 days. The trend held — Sta. 7 is still the driver.' };
+      return { kind: 'range', range: 'last_90', text: 'Set the whole dashboard to the last 90 days — the range covers every widget on it. The trend held: Sta. 7 is still the driver.' };
     }
     if (ctx.hasWidgets && has(q, /last 30|30 days|this month/)) {
-      return { kind: 'refine', patch: { scope: 'last 30 days' }, text: 'Narrowed it to the last 30 days.' };
+      return { kind: 'range', range: 'last_30', text: 'Narrowed the dashboard to the last 30 days. Every widget on it moved with the range.' };
+    }
+    if (ctx.hasWidgets && has(q, /last 7|7 days|this week|past week/)) {
+      return { kind: 'range', range: 'last_7', text: 'Set the dashboard to the last 7 days. Every widget on it moved with the range.' };
+    }
+    if (ctx.hasWidgets && has(q, /year to date|ytd|this year/)) {
+      return { kind: 'range', range: 'ytd', text: 'Set the dashboard to year to date. Every widget on it moved with the range.' };
+    }
+    if (ctx.hasWidgets && has(q, /last 12 months|12 months|trailing year/)) {
+      return { kind: 'range', range: 'last_12mo', text: 'Set the dashboard to the last 12 months. Every widget on it moved with the range.' };
     }
 
     if (CANT.test(q)) {
@@ -952,8 +1031,13 @@
     seedDashboards: seedDashboards,
     DATE_RANGES: DATE_RANGES,
     DEFAULT_RANGE: DEFAULT_RANGE,
+    HORIZONS: HORIZONS,
+    METRIC_HORIZON: METRIC_HORIZON,
     rangeLabel: rangeLabel,
+    dashboardRange: dashboardRange,
     widgetSupportsRange: widgetSupportsRange,
+    widgetHorizon: widgetHorizon,
+    effectiveRange: effectiveRange,
     CADENCES: CADENCES,
     cadenceMeta: cadenceMeta,
     REPORT_FORMATS: REPORT_FORMATS,

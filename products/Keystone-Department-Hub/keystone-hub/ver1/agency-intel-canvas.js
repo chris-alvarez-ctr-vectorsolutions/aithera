@@ -417,53 +417,28 @@
   }
 
   /* =====================================================================
-     DATE-RANGE CONTROL
+     REPORTING WINDOW
      ---------------------------------------------------------------------
-     The owner's choice persists; a viewer can change it to explore, but the
-     change stays local and is flagged as unsaved. `openRange` / `localRange`
-     are module state keyed by widget id, since the canvas re-renders wholesale.
+     A widget no longer owns its date range and has no picker of its own —
+     the dashboard carries ONE range and every time-bounded widget reports on
+     it. The dashboard bar is the single place that window is stated, so a
+     card that follows it says nothing; repeating "Last 90 days" on eight
+     cards is chrome, not information.
+
+     The one thing a card DOES state is a horizon it does NOT share with the
+     dashboard: a countdown metric like open shifts or expiring credentials
+     reports forward on a fixed window the metric defines (see
+     AGENCY_INTEL.METRIC_HORIZON). That differs from the dashboard's window,
+     so it has to be visible — as static text, deliberately not a control.
      ===================================================================== */
 
-  var openRange = null;
-  var localRange = {};
-
-  function dateRangeControl(widget, canSave) {
-    var saved = widget.dateRange || window.AGENCY_INTEL.DEFAULT_RANGE;
-    var local = localRange[widget.id];
-    var dirty = local != null && local !== saved;
-    var current = dirty ? local : saved;
-
-    return '<span style="position:relative;display:inline-flex;min-width:0;max-width:100%">' +
-      '<button data-range-open="' + KX.attr(widget.id) + '" class="kx-range-btn' + (dirty ? ' is-dirty' : '') + '" ' +
-      'title="' + (canSave
-        ? 'Set the default date range for this widget'
-        : 'Change date range (exploring — only the owner can save the default)') + '">' +
-      micon('calendar_today', { size: 13 }) +
-      '<span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-      esc(window.AGENCY_INTEL.rangeLabel(current)) + '</span>' +
-      (dirty ? '<span title="Unsaved — exploring" style="width:5px;height:5px;border-radius:99px;' +
-        'background:var(--amber-500);flex-shrink:0"></span>' : '') +
-      micon('expand_more', { size: 14 }) + '</button>' +
-      (dirty ? '<button data-range-clear="' + KX.attr(widget.id) + '" title="Reset to the saved default" ' +
-        'style="margin-left:2px;background:none;border:none;color:var(--lumo-primary-text-color);font-size:11px;' +
-        'font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
-      (openRange === widget.id
-        ? '<div class="kx-menu kx-menu--left" style="width:200px;top:calc(100% + 4px)">' +
-          window.AGENCY_INTEL.DATE_RANGES.map(function (r) {
-            return '<button class="kx-menu-row" data-range-set="' + KX.attr(widget.id) + '" data-range-val="' +
-              KX.attr(r.value) + '">' +
-              micon('calendar_today', { size: 14, color: r.value === current ? 'var(--amber-600)' : 'var(--ink-400)' }) +
-              '<span class="label">' + esc(r.label) + '</span>' +
-              (r.value === current ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
-          }).join('') +
-          (!canSave
-            ? '<div style="display:flex;gap:6px;padding:7px 8px 3px;margin-top:4px;border-top:1px solid var(--ink-100);' +
-              'font-size:10.5px;color:var(--ink-400);line-height:1.45">' + micon('info', { size: 13 }) +
-              '<span>Only the dashboard owner can save this as the default.</span></div>'
-            : '') +
-          '</div>'
-        : '') +
-      '</span>';
+  function horizonLabel(widget) {
+    var h = window.AGENCY_INTEL.widgetHorizon(widget);
+    if (!h) return '';
+    return '<span class="cpw-horizon" ' +
+      'title="This widget looks forward on a fixed window and is not affected by the dashboard date range">' +
+      micon('event_upcoming', { size: 13 }) +
+      '<span>' + esc(window.AGENCY_INTEL.rangeLabel(h)) + '</span></span>';
   }
 
   /* =====================================================================
@@ -499,7 +474,7 @@
     var title = window.AGENCY_INTEL.widgetTitle(widget);
     var icon = window.AGENCY_INTEL.widgetIcon(widget);
     var srcs = window.AGENCY_INTEL.widgetSources(widget).map(function (s) { return KX.srcChip(s); }).join('');
-    var supportsRange = window.AGENCY_INTEL.widgetSupportsRange(widget);
+    var horizon = horizonLabel(widget);
     var selected = o.selected;
 
     var menu = openMenu === widget.id
@@ -563,7 +538,7 @@
           micon('more_vert', { size: 18 }) + '</button>' + menu + '</span>'
         : '<span style="margin-left:auto"></span>') +
       '</div>' +
-      (supportsRange ? '<div class="cpw-range">' + dateRangeControl(widget, editable) + '</div>' : '') +
+      (horizon ? '<div class="cpw-range">' + horizon + '</div>' : '') +
       '<div class="cpw-body">' +
       widgetBody(widget, { editable: editable, interactive: true, report: !!o.report }) + '</div>' +
       // Corner grip. Pointer-only and hidden from the a11y tree on purpose —
@@ -589,15 +564,13 @@
     sizeLabel: sizeLabel,
     widgetBody: widgetBody,
     buildWidgetSpec: buildWidgetSpec,
-    dateRangeControl: dateRangeControl,
+    horizonLabel: horizonLabel,
     noDataState: noDataState,
     SIZE_OPTIONS: SIZE_OPTIONS,
-    // Menu/range state accessors so the page layer can drive them.
+    // Kebab-menu state accessor so the page layer can drive it. There is no
+    // range state here any more — the range belongs to the dashboard.
     setOpenMenu: function (id) { openMenu = id; },
     getOpenMenu: function () { return openMenu; },
-    setOpenRange: function (id) { openRange = id; },
-    getOpenRange: function () { return openRange; },
-    setLocalRange: function (id, v) { if (v == null) delete localRange[id]; else localRange[id] = v; },
 
     /* ---- table controls ---------------------------------------------
        Straight pass-throughs to the shared engine in charts.js. The page

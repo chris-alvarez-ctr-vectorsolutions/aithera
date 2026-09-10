@@ -41,7 +41,7 @@
   function freshBuilder() {
     return {
       tab: 'simple', mode: null,
-      metric: null, viz: null, range: CP.DEFAULT_RANGE, include: [],
+      metric: null, viz: null, include: [],
       a: null, b: null, corrViz: 'scatter',
       ideas: [],
       tableIds: [], tableHeading: '',
@@ -85,6 +85,16 @@
     liveMsg: '',
     editingName: false,
     exportMenu: false,
+
+    /* ---- dashboard reporting window ----
+       ONE range for the whole dashboard (widgets no longer carry their own).
+       `dashRangeOpen` is the menu; `localDashRange` is the VIEWER's override,
+       keyed by dashboard id — in preview mode you are standing in the
+       audience's shoes, so a change there explores without saving, exactly
+       as it will for them. In edit mode the same control writes the saved
+       default onto the dashboard instead. */
+    dashRangeOpen: false,
+    localDashRange: {},
     lastSavedAt: Date.now() - 7 * 60 * 1000,
     saving: false,
     builder: freshBuilder(),
@@ -774,7 +784,7 @@
     var b = state.builder;
     if (b.tab === 'simple') {
       if (!b.metric) return null;
-      return { id: 'preview', metricId: b.metric, viz: b.viz, dateRange: b.range,
+      return { id: 'preview', metricId: b.metric, viz: b.viz,
                include: b.include.length ? b.include : undefined, state: 'live' };
     }
     if (b.a && b.b && b.a !== b.b && CC.sharedBarLabels([b.a, b.b]).length >= 3) {
@@ -806,7 +816,12 @@
 
   function paramPanelHtml() {
     var b = state.builder;
-    var supportsRange = CP.widgetSupportsRange({ viz: b.viz });
+    // No range question here: the widget inherits the DASHBOARD's window.
+    // What the panel does is state which window that will be, so nobody
+    // builds a chart expecting a period they never chose — or, for a
+    // countdown metric, that it reports forward and ignores that window.
+    var supportsRange = CP.widgetSupportsRange({ viz: b.viz, metricId: b.metric });
+    var horizon = CP.widgetHorizon({ viz: b.viz, metricId: b.metric });
     var cats = CC.metricCategories(b.metric, b.viz);
     if (!supportsRange && !cats) return '';
     var allOn = !b.include || !b.include.length;
@@ -816,7 +831,16 @@
       '<div style="display:flex;flex-direction:column;gap:14px">' +
       (supportsRange
         ? '<div><div style="' + lbl + '">Date range</div>' +
-          '<vaadin-select theme="outlined" id="cpBRange" style="width:100%"></vaadin-select></div>'
+          '<div class="cp-range-note">' +
+          micon(horizon ? 'event_upcoming' : 'calendar_today',
+                { size: 15, color: 'var(--ink-400)' }) +
+          '<span>' + (horizon
+            ? '<b>' + esc(CP.rangeLabel(horizon)) + '</b> — this metric reports forward on a ' +
+              'fixed window and is not affected by the dashboard date range.'
+            : 'Set on the dashboard, not the widget. This will follow the dashboard\'s ' +
+              'window — currently <b>' + esc(CP.rangeLabel(currentRange(active() || {}))) + '</b> — ' +
+              'along with every other widget on it.') +
+          '</span></div></div>'
         : '') +
       (cats
         ? '<div><div style="' + lbl + ';display:flex;align-items:center;gap:8px">' +
@@ -1162,6 +1186,9 @@
             '<span class="cp-build-name">' + esc(d.name) + '</span>' +
             micon('edit', { size: 15, color: 'var(--ink-300)' }) + '</button>') +
       '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
+      // The dashboard's one date range. Sits ahead of the save/publish cluster
+      // because it scopes what you are LOOKING at, where those act on it.
+      (widgets.length && !locked ? dashRangeControl(d) : '') +
       (widgets.length && !locked
         ? '<span class="cp-saved" id="cpSavedChip" title="Last auto-saved">' +
           (state.saving
@@ -1206,8 +1233,12 @@
             ' Preview only — nothing is sent</span>') +
         // "Delivered report" is the emailed-report view — v2 only. With one
         // choice left there is nothing to toggle, so the whole cluster goes.
+        '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">' +
+        // The audience gets this same control, so the preview has to carry it —
+        // and behave the way it will for them: exploring, never saving.
+        (widgets.length ? dashRangeControl(d) : '') +
         (CP.deliveryEnabled()
-          ? '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
+          ? '<div style="display:flex;align-items:center;gap:8px">' +
             '<span style="font-size:11.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;' +
             'color:var(--ink-400)">Viewing as</span>' +
             '<div class="cp-modes">' +
@@ -1215,7 +1246,7 @@
               return '<button data-cp-mode="' + o[0] + '" class="' + (state.mode === o[0] ? 'is-on' : '') + '">' +
                 micon(o[2], { size: 14 }) + ' ' + o[1] + '</button>';
             }).join('') + '</div></div>'
-          : '') + '</div></div>'
+          : '') + '</div></div></div>'
       : '';
 
     var canvas;
@@ -1269,6 +1300,69 @@
       'Intelligence to draft one</span></button>';
   }
 
+  /* =====================================================================
+     DASHBOARD REPORTING WINDOW
+     ---------------------------------------------------------------------
+     The date range is a property of the DASHBOARD, not of any one widget.
+     A dashboard's data is queried as a whole, so one window scopes every
+     time-bounded widget on it — which is also why this control is the only
+     calendar on the page. Widgets show no picker at all; a widget on a fixed
+     forward horizon (open shifts, expiring credentials) prints that horizon
+     as static text so it is clear it sits outside this window.
+
+     Ownership works the way the per-widget control used to, one level up:
+     in EDIT mode the choice is the owner's and it saves onto the dashboard;
+     in PREVIEW you are standing where the audience stands, so it stays local,
+     shows the unsaved pip, and offers Reset.
+     ===================================================================== */
+
+  // What the dashboard is currently scoped to, honouring a viewer override.
+  function currentRange(d) {
+    var saved = CP.dashboardRange(d);
+    var local = state.localDashRange[d.id];
+    return (local != null && local !== saved) ? local : saved;
+  }
+
+  function dashRangeControl(d) {
+    var saved = CP.dashboardRange(d);
+    var local = state.localDashRange[d.id];
+    var dirty = local != null && local !== saved;
+    var current = dirty ? local : saved;
+    var canSave = state.mode === 'edit';
+
+    return '<span style="position:relative;display:inline-flex;align-items:center">' +
+      '<button data-dash-range class="kx-dashrange-btn' + (dirty ? ' is-dirty' : '') + '" ' +
+      'aria-haspopup="menu" aria-expanded="' + (state.dashRangeOpen ? 'true' : 'false') + '" ' +
+      'title="' + (canSave
+        ? 'Set the date range for this dashboard — it scopes every widget on it'
+        : 'Change the date range for this dashboard (exploring — only the owner can save it)') + '">' +
+      micon('calendar_today', { size: 15 }) +
+      '<span class="lbl">' + esc(CP.rangeLabel(current)) + '</span>' +
+      (dirty ? '<span title="Unsaved — exploring" style="width:5px;height:5px;border-radius:99px;' +
+        'background:var(--amber-500);flex-shrink:0"></span>' : '') +
+      micon('expand_more', { size: 15 }) + '</button>' +
+      (dirty ? '<button data-dash-range-clear title="Reset to the saved range" ' +
+        'style="margin-left:4px;background:none;border:none;color:var(--lumo-primary-text-color);' +
+        'font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
+      (state.dashRangeOpen
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:236px;top:calc(100% + 6px)">' +
+          '<div class="kx-menu-label">Scopes every widget</div>' +
+          CP.DATE_RANGES.map(function (r) {
+            return '<button class="kx-menu-row" data-dash-range-set="' + KX.attr(r.value) + '">' +
+              micon('calendar_today', { size: 14, color: r.value === current ? 'var(--amber-600)' : 'var(--ink-400)' }) +
+              '<span class="label">' + esc(r.label) + '</span>' +
+              (r.value === current ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
+          }).join('') +
+          '<div style="display:flex;gap:6px;padding:8px 9px 4px;margin-top:4px;border-top:1px solid var(--ink-100);' +
+          'font-size:10.5px;color:var(--ink-400);line-height:1.45">' + micon('info', { size: 13 }) +
+          '<span>' + (canSave
+            ? 'Widgets on a fixed forward horizon — open shifts, expiring credentials — report ahead and ignore this window.'
+            : 'Exploring only — the dashboard owner sets the saved range.') +
+          '</span></div></div>'
+        : '') +
+      '</span>';
+  }
+
   // Export the whole dashboard — PDF (print) or CSV. Sits beside Publish.
   function exportControl() {
     return '<div style="position:relative">' +
@@ -1296,7 +1390,14 @@
       '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:600;font-size:24px;' +
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(CP.widgetTitle(w)) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
-      esc(d.name) + ' · Readiness Hub · ' + esc(fmtDate(TODAY)) + '</div></div>' +
+      esc(d.name) + ' · Readiness Hub · ' + esc(fmtDate(TODAY)) +
+      // The window is load-bearing on paper — a printout with no period on it
+      // is a number nobody can check. It comes off the dashboard now, except
+      // for a widget on its own forward horizon.
+      (CP.widgetSupportsRange(w)
+        ? ' · ' + esc(CP.rangeLabel(CP.widgetHorizon(w) || currentRange(d)))
+        : '') +
+      '</div></div>' +
       agencyIntelMark(34) + '</div>' +
       // `report` prints every table row with no filter box or pager.
       '<div class="cp-grid">' +
@@ -1319,6 +1420,9 @@
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(d.name) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
       'Readiness Hub · ' + esc(fmtDate(TODAY)) +
+      // One window scopes the whole report, so it is stated once here rather
+      // than repeated under every widget.
+      ' · ' + esc(CP.rangeLabel(currentRange(d))) +
       (del ? ' · ' + esc(CP.cadenceMeta(del.cadence).label + ' ' + CP.formatMeta(del.format).label) : '') +
       '</div></div>' + agencyIntelMark(34) + '</div>' +
       // reportSummary() returns { lead, rows } — `lead` is the prose.
@@ -1457,7 +1561,20 @@
       var resp = CP.agencyIntelRespond(text, { hasWidgets: widgets.length > 0 });
       state.thinking = false;
 
-      if (resp.kind === 'refine') {
+      if (resp.kind === 'range') {
+        // The range lives on the dashboard, so this is a dashboard edit — and
+        // only the owner can make one. In preview the assistant explores the
+        // same way a viewer would, local and unsaved.
+        if (!d) { pushAgencyIntel({ text: 'Open a dashboard first.' }); return; }
+        if (state.mode === 'edit') {
+          delete state.localDashRange[d.id];
+          patchActive({ dateRange: resp.range });
+        } else {
+          state.localDashRange[d.id] = resp.range;
+          render();
+        }
+        pushAgencyIntel({ text: resp.text });
+      } else if (resp.kind === 'refine') {
         var targetId = state.selectedId || (widgets.length ? widgets[widgets.length - 1].id : null);
         if (!targetId) { pushAgencyIntel({ text: 'Add a widget first, then I can change it.' }); return; }
         setWidgets(function (ws) {
@@ -1685,18 +1802,8 @@
       });
     });
 
-    // Builder selects
-    var range = document.getElementById('cpBRange');
-    if (range) {
-      range.items = CP.DATE_RANGES.map(function (r) { return { label: r.label, value: r.value }; });
-      range.value = state.builder.range;
-      range.addEventListener('value-changed', function (e) {
-        if (e.detail.value && e.detail.value !== state.builder.range) {
-          state.builder.range = e.detail.value;
-          render();
-        }
-      });
-    }
+    // Builder selects. There is no date-range select here any more — the range
+    // belongs to the dashboard, so a widget is never asked for one.
     var ca = document.getElementById('cpCorrA');
     var cb = document.getElementById('cpCorrB');
     if (ca && cb) {
@@ -2121,9 +2228,8 @@
 
       var head = e.target.closest && e.target.closest('[data-w-drag]');
       if (!head) return;
-      // The header also carries the kebab and the date-range control. Those are
-      // clicks, not drags.
-      if (e.target.closest('button, vaadin-button, .kx-menu, [data-range-open]')) return;
+      // The header also carries the kebab. That's a click, not a drag.
+      if (e.target.closest('button, vaadin-button, .kx-menu')) return;
       if (e.button != null && e.button !== 0) return;
       startReorder(e, head);
     });
@@ -2231,6 +2337,12 @@
         // Leaving edit mode releases any card being held by keyboard — there are
         // no layout affordances left to release it with once the canvas is locked.
         state.grab = null;
+        // A date range explored in preview belongs to that preview — you were
+        // standing in the audience's shoes. Coming back to edit, the owner has
+        // to see the range they actually SAVED, or the next thing they publish
+        // is scoped by a window they only ever tried on.
+        state.dashRangeOpen = false;
+        if (state.mode === 'edit' && state.activeId) delete state.localDashRange[state.activeId];
         advertiseFlow((state.mode === 'preview' ? 'build-preview'
           : state.mode === 'report' ? 'build-report' : 'build') + ':' + state.activeId);
         render();
@@ -2344,32 +2456,36 @@
         return;
       }
 
-      /* ---- widget date range ---- */
-      var ro = e.target.closest('[data-range-open]');
-      if (ro) {
-        var roid = ro.getAttribute('data-range-open');
-        KXCanvas.setOpenRange(KXCanvas.getOpenRange() === roid ? null : roid);
+      /* ---- dashboard date range ----
+         One window for the whole dashboard. The owner's pick (edit mode)
+         saves onto the dashboard; a viewer's (preview) is a local override
+         that shows the unsaved pip until Reset. Widgets have no picker at
+         all any more — see dashRangeControl(). */
+      if (e.target.closest('[data-dash-range]')) {
+        state.dashRangeOpen = !state.dashRangeOpen;
         render();
         return;
       }
-      var rs = e.target.closest('[data-range-set]');
-      if (rs) {
-        var rsid = rs.getAttribute('data-range-set');
-        var val = rs.getAttribute('data-range-val');
-        KXCanvas.setOpenRange(null);
+      var drs = e.target.closest('[data-dash-range-set]');
+      if (drs) {
+        var drv = drs.getAttribute('data-dash-range-set');
+        var dcur = active();
+        state.dashRangeOpen = false;
         if (state.mode === 'edit') {
-          KXCanvas.setLocalRange(rsid, null);
-          setWidgets(function (ws) {
-            return ws.map(function (x) { return x.id === rsid ? Object.assign({}, x, { dateRange: val }) : x; });
-          });
+          if (dcur) delete state.localDashRange[dcur.id];
+          patchActive({ dateRange: drv });   // owner: saves as the default
         } else {
-          KXCanvas.setLocalRange(rsid, val);   // viewer: explore only
+          if (dcur) state.localDashRange[dcur.id] = drv;   // viewer: explore only
           render();
         }
         return;
       }
-      var rc = e.target.closest('[data-range-clear]');
-      if (rc) { KXCanvas.setLocalRange(rc.getAttribute('data-range-clear'), null); render(); return; }
+      if (e.target.closest('[data-dash-range-clear]')) {
+        var dclr = active();
+        if (dclr) delete state.localDashRange[dclr.id];
+        render();
+        return;
+      }
 
       /* ---- table widget: columns, reset, filter clear ----
          Sorting and paging come from component events, not clicks — see the
@@ -2447,7 +2563,6 @@
       if (e.target.closest('#cpBAdd')) {
         addWidget({
           metricId: state.builder.metric, viz: state.builder.viz,
-          dateRange: state.builder.range,
           include: state.builder.include.length ? state.builder.include : undefined
         });
         return;
@@ -2640,8 +2755,8 @@
       if (state.exportMenu && !e.target.closest('.kx-menu') && !onTrigger) {
         state.exportMenu = false; changed = true;
       }
-      if (KXCanvas.getOpenRange() && !e.target.closest('.kx-menu') && !e.target.closest('[data-range-open]')) {
-        KXCanvas.setOpenRange(null); changed = true;
+      if (state.dashRangeOpen && !e.target.closest('.kx-menu') && !e.target.closest('[data-dash-range]')) {
+        state.dashRangeOpen = false; changed = true;
       }
       if (KXCanvas.getOpenCols() && !e.target.closest('.kx-menu') && !e.target.closest('[data-tbl-cols]')) {
         KXCanvas.setOpenCols(null); changed = true;

@@ -391,19 +391,42 @@
      PUBLISHED DASHBOARD (Lieutenant / Firefighter heroes)
      ===================================================================== */
 
+  // ONE date range per DASHBOARD, never one per widget — the same rule the
+  // Agency Intelligence builder follows, because it is the same dashboard.
+  // A dashboard's data is queried as a whole, so the picker sits in the card
+  // header beside Export and scopes every widget under it.
   var PD_RANGES = [
     { value: 'last_7', label: 'Last 7 days' },
     { value: 'last_30', label: 'Last 30 days' },
     { value: 'last_90', label: 'Last 90 days' },
     { value: 'qtd', label: 'Quarter to date' },
     { value: 'ytd', label: 'Year to date' },
-    { value: 'last_12mo', label: 'Last 12 months' },
-    { value: 'next_14', label: 'Next 14 days' },
-    { value: 'next_30', label: 'Next 30 days' }
+    { value: 'last_12mo', label: 'Last 12 months' }
   ];
+  // Forward horizons — deliberately absent from the picker. A dashboard range
+  // is a window over data that already exists; "last 90 days of open shifts"
+  // means nothing. Countdown metrics carry a fixed horizon of their own and
+  // print it as static text, sitting out the dashboard range.
+  var PD_HORIZONS = {
+    next_14: 'Next 14 days',
+    next_30: 'Next 30 days'
+  };
   function rangeLabel(v) {
+    if (PD_HORIZONS[v]) return PD_HORIZONS[v];
     var r = PD_RANGES.find(function (x) { return x.value === v; });
     return r ? r.label : 'Last 30 days';
+  }
+  function pdDashRange(cfg) { return (cfg && cfg.range) || 'last_30'; }
+  // The fixed forward window a widget reports on, or null if it follows the
+  // dashboard. Read off the metric where there is one so a hand-authored
+  // widget and a metric-backed one agree.
+  function pdHorizonOf(w) {
+    var CP = window.AGENCY_INTEL;
+    if (CP && CP.widgetHorizon && (w.metricId || w.metricIds)) {
+      var h = CP.widgetHorizon(w);
+      if (h) return h;
+    }
+    return PD_HORIZONS[w.range] ? w.range : null;
   }
 
   // Abbreviated forms for narrow (w:4) widgets, where the full label would eat
@@ -418,13 +441,16 @@
   var LT_DASH = {
     name: 'B-Shift Readiness', scope: 'Station 4 · B-Shift',
     publisher: 'Chief Smith · Battalion 1', ownerShort: 'Chief Smith',
+    // The dashboard's ONE reporting window — every time-bounded widget on it
+    // reads this value. A crew-readiness read is a quarter-to-date story.
+    range: 'qtd',
     widgets: [
-      { id: 'lt1', metricId: 'training_completion',    viz: 'kpi',   w: 4,  range: 'qtd',       source: ['ts'],    title: 'Crew training complete' },
-      { id: 'lt2', metricId: 'credential_expirations', viz: 'kpi',   w: 4,  range: 'next_30',   source: ['ts'],    title: 'Credentials expiring' },
-      { id: 'lt3', metricId: 'open_shifts',            viz: 'kpi',   w: 4,  range: 'next_14',   source: ['sched'], title: 'Open shifts · 14d' },
-      { id: 'lt4', metricId: 'ot_trend',               viz: 'line',  w: 7,  range: 'last_12mo', source: ['sched'], title: 'Overtime hours', color: 'var(--amber-500)' },
-      { id: 'lt5', metricId: 'overdue_inspections',    viz: 'bar',   w: 5,  range: 'last_90',   source: ['ci'],    title: 'Overdue inspections by station' },
-      { id: 'lt6', metricId: 'open_shifts',            viz: 'table', w: 12, range: 'next_14',   source: ['sched'], title: 'Open shifts · next 14 days' }
+      { id: 'lt1', metricId: 'training_completion',    viz: 'kpi',   w: 4,  source: ['ts'],    title: 'Crew training complete' },
+      { id: 'lt2', metricId: 'credential_expirations', viz: 'kpi',   w: 4,  source: ['ts'],    title: 'Credentials expiring' },
+      { id: 'lt3', metricId: 'open_shifts',            viz: 'kpi',   w: 4,  source: ['sched'], title: 'Open shifts · 14d' },
+      { id: 'lt4', metricId: 'ot_trend',               viz: 'line',  w: 7,  source: ['sched'], title: 'Overtime hours', color: 'var(--amber-500)' },
+      { id: 'lt5', metricId: 'overdue_inspections',    viz: 'bar',   w: 5,  source: ['ci'],    title: 'Overdue inspections by station' },
+      { id: 'lt6', metricId: 'open_shifts',            viz: 'table', w: 12, source: ['sched'], title: 'Open shifts · next 14 days' }
     ]
   };
 
@@ -601,6 +627,8 @@
   var CHIEF_DASH = {
     name: 'B-1 Coverage Snapshot', scope: 'Battalion 1 · all stations',
     owned: true, ownerShort: 'you',
+    // The dashboard's ONE reporting window — see PD_RANGES.
+    range: 'last_90',
     widgets: [
       // Sources: overtime/scheduling data is Scheduling ('sched') — the same
       // source the 'Overtime hours' widget on the Lieutenant's dashboard
@@ -627,13 +655,12 @@
       // measures, and a control reading "Last 30 days" over a 90-day metric
       // would be stating something false in the one piece of card chrome a
       // viewer can act on.
-      { id: 'ch1', viz: 'scatter', w: 5,
-        range: 'last_90', source: ['sched'], sourceTodo: 'Injury / OSHA recordables',
+      { id: 'ch1', viz: 'scatter', w: 5, source: ['sched'], sourceTodo: 'Injury / OSHA recordables',
         title: 'Overtime exposure × injury rate',
         subtitle: 'by battalion, rolling 90 days',
         scatter: otInjurySpec },
-      { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, range: 'last_30', source: ['ci'] },
-      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 4, range: 'last_30',
+      { id: 'ch2', metricId: 'overdue_inspections', viz: 'bar',   w: 3, source: ['ci'] },
+      { id: 'ch3', metricId: 'tasks_by_app',        viz: 'donut', w: 4,
         source: ['ts', 'ci', 'sched', 'gt', 'ev'] }
     ]
   };
@@ -661,57 +688,90 @@
   var FF_DASH = {
     name: 'My Readiness', scope: 'Riley Brennan · FF / EMT',
     publisher: 'Training Officer Whitfield', ownerShort: 'Training',
+    // The dashboard's ONE reporting window — see PD_RANGES.
+    range: 'ytd',
     template: 'Readiness Hub starter template',
     widgets: [
-      { id: 'ff1', kind: 'kpi', w: 4, range: 'ytd', source: ['ts'], icon: 'school',
+      { id: 'ff1', kind: 'kpi', w: 4, source: ['ts'], icon: 'school',
         title: 'My required training', num: '92%', delta: '2 courses remaining', tone: 'good',
         trend: [{ x: 'Feb', y: 61 }, { x: 'Mar', y: 68 }, { x: 'Apr', y: 74 },
                 { x: 'May', y: 83 }, { x: 'Jun', y: 88 }, { x: 'Jul', y: 92 }] },
       { id: 'ff2', kind: 'kpi', w: 4, range: 'next_30', source: ['ts'], icon: 'workspace_premium',
         title: 'Next credential due', num: '18', unit: 'days',
         delta: 'Paramedic recert · renew by Jul 12', tone: 'warn' },
-      { id: 'ff3', kind: 'progress', w: 4, range: 'ytd', source: ['ev'], icon: 'school',
+      { id: 'ff3', kind: 'progress', w: 4, source: ['ev'], icon: 'school',
         title: 'CEU progress', num: '38%', pct: 38, delta: '14 of 36 hours · due Dec 31',
         tone: 'neutral', color: 'var(--teal-400)' }
     ]
   };
 
-  // Viewer-side date-range override. The viewer can explore, but only the
-  // owner can save the default — the same rule as the builder's preview.
+  // Viewer-side override of the DASHBOARD's range. The viewer can explore,
+  // but only the owner can save the default — the same rule as the builder's
+  // preview, one level up now that the range belongs to the dashboard.
+  // Keyed by dashboard variant, since that is what identifies the card.
   var pdOverrides = {};
 
-  function pdRangeControl(w, ownerLabel, compact) {
-    var saved = w.range || 'last_30';
-    var local = pdOverrides[w.id];
+  function pdCurrentRange(cfg, variant) {
+    var saved = pdDashRange(cfg);
+    var local = pdOverrides[variant];
+    return (local != null && local !== saved) ? local : saved;
+  }
+
+  // The dashboard's one date picker. Lives in the card header cluster with
+  // Export and Switch dashboard — controls that act on the whole card.
+  function pdDashRangeControl(cfg, variant) {
+    var saved = pdDashRange(cfg);
+    var local = pdOverrides[variant];
     var dirty = local != null && local !== saved;
     var current = dirty ? local : saved;
-    return '<span style="position:relative;display:inline-flex;align-items:center;flex-shrink:0">' +
-      '<button class="kx-range-btn' + (dirty ? ' is-dirty' : '') + '" data-range-toggle="' + KX.attr(w.id) + '" ' +
-      'title="' + esc(rangeLabel(current)) + ' — ' +
-      (dirty ? 'exploring, only the owner can save this default' : 'change date range') + '">' +
-      micon('calendar_today', { size: 13 }) +
-      '<span>' + esc(compact ? rangeLabelShort(current) : rangeLabel(current)) + '</span>' +
-      (dirty ? '<span title="Exploring — unsaved" style="width:5px;height:5px;border-radius:99px;background:var(--amber-500)"></span>' : '') +
-      micon('expand_more', { size: 14 }) + '</button>' +
-      (dirty ? '<button data-range-reset="' + KX.attr(w.id) + '" title="Reset to the owner\'s default" ' +
-        'style="margin-left:2px;background:none;border:none;color:var(--lumo-primary-text-color);font-size:11px;' +
-        'font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
-      (openRangeMenu === w.id
-        ? '<div class="kx-menu kx-menu--right" style="width:214px;top:calc(100% + 4px)">' +
+    var owner = cfg.owned ? 'you' : esc(cfg.ownerShort || 'the owner');
+
+    return '<span style="position:relative;display:inline-flex;align-items:center">' +
+      '<button class="kx-dashrange-btn' + (dirty ? ' is-dirty' : '') + '" data-pd-range-toggle ' +
+      'aria-haspopup="menu" aria-expanded="' + (openRangeMenu ? 'true' : 'false') + '" ' +
+      'title="Date range for this dashboard — it scopes every widget on it">' +
+      micon('calendar_today', { size: 14 }) +
+      '<span class="lbl">' + esc(rangeLabel(current)) + '</span>' +
+      (dirty ? '<span title="Exploring — unsaved" style="width:5px;height:5px;border-radius:99px;' +
+        'background:var(--amber-500);flex-shrink:0"></span>' : '') +
+      micon('expand_more', { size: 15 }) + '</button>' +
+      (dirty ? '<button data-pd-range-reset title="Reset to the saved range" ' +
+        'style="margin-left:4px;background:none;border:none;color:var(--lumo-primary-text-color);' +
+        'font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
+      (openRangeMenu
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:238px;top:calc(100% + 4px)">' +
+          '<div class="kx-menu-label">Scopes every widget</div>' +
           PD_RANGES.map(function (r) {
-            return '<button class="kx-menu-row" data-range-pick="' + KX.attr(w.id) + '" data-range-val="' + r.value + '">' +
+            return '<button class="kx-menu-row" data-pd-range-pick="' + r.value + '">' +
               micon('calendar_today', { size: 14, color: r.value === current ? 'var(--amber-600)' : 'var(--ink-400)' }) +
               '<span class="label">' + esc(r.label) + '</span>' +
               (r.value === current ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
           }).join('') +
-          '<div style="display:flex;gap:6px;padding:7px 8px 3px;margin-top:4px;border-top:1px solid var(--ink-100);' +
+          '<div style="display:flex;gap:6px;padding:8px 9px 4px;margin-top:4px;border-top:1px solid var(--ink-100);' +
           'font-size:10.5px;color:var(--ink-400);line-height:1.45">' + micon('info', { size: 13 }) +
-          '<span>Exploring only — ' + esc(ownerLabel || 'the owner') + ' can save the default.</span></div></div>'
+          // Even the owner cannot save from here — this card is a read-only
+          // view of a published dashboard; the saved range is set where the
+          // dashboard is built.
+          '<span>Exploring only — ' + (cfg.owned
+            ? 'save the default in Agency Intelligence'
+            : owner + ' saves the default') +
+          '. Countdown widgets report ahead and ignore this window.</span></div></div>'
         : '') +
       '</span>';
   }
 
-  var openRangeMenu = null;
+  // A widget that reports on a fixed forward window instead of the
+  // dashboard's. Static text, deliberately not a control — see .kx-horizon.
+  function pdHorizonLabel(w, compact) {
+    var h = pdHorizonOf(w);
+    if (!h) return '';
+    return '<span class="kx-horizon" ' +
+      'title="This widget looks forward on a fixed window and is not affected by the dashboard date range">' +
+      micon('event_upcoming', { size: 13 }) +
+      '<span>' + esc(compact ? rangeLabelShort(h) : rangeLabel(h)) + '</span></span>';
+  }
+
+  var openRangeMenu = false;   // the dashboard's range menu — one per card
 
   /* ---------------------------------------------------------------------
      EXPORT — dashboard-level and per-widget
@@ -852,7 +912,11 @@
   function pdExportDashboard(kind) {
     if (!pdCurrent || !pdExportAvailable()) return;
     var cfg = pdCurrent.cfg, widgets = pdWidgetsOf(cfg, pdCurrent.variant);
-    var meta = cfg.scope + ' · Readiness Hub · ' + KX.fmtDate(new Date());
+    // The window is load-bearing on paper: a printed number with no period
+    // on it can't be checked. One dashboard range covers the lot, so it is
+    // stated once here rather than under each widget.
+    var meta = cfg.scope + ' · Readiness Hub · ' + KX.fmtDate(new Date()) +
+      ' · ' + rangeLabel(pdCurrentRange(cfg, pdCurrent.variant));
     if (kind === 'csv') window.AGENCY_INTEL_EXPORT.csv(cfg.name, pdTables(widgets));
     else window.AGENCY_INTEL_EXPORT.print(pdPrintDoc(cfg.name, meta, widgets, cfg.ownerShort));
   }
@@ -865,7 +929,8 @@
     var title = pdTitleOf(w);
     if (kind === 'csv') { window.AGENCY_INTEL_EXPORT.csv(title, pdTables([w])); return; }
     // One widget prints full-width — it is the whole document now, not a cell.
-    var meta = cfg.name + ' · ' + cfg.scope + ' · ' + KX.fmtDate(new Date());
+    var meta = cfg.name + ' · ' + cfg.scope + ' · ' + KX.fmtDate(new Date()) +
+      ' · ' + rangeLabel(pdHorizonOf(w) || pdCurrentRange(cfg, pdCurrent.variant));
     window.AGENCY_INTEL_EXPORT.print(
       pdPrintDoc(title, meta, [Object.assign({}, w, { w: 12 })], cfg.ownerShort));
   }
@@ -1060,7 +1125,12 @@
       // the top and span the full width, which styles.css overrides by class.
       '<div class="kx-pubwidget-body" ' +
       'style="margin-top:10px;flex:1;display:flex;flex-direction:column;justify-content:center">' + body + '</div>' +
-      '<div class="kx-pubwidget-foot">' + pdRangeControl(w, ownerLabel, narrow) + '</div>' +
+      // Only widgets on their OWN forward horizon say anything here. The
+      // dashboard's window is stated once, in the card header — repeating it
+      // under every widget is chrome, and there is nothing to click either way.
+      (pdHorizonLabel(w, narrow)
+        ? '<div class="kx-pubwidget-foot">' + pdHorizonLabel(w, narrow) + '</div>'
+        : '') +
       '</div>';
   }
 
@@ -1090,7 +1160,12 @@
 
     var out = '<div class="kx-pubhead-ctl">';
 
-    // Export sits FIRST — left of the switcher — because it acts on the
+    // The date range leads the cluster: it changes what every widget below is
+    // SHOWING, where Export and the switcher act on the card as a whole. It is
+    // also the only calendar on this card now — widgets have none.
+    out += pdDashRangeControl(cfg, variant);
+
+    // Export sits next — left of the switcher — because it acts on the
     // dashboard you are looking at, while the switcher replaces it. Every
     // published dashboard gets it, owned or received: the Firefighter's card
     // used to render no control cluster at all when they had nothing to switch
@@ -1289,25 +1364,28 @@
         return;
       }
 
-      /* -- published-dashboard range control -- */
-      var rt = e.target.closest('[data-range-toggle]');
-      if (rt) {
-        var id = rt.getAttribute('data-range-toggle');
-        openRangeMenu = openRangeMenu === id ? null : id;
+      /* -- published-dashboard range control --
+         Dashboard-level, so it is keyed by the dashboard variant rather than
+         by a widget. A published dashboard is read-only: the pick is always a
+         local exploration, and Reset puts the owner's saved range back. */
+      if (e.target.closest('[data-pd-range-toggle]')) {
+        openRangeMenu = !openRangeMenu;
         pdCloseMenus({ keepRange: true });   // one menu open at a time, all directions
         window.KXHub.render();
         return;
       }
-      var rp = e.target.closest('[data-range-pick]');
+      var rp = e.target.closest('[data-pd-range-pick]');
       if (rp) {
-        var wid = rp.getAttribute('data-range-pick');
-        pdOverrides[wid] = rp.getAttribute('data-range-val');
-        openRangeMenu = null;
+        if (pdCurrent) pdOverrides[pdCurrent.variant] = rp.getAttribute('data-pd-range-pick');
+        openRangeMenu = false;
         window.KXHub.render();
         return;
       }
-      var rr = e.target.closest('[data-range-reset]');
-      if (rr) { delete pdOverrides[rr.getAttribute('data-range-reset')]; window.KXHub.render(); return; }
+      if (e.target.closest('[data-pd-range-reset]')) {
+        if (pdCurrent) delete pdOverrides[pdCurrent.variant];
+        window.KXHub.render();
+        return;
+      }
 
       /* -- table widget: columns, reset, clear filter --
          A published dashboard is read-only, so every one of these is a LOCAL
@@ -1473,7 +1551,7 @@
   // closes the rest. Centralised because there are now four of them, and the
   // pairwise resets this used to do missed a combination each time one was added.
   function pdCloseMenus(keep) {
-    if (!(keep && keep.keepRange)) openRangeMenu = null;
+    if (!(keep && keep.keepRange)) openRangeMenu = false;
     openDashMenu = false;
     openExportMenu = false;
     openWidgetMenu = null;
