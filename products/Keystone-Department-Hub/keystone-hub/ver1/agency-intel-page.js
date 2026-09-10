@@ -101,6 +101,31 @@
     saving: false,
     builder: freshBuilder(),
 
+    /* ---- Dashboard management access ----
+       Who, besides a Keystone admin, may build dashboards — and who may act on
+       everyone's. Two levels, because they answer different questions:
+
+         build  — create and publish your OWN dashboards. What a Training
+                  Officer needs to put a compliance view in front of her crews.
+         manage — additionally edit, republish and DELETE anyone's. What a
+                  deputy needs when the person who built the battalion's
+                  readiness dashboard has left, or is on leave mid-quarter.
+                  Without it a dashboard outlives the only person who can fix it.
+
+       Same record shape as the AI grants ({ id, grantedAt, grantedBy }) plus a
+       level, so grantId()/grantMeta() work on both. */
+    dashGrants: DEFAULTS.aiState === 'empty'
+      ? { titles: [], individuals: [] }
+      : {
+          titles: [{ id: 'training_officer', level: 'build', grantedAt: '2026-04-02', grantedBy: 'You' }],
+          individuals: [
+            { id: 'u12', level: 'manage', grantedAt: '2026-03-18', grantedBy: 'You' },
+            { id: 'u3',  level: 'build',  grantedAt: '2026-05-04', grantedBy: 'You' }
+          ]
+        },
+    // Grant dialog working state.
+    dashGrantDraft: null,
+
     // AI access
     aiGrants: DEFAULTS.aiState === 'empty' ? { titles: [], individuals: [] } : AI.seedGrants(),
     aiLog: DEFAULTS.aiState === 'empty' ? [] : AI.seedLog()
@@ -363,6 +388,31 @@
       ' accessibleName="' + KX.attr('Sort by ' + label) + '">' + esc(label) + '</vwc-sortable-header></th>';
   }
 
+  /* Who built it. Only worth a column now that not every dashboard is yours —
+     and it is the field that explains why a row's actions are greyed out. */
+  // The stored `owner` string says "You", which is only true for whoever
+  // seeded it. Resolve the real name from ownerId and decide "You" against the
+  // CURRENT role, or a Lieutenant sees the Chief's dashboards labelled as
+  // their own — and then wonders why the actions are greyed out.
+  function ownerName(d) {
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var p = d && d.ownerId && RS && RS.personById(d.ownerId);
+    if (p) return p.name;
+    var ind = d && d.ownerId && (CP.INDIVIDUALS || [])
+      .find(function (x) { return x.id === d.ownerId; });
+    if (ind) return ind.name;
+    return (d && d.owner !== 'You' && d.owner) || 'Unassigned';
+  }
+
+  function ownerCell(d) {
+    var mine = ownsDash(d);
+    var name = mine ? 'You' : ownerName(d);
+    return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;' +
+      'color:' + (mine ? 'var(--ink-800)' : 'var(--ink-600)') + '">' +
+      micon(mine ? 'person' : 'person_outline', { size: 14, color: 'var(--ink-400)' }) +
+      esc(name) + '</span>';
+  }
+
   function dashRow(d) {
     var st = CP.statusOf(d);
     var accent = CP.dashStatusMeta(st).accent;
@@ -373,6 +423,7 @@
       micon(d.icon || 'dashboard', { size: 18, fill: 1 }) + '</span>' +
       '<div style="min-width:0"><div class="t">' + esc(d.name) + '</div>' +
       '<div class="s">Created ' + esc(fmtDate(d.createdAt)) + '</div></div></div></td>' +
+      '<td>' + ownerCell(d) + '</td>' +
       '<td>' + sourcesCell(d) + '</td>' +
       '<td class="cp-num">' + (d.widgets || []).length + '</td>' +
       '<td>' + statusBadge(st) + '</td>' +
@@ -392,6 +443,11 @@
      way out — the whole row is a link into the dashboard. */
   function rowMenu(d) {
     var open = state.rowMenu === d.id;
+    // Someone else's dashboard, and no "manage all" grant: the actions are
+    // still SHOWN — hiding them makes the product look broken rather than
+    // permissioned — but disabled, and the menu says whose it is.
+    var mine = canActOn(d);
+    var dis = mine ? '' : ' disabled';
     return '<span style="position:relative;display:inline-flex">' +
       '<button class="cp-kebab" data-dash-menu="' + KX.attr(d.id) + '" ' +
       'aria-haspopup="menu" aria-expanded="' + open + '" ' +
@@ -399,13 +455,19 @@
       micon('more_vert', { size: 18 }) + '</button>' +
       (open
         ? '<div class="kx-menu kx-menu--right" role="menu" style="width:210px;top:calc(100% + 4px)">' +
-          '<button class="kx-menu-row" data-dash-audience="' + KX.attr(d.id) + '">' +
+          (mine ? '' :
+            '<div class="kx-menu-label">' + esc(ownerName(d)) + '\u2019s dashboard</div>') +
+          '<button class="kx-menu-row" data-dash-audience="' + KX.attr(d.id) + '"' + dis + '>' +
           micon('groups', { size: 16 }) + '<span class="label">Manage audience</span></button>' +
+          // Duplicating is always allowed: it copies into a draft of your own
+          // and touches nothing of theirs.
           '<button class="kx-menu-row" data-dash-duplicate="' + KX.attr(d.id) + '">' +
           micon('content_copy', { size: 16 }) + '<span class="label">Duplicate</span></button>' +
           '<div class="kx-menu-sep"></div>' +
-          '<button class="kx-menu-row is-danger" data-dash-delete="' + KX.attr(d.id) + '">' +
+          '<button class="kx-menu-row is-danger" data-dash-delete="' + KX.attr(d.id) + '"' + dis + '>' +
           micon('delete', { size: 16 }) + '<span class="label">Delete</span></button>' +
+          (mine ? '' :
+            '<div class="kx-menu-foot">Needs \u201cmanage all dashboards\u201d.</div>') +
           '</div>'
         : '') + '</span>';
   }
@@ -496,6 +558,7 @@
     else {
       body = '<div class="cp-table-card"><div class="cp-table-scroll"><table class="cp-table"><thead><tr>' +
         sortTh('Dashboard', 'name') +
+        '<th>Owner</th>' +
         '<th>Sources</th>' +
         sortTh('Widgets', 'widgets', { num: true }) +
         sortTh('Status', 'status') +
@@ -550,6 +613,332 @@
   // renderer and the revoke handlers can treat both shapes the same way.
   function grantId(g) { return (g && typeof g === 'object') ? g.id : g; }
   function grantMeta(g) { return (g && typeof g === 'object') ? g : null; }
+
+  /* =====================================================================
+     DASHBOARD MANAGEMENT ACCESS
+     ---------------------------------------------------------------------
+     Building a dashboard was implicitly an admin-only act — there was no way
+     to say "Naima can build her own" short of making her an admin. These
+     grants are that, in two levels; see state.dashGrants for what each means.
+     ===================================================================== */
+
+  /* What the CURRENT role may do. Admins always may everything; everyone else
+     gets it from a grant, either directly or through their job title. */
+  function myPersonId() {
+    var r = K.ROLES[state.role];
+    return r ? r.selfId : null;
+  }
+  function isAdminRole() {
+    var r = K.ROLES[state.role];
+    return !!(r && r.admin);
+  }
+  // The strongest level this role holds, or null. A named grant beats a title
+  // grant, and 'manage' beats 'build' — permissions accumulate, never subtract.
+  function myDashLevel() {
+    if (isAdminRole()) return 'manage';
+    var me = myPersonId();
+    if (!me) return null;
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var p = RS && RS.personById(me);
+    var best = null;
+    var take = function (lv) { if (lv === 'manage') best = 'manage'; else if (!best) best = 'build'; };
+    (state.dashGrants.individuals || []).forEach(function (e) {
+      if (grantId(e) === me) take(grantLevel(e));
+    });
+    (state.dashGrants.titles || []).forEach(function (e) {
+      if (p && p.titleId === grantId(e)) take(grantLevel(e));
+    });
+    return best;
+  }
+  function canBuildDashboards() { return !!myDashLevel(); }
+  function canManageAll() { return myDashLevel() === 'manage'; }
+  function ownsDash(d) {
+    var me = myPersonId();
+    return !!(d && me && d.ownerId === me);
+  }
+  // Editing, republishing or deleting a dashboard: yours, or you manage all.
+  function canActOn(d) { return ownsDash(d) || canManageAll(); }
+
+  var DASH_LEVELS = [
+    {
+      id: 'build', label: 'Build dashboards', icon: 'dashboard_customize',
+      short: 'Build',
+      hint: 'Create and publish their own dashboards.'
+    },
+    {
+      id: 'manage', label: 'Manage all dashboards', icon: 'shield_person',
+      short: 'Manage all',
+      hint: 'Everything above, plus edit, republish and delete anyone\u2019s.'
+    }
+  ];
+  function levelMeta(id) {
+    return DASH_LEVELS.find(function (l) { return l.id === id; }) || DASH_LEVELS[0];
+  }
+  function grantLevel(g) { return (g && typeof g === 'object' && g.level) || 'build'; }
+
+  // Everyone the dashboard grants currently reach, deduped across titles and
+  // named people — the same "don't double-count" rule the audience uses.
+  function dashGrantReach(g) {
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var ids = {};
+    (g.individuals || []).forEach(function (e) { ids[grantId(e)] = 1; });
+    (g.titles || []).forEach(function (e) {
+      var t = CP.titleById(grantId(e));
+      if (!t || !RS) return;
+      RS.ROSTER.forEach(function (p) { if (p.titleId === t.id) ids[p.id] = 1; });
+    });
+    return Object.keys(ids).length;
+  }
+
+  function levelPill(level) {
+    var m = levelMeta(level);
+    var manage = level === 'manage';
+    return '<span class="cp-lvl' + (manage ? ' is-manage' : '') + '" title="' + KX.attr(m.hint) + '">' +
+      micon(m.icon, { size: 12, fill: 1 }) + esc(m.short) + '</span>';
+  }
+
+  function dashGrantRow(entry, kind) {
+    var id = grantId(entry);
+    var meta = grantMeta(entry);
+    var level = grantLevel(entry);
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var name, sub, icon, chipBg, chipFg;
+
+    if (kind === 'title') {
+      var t = CP.titleById(id);
+      if (!t) return '';
+      name = t.label;
+      sub = t.count + ' people · job title';
+      icon = 'badge'; chipBg = 'var(--teal-50)'; chipFg = 'var(--teal-600)';
+    } else {
+      var p = (RS && RS.personById(id)) ||
+        (CP.INDIVIDUALS || []).find(function (x) { return x.id === id; });
+      if (!p) return '';
+      name = p.name;
+      sub = p.rank || 'Individual';
+      // p.station is an id ('st4'); the roster resolves it to a real name.
+      if (p.station && RS) sub += ' · ' + (RS.stationMeta(p.station).name || p.station);
+      icon = 'person'; chipBg = 'var(--surface-3)'; chipFg = 'var(--ink-600)';
+    }
+
+    return '<div class="cp-grant-row">' +
+      '<span style="width:30px;height:30px;border-radius:8px;background:' + chipBg + ';color:' + chipFg + ';' +
+      'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' +
+      micon(icon, { size: 16, fill: kind === 'title' ? 1 : 0 }) + '</span>' +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:13px;font-weight:600;color:var(--ink-900)">' + esc(name) + '</div>' +
+      '<div style="font-size:11.5px;color:var(--ink-500)">' + esc(sub) +
+      (meta && meta.grantedAt ? ' · granted ' + esc(fmtDate(meta.grantedAt)) : '') + '</div></div>' +
+      // The level is the point of the row, and it is changeable in place —
+      // promoting someone to cover for a creator should not mean revoking and
+      // re-granting.
+      '<button class="cp-lvl-btn" data-dash-lvl="' + KX.attr(kind) + '" ' +
+      'data-dash-lvl-id="' + KX.attr(id) + '" title="Change permission level">' +
+      levelPill(level) + micon('expand_more', { size: 14, color: 'var(--ink-400)' }) + '</button>' +
+      '<vaadin-button theme="icon tertiary small" data-dash-revoke="' + KX.attr(kind) + '" ' +
+      'data-dash-revoke-id="' + KX.attr(id) + '" ' +
+      'aria-label="Revoke dashboard access for ' + KX.attr(name) + '" ' +
+      'title="Revoke dashboard access">' + micon('close', { size: 16 }) + '</vaadin-button>' +
+      '</div>';
+  }
+
+  /* The grant picker. Deliberately small — one level choice and one list —
+     rather than the audience dialog's tabbed roster: granting a permission is
+     a two-decision act (who, and how much), and the audience flow's group
+     builder has no meaning here. */
+  function dashGrantBodyHtml() {
+    var D = state.dashGrantDraft;
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var q = (D.search || '').trim().toLowerCase();
+
+    var already = {};
+    (state.dashGrants.titles || []).forEach(function (e) { already['t:' + grantId(e)] = 1; });
+    (state.dashGrants.individuals || []).forEach(function (e) { already['i:' + grantId(e)] = 1; });
+
+    var levelPicker = '<div class="cp-lvl-pick">' + DASH_LEVELS.map(function (l) {
+      var on = D.level === l.id;
+      return '<button class="cp-lvl-opt' + (on ? ' is-on' : '') + '" data-dgl="' + l.id + '">' +
+        '<span class="ic">' + micon(l.icon, { size: 17, fill: 1 }) + '</span>' +
+        '<span style="flex:1;min-width:0">' +
+        '<span class="t">' + esc(l.label) + '</span>' +
+        '<span class="s">' + esc(l.hint) + '</span></span>' +
+        (on ? micon('check_circle', { size: 18, fill: 1, color: 'var(--teal-500)' }) : '') +
+        '</button>';
+    }).join('') + '</div>';
+
+    var titles = (CP.JOB_TITLES || []).filter(function (t) {
+      return !already['t:' + t.id] && (!q || t.label.toLowerCase().indexOf(q) !== -1);
+    });
+    var people = ((RS && RS.ROSTER) || []).filter(function (p) {
+      if (already['i:' + p.id]) return false;
+      if (!q) return true;
+      return (p.name + ' ' + (p.rank || '') + ' ' + (p.station || '')).toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 40);
+
+    var row = function (kind, id, name, sub, icon) {
+      var on = D.picked.indexOf(kind + ':' + id) !== -1;
+      return '<button class="au-row' + (on ? ' is-on' : '') + '" data-dgp="' + KX.attr(kind + ':' + id) + '">' +
+        '<span class="au-check">' + (on ? micon('check', { size: 14 }) : '') + '</span>' +
+        '<span style="flex:1;min-width:0">' +
+        '<span class="au-row-name">' + micon(icon, { size: 13 }) + ' ' + esc(name) + '</span>' +
+        '<span class="au-row-sub">' + esc(sub) + '</span></span></button>';
+    };
+
+    return levelPicker +
+      '<input class="au-search" id="cpDgSearch" placeholder="Search job titles and people…" ' +
+      'value="' + KX.attr(D.search || '') + '">' +
+      '<div class="au-list" style="max-height:260px">' +
+      (titles.length
+        ? '<div class="au-sec" style="padding:8px 4px 4px">Job titles</div>' +
+          titles.map(function (t) {
+            return row('t', t.id, t.label, t.count + ' people', 'badge');
+          }).join('')
+        : '') +
+      (people.length
+        ? '<div class="au-sec" style="padding:10px 4px 4px">People</div>' +
+          people.map(function (p) {
+            var st = p.station && RS ? RS.stationMeta(p.station).name : '';
+            return row('i', p.id, p.name, (p.rank || '') + (st ? ' · ' + st : ''), 'person');
+          }).join('')
+        : '') +
+      (!titles.length && !people.length
+        ? '<div class="au-empty">Nothing matches “' + esc(D.search || '') + '”.</div>'
+        : '') +
+      '</div>';
+  }
+
+  function openDashGrantDialog() {
+    state.dashGrantDraft = { level: 'build', picked: [], search: '' };
+    var dlg = KX.openDialog({
+      title: 'Grant dashboard access',
+      subtitle: 'Pick a permission level, then who gets it.',
+      icon: 'shield_person',
+      accent: 'var(--teal-400)',
+      width: '560px',
+      body: '<div id="cpDgHost"></div>',
+      actions: [
+        { label: 'Cancel', theme: 'tertiary' },
+        {
+          label: 'Grant', theme: 'primary', id: 'cpDgConfirm',
+          onClick: function () {
+            var D = state.dashGrantDraft;
+            if (!D || !D.picked.length) return false;   // keep it open
+            applyDashGrants(D);
+          }
+        }
+      ],
+      onMount: function (body) {
+        var host = body.querySelector('#cpDgHost');
+        var paint = function () {
+          host.innerHTML = dashGrantBodyHtml();
+          var sf = host.querySelector('#cpDgSearch');
+          if (sf) {
+            sf.addEventListener('input', function () {
+              state.dashGrantDraft.search = sf.value;
+              // Repaint the list only — a full repaint would drop the caret.
+              var scroll = host.querySelector('.au-list');
+              var top = scroll ? scroll.scrollTop : 0;
+              paint();
+              var f2 = host.querySelector('#cpDgSearch');
+              if (f2) { f2.focus(); f2.setSelectionRange(f2.value.length, f2.value.length); }
+              var s2 = host.querySelector('.au-list');
+              if (s2) s2.scrollTop = top;
+            });
+          }
+          syncGrantBtn();
+        };
+        body.addEventListener('click', function (e) {
+          var lv = e.target.closest('[data-dgl]');
+          if (lv) { state.dashGrantDraft.level = lv.getAttribute('data-dgl'); paint(); return; }
+          var pk = e.target.closest('[data-dgp]');
+          if (pk) {
+            var key = pk.getAttribute('data-dgp');
+            var D = state.dashGrantDraft;
+            var at = D.picked.indexOf(key);
+            if (at === -1) D.picked.push(key); else D.picked.splice(at, 1);
+            paint();
+            return;
+          }
+        });
+        paint();
+      }
+    });
+    return dlg;
+  }
+
+  /* The Grant button means nothing until somebody is picked.
+
+     Deferred by a tick on purpose: openDialog() runs the body renderer (and
+     therefore onMount) BEFORE the footer renderer, so on the first paint the
+     button does not exist yet and a straight query would silently no-op,
+     leaving an enabled "Grant" over an empty selection. */
+  function syncGrantBtn() {
+    var btn = document.querySelector('#cpDgConfirm');
+    if (!btn) { setTimeout(syncGrantBtn, 0); return; }
+    var n = (state.dashGrantDraft && state.dashGrantDraft.picked.length) || 0;
+    if (n) btn.removeAttribute('disabled'); else btn.setAttribute('disabled', '');
+    var lbl = btn.querySelector('.kx-btn-label');
+    if (lbl) lbl.textContent = n ? 'Grant to ' + n : 'Grant';
+  }
+
+  function applyDashGrants(D) {
+    var t = (state.dashGrants.titles || []).slice();
+    var i = (state.dashGrants.individuals || []).slice();
+    D.picked.forEach(function (key) {
+      var kind = key.slice(0, 1), id = key.slice(2);
+      var rec = { id: id, level: D.level, grantedAt: TODAY, grantedBy: 'You' };
+      if (kind === 't') t.push(rec); else i.push(rec);
+    });
+    state.dashGrants = { titles: t, individuals: i };
+    state.dashGrantDraft = null;
+    render();
+    KX.pushToast({
+      title: 'Access granted',
+      body: D.picked.length + ' ' + (D.picked.length === 1 ? 'grant' : 'grants') + ' · ' +
+        levelMeta(D.level).label.toLowerCase() + '.',
+      icon: 'shield_person', tone: 'success'
+    });
+  }
+
+  function dashAccessPanel() {
+    var g = state.dashGrants;
+    var titles = g.titles || [];
+    var inds = g.individuals || [];
+    var total = titles.length + inds.length;
+    var managers = titles.concat(inds).filter(function (e) { return grantLevel(e) === 'manage'; }).length;
+
+    var rows = titles.map(function (e) { return dashGrantRow(e, 'title'); }).join('') +
+      inds.map(function (e) { return dashGrantRow(e, 'individual'); }).join('');
+
+    return '<div class="cp-panel" style="margin-top:18px">' +
+      '<div class="cp-panel-head" style="display:flex;align-items:flex-start;gap:12px">' +
+      '<div style="flex:1"><h3>Dashboard management</h3>' +
+      '<p>Who can build dashboards besides you. Admins always can — this is for everyone else. ' +
+      '“Manage all” also lets someone edit and delete dashboards they did not create, which is ' +
+      'how a dashboard survives the person who built it leaving.</p></div>' +
+      '<vaadin-button theme="secondary small" id="cpDashGrant">' + micon('add', { size: 16 }) +
+      '<span class="kx-btn-label">Grant</span></vaadin-button></div>' +
+      '<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;background:var(--surface-2);' +
+      'border-bottom:1px solid var(--ink-100)">' +
+      '<span style="font-size:12px;color:var(--ink-600)"><b style="font-family:var(--font-numeric);font-size:15px">' +
+      total + '</b> grant' + (total === 1 ? '' : 's') + '</span>' +
+      '<span style="font-size:12px;color:var(--ink-600)"><b style="font-family:var(--font-numeric);font-size:15px">' +
+      dashGrantReach(g) + '</b> people can build</span>' +
+      (managers
+        ? '<span style="font-size:12px;color:var(--amber-700)">' +
+          micon('shield_person', { size: 13, fill: 1 }) + ' ' + managers +
+          ' can manage everyone\u2019s</span>'
+        : '') +
+      '</div>' +
+      (rows ||
+        '<div style="padding:36px 20px;text-align:center">' +
+        micon('dashboard_customize', { size: 28, color: 'var(--ink-300)' }) +
+        '<div style="font-size:13.5px;font-weight:600;margin-top:8px;color:var(--ink-700)">' +
+        'Only admins can build dashboards</div>' +
+        '<div style="font-size:12.5px;color:var(--ink-500);margin-top:3px">' +
+        'Grant a job title or an individual to let them build their own.</div></div>') +
+      '</div>';
+  }
 
   function aiAccessTab() {
     var g = state.aiGrants;
@@ -691,7 +1080,7 @@
     var tab = (state.homeTab === 'explore' && !exploreOn) ? 'dashboards' : state.homeTab;
 
     var subtitle = tab === 'ai'
-      ? 'Control who gets an Agency Intelligence assistant on their homepage, and audit every question it answers.'
+      ? 'Who gets an Agency Intelligence assistant, and who can build dashboards. Every question the assistant answers is audited below.'
       : tab === 'explore'
         ? 'Explore your data with Agency Intelligence — follow any thread. Exploration doesn\'t have to become a dashboard.'
         // The "schedule it out as a report" half of the promise is v2 — with
@@ -702,9 +1091,15 @@
           : 'Dashboards you\'ve built with Agency Intelligence. Open one to edit with AI, or publish it live to ' +
             'the roles and people who need it.';
 
+    /* The Access tab is admin-only. It grants capabilities over other people's
+       data and dashboards, which is not a thing a Lieutenant with build rights
+       should be looking at, let alone acting on. Tab id stays 'ai' so the
+       ?tab=ai deep link and the flow map keep resolving. */
     var TABS = [{ id: 'dashboards', label: 'Dashboards', icon: 'space_dashboard' }]
       .concat(exploreOn ? [{ id: 'explore', label: 'Data Explorer', icon: 'travel_explore' }] : [])
-      .concat([{ id: 'ai', label: 'AI access', icon: 'auto_awesome' }]);
+      .concat(isAdmin ? [{ id: 'ai', label: 'Access', icon: 'shield_person' }] : []);
+    // Standing on Access when the role changes to a non-admin drops you home.
+    if (tab === 'ai' && !isAdmin) tab = 'dashboards';
 
     return '<div class="cp-page">' +
       // Same back-to-hub pill the Prioritization settings page uses. Home only —
@@ -732,7 +1127,17 @@
             : '') + '</button>';
       }).join('') + '</div>' +
 
-      (tab === 'ai' ? aiAccessTab()
+      (tab === 'dashboards' && !isAdmin && canBuildDashboards()
+        ? '<div class="cp-access-note">' + micon('shield_person', { size: 17, color: 'var(--ink-400)' }) +
+          '<span>You can ' +
+          (canManageAll()
+            ? 'build dashboards and manage everyone\u2019s'
+            : 'build and publish your own dashboards') +
+          '. Granting that to anyone else is a Keystone admin action \u2014 ask a Chief or ' +
+          'Training Officer.</span></div>'
+        : '') +
+
+      (tab === 'ai' ? (aiAccessTab() + dashAccessPanel())
         : tab === 'explore' ? (window.KXExplore ? window.KXExplore.html() : '')
         : dashboardsTab()) +
       '</div>';
@@ -1704,6 +2109,17 @@
   function confirmDeleteDash(id) {
     var d = dashById(id);
     if (!d) return;
+    // Permission is checked here as well as on the control: a disabled button
+    // is a hint, not a boundary.
+    if (!canActOn(d)) {
+      KX.pushToast({
+        title: 'Not yours to delete',
+        body: '“' + d.name + '” belongs to ' + ownerName(d) +
+          '. You need “manage all dashboards”.',
+        icon: 'lock', tone: 'warning'
+      });
+      return;
+    }
     var reach = reachOf(d);
     var live = CP.statusOf(d) === 'published' && reach > 0;
     KX.confirm({
@@ -2407,6 +2823,7 @@
       var ac = e.target.closest('[data-dash-audience]');
       if (ac) {
         e.stopPropagation();
+        if (ac.hasAttribute('disabled')) return;
         var acd = dashById(ac.getAttribute('data-dash-audience'));
         // Close the menu FIRST — it renders in the page, the dialog renders in
         // an overlay above it, and an open menu left behind reads as a second
@@ -2425,6 +2842,7 @@
       var del = e.target.closest('[data-dash-delete]');
       if (del) {
         e.stopPropagation();
+        if (del.hasAttribute('disabled')) return;
         if (state.rowMenu) { state.rowMenu = null; render(); }
         confirmDeleteDash(del.getAttribute('data-dash-delete'));
         return;
@@ -2432,6 +2850,66 @@
 
       var openRow = e.target.closest('[data-open-dash]');
       if (openRow) { openDash(openRow.getAttribute('data-open-dash')); return; }
+
+      /* ---- dashboard management access ---- */
+      if (e.target.closest('#cpDashGrant')) { openDashGrantDialog(); return; }
+
+      var dlv = e.target.closest('[data-dash-lvl]');
+      if (dlv) {
+        // Cycle rather than open a menu: there are exactly two levels, and a
+        // dropdown for a binary is more clicks than the choice deserves.
+        var lk = dlv.getAttribute('data-dash-lvl');
+        var lid = dlv.getAttribute('data-dash-lvl-id');
+        var bucket = lk === 'title' ? 'titles' : 'individuals';
+        state.dashGrants = Object.assign({}, state.dashGrants, (function () {
+          var o = {};
+          o[bucket] = (state.dashGrants[bucket] || []).map(function (en) {
+            if (grantId(en) !== lid) return en;
+            var next = grantLevel(en) === 'build' ? 'manage' : 'build';
+            return Object.assign({}, (typeof en === 'object' ? en : { id: en }), { level: next });
+          });
+          return o;
+        })());
+        render();
+        return;
+      }
+
+      var drv = e.target.closest('[data-dash-revoke]');
+      if (drv) {
+        var rk = drv.getAttribute('data-dash-revoke');
+        var rid = drv.getAttribute('data-dash-revoke-id');
+        var rbucket = rk === 'title' ? 'titles' : 'individuals';
+        var RSx = window.AGENCY_INTEL_ROSTER;
+        var who = rk === 'title'
+          ? ((CP.titleById(rid) || {}).label || rid)
+          : (((RSx && RSx.personById(rid)) || {}).name || rid);
+        // Revoking build rights can strand dashboards that person already
+        // published, so this one asks — the count is what makes it real.
+        var owned = state.dashboards.filter(function (d) { return d.ownerId === rid; }).length;
+        KX.confirm({
+          title: 'Revoke access for “' + who + '”?',
+          tone: 'warn',
+          icon: 'person_remove',
+          body: 'They lose the dashboard builder' +
+            (owned
+              ? ', and the <b>' + owned + '</b> dashboard' + (owned === 1 ? '' : 's') +
+                ' they built stay published but become read-only to them.'
+              : '.') +
+            ' Dashboards published TO them are unaffected.',
+          confirmLabel: 'Revoke',
+          onConfirm: function () {
+            var patch = {};
+            patch[rbucket] = (state.dashGrants[rbucket] || []).filter(function (en) {
+              return grantId(en) !== rid;
+            });
+            state.dashGrants = Object.assign({}, state.dashGrants, patch);
+            render();
+            KX.pushToast({ title: 'Access revoked', body: who + ' can no longer build dashboards.',
+                           icon: 'person_remove', tone: 'neutral' });
+          }
+        });
+        return;
+      }
 
       /* ---- AI access ---- */
       var rt = e.target.closest('[data-ai-revoke-title]');

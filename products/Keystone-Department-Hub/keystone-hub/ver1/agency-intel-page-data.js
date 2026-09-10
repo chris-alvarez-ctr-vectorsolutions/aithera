@@ -613,6 +613,7 @@
     return [
       {
         id: 'dash_readiness',
+        ownerId: 'u1',
         // The dashboard's reporting window — every time-bounded widget on it
         // reads this one value. A battalion readiness read is a quarter-to-date story.
         dateRange: 'qtd',
@@ -645,6 +646,7 @@
       },
       {
         id: 'dash_fleet',
+        ownerId: 'u1',
         // The dashboard's reporting window — every time-bounded widget on it
         // reads this one value. Fleet problems are a this-month conversation.
         dateRange: 'last_30',
@@ -667,12 +669,15 @@
       },
       {
         id: 'dash_compliance',
+        ownerId: 'u12',
         // The dashboard's reporting window — every time-bounded widget on it
         // reads this one value. Compliance is measured against the calendar year.
         dateRange: 'ytd',
         name: 'Compliance Pulse',
         icon: 'verified',
-        owner: 'You',
+        // NOT yours — built by the Training Officer. Acting on it needs either
+        // her account or a "manage all dashboards" grant.
+        owner: 'Naima Whitfield',
         createdAt: '2026-05-01',
         updatedAt: '2026-05-04',
         status: 'draft',
@@ -687,6 +692,7 @@
       },
       {
         id: 'dash_council',
+        ownerId: 'u1',
         // The dashboard's reporting window — every time-bounded widget on it
         // reads this one value. It is the QUARTERLY council brief.
         dateRange: 'qtd',
@@ -830,7 +836,11 @@
         id: 'dash_gen_' + i,
         name: name,
         icon: pick(icons),
-        owner: 'You',
+        // Spread ownership across the department so 'manage all' has
+        // something to act on: every third generated dashboard belongs to
+        // someone else.
+        ownerId: i % 3 === 1 ? 'u12' : i % 3 === 2 ? 'u3' : 'u1',
+        owner: i % 3 === 1 ? 'Naima Whitfield' : i % 3 === 2 ? 'Sloane Kim' : 'You',
         createdAt: iso(months[ci], 1 + Math.floor(rnd() * 27)),
         updatedAt: iso(months[ui], 1 + Math.floor(rnd() * 27)),
         status: status,
