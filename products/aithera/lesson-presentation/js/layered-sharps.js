@@ -654,6 +654,19 @@
     for (var k2 in patch) out[k2] = patch[k2];
     saveResult(key, out);
   }
+  // D6/item 15: F2 and F4 are "ask + sampled" — only part of the cohort is
+  // asked, a real assessment-sampling pattern, rather than either asking
+  // everyone or gating on it. Deterministic by sector (not random) so a
+  // reviewer switching sectors sees a stable, reproducible sample rather
+  // than a coin flip that changes on every reload.
+  var SAMPLE_MAP = {
+    F2: { manufacturing: true, education: true, aec: false, public: true },
+    F4: { manufacturing: true, education: false, aec: false, public: true }
+  };
+  function sampled(objId) {
+    var m = SAMPLE_MAP[objId];
+    return !m || !!m[LE.lensId()];
+  }
   function batteryResult() {
     try { var o = sessionStorage.getItem('sh-battery');
           if (o === 'proven' || o === 'unproven') return o; } catch (e) {}
@@ -2868,7 +2881,13 @@
         opts.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
         csMark(b, o.grade);
         ctx.setCoachSay(esc(o.reply));
+        saveResult('controls', { choice: o.k, sampled: sampled('F2') });
         ctx.positionOrb(true);
+        // F2 is ask+sampled (D6/item 15): only part of the cohort gets the
+        // belief-scale question at all. The choice above is the real
+        // evidence either way — sampling decides only whether the
+        // self-report on top of it gets asked.
+        if (!sampled('F2')) { ctx.enableNext(); return; }
         // The scale arrives only after the choice, so the choice is made
         // without the wording of the statement steering it — and it waits for
         // the learner to ask for it. On a clock it opened 900ms after a
@@ -2918,7 +2937,10 @@
         agreeEl.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
         ctx.clearCoachAction();
         ctx.setCoachSay(esc(o.reply[picked] || o.reply.boxes));
-        saveResult('controls', { choice: picked, agree: o.score });
+        // Merged, not replaced — the choice handler above already wrote
+        // `sampled` for this key, and this only ever runs when sampled was
+        // true (the belief scale is what sampling gates).
+        mergeResult('controls', { choice: picked, agree: o.score });
         ctx.enableNext();
         ctx.positionOrb(true);
       });
@@ -3423,17 +3445,22 @@
     var L = lens();
     return '<main class="ll-object">' +
       '<div class="ef-wrap">' +
-        '<p class="ll-eyebrow">Rate: 1 statement</p>' +
-        '<p class="ef-q">“I can carry a used sharp to the container ' +
-          '<em>even when I am behind, the line is waiting, and the container is on the ' +
-          'other side of the building.</em>”</p>' +
-        '<div class="ef-slider">' +
-          '<input type="range" id="wkRange" min="1" max="5" step="1" value="3" ' +
-            'aria-label="How confident are you, from 1 to 5">' +
-          '<div class="ef-scale"><span>1 · Not confident</span><span>5 · Completely</span></div>' +
+        // F4 is ask+sampled (D6/item 15): only part of the cohort rates this
+        // statement at all. Wrapped so a non-sampled learner never sees it —
+        // they land straight on the plan below, which runs for everyone.
+        '<div id="wkRating">' +
+          '<p class="ll-eyebrow">Rate: 1 statement</p>' +
+          '<p class="ef-q">“I can carry a used sharp to the container ' +
+            '<em>even when I am behind, the line is waiting, and the container is on the ' +
+            'other side of the building.</em>”</p>' +
+          '<div class="ef-slider">' +
+            '<input type="range" id="wkRange" min="1" max="5" step="1" value="3" ' +
+              'aria-label="How confident are you, from 1 to 5">' +
+            '<div class="ef-scale"><span>1 · Not confident</span><span>5 · Completely</span></div>' +
+          '</div>' +
+          '<div class="ef-readout"><b id="wkNum">3</b><span id="wkWord">' + esc(WALK_WORDS[3]) + '</span></div>' +
+          '<button class="ef-lock" id="wkLock" type="button">Lock it in</button>' +
         '</div>' +
-        '<div class="ef-readout"><b id="wkNum">3</b><span id="wkWord">' + esc(WALK_WORDS[3]) + '</span></div>' +
-        '<button class="ef-lock" id="wkLock" type="button">Lock it in</button>' +
 
         // TWO parts, not one card with two questions in it. Splitting them is
         // the reinforcement layer this module already uses on the account read
@@ -3476,6 +3503,7 @@
     var num = document.getElementById('wkNum');
     var word = document.getElementById('wkWord');
     var lock = document.getElementById('wkLock');
+    var ratingBox = document.getElementById('wkRating');
     var part1 = document.getElementById('wkPart1');
     var part2 = document.getElementById('wkPart2');
     var conds = document.getElementById('wkConds');
@@ -3485,42 +3513,55 @@
     var note = document.getElementById('wkNote');
     var settled = false, committed = false, cond = null;
 
-    ctx.setCoachSay('No right answer on this one, and nothing about it changes what you get ' +
-      'next. Answer it the way a bad shift actually goes.');
-
-    range.addEventListener('input', function () {
-      if (settled) return;
-      num.textContent = range.value;
-      word.textContent = WALK_WORDS[range.value] || '';
-    });
-
-    // ---- the rating (F4, Feel / Can) ----
-    lock.addEventListener('click', function () {
-      if (settled) return;
-      settled = true;
-      var v = +range.value;
-      range.disabled = true;
-      lock.hidden = true;
-      saveResult('walk', { rating: v });
-      // The threshold decides only what CLARA says about the rating, not
-      // whether the plan appears.
-      ctx.setCoachSay(v <= WALK_THRESHOLD
-        ? 'A low answer there is worth taking seriously rather than talking you out of. So plan the walk now, while nothing is pulling at you.'
-        : 'Recorded as you gave it. Plan the walk anyway — a high rating is easiest to hold when the decision was already made.');
-      // Ungated: Continue opens on the rating, so a plan nobody wanted to
-      // write never holds the door. And the first part waits for a press
-      // rather than covering the line CLARA just delivered.
+    // F4 is ask+sampled (D6/item 15): only part of the cohort rates this
+    // statement. D3 (Sustain, the plan below) is a different, unsampled
+    // objective and runs for everyone regardless — a non-sampled learner
+    // lands straight on it with no rating to react to first.
+    if (!sampled('F4')) {
+      ratingBox.hidden = true;
+      saveResult('walk', { rating: null, sampled: false });
+      ctx.setCoachSay('This one is not asked of everyone — sampled across the cohort. ' +
+        'Plan the walk anyway, while nothing is pulling at you.');
+      reinforce(ctx, part1, 1, 2);
       ctx.enableNext();
-      ctx.setNextAction('Plan the walk', function () {
-        reinforce(ctx, part1, 1, 2);
-        // setNextAction hands the button back as Continue under the step's own
-        // gate, which drops the enableNext() above — so re-open it here or the
-        // learner is stranded on a screen that never required an answer.
+    } else {
+      ctx.setCoachSay('No right answer on this one, and nothing about it changes what you get ' +
+        'next. Answer it the way a bad shift actually goes.');
+
+      range.addEventListener('input', function () {
+        if (settled) return;
+        num.textContent = range.value;
+        word.textContent = WALK_WORDS[range.value] || '';
+      });
+
+      // ---- the rating (F4, Feel / Can) ----
+      lock.addEventListener('click', function () {
+        if (settled) return;
+        settled = true;
+        var v = +range.value;
+        range.disabled = true;
+        lock.hidden = true;
+        saveResult('walk', { rating: v, sampled: true });
+        // The threshold decides only what CLARA says about the rating, not
+        // whether the plan appears.
+        ctx.setCoachSay(v <= WALK_THRESHOLD
+          ? 'A low answer there is worth taking seriously rather than talking you out of. So plan the walk now, while nothing is pulling at you.'
+          : 'Recorded as you gave it. Plan the walk anyway — a high rating is easiest to hold when the decision was already made.');
+        // Ungated: Continue opens on the rating, so a plan nobody wanted to
+        // write never holds the door. And the first part waits for a press
+        // rather than covering the line CLARA just delivered.
         ctx.enableNext();
+        ctx.setNextAction('Plan the walk', function () {
+          reinforce(ctx, part1, 1, 2);
+          // setNextAction hands the button back as Continue under the step's own
+          // gate, which drops the enableNext() above — so re-open it here or the
+          // learner is stranded on a screen that never required an answer.
+          ctx.enableNext();
+          ctx.positionOrb(true);
+        });
         ctx.positionOrb(true);
       });
-      ctx.positionOrb(true);
-    });
+    }
 
     // ---- part 1: the shift (D3, Do / Sustain) ----
     ((L.sustain || {}).conds || []).forEach(function (t) {
@@ -3735,16 +3776,25 @@
           : ['Rated only', 'band-warn', 'From your answer at the start',
              'You said where you stood at the start. The account from your own sector did not come up in this run.' + namedNote(c)],
       F2: ctrl
-        ? [ctrl.choice === 'boxes' ? 'Shown' : 'Recorded',
-           ctrl.choice === 'boxes' ? 'band-exc' : 'band-ok',
-           'From the budget choice, then your own rating',
-           ctrl.choice === 'boxes'
-             ? 'You put the money on containers rather than gloves — the control that removes the hazard instead of resisting it.'
-             : ctrl.agree >= 3
-               // The reason this objective is asked in two parts. A single
-               // agreement scale files this learner as fully on board.
-               ? 'Two answers that point different ways: you rated containers above PPE and then spent the budget on gloves. That gap is the finding, and it is a purchasing habit rather than a belief.'
-               : 'You put the money on gloves and rated it accordingly. Recorded as you gave it; the containers are the buy that stops the injury happening at all.']
+        ? (ctrl.sampled === false
+            // D6/item 15: ask + sampled — the choice is still real evidence
+            // either way, the self-report on top of it just was not asked
+            // of this sector this run.
+            ? ['Shown', 'band-ok', 'From the budget choice',
+               (ctrl.choice === 'boxes'
+                 ? 'You put the money on containers rather than gloves — the control that removes the hazard instead of resisting it. '
+                 : 'You put the money on gloves. ') +
+               'Not asked of you this time — sampled across your cohort.']
+            : [ctrl.choice === 'boxes' ? 'Shown' : 'Recorded',
+               ctrl.choice === 'boxes' ? 'band-exc' : 'band-ok',
+               'From the budget choice, then your own rating',
+               ctrl.choice === 'boxes'
+                 ? 'You put the money on containers rather than gloves — the control that removes the hazard instead of resisting it.'
+                 : ctrl.agree >= 3
+                   // The reason this objective is asked in two parts. A single
+                   // agreement scale files this learner as fully on board.
+                   ? 'Two answers that point different ways: you rated containers above PPE and then spent the budget on gloves. That gap is the finding, and it is a purchasing habit rather than a belief.'
+                   : 'You put the money on gloves and rated it accordingly. Recorded as you gave it; the containers are the buy that stops the injury happening at all.'])
         : ['Not asked', 'band-warn', 'No answer in this run',
            'The budget choice did not come up, so there is nothing on this line. It is not counted as agreement.'],
       F3: (c.debrief && c.debrief.post)
@@ -3760,10 +3810,16 @@
         ? [c.walk.rating >= 4 ? 'Recorded · high' : 'Recorded · low', 'band-ok',
            'From your own rating, against a named obstacle',
            c.walk.rating >= 4
-             ? 'You rated yourself ' + c.walk.rating + ' of 5 on doing this while you are behind. Read that line next to the scenario below it rather than on its own \u2014 a high rating followed by a sharp left on a bench is the finding, and neither means much alone.'
+             ? 'You rated yourself ' + c.walk.rating + ' of 5 on doing this while you are behind. Read that line next to the scenario below it rather than on its own — a high rating followed by a sharp left on a bench is the finding, and neither means much alone.'
              : 'You rated yourself ' + c.walk.rating + ' of 5 on doing this while you are behind, and got the if-then plan because of it. Recorded as you gave it; a low answer here is more useful than a high one nobody believes.']
-        : ['Not asked', 'band-warn', 'No answer in this run',
-           'The rating did not come up, so there is nothing on this line. It is not counted as confidence either way.'],
+        // D6/item 15: ask + sampled — sampled === false means the question
+        // genuinely was not put to this sector this run, not that the run
+        // is incomplete. The plan below (D3) still ran regardless.
+        : (c.walk && c.walk.sampled === false)
+          ? ['Not asked', 'band-ok', 'Sampled across your cohort',
+             'Not asked of you this time — sampled across your cohort. You still planned the walk below, which every learner does regardless.']
+          : ['Not asked', 'band-warn', 'No answer in this run',
+             'The rating did not come up, so there is nothing on this line. It is not counted as confidence either way.'],
       // Both of these are shown on the scenario's own page now. The module
       // used to carry a scripted stand-in for them here \u2014 a six-second clock
       // on one button \u2014 and it was cut rather than rebuilt: the scenario's
