@@ -2627,7 +2627,9 @@
     ctx.setNextAction('Done reading', function () {
       // How long they took is recorded, not enforced.
       saveResult('case4', { read: true, readMs: Date.now() - landed });
-      reinforce(ctx, post, 2, 2);
+      // No "Part 2 of 2": the first half was a read, not a numbered part —
+      // a badge counting from 2 with no Part 1 anywhere implied one.
+      reinforce(ctx, post, 1, 1);
       // No coach line: the layer carries its own eyebrow and question, and
       // setCoachSay() raises them whenever it runs after init — which is what
       // used to make them surface twice on this screen.
@@ -2659,7 +2661,11 @@
   function CONTROLS_CONTENT() {
     var L = lens();
     return '<main class="ll-object">' +
+      // Part 1 of 2 from the start, not just "Part 2 of 2" appearing later
+      // with no Part 1 anywhere — the badge is static here because this half
+      // of the screen is visible on arrival, not raised by reinforce().
       '<div class="cs-wrap">' +
+        '<span class="rf-step">Part 1 of 2</span>' +
         '<p class="ll-eyebrow">Decide: 1 choice</p>' +
         '<h2 class="cs-q cs-q--lead">' + esc(L.orgShort) + ' has budget for one of these this year.</h2>' +
         '<p class="ll-sub ct-sub">Both are real proposals and both would help. Pick the one that prevents more injuries ' +
@@ -3058,7 +3064,8 @@
       // The recall block is spent: it asked what they said before the module,
       // and the line CLARA just delivered already answered it. Retiring it
       // buys the chart the room to stay on screen behind the question.
-      reinforce(ctx, post, 2, 2, { spent: [document.getElementById('dbRecall')] });
+      // No "Part 2 of 2" here either — the reveal is not a numbered part.
+      reinforce(ctx, post, 1, 1, { spent: [document.getElementById('dbRecall')] });
       ctx.positionOrb(true);
     }
   }
