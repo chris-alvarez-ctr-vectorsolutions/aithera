@@ -1483,8 +1483,7 @@
 
   //  ONE modality vocabulary, shared by every beat that offers a choice, so
   //  the labels, icons and stated costs cannot drift between them. `label` is
-  //  what a LEARNER sees; `demoLabel` is what the presenter menu shows, where
-  //  the format name matters more than the verb.
+  //  what a LEARNER sees on the picker button.
   //
   //  The TRADEOFF line is the part that makes a chooser honest. A learner
   //  picking a carrier needs to know what it costs them, not just what it is
@@ -1493,19 +1492,19 @@
   //  interrupt to ask you anything. Offering the choice without the cost is
   //  just a menu.
   var MODALITIES = {
-    video:   { label: 'Watch', demoLabel: 'Video course', icon: 'fa-circle-play',
+    video:   { label: 'Watch', icon: 'fa-circle-play',
                cost: '2 min',
                tradeoff: 'Two minutes, but you have to be looking at it.',
                note: 'The reference rendering — the point in the variant space the SME signed.' },
-    article: { label: 'Read', demoLabel: 'Article', icon: 'fa-file-lines',
+    article: { label: 'Read', icon: 'fa-file-lines',
                cost: '1 min',
                tradeoff: 'About a minute, skimmable, and you set the pace.',
                note: 'Pre-rendered. The same content, read rather than watched.' },
-    tutor:   { label: 'Step through it', demoLabel: 'AI tutor', icon: 'fa-comments',
+    tutor:   { label: 'Step through it', icon: 'fa-comments',
                cost: 'Slower \u00b7 asks questions',
                tradeoff: 'Slower, and CLARA asks you questions on the way.',
                note: 'CLARA walks the procedure one step at a time.' },
-    podcast: { label: 'Listen', demoLabel: 'Podcast', icon: 'fa-podcast', declined: true,
+    podcast: { label: 'Listen', icon: 'fa-podcast', declined: true,
                cost: 'Longest \u00b7 hands free',
                tradeoff: 'Runs while you do something else, but takes longer and stops to ask you things.',
                note: 'Declined at module level. Audio is offered one level up, across the course.' }
@@ -1560,16 +1559,15 @@
       '</svg>';
     return 'data:image/svg+xml,' + encodeURIComponent(svg);
   }
+  // Item 26: 'sh-modality' persists which carrier actually served the
+  // procedure beat — read by remk1Modality() ("a different way in") and by
+  // this beat's own default on arrival. It used to be written only by the
+  // Demo menu's Modality control (a reviewer-only cycle through all four);
+  // the learner-facing picker in procedureInit is now the writer.
   var MODALITY_ORDER = ['video', 'article', 'tutor', 'podcast'];
   function modalityId() {
     try { var m = sessionStorage.getItem('sh-modality'); if (MODALITIES[m]) return m; } catch (e) {}
     return MODALITY_ORDER[0];
-  }
-  function cycleModality() {
-    var i = MODALITY_ORDER.indexOf(modalityId());
-    var next = MODALITY_ORDER[(i + 1) % MODALITY_ORDER.length];
-    try { sessionStorage.setItem('sh-modality', next); } catch (e) {}
-    return next;
   }
 
   // ==========================================================================
@@ -2558,89 +2556,110 @@
       d: 'It does not go in general waste and it does not get wrapped in anything soft. Activate the safety feature, keep it in your own hand, and walk it to a proper container. Carrying a shielded sharp is allowed; parking an unshielded one is not.' }
   ];
 
+  // Item 26: the sequence is four steps, full stop — the two lines after it
+  // are not a fifth and sixth step, they are rules that hold at every point
+  // in the sequence. Numbering them 1-6 in one list read as one more
+  // instruction to follow in order, which is not what "never" or "if there
+  // is no container" mean.
   function procedureList() {
     var use = lens() && lens().premise === 'use';
     var n = 0;
-    return '<ol class="pr-list">' + PROCEDURE.map(function (s) {
+    var steps = PROCEDURE.slice(0, 4).map(function (s) {
       var inert = s.onlyOn && s.onlyOn !== (use ? 'use' : 'find');
       if (!inert) n++;
       return '<li class="pr-item' + (inert ? ' is-context' : '') + '">' +
         '<span class="pr-n">' + (inert ? '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>' : n) + '</span>' +
         '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
         '<span class="pr-d">' + esc(inert && s.note ? s.note : s.d) + '</span></span></li>';
-    }).join('') + '</ol>';
+    }).join('');
+    var rules = PROCEDURE.slice(4).map(function (s) {
+      return '<li class="pr-rule">' +
+        '<span class="pr-n pr-rule-mark"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></span>' +
+        '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
+        '<span class="pr-d">' + esc(s.d) + '</span></span></li>';
+    }).join('');
+    return '<ol class="pr-list">' + steps + '</ol>' +
+      '<ul class="pr-rules">' + rules + '</ul>';
   }
 
+  // Item 26: one template, three learner-facing carriers plus the declined
+  // banner — same shape as the hazard beat (HAZARD_CONTENT/hazardInit), swapped
+  // in place by show() rather than re-rendering the whole step. The Demo
+  // menu's Modality control used to be the only way to change this, which
+  // meant a learner never saw the choice existed; the picker now does what
+  // that control did, in the open.
   function PROCEDURE_CONTENT() {
-    var m = modalityId(), body;
-    if (m === 'podcast') {
-      body =
-        '<div class="pr-declined">' +
+    return '<main class="ll-object"><div class="pr-wrap">' +
+      '<p class="ll-eyebrow" id="prEyebrow">Watch: 4 minute video</p>' +
+      '<h1 class="pr-h">The order is the procedure.</h1>' +
+      '<p class="pr-sub">Four steps, always in this order — plus two rules that hold no matter what.</p>' +
+
+      // Item 26: podcast stays in the vocabulary (MODALITIES) so its own
+      // decline banner can render, but the button itself is hidden from a
+      // learner — see procedureInit. Declined, not offered, is the point.
+      modalityPicker('prPick', ['video', 'article', 'tutor', 'podcast'], { article: '2 min' }) +
+
+      '<div id="prCarrier" hidden>' +
+        '<div id="prVideoWrap" hidden>' +
+          videoFrame({ ids: { wrap: 'prMedia', video: 'prVideo', note: 'prVfall', pct: 'prPct', skip: 'prSkip' },
+                       src: PROCEDURE_VIDEO }) +
+        '</div>' +
+        '<div id="prTutorWrap" hidden><div class="pr-tutor" id="prTutor"></div></div>' +
+        '<div id="prDeclined" class="pr-declined" hidden>' +
           '<p class="pr-dec-h"><i class="fa-solid fa-circle-minus"></i> Not available as audio</p>' +
           '<p>This module is mostly practice. There is less than a minute of it to listen to, which ' +
             'would make for a very short listen.</p>' +
           '<p>Audio is available for the whole of <b>Bloodborne Pathogens</b>, where all six modules ' +
             'run together.</p>' +
           '<p class="pr-dec-fall">Showing the written version below.</p>' +
-        '</div>' + procedureList();
-    } else if (m === 'video') {
-      // Same anatomy as the Bystander course's video beats, down to the class
-      // names, so it inherits that player's CSS and its behaviour.
-      body =
-        videoFrame({ ids: { wrap: 'prMedia', video: 'prVideo', note: 'prVfall', pct: 'prPct', skip: 'prSkip' },
-                     src: PROCEDURE_VIDEO }) +
-        '<div id="prVlist" hidden>' + procedureList() + '</div>';
-    } else if (m === 'tutor') {
-      body = '<div class="pr-tutor" id="prTutor"></div>';
-    } else {
-      body = procedureList();
-    }
-    var EYEBROW = {
-      video:   'Watch: 4 minute video',
-      article: 'Read: 2 minutes',
-      tutor:   'Step through: ' + procedureCount() + ' steps',
-      podcast: 'Not available as audio'
-    };
-    return '<main class="ll-object"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow">' + esc(EYEBROW[m]) + '</p>' +
-      '<h1 class="pr-h">The order is the procedure.</h1>' +
-      '<p class="pr-sub">' + esc(obj('K1').text) + '</p>' +
-      body +
+        '</div>' +
+        // Doubles as the video carrier's fallback target on a failed fetch.
+        '<div id="prWritten" hidden>' + procedureList() + '</div>' +
+      '</div>' +
     '</div></main>';
   }
   // The live count, because a find-premise drops the alternatives step out of
-  // the numbering and a heading that says "four" would then be wrong.
+  // the numbering and a heading that says "four" would then be wrong. Counts
+  // only the numbered STEPS — the two rules after them were never a fifth
+  // and sixth step to count.
   function procedureCount() {
     var use = lens() && lens().premise === 'use';
-    return PROCEDURE.filter(function (s) {
+    return PROCEDURE.slice(0, 4).filter(function (s) {
       return !(s.onlyOn && s.onlyOn !== (use ? 'use' : 'find'));
     }).length;
   }
 
   function procedureInit(ctx) {
-    var m = modalityId();
-    // Item 13: which modality actually taught K1, for the record and for
-    // remk1's "a different way in" choice. Podcast is declined and falls
-    // back to the article, so that is what actually served them — recording
-    // the literal preference would claim they heard something they did not.
-    mergeResult('procedure', { modality: m === 'podcast' ? 'article' : m });
+    var eyebrow = document.getElementById('prEyebrow');
+    var pick = document.getElementById('prPick');
+    var carrier = document.getElementById('prCarrier');
+    var vWrap = document.getElementById('prVideoWrap');
+    var tWrap = document.getElementById('prTutorWrap');
+    var declined = document.getElementById('prDeclined');
+    var written = document.getElementById('prWritten');
+    var mounted = false, tutorMounted = false, showing = null, handed = false;
 
-    if (m === 'video') {
-      mountVideo(ctx, {
-        ids: { video: 'prVideo', wrap: 'prMedia', note: 'prVfall', fallback: 'prVlist', pct: 'prPct', skip: 'prSkip' },
-        src: PROCEDURE_VIDEO
-      });
-      // "Watch the order" was the heading with a verb bolted on. The claim
-      // after it is the one that changes how the clip gets watched.
-      ctx.setCoachSay('Most of the procedure happens before the sharp is ever used.');
-    } else if (m === 'tutor') {
+    // Item 26: declined, not offered — the banner below still exists for a
+    // reviewer to check, same review-mode gate as the hazard beat's hidden
+    // video button, but a learner never sees the button that reaches it.
+    if (!LE.reviewMode()) {
+      var pBtn = pick.querySelector('.md-opt[data-m="podcast"]');
+      if (pBtn) pBtn.hidden = true;
+    }
+
+    function done() {
+      if (handed) return; handed = true;
+      ctx.enableNext();
+    }
+
+    function runTutor() {
       var host = document.getElementById('prTutor');
       var useP = lens() && lens().premise === 'use';
-      var shown = PROCEDURE.filter(function (s) {
+      var steps = PROCEDURE.slice(0, 4).filter(function (s) {
         return !(s.onlyOn && s.onlyOn !== (useP ? 'use' : 'find'));
       });
-      ctx.setCoachSay('I will take the steps one at a time.');
-      shown.forEach(function (s, i) {
+      var rules = PROCEDURE.slice(4);
+      steps.forEach(function (s, i) {
         setTimeout(function () {
           if (!host) return;
           var d = document.createElement('div');
@@ -2652,14 +2671,85 @@
           requestAnimationFrame(function () { d.classList.add('in'); });
         }, T(350 + i * 850));
       });
-      setTimeout(function () { ctx.enableNext(); }, T(350 + shown.length * 850));
-    } else {
-      ctx.setCoachSay(m === 'podcast'
-        ? 'Audio is not offered for this module — I am showing you the article cut so the path still runs.'
-        : 'Read the order rather than the steps. Most of them happen before the sharp is ever used — which is the part people skip.');
-      ctx.enableNext();
+      // The two rules land after the sequence, unnumbered — arriving turns
+      // that carry no ordinal, not a fifth and sixth step.
+      rules.forEach(function (s, j) {
+        setTimeout(function () {
+          if (!host) return;
+          var d = document.createElement('div');
+          d.className = 'pr-turn pr-turn--rule';
+          d.innerHTML = '<span class="pr-n pr-rule-mark"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></span>' +
+            '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
+            '<span class="pr-d">' + esc(s.d) + '</span></span>';
+          host.appendChild(d);
+          requestAnimationFrame(function () { d.classList.add('in'); });
+        }, T(350 + (steps.length + j) * 850));
+      });
+      setTimeout(done, T(350 + (steps.length + rules.length) * 850));
     }
-    ctx.positionOrb(false);
+
+    function show(m) {
+      if (showing === m) return;
+      showing = m;
+      // Item 13: which modality actually taught K1, for the record and for
+      // remk1's "a different way in" choice. Podcast is declined and falls
+      // back to the article, so that is what actually served them — recording
+      // the literal preference would claim they heard something they did not.
+      var served = m === 'podcast' ? 'article' : m;
+      mergeResult('procedure', { modality: served });
+      // remk1Modality() and the Learning Layer view read the LAST modality
+      // through sessionStorage, the same key the retired Demo control wrote —
+      // this is now the only writer.
+      try { sessionStorage.setItem('sh-modality', served); } catch (e) {}
+
+      carrier.hidden = false;
+      vWrap.hidden = m !== 'video';
+      tWrap.hidden = m !== 'tutor';
+      declined.hidden = m !== 'podcast';
+      written.hidden = (m !== 'article' && m !== 'podcast');
+      [].forEach.call(pick.querySelectorAll('.md-opt'), function (b) {
+        var on = b.dataset.m === m;
+        b.classList.toggle('is-on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+
+      if (m === 'video') {
+        eyebrow.textContent = 'Watch: 4 minute video';
+        if (!handed) ctx.disableNext();
+        // "Watch the order" was the heading with a verb bolted on. The claim
+        // after it is the one that changes how the clip gets watched.
+        ctx.setCoachSay('Most of the procedure happens before the sharp is ever used.');
+        if (!mounted) {
+          mounted = true;
+          mountVideo(ctx, {
+            ids: { video: 'prVideo', wrap: 'prMedia', note: 'prVfall', fallback: 'prWritten', pct: 'prPct', skip: 'prSkip' },
+            src: PROCEDURE_VIDEO,
+            onFallback: done,
+            onEnded: done
+          });
+        }
+      } else if (m === 'tutor') {
+        eyebrow.textContent = 'Step through: ' + procedureCount() + ' steps';
+        if (!handed) ctx.disableNext();
+        ctx.setCoachSay('I will take the steps one at a time.');
+        if (!tutorMounted) { tutorMounted = true; runTutor(); }
+      } else if (m === 'podcast') {
+        eyebrow.textContent = 'Not available as audio';
+        ctx.setCoachSay('Audio is not offered for this module — I am showing you the article cut so the path still runs.');
+        done();
+      } else {
+        eyebrow.textContent = 'Read: about 2 minutes';
+        ctx.setCoachSay('Read the order rather than the steps. Most of them happen before the sharp is ever used — which is the part people skip.');
+        done();
+      }
+      ctx.positionOrb(false);
+    }
+
+    [].forEach.call(pick.querySelectorAll('.md-opt'), function (b) {
+      b.addEventListener('click', function () { show(b.dataset.m); });
+    });
+
+    show(modalityId());
   }
 
   // ==========================================================================
@@ -4174,7 +4264,7 @@
 
     { id: 'procedure', icon: 'fa-shapes', mins: 4, stage: 'Learn', lesson: 'Safe Handling, Step by Step', mode: 'floating', gate: true, adaptive: true,
       when: function () { return batteryResult() !== 'proven'; },
-      caption: { title: 'LEARN · The procedure (K1, taught)', note: 'The instruction the adjustment screen has always promised and the module never contained. K1 is a mandated four-step sequence — there is nothing to reason toward, so it is TAUGHT before it is practised; K2 is discoverable, so it keeps the case ladder. Structure declared per objective, the way policy already is. Dropped whole on test-out, alongside its case. This is also the module’s only modality-varying beat: the Demo menu’s Modality control re-renders exactly this screen and nothing else. Podcast is DECLINED rather than rendered — under a minute of instruction is a clip, not an episode. Audio’s honest unit is the COURSE, six modules assembled into one listen, which is Assembly and not Transformation. Nothing on the learner’s side of this beat names an objective, a policy or a capability; that vocabulary lives here and in the Learning Layer view.' },
+      caption: { title: 'LEARN · The procedure (K1, taught)', note: 'The instruction the adjustment screen has always promised and the module never contained. K1 is a mandated four-step sequence — there is nothing to reason toward, so it is TAUGHT before it is practised; K2 is discoverable, so it keeps the case ladder. Structure declared per objective, the way policy already is. Dropped whole on test-out, alongside its case. This is also the module’s only modality-varying beat, and item 26 exposed the Watch/Read/Step-through choice to the learner directly (same in-place swap as the hazard beat) rather than leaving it behind a reviewer-only Demo control. Podcast is DECLINED rather than rendered — under a minute of instruction is a clip, not an episode. Audio’s honest unit is the COURSE, six modules assembled into one listen, which is Assembly and not Transformation — the decline banner is still there to check, just behind review mode rather than a learner-visible button. Nothing on the learner’s side of this beat names an objective, a policy or a capability; that vocabulary lives here and in the Learning Layer view.' },
       // hint:false — a step list read at a still mouse should not be
       // interrupted at 7s.
       coach: { say: 'Loading…', hint: false },
@@ -4332,12 +4422,11 @@
       'A container is an engineering control. Past the limit your site’s plan sets, it stops containing — so sealing it and walking is always better than one more.',
       'I am recording what each answer showed, not a score. Your administrator sees the same chain you do.'
     ],
+    // Item 26: the Modality control that used to live here is retired — the
+    // procedure beat's Watch/Read/Step-through picker is a learner-facing
+    // control now (procedureInit), the same as the hazard beat's, and needs
+    // no reviewer-only cycle to reach it.
     demoControls: [{
-      id: 'shModalityBtn', icon: 'fa-shapes', name: 'Modality',
-      note: 'Only the procedure beat moves — battery, cases, simulation and record are identical in all four',
-      state: function () { return MODALITIES[modalityId()].demoLabel; },
-      onClick: function (api) { cycleModality(); api.replay(); }
-    }, {
       id: 'shImagesBtn', icon: 'fa-image', name: 'Visuals',
       note: 'Whether a beat carries art is a derivation decision, not a property of the beat',
       visibleOn: function (step) { return !!IMAGE_STEPS[step.id]; },
