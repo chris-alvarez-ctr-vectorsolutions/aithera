@@ -3903,6 +3903,38 @@
   }
 
   // ==========================================================================
+  //  THE HANDOFF — D11/item 31. A real screen where the module used to hand
+  //  straight off to the culminating scenario with nothing of its own: the
+  //  scenario player's own establishing card was the only framing a learner
+  //  ever got before being dropped into a live roleplay. This screen does
+  //  that job — the moment, in two lines, and what the format actually is —
+  //  and tells the player (?handoff=1, appended to the `enact` step's
+  //  external URL) to skip ITS establishing card in turn, since showing both
+  //  would frame the same moment twice in a row.
+  // ==========================================================================
+  function HANDOFF_CONTENT() {
+    return '<main class="ll-object ll-object--chain"><div class="ho-wrap">' +
+      '<p class="ll-eyebrow">Perform: live roleplay, about 5 minutes</p>' +
+      '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-syringe"></i></span>' +
+      '<p class="ho-lead">Chris is still on shift, and he is holding an uncapped syringe.</p>' +
+      '<p class="ho-lead-sub">It is the end of the day, and he has already offered to walk out ' +
+        'together. What you say next is the roleplay.</p>' +
+      '<div class="ho-what">' +
+        '<p class="ho-what-h">What will happen</p>' +
+        '<p class="ho-what-d">You will talk this through with Chris in real time — no list ' +
+          'of lines to pick from, just what you would actually say. It runs about five minutes ' +
+          'and closes with a debrief of what happened.</p>' +
+      '</div>' +
+    '</div></main>';
+  }
+  function handoffInit(ctx) {
+    // Ungated — there is nothing to answer here, only to read before moving
+    // on. Silent on arrival: the screen states its own purpose in its own
+    // copy, and CLARA has no reaction to a page nobody has acted on yet.
+    ctx.enableNext();
+  }
+
+  // ==========================================================================
   // ==========================================================================
   //  THE RECORD — ten objectives, each with the policy that governed it and
   //  where its evidence actually came from. D3 is deliberately still open.
@@ -4380,13 +4412,32 @@
       content: WALK_CONTENT, init: walkInit,
       onSkip: function () { saveResult('walk', { rating: null, rehearsed: false }); } },
 
-    { id: 'enact', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'End of Shift',
+    { id: 'handoff', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'End of Shift', mode: 'floating',
+      nextLabel: 'Enter the scenario',
+      caption: { title: 'PERFORM · The bridge into the scenario (D11)', note: 'Item 31. This module used to hand off to the culminating scenario with an external redirect and no screen of its own — Continue on “When You Are Behind” bounced the learner straight to the player, whose own establishing card was the only framing anybody got. This screen does that job instead: the moment, in two lines, and what the format actually is, before the one CTA that means it. The player is told to skip its own establishing card in turn (see enact’s ?handoff=1) — showing it too, and asking for a SECOND “step in” tap, would be a third framing of the same moment in a row.' },
+      // Silent — the screen states its own purpose in its own copy; there is
+      // nothing here for CLARA to react to before the learner has done
+      // anything.
+      coach: { say: '' },
+      content: HANDOFF_CONTENT, init: handoffInit },
+
+    { id: 'enact', icon: 'fa-comments', stage: 'Perform', lesson: 'End of Shift — Live Roleplay',
+      // No `mins` here — the 5 minutes this activity takes is now carried by
+      // the handoff step above (the one a learner and pathMinutes() both see);
+      // this step never renders, so double-counting both would overstate the
+      // course's total runtime by 5 minutes.
+      // Not a section a learner ever sees — it hands off to another page in
+      // the same tick showStep() reaches it (see the engine's `step.external`
+      // branch). The handoff screen just above is the real, numbered section;
+      // counting this one too would inflate "Section N of total" for a step
+      // nobody looks at, the same reason `adjust` carries this flag.
+      interstitial: true,
       // Item 19/D7: back to postbattery, not straight to record — the engine
       // walks forward past it automatically for a learner who does not need
       // it (see build()'s deep-link when() walk), so this one URL serves
       // both cases correctly regardless of whether Listen was chosen.
       external: '../../scenario-simulator/composed-scenarios/index.html'
-        + '?type=mix-arc&scenario=end-of-shift-sharps'
+        + '?type=mix-arc&scenario=end-of-shift-sharps&handoff=1'
         + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=postbattery'),
       caption: { title: 'PERFORM · The culminating activity, four beats (D2)', note: 'The full Scenario Simulator, which this module has always pointed at and never contained \u2014 the previous screen\u2019s caption said so. Four sequential roleplay beats with one AI character: the decision (Chris holding an uncapped syringe, offering to walk out with you), the pressure (his radio goes and he refuses the walk), the complication (the container is above its fill line and will not close) and the transfer (you pass Jacob pulling the break-room bags). Beat 3 is the one that separates following a rule from exercising judgment, which is why it is its own moment rather than a second action inside beat 2. Beat 4 cannot be failed: silence closes it, is not penalised, and is named in the debrief. Authored as a mix-arc curated example rather than a new page \u2014 the converged player already routes ?type= and ?scenario=, so this beat added a scenario and edited no player. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where BOTH Do objectives are evidenced now. The module used to carry a scripted stand-in ahead of it \u2014 a real-time scene, a six-second clock and one Dispose button \u2014 and that screen was deleted rather than rebuilt, because the concept was wrong rather than badly executed: the wrong behaviour was not choosable (setting the sharp down was what HAPPENED to a slow reader), the button took keyboard focus the instant it unlocked, and pressing immediately scored the same as pressing at 5.9s. Its route question went with it: this scenario asks the route better, against a container above its fill line that will not close. The record now says both Do lines are evidenced here rather than scoring them off a button.' },
       coach: { say: '' } },
