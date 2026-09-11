@@ -82,12 +82,11 @@ svg.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-wid
 /* Mode tabs, top-right of the same bar. Underline rides the bar's bottom edge. */
 /* The left group is sized to the side nav, so the tabs begin at the content
    column's edge and their underline lines up with the content below. When
-   the nav collapses the group releases its width and the tabs follow the
-   identity; the transition matches the nav's own. */
+   the nav collapses the group KEEPS that width, so the tabs never move. */
 /* nav width, minus the bar's own 12px padding and the 8px gap before the tabs,
-   so the tab row's left edge lands exactly on the nav's right edge */
-.tb-left{display:flex;align-items:center;gap:8px;flex:none;min-width:calc(var(--nav-w) - 20px);transition:min-width .18s ease}
-body.nav-hidden .tb-left{min-width:0}
+   so the tab row's left edge lands exactly on the nav's right edge. Held
+   while collapsed too: the tabs never move. */
+.tb-left{display:flex;align-items:center;gap:8px;flex:none;min-width:calc(var(--nav-w) - 20px)}
 .tb-tabs{display:flex;align-items:stretch;align-self:stretch;gap:2px}
 .tb-tabs a{display:flex;align-items:center;padding:0 12px;color:var(--ink-2);font-weight:500;font-size:13px;border-bottom:2px solid transparent;border-top:2px solid transparent;white-space:nowrap}
 .tb-tabs a:hover{color:var(--ink)}
@@ -277,8 +276,12 @@ body.logo-off .cust-logo{display:none}
 .loc-ck{width:14px;height:14px;color:var(--accent);flex:none;margin-right:2px;visibility:hidden}
 .loc-row.selected .loc-ck{visibility:visible}
 /* ---- Scoped global search: field + explicit All products / This product scope ---- */
-/* search is centred in the run between the tabs and the right-hand group */
-.gsearch{position:relative;margin:0 auto;flex:0 1 400px;min-width:220px}
+/* Search sits on the bar's centre line whenever the geometry allows. JS clamps
+   it so it never overlaps the tabs or the right-hand group, shrinking before it
+   would; the element right after it takes the auto margin that keeps the
+   right-hand group at the edge. */
+.gsearch{position:absolute;top:calc((var(--topbar-h) - 36px) / 2);left:0;width:400px;margin:0}
+.gsearch + *{margin-left:auto}
 .gs-field{display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 6px 0 12px;border-radius:8px;background:var(--well);border:1px solid transparent}
 .gs-field:focus-within{background:var(--surface);border-color:var(--accent-line)}
 .gs-field>.ic{color:var(--ink-3)}
@@ -418,19 +421,20 @@ body.logo-bottom.nav-hidden .sidenav:not(.peek-clone){padding-bottom:8px}
 
 /* ---- Live peek: hovering near the COLLAPSED nav opens a COPY of it as an
    overlay. The collapsed column stays underneath, so nothing vanishes or
-   shifts; the overlay slides over it. 16px halo; 100ms in, 500ms out; the pin
-   tab on the overlay's edge docks the real nav, which then expands in place.
-   Motion: 220ms expo-out slide-and-fade in, 160ms ease-in out. ---- */
-.peek-clone{position:fixed;bottom:0;width:var(--nav-w);z-index:60;box-shadow:var(--shadow-3);border-right:1px solid var(--line);transition:none;animation:peekIn .22s cubic-bezier(.16,1,.3,1) both}
-.peek-clone.peek-out{animation:peekOut .16s ease-in both}
-@keyframes peekIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
-@keyframes peekOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(-8px)}}
-/* the pin tab straddles the overlay's right edge; JS gives it the overlay's origin */
-.peek-pin{position:fixed;z-index:61;display:flex;align-items:center;justify-content:center;width:26px;height:40px;border-radius:0 8px 8px 0;background:var(--surface);border:1px solid var(--line);border-left:0;box-shadow:var(--shadow-2);color:var(--ink-3);cursor:pointer;opacity:0;transform:translateX(-8px);pointer-events:none;transition:opacity .16s ease,transform .18s cubic-bezier(.16,1,.3,1),background .12s,color .12s,border-color .12s}
-body.nav-peek:not(.peek-out) .peek-pin{opacity:1;transform:none;pointer-events:auto;transition-delay:.08s,.08s,0s,0s,0s}
-.peek-pin:hover,.peek-pin:focus-visible{background:var(--accent-soft);color:var(--accent-strong);border-color:var(--accent-line)}
-.peek-pin .ic{width:14px;height:14px}
-@media (prefers-reduced-motion:reduce){.peek-clone,.peek-clone.peek-out{animation:none}.peek-pin{transition:none}}
+   shifts; the overlay slides out from behind it. 16px halo; 100ms in, 500ms
+   out. Docking: click the top-bar toggle while the overlay is open; the real
+   nav snaps open in its place. ---- */
+/* The copy SLIDES OUT from behind the collapsed column: it starts fully tucked
+   behind it (translated left by the extra width, clipped at the column's left
+   edge so it never shows over the rail) and eases out to full width. 280ms
+   expo-out in, 200ms ease-in back. */
+.peek-clone{position:fixed;bottom:0;width:var(--nav-w);z-index:60;box-shadow:var(--shadow-3);border-right:1px solid var(--line);transition:none;animation:peekIn .28s cubic-bezier(.16,1,.3,1) both}
+.peek-clone.peek-out{animation:peekOut .2s ease-in both}
+@keyframes peekIn{from{transform:translateX(calc(56px - var(--nav-w)));clip-path:inset(0 0 0 calc(var(--nav-w) - 56px))}to{transform:none;clip-path:inset(0 0 0 0)}}
+@keyframes peekOut{from{transform:none;clip-path:inset(0 0 0 0)}to{transform:translateX(calc(56px - var(--nav-w)));clip-path:inset(0 0 0 calc(var(--nav-w) - 56px))}}
+/* docking from a peek: the real nav snaps open in the copy's place, no re-slide */
+body.nav-snap .sidenav,body.nav-snap .tb-left{transition:none}
+@media (prefers-reduced-motion:reduce){.peek-clone,.peek-clone.peek-out{animation:none}}
 
 /* ---- Collapsed: the ACTIVE item's top-level icon stays lit, even when the
    active page is nested inside that accordion ---- */
@@ -1282,8 +1286,13 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
   var nBtn=document.getElementById('navToggle');
   var peekIn=null, peekOut=null;
   function setNav(open){
+    // docking FROM a peek: the real nav must appear exactly where the copy was,
+    // with no width transition, or it looks like it slides out a second time
+    var snap=!!peekEl&&open;
+    if(snap)document.body.classList.add('nav-snap');
     killPeek();   // a docked or collapsed nav never keeps an overlay
     document.body.classList.toggle('nav-hidden',!open);
+    if(snap)requestAnimationFrame(function(){requestAnimationFrame(function(){document.body.classList.remove('nav-snap');});});
     if(nBtn){nBtn.setAttribute('aria-pressed',String(open));nBtn.setAttribute('aria-label',open?'Collapse navigation':'Expand navigation');}
   }
   if(nBtn)nBtn.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden'));});
@@ -1295,18 +1304,22 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
   // the edge pin docks, and the real nav expands in place.
   var PEEK_HALO=16, PEEK_IN=100, PEEK_OUT=500;
   var peekEl=null, peekClosing=false;
-  function pinEl(){return document.getElementById('peekPin');}
   function collapsedNav(){
     var navs=document.querySelectorAll('.sidenav:not(.peek-clone)');
     for(var i=0;i<navs.length;i++){var r=navs[i].getBoundingClientRect(); if(r.width>0&&r.height>0)return navs[i];}
     return null;
   }
-  function nearPeek(e){
+  // Opening needs the pointer beside the nav itself. STAYING open is more
+  // generous: anywhere in the nav's horizontal span up to the top of the
+  // window, and the top-bar toggle, so the pointer can travel up to that
+  // toggle to dock without the overlay closing under it.
+  function nearPeek(e,stay){
     var t=e.target;
-    if(t&&t.closest&&(t.closest('.peek-clone')||t.closest('#peekPin')))return true;
+    if(t&&t.closest&&(t.closest('.peek-clone')||(stay&&t.closest('#navToggle'))))return true;
     var el=peekEl||collapsedNav(); if(!el)return false;
     var r=el.getBoundingClientRect();
-    return e.clientX>=r.left-PEEK_HALO&&e.clientX<=r.right+PEEK_HALO&&e.clientY>=r.top&&e.clientY<=r.bottom;
+    var inX=e.clientX>=r.left-PEEK_HALO&&e.clientX<=r.right+PEEK_HALO;
+    return inX&&e.clientY<=r.bottom&&(stay||e.clientY>=r.top);
   }
   function openPeek(){
     clearTimeout(peekIn); peekIn=null;
@@ -1320,34 +1333,29 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
     c.style.left=Math.round(r.left)+'px'; c.style.top=Math.round(r.top)+'px';
     document.body.appendChild(c); peekEl=c; peekClosing=false;
     document.body.classList.add('nav-peek');
-    var pe=pinEl();
-    if(pe){pe.style.left='calc('+Math.round(r.left)+'px + var(--nav-w) - 1px)';pe.style.top=Math.round(r.top+14)+'px';pe.tabIndex=0;pe.removeAttribute('aria-hidden');}
   }
   function killPeek(){
     clearTimeout(peekIn);clearTimeout(peekOut);peekIn=peekOut=null;
     if(peekEl&&peekEl.parentNode)peekEl.parentNode.removeChild(peekEl);
     peekEl=null; peekClosing=false;
     document.body.classList.remove('nav-peek','peek-out');
-    var pe=pinEl(); if(pe){pe.tabIndex=-1;pe.setAttribute('aria-hidden','true');}
   }
   function closePeek(){
     clearTimeout(peekOut); peekOut=null;
     if(!peekEl||peekClosing)return;
     peekClosing=true;
     var c=peekEl; c.classList.add('peek-out'); document.body.classList.add('peek-out');
-    var pe=pinEl(); if(pe){pe.tabIndex=-1;pe.setAttribute('aria-hidden','true');}
-    setTimeout(function(){ if(peekEl===c)killPeek(); },170);
+    setTimeout(function(){ if(peekEl===c)killPeek(); },210);
   }
-  function pinPeek(){ killPeek(); setNav(true); }
   document.addEventListener('pointermove',function(e){
     if(peekEl){
       if(peekClosing)return;
-      if(nearPeek(e)){clearTimeout(peekOut);peekOut=null;}
+      if(nearPeek(e,true)){clearTimeout(peekOut);peekOut=null;}
       else if(peekOut===null){peekOut=setTimeout(closePeek,PEEK_OUT);}
       return;
     }
     if(document.body.classList.contains('nav-hidden')){
-      if(nearPeek(e)){if(peekIn===null)peekIn=setTimeout(openPeek,PEEK_IN);}
+      if(nearPeek(e,false)){if(peekIn===null)peekIn=setTimeout(openPeek,PEEK_IN);}
       else{clearTimeout(peekIn);peekIn=null;}
     }
   });
@@ -1358,7 +1366,7 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
   // keyboard parity: focus entering the collapsed nav opens the overlay and moves
   // focus to the matching item in it; focus leaving the overlay closes it
   document.addEventListener('focusin',function(e){
-    if(peekEl){ if(e.target.closest('.peek-clone')||e.target.id==='peekPin'){clearTimeout(peekOut);peekOut=null;} return; }
+    if(peekEl){ if(e.target.closest('.peek-clone')||e.target.id==='navToggle'){clearTimeout(peekOut);peekOut=null;} return; }
     var src=e.target.closest('.sidenav'); if(!src||!document.body.classList.contains('nav-hidden'))return;
     var idx=[].indexOf.call(src.querySelectorAll('a,button,summary,input'),e.target);
     openPeek();
@@ -1367,14 +1375,29 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
   document.addEventListener('focusout',function(e){
     if(!peekEl)return;
     var to=e.relatedTarget;
-    if(to&&(to.closest('.peek-clone')||to.id==='peekPin'))return;
+    if(to&&(to.closest('.peek-clone')||to.id==='navToggle'))return;
     if(peekOut===null)peekOut=setTimeout(closePeek,PEEK_OUT);
   });
-  document.addEventListener('click',function(e){
-    var pe=e.target.closest?e.target.closest('#peekPin'):null;
-    if(pe){e.stopPropagation();pinPeek();}
-  });
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&peekEl)closePeek();});
+  // ---- Search: centred on the bar when there is room, never over the tabs ----
+  function layoutSearch(){
+    var bar=document.querySelector('.topbar'), gs=document.getElementById('gsearch');
+    if(!bar||!gs)return;
+    var br=bar.getBoundingClientRect();
+    var left=gs.previousElementSibling, right=gs.nextElementSibling;
+    while(left&&left.getBoundingClientRect().width===0)left=left.previousElementSibling;
+    while(right&&right.getBoundingClientRect().width===0)right=right.nextElementSibling;
+    var minL=(left?left.getBoundingClientRect().right:br.left)+16-br.left;
+    var maxR=(right?right.getBoundingClientRect().left:br.right)-16-br.left;
+    var W=Math.max(220,Math.min(400,maxR-minL));
+    var ideal=br.width/2-W/2;
+    var x=Math.max(minL,Math.min(ideal,maxR-W));
+    gs.style.left=Math.round(x)+'px'; gs.style.width=Math.round(W)+'px';
+  }
+  var lsRaf=null; function layoutSearchSoon(){ if(lsRaf)return; lsRaf=requestAnimationFrame(function(){lsRaf=null;layoutSearch();}); }
+  window.addEventListener('resize',layoutSearchSoon);
+  new MutationObserver(layoutSearchSoon).observe(document.body,{attributes:true,attributeFilter:['class','data-app','data-mode']});
+  layoutSearch();
 
   // 4) Launcher tiles switch the product: Learn <-> Comply (EHS-style nav).
   //    ?app=comply deep-links the Comply pane.
@@ -1581,9 +1604,6 @@ document.querySelectorAll('.u-sw').forEach(function(sw){
 })();
 </script>
 
-<!-- Pin tab for the live peek overlay: sits on the overlay's right edge while
-     the collapsed nav is being hovered; clicking docks the nav open. -->
-<button class="peek-pin" id="peekPin" type="button" aria-label="Pin navigation open" title="Pin navigation open" tabindex="-1" aria-hidden="true"><svg class="ic"><use href="#i-pinpush"/></svg></button>
 <!-- Design Toolbox: review comments + flow map (bottom-center dock).
      Pins are keyed to the GitHub Pages URL, so comment on the Pages link. -->
 <script src="../../../designtoolbox/toolbox.js"></script>

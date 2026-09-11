@@ -1,5 +1,30 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-11, third pass (smoothness)
+
+- **Tabs never move.** The left group keeps the open-nav width even when the nav is
+  collapsed, so the tab row sits where the open nav will need it to be and nothing slides
+  when the nav opens or closes.
+- **No pin tab.** Docking a peeked nav is now: click the top-bar toggle while the overlay is
+  open. To make that reachable, the overlay's stay-open zone is the nav's horizontal span all
+  the way up to the top of the window, plus the toggle itself, so the pointer can travel up
+  to the toggle without the overlay closing under it. Opening still needs the pointer beside
+  the nav proper (within 16px, inside its vertical extent).
+- **The overlay slides out.** It starts fully tucked behind the collapsed column (translated
+  left by the extra width and clipped at the column's left edge, so it never shows over V3's
+  rail) and eases out to full width over 280ms expo-out; back in over 200ms ease-in.
+- **Docking does not re-slide.** Clicking the toggle from a peek adds `nav-snap` for two
+  frames, which suspends the nav's width transition, so the real nav appears exactly where
+  the copy was instead of animating open a second time.
+- **V3's logo starts at the top**, like V1; `Logo: bottom` in the pill (or `?logopos=bottom`)
+  still docks it.
+- **Search is centred on the bar's centre line whenever the geometry allows.** A small layout
+  routine clamps it so it never overlaps the tabs or the right-hand group, shrinking (to a
+  220px floor) before it would, and re-runs on resize and on any shell state change. At
+  1440px the tabs, which start at the content edge, reach past the bar's centre, so the
+  search sits just clear of them; from about 1600px up it is dead centre. This is the honest
+  behaviour: the alternative was a search that overlapped the tabs.
+
 ## Changelog · 2026-09-11, second pass (consolidation)
 
 - **Down to two versions: V1 and V3.** V2a, V2b, V3b, V4, V5 and V6 are removed from the
@@ -403,16 +428,16 @@ active states stay neutral so the structure, not the palette, is what gets revie
 ## Side-nav peek (live, every version)
 
 A collapsed side nav is never a dead end: hovering near it opens a copy of it as an overlay,
-and a pin tab docks it. This is engineered behaviour in both files, not a frame.
+and clicking the top-bar toggle while it is open docks it. This is engineered behaviour in both files, not a frame.
 
 | Moment | Rule |
 |---|---|
 | Open | Pointer within **16px** of the collapsed nav (horizontally; within its vertical extent) for **100ms**. A COPY of the nav opens as a fixed overlay at full width; the collapsed column stays where it is underneath, so nothing vanishes or moves. |
-| Stay | While the pointer is anywhere inside the overlay plus a 16px halo, it stays. |
+| Stay | While the pointer is inside the overlay plus a 16px halo, or anywhere in the nav's horizontal span above it (the top bar, including the toggle), it stays. |
 | Close | Pointer outside that halo for **500ms**, pointer leaving the window, or Escape. 150ms ease-in slide-and-fade out, then the nav returns to its collapsed column. |
-| Pin | A tab straddling the overlay's right edge (arrives 80ms after the panel). Clicking it removes the copy and expands the real nav in place: this is the only moment content shifts. The top-bar toggle does the same while a peek is open. |
-| Keyboard | Focus entering the collapsed nav opens the copy and moves focus to the matching item in it; focus leaving the copy (and the pin) closes it. |
-| Motion | 220ms `cubic-bezier(.16,1,.3,1)` in, 160ms ease-in out; only position and opacity animate. `prefers-reduced-motion` gets instant states. |
+| Dock | Click the top-bar toggle while the overlay is open. The copy is removed and the real nav snaps open in its place with no width transition, so it does not look like it slides out a second time. This is the only moment content shifts. |
+| Keyboard | Focus entering the collapsed nav opens the copy and moves focus to the matching item in it; focus leaving the copy (and the toggle) closes it. |
+| Motion | The copy slides out from behind the collapsed column: 280ms `cubic-bezier(.16,1,.3,1)` out, 200ms ease-in back, clipped at the column's left edge so it never shows over the rail. `prefers-reduced-motion` gets instant states. |
 | Deep link | `?state=peek` opens the overlay on load. |
 
 The overlay opens below the top bar in both versions (the bar is full width in both), at the
