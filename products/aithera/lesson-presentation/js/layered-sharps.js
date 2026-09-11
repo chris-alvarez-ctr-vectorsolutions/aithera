@@ -1069,15 +1069,13 @@
       setTimeout(function () {
         render(i);
         askEl.classList.remove('swapping');
-        ctx.clearCoachAction();
         ctx.floatClose();
         ctx.positionOrb(true);
       }, T(320));
     }
-    // The way forward rides in CLARA's bubble, under the line they just said
-    // about the answer — so the reaction and the move it leads to are one
-    // thing, and nothing is on a clock.
-    function offerNext(i) { ctx.setCoachAction('Next question', function () { swapTo(i); }); }
+    // The way forward is the footer, relabelled — CLARA's bubble carries only
+    // the reaction to the answer that just landed, never the move past it.
+    function offerNext(i) { ctx.setNextAction('Next question', function () { swapTo(i); }); }
     function done() {
       // K1 is proven only on a clean sweep — it is mandated content, and the
       // simulation still re-verifies it performatively either way.
@@ -2172,7 +2170,7 @@
   var HZCHECK_CONTENT =
     '<main class="ll-object">' +
       '<div class="cs-wrap">' +
-        '<p class="ll-eyebrow">Check: 1 question</p>' +
+        '<p class="ll-eyebrow">Check: 1 question · two tries</p>' +
         '<h2 class="cs-q cs-q--lead">Why is a needlestick worse than blood on the surface of your skin?</h2>' +
         '<div class="cs-opts" id="hzOpts"></div>' +
       '</div>' +
@@ -2180,9 +2178,8 @@
 
   function hzcheckInit(ctx) {
     var wrap = document.getElementById('hzOpts');
-    // The heading IS the question, so the only thing left worth saying is
-    // the rule the screen does not show: a wrong answer is not the end of it.
-    ctx.setCoachSay('You get two tries on this one.');
+    // Silent. The eyebrow states the rule now, so there is nothing left for
+    // CLARA to say that is not already on the screen.
     var tries = 0, settled = false;
     [
       { t: 'It gets past your skin', ok: true,
@@ -2491,7 +2488,7 @@
   var INFLOW_CONTENT =
     '<main class="ll-object">' +
       '<div class="cs-wrap">' +
-        '<p class="ll-eyebrow">Check: 1 question</p>' +
+        '<p class="ll-eyebrow">Check: 1 question \u00b7 two tries</p>' +
         '<h2 class="cs-q cs-q--lead">Before you pick up a sharp, what should you already have decided?</h2>' +
         '<div class="cs-opts" id="ifOpts"></div>' +
       '</div>' +
@@ -2499,8 +2496,8 @@
   function inflowInit(ctx) {
     var wrap = document.getElementById('ifOpts');
     // Silent. "Everyone gets this question" is the routing talking, which
-    // never belongs on a learner screen, and "two tries" was already said on
-    // the first check of this shape \u2014 saying it twice makes it wallpaper.
+    // never belongs on a learner screen, and the eyebrow already carries the
+    // tries rule \u2014 CLARA restating it would be a second voice for one line.
     var tries = 0, settled = false;
     [
       { t: 'Which container the sharp goes in, and my route there', ok: true,
@@ -3488,7 +3485,9 @@
 
     { id: 'chain', icon: 'fa-hand-pointer', mins: 3, stage: 'Learn', lesson: 'Why Disposal Shortcuts Are Risky', mode: 'floating', gate: true,
       caption: { title: 'LEARN · The chain (F1, Feel / Believe)', note: 'The module\u2019s first content screen, and the ordering is the argument: consequence before rule. The procedure used to be taught at position five with the consequence arriving at position ten, which spends the only moment a learner is receptive. Nodes revealed one tap at a time, earlier ones dimmed rather than removed, a clock on each and the elapsed gap named on the connector between them \u2014 the learner advancing the consequence is a different act from watching it advance, and only the first constructs the belief rather than asserting it. THE DECISION IS REAL: the eyebrow always promised one and there was none, because the shortcut was narrated FOR the learner in a subjectless fragment (\u201cInto the bag on the rail.\u201d) and the final node then held them responsible for it \u2014 so a reader could not tell whether they had done it, watched it, or were being accused of it. The setup now stops at the choice. A learner who picks the container still sees the whole chain, under a header naming it as the route they did NOT take, which is a different act from being told they caused it. The injury also happens on screen now: every sector set up the hazard and then reported bloodwork with no puncture in between, leaving the one event the screen exists to deliver to inference. The downstream worker gets a node introducing who they are and why they cannot know, and the stick gets its own. This objective was previously served by a statement on a slide, here and in the re-composed course, which is the failure the spec\u2019s own rule names. Each sector walks its own incident, drawn from that sector\u2019s list of what counts as a sharp and deliberately NOT the one its cases and its first-person account use. The open prompt is scored for one thing and not by a model: whether a specific person downstream now has a name. Ungated \u2014 only Know gates in this module.' },
-      coach: { say: 'Loading\u2026' },
+      // hint:false \u2014 each node is a few sentences to read between taps, and a
+      // reader who pauses on one past 7s should not be interrupted mid-brief.
+      coach: { say: 'Loading\u2026', hint: false },
       content: CHAIN_CONTENT, init: chainInit,
       onSkip: function () { saveResult('chain', { walked: false, named: null }); } },
 
@@ -3502,13 +3501,17 @@
 
     { id: 'hzcheck', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Why a Puncture Is Different', mode: 'floating', gate: true,
       caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts, second miss reframed rather than repeated, which is the remediate policy firing at the beat. Writes to the same record key as before, so the K2 line on the record is unchanged.' },
-      coach: { say: 'Loading\u2026' },
+      // Arrives silent \u2014 the eyebrow states the two-tries rule, so there is
+      // no unread dot promising a line the screen already shows.
+      coach: { say: '' },
       content: HZCHECK_CONTENT, init: hzcheckInit },
 
     { id: 'procedure', icon: 'fa-shapes', mins: 4, stage: 'Learn', lesson: 'Safe Handling, Step by Step', mode: 'floating', gate: true, adaptive: true,
       when: function () { return batteryResult() !== 'proven'; },
       caption: { title: 'LEARN · The procedure (K1, taught)', note: 'The instruction the adjustment screen has always promised and the module never contained. K1 is a mandated four-step sequence — there is nothing to reason toward, so it is TAUGHT before it is practised; K2 is discoverable, so it keeps the case ladder. Structure declared per objective, the way policy already is. Dropped whole on test-out, alongside its case. This is also the module’s only modality-varying beat: the Demo menu’s Modality control re-renders exactly this screen and nothing else. Podcast is DECLINED rather than rendered — under a minute of instruction is a clip, not an episode. Audio’s honest unit is the COURSE, six modules assembled into one listen, which is Assembly and not Transformation. Nothing on the learner’s side of this beat names an objective, a policy or a capability; that vocabulary lives here and in the Learning Layer view.' },
-      coach: { say: 'Loading…' },
+      // hint:false — a step list read at a still mouse should not be
+      // interrupted at 7s.
+      coach: { say: 'Loading…', hint: false },
       content: PROCEDURE_CONTENT, init: procedureInit,
       onSkip: function () { saveResult('procedure', { skipped: true }); } },
 
@@ -3541,7 +3544,7 @@
       // the posture for the account, and a learner who skims it because the
       // line was behind the unread dot has missed the beat.
       caption: { title: 'LEARN · Case 4 (F1)', note: 'The Feel load, and the POST leg of the battery’s F1 item — same statement, same three answers, so the two subtract and the reportable figure is the MOVE. No judgment — the account is the argument. Runs identically on every path: Feel never routes past content, and it does not vary this beat either. It was described as “heavier on a low F1” and was not — nothing read the Feel scores except the adjustment screen’s Added row, which is why that row came off rather than being left to describe a difference no learner could see. Making it genuinely heavier here is a live option; if it happens, the row goes back with the weight. NOTE the deck’s own caution: F1 and the debrief carry the module’s entire Feel load, so cutting either for time reverts this to a Know course.' },
-      coach: { say: 'Loading\u2026' },
+      coach: { say: 'Loading\u2026', lead: true },
       content: CASE4_CONTENT, init: case4Init },
 
     { id: 'controls', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Gloves or Containers', mode: 'floating', gate: true,
