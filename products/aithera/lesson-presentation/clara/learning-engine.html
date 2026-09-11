@@ -563,6 +563,8 @@ body.mode-reference .ctxswitch { display: none; }
 .rail-head span { font-size: 12px; color: var(--mute); display: block; line-height: 1.45; }
 .rail .seg { margin-bottom: 12px; }
 .rail .pa.dis .tog { pointer-events: none; }
+.rail .seg.dis { opacity: .5; }
+.rail .seg.dis .opts { pointer-events: none; }
 
 .stage { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; }
 .stage-head { display: flex; align-items: center; gap: 14px; padding: 9px 18px; border-bottom: 1px solid var(--line); background: #fff; }
@@ -761,9 +763,9 @@ body.mode-reference .ctxswitch { display: none; }
     <div class="stage-body" id="stageBody" data-ctx="engine">
       <section class="maya-pane" id="mayaPane">
         <div class="pane-label"><i class="fa-solid fa-display"></i> What Maya sees <small>· the Experience Layer renders one card at a time</small></div>
-        <div class="mastered-banner" id="masteredBanner"><i class="fa-solid fa-flag-checkered"></i><div><b>Step In is mastered. The composite's next module unlocks.</b><span id="masteredSub"></span></div></div>
+        <div class="mastered-banner" id="masteredBanner"><i class="fa-solid fa-flag-checkered"></i><div><b>You've completed Step In. Module 3 of 4 is ready when you are.</b><span id="masteredSub"></span></div></div>
         <div class="screen">
-          <div class="screen-bar"><span class="dotz"><i></i><i></i><i></i></span> Harassment Prevention · Module 2 of 4 · Step In <span class="crumbs" id="crumbs">card 0 / 0</span></div>
+          <div class="screen-bar"><span class="dotz"><i></i><i></i><i></i></span> Harassment Prevention · Module 2 of 4 · Step In <span class="crumbs" id="crumbs"></span></div>
           <div class="screen-body" id="screenBody"></div>
           <div class="screen-foot" id="screenFoot"></div>
         </div>
@@ -1374,7 +1376,8 @@ body.mode-reference .ctxswitch { display: none; }
   const seg = window.__seg, MOD = window.__MOD;
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const ml = m => /^AI/.test(MOD[m].l) ? MOD[m].l : MOD[m].l.toLowerCase();   // label in running text; keep "AI" capitalised
-  const an = s => (/^[aeiou]/i.test(s) ? 'An ' : 'A ') + s;                   // "an AI tutor session", not "a AI ..."
+  const an   = s => (/^[aeiou]/i.test(s) ? 'An ' : 'A ') + s;                 // "An AI tutor session", not "A AI ..."
+  const anLc = s => (/^[aeiou]/i.test(s) ? 'an ' : 'a ') + s;                 // the same, mid-sentence
   const DEMAND = { tutor: 4, text: 3, video: 2, audio: 1 };      // for test-up: most demanding wins
   const REM_ORDER = ['text', 'audio', 'video', 'tutor'];         // remediation: first modality not yet seen
   const POLICY_LABEL = { none: 'None', ask: 'Ask', remediate: 'Remediate', gate: 'Gate' };
@@ -1419,13 +1422,22 @@ body.mode-reference .ctxswitch { display: none; }
     if (m) { setMode('tool'); setCtx(m[1]); return; }
     m = h.match(/^#ref=?([\w-]*)/);
     if (m) { setMode('reference'); if (m[1]) { const el = document.getElementById(m[1]); if (el) requestAnimationFrame(() => el.scrollIntoView()); } return; }
-    // legacy anchors from the first version of this page (#adapt etc.)
+    // legacy anchors from the first version of this page (#adapt etc.). Look the element up by
+    // id rather than building a selector: an id starting with a digit is not a valid selector.
     m = h.match(/^#([\w-]+)$/);
-    if (m && $('#reference #' + m[1])) { setMode('reference'); requestAnimationFrame(() => document.getElementById(m[1]).scrollIntoView()); return; }
+    if (m) { const el = document.getElementById(m[1]); if (el && el.closest('#reference')) { setMode('reference'); requestAnimationFrame(() => el.scrollIntoView()); return; } }
     setMode('tool'); setCtx('engine');
   }
   function readHash() { applyRoute(location.hash || ''); }
   window.addEventListener('hashchange', readHash);
+  // Route anchor clicks through applyRoute so clicking the section you are already on still
+  // scrolls to it: an unchanged hash fires no hashchange, and "#ref=credit" is not an element id.
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href^="#ref"], a[href^="#tool="]'); if (!a) return;
+    const h = a.getAttribute('href');
+    e.preventDefault(); applyRoute(h);
+    if (location.hash !== h) history.pushState(null, '', h);
+  });
   $$('#modeSwitch button').forEach(b => b.addEventListener('click', () => go(b.dataset.mode, b.dataset.mode === 'tool' ? route.ctx : '')));
   $$('#ctxSwitch button').forEach(b => b.addEventListener('click', () => go('tool', b.dataset.ctx)));
   $$('[data-open-tool]').forEach(b => b.addEventListener('click', () => go('tool', b.dataset.openTool)));
@@ -1462,6 +1474,7 @@ body.mode-reference .ctxswitch { display: none; }
   const RUBRIC_LEARNER = ['You chose a response that fit the moment', 'You held your ground when they pushed back', 'You checked in with the person afterward'];
   const SCENES = ['The tool crib at shift change: a running "joke" about a co-worker. An AI character pushes back when you speak up.', 'A staff meeting: the same remark, this time in front of the whole team.', 'The parking lot after shift.'];
   const sceneFor = n => SCENES[n - 1] || `A new situation (number ${n}).`;
+  const sceneClause = n => { const t = sceneFor(n).split(/[:.]/)[0]; return t.charAt(0).toLowerCase() + t.slice(1); };
   // Two halves: what Maya is shown, and the reason the engine gives for showing it.
   const SECTOR_DRESS = {
     commercial: { learner: 'Examples set on a factory floor.', engine: 'the customer is in the commercial sector' },
@@ -1516,36 +1529,48 @@ body.mode-reference .ctxswitch { display: none; }
   }
 
   function choosePerm(lo, ctx) {
-    // Priority order from the document. Returns { m, rule, why, dress }.
-    const dress = lo.sub === 'do' ? '' : SECTOR_DRESS[S.set.sector];
+    // Priority order from the document. Returns { m, rule, why, dress, dressWhy }.
+    // `rule` is 'default' when no rule actually distinguished the permutations, so the Engine
+    // lens never claims three rules fired when none did.
+    const sd = SECTOR_DRESS[S.set.sector];
+    const dress = lo.sub === 'do' ? '' : sd.learner, dressWhy = lo.sub === 'do' ? '' : sd.engine;
     const seen = S.seen[lo.id];
     if (lo.sub === 'do') {
       const hasAI = lo.perms.includes('roleplay');
+      const cheap = lo.perms.filter(m => m !== 'roleplay');
       if (ctx.remediation) {
-        if (hasAI && seen.includes('roleplay') && S.set.cost) return { m: 'roleplay', rule: '1 + 3', why: 'Cost control still approves the AI roleplay; remediation serves a new scenario against the same rubric.', dress };
+        // Cost control is only "declining" when it had something to decide and something to fall back to.
+        if (hasAI && S.set.cost) return { m: 'roleplay', rule: seen.includes('roleplay') ? '1 + 3' : '1', why: seen.includes('roleplay') ? 'Cost control still approves the AI roleplay; the repeat is a new scenario scored against the same rubric.' : 'Cost control approves the AI roleplay, which she has not performed for this object yet.', dress, dressWhy };
+        if (!cheap.length) return { m: 'roleplay', rule: '1', why: 'Only the AI roleplay is authored here, so cost control has nothing cheaper to send her to; the roleplay is served anyway, in a new scenario.', dress, dressWhy };
+        const un = cheap.find(m => !seen.includes(m));
+        if (un) return { m: un, rule: hasAI ? '1 + 3' : '3', why: `${hasAI ? 'Cost control declines the AI roleplay; ' : 'This object has no AI permutation; '}the repeat is served in a permutation she has not seen, keyed to the same rubric.`, dress, dressWhy };
+        if (cheap.length === 1) return { m: cheap[0], rule: '3', why: `Only one permutation she can be given is authored, so the repeat has to use the same form (${ml(cheap[0])}) in a new scenario.`, dress, dressWhy };
         const last = seen[seen.length - 1];
-        const un = lo.perms.find(m => !seen.includes(m) && m !== 'roleplay') || lo.perms.filter(m => m !== last && m !== 'roleplay')[0] || lo.perms[0];
-        return { m: un, rule: '1 + 3', why: `${hasAI ? 'Cost control declines the AI roleplay; ' : 'This object has no AI permutation; '}remediation serves a permutation she has not seen, keyed to the same rubric.`, dress };
+        const m = cheap.filter(x => x !== last).sort((a, b) => seen.lastIndexOf(a) - seen.lastIndexOf(b))[0] || cheap[0];
+        return { m, rule: '3', why: `She has now performed every cheaper equivalent authored here, so the engine cycles to the one she saw longest ago (${ml(m)}), in a new scenario.`, dress, dressWhy };
       }
-      if (!hasAI) return { m: lo.perms[0], rule: '4 + 5 + 6', why: 'This Do object has no AI permutation, so cost control has nothing to decide; the first authored permutation is served.', dress };
-      return S.set.cost
-        ? { m: 'roleplay', rule: '1', why: 'Cost control approves the AI roleplay for Maya (rule 1 decides Do objects with an AI permutation).', dress }
-        : { m: lo.perms.find(m => m !== 'roleplay') || 'roleplay', rule: '1', why: 'Cost control sends Maya to a cheaper equivalent scored against the same rubric (rule 1). Which cheaper equivalent ships is undecided; a candidate is shown as a placeholder.', dress };
+      if (!hasAI) return { m: lo.perms[0], rule: 'default', why: 'No rule distinguishes these permutations for Maya: there is no AI permutation for rule 1, Do objects carry no sector dressing, and her modality preference is not a Do format. The first authored permutation is served.', dress, dressWhy };
+      if (S.set.cost) return { m: 'roleplay', rule: '1', why: 'Cost control approves the AI roleplay for Maya (rule 1 decides Do objects with an AI permutation).', dress, dressWhy };
+      if (!cheap.length) return { m: 'roleplay', rule: '1', why: 'Cost control declines the AI roleplay, but it is the only permutation the author wrote, so there is nothing cheaper to fall back to and it is served anyway.', dress, dressWhy };
+      return { m: cheap[0], rule: '1', why: 'Cost control sends Maya to a cheaper equivalent scored against the same rubric (rule 1). Which cheaper equivalent ships is undecided; a candidate is shown as a placeholder.', dress, dressWhy };
     }
     if (ctx.testUp) {
       const m = lo.perms.slice().sort((a, b) => DEMAND[b] - DEMAND[a])[0];
-      return { m, rule: '2', why: `Test-up: locked content she already proved gets the most demanding permutation available (${ml(m)}).`, dress };
+      return { m, rule: '2', why: DEMAND[m] > DEMAND[S.pref]
+        ? `Test-up: locked content she already proved gets the most demanding permutation available (${ml(m)}).`
+        : `Test-up: locked content she already proved is still delivered, but no permutation here is more demanding than her preferred ${ml(S.pref)}, so it is served as ${ml(m)} and the lock buys no extra depth.`, dress, dressWhy };
     }
     if (ctx.remediation) {
       let m = REM_ORDER.find(x => lo.perms.includes(x) && !seen.includes(x));
-      if (m) return { m, rule: '3', why: `Remediation: a repeat is served in a modality she has not seen for this object (she saw ${seen.map(x => ml(x)).join(', ')}).`, dress };
+      if (m) return { m, rule: '3', why: `Remediation: a repeat is served in a modality she has not seen for this object (she saw ${seen.map(x => ml(x)).join(', ')}).`, dress, dressWhy };
+      if (lo.perms.length === 1) return { m: lo.perms[0], rule: '3', why: `Remediation: only one permutation is authored for this object, so the repeat has to use the same form (${ml(lo.perms[0])}), with a new question.`, dress, dressWhy };
       // every permutation seen (gates have no attempt limit): cycle to the one seen longest ago, never the one just failed
       const last = seen[seen.length - 1];
       m = lo.perms.filter(x => x !== last).sort((a, b) => seen.lastIndexOf(a) - seen.lastIndexOf(b))[0] || lo.perms[0];
-      return { m, rule: '3', why: `Remediation: she has now seen every permutation of this object, so the engine cycles to the one she saw longest ago (${ml(m)}), never the one she just failed.`, dress };
+      return { m, rule: '3', why: `Remediation: she has now seen every permutation of this object, so the engine cycles to the one she saw longest ago (${ml(m)}), never the one she just failed.`, dress, dressWhy };
     }
     const m = lo.perms.includes(S.pref) ? S.pref : lo.perms[0];
-    return { m, rule: '4 + 5 + 6', why: `Rule 4 dresses the examples for her sector; rule 5 picks her preferred modality (${ml(m)}${lo.perms.includes(S.pref) ? '' : ', the nearest available'}); rule 6, language, breaks any tie.`, dress };
+    return { m, rule: '4 + 5 + 6', why: `Rule 4 dresses the examples for her sector; rule 5 picks her preferred modality (${ml(m)}${lo.perms.includes(S.pref) ? '' : ', the nearest available'}); rule 6, language, breaks any tie.`, dress, dressWhy };
   }
 
   function buildPlan() {
@@ -1583,9 +1608,13 @@ body.mode-reference .ctxswitch { display: none; }
     else if (lo.sub === 'do') { c.check = 'rubric'; c.checkWhy = `Performance scored against the rubric (policy ${POLICY_LABEL[lo.policy]}).`; }
     else if (lo.sub === 'feel') {
       c.check = 'feel';
-      c.checkWhy = lo.policy === 'ask'
-        ? 'The same statement, asked as the "after." Never blocks. Asked even when her "before" was already favorable, the opposite of K2: K2\'s check would be a proof of knowledge and her pre battery proof stands, while this check is a measurement, and an attitude can move the wrong way as easily as the right one, so the "after" is always taken.'
-        : 'The same statement, asked as the "after."';
+      // Both halves are conditional: the contrast only holds if her "before" was favorable, and
+      // only against a locked Know object this run actually tests her up on.
+      const fav = S.set.ans[lo.id] === 'agree';
+      const upK = LOS.find(l => l.sub === 'know' && l.locked && S.set.ans[l.id] === 'correct');
+      c.checkWhy = 'The same statement, asked as the "after."'
+        + (lo.policy === 'ask' ? ' Never blocks.' : '')
+        + (fav ? ` Asked even though her "before" was already favorable${upK ? `, the opposite of ${upK.id}, whose pre battery proof stands with no check after it` : ''}: this check is a measurement, not a proof, and an attitude can move the wrong way as easily as the right one.` : '');
     } else {
       c.check = 'know';
       c.checkWhy = (c.remediation ? 'Another new question from the bank.' : 'A fresh question from the bank, not the one she saw.') + (lo.policy === 'ask' ? ' Policy Ask: recorded, never blocks.' : lo.policy === 'remediate' ? ' Policy Remediate: one retry, then move on.' : '');
@@ -1594,7 +1623,7 @@ body.mode-reference .ctxswitch { display: none; }
   }
 
   function resolveModalities() {
-    S.plan.forEach(c => { if (c.kind === 'lo' && !c.done && !c.switched) { const p = choosePerm(c.lo, c); c.m = p.m; c.rule = p.rule; c.why = p.why; c.dress = p.dress; } });
+    S.plan.forEach(c => { if (c.kind === 'lo' && !c.done && !c.switched) { const p = choosePerm(c.lo, c); c.m = p.m; c.rule = p.rule; c.why = p.why; c.dress = p.dress; c.dressWhy = p.dressWhy; } });
   }
 
   function rebuild() {
@@ -1605,8 +1634,11 @@ body.mode-reference .ctxswitch { display: none; }
     S.plan = buildPlan();
     if (set.recent) { LOS.forEach(l => S.state[l.id] = { st: 'term', label: 'carried' }); }
     resolveModalities();
-    // rail: grey out pre answers the battery will not ask for
+    // rail: grey out controls the current module makes inert — pre answers the battery will not
+    // ask for, F2's sampling when F2 no longer samples, cost control with no AI roleplay to decide
     $$('#preAnswers .pa').forEach(pa => { const lo = LO[pa.dataset.k]; pa.classList.toggle('dis', !lo || !preAsks(lo) || set.recent); });
+    $('#sSample').parentElement.classList.toggle('dis', !(LO.F2 && LO.F2.policy === 'ask') || set.recent);
+    $('#sCost').parentElement.classList.toggle('dis', !LOS.some(l => l.sub === 'do' && l.perms.includes('roleplay')) || set.recent);
     renderPreTable(); renderAll();
   }
 
@@ -1700,76 +1732,89 @@ body.mode-reference .ctxswitch { display: none; }
     if (c.compliance) t.push('<span class="tag blue">compliance: delivered anyway</span>');
     if (c.remediation) t.push(`<span class="tag warn">remediation${c.attempt > 2 ? ' #' + (c.attempt - 1) : ''}</span>`);
     if (c.switched) t.push('<span class="tag none">learner switched</span>');
-    return `${t.join(' ')} · ${MOD[c.m].l} by rule ${c.rule}${c.check ? ` · check: ${c.check === 'rubric' ? 'rubric' : c.check === 'feel' ? '"after" statement' : 'knowledge check'}` : ' · no check'}`;
+    return `${t.join(' ')} · ${MOD[c.m].l} ${c.rule === 'default' ? '(no rule distinguished the permutations)' : 'by rule ' + c.rule}${c.check ? ` · check: ${c.check === 'rubric' ? 'rubric' : c.check === 'feel' ? '"after" statement' : 'knowledge check'}` : ' · no check'}`;
   }
 
   function renderScreen() {
     const c = S.plan[S.cur], body = $('#screenBody'), foot = $('#screenFoot'), note = $('#decisionNote span');
     const vis = visibleCards();
-    const crumbs = `card ${vis.indexOf(c) + 1} / ${vis.length}`;
-    $('#crumbs').textContent = crumbs;
-    $('#crumbsTop').textContent = `${crumbs} · ${cardName(c)}`;
+    // Maya's own bar counts only screens she is shown; the workbench pill keeps the engine's
+    // card count. On the Tomorrow card both refer forward to the card she returns to.
+    const shown = S.plan.filter(x => !['day', 'skip', 'post'].includes(x.kind));
+    const ref = c.kind === 'day' ? (S.plan[S.cur + 1] || c) : c;
+    let stepRef = ref;
+    // the next card she is actually shown, stepping over anything that never reaches her screen
+    if (c.kind === 'day') for (let i = S.cur + 1; i < S.plan.length; i++) if (shown.indexOf(S.plan[i]) >= 0) { stepRef = S.plan[i]; break; }
+    const step = shown.indexOf(stepRef) + 1;
+    $('#crumbs').textContent = step ? `Step ${step} of ${shown.length}` : '';
+    $('#crumbsTop').textContent = `card ${vis.indexOf(ref) + 1} / ${vis.length} · ${cardName(c)}`;
     $('#masteredBanner').classList.toggle('show', c.kind === 'mastered');
     const btn = (t, cls, act, ic) => `<button class="btn ${cls || ''}" data-act="${act}">${ic ? `<i class="fa-solid ${ic}"></i>` : ''}${t}</button>`;
     let html = '', f = '';
 
     if (c.kind === 'pre') {
       const A = S.set.ans;
-      html = `<span class="kind" style="color:var(--engine)"><i class="fa-solid fa-list-check"></i> Pre battery · ${c.items.length} questions</span><h4>Before we start, a few questions</h4><p>Short, before any instruction.</p>` +
-        c.items.map(id => { const lo = LO[id]; const a = A[id]; const isK = lo.sub === 'know'; return `<div class="qbox"><div class="qq"><span class="tag ${lo.sub}" style="font-size:9.5px;margin-right:6px">${id}</span>${isK ? esc('A question from ' + id + '\'s bank: ' + lo.name.toLowerCase()) : esc(lo.stmt)}</div><div class="qa">${isK ? `<span class="${a === 'correct' ? 'sel' : ''}">The right answer</span><span class="${a === 'wrong' ? 'sel' : ''}">A wrong answer</span>` : `<span class="${a === 'agree' ? 'sel' : ''}">Agree</span><span class="${a === 'disagree' ? 'sel' : ''}">Disagree</span>`}</div></div>`; }).join('');
+      html = `<span class="kind" style="color:var(--xp)"><i class="fa-solid fa-list-check"></i> Before you start · ${c.items.length} questions</span><h4>A few questions first</h4><p>A few quick questions before the module begins. Just answer as best you can.</p>` +
+        c.items.map((id, i) => { const lo = LO[id]; const a = A[id]; const isK = lo.sub === 'know'; return `<div class="qbox"><div class="qq"><span class="tag none" style="font-size:9.5px;margin-right:6px">${i + 1}</span>${esc(isK ? (lo.q || lo.title) : lo.stmt)}</div><div class="qa">${isK ? `<span class="${a === 'correct' ? 'sel' : ''}">The right answer</span><span class="${a === 'wrong' ? 'sel' : ''}">A wrong answer</span>` : `<span class="${a === 'agree' ? 'sel' : ''}">Agree</span><span class="${a === 'disagree' ? 'sel' : ''}">Disagree</span>`}</div></div>`; }).join('');
       f = btn('Submit answers', 'primary', 'next', 'fa-arrow-right');
       note.innerHTML = `<b>Engine:</b> ${c.reason} Her answers come from the inputs rail.`;
     } else if (c.kind === 'skip') {
-      html = `<span class="kind" style="color:var(--faint)"><i class="fa-solid fa-forward"></i> Not a card</span><h4 style="color:var(--faint)">${c.lo.id} does not appear</h4><p>Nothing is shown to Maya here. She proved ${c.lo.id} in the pre battery, it is not locked, and test-out is on, so the engine never hands this object to the Experience Layer.</p><div class="placeholder" style="opacity:.5"><div class="ph-line"></div><div class="ph-line short"></div></div>`;
-      f = btn('Continue', 'primary', 'next', 'fa-arrow-right');
+      html = `<span class="kind" style="color:var(--faint)"><i class="fa-solid fa-forward"></i> Nothing shown here</span><h4 style="color:var(--faint)">Maya skips straight past ${c.lo.id}</h4><p>She answered this topic's question correctly up front and the author did not mark it as must-see, so there is no screen for it at all. Her next screen is the following topic.</p><div class="placeholder" style="opacity:.5"><div class="ph-line"></div><div class="ph-line short"></div></div>`;
+      f = btn('Next', 'ghost', 'next', 'fa-arrow-right');
       note.innerHTML = `<b>Engine:</b> ${c.reason}`;
     } else if (c.kind === 'sys') {
-      html = `<span class="kind" style="color:var(--engine)"><i class="fa-solid fa-microchip"></i> System message</span><h4>You've already mastered this one</h4><p>You completed Step In eight months ago in "Speak Up," and that still counts. Skipping ahead to the next module.</p>`;
+      html = `<span class="kind" style="color:var(--do)"><i class="fa-solid fa-circle-check"></i> Already completed</span><h4>You've already completed this module</h4><p>You completed Step In eight months ago in "Speak Up," and that still counts. Skipping ahead to the next module.</p>`;
       f = btn('Go to the next module', 'primary', 'next', 'fa-arrow-right');
       note.innerHTML = `<b>Engine:</b> ${c.text} ${c.reason}`;
     } else if (c.kind === 'day') {
       const open = S.rem.filter(r => !r.resolved);
       html = `<span class="kind" style="color:var(--lms)"><i class="fa-solid fa-moon"></i> Tomorrow</span><h4>Welcome back, Maya</h4><p>You're right where you left off${open.length ? ', with a couple of things still to revisit' : ''}.</p>`;
-      f = btn('Pick up where she left off', 'primary', 'next', 'fa-arrow-right');
+      f = btn('Pick up where you left off', 'primary', 'next', 'fa-arrow-right');
       note.innerHTML = `<b>Engine:</b> A goal is one learner working on one composite under one set of launch settings. Closing the browser does not close the goal, so nothing is re-asked${open.length ? `; ${open.map(r => r.id).join(' and ')} still wait on the remediation list` : ''}. The LMS still hears "in progress."`;
     } else if (c.kind === 'post') {
-      html = `<span class="kind" style="color:var(--faint)"><i class="fa-solid fa-forward"></i> Not a card · optional post battery</span><h4 style="color:var(--faint)">Nothing to ask</h4><p>${c.reason}</p>`;
-      f = btn('Continue', 'primary', 'next', 'fa-arrow-right');
+      // Anything asked up front whose matching "after" never ran is what a post battery would hold.
+      const noAfter = S.plan.filter(x => x.kind === 'lo' && x.done && preAsks(x.lo) && !x.check && !x.testUp).map(x => x.lo.id);
+      html = `<span class="kind" style="color:var(--faint)"><i class="fa-solid fa-forward"></i> Nothing shown here · no end-of-module quiz</span><h4 style="color:var(--faint)">Nothing left to ask</h4><p>Every question was asked right after the thing it covered, so there is no quiz at the end. (If the module had been a podcast, which cannot stop to ask, those questions would have been gathered here.)</p>${noAfter.length ? `<p style="color:var(--warn)">Asked up front but never asked again: ${noAfter.join(', ')}. This is where the matching second question would go.</p>` : ''}`;
+      f = btn('Next', 'ghost', 'next', 'fa-arrow-right');
       note.innerHTML = `<b>Engine:</b> The post battery is not an end-of-module test. It holds checks a modality could not ask inline and any "after" item not re-asked during the module. Whether it also carries end-of-module sentiment and feedback questions is an open item.`;
     } else if (c.kind === 'mastered') {
       const terms = LOS.map(l => `${l.id} ${S.state[l.id].label}`).join(' · ');
-      html = `<span class="kind" style="color:var(--do)"><i class="fa-solid fa-flag-checkered"></i> Module complete</span><h4>You've completed Step In</h4><p>${c.carried ? 'You already covered this in "Speak Up" eight months ago, so it counts here too. On to the next module.' : 'Nice work. The next module is unlocked.'}</p>`;
-      $('#masteredSub').textContent = c.carried ? 'Mastery from eight months ago counted for this goal. The LMS hears "in progress" until every module is mastered.' : `Recorded today, ${today()}. The LMS hears "in progress" until the composite's last module is mastered, then "complete."`;
-      f = `<span style="font-size:12px;color:var(--mute)">End of this module. Use <b>Run it again</b> in the plan strip to start over.</span>`;
+      html = `<span class="kind" style="color:var(--do)"><i class="fa-solid fa-flag-checkered"></i> Module complete</span><h4>You've completed Step In</h4><p>${c.carried ? 'You already covered this in "Speak Up" eight months ago, so it counts here too. On to the next module.' : 'Nice work. Module 3 of 4 is ready when you are.'}</p>`;
+      $('#masteredSub').textContent = c.carried ? 'Your "Speak Up" training from eight months ago covered this module, so it counts here too.' : `Completed ${new Date(today()).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}. Your record for this module is saved.`;
+      f = `<span style="font-size:12px;color:var(--mute)">Next: Module 3 of 4</span>`;
       note.innerHTML = `<b>Engine:</b> ${c.carried ? 'Mastery from eight months ago counted for this goal; nothing was asked or delivered.' : 'Every learning object is at its terminal state; no post battery was needed.'} Terminal states: ${terms}. Mastery is per objective, so the record says exactly which things Maya proved and how: by test-out, by test-up, by passing a check, by performing to the rubric, or released after a retry.`;
     } else {
       /* a learning object card: learner voice only. The engine's view of the same card is in the Engine lens. */
-      const lo = c.lo, fmt = FORMAT[c.m];
-      html = `<span class="kind" style="color:var(--xp)"><i class="fa-solid ${MOD[c.m].i}"></i> ${fmt[0]}: ${fmt[1]}</span><h4>${esc(lo.name)}</h4>`;
-      if (c.remediation) html += `<p class="learner-note"><i class="fa-solid fa-rotate-left"></i> Let's look at this another way.</p>`;
+      const lo = c.lo, fmt = FORMAT[c.m], seenM = S.seen[lo.id] || [];
+      html = `<span class="kind" style="color:var(--xp)"><i class="fa-solid ${MOD[c.m].i}"></i> ${fmt[0]}: ${fmt[1]}</span><h4>${esc(lo.title || lo.name)}</h4>`;
+      if (c.remediation) html += `<p class="learner-note"><i class="fa-solid fa-rotate-left"></i> ${lo.sub === 'do' ? "Let's try that again in a new situation." : "Let's look at this another way."}</p>`;
       html += mediaPlaceholder(c);
-      html += `<div class="switcher"><span>Prefer a different format?</span>${lo.perms.map(m => `<span class="modality ${m === c.m ? 'cur' : ''}" data-m="${m}">${modIcon(m)} ${MOD[m].l}</span>`).join('')}</div>`;
+      // Only formats the engine could actually serve her: no AI roleplay it just declined, and on
+      // a repeat, nothing she has already been through (a repeat always uses a new form).
+      const offer = lo.perms.filter(m => !(m === 'roleplay' && !S.set.cost));
+      html += `<div class="switcher"><span>Prefer a different format?</span>${offer.map(m => { const spent = c.remediation && m !== c.m && seenM.includes(m); return `<span class="modality ${m === c.m ? 'cur' : ''} ${spent ? 'seen' : ''}" data-m="${m}"${spent ? ' title="You have already had this one"' : ''}>${modIcon(m)} ${FORMAT[m][2]}</span>`; }).join('')}</div>`;
       if (c.check === 'know') {
-        html += `<div class="qbox"><div class="qq"><i class="fa-solid fa-circle-question" style="color:var(--know)"></i> Quick check</div><div class="qa"><span>A placeholder question about ${esc(lo.name.toLowerCase())}</span></div></div>`;
+        html += `<div class="qbox"><div class="qq"><i class="fa-solid fa-circle-question" style="color:var(--know)"></i> Quick check</div><div class="qa"><span>A placeholder question about ${esc(lo.title || lo.name)}</span></div></div>`;
         f = btn('Answer correctly', 'ok', 'pass', 'fa-check') + btn('Answer wrong', 'bad', 'fail', 'fa-xmark');
       } else if (c.check === 'feel') {
-        html += `<div class="qbox"><div class="qq"><i class="fa-solid fa-comment" style="color:var(--feel)"></i> How much do you agree?</div><div class="qa"><span class="sel">${esc(lo.stmt)}</span></div></div>`;
+        html += `<div class="qbox"><div class="qq"><i class="fa-solid fa-comment" style="color:var(--feel)"></i> Do you agree?</div><div class="qa"><span class="sel">${esc(lo.stmt)}</span></div></div>`;
         f = btn('Agree', 'ok', 'agree', 'fa-check') + btn('Disagree', 'bad', 'disagree', 'fa-xmark');
       } else if (c.check === 'rubric') {
-        html += `<div class="qbox"><div class="qq"><i class="fa-solid fa-clipboard-check" style="color:var(--do)"></i> How it went</div><div class="rubric-live">${RUBRIC.map(r => `<div><i class="fa-solid fa-circle pend"></i>${r}</div>`).join('')}</div></div>`;
-        f = btn('Meets every criterion', 'ok', 'pass', 'fa-check') + btn('Backs down under pushback (1 criterion fails)', 'bad', 'fail', 'fa-xmark');
+        html += `<div class="qbox"><div class="qq"><i class="fa-solid fa-clipboard-check" style="color:var(--do)"></i> How it went</div><div class="rubric-live">${RUBRIC_LEARNER.map(r => `<div><i class="fa-solid fa-circle pend"></i>${r}</div>`).join('')}</div></div>`;
+        f = btn('Hold the line', 'ok', 'pass', 'fa-check') + btn('Back down under pushback', 'bad', 'fail', 'fa-xmark');
       } else {
         f = btn('Continue', 'primary', 'next', 'fa-arrow-right');
       }
       const feelBefore = c.check === 'feel' ? ` Her "before" was: ${S.set.ans[lo.id] === 'agree' ? 'agrees' : 'disagrees'}; the desirable direction is agree.` : '';
       const scoring = c.check === 'rubric' ? (c.m === 'roleplay' ? ' Scored by a model call over the transcript.' : ' Scored by lookup: each option was keyed to a criterion when authored.') : '';
       const candidates = lo.sub === 'do' ? ' Branching scenario and situational-judgment set are candidates, not decided.' : '';
-      note.innerHTML = `<b>This card:</b> ${cardMeta(c)}<br><b>Rule ${c.rule}:</b> ${c.why}${c.dress ? ' ' + c.dress : ''} ${c.checkWhy}${feelBefore}${scoring}${candidates}`;
+      const why = `<b>${c.rule === 'default' ? 'No rule fired' : 'Rule ' + c.rule}:</b> ${c.why}`;
+      note.innerHTML = `<b>This card:</b> ${cardMeta(c)}<br>${why}${c.dress ? ` ${c.dress.replace(/\.$/, '')} (${c.dressWhy}).` : ''} ${c.checkWhy}${feelBefore}${scoring}${candidates}`;
     }
     if (S.cur < S.maxCur) {
       // review: looking back at a card already played. No questions, no effect on the record.
-      if (c.kind === 'lo' && c.done) html += `<div class="qbox" style="border-color:#b7dcc2"><div class="qq" style="margin:0"><i class="fa-solid fa-check" style="color:var(--do)"></i> Your answer: ${resultLabel(c)}</div></div>`;
-      f = btn('Back to where she was', 'primary', 'resume', 'fa-arrow-right');
+      if (c.kind === 'lo' && c.done && c.check) html += `<div class="qbox" style="border-color:#b7dcc2"><div class="qq" style="margin:0"><i class="fa-solid fa-check" style="color:var(--do)"></i> Your answer: ${resultLabel(c)}</div></div>`;
+      f = btn('Back to where you were', 'primary', 'resume', 'fa-arrow-right');
       note.innerHTML = `<b>Review:</b> a card already played. Nothing is re-asked and nothing is re-recorded. ` + note.innerHTML;
     }
     body.innerHTML = html; foot.innerHTML = f;
@@ -1778,18 +1823,27 @@ body.mode-reference .ctxswitch { display: none; }
   }
 
   function mediaPlaceholder(c) {
-    const m = c.m, dress = c.dress ? `<small style="font-size:11.5px;color:var(--mute)"><i class="fa-solid fa-industry"></i> ${c.dress}</small>` : '';
+    const m = c.m, lo = c.lo, dress = c.dress ? `<small style="font-size:11.5px;color:var(--mute)"><i class="fa-solid fa-industry"></i> ${c.dress}</small>` : '';
     if (m === 'video') return `<div class="placeholder"><div class="ph-media"><i class="fa-solid fa-play"></i></div><div class="ph-line"></div><div class="ph-line short"></div>${dress}</div>`;
     if (m === 'audio') return `<div class="placeholder"><div class="ph-media"><i class="fa-solid fa-headphones"></i></div><div class="ph-line"></div>${dress}</div>`;
     if (m === 'text') return `<div class="placeholder"><div class="ph-line"></div><div class="ph-line"></div><div class="ph-line"></div><div class="ph-line short"></div><div class="ph-line"></div><div class="ph-line short"></div>${dress}</div>`;
-    if (m === 'tutor') return `<div class="placeholder"><div class="ph-chat"><div class="bub coach">Tutor: You already know the five Ds. Let's go deeper: why does a room full of people so often do nothing?</div><div class="bub me">Everyone assumes someone else will act.</div><div class="bub coach">Right. That has a name, diffusion of responsibility. Give me an example from your own shift.</div></div>${dress}</div>`;
+    if (m === 'tutor') {
+      // Keyed to the object, so a tutor session for K1 or K3 is not K2's dialogue under K1's title.
+      const opener = lo && lo.id === 'K2'
+        ? 'You already know the five Ds. Let\'s go deeper: why does a room full of people so often do nothing?'
+        : `Let's work through this together. Tell me, in your own words: ${esc((lo && (lo.title || lo.name)) || 'what we just covered').toLowerCase()}.`;
+      return `<div class="placeholder"><div class="ph-chat"><div class="bub coach">Tutor: ${opener}</div><div class="bub me">Everyone assumes someone else will act.</div><div class="bub coach">Right. That has a name, diffusion of responsibility. Give me an example from your own shift.</div></div>${dress}</div>`;
+    }
     if (m === 'roleplay') return `<div class="placeholder"><small style="font-size:11.5px;color:var(--mute)"><i class="fa-solid fa-masks-theater"></i> Scenario ${c.attempt}: ${sceneFor(c.attempt)}</small><div class="ph-chat"><div class="bub">Co-worker: "Relax, it's a joke. Everyone laughs."</div><div class="bub me">Maya: "Not everyone. Drop it."</div><div class="bub">Co-worker: "Since when are you the HR police?"</div><div class="bub coach">Coach: The pushback is the test. Hold the line, don't argue the joke.</div></div></div>`;
-    if (m === 'branching') return `<div class="placeholder"><small style="font-size:11.5px;color:var(--mute)"><i class="fa-solid fa-sitemap"></i> Branching scenario: ${sceneFor(c.attempt)}</small><div class="qa" style="display:grid;gap:5px"><span class="step">A. Say something now, in front of everyone</span><span class="step">B. Pull the co-worker aside after</span><span class="step">C. Tell a supervisor later</span></div><small style="font-size:11px;color:var(--faint)">Each choice was mapped to rubric criteria when it was authored.</small></div>`;
-    return `<div class="placeholder"><small style="font-size:11.5px;color:var(--mute)"><i class="fa-solid fa-scale-balanced"></i> Situational-judgment set</small><div class="qa" style="display:grid;gap:5px"><span class="step">Rate each action: most effective / least effective</span><span class="step">Vignette 1 · four candidate actions</span><span class="step">Vignette 2 · four candidate actions</span></div><small style="font-size:11px;color:var(--faint)">Each option keyed to a criterion; scoring is a lookup.</small></div>`;
+    if (m === 'branching') return `<div class="placeholder"><small style="font-size:11.5px;color:var(--mute)"><i class="fa-solid fa-sitemap"></i> Scenario ${c.attempt}: ${sceneFor(c.attempt)}</small><div class="qa" style="display:grid;gap:5px"><span class="step">A. Say something now, in front of everyone</span><span class="step">B. Pull the co-worker aside after</span><span class="step">C. Tell a supervisor later</span></div></div>`;
+    return `<div class="placeholder"><small style="font-size:11.5px;color:var(--mute)"><i class="fa-solid fa-scale-balanced"></i> Judgment exercise</small><div class="qa" style="display:grid;gap:5px"><span class="step">For each situation, pick the most and the least effective response</span><span class="step">Situation 1 · four possible responses</span><span class="step">Situation 2 · four possible responses</span></div></div>`;
   }
 
   /* ---- LED lens: the module as authored, editable ---- */
   function policyText(lo) {
+    // A Know object is always in the pre battery, whatever its policy, so "nothing is recorded"
+    // would be false for it: the pre answer is recorded and can still test her out or up.
+    if (lo.sub === 'know' && lo.policy === 'none') return 'Policy None: no check follows the object. Its pre battery question is still asked and recorded, because a Know answer can test her out or up.';
     return { none: 'Policy None: no check is ever asked and nothing is recorded.', ask: 'Policy Ask: a check is asked of a sample of learners and recorded; it never blocks.', remediate: 'Policy Remediate: an unfavorable check earns one retry in a new modality, then the module moves on.', gate: 'Policy Gate: the check must be passed; it holds the module open until it is.' }[lo.policy];
   }
   function authoringConsequence(lo) {
@@ -1797,15 +1851,24 @@ body.mode-reference .ctxswitch { display: none; }
     const perms = lo.perms.map(m => MOD[m].l).join(', ');
     if (lo.sub === 'know') {
       const md = lo.perms.slice().sort((a, b) => DEMAND[b] - DEMAND[a])[0];
-      const rem = REM_ORDER.filter(x => lo.perms.includes(x));
-      return `${lo.locked ? `<b>Locked:</b> always delivered. If Maya proves ${lo.id} up front she gets it harder (test-up, served as ${ml(md)}) with no re-check.` : `<b>Not locked:</b> if Maya proves ${lo.id} up front and the launch allows test-out, its instruction is skipped.`} ${policyText(lo)} Permutations authored: ${perms}; remediation would move through ${rem.map(ml).join(' → ') || 'nothing else'}.${lo.perms.length === 1 ? ' <span class="warnline">Only one permutation: remediation has nowhere new to go.</span>' : ''}`;
+      // Remediation starts after whichever permutation she actually gets first, so drop that one.
+      const first = lo.perms.includes(S.pref) ? S.pref : lo.perms[0];
+      const rem = REM_ORDER.filter(x => lo.perms.includes(x) && x !== first);
+      const deadLock = lo.locked && DEMAND[md] <= DEMAND[S.pref];
+      return `${lo.locked ? `<b>Locked:</b> always delivered. If Maya proves ${lo.id} up front she gets it harder (test-up, served as ${ml(md)}) with no re-check.` : `<b>Not locked:</b> if Maya proves ${lo.id} up front and the launch allows test-out, its instruction is skipped.`} ${policyText(lo)} Permutations authored: ${perms}; after ${ml(first)}, remediation would move through ${rem.map(ml).join(' → ') || 'nothing else'}.${lo.perms.length === 1 ? ' <span class="warnline">Only one permutation: remediation has nowhere new to go.</span>' : ''}${deadLock ? ` <span class="warnline">No permutation here is more demanding than her preferred ${ml(S.pref)}: the lock would deliver it unchanged.</span>` : ''}`;
     }
     if (lo.sub === 'feel') return `<b>Feel:</b> never a gate; always delivered whatever the pre answer. ${policyText(lo)} ${lo.policy === 'none' ? 'With policy None it is not in the pre battery either, so no before-and-after is measured.' : 'The pre battery answer is the "before"; the check after the object is the "after."'} Permutations authored: ${perms}.`;
-    return `<b>Do:</b> never in the pre battery; always performed and scored against the rubric. ${policyText(lo)} ${lo.perms.includes('roleplay') ? 'Has an AI permutation, so cost control decides who gets the roleplay.' : 'No AI permutation: cost control has nothing to decide.'}${lo.policy !== 'gate' ? ' <span class="warnline">Unusual: Do objectives normally gate.</span>' : ''} Permutations authored: ${perms}.`;
+    return `<b>Do:</b> never in the pre battery; always performed and scored against the rubric. ${policyText(lo)} ${lo.perms.includes('roleplay') ? 'Has an AI permutation, so cost control decides who gets the roleplay.' : 'No AI permutation: cost control has nothing to decide.'}${lo.policy !== 'gate' ? ' <span class="warnline">Unusual: Do objectives normally gate.</span>' : ''}${lo.perms.length === 1 ? ' <span class="warnline">Only one permutation: a failed performance can only be re-run in the same form.</span>' : ''} Permutations authored: ${perms}.`;
   }
   function renderLed() {
     const cur = S.plan[S.cur], curId = cur && cur.lo ? cur.lo.id : null;
-    const pol = lo => ['none', 'ask', 'remediate', 'gate'].map(p => { const dis = (lo.sub === 'feel' && p === 'gate'); return `<span class="opt ${lo.policy === p ? 'on' : ''} ${dis ? 'dis' : ''}" data-led="policy" data-id="${lo.id}" data-v="${p}" ${dis ? 'title="Feel objectives are never gates"' : ''}>${POLICY_LABEL[p]}</span>`; }).join('');
+    const pol = lo => ['none', 'ask', 'remediate', 'gate'].map(p => {
+      // Two states the document rules out: an attitude cannot be a gate, and a Do object is
+      // defined by being scored against its rubric, so it cannot go unchecked.
+      const dis = (lo.sub === 'feel' && p === 'gate') || (lo.sub === 'do' && p === 'none');
+      const tip = lo.sub === 'feel' ? 'Feel objectives are never gates' : 'A Do object is scored against its rubric; it cannot go unchecked';
+      return `<span class="opt ${lo.policy === p ? 'on' : ''} ${dis ? 'dis' : ''}" data-led="policy" data-id="${lo.id}" data-v="${p}" ${dis ? `title="${tip}"` : ''}>${POLICY_LABEL[p]}</span>`;
+    }).join('');
     const lock = lo => lo.sub === 'know' ? `<span class="opt ${!lo.locked ? 'on' : ''}" data-led="locked" data-id="${lo.id}" data-v="no">No</span><span class="opt ${lo.locked ? 'on' : ''}" data-led="locked" data-id="${lo.id}" data-v="yes"><i class="fa-solid fa-lock" style="font-size:9px"></i> Yes</span>` : `<span class="fixed">${lo.sub === 'feel' ? 'n/a: always delivered' : lo.sub === 'do' ? 'n/a: always performed' : '—'}</span>`;
     const perms = lo => (ALL_PERMS[lo.sub || 'intro']).map(m => `<span class="opt perm ${lo.perms.includes(m) ? 'on' : ''}" data-led="perm" data-id="${lo.id}" data-v="${m}">${modIcon(m)} ${MOD[m].l}</span>`).join('');
     const inst = lo => !lo.sub ? '—' : lo.sub === 'know' ? 'Question bank (placeholder: 12 items)' : lo.sub === 'feel' ? `Agreement statement: ${esc(lo.stmt)}` : `Rubric: ${RUBRIC.length} criteria, one key per permutation`;
@@ -1822,64 +1885,98 @@ body.mode-reference .ctxswitch { display: none; }
     if (k === 'restore') { LOS = JSON.parse(JSON.stringify(DEFAULT_LOS)); rebuild(); return; }
     if (el.classList.contains('dis')) return;
     const lo = LOS.find(l => l.id === el.dataset.id); if (!lo) return;
+    // Rebuilding restarts Maya from the pre battery and wipes the run, so do it only when the
+    // click actually changed the module: re-picking the current policy must not reset anything.
+    const before = JSON.stringify(lo);
+    let refused = '';
     if (k === 'policy') lo.policy = el.dataset.v;
     if (k === 'locked') lo.locked = el.dataset.v === 'yes';
-    if (k === 'perm') { const m = el.dataset.v; if (lo.perms.includes(m)) { if (lo.perms.length > 1) lo.perms = lo.perms.filter(x => x !== m); } else lo.perms = (ALL_PERMS[lo.sub || 'intro']).filter(x => lo.perms.includes(x) || x === m); }
-    rebuild();
+    if (k === 'perm') {
+      const m = el.dataset.v;
+      if (lo.perms.includes(m)) { if (lo.perms.length > 1) lo.perms = lo.perms.filter(x => x !== m); else refused = 'At least one permutation must remain: the engine only ever chooses among what the author wrote.'; }
+      else lo.perms = (ALL_PERMS[lo.sub || 'intro']).filter(x => lo.perms.includes(x) || x === m);
+    }
+    if (JSON.stringify(lo) !== before) { rebuild(); return; }
+    renderLed();
+    if (refused) { const box = $('#lensLed .led-consequence'); if (box) box.insertAdjacentHTML('beforeend', ` <span class="warnline">${refused}</span>`); }
   }
 
   /* ---- Stakeholder lens: plain language for the current moment ---- */
   function narrative(c) {
     const set = S.set;
-    if (c.kind === 'pre') return { kicker: 'Before anything is taught', title: 'Five short questions, and the module reshapes itself around her', what: 'Maya answers a handful of questions before any instruction: what she knows, and what she believes. Nothing about doing the behavior is asked, because a quiz cannot prove that.', why: 'The answers tell the engine what she has already proven, so it can skip or harden content. They are also the "before" for every measurement that follows.', matters: 'Seat time goes only to what she has not proven, and every module produces before-and-after evidence of what it changed. This is not skipped for anyone, in any launch mode.', ref: ['path', '03 · A learner\'s path through a module'] };
+    if (c.kind === 'pre') return { kicker: 'Before anything is taught', title: 'A few short questions, and the module reshapes itself around her', what: 'Maya answers a handful of questions before any instruction: what she knows, and what she believes. Nothing about doing the behavior is asked, because a quiz cannot prove that.', why: 'The answers tell the engine what she has already proven, so it can skip or harden content where the launch and the author allow. They are also the "before" for every measurement that follows.', matters: 'Seat time is cut for what she has already proven, wherever the launch and the author allow, and every module produces before-and-after evidence of what it changed. The questions themselves are never skipped, for anyone, in any launch mode.', ref: ['path', '03 · A learner\'s path through a module'] };
     if (c.kind === 'skip') return { kicker: 'Compression', title: `Maya never sees ${c.lo.id}. She already proved it.`, what: 'This item does not appear on her screen at all. The plan moves straight to the next object.', why: `She answered ${c.lo.id}'s question correctly up front, the author did not lock it, and this launch allows test-out.`, matters: 'The module gets shorter for people who already know the material, without getting easier: every attitude item and the performance still run. Experienced staff stop sitting through what they know.', ref: ['adapt', '05 · How a module adapts to the learner'] };
     if (c.kind === 'sys') return { kicker: 'Credit that follows the learner', title: 'She proved this whole module eight months ago, so it is skipped', what: 'Maya mastered Step In inside another course, "Speak Up." This one contains the same module, so she goes straight to the next one.', why: 'Modules are shared by reference, and mastery is recorded against the learner, not the course. Her proof is inside the one-year recency window.', matters: 'No one redoes training they recently proved. Proof older than the window is not deleted; it simply has to be earned again.', ref: ['credit', '09 · Credit that follows the learner'] };
-    if (c.kind === 'day') return { kicker: 'Nothing is lost', title: 'Tomorrow, she picks up exactly where she stopped', what: 'Maya closed her browser mid-module and came back the next day. Nothing is re-asked.', why: 'Her goal (one learner, one course, one set of launch settings) stays open until the module is mastered. The repair list survives with it.', matters: 'There is no "failed" and no timeout. The LMS has heard "in progress" and hears nothing new. Learners finish; they do not restart.', ref: ['lms', '10 · How it fits with the LMS'] };
-    if (c.kind === 'post') return { kicker: 'No final exam', title: 'There is no end-of-module test', what: 'The last card is not a quiz. Every check was asked right after the thing it checks.', why: 'The optional post battery only holds checks that a modality could not ask inline, such as a podcast, plus any "after" item not re-asked during the module.', matters: 'Evidence is collected at the moment of learning, one objective at a time, instead of one pass/fail score at the end.', ref: ['path', '03 · A learner\'s path through a module'] };
+    if (c.kind === 'day') return { kicker: 'Nothing is lost', title: 'Tomorrow, she picks up exactly where she stopped', what: 'Maya closed her browser mid-module and came back the next day. Nothing is re-asked.', why: 'Her goal (one learner, one course, one set of launch settings) stays open until the whole course is complete. The repair list survives with it.', matters: 'There is no "failed" and no attempt limit. The LMS has heard "in progress" and hears nothing new. Learners pick up and finish; nobody is sent back to the start.', ref: ['lms', '10 · How it fits with the LMS'] };
+    if (c.kind === 'post') return { kicker: 'No final exam', title: 'There is no end-of-module test', what: 'The last card is not a quiz. Every check was asked right after the thing it checks.', why: 'The optional post battery holds checks that a modality could not ask inline, such as a podcast, plus any "after" item not re-asked during the module. Whether it also carries end-of-module feedback questions is still an open question.', matters: 'Evidence is collected at the moment of learning, one objective at a time, instead of one pass/fail score at the end.', ref: ['path', '03 · A learner\'s path through a module'] };
     if (c.kind === 'mastered') return c.carried
-      ? { kicker: 'Mastered', title: 'Credit carried. The next module unlocks.', what: 'Maya did not see a single card of Step In in this course.', why: 'Her mastery from eight months ago counts for this goal.', matters: 'Recency-windowed credit is what makes "shared modules" real for learners, not just for authors.', ref: ['credit', '09 · Credit that follows the learner'] }
-      : { kicker: 'Mastered', title: 'Mastered by proving each objective, not by passing an exam', what: 'Every learning object reached a terminal state: proven up front, proven by a check, performed to the rubric, or released after its one retry.', why: 'Only the gating objects held the module open; the engine kept bringing them back, in new forms, until each was met.', matters: 'The record says exactly what she proved and when. Reporting can be per objective. Credit follows her to any other course that contains Step In for a year. A learner who fails one thing repeats one thing.', ref: ['mastery', '04 · What counts as mastery'] };
+      ? { kicker: 'Mastered', title: 'Credit carried. The next module unlocks.', what: 'Maya was not taught or asked a single thing from Step In in this course; one short notice told her why.', why: 'Her mastery from eight months ago counts for this launch.', matters: 'Recency-windowed credit is what makes "shared modules" real for learners, not just for authors.', ref: ['credit', '09 · Credit that follows the learner'] }
+      : { kicker: 'Mastered', title: 'Mastered by proving each objective, not by passing an exam', what: 'Every learning object reached its finished state: proven up front, proven by a check, performed to the rubric, released after its one retry, or simply taken in (the intro and any measurement-only items).', why: 'Only the must-pass objectives held the module open; any she missed came back, in new forms, until each was met.', matters: 'The record says exactly what she proved and when. Reporting can be per objective. Credit follows her to any other course that contains Step In for as long as the recency window allows: a year by default, settable per customer and per launch. A learner who fails one thing repeats one thing.', ref: ['mastery', '04 · What counts as mastery'] };
     // a learning object
     const lo = c.lo;
     if (!lo.sub) return { kicker: 'Connective material', title: 'A short introduction, nothing to prove', what: 'What the module covers and why. Watched or read, not checked.', why: 'The author set its policy to None. Not every object needs a question.', matters: 'Questions are spent only where they prove, route, measure or reveal something. Asking everything of everyone would double seat time.', ref: ['questions', '06 · Questions: what is asked, of whom, and why'] };
-    if (c.testUp) return { kicker: 'Served harder, not skipped', title: `${lo.id} is required content, so she gets a more demanding version`, what: `Maya proved ${lo.id} up front, but she still receives it: as ${ml(c.m)} instead of the video. No question follows.`, why: 'The author locked this object (a law or policy requires it, or it is pivotal enough to reinforce). Locked content is never removed; a learner who already knows it is served a harder permutation and not quizzed again.', matters: 'Personalization that stays compliance-safe: mandated content is always delivered, and the people who know it get depth instead of a rerun.', ref: ['adapt', '05 · How a module adapts to the learner'] };
+    if (c.testUp) return { kicker: 'Served harder, not skipped', title: `${lo.id} is required content, so she gets a more demanding version`, what: `Maya proved ${lo.id} up front, but she still receives it, as ${ml(c.m)}: the most demanding version the author made. No question follows.`, why: 'The author marked this object as must-see (a law or policy requires it, or it is pivotal enough to reinforce). Required content is never removed; a learner who already knows it is served a harder version and not quizzed again.', matters: 'Personalization that stays compliance-safe: mandated content is always delivered, and the people who know it get depth instead of a rerun.', ref: ['adapt', '05 · How a module adapts to the learner'] };
     if (lo.sub === 'do') return c.remediation
-      ? { kicker: 'Perform again', title: 'A new scenario, the same standard', what: `Maya rehearses the behavior again in a different situation (${sceneFor(c.attempt).split(':')[0]}), scored against the same rubric.`, why: 'The performance is a gate: a failed criterion brings the objective back, with no attempt limit, after the module\'s other performances.', matters: 'Practice until the behavior holds, judged against one consistent standard. No one is failed out; no one is passed through.', ref: ['behavior', '07 · Assessing behavior'] }
-      : { kicker: 'The behavior itself', title: 'Now she has to actually do it', what: c.m === 'roleplay' ? 'A live rehearsal with an AI character who pushes back, coached in the moment. The transcript is scored against a short rubric.' : `A ${ml(c.m)} keyed to the same rubric, chosen because cost control did not approve the AI roleplay for her.`, why: 'Do objectives are never in the pre battery and never skipped. A multiple-choice question cannot show whether someone can perform; only a performance can.', matters: 'This is where a quiz cannot go: evidence that a person can act, under pressure, against a standard the author wrote once and applies everywhere. Cost control decides how many learners get the AI version.', ref: ['behavior', '07 · Assessing behavior'] };
-    if (c.remediation) return { kicker: 'Repair, not repeat', title: `${lo.id} comes back in a different form`, what: `The same objective, now as ${ml(c.m)} rather than what she saw first, followed by ${lo.sub === 'feel' ? 'the same statement once more' : 'a fresh question from the bank'}.`, why: lo.policy === 'gate' ? 'A gating objective returns until it is passed. Know and Feel repairs happen before she is asked to perform, because they are what make the performance possible.' : 'Its policy allows exactly one retry, then the module moves on whatever she answers.', matters: 'A learner who misses one thing repeats one thing, in a new modality, not the whole module or a whole exam. That is where seat time goes: to the gap.', ref: ['path', '03 · A learner\'s path through a module'] };
-    if (lo.sub === 'feel') return { kicker: 'A belief, not a fact', title: `${lo.id}: measured before and after, never a gate`, what: `Maya ${ml(c.m).startsWith('video') ? 'watches' : 'takes in'} a short piece meant to shift a belief, then answers the same agreement statement she saw up front.`, why: c.check ? 'An attitude cannot be forced, so it cannot be a gate. The check is a measurement: the before-and-after pair is the point, and it is taken even when the "before" was already favorable, because attitudes can move the wrong way too.' : 'Its policy asks the question only of a sample of learners, and Maya is not in the sample for this one, so no check follows.', matters: 'Every module reports whether it moved attitudes, per objective, across the cohort, without pretending an opinion can be "passed."', ref: ['mastery', '04 · What counts as mastery'] };
+      ? { kicker: 'Perform again', title: 'A new scenario, the same standard', what: `Maya ${c.m === 'roleplay' ? `rehearses the behavior again in a new situation (${sceneClause(c.attempt)})` : `performs the behavior again as ${anLc(ml(c.m))}`}, scored against the same rubric.`, why: lo.policy === 'gate' ? 'The performance is must-pass: a failed criterion brings the objective back, with no attempt limit, after the module\'s other performances.' : 'Its policy allows exactly one more try, then the module moves on whatever the score.', matters: lo.policy === 'gate' ? 'Practice until the behavior holds, judged against one consistent standard. No one is failed out; no one is passed through.' : 'One more try against the same standard, then the module moves on and the result is recorded.', ref: ['behavior', '07 · Assessing behavior'] }
+      : { kicker: 'The behavior itself', title: 'Now she has to actually do it', what: c.m === 'roleplay' ? 'A live rehearsal with an AI character who pushes back, coached in the moment. The transcript is scored against a short rubric.' : `${an(ml(c.m))} keyed to the same rubric${c.switched ? ', which she chose herself' : lo.perms.includes('roleplay') ? ', chosen because cost control did not approve the AI roleplay for her' : ', because this objective has no AI roleplay version'}. Cheaper equivalents like this one are candidates; which of them ships is not yet decided.`, why: 'Do objectives are never in the pre battery and never skipped. A multiple-choice question cannot show whether someone can perform; only a performance can.', matters: 'This is where a quiz cannot go: evidence that a person can act, under pressure, against a standard the author wrote once and applies everywhere. Cost control decides how many learners get the AI version.', ref: ['behavior', '07 · Assessing behavior'] };
+    if (c.remediation) return { kicker: 'Repair, not repeat', title: `${lo.id} comes back in a different form`, what: `The same objective, now as ${ml(c.m)} rather than the form she just missed it in, followed by ${lo.sub === 'feel' ? 'the same statement once more' : 'a fresh question from the bank'}.`, why: lo.policy === 'gate' ? 'A must-pass objective returns until it is passed. Know and Feel repairs happen before she is asked to perform, because they are what make the performance possible.' : 'Its policy allows exactly one retry, then the module moves on whatever she answers.', matters: 'A learner who misses one thing repeats one thing, in a new format, not the whole module or a whole exam. That is where seat time goes: to the gap.', ref: ['path', '03 · A learner\'s path through a module'] };
+    if (lo.sub === 'feel') return {
+      kicker: 'A belief, not a fact',
+      title: c.check ? `${lo.id}: measured before and after, never a gate` : lo.policy === 'none' ? `${lo.id}: delivered, but nothing is measured` : `${lo.id}: delivered to everyone, measured only for a sample`,
+      what: `Maya ${ml(c.m).startsWith('video') ? 'watches' : 'takes in'} a short piece meant to shift a belief${c.check ? ', then answers the same agreement statement she saw up front.' : '. No statement follows; she was not asked this one up front either.'}`,
+      why: c.check ? 'An attitude cannot be forced, so it cannot be a gate. The check is a measurement: the before-and-after pair is the point, and it is taken even when the "before" was already favorable, because attitudes can move the wrong way too.'
+        : lo.policy === 'none' ? 'The author set no question on this one, so nothing is measured. It is still delivered: attitude content is never removed.'
+        : 'Its policy asks the question only of a sample of learners, and Maya is not in that sample, so no check follows.',
+      matters: c.check || lo.policy !== 'none' ? 'Every module reports whether it moved attitudes, per objective, across the cohort, without pretending an opinion can be "passed."' : 'Questions are spent only where they prove, route, measure or reveal something. The content still runs; the author simply chose not to measure this one.',
+      ref: ['mastery', '04 · What counts as mastery'] };
     // know, delivered
-    return { kicker: c.compliance ? 'Compliance launch' : 'Taught, then one question', title: c.compliance ? `${lo.id} runs even though she knew it, because this launch skips nothing` : `${lo.id}: taught in her preferred form, then checked once`, what: `A ${ml(c.m)}${c.dress ? ' with examples from her own kind of workplace' : ''}, then ${c.check ? 'one fresh question, not the one she saw up front' : 'no question'}.`, why: c.compliance ? 'Test-out is off for this launch, so her correct pre battery answer is recorded but the content is delivered anyway.' : set.ans[lo.id] === 'wrong' ? 'She missed this one up front, so it is delivered normally with a check. If she misses again, nothing stops: it goes on a repair list and returns in a new form before she performs.' : 'Delivered with its check.', matters: c.compliance ? 'Customers choose: the same module can compress for one launch and run in full for a regulated one, without re-authoring anything.' : 'The check is the proof. Pass it and the objective is done for a year, in any course that contains it.', ref: ['adapt', '05 · How a module adapts to the learner'] };
+    const missed = set.ans[lo.id] === 'wrong';
+    return {
+      kicker: c.compliance ? 'Compliance launch' : c.check ? 'Taught, then one question' : 'Taught, not checked',
+      title: c.compliance ? `${lo.id} runs even though she knew it, because this launch skips nothing` : `${lo.id}: taught${c.m === S.pref ? ' in her preferred form' : ''}, then ${c.check ? 'checked once' : 'left unchecked'}`,
+      what: `${an(ml(c.m))}${c.dress ? ' with examples from her own kind of workplace' : ''}, then ${c.check ? 'one fresh question, not the one she saw up front' : 'no question'}.`,
+      why: c.compliance ? 'Test-out is off for this launch, so her correct pre battery answer is recorded but the content is delivered anyway.'
+        : !missed ? (c.check ? 'Delivered with its check.' : 'Delivered with no check.')
+        : lo.policy === 'gate' ? 'She missed this one up front, so it is delivered normally with a check. If she misses again, nothing stops: it goes on a repair list and returns in a new form before she performs.'
+        : lo.policy === 'remediate' ? 'She missed this one up front, so it is delivered normally with a check. Miss again and it gets one more try in a new form, then the module moves on.'
+        : lo.policy === 'ask' ? 'She missed this one up front, so it is delivered normally. Its check is recorded and never blocks.'
+        : 'She missed this one up front. It is delivered normally with no question, because the author set no check on it.',
+      matters: c.compliance ? 'Customers choose: the same module can compress for one launch and run in full for a regulated one, without re-authoring anything.' : 'The check is the proof. Pass it and the objective is done, in any course that contains it, for as long as the recency window allows (a year by default).',
+      ref: ['adapt', '05 · How a module adapts to the learner'] };
   }
   function renderStakeholder() {
     const c = S.plan[S.cur], n = narrative(c);
     const vis = visibleCards();
+    const ref = c.kind === 'day' ? (S.plan[S.cur + 1] || c) : c;   // "Tomorrow" sits between cards
+    // "in progress" is sent once she is underway and is never un-sent: reviewing an earlier card
+    // moves S.cur back, so the high-water mark is what the LMS has actually heard.
+    const started = S.maxCur > 0;
     const skipped = S.plan.filter(x => x.kind === 'skip').length, hardened = S.plan.filter(x => x.kind === 'lo' && x.testUp).length;
     const checks = S.plan.filter(x => x.kind === 'lo' && x.done && x.check).length, repairs = S.plan.filter(x => x.kind === 'lo' && x.done && x.remediation).length;
     $('#lensStakeholder').innerHTML = `
-      <div class="story"><div class="story-kicker">Card ${vis.indexOf(c) + 1} of ${vis.length} · ${esc(n.kicker)}</div><h2>${esc(n.title)}</h2>
+      <div class="story"><div class="story-kicker">Card ${vis.indexOf(ref) + 1} of ${vis.length} · ${esc(n.kicker)}</div><h2>${esc(n.title)}</h2>
         <div class="story-grid"><div class="story-block"><b>What Maya is doing</b><p>${esc(n.what)}</p></div><div class="story-block"><b>What the engine did</b><p>${esc(n.why)}</p></div><div class="story-block matters"><b>Why it matters</b><p>${esc(n.matters)}</p></div></div>
         <a class="story-ref" href="#ref=${n.ref[0]}">In the document: ${esc(n.ref[1])} <i class="fa-solid fa-arrow-right"></i></a></div>
       <div class="tallies">
         <div class="tally"><div class="n">${skipped}</div><div class="l">object${skipped === 1 ? '' : 's'} skipped because she proved ${skipped === 1 ? 'it' : 'them'} up front</div></div>
         <div class="tally"><div class="n">${hardened}</div><div class="l">required object${hardened === 1 ? '' : 's'} served harder instead of skipped</div></div>
         <div class="tally"><div class="n">${checks}</div><div class="l">check${checks === 1 ? '' : 's'} asked so far, each right after its object</div></div>
-        <div class="tally"><div class="n">${repairs}</div><div class="l">repair${repairs === 1 ? '' : 's'} made, one objective at a time</div></div>
+        <div class="tally"><div class="n">${repairs}</div><div class="l">repair pass${repairs === 1 ? '' : 'es'} run, one objective at a time</div></div>
         <div class="tally"><div class="n">${S.ledger.length}</div><div class="l">objective-level record${S.ledger.length === 1 ? '' : 's'} written, none overwritten</div></div>
-        <div class="tally lms"><div class="n">${S.set.recent || S.cur > 0 ? 1 : 0}</div><div class="l">message${S.set.recent || S.cur > 0 ? '' : 's'} the LMS has heard ("in progress")</div></div>
+        <div class="tally lms"><div class="n">${started ? 1 : 0}</div><div class="l">message${started ? '' : 's'} the LMS has heard ("in progress")</div></div>
       </div>
       <div class="points card soft"><h3>The five things to take away</h3><ul>
         <li><b>No final exam.</b> Mastery is proven one objective at a time, as the learner goes.</li>
-        <li><b>Shorter, not easier.</b> Proven knowledge is skipped; required content is served harder; the behavior is always performed.</li>
-        <li><b>Repair, not repeat.</b> A miss brings back one objective in a new form, with no attempt limit and no failing state.</li>
-        <li><b>Credit follows the learner</b> across courses for a year, at the objective level.</li>
-        <li><b>Deterministic.</b> Same evidence, same plan. The AI is in the content upstream and in the roleplay, not in the decisions.</li></ul></div>`;
+        <li><b>Shorter, not easier.</b> Proven knowledge can be skipped where the launch allows it; required content is served harder; attitudes are always addressed and the behavior is always performed.</li>
+        <li><b>Repair, not repeat.</b> A miss brings back one objective in a new form. Must-pass objectives return until passed, with no attempt limit and no failing state; the rest get one retry, then the module moves on.</li>
+        <li><b>Credit follows the learner</b> across courses, at the objective level, for as long as the recency window allows: a year by default, settable per customer and per launch.</li>
+        <li><b>Deterministic.</b> Same evidence, same plan. The engine's rules contain no AI; the AI is upstream in the content and inside the roleplay, where it plays the character and scores the transcript.</li></ul></div>`;
   }
 
   /* ---- LMS lens: what Content Hub sent and the two words it can hear ---- */
   function renderLms() {
     const set = S.set, c = S.plan[S.cur];
-    const started = set.recent || S.cur > 0;
+    const started = S.maxCur > 0;   // high-water mark: reviewing an earlier card un-sends nothing
     const proven = LOS.filter(l => S.state[l.id].st === 'term').length;
     const repairs = S.plan.filter(x => x.kind === 'lo' && x.done && x.remediation).length;
     const perf = S.plan.filter(x => x.kind === 'lo' && x.done && x.check === 'rubric').length;
@@ -1887,16 +1984,16 @@ body.mode-reference .ctxswitch { display: none; }
       <div class="lms-status"><span class="pill">${started ? 'in progress' : 'launched'}</span><p>${started ? 'The only status the LMS holds for Maya on Harassment Prevention. It will change exactly once more, to <b>complete</b>, when the composite\'s last module is mastered.' : 'Content Hub has launched the composite. The first thing it will hear back is <b>in progress</b>.'} ${c.kind === 'mastered' ? 'Step In is mastered, but the LMS is not told that: modules are not a thing it knows about.' : ''}</p></div>
       <div class="lms-grid">
         <div class="card"><h3><i class="fa-solid fa-arrow-right"></i> What Content Hub sent at launch</h3>
-          <dl class="kv"><dt>Learner</dt><dd>Maya (an identifier)</dd><dt>Composite</dt><dd>Harassment Prevention (what it calls a course)</dd><dt>Language</dt><dd>English</dd><dt>Launch settings</dt><dd>every Content Hub setting, plus the engine's own: test-out <b>${set.testOut ? 'on' : 'off'}</b>, recency window <b>365 days</b>, modality behavior <b>per object</b></dd><dt>Sector</dt><dd class="no">not sent; looked up from the customer (${set.sector})</dd><dt>Role</dt><dd class="no">not sent; needs LMS changes</dd><dt>Location</dt><dd class="no">not sent</dd></dl></div>
+          <dl class="kv"><dt>Learner</dt><dd>Maya (an identifier)</dd><dt>Composite</dt><dd>Harassment Prevention (what it calls a course)</dd><dt>Language</dt><dd>English</dd><dt>Launch settings</dt><dd>every Content Hub setting, plus the engine's own: test-out <b>${set.testOut ? 'on' : 'off'}</b>, recency window <b>365 days</b> (the default; settable per customer and per launch), modality behavior <b>per object</b></dd><dt>Sector</dt><dd class="no">not sent; looked up from the customer (${set.sector})</dd><dt>Role</dt><dd class="no">not sent; needs LMS changes</dd><dt>Location</dt><dd class="no">not sent</dd></dl></div>
         <div class="card"><h3><i class="fa-solid fa-arrow-left"></i> Everything the LMS has heard back</h3>
           <div class="lms-log">
-            <div class="m back"><span class="pill">← in progress</span><span class="t">${started ? 'sent when Maya opened the composite' : 'not yet'}</span></div>
+            <div class="m back"><span class="pill">← in progress</span><span class="t">${started ? 'sent once Maya was underway in the composite' : 'not yet: she has opened the composite but not answered anything'}</span></div>
             <div class="m back"><span class="pill" style="opacity:.55">← complete</span><span class="t">later, when every module is mastered; then no further updates are accepted on this attempt</span></div>
             <div class="m never"><span class="pill">← failed</span><span class="t">never sent. There is no attempt limit and no failing end state.</span></div>
           </div>
           <p style="font-size:12.5px;color:var(--mute);margin:12px 0 0"><b style="color:var(--ink)">Invisible to the LMS right now:</b></p>
-          <ul class="invisible-list"><li>${proven} of ${LOS.length} objectives at a terminal state</li><li>${repairs} repair${repairs === 1 ? '' : 's'}, ${perf} scored performance${perf === 1 ? '' : 's'}, ${S.ledger.length} objective-level records</li><li>which module she is in, which permutations she saw, what she skipped${S.days ? `, that she came back after ${S.days} day${S.days === 1 ? '' : 's'}` : ''}</li></ul>
-          <p style="font-size:12.5px;color:var(--ink-soft);margin:10px 0 0">The LMS supplies identifiers and launch settings and receives progress. Sequencing, assessment and mastery are the engine's alone. A restart creates a new goal, and the recency window decides what carries in.</p></div>
+          <ul class="invisible-list"><li>${proven} of ${LOS.length} learning objects settled (proven, performed, or taken in)</li><li>${repairs} repair${repairs === 1 ? '' : 's'}, ${perf} scored performance${perf === 1 ? '' : 's'}, ${S.ledger.length} objective-level records</li><li>which module she is in, which versions of each object she saw, what she skipped${S.days ? `, that she came back after ${S.days} day${S.days === 1 ? '' : 's'}` : ''}</li></ul>
+          <p style="font-size:12.5px;color:var(--ink-soft);margin:10px 0 0">The LMS supplies identifiers and launch settings and receives progress. Sequencing, assessment and mastery are the engine's alone. A restart creates a new goal (a fresh attempt), and the recency window decides what carries in.</p></div>
       </div>`;
   }
 
@@ -1916,6 +2013,8 @@ body.mode-reference .ctxswitch { display: none; }
      --------------------------------------------------------------------- */
   function switchModality(m) {
     const c = S.plan[S.cur]; if (c.kind !== 'lo' || c.m === m || c.done) return;
+    if (m === 'roleplay' && !S.set.cost) return;                             // cost control already declined it
+    if (c.remediation && (S.seen[c.lo.id] || []).includes(m)) return;        // a repeat always uses a new form
     const carries = ['video', 'audio', 'text'].includes(m);
     c.m = m; c.rule = '5'; c.switched = true;
     c.why = `The learner switched to ${ml(m)}.${carries ? ' Her switch now counts as her preference for the rest of this composite (rule 5).' : ' A switch to this permutation applies to this object only; her carried preference stays ' + ml(S.pref) + '.'}`;
@@ -1948,20 +2047,22 @@ body.mode-reference .ctxswitch { display: none; }
     if (c.kind === 'pre') {
       if (S.preDone) return; S.preDone = true;
       const A = S.set.ans; log(`Pre battery: ${c.items.map(id => `${id} ${A[id]}`).join(', ')} (${c.items.length} items)`, today());
-      LOS.filter(l => l.sub === 'know').forEach(lo => { const id = lo.id; if (A[id] === 'correct') { if (!lo.locked && S.set.testOut) { S.state[id] = { st: 'term', label: 'test-out' }; log(`${id} proven by pre battery; instruction skipped (test-out)`); } else if (lo.locked) { S.state[id] = { st: 'term', label: 'test-up' }; log(`${id} proven by pre battery; locked, so delivered as test-up with no re-check`); } } });
+      LOS.filter(l => l.sub === 'know').forEach(lo => { const id = lo.id; if (A[id] === 'correct') { if (!lo.locked && S.set.testOut) { S.state[id] = { st: 'term', label: 'test-out' }; log(`${id} proven by pre battery; instruction skipped (test-out)`); } else if (lo.locked) { S.state[id] = { st: 'pend', label: 'test-up · to deliver' }; log(`${id} proven by pre battery; locked, so it is still to be delivered as test-up, with no re-check`); } } });
       return;
     }
     if (c.kind !== 'lo' || c.done) return;
     const lo = c.lo, id = lo.id, pol = lo.policy; c.done = true; c.result = result; S.seen[id].push(c.m);
     if (!c.check) {
-      if (!c.testUp) { S.state[id] = { st: 'term', label: 'consumed' }; if (lo.sub && pol !== 'none') log(`${id} delivered (${ml(c.m)}); no check: not in the sample`); }
+      // The locked object only reaches its finished state once it has actually been delivered.
+      if (c.testUp) { S.state[id] = { st: 'term', label: 'test-up' }; log(`${id} delivered as test-up (${ml(c.m)}); no re-check, the pre battery proof stands`, today()); return; }
+      S.state[id] = { st: 'term', label: 'consumed' }; if (lo.sub && pol !== 'none') log(`${id} delivered (${ml(c.m)}); no check: not in the sample`);
       return;
     }
     const fav = isFav(result), attemptNote = c.remediation ? `, remediation attempt ${c.attempt}` : '';
     // record what happened, in the vocabulary of the instrument
     if (c.check === 'know') log(`${id} check ${fav ? 'passed' : 'failed'} (${ml(c.m)}${c.remediation ? attemptNote : ', attempt ' + c.attempt})`, today());
     else if (c.check === 'feel') { const before = S.set.ans[id]; const shift = before === result ? 'held' : (result === 'agree' ? 'shifted favorably' : 'shifted unfavorably'); log(`${id} attitude: ${before}s before, ${result}s after (${shift})${c.remediation ? ' — after its one retry' : ''}`, today()); }
-    else { const met = fav ? RUBRIC.length : RUBRIC.length - 1; log(`${id} attempt ${c.attempt} (${ml(c.m)}${c.m === 'roleplay' ? ', ' + sceneFor(c.attempt).split(':')[0].toLowerCase() : ''}): ${met} of ${RUBRIC.length} criteria met${fav ? '' : '; failed: held the position under pushback'}; permutation recorded`, today()); }
+    else { const met = fav ? RUBRIC.length : RUBRIC.length - 1; log(`${id} attempt ${c.attempt} (${ml(c.m)}${c.m === 'roleplay' ? ', ' + sceneClause(c.attempt) : ''}): ${met} of ${RUBRIC.length} criteria met${fav ? '' : '; failed: held the position under pushback'}; permutation recorded`, today()); }
     // then apply the policy
     if (fav) {
       S.state[id] = { st: 'term', label: pol === 'ask' ? 'consumed' : lo.sub === 'feel' ? (c.remediation ? 'released' : 'recorded') : 'verified' };
