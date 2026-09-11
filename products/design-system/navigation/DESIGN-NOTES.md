@@ -22,6 +22,13 @@
   top-right** beside the universal actions in those versions (the placement V3b already
   uses). With the wider EHS identity the tabs start about 70px past the edge, since the
   group cannot shrink below its content.
+- **Invariant: the tab row never sits inside the side nav's column**, open or closed. V3b's
+  "Collapse: top" mode was the one arrangement that broke it (the bar spans above the nav
+  there, and the tabs followed the identity to ~294px against a nav edge at 336px). Its
+  toggle + identity group is now held to the nav's width in that mode, so the tabs begin
+  exactly at the edge and the nav's own border stands in for the separator. Checked by a
+  harness across every version, both nav states and both collapse modes: 18 of 18 cases
+  put the tab row at or right of the nav's edge.
 
 ## Changelog · 2026-09-09 round (logo)
 
