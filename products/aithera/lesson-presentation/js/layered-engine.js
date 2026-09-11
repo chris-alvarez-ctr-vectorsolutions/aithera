@@ -429,6 +429,19 @@
   // survive into a screen that did not ask for one.
   var pendingNext = null;
 
+  // The look a borrowed press reverts to — real Continue label, gated on
+  // whether this step actually has a gate. Shared by the click handler
+  // (after running the borrowed action) and cancelNextAction (before it
+  // ever runs), so the two can never drift apart.
+  function revertNextBtn() {
+    nextBtn.classList.remove('ll-btn--step');
+    nextBtn.classList.add('ll-btn--primary');
+    var st = STEPS[idx];
+    nextBtn.innerHTML = (st && st.nextLabel ? st.nextLabel : 'Continue') +
+      ' <i class="fa-solid fa-arrow-right"></i>';
+    nextBtn.disabled = !!(st && st.gate);
+  }
+
   function positionOrb(glide) {
     if (!chrome) return;
     var slot = chrome.querySelector('.clara-slot');
@@ -519,6 +532,20 @@
         nextBtn.classList.add('ll-btn--step');
         nextBtn.classList.remove('ll-btn--primary');
         nextBtn.disabled = false;
+      },
+      // Withdraw a borrowed press before it is ever clicked — a beat that
+      // offers more than one route to the same gate (e.g. the hazard beat's
+      // Watch/Read/Step-through picker) can move on to a DIFFERENT completion
+      // path before the learner presses the borrowed button at all. Reverting
+      // the button's own look without this left `pendingNext` holding the
+      // stale callback: the button READ as a plain, live Continue, but the
+      // next press ran the old step's leftover action instead of navigating —
+      // Continue that looks live but never advances. Exact same revert the
+      // click handler itself does on a real press, just without running it.
+      cancelNextAction: function () {
+        if (!pendingNext) return;
+        pendingNext = null;
+        revertNextBtn();
       },
       positionOrb: positionOrb, saveResult: saveResult, readCourse: readCourse
     };
@@ -732,12 +759,7 @@
       if (pendingNext) {
         var run = pendingNext;
         pendingNext = null;
-        nextBtn.classList.remove('ll-btn--step');
-        nextBtn.classList.add('ll-btn--primary');
-        var st = STEPS[idx];
-        nextBtn.innerHTML = (st && st.nextLabel ? st.nextLabel : 'Continue') +
-          ' <i class="fa-solid fa-arrow-right"></i>';
-        nextBtn.disabled = !!(st && st.gate);
+        revertNextBtn();
         run();
         return;
       }

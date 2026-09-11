@@ -2246,7 +2246,7 @@
     // real network/synthesis cost that should not gate on the other having
     // already happened — the original single `mounted` meant Listen never
     // mounted at all once the default video carrier had already run once.
-    var mounted = false, audioMounted = false, showing = null;
+    var mounted = false, audioMounted = false, showing = null, podcastTimer = null;
     // K2 test-up: show() below overwrites the eyebrow the moment a carrier
     // is picked, so the "no check after this" signal has to ride along with
     // whichever text it sets rather than living only in the static markup.
@@ -2264,14 +2264,22 @@
     // list, on one screen.
     function show(m) {
       if (showing === m) return;
-      // Leaving Read before "Done reading" is pressed drops the borrowed
-      // footer button back to a plain, still-shut Continue — otherwise it
-      // stayed live and labelled for a read the learner walked away from.
-      if (showing === 'article' && !handed) {
-        ctx.els.next.classList.remove('ll-btn--step');
-        ctx.els.next.classList.add('ll-btn--primary');
-        ctx.els.next.innerHTML = 'Continue <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>';
-        ctx.els.next.disabled = true;
+      // Leaving a carrier before it naturally finishes retracts whatever it
+      // armed, so an unrelated, LATER completion can never fire behind the
+      // learner's back and collide with the one they are actually looking
+      // at. Two things can be armed: Read's borrowed footer button (undone
+      // by cancelNextAction — a manual class/label revert alone left the
+      // engine's pendingNext still pointed at the stale callback, so the
+      // button READ as live but the next press re-ran old "Done reading"
+      // logic instead of navigating), and Listen's bare setTimeout(done)
+      // (undone by clearing it directly — left running, it could call
+      // done() while Read's OWN "Done reading" press was mid-click, so by
+      // the time that press's run() reached done(), `handed` was already
+      // true, its enableNext() never fired, and Continue stayed disabled
+      // from the click handler's own revert).
+      if (!handed) {
+        if (showing === 'article') ctx.cancelNextAction();
+        if (showing === 'podcast' && podcastTimer) { clearTimeout(podcastTimer); podcastTimer = null; }
       }
       showing = m;
       // Item 13: which carrier they actually used, for the record. Merged
@@ -2317,15 +2325,20 @@
         // already tells the learner.
         eyebrow.textContent = 'Listen: about 2 minutes' + noCheckTag;
         if (!audioMounted) { audioMounted = true; mountAudio(); }
-        setTimeout(done, T(700));
+        // Held so leaving Listen before it fires can cancel it — see the
+        // top of show().
+        podcastTimer = setTimeout(done, T(700));
       } else {
         eyebrow.textContent = 'Read: about 4 minutes' + noCheckTag;
         // Item 25/D1: gated on the learner's own word, the same footer
         // relabel the account screen's "Done reading" uses — a fixed delay
         // could not tell a skim from an actual read, and the other two
         // carriers already gate on something real (watched to the end,
-        // stood in this modality long enough to have heard it start).
-        ctx.setNextAction('Done reading', function () { done(); });
+        // stood in this modality long enough to have heard it start). Only
+        // borrows the button if the gate is not already open — a learner who
+        // already finished a different carrier and then looks at Read too
+        // should not have a working Continue re-locked behind a second ask.
+        if (!handed) ctx.setNextAction('Done reading', function () { done(); });
       }
 
       ctx.positionOrb(true);
