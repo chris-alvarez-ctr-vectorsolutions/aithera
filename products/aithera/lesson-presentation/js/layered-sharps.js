@@ -669,7 +669,7 @@
   // ==========================================================================
   var DONE_KEYS = { battery: 'battery', adjust: 'battery', chain: 'chain', hazard: 'hazard', case1: 'case1',
                     inflow: 'inflow', case2: 'case2', case3: 'case3', case4: 'case4',
-                    controls: 'controls', debrief: 'debrief', walk: 'walk',
+                    controls: 'controls', debrief: 'debrief', remk1: 'remk1', remk2: 'remk2', walk: 'walk',
                     // `enact` has no key: the scenario runs on its own page and
                     // writes nothing back here, so the cover cannot honestly
                     // tick it. It used to borrow the timed screen's result,
@@ -756,7 +756,14 @@
       // learner on the proven path never sees "Your Updated Path" advertised
       // as something to visit.
       if (st.interstitial) return '';
-      if (gone) { cutCount++; cutMins += (st.mins || 0); }
+      // Only ADAPTIVE absences count toward this tally — the sentence below
+      // reads "N sections marked adaptive came out because of your first
+      // five answers", which is specifically about battery-driven
+      // compression. A remediation card being gone (item 10) is a DIFFERENT
+      // kind of absence — it depends on later in-module checks, not the
+      // battery — and counting it here would claim credit the battery never
+      // earned, or blame it for a card that was never coming out either way.
+      if (gone && st.adaptive) { cutCount++; cutMins += (st.mins || 0); }
       var done = !gone && !!course[DONE_KEYS[st.id]];
       var meta = [];
       if (st.stage) meta.push('<span class="stage">' + esc(st.stage) + '</span>');
@@ -3168,6 +3175,155 @@
   }
 
   // ==========================================================================
+  //  REMEDIATION — Know only, inserted live before Perform (D2). K1 is a
+  //  gate: it loops with a fresh item, in whichever modality the learner did
+  //  NOT get taught in, until passed — there is no give-up path. K2 is
+  //  remediate: one retry, then on regardless of the outcome, which is the
+  //  same policy hzcheck's own two tries already runs at the beat above it.
+  //
+  //  Both live between the debrief and walk, gated on the check they are
+  //  remediating having actually failed (inflow.passed / hazard.passed),
+  //  so a learner who passed either check on the first pass never sees them.
+  // ==========================================================================
+  var REMK1_BANK = [
+    { stem: 'Which comes first: activating the safety feature, or walking to the container?',
+      opts: [
+        { t: 'Activating the safety feature', ok: true,
+          reply: 'Right. The feature goes on while the sharp is still under your control, before it moves anywhere.' },
+        { t: 'Walking to the container', ok: false,
+          reply: 'That is the second move, not the first. An unshielded point in transit is where most injuries happen — the feature goes on before anything moves.' }
+      ] },
+    { stem: 'You reach for a container and there is none within reach. What do you do?',
+      opts: [
+        { t: 'Keep it in your own hand and walk it to one', ok: true,
+          reply: 'Right. A shielded sharp is safe to carry; the alternative is setting it down somewhere, which is exactly the gap this module is about.' },
+        { t: 'Set it down somewhere safe until you can come back', ok: false,
+          reply: 'That is the gap this whole module is about — a sharp set down is a sharp somebody else finds. Keep it in hand and walk it to a container instead.' }
+      ] }
+  ];
+  // The modality they did NOT get: video's closest substitute is the tutor
+  // walkthrough (both show the steps happening rather than listing them),
+  // and everything else contrasts with a plain written list.
+  function remk1Modality() {
+    var served = modalityId();
+    return served === 'tutor' ? 'article' : 'tutor';
+  }
+  function REMK1_CONTENT() {
+    var m = remk1Modality();
+    return '<main class="ll-object"><div class="pr-wrap">' +
+      '<p class="ll-eyebrow">Another look, a different way</p>' +
+      '<h1 class="pr-h">The procedure again' + (m === 'tutor' ? ' — step by step this time.' : ' — in writing this time.') + '</h1>' +
+      (m === 'tutor' ? '<div class="pr-tutor" id="rk1Tutor"></div>' : procedureList()) +
+      '<div class="cs-wrap" id="rk1Q" style="margin-top:28px">' +
+        '<p class="ll-eyebrow">Check: 1 question</p>' +
+        '<h2 class="cs-q cs-q--lead" id="rk1Stem"></h2>' +
+        '<div class="cs-opts" id="rk1Opts"></div>' +
+      '</div>' +
+    '</div></main>';
+  }
+  function remk1Init(ctx) {
+    var m = remk1Modality();
+    ctx.setCoachSay('Same procedure, a different way in this time — and one more question on it before we move on.');
+    if (m === 'tutor') {
+      var host = document.getElementById('rk1Tutor');
+      var useP = lens() && lens().premise === 'use';
+      var shown = PROCEDURE.filter(function (s) { return !(s.onlyOn && s.onlyOn !== (useP ? 'use' : 'find')); });
+      shown.forEach(function (s, i) {
+        setTimeout(function () {
+          if (!host) return;
+          var d = document.createElement('div');
+          d.className = 'pr-turn';
+          d.innerHTML = '<span class="pr-n">' + (i + 1) + '</span>' +
+            '<span class="pr-main"><b>' + esc(s.t) + '</b><span class="pr-d">' + esc(s.d) + '</span></span>';
+          host.appendChild(d);
+          requestAnimationFrame(function () { d.classList.add('in'); });
+        }, T(300 + i * 700));
+      });
+    }
+    var bankIdx = 0, tries = 0;
+    var stemEl = document.getElementById('rk1Stem');
+    var optsEl = document.getElementById('rk1Opts');
+    function render() {
+      var q = REMK1_BANK[bankIdx % REMK1_BANK.length];
+      stemEl.textContent = q.stem;
+      optsEl.innerHTML = '';
+      var settled = false;
+      q.opts.forEach(function (o) {
+        var b = csOption(o.t);
+        b.addEventListener('click', function () {
+          if (settled) return;
+          settled = true;
+          tries++;
+          if (o.ok) {
+            optsEl.classList.add('answered');
+            optsEl.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
+            csMark(b, 'ok');
+            saveResult('remk1', { passed: true, attempts: tries });
+            ctx.setCoachSay(esc(o.reply));
+            // refreshNav (which re-arms the gate via updateFooter) before
+            // enableNext, or updateFooter's own reset clobbers the unlock —
+            // same ordering Bystander's own remediation uses.
+            LE.refreshNav();
+            ctx.enableNext();
+          } else {
+            csMark(b, 'bad'); b.disabled = true;
+            ctx.setCoachSay(esc(o.reply) + ' Let’s try another one on the same procedure.');
+            setTimeout(function () { bankIdx++; render(); }, T(1400));
+          }
+          ctx.positionOrb(true);
+        });
+        optsEl.appendChild(b);
+      });
+    }
+    render();
+  }
+
+  // K2's own remediation: one item, one try, then on regardless — the
+  // remediate policy already governing hzcheck's two tries above it.
+  var REMK2_ITEM = {
+    stem: 'A used needle is dangerous mainly because of ___.',
+    opts: [
+      { t: 'the puncture, not the amount of blood on it', ok: true,
+        reply: 'Right. The puncture is what makes the route in — the amount barely matters next to that.' },
+      { t: 'how sharp the point still is', ok: false,
+        reply: 'Not the mechanism — a dull point still punctures skin. What matters is that it breaks the skin at all, not how cleanly.' },
+      { t: 'how long ago it was used', ok: false,
+        reply: 'Time does not change the mechanism — a used point carries a trace whether it was an hour ago or a week ago. The puncture is what matters.' }
+    ]
+  };
+  function REMK2_CONTENT() {
+    return '<main class="ll-object"><div class="cs-wrap">' +
+      '<p class="ll-eyebrow">Another look</p>' +
+      '<h2 class="cs-q cs-q--lead">Not the amount. The route.</h2>' +
+      '<p class="ll-sub">A needlestick is worse than blood on unbroken skin for one reason: the point punctures, so ' +
+        'the route in is not stopped by intact skin the way it normally would be. That is true whether the trace ' +
+        'on the point is large or small.</p>' +
+      '<p class="cs-q" style="margin-top:24px">' + esc(REMK2_ITEM.stem) + '</p>' +
+      '<div class="cs-opts" id="rk2Opts"></div>' +
+    '</div></main>';
+  }
+  function remk2Init(ctx) {
+    var opts = document.getElementById('rk2Opts');
+    var settled = false;
+    ctx.setCoachSay('One more look at this, since it is the reason for the rest of the module.');
+    REMK2_ITEM.opts.forEach(function (o) {
+      var b = csOption(o.t);
+      b.addEventListener('click', function () {
+        if (settled) return;
+        settled = true;
+        opts.classList.add('answered');
+        opts.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
+        csMark(b, o.ok ? 'ok' : 'bad');
+        saveResult('remk2', { passed: o.ok });
+        ctx.setCoachSay(esc(o.reply));
+        ctx.enableNext();
+        ctx.positionOrb(true);
+      });
+      opts.appendChild(b);
+    });
+  }
+
+  // ==========================================================================
   //  WHEN YOU ARE BEHIND — F4 (Feel / Can), sitting immediately before the
   //  simulation, which is the only place it belongs.
   //
@@ -3456,8 +3612,12 @@
       K1: proven
         ? ['Shown', 'band-exc', 'From the five questions',
            'You put the steps in the right order before the module even started.']
-        : ['Taught', 'band-ok', 'From the lesson and the quick check',
-           'Taught here, then checked again straight afterwards.'],
+        : (c.remk1 && c.remk1.passed)
+          ? ['Taught', 'band-ok', 'From the lesson, the quick check, and a second look',
+             'Missed the first check, so the procedure came back a different way — passed on the second look, ' +
+             (remk1Modality() === 'tutor' ? 'step by step' : 'in writing') + '.']
+          : ['Taught', 'band-ok', 'From the lesson and the quick check',
+             'Taught here, then checked again straight afterwards.'],
       K2: k2TestUp()
         ? ['Shown', 'band-exc', 'From the five questions',
            'You showed you already had this at the start, so the explainer served its harder version with no check afterward.']
@@ -3465,11 +3625,17 @@
           ? ['Shown', 'band-exc', 'From the one question after the explainer',
              (c.hazard.attempts > 1 ? 'Second go, and you got there: ' : 'First go: ') +
              'a needle is dangerous because it makes a route into a bloodstream, not because of how much blood is on it.']
-          : c.hazard
-            ? ['Taught', 'band-ok', 'From the one question after the explainer',
-               'You had two tries at the mechanism and I explained it a second way. Worth another look — everything else in this module rests on it.']
-            : ['Taught', 'band-ok', 'From the explainer',
-               'Served in full. This one is the reason for the rest, so it is never shortened.'],
+          : c.remk2
+            ? (c.remk2.passed
+                ? ['Shown', 'band-exc', 'From a second look, in writing',
+                   'Missed the check twice, so we looked at it again — that time you had it: the puncture is the mechanism, not the amount.']
+                : ['Taught', 'band-warn', 'From a second look, in writing',
+                   'Still not landing after a second look. Worth a conversation before the rest of the module leans on it.'])
+            : c.hazard
+              ? ['Taught', 'band-ok', 'From the one question after the explainer',
+                 'You had two tries at the mechanism and I explained it a second way.']
+              : ['Taught', 'band-ok', 'From the explainer',
+                 'Served in full. This one is the reason for the rest, so it is never shortened.'],
       K3: k3TestUp()
         ? ['Shown', 'band-exc', 'From the case screens',
            'You spotted the fill-line condition at the start, so you got the harder version of both cases — this one is never taken away, only made harder.']
@@ -3681,6 +3847,17 @@
       // hint. The reaction later in debriefInit raises CLARA by itself.
       coach: { say: '' },
       content: DEBRIEF_CONTENT, init: debriefInit },
+
+    { id: 'remk1', icon: 'fa-rotate-left', mins: 2, stage: 'Learn', lesson: 'Another Look: The Procedure', mode: 'floating', gate: true,
+      when: function () { var c = readCourse(); return !!(c.inflow && c.inflow.passed === false); },
+      caption: { title: 'LEARN · Remediation (K1, gate)', note: 'D2/item 10. K1 gates, so failing the in-flow check does not get to stand: this re-teaches the procedure in whichever modality the learner was not taught in (a different carrier, not a repeat), then asks a fresh item from a 2-item bank. Loops — a new bank item on every miss — until passed, since a gate has no give-up path. Runs only when inflow.passed === false; a learner who passed on the first two tries never sees it.' },
+      content: REMK1_CONTENT, init: remk1Init },
+
+    { id: 'remk2', icon: 'fa-rotate-left', mins: 1, stage: 'Learn', lesson: 'Another Look: Why a Trace Matters', mode: 'floating', gate: true,
+      when: function () { var c = readCourse(); return !!(c.hazard && c.hazard.passed === false); },
+      caption: { title: 'LEARN · Remediation (K2, remediate)', note: 'D2/item 10. K2 is remediate, not gate: one fresh item, one try, then on regardless of the outcome — the same policy already running hzcheck\u2019s own two tries. Runs only when hazard.passed === false.' },
+      content: REMK2_CONTENT, init: remk2Init },
+
 
     { id: 'walk', icon: 'fa-sliders', mins: 1, stage: 'Learn', lesson: 'When You Are Behind', mode: 'floating', gate: true,
       // They LEAD here too: this is a self-report that is recorded and routes
