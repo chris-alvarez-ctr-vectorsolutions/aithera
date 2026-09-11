@@ -56,7 +56,7 @@
   //  A reviewer holding both documents can then see which of our objectives
   //  are theirs and which are ours.
   var OBJECTIVES = [
-    { id: 'K1', name: 'The safe handling procedure', domain: 'Know', sub: 'Recall', policy: 'gate', where: 'Pre-module battery',
+    { id: 'K1', name: 'The safe handling procedure', domain: 'Know', sub: 'Recall', policy: 'gate', locked: false, where: 'Pre-module battery',
       lock: 'test-out eligible', theory: 'Procedural Knowledge', src: 'LO 4.1',
       text: 'Recall the safe sharps handling procedure: plan disposal in advance, use needle alternatives when possible, activate safety features, and immediately dispose of used sharps in a designated container.' },
     // The objective the module ran for months without. Every other outcome in
@@ -64,21 +64,24 @@
     // none, so the four steps arrived with no stated hazard behind them. The
     // teach content is theirs — LO 4.1's first claim and LO 4.2's first —
     // sitting unused because no objective had claimed it.
-    { id: 'K2', name: 'Why a used sharp is dangerous', domain: 'Know', sub: 'Understand', policy: 'remediate', where: 'In-flow',
+    { id: 'K2', name: 'Why a used sharp is dangerous', domain: 'Know', sub: 'Understand', policy: 'remediate', locked: true, where: 'In-flow',
       lock: 'premise · never removed', theory: 'Causal Mechanism', src: 'LO 4.1 + LO 4.2 (unclaimed)',
       text: 'Explain why a used sharp is dangerous: it retains a trace of blood after use, its point breaks skin, and a pathogen only has to reach a bloodstream to infect — which is what a needlestick does.' },
     { id: 'K3', name: 'Spotting the conditions', domain: 'Know', sub: 'Observe', ext: 'No counterpart in the re-composed course. Recognition in the field is a different act from recalling the rule, and the training standard names it separately.',
-      policy: 'remediate', where: 'In-flow',
+      // D6: gate, not remediate — never removed and never given a second
+      // chance on a miss (the cases just get harder on test-up), which is
+      // closer to "mandatory, always evidenced" than to "one more try".
+      policy: 'gate', locked: true, where: 'In-flow',
       lock: 'content-locked · test-up', theory: 'Hazard Recognition', src: 'LO 3.2 + LO 3.3 (adjacent)',
       text: 'Recognize the conditions that produce most sharps injuries: a container that has stopped containing, a sharp left on a work surface, a sharp travelling in linen or general waste.' },
-    { id: 'F1', name: 'It protects your coworkers', domain: 'Feel', sub: 'Believe', policy: 'remediate', where: 'Pre + post',
+    { id: 'F1', name: 'It protects your coworkers', domain: 'Feel', sub: 'Believe', policy: 'remediate', locked: false, where: 'Pre + post',
       lock: 'reinforce only', theory: 'Professional Norm', src: 'LO 4.2',
       text: 'Agree: safe sharps disposal is a professional responsibility that protects my coworkers, not just a procedural formality.' },
-    { id: 'F2', name: 'Controls prevent the injury', domain: 'Feel', sub: 'Value', policy: 'ask', where: 'In-flow',
+    { id: 'F2', name: 'Controls prevent the injury', domain: 'Feel', sub: 'Value', policy: 'ask', locked: false, sampled: true, where: 'In-flow',
       lock: 'reinforce only', theory: 'Outcome Expectancy', src: 'LO 4.3',
       text: 'Agree: using engineering controls for sharps disposal will prevent the serious injuries and infections that shortcuts cause.' },
     { id: 'F3', name: 'What your shift actually does', domain: 'Feel', sub: 'Perceive', ext: 'No counterpart in the re-composed course. Perceived norm is measurable, movable, and the thing the shortcut actually rides on.',
-      policy: 'remediate', where: 'Pre + post',
+      policy: 'remediate', locked: false, where: 'Pre + post',
       lock: 'reinforce only', theory: 'Social Norm Perception', src: 'none — our construct',
       text: 'Agree: most people on my shift use the container immediately rather than setting a sharp down.' },
     // The Feel objective the module had no screen for. Three of the four
@@ -94,17 +97,20 @@
     // is visible inside one module.
     { id: 'F4', name: 'Doing it when you are behind', domain: 'Feel', sub: 'Can',
       ext: 'No counterpart in the re-composed course, which rates agreement on four objectives and capability on none. Perceived capability under a named obstacle is what the shortcut actually rides on in the moment.',
-      policy: 'ask', where: 'In-flow',
+      policy: 'ask', locked: false, sampled: true, where: 'In-flow',
       lock: 'reinforce only', theory: 'Self-Efficacy (Bandura)', src: 'none — our construct',
       text: 'Agree: I can carry a used sharp to the container even when I am behind, the line is waiting, and the container is on the other side of the building.' },
-    { id: 'D1', name: 'Acting while the moment is open', domain: 'Do', sub: 'Respond in the moment', policy: 'never', where: 'Simulation',
+    { id: 'D1', name: 'Acting while the moment is open', domain: 'Do', sub: 'Respond in the moment', policy: 'gate', locked: true, where: 'Simulation',
       lock: 'never skipped', theory: 'Behavioral Cueing', src: 'LO 6.2 (type borrowed)',
       text: 'Recognize and act on the cue to dispose while the moment is still open.' },
-    { id: 'D2', name: 'Doing it in context', domain: 'Do', sub: 'Perform', policy: 'gate', where: 'Simulation',
+    { id: 'D2', name: 'Doing it in context', domain: 'Do', sub: 'Perform', policy: 'gate', locked: true, where: 'Simulation',
       lock: 'never skipped', theory: 'Behavioral Capability (Bandura)', src: 'LO 4.4',
       text: 'Demonstrate safe sharps handling in context: plan disposal before use, activate safety features, and place used sharps in a designated container without recapping, bending, or placing in general waste.' },
     { id: 'D3', name: 'Keeping it up afterwards', domain: 'Do', sub: 'Sustain', ext: 'No counterpart in the re-composed course, which closes every objective on the day. Maintenance is the only thing a one-sitting module structurally cannot evidence.',
-      policy: 'never', where: 'Follow-up',
+      // D6: none, not gate/remediate/ask — declared extension with no
+      // pass/fail concept at all, even though the content itself is never
+      // skipped (that is `locked`'s job, a separate axis).
+      policy: 'none', locked: true, where: 'Follow-up',
       lock: 'never skipped', theory: 'Maintenance Self-Regulation', src: 'none — our construct',
       text: 'Keep the practice after the module ends — and raise a container or a hazard when you meet one.' }
   ];
@@ -112,11 +118,14 @@
     for (var i = 0; i < OBJECTIVES.length; i++) if (OBJECTIVES[i].id === id) return OBJECTIVES[i];
     return null;
   }
+  // D6/item 15: the doc's own four values (none|ask|remediate|gate) — 'never'
+  // was ours, and conflated "not policy-gated" with "content never removed",
+  // which is what the separate `locked` boolean is for now.
   var POLICY_CHIP = {
     gate:      { cls: 'pol-gate',  icon: 'fa-key',              label: 'Gate' },
     remediate: { cls: 'pol-remed', icon: 'fa-wand-magic-sparkles', label: 'Remediate' },
     ask:       { cls: 'pol-ask',   icon: 'fa-clipboard-list',   label: 'Ask' },
-    never:     { cls: 'pol-never', icon: 'fa-shield-halved',    label: 'Never skipped' }
+    none:      { cls: 'pol-none',  icon: 'fa-circle-minus',     label: 'Not assessed' }
   };
   // NOT shown to a learner. "Gate", "remediate", "K1 · Know / Remember" and
   // "pre-module battery" are how WE talk about routing; none of it answers a
@@ -128,8 +137,13 @@
     var o = obj(id), c = POLICY_CHIP[o.policy];
     return '<div class="pol-row">' +
       '<span class="pol ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i> ' + c.label + '</span>' +
-      (o.lock === 'content-locked · test-up'
-        ? '<span class="pol pol-lock"><i class="fa-solid fa-lock"></i> Content-locked</span>' : '') +
+      // Item 15: reads the actual boolean now, not a string-equality check
+      // against one specific `lock` description that happened to be the
+      // only content-locked objective when this was written — K1's D2/
+      // D1/D3 also carry "never skipped" style `lock` text but are not all
+      // content-locked in the same sense, so the two fields stay separate.
+      (o.locked ? '<span class="pol pol-lock"><i class="fa-solid fa-lock"></i> Content-locked</span>' : '') +
+      (o.sampled ? '<span class="pol pol-sample"><i class="fa-solid fa-shuffle"></i> Sampled</span>' : '') +
       '<span class="pol-obj"><b>' + o.id + '</b> · ' + esc(o.domain + ' / ' + o.sub) + ' · ' + esc(o.where) + '</span>' +
     '</div>';
   }
@@ -3708,7 +3722,12 @@
            'Served in full. This one is never shortened, whatever you answer.'],
       F1: (c.case4 && c.case4.post)
         ? ['Recorded', 'band-ok', 'Asked before and after the account',
-           'You said where you stood at the start, read what happened to someone doing your job, and answered the same question again.' + namedNote(c),
+           'You said where you stood at the start, read what happened to someone doing your job, and answered the same question again.' +
+           // Item 15: F1 is remediate — the downstream follow-up only runs
+           // when the post answer stayed at Somewhat or below, so a strong
+           // agreement here genuinely means no named-person question came up.
+           (c.downstream ? namedNote(c)
+             : ' You already agreed strongly, so the follow-up question about who is downstream of you never came up.'),
            moveChip(b.f1, c.case4.post)]
         : (c.case4 && c.case4.read)
           ? ['Rated only', 'band-warn', 'From your answer at the start',
@@ -3944,7 +3963,14 @@
       onSkip: function () { saveResult('controls', { skipped: true }); } },
 
     { id: 'downstream', icon: 'fa-pen-to-square', mins: 1, stage: 'Learn', lesson: 'Who Handles Your Waste', mode: 'floating', gate: true,
-      caption: { title: 'LEARN \u00b7 Who is downstream (F1, Feel / Believe)', note: 'One open question, on its own screen. It used to be the sixth element at the foot of the chain beat \u2014 directly under a story about a named stranger on twelve weeks of bloodwork, so a fictional person you were told you hurt and a real person at your own site arrived back to back with nothing saying why the second was being asked. Lifting it out lets it state its own reason BEFORE it asks, which is the one thing it could not do down there: the question works because most people cannot answer it, and that line was previously delivered only after the answer was in. Scored for one thing and NOT by a model \u2014 whether a specific person downstream has a name. That is F1 operationalised; an agreement scale on the same idea has a ceiling nobody falls below. Placed after the budget choice because the account earns that question and the adjacency is deliberate, and the module then widens one step at a time: one real person, the whole room, then the learner under pressure. The answer now reaches the record \u2014 the chain used to save it and nothing ever read it.' },
+      // Item 15/D6: F1's remediation, not a screen every learner meets. Fires
+      // only when the account's post answer (case4) stayed at Somewhat or
+      // below \u2014 a learner who already agreed strongly doesn't need the
+      // belief reinforced a second time. Defaults to running when case4
+      // hasn't resolved yet (post undefined), so it is never silently
+      // dropped by a run that reaches this step out of order.
+      when: function () { var p = (readCourse().case4 || {}).post; return p == null || p <= 2; },
+      caption: { title: 'LEARN \u00b7 Who is downstream (F1 remediation, Feel / Believe)', note: 'F1 is remediate (D6): this only runs when the account\u2019s post answer (case4) stayed at Somewhat or below \u2014 a learner who already agreed strongly does not need the belief reinforced a second time. One open question, on its own screen. It used to be the sixth element at the foot of the chain beat \u2014 directly under a story about a named stranger on twelve weeks of bloodwork, so a fictional person you were told you hurt and a real person at your own site arrived back to back with nothing saying why the second was being asked. Lifting it out lets it state its own reason BEFORE it asks, which is the one thing it could not do down there: the question works because most people cannot answer it, and that line was previously delivered only after the answer was in. Scored for one thing and NOT by a model \u2014 whether a specific person downstream has a name. That is F1 operationalised; an agreement scale on the same idea has a ceiling nobody falls below. Placed after the budget choice because the account earns that question and the adjacency is deliberate, and the module then widens one step at a time: one real person, the whole room, then the learner under pressure. The answer now reaches the record \u2014 the chain used to save it and nothing ever read it.' },
       coach: { say: 'Loading\u2026' },
       content: DOWN_CONTENT, init: downInit,
       onSkip: function () { saveResult('downstream', { named: null }); } },
