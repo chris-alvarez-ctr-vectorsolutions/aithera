@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TS Mobile App</title>
+
+    <!-- Vector Web Components core.
+         NOTE: this prototype does NOT use vaadin-*/vwc-* components. Per the
+         design direction it is TAMAGUI-SHAPED — see styles.css. Core is kept
+         loaded only so the page sits on the same font/CSS baseline as the rest
+         of the repo's mocks. -->
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 PRO Icons — self-hosted at the repo root (four levels up). -->
+    <link
+    rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css"
+    />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- .stage owns the LAID-OUT size of the phone; .device inside it is always
+     390x844 and is scaled by --fit (set in app.js) so the whole phone — tab bar
+     included — always fits the window without any page scrolling. -->
+<div class="stage">
+<div class="device">
+  <div class="device-screen">
+
+    <!-- Simulated OS status bar (frame chrome, not app UI) -->
+    <div class="status-bar" id="status-bar">
+      <span>9:41</span>
+      <span class="sb-icons">
+        <i class="fa-solid fa-signal-bars"></i>
+        <i class="fa-solid fa-wifi"></i>
+        <i class="fa-solid fa-battery-three-quarters"></i>
+      </span>
+    </div>
+
+    <!-- ================================================================
+         LOGIN — Initial App Foundation. Happy path only, per direction:
+         no SSO, merged-auth toggle or error states in this iteration.
+         ================================================================ -->
+    <section class="login is-active" id="screen-login">
+      <div class="login__brand">
+        <div class="login__brand-mark">Target<em>Solutions</em></div>
+        <div class="login__brand-sub">Vector Solutions</div>
+      </div>
+
+      <!-- Pane A — username / password, with the Face ID opt-in -->
+      <div class="t-YStack" id="login-password" style="gap:var(--space-4)">
+        <div class="t-Fieldset">
+          <label class="t-Label" for="username" style="color:#fff">Username</label>
+          <input class="t-Input" id="username" type="text" value="j.lee" autocomplete="username">
+        </div>
+        <div class="t-Fieldset">
+          <label class="t-Label" for="password" style="color:#fff">Password</label>
+          <input class="t-Input" id="password" type="password" value="password" autocomplete="current-password">
+        </div>
+
+        <!-- Turning this on swaps the next sign-in to the Face ID pane below. -->
+        <div class="faceid-optin">
+          <i class="fa-solid fa-face-viewfinder"></i>
+          <span>
+            <span class="faceid-optin__title">Use Face ID next time</span>
+            <span class="faceid-optin__sub">Sign in without typing your password</span>
+          </span>
+          <button class="t-Switch" id="faceid-toggle" type="button" role="switch"
+                  aria-checked="false" aria-label="Use Face ID next time"></button>
+        </div>
+
+        <button class="t-Button t-Button--primary" id="btn-login" type="button">Log In</button>
+        <button class="t-Button t-Button--ghost" type="button" style="color:#a8b6c8">Forgot your password?</button>
+      </div>
+
+      <!-- Pane B — Face ID sign-in, shown once the user has opted in -->
+      <div class="t-YStack" id="login-faceid" hidden
+           style="gap:var(--space-5);align-items:center">
+        <button class="faceid-scan" id="btn-faceid" type="button" aria-label="Sign in with Face ID">
+          <i class="fa-solid fa-face-viewfinder"></i>
+        </button>
+        <p class="faceid-status" id="faceid-status">Tap to sign in with Face ID</p>
+        <button class="t-Button t-Button--ghost" id="btn-use-password" type="button"
+                style="color:#a8b6c8">Use password instead</button>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         PUSH OPT-IN PRE-PROMPT — feature #2.
+         The PRD requires custom introductory language BEFORE the OS
+         dialog, including shared-device guidance. The OS dialog itself is
+         native and deliberately not simulated here.
+         ================================================================ -->
+    <section class="prompt" id="screen-prompt">
+      <div class="prompt__icon"><i class="fa-solid fa-bell"></i></div>
+      <h1 class="t-H1">Stay ahead of your training</h1>
+      <p class="t-Paragraph">
+        Get notified when assignments are due, credentials are expiring, and
+        events are coming up — so nothing slips during a busy shift.
+      </p>
+      <div class="prompt__note">
+        <i class="fa-solid fa-users"></i>
+        <span><strong>Using a shared device?</strong> Leave notifications off. Alerts are
+        personal to your account and would be visible to anyone using this device.</span>
+      </div>
+      <div class="t-YStack" style="gap:var(--space-2)">
+        <button class="t-Button t-Button--primary" data-goto="home" type="button">Turn On Notifications</button>
+        <button class="t-Button t-Button--ghost" data-goto="home" type="button">Not now</button>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         MAIN APP SHELL — header + screens + bottom tab bar
+         ================================================================ -->
+    <div class="app" id="app" hidden>
+
+      <header class="app-header" id="app-header"></header>
+
+      <!-- ---- HOME: Quick Links only (To Do / Bulletin Board deferred) ---- -->
+      <section class="screen" id="screen-home">
+        <div class="screen__body">
+          <!-- The card title is a customer-configurable string in the web
+               platform ("Frequent Activities" in the reference screenshot);
+               groups inside it are customer-named sub-headers. -->
+          <div class="t-Card t-Card--accented">
+            <div class="t-Card__body">
+              <h2 class="t-H2" id="ql-title">Quick Links</h2>
+              <div id="ql-groups"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ---- RECORD COMPLETIONS: stub (built separately) ---- -->
+      <section class="screen" id="screen-record">
+        <div class="stub">
+          <div class="stub__icon"><i class="fa-solid fa-clipboard-check"></i></div>
+          <h1 class="t-H1">Record Completions</h1>
+          <p class="t-Paragraph">
+            Placeholder. The Record Completions workflow — activity search, user
+            selection, components, and submission — is already prototyped
+            separately and will be brought in on a later pass.
+          </p>
+          <span class="t-Chip" style="margin:0">Placeholder screen</span>
+        </div>
+      </section>
+
+      <!-- ---- SCAN: QR / barcode → activities (feature #5a) ---- -->
+      <section class="scanner" id="screen-scan">
+        <div class="scanner__view">
+          <span class="scanner__corner scanner__corner--tr"></span>
+          <span class="scanner__corner scanner__corner--bl"></span>
+          <div class="scanner__line"></div>
+        </div>
+        <p class="scanner__hint">Point your camera at the QR or barcode posted with the activity.</p>
+        <button class="t-Button t-Button--primary" id="btn-scan" type="button" style="max-width:230px">
+          <i class="fa-solid fa-qrcode"></i> Simulate a scan
+        </button>
+      </section>
+
+      <!-- ---- MORE: the app-level destinations that exist ---- -->
+      <section class="screen" id="screen-more">
+        <div class="screen__body">
+          <div class="t-Card"><div id="more-primary"></div></div>
+        </div>
+      </section>
+
+      <!-- ---- NOTIFICATIONS (feature #2) ----
+           A read-only feed of example alerts. Notification PREFERENCES are not
+           editable in the app in this release — they stay configured in the web
+           platform — so there is no settings screen here. -->
+      <section class="screen" id="screen-notifications">
+        <div class="screen__body">
+          <div class="t-Card"><div id="notif-list"></div></div>
+          <p class="t-SizableText" id="notif-empty" hidden style="text-align:center">You're all caught up.</p>
+        </div>
+      </section>
+
+      <!-- ---- PROFILE (Initial App Foundation) ---- -->
+      <section class="screen" id="screen-profile">
+        <div class="screen__body">
+          <div class="t-Card"><div class="t-Card__body t-YStack" style="align-items:center;gap:var(--space-3);text-align:center">
+            <div class="t-Avatar t-Avatar--lg">JL</div>
+            <div>
+              <h2 class="t-H3">Jordan Lee</h2>
+              <p class="t-SizableText">Company Officer</p>
+            </div>
+            <hr class="t-Separator" style="width:100%">
+            <div>
+              <p class="t-Label">Department</p>
+              <p class="t-H4" style="margin-top:var(--space-1)">Springfield Fire Department</p>
+            </div>
+          </div></div>
+          <button class="t-Button t-Button--danger" id="btn-logout" type="button">
+            <i class="fa-solid fa-right-from-bracket"></i> Log Out
+          </button>
+        </div>
+      </section>
+
+      <!-- ---- BOTTOM TAB BAR ---- -->
+      <nav class="t-Tabs" id="tabs">
+        <button class="t-Tabs__tab is-active" data-tab="home"   type="button"><i class="fa-solid fa-house"></i>Home</button>
+        <button class="t-Tabs__tab"           data-tab="record" type="button"><i class="fa-solid fa-clipboard-check"></i>Record</button>
+        <button class="t-Tabs__tab"           data-tab="scan"   type="button"><i class="fa-solid fa-qrcode"></i>Scan</button>
+        <button class="t-Tabs__tab"           data-tab="more"   type="button"><i class="fa-solid fa-ellipsis"></i>More</button>
+      </nav>
+    </div>
+
+    <!-- Bottom sheet — every "this would launch X" placeholder uses it -->
+    <div class="t-Sheet__overlay" id="sheet">
+      <div class="t-Sheet__frame">
+        <div class="t-Sheet__handle"></div>
+        <div class="t-YStack" style="gap:var(--space-3)">
+          <h3 class="t-H3" id="sheet-title"></h3>
+          <p class="t-Paragraph" id="sheet-body"></p>
+          <button class="t-Button t-Button--secondary" id="sheet-close" type="button">Got it</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="home-indicator"></div>
+  </div>
+</div>
+</div>
+
+<script src="app.js"></script>
+
+<!-- ── Design Toolbox: Flow Map ──────────────────────────────────────────── -->
+<script>
+  // 1) State driver — app.js owns navigation; this just delegates to it.
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    if (window.goTo) window.goTo(id, { instant: true });
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  // 2) Hash boot — honor #fm=<state> on load and on change.
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  // 3) Flow-map config
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'TS Mobile App — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 440 },
+      flows: [
+        { id: 'onboarding', name: 'Getting In', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 400, h: 400 }, labelXY: { x: 40, y: 40 } },
+        { id: 'main', name: 'In the App', pill: 'B', color: '#a8d5ba',
+          lane: { x: 440, y: 20, w: 780, h: 400 }, labelXY: { x: 460, y: 40 } }
+      ],
+      nodes: [
+        { id: 'login', flow: 'onboarding', entry: true, x: 60, y: 180,
+          step: 'Entry', name: 'Log In', state: 'login',
+          desc: 'Happy-path login only. SSO, merged auth and error states are deferred.' },
+        { id: 'prompt', flow: 'onboarding', x: 230, y: 180,
+          step: 'First launch', name: 'Notification Opt-In', state: 'prompt',
+          desc: 'The custom pre-prompt the PRD requires before the native OS dialog, including shared-device guidance.' },
+        { id: 'home', flow: 'main', x: 480, y: 180,
+          step: 'Home', name: 'Quick Links', state: 'home',
+          desc: 'Home shows Quick Links only. One customer-named card with customer-named group sub-headers and admin-ordered, admin-colored tiles.' },
+        { id: 'record', flow: 'main', x: 660, y: 60,
+          step: 'Tab', name: 'Record Completions', state: 'record',
+          desc: 'Placeholder screen. The real RCA workflow is prototyped separately.' },
+        { id: 'scan', flow: 'main', x: 660, y: 175,
+          step: 'Tab', name: 'Scan', state: 'scan',
+          desc: 'QR/barcode viewfinder. A scan resolves to a placeholder sheet rather than a real activity launch.' },
+        { id: 'more', flow: 'main', x: 660, y: 290,
+          step: 'Tab', name: 'More', state: 'more',
+          desc: 'Web platform shortcut, notification settings and profile — plus the below-the-line features shown inert.' },
+        { id: 'notifications', flow: 'main', x: 870, y: 240,
+          step: 'Detail', name: 'Notifications', state: 'notifications',
+          desc: 'Read-only feed of example alerts across the four in-scope types. Preferences are not editable in the app — they stay in the web platform. Tapping one deep-links out to the browser.' },
+        { id: 'profile', flow: 'main', x: 870, y: 350,
+          step: 'Detail', name: 'Profile', state: 'profile',
+          desc: 'Name, role, department and log out — the barebones Phase 1 profile the PRD calls for.' }
+      ],
+      edges: [
+        ['login', 'prompt'],
+        ['prompt', 'home'],
+        ['home', 'record'],
+        ['home', 'scan'],
+        ['home', 'more'],
+        ['home', 'notifications'],
+        ['more', 'profile']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: pin-and-comment review widget + flow map. Review tooling
+     only — NOT part of the product; developers strip this line. -->
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
