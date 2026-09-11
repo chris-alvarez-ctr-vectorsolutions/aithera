@@ -533,7 +533,17 @@
 
     // Focus the card rather than the first control inside it: a screen reader
     // then reads the question before the options, and a keyboard learner lands
-    // at the top of what just appeared instead of halfway into it.
+    // at the top of what just appeared instead of halfway into it. But a bare
+    // tabindex="-1" div has no accessible name of its own — focus would move
+    // there silently, leaving the learner to read forward to find the
+    // question. Point it at its own heading instead, so landing on it reads
+    // the question aloud immediately.
+    var heading = el.querySelector('h1, h2, h3');
+    if (heading) {
+      if (!heading.id) heading.id = (el.id || 'rf') + '-h';
+      el.setAttribute('role', 'group');
+      el.setAttribute('aria-labelledby', heading.id);
+    }
     el.setAttribute('tabindex', '-1');
     // The held content may be taller than the viewport, so the ask can land
     // below the fold — leaving the learner looking at blurred text with no
@@ -931,6 +941,7 @@
         var b = document.createElement('button');
         b.className = 'bl-option'; b.type = 'button';
         b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
+        b.setAttribute('aria-label', opt.t);
         b.innerHTML = '<i class="fa-solid ' + opt.icon + '" aria-hidden="true"></i>' +
                       '<span class="bl-option-label">' + esc(opt.t) + '</span>';
         b.addEventListener('click', function () {
@@ -1684,7 +1695,14 @@
       // does nothing is worse than no control.
       li.innerHTML = '<span class="ch-dot" aria-hidden="true"></span>' +
         '<span class="ch-main">' +
-          '<button class="ch-head" type="button" disabled aria-expanded="true">' +
+          // aria-label rather than letting the name accumulate from the two
+          // adjacent spans — they carry no separating text node, so the
+          // computed name would run the time straight into the peek with no
+          // space. Uses the full body, not the truncated peek: a screen
+          // reader loses nothing to the ellipsis a sighted learner accepts
+          // for space.
+          '<button class="ch-head" type="button" disabled aria-expanded="true" ' +
+            'aria-label="' + esc(n.time + '. ' + n.body) + '">' +
             '<span class="ch-time">' + esc(n.time) + '</span>' +
             '<span class="ch-peek">' + esc(peek(n.body)) + '</span>' +
             '<i class="fa-solid fa-chevron-down ch-chev" aria-hidden="true"></i>' +
@@ -2388,6 +2406,11 @@
   function csOption(text) {
     var b = document.createElement('button');
     b.className = 'cs-opt'; b.type = 'button';
+    // An explicit label rather than relying on descendant text to accumulate
+    // into the accessible name — that computation came back empty in an
+    // automated pass, and this option is graded, so a screen reader learner
+    // has to hear it before choosing.
+    b.setAttribute('aria-label', text);
     b.innerHTML = '<span class="cs-mark" aria-hidden="true"></span><span class="cs-opt-t"></span>';
     b.querySelector('.cs-opt-t').textContent = text;
     return b;
@@ -2589,6 +2612,7 @@
       var b = document.createElement('button');
       b.className = 'bl-option'; b.type = 'button';
       b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
+      b.setAttribute('aria-label', o.t);
       b.innerHTML = '<i class="fa-solid ' + o.icon + '" aria-hidden="true"></i>' +
                     '<span class="bl-option-label">' + esc(o.t) + '</span>';
       b.addEventListener('click', function () {
@@ -2746,6 +2770,7 @@
       var b = document.createElement('button');
       b.className = 'bl-option'; b.type = 'button';
       b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
+      b.setAttribute('aria-label', o.t);
       b.innerHTML = '<i class="fa-solid ' + o.icon + '" aria-hidden="true"></i>' +
                     '<span class="bl-option-label">' + esc(o.t) + '</span>';
       b.addEventListener('click', function () {
@@ -3033,6 +3058,7 @@
       var b = document.createElement('button');
       b.className = 'bl-option'; b.type = 'button';
       b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
+      b.setAttribute('aria-label', o.t);
       b.innerHTML = '<i class="fa-solid ' + o.icon + '" aria-hidden="true"></i>' +
                     '<span class="bl-option-label">' + esc(o.t) + '</span>';
       b.addEventListener('click', function () {
