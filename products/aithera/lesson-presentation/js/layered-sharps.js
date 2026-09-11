@@ -2266,6 +2266,15 @@
     // list, on one screen.
     function show(m) {
       if (showing === m) return;
+      // Leaving Read before "Done reading" is pressed drops the borrowed
+      // footer button back to a plain, still-shut Continue — otherwise it
+      // stayed live and labelled for a read the learner walked away from.
+      if (showing === 'article' && !handed) {
+        ctx.els.next.classList.remove('ll-btn--step');
+        ctx.els.next.classList.add('ll-btn--primary');
+        ctx.els.next.innerHTML = 'Continue <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>';
+        ctx.els.next.disabled = true;
+      }
       showing = m;
       // Item 13: which carrier they actually used, for the record. Merged
       // rather than overwritten — hzcheck's own pass/fail lands in this same
@@ -2313,8 +2322,12 @@
         setTimeout(done, T(700));
       } else {
         eyebrow.textContent = 'Read: about 4 minutes' + noCheckTag;
-        // Nothing to finish on a read, so the door opens once it has landed.
-        setTimeout(done, T(700));
+        // Item 25/D1: gated on the learner's own word, the same footer
+        // relabel the account screen's "Done reading" uses — a fixed delay
+        // could not tell a skim from an actual read, and the other two
+        // carriers already gate on something real (watched to the end,
+        // stood in this modality long enough to have heard it start).
+        ctx.setNextAction('Done reading', function () { done(); });
       }
 
       ctx.positionOrb(true);
@@ -2388,10 +2401,21 @@
       b.addEventListener('click', function () { show(b.dataset.m); });
     });
 
-    // Video is the default carrier and the placeholder poster says so rather
-    // than showing a black frame. The control stays on screen, so switching is
-    // one tap and the cost of the route not taken is always visible.
-    show('video');
+    // Item 25: while the clip is still a placeholder, it is not a real choice
+    // — offering it reads as "watch the real thing" and hands back a poster
+    // that says COMING SOON. Stays reachable for a presenter (review mode,
+    // same gate as the video Skip pill above) so the placeholder is still
+    // demonstrable; a learner never sees the button at all.
+    if (HAZARD_PLACEHOLDER && !LE.reviewMode()) {
+      var vBtn = pick.querySelector('.md-opt[data-m="video"]');
+      if (vBtn) vBtn.hidden = true;
+    }
+
+    // Read is the default carrier while the video is a placeholder — video was
+    // the default before there was a real clip behind it, which meant every
+    // learner's first tap landed on a COMING SOON poster. Swaps back to video
+    // automatically the day HAZARD_PLACEHOLDER flips false.
+    show(HAZARD_PLACEHOLDER ? 'article' : 'video');
 
     // Gated on the carrier being consumed, not on a question. The check used
     // to live at the foot of this page and did the gating; it is its own
@@ -2401,8 +2425,11 @@
     function done() {
       if (handed) return; handed = true;
       ctx.enableNext();
-      ctx.setCoachSay('So a poke that barely bleeds still counts as an exposure. A used point '
-        + 'carries a trace of blood, and a puncture puts that trace past your skin.');
+      // Reacts to the fact of finishing, not to the mechanism itself — the
+      // earlier line ("a puncture puts that trace past your skin") was the
+      // hzcheck answer restated, handed over one screen early.
+      ctx.setCoachSay('So a poke that barely bleeds still counts as an exposure. '
+        + 'Worth holding onto why, since the next question asks.');
       ctx.positionOrb(true);
     }
   }
