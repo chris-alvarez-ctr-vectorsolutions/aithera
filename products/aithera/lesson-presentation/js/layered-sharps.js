@@ -212,6 +212,7 @@
       },
       chain: {
         end: 'Remember, you may never meet the person who empties your classroom bins.',
+        avoided: 'Marisol never has to find out whether that glass mattered.',
         setup: { time: '3:15 PM', body: 'You sweep up a broken beaker from the back bench of your classroom. The red sharps disposal container is through in the prep room. There is also a classroom bin under the sink, right here.' },
         pick: {
           safe:  { t: 'The red sharps container in the prep room', icon: 'fa-shield-halved' },
@@ -281,6 +282,7 @@
       },
       chain: {
         end: 'Remember, you may never meet the person who clears your debris bags.',
+        avoided: 'Teodoro never has to find out whether that blade mattered.',
         setup: { time: '2:40 PM', body: 'You find a used blade on a window ledge on the second floor, left by whoever glazed it. The red sharps disposal container is in the trailer, two levels down. There is also a debris bag at your feet.' },
         pick: {
           safe:  { t: 'The red sharps container in the trailer', icon: 'fa-shield-halved' },
@@ -347,16 +349,23 @@
       },
       chain: {
         end: 'Remember, you may never meet the person who empties your break-room bin.',
-        setup: { time: '4:52 PM', body: 'You finish your insulin in the break room at the end of second shift. The red sharps disposal container is across the plant floor, past the press line. There is also a lidded bin two feet away.' },
+        avoided: 'Jacob never has to find out whether that needle mattered.',
+        // D10: the earlier version put the learner's OWN insulin injection on
+        // screen as the hazard — a training beat that reads as commentary on a
+        // coworker's routine medical care the moment it is re-used for someone
+        // real. Chris (a colleague, not the learner) still injects on shift;
+        // the decision point is what you do when he presses the used pen into
+        // your hand because he has to go, not whether you should have used it.
+        setup: { time: '4:52 PM', body: 'Chris, next to you on the line, gets a call he has to take. He presses his used insulin pen into your hand on his way out — “hang onto this a second” — and jogs off toward the office. The red sharps disposal container is across the plant floor, past the press line. There is also a lidded bin two feet away.' },
         pick: {
           safe:  { t: 'The red sharps container across the plant floor', icon: 'fa-shield-halved' },
           short: { t: 'The lidded bin two feet away', icon: 'fa-trash-can' }
         },
         act: {
           safe:  { time: '4:53 PM', gap: 'a minute later', gapSize: 's',
-                   body: 'You walk it across the floor and past the press line to the container. It costs you about two minutes at the end of a shift.' },
+                   body: 'You walk it across the floor and past the press line to the container. It costs you about two minutes holding a sharp that was never yours.' },
           short: { time: '4:53 PM', gap: 'a minute later', gapSize: 's',
-                   body: 'You drop it in the bin, under a paper towel. Nobody would ever know.' }
+                   body: 'You drop it in the bin, under a paper towel. It was not yours to begin with, and Chris is already back on the phone.' }
         },
         safeAfter: [
           { time: '11:20 PM', gap: 'six and a half hours later', gapSize: 'l',
@@ -368,7 +377,7 @@
           { time: '11:21 PM', gap: 'a minute later', gapSize: 's',
             body: 'He gathers the bag against his leg to lift it clear of the frame. The needle is somewhere in the middle of it, and it goes through the plastic into his thigh.' },
           { time: 'Over the next six months', gap: 'and then', gapSize: 'm',
-            body: 'Jacob now has to be tested at six weeks, twelve weeks and six months to find out whether he caught anything. It was your blood on that needle. He has done nothing wrong at any point in this chain.' }
+            body: 'Jacob now has to be tested at six weeks, twelve weeks and six months to find out whether he caught anything. It was Chris’s blood on that needle, handed off in a hurry. He has done nothing wrong at any point in this chain.' }
         ]
       }
     },
@@ -412,6 +421,7 @@
       },
       chain: {
         end: 'Remember, you may never meet the crew that cleans the rig after you.',
+        avoided: 'Amrit never has to find out whether that ampoule mattered.',
         setup: { time: '2:10 AM', body: 'You break an ampoule drawing up a dose in the back of the rig. The red sharps disposal container is on the wall behind the bench seat. There is also a trash bag on the rail at your knee.' },
         // Optional per sector. The decision screen renders the lockup only
         // where a hero exists, so the three sectors without one are unchanged.
@@ -1700,7 +1710,7 @@
 
           '<div class="ch-close" id="chClose" hidden>' +
             '<p id="chCloseA">' + esc(CHAIN_CLOSE) + '</p>' +
-            '<p>' + esc(L.chain.end) + '</p>' +
+            '<p id="chCloseB">' + esc(L.chain.end) + '</p>' +
           '</div>' +
 
           // The decision was binary and is not final. Offered on BOTH routes:
@@ -1860,6 +1870,9 @@
       pick.hidden = true;
       closer.hidden = true;
       retry.hidden = true;
+      retry.classList.remove('is-primary');
+      ctx.els.next.classList.remove('ll-btn--ghost');
+      ctx.els.next.classList.add('ll-btn--primary');
       push(C.act[k]);
       // Both routes now reach the person downstream, because that person IS
       // the objective. The shortcut runs the full chain to the testing window;
@@ -1902,6 +1915,13 @@
       document.getElementById('chCloseA').textContent = viewing === 'safe'
         ? CHAIN_CLOSE_SAFE
         : CHAIN_CLOSE;
+      // The safe route's second line names what was actually avoided rather
+      // than repeating the generic "you may never meet them" reminder — that
+      // line is written for the route where harm really did travel, and
+      // reusing it here would flatten the one node where nothing happened.
+      document.getElementById('chCloseB').textContent = viewing === 'safe'
+        ? C.avoided
+        : C.end;
       closer.hidden = false;
       // The first choice is the datum; whether they went on to walk the other
       // branch is recorded separately rather than replacing it.
@@ -1922,6 +1942,14 @@
       retry.hidden = false;
       retry.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ' +
         'Want to try the other path?';
+      // Only on the safe route does seeing the shortcut outweigh moving on —
+      // there, retry takes the primary look and Continue steps back to a
+      // plain secondary button for as long as retry is the stronger offer.
+      if (viewing === 'safe') {
+        retry.classList.add('is-primary');
+        ctx.els.next.classList.remove('ll-btn--primary');
+        ctx.els.next.classList.add('ll-btn--ghost');
+      }
       ctx.positionOrb(true);
     }
 
