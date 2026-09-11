@@ -41,7 +41,11 @@
     demoControls: [], backHref: '../index.html',
     // Idle hint. OFF unless a course asks for it, so pages already on this
     // engine keep the behaviour they have. See armHint().
-    coachHint: null
+    coachHint: null,
+    // Review mode. OFF unless a course asks for it, same reason: gating the
+    // bare S key and the Demo menu's toggle behind it is a behaviour change,
+    // and a course that never asked for review mode keeps the S key it has.
+    reviewGate: false
   };
   var STEPS = [];
 
@@ -78,6 +82,19 @@
     var next = CFG.lensOrder[(i + 1) % CFG.lensOrder.length];
     try { sessionStorage.setItem('ll-lens', next); } catch (e) {}
     return next;
+  }
+  // --- Review mode -----------------------------------------------------------
+  // One flag for every affordance that exists so a reviewer can reach a
+  // screen without doing the work in front of it, and that a real learner
+  // should never be able to trigger by accident: the bare "S" key (no visible
+  // control at all) and the video "Skip" pill (sits right on the player with
+  // no "review only" framing, unlike the Demo menu it now joins). OFF by
+  // default and for the life of the tab, same as the lens choice.
+  function reviewMode() {
+    try { return sessionStorage.getItem('ll-review') === '1'; } catch (e) { return false; }
+  }
+  function setReviewMode(on) {
+    try { sessionStorage.setItem('ll-review', on ? '1' : '0'); } catch (e) {}
   }
   // --- Single-select option group (keyboard) --------------------------------
   // Arrow/Home/End move FOCUS only; Enter or Space commits, the way any button
@@ -743,7 +760,11 @@
 
     // ------------------------------------------------------------------------
     // PROTOTYPE ONLY — NOT FOR PRODUCTION. See skipStep().
-    // "S" skips the gated object on screen. Guarded so it cannot fire while
+    // "S" skips the gated object on screen. On a course that opted into
+    // reviewGate it only fires in review mode — it has no visible control at
+    // all, so off review mode it is not a convenience a learner could
+    // stumble into, it is a hole. A course that never asked for reviewGate
+    // keeps the S key it always had. Also guarded so it cannot fire while
     // somebody is typing: any modifier, or focus inside a text field or a
     // contenteditable, and the key is theirs rather than ours. Without that
     // guard, typing "sanitation" into the coach composer would skip six
@@ -751,6 +772,7 @@
     // ------------------------------------------------------------------------
     document.addEventListener('keydown', function (e) {
       if (e.key !== 's' && e.key !== 'S') return;
+      if (CFG.reviewGate && !reviewMode()) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       var t = e.target;
       if (t && (t.isContentEditable ||
@@ -857,10 +879,21 @@
     var step = STEPS[idx];
     var rows = [];
 
+    // Review mode — engine-owned, offered only where the course opted in.
+    // Gates the affordances that carry no "review only" framing of their own
+    // (the bare S key, a content file's own video Skip pill); the Skip row
+    // right below stays reachable either way, since the Demo menu it lives in
+    // already carries that framing.
+    if (CFG.reviewGate) {
+      rows.push({ icon: 'fa-user-check', name: 'Review mode', state: reviewMode() ? 'On' : 'Off',
+        note: 'Unlocks the S-key skip and the video Skip pill',
+        run: function () { setReviewMode(!reviewMode()); showStep(idx, 'fwd', false); } });
+    }
     // Skip — only where there is a gate to get past.
     if (step && step.gate) {
-      rows.push({ icon: 'fa-forward', name: 'Skip this learning object', state: 'S',
-        note: 'Move past the gate without answering \u2014 or press S',
+      var sState = !CFG.reviewGate || reviewMode();
+      rows.push({ icon: 'fa-forward', name: 'Skip this learning object', state: sState ? 'S' : '',
+        note: 'Move past the gate without answering' + (sState ? ' — or press S' : ''),
         run: skipStep });
     }
     // Context lens — engine-owned, shown where the course says it applies.
@@ -982,6 +1015,10 @@
     T: T, esc: esc, readCourse: readCourse, saveResult: saveResult,
     pickGroup: pickGroup, wireChat: wireChat, typeFeedback: typeFeedback,
     lens: lens, lensId: lensId, cycleLens: cycleLens,
+    // PROTOTYPE ONLY — NOT FOR PRODUCTION. Whether the reviewer-only
+    // affordances that carry no framing of their own (a video's Skip pill,
+    // a syllabus row that jumps ahead) are unlocked for this tab.
+    reviewMode: reviewMode,
     // The engine's own nav, for content that changes the path mid-step and
     // needs the counters to catch up (compression, inserted remediation).
     refreshNav: function () { var st = STEPS[idx]; if (st) { updateFooter(st); updateFrame(st); } },

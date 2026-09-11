@@ -728,13 +728,15 @@
     // compression you cannot see is indistinguishable from a module that never
     // had those sections.
     var rows = STEPS.filter(function (st) { return st.id !== 'intro'; });
+    var review = LE.reviewMode();
     var cutCount = 0, cutMins = 0;
     document.getElementById('cpRows').innerHTML = rows.map(function (st) {
       var gone = !!(st.when && !st.when());
-      // An interstitial that is not running is not a removed SECTION — it is a
-      // system screen with no news, so it stays off the syllabus entirely
-      // rather than being advertised as something the learner missed.
-      if (gone && st.interstitial) return '';
+      // An interstitial is a system screen with no news of its own, not a
+      // section — off the syllabus whether or not it is running, so a
+      // learner on the proven path never sees "Your Updated Path" advertised
+      // as something to visit.
+      if (st.interstitial) return '';
       if (gone) { cutCount++; cutMins += (st.mins || 0); }
       var done = !gone && !!course[DONE_KEYS[st.id]];
       var meta = [];
@@ -742,18 +744,17 @@
       if (st.mins) meta.push('<span>About ' + st.mins + ' min' + (st.mins > 1 ? 's' : '') + '</span>');
       if (st.adaptive) meta.push('<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles"></i>adaptive</span>');
       var state = gone ? ['cut', 'Skipped'] : done ? ['done', 'Done'] : ['todo', 'Not started'];
-      // PROTOTYPE CONVENIENCE: a section the path still contains is a button
-      // that jumps to it, so a reviewer can reach screen fourteen without
-      // walking thirteen. A <button> rather than a clickable <div> so the
-      // keyboard reaches it. A REMOVED section stays a plain div — the row
-      // says it was taken out, and offering it as a destination would
-      // contradict the screen it sits on. A production build would unlock
-      // only the sections already completed.
-      var tag = gone ? 'div' : 'button';
-      var attrs = gone ? '' :
+      // A section already completed is a real destination — a learner
+      // revisiting it is not "ahead of the gate" the way an untouched one
+      // would be. Anything still ahead only opens in review mode, via the
+      // Demo menu's Review mode toggle: a production build would unlock
+      // exactly this same set (completed sections), nothing more.
+      var jumpable = !gone && (done || review);
+      var tag = jumpable ? 'button' : 'div';
+      var attrs = jumpable ?
         ' type="button" data-step="' + esc(st.id) + '"' +
-        ' aria-label="Go to ' + esc(st.lesson) + '"';
-      return '<' + tag + ' class="cp-row' + (done ? ' done' : '') + (gone ? ' is-cut' : ' is-jump') + '"' + attrs + '>' +
+        ' aria-label="Go to ' + esc(st.lesson) + '"' : '';
+      return '<' + tag + ' class="cp-row' + (done ? ' done' : '') + (gone ? ' is-cut' : jumpable ? ' is-jump' : '') + '"' + attrs + '>' +
         '<span class="cp-row-ico"><i class="fa-solid ' + (st.icon || 'fa-circle') + '"></i></span>' +
         '<span class="cp-row-main"><b>' + esc(st.lesson) + '</b>' +
           '<span class="cp-row-meta">' + meta.join('') + '</span></span>' +
@@ -1350,10 +1351,12 @@
     }
 
     // Continue stays shut until the clip finishes. The skip is the prototype's
-    // way past that, and is not a learner affordance.
+    // way past that, and is not a learner affordance — hidden unless review
+    // mode is on, same as the S-key skip.
     v.addEventListener('play', function () { ctx.floatClose(); });
     v.addEventListener('ended', function () { ctx.enableNext(); if (o.onEnded) o.onEnded(); });
     var skip = document.getElementById(o.ids.skip);
+    if (skip) skip.hidden = !LE.reviewMode();
     if (skip) skip.addEventListener('click', function () {
       ready();
       try { v.pause(); if (isFinite(v.duration) && v.duration > 0) v.currentTime = v.duration; } catch (e) {}
@@ -3603,6 +3606,11 @@
     // comes up by itself as a hint. Once per screen, never after the learner
     // has dismissed it, and never on a screen with nothing pending.
     coachHint: { delay: 7000 },
+    // The S-key skip and the Demo menu's Review mode toggle are opt-in per
+    // course — see CFG.reviewGate in the engine. Sharps asks for both; the
+    // video Skip pill (this file's own videoFrame/mountVideo) reads
+    // LE.reviewMode() directly and needs no engine-side gate.
+    reviewGate: true,
     lenses: LENSES,
     lensOrder: ['manufacturing', 'education', 'aec', 'public'],
     // Every beat with a scene in it moves with the sector.
