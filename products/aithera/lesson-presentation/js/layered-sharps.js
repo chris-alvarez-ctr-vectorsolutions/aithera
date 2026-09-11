@@ -3842,6 +3842,19 @@
     var proven = batteryResult() === 'proven';
     var ctrl = c.controls || null;
     var beats = scenarioBeats();
+    // Item 20/D8: reaching the record marks Module 4 mastered for the
+    // composite shell (clara/bloodborne.html), the same "arriving here is
+    // completion" convention this record screen already runs on. Additive
+    // and namespaced under its own key — nothing else reads or writes
+    // `bo-progress`, so this cannot collide with `sh-course`.
+    try {
+      var prevProgress = JSON.parse(sessionStorage.getItem('bo-progress') || 'null') || {};
+      if (prevProgress.bo4 !== 'mastered') {
+        prevProgress.bo4 = 'mastered';
+        prevProgress.bo4At = Date.now();
+        sessionStorage.setItem('bo-progress', JSON.stringify(prevProgress));
+      }
+    } catch (e) {}
     // [ status, band, where it came from, what happened, move-chip ]
     var state = {
       K1: proven
