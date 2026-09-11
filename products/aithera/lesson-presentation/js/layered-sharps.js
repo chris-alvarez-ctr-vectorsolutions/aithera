@@ -2058,8 +2058,8 @@
                        // The poster is where the placeholder is declared, so
                        // there is one thing to change when the footage lands.
                        poster: HAZARD_PLACEHOLDER
-                         ? videoPoster('PLACEHOLDER', 'It only takes a trace.',
-                             'A two-minute explainer for this objective. Footage still to be produced.')
+                         ? videoPoster('COMING SOON', 'It only takes a trace.',
+                             'A two-minute explainer on how a used sharp stays dangerous. Footage still to be produced.')
                          : '' }) +
         '</div>' +
         '<div id="hzWritten" hidden>' + written + '</div>' +
@@ -3417,7 +3417,7 @@
       // first beat IS that decision, with a character who argues back, and its
       // third beat takes the route somewhere a multiple choice cannot.
       D1: ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
-           'Evidenced where you actually did it, with somebody in front of you rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
+           'Shown where you actually did it, with somebody in front of you rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
       D2: ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
            'Same place \u2014 including the container that was above its fill line and would not close, which is the part no list of options can ask you.'],
       D3: (c.sustain && c.sustain.route)
@@ -3447,7 +3447,7 @@
     }).join('');
     document.getElementById('recBasis').innerHTML =
       '<i class="fa-solid fa-circle-info"></i> Every line points at a moment rather than a tick for finishing ' +
-      'anything. Seven close here, two were evidenced in the scenario and carry its debrief, and ' +
+      'anything. Seven close here, two happen in the scenario and carry its own debrief, and ' +
       '<b>the last one stays open on purpose</b> — nothing a module does in one sitting can tell you what you ' +
       'keep doing afterwards.';
     typeFeedback(ctx, [
@@ -3626,7 +3626,7 @@
       'Short version: the sharp should never exist outside a container for longer than it takes to walk there — and you decide that route before you start.',
       'Five things are absolute: a used needle is never bent, broken, recapped, removed, or separated from its syringe. Every other rule in the module has an “unless”; those five do not.',
       'A container is an engineering control. Past the limit your site’s plan sets, it stops containing — so sealing it and walking is always better than one more.',
-      'I am recording which objective each answer evidenced, not a score. Your administrator sees the same chain you do.'
+      'I am recording what each answer showed, not a score. Your administrator sees the same chain you do.'
     ],
     demoControls: [{
       id: 'shModalityBtn', icon: 'fa-shapes', name: 'Modality',
