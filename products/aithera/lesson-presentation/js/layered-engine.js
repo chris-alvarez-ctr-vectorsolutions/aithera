@@ -983,6 +983,14 @@
         else if (want === 'closing') want = 'check';
       }
       if (want) { var f = STEPS.findIndex(function (s) { return s.id === want; }); if (f > -1) start = f; }
+      // A deep link can name a step that does not apply to THIS learner (an
+      // external activity's hardcoded return URL cannot know in advance
+      // whether a later-inserted conditional step — remediation, a deferred
+      // check — will apply when they get back). Walk forward past any
+      // when()-excluded step, the same walk go() already does for normal
+      // navigation, so arriving via a link behaves like arriving by Continue.
+      while (start < STEPS.length && STEPS[start].when && !STEPS[start].when()) start++;
+      if (start >= STEPS.length) start = STEPS.length - 1;
     } catch (e) {}
 
     // A learner who is doing things is not stuck, so every interaction pushes

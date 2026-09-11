@@ -708,6 +708,7 @@
   var DONE_KEYS = { battery: 'battery', adjust: 'battery', chain: 'chain', hazard: 'hazard', case1: 'case1',
                     inflow: 'inflow', case2: 'case2', case3: 'case3', case4: 'case4',
                     controls: 'controls', debrief: 'debrief', remk1: 'remk1', remk2: 'remk2', walk: 'walk',
+                    postbattery: 'hazard',
                     // `enact` has no key: the scenario runs on its own page and
                     // writes nothing back here, so the cover cannot honestly
                     // tick it. It used to borrow the timed screen's result,
@@ -2080,6 +2081,11 @@
     'it with bare hands, do not guess whether it is clean enough, and treat anything that can ' +
     'break skin and might have blood on it as a sharp until it is in the right container.';
   var HAZARD_CODA = 'The science is small-scale. The mistake is assuming small means safe.';
+  // Item 19/D7: the Listen carrier's script. Built from the article's own
+  // "In short" recap rather than a separately authored passage — the five
+  // claims are already the condensed form of the full argument, so reading
+  // them aloud is the narration, not a new summary of one.
+  var HAZARD_AUDIO_TEXT = HAZARD_SHORT.join(' ') + ' ' + HAZARD_CODA;
 
   function HAZARD_CONTENT() {
     var L = lens();
@@ -2159,7 +2165,12 @@
         ? 'A trace carries everything a large exposure would — the amount was never the mechanism.'
         : 'How much blood is enough to be dangerous?') + '</p>' +
 
-      modalityPicker('hzPick', ['video', 'article'], { article: '4 min' }) +
+      // Item 19/D7: Listen joins the picker here — 'podcast' key, shared
+      // MODALITIES entry (label "Listen"), cost overridden for this beat's
+      // actual length. Declined at the course level (K1's procedure) does
+      // not mean declined everywhere; this is the one place the doc's own
+      // "first cut" actually calls for it.
+      modalityPicker('hzPick', ['video', 'article', 'podcast'], { article: '4 min', podcast: '2 min' }) +
 
       '<div id="hzCarrier" hidden>' +
         '<div id="hzVideoWrap" hidden>' +
@@ -2173,6 +2184,16 @@
                          : '' }) +
         '</div>' +
         '<div id="hzWritten" hidden>' + written + '</div>' +
+        '<div id="hzAudioWrap" hidden>' +
+          '<div class="aud-wrap">' +
+            '<button class="aud-play" id="hzAudioPlay" type="button">' +
+              '<i class="fa-solid fa-volume-high" aria-hidden="true"></i> Read to me</button>' +
+            '<p class="aud-text" id="hzAudioText"></p>' +
+            '<p class="aud-note" id="hzAudioNote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' +
+              'Narration uses your browser’s built-in speech — a stand-in for the produced voice track. ' +
+              'The check on this one waits until the end of the module.</p>' +
+          '</div>' +
+        '</div>' +
       '</div>' +
 
     '</div></main>';
@@ -2184,7 +2205,12 @@
     var carrier = document.getElementById('hzCarrier');
     var vWrap = document.getElementById('hzVideoWrap');
     var wWrap = document.getElementById('hzWritten');
-    var mounted = false, showing = null;
+    var aWrap = document.getElementById('hzAudioWrap');
+    // Separate flags: video mounts once, audio mounts once, and each is a
+    // real network/synthesis cost that should not gate on the other having
+    // already happened — the original single `mounted` meant Listen never
+    // mounted at all once the default video carrier had already run once.
+    var mounted = false, audioMounted = false, showing = null;
     // K2 test-up: show() below overwrites the eyebrow the moment a carrier
     // is picked, so the "no check after this" signal has to ride along with
     // whichever text it sets rather than living only in the static markup.
@@ -2210,6 +2236,7 @@
       carrier.hidden = false;
       vWrap.hidden = m !== 'video';
       wWrap.hidden = m !== 'article';
+      aWrap.hidden = m !== 'podcast';
       [].forEach.call(pick.querySelectorAll('.md-opt'), function (b) {
         var on = b.dataset.m === m;
         b.classList.toggle('is-on', on);
@@ -2237,6 +2264,15 @@
             eyebrow.textContent = 'Watch: ' + (mm < 1 ? 'under a minute' : mm + ' minute' + (mm > 1 ? 's' : '')) + noCheckTag;
           });
         }
+      } else if (m === 'podcast') {
+        // Item 19/D7: the transcript is fully visible on arrival — same
+        // reasoning as the article, nothing forces a listen. Choosing this
+        // carrier defers the K2 check to a postbattery step (see hzcheck's
+        // and postbattery's own `when()`), which the note in the markup
+        // already tells the learner.
+        eyebrow.textContent = 'Listen: about 2 minutes' + noCheckTag;
+        if (!audioMounted) { audioMounted = true; mountAudio(); }
+        setTimeout(done, T(700));
       } else {
         eyebrow.textContent = 'Read: about 4 minutes' + noCheckTag;
         // Nothing to finish on a read, so the door opens once it has landed.
@@ -2244,6 +2280,70 @@
       }
 
       ctx.positionOrb(true);
+    }
+
+    // Item 19/D7: the Listen carrier — byte-copied mechanics from Bystander's
+    // own audioInit (js/layered-course.js), same word-highlighting and the
+    // same MutationObserver cleanup, since there is no per-step teardown
+    // hook and a running utterance would keep talking over the next screen.
+    function mountAudio() {
+      var words = HAZARD_AUDIO_TEXT.split(' ');
+      var textEl = document.getElementById('hzAudioText');
+      var offsets = []; var pos = 0;
+      textEl.innerHTML = words.map(function (w, i) {
+        offsets.push(pos); pos += w.length + 1;
+        return '<span class="w" data-i="' + i + '">' + esc(w) + '</span>';
+      }).join(' ');
+      var spans = textEl.querySelectorAll('.w');
+      var playBtn = document.getElementById('hzAudioPlay');
+      var noteEl = document.getElementById('hzAudioNote');
+      var playing = false;
+
+      function wordAt(charIndex) {
+        for (var i = offsets.length - 1; i >= 0; i--) if (charIndex >= offsets[i]) return i;
+        return 0;
+      }
+      function highlight(i) {
+        spans.forEach(function (sp, j) { sp.classList.toggle('hot', j === i); });
+      }
+      function label(icon, text) {
+        playBtn.innerHTML = '<i class="fa-solid ' + icon + '" aria-hidden="true"></i> ' + text;
+      }
+      function stop(icon, text) {
+        if ('speechSynthesis' in window) speechSynthesis.cancel();
+        playing = false;
+        playBtn.classList.remove('on');
+        spans.forEach(function (sp) { sp.classList.remove('hot'); });
+        label(icon, text);
+      }
+      playBtn.addEventListener('click', function () {
+        if (noteEl) noteEl.classList.add('show');
+        if (!('speechSynthesis' in window)) {
+          playBtn.disabled = true;
+          label('fa-circle-exclamation', 'Narration unavailable');
+          return;
+        }
+        if (playing) { stop('fa-volume-high', 'Read to me'); return; }
+        var u = new SpeechSynthesisUtterance(HAZARD_AUDIO_TEXT);
+        u.rate = 1.0;
+        u.onboundary = function (e) { if (e.name === 'word' || e.charIndex != null) highlight(wordAt(e.charIndex)); };
+        u.onend = function () { stop('fa-rotate-left', 'Read it again'); };
+        playing = true;
+        playBtn.classList.add('on');
+        label('fa-pause', 'Pause');
+        speechSynthesis.cancel();
+        speechSynthesis.speak(u);
+      });
+
+      var stageEl = document.querySelector('.ll-stage');
+      if (stageEl && window.MutationObserver) {
+        var mo = new MutationObserver(function () {
+          if (document.body.contains(textEl)) return;
+          mo.disconnect();
+          if ('speechSynthesis' in window) speechSynthesis.cancel();
+        });
+        mo.observe(stageEl, { childList: true });
+      }
     }
 
     [].forEach.call(pick.querySelectorAll('.md-opt'), function (b) {
@@ -3758,8 +3858,14 @@
         ? ['Shown', 'band-exc', 'From the five questions',
            'You showed you already had this at the start, so the explainer served its harder version with no check afterward.']
         : (c.hazard && c.hazard.passed)
-          ? ['Shown', 'band-exc', 'From the one question after the explainer',
-             'You ' + (c.hazard.carrier === 'video' ? 'watched' : 'read') + ' the explainer, then ' +
+          ? ['Shown',
+             'band-exc',
+             // Item 19/D7: the source line is honest about WHEN the check
+             // actually ran — Listen defers it to the postbattery step, not
+             // "after the explainer" like the other two carriers.
+             c.hazard.carrier === 'podcast' ? 'From the explainer you listened to, checked later' : 'From the one question after the explainer',
+             'You ' + (c.hazard.carrier === 'video' ? 'watched' : c.hazard.carrier === 'podcast' ? 'listened to' : 'read') + ' the explainer, then ' +
+             (c.hazard.carrier === 'podcast' ? 'circled back to it at the end of the module and ' : '') +
              (c.hazard.attempts > 1 ? 'got there on the second go: ' : 'got it first go: ') +
              'a needle is dangerous because it makes a route into a bloodstream, not because of how much blood is on it.']
           : c.remk2
@@ -3973,9 +4079,16 @@
     { id: 'hzcheck', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Why a Puncture Is Different', mode: 'floating', gate: true, adaptive: true,
       // K2 test-up (D4/item 9): a learner who already showed they get this at
       // the pre-battery skips the check entirely \u2014 the explainer served its
-      // harder permutation instead, with no safety net after it.
-      when: function () { return !k2TestUp(); },
-      caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts; a second miss now closes the item outright (item 11) \u2014 the correct option is marked, the set disables, and CLARA states the answer rather than leaving the last live button as a way to overwrite a miss with a pass. Writes to the same record key as before, so the K2 line on the record is unchanged. Gated off entirely on K2 test-up (D4) \u2014 see the battery\u2019s k2up flag.' },
+      // harder permutation instead, with no safety net after it. Item 19/D7:
+      // a learner who chose the Listen carrier gets the SAME question later,
+      // at the postbattery step \u2014 not skipped, deferred, so it never runs
+      // twice for them here.
+      when: function () {
+        if (k2TestUp()) return false;
+        if ((readCourse().hazard || {}).carrier === 'podcast') return false;
+        return true;
+      },
+      caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts; a second miss now closes the item outright (item 11) \u2014 the correct option is marked, the set disables, and CLARA states the answer rather than leaving the last live button as a way to overwrite a miss with a pass. Writes to the same record key as before, so the K2 line on the record is unchanged. Gated off entirely on K2 test-up (D4) \u2014 see the battery\u2019s k2up flag. Also deferred, not skipped, when the learner chose the Listen carrier on the explainer (D7/item 19) \u2014 the identical question runs at the postbattery step instead.' },
       // Arrives silent \u2014 the eyebrow states the two-tries rule, so there is
       // no unread dot promising a line the screen already shows.
       coach: { say: '' },
@@ -4078,11 +4191,31 @@
       onSkip: function () { saveResult('walk', { rating: null, rehearsed: false }); } },
 
     { id: 'enact', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'End of Shift',
+      // Item 19/D7: back to postbattery, not straight to record — the engine
+      // walks forward past it automatically for a learner who does not need
+      // it (see build()'s deep-link when() walk), so this one URL serves
+      // both cases correctly regardless of whether Listen was chosen.
       external: '../../scenario-simulator/composed-scenarios/index.html'
         + '?type=mix-arc&scenario=end-of-shift-sharps'
-        + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record'),
+        + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=postbattery'),
       caption: { title: 'PERFORM · The culminating activity, four beats (D2)', note: 'The full Scenario Simulator, which this module has always pointed at and never contained \u2014 the previous screen\u2019s caption said so. Four sequential roleplay beats with one AI character: the decision (Chris holding an uncapped syringe, offering to walk out with you), the pressure (his radio goes and he refuses the walk), the complication (the container is above its fill line and will not close) and the transfer (you pass Jacob pulling the break-room bags). Beat 3 is the one that separates following a rule from exercising judgment, which is why it is its own moment rather than a second action inside beat 2. Beat 4 cannot be failed: silence closes it, is not penalised, and is named in the debrief. Authored as a mix-arc curated example rather than a new page \u2014 the converged player already routes ?type= and ?scenario=, so this beat added a scenario and edited no player. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where BOTH Do objectives are evidenced now. The module used to carry a scripted stand-in ahead of it \u2014 a real-time scene, a six-second clock and one Dispose button \u2014 and that screen was deleted rather than rebuilt, because the concept was wrong rather than badly executed: the wrong behaviour was not choosable (setting the sharp down was what HAPPENED to a slow reader), the button took keyboard focus the instant it unlocked, and pressing immediately scored the same as pressing at 5.9s. Its route question went with it: this scenario asks the route better, against a container above its fill line that will not close. The record now says both Do lines are evidenced here rather than scoring them off a button.' },
       coach: { say: '' } },
+
+    { id: 'postbattery', icon: 'fa-headphones', mins: 1, stage: 'Record', lesson: 'The Check You Listened Past',
+      mode: 'floating', gate: true,
+      // Item 19/D7: fires only for a learner who chose Listen on the
+      // explainer AND did not test up out of the check entirely — test-up
+      // already means no check at all, so a Listen choice there has nothing
+      // to defer. Reuses hzcheck's own content/init unchanged: same
+      // question, same two tries, same closure (item 11) — the only thing
+      // that differs is when it runs.
+      when: function () {
+        if (k2TestUp()) return false;
+        return (readCourse().hazard || {}).carrier === 'podcast';
+      },
+      caption: { title: 'RECORD · Deferred K2 check (D7)', note: 'The check the Listen carrier held back. Same question, same bank item, same two-tries-then-closure as hzcheck (item 11) — content: HZCHECK_CONTENT, init: hzcheckInit, unchanged. Exists only for a learner who chose Listen and did not already test out of the check via K2 test-up.' },
+      coach: { say: 'Circling back to the question the explainer would have led into, since you listened to it instead.', lead: true },
+      content: HZCHECK_CONTENT, init: hzcheckInit },
 
     { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
       caption: { title: 'RECORD · Objective-level record', note: 'Ten objectives, each with the policy that governed it and where its evidence came from. Nine closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
