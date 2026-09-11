@@ -3898,7 +3898,20 @@
       state.awaitingDebrief = false;
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
-      if (state.complete) { DEBRIEF.openClosing(pending); return; }   // final → the SHARED Section-3 debrief
+      if (state.complete) {
+        // Additive write-back (D3/item 13): any host page that launched this
+        // scenario and cares what happened in it reads this back from its own
+        // record screen. Keyed by scenario id so concurrent scenarios never
+        // collide, and touches nothing else — every other sim type gets this
+        // same write and nothing reads it yet.
+        try {
+          sessionStorage.setItem('scenario-result:' + REQ_SCEN, JSON.stringify({
+            beats: Object.keys(state.ladder || {}).map(function (id) { return { id: id, tier: state.ladder[id] }; }),
+            completedAt: Date.now()
+          }));
+        } catch (e) {}
+        DEBRIEF.openClosing(pending); return;
+      }   // final → the SHARED Section-3 debrief
       // The queued run is the phase DEBRIEF (coaching bubbles, including the next
       // entry's bridge) plus — when the next phase is a scene — its locked scene
       // open. The coaching lands in the sheet now; the scene beats are HELD for

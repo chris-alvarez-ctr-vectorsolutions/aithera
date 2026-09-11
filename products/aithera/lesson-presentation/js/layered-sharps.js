@@ -629,6 +629,17 @@
       '<rect x="40" y="183" width="560" height="52" fill="url(#figGlow)"/>' +
     '</svg>';
 
+  // Patch a result key rather than replace it — saveResult() overwrites the
+  // whole value, and hazard in particular is written from three different
+  // places (the explainer's carrier choice, hzcheck's pass, hzcheck's miss)
+  // that each need to keep what the others already wrote.
+  function mergeResult(key, patch) {
+    var cur = readCourse()[key] || {};
+    var out = {};
+    for (var k in cur) out[k] = cur[k];
+    for (var k2 in patch) out[k2] = patch[k2];
+    saveResult(key, out);
+  }
   function batteryResult() {
     try { var o = sessionStorage.getItem('sh-battery');
           if (o === 'proven' || o === 'unproven') return o; } catch (e) {}
@@ -2157,6 +2168,10 @@
     function show(m) {
       if (showing === m) return;
       showing = m;
+      // Item 13: which carrier they actually used, for the record. Merged
+      // rather than overwritten — hzcheck's own pass/fail lands in this same
+      // `hazard` key, before or after this, in either order.
+      mergeResult('hazard', { carrier: m });
       carrier.hidden = false;
       vWrap.hidden = m !== 'video';
       wWrap.hidden = m !== 'article';
@@ -2274,8 +2289,9 @@
           csMark(b, 'ok');
           // Still written to the `hazard` key: the record's K2 line reads
           // passed/attempts from there, and splitting the screen should not
-          // change what the record says.
-          saveResult('hazard', { passed: true, attempts: tries + 1 });
+          // change what the record says. Merged, not replaced — the
+          // explainer already wrote this key's `carrier` field.
+          mergeResult('hazard', { passed: true, attempts: tries + 1 });
           ctx.setCoachSay(esc(o.reply));
           ctx.enableNext();
         } else {
@@ -2289,7 +2305,7 @@
             wrap.classList.add('answered');
             HZ_OPTS.forEach(function (opt, i) { if (opt.ok) csMark(buttons[i], 'ok'); });
             wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
-            saveResult('hazard', { passed: false, attempts: tries });
+            mergeResult('hazard', { passed: false, attempts: tries });
             ctx.setCoachSay('It gets past your skin — that is the mechanism, and the amount barely matters next to it. This comes back for another look before we move on.');
             ctx.enableNext();
           } else {
@@ -2403,6 +2419,11 @@
 
   function procedureInit(ctx) {
     var m = modalityId();
+    // Item 13: which modality actually taught K1, for the record and for
+    // remk1's "a different way in" choice. Podcast is declined and falls
+    // back to the article, so that is what actually served them — recording
+    // the literal preference would claim they heard something they did not.
+    mergeResult('procedure', { modality: m === 'podcast' ? 'article' : m });
 
     if (m === 'video') {
       mountVideo(ctx, {
@@ -3624,11 +3645,31 @@
     return '<span class="apt-mom ' + m.cls + '"><i class="fa-solid ' + m.icon + '" aria-hidden="true"></i>' +
       esc(m.label) + '</span>';
   }
+  // Item 13: which carrier actually taught them, named in the record rather
+  // than left as an internal field nobody surfaces.
+  var MODALITY_LABEL = { video: 'a video', article: 'an article', tutor: 'a step-through' };
+  // Item 13/D3: the shared scenario player's own additive write-back, read
+  // here rather than assumed. Absent whenever the scenario has not run yet
+  // (or hasn't reached its real debrief) — every caller below falls back to
+  // the pre-item-13 generic line in that case, same as before this existed.
+  var SCENARIO_TIER_WORD = { MISSED: 'missed', PARTIAL: 'landed partially', SOUND: 'landed sound',
+                              SILENT: 'stayed silent', BONUS: 'came back as a bonus, unscored' };
+  var SCENARIO_TIER_RANK = { MISSED: 0, PARTIAL: 1, SOUND: 2 };
+  function scenarioBeats() {
+    try {
+      var raw = JSON.parse(sessionStorage.getItem('scenario-result:end-of-shift-sharps') || 'null');
+      if (!raw || !raw.beats) return null;
+      var out = {};
+      raw.beats.forEach(function (bt) { out[bt.id] = bt.tier; });
+      return out;
+    } catch (e) { return null; }
+  }
   function recordInit(ctx) {
     var c = readCourse();
     var b = c.battery || {};
     var proven = batteryResult() === 'proven';
     var ctrl = c.controls || null;
+    var beats = scenarioBeats();
     // [ status, band, where it came from, what happened, move-chip ]
     var state = {
       K1: proven
@@ -3639,13 +3680,15 @@
              'Missed the first check, so the procedure came back a different way — passed on the second look, ' +
              (remk1Modality() === 'tutor' ? 'step by step' : 'in writing') + '.']
           : ['Taught', 'band-ok', 'From the lesson and the quick check',
-             'Taught here, then checked again straight afterwards.'],
+             'Taught here as ' + (MODALITY_LABEL[c.procedure && c.procedure.modality] || 'a lesson') +
+             ', then checked again straight afterwards.'],
       K2: k2TestUp()
         ? ['Shown', 'band-exc', 'From the five questions',
            'You showed you already had this at the start, so the explainer served its harder version with no check afterward.']
         : (c.hazard && c.hazard.passed)
           ? ['Shown', 'band-exc', 'From the one question after the explainer',
-             (c.hazard.attempts > 1 ? 'Second go, and you got there: ' : 'First go: ') +
+             'You ' + (c.hazard.carrier === 'video' ? 'watched' : 'read') + ' the explainer, then ' +
+             (c.hazard.attempts > 1 ? 'got there on the second go: ' : 'got it first go: ') +
              'a needle is dangerous because it makes a route into a bloodstream, not because of how much blood is on it.']
           : c.remk2
             ? (c.remk2.passed
@@ -3702,14 +3745,27 @@
              : 'You rated yourself ' + c.walk.rating + ' of 5 on doing this while you are behind, and got the if-then plan because of it. Recorded as you gave it; a low answer here is more useful than a high one nobody believes.']
         : ['Not asked', 'band-warn', 'No answer in this run',
            'The rating did not come up, so there is nothing on this line. It is not counted as confidence either way.'],
-      // Both of these are evidenced on the scenario's own page now. The
-      // module used to carry a scripted stand-in for them here \u2014 a six-second
-      // clock on one button \u2014 and it was cut rather than rebuilt: the scenario's
-      // first beat IS that decision, with a character who argues back, and its
-      // third beat takes the route somewhere a multiple choice cannot.
-      D1: ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
+      // Both of these are shown on the scenario's own page now. The module
+      // used to carry a scripted stand-in for them here \u2014 a six-second clock
+      // on one button \u2014 and it was cut rather than rebuilt: the scenario's
+      // first two beats (decision, pressure) ARE that decision, with a
+      // character who argues back, and its third beat (container) takes the
+      // route somewhere a multiple choice cannot. Read from the shared
+      // player's own write-back (item 13) rather than asserted the same for
+      // every run regardless of what actually happened.
+      D1: (beats && (beats.decision || beats.pressure))
+        ? ['Shown', SCENARIO_TIER_RANK[beats.decision] === 0 || SCENARIO_TIER_RANK[beats.pressure] === 0 ? 'band-warn' : 'band-ok',
+           'From the end-of-shift scenario',
+           'The decision beat ' + (SCENARIO_TIER_WORD[beats.decision] || 'did not come up') + ', and when he pushed back, the pressure beat ' +
+           (SCENARIO_TIER_WORD[beats.pressure] || 'did not come up') + '.']
+        : ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
            'Shown where you actually did it, with somebody in front of you rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
-      D2: ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
+      D2: (beats && beats.container)
+        ? ['Shown', SCENARIO_TIER_RANK[beats.container] === 0 ? 'band-warn' : 'band-ok', 'From the end-of-shift scenario',
+           'The container beat ' + SCENARIO_TIER_WORD[beats.container] +
+           ' \u2014 the container above its fill line that would not close, which is the part no list of options can ask you.' +
+           (beats.transfer ? ' The transfer that followed ' + SCENARIO_TIER_WORD[beats.transfer] + '.' : '')]
+        : ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
            'Same place \u2014 including the container that was above its fill line and would not close, which is the part no list of options can ask you.'],
       D3: (c.sustain && c.sustain.route)
         ? ['Committed', 'band-ok', 'From the plan you wrote',
@@ -3720,6 +3776,19 @@
            'Nothing you did today can answer this one, and no plan was written either. It stays open, and the check after ' +
            'the course has nothing of yours to compare against.']
     };
+    // Item 13: the count is computed, not asserted. D3 (Sustain) is excluded
+    // from it outright rather than status-matched — it structurally cannot
+    // close in one sitting (nothing today can show whether a commitment
+    // held), even on a run where the learner filled it in and its own row
+    // reads "Committed". The other nine landing anywhere but "answered"
+    // means the learner reached this screen before finishing the rest of
+    // the module (a deep link, mostly a review convenience) — the old fixed
+    // "seven here, two in the scenario, nine of ten" claimed the same count
+    // regardless.
+    var UNRESOLVED = { 'Not asked': 1, 'Open': 1 };
+    var NUM_WORD = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'];
+    var closable = Object.keys(state).filter(function (id) { return id !== 'D3'; });
+    var answered = closable.filter(function (id) { return !UNRESOLVED[state[id][0]]; }).length;
     document.getElementById('recList').innerHTML = REC_GROUPS.map(function (g) {
       return '<h3 class="rec-head">' + esc(g.head) + '</h3>' +
         '<ul class="apt-list">' + g.ids.map(function (id) {
@@ -3738,12 +3807,22 @@
     }).join('');
     document.getElementById('recBasis').innerHTML =
       '<i class="fa-solid fa-circle-info"></i> Every line points at a moment rather than a tick for finishing ' +
-      'anything. Seven close here, two happen in the scenario and carry its own debrief, and ' +
+      'anything. ' + NUM_WORD[answered].charAt(0).toUpperCase() + NUM_WORD[answered].slice(1) +
+      ' of the ' + NUM_WORD[closable.length] + ' that can close are answered, and ' +
       '<b>the last one stays open on purpose</b> — nothing a module does in one sitting can tell you what you ' +
       'keep doing afterwards.';
+    var movedLine = proven
+      ? (k3TestUp()
+          ? 'The part worth noticing: proving the procedure took a section off, but made the one on spotting conditions harder instead.'
+          : 'The part worth noticing: proving the procedure took two sections off your path.')
+      : (k3TestUp()
+          ? 'The part worth noticing: the procedure stayed, but spotting conditions still got harder — that one only ever serves harder, never shorter.'
+          : 'Nothing about your path changed based on the first five questions this time — every section ran in full.');
+    // The count is stated once, in recBasis above — CLARA repeating the same
+    // number would be a second voice for one line. Her opening says what the
+    // caption cannot: the one thing that actually moved on this run.
     typeFeedback(ctx, [
-      'Nine of the ten are answered, Rob — seven here and two in the scenario. The tenth is open on purpose rather than rounded up.',
-      'The part worth noticing: proving the procedure took a section off, but made the one on spotting conditions harder instead.',
+      movedLine,
       'Ask me about any line and I will tell you where it came from.'
     ]);
     wireChat(ctx, [
