@@ -72,41 +72,31 @@ def F(key, label, box, help, size=12, subs=None, tier=None, verbatim=False):
     return dict(key=key, label=label, box=box, help=help, size=size, subs=subs, tier=tier, verbatim=verbatim)
 
 
-def tier_boxes(y, h, subs, key_prefix, help_text, size=10):
+def tier_boxes(y, h, subs, key_prefix, help_text, size=10, label_prefix=''):
     """Three equal columns across the content width."""
     gap = 0.24
     w = (12.333 - 2 * gap) / 3
     out = []
     for i, t in enumerate(TIERS):
         x = 0.5 + i * (w + gap)
-        out.append(F(f'{key_prefix}.{t}', TIER_TITLE[t], (x, y, w, h), help_text, size=size, subs=subs, tier=t))
+        out.append(F(f'{key_prefix}.{t}', label_prefix + TIER_TITLE[t], (x, y, w, h), help_text, size=size, subs=subs, tier=t))
     return out
 
 
 LAYOUTS = {
     'Cover': dict(
-        title='SCENARIO BRIEF', chip='Cover · the team’s own record — not imported',
+        title='SCENARIO BASICS', chip='Cover  →  editor: Basics · Title',
         fields=[
-            F('cover.title', 'Scenario title', (0.5, 1.2, 7.7, 1.5),
+            F('cover.title', 'Scenario title', (0.5, 1.2, 7.7, 5.1),
               'Working title — the draft proposes one if blank.  → editor: Basics · Title', size=24),
-            F('cover.training', 'Training it lives inside', (0.5, 2.9, 7.7, 1.0),
-              'The course or program, with its code. Sets the register.  → wizard: The training it lives inside', size=14),
-            F('cover.owner', 'Owner', (0.5, 4.1, 3.7, 1.0), 'Who to ask about this brief.', size=14),
-            F('cover.version', 'Version · date', (4.5, 4.1, 3.7, 1.0), 'Your own versioning. PowerPoint keeps the history.', size=14),
-            F('cover.status', 'Status', (0.5, 5.3, 7.7, 1.0),
-              'Draft · SME review · Ready for the editor · Drafted in the editor', size=14),
         ]),
     'Brief': dict(
-        title='THE BRIEF', chip='Wizard step 1 · The brief  →  Editor · Basics + Steps',
+        title='THE BRIEF', chip='Wizard step 1 · The brief  →  Editor · Basics',
         fields=[
-            F('brief.topic', 'Topic', (0.5, 1.2, 6.05, 1.25),
+            F('brief.topic', 'Topic', (0.5, 1.2, 6.05, 5.85),
               'One line. Everything else builds on this.  → wizard: What is this scenario about?'),
-            F('brief.learner', 'The learner plays', (6.78, 1.2, 6.05, 1.25),
+            F('brief.learner', 'The learner plays', (6.78, 1.2, 6.05, 5.85),
               'Their position in the situation — placed to notice, decide or act.  → wizard: Who does the learner play?'),
-            F('brief.steps', 'Steps, in order — one per line, each starting with its mode', (0.5, 2.7, 7.7, 4.35),
-              'coach: / roleplay: / observe: then what happens, e.g. “coach: does this qualify as harassment?”  → wizard: The steps'),
-            F('brief.sources', 'Source slides or documents', (8.43, 2.7, 4.4, 4.35),
-              'Course file, slide numbers, policies. Paste the text on a SOURCE MATERIAL slide.'),
         ]),
     'Situation': dict(
         title='THE SITUATION', chip='Wizard step 2 · The world  →  Editor · Situation & world',
@@ -119,11 +109,11 @@ LAYOUTS = {
               'Identity and disposition only; reactions go on the step.  → v4: scene_world.characters', size=11),
         ]),
     'Teaching': dict(
-        title='THE TEACHING', chip='Wizard step 2 · The teaching  →  Editor · Teaching points + Coach voice',
+        title='CORE TOPICS', chip='Wizard step 2 · The teaching  →  Editor · Teaching points + Coach voice',
         fields=[
-            F('teaching.mustknows', 'Must-knows — 3 to 6, one per line', (0.5, 1.2, 6.05, 3.0),
+            F('teaching.mustknows', 'Must-knows — one per line', (0.5, 1.2, 6.05, 3.9),
               'What every learner walks away knowing — the teaching points and the expert answer.  → v4: teaching_points'),
-            F('teaching.strongweak', 'Strong handling vs. weak', (0.5, 4.45, 6.05, 2.6),
+            F('teaching.strongweak', 'Strong handling vs. weak', (0.5, 5.35, 6.05, 1.7),
               'What separates a strong pass from a thin one. Feeds the grading tiers on every step.  → wizard'),
             F('teaching.misconceptions', 'Common wrong answers → the redirect', (6.78, 1.2, 6.05, 3.85),
               'The misconception in the learner’s words, an arrow, then the coach’s redirect.  → v4: misconceptions'),
@@ -131,46 +121,42 @@ LAYOUTS = {
               'How the coach comes across — a stance, not engine rules.  → v4: coach_persona + tone_guidelines'),
         ]),
     'Opening': dict(
-        title='THE OPENING', chip='Optional warm-up · delete the slide to skip it  →  Editor · Opening reflection',
+        title='INITIAL REFLECTION', chip='Optional warm-up · delete the slide to skip it  →  Editor · Opening reflection',
         fields=[
             F('opening.question', 'Warm-up question — verbatim, the coach’s first line', (0.5, 1.2, 8.4, 2.35),
               'One ungraded gut-reaction question before the first step. In quotes = the learner reads exactly this.  → v4: opening', size=14, verbatim=True),
             F('opening.turns', 'Turns', (9.13, 1.2, 3.7, 2.35),
               '1 or 2 learner turns. Calibrated, never graded.  → v4: opening.exit', size=14),
-            F('opening.listen', 'Listen for — and how to acknowledge it', (0.5, 3.8, 12.33, 3.25),
+            F('opening.listen', 'Listen for', (0.5, 3.8, 12.33, 3.25),
               'Guidance for the coach: what a typical first answer contains (the misconception to expect), and how to acknowledge it without grading or previewing what comes next.  → v4: opening.levels'),
         ]),
     'Step': dict(
         title='STEP N · The story’s own name for this segment', chip='Duplicate this slide for each step  →  Editor · Steps',
         fields=[
-            F('step.mode', 'Mode', (0.5, 1.2, 2.3, 0.72), 'coach · roleplay · observe', size=11),
-            F('step.right', 'Right answer?', (2.96, 1.2, 2.3, 0.72), 'Yes = the coach lands it. No = open.', size=11),
-            F('step.turns', 'Turns', (5.42, 1.2, 1.1, 0.72), 'Learner turns.', size=11),
+            F('step.mode', 'Mode', (0.5, 1.2, 2.3, 0.77), 'coach · roleplay · observe', size=16),
+            F('step.right', 'Is there a right answer?', (2.96, 1.2, 2.3, 0.77), 'Yes = the coach lands it. No = open.', size=11),
+            F('step.turns', 'Turns', (5.42, 1.2, 1.1, 0.77), 'Learner turns.', size=11),
             F('step.does', 'What the learner does here — and why now', (0.5, 2.02, 6.02, 1.05),
               'Guidance for the coach: the task, and what must be done to complete the step.  → v4: practice.purpose', size=10),
             F('step.opener', 'Opener — verbatim', (6.75, 1.2, 6.08, 1.87),
               'coach: the task line · roleplay: Narrator / Character lines · observe: the brief over the exhibit', size=10, verbatim=True),
         ] + tier_boxes(3.2, 2.75, ['Look for:', 'Respond:', 'Scene moves (roleplay only):'], 'step.tier',
-                       'Recognise it · respond · move the scene  → v4: levels', size=9.5)
+                       'Recognise it · respond · move the scene  → v4: levels', size=9.5, label_prefix='Response: ')
         + [
-            F('step.debrief', 'Debrief lands — 2 to 4 points every learner hears, however the attempt went', (0.5, 6.05, 12.33, 1.03),
+            F('step.debrief', 'Debrief — 2 to 4 points every learner hears, however the attempt went', (0.5, 6.05, 12.33, 1.03),
               'Guidance for the coach. One point per line, or separated by  ·   → v4: debrief.key_points', size=9.5),
         ]),
     'Examples': dict(
         title='STEP N · EXAMPLES (optional)', chip='Optional · one example per tier — the wizard drafts these if you don’t',
         fields=tier_boxes(1.2, 5.85, ['Learner:', 'Reply:'], 'example.tier',
-                          'One learner line and the reply they hear.  → v4: levels.example', size=11)),
+                          'One learner line and the reply they hear.  → v4: levels.example', size=11, label_prefix='Example response: ')),
     'Close': dict(
         title='THE CLOSE', chip='Wizard · The expert answer  →  Editor · Expert answer',
         fields=[
             F('close.components', 'Ideal response components — a heading, then its points', (0.5, 1.2, 6.05, 5.85),
               'SME-validated statements; ships verbatim to every learner — the audit record.  → v4: component_groups', size=10.5),
-            F('close.summary', 'Summary — verbatim', (6.78, 1.2, 6.05, 3.35),
+            F('close.summary', 'Summary — verbatim', (6.78, 1.2, 6.05, 5.85),
               'Two to four sentences tying the components together — the last thing the learner reads.  → v4: summary', size=11, verbatim=True),
-            F('close.authorities', 'External authorities', (6.78, 4.8, 2.9, 2.25),
-              'Regulations, standards only. Ships to the learner.', size=10),
-            F('close.internal', 'Internal source slides', (9.93, 4.8, 2.9, 2.25),
-              'Course slide numbers. Never ships.', size=10),
         ]),
     'Source': dict(
         title='SOURCE MATERIAL', chip='Optional · paste anything — the wizard mines it for specifics',
@@ -497,12 +483,12 @@ def build_deck(path, content, n_steps, example_steps, include_source, notes):
         master.slide_layouts.remove(lay)
 
     report = []
-    cov = add_from_layout(prs, layouts, 'Cover', 'SCENARIO BRIEF', content.get('cover', {}), report)
+    cov = add_from_layout(prs, layouts, 'Cover', 'SCENARIO BASICS', content.get('cover', {}), report)
     cov.notes_slide.notes_text_frame.text = notes
     add_from_layout(prs, layouts, 'Brief', 'THE BRIEF', content.get('brief', {}), report)
     add_from_layout(prs, layouts, 'Situation', 'THE SITUATION', content.get('situation', {}), report)
-    add_from_layout(prs, layouts, 'Teaching', 'THE TEACHING', content.get('teaching', {}), report)
-    add_from_layout(prs, layouts, 'Opening', 'THE OPENING', content.get('opening', {}), report)
+    add_from_layout(prs, layouts, 'Teaching', 'CORE TOPICS', content.get('teaching', {}), report)
+    add_from_layout(prs, layouts, 'Opening', 'INITIAL REFLECTION', content.get('opening', {}), report)
     steps = content.get('steps', [])
     for n in range(1, n_steps + 1):
         st = steps[n - 1] if n - 1 < len(steps) else {}
@@ -533,25 +519,10 @@ MARSHALL = dict(
     doc_title='Scenario Brief — The Marshall Scenario (worked example)',
     cover={
         'cover.title': 'The Marshall Scenario\nSex-Based Harassment, Empathy & Bystander Intervention',
-        'cover.training': 'Harassment Prevention for Employees (JCOM-40198)',
-        'cover.owner': 'K&A team · Scenario Simulator POC',
-        'cover.version': 'Brief v1 · re-homed from POC deck v3 (May 2026) · 2026-09-11',
-        'cover.status': 'Worked example — the 32-slide POC deck, restated on the Scenario Brief template',
     },
     brief={
         'brief.topic': 'Sex-based harassment, gender stereotyping and bystander intervention',
         'brief.learner': 'A co-worker who has observed the incidents involving Marshall — not his manager',
-        'brief.steps': (
-            'coach: Does this qualify as harassment? Reason it through under Title VII — there is a right answer, and it is yes.\n'
-            'coach: What is Marshall experiencing? Set the law aside — the personal, professional and team-wide impact.\n'
-            'roleplay: The break room — Jake makes a ‘Marsha’ comment with the room watching, and the learner has to act.'
-        ),
-        'brief.sources': (
-            'JCOM-40198 Harassment Prevention for Employees Base Course.pptx\n'
-            'Slides 18–24 (the Marshall learning object)\n'
-            'Slide 13 (Title VII foundation)\n'
-            'Slides 40–41 (Ira knowledge check — bystander guidance)'
-        ),
     },
     situation={
         'situation.narrative': (
@@ -740,15 +711,6 @@ MARSHALL = dict(
         'close.summary': (
             '“What happened to Marshall is sexual harassment. Gender stereotyping — mocking someone for not conforming to expectations about how a man should act — is a form of sex-based harassment under Title VII. It does not require sexual advances, and the intent behind the behavior is less important than its impact. Repeated conduct like this can create a hostile work environment, so it is important to document the incidents and report them. If you witness harassment, speak up if it’s safe, support the person affected, and follow your organization’s reporting procedures. Even a small action can make a meaningful difference.”'
         ),
-        'close.authorities': 'Title VII of the Civil Rights Act — sex-based harassment, including conduct based on gender stereotypes, as sex discrimination.',
-        'close.internal': (
-            'Slide 19 — scenario narration\n'
-            'Slide 20 — knowledge check: should Marshall report?\n'
-            'Slide 21 — Marshall’s real case\n'
-            'Slide 24 — hostile work environment definition\n'
-            'Slide 13 — Title VII foundation\n'
-            'Slides 40–41 — bystander guidance'
-        ),
     },
 )
 
@@ -757,7 +719,7 @@ NOTES_TEMPLATE = (
     'Every field is a PowerPoint placeholder. Type into the fields and keep the small label line at the top of each one. '
     'Do not add text boxes or tables — Outline view does not export them, so the editor would never see them.\n\n'
     'One slide per step: duplicate a STEP slide (Cmd/Ctrl+D) for each new step rather than inserting from the layout gallery. '
-    'Delete THE OPENING if the scenario has no warm-up. Delete EXAMPLES slides you don’t need — the wizard drafts examples itself.\n\n'
+    'Delete INITIAL REFLECTION if the scenario has no warm-up. Delete EXAMPLES slides you don’t need — the wizard drafts examples itself.\n\n'
     'Verbatim fields are what the learner reads, word for word. Every other field is guidance for the coach.\n\n'
     'To hand off: View → Outline → select all → copy → paste into the Scenario Editor’s Start-from-scratch source box. '
     'The wizard reads the labels and pre-fills its interview; the AI drafts only what you left blank.'

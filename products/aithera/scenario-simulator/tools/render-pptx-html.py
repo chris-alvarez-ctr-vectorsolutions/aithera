@@ -116,7 +116,12 @@ def shape_html(shape, layout_ph=None, skip_empty_ph=False):
         for p in paras:
             sb = p.space_before.pt if p.space_before else 0
             body = ''.join(run_html(r, dsz) for r in p.runs) or '&nbsp;'
-            ps.append(f'<p style="margin:{sb}pt 0 0">{body}</p>')
+            # A paragraph's own font-size drives its line-height — a run's explicit
+            # size only styles its <span>, so a short line (e.g. one run smaller
+            # than the shape's default) would otherwise inherit the container's
+            # larger default line-height and get clipped by the shape's overflow.
+            para_sz = max((r.font.size.pt for r in p.runs if r.font.size), default=dsz)
+            ps.append(f'<p style="margin:{sb}pt 0 0;font-size:{para_sz}pt">{body}</p>')
         va = 'center' if 'MIDDLE' in anchor else 'flex-start'
         inner = (f'<div class="tf" style="padding:{mt}in {mr}in 0 {ml}in;justify-content:{va};font-size:{dsz}pt">'
                  + ''.join(ps) + '</div>')

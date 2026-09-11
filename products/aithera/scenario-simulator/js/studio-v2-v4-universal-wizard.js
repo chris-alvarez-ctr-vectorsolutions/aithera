@@ -230,7 +230,7 @@ ${lines(ik.mustKnows).map((x) => '  · ' + x).join('\n') || '  (unspecified)'}
             placeholder: 'e.g. a shift supervisor — the person positioned to notice and escalate' },
           { key: 'stepsList', kind: 'lines', required: true, minRows: 5,
             label: 'The steps — one per line, in order, each starting with its mode',
-            helper: 'Prefix each line with coach:, roleplay:, or observe:. e.g. "coach: do these three signs add up?"; "observe: study the group-chat screenshot"; "roleplay: talk to Ray before shift". An unprefixed line becomes a coach step.' },
+            helper: 'Prefix each line with coach:, roleplay:, or observe:. e.g. "coach: do these three signs add up?"; "observe: study the group-chat screenshot"; "roleplay: talk to Ray before shift". An unprefixed line becomes a coach step. Default to exactly ONE roleplay or observe step for the whole arc — never both, never two of either — and stack every coach: step before it, not after. Only break that cap if the source material itself lays out more than one live/graded moment as separate, distinct scenes.' },
           { key: 'sourceText', kind: 'source', minRows: 7, label: 'Source material — paste anything (optional)',
             placeholder: 'A slide outline, the static scenario this replaces, a policy excerpt, SME notes…',
             helper: 'We’ll pull specifics from this instead of inventing them.' },
