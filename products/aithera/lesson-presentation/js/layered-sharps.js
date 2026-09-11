@@ -3017,8 +3017,11 @@
   //  then falls back to a plain reveal rather than inventing a guess.
   var F3_KEYS  = { 3: 'most', 2: 'half', 1: 'few' };
   var F3_WORDS = { most: 'Most do', half: 'About half', few: 'Hardly anyone' };
-  var F3_STEM  = 'Most people you work alongside use the container straight away ' +
-                 'rather than setting a sharp down.';
+  // Item 14: quoted directly from the battery item rather than a separately
+  // hand-typed sentence — the two had drifted apart (one a statement, one a
+  // question), which is exactly what a recall block quoting itself cannot
+  // afford to get wrong.
+  var F3_STEM = (BATTERY.filter(function (q) { return q.obj === 'F3'; })[0] || {}).stem || '';
   function entryF3() {
     var b = readCourse().battery;
     return (b && F3_KEYS[b.f3]) || null;
@@ -3074,8 +3077,11 @@
             // Read-only rows. The guess happened at the entry battery, so the
             // band the learner was estimating is MARKED here rather than
             // clicked — their answer sits on the same line as the real figure,
-            // which is the whole comparison in one row.
-            var mine = said && d.k === 'most';
+            // which is the whole comparison in one row. Bug fix: this
+            // compared every row to the literal string 'most' rather than to
+            // `said`, so a learner who guessed "Hardly anyone" had the
+            // "most" row marked as theirs and tagged "You said Most do".
+            var mine = said && d.k === said;
             return '<div class="pr-choice pr-static' + (mine ? ' picked' : '') + '" data-k="' + d.k + '">' +
               '<span class="pr-head">' +
                 '<span class="pr-lab">' + esc(d.label) + '</span>' +
@@ -3096,13 +3102,15 @@
           'cohort data for ' + esc(lens().org) + '</p>' +
       '</div>' +
 
-      // The post leg of a Pre + post objective. Not the same question again:
-      // the entry item asked for their read of the room, and this asks them to
-      // place their own shift against a number they now have. The reportable
-      // figure is the movement between the two, not either one alone.
+      // Item 14: the post leg of a Pre + post objective is the SAME item
+      // asked again, not a different question about where their own shift
+      // sits — a mismatched pair (see moveChip's own note below) filed a
+      // learner who re-confirmed their entry answer as having "moved down".
+      // The reportable figure is the movement between the two identical
+      // asks, not either one alone.
       '<div class="db-post ct-second" id="dbPost" hidden>' +
-        '<p class="ll-eyebrow">One more, now you have the number</p>' +
-        '<h2 class="cs-q">Against that figure, where does your own shift actually sit?</h2>' +
+        '<p class="ll-eyebrow">Same question, now you have the number</p>' +
+        '<h2 class="cs-q">' + esc(F3_STEM) + '</h2>' +
         '<div class="bl-options" id="dbPostOpts" role="radiogroup"></div>' +
       '</div>' +
     '</main>';
@@ -3167,18 +3175,12 @@
       }, T(1300));
     });
 
-    // ---- the post leg ----
+    // ---- the post leg (item 14: the identical entry item, reused) ----
     var post = document.getElementById('dbPost');
     var postOpts = document.getElementById('dbPostOpts');
     var postDone = false;
-    [
-      { k: 'most', t: 'Better than that', icon: 'fa-users', score: 3,
-        reply: 'Noted, and worth protecting — a shift where this is normal is the cheapest control there is.' },
-      { k: 'half', t: 'About the same', icon: 'fa-scale-balanced', score: 2,
-        reply: 'Noted. That is the most common answer at this point, and the honest one.' },
-      { k: 'few', t: 'Worse than that', icon: 'fa-user-slash', score: 1,
-        reply: 'Noted, and that goes on the record as a condition rather than as something about you. Your coordinator sees it.' }
-    ].forEach(function (o) {
+    var entryScore = (readCourse().battery || {}).f3;
+    (BATTERY.filter(function (q) { return q.obj === 'F3'; })[0] || {}).options.forEach(function (o) {
       var b = document.createElement('button');
       b.className = 'bl-option'; b.type = 'button';
       b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
@@ -3190,12 +3192,19 @@
         b.setAttribute('aria-checked', 'true');
         postOpts.classList.add('answered');
         postOpts.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
+        // Same scale as the entry item now, so the move is a real one: up,
+        // down, or held against their own earlier answer, not a reading of
+        // this answer alone.
+        var moved = entryScore ? (o.score > entryScore ? 'up' : o.score < entryScore ? 'down' : 'held') : null;
+        ctx.setCoachSay(moved === 'up' ? 'That moved up after seeing the number — the reveal did what it was supposed to.'
+          : moved === 'down' ? 'That moved down, which is allowed — you read something specific and it changed your estimate.'
+          : moved === 'held' ? 'Held where you started. Recorded as it stands, not adjusted because you saw a number.'
+          : 'Noted — there is no earlier answer in this run to compare it against.');
         var c = readCourse();
         saveResult('debrief', { guess: (c.debrief && c.debrief.guess) || said,
                                 majority: !!(c.debrief && c.debrief.majority),
                                 pct: (c.debrief && c.debrief.pct) || debriefRows()[0].pct,
                                 post: o.score });
-        ctx.setCoachSay(esc(o.reply));
         ctx.enableNext();
         ctx.positionOrb(true);
       });
@@ -3603,23 +3612,14 @@
     if (f3 === 2) return pct >= 62 ? 'worse' : pct >= 45 ? 'right' : 'better';
     return pct < 30 ? 'right' : 'worse';                           // said hardly anyone
   }
-  function readChip(f3, pct) {
-    var r = f3Read(f3, pct);
-    if (!r) return '';
-    if (r === 'right') {
-      return '<span class="apt-mom held"><i class="fa-solid fa-check" aria-hidden="true"></i>Read it right</span>';
-    }
-    return '<span class="apt-mom down"><i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i>' +
-      (r === 'worse' ? 'Thought it was worse' : 'Thought it was better') + '</span>';
-  }
-  var F3_PLACE = { 3: 'better than that', 2: 'about the same', 1: 'worse than that' };
-  // Stored at reveal so the record reports the figure the learner was shown,
-  // and falling back to the live lens for a record written before that landed.
   function f3Pct(d) { return (d && d.pct) || debriefRows()[0].pct; }
+  // Item 14: the post leg re-asks the entry item, so the note reports what
+  // they said the second time rather than a "where does your shift sit"
+  // placement that no longer matches the question on screen.
   function f3Note(f3, d, pct) {
-    var place = F3_PLACE[d.post] ? '\u201c' + F3_PLACE[d.post] + '\u201d' : 'against it';
+    var saidAgain = low(F3_WORDS[F3_KEYS[d.post]] || '');
     if (!f3) {
-      return 'You saw the figure for your sector and placed your own shift ' + place + '. ' +
+      return 'You saw the figure for your sector and, asked again, said ' + saidAgain + '. ' +
              'There is no earlier reading to compare it against in this run.';
     }
     var r = f3Read(f3, pct);
@@ -3628,7 +3628,7 @@
            (r === 'right' ? '' : r === 'worse'
              ? ' \u2014 fewer people take the shortcut than you thought'
              : ' \u2014 more people take the shortcut than you thought') + '. ' +
-           'You asked for the real figure after the account, and placed your own shift ' + place + '.';
+           'Asked the same question again after seeing the number, you said ' + saidAgain + '.';
   }
   // The open answer, folded into F1's evidence line. The chain used to save a
   // `named` field and NOTHING ever read it — the one question in the module
@@ -3731,7 +3731,7 @@
       F3: (c.debrief && c.debrief.post)
         ? ['Recorded', 'band-ok', 'Your read at the start, checked against your sector',
            f3Note(b.f3, c.debrief, f3Pct(c.debrief)),
-           readChip(b.f3, f3Pct(c.debrief))]
+           moveChip(b.f3, c.debrief.post)]
         : c.debrief
           ? ['Rated only', 'band-warn', 'From your answer at the start',
              'You gave your read of the room and saw the figures, but the second answer did not come up in this run.']
