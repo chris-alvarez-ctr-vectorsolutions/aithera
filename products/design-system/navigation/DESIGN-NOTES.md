@@ -1,5 +1,30 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-11, second pass (consolidation)
+
+- **Down to two versions: V1 and V3.** V2a, V2b, V3b, V4, V5 and V6 are removed from the
+  live set as bloat; the comparison that matters now is the switcher (launcher in the bar vs
+  a full-height rail). They remain in git history (last present at commit `128f43bf`), so
+  any of them can be brought back with `git show`.
+- **One open/close control, in the top bar.** The side nav's own collapse control is gone
+  from both versions. V3's placement toggle ("Collapse: nav / top") is gone too: the full-width
+  bar above the nav is now V3's only layout, the rail alone runs the full height, and V3's
+  tabs start at the nav edge like V1's.
+- **Search is centred** in the run between the tabs and the right-hand group in both bars.
+  It cannot sit at the bar's geometric centre because the tabs, starting at the content edge,
+  reach past that point at 1440px; centring in the free run is the honest version.
+- **Collapsed nav lights the active section.** When the active page is nested inside an
+  accordion, that accordion's top-level icon takes the active state in the icon column, via
+  `details.grp:has([aria-current="page"])>summary`.
+- **Peek halo is 16px** (was 40px), for both opening and dismissing.
+- **Peek overlay rebuilt as a copy.** The overlay is now a clone of the nav appended to
+  `<body>`, so the collapsed icon column stays exactly where it is underneath and the panel
+  slides over it. Nothing vanishes at the start of the open, nothing needs its footprint
+  faked, and pinning simply removes the copy and expands the real nav in place on its own
+  width transition. The clone is excluded from every collapsed-state rule with
+  `.sidenav:not(.peek-clone)`. Motion is 220ms expo-out in, 160ms ease-in out. Focus
+  entering the collapsed nav opens the copy and moves focus to the matching item in it.
+
 ## Changelog · 2026-09-11 round
 
 - **Live side-nav peek, every version.** The static interaction frames are now real
@@ -199,11 +224,7 @@ differently** (see below): its launcher drops pinning for a licence split.
 - Top bar, left to right: **nav open/close** · **app switcher** · product identity, then
   the **mode tabs starting at the content edge** (full-width-bar versions) · scoped search
   · location · notifications · help · avatar.
-  No + New action. V3 is the exception by design: its full-height rail owns the left
-  edge, and its nav toggle tops the side-nav column instead.
-- The side nav ALSO closes from a control in its own top-right corner (every version),
-  so there are two ways to collapse it. In the V3/V4 interaction frames that same slot
-  holds the pin (hover overlay) and swaps to close when docked.
+  No + New action. In V3 the full-height rail sits left of the bar's start.
 - One accent token (`--accent`) reserved for active/selection states; everything else grayscale.
 - Same design tokens in every file (colors, spacing, radius, type scale) so versions differ
   in structure only. Dark theme (V4) changes token values, not component rules.
@@ -259,14 +280,8 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 
 | # | File | Differs from V1 by |
 |---|---|---|
-| V1 | `v1-launcher-tabs.html` | The reference shell (nothing) |
-| V2a | `v2a-subproducts-filter-panel.html` | Vector LMS splits into Learner/Admin sub-products switched from the TOP-BAR BRAND (subtitle shows the active experience); NO top tabs; the Convergence-style Training Plan carries filters in a persistent RIGHT PANEL |
-| V2b | `v2b-subproducts-filter-dropdowns.html` | Same split as V2a but the switch is a SEGMENTED CONTROL at the top of the side nav; the LOCATION SELECTOR also sits in the nav above it (top bar = search + universal actions only); Training Plan filters are DROPDOWN chips above the table |
-| V3b | `v3b-tabs-left.html` | V3's shell with the top bar's ends swapped: MODE TABS top-left beside the identity, LOCATION picker top-right with the universal actions, search in the middle |
-| V3 | `v3-app-rail.html` | L-SHAPED SHELL: the app rail AND the side nav both run full height from y=0, top bar inset past both (toggleable: `?toggle=top` puts the collapse control in the top bar instead, which returns the side panel to starting below the bar); V1's scoped global search in the top bar and the LOCATION selector in the side nav; the rail persists when the nav closes (minimal state = launcher + current product); customer logo sticky at the nav's bottom |
-| V4 | `v4-flyout-hierarchy.html` | Side-nav hierarchy only: children open in flyout panels to the right; Jira-like (closed by default, click-away to dismiss, no mouse-leave closing) |
-| V5 | `v5-text-hierarchy.html` | Side-nav hierarchy only: typography carries depth, no guide lines |
-| V6 | `v6-color-hierarchy.html` | Side-nav hierarchy only: open accordion headers take the accent, tint deepens with level |
+| V1 | `v1-launcher-tabs.html` | The reference shell: full-width top bar with the waffle launcher, location picker top-right |
+| V3 | `v3-app-rail.html` | The product switcher is a persistent FULL-HEIGHT app rail beside the side nav (Dashboard on top, launcher at the bottom split into your vs other platforms); the location picker sits in the side nav; the customer logo docks to the nav's bottom; `?state=bothclosed` shows the rail's minimal state |
 
 ## Archived explorations
 
@@ -387,29 +402,26 @@ active states stay neutral so the structure, not the palette, is what gets revie
 
 ## Side-nav peek (live, every version)
 
-A collapsed side nav is never a dead end: hovering near it opens it as an overlay, and a
-pin tab docks it. This is engineered behaviour in all eight files, not a frame.
+A collapsed side nav is never a dead end: hovering near it opens a copy of it as an overlay,
+and a pin tab docks it. This is engineered behaviour in both files, not a frame.
 
 | Moment | Rule |
 |---|---|
-| Open | Pointer within **40px** of the collapsed nav (horizontally; within its vertical extent) for **100ms**. The nav becomes a fixed overlay at its full width; the collapsed column's 56px footprint stays reserved so content does not move. |
-| Stay | While the pointer is anywhere inside the overlay plus a 40px halo, it stays. |
+| Open | Pointer within **16px** of the collapsed nav (horizontally; within its vertical extent) for **100ms**. A COPY of the nav opens as a fixed overlay at full width; the collapsed column stays where it is underneath, so nothing vanishes or moves. |
+| Stay | While the pointer is anywhere inside the overlay plus a 16px halo, it stays. |
 | Close | Pointer outside that halo for **500ms**, pointer leaving the window, or Escape. 150ms ease-in slide-and-fade out, then the nav returns to its collapsed column. |
-| Pin | A tab straddling the overlay's right edge (arrives 80ms after the panel). Clicking it docks the nav open: this is the only moment content shifts. The top-bar toggle and the nav's own collapse control also dock a peeking nav rather than collapsing it. |
-| Keyboard | Focus entering the collapsed nav opens it; focus leaving the nav (and the pin) closes it. |
-| Motion | 200ms `cubic-bezier(.2,.8,.2,1)` in, 150ms ease-in out; the overlay's width is final on open so the geometry never animates, only its position and opacity. `prefers-reduced-motion` gets instant states. |
+| Pin | A tab straddling the overlay's right edge (arrives 80ms after the panel). Clicking it removes the copy and expands the real nav in place: this is the only moment content shifts. The top-bar toggle does the same while a peek is open. |
+| Keyboard | Focus entering the collapsed nav opens the copy and moves focus to the matching item in it; focus leaving the copy (and the pin) closes it. |
+| Motion | 220ms `cubic-bezier(.16,1,.3,1)` in, 160ms ease-in out; only position and opacity animate. `prefers-reduced-motion` gets instant states. |
 | Deep link | `?state=peek` opens the overlay on load. |
 
-Where the overlay sits follows the shell: in V1, V2a/b and V4 to V6 it starts below the top
-bar at the left edge; in V3/V3b it starts at y=0 to the right of the rail (below the bar
-when the collapse control is in the top bar). While a V3/V3b overlay is open it covers the
-bar's left end, including the product identity, which is the correct trade: a bar that
-shifted every time the nav was hovered would be worse than a lockup briefly covered.
+The overlay opens below the top bar in both versions (the bar is full width in both), at the
+collapsed column's own left edge: x=0 in V1, x=56 in V3 beside the rail.
 
 ## Version switcher (review tooling, not part of the design)
 
 Every version file carries a small dark pill at the **bottom center**, stacked just above the
-Design Toolbox comment dock: `All` (back to the gallery) followed by V1 to V6, with the
+Design Toolbox comment dock: `All` (back to the gallery) followed by V1 and V3, with the
 current version highlighted and each button titled with its pattern. Its toggles are **Logo**
 (customer logo on/off), **Loc** (location picker), **Bar** (the tenant accent bar), **Logo:
 top / bottom** (where the customer logo sits) and **Tabs** where tabs exist. It exists so reviewers can flip between explorations in place instead of returning
@@ -425,10 +437,8 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 
 | File | Params |
 |---|---|
-| V1, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?state=peek` (opens the hover overlay) · `?logo=off` · `?loc=off` · `?tabs=off` |
-| V2a, V2b | Same minus `?search`/`?mode`/`?tabs=off`, plus `?sub=admin` (Admin sub-product) |
-| V3 | Same as V1 (`?search` and `?location` both work; location opens in the nav), plus `?state=peek\|bothclosed` (peek overlay open on load; the rail's minimal state) and `?toggle=top\|nav` (where the collapse control lives, which also sets whether the side panel is full height); the rail persists under `?nav=closed` |
-| V4 | V1's set |
+| V1 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?state=peek` (opens the hover overlay) · `?logo=off` · `?loc=off` · `?tabs=off` |
+| V3 | Same as V1 (location opens in the nav), plus `?state=peek\|bothclosed` (peek overlay open on load; the rail's minimal state); the rail persists under `?nav=closed` |
 
 ## Review feedback incorporated
 
@@ -477,14 +487,9 @@ Advance **V6**, pressure-tested against **V5**:
 
 ```
 navigation/
-  index.html                            gallery (live iframe thumbnails, rationale, links)
-  v1-launcher-tabs.html                 V1 · reference shell: grid launcher + in-bar mode tabs
-  v2a-subproducts-filter-panel.html     V2a · Learner/Admin via top-bar brand · filter panel
-  v2b-subproducts-filter-dropdowns.html V2b · Learner/Admin segmented in the nav · filter chips
-  v3-app-rail.html                      V3 · L-shaped shell: full-height app rail
-  v4-flyout-hierarchy.html              V4 · hierarchy via flyout panels (Jira-like)
-  v5-text-hierarchy.html                V5 · hierarchy via typography only
-  v6-color-hierarchy.html               V6 · hierarchy via colored open accordions
-  archive/                              the original six-version exploration
-  DESIGN-NOTES.md                       this file
+  index.html               gallery (live iframe thumbnails, rationale, links)
+  v1-launcher-tabs.html    V1 · reference shell: waffle launcher in a full-width top bar
+  v3-app-rail.html         V3 · full-height app rail beside the nav, location in the nav
+  archive/                 the original six-version exploration
+  DESIGN-NOTES.md          this file
 ```
