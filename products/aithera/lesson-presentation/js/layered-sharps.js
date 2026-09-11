@@ -755,9 +755,17 @@
             '<p class="cp-adapt-note" id="cpAdaptNote"></p>' +
           '</section>' +
           '<aside class="cp-rail">' +
+            // Item 17: the doc's own mastery rule, not the aptitude vision's
+            // 80%-of-objectives threshold — the two are different documents
+            // with different rules, and this module answers to the first.
+            // Bystander still carries the 80% card; that inconsistency is
+            // tracked, not swept here (a separate pass touches every module).
             '<div class="cp-card"><h3>Competency requirement</h3>' +
               '<ul class="cp-req">' +
-                '<li><i class="fa-solid fa-award"></i><span><b>Good (or above) on at least 80% of objectives.</b></span></li>' +
+                '<li><i class="fa-solid fa-list-check"></i><span>Every section completed.</span></li>' +
+                '<li><i class="fa-solid fa-clipboard-check"></i><span>Each check passed.</span></li>' +
+                '<li><i class="fa-solid fa-comments"></i><span>The end-of-shift scenario performed.</span></li>' +
+                '<li><i class="fa-solid fa-circle-info"></i><span>No final test.</span></li>' +
               '</ul></div>' +
             '<div class="cp-card"><h3>Time needed to complete</h3>' +
               '<div class="cp-kv"><div class="kv" id="cpTime"></div></div></div>' +
