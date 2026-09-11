@@ -2848,7 +2848,7 @@
     coach: 'This one is about the container, not the sharp.',
     options: [
       { t: 'Stop using it, seal it, and get the replacement before anything else', grade: 'ok',
-        reply: 'Right, and here is the principle behind it: that container is an engineering control, and a control that is not replaced on a schedule stops being one. Past its limit it no longer swallows the point — so it is a hazard wearing the label of a safeguard. Where exactly the limit sits is set by your site’s own exposure control plan, not by eye.' },
+        reply: 'Right. That container is an engineering control, and past its limit it stops containing — a hazard wearing a safeguard’s label. Where the limit sits is set by your site’s plan, not by eye.' },
       { t: 'Use it carefully until someone swaps it', grade: 'bad',
         reply: 'Careful does not help here. Past its limit the container stops containing, and the next thing in comes back out — that is a property of the box, not of how gently you use it.' },
       { t: 'Press the contents down to make room', grade: 'bad',
@@ -3192,8 +3192,8 @@
         } },
       { t: 'Training matters more', icon: 'fa-chalkboard-user', score: 1,
         reply: {
-          boxes: 'Then you bought against your own view, which is usually a sign somebody has been through this before. Worth saying out loud either way: training relies on you remembering this in eight months while something else is pulling at you. A container does not rely on that.',
-          gloves: 'Worth saying out loud. Training is what you are doing right now, and it relies on you remembering this in eight months while something else is pulling at you. A container does not rely on that, which is exactly why it outperforms both.'
+          boxes: 'Then you bought against your own view — usually a sign somebody has been through this before. Worth saying anyway: training relies on remembering this months later. A container does not rely on that.',
+          gloves: 'Worth saying out loud. Training relies on you remembering this months from now, with something else pulling at you. A container does not rely on that — which is why it outperforms both.'
         } }
     ].forEach(function (o) {
       var b = document.createElement('button');
