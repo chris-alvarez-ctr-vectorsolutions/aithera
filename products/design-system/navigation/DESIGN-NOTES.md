@@ -1,5 +1,28 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-11 round
+
+- **Live side-nav peek, every version.** The static interaction frames are now real
+  behaviour. With the nav collapsed, the pointer coming within **40px** of it for **100ms**
+  opens the nav as an overlay; the overlay stays until the pointer has been outside that
+  40px halo for **500ms**, then closes. A **pin tab on the overlay's right edge** docks it,
+  which is the only moment content shifts. Motion is a 200ms ease-out slide-and-fade in, a
+  150ms ease-in out, the pin tab arriving 80ms after the panel; `prefers-reduced-motion`
+  gets instant states. Keyboard parity: focus entering the collapsed nav opens it, focus
+  leaving closes it, Escape closes it. The halo tracks the visible pane's nav, so it is
+  right in every mode. `?state=peek` opens the overlay on load for review links;
+  `?state=collapsed` and `?state=pinned` are retired (they were `?nav=closed` and the
+  default). V3/V3b keep `?state=bothclosed`.
+- **Mode tabs start at the content edge** in the full-width-bar versions (V1, V4, V5, V6).
+  The toggle, switcher and identity are grouped and sized to the side nav, so the tab row's
+  left edge lands exactly on the nav's right edge and the active underline lines up with the
+  content it switches. Collapsing the nav releases the group and the tabs follow the
+  identity, on the same 180ms curve as the nav. Consequence, worth knowing: identity plus
+  location did not fit inside the nav's width, so the **location picker moved to the
+  top-right** beside the universal actions in those versions (the placement V3b already
+  uses). With the wider EHS identity the tabs start about 70px past the edge, since the
+  group cannot shrink below its content.
+
 ## Changelog · 2026-09-09 round (logo)
 
 - **The top-bar mark is now the OFFICIAL Vector Solutions logo**, replacing the placeholder
@@ -166,8 +189,9 @@ differently** (see below): its launcher drops pinning for a licence split.
 
 ## The shared shell contract (identical in all 7 versions)
 
-- Top bar, left to right: **nav open/close** · **app switcher** · product identity ·
-  location · scoped search (where the version has it) · notifications · help · avatar.
+- Top bar, left to right: **nav open/close** · **app switcher** · product identity, then
+  the **mode tabs starting at the content edge** (full-width-bar versions) · scoped search
+  · location · notifications · help · avatar.
   No + New action. V3 is the exception by design: its full-height rail owns the left
   edge, and its nav toggle tops the side-nav column instead.
 - The side nav ALSO closes from a control in its own top-right corner (every version),
@@ -354,22 +378,26 @@ the repo's shared `assets/vector-solutions-logo.svg`, so it is never redrawn or 
 here, and `--brand-navy` remains stand-in hex to be swapped for an official value. The identity is deliberately the only branded surface: surfaces, content and
 active states stay neutral so the structure, not the palette, is what gets reviewed.
 
-## Shared side-nav interaction spec (V3 + V4)
+## Side-nav peek (live, every version)
 
-Versions with an icon-collapsed side nav follow one interaction cycle, represented as
-labeled, deep-linkable FRAMES rather than fully engineered behavior (these are static
-mockups). A dark ribbon at the top of the screen names the frame:
+A collapsed side nav is never a dead end: hovering near it opens it as an overlay, and a
+pin tab docks it. This is engineered behaviour in all eight files, not a frame.
 
-| Frame | Deep link | What it shows |
-|---|---|---|
-| A · collapsed | `?state=collapsed` | Icons only. The pointer coming within ~16px of the nav would open the peek overlay. |
-| B · hover / peek overlay | `?state=peek` | The nav expands as an OVERLAY on top of the content (nothing shifts). It stays interactive until the user clicks away (collapses back to icons) or clicks the PIN in the nav's top-right to dock it. In this frame the pin and click-away are live. |
-| C+D · pinned (docked) | `?state=pinned` | Docked open; the pin has been REPLACED by the close control in the same top-right slot, so that slot toggles pin ↔ close. |
-| both closed (V3 only) | `?state=bothclosed` | Side nav collapsed AND the app rail in its minimal state (launcher + current product), the least chrome the shell can show. |
+| Moment | Rule |
+|---|---|
+| Open | Pointer within **40px** of the collapsed nav (horizontally; within its vertical extent) for **100ms**. The nav becomes a fixed overlay at its full width; the collapsed column's 56px footprint stays reserved so content does not move. |
+| Stay | While the pointer is anywhere inside the overlay plus a 40px halo, it stays. |
+| Close | Pointer outside that halo for **500ms**, pointer leaving the window, or Escape. 150ms ease-in slide-and-fade out, then the nav returns to its collapsed column. |
+| Pin | A tab straddling the overlay's right edge (arrives 80ms after the panel). Clicking it docks the nav open: this is the only moment content shifts. The top-bar toggle and the nav's own collapse control also dock a peeking nav rather than collapsing it. |
+| Keyboard | Focus entering the collapsed nav opens it; focus leaving the nav (and the pin) closes it. |
+| Motion | 200ms `cubic-bezier(.2,.8,.2,1)` in, 150ms ease-in out; the overlay's width is final on open so the geometry never animates, only its position and opacity. `prefers-reduced-motion` gets instant states. |
+| Deep link | `?state=peek` opens the overlay on load. |
 
-Full cycle to review: collapsed → peek overlay → pinned (close icon) → collapsed.
-V4's accordion behavior follows the same "stays open until dismissed" principle: open
-sections never auto-collapse on mouse-leave, only on click-away or explicit collapse.
+Where the overlay sits follows the shell: in V1, V2a/b and V4 to V6 it starts below the top
+bar at the left edge; in V3/V3b it starts at y=0 to the right of the rail (below the bar
+when the collapse control is in the top bar). While a V3/V3b overlay is open it covers the
+bar's left end, including the product identity, which is the correct trade: a bar that
+shifted every time the nav was hovered would be worse than a lockup briefly covered.
 
 ## Version switcher (review tooling, not part of the design)
 
@@ -390,10 +418,10 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 
 | File | Params |
 |---|---|
-| V1, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?logo=off` · `?loc=off` · `?tabs=off` |
+| V1, V5, V6 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?state=peek` (opens the hover overlay) · `?logo=off` · `?loc=off` · `?tabs=off` |
 | V2a, V2b | Same minus `?search`/`?mode`/`?tabs=off`, plus `?sub=admin` (Admin sub-product) |
-| V3 | Same as V1 (`?search` and `?location` both work; location opens in the nav), plus `?state=collapsed\|peek\|pinned\|bothclosed` (interaction frames) and `?toggle=top\|nav` (where the collapse control lives, which also sets whether the side panel is full height); the rail persists under `?nav=closed` |
-| V4 | V1's set plus `?state=collapsed\|peek\|pinned` (interaction frames) |
+| V3 | Same as V1 (`?search` and `?location` both work; location opens in the nav), plus `?state=peek\|bothclosed` (peek overlay open on load; the rail's minimal state) and `?toggle=top\|nav` (where the collapse control lives, which also sets whether the side panel is full height); the rail persists under `?nav=closed` |
+| V4 | V1's set |
 
 ## Review feedback incorporated
 

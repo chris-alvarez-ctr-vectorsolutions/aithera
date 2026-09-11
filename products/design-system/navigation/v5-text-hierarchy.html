@@ -56,7 +56,15 @@ svg.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-wid
 .brand b{font-size:14px;font-weight:650}
 .brand .org{font-size:12px;color:var(--ink-3);border-left:1px solid var(--line);padding-left:9px;margin-left:2px}
 /* Mode tabs, top-right of the same bar. Underline rides the bar's bottom edge. */
-.tb-tabs{display:flex;align-items:stretch;align-self:stretch;margin-left:auto;gap:2px}
+/* The left group is sized to the side nav, so the tabs begin at the content
+   column's edge and their underline lines up with the content below. When
+   the nav collapses the group releases its width and the tabs follow the
+   identity; the transition matches the nav's own. */
+/* nav width, minus the bar's own 12px padding and the 8px gap before the tabs,
+   so the tab row's left edge lands exactly on the nav's right edge */
+.tb-left{display:flex;align-items:center;gap:8px;flex:none;min-width:calc(var(--nav-w) - 20px);transition:min-width .18s ease}
+body.nav-hidden .tb-left{min-width:0}
+.tb-tabs{display:flex;align-items:stretch;align-self:stretch;gap:2px}
 .tb-tabs a{display:flex;align-items:center;padding:0 12px;color:var(--ink-2);font-weight:500;font-size:13px;border-bottom:2px solid transparent;border-top:2px solid transparent;white-space:nowrap}
 .tb-tabs a:hover{color:var(--ink)}
 .tb-tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:650}
@@ -245,7 +253,8 @@ body.logo-off .cust-logo{display:none}
 .loc-ck{width:14px;height:14px;color:var(--accent);flex:none;margin-right:2px;visibility:hidden}
 .loc-row.selected .loc-ck{visibility:visible}
 /* ---- Scoped global search: field + explicit All products / This product scope ---- */
-.gsearch{position:relative;margin-left:10px;flex:0 1 400px;min-width:250px}
+/* search takes the flexible middle and hugs the right-hand group */
+.gsearch{position:relative;margin-left:auto;flex:0 1 400px;min-width:220px}
 .gs-field{display:flex;align-items:center;gap:8px;width:100%;height:36px;padding:0 6px 0 12px;border-radius:8px;background:var(--well);border:1px solid transparent}
 .gs-field:focus-within{background:var(--surface);border-color:var(--accent-line)}
 .gs-field>.ic{color:var(--ink-3)}
@@ -312,7 +321,6 @@ body.loc-off .loc{display:none}
 body.tabs-off .tb-tabs[data-app]{display:none}
 body.tabs-off .tb-sep{display:none}
 /* with the tabs gone, the alerts button takes over the flex push-right */
-body.tabs-off .topbar>button[aria-label^="Notifications"]{margin-left:auto}
 /* ---- Side-nav text size (user preference, set from the profile menu) ---- */
 body[data-density="compact"]{--item-h:28px}
 body[data-density="compact"] .sidenav .nitem,body[data-density="compact"] .sidenav details.grp>summary{font-size:12.5px}
@@ -398,6 +406,31 @@ body.logo-bottom.nav-hidden .sidenav{padding-bottom:8px}
 .u-sw[aria-current="true"]::after{content:"";position:absolute;inset:-3px;border-radius:8px;border:2px solid var(--ink)}
 .u-sw:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .u-note{font-size:10.5px;color:var(--ink-3);padding:0 9px 6px;line-height:1.4}
+/* the location picker sits at the bar's right end, so its menu right-aligns */
+.topbar>.loc>.loc-menu{left:auto;right:0}
+
+/* ---- Live peek: hovering near the COLLAPSED nav opens it as an overlay -----
+   Pointer within 40px of the nav for 100ms opens it; pointer outside that
+   halo for 500ms closes it; the pin tab on the overlay's right edge docks it.
+   Content never shifts while peeking: the collapsed column's 56px footprint
+   stays reserved and the overlay floats above it. Motion is a short ease-out
+   slide on open and a shorter ease-in on close, the way Notion / Linear /
+   VS Code peek panels behave; reduced-motion users get instant states. ---- */
+:root{--peek-left:0px;--peek-top:var(--topbar-h)}
+body.nav-peek .sidenav{position:fixed;left:var(--peek-left);top:var(--peek-top);bottom:0;width:var(--nav-w);z-index:60;box-shadow:var(--shadow-3);border-right:1px solid var(--line);transition:none;animation:peekIn .2s cubic-bezier(.2,.8,.2,1) both}
+body.nav-peek.peek-out .sidenav{animation:peekOut .15s ease-in both}
+@keyframes peekIn{from{opacity:0;transform:translateX(-14px)}to{opacity:1;transform:none}}
+@keyframes peekOut{from{opacity:1;transform:none}to{opacity:0;transform:translateX(-10px)}}
+body.nav-peek .shell{padding-left:56px}
+/* the transient overlay carries no collapse control: moving away closes it */
+body.nav-peek .sn-close{display:none}
+/* the pin tab straddles the overlay's right edge; the same vars that place the
+   overlay place the tab, so the two can never disagree */
+.peek-pin{position:fixed;left:calc(var(--peek-left) + var(--nav-w) - 1px);top:calc(var(--peek-top) + 14px);z-index:61;display:flex;align-items:center;justify-content:center;width:26px;height:40px;border-radius:0 8px 8px 0;background:var(--surface);border:1px solid var(--line);border-left:0;box-shadow:var(--shadow-2);color:var(--ink-3);cursor:pointer;opacity:0;transform:translateX(-8px);pointer-events:none;transition:opacity .16s ease,transform .18s cubic-bezier(.2,.8,.2,1),background .12s,color .12s,border-color .12s}
+body.nav-peek:not(.peek-out) .peek-pin{opacity:1;transform:none;pointer-events:auto;transition-delay:.08s,.08s,0s,0s,0s}
+.peek-pin:hover,.peek-pin:focus-visible{background:var(--accent-soft);color:var(--accent-strong);border-color:var(--accent-line)}
+.peek-pin .ic{width:14px;height:14px}
+@media (prefers-reduced-motion:reduce){body.nav-peek .sidenav,body.nav-peek.peek-out .sidenav{animation:none}.peek-pin{transition:none}}
 </style>
 </head>
 <body data-app="learn" data-mode="trainplan">
@@ -448,6 +481,9 @@ body.logo-bottom.nav-hidden .sidenav{padding-bottom:8px}
 
 <!-- ============ TOP BAR: one row = nav toggle · switcher · identity · modes · actions ============ -->
 <header class="topbar" role="banner">
+  <!-- LEFT GROUP: sized to the side nav, so everything after it starts at the
+       content column's edge. Holds the toggle, the switcher and the identity. -->
+  <div class="tb-left">
   <!-- Side nav open/close: the far-left corner, directly above the sidenav edge -->
   <button class="icon-btn" id="navToggle" aria-label="Hide navigation" aria-pressed="true" aria-controls="main">
     <svg class="ic"><use href="#i-panel"/></svg>
@@ -468,8 +504,61 @@ body.logo-bottom.nav-hidden .sidenav{padding-bottom:8px}
     <span class="vlock-mark"><svg class="ic"><use href="#i-dash"/></svg></span>
     <span class="vlock-txt"><i>Dashboard</i></span>
   </a>
-  <!-- Location selector (Convergence-style): filters the current context.
-       Top-bar concern, separate from switching and from navigation. -->
+  </div>
+  <!-- MODE TABS, aligned to the CONTENT EDGE: they begin where the side nav
+       ends, so the row sits over the content it switches. Live demo: click to
+       swap the side nav + content below. Switching product swaps this tab set. -->
+  <nav class="tb-tabs" data-app="learn" aria-label="Vector LMS modes">
+    <a href="#" data-mode="home">Home</a>
+    <a href="#" data-mode="admin">Admin</a>
+    <a href="#" data-mode="trainplan" aria-current="page">Training Plan</a>
+    <a href="#" data-mode="reporting">Reporting &amp; Insights</a>
+  </nav>
+  <!-- Comply's mode set (swapped in by the launcher). Static here: only the
+       Home mode is built; the point of the Comply pane is the EHS side nav. -->
+  <nav class="tb-tabs" data-app="comply" aria-label="Vector EHS Management modes">
+    <a href="#" aria-current="page">Home</a>
+    <a href="#">Incidents</a>
+    <a href="#">Inspections</a>
+    <a href="#">Observations</a>
+    <a href="#">Analytics</a>
+  </nav>
+
+  <!-- Scoped global search: the scope control is explicit (All products /
+       This product) and attached to the field. ?search pre-opens results. -->
+  <div class="gsearch" id="gsearch">
+    <div class="gs-field">
+      <svg class="ic"><use href="#i-search"/></svg>
+      <input id="gsInput" placeholder="Search all products" aria-label="Search">
+      <button class="gs-scope" id="gsScope" aria-haspopup="menu" aria-expanded="false"><span id="gsScopeLbl">All</span><svg class="ic"><use href="#i-chev-d"/></svg></button>
+    </div>
+    <div class="gs-scope-menu" id="gsScopeMenu" role="menu" aria-label="Search scope" hidden>
+      <button data-scope="all" aria-current="true">All<svg class="ic"><use href="#i-check"/></svg></button>
+      <button data-scope="app"><span id="gsScopeApp">Vector LMS</span><svg class="ic"><use href="#i-check"/></svg></button>
+    </div>
+    <div class="gs-results" id="gsResults" hidden>
+      <div class="gs-panel" data-scope="all">
+        <div class="gs-group"><svg class="ic"><use href="#i-cap"/></svg>Vector LMS</div>
+        <a class="gs-item" href="#"><mark>OSHA</mark> 10 · 2024<span class="k">Course</span></a>
+        <a class="gs-item" href="#"><mark>OSHA</mark> 30 · 2024<span class="k">Course</span></a>
+        <div class="gs-group"><svg class="ic"><use href="#i-shield"/></svg>Vector EHS Management</div>
+        <a class="gs-item" href="#"><mark>OSHA</mark> logs<span class="k">Incidents</span></a>
+        <a class="gs-item" href="#">Q3 <mark>OSHA</mark> 300 log<span class="k">Task</span></a>
+        <div class="gs-note">Searching across all products. Switch the scope to limit results to this product.</div>
+      </div>
+      <div class="gs-panel" data-scope="app">
+        <div class="gs-group"><svg class="ic"><use href="#i-cap"/></svg>Vector LMS</div>
+        <a class="gs-item" href="#"><mark>OSHA</mark> 10 · 2024<span class="k">Course</span></a>
+        <a class="gs-item" href="#"><mark>OSHA</mark> 30 · 2024<span class="k">Course</span></a>
+        <a class="gs-item" href="#"><mark>OSHA</mark> 10 renewals<span class="k">Report</span></a>
+        <div class="gs-note">Results are limited to this product. Switch the scope to search all products.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Location selector (Convergence-style), TOP-RIGHT: it joins the universal
+       actions so the tabs can start at the content edge. Still a top-bar
+       concern, separate from switching and from navigation. -->
   <div class="loc">
     <button class="loc-btn" id="locBtn" aria-haspopup="menu" aria-expanded="false">
       <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span id="locLbl">North Campus</span><span class="loc-sub" id="locSub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
@@ -549,56 +638,6 @@ body.logo-bottom.nav-hidden .sidenav{padding-bottom:8px}
       </div>
     </div>
   </div>
-
-  <!-- Scoped global search: the scope control is explicit (All products /
-       This product) and attached to the field. ?search pre-opens results. -->
-  <div class="gsearch" id="gsearch">
-    <div class="gs-field">
-      <svg class="ic"><use href="#i-search"/></svg>
-      <input id="gsInput" placeholder="Search all products" aria-label="Search">
-      <button class="gs-scope" id="gsScope" aria-haspopup="menu" aria-expanded="false"><span id="gsScopeLbl">All</span><svg class="ic"><use href="#i-chev-d"/></svg></button>
-    </div>
-    <div class="gs-scope-menu" id="gsScopeMenu" role="menu" aria-label="Search scope" hidden>
-      <button data-scope="all" aria-current="true">All<svg class="ic"><use href="#i-check"/></svg></button>
-      <button data-scope="app"><span id="gsScopeApp">Vector LMS</span><svg class="ic"><use href="#i-check"/></svg></button>
-    </div>
-    <div class="gs-results" id="gsResults" hidden>
-      <div class="gs-panel" data-scope="all">
-        <div class="gs-group"><svg class="ic"><use href="#i-cap"/></svg>Vector LMS</div>
-        <a class="gs-item" href="#"><mark>OSHA</mark> 10 · 2024<span class="k">Course</span></a>
-        <a class="gs-item" href="#"><mark>OSHA</mark> 30 · 2024<span class="k">Course</span></a>
-        <div class="gs-group"><svg class="ic"><use href="#i-shield"/></svg>Vector EHS Management</div>
-        <a class="gs-item" href="#"><mark>OSHA</mark> logs<span class="k">Incidents</span></a>
-        <a class="gs-item" href="#">Q3 <mark>OSHA</mark> 300 log<span class="k">Task</span></a>
-        <div class="gs-note">Searching across all products. Switch the scope to limit results to this product.</div>
-      </div>
-      <div class="gs-panel" data-scope="app">
-        <div class="gs-group"><svg class="ic"><use href="#i-cap"/></svg>Vector LMS</div>
-        <a class="gs-item" href="#"><mark>OSHA</mark> 10 · 2024<span class="k">Course</span></a>
-        <a class="gs-item" href="#"><mark>OSHA</mark> 30 · 2024<span class="k">Course</span></a>
-        <a class="gs-item" href="#"><mark>OSHA</mark> 10 renewals<span class="k">Report</span></a>
-        <div class="gs-note">Results are limited to this product. Switch the scope to search all products.</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- MODE TABS, top-right: Learn's major modes. Live demo: click to swap the
-       side nav + content below. Switching product swaps this tab set. -->
-  <nav class="tb-tabs" data-app="learn" aria-label="Vector LMS modes">
-    <a href="#" data-mode="home">Home</a>
-    <a href="#" data-mode="admin">Admin</a>
-    <a href="#" data-mode="trainplan" aria-current="page">Training Plan</a>
-    <a href="#" data-mode="reporting">Reporting &amp; Insights</a>
-  </nav>
-  <!-- Comply's mode set (swapped in by the launcher). Static here: only the
-       Home mode is built; the point of the Comply pane is the EHS side nav. -->
-  <nav class="tb-tabs" data-app="comply" aria-label="Vector EHS Management modes">
-    <a href="#" aria-current="page">Home</a>
-    <a href="#">Incidents</a>
-    <a href="#">Inspections</a>
-    <a href="#">Observations</a>
-    <a href="#">Analytics</a>
-  </nav>
   <span class="tb-sep" aria-hidden="true"></span>
   <button class="icon-btn" aria-label="Notifications, 3 unread"><svg class="ic"><use href="#i-bell"/></svg><span class="ndot"></span></button>
   <button class="icon-btn" aria-label="Help"><svg class="ic"><use href="#i-help"/></svg></button>
@@ -1242,15 +1281,92 @@ body.logo-bottom.nav-hidden .sidenav{padding-bottom:8px}
 
   // 3) Side nav open/close (?nav=closed starts closed)
   var nBtn=document.getElementById('navToggle');
+  var peekIn=null, peekOut=null;
   function setNav(open){
+    // a docked or collapsed nav never keeps the overlay classes
+    clearTimeout(peekIn);clearTimeout(peekOut);peekIn=peekOut=null;
+    document.body.classList.remove('nav-peek','peek-out');
     document.body.classList.toggle('nav-hidden',!open);
     if(nBtn){nBtn.setAttribute('aria-pressed',String(open));nBtn.setAttribute('aria-label',open?'Collapse navigation':'Expand navigation');}
   }
-  if(nBtn)nBtn.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden'));});
+  if(nBtn)nBtn.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden')||document.body.classList.contains('nav-peek'));});
   // the in-nav control collapses too (and expands, where visible while collapsed)
   document.querySelectorAll('.sn-close').forEach(function(b){
-    b.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden'));});
+    b.addEventListener('click',function(){setNav(document.body.classList.contains('nav-hidden')||document.body.classList.contains('nav-peek'));});
   });
+  // ---- Live peek: hover near the collapsed nav opens it as an overlay ----
+  // Within 40px of the nav for 100ms opens; outside that halo for 500ms
+  // closes; the edge pin docks it. The active nav is whichever pane's nav is
+  // visible, so the halo tracks the real rect in every mode.
+  var PEEK_HALO=40, PEEK_IN=100, PEEK_OUT=500;
+  // the pin tab is markup-after-script: never cache it, look it up when needed
+  function pinEl(){return document.getElementById('peekPin');}
+  function activeNav(){
+    var navs=document.querySelectorAll('.sidenav');
+    for(var i=0;i<navs.length;i++){var r=navs[i].getBoundingClientRect(); if(r.width>0&&r.height>0)return navs[i];}
+    return null;
+  }
+  function nearNav(x,y,halo){
+    var nav=activeNav(); if(!nav)return false;
+    var r=nav.getBoundingClientRect();
+    return x>=r.left-halo&&x<=r.right+halo&&y>=r.top&&y<=r.bottom;
+  }
+  function openPeek(){
+    clearTimeout(peekIn); peekIn=null;
+    if(document.body.classList.contains('nav-peek'))return;
+    document.body.classList.remove('nav-hidden');
+    document.body.classList.add('nav-peek');
+    var pe=pinEl(); if(pe){pe.tabIndex=0;pe.removeAttribute('aria-hidden');}
+  }
+  function closePeek(){
+    clearTimeout(peekOut); peekOut=null;
+    if(!document.body.classList.contains('nav-peek')||document.body.classList.contains('peek-out'))return;
+    document.body.classList.add('peek-out');
+    var pe=pinEl(); if(pe){pe.tabIndex=-1;pe.setAttribute('aria-hidden','true');}
+    setTimeout(function(){
+      if(!document.body.classList.contains('peek-out'))return; // pinned meanwhile
+      document.body.classList.remove('nav-peek','peek-out');
+      document.body.classList.add('nav-hidden');
+    },150);
+  }
+  function pinPeek(){
+    clearTimeout(peekOut); peekOut=null;
+    var pe=pinEl(); if(pe){pe.tabIndex=-1;pe.setAttribute('aria-hidden','true');}
+    setNav(true);
+  }
+  document.addEventListener('pointermove',function(e){
+    var b=document.body.classList;
+    if(b.contains('nav-peek')){
+      if(b.contains('peek-out'))return;
+      if(nearNav(e.clientX,e.clientY,PEEK_HALO)){clearTimeout(peekOut);peekOut=null;}
+      else if(peekOut===null){peekOut=setTimeout(closePeek,PEEK_OUT);}
+      return;
+    }
+    if(b.contains('nav-hidden')){
+      if(nearNav(e.clientX,e.clientY,PEEK_HALO)){if(peekIn===null)peekIn=setTimeout(openPeek,PEEK_IN);}
+      else{clearTimeout(peekIn);peekIn=null;}
+    }
+  });
+  document.documentElement.addEventListener('mouseleave',function(){
+    clearTimeout(peekIn); peekIn=null;
+    if(document.body.classList.contains('nav-peek')&&peekOut===null)peekOut=setTimeout(closePeek,PEEK_OUT);
+  });
+  // keyboard parity: focus entering the collapsed nav opens it; leaving closes it
+  document.addEventListener('focusin',function(e){
+    if(document.body.classList.contains('nav-hidden')&&e.target.closest('.sidenav'))openPeek();
+    if(document.body.classList.contains('nav-peek')){clearTimeout(peekOut);peekOut=null;}
+  });
+  document.addEventListener('focusout',function(e){
+    var to=e.relatedTarget;
+    if(!document.body.classList.contains('nav-peek'))return;
+    if(to&&(to.closest('.sidenav')||to.id==='peekPin'))return;
+    if(peekOut===null)peekOut=setTimeout(closePeek,PEEK_OUT);
+  });
+  document.addEventListener('click',function(e){
+    var pe=e.target.closest?e.target.closest('#peekPin'):null;
+    if(pe){e.stopPropagation();pinPeek();}
+  });
+  document.addEventListener('keydown',function(e){if(e.key==='Escape'&&document.body.classList.contains('nav-peek'))closePeek();});
 
   // 4) Launcher tiles switch the product: Learn <-> Comply (EHS-style nav).
   //    ?app=comply deep-links the Comply pane.
@@ -1400,6 +1516,7 @@ document.querySelectorAll('.u-sw').forEach(function(sw){
   if(params.has('search')){gsInput.value='osha';gsOpen(true);}
   if(params.has('launcher'))setLauncher(true);
   if(params.get('nav')==='closed')setNav(false);
+  if(params.get('state')==='peek'){setNav(false);setTimeout(openPeek,60);}
   if(new URLSearchParams(location.search).get('logo')==='off')document.body.classList.add('logo-off');
   // tenant branding: ?bar[=<hex>] shows the accent stripe, ?logopos=top|bottom moves the logo
   var barP=params.get('bar');
@@ -1462,6 +1579,9 @@ document.querySelectorAll('.u-sw').forEach(function(sw){
 })();
 </script>
 
+<!-- Pin tab for the live peek overlay: sits on the overlay's right edge while
+     the collapsed nav is being hovered; clicking docks the nav open. -->
+<button class="peek-pin" id="peekPin" type="button" aria-label="Pin navigation open" title="Pin navigation open" tabindex="-1" aria-hidden="true"><svg class="ic"><use href="#i-pinpush"/></svg></button>
 <!-- Design Toolbox: review comments + flow map (bottom-center dock).
      Pins are keyed to the GitHub Pages URL, so comment on the Pages link. -->
 <script src="../../../designtoolbox/toolbox.js"></script>
