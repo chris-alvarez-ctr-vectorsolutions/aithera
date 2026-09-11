@@ -2805,7 +2805,7 @@
       var opts = harder ? cfg.harder : cfg.options;
       var wrap = document.getElementById('csOpts');
       ctx.setCoachSay(harder
-        ? 'You earned the harder version of this case — both answers are genuinely arguable.'
+        ? 'You earned the harder version of this case — all three answers are genuinely arguable.'
         : cfg.coach);
       var settled = false;
       opts.forEach(function (o) {
@@ -4274,7 +4274,10 @@
     { id: 'case1', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'A Sharp Set Down', mode: 'floating', gate: true, adaptive: true,
       when: function () { return batteryResult() !== 'proven'; },
       caption: { title: 'LEARN · Case 1 (K1)', note: 'The procedure case. Compressed out when the battery proved K1 — the only beat in the module that test-out can remove, and only because the simulation re-verifies it performatively.' },
-      coach: { say: 'Loading…' },
+      // Item 27/A2: the opener ("read it and tell me what the actual failure
+      // is") sets how to read the scene below it — tucked behind the unread
+      // dot, a learner could answer the case without ever seeing it.
+      coach: { say: 'Loading…', lead: true },
       content: caseContent(CASE1), init: caseInit(CASE1),
       onSkip: function () { saveResult('case1', { skipped: true }); } },
 
@@ -4294,12 +4297,15 @@
 
     { id: 'case2', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Past the Fill Line', mode: 'floating', gate: true, adaptive: true,
       caption: { title: 'LEARN · Case 2 (K3, content-locked)', note: 'Never removed. On test-up the three options are replaced with genuinely arguable ones — the same objective, served harder. 1910.1030(g)(2)(vii)(E): recognition is sector-specific, so a generic pass does not satisfy it.' },
-      coach: { say: 'Loading…' },
+      // Item 27/A2: same reasoning as case 1 — "this one is about the
+      // container, not the sharp" is the posture for the scene, not a
+      // reaction to anything the learner does.
+      coach: { say: 'Loading…', lead: true },
       content: caseContent(CASE2), init: caseInit(CASE2) },
 
     { id: 'case3', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Left by Someone Else', mode: 'floating', gate: true, adaptive: true,
       caption: { title: 'LEARN · Case 3 (K3)', note: 'The second half of the locked objective: recognizing a condition you did not create. Independent of the other cases — this is what makes Option B compressible without editorial repair.' },
-      coach: { say: 'Loading…' },
+      coach: { say: 'Loading…', lead: true },
       content: caseContent(CASE3), init: caseInit(CASE3) },
 
     { id: 'case4', icon: 'fa-book-open', mins: 1, stage: 'Learn', lesson: 'A Coworker Got Stuck', mode: 'floating', gate: true,
