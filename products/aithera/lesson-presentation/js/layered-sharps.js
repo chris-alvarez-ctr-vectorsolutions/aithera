@@ -3390,10 +3390,14 @@
             // `said`, so a learner who guessed "Hardly anyone" had the
             // "most" row marked as theirs and tagged "You said Most do".
             var mine = said && d.k === said;
+            // Item 29: "Your guess: about half" — a tag beside a figure reads
+            // as metadata, not as a quoted sentence, so it takes the lower-
+            // cased form rather than the capitalized recall-block phrasing.
+            var guessWord = F3_WORDS[said] ? F3_WORDS[said].charAt(0).toLowerCase() + F3_WORDS[said].slice(1) : '';
             return '<div class="pr-choice pr-static' + (mine ? ' picked' : '') + '" data-k="' + d.k + '">' +
               '<span class="pr-head">' +
                 '<span class="pr-lab">' + esc(d.label) + '</span>' +
-                (mine ? '<span class="pr-tag">You said ' + esc(F3_WORDS[said]) + '</span>' : '') +
+                (mine ? '<span class="pr-tag">Your guess: ' + esc(guessWord) + '</span>' : '') +
                 '<span class="pr-pct">' + d.pct + '%</span>' +
               '</span>' +
               '<span class="pr-track"><span class="pr-fill" data-w="' + d.pct + '"></span></span>' +
@@ -3405,9 +3409,13 @@
         // survivable in a prototype only while the screen says so, because
         // here the NUMBER is the intervention: a norm correction built on an
         // invented norm is teaching something we made up.
+        //
+        // Item 29: the disclaimer stops there. "A real deployment swaps in
+        // the customer's own cohort data" is production process, not
+        // something a learner needs to read on their way through a norm
+        // correction — it moved to the step caption, where a reviewer looks.
         '<p class="pr-src"><i class="fa-solid fa-users" aria-hidden="true"></i> ' +
-          'Illustrative figures for ' + esc(lens().label) + ' · a real deployment swaps in the customer’s own ' +
-          'cohort data for ' + esc(lens().org) + '</p>' +
+          'Illustrative figures for ' + esc(lens().label) + '</p>' +
       '</div>' +
 
       // Item 14: the post leg of a Pre + post objective is the SAME item
@@ -4338,7 +4346,7 @@
       onSkip: function () { saveResult('downstream', { named: null }); } },
 
     { id: 'debrief', icon: 'fa-square-poll-vertical', mins: 1, stage: 'Learn', lesson: 'What Your Shift Does', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · Cohort debrief (F3)', note: 'The norm correction, and the POST leg of a Pre + post objective — the entry battery asked for their read of the room, and this asks them to place their own shift against a figure they now have, so the reportable number is the movement rather than either level. Figures are ILLUSTRATIVE and labelled as such on the screen: no cohort data exists in the source material, and here the number IS the intervention, so an invented norm presented as real would be teaching something we made up. AEC sits just under half on purpose — and the copy branches on whether the sector figure is a majority, because it previously told that learner the shortcut was the outlier while showing them data saying it was not.' },
+      caption: { title: 'LEARN · Cohort debrief (F3)', note: 'The norm correction, and the POST leg of a Pre + post objective — the entry battery asked for their read of the room, and this asks them to place their own shift against a figure they now have, so the reportable number is the movement rather than either level. Figures are ILLUSTRATIVE and labelled as such on the screen: no cohort data exists in the source material, and here the number IS the intervention, so an invented norm presented as real would be teaching something we made up. AEC sits just under half on purpose — and the copy branches on whether the sector figure is a majority, because it previously told that learner the shortcut was the outlier while showing them data saying it was not. A real deployment swaps in the customer’s own cohort data in place of these figures — production detail, kept out of the learner-facing disclaimer, which only needs to say the numbers are illustrative.' },
       // Arrives silent — an empty line means no unread dot and no idle
       // hint. The reaction later in debriefInit raises CLARA by itself.
       coach: { say: '' },
