@@ -1184,6 +1184,7 @@
     { id: 'hzcheck',   state: function () { return k2TestUp() ? 'dropped' : 'kept'; } },
     { id: 'procedure', state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
     { id: 'case1',     state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
+    { id: 'inflow',    state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
     { id: 'case2',     state: function () { return k3TestUp() ? 'harder' : 'kept'; } },
     { id: 'case3',     state: function () { return k3TestUp() ? 'harder' : 'kept'; } },
     { id: 'enact',     state: function () { return 'kept'; } }
@@ -2252,15 +2253,18 @@
     // Silent. The eyebrow states the rule now, so there is nothing left for
     // CLARA to say that is not already on the screen.
     var tries = 0, settled = false;
-    [
+    var HZ_OPTS = [
       { t: 'It gets past your skin', ok: true,
         reply: 'That is the mechanism. Skin is the barrier, and a puncture is what gets past it — which is why the amount of blood matters far less than whether it got in.' },
       { t: 'There is more blood on a needle', ok: false,
         reply: 'The opposite, in fact — a used point carries a trace, and a hand can carry far more. What makes the needle worse is the route, not the amount.' },
       { t: 'They are the same risk', ok: false,
         reply: 'Washing matters either way, and blood on broken skin or in your eyes is a real exposure. But on intact skin a pathogen has nowhere to go — the needle is what gives it somewhere.' }
-    ].forEach(function (o) {
+    ];
+    var buttons = [];
+    HZ_OPTS.forEach(function (o) {
       var b = csOption(o.t);
+      buttons.push(b);
       b.addEventListener('click', function () {
         if (settled) return;
         if (o.ok) {
@@ -2277,11 +2281,19 @@
         } else {
           tries++;
           csMark(b, 'bad'); b.disabled = true;
-          ctx.setCoachSay(esc(tries === 1 ? o.reply
-            : 'Put it this way: unbroken skin has no way in, so blood just sits there. A needle makes the way in and pushes the blood through at the same time.'));
           if (tries >= 2) {
+            // Closure: mark the correct option, disable the set, and state
+            // the answer rather than leaving the last live button as a way
+            // to overwrite a miss with a pass by wandering into it.
+            settled = true;
+            wrap.classList.add('answered');
+            HZ_OPTS.forEach(function (opt, i) { if (opt.ok) csMark(buttons[i], 'ok'); });
+            wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
             saveResult('hazard', { passed: false, attempts: tries });
+            ctx.setCoachSay('It gets past your skin — that is the mechanism, and the amount barely matters next to it. This comes back for another look before we move on.');
             ctx.enableNext();
+          } else {
+            ctx.setCoachSay(esc(o.reply));
           }
         }
         ctx.positionOrb(true);
@@ -2575,8 +2587,7 @@
           reply: 'Carrying is already the risky part — the procedure exists so there is as little carrying as possible.' },
         { t: 'Who to tell if the sharp injures somebody', ok: false,
           reply: 'Reporting matters afterwards. The decision you make in advance is the route to the container.' }
-      ],
-      reframe: 'Let me put it another way: you pick the route in advance because afterwards, both your hands are full.' },
+      ] },
     { stem: 'Which of these is never acceptable with a used sharp?',
       opts: [
         { t: 'Recapping it by hand', ok: true,
@@ -2585,8 +2596,7 @@
           reply: 'That one is allowed, and sometimes it is the only option — provided the safety feature is on and you planned the route. Carrying a shielded sharp is fine; recapping one never is.' },
         { t: 'Sealing a full container and starting a fresh one', ok: false,
           reply: 'That is correct practice, not a violation. The five that are never acceptable are bending, breaking, recapping, removing, or separating a needle from its syringe.' }
-      ],
-      reframe: 'Put it this way: everything else on this list is something you are allowed to do. Only bending, breaking, recapping, removing, or separating a needle from its syringe never is.' }
+      ] }
   ];
   function inflowBankPick() {
     try {
@@ -2614,8 +2624,10 @@
     // never belongs on a learner screen, and the eyebrow already carries the
     // tries rule — CLARA restating it would be a second voice for one line.
     var tries = 0, settled = false;
+    var buttons = [];
     q.opts.forEach(function (o) {
       var b = csOption(o.t);
+      buttons.push(b);
       b.addEventListener('click', function () {
         if (settled) return;
         if (o.ok) {
@@ -2629,10 +2641,20 @@
         } else {
           tries++;
           csMark(b, 'bad'); b.disabled = true;
-          ctx.setCoachSay(esc(tries === 1 ? o.reply : q.reframe));
           if (tries >= 2) {
+            // Closure: mark the correct option, disable the set, and state
+            // the answer rather than leaving the last live button as a way
+            // to overwrite a miss with a pass by wandering into it.
+            settled = true;
+            wrap.classList.add('answered');
+            q.opts.forEach(function (opt, i) { if (opt.ok) csMark(buttons[i], 'ok'); });
+            wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
             saveResult('inflow', { passed: false, attempts: tries });
+            var correct = q.opts.filter(function (opt) { return opt.ok; })[0];
+            ctx.setCoachSay(esc(correct.reply) + ' This comes back for another look before we move on.');
             ctx.enableNext();
+          } else {
+            ctx.setCoachSay(esc(o.reply));
           }
         }
         ctx.positionOrb(true);
@@ -3780,7 +3802,7 @@
       // the pre-battery skips the check entirely \u2014 the explainer served its
       // harder permutation instead, with no safety net after it.
       when: function () { return !k2TestUp(); },
-      caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts, second miss reframed rather than repeated, which is the remediate policy firing at the beat. Writes to the same record key as before, so the K2 line on the record is unchanged. Gated off entirely on K2 test-up (D4) \u2014 see the battery\u2019s k2up flag.' },
+      caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts; a second miss now closes the item outright (item 11) \u2014 the correct option is marked, the set disables, and CLARA states the answer rather than leaving the last live button as a way to overwrite a miss with a pass. Writes to the same record key as before, so the K2 line on the record is unchanged. Gated off entirely on K2 test-up (D4) \u2014 see the battery\u2019s k2up flag.' },
       // Arrives silent \u2014 the eyebrow states the two-tries rule, so there is
       // no unread dot promising a line the screen already shows.
       coach: { say: '' },
@@ -3802,8 +3824,15 @@
       content: caseContent(CASE1), init: caseInit(CASE1),
       onSkip: function () { saveResult('case1', { skipped: true }); } },
 
-    { id: 'inflow', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Planning the Route', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · In-flow check (K1)', note: 'Asked of everyone, because K1 gates. Two attempts with a different explanation on a miss — the deck’s in-flow band. A learner who tested out still meets it here, so test-out never means unverified.' },
+    { id: 'inflow', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Planning the Route', mode: 'floating', gate: true, adaptive: true,
+      // Item 12: the pre-battery proof stands. K1 tested out — proven once,
+      // performatively, in the battery's ordering task — used to be checked
+      // again here regardless, which is the doc's rule broken twice over:
+      // K1 was verified twice, and the "checked again straight afterwards"
+      // record line (see recordInit) described a check that never ran for
+      // that learner.
+      when: function () { return batteryResult() !== 'proven'; },
+      caption: { title: 'LEARN · In-flow check (K1)', note: 'Only for a learner who did NOT test out — the pre-battery proof stands (item 12), where it used to run for everyone regardless and re-check a learner the battery had already proven. Two attempts, a bank of two items (D4 — the battery’s old "never acceptable" item moved here); a second miss closes the item outright rather than reframing (item 11): the correct option is marked, the set disables, and the answer is stated.' },
       // Arrives silent — an empty line means no unread dot and no idle
       // hint. The reaction later in inflowInit raises CLARA by itself.
       coach: { say: '' },
