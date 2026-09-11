@@ -2525,7 +2525,9 @@
     b.querySelector('.cs-opt-t').textContent = text;
     return b;
   }
-  var CS_GLYPH = { ok: 'fa-check', near: 'fa-minus', bad: 'fa-xmark' };
+  // 'neutral' (item 16): a plain pick, no verdict — served harder, not
+  // quizzed, so a check/minus/x would all overclaim.
+  var CS_GLYPH = { ok: 'fa-check', near: 'fa-minus', bad: 'fa-xmark', neutral: 'fa-circle' };
   function csMark(b, grade) {
     b.classList.add('pick-' + grade);
     var m = b.querySelector('.cs-mark');
@@ -2534,9 +2536,12 @@
 
   function caseInit(cfg) {
     return function (ctx) {
-      var opts = cfg.harder && k3TestUp() ? cfg.harder : cfg.options;
+      // Item 16: harder is a PERMUTATION, not a re-quiz — content-locked
+      // objectives serve harder on test-up, they don't get graded harder.
+      var harder = !!(cfg.harder && k3TestUp());
+      var opts = harder ? cfg.harder : cfg.options;
       var wrap = document.getElementById('csOpts');
-      ctx.setCoachSay(cfg.harder && k3TestUp()
+      ctx.setCoachSay(harder
         ? 'You earned the harder version of this case — both answers are genuinely arguable.'
         : cfg.coach);
       var settled = false;
@@ -2546,9 +2551,13 @@
           if (settled) return; settled = true;
           wrap.classList.add('answered');
           wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
-          csMark(b, o.grade === 'ok' ? 'ok' : o.grade === 'near' ? 'near' : 'bad');
+          // A plain pick on the harder permutation — no verdict colour, no
+          // grade saved. It was proven at the start; this is a discussion,
+          // not a second chance to fail it.
+          csMark(b, harder ? 'neutral' : o.grade === 'ok' ? 'ok' : o.grade === 'near' ? 'near' : 'bad');
           ctx.setCoachSay(esc(o.coach || o.reply));
-          saveResult(cfg.key, { grade: o.grade });
+          if (!harder) saveResult(cfg.key, { grade: o.grade });
+          else saveResult(cfg.key, { servedHarder: true, picked: o.t });
           ctx.enableNext();
           ctx.positionOrb(true);
         });
@@ -2585,7 +2594,7 @@
     // Content-locked → test-up. The harder variant makes the call arguable.
     harder: [
       { t: 'Seal it and go for the replacement, leaving the area uncovered for four minutes', grade: 'ok',
-        reply: 'Correct, and the tension is real — four minutes uncovered beats one sharp going somewhere undesignated.' },
+        reply: 'That is the stronger call, and the tension is real — four minutes uncovered beats one sharp going somewhere undesignated.' },
       { t: 'Seal it and wait for someone to bring the spare so the area stays covered', grade: 'near',
         reply: 'Defensible, and in some settings it is the standing rule. But nothing gets used in the meantime — the moment you accept “just this one”, you are back at case 1.' },
       { t: 'Use the unit in the next room until the spare arrives', grade: 'near',
@@ -3756,9 +3765,11 @@
                  'You had two tries at the mechanism and I explained it a second way.']
               : ['Taught', 'band-ok', 'From the explainer',
                  'Served in full. This one is the reason for the rest, so it is never shortened.'],
+      // Item 16: the harder cases are a permutation, not a re-quiz — proven
+      // at the start, served harder, not re-scored.
       K3: k3TestUp()
         ? ['Shown', 'band-exc', 'From the case screens',
-           'You spotted the fill-line condition at the start, so you got the harder version of both cases — this one is never taken away, only made harder.']
+           'Proven at the start, so both cases served harder — not re-scored, since you had already shown you get this one. This one is never taken away, only made harder.']
         : ['Taught', 'band-ok', 'From the case screens',
            'Served in full. This one is never shortened, whatever you answer.'],
       F1: (c.case4 && c.case4.post)
