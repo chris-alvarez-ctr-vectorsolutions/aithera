@@ -2,8 +2,8 @@
    layered-sharps.js — Bloodborne Pathogens (RVCT-303B), Module 4 · BO-4
    "Contain the Sharp", built on js/layered-engine.js.
 
-   The prototype module from the Knowledge Layer plan: nine objectives sitting
-   in nine distinct sub-scales — three Know, three Feel, three Do — so every rule
+   The prototype module from the Knowledge Layer plan: ten objectives sitting
+   in ten distinct sub-scales — three Know, four Feel, three Do — so every rule
    in the assessment strategy has something to act on.
 
        When I am about to use, handle, or dispose of a needle or sharp, I plan
@@ -721,7 +721,7 @@
     STEPS.forEach(function (st) {
       if (!st.mins) return;
       full += st.mins;
-      // `adaptive` now marks anything the first four answers can change, and
+      // `adaptive` now marks anything the first five answers can change, and
       // two of those get HARDER rather than shorter. Only a step with a
       // when() predicate can actually vanish, so only those save time.
       if (st.adaptive && st.when) saved += st.mins;
@@ -1146,6 +1146,16 @@
           li.classList.add(ok ? 'is-right' : 'is-wrong');
           li.draggable = false;
         });
+        // Item 23: on a miss, show the correct order rather than leaving the
+        // learner's own wrong arrangement on screen — the amber mark stays on
+        // whichever rows they had misplaced, now sitting where they actually
+        // belong, so the miss is legible against the right answer instead of
+        // against nothing.
+        if (!right) {
+          var byId = {};
+          rows().forEach(function (li) { byId[li.dataset.id] = li; });
+          q.correct.forEach(function (id) { list.appendChild(byId[id]); });
+        }
         list.classList.add('settled');
         renumber();
         spend(document.getElementById('ordCheck'));
@@ -3736,7 +3746,7 @@
 
   // ==========================================================================
   // ==========================================================================
-  //  THE RECORD — nine objectives, each with the policy that governed it and
+  //  THE RECORD — ten objectives, each with the policy that governed it and
   //  where its evidence actually came from. D3 is deliberately still open.
   // ==========================================================================
   var RECORD_CONTENT =
