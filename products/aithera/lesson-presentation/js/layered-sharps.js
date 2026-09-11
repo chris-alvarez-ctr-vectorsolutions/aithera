@@ -3886,8 +3886,13 @@
       note.hidden = false;
       clearFooter(part2);
       saveResult('sustain', { cond: cond, route: where });
-      ctx.setCoachSay('That is on your record in your words, and it is the line the check-in ' +
-        'after the course has something to compare against.');
+      // D12: dropped the "check-in after the course" promise — nothing in
+      // this module actually schedules or runs one, so the line was a
+      // commitment CLARA had no standing to make. The written plan is the
+      // artifact; whether it held is a separate, later fact this module
+      // cannot claim to have.
+      ctx.setCoachSay('That is on your record, in your own words — the plan itself, not a ' +
+        'promise about whether it holds.');
       ctx.positionOrb(true);
     });
   }
@@ -4143,14 +4148,17 @@
            (beats.transfer ? ' The transfer that followed ' + SCENARIO_TIER_WORD[beats.transfer] + '.' : '')]
         : ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
            'Same place \u2014 including the container that was above its fill line and would not close, which is the part no list of options can ask you.'],
+      // D12: dropped the "check after the course" reference on both branches
+      // \u2014 no such check is scheduled by anything this module does, so the
+      // row should not promise one. D3 stays open either way; the written
+      // plan is the artifact this run actually has.
       D3: (c.sustain && c.sustain.route)
         ? ['Committed', 'band-ok', 'From the plan you wrote',
            'You named ' + esc(low(c.sustain.cond)) + ' as the shift most likely to break it, and said the container is ' +
-           esc(c.sustain.route) + '. Still open \u2014 nothing today can show whether it held, and the check after the course ' +
-           'compares against exactly that.']
+           esc(c.sustain.route) + '. Still open \u2014 nothing today can show whether it held. The plan itself is the record.']
         : ['Open', 'band-warn', 'No plan written in this run',
-           'Nothing you did today can answer this one, and no plan was written either. It stays open, and the check after ' +
-           'the course has nothing of yours to compare against.']
+           'Nothing you did today can answer this one, and no plan was written either. It stays open, with nothing on ' +
+           'your record to show either way.']
     };
     // Item 13: the count is computed, not asserted. D3 (Sustain) is excluded
     // from it outright rather than status-matched — it structurally cannot
