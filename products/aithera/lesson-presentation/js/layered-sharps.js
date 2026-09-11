@@ -636,13 +636,22 @@
     if (b && b.k1) return b.k1 === 'proven' ? 'proven' : 'unproven';
     return 'unproven';
   }
+  // K2 and K3 are both content-locked, each on its own battery item now —
+  // a strong K1 result no longer decides either (that was the bug: K3 was
+  // never even IN the battery, and its harder-cases trigger was reading K1).
   function k2TestUp() {
     var b = readCourse().battery;
     if (b && typeof b.k2up === 'boolean') return b.k2up;
-    // No battery record — the presenter forced the result from the Demo menu.
-    // The real battery sets k2up = (k1 proven), so mirror that rather than
-    // reporting "proven" with the test-up silently switched off: that put a
-    // KEPT chip on the same screen as a summary line saying it got harder.
+    // No battery record — the presenter forced the result from the Demo
+    // menu, which moves all three (K1/K2/K3) together for one coherent
+    // "proven" state rather than reporting proven with test-up silently
+    // switched off, which put a KEPT chip on the same screen as a summary
+    // line saying it got harder.
+    return batteryResult() === 'proven';
+  }
+  function k3TestUp() {
+    var b = readCourse().battery;
+    if (b && typeof b.k3up === 'boolean') return b.k3up;
     return batteryResult() === 'proven';
   }
   // There is deliberately no feelLow() here. The two Feel items set a
@@ -788,14 +797,14 @@
                   : 'All ' + cutCount + ' sections marked <b>adaptive</b> came';
     document.getElementById('cpAdaptNote').innerHTML =
       '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' + (cutCount
-        ? cutPhrase + ' out because your first four answers showed you already had the procedure. ' +
+        ? cutPhrase + ' out because your first five answers showed you already had the procedure. ' +
           'The other sections marked <b>adaptive</b> are still here \u2014 those get harder rather than shorter.'
-        : 'Sections marked <b>adaptive</b> change with what you show in the first four questions: some come ' +
+        : 'Sections marked <b>adaptive</b> change with what you show in the first five questions: some come ' +
           'out, and some get harder instead. Nothing else on this list moves either way.');
     document.getElementById('cpTime').innerHTML = cutMins
       ? '<b>≈ ' + (mins.full - cutMins) + ' minutes on your path</b>' +
-        cutMins + ' minute' + (cutMins > 1 ? 's' : '') + ' came out after the first four questions'
-      : '<b>Typical ≈ ' + mins.full + ' minutes</b>Answer the first four well and save up to ' + mins.saved + ' minutes';
+        cutMins + ' minute' + (cutMins > 1 ? 's' : '') + ' came out after the first five questions'
+      : '<b>Typical ≈ ' + mins.full + ' minutes</b>Answer the first five well and save up to ' + mins.saved + ' minutes';
 
     ctx.floatClose();
     ctx.positionOrb(false);
@@ -809,7 +818,7 @@
   var BATTERY_CONTENT =
     '<main class="ll-object">' +
       '<div class="bl-ask sh-battery" id="blAsk">' +
-        '<p class="ll-eyebrow" id="blStep">Quick question: 1 of 4</p>' +
+        '<p class="ll-eyebrow" id="blStep">Quick question: 1 of 5</p>' +
         // The situation, when there is one. The module's case screens already
         // separate the setup from the question it leads to; a stem carrying
         // both broke across two lines mid-sentence, which is what this fixes.
@@ -842,19 +851,35 @@
       ],
       okReply: 'Exactly. Safety first, then disposal.',
       badReply: 'Not quite. The safety feature goes on FIRST, before the sharp moves: an unshielded point in transit is where most injuries happen.' },
-    // All three options are things you can do with a used sharp, and exactly
-    // one is never acceptable. The distractors are correct practice, so the
-    // item tests the rule rather than reading comprehension.
-    { obj: 'K1',
-      stem: 'Which of these is never acceptable with a used sharp?',
+    // K2, diagnostic — a DIFFERENT framing of the misconception hzcheck tests
+    // in-flow (that amount of blood is what makes a needlestick worse), so a
+    // learner who already gets this isn't just recalling an answer they saw
+    // ninety seconds ago when hzcheck (or its test-up permutation) runs.
+    { obj: 'K2',
+      stem: 'A coworker says a stick from a used needle is worse than a fresh cut because it carries more blood. Are they right?',
       cta: 'Check answer',
       options: [
-        { t: 'Recapping it by hand', icon: 'fa-ban', score: 2,
-          reply: 'Exactly right. Recapping is dangerous because it places your hand near the point.' },
-        { t: 'Carrying it to a container in the next room', icon: 'fa-person-walking', score: 0,
-          reply: 'That one is allowed, and sometimes it is the only option — provided the safety feature is on and you planned the route. Carrying a shielded sharp is fine; recapping one never is.' },
-        { t: 'Sealing a full container and starting a fresh one', icon: 'fa-box-archive', score: 0,
-          reply: 'That is correct practice, not a violation. The five that are never acceptable are bending, breaking, recapping, removing, or separating a needle from its syringe.' }
+        { t: 'No — it carries a trace, not more blood', icon: 'fa-circle-check', score: 2,
+          reply: 'Right instinct. The amount barely changes; what changes is that the point just punctured skin, which is the real difference.' },
+        { t: 'Yes — a used needle carries more blood', icon: 'fa-droplet', score: 0,
+          reply: 'It is actually the opposite — a used needle carries a trace. What makes it dangerous is the puncture, not the amount.' },
+        { t: 'Neither — any broken skin is equally risky', icon: 'fa-hand', score: 0,
+          reply: 'Not quite — intact skin stops most exposures cold. A puncture is what changes that, regardless of how much blood is on it.' }
+      ] },
+    // K3, diagnostic — recognition, not recall: can the learner already spot
+    // the condition case 2 is built on (a container past its fill line)? The
+    // two wrong answers are the conditions people mistake for the real signal
+    // (time, quantity) rather than the one that actually matters (fill level).
+    { obj: 'K3',
+      stem: 'Which of these is a sign a sharps container is no longer safe to use?',
+      cta: 'Check answer',
+      options: [
+        { t: 'It is filled above the line marked full', icon: 'fa-triangle-exclamation', score: 2,
+          reply: 'That line is the container’s own limit — past it, the safety feature can’t do its job even if the lid still closes.' },
+        { t: 'It has been in place for more than a week', icon: 'fa-calendar', score: 0,
+          reply: 'Time on its own says nothing — a container is judged by how full it is, not how long it has been there.' },
+        { t: 'It already has a few sharps inside it', icon: 'fa-box', score: 0,
+          reply: 'That is what it is there for. A container with a few sharps in it is doing exactly its job.' }
       ] },
     { obj: 'F1',
       stem: 'Safe sharps disposal protects your coworkers, not just you.',
@@ -876,7 +901,7 @@
       ] }
   ];
   function batteryInit(ctx) {
-    var res = { k1: 'unproven', k1score: 0, k2up: false, f1: 3, f3: 3 };
+    var res = { k1: 'unproven', k1score: 0, k2up: false, k3up: false, f1: 3, f3: 3 };
     var askEl = document.getElementById('blAsk');
     var stepEl = document.getElementById('blStep');
     var qEl = document.getElementById('blQ');
@@ -916,7 +941,7 @@
 
     function render(i) {
       var q = BATTERY[i];
-      stepEl.textContent = 'Quick question: ' + (i + 1) + ' of 4';
+      stepEl.textContent = 'Quick question: ' + (i + 1) + ' of ' + BATTERY.length;
       sceneEl.textContent = q.scene || '';
       sceneEl.hidden = !q.scene;
       qEl.textContent = q.stem;
@@ -966,6 +991,8 @@
           if (o !== sel.btn) o.disabled = true;
         });
         if (q.obj === 'K1') k1.push(sel.opt.score);
+        if (q.obj === 'K2') res.k2up = sel.opt.score >= 2;
+        if (q.obj === 'K3') res.k3up = sel.opt.score >= 2;
         if (q.obj === 'F1') res.f1 = sel.opt.score;
         if (q.obj === 'F3') res.f3 = sel.opt.score;
         ctx.floatOpen();
@@ -1090,13 +1117,16 @@
     function offerNext(i) { ctx.setNextAction('Next question', function () { swapTo(i); }); }
     function done() {
       // K1 is proven only on a clean sweep — it is mandated content, and the
-      // simulation still re-verifies it performatively either way.
+      // simulation still re-verifies it performatively either way. One item
+      // now that the second K1 question moved to the in-flow bank (D4), so
+      // the threshold is that item's own max score, not a fixed 4 left over
+      // from when two items fed this sum.
       res.k1score = k1.reduce(function (a, b) { return a + b; }, 0);
-      res.k1 = (res.k1score >= 4) ? 'proven' : 'unproven';
-      // K2 is content-locked: a strong Know result serves it HARDER rather
-      // than removing it. That is test-UP, and it is the whole difference.
-      res.k2up = res.k1 === 'proven';
-      stepEl.textContent = 'Quick questions: all 4 done';
+      res.k1 = (res.k1score >= 2) ? 'proven' : 'unproven';
+      // K2 and K3 are both content-locked: their own item decides whether
+      // they get served HARDER, not K1's result — res.k2up/k3up are already
+      // set by their own options above.
+      stepEl.textContent = 'Quick questions: all ' + BATTERY.length + ' done';
       saveResult('battery', res);
       ctx.enableNext();
     }
@@ -1143,11 +1173,12 @@
   // same ones the learner already read in the sections list. `state` is the
   // only thing this table owns.
   var ADJUST_ROWS = [
-    { id: 'hazard',    state: function () { return 'kept'; } },
+    { id: 'hazard',    state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
+    { id: 'hzcheck',   state: function () { return k2TestUp() ? 'dropped' : 'kept'; } },
     { id: 'procedure', state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
     { id: 'case1',     state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
-    { id: 'case2',     state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
-    { id: 'case3',     state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
+    { id: 'case2',     state: function () { return k3TestUp() ? 'harder' : 'kept'; } },
+    { id: 'case3',     state: function () { return k3TestUp() ? 'harder' : 'kept'; } },
     { id: 'enact',     state: function () { return 'kept'; } }
   ];
   function adjustRows() {
@@ -2055,8 +2086,12 @@
         '</aside>' +
       '</article>';
 
+    // K2 test-up (D4/item 9): no check follows this screen, so the leading
+    // line stops setting up a trap for a question that was never going to be
+    // asked and states the mechanism directly instead.
+    var testUp = k2TestUp();
     return '<main class="ll-object ll-object--chain"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow" id="hzEyebrow">Before the procedure</p>' +
+      '<p class="ll-eyebrow" id="hzEyebrow">Before the procedure' + (testUp ? ' · no check after this' : '') + '</p>' +
       '<h1 class="pr-h">It only takes a trace.</h1>' +
       // NOT the objective statement. This used to print obj('K2').text
       // verbatim — an instruction written for a designer ("Explain why a used
@@ -2064,8 +2099,11 @@
       // the answer to the check. It poses the question the page answers, and
       // poses it in terms of AMOUNT, which is the misconception the check's
       // distractors are built from — so it sets the trap up rather than
-      // giving the answer away.
-      '<p class="pr-sub">How much blood is enough to be dangerous?</p>' +
+      // giving the answer away. On test-up there is no check to protect, so
+      // the harder permutation states the conclusion instead of leading to it.
+      '<p class="pr-sub">' + (testUp
+        ? 'A trace carries everything a large exposure would — the amount was never the mechanism.'
+        : 'How much blood is enough to be dangerous?') + '</p>' +
 
       modalityPicker('hzPick', ['video', 'article'], { article: '4 min' }) +
 
@@ -2093,6 +2131,11 @@
     var vWrap = document.getElementById('hzVideoWrap');
     var wWrap = document.getElementById('hzWritten');
     var mounted = false, showing = null;
+    // K2 test-up: show() below overwrites the eyebrow the moment a carrier
+    // is picked, so the "no check after this" signal has to ride along with
+    // whichever text it sets rather than living only in the static markup.
+    var testUp = k2TestUp();
+    var noCheckTag = testUp ? ' · no check after this' : '';
 
     // Silent on arrival. "Watch the clip or read the short version below" is
     // a description of two controls the learner can see, and "here is why the
@@ -2116,7 +2159,7 @@
       });
 
       if (m === 'video') {
-        eyebrow.textContent = 'Watch: 2 minutes';
+        eyebrow.textContent = 'Watch: 2 minutes' + noCheckTag;
         // Mounted once, on first selection rather than at page load — there is
         // no reason to fetch a clip for a learner who chose to read.
         if (!mounted) {
@@ -2133,11 +2176,11 @@
           if (vid) vid.addEventListener('loadedmetadata', function () {
             if (!isFinite(vid.duration) || !vid.duration) return;
             var mm = Math.round(vid.duration / 60);
-            eyebrow.textContent = 'Watch: ' + (mm < 1 ? 'under a minute' : mm + ' minute' + (mm > 1 ? 's' : ''));
+            eyebrow.textContent = 'Watch: ' + (mm < 1 ? 'under a minute' : mm + ' minute' + (mm > 1 ? 's' : '')) + noCheckTag;
           });
         }
       } else {
-        eyebrow.textContent = 'Read: about 4 minutes';
+        eyebrow.textContent = 'Read: about 4 minutes' + noCheckTag;
         // Nothing to finish on a read, so the door opens once it has landed.
         setTimeout(done, T(700));
       }
@@ -2424,9 +2467,9 @@
 
   function caseInit(cfg) {
     return function (ctx) {
-      var opts = cfg.harder && k2TestUp() ? cfg.harder : cfg.options;
+      var opts = cfg.harder && k3TestUp() ? cfg.harder : cfg.options;
       var wrap = document.getElementById('csOpts');
-      ctx.setCoachSay(cfg.harder && k2TestUp()
+      ctx.setCoachSay(cfg.harder && k3TestUp()
         ? 'You earned the harder version of this case — both answers are genuinely arguable.'
         : cfg.coach);
       var settled = false;
@@ -2510,29 +2553,61 @@
   // ==========================================================================
   //  IN-FLOW CHECK — the deck's Part Three, middle band: everyone is checked
   //  on what gates. Two attempts, a different explanation on a miss.
+  //
+  //  A bank of two now, not one fixed question (D4): the second item is the
+  //  battery's old "which is never acceptable" K1 item, moved here rather
+  //  than asked once and never again. Picked once per session and stable
+  //  across Back/Continue, not re-rolled on every visit.
   // ==========================================================================
-  var INFLOW_CONTENT =
-    '<main class="ll-object">' +
+  var INFLOW_BANK = [
+    { stem: 'Before you pick up a sharp, what should you already have decided?',
+      opts: [
+        { t: 'Which container the sharp goes in, and my route there', ok: true,
+          reply: 'That is the whole procedure in one line. The disposal route is a decision you make before the sharp is ever in your hand.' },
+        { t: 'How to carry the sharp safely once I am done', ok: false,
+          reply: 'Carrying is already the risky part — the procedure exists so there is as little carrying as possible.' },
+        { t: 'Who to tell if the sharp injures somebody', ok: false,
+          reply: 'Reporting matters afterwards. The decision you make in advance is the route to the container.' }
+      ],
+      reframe: 'Let me put it another way: you pick the route in advance because afterwards, both your hands are full.' },
+    { stem: 'Which of these is never acceptable with a used sharp?',
+      opts: [
+        { t: 'Recapping it by hand', ok: true,
+          reply: 'Exactly right. Recapping is dangerous because it places your hand near the point.' },
+        { t: 'Carrying it to a container in the next room', ok: false,
+          reply: 'That one is allowed, and sometimes it is the only option — provided the safety feature is on and you planned the route. Carrying a shielded sharp is fine; recapping one never is.' },
+        { t: 'Sealing a full container and starting a fresh one', ok: false,
+          reply: 'That is correct practice, not a violation. The five that are never acceptable are bending, breaking, recapping, removing, or separating a needle from its syringe.' }
+      ],
+      reframe: 'Put it this way: everything else on this list is something you are allowed to do. Only bending, breaking, recapping, removing, or separating a needle from its syringe never is.' }
+  ];
+  function inflowBankPick() {
+    try {
+      var v = sessionStorage.getItem('sh-inflow-bank');
+      if (v === '0' || v === '1') return +v;
+    } catch (e) {}
+    var i = Math.random() < 0.5 ? 0 : 1;
+    try { sessionStorage.setItem('sh-inflow-bank', String(i)); } catch (e) {}
+    return i;
+  }
+  function INFLOW_CONTENT() {
+    var q = INFLOW_BANK[inflowBankPick()];
+    return '<main class="ll-object">' +
       '<div class="cs-wrap">' +
-        '<p class="ll-eyebrow">Check: 1 question \u00b7 two tries</p>' +
-        '<h2 class="cs-q cs-q--lead">Before you pick up a sharp, what should you already have decided?</h2>' +
+        '<p class="ll-eyebrow">Check: 1 question · two tries</p>' +
+        '<h2 class="cs-q cs-q--lead">' + esc(q.stem) + '</h2>' +
         '<div class="cs-opts" id="ifOpts"></div>' +
       '</div>' +
     '</main>';
+  }
   function inflowInit(ctx) {
     var wrap = document.getElementById('ifOpts');
+    var q = INFLOW_BANK[inflowBankPick()];
     // Silent. "Everyone gets this question" is the routing talking, which
     // never belongs on a learner screen, and the eyebrow already carries the
-    // tries rule \u2014 CLARA restating it would be a second voice for one line.
+    // tries rule — CLARA restating it would be a second voice for one line.
     var tries = 0, settled = false;
-    [
-      { t: 'Which container the sharp goes in, and my route there', ok: true,
-        reply: 'That is the whole procedure in one line. The disposal route is a decision you make before the sharp is ever in your hand.' },
-      { t: 'How to carry the sharp safely once I am done', ok: false,
-        reply: 'Carrying is already the risky part \u2014 the procedure exists so there is as little carrying as possible.' },
-      { t: 'Who to tell if the sharp injures somebody', ok: false,
-        reply: 'Reporting matters afterwards. The decision you make in advance is the route to the container.' }
-    ].forEach(function (o) {
+    q.opts.forEach(function (o) {
       var b = csOption(o.t);
       b.addEventListener('click', function () {
         if (settled) return;
@@ -2547,8 +2622,7 @@
         } else {
           tries++;
           csMark(b, 'bad'); b.disabled = true;
-          ctx.setCoachSay(esc(tries === 1 ? o.reply
-            : 'Let me put it another way: you pick the route in advance because afterwards, both your hands are full.'));
+          ctx.setCoachSay(esc(tries === 1 ? o.reply : q.reframe));
           if (tries >= 2) {
             saveResult('inflow', { passed: false, attempts: tries });
             ctx.enableNext();
@@ -3380,22 +3454,25 @@
     // [ status, band, where it came from, what happened, move-chip ]
     var state = {
       K1: proven
-        ? ['Shown', 'band-exc', 'From the four questions',
+        ? ['Shown', 'band-exc', 'From the five questions',
            'You put the steps in the right order before the module even started.']
         : ['Taught', 'band-ok', 'From the lesson and the quick check',
            'Taught here, then checked again straight afterwards.'],
-      K2: (c.hazard && c.hazard.passed)
-        ? ['Shown', 'band-exc', 'From the one question after the explainer',
-           (c.hazard.attempts > 1 ? 'Second go, and you got there: ' : 'First go: ') +
-           'a needle is dangerous because it makes a route into a bloodstream, not because of how much blood is on it.']
-        : c.hazard
-          ? ['Taught', 'band-ok', 'From the one question after the explainer',
-             'You had two tries at the mechanism and I explained it a second way. Worth another look — everything else in this module rests on it.']
-          : ['Taught', 'band-ok', 'From the explainer',
-             'Served in full. This one is the reason for the rest, so it is never shortened.'],
-      K3: k2TestUp()
+      K2: k2TestUp()
+        ? ['Shown', 'band-exc', 'From the five questions',
+           'You showed you already had this at the start, so the explainer served its harder version with no check afterward.']
+        : (c.hazard && c.hazard.passed)
+          ? ['Shown', 'band-exc', 'From the one question after the explainer',
+             (c.hazard.attempts > 1 ? 'Second go, and you got there: ' : 'First go: ') +
+             'a needle is dangerous because it makes a route into a bloodstream, not because of how much blood is on it.']
+          : c.hazard
+            ? ['Taught', 'band-ok', 'From the one question after the explainer',
+               'You had two tries at the mechanism and I explained it a second way. Worth another look — everything else in this module rests on it.']
+            : ['Taught', 'band-ok', 'From the explainer',
+               'Served in full. This one is the reason for the rest, so it is never shortened.'],
+      K3: k3TestUp()
         ? ['Shown', 'band-exc', 'From the case screens',
-           'Because you were strong on the procedure, you got the harder version of both cases — this one is never taken away, only made harder.']
+           'You spotted the fill-line condition at the start, so you got the harder version of both cases — this one is never taken away, only made harder.']
         : ['Taught', 'band-ok', 'From the case screens',
            'Served in full. This one is never shortened, whatever you answer.'],
       F1: (c.case4 && c.case4.post)
@@ -3482,7 +3559,7 @@
       'Ask me about any line and I will tell you where it came from.'
     ]);
     wireChat(ctx, [
-      'That one came from the four questions at the start. Get those right and you skip the section that teaches it — which is the only place answering well buys you anything.',
+      'That one came from the five questions at the start. Get those right and you skip the section that teaches it — which is the only place answering well buys you anything.',
       'Spotting unsafe conditions is named in the regulation, so it is never taken away. A strong answer makes it harder instead.',
       'The budget question is recorded and passed on without changing your path — what you chose, and how you rated it afterwards. Those are two different things and I keep them apart.',
       'The last line is your own plan, not a score. Whether it held is a question for the check after the course, and nothing today could answer it.'
@@ -3532,8 +3609,12 @@
       content: HAZARD_CONTENT, init: hazardInit,
       onSkip: function () { saveResult('hazard', { skipped: true }); } },
 
-    { id: 'hzcheck', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Why a Puncture Is Different', mode: 'floating', gate: true,
-      caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts, second miss reframed rather than repeated, which is the remediate policy firing at the beat. Writes to the same record key as before, so the K2 line on the record is unchanged.' },
+    { id: 'hzcheck', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Why a Puncture Is Different', mode: 'floating', gate: true, adaptive: true,
+      // K2 test-up (D4/item 9): a learner who already showed they get this at
+      // the pre-battery skips the check entirely \u2014 the explainer served its
+      // harder permutation instead, with no safety net after it.
+      when: function () { return !k2TestUp(); },
+      caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts, second miss reframed rather than repeated, which is the remediate policy firing at the beat. Writes to the same record key as before, so the K2 line on the record is unchanged. Gated off entirely on K2 test-up (D4) \u2014 see the battery\u2019s k2up flag.' },
       // Arrives silent \u2014 the eyebrow states the two-tries rule, so there is
       // no unread dot promising a line the screen already shows.
       coach: { say: '' },
@@ -3677,7 +3758,8 @@
         var next = batteryResult() === 'proven' ? 'unproven' : 'proven';
         try { sessionStorage.setItem('sh-battery', next); } catch (e) {}
         var c = readCourse();
-        if (c.battery) saveResult('battery', { k1: next, k2up: next === 'proven', f1: c.battery.f1, f3: c.battery.f3 });
+        if (c.battery) saveResult('battery', { k1: next, k2up: next === 'proven', k3up: next === 'proven',
+                                                f1: c.battery.f1, f3: c.battery.f3 });
         if (api.step && api.step.id === 'adjust') {
           // This screen only exists when something moved, so flipping to a
           // result that moves nothing deletes it out from under us. Advancing
