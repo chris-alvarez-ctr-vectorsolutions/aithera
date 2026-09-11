@@ -165,7 +165,7 @@
         conds: ['A class is waiting and the container is in the prep room',
                 'A student needs me right now',
                 'Clearing up in a hurry at the end of the day'],
-        hint: 'the red container in the prep room'
+        hint: 'in the prep room, next to the sink'
       },
       roles: 'teacher · administrator', org: 'Riverbend Unified School District', orgShort: 'Riverbend Unified',
       coord: { name: 'Dana Whitfield', title: 'Health Services Coordinator', email: 'safety@riverbendusd.org' },
@@ -234,7 +234,7 @@
         conds: ['The container is on another floor',
                 'My hands are full of tools',
                 'A trade is waiting on me to clear the area'],
-        hint: 'the container in the first-aid station'
+        hint: 'in the first-aid station on this floor'
       },
       roles: 'architect · engineer · construction', org: 'Halstead Build Group', orgShort: 'Halstead',
       coord: { name: 'Marcus Oyelaran', title: 'Site Safety Manager', email: 'safety@halsteadbuild.com' },
@@ -303,7 +303,7 @@
         conds: ['The line is stopped and people are waiting',
                 'The container is at the far end of the bay',
                 'Changeover at the end of a shift'],
-        hint: 'the container at the end of the bay'
+        hint: 'at the end of the bay, by the scrap bin'
       },
       roles: 'chemical · industrial', org: 'Acme Plant Operations', orgShort: 'Acme',
       coord: { name: 'Lena Moreau', title: 'Training Coordinator', email: 'training@acmemfg.com' },
@@ -369,7 +369,7 @@
         conds: ['The rig is moving',
                 'My partner needs a hand with the patient',
                 'Restocking at the end of a call'],
-        hint: 'the container by the bench seat'
+        hint: 'clipped to the rail by the bench seat'
       },
       roles: 'EMS · fire · law enforcement', org: 'Kell County EMS', orgShort: 'Kell County EMS',
       coord: { name: 'Priya Raman', title: 'EMS Training Officer', email: 'training@kellcountyems.gov' },
@@ -475,6 +475,33 @@
   //  deliberately NOT the culminating decision, where the moment has passed and
   //  freezing it would imply the learner can still act on it.
   // ==========================================================================
+  // The nearest ancestor that genuinely scrolls, or the window. Guessing at
+  // this is what made the first footer fix a no-op: it scrolled .ll-stage
+  // (overflow hidden) and the window (body does not overflow) while the real
+  // container was main.ll-object all along.
+  // Nudge `el` out from under the fixed footer bar. Called after a card opens
+  // AND again whenever one grows — appending the read-back to part 2 pushed
+  // its own closing line back under the bar.
+  function clearFooter(el) {
+    try {
+      var bar = document.querySelector('.ll-footer');
+      if (!bar || !el) return;
+      var lip = el.getBoundingClientRect().bottom - bar.getBoundingClientRect().top;
+      if (lip <= 0) return;
+      scrollHost(el).scrollBy({ top: lip + 16, behavior: 'auto' });
+    } catch (e) {}
+  }
+
+  function scrollHost(el) {
+    var n = el.parentElement;
+    while (n && n !== document.body) {
+      var oy = getComputedStyle(n).overflowY;
+      if (/(auto|scroll|overlay)/.test(oy) && n.scrollHeight > n.clientHeight + 1) return n;
+      n = n.parentElement;
+    }
+    return window;
+  }
+
   function reinforce(ctx, el, stepNo, stepOf, opts) {
     if (!el) return;
     opts = opts || {};
@@ -515,10 +542,24 @@
     // with it, which on the cohort figures left under a third of the chart
     // visible. 'nearest' scrolls only as far as it has to, so what the
     // question refers to stays where the learner last saw it.
+    var soft = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     try {
-      el.scrollIntoView({ block: 'nearest',
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+      el.scrollIntoView({ block: 'nearest', behavior: soft ? 'smooth' : 'auto' });
     } catch (e) { el.scrollIntoView(); }
+    // scrollIntoView measures against the VIEWPORT, and the bottom 80px of it
+    // is the fixed footer bar. A card whose last control sits in that band
+    // reads as fully visible to the browser and is covered on the screen —
+    // which hid the commit button under Continue on a 940px-tall window.
+    // Nudge by however much runs under the bar.
+    // ...and then clear the footer bar, which scrollIntoView cannot know about.
+    // It measures against the VIEWPORT; the bottom 80px of that is a FIXED
+    // footer, so a card whose last control lands in that band reads as fully
+    // visible to the browser and is covered on the screen — it hid the commit
+    // button under Continue on a 940px-tall window. Measured after the smooth
+    // scroll settles, because the lip is meaningless mid-animation, and
+    // applied to the element that actually scrolls: neither the window nor
+    // .ll-stage does here, it is main.ll-object with overflow-y:auto.
+    setTimeout(function () { clearFooter(el); }, soft ? 380 : 0);
     try { el.focus({ preventScroll: true }); } catch (e) {}
   }
 
@@ -3068,45 +3109,36 @@
         '<div class="ef-readout"><b id="wkNum">3</b><span id="wkWord">' + esc(WALK_WORDS[3]) + '</span></div>' +
         '<button class="ef-lock" id="wkLock" type="button">Lock it in</button>' +
 
-        '<div class="ef-after" id="wkAfter">' +
-          // The if-then card. Low confidence under time pressure is not fixed
-          // by being told the rule again — it is fixed by moving the decision
-          // out of the moment, which is the same move step 1 of the procedure
-          // makes. The clock is this sector's own, off the chain the learner
-          // walked at the start, so the two screens point at one moment.
-          //
-          // It now also carries the Sustain commit the stakeholder inventory
-          // asked for: "the learner names the shift condition most likely to
-          // break point-of-use disposal for them, and picks the container
-          // route they will use when it happens." The “____” in the old
-          // script is exactly where the second field belonged — it was
-          // printed as decoration and nothing ever filled it. That replaced a
-          // separate screen which asked the learner to pick 30, 60 or 90 days
-          // for a follow-up: not in either source, outside the spec's fixed
-          // 30–45 day window, and the one thing that spec's "never do this"
-          // column names for this objective is asking it in-course.
-          //
-          // Shown to EVERY learner now, not only below the threshold. Gating
-          // it on low confidence made a commitment device into a consolation
-          // prize for the people honest enough to admit they were unsure,
-          // when the learner who rates themselves 5 is the one whose plan is
-          // most worth writing down.
-          '<div class="wk-plan" id="wkPlan" hidden>' +
-            '<p class="wk-plan-h"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> ' +
-              'Plan it in advance, not in the moment.</p>' +
-            '<p class="wk-field-h">Which shift is most likely to break it for you?</p>' +
-            '<div class="wk-conds" id="wkConds" role="radiogroup" ' +
-              'aria-label="The shift most likely to break point-of-use disposal"></div>' +
-            '<p class="wk-field-h">And where is your container? Your words, not ours.</p>' +
-            '<input class="wk-route" id="wkRoute" type="text" maxlength="80" ' +
-              'placeholder="' + esc(((L.sustain || {}).hint) || 'the nearest sharps container') + '" ' +
-              'aria-label="Where your container is">' +
-            '<button class="ef-lock" id="wkCommit" type="button" disabled>Commit it</button>' +
-            '<p class="wk-say" id="wkSay" hidden></p>' +
-            '<p class="wk-plan-note" id="wkNote" hidden>Said once, in advance. The decision is ' +
-              'made, and you do not have to make it again at ' + esc(L.chain.setup.time) + '.</p>' +
-          '</div>' +
-          '<p class="wk-held" id="wkHeld" hidden></p>' +
+        // TWO parts, not one card with two questions in it. Splitting them is
+        // the reinforcement layer this module already uses on the account read
+        // and the budget choice — each part rises as a card over the held
+        // content, carrying its own "Part N of 2" marker, so the learner has
+        // one thing to read and one thing to do at a time.
+        //
+        // The card's own heading is gone with the split: "Decide the walk now,
+        // not while you are holding a sharp" was CLARA's line on the rating in
+        // different words, and she says it as a reaction to what they rated.
+        // #wkHeld went too — it acknowledged a high rating back when the plan
+        // was hidden from those learners, and everybody gets the plan now.
+        '<div id="wkPart1" hidden>' +
+          '<h2 class="cs-q">Which shift is most likely to end with a sharp set down?</h2>' +
+          '<div class="wk-conds" id="wkConds" role="radiogroup" ' +
+            'aria-label="The shift most likely to end with a sharp set down"></div>' +
+        '</div>' +
+
+        '<div id="wkPart2" hidden>' +
+          '<h2 class="cs-q">Finish the sentence in your own words.</h2>' +
+          // The stem, shown rather than described: the field's job is obvious
+          // once the sentence it completes is on the screen above it.
+          '<p class="wk-stem">“The container is …”</p>' +
+          '<input class="wk-route" id="wkRoute" type="text" maxlength="80" ' +
+            'placeholder="' + esc(((L.sustain || {}).hint) || 'in the nearest container') + '" ' +
+            'aria-label="Where the container is">' +
+          '<button class="ef-lock" id="wkCommit" type="button" disabled>Commit it</button>' +
+          '<p class="wk-say" id="wkSay" hidden></p>' +
+          '<p class="wk-plan-note" id="wkNote" hidden>You just made that call with nothing ' +
+            'pulling at you. That is the point of making it now — the shift where it counts ' +
+            'is the worst time to be working it out.</p>' +
         '</div>' +
       '</div>' +
     '</main>';
@@ -3118,9 +3150,8 @@
     var num = document.getElementById('wkNum');
     var word = document.getElementById('wkWord');
     var lock = document.getElementById('wkLock');
-    var after = document.getElementById('wkAfter');
-    var plan = document.getElementById('wkPlan');
-    var held = document.getElementById('wkHeld');
+    var part1 = document.getElementById('wkPart1');
+    var part2 = document.getElementById('wkPart2');
     var conds = document.getElementById('wkConds');
     var route = document.getElementById('wkRoute');
     var commit = document.getElementById('wkCommit');
@@ -3145,65 +3176,75 @@
       range.disabled = true;
       lock.hidden = true;
       saveResult('walk', { rating: v });
-      plan.hidden = false;
-      // The threshold no longer decides WHETHER the plan appears — only what
-      // CLARA says about the rating that preceded it.
+      // The threshold decides only what CLARA says about the rating, not
+      // whether the plan appears.
       ctx.setCoachSay(v <= WALK_THRESHOLD
         ? 'A low answer there is worth taking seriously rather than talking you out of. So plan the walk now, while nothing is pulling at you.'
-        : 'Recorded as you gave it. Plan it anyway — a high rating is easiest to hold when the decision was already made.');
-      after.classList.add('in');
-      // Ungated, like every other self-report here: a text field that holds
-      // the door would be routing content on something a learner may decline
-      // to answer. Continue opens on the rating; the commit is offered, never
-      // extracted.
+        : 'Recorded as you gave it. Plan the walk anyway — a high rating is easiest to hold when the decision was already made.');
+      // Ungated: Continue opens on the rating, so a plan nobody wanted to
+      // write never holds the door. And the first part waits for a press
+      // rather than covering the line CLARA just delivered.
       ctx.enableNext();
+      ctx.setNextAction('Plan the walk', function () {
+        reinforce(ctx, part1, 1, 2);
+        // setNextAction hands the button back as Continue under the step's own
+        // gate, which drops the enableNext() above — so re-open it here or the
+        // learner is stranded on a screen that never required an answer.
+        ctx.enableNext();
+        ctx.positionOrb(true);
+      });
       ctx.positionOrb(true);
     });
 
-    // ---- the commit (D3, Do / Sustain) ----
+    // ---- part 1: the shift (D3, Do / Sustain) ----
     ((L.sustain || {}).conds || []).forEach(function (t) {
       var b = document.createElement('button');
       b.className = 'wk-cond'; b.type = 'button';
       b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
       b.textContent = t;
       b.addEventListener('click', function () {
-        if (committed) return;
+        if (cond) return;
         cond = t;
         conds.querySelectorAll('.wk-cond').forEach(function (x) {
+          x.disabled = true;
           x.classList.toggle('picked', x === b);
           x.setAttribute('aria-checked', x === b ? 'true' : 'false');
         });
-        sync();
+        // Their press IS the signal, so part 2 follows it directly. Part 1
+        // gives up its layer so it recedes behind the blur with everything
+        // else the second question is about.
+        part1.classList.remove('rf-layer');
+        reinforce(ctx, part2, 2, 2);
+        route.focus();
+        ctx.positionOrb(true);
       });
       conds.appendChild(b);
     });
-    function sync() {
-      commit.disabled = !(cond && route.value.trim());
-    }
-    route.addEventListener('input', sync);
+
+    // ---- part 2: the route ----
+    route.addEventListener('input', function () { commit.disabled = !route.value.trim(); });
 
     commit.addEventListener('click', function () {
       if (committed || commit.disabled) return;
       committed = true;
       var where = route.value.trim();
-      conds.querySelectorAll('.wk-cond').forEach(function (x) { x.disabled = true; });
       route.disabled = true;
       commit.hidden = true;
-      // Read back in the learner's own words. The point of the sentence is
-      // that they wrote it, so rendering our version of it would undo the
-      // only thing the screen is doing.
+      // Read back in their own words. The point of the sentence is that they
+      // wrote it, so rendering our version would undo the only thing this
+      // screen does.
       say.hidden = false;
       say.innerHTML = 'When ' + esc(low(cond)) + ': <b>“The container is ' + esc(where) +
         '. I am walking there when I am done.”</b>';
       note.hidden = false;
+      clearFooter(part2);
       saveResult('sustain', { cond: cond, route: where });
       ctx.setCoachSay('That is on your record in your words, and it is the line the check-in ' +
         'after the course has something to compare against.');
       ctx.positionOrb(true);
     });
   }
-  // Sentence case for a chip that was written as a standalone line, so it
-  // reads as a clause after "When ".
+
   function low(t) {
     if (!t) return '';
     return t.charAt(0).toLowerCase() + t.slice(1);
