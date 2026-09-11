@@ -2210,7 +2210,7 @@
           tries++;
           csMark(b, 'bad'); b.disabled = true;
           ctx.setCoachSay(esc(tries === 1 ? o.reply
-            : 'Put it this way: unbroken skin has no way in, so blood can sit on it and do nothing. A needle makes the way in and pushes the blood through it at the same time. That is the whole difference.'));
+            : 'Put it this way: unbroken skin has no way in, so blood just sits there. A needle makes the way in and pushes the blood through at the same time.'));
           if (tries >= 2) {
             saveResult('hazard', { passed: false, attempts: tries });
             ctx.enableNext();
@@ -2692,14 +2692,11 @@
 
     [
       { k: 'boxes', t: L.facility.boxes, grade: 'ok',
-        reply: 'That is the stronger buy, and the reason is the order of the two events. A container removes the hazard ' +
-               'before a hand can ever reach it. A glove is the last thing between a point and a person — it only ' +
-               'matters once everything else has already failed.' },
+        reply: 'The container removes the hazard before a hand can ever reach it. A glove is the last line of ' +
+               'defense — it only matters once everything else has already failed.' },
       { k: 'gloves', t: L.facility.gloves, grade: 'near',
-        reply: 'Understandable, and it would help — those gloves stop plenty of cuts. But every account in this module ' +
-               'ends the same way: the needle went through the glove. A point concentrates all its force on one spot, ' +
-               'and gloves are made to resist a blade dragging across them. The container is the buy that removes the ' +
-               'hazard instead of resisting it.' }
+        reply: 'Understandable — those gloves stop plenty of cuts. But every account here ends with the needle ' +
+               'going through the glove. Gloves resist a dragging blade, not a concentrated point.' }
     ].forEach(function (o) {
       var b = csOption(o.t);
       b.addEventListener('click', function () {
@@ -2733,7 +2730,7 @@
       { t: 'Strongly agree', icon: 'fa-heart', score: 3,
         reply: {
           boxes: 'Then what you believe and what you would buy are the same thing, which is the combination that survives a hurry.',
-          gloves: 'Worth noticing, because those two answers disagree: you have just rated containers above PPE and then spent the money on gloves. That gap is the commonest one here and it is not hypocrisy — gloves are cheaper, they arrive next week, and everybody can see you bought them. The containers are the ones that would have stopped it.'
+          gloves: 'Worth noticing — those two answers disagree. You rated containers above PPE, then bought gloves. Not hypocrisy: gloves are cheaper and arrive sooner. But the containers are what would have actually stopped it.'
         } },
       { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2,
         reply: {
