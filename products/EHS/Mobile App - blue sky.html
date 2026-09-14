@@ -464,6 +464,7 @@
         .rc-strip.up-update    { background: rgba(249,115,22,0.14); color: #ea580c; }
         .rc-strip.up-missing   { background: rgba(231,29,19,0.10);  color: #ca150c; }
         .rc-strip.up-uploading { background: rgba(2,113,206,0.10);  color: #0065ba; }
+        .rc-strip.up-failed    { background: rgba(224,83,61,0.12);  color: #b23a26; }
         /* Downloaded as a text pill (kept on .badge-downloaded so download logic still finds it) */
         .badge-downloaded.rc-dl-pill {
             width: auto; height: auto; border-radius: 12px; padding: 2px 9px;
@@ -480,6 +481,9 @@
         .rc-up-pill.up-missing   { background: rgba(231,29,19,0.10);  color: #ca150c; }
         .rc-up-pill.up-uploading { background: rgba(2,113,206,0.10);  color: #0065ba; }
         .rc-up-pill.up-uploaded  { background: rgba(22,136,70,0.12);  color: #0a7637; }
+        .rc-up-pill.up-failed    { background: rgba(224,83,61,0.14);  color: #b23a26; }
+        /* Failure note under the Sync Failed pill; full flex-basis wraps it to its own line */
+        .rc-up-note { flex-basis: 100%; font-size: 11.5px; font-weight: 500; color: #b23a26; line-height: 1.4; }
         /* V2 structural elements — hidden in V1 */
         .rc-typerow { display: none; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
         .rc-typerow .rec-btn-icon { margin: -4px -8px 0 0; }
@@ -2803,6 +2807,9 @@
     <button id="offlineToggle" class="editmode-toggle" onclick="toggleOfflineMode()" title="Simulate the device going offline — downloaded records become read-only except signatures & attachments">
         <i class="fa-solid fa-wifi"></i> Offline <span class="em-dot"></span><span class="em-state">Off</span>
     </button>
+    <button id="storageToggle" class="editmode-toggle" onclick="toggleStorageFull()" title="Simulate a device with no free storage: downloads fail with a clear error and no partial copy is saved (AC-5.4)">
+        <i class="fa-solid fa-hard-drive"></i> Storage full <span class="em-dot"></span><span class="em-state">Off</span>
+    </button>
     <span style="flex-basis:100%;height:0;margin:2px 0;"></span>
     <label class="screen-nav-label" for="screenNavSelect"><i class="fa-solid fa-display"></i> Screen</label>
     <select class="screen-nav-select" id="screenNavSelect" onchange="navTo(this.value)" aria-label="Jump to screen">
@@ -3321,7 +3328,9 @@
                 </div>
 
                 <!-- Card 5: JSA + Pending -->
-                <div class="rec-card-wrap" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
+                <!-- Sync Failed (AC-2.4 fourth sync state, shown by default). The upload
+                     was attempted but never reached the server; Retry re-runs it. -->
+                <div class="rec-card-wrap" data-upload-preset="sync-failed" data-created-by-me="true" data-assigned-to-me="true" data-created-new="true" data-card-state="pending" data-card-type="jsa" data-form-status="in-progress" style="background:white;border-bottom:1px solid rgba(0,0,0,0.07);">
                     <div class="record-card-row">
                         <div class="record-card-header">
                             <div class="record-title">Chemical Storage Audit – Bay 4</div>
@@ -8788,6 +8797,7 @@ document.getElementById('screen-records').addEventListener('click', (e) => {
             if (wrap.querySelector('.badge-downloaded')) {
                 openRemoveDownloadSheet([wrap]);
             } else {
+                if (storageFullBlocked()) return;
                 markDownloaded(wrap); applyEditMode(); syncSwipeActions(wrap);
                 showToast('Downloaded, attachments and signatures included');
             }
@@ -9589,6 +9599,26 @@ function rcMayStayPending(row) {
 }
 /* Reconnecting: push everything that was queued offline, leaving only the
    freshly created records for the user to upload themselves. */
+/* Facilitator toggle: simulate a device with no free storage (AC-5.4). While on,
+   every "make available offline" download fails with a clear, user-readable error
+   and no partial copy is saved: the record is left exactly as it was. Removing a
+   download stays allowed. */
+let storageFull = false;
+function toggleStorageFull() {
+    storageFull = !storageFull;
+    const btn = document.getElementById('storageToggle');
+    if (btn) {
+        btn.classList.toggle('on', storageFull);
+        const st = btn.querySelector('.em-state');
+        if (st) st.textContent = storageFull ? 'On' : 'Off';
+    }
+}
+function storageFullBlocked() {
+    if (!storageFull) return false;
+    showToast('Not enough storage to download this record. Free up space on this device and try again.');
+    return true;
+}
+
 function autoUploadOnReconnect() {
     let uploaded = 0;
     document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row').forEach(row => {
@@ -9665,6 +9695,7 @@ function markDownloaded(wrap) {
    signatures automatically (EHS-18527 Gap 3 / FR-MOB-02: persistent
    auto-include, no per-download options prompt). */
 function downloadRecord(row) {
+    if (storageFullBlocked()) return;
     markDownloaded(row.closest('.rec-card-wrap'));
     applyEditMode();
     showToast('Downloaded, attachments and signatures included');
@@ -9895,6 +9926,7 @@ function actionSheetResync() {
 function actionSheetDownload() {
     const w = actionSheetWrap; closeRecActionSheet();
     if (!w) return;
+    if (storageFullBlocked()) return;
     markDownloaded(w);
     applyEditMode();
     showToast('Downloaded, attachments and signatures included');
@@ -9964,7 +9996,7 @@ function stampLastSynced() {
 /* Any record still holding changes that have not been uploaded */
 function recordsWithPendingChanges() {
     return [...document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row')]
-        .filter(r => r.dataset.upload === 'pending-upload' || r.dataset.upload === 'pending-update');
+        .filter(r => ['pending-upload', 'pending-update', 'sync-failed'].includes(r.dataset.upload));
 }
 
 function runRecordsSync(source) {
@@ -10930,13 +10962,21 @@ const RC_UPLOAD = {
     'missing':        { cls: 'up-missing',   icon: 'fa-solid fa-triangle-exclamation', label: 'Missing Fields', cta: null },
     'uploading':      { cls: 'up-uploading', icon: 'fa-solid fa-circle-notch fa-spin', label: 'Uploading',      cta: 'cancel' },
     'uploaded':       { cls: 'up-uploaded',  icon: 'fa-solid fa-cloud-check',          label: 'Uploaded',       cta: 'copy' },
+    /* AC-2.4 fourth state: the last push failed for a non-conflict reason. The mock
+       presents one retry-able state (AC-3.4's three failure classes are a Solution
+       Design detail); Retry re-runs the upload. */
+    'sync-failed':    { cls: 'up-failed',    icon: 'fa-solid fa-cloud-xmark',          label: 'Sync Failed',    cta: 'Retry',  ctaIcon: 'fa-solid fa-arrows-rotate' },
 };
 
-/* Pending = anything still waiting to go up (Pending Upload or Pending Update) */
-function rcIsPending(row) { return !!row && (row.dataset.upload === 'pending-upload' || row.dataset.upload === 'pending-update'); }
+/* Pending = anything still waiting to go up (Pending Upload, Pending Update,
+   or a failed sync that is waiting on a retry) */
+function rcIsPending(row) { return !!row && ['pending-upload', 'pending-update', 'sync-failed'].includes(row.dataset.upload); }
 
 function rcDeriveState(row) {
     if (row.dataset.upload) return row.dataset.upload;
+    /* A card can preset its state in markup (e.g. the default Sync Failed record) */
+    const presetWrap = row.closest('.rec-card-wrap');
+    if (presetWrap && presetWrap.dataset.uploadPreset) return presetWrap.dataset.uploadPreset;
     const foot = row.querySelector('.record-foot-status');
     const has = c => !!(foot && foot.querySelector('.' + c));
     if (has('badge-missing')) return 'missing';
@@ -10983,6 +11023,8 @@ function rcSetUpload(row, state, newId) {
         const cw = row.closest('.rec-card-wrap');
         if (cw && cw.dataset.conflict === 'true') pills.insertAdjacentHTML('beforeend',
             '<span class="badge badge-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict unresolved</span>');
+        if (state === 'sync-failed') pills.insertAdjacentHTML('beforeend',
+            '<span class="rc-up-note">The last sync attempt failed. Your changes are saved on this device.</span>');
     }
     const ar = row.querySelector('.rec-action-row');
     if (ar) {
@@ -11002,7 +11044,7 @@ function rcSyncOrigBadges(row, state) {
     if (!foot) return;
     foot.querySelectorAll('.badge.rc-orig').forEach(b => b.remove());
     const parts = [];
-    if (state === 'pending-upload' || state === 'pending-update' || state === 'uploading')
+    if (state === 'pending-upload' || state === 'pending-update' || state === 'uploading' || state === 'sync-failed')
         parts.push('<span class="badge badge-pending rc-orig"><i class="fa-solid fa-file-pen" style="font-size:11px;"></i> Pending</span>');
     if (state === 'pending-update' || state === 'uploaded')
         parts.push('<span class="badge badge-submitted rc-orig"' + (state === 'pending-update' ? ' title="Previously submitted"' : '') + '><i class="fa-solid fa-badge-check" style="font-size:10px;"></i> Submitted</span>');

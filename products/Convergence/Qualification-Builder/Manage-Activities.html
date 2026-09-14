@@ -75,6 +75,8 @@
     .st-count { font-size:11.5px; font-weight:700; color:#6b7280; background:#eef1f5; border-radius:10px; padding:1px 8px; min-width:20px; text-align:center; }
     .source-tab.active .st-count { color:var(--vblue); background:var(--vblue-10); }
     .source-tab-desc { font-size:12.5px; color:#6b7280; margin:10px 0 16px; line-height:1.5; max-width:760px; }
+    /* The All tab has no description, so the line collapses rather than leaving its margins behind */
+    .source-tab-desc.hidden { display:none; }
 
     /* AG Grid theming */
     .ag-theme-quartz {
@@ -271,7 +273,7 @@
       <button class="source-tab" role="tab" aria-selected="false" data-source="Vector Solutions" onclick="onSourceTab(this)">Vector Solutions <span class="st-count" id="st-count-vs">0</span></button>
       <button class="source-tab" role="tab" aria-selected="false" data-source="Learning Studio" onclick="onSourceTab(this)">Learning Studio <span class="st-count" id="st-count-ls">0</span></button>
     </nav>
-    <div class="source-tab-desc" id="source-tab-desc">Showing activities from every content source.</div>
+    <div class="source-tab-desc hidden" id="source-tab-desc"></div>
 
     <div class="mgmt-toolbar">
       <div class="search-wrap">
@@ -450,9 +452,19 @@ const REQ_TO_QUALS = {
    - Learning Studio   = content created or edited in Learning Studio (editing an accredited
                          Vector Solutions item in Learning Studio removes its accreditation, so it lands here)
    - Custom            = everything the organization built itself */
-const LS_IDX = new Set([1, 5, 8, 16]);       // created/edited in Learning Studio
+/* THE RULE: only CBT activities can be configured or edited in Learning Studio.
+   Learning Studio authors course content, and content configuration applies to a
+   course package - neither applies to a Tasklist, Quiz, Classroom, Signature,
+   Document, Event, Survey or Video activity. Both the Configurability and
+   Learning Studio columns, the row sparkle action and the More > Configure item
+   all derive from this one predicate, so they can never disagree. */
+const isCbt = a => a.type === 'CBT';
+
+/* LS_IDX must stay a subset of the CBTs: content that came out of Learning Studio
+   is by definition a Learning Studio course. */
+const LS_IDX = new Set([8, 11, 16]);         // created/edited in Learning Studio (all CBT)
 const LS_DRAFT_IDX = new Set([8, 16]);       // Learning Studio content still being authored (shows as Draft, not yet published)
-const VS_IDX = new Set([0, 3, 6, 11, 15]);   // pre-built, accredited Vector Solutions content
+const VS_IDX = new Set([0, 3, 6, 15]);       // pre-built, accredited Vector Solutions content
 ACTS.forEach((a, i) => {
   a.source = LS_IDX.has(i) ? 'Learning Studio' : (VS_IDX.has(i) ? 'Vector Solutions' : 'Custom');
   if (a.source === 'Vector Solutions') {
@@ -467,8 +479,8 @@ ACTS.forEach((a, i) => {
     a.licenseType = 'None';
   }
   a.repository = REPO_FOLDERS[i % REPO_FOLDERS.length];   // saved folder location (independent of source/tab)
-  a.configurable = (i % 3 !== 0);                       // most are configurable, some are not
-  a.lsEditable   = (a.type === 'CBT' || a.type === 'Quiz'); // course-style content can be authored/edited in Learning Studio
+  a.configurable = isCbt(a);                           // CBT only - see THE RULE above
+  a.lsEditable   = isCbt(a);                           // CBT only - see THE RULE above
   a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
   a.size        = ACT_SIZES[i % ACT_SIZES.length];
   a.quals       = REQ_TO_QUALS[a.requirement] || [];    // qualifications this activity is part of (via its requirement); drives delete impact
@@ -479,6 +491,7 @@ ACTS.forEach((a, i) => {
 function editActivityHref(a){
   return 'Edit-Activity.html?name=' + encodeURIComponent(a.name) +
          '&source=' + encodeURIComponent(a.source || '') +
+         '&type=' + encodeURIComponent(a.type || '') +          // drives THE RULE on the edit page
          '&location=' + encodeURIComponent(a.location || '');
 }
 function nameRenderer(p){
@@ -549,22 +562,25 @@ function actionableBadge(opts){
   span.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(e); } });
   return span;
 }
-/* A static (non-actionable) badge for the negative states. */
-function staticBadge(theme, label){
+/* The negative states render as the same muted hyphen the rest of the grid uses for
+   an empty cell, rather than a "Not configurable" badge competing with the real ones.
+   `title` still explains WHY, so hovering the row gets the rule. */
+function mutedDash(title){
   const span = document.createElement('span');
-  span.setAttribute('theme', theme);
-  span.textContent = label;
+  span.className = 'cell-muted';
+  span.textContent = '-';
+  if (title) span.title = title;
   return span;
 }
 function configRenderer(p){
   return p.value
     ? actionableBadge({ theme:'badge dot success', label:'Configurable', icon: gearsSvg(14), title:'Configure content', onClick: () => launchConfigure(p.data) })
-    : staticBadge('badge dot contrast', 'Not configurable');
+    : mutedDash('Only CBT activities can be configured');
 }
 function lsRenderer(p){
   return p.value
     ? actionableBadge({ theme:'badge dot', extraClass:'ls-badge', label:'Editable', icon: sparkleSvg(14), title:'Edit in Learning Studio', onClick: () => openLearningStudio(p.data) })
-    : staticBadge('badge dot contrast', 'Not editable');
+    : mutedDash('Only CBT activities can be edited in Learning Studio');
 }
 /* Launch the content-configuration flow for an activity (prototype: toast only). */
 function launchConfigure(a){
@@ -573,7 +589,7 @@ function launchConfigure(a){
 function updateRenderer(p){
   return p.value === 'New'
     ? `<span theme="badge dot warning">New</span>`
-    : `<span class="cell-muted">Up to date</span>`;
+    : `<span class="cell-muted" title="Up to date, no new version available">-</span>`;
 }
 function fileTypeRenderer(p){
   if (!p.value) return `<span class="cell-muted">-</span>`;
@@ -797,7 +813,7 @@ function setupTypeFilter(){
 
 /* ─── Content-source tabs ─── */
 const SOURCE_DESC = {
-  '': 'Showing activities from every content source.',
+  '': '',                                 // All tab: the tab itself says it
   'Custom': 'Content created by your organization.',
   'Vector Solutions': 'Accredited, ready-to-deploy content built by Vector Solutions.',
   'Learning Studio': 'Content created or edited in Learning Studio. Editing accredited Vector Solutions content in Learning Studio removes its accreditation, so it moves here.'
@@ -810,7 +826,11 @@ function onSourceTab(btn){
     t.setAttribute('aria-selected', on ? 'true' : 'false');
   });
   const d = document.getElementById('source-tab-desc');
-  if (d) d.textContent = SOURCE_DESC[sourceValue] || '';
+  if (d){
+    const txt = SOURCE_DESC[sourceValue] || '';
+    d.textContent = txt;
+    d.classList.toggle('hidden', !txt);
+  }
   if (gridApi){
     gridApi.deselectAll();              // selection from the previous tab no longer applies
     gridApi.onFilterChanged();

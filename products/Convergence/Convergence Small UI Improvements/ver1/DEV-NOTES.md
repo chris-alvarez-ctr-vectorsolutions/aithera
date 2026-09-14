@@ -152,7 +152,7 @@
 - Counts are illustrative: the legacy screenshot is a fresh account (0% / 0% / no items). CONFIRM the real figures and the news excerpts before building.
 
 ## d-qual - Qualification details
-- One drill-in surface replaces the three legacy Details pages; the level is stated by a kind chip (Qualification / Requirement / the activity type) at the top of the hero.
+- Child rows share the Training Plan accordion colours, not a detail-only scheme: `.d-row.group` (requirements) on white like the plan's header rows, `.d-row` (activities) on `--tier-act` #f2f5f9 with `--c-line` borders; hovers are `--tier-head-hover` / `--tier-act-hover`. Change the plan tokens and these follow automatically - do not fork them.- One drill-in surface replaces the three legacy Details pages; the level is stated by a kind chip (Qualification / Requirement / the activity type) at the top of the hero.
 - The hero says what the qualification contains: requirement count, activity count, summed total duration and the progress meter. The legacy page gave only a bare duration line.
 - Contents are listed as rows you can click into: requirement group rows (with their meter) and their activities indented beneath, every row with a chevron and hover fill. The legacy activity list was not clickable.
 - Activity rows keep Launch, so drilling down never costs the primary action. Clicks on the button do not open the row.
