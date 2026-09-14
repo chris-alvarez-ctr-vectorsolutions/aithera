@@ -127,7 +127,7 @@
     ask:       { cls: 'pol-ask',   icon: 'fa-clipboard-list',   label: 'Ask' },
     none:      { cls: 'pol-none',  icon: 'fa-circle-minus',     label: 'Not assessed' }
   };
-  // NOT shown to a learner. "Gate", "remediate", "K1 · Know / Remember" and
+  // NOT shown to a learner. "Gate", "remediate", "K1 · Know / Recall" and
   // "pre-module battery" are how WE talk about routing; none of it answers a
   // question a learner has. The policy is demonstrated where it belongs — in
   // the step captions behind the footer "?", in the plain-English moves on the
@@ -185,7 +185,7 @@
       coord: { name: 'Dana Whitfield', title: 'Health Services Coordinator', email: 'safety@riverbendusd.org' },
       role: 'Classroom teacher', where: 'A middle-school classroom', when: 'End of the day',
       case1: 'You finish a diabetic student’s finger-stick in the health office and set the lancet on the counter — the phone is ringing and the container is across the room.',
-      case2: 'The sharps container in the health office is packed to the neck. Someone has been pressing things down to make room.',
+      case2: 'The sharps container in the health office is packed two inches past the line marked FILL TO HERE — three-quarters up the container. Someone has been pressing things down to make room.',
       case3: 'Clearing a classroom bin at the end of the day, you spot a used lancet sitting on top of the paper.',
       case4: 'A custodian emptying that same classroom bin at nine that night is stuck through the bag. He finds out whose lancet it was three weeks later, from a lab result.',
       story: {
@@ -255,7 +255,7 @@
       coord: { name: 'Marcus Oyelaran', title: 'Site Safety Manager', email: 'safety@halsteadbuild.com' },
       role: 'Site supervisor', where: 'An occupied renovation', when: 'Punch-list walkthrough',
       case1: 'Mid-walkthrough you pull a syringe out of a wall cavity with your gloved hand and set it on a ledge — you will bag it on the way back.',
-      case2: 'The first-aid kit’s small sharps container on this floor is full, and the spare is in the trailer two levels down.',
+      case2: 'The first-aid kit’s small sharps container on this floor is packed past the fill line stamped on its label, lid domed where the last few went in sideways, and the spare is in the trailer two levels down.',
       case3: 'A needle is sitting in the demo debris pile the framing crew will clear at seven tomorrow morning.',
       case4: 'A labourer clearing that pile is stuck through his glove. The needle came out of a wall in an occupied building — nobody can say whose it was.',
       story: {
@@ -325,7 +325,7 @@
       coord: { name: 'Lena Moreau', title: 'Training Coordinator', email: 'training@acmemfg.com' },
       role: 'Line lead', where: 'The plant floor', when: 'Second shift',
       case1: 'You change a box-cutter blade at the line and set the old one on the bench — you will walk it to the container after this run.',
-      case2: 'The container in the plant clinic is above its fill line, and the spare box is in the supply room.',
+      case2: 'The container in the plant clinic is three fingers above its fill line, and the spare box is in the supply room.',
       case3: 'You find contaminated glass from the clinic bagged into general waste at the dock.',
       case4: 'A sanitation worker on second shift compresses that bag by hand and is cut through it. It was a blade change nobody logged.',
       story: {
@@ -398,7 +398,7 @@
       coord: { name: 'Priya Raman', title: 'EMS Training Officer', email: 'training@kellcountyems.gov' },
       role: 'Paramedic', where: 'The back of a moving ambulance', when: 'A transfer',
       case1: 'You place a line in the back of a moving ambulance and set the used catheter on the bench seat — both hands are on the patient.',
-      case2: 'The jump-bag container is full, and the wall unit is behind the stretcher you cannot reach from here.',
+      case2: 'The jump-bag container is packed past the fill line molded into its lid, and the wall unit is behind the stretcher you cannot reach from here.',
       case3: 'At the ED doors you find a used needle loose on the gurney rail, left from the run before yours.',
       case4: 'Your partner, breaking down the gurney at the ED, is stuck by that needle. It was from the previous crew’s run, and nobody had cleared the rail.',
       story: {
@@ -4357,7 +4357,7 @@
       content: INFLOW_CONTENT, init: inflowInit },
 
     { id: 'case2', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Past the Fill Line', mode: 'floating', gate: true, adaptive: true,
-      caption: { title: 'LEARN · Case 2 (K3, content-locked)', note: 'Never removed. On test-up the three options are replaced with genuinely arguable ones — the same objective, served harder. 1910.1030(g)(2)(vii)(E): recognition is sector-specific, so a generic pass does not satisfy it.' },
+      caption: { title: 'LEARN · Case 2 (K3, content-locked)', note: 'Never removed. On test-up the three options are replaced with genuinely arguable ones — the same objective, served harder. 1910.1030(g)(2)(vii)(E): recognition is sector-specific, so a generic pass does not satisfy it. The fill-line specifics in each sector’s scene (three-quarters up the container, packed past a stamped or molded line) are invented for the prototype rather than pulled from a customer’s exposure control plan — chosen because three-quarters full is the common manufacturer convention for a sharps container’s fill line, not a fabricated fraction. A real deployment swaps these for the customer’s own container spec; the correct answer deliberately never states a number (“set by your site’s plan, not by eye”) so the lesson survives that swap unchanged.' },
       // Item 27/A2: same reasoning as case 1 — "this one is about the
       // container, not the sharp" is the posture for the scene, not a
       // reaction to anything the learner does.
