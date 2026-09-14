@@ -382,9 +382,41 @@
   //  closing the panel is the clearest signal a learner can give.
   // ==========================================================================
   var hintTimer = null, hintMuted = false, hintedStep = null;
+  var TEASER_TEXT = 'Need a hint?';
 
   function clearHint() { if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; } }
   function muteHints() { hintMuted = true; clearHint(); }
+
+  // Collapse the bubble to "Need a hint?" instead of opening straight to the
+  // real line — for the steps where coach.say IS the answer, not a reaction
+  // to one (coach.teaser: true, or a custom string, on that step). The real
+  // HTML is stashed on the element itself, so a fresh bubble on the next step
+  // starts clean with nothing to leak. Tap or Enter/Space anywhere on the
+  // line reveals it; the dedicated controls (dismiss/reply/act) still do
+  // their own thing rather than also revealing.
+  function armTeaser(bubble, sayEl, text) {
+    sayEl.dataset.fullSay = sayEl.innerHTML;
+    sayEl.innerHTML = esc(text);
+    bubble.classList.add('is-teaser');
+    sayEl.tabIndex = 0;
+    sayEl.setAttribute('role', 'button');
+    sayEl.setAttribute('aria-label', text + ' Tap to reveal.');
+    function reveal(e) {
+      if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target.closest && e.target.closest('.clara-collapse, .clara-reply, .clara-act')) return;
+      if (e.type === 'keydown') e.preventDefault();
+      bubble.classList.remove('is-teaser');
+      sayEl.innerHTML = sayEl.dataset.fullSay || '';
+      delete sayEl.dataset.fullSay;
+      sayEl.removeAttribute('tabindex');
+      sayEl.removeAttribute('role');
+      sayEl.removeAttribute('aria-label');
+      bubble.removeEventListener('click', reveal);
+      sayEl.removeEventListener('keydown', reveal);
+    }
+    bubble.addEventListener('click', reveal);
+    sayEl.addEventListener('keydown', reveal);
+  }
 
   function armHint(stepId) {
     clearHint();
@@ -406,6 +438,16 @@
       var cur = STEPS[idx];
       if (cur && cur.coach && cur.coach.hint === false) return;
       hintedStep = stepId;
+      // coach.teaser marks the rarer case: the line is itself the answer, not
+      // a reaction to one, so opening straight to it would just hand it over.
+      // Off by default — most tucked lines are commentary that reads fine in
+      // full the moment they're stuck.
+      var teaser = cur && cur.coach && cur.coach.teaser;
+      if (teaser) {
+        var bubble = chrome && chrome.querySelector('#claraBubble');
+        var sayEl = chrome && chrome.querySelector('.clara-say');
+        if (bubble && sayEl) armTeaser(bubble, sayEl, teaser === true ? TEASER_TEXT : teaser);
+      }
       setFloat('open');
       positionOrb(true);
     }, cfg.delay || 7000);

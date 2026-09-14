@@ -4279,7 +4279,7 @@
 
     { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Your Starting Point', mode: 'floating', gate: true,
       caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; it also sets test-up on the content-locked K2.' },
-      coach: { say: 'Loading\u2026' },
+      coach: { say: 'Loading\u2026', teaser: true },
       content: BATTERY_CONTENT, init: batteryInit,
       onSkip: function () { saveResult('battery', { k1: 'unproven', skipped: true }); } },
 
