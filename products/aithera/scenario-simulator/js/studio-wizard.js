@@ -1037,8 +1037,7 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         <h2 class="wiz-step-title">Generate the draft</h2>
         <p class="wiz-step-sub">${gen.tasks.length} steps turn your answers into the full scenario. It lands in the editor as a draft — review it, then playtest and publish.</p>
         <div class="wiz-fields" style="margin-top:16px">
-          <vaadin-text-field theme="outlined" id="wizWorker" label="Worker proxy URL" value="${esc(savedUrl)}"
-            helper-text="The same Cloudflare Worker the playtest and live pages use. Model: ${esc(MODEL)}."></vaadin-text-field>
+          <vaadin-text-field theme="outlined" id="wizWorker" label="Worker proxy URL" value="${esc(savedUrl)}"></vaadin-text-field>
         </div>
         <div class="wiz-gen" id="wizGen"></div>
         <div class="wiz-note"><i class="fa-solid fa-shield-halved"></i><span>This is a <b>first draft</b> — check the guardrails and playtest before publishing. Your current draft is saved to the Library first.</span></div>`;
