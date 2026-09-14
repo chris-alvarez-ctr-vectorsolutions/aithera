@@ -160,6 +160,13 @@
   .wiz-drop .fa-solid { font-size: 14px; }
   .wiz-srcmeta { font-size: 11.5px; color: var(--ink-faint); }
   .wiz-srcmeta b { color: var(--ok); }
+  /* the Scenario Brief step's drop zone — the only control on that step, so
+     it gets the full visual weight the generic paste+drop combo can't spare. */
+  .wiz-drop-lg { flex-direction: column; text-align: center; padding: 36px 20px; gap: 8px; font-size: 13.5px; }
+  .wiz-drop-lg .fa-solid { font-size: 26px; }
+  .wiz-tpl-note { margin: -2px 0 14px; }
+  .wiz-tpl-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .wiz-tpl-link:hover { text-decoration: underline; }
 
   /* generation checklist */
   .wiz-gen { display: grid; gap: 10px; margin-top: 18px; max-width: 680px; }
@@ -349,7 +356,7 @@
       : [ctx.type];
     if (!registry.some((t) => t && t.wizard)) return null;
 
-    let chosen, spec, intakeKey, intake, gen, describeStep;
+    let chosen, spec, intakeKey, intake, gen, describeStep, briefStep;
     let outlining = false;   // the BASIC-mode "Create outline" call is in flight
     let outlineErr = '';     // its last failure, shown inline on the describe step
 
@@ -371,6 +378,29 @@
       };
     }
 
+    /* BRIEF mode's one intake step: nothing but the spec's OWN source field,
+       required — a completed Scenario Brief deck answers the interview
+       itself (importPptx reads it straight off the deck's machine-named
+       shapes into `intake`), so there is no separate description to type.
+       Only offered when the type declares `importPptx` — see renderModePicker. */
+    function buildBriefStep(t) {
+      if (typeof t.wizard.importPptx !== 'function') return null;
+      const srcField = (t.wizard.steps || []).flatMap((s) => s.fields || []).find((f) => f.kind === 'source') || null;
+      if (!srcField) return null;
+      return {
+        id: '__brief',
+        title: 'From a Scenario Brief',
+        sub: 'Drop your completed Scenario Brief below — its fields answer the whole interview, so Generate reads them straight off the slides.',
+        fields: [{
+          ...srcField,
+          noPaste: true,
+          required: true,
+          label: 'Your completed Scenario Brief',
+          emptyNote: 'Drop the deck above to continue.',
+        }],
+      };
+    }
+
     function loadChosen(t) {
       chosen = t;
       spec = t.wizard;
@@ -381,6 +411,7 @@
       /* generation + outline state resets with the choice */
       gen = { running: false, done: false, draft: null, acc: { results: {} }, tasks: [], status: {} };
       describeStep = buildDescribeStep(t);
+      briefStep = buildBriefStep(t);
       outlining = false;
       outlineErr = '';
     }
@@ -432,17 +463,23 @@
        persisted; a legacy stored `_mode` is ignored). Answers typed in
        Advanced stay saved either way — switching modes reveals them. */
     let modeChoice = 'basic';
-    const mode = () => (modeChoice === 'advanced' ? 'advanced' : 'basic');
+    // Falls back to 'basic' the moment `briefStep` is null — e.g. the type was
+    // switched to one with no `importPptx` — so a stale 'brief' choice never
+    // strands the wizard on a step that no longer exists.
+    const mode = () => (modeChoice === 'advanced' ? 'advanced' : (modeChoice === 'brief' && briefStep) ? 'brief' : 'basic');
 
     let stepIdx = 0;
     // Step 0 is the type choice; the rest belong to the CHOSEN spec.
     // BASIC mode swaps the spec's steps for the describe step until the
-    // outline lands — then they open, pre-filled, between the two.
+    // outline lands — then they open, pre-filled, between the two. BRIEF mode
+    // swaps them for the single Scenario Brief drop step — the deck answers
+    // the interview itself, so there's nothing else to ask.
     const steps = () => {
       /* With one type on offer this step no longer asks what you are building — it
          only asks HOW to start, so the rail should not promise a choice of type. */
       const head = [{ id: '__type', title: registry.length > 1 ? 'What are you building?' : 'How to start', sub: '' }];
       const tail = [{ id: '__generate', title: 'Generate', sub: '' }];
+      if (mode() === 'brief') return head.concat([briefStep], tail);
       if (mode() === 'basic') return head.concat([describeStep], intake._outlined ? spec.steps : [], tail);
       return head.concat(spec.steps, tail);
     };
@@ -637,6 +674,10 @@
          d: 'Describe it in a sentence. We draft every field for you to review and edit.' },
        { id: 'advanced', ic: 'fa-sliders', t: 'Advanced — fill it in yourself',
          d: 'Answer every question yourself. Best when you already know the story.' }]
+      // Only offered when the CHOSEN type can read one back (see buildBriefStep) —
+      // a completed deck answers the interview itself, so there's nothing else to fill in.
+      .concat(briefStep ? [{ id: 'brief', ic: 'fa-file-powerpoint', t: 'From a Scenario Brief — drop it in',
+         d: 'Download the template, fill it out in PowerPoint, then drop the finished deck. Its fields answer the whole interview.' }] : [])
       .forEach((m) => {
         const b = document.createElement('button');
         b.type = 'button';
@@ -723,16 +764,23 @@
         // its own interview fields from the deck's machine-named shapes.
         const wrap = document.createElement('div');
         wrap.className = 'wiz-source';
-        const ta = document.createElement('vaadin-text-area');
-        ta.setAttribute('theme', 'outlined');
-        ta.label = val(f.label, intake);
-        ta.helperText = val(f.helper, intake) || '';
-        ta.placeholder = f.placeholder || '';
-        ta.minRows = f.minRows || 6;
-        ta.value = String(intake[f.key] ?? '');
-        ta.addEventListener('input', () => { intake[f.key] = ta.value; persistIntake(); renderMeta(); });
+        // f.noPaste (the dedicated Scenario Brief step — see buildBriefStep):
+        // skip the paste-anything textarea entirely. The step exists only
+        // because the author has an actual deck to drop; a big empty paste
+        // box under it just implies there's more to fill in by hand.
+        const ta = f.noPaste ? null : document.createElement('vaadin-text-area');
+        if (ta) {
+          ta.setAttribute('theme', 'outlined');
+          ta.label = val(f.label, intake);
+          ta.helperText = val(f.helper, intake) || '';
+          ta.placeholder = f.placeholder || '';
+          ta.minRows = f.minRows || 6;
+          ta.value = String(intake[f.key] ?? '');
+          ta.dataset.wizKey = f.key;   // so a required-field jump (see firstMissing) can focus it
+          ta.addEventListener('input', () => { intake[f.key] = ta.value; persistIntake(); renderMeta(); });
+        }
         const drop = document.createElement('div');
-        drop.className = 'wiz-drop';
+        drop.className = 'wiz-drop' + (f.noPaste ? ' wiz-drop-lg' : '');
         drop.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i><span><b>Drop a Scenario Brief .pptx</b>, or a .txt/.md file, or click to pick one.</span>';
         const file = document.createElement('input');
         file.type = 'file';
@@ -740,7 +788,7 @@
         file.hidden = true;
         const appendSource = (text) => {
           intake[f.key] = (intake[f.key] ? intake[f.key] + '\n\n' : '') + text;
-          ta.value = intake[f.key];
+          if (ta) ta.value = intake[f.key];
         };
         const readFile = (fl) => {
           if (!fl) return;
@@ -777,10 +825,11 @@
         const renderMeta = (msg) => {
           if (msg) { meta.innerHTML = `<b><i class="fa-solid fa-triangle-exclamation"></i></b> ${esc(msg)}`; return; }
           const n = String(intake[f.key] || '').length;
-          meta.innerHTML = n ? `<b><i class="fa-solid fa-circle-check"></i></b> ${n.toLocaleString()} characters captured.` : 'Optional — the draft works fine without it.';
+          meta.innerHTML = n ? `<b><i class="fa-solid fa-circle-check"></i></b> ${n.toLocaleString()} characters captured.`
+            : (f.emptyNote || 'Optional — the draft works fine without it.');
         };
         renderMeta();
-        wrap.append(ta, drop, file, meta);
+        wrap.append(...[drop, file, ta, meta].filter(Boolean));
         return wrap;
       }
 
@@ -807,7 +856,8 @@
       body.innerHTML = `<h2 class="wiz-step-title">${esc(step.title)}</h2>
         <p class="wiz-step-sub">${esc(val(step.sub, intake) || '')}</p>` +
         (drafted ? `<span class="wiz-ai-pill"><i class="fa-solid fa-wand-magic-sparkles"></i> Drafted from your description. Edit anything — nothing’s final yet.
-          <button type="button" class="wiz-pill-btn" id="wizJumpDescribe"><i class="fa-solid fa-rotate-left"></i> Add context &amp; redraft</button></span>` : '');
+          <button type="button" class="wiz-pill-btn" id="wizJumpDescribe"><i class="fa-solid fa-rotate-left"></i> Add context &amp; redraft</button></span>` : '') +
+        (step.id === '__brief' ? `<p class="wiz-step-sub wiz-tpl-note">Need the template? <a class="wiz-tpl-link" href="docs/templates/scenario-brief-template.pptx" download>Download it (.pptx)</a></p>` : '');
       const box = document.createElement('div');
       box.className = 'wiz-fields';
       step.fields.forEach((f) => {

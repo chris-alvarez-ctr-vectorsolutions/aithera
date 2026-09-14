@@ -370,7 +370,6 @@ ${lines(ik.mustKnows).map((x) => '  · ' + x).join('\n') || '  (unspecified)'}
   T.wizard = {
     title: 'Start from scratch — Universal Scenario',
     tagline: 'Author straight into POC V4 — compose any arc from coach-inquiry, roleplay and observe steps.',
-    intro: 'Sketch the steps in order, answer a few questions, and a complete POC V4 document lands in the editor — validated live against the production loader’s own rules.',
     describePlaceholder: 'e.g. A shift supervisor notices a twelve-year veteran spiraling after being passed over for a lead role — first judge whether the signs add up, then talk to him before it escalates.',
 
     steps: [
@@ -389,7 +388,7 @@ ${lines(ik.mustKnows).map((x) => '  · ' + x).join('\n') || '  (unspecified)'}
           { key: 'stepsList', kind: 'lines', required: true, minRows: 5,
             label: 'The steps — one per line, in order, each starting with its mode',
             helper: 'Prefix each line with coach:, roleplay:, or observe:. e.g. "coach: do these three signs add up?"; "observe: study the group-chat screenshot"; "roleplay: talk to Ray before shift". An unprefixed line becomes a coach step. Default to exactly ONE roleplay or observe step for the whole arc — never both, never two of either — and stack every coach: step before it, not after. Only break that cap if the source material itself lays out more than one live/graded moment as separate, distinct scenes.' },
-          { key: 'sourceText', kind: 'source', minRows: 7, label: 'Source material — paste anything (optional)',
+          { key: 'sourceText', kind: 'source', minRows: 7, label: 'Other supporting material — paste anything (optional)',
             placeholder: 'A slide outline, the static scenario this replaces, a policy excerpt, SME notes…' },
         ] },
 
