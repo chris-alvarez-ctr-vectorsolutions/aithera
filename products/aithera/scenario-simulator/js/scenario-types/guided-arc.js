@@ -129,7 +129,7 @@
   const DEFAULT = {
     v: 3,
     type: 'guided-arc',
-    title: 'Sex-Based Hostile Work Environment: The Renee Scenario',
+    title: 'The Renee Scenario',
     course: 'Harassment Prevention for Employees',
     learnerName: 'you',
     characterName: 'Greg',
