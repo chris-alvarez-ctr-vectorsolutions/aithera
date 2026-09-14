@@ -1,5 +1,33 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-14, second pass (V3a / V3b in the switcher, admin IA, motion)
+
+- **V3a and V3b are first-class versions in the review pill**: `V1 · V3a · V3b`. In V3 the
+  two entries switch the variant in place and rewrite `?variant=` so the link stays
+  shareable; the separate "V3: a" toggle is gone.
+- **Accordion rows slide open and closed** (220ms, the nav's own curve), in both versions and
+  inside the hover-peek copy. `<details>` has no motion of its own, so a small delegated
+  handler drives the height and the CSS eases it; reduced-motion users get the native toggle.
+- **The group holding the active page reads as current.** Open, its icon takes the accent and
+  its label goes heavy, so you can see which group you are in without it competing with the
+  child's filled highlight; collapsed, the top-level icon carries the filled highlight (this
+  already worked for the learner list and now covers Admin's nested groups too).
+- **Variant a's Admin nav is reorganised into sections**, by the job an admin is doing rather
+  than by feature shape:
+  - **Overview**: Dashboard.
+  - **People**: Organization (Users, Teams, Departments, Sites, Regions, Groups, Places,
+    Contacts).
+  - **Content**: **Courses** (Qualifications, Requirements, Activities, pulled together as one
+    group), Training import and creation, Files.
+  - **Delivery**: Assignments (Assign training, Manage assignments), Electives (Elective
+    categories, Offer electives, Approve electives, Manage electives), Authorizations
+    (Authorize training, Authorizations), Tracking and completions (all seven).
+  - **Compliance**: MSHA compliance (Qualifications, Requirements, MSHA compliance reports).
+  - **Insights**: Reports, as a row, holding the report library.
+  - **Configuration**: Assets, Security, System.
+
+  Variant b's Admin keeps Convergence's tree exactly, so the two remain a real comparison.
+
 ## Changelog · 2026-09-14 (V3 variants a and b)
 
 V3 now holds two toggleable variants, switched from the review pill (`V3: a` / `V3: b`) or
@@ -475,7 +503,7 @@ collapsed column's own left edge: x=0 in V1, x=56 in V3 beside the rail.
 ## Version switcher (review tooling, not part of the design)
 
 Every version file carries a small dark pill at the **bottom center**, stacked just above the
-Design Toolbox comment dock: `All` (back to the gallery) followed by V1 and V3, with the
+Design Toolbox comment dock: `All` (back to the gallery) followed by V1, V3a and V3b, with the
 current version highlighted and each button titled with its pattern. Its toggles are **Logo**
 (customer logo on/off), **Loc** (location picker), **Bar** (the tenant accent bar), **Logo:
 top / bottom** (where the customer logo sits) and **Tabs** where tabs exist. It exists so reviewers can flip between explorations in place instead of returning
