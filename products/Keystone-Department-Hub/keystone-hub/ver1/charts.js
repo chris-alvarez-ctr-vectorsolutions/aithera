@@ -46,7 +46,7 @@
       '</div>';
   }
 
-  function miniLine(data) {
+  function miniLine(data, color) {
     var W = 150, H = 50, P = 4;
     var ys = data.map(function (d) { return d.y; });
     var yHi = Math.max.apply(null, ys) * 1.15 || 1;
@@ -59,7 +59,9 @@
     var dashed = projIdx > 0
       ? 'M' + pts[projIdx - 1][0] + ',' + pts[projIdx - 1][1] + ' L' + pts[projIdx][0] + ',' + pts[projIdx][1]
       : '';
-    var color = 'var(--teal-400)';
+    // Follows its metric's tone. A blanket teal put a green trend line under
+    // a rising failure count.
+    color = color || 'var(--azure-500)';
     var last = pts[pts.length - 1];
     return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" style="display:block">' +
       '<path d="' + solid + ' L' + pts[solidEnd - 1][0] + ',' + (H - P) + ' L' + pts[0][0] + ',' + (H - P) + ' Z" ' +
@@ -71,9 +73,13 @@
       '</svg>';
   }
 
-  function miniBar(data) {
+  function miniBar(data, color, tone) {
     var top = data.slice(0, 4);
     var max = Math.max.apply(null, top.map(function (d) { return d.value; })) * 1.1 || 1;
+    // One series, one colour — the metric's. The first bar (the largest, since
+    // these are sorted) darkens a step so the peak still reads.
+    var barColor = color || 'var(--azure-500)';
+    var leadColor = window.KEYSTONE_CUSTOM.tonePeak(tone);
     return '<div style="width:100%;display:flex;flex-direction:column;gap:3px">' +
       top.map(function (d, i) {
         return '<div style="display:flex;align-items:center;gap:6px;font-size:10px">' +
@@ -81,19 +87,20 @@
           'text-overflow:ellipsis;white-space:nowrap;flex-shrink:0">' + esc(d.label) + '</span>' +
           '<div style="flex:1;height:8px;background:var(--ink-100);border-radius:3px;overflow:hidden">' +
           '<div style="width:' + (d.value / max * 100) + '%;height:100%;background:' +
-          (i === 0 ? 'var(--coral-300)' : 'var(--teal-300)') + '"></div></div>' +
+          (i === 0 ? leadColor : barColor) + '"></div></div>' +
           '<span style="font-family:var(--font-mono);color:var(--ink-700);font-variant-numeric:tabular-nums;' +
           'width:24px;text-align:right">' + esc(d.value) + '</span></div>';
       }).join('') + '</div>';
   }
 
   // Paired-bars correlation, capped to the first 4 categories.
-  function miniBarPair(data, labels) {
+  function miniBarPair(data, labels, seriesColors) {
     var top = data.slice(0, 4);
     var vals = [];
     top.forEach(function (d) { vals.push(d.a, d.b); });
     var max = Math.max.apply(null, vals) * 1.1 || 1;
-    var colors = ['var(--amber-400)', 'var(--teal-300)'];
+    // Per-metric, by polarity — see KEYSTONE_CUSTOM.seriesColors.
+    var colors = seriesColors || ['var(--azure-500)', 'var(--coral-400)'];
     return '<div style="width:100%;display:flex;flex-direction:column;gap:4px">' +
       '<div style="display:flex;gap:8px;font-size:8.5px;color:var(--ink-500)">' +
       labels.slice(0, 2).map(function (l, i) {
@@ -115,9 +122,10 @@
   }
 
   // Dual-line correlation — two metrics on the same axis.
-  function miniLineDual(series, labels) {
+  function miniLineDual(series, labels, seriesColors) {
     var W = 150, H = 60, P = 4;
-    var colors = ['var(--amber-400)', 'var(--teal-400)'];
+    // Per-metric, by polarity — see KEYSTONE_CUSTOM.seriesColors.
+    var colors = seriesColors || ['var(--azure-500)', 'var(--coral-400)'];
     var allYs = [];
     series.forEach(function (s) { s.data.forEach(function (d) { allYs.push(d.y); }); });
     var yHi = Math.max.apply(null, allYs) * 1.15 || 1;
@@ -179,11 +187,11 @@
   // (bar-pair / line-dual) instead of `viz`.
   function miniViz(spec) {
     if (!spec) return '';
-    if (spec.kind === 'bar-pair') return miniBarPair(spec.data, spec.labels);
-    if (spec.kind === 'line-dual') return miniLineDual(spec.series, spec.labels);
+    if (spec.kind === 'bar-pair') return miniBarPair(spec.data, spec.labels, spec.colors);
+    if (spec.kind === 'line-dual') return miniLineDual(spec.series, spec.labels, spec.colors);
     if (spec.viz === 'kpi') return miniKpi(spec);
-    if (spec.viz === 'line') return miniLine(spec.data);
-    if (spec.viz === 'bar') return miniBar(spec.data);
+    if (spec.viz === 'line') return miniLine(spec.data, spec.color);
+    if (spec.viz === 'bar') return miniBar(spec.data, spec.color, spec.tone);
     if (spec.viz === 'donut') return miniDonut(spec.data);
     // Fall back to KPI rendering if a non-widget viz was somehow picked.
     var fallback = window.KEYSTONE_CUSTOM.buildSpec(spec.metric, 'kpi');
@@ -246,7 +254,7 @@
 
   function inlineLine(spec) {
     var data = spec.data;
-    var color = spec.color || 'var(--teal-400)';
+    var color = spec.color || 'var(--azure-500)';
     var ySuffix = spec.ySuffix || '';
     var W = 360, H = 150, P = 24;
     var ys = data.map(function (d) { return d.y; });
@@ -294,6 +302,8 @@
 
   function inlineHBar(spec) {
     var data = spec.data, max = spec.max;
+    var barColor = spec.color || 'var(--azure-500)';
+    var peakColor = window.KEYSTONE_CUSTOM.tonePeak(spec.tone);
     return '<div style="display:flex;flex-direction:column;gap:6px">' +
       data.map(function (d, i) {
         var isWorst = i === data.length - 1;
@@ -301,7 +311,7 @@
           '<span style="width:96px;color:var(--ink-700);font-weight:500;flex-shrink:0">' + esc(d.label) + '</span>' +
           '<div style="flex:1;height:14px;background:var(--ink-100);border-radius:4px;position:relative;overflow:hidden">' +
           '<div style="position:absolute;inset:0;width:' + (d.value / max * 100) + '%;background:' +
-          (isWorst ? 'var(--coral-300)' : 'var(--teal-300)') + ';border-radius:4px;transition:width 0.5s"></div></div>' +
+          (isWorst ? peakColor : barColor) + ';border-radius:4px;transition:width 0.5s"></div></div>' +
           '<span style="font-family:var(--font-mono);color:var(--ink-700);width:38px;text-align:right">' +
           esc(d.fmt) + '</span></div>';
       }).join('') + '</div>';
@@ -350,7 +360,7 @@
   }
 
   function pdLine(data, color, ySuffix) {
-    color = color || 'var(--teal-400)';
+    color = color || 'var(--azure-500)';
     var W = 380, H = 148, P = 26;
     var ys = data.map(function (d) { return d.y; });
     var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
@@ -937,8 +947,12 @@
       '</svg>' + legend + cost + stats + '</div>';
   }
 
-  function pdBar(data) {
+  function pdBar(data, color, tone) {
     var max = Math.max.apply(null, data.map(function (d) { return d.value; })) || 1;
+    // One series, one colour — the metric's. The peak bar darkens a step of
+    // the same ramp instead of flipping to a different status hue.
+    var barColor = color || 'var(--azure-500)';
+    var peakColor = window.KEYSTONE_CUSTOM.tonePeak(tone);
     return '<div style="display:flex;flex-direction:column;gap:8px;width:100%">' +
       data.map(function (d) {
         var worst = d.value === max && max > 0;
@@ -947,7 +961,7 @@
           'overflow:hidden;text-overflow:ellipsis">' + esc(d.label) + '</span>' +
           '<div style="flex:1;height:16px;background:var(--ink-100);border-radius:5px;overflow:hidden">' +
           '<div style="width:' + (d.value / max * 100) + '%;height:100%;background:' +
-          (worst ? 'var(--coral-300)' : 'var(--teal-300)') + ';border-radius:5px;transition:width 0.6s"></div></div>' +
+          (worst ? peakColor : barColor) + ';border-radius:5px;transition:width 0.6s"></div></div>' +
           '<span style="font-family:var(--font-numeric);font-weight:700;color:var(--ink-700);width:32px;' +
           'text-align:right;font-variant-numeric:tabular-nums">' + esc(d.value) + '</span></div>';
       }).join('') + '</div>';
@@ -1189,7 +1203,7 @@
         micon('close', { size: 13 }) + '</button>' : '') +
       '</span>' +
       '<span style="position:relative;display:inline-flex">' +
-      '<button class="kx-range-btn" data-tbl-cols="' + id + '" title="Choose which columns show">' +
+      '<button class="kx-tbar-btn" data-tbl-cols="' + id + '" title="Choose which columns show">' +
       micon('view_column', { size: 13 }) + '<span>Columns</span>' +
       (hidden.length ? '<span class="cpw-tpip">' + (cols.length - hidden.length) + '/' + cols.length + '</span>' : '') +
       micon('expand_more', { size: 14 }) + '</button>' +

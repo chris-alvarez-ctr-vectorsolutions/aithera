@@ -276,8 +276,33 @@
     });
 
     // Prototype-only affordances.
+    // The back arrow is a stub on nearly every page — there is no table of
+    // contents to return to. A page reached FROM somewhere, though, does have
+    // a destination, and it can name it: either LESSON_FRAME.backHref or a
+    // ?back=<relative-url> on the query string. Resolved against location.href
+    // rather than the document base, because several sim pages carry a <base>
+    // that would otherwise re-root the hop. Behaviour is unchanged wherever
+    // neither is supplied, which is every page that exists today.
     frame.querySelector('#vtBack').addEventListener('click', function () {
-      console.log('Frame: back');
+      // readConfig() rather than a captured cfg: wire() runs in its own scope,
+      // and a page may set LESSON_FRAME.backHref after the frame is built.
+      // An in-app handler wins over a navigation: a course that owns its own
+      // screens can return to its contents page without a reload, which keeps
+      // the answers already in sessionStorage and the transition it renders.
+      var cfgNow = readConfig();
+      if (typeof cfgNow.onBack === 'function') {
+        try { cfgNow.onBack(); return; } catch (e) { console.error('Frame: onBack', e); }
+      }
+      var dest = cfgNow.backHref
+        || new URLSearchParams(location.search).get('back') || '';
+      if (!dest) { console.log('Frame: back'); return; }
+      var url;
+      try { url = new URL(dest, location.href); } catch (e) { console.log('Frame: back — unusable destination', dest); return; }
+      // Same-origin only: `back` arrives on the query string, so a page could
+      // be linked with someone else's origin in it and the arrow would carry
+      // the learner off-site.
+      if (url.origin !== location.origin) { console.log('Frame: back — refused cross-origin destination', dest); return; }
+      window.location.href = url.href;
     });
     frame.querySelector('#vtLang').addEventListener('click', function () {
       console.log('Frame: language selector');

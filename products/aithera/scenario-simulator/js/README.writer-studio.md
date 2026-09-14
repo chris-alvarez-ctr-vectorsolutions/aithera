@@ -63,6 +63,7 @@ compose their prompts.
 | 5b | `scenario-v4.js` · `scenario-v4-runtime.js` · `scenario-v4-scopes.js` · `scenario-v4-templates.js` | the POC V4 layer: schema + loader rules + content lint; the single V4→runtime compiler; per-scope prompt compilation; the V4 starting templates (six in the gallery). |
 | 5c | `scenario-types/v4-universal.js` | the **v4-universal** TYPE — authors Scenario CML v4 directly and owns the Dev handoff export. Reads all four V4 modules plus mix-arc's prompt builder, so it loads after them. |
 | 6 | **`studio-wizard-craft.js`** | shared wizard helpers + the invariant coach-voice atoms. Before the wizard engine + specs. |
+| 6b | `pptx-brief-import.js` | reads a Scenario Brief `.pptx` client-side (JSZip, a CDN `<script>`, unzips it; this file reads the XML) by the machine-named shape `tools/build-scenario-brief.py` writes on every field. Exposes `window.AitheraPptxImport`. Before the wizard engine, which calls it from the source-material drop zone. |
 | 7 | `studio-wizard.js` | the wizard **engine** (`window.AitheraStudioWizard`). |
 | 8 | `studio-v2-v4-universal-wizard.js` | the **Universal Scenario** wizard spec — the go-forward format's own interview, and the ONLY spec the editor loads. Authors Scenario CML v4 directly; see §5c for the task ordering it is forced into. |
 | 9 | **`studio-shell.js`** | the studio app logic. Loads last (needs everything registered). |

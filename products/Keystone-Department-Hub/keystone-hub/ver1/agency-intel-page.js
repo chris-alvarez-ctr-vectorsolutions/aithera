@@ -41,7 +41,7 @@
   function freshBuilder() {
     return {
       tab: 'simple', mode: null,
-      metric: null, viz: null, range: CP.DEFAULT_RANGE, include: [],
+      metric: null, viz: null, include: [],
       a: null, b: null, corrViz: 'scatter',
       ideas: [],
       tableIds: [], tableHeading: '',
@@ -85,9 +85,46 @@
     liveMsg: '',
     editingName: false,
     exportMenu: false,
+
+    /* ---- dashboard reporting window ----
+       ONE range for the whole dashboard (widgets no longer carry their own).
+       `dashRangeOpen` is the menu; `localDashRange` is the VIEWER's override,
+       keyed by dashboard id — in preview mode you are standing in the
+       audience's shoes, so a change there explores without saving, exactly
+       as it will for them. In edit mode the same control writes the saved
+       default onto the dashboard instead. */
+    dashRangeOpen: false,
+    localDashRange: {},
+    // Which dashboard row has its actions menu open (home list).
+    rowMenu: null,
     lastSavedAt: Date.now() - 7 * 60 * 1000,
     saving: false,
     builder: freshBuilder(),
+
+    /* ---- Dashboard management access ----
+       Who, besides a Keystone admin, may build dashboards — and who may act on
+       everyone's. Two levels, because they answer different questions:
+
+         build  — create and publish your OWN dashboards. What a Training
+                  Officer needs to put a compliance view in front of her crews.
+         manage — additionally edit, republish and DELETE anyone's. What a
+                  deputy needs when the person who built the battalion's
+                  readiness dashboard has left, or is on leave mid-quarter.
+                  Without it a dashboard outlives the only person who can fix it.
+
+       Same record shape as the AI grants ({ id, grantedAt, grantedBy }) plus a
+       level, so grantId()/grantMeta() work on both. */
+    dashGrants: DEFAULTS.aiState === 'empty'
+      ? { titles: [], individuals: [] }
+      : {
+          titles: [{ id: 'training_officer', level: 'build', grantedAt: '2026-04-02', grantedBy: 'You' }],
+          individuals: [
+            { id: 'u12', level: 'manage', grantedAt: '2026-03-18', grantedBy: 'You' },
+            { id: 'u3',  level: 'build',  grantedAt: '2026-05-04', grantedBy: 'You' }
+          ]
+        },
+    // Grant dialog working state.
+    dashGrantDraft: null,
 
     // AI access
     aiGrants: DEFAULTS.aiState === 'empty' ? { titles: [], individuals: [] } : AI.seedGrants(),
@@ -240,7 +277,9 @@
     var inds = (a && a.individuals) || [];
     var groups = (a && a.groups) || [];
     if (!titles.length && !inds.length && !groups.length) {
-      return '<span style="font-size:13px;color:var(--ink-300)">—</span>';
+      return '<button type="button" class="cp-aud-cell" data-dash-audience="' + KX.attr(d.id) + '" ' +
+        'title="Not published to anyone — click to choose an audience" ' +
+        'style="color:var(--ink-300);font-size:13px">—</button>';
     }
     var RS = window.AGENCY_INTEL_ROSTER;
     var tip = titles.map(function (id) {
@@ -264,7 +303,12 @@
         '<span class="dot" style="background:' + mode.dot + '"></span>' + esc(mode.label) + '</span>'
       : '';
 
-    return '<span style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap" title="' + KX.attr(tip) + '">' +
+    /* Clickable: this cell is where someone looks to answer "who has this?",
+       so it is also where they should be able to act on the answer. It opens
+       the audience dialog straight on the review step, which itemises every
+       group / title / person with its own Remove. */
+    return '<button type="button" class="cp-aud-cell" data-dash-audience="' + KX.attr(d.id) + '" ' +
+      'title="' + KX.attr(tip + ' — click to manage') + '">' +
       modePill +
       (groups.length ? '<span class="cp-aud-title" style="background:var(--amber-50);' +
         'border-color:var(--amber-400);color:var(--amber-700)">' +
@@ -273,7 +317,7 @@
       (titles.length ? '<span class="cp-aud-title">' + micon('badge', { size: 12, fill: 1 }) + ' ' +
         titles.length + ' title' + (titles.length === 1 ? '' : 's') + '</span>' : '') +
       (inds.length ? '<span class="cp-aud-ind">' + micon('person', { size: 12 }) + ' ' + inds.length + '</span>' : '') +
-      '</span>';
+      '</button>';
   }
 
   /* =====================================================================
@@ -344,6 +388,31 @@
       ' accessibleName="' + KX.attr('Sort by ' + label) + '">' + esc(label) + '</vwc-sortable-header></th>';
   }
 
+  /* Who built it. Only worth a column now that not every dashboard is yours —
+     and it is the field that explains why a row's actions are greyed out. */
+  // The stored `owner` string says "You", which is only true for whoever
+  // seeded it. Resolve the real name from ownerId and decide "You" against the
+  // CURRENT role, or a Lieutenant sees the Chief's dashboards labelled as
+  // their own — and then wonders why the actions are greyed out.
+  function ownerName(d) {
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var p = d && d.ownerId && RS && RS.personById(d.ownerId);
+    if (p) return p.name;
+    var ind = d && d.ownerId && (CP.INDIVIDUALS || [])
+      .find(function (x) { return x.id === d.ownerId; });
+    if (ind) return ind.name;
+    return (d && d.owner !== 'You' && d.owner) || 'Unassigned';
+  }
+
+  function ownerCell(d) {
+    var mine = ownsDash(d);
+    var name = mine ? 'You' : ownerName(d);
+    return '<span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;' +
+      'color:' + (mine ? 'var(--ink-800)' : 'var(--ink-600)') + '">' +
+      micon(mine ? 'person' : 'person_outline', { size: 14, color: 'var(--ink-400)' }) +
+      esc(name) + '</span>';
+  }
+
   function dashRow(d) {
     var st = CP.statusOf(d);
     var accent = CP.dashStatusMeta(st).accent;
@@ -354,6 +423,7 @@
       micon(d.icon || 'dashboard', { size: 18, fill: 1 }) + '</span>' +
       '<div style="min-width:0"><div class="t">' + esc(d.name) + '</div>' +
       '<div class="s">Created ' + esc(fmtDate(d.createdAt)) + '</div></div></div></td>' +
+      '<td>' + ownerCell(d) + '</td>' +
       '<td>' + sourcesCell(d) + '</td>' +
       '<td class="cp-num">' + (d.widgets || []).length + '</td>' +
       '<td>' + statusBadge(st) + '</td>' +
@@ -364,7 +434,42 @@
       '<td class="cp-num" title="Estimated people reached"' +
       (reach ? '' : ' style="color:var(--ink-300)"') + '>' + (reach || '—') + '</td>' +
       '<td class="cp-num" style="font-family:inherit;font-size:12px;color:var(--ink-600);font-weight:400">' +
-      esc(fmtDate(d.updatedAt)) + '</td></tr>';
+      esc(fmtDate(d.updatedAt)) + '</td>' +
+      '<td class="cp-row-act">' + rowMenu(d) + '</td></tr>';
+  }
+
+  /* Per-dashboard actions. Lives in its own column rather than on hover, so
+     it is reachable by keyboard and visible on touch. Stops propagation on the
+     way out — the whole row is a link into the dashboard. */
+  function rowMenu(d) {
+    var open = state.rowMenu === d.id;
+    // Someone else's dashboard, and no "manage all" grant: the actions are
+    // still SHOWN — hiding them makes the product look broken rather than
+    // permissioned — but disabled, and the menu says whose it is.
+    var mine = canActOn(d);
+    var dis = mine ? '' : ' disabled';
+    return '<span style="position:relative;display:inline-flex">' +
+      '<button class="cp-kebab" data-dash-menu="' + KX.attr(d.id) + '" ' +
+      'aria-haspopup="menu" aria-expanded="' + open + '" ' +
+      'aria-label="Actions for ' + KX.attr(d.name) + '">' +
+      micon('more_vert', { size: 18 }) + '</button>' +
+      (open
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:210px;top:calc(100% + 4px)">' +
+          (mine ? '' :
+            '<div class="kx-menu-label">' + esc(ownerName(d)) + '\u2019s dashboard</div>') +
+          '<button class="kx-menu-row" data-dash-audience="' + KX.attr(d.id) + '"' + dis + '>' +
+          micon('groups', { size: 16 }) + '<span class="label">Manage audience</span></button>' +
+          // Duplicating is always allowed: it copies into a draft of your own
+          // and touches nothing of theirs.
+          '<button class="kx-menu-row" data-dash-duplicate="' + KX.attr(d.id) + '">' +
+          micon('content_copy', { size: 16 }) + '<span class="label">Duplicate</span></button>' +
+          '<div class="kx-menu-sep"></div>' +
+          '<button class="kx-menu-row is-danger" data-dash-delete="' + KX.attr(d.id) + '"' + dis + '>' +
+          micon('delete', { size: 16 }) + '<span class="label">Delete</span></button>' +
+          (mine ? '' :
+            '<div class="kx-menu-foot">Needs \u201cmanage all dashboards\u201d.</div>') +
+          '</div>'
+        : '') + '</span>';
   }
 
   function dashCard(d) {
@@ -395,7 +500,9 @@
       '<div class="cp-dcard-foot">' +
       '<span style="display:inline-flex;align-items:center;gap:6px;min-width:0;flex-wrap:wrap">' +
       (CP.deliveryEnabled() ? deliveryPill(d) : '') + audienceCell(d) + '</span>' +
+      '<span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0">' +
       '<span style="font-size:11.5px;color:var(--ink-500);white-space:nowrap">Updated ' + esc(fmtDate(d.updatedAt)) + '</span>' +
+      rowMenu(d) + '</span>' +
       '</div></div>';
   }
 
@@ -451,12 +558,14 @@
     else {
       body = '<div class="cp-table-card"><div class="cp-table-scroll"><table class="cp-table"><thead><tr>' +
         sortTh('Dashboard', 'name') +
+        '<th>Owner</th>' +
         '<th>Sources</th>' +
         sortTh('Widgets', 'widgets', { num: true }) +
         sortTh('Status', 'status') +
         (CP.deliveryEnabled() ? '<th>Delivery</th>' : '') + '<th>Published to</th>' +
         sortTh('Reach', 'reach', { num: true }) +
         sortTh('Updated', 'updated', { num: true }) +
+        '<th class="cp-row-act"><span class="cp-sr-only">Actions</span></th>' +
         '</tr></thead><tbody>' + rows.map(dashRow).join('') + '</tbody></table></div></div>';
     }
 
@@ -504,6 +613,332 @@
   // renderer and the revoke handlers can treat both shapes the same way.
   function grantId(g) { return (g && typeof g === 'object') ? g.id : g; }
   function grantMeta(g) { return (g && typeof g === 'object') ? g : null; }
+
+  /* =====================================================================
+     DASHBOARD MANAGEMENT ACCESS
+     ---------------------------------------------------------------------
+     Building a dashboard was implicitly an admin-only act — there was no way
+     to say "Naima can build her own" short of making her an admin. These
+     grants are that, in two levels; see state.dashGrants for what each means.
+     ===================================================================== */
+
+  /* What the CURRENT role may do. Admins always may everything; everyone else
+     gets it from a grant, either directly or through their job title. */
+  function myPersonId() {
+    var r = K.ROLES[state.role];
+    return r ? r.selfId : null;
+  }
+  function isAdminRole() {
+    var r = K.ROLES[state.role];
+    return !!(r && r.admin);
+  }
+  // The strongest level this role holds, or null. A named grant beats a title
+  // grant, and 'manage' beats 'build' — permissions accumulate, never subtract.
+  function myDashLevel() {
+    if (isAdminRole()) return 'manage';
+    var me = myPersonId();
+    if (!me) return null;
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var p = RS && RS.personById(me);
+    var best = null;
+    var take = function (lv) { if (lv === 'manage') best = 'manage'; else if (!best) best = 'build'; };
+    (state.dashGrants.individuals || []).forEach(function (e) {
+      if (grantId(e) === me) take(grantLevel(e));
+    });
+    (state.dashGrants.titles || []).forEach(function (e) {
+      if (p && p.titleId === grantId(e)) take(grantLevel(e));
+    });
+    return best;
+  }
+  function canBuildDashboards() { return !!myDashLevel(); }
+  function canManageAll() { return myDashLevel() === 'manage'; }
+  function ownsDash(d) {
+    var me = myPersonId();
+    return !!(d && me && d.ownerId === me);
+  }
+  // Editing, republishing or deleting a dashboard: yours, or you manage all.
+  function canActOn(d) { return ownsDash(d) || canManageAll(); }
+
+  var DASH_LEVELS = [
+    {
+      id: 'build', label: 'Build dashboards', icon: 'dashboard_customize',
+      short: 'Build',
+      hint: 'Create and publish their own dashboards.'
+    },
+    {
+      id: 'manage', label: 'Manage all dashboards', icon: 'shield_person',
+      short: 'Manage all',
+      hint: 'Everything above, plus edit, republish and delete anyone\u2019s.'
+    }
+  ];
+  function levelMeta(id) {
+    return DASH_LEVELS.find(function (l) { return l.id === id; }) || DASH_LEVELS[0];
+  }
+  function grantLevel(g) { return (g && typeof g === 'object' && g.level) || 'build'; }
+
+  // Everyone the dashboard grants currently reach, deduped across titles and
+  // named people — the same "don't double-count" rule the audience uses.
+  function dashGrantReach(g) {
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var ids = {};
+    (g.individuals || []).forEach(function (e) { ids[grantId(e)] = 1; });
+    (g.titles || []).forEach(function (e) {
+      var t = CP.titleById(grantId(e));
+      if (!t || !RS) return;
+      RS.ROSTER.forEach(function (p) { if (p.titleId === t.id) ids[p.id] = 1; });
+    });
+    return Object.keys(ids).length;
+  }
+
+  function levelPill(level) {
+    var m = levelMeta(level);
+    var manage = level === 'manage';
+    return '<span class="cp-lvl' + (manage ? ' is-manage' : '') + '" title="' + KX.attr(m.hint) + '">' +
+      micon(m.icon, { size: 12, fill: 1 }) + esc(m.short) + '</span>';
+  }
+
+  function dashGrantRow(entry, kind) {
+    var id = grantId(entry);
+    var meta = grantMeta(entry);
+    var level = grantLevel(entry);
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var name, sub, icon, chipBg, chipFg;
+
+    if (kind === 'title') {
+      var t = CP.titleById(id);
+      if (!t) return '';
+      name = t.label;
+      sub = t.count + ' people · job title';
+      icon = 'badge'; chipBg = 'var(--teal-50)'; chipFg = 'var(--teal-600)';
+    } else {
+      var p = (RS && RS.personById(id)) ||
+        (CP.INDIVIDUALS || []).find(function (x) { return x.id === id; });
+      if (!p) return '';
+      name = p.name;
+      sub = p.rank || 'Individual';
+      // p.station is an id ('st4'); the roster resolves it to a real name.
+      if (p.station && RS) sub += ' · ' + (RS.stationMeta(p.station).name || p.station);
+      icon = 'person'; chipBg = 'var(--surface-3)'; chipFg = 'var(--ink-600)';
+    }
+
+    return '<div class="cp-grant-row">' +
+      '<span style="width:30px;height:30px;border-radius:8px;background:' + chipBg + ';color:' + chipFg + ';' +
+      'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' +
+      micon(icon, { size: 16, fill: kind === 'title' ? 1 : 0 }) + '</span>' +
+      '<div style="flex:1;min-width:0">' +
+      '<div style="font-size:13px;font-weight:600;color:var(--ink-900)">' + esc(name) + '</div>' +
+      '<div style="font-size:11.5px;color:var(--ink-500)">' + esc(sub) +
+      (meta && meta.grantedAt ? ' · granted ' + esc(fmtDate(meta.grantedAt)) : '') + '</div></div>' +
+      // The level is the point of the row, and it is changeable in place —
+      // promoting someone to cover for a creator should not mean revoking and
+      // re-granting.
+      '<button class="cp-lvl-btn" data-dash-lvl="' + KX.attr(kind) + '" ' +
+      'data-dash-lvl-id="' + KX.attr(id) + '" title="Change permission level">' +
+      levelPill(level) + micon('expand_more', { size: 14, color: 'var(--ink-400)' }) + '</button>' +
+      '<vaadin-button theme="icon tertiary small" data-dash-revoke="' + KX.attr(kind) + '" ' +
+      'data-dash-revoke-id="' + KX.attr(id) + '" ' +
+      'aria-label="Revoke dashboard access for ' + KX.attr(name) + '" ' +
+      'title="Revoke dashboard access">' + micon('close', { size: 16 }) + '</vaadin-button>' +
+      '</div>';
+  }
+
+  /* The grant picker. Deliberately small — one level choice and one list —
+     rather than the audience dialog's tabbed roster: granting a permission is
+     a two-decision act (who, and how much), and the audience flow's group
+     builder has no meaning here. */
+  function dashGrantBodyHtml() {
+    var D = state.dashGrantDraft;
+    var RS = window.AGENCY_INTEL_ROSTER;
+    var q = (D.search || '').trim().toLowerCase();
+
+    var already = {};
+    (state.dashGrants.titles || []).forEach(function (e) { already['t:' + grantId(e)] = 1; });
+    (state.dashGrants.individuals || []).forEach(function (e) { already['i:' + grantId(e)] = 1; });
+
+    var levelPicker = '<div class="cp-lvl-pick">' + DASH_LEVELS.map(function (l) {
+      var on = D.level === l.id;
+      return '<button class="cp-lvl-opt' + (on ? ' is-on' : '') + '" data-dgl="' + l.id + '">' +
+        '<span class="ic">' + micon(l.icon, { size: 17, fill: 1 }) + '</span>' +
+        '<span style="flex:1;min-width:0">' +
+        '<span class="t">' + esc(l.label) + '</span>' +
+        '<span class="s">' + esc(l.hint) + '</span></span>' +
+        (on ? micon('check_circle', { size: 18, fill: 1, color: 'var(--teal-500)' }) : '') +
+        '</button>';
+    }).join('') + '</div>';
+
+    var titles = (CP.JOB_TITLES || []).filter(function (t) {
+      return !already['t:' + t.id] && (!q || t.label.toLowerCase().indexOf(q) !== -1);
+    });
+    var people = ((RS && RS.ROSTER) || []).filter(function (p) {
+      if (already['i:' + p.id]) return false;
+      if (!q) return true;
+      return (p.name + ' ' + (p.rank || '') + ' ' + (p.station || '')).toLowerCase().indexOf(q) !== -1;
+    }).slice(0, 40);
+
+    var row = function (kind, id, name, sub, icon) {
+      var on = D.picked.indexOf(kind + ':' + id) !== -1;
+      return '<button class="au-row' + (on ? ' is-on' : '') + '" data-dgp="' + KX.attr(kind + ':' + id) + '">' +
+        '<span class="au-check">' + (on ? micon('check', { size: 14 }) : '') + '</span>' +
+        '<span style="flex:1;min-width:0">' +
+        '<span class="au-row-name">' + micon(icon, { size: 13 }) + ' ' + esc(name) + '</span>' +
+        '<span class="au-row-sub">' + esc(sub) + '</span></span></button>';
+    };
+
+    return levelPicker +
+      '<input class="au-search" id="cpDgSearch" placeholder="Search job titles and people…" ' +
+      'value="' + KX.attr(D.search || '') + '">' +
+      '<div class="au-list" style="max-height:260px">' +
+      (titles.length
+        ? '<div class="au-sec" style="padding:8px 4px 4px">Job titles</div>' +
+          titles.map(function (t) {
+            return row('t', t.id, t.label, t.count + ' people', 'badge');
+          }).join('')
+        : '') +
+      (people.length
+        ? '<div class="au-sec" style="padding:10px 4px 4px">People</div>' +
+          people.map(function (p) {
+            var st = p.station && RS ? RS.stationMeta(p.station).name : '';
+            return row('i', p.id, p.name, (p.rank || '') + (st ? ' · ' + st : ''), 'person');
+          }).join('')
+        : '') +
+      (!titles.length && !people.length
+        ? '<div class="au-empty">Nothing matches “' + esc(D.search || '') + '”.</div>'
+        : '') +
+      '</div>';
+  }
+
+  function openDashGrantDialog() {
+    state.dashGrantDraft = { level: 'build', picked: [], search: '' };
+    var dlg = KX.openDialog({
+      title: 'Grant dashboard access',
+      subtitle: 'Pick a permission level, then who gets it.',
+      icon: 'shield_person',
+      accent: 'var(--teal-400)',
+      width: '560px',
+      body: '<div id="cpDgHost"></div>',
+      actions: [
+        { label: 'Cancel', theme: 'tertiary' },
+        {
+          label: 'Grant', theme: 'primary', id: 'cpDgConfirm',
+          onClick: function () {
+            var D = state.dashGrantDraft;
+            if (!D || !D.picked.length) return false;   // keep it open
+            applyDashGrants(D);
+          }
+        }
+      ],
+      onMount: function (body) {
+        var host = body.querySelector('#cpDgHost');
+        var paint = function () {
+          host.innerHTML = dashGrantBodyHtml();
+          var sf = host.querySelector('#cpDgSearch');
+          if (sf) {
+            sf.addEventListener('input', function () {
+              state.dashGrantDraft.search = sf.value;
+              // Repaint the list only — a full repaint would drop the caret.
+              var scroll = host.querySelector('.au-list');
+              var top = scroll ? scroll.scrollTop : 0;
+              paint();
+              var f2 = host.querySelector('#cpDgSearch');
+              if (f2) { f2.focus(); f2.setSelectionRange(f2.value.length, f2.value.length); }
+              var s2 = host.querySelector('.au-list');
+              if (s2) s2.scrollTop = top;
+            });
+          }
+          syncGrantBtn();
+        };
+        body.addEventListener('click', function (e) {
+          var lv = e.target.closest('[data-dgl]');
+          if (lv) { state.dashGrantDraft.level = lv.getAttribute('data-dgl'); paint(); return; }
+          var pk = e.target.closest('[data-dgp]');
+          if (pk) {
+            var key = pk.getAttribute('data-dgp');
+            var D = state.dashGrantDraft;
+            var at = D.picked.indexOf(key);
+            if (at === -1) D.picked.push(key); else D.picked.splice(at, 1);
+            paint();
+            return;
+          }
+        });
+        paint();
+      }
+    });
+    return dlg;
+  }
+
+  /* The Grant button means nothing until somebody is picked.
+
+     Deferred by a tick on purpose: openDialog() runs the body renderer (and
+     therefore onMount) BEFORE the footer renderer, so on the first paint the
+     button does not exist yet and a straight query would silently no-op,
+     leaving an enabled "Grant" over an empty selection. */
+  function syncGrantBtn() {
+    var btn = document.querySelector('#cpDgConfirm');
+    if (!btn) { setTimeout(syncGrantBtn, 0); return; }
+    var n = (state.dashGrantDraft && state.dashGrantDraft.picked.length) || 0;
+    if (n) btn.removeAttribute('disabled'); else btn.setAttribute('disabled', '');
+    var lbl = btn.querySelector('.kx-btn-label');
+    if (lbl) lbl.textContent = n ? 'Grant to ' + n : 'Grant';
+  }
+
+  function applyDashGrants(D) {
+    var t = (state.dashGrants.titles || []).slice();
+    var i = (state.dashGrants.individuals || []).slice();
+    D.picked.forEach(function (key) {
+      var kind = key.slice(0, 1), id = key.slice(2);
+      var rec = { id: id, level: D.level, grantedAt: TODAY, grantedBy: 'You' };
+      if (kind === 't') t.push(rec); else i.push(rec);
+    });
+    state.dashGrants = { titles: t, individuals: i };
+    state.dashGrantDraft = null;
+    render();
+    KX.pushToast({
+      title: 'Access granted',
+      body: D.picked.length + ' ' + (D.picked.length === 1 ? 'grant' : 'grants') + ' · ' +
+        levelMeta(D.level).label.toLowerCase() + '.',
+      icon: 'shield_person', tone: 'success'
+    });
+  }
+
+  function dashAccessPanel() {
+    var g = state.dashGrants;
+    var titles = g.titles || [];
+    var inds = g.individuals || [];
+    var total = titles.length + inds.length;
+    var managers = titles.concat(inds).filter(function (e) { return grantLevel(e) === 'manage'; }).length;
+
+    var rows = titles.map(function (e) { return dashGrantRow(e, 'title'); }).join('') +
+      inds.map(function (e) { return dashGrantRow(e, 'individual'); }).join('');
+
+    return '<div class="cp-panel" style="margin-top:18px">' +
+      '<div class="cp-panel-head" style="display:flex;align-items:flex-start;gap:12px">' +
+      '<div style="flex:1"><h3>Dashboard management</h3>' +
+      '<p>Who can build dashboards besides you. Admins always can — this is for everyone else. ' +
+      '“Manage all” also lets someone edit and delete dashboards they did not create, which is ' +
+      'how a dashboard survives the person who built it leaving.</p></div>' +
+      '<vaadin-button theme="secondary small" id="cpDashGrant">' + micon('add', { size: 16 }) +
+      '<span class="kx-btn-label">Grant</span></vaadin-button></div>' +
+      '<div style="display:flex;align-items:center;gap:14px;padding:12px 18px;background:var(--surface-2);' +
+      'border-bottom:1px solid var(--ink-100)">' +
+      '<span style="font-size:12px;color:var(--ink-600)"><b style="font-family:var(--font-numeric);font-size:15px">' +
+      total + '</b> grant' + (total === 1 ? '' : 's') + '</span>' +
+      '<span style="font-size:12px;color:var(--ink-600)"><b style="font-family:var(--font-numeric);font-size:15px">' +
+      dashGrantReach(g) + '</b> people can build</span>' +
+      (managers
+        ? '<span style="font-size:12px;color:var(--amber-700)">' +
+          micon('shield_person', { size: 13, fill: 1 }) + ' ' + managers +
+          ' can manage everyone\u2019s</span>'
+        : '') +
+      '</div>' +
+      (rows ||
+        '<div style="padding:36px 20px;text-align:center">' +
+        micon('dashboard_customize', { size: 28, color: 'var(--ink-300)' }) +
+        '<div style="font-size:13.5px;font-weight:600;margin-top:8px;color:var(--ink-700)">' +
+        'Only admins can build dashboards</div>' +
+        '<div style="font-size:12.5px;color:var(--ink-500);margin-top:3px">' +
+        'Grant a job title or an individual to let them build their own.</div></div>') +
+      '</div>';
+  }
 
   function aiAccessTab() {
     var g = state.aiGrants;
@@ -645,7 +1080,7 @@
     var tab = (state.homeTab === 'explore' && !exploreOn) ? 'dashboards' : state.homeTab;
 
     var subtitle = tab === 'ai'
-      ? 'Control who gets an Agency Intelligence assistant on their homepage, and audit every question it answers.'
+      ? 'Who gets an Agency Intelligence assistant, and who can build dashboards. Every question the assistant answers is audited below.'
       : tab === 'explore'
         ? 'Explore your data with Agency Intelligence — follow any thread. Exploration doesn\'t have to become a dashboard.'
         // The "schedule it out as a report" half of the promise is v2 — with
@@ -656,9 +1091,15 @@
           : 'Dashboards you\'ve built with Agency Intelligence. Open one to edit with AI, or publish it live to ' +
             'the roles and people who need it.';
 
+    /* The Access tab is admin-only. It grants capabilities over other people's
+       data and dashboards, which is not a thing a Lieutenant with build rights
+       should be looking at, let alone acting on. Tab id stays 'ai' so the
+       ?tab=ai deep link and the flow map keep resolving. */
     var TABS = [{ id: 'dashboards', label: 'Dashboards', icon: 'space_dashboard' }]
       .concat(exploreOn ? [{ id: 'explore', label: 'Data Explorer', icon: 'travel_explore' }] : [])
-      .concat([{ id: 'ai', label: 'AI access', icon: 'auto_awesome' }]);
+      .concat(isAdmin ? [{ id: 'ai', label: 'Access', icon: 'shield_person' }] : []);
+    // Standing on Access when the role changes to a non-admin drops you home.
+    if (tab === 'ai' && !isAdmin) tab = 'dashboards';
 
     return '<div class="cp-page">' +
       // Same back-to-hub pill the Prioritization settings page uses. Home only —
@@ -686,7 +1127,17 @@
             : '') + '</button>';
       }).join('') + '</div>' +
 
-      (tab === 'ai' ? aiAccessTab()
+      (tab === 'dashboards' && !isAdmin && canBuildDashboards()
+        ? '<div class="cp-access-note">' + micon('shield_person', { size: 17, color: 'var(--ink-400)' }) +
+          '<span>You can ' +
+          (canManageAll()
+            ? 'build dashboards and manage everyone\u2019s'
+            : 'build and publish your own dashboards') +
+          '. Granting that to anyone else is a Keystone admin action \u2014 ask a Chief or ' +
+          'Training Officer.</span></div>'
+        : '') +
+
+      (tab === 'ai' ? (aiAccessTab() + dashAccessPanel())
         : tab === 'explore' ? (window.KXExplore ? window.KXExplore.html() : '')
         : dashboardsTab()) +
       '</div>';
@@ -724,9 +1175,12 @@
 
   function agencyIntelPanel() {
     if (state.collapsed) {
+      // Points RIGHT: the rail is docked left, so opening grows the panel
+      // rightward. It used to point left, i.e. back at the edge it is
+      // already against.
       return '<button class="cpv-collapsed" id="cpvExpand" title="Open Agency Intelligence">' +
         agencyIntelMark(32) + '<span class="vlabel">Agency Intelligence</span>' +
-        micon('chevron_left', { size: 18, color: 'var(--ink-400)', style: 'margin-top:auto' }) + '</button>';
+        '<i class="fa-solid fa-angles-right cpv-collapsed-chev" aria-hidden="true"></i></button>';
     }
     var ready = state.draft.trim() && !state.thinking;
     return '<div class="cpv-panel">' +
@@ -734,10 +1188,22 @@
       '<div style="flex:1;min-width:0">' +
       '<div style="font-weight:700;font-size:15px;color:var(--ink-900);line-height:1.1">Agency Intelligence</div>' +
       '<div style="font-size:11.5px;color:var(--ink-500)">Building “this dashboard” with you</div></div>' +
-      '<vaadin-button theme="icon tertiary small" id="cpvNewChat" title="New chat" aria-label="New chat">' +
-      micon('restart_alt', { size: 17 }) + '</vaadin-button>' +
-      '<vaadin-button theme="icon tertiary small" id="cpvCollapse" title="Collapse Agency Intelligence" ' +
-      'aria-label="Collapse Agency Intelligence">' + micon('chevron_right', { size: 18 }) + '</vaadin-button></div>' +
+      /* Plain buttons, not vaadin-button theme="tertiary": the Vector theme
+         styles a tertiary button as an underlined text link, which is right
+         for a word and wrong for an icon — these two were rendering as blue
+         glyphs with a rule under each.
+
+         Font Awesome, and chosen for what they DO. `restart_alt` was a
+         circular arrow that reads as "reload the panel"; this action throws
+         the conversation away and starts another, which is a compose action.
+         The collapse chevron pointed RIGHT while the dock sits on the LEFT
+         and collapses leftward — it was pointing at where the panel goes to
+         open, not where it goes to close. */
+      '<button class="cpv-iconbtn" id="cpvNewChat" title="New chat" aria-label="New chat">' +
+      '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i></button>' +
+      '<button class="cpv-iconbtn" id="cpvCollapse" title="Collapse Agency Intelligence" ' +
+      'aria-label="Collapse Agency Intelligence">' +
+      '<i class="fa-solid fa-angles-left" aria-hidden="true"></i></button></div>' +
 
       '<div class="cpv-thread" id="cpvThread">' +
       state.thread.map(agencyIntelTurn).join('') +
@@ -774,7 +1240,7 @@
     var b = state.builder;
     if (b.tab === 'simple') {
       if (!b.metric) return null;
-      return { id: 'preview', metricId: b.metric, viz: b.viz, dateRange: b.range,
+      return { id: 'preview', metricId: b.metric, viz: b.viz,
                include: b.include.length ? b.include : undefined, state: 'live' };
     }
     if (b.a && b.b && b.a !== b.b && CC.sharedBarLabels([b.a, b.b]).length >= 3) {
@@ -806,7 +1272,12 @@
 
   function paramPanelHtml() {
     var b = state.builder;
-    var supportsRange = CP.widgetSupportsRange({ viz: b.viz });
+    // No range question here: the widget inherits the DASHBOARD's window.
+    // What the panel does is state which window that will be, so nobody
+    // builds a chart expecting a period they never chose — or, for a
+    // countdown metric, that it reports forward and ignores that window.
+    var supportsRange = CP.widgetSupportsRange({ viz: b.viz, metricId: b.metric });
+    var horizon = CP.widgetHorizon({ viz: b.viz, metricId: b.metric });
     var cats = CC.metricCategories(b.metric, b.viz);
     if (!supportsRange && !cats) return '';
     var allOn = !b.include || !b.include.length;
@@ -816,7 +1287,16 @@
       '<div style="display:flex;flex-direction:column;gap:14px">' +
       (supportsRange
         ? '<div><div style="' + lbl + '">Date range</div>' +
-          '<vaadin-select theme="outlined" id="cpBRange" style="width:100%"></vaadin-select></div>'
+          '<div class="cp-range-note">' +
+          micon(horizon ? 'event_upcoming' : 'calendar_today',
+                { size: 15, color: 'var(--ink-400)' }) +
+          '<span>' + (horizon
+            ? '<b>' + esc(CP.rangeLabel(horizon)) + '</b> — this metric reports forward on a ' +
+              'fixed window and is not affected by the dashboard date range.'
+            : 'Set on the dashboard, not the widget. This will follow the dashboard\'s ' +
+              'window — currently <b>' + esc(CP.rangeLabel(currentRange(active() || {}))) + '</b> — ' +
+              'along with every other widget on it.') +
+          '</span></div></div>'
         : '') +
       (cats
         ? '<div><div style="' + lbl + ';display:flex;align-items:center;gap:8px">' +
@@ -854,8 +1334,13 @@
     var preview = builderPreviewWidget();
     return '<div style="display:grid;grid-template-columns:minmax(0, 0.85fr) minmax(0, 1.15fr);gap:20px;align-items:start">' +
       '<div><div class="cp-step"><span class="n">1</span><span class="t">Pick a metric</span></div>' +
-      '<div style="max-height:340px;overflow-y:auto;padding-right:4px;margin-right:-4px;' +
-      'display:flex;flex-direction:column;gap:12px">' + metricPickerHtml() + '</div></div>' +
+      // No inner scroller. A 340px box with its own scrollbar cut the list off
+      // mid-category and gave no sign there were more metrics below it — the
+      // Compliance and Scheduling groups were simply invisible unless you
+      // happened to scroll inside a region that did not look scrollable. The
+      // full list renders instead and the page (or the dialog) scrolls.
+      '<div style="display:flex;flex-direction:column;gap:12px">' +
+      metricPickerHtml() + '</div></div>' +
       '<div>' +
       (!b.metric
         ? '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;' +
@@ -1124,13 +1609,17 @@
      BUILD VIEW SHELL
      ===================================================================== */
 
+  /* Where this dashboard currently lands — a BADGE, not a control. It used to
+     be a button that opened the audience dialog, which is exactly what the
+     Publish / Manage audience button beside it does; two controls one gap
+     apart doing the same thing read as two different things. The status is now
+     a read-out, and the button beside it is the single way to change it. */
   function statusControl(d) {
     var st = CP.statusOf(d);
     var m = CP.dashStatusMeta(st);
-    return '<button id="cpStatusBtn" class="cp-status" title="Change where this lands" ' +
-      'style="background:' + m.bg + ';color:' + m.fg + ';border:1px solid ' + m.border +
-      ';cursor:pointer;font-family:inherit;padding:5px 10px">' +
-      micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label) + micon('expand_more', { size: 14 }) + '</button>';
+    return '<span class="cp-status" style="background:' + m.bg + ';color:' + m.fg +
+      ';border:1px solid ' + m.border + ';padding:5px 10px">' +
+      micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label) + '</span>';
   }
 
   function buildHtml() {
@@ -1162,6 +1651,9 @@
             '<span class="cp-build-name">' + esc(d.name) + '</span>' +
             micon('edit', { size: 15, color: 'var(--ink-300)' }) + '</button>') +
       '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
+      // The dashboard's one date range. Sits ahead of the save/publish cluster
+      // because it scopes what you are LOOKING at, where those act on it.
+      (widgets.length && !locked ? dashRangeControl(d) : '') +
       (widgets.length && !locked
         ? '<span class="cp-saved" id="cpSavedChip" title="Last auto-saved">' +
           (state.saving
@@ -1206,8 +1698,12 @@
             ' Preview only — nothing is sent</span>') +
         // "Delivered report" is the emailed-report view — v2 only. With one
         // choice left there is nothing to toggle, so the whole cluster goes.
+        '<div style="margin-left:auto;display:flex;align-items:center;gap:12px">' +
+        // The audience gets this same control, so the preview has to carry it —
+        // and behave the way it will for them: exploring, never saving.
+        (widgets.length ? dashRangeControl(d) : '') +
         (CP.deliveryEnabled()
-          ? '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
+          ? '<div style="display:flex;align-items:center;gap:8px">' +
             '<span style="font-size:11.5px;font-weight:700;letter-spacing:0.4px;text-transform:uppercase;' +
             'color:var(--ink-400)">Viewing as</span>' +
             '<div class="cp-modes">' +
@@ -1215,7 +1711,7 @@
               return '<button data-cp-mode="' + o[0] + '" class="' + (state.mode === o[0] ? 'is-on' : '') + '">' +
                 micon(o[2], { size: 14 }) + ' ' + o[1] + '</button>';
             }).join('') + '</div></div>'
-          : '') + '</div></div>'
+          : '') + '</div></div></div>'
       : '';
 
     var canvas;
@@ -1269,6 +1765,69 @@
       'Intelligence to draft one</span></button>';
   }
 
+  /* =====================================================================
+     DASHBOARD REPORTING WINDOW
+     ---------------------------------------------------------------------
+     The date range is a property of the DASHBOARD, not of any one widget.
+     A dashboard's data is queried as a whole, so one window scopes every
+     time-bounded widget on it — which is also why this control is the only
+     calendar on the page. Widgets show no picker at all; a widget on a fixed
+     forward horizon (open shifts, expiring credentials) prints that horizon
+     as static text so it is clear it sits outside this window.
+
+     Ownership works the way the per-widget control used to, one level up:
+     in EDIT mode the choice is the owner's and it saves onto the dashboard;
+     in PREVIEW you are standing where the audience stands, so it stays local,
+     shows the unsaved pip, and offers Reset.
+     ===================================================================== */
+
+  // What the dashboard is currently scoped to, honouring a viewer override.
+  function currentRange(d) {
+    var saved = CP.dashboardRange(d);
+    var local = state.localDashRange[d.id];
+    return (local != null && local !== saved) ? local : saved;
+  }
+
+  function dashRangeControl(d) {
+    var saved = CP.dashboardRange(d);
+    var local = state.localDashRange[d.id];
+    var dirty = local != null && local !== saved;
+    var current = dirty ? local : saved;
+    var canSave = state.mode === 'edit';
+
+    return '<span style="position:relative;display:inline-flex;align-items:center">' +
+      '<button data-dash-range class="kx-dashrange-btn' + (dirty ? ' is-dirty' : '') + '" ' +
+      'aria-haspopup="menu" aria-expanded="' + (state.dashRangeOpen ? 'true' : 'false') + '" ' +
+      'title="' + (canSave
+        ? 'Set the date range for this dashboard — it scopes every widget on it'
+        : 'Change the date range for this dashboard (exploring — only the owner can save it)') + '">' +
+      micon('calendar_today', { size: 15 }) +
+      '<span class="lbl">' + esc(CP.rangeLabel(current)) + '</span>' +
+      (dirty ? '<span title="Unsaved — exploring" style="width:5px;height:5px;border-radius:99px;' +
+        'background:var(--amber-500);flex-shrink:0"></span>' : '') +
+      micon('expand_more', { size: 15 }) + '</button>' +
+      (dirty ? '<button data-dash-range-clear title="Reset to the saved range" ' +
+        'style="margin-left:4px;background:none;border:none;color:var(--lumo-primary-text-color);' +
+        'font-size:11.5px;font-weight:600;cursor:pointer;font-family:inherit">Reset</button>' : '') +
+      (state.dashRangeOpen
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:236px;top:calc(100% + 6px)">' +
+          '<div class="kx-menu-label">Scopes every widget</div>' +
+          CP.DATE_RANGES.map(function (r) {
+            return '<button class="kx-menu-row" data-dash-range-set="' + KX.attr(r.value) + '">' +
+              micon('calendar_today', { size: 14, color: r.value === current ? 'var(--amber-600)' : 'var(--ink-400)' }) +
+              '<span class="label">' + esc(r.label) + '</span>' +
+              (r.value === current ? micon('check', { size: 14, color: 'var(--amber-600)' }) : '') + '</button>';
+          }).join('') +
+          '<div style="display:flex;gap:6px;padding:8px 9px 4px;margin-top:4px;border-top:1px solid var(--ink-100);' +
+          'font-size:10.5px;color:var(--ink-400);line-height:1.45">' + micon('info', { size: 13 }) +
+          '<span>' + (canSave
+            ? 'Widgets on a fixed forward horizon — open shifts, expiring credentials — report ahead and ignore this window.'
+            : 'Exploring only — the dashboard owner sets the saved range.') +
+          '</span></div></div>'
+        : '') +
+      '</span>';
+  }
+
   // Export the whole dashboard — PDF (print) or CSV. Sits beside Publish.
   function exportControl() {
     return '<div style="position:relative">' +
@@ -1296,7 +1855,14 @@
       '<div style="flex:1"><div style="font-family:var(--font-display);font-weight:600;font-size:24px;' +
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(CP.widgetTitle(w)) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
-      esc(d.name) + ' · Readiness Hub · ' + esc(fmtDate(TODAY)) + '</div></div>' +
+      esc(d.name) + ' · Readiness Hub · ' + esc(fmtDate(TODAY)) +
+      // The window is load-bearing on paper — a printout with no period on it
+      // is a number nobody can check. It comes off the dashboard now, except
+      // for a widget on its own forward horizon.
+      (CP.widgetSupportsRange(w)
+        ? ' · ' + esc(CP.rangeLabel(CP.widgetHorizon(w) || currentRange(d)))
+        : '') +
+      '</div></div>' +
       agencyIntelMark(34) + '</div>' +
       // `report` prints every table row with no filter box or pager.
       '<div class="cp-grid">' +
@@ -1319,6 +1885,9 @@
       'color:var(--ink-900);letter-spacing:-0.4px">' + esc(d.name) + '</div>' +
       '<div style="font-size:12.5px;color:var(--ink-500);margin-top:4px">' +
       'Readiness Hub · ' + esc(fmtDate(TODAY)) +
+      // One window scopes the whole report, so it is stated once here rather
+      // than repeated under every widget.
+      ' · ' + esc(CP.rangeLabel(currentRange(d))) +
       (del ? ' · ' + esc(CP.cadenceMeta(del.cadence).label + ' ' + CP.formatMeta(del.format).label) : '') +
       '</div></div>' + agencyIntelMark(34) + '</div>' +
       // reportSummary() returns { lead, rows } — `lead` is the prose.
@@ -1349,10 +1918,14 @@
 
   // The audience picker (job titles / named individuals / AI groups) lives
   // in agency-intel-audience.js — this is just the hand-off.
-  function openAssignDialog(d) {
+  // `opts.step` opens the dialog straight on a step — 'review' is the
+  // itemised "Published to" roster, which is what the audience cell and the
+  // row menu both want: see who has it, take someone off.
+  function openAssignDialog(d, opts) {
     advertiseFlow('publish');
     AGENCY_INTEL_AUDIENCE.open({
       dashboard: d,
+      step: (opts && opts.step) || 'audience',
       // How many OTHER dashboards ride on this group — editing a live rule
       // changes their audience too, so the dialog warns before saving.
       groupUsage: function (gid) {
@@ -1457,7 +2030,20 @@
       var resp = CP.agencyIntelRespond(text, { hasWidgets: widgets.length > 0 });
       state.thinking = false;
 
-      if (resp.kind === 'refine') {
+      if (resp.kind === 'range') {
+        // The range lives on the dashboard, so this is a dashboard edit — and
+        // only the owner can make one. In preview the assistant explores the
+        // same way a viewer would, local and unsaved.
+        if (!d) { pushAgencyIntel({ text: 'Open a dashboard first.' }); return; }
+        if (state.mode === 'edit') {
+          delete state.localDashRange[d.id];
+          patchActive({ dateRange: resp.range });
+        } else {
+          state.localDashRange[d.id] = resp.range;
+          render();
+        }
+        pushAgencyIntel({ text: resp.text });
+      } else if (resp.kind === 'refine') {
         var targetId = state.selectedId || (widgets.length ? widgets[widgets.length - 1].id : null);
         if (!targetId) { pushAgencyIntel({ text: 'Add a widget first, then I can change it.' }); return; }
         setWidgets(function (ws) {
@@ -1508,6 +2094,86 @@
           return ws.map(function (x) { return x.id === w.id ? Object.assign({}, x, { state: 'live' }) : x; });
         });
       }, 600 + i * 380);
+    });
+  }
+
+  function dashById(id) {
+    return state.dashboards.find(function (d) { return d.id === id; }) || null;
+  }
+
+  /* Duplicate — a copy nobody is subscribed to yet. Audience and delivery are
+     deliberately NOT carried over: a copy is a draft, and silently publishing
+     a half-edited clone to the original's audience is the kind of accident
+     this feature would otherwise introduce. */
+  function duplicateDash(id) {
+    var src = dashById(id);
+    if (!src) return;
+    var copy = Object.assign({}, src, {
+      id: 'dash_copy_' + Date.now().toString(36),
+      name: src.name + ' (copy)',
+      status: 'draft',
+      assignedTo: null,
+      delivery: null,
+      createdAt: TODAY,
+      updatedAt: TODAY,
+      widgets: (src.widgets || []).map(function (w) { return Object.assign({}, w); })
+    });
+    state.dashboards = [copy].concat(state.dashboards);
+    render();
+    KX.pushToast({
+      title: 'Duplicated', body: '“' + copy.name + '” is a draft — nobody sees it yet.',
+      icon: 'content_copy', tone: 'success'
+    });
+  }
+
+  /* Delete — permanent, and the confirm says so in the same breath as who
+     loses it. Reach is the number that actually matters here: "delete this
+     dashboard" reads as housekeeping right up until you learn twelve people
+     have it on their homepage. */
+  function confirmDeleteDash(id) {
+    var d = dashById(id);
+    if (!d) return;
+    // Permission is checked here as well as on the control: a disabled button
+    // is a hint, not a boundary.
+    if (!canActOn(d)) {
+      KX.pushToast({
+        title: 'Not yours to delete',
+        body: '“' + d.name + '” belongs to ' + ownerName(d) +
+          '. You need “manage all dashboards”.',
+        icon: 'lock', tone: 'warning'
+      });
+      return;
+    }
+    var reach = reachOf(d);
+    var live = CP.statusOf(d) === 'published' && reach > 0;
+    KX.confirm({
+      title: 'Delete “' + d.name + '”?',
+      icon: 'delete',
+      body: (live
+        ? '<b>' + reach + ' ' + (reach === 1 ? 'person' : 'people') + '</b> currently see this on ' +
+          'their homepage. It disappears for them and they fall back to their default dashboard.<br><br>'
+        : '') +
+        'Its ' + (d.widgets || []).length + ' widget' + ((d.widgets || []).length === 1 ? '' : 's') +
+        ' and audience go with it. <b>This cannot be undone.</b>',
+      confirmLabel: 'Delete dashboard',
+      onConfirm: function () {
+        state.dashboards = state.dashboards.filter(function (x) { return x.id !== id; });
+        // If the deleted one was open, there is nothing to return to.
+        if (state.activeId === id) { state.activeId = null; state.view = 'home'; }
+        // Keep the pager honest when the last row of a page goes.
+        var perPage = 10;
+        var maxPage = Math.max(1, Math.ceil(state.dashboards.length / perPage));
+        if (state.page > maxPage) state.page = maxPage;
+        render();
+        KX.pushToast({
+          title: 'Dashboard deleted',
+          body: live
+            ? '“' + d.name + '” is gone. ' + reach + ' ' + (reach === 1 ? 'person' : 'people') +
+              ' fell back to their default.'
+            : '“' + d.name + '” is gone.',
+          icon: 'delete', tone: 'neutral'
+        });
+      }
     });
   }
 
@@ -1685,18 +2351,8 @@
       });
     });
 
-    // Builder selects
-    var range = document.getElementById('cpBRange');
-    if (range) {
-      range.items = CP.DATE_RANGES.map(function (r) { return { label: r.label, value: r.value }; });
-      range.value = state.builder.range;
-      range.addEventListener('value-changed', function (e) {
-        if (e.detail.value && e.detail.value !== state.builder.range) {
-          state.builder.range = e.detail.value;
-          render();
-        }
-      });
-    }
+    // Builder selects. There is no date-range select here any more — the range
+    // belongs to the dashboard, so a widget is never asked for one.
     var ca = document.getElementById('cpCorrA');
     var cb = document.getElementById('cpCorrB');
     if (ca && cb) {
@@ -2121,9 +2777,8 @@
 
       var head = e.target.closest && e.target.closest('[data-w-drag]');
       if (!head) return;
-      // The header also carries the kebab and the date-range control. Those are
-      // clicks, not drags.
-      if (e.target.closest('button, vaadin-button, .kx-menu, [data-range-open]')) return;
+      // The header also carries the kebab. That's a click, not a drag.
+      if (e.target.closest('button, vaadin-button, .kx-menu')) return;
       if (e.button != null && e.button !== 0) return;
       startReorder(e, head);
     });
@@ -2176,8 +2831,109 @@
 
       if (e.target.closest('#cpNewDash')) { newDash(); return; }
 
+      /* ---- dashboard row actions ----
+         All of these sit INSIDE the row, which is itself a link into the
+         dashboard, so each returns before the row handler below runs. */
+      var am = e.target.closest('[data-dash-menu]');
+      if (am) {
+        e.stopPropagation();
+        var amid = am.getAttribute('data-dash-menu');
+        state.rowMenu = state.rowMenu === amid ? null : amid;
+        render();
+        return;
+      }
+      // "Who is this published to?" — opens the audience dialog on the review
+      // step, which lists every group / title / person with its own Remove.
+      var ac = e.target.closest('[data-dash-audience]');
+      if (ac) {
+        e.stopPropagation();
+        if (ac.hasAttribute('disabled')) return;
+        var acd = dashById(ac.getAttribute('data-dash-audience'));
+        // Close the menu FIRST — it renders in the page, the dialog renders in
+        // an overlay above it, and an open menu left behind reads as a second
+        // live surface competing with the one you just opened.
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        if (acd) openAssignDialog(acd, { step: 'review' });
+        return;
+      }
+      var dup = e.target.closest('[data-dash-duplicate]');
+      if (dup) {
+        e.stopPropagation();
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        duplicateDash(dup.getAttribute('data-dash-duplicate'));
+        return;
+      }
+      var del = e.target.closest('[data-dash-delete]');
+      if (del) {
+        e.stopPropagation();
+        if (del.hasAttribute('disabled')) return;
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        confirmDeleteDash(del.getAttribute('data-dash-delete'));
+        return;
+      }
+
       var openRow = e.target.closest('[data-open-dash]');
       if (openRow) { openDash(openRow.getAttribute('data-open-dash')); return; }
+
+      /* ---- dashboard management access ---- */
+      if (e.target.closest('#cpDashGrant')) { openDashGrantDialog(); return; }
+
+      var dlv = e.target.closest('[data-dash-lvl]');
+      if (dlv) {
+        // Cycle rather than open a menu: there are exactly two levels, and a
+        // dropdown for a binary is more clicks than the choice deserves.
+        var lk = dlv.getAttribute('data-dash-lvl');
+        var lid = dlv.getAttribute('data-dash-lvl-id');
+        var bucket = lk === 'title' ? 'titles' : 'individuals';
+        state.dashGrants = Object.assign({}, state.dashGrants, (function () {
+          var o = {};
+          o[bucket] = (state.dashGrants[bucket] || []).map(function (en) {
+            if (grantId(en) !== lid) return en;
+            var next = grantLevel(en) === 'build' ? 'manage' : 'build';
+            return Object.assign({}, (typeof en === 'object' ? en : { id: en }), { level: next });
+          });
+          return o;
+        })());
+        render();
+        return;
+      }
+
+      var drv = e.target.closest('[data-dash-revoke]');
+      if (drv) {
+        var rk = drv.getAttribute('data-dash-revoke');
+        var rid = drv.getAttribute('data-dash-revoke-id');
+        var rbucket = rk === 'title' ? 'titles' : 'individuals';
+        var RSx = window.AGENCY_INTEL_ROSTER;
+        var who = rk === 'title'
+          ? ((CP.titleById(rid) || {}).label || rid)
+          : (((RSx && RSx.personById(rid)) || {}).name || rid);
+        // Revoking build rights can strand dashboards that person already
+        // published, so this one asks — the count is what makes it real.
+        var owned = state.dashboards.filter(function (d) { return d.ownerId === rid; }).length;
+        KX.confirm({
+          title: 'Revoke access for “' + who + '”?',
+          tone: 'warn',
+          icon: 'person_remove',
+          body: 'They lose the dashboard builder' +
+            (owned
+              ? ', and the <b>' + owned + '</b> dashboard' + (owned === 1 ? '' : 's') +
+                ' they built stay published but become read-only to them.'
+              : '.') +
+            ' Dashboards published TO them are unaffected.',
+          confirmLabel: 'Revoke',
+          onConfirm: function () {
+            var patch = {};
+            patch[rbucket] = (state.dashGrants[rbucket] || []).filter(function (en) {
+              return grantId(en) !== rid;
+            });
+            state.dashGrants = Object.assign({}, state.dashGrants, patch);
+            render();
+            KX.pushToast({ title: 'Access revoked', body: who + ' can no longer build dashboards.',
+                           icon: 'person_remove', tone: 'neutral' });
+          }
+        });
+        return;
+      }
 
       /* ---- AI access ---- */
       var rt = e.target.closest('[data-ai-revoke-title]');
@@ -2231,12 +2987,18 @@
         // Leaving edit mode releases any card being held by keyboard — there are
         // no layout affordances left to release it with once the canvas is locked.
         state.grab = null;
+        // A date range explored in preview belongs to that preview — you were
+        // standing in the audience's shoes. Coming back to edit, the owner has
+        // to see the range they actually SAVED, or the next thing they publish
+        // is scoped by a window they only ever tried on.
+        state.dashRangeOpen = false;
+        if (state.mode === 'edit' && state.activeId) delete state.localDashRange[state.activeId];
         advertiseFlow((state.mode === 'preview' ? 'build-preview'
           : state.mode === 'report' ? 'build-report' : 'build') + ':' + state.activeId);
         render();
         return;
       }
-      if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule') || e.target.closest('#cpStatusBtn')) {
+      if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule')) {
         openAssignDialog(active());
         return;
       }
@@ -2344,32 +3106,36 @@
         return;
       }
 
-      /* ---- widget date range ---- */
-      var ro = e.target.closest('[data-range-open]');
-      if (ro) {
-        var roid = ro.getAttribute('data-range-open');
-        KXCanvas.setOpenRange(KXCanvas.getOpenRange() === roid ? null : roid);
+      /* ---- dashboard date range ----
+         One window for the whole dashboard. The owner's pick (edit mode)
+         saves onto the dashboard; a viewer's (preview) is a local override
+         that shows the unsaved pip until Reset. Widgets have no picker at
+         all any more — see dashRangeControl(). */
+      if (e.target.closest('[data-dash-range]')) {
+        state.dashRangeOpen = !state.dashRangeOpen;
         render();
         return;
       }
-      var rs = e.target.closest('[data-range-set]');
-      if (rs) {
-        var rsid = rs.getAttribute('data-range-set');
-        var val = rs.getAttribute('data-range-val');
-        KXCanvas.setOpenRange(null);
+      var drs = e.target.closest('[data-dash-range-set]');
+      if (drs) {
+        var drv = drs.getAttribute('data-dash-range-set');
+        var dcur = active();
+        state.dashRangeOpen = false;
         if (state.mode === 'edit') {
-          KXCanvas.setLocalRange(rsid, null);
-          setWidgets(function (ws) {
-            return ws.map(function (x) { return x.id === rsid ? Object.assign({}, x, { dateRange: val }) : x; });
-          });
+          if (dcur) delete state.localDashRange[dcur.id];
+          patchActive({ dateRange: drv });   // owner: saves as the default
         } else {
-          KXCanvas.setLocalRange(rsid, val);   // viewer: explore only
+          if (dcur) state.localDashRange[dcur.id] = drv;   // viewer: explore only
           render();
         }
         return;
       }
-      var rc = e.target.closest('[data-range-clear]');
-      if (rc) { KXCanvas.setLocalRange(rc.getAttribute('data-range-clear'), null); render(); return; }
+      if (e.target.closest('[data-dash-range-clear]')) {
+        var dclr = active();
+        if (dclr) delete state.localDashRange[dclr.id];
+        render();
+        return;
+      }
 
       /* ---- table widget: columns, reset, filter clear ----
          Sorting and paging come from component events, not clicks — see the
@@ -2447,7 +3213,6 @@
       if (e.target.closest('#cpBAdd')) {
         addWidget({
           metricId: state.builder.metric, viz: state.builder.viz,
-          dateRange: state.builder.range,
           include: state.builder.include.length ? state.builder.include : undefined
         });
         return;
@@ -2640,8 +3405,11 @@
       if (state.exportMenu && !e.target.closest('.kx-menu') && !onTrigger) {
         state.exportMenu = false; changed = true;
       }
-      if (KXCanvas.getOpenRange() && !e.target.closest('.kx-menu') && !e.target.closest('[data-range-open]')) {
-        KXCanvas.setOpenRange(null); changed = true;
+      if (state.dashRangeOpen && !e.target.closest('.kx-menu') && !e.target.closest('[data-dash-range]')) {
+        state.dashRangeOpen = false; changed = true;
+      }
+      if (state.rowMenu && !e.target.closest('.kx-menu') && !e.target.closest('[data-dash-menu]')) {
+        state.rowMenu = null; changed = true;
       }
       if (KXCanvas.getOpenCols() && !e.target.closest('.kx-menu') && !e.target.closest('[data-tbl-cols]')) {
         KXCanvas.setOpenCols(null); changed = true;

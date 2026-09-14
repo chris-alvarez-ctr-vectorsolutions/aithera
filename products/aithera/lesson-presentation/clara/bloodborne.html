@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloodborne Pathogens — Vector Training</title>
+
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="learner.css?v=2" />
+
+    <style>
+      /* ==== Item 20 (D8): the composite shell =================================
+         The doc's prototype brief (Learning_Engine_Overview.pdf, "the customer-
+         facing prototype") asks for ONE COMPOSITE, decomposed into modules and
+         reassembled end to end — sequencing, unlock, and recency credit all
+         visible at once. Module 4 (Contain the Sharp) is the only one actually
+         built; the other five are the shell around it, showing what a real
+         composite course looks like from the learner's own dashboard. */
+
+      .bo-hero { background: var(--lp-card); border: 1px solid var(--lp-line); border-radius: var(--lp-radius);
+        box-shadow: var(--lp-shadow); padding: 22px 24px; margin-bottom: 18px; }
+      .bo-hero h1 { margin: 0 0 6px; font-size: 20px; font-weight: 800; }
+      .bo-hero p { margin: 0; font-size: 13px; color: var(--lp-ink-soft); line-height: 1.55; max-width: 62ch; }
+      .bo-progress { display: flex; align-items: center; gap: 10px; margin-top: 16px; }
+      .bo-bar { flex: 1 1 auto; height: 8px; border-radius: 999px; background: var(--lp-bg); overflow: hidden; }
+      .bo-bar > span { display: block; height: 100%; background: var(--lp-primary); border-radius: 999px; }
+      .bo-progress small { font-size: 12px; font-weight: 700; color: var(--lp-ink-soft); white-space: nowrap; }
+
+      /* Module rows reuse .course-row/.course-ico/.course-main from
+         learner.css; only the state-specific treatments are new. */
+      .course-row.is-mastered .course-ico { background: var(--lp-ok-10); color: var(--lp-ok); }
+      .course-row.is-active   .course-ico { background: var(--lp-primary-10); color: var(--lp-primary); }
+      .course-row.is-locked   .course-ico { background: var(--lp-bg); color: var(--lp-ink-faint); }
+      .course-row.is-locked .course-main b { color: var(--lp-ink-faint); }
+      .course-tag.mastered { background: var(--lp-ok-10); color: var(--lp-ok); border: 1px solid #0a763755; }
+
+      /* ==== Reviewer scorecard — review only, not shown to a learner ==== */
+      .bo-review { margin-top: 30px; }
+      .bo-review-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+      .bo-review-head i { color: var(--lp-vio); }
+      .bo-review-head b { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--lp-vio); }
+      .sc-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+      .sc-table th { text-align: left; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+        color: var(--lp-ink-faint); padding: 6px 10px; border-bottom: 1px solid var(--lp-line); }
+      .sc-table td { padding: 10px; border-bottom: 1px solid var(--lp-line); vertical-align: top; color: var(--lp-ink-soft); }
+      .sc-table tr:last-child td { border-bottom: 0; }
+      .sc-verdict { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+        font-size: 10.5px; font-weight: 800; white-space: nowrap; }
+      .sc-met     { background: var(--lp-ok-10); color: var(--lp-ok); }
+      .sc-partial { background: var(--lp-warn-10); color: var(--lp-warn); }
+      .sc-group   { background: var(--lp-bg); font-weight: 800; color: var(--lp-ink); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+    </style>
+</head>
+<body>
+
+    <header class="lp-top">
+        <span class="lp-brand"><i class="fa-solid fa-layer-group"></i> Vector Training <small>· Acme Manufacturing</small></span>
+        <span class="lp-top-spacer"></span>
+        <a class="lp-btn lp-btn--ghost" href="dashboard.html" style="padding:8px 14px;font-size:12.5px">
+            <i class="fa-solid fa-arrow-left"></i> My Training</a>
+    </header>
+
+    <main class="db-main">
+        <div class="bo-hero">
+            <h1>Bloodborne Pathogens <small style="font-weight:600;color:var(--lp-ink-faint)">RVCT-303B</small></h1>
+            <p>Six behavioral outcomes, decomposed and reassembled as one composite — the doc's own prototype brief
+               (<i>"one composite, decomposed into modules and reassembled end to end"</i>) taken literally rather
+               than shown as a single built module in isolation. Two are already mastered and still count under the
+               365-day recency window; the rest unlock as you go.</p>
+            <div class="bo-progress">
+                <div class="bo-bar"><span id="boBarFill" style="width:33%"></span></div>
+                <small id="boBarLabel">2 of 6 mastered</small>
+            </div>
+        </div>
+
+        <section class="db-card" aria-label="Course modules">
+            <h2>Course modules</h2>
+            <p class="sub">In the order they were built — not the order you have to take them in. Recency credit
+               keeps a mastered module counted for 365 days without asking you to repeat it.</p>
+
+            <div id="boModules"></div>
+        </section>
+
+        <!-- ============ Reviewer scorecard (D8) ============ -->
+        <section class="db-card bo-review" aria-label="Reviewer scorecard">
+            <div class="bo-review-head"><i class="fa-solid fa-clipboard-check"></i> <b>Review only · not shown to a learner</b></div>
+            <h2>Scorecard: does this prototype answer the brief?</h2>
+            <p class="sub">Scored against the doc's own two lists: the five things a customer-facing prototype
+               must do (<i>Learning_Engine_Overview.pdf</i>, "The customer-facing prototype"), and the four
+               capabilities a module has to survive (<i>Ideal Knowledge Layer Prototype Plan.pdf</i>, "What ideal
+               has to survive"). A rating here is a claim about THIS build, not about the underlying idea.</p>
+
+            <table class="sc-table">
+                <thead><tr><th style="width:26%">Requirement</th><th style="width:12%">Verdict</th><th>Where it shows, or why it doesn't yet</th></tr></thead>
+                <tbody>
+                    <tr class="sc-group"><td colspan="3">The five prototype must-haves</td></tr>
+                    <tr>
+                        <td><b>1. One composite</b><br>decomposed into modules, reassembled end to end</td>
+                        <td><span class="sc-verdict sc-met">Met</span></td>
+                        <td>This page. Six modules, one course, sequencing and unlock visible — where the earlier
+                            build had Module 4 as an island with no course around it.</td>
+                    </tr>
+                    <tr>
+                        <td><b>2. Two defined audiences</b><br>two sectors, two roles — not every permutation</td>
+                        <td><span class="sc-verdict sc-met">Met</span></td>
+                        <td>Module 4 ships four sectors (Manufacturing, Education, Commercial AEC, Public Sector),
+                            each with its own role pair — more than the brief asks for, on the one module that
+                            exists.</td>
+                    </tr>
+                    <tr>
+                        <td><b>3. Two or three modalities</b><br>enough to show choice, not full production</td>
+                        <td><span class="sc-verdict sc-met">Met</span></td>
+                        <td>Watch / Read / Listen on the K2 explainer, plus a step-through tutor mode on the
+                            procedure — modality choice is real inside Module 4, just not yet at the course level.</td>
+                    </tr>
+                    <tr>
+                        <td><b>4. Test-out and test-up, with continuity under removal</b><br>the module still reads well when a piece is taken out</td>
+                        <td><span class="sc-verdict sc-met">Met</span></td>
+                        <td>K1 drops whole on test-out (procedure, case 1, the in-flow check); K2/K3 are content-
+                            locked and serve harder instead of dropping. Verified both directions live, all four
+                            sectors.</td>
+                    </tr>
+                    <tr>
+                        <td><b>5. Scoreable</b><br>a scorecard we and customers can rate the prototype against</td>
+                        <td><span class="sc-verdict sc-met">Met</span></td>
+                        <td>This table. First draft — the doc leaves open who writes the scorecard and what it
+                            measures, so treat the rows above as a starting point, not a settled instrument.</td>
+                    </tr>
+                    <tr class="sc-group"><td colspan="3">The four capabilities</td></tr>
+                    <tr>
+                        <td><b>Adaptation</b><br>flow holds when objectives test out, or get harder or easier</td>
+                        <td><span class="sc-verdict sc-met">Met</span></td>
+                        <td>Module 4's own permutation matrix (<a href="structures.html">Learning Layer view</a>) —
+                            K1 out, K2/K3 harder, independently. Untested at the COURSE level: does the composite
+                            still cohere if a learner tests out of two whole modules, not one objective?</td>
+                    </tr>
+                    <tr>
+                        <td><b>Contextualization</b><br>same rigor, applied to different learner types</td>
+                        <td><span class="sc-verdict sc-met">Met</span></td>
+                        <td>Four sectors, same rubric, same objectives, different rooms — shipped and verified
+                            inside Module 4.</td>
+                    </tr>
+                    <tr>
+                        <td><b>Assembly</b><br>blends with other modules, or stands alone as microlearning</td>
+                        <td><span class="sc-verdict sc-partial">Partial</span></td>
+                        <td>This shell proves modules can sequence and unlock within ONE course. Blending Module 4
+                            with a module from a DIFFERENT course (the brief's stronger claim) is not attempted
+                            here.</td>
+                    </tr>
+                    <tr>
+                        <td><b>Transformation</b><br>multiple modalities, one experience</td>
+                        <td><span class="sc-verdict sc-partial">Partial</span></td>
+                        <td>Real within K1/K2's own beats (Watch/Read/Listen/Step-through). Not yet true of the
+                            WHOLE module end to end — the battery, the cases and the simulation have one
+                            rendering each.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <script>
+      (function () {
+        // Item 20/D8: the modules, states, and the mastery write-back that
+        // makes Module 4 → Module 5 unlock real rather than asserted. Two
+        // are pre-seeded as mastered months ago, specifically to demonstrate
+        // the 365-day recency window rather than a same-day completion.
+        var DAY = 24 * 60 * 60 * 1000;
+        var now = Date.now();
+        var MODULES = [
+          { id: 'bo1', num: 1, name: 'Spot the Exposure', masteredAt: now - 312 * DAY },
+          { id: 'bo2', num: 2, name: 'Barrier First', masteredAt: now - 91 * DAY },
+          { id: 'bo3', num: 3, name: 'Control the Hazard' },
+          { id: 'bo4', num: 4, name: 'Contain the Sharp', href: 'sharps.html', ai: true, mins: 25 },
+          { id: 'bo5', num: 5, name: 'Gear Up, Gear Down' },
+          { id: 'bo6', num: 6, name: 'Act on Exposure' }
+        ];
+        var RECENCY_DAYS = 365;
+
+        function daysAgo(ts) { return Math.round((now - ts) / DAY); }
+
+        // Additive — reads only. Written by sharps.html's recordInit() at
+        // the module's own Record screen, the same "reaching the record is
+        // completion" convention every module in this prototype already uses.
+        var progress = null;
+        try { progress = JSON.parse(sessionStorage.getItem('bo-progress') || 'null'); } catch (e) {}
+        var bo4Mastered = !!(progress && progress.bo4 === 'mastered');
+        if (bo4Mastered) {
+          MODULES[3].masteredAt = progress.bo4At || now;
+          delete MODULES[3].href; // mastered shows "Review" (disabled), not a link back in
+        }
+
+        var masteredCount = MODULES.filter(function (m) { return m.masteredAt; }).length;
+        document.getElementById('boBarFill').style.width = Math.round(masteredCount / MODULES.length * 100) + '%';
+        document.getElementById('boBarLabel').textContent = masteredCount + ' of ' + MODULES.length + ' mastered';
+
+        function esc(s) {
+          return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+          });
+        }
+
+        var host = document.getElementById('boModules');
+        host.innerHTML = MODULES.map(function (m) {
+          var isMastered = !!m.masteredAt;
+          // Module 4 is the one built module in this shell — active whenever
+          // it is not yet mastered, regardless of the demo gap at Module 3
+          // (mastery here isn't strictly sequential; the recency window is
+          // the point being shown, not a locked linear order).
+          var isActive = !isMastered && m.id === 'bo4';
+          // Finishing Module 4's record marks it mastered AND unlocks Module
+          // 5 (item 20) — real, not asserted: this reads the same write-back
+          // that just flipped bo4Mastered above. Module 5 has no built
+          // content, so "unlocked" here means an honest not-yet-built state
+          // rather than a working Continue button.
+          var isUnlockedNotBuilt = !isMastered && !isActive && m.id === 'bo5' && bo4Mastered;
+
+          var icon = isMastered ? 'fa-circle-check' : isActive ? (m.href ? 'fa-syringe' : 'fa-circle-play')
+            : isUnlockedNotBuilt ? 'fa-lock-open' : 'fa-lock';
+          var stateClass = isMastered ? 'is-mastered' : isActive ? 'is-active' : isUnlockedNotBuilt ? 'is-active' : 'is-locked';
+          var title = 'BO-' + m.num + ' · ' + esc(m.name);
+          var metaBits = [];
+          if (isMastered) {
+            var d = daysAgo(m.masteredAt);
+            metaBits.push('<span><i class="fa-solid fa-calendar-check"></i>Mastered ' + d + ' day' + (d === 1 ? '' : 's') + ' ago · ' + (RECENCY_DAYS - d) + ' left in the recency window</span>');
+          } else if (isActive) {
+            if (m.mins) metaBits.push('<span><i class="fa-solid fa-clock"></i>About ' + m.mins + ' min</span>');
+            metaBits.push('<span><i class="fa-solid fa-flag"></i>In progress</span>');
+          } else if (isUnlockedNotBuilt) {
+            metaBits.push('<span><i class="fa-solid fa-lock-open"></i>Unlocked by Module 4 — not built in this prototype</span>');
+          } else {
+            metaBits.push('<span>Unlocks after Module ' + (m.num - 1) + '</span>');
+          }
+          var tag = m.ai ? '<span class="course-tag ai">AI-guided</span>' : '';
+          if (isMastered) tag = '<span class="course-tag mastered">Mastered</span>';
+
+          var action = isMastered
+            ? '<button class="lp-btn lp-btn--ghost" disabled>Review</button>'
+            : isActive
+              ? (m.href ? '<a class="lp-btn lp-btn--primary" href="' + esc(m.href) + '">Continue</a>'
+                        : '<button class="lp-btn lp-btn--primary" disabled>Continue</button>')
+              : isUnlockedNotBuilt
+                ? '<button class="lp-btn lp-btn--ghost" disabled>Not yet built</button>'
+                : '<button class="lp-btn lp-btn--ghost" disabled>Locked</button>';
+
+          return '<div class="course-row ' + stateClass + '">' +
+            '<span class="course-ico"><i class="fa-solid ' + icon + '"></i></span>' +
+            '<span class="course-main"><b>' + title + tag + '</b>' +
+              '<span class="meta">' + metaBits.join('') + '</span></span>' +
+            action +
+          '</div>';
+        }).join('');
+      })();
+    </script>
+
+</body>
+</html>

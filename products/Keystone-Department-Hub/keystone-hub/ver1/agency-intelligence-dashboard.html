@@ -190,7 +190,16 @@
      BUILD VIEW
      ==================================================================== */
   .cp-build { display: flex; flex-direction: column; min-height: calc(100vh - 120px); }
-  .cp-build-bar { display: flex; align-items: center; gap: 14px; padding: 18px 0 14px; }
+  /* Wraps rather than overflowing. The bar carries a lot — back, name, saved
+     chip, status, export, publish, the mode toggle, and now the dashboard's
+     date range — and at laptop widths that total can exceed the column. Left
+     unwrapped it pushed the page into a horizontal scroll instead of moving
+     the trailing controls onto a second line. No effect at widths where it
+     already fits. */
+  .cp-build-bar {
+    display: flex; align-items: center; gap: 14px; padding: 18px 0 14px;
+    flex-wrap: wrap; row-gap: 10px;
+  }
   .cp-build-name {
     font-family: var(--font-display); font-weight: 600; font-size: 24px; color: var(--ink-900);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -256,7 +265,20 @@
     color: var(--ink-400); display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
   }
   .cpw-kebab:hover { background: var(--surface-3); color: var(--ink-700); }
+  /* Only rendered when a widget sits OUTSIDE the dashboard's window — see
+     .cpw-horizon in styles.css. Widgets that follow the dashboard range show
+     nothing here; the range is stated once, on the dashboard bar. */
   .cpw-range { margin-top: 6px; }
+
+  /* Step 3 of the widget builder: what used to be a date-range select is now
+     a statement of which window the widget will inherit. */
+  .cp-range-note {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 10px 12px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--ink-100);
+    font-size: 12px; color: var(--ink-600); line-height: 1.5;
+  }
+  .cp-range-note b { color: var(--ink-800); font-weight: 700; }
   .cpw-body { margin-top: 12px; flex: 1; min-height: 0; overflow: auto; }
 
   /* ---------------------------------------------------------------------
@@ -323,6 +345,77 @@
 
   /* Keyboard help + the reorder/resize announcements. Present for screen
      readers, never painted. */
+  /* Row actions column — fixed narrow, never grows with the table. */
+  .cp-row-act { width: 44px; text-align: right; padding-right: 10px !important; }
+  .cp-kebab {
+    width: 28px; height: 28px; border-radius: 7px; border: none; background: transparent;
+    color: var(--ink-400); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.12s, color 0.12s;
+  }
+  .cp-kebab:hover { background: var(--surface-3); color: var(--ink-800); }
+  .cp-kebab[aria-expanded="true"] { background: var(--surface-3); color: var(--ink-900); }
+
+  /* The "Published to" cell is a button: it answers "who has this?" and is
+     therefore also the place to act on the answer. Styled as the plain cell
+     it replaced until hovered, so the table doesn't grow a row of buttons. */
+  .cp-aud-cell {
+    display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    padding: 3px 6px; margin: -3px -6px; border: 1px solid transparent;
+    border-radius: 8px; background: none; cursor: pointer;
+    font-family: inherit; text-align: left;
+  }
+  .cp-aud-cell:hover { background: var(--surface-3); border-color: var(--ink-200); }
+  .cp-aud-cell:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 1px; }
+
+  /* Permission-level pill on a dashboard-access grant row. "Manage all" is
+     amber because it is the consequential one — it reaches other people's
+     work — and should never look like the quiet default. */
+  .cp-lvl {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 999px;
+    background: var(--surface-3); color: var(--ink-600);
+    border: 1px solid var(--ink-200);
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+  }
+  .cp-lvl.is-manage {
+    background: var(--amber-50); color: var(--amber-700); border-color: var(--amber-300);
+  }
+  .cp-lvl-btn {
+    display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0;
+    background: none; border: none; padding: 2px; border-radius: 8px;
+    cursor: pointer; font-family: inherit;
+  }
+  .cp-lvl-btn:hover { background: var(--surface-3); }
+
+  /* Level chooser in the grant dialog. */
+  .cp-lvl-pick { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .cp-lvl-opt {
+    display: flex; align-items: center; gap: 11px; text-align: left;
+    padding: 11px 12px; border-radius: 11px; cursor: pointer; font-family: inherit;
+    border: 1.5px solid var(--ink-200); background: var(--surface-1);
+    transition: border-color 0.12s, background 0.12s;
+  }
+  .cp-lvl-opt:hover { border-color: var(--ink-300); }
+  .cp-lvl-opt.is-on { border-color: var(--teal-400); background: var(--teal-50); }
+  .cp-lvl-opt .ic {
+    width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+    background: var(--surface-3); color: var(--ink-600);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cp-lvl-opt.is-on .ic { background: var(--teal-100); color: var(--teal-600); }
+  .cp-lvl-opt .t { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink-900); }
+  .cp-lvl-opt .s { display: block; font-size: 11.5px; color: var(--ink-500); margin-top: 1px; line-height: 1.4; }
+
+  /* "You can build, but not grant" — what a non-admin with build rights sees
+     where the Access tab would be. */
+  .cp-access-note {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 11px 13px; margin-bottom: 14px;
+    background: var(--surface-2); border: 1px solid var(--ink-100);
+    border-radius: 11px; font-size: 12.5px; color: var(--ink-600); line-height: 1.5;
+  }
+
   .cp-sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
@@ -381,13 +474,48 @@
     min-height: 460px; display: flex; align-items: center; justify-content: center; padding: 20px;
   }
 
-  /* Agency Intelligence dock */
+  /* Agency Intelligence dock.
+
+     FIXED height, not stretched. It used to carry `align-self: stretch`, so it
+     took the height of the canvas beside it and changed size whenever the
+     canvas did — add a widget from chat and the panel you were typing into
+     grew under your hands; open a two-widget dashboard and it was 544px, a
+     six-widget one and it was 610. The conversation is not a function of what
+     is on the canvas, so its container should not be either.
+
+     Sticky because a fixed height needs it: on a long dashboard the canvas
+     scrolls well past one viewport, and a panel that is exactly one viewport
+     tall would scroll away and leave you typing off-screen. Stretching used to
+     hide that by making the panel as tall as the canvas. */
   .cpv-panel {
-    width: 376px; flex-shrink: 0; align-self: stretch; display: flex; flex-direction: column;
+    width: 376px; flex-shrink: 0; align-self: flex-start; display: flex; flex-direction: column;
     background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 16px;
-    box-shadow: var(--elev-1); overflow: hidden; min-height: 0; max-height: calc(100vh - 160px);
+    box-shadow: var(--elev-1); overflow: hidden; min-height: 0;
+    height: calc(100vh - 160px);
+    position: sticky; top: 16px;
   }
-  @media (max-width: 900px) { .cpv-panel { width: 100%; max-height: 520px; } }
+  /* Stacked layout: the panel sits above/below the canvas rather than beside
+     it, so a viewport-tall box and a sticky offset both stop making sense. */
+  @media (max-width: 900px) {
+    .cpv-panel {
+      width: 100%; height: auto; max-height: 520px;
+      position: static; align-self: stretch;
+    }
+  }
+  /* Header icon buttons. Plain <button>, deliberately NOT vaadin-button
+     theme="tertiary" — that theme underlines its label, which on an icon-only
+     button renders as a rule under the glyph. Mirrors .kx-ai-iconbtn, the same
+     control on the Hub's panel. */
+  .cpv-iconbtn {
+    width: 28px; height: 28px; flex-shrink: 0; border-radius: 7px; cursor: pointer;
+    border: none; background: transparent; color: var(--ink-500); font-size: 14px;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.12s, color 0.12s;
+  }
+  .cpv-iconbtn:hover { background: var(--surface-3); color: var(--ink-800); }
+  .cpv-iconbtn:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 1px; }
+  .cpv-collapsed-chev { margin-top: auto; color: var(--ink-400); font-size: 14px; }
+
   .cpv-head {
     display: flex; align-items: center; gap: 11px; padding: 13px 14px;
     border-bottom: 1px solid var(--ink-100);
@@ -555,14 +683,11 @@
     body.kx-printing .cp-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px;
       grid-auto-rows: auto; align-items: start; }
     body.kx-printing .cp-grid > * { grid-row: auto !important; }
-    /* The date range is useful context on paper, but it shouldn't look like
-       a control you can click. Flatten it to plain text. */
-    body.kx-printing .cpw-range button,
-    body.kx-printing .cpw-range .kx-range-btn {
-      border: none !important; background: none !important; padding: 0 !important;
-      color: var(--ink-500) !important; font-size: 11px !important;
-    }
-    body.kx-printing .cpw-range svg:last-child { display: none; }
+    /* The dashboard's window is printed once in the document header, so a
+       card carries text here only when it reports on a DIFFERENT window —
+       a fixed forward horizon. That is already static text, so there is no
+       control left to flatten; just size it for paper. */
+    body.kx-printing .cpw-range { font-size: 11px; color: var(--ink-500); }
     body.kx-printing .cpw-kebab { display: none !important; }
     body.kx-printing .cpw-resize,
     body.kx-printing .cpw-grip { display: none !important; }
@@ -660,6 +785,44 @@
     font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
     color: var(--ink-500); margin-bottom: 8px;
   }
+  .au-sec-n {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 17px; height: 17px; padding: 0 5px; margin-left: 7px;
+    border-radius: 999px; background: var(--ink-100); color: var(--ink-600);
+    font-size: 10.5px; letter-spacing: 0;
+  }
+
+  /* "Published to" — the itemised audience on the review step. One row per
+     group / title / person, each with its own Remove, because a count chip
+     ("2 groups") tells you how many but never who, and an audience you cannot
+     enumerate is one you cannot revoke. */
+  .au-roster {
+    display: flex; flex-direction: column; gap: 1px;
+    border: 1px solid var(--ink-100); border-radius: 10px; overflow: hidden;
+    background: var(--ink-100);
+  }
+  .au-rrow {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; background: var(--surface-1);
+  }
+  /* The mark says which KIND of audience this is at a glance — a live rule
+     behaves differently from a named person, and the row has to show that
+     before the sub-line is read. */
+  .au-rmark {
+    width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .au-rmark--group  { background: var(--amber-50);  color: var(--amber-700); }
+  .au-rmark--title  { background: var(--azure-300); color: var(--azure-600); }
+  .au-rmark--person { background: var(--teal-50);   color: var(--teal-500); }
+  .au-rdrop {
+    width: 26px; height: 26px; flex-shrink: 0; border: none; background: none;
+    border-radius: 7px; color: var(--ink-400); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    transition: background 0.12s, color 0.12s;
+  }
+  .au-rdrop:hover { background: var(--coral-50); color: var(--coral-500); }
+  .au-rdrop:focus-visible { outline: 2px solid var(--coral-400); outline-offset: 1px; }
 
   /* The "n of m selected — Select all" strip above the job-title grid and the
      roster list. Sits flush with the list it governs; the action is an .au-link

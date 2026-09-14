@@ -2,7 +2,7 @@
    layered-engine.js — the course SHELL, with no course in it.
 
    Everything here is true of any Layered Learning course: the production frame,
-   the dark stage, the nav footer, CLARA's Möbius orb and her four presentation
+   the dark stage, the nav footer, CLARA's Möbius orb and their four presentation
    chromes, the step runner, dynamic section numbering, context lenses, and the
    canned chat. None of it knows what is being taught.
 
@@ -38,7 +38,14 @@
   var CFG = {
     course: '', steps: [], storageKey: 'll-course',
     lenses: null, lensOrder: [], lensedSteps: {}, replies: null,
-    demoControls: [], backHref: '../index.html'
+    demoControls: [], backHref: '../index.html',
+    // Idle hint. OFF unless a course asks for it, so pages already on this
+    // engine keep the behaviour they have. See armHint().
+    coachHint: null,
+    // Review mode. OFF unless a course asks for it, same reason: gating the
+    // bare S key and the Demo menu's toggle behind it is a behaviour change,
+    // and a course that never asked for review mode keeps the S key it has.
+    reviewGate: false
   };
   var STEPS = [];
 
@@ -75,6 +82,19 @@
     var next = CFG.lensOrder[(i + 1) % CFG.lensOrder.length];
     try { sessionStorage.setItem('ll-lens', next); } catch (e) {}
     return next;
+  }
+  // --- Review mode -----------------------------------------------------------
+  // One flag for every affordance that exists so a reviewer can reach a
+  // screen without doing the work in front of it, and that a real learner
+  // should never be able to trigger by accident: the bare "S" key (no visible
+  // control at all) and the video "Skip" pill (sits right on the player with
+  // no "review only" framing, unlike the Demo menu it now joins). OFF by
+  // default and for the life of the tab, same as the lens choice.
+  function reviewMode() {
+    try { return sessionStorage.getItem('ll-review') === '1'; } catch (e) { return false; }
+  }
+  function setReviewMode(on) {
+    try { sessionStorage.setItem('ll-review', on ? '1' : '0'); } catch (e) {}
   }
   // --- Single-select option group (keyboard) --------------------------------
   // Arrow/Home/End move FOCUS only; Enter or Space commits, the way any button
@@ -153,7 +173,7 @@
       busyReply = true;
       addRow('you', v);
       input.value = '';
-      // She thinks before she answers — the same three-dot beat the docked
+      // They think before they answer — the same three-dot beat the docked
       // panel uses, so a canned reply doesn't land instantly and read as fake.
       var dots = addRow('clara', '');
       dots.className = 'cbub clara typing';
@@ -170,7 +190,7 @@
   }
 
   // The floating bubble's Reply / collapse toggle. Wired for every floating
-  // step, so the companion is a way IN to CLARA on every page that has her —
+  // step, so the companion is a way IN to CLARA on every page that has them
   // not a tooltip you can only read.
   function wireFloatingChat(ctx, replies) {
     var bubble = ctx.chrome.querySelector('#claraBubble');
@@ -184,14 +204,15 @@
       if (input) input.focus();
       ctx.positionOrb(true);
     });
-    // One control, read in context: from the open chat it goes back to her
-    // line; from the line it tucks her away to the orb.
+    // One control, read in context: from the open chat it goes back to
+    // their line; from the line it tucks them away to the orb.
     if (close) close.addEventListener('click', function () {
       if (bubble.classList.contains('is-chat')) {
         bubble.classList.remove('is-chat');
         close.setAttribute('aria-label', 'Dismiss CLARA');
       } else {
         ctx.floatClose();
+        muteHints();          // closing them is the clearest "not now" there is
       }
       ctx.positionOrb(true);
     });
@@ -256,7 +277,7 @@
     }
     // Crown: the orb sits ABOVE the content, centred, with one line under it.
     // For screens where CLARA has something short to say about what the page
-    // is showing — she introduces it rather than sitting beside it.
+    // is showing — they introduce it rather than sitting beside it.
     if (mode === 'crown') {
       // The orb alone — no name, no line. On a screen whose whole job is
       // showing what changed, the rows and the total say it; a coach
@@ -266,7 +287,7 @@
     if (mode === 'floating') {
       // Two states in one bubble. Compact is the tooltip it has always been —
       // CLARA says a line and that's that. "Reply" opens the same bubble into
-      // a conversation: her line stays at the top, a thread grows under it and
+      // a conversation: their line stays at the top, a thread grows under it
       // a composer appears. Anything a step appends (answer chips, feedback)
       // orders ABOVE the chat block, so a question is never pushed below it.
       return '<div class="clara-bubble" id="claraBubble">' +
@@ -283,7 +304,7 @@
           '</div>' +
           '<div class="clara-foot">' +
             // A step can put its own forward control here — see setCoachAction.
-            // When CLARA has just reacted to an answer, the move she is talking
+            // When CLARA has just reacted to an answer, the move they are
             // about belongs in the same bubble as the reaction.
             '<button class="clara-act" id="claraAct" type="button" hidden></button>' +
             '<button class="clara-reply" id="claraReply" type="button" ' +
@@ -293,7 +314,7 @@
         '</div>' +
         '<div class="clara-slot"><span class="clara-hint" aria-hidden="true"></span></div>' +
         // The orb is the launcher, and an animated mark on its own does not
-        // say so. While she is tucked, it gets a label.
+        // say so. While they are tucked, it gets a label.
         '<span class="clara-cue" aria-hidden="true">Ask CLARA</span>';
     }
     return slot;
@@ -306,40 +327,130 @@
   var demoBtns = [];
   // True only while a step's own init() is running. It's what separates CLARA's
   // opening line for a screen (narration — stays behind the orb) from a line
-  // that lands later in response to the learner (a reaction — raises her).
+  // that lands later in response to the learner (a reaction — raises them).
   var inInit = false;
 
   // --- Where CLARA shows up ---------------------------------------------------
-  // She does NOT arrive talking on every screen. A coach who speaks on all
+  // They do NOT arrive talking on every screen. A coach who speaks on all
   // fourteen sections stops being read, and most of these screens teach fine on
   // their own — a line restating the page is a second voice for one point. So
   // the default is TUCKED: the orb sits in its slot carrying the unread dot, and
-  // her line for that screen waits one tap behind it.
+  // their line for that screen waits one tap behind it.
   //
-  // She surfaces on her own in exactly two cases:
+  // CLARA surfaces unprompted in exactly two cases:
   //
-  //   1. She LEADS the screen — the page can't do its job without her. She's
-  //      asking the question (checkInit, normsInit, stepinInit and practiceInit
-  //      each open her at init), or she's explaining something written nowhere
-  //      on the page (why this build is shorter than the full one). A step
-  //      declares that by opening her itself, or by setting coach.lead; a step
-  //      with no learning object of its own always counts, since she'd be the
-  //      only thing on the screen.
-  //   2. She REACTS — see setFloat/setCoachSay. That's why the flip cards, the
+  //   1. They LEAD the screen — the page can't do its job without them.
+  //      They're asking the question (checkInit, normsInit, stepinInit and
+  //      practiceInit each open them at init), or they're explaining something
+  //      written nowhere on the page (why this build is shorter than the full
+  //      one). A step declares that by opening them itself, or by setting
+  //      coach.lead; a step with no learning object of its own always counts,
+  //      since they'd be the only thing on the screen.
+  //   2. They REACT — see setFloat/setCoachSay. That's why the flip cards, the
   //      tactic drill and the read need no wiring: their coach lines arrive
-  //      after the screen has settled, so they raise her by themselves.
+  //      after the screen has settled, so those lines raise CLARA by themselves.
   function coachLeads(step) {
-    if (step.mode !== 'floating') return true;    // sidebar/ambient/crown ARE her
+    if (step.mode !== 'floating') return true;    // sidebar/ambient/crown ARE CLARA
     if (!step.content) return true;               // nothing else on screen to read
     return !!(step.coach && step.coach.lead);
   }
 
-  // One door for the tuck state, so "she's been read" can't drift out of sync
-  // with "she's open": opening her is what clears the unread dot.
+  // One door for the tuck state, so "they've been read" can't drift out of
+  // sync with "they're open": opening them is what clears the unread dot.
   function setFloat(state) {
     if (!stage) return;
     stage.dataset.float = state;
     if (state === 'open') delete stage.dataset.unread;
+  }
+
+  // ==========================================================================
+  //  THE IDLE HINT
+  //
+  //  Beats used to raise them on arrival, which made them a narrator: a panel
+  //  that speaks on twenty screens is read on none of them. The default is the
+  //  unread dot now, and this is what turns that dot into help for somebody
+  //  actually stuck rather than a badge nobody notices.
+  //
+  //  It arms ONLY when the screen is waiting on the learner — a disabled
+  //  Continue is the engine's own record of "this screen wants an action" — so
+  //  a reading or watching screen never fires one. A hint where nothing is
+  //  pending is narration wearing a hint's clothes, which is the thing being
+  //  removed.
+  //
+  //  Any interaction inside the stage pushes it back, it fires at most once
+  //  per screen, and DISMISSING them stops hints for the rest of the session:
+  //  closing the panel is the clearest signal a learner can give.
+  // ==========================================================================
+  var hintTimer = null, hintMuted = false, hintedStep = null;
+  var TEASER_TEXT = 'Need a hint?';
+
+  function clearHint() { if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; } }
+  function muteHints() { hintMuted = true; clearHint(); }
+
+  // Collapse the bubble to "Need a hint?" instead of opening straight to the
+  // real line — for the steps where coach.say IS the answer, not a reaction
+  // to one (coach.teaser: true, or a custom string, on that step). The real
+  // HTML is stashed on the element itself, so a fresh bubble on the next step
+  // starts clean with nothing to leak. Tap or Enter/Space anywhere on the
+  // line reveals it; the dedicated controls (dismiss/reply/act) still do
+  // their own thing rather than also revealing.
+  function armTeaser(bubble, sayEl, text) {
+    sayEl.dataset.fullSay = sayEl.innerHTML;
+    sayEl.innerHTML = esc(text);
+    bubble.classList.add('is-teaser');
+    sayEl.tabIndex = 0;
+    sayEl.setAttribute('role', 'button');
+    sayEl.setAttribute('aria-label', text + ' Tap to reveal.');
+    function reveal(e) {
+      if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
+      if (e.target.closest && e.target.closest('.clara-collapse, .clara-reply, .clara-act')) return;
+      if (e.type === 'keydown') e.preventDefault();
+      bubble.classList.remove('is-teaser');
+      sayEl.innerHTML = sayEl.dataset.fullSay || '';
+      delete sayEl.dataset.fullSay;
+      sayEl.removeAttribute('tabindex');
+      sayEl.removeAttribute('role');
+      sayEl.removeAttribute('aria-label');
+      bubble.removeEventListener('click', reveal);
+      sayEl.removeEventListener('keydown', reveal);
+    }
+    bubble.addEventListener('click', reveal);
+    sayEl.addEventListener('keydown', reveal);
+  }
+
+  function armHint(stepId) {
+    clearHint();
+    var cfg = CFG.coachHint;
+    if (!cfg || hintMuted || !stage) return;
+    if (stepId == null || hintedStep === stepId) return;   // one per screen
+    hintTimer = setTimeout(function () {
+      hintTimer = null;
+      if (hintMuted || !stage) return;
+      if (stage.dataset.mode !== 'floating') return;
+      if (stage.dataset.float === 'open') return;   // already up, nothing to add
+      if (!stage.dataset.unread) return;            // no line waiting to be read
+      if (nextBtn && !nextBtn.disabled) return;     // nothing pending: stay quiet
+      // A disabled Continue is a good proxy for "this screen wants an action"
+      // and a bad one for a screen whose action is its OWN button: a brief
+      // with a Begin under it holds Continue shut while the learner reads,
+      // and seven seconds of reading is not being stuck. Such a step opts out
+      // with coach.hint: false rather than getting interrupted mid-brief.
+      var cur = STEPS[idx];
+      if (cur && cur.coach && cur.coach.hint === false) return;
+      hintedStep = stepId;
+      // coach.teaser marks the rarer case: the line is itself the answer, not
+      // a reaction to one, so opening straight to it would just hand it over.
+      // Off by default — most tucked lines are commentary that reads fine in
+      // full the moment they're stuck.
+      var teaser = cur && cur.coach && cur.coach.teaser;
+      if (teaser) {
+        var bubble = chrome && chrome.querySelector('#claraBubble');
+        var sayEl = chrome && chrome.querySelector('.clara-say');
+        if (bubble && sayEl) armTeaser(bubble, sayEl, teaser === true ? TEASER_TEXT : teaser);
+      }
+      setFloat('open');
+      positionOrb(true);
+    }, cfg.delay || 7000);
   }
   function clearCoachAction() {
     pendingAction = false;
@@ -350,8 +461,28 @@
   var frameLesson, frameStep, frameBar;
   var idx = -1, busy = false, nextHref = null;
   // Set while a step has parked its forward control inside CLARA's bubble.
-  // She is holding the only door at that point, so she does not get tucked.
+  // They are holding the only door at that point, so they don't get tucked.
   var pendingAction = false;
+  // A step may borrow the forward button for ONE act of its own before it
+  // becomes Continue — "Done reading" on a long read, say. The learner
+  // declaring they are ready is a real signal; a scroll position and a word
+  // count are both guesses at it. Held here rather than in the step so the
+  // engine can clear it on every step change and a stale action can never
+  // survive into a screen that did not ask for one.
+  var pendingNext = null;
+
+  // The look a borrowed press reverts to — real Continue label, gated on
+  // whether this step actually has a gate. Shared by the click handler
+  // (after running the borrowed action) and cancelNextAction (before it
+  // ever runs), so the two can never drift apart.
+  function revertNextBtn() {
+    nextBtn.classList.remove('ll-btn--step');
+    nextBtn.classList.add('ll-btn--primary');
+    var st = STEPS[idx];
+    nextBtn.innerHTML = (st && st.nextLabel ? st.nextLabel : 'Continue') +
+      ' <i class="fa-solid fa-arrow-right"></i>';
+    nextBtn.disabled = !!(st && st.gate);
+  }
 
   function positionOrb(glide) {
     if (!chrome) return;
@@ -413,8 +544,8 @@
       setCoachSay: function (html) {
         var s = chrome.querySelector('.clara-say'); if (s) s.innerHTML = html;
         // A line that lands after the screen has settled is a reaction to
-        // something the learner just did — the one thing that raises her
-        // without being asked. Her opening line, set during init, does not.
+        // something the learner just did — the one thing that raises them
+        // without being asked. Their opening line, set during init, does not.
         if (!inInit && stage.dataset.mode === 'floating') setFloat('open');
       },
       floatOpen: function () { setFloat('open'); },
@@ -433,6 +564,31 @@
         setFloat('open');
       },
       clearCoachAction: clearCoachAction,
+      // Borrow the forward button. It takes `label`, renders in the SECONDARY
+      // style so it does not read as "leave this page", and runs `run` once.
+      // The button then reverts to Continue, and whether Continue is live is
+      // the step's business as usual (ctx.enableNext).
+      setNextAction: function (label, run) {
+        pendingNext = run;
+        nextBtn.innerHTML = esc(label);
+        nextBtn.classList.add('ll-btn--step');
+        nextBtn.classList.remove('ll-btn--primary');
+        nextBtn.disabled = false;
+      },
+      // Withdraw a borrowed press before it is ever clicked — a beat that
+      // offers more than one route to the same gate (e.g. the hazard beat's
+      // Watch/Read/Step-through picker) can move on to a DIFFERENT completion
+      // path before the learner presses the borrowed button at all. Reverting
+      // the button's own look without this left `pendingNext` holding the
+      // stale callback: the button READ as a plain, live Continue, but the
+      // next press ran the old step's leftover action instead of navigating —
+      // Continue that looks live but never advances. Exact same revert the
+      // click handler itself does on a real press, just without running it.
+      cancelNextAction: function () {
+        if (!pendingNext) return;
+        pendingNext = null;
+        revertNextBtn();
+      },
       positionOrb: positionOrb, saveResult: saveResult, readCourse: readCourse
     };
   }
@@ -517,11 +673,19 @@
       if (prevObject) prevObject.remove();
 
       stage.dataset.mode = step.mode;
+      // Clear the dot on EVERY step change before deciding whether this screen
+      // earns one. setFloat only clears it on 'open', so a screen with nothing
+      // queued used to inherit the previous screen's dot and promise a line it
+      // did not have — which is exactly the screens that were made silent.
+      delete stage.dataset.unread;
       if (step.mode === 'floating') {
         var leads = coachLeads(step);
         setFloat(leads ? 'open' : 'closed');
-        // A queued line she hasn't shown yet is the only thing the dot means.
+        // A queued line they haven't shown yet is the only thing the dot means.
         if (!leads && (step.coach || {}).say) stage.dataset.unread = 'true';
+        if (leads) clearHint(); else armHint(step.id);
+      } else {
+        clearHint();
       }
 
       // Learning-object content — append FIRST so the coach chrome sits ON TOP
@@ -544,21 +708,35 @@
       chrome.innerHTML = chromeHTML(step.mode, step.coach || {});
       stage.appendChild(chrome);
       pendingAction = false;
+      pendingNext = null;
+      nextBtn.classList.remove('ll-btn--step');
+      nextBtn.classList.add('ll-btn--primary');
       delete stage.dataset.pending;
       // Only in floating mode is the orb something to press; elsewhere CLARA
-      // is the chrome itself and the orb is just her mark.
+      // is the chrome itself and the orb is just their mark.
       if (step.mode === 'floating') orbEl.dataset.launcher = '1';
       else delete orbEl.dataset.launcher;
 
       idx = i; nextHref = null;
+      // PROTOTYPE CONVENIENCE: keep the current screen in the URL so a refresh
+      // resumes where the reviewer was instead of restarting the module. Uses
+      // replaceState rather than pushState — the module owns Back/Continue, and
+      // stacking history entries would make the browser's own Back button
+      // fight them. Answers already survive a refresh in sessionStorage, so
+      // the id is the only missing half.
+      try {
+        var u = new URL(location.href);
+        u.searchParams.set('step', step.id);
+        history.replaceState(null, '', u.pathname + u.search + u.hash);
+      } catch (e) {}
       positionOrb(false);                           // land in the new slot, no travel
       if (!first) orbArrive();
       updateFooter(step); updateFrame(step);
 
       var ctx = makeCtx();
       // Every floating step gets the Reply affordance, before its own init
-      // runs — the companion should be a way in to CLARA on every page she's
-      // on, not a line you can only read. Steps can supply their own answers
+      // runs — the companion should be a way in to CLARA on every page
+      // they're on, not a line you can only read. Steps can supply their own answers
       // via coach.replies.
       if (step.mode === 'floating') wireFloatingChat(ctx, (step.coach || {}).replies);
       if (step.init) {
@@ -618,7 +796,17 @@
     footBar = footer.querySelector('.ll-foot-bar');
     infoBtn = footer.querySelector('#llInfo');
     backBtn.addEventListener('click', function () { go(-1); });
-    nextBtn.addEventListener('click', function () { go(1); });
+    nextBtn.addEventListener('click', function () {
+      // A borrowed press belongs to the step, not to navigation.
+      if (pendingNext) {
+        var run = pendingNext;
+        pendingNext = null;
+        revertNextBtn();
+        run();
+        return;
+      }
+      go(1);
+    });
 
     // The "About this presentation" review popover, anchored to the footer "?".
     pop = document.createElement('div');
@@ -633,6 +821,28 @@
     });
     document.addEventListener('click', function (e) { if (pop.classList.contains('open') && !infoBtn.contains(e.target)) closePop(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePop(); });
+
+    // ------------------------------------------------------------------------
+    // PROTOTYPE ONLY — NOT FOR PRODUCTION. See skipStep().
+    // "S" skips the gated object on screen. On a course that opted into
+    // reviewGate it only fires in review mode — it has no visible control at
+    // all, so off review mode it is not a convenience a learner could
+    // stumble into, it is a hole. A course that never asked for reviewGate
+    // keeps the S key it always had. Also guarded so it cannot fire while
+    // somebody is typing: any modifier, or focus inside a text field or a
+    // contenteditable, and the key is theirs rather than ours. Without that
+    // guard, typing "sanitation" into the coach composer would skip six
+    // screens.
+    // ------------------------------------------------------------------------
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 's' && e.key !== 'S') return;
+      if (CFG.reviewGate && !reviewMode()) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      var t = e.target;
+      if (t && (t.isContentEditable ||
+                /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ''))) return;
+      if (skipStep()) e.preventDefault();
+    });
   }
 
   function buildOrb() {
@@ -708,21 +918,47 @@
     demoMenu.hidden = true;
     demoBtn.setAttribute('aria-expanded', 'false');
   }
+  // ==========================================================================
+  //  PROTOTYPE ONLY — NOT FOR PRODUCTION.
+  //  Skipping a gated learning object without answering it exists so a
+  //  reviewer can reach screen fourteen without working through thirteen. It
+  //  must not survive into anything a learner touches: it defeats every gate
+  //  in the module and writes a skipped result to the record.
+  //  Reached two ways, both prototype affordances: the Demo menu row, and the
+  //  "S" shortcut. One function so they can never disagree about what a skip
+  //  does.
+  // ==========================================================================
+  function skipStep() {
+    var step = STEPS[idx];
+    if (!step || !step.gate || busy) return false;
+    if (typeof step.onSkip === 'function') {
+      try { step.onSkip(); } catch (e) { console.error('onSkip', step.id, e); }
+    }
+    go(1);
+    return true;
+  }
+
   function openDemoMenu() {
     if (!demoMenu) return;
     var step = STEPS[idx];
     var rows = [];
 
+    // Review mode — engine-owned, offered only where the course opted in.
+    // Gates the affordances that carry no "review only" framing of their own
+    // (the bare S key, a content file's own video Skip pill); the Skip row
+    // right below stays reachable either way, since the Demo menu it lives in
+    // already carries that framing.
+    if (CFG.reviewGate) {
+      rows.push({ icon: 'fa-user-check', name: 'Review mode', state: reviewMode() ? 'On' : 'Off',
+        note: 'Unlocks the S-key skip and the video Skip pill',
+        run: function () { setReviewMode(!reviewMode()); showStep(idx, 'fwd', false); } });
+    }
     // Skip — only where there is a gate to get past.
     if (step && step.gate) {
-      rows.push({ icon: 'fa-forward', name: 'Skip this learning object', state: '',
-        note: 'Move past the gate without answering',
-        run: function () {
-          if (step && typeof step.onSkip === 'function') {
-            try { step.onSkip(); } catch (e) { console.error('onSkip', step.id, e); }
-          }
-          go(1);
-        } });
+      var sState = !CFG.reviewGate || reviewMode();
+      rows.push({ icon: 'fa-forward', name: 'Skip this learning object', state: sState ? 'S' : '',
+        note: 'Move past the gate without answering' + (sState ? ' — or press S' : ''),
+        run: skipStep });
     }
     // Context lens — engine-owned, shown where the course says it applies.
     if (CFG.lenses && CFG.lensedSteps[step.id]) {
@@ -784,6 +1020,15 @@
   function build() {
     stage = document.querySelector('.ll-stage');
     if (!stage) return;
+    // The frame's back arrow returns to the contents page — the course's own
+    // first step — rather than being the stub it has always been. In-app, so
+    // it costs no reload and the answers in sessionStorage survive.
+    try {
+      window.LESSON_FRAME = window.LESSON_FRAME || {};
+      window.LESSON_FRAME.onBack = function () {
+        if (STEPS.length) showStep(0, 'back', false);
+      };
+    } catch (e) {}
     buildFooter();
     buildOrb();
     cacheFrame();
@@ -792,11 +1037,34 @@
     var start = 0;
     try {
       var want = new URLSearchParams(location.search).get('step');
-      // Old deep links keep working across the contract-order restructure.
-      if (want === 'adjust') want = 'compress';
-      if (want === 'closing') want = 'check';
+      // Old deep links keep working across the contract-order restructure —
+      // but ONLY as a fallback. A course whose own step is called "adjust"
+      // (sharps has one) must win over the alias, or its own URL resolves to
+      // an id it does not contain and the learner lands back on the cover.
+      var known = function (id) { return STEPS.some(function (s) { return s.id === id; }); };
+      if (want && !known(want)) {
+        if (want === 'adjust') want = 'compress';
+        else if (want === 'closing') want = 'check';
+      }
       if (want) { var f = STEPS.findIndex(function (s) { return s.id === want; }); if (f > -1) start = f; }
+      // A deep link can name a step that does not apply to THIS learner (an
+      // external activity's hardcoded return URL cannot know in advance
+      // whether a later-inserted conditional step — remediation, a deferred
+      // check — will apply when they get back). Walk forward past any
+      // when()-excluded step, the same walk go() already does for normal
+      // navigation, so arriving via a link behaves like arriving by Continue.
+      while (start < STEPS.length && STEPS[start].when && !STEPS[start].when()) start++;
+      if (start >= STEPS.length) start = STEPS.length - 1;
     } catch (e) {}
+
+    // A learner who is doing things is not stuck, so every interaction pushes
+    // the hint back rather than letting it fire mid-task. Capture phase, so it
+    // still counts when a handler stops propagation.
+    ['pointerdown', 'keydown', 'wheel'].forEach(function (ev) {
+      stage.addEventListener(ev, function () {
+        if (hintTimer) armHint(STEPS[idx] ? STEPS[idx].id : null);
+      }, true);
+    });
 
     // Keep the orb glued to its slot as the viewport changes.
     var rt;
@@ -819,6 +1087,10 @@
     T: T, esc: esc, readCourse: readCourse, saveResult: saveResult,
     pickGroup: pickGroup, wireChat: wireChat, typeFeedback: typeFeedback,
     lens: lens, lensId: lensId, cycleLens: cycleLens,
+    // PROTOTYPE ONLY — NOT FOR PRODUCTION. Whether the reviewer-only
+    // affordances that carry no framing of their own (a video's Skip pill,
+    // a syllabus row that jumps ahead) are unlocked for this tab.
+    reviewMode: reviewMode,
     // The engine's own nav, for content that changes the path mid-step and
     // needs the counters to catch up (compression, inserted remediation).
     refreshNav: function () { var st = STEPS[idx]; if (st) { updateFooter(st); updateFrame(st); } },
@@ -826,6 +1098,24 @@
     // a syllabus or a progress rail has to render from this, not from steps.
     visiblePath: visiblePath,
     sectionPos: sectionPos,
+    // ------------------------------------------------------------------------
+    // PROTOTYPE ONLY — NOT FOR PRODUCTION. See skipStep().
+    // Jump straight to a screen, for the title page's clickable sections list.
+    // It walks past every gate between here and there, which is the point for
+    // a reviewer and wrong for a learner: a real build would unlock only the
+    // sections already completed. Refuses a step the current path has removed
+    // — a screen test-out took out must not be reachable by clicking the row
+    // that says it was removed.
+    // ------------------------------------------------------------------------
+    goTo: function (id) {
+      if (busy) return false;
+      var i = STEPS.findIndex(function (s) { return s.id === id; });
+      if (i < 0) return false;
+      var st = STEPS[i];
+      if (st.when && !st.when()) return false;
+      showStep(i, i < idx ? 'back' : 'fwd', false);
+      return true;
+    },
     stepById: function (id) {
       for (var i = 0; i < STEPS.length; i++) if (STEPS[i].id === id) return STEPS[i];
       return null;

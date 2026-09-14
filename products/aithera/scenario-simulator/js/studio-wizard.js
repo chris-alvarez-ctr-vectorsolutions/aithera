@@ -160,6 +160,13 @@
   .wiz-drop .fa-solid { font-size: 14px; }
   .wiz-srcmeta { font-size: 11.5px; color: var(--ink-faint); }
   .wiz-srcmeta b { color: var(--ok); }
+  /* the Scenario Brief step's drop zone — the only control on that step, so
+     it gets the full visual weight the generic paste+drop combo can't spare. */
+  .wiz-drop-lg { flex-direction: column; text-align: center; padding: 36px 20px; gap: 8px; font-size: 13.5px; }
+  .wiz-drop-lg .fa-solid { font-size: 26px; }
+  .wiz-tpl-note { margin: -2px 0 14px; }
+  .wiz-tpl-link { color: var(--accent); font-weight: 600; text-decoration: none; }
+  .wiz-tpl-link:hover { text-decoration: underline; }
 
   /* generation checklist */
   .wiz-gen { display: grid; gap: 10px; margin-top: 18px; max-width: 680px; }
@@ -349,7 +356,7 @@
       : [ctx.type];
     if (!registry.some((t) => t && t.wizard)) return null;
 
-    let chosen, spec, intakeKey, intake, gen, describeStep;
+    let chosen, spec, intakeKey, intake, gen, describeStep, briefStep;
     let outlining = false;   // the BASIC-mode "Create outline" call is in flight
     let outlineErr = '';     // its last failure, shown inline on the describe step
 
@@ -371,6 +378,29 @@
       };
     }
 
+    /* BRIEF mode's one intake step: nothing but the spec's OWN source field,
+       required — a completed Scenario Brief deck answers the interview
+       itself (importPptx reads it straight off the deck's machine-named
+       shapes into `intake`), so there is no separate description to type.
+       Only offered when the type declares `importPptx` — see renderModePicker. */
+    function buildBriefStep(t) {
+      if (typeof t.wizard.importPptx !== 'function') return null;
+      const srcField = (t.wizard.steps || []).flatMap((s) => s.fields || []).find((f) => f.kind === 'source') || null;
+      if (!srcField) return null;
+      return {
+        id: '__brief',
+        title: 'From a Scenario Brief',
+        sub: 'Drop your completed Scenario Brief below — its fields answer the whole interview, so Generate reads them straight off the slides.',
+        fields: [{
+          ...srcField,
+          noPaste: true,
+          required: true,
+          label: 'Your completed Scenario Brief',
+          emptyNote: 'Drop the deck above to continue.',
+        }],
+      };
+    }
+
     function loadChosen(t) {
       chosen = t;
       spec = t.wizard;
@@ -381,6 +411,7 @@
       /* generation + outline state resets with the choice */
       gen = { running: false, done: false, draft: null, acc: { results: {} }, tasks: [], status: {} };
       describeStep = buildDescribeStep(t);
+      briefStep = buildBriefStep(t);
       outlining = false;
       outlineErr = '';
     }
@@ -432,17 +463,23 @@
        persisted; a legacy stored `_mode` is ignored). Answers typed in
        Advanced stay saved either way — switching modes reveals them. */
     let modeChoice = 'basic';
-    const mode = () => (modeChoice === 'advanced' ? 'advanced' : 'basic');
+    // Falls back to 'basic' the moment `briefStep` is null — e.g. the type was
+    // switched to one with no `importPptx` — so a stale 'brief' choice never
+    // strands the wizard on a step that no longer exists.
+    const mode = () => (modeChoice === 'advanced' ? 'advanced' : (modeChoice === 'brief' && briefStep) ? 'brief' : 'basic');
 
     let stepIdx = 0;
     // Step 0 is the type choice; the rest belong to the CHOSEN spec.
     // BASIC mode swaps the spec's steps for the describe step until the
-    // outline lands — then they open, pre-filled, between the two.
+    // outline lands — then they open, pre-filled, between the two. BRIEF mode
+    // swaps them for the single Scenario Brief drop step — the deck answers
+    // the interview itself, so there's nothing else to ask.
     const steps = () => {
       /* With one type on offer this step no longer asks what you are building — it
          only asks HOW to start, so the rail should not promise a choice of type. */
       const head = [{ id: '__type', title: registry.length > 1 ? 'What are you building?' : 'How to start', sub: '' }];
       const tail = [{ id: '__generate', title: 'Generate', sub: '' }];
+      if (mode() === 'brief') return head.concat([briefStep], tail);
       if (mode() === 'basic') return head.concat([describeStep], intake._outlined ? spec.steps : [], tail);
       return head.concat(spec.steps, tail);
     };
@@ -637,6 +674,10 @@
          d: 'Describe it in a sentence. We draft every field for you to review and edit.' },
        { id: 'advanced', ic: 'fa-sliders', t: 'Advanced — fill it in yourself',
          d: 'Answer every question yourself. Best when you already know the story.' }]
+      // Only offered when the CHOSEN type can read one back (see buildBriefStep) —
+      // a completed deck answers the interview itself, so there's nothing else to fill in.
+      .concat(briefStep ? [{ id: 'brief', ic: 'fa-file-powerpoint', t: 'From a Scenario Brief — drop it in',
+         d: 'Download the template, fill it out in PowerPoint, then drop the finished deck. Its fields answer the whole interview.' }] : [])
       .forEach((m) => {
         const b = document.createElement('button');
         b.type = 'button';
@@ -716,36 +757,63 @@
       }
 
       if (f.kind === 'source') {
-        // Paste-anything box + a plain-text file drop. PPT/Docs can't be parsed
-        // in a static page — the drop zone hint teaches the copy-out path.
+        // Paste-anything box + a file drop. A dropped .pptx is read directly
+        // (AitheraPptxImport — the deck is a zip of XML; no PowerPoint, no
+        // server) and reproduces exactly what View → Outline → copy would
+        // paste here — plus, when the spec knows how, a straight pre-fill of
+        // its own interview fields from the deck's machine-named shapes.
         const wrap = document.createElement('div');
         wrap.className = 'wiz-source';
-        const ta = document.createElement('vaadin-text-area');
-        ta.setAttribute('theme', 'outlined');
-        ta.label = val(f.label, intake);
-        ta.helperText = val(f.helper, intake) || '';
-        ta.placeholder = f.placeholder || '';
-        ta.minRows = f.minRows || 6;
-        ta.value = String(intake[f.key] ?? '');
-        ta.addEventListener('input', () => { intake[f.key] = ta.value; persistIntake(); renderMeta(); });
+        // f.noPaste (the dedicated Scenario Brief step — see buildBriefStep):
+        // skip the paste-anything textarea entirely. The step exists only
+        // because the author has an actual deck to drop; a big empty paste
+        // box under it just implies there's more to fill in by hand.
+        const ta = f.noPaste ? null : document.createElement('vaadin-text-area');
+        if (ta) {
+          ta.setAttribute('theme', 'outlined');
+          ta.label = val(f.label, intake);
+          ta.helperText = val(f.helper, intake) || '';
+          ta.placeholder = f.placeholder || '';
+          ta.minRows = f.minRows || 6;
+          ta.value = String(intake[f.key] ?? '');
+          ta.dataset.wizKey = f.key;   // so a required-field jump (see firstMissing) can focus it
+          ta.addEventListener('input', () => { intake[f.key] = ta.value; persistIntake(); renderMeta(); });
+        }
         const drop = document.createElement('div');
-        drop.className = 'wiz-drop';
-        drop.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i><span><b>Drop a .txt or .md file</b>, or click to pick one. From PowerPoint, copy the outline (View → Outline) and paste above.</span>';
+        drop.className = 'wiz-drop' + (f.noPaste ? ' wiz-drop-lg' : '');
+        drop.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i><span><b>Drop a Scenario Brief .pptx</b>, or a .txt/.md file, or click to pick one.</span>';
         const file = document.createElement('input');
         file.type = 'file';
-        file.accept = '.txt,.md,.markdown,text/plain,text/markdown';
+        file.accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.txt,.md,.markdown,text/plain,text/markdown';
         file.hidden = true;
+        const appendSource = (text) => {
+          intake[f.key] = (intake[f.key] ? intake[f.key] + '\n\n' : '') + text;
+          if (ta) ta.value = intake[f.key];
+        };
         const readFile = (fl) => {
           if (!fl) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            const text = String(reader.result || '');
-            intake[f.key] = (intake[f.key] ? intake[f.key] + '\n\n' : '') + text;
-            ta.value = intake[f.key];
+          const isPptx = /\.pptx$/i.test(fl.name || '') || fl.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+          if (!isPptx) {
+            const reader = new FileReader();
+            reader.onload = () => { appendSource(String(reader.result || '')); persistIntake(); renderMeta(); };
+            reader.onerror = () => { renderMeta('Couldn’t read that file — try dropping it again.'); };
+            reader.readAsText(fl);
+            return;
+          }
+          if (!window.AitheraPptxImport) { renderMeta('The .pptx reader didn’t load — paste the outline text instead.'); return; }
+          renderMeta('Reading ' + fl.name + '…');
+          window.AitheraPptxImport.parse(fl).then((deck) => {
+            appendSource(deck.outlineText());
+            let filled = 0;
+            if (typeof spec.importPptx === 'function') {
+              try { filled = spec.importPptx(deck, intake) || 0; } catch (e) { /* the text landed regardless — a pre-fill miss isn't fatal */ }
+            }
             persistIntake();
             renderMeta();
-          };
-          reader.readAsText(fl);
+            if (filled) renderBody();   // pre-filled fields may be on a step the author hasn't opened yet
+          }).catch((err) => {
+            renderMeta((err && err.message) || 'Couldn’t read that .pptx — paste the outline text instead.');
+          });
         };
         drop.addEventListener('click', () => file.click());
         file.addEventListener('change', () => { readFile(file.files && file.files[0]); file.value = ''; });
@@ -754,12 +822,14 @@
         drop.addEventListener('drop', (e) => readFile(e.dataTransfer.files && e.dataTransfer.files[0]));
         const meta = document.createElement('div');
         meta.className = 'wiz-srcmeta';
-        const renderMeta = () => {
+        const renderMeta = (msg) => {
+          if (msg) { meta.innerHTML = `<b><i class="fa-solid fa-triangle-exclamation"></i></b> ${esc(msg)}`; return; }
           const n = String(intake[f.key] || '').length;
-          meta.innerHTML = n ? `<b><i class="fa-solid fa-circle-check"></i></b> ${n.toLocaleString()} characters captured.` : 'Optional — the draft works fine without it.';
+          meta.innerHTML = n ? `<b><i class="fa-solid fa-circle-check"></i></b> ${n.toLocaleString()} characters captured.`
+            : (f.emptyNote || 'Optional — the draft works fine without it.');
         };
         renderMeta();
-        wrap.append(ta, drop, file, meta);
+        wrap.append(...[drop, file, ta, meta].filter(Boolean));
         return wrap;
       }
 
@@ -786,7 +856,8 @@
       body.innerHTML = `<h2 class="wiz-step-title">${esc(step.title)}</h2>
         <p class="wiz-step-sub">${esc(val(step.sub, intake) || '')}</p>` +
         (drafted ? `<span class="wiz-ai-pill"><i class="fa-solid fa-wand-magic-sparkles"></i> Drafted from your description. Edit anything — nothing’s final yet.
-          <button type="button" class="wiz-pill-btn" id="wizJumpDescribe"><i class="fa-solid fa-rotate-left"></i> Add context &amp; redraft</button></span>` : '');
+          <button type="button" class="wiz-pill-btn" id="wizJumpDescribe"><i class="fa-solid fa-rotate-left"></i> Add context &amp; redraft</button></span>` : '') +
+        (step.id === '__brief' ? `<p class="wiz-step-sub wiz-tpl-note">Need the template? <a class="wiz-tpl-link" href="docs/templates/scenario-brief-template.pptx" download>Download it (.pptx)</a></p>` : '');
       const box = document.createElement('div');
       box.className = 'wiz-fields';
       step.fields.forEach((f) => {
@@ -966,8 +1037,7 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         <h2 class="wiz-step-title">Generate the draft</h2>
         <p class="wiz-step-sub">${gen.tasks.length} steps turn your answers into the full scenario. It lands in the editor as a draft — review it, then playtest and publish.</p>
         <div class="wiz-fields" style="margin-top:16px">
-          <vaadin-text-field theme="outlined" id="wizWorker" label="Worker proxy URL" value="${esc(savedUrl)}"
-            helper-text="The same Cloudflare Worker the playtest and live pages use. Model: ${esc(MODEL)}."></vaadin-text-field>
+          <vaadin-text-field theme="outlined" id="wizWorker" label="Worker proxy URL" value="${esc(savedUrl)}"></vaadin-text-field>
         </div>
         <div class="wiz-gen" id="wizGen"></div>
         <div class="wiz-note"><i class="fa-solid fa-shield-halved"></i><span>This is a <b>first draft</b> — check the guardrails and playtest before publishing. Your current draft is saved to the Library first.</span></div>`;
@@ -1009,10 +1079,14 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         renderTasks();
         try {
           const req = t.build(intake, gen.acc, chosen);
-          const json = await generateJson(workerUrl, req);
+          /* build() returns a falsy request when the brief already answers
+             everything this task would have asked the model — see `close` in
+             studio-v2-v4-universal-wizard.js. No network call, no tokens
+             spent asking for what we're only going to discard. */
+          const json = req ? await generateJson(workerUrl, req) : {};
           gen.acc.results[t.id] = json;
           t.apply(json, gen.draft, intake, gen.acc);
-          gen.status[t.id] = { state: 'ok', note: t.doneNote ? t.doneNote(json) : '' };
+          gen.status[t.id] = { state: 'ok', note: t.doneNote ? t.doneNote(json, intake) : '' };
         } catch (err) {
           gen.status[t.id] = { state: 'fail', error: String(err && err.message || err) + ' — fix the Worker URL if needed, then Resume.' };
           renderTasks();

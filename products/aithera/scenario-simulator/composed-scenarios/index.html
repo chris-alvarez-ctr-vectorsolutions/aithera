@@ -16,12 +16,22 @@
 
     <!-- Dark mode is OPT-IN. Vector products are light-only, so scenarios default to light
          regardless of the OS setting. Set window.SCENARIO_ALLOW_DARK = true (before this runs)
-         to restore OS-driven dark — nothing is lost, the gated dark CSS is still in the head. -->
+         to restore OS-driven dark — nothing is lost, the gated dark CSS is still in the head.
+
+         CLARA's course modules hand off here with ?brand=clara instead of the dark flag above:
+         not OS dark mode, but CLARA's own committed-dark navy+teal identity (see :root.clara-brand
+         below), so the coach panel reads as continuous with the course shell it launched from
+         rather than a light Vector-blue panel dropping into an all-dark course. CLARA-only —
+         no other caller sets this param, so the shared light/Vector-blue default is untouched
+         for every other product that routes through this player. -->
     <script>
       (function () {
         if (window.SCENARIO_ALLOW_DARK === true) {
           document.documentElement.classList.add('allow-dark');
           document.documentElement.style.colorScheme = 'light dark';
+        }
+        if (new URLSearchParams(location.search).get('brand') === 'clara') {
+          document.documentElement.classList.add('clara-brand');
         }
       })();
     </script>
@@ -149,6 +159,69 @@
           --shadow-md: 0 6px 18px rgba(0,0,0,.45);
           --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
         }
+      }
+
+      /* CLARA brand override — OPT-IN via ?brand=clara (see the boot snippet above). Unlike
+         .allow-dark, this isn't gated behind prefers-color-scheme: CLARA's course shell is
+         dark everywhere by design, not an OS preference, so the coach panel swaps straight to
+         CLARA's own navy + teal. The scene world's speaker colors (--s-char violet, --s-you
+         amber) are left exactly alone — they're what differentiates a character turn from a
+         coach turn, and that read holds regardless of brand. Only --scene-paint's base wash
+         is re-hued: the shared default is warm brown/copper ("a lit set in a dark room"),
+         which reads as a seam between CLARA's cool navy chrome above and below it — this
+         swaps just that base to CLARA's own navy, keeping the same amber/violet glow layers
+         on top. CLARA-scoped only: no other route sets this class, so every other consumer of
+         this player (its light Vector-blue panel AND its warm scene wash) is unaffected. */
+      :root.clara-brand {
+        color-scheme: dark;
+        --c-bg:          #070b14;
+        --c-surface:     #111a2e;
+        --c-surface-2:   #16203a;
+        --c-ink:         #eaf0fb;
+        --c-ink-soft:    #aab6cc;
+        --c-ink-faint:   #7a879e;
+        --c-line:        rgba(255,255,255,.11);
+        --c-accent:      #2ee6cf;   /* CLARA's teal — matches --ll-teal in css/layered-learning.css */
+        --c-accent-strong:#14b8a6;
+        --c-accent-soft: rgba(46,230,207,.14);
+        --c-on-accent:   #04121a;   /* dark ink reads on the bright teal, not white */
+        --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+        --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+        --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+        /* Same amber (top-right) + violet (bottom-left) glow layers as the shared default —
+           only the base linear-gradient's two stops move from warm copper to CLARA's navy. */
+        --scene-paint:
+          radial-gradient(120% 80% at 80% 0%, rgba(241,179,74,.10), transparent 60%),
+          radial-gradient(120% 90% at 10% 100%, rgba(199,155,255,.10), transparent 55%),
+          linear-gradient(170deg, #141b2c 0%, #070b14 100%);
+        /* The scene's own neutral surfaces — the SCENE tag, the narration/bubble cards, the
+           character-input bar — read off --s-ink/--s-surface/--s-line same as the coach panel
+           reads off --c-*, so re-hueing --scene-paint alone left them warm brown while the
+           backdrop around them went navy. These now match --ll-panel/--ll-ink exactly, so the
+           whole scene is one palette. --s-char (violet) and --s-you (amber) are deliberately
+           NOT touched — Chris's identity and "your" voice stay distinct from CLARA's teal. */
+        --s-ink:         #eaf0fb;
+        --s-ink-soft:    #aab6cc;
+        --s-ink-faint:   #7a879e;
+        --s-surface:     #111a2e;
+        --s-surface-2:   #16203a;
+        --s-line:        rgba(255,255,255,.11);
+      }
+
+      /* Three spots render the scene's "warm amber treatment" as literal hex rather than
+         through --s-surface/--s-line (see the rules' own base definitions above), so the vars
+         just redefined don't reach them. Re-pointed at those same vars here, CLARA-only. */
+      :root.clara-brand .app[data-mode="scene"] .mode-toggle {
+        background: var(--s-surface);
+        border-color: var(--s-line);
+      }
+      :root.clara-brand .app[data-target="character"] .inputbar {
+        background: #0a0e18;   /* one shade below --s-surface, same relationship as the warm default */
+        border-top-color: var(--s-line);
+      }
+      :root.clara-brand .app[data-target="character"] .input-shell {
+        background: var(--s-surface);
+        border-color: var(--s-line);
       }
 
       * { box-sizing: border-box; }
@@ -1606,7 +1679,7 @@
          published). It rides the SAME ladder runner as branching/ensemble; a
          mix-arc beat maps to a ladder phase (its `type` picks the `world`). -->
     <script src="js/studio-engine.js?v=5"></script>
-    <script src="js/scenario-types/mix-arc.js?v=18"></script>
+    <script src="js/scenario-types/mix-arc.js?v=20"></script>
     <!-- [Option B] the tier-ladder TYPES this one generic player routes to via
          ?type=. Two shapes:
            · NATIVE tier-ladder types own their own toRuntime + compile and play
@@ -1827,6 +1900,15 @@
        text is capped, at the last 2 rewinds (see sim-player.js). */
     const RETRY_ENABLED = window.SCENARIO_ALLOW_RETRY === true
       || new URLSearchParams(location.search).get('retry') === '1';
+
+    /* Item 31 (sharps D11): a calling module can build its OWN bridge screen
+       — the moment, what will happen, "Enter the scenario" — immediately
+       before handing off here. When it does, ?handoff=1 skips this page's
+       OWN establishing card once the opening coach prep lands: showing it
+       again, and making the learner tap a second "step in" control, would be
+       a third framing of the same moment in a row. Off by default — every
+       other caller still gets the establishing card exactly as before. */
+    const SKIP_ESTABLISHING = new URLSearchParams(location.search).get('handoff') === '1';
 
     const state = {
       mode: 'coaching',          // 'coaching' | 'scene'
@@ -3727,6 +3809,10 @@
         state.delivering = false;
         render();
         announce(`Your AI coach says you're ready. Step into the scene when you are.`);
+        // Item 31: the calling module already covered this framing on its own
+        // bridge screen — enter on the REAL authored beat-1 opening that just
+        // landed above, never a synthetic stand-in.
+        if (SKIP_ESTABLISHING) enterScene();
         return;
       }
 
@@ -3898,7 +3984,20 @@
       state.awaitingDebrief = false;
       state.analyzing = false;
       state.mode = 'coaching'; state.inputTarget = 'coach';
-      if (state.complete) { DEBRIEF.openClosing(pending); return; }   // final → the SHARED Section-3 debrief
+      if (state.complete) {
+        // Additive write-back (D3/item 13): any host page that launched this
+        // scenario and cares what happened in it reads this back from its own
+        // record screen. Keyed by scenario id so concurrent scenarios never
+        // collide, and touches nothing else — every other sim type gets this
+        // same write and nothing reads it yet.
+        try {
+          sessionStorage.setItem('scenario-result:' + REQ_SCEN, JSON.stringify({
+            beats: Object.keys(state.ladder || {}).map(function (id) { return { id: id, tier: state.ladder[id] }; }),
+            completedAt: Date.now()
+          }));
+        } catch (e) {}
+        DEBRIEF.openClosing(pending); return;
+      }   // final → the SHARED Section-3 debrief
       // The queued run is the phase DEBRIEF (coaching bubbles, including the next
       // entry's bridge) plus — when the next phase is a scene — its locked scene
       // open. The coaching lands in the sheet now; the scene beats are HELD for
@@ -4353,7 +4452,7 @@
       // Embed into the app shell; course/lesson auto-derive from #scenarioName.
       window.LESSON_FRAME = { mount: '#app' };
     </script>
-    <script src="../lesson-presentation/js/frame.js?v=4"></script>
+    <script src="../lesson-presentation/js/frame.js?v=7"></script>
     <script>
       // Relocate the app's Restart control onto the frame's actions slot so it
       // rides the frame instead of a second bar. Moving the node preserves its

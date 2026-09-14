@@ -172,7 +172,7 @@
    It used to be read-only: CLARA said a line and the learner's only move
    was to tuck it away. Now the same bubble has a second state — "Reply"
    grows it into a conversation without moving it, so the affordance sits
-   exactly where she's already speaking. */
+   exactly where they're already speaking. */
 .clara-bubble { display: flex; flex-direction: column; }
 /* Anything a step appends (answer chips, feedback) keeps the default
    order and therefore stays ABOVE the chat block — a live question can
@@ -234,7 +234,7 @@
 
 /* Dismiss. Present in BOTH states, because a popup you can only close by
    finding the orb underneath it isn't closable — from the open chat it goes
-   back to her line, from the line it tucks her away. */
+   back to their line, from the line it tucks them away. */
 .clara-collapse {
   position: absolute; top: 11px; right: 12px;
   width: 24px; height: 24px; display: grid; place-items: center;
@@ -244,10 +244,19 @@
 }
 .clara-collapse:hover { background: rgba(255, 255, 255, .07); color: var(--ll-ink); }
 .clara-collapse:focus-visible { outline: none; color: var(--ll-teal); box-shadow: 0 0 0 2px rgba(46, 230, 207, .45); }
-/* While her bubble holds the only way forward, dismissing it would strand the
-   learner — the same reason the orb won't tuck her. The chat's own close still
+/* While their bubble holds the only way forward, dismissing it would strand
+   the learner — the same reason the orb won't tuck them. The chat's own close
    works there, since it only returns to the line. */
 .ll-stage[data-pending] .clara-bubble:not(.is-chat) .clara-collapse { display: none; }
+
+/* Idle-hint teaser. See armTeaser() in layered-engine.js — the line reads
+   as "Need a hint?" until tapped, for the steps whose coach.say is itself
+   the answer (coach.teaser on that step) rather than commentary. */
+.clara-bubble.is-teaser .clara-say { cursor: pointer; font-weight: 700; color: var(--ll-teal); }
+.clara-bubble.is-teaser .clara-say:hover { color: #fff; }
+.clara-bubble.is-teaser .clara-say:focus-visible {
+  outline: none; border-radius: 6px; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35);
+}
 
 
 /* ==== Feel beat — self-efficacy slider ====
@@ -410,7 +419,7 @@
 /* ==== The orb as a launcher ====
    In floating mode the orb is the control that brings CLARA back, and an
    animated mark alone doesn't read as pressable. It gets a pointer, a ring on
-   hover and focus, and — while she's tucked — a label saying what it does. */
+   hover and focus, and — while they're tucked — a label saying what it does. */
 .clara-orb[data-launcher] { cursor: pointer; }
 .clara-orb[data-launcher]::before {
   content: ""; position: absolute; inset: -5px;
@@ -423,7 +432,7 @@
 }
 .clara-orb[data-launcher]:focus-visible { outline: none; }
 /* The label rides beside the tucked orb, in the chrome so it sits in the same
-   corner; it goes away the moment she's on screen and speaking for herself. */
+   corner; it goes away the moment they're on screen and speaking for themselves. */
 .clara-cue {
   position: absolute; right: 84px; bottom: 15px;
   padding: 7px 13px; border-radius: 999px;
@@ -487,6 +496,27 @@
   justify-content: flex-start;
 }
 .adj { width: min(560px, 100%); display: flex; flex-direction: column; align-items: center; }
+
+/* ---- Reading phase (Contain the Sharp) --------------------------------
+   Entering this screen should present ONE thing. So the orb takes the middle
+   of the stage on its own, at more than twice its resting size, with a single
+   line under it; when the answers have been read it drops into its crown slot
+   and the stack arrives. Every rule hangs off .is-adj-reading on the stage,
+   so the Bystander course — same stylesheet, same .adj markup — is untouched.
+   The orb itself is positioned in JS from the slot's box, so growing the slot
+   and re-positioning is the whole animation. */
+.ll-stage.is-adj-reading[data-mode="crown"] .clara-chrome--crown { top: clamp(78px, 21vh, 190px); }
+.ll-stage.is-adj-reading[data-mode="crown"] .clara-chrome--crown .clara-slot { width: 132px; height: 132px; }
+.ll-stage.is-adj-reading[data-mode="crown"] .ll-object { padding-top: clamp(238px, 39vh, 372px); }
+.adj-body { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.adj-reading { display: none; margin: 0; text-align: center;
+  font-size: 15px; letter-spacing: .01em; color: var(--ll-ink-soft); }
+.ll-stage.is-adj-reading .adj-reading { display: block; }
+.ll-stage.is-adj-reading .adj-body { display: none; }
+/* Held invisible rather than removed: the headline is filled in before it is
+   shown, so its box is already the right height and the stack never shifts. */
+.adj-verdict { visibility: hidden; opacity: 0; transition: opacity .38s var(--ll-ease); }
+.adj-verdict.in { visibility: visible; opacity: 1; }
 .ll-object .adj-head {
   margin: 0 0 4px; max-width: 22ch;
   font-size: clamp(24px, 3.2vw, 32px); font-weight: 800; line-height: 1.2;
@@ -550,7 +580,7 @@
 .adj-saved.in { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .adj-row, .adj-saved { transition: none; }
+  .adj-row, .adj-saved, .adj-verdict { transition: none; }
   .adj-spin { animation: none; border-top-color: rgba(255, 255, 255, .13); }
 }
 /* Narrow: shrink the crown so the stack — the actual point — keeps as
@@ -673,10 +703,10 @@
 
 /* ==== The tucked launcher's unread dot ====
    CLARA is tucked on most screens now (see coachLeads in
-   layered-course.js), so "closed" no longer means "she has something for
+   layered-course.js), so "closed" no longer means "they have something for
    you" — the dot would burn on ten sections and stop meaning anything.
-   Course-local override: it shows only while a line she hasn't shown yet
-   is still queued behind the orb, and opening her clears it. The shared
+   Course-local override: it shows only while a line they haven't shown yet
+   is still queued behind the orb, and opening them clears it. The shared
    stylesheet keeps its always-on-when-closed rule for the standalone
    layered-* demos, which have no unread state to track. */
 .ll-stage[data-float="closed"] .clara-chrome--floating .clara-hint { display: none; }

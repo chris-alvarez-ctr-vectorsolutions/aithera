@@ -15,10 +15,10 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <link rel="stylesheet" href="../css/frame.css?v=5" />
-    <link rel="stylesheet" href="../css/layered-learning.css?v=1" />
+    <link rel="stylesheet" href="../css/layered-learning.css?v=2" />
     <!-- Every beat pattern this module reuses comes from here; the <style>
          below is only what "Contain the Sharp" adds on top. -->
-    <link rel="stylesheet" href="../css/layered-beats.css?v=14" />
+    <link rel="stylesheet" href="../css/layered-beats.css?v=18" />
 
     <style>
       /* ==== Assessment policy chips ==========================================
@@ -42,6 +42,49 @@
       .pol-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 14px; }
       .pol-obj { font-size: 11px; color: var(--ll-ink-faint); }
       .pol-obj b { color: var(--ll-ink-soft); font-weight: 700; }
+
+      /* ==== The battery's shared measure ===================================
+         The screen used to stack five different widths — eyebrow 188, heading
+         661, instruction 398, rows 560, button 136 — all centred inside a
+         760 container, so nothing shared an edge and the block funnelled
+         inward as the eye travelled down. ONE measure, declared once and used
+         by the heading and the task, gives the stack a real left and right
+         line to sit on. 660 rather than 560 because the multiple-choice items
+         put three option cards on this same row and they need the room.
+
+         Scoped to .sh-battery: .bl-ask and .bl-q live in the shared
+         css/layered-beats.css and the Bystander course renders them too. */
+      .sh-battery { --sh-measure: min(560px, 100%); }
+      .ll-object .sh-battery .bl-q { max-width: var(--sh-measure); }
+      .sh-battery .ord-wrap { width: var(--sh-measure); }
+      /* The multiple-choice items are the exception: three option cards need
+         more room than a stack of rows, so they get their own allowance
+         rather than forcing the whole screen wider than the rows want. */
+      .sh-battery .bl-options { max-width: min(700px, 100%); }
+
+      /* The situation, when a question has one. It carries the same weight as
+         the question rather than sitting under it as a caption — the setup IS
+         part of the ask here ("you have just used a sharp" is the story, not
+         framing for it), and at 17px it read as a subtitle to be skimmed.
+         Matched to .bl-q exactly, with no gap between them, so the two
+         sentences read as ONE two-line statement and each still gets its own
+         line instead of breaking mid-sentence. */
+      .bl-scene {
+        margin: 0; max-width: var(--sh-measure);
+        font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; line-height: 1.2;
+        letter-spacing: -.01em; text-align: center; color: #fff;
+        /* Narrow screens wrapped this to "You have just used a / sharp.",
+           orphaning one word. Balanced wrapping evens the lines instead. */
+        text-wrap: balance;
+      }
+      .ll-object .sh-battery .bl-q { text-wrap: balance; }
+
+      /* The instruction belonged to neither its neighbour: 10px under the
+         heading and 4px above the rows, squeezed between two heavier things.
+         Now it is clearly the task's, with air above it and the rows tucked
+         under it. */
+      .sh-battery .bl-hint { margin-top: 22px; margin-bottom: 0; }
+      .sh-battery .ord-wrap { margin-top: 10px; }
 
       /* ==== Ordering task ==================================================
          K1 is sequence recall, so the item asks for a sequence rather than
@@ -97,6 +140,33 @@
       .ord-check:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
       @media (prefers-reduced-motion: reduce) { .ord-check:hover { transform: none; } }
 
+      /* The battery's commit control. Same pill as the ordering item's, since
+         it does the same job on the same screen — the only difference is that
+         this one starts disabled, because a question with nothing selected
+         yet has nothing to check. Local to this module: the shared
+         css/layered-beats.css .bl-* set is the Bystander course's too, and
+         only this battery has a two-step commit. */
+      .bl-check {
+        margin-top: 26px;
+        font: inherit; font-size: 14px; font-weight: 700; color: #04121a;
+        background: var(--ll-teal); border: 0; border-radius: 999px;
+        padding: 11px 26px; cursor: pointer;
+        transition: filter .16s ease, transform .16s ease, opacity .2s ease;
+      }
+      .bl-check:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
+      .bl-check:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      /* Dimmed rather than hidden, so the second step is legible before the
+         learner picks and a tap never scores them by surprise. */
+      .bl-check:disabled { opacity: .3; cursor: default; }
+      /* A spent commit control: invisible, inert, and still occupying its box.
+         `hidden` and .remove() both took the height with them, and because
+         .ll-object centres its column that shortened the block and dropped
+         every line on the screen by about 50px the instant an answer landed. */
+      .bl-check.is-spent, .ord-check.is-spent {
+        visibility: hidden; pointer-events: none;
+      }
+      @media (prefers-reduced-motion: reduce) { .bl-check:hover { transform: none; } }
+
       /* ==== Case card — the unit of Option B ================================
          Each case is self-contained and ends in a judgment. Nothing depends on
          anything before it, which is what lets a case be dropped, hardened or
@@ -106,7 +176,12 @@
          do three different things with them: READ the situation, ANSWER the
          question, PRESS one of the choices. They used to be near-identical
          bordered boxes, so the eye had to work out which was which. */
-      .cs-wrap { width: min(660px, 100%); margin-top: 20px; display: flex; flex-direction: column; align-items: stretch; }
+      .cs-wrap {
+        width: min(660px, 100%); margin-top: 20px; display: flex; flex-direction: column; align-items: stretch;
+        /* Positioning context for a static .rf-step badge — see the budget
+           choice, the one cs-wrap screen with a Part 1 shown from the start. */
+        position: relative;
+      }
 
       /* The situation: quoted, not carded — the same rule the story beat uses,
          so nothing about it invites a click. */
@@ -154,11 +229,16 @@
       .cs-opt.pick-ok   { border-color: var(--ll-teal); background: rgba(46, 230, 207, .12); color: #fff; }
       .cs-opt.pick-near { border-color: rgba(241, 179, 74, .5); background: rgba(241, 179, 74, .1); color: #fff; }
       .cs-opt.pick-bad  { border-color: rgba(255, 107, 107, .45); background: rgba(255, 107, 107, .09); color: #fff; }
+      /* Item 16: the harder test-up variant is served, not scored — a plain
+         "this is what you picked" mark, deliberately none of the three
+         verdict colours above, since there is no verdict to give one. */
+      .cs-opt.pick-neutral { border-color: rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .08); color: #fff; }
       /* The verdict is in the mark as well as the colour, so it survives being
          read by someone who can't tell teal from amber. */
       .cs-opt.pick-ok   .cs-mark { background: var(--ll-teal);      border-color: var(--ll-teal); }
       .cs-opt.pick-near .cs-mark { background: #f1b34a;             border-color: #f1b34a; }
       .cs-opt.pick-bad  .cs-mark { background: #ff6b6b;             border-color: #ff6b6b; }
+      .cs-opt.pick-neutral .cs-mark { background: rgba(255, 255, 255, .7); border-color: rgba(255, 255, 255, .7); }
       .cs-opts.answered .cs-opt:not([class*="pick-"]) { opacity: .32; }
       .cs-opt:disabled { cursor: default; transform: none; }
       @media (prefers-reduced-motion: reduce) { .cs-opt:hover:not(:disabled) { transform: none; } }
@@ -192,9 +272,19 @@
          nearly right reads worse than a diagram that is exactly right. The
          presenter can switch every one of these off to compare renderings. */
       .fig { margin: 0 0 26px; }
+      /* A sector photograph in place of the diagram. Same frame as .fig so the
+         two are interchangeable per lens — full-bleed inside the rounded
+         border, 16:9, and it never grows past the reading measure. */
       .fig svg {
         display: block; width: 100%; height: auto; border-radius: 14px;
         background: linear-gradient(160deg, #0e1826, #0a1120);
+        border: 1px solid var(--ll-line-soft);
+      }
+      /* A real image in the same frame as the inline SVGs. It carries its own
+         light ground, so it gets no painted background behind it — only the
+         same radius and hairline the diagrams have. */
+      .fig--photo img {
+        display: block; width: 100%; height: auto; border-radius: 14px;
         border: 1px solid var(--ll-line-soft);
       }
       .fig figcaption {
@@ -202,30 +292,6 @@
         color: var(--ll-ink-faint); text-align: left;
       }
 
-      /* ==== Follow-up commitment (Do / Sustain) =============================
-         The only objective whose evidence arrives after the module ends. It is
-         scheduled here rather than taught, which is the honest thing to show. */
-      .fu-wrap { width: min(600px, 100%); margin-top: 22px; display: flex; flex-direction: column; align-items: stretch; }
-      .fu-opts { display: grid; gap: 9px; }
-      .fu-card {
-        display: grid; grid-template-columns: 40px 1fr; gap: 14px; align-items: center;
-        text-align: left; font: inherit; color: var(--ll-ink); cursor: pointer;
-        background: rgba(255, 255, 255, .04); border: 1px solid var(--ll-line);
-        border-radius: 13px; padding: 14px 16px;
-        transition: border-color .18s ease, background .18s ease, opacity .3s ease;
-      }
-      .fu-card:hover:not(:disabled) { border-color: rgba(46, 230, 207, .5); background: rgba(255, 255, 255, .06); }
-      .fu-card .day {
-        width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
-        background: rgba(46, 230, 207, .1); border: 1px solid rgba(46, 230, 207, .28);
-        color: var(--ll-teal); font-size: 13px; font-weight: 800;
-      }
-      .fu-card b { display: block; font-size: 14px; color: #fff; }
-      .fu-card small { font-size: 12px; color: var(--ll-ink-soft); }
-      .fu-card.picked { border-color: var(--ll-teal); background: rgba(46, 230, 207, .12); }
-      .fu-opts.answered .fu-card:not(.picked) { opacity: .32; }
-      .fu-note { margin: 16px 0 0; font-size: 12px; line-height: 1.6; color: var(--ll-ink-faint); text-align: left; }
-      .fu-note b { color: var(--ll-ink-soft); }
 
       /* ==== Course title page — same anatomy as the Bystander module ======== */
       .cp-page { width: min(1040px, 100%); display: flex; flex-direction: column; gap: 22px; text-align: left; }
@@ -261,6 +327,19 @@
       .cp-sec-head h2 { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: #fff; }
       .cp-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid var(--ll-line-soft); }
       .cp-row:first-of-type { border-top: 0; }
+      /* A jumpable section. It is a <button>, so the browser's own styling has
+         to be undone before it looks like the row it replaced — the grid,
+         width and text alignment are the parts a button does not inherit. */
+      button.cp-row {
+        width: 100%; text-align: left; font: inherit; color: inherit;
+        background: none; border-left: 0; border-right: 0; border-bottom: 0;
+        cursor: pointer; border-radius: 8px;
+        transition: background .15s ease;
+      }
+      button.cp-row:hover { background: rgba(255, 255, 255, .05); }
+      button.cp-row:hover .cp-row-ico { border-color: rgba(46, 230, 207, .45); color: var(--ll-teal); }
+      button.cp-row:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .3); }
+      @media (prefers-reduced-motion: reduce) { button.cp-row { transition: none; } }
       .cp-row-ico {
         width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
         background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
@@ -271,6 +350,28 @@
       .cp-row-meta .stage { color: var(--ll-teal); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 10px; }
       .cp-row-meta .adapt { color: #c4b5fd; }
       .cp-row-meta .adapt i { font-size: 9px; margin-right: 3px; }
+      /* These five rules exist on the Bystander module's title page and were
+         dropped when this one was ported from it — so the state pills rendered
+         as 14px body text and the legend under the list rendered as ordinary
+         prose rather than as a caption, which is why nothing on the screen
+         looked like a label. */
+      .cp-row-state { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+      .cp-row-state.done { background: rgba(46, 230, 207, .12); color: var(--ll-teal); border: 1px solid rgba(46, 230, 207, .3); }
+      .cp-row-state.todo { background: rgba(255, 255, 255, .04); color: var(--ll-ink-faint); border: 1px solid var(--ll-line); }
+      .cp-adapt-note { margin: 12px 0 0; font-size: 11.5px; line-height: 1.55; color: var(--ll-ink-faint); }
+      .cp-adapt-note i { color: #c4b5fd; margin-right: 5px; }
+      .cp-adapt-note b { color: #c4b5fd; font-weight: 700; }
+
+      /* A section the entry questions removed. Shown struck through rather
+         than omitted: the rail's job on this screen is to say what the module
+         will be for THIS learner, and a compression you cannot see is
+         indistinguishable from a module that never had those sections. The
+         pill borrows the adaptive chip's violet so "adaptive" and "skipped"
+         read as the same mechanism. */
+      .cp-row.is-cut { opacity: .6; }
+      .cp-row.is-cut .cp-row-main b { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--ll-ink-soft); }
+      .cp-row.is-cut .cp-row-ico { color: var(--ll-ink-faint); }
+      .cp-row-state.cut { background: rgba(167, 139, 250, .12); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, .32); }
       .cp-rail { display: grid; gap: 14px; }
       .cp-card { background: rgba(255, 255, 255, .03); border: 1px solid var(--ll-line-soft); border-radius: 16px; padding: 15px 17px; }
       .cp-card h3 { margin: 0 0 10px; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--ll-teal); }
@@ -295,11 +396,16 @@
          renders the SAME four steps, so the toggle demonstrates derivation
          rather than four separately authored screens. */
       .pr-wrap { width: min(680px, 100%); display: flex; flex-direction: column; align-items: stretch; text-align: left; }
+      /* The cohort screen's second question shares the CHART's column, not the
+         narrower centred one .ef-wrap gives every other two-part beat: the
+         question is about those rows, and at 600px it wrapped five pixels
+         short of fitting on one line. */
+      .db-post { width: min(680px, 100%); display: flex; flex-direction: column; }
       .pr-h { margin: 6px 0 10px; font-size: clamp(22px, 3vw, 30px); font-weight: 800; color: #fff; letter-spacing: -.015em; }
       .pr-sub { margin: 0 0 22px; max-width: 62ch; font-size: 13.5px; line-height: 1.65; color: var(--ll-ink-faint); font-style: italic; }
 
-      .pr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 13px; }
-      .pr-item, .pr-turn { display: grid; grid-template-columns: 32px 1fr; gap: 14px; align-items: start; }
+      .pr-list { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 13px; }
+      .pr-item, .pr-turn, .pr-rule { display: grid; grid-template-columns: 32px 1fr; gap: 14px; align-items: start; }
       .pr-n {
         width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
         background: rgba(46, 230, 207, .12); border: 1px solid rgba(46, 230, 207, .3);
@@ -308,18 +414,60 @@
       .pr-main b { display: block; font-size: 15px; color: #fff; font-weight: 700; margin-bottom: 3px; }
       .pr-d { display: block; font-size: 13.5px; line-height: 1.6; color: var(--ll-ink-soft); }
 
+      /* Item 26: two rules that hold at every point in the sequence, not a
+         fifth and sixth step — a dashed rule above them and an amber mark
+         instead of a number is what tells the eye these are not next in
+         line, they are always in force. */
+      .pr-rules { list-style: none; margin: 0; padding: 14px 0 0; display: grid; gap: 13px; border-top: 1px dashed var(--ll-line); }
+      .pr-rule-mark {
+        background: rgba(241, 179, 74, .12) !important; border-color: rgba(241, 179, 74, .38) !important;
+        color: #f1b34a !important;
+      }
+
       /* Tutor carrier: the same list, arriving a step at a time. */
       .pr-tutor { display: grid; gap: 13px; min-height: 240px; }
       .pr-turn { opacity: 0; transform: translateY(6px); transition: opacity .3s ease, transform .3s ease; }
       .pr-turn.in { opacity: 1; transform: none; }
+      .pr-turn--rule { margin-top: 6px; padding-top: 19px; border-top: 1px dashed var(--ll-line); }
       @media (prefers-reduced-motion: reduce) { .pr-turn { transition: none; } }
 
-      /* Video carrier, and the fallback that keeps the path running when the
-         file is absent — a silent 404 here is the exact failure that emptied
-         every cold-open video in the archive cuts. */
-      .pr-video video { width: 100%; max-height: 46vh; border-radius: 14px; border: 1px solid var(--ll-line);
-                        background: #000; display: block; object-fit: contain; }
-      .pr-video video[hidden] { display: none; }
+      /* Video carrier — ported verbatim from the Bystander course's video beats
+         (clara/course.html) so both players look and behave identically. The
+         clip is fetched whole and played from a blob; .is-ready is what reveals
+         it once that finishes. */
+      .cv-video {
+        position: absolute; inset: 0; width: 100%; height: 100%;
+        object-fit: contain; background: #05080f; visibility: hidden;
+      }
+      .ll-media.is-ready .cv-video { visibility: visible; }
+      .cv-loader {
+        position: absolute; inset: 0; z-index: 2;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+        color: #aab6cc; font-size: 13px;
+      }
+      .ll-media.is-ready .cv-loader { display: none; }
+      .cv-spinner {
+        width: 42px; height: 42px; border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, .14); border-top-color: #2ee6cf;
+        animation: cv-spin .8s linear infinite;
+      }
+      @keyframes cv-spin { to { transform: rotate(360deg); } }
+      .cv-loader b { color: #2ee6cf; font-weight: 700; }
+      /* Prototype-only skip ON the video. Top-right so it clears the native
+         controls. Never shown to a learner. */
+      .cv-skip {
+        position: absolute; top: 12px; right: 12px; z-index: 4;
+        display: inline-flex; align-items: center; gap: 7px;
+        border: 0; border-radius: 999px; padding: 7px 14px;
+        background: rgba(0, 0, 0, .5); color: #fff;
+        font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+        transition: background .15s ease;
+      }
+      .cv-skip:hover { background: rgba(0, 0, 0, .7); }
+      .cv-skip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(255, 255, 255, .4); }
+      .cv-skip i { font-size: 11px; }
+      @media (prefers-reduced-motion: reduce) { .cv-spinner { animation-duration: 2.4s; } }
+
       .pr-vfall { margin: 12px 0 18px; font-size: 12.5px; line-height: 1.6; color: #f1b34a; }
       .pr-vfall i { margin-right: 6px; }
       .pr-vfall code { font-size: 11.5px; color: var(--ll-ink-soft); }
@@ -337,6 +485,680 @@
       .pr-declined b { color: #fff; }
       .pr-dec-fall { font-style: italic; color: var(--ll-ink-faint) !important; }
 
+      /* A procedure step that does not apply on this sector's premise. Not
+         hidden — a renovation supervisor should know the alternatives rule
+         exists — but unnumbered and set back, so the numbered list stays a
+         list of things they can actually do. */
+      .pr-item.is-context { opacity: .72; }
+      .pr-item.is-context .pr-n {
+        background: rgba(255, 255, 255, .05); border-color: var(--ll-line);
+        color: var(--ll-ink-faint); font-size: 12px;
+      }
+      .pr-item.is-context .pr-main b { color: var(--ll-ink-soft); font-weight: 600; }
+      .pr-item.is-context .pr-d { font-style: italic; }
+
+      /* ==== The premise beat — K2, Know / Understand =========================
+         One chain, three links, read top to bottom: a used point keeps a
+         trace → the point opens a route skin does not have → what the trace
+         can carry. The connectors are drawn rather than implied because the
+         argument only works in order. */
+      /* ==== The read carrier, as an article ==============================
+         This was four blocks of equal weight — three chain cards, a diagram,
+         a note and a sector strip — so the page had no reading order and each
+         element had to be taken on separately. The prose is the main body
+         now; everything else is deliberately subordinate to it. */
+      /* Item 19/D7: the Listen carrier, byte-copied from Bystander's own
+         "Read to me" pattern (clara/course.html's .aud-*) so the two courses
+         share one visual language for the same mechanism. */
+      .aud-wrap { width: min(62ch, 100%); text-align: left; }
+      .aud-play {
+        display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px;
+        font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer;
+        background: transparent; color: var(--ll-ink-soft);
+        border: 1px solid var(--ll-line); border-radius: 999px; padding: 7px 15px;
+        transition: color .2s ease, border-color .2s ease, background .2s ease;
+      }
+      .aud-play:hover { color: var(--ll-teal); border-color: rgba(46, 230, 207, .5); background: rgba(46, 230, 207, .08); }
+      .aud-play.on { color: var(--ll-teal); border-color: rgba(46, 230, 207, .45); background: rgba(46, 230, 207, .12); }
+      .aud-play:disabled { cursor: default; opacity: .5; }
+      .aud-text {
+        margin: 0; font-size: clamp(17px, 1.5vw, 19.5px); line-height: 1.8;
+        color: var(--ll-ink);
+      }
+      .aud-text .w { border-radius: 4px; padding: 0 1px; transition: background .12s ease, color .12s ease; }
+      .aud-text .w.hot { background: rgba(46, 230, 207, .25); color: #fff; }
+      .aud-note { margin-top: 20px; font-size: 11px; color: var(--ll-ink-faint); visibility: hidden; }
+      .aud-note.show { visibility: visible; }
+
+      .hz-article { max-width: 66ch; text-align: left; }
+      .hz-article p {
+        margin: 0 0 18px; font-size: 16px; line-height: 1.72; color: var(--ll-ink);
+      }
+      /* The opening paragraph carries a little more weight, so the eye has an
+         obvious place to start rather than four equal candidates. */
+      .hz-lede { font-size: 18px !important; line-height: 1.66 !important; color: #fff !important; }
+      /* The figure sits INSIDE the argument, at the paragraph it illustrates. */
+      .hz-article .fig { margin: 24px 0 26px; }
+
+      /* Section headings. The article is long enough to need waypoints, and
+         they are the thing a returning reader scans for. */
+      .hz-h {
+        margin: 34px 0 12px !important; font-size: 20px !important; font-weight: 800;
+        line-height: 1.3; color: #fff !important; letter-spacing: -.01em;
+      }
+      .hz-article > .hz-h:first-child { margin-top: 0 !important; }
+
+      /* Three pathogens that behave differently. Set as a comparison, because
+         as one paragraph the reader has to hold all of it at once. */
+      .hz-path {
+        margin: 20px 0 22px; display: grid; gap: 1px;
+        border: 1px solid var(--ll-line-soft); border-radius: 14px; overflow: hidden;
+        background: var(--ll-line-soft);
+      }
+      .hz-path-row {
+        display: grid; grid-template-columns: 132px 1fr; gap: 16px;
+        padding: 14px 17px; background: #0d1521;
+      }
+      .hz-path-row b { font-size: 14.5px; font-weight: 800; color: var(--ll-teal); line-height: 1.45; }
+      .hz-path-row span { font-size: 14px; line-height: 1.6; color: var(--ll-ink-soft); }
+      @media (max-width: 559px) {
+        .hz-path-row { grid-template-columns: 1fr; gap: 5px; }
+      }
+
+      /* The pull-quote. The one line on this page worth stopping on, so it
+         gets the treatment rather than being a fourth paragraph. */
+      .hz-pull {
+        margin: 26px 0; padding: 2px 0 2px 20px;
+        border-left: 3px solid rgba(46, 230, 207, .55);
+        font-size: 19px; line-height: 1.55; font-weight: 600; color: #fff;
+      }
+
+      /* The précis: three headlines for a skimmer. Small, boxed, and clearly
+         secondary to the prose it summarises. */
+      .hz-keys {
+        margin: 28px 0 22px; padding: 15px 18px 16px; border-radius: 14px;
+        border: 1px solid var(--ll-line-soft); background: rgba(46, 230, 207, .05);
+      }
+      .hz-keys-h {
+        margin: 0 0 11px !important; font-size: 10.5px !important; font-weight: 800;
+        letter-spacing: .11em; text-transform: uppercase; color: var(--ll-teal) !important;
+      }
+      .hz-keys ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+      .hz-keys li {
+        display: grid; grid-template-columns: 16px 1fr; gap: 12px; align-items: baseline;
+        font-size: 14px; line-height: 1.5; color: var(--ll-ink);
+      }
+      .hz-keys li { grid-template-columns: 7px 1fr !important; }
+      .hz-keys li::before {
+        content: ''; width: 5px; height: 5px; margin-top: 8px; border-radius: 50%;
+        background: var(--ll-teal); justify-self: center;
+      }
+      .hz-habit {
+        margin: 14px 0 0 !important; padding-top: 13px;
+        border-top: 1px solid var(--ll-line-soft);
+        font-size: 14px !important; line-height: 1.62 !important; color: var(--ll-ink) !important;
+      }
+      .hz-coda {
+        margin: 12px 0 0 !important;
+        font-size: 15px !important; font-weight: 700; color: #fff !important; line-height: 1.5 !important;
+      }
+
+      /* The sector strip: what counts as a sharp on THIS job. The generic
+         definition is a needle; the reason the four sectors are not four coats
+         of paint is that three of them are mostly not needles. Closes the
+         article as a footnote — ruled off and quieter than the body, so it
+         reads as reference rather than as another part of the argument. */
+      .hz-sector {
+        margin-top: 30px; padding: 16px 0 0;
+        border-top: 1px solid var(--ll-line);
+      }
+      .hz-sector-h {
+        margin: 0 0 9px; font-size: 10.5px; font-weight: 800; letter-spacing: .11em;
+        text-transform: uppercase; color: var(--ll-teal);
+      }
+      .hz-sector-h i { margin-right: 7px; font-size: 10px; }
+      .hz-sector p { margin: 0 !important; font-size: 13.5px !important; line-height: 1.6 !important; color: var(--ll-ink-soft) !important; text-align: left; }
+      .hz-sector-note {
+        margin-top: 9px !important; padding-top: 10px; border-top: 1px solid var(--ll-line-soft);
+        font-size: 12.5px !important; color: var(--ll-ink-faint) !important;
+      }
+
+
+      /* ==== A second ask on the same screen =================================
+         Three beats now reveal a follow-up question after the first one
+         settles — the budget choice then its rating, the account then the
+         belief re-rate, the timed press then the route. Same treatment in all
+         three so the pattern reads as one thing: a rule above it, and space,
+         so it arrives as a next question rather than as more of the last one. */
+      /* ==== Cohort debrief — the recall, then an opt-in reveal ============
+         The learner answered this at the entry battery and nothing had
+         referred to it since; the screen asked again and corrected the fresh
+         answer instead. Quoting the original back is what makes the sector
+         figure a correction of something they actually said, and asking
+         before revealing makes the number something they chose to see. */
+      .db-recall {
+        width: min(640px, 100%); margin-top: 22px; text-align: left;
+        padding: 16px 18px; border-radius: 14px;
+        border: 1px solid var(--ll-line); border-left: 3px solid rgba(46, 230, 207, .55);
+        background: rgba(255, 255, 255, .04);
+      }
+      .db-recall-h {
+        margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .09em;
+        text-transform: uppercase; color: var(--ll-ink-faint);
+      }
+      .db-recall-h i { margin-right: 6px; color: rgba(46, 230, 207, .7); }
+      /* Left-aligned and measure-capped: it is a sentence of prose, not a
+         label, and the surrounding object centres its text. */
+      .db-recall-q { margin: 9px 0 0; max-width: 62ch; font-size: 15px; line-height: 1.45; color: var(--ll-ink-soft); }
+      .db-recall-a { margin: 12px 0 0; font-size: 20px; font-weight: 800; color: #fff; }
+
+      .db-invite { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      .db-invite-q { margin: 0; font-size: 17px; font-weight: 700; color: #fff; }
+      .db-reveal {
+        font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 9px;
+        padding: 11px 22px; border-radius: 999px;
+        color: #04211d; background: var(--ll-teal); border: 1px solid var(--ll-teal);
+        transition: filter .16s ease, transform .12s ease;
+      }
+      .db-reveal:hover { filter: brightness(1.08); }
+      .db-reveal:active { transform: translateY(1px); }
+
+      /* The chart rows are read-only now — the guess happened at the entry
+         battery, so the only control on this screen is the reveal. */
+      .pr-choice.pr-static { cursor: default; }
+      .pr-choice.pr-static:hover { border-color: var(--ll-line); }
+      .pr-choice.pr-static.picked:hover { border-color: var(--ll-teal); }
+
+      .ct-second {
+        margin-top: 32px; padding-top: 26px;
+        border-top: 1px solid var(--ll-line-soft);
+        animation: ct-rise .34s ease both;
+      }
+      .ct-second .cs-q { margin-top: 10px; }
+      .ct-second .bl-options { margin-top: 16px; }
+      @keyframes ct-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+      @media (prefers-reduced-motion: reduce) { .ct-second { animation: none; } }
+
+      .ct-sub { margin: 0 0 20px !important; max-width: 62ch; font-size: 14.5px !important; }
+
+      /* ==== Reinforcement layer ============================================
+         One extra question laid OVER the content that motivates it. Used by
+         the three screens that ask twice (the account, the budget choice, the
+         cohort figures). The content is HELD rather than replaced: it stays
+         legible behind a light blur, so the learner can see WHAT the second
+         question is about — the same language the Scenario Simulator uses
+         when its coach panel comes forward over a live scene.
+
+         Everything except the layer is what recedes, so no screen needed its
+         markup restructured to adopt this. */
+      .rf-on > *:not(.rf-layer) {
+        filter: blur(2.4px);
+        opacity: .42;
+        pointer-events: none;
+        user-select: none;
+        transition: filter .42s ease, opacity .42s ease;
+      }
+      .rf-layer {
+        position: relative;
+        margin-top: 30px;
+        padding: 24px 26px 26px;
+        /* The card holds a question ABOUT the content behind it, so it keeps
+           that content's own measure and alignment. Two things went wrong
+           when it didn't: border-box let 52px of padding eat into the
+           column, so the question wrapped where the chart it refers to does
+           not; and .ef-wrap centres its children, so the card came out as a
+           narrow centred stack in a module that left-aligns everything. */
+        box-sizing: content-box;
+        align-items: stretch;
+        text-align: left;
+        border: 1px solid rgba(46, 230, 207, .3);
+        border-radius: 18px;
+        background: linear-gradient(180deg, rgba(16, 32, 48, .97), rgba(9, 19, 31, .99));
+        box-shadow: 0 20px 54px rgba(0, 0, 0, .55);
+        animation: rf-rise .44s var(--ll-ease) both;
+      }
+      /* The card carries its own edge, so the divider .ct-second draws when it
+         is stacked underneath would be a second line in the same place. */
+      .rf-layer.ct-second { border-top: 1px solid rgba(46, 230, 207, .3); padding-top: 24px; }
+      .rf-layer > :first-child { margin-top: 0; }
+      /* Where you are in a screen that asks twice. Top-right of the card so it
+         reads as a property of the card rather than as another line of copy
+         competing with the question. */
+      .rf-step {
+        position: absolute; top: 14px; right: 18px;
+        font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+        color: var(--ll-ink-faint);
+        padding: 3px 9px; border-radius: 999px;
+        background: rgba(255, 255, 255, .04); border: 1px solid var(--ll-line);
+      }
+      /* The card takes focus when it appears, and a focus ring on a whole card
+         reads as an error state — the reveal animation is the cue instead. */
+      .rf-layer:focus { outline: none; }
+      .rf-layer:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28), 0 20px 54px rgba(0, 0, 0, .55); }
+      @keyframes rf-rise {
+        from { opacity: 0; transform: translateY(16px); }
+        to   { opacity: 1; transform: none; }
+      }
+      /* Reduced motion: drop the blur and the rise, keep the dim. Same call
+         the simulator makes on its frozen stage — a static dim still says
+         "held" without animating or softening anything. */
+      @media (prefers-reduced-motion: reduce) {
+        .rf-layer { animation: none; }
+        .rf-on > *:not(.rf-layer) { filter: none; opacity: .5; transition: none; }
+      }
+
+      /* ==== The Sustain commit, inside the rehearsal card ==================
+         Two fields: which shift breaks it for you, and where your container
+         is in your own words. Replaced a separate screen that asked the
+         learner to pick a follow-up date. */
+      .wk-field-h {
+        margin: 18px 0 10px; max-width: var(--sh-measure, 62ch);
+        font-size: 14px; font-weight: 700; color: #fff; text-align: left;
+      }
+      /* The sentence the field completes, shown above it. One weight, one
+         size, italic — it is a quotation, not another instruction. */
+      .wk-stem {
+        margin: 0 0 12px; max-width: var(--sh-measure, 62ch);
+        font-size: 16px; line-height: 1.5; color: var(--ll-ink-soft);
+        font-style: italic; text-align: left;
+      }
+      .wk-conds { display: grid; gap: 8px; max-width: 560px; }
+      .wk-cond {
+        padding: 12px 15px; border-radius: 11px; text-align: left;
+        border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .03);
+        color: var(--ll-ink); font: inherit; font-size: 14px; cursor: pointer;
+        transition: border-color .15s ease, background .15s ease;
+      }
+      .wk-cond:hover:not(:disabled) { border-color: rgba(46, 230, 207, .4); background: rgba(46, 230, 207, .05); }
+      .wk-cond:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .3); }
+      .wk-cond.picked { border-color: rgba(46, 230, 207, .6); background: rgba(46, 230, 207, .09); color: #fff; }
+      .wk-cond:disabled { cursor: default; opacity: .5; }
+      .wk-cond.picked:disabled { opacity: 1; }
+      .wk-route {
+        width: 100%; max-width: 560px; padding: 13px 15px;
+        border-radius: 11px; border: 1px solid var(--ll-line);
+        background: rgba(0, 0, 0, .25); color: #fff; font: inherit; font-size: 15px;
+      }
+      .wk-route::placeholder { color: var(--ll-ink-faint); }
+      .wk-route:focus { outline: none; border-color: rgba(46, 230, 207, .5); }
+      .wk-route:disabled { opacity: .8; }
+      #wkCommit { margin-top: 16px; }
+
+      /* ==== The chain — one decision, followed through =======================
+         F1's screen, and the module's first content. Local to this module
+         rather than in layered-beats.css: that file is strictly the patterns
+         the Bystander course shares, and nothing else uses this yet. Promote
+         it there if a second module adopts the mechanic.
+
+         Vertical, not the horizontal strip the spec drew. Four nodes of two
+         lines each do not survive a phone laid out left to right, and this
+         module gets reviewed on both. */
+      .ch-wrap { width: min(660px, 100%); margin-top: 8px; display: flex; flex-direction: column; align-items: stretch; }
+
+      /* The frame: one imperative, no chrome, tapped past rather than read
+         around. It is the line the debrief closes back on. */
+      .ch-frame { display: flex; flex-direction: column; align-items: flex-start; padding: 26px 0 8px; }
+      /* A mark, so the activity has a shape before it has any content. The
+         frame was three lines of text on an empty field and read as a title
+         card rather than the front of something you are about to do. */
+      .ch-frame-mark {
+        display: grid; place-items: center;
+        width: 52px; height: 52px; margin-bottom: 22px;
+        border-radius: 14px;
+        background: rgba(46, 230, 207, .12);
+        border: 1px solid rgba(46, 230, 207, .3);
+        color: var(--ll-teal); font-size: 21px;
+      }
+      /* Cross-fade into the timeline. The frame used to be switched off and
+         the run switched on in the same tick, which read as a cut. */
+      .ch-frame { transition: opacity .24s ease, transform .24s var(--ll-ease); }
+      .ch-frame.is-leaving { opacity: 0; transform: translateY(-6px); }
+      .ch-run { transition: opacity .3s ease, transform .3s var(--ll-ease); }
+      .ch-run.is-entering { opacity: 0; transform: translateY(8px); }
+      @media (prefers-reduced-motion: reduce) {
+        .ch-frame, .ch-run { transition: none; }
+        .ch-frame.is-leaving, .ch-run.is-entering { transform: none; }
+      }
+      .ch-lead {
+        margin: 0; max-width: 30ch;
+        font-size: clamp(26px, 5vw, 38px); font-weight: 800; line-height: 1.18;
+        letter-spacing: -.015em; color: #fff; text-align: left;
+      }
+      .ch-lead-sub {
+        margin: 16px 0 0; max-width: 44ch;
+        font-size: 16.5px; line-height: 1.6; color: var(--ll-ink-soft); text-align: left;
+      }
+      .ch-start {
+        margin-top: 30px; align-self: flex-start;
+        font: inherit; font-size: 14px; font-weight: 700; color: #04121a;
+        background: var(--ll-teal); border: 0; border-radius: 999px;
+        padding: 11px 26px; cursor: pointer;
+        transition: filter .16s ease, transform .16s ease;
+      }
+      .ch-start:hover { filter: brightness(1.08); transform: translateY(-1px); }
+      .ch-start:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      @media (prefers-reduced-motion: reduce) { .ch-start:hover { transform: none; } }
+
+      /* Item 31/D11: the bridge into the culminating scenario. Same shape as
+         the timeline's own frame (a mark, a lead line, a sub-line) since both
+         are "here is the moment you are about to step into" screens — but its
+         own class names, since this one carries no transition of its own and
+         adds the "what will happen" block the frame never needed. */
+      .ho-wrap { display: flex; flex-direction: column; align-items: flex-start; padding: 26px 0 8px; }
+      .ho-mark {
+        display: grid; place-items: center;
+        width: 52px; height: 52px; margin-bottom: 22px;
+        border-radius: 14px;
+        background: rgba(46, 230, 207, .12);
+        border: 1px solid rgba(46, 230, 207, .3);
+        color: var(--ll-teal); font-size: 21px;
+      }
+      .ho-lead {
+        margin: 0; max-width: 34ch;
+        font-size: clamp(24px, 4.5vw, 34px); font-weight: 800; line-height: 1.2;
+        letter-spacing: -.015em; color: #fff; text-align: left;
+      }
+      .ho-lead-sub {
+        margin: 16px 0 0; max-width: 46ch;
+        font-size: 16px; line-height: 1.6; color: var(--ll-ink-soft); text-align: left;
+      }
+      .ho-what {
+        margin-top: 28px; padding: 16px 18px; max-width: 46ch;
+        border-radius: 14px; border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .03);
+      }
+      .ho-what-h { margin: 0 0 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ll-teal); }
+      .ho-what-d { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ll-ink-soft); }
+
+      /* The nodes are APPENDED as they are revealed, not pre-rendered and
+         un-hidden. Holding all of them in the DOM kept the list from
+         reflowing, but it also parked the advance button hundreds of pixels
+         below the last readable line — at its worst on the opening node,
+         when the learner has the least to go on. The object is top-aligned
+         for this beat (.ll-object--chain) so growth appends downward and
+         nothing above the read point moves. */
+      .ll-object--chain { justify-content: flex-start; }
+      .ch-chain { list-style: none; margin: 18px 0 0; padding: 0; }
+      .ch-node {
+        display: grid; grid-template-columns: 26px 1fr; gap: 16px;
+        position: relative;
+        /* A CSS animation, not a class flipped on the next frame: a hidden or
+           backgrounded tab never fires rAF, and a node whose reveal depended
+           on one would sit at opacity 0 indefinitely. */
+        animation: chNodeIn .42s var(--ll-ease) both;
+      }
+      @keyframes chNodeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      /* Earlier nodes stay VISIBLE and recede rather than being removed: the
+         sequence has to be in view for the last node to mean anything. The
+         dim lands on the TEXT so the connector keeps its full opacity. */
+      .ch-node.is-past .ch-main { opacity: .5; }
+      .ch-node.is-past.is-open .ch-main { opacity: .72; }
+      .ch-node.is-past .ch-dot { opacity: .6; }
+      @media (prefers-reduced-motion: reduce) { .ch-node { animation: none; } }
+
+      /* ==== Folding a node the learner has moved past ====================
+         Five expanded nodes plus their gap rows do not fit a laptop viewport,
+         and the newest node is always the one that matters. A past node folds
+         to its clock time and one peek line, and reopens on click. Reopening
+         is sticky: advancing does not slam shut something the learner chose
+         to open. */
+      .ch-head {
+        display: flex; align-items: baseline; gap: 12px; width: 100%;
+        margin: 0; padding: 0; text-align: left;
+        font: inherit; color: inherit; background: none; border: 0;
+        border-radius: 7px;
+      }
+      .ch-head:disabled { cursor: default; }
+      .ch-node.is-past .ch-head { cursor: pointer; }
+      .ch-head:not(:disabled):focus-visible {
+        outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28);
+      }
+      .ch-time { flex: 0 0 auto; }
+      /* Hidden while the node is expanded — the body is saying it already. */
+      .ch-peek { display: none; }
+      .ch-chev {
+        display: none; flex: 0 0 auto; margin-left: auto;
+        font-size: 10px; color: var(--ll-ink-faint); transition: transform .2s ease;
+      }
+      .ch-node.is-past .ch-chev { display: block; }
+      .ch-node.is-past.is-open .ch-chev { transform: rotate(180deg); }
+
+      .ch-node.is-past:not(.is-open) .ch-body { display: none; }
+      .ch-node.is-past:not(.is-open) .ch-peek {
+        display: block; flex: 1 1 auto; min-width: 0;
+        font-size: 14px; line-height: 1.5; color: var(--ll-ink-soft);
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .ch-node.is-past .ch-head:hover .ch-time,
+      .ch-node.is-past .ch-head:hover .ch-peek,
+      .ch-node.is-past .ch-head:hover .ch-chev { color: var(--ll-teal); }
+      @media (prefers-reduced-motion: reduce) { .ch-chev { transition: none; } }
+
+      /* ==== The gap between two nodes, named and to scale =================
+         The clocks alone never showed time passing: a one-minute gap, a
+         four-hour gap and a twelve-week gap all rendered as the same 22px of
+         padding, and the labels mixed a 24-hour clock, a 12-hour clock and a
+         relative duration. The gap is now its own row carrying the elapsed
+         time in words, and its height scales with the size of the jump — so
+         the connector itself is the thing that shows the wait. */
+      .ch-gapline {
+        position: relative; display: grid; grid-template-columns: 26px 1fr; gap: 16px;
+        align-items: center;
+      }
+      .ch-gapline::before {
+        content: ''; position: absolute; left: 12.5px; top: 0; bottom: 0; width: 1px;
+        background: rgba(46, 230, 207, .45);
+        animation: chLineIn .5s var(--ll-ease) both; transform-origin: top;
+      }
+      @keyframes chLineIn { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+      .ch-gapline span {
+        grid-column: 2; font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+        text-transform: uppercase; color: var(--ll-ink-faint); text-align: left;
+      }
+      .ch-gapline.gap-s { min-height: 38px; }
+      .ch-gapline.gap-m { min-height: 68px; }
+      .ch-gapline.gap-l { min-height: 104px; }
+      /* The tall connector exists to make the wait felt as it lands. Once the
+         learner is past it, it has done that job and only costs height. */
+      .ch-gapline.is-past.gap-s,
+      .ch-gapline.is-past.gap-m,
+      .ch-gapline.is-past.gap-l { min-height: 26px; }
+      .ch-gapline.is-past span { font-size: 9.5px; opacity: .68; }
+      @media (prefers-reduced-motion: reduce) { .ch-gapline::before { animation: none; } }
+
+      /* ==== The decision ==================================================
+         The screen promised one and never had one. Two options, both within
+         reach in the scene above, and the chain runs from whichever is
+         picked. */
+      .ch-pick { margin-top: 22px; }
+      /* ONE lockup: the scene and the two destinations in a single bounded
+         card, image flush to the top corners. The point is that the choice is
+         read off the frame — both destinations are visible in it — rather than
+         off the prose above. Sectors without a hero get the same card minus
+         the image, so nothing has to branch in CSS. */
+      .ch-lockup {
+        border: 1px solid var(--ll-line); border-radius: 16px; overflow: hidden;
+        background: rgba(255, 255, 255, .035);
+      }
+      .ch-hero {
+        display: block; width: 100%; height: auto;
+        /* Capped and cropped rather than left at its natural 16:9, which ran
+           to 371px at this measure. Biased upward so the wall container near
+           the top edge survives the crop — it is one of the two answers. */
+        max-height: 268px; object-fit: cover; object-position: 50% 38%;
+        background: #060a11;
+      }
+      .ch-lockup-body { padding: 17px 18px 18px; }
+      .ch-pick-q { margin: 0 0 13px; font-size: 18px; font-weight: 800; color: #fff; text-align: left; }
+      /* Two abreast: it is a binary choice and side-by-side says so, while
+         also keeping the lockup short. Stacks under 560px. */
+      .ch-pick-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      @media (max-width: 559px) { .ch-pick-opts { grid-template-columns: 1fr; } }
+      .ch-pick-opt {
+        display: grid; grid-template-columns: 20px 1fr; gap: 12px; align-items: center;
+        font: inherit; font-size: 14.5px; line-height: 1.4; text-align: left;
+        color: var(--ll-ink); cursor: pointer;
+        padding: 14px 16px; border-radius: 12px;
+        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        transition: border-color .16s ease, background .16s ease;
+      }
+      .ch-pick-opt:hover { border-color: rgba(46, 230, 207, .55); background: rgba(46, 230, 207, .08); }
+      .ch-pick-opt:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .25); }
+      .ch-pick-opt i { color: var(--ll-teal); font-size: 15px; justify-self: center; }
+
+      /* Take the other route. On the UNSAFE route this is what it has always
+         been — a quiet offer, because the footer Continue is also live and
+         moving on is the main thing. On the SAFE route it flips: seeing what
+         the shortcut costs is worth more than just continuing, so `.is-primary`
+         (toggled in chainInit's settle(), alongside demoting the footer button
+         via ctx.els.next) makes it the stronger of the two calls instead. */
+      .ch-retry {
+        align-self: flex-start; margin-top: 20px;
+        font: inherit; font-size: 13.5px; font-weight: 600; color: #f1b34a;
+        background: rgba(241, 179, 74, .1); border: 1px solid rgba(241, 179, 74, .38);
+        border-radius: 999px; padding: 10px 22px; cursor: pointer;
+        transition: background .15s ease, border-color .15s ease, box-shadow .15s ease;
+      }
+      .ch-retry:hover { background: rgba(241, 179, 74, .18); border-color: rgba(241, 179, 74, .6); }
+      .ch-retry:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(241, 179, 74, .3); }
+      .ch-retry i { margin-right: 8px; font-size: 12px; }
+      .ch-retry.is-primary {
+        color: #052b27; background: var(--ll-grad); border-color: transparent;
+        box-shadow: 0 6px 18px rgba(20, 184, 166, .34);
+      }
+      .ch-retry.is-primary:hover { background: var(--ll-grad); filter: brightness(1.06); }
+      .ch-retry.is-primary:focus-visible { box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+
+      /* ==== The downstream question, on its own screen ==================== */
+      .dn-wrap { width: min(620px, 100%); display: flex; flex-direction: column; align-items: stretch; }
+      .dn-hint { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ll-ink-faint); text-align: left; }
+
+      .ch-dot {
+        width: 26px; height: 26px; margin-top: 2px; border-radius: 50%;
+        display: grid; place-items: center;
+        background: rgba(46, 230, 207, .14); border: 1px solid rgba(46, 230, 207, .42);
+      }
+      .ch-dot::after {
+        content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ll-teal);
+      }
+      .ch-main { display: flex; flex-direction: column; gap: 5px; min-width: 0; transition: opacity .42s ease; }
+      .ch-time {
+        font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
+        color: var(--ll-teal); font-variant-numeric: tabular-nums;
+      }
+      .ch-body { font-size: 16px; line-height: 1.62; color: var(--ll-ink); text-align: left; }
+
+      .ch-next {
+        align-self: flex-start; margin-top: 22px;
+        font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ll-ink);
+        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        border-radius: 999px; padding: 10px 22px; cursor: pointer;
+        transition: border-color .15s ease, background .15s ease, color .15s ease;
+      }
+      .ch-next:hover { border-color: var(--ll-teal); color: var(--ll-teal); background: rgba(46, 230, 207, .1); }
+      .ch-next:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .25); }
+      .ch-next i { margin-left: 7px; font-size: 11px; }
+
+      /* The close. Two lines, quoted rather than carded — the same register
+         the account uses, so nothing about it invites a click. */
+      .ch-close {
+        margin-top: 26px; padding: 2px 0 2px 20px;
+        border-left: 2px solid rgba(46, 230, 207, .35);
+        animation: ct-rise .38s ease both;
+      }
+      .ch-close p {
+        margin: 0; font-size: 17px; line-height: 1.6; color: #fff; text-align: left; font-weight: 600;
+      }
+      .ch-close p + p { margin-top: 10px; color: var(--ll-ink-soft); font-weight: 400; font-size: 16px; }
+      @media (prefers-reduced-motion: reduce) { .ch-close { animation: none; } }
+
+      /* The open prompt. A textarea rather than three options on purpose:
+         the answer IS the evidence, and no option list can contain a name. */
+      .ch-input {
+        width: 100%; margin-top: 16px; padding: 13px 15px;
+        font: inherit; font-size: 15px; line-height: 1.55; color: var(--ll-ink);
+        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        border-radius: 13px; resize: vertical;
+      }
+      .ch-input::placeholder { color: var(--ll-ink-faint); }
+      .ch-input:focus { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .2); }
+      .ch-input:disabled { opacity: .6; }
+      .ch-send {
+        margin-top: 14px; align-self: flex-start;
+        font: inherit; font-size: 14px; font-weight: 700; color: #04121a;
+        background: var(--ll-teal); border: 0; border-radius: 999px;
+        padding: 10px 24px; cursor: pointer; transition: filter .16s ease;
+      }
+      .ch-send:hover:not(:disabled) { filter: brightness(1.08); }
+      .ch-send:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      .ch-send:disabled { opacity: .4; cursor: default; }
+      .ch-echo {
+        margin: 16px 0 0; max-width: 62ch;
+        font-size: 14px; line-height: 1.6; color: var(--ll-ink-soft); text-align: left;
+      }
+
+      /* ==== Modality chooser — shared by any beat offering a choice =========
+         A segmented control, not a gate. The learner arrives on the default
+         carrier and can still see what the other option is and what it costs;
+         each option carries its own cost inline, so the tradeoff is legible
+         for the route NOT taken, which is the half that informs a choice. */
+      .md-pick {
+        /* align-self as well as inline-flex: .pr-wrap is a stretch flex
+           column, so an inline-flex child still spans the full measure. */
+        display: inline-flex; align-self: flex-start; gap: 4px; margin: 0 0 20px;
+        padding: 4px; border-radius: 14px;
+        border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .04);
+      }
+      .md-opt {
+        display: grid; grid-template-columns: 18px auto; gap: 11px; align-items: center;
+        font: inherit; text-align: left; cursor: pointer; color: var(--ll-ink-soft);
+        padding: 9px 16px; border-radius: 11px;
+        background: none; border: 1px solid transparent;
+        transition: background .16s ease, color .16s ease, border-color .16s ease;
+      }
+      .md-opt i { font-size: 14px; justify-self: center; }
+      .md-opt-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+      .md-opt b { font-size: 14.5px; font-weight: 700; }
+      .md-cost {
+        font-size: 11px; font-weight: 600; letter-spacing: .02em;
+        color: var(--ll-ink-faint); white-space: nowrap;
+      }
+      .md-opt:hover { color: var(--ll-ink); background: rgba(255, 255, 255, .05); }
+      .md-opt.is-on {
+        color: #fff; background: rgba(46, 230, 207, .13);
+        border-color: rgba(46, 230, 207, .42);
+      }
+      .md-opt.is-on i { color: var(--ll-teal); }
+      .md-opt.is-on .md-cost { color: rgba(46, 230, 207, .85); }
+      .md-opt:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28); }
+      @media (max-width: 479px) { .md-pick { display: flex; flex-direction: column; } }
+
+      /* ==== Capability under pressure — F4's if-then card ===================
+         The rating itself runs on the shared .ef-* slider in
+         css/layered-beats.css. Only the threshold-gated card is local. */
+      .wk-plan {
+        padding: 18px 20px; border-radius: 14px;
+        border: 1px solid rgba(46, 230, 207, .32); background: rgba(46, 230, 207, .07);
+      }
+      .wk-plan-h {
+        margin: 0 0 12px; font-size: 14.5px; font-weight: 700; color: #fff; text-align: left;
+      }
+      .wk-plan-h i { margin-right: 9px; color: var(--ll-teal); font-size: 13px; }
+      .wk-say {
+        margin: 0; font-size: 16px; line-height: 1.62; color: var(--ll-ink); text-align: left;
+      }
+      .wk-say b { color: #fff; font-weight: 700; }
+      .wk-plan-note {
+        margin: 12px 0 0 !important; padding-top: 12px;
+        border-top: 1px solid rgba(46, 230, 207, .2);
+        font-size: 13.5px !important; line-height: 1.6; color: var(--ll-ink-soft) !important; text-align: left;
+      }
+      .wk-held {
+        margin: 0; max-width: 62ch;
+        font-size: 14.5px; line-height: 1.62; color: var(--ll-ink-soft); text-align: left;
+      }
+
+    
     </style>
 </head>
 <body>
@@ -349,8 +1171,8 @@
       window.LESSON_FRAME = { course: 'Bloodborne Pathogens', lesson: 'Welcome' };
     </script>
     <script src="../js/mobius-orb.js?v=5"></script>
-    <script src="../js/frame.js?v=4"></script>
-    <script src="../js/layered-engine.js?v=7"></script>
-    <script src="../js/layered-sharps.js?v=19"></script>
+    <script src="../js/frame.js?v=7"></script>
+    <script src="../js/layered-engine.js?v=20"></script>
+    <script src="../js/layered-sharps.js?v=148"></script>
 </body>
 </html>

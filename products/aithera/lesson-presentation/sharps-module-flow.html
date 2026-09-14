@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Contain the Sharp — Current Module Flow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+  :root {
+    --ink:      #1b2227;
+    --ink2:     #5a646b;
+    --ink3:     #8a9299;
+    --page:     #f4f5f6;
+    --paper:    #ffffff;
+    --line:     #9aa4ac;
+    --rule:     #dfe3e6;
+
+    /* domain colours taken from the whiteboard sketch this follows */
+    --entry:    #a8b4c4;
+    --pretest:  #e9eaea;
+    --know:     #a6ebe6;
+    --feel:     #c9b6f5;
+    --do:       #a8e8b0;
+    --skip:     #ffffff;
+
+    --flag:     #c8102e;   /* content with no stakeholder source */
+    --hand:     "Caveat", "Bradley Hand", cursive;
+    --sans:     "Source Sans 3", -apple-system, "Segoe UI", sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 28px 20px; }
+
+  h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--ink2); margin: 0 0 4px; max-width: 78ch; }
+  .stamp { font-size: 13px; color: var(--ink3); margin: 0 0 26px; }
+
+  /* ---- legend ---- */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+    padding: 14px 18px; background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 6px; margin-bottom: 8px; font-size: 13px;
+  }
+  .key { display: flex; align-items: center; gap: 7px; }
+  .sw { width: 15px; height: 15px; border-radius: 3px; border: 1px solid rgba(0,0,0,.16); }
+  .legend .note { color: var(--ink2); }
+
+  .srcline {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+    padding: 12px 18px; background: var(--paper); border: 1px solid var(--rule);
+    border-radius: 6px; margin-bottom: 26px; font-size: 13px; color: var(--ink2);
+  }
+  .badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap;
+  }
+  .b-deck { color: #1b6455; }
+  .b-spec { color: #35617f; }
+  .b-ours { color: var(--flag); }
+
+  /* ---- canvas ---- */
+  .scroller {
+    overflow-x: auto; background: var(--paper);
+    border: 1px solid var(--rule); border-radius: 6px; padding: 34px 30px 30px;
+    scrollbar-width: thin;
+  }
+  .flow { display: flex; align-items: center; gap: 0; width: max-content; }
+
+  .col { display: flex; flex-direction: column; justify-content: center; }
+
+  /* sticky card */
+  .card {
+    width: 168px; min-height: 132px; border-radius: 3px; padding: 12px 13px;
+    box-shadow: 2px 3px 0 rgba(27,34,39,.10);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .card.entry   { background: var(--entry); }
+  .card.pretest { background: var(--pretest); }
+  .card.know    { background: var(--know); }
+  .card.feel    { background: var(--feel); }
+  .card.do      { background: var(--do); }
+  .card.skip    { background: var(--skip); border: 1px solid #cfd5da; box-shadow: none; }
+
+  .card .t { font-family: var(--hand); font-size: 21px; line-height: 1.02; }
+  .card .obj {
+    font-size: 10px; font-weight: 700; letter-spacing: .05em;
+    color: rgba(27,34,39,.62);
+  }
+  .card .m { font-size: 11.5px; color: rgba(27,34,39,.74); line-height: 1.35; }
+  .card .foot {
+    margin-top: auto; display: flex; align-items: center; justify-content: space-between;
+    gap: 6px; font-size: 10.5px; color: rgba(27,34,39,.6);
+  }
+  .card.skip .t, .card.skip .m { color: var(--ink3); }
+
+  /* connector */
+  .arrow {
+    flex: 0 0 44px; display: flex; align-items: center; justify-content: center;
+  }
+  .arrow svg { display: block; }
+  .arrow.tall { height: 100%; }
+
+  /* branch block */
+  .branch {
+    display: flex; flex-direction: column; gap: 20px;
+    padding: 16px 18px; border: 1.5px dashed var(--line); border-radius: 8px;
+    background: #fbfcfc;
+  }
+  .branch-head {
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink3); margin-bottom: -6px;
+  }
+  .lane { display: flex; align-items: center; gap: 0; }
+  .lane-label {
+    width: 128px; flex: 0 0 128px; font-size: 12px; font-weight: 600; color: var(--ink2);
+    padding-right: 12px; line-height: 1.3;
+  }
+  .lane-label span { display: block; font-weight: 400; color: var(--ink3); font-size: 11px; }
+
+  .cond {
+    font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--flag);
+  }
+
+  /* group band */
+  .band { display: flex; align-items: center; }
+  .bandwrap { display: flex; flex-direction: column; gap: 8px; }
+  .bandlabel {
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--ink3); padding-left: 2px;
+  }
+
+  /* ---- callouts ---- */
+  .calls { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin: 26px 0 0; }
+  .call { background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px; }
+  .call.warn { border-color: #e9b8c0; background: #fdf5f6; }
+  .call h3 { margin: 0 0 6px; font-size: 15px; }
+  .call p { margin: 0; font-size: 13.5px; color: var(--ink2); line-height: 1.5; }
+  .call .big { font-family: var(--hand); font-size: 30px; color: var(--flag); line-height: 1; display: block; margin-bottom: 4px; }
+
+  footer { margin: 30px 0 60px; font-size: 12.5px; color: var(--ink3); }
+  footer code { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Contain the Sharp — current module flow</h1>
+  <p class="sub">What the CLARA prototype actually runs today, in the order it runs it, read off
+     <code>js/layered-sharps.js</code>. Colours follow the whiteboard sketch: Know, Feel, Do.</p>
+  <p class="stamp">Bloodborne Pathogens (RVCT-303B) · Module 4 · 17 steps after the cover · 29 declared minutes</p>
+
+  <div class="legend">
+    <span class="key"><span class="sw" style="background:var(--entry)"></span> Entry</span>
+    <span class="key"><span class="sw" style="background:var(--know)"></span> Know</span>
+    <span class="key"><span class="sw" style="background:var(--feel)"></span> Feel</span>
+    <span class="key"><span class="sw" style="background:var(--do)"></span> Do</span>
+    <span class="key"><span class="sw" style="background:var(--skip);border-color:#cfd5da"></span> Skipped on this path</span>
+    <span class="note">Dashed box = the only segment the pre-test changes.</span>
+  </div>
+
+  <div class="srcline">
+    <strong style="color:var(--ink)">Where the content comes from:</strong>
+    <span class="key"><span class="badge b-deck">DECK</span> named in the Prototype Plan</span>
+    <span class="key"><span class="badge b-spec">SPEC</span> from the Outcome 4 authoring spec</span>
+    <span class="key"><span class="badge b-ours">OURS</span> no stakeholder source</span>
+  </div>
+
+  <p style="margin:0 0 8px;font-size:12.5px;color:var(--ink3)">Scrolls horizontally →</p>
+  <div class="scroller">
+    <div class="flow">
+
+      <!-- index -->
+      <div class="col">
+        <div class="card entry">
+          <div class="t">Index page</div>
+          <div class="m">Course launcher. Lists the six outcomes.</div>
+          <div class="foot"><span>clara/index.html</span></div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <!-- cover + battery -->
+      <div class="col">
+        <div class="card pretest">
+          <div class="obj">ENTRY</div>
+          <div class="t">Four Questions</div>
+          <div class="m">2 gate-flagged Know, 2 remediate-flagged Feel. Never a Do item.</div>
+          <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <div class="col">
+        <div class="card pretest">
+          <div class="obj">ENTRY · CONDITIONAL</div>
+          <div class="t">What Changed</div>
+          <div class="m">Reports what the battery removed or hardened. Skipped when nothing moved.</div>
+          <div class="foot"><span>1 min</span><span class="badge b-spec">SPEC</span></div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <!-- chain: Feel first -->
+      <div class="col">
+        <div class="card feel">
+          <div class="obj">F1 · BELIEVE</div>
+          <div class="t">One Decision</div>
+          <div class="m">The four-node chain, 4:52 PM to six months. Consequence before rule.</div>
+          <div class="foot"><span>2 min</span><span class="badge b-ours">OURS</span></div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <div class="col">
+        <div class="card know">
+          <div class="obj">K2 · UNDERSTAND</div>
+          <div class="t">Why It Is Dangerous</div>
+          <div class="m">2:12 clip plus a written chain: trace, route, what it carries.</div>
+          <div class="foot"><span>4 min</span><span class="badge b-ours">OURS</span></div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <!-- the branch -->
+      <div class="col">
+        <div class="branch">
+          <div class="branch-head">The only segment the pre-test changes</div>
+
+          <div class="lane">
+            <div class="lane-label">Test Out <span>K1 proven, 2 of 2</span></div>
+            <div class="card skip">
+              <div class="obj">K1</div>
+              <div class="t">The Procedure</div>
+              <div class="m">Dropped whole.</div>
+              <div class="foot"><span>saves 4 min</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#c2c8cd" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#c2c8cd"/></svg></div>
+            <div class="card skip">
+              <div class="obj">K1</div>
+              <div class="t">Deferred Disposal</div>
+              <div class="m">Its case drops with it.</div>
+              <div class="foot"><span>saves 1 min</span></div>
+            </div>
+          </div>
+
+          <div class="lane">
+            <div class="lane-label">Test Up <span>K3 content-locked</span></div>
+            <div class="card know">
+              <div class="obj">K1 · TAUGHT</div>
+              <div class="t">The Procedure</div>
+              <div class="m">Six steps. Modality switchable: video, article, tutor.</div>
+              <div class="foot"><span>4 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card know">
+              <div class="obj">K1 · CASE 1</div>
+              <div class="t">Deferred Disposal</div>
+              <div class="m">Set down instead of disposed at the point of use.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+          </div>
+
+          <div class="lane">
+            <div class="lane-label">No adjustment <span>the full path</span></div>
+            <div class="card know">
+              <div class="obj">K1 · TAUGHT</div>
+              <div class="t">The Procedure</div>
+              <div class="m">Same beat, default video modality.</div>
+              <div class="foot"><span>4 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card know">
+              <div class="obj">K1 · CASE 1</div>
+              <div class="t">Deferred Disposal</div>
+              <div class="m">Set down instead of disposed at the point of use.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <!-- converge: remaining Know -->
+      <div class="col">
+        <div class="bandwrap">
+          <div class="bandlabel">Know, all paths</div>
+          <div class="band">
+            <div class="card know">
+              <div class="obj">K1 · IN-FLOW</div>
+              <div class="t">Quick Check</div>
+              <div class="m">Asked of everyone, because K1 gates. Two attempts.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card know">
+              <div class="obj">K3 · CASE 2</div>
+              <div class="t">The Overfilled Container</div>
+              <div class="m">Never removed. Test-up swaps in arguable options.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card know">
+              <div class="obj">K3 · CASE 3</div>
+              <div class="t">Left by Someone Else</div>
+              <div class="m">Recognising a condition you did not create.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <!-- Feel block -->
+      <div class="col">
+        <div class="bandwrap">
+          <div class="bandlabel">Feel · four determinants</div>
+          <div class="band">
+            <div class="card feel">
+              <div class="obj">F1 · CASE 4</div>
+              <div class="t">The One That Landed</div>
+              <div class="m">The post leg of the entry F1 item. Same for everyone.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card feel">
+              <div class="obj">F2 · VALUE</div>
+              <div class="t">Gloves or Containers</div>
+              <div class="m">A budget choice. Spec called for a first-person narrative here.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card feel">
+              <div class="obj">F3 · PERCEIVE</div>
+              <div class="t">What Your Shift Does</div>
+              <div class="m">Predict, then reveal. Figures are illustrative, not sourced.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-ours">OURS</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card feel">
+              <div class="obj">F4 · CAN</div>
+              <div class="t">When You Are Behind</div>
+              <div class="m">Barrier-anchored rating, if-then rehearsal below 3.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-ours">OURS</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <!-- Do block -->
+      <div class="col">
+        <div class="bandwrap">
+          <div class="bandlabel">Do · never skipped</div>
+          <div class="band">
+            <div class="card do">
+              <div class="obj">D1 · ACTIVATE</div>
+              <div class="t">The Moment</div>
+              <div class="m">Timed cue-recognition decision. Latency is captured.</div>
+              <div class="foot"><span>2 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card do">
+              <div class="obj">D2 · APPLY</div>
+              <div class="t">End of Shift</div>
+              <div class="m">Four-beat sim on the converged player. Rubric per beat.</div>
+              <div class="foot"><span>5 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+
+      <!-- Record -->
+      <div class="col">
+        <div class="bandwrap">
+          <div class="bandlabel">Record</div>
+          <div class="band">
+            <div class="card do">
+              <div class="obj">D3 · SUSTAIN</div>
+              <div class="t">The Check-Back</div>
+              <div class="m">Frequency self-report, 30 to 45 days later.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-deck">DECK</span></div>
+            </div>
+            <div class="arrow"><svg width="44" height="14"><line x1="0" y1="7" x2="34" y2="7" stroke="#9aa4ac" stroke-width="1.5"/><path d="M34 3 L42 7 L34 11 Z" fill="#9aa4ac"/></svg></div>
+            <div class="card entry">
+              <div class="obj">ROLLUP</div>
+              <div class="t">Your Record</div>
+              <div class="m">Ten objectives, in the learner's own words.</div>
+              <div class="foot"><span>1 min</span><span class="badge b-spec">SPEC</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="calls">
+    <div class="call warn">
+      <h3><span class="big">29 min</span>against a budget of eleven</h3>
+      <p>Option B full is “roughly eleven minutes” in the Prototype Plan; the authoring spec says nine.
+         Test-out removes five. The overage is almost exactly the two objectives with no stakeholder
+         source: Why It Is Dangerous and When You Are Behind.</p>
+    </div>
+    <div class="call">
+      <h3>Feel runs first, not Know</h3>
+      <p>The module opens with One Decision, an F1 Feel beat, on the spec's consequence-before-rule
+         rule. The deck and the original sketch both lead with Know. This ordering is our call
+         and is not written down anywhere they signed.</p>
+    </div>
+    <div class="call">
+      <h3>Only two steps actually branch</h3>
+      <p>The pre-test drops The Procedure and Deferred Disposal on a clean K1 sweep, and swaps
+         Case 2's options on test-up. Everything else runs on every path, so the three-lane picture
+         collapses to one segment.</p>
+    </div>
+  </div>
+
+  <footer>
+    Read off <code>js/layered-sharps.js</code> (<code>STEPS</code>, <code>OBJECTIVES</code>) on 2026-09-09 ·
+    sources: <code>~/Downloads/Ideal Knowledge Layer Prototype Plan.pdf</code> (Buelow, 30pp) and
+    <code>clara/docs/authoring/module-authoring-outcome-4.md</code> ·
+    companion: <a href="sharps-know-feel-do-reconciliation.html">Know·Feel·Do reconciliation</a>
+  </footer>
+
+</div>
+</body>
+</html>

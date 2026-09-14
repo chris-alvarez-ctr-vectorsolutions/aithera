@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sharps — Know·Feel·Do Reconciliation</title>
+<style>
+  :root {
+    --ground: #fafbfc;
+    --panel: #ffffff;
+    --panel-soft: #f1f4f6;
+    --ink: #1a2330;
+    --ink-soft: #45525f;
+    --ink-mute: #5b6773;
+    --line: #dde3e8;
+    --accent: #0b6e63;
+    --accent-soft: #e3f1ef;
+    --know: #1d4ed8;   --know-bg: #e6ecfd;
+    --feel: #9333ea;   --feel-bg: #f3e8fd;
+    --do:   #b45309;   --do-bg:   #fdeeda;
+    --ok:   #1a7f37;   --ok-bg:   #e2f2e6;
+    --warn: #9a6700;   --warn-bg: #fbf0d7;
+    --bad:  #b42318;   --bad-bg:  #fce4e2;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131820; --panel: #1a212b; --panel-soft: #212a35;
+      --ink: #e6ecf2; --ink-soft: #b3bfca; --ink-mute: #8b97a3; --line: #303b47;
+      --accent: #4cc4b4; --accent-soft: #17332f;
+      --know: #8ab0ff; --know-bg: #16203a;
+      --feel: #c99bf5; --feel-bg: #2a1638;
+      --do:   #eda03c; --do-bg:   #38260c;
+      --ok:   #57c576; --ok-bg:   #16301d;
+      --warn: #e3b341; --warn-bg: #362a08;
+      --bad:  #f2726a; --bad-bg:  #3b1614;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131820; --panel: #1a212b; --panel-soft: #212a35;
+    --ink: #e6ecf2; --ink-soft: #b3bfca; --ink-mute: #8b97a3; --line: #303b47;
+    --accent: #4cc4b4; --accent-soft: #17332f;
+    --know: #8ab0ff; --know-bg: #16203a;
+    --feel: #c99bf5; --feel-bg: #2a1638;
+    --do:   #eda03c; --do-bg:   #38260c;
+    --ok:   #57c576; --ok-bg:   #16301d;
+    --warn: #e3b341; --warn-bg: #362a08;
+    --bad:  #f2726a; --bad-bg:  #3b1614;
+  }
+  :root[data-theme="light"] {
+    --ground: #fafbfc; --panel: #ffffff; --panel-soft: #f1f4f6;
+    --ink: #1a2330; --ink-soft: #45525f; --ink-mute: #5b6773; --line: #dde3e8;
+    --accent: #0b6e63; --accent-soft: #e3f1ef;
+    --know: #1d4ed8; --know-bg: #e6ecfd;
+    --feel: #9333ea; --feel-bg: #f3e8fd;
+    --do:   #b45309; --do-bg:   #fdeeda;
+    --ok:   #1a7f37; --ok-bg:   #e2f2e6;
+    --warn: #9a6700; --warn-bg: #fbf0d7;
+    --bad:  #b42318; --bad-bg:  #fce4e2;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font: 400 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  a { color: var(--accent); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+  code { font-family: var(--mono); font-size: .84em; background: var(--panel-soft); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---------- header ---------- */
+  .eyebrow { font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+             color: var(--accent); font-weight: 700; margin: 0 0 10px; }
+  h1 { font-size: 32px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -.015em; text-wrap: balance; }
+  .subtitle { color: var(--ink-soft); max-width: 66ch; margin: 0 0 8px; }
+  .meta-line { font-size: 13px; color: var(--ink-mute); margin: 0 0 36px; max-width: 74ch; }
+
+  h2 { font-size: 21px; margin: 56px 0 6px; letter-spacing: -.01em; }
+  h2 + .section-note { margin-top: 0; }
+  .section-note { color: var(--ink-soft); font-size: 14.5px; max-width: 70ch; margin: 4px 0 20px; }
+  h3.sub { font-size: 16px; margin: 30px 0 4px; }
+  p { max-width: 74ch; }
+
+  /* ---------- stat strip ---------- */
+  .verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 28px 0 8px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; }
+  .stat .num { font-size: 26px; font-weight: 700; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat .lbl { font-size: 13px; color: var(--ink-soft); line-height: 1.4; margin-top: 2px; }
+
+  /* ---------- domain chips ---------- */
+  .dm { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .05em;
+        padding: 2px 8px; border-radius: 999px; white-space: nowrap; text-transform: uppercase; }
+  .dm.know { color: var(--know); background: var(--know-bg); }
+  .dm.feel { color: var(--feel); background: var(--feel-bg); }
+  .dm.do   { color: var(--do);   background: var(--do-bg); }
+
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 9px;
+          border-radius: 999px; white-space: nowrap; }
+  .pill.ok   { color: var(--ok);   background: var(--ok-bg); }
+  .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  .pill.bad  { color: var(--bad);  background: var(--bad-bg); }
+
+  /* ---------- tables ---------- */
+  .tbl-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  th { text-align: left; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+       color: var(--ink-mute); font-weight: 700; padding: 12px 14px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.id { font-family: var(--mono); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  td.nm { font-weight: 600; }
+  td.soft { color: var(--ink-soft); font-size: 13.5px; }
+  tr.is-gap td.id { box-shadow: inset 3px 0 0 var(--bad); }
+
+  /* ---------- callouts ---------- */
+  .callout { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 10px;
+             padding: 16px 20px; margin: 24px 0; }
+  .callout h3 { margin: 0 0 6px; font-size: 15.5px; color: var(--accent); }
+  .callout p { margin: 0 0 8px; font-size: 13.8px; color: var(--ink-soft); max-width: none; }
+  .callout p:last-child { margin-bottom: 0; }
+  .callout.revise { background: var(--warn-bg); border-color: var(--warn); }
+  .callout.revise h3 { color: var(--warn); }
+  .callout.alarm { background: var(--bad-bg); border-color: var(--bad); }
+  .callout.alarm h3 { color: var(--bad); }
+
+  /* ---------- source quote ---------- */
+  blockquote.src {
+    margin: 12px 0; padding: 10px 16px; border-left: 3px solid var(--line);
+    background: var(--panel-soft); border-radius: 0 6px 6px 0;
+    font-size: 14px; color: var(--ink-soft);
+  }
+  blockquote.src p { margin: 0 0 6px; max-width: none; }
+  blockquote.src p:last-child { margin-bottom: 0; }
+  blockquote.src cite { display: block; margin-top: 6px; font-style: normal;
+                        font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-mute); }
+
+  /* ---------- finding cards ---------- */
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+          padding: 20px 22px; margin-bottom: 16px; }
+  .card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .card-head h3 { margin: 0; font-size: 17px; letter-spacing: -.01em; }
+  .card p { font-size: 14.2px; color: var(--ink-soft); margin: 0 0 10px; }
+  .card p:last-child { margin-bottom: 0; }
+  .card .where { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); }
+
+  ul.tight { margin: 8px 0 0; padding-left: 20px; font-size: 14.2px; color: var(--ink-soft); }
+  ul.tight li { margin-bottom: 8px; max-width: 74ch; }
+  ul.tight li:last-child { margin-bottom: 0; }
+  ul.tight b, ul.tight strong { color: var(--ink); }
+
+  .footnote { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
+              font-size: 13px; color: var(--ink-mute); max-width: 76ch; }
+  .footnote p { max-width: none; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <p class="eyebrow">Content reconciliation · CLARA prototype</p>
+  <h1>Sharps — Know·Feel·Do Reconciliation</h1>
+  <p class="subtitle">The re-composed Bloodborne&nbsp;Pathogens course and the current course storyboard, read against
+     the built module — Module&nbsp;4, &ldquo;Contain the Sharp.&rdquo; How the module's content is sourced, where it
+     deliberately extends past the source material, and where the source documents contradict themselves.</p>
+  <p class="meta-line">Sources: <code>RVCT-303B_SB.pdf</code> (current storyboard, 2&nbsp;slides: Sharps + Knowledge
+     Check) and <code>bloodborne-pathogens-rvct303b.led.pdf</code> (re-composed full course, 33&nbsp;pages, 6 outcomes
+     / 26 objectives / 2 flagged gaps), read against the built module —
+     <code>js/layered-sharps.js</code>, <code>clara/sharps.html</code>, <code>css/layered-beats.css</code>.</p>
+
+  <div class="verdict">
+    <div class="stat"><div class="num">10</div><div class="lbl">objectives across Know, Feel and Do — four are declared extensions with no counterpart in the source</div></div>
+    <div class="stat"><div class="num">4 of 10</div><div class="lbl">match the re-composition near-verbatim, validating the module's boundary</div></div>
+    <div class="stat"><div class="num">100%</div><div class="lbl">of the re-composition's own pass/fail checks sit on recall objectives — ours gates a Do objective too</div></div>
+    <div class="stat"><div class="num">1</div><div class="lbl">objective (D3, sustaining the practice) stays open by design — the re-composition closes every objective in one sitting</div></div>
+  </div>
+
+  <div class="callout" style="margin-bottom:12px">
+    <h3>What the module has</h3>
+    <p>A Know/Understand premise beat (K2, &ldquo;Why It Is Dangerous&rdquo;); a controls-versus-shortcuts beat (F2,
+       &ldquo;Gloves or Containers&rdquo;); pre/post measurement on the two movable Feel objectives (F1, F3); separate
+       evidence for both Do objectives from the culminating scenario; the overfilled-container case re-based on the
+       maintenance principle; sub-scales named in the re-composition's vocabulary with four declared extensions; and a
+       sector premise flag that the procedure actually reads.</p>
+    <p><b>Outstanding:</b> the K2 hazard clip exists as a file but stays gated behind a review-only flag pending
+       sign-off, so learners see the written version by default. The cohort figures are ours, not sourced, and
+       labelled illustrative on the screen.</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>The headline</h2>
+  <p class="section-note">Three things came out of the comparison, in descending order of how much they should
+     change what we do next.</p>
+
+  <p><strong>The module boundary is right.</strong> The re-composition's Outcome&nbsp;4 &mdash;
+     &ldquo;Handle and Dispose of Sharps Safely&rdquo; &mdash; is four objectives, one Know, two Feel, one Do, and four
+     of ours are near-verbatim matches for them. We independently landed on the same decomposition, which is the
+     single most useful thing either document tells us.</p>
+
+  <p><strong>Sharps has a &ldquo;why.&rdquo;</strong> K2 explains why a used sharp is dangerous: it retains a trace of
+     blood after use, its point breaks skin, and a pathogen only has to reach a bloodstream to infect. Every other
+     outcome in the re-composition carries a Know/Understand objective; sharps was the one exception in both
+     documents, which is why K2 exists as our own objective rather than a straight port of theirs.</p>
+
+  <p><strong>The re-composition gates recall and nothing else.</strong> Across all 26 objectives there are exactly six
+     scored pass/fail checks, one per outcome, and every one is attached to a Recall&nbsp;(Know) objective. All four
+     Feel objectives get an agreement scale with, in the document's own words, &ldquo;no remediation, no gate.&rdquo;
+     All six Do objectives get a low-stakes multiple-choice question. A course whose premise is know&ndash;feel&ndash;do
+     is, at the pass line, entirely know.</p>
+
+  <div class="callout">
+    <h3>Worth leading the client conversation with</h3>
+    <p>In the current course, <strong>nothing assesses sharps at all.</strong> The knowledge check that closes
+       &ldquo;Transmission and Risks&rdquo; asks <em>&ldquo;Bloodborne pathogens ______&rdquo;</em> against the
+       objective <em>&ldquo;Define the term &lsquo;bloodborne pathogen&rsquo;&rdquo;</em> &mdash; a definition from
+       the previous section, which the earlier knowledge check already closed. So transmission, workplace risk,
+       sharps and at-risk workers are taught across five slides and tested by none of them. That item is also
+       <code>[type: checkall]</code> with three of four options correct and <strong>the same feedback paragraph on
+       all four</strong>, so the learner reads identical text whether they were right or wrong.</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>How the two objective sets line up</h2>
+  <p class="section-note">Our identifiers on the left, the re-composition's on the right. This table is the lookup
+     for every identifier used further down &mdash; nothing below assumes you memorised it.</p>
+
+  <div class="tbl-scroll">
+  <table>
+    <thead><tr>
+      <th scope="col">Ours</th><th scope="col">Name</th><th scope="col">Domain</th>
+      <th scope="col">Theirs</th><th scope="col">Fit</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td class="id">K1</td><td class="nm">The safe handling procedure</td>
+        <td><span class="dm know">Know · Recall</span></td>
+        <td class="soft">LO 4.1 — Recall (Know)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">K2</td><td class="nm">Why a used sharp is dangerous</td>
+        <td><span class="dm know">Know · Understand</span></td>
+        <td class="soft">Missing from both — teach content exists at LO 4.1 and LO 4.2, unused</td>
+        <td><span class="pill bad">Gap</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">K3</td><td class="nm">Spotting the conditions</td>
+        <td><span class="dm know">Know · Observe</span></td>
+        <td class="soft">No counterpart. Nearest support: LO 3.2, LO 3.3</td>
+        <td><span class="pill warn">Re-source</span></td>
+      </tr>
+      <tr>
+        <td class="id">F1</td><td class="nm">It protects your coworkers</td>
+        <td><span class="dm feel">Feel · Believe</span></td>
+        <td class="soft">LO 4.2 — Believe (Feel)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr>
+        <td class="id">F2</td><td class="nm">Controls prevent the injury</td>
+        <td><span class="dm feel">Feel · Value</span></td>
+        <td class="soft">LO 4.3 — Value (Feel)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">F3</td><td class="nm">What your shift actually does</td>
+        <td><span class="dm feel">Feel · Perceive</span></td>
+        <td class="soft">No counterpart anywhere in the course</td>
+        <td><span class="pill warn">Extension</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">F4</td><td class="nm">Doing it when you are behind</td>
+        <td><span class="dm feel">Feel · Can</span></td>
+        <td class="soft">No counterpart — self-efficacy under a named obstacle is rated nowhere in the course</td>
+        <td><span class="pill warn">Extension</span></td>
+      </tr>
+      <tr>
+        <td class="id">D1</td><td class="nm">Acting while the moment is open</td>
+        <td><span class="dm do">Do · Respond in the moment</span></td>
+        <td class="soft">Type exists as &ldquo;Respond in the moment,&rdquo; used at LO 6.2 — not in Outcome 4</td>
+        <td><span class="pill warn">Extension</span></td>
+      </tr>
+      <tr>
+        <td class="id">D2</td><td class="nm">Doing it in context</td>
+        <td><span class="dm do">Do · Perform</span></td>
+        <td class="soft">LO 4.4 — Perform (Do)</td>
+        <td><span class="pill ok">Verbatim</span></td>
+      </tr>
+      <tr class="is-gap">
+        <td class="id">D3</td><td class="nm">Keeping it up afterwards</td>
+        <td><span class="dm do">Do · Sustain</span></td>
+        <td class="soft">No counterpart anywhere in the course</td>
+        <td><span class="pill warn">Extension</span></td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p style="margin-top:14px"><strong>Scope note for the client conversation.</strong> Their Outcome&nbsp;4 is not the
+     current Sharps slide. It is re-composed from at least four &mdash; Sharps, Engineering Controls, the Needlestick
+     Incident scenario, and Personal Protective Equipment. The Chris-and-Jacob chain of harm that our whole
+     coworker-responsibility case rests on comes from the PPE slide, not the sharps one. That is <em>why</em> sharps
+     got bigger, and it means &ldquo;the current sharps lesson&rdquo; and &ldquo;Outcome 4&rdquo; are not the same
+     scope.</p>
+
+  <p><strong>K3's content-lock is grounded outside either document.</strong> The recognition objective is
+     content-locked on <code>29&nbsp;CFR&nbsp;1910.1030(g)(2)(vii)(E)</code>, which requires training to include
+     &ldquo;an explanation of the appropriate methods for recognizing tasks and other activities that may involve
+     exposure to blood and other potentially infectious materials&rdquo; &mdash; a direct match for the objective's
+     own text, not an adjacent or borrowed one.</p>
+
+  <!-- ================================================================= -->
+  <h2>Where the Know content is sourced</h2>
+  <p class="section-note">K2 and several procedural details in the safe-handling steps and recognition cases are
+     built from these eight passages in the re-composition. Every quotation is from that document.</p>
+
+  <h3 class="sub">1. What a sharp is, and why a used one is dangerous</h3>
+  <blockquote class="src">
+    <p>&ldquo;A sharp is a medical needle or other sharp object that can puncture or cut the skin; a used medical
+       needle is dangerous because it retains a small amount of blood after use and its extreme sharpness creates
+       high probability of accidentally penetrating someone else's skin and exposing them to that retained
+       blood.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.1, first teach point</cite>
+  </blockquote>
+  <p>This is K2's spine: without it the four-step procedure would be arbitrary compliance, and the retained-blood
+     mechanism is what makes the module's central image &mdash; a sharp at rest where somebody else will find it
+     &mdash; mean anything.</p>
+
+  <h3 class="sub">2. What counts as a sharp besides a needle</h3>
+  <blockquote class="src">
+    <p>&ldquo;Cuts from contaminated sharps including broken glass, scalpels, exposed dental wires, and broken
+       capillary tubes can transmit bloodborne pathogens.&rdquo;</p>
+    <cite>Outcome 1 · LO 1.4</cite>
+  </blockquote>
+  <p>This enumeration is what makes the module's four sectors legitimate rather than decorative: a box-cutter blade
+     and contaminated glass are sharps by the source's own definition. The companion clause sits in the procedure
+     itself &mdash; step one is to plan disposal <em>&ldquo;before using a needle or other sharp instrument or cleaning
+     up broken glass&rdquo;</em> &mdash; and the procedure copy carries the broken-glass half, which is what carries
+     the step into the three non-medical sectors.</p>
+
+  <h3 class="sub">3. What the next person can actually catch</h3>
+  <blockquote class="src">
+    <p>&ldquo;Needlestick injuries can result in exposure to bloodborne pathogens including HIV, hepatitis B, and
+       hepatitis C, which could result in severe health complications.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.2, first teach point</cite>
+  </blockquote>
+  <p>One sentence, once, inside K2. The four sector accounts land the consequence as <em>procedure</em> &mdash;
+     &ldquo;five months of testing,&rdquo; &ldquo;bloodwork every few weeks,&rdquo; &ldquo;post-exposure protocol for
+     six months&rdquo; &mdash; and K2 is the only place the thing actually being tested for is named. It is also the
+     only tie from Module 4 back to Module 1 and forward to the post-exposure module.</p>
+
+  <h3 class="sub">4. The transfer mechanism</h3>
+  <blockquote class="src">
+    <p>&ldquo;For bloodborne pathogens to pose a danger, they must transfer into your bloodstream.&rdquo;</p>
+    <p>&ldquo;A needlestick &mdash; unintentional being poked with a needle &mdash; transmits bloodborne pathogens the
+       same way as deliberate needle sharing if the needle has been contaminated.&rdquo;</p>
+    <cite>Outcome 1 · LO 1.4</cite>
+  </blockquote>
+  <p>This is the reasoning K2 supplies: why the point matters, why the trace matters, and why a puncture is
+     categorically different from the casual contact Outcome&nbsp;1 spends its own content ruling out.</p>
+
+  <h3 class="sub">5. The complete prohibition — five, not one</h3>
+  <blockquote class="src">
+    <p>&ldquo;In healthcare settings, used needles must not be bent, broken, recapped, removed, or separated from
+       syringes; they must be placed in a sharps disposal container immediately or as soon as possible after
+       use.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.1 and LO 4.4</cite>
+  </blockquote>
+  <p>The module states all five, not one, in both places it appears &mdash; the procedure detail and CLARA's
+     record-screen reply.</p>
+
+  <h3 class="sub">6. The no-container-available rule, stated plainly</h3>
+  <blockquote class="src">
+    <p>&ldquo;If no sharps container is immediately available, do not place the needle in general waste. Use the
+       device's safety feature if available, seek a proper sharps container before disposal, and never use improvised
+       soft-material wrapping.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.4, misconception correction</cite>
+  </blockquote>
+  <p>The overfilled-container case turns on this rule, which the safe-handling procedure copy now states directly
+     rather than leaving implicit across answer options.</p>
+
+  <h3 class="sub">7. What a designated container actually is</h3>
+  <blockquote class="src">
+    <p>&ldquo;Contaminated sharps and other contaminated waste must be handled and disposed of as regulated waste in
+       closeable, leak-proof containers that are colored red or marked with the universal biohazard symbol.&rdquo;</p>
+    <p>&ldquo;Safety-engineered sharps disposal containers are designed to encapsulate sharp objects upon
+       disposal.&rdquo;</p>
+    <cite>Outcome 3 · LO 3.3 and LO 3.2</cite>
+  </blockquote>
+  <p>The safe-handling procedure describes one explicitly: rigid, closeable, leak-proof, and red or biohazard-marked
+     &mdash; built to swallow the point so nothing can reach it again.</p>
+
+  <h3 class="sub">8. The correction on gloves</h3>
+  <blockquote class="src">
+    <p>&ldquo;Heavy-duty protective gloves made of materials like nitrile, latex, vinyl, or neoprene can protect hands
+       from cuts, punctures, and exposure to hazardous substances, but PPE alone is less effective than engineering
+       controls at preventing needlestick injuries.&rdquo;</p>
+    <p>Misconception corrected: &ldquo;Wearing heavy-duty gloves is a reliable substitute for proper sharps disposal
+       containers. &rarr; Even thick gloves can be penetrated by needles.&rdquo;</p>
+    <cite>Outcome 4 · LO 4.3</cite>
+  </blockquote>
+  <p>This is the factual backing for the Gloves or Containers beat (F2): gloves resist a dragging blade, not a
+     concentrated point, which is why every sector account ends with the needle going <em>through</em> one.</p>
+
+  <div class="callout">
+    <h3>Where this content lives</h3>
+    <p><strong>Items 1, 3 and 4</strong> are K2, the module's Know/Understand objective: <em>&ldquo;Explain why a used
+       sharp is dangerous &mdash; it retains a trace of blood and its point breaks skin &mdash; and what that exposes
+       the next person to.&rdquo;</em></p>
+    <p><strong>Items 2, 5, 6 and 7</strong> are procedural detail carried in the safe-handling steps and the
+       recognition cases, not separate objectives. <strong>Item 8</strong> backs the Gloves or Containers beat (F2).</p>
+  </div>
+
+  <!-- ================================================================= -->
+  <h2>Where we are ungrounded</h2>
+  <p class="section-note">Two claims the built module makes that the source material does not support as written.</p>
+
+  <div class="callout revise">
+    <h3>The overfilled-container case rests on an inferred principle</h3>
+    <p>The specific claim &mdash; a fill line, a container packed above it, pressing contents down to make room
+       &mdash; has no verbatim match anywhere in the 33&nbsp;pages: no occurrence of &ldquo;fill line,&rdquo;
+       &ldquo;overfilled,&rdquo; or anything equivalent. The case rests on the underlying <em>principle</em> instead,
+       which is signed in Outcome 3:</p>
+    <blockquote class="src" style="background:transparent;border-left-color:var(--warn)">
+      <p>&ldquo;Engineering controls must be inspected and maintained or replaced on a regular basis.&rdquo;</p>
+      <p>Misconception corrected: &ldquo;Engineering controls, once installed, require no ongoing attention.&rdquo;</p>
+      <p>&ldquo;Safety-engineered sharps disposal containers are designed to encapsulate sharp objects upon
+         disposal.&rdquo;</p>
+      <cite>Outcome 3 · LO 3.2</cite>
+    </blockquote>
+    <p>A container above its fill line is an engineering control that has stopped encapsulating &mdash; exactly the
+       misconception LO 3.2 names. The specific fill-line details in each sector's scene are invented for the
+       prototype: three-quarters full is the common manufacturer convention for a sharps container's fill line, not a
+       fabricated fraction, but it is not sourced from any customer's actual exposure control plan. The correct
+       answer deliberately never states a number &mdash; &ldquo;set by your site's plan, not by eye&rdquo; &mdash; so
+       a real deployment can swap in a customer's own container spec without touching the lesson.</p>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><h3>The cohort figures have no source</h3></div>
+    <p class="where">js/layered-sharps.js — the sector debrief data and the F3 cohort-debrief caption</p>
+    <p>Neither document contains any norm or cohort data at all, so the shift-norms and self-efficacy objectives are
+       entirely our construct. Because <em>the number is the intervention</em> here, the figures are labelled
+       illustrative on the learner-facing screen, with a note that a real deployment substitutes the customer's own
+       cohort data.</p>
+  </div>
+
+
+  <!-- ================================================================= -->
+  <h2>Mapping honestly to know&ndash;feel&ndash;do</h2>
+  <p class="section-note">Five places the module's design is not a straight port of the re-composition's, and why.</p>
+
+  <h3 class="sub">The two vocabularies are reconciled</h3>
+  <p>The re-composition uses six types: Recall and Understand for Know, Believe and Value for Feel, Perform and
+     Respond-in-the-moment for Do. Sub-scales are named in the re-composition's vocabulary everywhere the two
+     overlap &mdash; Recall, Understand, Believe, Value, Perform, Respond in the moment &mdash; with Observe, Perceive,
+     Can and Sustain labelled as <strong>declared extensions</strong>, each carrying its own line of justification in
+     code for why it exists beyond the source material.</p>
+
+  <h3 class="sub">K2 supplies the Know/Understand objective</h3>
+  <p>Covered above under &ldquo;Where the Know content is sourced.&rdquo; It is the largest structural gap on either
+     side, and it is what makes the coworker-harm account land clinically rather than only emotionally.</p>
+
+  <h3 class="sub">The Feel post-measure</h3>
+  <p>Their attitude checks are one-shot, with &mdash; explicitly &mdash; no remediation and no gate. F1 and F3 both
+     carry a post-measure, so the reportable number is the <strong>shift</strong> in a learner's answer, not the
+     one-time level &mdash; something their pipeline cannot express at all. It is the most defensible piece of Feel
+     evidence in the module.</p>
+
+  <h3 class="sub">The attitude-check divergence is a stated decision</h3>
+  <p>Their specification says attitude checks carry no remediation and no gate. F1 and F3 both route a weak answer
+     into an added or hardened beat instead. That is a deliberate divergence: their line reads as a limitation of
+     their pipeline, not a design rule worth inheriting.</p>
+
+  <h3 class="sub">The gate contrast</h3>
+  <p>Their six pass/fail checks are all on recall. The module gates two Do objectives (D1, D2) and marks all three Do
+     objectives &mdash; D1, D2 and D3 &mdash; as never skipped. That is the strongest single argument the module makes
+     about the re-composition's own assessment design, legible only to someone who has read both documents side by
+     side &mdash; which is what the reviewer captions are for.</p>
+
+  <!-- ================================================================= -->
+  <h2>Flags in the source documents</h2>
+  <p class="section-note">Nine things that do not hold up, in the order I would raise them.</p>
+
+  <ul class="tight">
+    <li><b>Every gate is a recall gate.</b> 26 objectives; 16 Know, 4 Feel, 6 Do. Six scored pass/fail checks, one per
+        outcome, <em>all</em> on Recall (Know). Four attitude scales with no gate and no remediation by design. Six
+        low-stakes multiple-choice questions for the Do objectives. Nothing about feeling or doing can affect whether
+        a learner passes.</li>
+
+    <li><b>Every Do objective is assessed by multiple choice</b> &mdash; including the sharps one, typed Perform (Do)
+        and assessed with a single question. Meanwhile two other outcomes each flagged a &ldquo;designed gap&rdquo; on
+        the grounds that their content was &ldquo;not a performable sequence&rdquo; and needed an authored scenario.
+        The sharps Do objective is no more performable in a multiple-choice item than those were. Either the gap
+        standard applies to it too, or the two flagged gaps did not need flagging.</li>
+
+    <li><b>Outcome 4's prerequisite is wrong, and it decides module order.</b> It declares that it builds on
+        Outcome&nbsp;2, universal precautions. But its Value objective is entirely engineering-controls-versus-PPE
+        &mdash; which is Outcome&nbsp;3's content. Sharps needs Outcome&nbsp;3, not just Outcome&nbsp;2.</li>
+
+    <li><b>The post-exposure outcome diagnoses an attitude barrier and then assigns no Feel objectives.</b> Its own
+        text says workers &ldquo;may freeze, minimize, or delay because the moment is frightening,&rdquo; and its
+        misconceptions are pure shame and paperwork avoidance &mdash; &ldquo;better to handle it quietly without
+        reporting.&rdquo; That is a stronger attitude signal than the sharps outcome's, and the sharps outcome got two
+        Feel objectives from it. Post-exposure reporting should have a Believe objective.</li>
+
+    <li><b>The controls Value objective measures knowledge.</b> Its agreement statement is an empirical claim
+        &mdash; that containers and safety-engineered needles prevent <em>more</em> injuries than PPE or training alone
+        &mdash; rated one to five with no remediation, so a learner who disagrees with a true fact is never corrected.
+        And its practice activity, choosing between gloves and containers, is a decision task, which is Do, not Feel.
+        F2 (the Gloves or Containers beat) fixes it: the choice between gloves and containers is the Do-shaped
+        evidence, and the agreement scale is the self-report layered on top of it, rather than one item standing in
+        for both.</li>
+
+    <li><b>Pipeline identifiers leaked into a review document.</b> &ldquo;TB&rdquo; is used without ever being
+        expanded (&ldquo;a foundational knowledge TB&rdquo; &mdash; presumably <em>target behavior</em>), alongside
+        content references like <code>ref a8a06f6f</code> and <code>cl-0091/92/93</code> and the line
+        &ldquo;Verify_grounding confirmed all three elements fail the performance lens.&rdquo; Nobody reviewing this
+        can act on any of it.</li>
+
+    <li><b>Two referenced files were not provided.</b> The document opens by telling the reader to &ldquo;read LED
+        Instructions in this folder &mdash; it explains how to give feedback and defines every field below (and how
+        each traces back to the Know&ndash;Feel&ndash;Do model),&rdquo; and says the matching source transcript is in
+        the same folder. Without the instructions, the field definitions and the know&ndash;feel&ndash;do trace are
+        asserted rather than checkable. Without the transcript we cannot spot-check grounding &mdash; which is exactly
+        what the fill-line question needed. Worth asking for both.</li>
+
+    <li><b>The slide numbering disagrees.</b> The storyboard excerpt labels Sharps as <code>P012</code> and the
+        knowledge check as <code>P013</code>; the course outline has Sharps at <code>P011</code> with Workers Most At
+        Risk at <code>P012</code>. One of the two is off by one, and it matters as soon as we trace objectives back to
+        slides.</li>
+
+    <li><b>Nothing in the current course assesses sharps.</b> Detailed at the top &mdash; the section-closing
+        knowledge check tests a definition from the previous section, and gives identical feedback for right and wrong
+        answers. This is the strongest available argument for the re-composition and should be presented as one.</li>
+  </ul>
+
+  <div class="footnote">
+    <p><strong>Prototype document.</strong> Quotations are from the re-composed course document,
+       <code>bloodborne-pathogens-rvct303b.led.pdf</code>.</p>
+    <p>Related: <a href="clara/sharps.html">the built module</a> &middot;
+       <a href="clara/structures.html">the Learning Layer view</a> &middot;
+       <a href="clara/course.html">the assembled course</a>.</p>
+  </div>
+
+</div>
+
+</body>
+</html>

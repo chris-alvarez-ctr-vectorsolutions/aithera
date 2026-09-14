@@ -1,0 +1,534 @@
+/* =============================================================================
+   TargetSolutions Mobile App (v2) — prototype styles
+   =============================================================================
+   TAMAGUI-SHAPED: this is vanilla CSS, but it is deliberately organized the way
+   a Tamagui theme + component set is, so the React/Tamagui rebuild is a close to
+   1:1 port rather than an interpretation of a picture.
+
+     • The :root block below is the THEME — Tamagui token scales (color, space,
+       radius, size, fontSize). Every value in the file references a token; no
+       raw hex or px sits in a component rule.
+     • Every component class is named `.t-<TamaguiComponent>` (.t-YStack,
+       .t-XStack, .t-Card, .t-Button, .t-ListItem, .t-Sheet, .t-Separator,
+       .t-Avatar, .t-Input, .t-Tabs …) so markup maps directly onto the real
+       primitives.
+     • Variants use the `--variant` suffix, mirroring Tamagui's `variants` block
+       (.t-Button--primary → <Button variant="primary">).
+
+   Visual language is taken from the current TargetSolutions web home (navy
+   chrome, Vector red accent, blue links, white cards on a cool-gray ground),
+   modernized for touch.
+   ========================================================================== */
+
+/* =============================================================================
+   THEME — Tamagui tokens
+   ========================================================================== */
+:root {
+  /* ── color palette ──────────────────────────────────────────────────────── */
+  --color-navy-900:  #132033;
+  --color-navy-800:  #1b2a41;
+  --color-navy-700:  #26374f;
+  --color-red-600:   #a50d24;
+  --color-red-500:   #c8102e;   /* Vector accent */
+  --color-blue-600:  #0a4fa0;
+  --color-blue-500:  #0b5fbf;   /* links + group headers */
+  --color-blue-50:   #eaf2fc;
+  --color-gray-50:   #f4f6f9;   /* app ground */
+  --color-gray-100:  #eaeef4;
+  --color-gray-200:  #d9e0e9;
+  --color-gray-300:  #c2ccd9;
+  --color-gray-500:  #7d8b9d;
+  --color-gray-600:  #5a6879;
+  --color-gray-800:  #2b3648;
+  --color-white:     #ffffff;
+  --color-green-500: #158444;
+
+  /* ── semantic tokens (Tamagui theme keys) ───────────────────────────────── */
+  --background:      var(--color-gray-50);
+  --card:            var(--color-white);
+  --borderColor:     var(--color-gray-200);
+  --color:           var(--color-gray-800);
+  --colorSubtle:     var(--color-gray-600);
+  --colorFaint:      var(--color-gray-500);
+  --accent:          var(--color-red-500);
+  --link:            var(--color-blue-500);
+  --chrome:          var(--color-navy-800);
+
+  /* ── space scale ($1–$8) ────────────────────────────────────────────────── */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 40px;
+
+  /* ── radius scale ───────────────────────────────────────────────────────── */
+  --radius-1: 4px; --radius-2: 6px;  --radius-3: 8px;
+  --radius-4: 12px; --radius-5: 16px; --radius-round: 999px;
+
+  /* ── font size scale ────────────────────────────────────────────────────── */
+  --fs-0: 10px; --fs-1: 11px; --fs-2: 12px; --fs-3: 13px; --fs-4: 15px;
+  --fs-5: 17px; --fs-6: 20px; --fs-7: 26px;
+
+  /* ── elevation ──────────────────────────────────────────────────────────── */
+  --shadow-1: 0 1px 2px rgba(19,32,51,.08);
+  --shadow-2: 0 2px 8px rgba(19,32,51,.10);
+  --shadow-3: 0 12px 32px rgba(19,32,51,.18);
+  /* App header — sits directly over scrolling content, so a touch more lift
+     than --shadow-2 without reading as a hard line. */
+  --shadow-header: 0 2px 10px rgba(19,32,51,.20);
+
+  --font: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* App header height — `.screen` reserves exactly this much padding-top */
+  --header-h: 56px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* Component classes below set display:flex, which would otherwise beat the bare
+   [hidden] attribute. State it once, globally. */
+[hidden] { display: none !important; }
+
+/* =============================================================================
+   DEVICE FRAME
+   -----------------------------------------------------------------------------
+   Prototype chrome only — NOT part of the app.
+
+   The phone renders at its NATIVE 390x844 and is never scaled. On a window too
+   short to show it whole, the page scrolls. Two details make that scrolling
+   actually work:
+
+     1. The phone is centred with AUTO MARGINS, not align-items:center. Centring
+        a too-tall item with align-items splits the overflow across both ends and
+        the part above the top edge is unreachable — that is what cut off the
+        tab bar. Auto margins collapse to 0 when space is negative, so the
+        overflow all goes downward where it can be scrolled to.
+     2. app.js forwards the wheel to the page when the app's own scroll area has
+        nothing left to scroll — otherwise the wheel is swallowed by the screen
+        under the cursor and the page never moves.
+   ========================================================================== */
+/* The backdrop lives on <html>, not <body>. A background on the root element
+   paints the whole canvas, so it always covers the full window no matter how
+   tall the body's own box is. (It was previously on <body> with
+   background-attachment:fixed, which pins the gradient to the viewport and can
+   leave unpainted white areas after a window resize.) */
+html {
+  min-height: 100%;
+  background: linear-gradient(160deg, #e7ecf3 0%, #d5dde8 100%);
+}
+body {
+  margin: 0;
+  min-height: 100vh;           /* fills the window, and grows past it if needed */
+  font-family: var(--font);
+  display: flex;
+  /* Extra bottom room so the tab bar can be scrolled clear of the Design
+     Toolbox dock, which is fixed to the bottom-centre of the window. */
+  padding: var(--space-6) var(--space-6) calc(var(--space-6) + 72px);
+}
+
+/* Centring box — auto margins, see note 1 above. */
+.stage { margin: auto; flex: none; }
+
+.device {
+  width: 390px; height: 844px; flex: none;
+  background: #0b0f16; border-radius: 54px; padding: 12px;
+  box-shadow: var(--shadow-3), 0 0 0 2px #333c48;
+}
+.device-screen {
+  position: relative; width: 100%; height: 100%;
+  border-radius: 42px; overflow: hidden; background: var(--background);
+  display: flex; flex-direction: column;
+}
+
+/* Simulated iOS status bar + home indicator (frame chrome, not app UI) */
+.status-bar {
+  flex: none; height: 44px; padding: 0 var(--space-6) 0 var(--space-7);
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: var(--fs-3); font-weight: 700; color: #fff;
+  background: var(--chrome); position: relative; z-index: 10;
+}
+.status-bar--light { background: var(--color-white); color: var(--color); }
+.status-bar--brand { background: var(--accent); color: #fff; }
+.status-bar .sb-icons { display: flex; gap: var(--space-2); font-size: var(--fs-2); }
+/* Floats OVER the active screen rather than sitting in flow, so a dark screen
+   (login, scanner) runs edge to edge instead of ending in a pale strip. */
+.home-indicator {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 22px; z-index: 11;
+  display: flex; align-items: center; justify-content: center; pointer-events: none;
+}
+.home-indicator::after {
+  content: ""; width: 134px; height: 5px; border-radius: var(--radius-round);
+  background: rgba(140,150,165,.75);   /* legible on both light and dark screens */
+}
+
+/* =============================================================================
+   TAMAGUI PRIMITIVES
+   ========================================================================== */
+.t-YStack { display: flex; flex-direction: column; }
+.t-XStack { display: flex; flex-direction: row; align-items: center; }
+.t-Separator { height: 1px; background: var(--borderColor); border: 0; margin: 0; }
+.t-Spacer { flex: 1; }
+
+/* Typography — Tamagui text components */
+.t-H1 { font-size: var(--fs-7); font-weight: 800; color: var(--color); margin: 0; letter-spacing: -.2px; }
+.t-H2 { font-size: var(--fs-6); font-weight: 800; color: var(--color-navy-800); margin: 0; }
+.t-H3 { font-size: var(--fs-5); font-weight: 700; color: var(--color); margin: 0; }
+.t-H4 { font-size: var(--fs-4); font-weight: 700; color: var(--color); margin: 0; }
+.t-Paragraph { font-size: var(--fs-4); line-height: 1.55; color: var(--colorSubtle); margin: 0; }
+.t-SizableText { font-size: var(--fs-3); color: var(--colorSubtle); }
+.t-Label {
+  font-size: var(--fs-2); font-weight: 800; letter-spacing: .6px;
+  text-transform: uppercase; color: var(--colorFaint);
+}
+
+/* Card */
+.t-Card {
+  background: var(--card); border-radius: var(--radius-4);
+  box-shadow: var(--shadow-1); overflow: hidden;
+}
+/* Echoes the red rule across the top of the web platform's home cards */
+.t-Card--accented { border-top: 4px solid var(--accent); }
+.t-Card__body { padding: var(--space-4); }
+
+/* Button */
+.t-Button {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  font-family: var(--font); font-size: var(--fs-4); font-weight: 700;
+  padding: var(--space-3) var(--space-5); border-radius: var(--radius-3);
+  border: 1px solid transparent; cursor: pointer; min-height: 48px; width: 100%;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.t-Button--primary   { background: var(--accent); color: #fff; }
+.t-Button--primary:hover { background: var(--color-red-600); }
+.t-Button--secondary { background: var(--color-white); color: var(--color-navy-800); border-color: var(--color-gray-300); }
+.t-Button--secondary:hover { background: var(--color-gray-50); }
+.t-Button--ghost     { background: transparent; color: var(--link); }
+.t-Button--ghost:hover { background: var(--color-blue-50); }
+.t-Button--danger    { background: transparent; color: var(--accent); border-color: var(--accent); }
+.t-Button--danger:hover { background: #fdeef0; }
+
+/* Input */
+.t-Input {
+  width: 100%; font-family: var(--font); font-size: var(--fs-4); color: var(--color);
+  padding: var(--space-3) var(--space-4); min-height: 48px;
+  background: var(--color-white); border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-3);
+}
+.t-Input:focus { outline: 0; border-color: var(--link); box-shadow: 0 0 0 3px var(--color-blue-50); }
+.t-Fieldset { display: flex; flex-direction: column; gap: var(--space-2); }
+.t-Fieldset > .t-Label { text-transform: none; letter-spacing: 0; font-size: var(--fs-3); color: var(--color); }
+
+/* Avatar */
+.t-Avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--radius-round);
+  background: var(--color-navy-700); color: #fff;
+  font-size: var(--fs-1); font-weight: 800; flex: none;
+}
+.t-Avatar--lg { width: 76px; height: 76px; font-size: var(--fs-7); }
+
+/* ListItem */
+.t-ListItem {
+  display: flex; align-items: center; gap: var(--space-4); width: 100%;
+  padding: var(--space-4); background: var(--card); border: 0;
+  font-family: var(--font); font-size: var(--fs-4); color: var(--color);
+  text-align: left; cursor: pointer; min-height: 56px;
+}
+.t-ListItem:hover { background: var(--color-gray-50); }
+.t-ListItem__icon {
+  width: 32px; height: 32px; border-radius: var(--radius-3); flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-blue-50); color: var(--link); font-size: var(--fs-4);
+}
+.t-ListItem__title { font-weight: 600; }
+.t-ListItem__sub { font-size: var(--fs-2); color: var(--colorFaint); margin-top: 2px; }
+.t-ListItem__after { margin-left: auto; color: var(--color-gray-300); font-size: var(--fs-3); }
+
+/* Chip / badge */
+.t-Chip {
+  font-size: var(--fs-1); font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
+  padding: 3px var(--space-2); border-radius: var(--radius-round);
+  background: var(--color-gray-100); color: var(--colorFaint); margin-left: auto; flex: none;
+}
+
+/* Switch — part of the component layer; currently unused, since notification
+   preferences are not editable in the app. Kept for the next screen that needs one. */
+.t-Switch {
+  position: relative; width: 46px; height: 28px; flex: none;
+  border-radius: var(--radius-round); border: 0; cursor: pointer;
+  background: var(--color-gray-300); transition: background .18s ease;
+}
+.t-Switch::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+  border-radius: var(--radius-round); background: #fff; box-shadow: var(--shadow-1);
+  transition: transform .18s ease;
+}
+.t-Switch[aria-checked="true"] { background: var(--color-green-500); }
+.t-Switch[aria-checked="true"]::after { transform: translateX(18px); }
+
+/* Notification feed row. Read-only: tapping deep-links out per the PRD. */
+.notif {
+  display: flex; align-items: flex-start; gap: var(--space-3); width: 100%;
+  padding: var(--space-4); background: var(--card); border: 0; cursor: pointer;
+  font-family: var(--font); text-align: left;
+}
+.notif:hover { background: var(--color-gray-50); }
+.notif--unread { background: #eff6fd; }   /* subtle, but distinguishable from read rows */
+.notif__icon {
+  width: 36px; height: 36px; border-radius: var(--radius-round); flex: none;
+  display: flex; align-items: center; justify-content: center; font-size: var(--fs-4);
+}
+.notif__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.notif__top  { display: flex; align-items: baseline; gap: var(--space-3); }
+.notif__title { font-size: var(--fs-4); font-weight: 700; color: var(--color); line-height: 1.35; }
+.notif__time  { font-size: var(--fs-1); color: var(--colorFaint); margin-left: auto; flex: none; }
+.notif__body  { font-size: var(--fs-3); color: var(--colorSubtle); line-height: 1.45; margin-top: 2px; }
+.notif__dot {
+  width: 8px; height: 8px; border-radius: var(--radius-round);
+  background: var(--link); flex: none; margin-top: var(--space-2);
+}
+
+/* Unread badge on the header bell */
+.app-header__btn { position: relative; }
+/* Unread badge: a white ring with the header's red showing through the middle.
+   The centre is filled with the accent rather than left transparent so the bell
+   glyph behind it can't peek through the hole. */
+.badge-dot {
+  position: absolute; top: 1px; right: 2px; width: 11px; height: 11px;
+  border-radius: var(--radius-round);
+  background: var(--accent); border: 2px solid #fff;
+}
+
+/* Sheet — bottom sheet used for every placeholder result in this prototype */
+.t-Sheet__overlay {
+  position: absolute; inset: 0; z-index: 20; background: rgba(19,32,51,.45);
+  display: flex; align-items: flex-end; opacity: 0; pointer-events: none;
+  transition: opacity .2s ease;
+}
+.t-Sheet__overlay.is-open { opacity: 1; pointer-events: auto; }
+.t-Sheet__frame {
+  width: 100%; background: var(--card);
+  border-radius: var(--radius-5) var(--radius-5) 0 0;
+  padding: var(--space-3) var(--space-5) calc(var(--space-6) + 18px);  /* + home-indicator clearance */
+  transform: translateY(100%); transition: transform .24s cubic-bezier(.2,.8,.3,1);
+}
+.t-Sheet__overlay.is-open .t-Sheet__frame { transform: translateY(0); }
+.t-Sheet__handle {
+  width: 40px; height: 4px; border-radius: var(--radius-round);
+  background: var(--color-gray-300); margin: 0 auto var(--space-5);
+}
+
+/* Tabs — bottom tab bar */
+.t-Tabs {
+  flex: none; display: flex; background: var(--card);
+  border-top: 1px solid var(--borderColor); position: relative; z-index: 3;
+  padding-bottom: 18px;   /* clearance for the floating home indicator */
+}
+.t-Tabs__tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: var(--space-2) 0 var(--space-3); background: none; border: 0; cursor: pointer;
+  font-family: var(--font); font-size: var(--fs-1); font-weight: 700;
+  color: var(--colorFaint);
+}
+.t-Tabs__tab i { font-size: var(--fs-5); }
+.t-Tabs__tab.is-active { color: var(--accent); }
+
+/* =============================================================================
+   APP SHELL
+   ========================================================================== */
+.app { position: relative; flex: 1; display: flex; flex-direction: column; min-height: 0; background: var(--background); }
+/* `display:flex` above beats the bare [hidden] attribute, so state it explicitly */
+.app[hidden] { display: none; }
+
+/* Brand header. Absolutely positioned OVER the scroll area (not in flow) so it
+   can slide fully out of the way on scroll; `.screen` reserves the space with a
+   matching padding-top. Sits BELOW the status bar in z-order, so it tucks
+   behind it the way a native header does. */
+.app-header {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 5;
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); background: var(--accent); color: #fff;
+  height: var(--header-h);
+  box-shadow: var(--shadow-header);   /* lifts the bar off the content beneath */
+  transition: transform .26s cubic-bezier(.2,.8,.3,1);
+}
+/* Hidden state — driven by scroll direction on Home (see app.js) */
+.app-header.is-hidden { transform: translateY(-100%); }
+
+/* The department name is the header's primary label. */
+.app-header__dept {
+  flex: 1; min-width: 0; font-size: var(--fs-5); font-weight: 700;
+  line-height: 1.2; letter-spacing: -.1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* PARKED — the Vector/TargetSolutions lockup, kept for a possible return.
+   Unused while the header shows only the department name; see the commented
+   block in app.js's renderHeader() to restore it (and set --header-h to 72px). */
+.app-header__brand {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+  align-items: flex-start; gap: 3px;
+}
+.app-header__brand .app-header__dept {
+  flex: none; max-width: 100%; font-size: var(--fs-0); font-weight: 600;
+  color: rgba(255,255,255,.92); letter-spacing: .2px;
+}
+.app-header__logo { height: 36px; width: auto; flex: none; display: block; }
+/* Sub-screens reuse the bar for a back button + title */
+.app-header__title { flex: 1; min-width: 0; font-size: var(--fs-4); font-weight: 700; }
+.app-header__btn {
+  background: none; border: 0; color: #fff; font-size: var(--fs-4);
+  padding: var(--space-1) var(--space-2); cursor: pointer; border-radius: var(--radius-2);
+  flex: none;
+}
+.app-header__btn:hover { background: rgba(255,255,255,.12); }
+
+/* Scrollable content region. Scrollbars are hidden so the frame reads like a
+   phone (mobile browsers overlay them) rather than a desktop pane. */
+.screen { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: none;
+          scrollbar-width: none; padding-top: var(--header-h); }
+.screen::-webkit-scrollbar,
+.login::-webkit-scrollbar,
+.prompt::-webkit-scrollbar { width: 0; height: 0; }
+.login, .prompt { scrollbar-width: none; }
+.screen.is-active { display: block; }
+.screen__body { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* =============================================================================
+   QUICK LINKS  (feature #4)
+   -----------------------------------------------------------------------------
+   One card, customer-named (here "Quick Links"), holding customer-named group
+   sub-headers, each with its own ordered set of tiles. Tile color is admin-
+   configured, so the label/icon contrast flips per tile via `data-ink`.
+   ========================================================================== */
+.ql-group + .ql-group { margin-top: var(--space-5); }
+.ql-group__title {
+  font-size: var(--fs-3); font-weight: 700; color: var(--link);
+  margin: 0 0 var(--space-3);
+}
+.ql-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+
+.ql-tile {
+  aspect-ratio: 1 / 1; border: 0; cursor: pointer; padding: var(--space-2);
+  border-radius: var(--radius-3); background: var(--tile);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: var(--space-2); font-family: var(--font); text-align: center;
+  transition: transform .12s ease, filter .12s ease;
+}
+.ql-tile:hover  { filter: brightness(1.06); }
+.ql-tile:active { transform: scale(.96); }
+.ql-tile i { font-size: 24px; }
+.ql-tile span { font-size: var(--fs-1); font-weight: 700; line-height: 1.25; }
+/* Admin-chosen fills run light and dark, so contrast is set per tile */
+.ql-tile[data-ink="light"] { color: #fff; }
+.ql-tile[data-ink="dark"]  { color: var(--color-navy-900); }
+
+/* =============================================================================
+   LOGIN  (Initial App Foundation — happy path only)
+   ========================================================================== */
+.login {
+  flex: 1; display: none; flex-direction: column; justify-content: center;
+  gap: var(--space-6); padding: var(--space-7) var(--space-6);
+  background: linear-gradient(165deg, var(--color-navy-800) 0%, var(--color-navy-900) 100%);
+  overflow-y: auto;
+}
+.login.is-active { display: flex; }
+.login__brand { text-align: center; color: #fff; }
+.login__brand-mark {
+  font-size: var(--fs-7); font-weight: 800; letter-spacing: -.4px; line-height: 1.1;
+}
+.login__brand-mark em { font-style: normal; color: #ff5a70; }
+.login__brand-sub { font-size: var(--fs-3); color: #a8b6c8; margin-top: var(--space-2); }
+
+/* --- Face ID --------------------------------------------------------------
+   Opt-in row on the password form, and the sign-in pane it unlocks. Both sit on
+   the navy login gradient, so surfaces are translucent white rather than tokens
+   from the light palette. */
+.faceid-optin {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: var(--radius-3); color: #fff;
+}
+.faceid-optin > i { font-size: var(--fs-6); flex: none; }
+.faceid-optin__title { display: block; font-size: var(--fs-3); font-weight: 700; }
+.faceid-optin__sub   { display: block; font-size: var(--fs-1); color: #a8b6c8; margin-top: 1px; }
+.faceid-optin .t-Switch { margin-left: auto; }
+
+.faceid-scan {
+  width: 116px; height: 116px; border-radius: var(--radius-5);
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.28);
+  color: #fff; font-size: 52px; cursor: pointer;
+  transition: transform .15s ease, border-color .2s ease, background .2s ease, color .2s ease;
+}
+.faceid-scan:hover  { background: rgba(255,255,255,.14); }
+.faceid-scan:active { transform: scale(.96); }
+.faceid-scan.is-scanning { border-color: var(--color-green-500); animation: faceid-pulse 1s ease-in-out infinite; }
+.faceid-scan.is-done     { border-color: var(--color-green-500); color: var(--color-green-500); }
+@keyframes faceid-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+.faceid-status { font-size: var(--fs-3); color: #a8b6c8; margin: 0; text-align: center; }
+
+/* =============================================================================
+   PUSH OPT-IN PRE-PROMPT  (feature #2 — the part we own, before the OS dialog)
+   ========================================================================== */
+.prompt {
+  flex: 1; display: none; flex-direction: column; justify-content: center;
+  gap: var(--space-5); padding: var(--space-7) var(--space-6); background: var(--card);
+  text-align: center; overflow-y: auto;
+}
+.prompt.is-active { display: flex; }
+.prompt__icon {
+  width: 84px; height: 84px; border-radius: var(--radius-round); margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-blue-50); color: var(--link); font-size: 34px;
+}
+.prompt__note {
+  display: flex; gap: var(--space-3); text-align: left;
+  background: var(--color-gray-50); border-radius: var(--radius-3);
+  padding: var(--space-3) var(--space-4); font-size: var(--fs-3);
+  color: var(--colorSubtle); line-height: 1.5;
+}
+.prompt__note i { color: var(--color-navy-700); margin-top: 2px; }
+
+/* =============================================================================
+   STUB + SCANNER SCREENS
+   ========================================================================== */
+.stub {
+  padding: var(--space-8) var(--space-6); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
+}
+.stub__icon {
+  width: 72px; height: 72px; border-radius: var(--radius-round);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-blue-50); color: var(--link); font-size: 28px;
+}
+
+/* Scanner — dark viewfinder with a cut-out reticle */
+.scanner {
+  flex: 1; display: none; flex-direction: column; background: #0e1622;
+  padding: calc(var(--header-h) + var(--space-6)) var(--space-6) var(--space-6);
+  align-items: center; justify-content: center; gap: var(--space-6);
+}
+.scanner.is-active { display: flex; }
+.scanner__view {
+  position: relative; width: 230px; height: 230px; border-radius: var(--radius-4);
+  background: repeating-linear-gradient(45deg, #16202f, #16202f 12px, #1a2637 12px, #1a2637 24px);
+}
+.scanner__view::before,
+.scanner__view::after {
+  content: ""; position: absolute; width: 46px; height: 46px;
+  border: 4px solid var(--accent);
+}
+.scanner__view::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-radius: var(--radius-3) 0 0 0; }
+.scanner__view::after  { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-radius: 0 0 var(--radius-3) 0; }
+.scanner__corner { position: absolute; width: 46px; height: 46px; border: 4px solid var(--accent); }
+.scanner__corner--tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-radius: 0 var(--radius-3) 0 0; }
+.scanner__corner--bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 var(--radius-3); }
+.scanner__line {
+  position: absolute; left: 10px; right: 10px; height: 2px; background: var(--accent);
+  box-shadow: 0 0 12px var(--accent); animation: sweep 2.4s ease-in-out infinite;
+}
+@keyframes sweep { 0%,100% { top: 14px; } 50% { top: 214px; } }
+.scanner__hint { color: #c3ceda; font-size: var(--fs-3); text-align: center; max-width: 240px; line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
