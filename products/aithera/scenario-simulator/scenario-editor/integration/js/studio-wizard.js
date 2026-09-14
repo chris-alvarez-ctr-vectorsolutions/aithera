@@ -716,8 +716,11 @@
       }
 
       if (f.kind === 'source') {
-        // Paste-anything box + a plain-text file drop. PPT/Docs can't be parsed
-        // in a static page — the drop zone hint teaches the copy-out path.
+        // Paste-anything box + a file drop. A dropped .pptx is read directly
+        // (AitheraPptxImport — the deck is a zip of XML; no PowerPoint, no
+        // server) and reproduces exactly what View → Outline → copy would
+        // paste here — plus, when the spec knows how, a straight pre-fill of
+        // its own interview fields from the deck's machine-named shapes.
         const wrap = document.createElement('div');
         wrap.className = 'wiz-source';
         const ta = document.createElement('vaadin-text-area');
@@ -730,22 +733,39 @@
         ta.addEventListener('input', () => { intake[f.key] = ta.value; persistIntake(); renderMeta(); });
         const drop = document.createElement('div');
         drop.className = 'wiz-drop';
-        drop.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i><span><b>Drop a .txt or .md file</b>, or click to pick one. From PowerPoint, copy the outline (View → Outline) and paste above.</span>';
+        drop.innerHTML = '<i class="fa-solid fa-file-arrow-up"></i><span><b>Drop a Scenario Brief .pptx</b>, or a .txt/.md file, or click to pick one.</span>';
         const file = document.createElement('input');
         file.type = 'file';
-        file.accept = '.txt,.md,.markdown,text/plain,text/markdown';
+        file.accept = '.pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation,.txt,.md,.markdown,text/plain,text/markdown';
         file.hidden = true;
+        const appendSource = (text) => {
+          intake[f.key] = (intake[f.key] ? intake[f.key] + '\n\n' : '') + text;
+          ta.value = intake[f.key];
+        };
         const readFile = (fl) => {
           if (!fl) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            const text = String(reader.result || '');
-            intake[f.key] = (intake[f.key] ? intake[f.key] + '\n\n' : '') + text;
-            ta.value = intake[f.key];
+          const isPptx = /\.pptx$/i.test(fl.name || '') || fl.type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+          if (!isPptx) {
+            const reader = new FileReader();
+            reader.onload = () => { appendSource(String(reader.result || '')); persistIntake(); renderMeta(); };
+            reader.onerror = () => { renderMeta('Couldn’t read that file — try dropping it again.'); };
+            reader.readAsText(fl);
+            return;
+          }
+          if (!window.AitheraPptxImport) { renderMeta('The .pptx reader didn’t load — paste the outline text instead.'); return; }
+          renderMeta('Reading ' + fl.name + '…');
+          window.AitheraPptxImport.parse(fl).then((deck) => {
+            appendSource(deck.outlineText());
+            let filled = 0;
+            if (typeof spec.importPptx === 'function') {
+              try { filled = spec.importPptx(deck, intake) || 0; } catch (e) { /* the text landed regardless — a pre-fill miss isn't fatal */ }
+            }
             persistIntake();
             renderMeta();
-          };
-          reader.readAsText(fl);
+            if (filled) renderBody();   // pre-filled fields may be on a step the author hasn't opened yet
+          }).catch((err) => {
+            renderMeta((err && err.message) || 'Couldn’t read that .pptx — paste the outline text instead.');
+          });
         };
         drop.addEventListener('click', () => file.click());
         file.addEventListener('change', () => { readFile(file.files && file.files[0]); file.value = ''; });
@@ -754,7 +774,8 @@
         drop.addEventListener('drop', (e) => readFile(e.dataTransfer.files && e.dataTransfer.files[0]));
         const meta = document.createElement('div');
         meta.className = 'wiz-srcmeta';
-        const renderMeta = () => {
+        const renderMeta = (msg) => {
+          if (msg) { meta.innerHTML = `<b><i class="fa-solid fa-triangle-exclamation"></i></b> ${esc(msg)}`; return; }
           const n = String(intake[f.key] || '').length;
           meta.innerHTML = n ? `<b><i class="fa-solid fa-circle-check"></i></b> ${n.toLocaleString()} characters captured.` : 'Optional — the draft works fine without it.';
         };
@@ -1009,10 +1030,14 @@ No markdown fences, no commentary — start with { and end with }. Never emit a 
         renderTasks();
         try {
           const req = t.build(intake, gen.acc, chosen);
-          const json = await generateJson(workerUrl, req);
+          /* build() returns a falsy request when the brief already answers
+             everything this task would have asked the model — see `close` in
+             studio-v2-v4-universal-wizard.js. No network call, no tokens
+             spent asking for what we're only going to discard. */
+          const json = req ? await generateJson(workerUrl, req) : {};
           gen.acc.results[t.id] = json;
           t.apply(json, gen.draft, intake, gen.acc);
-          gen.status[t.id] = { state: 'ok', note: t.doneNote ? t.doneNote(json) : '' };
+          gen.status[t.id] = { state: 'ok', note: t.doneNote ? t.doneNote(json, intake) : '' };
         } catch (err) {
           gen.status[t.id] = { state: 'fail', error: String(err && err.message || err) + ' — fix the Worker URL if needed, then Resume.' };
           renderTasks();

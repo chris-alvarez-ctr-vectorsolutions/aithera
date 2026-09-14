@@ -194,7 +194,9 @@ ${lines(ik.mustKnows).map((x) => '  · ' + x).join('\n') || '  (unspecified)'}
   /* ---- levels ------------------------------------------------------------
      A partial block is kept rather than dropped: the validator names the exact
      missing tier, which is more useful to an author than silently losing two
-     good tiers because the third came back short. */
+     good tiers because the third came back short. Deliberately shape-agnostic:
+     `raw` is model JSON when a step is AI-authored and a deck-parsed object
+     (see parseTierBlock below) when it isn't — the two are built to match. */
   function buildLevels(raw, allowProgression) {
     const src = (raw && typeof raw === 'object') ? raw : {};
     const out = {};
@@ -207,6 +209,162 @@ ${lines(ik.mustKnows).map((x) => '  · ' + x).join('\n') || '  (unspecified)'}
       if (allowProgression && str(l.progression).trim()) out[k].progression = str(l.progression);
     });
     return Object.keys(out).length ? out : null;
+  }
+
+  /* =========================================================================
+     DETERMINISTIC BRIEF PARSING — no LLM.
+     A dropped Scenario Brief .pptx (importPptx, below) captures more than the
+     plain interview fields it feeds into `intake`: intake._brief holds
+     structured data that has no interview field of its own to live in — the
+     opening question, misconceptions, the close, and each step's opener,
+     tier guidance and debrief — read straight off the deck's own machine-
+     named shapes. plan() reads it back for two things: to skip ASKING the
+     model for a field the designer already wrote (a shorter, cheaper prompt
+     that can't second-guess a value we're going to discard anyway), and to
+     SPLICE the exact text into the draft regardless of what the model
+     returns for anything still left in its schema. `_brief` is a reserved
+     intake key, same standing as `_outlined` — see the engine's own docblock.
+     ========================================================================= */
+
+  // A field's own label is always its first paragraph (Rule 2 of the brief:
+  // "keep the label line") — every parser here is handed the rest.
+  const briefValue = (paras) => (paras || []).slice(1);
+
+  const stripQuotes = (s) => {
+    const t = str(s).trim();
+    const pairs = [['"', '"'], ['“', '”'], ["'", "'"], ['‘', '’']];
+    for (let i = 0; i < pairs.length; i++) {
+      const o = pairs[i][0], c = pairs[i][1];
+      if (t.length > 1 && t[0] === o && t[t.length - 1] === c) return t.slice(1, -1).trim();
+    }
+    return t;
+  };
+
+  /* "Name — role — driver — never does" -> {name, role, driver, guardrails}.
+     Spaced dashes split it, and anything after the third is guardrails — the
+     outline contract's own documented rule (docs/…brief-template.html §5). */
+  function parseCastLine(line) {
+    const parts = str(line).split(/\s+[–—-]\s+/).map((x) => x.trim()).filter(Boolean);
+    if (parts.length < 2 || !parts[0]) return null;
+    return {
+      name: parts[0], role: parts[1] || '', driver: parts[2] || '',
+      guardrails: parts.length > 3 ? [parts.slice(3).join(' — ')] : [],
+    };
+  }
+  function parseCastList(castListText) {
+    const out = [];
+    const seen = Object.create(null);
+    lines(castListText).forEach((line) => {
+      const p = parseCastLine(line);
+      if (!p) return;
+      let id = slug(p.name);
+      while (seen[id]) id = id + '-2';
+      seen[id] = true;
+      out.push({ id: id, name: p.name, role: p.role, driver: p.driver, guardrails: p.guardrails });
+    });
+    return out;
+  }
+
+  /* A roleplay opener is several "Speaker: line" paragraphs — Narrator plus
+     whoever the learner faces. A coach/observe opener is one or more plain
+     paragraphs. Returns [{text, speaker?}] — `speaker` is the NAME as written
+     in the deck, resolved against acc.cast at apply() time (not here), so it
+     always matches whatever cast a step actually ends up with. */
+  function parseOpenerMessages(paras) {
+    const out = [];
+    briefValue(paras).forEach((para) => {
+      const p = str(para).trim();
+      if (!p) return;
+      const m = p.match(/^([A-Za-z][\w' ]{0,28}):\s*(.+)$/);
+      if (m && !/^narrator$/i.test(m[1].trim())) out.push({ text: stripQuotes(m[2]), speaker: m[1].trim() });
+      else if (m) out.push({ text: stripQuotes(m[2]) });
+      else out.push({ text: stripQuotes(p) });
+    });
+    return out.length ? out : null;
+  }
+
+  /* Sub-labelled paragraphs (a tier's "Look for:" / "Respond:" / "Scene moves
+     (roleplay only):", or an example's "Learner:" / "Reply:") — walks the
+     paragraphs, starting a new section whenever one matches a known header
+     line exactly, and joining everything after it (until the next header)
+     as that section's value. headerMap keys are lower-cased, punctuation-
+     insensitive header text -> the output key. */
+  function parseSubLabeled(paras, headerMap) {
+    const norm = (s) => str(s).trim().toLowerCase().replace(/[:\s]+$/, '');
+    const keyed = {}; Object.keys(headerMap).forEach((h) => { keyed[norm(h)] = headerMap[h]; });
+    const out = {}; let cur = null;
+    briefValue(paras).forEach((para) => {
+      const hit = keyed[norm(para)];
+      if (hit) { cur = hit; if (!out[cur]) out[cur] = []; return; }
+      if (cur && str(para).trim()) out[cur].push(str(para).trim());
+    });
+    const res = {};
+    Object.keys(out).forEach((k) => { if (out[k].length) res[k] = out[k].join('\n'); });
+    return Object.keys(res).length ? res : null;
+  }
+  const TIER_HEADERS = { 'Look for:': 'look_for', 'Respond:': 'response', 'Scene moves (roleplay only):': 'progression' };
+  const EXAMPLE_HEADERS = { 'Learner:': 'learner', 'Reply:': 'reply' };
+  function parseTierBlock(paras, isRoleplay) {
+    const sec = parseSubLabeled(paras, TIER_HEADERS);
+    if (!sec || !sec.look_for || !sec.response) return null;
+    const out = { look_for: sec.look_for, response: sec.response };
+    if (isRoleplay && sec.progression) out.progression = sec.progression;
+    return out;
+  }
+  function parseExampleBlock(paras) {
+    const sec = parseSubLabeled(paras, EXAMPLE_HEADERS);
+    return (sec && sec.learner && sec.reply) ? { learner: stripQuotes(sec.learner), reply: sec.reply } : null;
+  }
+
+  // "point one  ·  point two  ·  point three" (the brief's own documented
+  // separator), or one point per paragraph if the author pressed Enter instead.
+  function parseDebriefPoints(paras) {
+    const out = [];
+    briefValue(paras).forEach((para) => {
+      const p = str(para).trim();
+      if (!p) return;
+      if (p.indexOf('·') >= 0) p.split(/\s*·\s*/).forEach((x) => { if (x.trim()) out.push(x.trim()); });
+      else out.push(p);
+    });
+    return out.length ? out : null;
+  }
+
+  // "'misconception.' → how the coach redirects it."
+  function parseMisconceptions(paras) {
+    const out = [];
+    briefValue(paras).forEach((para) => {
+      const parts = str(para).split(/\s*(?:→|->)\s*/);
+      if (parts.length < 2) return;
+      const misconception = stripQuotes(parts[0]);
+      const redirect = parts.slice(1).join(' ').trim();
+      if (misconception && redirect) out.push({ misconception: misconception, redirect: redirect });
+    });
+    return out.length ? out : null;
+  }
+
+  // Blank-paragraph-separated blocks — first line of each is the heading,
+  // the rest are its points. Matches close.components' own documented shape
+  // ("a heading, then its points") exactly, so no LLM restructuring needed.
+  function groupByBlankLines(paras) {
+    const groups = []; let cur = [];
+    briefValue(paras).forEach((para) => {
+      const p = str(para).trim();
+      if (!p) { if (cur.length) { groups.push(cur); cur = []; } return; }
+      cur.push(p);
+    });
+    if (cur.length) groups.push(cur);
+    return groups.filter((g) => g.length > 1).map((g) => ({ title: g[0], components: g.slice(1) }));
+  }
+
+  /* Drops one or more `"field": …` lines from a hand-authored JSON-shape
+     block in a system prompt — how a task shrinks its ask down to only what
+     the brief hasn't already answered. Every schema below writes exactly one
+     field per physical line, so a start-of-line key match is exact and safe;
+     nothing here needs to survive a value that wraps. */
+  function omitFields(block, names) {
+    if (!names || !names.length) return block;
+    const alt = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+    return block.replace(new RegExp('^ *"(?:' + alt + ')":.*\\n?', 'gm'), '');
   }
 
   T.wizard = {
@@ -232,8 +390,7 @@ ${lines(ik.mustKnows).map((x) => '  · ' + x).join('\n') || '  (unspecified)'}
             label: 'The steps — one per line, in order, each starting with its mode',
             helper: 'Prefix each line with coach:, roleplay:, or observe:. e.g. "coach: do these three signs add up?"; "observe: study the group-chat screenshot"; "roleplay: talk to Ray before shift". An unprefixed line becomes a coach step. Default to exactly ONE roleplay or observe step for the whole arc — never both, never two of either — and stack every coach: step before it, not after. Only break that cap if the source material itself lays out more than one live/graded moment as separate, distinct scenes.' },
           { key: 'sourceText', kind: 'source', minRows: 7, label: 'Source material — paste anything (optional)',
-            placeholder: 'A slide outline, the static scenario this replaces, a policy excerpt, SME notes…',
-            helper: 'We’ll pull specifics from this instead of inventing them.' },
+            placeholder: 'A slide outline, the static scenario this replaces, a policy excerpt, SME notes…' },
         ] },
 
       { id: 'world', title: 'The situation & the world', sub: 'Answer like you’re briefing a colleague. Plain language — no prompt-writing.',
@@ -282,27 +439,136 @@ ${lines(ik.mustKnows).map((x) => '  · ' + x).join('\n') || '  (unspecified)'}
       return d;
     },
 
+    /* A dropped Scenario Brief .pptx (tools/build-scenario-brief.py) is read
+       by AitheraPptxImport and handed here as machine-named shapes — e.g.
+       "brief.topic", "situation.narrative", "step.mode". Anything recognised
+       lands straight in the matching interview field, verbatim, rather than
+       through a model re-draft; everything else (openers, tier guidance,
+       the debrief, the close) still reaches the model as source text —
+       studio-wizard.js already appended the deck's full outline before
+       calling this. Only fills a field that's still empty, so a re-import
+       or a partially hand-filled interview never loses an edit. Returns how
+       many fields it set, so the caller knows whether a re-render is worth it. */
+    importPptx(deck, intake) {
+      let filled = 0;
+      // A field's own label is always its first paragraph (Rule 2: "keep the
+      // label line") — drop it and read the rest as the value.
+      const value = (paras) => (paras || []).slice(1).join('\n').trim();
+      const firstLine = (s) => (String(s || '').split('\n').map((x) => x.trim()).find(Boolean) || '');
+      const set = (key, text) => { if (!intake[key] && text) { intake[key] = text; filled++; } };
+
+      set('topic', value(deck.lookup('brief.topic')));
+      set('title', firstLine(value(deck.lookup('cover.title'))));
+      set('learnerRole', value(deck.lookup('brief.learner')));
+      set('situation', value(deck.lookup('situation.narrative')));
+      set('setting', value(deck.lookup('situation.setting')));
+      set('castList', value(deck.lookup('situation.cast')));
+      set('mustKnows', value(deck.lookup('teaching.mustknows')));
+      set('goodVsWeak', value(deck.lookup('teaching.strongweak')));
+      set('coachVibe', value(deck.lookup('teaching.voice')));
+
+      // INITIAL REFLECTION is optional in the deck too — "delete the slide
+      // to skip it" is the brief's own rule, so its absence IS the answer.
+      if (intake.warmUp == null) {
+        intake.warmUp = deck.slides.some((s) => /^INITIAL REFLECTION\b/i.test(s.title || ''));
+        filled++;
+      }
+
+      // One line per STEP slide, mode-prefixed — the same shape the interview
+      // asks for directly, built from each step's own Mode + What-the-learner-
+      // does-here fields (falling back to the slide's own name).
+      const stepLines = [];
+      const briefSteps = [];
+      deck.slides.forEach((s) => {
+        const stepNo = /^STEP\s+(\d+)\s*·\s*EXAMPLES/i.test(s.title || '') ? null
+          : (s.title || '').match(/^STEP\s+(\d+)\s*·/i);
+        if (stepNo) {
+          const mode = (value(s.fields['step.mode']).match(/^[a-z]+/i) || ['coach'])[0].toLowerCase();
+          const label = str(s.title).replace(/^STEP\s+\d+\s*·\s*/i, '').trim();
+          const desc = value(s.fields['step.does']) || label;
+          const sourceLine = desc ? `${mode}: ${desc}` : '';
+          if (sourceLine) stepLines.push(sourceLine);
+          briefSteps.push({
+            sourceLine: sourceLine,
+            label: label,
+            opener: s.fields['step.opener'] ? parseOpenerMessages(s.fields['step.opener']) : null,
+            tiers: (() => {
+              const isRp = mode === 'roleplay';
+              const t = {
+                unthoughtful: s.fields['step.tier.unthoughtful'] ? parseTierBlock(s.fields['step.tier.unthoughtful'], isRp) : null,
+                neutral: s.fields['step.tier.neutral'] ? parseTierBlock(s.fields['step.tier.neutral'], isRp) : null,
+                strong: s.fields['step.tier.strong'] ? parseTierBlock(s.fields['step.tier.strong'], isRp) : null,
+              };
+              return (t.unthoughtful || t.neutral || t.strong) ? t : null;
+            })(),
+            debrief: s.fields['step.debrief'] ? parseDebriefPoints(s.fields['step.debrief']) : null,
+            examples: null,
+          });
+        } else if (/^STEP\s+\d+\s*·\s*EXAMPLES/i.test(s.title || '')) {
+          const m = (s.title || '').match(/^STEP\s+(\d+)/i);
+          const idx = m ? parseInt(m[1], 10) - 1 : -1;
+          if (idx >= 0 && briefSteps[idx]) {
+            const ex = {
+              unthoughtful: s.fields['example.tier.unthoughtful'] ? parseExampleBlock(s.fields['example.tier.unthoughtful']) : null,
+              neutral: s.fields['example.tier.neutral'] ? parseExampleBlock(s.fields['example.tier.neutral']) : null,
+              strong: s.fields['example.tier.strong'] ? parseExampleBlock(s.fields['example.tier.strong']) : null,
+            };
+            if (ex.unthoughtful || ex.neutral || ex.strong) briefSteps[idx].examples = ex;
+          }
+        }
+      });
+      if (!intake.stepsList && stepLines.length) { intake.stepsList = stepLines.join('\n'); filled++; }
+
+      // Everything above has an interview field to land in; these don't — no
+      // question in the wizard asks for the opening question, the
+      // misconceptions, the close, or any per-step opener/tiers/debrief. They
+      // live here instead, a reserved key plan() reads at generation time
+      // (same standing as `_outlined` — see the engine's own docblock).
+      const brief = {};
+      const openQ = value(deck.lookup('opening.question'));
+      const openTurns = value(deck.lookup('opening.turns'));
+      if (openQ) brief.opening = { question: stripQuotes(openQ), turns: clampInt(openTurns, 1) };
+      const misc = deck.lookup('teaching.misconceptions');
+      if (misc) { const m = parseMisconceptions(misc); if (m) brief.misconceptions = m; }
+      const closeComponentsRaw = deck.lookup('close.components');
+      const closeSummaryRaw = value(deck.lookup('close.summary'));
+      const closeComponents = closeComponentsRaw ? groupByBlankLines(closeComponentsRaw) : [];
+      if (closeComponents.length || closeSummaryRaw) {
+        brief.close = { components: closeComponents, summary: closeSummaryRaw ? stripQuotes(closeSummaryRaw) : '' };
+      }
+      if (briefSteps.some((s) => s.opener || s.tiers || s.debrief || s.examples)) brief.steps = briefSteps;
+      if (Object.keys(brief).length) { intake._brief = brief; filled++; }
+
+      return filled;
+    },
+
     plan(intake) {
       const parsed = lines(intake.stepsList).map(parseStepLine);
       const N = Math.max(1, parsed.length);
       const tasks = [];
+      // A dropped Scenario Brief carries structured data no interview field
+      // holds — see importPptx above. Every task below checks it first.
+      const brief = intake._brief || {};
 
       /* ---- 1. foundation: identity, the landing, the coach ---------------- */
       tasks.push({ id: 'foundation', label: 'Foundation — title, narrative & coach voice',
         detail: 'The scenario’s identity, the landing the learner reads, and the coaching register.',
         build(ik) {
-          return { maxTokens: 1700,
-            system: SYS + `
-
-YOUR TASK — the FOUNDATION. Return this exact JSON shape:
-{
+          const hasTitle = !!str(ik.title).trim();
+          const hasNarrative = !!str(ik.situation).trim();
+          const shape = omitFields(`{
  "implementation_id": "kebab-case id, 3-6 words, no spaces — the production engine's routing key for this scenario",
  "title": "the learner-facing title, short and concrete",
  "narrative": "120-220 words, SECOND PERSON present tense — the landing the learner reads before anything happens. This is v4's ONE narrative and also the coach's only picture of the setup, so put everything the coach needs here and nothing the learner shouldn't see. Escape paragraph breaks as \\n\\n.",
  "coach_persona": "one line naming the coach's stance — who they are and how they carry this particular topic. In v4 this is the coach's whole identity, so make it carry weight. No trailing period.",
  "tone_guidelines": [ "3-5 imperative register rules for the coach in THIS scenario, one per entry" ],
  "landing_cta_label": "the button label that starts the scenario (e.g. 'Begin', 'Start the shift')"
-}
+}`, [hasTitle && 'title', hasNarrative && 'narrative'].filter(Boolean));
+          return { maxTokens: 1700,
+            system: SYS + `
+
+YOUR TASK — the FOUNDATION.${hasTitle || hasNarrative ? ` The brief already fixes ${[hasTitle && 'the title', hasNarrative && 'the narrative'].filter(Boolean).join(' and ')} verbatim — see below, and don't restate ${hasTitle && hasNarrative ? 'them' : 'it'} here.` : ''} Return this exact JSON shape:
+${shape}
 
 ${NO_COPY}
 
@@ -321,7 +587,11 @@ ${contentExemplar(['narrative', 'coach_persona'])}`,
              its own carryover graph against them. */
           draft.__auto_id = true;
           c.title = str(ik.title).trim() || str(json.title);
-          c.narrative = str(json.narrative);
+          /* The narrative is VERBATIM in the brief (situation.narrative) — when
+             the designer wrote one, it lands exactly as written, never through
+             a model re-draft that could drift from what the coach was built to
+             see. */
+          c.narrative = str(ik.situation).trim() || str(json.narrative);
           c.coach_persona = depunct(json.coach_persona);
           c.tone_guidelines = strArr(json.tone_guidelines);
           if (str(json.landing_cta_label).trim()) c.landing_cta_label = str(json.landing_cta_label).trim();
@@ -331,7 +601,7 @@ ${contentExemplar(['narrative', 'coach_persona'])}`,
           /* The three safety flags are no longer part of the format (2026-08-25):
              safety is an always-on V1 product feature, not per-scenario authoring. */
         },
-        doneNote(json) { return `“${str(json.title) || 'untitled'}” · ${slug(json.implementation_id) || 'no id'}`; } });
+        doneNote(json, ik) { return `“${str((ik || {}).title).trim() || str(json.title) || 'untitled'}” · ${slug(json.implementation_id) || 'no id'}`; } });
 
       /* ---- 2. scene world: setting, canon, cast --------------------------
          Before the steps, so a roleplay step can reference a declared id
@@ -340,11 +610,9 @@ ${contentExemplar(['narrative', 'coach_persona'])}`,
         detail: 'The shared ground truth the scenes draw on. The coach never sees it.',
         build(ik, acc) {
           const f = acc.results.foundation || {};
-          return { maxTokens: 1700,
-            system: SYS + `
-
-YOUR TASK — the SCENE WORLD: scene-only ground truth, deliberately separate from the narrative the learner read. Return this exact JSON shape:
-{
+          const hasSetting = !!str(ik.setting).trim();
+          const hasCast = parseCastList(ik.castList).length > 0;
+          const shape = omitFields(`{
  "setting": "one line fixing where this happens, concrete enough that every scene agrees",
  "canon_facts": [ "4-8 entries. Each is ONE thing that is simply true in this world — the history, the specific incidents, what has and has not happened yet. These are what stop two scenes contradicting each other." ],
  "characters": [ {
@@ -355,7 +623,12 @@ YOUR TASK — the SCENE WORLD: scene-only ground truth, deliberately separate fr
    "baseline": "how they present before the learner does anything",
    "guardrails": [ "1-3 hard limits on how this character may be played — what they never do" ]
  } ]
-}
+}`, [hasSetting && 'setting', hasCast && 'characters'].filter(Boolean));
+          return { maxTokens: 1700,
+            system: SYS + `
+
+YOUR TASK — the SCENE WORLD: scene-only ground truth, deliberately separate from the narrative the learner read.${hasCast ? ' The cast is already declared by name, role and driver below — do not invent additional characters unless the steps require someone not on that list.' : ''} Return this exact JSON shape:
+${shape}
 Cast every person the learner SPEAKS TO in a roleplay step, plus anyone the canon facts turn on. A character here is identity and disposition ONLY — how they react to being handled well or badly belongs to each step's grading tiers, not here.
 
 ${NO_COPY}
@@ -365,25 +638,43 @@ ${contentExemplar(['scene_world'])}`,
             user: `THE SCENARIO\n- Title: ${f.title || ''}\n- Learner plays: ${ik.learnerRole || ''}\n- The steps:\n${stepOutline(ik)}\n\nNARRATIVE (already written — stay consistent with it):\n"""\n${str(f.narrative)}\n"""\n\n${interviewBlock(ik)}\n\n${sourceBlock(ik, 4000)}\n\nWrite the scene world JSON now.` };
         },
         apply(json, draft, ik, acc) {
-          const cast = Array.isArray(json.characters) ? json.characters : [];
-          const seen = Object.create(null);
-          const characters = cast.map((chIn, i) => {
-            const o = chIn || {};
-            let id = slug(o.id) || slug(o.name) || ('character-' + (i + 1));
-            while (seen[id]) id = id + '-' + (i + 1);
-            seen[id] = true;
-            const out = { id: id, name: str(o.name), role: str(o.role) };
-            const beh = {};
-            if (str(o.driver).trim()) beh.driver = str(o.driver);
-            if (str(o.baseline).trim()) beh.baseline = str(o.baseline);
-            const g = strArr(o.guardrails);
-            if (g.length) beh.guardrails = g;
-            if (Object.keys(beh).length) out.behavior = beh;
-            return out;
-          }).filter((ch) => ch.name || ch.id);
+          /* The cast is deterministic when castList parses ("Name — role —
+             driver — never does" splits on its own spaced dashes — see
+             parseCastList) — never AI-invented once the designer wrote it.
+             `baseline` has no Brief counterpart, so it's simply left unset
+             rather than guessed. */
+          const detCast = parseCastList(ik.castList);
+          let characters;
+          if (detCast.length) {
+            characters = detCast.map((c) => {
+              const out = { id: c.id, name: c.name, role: c.role };
+              const beh = {};
+              if (c.driver) beh.driver = c.driver;
+              if (c.guardrails.length) beh.guardrails = c.guardrails;
+              if (Object.keys(beh).length) out.behavior = beh;
+              return out;
+            });
+          } else {
+            const cast = Array.isArray(json.characters) ? json.characters : [];
+            const seen = Object.create(null);
+            characters = cast.map((chIn, i) => {
+              const o = chIn || {};
+              let id = slug(o.id) || slug(o.name) || ('character-' + (i + 1));
+              while (seen[id]) id = id + '-' + (i + 1);
+              seen[id] = true;
+              const out = { id: id, name: str(o.name), role: str(o.role) };
+              const beh = {};
+              if (str(o.driver).trim()) beh.driver = str(o.driver);
+              if (str(o.baseline).trim()) beh.baseline = str(o.baseline);
+              const g = strArr(o.guardrails);
+              if (g.length) beh.guardrails = g;
+              if (Object.keys(beh).length) out.behavior = beh;
+              return out;
+            }).filter((ch) => ch.name || ch.id);
+          }
 
           draft.content.scene_world = {
-            setting: str(json.setting) || str(ik.setting),
+            setting: str(ik.setting).trim() || str(json.setting),
             canon: { facts: strArr(json.canon_facts) },
             characters: characters,
           };
@@ -391,7 +682,11 @@ ${contentExemplar(['scene_world'])}`,
              slugifying, so a step never references an id we rewrote. */
           acc.cast = characters.map((ch) => ({ id: ch.id, name: ch.name, role: ch.role }));
         },
-        doneNote(json) { return `${strArr(json.canon_facts).length} canon facts, ${(json.characters || []).length} characters`; } });
+        doneNote(json, ik) {
+          const detCast = parseCastList((ik || {}).castList);
+          const n = detCast.length || (json.characters || []).length;
+          return `${strArr(json.canon_facts).length} canon facts, ${n} character${n === 1 ? '' : 's'}${detCast.length ? ' (from the brief)' : ''}`;
+        } });
 
       /* ---- 3. the optional warm-up --------------------------------------
          `!== false` rather than a truthiness test, so this agrees with the
@@ -405,11 +700,8 @@ ${contentExemplar(['scene_world'])}`,
           detail: 'One exchange before the first step. Calibrated, never graded.',
           build(ik, acc) {
             const f = acc.results.foundation || {};
-            return { maxTokens: 1100,
-              system: SYS + `
-
-YOUR TASK — the OPENING REFLECTION: one ungraded exchange before the first step. It exists to surface what the learner already believes, so the coach can calibrate rather than assess. Return this exact JSON shape:
-{
+            const hasQuestion = !!(brief.opening && brief.opening.question);
+            const shape = omitFields(`{
  "label": "short name for this opening, 2-4 words",
  "purpose": "one line, model-facing: what this exchange is for",
  "opening_message": "the verbatim question the coach opens with — a gut read on what the learner just read, ending in a question mark",
@@ -418,22 +710,29 @@ YOUR TASK — the OPENING REFLECTION: one ungraded exchange before the first ste
  "button_label": "the label on the button that leaves the warm-up and starts the first step",
  "calibration_look_for": "model-facing: what a typical first answer contains, including the misconception to expect",
  "calibration_response": "model-facing: how to acknowledge it in 2-3 short bubbles and gently note any misconception. CALIBRATE ONLY — never grade, score, or evaluate the answer, and never preview what comes next; the next step is delivered on its own."
-}
+}`, [hasQuestion && 'opening_message', hasQuestion && 'turns'].filter(Boolean));
+            return { maxTokens: 1100,
+              system: SYS + `
+
+YOUR TASK — the OPENING REFLECTION: one ungraded exchange before the first step. It exists to surface what the learner already believes, so the coach can calibrate rather than assess.${hasQuestion ? ' The opening question is already fixed by the brief, verbatim — see below.' : ''} Return this exact JSON shape:
+${shape}
 
 ${NO_COPY}
 
 CRAFT EXEMPLAR (a shipped v4 opening reflection):
 ${JSON.stringify((tplDoc('guided-arc') || {}).opening || {}, null, 1)}`,
-              user: `THE SCENARIO\n- Title: ${f.title || ''}\n- Learner plays: ${ik.learnerRole || ''}\n- First step: ${(lines(ik.stepsList)[0] || '(unspecified)')}\n\nNARRATIVE the learner has just read:\n"""\n${str(f.narrative)}\n"""\n\nMUST-KNOWS (do NOT give these away here):\n${lines(ik.mustKnows).map((x) => '- ' + x).join('\n') || '(unspecified)'}\n\nWrite the opening JSON now.` };
+              user: `THE SCENARIO\n- Title: ${f.title || ''}\n- Learner plays: ${ik.learnerRole || ''}\n- First step: ${(lines(ik.stepsList)[0] || '(unspecified)')}\n\nNARRATIVE the learner has just read:\n"""\n${str(f.narrative)}\n"""\n\nMUST-KNOWS (do NOT give these away here):\n${lines(ik.mustKnows).map((x) => '- ' + x).join('\n') || '(unspecified)'}${hasQuestion ? `\n\nOPENING QUESTION (verbatim, already fixed):\n"""\n${brief.opening.question}\n"""` : ''}\n\nWrite the opening JSON now.` };
           },
           apply(json, draft) {
             const op = draft.content.opening;
             op.id = 'opening_reflection';
             op.label = str(json.label) || 'Opening reflection';
             op.purpose = str(json.purpose);
-            op.opening_messages = [{ text: str(json.opening_message) }];
+            /* Verbatim in the brief (opening.question) — lands exactly as
+               written rather than through a model re-draft. */
+            op.opening_messages = [{ text: (brief.opening && brief.opening.question) || str(json.opening_message) }];
             if (str(json.input_placeholder).trim()) op.input_placeholder = str(json.input_placeholder).trim();
-            op.exit = { when: { turns: clampInt(json.turns, 2) } };
+            op.exit = { when: { turns: (brief.opening && brief.opening.turns) || clampInt(json.turns, 2) } };
             op.transition = { button_label: str(json.button_label).trim() || 'Begin practicing' };
             const look = str(json.calibration_look_for).trim();
             const res = str(json.calibration_response).trim();
@@ -475,16 +774,27 @@ ${JSON.stringify((tplDoc('guided-arc') || {}).opening || {}, null, 1)}`,
           ? `{"look_for": "model-facing: how to recognise a pass at this tier", "response": "model-facing: how the character responds AND what the debrief must add", "progression": "model-facing: how far the scene moves at this tier — this is the ONLY mode where progression is legal"}`
           : `{"look_for": "model-facing: how to recognise a pass at this tier", "response": "model-facing: how the coach responds AND what the debrief must add"}`;
 
+        /* This step's slice of the brief, if the deck supplied one AND the
+           stepsList line here still reads exactly as it did at import — an
+           edited or reordered line falls back to full AI authorship for
+           itself alone, never for the steps around it. */
+        const bstep = (() => {
+          const raw = lines(intake.stepsList)[i];
+          const b = brief.steps && brief.steps[i];
+          return (b && b.sourceLine && b.sourceLine === raw) ? b : null;
+        })();
+
         tasks.push({
           id: 'step' + (i + 1),
           label: `Step ${i + 1} — ${MODE_LABEL[mode]}`,
           detail: ps.desc.slice(0, 60),
           build(ik, acc) {
             const f = acc.results.foundation || {};
+            const fixed = [bstep && bstep.opener && (mode === 'observe_react' ? 'brief' : 'opener'), bstep && bstep.tiers && 'tier guidance', bstep && bstep.debrief && 'debrief points'].filter(Boolean);
             return { maxTokens: 2000,
               system: SYS + `
 
-YOUR TASK — author STEP ${i + 1} of ${N}, a ${MODE_LABEL[mode].toUpperCase()} step: "${ps.desc}".${isLast ? ' This is the FINAL step — it resolves the scenario, and the expert answer follows it.' : ''} Return this exact JSON shape:
+YOUR TASK — author STEP ${i + 1} of ${N}, a ${MODE_LABEL[mode].toUpperCase()} step: "${ps.desc}".${isLast ? ' This is the FINAL step — it resolves the scenario, and the expert answer follows it.' : ''}${fixed.length ? ` The brief already fixes this step's ${fixed.join(', ')} verbatim — write your best version anyway (it will be replaced with the brief's own words), and put your real effort into whatever else this shape asks for.` : ''} Return this exact JSON shape:
 {
  "id": "kebab-case step id, 1-3 words, no dots",
  "label": "the story's own name for this segment, 2-5 words — see hard rule 3",
@@ -553,17 +863,42 @@ Write the step JSON now.` };
             if (str(json.exit_requirement).trim()) practice.exit.when.requirement = str(json.exit_requirement).trim();
 
             const it = practice.interaction;
-            const levels = buildLevels(json.levels, isRoleplay);
+            const castIds = ((acc && acc.cast) || []).map((x) => x.id);
+            /* Tier guidance is deterministic when the deck supplied it — merged
+               IN, per tier, over whatever the model returned, so partial brief
+               coverage (say, only STRONG was filled in) still lets the other
+               two land AI-authored rather than forcing an all-or-nothing choice. */
+            const mergedLevels = Object.assign({}, json.levels);
+            if (bstep && bstep.tiers) {
+              ['unthoughtful', 'neutral', 'strong'].forEach((t) => { if (bstep.tiers[t]) mergedLevels[t] = bstep.tiers[t]; });
+            }
+            const levels = buildLevels(mergedLevels, isRoleplay);
+            if (levels && bstep && bstep.examples) {
+              ['unthoughtful', 'neutral', 'strong'].forEach((t) => { if (levels[t] && bstep.examples[t]) levels[t].example = bstep.examples[t]; });
+            }
             if (levels) it.levels = levels;
 
             const msgs = Array.isArray(json.opening_messages) ? json.opening_messages : [];
-            const castIds = ((acc && acc.cast) || []).map((x) => x.id);
             const mapMsg = (m) => {
               const o = { text: str((m || {}).text) };
               const cid = slug((m || {}).character_id);
               if (cid && castIds.indexOf(cid) >= 0) o.character_id = cid;
               return o;
             };
+            /* The opener is verbatim in the brief when the deck supplied it —
+               a speaker NAME (not yet an id: the cast the deck names and the
+               cast a step actually gets can differ) resolved against the real
+               cast here, at apply() time, so it always matches whatever this
+               generation actually produced. Unmatched = narrator-driven,
+               exactly like an unmatched AI-returned character_id. */
+            const detMsgs = bstep && bstep.opener ? bstep.opener.map((m) => {
+              const o = { text: m.text };
+              if (m.speaker) {
+                const found = ((acc && acc.cast) || []).find((cc) => cc.name.toLowerCase() === m.speaker.toLowerCase() || cc.id === slug(m.speaker));
+                if (found) o.character_id = found.id;
+              }
+              return o;
+            }) : null;
 
             if (isRoleplay) {
               it.setting = str(json.setting);
@@ -573,10 +908,15 @@ Write the step JSON now.` };
                  would reject. */
               if (cid && castIds.indexOf(cid) >= 0) it.character_id = cid;
               else it.character_id = null;
+              /* A deck-fixed opener may itself name who's on stage — a speaker
+                 it resolved to a real id beats the model's own character_id
+                 guess, which the model made without seeing the opener at all. */
+              const detCid = detMsgs && detMsgs.map((m) => m.character_id).find(Boolean);
+              if (detCid) it.character_id = detCid;
               const named = ((acc && acc.cast) || []).find((x) => x.id === it.character_id);
               it.partner_label = str(json.partner_label).trim() || (named ? named.name : '');
               if (str(json.emotion_hint).trim()) it.emotion_hint = str(json.emotion_hint).trim();
-              it.opening_messages = msgs.map(mapMsg);
+              it.opening_messages = detMsgs || msgs.map(mapMsg);
               if (str(json.input_placeholder).trim()) it.input_placeholder = str(json.input_placeholder).trim();
               const help = parseInt(json.help_turns, 10);
               if (Number.isFinite(help) && help >= 0) it.help_turns = help;
@@ -601,21 +941,23 @@ Write the step JSON now.` };
                 clampInt(json.spot_target, Math.max(1, Math.ceil(rubric.length / 2))),
                 Math.max(1, rubric.length)
               );
-              it.brief = (Array.isArray(json.brief) ? json.brief : []).map((m) => ({ text: str((m || {}).text) }));
+              it.brief = detMsgs || (Array.isArray(json.brief) ? json.brief : []).map((m) => ({ text: str((m || {}).text) }));
               /* src stays EMPTY — the wizard cannot see pixels. alt + facts are
                  drafted so the step is one file away from valid; until then the
                  lints name exhibit.src, which is the honest state. */
               it.exhibit = { type: exhibitType(ps.desc), src: '', alt: str(json.exhibit_alt), facts: strArr(json.exhibit_facts) };
               if (str(json.jot_placeholder).trim()) it.jot_placeholder = str(json.jot_placeholder).trim();
             } else {
-              it.opening_messages = msgs.map((m) => ({ text: str((m || {}).text) }));
+              it.opening_messages = detMsgs || msgs.map((m) => ({ text: str((m || {}).text) }));
               if (str(json.input_placeholder).trim()) it.input_placeholder = str(json.input_placeholder).trim();
             }
 
             /* debrief ------------------------------------------------------- */
             const debrief = {
               label: str(json.debrief_label) || 'Coach Debrief',
-              key_points: strArr(json.debrief_key_points),
+              /* The debrief's key points are verbatim in the brief when the
+                 deck supplied them ("2 to 4 points every learner hears"). */
+              key_points: (bstep && bstep.debrief) || strArr(json.debrief_key_points),
               transition: { button_label: str(json.debrief_button_label).trim() || 'Continue' },
             };
             const probe = str(json.debrief_probe).trim();
@@ -636,7 +978,10 @@ Write the step JSON now.` };
             const used = c.phases.map((p) => str((p || {}).id));
             let id = slug(json.id) || ('step-' + (i + 1));
             while (used.indexOf(id) >= 0) id = id + '-' + (i + 1);
-            const label = str(json.label) || ps.desc.slice(0, 40);
+            /* The label is the STEP slide's own title in the brief ("the
+               story's own name for this segment" — the exact thing the model
+               is otherwise asked to invent), verbatim. */
+            const label = (bstep && bstep.label) || str(json.label) || ps.desc.slice(0, 40);
             c.phases.push({ id: id, label: label, purpose: str(json.purpose), practice: practice, debrief: debrief });
 
             /* what the teaching task needs: the labels of the graded steps */
@@ -644,8 +989,11 @@ Write the step JSON now.` };
             acc.steps.push({ label: label, mode: mode, shape: practice.answer_shape, desc: ps.desc });
           },
           doneNote(json) {
-            const tiers = buildLevels(json.levels, isRoleplay);
-            return `${oneLine(json.label) || 'step'} · ${MODE_LABEL[mode]} · ${tiers ? Object.keys(tiers).length : 0}/3 tiers`;
+            const merged = Object.assign({}, json.levels);
+            if (bstep && bstep.tiers) ['unthoughtful', 'neutral', 'strong'].forEach((t) => { if (bstep.tiers[t]) merged[t] = bstep.tiers[t]; });
+            const tiers = buildLevels(merged, isRoleplay);
+            const label = (bstep && bstep.label) || oneLine(json.label) || 'step';
+            return `${label} · ${MODE_LABEL[mode]} · ${tiers ? Object.keys(tiers).length : 0}/3 tiers${bstep ? ' (brief-fixed)' : ''}`;
           },
         });
       });
@@ -658,19 +1006,21 @@ Write the step JSON now.` };
         build(ik, acc) {
           const steps = acc.steps || [];
           const graded = steps.filter((s) => s.shape === 'determinate');
+          const hasMisc = !!(brief.misconceptions && brief.misconceptions.length);
+          const shape = omitFields(`{
+ "topics": [ {"topic": "the subject heading", "points": ["2-4 statements the coach must land under this heading"]} ],
+ "misconceptions": [ {"misconception": "the wrong belief a learner brings in, in their own words", "redirect": "how the coach corrects it without shaming"} ]
+}`, [hasMisc && 'misconceptions'].filter(Boolean));
           return { maxTokens: 1700,
             system: SYS + `
 
-YOUR TASK — the TEACHING POINTS and the MISCONCEPTIONS. These are debrief-scoped: they are never shown mid-attempt. Return this exact JSON shape:
-{
- "topics": [ {"topic": "the subject heading", "points": ["2-4 statements the coach must land under this heading"]} ],
- "misconceptions": [ {"misconception": "the wrong belief a learner brings in, in their own words", "redirect": "how the coach corrects it without shaming"} ]
-}
+YOUR TASK — the TEACHING POINTS${hasMisc ? '' : ' and the MISCONCEPTIONS'}. These are debrief-scoped: they are never shown mid-attempt.${hasMisc ? ' The misconceptions are already fixed by the brief, verbatim — see below.' : ''} Return this exact JSON shape:
+${shape}
 Each topic renders as a heading with its points beneath it. Group by SUBJECT, not by step.
 ${graded.length
   ? `ONE EXCEPTION, AND IT MATTERS: the steps below are graded, and each needs a conclusion the coach can state plainly. Emit one topic for each, whose "topic" string is EXACTLY the label given, character for character:\n${graded.map((s) => '  · "' + s.label + '"').join('\n')}\nGroup any remaining teaching into further subject topics after those.`
   : 'No step in this scenario is graded, so group purely by subject.'}
-3-6 topics total, 2-4 misconceptions.
+3-6 topics total.${hasMisc ? '' : ' 2-4 misconceptions.'}
 
 ${NO_COPY}
 
@@ -689,27 +1039,37 @@ ${contentExemplar(['teaching_points'])}`,
             topic: str((t || {}).topic),
             points: strArr((t || {}).points),
           })).filter((t) => t.points.length);
-          c.misconceptions = (Array.isArray(json.misconceptions) ? json.misconceptions : []).map((m) => ({
+          /* Verbatim in the brief (teaching.misconceptions) when it's there. */
+          c.misconceptions = brief.misconceptions || (Array.isArray(json.misconceptions) ? json.misconceptions : []).map((m) => ({
             misconception: str((m || {}).misconception),
             redirect: str((m || {}).redirect),
           })).filter((m) => m.misconception.trim() || m.redirect.trim());
         },
-        doneNote(json) { return `${(json.topics || []).length} topics, ${(json.misconceptions || []).length} misconceptions`; } });
+        doneNote(json) { return `${(json.topics || []).length} topics, ${(brief.misconceptions || json.misconceptions || []).length} misconceptions`; } });
 
       /* ---- 6. the expert answer ----------------------------------------- */
       tasks.push({ id: 'close', label: 'The expert answer — the audit-defensible close',
         detail: 'Shipped verbatim to every learner, on every path.',
         build(ik, acc) {
+          const hasComponents = !!(brief.close && brief.close.components && brief.close.components.length);
+          const hasSummary = !!(brief.close && brief.close.summary);
+          /* component_groups and summary are v4's only REQUIRED fields here
+             (source_references is optional — see lo_cml_v4.schema.json); when
+             the brief supplies both, there is nothing left to ask a model for.
+             A falsy request skips the network call entirely — see the runner
+             in studio-wizard.js. */
+          if (hasComponents && hasSummary) return null;
           const f = acc.results.foundation || {};
-          return { maxTokens: 1600,
-            system: SYS + `
-
-YOUR TASK — the EXPERT ANSWER. This ships verbatim to every learner on every path, so it is the audit record of what the training taught. Return this exact JSON shape:
-{
+          const shape = omitFields(`{
  "component_groups": [ {"title": "the grouping heading", "components": ["the individual statements a complete expert answer contains — each one checkable"]} ],
  "summary": "2-4 sentences tying the components together — the last thing the learner reads",
  "source_references": [ "EXTERNAL authorities ONLY — a regulation or a standard (e.g. an OSHA clause, Title VII). NEVER an internal course, module or slide id, which means nothing outside the course. Empty array if nothing specific grounds this." ]
-}
+}`, [hasComponents && 'component_groups', hasSummary && 'summary'].filter(Boolean));
+          return { maxTokens: 1600,
+            system: SYS + `
+
+YOUR TASK — the EXPERT ANSWER. This ships verbatim to every learner on every path, so it is the audit record of what the training taught.${hasComponents || hasSummary ? ` The brief already fixes the ${[hasComponents && 'component groups', hasSummary && 'summary'].filter(Boolean).join(' and ')} verbatim — see below.` : ''} Return this exact JSON shape:
+${shape}
 2-4 groups covering every must-know.${ik.elevatedStakes ? ' This scenario runs at elevated stakes; the crisis support line is appended by the engine, so do NOT list it yourself.' : ''} Never invent a regulation, a statistic, or an organization.
 
 ${NO_COPY}
@@ -720,18 +1080,26 @@ ${contentExemplar(['closing'])}`,
         },
         apply(json, draft) {
           const ir = draft.content.closing.ideal_response;
-          ir.component_groups = (Array.isArray(json.component_groups) ? json.component_groups : []).map((g) => {
-            const o = g || {};
-            const out = { components: strArr(o.components) };
-            if (str(o.title).trim()) out.title = str(o.title).trim();
-            return out;
-          }).filter((g) => g.components.length);
-          ir.summary = str(json.summary);
+          /* Both verbatim in the brief (close.components / close.summary) when
+             the deck supplied them — never a model re-draft of an audit record. */
+          if (brief.close && brief.close.components && brief.close.components.length) {
+            ir.component_groups = brief.close.components;
+          } else {
+            ir.component_groups = (Array.isArray(json.component_groups) ? json.component_groups : []).map((g) => {
+              const o = g || {};
+              const out = { components: strArr(o.components) };
+              if (str(o.title).trim()) out.title = str(o.title).trim();
+              return out;
+            }).filter((g) => g.components.length);
+          }
+          ir.summary = (brief.close && brief.close.summary) || str(json.summary);
           ir.source_references = strArr(json.source_references);
         },
-        doneNote(json) {
-          const n = (json.component_groups || []).reduce((a, g) => a + strArr((g || {}).components).length, 0);
-          return `${(json.component_groups || []).length} groups, ${n} components`;
+        doneNote(json, ik) {
+          const b = (ik && ik._brief && ik._brief.close) || {};
+          const groups = (b.components && b.components.length) ? b.components : (json.component_groups || []);
+          const n = groups.reduce((a, g) => a + strArr((g || {}).components).length, 0);
+          return `${groups.length} groups, ${n} components${b.components && b.components.length ? ' (brief-fixed)' : ''}`;
         } });
 
       return tasks;
