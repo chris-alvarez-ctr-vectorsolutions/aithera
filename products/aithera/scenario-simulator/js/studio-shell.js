@@ -228,10 +228,23 @@
 
   // makeItem() returns the blank row a type wants when "Add" is clicked, so
   // this helper no longer needs to know any type's list shapes.
-  function rowsBlock(listPath, renderRow, addLabel, makeItem) {
+  function rowsBlock(listPath, renderRow, addLabel, makeItem, opts = {}) {
     const wrap = document.createElement('div');
     wrap.className = 'rows';
     wrap.dataset.list = listPath;
+    // Optional title + one-line lead, e.g. for a list with no guidance card of
+    // its own — an empty Add button with nothing above it just reads as an
+    // unexplained action. Persistent across re-renders: it lives outside the
+    // body div that render() clears, so adding/removing rows never touches it.
+    if (opts.title) {
+      const head = document.createElement('div');
+      head.className = 'rows-head';
+      head.innerHTML = `<span class="rows-title">${esc(opts.title)}</span>` +
+        (opts.lead ? `<span class="rows-lead">${esc(opts.lead)}</span>` : '');
+      wrap.appendChild(head);
+    }
+    const body = document.createElement('div');
+    wrap.appendChild(body);
     /* An OPTIONAL list is simply ABSENT from the draft, not empty — and a type
        binding to one used to take the entire form down with it: getByPath
        returned undefined, .forEach threw, and because the throw escaped
@@ -246,9 +259,9 @@
       return Array.isArray(list) ? list : null;
     };
     const render = () => {
-      wrap.innerHTML = '';
+      body.innerHTML = '';
       const list = readList() || [];
-      list.forEach((item, i) => wrap.appendChild(renderRow(item, i, () => {
+      list.forEach((item, i) => body.appendChild(renderRow(item, i, () => {
         list.splice(i, 1);
         render();
         scheduleUpdate();
@@ -266,7 +279,7 @@
         render();
         scheduleUpdate();
       });
-      wrap.appendChild(add);
+      body.appendChild(add);
     };
     render();
     return wrap;
@@ -284,7 +297,7 @@
      production documents, invisible and un-editable, and preserved on export so
      nothing ever failed. A type binding a nested string array should reach for
      this instead of an index. */
-  function subRows(listPath, itemLabel, addLabel, helper) {
+  function subRows(listPath, itemLabel, addLabel, helper, placeholder) {
     const wrap = document.createElement('div');
     wrap.className = 'subrows';
     wrap.dataset.list = listPath;
@@ -309,7 +322,7 @@
         /* Numbered only when there is more than one — "Point 1" over a solitary
            field claims a list the author cannot see. */
         row.appendChild(tf(`${listPath}.${i}`, list.length > 1 ? `${itemLabel} ${i + 1}` : itemLabel,
-          { area: true, minRows: 2 }));
+          { area: true, minRows: 2, placeholder }));
         /* No remove on the last remaining entry: these lists are `minItems: 1`
            in v4, so emptying one is a load failure, not a cleared field. */
         if (list.length > 1) {
@@ -784,9 +797,9 @@
      The interaction TYPE is picked ONCE, in the "Start from scratch" wizard —
      never switched one-click in the editor. A live swap reloads into a
      different type's structure and silently breaks the scenario, so here we
-     only SHOW the current type, read-only, with a Change affordance. Changing
-     it will open a guided restructure flow (not built yet); until then Change
-     just explains where type selection lives. */
+     only SHOW the current type, read-only. There is no Change affordance: a
+     guided restructure flow was never built, so offering one only to explain
+     it isn't there yet was a dead end — type selection lives in the wizard. */
   function buildModeChooser() {
     const wrap = document.createElement('div');
     wrap.className = 'mode-choose';
@@ -803,19 +816,11 @@
     card.innerHTML =
       `<span class="mci"><i class="fa-solid ${esc(type.icon || 'fa-cube')}"></i></span>` +
       `<span class="mcb"><span class="mcn">${esc(type.label)}${legacyChip}</span><span class="mcd">${esc(type.blurb || '')}</span></span>`;
-    const change = document.createElement('button');
-    change.type = 'button';
-    change.className = 'mode-change';
-    change.innerHTML = '<i class="fa-solid fa-arrow-right-arrow-left"></i> Change';
-    change.addEventListener('click', () => {
-      toast('Changing the core interaction opens a guided flow — coming soon. New scenarios pick their type in the “Start from scratch” wizard.');
-    });
-    card.appendChild(change);
     wrap.appendChild(card);
 
     const note = document.createElement('p');
     note.className = 'mode-current-note';
-    note.textContent = 'Set when the scenario was created — it shapes every field below. Switching type restructures the scenario, so it’s a guided step, not a one-click change here.';
+    note.textContent = 'Set when the scenario was created — it shapes every field below.';
     wrap.appendChild(note);
     return wrap;
   }
