@@ -134,8 +134,8 @@
 
     // CONTEXT MODALITY — the landing is 2–3 readable paragraphs (locked canon).
     intro: {
-      type: 'reading',
-      video: { sound: true, scenes: [] },
+      type: 'video',
+      video: { sound: true, scenes: [{ src: '../assets/videos/bullying.mp4?v=2', caption: '' }] },
       audio: {
         eyebrow: 'The situation · read',
         title: 'Before first period',
