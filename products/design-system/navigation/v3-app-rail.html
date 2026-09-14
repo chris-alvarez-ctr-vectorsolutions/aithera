@@ -8,6 +8,19 @@
   ============================================================================
   V3 · APP RAIL SWITCHER + PRODUCT-SCOPED SEARCH IN THE SIDE NAV
   ============================================================================
+  TWO VARIANTS, toggled from the review pill (V3: a / V3: b) or ?variant=a|b:
+  · a: two tabs, Learner and Admin. Learner's side nav is Convergence's
+       learner list (Dashboard, My Training, Catalog, News, Registered
+       Facilities, My Attachments, My Reports, My Jobs, My Licenses, My
+       Preferences); My Training and Catalog carry a right-hand filter panel.
+       Admin keeps the admin tree, with a Reports SECTION holding what the
+       Insights tab offers plus the legacy report library.
+  · b: Convergence's five tabs (Home, Training Plan, Catalog, Insights,
+       Admin), each with the side nav Convergence gives it: the learner list
+       under Home / Training Plan / Catalog, the Insights tree under Insights,
+       the admin tree under Admin.
+  · both: View my profile and Change my password live under the avatar.
+
   Same shell as V1 with these deliberate differences:
   · L-SHAPED SHELL: the app-switcher rail is DOMINANT and full-height (it
     starts at y=0); the top bar is INSET to its right, not full-width.
@@ -123,10 +136,14 @@ svg.ic{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-wid
 /* ---- Shell: mode panes (sidenav + content per mode); tabs swap them ---- */
 .shell{flex:1;display:flex;min-height:0;overflow:hidden}
 .mode-pane{display:none;flex:1;min-width:0}
-body[data-mode="home"]      .mode-pane[data-mode="home"],
-body[data-mode="admin"]     .mode-pane[data-mode="admin"],
-body[data-mode="trainplan"] .mode-pane[data-mode="trainplan"],
-body[data-mode="reporting"] .mode-pane[data-mode="reporting"]{display:flex}
+/* the learner pane serves variant a's Learner tab AND variant b's Home /
+   Training Plan / Catalog tabs, which pin its view */
+body[data-mode="learner"]   .mode-pane[data-mode="learner"],
+body[data-mode="home"]      .mode-pane[data-mode="learner"],
+body[data-mode="trainplan"] .mode-pane[data-mode="learner"],
+body[data-mode="catalog"]   .mode-pane[data-mode="learner"],
+body[data-mode="insights"]  .mode-pane[data-mode="insights"],
+body[data-mode="admin"]     .mode-pane[data-mode="admin"]{display:flex}
 
 /* ---- Side nav: accordion scoped to the ACTIVE MODE. Slides closed. ---- */
 .sidenav{flex:none;width:var(--nav-w);background:var(--surface);border-right:1px solid var(--line);overflow-y:auto;padding:12px 10px 16px;display:flex;flex-direction:column;gap:1px;transition:width .18s ease}
@@ -217,7 +234,9 @@ td .meta{font-size:11.5px;color:var(--ink-3)}
 body[data-app="learn"] .brand[data-app="learn"]{display:flex}
 body[data-app="comply"] .brand[data-app="comply"]{display:flex}
 .tb-tabs{display:none}
-body[data-app="learn"] .tb-tabs[data-app="learn"]{display:flex}
+body[data-app="learn"][data-variant="a"] .tb-tabs[data-app="learn"][data-variant="a"],
+body[data-app="learn"][data-variant="b"] .tb-tabs[data-app="learn"][data-variant="b"]{display:flex}
+body.tabs-off[data-app][data-variant] .tb-tabs[data-app][data-variant]{display:none}
 body[data-app="comply"] .tb-tabs[data-app="comply"]{display:flex}
 body[data-mode="comply-home"] .mode-pane[data-mode="comply-home"]{display:flex}
 .l-cur{display:none}
@@ -493,9 +512,74 @@ body.nav-snap .sidenav,body.nav-snap .tb-left{transition:none}
    active page is nested inside that accordion ---- */
 body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])>summary{background:var(--accent-soft);color:var(--accent-strong)}
 body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])>summary .ic{color:var(--accent)}
+
+/* ---- V3 variants (body[data-variant]) ---- */
+body[data-variant="a"] .vb-only,body[data-variant="b"] .va-only{display:none}
+.va-only,.vb-only{display:contents}
+/* learner views: one pane, one visible view */
+.lview{display:none}
+.lview.on{display:block}
+.head-actions{margin-left:auto;display:flex;gap:8px;align-items:center}
+/* simple list rows shared by the learner pages and the Insights report */
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) 110px 120px 110px;gap:12px;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+.lrow:last-child{border-bottom:0}
+.lrow .t{font-size:12.5px;font-weight:600;color:var(--ink)}
+.lrow .d{font-size:11.5px;color:var(--ink-3)}
+.empty{padding:28px 16px;text-align:center;color:var(--ink-3);font-size:12.5px}
+/* the Convergence training plan and its right-hand filter panel, as in V2a */
+.tp-head,.tp-row{display:grid;grid-template-columns:minmax(0,5fr) 160px 90px 96px 106px 70px;align-items:center;border-bottom:1px solid var(--line)}
+.tp-head{background:var(--surface-2);font-size:11px;font-weight:650;color:var(--ink-3)}
+.tp-head>div{padding:9px 12px}
+.tp-row>div{padding:8px 12px;font-size:12px;color:var(--ink-2)}
+.tp-row:hover{background:var(--surface-2)}
+.tp-row:last-child,.tp-row.req:last-child{border-bottom:0}
+.tp-name{display:flex;align-items:center;gap:8px;min-width:0}
+.tp-name .ic{width:15px;height:15px;color:var(--ink-3);flex:none}
+.tp-name .t{font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tp-row.l1 .t{font-weight:650}
+.tp-row.l2 .t{font-weight:600}
+.tp-row.req{background:var(--surface-2)}
+.tp-row.req:hover{background:var(--well)}
+.tp-tag{font-size:10.5px;color:var(--ink-3);background:var(--well);border-radius:99px;padding:1px 7px;flex:none}
+.tp-cc{display:flex;flex-direction:column;align-items:center;gap:3px}
+.tp-cc .bar{width:100px}
+.tp-cc span{font-size:10px;color:var(--ink-3)}
+.tp-c{text-align:center;font-variant-numeric:tabular-nums}
+.tp-launch{display:inline-flex;align-items:center;height:26px;padding:0 14px;border-radius:var(--r-1);background:var(--accent);color:var(--on-accent);font-weight:650;font-size:12px;border:0;cursor:pointer;flex:none}
+.tp-launch:hover{background:var(--accent-strong)}
+.tp-status{display:flex;align-items:center;justify-content:center;gap:6px;font-size:11px;color:var(--ink-3)}
+.tp-status .dot{width:9px;height:9px;border-radius:99px;background:var(--line-strong);flex:none}
+.tp-status.done .dot{background:var(--accent)}
+.tp-status.prog .dot{background:var(--accent-line)}
+.tp-act{display:flex;justify-content:flex-end;gap:8px;color:var(--ink-3)}
+.tp-act .ic{width:15px;height:15px}
+/* ---- Filter treatment A: a persistent RIGHT panel beside the plan ---- */
+.tp-layout{display:grid;grid-template-columns:minmax(0,1fr) 232px;gap:12px;align-items:start}
+.fp .card-h b{font-size:13px}
+.fp-clear{margin-left:auto;font-size:11.5px;font-weight:600;color:var(--accent-strong);cursor:pointer}
+.fp-clear:hover{text-decoration:underline}
+.fp-g{padding:10px 14px 12px;border-bottom:1px solid var(--line)}
+.fp-g:last-child{border-bottom:0}
+.fp-g h3{margin:0 0 7px;font-size:11px;font-weight:650;color:var(--ink-3)}
+.fp-opt{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.fp-opt:hover{color:var(--ink)}
+.fp-box{width:15px;height:15px;border-radius:4px;border:1.5px solid var(--line-strong);display:grid;place-items:center;flex:none;background:var(--surface)}
+.fp-box.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.fp-box .ic{width:10px;height:10px}
+.fp-box.r{border-radius:99px}
+.fp-box.r.on{background:var(--surface);border-color:var(--accent);color:var(--accent)}
+.fp-box.r.on::after{content:"";width:7px;height:7px;border-radius:99px;background:var(--accent)}
+.fp-count{margin-left:auto;font-size:10.5px;color:var(--ink-3)}
+/* V3 content column is 56px narrower than V2a (the rail), so the fixed columns
+   and the filter panel give that back and course titles stay whole. Placed
+   after the ported V2a rules so it wins on order. */
+.tp-head,.tp-row{grid-template-columns:minmax(0,5fr) 128px 74px 92px 100px 60px}
+/* dates and durations never wrap; the name column is the one that flexes */
+.tp-head>div,.tp-c,.tp-status{white-space:nowrap}
+.tp-layout{grid-template-columns:minmax(0,1fr) 220px}
 </style>
 </head>
-<body data-app="learn" data-mode="trainplan">
+<body data-app="learn" data-mode="learner" data-variant="a">
 <a class="skip" href="#main">Skip to content</a>
 
 <!-- Inline icon set (Lucide-style strokes). Filled glyphs override the inherited stroke. -->
@@ -612,11 +696,19 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
   </div>
   <!-- MODE TABS, aligned to the CONTENT EDGE: they begin where the side nav
        ends. Live demo: click to swap the side nav + content below. -->
-  <nav class="tb-tabs" data-app="learn" aria-label="Vector LMS modes">
-    <a href="#" data-mode="home">Home</a>
+  <!-- Variant a: two modes. Learner is Convergence's learner experience as one
+       tab; Admin is the admin tree. -->
+  <nav class="tb-tabs" data-app="learn" data-variant="a" aria-label="Vector LMS modes">
+    <a href="#" data-mode="learner" aria-current="page">Learner</a>
     <a href="#" data-mode="admin">Admin</a>
-    <a href="#" data-mode="trainplan" aria-current="page">Training Plan</a>
-    <a href="#" data-mode="reporting">Reporting &amp; Insights</a>
+  </nav>
+  <!-- Variant b: Convergence's five tabs exactly. -->
+  <nav class="tb-tabs" data-app="learn" data-variant="b" aria-label="Vector LMS modes">
+    <a href="#" data-mode="home">Home</a>
+    <a href="#" data-mode="trainplan">Training Plan</a>
+    <a href="#" data-mode="catalog">Catalog</a>
+    <a href="#" data-mode="insights">Insights</a>
+    <a href="#" data-mode="admin">Admin</a>
   </nav>
   <!-- Comply's mode set (swapped in by the launcher). Static here: only the
        Home mode is built; the point of the Comply pane is the EHS side nav. -->
@@ -686,7 +778,10 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
       </div>
       <div class="u-note">Turning the accent on applies the selected colour to the bar under the top nav.</div>
       <div class="u-div"></div>
-      <a class="u-item" href="#">Profile settings</a>
+      <!-- Convergence's "View My Profile" and "Change My Password" belong to the
+           person, not the product, so they live here rather than in the learner nav -->
+      <a class="u-item" href="#">View my profile</a>
+      <a class="u-item" href="#">Change my password</a>
       <a class="u-item" href="#">Sign out</a>
     </div>
   </div>
@@ -694,16 +789,19 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
 
 <div class="shell" id="main">
 
-  <!-- ================= MODE: HOME ================= -->
-  <div class="mode-pane" data-mode="home">
-    <nav class="sidenav" aria-label="Home navigation">
+
+  <!-- ================= MODE: ADMIN ================= -->
+  <!-- ================= LEARNER PANE: variant a's Learner tab, and variant b's
+       Home / Training Plan / Catalog tabs (which pin the view). ================= -->
+  <div class="mode-pane" data-mode="learner">
+    <nav class="sidenav lnav" aria-label="Vector LMS learner navigation">
       <!-- Like V2b, the location selector sits IN the nav: context and
            navigation together, top bar left to search and universal actions. -->
       <div class="loc loc-in-nav">
-      <button class="loc-btn" id="locBtn" aria-haspopup="menu" aria-expanded="false">
-        <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span id="locLbl">North Campus</span><span class="loc-sub" id="locSub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
+      <button class="loc-btn" aria-haspopup="menu" aria-expanded="false">
+        <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span>North Campus</span><span class="loc-sub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
       </button>
-      <div class="loc-menu" id="locMenu" role="dialog" aria-label="Select location" hidden>
+      <div class="loc-menu" role="dialog" aria-label="Select location" hidden>
         <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
         <div class="loc-tree">
           <div class="loc-node expanded">
@@ -778,56 +876,253 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
         </div>
       </div>
     </div>
-
       <div class="cust-logo"><svg width="238" height="54" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <a class="nitem" href="#" aria-current="page"><svg class="ic"><use href="#i-home"/></svg>Overview</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-inbox"/></svg>Inbox<span class="count">5</span></a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-check"/></svg>My assignments</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-clip"/></svg>Approvals<span class="count">2</span></a>
-      <div class="nav-h">Pinned</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-star"/></svg>Annual Compliance</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-star"/></svg>OSHA 10 · 2024</a>
+      <!-- Convergence's learner list, in its order. View my profile and Change my
+           password live under the avatar now, so they are not repeated here. -->
+      <a class="nitem" href="#" data-view="dashboard"><svg class="ic"><use href="#i-home"/></svg>Dashboard</a>
+      <a class="nitem" href="#" data-view="mytraining" aria-current="page"><svg class="ic"><use href="#i-cap"/></svg>My Training</a>
+      <a class="nitem" href="#" data-view="catalog"><svg class="ic"><use href="#i-book"/></svg>Catalog</a>
+      <a class="nitem" href="#" data-view="news"><svg class="ic"><use href="#i-inbox"/></svg>News</a>
+      <a class="nitem" href="#" data-view="facilities"><svg class="ic"><use href="#i-org"/></svg>Registered Facilities</a>
+      <a class="nitem" href="#" data-view="attachments"><svg class="ic"><use href="#i-folder"/></svg>My Attachments</a>
+      <a class="nitem" href="#" data-view="reports"><svg class="ic"><use href="#i-chart"/></svg>My Reports</a>
+      <a class="nitem" href="#" data-view="jobs"><svg class="ic"><use href="#i-clip"/></svg>My Jobs</a>
+      <a class="nitem" href="#" data-view="licenses"><svg class="ic"><use href="#i-doc"/></svg>My Licenses</a>
+      <a class="nitem" href="#" data-view="preferences"><svg class="ic"><use href="#i-sliders"/></svg>My Preferences</a>
     </nav>
-    <main class="content">
+    <main class="content" id="learnerMain" data-view="mytraining">
       <div class="page">
+      <section class="lview" data-view="dashboard">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">Dashboard</span></nav>
         <div class="page-head">
           <div>
-            <h1>Good morning, Alex</h1>
-            <p class="sub">Monday, Aug 10 · 3 items need your attention</p>
-          </div>
-          <div class="head-actions">
-            <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Assign training</button>
+            <h1>Dashboard</h1>
+            <p class="sub">Your training at a glance</p>
           </div>
         </div>
-        <div class="kpis">
-          <div class="kpi"><div class="lbl">My open assignments</div><div class="val">4</div><div class="sub">2 due this week</div></div>
-          <div class="kpi"><div class="lbl">Approvals waiting</div><div class="val">2</div><div class="sub">oldest: 3 days</div></div>
-          <div class="kpi"><div class="lbl">Team completion</div><div class="val">86%</div><div class="sub">up 2.1 pts vs July</div></div>
-          <div class="kpi"><div class="lbl">Overdue on my teams</div><div class="val">43</div><div class="sub">12 at Plant 12</div></div>
+        <div class="kpis kpis3">
+          <div class="kpi"><div class="lbl">Training due</div><div class="val">3</div><div class="meta">1 due this week</div></div>
+          <div class="kpi"><div class="lbl">In progress</div><div class="val">2</div><div class="meta">4.2 hours logged</div></div>
+          <div class="kpi"><div class="lbl">Completed this year</div><div class="val">11</div><div class="meta">34 hours</div></div>
+        </div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-h"><b>Upcoming training</b><div class="right"><a href="#" style="font-size:12px;font-weight:600;color:var(--accent-strong)">My Training</a></div></div>
+          <div class="lrow"><div><div class="t">OSHA 10: Part 2</div><div class="d">Annual Compliance · eLearning</div></div><div class="d">5 hrs</div><div class="d">Due Sep 30</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Launch</button></div></div>
+          <div class="lrow"><div><div class="t">HazCom eLearning</div><div class="d">Annual Compliance · eLearning</div></div><div class="d">1 hr</div><div class="d">Due Aug 31</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Launch</button></div></div>
+          <div class="lrow"><div><div class="t">HazCom site walkthrough</div><div class="d">Annual Compliance · Live session</div></div><div class="d">30 min</div><div class="d">Aug 31, 9:00</div><div style="text-align:right"><span class="pill soft">Scheduled</span></div></div>
         </div>
         <div class="card">
-          <div class="card-h"><b>Needs attention</b></div>
-          <div class="lrow">
-            <div class="lt"><b>Forklift Operator Refresher</b><span>12 learners overdue at Plant 12 · due Aug 15</span></div>
-            <span class="pill fill">At risk</span>
-            <button class="btn">Review</button>
+          <div class="card-h"><b>News</b></div>
+          <div class="lrow"><div><div class="t">Updated PPE policy for Plant 12</div><div class="d">Posted Sep 2 by Safety and Compliance</div></div><div></div><div></div><div></div></div>
+          <div class="lrow"><div><div class="t">Q4 training calendar published</div><div class="d">Posted Aug 28 by Learning and Development</div></div><div></div><div></div><div></div></div>
+        </div>
+      </section>
+      <!-- My Training: the Convergence training plan, with its filters as a right-hand panel -->
+      <section class="lview on" data-view="mytraining">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">My Training</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>My Training</h1>
+            <p class="sub">My assigned training · 1 qualification · 13.5 hours</p>
           </div>
-          <div class="lrow">
-            <div class="lt"><b>New hire onboarding edits</b><span>2 changes waiting for your approval</span></div>
-            <span class="pill line">Approval</span>
-            <button class="btn">Open</button>
+          <div class="head-actions"><button class="btn">Print</button></div>
+        </div>
+        <div class="tp-layout">
+          <div class="card">
+            <div class="tp-head">
+              <div>Name</div><div style="text-align:center">Completion</div><div style="text-align:center">Duration</div><div style="text-align:center">Time spent</div><div style="text-align:center">Due</div><div style="text-align:right">Actions</div>
+            </div>
+            <div class="tp-row l1">
+              <div class="tp-name"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><span class="t">My assigned training</span><span class="tp-tag">Sorted by qualification</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:38%"></i></span><span>0 of 1 qualification</span></div>
+              <div class="tp-c">13.5 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div><div></div>
+            </div>
+            <div class="tp-row l2">
+              <div class="tp-name" style="padding-left:26px"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><svg class="ic"><use href="#i-cap"/></svg><span class="t">Annual Compliance</span><span class="tp-tag">Qualification</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:38%"></i></span><span>0 of 2 requirements</span></div>
+              <div class="tp-c">13.5 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg></div>
+            </div>
+            <div class="tp-row req">
+              <div class="tp-name" style="padding-left:52px"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><svg class="ic"><use href="#i-clip"/></svg><span class="t">OSHA 10-Hour: General Industry</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:50%"></i></span><span>1 of 2 activities</span></div>
+              <div class="tp-c">10 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div><div></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-doc"/></svg><span class="t">OSHA 10: Part 1</span></div>
+              <div class="tp-status done"><span class="dot"></span>Complete</div>
+              <div class="tp-c">5 hrs</div><div class="tp-c">4.2 hrs</div><div class="tp-c">Sep 30, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-doc"/></svg><span class="t">OSHA 10: Part 2</span></div>
+              <div class="tp-status"><span class="dot"></span>Not started</div>
+              <div class="tp-c">5 hrs</div><div class="tp-c">–</div><div class="tp-c">Sep 30, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
+            <div class="tp-row req">
+              <div class="tp-name" style="padding-left:52px"><svg class="ic tw" style="width:13px;height:13px"><use href="#i-chev-d"/></svg><svg class="ic"><use href="#i-clip"/></svg><span class="t">HazCom: GHS Labels &amp; SDS</span></div>
+              <div class="tp-cc"><span class="bar"><i style="width:0%"></i></span><span>0 of 2 activities</span></div>
+              <div class="tp-c">1.5 hrs</div><div class="tp-c">–</div><div class="tp-c">Aug 31, 2026</div><div></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-doc"/></svg><span class="t">HazCom eLearning</span></div>
+              <div class="tp-status"><span class="dot"></span>Not started</div>
+              <div class="tp-c">1 hr</div><div class="tp-c">–</div><div class="tp-c">Aug 31, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
+            <div class="tp-row">
+              <div class="tp-name" style="padding-left:78px"><button class="tp-launch">Launch</button><svg class="ic"><use href="#i-cal"/></svg><span class="t">HazCom site walkthrough</span></div>
+              <div class="tp-status prog"><span class="dot"></span>Scheduled</div>
+              <div class="tp-c">30 mins</div><div class="tp-c">–</div><div class="tp-c">Aug 31, 2026</div>
+              <div class="tp-act"><svg class="ic"><use href="#i-doc"/></svg><svg class="ic"><use href="#i-help"/></svg></div>
+            </div>
           </div>
-          <div class="lrow">
-            <div class="lt"><b>Certification lapses in 14 days</b><span>21 learners · OSHA 10 renewals</span></div>
-            <span class="pill line">Watch</span>
-            <button class="btn">View</button>
+          <div class="card fp">
+            <div class="card-h"><b>Filters</b><span class="fp-clear">Clear all</span></div>
+            <div class="fp-g">
+              <h3>Status</h3>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Not started<span class="fp-count">4</span></label>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>In progress<span class="fp-count">1</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Complete<span class="fp-count">1</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Overdue<span class="fp-count">0</span></label>
+            </div>
+            <div class="fp-g">
+              <h3>Activity type</h3>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Computer based<span class="fp-count">4</span></label>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Live session<span class="fp-count">1</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Document review<span class="fp-count">0</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Skill assessment<span class="fp-count">1</span></label>
+            </div>
+            <div class="fp-g">
+              <h3>Due</h3>
+              <label class="fp-opt"><span class="fp-box r on"></span>Anytime</label>
+              <label class="fp-opt"><span class="fp-box r"></span>Next 30 days</label>
+              <label class="fp-opt"><span class="fp-box r"></span>This quarter</label>
+            </div>
           </div>
         </div>
+      </section>
+      <!-- Catalog: browse and enroll, filters as a right-hand panel -->
+      <section class="lview" data-view="catalog">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">Catalog</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>Catalog</h1>
+            <p class="sub">48 courses available to you</p>
+          </div>
+        </div>
+        <div class="tp-layout">
+          <div class="card">
+            <div class="card-h"><b>All courses</b><span class="pill soft">48 results</span><div class="right"><span class="pill line">Sorted by relevance</span></div></div>
+            <div class="lrow"><div><div class="t">OSHA 10-Hour: General Industry</div><div class="d">Safety · eLearning</div></div><div class="d">10 hrs</div><div class="d">Self-paced</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Enroll</button></div></div>
+            <div class="lrow"><div><div class="t">HazCom: GHS Labels and SDS</div><div class="d">Compliance · eLearning</div></div><div class="d">1.5 hrs</div><div class="d">Self-paced</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Enroll</button></div></div>
+            <div class="lrow"><div><div class="t">Forklift Operator Refresher</div><div class="d">Safety · Blended</div></div><div class="d">4 hrs</div><div class="d">Self-paced</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Request</button></div></div>
+            <div class="lrow"><div><div class="t">Emergency Action Plan Basics</div><div class="d">Safety · eLearning</div></div><div class="d">45 min</div><div class="d">Self-paced</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Enroll</button></div></div>
+            <div class="lrow"><div><div class="t">Lockout/Tagout Awareness</div><div class="d">Safety · eLearning</div></div><div class="d">2 hrs</div><div class="d">Self-paced</div><div style="text-align:right"><button class="btn" style="height:26px;padding:0 12px;font-size:12px">Enrolled</button></div></div>
+            <div class="lrow"><div><div class="t">Leading Safety Conversations</div><div class="d">Leadership · Live session</div></div><div class="d">3 hrs</div><div class="d">Self-paced</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Request</button></div></div>
+            <div class="lrow"><div><div class="t">Bloodborne Pathogens</div><div class="d">Compliance · eLearning</div></div><div class="d">1 hr</div><div class="d">Self-paced</div><div style="text-align:right"><button class="btn primary" style="height:26px;padding:0 12px;font-size:12px">Enroll</button></div></div>
+          </div>
+          <div class="card fp">
+            <div class="card-h"><b>Filters</b><span class="fp-clear">Clear all</span></div>
+            <div class="fp-g"><h3>Topic</h3>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Safety<span class="fp-count">22</span></label>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Compliance<span class="fp-count">14</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Leadership<span class="fp-count">8</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Software<span class="fp-count">4</span></label>
+            </div>
+            <div class="fp-g"><h3>Type</h3>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>eLearning<span class="fp-count">31</span></label>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>Live session<span class="fp-count">9</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Blended<span class="fp-count">5</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Document<span class="fp-count">3</span></label>
+            </div>
+            <div class="fp-g"><h3>Duration</h3>
+              <label class="fp-opt"><span class="fp-box r on"></span>Any</label>
+              <label class="fp-opt"><span class="fp-box r"></span>Under 1 hour</label>
+              <label class="fp-opt"><span class="fp-box r"></span>1 to 3 hours</label>
+              <label class="fp-opt"><span class="fp-box r"></span>Over 3 hours</label>
+            </div>
+            <div class="fp-g"><h3>Language</h3>
+              <label class="fp-opt"><span class="fp-box on"><svg class="ic"><use href="#i-check"/></svg></span>English<span class="fp-count">48</span></label>
+              <label class="fp-opt"><span class="fp-box"></span>Spanish<span class="fp-count">17</span></label>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="lview" data-view="news">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">News</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>News</h1>
+            <p class="sub">Announcements from your organization</p>
+          </div>
+        </div>
+        <div class="card"><div class="empty">No news posted for North Campus this month.</div></div>
+      </section>
+      <section class="lview" data-view="facilities">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">Registered Facilities</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>Registered Facilities</h1>
+            <p class="sub">Facilities you are registered to train at</p>
+          </div>
+        </div>
+        <div class="card"><div class="empty">You are registered at North Campus and Plant 12.</div></div>
+      </section>
+      <section class="lview" data-view="attachments">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">My Attachments</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>My Attachments</h1>
+            <p class="sub">Certificates and documents you have uploaded</p>
+          </div>
+        </div>
+        <div class="card"><div class="empty">No attachments yet. Upload a certificate to keep it with your record.</div></div>
+      </section>
+      <section class="lview" data-view="reports">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">My Reports</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>My Reports</h1>
+            <p class="sub">Your completion and transcript reports</p>
+          </div>
+        </div>
+        <div class="card"><div class="empty">Run a transcript report to see everything you have completed.</div></div>
+      </section>
+      <section class="lview" data-view="jobs">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">My Jobs</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>My Jobs</h1>
+            <p class="sub">Job roles assigned to you</p>
+          </div>
+        </div>
+        <div class="card"><div class="empty">Warehouse Operator · Plant 12. Training for this role is in My Training.</div></div>
+      </section>
+      <section class="lview" data-view="licenses">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">My Licenses</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>My Licenses</h1>
+            <p class="sub">Licenses and their expiry dates</p>
+          </div>
+        </div>
+        <div class="card"><div class="empty">Forklift Operator license expires Mar 14, 2027.</div></div>
+      </section>
+      <section class="lview" data-view="preferences">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Vector LMS</a><span class="sep">/</span><span class="here" aria-current="page">My Preferences</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>My Preferences</h1>
+            <p class="sub">Notifications, language and display</p>
+          </div>
+        </div>
+        <div class="card"><div class="empty">Email reminders: on. Language: English. Time zone: Eastern.</div></div>
+      </section>
       </div>
     </main>
   </div>
-
-  <!-- ================= MODE: ADMIN ================= -->
   <div class="mode-pane" data-mode="admin">
     <nav class="sidenav" aria-label="Admin navigation">
       <!-- Like V2b, the location selector sits IN the nav: context and
@@ -957,6 +1252,40 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
             <a class="nitem" href="#">Requirements</a>
           </div>
         </details>
+        <!-- Variant a: one Reports SECTION holding what the Insights tab offers and
+             the legacy report library, so an admin finds every report in one place -->
+        <div class="va-only">
+        <div class="nav-h">Reports</div>
+        <details class="grp">
+          <summary><svg class="ic"><use href="#i-chart"/></svg>Insights<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
+          <div class="kids">
+            <details class="grp"><summary>Activity reports<svg class="ic tw"><use href="#i-chev-d"/></svg></summary><div class="kids">
+              <a class="nitem" href="#">Activity exception report</a><a class="nitem" href="#">Activity completion report</a><a class="nitem" href="#">Activity status report</a><a class="nitem" href="#">Tasklist report</a>
+            </div></details>
+            <details class="grp"><summary>User reports<svg class="ic tw"><use href="#i-chev-d"/></svg></summary><div class="kids">
+              <a class="nitem" href="#">User engagement</a><a class="nitem" href="#">User completion</a>
+            </div></details>
+            <details class="grp"><summary>Qualification reports<svg class="ic tw"><use href="#i-chev-d"/></svg></summary><div class="kids">
+              <a class="nitem" href="#">Qualification status</a><a class="nitem" href="#">Expiring qualifications</a>
+            </div></details>
+          </div>
+        </details>
+        <details class="grp">
+          <summary><svg class="ic"><use href="#i-doc"/></svg>Legacy reporting<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
+          <div class="kids">
+            <a class="nitem" href="#">My recents</a>
+            <a class="nitem" href="#">Frequently used</a>
+            <a class="nitem" href="#">All reports</a>
+            <a class="nitem" href="#">Activity reports</a>
+            <a class="nitem" href="#">Qualification reports</a>
+            <a class="nitem" href="#">User reports</a>
+            <a class="nitem" href="#">Organizational reports</a>
+            <a class="nitem" href="#">Scheduled reports</a>
+          </div>
+        </details>
+        </div>
+        <!-- Variant b: Convergence's admin tree keeps its single Reports group -->
+        <div class="vb-only">
         <details class="grp">
           <summary><svg class="ic"><use href="#i-chart"/></svg>Reports<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
           <div class="kids">
@@ -970,6 +1299,7 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
             <a class="nitem" href="#">Scheduled reports</a>
           </div>
         </details>
+        </div>
         <details class="grp">
           <summary><svg class="ic"><use href="#i-layers"/></svg>Assets<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
           <div class="kids">
@@ -1028,346 +1358,146 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
     </main>
   </div>
 
-  <!-- ================= MODE: TRAINING PLAN (default) ================= -->
-  <div class="mode-pane" data-mode="trainplan">
-    <nav class="sidenav" aria-label="Training Plan navigation">
-      <!-- Like V2b, the location selector sits IN the nav: context and
-           navigation together, top bar left to search and universal actions. -->
-      <div class="loc loc-in-nav">
-      <button class="loc-btn" aria-haspopup="menu" aria-expanded="false">
-        <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span>North Campus</span><span class="loc-sub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
-      </button>
-      <div class="loc-menu" role="dialog" aria-label="Select location" hidden>
-        <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
-        <div class="loc-tree">
-          <div class="loc-node expanded">
-            <div class="loc-row" style="--d:0">
-              <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northline Utilities"><svg class="ic"><use href="#i-chev-r"/></svg></button>
-              <button class="loc-pick"><strong>Northline Utilities</strong><span>Organization</span></button>
-              <svg class="ic loc-ck"><use href="#i-check"/></svg>
-            </div>
-            <div class="loc-children">
-              <div class="loc-node">
-                <div class="loc-row" style="--d:1">
-                  <span class="loc-spacer" aria-hidden="true"></span>
-                  <button class="loc-pick"><strong>District Office</strong><span>Site</span></button>
-                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                </div>
-              </div>
-              <div class="loc-node expanded">
-                <div class="loc-row" style="--d:1">
-                  <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
-                  <button class="loc-pick"><strong>Northern Region</strong><span>Region</span></button>
-                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                </div>
-                <div class="loc-children">
-                  <div class="loc-node">
-                    <div class="loc-row selected" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>North Campus</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>Plant 12</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>DC North</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="loc-node">
-                <div class="loc-row" style="--d:1">
-                  <button class="loc-tgl" aria-expanded="false" aria-label="Toggle Southern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
-                  <button class="loc-pick"><strong>Southern Region</strong><span>Region</span></button>
-                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                </div>
-                <div class="loc-children" hidden>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>South Campus</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>Station 12</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-      <div class="cust-logo"><svg width="238" height="54" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-home"/></svg>Overview</a>
-      <details class="grp" open>
-        <summary><svg class="ic"><use href="#i-layers"/></svg>Curricula<span class="count">4</span><svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
-        <div class="kids">
-          <details class="grp" open>
-            <summary aria-current="page">Annual Compliance<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
-            <div class="kids">
-              <a class="nitem" href="#">OSHA 10 · 2024</a>
-              <a class="nitem" href="#">HazCom: GHS Labels &amp; SDS</a>
-              <a class="nitem" href="#">Lockout/Tagout Awareness</a>
-            </div>
-          </details>
-          <a class="nitem" href="#">New hire onboarding</a>
-          <a class="nitem" href="#">Site: Plant 12</a>
-          <a class="nitem" href="#">Site: DC North</a>
-        </div>
-      </details>
-      <details class="grp">
-        <summary><svg class="ic"><use href="#i-filter"/></svg>Assignments<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
-        <div class="kids">
-          <a class="nitem" href="#">Assignment rules</a>
-          <a class="nitem" href="#">Exceptions</a>
-        </div>
-      </details>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-clip"/></svg>Activities</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-doc"/></svg>Qualification and requirement assignments</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-alert"/></svg>Escalations<span class="count">3</span></a>
-      <div class="nav-h">Plan settings</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-bell"/></svg>Notifications</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-sliders"/></svg>Configuration</a>
-    </nav>
-    <main class="content">
-      <div class="page">
-        <nav class="crumbs" aria-label="Breadcrumb">
-          <a href="#">Training Plan</a><span class="sep">/</span>
-          <a href="#">Curricula</a><span class="sep">/</span>
-          <span class="here" aria-current="page">Annual Compliance</span>
-        </nav>
-        <div class="page-head">
-          <div>
-            <h1>Annual Compliance</h1>
-            <p class="sub">Recurring curriculum · 1,284 learners across 6 sites · renews Jan 1</p>
-          </div>
-          <div class="head-actions">
-            <button class="btn">Export</button>
-            <button class="btn primary"><svg class="ic"><use href="#i-plus"/></svg>Add course</button>
-          </div>
-        </div>
-
-        <div class="kpis">
-          <div class="kpi"><div class="lbl">Learners assigned</div><div class="val">1,284</div><div class="sub">across 6 sites</div></div>
-          <div class="kpi"><div class="lbl">Series completion</div><div class="val">86%</div><div class="sub">up 2.1 pts vs July</div></div>
-          <div class="kpi"><div class="lbl">Overdue learners</div><div class="val">43</div><div class="sub">12 at Plant 12</div></div>
-          <div class="kpi"><div class="lbl">Median time to complete</div><div class="val">12.4 days</div><div class="sub">target: 14 days</div></div>
-        </div>
-
-        <div class="card">
-          <div class="card-h">
-            <b>Courses in this curriculum</b>
-            <div class="right">
-              <button class="btn"><svg class="ic"><use href="#i-filter"/></svg>Filter</button>
-            </div>
-          </div>
-          <table>
-            <thead><tr><th>Course</th><th>Type</th><th>Assigned</th><th>Completion</th><th>Due</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              <tr>
-                <td><span class="ttl">OSHA 10-Hour: General Industry</span><div class="meta">2024 edition · 10h</div></td>
-                <td>eLearning</td><td>812</td>
-                <td><span class="bar"><i style="width:91%"></i></span><span class="pct">91%</span></td>
-                <td>Sep 30, 2026</td>
-                <td><span class="pill soft">On track</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">HazCom: GHS Labels &amp; SDS</span><div class="meta">1.5h</div></td>
-                <td>eLearning</td><td>1,284</td>
-                <td><span class="bar"><i style="width:88%"></i></span><span class="pct">88%</span></td>
-                <td>Sep 30, 2026</td>
-                <td><span class="pill soft">On track</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">Lockout/Tagout Awareness</span><div class="meta">2h</div></td>
-                <td>eLearning</td><td>640</td>
-                <td><span class="bar"><i style="width:76%"></i></span><span class="pct">76%</span></td>
-                <td>Aug 31, 2026</td>
-                <td><span class="pill line">Watch</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">Forklift Operator Refresher</span><div class="meta">Blended · practical required</div></td>
-                <td>Blended</td><td>218</td>
-                <td><span class="bar"><i style="width:64%"></i></span><span class="pct">64%</span></td>
-                <td>Aug 15, 2026</td>
-                <td><span class="pill fill">At risk</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-              <tr>
-                <td><span class="ttl">Emergency Action Plan Basics</span><div class="meta">45m</div></td>
-                <td>eLearning</td><td>1,284</td>
-                <td><span class="bar"><i style="width:97%"></i></span><span class="pct">97%</span></td>
-                <td>Jul 31, 2026</td>
-                <td><span class="pill soft"><svg class="ic"><use href="#i-check"/></svg>Complete</span></td>
-                <td><button class="rowact" aria-label="Row actions"><svg class="ic"><use href="#i-dots"/></svg></button></td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="card-f">Showing 5 of 24 courses<a href="#">View all</a></div>
-        </div>
-      </div>
-    </main>
-  </div>
-
-  <!-- ================= MODE: REPORTING & INSIGHTS ================= -->
-  <div class="mode-pane" data-mode="reporting">
-    <nav class="sidenav" aria-label="Reporting navigation">
-      <!-- Like V2b, the location selector sits IN the nav: context and
-           navigation together, top bar left to search and universal actions. -->
-      <div class="loc loc-in-nav">
-      <button class="loc-btn" aria-haspopup="menu" aria-expanded="false">
-        <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span>North Campus</span><span class="loc-sub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
-      </button>
-      <div class="loc-menu" role="dialog" aria-label="Select location" hidden>
-        <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
-        <div class="loc-tree">
-          <div class="loc-node expanded">
-            <div class="loc-row" style="--d:0">
-              <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northline Utilities"><svg class="ic"><use href="#i-chev-r"/></svg></button>
-              <button class="loc-pick"><strong>Northline Utilities</strong><span>Organization</span></button>
-              <svg class="ic loc-ck"><use href="#i-check"/></svg>
-            </div>
-            <div class="loc-children">
-              <div class="loc-node">
-                <div class="loc-row" style="--d:1">
-                  <span class="loc-spacer" aria-hidden="true"></span>
-                  <button class="loc-pick"><strong>District Office</strong><span>Site</span></button>
-                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                </div>
-              </div>
-              <div class="loc-node expanded">
-                <div class="loc-row" style="--d:1">
-                  <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
-                  <button class="loc-pick"><strong>Northern Region</strong><span>Region</span></button>
-                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                </div>
-                <div class="loc-children">
-                  <div class="loc-node">
-                    <div class="loc-row selected" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>North Campus</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>Plant 12</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>DC North</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div class="loc-node">
-                <div class="loc-row" style="--d:1">
-                  <button class="loc-tgl" aria-expanded="false" aria-label="Toggle Southern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
-                  <button class="loc-pick"><strong>Southern Region</strong><span>Region</span></button>
-                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                </div>
-                <div class="loc-children" hidden>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>South Campus</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                  <div class="loc-node">
-                    <div class="loc-row" style="--d:2">
-                      <span class="loc-spacer" aria-hidden="true"></span>
-                      <button class="loc-pick"><strong>Station 12</strong><span>Site</span></button>
-                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-      <div class="cust-logo"><svg width="238" height="54" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-chart"/></svg>Dashboards</a>
-      <div class="nav-h">Reports</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-clock"/></svg>My recents</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-star"/></svg>Frequently used</a>
-      <a class="nitem" href="#" aria-current="page"><svg class="ic"><use href="#i-check"/></svg>Completion</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-doc"/></svg>Qualification reports</a>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-users"/></svg>User reports</a>
-      <div class="nav-h">Exports</div>
-      <a class="nitem" href="#"><svg class="ic"><use href="#i-cal"/></svg>Scheduled reports</a>
-    </nav>
-    <main class="content">
-      <div class="page">
-        <nav class="crumbs" aria-label="Breadcrumb">
-          <a href="#">Reporting &amp; Insights</a><span class="sep">/</span>
-          <span class="here" aria-current="page">Completion</span>
-        </nav>
-        <div class="page-head">
-          <div>
-            <h1>Completion by site</h1>
-            <p class="sub">Annual Compliance series · updated 5 minutes ago</p>
-          </div>
-          <div class="head-actions">
-            <button class="btn">Schedule export</button>
-            <button class="btn primary">Export</button>
-          </div>
-        </div>
-        <div class="kpis">
-          <div class="kpi"><div class="lbl">Series completion</div><div class="val">86%</div><div class="sub">all sites</div></div>
-          <div class="kpi"><div class="lbl">Overdue learners</div><div class="val">43</div><div class="sub">down 6 this week</div></div>
-          <div class="kpi"><div class="lbl">Sites below target</div><div class="val">2</div><div class="sub">target: 85%</div></div>
-          <div class="kpi"><div class="lbl">Median days to complete</div><div class="val">12.4</div><div class="sub">target: 14</div></div>
-        </div>
-        <div class="card">
-          <div class="card-h"><b>Sites</b></div>
-          <table>
-            <thead><tr><th>Site</th><th>Assigned</th><th>Completion</th><th>Overdue</th><th>Vs last month</th></tr></thead>
-            <tbody>
-              <tr><td><span class="ttl">HQ Campus</span></td><td>264</td><td><span class="bar"><i style="width:93%"></i></span><span class="pct">93%</span></td><td>3</td><td>+1.9 pts</td></tr>
-              <tr><td><span class="ttl">DC North</span></td><td>320</td><td><span class="bar"><i style="width:91%"></i></span><span class="pct">91%</span></td><td>6</td><td>+1.4 pts</td></tr>
-              <tr><td><span class="ttl">Plant 12</span></td><td>486</td><td><span class="bar"><i style="width:82%"></i></span><span class="pct">82%</span></td><td>12</td><td>+2.6 pts</td></tr>
-              <tr><td><span class="ttl">Plant 7</span></td><td>214</td><td><span class="bar"><i style="width:78%"></i></span><span class="pct">78%</span></td><td>9</td><td>+0.8 pts</td></tr>
-              <tr><td><span class="ttl">Field Services</span></td><td>148</td><td><span class="bar"><i style="width:71%"></i></span><span class="pct">71%</span></td><td>13</td><td>+3.2 pts</td></tr>
-            </tbody>
-          </table>
-          <div class="card-f">6 sites · 1,284 learners<a href="#">Open in dashboards</a></div>
-        </div>
-      </div>
-    </main>
-  </div>
 
 <!-- ================= CROSS-PRODUCT DASHBOARD (via the switcher) =================
      Not a product: the home for everything. The side nav shows cross-product
      groupings (My work / Reports / Admin) instead of a product tree, and the
      content aggregates KPIs + simple charts across the products this org has. -->
+  <!-- ================= INSIGHTS PANE (variant b): Convergence's Insights tree ================= -->
+  <div class="mode-pane" data-mode="insights">
+    <nav class="sidenav" aria-label="Insights navigation">
+      <!-- Like V2b, the location selector sits IN the nav: context and
+           navigation together, top bar left to search and universal actions. -->
+      <div class="loc loc-in-nav">
+      <button class="loc-btn" aria-haspopup="menu" aria-expanded="false">
+        <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span>North Campus</span><span class="loc-sub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
+      </button>
+      <div class="loc-menu" role="dialog" aria-label="Select location" hidden>
+        <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
+        <div class="loc-tree">
+          <div class="loc-node expanded">
+            <div class="loc-row" style="--d:0">
+              <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northline Utilities"><svg class="ic"><use href="#i-chev-r"/></svg></button>
+              <button class="loc-pick"><strong>Northline Utilities</strong><span>Organization</span></button>
+              <svg class="ic loc-ck"><use href="#i-check"/></svg>
+            </div>
+            <div class="loc-children">
+              <div class="loc-node">
+                <div class="loc-row" style="--d:1">
+                  <span class="loc-spacer" aria-hidden="true"></span>
+                  <button class="loc-pick"><strong>District Office</strong><span>Site</span></button>
+                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                </div>
+              </div>
+              <div class="loc-node expanded">
+                <div class="loc-row" style="--d:1">
+                  <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
+                  <button class="loc-pick"><strong>Northern Region</strong><span>Region</span></button>
+                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                </div>
+                <div class="loc-children">
+                  <div class="loc-node">
+                    <div class="loc-row selected" style="--d:2">
+                      <span class="loc-spacer" aria-hidden="true"></span>
+                      <button class="loc-pick"><strong>North Campus</strong><span>Site</span></button>
+                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                    </div>
+                  </div>
+                  <div class="loc-node">
+                    <div class="loc-row" style="--d:2">
+                      <span class="loc-spacer" aria-hidden="true"></span>
+                      <button class="loc-pick"><strong>Plant 12</strong><span>Site</span></button>
+                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                    </div>
+                  </div>
+                  <div class="loc-node">
+                    <div class="loc-row" style="--d:2">
+                      <span class="loc-spacer" aria-hidden="true"></span>
+                      <button class="loc-pick"><strong>DC North</strong><span>Site</span></button>
+                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="loc-node">
+                <div class="loc-row" style="--d:1">
+                  <button class="loc-tgl" aria-expanded="false" aria-label="Toggle Southern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
+                  <button class="loc-pick"><strong>Southern Region</strong><span>Region</span></button>
+                  <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                </div>
+                <div class="loc-children" hidden>
+                  <div class="loc-node">
+                    <div class="loc-row" style="--d:2">
+                      <span class="loc-spacer" aria-hidden="true"></span>
+                      <button class="loc-pick"><strong>South Campus</strong><span>Site</span></button>
+                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                    </div>
+                  </div>
+                  <div class="loc-node">
+                    <div class="loc-row" style="--d:2">
+                      <span class="loc-spacer" aria-hidden="true"></span>
+                      <button class="loc-pick"><strong>Station 12</strong><span>Site</span></button>
+                      <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+      <div class="cust-logo"><svg width="238" height="54" viewBox="0 0 150 34" role="img" aria-label="Northline Utilities logo"><rect x="1" y="1" width="32" height="32" rx="8" fill="#0f7a63"/><path d="m8 23.2 5.4-10.4 3.5 6.2 2.3-3.9 4.8 8.1z" fill="#fff"/><path d="M8.5 26.4h17" stroke="#9fd8c9" stroke-width="1.6" stroke-linecap="round" fill="none"/><text x="42" y="17" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-weight="700" fill="#12382f">Northline</text><text x="42" y="29" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="9.5" font-weight="600" fill="#5c6f69">Utilities</text></svg></div>
+      <details class="grp" open>
+        <summary><svg class="ic"><use href="#i-book"/></svg>Activity reports<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
+        <div class="kids">
+            <a class="nitem" href="#" aria-current="page">Activity exception report</a>
+            <a class="nitem" href="#">Activity completion report</a>
+            <a class="nitem" href="#">Activity status report</a>
+            <a class="nitem" href="#">Tasklist report</a>
+        </div>
+      </details>
+      <details class="grp">
+        <summary><svg class="ic"><use href="#i-clip"/></svg>User reports<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
+        <div class="kids">
+            <a class="nitem" href="#">User engagement</a>
+            <a class="nitem" href="#">User completion</a>
+        </div>
+      </details>
+      <details class="grp">
+        <summary><svg class="ic"><use href="#i-layers"/></svg>Qualification reports<svg class="ic tw"><use href="#i-chev-d"/></svg></summary>
+        <div class="kids">
+            <a class="nitem" href="#">Qualification status</a>
+            <a class="nitem" href="#">Expiring qualifications</a>
+        </div>
+      </details>
+    </nav>
+    <main class="content">
+      <div class="page">
+        <nav class="crumbs" aria-label="Breadcrumb"><a href="#">Insights</a><span class="sep">/</span><a href="#">Activity reports</a><span class="sep">/</span><span class="here" aria-current="page">Activity exception report</span></nav>
+        <div class="page-head">
+          <div>
+            <h1>Activity exception report</h1>
+            <p class="sub">Learners whose assigned activities are overdue or incomplete · North Campus</p>
+          </div>
+          <div class="head-actions"><button class="btn">Schedule</button><button class="btn primary">Export</button></div>
+        </div>
+        <div class="kpis kpis3">
+          <div class="kpi"><div class="lbl">Overdue activities</div><div class="val">43</div><div class="meta">across 6 sites</div></div>
+          <div class="kpi"><div class="lbl">Learners affected</div><div class="val">31</div><div class="meta">12 at Plant 12</div></div>
+          <div class="kpi"><div class="lbl">Oldest exception</div><div class="val">41 days</div><div class="meta">Forklift Operator Refresher</div></div>
+        </div>
+        <div class="card">
+          <div class="card-h"><b>Exceptions</b><span class="pill soft">43 rows</span><div class="right"><span class="pill line">Grouped by learner</span></div></div>
+          <div class="lrow"><div><div class="t">Maria Jimenez</div><div class="d">Plant 12</div></div><div class="d">Forklift Operator Refresher</div><div class="d">Overdue 41 days</div><div style="text-align:right"><span class="pill line">Remind</span></div></div>
+          <div class="lrow"><div><div class="t">Tom Shaw</div><div class="d">DC North</div></div><div class="d">HazCom: GHS Labels and SDS</div><div class="d">Overdue 18 days</div><div style="text-align:right"><span class="pill line">Remind</span></div></div>
+          <div class="lrow"><div><div class="t">Rob Beck</div><div class="d">Plant 7</div></div><div class="d">OSHA 10: Part 2</div><div class="d">Overdue 9 days</div><div style="text-align:right"><span class="pill line">Remind</span></div></div>
+          <div class="lrow"><div><div class="t">Alex Kim</div><div class="d">North Campus</div></div><div class="d">Emergency Action Plan Basics</div><div class="d">Overdue 3 days</div><div style="text-align:right"><span class="pill line">Remind</span></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
 <div class="mode-pane" data-mode="dash">
   <nav class="sidenav" aria-label="Dashboard navigation">
       <!-- Like V2b, the location selector sits IN the nav: context and
@@ -1733,14 +1863,41 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
   document.addEventListener('keydown',function(e){if(e.key==='Escape')setLauncher(false);});
 
   // 2) Mode tabs swap the side nav + content pane (?mode=home|admin|trainplan|reporting)
-  var modes=['home','admin','trainplan','reporting'];
+  var modes=['learner','admin','home','trainplan','catalog','insights'];
+  // variant b's Home / Training Plan / Catalog tabs pin the learner view
+  var VIEW_FOR_MODE={home:'dashboard',trainplan:'mytraining',catalog:'catalog'};
+  var MODE_FOR_VIEW={dashboard:'home',mytraining:'trainplan',catalog:'catalog'};
   function setMode(m){
     document.body.dataset.mode=m;
     document.querySelectorAll('.tb-tabs[data-app="learn"] a').forEach(function(t){
       if(t.dataset.mode===m){t.setAttribute('aria-current','page');}
       else{t.removeAttribute('aria-current');}
     });
+    if(VIEW_FOR_MODE[m])setView(VIEW_FOR_MODE[m],true);
   }
+  function setView(v,fromMode){
+    var main=document.getElementById('learnerMain'); if(!main)return;
+    main.dataset.view=v;
+    main.querySelectorAll('.lview').forEach(function(x){x.classList.toggle('on',x.dataset.view===v);});
+    document.querySelectorAll('.lnav a[data-view]').forEach(function(a){
+      if(a.dataset.view===v){a.setAttribute('aria-current','page');}else{a.removeAttribute('aria-current');}
+    });
+    // in variant b the tab follows the view; in variant a the Learner tab covers all views
+    if(!fromMode&&document.body.dataset.variant==='b'){
+      var m=MODE_FOR_VIEW[v]||'home';
+      if(document.body.dataset.mode!==m)setMode(m);
+    }
+  }
+  // learner nav clicks (delegated, so the peek copy works too)
+  document.addEventListener('click',function(e){
+    var a=e.target.closest?e.target.closest('.lnav a[data-view]'):null;
+    if(a){e.preventDefault();setView(a.dataset.view,false);}
+  });
+  window.setVariant=function(v){
+    document.body.dataset.variant=v;
+    setMode(v==='a'?'learner':'home');
+    var b=document.getElementById('vsVar'); if(b)b.textContent='V3: '+v;
+  };
   document.querySelectorAll('.tb-tabs[data-app="learn"] a').forEach(function(t){
     t.addEventListener('click',function(e){e.preventDefault();setMode(t.dataset.mode);});
   });
@@ -1859,7 +2016,7 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
   }
   var lsRaf=null; function layoutSearchSoon(){ if(lsRaf)return; lsRaf=requestAnimationFrame(function(){lsRaf=null;layoutSearch();}); }
   window.addEventListener('resize',layoutSearchSoon);
-  new MutationObserver(layoutSearchSoon).observe(document.body,{attributes:true,attributeFilter:['class','data-app','data-mode']});
+  new MutationObserver(layoutSearchSoon).observe(document.body,{attributes:true,attributeFilter:['class','data-app','data-mode','data-variant']});
   layoutSearch();
 
   // 4) Launcher tiles switch the product: Learn <-> Comply (EHS-style nav).
@@ -1869,7 +2026,7 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
     if(window.gsPlaceholder)gsPlaceholder();
     if(app==='comply'){document.body.dataset.mode='comply-home';}
     else if(app==='dashboard'){document.body.dataset.mode='dash';}
-    else{setMode('trainplan');}
+    else{setMode(document.body.dataset.variant==='a'?'learner':'home');}
     document.querySelectorAll('.l-row[data-app]').forEach(function(t){
       var cur=t.dataset.app===app;
       t.classList.toggle('current',cur);
@@ -2042,7 +2199,9 @@ document.querySelectorAll('.u-sw').forEach(function(sw){
 });
 
   var params=new URLSearchParams(location.search);
+  if(params.get('variant')==='b')setVariant('b');
   var m=params.get('mode'); if(m&&modes.indexOf(m)>-1)setMode(m);
+  var vw=params.get('view'); if(vw&&document.querySelector('.lview[data-view="'+vw+'"]'))setView(vw,false);
   if(params.get('app')==='comply')setApp('comply');
   if(params.get('app')==='dashboard')setApp('dashboard');
   if(params.has('location')){
@@ -2108,6 +2267,8 @@ document.querySelectorAll('.u-sw').forEach(function(sw){
   <button class="vs-logo" id="vsBar" aria-pressed="false" title="Toggle the customer accent bar under the top nav (colour is set in the profile menu)" onclick="setBar(!document.body.classList.contains('tb-bar'))">Bar</button>
   <button class="vs-logo" id="vsLogoPos" title="Move the customer logo between the top and the bottom of the side nav" onclick="setLogoPos(!document.body.classList.contains('logo-bottom'))">Logo: bottom</button>
   <button class="vs-logo" aria-pressed="true" title="Toggle the product mode tabs in the top bar" onclick="var off=document.body.classList.toggle('tabs-off');this.setAttribute('aria-pressed',off?'false':'true')">Tabs</button>
+  <span class="vs-div" aria-hidden="true"></span>
+  <button class="vs-logo vs-mode" id="vsVar" title="V3 variant: a = Learner and Admin tabs, b = Convergence's five tabs" onclick="setVariant(document.body.dataset.variant==='a'?'b':'a')">V3: a</button>
 </nav>
 
 <script>
@@ -2116,6 +2277,8 @@ document.querySelectorAll('.u-sw').forEach(function(sw){
 (function () {
   var bar = document.getElementById('vsBar');
   if (bar) bar.setAttribute('aria-pressed', String(document.body.classList.contains('tb-bar')));
+  var vv = document.getElementById('vsVar');
+  if (vv) vv.textContent = 'V3: ' + (document.body.dataset.variant || 'a');
   var lp = document.getElementById('vsLogoPos');
   if (lp) lp.textContent = document.body.classList.contains('logo-bottom') ? 'Logo: bottom' : 'Logo: top';
 })();
