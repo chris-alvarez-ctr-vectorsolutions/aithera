@@ -861,17 +861,33 @@
      ======================================================================= */
   const EXAMPLE_SHARPS = {
     v: 1, type: 'mix-arc',
-    title: 'End of Shift: The Sharp in Chris’s Hand',
+    // Drives the frame chrome's course/lesson crumb too (split on ": " — see
+    // #scenarioName in composed-scenarios/index.html), so it has to match the
+    // establishing card's own eyebrow/title below rather than restate the
+    // module's old working name.
+    title: 'Interactive scenario: The end-of-shift decision',
     course: 'Bloodborne Pathogens — Module 4, Contain the Sharp',
     learnerName: 'you', characterName: 'Chris',
     elevatedStakes: false, involvesMinors: false, threatContent: false,
     framing: 'the culminating activity for a module on safe sharps handling and disposal. The learner has already been taught the four-step procedure, has walked the causal chain from one deferred disposal to a coworker’s needlestick, and has rated their own confidence in carrying a sharp to the container under time pressure. This scenario is where that rating meets a real moment.',
     learnerRole: 'a co-worker on second shift, walking out at the end of the day',
     establishing: {
-      eyebrow: 'The moment', title: 'End of shift',
+      // Was eyebrow 'The moment' / title 'End of shift' — trailer-voice framing,
+      // and 'End of shift' just repeated the frame's own course crumb above it
+      // ("End of Shift: The Sharp in Chris's Hand" split by frame.js into
+      // "End of Shift" / "The Sharp in Chris's Hand"). Names the choice instead
+      // of restating the section label — a bare timestamp ('4:52 PM') was tried
+      // and dropped, it means nothing to a learner before they've read the sub.
+      eyebrow: 'Interactive Scenario', title: 'The end-of-shift decision',
       // Kept to two lines on purpose: the player centres this block, and a
       // centred paragraph of prose is harder to read the longer it runs.
-      sub: 'It is 4:52. Chris is holding the syringe, and the container is on the far side of the plant floor.',
+      sub: 'Chris is holding the syringe, and the container is on the far side of the plant floor. What you do next is critical.',
+      // The module's own frame chrome already carries "Bloodborne Pathogens —
+      // Module 4, Contain the Sharp" (see the sharps.html handoff), so this
+      // card doesn't repeat it a third time. `course` itself stays set — the
+      // coach's compiled prompt still reads it for context, this only hides
+      // the card's own courtesy line.
+      hideCourse: true,
     },
     openingImage: 'The break room at the end of second shift. Chris is standing by the table with an uncapped syringe in his hand; a lidded waste bin is two feet away.',
     // No cold open and no warm-up reflection: the module that hands off to
