@@ -59,7 +59,7 @@ const SPECS = {
     ['Hero thumbnail', '232px wide · 16:9 · radius 8'],
     ['Kind chip', 'text 12/600 on --c-primary-soft'],
     ['Title', '20/600 · meta row 14'],
-    ['Child rows', 'minmax(0,1fr) 168 84 100 22 · min 52px'],
+    ['Child rows', 'minmax(0,1fr) 168 84 100 22 · min 52px · req rows #fff, activities #f2f5f9 (as the plan)'],
     ['Nested indent', '+28px on activity rows'],
     ['Completions table', 'cols 130 90 120 1fr · rows min 40'],
     ['Back control', '16/500 --c-primary · hover soft fill'],

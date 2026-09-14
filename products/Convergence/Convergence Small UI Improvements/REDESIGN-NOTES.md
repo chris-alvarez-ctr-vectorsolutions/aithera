@@ -539,6 +539,13 @@ for the final treatment.
   rows hover to `--tier-act-hover` `#ecf0f5`, and the caret keeps its rotate transition.
   AA on the final surfaces: meta text 5.25 on the activity tint, 5.01 on its hover,
   5.7+ on the white headers.
+- **Detail pages inherit the plan's row colours.** The qualification, requirement and
+  activity detail pages used their own row scheme (`--c-surface-alt` group rows, blue
+  `--c-primary-faint` hover). They now use exactly the Training Plan accordion scheme:
+  requirement (`.d-row.group`) rows on white like the plan's headers, activity rows on
+  the `--tier-act` tint with `--c-line` borders, and the same hover fills
+  (`--tier-head-hover` on headers, `--tier-act-hover` on activities). One accordion
+  language across the plan and every drill-in.
 - **Padding on the 4px grid.** Every padding now sits on the design-system 4px/8px grid.
   Snapped: status pills `0 8` (was 0 10), location chips `0 8` (1 7), the inline notice
   `4 12` (5 10), the card duration badge `4 8` (2 7), the detail kind chip `4 8` (2 9),
