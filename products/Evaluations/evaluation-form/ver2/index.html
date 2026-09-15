@@ -2901,6 +2901,15 @@
             color: var(--spk-accent, var(--text-strong));
         }
         .q-script-time { font-variant-numeric: tabular-nums; }
+        /* Identity block — speaker name + timestamp. A plain inline row on
+           desktop (indistinguishable from the previous sibling spans); the
+           narrow-width rules below stack it into two lines beside the avatar. */
+        .q-script-who {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 8px;
+            min-width: 0;
+        }
         /* Row actions (edit + delete) sit at the far right of the header. */
         .q-script-row-actions { margin-left: auto; display: inline-flex; gap: 2px; }
         /* The note text — plain threaded comment body, full available width. */
@@ -3239,34 +3248,66 @@
             .q-script-input > textarea { align-self: flex-start; }
         
             /* ── Transcript log rows ──
-               On a phone the row's 28px avatar + 10px gutter cost ~38px of an
-               already ~259px card, and the timestamp — wedged between the
-               speaker name and the three action buttons — wrapped onto its own
-               line ("9:43" / "PM"). The speaker is already named in colour on
-               every row, so the avatar is redundant here: drop it, and let the
-               meta line wrap so the timestamp keeps its own line only when it
-               genuinely needs one. */
-            .q-script-row {
-                grid-template-columns: 1fr;
-                gap: 6px;
+               The avatar keeps its column. Beside it the speaker name and the
+               timestamp stack as one identity block, and the action buttons sit
+               to the right of that. Previously the name, the time and the
+               ~120px action group all competed for a single horizontal line, so
+               the timestamp broke mid-value ("9:43" / "PM") and the actions
+               wrapped to a line of their own. */
+            .q-script-row { gap: 8px; }
+            .q-script-meta {
+                flex-wrap: nowrap;
+                gap: 8px;
+                align-items: center;
             }
-            .q-script-avatar { display: none; }
-            .q-script-meta { flex-wrap: wrap; gap: 6px; }
-            .q-script-time { white-space: nowrap; }
-            /* The three action buttons render 40x40 each — the Vaadin theme
-               enforces a 40px minimum touch target regardless of the 24px in
-               .q-script-row-btn — so the group is ~120px and cannot share the
-               meta line with the speaker and timestamp at phone widths. That
-               touch sizing is worth keeping, so the group is allowed to take
-               its own line and is pinned flush right there. */
+            /* Name over time. Takes the leftover width so the actions stay
+               flush right; min-width:0 lets a long speaker label ellipsize
+               rather than push the buttons off the card. */
+            .q-script-who {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0;
+                /* `1 0 auto` — grow into spare width but never shrink below the
+                   name's natural size. With `1 1 auto` the 120px action group
+                   squeezed the name down to 18px ("T…"); refusing to shrink
+                   keeps "Teacher"/"Student" whole and the buttons keep their
+                   full 40x40 touch targets. */
+                flex: 1 0 auto;
+                min-width: 0;
+            }
+            .q-script-speaker {
+                line-height: 1.25;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .q-script-time {
+                white-space: nowrap;
+                font-size: 10px;
+                line-height: 1.25;
+            }
+            /* Actions keep their 40x40 touch targets (the Vaadin theme enforces
+               a 40px minimum regardless of the 24px in .q-script-row-btn) and
+               stay to the right of the identity block. */
             .q-script-row-actions {
                 gap: 0;
                 margin-left: auto;
                 flex-shrink: 0;
-                justify-content: flex-end;
             }
-            /* Speaker + time stay intact so a wrap never splits the timestamp. */
-            .q-script-speaker, .q-script-time { flex-shrink: 0; }
+        }
+        /* At the very narrowest widths the identity block plus three 40px
+           buttons is ~19px wider than the card, so the delete button hung over
+           the edge. Below 360px the buttons drop to 32px — still above the 24px
+           WCAG 2.5.8 minimum — which brings the group back inside the card
+           without shrinking the speaker name. */
+        @media (max-width: 360px) {
+            .q-script-row-btn {
+                width: 32px !important;
+                min-width: 32px !important;
+                height: 32px !important;
+            }
 
             /* The legend chips and the keyboard hint both explain the T/S
                shortcut, which only exists for a hardware keyboard. On a touch
@@ -9010,8 +9051,10 @@ function renderScriptLog(stepEl) {
                 <span class="q-script-avatar"><i class="fa-solid ${spk.icon}"></i></span>
                 <div class="q-script-body">
                     <div class="q-script-meta">
-                        <span class="q-script-speaker">${escapeHtml(spk.label)}</span>
-                        <span class="q-script-time">${escapeHtml(l.time)}</span>
+                        <span class="q-script-who">
+                            <span class="q-script-speaker">${escapeHtml(spk.label)}</span>
+                            <span class="q-script-time">${escapeHtml(l.time)}</span>
+                        </span>
                         <span class="q-script-row-actions">
                             <vaadin-button theme="icon tertiary small" class="q-script-row-btn q-script-row-reply"
                                     id="scr-${l.id}-reply" data-row-id="${l.id}" aria-label="Comment on note">
