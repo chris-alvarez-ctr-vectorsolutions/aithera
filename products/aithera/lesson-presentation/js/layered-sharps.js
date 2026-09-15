@@ -924,11 +924,11 @@
       cta: 'Check answer',
       options: [
         { t: 'No — it carries a trace, not more blood', icon: 'fa-circle-check', score: 2,
-          reply: 'Right instinct. The amount barely changes; what changes is that the point just punctured skin, which is the real difference.' },
+          reply: 'Right. The amount barely changes; the skin puncture is the real difference.' },
         { t: 'Yes — a used needle carries more blood', icon: 'fa-droplet', score: 0,
-          reply: 'It is actually the opposite — a used needle carries a trace. What makes it dangerous is the puncture, not the amount.' },
+          reply: 'Actually, no. A used needle carries a trace but what makes it dangerous is the puncture, not the amount.' },
         { t: 'Neither — any broken skin is equally risky', icon: 'fa-hand', score: 0,
-          reply: 'Not quite — intact skin stops most exposures cold. A puncture is what changes that, regardless of how much blood is on it.' }
+          reply: 'Not quite. Intact skin stops most exposures, but a puncture changes that.' }
       ] },
     // K3, diagnostic — recognition, not recall: can the learner already spot
     // the condition case 2 is built on (a container past its fill line)? The
@@ -939,29 +939,29 @@
       cta: 'Check answer',
       options: [
         { t: 'It is filled above the line marked full', icon: 'fa-triangle-exclamation', score: 2,
-          reply: 'That line is the container’s own limit — past it, the safety feature can’t do its job even if the lid still closes.' },
+          reply: 'Right. Past the fill line, the safety feature can’t do its job even if the lid still closes.' },
         { t: 'It has been in place for more than a week', icon: 'fa-calendar', score: 0,
-          reply: 'Time on its own says nothing — a container is judged by how full it is, not how long it has been there.' },
+          reply: 'Not quite. A container is judged by how full it is, not how long it has been there.' },
         { t: 'It already has a few sharps inside it', icon: 'fa-box', score: 0,
-          reply: 'That is what it is there for. A container with a few sharps in it is doing exactly its job.' }
+          reply: 'Not quite. A container with a few sharps in it is simply doing its job.' }
       ] },
     { obj: 'F1',
       stem: 'Safe sharps disposal protects your coworkers, not just you.',
       hint: 'No right or wrong answer here, and nothing is graded. Answer honestly \u2014 we come back to this question later.',
       cta: 'Lock it in',
       options: [
-        { t: 'Strongly agree', icon: 'fa-heart', score: 3, reply: 'That is the belief that has to hold up when you are in a hurry.' },
-        { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2, reply: 'Fair. I will show you who actually ends up carrying the risk.' },
-        { t: 'It is mostly a formality', icon: 'fa-file-lines', score: 1, reply: 'Worth testing that. There is a case in this module that answers it better than I can.' }
+        { t: 'Strongly agree', icon: 'fa-heart', score: 3, reply: 'Your answer also has to hold up when you’re in a hurry.' },
+        { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2, reply: 'Fair. We’ll explore who actually ends up carrying the risk.' },
+        { t: 'It is mostly a formality', icon: 'fa-file-lines', score: 1, reply: 'That’s worth testing.' }
       ] },
     { obj: 'F3',
       stem: 'Of the people you work alongside, how many put a used sharp straight into the container?',
       hint: 'Answer honestly, and we come back to this later with the real figure for your sector.',
       cta: 'Lock it in',
       options: [
-        { t: 'Most do', icon: 'fa-users', score: 3, reply: 'Noted — we will see how that compares to what your sector actually reports.' },
+        { t: 'Most do', icon: 'fa-users', score: 3, reply: 'Noted. We’ll see how that compares to what your sector actually reports.' },
         { t: 'About half', icon: 'fa-users-slash', score: 2, reply: 'Noted. The real number surprises most people in both directions.' },
-        { t: 'Hardly anyone', icon: 'fa-user-slash', score: 1, reply: 'Noted — and if that is true where you work, it matters more than the procedure does.' }
+        { t: 'Hardly anyone', icon: 'fa-user-slash', score: 1, reply: 'Noted. If that’s true where you work, it matters more than the procedure does.' }
       ] }
   ];
   function batteryInit(ctx) {
@@ -978,8 +978,8 @@
     // The eyebrow counts the questions. What it cannot say is that half of
     // them have no right answer, which is what decides whether the Feel items
     // get an honest answer or a flattering one.
-    ctx.setCoachSay('No grade on any of these. Two are about the procedure, ' +
-      'two about how you see it \u2014 and the second kind cannot be wrong.');
+    ctx.setCoachSay('Two questions about the procedure, two about how you see it. ' +
+      'These questions aren\u2019t graded.');
     ctx.floatClose();
     render(0);
 
@@ -1736,8 +1736,7 @@
 
     // Why this screen comes FIRST is the only thing here the page does not
     // say for itself; "one sharp, one choice" was the eyebrow again.
-    ctx.setCoachSay('This lands before anyone teaches you the procedure, on purpose. '
-      + 'What the decision costs is the reason the procedure exists.');
+    ctx.setCoachSay('Your decision is critical. Let’s play this out.');
 
     document.getElementById('chStart').addEventListener('click', function () {
       // Guarded on the DOM rather than a flag: a double-tap on Begin pushed
@@ -1756,8 +1755,7 @@
         runEl.classList.add('is-entering');
         push(C.setup);
         pick.hidden = false;
-        ctx.setCoachSay('Both of those are within reach. Pick the one you would actually do ' +
-          'at the end of a shift, not the one that scores well.');
+        ctx.setCoachSay('Pick the one you would actually do at the end of a shift.');
         ctx.positionOrb(true);
         requestAnimationFrame(function () { runEl.classList.remove('is-entering'); });
       }, T(260));
@@ -1888,10 +1886,10 @@
       }
       label('Then what', 'fa-arrow-down');
       ctx.setCoachSay(k === 'safe'
-        ? 'Now the part nobody sees. Somebody handles that bag hours after you have gone home.'
+        ? 'Now the hidden impact of your decision: somebody handles that bag hours after you’ve gone home.'
         : isReplay
-          ? 'Same sharp, the other decision. Follow this one all the way down.'
-          : 'The bin is the choice most people make. Keep going and see where it lands.');
+          ? 'Same sharp, let’s try the other decision.'
+          : 'Good choice. Keep going to see where this decision lands.');
       // The advance button lands where the option the learner just pressed was
       // standing. Revealing it in the same tick means one physical click can
       // take the choice AND the first consequence node with it, so it arrives
@@ -1929,9 +1927,8 @@
       ctx.enableNext();
       ctx.setCoachSay(viewing === 'safe'
         ? (replayed
-            ? 'And that is the whole of the difference between the two runs \u2014 the seconds you spent.'
-            : 'No chain this time. Those few seconds are the whole difference \u2014 '
-              + 'worth seeing what they spared you.')
+            ? 'The right choice may only take a few more seconds.'
+            : 'Great decision. You prevented a real injury here.')
         : 'Your decision can affect your colleagues, which makes this a professional ' +
           'responsibility, rather than just a personal-safety rule.');
 
@@ -2436,11 +2433,8 @@
     function done() {
       if (handed) return; handed = true;
       ctx.enableNext();
-      // Reacts to the fact of finishing, not to the mechanism itself — the
-      // earlier line ("a puncture puts that trace past your skin") was the
-      // hzcheck answer restated, handed over one screen early.
-      ctx.setCoachSay('So a poke that barely bleeds still counts as an exposure. '
-        + 'Worth holding onto why, since the next question asks.');
+      // Silent on finishing — restating the mechanism here duplicated the
+      // hzcheck answer one screen early, so CLARA holds it for that check.
       ctx.positionOrb(true);
     }
   }
@@ -2481,9 +2475,9 @@
     var tries = 0, settled = false;
     var HZ_OPTS = [
       { t: 'It gets past your skin', ok: true,
-        reply: 'That is the mechanism. Skin is the barrier, and a puncture is what gets past it — which is why the amount of blood matters far less than whether it got in.' },
+        reply: 'Right. Skin is a protective barrier and a puncture breaks through it. The amount of blood matters far less than whether it got in.' },
       { t: 'There is more blood on a needle', ok: false,
-        reply: 'The opposite, in fact — a used point carries a trace, and a hand can carry far more. What makes the needle worse is the route, not the amount.' },
+        reply: 'Actually, it’s the opposite: a used point can only carry a trace. It’s where that trace ends up being delivered that’s consequential.' },
       { t: 'They are the same risk', ok: false,
         reply: 'Washing matters either way, and blood on broken skin or in your eyes is a real exposure. But on intact skin a pathogen has nowhere to go — the needle is what gives it somewhere.' }
     ];
@@ -2517,7 +2511,7 @@
             HZ_OPTS.forEach(function (opt, i) { if (opt.ok) csMark(buttons[i], 'ok'); });
             wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
             mergeResult('hazard', { passed: false, attempts: tries });
-            ctx.setCoachSay('It gets past your skin — that is the mechanism, and the amount barely matters next to it. This comes back for another look before we move on.');
+            ctx.setCoachSay('The bottom line: if it gets past your skin, the amount barely matters.');
             ctx.enableNext();
           } else {
             ctx.setCoachSay(esc(o.reply));
@@ -2744,15 +2738,16 @@
       } else if (m === 'tutor') {
         eyebrow.textContent = 'Step through: ' + procedureCount() + ' steps';
         if (!handed) ctx.disableNext();
-        ctx.setCoachSay('I will take the steps one at a time.');
+        ctx.setCoachSay('Let’s take the steps one at a time.');
         if (!tutorMounted) { tutorMounted = true; runTutor(); }
       } else if (m === 'podcast') {
         eyebrow.textContent = 'Not available as audio';
-        ctx.setCoachSay('Audio is not offered for this module — I am showing you the article cut so the path still runs.');
+        // Silent — the declined-audio banner on screen already says the path
+        // still runs on the article cut; CLARA repeating it added nothing.
         done();
       } else {
         eyebrow.textContent = 'Read: about 2 minutes';
-        ctx.setCoachSay('Read the order rather than the steps. Most of them happen before the sharp is ever used — which is the part people skip.');
+        ctx.setCoachSay('Pay attention to the order of the steps too. Most of them happen before the sharp is ever used.');
         done();
       }
       ctx.positionOrb(false);
@@ -2817,9 +2812,10 @@
       var harder = !!(cfg.harder && k3TestUp());
       var opts = harder ? cfg.harder : cfg.options;
       var wrap = document.getElementById('csOpts');
-      ctx.setCoachSay(harder
-        ? 'You earned the harder version of this case — all three answers are genuinely arguable.'
-        : cfg.coach);
+      // Silent on the harder permutation — flagging "you earned the harder
+      // version" turned out to read as a reward, not a heads-up. cfg.coach
+      // is also optional now (case3 has none): a case can open silent.
+      if (!harder && cfg.coach) ctx.setCoachSay(cfg.coach);
       var settled = false;
       opts.forEach(function (o) {
         var b = csOption(o.t);
@@ -2845,27 +2841,27 @@
   var CASE1 = {
     key: 'case1', obj: 'K1', eyebrow: 'Decide: case 1 of 3', icon: 'fa-clock',
     scene: 'case1', question: 'What is wrong with this, specifically?',
-    coach: 'Read it and tell me what the actual failure is — not what you would have done instead.',
+    coach: 'What is the actual failure here?',
     options: [
       { t: 'The sharp was set down instead of disposed at the point of use', grade: 'ok',
-        reply: 'That is it. Everything that goes wrong later starts with the sharp existing somewhere it was not planned to be.' },
+        reply: 'Right. Everything that goes wrong later starts with the sharp existing somewhere it was not planned to be.' },
       { t: 'The container was too far away', grade: 'near',
-        reply: 'That is the excuse, not the failure — the procedure says plan the route before you start, which makes distance a thing you solved earlier.' },
+        reply: 'No, that’s an excuse. The procedure says plan the route before you start, which means solving for distance earlier.' },
       { t: 'Nothing, as long as it gets disposed of eventually', grade: 'bad',
-        reply: '“Eventually” is where the injury lives. Between setting it down and coming back, the sharp belongs to whoever finds it.' }
+        reply: 'No, that’s not guaranteed. Between setting it down and coming back, the sharp belongs to whoever finds it.' }
     ]
   };
   var CASE2 = {
     key: 'case2', obj: 'K2', eyebrow: 'Decide: case 2 of 3', icon: 'fa-box-open',
     scene: 'case2', question: 'What do you do?',
-    coach: 'This one is about the container, not the sharp.',
+    coach: 'Now let’s focus on the container…',
     options: [
       { t: 'Stop using it, seal it, and get the replacement before anything else', grade: 'ok',
         reply: 'Right. That container is an engineering control, and past its limit it stops containing — a hazard wearing a safeguard’s label. Where the limit sits is set by your site’s plan, not by eye.' },
       { t: 'Use it carefully until someone swaps it', grade: 'bad',
-        reply: 'Careful does not help here. Past its limit the container stops containing, and the next thing in comes back out — that is a property of the box, not of how gently you use it.' },
+        reply: 'No — once it’s past the fill line, the container stops containing. The next thing in comes right back out; that’s a property of the box, not of how carefully you use it.' },
       { t: 'Press the contents down to make room', grade: 'bad',
-        reply: 'That is the single most direct route to a stick in this whole module. Never a hand inside a container.' }
+        reply: 'No. Never place your hand inside a sharps container.' }
     ],
     // Content-locked → test-up. The harder variant makes the call arguable.
     harder: [
@@ -2880,12 +2876,14 @@
   var CASE3 = {
     key: 'case3', obj: 'K2', eyebrow: 'Decide: case 3 of 3', icon: 'fa-magnifying-glass',
     scene: 'case3', question: 'This one was not yours. What now?',
-    coach: 'The interesting part of this case is that you did not cause it.',
+    // No opening line — case1/case2 name what the case is about before the
+    // choice; this one's premise ("this wasn't yours") is already the
+    // question heading, so CLARA had nothing to add before the pick.
     options: [
       { t: 'Secure it yourself, then report the condition that let it happen', grade: 'ok',
-        reply: 'Both halves matter. Securing it protects the next person; reporting it is the only thing that stops the third one.' },
+        reply: 'Yes, both parts matter. Securing it protects the next person; reporting it is the only thing that stops the third one.' },
       { t: 'Secure it and move on — no harm done', grade: 'near',
-        reply: 'You protected one person. The condition that put it there is still running, and it will produce another.' },
+        reply: 'You protected one person, but the condition that put it there is still running, and it will produce another.' },
       { t: 'Leave it and tell whoever is responsible', grade: 'bad',
         reply: 'Between now and them, it is in reach of whoever comes next. Secure first, report second.' }
     ],
@@ -2915,7 +2913,7 @@
     { stem: 'Before you pick up a sharp, what should you already have decided?',
       opts: [
         { t: 'Which container the sharp goes in, and my route there', ok: true,
-          reply: 'That is the whole procedure in one line. The disposal route is a decision you make before the sharp is ever in your hand.' },
+          reply: 'Right. The disposal route is a decision you make before the sharp is ever in your hand.' },
         { t: 'How to carry the sharp safely once I am done', ok: false,
           reply: 'Carrying is already the risky part — the procedure exists so there is as little carrying as possible.' },
         { t: 'Who to tell if the sharp injures somebody', ok: false,
@@ -3038,7 +3036,8 @@
     var post = document.getElementById('c4Post');
     var opts = document.getElementById('c4PostOpts');
     var done = false;
-    ctx.setCoachSay('No judgment on this one. Read the account, and notice who got hurt.');
+    // Silent through this whole beat — the account and the re-rate carry
+    // it without CLARA narrating the read or the move.
 
     [
       { t: 'Strongly agree', icon: 'fa-heart', score: 3 },
@@ -3056,16 +3055,7 @@
         b.setAttribute('aria-checked', 'true');
         opts.classList.add('answered');
         opts.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
-        var before = (readCourse().battery || {}).f1 || 0;
         saveResult('case4', { read: true, post: o.score });
-        // What CLARA says depends on the MOVE, not the level — a learner who
-        // already at the top has not failed to move, and a learner who came up
-        // has done the thing the beat exists for.
-        ctx.setCoachSay(o.score > before
-          ? 'Your answer moved, and it moved after reading about somebody who does your job. The movement is what I record.'
-          : o.score < before
-            ? 'Down, and that is allowed — you read something specific and it made the claim feel smaller. Recorded as you gave it.'
-            : 'Held where you started. Recorded as it stands, not rounded up because you read something.');
         ctx.enableNext();
         ctx.positionOrb(true);
       });
@@ -3146,17 +3136,13 @@
     var opts = document.getElementById('ctOpts');
     var second = document.getElementById('ctSecond');
     var picked = null;
-    // Silent on arrival. The screen's own hint says "both are real proposals
-    // and both would help \u2014 pick the one that prevents more injuries", which
-    // is this line with the argument left in. CLARA answers the choice.
+    // Silent through this whole beat, both the choice and the belief scale
+    // below it \u2014 the screen's own hint states the choice's argument, and
+    // neither pick nor rating gets a CLARA reaction on top of it.
 
     [
-      { k: 'boxes', t: L.facility.boxes, grade: 'ok',
-        reply: 'The container removes the hazard before a hand can ever reach it. A glove is the last line of ' +
-               'defense — it only matters once everything else has already failed.' },
-      { k: 'gloves', t: L.facility.gloves, grade: 'near',
-        reply: 'Understandable — those gloves stop plenty of cuts. But every account here ends with the needle ' +
-               'going through the glove. Gloves resist a dragging blade, not a concentrated point.' }
+      { k: 'boxes', t: L.facility.boxes, grade: 'ok' },
+      { k: 'gloves', t: L.facility.gloves, grade: 'near' }
     ].forEach(function (o) {
       var b = csOption(o.t);
       b.addEventListener('click', function () {
@@ -3165,7 +3151,6 @@
         opts.classList.add('answered');
         opts.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
         csMark(b, o.grade);
-        ctx.setCoachSay(esc(o.reply));
         saveResult('controls', { choice: o.k, sampled: sampled('F2') });
         ctx.positionOrb(true);
         // F2 is ask+sampled (D6/item 15): only part of the cohort gets the
@@ -3188,26 +3173,10 @@
 
     var agreeEl = document.getElementById('ctAgree');
     var done = false;
-    // What CLARA says depends on BOTH answers, not this one alone — which is
-    // the entire reason the beat asks two things. The interesting learner is the
-    // one who rates containers highest and then spends the money on gloves:
-    // a single agreement scale scores that person as fully on board.
     [
-      { t: 'Strongly agree', icon: 'fa-heart', score: 3,
-        reply: {
-          boxes: 'Then what you believe and what you would buy are the same thing, which is the combination that survives a hurry.',
-          gloves: 'Worth noticing — those two answers disagree. You rated containers above PPE, then bought gloves. Not hypocrisy: gloves are cheaper and arrive sooner. But the containers are what would have actually stopped it.'
-        } },
-      { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2,
-        reply: {
-          boxes: 'Fair, and you still bought the right thing. Held loosely is still held.',
-          gloves: 'Consistent, at least — you rated it as a maybe and you bought accordingly. The accounts in this module are the argument against it, not me.'
-        } },
-      { t: 'Training matters more', icon: 'fa-chalkboard-user', score: 1,
-        reply: {
-          boxes: 'Then you bought against your own view — usually a sign somebody has been through this before. Worth saying anyway: training relies on remembering this months later. A container does not rely on that.',
-          gloves: 'Worth saying out loud. Training relies on you remembering this months from now, with something else pulling at you. A container does not rely on that — which is why it outperforms both.'
-        } }
+      { t: 'Strongly agree', icon: 'fa-heart', score: 3 },
+      { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2 },
+      { t: 'Training matters more', icon: 'fa-chalkboard-user', score: 1 }
     ].forEach(function (o) {
       var b = document.createElement('button');
       b.className = 'bl-option'; b.type = 'button';
@@ -3221,7 +3190,6 @@
         agreeEl.classList.add('answered');
         agreeEl.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
         ctx.clearCoachAction();
-        ctx.setCoachSay(esc(o.reply[picked] || o.reply.boxes));
         // Merged, not replaced — the choice handler above already wrote
         // `sampled` for this key, and this only ever runs when sampled was
         // true (the belief scale is what sampling gates).
@@ -3282,11 +3250,10 @@
     var echo = document.getElementById('dnEcho');
     var recorded = false;
 
-    // A free-text box invites a careful answer, and a learner who thinks it
-    // is being marked writes for the marker. The second sentence \u2014 that this
-    // is the question the module rests on \u2014 was CLARA telling the learner how
-    // important their own answer is, which is not a thing a coach can know.
-    ctx.setCoachSay('No grade here, and I am not checking this against anything.');
+    // Silent on arrival. A free-text box invites a careful answer, and a
+    // learner who thinks it is being marked writes for the marker \u2014 saying
+    // so, or anything else about the question, was CLARA narrating her own
+    // prompt back at the learner.
     // Ungated: only Know gates here, and a Feel prompt that held the door
     // would be routing content on a self-report. Recorded as unanswered up
     // front so a learner who reads it and moves on is not reported as asked
@@ -3306,8 +3273,7 @@
       // is a stronger move than a verdict on whether they got it right.
       echo.hidden = false;
       echo.textContent = 'That is who the chain you walked at the start ends with.';
-      ctx.setCoachSay('\u201c' + esc(text) + '\u201d \u2014 noted, in your words, and it goes ' +
-        'on your record that way.');
+      ctx.setCoachSay('\u201c' + esc(text) + '\u201d \u2014 noted.');
       ctx.positionOrb(true);
     });
   }
@@ -3522,13 +3488,10 @@
         postOpts.classList.add('answered');
         postOpts.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
         // Same scale as the entry item now, so the move is a real one: up,
-        // down, or held against their own earlier answer, not a reading of
-        // this answer alone.
+        // down, or held against their own earlier answer. Silent on the
+        // result either way — CLARA already made her case in the reveal
+        // above; the re-rate is recorded, not reacted to.
         var moved = entryScore ? (o.score > entryScore ? 'up' : o.score < entryScore ? 'down' : 'held') : null;
-        ctx.setCoachSay(moved === 'up' ? 'That moved up after seeing the number — the reveal did what it was supposed to.'
-          : moved === 'down' ? 'That moved down, which is allowed — you read something specific and it changed your estimate.'
-          : moved === 'held' ? 'Held where you started. Recorded as it stands, not adjusted because you saw a number.'
-          : 'Noted — there is no earlier answer in this run to compare it against.');
         var c = readCourse();
         saveResult('debrief', { guess: (c.debrief && c.debrief.guess) || said,
                                 majority: !!(c.debrief && c.debrief.majority),
@@ -3572,14 +3535,14 @@
         { t: 'Activating the safety feature', ok: true,
           reply: 'Right. The feature goes on while the sharp is still under your control, before it moves anywhere.' },
         { t: 'Walking to the container', ok: false,
-          reply: 'That is the second move, not the first. An unshielded point in transit is where most injuries happen — the feature goes on before anything moves.' }
+          reply: 'That’s the second move, not the first. An unshielded point in transit is where most injuries happen.' }
       ] },
     { stem: 'You reach for a container and there is none within reach. What do you do?',
       opts: [
         { t: 'Keep it in your own hand and walk it to one', ok: true,
           reply: 'Right. A shielded sharp is safe to carry; the alternative is setting it down somewhere, which is exactly the gap this module is about.' },
         { t: 'Set it down somewhere safe until you can come back', ok: false,
-          reply: 'That is the gap this whole module is about — a sharp set down is a sharp somebody else finds. Keep it in hand and walk it to a container instead.' }
+          reply: 'No, a sharp set down is a sharp somebody else finds. Keep it in hand and walk it to a container instead.' }
       ] }
   ];
   // The modality they did NOT get: video's closest substitute is the tutor
@@ -3604,7 +3567,8 @@
   }
   function remk1Init(ctx) {
     var m = remk1Modality();
-    ctx.setCoachSay('Same procedure, a different way in this time — and one more question on it before we move on.');
+    // Silent on arrival — the screen's own eyebrows already say "Another
+    // look, a different way" and "Check: 1 question".
     if (m === 'tutor') {
       var host = document.getElementById('rk1Tutor');
       var useP = lens() && lens().premise === 'use';
@@ -3665,9 +3629,9 @@
     stem: 'A used needle is dangerous mainly because of ___.',
     opts: [
       { t: 'the puncture, not the amount of blood on it', ok: true,
-        reply: 'Right. The puncture is what makes the route in — the amount barely matters next to that.' },
+        reply: 'Right. The puncture is what makes the route in. The amount barely matters.' },
       { t: 'how sharp the point still is', ok: false,
-        reply: 'Not the mechanism — a dull point still punctures skin. What matters is that it breaks the skin at all, not how cleanly.' },
+        reply: 'A dull point can still puncture skin.' },
       { t: 'how long ago it was used', ok: false,
         reply: 'Time does not change the mechanism — a used point carries a trace whether it was an hour ago or a week ago. The puncture is what matters.' }
     ]
@@ -3686,7 +3650,7 @@
   function remk2Init(ctx) {
     var opts = document.getElementById('rk2Opts');
     var settled = false;
-    ctx.setCoachSay('One more look at this, since it is the reason for the rest of the module.');
+    ctx.setCoachSay('Let’s take one more look at this.');
     REMK2_ITEM.opts.forEach(function (o) {
       var b = csOption(o.t);
       b.addEventListener('click', function () {
@@ -3813,13 +3777,13 @@
     if (!sampled('F4')) {
       ratingBox.hidden = true;
       saveResult('walk', { rating: null, sampled: false });
-      ctx.setCoachSay('This one is not asked of everyone — sampled across the cohort. ' +
-        'Plan the walk anyway, while nothing is pulling at you.');
+      // Silent — not everyone gets the rating (F4 is ask+sampled), and
+      // saying so read as CLARA explaining her own sampling logic rather
+      // than coaching the learner.
       reinforce(ctx, part1, 1, 2);
       ctx.enableNext();
     } else {
-      ctx.setCoachSay('No right answer on this one, and nothing about it changes what you get ' +
-        'next. Answer it the way a bad shift actually goes.');
+      ctx.setCoachSay('Answer this the way a bad shift actually goes.');
 
       range.addEventListener('input', function () {
         if (settled) return;
@@ -3838,8 +3802,8 @@
         // The threshold decides only what CLARA says about the rating, not
         // whether the plan appears.
         ctx.setCoachSay(v <= WALK_THRESHOLD
-          ? 'A low answer there is worth taking seriously rather than talking you out of. So plan the walk now, while nothing is pulling at you.'
-          : 'Recorded as you gave it. Plan the walk anyway — a high rating is easiest to hold when the decision was already made.');
+          ? 'Plan the walk now, while nothing is pulling at you.'
+          : 'A high rating is easiest to keep when the decision is already made. Plan the walk anyway.');
         // Ungated: Continue opens on the rating, so a plan nobody wanted to
         // write never holds the door. And the first part waits for a press
         // rather than covering the line CLARA just delivered.
@@ -3904,8 +3868,8 @@
       // commitment CLARA had no standing to make. The written plan is the
       // artifact; whether it held is a separate, later fact this module
       // cannot claim to have.
-      ctx.setCoachSay('That is on your record, in your own words — the plan itself, not a ' +
-        'promise about whether it holds.');
+      ctx.setCoachSay('This plan is on your record, in your own words — not a promise it will ' +
+        'hold, just what you intend to do.');
       ctx.positionOrb(true);
     });
   }
@@ -4240,20 +4204,21 @@
       ' of the ' + NUM_WORD[closable.length] + ' that can close are answered, and ' +
       '<b>the last one stays open on purpose</b> — nothing a module does in one sitting can tell you what you ' +
       'keep doing afterwards.';
-    var movedLine = proven
-      ? (k3TestUp()
-          ? 'The part worth noticing: proving the procedure took a section off, but made the one on spotting conditions harder instead.'
-          : 'The part worth noticing: proving the procedure took two sections off your path.')
-      : (k3TestUp()
-          ? 'The part worth noticing: the procedure stayed, but spotting conditions still got harder — that one only ever serves harder, never shorter.'
-          : 'Nothing about your path changed based on the first five questions this time — every section ran in full.');
+    // Silent on the path-change opener in three of the four cases — proving
+    // the procedure or testing up on K3 is already visible in the bands
+    // below, and CLARA restating it read as a fourth voice for one fact.
+    // The one case that keeps a line is the plain one: nothing moved, and
+    // nothing on screen already says so.
+    var movedLine = (proven || k3TestUp())
+      ? ''
+      : 'Based on the initial assessment, nothing about your path changed.';
     // The count is stated once, in recBasis above — CLARA repeating the same
     // number would be a second voice for one line. Her opening says what the
     // caption cannot: the one thing that actually moved on this run.
     typeFeedback(ctx, [
       movedLine,
       'Ask me about any line and I will tell you where it came from.'
-    ]);
+    ].filter(Boolean));
     wireChat(ctx, [
       'That one came from the five questions at the start. Get those right and you skip the section that teaches it — which is the only place answering well buys you anything.',
       'Spotting unsafe conditions is named in the regulation, so it is never taken away. A strong answer makes it harder instead.',
@@ -4503,10 +4468,10 @@
     lensedSteps: { intro: 1, chain: 1, hazard: 1, case1: 1, case2: 1, case3: 1, case4: 1,
                    controls: 1, debrief: 1, walk: 1 },
     replies: [
-      'Short version: the sharp should never exist outside a container for longer than it takes to walk there — and you decide that route before you start.',
-      'Five things are absolute: a used needle is never bent, broken, recapped, removed, or separated from its syringe. Every other rule in the module has an “unless”; those five do not.',
+      'Short version: the sharp should never exist outside a container for longer than it takes to walk there. Decide the route before you start.',
+      'Five things are absolute: a used needle is never bent, broken, recapped, removed, or separated from its syringe.',
       'A container is an engineering control. Past the limit your site’s plan sets, it stops containing — so sealing it and walking is always better than one more.',
-      'I am recording what each answer showed, not a score. Your administrator sees the same chain you do.'
+      'I’m recording what each answer showed, not a score — your administrator sees the same chain you do.'
     ],
     // Item 26: the Modality control that used to live here is retired — the
     // procedure beat's Watch/Read/Step-through picker is a learner-facing
