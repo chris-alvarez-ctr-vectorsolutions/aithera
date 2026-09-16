@@ -231,7 +231,7 @@
         after: [
           { time: '9:40 PM', gap: 'six hours later', gapSize: 'l',
             body: 'Marisol works the evening round, emptying bins one classroom at a time. She has never met you — she starts after the building empties, and nobody tells her what went in.' },
-          { time: '9:41 PM', gap: 'a minute later', gapSize: 's',
+          { time: '9:41 PM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
             body: 'She lifts the liner out and gathers it against her forearm to knot it. The bag sags under its own weight, and the edge finds her through the plastic.' },
           { time: 'Over the next four months', gap: 'and then', gapSize: 'm',
             body: 'Marisol now has to be tested at six weeks, twelve weeks and four months to find out whether she caught anything. Nobody can tell her what was on that glass. She has done nothing wrong at any point in this chain.' }
@@ -301,7 +301,7 @@
         after: [
           { time: '6:15 PM', gap: 'three and a half hours later', gapSize: 'l',
             body: 'Teodoro clears the floors once the trades go home. You have never met him — he works the levels you have already left, and the bags reach him closed.' },
-          { time: '6:16 PM', gap: 'a minute later', gapSize: 's',
+          { time: '6:16 PM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
             body: 'He carries them against his chest, two at a time, the way everybody does. The blade comes through the sack and into his forearm.' },
           { time: 'Over the next eleven weeks', gap: 'and then', gapSize: 'm',
             body: 'Teodoro now has to be tested at six weeks and again at eleven to find out whether he caught anything. Nobody can tell him whose blade it was, or how long it sat on that ledge. He has done nothing wrong at any point in this chain.' }
@@ -374,7 +374,7 @@
         after: [
           { time: '11:20 PM', gap: 'six and a half hours later', gapSize: 'l',
             body: 'Jacob empties the break-room bins on nights. You have never met him — he comes in after second shift clocks out, and a lidded bin tells him nothing.' },
-          { time: '11:21 PM', gap: 'a minute later', gapSize: 's',
+          { time: '11:21 PM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
             body: 'He gathers the bag against his leg to lift it clear of the frame. The needle is somewhere in the middle of it, and it goes through the plastic into his thigh.' },
           { time: 'Over the next six months', gap: 'and then', gapSize: 'm',
             body: 'Jacob now has to be tested at six weeks, twelve weeks and six months to find out whether he caught anything. It was Chris’s blood on that needle, handed off in a hurry. He has done nothing wrong at any point in this chain.' }
@@ -448,7 +448,7 @@
         after: [
           { time: '6:30 AM', gap: 'four hours later', gapSize: 'l',
             body: 'Amrit takes the rig over at shift change and restocks it for the day crew. You have never met him — he comes on as you go off, and a bag on the rail is just a bag.' },
-          { time: '6:31 AM', gap: 'a minute later', gapSize: 's',
+          { time: '6:31 AM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
             body: 'He pulls it off the rail and squeezes it flat to get it into the barrel. The broken edge goes through the plastic and into the side of his hand.' },
           { time: 'Over the next twelve weeks', gap: 'and then', gapSize: 'm',
             body: 'Amrit now has to be tested at six weeks and again at twelve to find out whether he caught anything. There was a patient\u2019s blood on that ampoule \u2014 a patient he never treated. He has done nothing wrong at any point in this chain.' }
@@ -1791,24 +1791,34 @@
       });
 
       var li = document.createElement('li');
-      li.className = 'ch-node';
+      // n.injury marks the one node per chain that IS the puncture — the
+      // rest of the sequence is setup and aftermath. A distinct dot colour,
+      // a small alarm tag, and a bolder body give that single node a
+      // different weight than "one more line in a timeline" — this is the
+      // moment the whole beat exists to land.
+      li.className = 'ch-node' + (n.injury ? ' ch-node--injury' : '');
       // The head is a real button but starts DISABLED: while a node is the
       // live one there is nothing to expand, and a focusable control that
       // does nothing is worse than no control.
-      li.innerHTML = '<span class="ch-dot" aria-hidden="true"></span>' +
+      li.innerHTML = '<span class="ch-dot' + (n.injury ? ' ch-dot--injury' : '') + '" aria-hidden="true"></span>' +
         '<span class="ch-main">' +
           // aria-label rather than letting the name accumulate from the two
           // adjacent spans — they carry no separating text node, so the
           // computed name would run the time straight into the peek with no
           // space. Uses the full body, not the truncated peek: a screen
           // reader loses nothing to the ellipsis a sighted learner accepts
-          // for space.
+          // for space. The alarm tag is prepended so a screen reader hits it
+          // before the time, the same order a sighted learner sees it in.
           '<button class="ch-head" type="button" disabled aria-expanded="true" ' +
-            'aria-label="' + esc(n.time + '. ' + n.body) + '">' +
+            'aria-label="' + esc((n.injury ? n.injury + '. ' : '') + n.time + '. ' + n.body) + '">' +
             '<span class="ch-time">' + esc(n.time) + '</span>' +
             '<span class="ch-peek">' + esc(peek(n.body)) + '</span>' +
             '<i class="fa-solid fa-chevron-down ch-chev" aria-hidden="true"></i>' +
           '</button>' +
+          // Sits outside the foldable head/body pair on purpose — it stays
+          // on screen (dimmed, like the rest of a past node) even once the
+          // full body folds away, so the marker survives the fold.
+          (n.injury ? '<span class="ch-alarm"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' + esc(n.injury) + '</span>' : '') +
           '<span class="ch-body">' + esc(n.body) + '</span>' +
         '</span>';
       list.appendChild(li);
@@ -1889,7 +1899,10 @@
         ? 'Now the hidden impact of your decision: somebody handles that bag hours after you’ve gone home.'
         : isReplay
           ? 'Same sharp, let’s try the other decision.'
-          : 'Good choice. Keep going to see where this decision lands.');
+          // Not "good choice" — this is the shortcut branch. Neutral framing,
+          // same as the safe branch above: the module doesn't judge the pick
+          // up front, it lets the consequence (revealed next) do that.
+          : 'That’s the choice most people make. Keep going to see where this decision lands.');
       // The advance button lands where the option the learner just pressed was
       // standing. Revealing it in the same tick means one physical click can
       // take the choice AND the first consequence node with it, so it arrives
@@ -2744,6 +2757,10 @@
         eyebrow.textContent = 'Not available as audio';
         // Silent — the declined-audio banner on screen already says the path
         // still runs on the article cut; CLARA repeating it added nothing.
+        // Still has to clear the manifest's "Loading…" placeholder, though:
+        // a returning learner whose last modality was Listen lands here
+        // FIRST, with no earlier setCoachSay call to have cleared it.
+        ctx.setCoachSay('');
         done();
       } else {
         eyebrow.textContent = 'Read: about 2 minutes';
@@ -2765,12 +2782,22 @@
   //  refers to any other. `harder` swaps in the ambiguous variant when the
   //  battery earned test-up on the locked objective.
   // ==========================================================================
+  // Numbering is computed, not fixed — case1 is the only one ever skipped
+  // (K1 test-out removes it), so a learner who never saw it must not land
+  // on a screen reading "case 2 of 3": that names a case they were never
+  // shown and reads as something they missed, not something adaptive.
+  function caseLabel(num) {
+    var skipped = batteryResult() === 'proven';
+    var total = skipped ? 2 : 3;
+    var shown = skipped ? num - 1 : num;
+    return 'Decide: case ' + shown + ' of ' + total;
+  }
   function caseContent(cfg) {
     return function () {
       var L = lens();
       return '<main class="ll-object">' +
         '<div class="cs-wrap">' +
-          '<p class="ll-eyebrow">' + esc(cfg.eyebrow) + '</p>' +
+          '<p class="ll-eyebrow">' + esc(caseLabel(cfg.num)) + '</p>' +
           '<div class="cs-scene">' +
             '<div class="cs-tag"><i class="fa-solid ' + cfg.icon + '"></i> ' + esc(L.where) + ' · ' + esc(L.when) + '</div>' +
             '<p>' + esc(L[cfg.scene]) + '</p>' +
@@ -2815,7 +2842,10 @@
       // Silent on the harder permutation — flagging "you earned the harder
       // version" turned out to read as a reward, not a heads-up. cfg.coach
       // is also optional now (case3 has none): a case can open silent.
-      if (!harder && cfg.coach) ctx.setCoachSay(cfg.coach);
+      // Always call setCoachSay, even with '' — the manifest primes this
+      // bubble with a literal "Loading…" placeholder, and only this call
+      // clears it; skipping the call on the silent branches left it stuck.
+      ctx.setCoachSay(harder ? '' : (cfg.coach || ''));
       var settled = false;
       opts.forEach(function (o) {
         var b = csOption(o.t);
@@ -2839,7 +2869,7 @@
   }
 
   var CASE1 = {
-    key: 'case1', obj: 'K1', eyebrow: 'Decide: case 1 of 3', icon: 'fa-clock',
+    key: 'case1', obj: 'K1', num: 1, icon: 'fa-clock',
     scene: 'case1', question: 'What is wrong with this, specifically?',
     coach: 'What is the actual failure here?',
     options: [
@@ -2852,7 +2882,7 @@
     ]
   };
   var CASE2 = {
-    key: 'case2', obj: 'K2', eyebrow: 'Decide: case 2 of 3', icon: 'fa-box-open',
+    key: 'case2', obj: 'K2', num: 2, icon: 'fa-box-open',
     scene: 'case2', question: 'What do you do?',
     coach: 'Now let’s focus on the container…',
     options: [
@@ -2874,7 +2904,7 @@
     ]
   };
   var CASE3 = {
-    key: 'case3', obj: 'K2', eyebrow: 'Decide: case 3 of 3', icon: 'fa-magnifying-glass',
+    key: 'case3', obj: 'K2', num: 3, icon: 'fa-magnifying-glass',
     scene: 'case3', question: 'This one was not yours. What now?',
     // No opening line — case1/case2 name what the case is about before the
     // choice; this one's premise ("this wasn't yours") is already the
@@ -3037,7 +3067,9 @@
     var opts = document.getElementById('c4PostOpts');
     var done = false;
     // Silent through this whole beat — the account and the re-rate carry
-    // it without CLARA narrating the read or the move.
+    // it without CLARA narrating the read or the move. Still has to clear
+    // the manifest's "Loading…" placeholder, though — nothing else does.
+    ctx.setCoachSay('');
 
     [
       { t: 'Strongly agree', icon: 'fa-heart', score: 3 },
@@ -3253,7 +3285,9 @@
     // Silent on arrival. A free-text box invites a careful answer, and a
     // learner who thinks it is being marked writes for the marker \u2014 saying
     // so, or anything else about the question, was CLARA narrating her own
-    // prompt back at the learner.
+    // prompt back at the learner. Still has to clear the manifest's
+    // "Loading\u2026" placeholder, though.
+    ctx.setCoachSay('');
     // Ungated: only Know gates here, and a Feel prompt that held the door
     // would be routing content on a self-report. Recorded as unanswered up
     // front so a learner who reads it and moves on is not reported as asked
@@ -3779,7 +3813,9 @@
       saveResult('walk', { rating: null, sampled: false });
       // Silent — not everyone gets the rating (F4 is ask+sampled), and
       // saying so read as CLARA explaining her own sampling logic rather
-      // than coaching the learner.
+      // than coaching the learner. Still has to clear the manifest's
+      // "Loading…" placeholder, though.
+      ctx.setCoachSay('');
       reinforce(ctx, part1, 1, 2);
       ctx.enableNext();
     } else {
