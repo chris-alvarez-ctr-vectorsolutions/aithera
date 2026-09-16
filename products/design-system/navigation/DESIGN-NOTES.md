@@ -1,5 +1,62 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-09-14, second pass (V3a / V3b in the switcher, admin IA, motion)
+
+- **V3a and V3b are first-class versions in the review pill**: `V1 · V3a · V3b`. In V3 the
+  two entries switch the variant in place and rewrite `?variant=` so the link stays
+  shareable; the separate "V3: a" toggle is gone.
+- **Accordion rows slide open and closed** (220ms, the nav's own curve), in both versions and
+  inside the hover-peek copy. `<details>` has no motion of its own, so a small delegated
+  handler drives the height and the CSS eases it; reduced-motion users get the native toggle.
+- **The group holding the active page reads as current.** Open, its icon takes the accent and
+  its label goes heavy, so you can see which group you are in without it competing with the
+  child's filled highlight; collapsed, the top-level icon carries the filled highlight (this
+  already worked for the learner list and now covers Admin's nested groups too).
+- **Variant a's Admin nav is reorganised into sections**, by the job an admin is doing rather
+  than by feature shape:
+  - **Overview**: Dashboard.
+  - **People**: Organization (Users, Teams, Departments, Sites, Regions, Groups, Places,
+    Contacts).
+  - **Content**: **Courses** (Qualifications, Requirements, Activities, pulled together as one
+    group), Training import and creation, Files.
+  - **Delivery**: Assignments (Assign training, Manage assignments), Electives (Elective
+    categories, Offer electives, Approve electives, Manage electives), Authorizations
+    (Authorize training, Authorizations), Tracking and completions (all seven).
+  - **Compliance**: MSHA compliance (Qualifications, Requirements, MSHA compliance reports).
+  - **Insights**: Reports, as a row, holding the report library.
+  - **Configuration**: Assets, Security, System.
+
+  Variant b's Admin keeps Convergence's tree exactly, so the two remain a real comparison.
+
+## Changelog · 2026-09-14 (V3 variants a and b)
+
+V3 now holds two toggleable variants, switched from the review pill (`V3: a` / `V3: b`) or
+`?variant=a|b`. They share the rail, the full-width bar, the peek, the branding switches and
+the Admin tree; they differ in what the LMS tabs are and what each tab's side nav shows.
+
+- **Variant a: two tabs, Learner and Admin.** Learner's side nav is Convergence's learner
+  list in its order: Dashboard, My Training, Catalog, News, Registered Facilities, My
+  Attachments, My Reports, My Jobs, My Licenses, My Preferences. Each item switches the page
+  in place (`?view=` deep-links one). **My Training and Catalog carry their filters as a
+  right-hand side panel** (the V2a treatment: status / activity type / due for training,
+  topic / type / duration / language for the catalog). Admin keeps the admin tree, but its
+  single Reports group becomes a **Reports section** holding two groups: **Insights** (the
+  Insights tab's tree: Activity, User and Qualification reports with their children) and
+  **Legacy reporting** (the eight legacy report entries).
+- **Variant b: Convergence's five tabs**, Home, Training Plan, Catalog, Insights, Admin. Each
+  tab shows the side nav Convergence gives it, restyled to V3: Home / Training Plan / Catalog
+  show the learner list with the matching item active (Convergence's Training and Catalog
+  pages are learner pages, so the learner list is their context); Insights shows the Insights
+  tree (Activity reports › Activity exception / completion / status / Tasklist; User reports ›
+  Engagement / Completion; Qualification reports › Status / Expiring); Admin shows the admin
+  tree with its Reports group as Convergence has it. Clicking a learner item that maps to a
+  tab moves the tab too.
+- **Both variants:** View my profile and Change my password move out of the learner list into
+  the avatar menu, since they belong to the person rather than the product.
+- The previous Home, Training Plan and Reporting panes (invented content) are retired; one
+  learner pane serves variant a's Learner tab and variant b's three learner tabs by pinning
+  its view.
+
 ## Changelog · 2026-09-11, third pass (smoothness)
 
 - **Tabs never move.** The left group keeps the open-nav width even when the nav is
@@ -306,7 +363,7 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 | # | File | Differs from V1 by |
 |---|---|---|
 | V1 | `v1-launcher-tabs.html` | The reference shell: full-width top bar with the waffle launcher, location picker top-right |
-| V3 | `v3-app-rail.html` | The product switcher is a persistent FULL-HEIGHT app rail beside the side nav (Dashboard on top, launcher at the bottom split into your vs other platforms); the location picker sits in the side nav; the customer logo docks to the nav's bottom; `?state=bothclosed` shows the rail's minimal state |
+| V3 | `v3-app-rail.html` | The product switcher is a persistent FULL-HEIGHT app rail beside the side nav (Dashboard on top, launcher at the bottom split into your vs other platforms); the location picker sits in the side nav. Two toggleable variants: **a** = Learner + Admin tabs (learner list, filter side panels on My Training and Catalog, Reports section in Admin); **b** = Convergence's five tabs with Convergence's side navs. `?variant=a\|b`, `?view=<learner page>`, `?state=bothclosed` |
 
 ## Archived explorations
 
@@ -446,7 +503,7 @@ collapsed column's own left edge: x=0 in V1, x=56 in V3 beside the rail.
 ## Version switcher (review tooling, not part of the design)
 
 Every version file carries a small dark pill at the **bottom center**, stacked just above the
-Design Toolbox comment dock: `All` (back to the gallery) followed by V1 and V3, with the
+Design Toolbox comment dock: `All` (back to the gallery) followed by V1, V3a and V3b, with the
 current version highlighted and each button titled with its pattern. Its toggles are **Logo**
 (customer logo on/off), **Loc** (location picker), **Bar** (the tenant accent bar), **Logo:
 top / bottom** (where the customer logo sits) and **Tabs** where tabs exist. It exists so reviewers can flip between explorations in place instead of returning
@@ -463,7 +520,7 @@ No storage, no frameworks, no build step; every file opens directly from disk.
 | File | Params |
 |---|---|
 | V1 | `?app=comply\|dashboard` · `?mode=` · `?launcher` · `?search` · `?location` · `?profile` · `?density=compact\|comfortable` · `?nav=closed` (collapses to the icon panel) · `?state=peek` (opens the hover overlay) · `?logo=off` · `?loc=off` · `?tabs=off` |
-| V3 | Same as V1 (location opens in the nav), plus `?state=peek\|bothclosed` (peek overlay open on load; the rail's minimal state); the rail persists under `?nav=closed` |
+| V3 | Same as V1 (location opens in the nav), plus `?variant=a\|b` (which tab set), `?view=dashboard\|mytraining\|catalog\|news\|facilities\|attachments\|reports\|jobs\|licenses\|preferences` (the learner page), `?state=peek\|bothclosed`; the rail persists under `?nav=closed` |
 
 ## Review feedback incorporated
 

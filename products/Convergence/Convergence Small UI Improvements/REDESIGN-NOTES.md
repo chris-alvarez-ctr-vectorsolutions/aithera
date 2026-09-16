@@ -567,6 +567,20 @@ for the final treatment.
   zero their default h3/p margins, which had been stacking 36px of phantom space between
   title and meta. Card height drops ~56px. Dense cards: `12 12 8` / `0 12 12`.
 
+## Round 11: detail pages scaled down
+
+- **Qualification and requirement pages are reference lists, not a second accordion.** The
+  clickable, launchable rows with meters and chevrons were more than the pages have scope for.
+  They are now a plain, static list in the style of the other improvements: an Activities
+  section, requirement header rows (name, completion rule inline, summed duration) on white,
+  and their activities indented beneath (type glyph, name, E tag, paperclip, duration) on the
+  plan's activity tint. Two columns (`minmax(0,1fr) auto`), 48px rows, no role, no hover, no
+  Launch, no status pill. Launch and progress live on My training; the pages just show what a
+  qualification or requirement contains.
+- **Activity page names its assignment.** Under the Part of line the hero now says which
+  assignment the activity came through, with the assigned date and who assigned it. Demo
+  data only; the assignment record on the activity model is a logic item.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest

@@ -440,6 +440,15 @@ body.nav-snap .sidenav,body.nav-snap .tb-left{transition:none}
    active page is nested inside that accordion ---- */
 body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])>summary{background:var(--accent-soft);color:var(--accent-strong)}
 body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])>summary .ic{color:var(--accent)}
+
+/* ---- Accordion motion: the details element has none of its own, so the JS drives
+   the height and the CSS eases it. 220ms out, matching the nav's own curves. ---- */
+.kids{overflow:hidden;transition:height .22s cubic-bezier(.2,.8,.2,1),opacity .18s ease}
+/* the group holding the active page reads as current while open: tinted icon
+   and a heavier label, without competing with the child's filled highlight */
+details.grp:has([aria-current="page"])>summary{color:var(--ink);font-weight:650}
+details.grp:has([aria-current="page"])>summary .ic{color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.kids{transition:none}}
 </style>
 </head>
 <body data-app="learn" data-mode="trainplan">
@@ -1379,6 +1388,50 @@ body.nav-hidden .sidenav:not(.peek-clone) details.grp:has([aria-current="page"])
     if(peekOut===null)peekOut=setTimeout(closePeek,PEEK_OUT);
   });
   document.addEventListener('keydown',function(e){if(e.key==='Escape'&&peekEl)closePeek();});
+// ---- Accordion rows slide open and closed. Delegated, so the peek copy's rows
+// animate too. Start value, forced reflow, end value: no rAF, so the order of
+// frame callbacks vs timers can never leave a stale inline height behind.
+// Cleanup rides transitionend, with a long fallback for environments that
+// skip transitions. The collapsed icon column has no visible children, so
+// there the native toggle is enough. ----
+function slideGroup(d,kids,open){
+  d.dataset.animating='1';
+  var finished=false;
+  function done(){
+    if(finished)return; finished=true;
+    if(!open)d.open=false;
+    kids.style.height='';kids.style.opacity='';
+    delete d.dataset.animating;
+    kids.removeEventListener('transitionend',onEnd);
+  }
+  function onEnd(e){ if(e.target===kids&&e.propertyName==='height')done(); }
+  kids.addEventListener('transitionend',onEnd);
+  setTimeout(done,450);
+  if(open){
+    d.open=true;
+    var h=kids.offsetHeight;
+    kids.style.height='0px';kids.style.opacity='0';
+    void kids.offsetHeight;                 // commit the start value
+    kids.style.height=h+'px';kids.style.opacity='1';
+  }else{
+    kids.style.height=kids.offsetHeight+'px';kids.style.opacity='1';
+    void kids.offsetHeight;
+    kids.style.height='0px';kids.style.opacity='0';
+  }
+}
+document.addEventListener('click',function(e){
+  var sum=e.target.closest?e.target.closest('details.grp>summary'):null;
+  if(!sum)return;
+  var d=sum.parentElement, kids=null;
+  for(var i=0;i<d.children.length;i++){var c=d.children[i]; if(c.classList&&c.classList.contains('kids')){kids=c;break;}}
+  var inCollapsed=document.body.classList.contains('nav-hidden')&&!sum.closest('.peek-clone');
+  if(!kids||inCollapsed)return;
+  e.preventDefault();
+  if(d.dataset.animating)return;
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if(reduce){d.open=!d.open;return;}
+  slideGroup(d,kids,!d.open);
+});
   // ---- Search: centred on the bar when there is room, never over the tabs ----
   function layoutSearch(){
     var bar=document.querySelector('.topbar'), gs=document.getElementById('gsearch');
@@ -1584,7 +1637,8 @@ document.querySelectorAll('.u-sw').forEach(function(sw){
   <span class="vs-div" aria-hidden="true"></span>
   <span class="vs-cap" aria-hidden="true">Version</span>
   <a href="v1-launcher-tabs.html" aria-current="page" title="V1 · Full-width top bar with the waffle launcher">V1</a>
-  <a href="v3-app-rail.html" title="V3 · Full-height app rail beside the nav">V3</a>
+  <a href="v3-app-rail.html?variant=a" title="V3a · App rail · Learner and Admin tabs">V3a</a>
+  <a href="v3-app-rail.html?variant=b" title="V3b · App rail · Convergence's five tabs">V3b</a>
   <span class="vs-div" aria-hidden="true"></span>
   <button class="vs-logo" aria-pressed="true" title="Toggle the customer logo in the side nav (platform customization)" onclick="var off=document.body.classList.toggle('logo-off');this.setAttribute('aria-pressed',off?'false':'true')">Logo</button>
   <button class="vs-logo" aria-pressed="true" title="Toggle the location picker in the top bar" onclick="var off=document.body.classList.toggle('loc-off');this.setAttribute('aria-pressed',off?'false':'true')">Loc</button>

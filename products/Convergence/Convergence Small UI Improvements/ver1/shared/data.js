@@ -86,6 +86,7 @@ const TRAINING = {
   progress: { done:0, total:5, unit:'qualifications' },
   quals: [
     { id:'q-indiv', name:'Individually Assigned Activities', open:false,
+      assignment:{ name:'Individual assignment', by:'Angie Davenport', on:'06-01-2026' },
       progress:{ done:2, total:4, unit:'activities' }, reqs:[
       { id:'r-indiv', name:'Assigned directly to you', open:true, acts:[
         { name:'Hazard Communication Refresher', type:'cbt', status:'complete', dur:'20 mins', spent:'20 mins', due:'' },
@@ -95,6 +96,7 @@ const TRAINING = {
       ]},
     ]},
     { id:'q-nhs', name:'New Hire Safety Qualification', open:true,
+      assignment:{ name:'New Hire Safety Onboarding', by:'Angie Davenport', on:'07-01-2026' },
       progress:{ done:0, total:2, unit:'requirements' }, reqs:[
       { id:'r-loto', name:'LOTO Requirement', open:true,
         progress:{ done:0, total:2, unit:'activities' },
@@ -112,6 +114,7 @@ const TRAINING = {
       ]},
     ]},
     { id:'q-hse', name:'RV - HSE Microlearning', open:true,
+      assignment:{ name:'HSE Microlearning 2026', by:'Phil Knight', on:'03-01-2026' },
       progress:{ done:0, total:14, unit:'requirements' }, reqs:[
       { id:'r-cranes', name:'RV - HSEML - Cranes and Rigging', open:true,
         progress:{ done:0, total:4, unit:'activities' }, acts:[
