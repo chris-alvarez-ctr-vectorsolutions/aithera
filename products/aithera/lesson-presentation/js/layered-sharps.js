@@ -1302,8 +1302,7 @@
     '</main>';
   var ADJUST_CHIPS = {
     dropped: '<span class="adj-chip adj-chip--drop"><i class="fa-solid fa-forward"></i> Skipped</span>',
-    harder:  '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-arrow-trend-up"></i> Harder</span>',
-    kept:    '<span class="adj-chip adj-chip--keep">Kept</span>'
+    harder:  '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-arrow-trend-up"></i> Adapted</span>'
   };
   // The row set for THIS result. Extracted so the step's `when` can ask the
   // same question the screen answers: did the four answers move anything?
@@ -1342,7 +1341,11 @@
 
   function adjustInit(ctx) {
     var stack = document.getElementById('adjStack');
-    var rows = adjustRows();
+    // Only the rows that actually moved are worth a learner's attention on
+    // this screen — a "Kept" chip is just a section named as unchanged, and
+    // a list that's mostly unchanged sections reads as noise around the two
+    // things that matter: what got skipped and what got harder.
+    var rows = adjustRows().filter(function (r) { return r.state !== 'kept'; });
     var harder = rows.some(function (r) { return r.state === 'harder'; });
     var stageEl = ctx.stage;
 
@@ -1569,9 +1572,14 @@
                tradeoff: 'About a minute, skimmable, and you set the pace.',
                note: 'Pre-rendered. The same content, read rather than watched.' },
     tutor:   { label: 'Step through it', icon: 'fa-comments',
-               cost: 'Slower \u00b7 asks questions',
-               tradeoff: 'Slower, and CLARA asks you questions on the way.',
-               note: 'CLARA walks the procedure one step at a time.' },
+               // Was "Slower \u00b7 asks questions" \u2014 accurate but read as a cost
+               // next to two equally-fast, passive options, so almost nobody
+               // picked it. Reframed around what it actually does now that
+               // the check-ins are click-gated rather than autoplayed: it's
+               // not slower because of the video length, it's self-paced.
+               cost: 'Self-paced \u00b7 recall checks',
+               tradeoff: 'Self-paced \u2014 CLARA checks your recall on each step instead of just telling you the next one.',
+               note: 'CLARA walks the procedure one step at a time, pausing to check what you remember.' },
     podcast: { label: 'Listen', icon: 'fa-podcast', declined: true,
                cost: 'Longest \u00b7 hands free',
                tradeoff: 'Runs while you do something else, but takes longer and stops to ask you things.',
@@ -2643,14 +2651,30 @@
   //  else's syringe.
   var PROCEDURE = [
     { t: 'Plan disposal before you start',
-      d: 'Know where the container is and how you reach it before the sharp is ever in your hand — and the same applies before you clear up broken glass. Distance is a problem you solve early, not one you discover holding a used needle.' },
+      d: 'Know where the container is and how you reach it before the sharp is ever in your hand — and the same applies before you clear up broken glass. Distance is a problem you solve early, not one you discover holding a used needle.',
+      check: { q: 'Quick check — when do you work out where the sharps container is?',
+               options: [ { t: 'Before you pick up the sharp', ok: true },
+                          { t: 'Once you’re already holding it', ok: false } ],
+               note: 'Distance is a problem you solve early, not one you discover holding a used needle.' } },
     { t: 'Use a needle alternative where one exists', onlyOn: 'use',
       d: 'The safest sharp is the one that was never used. Where a blunt or needle-free option does the job, it is the option.',
-      note: 'On this job the sharp is usually already used and already somewhere it should not be, so there is no alternative to choose. The step still matters for whoever is holding one.' },
+      note: 'On this job the sharp is usually already used and already somewhere it should not be, so there is no alternative to choose. The step still matters for whoever is holding one.',
+      check: { q: 'If a blunt or needle-free option would do the job here, do you use it?',
+               options: [ { t: 'Yes, if it does the job', ok: true },
+                          { t: 'No, stick with the needle', ok: false } ],
+               note: 'The safest sharp is the one that was never used.' } },
     { t: 'Activate the safety feature',
-      d: 'At the point of use, before anything else happens — while the sharp is still under your control and nobody else is near it.' },
+      d: 'At the point of use, before anything else happens — while the sharp is still under your control and nobody else is near it.',
+      check: { q: 'When do you activate the safety feature?',
+               options: [ { t: 'Immediately, before anything else', ok: true },
+                          { t: 'Later, once it’s set down', ok: false } ],
+               note: 'Before anything else happens — while it’s still under your control.' } },
     { t: 'Dispose in a designated container',
-      d: 'Straight in, and the container is a specific object: rigid, closeable, leak-proof, and either red or marked with the biohazard symbol. It is built to swallow the point so nothing can reach it again. A bag will not do that.' },
+      d: 'Straight in, and the container is a specific object: rigid, closeable, leak-proof, and either red or marked with the biohazard symbol. It is built to swallow the point so nothing can reach it again. A bag will not do that.',
+      check: { q: 'Would a strong plastic bag work if there’s no sharps container in reach?',
+               options: [ { t: 'No — it has to be the container', ok: true },
+                          { t: 'Yes, in a pinch', ok: false } ],
+               note: 'A bag will not do that — the container is built to swallow the point so nothing can reach it again.' } },
     { t: 'Never do these five things',
       d: 'A used needle is never bent, broken, recapped, removed, or separated from its syringe. Not carefully, not briefly, not to make it safer to carry. All five put a hand near the point.' },
     { t: 'If there is no container within reach',
@@ -2681,6 +2705,26 @@
     }).join('');
     return '<ol class="pr-list">' + steps + '</ol>' +
       '<ul class="pr-rules">' + rules + '</ul>';
+  }
+
+  // The Read carrier used to BE procedureList() — the bare numbered steps
+  // and nothing else, which reads as a checklist rather than something
+  // anyone would sit and read. Wrapped in the same article shell as the
+  // hazard beat's own Read carrier (.hz-article / .hz-h / .hz-lede, see
+  // HAZARD_CONTENT) so the two Read experiences in this module feel like
+  // one publication instead of two different treatments of text. The list
+  // itself is unchanged — this only adds the prose around it.
+  // Shared by the podcast-declined fallback and the video's failed-fetch
+  // fallback too, since both already point at #prWritten.
+  function procedureArticle() {
+    return '<article class="hz-article pr-article">' +
+      '<p class="hz-lede">The previous page made the case that it only takes a trace. This one is ' +
+        'what keeps that trace off you: four moves, always in the same order, because each one only ' +
+        'does its job if the one before it already happened.</p>' +
+      procedureList() +
+      '<p class="hz-coda">None of the four take long, and none of them undo a decision made a step ' +
+        'too late — which is the whole reason the order is not a suggestion.</p>' +
+    '</article>';
   }
 
   // Item 26: one template, three learner-facing carriers plus the declined
@@ -2715,7 +2759,7 @@
           '<p class="pr-dec-fall">Showing the written version below.</p>' +
         '</div>' +
         // Doubles as the video carrier's fallback target on a failed fetch.
-        '<div id="prWritten" hidden>' + procedureList() + '</div>' +
+        '<div id="prWritten" hidden>' + procedureArticle() + '</div>' +
       '</div>' +
     '</div></main>';
   }
@@ -2753,6 +2797,13 @@
       ctx.enableNext();
     }
 
+    // The picker bills this carrier as "CLARA asks you questions on the
+    // way" — it used to just replay all four steps on a stagger with nothing
+    // to answer, which was not that. Each numbered step (not the two closing
+    // rules, which hold at every point rather than being next in line) now
+    // pauses on a short, ungraded check before the walkthrough continues:
+    // a click advances it, not a timer. Nothing here writes to the record —
+    // it is the Learn-modality version of a question, not a battery item.
     function runTutor() {
       var host = document.getElementById('prTutor');
       var useP = lens() && lens().premise === 'use';
@@ -2760,33 +2811,110 @@
         return !(s.onlyOn && s.onlyOn !== (useP ? 'use' : 'find'));
       });
       var rules = PROCEDURE.slice(4);
-      steps.forEach(function (s, i) {
+
+      // Each turn used to just land wherever the page's natural scroll left
+      // it, which on a short viewport meant a question could arrive already
+      // half below the fold — visible enough to notice, not enough to read
+      // or click. scrollIntoView pulls the newest turn up to the bottom of
+      // the scroller (#prTutor's ancestor .ll-object) rather than centering
+      // it, so whatever context fits above — the step the question is
+      // about — stays on screen instead of being scrolled past.
+      //
+      // A manual scrollBy(delta) computed here was the first attempt, and
+      // it measured the right delta, but the animation kept getting cut
+      // short a few pixels in — turns out the page was in a backgrounded
+      // tab at the time, where rAF stalls and a CSS "smooth" scroll can
+      // freeze mid-flight rather than finish (confirmed via document.hidden
+      // during testing; see [[project_browser_pane_hidden_trap]] in
+      // memory). Two changes make this hold up regardless of tab focus:
+      // the call happens synchronously, right after the element lands in
+      // the DOM, instead of waiting on a rAF that a hidden tab may defer
+      // indefinitely; and it drops the animation (jumps straight there)
+      // whenever the tab is not the visible one, since an animation nobody
+      // can see is just a slower way to get stuck. Breathing room below
+      // each turn (clearing the floating "Ask CLARA" cue/orb, pinned
+      // bottom-right of the stage) comes from scroll-margin-bottom on
+      // .pr-turn (see sharps.html), which scrollIntoView respects natively.
+      function scrollToTurn(el) {
+        if (!el) return;
+        var instant = T(1) === 0 || document.hidden;
+        el.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end', inline: 'nearest' });
+      }
+
+      function addTurn(s, n, isRule) {
+        if (!host) return;
+        var d = document.createElement('div');
+        d.className = 'pr-turn' + (isRule ? ' pr-turn--rule' : '');
+        d.innerHTML = '<span class="pr-n' + (isRule ? ' pr-rule-mark' : '') + '">' +
+            (isRule ? '<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>' : n) + '</span>' +
+          '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
+          '<span class="pr-d">' + esc(s.d) + '</span></span>';
+        host.appendChild(d);
+        scrollToTurn(d);
+        requestAnimationFrame(function () { d.classList.add('in'); });
+      }
+
+      function addCheck(check, onContinue) {
+        if (!host) { onContinue(); return; }
+        var d = document.createElement('div');
+        d.className = 'pr-turn pr-check';
+        d.innerHTML = '<span class="pr-n pr-check-mark"><i class="fa-solid fa-comment-dots" aria-hidden="true"></i></span>' +
+          '<span class="pr-main"><b class="pr-check-q">' + esc(check.q) + '</b>' +
+          '<span class="pr-check-opts">' +
+            check.options.map(function (o, i) {
+              return '<button type="button" class="pr-check-opt" data-i="' + i + '">' + esc(o.t) + '</button>';
+            }).join('') +
+          '</span>' +
+          '<span class="pr-check-note" hidden></span></span>';
+        host.appendChild(d);
+        scrollToTurn(d);
+        requestAnimationFrame(function () { d.classList.add('in'); });
+
+        var opts = [].slice.call(d.querySelectorAll('.pr-check-opt'));
+        var note = d.querySelector('.pr-check-note');
+        opts.forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var chosen = check.options[Number(btn.dataset.i)];
+            opts.forEach(function (b, i) {
+              b.disabled = true;
+              if (check.options[i].ok) b.classList.add('is-correct');
+            });
+            if (!chosen.ok) btn.classList.add('is-wrong', 'is-picked');
+            note.textContent = (chosen.ok ? '' : 'Actually — ') + check.note;
+            note.hidden = false;
+            scrollToTurn(d);
+            requestAnimationFrame(function () { note.classList.add('in'); });
+            setTimeout(onContinue, T(650));
+          });
+        });
+      }
+
+      var i = 0;
+      function nextStep() {
+        if (i >= steps.length) { revealRules(); return; }
+        var s = steps[i], n = i + 1;
+        i++;
         setTimeout(function () {
-          if (!host) return;
-          var d = document.createElement('div');
-          d.className = 'pr-turn';
-          d.innerHTML = '<span class="pr-n">' + (i + 1) + '</span>' +
-            '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
-            '<span class="pr-d">' + esc(s.d) + '</span></span>';
-          host.appendChild(d);
-          requestAnimationFrame(function () { d.classList.add('in'); });
-        }, T(350 + i * 850));
-      });
+          addTurn(s, n, false);
+          if (s.check) {
+            setTimeout(function () { addCheck(s.check, nextStep); }, T(500));
+          } else {
+            setTimeout(nextStep, T(700));
+          }
+        }, T(350));
+      }
+
       // The two rules land after the sequence, unnumbered — arriving turns
-      // that carry no ordinal, not a fifth and sixth step.
-      rules.forEach(function (s, j) {
-        setTimeout(function () {
-          if (!host) return;
-          var d = document.createElement('div');
-          d.className = 'pr-turn pr-turn--rule';
-          d.innerHTML = '<span class="pr-n pr-rule-mark"><i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i></span>' +
-            '<span class="pr-main"><b>' + esc(s.t) + '</b>' +
-            '<span class="pr-d">' + esc(s.d) + '</span></span>';
-          host.appendChild(d);
-          requestAnimationFrame(function () { d.classList.add('in'); });
-        }, T(350 + (steps.length + j) * 850));
-      });
-      setTimeout(done, T(350 + (steps.length + rules.length) * 850));
+      // that carry no ordinal, not a fifth and sixth step. No check-ins here:
+      // they hold at every point rather than being something to recall next.
+      function revealRules() {
+        rules.forEach(function (s, j) {
+          setTimeout(function () { addTurn(s, null, true); }, T(350 + j * 850));
+        });
+        setTimeout(done, T(350 + rules.length * 850));
+      }
+
+      nextStep();
     }
 
     function show(m) {
