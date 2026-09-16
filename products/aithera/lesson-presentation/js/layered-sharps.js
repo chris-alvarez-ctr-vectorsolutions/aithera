@@ -766,6 +766,32 @@
             '<p class="cp-adapt-note" id="cpAdaptNote"></p>' +
           '</section>' +
           '<aside class="cp-rail">' +
+            // Set before anything else in the module runs, so the very first
+            // screen that offers a choice (hazard) already opens on it rather
+            // than on a hardcoded default the learner then has to notice and
+            // correct. Writes to the SAME session value the in-beat pickers
+            // already read and write (modalityId()/'sh-modality') rather than
+            // a second, competing preference — changing it later on any one
+            // screen IS changing it everywhere else too, which is the point.
+            '<div class="cp-card cp-format"><h3>Preferred format</h3>' +
+              '<p class="cp-format-note">How CLARA delivers instruction across this module.</p>' +
+              // Collapsed to the current choice by default — a full four-way
+              // picker on a page the learner has not started anything on yet
+              // reads as a decision being demanded rather than a setting
+              // already made on their behalf. "Change" expands the same
+              // picker every in-beat screen uses, so all four options
+              // (including the declined one, honestly labeled) are still one
+              // tap away.
+              '<div class="cp-format-now" id="introModNow">' +
+                '<span class="cp-format-now-t"><i class="fa-solid" id="introModNowIcon" aria-hidden="true"></i>' +
+                  '<b id="introModNowLabel"></b></span>' +
+                '<button class="cp-format-change" id="introModChange" type="button" aria-expanded="false">' +
+                  'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+              '</div>' +
+              '<div class="cp-format-picker" id="introModPickWrap" hidden>' +
+                modalityPicker('introModPick', MODALITY_ORDER) +
+              '</div>' +
+            '</div>' +
             // Item 17: the doc's own mastery rule, not the aptitude vision's
             // 80%-of-objectives threshold — the two are different documents
             // with different rules, and this module answers to the first.
@@ -869,6 +895,48 @@
       ? '<b>≈ ' + (mins.full - cutMins) + ' minutes on your path</b>' +
         cutMins + ' minute' + (cutMins > 1 ? 's' : '') + ' came out after the first five questions'
       : '<b>Typical ≈ ' + mins.full + ' minutes</b>Answer the first five well and save up to ' + mins.saved + ' minutes';
+
+    // The rail's format setting. Reads as "here is your current setting",
+    // not "make a choice" — collapsed to the current pick until "Change" is
+    // tapped, which reveals the same four-option picker every in-beat
+    // screen uses. Picking one there writes the preference, folds the
+    // picker back down, and updates the collapsed row to match; nothing
+    // else on screen needs to change.
+    var fmtNowIcon = document.getElementById('introModNowIcon');
+    var fmtNowLabel = document.getElementById('introModNowLabel');
+    var fmtChange = document.getElementById('introModChange');
+    var fmtWrap = document.getElementById('introModPickWrap');
+    var fmtPick = document.getElementById('introModPick');
+    if (fmtPick) {
+      var renderNow = function (k) {
+        var m = MODALITIES[k];
+        fmtNowIcon.className = 'fa-solid ' + m.icon;
+        fmtNowLabel.textContent = m.label;
+      };
+      var markFmt = function (k) {
+        [].forEach.call(fmtPick.querySelectorAll('.md-opt'), function (b) {
+          var on = b.dataset.m === k;
+          b.classList.toggle('is-on', on);
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      };
+      renderNow(modalityId());
+      markFmt(modalityId());
+      fmtChange.addEventListener('click', function () {
+        var open = fmtWrap.hidden;
+        fmtWrap.hidden = !open;
+        fmtChange.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      fmtPick.addEventListener('click', function (e) {
+        var b = e.target.closest('.md-opt');
+        if (!b) return;
+        try { sessionStorage.setItem('sh-modality', b.dataset.m); } catch (err) {}
+        markFmt(b.dataset.m);
+        renderNow(b.dataset.m);
+        fmtWrap.hidden = true;
+        fmtChange.setAttribute('aria-expanded', 'false');
+      });
+    }
 
     ctx.floatClose();
     ctx.positionOrb(false);
@@ -1563,11 +1631,22 @@
   // procedure beat — read by remk1Modality() ("a different way in") and by
   // this beat's own default on arrival. It used to be written only by the
   // Demo menu's Modality control (a reviewer-only cycle through all four);
-  // the learner-facing picker in procedureInit is now the writer.
+  // the learner-facing picker in procedureInit was the writer, and the
+  // title page's "Preferred format" card (introInit) now writes it first,
+  // before any beat has run.
   var MODALITY_ORDER = ['video', 'article', 'tutor', 'podcast'];
   function modalityId() {
     try { var m = sessionStorage.getItem('sh-modality'); if (MODALITIES[m]) return m; } catch (e) {}
     return MODALITY_ORDER[0];
+  }
+  // Filters the preference against what THIS beat actually offers, so a
+  // beat with its own constraints (hazard's placeholder-gated video; no
+  // beat but procedure offers tutor) doesn't hand back a carrier it can't
+  // render. Falls back to that beat's own default rather than teaching
+  // this helper every beat's exceptions.
+  function modalityDefault(offered, fallback) {
+    var pref = modalityId();
+    return offered.indexOf(pref) > -1 ? pref : fallback;
   }
 
   // ==========================================================================
@@ -2427,16 +2506,18 @@
     // that says COMING SOON. Stays reachable for a presenter (review mode,
     // same gate as the video Skip pill above) so the placeholder is still
     // demonstrable; a learner never sees the button at all.
-    if (HAZARD_PLACEHOLDER && !LE.reviewMode()) {
+    var videoHidden = HAZARD_PLACEHOLDER && !LE.reviewMode();
+    if (videoHidden) {
       var vBtn = pick.querySelector('.md-opt[data-m="video"]');
       if (vBtn) vBtn.hidden = true;
     }
 
-    // Read is the default carrier while the video is a placeholder — video was
-    // the default before there was a real clip behind it, which meant every
-    // learner's first tap landed on a COMING SOON poster. Swaps back to video
-    // automatically the day HAZARD_PLACEHOLDER flips false.
-    show(HAZARD_PLACEHOLDER ? 'article' : 'video');
+    // Preferred-format card default, filtered to what this beat can actually
+    // show right now — video stays off the table while it's a placeholder
+    // even if that's the saved preference. Falls back to the same
+    // read-while-video's-a-placeholder default as before.
+    show(modalityDefault(videoHidden ? ['article', 'podcast'] : ['video', 'article', 'podcast'],
+      HAZARD_PLACEHOLDER ? 'article' : 'video'));
 
     // Gated on the carrier being consumed, not on a question. The check used
     // to live at the foot of this page and did the gating; it is its own
