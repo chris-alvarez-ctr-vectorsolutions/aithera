@@ -3861,15 +3861,15 @@
   // ==========================================================================
   function HANDOFF_CONTENT() {
     return '<main class="ll-object ll-object--chain"><div class="ho-wrap">' +
-      '<p class="ll-eyebrow">Perform: live roleplay, about 5 minutes</p>' +
-      '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-syringe"></i></span>' +
-      '<p class="ho-lead">Chris is still on shift, and he is holding an uncapped syringe.</p>' +
-      '<p class="ho-lead-sub">It is the end of the day, and he has already offered to walk out ' +
-        'together. What you say next is the roleplay.</p>' +
+      '<p class="ll-eyebrow">Perform: live scenario, about 5 minutes</p>' +
+      '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>' +
+      '<p class="ho-lead">You spot a used blade on the next bench over. It is not yours.</p>' +
+      '<p class="ho-lead-sub">Nobody is asking you about it — you have to notice it, decide what ' +
+        'to do, and carry it through. What you do next is the scenario.</p>' +
       '<div class="ho-what">' +
         '<p class="ho-what-h">What will happen</p>' +
-        '<p class="ho-what-d">You will talk this through with Chris in real time — no list ' +
-          'of lines to pick from, just what you would actually say. It runs about five minutes ' +
+        '<p class="ho-what-d">You will describe what you do and say in real time — no list ' +
+          'of lines to pick from, just what you would actually do. It runs about five minutes ' +
           'and closes with a debrief of what happened.</p>' +
       '</div>' +
     '</div></main>';
@@ -3972,11 +3972,11 @@
   // (or hasn't reached its real debrief) — every caller below falls back to
   // the pre-item-13 generic line in that case, same as before this existed.
   var SCENARIO_TIER_WORD = { MISSED: 'missed', PARTIAL: 'landed partially', SOUND: 'landed sound',
-                              SILENT: 'stayed silent', BONUS: 'came back as a bonus, unscored' };
+                              BRIEF: 'kept it brief', REFLECTIVE: 'gave it real thought' };
   var SCENARIO_TIER_RANK = { MISSED: 0, PARTIAL: 1, SOUND: 2 };
   function scenarioBeats() {
     try {
-      var raw = JSON.parse(sessionStorage.getItem('scenario-result:end-of-shift-sharps') || 'null');
+      var raw = JSON.parse(sessionStorage.getItem('scenario-result:unclaimed-blade-sharps') || 'null');
       if (!raw || !raw.beats) return null;
       var out = {};
       raw.beats.forEach(function (bt) { out[bt.id] = bt.tier; });
@@ -4066,28 +4066,26 @@
              'You gave your read of the room and saw the figures, but the second answer did not come up in this run.']
           : ['Rated only', 'band-warn', 'From your answer at the start',
              'You gave your read of the room. The figures for your sector did not come up in this run.'],
-      // Both of these are shown on the scenario's own page now. The module
-      // used to carry a scripted stand-in for them here \u2014 a six-second clock
-      // on one button \u2014 and it was cut rather than rebuilt: the scenario's
-      // first two beats (decision, pressure) ARE that decision, with a
-      // character who argues back, and its third beat (container) takes the
-      // route somewhere a multiple choice cannot. Read from the shared
-      // player's own write-back (item 13) rather than asserted the same for
-      // every run regardless of what actually happened.
-      D1: (beats && (beats.decision || beats.pressure))
-        ? ['Shown', SCENARIO_TIER_RANK[beats.decision] === 0 || SCENARIO_TIER_RANK[beats.pressure] === 0 ? 'band-warn' : 'band-ok',
-           'From the end-of-shift scenario',
-           'The decision beat ' + (SCENARIO_TIER_WORD[beats.decision] || 'did not come up') + ', and when he pushed back, the pressure beat ' +
-           (SCENARIO_TIER_WORD[beats.pressure] || 'did not come up') + '.']
-        : ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
-           'Shown where you actually did it, with somebody in front of you rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
-      D2: (beats && beats.container)
-        ? ['Shown', SCENARIO_TIER_RANK[beats.container] === 0 ? 'band-warn' : 'band-ok', 'From the end-of-shift scenario',
-           'The container beat ' + SCENARIO_TIER_WORD[beats.container] +
-           ' \u2014 the container above its fill line that would not close, which is the part no list of options can ask you.' +
-           (beats.transfer ? ' The transfer that followed ' + SCENARIO_TIER_WORD[beats.transfer] + '.' : '')]
-        : ['In the scenario', 'band-ok', 'From the end-of-shift scenario',
-           'Same place \u2014 including the container that was above its fill line and would not close, which is the part no list of options can ask you.'],
+      // Both of these are shown on the scenario's own page now. D6: beat ids
+      // changed with the rebuild (decision / execution / container / close,
+      // was decision / pressure / container / transfer) \u2014 read from the
+      // shared player's own write-back (item 13) rather than asserted the
+      // same for every run regardless of what actually happened. `close` is
+      // sentiment only, not a KFD objective per K&A's script, so it has no
+      // row of its own here.
+      D1: (beats && beats.decision)
+        ? ['Shown', SCENARIO_TIER_RANK[beats.decision] === 0 ? 'band-warn' : 'band-ok',
+           'From the scenario',
+           'The decision beat ' + SCENARIO_TIER_WORD[beats.decision] + ' \u2014 what you did with the blade the moment you were pulled away.']
+        : ['In the scenario', 'band-ok', 'From the scenario',
+           'Shown where you actually did it, with a real interruption rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
+      D2: (beats && (beats.execution || beats.container))
+        ? ['Shown', SCENARIO_TIER_RANK[beats.execution] === 0 || SCENARIO_TIER_RANK[beats.container] === 0 ? 'band-warn' : 'band-ok', 'From the scenario',
+           'The walk-through beat ' + (SCENARIO_TIER_WORD[beats.execution] || 'did not come up') +
+           ', and the container beat ' + (SCENARIO_TIER_WORD[beats.container] || 'did not come up') +
+           ' \u2014 the container above its fill line, which is the part no list of options can ask you.']
+        : ['In the scenario', 'band-ok', 'From the scenario',
+           'Same place \u2014 including the container that was above its fill line, which is the part no list of options can ask you.'],
       // D12: dropped the "check after the course" reference on both branches
       // \u2014 no such check is scheduled by anything this module does, so the
       // row should not promise one. D3 stays open either way; the written
@@ -4291,16 +4289,16 @@
       coach: { say: '' },
       content: WALK_CONTENT, init: walkInit },
 
-    { id: 'handoff', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'End of Shift', mode: 'floating',
+    { id: 'handoff', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'The Unclaimed Blade', mode: 'floating',
       nextLabel: 'Enter the scenario',
-      caption: { title: 'PERFORM · The bridge into the scenario (D11)', note: 'Item 31. This module used to hand off to the culminating scenario with an external redirect and no screen of its own — Continue on “When You Are Behind” bounced the learner straight to the player, whose own establishing card was the only framing anybody got. This screen does that job instead: the moment, in two lines, and what the format actually is, before the one CTA that means it. The player is told to skip its own establishing card in turn (see enact’s ?handoff=1) — showing it too, and asking for a SECOND “step in” tap, would be a third framing of the same moment in a row.' },
+      caption: { title: 'PERFORM · The bridge into the scenario (D11)', note: 'Item 31. This screen frames the moment before the one CTA that means it. The player is told to skip its own establishing card in turn (see enact’s ?handoff=1) — showing it too would be a third framing of the same moment in a row.' },
       // Silent — the screen states its own purpose in its own copy; there is
       // nothing here for CLARA to react to before the learner has done
       // anything.
       coach: { say: '' },
       content: HANDOFF_CONTENT, init: handoffInit },
 
-    { id: 'enact', icon: 'fa-comments', stage: 'Perform', lesson: 'End of Shift — Live Roleplay',
+    { id: 'enact', icon: 'fa-comments', stage: 'Perform', lesson: 'The Unclaimed Blade — Live Scenario',
       // No `mins` here — the 5 minutes this activity takes is now carried by
       // the handoff step above (the one a learner and pathMinutes() both see);
       // this step never renders, so double-counting both would overstate the
@@ -4312,9 +4310,9 @@
       // nobody looks at, the same reason `adjust` carries this flag.
       interstitial: true,
       external: '../../scenario-simulator/composed-scenarios/index.html'
-        + '?type=mix-arc&scenario=end-of-shift-sharps&handoff=1&brand=clara'
+        + '?type=mix-arc&scenario=unclaimed-blade-sharps&handoff=1&brand=clara'
         + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record'),
-      caption: { title: 'PERFORM · The culminating activity, four beats (D2)', note: 'The full Scenario Simulator, which this module has always pointed at and never contained \u2014 the previous screen\u2019s caption said so. Four sequential roleplay beats with one AI character: the decision (Chris holding an uncapped syringe, offering to walk out with you), the pressure (his radio goes and he refuses the walk), the complication (the container is above its fill line and will not close) and the transfer (you pass Jacob pulling the break-room bags). Beat 3 is the one that separates following a rule from exercising judgment, which is why it is its own moment rather than a second action inside beat 2. Beat 4 cannot be failed: silence closes it, is not penalised, and is named in the debrief. Authored as a mix-arc curated example rather than a new page \u2014 the converged player already routes ?type= and ?scenario=, so this beat added a scenario and edited no player. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where BOTH Do objectives are evidenced now. The module used to carry a scripted stand-in ahead of it \u2014 a real-time scene, a six-second clock and one Dispose button \u2014 and that screen was deleted rather than rebuilt, because the concept was wrong rather than badly executed: the wrong behaviour was not choosable (setting the sharp down was what HAPPENED to a slow reader), the button took keyboard focus the instant it unlocked, and pressing immediately scored the same as pressing at 5.9s. Its route question went with it: this scenario asks the route better, against a container above its fill line that will not close. The record now says both Do lines are evidenced here rather than scoring them off a button.' },
+      caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now.' },
       coach: { say: '' } },
     { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
       caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
