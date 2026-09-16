@@ -650,11 +650,14 @@
     if (!step) return;
 
     // An external step — one that lives on its own page — hands off with a
-    // cross-document View Transition rather than a swap.
-    if (step.external) {
-      var loc = step.external + (step.external.indexOf('?') < 0 ? '' : '');
+    // cross-document View Transition rather than a swap. `external` may be a
+    // function (D10: sharps' `enact` decides at render time whether the
+    // Demo-menu baseline toggle is on) — a falsy return just falls through to
+    // the normal in-page render below, using that step's own content/init.
+    var extHref = (typeof step.external === 'function') ? step.external() : step.external;
+    if (extHref) {
       try { sessionStorage.setItem('ll-dir', dir); } catch (e) {}
-      window.location.href = step.external;         // @view-transition handles the animation
+      window.location.href = extHref;                // @view-transition handles the animation
       return;
     }
 

@@ -478,6 +478,11 @@
   function imagesOn() {
     try { return sessionStorage.getItem('sh-images') !== 'off'; } catch (e) { return true; }
   }
+  // D10: off by default, so every learner gets the live scenario. Reviewer-
+  // only, flipped from the Demo menu — see DOBASELINE_CONTENT/doBaselineInit.
+  function doBaselineOn() {
+    try { return sessionStorage.getItem('sh-doobject-mode') === 'baseline'; } catch (e) { return false; }
+  }
   // ==========================================================================
   //  REINFORCEMENT — one extra question laid OVER the content that motivates
   //  it, instead of stacked underneath it.
@@ -3882,6 +3887,73 @@
   }
 
   // ==========================================================================
+  //  DO-OBJECT BASELINE (D10) — a reviewer-only stand-in for `enact`. Off by
+  //  default; every learner still gets the live scenario. Switched on from
+  //  the Demo menu's "Do-object baseline" row (offered on the handoff screen
+  //  above), it swaps `enact`'s external hand-off for a short video plus one
+  //  stand-in multiple-choice question, in place — this is the PRD's literal
+  //  Do-object ask, made demonstrable on request without maintaining it as a
+  //  second real path a learner could ever land on.
+  //
+  //  The video is illustrative, not the gate — same split as every other
+  //  video+check beat here (see PROCEDURE_CONTENT). A missing clip at this
+  //  placeholder path unlocks Continue on its own (mountVideo's normal
+  //  never-strand behaviour); the question below is what a reviewer is
+  //  actually here to see.
+  // ==========================================================================
+  var DOBASELINE_VIDEO = '../../assets/videos/sharps-doobject-baseline.mp4';
+  var DOBASELINE_Q = {
+    stem: 'You spot a used blade on the next bench over. It is not yours. What do you do first?',
+    options: [
+      { t: 'Leave it — it isn’t yours to handle', icon: 'fa-hand',
+        reply: 'Not quite. An unclaimed sharp is still a hazard on the floor — whoever notices it owns the next step.' },
+      { t: 'Keep eyes on it and go get a container', icon: 'fa-eye',
+        reply: 'Right. Keep it in sight, get the container, and carry it through yourself.' },
+      { t: 'Ask around to find out whose it is first', icon: 'fa-people-arrows',
+        reply: 'Not quite. Tracking down whose it is can wait — the blade sitting exposed can’t.' }
+    ]
+  };
+  function DOBASELINE_CONTENT() {
+    return '<main class="ll-object"><div class="dob-wrap">' +
+      '<p class="ll-eyebrow">Perform: demonstration video, then one question</p>' +
+      '<h1 class="pr-h">Watch it handled, then answer.</h1>' +
+      '<p class="pr-sub">Stand-in for the live scenario — review only, a learner never sees this version.</p>' +
+      videoFrame({ ids: { wrap: 'dobMedia', video: 'dobVideo', note: 'dobVfall', pct: 'dobPct', skip: 'dobSkip' },
+                   src: DOBASELINE_VIDEO }) +
+      '<div class="bl-ask" id="dobAsk">' +
+        '<h2 class="bl-q">' + esc(DOBASELINE_Q.stem) + '</h2>' +
+        '<div class="bl-options" id="dobOptions" role="radiogroup" aria-labelledby="dobAsk"></div>' +
+      '</div>' +
+    '</div></main>';
+  }
+  function doBaselineInit(ctx) {
+    mountVideo(ctx, { ids: { wrap: 'dobMedia', video: 'dobVideo', note: 'dobVfall', pct: 'dobPct', skip: 'dobSkip' },
+                       src: DOBASELINE_VIDEO });
+    var optsEl = document.getElementById('dobOptions');
+    var settled = false;
+    DOBASELINE_Q.options.forEach(function (opt) {
+      var b = document.createElement('button');
+      b.className = 'bl-option'; b.type = 'button';
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
+      b.innerHTML = '<i class="fa-solid ' + opt.icon + '" aria-hidden="true"></i>' +
+                    '<span class="bl-option-label">' + esc(opt.t) + '</span>';
+      b.addEventListener('click', function () {
+        if (settled) return;
+        settled = true;
+        b.setAttribute('aria-checked', 'true');
+        optsEl.classList.add('answered');
+        optsEl.querySelectorAll('.bl-option').forEach(function (o) { if (o !== b) o.disabled = true; });
+        ctx.floatOpen();
+        ctx.setCoachSay(esc(opt.reply));
+        ctx.positionOrb(true);
+        ctx.enableNext();
+      });
+      optsEl.appendChild(b);
+    });
+    LE.pickGroup(optsEl);
+  }
+
+  // ==========================================================================
   // ==========================================================================
   //  THE RECORD — eight objectives, each with the policy that governed it and
   //  where its evidence actually came from. D3 is deliberately still open.
@@ -4299,6 +4371,10 @@
       content: HANDOFF_CONTENT, init: handoffInit },
 
     { id: 'enact', icon: 'fa-comments', stage: 'Perform', lesson: 'The Unclaimed Blade — Live Scenario',
+      // Never mattered while this step only ever redirected externally —
+      // D10's baseline content is the first time `enact` actually mounts
+      // CLARA's chrome, and it needs a mode to do that (same as handoff's).
+      mode: 'floating',
       // No `mins` here — the 5 minutes this activity takes is now carried by
       // the handoff step above (the one a learner and pathMinutes() both see);
       // this step never renders, so double-counting both would overstate the
@@ -4307,12 +4383,24 @@
       // the same tick showStep() reaches it (see the engine's `step.external`
       // branch). The handoff screen just above is the real, numbered section;
       // counting this one too would inflate "Section N of total" for a step
-      // nobody looks at, the same reason `adjust` carries this flag.
+      // nobody looks at, the same reason `adjust` carries this flag. Still
+      // true with D10's toggle on: the in-page baseline below stays
+      // uncounted too, since it exists only for a reviewer to demonstrate.
       interstitial: true,
-      external: '../../scenario-simulator/composed-scenarios/index.html'
-        + '?type=mix-arc&scenario=unclaimed-blade-sharps&handoff=1&brand=clara'
-        + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record'),
-      caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now.' },
+      // D10: a function, not a fixed string — checked fresh on every visit so
+      // the Demo menu's "Do-object baseline" toggle (set on the handoff
+      // screen above) takes effect without a reload. Live is the only path a
+      // learner ever takes; a falsy return here falls through to this step's
+      // own content/init below (see the engine's showStep).
+      external: function () {
+        return doBaselineOn() ? null
+          : '../../scenario-simulator/composed-scenarios/index.html'
+            + '?type=mix-arc&scenario=unclaimed-blade-sharps&handoff=1&brand=clara'
+            + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record');
+      },
+      gate: true,
+      content: DOBASELINE_CONTENT, init: doBaselineInit,
+      caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now. D10: the Demo menu’s "Do-object baseline" toggle swaps this for an in-page video plus one stand-in question — the PRD’s literal Do-object ask, reviewer-only and never on a learner’s path.' },
       coach: { say: '' } },
     { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
       caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
@@ -4383,6 +4471,18 @@
           api.replay();
           return;
         }
+        api.refresh();
+      }
+    }, {
+      // D10: offered on the handoff screen — the last screen before `enact`
+      // decides, at render time, which path to take (see `enact`'s external
+      // function). Off by default; a learner only ever gets the live scenario.
+      id: 'shDoBaselineBtn', icon: 'fa-clapperboard', name: 'Do-object baseline',
+      note: 'Swap the live scenario for a video plus one stand-in question — the PRD’s literal Do-object ask (D10)',
+      visibleOn: function (step) { return step.id === 'handoff'; },
+      state: function () { return doBaselineOn() ? 'Baseline' : 'Live'; },
+      onClick: function (api) {
+        try { sessionStorage.setItem('sh-doobject-mode', doBaselineOn() ? 'live' : 'baseline'); } catch (e) {}
         api.refresh();
       }
     }]
