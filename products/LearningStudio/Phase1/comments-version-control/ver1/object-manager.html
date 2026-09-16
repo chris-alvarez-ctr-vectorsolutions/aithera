@@ -25,8 +25,13 @@
   <!-- Shared comment model, panel styles and controller. Loaded by BOTH
        pages so the thread data and panel behaviour cannot drift apart. -->
   <link rel="stylesheet" href="comments-panel.css" />
+  <link rel="stylesheet" href="history-panel.css" />
   <script src="comments-data.js"></script>
   <script src="comments-panel.js"></script>
+  <!-- Edit history. The stack spans both pages, so this page loads the
+       same shared store and panel the Course Overview does. -->
+  <script src="history-data.js"></script>
+  <script src="history-panel.js"></script>
 
   <style>
     :root {
@@ -1382,6 +1387,10 @@
     <div class="saved">Last Saved:<b>&nbsp;Today - 10:04 am</b></div>
     <div class="autosave">Autosave on</div>
     <button class="icon-btn" title="Help" aria-label="Help"><i class="fa-regular fa-circle-question"></i></button>
+    <button class="icon-btn om-comments" id="btnHistory" title="History" aria-label="Edit history">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      <span class="om-comment-count hx-count" data-history-count>0</span>
+    </button>
     <button class="icon-btn om-comments" id="btnComments" title="Comments" aria-label="Comments">
       <i class="fa-solid fa-comments"></i>
       <span class="om-comment-count" data-comment-count>0</span>
@@ -3152,6 +3161,30 @@ function findObject(course, objectId) {
         course: COURSE
       });
 
+      /* ---- Edit history ----
+         Same shared store and panel as the Course Overview, so a change
+         made here is in the same stack as one made there. This page
+         restores nothing on screen yet — the scene editors are not
+         snapshot-backed — so entries move the pointer and the panel
+         reports what happened rather than faking a visual restore. */
+      const OM_SKU = COURSE.sku.startsWith('#') ? COURSE.sku : '#' + COURSE.sku;
+      HistoryPanel.init({ sku: OM_SKU, page: 'object-manager' });
+
+      /* The actions that trigger a save on this page log an entry. The
+         label is verb + target: the save model stores whole fields, not
+         diffs, so a truthful before/after is not available — naming what
+         was touched is what the data can actually support. */
+      function omLogChange(label, target) {
+        hxPush(OM_SKU, {
+          label: label,
+          target: target,
+          page: 'object-manager',
+          objectId: hit ? hit.obj.id : null,
+          group: hit ? hit.obj.name : 'Course'
+        });
+      }
+      window.omLogChange = omLogChange;
+
       // --- Back arrow returns to the Course Overview ---
       // This page is a real page in the workflow (not an iframe), so Back is
       // a navigation. history.back() is preferred when the overview is the
@@ -3270,6 +3303,17 @@ function findObject(course, objectId) {
             ta.style.height = ta.scrollHeight + 'px';
           }
           if (ro) ro.textContent = transcript.value;
+
+          /* This is a save, so it becomes an undo entry. Transcript and
+             audio are separate rows because they are separate things to
+             undo, even though one dialog writes both. */
+          const n = sourceScene.dataset.scene;
+          if (window.omLogChange) {
+            if (transcript.value !== baseline) {
+              omLogChange('Transcript updated', 'Scene ' + n);
+            }
+            omLogChange('Audio updated', 'Scene ' + n);
+          }
         }
         closeAudio();
       });

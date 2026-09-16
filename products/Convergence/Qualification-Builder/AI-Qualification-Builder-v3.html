@@ -492,24 +492,6 @@
     .sp-opt-confirm { display: inline-flex; align-items: center; gap: 7px; margin-top: 4px; border: 1px solid var(--vblue); background: var(--vblue); color: #fff; border-radius: 9px; padding: 9px 16px; font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(2,113,206,.3); transition: background .12s; }
     .sp-opt-confirm:hover:not(:disabled) { background: var(--vblue-hover, #015ba6); }
     .sp-opt-confirm:disabled { opacity: .45; cursor: default; }
-    /* Running summary of answers (sticky at the top of the thread) */
-    .sp-gsummary { position: sticky; top: 0; z-index: 6; background: #fff; border: 1px solid #e3e9f1; border-radius: 12px; margin-bottom: 14px; box-shadow: 0 3px 12px rgba(28,48,74,.09); }
-    /* Cover the chat body's top padding so scrolled messages never peek out above the sticky bar */
-    .sp-gsummary::before { content: ""; position: absolute; left: -17px; right: -17px; top: -17px; height: 17px; background: #fff; }
-    .sp-gsummary-head { display: flex; align-items: center; gap: 8px; padding: 10px 13px; cursor: pointer; user-select: none; font-size: 12px; font-weight: 700; color: #1a1a2e; background: #f8fafc; border-radius: 11px; }
-    .sp-gsummary.open .sp-gsummary-head { border-radius: 11px 11px 0 0; }
-    .sp-gsummary-head .cnt { background: var(--vblue-10); color: var(--vblue); border-radius: 999px; padding: 1px 8px; font-size: 11px; }
-    .sp-gsummary-head .caret { margin-left: auto; color: #9ca3af; font-size: 10px; transition: transform .15s; }
-    .sp-gsummary.open .sp-gsummary-head .caret { transform: rotate(90deg); }
-    .sp-gsummary-body { display: none; border-top: 1px solid #eef1f5; padding: 4px 0; }
-    .sp-gsummary.open .sp-gsummary-body { display: block; }
-    .sp-gsum-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 12px; font-size: 12px; }
-    .sp-gsum-row + .sp-gsum-row { border-top: 1px dashed #f0f2f5; }
-    .sp-gsum-label { color: #6b7280; font-weight: 600; width: 96px; flex-shrink: 0; }
-    .sp-gsum-val { color: #1a1a2e; flex: 1; min-width: 0; overflow-wrap: anywhere; }
-    .sp-gsum-val.skipped { color: #9ca3af; font-style: italic; }
-    .sp-gsum-edit { border: none; background: none; color: #9ca3af; cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; align-self: center; }
-    .sp-gsum-edit:hover { color: var(--vblue); background: var(--vblue-10); }
     /* Review card, prefilled extraction form, pickers */
     .sp-gcard { background: #fff; border: 1px solid #e3e9f1; border-radius: 12px; padding: 14px; margin-top: 12px; box-shadow: 0 1px 4px rgba(28,48,74,.07); }
     .sp-gcard + .sp-gcard { margin-top: 8px; }
@@ -1198,8 +1180,6 @@
     .sp-cmp-card.sel { box-shadow: 0 1px 6px rgba(124,58,237,.16); }
     .sp-mode-opt.active { color: var(--ai); }
     .sp-q-step { background: rgba(124,58,237,.08); color: var(--ai-mid); border-color: rgba(124,58,237,.18); }
-    .sp-gsummary { border-color: rgba(124,58,237,.16); }
-    .sp-gsummary-head { background: #FAF8FE; }
     .sp-current-quote { border-left-color: var(--ai); background: #FAF8FE; }
     .sp-typing span { background: rgba(124,58,237,.45); }
     .sp-send-btn:hover:not(:disabled) { background: var(--ai-mid); }
@@ -2567,7 +2547,7 @@ function mkDraftReq(s){
 function newGuided(path){
   return { path, stage:'entry', stepIdx:0, answers:{}, drafted:false,
            changes:[], bField:null, a1:null, a1ReqIds:[],
-           bDuration:'6 hours', pendingDocs:[], sumOpen:false, q:null,
+           bDuration:'6 hours', pendingDocs:[], q:null,
            descTouched:false, _prog:false, cmp:null, slots:null, course:null, ctx:null };
 }
 function gv(id){ const el=document.getElementById(id); return el ? (el.value||'').trim() : ''; }
@@ -2675,14 +2655,16 @@ function applyAnswerLive(qid){
   }
 }
 
-/* ── Rendering: changes bar + thread (options live IN the thread, on their question).
+/* ── Rendering: the thread only (options live IN the thread, on their question).
      Answer bubbles are plain history: revisions happen through free text to the
-     assistant (scoped to the qualification's own parameters), not by clicking back. ── */
+     assistant (scoped to the qualification's own parameters), not by clicking back.
+     (The sticky "Changes this session" bar was removed; guided.changes is still
+     recorded internally in case a history surface comes back.) ── */
 function renderChat(noScroll){
   const thread = document.getElementById('sp-thread');
   if (!thread) return;
   const lastIdx = chatMsgs.length - 1;
-  thread.innerHTML = summaryBarHtml() + chatMsgs.map((m, i) => {
+  thread.innerHTML = chatMsgs.map((m, i) => {
     if (m.role !== 'assistant'){
       if (m.skipped) return `<div class="sp-msg-skip"><span class="pill"><i class="fa-solid fa-forward"></i> Skipped</span></div>`;
       return `<div class="sp-msg user"><div class="sp-bubble">${m.html}</div></div>`;
@@ -2696,14 +2678,6 @@ function renderChat(noScroll){
   const body = document.getElementById('sp-chat');           // the scroll container
   if (body) body.scrollTop = body.scrollHeight;
 }
-/* The sticky bar lists changes applied this session (any path); the old
-   "Your answers" dropdown is gone along with click-to-edit answers. */
-function summaryBarHtml(){
-  if (!guided || !guided.changes.length) return '';
-  const rows = guided.changes.map(c => `<div class="sp-gsum-row"><span class="sp-gsum-val">${esc(c)}</span></div>`).join('');
-  return `<div class="sp-gsummary ${guided.sumOpen ? 'open' : ''}"><div class="sp-gsummary-head" onclick="gSummaryToggle()"><i class="fa-solid fa-list-check" style="color:var(--vblue)"></i> Changes this session <span class="cnt">${guided.changes.length}</span><i class="fa-solid fa-chevron-right caret"></i></div><div class="sp-gsummary-body">${rows}</div></div>`;
-}
-function gSummaryToggle(){ if (guided){ guided.sumOpen = !guided.sumOpen; renderChat(true); } }
 
 /* In-thread affordances, attached to the question they belong to.
    Chip lists end with an "Other" chip: it highlights and hands off to the chatbox. */
@@ -3529,7 +3503,8 @@ function askCtxStep(note){
   const q = s.type === 'chips'
     ? { type:'chips', options: (typeof s.options === 'function' ? s.options() : s.options), noCustom: !!s.noCustom }
     : { type:'text', ph: s.ph };
-  const pill = `<span class="sp-q-step">Question ${C.idx + 1} of ${C.steps.length}</span>`;
+  // A one-question flow needs no step counter
+  const pill = C.steps.length > 1 ? `<span class="sp-q-step">Question ${C.idx + 1} of ${C.steps.length}</span>` : '';
   const noteAll = (note || '') + (s.note || '');
   aiMsg((noteAll ? '<span class="sp-q-note">' + noteAll + '</span>' : '') + pill + '<span class="sp-q-ask">' + s.ask + '</span>', q);
   if (s.type === 'chips') setPh('Pick an option above, or type your answer');
@@ -3547,17 +3522,19 @@ function ctxCancel(){
   guided.stage = 'b-again';
   respond(askBAgain);
 }
-/* Requirement actions ask WHY, so the assistant has the context to build the right
-   candidates (library first, drafts for gaps, revisions in place). */
-/* Add: what should it cover, then why is it needed, then 3 candidates */
+/* Requirement actions ask for the substance of the change only; asking what AND
+   why read as redundant, so one question carries the context for the candidates. */
+/* Add: one question, phrased for a sentence rather than a one-word topic,
+   so the candidates have real context to match against. Then 3 candidates. */
 function bAddWhy(){
   startCtxFlow({
     intro: 'I check your library for a fit before drafting anything new. ',
     steps: [
-      { qid:'cover', ask:'What should the new requirement cover?', type:'text', ph:'Describe what it should cover' },
-      { qid:'why', ask:'Why is it needed?', type:'text', ph:'Why is this requirement needed', note:'I keep your reason with the requirement. ' },
+      { qid:'cover', ask:'What are the learning goals of this new requirement?', type:'text',
+        ph:'Describe the learning goals',
+        note:'A sentence or two beats a single word: what should the learner know or be able to do, and where does it apply? ' },
     ],
-    onDone: a => bAutoAddFromReason([a.cover, a.why].filter(Boolean).join('. ')),
+    onDone: a => bAutoAddFromReason(a.cover || ''),
   });
 }
 /* Meaningful words from a typed reason: short domain terms like "ppe" stay in,
@@ -3645,31 +3622,28 @@ function cmpDiscard(){
 }
 /* Change: pick the requirement, then ask what needs to change and why.
    The reason drives the edit: revise in place, swap for a library fit, or remove. */
-/* Change: which requirement, what needs to change, why, then the candidates.
+/* Change: which requirement, then what to change about it, then the candidates.
    When free text already named the requirement (bChangeWhy), the which step drops. */
 function bChangePick(){
   if (!requirements.length) return bDone('There are no requirements to change yet.');
   startCtxFlow({
     steps: [
       { qid:'which', ask:'Which requirement needs to change?', type:'chips', options: () => requirements.map(r => r.name), noCustom:true },
-      { qid:'what', ask:'What needs to change about it?', type:'text', ph:'Describe the change', note:'I can revise it, swap it for a library fit, or remove it. ' },
-      { qid:'why', ask:'Why does it need to change?', type:'text', ph:'Why is the change needed' },
+      { qid:'what', ask:'What changes do you want to make to it?', type:'text', ph:'Describe the changes', note:'I can revise it, swap it for a library fit, or remove it. ' },
     ],
     onDone: a => {
       guided.changeName = matchOption(String(a.which || ''), requirements.map(r => r.name)) || a.which;
-      bApplyReqChange([a.what, a.why].filter(Boolean).join('. '));
+      bApplyReqChange(a.what || '');
     },
   });
 }
 function bChangeWhy(){
   const name = guided.changeName;
   startCtxFlow({
-    intro: 'Sure, <strong>' + esc(name) + '</strong>. ',
     steps: [
-      { qid:'what', ask:'What needs to change about it?', type:'text', ph:'Describe the change', note:'I can revise it, swap it for a library fit, or remove it. ' },
-      { qid:'why', ask:'Why does it need to change?', type:'text', ph:'Why is the change needed' },
+      { qid:'what', ask:'What changes do you want to make to <strong>' + esc(name) + '</strong>?', type:'text', ph:'Describe the changes', note:'I can revise it, swap it for a library fit, or remove it. ' },
     ],
-    onDone: a => bApplyReqChange([a.what, a.why].filter(Boolean).join('. ')),
+    onDone: a => bApplyReqChange(a.what || ''),
   });
 }
 function bApplyReqChange(reason){
@@ -3692,8 +3666,8 @@ function bApplyReqChange(reason){
     const cands = [{ kind:'new', req: revised, tag:'Revised in place', why:'your requested change applied to the requirement itself' }];
     if (tpl) cands.push({ kind:'existing', tpl, why:'a library requirement that could replace it' });
     cands.push({ kind:'new', spec:{ title: target.name + ' (Redrafted)',
-      desc: 'A fresh take on ' + target.name.toLowerCase() + ', rebuilt around your reason: ' + reason,
-      actIds: target.acts.slice(0, 2).map(a => a.id) }, tag:'Fresh draft', why:'a rebuilt version drafted from your reason' });
+      desc: 'A fresh take on ' + target.name.toLowerCase() + ', rebuilt around your request: ' + reason,
+      actIds: target.acts.slice(0, 2).map(a => a.id) }, tag:'Fresh draft', why:'a rebuilt version drafted from your request' });
     const slot = { label: 'the change to ' + name, cands, replaceId: target.id, replaceName: name,
       lead: 'A few ways to handle that. Each previews in place in the builder. ' };
     startSlotFill([slot], { noun:'Option', skipLabel:'Never mind', onDone: changeDone });
@@ -3710,7 +3684,7 @@ function changeDone(added){
   const why = x.chosen ? '' : ' I went with ' + esc(x.cand.why) + '.';
   bDone('Done. ' + (x.cand.kind === 'existing'
     ? '<strong>' + esc(target) + '</strong> is replaced with <strong>' + esc(nm) + '</strong> from your library.'
-    : '<strong>' + esc(nm) + '</strong> is in place, with your reason noted in its description.') + why);
+    : '<strong>' + esc(nm) + '</strong> is in place, with your request noted in its description.') + why);
 }
 /* ── Course lookup: "show me courses about lockout/tagout". Matches render as a
      multi-select list; picked courses land as NEW REQUIREMENTS or as ACTIVITIES
