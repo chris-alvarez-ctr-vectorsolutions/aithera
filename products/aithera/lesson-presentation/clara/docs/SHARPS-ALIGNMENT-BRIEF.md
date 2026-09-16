@@ -319,15 +319,24 @@ cases 2/3 (K2 label correct), controls (F2 skipped for Manufacturing), walk
 
 ### C. The simulation rebuild (D6) — the big one
 
-7. Author the new hands-on scene per K&A's script: an unclaimed blade left by
-   someone unknown on a neighboring bench, tested cold — no Chris, no Jacob, no
-   incident the learner has already seen. New beats, new tier criteria in
-   `scenario-simulator/js/scenario-types/mix-arc.js` (shared code outside this
-   module — ship carefully, per SHARPS-REVIEW-PLAN.md's own note on this
-   surface). **Manufacturing only, this round.** Education, AEC, and Public
-   sector keep the old Chris/Jacob simulation for now — a known, temporary
-   sector mismatch, not an oversight. Matching scenarios for the other three
-   are queued separately, see §6. — L.
+**Shipped (`d8ff3f77`).** "The Blade That Is Not Yours" (`unclaimed-blade-sharps`,
+was `end-of-shift-sharps`) replaces the Chris/Jacob hand-off. Four `coach-led`
+beats (decision, execution, container, close) — no character to negotiate with,
+matching K&A's script. Verified end to end with the live AI player: correct
+tier grading, correct debrief delivery, correct sessionStorage write-back,
+correct Record-screen rendering against the new beat ids. **Manufacturing
+only, this round** — Education, AEC, and Public sector keep the old Chris/Jacob
+simulation for now, queued at §6.
+
+**Watch item found during verification, not fully closed:** the shared
+player's tier-reporting can drop a beat's tier under some turn patterns (model
+non-determinism, not a fixed bug — same class of issue already flagged for
+other sim types). Tightened `reactionGuidance` on the execution/container
+beats since those feed the Record screen's D2 evidence; the closing beat's
+tiers are left loose on purpose since nothing reads them. Worth a spot-check
+on a few more live runs before calling this fully reliable.
+
+7. ~~Author the new hands-on scene per K&A's script~~ — done, see above.
 
 ### D. Do-object baseline (D10)
 
