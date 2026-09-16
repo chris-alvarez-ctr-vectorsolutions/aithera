@@ -773,7 +773,7 @@
                   'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
               '</div>' +
               '<div class="cp-format-picker" id="introModPickWrap" hidden>' +
-                modalityPicker('introModPick', MODALITY_ORDER) +
+                modalityPicker('introModPick', MODALITY_ORDER, false) +
               '</div>' +
             '</div>' +
             // Item 17: the doc's own mastery rule, not the aptitude vision's
@@ -920,6 +920,24 @@
         fmtWrap.hidden = true;
         fmtChange.setAttribute('aria-expanded', 'false');
       });
+      // Click anywhere outside the open picker closes it — same convention
+      // as the shared "?" popover in layered-engine.js. Bound once for the
+      // whole document (guarded by a flag) rather than every time this step
+      // renders, since a Back navigation back to "intro" re-runs introInit
+      // but a document-level listener would otherwise pile up across
+      // visits; it looks its targets up fresh each time it fires instead of
+      // closing over this render's elements, so a stale copy is harmless.
+      if (!window.__introFmtOutsideBound) {
+        window.__introFmtOutsideBound = true;
+        document.addEventListener('click', function (e) {
+          var wrap = document.getElementById('introModPickWrap');
+          var change = document.getElementById('introModChange');
+          if (!wrap || wrap.hidden || !change) return;
+          if (wrap.contains(e.target) || change.contains(e.target)) return;
+          wrap.hidden = true;
+          change.setAttribute('aria-expanded', 'false');
+        });
+      }
     }
 
     ctx.floatClose();
@@ -1569,11 +1587,14 @@
         var m = MODALITIES[k];
         // A beat may override the duration: the same carrier is not the same
         // length on every screen, and a shared table cannot know that.
-        var cost = (costs && costs[k]) || m.cost;
+        // costs === false means the caller has no real duration to state at
+        // all (the title-page picker, before any beat's actual length is
+        // known) rather than one that just matches the shared table.
+        var cost = costs === false ? null : (costs && costs[k]) || m.cost;
         return '<button class="md-opt" type="button" data-m="' + k + '" aria-pressed="false">' +
           '<i class="fa-solid ' + m.icon + '" aria-hidden="true"></i>' +
           '<span class="md-opt-t"><b>' + esc(m.label) + '</b>' +
-            '<span class="md-cost">' + esc(cost) + '</span></span>' +
+            (cost ? '<span class="md-cost">' + esc(cost) + '</span>' : '') + '</span>' +
         '</button>';
       }).join('') +
     '</div>';
