@@ -346,6 +346,22 @@ on a few more live runs before calling this fully reliable.
    switcher. Learners never see it; it exists so the PRD's literal baseline is
    demonstrable on request. — M.
 
+   **Shipped (`025423cd`).** A "Do-object baseline" row on the handoff
+   screen's Demo menu flips `enact`'s hand-off from a function, checked fresh
+   on every visit, so the toggle takes effect with no reload. On (reviewer
+   only, off by default): `enact` renders in-page instead of redirecting — a
+   placeholder video (falls back to text, since no clip exists at that path
+   yet) plus one stand-in multiple-choice question, gating Continue the same
+   way the rest of the module gates on an answer. Off (every learner, always):
+   unchanged, the live AI scenario. Verified end to end in-browser both ways.
+   **Known simplification, not fixed this round:** the Record screen's D1/D2
+   rows read the live scenario's own write-back and already fall back to
+   generic "in the scenario" phrasing when that is absent — which is also
+   what a baseline-mode run shows, so the copy reads slightly off for that
+   path specifically ("with a real interruption rather than a button on a
+   page," when a reviewer just used one). Not worth chasing: no learner ever
+   takes this path, only a reviewer demonstrating it on request.
+
 ### E. Launch page (D11)
 
 9. Self-assigned learner identity, resumable progress, and URL-prefillable
