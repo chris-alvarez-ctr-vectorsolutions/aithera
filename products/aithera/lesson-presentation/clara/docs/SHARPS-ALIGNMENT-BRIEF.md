@@ -300,12 +300,21 @@ cases 2/3 (K2 label correct), controls (F2 skipped for Manufacturing), walk
    with A above (`3f552f85`).**
 3. **D4 — retire `case4` ("A Coworker Got Stuck," Ruben).** Confirm F1's
    post-check still has enough surface carried by `chain` alone before deleting. — S–M.
+   **Shipped (`690ea395`).** F1's post-rating moved onto `chain` (revealed once
+   after it first settles). `downstream`'s trigger now reads `chain.post`.
+   Known consequence: `downstream` stayed in its original position (after
+   controls, before debrief) rather than moving next to `chain` — the ask and
+   its remediation now sit further apart than before. Worth revisiting later,
+   not done this round.
 4. **D5 — no change.** Already matches the decision (the debrief's numeric
    reveal is what's built). Leave the "illustrative, not real data" comment in
    place as a flag for later. — none.
 5. **D12 — resolve the K1 compliance-lock call.** If shipping K1 unlocked as-is,
    add a reviewer-visible "unconfirmed, pending compliance" marker, the same way
    D3/Sustain is already flagged on the Record screen. — S, pending the decision itself.
+   **Shipped (`690ea395`).** Ships K1 live/unlocked as built — neither team can
+   make the actual regulatory call, so this is a reviewer-visible flag only
+   (K1's `lock` string, the battery step's caption), not a learner-facing change.
 6. **D7 — no action.** Leave D3/Sustain as the documented self-report intention.
 
 ### C. The simulation rebuild (D6) — the big one
