@@ -277,6 +277,11 @@ is decided and buildable in order.
 
 ### A. Foundational — do first, everything else depends on it
 
+**Shipped 2026-09-16** (`3f552f85`, plus the `index.html` label fix). Verified
+end to end in-browser: battery (4 items), hazard (plain narration, no check),
+cases 2/3 (K2 label correct), controls (F2 skipped for Manufacturing), walk
+(opens on the D3 plan, no rating), Record screen (8 rows, correct counts).
+
 1. **D1 — trim to K&A's 8 objectives.** Cut `F4`. Fold code's `K2` (mechanism)
    into supporting narration under the recognition objective, which takes over
    K&A's `K2` id and lock policy (was code's `K3`). Update `js/layered-sharps.js`
@@ -291,7 +296,8 @@ is decided and buildable in order.
 
 ### B. Content-level fixes, once A lands
 
-2. **D3 — drop F2's Manufacturing sampling** from `SAMPLE_MAP`. — S.
+2. **D3 — drop F2's Manufacturing sampling** from `SAMPLE_MAP`. — S. **Shipped
+   with A above (`3f552f85`).**
 3. **D4 — retire `case4` ("A Coworker Got Stuck," Ruben).** Confirm F1's
    post-check still has enough surface carried by `chain` alone before deleting. — S–M.
 4. **D5 — no change.** Already matches the decision (the debrief's numeric
