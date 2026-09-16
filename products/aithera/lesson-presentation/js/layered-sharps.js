@@ -2,9 +2,13 @@
    layered-sharps.js — Bloodborne Pathogens (RVCT-303B), Module 4 · BO-4
    "Contain the Sharp", built on js/layered-engine.js.
 
-   The prototype module from the Knowledge Layer plan: ten objectives sitting
-   in ten distinct sub-scales — three Know, four Feel, three Do — so every rule
-   in the assessment strategy has something to act on.
+   The prototype module from the Knowledge Layer plan: eight objectives sitting
+   in eight distinct sub-scales — two Know, three Feel, three Do — matching the
+   K&A Manufacturing script's own count (see clara/docs/SHARPS-ALIGNMENT-BRIEF.md,
+   D1). A ninth Know objective (the mechanism behind why a used sharp is
+   dangerous) and a fourth Feel objective (self-efficacy under time pressure)
+   were cut to align — the mechanism content survives as plain, ungated
+   narration; the self-efficacy rating was dropped outright.
 
        When I am about to use, handle, or dispose of a needle or sharp, I plan
        the disposal route before I start, activate the safety feature, and put
@@ -59,15 +63,15 @@
     { id: 'K1', name: 'The safe handling procedure', domain: 'Know', sub: 'Recall', policy: 'gate', locked: false, where: 'Pre-module battery',
       lock: 'test-out eligible', theory: 'Procedural Knowledge', src: 'LO 4.1',
       text: 'Recall the safe sharps handling procedure: plan disposal in advance, use needle alternatives when possible, activate safety features, and immediately dispose of used sharps in a designated container.' },
-    // The objective the module ran for months without. Every other outcome in
-    // the re-composed course carries an Understand objective; sharps carries
-    // none, so the four steps arrived with no stated hazard behind them. The
-    // teach content is theirs — LO 4.1's first claim and LO 4.2's first —
-    // sitting unused because no objective had claimed it.
-    { id: 'K2', name: 'Why a used sharp is dangerous', domain: 'Know', sub: 'Understand', policy: 'remediate', locked: true, where: 'In-flow',
-      lock: 'premise · never removed', theory: 'Causal Mechanism', src: 'LO 4.1 + LO 4.2 (unclaimed)',
-      text: 'Explain why a used sharp is dangerous: it retains a trace of blood after use, its point breaks skin, and a pathogen only has to reach a bloodstream to infect — which is what a needlestick does.' },
-    { id: 'K3', name: 'Spotting the conditions', domain: 'Know', sub: 'Observe', ext: 'No counterpart in the re-composed course. Recognition in the field is a different act from recalling the rule, and the training standard names it separately.',
+    // Alignment brief D1: this objective used to carry the module's mechanism
+    // content ("why a used sharp is dangerous") as its own tracked, gated Know
+    // objective — a screen and an in-flow check with no counterpart in K&A's
+    // Manufacturing script, where the same content runs as plain narration
+    // ahead of Case 1 with no check at all. Cut to align. The content itself
+    // is not gone — see HAZARD_CONTENT — it simply no longer gates, remediates,
+    // or reports on the record. Recognition (below) inherits the K2 id, since
+    // that is what K&A's own K2 is.
+    { id: 'K2', name: 'Spotting the conditions', domain: 'Know', sub: 'Observe', ext: 'No counterpart in the re-composed course. Recognition in the field is a different act from recalling the rule, and the training standard names it separately.',
       // D6: gate, not remediate — never removed and never given a second
       // chance on a miss (the cases just get harder on test-up), which is
       // closer to "mandatory, always evidenced" than to "one more try".
@@ -84,22 +88,6 @@
       policy: 'remediate', locked: false, where: 'Pre + post',
       lock: 'reinforce only', theory: 'Social Norm Perception', src: 'none — our construct',
       text: 'Agree: most people on my shift use the container immediately rather than setting a sharp down.' },
-    // The Feel objective the module had no screen for. Three of the four
-    // determinants that predict this behaviour were covered — whether the
-    // learner believes it protects somebody, whether they value the control,
-    // what they think the room does — and the fourth was never asked: not
-    // whether they agree, but whether they think they CAN do it while they
-    // are behind. Bandura's can-do form, so the statement names the obstacle
-    // rather than asking about confidence in the abstract, which measures
-    // mood. Flagged `ask` because a self-report may never route content out,
-    // and it is read ALONGSIDE the simulation rather than on its own: a high
-    // rating here followed by a missed window there is the say-do gap, and it
-    // is visible inside one module.
-    { id: 'F4', name: 'Doing it when you are behind', domain: 'Feel', sub: 'Can',
-      ext: 'No counterpart in the re-composed course, which rates agreement on four objectives and capability on none. Perceived capability under a named obstacle is what the shortcut actually rides on in the moment.',
-      policy: 'ask', locked: false, sampled: true, where: 'In-flow',
-      lock: 'reinforce only', theory: 'Self-Efficacy (Bandura)', src: 'none — our construct',
-      text: 'Agree: I can carry a used sharp to the container even when I am behind, the line is waiting, and the container is on the other side of the building.' },
     { id: 'D1', name: 'Acting while the moment is open', domain: 'Do', sub: 'Respond in the moment', policy: 'gate', locked: true, where: 'Simulation',
       lock: 'never skipped', theory: 'Behavioral Cueing', src: 'LO 6.2 (type borrowed)',
       text: 'Recognize and act on the cue to dispose while the moment is still open.' },
@@ -461,7 +449,8 @@
   //  Test-out state. K1 is the only objective the pre-module battery can buy
   //  anything with: it is mandated content, but D2 re-verifies it
   //  performatively in the simulation, so the beat may go and the floor holds.
-  //  K2 is content-locked — a low score serves it HARDER, never removes it.
+  //  K2 (recognition) is content-locked — a low score serves it HARDER, never
+  //  removes it.
   // ==========================================================================
   // ==========================================================================
   //  IMAGES — optional, and switchable. A beat declares a visual; the
@@ -664,14 +653,15 @@
     for (var k2 in patch) out[k2] = patch[k2];
     saveResult(key, out);
   }
-  // D6/item 15: F2 and F4 are "ask + sampled" — only part of the cohort is
-  // asked, a real assessment-sampling pattern, rather than either asking
-  // everyone or gating on it. Deterministic by sector (not random) so a
-  // reviewer switching sectors sees a stable, reproducible sample rather
-  // than a coin flip that changes on every reload.
+  // D6/item 15: F2 is "ask + sampled" — only part of the cohort is asked, a
+  // real assessment-sampling pattern, rather than either asking everyone or
+  // gating on it. Deterministic by sector (not random) so a reviewer
+  // switching sectors sees a stable, reproducible sample rather than a coin
+  // flip that changes on every reload. Alignment brief D3: Manufacturing is
+  // sampled OUT — K&A's script is explicit that F2 (engineering controls) is
+  // asked once for the whole course, in Module 2, and not repeated here.
   var SAMPLE_MAP = {
-    F2: { manufacturing: true, education: true, aec: false, public: true },
-    F4: { manufacturing: true, education: false, aec: false, public: true }
+    F2: { manufacturing: false, education: true, aec: false, public: true }
   };
   function sampled(objId) {
     var m = SAMPLE_MAP[objId];
@@ -684,22 +674,17 @@
     if (b && b.k1) return b.k1 === 'proven' ? 'proven' : 'unproven';
     return 'unproven';
   }
-  // K2 and K3 are both content-locked, each on its own battery item now —
-  // a strong K1 result no longer decides either (that was the bug: K3 was
-  // never even IN the battery, and its harder-cases trigger was reading K1).
+  // K2 (recognition) is content-locked, on its own battery item — a strong K1
+  // result does not decide it (that was the bug: K2 was never even IN the
+  // battery, and its harder-cases trigger was reading K1).
   function k2TestUp() {
     var b = readCourse().battery;
     if (b && typeof b.k2up === 'boolean') return b.k2up;
     // No battery record — the presenter forced the result from the Demo
-    // menu, which moves all three (K1/K2/K3) together for one coherent
-    // "proven" state rather than reporting proven with test-up silently
-    // switched off, which put a KEPT chip on the same screen as a summary
-    // line saying it got harder.
-    return batteryResult() === 'proven';
-  }
-  function k3TestUp() {
-    var b = readCourse().battery;
-    if (b && typeof b.k3up === 'boolean') return b.k3up;
+    // menu, which moves both (K1/K2) together for one coherent "proven"
+    // state rather than reporting proven with test-up silently switched
+    // off, which put a KEPT chip on the same screen as a summary line
+    // saying it got harder.
     return batteryResult() === 'proven';
   }
   // There is deliberately no feelLow() here. The two Feel items set a
@@ -717,8 +702,7 @@
   // ==========================================================================
   var DONE_KEYS = { battery: 'battery', adjust: 'battery', chain: 'chain', hazard: 'hazard', case1: 'case1',
                     inflow: 'inflow', case2: 'case2', case3: 'case3', case4: 'case4',
-                    controls: 'controls', debrief: 'debrief', remk1: 'remk1', remk2: 'remk2', walk: 'walk',
-                    postbattery: 'hazard',
+                    controls: 'controls', debrief: 'debrief', remk1: 'remk1', walk: 'walk',
                     // `enact` has no key: the scenario runs on its own page and
                     // writes nothing back here, so the cover cannot honestly
                     // tick it. It used to borrow the timed screen's result,
@@ -887,14 +871,14 @@
                   : 'All ' + cutCount + ' sections marked <b>adaptive</b> came';
     document.getElementById('cpAdaptNote').innerHTML =
       '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' + (cutCount
-        ? cutPhrase + ' out because your first five answers showed you already had the procedure. ' +
+        ? cutPhrase + ' out because your first four answers showed you already had the procedure. ' +
           'The other sections marked <b>adaptive</b> are still here \u2014 those get harder rather than shorter.'
-        : 'Sections marked <b>adaptive</b> change with what you show in the first five questions: some come ' +
+        : 'Sections marked <b>adaptive</b> change with what you show in the first four questions: some come ' +
           'out, and some get harder instead. Nothing else on this list moves either way.');
     document.getElementById('cpTime').innerHTML = cutMins
       ? '<b>≈ ' + (mins.full - cutMins) + ' minutes on your path</b>' +
-        cutMins + ' minute' + (cutMins > 1 ? 's' : '') + ' came out after the first five questions'
-      : '<b>Typical ≈ ' + mins.full + ' minutes</b>Answer the first five well and save up to ' + mins.saved + ' minutes';
+        cutMins + ' minute' + (cutMins > 1 ? 's' : '') + ' came out after the first four questions'
+      : '<b>Typical ≈ ' + mins.full + ' minutes</b>Answer the first four well and save up to ' + mins.saved + ' minutes';
 
     // The rail's format setting. Reads as "here is your current setting",
     // not "make a choice" — collapsed to the current pick until "Change" is
@@ -983,26 +967,11 @@
       ],
       okReply: 'Exactly. Safety first, then disposal.',
       badReply: 'Not quite. The safety feature goes on FIRST, before the sharp moves: an unshielded point in transit is where most injuries happen.' },
-    // K2, diagnostic — a DIFFERENT framing of the misconception hzcheck tests
-    // in-flow (that amount of blood is what makes a needlestick worse), so a
-    // learner who already gets this isn't just recalling an answer they saw
-    // ninety seconds ago when hzcheck (or its test-up permutation) runs.
-    { obj: 'K2',
-      stem: 'A coworker says a stick from a used needle is worse than a fresh cut because it carries more blood. Are they right?',
-      cta: 'Check answer',
-      options: [
-        { t: 'No — it carries a trace, not more blood', icon: 'fa-circle-check', score: 2,
-          reply: 'Right. The amount barely changes; the skin puncture is the real difference.' },
-        { t: 'Yes — a used needle carries more blood', icon: 'fa-droplet', score: 0,
-          reply: 'Actually, no. A used needle carries a trace but what makes it dangerous is the puncture, not the amount.' },
-        { t: 'Neither — any broken skin is equally risky', icon: 'fa-hand', score: 0,
-          reply: 'Not quite. Intact skin stops most exposures, but a puncture changes that.' }
-      ] },
-    // K3, diagnostic — recognition, not recall: can the learner already spot
+    // K2, diagnostic — recognition, not recall: can the learner already spot
     // the condition case 2 is built on (a container past its fill line)? The
     // two wrong answers are the conditions people mistake for the real signal
     // (time, quantity) rather than the one that actually matters (fill level).
-    { obj: 'K3',
+    { obj: 'K2',
       stem: 'Which of these is a sign a sharps container is no longer safe to use?',
       cta: 'Check answer',
       options: [
@@ -1033,7 +1002,7 @@
       ] }
   ];
   function batteryInit(ctx) {
-    var res = { k1: 'unproven', k1score: 0, k2up: false, k3up: false, f1: 3, f3: 3 };
+    var res = { k1: 'unproven', k1score: 0, k2up: false, f1: 3, f3: 3 };
     var askEl = document.getElementById('blAsk');
     var stepEl = document.getElementById('blStep');
     var qEl = document.getElementById('blQ');
@@ -1124,7 +1093,6 @@
         });
         if (q.obj === 'K1') k1.push(sel.opt.score);
         if (q.obj === 'K2') res.k2up = sel.opt.score >= 2;
-        if (q.obj === 'K3') res.k3up = sel.opt.score >= 2;
         if (q.obj === 'F1') res.f1 = sel.opt.score;
         if (q.obj === 'F3') res.f3 = sel.opt.score;
         ctx.floatOpen();
@@ -1265,9 +1233,9 @@
       // from when two items fed this sum.
       res.k1score = k1.reduce(function (a, b) { return a + b; }, 0);
       res.k1 = (res.k1score >= 2) ? 'proven' : 'unproven';
-      // K2 and K3 are both content-locked: their own item decides whether
-      // they get served HARDER, not K1's result — res.k2up/k3up are already
-      // set by their own options above.
+      // K2 (recognition) is content-locked: its own item decides whether it
+      // gets served HARDER, not K1's result — res.k2up is already set by its
+      // own option above.
       stepEl.textContent = 'Quick questions: all ' + BATTERY.length + ' done';
       saveResult('battery', res);
       ctx.enableNext();
@@ -1314,13 +1282,11 @@
   // same ones the learner already read in the sections list. `state` is the
   // only thing this table owns.
   var ADJUST_ROWS = [
-    { id: 'hazard',    state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
-    { id: 'hzcheck',   state: function () { return k2TestUp() ? 'dropped' : 'kept'; } },
     { id: 'procedure', state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
     { id: 'case1',     state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
     { id: 'inflow',    state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
-    { id: 'case2',     state: function () { return k3TestUp() ? 'harder' : 'kept'; } },
-    { id: 'case3',     state: function () { return k3TestUp() ? 'harder' : 'kept'; } },
+    { id: 'case2',     state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
+    { id: 'case3',     state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
     { id: 'enact',     state: function () { return 'kept'; } }
   ];
   function adjustRows() {
@@ -2279,24 +2245,16 @@
         '</aside>' +
       '</article>';
 
-    // K2 test-up (D4/item 9): no check follows this screen, so the leading
-    // line stops setting up a trap for a question that was never going to be
-    // asked and states the mechanism directly instead.
-    var testUp = k2TestUp();
+    // Alignment brief D1: this screen used to be K2's own teaching beat, with
+    // a check following it and a test-up permutation for a learner who'd
+    // already shown they got it. Both are gone — the mechanism is no longer a
+    // tracked objective, so this is now plain, ungated narration, identical
+    // for every learner, matching K&A's own Manufacturing script (the "why
+    // it's dangerous" content runs as background before Case 1, no check).
     return '<main class="ll-object ll-object--chain"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow" id="hzEyebrow">Before the procedure' + (testUp ? ' · no check after this' : '') + '</p>' +
+      '<p class="ll-eyebrow" id="hzEyebrow">Before the procedure</p>' +
       '<h1 class="pr-h">It only takes a trace.</h1>' +
-      // NOT the objective statement. This used to print obj('K2').text
-      // verbatim — an instruction written for a designer ("Explain why a used
-      // sharp is dangerous: ...") shown to a learner, which also handed them
-      // the answer to the check. It poses the question the page answers, and
-      // poses it in terms of AMOUNT, which is the misconception the check's
-      // distractors are built from — so it sets the trap up rather than
-      // giving the answer away. On test-up there is no check to protect, so
-      // the harder permutation states the conclusion instead of leading to it.
-      '<p class="pr-sub">' + (testUp
-        ? 'A trace carries everything a large exposure would — the amount was never the mechanism.'
-        : 'How much blood is enough to be dangerous?') + '</p>' +
+      '<p class="pr-sub">A trace carries everything a large exposure would — the amount was never the mechanism.</p>' +
 
       // Item 19/D7: Listen joins the picker here — 'podcast' key, shared
       // MODALITIES entry (label "Listen"), cost overridden for this beat's
@@ -2323,8 +2281,7 @@
               '<i class="fa-solid fa-volume-high" aria-hidden="true"></i> Read to me</button>' +
             '<p class="aud-text" id="hzAudioText"></p>' +
             '<p class="aud-note" id="hzAudioNote"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' +
-              'Narration uses your browser’s built-in speech — a stand-in for the produced voice track. ' +
-              'The check on this one waits until the end of the module.</p>' +
+              'Narration uses your browser’s built-in speech — a stand-in for the produced voice track.</p>' +
           '</div>' +
         '</div>' +
       '</div>' +
@@ -2344,11 +2301,6 @@
     // already happened — the original single `mounted` meant Listen never
     // mounted at all once the default video carrier had already run once.
     var mounted = false, audioMounted = false, showing = null, podcastTimer = null;
-    // K2 test-up: show() below overwrites the eyebrow the moment a carrier
-    // is picked, so the "no check after this" signal has to ride along with
-    // whichever text it sets rather than living only in the static markup.
-    var testUp = k2TestUp();
-    var noCheckTag = testUp ? ' · no check after this' : '';
 
     // Silent on arrival. "Watch the clip or read the short version below" is
     // a description of two controls the learner can see, and "here is why the
@@ -2379,9 +2331,7 @@
         if (showing === 'podcast' && podcastTimer) { clearTimeout(podcastTimer); podcastTimer = null; }
       }
       showing = m;
-      // Item 13: which carrier they actually used, for the record. Merged
-      // rather than overwritten — hzcheck's own pass/fail lands in this same
-      // `hazard` key, before or after this, in either order.
+      // Item 13: which carrier they actually used, for the record.
       mergeResult('hazard', { carrier: m });
       carrier.hidden = false;
       vWrap.hidden = m !== 'video';
@@ -2394,7 +2344,7 @@
       });
 
       if (m === 'video') {
-        eyebrow.textContent = 'Watch: 2 minutes' + noCheckTag;
+        eyebrow.textContent = 'Watch: 2 minutes';
         // Mounted once, on first selection rather than at page load — there is
         // no reason to fetch a clip for a learner who chose to read.
         if (!mounted) {
@@ -2411,22 +2361,19 @@
           if (vid) vid.addEventListener('loadedmetadata', function () {
             if (!isFinite(vid.duration) || !vid.duration) return;
             var mm = Math.round(vid.duration / 60);
-            eyebrow.textContent = 'Watch: ' + (mm < 1 ? 'under a minute' : mm + ' minute' + (mm > 1 ? 's' : '')) + noCheckTag;
+            eyebrow.textContent = 'Watch: ' + (mm < 1 ? 'under a minute' : mm + ' minute' + (mm > 1 ? 's' : ''));
           });
         }
       } else if (m === 'podcast') {
         // Item 19/D7: the transcript is fully visible on arrival — same
-        // reasoning as the article, nothing forces a listen. Choosing this
-        // carrier defers the K2 check to a postbattery step (see hzcheck's
-        // and postbattery's own `when()`), which the note in the markup
-        // already tells the learner.
-        eyebrow.textContent = 'Listen: about 2 minutes' + noCheckTag;
+        // reasoning as the article, nothing forces a listen.
+        eyebrow.textContent = 'Listen: about 2 minutes';
         if (!audioMounted) { audioMounted = true; mountAudio(); }
         // Held so leaving Listen before it fires can cancel it — see the
         // top of show().
         podcastTimer = setTimeout(done, T(700));
       } else {
-        eyebrow.textContent = 'Read: about 4 minutes' + noCheckTag;
+        eyebrow.textContent = 'Read: about 4 minutes';
         // Item 25/D1: gated on the learner's own word, the same footer
         // relabel the account screen's "Done reading" uses — a fixed delay
         // could not tell a skim from an actual read, and the other two
@@ -2539,90 +2486,6 @@
       // hzcheck answer one screen early, so CLARA holds it for that check.
       ctx.positionOrb(true);
     }
-  }
-
-  // ==========================================================================
-  //  WHAT MAKES IT WORSE — K2's check, on its own screen.
-  //
-  //  It used to appear at the foot of the teaching page once the video
-  //  finished: a third block sliding in under a video and a diagram, with a
-  //  two-line question and three full-sentence answers. Nothing about that
-  //  read as a question — it read as more page.
-  //
-  //  Its own screen, on the same pattern as the K1 in-flow check, and the
-  //  wording cut to what a learner can scan: the question is one line and each
-  //  answer is three or four words. The DETAIL did not disappear, it moved to
-  //  CLARA's replies, which is where an explanation belongs — the option list
-  //  only has to be pickable.
-  //
-  //  Tests the MIDDLE link of the chain, which is where the real misconception
-  //  lives: people believe a large amount of blood is needed, and that blood
-  //  on a hand is comparable to blood on a point. Two attempts, and the second
-  //  miss gets a different framing rather than the same sentence again — that
-  //  is K2's remediate policy firing at the beat.
-  // ==========================================================================
-  var HZCHECK_CONTENT =
-    '<main class="ll-object">' +
-      '<div class="cs-wrap">' +
-        '<p class="ll-eyebrow">Check: 1 question · two tries</p>' +
-        '<h2 class="cs-q cs-q--lead">Why is a needlestick worse than blood on the surface of your skin?</h2>' +
-        '<div class="cs-opts" id="hzOpts"></div>' +
-      '</div>' +
-    '</main>';
-
-  function hzcheckInit(ctx) {
-    var wrap = document.getElementById('hzOpts');
-    // Silent. The eyebrow states the rule now, so there is nothing left for
-    // CLARA to say that is not already on the screen.
-    var tries = 0, settled = false;
-    var HZ_OPTS = [
-      { t: 'It gets past your skin', ok: true,
-        reply: 'Right. Skin is a protective barrier and a puncture breaks through it. The amount of blood matters far less than whether it got in.' },
-      { t: 'There is more blood on a needle', ok: false,
-        reply: 'Actually, it’s the opposite: a used point can only carry a trace. It’s where that trace ends up being delivered that’s consequential.' },
-      { t: 'They are the same risk', ok: false,
-        reply: 'Washing matters either way, and blood on broken skin or in your eyes is a real exposure. But on intact skin a pathogen has nowhere to go — the needle is what gives it somewhere.' }
-    ];
-    var buttons = [];
-    HZ_OPTS.forEach(function (o) {
-      var b = csOption(o.t);
-      buttons.push(b);
-      b.addEventListener('click', function () {
-        if (settled) return;
-        if (o.ok) {
-          settled = true;
-          wrap.classList.add('answered');
-          wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
-          csMark(b, 'ok');
-          // Still written to the `hazard` key: the record's K2 line reads
-          // passed/attempts from there, and splitting the screen should not
-          // change what the record says. Merged, not replaced — the
-          // explainer already wrote this key's `carrier` field.
-          mergeResult('hazard', { passed: true, attempts: tries + 1 });
-          ctx.setCoachSay(esc(o.reply));
-          ctx.enableNext();
-        } else {
-          tries++;
-          csMark(b, 'bad'); b.disabled = true;
-          if (tries >= 2) {
-            // Closure: mark the correct option, disable the set, and state
-            // the answer rather than leaving the last live button as a way
-            // to overwrite a miss with a pass by wandering into it.
-            settled = true;
-            wrap.classList.add('answered');
-            HZ_OPTS.forEach(function (opt, i) { if (opt.ok) csMark(buttons[i], 'ok'); });
-            wrap.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
-            mergeResult('hazard', { passed: false, attempts: tries });
-            ctx.setCoachSay('The bottom line: if it gets past your skin, the amount barely matters.');
-            ctx.enableNext();
-          } else {
-            ctx.setCoachSay(esc(o.reply));
-          }
-        }
-        ctx.positionOrb(true);
-      });
-      wrap.appendChild(b);
-    });
   }
 
   // ==========================================================================
@@ -3045,7 +2908,7 @@
     return function (ctx) {
       // Item 16: harder is a PERMUTATION, not a re-quiz — content-locked
       // objectives serve harder on test-up, they don't get graded harder.
-      var harder = !!(cfg.harder && k3TestUp());
+      var harder = !!(cfg.harder && k2TestUp());
       var opts = harder ? cfg.harder : cfg.options;
       var wrap = document.getElementById('csOpts');
       // Silent on the harder permutation — flagging "you earned the harder
@@ -3866,101 +3729,29 @@
     render();
   }
 
-  // K2's own remediation: one item, one try, then on regardless — the
-  // remediate policy already governing hzcheck's two tries above it.
-  var REMK2_ITEM = {
-    stem: 'A used needle is dangerous mainly because of ___.',
-    opts: [
-      { t: 'the puncture, not the amount of blood on it', ok: true,
-        reply: 'Right. The puncture is what makes the route in. The amount barely matters.' },
-      { t: 'how sharp the point still is', ok: false,
-        reply: 'A dull point can still puncture skin.' },
-      { t: 'how long ago it was used', ok: false,
-        reply: 'Time does not change the mechanism — a used point carries a trace whether it was an hour ago or a week ago. The puncture is what matters.' }
-    ]
-  };
-  function REMK2_CONTENT() {
-    return '<main class="ll-object"><div class="cs-wrap">' +
-      '<p class="ll-eyebrow">Another look</p>' +
-      '<h2 class="cs-q cs-q--lead">Not the amount. The route.</h2>' +
-      '<p class="ll-sub">A needlestick is worse than blood on unbroken skin for one reason: the point punctures, so ' +
-        'the route in is not stopped by intact skin the way it normally would be. That is true whether the trace ' +
-        'on the point is large or small.</p>' +
-      '<p class="cs-q" style="margin-top:24px">' + esc(REMK2_ITEM.stem) + '</p>' +
-      '<div class="cs-opts" id="rk2Opts"></div>' +
-    '</div></main>';
-  }
-  function remk2Init(ctx) {
-    var opts = document.getElementById('rk2Opts');
-    var settled = false;
-    ctx.setCoachSay('Let’s take one more look at this.');
-    REMK2_ITEM.opts.forEach(function (o) {
-      var b = csOption(o.t);
-      b.addEventListener('click', function () {
-        if (settled) return;
-        settled = true;
-        opts.classList.add('answered');
-        opts.querySelectorAll('.cs-opt').forEach(function (x) { x.disabled = true; });
-        csMark(b, o.ok ? 'ok' : 'bad');
-        saveResult('remk2', { passed: o.ok });
-        ctx.setCoachSay(esc(o.reply));
-        ctx.enableNext();
-        ctx.positionOrb(true);
-      });
-      opts.appendChild(b);
-    });
-  }
-
   // ==========================================================================
-  //  WHEN YOU ARE BEHIND — F4 (Feel / Can), sitting immediately before the
-  //  simulation, which is the only place it belongs.
+  //  WHEN YOU ARE BEHIND — D3 (Do / Sustain), sitting immediately before the
+  //  simulation.
   //
-  //  Bandura's can-do form: confidence rated against a NAMED obstacle rather
+  //  Alignment brief D1 note: this screen used to open with an F4 (Feel / Can)
+  //  self-efficacy rating — confidence rated against a NAMED obstacle rather
   //  than in the abstract. "How confident are you about sharps disposal"
   //  measures mood; "even when you are behind, the line is waiting, and the
   //  container is on the other side of the building" measures the thing that
   //  actually predicts whether the shortcut gets taken. Every clause in that
-  //  statement is an obstacle the module has already shown.
+  //  statement was an obstacle the module had already shown.
   //
-  //  Why it is HERE and not earlier: a rating on this screen followed by a
-  //  missed window on the next one is the say-do gap, and putting the two
-  //  back to back makes it visible inside a single module rather than across
-  //  a pre/post pair nobody joins up. It is the pairing the measurement work
-  //  asks for, and it costs forty seconds.
-  //
-  //  The rehearsal is THRESHOLD-GATED — at or below 3 it appears, above it
-  //  the screen advances. Showing an if-then plan to a learner who already
-  //  has one teaches nothing and tells them the module was not listening.
-  //  Runs on the shared self-efficacy slider from css/layered-beats.css,
-  //  which the Bystander module has used since it was built and this one
-  //  never had a screen for.
+  //  Alignment brief D1: F4 is cut, so this screen now opens directly on the
+  //  D3 (Do / Sustain) plan below — no rating, no threshold gate ahead of it.
+  //  Still runs as a two-part reinforcement (pick the shift, then write the
+  //  plan) for the same reason it always did: one thing to read and one thing
+  //  to do at a time.
   // ==========================================================================
-  var WALK_THRESHOLD = 3;
-  var WALK_WORDS = {
-    1: 'Not a chance, not on a bad day', 2: 'Probably not', 3: 'Depends on the day',
-    4: 'Most of the time', 5: 'Every time'
-  };
 
   function WALK_CONTENT() {
     var L = lens();
     return '<main class="ll-object">' +
       '<div class="ef-wrap">' +
-        // F4 is ask+sampled (D6/item 15): only part of the cohort rates this
-        // statement at all. Wrapped so a non-sampled learner never sees it —
-        // they land straight on the plan below, which runs for everyone.
-        '<div id="wkRating">' +
-          '<p class="ll-eyebrow">Rate: 1 statement</p>' +
-          '<p class="ef-q">“I can carry a used sharp to the container ' +
-            '<em>even when I am behind, the line is waiting, and the container is on the ' +
-            'other side of the building.</em>”</p>' +
-          '<div class="ef-slider">' +
-            '<input type="range" id="wkRange" min="1" max="5" step="1" value="3" ' +
-              'aria-label="How confident are you, from 1 to 5">' +
-            '<div class="ef-scale"><span>1 · Not confident</span><span>5 · Completely</span></div>' +
-          '</div>' +
-          '<div class="ef-readout"><b id="wkNum">3</b><span id="wkWord">' + esc(WALK_WORDS[3]) + '</span></div>' +
-          '<button class="ef-lock" id="wkLock" type="button">Lock it in</button>' +
-        '</div>' +
 
         // TWO parts, not one card with two questions in it. Splitting them is
         // the reinforcement layer this module already uses on the account read
@@ -3999,11 +3790,6 @@
 
   function walkInit(ctx) {
     var L = lens();
-    var range = document.getElementById('wkRange');
-    var num = document.getElementById('wkNum');
-    var word = document.getElementById('wkWord');
-    var lock = document.getElementById('wkLock');
-    var ratingBox = document.getElementById('wkRating');
     var part1 = document.getElementById('wkPart1');
     var part2 = document.getElementById('wkPart2');
     var conds = document.getElementById('wkConds');
@@ -4011,59 +3797,14 @@
     var commit = document.getElementById('wkCommit');
     var say = document.getElementById('wkSay');
     var note = document.getElementById('wkNote');
-    var settled = false, committed = false, cond = null;
+    var committed = false, cond = null;
 
-    // F4 is ask+sampled (D6/item 15): only part of the cohort rates this
-    // statement. D3 (Sustain, the plan below) is a different, unsampled
-    // objective and runs for everyone regardless — a non-sampled learner
-    // lands straight on it with no rating to react to first.
-    if (!sampled('F4')) {
-      ratingBox.hidden = true;
-      saveResult('walk', { rating: null, sampled: false });
-      // Silent — not everyone gets the rating (F4 is ask+sampled), and
-      // saying so read as CLARA explaining her own sampling logic rather
-      // than coaching the learner. Still has to clear the manifest's
-      // "Loading…" placeholder, though.
-      ctx.setCoachSay('');
-      reinforce(ctx, part1, 1, 2);
-      ctx.enableNext();
-    } else {
-      ctx.setCoachSay('Answer this the way a bad shift actually goes.');
-
-      range.addEventListener('input', function () {
-        if (settled) return;
-        num.textContent = range.value;
-        word.textContent = WALK_WORDS[range.value] || '';
-      });
-
-      // ---- the rating (F4, Feel / Can) ----
-      lock.addEventListener('click', function () {
-        if (settled) return;
-        settled = true;
-        var v = +range.value;
-        range.disabled = true;
-        lock.hidden = true;
-        saveResult('walk', { rating: v, sampled: true });
-        // The threshold decides only what CLARA says about the rating, not
-        // whether the plan appears.
-        ctx.setCoachSay(v <= WALK_THRESHOLD
-          ? 'Plan the walk now, while nothing is pulling at you.'
-          : 'A high rating is easiest to keep when the decision is already made. Plan the walk anyway.');
-        // Ungated: Continue opens on the rating, so a plan nobody wanted to
-        // write never holds the door. And the first part waits for a press
-        // rather than covering the line CLARA just delivered.
-        ctx.enableNext();
-        ctx.setNextAction('Plan the walk', function () {
-          reinforce(ctx, part1, 1, 2);
-          // setNextAction hands the button back as Continue under the step's own
-          // gate, which drops the enableNext() above — so re-open it here or the
-          // learner is stranded on a screen that never required an answer.
-          ctx.enableNext();
-          ctx.positionOrb(true);
-        });
-        ctx.positionOrb(true);
-      });
-    }
+    // D3 (Sustain) is ungated and unsampled — it runs the same for every
+    // learner, with nothing to react to before it, so this clears the
+    // manifest's "Loading…" placeholder and opens straight on the plan.
+    ctx.setCoachSay('');
+    reinforce(ctx, part1, 1, 2);
+    ctx.enableNext();
 
     // ---- part 1: the shift (D3, Do / Sustain) ----
     ((L.sustain || {}).conds || []).forEach(function (t) {
@@ -4158,14 +3899,14 @@
 
   // ==========================================================================
   // ==========================================================================
-  //  THE RECORD — ten objectives, each with the policy that governed it and
+  //  THE RECORD — eight objectives, each with the policy that governed it and
   //  where its evidence actually came from. D3 is deliberately still open.
   // ==========================================================================
   var RECORD_CONTENT =
     '<main class="ll-object" id="recordObject">' +
       '<p class="ll-eyebrow">Your results</p>' +
       '<h2 id="recHead">Here’s what you showed.</h2>' +
-      '<p class="ll-sub">Ten things this module asked of you, and where each answer came from — not a tick for finishing.</p>' +
+      '<p class="ll-sub">Eight things this module asked of you, and where each answer came from — not a tick for finishing.</p>' +
       '<div class="rec-groups" id="recList"></div>' +
       '<p class="res-basis" id="recBasis"></p>' +
     '</main>';
@@ -4175,8 +3916,8 @@
   // they live in the step captions behind the footer "?" and in the Learning
   // Layer view, which is where a reviewer is looking for them anyway.
   var REC_GROUPS = [
-    { head: 'What you know',   ids: ['K1', 'K2', 'K3'] },
-    { head: 'How you see it',  ids: ['F1', 'F2', 'F3', 'F4'] },
+    { head: 'What you know',   ids: ['K1', 'K2'] },
+    { head: 'How you see it',  ids: ['F1', 'F2', 'F3'] },
     { head: 'What you did',    ids: ['D1', 'D2', 'D3'] }
   ];
   // The two Feel objectives asked before and after now report the MOVE rather
@@ -4280,7 +4021,7 @@
     // [ status, band, where it came from, what happened, move-chip ]
     var state = {
       K1: proven
-        ? ['Shown', 'band-exc', 'From the five questions',
+        ? ['Shown', 'band-exc', 'From the four questions',
            'You put the steps in the right order before the module even started.']
         : (c.remk1 && c.remk1.passed)
           ? ['Taught', 'band-ok', 'From the lesson, the quick check, and a second look',
@@ -4289,34 +4030,9 @@
           : ['Taught', 'band-ok', 'From the lesson and the quick check',
              'Taught here as ' + (MODALITY_LABEL[c.procedure && c.procedure.modality] || 'a lesson') +
              ', then checked again straight afterwards.'],
-      K2: k2TestUp()
-        ? ['Shown', 'band-exc', 'From the five questions',
-           'You showed you already had this at the start, so the explainer served its harder version with no check afterward.']
-        : (c.hazard && c.hazard.passed)
-          ? ['Shown',
-             'band-exc',
-             // Item 19/D7: the source line is honest about WHEN the check
-             // actually ran — Listen defers it to the postbattery step, not
-             // "after the explainer" like the other two carriers.
-             c.hazard.carrier === 'podcast' ? 'From the explainer you listened to, checked later' : 'From the one question after the explainer',
-             'You ' + (c.hazard.carrier === 'video' ? 'watched' : c.hazard.carrier === 'podcast' ? 'listened to' : 'read') + ' the explainer, then ' +
-             (c.hazard.carrier === 'podcast' ? 'circled back to it at the end of the module and ' : '') +
-             (c.hazard.attempts > 1 ? 'got there on the second go: ' : 'got it first go: ') +
-             'a needle is dangerous because it makes a route into a bloodstream, not because of how much blood is on it.']
-          : c.remk2
-            ? (c.remk2.passed
-                ? ['Shown', 'band-exc', 'From a second look, in writing',
-                   'Missed the check twice, so we looked at it again — that time you had it: the puncture is the mechanism, not the amount.']
-                : ['Taught', 'band-warn', 'From a second look, in writing',
-                   'Still not landing after a second look. Worth a conversation before the rest of the module leans on it.'])
-            : c.hazard
-              ? ['Taught', 'band-ok', 'From the one question after the explainer',
-                 'You had two tries at the mechanism and I explained it a second way.']
-              : ['Taught', 'band-ok', 'From the explainer',
-                 'Served in full. This one is the reason for the rest, so it is never shortened.'],
       // Item 16: the harder cases are a permutation, not a re-quiz — proven
       // at the start, served harder, not re-scored.
-      K3: k3TestUp()
+      K2: k2TestUp()
         ? ['Shown', 'band-exc', 'From the case screens',
            'Proven at the start, so both cases served harder — not re-scored, since you had already shown you get this one. This one is never taken away, only made harder.']
         : ['Taught', 'band-ok', 'From the case screens',
@@ -4366,20 +4082,6 @@
              'You gave your read of the room and saw the figures, but the second answer did not come up in this run.']
           : ['Rated only', 'band-warn', 'From your answer at the start',
              'You gave your read of the room. The figures for your sector did not come up in this run.'],
-      F4: (c.walk && c.walk.rating)
-        ? [c.walk.rating >= 4 ? 'Recorded · high' : 'Recorded · low', 'band-ok',
-           'From your own rating, against a named obstacle',
-           c.walk.rating >= 4
-             ? 'You rated yourself ' + c.walk.rating + ' of 5 on doing this while you are behind. Read that line next to the scenario below it rather than on its own — a high rating followed by a sharp left on a bench is the finding, and neither means much alone.'
-             : 'You rated yourself ' + c.walk.rating + ' of 5 on doing this while you are behind, and got the if-then plan because of it. Recorded as you gave it; a low answer here is more useful than a high one nobody believes.']
-        // D6/item 15: ask + sampled — sampled === false means the question
-        // genuinely was not put to this sector this run, not that the run
-        // is incomplete. The plan below (D3) still ran regardless.
-        : (c.walk && c.walk.sampled === false)
-          ? ['Not asked', 'band-ok', 'Sampled across your cohort',
-             'Not asked of you this time — sampled across your cohort. You still planned the walk below, which every learner does regardless.']
-          : ['Not asked', 'band-warn', 'No answer in this run',
-             'The rating did not come up, so there is nothing on this line. It is not counted as confidence either way.'],
       // Both of these are shown on the scenario's own page now. The module
       // used to carry a scripted stand-in for them here \u2014 a six-second clock
       // on one button \u2014 and it was cut rather than rebuilt: the scenario's
@@ -4450,11 +4152,11 @@
       '<b>the last one stays open on purpose</b> — nothing a module does in one sitting can tell you what you ' +
       'keep doing afterwards.';
     // Silent on the path-change opener in three of the four cases — proving
-    // the procedure or testing up on K3 is already visible in the bands
+    // the procedure or testing up on K2 is already visible in the bands
     // below, and CLARA restating it read as a fourth voice for one fact.
     // The one case that keeps a line is the plain one: nothing moved, and
     // nothing on screen already says so.
-    var movedLine = (proven || k3TestUp())
+    var movedLine = (proven || k2TestUp())
       ? ''
       : 'Based on the initial assessment, nothing about your path changed.';
     // The count is stated once, in recBasis above — CLARA repeating the same
@@ -4465,10 +4167,10 @@
       'Ask me about any line and I will tell you where it came from.'
     ].filter(Boolean));
     wireChat(ctx, [
-      'That one came from the five questions at the start. Get those right and you skip the section that teaches it — which is the only place answering well buys you anything.',
+      'That one came from the four questions at the start. Get those right and you skip the section that teaches it — which is the only place answering well buys you anything.',
       'Spotting unsafe conditions is named in the regulation, so it is never taken away. A strong answer makes it harder instead.',
       'The budget question is recorded and passed on without changing your path — what you chose, and how you rated it afterwards. Those are two different things and I keep them apart.',
-      'The last line is your own plan, not a score. Whether it held is a question for the check after the course, and nothing today could answer it.'
+      'The last line is your own plan, not a score. Whether it held stays open — nothing today can show that, one way or the other.'
     ]);
     ctx.positionOrb(false);
   }
@@ -4488,7 +4190,7 @@
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Your Starting Point', mode: 'floating', gate: true,
-      caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; it also sets test-up on the content-locked K2.' },
+      caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; K2 (recognition, content-locked) sets its own test-up from its own item — neither derives from the other.' },
       coach: { say: 'Loading\u2026', teaser: true },
       content: BATTERY_CONTENT, init: batteryInit,
       onSkip: function () { saveResult('battery', { k1: 'unproven', skipped: true }); } },
@@ -4508,30 +4210,12 @@
       onSkip: function () { saveResult('chain', { walked: false, named: null }); } },
 
     { id: 'hazard', icon: 'fa-photo-film', mins: 4, stage: 'Learn', lesson: 'Why Sharps Are Dangerous', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · The premise (K2, Know / Understand)', note: 'The objective the module ran without. Every other outcome in the re-composed course carries an Understand objective; sharps carries none, so its teach content — what a sharp is, that a used one keeps a trace of blood, what that trace can carry — sat in two of their teach lists with no objective claiming it, and this module taught a four-step sequence with no stated hazard behind it. Delivered as ONE screen because it is one chain of reasoning: trace → route → what it carries. The check tests the MIDDLE link, which is where the real misconception lives (people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point). Never compressed: a module that removes its own premise to save ninety seconds is a list of rules again. The clip supplied for this beat was the course’s “Controls and Prevention” section video — 9 min 31 s and 145 MB, which is over GitHub’s per-file ceiling and was the largest single line item in the module. It is now cut to the one stretch that shows a sharp being handled at all (3:48–6:00, 2 min 12 s): the engineering-versus-administrative controls comparison and a syringe going into a red container. Worth knowing what that footage is and is not — it shows DISPOSAL, which is K1’s subject and the budget beat’s argument, and it does NOT teach this objective’s mechanism, because nothing in the source does. So the written chain runs ALONGSIDE it rather than as its fallback: dropping any clip onto this beat used to hide the content that actually teaches K2. Anything over 25 MB still STREAMS rather than being fetched whole to a blob, and the eyebrow reports the clip’s real duration read off the file rather than a typed-in estimate.' },
+      caption: { title: 'LEARN · The premise (ungated)', note: 'Alignment brief D1: this used to be K2’s own teaching beat, gated, with an in-flow check and a test-up permutation. The mechanism content — what a sharp is, that a used one keeps a trace of blood, what that trace can carry — is no longer a tracked objective, so it now runs as plain narration, identical for every learner, matching K&A’s Manufacturing script (this content runs ahead of Case 1 with no check at all). Delivered as ONE screen because it is one chain of reasoning: trace → route → what it carries. The clip supplied for this beat was the course’s “Controls and Prevention” section video — 9 min 31 s and 145 MB, which is over GitHub’s per-file ceiling and was the largest single line item in the module. It is now cut to the one stretch that shows a sharp being handled at all (3:48–6:00, 2 min 12 s): the engineering-versus-administrative controls comparison and a syringe going into a red container. Worth knowing what that footage is and is not — it shows DISPOSAL, which is K1’s subject and the budget beat’s argument, and it does NOT teach this beat’s mechanism, because nothing in the source does. So the written chain runs ALONGSIDE it rather than as its fallback. Anything over 25 MB still STREAMS rather than being fetched whole to a blob, and the eyebrow reports the clip’s real duration read off the file rather than a typed-in estimate.' },
       // Arrives silent — an empty line means no unread dot and no idle
       // hint. The reaction later in hazardInit raises CLARA by itself.
       coach: { say: '' },
       content: HAZARD_CONTENT, init: hazardInit,
       onSkip: function () { saveResult('hazard', { skipped: true }); } },
-
-    { id: 'hzcheck', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Why a Puncture Is Different', mode: 'floating', gate: true, adaptive: true,
-      // K2 test-up (D4/item 9): a learner who already showed they get this at
-      // the pre-battery skips the check entirely \u2014 the explainer served its
-      // harder permutation instead, with no safety net after it. Item 19/D7:
-      // a learner who chose the Listen carrier gets the SAME question later,
-      // at the postbattery step \u2014 not skipped, deferred, so it never runs
-      // twice for them here.
-      when: function () {
-        if (k2TestUp()) return false;
-        if ((readCourse().hazard || {}).carrier === 'podcast') return false;
-        return true;
-      },
-      caption: { title: 'LEARN \u00b7 The premise, checked (K2)', note: 'K2\u2019s check, lifted onto its own screen. It used to slide in at the foot of the teaching page once the video finished \u2014 a third block under a video and a diagram, carrying a two-line question and three full-sentence answers, which read as more page rather than as a question. Same pattern as the K1 in-flow check now, and the wording cut to what a learner can scan: one line of question, three or four words per answer. The DETAIL moved to CLARA\u2019s replies, which is where an explanation belongs \u2014 an option list only has to be pickable. Tests the MIDDLE link of the chain, where the real misconception lives: people believe a large amount of blood is needed, and that blood on a hand is comparable to blood on a point. Two attempts; a second miss now closes the item outright (item 11) \u2014 the correct option is marked, the set disables, and CLARA states the answer rather than leaving the last live button as a way to overwrite a miss with a pass. Writes to the same record key as before, so the K2 line on the record is unchanged. Gated off entirely on K2 test-up (D4) \u2014 see the battery\u2019s k2up flag. Also deferred, not skipped, when the learner chose the Listen carrier on the explainer (D7/item 19) \u2014 the identical question runs at the postbattery step instead.' },
-      // Arrives silent \u2014 the eyebrow states the two-tries rule, so there is
-      // no unread dot promising a line the screen already shows.
-      coach: { say: '' },
-      content: HZCHECK_CONTENT, init: hzcheckInit },
 
     { id: 'procedure', icon: 'fa-shapes', mins: 4, stage: 'Learn', lesson: 'Safe Handling, Step by Step', mode: 'floating', gate: true, adaptive: true,
       when: function () { return batteryResult() !== 'proven'; },
@@ -4567,7 +4251,7 @@
       content: INFLOW_CONTENT, init: inflowInit },
 
     { id: 'case2', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Past the Fill Line', mode: 'floating', gate: true, adaptive: true,
-      caption: { title: 'LEARN · Case 2 (K3, content-locked)', note: 'Never removed. On test-up the three options are replaced with genuinely arguable ones — the same objective, served harder. 1910.1030(g)(2)(vii)(E): recognition is sector-specific, so a generic pass does not satisfy it. The fill-line specifics in each sector’s scene (three-quarters up the container, packed past a stamped or molded line) are invented for the prototype rather than pulled from a customer’s exposure control plan — chosen because three-quarters full is the common manufacturer convention for a sharps container’s fill line, not a fabricated fraction. A real deployment swaps these for the customer’s own container spec; the correct answer deliberately never states a number (“set by your site’s plan, not by eye”) so the lesson survives that swap unchanged.' },
+      caption: { title: 'LEARN · Case 2 (K2, content-locked)', note: 'Never removed. On test-up the three options are replaced with genuinely arguable ones — the same objective, served harder. 1910.1030(g)(2)(vii)(E): recognition is sector-specific, so a generic pass does not satisfy it. The fill-line specifics in each sector’s scene (three-quarters up the container, packed past a stamped or molded line) are invented for the prototype rather than pulled from a customer’s exposure control plan — chosen because three-quarters full is the common manufacturer convention for a sharps container’s fill line, not a fabricated fraction. A real deployment swaps these for the customer’s own container spec; the correct answer deliberately never states a number (“set by your site’s plan, not by eye”) so the lesson survives that swap unchanged.' },
       // Item 27/A2: same reasoning as case 1 — "this one is about the
       // container, not the sharp" is the posture for the scene, not a
       // reaction to anything the learner does.
@@ -4575,7 +4259,7 @@
       content: caseContent(CASE2), init: caseInit(CASE2) },
 
     { id: 'case3', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Left by Someone Else', mode: 'floating', gate: true, adaptive: true,
-      caption: { title: 'LEARN · Case 3 (K3)', note: 'The second half of the locked objective: recognizing a condition you did not create. Independent of the other cases — this is what makes Option B compressible without editorial repair.' },
+      caption: { title: 'LEARN · Case 3 (K2)', note: 'The second half of the locked objective: recognizing a condition you did not create. Independent of the other cases — this is what makes Option B compressible without editorial repair.' },
       coach: { say: 'Loading…', lead: true },
       content: caseContent(CASE3), init: caseInit(CASE3) },
 
@@ -4620,20 +4304,13 @@
       caption: { title: 'LEARN · Remediation (K1, gate)', note: 'D2/item 10. K1 gates, so failing the in-flow check does not get to stand: this re-teaches the procedure in whichever modality the learner was not taught in (a different carrier, not a repeat), then asks a fresh item from a 2-item bank. Loops — a new bank item on every miss — until passed, since a gate has no give-up path. Runs only when inflow.passed === false; a learner who passed on the first two tries never sees it.' },
       content: REMK1_CONTENT, init: remk1Init },
 
-    { id: 'remk2', icon: 'fa-rotate-left', mins: 1, stage: 'Learn', lesson: 'Another Look: Why a Trace Matters', mode: 'floating', gate: true,
-      when: function () { var c = readCourse(); return !!(c.hazard && c.hazard.passed === false); },
-      caption: { title: 'LEARN · Remediation (K2, remediate)', note: 'D2/item 10. K2 is remediate, not gate: one fresh item, one try, then on regardless of the outcome — the same policy already running hzcheck\u2019s own two tries. Runs only when hazard.passed === false.' },
-      content: REMK2_CONTENT, init: remk2Init },
-
-
     { id: 'walk', icon: 'fa-sliders', mins: 1, stage: 'Learn', lesson: 'When You Are Behind', mode: 'floating', gate: true,
-      // They LEAD here too: this is a self-report that is recorded and routes
-      // nothing, and saying so BEFORE they rate themselves is what keeps the
-      // answer honest. Behind the dot it would arrive too late to matter.
-      caption: { title: 'LEARN · Capability under pressure (F4, Feel / Can)', note: 'The objective the module had no screen for. Three of the four Feel determinants that predict this behaviour were covered and the fourth \u2014 whether the learner thinks they CAN do it while they are behind \u2014 was never asked. Bandura\u2019s can-do form, so every clause in the statement is an obstacle the module has already shown, rather than confidence in the abstract, which measures mood. Placed immediately before the simulation on purpose: a high rating here followed by a missed window there is the say-do gap, visible inside one module instead of across a pre/post pair nobody joins up. The rehearsal is threshold-gated at 3 \u2014 showing an if-then plan to a learner who already has one tells them the module was not listening. Flagged ask: it is recorded and never routes anything, because a self-report may not remove content. Runs on the shared self-efficacy slider the Bystander module has always used.' },
-      coach: { say: 'Loading\u2026', lead: true },
-      content: WALK_CONTENT, init: walkInit,
-      onSkip: function () { saveResult('walk', { rating: null, rehearsed: false }); } },
+      // Alignment brief D1: F4 (the self-efficacy rating this screen used to
+      // open with) is cut, so it now arrives silent and opens directly on the
+      // D3 (Sustain) plan — same pattern as hazard/controls/debrief.
+      caption: { title: 'LEARN · Planning the walk (D3, Do / Sustain)', note: 'The objective the module had no screen for. Placed immediately before the simulation on purpose: an if-then plan written here, then tested for real a few screens later, is the closest a one-sitting module gets to evidencing maintenance. Policy: none — recorded, never gates, never routes. Two parts, reinforced in sequence: which shift is riskiest, then the plan itself in the learner’s own words.' },
+      coach: { say: '' },
+      content: WALK_CONTENT, init: walkInit },
 
     { id: 'handoff', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'End of Shift', mode: 'floating',
       nextLabel: 'Enter the scenario',
@@ -4655,34 +4332,13 @@
       // counting this one too would inflate "Section N of total" for a step
       // nobody looks at, the same reason `adjust` carries this flag.
       interstitial: true,
-      // Item 19/D7: back to postbattery, not straight to record — the engine
-      // walks forward past it automatically for a learner who does not need
-      // it (see build()'s deep-link when() walk), so this one URL serves
-      // both cases correctly regardless of whether Listen was chosen.
       external: '../../scenario-simulator/composed-scenarios/index.html'
         + '?type=mix-arc&scenario=end-of-shift-sharps&handoff=1&brand=clara'
-        + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=postbattery'),
+        + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record'),
       caption: { title: 'PERFORM · The culminating activity, four beats (D2)', note: 'The full Scenario Simulator, which this module has always pointed at and never contained \u2014 the previous screen\u2019s caption said so. Four sequential roleplay beats with one AI character: the decision (Chris holding an uncapped syringe, offering to walk out with you), the pressure (his radio goes and he refuses the walk), the complication (the container is above its fill line and will not close) and the transfer (you pass Jacob pulling the break-room bags). Beat 3 is the one that separates following a rule from exercising judgment, which is why it is its own moment rather than a second action inside beat 2. Beat 4 cannot be failed: silence closes it, is not penalised, and is named in the debrief. Authored as a mix-arc curated example rather than a new page \u2014 the converged player already routes ?type= and ?scenario=, so this beat added a scenario and edited no player. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where BOTH Do objectives are evidenced now. The module used to carry a scripted stand-in ahead of it \u2014 a real-time scene, a six-second clock and one Dispose button \u2014 and that screen was deleted rather than rebuilt, because the concept was wrong rather than badly executed: the wrong behaviour was not choosable (setting the sharp down was what HAPPENED to a slow reader), the button took keyboard focus the instant it unlocked, and pressing immediately scored the same as pressing at 5.9s. Its route question went with it: this scenario asks the route better, against a container above its fill line that will not close. The record now says both Do lines are evidenced here rather than scoring them off a button.' },
       coach: { say: '' } },
-
-    { id: 'postbattery', icon: 'fa-headphones', mins: 1, stage: 'Record', lesson: 'The Check You Listened Past',
-      mode: 'floating', gate: true,
-      // Item 19/D7: fires only for a learner who chose Listen on the
-      // explainer AND did not test up out of the check entirely — test-up
-      // already means no check at all, so a Listen choice there has nothing
-      // to defer. Reuses hzcheck's own content/init unchanged: same
-      // question, same two tries, same closure (item 11) — the only thing
-      // that differs is when it runs.
-      when: function () {
-        if (k2TestUp()) return false;
-        return (readCourse().hazard || {}).carrier === 'podcast';
-      },
-      caption: { title: 'RECORD · Deferred K2 check (D7)', note: 'The check the Listen carrier held back. Same question, same bank item, same two-tries-then-closure as hzcheck (item 11) — content: HZCHECK_CONTENT, init: hzcheckInit, unchanged. Exists only for a learner who chose Listen and did not already test out of the check via K2 test-up.' },
-      coach: { say: 'Circling back to the question the explainer would have led into, since you listened to it instead.', lead: true },
-      content: HZCHECK_CONTENT, init: hzcheckInit },
-
     { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
-      caption: { title: 'RECORD · Objective-level record', note: 'Ten objectives, each with the policy that governed it and where its evidence came from. Nine closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
+      caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
       coach: { say: '', ask: 'Ask CLARA about your record…' },
       content: RECORD_CONTENT, init: recordInit }
   ];
@@ -4740,7 +4396,7 @@
         var next = batteryResult() === 'proven' ? 'unproven' : 'proven';
         try { sessionStorage.setItem('sh-battery', next); } catch (e) {}
         var c = readCourse();
-        if (c.battery) saveResult('battery', { k1: next, k2up: next === 'proven', k3up: next === 'proven',
+        if (c.battery) saveResult('battery', { k1: next, k2up: next === 'proven',
                                                 f1: c.battery.f1, f3: c.battery.f3 });
         if (api.step && api.step.id === 'adjust') {
           // This screen only exists when something moved, so flipping to a
