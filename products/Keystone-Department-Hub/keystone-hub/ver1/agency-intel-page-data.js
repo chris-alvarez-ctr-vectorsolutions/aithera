@@ -315,6 +315,18 @@
     return !!(window.KX && window.KX.getFlags().futureOn);
   }
 
+  // NOT IN V1 — the widget builder's Advanced tab (correlate two metrics,
+  // summary table, commentary block, ask-for-ideas) is follow-up work, so the
+  // whole tab sits behind the Future-functionality flag. This is the single
+  // choke point: with the flag off widgetBuilderHtml() drops the
+  // Simple/Advanced pill entirely and the builder is just the one guided
+  // Simple path — which is also what keeps the numbered steps reading 1-2-3
+  // with nothing above them. The Advanced builders themselves are left
+  // untouched, so flipping the flag on restores the tab intact.
+  function advancedBuilderEnabled() {
+    return !!(window.KX && window.KX.getFlags().futureOn);
+  }
+
   // NOT IN V1 — publishing straight to a job title is a follow-up feature, so
   // the whole job-title leg of the audience sits behind the same
   // Future-functionality flag. audienceOf() is the single choke point: with the
@@ -1060,6 +1072,7 @@
     deliveryEnabled: deliveryEnabled,
     deliveryOf: deliveryOf,
     privateEnabled: privateEnabled,
+    advancedBuilderEnabled: advancedBuilderEnabled,
     deliveryMeta: deliveryMeta,
     reportReach: reportReach,
     reportSummary: reportSummary,

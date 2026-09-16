@@ -544,10 +544,17 @@
         'color:var(--ink-900);line-height:1.2">' + esc(o.title) + '</div>' +
         (o.subtitle ? '<div style="font-size:12.5px;color:var(--ink-500);margin-top:3px">' + esc(o.subtitle) + '</div>' : '') +
         '</div>';
-      var close = document.createElement('vaadin-button');
-      close.setAttribute('theme', 'icon tertiary');
+      /* Plain <button>, deliberately NOT vaadin-button theme="tertiary": the
+         Vector theme styles a tertiary button as an underlined text link,
+         which is right for a word and wrong for an icon — this one was
+         rendering as a glyph with a rule under it. Same fix, and the same
+         Font Awesome glyph family, as .kx-ai-iconbtn on the assistant panels. */
+      var close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'kx-dlg-close';
       close.setAttribute('aria-label', 'Close');
-      close.innerHTML = micon('close', { size: 18 });
+      close.title = 'Close';
+      close.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
       close.addEventListener('click', function () { dlg.opened = false; });
       wrap.appendChild(close);
       root.appendChild(wrap);

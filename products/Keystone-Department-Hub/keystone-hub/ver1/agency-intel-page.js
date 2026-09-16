@@ -1239,7 +1239,9 @@
   function builderPreviewWidget() {
     var b = state.builder;
     if (b.tab === 'simple') {
-      if (!b.metric) return null;
+      // Both answers are required: the chart type is no longer pre-filled, so
+      // until step 2 is answered there is nothing to draw.
+      if (!b.metric || !b.viz) return null;
       return { id: 'preview', metricId: b.metric, viz: b.viz,
                include: b.include.length ? b.include : undefined, state: 'live' };
     }
@@ -1329,9 +1331,29 @@
       KXCanvas.widgetBody(w) + '</div>';
   }
 
+  /* The guided path: one step at a time, in order. Each step is answered
+     before the next one exists — pick a metric, THEN choose a chart type,
+     THEN tune the parameters. Showing 2 and 3 together (which is what
+     happened while the chart type was pre-filled on metric pick) made the
+     numbering decorative: three labelled steps, two of which arrived at once
+     and one of which was already answered. */
   function simpleBuilderHtml() {
     var b = state.builder;
     var preview = builderPreviewWidget();
+    // The old pre-fill, demoted to a hint. The recommendation is still worth
+    // saying — it is just no longer said by silently choosing for you.
+    var rec = b.metric ? CC.VIZ_TYPES.find(function (t) {
+      return t.id === (CC.DEFAULT_VIZ[b.metric] || 'kpi');
+    }) : null;
+    // Shared shell for the two "nothing here yet" panels, so the right column
+    // holds its shape as the steps unfold instead of jumping.
+    function waiting(icon, title, body) {
+      return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;' +
+        'min-height:220px;gap:10px;border:1px dashed var(--ink-200);border-radius:14px;padding:24px;color:var(--ink-500)">' +
+        micon(icon, { size: 30, color: 'var(--ink-300)' }) +
+        '<div style="font-size:13.5px;font-weight:600;color:var(--ink-600)">' + esc(title) + '</div>' +
+        '<div style="font-size:12.5px;line-height:1.5;max-width:280px">' + body + '</div></div>';
+    }
     return '<div style="display:grid;grid-template-columns:minmax(0, 0.85fr) minmax(0, 1.15fr);gap:20px;align-items:start">' +
       '<div><div class="cp-step"><span class="n">1</span><span class="t">Pick a metric</span></div>' +
       // No inner scroller. A 340px box with its own scrollbar cut the list off
@@ -1342,25 +1364,30 @@
       '<div style="display:flex;flex-direction:column;gap:12px">' +
       metricPickerHtml() + '</div></div>' +
       '<div>' +
+      // STEP 1 unanswered — nothing but the prompt to answer it.
       (!b.metric
-        ? '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;' +
-          'min-height:260px;gap:10px;border:1px dashed var(--ink-200);border-radius:14px;padding:24px;color:var(--ink-500)">' +
-          micon('bar_chart', { size: 30, color: 'var(--ink-300)' }) +
-          '<div style="font-size:13.5px;font-weight:600;color:var(--ink-600)">Pick a metric to chart it</div>' +
-          '<div style="font-size:12.5px;line-height:1.5;max-width:260px">You\'ll get a live preview here, ' +
-          'and can set the chart type and parameters.</div></div>'
+        ? waiting('bar_chart', 'Pick a metric to chart it',
+            'Choose one on the left and you\'ll pick how to show it next.')
+        // STEP 2 — the chart type. Appears the moment a metric is chosen.
         : '<div class="cp-step"><span class="n">2</span><span class="t">Choose a chart type</span></div>' +
           '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
           CC.VIZ_TYPES.map(function (t) {
             return '<button class="cp-chip' + (b.viz === t.id ? ' is-on' : '') + '" data-b-viz="' + KX.attr(t.id) +
               '" title="' + KX.attr(t.hint) + '">' + micon(t.icon, { size: 14 }) + ' ' + esc(t.label) + '</button>';
           }).join('') + '</div>' +
-          paramPanelHtml() +
-          (preview ? '<div style="margin-top:14px">' + widgetPreviewHtml(preview) + '</div>' : '') +
-          '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
-          '<vaadin-button theme="primary" id="cpBAdd">' + micon('add', { size: 16 }) +
-          '<span class="kx-btn-label">Add to dashboard</span></vaadin-button>' +
-          '<span style="font-size:12px;color:var(--ink-500)">You can fine-tune all of this later, too.</span></div>'
+          // STEP 3 and everything downstream of it wait on step 2's answer.
+          (!b.viz
+            ? '<div style="margin-top:14px">' +
+              waiting('tune', 'Choose how to show it',
+                (rec ? 'For this metric we\'d suggest <b>' + esc(rec.label) + '</b>. ' : '') +
+                'Pick a chart type to preview it and set its parameters.') +
+              '</div>'
+            : paramPanelHtml() +
+              (preview ? '<div style="margin-top:14px">' + widgetPreviewHtml(preview) + '</div>' : '') +
+              '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
+              '<vaadin-button theme="primary" id="cpBAdd">' + micon('add', { size: 16 }) +
+              '<span class="kx-btn-label">Add to dashboard</span></vaadin-button>' +
+              '<span style="font-size:12px;color:var(--ink-500)">You can fine-tune all of this later, too.</span></div>')
       ) + '</div></div>';
   }
 
@@ -1576,8 +1603,15 @@
 
   // Shell with Simple / Advanced tabs. `modal` drops the big header and the
   // "just ask" footer — those belong to the empty state, not the dialog.
+  //
+  // The Advanced tab is v2 (CP.advancedBuilderEnabled). With the flag off the
+  // pill is not rendered at all rather than shown disabled: a one-option
+  // segmented control is a control that cannot be used, and it would sit
+  // directly above a step numbered "1", reading as a step of its own.
   function widgetBuilderHtml(modal) {
     var b = state.builder;
+    var advanced = CP.advancedBuilderEnabled();
+    if (!advanced) b.tab = 'simple';
     var TABS = [
       { id: 'simple', label: 'Simple', icon: 'tune' },
       { id: 'advanced', label: 'Advanced', icon: 'insights' }
@@ -1589,16 +1623,23 @@
     return '<div class="cp-builder' + (modal ? ' is-modal' : '') + '">' +
       (modal ? '' : '<div class="cp-builder-head">' + agencyIntelMark(52) +
         '<h2>Let’s build your first widget</h2></div>') +
-      '<div class="cp-builder-tabs"><div class="cp-builder-modes">' +
-      TABS.map(function (t) {
-        return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:6px;' +
-          'padding:7px 18px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
-          'font-family:inherit;background:' + (b.tab === t.id ? 'var(--surface-1)' : 'transparent') + ';color:' +
-          (b.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)') + ';box-shadow:' +
-          (b.tab === t.id ? 'var(--elev-1)' : 'none') + '">' +
-          micon(t.icon, { size: 15 }) + ' ' + esc(t.label) + '</button>';
-      }).join('') + '</div>' +
-      '<div class="cp-builder-sub">' + esc(subtitle) + '</div></div>' +
+      // With no pill to explain and a dialog header already carrying a
+      // subtitle, the modal would otherwise print two sub-lines in a row.
+      (advanced || !modal
+        ? '<div class="cp-builder-tabs">' +
+          (advanced
+            ? '<div class="cp-builder-modes">' +
+              TABS.map(function (t) {
+                return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:6px;' +
+                  'padding:7px 18px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
+                  'font-family:inherit;background:' + (b.tab === t.id ? 'var(--surface-1)' : 'transparent') + ';color:' +
+                  (b.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)') + ';box-shadow:' +
+                  (b.tab === t.id ? 'var(--elev-1)' : 'none') + '">' +
+                  micon(t.icon, { size: 15 }) + ' ' + esc(t.label) + '</button>';
+              }).join('') + '</div>'
+            : '') +
+          '<div class="cp-builder-sub">' + esc(subtitle) + '</div></div>'
+        : '') +
       (b.tab === 'simple' ? simpleBuilderHtml() : advancedBuilderHtml()) +
       (modal ? '' : '<div class="cp-builder-foot">or <button id="cpBAskFocus">' +
         'just ask Agency Intelligence →</button></div>') +
@@ -1761,8 +1802,11 @@
       'aria-label="Add a widget to this dashboard">' +
       '<span class="cpw-add-mark" aria-hidden="true">' + micon('add', { size: 24 }) + '</span>' +
       '<span class="cpw-add-title">Add widget</span>' +
-      '<span class="cpw-add-sub">Chart a metric, build a table, or ask Agency ' +
-      'Intelligence to draft one</span></button>';
+      '<span class="cpw-add-sub">' +
+      (CP.advancedBuilderEnabled()
+        ? 'Chart a metric, build a table, or ask Agency Intelligence to draft one'
+        : 'Chart a metric and choose how it shows on this dashboard') +
+      '</span></button>';
   }
 
   /* =====================================================================
@@ -3189,7 +3233,12 @@
       if (bm) {
         var mid = bm.getAttribute('data-b-metric');
         state.builder.metric = mid;
-        state.builder.viz = CC.DEFAULT_VIZ[mid] || 'kpi';
+        // Deliberately NOT pre-filled with CC.DEFAULT_VIZ any more. Picking a
+        // metric used to answer step 2 for you, which meant steps 2 AND 3
+        // appeared together and the chart type read as already decided. The
+        // recommendation is still surfaced — as a hint on step 2 — but the
+        // choice is now the person's, and step 3 waits for it.
+        state.builder.viz = null;
         state.builder.include = [];
         render();
         return;
@@ -3424,10 +3473,19 @@
     state.builder = freshBuilder();
     KX.openDialog({
       title: 'Add a widget',
-      subtitle: 'Chart one metric, or go Advanced — correlate, tabulate, write, or ask.',
+      // The Advanced half of this sentence only makes sense while that tab is
+      // on the pill; with the v1 flag it would promise a route that isn't there.
+      subtitle: CP.advancedBuilderEnabled()
+        ? 'Chart one metric, or go Advanced — correlate, tabulate, write, or ask.'
+        : 'Chart one metric — pick it, choose how to show it, then set the parameters.',
       icon: 'add_chart',
       accent: 'var(--amber-500)',
-      width: '860px',
+      // Wider than the usual dialog: the builder is a two-column layout whose
+      // left column is the full metric list and whose right column carries a
+      // live widget preview at something close to canvas scale. At 860px the
+      // chart-type chips wrapped to three rows and the preview read as a
+      // thumbnail rather than a widget.
+      width: '1080px',
       body: '<div id="cpAddWidgetHost">' + widgetBuilderHtml(true) + '</div>',
       onMount: function (body, dlg) {
         // The builder's own Add buttons close the dialog once a widget lands.
