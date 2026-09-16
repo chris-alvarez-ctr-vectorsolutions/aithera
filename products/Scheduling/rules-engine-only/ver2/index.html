@@ -242,6 +242,20 @@
   .form-group > .fg-label { font-size: 11px; font-weight: 600; color: rgba(0,0,0,.55); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
   .field-reveal { animation: fieldReveal .3s ease both; }
   .field-hl { border-radius: 8px; box-shadow: 0 0 0 2px rgba(124,58,237,.55), 0 0 22px 2px rgba(124,58,237,.32); background: linear-gradient(135deg, rgba(124,58,237,.07), rgba(99,102,241,.04)); transition: box-shadow .35s ease, background .35s ease; padding: 10px; margin-left: -10px; margin-right: -10px; }
+  /* Chat → config link: when a chat interaction writes into the configuration
+     panel, the whole pane flashes a purple ring + shows an "Applying changes…"
+     badge in its header — so it reads that the chat on the left is driving the
+     configuration on the right. Cleared after the animation by clearApplying(). */
+  .rb-config.applying { animation: cfgApplyRing 1.7s ease; }
+  @keyframes cfgApplyRing {
+    0%   { box-shadow: inset 0 0 0 0 rgba(124,58,237,0); }
+    16%  { box-shadow: inset 0 0 0 3px rgba(124,58,237,.5), inset 0 0 46px rgba(124,58,237,.14); }
+    100% { box-shadow: inset 0 0 0 0 rgba(124,58,237,0); }
+  }
+  .cfg-applying { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 8px; border-radius: 999px; background: var(--ai-grad); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; flex: none; animation: cfgBadgeIn .22s ease both; }
+  .cfg-applying i { font-size: 10px; animation: cfgBadgeSpin 1s linear infinite; }
+  @keyframes cfgBadgeIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  @keyframes cfgBadgeSpin { to { transform: rotate(360deg); } }
   .sub-field { margin-bottom: 22px; margin-top: -10px; padding-left: 14px; border-left: 2px solid rgba(124,58,237,.18); }
   .radio-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: rgba(24,39,58,.87); }
   .radio-dot { width: 16px; height: 16px; border-radius: 50%; border: 2px solid rgba(0,0,0,.28); background: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; transition: all .15s; }
@@ -2318,6 +2332,7 @@ function initBuilder(seed) {
     input: '', typing: false, composerSpotlight: false, customAnswer: false,
     chipSelections: new Set(), attachments: [], cfgOpen: true, previewing: false,
     revealedFields: revealed, newestField: null, newestFieldTimer: null,
+    applying: false, applyingTimer: null,
     panelEditCount: 0, richOpen: null,
   };
 }
@@ -2349,9 +2364,12 @@ function patchForm(updates, opts = {}) {
     if (!bld.revealedFields.has(k)) newlyAdded.push(k);
     bld.revealedFields.add(k);
   });
+  const chatDrivenChange = opts.fromChat && Object.keys(updates).length > 0;
   if (opts.fromChat) {
     const focusField = newlyAdded.filter(k => k !== 'ruleName').pop();
     if (focusField) setNewestField(focusField);
+    // Flag the whole panel as "applying" so the header badge renders below.
+    if (chatDrivenChange) markConfigApplying();
   }
 
   if (!opts.fromChat) {
@@ -2383,6 +2401,41 @@ function patchForm(updates, opts = {}) {
     }
   }
   renderBuilderPanel();
+  // Panel is (re)rendered — now pulse the ring so it re-fires on rapid applies.
+  if (chatDrivenChange) pulseConfigRing();
+}
+
+// ── Chat → config "applying changes" highlight ───────────────────────
+// A chat interaction just wrote into the configuration panel: flag the badge,
+// pulse the ring, and schedule the state to clear after the animation.
+function markConfigApplying() {
+  bld.applying = true;
+  clearTimeout(bld.applyingTimer);
+  bld.applyingTimer = setTimeout(clearApplying, 1700);
+}
+function pulseConfigRing() {
+  const panel = byId('rule-builder-config');
+  if (!panel) return;               // panel collapsed to the rail → nothing to flash
+  panel.classList.remove('applying');
+  void panel.offsetWidth;           // force reflow so the animation restarts each time
+  panel.classList.add('applying');
+}
+function clearApplying() {
+  if (!bld) return;
+  bld.applying = false;
+  const panel = byId('rule-builder-config');
+  if (panel) panel.classList.remove('applying');
+  const badge = byId('cfgApplyBadge');
+  if (badge) badge.replaceWith(topNextPillHtml());  // restore the "Next" pill in place
+}
+// The "Next: <employee>" pill that normally sits where the badge shows.
+function topNextPillHtml() {
+  const span = document.createElement('span');
+  const top = rankEmployees(bld.form)[0];
+  if (!top) { span.style.display = 'none'; return span; }
+  span.className = 'next-pill';
+  span.innerHTML = `<span class="next-tag">Next</span><span style="overflow:hidden;text-overflow:ellipsis;max-width:140px">${esc(top.name)}</span>`;
+  return span;
 }
 
 function setNewestField(field) {
@@ -3252,7 +3305,7 @@ function renderBuilderPanel() {
     <div class="cfg-head-row">
       <span style="font-size:13px;font-weight:600;color:var(--ink);flex:none">Rule configuration</span>
       <div style="flex:1"></div>
-      ${top ? `<span class="next-pill"><span class="next-tag">Next</span><span style="overflow:hidden;text-overflow:ellipsis;max-width:140px">${esc(top.name)}</span></span>` : ''}
+      ${bld.applying ? `<span class="cfg-applying" id="cfgApplyBadge"><i class="fa-solid fa-wand-magic-sparkles"></i>Applying changes…</span>` : (top ? `<span class="next-pill"><span class="next-tag">Next</span><span style="overflow:hidden;text-overflow:ellipsis;max-width:140px">${esc(top.name)}</span></span>` : '')}
       <button data-rb="close-config" title="Collapse panel" aria-label="Collapse panel" style="width:20px;height:20px;border-radius:4px;border:none;background:none;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;padding:0;color:rgba(0,0,0,.42)"><i class="fa-solid fa-chevron-right" style="font-size:10px"></i></button>
     </div>`;
 
@@ -4037,7 +4090,7 @@ function renderSimulator(el, opts, isRerender) {
       <div style="padding:8px 12px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.2);border-radius:6px;font-size:12px;line-height:1.4;color:var(--ai-deep)">Hit the ${SIM_MAX_STEPS}-callback limit. Reset to run more.</div>`;
 
   const bottomBar = `
-    <div style="border-top:1px solid rgba(0,0,0,.07);padding:12px 18px;background:#FAFAFC;flex:none">
+    <div style="position:sticky;top:0;z-index:5;border-bottom:1px solid rgba(0,0,0,.07);padding:12px 18px;background:#FAFAFC;flex:none;box-shadow:0 2px 6px rgba(28,48,74,.05)">
       ${bottomBarInner}
     </div>`;
 
@@ -4116,6 +4169,7 @@ function renderSimulator(el, opts, isRerender) {
         </div>
       </div>
       ` : `
+      ${bottomBar}
       <div style="padding:14px 22px 12px;border-bottom:1px solid rgba(0,0,0,.07);flex:none;background:#FAFAFC">
         <div class="muted-cap" style="margin-bottom:10px;display:flex;align-items:center;gap:8px">
           <span>Callback chain ${currentStepIdx > 0 ? `· ${currentStepIdx} run` : ''}</span>
@@ -4124,7 +4178,6 @@ function renderSimulator(el, opts, isRerender) {
         ${stepper}
         ${chainRows}
       </div>
-      ${bottomBar}
       ${rankingList}`}`}
     </div>`;
 
@@ -4361,27 +4414,29 @@ document.addEventListener('mousedown', (e) => {
 });
 
 /* ── Boot ───────────────────────────────────────────────────────────── */
-// V1 lands directly in the rule builder with a complete rule already filled in,
-// so the author is one click from the chat-free ranking preview.
-startBuilder({ existingRule: RULES_DATA[0] });
+// Start at the first step of the rules engine: a blank AI rule builder. The chat
+// opens on its first question ("guide me / describe it / upload MOU") with nothing
+// pre-filled, and the configuration panel fills in as the conversation progresses.
+startBuilder({});
 
 /* ── Flow Map host contract (Design Toolbox) ──────────────────────────────
-   V1 is a two-screen flow driven by the 🗺 Flow Map button:
-     builder  — ENTRY: the AI rule builder, landing with a complete rule already
-                filled in (mock boots here). A "Preview ranking" button sits by
-                Save Rule on both the configure and chat sides.
-     preview  — the chat-free ranking simulator (Callback Settings + call order).
-   With no #fm hash the mock boots into the pre-filled builder via startBuilder(). */
+   Two-screen flow driven by the 🗺 Flow Map button:
+     builder  — ENTRY: the blank AI rule builder, the first step of the rules
+                engine (mock boots here). The chat opens on its first question and
+                the configuration panel fills in as the conversation progresses.
+     preview  — the chat-free ranking simulator (Callback Settings + call order),
+                seeded with a sample rule so the predicted call order is live.
+   With no #fm hash the mock boots into the blank builder via startBuilder({}). */
 function applyFlowState(id, opts) {
   opts = opts || {};
   switch (id) {
-    case 'preview':                 // chat-free ranking simulator, entered from the builder
+    case 'preview':                 // chat-free ranking simulator — seeded so the ranking is populated
       startBuilder({ existingRule: RULES_DATA[0] });
       enterPreview();
       break;
-    case 'builder':                 // ENTRY: pre-filled AI rule builder
+    case 'builder':                 // ENTRY: blank AI rule builder (first step)
     default:
-      startBuilder({ existingRule: RULES_DATA[0] });
+      startBuilder({});
   }
   if (!opts.instant) window.scrollTo(0, 0);
 }
@@ -4406,8 +4461,8 @@ window.TOOLBOX_CONFIG = {
         lane: { x: 20, y: 20, w: 860, h: 320 }, labelXY: { x: 40, y: 40 } }
     ],
     nodes: [
-      { id: 'builder', flow: 'rb', entry: true, x: 90, y: 150, step: 'Step 1 · Entry', name: 'Rule Builder (pre-filled)', state: 'builder', match: ['Add new rule', 'Save Rule', 'Preview ranking'],
-        desc: 'The dual-screen AI rule builder, landing with a complete rule already filled in. Once enough is set, a secondary "Preview ranking" button appears next to Save Rule — on both the configure side and the chat side.' },
+      { id: 'builder', flow: 'rb', entry: true, x: 90, y: 150, step: 'Step 1 · Entry', name: 'Rule Builder (blank)', state: 'builder', match: ['Add new rule', 'Save Rule', 'Preview ranking'],
+        desc: 'The dual-screen AI rule builder — the first step of the rules engine. The chat opens on its first question (guide me / describe it / upload MOU) with nothing pre-filled; the configuration panel on the right fills in as the conversation progresses. Once enough is set, a secondary "Preview ranking" button appears next to Save Rule — on both the configure side and the chat side.' },
       { id: 'preview', flow: 'rb', x: 470, y: 150, step: 'Step 2', name: 'Preview (chat-free)', state: 'preview', match: ['Preview Mode', 'Callback Settings', 'Predicted call order'],
         desc: 'Chat-free ranking simulator — no AI chat. Callback Settings on the left (approach, shift, filters); the predicted call order / callback list on the right, updating as inputs change. Back returns to the builder.' }
     ],
