@@ -9,7 +9,7 @@
    the flow is genuinely seamless.
 
    The five "light" steps (intro / video / scene / closing / results) render
-   here as content modules. The heavyweight Marshall scenario is a full-screen
+   here as content modules. The heavyweight Renee scenario is a full-screen
    app of its own, so it stays its own page (clara/scenario.html); the
    crossing into and out of it is a cross-document View Transition (see the CSS
    in clara/course.html). The scenario hands back by navigating to
@@ -115,24 +115,23 @@
       // The scene the Perform stage opens on.
       lede: 'In a second you’ll be at the tool crib as the shift changes over. Take in who’s here ' +
             'and what’s going on, then it’s your call how to respond. There’s no perfect script to follow.',
-      // The five tactics, shown in this environment's terms.
+      // The four moves, shown in this environment's terms.
       ds: {
-        Direct:   '“That’s not okay — drop it.” Said to Jake, in front of the crew.',
-        Distract: '“Jake — the forklift guy’s looking for you.” The joke dies on its own.',
-        Delegate: 'Loop in the shift lead Jake actually listens to.',
-        Delay:    '“I saw that. You good?” — catching them at the clock-out beats never.',
-        Document: 'Date, shift, exact words. Specifics move investigations.'
+        Direct:          '“That’s not okay — drop it.” Said to Greg, in front of the crew.',
+        Indirect:        '“Greg — the forklift guy’s looking for you.” The comment dies on its own.',
+        'Offer Support': '“I saw that. You good?” — catching them at the clock-out beats never.',
+        Escalate:        'Report it to the shift lead — date, shift, exact words. Specifics move investigations.'
       },
       drill: [
-        'Jake’s mid-“joke”, the crew’s laughing, and you’re two feet away at the crib window.',
+        'Greg’s mid-comment, the crew’s laughing, and you’re two feet away at the crib window.',
         'You froze. The shift changed over and everyone’s already on the floor.',
-        'The one doing it is your supervisor’s friend, and he runs the line you work.',
-        'Third shift running. Same target, same “joke”, same handover.'
+        'The one doing it is your supervisor’s friend, and he decides who gets the good shifts.',
+        'Third shift running. Same target, same comment, same handover.'
       ],
       // The remediation scene, when a check miss inserts it.
       remediationWhen: 'Friday, shift meeting',
-      remediationText: 'Jake tries the same “joke” again — this time about Priya, in front of the whole shift. ' +
-                       'The room goes quiet and waits to see what you do.'
+      remediationText: 'Greg tries the same comment again — this time about a colleague everyone likes, in front ' +
+                       'of the whole shift. The room goes quiet and waits to see what you do.'
     },
     office: {
       label: 'Office',
@@ -143,21 +142,20 @@
       lede: 'In a second you’ll be in a Monday stand-up that goes sideways. Take in who’s here ' +
             'and what’s going on, then it’s your call how to respond. There’s no perfect script to follow.',
       ds: {
-        Direct:   '“That’s not okay — drop it.” Said to Jake, with the room listening.',
-        Distract: '“Jake — can you pull up the numbers?” The joke dies on its own.',
-        Delegate: 'Take it to the manager Jake actually listens to.',
-        Delay:    '“I saw that. You good?” — catching them after the call beats never.',
-        Document: 'Date, meeting, exact words. Specifics move investigations.'
+        Direct:          '“That’s not okay — drop it.” Said to Greg, with the room listening.',
+        Indirect:        '“Greg — can you pull up the numbers?” The comment dies on its own.',
+        'Offer Support': '“I saw that. You good?” — catching them after the call beats never.',
+        Escalate:        'Report it to HR — date, meeting, exact words. Specifics move investigations.'
       },
       drill: [
-        'Jake’s mid-“joke”, half the table is laughing, and you’re sitting right next to him.',
+        'Greg’s mid-comment, half the table is laughing, and you’re sitting right next to him.',
         'You froze. The stand-up moved on and everyone’s back at their desks.',
-        'The one doing it is your supervisor’s friend, and he assigns your work.',
-        'Third stand-up in a row. Same target, same “joke”, same table.'
+        'The one doing it is your supervisor’s friend, and he signs off on her review.',
+        'Third stand-up in a row. Same target, same comment, same table.'
       ],
       remediationWhen: 'Friday, team meeting',
-      remediationText: 'Jake tries the same “joke” again — this time about Priya, in front of the whole team. ' +
-                       'The room goes quiet and waits to see what you do.'
+      remediationText: 'Greg tries the same comment again — this time about a colleague everyone likes, in front ' +
+                       'of the whole team. The room goes quiet and waits to see what you do.'
     }
   };
   var LENS_ORDER = ['plant', 'office'];
@@ -255,7 +253,7 @@
   // Step 2 — gated pre-roll video with CLARA's comprehension check.
   var VIDEO_QUESTION = {
     stem: 'Quick check — <strong>After watching this video, how confident are you that you know the basics of sexual harassment?</strong>',
-    // Self-report — this is the course intro, not the Marshall clip, so there is no
+    // Self-report — this is the course intro, not the Renee clip, so there is no
     // right answer. Any choice acknowledges the learner and unlocks Continue.
     options: [
       { t: 'Pretty confident',   reply: 'Love that. We’ll put it to work in a real moment in a bit.' },
@@ -326,7 +324,7 @@
     return [
       { icon: 'fa-id-badge', label: 'Your role', value: L.role },
       { icon: 'fa-location-dot', label: 'Where', value: L.where },
-      { icon: 'fa-users', label: 'Who’s here', value: 'Marshall & Jake' },
+      { icon: 'fa-users', label: 'Who’s here', value: 'Greg & Renee' },
       { icon: 'fa-clock', label: 'When', value: L.when }
     ];
   }
@@ -355,15 +353,15 @@
         '<header class="cp-hero-band">' +
           '<div class="cp-hero">' +
             '<p class="ll-eyebrow">Workplace Conduct &amp; Harassment</p>' +
-            '<h1>Bystander Intervention</h1>' +
-            '<p class="cp-desc">Learn to read the moment, choose an intervention, and follow up with the ' +
-              'targeted person.</p>' +
+            '<h1>Harassment Prevention</h1>' +
+            '<p class="cp-desc">Learn to recognize sex-based harassment, choose an intervention, and follow up ' +
+              'with the targeted person.</p>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar"></i> Required · due Sep 15</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
             '</div>' +
           '</div>' +
-          '<div class="cp-hero-img" role="img" aria-label="The break room from the course’s practice scenario"></div>' +
+          '<div class="cp-hero-img" role="img" aria-label="Renee and Greg in the office from the course’s practice scenario"></div>' +
         '</header>' +
       '<div class="cp-grid">' +
         '<div>' +
@@ -461,7 +459,7 @@
   // answer here buys is the tactics lessons, and a definition question doesn't
   // evidence those. Choosing the strongest move shows both halves at once: that
   // the moves exist, and that you can pick the one this moment calls for.
-  // The options are three of the five Ds, so the near-miss is a real tactic
+  // The options are three of the four moves, so the near-miss is a real tactic
   // rather than a wrong answer — the same best/near shape the drill teaches.
   var BASELINE_Q1 = {
     stem: 'A coworker won’t stop “joking” about a colleague’s body. You’re right there. What’s the strongest move?',
@@ -472,7 +470,7 @@
       { t: 'Check in with them after', icon: 'fa-hourglass-half', band: 1,
         reply: 'That’s a real move, and it beats nothing — but you’re right there. Choosing between them is what we’ll practise.' },
       { t: 'Nothing — not my place', icon: 'fa-ban', band: 1,
-        reply: 'It is your place — and there are five ways to step in, most of them quieter than you’d expect. We’ll walk through them.' }
+        reply: 'It is your place — and there are a few ways to step in, most of them quieter than you’d expect. We’ll walk through them.' }
     ]
   };
   var BASELINE_Q2 = {
@@ -588,7 +586,7 @@
       '</div>' +
       '<div class="mp-scene" style="margin-top:12px">' +
         '<div class="mp-scene-tag"><i class="fa-solid fa-shuffle" aria-hidden="true"></i> Question 2</div>' +
-        '<p>The part after the moment — what you just practised with Priya.</p>' +
+        '<p>The part after the moment — what you just practised with Renee.</p>' +
       '</div>' +
     '</main>';
   var CHECK_LOCKED_STD = {
@@ -606,12 +604,12 @@
     wrongReply: 'It’s actually false — protections aren’t gated on paperwork. This is the one everybody has to get, so look again.'
   };
   var CHECK_SAMPLED = {
-    stem: 'Last one — <strong>you stepped in and the moment has passed. Priya’s back at her desk. What’s the strongest follow-up?</strong>',
+    stem: 'Last one — <strong>you stepped in and the moment has passed. Renee’s back at her desk. What’s the strongest follow-up?</strong>',
     options: [
       { t: '“I saw what happened. You good? I’ve got your back if you want to report it.”', good: true,
         reply: 'That’s the full skill — witnessed, checked in, offered support without taking over. Nothing to fix. On to the scenario.' },
-      { t: '“Ignore Jake — he’s harmless.”', good: false,
-        reply: 'That minimizes it — and asks Priya to carry it alone. This matters, so we fix it now: I’m adding two minutes of rehearsal before we go on.' },
+      { t: '“Ignore Greg — he’s harmless.”', good: false,
+        reply: 'That minimizes it — and asks Renee to carry it alone. This matters, so we fix it now: I’m adding two minutes of rehearsal before we go on.' },
       { t: '“Want me to say something next time?”', good: false,
         reply: '“Next time” concedes there’ll be one — and you saw this time. We fix it now, not later: two minutes of rehearsal coming up.' }
     ]
@@ -685,22 +683,104 @@
     }
   }
 
-  // LEARN — "A real case": the former wrap-up clip, now a plain Learn beat
-  // (no question; the mastery items moved to the Check step).
+  // LEARN — "A real case": a read-based case study, not a video. The former
+  // wrap-up clip's captions named Marshall's case specifically ("Marshall's
+  // case is based on a real case from 2024"), and no equivalent footage
+  // exists for Renee's fact pattern — so this beat now follows the same
+  // ungated, self-paced read pattern as AUDIO_CONTENT ("Why rooms stay
+  // quiet"). No question; the mastery items live in the Check step.
+  var CASE_TEXT =
+    'Here’s a case built from a pattern that shows up again and again in real harassment claims — not one ' +
+    'lawsuit, but the shape most of them share. A supervisor’s comments about a colleague start as “just his ' +
+    'sense of humor,” repeated often enough that everyone stops reacting to them. The turning point is rarely ' +
+    'the comment itself — it’s the moment he undercuts her in front of a client, on the record, where the ' +
+    'pattern stops looking like teasing and starts looking like something a hostile-work-environment claim can ' +
+    'be built around. In court, the company’s defense is almost always the same: “it was just his sense of ' +
+    'humor.” What actually sinks that defense is coworkers testifying they saw it for months and stayed quiet, ' +
+    'each one assuming someone else would say something. Nobody did — until it was already in front of a ' +
+    'lawyer. That’s the whole reason this course exists: the moment that would have mattered was the first ' +
+    'one, not the last.';
+  var CASE_CONTENT =
+    '<main class="ll-object is-read">' +
+      '<p class="ll-eyebrow">Read or listen: 2 minutes</p>' +
+      '<h2>A real case.</h2>' +
+      '<p class="ll-sub">A composite drawn from real harassment claims, not any single lawsuit. Read it at ' +
+        'your own pace, or tap “Read to me” to hear it read aloud.</p>' +
+      '<div class="aud-wrap">' +
+        '<button class="aud-play" id="casePlay" type="button"><i class="fa-solid fa-volume-high"></i> Read to me</button>' +
+        '<p class="aud-text" id="caseTextEl"></p>' +
+        '<p class="aud-note" id="caseNote"><i class="fa-solid fa-circle-info"></i> Narration uses your browser’s built-in speech — a stand-in for the produced voice track.</p>' +
+      '</div>' +
+    '</main>';
   function caseInit(ctx) {
-    var video = document.getElementById('courseVideo');
-    var ended = false;
-    preloadVideoFully(video);
-    wireVideoSkip(video);
-    video.addEventListener('play', function () { ctx.floatClose(); });
-    video.addEventListener('ended', function () {
-      if (ended) return; ended = true;
-      ctx.floatOpen();
-      ctx.setCoachSay('That’s the real-world close — a case that went to court because nobody stepped in. Ready to keep moving.');
-      saveResult('casevideo', { watched: true });
-      ctx.enableNext();
-      ctx.positionOrb(true);
+    var words = CASE_TEXT.split(' ');
+    var textEl = document.getElementById('caseTextEl');
+    var offsets = []; var pos = 0;
+    textEl.innerHTML = words.map(function (w, i) {
+      offsets.push(pos); pos += w.length + 1;
+      return '<span class="w" data-i="' + i + '">' + esc(w) + '</span>';
+    }).join(' ');
+    var spans = textEl.querySelectorAll('.w');
+    var playBtn = document.getElementById('casePlay');
+    var noteEl = document.getElementById('caseNote');
+    var playing = false, heard = false;
+
+    // The read counts as delivered on arrival — the learner sets the pace and
+    // Continue is already live, so there's no event left to credit it against.
+    saveResult('casevideo', { done: true, mode: 'read' });
+
+    function wordAt(charIndex) {
+      for (var i = offsets.length - 1; i >= 0; i--) if (charIndex >= offsets[i]) return i;
+      return 0;
+    }
+    function highlight(i) {
+      spans.forEach(function (sp, j) { sp.classList.toggle('hot', j === i); });
+    }
+    function label(icon, text) {
+      playBtn.innerHTML = '<i class="fa-solid ' + icon + '"></i> ' + text;
+    }
+    function stop(icon, text) {
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      playing = false;
+      playBtn.classList.remove('on');
+      spans.forEach(function (sp) { sp.classList.remove('hot'); });
+      label(icon, text);
+    }
+    playBtn.addEventListener('click', function () {
+      if (noteEl) noteEl.classList.add('show');
+      if (!('speechSynthesis' in window)) {
+        playBtn.disabled = true;
+        label('fa-circle-exclamation', 'Narration unavailable');
+        return;
+      }
+      if (playing) { stop('fa-volume-high', 'Read to me'); return; }
+      var u = new SpeechSynthesisUtterance(CASE_TEXT);
+      u.rate = 1.0;
+      u.onboundary = function (e) { if (e.name === 'word' || e.charIndex != null) highlight(wordAt(e.charIndex)); };
+      u.onend = function () {
+        stop('fa-rotate-left', 'Read it again');
+        if (heard) return;
+        heard = true;
+        saveResult('casevideo', { done: true, mode: 'listen' });
+        ctx.setCoachSay('That’s the real-world close — a case that went to court because nobody stepped in. Ready to keep moving.');
+        ctx.positionOrb(true);
+      };
+      playing = true;
+      playBtn.classList.add('on');
+      label('fa-pause', 'Pause');
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
     });
+
+    var stageEl = document.querySelector('.ll-stage');
+    if (stageEl && window.MutationObserver) {
+      var mo = new MutationObserver(function () {
+        if (document.body.contains(textEl)) return;
+        mo.disconnect();
+        if ('speechSynthesis' in window) speechSynthesis.cancel();
+      });
+      mo.observe(stageEl, { childList: true });
+    }
   }
 
   // ==========================================================================
@@ -710,29 +790,32 @@
   //  Do beats survive compression — beliefs and skills still need teaching.
   // ==========================================================================
 
-  // LEARN · Know (K3/K4) — "Terms to Remember": the five Ds as flip cards.
+  // LEARN · Know (K3/K4) — "Terms to Remember": the four moves as flip cards.
   // Gate: every card flipped. Compressed away by a strong entry battery.
   // The tactic and its definition are the objective and never move. Only the
   // worked example is lensed — that's the context-sensitive half.
-  var FIVE_DS = [
+  // The four moves, taken verbatim from Renee's own scene data (not
+  // invented): scene.actionCalibration names Direct and Indirect as the two
+  // STRONG in-the-moment signal styles, and scene.debrief.points names
+  // "the three moves to carry — Pick an Action, Offer Support … Consider
+  // Escalating." Direct/Indirect together ARE "Pick an Action."
+  var MOVES = [
     { icon: 'fa-bullhorn', name: 'Direct',
-      def: 'Name what’s happening and ask it to stop.' },
-    { icon: 'fa-arrows-split-up-and-left', name: 'Distract',
-      def: 'Break the moment without confronting anyone.' },
-    { icon: 'fa-user-group', name: 'Delegate',
-      def: 'Bring in someone better placed to act.' },
-    { icon: 'fa-hourglass-half', name: 'Delay',
-      def: 'Check in with the target once the moment passes.' },
-    { icon: 'fa-file-lines', name: 'Document',
-      def: 'Record what, when, who — so a report can act.' }
+      def: 'Name what’s happening, to the person doing it, and ask them to stop.' },
+    { icon: 'fa-arrows-split-up-and-left', name: 'Indirect',
+      def: 'Redirect the moment without naming it — no confrontation, and it still lands.' },
+    { icon: 'fa-hourglass-half', name: 'Offer Support',
+      def: 'Check in with the target once the moment passes — she isn’t carrying it alone.' },
+    { icon: 'fa-file-lines', name: 'Escalate',
+      def: 'Report it — to HR, documented. Some policies require a witness to report what they saw.' }
   ];
   function TERMS_CONTENT() { return '' +
     '<main class="ll-object">' +
-      '<p class="ll-eyebrow">Review: 5 flip cards</p>' +
-      '<h2>The Five Ds.</h2>' +
-      '<p class="ll-sub">Five ways to step in. Flip each card for what it means and what it sounds like.</p>' +
+      '<p class="ll-eyebrow">Review: 4 flip cards</p>' +
+      '<h2>The Four Moves.</h2>' +
+      '<p class="ll-sub">Four ways to step in. Flip each card for what it means and what it sounds like.</p>' +
       '<div class="tr-grid" id="trGrid">' +
-        FIVE_DS.map(function (d, i) {
+        MOVES.map(function (d, i) {
           return '<button class="tr-card" type="button" data-i="' + i + '" aria-label="Flip: ' + esc(d.name) + '">' +
             '<span class="tr-inner">' +
               '<span class="tr-face"><i class="fa-solid ' + d.icon + '" aria-hidden="true"></i><b>' + esc(d.name) + '</b><span class="hint">Tap to flip</span></span>' +
@@ -741,7 +824,7 @@
           '</button>';
         }).join('') +
       '</div>' +
-      '<p class="tr-progress" id="trProgress"><b>0</b> of 5 flipped</p>' +
+      '<p class="tr-progress" id="trProgress"><b>0</b> of 4 flipped</p>' +
     '</main>'; }
   function termsInit(ctx) {
     var flipped = 0;
@@ -750,10 +833,10 @@
         if (card.classList.contains('flipped')) return;
         card.classList.add('flipped');
         flipped++;
-        document.getElementById('trProgress').innerHTML = '<b>' + flipped + '</b> of 5 flipped';
+        document.getElementById('trProgress').innerHTML = '<b>' + flipped + '</b> of 4 flipped';
         if (flipped === 2) ctx.setCoachSay('Direct gets the headlines, but every one of these counts as stepping in.');
-        if (flipped === 5) {
-          ctx.setCoachSay('All five. Remember: the goal isn’t the perfect move — it’s any move.');
+        if (flipped === 4) {
+          ctx.setCoachSay('All four. Remember: the goal isn’t the perfect move — it’s any move.');
           saveResult('terms', { done: true });
           ctx.enableNext();
           ctx.positionOrb(true);
@@ -864,27 +947,27 @@
   }
 
   // LEARN · Know (K4 select the tactic) — "Pick your move": four situations,
-  // tap the D that fits. Some situations accept a second-best answer with a
-  // coaching note. Compressible.
+  // tap the move that fits. Some situations accept a second-best answer with
+  // a coaching note. Compressible.
   var DRILL_SITS = [
-    { best: 'Direct', near: 'Distract',
+    { best: 'Direct', near: 'Indirect',
       ok: 'Right — you’re close, it’s live, and naming it lands hardest in the moment.',
-      nearMsg: 'Distract works too — but this close, Direct is stronger. Take it when you can.' },
-    { best: 'Delay', near: null,
+      nearMsg: 'Indirect works too — but this close, Direct is stronger. Take it when you can.' },
+    { best: 'Offer Support', near: null,
       ok: 'Exactly — the moment passing doesn’t end your options. The check-in is still an intervention.' },
-    { best: 'Delegate', near: 'Document',
-      ok: 'Right — power gaps are what Delegate is for. Find the person they’ll actually hear.',
-      nearMsg: 'Documenting helps — but someone with standing needs to act. Delegate first, document alongside.' },
-    { best: 'Document', near: 'Delegate',
-      ok: 'Yes — a pattern needs a record. Dates, words, witnesses: that’s what moves an investigation.',
-      nearMsg: 'Escalating is fair — but a pattern without a record is one person’s word. Document it too.' }
+    { best: 'Indirect', near: 'Direct',
+      ok: 'Right — a redirect gets the same stop without opening a confrontation with someone who controls her review.',
+      nearMsg: 'Direct isn’t wrong — but this close to someone with power over her review, a redirect gets the same stop with less risk.' },
+    { best: 'Escalate', near: 'Offer Support',
+      ok: 'Yes — a pattern needs a report. Dates, words, witnesses: that’s what moves an investigation.',
+      nearMsg: 'Checking in matters — but a pattern without a report is one person’s word. Escalate it too.' }
   ];
-  var DRILL_DS = ['Direct', 'Distract', 'Delegate', 'Delay', 'Document'];
+  var DRILL_DS = ['Direct', 'Indirect', 'Offer Support', 'Escalate'];
   function DRILL_CONTENT() { return '' +
     '<main class="ll-object">' +
       '<p class="ll-eyebrow">Practice: 4 questions</p>' +
       '<h2>Pick your move.</h2>' +
-      '<p class="ll-sub">Four moments, five moves. Pick the one that fits; you’ll see the stronger option if there was one.</p>' +
+      '<p class="ll-sub">Four moments, four moves. Pick the one that fits; you’ll see the stronger option if there was one.</p>' +
       '<div class="dr-wrap">' +
         '<div class="dr-card"><span class="tag" id="drTag">Moment 1 of 4</span><p id="drText"></p></div>' +
         '<div class="dr-ds" id="drDs">' +
@@ -973,7 +1056,7 @@
     '</main>'; }
   function normsInit(ctx) {
     ctx.floatOpen();
-    ctx.setCoachSay('Quick gut check first — <strong>if you called out Jake’s “joke” in front of the crew, how would most of them react?</strong> Answer honestly; the real numbers come next.');
+    ctx.setCoachSay('Quick gut check first — <strong>if you called out Greg in front of the crew, how would most of them react?</strong> Answer honestly; the real numbers come next.');
     var picked = null;
     document.querySelectorAll('.pr-choice').forEach(function (b) {
       b.addEventListener('click', function () {
@@ -1025,7 +1108,7 @@
       '<h2>Could you pull it off?</h2>' +
       '<p class="ll-sub">Not whether you should — whether you could, without it blowing up on you.</p>' +
       '<div class="ef-wrap">' +
-        '<p class="ef-q">If you said something to Jake in front of everyone, how confident are you that it would go ' +
+        '<p class="ef-q">If you said something to Greg in front of everyone, how confident are you that it would go ' +
           '<em>fine</em> — no scene, no fallout for you?</p>' +
         '<div class="ef-slider">' +
           '<input type="range" id="efRange" min="0" max="100" value="50" step="1" ' +
@@ -1087,7 +1170,7 @@
   //  runs in real time and the window closes on its own; the learner either
   //  moves inside it or watches it shut. Missing is a legitimate outcome and
   //  is NOT retried — the moment genuinely passing is the teaching, and it
-  //  hands off to Delay, which is what the drill already taught. Gates on
+  //  hands off to Offer Support, which is what the drill already taught. Gates on
   //  having taken the run, not on having caught it. Never compressible.
   // ==========================================================================
   var ACTIVATE_CONTENT =
@@ -1110,11 +1193,11 @@
   // The cue is line 3. Everything before it is the room filling in; the window
   // opens on the line that makes intervening warranted.
   var ACTIVATE_SCENE = [
-    { who: 'Jake',   at: 0,    text: 'Alright, who’s on the crib tonight?' },
+    { who: 'Greg',   at: 0,    text: 'Alright, who’s got notes today?' },
     { who: 'Room',   at: 1400, text: '(general shuffling, someone laughs at something else)', mute: true },
-    { who: 'Jake',   at: 3000, text: 'Oh — Priya’s on. Hey Priya, still doing that thing with the—', cue: true },
+    { who: 'Greg',   at: 3000, text: 'Oh — Renee’s on. Course she is — our office mom, keeping us all in line.', cue: true },
     { who: 'Room',   at: 4600, text: '(a couple of people laugh. Someone glances at you.)', mute: true },
-    { who: 'Jake',   at: 6400, text: 'What? It’s a compliment. Relax.' }
+    { who: 'Greg',   at: 6400, text: 'What? It’s a compliment. Relax.' }
   ];
   var ACTIVATE_WINDOW = 6200;   // ms the cue stays actionable, from the cue line
   function activateInit(ctx) {
@@ -1174,27 +1257,27 @@
       verdict.className = 'ac-verdict ' + (inTime ? 'ok' : 'late');
       verdict.innerHTML = inTime
         ? '<i class="fa-solid fa-circle-check"></i> You moved <b>' + (ms / 1000).toFixed(1) + ' seconds</b> after the line landed — while the room was still deciding what it thought.'
-        : '<i class="fa-solid fa-clock"></i> The moment closed. Jake moved on and the room settled — which is exactly how most of them end.';
+        : '<i class="fa-solid fa-clock"></i> The moment closed. Greg moved on and the room settled — which is exactly how most of them end.';
       ctx.setCoachSay(inTime
         ? 'That’s the whole skill. Not the wording — the timing. You spoke while it was still one comment instead of a pattern everyone had agreed to ignore.'
-        : 'That’s honest, and it’s the common outcome — the window is genuinely short. It doesn’t end your options, though: this is exactly where Delay earns its place. Catch Priya afterwards.');
+        : 'That’s honest, and it’s the common outcome — the window is genuinely short. It doesn’t end your options, though: this is exactly where Offer Support earns its place. Catch Renee afterwards.');
       saveResult('activate', { acted: inTime, ms: ms });
       ctx.enableNext();
       ctx.positionOrb(true);
     }
   }
 
-  // LEARN · Do (D4 sustain) — "Conversation Step-In": Priya texts after the
+  // LEARN · Do (D4 sustain) — "Conversation Step-In": Renee texts after the
   // incident and the learner takes the thread over. Rehearsal AS instruction —
   // this beat is what the mastery check's sampled item then tests.
   var STEPIN_CONTENT =
     '<main class="ll-object">' +
       '<p class="ll-eyebrow">Practice: text conversation</p>' +
       '<h2>After the moment.</h2>' +
-      '<p class="ll-sub">The step almost everyone skips: the follow-up. Priya just texted you — pick the reply you’d actually send.</p>' +
+      '<p class="ll-sub">The step almost everyone skips: the follow-up. Renee just texted you — pick the reply you’d actually send.</p>' +
       '<div class="sms-wrap">' +
         '<div class="sms-thread" id="smsThread">' +
-          '<div class="sms-head"><span class="sms-ava">P</span><b>Priya</b><small>now</small></div>' +
+          '<div class="sms-head"><span class="sms-ava">R</span><b>Renee</b><small>now</small></div>' +
         '</div>' +
         '<div class="sms-replies" id="smsReplies" hidden></div>' +
         '<div class="sms-anatomy" id="smsAnatomy">' +
@@ -1208,21 +1291,21 @@
       '</div>' +
     '</main>';
   var STEPIN_OPENERS = [
-    'hey. did everyone hear jake today or was it just loud in my head',
+    'hey. did everyone hear greg today or was it just loud in my head',
     'whatever. it’s fine.'
   ];
   var STEPIN_REPLIES = [
     { t: '“It wasn’t fine — I heard it too. You good? Your call what happens next, but I’ve got your back if you want to report it.”',
       good: true,
-      priya: 'ok. honestly that helps. maybe tomorrow — but thanks for saying you heard it.',
+      renee: 'ok. honestly that helps. maybe tomorrow — but thanks for saying you heard it.',
       coach: 'That’s the whole skill in one message — witnessed, checked in, offered without taking over. This exact move is objective <b>D4</b>, and it shows up again very soon.' },
     { t: '“He’s like that with everyone, honestly. Don’t let him get to you.”',
       good: false,
-      priya: 'yeah. sure.',
+      renee: 'yeah. sure.',
       coach: 'Feel that thread go cold? “He’s like that” tells her the room accepts it — and leaves her alone with it. Try again: what would you want someone to say to you?' },
     { t: '“You should report him RIGHT NOW. Want me to walk you to HR??”',
       good: false,
-      priya: 'whoa — i don’t know. i wasn’t asking for that.',
+      renee: 'whoa — i don’t know. i wasn’t asking for that.',
       coach: 'Right instinct, wrong grip. Reporting is <em>her</em> call — pressure turns support into another thing happening <em>to</em> her. Offer it; don’t drive it.' }
   ];
   function stepinInit(ctx) {
@@ -1257,7 +1340,7 @@
     }
     function send(r, btn) {
       addMsg('you', r.t.replace(/^“|”$/g, ''));
-      setTimeout(function () { addMsg('them', r.priya); }, T(900));
+      setTimeout(function () { addMsg('them', r.renee); }, T(900));
       setTimeout(function () {
         ctx.setCoachSay(r.coach);
         if (r.good) {
@@ -1307,7 +1390,7 @@
   // you know the moves — and the intro clip shortens because recognising the
   // behaviour is exactly what it's there to teach. Everything else stays.
   var ADJUST_ROWS = [
-    { step: 'terms',     icon: 'fa-list-check',      label: 'The Five Ds',   kind: 'drop'   },
+    { step: 'terms',     icon: 'fa-list-check',      label: 'The Four Moves', kind: 'drop'  },
     { step: 'drill',     icon: 'fa-hand-pointer',    label: 'Pick your move', kind: 'drop'  },
     { step: 'video',     icon: 'fa-circle-play',     label: 'Intro video',   kind: 'short'  },
     { step: 'check',     icon: 'fa-clipboard-check', label: 'Mastery check', kind: 'harder' }
@@ -1421,21 +1504,21 @@
   var PRACTICE_Q1 = {
     stem: 'Right there, in the room — <strong>what do you say?</strong>',
     options: [
-      { t: '“That’s not okay, Jake. Drop it.”', good: true,
+      { t: '“That’s not okay, Greg. Drop it.”', good: true,
         reply: 'That’s it — short, direct, names the behavior, no debate opened. That line works in any room.' },
       { t: '“Ha… anyway — about the schedule.”', good: false,
-        reply: 'That’s a deflection — it changes the subject but tells the room the joke was fine. Try the direct version.' },
+        reply: 'That’s a deflection — it changes the subject but tells the room the comment was fine. Try the direct version.' },
       { t: '“Come on — we’ve talked about this. Not cool.”', good: true,
         reply: 'Good — it names it and references the earlier conversation. Direct beats clever every time.' }
     ]
   };
   var PRACTICE_Q2 = {
-    stem: 'Now the part almost everyone skips — <strong>Priya’s back at her desk. What’s your check-in?</strong>',
+    stem: 'Now the part almost everyone skips — <strong>Renee’s back at her desk. What’s your check-in?</strong>',
     options: [
       { t: '“I saw what happened. You good? I’ve got your back if you want to report it.”', good: true,
         reply: 'Exactly — you witnessed it, you checked in, and you offered support without taking over. That’s the full skill.' },
-      { t: '“Ignore Jake — he’s harmless.”', good: false,
-        reply: 'That minimizes it — and asks Priya to carry it alone. Acknowledge what you saw instead.' },
+      { t: '“Ignore Greg — he’s harmless.”', good: false,
+        reply: 'That minimizes it — and asks Renee to carry it alone. Acknowledge what you saw instead.' },
       { t: '“Want me to say something next time?”', good: false,
         reply: 'Kind instinct — but “next time” concedes there’ll be one, and you already saw this time. Lead with what you witnessed.' }
     ]
@@ -1445,7 +1528,7 @@
     rep(PRACTICE_Q1, function () {
       setTimeout(function () {
         document.getElementById('mpSceneText').textContent =
-          'The meeting breaks up. Priya heads back to her desk, quieter than usual.';
+          'The meeting breaks up. Renee heads back to her desk, quieter than usual.';
         document.querySelector('#mpScene .mp-scene-tag').innerHTML =
           '<i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Ten minutes later';
         rep(PRACTICE_Q2, function () {
@@ -1514,21 +1597,21 @@
       knowledge: base.knowledge >= 2
         ? 'Verified the intervention tactics at entry, then held the locked mastery item' + (up ? ' at the advanced tier' : '') + ' — first try.'
         : 'Built through the full path, then held the compliance-locked mastery item.',
-      beliefs: '“Someone had to say it — better me than nobody.” — the Marshall scenario',
-      norms: 'Read the break room’s silence as pressure — and acted anyway. — the Marshall scenario',
+      beliefs: '“Someone had to say it — better me than nobody.” — the Renee scenario',
+      norms: 'Read the break room’s silence as pressure — and acted anyway. — the Renee scenario',
       skills: remediated
         ? '“I saw what happened. You good?” — the follow-up, rehearsed in remediation, then executed live in the scenario.'
         : ck.item2 === 'good'
           ? 'Picked the strong follow-up at the mastery check — then executed the tactic live under pushback.'
           : ck.missed
             ? 'The follow-up never landed — remediation still queued.'
-            : 'Executed the chosen tactic live and held it under pushback. — the Marshall scenario',
+            : 'Executed the chosen tactic live and held it under pushback. — the Renee scenario',
       control: (course.efficacy && typeof course.efficacy.confidence === 'number')
         ? 'Rated your own odds at ' + course.efficacy.confidence + '/100 before the practice — then held up under real pushback.'
-        : 'Held steady under Jake’s pushback in the scenario.',
+        : 'Held steady under Greg’s pushback in the scenario.',
       activate: (course.activate && course.activate.acted)
         ? 'Spoke ' + (course.activate.ms / 1000).toFixed(1) + 's after the cue landed, while the window was still open.'
-        : 'The window closed before you moved — the most common outcome, and the reason Delay is taught alongside.'
+        : 'The window closed before you moved — the most common outcome, and the reason Offer Support is taught alongside.'
     };
     var atGood = CONSTRUCTS.filter(function (c) { return after[c.key] >= 2; }).length;
     return { base: base, after: after, evidence: evidence, atGood: atGood, strength: strength, up: up,
@@ -1640,7 +1723,7 @@
   //  Learn beats; a check miss inserts remediation), so "Section n of N" is
   //  itself part of the recomposition demo.
   // ==========================================================================
-  var COURSE = 'Bystander Intervention';
+  var COURSE = 'Harassment Prevention';
   var STEPS = [
     { id: 'intro', mode: 'floating', lesson: 'Welcome', cover: true, nextLabel: 'Start course',
       caption: { title: 'Course title page · Floating companion', note: 'The standard LMS anatomy — description, live sections list, requirements, coordinator — rendered from the actual path, so it foreshadows compression and stays honest on return visits. The bottom nav is the CTA: Start course, no back, no counter.' },
@@ -1659,7 +1742,7 @@
     // of an adaptive system that decided not to act.
     { id: 'compress', icon: 'fa-diagram-project', mins: 1, stage: 'Entry', mode: 'crown', lesson: 'What You Can Skip', gate: true, interstitial: true,
       when: function () { return entryStrength() === 'compressed'; },
-      caption: { title: 'ENTRY · Knowledge Layer · Crowned guide', note: 'Runs ONLY when compression fired — a learner who proved nothing skips this screen entirely, because “nothing was removed” is a non-event and would land as an extra screen on the longer path. The Learning Layer scores the entry check against module BO-2’s SME-signed objectives and compresses only the beats that check actually evidences (test-out): the tactics cluster (K3 the five Ds + K4 selecting one — they stand or fall together) and the intro clip, which shortens because its “how to respond” half is exactly what the item evidences. The barriers beat and the closing case are NOT compressible — nothing at entry probes them. Two questions buy two lessons, not four. The screen shows the learner ONLY what changed — fixed beats, the objective vocabulary and the audit chain are deliberately absent, because none of it answers a learner’s question. The audit chain still exists for administrators: objective → evidence → change, nothing silent. Locked items and the Perform stage are untouchable. Presenter control: Demo — flip entry result.' },
+      caption: { title: 'ENTRY · Knowledge Layer · Crowned guide', note: 'Runs ONLY when compression fired — a learner who proved nothing skips this screen entirely, because “nothing was removed” is a non-event and would land as an extra screen on the longer path. The Learning Layer scores the entry check against module BO-2’s SME-signed objectives and compresses only the beats that check actually evidences (test-out): the tactics cluster (K3 the four moves + K4 selecting one — they stand or fall together) and the intro clip, which shortens because its “how to respond” half is exactly what the item evidences. The barriers beat and the closing case are NOT compressible — nothing at entry probes them. Two questions buy two lessons, not four. The screen shows the learner ONLY what changed — fixed beats, the objective vocabulary and the audit chain are deliberately absent, because none of it answers a learner’s question. The audit chain still exists for administrators: objective → evidence → change, nothing silent. Locked items and the Perform stage are untouchable. Presenter control: Demo — flip entry result.' },
       coach: {},   // the crown is the orb alone — no narration on this step
       content: ADJUST_CONTENT, init: compressInit },
 
@@ -1678,16 +1761,16 @@
       coach: { say: 'Short one — read it at your own pace. If you’d rather hear it, tap “Read to me”.' },
       content: AUDIO_CONTENT, init: audioInit },
 
-    { id: 'terms', icon: 'fa-list-check', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'The Five Ds', gate: true,
+    { id: 'terms', icon: 'fa-list-check', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'The Four Moves', gate: true,
       when: function () { return entryStrength() === 'full'; },
-      caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The five Ds as flip cards (K3) — one of the two beats the entry check compresses away, paired with the tactic drill: they stand or fall together. Gate: every card flipped.' },
+      caption: { title: 'LEARN · Know beat — Terms to Remember', note: 'The four moves as flip cards (K3) — one of the two beats the entry check compresses away, paired with the tactic drill: they stand or fall together. Gate: every card flipped.' },
       coach: { say: 'Notice what separates them — distance, power, timing. That’s what decides which one you’d reach for.' },
       content: TERMS_CONTENT, init: termsInit },
 
     { id: 'drill', icon: 'fa-hand-pointer', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'Pick Your Move', gate: true,
       when: function () { return entryStrength() === 'full'; },
-      caption: { title: 'LEARN · Know beat — tactic drill', note: 'Four situations, five Ds (K4, select the tactic) — best answers plus accepted seconds with coaching notes. The other half of the compressible tactics cluster.' },
-      coach: { say: 'You know the five moves — now pick the right one under real constraints.' },
+      caption: { title: 'LEARN · Know beat — tactic drill', note: 'Four situations, four moves (K4, select the tactic) — best answers plus accepted seconds with coaching notes. The other half of the compressible tactics cluster.' },
+      coach: { say: 'You know the four moves — now pick the right one under real constraints.' },
       content: DRILL_CONTENT, init: drillInit },
 
     { id: 'norms', icon: 'fa-users', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'Would They Back You?', gate: true,
@@ -1703,23 +1786,21 @@
 
     // Do · activate. The beat no question could stand in for.
     { id: 'activate', icon: 'fa-bolt', mins: 1, stage: 'Learn', mode: 'floating', lesson: 'Say It While It’s Open', gate: true,
-      caption: { title: 'LEARN · Do beat — activate', note: 'Objective D1 (Do / Activate): recognize and act on the cue while the moment is still open. This is the deck’s “a question cannot credibly measure behavior” made literal — the scene runs in real time and the window closes on its own. Missing is a legitimate outcome and is NOT retried: the moment passing is the teaching, and it hands off to Delay. Gates on having taken the run, not on catching it. Survives compression on every path.' },
+      caption: { title: 'LEARN · Do beat — activate', note: 'Objective D1 (Do / Activate): recognize and act on the cue while the moment is still open. This is the deck’s “a question cannot credibly measure behavior” made literal — the scene runs in real time and the window closes on its own. Missing is a legitimate outcome and is NOT retried: the moment passing is the teaching, and it hands off to Offer Support. Gates on having taken the run, not on catching it. Survives compression on every path.' },
       coach: { say: 'Loading…' },
       content: ACTIVATE_CONTENT, init: activateInit },
 
     { id: 'stepin', icon: 'fa-comment-dots', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'After the Moment', gate: true,
-      caption: { title: 'LEARN · Do beat — Conversation Step-In', note: 'Rehearsal as instruction (D4): Priya texts after the incident and the learner takes the thread over. Weak replies get Priya’s real reaction and another try. This beat is what the mastery check’s sampled item then tests.' },
+      caption: { title: 'LEARN · Do beat — Conversation Step-In', note: 'Rehearsal as instruction (D4): Renee texts after the incident and the learner takes the thread over. Weak replies get Renee’s real reaction and another try. This beat is what the mastery check’s sampled item then tests.' },
       coach: { say: 'Loading…' },   // stepinInit runs the thread immediately
       content: STEPIN_CONTENT, init: stepinInit },
 
     // Not compressible either — the closing case is the emotional anchor, and
     // nothing at entry evidences it. Runs on every path.
-    { id: 'casevideo', icon: 'fa-scale-balanced', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'A Real Case', gate: true,
-      caption: { title: 'LEARN · Case beat', note: 'The real-case close, on every path — it’s the emotional anchor and nothing at entry evidences it. No question here; the mastery items live in the Check stage.' },
-      coach: { say: 'One real case before the check — press play.' },
-      content: videoContent({ eyebrow: 'Watch: 2 minute video', heading: 'A real case',
-        sub: 'A real case that ended up in court, and what it cost.',
-        src: '../../assets/videos/marshall-postscenario.mp4' }),
+    { id: 'casevideo', icon: 'fa-scale-balanced', mins: 2, stage: 'Learn', mode: 'floating', lesson: 'A Real Case',
+      caption: { title: 'LEARN · Case beat — a short read', note: 'The real-case close, on every path — it’s the emotional anchor and nothing at entry evidences it. A read, not a video (see caseInit): no footage matches Renee’s fact pattern, so this follows the same ungated, self-paced read pattern as the "audio" step. No question here; the mastery items live in the Check stage.' },
+      coach: { say: 'One real case before the check — take it at your own pace.' },
+      content: CASE_CONTENT,
       init: caseInit },
 
     { id: 'check', icon: 'fa-clipboard-check', mins: 1, stage: 'Check', mode: 'floating', lesson: 'Mastery Check', gate: true,
@@ -1735,10 +1816,10 @@
 
     { id: 'scene', icon: 'fa-clapperboard', mins: 1, stage: 'Perform', mode: 'ambient', lesson: 'Setting the Scene', nextLabel: 'Enter scenario',
       caption: { title: 'PERFORM · Scene-setting', note: 'The establishing shot for the Perform stage. The scenario page skips its own establishing card and drops straight into the cold-open.' },
-      coach: { eyebrow: 'Practice scenario', headline: '“The Marshall Scenario”', lede: true },   // lede text comes from the lens
+      coach: { eyebrow: 'Practice scenario', headline: '“The Renee Scenario”', lede: true },   // lede text comes from the lens
       init: sceneInit },
 
-    { id: 'scenario', icon: 'fa-comments', mins: 8, stage: 'Perform', external: 'scenario.html', lesson: 'The Marshall Scenario' },
+    { id: 'scenario', icon: 'fa-comments', mins: 8, stage: 'Perform', external: 'scenario.html', lesson: 'The Renee Scenario' },
 
     { id: 'results', icon: 'fa-chart-simple', mins: 2, stage: 'Record', mode: 'sidebar', lesson: 'Your Aptitude Profile',
       caption: { title: 'RECORD · Aptitude profile', note: 'Construct-by-construct bands from entry to close, the recompositions that happened live, and the cross-module payoff: Perform evidence pre-verifies objectives in the learner’s next course.' },
