@@ -14,9 +14,11 @@ Manufacturing lens) against two new inputs Chris supplied:
   anywhere in this repo) to prove specific V1 capabilities in front of customers
   in November.
 
-**Nothing in the prototype has been changed yet.** Eleven of the twelve forks
-below are now decided (§2a) — one (D12, the K1 compliance-lock flag) is still
-open. §5 is the firm build plan against those decisions.
+**Status as of 2026-09-17: round 1 (§5, sections A–E) is fully shipped.** All
+twelve forks are decided (§2a), including D12. What's left is queued for
+round 2 (§6) — the workbench and Learning Layer view resync, and
+Education/AEC/Public sector scenario parity — deliberately deferred, not
+outstanding from this round.
 
 ## 0. Before touching anything
 
@@ -367,6 +369,25 @@ on a few more live runs before calling this fully reliable.
 9. Self-assigned learner identity, resumable progress, and URL-prefillable
    params for role, name, and media preference. Decide placement — `sharps.html`
    itself vs. the composite shell `clara/bloodborne.html` — before building. — M.
+
+   **Shipped (`138ea274`).** Placement: `sharps.html`'s own cover screen
+   (`intro`), not the composite shell. Every deep link this module shares
+   already points at `sharps.html` directly, and role/name/media are
+   module-4-scoped concerns that already live in this file (`LENSES`,
+   `sh-modality`) — `bloodborne.html` is a separate, differently-scoped
+   prototype (item 20/D8) with its own scorecard, not a natural home for this.
+   Built: a "Your role" picker (four sectors, previously reachable only via
+   the reviewer-only Demo → Context lens cycle) and a "Your name" field, both
+   on the title page and both seedable from a stamped link
+   (`?role=`/`?name=`/`?media=`); and resumable progress — the engine now
+   remembers the furthest screen actually reached, and the title page offers
+   "Resume where you left off" / "Start over" only when a real prior visit
+   exists. Verified live: all three URL params seed correctly on a fresh
+   session, the role picker switches sectors and the whole screen catches up
+   (hero chip, org name, coordinator), the name field persists, and both
+   resume actions behave correctly (jump back / clean reset). One bug found
+   and fixed during verification (`introInit` referenced a variable that was
+   only in scope one function over).
 
 **Not building this round (D8, D9):** role-based content and translation. No
 line items — both are explicitly parked, see §2a.
