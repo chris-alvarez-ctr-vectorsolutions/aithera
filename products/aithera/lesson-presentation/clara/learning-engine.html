@@ -794,7 +794,7 @@ body.mode-reference .ctxswitch { display: none; }
 
   <footer class="transport">
     <div class="plan-wrap">
-      <div class="plan-label"><i class="fa-solid fa-layer-group"></i> The plan · cards handed to the Experience Layer, in order <small>· click a played card to review it; review asks nothing and records nothing</small></div>
+      <div class="plan-label"><i class="fa-solid fa-layer-group"></i> The plan · cards handed to the Experience Layer, in order <small>· click any card to jump to it; only the live card asks anything or records anything</small></div>
       <div class="plan" id="plan"></div>
     </div>
     <div class="transport-btns" id="transportBtns"></div>
@@ -1684,7 +1684,7 @@ body.mode-reference .ctxswitch { display: none; }
   function renderPlan() {
     const el = $('#plan'); let n = 0;
     el.innerHTML = S.plan.map((c, i) => {
-      const cur = i === S.cur ? 'cur' : '', done = i < S.cur ? 'doneCard' : '';
+      const cur = i === S.cur ? 'cur' : '', done = i < S.maxCur ? 'doneCard' : '';
       if (c.kind === 'day') return `<div class="day-divider">Tomorrow · goal still open</div>`;
       n++;
       if (c.kind === 'pre') return `<div class="pcardm sys ${cur} ${done}" data-i="${i}"><div class="no"><span>${n}</span><span>BATTERY</span></div><div class="id">Pre battery</div><div class="modl">${c.items.length} questions</div><div class="chk">Know + Feel only</div></div>`;
@@ -1697,7 +1697,7 @@ body.mode-reference .ctxswitch { display: none; }
       const chk = c.check === 'rubric' ? 'rubric' : c.check === 'feel' ? '"after" statement' : c.check === 'know' ? 'knowledge check' : c.testUp ? 'no check · proven' : c.lo.policy === 'none' ? 'no check · None' : 'no check';
       return `<div class="pcardm ${cls} ${c.remediation ? 'rem' : ''} ${cur} ${done}" data-i="${i}">${badge}<div class="no"><span>${n}</span><span>${c.lo.sub ? c.lo.sub.toUpperCase() : 'INTRO'}</span></div><div class="id">${c.lo.id}${c.compliance ? ' <small style="font-weight:400;color:var(--mute)">(delivered anyway)</small>' : ''}</div><div class="modl">${modIcon(c.m)} ${MOD[c.m].l}</div><div class="chk">${chk}</div></div>`;
     }).join('');
-    $$('.pcardm', el).forEach(p => p.addEventListener('click', () => { const i = +p.dataset.i; if (i <= S.maxCur) { S.cur = i; renderAll(); } }));
+    $$('.pcardm', el).forEach(p => p.addEventListener('click', () => { const i = +p.dataset.i; if (i !== S.cur) { S.cur = i; renderAll(); } }));
     const curEl = $('.pcardm.cur', el); if (curEl && curEl.scrollIntoView) curEl.scrollIntoView({ block: 'nearest', inline: 'center' });
   }
 
@@ -1811,11 +1811,14 @@ body.mode-reference .ctxswitch { display: none; }
       const why = `<b>${c.rule === 'default' ? 'No rule fired' : 'Rule ' + c.rule}:</b> ${c.why}`;
       note.innerHTML = `<b>This card:</b> ${cardMeta(c)}<br>${why}${c.dress ? ` ${c.dress.replace(/\.$/, '')} (${c.dressWhy}).` : ''} ${c.checkWhy}${feelBefore}${scoring}${candidates}`;
     }
-    if (S.cur < S.maxCur) {
-      // review: looking back at a card already played. No questions, no effect on the record.
-      if (c.kind === 'lo' && c.done && c.check) html += `<div class="qbox" style="border-color:#b7dcc2"><div class="qq" style="margin:0"><i class="fa-solid fa-check" style="color:var(--do)"></i> Your answer: ${resultLabel(c)}</div></div>`;
+    if (S.cur !== S.maxCur) {
+      // review/preview: looking at a card other than the live one. No questions, no effect on the record.
+      const ahead = S.cur > S.maxCur;
+      if (!ahead && c.kind === 'lo' && c.done && c.check) html += `<div class="qbox" style="border-color:#b7dcc2"><div class="qq" style="margin:0"><i class="fa-solid fa-check" style="color:var(--do)"></i> Your answer: ${resultLabel(c)}</div></div>`;
       f = btn('Back to where you were', 'primary', 'resume', 'fa-arrow-right');
-      note.innerHTML = `<b>Review:</b> a card already played. Nothing is re-asked and nothing is re-recorded. ` + note.innerHTML;
+      note.innerHTML = (ahead
+        ? `<b>Preview:</b> a card not yet reached. Nothing here is asked or recorded until the run actually gets here. `
+        : `<b>Review:</b> a card already played. Nothing is re-asked and nothing is re-recorded. `) + note.innerHTML;
     }
     body.innerHTML = html; foot.innerHTML = f;
     $$('[data-act]', foot).forEach(b => b.addEventListener('click', () => act(b.dataset.act)));
@@ -1998,7 +2001,7 @@ body.mode-reference .ctxswitch { display: none; }
   }
 
   function renderTransport() {
-    const c = S.plan[S.cur], reviewing = S.cur < S.maxCur, atEnd = c.kind === 'mastered';
+    const c = S.plan[S.cur], reviewing = S.cur !== S.maxCur, atEnd = c.kind === 'mastered';
     $('#transportBtns').innerHTML = `
       <button class="btn primary" data-act="story" ${atEnd || playing ? 'disabled' : ''}><i class="fa-solid fa-play"></i> Play the document's story</button>
       <button class="btn" data-act="day" ${atEnd || reviewing || S.set.recent || c.kind === 'pre' ? 'disabled' : ''}><i class="fa-solid fa-moon"></i> Close browser, come back tomorrow</button>
@@ -2012,7 +2015,7 @@ body.mode-reference .ctxswitch { display: none; }
      Actions
      --------------------------------------------------------------------- */
   function switchModality(m) {
-    const c = S.plan[S.cur]; if (c.kind !== 'lo' || c.m === m || c.done) return;
+    const c = S.plan[S.cur]; if (c.kind !== 'lo' || c.m === m || c.done || S.cur !== S.maxCur) return;
     if (m === 'roleplay' && !S.set.cost) return;                             // cost control already declined it
     if (c.remediation && (S.seen[c.lo.id] || []).includes(m)) return;        // a repeat always uses a new form
     const carries = ['video', 'audio', 'text'].includes(m);

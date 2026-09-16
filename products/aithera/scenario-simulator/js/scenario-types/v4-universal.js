@@ -784,9 +784,7 @@
       lead: 'What the scenario is called, and how the production engine identifies it.' },
 
     { id: 'world', group: 'context', icon: 'fa-earth-americas', title: 'Situation & world',
-      lead: 'The situation the learner is shown, plus the reality every scene shares.',
-      bridgeTitle: 'One situation, two audiences',
-      bridge: 'Scenario CML v4 keeps <b>one</b> narrative, written to the learner in second person. It is also the coach\'s only picture of the setup — so the coach can never know a richer version than the learner was shown. The <b>scene world</b> is separate and scene-only: the coach never sees it.' },
+      lead: 'The situation the learner is shown, plus the reality every scene shares.' },
 
     { id: 'voice', group: 'voicetone', icon: 'fa-comment', title: 'Coach voice',
       lead: 'This scenario\'s coaching register. Universal coaching behavior is template-owned — do not re-author it here.' },
@@ -878,24 +876,25 @@
     box.className = 'fields';
 
     if (sec.id === 'basics') {
-      const title = tf('content.title', 'Scenario title', { helper: 'The learner\'s header, and how it appears in listings.' });
+      const title = tf('content.title', 'Scenario title', { helper: 'The learner\'s header, and how it appears in listings.',
+        placeholder: 'e.g. Marshall — Workplace Harassment' });
       box.append(
         title,
         idNote(() => str(liveDoc(H).implementation_id), { label: 'Implementation id' }, title),
         tf('content.landing_cta_label', 'Landing button label', {
-          helper: 'Optional. The button that leaves the situation screen for the first step. Blank uses the player default.' }),
+          helper: 'Optional. The button that leaves the situation screen for the first step. Blank uses the player default.',
+          placeholder: 'e.g. Begin' }),
       );
-      box.append(guidance('Ids are generated — there is nothing here to fill in', 'fa-wand-magic-sparkles',
-        '<p>This scenario\'s id, every character\'s, every step\'s and every findable item\'s are derived from the names you write, and kept unique for you. Rename a character or a step and everything that points at it moves in the same edit.</p>'
-        + '<p>Ids that arrived with an <b>imported</b> document are left exactly as they are. They are that file\'s identity on the wire, and rewriting them would change a scenario you were only editing.</p>'));
     }
 
     if (sec.id === 'world') {
       box.append(
         tf('content.narrative', 'The situation', { area: true, minRows: 4,
-          helper: 'Second person, present tense, addressed to the learner, ending at the moment the experience begins.' }),
+          helper: 'Second person, present tense, addressed to the learner, ending at the moment the experience begins.',
+          placeholder: 'e.g. You\'ve been working alongside Marshall for eight months. Lately, coworkers have started making comments about his appearance and mannerisms — jokes that stopped feeling like jokes a while ago. You haven\'t said anything yet, but you\'re about to.' }),
         tf('content.scene_world.setting', 'Scene setting (one line)', {
-          helper: 'Where and when scenes take place. Rendered at the top of every scene prompt.' }),
+          helper: 'Where and when scenes take place. Rendered at the top of every scene prompt.',
+          placeholder: 'e.g. A shared open-plan office, mid-afternoon on an ordinary workday.' }),
       );
 
       /* The three content-safety toggles are GONE (2026-08-25). They offered an
@@ -915,37 +914,42 @@
         + '<li>A character would only reveal it once earned → put it on that character with a reveal condition.</li></ul>'));
       box.append(rowsBlock('content.scene_world.canon.facts', (f, i, onDel) => rowCard(
         `Fact ${i + 1}`, onDel,
-        tf(`content.scene_world.canon.facts.${i}`, 'Background truth', { area: true, minRows: 2 }),
-      ), 'Add canon fact', () => ''));
+        tf(`content.scene_world.canon.facts.${i}`, 'Background truth', { area: true, minRows: 2,
+          placeholder: 'e.g. The team has been short-staffed for two months' }),
+      ), 'Add canon fact', () => '', { title: 'Canon facts', lead: 'Background truths every scene shares — see above for what belongs here.' }));
       box.append(rowsBlock('content.scene_world.characters', (c, i, onDel) => {
         /* The name is built first so the id read-out can listen to it. */
-        const name = tf(`content.scene_world.characters.${i}.name`, 'Name');
+        const name = tf(`content.scene_world.characters.${i}.name`, 'Name', { placeholder: 'e.g. Marshall' });
         return rowCard(
         `Character ${i + 1}`, onDel,
         name,
         idNote(() => idOf(H, c), { label: 'Reference id' }, name),
-        tf(`content.scene_world.characters.${i}.role`, 'Role', { helper: 'Who they are in this world, e.g. "Sofia\'s mother".' }),
+        tf(`content.scene_world.characters.${i}.role`, 'Role', { helper: 'Who they are in this world, e.g. "Sofia\'s mother".',
+          placeholder: 'e.g. Marshall\'s coworker' }),
         tf(`content.scene_world.characters.${i}.behavior.baseline`, 'Baseline', { area: true, minRows: 2,
-          helper: 'Who they are when a scene opens.' }),
+          helper: 'Who they are when a scene opens.', placeholder: 'e.g. Calm, keeps to himself' }),
         tf(`content.scene_world.characters.${i}.behavior.driver`, 'Driver', { area: true, minRows: 2,
-          helper: 'What their behavior responds to — the hinge the learner can move.' }),
+          helper: 'What their behavior responds to — the hinge the learner can move.', placeholder: 'e.g. Fear of losing his job' }),
         /* Guardrails are the lines this character never crosses, and eight of the
            eleven production documents author them. They had no field: the closest
            thing to a per-character safety constraint in the format, invisible. */
         subRows(`content.scene_world.characters.${i}.behavior.guardrails`, 'Guardrail', 'Add guardrail',
-          'A line this character never crosses, however the learner behaves. One per entry.'),
+          'A line this character never crosses, however the learner behaves. One per entry.', 'e.g. Never yells'),
         /* Earned disclosure — a fact this character holds, optionally gated on
            when they will part with it. The mechanic our own ensemble scenarios
            pioneered, with nowhere to author it until now. */
         rowsBlock(`content.scene_world.characters.${i}.canon_facts`, (cf, k, onDel) => rowCard(
           `Fact ${k + 1}`, onDel,
           tf(`content.scene_world.characters.${i}.canon_facts.${k}.fact`, 'What they know', { area: true, minRows: 2,
-            helper: 'True for this character in every scene. Distinct from world canon, which everyone knows.' }),
+            helper: 'True for this character in every scene. Distinct from world canon, which everyone knows.',
+            placeholder: 'e.g. Saw the messages before they went public' }),
           tf(`content.scene_world.characters.${i}.canon_facts.${k}.reveal_when`, 'Reveal when (optional)', { area: true, minRows: 2,
-            helper: 'The condition that earns it. Blank means they may say it freely.' }),
+            helper: 'The condition that earns it. Blank means they may say it freely.',
+            placeholder: 'e.g. Only if asked directly' }),
         ), 'Add known fact', () => ({ fact: '' })),
         );
-      }, 'Add character', () => ({ id: '', name: '', role: '', behavior: { baseline: '', driver: '' }, [AUTO]: true })));
+      }, 'Add character', () => ({ id: '', name: '', role: '', behavior: { baseline: '', driver: '' }, [AUTO]: true }),
+        { title: 'Characters', lead: 'Everyone who can appear in a scene, coached or acted opposite.' }));
       box.append(guidance('Reactions live on each step, not on the card', 'fa-triangle-exclamation',
         '<p>How a character reacts to being handled well or badly belongs in that <b>step\'s</b> quality levels, because reactions differ per scene. A character card is identity and disposition only.</p>'));
     }
@@ -953,14 +957,16 @@
     if (sec.id === 'voice') {
       box.append(
         tf('content.coach_persona', 'Coach persona', { area: true, minRows: 2,
-          helper: 'This scenario\'s register and expertise, as a phrase — e.g. "grounded in employment law".' }),
+          helper: 'This scenario\'s register and expertise, as a phrase — e.g. "grounded in employment law".',
+          placeholder: 'e.g. Grounded in employment law, direct but warm' }),
       );
       box.append(guidance('Do not author universal coaching behavior', 'fa-circle-info',
         '<p>"Affirm before correcting", "never invent facts" and similar are owned by the engine template. Re-authoring them here is rejected by review, and phrasing that describes the AI or the interface fails the content lint outright.</p>'));
       box.append(rowsBlock('content.tone_guidelines', (g, i, onDel) => rowCard(
         `Tone rule ${i + 1}`, onDel,
         tf(`content.tone_guidelines.${i}`, 'Rule', { area: true, minRows: 2,
-          helper: 'Scenario-specific only. Rendered as a bullet in the coach prompt.' }),
+          helper: 'Scenario-specific only. Rendered as a bullet in the coach prompt.',
+          placeholder: 'e.g. Never use legal jargon the learner hasn\'t already used' }),
       ), 'Add tone rule', () => ''));
     }
 
@@ -974,35 +980,43 @@
          green while the editor was lying about what the document contained. */
       box.append(rowsBlock('content.teaching_points', (t, i, onDel) => rowCard(
         `Topic ${i + 1}`, onDel,
-        tf(`content.teaching_points.${i}.topic`, 'Topic', { helper: 'A subject heading, e.g. "The law".' }),
+        tf(`content.teaching_points.${i}.topic`, 'Topic', { helper: 'A subject heading, e.g. "The law".',
+          placeholder: 'e.g. The law' }),
         subRows(`content.teaching_points.${i}.points`, 'Point', 'Add point',
-          'A substantive thing the learner must leave understanding.'),
+          'A substantive thing the learner must leave understanding.',
+          'e.g. Retaliation is illegal even if the original complaint turns out to be unfounded'),
       ), 'Add topic', () => ({ topic: '', points: [''] })));
       box.append(rowsBlock('content.misconceptions', (m, i, onDel) => rowCard(
         `Misconception ${i + 1}`, onDel,
-        tf(`content.misconceptions.${i}.misconception`, 'The wrong belief', { area: true, minRows: 2 }),
-        tf(`content.misconceptions.${i}.redirect`, 'The correction', { area: true, minRows: 2 }),
+        tf(`content.misconceptions.${i}.misconception`, 'The wrong belief', { area: true, minRows: 2,
+          placeholder: 'e.g. Reporting only helps if the harassment is proven' }),
+        tf(`content.misconceptions.${i}.redirect`, 'The correction', { area: true, minRows: 2,
+          placeholder: 'e.g. Protection starts the moment you report in good faith' }),
       ), 'Add misconception', () => ({ misconception: '', redirect: '' })));
     }
 
     if (sec.id === 'opening') {
       box.append(
-        tf('content.opening.label', 'Name of the exchange', { helper: 'Learner-facing, e.g. "First reaction".' }),
+        tf('content.opening.label', 'Name of the exchange', { helper: 'Learner-facing, e.g. "First reaction".',
+          placeholder: 'e.g. First reaction' }),
         tf('content.opening.purpose', 'Purpose', { area: true, minRows: 2,
-          helper: 'Model-facing: what this exchange is for, in the coach\'s map of the arc.' }),
+          helper: 'Model-facing: what this exchange is for, in the coach\'s map of the arc.',
+          placeholder: 'e.g. Gauge the learner\'s gut read before coaching begins' }),
         tf('content.opening.exit.when.turns', 'Turn budget', {
-          helper: 'How many learner turns this exchange gets. Shipped scenarios use 2.' }),
+          helper: 'How many learner turns this exchange gets. Shipped scenarios use 2.', placeholder: 'e.g. 2' }),
         tf('content.opening.exit.final_word', 'Final word', { area: true, minRows: 2,
-          helper: 'The locked closing line, delivered verbatim when the exchange ends. Author it as a statement, never a question.' }),
-        tf('content.opening.input_placeholder', 'Composer placeholder'),
-        tf('content.opening.transition.button_label', 'Continue button label'),
+          helper: 'The locked closing line, delivered verbatim when the exchange ends. Author it as a statement, never a question.',
+          placeholder: 'e.g. Let\'s dig into what happened.' }),
+        tf('content.opening.input_placeholder', 'Composer placeholder', { placeholder: 'e.g. Type your first reaction…' }),
+        tf('content.opening.transition.button_label', 'Continue button label', { placeholder: 'e.g. Continue' }),
         tf('content.opening.transition.text', 'Handoff line (optional)', { area: true, minRows: 2,
-          helper: 'Appended as a locked line once the opening advances.' }),
+          helper: 'Appended as a locked line once the opening advances.', placeholder: 'e.g. Got it — let\'s continue.' }),
       );
       box.append(rowsBlock('content.opening.opening_messages', (m, i, onDel) => rowCard(
         `Opening line ${i + 1}`, onDel,
         tf(`content.opening.opening_messages.${i}.text`, 'Line', { area: true, minRows: 2,
-          helper: 'Locked — delivered verbatim, in order, with no model call.' }),
+          helper: 'Locked — delivered verbatim, in order, with no model call.',
+          placeholder: 'e.g. Before we start — what\'s your gut reaction to what happened?' }),
       ), 'Add line', () => ({ text: '' })));
       box.append(guidance('The opening is ungraded and cannot gate', 'fa-circle-info',
         '<p>It has no exit requirement by design — nothing the learner says holds them here. Its quality levels are <b>partial on purpose</b>: author only the tiers the source material actually grounds, and leave the rest empty. Nothing gates on them either — they only shape how the coach meets the learner before it pivots.</p>'));
@@ -1014,9 +1028,10 @@
       box.append(rowsBlock('content.opening.conditional_probes', (cp, i, onDel) => rowCard(
         `Conditional probe ${i + 1}`, onDel,
         subRows(`content.opening.conditional_probes.${i}.required_concepts`, 'Concept', 'Add concept',
-          'The probe fires only when the learner has NOT covered these. One concept per entry.'),
+          'The probe fires only when the learner has NOT covered these. One concept per entry.', 'e.g. Retaliation'),
         tf(`content.opening.conditional_probes.${i}.probe`, 'The probe', { area: true, minRows: 2,
-          helper: 'Asked once, verbatim, when a required concept is missing.' }),
+          helper: 'Asked once, verbatim, when a required concept is missing.',
+          placeholder: 'e.g. What does the law actually require here?' }),
       ), 'Add conditional probe', () => ({ required_concepts: [''], probe: '' })));
     }
 
@@ -1027,8 +1042,10 @@
     if (sec.id === 'closing') {
       box.append(
         tf('content.closing.ideal_response.summary', 'Summation', { area: true, minRows: 3,
-          helper: 'The expert answer in one paragraph. Shipped verbatim, on every path.' }),
-        tf('content.closing.partner_label', 'Display name on the closing screen', { helper: 'Optional.' }),
+          helper: 'The expert answer in one paragraph. Shipped verbatim, on every path.',
+          placeholder: 'e.g. This is harassment under Title VII, and reporting protects Marshall regardless of outcome.' }),
+        tf('content.closing.partner_label', 'Display name on the closing screen', { helper: 'Optional.',
+          placeholder: 'e.g. Coach' }),
       );
       /* Same list-bound-as-`.0` defect the teaching points had: 24 of the 37
          component groups in the production documents carry more than one
@@ -1036,14 +1053,17 @@
          parts. Every part now has a field. */
       box.append(rowsBlock('content.closing.ideal_response.component_groups', (g, i, onDel) => rowCard(
         `Group ${i + 1}`, onDel,
-        tf(`content.closing.ideal_response.component_groups.${i}.title`, 'Group title', { helper: 'Optional.' }),
+        tf(`content.closing.ideal_response.component_groups.${i}.title`, 'Group title', { helper: 'Optional.',
+          placeholder: 'e.g. The legal standard' }),
         subRows(`content.closing.ideal_response.component_groups.${i}.components`, 'Component', 'Add component',
-          'One part of the expert answer, grouped as the source material groups it.'),
+          'One part of the expert answer, grouped as the source material groups it.',
+          'e.g. Harassment doesn\'t require intent to prove'),
       ), 'Add group', () => ({ title: '', components: [''] })));
       box.append(rowsBlock('content.closing.ideal_response.source_references', (r, i, onDel) => rowCard(
         `Reference ${i + 1}`, onDel,
         tf(`content.closing.ideal_response.source_references.${i}`, 'External authority', {
-          helper: 'A regulation, standard or statute — e.g. "29 CFR 1910.1200" or "Title VII". Never an internal course id.' }),
+          helper: 'A regulation, standard or statute — e.g. "29 CFR 1910.1200" or "Title VII". Never an internal course id.',
+          placeholder: 'e.g. Title VII' }),
       ), 'Add reference', () => ''));
     }
 
@@ -1121,17 +1141,22 @@
       const c = LEVEL_COPY[key];
       const at = basePath + '.levels.' + key;
       const kids = [
-        H.tf(at + '.look_for', 'Look for', { area: true, minRows: 2, helper: c.hint }),
-        H.tf(at + '.response', 'Response', { area: true, minRows: 2, helper: o.responseHint || '' }),
+        H.tf(at + '.look_for', 'Look for', { area: true, minRows: 2, helper: c.hint,
+          placeholder: 'e.g. Names the specific behavior and why it\'s a problem' }),
+        H.tf(at + '.response', 'Response', { area: true, minRows: 2, helper: o.responseHint || '',
+          placeholder: 'e.g. Affirm the read, then ask what they\'d do next' }),
       ];
       if (o.progression) {
         kids.push(H.tf(at + '.progression', 'Progression', { area: true, minRows: 2,
-          helper: 'How far the scene gets and how it resolves at this level. Legal only on a roleplay step.' }));
+          helper: 'How far the scene gets and how it resolves at this level. Legal only on a roleplay step.',
+          placeholder: 'e.g. The conversation stays calm and Marshall opens up' }));
       }
       kids.push(
         H.tf(at + '.example.learner', 'Example — what the learner says', { area: true, minRows: 2,
-          helper: 'Optional. One short worked exchange calibrating the register.' }),
-        H.tf(at + '.example.reply', 'Example — the reply', { area: true, minRows: 2 }),
+          helper: 'Optional. One short worked exchange calibrating the register.',
+          placeholder: 'e.g. "I think this counts as harassment."' }),
+        H.tf(at + '.example.reply', 'Example — the reply', { area: true, minRows: 2,
+          placeholder: 'e.g. "Exactly — walk me through why."' }),
       );
       /* No delete: the vocabulary is the engine's, so there are always exactly
          these three and never a fourth. rowCard omits the control when no
@@ -1425,12 +1450,14 @@
 
       /* --- identity + framing ----------------------------------------- */
       const stepName = tf(`content.phases.${i}.label`, 'Step name', {
-        helper: 'Learner-facing. Use the source material\'s own name — do not restate the position ("Phase 1 —"), the player renders that from the order.' });
+        helper: 'Learner-facing. Use the source material\'s own name — do not restate the position ("Phase 1 —"), the player renders that from the order.',
+        placeholder: 'e.g. Judge the Signs' });
       body.append(
         stepName,
         idNote(() => idOf(H, ph), { label: 'Step id' }, stepName),
         tf(`content.phases.${i}.purpose`, 'Purpose of the step', { area: true, minRows: 2,
-          helper: 'Model-facing: this step\'s role in the coach\'s map of the arc. Not shown to the learner.' }),
+          helper: 'Model-facing: this step\'s role in the coach\'s map of the arc. Not shown to the learner.',
+          placeholder: 'e.g. Test whether the learner can tell harassment from an isolated remark' }),
       );
 
       /* --- practice spine --------------------------------------------- */
@@ -1438,19 +1465,23 @@
         '<p>A practice always opens with <b>locked</b> content, because it asks the learner for something. It ends when the exit requirement is met <b>or</b> the turn budget runs out, whichever comes first — advancement is server-owned and forward-only, so there is no way back.</p>'));
       body.append(
         tf(`content.phases.${i}.practice.label`, 'Practice name (optional)', {
-          helper: 'Learner-facing name for the practice itself, when the source gives it one distinct from the step. Blank uses the step name.' }),
+          helper: 'Learner-facing name for the practice itself, when the source gives it one distinct from the step. Blank uses the step name.',
+          placeholder: 'e.g. Talk to Marshall' }),
         tf(`content.phases.${i}.practice.purpose`, 'Purpose of the practice', { area: true, minRows: 2,
-          helper: 'Model-facing: the practice\'s job.' }),
+          helper: 'Model-facing: the practice\'s job.',
+          placeholder: 'e.g. See if the learner raises it directly and calmly' }),
         numField('Turn budget — learner turns before the practice must close',
           () => Math.max(1, obj(obj(practice.exit).when).turns || 2),
           (n) => { obj(obj(practice.exit).when).turns = n; }, { min: 1 }, scheduleUpdate),
         tf(`content.phases.${i}.practice.exit.when.requirement`, 'Exit requirement (optional)', { area: true, minRows: 2,
-          helper: 'What the learner must observably demonstrate to end this early. Omit when the step\'s job is simply to be had.' }),
+          helper: 'What the learner must observably demonstrate to end this early. Omit when the step\'s job is simply to be had.',
+          placeholder: 'e.g. The learner names the behavior as harassment' }),
         tf(`content.phases.${i}.practice.exit.final_word`, 'Final word (optional)', { area: true, minRows: 2,
-          helper: 'The locked closing line, delivered verbatim by either route. Author it as a statement, never a question.' }),
-        tf(`content.phases.${i}.practice.transition.button_label`, 'Button into the debrief'),
+          helper: 'The locked closing line, delivered verbatim by either route. Author it as a statement, never a question.',
+          placeholder: 'e.g. Let\'s take that to the next step.' }),
+        tf(`content.phases.${i}.practice.transition.button_label`, 'Button into the debrief', { placeholder: 'e.g. Continue' }),
         tf(`content.phases.${i}.practice.transition.text`, 'Handoff line (optional)', { area: true, minRows: 2,
-          helper: 'Appended as a locked line once the step advances.' }),
+          helper: 'Appended as a locked line once the step advances.', placeholder: 'e.g. Good — let\'s talk through it.' }),
       );
 
       /* answer_shape — a declared UX Universal extension, labelled as such so an
@@ -1497,15 +1528,19 @@
       const debrief = obj(ph.debrief);
       body.append(
         tf(`content.phases.${i}.debrief.label`, 'Debrief name', {
-          helper: 'Learner-facing. Use the source deck\'s own name for it, e.g. "Coach Debrief".' }),
-        tf(`content.phases.${i}.debrief.purpose`, 'Purpose (optional)', { area: true, minRows: 2 }),
+          helper: 'Learner-facing. Use the source deck\'s own name for it, e.g. "Coach Debrief".',
+          placeholder: 'e.g. Coach Debrief' }),
+        tf(`content.phases.${i}.debrief.purpose`, 'Purpose (optional)', { area: true, minRows: 2,
+          placeholder: 'e.g. Reinforce what counts as harassment and why' }),
         tf(`content.phases.${i}.debrief.partner_label`, 'Chat header name (optional)', {
-          helper: 'Defaults to the coach label. Author it when the source names the debrief\'s voice differently.' }),
+          helper: 'Defaults to the coach label. Author it when the source names the debrief\'s voice differently.',
+          placeholder: 'e.g. Coach' }),
       );
       body.append(rowsBlock(`content.phases.${i}.debrief.key_points`, (kp, k, onDel) => rowCard(
         `Key point ${k + 1}`, onDel,
         tf(`content.phases.${i}.debrief.key_points.${k}`, 'Statement', { area: true, minRows: 2,
-          helper: 'Authored as a statement, not a topic. Landed regardless of how the learner did.' }),
+          helper: 'Authored as a statement, not a topic. Landed regardless of how the learner did.',
+          placeholder: 'e.g. Harassment doesn\'t need to be physical to be illegal' }),
       ), 'Add key point', () => ''));
       body.append(numField('Follow-up turns (0 = delivery-only)',
         () => Math.max(0, debrief.follow_up_turns || 0),
@@ -1521,19 +1556,22 @@
         if (!debrief.probe) debrief.probe = { text: '' };
         body.append(
           tf(`content.phases.${i}.debrief.probe.text`, 'Locked follow-up question (optional)', { area: true, minRows: 2,
-            helper: 'Delivered verbatim on the debrief\'s first turn, after the feedback on the attempt. Use it when the source scripts an exact question and paraphrase would lose its precision.' }),
-          tf(`content.phases.${i}.debrief.requirement`, 'Early-exit requirement (optional)', { area: true, minRows: 2 }),
-          tf(`content.phases.${i}.debrief.input_placeholder`, 'Composer placeholder'),
+            helper: 'Delivered verbatim on the debrief\'s first turn, after the feedback on the attempt. Use it when the source scripts an exact question and paraphrase would lose its precision.',
+            placeholder: 'e.g. What would you do differently next time?' }),
+          tf(`content.phases.${i}.debrief.requirement`, 'Early-exit requirement (optional)', { area: true, minRows: 2,
+            placeholder: 'e.g. The learner identifies the correct next step' }),
+          tf(`content.phases.${i}.debrief.input_placeholder`, 'Composer placeholder', { placeholder: 'e.g. Type your answer…' }),
         );
       }
       body.append(
         tf(`content.phases.${i}.debrief.final_word`, 'Final word'
           + ((debrief.follow_up_turns || 0) === 0 ? ' (required — this is a delivery-only debrief)' : ' (optional)'),
           { area: true, minRows: 2,
-            helper: 'The locked closing line, delivered verbatim when the debrief ends.' }),
-        tf(`content.phases.${i}.debrief.transition.button_label`, 'Button into the next step'),
+            helper: 'The locked closing line, delivered verbatim when the debrief ends.',
+            placeholder: 'e.g. That\'s the right call — well done.' }),
+        tf(`content.phases.${i}.debrief.transition.button_label`, 'Button into the next step', { placeholder: 'e.g. Continue' }),
         tf(`content.phases.${i}.debrief.transition.text`, 'Handoff line (optional)', { area: true, minRows: 2,
-          helper: 'Appended as a locked line once the debrief advances.' }),
+          helper: 'Appended as a locked line once the debrief advances.', placeholder: 'e.g. Nice work — onward.' }),
       );
 
       /* The debrief grades the ATTEMPT it is reviewing, not anything typed here —
@@ -1573,15 +1611,17 @@
         '<p>Leave the counterpart blank for <b>narrator-driven</b> roleplay — a first-class pattern for a step about what the learner <i>does</i> rather than what they say to someone ("you round the corner; what do you do?").</p>'));
       const cast = castOptions(s);
       holder.append(
-        tf(`${base}.setting`, 'Setting', { helper: 'Where and when this scene takes place.' }),
+        tf(`${base}.setting`, 'Setting', { helper: 'Where and when this scene takes place.',
+          placeholder: 'e.g. Marshall\'s desk, right after the meeting' }),
         characterSelect('Who the learner is speaking to', cast,
           () => str(it.character_id),
           (v) => { if (v) it.character_id = v; else delete it.character_id; },
           {}, scheduleUpdate),
-        tf(`${base}.emotion_hint`, 'Entering emotional state (optional)'),
+        tf(`${base}.emotion_hint`, 'Entering emotional state (optional)', { placeholder: 'e.g. Guarded' }),
         tf(`${base}.partner_label`, 'Chat header name', {
-          helper: 'The character\'s name, "Narrator" on a narrator-driven scene, or a scene label when several characters share the thread.' }),
-        tf(`${base}.input_placeholder`, 'Composer placeholder'),
+          helper: 'The character\'s name, "Narrator" on a narrator-driven scene, or a scene label when several characters share the thread.',
+          placeholder: 'e.g. Marshall' }),
+        tf(`${base}.input_placeholder`, 'Composer placeholder', { placeholder: 'e.g. Type what you say…' }),
         numField('Mid-scene coach help turns (0 hides the affordance)',
           () => (typeof it.help_turns === 'number' ? it.help_turns : 2),
           (n) => { it.help_turns = n; }, { min: 0 }, scheduleUpdate),
@@ -1591,13 +1631,15 @@
         return rowCard(
           `Opening line ${k + 1}`, onDel,
           tf(`${base}.opening_messages.${k}.text`, 'Line', { area: true, minRows: 2,
-            helper: 'Locked scene-setting, delivered verbatim. One message per step of the establishing sequence.' }),
+            helper: 'Locked scene-setting, delivered verbatim. One message per step of the establishing sequence.',
+            placeholder: 'e.g. Hey — you wanted to talk?' }),
           characterSelect('Spoken by', cast,
             () => str(line.character_id),
             (v) => { if (v) line.character_id = v; else delete line.character_id; },
             {}, scheduleUpdate),
           tf(`${base}.opening_messages.${k}.emotion`, 'Emotion (optional)', {
-            helper: 'How the character delivers this line. Only meaningful when the line has a speaker.' }),
+            helper: 'How the character delivers this line. Only meaningful when the line has a speaker.',
+            placeholder: 'e.g. Nervous' }),
         );
       }, 'Add opening line', () => ({ text: '' })));
       holder.append(carryoverBlock(base, i, s, H));
@@ -1613,12 +1655,15 @@
           () => str(obj(it.exhibit).type) || 'image',
           (v) => { it.exhibit = obj(it.exhibit); it.exhibit.type = v; }, {
             helper: 'Required whenever there is an exhibit.' }, scheduleUpdate),
-        tf(`${base}.exhibit.src`, 'Exhibit source', { helper: 'Path relative to the media root.' }),
+        tf(`${base}.exhibit.src`, 'Exhibit source', { helper: 'Path relative to the media root.',
+          placeholder: 'e.g. images/breakroom-chat.png' }),
         tf(`${base}.exhibit.alt`, 'Exhibit description', { area: true, minRows: 3,
-          helper: 'The full visual description. It must describe the exhibit well enough for the step to work without the image.' }),
-        tf(`${base}.jot_placeholder`, 'Jot input placeholder'),
+          helper: 'The full visual description. It must describe the exhibit well enough for the step to work without the image.',
+          placeholder: 'e.g. A screenshot of a group chat with several messages about Marshall\'s appearance.' }),
+        tf(`${base}.jot_placeholder`, 'Jot input placeholder', { placeholder: 'e.g. What do you notice?' }),
         tf(`${base}.partner_label`, 'Chat header name', {
-          helper: 'Defaults to "Narrator". Author "Narrator / Coach" when the mixed voice is worth naming — the brief narrates, the crediting is coach-voiced.' }),
+          helper: 'Defaults to "Narrator". Author "Narrator / Coach" when the mixed voice is worth naming — the brief narrates, the crediting is coach-voiced.',
+          placeholder: 'e.g. Narrator' }),
         numField('Spot target — catches needed to complete',
           () => Math.max(1, it.spot_target || 1),
           (n) => { it.spot_target = n; }, { min: 1 }, scheduleUpdate),
@@ -1627,26 +1672,31 @@
           (n) => { it.help_turns = n; }, { min: 0 }, scheduleUpdate),
       );
       holder.append(rowsBlock(`${base}.rubric`, (r, k, onDel) => {
-        const name = tf(`${base}.rubric.${k}.name`, 'Short name', { helper: 'Shown on the learner\'s coverage scorecard.' });
+        const name = tf(`${base}.rubric.${k}.name`, 'Short name', { helper: 'Shown on the learner\'s coverage scorecard.',
+          placeholder: 'e.g. The altered photo' });
         return rowCard(
           `Findable item ${k + 1}`, onDel,
           name,
           idNote(() => idOf(H, r), { label: 'Crediting key' }, name),
           tf(`${base}.rubric.${k}.standard_term`, 'Creditable phrasing', { area: true, minRows: 2,
-            helper: 'What a learner\'s catch is matched against, and the language the coach credits in.' }),
+            helper: 'What a learner\'s catch is matched against, and the language the coach credits in.',
+            placeholder: 'e.g. Mentions the doctored image' }),
           tf(`${base}.rubric.${k}.nudge`, 'Nudge', { area: true, minRows: 2,
-            helper: 'A cue toward where to look. Never the answer.' }),
+            helper: 'A cue toward where to look. Never the answer.',
+            placeholder: 'e.g. Look at the images shared in the chat' }),
         );
       }, 'Add findable item', () => ({ id: '', name: '', standard_term: '', nudge: '', [AUTO]: true })));
       holder.append(rowsBlock(`${base}.brief`, (m, k, onDel) => rowCard(
         `Briefing line ${k + 1}`, onDel,
         tf(`${base}.brief.${k}.text`, 'Line', { area: true, minRows: 2,
-          helper: 'Locked, narrator-voiced, shown over the exhibit before the learner starts looking. Not chat bubbles.' }),
+          helper: 'Locked, narrator-voiced, shown over the exhibit before the learner starts looking. Not chat bubbles.',
+          placeholder: 'e.g. You\'ve just been shown this group chat.' }),
       ), 'Add briefing line', () => ({ text: '' })));
       holder.append(rowsBlock(`${base}.exhibit.facts`, (f, k, onDel) => rowCard(
         `Exhibit fact ${k + 1}`, onDel,
         tf(`${base}.exhibit.facts.${k}`, 'Ground truth', { area: true, minRows: 2,
-          helper: 'What may be asserted as true about what the exhibit shows. Model grounding, not learner text — it keeps the exhibit\'s contents out of scenes that cannot see it.' }),
+          helper: 'What may be asserted as true about what the exhibit shows. Model grounding, not learner text — it keeps the exhibit\'s contents out of scenes that cannot see it.',
+          placeholder: 'e.g. The image was edited and shared without consent' }),
       ), 'Add exhibit fact', () => ''));
       holder.append(carryoverBlock(base, i, s, H));
       return holder;
@@ -1657,20 +1707,23 @@
       '<p>This step runs in the coach conversation, so it needs no apparatus — it is the conversation itself. The coach may probe to sharpen but does <b>not</b> teach here; teaching is the debrief.</p>'
       + '<p>There is no help budget: the learner is already talking to the coach, so a clarifying question is just a turn.</p>'));
     holder.append(
-      tf(`${base}.input_placeholder`, 'Composer placeholder'),
-      tf(`${base}.partner_label`, 'Chat header name', { helper: 'Defaults to the coach label.' }),
+      tf(`${base}.input_placeholder`, 'Composer placeholder', { placeholder: 'e.g. Type your answer…' }),
+      tf(`${base}.partner_label`, 'Chat header name', { helper: 'Defaults to the coach label.', placeholder: 'e.g. Coach' }),
       enumField('Ambient reference kind', ['image', 'video'],
         () => str(obj(it.media).type) || 'image',
         (v) => { it.media = obj(it.media); it.media.type = v; }, {
           helper: 'Required whenever there is an ambient reference.' }, scheduleUpdate),
       tf(`${base}.media.src`, 'Ambient reference image (optional)', {
-        helper: 'Pinned above the conversation for the whole step — e.g. the scene being remediated. Never graded.' }),
-      tf(`${base}.media.alt`, 'Image description (optional)', { area: true, minRows: 2 }),
+        helper: 'Pinned above the conversation for the whole step — e.g. the scene being remediated. Never graded.',
+        placeholder: 'e.g. images/group-chat.png' }),
+      tf(`${base}.media.alt`, 'Image description (optional)', { area: true, minRows: 2,
+        placeholder: 'e.g. The group chat screenshot Marshall was shown' }),
     );
     holder.append(rowsBlock(`${base}.opening_messages`, (m, k, onDel) => rowCard(
       `Opening bubble ${k + 1}`, onDel,
       tf(`${base}.opening_messages.${k}.text`, 'Line', { area: true, minRows: 2,
-        helper: 'The coach\'s locked opener, delivered verbatim in order.' }),
+        helper: 'The coach\'s locked opener, delivered verbatim in order.',
+        placeholder: 'e.g. So — what\'s your first reaction to this?' }),
     ), 'Add opening bubble', () => ({ text: '' })));
     return holder;
   }

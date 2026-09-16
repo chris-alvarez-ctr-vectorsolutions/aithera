@@ -137,8 +137,8 @@
 
     // CONTEXT MODALITY — the landing is 2–3 readable paragraphs (locked canon).
     intro: {
-      type: 'reading',
-      video: { sound: true, scenes: [] },
+      type: 'video',
+      video: { sound: true, scenes: [{ src: '../assets/videos/workplace-violence.mp4?v=2', caption: '' }] },
       audio: {
         eyebrow: 'The situation · read',
         title: 'One of yours',
@@ -488,7 +488,7 @@ BUBBLES — split every COACHING turn into 2-3 SHORT separate messages in turn[]
         arcParts.push(
 `PHASE ${i + 1} · ${fill(p.label || p.id, s).toUpperCase()} (${fill(p.level || '', s)}) — LIVE SCENE${who ? (who === 'Narrator' ? ', narrated (no character is voiced)' : ', opposite ' + who) : ''}, up to ${cap} learner actions:
 - The app has already shown the locked scene open. On each learner move that leaves the phase unfinished, reply with SCENE beats only (mode:"scene") and set "action":"continue". ${fill(p.reactionGuidance || 'React in-world to what they actually did; keep the moment recoverable.', s)}
-- The phase is DONE when ${fill(p.exitCriteria || 'the learner has handled the moment', s)} — or when the state line says the cap is reached.
+${who && who !== 'Narrator' ? `- NEVER let ${who} walk out, hang up, or otherwise become unreachable on a "continue" turn — they stay present and available to respond until the exit criteria below are actually met. A learner move that reads like a natural wrap-up is your cue to CHECK the exit criteria, not to narrate an exit: if they're met, this IS the closing turn (below); if not, keep ${who} engaged rather than writing them out of the room.\n` : ''}- The phase is DONE when ${fill(p.exitCriteria || 'the learner has handled the moment', s)} — or when the state line says the cap is reached.
 - CLOSING the phase: that final turn resolves and debriefs. Emit 1-2 scene beats that settle the moment, THEN step back with coaching bubbles (mode:"coaching"): your FIRST coaching bubble is EXACTLY "${fill(d.talkItThrough, s)}", then 2-3 bubbles that land: ${fill(d.points, s)}${teachTail}`);
       } else {
         arcParts.push(
