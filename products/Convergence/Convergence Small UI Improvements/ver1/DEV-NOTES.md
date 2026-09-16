@@ -152,11 +152,11 @@
 - Counts are illustrative: the legacy screenshot is a fresh account (0% / 0% / no items). CONFIRM the real figures and the news excerpts before building.
 
 ## d-qual - Qualification details
-- Child rows share the Training Plan accordion colours, not a detail-only scheme: `.d-row.group` (requirements) on white like the plan's header rows, `.d-row` (activities) on `--tier-act` #f2f5f9 with `--c-line` borders; hovers are `--tier-head-hover` / `--tier-act-hover`. Change the plan tokens and these follow automatically - do not fork them.- One drill-in surface replaces the three legacy Details pages; the level is stated by a kind chip (Qualification / Requirement / the activity type) at the top of the hero.
+- Child rows share the Training Plan accordion colours, not a detail-only scheme: `.d-row.group` (requirements) on white like the plan's header rows, `.d-row` (activities) on `--tier-act` #f2f5f9 with `--c-line` borders; hovers are `--tier-head-hover` / `--tier-act-hover`. Change the plan tokens and these follow automatically - do not fork them.
+- One drill-in surface replaces the three legacy Details pages; the level is stated by a kind chip (Qualification / Requirement / the activity type) at the top of the hero.
 - The hero says what the qualification contains: requirement count, activity count, summed total duration and the progress meter. The legacy page gave only a bare duration line.
-- Contents are listed as rows you can click into: requirement group rows (with their meter) and their activities indented beneath, every row with a chevron and hover fill. The legacy activity list was not clickable.
-- Activity rows keep Launch, so drilling down never costs the primary action. Clicks on the button do not open the row.
-- Completion-rule notices render under their requirement row using the shared .notice.
+- Contents are a PLAIN, STATIC list (scaled down at designer direction, round 11): requirement header rows (name, completion rule inline, summed duration) with their activities indented beneath (type glyph, name, E tag, paperclip, duration). Nothing expands, launches or drills in - Launch and progress live on My training. Rows are plain divs: no role, tabindex, chevron, status pill or hover fill.
+- Completion-rule notices render inline in the requirement header row using the shared .notice, exactly as on the plan.
 - Thumbnails are the shared .thumb placeholders (t-qual / t-req gradients); real artwork comes from the LMS.
 - Going back up is always one click, two ways: a "Back to <parent>" control above the panel (arrow-left, primary colour, hover fill), and the page-header breadcrumb carrying the full hierarchy with every ancestor clickable (My training > qualification > requirement > title).
 - The back control is STRUCTURAL, not history: a requirement always returns to its qualification, an activity to its requirement (or to its assignment group for individually assigned ones), a qualification to the My training list. Predictable no matter how the page was reached (row click, parent link, deep link).
@@ -165,12 +165,13 @@
 ## d-req - Requirement details
 - Same surface one level down: kind chip, activity count + total duration + meter in the hero, and "Part of <qualification>" as a working link to climb back up.
 - The completion rule ("Complete any 2...") renders as the shared inline notice under the description, not lost in a corner of the accordion.
-- Activities are rows that open activity details; Launch stays on every row. Deep link: ?details=req:r-loto.
+- Activities are the same plain static list (type glyph, name, duration): no Launch, no drill-in. Deep link: ?details=req:r-loto.
 - "Back to <qualification>" sits above the panel and the qualification also appears in the breadcrumb, so returning to the qualification this requirement belongs to is one click from anywhere on the page (the hero "Part of" link is the third route).
 
 ## d-act - Activity details
 - Hero: type chip, title, status pill + duration + time spent + due (red when overdue), and the primary Launch. The legacy page buried Launch under a bare duration line.
 - Provenance is explicit and clickable: "Part of <requirement> in <qualification>", or "Assigned individually" for direct assignments. The legacy line ("Activity from Individually Assigned Activities from an individual assignment") was unreadable.
+- Assignment line (round 11): the hero also names the assignment the activity came through - name, assigned date and who assigned it (demo data: `qualification.assignment`). LOGIC ITEM: the activity model needs its assignment record.
 - Attachments appear as a file row (icon, name, size, Download): this is where the paperclip in the list leads.
 - Past completions is a 4-column table (Completed / Version / Time spent / Score). Empty is the shared neutral empty state, NOT the legacy red "No records to display" row: red stays reserved for errors and overdue. The legacy Expire/Ignore date columns are dropped unless populated: confirm whether they carry data before build.
 - Deep link: ?details=act:a4.

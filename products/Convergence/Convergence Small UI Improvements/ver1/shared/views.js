@@ -588,34 +588,34 @@ function dMeta(items) {
   return `<div class="d-meta">${items.filter(Boolean).map(i => `<span>${i}</span>`).join('')}</div>`;
 }
 
+/* Contents list rows: a plain, static list. Scaled down at designer
+   direction - the detail pages only need to SHOW what a qualification or
+   requirement contains (type, name, duration under requirement headers);
+   expanding, launching and drilling in stay on My training. Rows are plain
+   divs: no role, tabindex, chevron, Launch or status pill. */
 function dActRow(a, indent) {
   const t = TYPES[a.type];
-  return `<div class="d-row ${indent ? 'indent' : ''}" data-open="act:${a.id}" role="link" tabindex="0"
-       aria-label="Open details: ${esc(a.name)}">
+  return `<div class="d-row ${indent ? 'indent' : ''}">
     <span class="d-name">
-      <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}"></i></span>
+      <span class="tglyph" title="${t.label}"><i class="fa-solid ${t.icon}" aria-hidden="true"></i></span>
       <span class="d-row-title">${esc(a.name)}</span>
       ${a.elective ? '<span class="etag inline" title="Elective">E</span>' : ''}
       ${a.attachment ? '<i class="fa-solid fa-paperclip d-clip" title="Has attachments"></i>' : ''}
     </span>
-    <span>${pill(a.status)}</span>
     <span class="d-num d-dur">${esc(a.dur || '')}</span>
-    <span class="d-launch">${a.type === 'class' ? '' : actionBtn(a)}</span>
-    <i class="fa-solid fa-chevron-right d-chev" aria-hidden="true"></i>
   </div>`;
 }
 
+/* Requirement header row: name, its completion rule inline (as on the plan),
+   and the summed duration of its activities. */
 function dReqRow(r) {
-  return `<div class="d-row group" data-open="req:${r.id}" role="link" tabindex="0"
-       aria-label="Open details: ${esc(r.name)}">
+  return `<div class="d-row group">
     <span class="d-name">
-      <span class="tglyph"><i class="fa-solid fa-award"></i></span>
+      <span class="tglyph"><i class="fa-solid fa-award" aria-hidden="true"></i></span>
       <span class="d-row-title">${esc(r.name)}</span>
+      ${r.notice ? `<span class="notice"><i class="fa-solid fa-circle-info"></i><span class="notice-text">${esc(r.notice)}</span></span>` : ''}
     </span>
-    <span>${meter(r.progress)}</span>
-    <span class="d-dur"></span>
-    <span class="d-launch"></span>
-    <i class="fa-solid fa-chevron-right d-chev" aria-hidden="true"></i>
+    <span class="d-num d-dur">${sumActs(r.acts) || ''}</span>
   </div>`;
 }
 
@@ -664,11 +664,10 @@ function renderDetails() {
              meter(q.progress)]),
       '', '', 't-qual', 'fa-graduation-cap'));
     out.push(`<div class="d-section">
-      <h3 class="d-sec-title">What this qualification contains</h3>
-      <p class="d-sec-hint">Each requirement below has its own rules; open one for its activities, or launch an activity directly.</p>`);
+      <h3 class="d-sec-title">Activities</h3>
+      <p class="d-sec-hint">Grouped under the requirement each activity belongs to. Launch and progress live on My training.</p>`);
     q.reqs.forEach(r => {
       out.push(dReqRow(r));
-      if (r.notice) out.push(`<div class="d-row-note"><span class="notice"><i class="fa-solid fa-circle-info"></i><span class="notice-text">${esc(r.notice)}</span></span></div>`);
       r.acts.forEach(a => out.push(dActRow(a, true)));
     });
     out.push(`</div></section>`);
@@ -685,7 +684,7 @@ function renderDetails() {
       '', 't-req', 'fa-award'));
     if (r.notice) out.push(`<div class="d-notice"><span class="notice"><i class="fa-solid fa-circle-info"></i><span class="notice-text">${esc(r.notice)}</span></span></div>`);
     out.push(`<div class="d-section">
-      <h3 class="d-sec-title">Activities in this requirement</h3>`);
+      <h3 class="d-sec-title">Activities</h3>`);
     r.acts.forEach(a => out.push(dActRow(a)));
     out.push(`</div></section>`);
   }
@@ -701,9 +700,12 @@ function renderDetails() {
              a.dur ? `<i class="fa-regular fa-clock"></i> ${esc(a.dur)}` : '',
              a.spent ? `${esc(a.spent)} spent` : '',
              a.due ? `<span class="${a.status === 'overdue' ? 'd-overdue' : ''}"><i class="fa-regular fa-calendar"></i> Due ${esc(a.due)}</span>` : '']),
-      indiv
+      (indiv
         ? `<p class="d-parent">Assigned individually, from ${parentLink('qual', q.id, q.name)}</p>`
-        : `<p class="d-parent">Part of ${parentLink('req', r.id, r.name)} in ${parentLink('qual', q.id, q.name)}</p>`,
+        : `<p class="d-parent">Part of ${parentLink('req', r.id, r.name)} in ${parentLink('qual', q.id, q.name)}</p>`)
+      + (q.assignment
+        ? `<p class="d-parent d-assign"><i class="fa-solid fa-user-plus" aria-hidden="true"></i>Assignment: <strong>${esc(q.assignment.name)}</strong>, assigned ${esc(q.assignment.on)} by ${esc(q.assignment.by)}</p>`
+        : ''),
       a.type === 'class' ? `<vaadin-button theme="secondary">Select a session</vaadin-button>` : `<vaadin-button theme="primary">Launch</vaadin-button>`,
       t.thumb, t.icon));
 
@@ -743,9 +745,6 @@ function renderDetails() {
   wireOpenRefs(root);
   const back = root.querySelector('.js-back');
   if (back) back.addEventListener('click', () => closeDetails());
-  root.querySelectorAll('.d-row').forEach(row => row.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); }
-  }));
 }
 
 /* ===========================================================================
