@@ -60,8 +60,15 @@
   //  A reviewer holding both documents can then see which of our objectives
   //  are theirs and which are ours.
   var OBJECTIVES = [
+    // Alignment brief D12: K&A's own script flags this exact shortcut as
+    // contingent on a compliance determination neither team has actually
+    // made — "proposed, not confirmed against 1910.1030(g)(2)(vii)(E)/(F)."
+    // Decision: ship test-out live as built rather than lock K1 on a
+    // regulatory reading nobody has verified. Reviewer-visible flag only
+    // (the `lock` string below, and the battery step's caption) — a learner
+    // has no reason to see a compliance caveat about their own test-out.
     { id: 'K1', name: 'The safe handling procedure', domain: 'Know', sub: 'Recall', policy: 'gate', locked: false, where: 'Pre-module battery',
-      lock: 'test-out eligible', theory: 'Procedural Knowledge', src: 'LO 4.1',
+      lock: 'test-out eligible — compliance unconfirmed, see D12', theory: 'Procedural Knowledge', src: 'LO 4.1',
       text: 'Recall the safe sharps handling procedure: plan disposal in advance, use needle alternatives when possible, activate safety features, and immediately dispose of used sharps in a designated container.' },
     // Alignment brief D1: this objective used to carry the module's mechanism
     // content ("why a used sharp is dangerous") as its own tracked, gated Know
@@ -467,7 +474,7 @@
   // ==========================================================================
   // Steps that carry art today. Adding one is a line here plus a figure()
   // call in its content builder.
-  var IMAGE_STEPS = { case4: 1, hazard: 1 };
+  var IMAGE_STEPS = { hazard: 1 };
   function imagesOn() {
     try { return sessionStorage.getItem('sh-images') !== 'off'; } catch (e) { return true; }
   }
@@ -701,7 +708,7 @@
   //  the live path so it foreshadows compression honestly.
   // ==========================================================================
   var DONE_KEYS = { battery: 'battery', adjust: 'battery', chain: 'chain', hazard: 'hazard', case1: 'case1',
-                    inflow: 'inflow', case2: 'case2', case3: 'case3', case4: 'case4',
+                    inflow: 'inflow', case2: 'case2', case3: 'case3',
                     controls: 'controls', debrief: 'debrief', remk1: 'remk1', walk: 'walk',
                     // `enact` has no key: the scenario runs on its own page and
                     // writes nothing back here, so the cover cannot honestly
@@ -1789,6 +1796,20 @@
           // the learner who walked it needs to meet the chain, and the one who
           // binned it is owed the three seconds it would have taken.
           '<button class="ch-retry" id="chRetry" type="button" hidden></button>' +
+
+          // Alignment brief D4: the F1 post-rating used to live on the
+          // now-retired "A Coworker Got Stuck" case (Ruben). Moved here,
+          // since chain is now F1's only touch — same question, same three
+          // answers as the entry battery, so the two are comparable and the
+          // reportable figure is the movement. Revealed once, after the
+          // chain first settles; a replay of the other branch does not ask
+          // it again.
+          '<div class="ct-second" id="chPost" hidden>' +
+            '<p class="ll-eyebrow">You answered this at the start</p>' +
+            '<h2 class="cs-q">Safe sharps disposal protects your coworkers, not just you.</h2>' +
+            '<p class="bl-hint">Same question, same three answers. Say where you are now.</p>' +
+            '<div class="bl-options" id="chPostOpts" role="radiogroup"></div>' +
+          '</div>' +
         '</div>' +
       '</div>' +
     '</main>';
@@ -1800,6 +1821,34 @@
     var runEl = document.getElementById('chRun');
     var list = document.getElementById('chChain');
     var pick = document.getElementById('chPick');
+    var post = document.getElementById('chPost');
+    var postOpts = document.getElementById('chPostOpts');
+    var postAsked = false;
+
+    // F1 post-rating (D4): identical wiring to the retired case4Init, just
+    // saved under 'chain' instead of 'case4'.
+    [
+      { t: 'Strongly agree', icon: 'fa-heart', score: 3 },
+      { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2 },
+      { t: 'It is mostly a formality', icon: 'fa-file-lines', score: 1 }
+    ].forEach(function (o) {
+      var b = document.createElement('button');
+      b.className = 'bl-option'; b.type = 'button';
+      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
+      b.setAttribute('aria-label', o.t);
+      b.innerHTML = '<i class="fa-solid ' + o.icon + '" aria-hidden="true"></i>' +
+                    '<span class="bl-option-label">' + esc(o.t) + '</span>';
+      b.addEventListener('click', function () {
+        if (postOpts.classList.contains('answered')) return;
+        b.setAttribute('aria-checked', 'true');
+        postOpts.classList.add('answered');
+        postOpts.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
+        mergeResult('chain', { post: o.score });
+        ctx.positionOrb(true);
+      });
+      postOpts.appendChild(b);
+    });
+    LE.pickGroup(postOpts);
     var advance = document.getElementById('chNext');
     var closer = document.getElementById('chClose');
     var retry = document.getElementById('chRetry');
@@ -2007,8 +2056,10 @@
         : C.end;
       closer.hidden = false;
       // The first choice is the datum; whether they went on to walk the other
-      // branch is recorded separately rather than replacing it.
-      saveResult('chain', { walked: true, took: took, bothRoutes: replayed });
+      // branch is recorded separately rather than replacing it. Merged, not
+      // overwritten: a replay re-runs this on every settle(), and a plain
+      // saveResult would wipe out the F1 post-rating below once it's answered.
+      mergeResult('chain', { walked: true, took: took, bothRoutes: replayed });
       // Ungated on purpose. Only KNOW gates in this module, and a Feel screen
       // that holds the door would be routing content out on a self-report.
       ctx.enableNext();
@@ -2018,6 +2069,13 @@
             : 'Great decision. You prevented a real injury here.')
         : 'Your decision can affect your colleagues, which makes this a professional ' +
           'responsibility, rather than just a personal-safety rule.');
+
+      // D4: reveal the F1 post-rating once, on the first settle() — a replay
+      // of the other branch doesn't ask it a second time.
+      if (!postAsked) {
+        postAsked = true;
+        reinforce(ctx, post, 1, 1);
+      }
 
       // The choice was binary, so there is no reason for it to be final.
       if (replayed) { ctx.positionOrb(true); return; }
@@ -3118,101 +3176,6 @@
   }
 
   // ==========================================================================
-  //  THE ONE THAT LANDED — F1, and it runs for EVERY learner on every path:
-  //  Feel never routes past content and does not currently vary this beat
-  //  either. No judgment here; the account IS the argument.
-  //
-  //  This is the POST leg of the entry battery's F1 item. That is the only
-  //  thing the battery answer is used for — a baseline to subtract from.
-  // ==========================================================================
-  function CASE4_CONTENT() {
-    var L = lens();
-    return '<main class="ll-object">' +
-      '<div class="story-wrap">' +
-        '<p class="ll-eyebrow">Read: 1 minute</p>' +
-        '<h2 class="story-h">Somebody else found it.</h2>' +
-        (L.photo
-          ? photoFigure(L.photo.src, L.photo.alt, 'The gap this module is about \u2014 the sharp at rest, and whoever meets it next.')
-          : figure(FIG_LEFT_BEHIND, 'The gap this module is about \u2014 the sharp at rest, and whoever meets it next.')) +
-        '<blockquote class="story">' +
-          L.story.paras.map(function (para) { return '<p>' + esc(para) + '</p>'; }).join('') +
-          '<footer>' + esc(L.story.by) + '</footer>' +
-        '</blockquote>' +
-        '<p class="story-note">The person who was hurt did not use the sharp, did not leave it, and had no way ' +
-          'to know it was there. That is why this is a professional responsibility and not a personal-safety ' +
-          'rule — the risk you create is almost never carried by you.</p>' +
-
-        // The post leg. The entry battery asked this exact statement with
-        // these exact three answers, so the two are comparable and the
-        // reportable figure is the MOVEMENT. Asking a different question here
-        // would produce two numbers that cannot be subtracted.
-        '<div class="ct-second" id="c4Post" hidden>' +
-          '<p class="ll-eyebrow">You answered this at the start</p>' +
-          '<h2 class="cs-q">Safe sharps disposal protects your coworkers, not just you.</h2>' +
-          '<p class="bl-hint">Same question, same three answers. Say where you are now.</p>' +
-          '<div class="bl-options" id="c4PostOpts" role="radiogroup"></div>' +
-        '</div>' +
-      '</div>' +
-    '</main>';
-  }
-  function case4Init(ctx) {
-    var post = document.getElementById('c4Post');
-    var opts = document.getElementById('c4PostOpts');
-    var done = false;
-    // Silent through this whole beat — the account and the re-rate carry
-    // it without CLARA narrating the read or the move. Still has to clear
-    // the manifest's "Loading…" placeholder, though — nothing else does.
-    ctx.setCoachSay('');
-
-    [
-      { t: 'Strongly agree', icon: 'fa-heart', score: 3 },
-      { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2 },
-      { t: 'It is mostly a formality', icon: 'fa-file-lines', score: 1 }
-    ].forEach(function (o) {
-      var b = document.createElement('button');
-      b.className = 'bl-option'; b.type = 'button';
-      b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', 'false');
-      b.setAttribute('aria-label', o.t);
-      b.innerHTML = '<i class="fa-solid ' + o.icon + '" aria-hidden="true"></i>' +
-                    '<span class="bl-option-label">' + esc(o.t) + '</span>';
-      b.addEventListener('click', function () {
-        if (done) return; done = true;
-        b.setAttribute('aria-checked', 'true');
-        opts.classList.add('answered');
-        opts.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
-        saveResult('case4', { read: true, post: o.score });
-        ctx.enableNext();
-        ctx.positionOrb(true);
-      });
-      opts.appendChild(b);
-    });
-    LE.pickGroup(opts);
-
-    // WHEN IS THE READ DONE? The learner says so. This was a scroll observer
-    // plus a word-count estimate, and both were proxies for a state we can
-    // simply be told — a tall display made "reached the end" fire on arrival,
-    // and a word count is an average applied to one person. The forward button
-    // carries "Done reading" until it is pressed, so the footer has something
-    // true to do during the read and the reveal happens on a real signal.
-    //
-    // It is trivially skippable, which is the right trade: the alternative is
-    // holding a learner who genuinely has finished. How long they took is
-    // recorded rather than enforced, which is the more useful number anyway.
-    var landed = Date.now();
-    ctx.setNextAction('Done reading', function () {
-      // How long they took is recorded, not enforced.
-      saveResult('case4', { read: true, readMs: Date.now() - landed });
-      // No "Part 2 of 2": the first half was a read, not a numbered part —
-      // a badge counting from 2 with no Part 1 anywhere implied one.
-      reinforce(ctx, post, 1, 1);
-      // No coach line: the layer carries its own eyebrow and question, and
-      // setCoachSay() raises them whenever it runs after init — which is what
-      // used to make them surface twice on this screen.
-      ctx.positionOrb(true);
-    });
-  }
-
-  // ==========================================================================
   //  GLOVES OR CONTAINERS — F2, and the beat that used to not exist.
   //
   //  The record has always printed a line for this objective reading "Recorded
@@ -4058,20 +4021,20 @@
            'Proven at the start, so both cases served harder — not re-scored, since you had already shown you get this one. This one is never taken away, only made harder.']
         : ['Taught', 'band-ok', 'From the case screens',
            'Served in full. This one is never shortened, whatever you answer.'],
-      F1: (c.case4 && c.case4.post)
-        ? ['Recorded', 'band-ok', 'Asked before and after the account',
-           'You said where you stood at the start, read what happened to someone doing your job, and answered the same question again.' +
+      F1: (c.chain && c.chain.post)
+        ? ['Recorded', 'band-ok', 'Asked before and after the chain',
+           'You said where you stood at the start, walked the chain to see where the decision lands, and answered the same question again.' +
            // Item 15: F1 is remediate — the downstream follow-up only runs
            // when the post answer stayed at Somewhat or below, so a strong
            // agreement here genuinely means no named-person question came up.
            (c.downstream ? namedNote(c)
              : ' You already agreed strongly, so the follow-up question about who is downstream of you never came up.'),
-           moveChip(b.f1, c.case4.post)]
-        : (c.case4 && c.case4.read)
+           moveChip(b.f1, c.chain.post)]
+        : (c.chain && c.chain.walked)
           ? ['Rated only', 'band-warn', 'From your answer at the start',
-             'You read the account but the second answer did not come up in this run, so there is nothing to compare.' + namedNote(c)]
+             'You walked the chain but the second answer did not come up in this run, so there is nothing to compare.' + namedNote(c)]
           : ['Rated only', 'band-warn', 'From your answer at the start',
-             'You said where you stood at the start. The account from your own sector did not come up in this run.' + namedNote(c)],
+             'You said where you stood at the start. The chain did not come up in this run.' + namedNote(c)],
       F2: ctrl
         ? (ctrl.sampled === false
             // D6/item 15: ask + sampled — the choice is still real evidence
@@ -4211,7 +4174,7 @@
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Your Starting Point', mode: 'floating', gate: true,
-      caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; K2 (recognition, content-locked) sets its own test-up from its own item — neither derives from the other.' },
+      caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; K2 (recognition, content-locked) sets its own test-up from its own item — neither derives from the other. D12: K1’s test-out shortcut ships live as built. The compliance question K&A’s script raises — whether 1910.1030(g)(2)(vii)(E)/(F) actually locks this content — is unconfirmed either way, not resolved in K1’s favor; if compliance later rules it locked, this item’s `policy`/`locked` fields are the only thing that needs to change.' },
       coach: { say: 'Loading\u2026', teaser: true },
       content: BATTERY_CONTENT, init: batteryInit,
       onSkip: function () { saveResult('battery', { k1: 'unproven', skipped: true }); } },
@@ -4284,14 +4247,6 @@
       coach: { say: 'Loading…', lead: true },
       content: caseContent(CASE3), init: caseInit(CASE3) },
 
-    { id: 'case4', icon: 'fa-book-open', mins: 1, stage: 'Learn', lesson: 'A Coworker Got Stuck', mode: 'floating', gate: true,
-      // They LEAD here: "no judgment, read it and notice who got hurt" sets
-      // the posture for the account, and a learner who skims it because the
-      // line was behind the unread dot has missed the beat.
-      caption: { title: 'LEARN · Case 4 (F1)', note: 'The Feel load, and the POST leg of the battery’s F1 item — same statement, same three answers, so the two subtract and the reportable figure is the MOVE. No judgment — the account is the argument. Runs identically on every path: Feel never routes past content, and it does not vary this beat either. It was described as “heavier on a low F1” and was not — nothing read the Feel scores except the adjustment screen’s Added row, which is why that row came off rather than being left to describe a difference no learner could see. Making it genuinely heavier here is a live option; if it happens, the row goes back with the weight. NOTE the deck’s own caution: F1 and the debrief carry the module’s entire Feel load, so cutting either for time reverts this to a Know course.' },
-      coach: { say: 'Loading\u2026', lead: true },
-      content: CASE4_CONTENT, init: case4Init },
-
     { id: 'controls', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Gloves or Containers', mode: 'floating', gate: true,
       caption: { title: 'LEARN · The budget choice (F2, Feel / Value)', note: 'The beat that used to not exist. The record has always printed a line for this objective reading “Recorded · from your own answer”, and nothing in the module ever asked it — an invented line on the one screen whose entire argument is that every line points at a real moment. The scenario is the re-composed course’s own: gloves for every waste handler, or more containers. Their version assesses it with an agreement scale on an empirical claim, which measures knowledge and files it as a value; this splits the two, so the CHOICE is the evidence and the scale afterwards is the self-report. A learner who buys gloves and then rates high on “controls prevent injuries” has told us something one scale never could. Placed AFTER the account because all four sector accounts end with a needle going through a glove — the story earns the question.' },
       // Arrives silent — an empty line means no unread dot and no idle
@@ -4301,15 +4256,18 @@
       onSkip: function () { saveResult('controls', { skipped: true }); } },
 
     { id: 'downstream', icon: 'fa-pen-to-square', mins: 1, stage: 'Learn', lesson: 'Who Handles Your Waste', mode: 'floating', gate: true,
-      // Item 15/D6: F1's remediation, not a screen every learner meets. Fires
-      // only when the account's post answer (case4) stayed at Somewhat or
-      // below \u2014 a learner who already agreed strongly doesn't need the
-      // belief reinforced a second time. Defaults to running when case4
-      // hasn't resolved yet (post undefined), so it is never silently
-      // dropped by a run that reaches this step out of order.
-      when: function () { var p = (readCourse().case4 || {}).post; return p == null || p <= 2; },
-      caption: { title: 'LEARN \u00b7 Who is downstream (F1 remediation, Feel / Believe)', note: 'F1 is remediate (D6): this only runs when the account\u2019s post answer (case4) stayed at Somewhat or below \u2014 a learner who already agreed strongly does not need the belief reinforced a second time. One open question, on its own screen. It used to be the sixth element at the foot of the chain beat \u2014 directly under a story about a named stranger on twelve weeks of bloodwork, so a fictional person you were told you hurt and a real person at your own site arrived back to back with nothing saying why the second was being asked. Lifting it out lets it state its own reason BEFORE it asks, which is the one thing it could not do down there: the question works because most people cannot answer it, and that line was previously delivered only after the answer was in. Scored for one thing and NOT by a model \u2014 whether a specific person downstream has a name. That is F1 operationalised; an agreement scale on the same idea has a ceiling nobody falls below. Placed after the budget choice because the account earns that question and the adjacency is deliberate, and the module then widens one step at a time: one real person, the whole room, then the learner under pressure. The answer now reaches the record \u2014 the chain used to save it and nothing ever read it.' },
-      coach: { say: 'Loading\u2026' },
+      // Item 15/D6: F1's remediation, not a screen every learner meets.
+      // Alignment brief D4: the F1 post-rating moved from the retired case4
+      // onto chain, much earlier in the flow — this still fires off that
+      // same signal, just read from 'chain' now instead of 'case4'. Fires
+      // only when the post answer stayed at Somewhat or below — a learner
+      // who already agreed strongly doesn't need the belief reinforced a
+      // second time. Defaults to running when chain's post hasn't resolved
+      // yet (undefined), so it is never silently dropped by a run that
+      // reaches this step out of order.
+      when: function () { var p = (readCourse().chain || {}).post; return p == null || p <= 2; },
+      caption: { title: 'LEARN · Who is downstream (F1 remediation, Feel / Believe)', note: 'F1 is remediate (D6): this only runs when chain’s post answer stayed at Somewhat or below — a learner who already agreed strongly does not need the belief reinforced a second time. One open question, on its own screen. Scored for one thing and NOT by a model — whether a specific person downstream has a name. That is F1 operationalised; an agreement scale on the same idea has a ceiling nobody falls below. D4: previously placed for adjacency to the now-retired case4 account; that reasoning no longer applies since F1’s post-ask moved to chain, much earlier — left in its current position for this round rather than restructuring the debrief/walk sequence around it, so the gap between the ask and its remediation is wider than before. Worth revisiting. The answer reaches the record.' },
+      coach: { say: 'Loading…' },
       content: DOWN_CONTENT, init: downInit,
       onSkip: function () { saveResult('downstream', { named: null }); } },
 
@@ -4387,7 +4345,7 @@
     // Every beat with a scene in it moves with the sector.
     // Every screen with a scene in it moves with the sector. The chain walks
     // its own incident per sector; the rating screen borrows that chain's clock.
-    lensedSteps: { intro: 1, chain: 1, hazard: 1, case1: 1, case2: 1, case3: 1, case4: 1,
+    lensedSteps: { intro: 1, chain: 1, hazard: 1, case1: 1, case2: 1, case3: 1,
                    controls: 1, debrief: 1, walk: 1 },
     replies: [
       'Short version: the sharp should never exist outside a container for longer than it takes to walk there. Decide the route before you start.',
