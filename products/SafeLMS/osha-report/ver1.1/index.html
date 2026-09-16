@@ -396,6 +396,14 @@
   .status-badge.failed       { background: #fee2e2; color: #b91c1c; }
   .status-badge.overdue      { background: #fef3c7; color: #92400e; }
 
+  /* ── Quiz Score pass/fail (Latest Module → Quiz Score column) ──
+     >= 70% passes → green with a check ✓ ; <= 69% fails → red with an X ✗.
+     Colors reuse the status text colors so pass/fail reads consistently across the table. */
+  .quiz-score { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; white-space: nowrap; }
+  .quiz-score i { font-size: 13px; line-height: 1; }
+  .quiz-score.qs-pass { color: #15803d; }
+  .quiz-score.qs-fail { color: #b91c1c; }
+
   /* ============================================================
      FILTER PANEL (right column, V1)
      ============================================================ */
@@ -555,6 +563,29 @@
   .cert-link:hover { text-decoration: underline; }
   .cert-link i { color: #15803d; }
 
+  /* ── Certificate column header info callout ──
+     A hover/focus info affordance in the "Certificate" column header explaining that a
+     certificate can lag up to a week behind a learner passing (so an admin who sees a passed
+     learner with no certificate link yet knows why). Built as a CSS-only tooltip embedded in
+     the header render template so it survives the header re-rendering on every sort / column change
+     (a `for`-bound vaadin-tooltip would lose its anchor when the <th> is recreated). */
+  .cert-info { position: relative; display: inline-flex; align-items: center; margin-left: 6px; color: var(--muted-2); cursor: help; vertical-align: middle; }
+  .cert-info i { font-size: 13px; }
+  .cert-info:hover, .cert-info:focus-visible { color: var(--blue-accent); outline: none; }
+  .cert-info .ci-tip {
+    position: absolute; top: calc(100% + 9px); right: 0; z-index: 30;
+    width: 236px; padding: 10px 12px;
+    /* reset the inherited uppercase/spacing/small header type inside the tooltip */
+    font-size: 12.5px; font-weight: 400; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left;
+    color: #fff; background: var(--ink); border-radius: 8px;
+    box-shadow: 0 8px 22px rgba(16,24,40,.24);
+    opacity: 0; visibility: hidden; transform: translateY(-3px);
+    transition: opacity .12s ease, transform .12s ease, visibility .12s;
+    pointer-events: none; white-space: normal;
+  }
+  .cert-info .ci-tip::before { content:''; position: absolute; bottom: 100%; right: 11px; border: 6px solid transparent; border-bottom-color: var(--ink); }
+  .cert-info:hover .ci-tip, .cert-info:focus-visible .ci-tip, .cert-info:focus-within .ci-tip { opacity: 1; visibility: visible; transform: translateY(0); }
+
 
   /* Bulk-step recipient list */
   .recip-list { border: 1px solid var(--hair); border-radius: 10px; max-height: 210px; overflow: auto; margin-bottom: 16px; }
@@ -587,14 +618,68 @@
   .detail-cell { background: var(--hair-2); border-radius: 10px; padding: 13px 15px; }
   .detail-cell .d-k { font-size: 13px; color: var(--muted); }
   .detail-cell .d-v { font-size: 17px; font-weight: 700; color: var(--ink); margin-top: 3px; }
-  .cert { border: 2px solid #E4C97A; border-radius: 12px; padding: 26px 24px; text-align: center; background: linear-gradient(180deg, #FFFDF6 0%, #FFF9EC 100%); }
-  .cert .c-seal { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid #15803d; color: #15803d; display: grid; place-items: center; font-size: 22px; margin: 0 auto 12px; }
-  .cert .c-kicker { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: #B7791F; }
-  .cert .c-name { font-size: 26px; font-weight: 800; color: var(--ink); margin: 8px 0 2px; }
-  .cert .c-for { font-size: 14.5px; color: var(--muted); }
-  .cert .c-course { font-size: 17px; font-weight: 700; color: var(--ink); margin: 6px 0 16px; }
-  .cert .c-meta { display: flex; justify-content: center; gap: 28px; font-size: 14px; color: var(--ink-2); }
-  .cert .c-meta b { display: block; color: var(--ink); font-size: 15px; margin-top: 2px; }
+  /* ── ClickSafety certificate (shown in the certificate modal) ──
+     A faithful HTML/CSS recreation of the ClickSafety OSHA completion certificate: the
+     CLICKSAFETY wordmark, IACET accredited-provider badge, gold seal, administrator signature,
+     and the serial / completion-date / duration / student-signature footer. Populated per
+     learner and per course (CEUs, contact hours and duration follow the course). */
+  .cs-wrap { width: min(760px, 94vw); }
+  .cs-cert {
+    position: relative; background: #fff; color: #14203a;
+    padding: 22px;
+    font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  }
+  /* Engraved double frame — approximates the guilloché border of the printed certificate. */
+  .cs-cert::before { content:''; position:absolute; inset:6px;  border:2px solid #b9bec9; pointer-events:none; }
+  .cs-cert::after  { content:''; position:absolute; inset:11px; border:1px solid #d7dbe3; pointer-events:none; }
+  .cs-cert .cs-click  { color: #14203a; }
+  .cs-cert .cs-safety { color: #e8551f; }
+  .cs-inner { position: relative; text-align: center; padding: 20px 26px 14px; }
+
+  .cs-logo { font-weight: 800; font-size: 30px; letter-spacing: .3px; line-height: 1; }
+  .cs-logo .cs-tm { font-size: 11px; font-weight: 700; vertical-align: super; }
+  .cs-tagline { margin-top: 9px; font-size: 10px; letter-spacing: 3px; color: #b4b9c2; font-weight: 700; }
+
+  .cs-certifies { margin-top: 20px; font-size: 13px; color: #4a4f5e; }
+  .cs-name { margin-top: 10px; font-size: 30px; font-weight: 400; color: #14203a; }
+  .cs-completed { margin-top: 8px; font-size: 12.5px; color: #4a4f5e; }
+  .cs-course { margin-top: 12px; font-size: 22px; font-weight: 400; }
+  .cs-earned { margin-top: 12px; font-size: 13px; line-height: 1.6; color: #3a3f4e; }
+
+  /* gold seal · presented-by + legal · IACET badge, in one row */
+  .cs-marks { display: grid; grid-template-columns: 110px 1fr 130px; align-items: center; gap: 10px; margin-top: 16px; }
+  .cs-center { text-align: center; }
+  .cs-presented { font-size: 13px; line-height: 1.55; color: #3a3f4e; }
+  .cs-presented b { font-weight: 700; }
+  .cs-legal { margin: 10px auto 0; max-width: 380px; font-size: 8px; line-height: 1.5; color: #9a9fab; }
+
+  .cs-seal { width: 100px; height: 100px; margin: 0 auto; border-radius: 50%;
+    background: radial-gradient(circle at 50% 32%, #f6e6a8 0%, #e9cb63 44%, #c99f31 72%, #a97e1f 100%);
+    border: 2px solid #a97e1f;
+    box-shadow: 0 2px 5px rgba(0,0,0,.18), inset 0 0 0 5px rgba(255,255,255,.28), inset 0 0 0 6px #caa539;
+    display: grid; place-items: center; }
+  .cs-seal-in { text-align: center; color: #5a4410; text-shadow: 0 1px 0 rgba(255,255,255,.35); }
+  .cs-seal-brand { font-size: 12px; font-weight: 800; letter-spacing: .3px; }
+  .cs-seal-star { font-size: 10px; line-height: 1; margin: 1px 0; color: #7a5e18; }
+  .cs-seal-url { font-size: 6.5px; font-weight: 700; letter-spacing: .2px; }
+
+  .cs-iacet { width: 128px; margin: 0 auto; border: 2px solid #2e5c9e; background: #fff; text-align: center; }
+  .cs-iacet-top, .cs-iacet-bot { background: #2e5c9e; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 2px; padding: 3px 0; }
+  .cs-iacet-mid { position: relative; font-size: 30px; font-weight: 800; color: #2e5c9e; letter-spacing: 1px; padding: 8px 0 6px; }
+  .cs-iacet-swoosh { position: absolute; left: 8px; bottom: 4px; width: calc(100% - 16px); height: 14px; }
+
+  .cs-sign { margin-top: 18px; }
+  .cs-script { font-family: "Segoe Script", "Snell Roundhand", "Brush Script MT", cursive; font-size: 22px; color: #14203a; }
+  .cs-sign-line { width: 220px; height: 1px; background: #14203a; margin: 2px auto 5px; }
+  .cs-sign-label { font-size: 12px; font-weight: 700; color: #14203a; }
+
+  .cs-confirm { margin-top: 10px; font-size: 9px; color: #6a7282; text-align: right; padding-right: 8px; }
+
+  .cs-foot { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
+  .cs-fcell { padding: 0 8px; text-align: center; }
+  .cs-fval { font-size: 13px; color: #14203a; min-height: 18px; }
+  .cs-fline { border-top: 1px solid #14203a; margin: 4px 6px; }
+  .cs-flabel { font-size: 11px; font-weight: 700; color: #14203a; }
 
   /* Footer */
   .footer { text-align: center; padding: 28px 24px 8px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: auto; }
@@ -1349,6 +1434,12 @@
     const h = (ext.charCodeAt(0) * 7 + ext.charCodeAt(ext.length - 1) * 13 + i * 17) % 18;
     return 80 + h; // 80–97
   }
+  // Deterministic FAILING quiz score (<70) for a failed module — varied so the table doesn't
+  // show the same number on every failure (a passing quiz needs >= 70, so these all flag red).
+  function failScoreFor(ext, i) {
+    const h = (ext.charCodeAt(0) * 11 + ext.charCodeAt(ext.length - 1) * 5 + i * 19) % 25;
+    return 44 + h; // 44–68
+  }
   // Deterministic per-module quiz time spent, in minutes.
   function timeFor(ext, i) {
     const h = (ext.charCodeAt(0) * 5 + ext.charCodeAt(ext.length - 1) * 11 + i * 23) % 16;
@@ -1375,7 +1466,7 @@
     return names.map((name, i) => {
       if (i < done) {
         const failed = r.status === 'failed' && i === done - 1;        // failed the last module reached
-        const score = failed ? 61 : scoreFor(r.ext, i);
+        const score = failed ? failScoreFor(r.ext, i) : scoreFor(r.ext, i);
         return { name, status: failed ? 'failed' : 'complete', score, time: timeFor(r.ext, i), attempts: attemptsFor(r.ext, i, failed) };
       }
       if (i === done && !finished) {
@@ -1397,7 +1488,9 @@
     if (idx < 0) return null;                                          // not-started — no module data yet
     const m = mods[idx];
     const fails = m.status === 'complete' ? Math.max(0, (m.attempts || 1) - 1) : (m.attempts || 0);
-    const score = m.status === 'complete' ? m.score : null;
+    // Surface the score for a failed latest module too, so the Quiz Score column can flag it
+    // red-with-an-X; a passed module keeps its passing score; in-progress = no score yet (—).
+    const score = (m.status === 'complete' || m.status === 'failed') ? m.score : null;
     return { index: idx + 1, name: m.name, status: m.status, fails, score };
   }
 
@@ -1448,8 +1541,8 @@
       render:(r, course) => { const lm = latestModule(r, course); return lm ? `<span class="lm-name" title="${lm.name.replace(/"/g,'&quot;')}">${lm.name}</span>` : '<span class="muted-cell">—</span>'; } },
     { key:'latestFails', label:'Failed Attempts', width:'130px', sortable:true, group:'latest', groupLabel:'Latest Module', cellClass:'nowrap', headClass:'nowrap',
       render:(r, course) => { const lm = latestModule(r, course); if (!lm) return '<span class="muted-cell">—</span>'; return lm.fails > 0 ? `<span class="fr-attempt">${lm.fails}</span>` : '<span class="muted-cell">0</span>'; } },
-    { key:'latestScore', label:'Quiz Score',      width:'105px', sortable:true, group:'latest', groupLabel:'Latest Module', groupLast:true, cellClass:'nowrap', headClass:'nowrap',
-      render:(r, course) => { const lm = latestModule(r, course); return (lm && lm.score != null) ? `${lm.score}%` : '<span class="muted-cell">—</span>'; } },
+    { key:'latestScore', label:'Quiz Score',      width:'115px', sortable:true, group:'latest', groupLabel:'Latest Module', groupLast:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r, course) => quizScoreCellHTML(latestModule(r, course)) },
     // ── Assignment timeline (Started → Due → Completed → Last Access → Time Spent) ──
     { key:'start',    label:'Started',          width:'110px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => dateCell(courseDates(r).start) },
@@ -1472,8 +1565,13 @@
     // attempts, so it is populated only when the learner has exhausted their attempts.
     { key:'failed',   label:'Course Failure Date', width:'170px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => (r.status === 'failed' && r.attempts === 3 && r.failDate) ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>' },
-    // ── Action / Certificate (normal column — no longer pinned/locked; hide or reorder freely) ──
-    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'150px', align:'right', cellClass:'cell-actions',
+    // ── Certificate (normal column — no longer pinned/locked; hide or reorder freely). Passed
+    //    learners get a "View certificate" link; everyone else shows "—". The header carries an
+    //    info callout noting a certificate can take up to a week to appear after a learner passes. ──
+    { key:'action',   label:'Certificate', menuLabel:'Certificate', width:'160px', align:'right', cellClass:'cell-actions',
+      headExtra: '<span class="cert-info" tabindex="0" role="note" aria-label="Certificates may take up to a week to display after a learner passes.">'
+        + '<i aria-hidden="true" class="fa-solid fa-circle-info"></i>'
+        + '<span class="ci-tip">Certificates may take up to a week to display after a learner passes.</span></span>',
       render:(r, course, gid) => actionCellHTML(r, gid) },
   ];
   const colByKey = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
@@ -1488,6 +1586,14 @@
   }
   function statusBadgeHTML(r) {
     return `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>`;
+  }
+  // Quiz Score cell — the latest module's quiz score, flagged pass/fail:
+  //   >= 70% → green with a check ✓ | <= 69% → red with an X ✗ | no score yet → em dash.
+  function quizScoreCellHTML(lm) {
+    if (!lm || lm.score == null) return '<span class="muted-cell">—</span>';
+    const pass = lm.score >= 70;
+    const icon = pass ? 'fa-circle-check' : 'fa-circle-xmark';
+    return `<span class="quiz-score ${pass ? 'qs-pass' : 'qs-fail'}"><i aria-hidden="true" class="fa-solid ${icon}"></i>${lm.score}%</span>`;
   }
   // Overall course progress bar, colored by status (gray at 0% for not-started).
   function progressCellHTML(r) {
@@ -1548,7 +1654,10 @@
     if (c.align === 'right') style.push('text-align:right');
     const st = style.length ? ` style="${style.join(';')}"` : '';
     const arrow = c.sortable ? ' <i aria-hidden="true" class="fa-solid fa-sort sort-arrow"></i>' : '';
-    return `<th scope="col"${cl}${rs}${ds}${st}>${c.label}${arrow}</th>`;
+    // `headExtra` (e.g. the Certificate column's info callout) is appended to the main/rowspan
+    // header only — sub-headers of a group never carry it.
+    const extra = (!opts.sub && c.headExtra) ? c.headExtra : '';
+    return `<th scope="col"${cl}${rs}${ds}${st}>${c.label}${arrow}${extra}</th>`;
   }
   function renderHead() {
     const superRow = document.getElementById('headSuper');
@@ -2211,29 +2320,71 @@
   }
 
   /* ═══════════════ Certificate modal (the only remaining dialog on the report) ═══════════════ */
+  // Deterministic 10-digit ClickSafety serial number for the certificate (stable per learner).
+  function certSerial(ext) {
+    let h = 0; for (const c of ext) h = (h * 31 + c.charCodeAt(0)) % 1000000000;
+    return String(1000000000 + h);
+  }
   function openCertModal(r, course) {
-    const name = displayName(r.name), s = MODAL_STYLE.cert;
+    const name = displayName(r.name);
+    // CEUs / contact hours / duration follow the course (OSHA 30-Hour vs. the 10-Hour courses).
+    const is30 = /30-?Hour/i.test(course);
+    const ceus = is30 ? '3.00' : '1.00';
+    const contact = is30 ? '30.00' : '10.00';
+    const duration = is30 ? '30.00 Hours' : '10.00 Hours';
+    const serial = certSerial(r.ext);
+    const completed = (r.last && r.last !== 'Never') ? r.last : '—';
     dialog.headerRenderer = (root) => {
-      root.innerHTML = `<div class="dlg-head" style="width:min(540px,92vw)">
-        <div class="m-ico" style="background:${s.bg}; color:${s.col}"><i aria-hidden="true" class="fa-solid ${s.icon}"></i></div>
-        <div><div class="m-title">Certificate of Completion</div><div class="m-sub">${course}</div></div>
+      root.innerHTML = `<div class="dlg-head" style="width:min(760px,94vw)">
+        <div class="m-ico" style="background:#dcfce7; color:#15803d"><i aria-hidden="true" class="fa-solid fa-award"></i></div>
+        <div><div class="m-title">Certificate</div><div class="m-sub">${name} · ${course}</div></div>
         <vaadin-button theme="icon tertiary" aria-label="Close" id="dlgClose" style="margin-left:auto"><i aria-hidden="true" class="fa-solid fa-xmark"></i></vaadin-button>
       </div>`;
       root.querySelector('#dlgClose').addEventListener('click', closeModal);
     };
     dialog.renderer = (root) => {
-      root.innerHTML = `<div class="dlg-body"><div class="cert">
-        <div class="c-seal"><i aria-hidden="true" class="fa-solid fa-award"></i></div>
-        <div class="c-kicker">CERTIFICATE OF COMPLETION</div>
-        <div class="c-name">${name}</div>
-        <div class="c-for">has successfully completed</div>
-        <div class="c-course">${course}</div>
-        <div class="c-meta">
-          <div>Completed<b>${r.last}</b></div>
-          <div>Score<b>92%</b></div>
-          <div>Certificate ID<b>OSHA-${r.ext.toUpperCase()}</b></div>
+      root.innerHTML = `<div class="cs-wrap"><div class="cs-cert"><div class="cs-inner">
+        <div class="cs-logo"><span class="cs-click">CLICK</span><span class="cs-safety">SAFETY</span><span class="cs-tm">™</span></div>
+        <div class="cs-tagline">TRAINING. &nbsp;COMPLIANCE. &nbsp;YOUR FUTURE.</div>
+
+        <div class="cs-certifies">certifies that</div>
+        <div class="cs-name">${name}</div>
+        <div class="cs-completed">has successfully completed</div>
+        <div class="cs-course">${course}</div>
+        <div class="cs-earned">and has earned ${ceus} IACET CEUs<br>and ${contact} Contact Hours.</div>
+
+        <div class="cs-marks">
+          <div class="cs-seal"><div class="cs-seal-in">
+            <div class="cs-seal-brand">CLICKSAFETY</div>
+            <div class="cs-seal-star">★ ★ ★</div>
+            <div class="cs-seal-url">www.ClickSafety.com</div>
+          </div></div>
+          <div class="cs-center">
+            <div class="cs-presented">This course was developed and presented by<br><b>ClickSafety.com, Inc.</b></div>
+            <div class="cs-legal">As an OSHA Outreach Training Program trainer, I affirm that I have conducted this OSHA Outreach Training Program training class in accordance with OSHA Outreach Training Program requirements. I will document this class to my OSHA Authorizing Training Organization. Upon successful review of my documentation, I will provide each student their course completion card within 90 calendar days of the end of the class.</div>
+          </div>
+          <div class="cs-iacet">
+            <div class="cs-iacet-top">ACCREDITED</div>
+            <div class="cs-iacet-mid">IACET<svg class="cs-iacet-swoosh" viewBox="0 0 120 18" aria-hidden="true"><path d="M2 14 C38 2, 84 2, 118 9" fill="none" stroke="#7aa3d6" stroke-width="3"/></svg></div>
+            <div class="cs-iacet-bot">PROVIDER</div>
+          </div>
         </div>
-      </div></div>`;
+
+        <div class="cs-sign">
+          <div class="cs-script">Kelley Edmier</div>
+          <div class="cs-sign-line"></div>
+          <div class="cs-sign-label">Signature of Administrator</div>
+        </div>
+
+        <div class="cs-confirm">I confirm that I personally took the course listed above.</div>
+
+        <div class="cs-foot">
+          <div class="cs-fcell"><div class="cs-fval">${serial}</div><div class="cs-fline"></div><div class="cs-flabel">Serial Number</div></div>
+          <div class="cs-fcell"><div class="cs-fval">${completed}</div><div class="cs-fline"></div><div class="cs-flabel">Completion Date</div></div>
+          <div class="cs-fcell"><div class="cs-fval">${duration}</div><div class="cs-fline"></div><div class="cs-flabel">Course Duration</div></div>
+          <div class="cs-fcell"><div class="cs-fval">&nbsp;</div><div class="cs-fline"></div><div class="cs-flabel">Student Signature</div></div>
+        </div>
+      </div></div></div>`;
     };
     dialog.footerRenderer = (root) => {
       root.innerHTML = '';
