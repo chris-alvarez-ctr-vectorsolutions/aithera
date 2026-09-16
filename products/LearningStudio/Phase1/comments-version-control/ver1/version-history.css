@@ -1,0 +1,317 @@
+/* ============================================================
+   VERSION HISTORY — shared styles
+
+   Extracted from index.html so BOTH pages can show this modal:
+     - index.html            (course lookup -> row kebab -> Version history)
+     - course-overview.html  (Course Details tab -> Publishing container)
+
+   Pairs with version-history.js, which owns the markup and behaviour.
+   Depends on .modal-overlay / .modal from each page's base stylesheet.
+   ============================================================ */
+
+
+/* ============================================================
+   VERSION HISTORY  (course lookup → row kebab → Version history)
+
+   A timeline of publish events. The NOTE leads each row: it is the reason
+   the screen exists — without it someone opens every version and searches
+   it to find the right one, with it they read "DEI resolution for 2026" and
+   go straight there. Date, author and version follow as supporting facts.
+   ============================================================ */
+
+.vh-modal { width: min(720px, 100%); }
+
+/* The header sticks while the timeline scrolls under it, so the course
+   being acted on stays on screen no matter how long its history is — which
+   matters most on the confirm step, where this is the only thing naming the
+   course.
+
+   `position: sticky` works because .vh-body is the scroll container and this
+   sits inside the same dialog column; the background must be opaque or the
+   scrolling cards show through. */
+.vh-head {
+  display: flex; align-items: flex-start; gap: 16px;
+  position: sticky; top: 0; z-index: 2;
+  background: var(--lumo-base-color, #fff);
+  /* Breathing room under the title/SKU row before the timeline starts. */
+  padding-bottom: 16px;
+}
+
+/* Elevation, drawn only once the content behind it has actually moved, so
+   the header is flat at rest and lifts on scroll. `.is-scrolled` is set from
+   the body's scroll position. */
+#vhModal.is-scrolled .vh-head {
+  box-shadow: 0 4px 12px -6px rgba(15, 25, 45, .28);
+  border-bottom: 1px solid var(--border);
+}
+.vh-head-text { flex: 1 1 auto; min-width: 0; }
+.vh-sub {
+  margin: 4px 0 0; display: flex; align-items: baseline; gap: 8px;
+  font-size: var(--font-size-m); color: var(--ink-soft);
+  min-width: 0;
+}
+/* The course title can be long; it truncates before the SKU does, since the
+   SKU is the shorter unambiguous identifier. */
+.vh-sub > span:first-child {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+/* The SKU is what uniquely identifies the course — the results table it is
+   opened from has near-duplicate titles (three rows read "Performance
+   Testing: Fundamentals and Best Practices"), so this is the field someone
+   checks before reverting. It was the smallest, faintest text in the dialog,
+   which is backwards for that job: give it a mono-ish tabular treatment and
+   a chip so it reads as an identifier to be matched rather than a footnote. */
+.vh-sku {
+  flex: 0 0 auto;
+  padding: 1px 7px; border-radius: 5px;
+  background: var(--lumo-contrast-5pct);
+  font-size: var(--font-size-s); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
+
+.vh-body { overflow-y: auto; }
+
+/* ---- Timeline ----
+   A spine down the left with a dot per event. The spine is drawn on the list
+   rather than per item, so it runs continuously behind the dots instead of
+   breaking at every gap. */
+.vh-timeline {
+  list-style: none; margin: 0; padding: 4px 0 0 0;
+  position: relative;
+}
+.vh-item {
+  position: relative;
+  padding-left: 28px;
+  padding-bottom: 14px;
+}
+/* The connector, drawn per item so it stops cleanly at the last one. */
+.vh-item::before {
+  content: ''; position: absolute;
+  left: 6px; top: 16px; bottom: -2px; width: 2px;
+  background: var(--border);
+}
+.vh-item:last-child { padding-bottom: 0; }
+.vh-item:last-child::before { display: none; }
+
+.vh-dot {
+  position: absolute; left: 0; top: 7px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--lumo-base-color);
+  border: 2px solid var(--border-strong);
+  box-sizing: border-box;
+}
+/* The live version is the one people look for first, so it is the only
+   filled dot. */
+.vh-item.is-current .vh-dot {
+  background: var(--brand-2); border-color: var(--brand-2);
+}
+
+.vh-card {
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--lumo-base-color);
+}
+.vh-item.is-current .vh-card {
+  border-color: #bcd8f5; background: #f7fbff;
+}
+
+/* Supporting facts, above the note and deliberately quieter than it. */
+.vh-meta {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px;
+  font-size: var(--font-size-s);
+}
+.vh-ver {
+  font-weight: var(--font-weight-semibold); color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+/* The single "Published <date> · <rel> by <name>" field, pushed to the end
+   of the row so the version and its badges keep the left. `nowrap` holds
+   the whole phrase together — the meta row wraps, and a break mid-phrase
+   would leave "by" or a lone name reading as a separate field. */
+.vh-pub {
+  color: var(--ink-soft); margin-left: auto;
+  white-space: nowrap;
+}
+/* Labels recede; the date and name carry the colour, so the row scans by
+   its values rather than by the repeated word "Published". */
+.vh-pub-label { color: var(--ink-mute); }
+.vh-pub-date,
+.vh-pub-who { color: var(--ink-soft); }
+
+/* Lumo's badge styles come from the theme; only the timeline's own spacing
+   is set here. */
+.vh-meta span[theme~="badge"] { flex: 0 0 auto; }
+
+/* The note: the row's headline, at body size while its metadata sits at
+   small — the reverse of the usual card, because this is what people read. */
+.vh-note {
+  margin: 6px 0 0;
+  font-size: var(--font-size-m); color: var(--ink); line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.vh-note.is-none { color: var(--ink-mute); font-style: italic; }
+
+.vh-actions {
+  display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap;
+  /* Pull the row's buttons back into line with the note above them:
+     vaadin-button carries its own horizontal padding, so without this the
+     labels sit indented relative to the text they belong to. */
+  margin-left: -8px;
+}
+/* Font Awesome glyphs inside a vaadin-button: the label is slotted, so the
+   icon is spaced here rather than by the component. */
+.vh-actions vaadin-button i { margin-right: 6px; }
+
+.vh-empty {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 0 0; padding: 20px 0;
+  color: var(--ink-mute); font-size: var(--font-size-m);
+  justify-content: center;
+}
+
+/* Start-of-timeline marker — the list's own last row, so it shares the
+   cards' column. Quieter than an event and carries no card: it is a
+   boundary, not something you can act on. */
+.vh-item.vh-start { padding-bottom: 0; }
+.vh-start-text {
+  display: block; padding-top: 1px;
+  color: var(--ink-mute); font-size: var(--font-size-s);
+}
+/* A hollow, smaller dot: it terminates the spine without reading as another
+   publish event. */
+.vh-dot.is-start {
+  width: 9px; height: 9px; top: 9px; left: 2px;
+  border-color: var(--border-strong); background: var(--lumo-base-color, #fff);
+}
+
+/* .vh-empty sets `display`, which beats the `hidden` attribute (the same
+   reason `.kebab-menu[hidden]` needs its own override above), so it is
+   toggled with a class instead. */
+.vh-empty.is-hidden { display: none; }
+
+.vh-foot { display: flex; justify-content: flex-end; }
+
+/* ---- View swapping ----
+   The dialog's three views (list, version detail, revert confirmation)
+   live in the same panel and are swapped by `.is-hidden`. Each sets its
+   own `display`, so the attribute-based `hidden` would lose to it — every
+   view's body AND footer has to be listed here or it stays on screen
+   underneath the one that replaced it. */
+.vh-confirm-view.is-hidden,
+.vh-confirm-foot.is-hidden,
+.vh-detail-view.is-hidden,
+.vh-detail-foot.is-hidden,
+.vh-body.is-hidden,
+.vh-foot.is-hidden { display: none; }
+
+.vh-confirm-view { padding-top: 20px; }
+
+/* On the confirm step the header is the ONLY thing naming the course — the
+   timeline is hidden behind it — so the identity line is given full text
+   colour rather than the muted treatment it has over the list. */
+#vhModal.is-confirming .vh-sub { color: var(--ink); }
+.vh-confirm-foot { display: flex; justify-content: flex-end; }
+.vh-warn-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: grid; place-items: center; margin-bottom: 10px;
+  background: #fdf2e3; color: #995211; font-size: var(--font-size-l);
+}
+.vh-confirm-lead { margin: 0; color: var(--ink); line-height: 1.5; }
+/* Shows the note of the version being restored, so the confirmation names
+   what you are going back TO rather than just a version number. */
+.vh-confirm-note {
+  margin: 12px 0 0; padding: 10px 12px;
+  border-left: 3px solid var(--border-strong);
+  background: #f9fafb; border-radius: 0 8px 8px 0;
+  color: var(--ink); line-height: 1.5; font-size: var(--font-size-m);
+  overflow-wrap: anywhere;
+}
+.vh-confirm-note.is-none { color: var(--ink-mute); font-style: italic; }
+.vh-confirm-keep {
+  display: flex; align-items: flex-start; gap: 7px;
+  margin: 14px 0 0;
+  font-size: var(--font-size-s); color: var(--lumo-success-text-color);
+  line-height: 1.45;
+}
+
+/* ============================================================
+   VERSION DETAIL — one version's own view inside the dialog
+   ============================================================ */
+
+/* Breadcrumb back to the list. First thing in the view and styled as a
+   control rather than a caption: it is the only way back, so it has to
+   read as pressable. */
+.vh-crumb {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: none; background: none;
+  margin: 0 0 16px; padding: 4px 8px 4px 0;
+  color: var(--lumo-primary-text-color);
+  font: inherit; font-size: var(--font-size-s);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.vh-crumb:hover { text-decoration: underline; }
+.vh-crumb i { font-size: var(--font-size-xs); }
+
+.vh-detail-head {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px;
+}
+.vh-detail-badges { display: flex; gap: 6px; }
+
+/* The version's facts, as label/value pairs. Two columns so the five
+   short values read as a block rather than a long thin list. */
+.vh-detail-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 24px;
+  margin: 0 0 22px;
+  padding: 16px 18px;
+  background: var(--lumo-contrast-5pct);
+  border-radius: 8px;
+}
+.vh-fact { min-width: 0; }
+.vh-fact dt {
+  font-size: var(--font-size-s);
+  color: var(--ink-soft);
+  margin-bottom: 3px;
+}
+.vh-fact dd {
+  margin: 0;
+  font-size: var(--font-size-m);
+  color: var(--ink);
+}
+
+.vh-detail-section { margin-bottom: 22px; }
+.vh-detail-section:last-child { margin-bottom: 0; }
+.vh-detail-label {
+  margin: 0 0 8px;
+  font-size: var(--font-size-s);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ink);
+}
+
+/* Course outline at this version. */
+.vh-detail-list { list-style: none; margin: 0; padding: 0; }
+.vh-detail-list li {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--border);
+}
+.vh-detail-list li:last-child { border-bottom: none; }
+.vh-detail-sec {
+  flex: 1 1 auto; min-width: 0;
+  font-size: var(--font-size-m); color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.vh-detail-cnt {
+  flex: 0 0 auto;
+  font-size: var(--font-size-s); color: var(--ink-soft);
+}
+.vh-detail-empty { color: var(--ink-soft); font-size: var(--font-size-s); }
+
+/* Preview sits left, Revert right — the destructive action keeps the
+   trailing position it has on the confirmation step. */
+.vh-detail-foot { display: flex; justify-content: space-between; }
+.vh-detail-foot vaadin-button i { margin-right: 6px; }
