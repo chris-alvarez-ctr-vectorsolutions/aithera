@@ -26,12 +26,20 @@
 
   <link rel="stylesheet" href="demo.css" />
   <link rel="stylesheet" href="comments-panel.css" />
+  <link rel="stylesheet" href="version-history.css" />
+  <link rel="stylesheet" href="history-panel.css" />
 
   <!-- Shared comment model + panel controller. Loaded by BOTH pages so the
        thread data and the panel behaviour cannot drift between them. -->
   <script src="version-data.js"></script>
+  <script src="history-data.js"></script>
 <script src="comments-data.js"></script>
   <script src="comments-panel.js"></script>
+  <!-- Version History modal, shared with index.html. Injects its own
+       markup into <body>; opened from the Publishing card. -->
+  <script src="version-history.js"></script>
+  <!-- Edit history: shares the comments drawer. -->
+  <script src="history-panel.js"></script>
 </head>
 <body>
 
@@ -62,6 +70,33 @@
      which comments-panel.js sets from this header's measured height. That is
      also why the shell below is `height: calc(100vh - <header>)` rather than
      a plain 100vh: this row is no longer one of its flex children. -->
+<!-- ===== Viewing an earlier state =====
+     Shown whenever the history pointer is behind the tip. Without it the
+     page looks exactly like the latest version, and the fact that an edit
+     here would discard the undone changes is invisible until the confirm
+     fires.
+
+     A floating toast rather than a banner row: stepping back is a
+     transient state the user moves in and out of repeatedly, and a row in
+     the layout pushed the whole page down by ~40px on every first step
+     back and pulled it up again on every return. The toast slides over
+     the page instead, so nothing reflows.
+
+     Positioned bottom-centre but ABOVE the Design Toolbox dock (fixed at
+     bottom:16px, z-index 999990) and below its stacking order, so the two
+     never overlap. Lives outside the comments drawer so the panel cannot
+     mark it inert. -->
+<div class="ov-rewound" id="ovRewound" role="status" hidden>
+  <i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>
+  <span class="ov-rewound-text" id="ovRewoundText"></span>
+  <!-- The gate. Until this is used the course is read-only, so the
+       decision is made deliberately here rather than being sprung on the
+       user by their first edit. -->
+  <button class="ov-rewound-cta" type="button" id="ovRewoundEdit">
+    <i class="fa-solid fa-pen-to-square"></i> Edit from this state
+  </button>
+</div>
+
 <!-- Row 1: global header -->
 <header class="ov-topbar">
   <div class="ov-ident">
@@ -77,21 +112,21 @@
   </div>
 
   <div class="ov-top-right">
-    <!-- Export: a real <select> so the internal view reads as the
-         production control rather than a styled-up button. Options are
-         presentational in this prototype. -->
-    <label class="sr-only" for="exportSelect">Export course</label>
-    <select class="ov-export" id="exportSelect">
-      <option value="">Export</option>
-      <option value="scorm">SCORM 1.2 package</option>
-      <option value="scorm2004">SCORM 2004 package</option>
-      <option value="pdf">Outline as PDF</option>
-      <option value="csv">Transcript as CSV</option>
-    </select>
-
+    <!-- Export now lives on the Course Details tab, as its own card. It
+         is a course-level document action, not a per-screen one, and the
+         header is reserved for things needed from every tab. -->
     <button class="ov-icon-btn" id="btnHelp" type="button"
             title="Help" aria-label="Help">
       <i class="fa-regular fa-circle-question"></i>
+    </button>
+
+    <!-- Edit history. Sits with Publish/Comments because this is the only
+         region with editor-wide context — the stack spans every tab and
+         both pages, so it cannot live inside one of them. -->
+    <button class="ov-icon-btn ov-comments" id="btnHistory" type="button"
+            title="History" aria-label="Edit history">
+      <i class="fa-solid fa-clock-rotate-left"></i>
+      <span class="ov-comment-count hx-count" data-history-count>0</span>
     </button>
 
     <!-- Comments entry point for the internal reviewer flow. The badge
@@ -148,6 +183,22 @@
     </div>
   </div>
 </div>
+
+<!-- ===== Discard changes =====
+     Discarding destroys unpublished work and cannot be undone, so it gets
+     a real dialog rather than a second state inside the callout: the
+     inline row put the destructive button a few pixels from where the
+     user's cursor already was, and a banner that changes shape under the
+     pointer is a poor place to ask an irreversible question.
+
+     `vaadin-dialog` — the design system's own dialog — rather than the
+     hand-rolled .modal-overlay the other dialogs on this page use. It
+     brings the scrim, focus trap, Escape and outside-click handling with
+     it, so none of that is reimplemented here.
+
+     Content comes from RENDERER FUNCTIONS, not slotted markup: that is
+     the component's API (see core CONTEXT.md). Wired in JS below. -->
+<vaadin-dialog id="discardDialog"></vaadin-dialog>
 
 <!-- ===== Comments panel wraps the page =====
      `vwc-drawer` is a LAYOUT component, not a floating box: it renders the
@@ -216,24 +267,252 @@
       <main class="ov-content">
         <div class="ov-content-inner">
 
+          <!-- The heading swaps with the tab; the meta row (progress,
+               duration, Preview Course) is course-level and stays put. -->
           <div class="ov-content-head">
             <div>
-              <h1 class="ov-h1">Course Content</h1>
-              <p class="ov-sub">Add, edit, or remove content to create a custom learning experience.</p>
+              <h1 class="ov-h1" id="ovPaneTitle">Course Content</h1>
+              <p class="ov-sub" id="ovPaneSub">Add, edit, or remove content to create a custom learning experience.</p>
             </div>
 
             <div class="ov-content-meta">
-              <div class="ov-progress">
-                <div class="ov-progress-label" id="progLabel"></div>
-                <div class="ov-progress-bar"><span id="progFill"></span></div>
+              <!-- Progress, duration and Preview describe the COURSE CONTENT,
+                   so they belong to the tabs that show it. The Details tab
+                   is a form about the course record — a completion count and
+                   a runtime say nothing about it — so it swaps them for its
+                   own action. Toggled in setOvTab. -->
+              <div class="ov-meta-content" id="ovMetaContent">
+                <div class="ov-progress">
+                  <div class="ov-progress-label" id="progLabel"></div>
+                  <div class="ov-progress-bar"><span id="progFill"></span></div>
+                </div>
+                <span class="dur-pill" id="courseDur"><i class="fa-regular fa-clock"></i> <span></span></span>
+                <button class="btn-outline">Preview Course</button>
               </div>
-              <span class="dur-pill" id="courseDur"><i class="fa-regular fa-clock"></i> <span></span></span>
-              <button class="btn-outline">Preview Course</button>
+
+              <!-- Details tab only. Export sits at the heading level, as a
+                   secondary action in the same slot Preview occupies — it is
+                   the course-level action for this tab. -->
+              <div class="ov-meta-details" id="ovMetaDetails" hidden>
+                <div class="exp-menu-wrap">
+                  <button class="btn-outline" type="button" id="exportMenuBtn"
+                          aria-haspopup="true" aria-expanded="false">
+                    <i class="fa-solid fa-download"></i> Export
+                    <i class="fa-solid fa-chevron-down exp-caret"></i>
+                  </button>
+
+                  <div class="exp-menu" id="exportMenu" hidden role="menu">
+                    <button class="exp-menu-item" type="button" role="menuitem" data-export="scorm12">
+                      <span class="exp-menu-name">SCORM 1.2 package</span>
+                      <span class="exp-menu-desc">For LMS platforms on the older SCORM standard.</span>
+                    </button>
+                    <button class="exp-menu-item" type="button" role="menuitem" data-export="scorm2004">
+                      <span class="exp-menu-name">SCORM 2004 package</span>
+                      <span class="exp-menu-desc">Adds sequencing and richer completion tracking.</span>
+                    </button>
+                    <button class="exp-menu-item" type="button" role="menuitem" data-export="pdf">
+                      <span class="exp-menu-name">Outline as PDF</span>
+                      <span class="exp-menu-desc">Sections, learning objects and durations, for review.</span>
+                    </button>
+                    <button class="exp-menu-item" type="button" role="menuitem" data-export="csv">
+                      <span class="exp-menu-name">Transcript as CSV</span>
+                      <span class="exp-menu-desc">Every scene's narration, for translation or copy review.</span>
+                    </button>
+                    <p class="exp-menu-note">
+                      Exports reflect the current working version, including
+                      unpublished changes.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div id="sectionList">
-            <!-- rendered from COURSE -->
+          <!-- ===== Pane: Content (default) ===== -->
+          <div class="ov-pane is-active" id="paneContent">
+            <div id="sectionList">
+              <!-- rendered from COURSE -->
+            </div>
+          </div>
+
+          <!-- ===== Pane: Course Details =====
+               Three cards: the COURSE record itself, the variant that ships
+               from it, and a publishing summary that closes the page. Every
+               value that also exists on the COURSE object is written from it
+               on load (see fillCourseDetails) rather than hand-typed here,
+               so this tab can't drift from the header, the rail, or the
+               roll-ups.
+               ============================================================ -->
+          <div class="ov-pane" id="paneDetails">
+
+            <!-- ---- Card 1: the course record ---- -->
+            <div class="det-card">
+              <div class="det-grid">
+
+                <div class="field required det-col-main">
+                  <label for="cdTitle">Course Title *</label>
+                  <!-- Locked: the title is owned by the course record and
+                       is edited from the course lookup, not from here.
+                       Shown rather than hidden so reviewers can confirm
+                       what they're commenting on. -->
+                  <input type="text" id="cdTitle" class="is-locked" readonly
+                         aria-describedby="cdTitleCount" />
+                  <div class="char-count" id="cdTitleCount" data-max="253"></div>
+                </div>
+
+                <div class="field det-col-side">
+                  <label for="cdVoice">Default Voice *</label>
+                  <select id="cdVoice" class="det-select">
+                    <option>Eric(M)-American</option>
+                    <option>Ava(F)-American</option>
+                    <option>Noah(M)-American</option>
+                    <option>Isla(F)-British</option>
+                    <option>Mateo(M)-Spanish</option>
+                  </select>
+                </div>
+
+                <div class="field required det-col-main">
+                  <label for="cdDesc">Course Description *</label>
+                  <textarea id="cdDesc" rows="6" aria-describedby="cdDescCount"></textarea>
+                  <div class="char-count" id="cdDescCount" data-max="2000"></div>
+                </div>
+
+                <div class="det-col-main">
+                  <label class="det-check">
+                    <input type="checkbox" id="cdAccredited" />
+                    <span>Check if this will be an Accredited course</span>
+                  </label>
+                </div>
+
+                <div class="field det-col-main">
+                  <!-- Not a <label for>: the only control here is a button,
+                       and a label pointing at it would fire the file picker
+                       on a stray click on the heading. -->
+                  <div class="field-label">
+                    Course Image *
+                    <button class="det-info" type="button"
+                            aria-label="About the course image"
+                            title="Shown on the course card in the catalog. PNG or JPG, 16:9, at least 1280×720.">
+                      <i class="fa-regular fa-circle-info"></i>
+                    </button>
+                  </div>
+
+                  <!-- Same upload affordance as the Add Learning Object
+                       modal, so "pick a file" reads the same everywhere in
+                       the prototype. Nothing is uploaded — the picked file
+                       is previewed back as a thumbnail. -->
+                  <div class="dropzone det-drop" id="cdImageDrop">
+                    <input type="file" id="cdImageInput" accept="image/*" hidden />
+                    <button class="btn btn-upload" type="button" id="cdImageBtn">Upload File…</button>
+                    <span class="dz-hint">
+                      <i class="fa-solid fa-arrow-up-from-bracket"></i> Drop file here
+                    </span>
+                  </div>
+
+                  <!-- Populated once a file is picked. -->
+                  <div class="det-thumb" id="cdImageThumb" hidden>
+                    <img id="cdImagePreview" alt="" />
+                    <div class="det-thumb-meta">
+                      <div class="det-thumb-name" id="cdImageName"></div>
+                      <button class="det-thumb-remove" type="button" id="cdImageRemove">Remove</button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- ---- Card 2: the variant ----
+                 A variant is a packaging of the same content (full course,
+                 refresher, and so on). Its duration defaults to the COURSE
+                 roll-up; "Use Custom Duration" is the override, so the
+                 minutes field stays disabled until it is ticked. -->
+            <div class="det-card">
+              <div class="det-grid">
+
+                <div class="field det-col-main">
+                  <label for="cdVarTitle">Variant Title</label>
+                  <input type="text" id="cdVarTitle" value="Full Course"
+                         aria-describedby="cdVarTitleCount" />
+                  <div class="char-count" id="cdVarTitleCount" data-max="253"></div>
+                </div>
+
+                <div class="field det-col-main">
+                  <label for="cdVarDesc">Variant Description</label>
+                  <textarea id="cdVarDesc" rows="3"
+                            placeholder="Enter variant description"></textarea>
+                </div>
+
+                <div class="det-col-main">
+                  <label class="det-check">
+                    <input type="checkbox" id="cdCustomDur" />
+                    <span>Use Custom Duration</span>
+                  </label>
+                </div>
+
+                <div class="field det-col-main det-minutes">
+                  <label for="cdMinutes" class="det-minutes-label">minutes</label>
+                  <input type="number" id="cdMinutes" min="0" step="1" disabled />
+                  <!-- Names what the field falls back to when unchecked, so
+                       an empty disabled box doesn't read as "no duration". -->
+                  <p class="det-hint" id="cdDurHint"></p>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- ---- Card 3: publishing ----
+                 Last, because this tab is an EDIT surface: you change the
+                 fields above, then this closes the page by saying what is
+                 currently live and whether your edits have shipped.
+
+                 Reads the SAME store the course lookup's Version History
+                 modal does (version-data.js), so the live version here and
+                 the timeline there can never disagree — and publishing from
+                 the header updates both.
+
+                 Rendered by renderPublishCard(); nothing here is typed. -->
+            <div class="det-card pub-card" id="pubCard">
+              <div class="pub-head">
+                <h2 class="pub-title">Publishing</h2>
+                <div class="pub-head-actions">
+                  <button class="btn-outline sm" type="button" id="pubHistoryBtn">
+                    <i class="fa-regular fa-clock-rotate-left"></i> Version history
+                  </button>
+                </div>
+              </div>
+
+              <!-- Unpublished-changes callout. Shown only when edits exist
+                   that postdate the live version; hidden otherwise, so a
+                   clean course doesn't carry a permanent banner. -->
+              <div class="pub-callout" id="pubCallout" hidden></div>
+
+              <!-- Live status. Filled from the current publish event. -->
+              <div class="pub-status" id="pubStatus"></div>
+
+              <!-- The live version's publish note, or an explicit absence. -->
+              <div class="pub-note-wrap" id="pubNoteWrap"></div>
+            </div>
+
+          </div>
+
+          <!-- ===== Panes: Assessment / Survey =====
+               Not built yet. They hold the tab selection and say so, rather
+               than snapping back to Content, which read as a broken tab. -->
+          <div class="ov-pane" id="paneAssessment">
+            <div class="det-card det-empty">
+              <i class="fa-regular fa-clipboard-question"></i>
+              <h2>Assessment</h2>
+              <p>Not built in this prototype yet.</p>
+            </div>
+          </div>
+
+          <div class="ov-pane" id="paneSurvey">
+            <div class="det-card det-empty">
+              <i class="fa-regular fa-square-poll-horizontal"></i>
+              <h2>Survey</h2>
+              <p>Not built in this prototype yet.</p>
+            </div>
           </div>
 
         </div>
@@ -932,6 +1211,14 @@ document.getElementById('publishConfirm').addEventListener('click', () => {
      between publishing here and the history in the lookup visible in a
      walkthrough. */
   showPublished(ev);
+
+  /* The edits just shipped, so the Details tab's publishing card drops its
+     "unpublished changes" callout and goes back to Live.
+
+     Declared further down the file than this handler, which is fine — the
+     handler only runs on a click, long after parse — but it means the
+     assignment must not be attempted before then. */
+  pubClearDirty();
 });
 
 function showPublished(ev) {
@@ -1106,13 +1393,17 @@ function commitRailReorder() {
   if (from < to) to--;
   if (to === from) return;
 
-  const [moved] = COURSE.sections.splice(from, 1);
-  COURSE.sections.splice(to, 0, moved);
+  hxGuardEdit(() => {
+    const [moved] = COURSE.sections.splice(from, 1);
+    COURSE.sections.splice(to, 0, moved);
 
-  // Re-render both panes from the mutated data so they stay in lockstep.
-  renderRail();
-  renderSections();
-  renderCourseMeta();
+    // Re-render both panes from the mutated data so they stay in lockstep.
+    renderRail();
+    renderSections();
+    renderCourseMeta();
+
+    hxLogChange('Sections reordered', moved.name + ' moved');
+  });
 
   // Suppress the click that follows a drop, then flash the moved row so
   // the reorder is visible on a live call.
@@ -1538,13 +1829,17 @@ function commitObjectReorder() {
   if (from < to) to--;
   if (to === from) return;
 
-  const [moved] = section.objects.splice(from, 1);
-  section.objects.splice(to, 0, moved);
+  hxGuardEdit(() => {
+    const [moved] = section.objects.splice(from, 1);
+    section.objects.splice(to, 0, moved);
 
-  // Section duration is a sum, so reordering can't change it — but
-  // re-render through the same path anyway to keep one code path.
-  renderSections();
-  renderCourseMeta();
+    // Section duration is a sum, so reordering can't change it — but
+    // re-render through the same path anyway to keep one code path.
+    renderSections();
+    renderCourseMeta();
+
+    hxLogChange('Learning objects reordered', moved.name + ' moved');
+  });
 
   objDrag.justDropped = true;
   setTimeout(() => { objDrag.justDropped = false; }, 0);
@@ -1611,40 +1906,484 @@ document.getElementById('railCollapse').addEventListener('click', () => {
 });
 
 /* ── Tab bar ──────────────────────────────────────────────────
-   Only Content is built. Course Details, Assessment and Survey will be
-   added as the click paths require them; for now they hold selection so
-   the bar isn't dead, then fall back to Content. */
-document.querySelectorAll('#ovTabs .seg-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('#ovTabs .seg-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    if (btn.dataset.tab !== 'content') {
-      setTimeout(() => {
-        document.querySelectorAll('#ovTabs .seg-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector('#ovTabs [data-tab="content"]').classList.add('active');
-      }, 220);
-    }
+   Content and Course Details are built. Assessment and Survey render a
+   placeholder pane — they still take the selection and say what they
+   are, which reads better than a tab that snaps back.
+
+   The heading above the panes belongs to the TAB, so it swaps here; the
+   meta row beside it (progress, duration, Preview Course) is
+   course-level and is deliberately left alone. */
+const OV_TABS = {
+  content: {
+    pane: 'paneContent',
+    title: 'Course Content',
+    sub: 'Add, edit, or remove content to create a custom learning experience.'
+  },
+  details: {
+    pane: 'paneDetails',
+    title: 'Course Details',
+    sub: 'Manage course, variant, and thumbnail information.'
+  },
+  assessment: {
+    pane: 'paneAssessment',
+    title: 'Assessment',
+    sub: 'Build the knowledge check learners take at the end of the course.'
+  },
+  survey: {
+    pane: 'paneSurvey',
+    title: 'Survey',
+    sub: 'Collect learner feedback once the course is complete.'
+  }
+};
+
+function setOvTab(name) {
+  const tab = OV_TABS[name];
+  if (!tab) return;
+
+  document.querySelectorAll('#ovTabs .seg-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === name);
   });
+  document.querySelectorAll('.ov-pane').forEach(p => {
+    p.classList.toggle('is-active', p.id === tab.pane);
+  });
+
+  document.getElementById('ovPaneTitle').textContent = tab.title;
+  document.getElementById('ovPaneSub').textContent = tab.sub;
+
+  /* The rail lists course STRUCTURE, which only the Content tab acts on.
+     Hiding it elsewhere stops it reading as a live filter for a pane it
+     can't affect, and lets the pane use the full width. */
+  const showRail = (name === 'content');
+  document.getElementById('ovRail').hidden = !showRail;
+
+  /* Details swaps the content roll-ups (progress, duration, Preview) for
+     its own heading action: they describe course CONTENT, which this tab
+     does not show. */
+  const isDetails = (name === 'details');
+  document.getElementById('ovMetaContent').hidden = isDetails;
+  document.getElementById('ovMetaDetails').hidden = !isDetails;
+  if (!isDetails && typeof setExportMenu === 'function') setExportMenu(false);
+  /* Tabs without the rail cap their content width; Content keeps the
+     rail and stays fluid. Covers the heading row too, which lives
+     outside the panes. */
+  document.querySelector('.ov-content-inner').classList.toggle('is-capped', !showRail);
+
+  // Each tab is its own scroll context; don't inherit the last one's offset.
+  document.querySelector('.ov-content').scrollTop = 0;
+}
+
+document.querySelectorAll('#ovTabs .seg-btn').forEach(btn => {
+  btn.addEventListener('click', () => setOvTab(btn.dataset.tab));
 });
 
-/* ── Header controls (internal view) ───────────────────────────
-   Export, Help and Comments are presentational here, matching Publish and
-   Preview Course above — the destinations they imply aren't built in this
-   prototype. Only the pieces with real behaviour are wired:
-     - Export resets to its "Export" placeholder after a choice, so the
-       control never sits showing a format that was never produced.
-   The comment badge is driven by the shared panel controller (it counts
-   unresolved threads), not from here. */
-(function () {
-  const exportSelect = document.getElementById('exportSelect');
-  if (exportSelect) {
-    exportSelect.addEventListener('change', () => {
-      // Snap back to the placeholder; nothing is generated in the prototype.
-      exportSelect.selectedIndex = 0;
-    });
+/* ── Course Details tab ───────────────────────────────────────
+   Everything the COURSE record already knows is written in from it, so
+   this tab can never disagree with the header, the rail, or the
+   duration roll-up. Only the variant fields are free-standing. */
+
+/* Course Description lives on the Details tab and nowhere else, so it is
+   defined here rather than on COURSE — COURSE is the shared structure
+   object that both pages read, and the object manager has no use for it. */
+const COURSE_DESCRIPTION =
+  'Unexpected startup during servicing is one of the most severe hazards on ' +
+  'a plant floor, and the controls that prevent it are procedural rather ' +
+  'than physical. This course prepares authorized employees to control ' +
+  'hazardous energy under 29 CFR 1910.147: identifying every energy source ' +
+  'on a machine, applying the correct isolation sequence, verifying a zero ' +
+  'energy state before work begins, and releasing equipment safely ' +
+  'afterward. It covers group lockout, removal of an absent employee\u2019s ' +
+  'device, and a worked machine-specific conveyor procedure end to end, so ' +
+  'the sequence is practiced against real equipment rather than described ' +
+  'in the abstract.';
+
+/* Live "n/max characters" readout for a field. The max lives on the
+   counter element's data-max so the markup declares the limit once. */
+function wireCharCount(inputId, countId) {
+  const input = document.getElementById(inputId);
+  const count = document.getElementById(countId);
+  if (!input || !count) return;
+
+  const max = Number(count.dataset.max);
+  const update = () => {
+    const n = input.value.length;
+    count.textContent = n + '/' + max + ' characters';
+    count.classList.toggle('is-over', n > max);
+  };
+  input.addEventListener('input', update);
+  update();
+}
+
+function fillCourseDetails() {
+  document.getElementById('cdTitle').value = COURSE.title;
+  document.getElementById('cdDesc').value = COURSE_DESCRIPTION;
+
+  wireCharCount('cdTitle', 'cdTitleCount');
+  wireCharCount('cdDesc', 'cdDescCount');
+  wireCharCount('cdVarTitle', 'cdVarTitleCount');
+
+  /* ---- Custom duration ----
+     Unchecked, the variant inherits the computed course duration; the
+     hint names that number so an empty disabled box doesn't read as
+     "no duration set". Checking it seeds the field with that same
+     value, so the override starts from the real figure. */
+  const inheritedMin = Math.round(courseSeconds(COURSE) / 60);
+  const custom = document.getElementById('cdCustomDur');
+  const minutes = document.getElementById('cdMinutes');
+  const hint = document.getElementById('cdDurHint');
+
+  const syncDuration = () => {
+    minutes.disabled = !custom.checked;
+    if (custom.checked) {
+      if (!minutes.value) minutes.value = inheritedMin;
+      hint.textContent = 'Overrides the calculated duration of ' + inheritedMin + ' minutes.';
+    } else {
+      minutes.value = '';
+      hint.textContent = 'Using the calculated course duration: ' + inheritedMin + ' minutes.';
+    }
+  };
+  custom.addEventListener('change', syncDuration);
+  syncDuration();
+
+  /* ---- Course image ----
+     Nothing is uploaded. The picked file is read locally and shown back
+     as a thumbnail so the "image is set" state is visible in a review. */
+  const drop = document.getElementById('cdImageDrop');
+  const fileInput = document.getElementById('cdImageInput');
+  const thumb = document.getElementById('cdImageThumb');
+  const preview = document.getElementById('cdImagePreview');
+  const nameEl = document.getElementById('cdImageName');
+
+  function showImage(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    preview.src = URL.createObjectURL(file);
+    preview.alt = 'Course image preview: ' + file.name;
+    nameEl.textContent = file.name;
+    thumb.hidden = false;
   }
 
-})();
+  drop.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', () => showImage(fileInput.files[0]));
+
+  drop.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    drop.classList.add('is-drag');
+  });
+  drop.addEventListener('dragleave', () => drop.classList.remove('is-drag'));
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drop.classList.remove('is-drag');
+    showImage(e.dataTransfer.files[0]);
+  });
+
+  document.getElementById('cdImageRemove').addEventListener('click', (e) => {
+    e.stopPropagation();            // the row sits outside the dropzone, but be explicit
+    URL.revokeObjectURL(preview.src);
+    preview.removeAttribute('src');
+    fileInput.value = '';
+    thumb.hidden = true;
+  });
+}
+
+fillCourseDetails();
+
+/* ── Publishing card (Course Details tab) ─────────────────────
+   Reads the SAME publish history the course lookup's Version History
+   modal does, so "what is live" is one fact with one source. Publishing
+   from the header appends to that store, and a revert inside the modal
+   fires `vh:changed` — both re-render this card. */
+/* ---- Draft state ----
+   Whether edits exist that postdate the live version. There is no
+   "last edited" field in the course model, so this is tracked here: the
+   mock STARTS dirty (the interesting state to review, and it matches the
+   header's always-enabled Publish button), any edit on this tab sets it,
+   and publishing clears it. */
+let pubIsDirty = true;
+/* Set while the discard reset is writing values, so the input/change
+   listeners below don't read its own writes as fresh user edits. */
+let pubResetting = false;
+
+/* Called by the header's publish flow, which is defined ABOVE this point
+   in the file; wrapping the assignment in a function keeps it out of the
+   `let` above's temporal dead zone. */
+function pubClearDirty() {
+  pubIsDirty = false;
+  renderPublishCard();
+  /* Both callers — publishing and discarding — reset the course to a
+     published state, which becomes the new floor for undo. Publishing
+     makes undoing past it incoherent; discarding reaches further back
+     than the lookback window can express. Either way nothing tracked is
+     left to undo. */
+  hxClear(PUBLISH_SKU);
+}
+
+/* ---- Discard ----
+   Resets the editable fields to the published state and drops the dirty
+   flag. In a real build this would refetch the live version; here it
+   re-seeds from the same COURSE values the tab loads with, which IS the
+   published state in this prototype.
+
+   Only the fields this tab owns are reset — the course structure on the
+   Content tab is not touched, matching the scope of what this card
+   describes. */
+function pubDiscardChanges() {
+  pubResetting = true;
+  const inheritedMin = Math.round(courseSeconds(COURSE) / 60);
+
+  document.getElementById('cdTitle').value = COURSE.title;
+  document.getElementById('cdDesc').value = COURSE_DESCRIPTION;
+  document.getElementById('cdVoice').selectedIndex = 0;
+  document.getElementById('cdAccredited').checked = false;
+  document.getElementById('cdVarTitle').value = 'Full Course';
+  document.getElementById('cdVarDesc').value = '';
+
+  const custom = document.getElementById('cdCustomDur');
+  const minutes = document.getElementById('cdMinutes');
+  custom.checked = false;
+  minutes.disabled = true;
+  minutes.value = '';
+  document.getElementById('cdDurHint').textContent =
+    'Using the calculated course duration: ' + inheritedMin + ' minutes.';
+
+  // Clear a picked course image back to the empty upload state.
+  const thumb = document.getElementById('cdImageThumb');
+  const preview = document.getElementById('cdImagePreview');
+  if (!thumb.hidden) {
+    URL.revokeObjectURL(preview.src);
+    preview.removeAttribute('src');
+    document.getElementById('cdImageInput').value = '';
+    thumb.hidden = true;
+  }
+
+  /* The counters listen for `input`, which setting .value does not fire,
+     so refresh them directly rather than leaving stale counts behind. */
+  ['cdTitle', 'cdDesc', 'cdVarTitle'].forEach(id =>
+    document.getElementById(id).dispatchEvent(new Event('input')));
+
+  pubResetting = false;
+  pubClearDirty();
+}
+
+function pubMarkDirty() {
+  /* Ignore the events the discard reset fires itself — it sets .value and
+     re-dispatches `input` to refresh the character counters, which would
+     otherwise re-flag the card the instant it was cleared. */
+  if (pubResetting) return;
+  if (pubIsDirty) return;                 // already flagged; nothing to redraw
+  pubIsDirty = true;
+  renderPublishCard();
+}
+
+function renderPublishCard() {
+  const events = vhLoad(PUBLISH_SKU);
+  const live = events.find(e => e.current) || events[0];
+  const status = document.getElementById('pubStatus');
+  const noteWrap = document.getElementById('pubNoteWrap');
+  const callout = document.getElementById('pubCallout');
+
+  /* The callout is the "you are in edit mode and have unshipped work"
+     signal. Hidden entirely when clean — a permanent banner saying
+     "no changes" is noise, and its absence already reads as up to date. */
+  callout.hidden = !pubIsDirty;
+  if (pubIsDirty) {
+    /* One state. Discarding is irreversible, so the confirmation is a
+       dialog (see #discardModal) rather than a second state here — an
+       inline confirm would put the destructive button under a cursor
+       that is already on this row. */
+    callout.innerHTML =
+      '<span class="pub-callout-icon"><i class="fa-solid fa-pen-to-square"></i></span>' +
+      '<span class="pub-callout-text">' +
+        '<b>Unpublished changes</b> — edits on this course are not live yet.' +
+      '</span>' +
+      '<span class="pub-callout-actions">' +
+        '<button class="btn-ghost sm" type="button" id="pubDiscardBtn">' +
+          '<i class="fa-solid fa-rotate-left"></i> Discard changes' +
+        '</button>' +
+      '</span>';
+  }
+
+  /* Never published: say so plainly and drop the note block, rather than
+     rendering an empty row of labels with nothing under them. */
+  if (!live) {
+    status.innerHTML =
+      '<div class="pub-empty">' +
+        '<span theme="badge contrast pill">Not published</span>' +
+        '<span class="pub-empty-text">This course has never been published. ' +
+          'Publishing creates its first version.</span>' +
+      '</div>';
+    noteWrap.innerHTML = '';
+    return;
+  }
+
+  const w = vhWhen(live.at);
+
+  /* Three facts, each labelled: which version is live, when it went out,
+     and who sent it. Same vocabulary as the modal's rows so moving between
+     the two doesn't require re-reading. */
+  status.innerHTML =
+    '<div class="pub-field">' +
+      '<div class="pub-label">Status</div>' +
+      '<div class="pub-value">' +
+        /* Warning, not success, while edits are pending: what is live is
+           no longer what this page shows. */
+        (pubIsDirty
+          ? '<span theme="badge warning pill">Changes pending</span>'
+          : '<span theme="badge success pill">Live</span>') +
+        '<span class="pub-ver">' + escapeHtml(live.id) + '</span>' +
+        (live.revertOf
+          ? '<span theme="badge contrast pill">Reverted from ' +
+              escapeHtml(live.revertOf) + '</span>'
+          : '') +
+      '</div>' +
+    '</div>' +
+    '<div class="pub-field">' +
+      '<div class="pub-label">' + (pubIsDirty ? 'Live version published' : 'Published') + '</div>' +
+      '<div class="pub-value" title="' + escapeHtml(w.date + ' at ' + w.time) + '">' +
+        escapeHtml(w.date) +
+      '</div>' +
+    '</div>' +
+    '<div class="pub-field">' +
+      '<div class="pub-label">By</div>' +
+      '<div class="pub-value">' + escapeHtml(live.author) + '</div>' +
+    '</div>' +
+    '<div class="pub-field">' +
+      '<div class="pub-label">Versions</div>' +
+      '<div class="pub-value">' + events.length + '</div>' +
+    '</div>';
+
+  noteWrap.innerHTML =
+    '<div class="pub-label">Publish note</div>' +
+    (live.note
+      ? '<blockquote class="pub-note">' + escapeHtml(live.note) + '</blockquote>'
+      : '<p class="pub-note is-none">No publish note</p>');
+}
+
+document.getElementById('pubHistoryBtn').addEventListener('click', () => {
+  openVersionHistory(PUBLISH_SKU, COURSE.title);
+});
+
+/* A revert inside the modal republishes, so the live version changes
+   under this card while it is on screen. */
+/* A revert republishes, so what is live changes and the draft edits are
+   no longer pending against the old version — treat it like a publish. */
+document.addEventListener('vh:changed', pubClearDirty);
+
+/* Any edit on this tab marks the course dirty. Bound on the pane so the
+   fields don't each need wiring, and `capture` so it still fires for the
+   controls that stop propagation. */
+/* Callout actions. Delegated because the callout re-renders on every
+   state change, so its buttons are replaced rather than persistent. */
+document.getElementById('pubCallout').addEventListener('click', (e) => {
+  if (e.target.closest('#pubDiscardBtn')) openDiscard();
+});
+
+/* ---- Discard dialog ----
+   `vaadin-dialog`, the design system component. Its content is supplied
+   through renderer functions rather than slotted markup — that is the
+   component's API — and it provides the scrim, focus trap, Escape and
+   outside-click dismissal itself, so none of that is wired here. */
+const discardDialog = document.getElementById('discardDialog');
+
+discardDialog.headerTitle = 'Discard unpublished changes?';
+
+/* Renderers run on every open. `root` is reused between opens, so it is
+   cleared first rather than appended to. */
+discardDialog.renderer = (root) => {
+  /* Name the version being restored TO, so the dialog says what you are
+     going back to rather than only what you are losing. */
+  const events = vhLoad(PUBLISH_SKU);
+  const live = events.find(e => e.current) || events[0];
+
+  root.innerHTML =
+    '<p class="dsc-lead">' +
+      'This resets the course to <b>' +
+      escapeHtml(live ? live.id : 'the live version') + '</b>, the version ' +
+      'learners see now. Every change made since it was published will be ' +
+      'lost. Published versions are not affected.' +
+    '</p>';
+};
+
+discardDialog.footerRenderer = (root) => {
+  root.innerHTML = '';
+
+  const cancel = document.createElement('vaadin-button');
+  cancel.setAttribute('theme', 'secondary');
+  cancel.textContent = 'Keep editing';
+  cancel.addEventListener('click', () => { discardDialog.opened = false; });
+
+  const confirm = document.createElement('vaadin-button');
+  confirm.setAttribute('theme', 'error primary');
+  confirm.textContent = 'Discard changes';
+  confirm.addEventListener('click', () => {
+    discardDialog.opened = false;
+    pubDiscardChanges();
+  });
+
+  root.appendChild(cancel);
+  root.appendChild(confirm);
+};
+
+function openDiscard() { discardDialog.opened = true; }
+
+document.getElementById('paneDetails')
+  .addEventListener('input', pubMarkDirty, true);
+document.getElementById('paneDetails')
+  .addEventListener('change', pubMarkDirty, true);
+
+renderPublishCard();
+hxSyncRewoundBanner();
+
+/* ── Export menu (Course Details tab) ──────────────────────────
+   A secondary action at the heading level, in the slot Preview Course
+   occupies on the content tabs. Each item still names what it produces —
+   that is why this is a menu rather than a <select>, which had room for
+   the format names but not for what they are for.
+
+   Presentational: nothing is generated. */
+const exportMenuBtn = document.getElementById('exportMenuBtn');
+const exportMenu = document.getElementById('exportMenu');
+
+function setExportMenu(open) {
+  exportMenu.hidden = !open;
+  exportMenuBtn.setAttribute('aria-expanded', String(open));
+  exportMenuBtn.classList.toggle('is-open', open);
+}
+
+exportMenuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  setExportMenu(exportMenu.hidden);
+});
+
+exportMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('[data-export]');
+  if (!item || item.disabled) return;
+
+  /* Confirm in place for a moment rather than doing nothing at all, so
+     the control reads as live without implying a file was produced. */
+  const name = item.querySelector('.exp-menu-name');
+  const original = name.textContent;
+  item.disabled = true;
+  name.textContent = 'Preparing…';
+  setTimeout(() => {
+    name.textContent = 'Not built in this prototype';
+    setTimeout(() => {
+      name.textContent = original;
+      item.disabled = false;
+      setExportMenu(false);
+    }, 1200);
+  }, 600);
+});
+
+// Click-away and Escape close the menu, as any menu should.
+document.addEventListener('click', (e) => {
+  if (exportMenu.hidden) return;
+  if (!e.target.closest('.exp-menu-wrap')) setExportMenu(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !exportMenu.hidden) {
+    setExportMenu(false);
+    exportMenuBtn.focus();
+  }
+});
 
 /* ── Comments panel ────────────────────────────────────────────
    The panel itself is `vwc-drawer` (design system); its behaviour lives in
@@ -1654,6 +2393,156 @@ CommentsPanel.init({
   scope: { type: 'course' },
   course: COURSE
 });
+
+/* ── Edit history ─────────────────────────────────────────────
+   The undo stack spans the whole editor session, including the Object
+   Manager, so the store is shared (history-data.js) and the panel is
+   shared (history-panel.js) — this page only supplies what IT can
+   restore on screen.
+
+   Structure lives entirely in COURSE.sections, so a JSON snapshot of
+   that is a complete restore for the actions this page owns (reorder,
+   add, rename, remove). Snapshots are captured per entry the first time
+   the entry is stepped over, which is enough for a prototype: a real
+   build would snapshot at save time.
+
+   Object Manager entries still move the pointer — the data changes —
+   and the panel reports what happened with a link, rather than
+   navigating the user somewhere they did not ask to go. */
+const hxSnapshots = new Map();
+
+function hxSnapshotNow() {
+  return JSON.stringify(COURSE.sections);
+}
+
+function hxRestore(json) {
+  if (!json) return;
+  COURSE.sections = JSON.parse(json);
+  renderRail();
+  renderSections();
+  renderCourseMeta();
+}
+
+/* Every tracked action on this page logs through here, so the entry
+   shape stays consistent and the snapshot for redo is taken at the
+   moment the change lands. */
+/* Runs `apply` only once the history gate allows it. While the editor is
+   stepped back, editing discards everything ahead, so the confirm fires
+   BEFORE anything mutates — gating after the splice would ask about a
+   change that had already happened. No-ops straight through when the
+   editor is at the latest state. */
+/* Has the user unlocked editing from the state they stepped back to?
+   Reset whenever the pointer moves, so stepping back again re-gates.
+
+   `var`, not `let`: hxSyncRewoundBanner() is called during bootstrap
+   ABOVE this point in the file and reads this flag. A `let` is not
+   hoisted, so that call threw a temporal-dead-zone ReferenceError and
+   killed the rest of the script — which rendered the banner and nothing
+   else. `var` hoists as `undefined`, which is falsy and therefore the
+   correct initial "locked" state. */
+var hxEditUnlocked = false;
+
+function hxGuardEdit(apply) {
+  // At the latest state there is nothing to gate.
+  if (!hxIsRewound(PUBLISH_SKU)) { apply(); return; }
+
+  // Already confirmed for this position — don't ask on every edit.
+  if (hxEditUnlocked) { apply(); return; }
+
+  /* Blocked. The banner carries the CTA that unlocks this, so point at
+     it rather than interrupting with a dialog the user did not open. */
+  hxFlashGate();
+}
+
+/* Draw the eye to the gate when an edit is attempted without it. */
+function hxFlashGate() {
+  const bar = document.getElementById('ovRewound');
+  if (!bar || bar.hidden) return;
+  bar.classList.remove('is-flash');
+  void bar.offsetWidth;                 // restart the animation
+  bar.classList.add('is-flash');
+}
+
+function hxLogChange(label, target) {
+  const entry = hxPush(PUBLISH_SKU, {
+    label: label, target: target,
+    page: 'course-overview', group: 'Course Overview'
+  });
+  if (entry) hxSnapshots.set(entry.id, hxSnapshotNow());
+  return entry;
+}
+
+/* The "you are viewing an earlier state" banner. Driven by the same store
+   the panel reads, so it cannot disagree with the list. */
+function hxSyncRewoundBanner() {
+  const bar = document.getElementById('ovRewound');
+  if (!bar) return;
+
+  const rewound = hxIsRewound(PUBLISH_SKU);
+  bar.hidden = !rewound;
+
+  /* No header-height resync needed: the toast floats over the page rather
+     than sitting in the layout, so showing it never moves the header the
+     comments drawer is positioned from. */
+
+  if (!rewound) return;
+
+  /* Two states in one toast: locked, where the course is read-only and
+     the CTA is the way forward; and unlocked, where editing is allowed
+     and this becomes a standing reminder of what the next edit costs.
+
+     Deliberately no change count. It was a second, less precise copy of
+     what the History panel already lists, and it had to be pluralised and
+     recomputed on every pointer move to say something the user can read
+     off the list directly. This states the CONDITION; the panel carries
+     the detail. */
+  document.getElementById('ovRewoundText').innerHTML = hxEditUnlocked
+    ? '<b>Editing from an earlier version.</b> Saving a change here ' +
+      'replaces the newer ones permanently.'
+    : '<b>You\u2019re viewing an earlier version of this course.</b> ' +
+      'Editing is locked.';
+
+  document.getElementById('ovRewoundEdit').hidden = hxEditUnlocked;
+  /* No colour change attached to this any more — locked and unlocked
+     share one amber palette — but the hook stays so the state is
+     inspectable and stylable without re-deriving it. */
+  bar.classList.toggle('is-unlocked', hxEditUnlocked);
+  /* The flash is a response to being blocked, so it must not outlive the
+     block — its animation paints over the unlocked colours otherwise. */
+  if (hxEditUnlocked) bar.classList.remove('is-flash');
+}
+
+document.getElementById('ovRewoundEdit').addEventListener('click', () => {
+  HistoryPanel.confirmEdit(() => {
+    /* Confirmed: the branch is accepted, so editing is allowed from here.
+       The stack is NOT truncated yet — that happens on the first actual
+       change, which is what makes the undone entries recoverable right up
+       until something replaces them. */
+    hxEditUnlocked = true;
+    hxSyncRewoundBanner();
+  });
+});
+
+document.addEventListener('hx:changed', () => {
+  /* Any pointer move re-gates: unlocking applies to the position it was
+     granted for, not to the session. */
+  hxEditUnlocked = false;
+  hxSyncRewoundBanner();
+});
+
+HistoryPanel.init({
+  sku: PUBLISH_SKU,
+  page: 'course-overview',
+  onApply: (entry, direction) => {
+    /* Remember the state this entry produced, so redoing it can put that
+       state back after an undo has moved away from it. */
+    if (!hxSnapshots.has(entry.id) && direction === 'undo') {
+      hxSnapshots.set(entry.id, hxSnapshotNow());
+    }
+    if (direction === 'redo') hxRestore(hxSnapshots.get(entry.id));
+  }
+});
+
 
 /* ── Overflow menus ────────────────────────────────────────────
    One popup menu shared by the section and object kebabs. Items are
@@ -2115,11 +3004,15 @@ function runGeneration() {
    boot -- so coming Back from the object manager still shows the overview
    with the generated LO in place, and its duration counted in the totals. */
 function revealGeneratedObject(target) {
-  target.hidden = false;
-  rememberRevealed(target.id);
-  closeAddLo();
-  renderSections();
-  renderCourseMeta();
+  hxGuardEdit(() => {
+    target.hidden = false;
+    rememberRevealed(target.id);
+    closeAddLo();
+    renderSections();
+    renderCourseMeta();
+
+    hxLogChange('Learning object added', target.name);
+  });
   renderRail();
   openObjectManager(target.id);
 }

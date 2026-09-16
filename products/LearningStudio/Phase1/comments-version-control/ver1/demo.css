@@ -61,6 +61,10 @@
   --lumo-success-text-color: #0a7637;
   --lumo-success-color-10pct: #1688461a;
   --lumo-error-text-color: #ca150c;
+  /* Quoted from themes CONTEXT.md v1.9.3 § Color System. The 10pct is a
+     TRANSLUCENT tint, so it composites over whatever sits behind it. */
+  --lumo-error-color: #d83e38;
+  --lumo-error-color-10pct: #e71d131a;
   --lumo-warning-color: #e0782e;
   --lumo-warning-text-color: #995211;
   --vwc-notification-text-color: #a66900;
@@ -115,6 +119,12 @@
 }
 
 * { box-sizing: border-box; }
+
+/* The `hidden` attribute is only a UA `display: none`, so ANY component
+   rule that sets `display` (and several below do — .ov-rail, .det-thumb)
+   silently outranks it and the element stays on screen. Restate it here
+   with !important so `el.hidden = true` is dependable everywhere. */
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -253,29 +263,6 @@ h1, h2, h3, h4, h5, h6 {
   clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* ---- Export ----
-   A native <select> styled to sit with the header controls. Kept native so
-   the menu behaves correctly on every platform; only the chrome is themed.
-   The chevron is a background image because `appearance: none` removes the
-   platform arrow along with the platform styling. */
-.ov-export {
-  font: inherit;
-  font-size: var(--font-size-m);
-  color: var(--ink);
-  background-color: #fff;
-  border: 1px solid var(--border-strong);
-  border-radius: 6px;
-  padding: 9px 34px 9px 14px;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 11px center;
-  background-size: 15px 15px;
-}
-.ov-export:hover { border-color: #b9c2cf; }
-.ov-export:focus-visible { outline: 2px solid var(--brand-2); outline-offset: 1px; }
 
 /* ---- Header icon buttons (help, comments) ---- */
 .ov-icon-btn {
@@ -1428,4 +1415,502 @@ h1, h2, h3, h4, h5, h6 {
 .pub-done-nonote, .pub-done-where {
   margin: 12px 0 0; font-size: var(--font-size-s);
   color: var(--ink-soft); line-height: 1.45;
+}
+
+/* ============================================================
+   COURSE OVERVIEW — TAB PANES
+
+   The tab bar swaps one of these into the content column. Exactly one
+   carries .is-active; the rest are display:none.
+
+   NOTE: the Course Details pane holds Vaadin-free plain inputs, matching
+   the rest of this prototype's forms (the Add Learning Object modal).
+   Keeping them plain also avoids the display:none upgrade trap — a
+   Vaadin field that is hidden when it upgrades measures zero width, and
+   these panes start hidden.
+   ============================================================ */
+
+.ov-pane { display: none; }
+.ov-pane.is-active { display: block; }
+
+/* The rail lists course STRUCTURE, which only the Content tab acts on, so
+   the other tabs hide it. Without the rail the column would run the full
+   window width, so the content is capped and centred instead.
+
+   Applied to the heading row AND the pane (rather than to their shared
+   parent) so the cap only affects rail-less tabs — .ov-content-head is
+   also the Content tab's heading, which keeps its full width. */
+.ov-content-inner.is-capped .ov-content-head,
+.ov-content-inner.is-capped .ov-pane { max-width: 1200px; margin-inline: auto; }
+
+/* ── Detail cards ───────────────────────────────────────────
+   Same surface, radius and shadow as .sec-card so the Details tab reads
+   as the same canvas as Content rather than a second design. */
+.det-card {
+  background: var(--ov-card);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(20,40,80,0.10);
+  padding: 28px 30px;
+  margin-bottom: 26px;
+}
+
+/* Two columns: a wide main column for the long-form fields and a narrow
+   side column that the reference reserves for Default Voice. Fields opt
+   into a column; on narrow viewports both collapse to full width. */
+.det-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  column-gap: 28px;
+  row-gap: 20px;
+  align-items: start;
+}
+.det-col-main { grid-column: 1; }
+.det-col-side { grid-column: 2; }
+
+@media (max-width: 1100px) {
+  .det-grid { grid-template-columns: minmax(0, 1fr); }
+  .det-col-main, .det-col-side { grid-column: 1; }
+}
+
+/* .field already styles text inputs and textareas; number, select and the
+   locked variant are the additions this tab needs. */
+.det-card .field input[type="number"] {
+  width: 100%;
+  font: inherit; font-size: var(--font-size-m);
+  color: var(--ink);
+  background: var(--lumo-base-color);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.det-card .field input[type="number"]:focus {
+  outline: none;
+  border-color: var(--lumo-primary-color);
+  box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
+}
+.det-card .field input[disabled] {
+  background: #f4f6f8;
+  color: var(--lumo-disabled-text-color);
+  cursor: not-allowed;
+}
+
+/* .field textarea's 92px min-height is sized for the short modal fields;
+   the descriptions here are long-form, so let the `rows` attribute win. */
+.det-card .field textarea { min-height: 0; }
+
+/* Read-only fields keep the field's shape but drop to the grey surface,
+   so "you can see this but not change it here" is legible at a glance. */
+.det-card .field input.is-locked {
+  background: #f4f6f8;
+  color: var(--ink);
+  cursor: default;
+}
+
+.det-select {
+  width: 100%;
+  font: inherit; font-size: var(--font-size-m);
+  color: var(--ink);
+  background: var(--lumo-base-color);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 12px 34px 12px 14px;
+  cursor: pointer;
+  /* Native arrow is inconsistent across platforms; draw one instead so
+     the control matches the text fields beside it. */
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%2300000099'%3E%3Cpath d='M4.2 6.2 8 10l3.8-3.8z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+.det-select:focus {
+  outline: none;
+  border-color: var(--lumo-primary-color);
+  box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
+}
+
+/* Live character counter under a field, e.g. "44/253 characters". */
+.char-count {
+  margin-top: 6px;
+  font-size: var(--font-size-s);
+  color: var(--ink-soft);
+}
+/* Over the limit is an error, not a warning — the value can't be saved. */
+.char-count.is-over { color: var(--lumo-error-text-color); }
+
+/* ── Checkbox rows ──────────────────────────────────────────
+   Plain <input type="checkbox"> scaled up to sit level with the 14px
+   label text. `accent-color` tints the native control with the brand
+   blue, which keeps the control accessible without rebuilding it. */
+.det-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: var(--font-size-m);
+  color: var(--ink);
+}
+.det-check input[type="checkbox"] {
+  width: 18px; height: 18px;
+  flex: 0 0 auto;
+  margin: 0;
+  accent-color: var(--lumo-primary-color);
+  cursor: pointer;
+}
+
+/* A label-looking heading for a field whose only control is a button,
+   so it can't be a real <label for>. Matches .field label exactly. */
+.det-card .field-label {
+  display: block; margin-bottom: 7px;
+  font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ink);
+}
+
+/* Info affordance beside a label. Inline in the <label> so clicking the
+   label text still focuses the field; the button itself doesn't. */
+.det-info {
+  border: none; background: transparent; padding: 0 0 0 4px;
+  color: var(--ink-soft); font-size: var(--font-size-s);
+  cursor: help;
+  vertical-align: baseline;
+}
+.det-info:hover { color: var(--brand-2); }
+
+/* ── Course image ───────────────────────────────────────── */
+.det-drop { background: var(--lumo-base-color); }
+
+.det-thumb {
+  display: flex; align-items: center; gap: 14px;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--lumo-base-color);
+}
+.det-thumb img {
+  width: 128px; height: 72px;       /* 16:9, the catalog card ratio */
+  object-fit: cover;
+  border-radius: 6px;
+  background: var(--lumo-contrast-5pct);
+  flex: 0 0 auto;
+}
+.det-thumb-meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.det-thumb-name {
+  font-size: var(--font-size-m);
+  color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.det-thumb-remove {
+  border: none; background: transparent; padding: 2px 0 0;
+  color: var(--brand-2); font: inherit; font-size: var(--font-size-s);
+  cursor: pointer; text-decoration: underline;
+}
+
+/* ── Custom duration ──────────────────────────────────────
+   The reference labels the field with a lowercase "minutes" unit rather
+   than a sentence-case label, so this one deliberately breaks from
+   .field label's weight and case. */
+/* Sizes the input only — the hint below it needs the full column,
+   otherwise "Using the calculated course duration: 23 minutes." wraps. */
+.det-minutes input[type="number"] { max-width: 240px; }
+.det-minutes-label {
+  font-weight: var(--font-weight-normal) !important;
+  color: var(--ink-soft) !important;
+  text-transform: none;
+}
+.det-hint {
+  margin: 6px 0 0;
+  font-size: var(--font-size-s);
+  color: var(--ink-soft);
+}
+
+/* ── Not-yet-built panes ───────────────────────────────── */
+.det-empty {
+  text-align: center;
+  padding: 60px 30px;
+  color: var(--ink-soft);
+}
+.det-empty i { font-size: 32px; color: var(--ink-mute); }
+.det-empty h2 {
+  margin: 14px 0 4px;
+  font-size: var(--font-size-xl);
+  color: var(--ink);
+}
+.det-empty p { margin: 0; font-size: var(--font-size-m); }
+
+/* ── Publishing card (Course Details tab) ────────────────────
+   Shows what is LIVE, from the same store as the Version History modal. */
+.pub-head {
+  display: flex; align-items: center; gap: 16px;
+  margin-bottom: 18px;
+}
+.pub-title {
+  margin: 0; flex: 1 1 auto;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+.pub-head-actions { flex: 0 0 auto; }
+.pub-head-actions .btn-outline i { margin-right: 6px; }
+
+/* ── Export menu (Course Details tab) ───────────────────────
+   A secondary action in the heading row, where Preview Course sits on the
+   content tabs. Each item names what the format is for, which is what a
+   plain <select> had no room to say. */
+.exp-menu-wrap { position: relative; }
+#exportMenuBtn { display: inline-flex; align-items: center; gap: 8px; }
+.exp-caret { font-size: var(--font-size-xs); transition: transform 0.15s ease; }
+#exportMenuBtn.is-open .exp-caret { transform: rotate(180deg); }
+
+.exp-menu {
+  position: absolute;
+  top: calc(100% + 6px); right: 0;
+  z-index: 40;
+  width: 330px;
+  padding: 6px;
+  background: var(--lumo-base-color);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(20, 40, 80, 0.16);
+}
+
+.exp-menu-item {
+  display: block; width: 100%;
+  border: none; background: none;
+  padding: 9px 10px;
+  border-radius: 7px;
+  font: inherit; text-align: left;
+  cursor: pointer;
+}
+.exp-menu-item:hover:not(:disabled) { background: var(--lumo-contrast-5pct); }
+.exp-menu-item:disabled { cursor: default; }
+
+.exp-menu-name {
+  display: block;
+  font-size: var(--font-size-m);
+  font-weight: var(--font-weight-semibold);
+  color: var(--ink);
+}
+.exp-menu-desc {
+  display: block;
+  font-size: var(--font-size-s);
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+/* Answers "does this export what's live, or what I'm editing?" — which is
+   unavoidable on a tab that also shows the unpublished-changes banner. */
+.exp-menu-note {
+  margin: 6px 0 2px;
+  padding: 8px 10px 0;
+  border-top: 1px solid var(--border);
+  font-size: var(--font-size-xs);
+  color: var(--ink-mute);
+  line-height: 1.45;
+}
+
+/* ---- Discard dialog ----
+   A `vaadin-dialog`, so the component owns the surface, the scrim and the
+   footer layout. Only the body copy needs styling — and it is styled on
+   the element itself rather than through the overlay, which lives in the
+   component's own DOM. */
+.dsc-lead {
+  margin: 0;
+  /* Wide enough that the three sentences do not stack into a narrow
+     column; the dialog sizes to this. */
+  max-width: 52ch;
+  color: var(--ink);
+  line-height: 1.5;
+}
+.dsc-lead b { font-weight: var(--font-weight-semibold); }
+
+/* Unpublished-changes callout. Amber like the duration pill — this is an
+   informational state, not an error: having unshipped edits is the normal
+   condition of an edit surface. Uses the same warning-text token so it
+   clears AA on the tint (the notification text token does not). */
+.pub-callout {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--vwc-notification-color);
+  background: var(--vwc-notification-color-10pct);
+  border-radius: 8px;
+  color: var(--lumo-warning-text-color);
+  line-height: 1.45;
+}
+/* No optical nudge needed now the row is centred — the padding here was
+   aligning the glyph to a top-aligned first line. */
+.pub-callout-icon { flex: 0 0 auto; }
+.pub-callout-text { flex: 1 1 auto; min-width: 0; }
+.pub-callout-text b { font-weight: var(--font-weight-semibold); }
+
+/* Actions sit at the callout's trailing edge, and stay on one line: the
+   two confirm buttons read as a pair and must not wrap apart. */
+.pub-callout-actions {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 4px;
+}
+
+/* Low-emphasis action on a tinted surface: no fill until hovered, so it
+   sits inside the callout without competing with the message. Inherits
+   the callout's amber text, which is what keeps it legible on the tint. */
+.btn-ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: inherit; font-weight: var(--font-weight-semibold);
+  border-radius: 6px;
+  padding: 8px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-ghost:hover { background: #ffffff8c; border-color: var(--vwc-notification-color); }
+.btn-ghost.sm { padding: 6px 11px; font-size: var(--font-size-s); }
+.btn-ghost i { margin-right: 6px; }
+
+/* The live version's facts, as labelled columns. Wraps to fewer columns
+   on a narrow window rather than squeezing the values. */
+.pub-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px 40px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.pub-field { min-width: 0; }
+.pub-label {
+  font-size: var(--font-size-s);
+  color: var(--ink-soft);
+  margin-bottom: 5px;
+}
+.pub-value {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--font-size-m);
+  color: var(--ink);
+}
+/* The version label is the row's anchor, so it carries the emphasis. */
+.pub-ver { font-weight: var(--font-weight-semibold); }
+
+.pub-note-wrap { padding-top: 16px; }
+.pub-note-wrap .pub-label { margin-bottom: 7px; }
+.pub-note {
+  margin: 0; padding: 10px 12px;
+  border-left: 3px solid var(--border-strong);
+  background: var(--lumo-base-color);
+  border-radius: 0 8px 8px 0;
+  color: var(--ink); line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.pub-note.is-none {
+  border-left-color: var(--border);
+  color: var(--ink-mute); font-style: italic;
+}
+
+/* Never-published state. */
+.pub-empty { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.pub-empty-text { color: var(--ink-soft); }
+
+/* ── Viewing an earlier state ────────────────────────────────
+   A floating toast, not a row in the layout. Stepping back is a state the
+   user moves in and out of repeatedly; as a banner it pushed the entire
+   page down ~40px on each first step back and pulled it up again on the
+   way out. Floating means nothing reflows.
+
+   Bottom-centre, sitting ABOVE the Design Toolbox dock (fixed at
+   bottom:16px) and just under its z-index, so the two never collide. */
+.ov-rewound {
+  position: fixed;
+  left: 50%;
+  /* Measured, not guessed: the Design Toolbox dock is fixed at
+     bottom:16px and renders 50px tall, so it occupies the lower 66px.
+     84px clears it with an 18px gap. (76px and 80px both still
+     overlapped it.) */
+  bottom: 84px;
+  transform: translateX(-50%);
+  z-index: 999980;                 /* under the toolbox dock (999990) */
+
+  display: flex; align-items: center; gap: 14px;
+  max-width: min(720px, calc(100vw - 32px));
+  padding: 12px 14px 12px 18px;
+  border: 1px solid var(--vwc-notification-color);
+  border-radius: 10px;
+  /* The 10pct token is translucent, so it is composited over an opaque
+     base here — a floating element has the page behind it, not a solid
+     surface, and the tint alone would let content show through. */
+  background:
+    linear-gradient(var(--vwc-notification-color-10pct), var(--vwc-notification-color-10pct)),
+    var(--lumo-base-color);
+  color: var(--lumo-warning-text-color);
+  box-shadow: 0 8px 28px rgba(20, 40, 80, 0.22);
+  font-size: var(--font-size-m);
+  line-height: 1.45;
+
+  animation: ovRewoundIn 0.22s ease-out;
+}
+
+/* Slides up into view rather than appearing, so the arrival is noticed
+   without a layout shift announcing it. */
+@keyframes ovRewoundIn {
+  from { opacity: 0; transform: translate(-50%, 16px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ov-rewound { animation: none; }
+}
+
+.ov-rewound-text { flex: 1 1 auto; min-width: 0; }
+.ov-rewound-text b { font-weight: var(--font-weight-semibold); }
+
+/* The gate. Editing is blocked until this is used, so it is the one
+   control here and reads as the way forward rather than a dismiss.
+
+   Filled with --lumo-warning-text-color rather than the lighter
+   --lumo-warning-color: white on the light amber is 3.05:1 (under AA),
+   while this token clears at 5.88:1 and is the same amber the toast text
+   already uses. */
+.ov-rewound-cta {
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  background: var(--lumo-warning-text-color);
+  color: #fff;
+  font: inherit; font-size: var(--font-size-s);
+  font-weight: var(--font-weight-semibold);
+  border-radius: 6px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ov-rewound-cta:hover { background: #7a4210; }   /* one step darker */
+.ov-rewound-cta i { margin-right: 6px; }
+
+/* Locked and unlocked share one amber palette: both are the same
+   condition — you are on an earlier version — and only the copy and the
+   CTA differ. Recolouring on unlock read as an escalation when it is
+   actually a step forward. */
+
+/* An edit attempted while locked pulses the toast, so the block is
+   attributed to it rather than reading as a dead control. */
+@keyframes ovRewoundFlash {
+  0%, 100% { transform: translate(-50%, 0); }
+  25%      { transform: translate(calc(-50% - 5px), 0); }
+  75%      { transform: translate(calc(-50% + 5px), 0); }
+}
+.ov-rewound.is-flash { animation: ovRewoundFlash 0.3s ease 2; }
+@media (prefers-reduced-motion: reduce) {
+  .ov-rewound.is-flash { animation: none; outline: 2px solid var(--lumo-warning-text-color); }
+}
+
+/* ---- Edit gate dialog ---- */
+.hx-gate-lead { margin: 0; max-width: 48ch; color: var(--ink); line-height: 1.5; }
+.hx-gate-lead b { font-weight: var(--font-weight-semibold); }
+.hx-gate-alt {
+  margin: 12px 0 0; max-width: 48ch;
+  color: var(--ink); line-height: 1.5;
 }
