@@ -748,6 +748,15 @@
         inInit = false;
       }
 
+      // D11: the furthest screen a learner actually reached, so a returning
+      // visit can offer to resume there instead of always restarting at the
+      // cover. Written AFTER init runs (not on entry to showStep) so a
+      // course's own cover screen can read the PREVIOUS value — the whole
+      // point of the check — before this render overwrites it with its own
+      // id. Namespaced under the course's own storage key so two courses on
+      // one page (there are none today) could not collide.
+      try { sessionStorage.setItem(CFG.storageKey + '-last', step.id); } catch (e) {}
+
       if (first) { busy = false; }
       else {
         requestAnimationFrame(function () { requestAnimationFrame(function () {
@@ -1090,6 +1099,12 @@
     T: T, esc: esc, readCourse: readCourse, saveResult: saveResult,
     pickGroup: pickGroup, wireChat: wireChat, typeFeedback: typeFeedback,
     lens: lens, lensId: lensId, cycleLens: cycleLens,
+    // D11: the id of the last screen showStep actually rendered, so a
+    // course's own cover screen can offer "resume where you left off"
+    // instead of the engine silently deciding that on its own.
+    lastStepId: function () {
+      try { return sessionStorage.getItem(CFG.storageKey + '-last'); } catch (e) { return null; }
+    },
     // PROTOTYPE ONLY — NOT FOR PRODUCTION. Whether the reviewer-only
     // affordances that carry no framing of their own (a video's Skip pill,
     // a syllabus row that jumps ahead) are unlocked for this tab.

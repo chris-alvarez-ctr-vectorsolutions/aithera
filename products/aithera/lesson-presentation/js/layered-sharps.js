@@ -451,6 +451,10 @@
       }
     }
   };
+  // Named once so the engine's registration and the intro screen's own
+  // "Your role" picker (D11) walk the same four sectors in the same order,
+  // rather than a second literal that can drift from the first.
+  var LENS_ORDER = ['manufacturing', 'education', 'aec', 'public'];
 
   // ==========================================================================
   //  Test-out state. K1 is the only objective the pre-module battery can buy
@@ -482,6 +486,12 @@
   // only, flipped from the Demo menu — see DOBASELINE_CONTENT/doBaselineInit.
   function doBaselineOn() {
     try { return sessionStorage.getItem('sh-doobject-mode') === 'baseline'; } catch (e) { return false; }
+  }
+  // D11: the learner's own self-assigned name, set on the title page or
+  // seeded from a launch link's ?name=. Never required — every reader of
+  // this falls back to an unnamed line when it comes back empty.
+  function savedName() {
+    try { return (sessionStorage.getItem('sh-name') || '').trim().slice(0, 40); } catch (e) { return ''; }
   }
   // ==========================================================================
   //  REINFORCEMENT — one extra question laid OVER the content that motivates
@@ -740,6 +750,9 @@
   function INTRO_CONTENT() { var L = lens(), mins = pathMinutes(); return '' +
     '<main class="ll-object">' +
       '<div class="cp-page">' +
+        // D11: hidden by default, filled in by introInit only when there is
+        // something to resume — a fresh session never sees an empty banner.
+        '<div class="cp-resume" id="introResume" hidden></div>' +
         '<header class="cp-hero-band">' +
           '<div class="cp-hero">' +
             '<p class="ll-eyebrow">Bloodborne Pathogens · Module 4 of 6</p>' +
@@ -788,6 +801,34 @@
                 modalityPicker('introModPick', MODALITY_ORDER, false) +
               '</div>' +
             '</div>' +
+            // D11: same collapsed-value-plus-Change shell as the format card
+            // above, reused rather than re-invented — own picker markup
+            // since a sector/role pair carries no cost line to show.
+            // Self-assigned, and URL-prefillable (?role=<sector id>) for a
+            // stamped link; still only ever the four sectors the reviewer's
+            // Demo → Context lens control already cycles through.
+            '<div class="cp-card cp-format cp-role"><h3>Your role</h3>' +
+              '<p class="cp-format-note">Sets the sector and working environment every scene uses.</p>' +
+              '<div class="cp-format-now" id="introRoleNow">' +
+                '<span class="cp-format-now-t"><i class="fa-solid fa-briefcase" aria-hidden="true"></i>' +
+                  '<b id="introRoleNowLabel"></b></span>' +
+                '<button class="cp-format-change" id="introRoleChange" type="button" aria-expanded="false">' +
+                  'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+              '</div>' +
+              '<div class="cp-format-picker" id="introRolePickWrap" hidden>' +
+                '<div class="rl-pick" id="introRolePick" role="group" aria-label="Choose your sector and role"></div>' +
+              '</div>' +
+            '</div>' +
+            // D11: optional self-assigned identity, also URL-prefillable
+            // (?name=) for a stamped link. Read only by this screen's own
+            // "welcome back" line on a return visit — not threaded into
+            // CLARA's dialogue throughout the module, which is a bigger,
+            // separate pass this round does not take on.
+            '<div class="cp-card"><h3>Your name</h3>' +
+              '<p class="cp-format-note">So a returning visit can say it back to you. Optional.</p>' +
+              '<input type="text" id="introName" class="cp-name-input" maxlength="40" ' +
+                'placeholder="Type your name" autocomplete="given-name">' +
+            '</div>' +
             // Item 17: the doc's own mastery rule, not the aptitude vision's
             // 80%-of-objectives threshold — the two are different documents
             // with different rules, and this module answers to the first.
@@ -797,7 +838,7 @@
               '<ul class="cp-req">' +
                 '<li><i class="fa-solid fa-list-check"></i><span>Every section completed.</span></li>' +
                 '<li><i class="fa-solid fa-clipboard-check"></i><span>Each check passed.</span></li>' +
-                '<li><i class="fa-solid fa-comments"></i><span>The end-of-shift scenario performed.</span></li>' +
+                '<li><i class="fa-solid fa-comments"></i><span>The culminating scenario performed.</span></li>' +
                 '<li><i class="fa-solid fa-circle-info"></i><span>No final test.</span></li>' +
               '</ul></div>' +
             '<div class="cp-card"><h3>Time needed to complete</h3>' +
@@ -816,6 +857,7 @@
     '</main>'; }
   function introInit(ctx) {
     var course = readCourse();
+    var L = lens();
     // Render the FULL syllabus and MARK what the entry questions removed,
     // rather than rendering visiblePath(). visiblePath() is the
     // post-compression path, so once the battery proved the procedure both
@@ -949,6 +991,94 @@
           wrap.hidden = true;
           change.setAttribute('aria-expanded', 'false');
         });
+      }
+    }
+
+    // D11: "Your role" — same collapsed-value-plus-Change shell as the
+    // format card above, walking LENS_ORDER instead of MODALITY_ORDER.
+    // Picking one rewrites the same 'll-lens' value the reviewer-only
+    // Context lens control already cycles through, then replays this whole
+    // screen so everything else lens-dependent on it (the hero chip, the
+    // org name, the coordinator) catches up instead of showing a stale
+    // sector next to a freshly-changed role.
+    var rlNowLabel = document.getElementById('introRoleNowLabel');
+    var rlChange = document.getElementById('introRoleChange');
+    var rlWrap = document.getElementById('introRolePickWrap');
+    var rlPick = document.getElementById('introRolePick');
+    if (rlPick) {
+      var curLens = LE.lensId();
+      rlPick.innerHTML = LENS_ORDER.map(function (id) {
+        var Ls = LENSES[id];
+        return '<button class="rl-opt' + (id === curLens ? ' is-on' : '') + '" type="button" ' +
+          'role="radio" aria-checked="' + (id === curLens ? 'true' : 'false') + '" data-lens="' + id + '">' +
+          '<b>' + esc(Ls.label) + '</b><small>' + esc(Ls.role) + '</small></button>';
+      }).join('');
+      rlNowLabel.textContent = L.label + ' — ' + L.role;
+      rlChange.addEventListener('click', function () {
+        var open = rlWrap.hidden;
+        rlWrap.hidden = !open;
+        rlChange.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      rlPick.addEventListener('click', function (e) {
+        var b = e.target.closest('.rl-opt');
+        if (!b) return;
+        rlWrap.hidden = true;
+        rlChange.setAttribute('aria-expanded', 'false');
+        if (b.dataset.lens === curLens) return;
+        try { sessionStorage.setItem('ll-lens', b.dataset.lens); } catch (err) {}
+        LE.goTo('intro');
+      });
+      if (!window.__introRoleOutsideBound) {
+        window.__introRoleOutsideBound = true;
+        document.addEventListener('click', function (e) {
+          var wrap = document.getElementById('introRolePickWrap');
+          var change = document.getElementById('introRoleChange');
+          if (!wrap || wrap.hidden || !change) return;
+          if (wrap.contains(e.target) || change.contains(e.target)) return;
+          wrap.hidden = true;
+          change.setAttribute('aria-expanded', 'false');
+        });
+      }
+    }
+
+    // D11: self-assigned name — prefilled from a launch link's ?name= or a
+    // previous visit, saved as the learner types. Never gates anything;
+    // every reader of savedName() already falls back to unnamed.
+    var nameEl = document.getElementById('introName');
+    if (nameEl) {
+      nameEl.value = savedName();
+      nameEl.addEventListener('input', function () {
+        try { sessionStorage.setItem('sh-name', nameEl.value.trim().slice(0, 40)); } catch (err) {}
+      });
+    }
+
+    // D11: resumable progress — offered only when an earlier visit reached
+    // further than this cover screen. LE.goTo refuses a step the current
+    // path no longer contains (a when()-excluded remediation, say), which
+    // here just means Resume quietly does nothing rather than stranding
+    // anyone; Start over always works regardless.
+    var resumeEl = document.getElementById('introResume');
+    if (resumeEl) {
+      var last = LE.lastStepId();
+      var lastStep = (last && last !== 'intro') ? LE.stepById(last) : null;
+      if (lastStep) {
+        var nm = savedName();
+        resumeEl.hidden = false;
+        resumeEl.innerHTML =
+          '<p><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Welcome back' +
+            (nm ? ', ' + esc(nm) : '') + ' — you have progress saved from a previous visit.</p>' +
+          '<div class="cp-resume-actions">' +
+            '<button class="cp-resume-go" id="introResumeGo" type="button">Resume where you left off</button>' +
+            '<button class="cp-resume-reset" id="introResumeReset" type="button">Start over</button>' +
+          '</div>';
+        document.getElementById('introResumeGo').addEventListener('click', function () { LE.goTo(last); });
+        document.getElementById('introResumeReset').addEventListener('click', function () {
+          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-doobject-mode', 'll-lens', 'sh-modality', 'sh-name']
+            .forEach(function (k) { try { sessionStorage.removeItem(k); } catch (err) {} });
+          location.reload();
+        });
+      } else {
+        resumeEl.hidden = true;
       }
     }
 
@@ -4409,6 +4539,29 @@
   ];
 
   // ==========================================================================
+  //  D11: URL-prefillable launch params — role (sector), name, media (format).
+  //  A stamped link (an LMS enrollment, a shared demo link) can hand the
+  //  learner a pre-set context without them touching anything on arrival.
+  //  Seeds the SAME session values the in-module pickers already read and
+  //  write (ll-lens, sh-modality, sh-name) rather than a second, competing
+  //  source of truth — an in-module change afterward still wins over this.
+  // ==========================================================================
+  (function applyLaunchParams() {
+    var p;
+    try { p = new URLSearchParams(location.search); } catch (e) { return; }
+    var role = p.get('role');
+    if (role && LENSES[role]) { try { sessionStorage.setItem('ll-lens', role); } catch (e) {} }
+    var media = p.get('media');
+    // Podcast is declined at module level (item 26) — not a valid launch
+    // value either, the same reason it is hidden from the picker itself.
+    if (media && MODALITY_ORDER.slice(0, 3).indexOf(media) > -1) {
+      try { sessionStorage.setItem('sh-modality', media); } catch (e) {}
+    }
+    var name = p.get('name');
+    if (name) { try { sessionStorage.setItem('sh-name', name.trim().slice(0, 40)); } catch (e) {} }
+  })();
+
+  // ==========================================================================
   //  Hand it to the engine.
   // ==========================================================================
   LE.register({
@@ -4427,7 +4580,7 @@
     // LE.reviewMode() directly and needs no engine-side gate.
     reviewGate: true,
     lenses: LENSES,
-    lensOrder: ['manufacturing', 'education', 'aec', 'public'],
+    lensOrder: LENS_ORDER,
     // Every beat with a scene in it moves with the sector.
     // Every screen with a scene in it moves with the sector. The chain walks
     // its own incident per sector; the rating screen borrows that chain's clock.
