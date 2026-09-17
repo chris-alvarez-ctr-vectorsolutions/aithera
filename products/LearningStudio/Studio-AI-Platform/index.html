@@ -545,7 +545,77 @@
     font-size: 8px; font-weight: 700;
     background: var(--sai-info-soft); color: var(--sai-info);
   }
-  .sai-cover-dot:hover { background: #33294f; }
+  .sai-cover-dot:hover { filter: brightness(1.35); }
+  /* Depth is carried by fill weight — deeper coverage reads heavier. */
+  /* Three levels must be separable at 15px, so they differ in FILL and
+     OUTLINE, not brightness alone: awareness = outline only, working = filled
+     mid, mastery = solid. */
+  .sai-cover-dot.d-awareness {
+    background: transparent; color: #8878b0; box-shadow: inset 0 0 0 1px #4a3f6b;
+  }
+  .sai-cover-dot.d-working { background: #4a3d78; color: #d5c8f5; }
+  .sai-cover-dot.d-mastery { background: var(--sai-info); color: #14101f; font-weight: 800; }
+
+  /* Required-depth chip on an information point. */
+  .sai-req {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 1px 6px; border-radius: 3px;
+    font-size: 10px; font-weight: 700;
+    background: var(--sai-bg); color: var(--sai-ink-3);
+    border: 1px solid var(--sai-line-2);
+  }
+  .sai-req b { color: var(--sai-ink-2); font-weight: 700; }
+  .sai-req.met b { color: var(--sai-output); }
+  .sai-req.unmet { border-color: #5c3a2a; }
+  .sai-req.unmet b { color: #e08050; }
+
+  /* ── Validation panel on an output ─────────────────────────────────────
+     The information set is the threshold; this is where an output is
+     checked against it. */
+  .sai-validate {
+    margin-top: 8px; padding: 8px 9px;
+    background: var(--sai-bg); border: 1px solid var(--sai-line-2);
+    border-radius: 5px;
+  }
+  .sai-validate-head {
+    display: flex; align-items: center; gap: 7px; margin-bottom: 7px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--sai-ink-3);
+  }
+  .sai-validate-verdict { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
+  .sai-validate-verdict.pass { color: var(--sai-output); }
+  .sai-validate-verdict.fail { color: #e0704a; }
+  .sai-validate-rows { display: flex; flex-direction: column; gap: 2px; }
+  .sai-vrow {
+    display: grid; grid-template-columns: 16px 1fr 74px 74px 14px;
+    align-items: center; gap: 7px;
+    padding: 3px 5px; border-radius: 3px;
+    font-size: 10.5px; color: var(--sai-ink-2); cursor: pointer;
+  }
+  .sai-vrow:hover { background: var(--sai-surface-2); color: var(--sai-ink); }
+  .sai-vrow-num {
+    width: 15px; height: 15px; border-radius: 3px;
+    display: grid; place-items: center; font-size: 8px; font-weight: 700;
+    background: var(--sai-surface-3); color: var(--sai-ink-3);
+  }
+  .sai-vrow-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sai-vrow-depth { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .sai-vrow-depth.req { color: var(--sai-ink-3); }
+  .sai-vrow-depth.got { color: var(--sai-ink-2); }
+  .sai-vrow.ok   .sai-vrow-depth.got { color: var(--sai-output); }
+  .sai-vrow.short .sai-vrow-depth.got { color: #e0704a; }
+  .sai-vrow-flag { text-align: center; font-size: 9px; }
+  .sai-vrow.ok .sai-vrow-flag { color: var(--sai-output); }
+  .sai-vrow.short .sai-vrow-flag { color: #e0704a; }
+  .sai-vrow.gap .sai-vrow-flag { color: var(--sai-warn); }
+
+  /* Depth legend */
+  .sai-depth-legend {
+    display: flex; align-items: center; gap: 10px; margin-left: auto;
+    font-size: 9.5px; color: var(--sai-ink-3); text-transform: none; letter-spacing: 0;
+  }
+  .sai-depth-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .sai-depth-swatch { width: 9px; height: 9px; border-radius: 2px; }
   .sai-cover-label { font-size: 9.5px; color: var(--sai-ink-3); margin-right: 3px; align-self: center; text-transform: uppercase; letter-spacing: .05em; }
 
   /* Transmute strip */
@@ -1001,7 +1071,12 @@
             <div>
               <b>6 points</b> · SME-approved <span style="color:var(--sai-ink-3)">— Marcus Reed, 12 Sep</span>
             </div>
-            <div class="sai-coverage-track">
+            <div class="sai-depth-legend">
+            <span><i class="sai-depth-swatch" style="background:transparent;box-shadow:inset 0 0 0 1px #4a3f6b"></i> Awareness</span>
+            <span><i class="sai-depth-swatch" style="background:#4a3d78"></i> Working</span>
+            <span><i class="sai-depth-swatch" style="background:var(--sai-info)"></i> Mastery</span>
+          </div>
+          <div class="sai-coverage-track">
               <div class="sai-coverage-fill" style="width:83%"></div>
               <div class="sai-coverage-fill partial" style="width:17%"></div>
             </div>
@@ -1100,6 +1175,7 @@
                   completion = reached the end
                 </div>
                 <div class="sai-seq" id="seqList"></div>
+                <div id="validateCourse"></div>
               </div>
             </div>
 
@@ -1119,6 +1195,7 @@
                   completion = information points covered to threshold
                 </div>
                 <div class="sai-web" id="webMap"></div>
+                <div id="validateExperience"></div>
               </div>
             </div>
 
@@ -1231,37 +1308,37 @@ const MODEL = {
     { id: 'info-1', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Pre-shift inspection is mandatory before operation',
       text: 'Every operator completes a documented pre-shift inspection covering forks, mast, hydraulics, tires, horn, and seatbelt. An uninspected truck may not be placed in service.',
-      provenance: 'OSHA 1910.178(q)(7)', sourced: true, verified: true,
+      provenance: 'OSHA 1910.178(q)(7)', sourced: true, verified: true, requires: 'working',
       capabilities: ['rephrase', 'split', 'comment', 'derive'] },
 
     { id: 'info-2', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Three-point contact when mounting and dismounting',
       text: 'Two hands and one foot, or two feet and one hand, maintain contact at all times. Never jump from the operator compartment.',
-      provenance: 'Vector EHS standard §4.2', sourced: true, verified: true,
+      provenance: 'Vector EHS standard §4.2', sourced: true, verified: true, requires: 'awareness',
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-3', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Load capacity varies by attachment',
       text: 'The data plate rating assumes standard forks. Fitting a clamp, rotator, or extension reduces rated capacity — the derated figure, not the plate figure, governs.',
-      provenance: 'Model knowledge — unverified against 2026 revision', sourced: false, verified: true,
+      provenance: 'Model knowledge — unverified against 2026 revision', sourced: false, verified: true, requires: 'mastery',
       capabilities: ['rephrase', 'comment', 'derive'], flagged: true },
 
     { id: 'info-4', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Travel with the load low and tilted back',
       text: 'Carry loads 4–6 inches off the ground with the mast tilted back. Raised loads shift the centre of gravity and are the leading cause of tip-over.',
-      provenance: 'OSHA 1910.178(n)(7)', sourced: true, verified: true,
+      provenance: 'OSHA 1910.178(n)(7)', sourced: true, verified: true, requires: 'working',
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-5', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Pedestrians always have right of way',
       text: 'Sound the horn at intersections and blind corners. Make eye contact before proceeding. Never travel with a pedestrian in the path of the load.',
-      provenance: 'Vector EHS standard §6.1', sourced: true, verified: true,
+      provenance: 'Vector EHS standard §6.1', sourced: true, verified: true, requires: 'awareness',
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-6', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Stay in the compartment during a tip-over',
       text: 'Do not jump. Brace, grip the wheel, lean away from the fall. Most fatal injuries occur when an operator jumps and is caught by the overhead guard.',
-      provenance: 'Model knowledge — SME input requested', sourced: false, verified: false,
+      provenance: 'Model knowledge — SME input requested', sourced: false, verified: false, requires: 'mastery',
       capabilities: ['rephrase', 'comment', 'derive'], flagged: true }
   ],
 
@@ -1270,37 +1347,37 @@ const MODEL = {
     { id: 'act-video', type: 'media.video', layer: 'activity', status: 'idle',
       modality: 'Video', icon: 'fa-video',
       title: 'Safe operation walkthrough', meta: '8 min · narrated · captioned',
-      covers: ['info-1','info-2','info-4','info-5'], placed: true,
+      covers: { 'info-1': 'awareness', 'info-2': 'awareness', 'info-4': 'working', 'info-5': 'awareness' }, placed: true,
       capabilities: ['retitle', 'regenerate', 'shorten', 'comment', 'compose'] },
 
     { id: 'act-podcast', type: 'media.audio', layer: 'activity', status: 'idle',
       modality: 'Audio', icon: 'fa-podcast',
       title: 'Yard talk: what the data plate does not tell you', meta: '11 min · 2-host script',
-      covers: ['info-3','info-4','info-6'], placed: true,
+      covers: { 'info-3': 'awareness', 'info-4': 'awareness', 'info-6': 'awareness' }, placed: true,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
     { id: 'act-scenario', type: 'interactive.scenario', layer: 'activity', status: 'idle',
       modality: 'Interactive', icon: 'fa-diagram-project',
       title: 'Hazard walkthrough — loading dock', meta: '4 decision points · branching',
-      covers: ['info-3','info-4','info-5','info-6'], placed: true,
+      covers: { 'info-3': 'working', 'info-4': 'working', 'info-5': 'working', 'info-6': 'working' }, placed: true,
       capabilities: ['retitle', 'regenerate', 'shorten', 'comment', 'compose', 'edit-manually'] },
 
     { id: 'act-check', type: 'question.multiple-choice', layer: 'activity', status: 'idle',
       modality: 'Assessment', icon: 'fa-circle-question',
       title: 'Capacity and attachment check', meta: '6 items · scored',
-      covers: ['info-1','info-3'], placed: true,
+      covers: { 'info-1': 'mastery', 'info-3': 'mastery' }, placed: true,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
     { id: 'act-journal', type: 'reflection.journal', layer: 'activity', status: 'idle',
       modality: 'Reflection', icon: 'fa-pen-to-square',
       title: 'Near-miss reflection', meta: 'Open response · unscored',
-      covers: ['info-5','info-6'], placed: false,
+      covers: { 'info-5': 'working', 'info-6': 'working' }, placed: false,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
     { id: 'act-aid', type: 'reference.job-aid', layer: 'activity', status: 'idle',
       modality: 'Reference', icon: 'fa-file-lines',
       title: 'Pre-shift inspection card', meta: 'Printable · 1 page',
-      covers: ['info-1'], placed: false,
+      covers: { 'info-1': 'awareness' }, placed: false,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] }
   ],
 
@@ -1362,6 +1439,66 @@ const MODEL = {
   }
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEPTH & VALIDATION
+   ---------------------------------------------------------------------------
+   Coverage is many-to-many and TAG-shaped: an activity either satisfies a
+   point or it doesn't, and one activity may satisfy many points (a scenario
+   can carry the whole set). But "covered" is not binary in quality — a job
+   aid mentioning load limits and a scenario making you apply them under
+   pressure are not equivalent, so each activity->point tag carries the depth
+   that activity actually delivers.
+
+   The information set is the THRESHOLD that equates to a learned subject.
+   An output is valid when every point is satisfied to the depth that point
+   requires — which is set per point, because a tip-over survival point
+   demands more than a right-of-way point.
+
+   Rule: a point is SATISFIED when the highest depth any activity in the
+   output delivers meets or exceeds the point's required depth. A point that
+   jumps straight to mastery with no lower-depth build-up still passes, but
+   is FLAGGED — it was assessed without being taught.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const DEPTH = {
+  awareness: { rank: 1, label: 'Awareness', short: 'A', desc: 'knows it exists' },
+  working:   { rank: 2, label: 'Working',   short: 'W', desc: 'can do it with support' },
+  mastery:   { rank: 3, label: 'Mastery',   short: 'M', desc: 'can do it unaided' }
+};
+const depthRank = d => (DEPTH[d] ? DEPTH[d].rank : 0);
+
+/* Validate a set of activity ids against the whole information set. */
+function validateOutput(activityIds) {
+  const rows = MODEL.information.map(point => {
+    // Every activity in this output that tags this point, with its depth.
+    const contributions = activityIds
+      .map(id => byId[id])
+      .filter(a => a && a.covers && a.covers[point.id])
+      .map(a => ({ activity: a, depth: a.covers[point.id] }));
+
+    const best = contributions.reduce(
+      (hi, c) => depthRank(c.depth) > depthRank(hi) ? c.depth : hi, null);
+
+    const required  = point.requires;
+    const satisfied = depthRank(best) >= depthRank(required);
+
+    // Progression warning: reached the bar, but nothing below it was built.
+    const ranks = contributions.map(c => depthRank(c.depth));
+    const gap = satisfied && depthRank(required) > 1 &&
+                !ranks.some(r => r < depthRank(best));
+
+    return { point, contributions, best, required, satisfied, gap };
+  });
+
+  return {
+    rows,
+    satisfiedCount: rows.filter(r => r.satisfied).length,
+    total: rows.length,
+    gaps: rows.filter(r => r.gap).length,
+    passes: rows.every(r => r.satisfied)
+  };
+}
+
 /* Lookup by id across every layer — the one way anything is addressed. */
 const byId = {};
 [...MODEL.information, ...MODEL.activities].forEach(n => byId[n.id] = n);
@@ -1393,7 +1530,7 @@ function commentPill(id) {
 function renderInformation() {
   $('#infoList').innerHTML = MODEL.information.map((p, i) => {
     // Coverage: how many activities carry this point
-    const carriers = MODEL.activities.filter(a => a.covers.includes(p.id)).length;
+    const carriers = MODEL.activities.filter(a => a.covers[p.id]).length;
     const prov = p.sourced
       ? `<span class="sai-pill sourced"><i class="fa-solid fa-link"></i>${p.provenance}</span>`
       : `<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)"><i class="fa-solid fa-triangle-exclamation"></i>${p.provenance}</span>`;
@@ -1411,6 +1548,18 @@ function renderInformation() {
               <span class="sai-sub" data-sub="body">${p.text}</span>
             </div>
             <div class="sai-node-meta" style="margin-top:9px">
+              ${(() => {
+                // Deepest coverage anywhere in the library for this point.
+                const best = MODEL.activities
+                  .filter(a => a.covers[p.id])
+                  .reduce((hi, a) => depthRank(a.covers[p.id]) > depthRank(hi) ? a.covers[p.id] : hi, null);
+                const met = depthRank(best) >= depthRank(p.requires);
+                return `<span class="sai-req ${met ? 'met' : 'unmet'}"
+                  title="Requires ${DEPTH[p.requires].label} — ${DEPTH[p.requires].desc}. Best available: ${best ? DEPTH[best].label : 'none'}.">
+                  requires <b>${DEPTH[p.requires].label}</b>
+                  <i class="fa-solid fa-${met ? 'check' : 'triangle-exclamation'}" style="font-size:8px"></i>
+                </span>`;
+              })()}
               ${prov}
               ${p.verified
                 ? '<span class="sai-pill verified"><i class="fa-solid fa-circle-check"></i>Verified</span>'
@@ -1453,9 +1602,10 @@ function renderActivities() {
             </div>
             <div class="sai-activity-cover">
               <span class="sai-cover-label">covers</span>
-              ${a.covers.map(cid => {
+              ${Object.entries(a.covers).map(([cid, depth]) => {
                 const idx = MODEL.information.findIndex(p => p.id === cid) + 1;
-                return `<span class="sai-cover-dot" data-goto="${cid}" title="${byId[cid].title}">${idx}</span>`;
+                return `<span class="sai-cover-dot d-${depth}" data-goto="${cid}"
+                  title="Point ${idx}: ${byId[cid].title} — delivered at ${DEPTH[depth].label}">${idx}</span>`;
               }).join('')}
             </div>
           </article>`).join('')}
@@ -1464,6 +1614,34 @@ function renderActivities() {
 }
 
 /* ── Outputs: structural sequence ───────────────────────────────────────── */
+/* Renders one output's validation against the whole information set. */
+function renderValidation(activityIds) {
+  const v = validateOutput(activityIds);
+  return `
+    <div class="sai-validate">
+      <div class="sai-validate-head">
+        <i class="fa-solid fa-shield-check"></i> Threshold check
+        <span class="sai-validate-verdict ${v.passes ? 'pass' : 'fail'}">
+          <i class="fa-solid fa-${v.passes ? 'circle-check' : 'circle-exclamation'}"></i>
+          ${v.satisfiedCount}/${v.total} satisfied${v.gaps ? ` · ${v.gaps} flagged` : ''}
+        </span>
+      </div>
+      <div class="sai-validate-rows">
+        ${v.rows.map((r, i) => `
+          <div class="sai-vrow ${r.satisfied ? (r.gap ? 'ok gap' : 'ok') : 'short'}" data-goto="${r.point.id}"
+               title="${r.gap ? 'Reaches the required depth, but nothing builds up to it — assessed without being taught.' : ''}">
+            <span class="sai-vrow-num">${i + 1}</span>
+            <span class="sai-vrow-name">${r.point.title}</span>
+            <span class="sai-vrow-depth req">needs ${DEPTH[r.required].short}</span>
+            <span class="sai-vrow-depth got">${r.best ? 'has ' + DEPTH[r.best].short : 'none'}</span>
+            <span class="sai-vrow-flag">
+              <i class="fa-solid fa-${r.satisfied ? (r.gap ? 'triangle-exclamation' : 'check') : 'xmark'}"></i>
+            </span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
 function renderSequence() {
   $('#seqList').innerHTML = MODEL.sequence.map((id, i) => {
     const a = byId[id];
@@ -1503,11 +1681,19 @@ function renderWeb() {
     </div>`).join('');
 }
 
+function renderValidations() {
+  const course = $('#validateCourse');
+  const exp    = $('#validateExperience');
+  if (course) course.innerHTML = renderValidation(MODEL.sequence);
+  if (exp)    exp.innerHTML    = renderValidation(MODEL.web.nodes.map(n => n.id));
+}
+
 function renderAll() {
   renderInformation();
   renderActivities();
   renderSequence();
   renderWeb();
+  renderValidations();
   applySelection();
   applyStatuses();
 }
@@ -1710,8 +1896,8 @@ function runPrompt(text) {
       $('.sai-bubble', aiTurn).innerHTML =
         `Updated <b>${target.title}</b>${sub ? ` — ${sub === 'title' ? 'the title' : 'the body text'} only` : ''}. ` +
         (target.layer === 'information'
-          ? `This point is carried by ${MODEL.activities.filter(a => a.covers.includes(target.id)).length} activities — each is now marked for regeneration.`
-          : `Coverage unchanged: still carries ${target.covers.length} information points.`);
+          ? `This point is carried by ${MODEL.activities.filter(a => a.covers[target.id]).length} activities — each is now marked for regeneration.`
+          : `Coverage unchanged: still carries ${Object.keys(target.covers).length} information points.`);
       toast('Canvas updated — ' + target.title);
     }
   };
@@ -1846,6 +2032,7 @@ $('#transmuteOpts').addEventListener('click', e => {
   const id = 'act-new-' + Date.now();
 
   const iconFor = { 'Interactive simulation': 'fa-gamepad', 'Job aid': 'fa-file-lines', 'Micro-lesson series': 'fa-mobile-screen' };
+  const genDepth = { 'Interactive simulation': 'mastery', 'Job aid': 'awareness', 'Micro-lesson series': 'working' };
   const groupFor = { 'Interactive simulation': 'Interactive', 'Job aid': 'Reference', 'Micro-lesson series': 'Micro-learning' };
 
   const node = {
@@ -1853,7 +2040,10 @@ $('#transmuteOpts').addEventListener('click', e => {
     layer: 'activity', status: 'working',
     modality: groupFor[modality], icon: iconFor[modality] || 'fa-shapes',
     title: modality + ' — Forklift Safety', meta: 'Generating…',
-    covers: MODEL.information.map(p => p.id), placed: false,
+    // A generated activity is authored against every point, but at the depth
+    // its modality can actually deliver — a job aid can't assess.
+    covers: Object.fromEntries(MODEL.information.map(p => [p.id, genDepth[modality] || 'awareness'])),
+    placed: false,
     capabilities: ['retitle', 'regenerate', 'comment', 'compose']
   };
   MODEL.activities.push(node);
@@ -1937,7 +2127,7 @@ $('#openEditor').addEventListener('click', () => {
   const n = selected ? byId[selected] : byId['act-scenario'];
   $('#editorCtxNode').textContent = n.title;
   $('#editorCtxExtra').textContent = n.layer === 'activity'
-    ? `· carries ${n.covers.length} information points`
+    ? `· carries ${Object.keys(n.covers).length} information points`
     : '· information point';
   $('#editor').classList.add('open');
 });
