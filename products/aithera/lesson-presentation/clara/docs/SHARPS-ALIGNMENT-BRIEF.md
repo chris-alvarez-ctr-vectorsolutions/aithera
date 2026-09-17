@@ -14,11 +14,10 @@ Manufacturing lens) against two new inputs Chris supplied:
   anywhere in this repo) to prove specific V1 capabilities in front of customers
   in November.
 
-**Status as of 2026-09-17: round 1 (§5, sections A–E) is fully shipped.** All
-twelve forks are decided (§2a), including D12. What's left is queued for
-round 2 (§6) — the workbench and Learning Layer view resync, and
-Education/AEC/Public sector scenario parity — deliberately deferred, not
-outstanding from this round.
+**Status as of 2026-09-17: both rounds are fully shipped.** Round 1 (§5,
+sections A–E) and round 2 (§6, workbench/Learning Layer resync + sector
+parity) are complete. All twelve forks are decided (§2a), including D12.
+Nothing from this brief remains queued.
 
 ## 0. Before touching anything
 
@@ -434,14 +433,33 @@ bundled into it.
    way K&A wrote one for Manufacturing — this is original authoring, not a port,
    and it's the reason it's queued rather than done alongside Manufacturing's
    rebuild in round 1.
+
+   **Shipped (`70935270`).** By the time this landed, "their current shared
+   Chris/Jacob sim" had already changed underneath it: `enact`'s scenario key
+   was hardcoded, so Education/AEC/Public sector were actually running
+   Manufacturing's own D6 rebuild (a plant-floor "blade on the next bench")
+   rather than the older Chris/Jacob one — a continuity error, not just a
+   missing feature. Fixed with three sector-authored scenarios in mix-arc.js
+   ("The Blade Left Behind" / education, "The Blade on the Sill" / aec, "The
+   Needle in the Jump Bag" / public sector), each the same four coach-led
+   beats as Manufacturing's, sourced against that sector's own `LENSES`
+   vocabulary and reusing its established container locations rather than
+   inventing new ones. `layered-sharps.js` now resolves the scenario key,
+   the handoff hook line, and the D10 baseline's stand-in question per
+   sector (`SCENARIO_KEY`/`scenarioKey()`, `HANDOFF_HOOK`/`handoffHook()`)
+   instead of all four pointing at Manufacturing's. Verified live against
+   the real AI for Education (a full beat 1 → beat 2 round trip — exact
+   signpost text, correct debrief, correct container citation) and at the
+   routing level for AEC, Public sector, and Manufacturing (confirmed
+   unaffected).
 4. Once all three are done, re-run the check in §7 step 6 (workbench and
    Learning Layer view match the shipped module) as confirmation, not as new
-   discovery.
+   discovery. **Done** — neither references a specific scenario id or sector
+   narrative, so sector parity needed no further change to either; the
+   objective-count resync from §6.1–2 already covers what they claim.
 
-Until round 2 lands: the workbench and Learning Layer view show the old
-10-objective set, and Education/AEC/Public sector still run the retired
-Chris/Jacob simulation while Manufacturing runs the new one. Both are known,
-accepted gaps, not something to fix opportunistically mid-round-1.
+**Round 2 (§6) is now fully shipped** — all three items and the
+confirmation pass. Nothing queued.
 
 ## 7. Sequence
 
