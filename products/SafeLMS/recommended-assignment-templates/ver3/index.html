@@ -109,7 +109,15 @@
   .ck-card { background: #fff; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 20px;
     box-shadow: 0 1px 3px rgba(16,24,40,.06); overflow: hidden; }
   .ck-card.complete { border-color: #A6E5C3; }
-  .ck-head { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--hair); }
+  .ck-head { display: flex; align-items: center; gap: 14px; padding: 16px 20px; border-bottom: 1px solid var(--hair);
+    cursor: pointer; user-select: none; }
+  .ck-card.collapsed .ck-head { border-bottom: 0; }
+  .ck-card.collapsed .ck-list, .ck-card.collapsed .ck-foot { display: none; }
+  .ck-toggle { flex: 0 0 auto; margin-left: 2px; background: transparent; border: 0; color: var(--muted-2);
+    width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 15px; display: grid; place-items: center; }
+  .ck-toggle:hover { background: var(--hair-2); color: var(--ink-2); }
+  .ck-toggle i { transition: transform .2s ease; }
+  .ck-card:not(.collapsed) .ck-toggle i { transform: rotate(180deg); }
   .ck-icon { flex: 0 0 42px; width: 42px; height: 42px; border-radius: 11px; color: #fff; display: grid; place-items: center;
     font-size: 18px; background: linear-gradient(135deg, #1E9E57, #0E7A41); box-shadow: 0 6px 15px rgba(14,122,65,.28); }
   .ck-titles { min-width: 0; }
@@ -332,8 +340,8 @@
         <div class="work">
 
           <!-- ════ OPTION 3: State compliance checklist ════ -->
-          <section class="ck-card" id="ckCard" aria-label="State compliance checklist">
-            <div class="ck-head">
+          <section class="ck-card collapsed" id="ckCard" aria-label="State compliance checklist">
+            <div class="ck-head" id="ckHead">
               <div class="ck-icon"><i class="fa-solid fa-clipboard-check"></i></div>
               <div class="ck-titles">
                 <h2>State Compliance Checklist <span class="ck-state">Illinois · K-12</span></h2>
@@ -343,6 +351,7 @@
                 <div class="lbl"><b id="ckDone">3</b> of <span id="ckTotal">7</span> assigned</div>
                 <div class="pbar"><i id="ckBar" style="width:43%"></i></div>
               </div>
+              <button class="ck-toggle" id="ckToggle" aria-label="Expand checklist" aria-expanded="false"><i class="fa-solid fa-chevron-down"></i></button>
             </div>
 
             <div class="ck-list" id="ckList">
@@ -571,6 +580,19 @@
   const TOTAL = 7;
   let done = 3;
 
+  // Collapsible checklist — collapsed by default; the header stays visible with
+  // its progress summary, and clicking anywhere on the header expands it.
+  const ckCard = document.getElementById('ckCard');
+  const ckToggle = document.getElementById('ckToggle');
+  function setCollapsed(collapsed) {
+    ckCard.classList.toggle('collapsed', collapsed);
+    ckToggle.setAttribute('aria-expanded', String(!collapsed));
+    ckToggle.setAttribute('aria-label', collapsed ? 'Expand checklist' : 'Collapse checklist');
+  }
+  document.getElementById('ckHead').addEventListener('click', () => {
+    setCollapsed(!ckCard.classList.contains('collapsed'));
+  });
+
   const toast = document.getElementById('toast');
   const toastMsg = document.getElementById('toastMsg');
   let toastTimer = null;
@@ -629,8 +651,8 @@
   function applyFlowState(id, opts) {
     opts = opts || {};
     switch (id) {
-      case 'complete': assignAll(); break;
-      case 'plans': default: break;   // entry screen already shows the 3-of-7 checklist
+      case 'complete': setCollapsed(false); assignAll(); break;
+      case 'plans': default: setCollapsed(true); break;   // entry screen: collapsed 3-of-7 checklist
     }
     if (!opts.instant) window.scrollTo(0, 0);
   }
