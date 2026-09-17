@@ -101,6 +101,9 @@
     liveMsg: '',
     editingName: false,
     exportMenu: false,
+    // The build bar's status-badge dropdown (Unpublish). Same one-at-a-time
+    // treatment as exportMenu — see the autoCloseMenus block.
+    statusMenu: false,
 
     /* ---- dashboard reporting window ----
        ONE range for the whole dashboard (widgets no longer carry their own).
@@ -1675,17 +1678,47 @@
      BUILD VIEW SHELL
      ===================================================================== */
 
-  /* Where this dashboard currently lands — a BADGE, not a control. It used to
-     be a button that opened the audience dialog, which is exactly what the
-     Publish / Manage audience button beside it does; two controls one gap
-     apart doing the same thing read as two different things. The status is now
-     a read-out, and the button beside it is the single way to change it. */
+  /* Where this dashboard currently lands — and, when it is live, the way to
+     take it down.
+
+     This badge was a pure read-out for a while, and deliberately so: it had
+     been a button that opened the audience dialog, which is exactly what the
+     Manage audience button beside it already does, and two controls one gap
+     apart doing the SAME thing read as two different things. Hanging Unpublish
+     off it resolves that rather than repeating it — the button edits who sees
+     this, the badge changes whether anyone does. It sits to the RIGHT of that
+     button so the two read as one statement: manage the audience, and here is
+     the state that audience leaves it in.
+
+     A dashboard that is not published has nothing to take down, so it stays
+     the plain read-out — no caret, nothing to click, no menu that would open
+     onto a single disabled row. */
   function statusControl(d) {
     var st = CP.statusOf(d);
     var m = CP.dashStatusMeta(st);
-    return '<span class="cp-status" style="background:' + m.bg + ';color:' + m.fg +
-      ';border:1px solid ' + m.border + ';padding:5px 10px">' +
-      micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label) + '</span>';
+    var face = micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label);
+    var skin = 'background:' + m.bg + ';color:' + m.fg + ';border:1px solid ' + m.border +
+      ';padding:5px 10px';
+
+    if (st !== 'published') {
+      return '<span class="cp-status" style="' + skin + '">' + face + '</span>';
+    }
+
+    var open = !!state.statusMenu;
+    return '<div style="position:relative;display:inline-flex">' +
+      '<button class="cp-status cp-status--menu" id="cpStatusMenu" style="' + skin + '" ' +
+      'aria-haspopup="menu" aria-expanded="' + open + '" ' +
+      'title="Published — change whether this is live">' + face +
+      micon('expand_more', { size: 14 }) + '</button>' +
+      (open
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:232px;top:calc(100% + 6px)">' +
+          '<button class="kx-menu-row" id="cpUnpublish">' +
+          micon('unpublished', { size: 16 }) +
+          '<span class="label">Unpublish</span></button>' +
+          '<div class="kx-menu-foot">Takes it off everyone’s homepage. The ' +
+          'dashboard and its audience are kept.</div>' +
+          '</div>'
+        : '') + '</div>';
   }
 
   function buildHtml() {
@@ -1726,7 +1759,6 @@
             ? '<span class="spinner" style="width:13px;height:13px;border-top-color:var(--teal-500)"></span> Saving…'
             : micon('cloud_done', { size: 15, fill: 1, color: 'var(--teal-500)' }) +
               ' Saved · ' + esc(formatSaved(state.lastSavedAt))) + '</span>' +
-          statusControl(d) +
           (delivery
             ? '<vaadin-button theme="secondary small" id="cpEditSchedule" title="Edit the report schedule">' +
               micon(delivery.paused ? 'pause_circle' : 'schedule_send', { size: 14, fill: 1 }) +
@@ -1734,23 +1766,19 @@
               CP.formatMeta(delivery.format).short) + '</span></vaadin-button>'
             : '') +
           exportControl() +
+          // "Delivery" covers both destinations (live + report). In v1 there
+          // is only the live audience, so the label says so.
           (published
-            // "Delivery" covers both destinations (live + report). In v1 there
-            // is only the live audience, so the label says so.
-            //
-            // Unpublish rides beside it rather than inside the audience dialog:
-            // "take this down" is a decision about the dashboard, not an edit
-            // to its roster. NOTE: this pair plus Publish is due a proper
-            // rethink — three controls answering one question ("who sees this,
-            // and is it live?") in two different shapes.
             ? '<vaadin-button theme="secondary" id="cpPublish">' + micon('group', { size: 16 }) +
               '<span class="kx-btn-label">' +
-              (CP.deliveryEnabled() ? 'Manage delivery' : 'Manage audience') + '</span></vaadin-button>' +
-              '<vaadin-button theme="secondary" id="cpUnpublish" title="Take this off everyone’s homepage">' +
-              micon('unpublished', { size: 16 }) +
-              '<span class="kx-btn-label">Unpublish</span></vaadin-button>'
+              (CP.deliveryEnabled() ? 'Manage delivery' : 'Manage audience') + '</span></vaadin-button>'
             : '<vaadin-button theme="primary" id="cpPublish">' + micon('campaign', { size: 16 }) +
-              '<span class="kx-btn-label">Publish</span></vaadin-button>')
+              '<span class="kx-btn-label">Publish</span></vaadin-button>') +
+          // The state the button above leaves it in, immediately to its right —
+          // and, once live, the menu that takes it back down. See
+          // statusControl() for why Unpublish hangs off the badge rather than
+          // standing as a third button in this row.
+          statusControl(d)
         : '') +
       '<div class="cp-modes">' +
       [['edit', 'Edit', 'edit'], ['preview', 'Preview', 'visibility']].map(function (o) {
@@ -3182,7 +3210,23 @@
         openAssignDialog(active());
         return;
       }
+      // The status badge's dropdown. Closes the other two menus the same way
+      // #cpExport does — see the autoCloseMenus block for why each trigger
+      // closes its siblings itself rather than relying on the outside click.
+      if (e.target.closest('#cpStatusMenu')) {
+        state.statusMenu = !state.statusMenu;
+        state.exportMenu = false;
+        KXCanvas.setOpenMenu(null);
+        render();
+        return;
+      }
       if (e.target.closest('#cpUnpublish')) {
+        // Close the menu BEFORE the confirm opens: it renders in the page and
+        // the dialog renders in an overlay above it, and a menu left open
+        // behind reads as a second live surface. Same reason the row menu
+        // closes itself first.
+        state.statusMenu = false;
+        render();
         confirmUnpublishDash(state.activeId);
         return;
       }
@@ -3190,6 +3234,7 @@
       /* ---- export ---- */
       if (e.target.closest('#cpExport')) {
         state.exportMenu = !state.exportMenu;
+        state.statusMenu = false;
         KXCanvas.setOpenMenu(null);        // only one menu open at a time
         render();
         return;
@@ -3587,12 +3632,16 @@
       // replaces the element between mousedown and click, and the click is
       // swallowed — the button appears dead. Each trigger closes the other
       // menu in its own click handler instead.
-      var onTrigger = e.target.closest('[data-w-menu]') || e.target.closest('#cpExport');
+      var onTrigger = e.target.closest('[data-w-menu]') || e.target.closest('#cpExport') ||
+        e.target.closest('#cpStatusMenu');
       if (KXCanvas.getOpenMenu() && !e.target.closest('.kx-menu') && !onTrigger) {
         KXCanvas.setOpenMenu(null); changed = true;
       }
       if (state.exportMenu && !e.target.closest('.kx-menu') && !onTrigger) {
         state.exportMenu = false; changed = true;
+      }
+      if (state.statusMenu && !e.target.closest('.kx-menu') && !onTrigger) {
+        state.statusMenu = false; changed = true;
       }
       if (state.dashRangeOpen && !e.target.closest('.kx-menu') && !e.target.closest('[data-dash-range]')) {
         state.dashRangeOpen = false; changed = true;
