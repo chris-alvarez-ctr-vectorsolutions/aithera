@@ -406,9 +406,27 @@ bundled into it.
    baseline toggle (D10) reflected if the workbench is meant to demonstrate it
    too. This is the heaviest of the deferred items — it's a second,
    independently-runnable implementation of the same ideas, not a config file.
+
+   **Shipped (`9fc95b17`).** `DEFAULT_LOS`, `PRESETS`, `SAMPLE_BY_SECTOR` and
+   every hardcoded K3/F4 reference in prose resynced to the 8-objective set
+   (old K2 → narration, old K3 → new K2, F4 cut). D10's baseline toggle was
+   **not** added — the workbench's own "AI roleplay / branching scenario /
+   situational-judgment set" vocabulary (§7) is a different, pre-existing axis
+   than D10's reviewer-only video+MC bypass, and forcing D10 into that model
+   would have strained the "deterministic re-implementation of the rules in
+   the document" framing for a reviewer convenience the document doesn't
+   describe. Verified live: all four presets run end to end, 12/12 cards,
+   zero console errors, ledger reading correctly against the new ids.
 2. **The Learning Layer view (`clara/structures.html`).** Its objectives table
    is a maintained reference, not something read live from the module — same
    resync need as the workbench, lighter lift.
+
+   **Shipped (`9fc95b17`).** Objectives/battery/permutation tables trimmed to
+   match; the live derivation-chain section (the one part that reads
+   `sessionStorage`) had its dead `raw.hazard.carrier`/`raw.remk2`/`b.k3up`/
+   `raw.walk` references removed (those fields no longer exist post-round-1)
+   and F1/D3 rows added reading what round 1 actually writes. Verified live
+   with a mocked `sh-course` value.
 3. **Sector parity — Education, AEC, Public sector.** Write each of them a
    scenario matching Manufacturing's new K&A-caliber standard (a fresh,
    unclaimed-hazard situation in that sector's own setting), replacing their
