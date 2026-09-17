@@ -1,230 +1,104 @@
 # Self-Serve Bulk User Import — Dev Notes
 
-> date: 2026-09-03
+> date: 2026-09-16
 
 Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
-(SAFELMS-32693). The 2026-09-02 PRD revision drew 16 open inline comments from
-Liz Miller Lee (owner) and one technical/CX reviewer; the items below fold that
-review into the mock. Nothing in that review is a locked decision yet — items
-marked **PENDING** are still open threads.
+(SAFELMS-32693). Items marked **PENDING** are still open threads.
 
-**Placement (2026-09-03):** bulk import lives in **Settings ▸ User Import** — a
-tab beside Emails / Login Page / Training Plan / Certificate / Integrations. The
-sidebar's active item is Settings; inside the tab, **Manual import / Automated
-sync** is a secondary segmented control (not a second row of page tabs).
+**Placement (2026-09-16) — moved to the Employees tab.** Bulk user import no longer
+lives under Settings ▸ User Import. It now lives under the **Employees tab** (the
+K-12 admin screen: sidebar `Employees` active, the Employees / Dynamic Groups /
+Positions / Quick Groups / … top-tab bar, the toolbar + paginated employee list).
+Each version launches the import from a **different entry point on that screen** —
+that entry point is now the axis that varies between versions.
 
-**Versions — reworked 2026-09-03 (round 2).** Automated sync moved **off** the main
-page onto a **deeper page**; the main page shows manual import + a compact **status
-banner** (green "everything's clean" / amber "needs attention" / neutral progress),
-click → the deeper sync detail. Each version is genuinely distinct, with a
-different error-help style. (Earlier round's near-identical self-serve gate-3/gate-4
-twins were merged; the reimagined triage split into three directions.)
+**Automated sync is assumed already set up (2026-09-16).** The earlier "how do you
+turn sync on" experiment (earn-it gate / concierge request / per-version placement)
+is **retired**. Every version now assumes Vector has already configured the site's
+automated roster sync, so **both manual upload and automated sync are available**.
+Sync surfaces as a light "Automated sync is on" status (banner / detail page) with
+two states only — **up to date** and **needs your attention** — reachable from the
+import flow. The bottom-left "Preview · AutoSync" panel toggles those two states.
 
-- **V1 — Earn it:** self-serve automated sync **locked until 4 clean imports**, sitting
-  at **3 of 4** (next submit unlocks). Banner shows the progress; deeper page = tracker
-  + streak history. Error helper = **inline A→B click-tooltip** (a Help button per alert).
-- **V2 — Concierge:** automated sync is **set up by Vector**. Banner "isn't set up →
-  Set it up"; deeper page = intro + "Request automated sync setup" → request-received
-  timeline. **No recent sync activity until it's set up.** Error helper = **always-on
-  inline "How to fix it"** block (A→B shown, no click).
-- **V3 — Reimagined · Guided assistant:** no wizard/list — **one issue per screen**, a
-  short question, an A→B, two big choices (fix / leave) + skip, progress dots. Minimal
-  text; ends on "all set" → Run.
-- **V4 — Reimagined · Fix-in-place spreadsheet:** the file **is** the workspace. Flagged
-  cells are clickable → **inline cell editor** (prefilled with the suggested value) +
-  a **docked helper** (why + A→B + "usually"). Apply → cell turns green. Run unlocks
-  when no red cells remain.
-- **V5 — Reimagined · Three big screens:** **Upload → Fix → Done**, each a single
-  focused full-screen moment with a step rail and almost no words. The Fix screen is a
-  few big issue rows, each one button.
-- **V6 — Reimagined · Guided interview (tax-style, 2026-09-03):** the whole import is a
-  **TurboTax / FreeTaxUSA-style interview** — one plain-language question per screen, a
-  **left section rail** (Your file · Your columns · Existing users · Double-check ·
-  Review & import) with checkmarks + a **"Question X of Y" / % complete** bar, an
-  **Import Assistant** helper line, and a persistent **"Import summary" monitor** on the
-  right (the refund-tracker analog: New / Updates / Deactivations / Removed + a live
-  "Ready to import ✓ / Almost there / Can't import yet" status). The deactivate/remove
-  model becomes two interview questions (recommended-safe default + "Why are we
-  asking?" expander); errors become **double-checks** — confirm-tier as a Yes/No with an
-  A→B example, blocked/escalate as a **hard stop** with "How to fix it" + a fix path.
-  Ends on a **"here's what you told us"** review that restates every answer with per-row
-  **Edit** jumps, then **Import N rows** (enabled only when ready). This is the whole
-  return, not just the fix step — that's what sets it apart from V3's error-only assistant.
+**Versions — 5, one entry point each (2026-09-16).** V1+V2 (the old earn-it and
+concierge variants) were consolidated into one standard flow; the reimagined flows
+moved down a slot. The downstream experience (and its per-version error-help and
+attention treatment) is preserved from the prior round; only the chrome + entry
+point changed.
+
+- **V1 — Split buttons · standard flow.** Toolbar shows a secondary **Add Single
+  Employee** (opens the Add-employee modal) beside a primary **Bulk Upload**
+  (launches the upload → map → settings → review → done flow in place). This is the
+  consolidated manual+auto version.
+- **V2 — Import button · guided assistant.** Toolbar keeps the standard primary
+  **+ Add Employee**; an **Import** button sits beside **Export**. Import launches
+  the upload → **guided assistant** (one issue per screen).
+- **V3 — In the Add-employee modal → full-screen grid.** **+ Add Employee** opens a
+  modal with a **One employee / Many (bulk upload)** toggle. Picking a file in bulk
+  mode launches the **fix-in-place spreadsheet FULL-SCREEN**.
+- **V4 — In the Add-employee modal → new browser tab.** Same modal toggle; bulk mode
+  offers **Open bulk import in a new tab** → the **three big screens** (Upload → Fix
+  → Done) run in their own tab (`window.open` → `#fm=upload`).
+- **V5 — In the Add-employee modal (stays) → tax-style interview.** Same modal
+  toggle; bulk mode runs the **whole guided interview inside the modal** (welcome →
+  section questions → review → done), so it never leaves the employee list behind it.
 
 Different helper per version was a deliberate ask ("try different tooltips for all the
-different versions").
+different versions"); different attention-needed treatment per version too (amber =
+customer fixes it in the file; red = a blocker only Vector can resolve → CARE).
 
-**Automated-sync PLACEMENT now varies per version (2026-09-03).** Client ask: "try
-different placements of the automated sync for each version." Previously all six shared
-one placement (deeper page + banner). Each version now surfaces automated sync in a
-genuinely different spot, so the placements can be compared head-to-head:
-
-- **V1 — Deeper page + status banner** (unchanged): a compact banner on the manual-import
-  landing (carrying the earn-it 3-of-4 progress) → a separate deeper sync page.
-- **V2 — Right-rail concierge card:** a persistent card beside the manual import on the
-  landing ("Let Vector set it up · Request automated sync setup"), fitting the concierge
-  model as a standing offer. Details + request status live on the deeper page.
-- **V3 — Post-import offer:** no sync surface while importing; it appears on the success
-  screen once a clean import lands ("Do this automatically next time?"), where it's most
-  relevant.
-- **V4 — Segmented sub-tab:** a Manual import | Automated sync segmented control under the
-  User Import tab flips between the two in place (no separate page); a red dot flags the
-  sync tab when it needs attention.
-- **V5 — Stacked full-width band:** automated sync is an edge-to-edge band stacked directly
-  under the manual import on one page — scroll down to it; flow-map sync states scroll the
-  band into view.
-- **V6 — Optional interview section:** sync is a 6th, optional section of the guided
-  interview (rail shows the import sections done + "Automated sync · optional"), reached
-  from the Review screen and the done screen, rendered inside the interview chrome.
-
-**Attention-needed step — a distinct MODE, one treatment per version (2026-09-03).**
-Client liked the interview text style and asked that an *attention-needed* element look
-different from routine steps, with a few variations across versions. Two rules baked in:
-
-- **Color carries who fixes it.** **Amber = the customer can fix it** in the file and
-  re-upload. **Red is reserved for a true blocker only Vector can resolve** — e.g. two
-  accounts already on the site share one email; only Vector can merge them. Red never
-  means "you fix it"; it means **"our team takes it from here"** (→ a CARE reference).
-  Every treatment shows both severities so the rule reads at a glance.
-- **It reads as its own mode**, not a routine question — colored header band / tinted
-  panel / full-screen focus, in the warm interview text style.
-
-Each version got a different treatment of that problem-solving step (all reachable from
-the flow map as **Attention · amber** / **Attention · red**):
-
-- **V1 — Alert mode (inline):** the step flips to a distinct colored card (amber/red)
-  right in the flow — header band, A→B, "how to fix," one action.
-- **V2 — Full-screen takeover:** the moment fills the screen ("Let’s fix this together" /
-  "Leave this one to us"); big icon, the one problem, A→B, action.
-- **V3 — Guided sub-steps:** the fix is a 2-step mini wizard (step 1 *what’s wrong* →
-  step 2 *how to fix* / *what happens next*), matching the assistant’s pacing.
-- **V4 — Split coach panel:** problem + involved rows on the left, a docked "How to fix
-  it" coach on the right (why · A→B · "usually the answer is…" · action).
-- **V5 — Dynamic before/after explorer:** flip through suggested fixes and a live
-  side-by-side "your file now → after this fix" updates with each choice (recommended /
-  risky options flagged). The red variant has nothing to choose — only Vector can merge.
-- **V6 — Interview attention step:** the interview’s attention screen as its own amber/red
-  mode (colored header band + tinted "how to fix" panel), distinct from the calm questions.
-
-**Before → after AutoSync preview (2026-09-03).** The Claude-Design "prototype
-variants" panel (bottom-left) is repurposed as a **"Preview · AutoSync"** before→after
-toggle so reviewers can watch automated sync go from unavailable → available in each
-version:
-- **V1:** ① Locked 3/4 → ② **4th clean import comes in** (an "unlocked!" celebration,
-  4/4) → ③ Running → ④ Needs attention.
-- **V2:** ① Not set up → ② Setup requested → ③ Set up & running → ④ Needs attention.
-- **V3–V5:** ① Not available → ② Available (running) → ③ Needs attention.
-The banner (main page) and the deeper sync page both reflect the chosen state; the
-panel has an "open the sync page →" link.
-
-**Note on the error catalog source:** the Vector support article
-(support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors) is a
-JS-rendered Salesforce page that can’t be auto-scraped, so the error taxonomy here
-is grounded in the mock’s existing PRD-based error set and the article is **linked**
-as the deep-help reference inside V4 and V5.
+**Modal continuation was a client ask (2026-09-16):** for the modal-entry versions,
+"try one with the modal, one with full flow, maybe in a new tab" — hence V3 (full
+screen), V4 (new tab), V5 (stays in the modal).
 
 ## review-blocked
 
-- **Blocked forces a fresh upload:** a blocked-tier error no longer offers an
-  in-place "Fix column mapping" — the only path is Replace file / start over, and
-  the review sidebar hides "Edit column mapping" whenever anything blocks.
-  (PRD comments: *"Actually want to force new restart upload if blocked error"* /
-  *"This should require a whole new upload for customers."*)
-- **New "Contact Vector" tier:** for errors a customer's file cannot fix — e.g.
-  two accounts already on the site sharing one email (PRD **D-4**). Renders indigo
-  with a headset icon, hard-stops the import, and offers "Contact Vector support"
-  instead of Replace file. Which specific errors belong in this tier is **PENDING**
-  the "analyze all error messages" work Liz called for.
-- **Severity by icon, not color (WCAG 1.4.1):** each tier now carries a distinct
-  icon — Blocked ⊘ `fa-ban`, Confirm ⚠ `fa-triangle-exclamation`, Info ⓘ
-  `fa-circle-info`, Contact Vector `fa-headset` — so the tiers are legible in
-  grayscale / for color-blind users. (Reviewer: *"WCAG and exclusive use of color."*)
-- **Blast-radius guardrail** is exposure, not net-new — *"accounted for in existing
-  error messages."* Keep parity with the internal tool's wording.
+- **Blocked forces a fresh upload:** a blocked-tier error offers no in-place fix —
+  the only path is Replace file / start over. (PRD: *"Actually want to force new
+  restart upload if blocked error"* / *"This should require a whole new upload."*)
+- **"Contact Vector" tier:** for errors a customer's file cannot fix — e.g. two
+  accounts already on the site sharing one email (PRD **D-4**). Renders indigo with a
+  headset icon, hard-stops the import, offers "Contact Vector support." Which errors
+  belong here is **PENDING** the "analyze all error messages" work.
+- **Severity by icon, not color (WCAG 1.4.1):** Blocked ⊘ `fa-ban`, Confirm ⚠
+  `fa-triangle-exclamation`, Info ⓘ `fa-circle-info`, Contact Vector `fa-headset`.
 - **SAML username validation — PENDING / at risk.** Comparing the file's username
-  against the SAML identity provider may be infeasible (*"Likely can't do this"*),
-  and SAML + self-serve may become CX-only (*"Should we make the SAML + self-service
-  uploader case CX only?"*). The SAML-mismatch screen is built but the IdP-comparison
-  framing is deliberately swappable; may demote to a simpler username-format/duplicate
-  check (ties to D-4) or route SAML sites away from self-serve entirely.
+  against the SAML IdP may be infeasible; SAML + self-serve may become CX-only.
 
 ## review-confirm
 
 - **Confirm needs an explicit approve** — satisfied by the acknowledge checkbox
   gating Run import. (Reviewer: *"ability to approve these."*)
-- **Severity is re-tiered for customers** — internal "yellow" can be customer "red";
-  the tiers are keyed to reversibility, not the internal error type. (Reviewer:
-  *"if something is yellow for Vector team, could be red for customers."*)
-
-## map
-
-- **PII is district-configurable — PENDING.** The blanket FERPA/address block is
-  being revisited: a district can be flagged "PII District" and tell Vector which
-  fields are allowed; the tool should read those settings and let the customer map
-  to the enabled PII fields, rather than hard-blocking. Reframes the disallowed-field
-  behavior from a block to a settings read. (Reviewer: *"Revisit — why would we not
-  accept address fields? … Tool should read those settings."*)
-- **Some columns must not be customer-mappable — PENDING analysis:** e.g. building
-  codes and position codes. And K-12 student records must have everything mapped
-  (PII handling). Mapping screen will need locked targets + a "map all" rule for
-  K-12 students. Not yet built.
+- **Severity re-tiered for customers** — internal "yellow" can be customer "red";
+  tiers key to reversibility, not the internal error type.
 
 ## settings
 
-- **Rebuilt around the two-dimension "deactivate/remove" model (2026-09-03).** Per
-  the client's purge-logic doc, the step now has two independent, off-by-default
-  toggles — **Deactivate users not in this file** (Purge Users) and **Remove
-  positions & locations not in this file** (Purge Jobs) — replacing the old single
-  add-and-update / full-roster-sync radio. "Purge" wording is dropped in favor of
-  **deactivate / remove**.
-- **Live example, not a bare toggle.** A "How your file will apply" panel shows two
-  real records that update as the toggles flip: a user missing from the file
-  (Active → Deactivated / Stays active) and a user whose jobs differ (kept / removed
-  / added chips), matching the doc's Teacher/Coach/Counselor examples.
-- **Every destructive choice is re-confirmed on review** as its own CONFIRM alert
-  (user deactivations, position/location removals), each acknowledgeable, and each
-  carries a **"Not sure? Send to my Vector rep"** escape. The settings step offers
-  the same escape inline.
-- **OPEN tension:** the PRD review asked to *"consider keeping only one to reduce
-  complexity,"* but the client's purge-logic doc defines both dimensions (Users ×
-  Jobs) with distinct outcomes. Built both per the doc; whether to simplify to one
-  is a **PENDING** PM decision — the live examples are partly there to test whether
-  two toggles read clearly enough to keep.
-
-## sync-locked
-
-- **Automated sync is progressive-disclosure everywhere (2026-09-03).** Client
-  feedback: the sync views carried too much text/visual load on first entry. Every
-  sync state now leads with a single **status header** that *names the state* —
-  "Not available yet" / "Up to date" / (on a waiting decision) the tier chip — so
-  the customer knows which state they’re in before reading anything. The supporting
-  detail (how-it-works, run history, notification recipients + toggles, and the
-  failure card’s row-level diff) collapses into **expanders**, open on demand.
-  Nothing was removed; it’s one click away. Locked view leads with the progress
-  tracker ("1 of 3 · 2 to go") as the hero; the disabled "Turn on automated sync"
-  button was dropped (the lock + header already say it). Expander open/closed is
-  state-backed (`state.disc`) so it survives the app’s full re-render.
+- **Two-dimension deactivate/remove model.** Two independent off-by-default toggles —
+  **Deactivate users not in this file** and **Remove positions & locations not in
+  this file** — with a live "How your file will apply" example that updates as the
+  toggles flip. Every destructive choice is re-confirmed on review, each with a
+  "Not sure? Send to my Vector rep" escape.
+- **OPEN tension:** PRD review asked whether to keep only one dimension to reduce
+  complexity; the client's purge-logic doc defines both. Whether to simplify is a
+  **PENDING** PM decision.
+- **PII is district-configurable — PENDING.** A district can be flagged "PII
+  District" and tell Vector which fields are allowed; the tool should read those
+  settings rather than hard-block address/FERPA fields.
 
 ## sync-failed
 
-- **Summary-first failure card.** The sync decision now shows the tier chip +
-  headline + a **one-line summary** + the primary actions up front; the fuller
-  "what happened / why / what to do" and the exact affected rows sit behind a
-  single "See the details / Review N changes" expander. The decision and its action
-  stay visible — only the explanation collapses.
-- **Notifications = email, PII-light — PENDING detail.** *"directly = email? also we
-  will need to limit what we send in terms of PII."* Keep names/PII out of the email
-  body; drive recipients into the app to see rows. Recipient list is built.
+- **Summary-first failure card**, with the fuller explanation + affected rows behind
+  a single expander. The decision + its action stay visible.
+- **Notifications = email, PII-light — PENDING detail.** Keep names/PII out of the
+  email body; drive recipients into the app to see rows.
 - **Retry routes through the manual uploader** — a failed auto-upload is corrected
-  and retried via the manual flow, not a bespoke mechanism. (Reviewer: *"via the
-  manual uploader."*)
-- **Care alerting thresholds — backend, not mock.** Open question of when Care gets a
-  case (every failure? after N?) and what Care sees. (Liz: *"Could SF handle the logic
-  to only create a case after X failed attempts?"*) Out of mock scope.
+  and retried via the manual flow, not a bespoke mechanism.
+- **Care alerting thresholds — backend, not mock.** When Care gets a case (every
+  failure? after N?) is out of mock scope.
 
 ## upload
 
 - US-4 (*stop me when an upload would break login*) carries a feasibility caveat:
-  *"I suspect we can't guarantee this universally with this sort of tool."* Word the
-  login-safety guarantees as best-effort, not absolute.
+  word the login-safety guarantees as best-effort, not absolute.

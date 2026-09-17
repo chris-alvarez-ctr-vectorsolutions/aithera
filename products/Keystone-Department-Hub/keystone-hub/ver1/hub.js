@@ -1920,6 +1920,16 @@
       // Agency Intelligence — so it can never be reached from this page's own
       // controls. The panel is the only honest way to demo it.
       onChange: function (on) { KXHero.setUnshared(on); render(); }
+    }, {
+      id: 'load-failure',
+      label: 'A widget can’t load',
+      desc: 'One widget’s source product doesn’t answer on page load. The rest ' +
+        'of the dashboard is unaffected; Try again recovers it.',
+      icon: 'cloud_off',
+      on: false,
+      // Same reasoning as above: a source outage originates outside this page,
+      // so the panel is the only way to put a reviewer in front of the state.
+      onChange: function (on) { KXHero.setLoadFailure(on); render(); }
     }]
   });
 

@@ -439,11 +439,15 @@
 
   // The Lieutenant gets a fuller, crew-scoped dashboard a Chief would publish.
   var LT_DASH = {
+    id: 'b-shift-readiness',
     name: 'B-Shift Readiness', scope: 'Station 4 · B-Shift',
     publisher: 'Chief Smith · Battalion 1', ownerShort: 'Chief Smith',
     // The dashboard's ONE reporting window — every time-bounded widget on it
     // reads this value. A crew-readiness read is a quarter-to-date story.
     range: 'qtd',
+    // Which widget goes down when the "a widget can't load" scenario is on.
+    // See pdFailed — deliberately not the first widget on the dashboard.
+    failWidget: 'lt4',
     widgets: [
       { id: 'lt1', metricId: 'training_completion',    viz: 'kpi',   w: 4,  source: ['ts'],    title: 'Crew training complete' },
       { id: 'lt2', metricId: 'credential_expirations', viz: 'kpi',   w: 4,  source: ['ts'],    title: 'Credentials expiring' },
@@ -637,10 +641,14 @@
   // ceiling. "Overtime exposure × injury rate" (31 chars) holds one line from
   // 1100px up, the same budget the previous title was measured against.
   var CHIEF_DASH = {
+    id: 'b1-coverage',
     name: 'B-1 Coverage Snapshot', scope: 'Battalion 1 · all stations',
     owned: true, ownerShort: 'you',
     // The dashboard's ONE reporting window — see PD_RANGES.
     range: 'last_90',
+    // Scenario-only: this one is healthy until the prototype panel says
+    // otherwise. See pdFailed.
+    failWidget: 'ch2',
     widgets: [
       // Sources: overtime/scheduling data is Scheduling ('sched') — the same
       // source the 'Overtime hours' widget on the Lieutenant's dashboard
@@ -698,11 +706,13 @@
   //   · nothing framed as a score — all three are completion-or-countdown against a
   //     stated requirement, never a grade
   var FF_DASH = {
+    id: 'my-readiness',
     name: 'My Readiness', scope: 'Riley Brennan · FF / EMT',
     publisher: 'Training Officer Whitfield', ownerShort: 'Training',
     // The dashboard's ONE reporting window — see PD_RANGES.
     range: 'ytd',
     template: 'Readiness Hub starter template',
+    failWidget: 'ff2',
     widgets: [
       { id: 'ff1', kind: 'kpi', w: 4, source: ['ts'], icon: 'school',
         title: 'My required training', num: '92%', delta: '2 courses remaining', tone: 'good',
@@ -717,23 +727,162 @@
     ]
   };
 
+  /* The Chief's SECOND dashboard — the one that makes the switcher a switcher.
+     ---------------------------------------------------------------------
+     Deliberately not another version of the first. Switching to it changes
+     four things a reviewer should see change together:
+
+       · who owns it   — published BY Training, not built by the Chief, so the
+                         badge goes from "Your dashboard" to "Published to
+                         you" and the footer goes read-only
+       · what it covers — the whole department, not Battalion 1
+       · its window     — quarter to date, not the last 90 days
+       · what it draws on — compliance systems rather than scheduling
+
+     Sources follow the canonical metric → product mapping in
+     agency-intel-page-data.js (METRIC_SOURCE); none of them is invented here.
+
+     One widget on it is DOWN on arrival (failWidget + failAlways, see
+     pdFailed). It is the only widget on the dashboard backed by EV+, which is
+     what makes "EV+ didn't respond" true rather than decorative — every other
+     widget here reads from TargetSolutions and loads fine. It is also the
+     widest, so the state is legible at a glance from the back of a room. */
+  var DEPT_DASH = {
+    id: 'dept-compliance',
+    name: 'Department Compliance Review', scope: 'All stations · department-wide',
+    publisher: 'Training Officer Whitfield', ownerShort: 'Training',
+    range: 'qtd',
+    // Down on load, every time this dashboard is opened — not gated on the
+    // prototype panel's scenario switch.
+    failWidget: 'dc4', failAlways: true,
+    widgets: [
+      { id: 'dc1', metricId: 'training_completion',    viz: 'kpi', w: 4, source: ['ts'],
+        title: 'Department training complete' },
+      // Title deliberately plain: this widget reports on its own forward
+      // horizon and prints it under the value, so naming a window in the title
+      // too would state the period twice, in two places, from two sources.
+      { id: 'dc2', metricId: 'credential_expirations', viz: 'kpi', w: 4, source: ['ts'],
+        title: 'Credentials expiring' },
+      { id: 'dc3', metricId: 'policy_acks',            viz: 'kpi', w: 4, source: ['ts'],
+        title: 'Policy acknowledgments' },
+      // Titled by what the bars ACTUALLY are: ceu_progress's bar series is cut
+      // by station (CEU_BAR), not by credential type.
+      { id: 'dc4', metricId: 'ceu_progress',           viz: 'bar', w: 7, source: ['ev'],
+        title: 'CEU standing by station' },
+      // A donut, not a second by-station bar: two station bars side by side
+      // read as one chart drawn twice. This cuts the same headline the other
+      // way — compliant / in window / lapsed.
+      { id: 'dc5', metricId: 'training_completion',    viz: 'donut', w: 5, source: ['ts'],
+        title: 'Training compliance status' }
+    ]
+  };
+
+  /* Which dashboards a role can move between, in menu order — the first is
+     what they land on. Only the Chief has more than one today: they own one
+     and have one published to them, which is the ordinary case the switcher
+     exists for. */
+  var DASH_SET = {
+    chief: [CHIEF_DASH, DEPT_DASH],
+    lieutenant: [LT_DASH],
+    firefighter: [FF_DASH]
+  };
+
+  var pdPicked = {};   // variant -> id of the dashboard currently being viewed
+
+  function pdDashesFor(variant) { return DASH_SET[variant] || [LT_DASH]; }
+
+  function pdPickedDash(variant) {
+    var list = pdDashesFor(variant);
+    var id = pdPicked[variant];
+    return list.filter(function (d) { return d.id === id; })[0] || list[0];
+  }
+
   // Viewer-side override of the DASHBOARD's range. The viewer can explore,
   // but only the owner can save the default — the same rule as the builder's
   // preview, one level up now that the range belongs to the dashboard.
-  // Keyed by dashboard variant, since that is what identifies the card.
+  // Keyed by the DASHBOARD's id, not the role viewing it: a role can now hold
+  // more than one dashboard (see DASH_SET), and an exploration of the window on
+  // one of them must not follow the reader onto the other.
   var pdOverrides = {};
 
-  function pdCurrentRange(cfg, variant) {
+  /* ---------------------------------------------------------------------
+     A WIDGET THAT DIDN'T LOAD
+     ---------------------------------------------------------------------
+     This card reads from five separate products, so the realistic failure is
+     not "the dashboard is down" — it is one source not answering while the
+     other four are fine. The card has to say so rather than quietly leaving a
+     hole, because every alternative reads as data: an empty chart looks like
+     zero findings, a dash looks like a measured null, and a missing widget
+     looks like a dashboard that was built without it.
+
+     So a failed widget keeps its frame, its icon, its title and its place in
+     the grid — the reader can see exactly WHICH number is missing — and
+     replaces only the data with a stated failure, the name of the system that
+     didn't answer, and a retry. The name matters: "Check It didn't respond"
+     tells a battalion chief whether to chase it or wait; "something went
+     wrong" tells them nothing.
+     --------------------------------------------------------------------- */
+
+  /* Which widget goes down is a property of the DASHBOARD (cfg.failWidget) —
+     deliberately never its first widget, since the whole point of the state is
+     that it sits among widgets that loaded fine.
+
+     Two ways in, and the difference matters to whoever is demoing:
+
+       · cfg.failAlways — the dashboard ships with it down and it fails on
+         every load. Department Compliance Review does this, so switching to it
+         puts you in front of the state with nothing to switch on first.
+       · the prototype panel's scenario switch — turns the same failure on for
+         whichever dashboard you are looking at. This is how the state is
+         reached on dashboards that are otherwise healthy. */
+  var loadFailure = false;   // demo switch — see hub.js mountPrototypeFab
+  var pdRetrying = {};       // widget id -> true while a retry is in flight
+  var pdRecovered = {};      // widget id -> true once a retry has succeeded
+
+  function setLoadFailure(on) {
+    loadFailure = !!on;
+    pdRetrying = {};
+    pdRecovered = {};        // re-arm, so the scenario demos the same each time
+  }
+
+  function pdFailed(w, cfg) {
+    if (!cfg || cfg.failWidget !== w.id || pdRecovered[w.id]) return false;
+    return !!cfg.failAlways || loadFailure;
+  }
+
+  function pdErrorBody(w, printing) {
+    var src = (w.source || [])[0];
+    var name = (src && KX.srcName(src)) || 'The source system';
+    var retrying = !!pdRetrying[w.id];
+
+    return '<div class="kx-pubwidget-err" role="status">' +
+      '<span class="mark' + (retrying ? ' is-busy' : '') + '">' +
+      micon(retrying ? 'progress_activity' : 'cloud_off',
+            { size: 20, cls: retrying ? 'kx-spin' : '' }) + '</span>' +
+      '<div class="t">' + (retrying ? 'Retrying…' : 'Couldn’t load this data') + '</div>' +
+      '<div class="s">' + esc(name) + ' didn’t respond. Everything else on this ' +
+      'dashboard loaded normally.</div>' +
+      // On paper there is nothing to click, and the document has to say the
+      // figure was missing at the time it was generated — not offer a retry.
+      (printing
+        ? '<div class="s" style="margin-top:4px">No data available when this was exported.</div>'
+        : '<button class="kx-pubwidget-retry" data-pdw-retry="' + KX.attr(w.id) + '"' +
+          (retrying ? ' disabled' : '') + '>' + micon('refresh', { size: 14 }) +
+          (retrying ? 'Retrying' : 'Try again') + '</button>') +
+      '</div>';
+  }
+
+  function pdCurrentRange(cfg) {
     var saved = pdDashRange(cfg);
-    var local = pdOverrides[variant];
+    var local = pdOverrides[cfg.id];
     return (local != null && local !== saved) ? local : saved;
   }
 
   // The dashboard's one date picker. Lives in the card header cluster with
   // Export and Switch dashboard — controls that act on the whole card.
-  function pdDashRangeControl(cfg, variant) {
+  function pdDashRangeControl(cfg) {
     var saved = pdDashRange(cfg);
-    var local = pdOverrides[variant];
+    var local = pdOverrides[cfg.id];
     var dirty = local != null && local !== saved;
     var current = dirty ? local : saved;
     var owner = cfg.owned ? 'you' : esc(cfg.ownerShort || 'the owner');
@@ -920,7 +1069,15 @@
       // Print stays content-sized whatever the author did: a fixed row track
       // slices cards across page breaks.
       '<div class="kx-pubgrid">' +
-      widgets.map(function (w) { return pubWidget(w, ownerLabel, { print: true }); }).join('') +
+      // A widget that didn't load prints as "no data available" rather than
+      // silently dropping out of the document — a printed dashboard with a
+      // missing panel is indistinguishable from one that never had it.
+      widgets.map(function (w) {
+        return pubWidget(w, ownerLabel, {
+          print: true,
+          failed: !!(pdCurrent && pdFailed(w, pdCurrent.cfg))
+        });
+      }).join('') +
       '</div>' +
       '<div class="kx-printdoc-foot">Generated by the Readiness Hub · data as of ' +
       esc(KX.fmtDate(new Date())) + '</div></div>';
@@ -933,7 +1090,7 @@
     // on it can't be checked. One dashboard range covers the lot, so it is
     // stated once here rather than under each widget.
     var meta = cfg.scope + ' · Readiness Hub · ' + KX.fmtDate(new Date()) +
-      ' · ' + rangeLabel(pdCurrentRange(cfg, pdCurrent.variant));
+      ' · ' + rangeLabel(pdCurrentRange(cfg));
     if (kind === 'csv') window.AGENCY_INTEL_EXPORT.csv(cfg.name, pdTables(widgets));
     else window.AGENCY_INTEL_EXPORT.print(pdPrintDoc(cfg.name, meta, widgets, cfg.ownerShort));
   }
@@ -947,7 +1104,7 @@
     if (kind === 'csv') { window.AGENCY_INTEL_EXPORT.csv(title, pdTables([w])); return; }
     // One widget prints full-width — it is the whole document now, not a cell.
     var meta = cfg.name + ' · ' + cfg.scope + ' · ' + KX.fmtDate(new Date()) +
-      ' · ' + rangeLabel(pdHorizonOf(w) || pdCurrentRange(cfg, pdCurrent.variant));
+      ' · ' + rangeLabel(pdHorizonOf(w) || pdCurrentRange(cfg));
     window.AGENCY_INTEL_EXPORT.print(
       pdPrintDoc(title, meta, [Object.assign({}, w, { w: 12 })], cfg.ownerShort));
   }
@@ -1046,7 +1203,13 @@
       );
     }
 
-    var iconChip = '<span class="icon-chip">' + micon(icon, { size: 14, fill: 1 }) + '</span>';
+    // Didn't load. Title and icon are the widget's own metadata, not its data,
+    // so they survive — only the body is replaced. See pdErrorBody above.
+    var failed = !!(opts && opts.failed);
+    if (failed) body = pdErrorBody(w, !!(opts && opts.print));
+
+    var iconChip = '<span class="icon-chip' + (failed ? ' is-failed' : '') + '">' +
+      micon(icon, { size: 14, fill: 1 }) + '</span>';
 
     // One header row at every widget width. Narrow (w:4) widgets used to stack
     // the title above a second row of source chips + range control, which cost
@@ -1054,8 +1217,12 @@
     // one task row visible and clearing it with four.
     //
     // At w:4 there is only ~330px to work with, so the title gets priority: the
-    // per-widget source chip drops (the card header already lists the union of
-    // sources) and the range label abbreviates. Wide widgets keep both in full.
+    // per-widget source chip drops and the range label abbreviates. Wide
+    // widgets keep both in full. (The card header used to repeat the union of
+    // every widget's sources as a chip strip beside the title — five chips
+    // that named products rather than saying anything about this dashboard's
+    // numbers. It is gone; these per-widget chips, which do attach a source to
+    // a specific figure, are the only source labelling left.)
     var narrow = (w.w || 6) <= 4;
     var srcs = narrow ? '' : (w.source || []).map(function (s) { return KX.srcChip(s); }).join('');
 
@@ -1081,8 +1248,10 @@
     // as the card-level control, scoped to this widget alone — and the same
     // kebab-plus-menu shape the Agency Intelligence canvas uses for its widgets.
     // Suppressed in the print document: it is a control, and this is paper.
+    // Nothing loaded, so there is nothing to export — the menu would hand back
+    // an empty file and call it a report.
     var printing = !!(opts && opts.print);
-    var kebab = printing || !pdExportAvailable() ? '' :
+    var kebab = printing || failed || !pdExportAvailable() ? '' :
       '<span style="position:relative;display:inline-flex">' +
       '<button class="kx-pubwidget-kebab" data-pdw-menu="' + KX.attr(w.id) + '" ' +
       'aria-haspopup="menu" aria-expanded="' + (openWidgetMenu === w.id) + '" ' +
@@ -1125,7 +1294,8 @@
        to 348px and clipped 191px of its content. Those keep auto heights. */
     var sized = !!(opts && opts.sized);
 
-    return '<div class="kx-pubwidget kx-pubwidget--' + KX.attr(kind) + '" ' +
+    return '<div class="kx-pubwidget kx-pubwidget--' + KX.attr(kind) +
+      (failed ? ' is-failed' : '') + '" ' +
       'style="grid-column:span ' + (w.w || 6) +
       (sized ? ';grid-row:span ' + KX.widgetH(w) : '') + '">' +
       '<div class="kx-pubwidget-head">' + iconChip +
@@ -1145,48 +1315,131 @@
       // Only widgets on their OWN forward horizon say anything here. The
       // dashboard's window is stated once, in the card header — repeating it
       // under every widget is chrome, and there is nothing to click either way.
-      (pdHorizonLabel(w, narrow)
+      // A widget that didn't load states no window: naming the period of a
+      // figure that never arrived reads as if the figure is there.
+      (!failed && pdHorizonLabel(w, narrow)
         ? '<div class="kx-pubwidget-foot">' + pdHorizonLabel(w, narrow) + '</div>'
         : '') +
       '</div>';
   }
 
   /* ---------------------------------------------------------------------
-     HEADER CONTROL CLUSTER
+     THE TITLE IS THE SWITCHER
      ---------------------------------------------------------------------
-     New home for the links that used to live in the retired coverage hero's
-     right-hand rail: the "My dashboards" switcher and the way into Agency
-     Intelligence. Folding them into the header the card already draws costs no
-     extra height, which is the whole point.
+     Switching dashboards used to be a quiet "Switch dashboard" button in the
+     right-hand control cluster, sitting between Export and Agency Intelligence
+     and reading like a third utility. Nobody found it: the control that
+     changes WHICH dashboard you are looking at was the least prominent thing
+     in the header, and it was on the opposite side of the card from the name
+     of the dashboard it changes.
+
+     So the name itself is the control now. "B-1 Coverage Snapshot" is a
+     tinted, bordered pill with a chevron — the one warm-coloured element in an
+     otherwise neutral header — and it opens the list of dashboards published
+     to you. Nothing to hunt for: the thing you'd point at to say "this
+     dashboard" is the thing you click to change it.
 
      Reads CC.loadDashboards() directly rather than going through the
      agency-intel layer, so nothing in that module needs to change.
-
-     The pinned-widget-tiles rail is NOT relocated — it showed the same metrics
-     this dashboard now shows, one card higher up.
      --------------------------------------------------------------------- */
 
   var openDashMenu = false;
 
+  function pdSavedDashboards() {
+    return (window.KEYSTONE_CUSTOM && window.KEYSTONE_CUSTOM.loadDashboards()) || [];
+  }
+
+  /* One row per dashboard the reader holds. Two kinds sit in this list and
+     they behave differently, which the rows have to make obvious:
+
+       · the dashboards this role is published (DASH_SET) swap IN PLACE — the
+         card re-renders underneath the title and the page never moves. That is
+         the switcher's real job, and it is what the check mark tracks.
+       · dashboards the reader built in Agency Intelligence open THERE, in a
+         new tab, because that is where they can be edited. Their rows carry an
+         open-in-new glyph so the jump is never a surprise.
+
+     Each built-in row names its scope and, when someone else publishes it, who
+     — "all stations · Training" against "Battalion 1 · yours". Without that the
+     two entries are just two names, and the thing a chief actually needs to
+     know before switching is whose numbers they are about to be looking at. */
+  function dashRow(d, current) {
+    var on = d.id === current.id;
+    return '<button class="kx-menu-row kx-dashrow' + (on ? ' is-current' : '') + '" ' +
+      'role="menuitem" data-dash-pick="' + KX.attr(d.id) + '">' +
+      micon(on ? 'check' : 'dashboard_customize',
+            { size: 16, fill: on ? 1 : 0, color: on ? 'var(--amber-600)' : 'var(--ink-400)' }) +
+      '<span class="label"><span class="n">' + esc(d.name) + '</span>' +
+      '<span class="m">' + esc(d.scope) + ' · ' +
+      esc(d.owned ? 'yours' : d.ownerShort || d.publisher || 'published to you') +
+      '</span></span></button>';
+  }
+
+  function dashPicker(cfg, variant) {
+    var isAdmin = variant === 'chief';
+    // A dashboard that has just been unshared from you is not one you can
+    // switch back to — leaving it in the list would offer back the thing the
+    // notice above just said you lost.
+    var mine = pdDashesFor(variant).filter(function (d) { return !isUnshared(variant, d); });
+    var saved = pdSavedDashboards();
+    // A switcher with nowhere to switch to is a control that lies. A role with
+    // one dashboard and no way to build another keeps a plain title — same
+    // type, no pill, nothing to click.
+    if (mine.length < 2 && !isAdmin && !saved.length) {
+      return '<span class="kx-pubtitle">' + esc(cfg.name) + '</span>';
+    }
+
+    var count = mine.length + saved.length;
+    return '<span style="position:relative;display:inline-flex">' +
+      '<button class="kx-dashpick" data-dash-toggle aria-haspopup="menu" ' +
+      'aria-expanded="' + (openDashMenu ? 'true' : 'false') + '" ' +
+      'title="Switch dashboard — ' + count + ' available">' +
+      '<span class="kx-pubtitle">' + esc(cfg.name) + '</span>' +
+      '<span class="chev">' + micon('expand_more', { size: 18 }) + '</span>' +
+      '</button>' +
+      (openDashMenu
+        ? '<div class="kx-menu kx-menu--left" role="menu" style="width:300px;top:calc(100% + 6px)">' +
+          '<div class="kx-menu-label">On your homepage</div>' +
+          mine.map(function (d) { return dashRow(d, cfg); }).join('') +
+          '<div class="kx-menu-divider"></div>' +
+          '<div class="kx-menu-label">Built in Agency Intelligence</div>' +
+          (saved.length
+            ? saved.map(function (d) {
+                return '<a class="kx-menu-row kx-dashrow" role="menuitem" ' +
+                  'href="agency-intelligence-dashboard.html?custom=' +
+                  encodeURIComponent(d.id) + '" target="_blank" rel="noreferrer">' +
+                  micon('dashboard_customize', { size: 16, color: 'var(--ink-400)' }) +
+                  '<span class="label"><span class="n">' + esc(d.name) + '</span>' +
+                  '<span class="m">' + d.metrics.length + ' metric' +
+                  (d.metrics.length === 1 ? '' : 's') + ' · opens in Agency Intelligence</span></span>' +
+                  micon('open_in_new', { size: 13, color: 'var(--ink-400)' }) + '</a>';
+              }).join('')
+            : '<div style="padding:4px 9px 8px;font-size:11px;color:var(--ink-400);line-height:1.45">' +
+              'None yet. Build one in Agency Intelligence.</div>') +
+        '</div>'
+        : '') + '</span>';
+  }
+
+  /* ---------------------------------------------------------------------
+     HEADER CONTROL CLUSTER
+     ---------------------------------------------------------------------
+     What acts on the card as a whole: the reporting window, Export, and the
+     way into Agency Intelligence. The dashboard switcher used to live here
+     too — it is the title now (see dashPicker above).
+     --------------------------------------------------------------------- */
+
   function pdHeaderControls(cfg, variant) {
     var isAdmin = variant === 'chief';
-    var saved = (window.KEYSTONE_CUSTOM && window.KEYSTONE_CUSTOM.loadDashboards()) || [];
-    // The Firefighter only gets a switcher if there is genuinely something to
-    // switch to; otherwise their header stays a clean title.
-    var showSwitcher = isAdmin || saved.length > 0;
 
     var out = '<div class="kx-pubhead-ctl">';
 
     // The date range leads the cluster: it changes what every widget below is
     // SHOWING, where Export and the switcher act on the card as a whole. It is
     // also the only calendar on this card now — widgets have none.
-    out += pdDashRangeControl(cfg, variant);
+    out += pdDashRangeControl(cfg);
 
-    // Export sits next — left of the switcher — because it acts on the
-    // dashboard you are looking at, while the switcher replaces it. Every
-    // published dashboard gets it, owned or received: the Firefighter's card
-    // used to render no control cluster at all when they had nothing to switch
-    // to, and this is now a reason for the cluster to exist on its own.
+    // Export acts on the dashboard you are looking at. Every published
+    // dashboard gets it, owned or received.
     if (pdExportAvailable()) {
       out += '<span style="position:relative;display:inline-flex">' +
         '<button class="kx-pubhead-btn" data-pd-export-toggle aria-haspopup="menu" ' +
@@ -1197,31 +1450,6 @@
           ? '<div class="kx-menu kx-menu--right" role="menu" style="width:230px;top:calc(100% + 4px)">' +
             '<div class="kx-menu-label">Whole dashboard</div>' +
             pdExportRows('data-pd-export', 'dash') + '</div>'
-          : '') + '</span>';
-    }
-
-    if (showSwitcher) {
-      out += '<span style="position:relative;display:inline-flex">' +
-        '<button class="kx-pubhead-btn" data-dash-toggle title="Switch dashboard">' +
-        micon('dashboard_customize', { size: 14, fill: 1 }) +
-        '<span class="lbl">Switch dashboard</span>' + micon('expand_more', { size: 15 }) + '</button>' +
-        (openDashMenu
-          ? '<div class="kx-menu kx-menu--right" style="width:250px;top:calc(100% + 4px)">' +
-            '<button class="kx-menu-row">' +
-            micon('check', { size: 14, color: 'var(--amber-600)' }) +
-            '<span class="label">' + esc(cfg.name) + '</span></button>' +
-            (saved.length
-              ? saved.map(function (d) {
-                  return '<a class="kx-menu-row" href="agency-intelligence-dashboard.html?custom=' +
-                    encodeURIComponent(d.id) + '" target="_blank" rel="noreferrer">' +
-                    micon('dashboard_customize', { size: 14, color: 'var(--ink-400)' }) +
-                    '<span class="label">' + esc(d.name) + '</span>' +
-                    '<span style="font-size:10px;color:var(--ink-400)">' + d.metrics.length + ' metric' +
-                    (d.metrics.length === 1 ? '' : 's') + '</span></a>';
-                }).join('')
-              : '<div style="padding:8px;font-size:11px;color:var(--ink-400);line-height:1.45">' +
-                'No other dashboards yet. Build one in Agency Intelligence.</div>') +
-        '</div>'
           : '') + '</span>';
     }
 
@@ -1261,7 +1489,9 @@
     var all = cfg.widgets;
     var sized = anySized(all);
     var cells = all
-      .map(function (w) { return pubWidget(w, cfg.ownerShort, { sized: sized }); }).join('');
+      .map(function (w) {
+        return pubWidget(w, cfg.ownerShort, { sized: sized, failed: pdFailed(w, cfg) });
+      }).join('');
 
     // The modifier switches the grid onto the fixed row track. Without it the
     // grid keeps auto rows and nothing about the published look changes.
@@ -1299,15 +1529,24 @@
     return unshared && !cfg.owned;
   }
 
-  /* What you land on depends on what you lost, and there are two cases — the
-     second is easy to forget and is the one that actually strands someone.
+  /* What you land on depends on what you lost, and there are three cases —
+     the last is easy to forget and is the one that actually strands someone.
 
-     Lose a dashboard built FOR your crew and you fall back to the department
-     starter: still a homepage, just a more general one. But the starter is the
-     floor. Lose that and there is nothing underneath, so the honest answer is
-     an empty state that says so and names who can give it back — not a blank
-     region, and not a pretend dashboard with no data behind it. */
-  function hasFallback(cfg) { return cfg !== FF_DASH; }
+     Lose a dashboard published to you when you also BUILD one, and you land on
+     your own: the Chief losing the department's compliance review still has
+     B-1 Coverage Snapshot. Lose one built for your crew with nothing of your
+     own, and you fall back to the department starter — still a homepage, just
+     a more general one. But the starter is the floor. Lose that and there is
+     nothing underneath, so the honest answer is an empty state that says so
+     and names who can give it back — not a blank region, and not a pretend
+     dashboard with no data behind it. */
+  function pdFallback(variant, cfg) {
+    var mine = pdDashesFor(variant).filter(function (d) {
+      return d.owned && d.id !== cfg.id;
+    })[0];
+    if (mine) return mine;
+    return cfg.id !== FF_DASH.id ? FF_DASH : null;
+  }
 
   function noDashboardState(cfg) {
     return '<div class="kx-nodash">' +
@@ -1321,7 +1560,7 @@
       '</div>';
   }
 
-  function unsharedNotice(cfg, fellBack) {
+  function unsharedNotice(cfg, fallback) {
     if (unsharedDismissed) return '';
     return '<div class="kx-unshared" role="status">' +
       '<span class="mark">' + micon('person_remove', { size: 17, fill: 1 }) + '</span>' +
@@ -1329,10 +1568,12 @@
       '<span class="t">\u201c' + esc(cfg.name) + '\u201d is no longer shared with you</span>' +
       '<span class="s">' + esc(cfg.ownerShort || 'The owner') + ' removed it from your homepage. ' +
       // The second sentence has to match what is actually below the notice —
-      // promising "your standard dashboard" above an empty state is worse
-      // than saying nothing.
-      (fellBack
-        ? 'You\u2019re seeing your department\u2019s standard dashboard instead \u2014 ' +
+      // promising a replacement above an empty state is worse than saying
+      // nothing — so it NAMES the dashboard they landed on rather than
+      // describing it. Which one that is now depends on the reader: their own,
+      // if they build one, and the department starter if they don't.
+      (fallback
+        ? 'You\u2019re seeing \u201c' + esc(fallback.name) + '\u201d instead \u2014 ' +
           'ask them if you still need it.'
         : 'Ask them if you still need it.') +
       '</span>' +
@@ -1342,27 +1583,21 @@
   }
 
   function publishedDashboard(variant) {
-    var cfg = variant === 'chief' ? CHIEF_DASH
-            : variant === 'firefighter' ? FF_DASH
-            : LT_DASH;
-    // Access revoked: the dashboard they were sent is gone, and what they get
-    // is the starter every member of the department has. FF_DASH *is* that
-    // starter ("Readiness Hub starter template"), so it is what they land on.
+    // Whichever of this role's dashboards they last picked in the switcher —
+    // the first one in their set until they pick another.
+    var cfg = pdPickedDash(variant);
+    // Access revoked: the dashboard they were sent is gone. Where that leaves
+    // them depends on what else they hold — see pdFallback.
     var revoked = isUnshared(variant, cfg);
-    var notice = revoked ? unsharedNotice(cfg, hasFallback(cfg)) : '';
+    var fallback = revoked ? pdFallback(variant, cfg) : null;
+    var notice = revoked ? unsharedNotice(cfg, fallback) : '';
     // Nothing underneath: the starter is the floor, so this role is left with
     // no dashboard at all rather than a fallback.
-    if (revoked && !hasFallback(cfg)) return notice + noDashboardState(cfg);
-    if (revoked) cfg = FF_DASH;
+    if (revoked && !fallback) return notice + noDashboardState(cfg);
+    if (revoked) cfg = fallback;
     // Which dashboard the export handlers are acting on. Recorded here because
     // the handlers fire after the render, and the role can change under them.
     pdCurrent = { cfg: cfg, variant: variant };
-    // Chips describe what this card is actually showing. That is now just the
-    // dashboard's own widgets — the set can't change while someone reads it.
-    var union = {};
-    cfg.widgets.forEach(function (w) {
-      (w.source || []).forEach(function (s) { union[s] = true; });
-    });
 
     // The Chief builds their own, so the badge and footer say so — which is what
     // earns them the "Agency Intelligence" affordance. Everyone else is a consumer.
@@ -1374,9 +1609,11 @@
       (cfg.owned ? '' : ' · published by ' + esc(cfg.publisher)) +
       (cfg.template ? ' · ' + esc(cfg.template) : '');
 
-    var footRight = cfg.owned
-      ? micon('edit', { size: 12 }) + ' You own this · edit in Agency Intelligence'
-      : micon('lock', { size: 12 }) + ' Read-only · explore freely, only ' + esc(cfg.ownerShort) + ' can edit';
+    // Only an OWNED dashboard says anything down here. A received one used to
+    // carry "Read-only · explore freely, only <owner> can edit" — a permission
+    // notice under a card that offers no editing control in the first place,
+    // so it answered a question nobody reading it had asked. Who published it
+    // is already stated under the title, which is the part that matters.
 
     return notice +
       '<div class="kx-pubdash" data-pubdash="' + KX.attr(variant) + '">' +
@@ -1384,18 +1621,23 @@
       '<span class="kx-pubmark">' + micon('dashboard_customize', { size: 18, fill: 1 }) + '</span>' +
       '<div style="min-width:0;flex:1">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
-      '<span class="kx-pubtitle">' + esc(cfg.name) + '</span>' + badge +
-      '<span class="kx-pubsrcs">' + Object.keys(union).map(function (s) { return KX.srcChip(s); }).join('') + '</span>' +
+      dashPicker(cfg, variant) + badge +
       '</div>' +
       '<div class="kx-pubmeta">' + meta + '</div></div>' +
       pdHeaderControls(cfg, variant) + '</div>' +
 
       dashBody(cfg, variant) +
 
-      '<div class="kx-pubfoot">' +
-      '<span style="display:inline-flex;align-items:center;gap:5px">' +
-      micon('cloud_done', { size: 13, fill: 1, color: 'var(--teal-500)' }) + ' Auto-refreshed 2 min ago</span>' +
-      '<span style="display:inline-flex;align-items:center;gap:4px">' + footRight + '</span></div></div>';
+      // Footer carries ownership only. It used to open with "Auto-refreshed
+      // 2 min ago", which promised a refresh cycle nothing behind this card
+      // actually runs — a claim about data freshness is the last thing to
+      // leave unbacked on a dashboard people make staffing calls from.
+      (cfg.owned
+        ? '<div class="kx-pubfoot">' +
+          '<span style="display:inline-flex;align-items:center;gap:4px;margin-left:auto">' +
+          micon('edit', { size: 12 }) + ' You own this · edit in Agency Intelligence' +
+          '</span></div>'
+        : '') + '</div>';
   }
 
   /* =====================================================================
@@ -1459,13 +1701,13 @@
       }
       var rp = e.target.closest('[data-pd-range-pick]');
       if (rp) {
-        if (pdCurrent) pdOverrides[pdCurrent.variant] = rp.getAttribute('data-pd-range-pick');
+        if (pdCurrent) pdOverrides[pdCurrent.cfg.id] = rp.getAttribute('data-pd-range-pick');
         openRangeMenu = false;
         window.KXHub.render();
         return;
       }
       if (e.target.closest('[data-pd-range-reset]')) {
-        if (pdCurrent) delete pdOverrides[pdCurrent.variant];
+        if (pdCurrent) delete pdOverrides[pdCurrent.cfg.id];
         window.KXHub.render();
         return;
       }
@@ -1508,6 +1750,40 @@
         pdCloseMenus();
         openDashMenu = !wasDash;
         window.KXHub.render();
+        return;
+      }
+
+      /* -- pick a dashboard from the title switcher --
+         Swaps the card in place. Opening a dashboard runs its load, so a
+         widget that fails on load fails again on every visit: a retry that
+         succeeded a minute ago does not carry over to the next time you switch
+         back, any more than it would survive a page refresh. */
+      var dp = e.target.closest('[data-dash-pick]');
+      if (dp) {
+        if (pdCurrent) pdPicked[pdCurrent.variant] = dp.getAttribute('data-dash-pick');
+        openDashMenu = false;
+        pdRetrying = {};
+        pdRecovered = {};
+        window.KXHub.render();
+        return;
+      }
+
+      /* -- retry a widget that didn't load --
+         The prototype's retry always succeeds — the interesting question for
+         a design review is what recovery looks like, not what a second
+         failure looks like. It is deliberately NOT instant: a button that
+         swaps straight to a chart reads as if it was never really loading. */
+      var rt = e.target.closest('[data-pdw-retry]');
+      if (rt) {
+        var rid = rt.getAttribute('data-pdw-retry');
+        if (pdRetrying[rid]) return;
+        pdRetrying[rid] = true;
+        window.KXHub.render();
+        setTimeout(function () {
+          delete pdRetrying[rid];
+          pdRecovered[rid] = true;
+          window.KXHub.render();
+        }, 1100);
         return;
       }
 
@@ -1646,6 +1922,7 @@
     complianceHero: complianceHero,
     publishedDashboard: publishedDashboard,
     setUnshared: setUnshared,
+    setLoadFailure: setLoadFailure,
     computePulse: computePulse,
     wire: wire
   };
