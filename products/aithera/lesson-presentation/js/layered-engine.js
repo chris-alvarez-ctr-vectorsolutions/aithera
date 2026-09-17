@@ -405,17 +405,36 @@
       if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
       if (e.target.closest && e.target.closest('.clara-collapse, .clara-reply, .clara-act')) return;
       if (e.type === 'keydown') e.preventDefault();
-      bubble.classList.remove('is-teaser');
-      sayEl.innerHTML = sayEl.dataset.fullSay || '';
-      delete sayEl.dataset.fullSay;
-      sayEl.removeAttribute('tabindex');
-      sayEl.removeAttribute('role');
-      sayEl.removeAttribute('aria-label');
-      bubble.removeEventListener('click', reveal);
-      sayEl.removeEventListener('keydown', reveal);
+      disarmTeaser(bubble, sayEl, true);
     }
+    // Stashed on the element (not just closed over) so a LATER, unrelated
+    // write to this same bubble — a real reply landing on top of an unread
+    // tease, say — can find and remove this exact listener pair rather than
+    // leaving it bound forever. See disarmTeaser.
+    bubble._teaserReveal = reveal;
     bubble.addEventListener('click', reveal);
     sayEl.addEventListener('keydown', reveal);
+  }
+  // The other half of armTeaser. Bug found 2026-09-17: setCoachSay used to
+  // overwrite sayEl's innerHTML directly without this, so a real answer that
+  // arrived while the bubble was still teased (learner paused >7s, then
+  // answered) rendered in the teaser's bold-teal "tap to reveal" styling —
+  // and tapping it silently reverted to the STALE pre-tease line via the
+  // still-armed listener above, discarding the feedback the learner just
+  // earned. Now every write to .clara-say disarms first.
+  function disarmTeaser(bubble, sayEl, restoreFull) {
+    if (!bubble.classList.contains('is-teaser')) return;
+    bubble.classList.remove('is-teaser');
+    if (restoreFull) sayEl.innerHTML = sayEl.dataset.fullSay || '';
+    delete sayEl.dataset.fullSay;
+    sayEl.removeAttribute('tabindex');
+    sayEl.removeAttribute('role');
+    sayEl.removeAttribute('aria-label');
+    if (bubble._teaserReveal) {
+      bubble.removeEventListener('click', bubble._teaserReveal);
+      sayEl.removeEventListener('keydown', bubble._teaserReveal);
+      delete bubble._teaserReveal;
+    }
   }
 
   function armHint(stepId) {
@@ -542,7 +561,13 @@
       enableNext: function () { nextBtn.disabled = false; },
       disableNext: function () { nextBtn.disabled = true; },
       setCoachSay: function (html) {
-        var s = chrome.querySelector('.clara-say'); if (s) s.innerHTML = html;
+        var s = chrome.querySelector('.clara-say');
+        // Disarm any leftover idle-hint tease before writing — a real line
+        // landing on top of an unrevealed "Need a hint?" must not inherit
+        // its collapsed styling or its (now stale) reveal-on-tap handler.
+        var b = chrome.querySelector('#claraBubble');
+        if (b && s) disarmTeaser(b, s, false);
+        if (s) s.innerHTML = html;
         // A line that lands after the screen has settled is a reaction to
         // something the learner just did — the one thing that raises them
         // without being asked. Their opening line, set during init, does not.

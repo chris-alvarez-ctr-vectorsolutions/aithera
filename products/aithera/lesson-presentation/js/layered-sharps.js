@@ -3798,6 +3798,20 @@
       var host = document.getElementById('rk1Tutor');
       var useP = lens() && lens().premise === 'use';
       var shown = PROCEDURE.filter(function (s) { return !(s.onlyOn && s.onlyOn !== (useP ? 'use' : 'find')); });
+      // Bug found 2026-09-17: this reveal used to just append each turn and
+      // leave the scroll wherever it was, so by the time all six steps had
+      // landed the fixed question below (#rk1Q) had been pushed clean off
+      // the bottom of the scroller with nothing to bring it back.
+      // procedure's own tutor mode (runTutor, above) hit the identical
+      // problem and already carries the fix — same approach here: pull the
+      // newest thing to the bottom of the scroller as it lands, and once
+      // the LAST step is in, pull the question itself into view rather than
+      // the turn before it.
+      function scrollToEl(el) {
+        if (!el) return;
+        var instant = T(1) === 0 || document.hidden;
+        el.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', block: 'end', inline: 'nearest' });
+      }
       shown.forEach(function (s, i) {
         setTimeout(function () {
           if (!host) return;
@@ -3807,6 +3821,7 @@
             '<span class="pr-main"><b>' + esc(s.t) + '</b><span class="pr-d">' + esc(s.d) + '</span></span>';
           host.appendChild(d);
           requestAnimationFrame(function () { d.classList.add('in'); });
+          scrollToEl(i === shown.length - 1 ? document.getElementById('rk1Q') : d);
         }, T(300 + i * 700));
       });
     }
@@ -3918,12 +3933,19 @@
     var note = document.getElementById('wkNote');
     var committed = false, cond = null;
 
-    // D3 (Sustain) is ungated and unsampled — it runs the same for every
-    // learner, with nothing to react to before it, so this clears the
-    // manifest's "Loading…" placeholder and opens straight on the plan.
+    // D3 (Sustain)'s ASSESSMENT POLICY is ungated and unsampled — it runs
+    // the same for every learner, with nothing to react to before it, so
+    // this clears the manifest's "Loading…" placeholder and opens straight
+    // on the plan. That is a fact about which OBJECTIVE policy governs this
+    // beat, not about whether the SCREEN gates Continue — this step's own
+    // STEPS entry still carries gate:true, same as every other Learn beat.
+    // Bug found 2026-09-17: enableNext() used to live here unconditionally,
+    // a leftover from before the F4 rating UI was removed (that rating used
+    // to be the thing that unlocked Continue). With F4 gone, this let a
+    // learner move on having picked nothing and written nothing. Moved to
+    // the actual completion of the plan, in the commit handler below.
     ctx.setCoachSay('');
     reinforce(ctx, part1, 1, 2);
-    ctx.enableNext();
 
     // ---- part 1: the shift (D3, Do / Sustain) ----
     ((L.sustain || {}).conds || []).forEach(function (t) {
@@ -3976,6 +3998,7 @@
       ctx.setCoachSay('This plan is on your record, in your own words — not a promise it will ' +
         'hold, just what you intend to do.');
       ctx.positionOrb(true);
+      ctx.enableNext();
     });
   }
 
