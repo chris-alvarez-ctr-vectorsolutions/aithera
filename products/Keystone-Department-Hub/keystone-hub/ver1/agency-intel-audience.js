@@ -374,7 +374,17 @@
         '<div class="au-empty" style="margin-bottom:4px">Nobody yet — this stays a draft ' +
         'until you add someone.</div>';
     }
-    return '<div class="au-sec">Published to<span class="au-sec-n">' + rows.length + '</span></div>' +
+    // On a dashboard that has been unpublished this roster is a MEMORY, not a
+    // statement of who has it — nobody does. Saying "Published to" over it
+    // would be the one place this flow can mislead, so the heading changes and
+    // the note says what pressing Publish will do.
+    return '<div class="au-sec">' + (S.restoring ? 'Previously published to' : 'Published to') +
+      '<span class="au-sec-n">' + rows.length + '</span></div>' +
+      (S.restoring
+        ? '<div class="au-note" style="margin-bottom:8px">' + micon('history', { size: 13, fill: 1 }) +
+          ' This dashboard is unpublished — nobody sees it right now. Publishing ' +
+          'puts it back in front of everyone listed here.</div>'
+        : '') +
       '<div class="au-roster">' + rows.map(function (r) {
         return '<div class="au-rrow">' +
           '<span class="au-rmark au-rmark--' + r.kind + '">' + micon(r.icon, { size: 14, fill: 1 }) + '</span>' +
@@ -546,7 +556,16 @@
     // audienceOf(), not d.assignedTo: with job titles behind the flag the dialog
     // must not carry title selections it has no tab to show. The dashboard keeps
     // them — assignDash() merges them back — so nothing is lost.
-    var a = CP.audienceOf(d) || {};
+    //
+    // Falling back to lastAudience is what makes Unpublish reversible: a
+    // dashboard that has been taken down has no live audience, but the one it
+    // HAD is remembered, and re-opening this dialog should offer to restore it
+    // rather than make you rebuild three groups and twelve people by hand.
+    // `restoring` is true only in that case, and the roster says so — otherwise
+    // the review step would list people who do not currently have this.
+    var live = CP.audienceOf(d);
+    var restoring = !live && !!d.lastAudience;
+    var a = live || (restoring ? d.lastAudience : null) || {};
     var del = CP.deliveryOf(d);
 
     OPTS = opts;
@@ -557,6 +576,12 @@
       titles: (a.titles || []).slice(),
       individuals: (a.individuals || []).slice(),
       groups: (a.groups || []).slice(),
+      // Drives the "remembered, not live" note on the roster. Deliberately NOT
+      // cleared when the person edits the list: it states that the DASHBOARD is
+      // currently unpublished, which stays true until they publish, and the
+      // note is worded about whoever is listed at that moment rather than about
+      // the original audience. One less piece of state to keep honest.
+      restoring: restoring,
       search: '',
       thread: [], rule: { clauses: [] }, showNames: false, name: '', showSaved: false, editingId: null,
       showAllChips: false,

@@ -24,7 +24,23 @@
   var AI = window.AGENCY_INTEL_AI;
   var esc = KX.esc, micon = KX.micon;
 
-  var TODAY = CP.APP_TODAY || '2026-05-07';
+  /* CP.APP_TODAY is a Date; every date FIELD on a dashboard (createdAt,
+     updatedAt, grantedAt) is an ISO 'YYYY-MM-DD' STRING. Writing the Date
+     straight into updatedAt put one Date among 65 strings, and the "Updated"
+     column sorts by comparing those relationally: the Date coerces to a
+     number, an ISO string coerces to NaN, every < and > is false, the
+     comparator returns 0 for every pair, and the touched row silently drops
+     back to its unsorted position — off the first page. Publishing already
+     did this; unpublishing made it obvious, because the row you just acted on
+     vanished. Normalised once here, so every write below stores the same
+     shape as the seed data. fmtDate() accepts either, so display is
+     unaffected. */
+  var TODAY = (function (t) {
+    if (!t) return '2026-05-07';
+    if (typeof t === 'string') return t;
+    return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') +
+      '-' + String(t.getDate()).padStart(2, '0');
+  })(CP.APP_TODAY);
   var SRC_ORDER = ['ts', 'ci', 'gt', 'sched', 'ev'];
   var PAGE_SIZE = 12;
 
@@ -459,6 +475,15 @@
             '<div class="kx-menu-label">' + esc(ownerName(d)) + '\u2019s dashboard</div>') +
           '<button class="kx-menu-row" data-dash-audience="' + KX.attr(d.id) + '"' + dis + '>' +
           micon('groups', { size: 16 }) + '<span class="label">Manage audience</span></button>' +
+          // Only on something that IS published — on a draft the row would be
+          // an action with nothing to act on. Sits next to "Manage audience"
+          // because they are the two halves of the same question (who sees
+          // this, and does anyone), and above the separator because unlike
+          // Delete it keeps the dashboard.
+          (CP.statusOf(d) === 'published'
+            ? '<button class="kx-menu-row" data-dash-unpublish="' + KX.attr(d.id) + '"' + dis + '>' +
+              micon('unpublished', { size: 16 }) + '<span class="label">Unpublish</span></button>'
+            : '') +
           // Duplicating is always allowed: it copies into a draft of your own
           // and touches nothing of theirs.
           '<button class="kx-menu-row" data-dash-duplicate="' + KX.attr(d.id) + '">' +
@@ -1712,9 +1737,18 @@
           (published
             // "Delivery" covers both destinations (live + report). In v1 there
             // is only the live audience, so the label says so.
+            //
+            // Unpublish rides beside it rather than inside the audience dialog:
+            // "take this down" is a decision about the dashboard, not an edit
+            // to its roster. NOTE: this pair plus Publish is due a proper
+            // rethink — three controls answering one question ("who sees this,
+            // and is it live?") in two different shapes.
             ? '<vaadin-button theme="secondary" id="cpPublish">' + micon('group', { size: 16 }) +
               '<span class="kx-btn-label">' +
-              (CP.deliveryEnabled() ? 'Manage delivery' : 'Manage audience') + '</span></vaadin-button>'
+              (CP.deliveryEnabled() ? 'Manage delivery' : 'Manage audience') + '</span></vaadin-button>' +
+              '<vaadin-button theme="secondary" id="cpUnpublish" title="Take this off everyone’s homepage">' +
+              micon('unpublished', { size: 16 }) +
+              '<span class="kx-btn-label">Unpublish</span></vaadin-button>'
             : '<vaadin-button theme="primary" id="cpPublish">' + micon('campaign', { size: 16 }) +
               '<span class="kx-btn-label">Publish</span></vaadin-button>')
         : '') +
@@ -2027,6 +2061,12 @@
           assignedTo: live ? mine : null,
           delivery: nextDelivery,
           status: live ? 'published' : (!keep && delivery ? 'draft' : 'private'),
+          // Once it is live again the remembered audience has been consumed —
+          // keeping it would let a stale roster resurface after the next
+          // unpublish, offering to restore an audience two edits out of date.
+          // Going the other way (published -> nothing) the CURRENT audience
+          // becomes the memory, so this path unpublishes as well as the verb.
+          lastAudience: live ? null : (d.assignedTo || d.lastAudience || null),
           updatedAt: TODAY
         });
       }
@@ -2157,6 +2197,10 @@
       name: src.name + ' (copy)',
       status: 'draft',
       assignedTo: null,
+      // Nor the REMEMBERED audience, for the same reason: a copy that quietly
+      // carried the original's unpublished roster would offer to publish a
+      // half-edited clone to it in one click.
+      lastAudience: null,
       delivery: null,
       createdAt: TODAY,
       updatedAt: TODAY,
@@ -2167,6 +2211,90 @@
     KX.pushToast({
       title: 'Duplicated', body: '“' + copy.name + '” is a draft — nobody sees it yet.',
       icon: 'content_copy', tone: 'success'
+    });
+  }
+
+  /* Unpublish — take it off everyone's homepage, keep the dashboard.
+
+     This state transition already existed, but only by accident: emptying the
+     audience in the publish dialog's review step and pressing PUBLISH landed
+     the dashboard here. That is the publish verb performing an unpublish, and
+     it was reachable or not depending on which step you happened to open the
+     dialog on (the audience step's "Review & publish" is disabled at zero
+     reach). This gives the transition its own verb, its own confirm, and the
+     same reach disclosure delete already makes.
+
+     The audience is REMEMBERED rather than dropped. Unpublishing a dashboard
+     published to three groups and twelve people used to mean rebuilding all
+     of that by hand to put it back, which is a strong incentive to just leave
+     it live. It moves to `lastAudience`, which nothing reads except the
+     publish dialog's seeding — so reach is genuinely 0 and the dashboard
+     genuinely reads as a draft while it is down. */
+  function unpublishDash(id) {
+    state.dashboards = state.dashboards.map(function (d) {
+      if (d.id !== id) return d;
+      return Object.assign({}, d, {
+        assignedTo: null,
+        // Remember what it WAS published to. audienceOf() is deliberately not
+        // used here: that filters job titles out behind the flag, and this
+        // field has to be able to restore the audience whole.
+        lastAudience: d.assignedTo || d.lastAudience || null,
+        // 'draft', not 'private' — in v2 private means "published to just me",
+        // which is a destination, not the absence of one. A dashboard taken
+        // down is back to being unpublished work.
+        status: 'draft',
+        // Report delivery is left alone on purpose, the same way assignDash's
+        // `keep` branch leaves it: with the flag off the UI cannot express a
+        // schedule, so clearing it here would quietly destroy the seeded
+        // schedules the flag exists to preview.
+        updatedAt: TODAY
+      });
+    });
+    render();
+  }
+
+  function confirmUnpublishDash(id) {
+    var d = dashById(id);
+    if (!d) return;
+    // Re-checked here as well as on the control, same as delete: a disabled
+    // menu row is a hint, not a boundary.
+    if (!canActOn(d)) {
+      KX.pushToast({
+        title: 'Not yours to unpublish',
+        body: '“' + d.name + '” belongs to ' + ownerName(d) +
+          '. You need “manage all dashboards”.',
+        icon: 'lock', tone: 'warning'
+      });
+      return;
+    }
+    var reach = reachOf(d);
+    KX.confirm({
+      title: 'Unpublish “' + d.name + '”?',
+      icon: 'unpublished',
+      // Warn, not danger: this is reversible and the dialog should look it.
+      // The reach sentence is the same disclosure delete makes — taking it
+      // down clears the same homepages that deleting it would.
+      tone: 'warn',
+      body: (reach > 0
+        ? '<b>' + reach + ' ' + (reach === 1 ? 'person' : 'people') + '</b> see this on ' +
+          'their homepage. It disappears for them and they fall back to their ' +
+          'default dashboard.<br><br>'
+        : '') +
+        'The dashboard, its ' + (d.widgets || []).length + ' widget' +
+        ((d.widgets || []).length === 1 ? '' : 's') + ' and its audience are all kept — ' +
+        'it goes back to being a draft, and publishing it again restores the same audience.',
+      confirmLabel: 'Unpublish',
+      onConfirm: function () {
+        unpublishDash(id);
+        KX.pushToast({
+          title: 'Dashboard unpublished',
+          body: reach > 0
+            ? '“' + d.name + '” is a draft again. ' + reach + ' ' +
+              (reach === 1 ? 'person' : 'people') + ' fell back to their default.'
+            : '“' + d.name + '” is a draft again — nobody sees it now.',
+          icon: 'unpublished', tone: 'neutral'
+        });
+      }
     });
   }
 
@@ -2900,6 +3028,14 @@
         if (acd) openAssignDialog(acd, { step: 'review' });
         return;
       }
+      var unp = e.target.closest('[data-dash-unpublish]');
+      if (unp) {
+        e.stopPropagation();
+        if (unp.hasAttribute('disabled')) return;
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        confirmUnpublishDash(unp.getAttribute('data-dash-unpublish'));
+        return;
+      }
       var dup = e.target.closest('[data-dash-duplicate]');
       if (dup) {
         e.stopPropagation();
@@ -3044,6 +3180,10 @@
       }
       if (e.target.closest('#cpPublish') || e.target.closest('#cpEditSchedule')) {
         openAssignDialog(active());
+        return;
+      }
+      if (e.target.closest('#cpUnpublish')) {
+        confirmUnpublishDash(state.activeId);
         return;
       }
 
