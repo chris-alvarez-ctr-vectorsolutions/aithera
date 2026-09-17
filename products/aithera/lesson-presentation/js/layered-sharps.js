@@ -455,6 +455,21 @@
   // "Your role" picker (D11) walk the same four sectors in the same order,
   // rather than a second literal that can drift from the first.
   var LENS_ORDER = ['manufacturing', 'education', 'aec', 'public'];
+  // Alignment brief §6.3 (sector parity, 2026-09-17): D6 rebuilt Manufacturing
+  // only; the other three sectors ran EXAMPLE_SHARPS (Manufacturing's own
+  // plant-floor framing) regardless of the learner's actual sector. Each
+  // sector now has its own scenario, authored against that sector's own
+  // LENSES vocabulary in mix-arc.js — same four coach-led beats, same
+  // calibration shape, different setting. One lookup, read wherever the
+  // scenario key or its sessionStorage write-back key is needed, so the two
+  // can never drift apart.
+  var SCENARIO_KEY = {
+    manufacturing: 'unclaimed-blade-sharps',
+    education: 'unclaimed-blade-education-sharps',
+    aec: 'unclaimed-blade-aec-sharps',
+    public: 'unclaimed-blade-public-sharps'
+  };
+  function scenarioKey() { return SCENARIO_KEY[LE.lensId()] || SCENARIO_KEY.manufacturing; }
 
   // ==========================================================================
   //  Test-out state. K1 is the only objective the pre-module battery can buy
@@ -4007,6 +4022,20 @@
     return t.charAt(0).toLowerCase() + t.slice(1);
   }
 
+  // §6.3: the one-line hook a learner reads right before the live scenario
+  // (and the stand-in question's stem, when the Do-object baseline is on)
+  // has to match whichever scenario scenarioKey() is about to hand off to —
+  // Manufacturing's "blade on the next bench" reads as a continuity error
+  // for a classroom teacher or a paramedic. One line per sector, matching
+  // each scenario's own opening beat in mix-arc.js.
+  var HANDOFF_HOOK = {
+    manufacturing: 'You spot a used blade on the next bench over. It is not yours.',
+    education: 'You spot a craft blade left on the back table. It is not yours.',
+    aec: 'You spot a utility blade left on a windowsill. It is not yours.',
+    public: 'You spot an uncapped needle wedged in the jump bag. It is not yours.'
+  };
+  function handoffHook() { return HANDOFF_HOOK[LE.lensId()] || HANDOFF_HOOK.manufacturing; }
+
   // ==========================================================================
   //  THE HANDOFF — D11/item 31. A real screen where the module used to hand
   //  straight off to the culminating scenario with nothing of its own: the
@@ -4021,7 +4050,7 @@
     return '<main class="ll-object ll-object--chain"><div class="ho-wrap">' +
       '<p class="ll-eyebrow">Perform: live scenario, about 5 minutes</p>' +
       '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>' +
-      '<p class="ho-lead">You spot a used blade on the next bench over. It is not yours.</p>' +
+      '<p class="ho-lead">' + esc(handoffHook()) + '</p>' +
       '<p class="ho-lead-sub">Nobody is asking you about it — you have to notice it, decide what ' +
         'to do, and carry it through. What you do next is the scenario.</p>' +
       '<div class="ho-what">' +
@@ -4056,14 +4085,17 @@
   // ==========================================================================
   var DOBASELINE_VIDEO = '../../assets/videos/sharps-doobject-baseline.mp4';
   var DOBASELINE_Q = {
-    stem: 'You spot a used blade on the next bench over. It is not yours. What do you do first?',
+    // §6.3: no hardcoded stem — built from handoffHook() so the reviewer-only
+    // baseline stays in sync with whichever sector's scenario scenarioKey()
+    // would otherwise hand off to. Options/replies stay sector-neutral
+    // ("the hazard," not "the blade") for the same reason.
     options: [
       { t: 'Leave it — it isn’t yours to handle', icon: 'fa-hand',
         reply: 'Not quite. An unclaimed sharp is still a hazard on the floor — whoever notices it owns the next step.' },
       { t: 'Keep eyes on it and go get a container', icon: 'fa-eye',
         reply: 'Right. Keep it in sight, get the container, and carry it through yourself.' },
       { t: 'Ask around to find out whose it is first', icon: 'fa-people-arrows',
-        reply: 'Not quite. Tracking down whose it is can wait — the blade sitting exposed can’t.' }
+        reply: 'Not quite. Tracking down whose it is can wait — the hazard sitting exposed can’t.' }
     ]
   };
   function DOBASELINE_CONTENT() {
@@ -4074,7 +4106,7 @@
       videoFrame({ ids: { wrap: 'dobMedia', video: 'dobVideo', note: 'dobVfall', pct: 'dobPct', skip: 'dobSkip' },
                    src: DOBASELINE_VIDEO }) +
       '<div class="bl-ask" id="dobAsk">' +
-        '<h2 class="bl-q">' + esc(DOBASELINE_Q.stem) + '</h2>' +
+        '<h2 class="bl-q">' + esc(handoffHook() + ' What do you do first?') + '</h2>' +
         '<div class="bl-options" id="dobOptions" role="radiogroup" aria-labelledby="dobAsk"></div>' +
       '</div>' +
     '</div></main>';
@@ -4201,7 +4233,7 @@
   var SCENARIO_TIER_RANK = { MISSED: 0, PARTIAL: 1, SOUND: 2 };
   function scenarioBeats() {
     try {
-      var raw = JSON.parse(sessionStorage.getItem('scenario-result:unclaimed-blade-sharps') || 'null');
+      var raw = JSON.parse(sessionStorage.getItem('scenario-result:' + scenarioKey()) || 'null');
       if (!raw || !raw.beats) return null;
       var out = {};
       raw.beats.forEach(function (bt) { out[bt.id] = bt.tier; });
@@ -4301,7 +4333,7 @@
       D1: (beats && beats.decision)
         ? ['Shown', SCENARIO_TIER_RANK[beats.decision] === 0 ? 'band-warn' : 'band-ok',
            'From the scenario',
-           'The decision beat ' + SCENARIO_TIER_WORD[beats.decision] + ' \u2014 what you did with the blade the moment you were pulled away.']
+           'The decision beat ' + SCENARIO_TIER_WORD[beats.decision] + ' \u2014 what you did with the hazard the moment you were pulled away.']
         : ['In the scenario', 'band-ok', 'From the scenario',
            'Shown where you actually did it, with a real interruption rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
       D2: (beats && (beats.execution || beats.container))
@@ -4514,7 +4546,7 @@
       coach: { say: '' },
       content: WALK_CONTENT, init: walkInit },
 
-    { id: 'handoff', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'The Unclaimed Blade', mode: 'floating',
+    { id: 'handoff', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'The Unclaimed Hazard', mode: 'floating',
       nextLabel: 'Enter the scenario',
       caption: { title: 'PERFORM · The bridge into the scenario (D11)', note: 'Item 31. This screen frames the moment before the one CTA that means it. The player is told to skip its own establishing card in turn (see enact’s ?handoff=1) — showing it too would be a third framing of the same moment in a row.' },
       // Silent — the screen states its own purpose in its own copy; there is
@@ -4523,7 +4555,7 @@
       coach: { say: '' },
       content: HANDOFF_CONTENT, init: handoffInit },
 
-    { id: 'enact', icon: 'fa-comments', stage: 'Perform', lesson: 'The Unclaimed Blade — Live Scenario',
+    { id: 'enact', icon: 'fa-comments', stage: 'Perform', lesson: 'The Unclaimed Hazard — Live Scenario',
       // Never mattered while this step only ever redirected externally —
       // D10's baseline content is the first time `enact` actually mounts
       // CLARA's chrome, and it needs a mode to do that (same as handoff's).
@@ -4544,16 +4576,18 @@
       // the Demo menu's "Do-object baseline" toggle (set on the handoff
       // screen above) takes effect without a reload. Live is the only path a
       // learner ever takes; a falsy return here falls through to this step's
-      // own content/init below (see the engine's showStep).
+      // own content/init below (see the engine's showStep). §6.3: the
+      // scenario key is sector-derived (scenarioKey()), not fixed to
+      // Manufacturing's own — each sector runs its own scenario now.
       external: function () {
         return doBaselineOn() ? null
           : '../../scenario-simulator/composed-scenarios/index.html'
-            + '?type=mix-arc&scenario=unclaimed-blade-sharps&handoff=1&brand=clara'
+            + '?type=mix-arc&scenario=' + scenarioKey() + '&handoff=1&brand=clara'
             + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record');
       },
       gate: true,
       content: DOBASELINE_CONTENT, init: doBaselineInit,
-      caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now. D10: the Demo menu’s "Do-object baseline" toggle swaps this for an in-page video plus one stand-in question — the PRD’s literal Do-object ask, reviewer-only and never on a learner’s path.' },
+      caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now. §6.3: Education, AEC and Public sector each run their own sector-authored scenario now (scenarioKey()), not Manufacturing’s. D10: the Demo menu’s "Do-object baseline" toggle swaps this for an in-page video plus one stand-in question — the PRD’s literal Do-object ask, reviewer-only and never on a learner’s path.' },
       coach: { say: '' } },
     { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
       caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },

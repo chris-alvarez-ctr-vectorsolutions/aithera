@@ -1004,12 +1004,390 @@
     },
   };
 
+  /* =======================================================================
+     EXAMPLE — "The Blade Left Behind", the Education-sector parallel to
+     EXAMPLE_SHARPS above.
+
+     Alignment brief §6.3 (sector parity, 2026-09-17): D6 rebuilt Manufacturing
+     only; Education, AEC and Public sector kept running EXAMPLE_SHARPS itself
+     (Manufacturing's own plant-floor framing) regardless of the learner's
+     actual sector — a mismatch, not a parity gap on paper only. No source
+     script exists for these three the way K&A wrote one for Manufacturing,
+     so this is original authoring against the sector's own established
+     vocabulary (`LENSES.education` in layered-sharps.js — sharps, facility,
+     sustain.hint), not a port. Per Chris's decision on the K&A Q&A (item 4):
+     a situation the learner has not already met, the same principle EXAMPLE_
+     SHARPS itself follows — so this uses a craft/utility blade, not the
+     lancet case1 already covers.
+
+     Same four coach-led beats, same shape, same calibration vocabulary as
+     Manufacturing's version — sector parity means the STRUCTURE matches
+     exactly; only the setting, the hazard, and the two interruptions change.
+     ======================================================================= */
+  const EXAMPLE_SHARPS_EDUCATION = {
+    v: 1, type: 'mix-arc',
+    title: 'Interactive scenario: The blade left behind',
+    course: 'Bloodborne Pathogens — Module 4, Contain the Sharp',
+    learnerName: 'you', characterName: '',
+    elevatedStakes: false, involvesMinors: false, threatContent: false,
+    framing: 'the culminating activity for a module on safe sharps handling and disposal. The learner has already been taught the four-step procedure and practiced recognizing hazard conditions across three cases. This scenario is a cold test of both: an unclaimed sharp, no character to negotiate with, and a real interruption partway through.',
+    learnerRole: 'a classroom teacher at the end of the day',
+    establishing: {
+      eyebrow: 'Interactive Scenario', title: 'The blade left behind',
+      sub: 'You spot a craft blade left on the back table. It is not yours, and you do not know which student left it. What you do next is the roleplay.',
+      hideCourse: true,
+    },
+    openingImage: 'A middle-school classroom after the last bell. On the back table, among the leftover supplies, a craft utility blade sits exposed — no student nearby, and nothing marks whose project it came from.',
+    intro: { type: 'none', video: { sound: false, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
+    voice: { persona: 'a plain-spoken safety lead who has worked a floor — direct, never preachy, and interested in the judgment call itself rather than reciting the rule back', guidance: '' },
+    reflection: { enabled: false, prompt: '', feedbackGuidance: '' },
+    state: [],
+    beats: [
+      {
+        id: 'decision', label: 'The Decision', level: 'Beat 1 · the first move', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'You are clearing your classroom after the last bell when you spot it: a craft utility blade sitting exposed on the back table, left over from an earlier class. It is not yours, and you do not recognize whose project it came from. You pick it up to deal with it — and that is when the front office calls over the intercom: a parent is waiting at the desk and needs you right now. The blade is still in your hand. What do you do?', prompt: '', beats: [], cta: 'Think it through' },
+        inputPlaceholder: 'What do you do?',
+        exitCriteria: 'the learner states a first action toward the blade — correct or not. Advance on any stated action; do not hold this beat waiting for the ideal answer.',
+        reactionGuidance: 'No character to voice — this is a direct decision point, not a negotiation. Accept whatever the learner states as their action and move on.',
+        hasRightAnswer: true,
+        throughLine: 'The decision on a sharp gets made before you set it down for something else, not after.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'leaves the blade on the table, tucks it into a drawer "for later," or heads to the office without it — the shortcut the whole module is about' },
+          { tier: 'PARTIAL', guidance: 'holds onto the blade but does not activate a safety feature or state a route to a container before responding to the intercom' },
+          { tier: 'SOUND', guidance: 'activates a safety feature if the blade has one, or states it will go straight into a designated container, and either carries it along or takes the few seconds to secure it before answering the office' } ],
+        debrief: {
+          talkItThrough: 'Before we go further — the first thing you said there is the whole beat, so let’s look at it.',
+          points: 'quote their actual first action back to them; land that a sharp you did not leave is still yours the moment you pick it up, and that an interruption is not a reason it gets set back down' },
+        transitions: [ { onTier: '', next: 'execution', set: {} } ],
+      },
+      {
+        id: 'execution', label: 'The Execution', level: 'Beat 2 · walking it through', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'The office knows you are on your way. The blade is still with you, and the sharps container is in the prep room, next to the sink. Walk me through exactly what you do from here, step by step, until it is disposed of.', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Describe what you do, step by step…',
+        exitCriteria: 'the learner describes the disposal steps in order: any safety feature engaged or acknowledged, a direct route with no detours, and placement in a designated container without recapping, bending, or setting it down again along the way',
+        reactionGuidance: 'No character — this is a direct narration, not a conversation. Judge the described sequence itself: does it name the safety feature, is the route direct, does it end in a designated container. If a step is skipped, probe on its own turn first (action: continue, no tier yet) — do not ask a follow-up and close the phase in the same turn. Move on and report a tier regardless of whether they add the missing step on the probe.',
+        hasRightAnswer: true,
+        throughLine: 'Disposal is a sequence, not a single action — timing, technique, and route all show up in how it gets described.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'describes recapping, bending, setting it down en route, or handing it off to another teacher to deal with' },
+          { tier: 'PARTIAL', guidance: 'reaches a container but is vague or silent on the safety feature, or describes an indirect route with a stop along the way' },
+          { tier: 'SOUND', guidance: 'describes the safety feature, a direct route with no stops, and placing it straight into the designated container' } ],
+        debrief: {
+          talkItThrough: 'Worth rating this one on the specifics, since that is what the rubric actually is: timing, technique, and route.',
+          points: 'name what they actually described, not what they meant; land that each of the three shows up as a separate, checkable thing in the sequence — when it goes in, how it was handled, and whether the route had a detour' },
+        transitions: [ { onTier: '', next: 'container', set: {} } ],
+      },
+      {
+        id: 'container', label: 'The Complication', level: 'Beat 3 · when the container fails', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'You get to the prep room. The container is packed to the fill line, and the spare is in the nurse’s supply closet, back down the hall. What do you do?', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'What do you do?',
+        exitCriteria: 'the learner either goes for another proper container or reports the full one, or improvises (forcing it in, leaving it balanced on top, falling back to general waste). Either closes the beat.',
+        reactionGuidance: 'No character to react — accept whatever the learner decides and close the beat honestly, including an improvised answer. Always report a tier on the closing turn, even for an improvised answer.',
+        hasRightAnswer: true,
+        throughLine: 'A container past its fill line has stopped being an engineering control and is now a hazard wearing the label of a safeguard. The sharp stays in your control until there is a real container for it.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'forces it in, presses the contents down, leaves it balanced on top, or falls back to general waste' },
+          { tier: 'PARTIAL', guidance: 'refuses to improvise but stops there — waits, or hands the problem off, without naming a route for the blade' },
+          { tier: 'SOUND', guidance: 'goes for the spare in the nurse’s supply closet or another designated container, or reports the full one, keeping the blade under their own control throughout' } ],
+        debrief: {
+          talkItThrough: 'This is the one that separates knowing the procedure from being able to run it when the equipment has failed.',
+          points: 'name what they actually did; land that pressing contents down is the most direct route to a stick in the entire module, and that the blade staying in a controlled hand is always better than parked somewhere undesignated' },
+        transitions: [ { onTier: '', next: 'close', set: {} } ],
+      },
+      {
+        id: 'close', label: 'The Close', level: 'Beat 4 · one honest question', type: 'coach-led', maxTurns: 1,
+        entry: { bridge: '', signpost: 'Last one, and there is no right answer here. What would make this hardest to do right on your worst day?', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Whatever comes to mind…',
+        exitCriteria: 'ANYTHING the learner offers closes this beat, including a short or minimal answer. Never held open, never re-asked.',
+        reactionGuidance: 'No character. This is sentiment only, scored for nothing — take whatever they say at face value, acknowledge it briefly without correcting or grading it, and close.',
+        hasRightAnswer: false,
+        throughLine: 'A two-word answer and a considered one are different signals about how much of this landed — neither is wrong.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'BRIEF', guidance: 'gives a short or minimal answer. NOT a failure — record it plainly and do not press for more' },
+          { tier: 'REFLECTIVE', guidance: 'names a specific real condition from their own day' } ],
+        debrief: {
+          talkItThrough: 'That is the end of it. Let’s look at the whole thing rather than just the last answer.',
+          points: 'take whatever they said without inflating it; close on the behavior the module opened with — the decision on a sharp gets made before it is ever picked up' },
+        transitions: [ { onTier: '', next: '', set: {} } ],
+      },
+    ],
+    playbook: [
+      { title: 'Decide the route before you pick it up', body: 'Know where the container is and how you reach it before the sharp is ever in your hand. Distance is a problem you solve early, not one you discover holding a used blade.' },
+      { title: 'The safety feature goes on in your hand', body: 'Sheath, retract, or blunt it the moment you are done, while the device is still under your control and nobody else is near it.' },
+      { title: 'A sharp does not have to be yours to be your responsibility', body: 'If you did not leave it and do not know whose it is, that changes nothing about what happens next. Recognizing the hazard is the first half of the job.' },
+      { title: 'An interruption does not change the decision', body: 'Getting pulled away mid-task is exactly when the shortcut happens. Whatever you decided to do with the sharp does not wait for the interruption to end.' },
+      { title: 'A full container is not a container', body: 'Past the fill line your building’s plan sets, it has stopped swallowing the point — so it is a hazard wearing the label of a safeguard. Seal it and walk; never put a hand inside one.' },
+    ],
+    resources: {
+      lead: 'The decision this scenario turns on is made in about four seconds, so it is worth having these where you can reach them:',
+      items: [
+        { title: 'Your district’s exposure control plan', body: 'Where it says the fill line sits, and who to tell when a container is past it. It is a specific document with a specific owner, not a general principle.' },
+        { title: 'What to do after a needlestick', body: 'Worth reading before you need it. The window for post-exposure follow-up is measured in hours.' },
+        { title: 'Where every container on your hall is', body: 'The first step of the procedure is knowledge you either have before the day starts or do not. Walk it once and it stops being a decision.' },
+      ],
+    },
+  };
+
+  /* =======================================================================
+     EXAMPLE — "The Blade on the Sill", the Commercial AEC parallel to
+     EXAMPLE_SHARPS. Same alignment-brief §6.3 rationale as the Education
+     version above; sourced against `LENSES.aec` (sharps, facility, sustain,
+     and case2's own "spare is in the trailer two levels down" detail,
+     reused rather than re-invented). Avoids case1's exact hazard (a syringe
+     pulled from a wall cavity) for the same "not a situation they've
+     already met" reason.
+     ======================================================================= */
+  const EXAMPLE_SHARPS_AEC = {
+    v: 1, type: 'mix-arc',
+    title: 'Interactive scenario: The blade on the sill',
+    course: 'Bloodborne Pathogens — Module 4, Contain the Sharp',
+    learnerName: 'you', characterName: '',
+    elevatedStakes: false, involvesMinors: false, threatContent: false,
+    framing: 'the culminating activity for a module on safe sharps handling and disposal. The learner has already been taught the four-step procedure and practiced recognizing hazard conditions across three cases. This scenario is a cold test of both: an unclaimed sharp, no character to negotiate with, and a real interruption partway through.',
+    learnerRole: 'a site supervisor mid-walkthrough, on an occupied renovation',
+    establishing: {
+      eyebrow: 'Interactive Scenario', title: 'The blade on the sill',
+      sub: 'You spot a utility blade left on a windowsill. It is not yours, and you do not know which trade left it. What you do next is the roleplay.',
+      hideCourse: true,
+    },
+    openingImage: 'An occupied renovation floor, mid punch-list walkthrough. On a windowsill, among the glazing crew’s offcuts, a utility blade sits exposed — no one nearby, and nothing marks which trade left it.',
+    intro: { type: 'none', video: { sound: false, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
+    voice: { persona: 'a plain-spoken safety lead who has worked a floor — direct, never preachy, and interested in the judgment call itself rather than reciting the rule back', guidance: '' },
+    reflection: { enabled: false, prompt: '', feedbackGuidance: '' },
+    state: [],
+    beats: [
+      {
+        id: 'decision', label: 'The Decision', level: 'Beat 1 · the first move', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'You are mid-walkthrough when you spot it: a utility blade sitting exposed on a windowsill, left among the glazing crew’s offcuts. It is not yours, and you do not recognize which trade left it. You pick it up to deal with it — and that is when your radio goes: a trade needs you downstairs for a sign-off right now. The blade is still in your hand. What do you do?', prompt: '', beats: [], cta: 'Think it through' },
+        inputPlaceholder: 'What do you do?',
+        exitCriteria: 'the learner states a first action toward the blade — correct or not. Advance on any stated action; do not hold this beat waiting for the ideal answer.',
+        reactionGuidance: 'No character to voice — this is a direct decision point, not a negotiation. Accept whatever the learner states as their action and move on.',
+        hasRightAnswer: true,
+        throughLine: 'The decision on a sharp gets made before you set it down for something else, not after.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'leaves the blade on the sill, tucks it aside "for later," or heads downstairs without it — the shortcut the whole module is about' },
+          { tier: 'PARTIAL', guidance: 'holds onto the blade but does not activate a safety feature or state a route to a container before responding to the radio' },
+          { tier: 'SOUND', guidance: 'activates a safety feature if the blade has one, or states it will go straight into a designated container, and either carries it along or takes the few seconds to secure it before answering the radio' } ],
+        debrief: {
+          talkItThrough: 'Before we go further — the first thing you said there is the whole beat, so let’s look at it.',
+          points: 'quote their actual first action back to them; land that a sharp you did not leave is still yours the moment you pick it up, and that an interruption is not a reason it gets set back down' },
+        transitions: [ { onTier: '', next: 'execution', set: {} } ],
+      },
+      {
+        id: 'execution', label: 'The Execution', level: 'Beat 2 · walking it through', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'The trade downstairs knows you are on your way. The blade is still with you, and the sharps container is in the first-aid station on this floor. Walk me through exactly what you do from here, step by step, until it is disposed of.', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Describe what you do, step by step…',
+        exitCriteria: 'the learner describes the disposal steps in order: any safety feature engaged or acknowledged, a direct route with no detours, and placement in a designated container without recapping, bending, or setting it down again along the way',
+        reactionGuidance: 'No character — this is a direct narration, not a conversation. Judge the described sequence itself: does it name the safety feature, is the route direct, does it end in a designated container. If a step is skipped, probe on its own turn first (action: continue, no tier yet) — do not ask a follow-up and close the phase in the same turn. Move on and report a tier regardless of whether they add the missing step on the probe.',
+        hasRightAnswer: true,
+        throughLine: 'Disposal is a sequence, not a single action — timing, technique, and route all show up in how it gets described.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'describes recapping, bending, setting it down en route, or handing it off to a labourer to deal with' },
+          { tier: 'PARTIAL', guidance: 'reaches a container but is vague or silent on the safety feature, or describes an indirect route with a stop along the way' },
+          { tier: 'SOUND', guidance: 'describes the safety feature, a direct route with no stops, and placing it straight into the designated container' } ],
+        debrief: {
+          talkItThrough: 'Worth rating this one on the specifics, since that is what the rubric actually is: timing, technique, and route.',
+          points: 'name what they actually described, not what they meant; land that each of the three shows up as a separate, checkable thing in the sequence — when it goes in, how it was handled, and whether the route had a detour' },
+        transitions: [ { onTier: '', next: 'container', set: {} } ],
+      },
+      {
+        id: 'container', label: 'The Complication', level: 'Beat 3 · when the container fails', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'You get to the first-aid station. The container is packed past the fill line stamped on its label, lid domed where the last few went in sideways, and the spare is in the trailer two levels down. What do you do?', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'What do you do?',
+        exitCriteria: 'the learner either goes for another proper container or reports the full one, or improvises (forcing it in, leaving it balanced on top, falling back to general waste). Either closes the beat.',
+        reactionGuidance: 'No character to react — accept whatever the learner decides and close the beat honestly, including an improvised answer. Always report a tier on the closing turn, even for an improvised answer.',
+        hasRightAnswer: true,
+        throughLine: 'A container past its fill line has stopped being an engineering control and is now a hazard wearing the label of a safeguard. The sharp stays in your control until there is a real container for it.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'forces it in, presses the contents down, leaves it balanced on top, or falls back to general waste' },
+          { tier: 'PARTIAL', guidance: 'refuses to improvise but stops there — waits, or hands the problem off, without naming a route for the blade' },
+          { tier: 'SOUND', guidance: 'goes down to the trailer for the spare or another designated container, or reports the full one, keeping the blade under their own control throughout' } ],
+        debrief: {
+          talkItThrough: 'This is the one that separates knowing the procedure from being able to run it when the equipment has failed.',
+          points: 'name what they actually did; land that pressing contents down is the most direct route to a stick in the entire module, and that the blade staying in a controlled hand is always better than parked somewhere undesignated' },
+        transitions: [ { onTier: '', next: 'close', set: {} } ],
+      },
+      {
+        id: 'close', label: 'The Close', level: 'Beat 4 · one honest question', type: 'coach-led', maxTurns: 1,
+        entry: { bridge: '', signpost: 'Last one, and there is no right answer here. What would make this hardest to do right on your worst day?', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Whatever comes to mind…',
+        exitCriteria: 'ANYTHING the learner offers closes this beat, including a short or minimal answer. Never held open, never re-asked.',
+        reactionGuidance: 'No character. This is sentiment only, scored for nothing — take whatever they say at face value, acknowledge it briefly without correcting or grading it, and close.',
+        hasRightAnswer: false,
+        throughLine: 'A two-word answer and a considered one are different signals about how much of this landed — neither is wrong.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'BRIEF', guidance: 'gives a short or minimal answer. NOT a failure — record it plainly and do not press for more' },
+          { tier: 'REFLECTIVE', guidance: 'names a specific real condition from their own site' } ],
+        debrief: {
+          talkItThrough: 'That is the end of it. Let’s look at the whole thing rather than just the last answer.',
+          points: 'take whatever they said without inflating it; close on the behavior the module opened with — the decision on a sharp gets made before it is ever picked up' },
+        transitions: [ { onTier: '', next: '', set: {} } ],
+      },
+    ],
+    playbook: [
+      { title: 'Decide the route before you pick it up', body: 'Know where the container is and how you reach it before the sharp is ever in your hand. Distance is a problem you solve early, not one you discover holding a used blade.' },
+      { title: 'The safety feature goes on in your hand', body: 'Sheath, retract, or blunt it the moment you are done, while the device is still under your control and nobody else is near it.' },
+      { title: 'A sharp does not have to be yours to be your responsibility', body: 'If you did not leave it and do not know whose it is, that changes nothing about what happens next. Recognizing the hazard is the first half of the job.' },
+      { title: 'An interruption does not change the decision', body: 'Getting pulled away mid-task is exactly when the shortcut happens. Whatever you decided to do with the sharp does not wait for the interruption to end.' },
+      { title: 'A full container is not a container', body: 'Past the fill line stamped on its label, it has stopped swallowing the point — so it is a hazard wearing the label of a safeguard. Seal it and walk; never put a hand inside one.' },
+    ],
+    resources: {
+      lead: 'The decision this scenario turns on is made in about four seconds, so it is worth having these where you can reach them:',
+      items: [
+        { title: 'The site’s exposure control plan', body: 'Where it says the fill line sits, and who to tell when a container is past it. It is a specific document with a specific owner, not a general principle.' },
+        { title: 'What to do after a needlestick', body: 'Worth reading before you need it. The window for post-exposure follow-up is measured in hours.' },
+        { title: 'Where every container on this floor is', body: 'The first step of the procedure is knowledge you either have before the walkthrough or do not. Walk it once and it stops being a decision.' },
+      ],
+    },
+  };
+
+  /* =======================================================================
+     EXAMPLE — "The Needle in the Jump Bag", the Public Sector (EMS) parallel
+     to EXAMPLE_SHARPS. Same alignment-brief §6.3 rationale as the two
+     versions above; sourced against `LENSES.public` — case2's own "packed
+     past the fill line molded into its lid" and the wall unit "behind the
+     stretcher" are reused rather than re-invented. Avoids case3's exact
+     hazard (a needle left on the gurney rail by the crew before) for the
+     same "not a situation they've already met" reason; this one is found
+     restocking, not arriving at the ED.
+     ======================================================================= */
+  const EXAMPLE_SHARPS_PUBLIC = {
+    v: 1, type: 'mix-arc',
+    title: 'Interactive scenario: The needle in the jump bag',
+    course: 'Bloodborne Pathogens — Module 4, Contain the Sharp',
+    learnerName: 'you', characterName: '',
+    elevatedStakes: false, involvesMinors: false, threatContent: false,
+    framing: 'the culminating activity for a module on safe sharps handling and disposal. The learner has already been taught the four-step procedure and practiced recognizing hazard conditions across three cases. This scenario is a cold test of both: an unclaimed sharp, no character to negotiate with, and a real interruption partway through.',
+    learnerRole: 'a paramedic restocking the rig after a call',
+    establishing: {
+      eyebrow: 'Interactive Scenario', title: 'The needle in the jump bag',
+      sub: 'You spot an uncapped needle wedged in the jump bag. It is not yours, and you do not know which crew left it. What you do next is the roleplay.',
+      hideCourse: true,
+    },
+    openingImage: 'The back bay at the station, mid-restock after a call. Wedged in the jump bag’s side pocket, an uncapped needle sits exposed — no one nearby, and nothing marks which crew left it.',
+    intro: { type: 'none', video: { sound: false, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
+    voice: { persona: 'a plain-spoken safety lead who has worked a floor — direct, never preachy, and interested in the judgment call itself rather than reciting the rule back', guidance: '' },
+    reflection: { enabled: false, prompt: '', feedbackGuidance: '' },
+    state: [],
+    beats: [
+      {
+        id: 'decision', label: 'The Decision', level: 'Beat 1 · the first move', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'You are restocking the rig after a call when you spot it: an uncapped needle wedged in the jump bag’s side pocket. It is not yours, and you do not recognize which crew left it. You pick it up to deal with it — and that is when dispatch tones out a new run. The needle is still in your hand. What do you do?', prompt: '', beats: [], cta: 'Think it through' },
+        inputPlaceholder: 'What do you do?',
+        exitCriteria: 'the learner states a first action toward the needle — correct or not. Advance on any stated action; do not hold this beat waiting for the ideal answer.',
+        reactionGuidance: 'No character to voice — this is a direct decision point, not a negotiation. Accept whatever the learner states as their action and move on.',
+        hasRightAnswer: true,
+        throughLine: 'The decision on a sharp gets made before you set it down for something else, not after.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'tucks the needle back into the bag pocket, sets it on the bench "for a second," or climbs into the rig without it — the shortcut the whole module is about' },
+          { tier: 'PARTIAL', guidance: 'holds onto the needle but does not activate a safety feature or state a route to a container before responding to the tone-out' },
+          { tier: 'SOUND', guidance: 'activates a safety feature if the needle has one, or states it will go straight into a designated container, and either carries it along or takes the few seconds to secure it before answering the tone-out' } ],
+        debrief: {
+          talkItThrough: 'Before we go further — the first thing you said there is the whole beat, so let’s look at it.',
+          points: 'quote their actual first action back to them; land that a sharp you did not leave is still yours the moment you pick it up, and that an interruption is not a reason it gets set back down' },
+        transitions: [ { onTier: '', next: 'execution', set: {} } ],
+      },
+      {
+        id: 'execution', label: 'The Execution', level: 'Beat 2 · walking it through', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'Your partner is already climbing in. The needle is still with you, and the sharps container is clipped to the rail by the bench seat. Walk me through exactly what you do from here, step by step, until it is disposed of.', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Describe what you do, step by step…',
+        exitCriteria: 'the learner describes the disposal steps in order: any safety feature engaged or acknowledged, a direct route with no detours, and placement in a designated container without recapping, bending, or setting it down again along the way',
+        reactionGuidance: 'No character — this is a direct narration, not a conversation. Judge the described sequence itself: does it name the safety feature, is the route direct, does it end in a designated container. If a step is skipped, probe on its own turn first (action: continue, no tier yet) — do not ask a follow-up and close the phase in the same turn. Move on and report a tier regardless of whether they add the missing step on the probe.',
+        hasRightAnswer: true,
+        throughLine: 'Disposal is a sequence, not a single action — timing, technique, and route all show up in how it gets described.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'describes recapping, bending, setting it down en route, or handing it off to a crewmate to deal with' },
+          { tier: 'PARTIAL', guidance: 'reaches a container but is vague or silent on the safety feature, or describes an indirect route with a stop along the way' },
+          { tier: 'SOUND', guidance: 'describes the safety feature, a direct route with no stops, and placing it straight into the designated container' } ],
+        debrief: {
+          talkItThrough: 'Worth rating this one on the specifics, since that is what the rubric actually is: timing, technique, and route.',
+          points: 'name what they actually described, not what they meant; land that each of the three shows up as a separate, checkable thing in the sequence — when it goes in, how it was handled, and whether the route had a detour' },
+        transitions: [ { onTier: '', next: 'container', set: {} } ],
+      },
+      {
+        id: 'container', label: 'The Complication', level: 'Beat 3 · when the container fails', type: 'coach-led', maxTurns: 2,
+        entry: { bridge: '', signpost: 'You get to the rail. The container is packed past the fill line molded into its lid, and the second wall container is behind the stretcher — blocked while your partner has the patient on it. What do you do?', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'What do you do?',
+        exitCriteria: 'the learner either goes for another proper container or reports the full one, or improvises (forcing it in, leaving it balanced on top, falling back to general waste). Either closes the beat.',
+        reactionGuidance: 'No character to react — accept whatever the learner decides and close the beat honestly, including an improvised answer. Always report a tier on the closing turn, even for an improvised answer.',
+        hasRightAnswer: true,
+        throughLine: 'A container past its fill line has stopped being an engineering control and is now a hazard wearing the label of a safeguard. The sharp stays in your control until there is a real container for it.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'MISSED', guidance: 'forces it in, presses the contents down, leaves it balanced on top, or falls back to general waste' },
+          { tier: 'PARTIAL', guidance: 'refuses to improvise but stops there — waits, or hands the problem off, without naming a route for the needle' },
+          { tier: 'SOUND', guidance: 'holds the needle and waits for the stretcher to clear before reaching the second container, or reports the full one, keeping it under their own control throughout' } ],
+        debrief: {
+          talkItThrough: 'This is the one that separates knowing the procedure from being able to run it when the equipment has failed.',
+          points: 'name what they actually did; land that pressing contents down is the most direct route to a stick in the entire module, and that the needle staying in a controlled hand is always better than parked somewhere undesignated' },
+        transitions: [ { onTier: '', next: 'close', set: {} } ],
+      },
+      {
+        id: 'close', label: 'The Close', level: 'Beat 4 · one honest question', type: 'coach-led', maxTurns: 1,
+        entry: { bridge: '', signpost: 'Last one, and there is no right answer here. What would make this hardest to do right on your worst call?', prompt: '', beats: [], cta: '' },
+        inputPlaceholder: 'Whatever comes to mind…',
+        exitCriteria: 'ANYTHING the learner offers closes this beat, including a short or minimal answer. Never held open, never re-asked.',
+        reactionGuidance: 'No character. This is sentiment only, scored for nothing — take whatever they say at face value, acknowledge it briefly without correcting or grading it, and close.',
+        hasRightAnswer: false,
+        throughLine: 'A two-word answer and a considered one are different signals about how much of this landed — neither is wrong.',
+        character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
+        media: { segments: [], affectiveBeat: false, openingReaction: '' },
+        calibration: [
+          { tier: 'BRIEF', guidance: 'gives a short or minimal answer. NOT a failure — record it plainly and do not press for more' },
+          { tier: 'REFLECTIVE', guidance: 'names a specific real condition from their own shift' } ],
+        debrief: {
+          talkItThrough: 'That is the end of it. Let’s look at the whole thing rather than just the last answer.',
+          points: 'take whatever they said without inflating it; close on the behavior the module opened with — the decision on a sharp gets made before it is ever picked up' },
+        transitions: [ { onTier: '', next: '', set: {} } ],
+      },
+    ],
+    playbook: [
+      { title: 'Decide the route before you pick it up', body: 'Know where the container is and how you reach it before the sharp is ever in your hand. Distance is a problem you solve early, not one you discover holding a used needle.' },
+      { title: 'The safety feature goes on in your hand', body: 'Sheath, retract, or blunt it the moment you are done, while the device is still under your control and nobody else is near it.' },
+      { title: 'A sharp does not have to be yours to be your responsibility', body: 'If you did not leave it and do not know whose it is, that changes nothing about what happens next. Recognizing the hazard is the first half of the job.' },
+      { title: 'An interruption does not change the decision', body: 'Getting pulled away mid-task is exactly when the shortcut happens. Whatever you decided to do with the sharp does not wait for the interruption to end.' },
+      { title: 'A full container is not a container', body: 'Past the fill line molded into its lid, it has stopped swallowing the point — so it is a hazard wearing the label of a safeguard. Seal it and walk; never put a hand inside one.' },
+    ],
+    resources: {
+      lead: 'The decision this scenario turns on is made in about four seconds, so it is worth having these where you can reach them:',
+      items: [
+        { title: 'Your service’s exposure control plan', body: 'Where it says the fill line sits, and who to tell when a container is past it. It is a specific document with a specific owner, not a general principle.' },
+        { title: 'What to do after a needlestick', body: 'Worth reading before you need it. The window for post-exposure follow-up is measured in hours.' },
+        { title: 'Where every container on your rig is', body: 'The first step of the procedure is knowledge you either have before the call starts or do not. Walk it once and it stops being a decision.' },
+      ],
+    },
+  };
+
   const EXAMPLES = {
     'reading-the-warning-signs': EXAMPLE_WPV,
     'the-kendra-situation': EXAMPLE_KENDRA,
     'the-marshall-scenario': EXAMPLE_MARSHALL,
     'hazmat-scene-size-up': EXAMPLE_HAZMAT,
     'unclaimed-blade-sharps': EXAMPLE_SHARPS,
+    'unclaimed-blade-education-sharps': EXAMPLE_SHARPS_EDUCATION,
+    'unclaimed-blade-aec-sharps': EXAMPLE_SHARPS_AEC,
+    'unclaimed-blade-public-sharps': EXAMPLE_SHARPS_PUBLIC,
   };
 
   /* =======================================================================
