@@ -1711,12 +1711,13 @@
       'title="Published — change whether this is live">' + face +
       micon('expand_more', { size: 14 }) + '</button>' +
       (open
-        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:232px;top:calc(100% + 6px)">' +
+        // No explanatory footnote: the confirm this opens says what it costs
+        // and what it keeps, and saying it twice makes the menu look like the
+        // decision point when it is only the way in.
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:184px;top:calc(100% + 6px)">' +
           '<button class="kx-menu-row" id="cpUnpublish">' +
           micon('unpublished', { size: 16 }) +
           '<span class="label">Unpublish</span></button>' +
-          '<div class="kx-menu-foot">Takes it off everyone’s homepage. The ' +
-          'dashboard and its audience are kept.</div>' +
           '</div>'
         : '') + '</div>';
   }
