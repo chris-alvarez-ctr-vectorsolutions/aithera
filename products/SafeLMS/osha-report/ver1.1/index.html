@@ -1332,7 +1332,7 @@
       { name:'Coleman, Tara',   ext:'tcoleman240', status:'in-progress', mods:2,  pct:18,  time:'0h 55m', last:'30 days ago', exp:'06/28/2026', expSoon:true, behind:true },
       { name:'Diaz, Hugo',      ext:'hdiaz556',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/05/2026' },
       { name:'Ellison, Mara',   ext:'mellison803', status:'passed',      mods:10, pct:100, time:'3h 50m', last:'03/22/2026',  exp:'03/22/2027' },
-      { name:'Farris, Quinn',   ext:'qfarris417',  status:'failed',      mods:9,  pct:95,  time:'4h 20m', last:'05/12/2026',  exp:'—', attempts:1 },
+      { name:'Farris, Quinn',   ext:'qfarris417',  status:'in-progress', mods:9,  pct:95,  time:'4h 20m', last:'05/12/2026',  exp:'10/28/2026', attempts:1 },
       { name:'Gibson, Noel',    ext:'ngibson629',  status:'in-progress', mods:7,  pct:70,  time:'3h 15m', last:'Yesterday',   exp:'11/20/2026' },
       { name:'Hoffman, Dana',   ext:'dhoffman361', status:'in-progress', mods:1,  pct:8,   time:'0h 25m', last:'22 days ago', exp:'09/10/2026', behind:true },
       { name:'Iqbal, Sana',     ext:'siqbal905',   status:'passed',      mods:10, pct:100, time:'4h 00m', last:'04/28/2026',  exp:'04/28/2027' },
@@ -1353,14 +1353,14 @@
       { name:'Greer, Paul',     ext:'pgreer820',   status:'in-progress', mods:8,  pct:78,  time:'5h 05m', last:'Today',       exp:'11/15/2026' },
       { name:'Hsu, Wendy',      ext:'whsu346',     status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'08/01/2026' },
       { name:'Irwin, Blake',    ext:'birwin914',   status:'in-progress', mods:3,  pct:26,  time:'2h 00m', last:'19 days ago', exp:'09/05/2026', behind:true },
-      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'failed',      mods:9,  pct:94,  time:'5h 40m', last:'05/09/2026',  exp:'—', attempts:1 },
+      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'in-progress', mods:9,  pct:94,  time:'5h 40m', last:'05/09/2026',  exp:'10/30/2026', attempts:1 },
       { name:'Kim, Sora',       ext:'skim671',     status:'passed',      mods:10, pct:100, time:'6h 10m', last:'04/20/2026',  exp:'04/20/2027' },
       { name:'Lowe, Trent',     ext:'tlowe238',    status:'in-progress', mods:5,  pct:46,  time:'3h 30m', last:'6 days ago',  exp:'10/22/2026' },
     ]},
     { id:'g3', course:'OSHA 30-Hour Construction', expanded:false, rows:[
       { name:'Brooks, Devon',   ext:'dbrooks662',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/20/2026', expSoon:true },
       { name:'Patel, Noah',     ext:'npatel743',   status:'in-progress', mods:8,  pct:81,  time:'2h 05m', last:'Today',       exp:'10/22/2026' },
-      { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      mods:9,  pct:88,  time:'1h 50m', last:'05/03/2026',  exp:'—', attempts:2 },
+      { name:'Foster, Hannah',  ext:'hfoster915',  status:'in-progress', mods:9,  pct:88,  time:'1h 50m', last:'05/03/2026',  exp:'11/05/2026', attempts:2 },
       { name:'Rahman, Aisha',   ext:'arahman288',  status:'passed',      mods:10, pct:100, time:'1h 40m', last:'05/06/2026',  exp:'05/06/2027' },
       { name:'Abbott, Cleo',    ext:'cabbott190',  status:'passed',      mods:10, pct:100, time:'1h 45m', last:'04/12/2026',  exp:'04/12/2027' },
       { name:'Burke, Mia',      ext:'mburke427',   status:'in-progress', mods:6,  pct:61,  time:'1h 20m', last:'2 days ago',  exp:'10/30/2026' },
@@ -1521,8 +1521,11 @@
     { key:'exp',      label:'Expires',          width:'115px', hidden:true, sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>` },
     // Total Course Quiz Failures — cumulative failed quiz attempts across the whole course.
+    // Shown for anyone who has recorded failures, whether or not they've failed the course:
+    // an IN-PROGRESS learner can have failed a quiz (1–2 attempts) and still be retrying, so we
+    // key off the recorded `attempts` count, not the course-fail status.
     { key:'attempts', label:'Total Course Quiz Failures', width:'205px', sortable:true, headClass:'nowrap',
-      render:(r) => (r.status === 'failed') ? `<span class="fr-attempt">${r.attempts || 1}</span>` : '<span class="muted-cell">—</span>' },
+      render:(r) => (r.attempts != null) ? `<span class="fr-attempt">${r.attempts}</span>` : '<span class="muted-cell">—</span>' },
     // Course Failure Date — we only receive this from ClickSafety once a learner has failed all
     // attempts, so it is populated only when the learner has exhausted their attempts.
     { key:'failed',   label:'Course Failure Date', width:'170px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
@@ -1765,7 +1768,7 @@
     last:     x => lastAgo(x.r.last),
     exp:      x => { const d = mdyToDate(x.r.exp); return d ? d.getTime() : null; },
     failed:   x => (x.r.status === 'failed' && x.r.attempts === 3) ? (mdyToDate(x.r.failDate)?.getTime() ?? null) : null,
-    attempts: x => (x.r.status === 'failed') ? (x.r.attempts || 1) : null,
+    attempts: x => x.r.attempts ?? null,
   };
   let sortState = { key: 'learner', dir: 'asc' };
   function applySort() {
