@@ -556,6 +556,22 @@
   .sai-cover-dot.d-working { background: #4a3d78; color: #d5c8f5; }
   .sai-cover-dot.d-mastery { background: var(--sai-info); color: #14101f; font-weight: 800; }
 
+  /* Provenance ring — depth is a JUDGMENT, so who made it is visible.
+     AI-proposed tags carry a dashed ring until a human has touched them. */
+  .sai-cover-dot.s-proposed  { outline: 1px dashed #6b5c8f; outline-offset: 1px; }
+  .sai-cover-dot.s-confirmed { outline: 1px solid var(--sai-output); outline-offset: 1px; }
+
+  /* Goal selector in the top bar. */
+  .sai-goal-select {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 4px 9px; border-radius: 6px;
+    background: var(--sai-surface-2); border: 1px solid var(--sai-line-2);
+    font-size: 11.5px; font-weight: 600; color: var(--sai-ink-2); cursor: pointer;
+  }
+  .sai-goal-select:hover { border-color: var(--sai-accent); color: var(--sai-accent); }
+  .sai-goal-select > i:first-child { font-size: 10px; color: var(--sai-ink-3); }
+  .sai-goal-select:hover > i:first-child { color: var(--sai-accent); }
+
   /* Required-depth chip on an information point. */
   .sai-req {
     display: inline-flex; align-items: center; gap: 4px;
@@ -585,6 +601,14 @@
   .sai-validate-verdict { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; }
   .sai-validate-verdict.pass { color: var(--sai-output); }
   .sai-validate-verdict.fail { color: #e0704a; }
+  .sai-validate-notes {
+    margin: -3px 0 7px; font-size: 10px; color: var(--sai-warn);
+  }
+  .sai-goal-tag {
+    padding: 1px 6px; border-radius: 3px;
+    background: var(--sai-surface-3); color: var(--sai-ink-2);
+    font-size: 9px; font-weight: 700; letter-spacing: .05em;
+  }
   .sai-validate-rows { display: flex; flex-direction: column; gap: 2px; }
   .sai-vrow {
     display: grid; grid-template-columns: 16px 1fr 74px 74px 14px;
@@ -608,6 +632,9 @@
   .sai-vrow.ok .sai-vrow-flag { color: var(--sai-output); }
   .sai-vrow.short .sai-vrow-flag { color: #e0704a; }
   .sai-vrow.gap .sai-vrow-flag { color: var(--sai-warn); }
+  /* Evidence-rule failures — the bar is met but the goal's rules are not. */
+  .sai-vrow.blocked .sai-vrow-flag { color: var(--sai-warn); }
+  .sai-vrow.blocked .sai-vrow-depth.got { color: var(--sai-warn); }
 
   /* Depth legend */
   .sai-depth-legend {
@@ -894,6 +921,11 @@
       <i class="fa-solid fa-folder-open"></i>
       Forklift Safety &amp; Operation
     </div>
+      <div class="sai-goal-select" id="goalSelect" title="The project's goal sets the default depth bar and the evidence rules">
+        <i class="fa-solid fa-bullseye"></i>
+        <span id="goalLabel">Compliance</span>
+        <i class="fa-solid fa-chevron-down" style="font-size:8px;opacity:.6"></i>
+      </div>
     <div class="sai-topbar-right">
       <div class="sai-avatars">
         <div class="sai-av" style="background:#6b4fc9" title="Dana Whitfield — LED">DW</div>
@@ -1075,6 +1107,9 @@
             <span><i class="sai-depth-swatch" style="background:transparent;box-shadow:inset 0 0 0 1px #4a3f6b"></i> Awareness</span>
             <span><i class="sai-depth-swatch" style="background:#4a3d78"></i> Working</span>
             <span><i class="sai-depth-swatch" style="background:var(--sai-info)"></i> Mastery</span>
+            <span style="opacity:.6">|</span>
+            <span><i class="sai-depth-swatch" style="background:transparent;outline:1px dashed #6b5c8f;outline-offset:1px"></i> AI-proposed</span>
+            <span><i class="sai-depth-swatch" style="background:transparent;outline:1px solid var(--sai-output);outline-offset:1px"></i> SME-confirmed</span>
           </div>
           <div class="sai-coverage-track">
               <div class="sai-coverage-fill" style="width:83%"></div>
@@ -1303,6 +1338,9 @@
 
 const MODEL = {
 
+  /* The project's goal sets the default bar and the evidence rules. */
+  goal: 'compliance',
+
   /* ── INFORMATION POINTS — the primary artifact ─────────────────────── */
   information: [
     { id: 'info-1', type: 'information.point', layer: 'information', status: 'idle',
@@ -1347,37 +1385,59 @@ const MODEL = {
     { id: 'act-video', type: 'media.video', layer: 'activity', status: 'idle',
       modality: 'Video', icon: 'fa-video',
       title: 'Safe operation walkthrough', meta: '8 min · narrated · captioned',
-      covers: { 'info-1': 'awareness', 'info-2': 'awareness', 'info-4': 'working', 'info-5': 'awareness' }, placed: true,
+      covers: {
+        'info-1': { depth: 'awareness', state: 'confirmed' },
+        'info-2': { depth: 'awareness', state: 'confirmed' },
+        'info-4': { depth: 'working',   state: 'adjusted'  },
+        'info-5': { depth: 'awareness', state: 'confirmed' }
+      }, placed: true,
       capabilities: ['retitle', 'regenerate', 'shorten', 'comment', 'compose'] },
 
     { id: 'act-podcast', type: 'media.audio', layer: 'activity', status: 'idle',
       modality: 'Audio', icon: 'fa-podcast',
       title: 'Yard talk: what the data plate does not tell you', meta: '11 min · 2-host script',
-      covers: { 'info-3': 'awareness', 'info-4': 'awareness', 'info-6': 'awareness' }, placed: true,
+      covers: {
+        'info-3': { depth: 'awareness', state: 'proposed' },
+        'info-4': { depth: 'awareness', state: 'proposed' },
+        'info-6': { depth: 'awareness', state: 'adjusted' }
+      }, placed: true,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
     { id: 'act-scenario', type: 'interactive.scenario', layer: 'activity', status: 'idle',
       modality: 'Interactive', icon: 'fa-diagram-project',
       title: 'Hazard walkthrough — loading dock', meta: '4 decision points · branching',
-      covers: { 'info-3': 'working', 'info-4': 'working', 'info-5': 'working', 'info-6': 'working' }, placed: true,
+      covers: {
+        'info-3': { depth: 'working', state: 'confirmed' },
+        'info-4': { depth: 'working', state: 'confirmed' },
+        'info-5': { depth: 'working', state: 'adjusted'  },
+        'info-6': { depth: 'working', state: 'adjusted'  }
+      }, placed: true,
       capabilities: ['retitle', 'regenerate', 'shorten', 'comment', 'compose', 'edit-manually'] },
 
     { id: 'act-check', type: 'question.multiple-choice', layer: 'activity', status: 'idle',
       modality: 'Assessment', icon: 'fa-circle-question',
       title: 'Capacity and attachment check', meta: '6 items · scored',
-      covers: { 'info-1': 'mastery', 'info-3': 'mastery' }, placed: true,
+      // A scenario-based knowledge check — a long-read stem with applied
+      // judgment — assesses at mastery just as validly as a simulation would.
+      covers: {
+        'info-1': { depth: 'mastery', state: 'confirmed' },
+        'info-3': { depth: 'mastery', state: 'adjusted'  }
+      }, placed: true,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
     { id: 'act-journal', type: 'reflection.journal', layer: 'activity', status: 'idle',
       modality: 'Reflection', icon: 'fa-pen-to-square',
       title: 'Near-miss reflection', meta: 'Open response · unscored',
-      covers: { 'info-5': 'working', 'info-6': 'working' }, placed: false,
+      covers: {
+        'info-5': { depth: 'working', state: 'proposed' },
+        'info-6': { depth: 'working', state: 'proposed' }
+      }, placed: false,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
     { id: 'act-aid', type: 'reference.job-aid', layer: 'activity', status: 'idle',
       modality: 'Reference', icon: 'fa-file-lines',
       title: 'Pre-shift inspection card', meta: 'Printable · 1 page',
-      covers: { 'info-1': 'awareness' }, placed: false,
+      covers: { 'info-1': { depth: 'awareness', state: 'confirmed' } }, placed: false,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] }
   ],
 
@@ -1467,35 +1527,99 @@ const DEPTH = {
 };
 const depthRank = d => (DEPTH[d] ? DEPTH[d].rank : 0);
 
-/* Validate a set of activity ids against the whole information set. */
+/* ── GOAL / STANDARD ───────────────────────────────────────────────────────
+   The threshold is relative to what the content is FOR. This is a different
+   axis from depth, not a rung on it: compliance can demand documented,
+   SME-confirmed assessment while asking only moderate cognitive depth, where
+   capability demands demonstrated performance and cares less about paperwork.
+
+   The goal sits on the PROJECT and supplies the default required depth per
+   point plus any extra evidence rules; a point may still override its own
+   bar. Two to start — leadership will define the real list, so the standards
+   are data, not hard-coded branches.
+   ───────────────────────────────────────────────────────────────────────── */
+const GOALS = {
+  compliance: {
+    label: 'Compliance',
+    desc: 'Regulatory-driven. Every point must be assessed and the judgment documented.',
+    defaultDepth: 'working',
+    requiresConfirmation: true,     // depth tags must be SME-confirmed
+    requiresAssessment: true        // every point needs an assessing activity
+  },
+  capability: {
+    label: 'Capability',
+    desc: 'Performance-driven. Points must be demonstrable; documentation is secondary.',
+    defaultDepth: 'working',
+    requiresConfirmation: false,
+    requiresAssessment: false
+  }
+};
+
+/* ── TAG PROVENANCE ────────────────────────────────────────────────────────
+   Depth is a JUDGMENT about how an activity treats a point — never derived
+   from the activity's format. A scenario-based knowledge check with a long
+   stem can assess as validly as a simulation, at the LED/SME's discretion.
+   So modality only ever SUGGESTS a starting value; the tag is freely set,
+   and we track who set it so the gate can tell a guess from a judgment.
+   ───────────────────────────────────────────────────────────────────────── */
+const TAG_STATE = {
+  proposed:  { label: 'AI-proposed', short: 'AI', icon: 'fa-sparkles',     rank: 1 },
+  adjusted:  { label: 'LED-set',     short: 'LED', icon: 'fa-user-pen',    rank: 2 },
+  confirmed: { label: 'SME-confirmed', short: 'SME', icon: 'fa-circle-check', rank: 3 }
+};
+
+/* A coverage tag is { depth, state }. Older shorthand (a bare depth string)
+   is normalised here so the renderers only ever see the full shape. */
+function tagOf(activity, pointId) {
+  const raw = activity.covers[pointId];
+  if (!raw) return null;
+  return typeof raw === 'string' ? { depth: raw, state: 'proposed' } : raw;
+}
+
+/* Validate a set of activity ids against the information set, under the
+   project's goal. The goal decides the DEFAULT bar and what counts as
+   adequate evidence; a point may still override its own required depth. */
 function validateOutput(activityIds) {
+  const goal = GOALS[MODEL.goal];
+
   const rows = MODEL.information.map(point => {
-    // Every activity in this output that tags this point, with its depth.
     const contributions = activityIds
       .map(id => byId[id])
       .filter(a => a && a.covers && a.covers[point.id])
-      .map(a => ({ activity: a, depth: a.covers[point.id] }));
+      .map(a => ({ activity: a, ...tagOf(a, point.id) }));
 
     const best = contributions.reduce(
       (hi, c) => depthRank(c.depth) > depthRank(hi) ? c.depth : hi, null);
 
-    const required  = point.requires;
+    // A point's own bar wins; otherwise the project's goal supplies it.
+    const required  = point.requires || goal.defaultDepth;
     const satisfied = depthRank(best) >= depthRank(required);
 
-    // Progression warning: reached the bar, but nothing below it was built.
+    // Progression: reached the bar with nothing built up beneath it.
     const ranks = contributions.map(c => depthRank(c.depth));
     const gap = satisfied && depthRank(required) > 1 &&
                 !ranks.some(r => r < depthRank(best));
 
-    return { point, contributions, best, required, satisfied, gap };
+    // Evidence rules from the goal. Compliance additionally demands that the
+    // depth judgment be SME-confirmed, and that something actually assesses.
+    const deepest   = contributions.filter(c => c.depth === best);
+    const confirmed = deepest.some(c => c.state === 'confirmed');
+    const unconfirmed = goal.requiresConfirmation && satisfied && !confirmed;
+    const unassessed  = goal.requiresAssessment && depthRank(best) < depthRank('mastery');
+
+    return { point, contributions, best, required, satisfied,
+             gap, unconfirmed, unassessed,
+             blocked: !satisfied || unconfirmed || unassessed };
   });
 
   return {
-    rows,
+    goal, rows,
     satisfiedCount: rows.filter(r => r.satisfied).length,
     total: rows.length,
-    gaps: rows.filter(r => r.gap).length,
-    passes: rows.every(r => r.satisfied)
+    gaps:        rows.filter(r => r.gap).length,
+    unconfirmed: rows.filter(r => r.unconfirmed).length,
+    unassessed:  rows.filter(r => r.unassessed).length,
+    passes: rows.every(r => !r.blocked)
   };
 }
 
@@ -1552,11 +1676,15 @@ function renderInformation() {
                 // Deepest coverage anywhere in the library for this point.
                 const best = MODEL.activities
                   .filter(a => a.covers[p.id])
-                  .reduce((hi, a) => depthRank(a.covers[p.id]) > depthRank(hi) ? a.covers[p.id] : hi, null);
-                const met = depthRank(best) >= depthRank(p.requires);
+                  .reduce((hi, a) => {
+                    const d = tagOf(a, p.id).depth;
+                    return depthRank(d) > depthRank(hi) ? d : hi;
+                  }, null);
+                const req = p.requires || GOALS[MODEL.goal].defaultDepth;
+                const met = depthRank(best) >= depthRank(req);
                 return `<span class="sai-req ${met ? 'met' : 'unmet'}"
-                  title="Requires ${DEPTH[p.requires].label} — ${DEPTH[p.requires].desc}. Best available: ${best ? DEPTH[best].label : 'none'}.">
-                  requires <b>${DEPTH[p.requires].label}</b>
+                  title="Requires ${DEPTH[req].label} — ${DEPTH[req].desc}.&#10;Best available in the library: ${best ? DEPTH[best].label : 'none'}.${p.requires ? '' : '&#10;(from the project goal)'}">
+                  requires <b>${DEPTH[req].label}</b>
                   <i class="fa-solid fa-${met ? 'check' : 'triangle-exclamation'}" style="font-size:8px"></i>
                 </span>`;
               })()}
@@ -1602,10 +1730,11 @@ function renderActivities() {
             </div>
             <div class="sai-activity-cover">
               <span class="sai-cover-label">covers</span>
-              ${Object.entries(a.covers).map(([cid, depth]) => {
+              ${Object.keys(a.covers).map(cid => {
+                const t = tagOf(a, cid);
                 const idx = MODEL.information.findIndex(p => p.id === cid) + 1;
-                return `<span class="sai-cover-dot d-${depth}" data-goto="${cid}"
-                  title="Point ${idx}: ${byId[cid].title} — delivered at ${DEPTH[depth].label}">${idx}</span>`;
+                return `<span class="sai-cover-dot d-${t.depth} s-${t.state}" data-goto="${cid}"
+                  title="Point ${idx}: ${byId[cid].title}&#10;Delivered at ${DEPTH[t.depth].label} · ${TAG_STATE[t.state].label}">${idx}</span>`;
               }).join('')}
             </div>
           </article>`).join('')}
@@ -1614,30 +1743,49 @@ function renderActivities() {
 }
 
 /* ── Outputs: structural sequence ───────────────────────────────────────── */
-/* Renders one output's validation against the whole information set. */
+/* Renders one output's validation against the information set, under the
+   project's current goal. */
 function renderValidation(activityIds) {
   const v = validateOutput(activityIds);
+
+  const notes = [];
+  if (v.unconfirmed) notes.push(`${v.unconfirmed} depth ${v.unconfirmed === 1 ? 'judgment' : 'judgments'} not SME-confirmed`);
+  if (v.unassessed)  notes.push(`${v.unassessed} never assessed`);
+  if (v.gaps)        notes.push(`${v.gaps} with no build-up`);
+
   return `
     <div class="sai-validate">
       <div class="sai-validate-head">
-        <i class="fa-solid fa-shield-check"></i> Threshold check
+        <i class="fa-solid fa-shield-halved"></i> Threshold check
+        <span class="sai-goal-tag">${v.goal.label}</span>
         <span class="sai-validate-verdict ${v.passes ? 'pass' : 'fail'}">
           <i class="fa-solid fa-${v.passes ? 'circle-check' : 'circle-exclamation'}"></i>
-          ${v.satisfiedCount}/${v.total} satisfied${v.gaps ? ` · ${v.gaps} flagged` : ''}
+          ${v.satisfiedCount}/${v.total} at depth
         </span>
       </div>
+      ${notes.length ? `<div class="sai-validate-notes">${notes.join(' · ')}</div>` : ''}
       <div class="sai-validate-rows">
-        ${v.rows.map((r, i) => `
-          <div class="sai-vrow ${r.satisfied ? (r.gap ? 'ok gap' : 'ok') : 'short'}" data-goto="${r.point.id}"
-               title="${r.gap ? 'Reaches the required depth, but nothing builds up to it — assessed without being taught.' : ''}">
+        ${v.rows.map((r, i) => {
+          // Worst-first: an unmet bar outranks a missing confirmation.
+          const cls   = !r.satisfied ? 'short' : (r.unconfirmed || r.unassessed) ? 'blocked' : r.gap ? 'ok gap' : 'ok';
+          const icon  = !r.satisfied ? 'xmark'
+                      : r.unconfirmed ? 'user-clock'
+                      : r.unassessed  ? 'clipboard-question'
+                      : r.gap ? 'triangle-exclamation' : 'check';
+          const why   = !r.satisfied ? `Needs ${DEPTH[r.required].label}, best available is ${r.best ? DEPTH[r.best].label : 'none'}.`
+                      : r.unconfirmed ? 'Depth reached, but no SME has confirmed the judgment — required under the Compliance goal.'
+                      : r.unassessed  ? 'Never assessed. The Compliance goal requires an assessing activity for every point.'
+                      : r.gap ? 'Reaches the bar with nothing built up beneath it — assessed without being taught.'
+                      : 'Satisfied.';
+          return `
+          <div class="sai-vrow ${cls}" data-goto="${r.point.id}" title="${why}">
             <span class="sai-vrow-num">${i + 1}</span>
             <span class="sai-vrow-name">${r.point.title}</span>
             <span class="sai-vrow-depth req">needs ${DEPTH[r.required].short}</span>
             <span class="sai-vrow-depth got">${r.best ? 'has ' + DEPTH[r.best].short : 'none'}</span>
-            <span class="sai-vrow-flag">
-              <i class="fa-solid fa-${r.satisfied ? (r.gap ? 'triangle-exclamation' : 'check') : 'xmark'}"></i>
-            </span>
-          </div>`).join('')}
+            <span class="sai-vrow-flag"><i class="fa-solid fa-${icon}"></i></span>
+          </div>`;
+        }).join('')}
       </div>
     </div>`;
 }
@@ -1936,6 +2084,16 @@ $('#railToggle').addEventListener('click', toggleRail);
 $('#railHide').addEventListener('click', toggleRail);
 $('#railToggle').classList.add('active');   // log starts open
 
+/* Goal switch — flips the standard the whole project is held to, and every
+   threshold check re-evaluates against it. */
+$('#goalSelect').addEventListener('click', () => {
+  const keys = Object.keys(GOALS);
+  MODEL.goal = keys[(keys.indexOf(MODEL.goal) + 1) % keys.length];
+  $('#goalLabel').textContent = GOALS[MODEL.goal].label;
+  renderAll();
+  toast('Goal: ' + GOALS[MODEL.goal].label + ' — ' + GOALS[MODEL.goal].desc.split('.')[0]);
+});
+
 /* ═══════════════════════════════════════════════════════════════════════════
    COMMENT DRAWER
    Threads anchor to node ids, so they survive a repaint. Excerpts are
@@ -2032,7 +2190,11 @@ $('#transmuteOpts').addEventListener('click', e => {
   const id = 'act-new-' + Date.now();
 
   const iconFor = { 'Interactive simulation': 'fa-gamepad', 'Job aid': 'fa-file-lines', 'Micro-lesson series': 'fa-mobile-screen' };
-  const genDepth = { 'Interactive simulation': 'mastery', 'Job aid': 'awareness', 'Micro-lesson series': 'working' };
+  // A SUGGESTED starting depth only — modality never determines depth. A
+  // scenario-based knowledge check can assess as validly as a simulation, so
+  // every generated tag lands as 'proposed' for the LED to adjust and the SME
+  // to confirm.
+  const suggestDepth = { 'Interactive simulation': 'working', 'Job aid': 'awareness', 'Micro-lesson series': 'working' };
   const groupFor = { 'Interactive simulation': 'Interactive', 'Job aid': 'Reference', 'Micro-lesson series': 'Micro-learning' };
 
   const node = {
@@ -2040,9 +2202,8 @@ $('#transmuteOpts').addEventListener('click', e => {
     layer: 'activity', status: 'working',
     modality: groupFor[modality], icon: iconFor[modality] || 'fa-shapes',
     title: modality + ' — Forklift Safety', meta: 'Generating…',
-    // A generated activity is authored against every point, but at the depth
-    // its modality can actually deliver — a job aid can't assess.
-    covers: Object.fromEntries(MODEL.information.map(p => [p.id, genDepth[modality] || 'awareness'])),
+    covers: Object.fromEntries(MODEL.information.map(p =>
+      [p.id, { depth: suggestDepth[modality] || 'awareness', state: 'proposed' }])),
     placed: false,
     capabilities: ['retitle', 'regenerate', 'comment', 'compose']
   };
@@ -2071,8 +2232,9 @@ $('#transmuteOpts').addEventListener('click', e => {
               : '12 min · branching · scored';
     renderActivities(); applySelection(); applyStatuses();
     $('.sai-bubble', aiTurn).innerHTML =
-      `Created <b>${node.title}</b>. It covers all 6 information points — same content, ` +
-      `different modality. It's unplaced until you compose it into an output.`;
+      `Created <b>${node.title}</b>, tagged against all 6 information points at a ` +
+      `suggested depth. Those tags are proposals — depth is your call, not the ` +
+      `format's, so adjust them and route to Marcus for confirmation.`;
     toast(modality + ' created — covers all 6 points');
   }, 2600);
 });
