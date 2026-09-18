@@ -59,23 +59,34 @@ Settled. A modality discussion does **not** get to redesign these.
 | **Comments** | Activity-level — production feedback, retires with the activity (`MODEL.md`) |
 | **Drift** | Pinned point version and any drift severity surface here |
 
-### Per-section traceability — settled 2026-09-18
+### ~~Per-section traceability~~ → **activity-level tagging** — revised 2026-09-18
 
-Content sections tag to the information point(s) they serve. Coverage becomes
-traceable to **where a point is actually taught**, not merely asserted at
-activity level.
+**Superseded the same day it was proposed.** Per-section traceability was agreed
+before the LO length constraint was on the table, and does not survive it.
+
+**The constraint:** a Learning Object runs **2–5 minutes and typically covers one
+main teaching point**. The activity *is* already the granularity. Slicing it to
+locate where other points are covered "in some capacity" would invent precision
+that does not exist — and would invite tagging incidental mentions as coverage,
+which is the dilution the depth scale exists to prevent.
+
+**So: coverage tags at ACTIVITY level.** No section unit, no span tagging, no
+named beats. A modality's body does not need an addressable section for
+traceability purposes.
+
+**The hierarchy this confirms:**
 
 ```
-SEGMENT 2   covers ③ ④
-  Narration │ …
+Learning Object  =  Learning Activity   — one point, 2–5 min
+Course           =  Output              — composed of many LOs
 ```
 
-Consequences to honour in every modality design:
+A Course is not a large authored thing; it is an *arrangement* of short
+single-point activities. Which is why compose / decompose matter, and why the
+same LOs can serve both a Course and an Experience.
 
-- every modality's body must have an addressable **section** unit to tag
-- a point claimed at activity level with no section serving it is a detectable
-  inconsistency — worth surfacing
-- depth becomes defensible: you can point at the content that earns it
+It also makes coverage counts legible: an output covering six points needs
+roughly six activities, not one sprawling one.
 
 ---
 
@@ -140,14 +151,64 @@ standalone activity. The relationship between those needs resolving.
 
 ---
 
+## Settled cross-cutting decisions
+
+### Checks and assessments are different instruments — 2026-09-18
+
+Phase 2 calls both "questions" and models them identically (two sibling arrays,
+same object shape, nothing but which array they land in distinguishing them).
+The team clearly sensed a distinction it had no way to express. It is:
+
+| | Mid-activity **check-in** | **Assessment** activity |
+|---|---|---|
+| Tests | comprehension — did the language just used land? | understanding — can the concept be applied? |
+| Bound to | **the specific narration phrasing** of its activity | the information points only |
+| Lives as | a section *inside* the activity | its **own activity** |
+| Depth it evidences | Awareness / Working | Mastery |
+| Shared across modalities | **never** — language differs per modality | **yes, and should be** |
+| Drift trigger | its activity's language changes | its point advances (normal drift) |
+
+**Why checks can't be shared:** if the video says *"the derated figure governs"*
+and the podcast says *"the number on the supplementary plate is the one that
+counts,"* one shared question is subtly wrong for one of them — and wrong in a
+way that reads as a trick, since the learner knows the concept but not the
+words. Reuse across modalities is actively harmful here.
+
+**Why assessments should be:** a learner who took the video path and one who
+took the podcast path must face the same assessment, or you cannot claim they
+met the same threshold.
+
+**Consequence — a new drift trigger.** A check depends on the *language* of its
+activity, not only on the point. When narration changes, the check is suspect in
+the same way an activity is suspect when its point advances. Same mechanic,
+different trigger. Assessments need nothing new; they already depend only on
+points.
+
+### Scenes are a production unit, not a content boundary — 2026-09-18
+
+**User's framing:** scenes let an LED construct and design in smaller chunks that
+are stitched together into the finished LO — *"similar to film production where
+the whole movie isn't made in one sequence but rather smaller chunks stitched
+together."*
+
+So a **scene is a working chunk, and the LO is the deliverable.** The LO is the
+Learning Activity; scenes are how a person builds it without holding the whole
+thing at once.
+
+**Therefore scenes are the wrong unit for point tagging.** A teaching point does
+not respect scene boundaries any more than a plot point respects shot
+boundaries — one point may span three scenes, two points may share one. Tagging
+at scene level would tag production convenience rather than content.
+
+**Open:** what the content boundary actually is for video. A marked span of
+narration? A passage that may cross scenes? This must be resolved in the video
+section below — per-section traceability depends on it.
+
+---
+
 ## Open cross-cutting questions
 
-- **Does an integrated assessment count as one activity or two?** Phase 2 embeds
-  quizzes in video. In this model, is that one activity covering points at two
-  depths, or a video activity plus a check activity composed together? This
-  affects coverage tagging and should be settled before video or knowledge
-  check is built.
-- **Can one section serve points at different depths?** A segment might
+- **Can one section serve points at different depths?** A section might
   introduce point 3 while reinforcing point 4.
 - **How does regeneration interact with hand edits?** If an LED hand-edits
   segment 2 and then regenerates the activity, what survives?

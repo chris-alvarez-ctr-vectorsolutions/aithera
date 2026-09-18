@@ -102,9 +102,12 @@ authoring surface within one shared workflow. Multi-session by nature; the
 framework, the shared-workflow contract, and the per-modality status live in
 `MODALITIES.md`.
 
-Settled so far: **per-section traceability** (content sections tag to the points
-they serve) and **LED-side depth editing** (SME confirmation shown as state,
-never performed in-platform).
+Settled so far: **activity-level coverage tagging** (an LO is 2–5 min and covers
+one main point, so the activity is already the granularity — this revised an
+earlier per-section proposal), **LED-side depth editing** (SME confirmation shown
+as state, never performed in-platform), **scenes are a production unit** not a
+content boundary, and **checks vs. assessments** are different instruments with
+different binding and reuse rules.
 
 ---
 
