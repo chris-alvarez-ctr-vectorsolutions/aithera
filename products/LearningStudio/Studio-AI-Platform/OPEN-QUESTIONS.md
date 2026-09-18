@@ -92,6 +92,47 @@ consequences are large.
 
 ---
 
+## Next up
+
+### N1 · Architecture map — a visual of how a subject exists in the platform
+**Requested 2026-09-17. Do this before, or alongside, the UI/UX pass.**
+
+The model now has enough moving parts that the relationships are hard to hold
+in your head, and no single artifact shows them together. `MODEL.md` describes
+them in prose; the prototype demonstrates them in use; neither *maps* them.
+
+What it should show — the entities and the edges between them:
+
+- **Learning Project** → carries a **goal** (Compliance / Capability), which
+  supplies the default depth bar and the evidence rules
+- **Information Point** → versioned, has a lifecycle (`current` / `archived`),
+  declares a **required depth**, is the smallest definable facet of a subject,
+  and is **never delivered**
+- the **point document** (5 sections) vs. its **usage guidelines** — and the
+  wall between them, since that boundary is a guardrail rather than a layout
+- **Learning Activity** → derived from points, tagged to each with a
+  **depth** + **provenance** + a **pinned point version**
+- **drift** as a computed relationship, not an event — and its two severities
+- **Output** (structural Course / open-ended Experience) → composed of
+  activities, validated against the information set under the project goal
+- **Comments** at two levels, with different propagation and lifespans
+- the four operations — derive, transmute, compose, decompose — as directed
+  edges between layers
+
+Open sub-questions for when we take it on:
+
+- **Is it documentation or a product surface?** A diagram in the docs explains
+  the architecture to people. A live map *inside* the platform would let an LED
+  see their actual subject — which points are thin, which activities are
+  adrift, where coverage is concentrated. Those are very different builds, and
+  the second is arguably a real feature.
+- **If it's a product surface, what does it do?** Navigate (click a node to
+  drill in)? Diagnose (highlight gaps and drift)? Both?
+- **Does it show one project, or the whole library?** The library view is where
+  cross-project reuse of activities would become visible.
+
+---
+
 ## Quick to settle
 
 ### Q5 · Does depth require evidence, or just assertion?
