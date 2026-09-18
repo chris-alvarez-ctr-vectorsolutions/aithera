@@ -743,3 +743,83 @@ for the version axis. Tracked as **Q12**, now scoped to that.
 the working one" it speculated about is **settled in principle** — that is the
 pipeline. What remains open there is only what the *design surface* shows about
 published state.
+
+---
+
+## D32 · Manual locks — the author freezes what has been decided
+**2026-09-18**
+
+**Decided:** an author may **lock** any node or field. A locked target refuses
+**all writes** — the AI's and the author's own — until it is explicitly
+unlocked.
+
+**User's framing:** *"a valuable feature would be to allow the designer to lock
+certain aspects manually that are discussed, decided and locked in. This would
+allow continued AI assistance without the risk of unnoticed changes or requiring
+detailed QA every time a small change is applied."*
+
+**Why this is better than the alternative it replaced.** Q12 proposed that
+`confirmed` record what it was confirmed against, so staleness could be derived —
+**detection**: tell the author afterwards that something moved. A lock is
+**prevention**: the AI cannot touch it, so there is nothing to detect and nothing
+to re-QA. It is also a decision a human actually made, rather than a derived
+signal someone still has to interpret.
+
+The stated cost it removes is the real one: *"requiring detailed QA every time a
+small change is applied."* Permissive editing (D30) is only comfortable if the
+author can fence off what is settled.
+
+### Grain — any node or field
+
+Locks use the **existing addressing** — node id plus optional sub-target — which
+is what prompt targeting already uses. No new addressing model.
+
+This deliberately **differs from comments (D5)**, which anchor at node level only
+because a sub-node anchor orphans when content is regenerated. That reasoning
+does not transfer: **a lock's entire job is to prevent that regeneration.** A
+locked field cannot be replaced out from under its own anchor.
+
+### All writes, not just the AI's
+
+Locked means locked. The author unlocks deliberately, edits, and re-locks.
+
+**Why not AI-only:** with collaboration in the platform (D31), the decision needs
+protecting from a *colleague* as much as from the model — and "discussed,
+decided and locked in" is a statement about the content's status, not about who
+is typing. An AI-only lock would also make the lock's meaning depend on who was
+holding the keyboard, which is not what was decided.
+
+**Cost accepted:** a step on every legitimate edit. That is the point — the step
+is the author reopening a decision on purpose.
+
+### A partly-locked target refuses loudly, never silently
+
+The case this must not get wrong: an author locks one `look_for`, then asks to
+**regenerate the whole step**.
+
+- The request is **not silently honoured around the lock** — the author asked
+  for something the platform will not fully do, and regenerating "everything
+  except that one field" can produce a step whose parts no longer agree.
+- It is **not silently refused** either.
+- It **reports**: *"3 of 5 fields in this step are locked. Regenerate the rest,
+  or unlock first?"* — and the author chooses.
+
+Same posture as the render gate: **human-readable blockers, never a dead
+button.**
+
+### Consequences
+
+- **`capabilities` gets its first real consumer.** Every node already declares
+  `capabilities`, and nothing reads them yet. A lock is the canonical case — the
+  canvas asks the node what may be done to it, and a locked node answers
+  "nothing." That is the registration seam doing work rather than being
+  asserted.
+- **Lock state is authoring state, not content.** It does not travel to a
+  learner, and it is not part of what publish ships.
+- **Q12 narrows further.** With locks available, the staleness-detection field is
+  no longer the primary answer — it is at most a backstop for content nobody
+  thought to lock. Left open, downgraded.
+
+**Not decided here:** whether a lock records *why* it was set (a note, a link to
+the discussion, or nothing). Worth a field if locks are meant to carry
+"discussed and decided," but it is additive and can wait for the surface.

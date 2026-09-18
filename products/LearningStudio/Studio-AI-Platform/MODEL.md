@@ -121,6 +121,15 @@ question is. It asks the node what may be done to it. That's the registration
 seam that makes the shell content-agnostic — a new content type declares
 capabilities and gets correct selection behavior for free.
 
+**Locks are the first real consumer of that seam** (D32). An author may lock any
+node or field once it is decided; a locked target refuses **all** writes — the
+AI's and the author's — until explicitly unlocked. The canvas asks the node what
+may be done to it, and a locked node answers "nothing." Lock state is authoring
+state: it never reaches a learner and is not part of what publish ships.
+
+This is what makes permissive editing (D30) comfortable — the author can fence
+off what is settled instead of re-QAing it after every small change.
+
 ---
 
 ## Coverage — tags, not a hierarchy

@@ -150,6 +150,11 @@ first body where this actually bites.
 ### Q12 · Nothing detects that an activity's own content moved
 **Raised 2026-09-18 by D30; scoped down by D31. Has two callers already.**
 
+**Downgraded by D32.** Manual locks let an author freeze what has been decided,
+which **prevents** the problem rather than detecting it after the fact. What
+remains here is a backstop for content nobody thought to lock — worth keeping on
+the list, no longer the primary answer.
+
 **Scope note.** This is **not** about work leaking to live — a dedicated publish
 pipeline gates that (D31) — nor about losing work, which version control and
 drafts handle. It is about a **claim inside the design surface going stale**, and

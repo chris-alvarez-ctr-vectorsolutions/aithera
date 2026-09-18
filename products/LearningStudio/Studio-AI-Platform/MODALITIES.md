@@ -58,6 +58,7 @@ Settled. A modality discussion does **not** get to redesign these.
 | **Depth editing** | LED sets and adjusts depth here. **LED-side only** — SME confirmation is shown as state, never performed in-platform (SMEs are external bookends, D8) |
 | **Comments** | Activity-level — production feedback, retires with the activity (`MODEL.md`) |
 | **Drift** | Pinned point version and any drift severity surface here |
+| **Locks** | Any node or field may be **locked** (D32). A locked target refuses all writes — the AI's and the author's — until unlocked. A request that spans a lock reports and asks, never silently works around it |
 
 ### ~~Per-section traceability~~ → **activity-level tagging** — revised 2026-09-18, rejustified 2026-09-18
 
