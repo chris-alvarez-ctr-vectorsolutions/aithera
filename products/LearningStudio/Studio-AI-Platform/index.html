@@ -561,6 +561,31 @@
   .sai-cover-dot.s-proposed  { outline: 1px dashed #6b5c8f; outline-offset: 1px; }
   .sai-cover-dot.s-confirmed { outline: 1px solid var(--sai-output); outline-offset: 1px; }
 
+  /* Drift. Two severities, deliberately unequal in weight: being behind is
+     advisory (old information is not wrong, only not current), while an
+     archived source is a hard no-deliver. */
+  .sai-cover-dot.drift-low::after {
+    content: ''; position: absolute; top: -3px; right: -3px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--sai-warn); box-shadow: 0 0 0 1.5px var(--sai-surface-2);
+  }
+  .sai-cover-dot.drift-critical {
+    outline: 1px solid #e0704a !important; outline-offset: 1px;
+  }
+  .sai-cover-dot.drift-critical::after {
+    content: ''; position: absolute; top: -3px; right: -3px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: #e0704a; box-shadow: 0 0 0 1.5px var(--sai-surface-2);
+  }
+  .sai-cover-dot { position: relative; }
+
+  .sai-pill.sai-ver {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9.5px; color: var(--sai-ink-3);
+    border: 1px solid var(--sai-line-2); background: transparent;
+  }
+  .sai-pill.sai-archived { background: #3a201a; color: #e0704a; }
+
   /* Goal selector in the top bar. */
   .sai-goal-select {
     display: inline-flex; align-items: center; gap: 7px;
@@ -635,6 +660,8 @@
   /* Evidence-rule failures — the bar is met but the goal's rules are not. */
   .sai-vrow.blocked .sai-vrow-flag { color: var(--sai-warn); }
   .sai-vrow.blocked .sai-vrow-depth.got { color: var(--sai-warn); }
+  /* Drift is advisory — dimmer than a rule failure, deliberately. */
+  .sai-vrow.drift .sai-vrow-flag { color: var(--sai-ink-3); }
 
   /* Depth legend */
   .sai-depth-legend {
@@ -1347,36 +1374,42 @@ const MODEL = {
       title: 'Pre-shift inspection is mandatory before operation',
       text: 'Every operator completes a documented pre-shift inspection covering forks, mast, hydraulics, tires, horn, and seatbelt. An uninspected truck may not be placed in service.',
       provenance: 'OSHA 1910.178(q)(7)', sourced: true, verified: true, requires: 'working',
+      version: 2, lifecycle: 'current',
       capabilities: ['rephrase', 'split', 'comment', 'derive'] },
 
     { id: 'info-2', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Three-point contact when mounting and dismounting',
       text: 'Two hands and one foot, or two feet and one hand, maintain contact at all times. Never jump from the operator compartment.',
       provenance: 'Vector EHS standard §4.2', sourced: true, verified: true, requires: 'awareness',
+      version: 1, lifecycle: 'current',
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-3', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Load capacity varies by attachment',
       text: 'The data plate rating assumes standard forks. Fitting a clamp, rotator, or extension reduces rated capacity — the derated figure, not the plate figure, governs.',
       provenance: 'Model knowledge — unverified against 2026 revision', sourced: false, verified: true, requires: 'mastery',
+      version: 3, lifecycle: 'current',
       capabilities: ['rephrase', 'comment', 'derive'], flagged: true },
 
     { id: 'info-4', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Travel with the load low and tilted back',
       text: 'Carry loads 4–6 inches off the ground with the mast tilted back. Raised loads shift the centre of gravity and are the leading cause of tip-over.',
       provenance: 'OSHA 1910.178(n)(7)', sourced: true, verified: true, requires: 'working',
+      version: 1, lifecycle: 'current',
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-5', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Pedestrians always have right of way',
       text: 'Sound the horn at intersections and blind corners. Make eye contact before proceeding. Never travel with a pedestrian in the path of the load.',
       provenance: 'Vector EHS standard §6.1', sourced: true, verified: true, requires: 'awareness',
+      version: 2, lifecycle: 'current',
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-6', type: 'information.point', layer: 'information', status: 'idle',
       title: 'Stay in the compartment during a tip-over',
       text: 'Do not jump. Brace, grip the wheel, lean away from the fall. Most fatal injuries occur when an operator jumps and is caught by the overhead guard.',
       provenance: 'Model knowledge — SME input requested', sourced: false, verified: false, requires: 'mastery',
+      version: 1, lifecycle: 'current',
       capabilities: ['rephrase', 'comment', 'derive'], flagged: true }
   ],
 
@@ -1386,10 +1419,10 @@ const MODEL = {
       modality: 'Video', icon: 'fa-video',
       title: 'Safe operation walkthrough', meta: '8 min · narrated · captioned',
       covers: {
-        'info-1': { depth: 'awareness', state: 'confirmed' },
-        'info-2': { depth: 'awareness', state: 'confirmed' },
-        'info-4': { depth: 'working',   state: 'adjusted'  },
-        'info-5': { depth: 'awareness', state: 'confirmed' }
+        'info-1': { depth: 'awareness', state: 'confirmed', at: 2 },
+        'info-2': { depth: 'awareness', state: 'confirmed', at: 1 },
+        'info-4': { depth: 'working',   state: 'adjusted',  at: 1 },
+        'info-5': { depth: 'awareness', state: 'confirmed', at: 1 }
       }, placed: true,
       capabilities: ['retitle', 'regenerate', 'shorten', 'comment', 'compose'] },
 
@@ -1397,9 +1430,9 @@ const MODEL = {
       modality: 'Audio', icon: 'fa-podcast',
       title: 'Yard talk: what the data plate does not tell you', meta: '11 min · 2-host script',
       covers: {
-        'info-3': { depth: 'awareness', state: 'proposed' },
-        'info-4': { depth: 'awareness', state: 'proposed' },
-        'info-6': { depth: 'awareness', state: 'adjusted' }
+        'info-3': { depth: 'awareness', state: 'proposed',  at: 2 },
+        'info-4': { depth: 'awareness', state: 'proposed',  at: 1 },
+        'info-6': { depth: 'awareness', state: 'adjusted',  at: 1 }
       }, placed: true,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
@@ -1407,10 +1440,10 @@ const MODEL = {
       modality: 'Interactive', icon: 'fa-diagram-project',
       title: 'Hazard walkthrough — loading dock', meta: '4 decision points · branching',
       covers: {
-        'info-3': { depth: 'working', state: 'confirmed' },
-        'info-4': { depth: 'working', state: 'confirmed' },
-        'info-5': { depth: 'working', state: 'adjusted'  },
-        'info-6': { depth: 'working', state: 'adjusted'  }
+        'info-3': { depth: 'working', state: 'confirmed', at: 2 },
+        'info-4': { depth: 'working', state: 'confirmed', at: 1 },
+        'info-5': { depth: 'working', state: 'adjusted',  at: 2 },
+        'info-6': { depth: 'working', state: 'adjusted',  at: 1 }
       }, placed: true,
       capabilities: ['retitle', 'regenerate', 'shorten', 'comment', 'compose', 'edit-manually'] },
 
@@ -1420,8 +1453,8 @@ const MODEL = {
       // A scenario-based knowledge check — a long-read stem with applied
       // judgment — assesses at mastery just as validly as a simulation would.
       covers: {
-        'info-1': { depth: 'mastery', state: 'confirmed' },
-        'info-3': { depth: 'mastery', state: 'adjusted'  }
+        'info-1': { depth: 'mastery', state: 'confirmed', at: 2 },
+        'info-3': { depth: 'mastery', state: 'adjusted',  at: 3 }
       }, placed: true,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
@@ -1429,15 +1462,15 @@ const MODEL = {
       modality: 'Reflection', icon: 'fa-pen-to-square',
       title: 'Near-miss reflection', meta: 'Open response · unscored',
       covers: {
-        'info-5': { depth: 'working', state: 'proposed' },
-        'info-6': { depth: 'working', state: 'proposed' }
+        'info-5': { depth: 'working', state: 'proposed', at: 2 },
+        'info-6': { depth: 'working', state: 'proposed', at: 1 }
       }, placed: false,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] },
 
     { id: 'act-aid', type: 'reference.job-aid', layer: 'activity', status: 'idle',
       modality: 'Reference', icon: 'fa-file-lines',
       title: 'Pre-shift inspection card', meta: 'Printable · 1 page',
-      covers: { 'info-1': { depth: 'awareness', state: 'confirmed' } }, placed: false,
+      covers: { 'info-1': { depth: 'awareness', state: 'confirmed', at: 2 } }, placed: false,
       capabilities: ['retitle', 'regenerate', 'comment', 'compose'] }
   ],
 
@@ -1544,6 +1577,7 @@ const GOALS = {
     desc: 'Regulatory-driven. Every point must be assessed and the judgment documented.',
     defaultDepth: 'working',
     requiresConfirmation: true,     // depth tags must be SME-confirmed
+    requiresCurrent: true,          // ...against the CURRENT point version
     requiresAssessment: true        // every point needs an assessing activity
   },
   capability: {
@@ -1551,6 +1585,7 @@ const GOALS = {
     desc: 'Performance-driven. Points must be demonstrable; documentation is secondary.',
     defaultDepth: 'working',
     requiresConfirmation: false,
+    requiresCurrent: false,
     requiresAssessment: false
   }
 };
@@ -1568,12 +1603,61 @@ const TAG_STATE = {
   confirmed: { label: 'SME-confirmed', short: 'SME', icon: 'fa-circle-check', rank: 3 }
 };
 
-/* A coverage tag is { depth, state }. Older shorthand (a bare depth string)
-   is normalised here so the renderers only ever see the full shape. */
+/* ── POINT VERSIONING & DRIFT ──────────────────────────────────────────────
+   Information points are DESIGN-TIME CONTEXT, never delivered to a learner.
+   They are the source an activity is authored from, so they are not shared,
+   instanced or variant-ed the way a Learning Object is — one point sources
+   many activities, one-way.
+
+   A coverage tag therefore pins the point VERSION it was authored and judged
+   against (`at`). Drift is then computed, not fired as an event: if the point
+   has moved on, every tag pinned to an older version is out of date.
+
+   Severity comes from the point's LIFECYCLE, not from diffing content —
+   materiality is a human declaration, not something to infer:
+
+     current  + older pin  →  low-severity "update available". Old information
+                              is not wrong, only not current; standards evolve
+                              (WCAG versions, electrical codes) and the field
+                              carries its own grace period. Advisory, soft, no
+                              deadline, never blocks delivery.
+     archived              →  critical. Hard no-deliver dependency.
+
+   Archival — and any no-deliver call — is a LEADERSHIP declaration. External
+   tooling may scan for risky or outdated information, but a human sets the
+   severity and assigns the work.
+
+   Re-confirming depth after a version bump is a delta review (v2 -> v3,
+   AI-assisted LED/SME collaboration). That flow belongs to the information
+   updating phase, which V1 starts past — see D7. What V1 models is the STATE:
+   a confirmation records which version it was made against, so
+   "confirmed-against-current" is derivable without a fourth tag state.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* A coverage tag is { depth, state, at }. Older shorthand (a bare depth
+   string) is normalised so renderers only ever see the full shape. */
 function tagOf(activity, pointId) {
   const raw = activity.covers[pointId];
   if (!raw) return null;
-  return typeof raw === 'string' ? { depth: raw, state: 'proposed' } : raw;
+  const tag = typeof raw === 'string' ? { depth: raw, state: 'proposed' } : raw;
+  const point = byId[pointId];
+  const at = tag.at || 1;
+
+  const archived = point && point.lifecycle === 'archived';
+  const behind   = point ? at < point.version : false;
+
+  return {
+    ...tag, at,
+    behind,
+    archived,
+    // Severity of the drift, if any. Archived blocks; behind is advisory.
+    drift: archived ? 'critical' : behind ? 'low' : null,
+    // Confirmation is never revoked by a version bump — it is simply recorded
+    // against a version, and currency is derived. The goal rules decide
+    // whether confirmed-against-an-older-version is good enough.
+    current: !behind && !archived,
+    confirmedCurrent: tag.state === 'confirmed' && !behind && !archived
+  };
 }
 
 /* Validate a set of activity ids against the information set, under the
@@ -1603,13 +1687,21 @@ function validateOutput(activityIds) {
     // Evidence rules from the goal. Compliance additionally demands that the
     // depth judgment be SME-confirmed, and that something actually assesses.
     const deepest   = contributions.filter(c => c.depth === best);
-    const confirmed = deepest.some(c => c.state === 'confirmed');
+    const confirmed = deepest.some(c =>
+      goal.requiresCurrent ? c.confirmedCurrent : c.state === 'confirmed');
     const unconfirmed = goal.requiresConfirmation && satisfied && !confirmed;
     const unassessed  = goal.requiresAssessment && depthRank(best) < depthRank('mastery');
 
+    // Drift, rolled up from the contributing tags.
+    // Archived source = hard no-deliver. Behind = advisory only, never blocks.
+    const archived = contributions.some(c => c.archived);
+    const behind   = contributions.filter(c => c.behind).length;
+
     return { point, contributions, best, required, satisfied,
-             gap, unconfirmed, unassessed,
-             blocked: !satisfied || unconfirmed || unassessed };
+             gap, unconfirmed, unassessed, archived, behind,
+             // Only an archived source blocks on drift grounds. Being behind
+             // is soft — old information is not wrong, just not current.
+             blocked: !satisfied || unconfirmed || unassessed || archived };
   });
 
   return {
@@ -1619,6 +1711,8 @@ function validateOutput(activityIds) {
     gaps:        rows.filter(r => r.gap).length,
     unconfirmed: rows.filter(r => r.unconfirmed).length,
     unassessed:  rows.filter(r => r.unassessed).length,
+    behind:      rows.filter(r => r.behind).length,
+    archived:    rows.filter(r => r.archived).length,
     passes: rows.every(r => !r.blocked)
   };
 }
@@ -1688,6 +1782,9 @@ function renderInformation() {
                   <i class="fa-solid fa-${met ? 'check' : 'triangle-exclamation'}" style="font-size:8px"></i>
                 </span>`;
               })()}
+              <span class="sai-pill sai-ver" title="Information point version. Activities pin to the version they were authored against.">v${p.version}</span>
+              ${p.lifecycle === 'archived'
+                ? '<span class="sai-pill sai-archived"><i class="fa-solid fa-box-archive"></i>Archived — no deliver</span>' : ''}
               ${prov}
               ${p.verified
                 ? '<span class="sai-pill verified"><i class="fa-solid fa-circle-check"></i>Verified</span>'
@@ -1733,8 +1830,14 @@ function renderActivities() {
               ${Object.keys(a.covers).map(cid => {
                 const t = tagOf(a, cid);
                 const idx = MODEL.information.findIndex(p => p.id === cid) + 1;
-                return `<span class="sai-cover-dot d-${t.depth} s-${t.state}" data-goto="${cid}"
-                  title="Point ${idx}: ${byId[cid].title}&#10;Delivered at ${DEPTH[t.depth].label} · ${TAG_STATE[t.state].label}">${idx}</span>`;
+                const drift = t.drift ? ` drift-${t.drift}` : '';
+                const note = t.archived
+                  ? `&#10;⛔ Source point is ARCHIVED — blocks delivery.`
+                  : t.behind
+                  ? `&#10;⚠ Authored against v${t.at}; point is now v${byId[cid].version}. Advisory — old information is not wrong, only not current.`
+                  : '';
+                return `<span class="sai-cover-dot d-${t.depth} s-${t.state}${drift}" data-goto="${cid}"
+                  title="Point ${idx}: ${byId[cid].title}&#10;Delivered at ${DEPTH[t.depth].label} · ${TAG_STATE[t.state].label} · pinned v${t.at}${note}">${idx}</span>`;
               }).join('')}
             </div>
           </article>`).join('')}
@@ -1749,9 +1852,12 @@ function renderValidation(activityIds) {
   const v = validateOutput(activityIds);
 
   const notes = [];
-  if (v.unconfirmed) notes.push(`${v.unconfirmed} depth ${v.unconfirmed === 1 ? 'judgment' : 'judgments'} not SME-confirmed`);
+  if (v.archived)    notes.push(`${v.archived} sourced from ARCHIVED information — blocks delivery`);
+  if (v.unconfirmed) notes.push(`${v.unconfirmed} depth ${v.unconfirmed === 1 ? 'judgment' : 'judgments'} not SME-confirmed${v.goal.requiresCurrent ? ' against the current version' : ''}`);
   if (v.unassessed)  notes.push(`${v.unassessed} never assessed`);
   if (v.gaps)        notes.push(`${v.gaps} with no build-up`);
+  // Advisory, listed last and phrased softly — this never blocks.
+  if (v.behind)      notes.push(`${v.behind} behind the current point version (advisory)`);
 
   return `
     <div class="sai-validate">
@@ -1767,15 +1873,23 @@ function renderValidation(activityIds) {
       <div class="sai-validate-rows">
         ${v.rows.map((r, i) => {
           // Worst-first: an unmet bar outranks a missing confirmation.
-          const cls   = !r.satisfied ? 'short' : (r.unconfirmed || r.unassessed) ? 'blocked' : r.gap ? 'ok gap' : 'ok';
-          const icon  = !r.satisfied ? 'xmark'
+          const cls   = r.archived ? 'short'
+                      : !r.satisfied ? 'short'
+                      : (r.unconfirmed || r.unassessed) ? 'blocked'
+                      : r.gap ? 'ok gap'
+                      : r.behind ? 'ok drift' : 'ok';
+          const icon  = r.archived ? 'box-archive'
+                      : !r.satisfied ? 'xmark'
                       : r.unconfirmed ? 'user-clock'
                       : r.unassessed  ? 'clipboard-question'
-                      : r.gap ? 'triangle-exclamation' : 'check';
-          const why   = !r.satisfied ? `Needs ${DEPTH[r.required].label}, best available is ${r.best ? DEPTH[r.best].label : 'none'}.`
-                      : r.unconfirmed ? 'Depth reached, but no SME has confirmed the judgment — required under the Compliance goal.'
+                      : r.gap ? 'triangle-exclamation'
+                      : r.behind ? 'clock-rotate-left' : 'check';
+          const why   = r.archived ? 'Sourced from an ARCHIVED information point. Hard no-deliver dependency — a leadership call, not an automatic state.'
+                      : !r.satisfied ? `Needs ${DEPTH[r.required].label}, best available is ${r.best ? DEPTH[r.best].label : 'none'}.`
+                      : r.unconfirmed ? 'Depth reached, but the judgment is not SME-confirmed against the current point version — required under the Compliance goal.'
                       : r.unassessed  ? 'Never assessed. The Compliance goal requires an assessing activity for every point.'
                       : r.gap ? 'Reaches the bar with nothing built up beneath it — assessed without being taught.'
+                      : r.behind ? 'Authored against an earlier version of this point. Advisory only — old information is not wrong, just not current, and the field carries its own grace period.'
                       : 'Satisfied.';
           return `
           <div class="sai-vrow ${cls}" data-goto="${r.point.id}" title="${why}">

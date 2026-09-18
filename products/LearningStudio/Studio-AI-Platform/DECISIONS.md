@@ -281,3 +281,87 @@ performance and cares less about documentation.
 **Demonstrated:** identical activities and depth tags read 5/6 with 4 points
 never assessed and 2 unconfirmed judgments under Compliance, versus 5/6 with
 only a build-up warning under Capability.
+
+---
+
+## D18 · Information points are design-time context, never delivered
+**2026-09-17**
+
+**Decided:** a point is written as context for the AI and the designer — the
+source activities are derived from. A learner never encounters one. **Activities
+are the shareable unit**; points are not shared, instanced or variant-ed.
+
+**Why (user's framing):** *"the information point itself should never be
+delivered to the user… an activity could be shared but not a point. Multiple
+activities could be sourced from the same point."*
+
+**Supersedes:** an earlier recommendation in this session that points be
+Shared-LO-shaped (shared, versioned, push-on-edit). That was wrong — it treated
+the point as the durable artifact worth sharing and conflated *durable* with
+*deliverable*. The point persists as reference; the activity is what ships.
+
+**Resolves:** Q4 (library vs. document) is the wrong question for points — they
+are neither. Q6 (activity in multiple projects) → yes, via the org's existing
+Shared LO model.
+
+**Aligns with** the established Content Portal / Phase 2 vocabulary:
+`Shared` / `Unique` / `Instance` / `Variant` / `Copy`. Note two reserved terms —
+**"global"** means brand assets and platform settings in this org, not shared
+content; **"outdated"** is taken by the AI render-pipeline state. Neither should
+be reused for content reuse or source staleness.
+
+---
+
+## D19 · Drift is computed from a pinned version; severity comes from lifecycle
+**2026-09-17**
+
+**Decided:** a coverage tag pins the point version it was authored against
+(`at: 2`). Drift is derived by comparing to the point's current version rather
+than fired as an event. Severity is read from the point's lifecycle, not from a
+content diff:
+
+| Point state | Derived activity | Blocks delivery? |
+|---|---|---|
+| `current`, pinned behind | low-severity update tag | no |
+| `archived` | critical | yes |
+
+**Why (user's framing):** *"Out of date information is not necessarily a deal
+breaker and there is usually a grace period of how long that information is
+still acceptable… Only certain cases would result in an immediate edit with a
+strict no-deliver dependency on archived or old versions."*
+
+**Grace is soft, with no date field.** Standards evolve (WCAG versions,
+electrical codes) and the field carries its own tolerance for how long older
+guidance remains acceptable in practice. Old information is not wrong, only not
+current.
+
+**Rejected:** diffing v2→v3 to infer materiality. Unreliable, and it puts the
+system in the position of judging. Archival is already an explicit human act
+meaning "no longer acceptable to teach," so severity is a decision someone made.
+
+**No-deliver is a leadership declaration.** Out-of-scope tooling may scan for
+risky or outdated information, but a human sets severity and assigns the work.
+
+---
+
+## D20 · Depth confirmation records its version; currency is derived
+**2026-09-17**
+
+**Decided:** a version bump never revokes confirmation. The tag records which
+version it was confirmed against, and *confirmed-against-current* is computed.
+No fourth tag state.
+
+**Why:** keeps strictness in the goal rules where the rest of it already lives —
+Compliance sets `requiresCurrent: true`, Capability leaves it false. One field,
+free derivation.
+
+**Rejected:** auto-demoting confirmation on any bump (nags designers over
+trivial edits); leaving confirmation untouched and unqualified (the compliance
+gate silently stops being honest over time).
+
+**Deferred:** re-confirming depth after a bump is a **delta review** — AI-assisted
+LED/SME collaboration evaluating v2→v3. That belongs to the information
+updating phase, which V1 starts past (D7). V1 models the state, not the review.
+
+**Also out of scope for now** (user's call): a task/assignment primitive for
+routing that work to LEDs.

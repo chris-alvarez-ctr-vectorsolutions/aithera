@@ -9,12 +9,30 @@
 
 ---
 
+## RESOLVED since first writing
+
+- **Q4 (reuse scope)** → D18. Wrong question for points: they are design-time
+  context, never delivered, so not shared. Activities are the shareable unit and
+  follow the org's existing Shared/Unique/Instance model.
+- **Q6 (activity in multiple projects)** → D18. Yes, via that same mechanism.
+- **Q3 (coverage tag staleness)** → D19. Tags pin a point version; drift is
+  computed, severity comes from the point's lifecycle.
+- **Q2 (set changes after outputs exist)** → D19. Partially: derived activities
+  carry a low-severity update tag, or a critical flag if the source was
+  archived. The *review flow* for acting on it is deferred (see Q1).
+
+---
+
 ## Blocking a UX pass
 
 ### Q1 · Versioning and staleness
-**Would reshape: every layer. Highest rework risk.**
+**Partially resolved by D19** — points now carry a version and a lifecycle, and
+activities pin the version they were authored against. What remains open is the
+*review* flow, deferred with the information-updating phase (D7).
 
-Nothing versions. SMEs correct information points, activities get regenerated,
+**Would reshape: the update-review surface.**
+
+Activities and outputs still don't version. SMEs correct information points, activities get regenerated,
 outputs get recomposed — and there's no notion of *which version of a point* an
 activity was authored against.
 

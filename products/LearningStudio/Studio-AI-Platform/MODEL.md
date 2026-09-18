@@ -33,7 +33,7 @@ meets the threshold is the experience they're delivered.
 |---|---|
 | **Learning Project** | Top-level container. Holds one information set and everything derived from it. Authoring-side term; learners never see it. |
 | **Information Set** | The verified teaching points that define the subject. The primary artifact. |
-| **Information Point** | One teaching point. The durable unit — survives every regeneration below it. |
+| **Information Point** | One teaching point. **Design-time context, never delivered to a learner** — it is the source an activity is authored from. The durable unit; survives every regeneration below it. |
 | **Learning Activity** | A modality expression of one or more points: video, podcast, scenario, knowledge check, job aid, reflection. |
 | **Output** | What gets delivered. Either a **structural format** (Course, Training — defined shape, ordering rules) or an **open-ended format** (Experience — assembles from learner interaction). |
 | **Goal** | The standard the project is held to — Compliance, Capability. Sets the default depth bar and the evidence rules. |
@@ -202,6 +202,62 @@ is **flagged** — assessed without being taught. Practical gate; quality signal
 still surfaced.
 
 The goal then applies its evidence rules on top.
+
+---
+
+## Points are context; activities are content
+
+**An information point is never delivered to a learner.** It is written as
+context for the AI and the designer — the source from which activities are
+derived. This is what decides the reuse model:
+
+| | Shared? | Mechanism |
+|---|---|---|
+| **Information point** | no | Not shared, instanced or variant-ed. It isn't a deliverable, so there is nothing to instance into a course. One point sources many activities, one-way. |
+| **Learning Activity** | yes | The deliverable unit — structurally a Learning Object. Follows the org's established **Shared / Unique / Instance** model. |
+
+Because activities are project-owned deliverables, their depth tags stay
+unambiguous: depth is about how *this* activity treats a point *in this
+context*.
+
+### Point versioning and drift
+
+A coverage tag pins the point **version** it was authored and judged against:
+
+```js
+'info-3': { depth: 'working', state: 'confirmed', at: 2 }
+```
+
+Drift is then **computed, not fired as an event** — if the point has moved on,
+every tag pinned to an older version is out of date. Severity comes from the
+point's **lifecycle**, never from diffing content, because materiality is a
+human declaration rather than something to infer:
+
+| Point state | Derived activity | Blocks delivery? |
+|---|---|---|
+| `current`, tag pinned behind | low-severity "update available" | **no** |
+| `archived` | critical | **yes** — hard no-deliver dependency |
+
+**Out of date is not a defect.** Standards evolve — WCAG versions, electrical
+codes — and the field carries its own grace period for how long the older
+guidance remains acceptable in practice. The old information is not wrong, only
+not current. So drift is advisory and soft, with **no deadline field**.
+
+**No-deliver is a leadership call.** Out-of-scope tooling may scan information
+points for outdated or risky content, but a human declares the severity and
+assigns the work to LEDs.
+
+### Re-confirming depth after a version bump
+
+Confirmation is **never revoked** by a version bump. It records which version it
+was made against, so *confirmed-against-current* is derivable — no fourth tag
+state needed. The goal rules then decide whether that is good enough
+(`requiresCurrent` is true for Compliance, false for Capability).
+
+Deciding whether depth still holds after v2 → v3 is a **delta review** —
+AI-assisted, LED/SME collaboration. That flow belongs to the information
+updating phase, which V1 starts past (D7). V1 models the resulting *state*, not
+the review.
 
 ---
 
