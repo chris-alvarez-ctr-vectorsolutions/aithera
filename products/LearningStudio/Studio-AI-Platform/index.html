@@ -747,8 +747,21 @@
 
   /* ── VIDEO EDITOR LAYOUT — canvas centre-stage, scenes as a left rail.
      At its core this is a video editor, folded into the platform chrome. ── */
-  .sai-vid { display: grid; grid-template-columns: 236px minmax(0,1fr); gap: 12px; align-items: start; height: 100%; }
-  .sai-vid-rail { display: flex; flex-direction: column; gap: 2px; }
+  /* Rail is a WORKING SURFACE, not a nav list — you edit here and watch the
+     canvas react. Resizable, because narration length varies wildly. */
+  .sai-vid { display: grid; grid-template-columns: var(--sai-rail-px, 360px) 5px minmax(0,1fr);
+             gap: 0; align-items: start; height: 100%; }
+  .sai-vid-rail { display: flex; flex-direction: column; gap: 2px; padding-right: 4px; }
+  .sai-vid-resize {
+    align-self: stretch; min-height: 320px; cursor: col-resize;
+    position: relative;
+  }
+  .sai-vid-resize::after {
+    content: ''; position: absolute; inset: 0 2px;
+    background: var(--sai-line); border-radius: 1px;
+  }
+  .sai-vid-resize:hover::after { background: var(--sai-accent); }
+  .sai-vid-main { padding-left: 8px; }
   .sai-vid-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
   /* The composite. Layers are real DOM — background, positioned overlays,
@@ -830,8 +843,68 @@
   .sai-word:hover { color: var(--sai-ink); }
 
   .sai-vid-rail .sai-scene { margin-bottom: 0; }
-  .sai-vid-rail .sai-scene-body { display: none !important; }
-  .sai-vid-rail .sai-scene-gist { font-size: 11px; }
+  .sai-vid-rail .sai-scene-gist { font-size: 11.5px; }
+
+  /* ── Scene card working surface ──────────────────────────────────── */
+  .sai-sc-tools {
+    display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+    margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--sai-line);
+  }
+  .sai-sc-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 4px; cursor: pointer;
+    background: var(--sai-surface-2); border: 1px solid var(--sai-line-2);
+    font-family: inherit; font-size: 10.5px; font-weight: 600; color: var(--sai-ink-2);
+  }
+  .sai-sc-btn:hover { border-color: var(--sai-accent); color: var(--sai-accent); }
+  .sai-sc-btn i { font-size: 9px; }
+  .sai-sc-btn.gen { color: var(--sai-accent); border-color: #2a4d70; }
+  .sai-sc-btn.warn { color: var(--sai-warn); border-color: #5c4a2a; }
+
+  /* Audio state strip — mirrors Phase 2's generate/regenerate lifecycle. */
+  .sai-sc-audio {
+    display: flex; align-items: center; gap: 7px; margin-top: 7px;
+    padding: 6px 8px; border-radius: 4px; background: var(--sai-bg);
+    font-size: 10.5px; color: var(--sai-ink-3);
+  }
+  .sai-sc-audio.has i.state { color: var(--sai-output); }
+  .sai-sc-audio .wave {
+    flex: 1 1 auto; height: 14px; display: flex; align-items: center; gap: 1px;
+  }
+  .sai-sc-audio .wave span {
+    flex: 1 1 auto; background: var(--sai-line-2); border-radius: 1px;
+  }
+  .sai-sc-audio.has .wave span { background: #2f4f68; }
+
+  .sai-sc-status {
+    font-family: inherit; font-size: 9.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .05em;
+    padding: 2px 5px; border-radius: 3px; cursor: pointer;
+    border: 1px solid transparent; background: var(--sai-surface-3); color: var(--sai-ink-3);
+  }
+  .sai-sc-status.ready { background: var(--sai-output-soft); color: var(--sai-output); }
+  .sai-sc-status.in-review { background: var(--sai-warn-soft); color: var(--sai-warn); }
+
+  .sai-sc-kebab {
+    margin-left: auto; width: 20px; height: 20px; border-radius: 4px;
+    display: grid; place-items: center; cursor: pointer;
+    background: none; border: none; color: var(--sai-ink-3); font-size: 11px;
+  }
+  .sai-sc-kebab:hover { background: var(--sai-surface-3); color: var(--sai-ink); }
+  .sai-sc-drag { color: var(--sai-ink-3); font-size: 9px; cursor: grab; opacity: 0; }
+  .sai-scene:hover .sai-sc-drag { opacity: 1; }
+
+  .sai-sc-ov {
+    display: flex; align-items: center; gap: 6px; margin-top: 4px;
+    padding: 4px 7px; border-radius: 4px; background: var(--sai-bg);
+    font-size: 10.5px; color: var(--sai-ink-2); cursor: pointer;
+  }
+  .sai-sc-ov:hover { background: var(--sai-surface-3); }
+  .sai-sc-ov i { font-size: 9px; color: var(--sai-activity); }
+  .sai-sc-ov .anchor {
+    margin-left: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px; color: var(--sai-ink-3);
+  }
 
   /* Coverage strip in the activity header — replaces the standing rail. */
   .sai-cov-strip { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
@@ -2775,21 +2848,79 @@ function renderCanvas(sc) {
 function renderVideoBody(a) {
   const sc = (a.scenes || []).find(x => x.id === activeScene) || a.scenes[0];
 
-  // Left rail — scenes as production chunks.
-  const rail = a.scenes.map((x, i) => `
+  // ── Scene cards — the working surface. Accordion: the open card is the
+  //    one the canvas is showing, so editing and preview stay in step.
+  const rail = a.scenes.map((x, i) => {
+    const open = x.id === activeScene;
+    const hasAudio = x.audio !== false;
+    return `
     <div class="sai-insert" data-insert="${x.id}"><span>+ scene</span></div>
-    <article class="sai-scene ${x.id === activeScene ? 'active' : ''}" data-scene="${x.id}">
+    <article class="sai-scene ${open ? 'active' : ''}" data-scene="${x.id}">
       <div class="sai-scene-head" data-openscene="${x.id}">
+        <i class="fa-solid fa-grip-vertical sai-sc-drag" title="Drag to reorder"></i>
         <span class="sai-scene-num">${i + 1}</span>
-        <span class="sai-scene-gist">${(x.narration || '').slice(0, 46)}…</span>
+        ${open ? '' : `<span class="sai-scene-gist">${(x.narration || '').slice(0, 40)}…</span>`}
+        <span class="sai-scene-meta">
+          <span class="sai-dur">${x.duration}s</span>
+          <button class="sai-sc-status ${x.status}" data-status="${x.id}"
+            title="Click to advance status">${x.status.replace('-', ' ')}</button>
+          ${(a.checks || []).some(c => c.boundTo === x.id)
+            ? '<i class="fa-solid fa-circle-question" style="color:var(--sai-warn);font-size:10px" title="Has a bound check-in"></i>' : ''}
+        </span>
+        ${open ? '<button class="sai-sc-kebab" data-kebab="' + x.id + '"><i class="fa-solid fa-ellipsis"></i></button>' : ''}
       </div>
-      <div style="display:flex;gap:6px;padding:0 11px 8px 40px">
-        <span class="sai-dur">${x.duration}s</span>
-        <span class="sai-sstat ${x.status}">${x.status.replace('-', ' ')}</span>
-        ${(a.checks || []).some(c => c.boundTo === x.id)
-          ? '<span class="sai-dur" title="Has a bound check-in"><i class="fa-solid fa-circle-question" style="color:var(--sai-warn)"></i></span>' : ''}
+
+      <div class="sai-scene-body">
+        <div class="sai-narr" contenteditable="true" spellcheck="false"
+             data-narr="${x.id}">${narrHTML(x)}</div>
+        <div style="font-size:10px;color:var(--sai-ink-3);margin-top:5px">
+          Select any word to set its pronunciation
+        </div>
+
+        <div class="sai-sc-audio ${hasAudio ? 'has' : ''}">
+          <i class="fa-solid fa-${hasAudio ? 'circle-check' : 'circle'} state" style="font-size:9px"></i>
+          <span class="wave">${Array.from({length: 22}, (_, k) =>
+            `<span style="height:${hasAudio ? 3 + Math.abs(Math.sin(k * 1.7 + i)) * 11 : 2}px"></span>`).join('')}</span>
+          <span>${hasAudio ? x.duration + 's' : 'no audio'}</span>
+        </div>
+
+        <div class="sai-sc-tools">
+          <button class="sai-sc-btn" data-voice="${x.id}">
+            <i class="fa-solid fa-microphone"></i>${x.voice}<i class="fa-solid fa-chevron-down" style="font-size:7px"></i>
+          </button>
+          <button class="sai-sc-btn gen" data-genaudio="${x.id}">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>${hasAudio ? 'Regenerate' : 'Generate audio'}
+          </button>
+          <button class="sai-sc-btn" data-media="${x.id}">
+            <i class="fa-solid fa-image"></i>${x.media ? 'Replace media' : 'Add media'}
+          </button>
+          <button class="sai-sc-btn" data-addtext="${x.id}">
+            <i class="fa-solid fa-font"></i>Add text
+          </button>
+        </div>
+
+        ${(x.overlays || []).length ? `
+          <div style="margin-top:7px">
+            ${x.overlays.map(o => `
+              <div class="sai-sc-ov" data-ovjump="${o.id}">
+                <i class="fa-solid fa-${o.kind === 'bullets' ? 'list-ul' : o.kind === 'callout' ? 'comment' : 'closed-captioning'}"></i>
+                ${o.text.split('|')[0]}${o.text.includes('|') ? ' …' : ''}
+                <span class="anchor">w${o.anchorFrom + 1}–${o.anchorTo + 1}</span>
+              </div>`).join('')}
+          </div>` : ''}
+
+        ${x.media ? `
+          <div class="sai-sc-ov" style="margin-top:4px">
+            <i class="fa-solid fa-image" style="color:var(--sai-ink-3)"></i>${x.media.label}
+            <span class="anchor">${x.media.kind}</span>
+          </div>` : `
+          <div class="sai-sc-ov" style="margin-top:4px;border:1px dashed var(--sai-line-2)">
+            <i class="fa-solid fa-triangle-exclamation" style="color:var(--sai-warn)"></i>
+            <span style="color:var(--sai-warn)">No background media</span>
+          </div>`}
       </div>
-    </article>`).join('');
+    </article>`;
+  }).join('');
 
   const inlineChecks = (a.checks || [])
     .filter(c => c.boundTo === sc.id && c.placement === 'after-scene').map(renderCheck).join('');
@@ -2803,20 +2934,10 @@ function renderVideoBody(a) {
         <div class="sai-insert" data-insert="end"><span>+ scene</span></div>
       </div>
 
+      <div class="sai-vid-resize" id="railResize" title="Drag to resize"></div>
+
       <div class="sai-vid-main">
         ${renderCanvas(sc)}
-
-        <div class="sai-doc-label" style="margin-top:2px">Narration</div>
-        <div class="sai-narr" contenteditable="true" spellcheck="false"
-             data-narr="${sc.id}">${narrHTML(sc)}</div>
-        <div class="sai-scene-row">
-          <span class="sai-pill"><i class="fa-solid fa-microphone"></i>${sc.voice}</span>
-          <span class="sai-pill"><i class="fa-solid fa-wand-magic-sparkles"></i>Regenerate audio</span>
-          <span class="sai-pill"><i class="fa-solid fa-image"></i>${sc.media ? 'Replace media' : 'Add media'}</span>
-          <span class="sai-pill"><i class="fa-solid fa-font"></i>Add on-screen text</span>
-          ${Object.keys(sc.phonetic || {}).length
-            ? `<span class="sai-pill sourced"><i class="fa-solid fa-ear-listen"></i>${Object.keys(sc.phonetic).length} pronunciation</span>` : ''}
-        </div>
 
         <div class="sai-tl">
           <div class="sai-tl-head">
@@ -2907,6 +3028,56 @@ function wireActivityDoc(a) {
 
   $$('[data-insert]', root).forEach(el => el.addEventListener('click', () =>
     toast('Scene insert — not wired in this pass')));
+
+  // Status cycles in place — Phase 2 used a select overlay; a click-through
+  // is fewer interactions for a three-state field.
+  const STATUSES = ['in-progress', 'in-review', 'ready'];
+  $$('[data-status]', root).forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const x = a.scenes.find(v => v.id === btn.dataset.status);
+    x.status = STATUSES[(STATUSES.indexOf(x.status) + 1) % STATUSES.length];
+    renderActivityDoc(a.id);
+  }));
+
+  // Audio generation — per scene, with the generate/regenerate lifecycle.
+  $$('[data-genaudio]', root).forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const x = a.scenes.find(v => v.id === btn.dataset.genaudio);
+    x.audio = false; renderActivityDoc(a.id);
+    toast('Generating audio for this scene…');
+    setTimeout(() => { x.audio = true; renderActivityDoc(a.id); toast('Audio ready'); }, 1600);
+  }));
+
+  // Clicking an overlay in the card jumps the playhead to its anchor, so the
+  // canvas shows it — card and canvas stay in step.
+  $$('[data-ovjump]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    const scn = (a.scenes || []).find(v => v.id === activeScene) || a.scenes[0];
+    const o = (scn.overlays || []).find(v => v.id === el.dataset.ovjump);
+    if (o) { playhead = o.anchorFrom; renderActivityDoc(a.id); }
+  }));
+
+  ['voice', 'media', 'addtext', 'kebab'].forEach(k =>
+    $$(`[data-${k}]`, root).forEach(el => el.addEventListener('click', e => {
+      e.stopPropagation();
+      toast({ voice: 'Voice picker', media: 'Media library', addtext: 'Add on-screen text', kebab: 'Scene actions' }[k] + ' — not wired in this pass');
+    })));
+
+  // Rail resize — narration length varies, so the working surface adjusts.
+  const rz = $('#railResize', root);
+  if (rz) rz.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const startX = e.clientX;
+    const grid = rz.parentElement;
+    const startW = parseInt(getComputedStyle(grid).gridTemplateColumns) || 360;
+    const move = ev => {
+      const w = Math.max(260, Math.min(620, startW + ev.clientX - startX));
+      grid.style.setProperty('--sai-rail-px', w + 'px');
+    };
+    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+  });
 
   // Word playhead — clicking a word moves it; the canvas recomposites.
   $$('[data-word]', root).forEach(el => el.addEventListener('click', e => {

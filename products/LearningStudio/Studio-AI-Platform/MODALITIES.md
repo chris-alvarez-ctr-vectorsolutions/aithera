@@ -209,8 +209,30 @@ anchoring legible rather than something taken on trust.
 > **"preview composite · not the render"** badge. It is honest about what it is
 > while making the case for the rendering capability the product wants.
 
+#### Scene cards are a working surface, not a nav list
+
+The rail is the **companion to the canvas**, not an index beside it — you edit
+in the card and watch the canvas react. Phase 2's cards carried real capability
+(inline contenteditable transcript, voice picker, generate/regenerate lifecycle,
+status, duration, kebab, drag-reorder) and that is carried forward rather than
+reduced to a title stub with narration stacked under the canvas.
+
+**Accordion**, as Phase 2 had it: the open card is the scene the canvas shows,
+so editing and preview stay in step by construction.
+
+**Trade accepted:** a working card needs ~360px, which takes width back from the
+canvas (872px → 747px at a 1600px viewport). Worth it — narration is the most
+edited thing on the surface and belongs beside the canvas, not below it. The
+rail is **drag-resizable** (260–620px) since narration length varies.
+
+**Beyond Phase 2:** the card lists what is on the scene — each overlay with its
+word anchor (`w5–29`) and the background media — and clicking an overlay jumps
+the playhead so the canvas shows it. Phase 2 had no such manifest; overlays were
+discoverable only on the timeline.
+
 Built: word ruler with playhead, words/time toggle, transport, accurate
-positioned compositing, overlapping anchors in separate timeline lanes.
+positioned compositing, overlapping anchors in separate timeline lanes,
+full-capability scene cards with a resizable rail.
 
 Skipped: trim handles, per-bullet sub-clips, transition pickers — production
 detail that proves nothing new about the model.
