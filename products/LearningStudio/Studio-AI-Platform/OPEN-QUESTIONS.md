@@ -126,10 +126,20 @@ Open sub-questions for when we take it on:
   see their actual subject — which points are thin, which activities are
   adrift, where coverage is concentrated. Those are very different builds, and
   the second is arguably a real feature.
-- **If it's a product surface, what does it do?** Navigate (click a node to
-  drill in)? Diagnose (highlight gaps and drift)? Both?
-- **Does it show one project, or the whole library?** The library view is where
-  cross-project reuse of activities would become visible.
+**Settled 2026-09-18:** this is an **explainer artifact for stakeholders and
+coworkers** — documentation, not a product surface.
+
+**✅ BUILT 2026-09-18** — <https://claude.ai/code/artifact/43f854ec-a47d-4b75-a27d-2fc7a2d6a335>
+("How a subject lives in Studio AI"). Private by default; share from the page's
+share menu. Layered so one artifact serves both audiences: the concept argument
+runs first, a visible "below this line — the mechanics" break separates it, and
+the detail follows. Three diagrams carry the load — the three layers with their
+four operations, the point document vs. its walled-off usage guidelines, and
+drift branching into advisory vs. blocked.
+
+Republish from the session that made it (same file path), or from anywhere by
+passing that URL. Source: `scratchpad/explainer/arch.html` — not committed to
+this repo, since the artifact is the deliverable.
 
 ---
 
@@ -151,6 +161,31 @@ or global. Likely free once Q4 is settled.
 ### Q7 · Collective noun for Outputs
 **Cosmetic.** "Outputs" is a placeholder over Courses and Experiences.
 *Deliverables* is warmer. Skipping the collective entirely is also fine.
+
+---
+
+## Valuable later — explicitly out of scope for now
+
+### L1 · Information-set health & analytics surface
+**Raised 2026-09-18. Build after the rest exists.**
+
+A reporting/analytical surface evaluating the overall **health of an
+information set** and the hierarchical tree of activities and outputs beneath
+it. Distinct from N1's explainer diagram: this reads the live data and reports
+on it.
+
+Signals it would surface, all already computable from the model:
+
+- points that are thin, unsourced, or awaiting SME verification
+- points whose required depth nothing in the library reaches
+- activities pinned behind their point's current version (drift), and any
+  sourced from archived points
+- depth judgments still AI-proposed rather than SME-confirmed
+- outputs failing their goal's threshold check, and why
+- coverage concentration — points carried by one activity only, or by none
+
+**Why it waits:** every signal depends on the authoring surfaces that don't yet
+exist. Reporting on data nobody can create or correct is a dead end.
 
 ---
 
