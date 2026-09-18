@@ -405,17 +405,36 @@
       if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') return;
       if (e.target.closest && e.target.closest('.clara-collapse, .clara-reply, .clara-act')) return;
       if (e.type === 'keydown') e.preventDefault();
-      bubble.classList.remove('is-teaser');
-      sayEl.innerHTML = sayEl.dataset.fullSay || '';
-      delete sayEl.dataset.fullSay;
-      sayEl.removeAttribute('tabindex');
-      sayEl.removeAttribute('role');
-      sayEl.removeAttribute('aria-label');
-      bubble.removeEventListener('click', reveal);
-      sayEl.removeEventListener('keydown', reveal);
+      disarmTeaser(bubble, sayEl, true);
     }
+    // Stashed on the element (not just closed over) so a LATER, unrelated
+    // write to this same bubble — a real reply landing on top of an unread
+    // tease, say — can find and remove this exact listener pair rather than
+    // leaving it bound forever. See disarmTeaser.
+    bubble._teaserReveal = reveal;
     bubble.addEventListener('click', reveal);
     sayEl.addEventListener('keydown', reveal);
+  }
+  // The other half of armTeaser. Bug found 2026-09-17: setCoachSay used to
+  // overwrite sayEl's innerHTML directly without this, so a real answer that
+  // arrived while the bubble was still teased (learner paused >7s, then
+  // answered) rendered in the teaser's bold-teal "tap to reveal" styling —
+  // and tapping it silently reverted to the STALE pre-tease line via the
+  // still-armed listener above, discarding the feedback the learner just
+  // earned. Now every write to .clara-say disarms first.
+  function disarmTeaser(bubble, sayEl, restoreFull) {
+    if (!bubble.classList.contains('is-teaser')) return;
+    bubble.classList.remove('is-teaser');
+    if (restoreFull) sayEl.innerHTML = sayEl.dataset.fullSay || '';
+    delete sayEl.dataset.fullSay;
+    sayEl.removeAttribute('tabindex');
+    sayEl.removeAttribute('role');
+    sayEl.removeAttribute('aria-label');
+    if (bubble._teaserReveal) {
+      bubble.removeEventListener('click', bubble._teaserReveal);
+      sayEl.removeEventListener('keydown', bubble._teaserReveal);
+      delete bubble._teaserReveal;
+    }
   }
 
   function armHint(stepId) {
@@ -542,7 +561,13 @@
       enableNext: function () { nextBtn.disabled = false; },
       disableNext: function () { nextBtn.disabled = true; },
       setCoachSay: function (html) {
-        var s = chrome.querySelector('.clara-say'); if (s) s.innerHTML = html;
+        var s = chrome.querySelector('.clara-say');
+        // Disarm any leftover idle-hint tease before writing — a real line
+        // landing on top of an unrevealed "Need a hint?" must not inherit
+        // its collapsed styling or its (now stale) reveal-on-tap handler.
+        var b = chrome.querySelector('#claraBubble');
+        if (b && s) disarmTeaser(b, s, false);
+        if (s) s.innerHTML = html;
         // A line that lands after the screen has settled is a reaction to
         // something the learner just did — the one thing that raises them
         // without being asked. Their opening line, set during init, does not.
@@ -650,11 +675,14 @@
     if (!step) return;
 
     // An external step — one that lives on its own page — hands off with a
-    // cross-document View Transition rather than a swap.
-    if (step.external) {
-      var loc = step.external + (step.external.indexOf('?') < 0 ? '' : '');
+    // cross-document View Transition rather than a swap. `external` may be a
+    // function (D10: sharps' `enact` decides at render time whether the
+    // Demo-menu baseline toggle is on) — a falsy return just falls through to
+    // the normal in-page render below, using that step's own content/init.
+    var extHref = (typeof step.external === 'function') ? step.external() : step.external;
+    if (extHref) {
       try { sessionStorage.setItem('ll-dir', dir); } catch (e) {}
-      window.location.href = step.external;         // @view-transition handles the animation
+      window.location.href = extHref;                // @view-transition handles the animation
       return;
     }
 
@@ -744,6 +772,15 @@
         try { step.init(ctx); } catch (e) { console.error('step init', step.id, e); }
         inInit = false;
       }
+
+      // D11: the furthest screen a learner actually reached, so a returning
+      // visit can offer to resume there instead of always restarting at the
+      // cover. Written AFTER init runs (not on entry to showStep) so a
+      // course's own cover screen can read the PREVIOUS value — the whole
+      // point of the check — before this render overwrites it with its own
+      // id. Namespaced under the course's own storage key so two courses on
+      // one page (there are none today) could not collide.
+      try { sessionStorage.setItem(CFG.storageKey + '-last', step.id); } catch (e) {}
 
       if (first) { busy = false; }
       else {
@@ -1087,6 +1124,12 @@
     T: T, esc: esc, readCourse: readCourse, saveResult: saveResult,
     pickGroup: pickGroup, wireChat: wireChat, typeFeedback: typeFeedback,
     lens: lens, lensId: lensId, cycleLens: cycleLens,
+    // D11: the id of the last screen showStep actually rendered, so a
+    // course's own cover screen can offer "resume where you left off"
+    // instead of the engine silently deciding that on its own.
+    lastStepId: function () {
+      try { return sessionStorage.getItem(CFG.storageKey + '-last'); } catch (e) { return null; }
+    },
     // PROTOTYPE ONLY — NOT FOR PRODUCTION. Whether the reviewer-only
     // affordances that carry no framing of their own (a video's Skip pill,
     // a syllabus row that jumps ahead) are unlocked for this tab.

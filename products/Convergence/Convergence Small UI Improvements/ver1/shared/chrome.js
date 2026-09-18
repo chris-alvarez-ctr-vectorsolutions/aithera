@@ -59,7 +59,7 @@ const SPECS = {
     ['Hero thumbnail', '232px wide · 16:9 · radius 8'],
     ['Kind chip', 'text 12/600 on --c-primary-soft'],
     ['Title', '20/600 · meta row 14'],
-    ['List rows', 'static · minmax(0,1fr) auto · min 48px · req headers #fff, activities #f2f5f9 (as the plan)'],
+    ['List rows', 'static · minmax(0,1fr) auto · min 52px · token-for-token the plan rows (.tp-req / .tp-act): bg, separators, text, hover'],
     ['Provenance', 'Part of + Assignment lines · 14px --c-meta · names 600 ink'],
     ['Nested indent', '+28px on activity rows'],
     ['Completions table', 'cols 130 90 120 1fr · rows min 40'],

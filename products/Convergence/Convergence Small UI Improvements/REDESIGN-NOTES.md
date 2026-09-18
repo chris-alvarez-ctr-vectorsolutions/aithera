@@ -574,8 +574,8 @@ for the final treatment.
   They are now a plain, static list in the style of the other improvements: an Activities
   section, requirement header rows (name, completion rule inline, summed duration) on white,
   and their activities indented beneath (type glyph, name, E tag, paperclip, duration) on the
-  plan's activity tint. Two columns (`minmax(0,1fr) auto`), 48px rows, no role, no hover, no
-  Launch, no status pill. Launch and progress live on My training; the pages just show what a
+  plan's activity tint. Two columns (`minmax(0,1fr) auto`), 52px rows, no role, no Launch, no
+  status pill; colours are token-for-token the plan's accordion rows, hover fills included. Launch and progress live on My training; the pages just show what a
   qualification or requirement contains.
 - **Activity page names its assignment.** Under the Part of line the hero now says which
   assignment the activity came through, with the assigned date and who assigned it. Demo

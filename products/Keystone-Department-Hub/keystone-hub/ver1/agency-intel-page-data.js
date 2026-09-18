@@ -315,6 +315,18 @@
     return !!(window.KX && window.KX.getFlags().futureOn);
   }
 
+  // NOT IN V1 — the widget builder's Advanced tab (correlate two metrics,
+  // summary table, commentary block, ask-for-ideas) is follow-up work, so the
+  // whole tab sits behind the Future-functionality flag. This is the single
+  // choke point: with the flag off widgetBuilderHtml() drops the
+  // Simple/Advanced pill entirely and the builder is just the one guided
+  // Simple path — which is also what keeps the numbered steps reading 1-2-3
+  // with nothing above them. The Advanced builders themselves are left
+  // untouched, so flipping the flag on restores the tab intact.
+  function advancedBuilderEnabled() {
+    return !!(window.KX && window.KX.getFlags().futureOn);
+  }
+
   // NOT IN V1 — publishing straight to a job title is a follow-up feature, so
   // the whole job-title leg of the audience sits behind the same
   // Future-functionality flag. audienceOf() is the single choke point: with the
@@ -791,6 +803,7 @@
       }
 
       let assignedTo = null;
+      let lastAudience = null;
       let status;
       if (rnd() < 0.5) {
         assignedTo = { titles: pickN(titleIds, 1 + Math.floor(rnd() * 3)), individuals: rnd() < 0.55 ? pickN(indIds, 1 + Math.floor(rnd() * 4)) : [] };
@@ -812,6 +825,24 @@
         status = 'published';
       } else {
         status = rnd() < 0.5 ? 'draft' : 'private';
+        // A few of these were live once and were TAKEN DOWN. Unpublishing
+        // remembers the audience the dashboard had, so reopening its publish
+        // dialog offers to put it back rather than making you rebuild the
+        // roster — seeding a couple means that path is demoable on load
+        // instead of having to publish something first just to unpublish it.
+        //
+        // Keyed off the loop counter and reusing ids already drawn above: an
+        // extra rnd() draw here would reshuffle every dashboard's name, dates
+        // and widgets, same trap the audience rules above call out. i % 3 === 0
+        // is the "owned by You" arm of ownerId below — someone else's would
+        // need a "manage all" grant before it could be restored.
+        if (status === 'draft' && i % 6 === 0) {
+          lastAudience = {
+            titles: [],
+            individuals: [indIds[i % indIds.length], indIds[(i + 3) % indIds.length]],
+            groups: [],
+          };
+        }
       }
 
       // Roughly a third of views also (or only) go out as a report.
@@ -847,6 +878,7 @@
         // One window for the whole dashboard — see DATE_RANGES.
         dateRange: DATE_RANGES[Math.floor(rnd() * DATE_RANGES.length)].value,
         assignedTo: assignedTo,
+        lastAudience: lastAudience,
         delivery: delivery,
         widgets: widgets,
       });
@@ -1060,6 +1092,7 @@
     deliveryEnabled: deliveryEnabled,
     deliveryOf: deliveryOf,
     privateEnabled: privateEnabled,
+    advancedBuilderEnabled: advancedBuilderEnabled,
     deliveryMeta: deliveryMeta,
     reportReach: reportReach,
     reportSummary: reportSummary,

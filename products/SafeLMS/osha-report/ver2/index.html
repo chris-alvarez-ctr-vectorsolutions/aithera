@@ -430,6 +430,26 @@
   .cert-link:hover { text-decoration: underline; }
   .cert-link i { color: #15803d; }
 
+  /* ── Certificate column header info callout ──
+     A hover/focus info affordance in the "Certificate" column header explaining that a
+     certificate can lag up to a week behind a learner passing. Built as a CSS-only tooltip
+     embedded in the header render so it survives the header re-rendering on sort / column change. */
+  .cert-info { position: relative; display: inline-flex; align-items: center; margin-left: 6px; color: var(--muted-2); cursor: help; vertical-align: middle; }
+  .cert-info i { font-size: 13px; }
+  .cert-info:hover, .cert-info:focus-visible { color: var(--blue-accent); outline: none; }
+  .cert-info .ci-tip {
+    position: absolute; top: calc(100% + 9px); right: 0; z-index: 30;
+    width: 236px; padding: 10px 12px;
+    font-size: 12.5px; font-weight: 400; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left;
+    color: #fff; background: var(--ink); border-radius: 8px;
+    box-shadow: 0 8px 22px rgba(16,24,40,.24);
+    opacity: 0; visibility: hidden; transform: translateY(-3px);
+    transition: opacity .12s ease, transform .12s ease, visibility .12s;
+    pointer-events: none; white-space: normal;
+  }
+  .cert-info .ci-tip::before { content:''; position: absolute; bottom: 100%; right: 11px; border: 6px solid transparent; border-bottom-color: var(--ink); }
+  .cert-info:hover .ci-tip, .cert-info:focus-visible .ci-tip, .cert-info:focus-within .ci-tip { opacity: 1; visibility: visible; transform: translateY(0); }
+
   /* ── Multi-select (STRETCH) — row checkboxes + select-all highlight rows; no bulk bar ── */
   .report-table th.col-expand { width: 36px; padding: 0; vertical-align: middle; }
   .sel-cell { width: 36px; }
@@ -471,14 +491,30 @@
   .detail-cell { background: var(--hair-2); border-radius: 10px; padding: 13px 15px; }
   .detail-cell .d-k { font-size: 13px; color: var(--muted); }
   .detail-cell .d-v { font-size: 17px; font-weight: 700; color: var(--ink); margin-top: 3px; }
-  .cert { border: 2px solid #E4C97A; border-radius: 12px; padding: 26px 24px; text-align: center; background: linear-gradient(180deg, #FFFDF6 0%, #FFF9EC 100%); }
-  .cert .c-seal { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid #15803d; color: #15803d; display: grid; place-items: center; font-size: 22px; margin: 0 auto 12px; }
-  .cert .c-kicker { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: #B7791F; }
-  .cert .c-name { font-size: 26px; font-weight: 800; color: var(--ink); margin: 8px 0 2px; }
-  .cert .c-for { font-size: 14.5px; color: var(--muted); }
-  .cert .c-course { font-size: 17px; font-weight: 700; color: var(--ink); margin: 6px 0 16px; }
-  .cert .c-meta { display: flex; justify-content: center; gap: 28px; font-size: 14px; color: var(--ink-2); }
-  .cert .c-meta b { display: block; color: var(--ink); font-size: 15px; margin-top: 2px; }
+  /* ── ClickSafety certificate (shown in the certificate modal) ──
+     A faithful HTML/CSS recreation of the ClickSafety OSHA completion certificate: the
+     CLICKSAFETY wordmark, IACET accredited-provider badge, gold seal, administrator signature,
+     and the serial / completion-date / duration / student-signature footer. Populated per
+     learner and per course (CEUs, contact hours and duration follow the course). */
+  .cs-wrap { width: min(760px, 94vw); }
+  /* ── ClickSafety certificate — the actual PNG with live per-learner data overlaid ──
+     The real certificate image is the background; each per-learner field (name, course, serial,
+     completion date, and — for 30-Hour courses — CEUs/contact-hours/duration) is drawn on top,
+     over a small patch whose soft ↗ hatch matches the certificate's paper so the baked-in sample
+     text underneath is covered. Field boxes are positioned as % of the image so they scale with it. */
+  .cs-certimg { position: relative; width: 100%; aspect-ratio: 849 / 644;
+    background: url("../clicksafety-cert.png") center / 100% 100% no-repeat;
+    container-type: inline-size; font-family: Arial, Helvetica, sans-serif; }
+  .cs-fld { position: absolute; display: flex; align-items: center; justify-content: center;
+    color: #1b2330; white-space: nowrap; overflow: hidden;
+    background: repeating-linear-gradient(-45deg, #fafafa 0, #d9d9d9 2.1px, #fafafa 4.3px); }
+  .cs-name   { left: 36%; width: 28%; top: 34.7%; height: 5.6%; font-size: 3.3cqw; }
+  .cs-course { left: 28%; width: 44%; top: 43.1%; height: 5.2%; font-weight: 700; font-size: 2.85cqw; }
+  .cs-ceu    { left: 33%; width: 34%; top: 49.4%; height: 3.4%; font-size: 1.72cqw; }
+  .cs-hours  { left: 35%; width: 30%; top: 52.7%; height: 3.4%; font-size: 1.72cqw; }
+  .cs-serial { left: 15%; width: 18%; top: 75.3%; height: 3.9%; font-size: 1.7cqw; }
+  .cs-date   { left: 33%; width: 18%; top: 75.3%; height: 3.9%; font-size: 1.7cqw; }
+  .cs-dur    { left: 50%; width: 19%; top: 75.3%; height: 3.9%; font-size: 1.7cqw; }
 
   /* Footer */
   .footer { text-align: center; padding: 28px 24px 8px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: auto; }
@@ -1168,8 +1204,13 @@
     // attempts, so it is populated only when the learner has exhausted their attempts.
     { key:'failed',   label:'Course Failure Date', width:'170px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => (r.status === 'failed' && r.attempts === 3 && r.failDate) ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>' },
-    // ── Action (always last, right-aligned) ──
-    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'150px', required:true, align:'right', cellClass:'cell-actions',
+    // ── Certificate (always last, right-aligned, pinned). Passed learners get a "View
+    //    certificate" link; everyone else shows "—". The header carries an info callout noting a
+    //    certificate can take up to a week to appear after a learner passes. ──
+    { key:'action',   label:'Certificate', menuLabel:'Certificate', width:'160px', required:true, align:'right', cellClass:'cell-actions',
+      headExtra: '<span class="cert-info" tabindex="0" role="note" aria-label="Certificates may take up to a week to display after a learner passes.">'
+        + '<i aria-hidden="true" class="fa-solid fa-circle-info"></i>'
+        + '<span class="ci-tip">Certificates may take up to a week to display after a learner passes.</span></span>',
       render:(r, course, gid) => actionCellHTML(r, gid) },
   ];
   const colByKey = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
@@ -1235,7 +1276,7 @@
       if (c.key === 'action') th.classList.add('col-action');  // matches the frozen pane when the filter panel is open
       if (c.width) th.style.width = c.width;
       if (c.align === 'right') th.style.textAlign = 'right';
-      th.innerHTML = `${c.label}${c.sortable ? ' <i aria-hidden="true" class="fa-solid fa-sort sort-arrow"></i>' : ''}`;
+      th.innerHTML = `${c.label}${c.sortable ? ' <i aria-hidden="true" class="fa-solid fa-sort sort-arrow"></i>' : ''}${c.headExtra || ''}`;
       row.appendChild(th);
     });
     updateSortIndicators();
@@ -1622,28 +1663,37 @@
   }
 
   /* ═══════════════ Certificate modal (the only remaining dialog on the report) ═══════════════ */
+  // Deterministic 10-digit ClickSafety serial number for the certificate (stable per learner).
+  function certSerial(ext) {
+    let h = 0; for (const c of ext) h = (h * 31 + c.charCodeAt(0)) % 1000000000;
+    return String(1000000000 + h);
+  }
   function openCertModal(r, course) {
-    const name = displayName(r.name), s = MODAL_STYLE.cert;
+    const name = displayName(r.name);
+    // CEUs / contact hours / duration follow the course (OSHA 30-Hour vs. the 10-Hour courses).
+    const is30 = /30-?Hour/i.test(course);
+    const ceus = is30 ? '3.00' : '1.00';
+    const contact = is30 ? '30.00' : '10.00';
+    const duration = is30 ? '30.00 Hours' : '10.00 Hours';
+    const serial = certSerial(r.ext);
+    const completed = (r.last && r.last !== 'Never') ? r.last : '—';
     dialog.headerRenderer = (root) => {
-      root.innerHTML = `<div class="dlg-head" style="width:min(540px,92vw)">
-        <div class="m-ico" style="background:${s.bg}; color:${s.col}"><i aria-hidden="true" class="fa-solid ${s.icon}"></i></div>
-        <div><div class="m-title">Certificate of Completion</div><div class="m-sub">${course}</div></div>
+      root.innerHTML = `<div class="dlg-head" style="width:min(760px,94vw)">
+        <div class="m-ico" style="background:#dcfce7; color:#15803d"><i aria-hidden="true" class="fa-solid fa-award"></i></div>
+        <div><div class="m-title">Certificate</div><div class="m-sub">${name} · ${course}</div></div>
         <vaadin-button theme="icon tertiary" aria-label="Close" id="dlgClose" style="margin-left:auto"><i aria-hidden="true" class="fa-solid fa-xmark"></i></vaadin-button>
       </div>`;
       root.querySelector('#dlgClose').addEventListener('click', closeModal);
     };
     dialog.renderer = (root) => {
-      root.innerHTML = `<div class="dlg-body"><div class="cert">
-        <div class="c-seal"><i aria-hidden="true" class="fa-solid fa-award"></i></div>
-        <div class="c-kicker">CERTIFICATE OF COMPLETION</div>
-        <div class="c-name">${name}</div>
-        <div class="c-for">has successfully completed</div>
-        <div class="c-course">${course}</div>
-        <div class="c-meta">
-          <div>Completed<b>${r.last}</b></div>
-          <div>Score<b>92%</b></div>
-          <div>Certificate ID<b>OSHA-${r.ext.toUpperCase()}</b></div>
-        </div>
+      root.innerHTML = `<div class="cs-wrap"><div class="cs-certimg">
+        <div class="cs-fld cs-name">${name}</div>
+        <div class="cs-fld cs-course">${course}</div>
+        ${is30 ? `<div class="cs-fld cs-ceu">and has earned ${ceus} IACET CEUs</div>
+        <div class="cs-fld cs-hours">and ${contact} Contact Hours.</div>` : ``}
+        <div class="cs-fld cs-serial">${serial}</div>
+        <div class="cs-fld cs-date">${completed}</div>
+        ${is30 ? `<div class="cs-fld cs-dur">${duration}</div>` : ``}
       </div></div>`;
     };
     dialog.footerRenderer = (root) => {
