@@ -92,6 +92,22 @@ consequences are large.
 
 ---
 
+## In progress
+
+### Modality authoring surfaces
+**Started 2026-09-18 — tracked in `MODALITIES.md`, not here.**
+
+Each modality (video, podcast, scenario, knowledge check, …) needs its own
+authoring surface within one shared workflow. Multi-session by nature; the
+framework, the shared-workflow contract, and the per-modality status live in
+`MODALITIES.md`.
+
+Settled so far: **per-section traceability** (content sections tag to the points
+they serve) and **LED-side depth editing** (SME confirmation shown as state,
+never performed in-platform).
+
+---
+
 ## Next up
 
 ### N1 · Architecture map — a visual of how a subject exists in the platform

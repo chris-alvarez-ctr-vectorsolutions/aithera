@@ -16,7 +16,14 @@ Read in this order:
 | **`MODEL.md`** | The content architecture and the **reasoning** behind it. Start here. |
 | **`DECISIONS.md`** | What was decided, what was rejected, and why. Read before re-proposing anything. |
 | **`OPEN-QUESTIONS.md`** | What's unresolved, and what each would change. |
+| **`MODALITIES.md`** | **Active work.** Per-modality authoring surfaces — a multi-session effort with its own status table. Read if you're working on any modality. |
 | `index.html` | The implementation. |
+
+> **Working on a modality authoring surface?** `MODALITIES.md` is the
+> continuity file for that effort — it carries the shared workflow every
+> modality must honour, the questions each discussion has to answer, and a
+> status table. Record decisions there **as they are made**, not at the end;
+> that work is expected to span sessions.
 
 The git log is also a real changelog — commit bodies carry rationale.
 
