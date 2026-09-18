@@ -18,15 +18,15 @@
 
 | Modality | Surface designed? | Built? | Session notes |
 |---|---|---|---|
-| Video | **yes** | **substantially built** | Working surface; see *Left undone* below |
+| Video | **yes** | **substantially built** | Working surface. One real hole: anchors persist as word *indices*, so narration edits desync them — see *Left undone* |
 | Podcast | no | no | — |
 | Scenario | no | no | — |
 | Knowledge check | no | no | — |
 | Job aid | no | no | — |
 | Reflection | no | no | — |
 
-Nothing is designed yet. The framework below is what every modality discussion
-must resolve, so the answers stay comparable across sessions.
+The framework below is what every modality discussion must resolve, so the
+answers stay comparable across sessions.
 
 ---
 
@@ -321,22 +321,75 @@ would plausibly undo:
 
 #### Left undone on video
 
-Deliberate stubs, in rough order of value:
+Updated 2026-09-18, after reorder and re-anchoring landed.
+
+##### The one that matters — the anchor is still an INDEX, not an identity
+
+**This is a hole in the central claim of the video modality, not a stub.**
+
+The design says on-screen text binds to *words* rather than seconds, so it
+survives narration edits — and says so explicitly as the improvement over Phase
+2, whose percentage-based `clipState` silently desynced. What is built persists
+`{anchorFrom, anchorTo}` as **word indices**. An index is a position. Editing
+narration *above* an anchor shifts every downstream anchor onto different words.
+
+Demonstrated in the browser against the seeded scene:
+
+```
+anchor before : words 7–11 = "completes a documented pre-shift inspection."
+insert three words at the start of the narration
+anchor after  : words 7–11 = "begins, the operator completes a"
+```
+
+The index is unchanged and the words are not. The overlay now appears over
+different spoken language than it was authored against — the exact failure the
+word-anchoring design exists to prevent.
+
+There is a clamp on narration blur, but it only stops anchors dangling past the
+new end (`Math.min(anchor, n - 1)`); it does not follow the words. So the model
+currently degrades to Phase 2's behaviour under the one edit that matters, while
+the surface *presents* as word-bound.
+
+**What closing it needs** — the same move made everywhere else in this model
+(comment excerpts, pinned point versions): bind to identity, not position. Give
+each narration word a stable token id at parse time, anchor to those ids, and
+resolve id → current index at render. A word whose id no longer exists is a
+deleted anchor point, which is a real editorial event the surface should show
+rather than silently absorb.
+
+**Until it is closed, do not cite word-anchoring as demonstrated.** Dragging a
+clip authors a correct anchor; narration editing then breaks it.
+
+##### Genuine stubs, in rough order of value
 
 - **Scene duplication of checks.** Duplicating a scene copies its overlays but
   not the checks bound to it; the copy has no checks. *(Now inconsistent with
-  reorder, which does carry bound checks — D26. Worth closing next.)*
+  reorder, which does carry bound checks — D26. The smallest real gap.)*
 - **"Regenerate narration"** in the scene kebab toasts rather than doing
-  anything.
+  anything. Note it would also need an answer to the anchor question above:
+  regenerating narration invalidates every overlay anchor in that scene.
 - **Upload** in the media picker is a drop-zone that accepts nothing.
 - **Render** produces no output — the gate evaluates correctly but the button
   does not start anything.
 - **Pronunciation keys on the word string**, so a word appearing twice in one
   scene gets the same pronunciation in both places. Usually right, occasionally
-  not.
+  not. *(Falls out of the token model above: key on the token id, not the
+  string, and this closes with it.)*
+- **Checks have no drift state.** *Checks and assessments are different
+  instruments* (below) establishes that a check depends on its activity's
+  language, so changing narration should make bound checks suspect. Nothing
+  computes or shows that yet.
 
 Skipped: trim handles, per-bullet sub-clips, transition pickers — production
 detail that proves nothing new about the model.
+
+##### What IS solid on video
+
+So a later session knows what not to re-litigate: the sequence model (scenes
+and checks as siblings, reorder with D25/D26 holding), the compositing canvas,
+the scene-card working surface and its four actions, the check editor, activity
+settings, and clip re-anchoring **as an authoring gesture**. It is the
+*persistence* of the anchor across narration edits that is unfinished.
 
 ### Podcast
 **Status:** not yet discussed.

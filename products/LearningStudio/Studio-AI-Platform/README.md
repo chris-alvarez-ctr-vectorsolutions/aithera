@@ -46,9 +46,11 @@ The 0→1 sourcing workflow is a later pass (D7).
 
 The **information layer, activity layer and outputs** are all modelled and
 demonstrable, with depth/goal validation live. The **video modality** now has a
-substantial authoring surface, including both halves of the word-anchored
-sync model — the playhead demonstrates the binding, and dragging a clip
-authors it. Five other modalities are undesigned.
+substantial authoring surface: the playhead demonstrates the word-anchored sync
+model and dragging a clip authors it. One real hole remains — anchors persist as
+word *indices*, so editing narration above an overlay shifts it onto different
+words (`MODALITIES.md`, *Left undone on video*). Five other modalities are
+undesigned.
 
 See `MODALITIES.md` for the per-modality status and what is left undone on
 video.
@@ -73,8 +75,9 @@ video.
   carries the checks bound to it (D26); a check may not be dragged before the
   scene whose language it tests, and the drop is refused with its reason (D25)
 - **Overlay re-anchoring** — drag a clip to slide it, or either edge to change
-  where it starts or ends. Commits word indices, never pixels, so the anchor
-  survives narration edits
+  where it starts or ends. Commits word indices, never pixels — though an index
+  is still a position, so narration edits above an anchor move it (see
+  `MODALITIES.md`)
 
 Everything is in-memory. Reload resets.
 
