@@ -46,7 +46,9 @@ The 0→1 sourcing workflow is a later pass (D7).
 
 The **information layer, activity layer and outputs** are all modelled and
 demonstrable, with depth/goal validation live. The **video modality** now has a
-substantial authoring surface. Five other modalities are undesigned.
+substantial authoring surface, including both halves of the word-anchored
+sync model — the playhead demonstrates the binding, and dragging a clip
+authors it. Five other modalities are undesigned.
 
 See `MODALITIES.md` for the per-modality status and what is left undone on
 video.
@@ -67,6 +69,12 @@ video.
   background and word-anchored on-screen text, a word playhead you can scrub or
   play, editable narration with pronunciation tokens, per-scene audio and voice,
   and activity settings governing check delivery
+- **Sequence reordering** — drag any scene or check to a new position. A scene
+  carries the checks bound to it (D26); a check may not be dragged before the
+  scene whose language it tests, and the drop is refused with its reason (D25)
+- **Overlay re-anchoring** — drag a clip to slide it, or either edge to change
+  where it starts or ends. Commits word indices, never pixels, so the anchor
+  survives narration edits
 
 Everything is in-memory. Reload resets.
 

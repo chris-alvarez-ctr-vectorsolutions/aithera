@@ -269,19 +269,63 @@ Built: word ruler with playhead, words/time toggle, transport, accurate
 positioned compositing, overlapping anchors in separate timeline lanes,
 full-capability scene cards, all four card actions, resizable split, the
 sequence rail with checks as siblings, the check editor with its source-language
-panel, and activity settings.
+panel, activity settings, **drag-to-reorder the sequence**, and **drag-to-
+re-anchor an overlay**.
+
+#### Re-anchoring — the authoring half of the sync model — 2026-09-18
+
+The playhead *demonstrated* that on-screen text binds to words; this is where an
+LED **sets** that binding. Drag the clip body to slide the whole span (its length
+is preserved); drag either edge to move one end.
+
+**What is committed is a pair of word indices, never a pixel offset.** That is
+the entire point of the mechanism — Phase 2 persisted `{left, width}` as
+percentages, so snapping was a drag-time convenience and an overlay silently
+desynced the moment narration was edited. Here snapping is not laid over a
+continuous value: **the value is discrete.** Word positions are read from the
+rendered ruler, which makes word boundaries the only reachable positions —
+Phase 2's `getWordSnapPoints()`, arrived at from the data side rather than the
+interaction side.
+
+While dragging, the words the clip will span light up on the ruler, so the edit
+is legible against the narration rather than against the track. On release the
+playhead parks on the new start word, so the canvas shows the result of the
+edit rather than whatever frame you were on.
+
+**Both drags auto-scroll their container.** Narration routinely overflows the
+track and a long sequence overflows the canvas, so without this you could only
+re-anchor to words — or drop into gaps — that happened to be on screen when the
+drag began, which is useless for exactly the long content that most needs
+re-timing. Dragging near either edge scrolls, the way a text selection scrolls a
+document.
+
+#### Reordering — what it is allowed to do — 2026-09-18
+
+Scenes and checks are siblings in one ordered list, so one drag handles both.
+The insert bars double as drop zones: they already sit between every pair of
+items, so there is nothing to interleave.
+
+Reordering repairs nothing and breaks nothing — no scene is referenced by
+ordinal, and a check binds to a scene **id**, not a position. Order is delivery
+order and only that.
+
+Two rules, both recorded as decisions because they are the kind a later session
+would plausibly undo:
+
+- **A check may not be delivered before the scene it tests** — refused at the
+  drop zone with its reason, not flagged (**D25**). The first hard gate in the
+  prototype; the reasoning for diverging from *flag, don't gate* is in that
+  entry.
+- **A scene moves with the checks bound to it** (**D26**), which makes that
+  invalid state unreachable rather than defended at two gates.
 
 #### Left undone on video
 
 Deliberate stubs, in rough order of value:
 
-- **Drag-to-reorder the sequence.** Handles render and move up/down works from
-  the kebab, but dragging is not wired. The most-missed interaction.
-- **Dragging an overlay clip to re-anchor it.** You can see word anchors and jump
-  to them; you cannot drag a clip to change which words it spans. This is the
-  authoring half of the sync model — the playhead only demonstrates it.
 - **Scene duplication of checks.** Duplicating a scene copies its overlays but
-  not the checks bound to it; the copy has no checks.
+  not the checks bound to it; the copy has no checks. *(Now inconsistent with
+  reorder, which does carry bound checks — D26. Worth closing next.)*
 - **"Regenerate narration"** in the scene kebab toasts rather than doing
   anything.
 - **Upload** in the media picker is a drop-zone that accepts nothing.

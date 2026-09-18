@@ -441,3 +441,63 @@ Per-section versioning would enable more precise drift (*"only failure modes
 changed, so activities not teaching failure modes are unaffected"*) but that
 value only lands with the delta-review flow, which is deferred (D20). Building
 the versioning half without the review half would be speculative.
+
+---
+
+## D25 · A check may not be delivered before the scene it tests — refused, not flagged
+**2026-09-18**
+
+**Decided:** dragging a check above its source scene in the sequence is
+**refused at the drop zone**. The zone shows a refusal state and the reason
+("not before the scene it tests"); releasing there changes nothing.
+
+**Why:** a check is bound to the specific narration phrasing of one scene
+(*Checks and assessments are different instruments*, `MODALITIES.md`). Delivered
+before that scene, it asks the learner about language they have not heard yet.
+That is not a quality signal to weigh — it is an incoherent sequence.
+
+**Deliberately stricter than the `far` indicator beside it**, which flags a
+check delivered well *after* its source and still allows it. The asymmetry is
+the point: **late is a judgment call about pacing; early is broken.**
+
+**Divergence, recorded on purpose:** D14 and D19 both chose *flag, don't gate* —
+a progression warning that passes, drift that stays advisory. This is the first
+hard gate in the prototype. The distinction that justifies it: those flag
+**judgments that may be defensible** (assessed without build-up; teaching
+guidance that is old but not yet wrong). This forbids a state that is **never
+defensible**, and unlike drift it is created by a single direct action, so it
+can be refused at the moment it is attempted rather than reported afterwards.
+*(User's call, 2026-09-18.)*
+
+**Rejected:** allowing it with a warning in the check's bound-line (consistent
+with `far`, but leaves a broken sequence sitting there); allowing it silently
+(throws away a signal the rail already surfaces).
+
+---
+
+## D26 · A scene moves with the checks bound to it
+**2026-09-18**
+
+**Decided:** dragging a scene in the sequence carries every check bound to it,
+preserving their relative order. Checks still drag independently.
+
+**Why:** D25 only guarded the *check's* drag. Dragging a **scene** past its own
+check produced exactly the forbidden state by another route — found by
+exercising all 24 possible drags against the seeded sequence, not by reading
+the code.
+
+Refusing the scene drop instead was the alternative, and it is worse: the user
+gets blocked moving a scene for a reason belonging to a different item, and the
+remedy (move the check first) is unobvious. Carrying the checks along makes the
+invalid state **unreachable by construction** rather than defended at two
+separate gates.
+
+**Precedent:** deleting a scene already deletes the checks bound to it. The
+binding already survives structural edits; this applies the same rule to
+movement.
+
+**Consequence:** a scene whose checks are scattered through the sequence gets
+them **gathered** to it when moved. That is the correct reading of "move this
+scene" — and the no-op test compares the resulting sequence rather than the
+block's offsets, so a drag that would spell the same order is correctly treated
+as no move at all.
