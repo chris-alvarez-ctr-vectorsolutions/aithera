@@ -395,7 +395,102 @@ settings, and clip re-anchoring **as an authoring gesture**. It is the
 **Status:** not yet discussed.
 
 ### Scenario
-**Status:** not yet discussed.
+**Status:** discussion started 2026-09-18. Prior art reviewed; framework
+questions not yet answered.
+
+#### Prior art — the Scenario Simulator (READ-ONLY reference)
+
+`products/aithera/scenario-simulator/` holds a **working scenario authoring
+tool** with a dev handoff, a JSON schema, CI contract checks, and a frozen cut
+being iframed into Learning Studio. It is far more developed than anything we
+would build here.
+
+> ⚠️ **`products/aithera/` is reference only — never edit, move or commit
+> anything inside it.** (User, 2026-09-18.) It is a separate product with live
+> downstream consumers. Borrow ideas; cite the path; change nothing.
+
+Orientation: `scenario-simulator/HANDOFF.md`, then
+`js/README.writer-studio.md` (the authoring contract) and `js/scenario-v4.js`
+(the schema preamble — the three numbered points at the top are the ones that
+matter).
+
+##### What it independently confirms
+
+**1. The type-agnostic shell is real, not aspirational.** Its shell talks only
+to a registered TYPE's public surface — `sections`, `renderFields`, `lints`,
+`compile`, `blank`, `normalize`. Adding a pedagogy is adding a module plus an
+include line. `grep -c "type.id ===" js/studio-shell.js` returns **0**.
+
+That is the same registration seam `MODEL.md` claims under *Node addressing*
+and that this file says modality authoring is "the first place that seam does
+real work." **It is not the first place — this tool already did it**, on a
+different axis (pedagogy rather than modality) and at production quality. Worth
+reading before we design ours, because the shape of the contract is evidence,
+not speculation.
+
+**2. "There is no type field" — the modality is emergent.** From
+`scenario-v4.js`:
+
+> *A scenario is not "a branching arc" or "a scene sweep" — it is a list of
+> phases, each of which picks a practice `mode` (`coach_inquiry` | `roleplay` |
+> `observe_react`). What the scenario* is *emerges from the modes it uses. Our
+> eight sim types are presets over this one shape.*
+
+They collapsed **eight named scenario types into one shape plus a per-step
+mode**. This is directly relevant to our *sequence / tree / set* question and
+arguably to the modality list itself.
+
+**3. A scenario is a SEQUENCE of steps, not a branching tree.** Each step pairs
+a *practice* (learner acts) with a *debrief* (coach teaches against that
+attempt). Branching is not in the shape. Cross-step dependency is expressed as
+**`carryover`** — a later step reads from a named earlier step by **id**, which
+is the same bind-to-identity move used throughout our model.
+
+This bears directly on the assumption that scenario is *the* modality that
+forces a tree. A real production scenario tool concluded it does not.
+
+**4. They hit our D25/D26 problem and solved it the same way.** Their step
+`remove()` prunes carryover references to the deleted step and **reports how
+many** rather than silently editing steps the author was not looking at; their
+`duplicate()` inserts the copy *directly after its original* so every carryover
+it holds still names an earlier step. Same class of problem as a check bound to
+a scene, same answer: repair the references and say what you did.
+
+**5. Their steps are a rail-driven section list** — the shell owns the rail,
+focus view and ⋯ commands; the type owns what a step *is* and what moving or
+deleting one costs. That division of labour is worth copying wholesale.
+
+##### What is deliberately different, and must not be flattened
+
+- **Their author is a content designer filling plain-language fields** that a
+  per-type compiler assembles into an LLM system prompt around locked,
+  safety-critical sections. Ours is an LED with limited subject knowledge
+  working from information points. Different author, different starting
+  material.
+- **Their scenario carries no prompt text and no teaching-point references.**
+  It has its own `teaching_points` inline (topic + points), debrief-scoped.
+  Ours would need to *derive* from information points and tag coverage — the
+  join our model exists to express and theirs has no reason to.
+- **They are moving toward customer authoring** and treat "the author is no
+  longer trusted" as the premise (`docs/scenario-simulator-customer-authoring.html`,
+  2026-08-31). Not our problem yet, but it is why their prompt layer is
+  server-side.
+
+##### The question this raises for us, before the framework questions
+
+Their tool exists, works, and is **being integrated into Learning Studio in an
+iframe**. So "design a scenario authoring surface" may be the wrong ask. The
+live question is what *this* platform adds that theirs cannot:
+
+- the **join to information points** — coverage, depth, drift — which their
+  document has no slot for;
+- **transmute** — a scenario derived from the same points as the video;
+- and whether our surface should *be* an authoring surface at all, or the place
+  a scenario is **commissioned, covered and validated** while the actual
+  scripting happens in their editor.
+
+Settle that before answering the seven framework questions, because it decides
+whether they apply.
 
 ### Knowledge check
 **Status:** not yet discussed.
