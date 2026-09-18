@@ -18,7 +18,7 @@
 
 | Modality | Surface designed? | Built? | Session notes |
 |---|---|---|---|
-| Video | no | no | — |
+| Video | **yes** | in progress | See Video section |
 | Podcast | no | no | — |
 | Scenario | no | no | — |
 | Knowledge check | no | no | — |
@@ -129,8 +129,66 @@ Phase 2's IA is the linear course pipeline this platform is designed past
 *Each gets filled in by its own discussion. Do not pre-empt them here.*
 
 ### Video
-**Status:** not yet discussed.
-Phase 2's objectManager is the prior art — review before designing.
+**Status:** designed 2026-09-18, building.
+
+**1. Body unit — the SCENE.** A production chunk, 2–5 min LO total. Carries
+narration (as phonetic-aware tokens), background media, on-screen text overlays,
+duration, and status. **No title** — a scene is identified by what it carries,
+not by its position. *"A scene should own its coverage, not the reverse"* — so
+nothing external references a scene by ordinal, and reordering repairs nothing.
+
+**2. Section unit for traceability — NONE.** Coverage tags at activity level
+(see the revised decision above).
+
+**3. Sequence.**
+
+**4. Generated vs. hand-authored.** Narration is AI-drafted then hand-edited;
+media is AI-generated / uploaded / stock; audio is TTS per scene. Phonetic
+pronunciation survives narration edits (token model, carried forward).
+
+**5. Prompt targets** — a scene, or the narration within it.
+
+**6. Done** — a render gate with human-readable blockers, carried forward from
+Phase 2: *"3 scenes are not marked Ready"*, *"2 scenes are missing background
+media"*. Shown in a popover, never a dead button.
+
+**7. Depths** — commonly Awareness/Working; Mastery only where a check earns it.
+Format never determines depth (D15).
+
+#### Narration is the spine
+
+On-screen text anchors to **words in the narration**, not to seconds. Phase 2
+already has the mechanism — a caption-scale ruler rendering one tick per word,
+with `getWordSnapPoints()` making word boundaries the snap targets, so an
+overlay starts *on the word "derated"* rather than at 3.2s.
+
+**Improvement over Phase 2:** its `clipState` persists `{left, width}` as
+percentages, so snapping is a drag-time convenience only — edit the narration
+and the overlay silently desyncs. Here the anchor persists as a **word
+reference**. Same principle as comment anchors and point pinning: bind to
+identity, not position.
+
+Why this matters (user): on-screen text drifting out of sync with spoken
+narration is a quality failure in the legacy video format, so timing is
+load-bearing rather than polish.
+
+#### Checks
+
+- **Bound at SCENE level** — a check knows which scene's language it came from.
+  Word-level anchoring is not needed yet.
+- **Placed independently** — inline between scenes, or compiled at the end.
+  Binding and placement are separate properties, which is what lets the same
+  check serve either delivery pattern without re-authoring.
+- Phase 2 hid the video canvas to author questions; here they live in the scene
+  flow, since a check must stay synced to the language it tests.
+
+#### Timeline scope
+
+Build: the **word ruler**, **caption/time scale toggle**, and **word-anchored
+overlay blocks**. These carry the sync model.
+
+Skip: trim handles, per-bullet sub-clips, transition pickers. Production detail
+that proves nothing new about the model.
 
 ### Podcast
 **Status:** not yet discussed.

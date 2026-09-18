@@ -582,6 +582,195 @@
   }
   .sai-doc-card-link:hover { text-decoration: underline; }
 
+  /* ── ACTIVITY DETAIL — the modality authoring surface ──────────────────
+     Shared shell (header, coverage + depth panel, back-nav, dual editing);
+     only the BODY differs per modality. First real use of the registration
+     seam the node model has claimed since the start. */
+  .sai-act-doc { max-width: 1180px; margin: 0 auto;
+    display: grid; grid-template-columns: minmax(0,1fr) 296px; gap: 16px; align-items: start; }
+
+  .sai-scene {
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-radius: 7px; margin-bottom: 4px; overflow: hidden;
+  }
+  .sai-scene.active { border-color: var(--sai-accent); box-shadow: 0 0 0 1px var(--sai-accent); }
+  .sai-scene-head {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 11px; cursor: pointer;
+    border-bottom: 1px solid transparent;
+  }
+  .sai-scene.active .sai-scene-head { border-bottom-color: var(--sai-line); }
+  .sai-scene-head:hover { background: var(--sai-surface-2); }
+  /* Ordinal is DISPLAY ONLY — nothing references a scene by number. */
+  .sai-scene-num {
+    width: 20px; height: 20px; border-radius: 4px; flex: 0 0 auto;
+    display: grid; place-items: center; font-size: 9.5px; font-weight: 700;
+    background: var(--sai-bg); color: var(--sai-ink-3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .sai-scene-gist {
+    flex: 1 1 auto; min-width: 0; font-size: 12px; color: var(--sai-ink-2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .sai-scene.active .sai-scene-gist { color: var(--sai-ink); font-weight: 500; }
+  .sai-scene-meta { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+  .sai-dur {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px; color: var(--sai-ink-3);
+  }
+  .sai-sstat { font-size: 9.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: .05em; }
+  .sai-sstat.ready     { background: var(--sai-output-soft); color: var(--sai-output); }
+  .sai-sstat.in-review { background: var(--sai-warn-soft); color: var(--sai-warn); }
+  .sai-sstat.in-progress { background: var(--sai-surface-3); color: var(--sai-ink-3); }
+
+  .sai-scene-body { padding: 10px 11px 12px; display: none; }
+  .sai-scene.active .sai-scene-body { display: block; }
+
+  .sai-narr {
+    font-size: 13px; line-height: 1.75; color: var(--sai-ink);
+    padding: 8px 10px; border-radius: 5px; border: 1px solid transparent;
+    background: var(--sai-bg); outline: none;
+  }
+  .sai-narr:focus { border-color: var(--sai-accent); }
+  .sai-narr.targeted { border-color: var(--sai-accent); box-shadow: 0 0 14px -4px #4da3f080; }
+  /* Pronunciation is stored as an atomic token, so it survives narration
+     edits — Phase 2's whole-field phonetic silently reset on every edit. */
+  .sai-ph {
+    background: var(--sai-info-soft); color: var(--sai-info);
+    border-radius: 3px; padding: 0 3px; border-bottom: 1px dotted var(--sai-info);
+    cursor: help;
+  }
+
+  .sai-scene-row { display: flex; align-items: center; gap: 8px; margin-top: 9px; font-size: 11px; color: var(--sai-ink-3); }
+  .sai-scene-row .sai-pill { cursor: pointer; }
+
+  /* ── Word ruler — the sync mechanism. Overlays anchor to WORDS. ──── */
+  .sai-tl { margin-top: 11px; border: 1px solid var(--sai-line); border-radius: 5px; background: var(--sai-bg); overflow: hidden; }
+  .sai-tl-head {
+    display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+    border-bottom: 1px solid var(--sai-line);
+  }
+  .sai-tl-title { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--sai-ink-3); }
+  .sai-tl-toggle { margin-left: auto; display: flex; gap: 2px; }
+  .sai-tl-btn {
+    font-family: inherit; font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 3px; cursor: pointer;
+    background: none; border: 1px solid var(--sai-line-2); color: var(--sai-ink-3);
+  }
+  .sai-tl-btn.on { background: var(--sai-surface-3); color: var(--sai-ink); border-color: var(--sai-line-2); }
+  .sai-tl-scroll { overflow-x: auto; padding: 8px; }
+  /* Words need a readable minimum, so the ruler scrolls rather than crushing —
+     same reasoning as Phase 2's WORD_PX_EACH. */
+  .sai-tl-inner { position: relative; width: max-content; min-width: 100%; }
+  .sai-words { display: flex; gap: 0; align-items: flex-end; height: 22px; }
+  .sai-word {
+    font-size: 9.5px; color: var(--sai-ink-3); white-space: nowrap;
+    padding: 0 4px; border-left: 1px solid var(--sai-line-2);
+    flex: 0 0 auto; min-width: 34px; text-align: center;
+  }
+  .sai-word.in-anchor { color: var(--sai-activity); background: var(--sai-act-soft); }
+  .sai-tl-track {
+    position: relative; height: 24px; margin-top: 5px;
+    background: var(--sai-surface); border-radius: 3px;
+  }
+  .sai-tl-clip {
+    position: absolute; top: 3px; bottom: 3px;
+    background: var(--sai-act-soft); border: 1px solid var(--sai-activity);
+    border-radius: 3px; display: flex; align-items: center; padding: 0 7px;
+    font-size: 10px; color: var(--sai-activity); white-space: nowrap;
+    overflow: hidden; cursor: grab;
+  }
+  .sai-tl-clip.media { background: var(--sai-surface-3); border-color: var(--sai-line-2); color: var(--sai-ink-2); }
+  .sai-tl-empty {
+    padding: 7px; font-size: 10.5px; color: var(--sai-ink-3); text-align: center;
+  }
+
+  /* ── Checks — bound to a scene, placed independently ────────────── */
+  .sai-check {
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-left: 2px solid var(--sai-warn); border-radius: 0 6px 6px 0;
+    padding: 9px 11px; margin-bottom: 4px;
+  }
+  .sai-check-head {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+    font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--sai-warn);
+  }
+  .sai-check-bound {
+    margin-left: auto; font-weight: 500; text-transform: none; letter-spacing: 0;
+    font-size: 10px; color: var(--sai-ink-3);
+  }
+  .sai-check-stem { font-size: 12.5px; color: var(--sai-ink); margin-bottom: 7px; line-height: 1.5; }
+  .sai-check-opt {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11.5px; color: var(--sai-ink-2); padding: 3px 0;
+  }
+  .sai-check-opt i { font-size: 9px; color: var(--sai-ink-3); width: 11px; }
+  .sai-check-opt.correct { color: var(--sai-output); }
+  .sai-check-opt.correct i { color: var(--sai-output); }
+  .sai-place {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 600; padding: 1px 7px; border-radius: 3px;
+    background: var(--sai-bg); border: 1px solid var(--sai-line-2);
+    color: var(--sai-ink-3); cursor: pointer;
+  }
+  .sai-place:hover { border-color: var(--sai-warn); color: var(--sai-warn); }
+
+  /* Insert zone — carried forward from Phase 2. One affordance, two jobs. */
+  .sai-insert {
+    height: 14px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative;
+  }
+  .sai-insert::before {
+    content: ''; position: absolute; left: 0; right: 0; height: 1px;
+    background: var(--sai-line); opacity: .7;
+  }
+  .sai-insert span {
+    position: relative; font-size: 9.5px; font-weight: 600; color: var(--sai-ink-3);
+    background: var(--sai-bg); padding: 0 8px; opacity: 0; transition: opacity .12s;
+  }
+  .sai-insert:hover span { opacity: 1; color: var(--sai-accent); }
+  .sai-insert:hover::before { background: var(--sai-accent); opacity: .4; }
+
+  /* ── Render gate — blockers, never a dead button ────────────────── */
+  .sai-gate {
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-radius: 7px; padding: 11px 13px; margin-bottom: 12px;
+  }
+  .sai-gate-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .sai-gate-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--sai-ink-3); }
+  .sai-gate-blocker {
+    display: flex; align-items: flex-start; gap: 7px;
+    font-size: 11.5px; color: var(--sai-ink-2); padding: 3px 0;
+  }
+  .sai-gate-blocker i { color: var(--sai-warn); font-size: 9px; margin-top: 4px; }
+  .sai-gate.ready .sai-gate-blocker i { color: var(--sai-output); }
+
+  .sai-cov-list { padding: 10px 12px 13px; display: flex; flex-direction: column; gap: 11px; }
+  .sai-cov-row { padding-bottom: 10px; border-bottom: 1px solid var(--sai-line); }
+  .sai-cov-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .sai-cov-top { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 6px; }
+  .sai-cov-name { font-size: 11.5px; line-height: 1.4; color: var(--sai-ink); }
+  .sai-cov-ctl { display: flex; align-items: center; gap: 5px; }
+  .sai-depth-sel {
+    font-family: inherit; font-size: 11px; font-weight: 600;
+    padding: 3px 6px; border-radius: 4px;
+    background: var(--sai-surface-2); color: var(--sai-ink);
+    border: 1px solid var(--sai-line-2); cursor: pointer;
+  }
+  .sai-depth-sel:hover { border-color: var(--sai-accent); }
+  .sai-tagstate {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 3px;
+    background: var(--sai-bg); color: var(--sai-ink-3); border: 1px solid var(--sai-line-2);
+  }
+  .sai-tagstate i { font-size: 8px; }
+  .sai-tagstate.s-confirmed { color: var(--sai-output); border-color: #2f5a45; }
+  .sai-tagstate.s-adjusted  { color: var(--sai-activity); border-color: #2a4d70; }
+  .sai-cov-req { margin-top: 5px; font-size: 10px; color: var(--sai-ink-3); }
+  .sai-cov-req.short { color: var(--sai-warn); font-weight: 600; }
+  .sai-cov-req.ok { color: var(--sai-output); }
+
   /* ---------------------------------------------------------------------------
      ACTIVITIES LAYER — shelf grouped by the information points each covers
      --------------------------------------------------------------------------- */
@@ -1225,6 +1414,12 @@
           <div class="sai-info-list" id="infoList"></div>
         </section>
 
+        <!-- Activity detail — the modality authoring surface. Shared shell,
+             per-modality body. -->
+        <section class="sai-view" data-view="activity-detail">
+          <div class="sai-act-doc" id="activityDoc"></div>
+        </section>
+
         <!-- Point detail — the document canvas. Cards are the index; a point
              drills in here, where it can be edited directly or by prompt. -->
         <section class="sai-view" data-view="point-detail">
@@ -1577,6 +1772,47 @@ const MODEL = {
     { id: 'act-video', type: 'media.video', layer: 'activity', status: 'idle',
       modality: 'Video', icon: 'fa-video',
       title: 'Safe operation walkthrough', meta: '8 min · narrated · captioned',
+      // ── The video body. Scenes are PRODUCTION CHUNKS, not content boundaries:
+      //    an LED builds in pieces that stitch into one LO. They carry no title —
+      //    a scene owns what it needs, so nothing references it by ordinal and
+      //    reordering repairs nothing.
+      //    On-screen text anchors to WORDS in the narration, never to seconds,
+      //    because text drifting out of sync with speech is a quality failure.
+      scenes: [
+        { id: 'sc-1', duration: 22, status: 'ready', voice: 'Sarah',
+          narration: 'Before any shift begins, the operator completes a documented pre-shift inspection. This is the last point at which a developing fault can be caught before it becomes a failure under load.',
+          phonetic: { 'pre-shift': 'pree-shift' },
+          media: { kind: 'stock', label: 'Warehouse — forklift at bay door' },
+          overlays: [
+            { id: 'ov-1a', kind: 'lower-third', text: 'Pre-shift inspection',
+              anchorFrom: 6, anchorTo: 10 }
+          ] },
+        { id: 'sc-2', duration: 26, status: 'ready', voice: 'Sarah',
+          narration: 'Check the forks for cracks and heel wear. Check the mast chains for kinks and uneven tension. Check hydraulics for visible leaks, and check that the seatbelt retracts cleanly.',
+          phonetic: {},
+          media: { kind: 'generated', label: 'Close-up — fork heel wear' },
+          overlays: [
+            { id: 'ov-2a', kind: 'bullets', text: 'Forks · Mast · Hydraulics · Belt',
+              anchorFrom: 4, anchorTo: 28 }
+          ] },
+        { id: 'sc-3', duration: 19, status: 'in-review', voice: 'Sarah',
+          narration: 'A clean inspection is still a record. Log it whether or not you find a defect, because the record is what establishes when the truck was last verified sound, and by whom.',
+          phonetic: {},
+          media: null,
+          overlays: [] }
+      ],
+      // Checks are BOUND to a scene's language but PLACED independently —
+      // which is what lets the same check run inline or compile to the end.
+      checks: [
+        { id: 'ck-1', boundTo: 'sc-2', placement: 'after-scene',
+          stem: 'Which of these is NOT part of the pre-shift inspection described?',
+          options: ['Fork heel wear', 'Mast chain tension', 'Annual load test', 'Seatbelt retraction'],
+          correct: 2 },
+        { id: 'ck-2', boundTo: 'sc-3', placement: 'end',
+          stem: 'You inspect a truck and find no defects. What do you do with the record?',
+          options: ['Nothing — records are for defects', 'Log it anyway', 'Log it only if asked'],
+          correct: 1 }
+      ],
       covers: {
         'info-1': { depth: 'awareness', state: 'confirmed', at: 2 },
         'info-2': { depth: 'awareness', state: 'confirmed', at: 1 },
@@ -1985,6 +2221,9 @@ function renderActivities() {
                 ? '<span class="sai-pill"><i class="fa-solid fa-check"></i>placed</span>'
                 : '<span class="sai-pill" style="background:transparent;border:1px dashed var(--sai-line-2);color:var(--sai-ink-3)">unplaced</span>'}
               ${commentPill(a.id)}
+              <button class="sai-doc-card-link" data-openact="${a.id}">
+                Open <i class="fa-solid fa-arrow-right"></i>
+              </button>
               <span class="sai-node-status"><i class="fa-solid fa-circle-notch"></i><span>working</span></span>
             </div>
             <div class="sai-activity-cover">
@@ -2195,6 +2434,334 @@ function renderPointDoc(id) {
   });
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ACTIVITY DETAIL — the modality authoring surface.
+   Shared shell + a per-modality body. Video is the first body built.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+let openActivity = null;
+let activeScene  = null;
+let tlScale      = 'words';   // 'words' | 'time'
+
+/* Narration split into words, so overlays can anchor by word index rather
+   than by percentage — a percentage silently desyncs when narration is
+   edited, which is Phase 2's failure mode. */
+function narrWords(n) { return (n || '').trim().split(/\s+/); }
+
+function renderWordRuler(sc) {
+  const words = narrWords(sc.narration);
+  if (!words.length) return '<div class="sai-tl-empty">No narration yet.</div>';
+
+  const inAnchor = i => (sc.overlays || []).some(o => i >= o.anchorFrom && i <= o.anchorTo);
+
+  const ruler = tlScale === 'words'
+    ? `<div class="sai-words">${words.map((w, i) =>
+        `<span class="sai-word ${inAnchor(i) ? 'in-anchor' : ''}" title="word ${i + 1}">${w}</span>`).join('')}</div>`
+    : `<div class="sai-words">${Array.from({length: Math.ceil(sc.duration)}, (_, i) =>
+        `<span class="sai-word">${i}s</span>`).join('')}</div>`;
+
+  // Overlay clips positioned by their word anchor.
+  const clips = (sc.overlays || []).map(o => {
+    const left  = (o.anchorFrom / words.length) * 100;
+    const width = ((o.anchorTo - o.anchorFrom + 1) / words.length) * 100;
+    return `<div class="sai-tl-clip" style="left:${left}%;width:${width}%"
+      title="Anchored to words ${o.anchorFrom + 1}–${o.anchorTo + 1}: “${words.slice(o.anchorFrom, o.anchorTo + 1).join(' ')}”">
+      <i class="fa-solid fa-grip-vertical" style="font-size:8px;margin-right:5px;opacity:.6"></i>${o.text}
+    </div>`;
+  }).join('');
+
+  const media = sc.media
+    ? `<div class="sai-tl-clip media" style="left:0;width:100%">
+         <i class="fa-solid fa-image" style="font-size:8px;margin-right:5px"></i>${sc.media.label}
+       </div>`
+    : '<div class="sai-tl-clip media" style="left:0;width:100%;border-style:dashed;opacity:.5">No background media</div>';
+
+  return `
+    <div class="sai-tl-scroll"><div class="sai-tl-inner">
+      ${ruler}
+      <div class="sai-tl-track">${clips || ''}</div>
+      <div class="sai-tl-track">${media}</div>
+    </div></div>`;
+}
+
+/* Pronunciation renders as an atomic token inside the narration. */
+function narrHTML(sc) {
+  let html = sc.narration || '';
+  Object.entries(sc.phonetic || {}).forEach(([word, say]) => {
+    html = html.replace(new RegExp('\\b' + word + '\\b'),
+      `<span class="sai-ph" title="Pronounced: ${say}">${word}</span>`);
+  });
+  return html;
+}
+
+/* Render blockers — human-readable, never a dead button. */
+function renderBlockers(a) {
+  const sc = a.scenes || [];
+  const out = [];
+  const notReady = sc.filter(x => x.status !== 'ready').length;
+  const noMedia  = sc.filter(x => !x.media).length;
+  const noNarr   = sc.filter(x => !x.narration || !x.narration.trim()).length;
+  if (notReady) out.push(`${notReady} scene${notReady > 1 ? 's are' : ' is'} not marked Ready`);
+  if (noMedia)  out.push(`${noMedia} scene${noMedia > 1 ? 's are' : ' is'} missing background media`);
+  if (noNarr)   out.push(`${noNarr} scene${noNarr > 1 ? 's have' : ' has'} no narration`);
+  return out;
+}
+
+function renderActivityDoc(id) {
+  const a = byId[id];
+  if (!a) return;
+  openActivity = id;
+  if (!activeScene && a.scenes && a.scenes.length) activeScene = a.scenes[0].id;
+
+  const blockers = renderBlockers(a);
+  const total = (a.scenes || []).reduce((t, x) => t + x.duration, 0);
+
+  // Body dispatches on modality — the registration seam.
+  const body = a.scenes ? renderVideoBody(a) : `
+    <div class="sai-empty-hint">
+      No authoring surface built for <b>${a.modality}</b> yet.<br>
+      See <code>MODALITIES.md</code> — each modality gets its own body within this
+      same shell.
+    </div>`;
+
+  $('#activityDoc').innerHTML = `
+    <div>
+      <button class="sai-doc-back" id="actBack">
+        <i class="fa-solid fa-arrow-left"></i> All activities
+      </button>
+
+      <div class="sai-doc-main" style="margin-bottom:12px">
+        <div class="sai-doc-head">
+          <div class="sai-doc-title">${a.title}</div>
+          <div class="sai-doc-meta">
+            <span class="sai-pill modality"><i class="fa-solid ${a.icon}"></i>${a.modality}</span>
+            <span class="sai-pill count">${a.meta}</span>
+            ${a.scenes ? `<span class="sai-pill count"><i class="fa-solid fa-film"></i>${a.scenes.length} scenes · ${total}s</span>` : ''}
+            ${commentPill(a.id)}
+          </div>
+        </div>
+      </div>
+
+      <div class="sai-gate ${blockers.length ? '' : 'ready'}">
+        <div class="sai-gate-head">
+          <i class="fa-solid fa-${blockers.length ? 'triangle-exclamation' : 'circle-check'}"
+             style="color:var(--sai-${blockers.length ? 'warn' : 'output'});font-size:11px"></i>
+          <span class="sai-gate-title">${blockers.length ? 'Not ready to render' : 'Ready to render'}</span>
+          <button class="sai-btn ${blockers.length ? '' : 'primary'}" style="margin-left:auto">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            ${blockers.length ? 'Complete & Render' : 'Render'}
+          </button>
+        </div>
+        ${blockers.length
+          ? blockers.map(b => `<div class="sai-gate-blocker"><i class="fa-solid fa-circle"></i>${b}</div>`).join('')
+          : '<div class="sai-gate-blocker"><i class="fa-solid fa-circle"></i>All scenes ready, narrated and backed with media.</div>'}
+      </div>
+
+      ${body}
+    </div>
+
+    ${renderCoveragePanel(a)}`;
+
+  switchLayer('activity-detail');
+  $('#layerName').textContent  = a.modality + ' activity';
+  $('#layerCount').textContent = a.title;
+
+  $('#actBack').addEventListener('click', () => {
+    openActivity = null; activeScene = null;
+    switchLayer('activities');
+  });
+  wireActivityDoc(a);
+}
+
+/* ── VIDEO BODY ─────────────────────────────────────────────────────────
+   Scenes are production chunks. Checks bound to a scene render inline where
+   their placement says — which is why binding and placement are separate. */
+function renderVideoBody(a) {
+  const inlineChecks = sid => (a.checks || [])
+    .filter(c => c.boundTo === sid && c.placement === 'after-scene')
+    .map(renderCheck).join('');
+
+  const scenes = a.scenes.map((sc, i) => {
+    const active = sc.id === activeScene;
+    const gist = (sc.narration || '').slice(0, 88) + ((sc.narration || '').length > 88 ? '…' : '');
+    return `
+      <div class="sai-insert" data-insert="${sc.id}"><span>+ Add scene here</span></div>
+      <article class="sai-scene ${active ? 'active' : ''}" data-scene="${sc.id}">
+        <div class="sai-scene-head" data-openscene="${sc.id}">
+          <span class="sai-scene-num">${i + 1}</span>
+          <span class="sai-scene-gist">${gist}</span>
+          <span class="sai-scene-meta">
+            <span class="sai-dur">${sc.duration}s</span>
+            <span class="sai-sstat ${sc.status}">${sc.status.replace('-', ' ')}</span>
+          </span>
+        </div>
+        <div class="sai-scene-body">
+          <div class="sai-doc-label">Narration</div>
+          <div class="sai-narr" contenteditable="true" spellcheck="false"
+               data-narr="${sc.id}">${narrHTML(sc)}</div>
+          <div class="sai-scene-row">
+            <span class="sai-pill"><i class="fa-solid fa-microphone"></i>${sc.voice}</span>
+            <span class="sai-pill"><i class="fa-solid fa-wand-magic-sparkles"></i>Regenerate audio</span>
+            ${Object.keys(sc.phonetic || {}).length
+              ? `<span class="sai-pill sourced"><i class="fa-solid fa-ear-listen"></i>${Object.keys(sc.phonetic).length} pronunciation</span>` : ''}
+            <span style="margin-left:auto">Select any word to set pronunciation</span>
+          </div>
+
+          <div class="sai-tl">
+            <div class="sai-tl-head">
+              <span class="sai-tl-title">Timing</span>
+              <span style="font-size:10px;color:var(--sai-ink-3)">on-screen text anchors to words, not seconds</span>
+              <span class="sai-tl-toggle">
+                <button class="sai-tl-btn ${tlScale === 'words' ? 'on' : ''}" data-scale="words">Words</button>
+                <button class="sai-tl-btn ${tlScale === 'time' ? 'on' : ''}" data-scale="time">Time</button>
+              </span>
+            </div>
+            ${renderWordRuler(sc)}
+          </div>
+        </div>
+      </article>
+      ${inlineChecks(sc.id)}`;
+  }).join('');
+
+  const endChecks = (a.checks || []).filter(c => c.placement === 'end');
+
+  return `
+    <div class="sai-doc-label" style="margin-bottom:6px">Scenes</div>
+    ${scenes}
+    <div class="sai-insert" data-insert="end"><span>+ Add scene here</span></div>
+    ${endChecks.length ? `
+      <div class="sai-doc-label" style="margin:16px 0 6px">Compiled at the end</div>
+      ${endChecks.map(renderCheck).join('')}` : ''}`;
+}
+
+function renderCheck(c) {
+  const scene = (byId[openActivity].scenes || []).find(s => s.id === c.boundTo);
+  const idx = (byId[openActivity].scenes || []).indexOf(scene) + 1;
+  return `
+    <div class="sai-check" data-check="${c.id}">
+      <div class="sai-check-head">
+        <i class="fa-solid fa-circle-question"></i> Check-in
+        <span class="sai-check-bound">
+          bound to scene ${idx}’s language ·
+          <span class="sai-place" data-place="${c.id}">
+            <i class="fa-solid fa-arrows-up-down-left-right"></i>${c.placement === 'end' ? 'at the end' : 'after this scene'}
+          </span>
+        </span>
+      </div>
+      <div class="sai-check-stem">${c.stem}</div>
+      ${c.options.map((o, i) => `
+        <div class="sai-check-opt ${i === c.correct ? 'correct' : ''}">
+          <i class="fa-${i === c.correct ? 'solid fa-circle-check' : 'regular fa-circle'}"></i>${o}
+        </div>`).join('')}
+    </div>`;
+}
+
+/* ── COVERAGE PANEL — shared across every modality. Depth is editable here
+   (LED-side only; SME confirmation shows as state, never performed). ──── */
+function renderCoveragePanel(a) {
+  const goal = GOALS[MODEL.goal];
+  const rows = Object.keys(a.covers || {}).map(pid => {
+    const t = tagOf(a, pid);
+    const p = byId[pid];
+    const idx = MODEL.information.findIndex(x => x.id === pid) + 1;
+    const req = p.requires || goal.defaultDepth;
+    const meets = depthRank(t.depth) >= depthRank(req);
+    return `
+      <div class="sai-cov-row" data-cov="${pid}">
+        <div class="sai-cov-top">
+          <span class="sai-cover-dot d-${t.depth} s-${t.state}" data-goto="${pid}">${idx}</span>
+          <span class="sai-cov-name">${p.title}</span>
+        </div>
+        <div class="sai-cov-ctl">
+          <select class="sai-depth-sel" data-depth="${pid}">
+            ${Object.entries(DEPTH).map(([k, d]) =>
+              `<option value="${k}" ${k === t.depth ? 'selected' : ''}>${d.label}</option>`).join('')}
+          </select>
+          <span class="sai-tagstate s-${t.state}" title="${TAG_STATE[t.state].label}">
+            <i class="fa-solid ${TAG_STATE[t.state].icon}"></i>${TAG_STATE[t.state].short}
+          </span>
+          ${t.behind ? `<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)"
+            title="Judged against v${t.at}; point is now v${p.version}">v${t.at}</span>` : ''}
+        </div>
+        <div class="sai-cov-req ${meets ? 'ok' : 'short'}">
+          <i class="fa-solid fa-${meets ? 'check' : 'triangle-exclamation'}" style="font-size:8px;margin-right:4px"></i>
+          ${meets ? `meets ${DEPTH[req].label}` : `below the ${DEPTH[req].label} this point requires`}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <aside class="sai-usage" style="border-left-color:var(--sai-activity)">
+      <div class="sai-usage-head">
+        <div class="sai-usage-title" style="color:var(--sai-activity)">
+          <i class="fa-solid fa-shapes"></i> Coverage &amp; depth
+        </div>
+        <div class="sai-usage-note">
+          What this activity teaches, and how deeply. Depth is <b>your</b> judgment —
+          format never determines it. Confirmation comes from an SME outside the platform.
+        </div>
+      </div>
+      <div class="sai-cov-list">${rows}</div>
+    </aside>`;
+}
+
+/* Wire the activity surface after each render. */
+function wireActivityDoc(a) {
+  const root = $('#activityDoc');
+
+  // Scene accordion — only the active scene expands.
+  $$('[data-openscene]', root).forEach(el => el.addEventListener('click', () => {
+    activeScene = (activeScene === el.dataset.openscene) ? null : el.dataset.openscene;
+    renderActivityDoc(a.id);
+  }));
+
+  // Narration is directly editable AND prompt-targetable.
+  $$('[data-narr]', root).forEach(el => {
+    el.addEventListener('focus', () => {
+      selectNode(a.id, 'narration');
+      $$('.sai-narr').forEach(x => x.classList.remove('targeted'));
+      el.classList.add('targeted');
+      $('#composerScopeText').textContent = `${a.title} · scene narration`;
+      $('#composerScope').classList.add('on');
+    });
+    el.addEventListener('blur', () => {
+      const sc = a.scenes.find(x => x.id === el.dataset.narr);
+      if (sc) { sc.narration = el.innerText; renderActivityDoc(a.id); }
+    });
+  });
+
+  // Depth editing — LED-side. Setting a depth marks the tag LED-adjusted,
+  // because a human just made the judgment. SME confirmation is not
+  // performed here; it arrives from outside the platform.
+  $$('[data-depth]', root).forEach(sel => sel.addEventListener('change', () => {
+    const pid = sel.dataset.depth;
+    const prev = tagOf(a, pid);
+    a.covers[pid] = { depth: sel.value, state: 'adjusted', at: byId[pid].version };
+    renderActivityDoc(a.id);
+    renderValidations();
+    toast(`${byId[pid].title} → ${DEPTH[sel.value].label}` +
+      (prev.state === 'confirmed' ? ' · SME confirmation cleared' : ''));
+  }));
+
+  // Placement is independent of binding — that's the whole point.
+  $$('[data-place]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    const c = (a.checks || []).find(x => x.id === el.dataset.place);
+    if (!c) return;
+    c.placement = c.placement === 'end' ? 'after-scene' : 'end';
+    renderActivityDoc(a.id);
+    toast('Check moved ' + (c.placement === 'end' ? 'to the end' : 'inline after its scene'));
+  }));
+
+  // Word vs. time ruler.
+  $$('[data-scale]', root).forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation(); tlScale = b.dataset.scale; renderActivityDoc(a.id);
+  }));
+
+  $$('[data-insert]', root).forEach(el => el.addEventListener('click', () =>
+    toast('Scene insert — not wired in this pass')));
+}
+
 function renderValidations() {
   const course = $('#validateCourse');
   const exp    = $('#validateExperience');
@@ -2265,6 +2832,9 @@ $('#canvas').addEventListener('click', e => {
   const commentBtn = e.target.closest('[data-comments]');
   if (commentBtn) { e.stopPropagation(); openDrawer(commentBtn.dataset.comments); return; }
 
+  const openAct = e.target.closest('[data-openact]');
+  if (openAct) { e.stopPropagation(); renderActivityDoc(openAct.dataset.openact); return; }
+
   const open = e.target.closest('[data-open]');
   if (open) { e.stopPropagation(); renderPointDoc(open.dataset.open); return; }
 
@@ -2307,6 +2877,7 @@ function switchLayer(layer) {
     t.classList.toggle('active', t.dataset.layer === layer));
   $$('.sai-view').forEach(v => v.classList.toggle('active', v.dataset.view === layer));
   if (layer !== 'point-detail') openPoint = null;
+  if (layer !== 'activity-detail') { openActivity = null; activeScene = null; }
   const meta = LAYER_META[layer];
   if (meta) {
     $('#layerName').textContent  = meta.name;
