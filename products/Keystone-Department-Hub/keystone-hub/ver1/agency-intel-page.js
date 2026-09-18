@@ -24,7 +24,23 @@
   var AI = window.AGENCY_INTEL_AI;
   var esc = KX.esc, micon = KX.micon;
 
-  var TODAY = CP.APP_TODAY || '2026-05-07';
+  /* CP.APP_TODAY is a Date; every date FIELD on a dashboard (createdAt,
+     updatedAt, grantedAt) is an ISO 'YYYY-MM-DD' STRING. Writing the Date
+     straight into updatedAt put one Date among 65 strings, and the "Updated"
+     column sorts by comparing those relationally: the Date coerces to a
+     number, an ISO string coerces to NaN, every < and > is false, the
+     comparator returns 0 for every pair, and the touched row silently drops
+     back to its unsorted position — off the first page. Publishing already
+     did this; unpublishing made it obvious, because the row you just acted on
+     vanished. Normalised once here, so every write below stores the same
+     shape as the seed data. fmtDate() accepts either, so display is
+     unaffected. */
+  var TODAY = (function (t) {
+    if (!t) return '2026-05-07';
+    if (typeof t === 'string') return t;
+    return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') +
+      '-' + String(t.getDate()).padStart(2, '0');
+  })(CP.APP_TODAY);
   var SRC_ORDER = ['ts', 'ci', 'gt', 'sched', 'ev'];
   var PAGE_SIZE = 12;
 
@@ -85,6 +101,9 @@
     liveMsg: '',
     editingName: false,
     exportMenu: false,
+    // The build bar's status-badge dropdown (Unpublish). Same one-at-a-time
+    // treatment as exportMenu — see the autoCloseMenus block.
+    statusMenu: false,
 
     /* ---- dashboard reporting window ----
        ONE range for the whole dashboard (widgets no longer carry their own).
@@ -459,6 +478,15 @@
             '<div class="kx-menu-label">' + esc(ownerName(d)) + '\u2019s dashboard</div>') +
           '<button class="kx-menu-row" data-dash-audience="' + KX.attr(d.id) + '"' + dis + '>' +
           micon('groups', { size: 16 }) + '<span class="label">Manage audience</span></button>' +
+          // Only on something that IS published — on a draft the row would be
+          // an action with nothing to act on. Sits next to "Manage audience"
+          // because they are the two halves of the same question (who sees
+          // this, and does anyone), and above the separator because unlike
+          // Delete it keeps the dashboard.
+          (CP.statusOf(d) === 'published'
+            ? '<button class="kx-menu-row" data-dash-unpublish="' + KX.attr(d.id) + '"' + dis + '>' +
+              micon('unpublished', { size: 16 }) + '<span class="label">Unpublish</span></button>'
+            : '') +
           // Duplicating is always allowed: it copies into a draft of your own
           // and touches nothing of theirs.
           '<button class="kx-menu-row" data-dash-duplicate="' + KX.attr(d.id) + '">' +
@@ -1239,7 +1267,9 @@
   function builderPreviewWidget() {
     var b = state.builder;
     if (b.tab === 'simple') {
-      if (!b.metric) return null;
+      // Both answers are required: the chart type is no longer pre-filled, so
+      // until step 2 is answered there is nothing to draw.
+      if (!b.metric || !b.viz) return null;
       return { id: 'preview', metricId: b.metric, viz: b.viz,
                include: b.include.length ? b.include : undefined, state: 'live' };
     }
@@ -1329,9 +1359,29 @@
       KXCanvas.widgetBody(w) + '</div>';
   }
 
+  /* The guided path: one step at a time, in order. Each step is answered
+     before the next one exists — pick a metric, THEN choose a chart type,
+     THEN tune the parameters. Showing 2 and 3 together (which is what
+     happened while the chart type was pre-filled on metric pick) made the
+     numbering decorative: three labelled steps, two of which arrived at once
+     and one of which was already answered. */
   function simpleBuilderHtml() {
     var b = state.builder;
     var preview = builderPreviewWidget();
+    // The old pre-fill, demoted to a hint. The recommendation is still worth
+    // saying — it is just no longer said by silently choosing for you.
+    var rec = b.metric ? CC.VIZ_TYPES.find(function (t) {
+      return t.id === (CC.DEFAULT_VIZ[b.metric] || 'kpi');
+    }) : null;
+    // Shared shell for the two "nothing here yet" panels, so the right column
+    // holds its shape as the steps unfold instead of jumping.
+    function waiting(icon, title, body) {
+      return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;' +
+        'min-height:220px;gap:10px;border:1px dashed var(--ink-200);border-radius:14px;padding:24px;color:var(--ink-500)">' +
+        micon(icon, { size: 30, color: 'var(--ink-300)' }) +
+        '<div style="font-size:13.5px;font-weight:600;color:var(--ink-600)">' + esc(title) + '</div>' +
+        '<div style="font-size:12.5px;line-height:1.5;max-width:280px">' + body + '</div></div>';
+    }
     return '<div style="display:grid;grid-template-columns:minmax(0, 0.85fr) minmax(0, 1.15fr);gap:20px;align-items:start">' +
       '<div><div class="cp-step"><span class="n">1</span><span class="t">Pick a metric</span></div>' +
       // No inner scroller. A 340px box with its own scrollbar cut the list off
@@ -1342,25 +1392,30 @@
       '<div style="display:flex;flex-direction:column;gap:12px">' +
       metricPickerHtml() + '</div></div>' +
       '<div>' +
+      // STEP 1 unanswered — nothing but the prompt to answer it.
       (!b.metric
-        ? '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;' +
-          'min-height:260px;gap:10px;border:1px dashed var(--ink-200);border-radius:14px;padding:24px;color:var(--ink-500)">' +
-          micon('bar_chart', { size: 30, color: 'var(--ink-300)' }) +
-          '<div style="font-size:13.5px;font-weight:600;color:var(--ink-600)">Pick a metric to chart it</div>' +
-          '<div style="font-size:12.5px;line-height:1.5;max-width:260px">You\'ll get a live preview here, ' +
-          'and can set the chart type and parameters.</div></div>'
+        ? waiting('bar_chart', 'Pick a metric to chart it',
+            'Choose one on the left and you\'ll pick how to show it next.')
+        // STEP 2 — the chart type. Appears the moment a metric is chosen.
         : '<div class="cp-step"><span class="n">2</span><span class="t">Choose a chart type</span></div>' +
           '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
           CC.VIZ_TYPES.map(function (t) {
             return '<button class="cp-chip' + (b.viz === t.id ? ' is-on' : '') + '" data-b-viz="' + KX.attr(t.id) +
               '" title="' + KX.attr(t.hint) + '">' + micon(t.icon, { size: 14 }) + ' ' + esc(t.label) + '</button>';
           }).join('') + '</div>' +
-          paramPanelHtml() +
-          (preview ? '<div style="margin-top:14px">' + widgetPreviewHtml(preview) + '</div>' : '') +
-          '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
-          '<vaadin-button theme="primary" id="cpBAdd">' + micon('add', { size: 16 }) +
-          '<span class="kx-btn-label">Add to dashboard</span></vaadin-button>' +
-          '<span style="font-size:12px;color:var(--ink-500)">You can fine-tune all of this later, too.</span></div>'
+          // STEP 3 and everything downstream of it wait on step 2's answer.
+          (!b.viz
+            ? '<div style="margin-top:14px">' +
+              waiting('tune', 'Choose how to show it',
+                (rec ? 'For this metric we\'d suggest <b>' + esc(rec.label) + '</b>. ' : '') +
+                'Pick a chart type to preview it and set its parameters.') +
+              '</div>'
+            : paramPanelHtml() +
+              (preview ? '<div style="margin-top:14px">' + widgetPreviewHtml(preview) + '</div>' : '') +
+              '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
+              '<vaadin-button theme="primary" id="cpBAdd">' + micon('add', { size: 16 }) +
+              '<span class="kx-btn-label">Add to dashboard</span></vaadin-button>' +
+              '<span style="font-size:12px;color:var(--ink-500)">You can fine-tune all of this later, too.</span></div>')
       ) + '</div></div>';
   }
 
@@ -1576,8 +1631,15 @@
 
   // Shell with Simple / Advanced tabs. `modal` drops the big header and the
   // "just ask" footer — those belong to the empty state, not the dialog.
+  //
+  // The Advanced tab is v2 (CP.advancedBuilderEnabled). With the flag off the
+  // pill is not rendered at all rather than shown disabled: a one-option
+  // segmented control is a control that cannot be used, and it would sit
+  // directly above a step numbered "1", reading as a step of its own.
   function widgetBuilderHtml(modal) {
     var b = state.builder;
+    var advanced = CP.advancedBuilderEnabled();
+    if (!advanced) b.tab = 'simple';
     var TABS = [
       { id: 'simple', label: 'Simple', icon: 'tune' },
       { id: 'advanced', label: 'Advanced', icon: 'insights' }
@@ -1589,16 +1651,23 @@
     return '<div class="cp-builder' + (modal ? ' is-modal' : '') + '">' +
       (modal ? '' : '<div class="cp-builder-head">' + agencyIntelMark(52) +
         '<h2>Let’s build your first widget</h2></div>') +
-      '<div class="cp-builder-tabs"><div class="cp-builder-modes">' +
-      TABS.map(function (t) {
-        return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:6px;' +
-          'padding:7px 18px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
-          'font-family:inherit;background:' + (b.tab === t.id ? 'var(--surface-1)' : 'transparent') + ';color:' +
-          (b.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)') + ';box-shadow:' +
-          (b.tab === t.id ? 'var(--elev-1)' : 'none') + '">' +
-          micon(t.icon, { size: 15 }) + ' ' + esc(t.label) + '</button>';
-      }).join('') + '</div>' +
-      '<div class="cp-builder-sub">' + esc(subtitle) + '</div></div>' +
+      // With no pill to explain and a dialog header already carrying a
+      // subtitle, the modal would otherwise print two sub-lines in a row.
+      (advanced || !modal
+        ? '<div class="cp-builder-tabs">' +
+          (advanced
+            ? '<div class="cp-builder-modes">' +
+              TABS.map(function (t) {
+                return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:6px;' +
+                  'padding:7px 18px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
+                  'font-family:inherit;background:' + (b.tab === t.id ? 'var(--surface-1)' : 'transparent') + ';color:' +
+                  (b.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)') + ';box-shadow:' +
+                  (b.tab === t.id ? 'var(--elev-1)' : 'none') + '">' +
+                  micon(t.icon, { size: 15 }) + ' ' + esc(t.label) + '</button>';
+              }).join('') + '</div>'
+            : '') +
+          '<div class="cp-builder-sub">' + esc(subtitle) + '</div></div>'
+        : '') +
       (b.tab === 'simple' ? simpleBuilderHtml() : advancedBuilderHtml()) +
       (modal ? '' : '<div class="cp-builder-foot">or <button id="cpBAskFocus">' +
         'just ask Agency Intelligence →</button></div>') +
@@ -1609,17 +1678,48 @@
      BUILD VIEW SHELL
      ===================================================================== */
 
-  /* Where this dashboard currently lands — a BADGE, not a control. It used to
-     be a button that opened the audience dialog, which is exactly what the
-     Publish / Manage audience button beside it does; two controls one gap
-     apart doing the same thing read as two different things. The status is now
-     a read-out, and the button beside it is the single way to change it. */
+  /* Where this dashboard currently lands — and, when it is live, the way to
+     take it down.
+
+     This badge was a pure read-out for a while, and deliberately so: it had
+     been a button that opened the audience dialog, which is exactly what the
+     Manage audience button beside it already does, and two controls one gap
+     apart doing the SAME thing read as two different things. Hanging Unpublish
+     off it resolves that rather than repeating it — the button edits who sees
+     this, the badge changes whether anyone does. It sits to the RIGHT of that
+     button so the two read as one statement: manage the audience, and here is
+     the state that audience leaves it in.
+
+     A dashboard that is not published has nothing to take down, so it stays
+     the plain read-out — no caret, nothing to click, no menu that would open
+     onto a single disabled row. */
   function statusControl(d) {
     var st = CP.statusOf(d);
     var m = CP.dashStatusMeta(st);
-    return '<span class="cp-status" style="background:' + m.bg + ';color:' + m.fg +
-      ';border:1px solid ' + m.border + ';padding:5px 10px">' +
-      micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label) + '</span>';
+    var face = micon(m.icon, { size: 13, fill: 1 }) + ' ' + esc(m.label);
+    var skin = 'background:' + m.bg + ';color:' + m.fg + ';border:1px solid ' + m.border +
+      ';padding:5px 10px';
+
+    if (st !== 'published') {
+      return '<span class="cp-status" style="' + skin + '">' + face + '</span>';
+    }
+
+    var open = !!state.statusMenu;
+    return '<div style="position:relative;display:inline-flex">' +
+      '<button class="cp-status cp-status--menu" id="cpStatusMenu" style="' + skin + '" ' +
+      'aria-haspopup="menu" aria-expanded="' + open + '" ' +
+      'title="Published — change whether this is live">' + face +
+      micon('expand_more', { size: 14 }) + '</button>' +
+      (open
+        // No explanatory footnote: the confirm this opens says what it costs
+        // and what it keeps, and saying it twice makes the menu look like the
+        // decision point when it is only the way in.
+        ? '<div class="kx-menu kx-menu--right" role="menu" style="width:184px;top:calc(100% + 6px)">' +
+          '<button class="kx-menu-row" id="cpUnpublish">' +
+          micon('unpublished', { size: 16 }) +
+          '<span class="label">Unpublish</span></button>' +
+          '</div>'
+        : '') + '</div>';
   }
 
   function buildHtml() {
@@ -1660,7 +1760,6 @@
             ? '<span class="spinner" style="width:13px;height:13px;border-top-color:var(--teal-500)"></span> Saving…'
             : micon('cloud_done', { size: 15, fill: 1, color: 'var(--teal-500)' }) +
               ' Saved · ' + esc(formatSaved(state.lastSavedAt))) + '</span>' +
-          statusControl(d) +
           (delivery
             ? '<vaadin-button theme="secondary small" id="cpEditSchedule" title="Edit the report schedule">' +
               micon(delivery.paused ? 'pause_circle' : 'schedule_send', { size: 14, fill: 1 }) +
@@ -1668,14 +1767,19 @@
               CP.formatMeta(delivery.format).short) + '</span></vaadin-button>'
             : '') +
           exportControl() +
+          // "Delivery" covers both destinations (live + report). In v1 there
+          // is only the live audience, so the label says so.
           (published
-            // "Delivery" covers both destinations (live + report). In v1 there
-            // is only the live audience, so the label says so.
             ? '<vaadin-button theme="secondary" id="cpPublish">' + micon('group', { size: 16 }) +
               '<span class="kx-btn-label">' +
               (CP.deliveryEnabled() ? 'Manage delivery' : 'Manage audience') + '</span></vaadin-button>'
             : '<vaadin-button theme="primary" id="cpPublish">' + micon('campaign', { size: 16 }) +
-              '<span class="kx-btn-label">Publish</span></vaadin-button>')
+              '<span class="kx-btn-label">Publish</span></vaadin-button>') +
+          // The state the button above leaves it in, immediately to its right —
+          // and, once live, the menu that takes it back down. See
+          // statusControl() for why Unpublish hangs off the badge rather than
+          // standing as a third button in this row.
+          statusControl(d)
         : '') +
       '<div class="cp-modes">' +
       [['edit', 'Edit', 'edit'], ['preview', 'Preview', 'visibility']].map(function (o) {
@@ -1761,8 +1865,11 @@
       'aria-label="Add a widget to this dashboard">' +
       '<span class="cpw-add-mark" aria-hidden="true">' + micon('add', { size: 24 }) + '</span>' +
       '<span class="cpw-add-title">Add widget</span>' +
-      '<span class="cpw-add-sub">Chart a metric, build a table, or ask Agency ' +
-      'Intelligence to draft one</span></button>';
+      '<span class="cpw-add-sub">' +
+      (CP.advancedBuilderEnabled()
+        ? 'Chart a metric, build a table, or ask Agency Intelligence to draft one'
+        : 'Chart a metric and choose how it shows on this dashboard') +
+      '</span></button>';
   }
 
   /* =====================================================================
@@ -1983,6 +2090,12 @@
           assignedTo: live ? mine : null,
           delivery: nextDelivery,
           status: live ? 'published' : (!keep && delivery ? 'draft' : 'private'),
+          // Once it is live again the remembered audience has been consumed —
+          // keeping it would let a stale roster resurface after the next
+          // unpublish, offering to restore an audience two edits out of date.
+          // Going the other way (published -> nothing) the CURRENT audience
+          // becomes the memory, so this path unpublishes as well as the verb.
+          lastAudience: live ? null : (d.assignedTo || d.lastAudience || null),
           updatedAt: TODAY
         });
       }
@@ -2113,6 +2226,10 @@
       name: src.name + ' (copy)',
       status: 'draft',
       assignedTo: null,
+      // Nor the REMEMBERED audience, for the same reason: a copy that quietly
+      // carried the original's unpublished roster would offer to publish a
+      // half-edited clone to it in one click.
+      lastAudience: null,
       delivery: null,
       createdAt: TODAY,
       updatedAt: TODAY,
@@ -2123,6 +2240,90 @@
     KX.pushToast({
       title: 'Duplicated', body: '“' + copy.name + '” is a draft — nobody sees it yet.',
       icon: 'content_copy', tone: 'success'
+    });
+  }
+
+  /* Unpublish — take it off everyone's homepage, keep the dashboard.
+
+     This state transition already existed, but only by accident: emptying the
+     audience in the publish dialog's review step and pressing PUBLISH landed
+     the dashboard here. That is the publish verb performing an unpublish, and
+     it was reachable or not depending on which step you happened to open the
+     dialog on (the audience step's "Review & publish" is disabled at zero
+     reach). This gives the transition its own verb, its own confirm, and the
+     same reach disclosure delete already makes.
+
+     The audience is REMEMBERED rather than dropped. Unpublishing a dashboard
+     published to three groups and twelve people used to mean rebuilding all
+     of that by hand to put it back, which is a strong incentive to just leave
+     it live. It moves to `lastAudience`, which nothing reads except the
+     publish dialog's seeding — so reach is genuinely 0 and the dashboard
+     genuinely reads as a draft while it is down. */
+  function unpublishDash(id) {
+    state.dashboards = state.dashboards.map(function (d) {
+      if (d.id !== id) return d;
+      return Object.assign({}, d, {
+        assignedTo: null,
+        // Remember what it WAS published to. audienceOf() is deliberately not
+        // used here: that filters job titles out behind the flag, and this
+        // field has to be able to restore the audience whole.
+        lastAudience: d.assignedTo || d.lastAudience || null,
+        // 'draft', not 'private' — in v2 private means "published to just me",
+        // which is a destination, not the absence of one. A dashboard taken
+        // down is back to being unpublished work.
+        status: 'draft',
+        // Report delivery is left alone on purpose, the same way assignDash's
+        // `keep` branch leaves it: with the flag off the UI cannot express a
+        // schedule, so clearing it here would quietly destroy the seeded
+        // schedules the flag exists to preview.
+        updatedAt: TODAY
+      });
+    });
+    render();
+  }
+
+  function confirmUnpublishDash(id) {
+    var d = dashById(id);
+    if (!d) return;
+    // Re-checked here as well as on the control, same as delete: a disabled
+    // menu row is a hint, not a boundary.
+    if (!canActOn(d)) {
+      KX.pushToast({
+        title: 'Not yours to unpublish',
+        body: '“' + d.name + '” belongs to ' + ownerName(d) +
+          '. You need “manage all dashboards”.',
+        icon: 'lock', tone: 'warning'
+      });
+      return;
+    }
+    var reach = reachOf(d);
+    KX.confirm({
+      title: 'Unpublish “' + d.name + '”?',
+      icon: 'unpublished',
+      // Warn, not danger: this is reversible and the dialog should look it.
+      // The reach sentence is the same disclosure delete makes — taking it
+      // down clears the same homepages that deleting it would.
+      tone: 'warn',
+      body: (reach > 0
+        ? '<b>' + reach + ' ' + (reach === 1 ? 'person' : 'people') + '</b> see this on ' +
+          'their homepage. It disappears for them and they fall back to their ' +
+          'default dashboard.<br><br>'
+        : '') +
+        'The dashboard, its ' + (d.widgets || []).length + ' widget' +
+        ((d.widgets || []).length === 1 ? '' : 's') + ' and its audience are all kept — ' +
+        'it goes back to being a draft, and publishing it again restores the same audience.',
+      confirmLabel: 'Unpublish',
+      onConfirm: function () {
+        unpublishDash(id);
+        KX.pushToast({
+          title: 'Dashboard unpublished',
+          body: reach > 0
+            ? '“' + d.name + '” is a draft again. ' + reach + ' ' +
+              (reach === 1 ? 'person' : 'people') + ' fell back to their default.'
+            : '“' + d.name + '” is a draft again — nobody sees it now.',
+          icon: 'unpublished', tone: 'neutral'
+        });
+      }
     });
   }
 
@@ -2856,6 +3057,14 @@
         if (acd) openAssignDialog(acd, { step: 'review' });
         return;
       }
+      var unp = e.target.closest('[data-dash-unpublish]');
+      if (unp) {
+        e.stopPropagation();
+        if (unp.hasAttribute('disabled')) return;
+        if (state.rowMenu) { state.rowMenu = null; render(); }
+        confirmUnpublishDash(unp.getAttribute('data-dash-unpublish'));
+        return;
+      }
       var dup = e.target.closest('[data-dash-duplicate]');
       if (dup) {
         e.stopPropagation();
@@ -3002,10 +3211,31 @@
         openAssignDialog(active());
         return;
       }
+      // The status badge's dropdown. Closes the other two menus the same way
+      // #cpExport does — see the autoCloseMenus block for why each trigger
+      // closes its siblings itself rather than relying on the outside click.
+      if (e.target.closest('#cpStatusMenu')) {
+        state.statusMenu = !state.statusMenu;
+        state.exportMenu = false;
+        KXCanvas.setOpenMenu(null);
+        render();
+        return;
+      }
+      if (e.target.closest('#cpUnpublish')) {
+        // Close the menu BEFORE the confirm opens: it renders in the page and
+        // the dialog renders in an overlay above it, and a menu left open
+        // behind reads as a second live surface. Same reason the row menu
+        // closes itself first.
+        state.statusMenu = false;
+        render();
+        confirmUnpublishDash(state.activeId);
+        return;
+      }
 
       /* ---- export ---- */
       if (e.target.closest('#cpExport')) {
         state.exportMenu = !state.exportMenu;
+        state.statusMenu = false;
         KXCanvas.setOpenMenu(null);        // only one menu open at a time
         render();
         return;
@@ -3189,7 +3419,12 @@
       if (bm) {
         var mid = bm.getAttribute('data-b-metric');
         state.builder.metric = mid;
-        state.builder.viz = CC.DEFAULT_VIZ[mid] || 'kpi';
+        // Deliberately NOT pre-filled with CC.DEFAULT_VIZ any more. Picking a
+        // metric used to answer step 2 for you, which meant steps 2 AND 3
+        // appeared together and the chart type read as already decided. The
+        // recommendation is still surfaced — as a hint on step 2 — but the
+        // choice is now the person's, and step 3 waits for it.
+        state.builder.viz = null;
         state.builder.include = [];
         render();
         return;
@@ -3398,12 +3633,16 @@
       // replaces the element between mousedown and click, and the click is
       // swallowed — the button appears dead. Each trigger closes the other
       // menu in its own click handler instead.
-      var onTrigger = e.target.closest('[data-w-menu]') || e.target.closest('#cpExport');
+      var onTrigger = e.target.closest('[data-w-menu]') || e.target.closest('#cpExport') ||
+        e.target.closest('#cpStatusMenu');
       if (KXCanvas.getOpenMenu() && !e.target.closest('.kx-menu') && !onTrigger) {
         KXCanvas.setOpenMenu(null); changed = true;
       }
       if (state.exportMenu && !e.target.closest('.kx-menu') && !onTrigger) {
         state.exportMenu = false; changed = true;
+      }
+      if (state.statusMenu && !e.target.closest('.kx-menu') && !onTrigger) {
+        state.statusMenu = false; changed = true;
       }
       if (state.dashRangeOpen && !e.target.closest('.kx-menu') && !e.target.closest('[data-dash-range]')) {
         state.dashRangeOpen = false; changed = true;
@@ -3424,10 +3663,19 @@
     state.builder = freshBuilder();
     KX.openDialog({
       title: 'Add a widget',
-      subtitle: 'Chart one metric, or go Advanced — correlate, tabulate, write, or ask.',
+      // The Advanced half of this sentence only makes sense while that tab is
+      // on the pill; with the v1 flag it would promise a route that isn't there.
+      subtitle: CP.advancedBuilderEnabled()
+        ? 'Chart one metric, or go Advanced — correlate, tabulate, write, or ask.'
+        : 'Chart one metric — pick it, choose how to show it, then set the parameters.',
       icon: 'add_chart',
       accent: 'var(--amber-500)',
-      width: '860px',
+      // Wider than the usual dialog: the builder is a two-column layout whose
+      // left column is the full metric list and whose right column carries a
+      // live widget preview at something close to canvas scale. At 860px the
+      // chart-type chips wrapped to three rows and the preview read as a
+      // thumbnail rather than a widget.
+      width: '1080px',
       body: '<div id="cpAddWidgetHost">' + widgetBuilderHtml(true) + '</div>',
       onMount: function (body, dlg) {
         // The builder's own Add buttons close the dialog once a widget lands.

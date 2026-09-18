@@ -396,6 +396,14 @@
   .status-badge.failed       { background: #fee2e2; color: #b91c1c; }
   .status-badge.overdue      { background: #fef3c7; color: #92400e; }
 
+  /* ── Quiz Score pass/fail (Latest Module → Quiz Score column) ──
+     >= 70% passes → green with a check ✓ ; <= 69% fails → red with an X ✗.
+     Colors reuse the status text colors so pass/fail reads consistently across the table. */
+  .quiz-score { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; white-space: nowrap; }
+  .quiz-score i { font-size: 13px; line-height: 1; }
+  .quiz-score.qs-pass { color: #15803d; }
+  .quiz-score.qs-fail { color: #b91c1c; }
+
   /* ============================================================
      FILTER PANEL (right column, V1)
      ============================================================ */
@@ -555,6 +563,29 @@
   .cert-link:hover { text-decoration: underline; }
   .cert-link i { color: #15803d; }
 
+  /* ── Certificate column header info callout ──
+     A hover/focus info affordance in the "Certificate" column header explaining that a
+     certificate can lag up to a week behind a learner passing (so an admin who sees a passed
+     learner with no certificate link yet knows why). Built as a CSS-only tooltip embedded in
+     the header render template so it survives the header re-rendering on every sort / column change
+     (a `for`-bound vaadin-tooltip would lose its anchor when the <th> is recreated). */
+  .cert-info { position: relative; display: inline-flex; align-items: center; margin-left: 6px; color: var(--muted-2); cursor: help; vertical-align: middle; }
+  .cert-info i { font-size: 13px; }
+  .cert-info:hover, .cert-info:focus-visible { color: var(--blue-accent); outline: none; }
+  .cert-info .ci-tip {
+    position: absolute; top: calc(100% + 9px); right: 0; z-index: 30;
+    width: 236px; padding: 10px 12px;
+    /* reset the inherited uppercase/spacing/small header type inside the tooltip */
+    font-size: 12.5px; font-weight: 400; line-height: 1.5; letter-spacing: 0; text-transform: none; text-align: left;
+    color: #fff; background: var(--ink); border-radius: 8px;
+    box-shadow: 0 8px 22px rgba(16,24,40,.24);
+    opacity: 0; visibility: hidden; transform: translateY(-3px);
+    transition: opacity .12s ease, transform .12s ease, visibility .12s;
+    pointer-events: none; white-space: normal;
+  }
+  .cert-info .ci-tip::before { content:''; position: absolute; bottom: 100%; right: 11px; border: 6px solid transparent; border-bottom-color: var(--ink); }
+  .cert-info:hover .ci-tip, .cert-info:focus-visible .ci-tip, .cert-info:focus-within .ci-tip { opacity: 1; visibility: visible; transform: translateY(0); }
+
 
   /* Bulk-step recipient list */
   .recip-list { border: 1px solid var(--hair); border-radius: 10px; max-height: 210px; overflow: auto; margin-bottom: 16px; }
@@ -587,14 +618,30 @@
   .detail-cell { background: var(--hair-2); border-radius: 10px; padding: 13px 15px; }
   .detail-cell .d-k { font-size: 13px; color: var(--muted); }
   .detail-cell .d-v { font-size: 17px; font-weight: 700; color: var(--ink); margin-top: 3px; }
-  .cert { border: 2px solid #E4C97A; border-radius: 12px; padding: 26px 24px; text-align: center; background: linear-gradient(180deg, #FFFDF6 0%, #FFF9EC 100%); }
-  .cert .c-seal { width: 46px; height: 46px; border-radius: 50%; background: #fff; border: 2px solid #15803d; color: #15803d; display: grid; place-items: center; font-size: 22px; margin: 0 auto 12px; }
-  .cert .c-kicker { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; color: #B7791F; }
-  .cert .c-name { font-size: 26px; font-weight: 800; color: var(--ink); margin: 8px 0 2px; }
-  .cert .c-for { font-size: 14.5px; color: var(--muted); }
-  .cert .c-course { font-size: 17px; font-weight: 700; color: var(--ink); margin: 6px 0 16px; }
-  .cert .c-meta { display: flex; justify-content: center; gap: 28px; font-size: 14px; color: var(--ink-2); }
-  .cert .c-meta b { display: block; color: var(--ink); font-size: 15px; margin-top: 2px; }
+  /* ── ClickSafety certificate (shown in the certificate modal) ──
+     A faithful HTML/CSS recreation of the ClickSafety OSHA completion certificate: the
+     CLICKSAFETY wordmark, IACET accredited-provider badge, gold seal, administrator signature,
+     and the serial / completion-date / duration / student-signature footer. Populated per
+     learner and per course (CEUs, contact hours and duration follow the course). */
+  .cs-wrap { width: min(760px, 94vw); }
+  /* ── ClickSafety certificate — the actual PNG with live per-learner data overlaid ──
+     The real certificate image is the background; each per-learner field (name, course, serial,
+     completion date, and — for 30-Hour courses — CEUs/contact-hours/duration) is drawn on top,
+     over a small patch whose soft ↗ hatch matches the certificate's paper so the baked-in sample
+     text underneath is covered. Field boxes are positioned as % of the image so they scale with it. */
+  .cs-certimg { position: relative; width: 100%; aspect-ratio: 849 / 644;
+    background: url("../clicksafety-cert.png") center / 100% 100% no-repeat;
+    container-type: inline-size; font-family: Arial, Helvetica, sans-serif; }
+  .cs-fld { position: absolute; display: flex; align-items: center; justify-content: center;
+    color: #1b2330; white-space: nowrap; overflow: hidden;
+    background: repeating-linear-gradient(-45deg, #fafafa 0, #d9d9d9 2.1px, #fafafa 4.3px); }
+  .cs-name   { left: 36%; width: 28%; top: 34.7%; height: 5.6%; font-size: 3.3cqw; }
+  .cs-course { left: 28%; width: 44%; top: 43.1%; height: 5.2%; font-weight: 700; font-size: 2.85cqw; }
+  .cs-ceu    { left: 33%; width: 34%; top: 49.4%; height: 3.4%; font-size: 1.72cqw; }
+  .cs-hours  { left: 35%; width: 30%; top: 52.7%; height: 3.4%; font-size: 1.72cqw; }
+  .cs-serial { left: 15%; width: 18%; top: 75.3%; height: 3.9%; font-size: 1.7cqw; }
+  .cs-date   { left: 33%; width: 18%; top: 75.3%; height: 3.9%; font-size: 1.7cqw; }
+  .cs-dur    { left: 50%; width: 19%; top: 75.3%; height: 3.9%; font-size: 1.7cqw; }
 
   /* Footer */
   .footer { text-align: center; padding: 28px 24px 8px; font-size: 15px; color: var(--muted); display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: auto; }
@@ -1285,7 +1332,7 @@
       { name:'Coleman, Tara',   ext:'tcoleman240', status:'in-progress', mods:2,  pct:18,  time:'0h 55m', last:'30 days ago', exp:'06/28/2026', expSoon:true, behind:true },
       { name:'Diaz, Hugo',      ext:'hdiaz556',    status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'07/05/2026' },
       { name:'Ellison, Mara',   ext:'mellison803', status:'passed',      mods:10, pct:100, time:'3h 50m', last:'03/22/2026',  exp:'03/22/2027' },
-      { name:'Farris, Quinn',   ext:'qfarris417',  status:'failed',      mods:9,  pct:95,  time:'4h 20m', last:'05/12/2026',  exp:'—', attempts:1 },
+      { name:'Farris, Quinn',   ext:'qfarris417',  status:'in-progress', mods:9,  pct:95,  time:'4h 20m', last:'05/12/2026',  exp:'10/28/2026', attempts:1 },
       { name:'Gibson, Noel',    ext:'ngibson629',  status:'in-progress', mods:7,  pct:70,  time:'3h 15m', last:'Yesterday',   exp:'11/20/2026' },
       { name:'Hoffman, Dana',   ext:'dhoffman361', status:'in-progress', mods:1,  pct:8,   time:'0h 25m', last:'22 days ago', exp:'09/10/2026', behind:true },
       { name:'Iqbal, Sana',     ext:'siqbal905',   status:'passed',      mods:10, pct:100, time:'4h 00m', last:'04/28/2026',  exp:'04/28/2027' },
@@ -1306,14 +1353,14 @@
       { name:'Greer, Paul',     ext:'pgreer820',   status:'in-progress', mods:8,  pct:78,  time:'5h 05m', last:'Today',       exp:'11/15/2026' },
       { name:'Hsu, Wendy',      ext:'whsu346',     status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'08/01/2026' },
       { name:'Irwin, Blake',    ext:'birwin914',   status:'in-progress', mods:3,  pct:26,  time:'2h 00m', last:'19 days ago', exp:'09/05/2026', behind:true },
-      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'failed',      mods:9,  pct:94,  time:'5h 40m', last:'05/09/2026',  exp:'—', attempts:1 },
+      { name:'Jacobs, Nina',    ext:'njacobs503',  status:'in-progress', mods:9,  pct:94,  time:'5h 40m', last:'05/09/2026',  exp:'10/30/2026', attempts:1 },
       { name:'Kim, Sora',       ext:'skim671',     status:'passed',      mods:10, pct:100, time:'6h 10m', last:'04/20/2026',  exp:'04/20/2027' },
       { name:'Lowe, Trent',     ext:'tlowe238',    status:'in-progress', mods:5,  pct:46,  time:'3h 30m', last:'6 days ago',  exp:'10/22/2026' },
     ]},
     { id:'g3', course:'OSHA 30-Hour Construction', expanded:false, rows:[
       { name:'Brooks, Devon',   ext:'dbrooks662',  status:'not-started', mods:0,  pct:0,   time:'0h',     last:'Never',       exp:'05/20/2026', expSoon:true },
       { name:'Patel, Noah',     ext:'npatel743',   status:'in-progress', mods:8,  pct:81,  time:'2h 05m', last:'Today',       exp:'10/22/2026' },
-      { name:'Foster, Hannah',  ext:'hfoster915',  status:'failed',      mods:9,  pct:88,  time:'1h 50m', last:'05/03/2026',  exp:'—', attempts:2 },
+      { name:'Foster, Hannah',  ext:'hfoster915',  status:'in-progress', mods:9,  pct:88,  time:'1h 50m', last:'05/03/2026',  exp:'11/05/2026', attempts:2 },
       { name:'Rahman, Aisha',   ext:'arahman288',  status:'passed',      mods:10, pct:100, time:'1h 40m', last:'05/06/2026',  exp:'05/06/2027' },
       { name:'Abbott, Cleo',    ext:'cabbott190',  status:'passed',      mods:10, pct:100, time:'1h 45m', last:'04/12/2026',  exp:'04/12/2027' },
       { name:'Burke, Mia',      ext:'mburke427',   status:'in-progress', mods:6,  pct:61,  time:'1h 20m', last:'2 days ago',  exp:'10/30/2026' },
@@ -1329,6 +1376,18 @@
       { name:'Lopez, Raul',     ext:'rlopez394',   status:'in-progress', mods:8,  pct:83,  time:'1h 50m', last:'Today',       exp:'11/22/2026' },
     ]},
   ];
+
+  // ── Course-fail rule (single source of truth) ────────────────────────────────
+  // A learner has only FAILED THE COURSE once they've exhausted all 3 attempts —
+  // that's when ClickSafety sends the course-failure date. Failing a quiz at 1 or 2
+  // attempts still leaves them able to retry, so they stay IN PROGRESS. We enforce
+  // this here rather than trusting each row's hand-set status: set `attempts`, and
+  // the status follows. (No-op on the current data; it guards future edits from
+  // re-introducing a "Failed" learner who hasn't used all 3 attempts.)
+  GROUPS.forEach(g => g.rows.forEach(r => {
+    if (r.status === 'failed' && (r.attempts || 0) < 3) r.status = 'in-progress';
+  }));
+
   const STATUS_LABEL = { 'passed':'Passed', 'in-progress':'In Progress', 'not-started':'Not Started', 'failed':'Failed', 'overdue':'Overdue' };
   const PCT_COLOR = { 'passed':'#22c55e', 'in-progress':'#3b82f6', 'not-started':'#d1d5db', 'failed':'#dc2626' };
 
@@ -1348,6 +1407,12 @@
   function scoreFor(ext, i) {
     const h = (ext.charCodeAt(0) * 7 + ext.charCodeAt(ext.length - 1) * 13 + i * 17) % 18;
     return 80 + h; // 80–97
+  }
+  // Deterministic FAILING quiz score (<70) for a failed module — varied so the table doesn't
+  // show the same number on every failure (a passing quiz needs >= 70, so these all flag red).
+  function failScoreFor(ext, i) {
+    const h = (ext.charCodeAt(0) * 11 + ext.charCodeAt(ext.length - 1) * 5 + i * 19) % 25;
+    return 44 + h; // 44–68
   }
   // Deterministic per-module quiz time spent, in minutes.
   function timeFor(ext, i) {
@@ -1375,7 +1440,7 @@
     return names.map((name, i) => {
       if (i < done) {
         const failed = r.status === 'failed' && i === done - 1;        // failed the last module reached
-        const score = failed ? 61 : scoreFor(r.ext, i);
+        const score = failed ? failScoreFor(r.ext, i) : scoreFor(r.ext, i);
         return { name, status: failed ? 'failed' : 'complete', score, time: timeFor(r.ext, i), attempts: attemptsFor(r.ext, i, failed) };
       }
       if (i === done && !finished) {
@@ -1397,7 +1462,9 @@
     if (idx < 0) return null;                                          // not-started — no module data yet
     const m = mods[idx];
     const fails = m.status === 'complete' ? Math.max(0, (m.attempts || 1) - 1) : (m.attempts || 0);
-    const score = m.status === 'complete' ? m.score : null;
+    // Surface the score for a failed latest module too, so the Quiz Score column can flag it
+    // red-with-an-X; a passed module keeps its passing score; in-progress = no score yet (—).
+    const score = (m.status === 'complete' || m.status === 'failed') ? m.score : null;
     return { index: idx + 1, name: m.name, status: m.status, fails, score };
   }
 
@@ -1448,8 +1515,8 @@
       render:(r, course) => { const lm = latestModule(r, course); return lm ? `<span class="lm-name" title="${lm.name.replace(/"/g,'&quot;')}">${lm.name}</span>` : '<span class="muted-cell">—</span>'; } },
     { key:'latestFails', label:'Failed Attempts', width:'130px', sortable:true, group:'latest', groupLabel:'Latest Module', cellClass:'nowrap', headClass:'nowrap',
       render:(r, course) => { const lm = latestModule(r, course); if (!lm) return '<span class="muted-cell">—</span>'; return lm.fails > 0 ? `<span class="fr-attempt">${lm.fails}</span>` : '<span class="muted-cell">0</span>'; } },
-    { key:'latestScore', label:'Quiz Score',      width:'105px', sortable:true, group:'latest', groupLabel:'Latest Module', groupLast:true, cellClass:'nowrap', headClass:'nowrap',
-      render:(r, course) => { const lm = latestModule(r, course); return (lm && lm.score != null) ? `${lm.score}%` : '<span class="muted-cell">—</span>'; } },
+    { key:'latestScore', label:'Quiz Score',      width:'115px', sortable:true, group:'latest', groupLabel:'Latest Module', groupLast:true, cellClass:'nowrap', headClass:'nowrap',
+      render:(r, course) => quizScoreCellHTML(latestModule(r, course)) },
     // ── Assignment timeline (Started → Due → Completed → Last Access → Time Spent) ──
     { key:'start',    label:'Started',          width:'110px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => dateCell(courseDates(r).start) },
@@ -1466,14 +1533,22 @@
     { key:'exp',      label:'Expires',          width:'115px', hidden:true, sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => r.exp === '—' ? '—' : `<span class="${r.expSoon ? 'exp-soon' : ''}">${r.exp}</span>` },
     // Total Course Quiz Failures — cumulative failed quiz attempts across the whole course.
+    // Shown for anyone who has recorded failures, whether or not they've failed the course:
+    // an IN-PROGRESS learner can have failed a quiz (1–2 attempts) and still be retrying, so we
+    // key off the recorded `attempts` count, not the course-fail status.
     { key:'attempts', label:'Total Course Quiz Failures', width:'205px', sortable:true, headClass:'nowrap',
-      render:(r) => (r.status === 'failed') ? `<span class="fr-attempt">${r.attempts || 1}</span>` : '<span class="muted-cell">—</span>' },
+      render:(r) => (r.attempts != null) ? `<span class="fr-attempt">${r.attempts}</span>` : '<span class="muted-cell">—</span>' },
     // Course Failure Date — we only receive this from ClickSafety once a learner has failed all
     // attempts, so it is populated only when the learner has exhausted their attempts.
     { key:'failed',   label:'Course Failure Date', width:'170px', sortable:true, cellClass:'nowrap', headClass:'nowrap',
       render:(r) => (r.status === 'failed' && r.attempts === 3 && r.failDate) ? `<span class="fr-fail">${r.failDate}</span>` : '<span class="muted-cell">—</span>' },
-    // ── Action / Certificate (normal column — no longer pinned/locked; hide or reorder freely) ──
-    { key:'action',   label:'', menuLabel:'Action / Certificate', width:'150px', align:'right', cellClass:'cell-actions',
+    // ── Certificate (normal column — no longer pinned/locked; hide or reorder freely). Passed
+    //    learners get a "View certificate" link; everyone else shows "—". The header carries an
+    //    info callout noting a certificate can take up to a week to appear after a learner passes. ──
+    { key:'action',   label:'Certificate', menuLabel:'Certificate', width:'160px', align:'right', cellClass:'cell-actions',
+      headExtra: '<span class="cert-info" tabindex="0" role="note" aria-label="Certificates may take up to a week to display after a learner passes.">'
+        + '<i aria-hidden="true" class="fa-solid fa-circle-info"></i>'
+        + '<span class="ci-tip">Certificates may take up to a week to display after a learner passes.</span></span>',
       render:(r, course, gid) => actionCellHTML(r, gid) },
   ];
   const colByKey = Object.fromEntries(COLUMNS.map(c => [c.key, c]));
@@ -1488,6 +1563,14 @@
   }
   function statusBadgeHTML(r) {
     return `<span class="status-badge ${r.status}">${STATUS_LABEL[r.status]}</span>`;
+  }
+  // Quiz Score cell — the latest module's quiz score, flagged pass/fail:
+  //   >= 70% → green with a check ✓ | <= 69% → red with an X ✗ | no score yet → em dash.
+  function quizScoreCellHTML(lm) {
+    if (!lm || lm.score == null) return '<span class="muted-cell">—</span>';
+    const pass = lm.score >= 70;
+    const icon = pass ? 'fa-circle-check' : 'fa-circle-xmark';
+    return `<span class="quiz-score ${pass ? 'qs-pass' : 'qs-fail'}"><i aria-hidden="true" class="fa-solid ${icon}"></i>${lm.score}%</span>`;
   }
   // Overall course progress bar, colored by status (gray at 0% for not-started).
   function progressCellHTML(r) {
@@ -1548,7 +1631,10 @@
     if (c.align === 'right') style.push('text-align:right');
     const st = style.length ? ` style="${style.join(';')}"` : '';
     const arrow = c.sortable ? ' <i aria-hidden="true" class="fa-solid fa-sort sort-arrow"></i>' : '';
-    return `<th scope="col"${cl}${rs}${ds}${st}>${c.label}${arrow}</th>`;
+    // `headExtra` (e.g. the Certificate column's info callout) is appended to the main/rowspan
+    // header only — sub-headers of a group never carry it.
+    const extra = (!opts.sub && c.headExtra) ? c.headExtra : '';
+    return `<th scope="col"${cl}${rs}${ds}${st}>${c.label}${arrow}${extra}</th>`;
   }
   function renderHead() {
     const superRow = document.getElementById('headSuper');
@@ -1694,7 +1780,7 @@
     last:     x => lastAgo(x.r.last),
     exp:      x => { const d = mdyToDate(x.r.exp); return d ? d.getTime() : null; },
     failed:   x => (x.r.status === 'failed' && x.r.attempts === 3) ? (mdyToDate(x.r.failDate)?.getTime() ?? null) : null,
-    attempts: x => (x.r.status === 'failed') ? (x.r.attempts || 1) : null,
+    attempts: x => x.r.attempts ?? null,
   };
   let sortState = { key: 'learner', dir: 'asc' };
   function applySort() {
@@ -2211,28 +2297,37 @@
   }
 
   /* ═══════════════ Certificate modal (the only remaining dialog on the report) ═══════════════ */
+  // Deterministic 10-digit ClickSafety serial number for the certificate (stable per learner).
+  function certSerial(ext) {
+    let h = 0; for (const c of ext) h = (h * 31 + c.charCodeAt(0)) % 1000000000;
+    return String(1000000000 + h);
+  }
   function openCertModal(r, course) {
-    const name = displayName(r.name), s = MODAL_STYLE.cert;
+    const name = displayName(r.name);
+    // CEUs / contact hours / duration follow the course (OSHA 30-Hour vs. the 10-Hour courses).
+    const is30 = /30-?Hour/i.test(course);
+    const ceus = is30 ? '3.00' : '1.00';
+    const contact = is30 ? '30.00' : '10.00';
+    const duration = is30 ? '30.00 Hours' : '10.00 Hours';
+    const serial = certSerial(r.ext);
+    const completed = (r.last && r.last !== 'Never') ? r.last : '—';
     dialog.headerRenderer = (root) => {
-      root.innerHTML = `<div class="dlg-head" style="width:min(540px,92vw)">
-        <div class="m-ico" style="background:${s.bg}; color:${s.col}"><i aria-hidden="true" class="fa-solid ${s.icon}"></i></div>
-        <div><div class="m-title">Certificate of Completion</div><div class="m-sub">${course}</div></div>
+      root.innerHTML = `<div class="dlg-head" style="width:min(760px,94vw)">
+        <div class="m-ico" style="background:#dcfce7; color:#15803d"><i aria-hidden="true" class="fa-solid fa-award"></i></div>
+        <div><div class="m-title">Certificate</div><div class="m-sub">${name} · ${course}</div></div>
         <vaadin-button theme="icon tertiary" aria-label="Close" id="dlgClose" style="margin-left:auto"><i aria-hidden="true" class="fa-solid fa-xmark"></i></vaadin-button>
       </div>`;
       root.querySelector('#dlgClose').addEventListener('click', closeModal);
     };
     dialog.renderer = (root) => {
-      root.innerHTML = `<div class="dlg-body"><div class="cert">
-        <div class="c-seal"><i aria-hidden="true" class="fa-solid fa-award"></i></div>
-        <div class="c-kicker">CERTIFICATE OF COMPLETION</div>
-        <div class="c-name">${name}</div>
-        <div class="c-for">has successfully completed</div>
-        <div class="c-course">${course}</div>
-        <div class="c-meta">
-          <div>Completed<b>${r.last}</b></div>
-          <div>Score<b>92%</b></div>
-          <div>Certificate ID<b>OSHA-${r.ext.toUpperCase()}</b></div>
-        </div>
+      root.innerHTML = `<div class="cs-wrap"><div class="cs-certimg">
+        <div class="cs-fld cs-name">${name}</div>
+        <div class="cs-fld cs-course">${course}</div>
+        ${is30 ? `<div class="cs-fld cs-ceu">and has earned ${ceus} IACET CEUs</div>
+        <div class="cs-fld cs-hours">and ${contact} Contact Hours.</div>` : ``}
+        <div class="cs-fld cs-serial">${serial}</div>
+        <div class="cs-fld cs-date">${completed}</div>
+        ${is30 ? `<div class="cs-fld cs-dur">${duration}</div>` : ``}
       </div></div>`;
     };
     dialog.footerRenderer = (root) => {
