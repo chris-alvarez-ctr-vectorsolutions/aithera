@@ -501,3 +501,103 @@ them **gathered** to it when moved. That is the correct reading of "move this
 scene" — and the no-op test compares the resulting sequence rather than the
 block's offsets, so a drag that would spell the same order is correctly treated
 as no move at all.
+
+---
+
+## D27 · The AI assistant is one contextual presence per project, depicted per modality
+**2026-09-18**
+
+**Decided:** a Learning Project carries **one AI assistant**. Each modality
+renders its own **depiction** of it — `coach_persona` in a scenario, whatever
+the equivalent is for video, podcast or a job aid. The context is constant; the
+face changes.
+
+**Why (user's framing):** *"the coach persona is a user-facing depiction of a
+contextual AI assistant per project. For a scenario, a coach persona makes
+sense. For different modalities, the AI assistant is likely to take on different
+personas but the context is the same."*
+
+**Consequence for the fold-in:** the Scenario Simulator holds `coach_persona`
+per scenario document, because a standalone document has no project to inherit
+from. Here it is **projected down** from the project's assistant, the same way
+`teaching_points` will be projected from the information set rather than
+retyped. Two fields, one pattern: what a standalone document must carry inline,
+this platform derives from the layer above.
+
+**Rejected:** per-activity persona as the source of truth. Across a library of
+activities derived from one information set, independently authored personas are
+drift waiting to happen — and there is no mechanism that would detect it, since
+nothing joins them.
+
+---
+
+## D28 · The assistant has a GOAL, walled off from its context — the D23 pattern again
+**2026-09-18**
+
+**Decided:** the assistant takes the **information points as its context** — what
+it knows. Separately, and structurally apart, it carries a **goal of its own**:
+what it is *for* in this activity — helping, teaching, explaining, executing
+actions. That goal derives from what the learner is expected to learn or do to
+complete the activity.
+
+**Why (user's framing):** *"it should have the points as context, but should also
+have a similar concept to usage guidelines where the persona depicted has a goal
+of its own based on what the user is expected to learn or do to complete the
+activity. Helping, teaching, explaining, executing actions, etc."*
+
+**This is D23's wall, applied to the assistant.** The two halves divide exactly
+as the point document and its usage guidelines do:
+
+| | Information point | AI assistant |
+|---|---|---|
+| **Context** — passed to generation | the five-section document | the points it covers |
+| **Directive** — walled off | usage guidelines | the assistant's goal |
+
+The same failure mode justifies the same wall: a directive like *"do not give the
+answer away"* sitting inside the assistant's context can surface in what it says
+to a learner. Keeping the goal structurally separate gives a defined line to
+guardrail against.
+
+**Consequence:** context is **derived, never authored** — the assistant knows the
+subject because it holds the points, so there is no subject summary to write and
+therefore none to drift. Only the goal is authored.
+
+---
+
+## D29 · Assistance level is declared by the ACTIVITY; the output validates against it
+**2026-09-18**
+
+**Decided:** an activity declares what its assistant is permitted to do. An
+**output admits or refuses activities** based on that declaration, under its
+goal's rules. Assistance is not scoped top-down from the output.
+
+**Why (user's framing):** *"assistance level should be set by activity. Output
+goals will allow or restrict activities based on their assistance capabilities.
+An output with a strict compliance grading probably shouldn't allow activities
+that let the AI assistant give all the answers."*
+
+**This is the coverage pattern exactly.** An activity declares its depth per
+point; the output validates the set against the goal's bar. Now: an activity
+declares its assistance; the output validates it against the goal's evidence
+rules. **One validation model, a second dimension** — not a new mechanism.
+
+```
+activity.assist = 'explains' | 'teaches' | 'hints' | 'executes' | …
+output (goal: compliance) → refuses an activity whose assistant
+                            can supply an assessed answer
+```
+
+**Why declared rather than scoped:** an activity is a deliverable that may sit in
+several outputs (D18, via the Shared LO model). If the output set the assistance
+level, the same activity would behave differently in each — and its evidence
+claim would stop meaning one thing. Declaring it on the activity keeps the
+activity honest about what it is, and makes the output's admission decision a
+validation rather than a mutation.
+
+**Consequence — a new validation signal.** Alongside *"point 3 is not assessed"*
+the threshold check can now report *"this activity's assistant may supply the
+answer, which Compliance does not admit."* Same surface, same shape.
+
+**Open:** the vocabulary of assistance levels. `helping / teaching / explaining /
+executing` came from the user as examples, not as a closed list. Hold it as data
+like `GOALS`, for the same reason — leadership will define the real one.

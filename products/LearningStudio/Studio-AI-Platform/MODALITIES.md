@@ -395,8 +395,10 @@ settings, and clip re-anchoring **as an authoring gesture**. It is the
 **Status:** not yet discussed.
 
 ### Scenario
-**Status:** discussion started 2026-09-18. Prior art reviewed; framework
-questions not yet answered.
+**Status:** discussion in progress 2026-09-18. Prior art reviewed; authoring
+model settled (the LED authors a scenario as an activity); three model-level
+decisions taken (D27–D29); the seven framework questions still open, and one
+seam to resolve before them.
 
 #### Prior art — the Scenario Simulator (READ-ONLY reference)
 
@@ -543,10 +545,46 @@ information points it covers, rather than retyped alongside them.
 That is the concrete version of "keep what works, leave behind what needs
 optimizing."
 
+##### Settled 2026-09-18
+
+**The LED authors a scenario here, as an activity.** Per the user: *"the LED
+would author a scenario as an activity same as a learning object from this
+platform."* So a scenario is not commissioned-and-routed-out; it is a Learning
+Activity with a scenario body, sitting under the same shell, coverage panel and
+depth editing as every other modality. The shared workflow applies unchanged.
+
+This also settles the LO constraint for scenario: an activity is **2–5 minutes
+and typically covers one main teaching point**, and coverage tags sit at
+**activity level**. That sharpens the fold-in, because the reference tool's
+scenarios are whole-subject documents — a v4 document with six phases is closer
+to one of *our outputs* than to one of our activities.
+
+> **Open, and worth resolving early:** where the seam falls. If an LO is one
+> scenario activity of 2–5 minutes, a v4 export is either (a) one activity → one
+> short v4 document, or (b) an **output** composing several scenario activities
+> into one multi-phase v4 document. (b) reads truer to both models — v4's phases
+> are a sequence with `carryover`, which is what *compose* produces — but it
+> means a scenario activity is a **phase**, not a document. Decide before
+> designing the body.
+
+**Two further decisions came out of this discussion and are recorded in
+`DECISIONS.md`, because they are model-level rather than scenario-level:**
+
+- **D27** — the AI assistant is one contextual presence per project, depicted
+  per modality. `coach_persona` is the scenario's depiction of it, projected
+  down rather than authored per document.
+- **D28** — the assistant holds the points as **context** (derived) and carries
+  its own **goal** (authored, walled off) — the D23 point/usage wall applied to
+  the assistant.
+- **D29** — assistance level is **declared by the activity**; the **output
+  validates** it against the goal's evidence rules. The coverage pattern with a
+  second dimension.
+
 ##### Still to answer
 
 The seven framework questions now apply normally — with the added constraint
-that whatever we design must still project to the contract above.
+that whatever we design must still project to the v4 contract above, and with
+the activity-vs-document seam resolved first.
 
 ### Knowledge check
 **Status:** not yet discussed.

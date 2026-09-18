@@ -37,6 +37,7 @@ meets the threshold is the experience they're delivered.
 | **Learning Activity** | A modality expression of one or more points: video, podcast, scenario, knowledge check, job aid, reflection. |
 | **Output** | What gets delivered. Either a **structural format** (Course, Training — defined shape, ordering rules) or an **open-ended format** (Experience — assembles from learner interaction). |
 | **Goal** | The standard the project is held to — Compliance, Capability. Sets the default depth bar and the evidence rules. |
+| **AI Assistant** | One contextual presence per project, depicted differently by each modality (a scenario's coach, a video's narrator). Holds the points as context and carries its own authored goal. |
 
 > "Outputs" is still a placeholder for the collective noun over Courses and
 > Experiences. It may not need one.
@@ -47,6 +48,9 @@ meets the threshold is the experience they're delivered.
 
 ```
 Learning Project — "Forklift Safety & Operation"   goal: Compliance
+  │   AI ASSISTANT — one presence, depicted per modality
+  │     context: the information points (derived)
+  │     goal:    helping / teaching / explaining / executing (authored, walled off)
   │
   ├─ INFORMATION SET            ← the primary artifact
   │    6 verified teaching points
@@ -202,6 +206,53 @@ is **flagged** — assessed without being taught. Practical gate; quality signal
 still surfaced.
 
 The goal then applies its evidence rules on top.
+
+---
+
+## The AI assistant
+
+A Learning Project carries **one assistant**. Each modality renders its own
+**depiction** of it — a scenario's coach, a video's narrator, a podcast's host.
+The context is constant; the face changes (D27).
+
+### Two halves, and a wall between them
+
+The assistant divides exactly as an information point does — and for the same
+reason (D28):
+
+| | Context — passed to generation | Directive — walled off |
+|---|---|---|
+| **Information point** | the five-section document | usage guidelines |
+| **AI assistant** | the points it covers | the assistant's **goal** |
+
+**Context is derived, never authored.** The assistant knows the subject because
+it holds the points; there is no subject summary to write, and therefore none to
+drift.
+
+**The goal is authored.** It is what the assistant is *for* in this activity —
+helping, teaching, explaining, executing — and it follows from what the learner
+must do to complete the activity. It is walled off because a directive like
+*"do not give the answer away"* sitting in the assistant's context can surface
+in what it says to a learner. Same guardrail, same line.
+
+### Assistance is declared, then validated
+
+An **activity declares** what its assistant may do. An **output admits or
+refuses** activities on that basis, under its goal's rules (D29).
+
+```
+activity.assist  →  declared by the activity
+output           →  validates it against the goal's evidence rules
+```
+
+This is the coverage pattern with a second dimension, not a new mechanism: an
+activity declares its depth per point and the output validates the set; an
+activity declares its assistance and the output validates that too. A Compliance
+output refuses an activity whose assistant can supply an assessed answer.
+
+Declared rather than scoped **because an activity may sit in several outputs**
+(D18). If the output set the level, one activity would behave differently in
+each and its evidence claim would stop meaning one thing.
 
 ---
 
