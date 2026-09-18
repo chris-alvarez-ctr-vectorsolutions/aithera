@@ -476,21 +476,77 @@ deleting one costs. That division of labour is worth copying wholesale.
   2026-08-31). Not our problem yet, but it is why their prompt layer is
   server-side.
 
-##### The question this raises for us, before the framework questions
+##### How it relates to us — settled 2026-09-18
 
-Their tool exists, works, and is **being integrated into Learning Studio in an
-iframe**. So "design a scenario authoring surface" may be the wrong ask. The
-live question is what *this* platform adds that theirs cannot:
+**User's framing:** *"Their editor is the current authoring workflow. It produces
+a standalone output like the current Studio / Phase 2 work produces a course
+output. These and others will eventually fold into the platform that we are
+working on. So this is reference to what a scenario simulation is for our
+organization and within our content library, and how the parameters currently
+control our output. This is a similar situation to the Phase 2 editor. Keep what
+works, leave behind what needs enhanced/optimized, but support the same core
+functionality to produce a similar output."*
 
-- the **join to information points** — coverage, depth, drift — which their
-  document has no slot for;
-- **transmute** — a scenario derived from the same points as the video;
-- and whether our surface should *be* an authoring surface at all, or the place
-  a scenario is **commissioned, covered and validated** while the actual
-  scripting happens in their editor.
+So this is **D1 applied a second time.** The Scenario Simulator is a standalone
+producer that eventually folds in, exactly as Phase 2 is for video. Same
+instruction, same split:
 
-Settle that before answering the seven framework questions, because it decides
-whether they apply.
+| Take | Leave |
+|---|---|
+| The **output contract** — a scenario simulation must still be producible | Its **standalone-document IA** — self-contained, no library join |
+| The **step spine** (practice → debrief), modes, exit gates, transitions | The assumption that a scenario owns its own teaching points |
+| `carryover` as an **id-bound** cross-step dependency | Name-matching a phase label to a teaching-point topic (see below) |
+| The type-agnostic shell contract (sections / renderFields / lints / list) | Eight named sim types as a user-facing choice |
+| Its repair-and-report behaviour on delete/duplicate | — |
+
+##### The output contract we must still be able to produce
+
+A v4 document requires, at content level:
+`title` · `coach_persona` · `teaching_points` · `phases` · `closing`
+(plus optional `narrative`, an optional ungraded `opening`).
+
+Each **phase** (a step) requires `id` · `label` · `purpose` · `practice` ·
+`debrief`:
+
+- **practice** — `mode` (`coach_inquiry` | `roleplay` | `observe_react`),
+  `purpose`, `exit` (a turn gate), `transition`, `interaction` (shape selected
+  by mode). Vector extension: `answer_shape` (`determinate` | `open`).
+- **debrief** — a first-class turn-owning unit: `label`, `key_points`,
+  `follow_up_turns`, `transition`; optionally `probe`, `requirement`,
+  `final_word`. `follow_up_turns: 0` is delivery-only and is the default
+  posture.
+- **assessment levels** — `unthoughtful` / `neutral` / `strong`, where the two
+  **poles are required and the middle is optional** (decided 2026-08-18: a
+  binary step has no neutral, and requiring one is how their POC "invented
+  middle tiers just to satisfy the schema"). Worth remembering when we set our
+  own depth/evidence fields — the same trap is available to us.
+
+##### The seam their format leaves open, which is exactly ours
+
+v4 keeps `teaching_points` **at content level, grouped by subject**, and a phase
+is joined to one by **string-matching the phase's `label` to a topic name**.
+Their own validator flags the fragility (`scenario-v4.js` ~line 838): *"that
+match can miss — and a miss means the coach hedges on a graded step with nothing
+to state plainly."* It warns rather than fails.
+
+That is a **name-based join standing in for an id-based one** — a real
+limitation of a standalone document, since there is no library to point into.
+Our model already has the id-based version: information points with stable ids,
+coverage tags carrying depth, provenance and a pinned version.
+
+**So the enhancement this platform makes to a scenario is not a new authoring
+gesture. It is replacing that string match with the real join** — and getting
+coverage, depth, drift and transmute for free. A scenario authored here would
+export a v4 document whose `teaching_points` are *projected from* the
+information points it covers, rather than retyped alongside them.
+
+That is the concrete version of "keep what works, leave behind what needs
+optimizing."
+
+##### Still to answer
+
+The seven framework questions now apply normally — with the added constraint
+that whatever we design must still project to the contract above.
 
 ### Knowledge check
 **Status:** not yet discussed.
