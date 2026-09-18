@@ -182,13 +182,38 @@ load-bearing rather than polish.
 - Phase 2 hid the video canvas to author questions; here they live in the scene
   flow, since a check must stay synced to the language it tests.
 
-#### Timeline scope
+#### The canvas — centre-stage, accurate, scrubbable
 
-Build: the **word ruler**, **caption/time scale toggle**, and **word-anchored
-overlay blocks**. These carry the sync model.
+**This is a video editor at its core**, folded into the platform chrome: canvas
+centre, scenes as a left rail, coverage panel right.
 
-Skip: trim handles, per-bullet sub-clips, transition pickers. Production detail
-that proves nothing new about the model.
+The canvas **composites accurately** — background, positioned overlays and their
+enter transitions are real DOM layers, so what you see is what the composition
+is. This exists for **QA of AI-generated content**: someone has to look at the
+frame and judge it, and an AI-first platform needs that more than a hand-built
+one, not less.
+
+**Scrubbing is driven by the word playhead.** Click any word, or play through —
+on-screen text appears exactly at its anchored words. That is what makes word
+anchoring legible rather than something taken on trust.
+
+> **A known constraint, deliberately designed past.** True frame-accurate
+> scrubbing of *rendered* output would need constant third-party render calls;
+> there is no internal mechanism for compositing transitions, on-screen text and
+> media into frames. The prototype is **not** limited to that constraint — per
+> the user: *"This is exploration of the future of this product. If the quality
+> output requires new rendering mechanisms, I want to highlight the output
+> quality that asks for that update."*
+>
+> So the canvas composites live in the browser, faithfully, and carries a
+> **"preview composite · not the render"** badge. It is honest about what it is
+> while making the case for the rendering capability the product wants.
+
+Built: word ruler with playhead, words/time toggle, transport, accurate
+positioned compositing, overlapping anchors in separate timeline lanes.
+
+Skipped: trim handles, per-bullet sub-clips, transition pickers — production
+detail that proves nothing new about the model.
 
 ### Podcast
 **Status:** not yet discussed.
