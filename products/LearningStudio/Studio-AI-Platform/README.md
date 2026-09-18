@@ -79,7 +79,10 @@ video.
   is still a position, so narration edits above an anchor move it (see
   `MODALITIES.md`)
 
-Everything is in-memory. Reload resets.
+Everything is in-memory. Reload resets. **That is a prototype limitation, not
+the model** — the platform is a design surface with its own version control,
+interim saves, drafts and collaboration, and a dedicated publish pipeline owns
+detailed versioning and gates anything reaching live services (D31).
 
 ## What is not built
 

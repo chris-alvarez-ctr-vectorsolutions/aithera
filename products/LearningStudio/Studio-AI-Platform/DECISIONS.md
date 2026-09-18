@@ -633,13 +633,17 @@ D28). "Scoped by the request" is what those were built for.
 
 **Consequences accepted, recorded because they are real:**
 
-**1. Diff and undo become load-bearing, not polish.** The Claude Code analogy
-carries a working tree and version control — every edit is inspectable before and
-reversible after, which is what makes "anything is editable" tolerable there.
-This platform has neither, and everything is in-memory. A scoped regeneration
-that touches more than the author expected is otherwise **undetectable**: the
-prose reads fine, it is simply not what they approved. So the permissiveness is
-fine; it just moves "show me what changed" from a nicety to a requirement.
+**1. ~~Diff and undo become load-bearing, not polish.~~ — mostly retracted by
+D31.** This argued that the Claude Code analogy imports permissiveness without
+the working tree and version control that make it safe. **The premise was wrong:**
+the platform has its own version control, interim saves and drafts, and a publish
+pipeline that owns detailed versioning (D31). The reasoning was taken from the
+*prototype's* in-memory statelessness and mistook a prototype limitation for a
+model gap.
+
+What survives is narrower, and is **legibility rather than recovery**: within one
+turn, an author who scopes a change and gets a wider one should be able to see
+what moved. An affordance, not a mechanism.
 
 **2. A second wall is needed — write scope, not just read scope.** D23 and D28
 wall content off from what the AI **reads**. This needs the other direction: what
@@ -651,8 +655,10 @@ unscoped *"tighten this scenario"* rewrites that calibration while the
 confirmation stays visibly green, the compliance gate is asserting something
 untrue — the exact failure D20 was written to prevent on the version axis.
 
-**This is not a reason to restrict editing.** It is the rule that makes
-permissive editing honest:
+**This is not a reason to restrict editing**, and it is not solved by the publish
+gate — publish stops the content shipping, but cannot tell the LED *why* they are
+blocked or tell the SME they are **re-reviewing** rather than seeing something
+fresh (D31). It is the rule that makes permissive editing honest:
 
 > **An edit that invalidates someone else's judgment must say so.**
 
@@ -672,3 +678,68 @@ for all of these AI-assisted generation workflows into our platform is another
 design and UX problem to solve."* The 0→1 drafting workflows — for a point set, a
 scenario, a course — are their own design problem, related to D7/D8's deferred
 information-authoring pass.
+
+---
+
+## D31 · This is a design surface; a publish pipeline owns version control and the live boundary
+**2026-09-18**
+
+**Decided:** the platform is an **AI-assisted design surface**. It has its own
+version control, interim saves, drafts and collaboration, and a **dedicated
+publish pipeline** owns detailed versioning and gates everything reaching live
+services and content offerings.
+
+**User's framing:** *"this is still an authoring tool that will have its own
+version control and publish pipeline with interim saves, drafts, and
+collaboration. The publishing pipeline will handle the detailed version control,
+this is simply an AI-assisted design surface… development and implementation will
+determine what can be written. Again this will be gated by a dedicated publish
+pipeline that prevents any design work from leaking into the live services or
+content offerings."*
+
+**What this settles:**
+
+- **Nothing in the design surface reaches a learner without passing publish.**
+  Draft state is expected to be incomplete, inconsistent and mid-edit; that is
+  what a design surface is for.
+- **Detailed version control is not this platform's model problem.** Saves,
+  drafts, history and recovery belong to the pipeline.
+- **Write scope is an implementation decision**, not a model one. D30's "what the
+  AI may write" is determined in development.
+
+**Retracts half of D30's first consequence.** D30 recorded that diff and undo are
+"load-bearing, not polish," reasoning from the Claude Code analogy importing
+permissiveness without a safety net. That reasoning **was based on the
+prototype's in-memory statelessness and mistook a prototype limitation for a
+model gap.** With version control and drafts present, recovery is solved.
+
+What survives is smaller and is **legibility, not recovery**: within a single
+turn, an author who scopes a change and gets a wider one should be able to see
+what moved. That is an affordance, not a mechanism — and "undo" answers it.
+
+**Does NOT retract the second consequence, which is a different problem.**
+Publish stops bad content reaching learners. It does not stop a **claim inside
+the design surface from going stale**: an SME confirms a calibration, an author
+later rewrites the thing confirmed, and the confirmation still reads green *in
+the authoring tool*.
+
+Publish correctly blocks that from shipping. What publish cannot do is tell the
+LED **why** they are blocked, or tell the SME they are **re-reviewing** rather
+than seeing something fresh. Those are design-surface jobs, and the surface is
+where the information is missing.
+
+This is the same shape as drift, which the model already chose to **compute
+rather than gate** (D19), on the grounds that materiality is a human
+declaration. The same reasoning applies: not a wall, not a restriction —
+
+> **`confirmed` should record what it was confirmed against**, exactly as a
+> coverage tag already records the point version with `at:`. One field, and
+> staleness is derived.
+
+No new tag state, no fourth status, no blocking — precisely the shape D20 chose
+for the version axis. Tracked as **Q12**, now scoped to that.
+
+**Consequence for `OPEN-QUESTIONS.md` Q1:** the "published version distinct from
+the working one" it speculated about is **settled in principle** — that is the
+pipeline. What remains open there is only what the *design surface* shows about
+published state.

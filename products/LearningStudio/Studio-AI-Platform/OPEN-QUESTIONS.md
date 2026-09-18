@@ -27,8 +27,15 @@
 
 ### Q1 · Versioning and staleness
 **Partially resolved by D19** — points now carry a version and a lifecycle, and
-activities pin the version they were authored against. What remains open is the
-*review* flow, deferred with the information-updating phase (D7).
+activities pin the version they were authored against. **Further resolved by
+D31:** detailed version control is **not this platform's problem** — the platform
+is a design surface with its own drafts and interim saves, and a dedicated
+publish pipeline owns versioning and gates everything reaching live services.
+The "published version distinct from the working one" speculated about below is
+therefore settled in principle.
+
+What remains open is the *review* flow, deferred with the information-updating
+phase (D7), and what the **design surface** should show about published state.
 
 **Would reshape: the update-review surface.**
 
@@ -141,7 +148,14 @@ first body where this actually bites.
 ---
 
 ### Q12 · Nothing detects that an activity's own content moved
-**Raised 2026-09-18 by D30. Has two callers already.**
+**Raised 2026-09-18 by D30; scoped down by D31. Has two callers already.**
+
+**Scope note.** This is **not** about work leaking to live — a dedicated publish
+pipeline gates that (D31) — nor about losing work, which version control and
+drafts handle. It is about a **claim inside the design surface going stale**, and
+the surface being unable to say so. Publish blocks the ship; it cannot explain
+the block to an LED or tell an SME they are re-reviewing rather than reading
+something fresh.
 
 The model tracks drift on one axis only: a coverage tag pins the **point
 version** it was judged against (`at: 2`), so *"the point moved under this
@@ -162,6 +176,10 @@ it:
 **bind to identity, not position.** A confirmation records *what it was made
 against*, not merely *when* — so "confirmed-against-current" stays derivable, no
 new tag state required, exactly as D20 did for point versions.
+
+Deliberately **computed, never gated** — the same call D19 made for drift, for the
+same reason: materiality is a human declaration, and the platform should surface
+the signal rather than judge it.
 
 The open part is what "the content it was made against" means concretely —
 an activity content hash, a per-field revision counter, or something coarser.
