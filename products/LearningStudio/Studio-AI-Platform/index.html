@@ -903,6 +903,62 @@
   .sai-sc-drag { color: var(--sai-ink-3); font-size: 9px; cursor: grab; opacity: 0; }
   .sai-scene:hover .sai-sc-drag { opacity: 1; }
 
+  /* ── Sequence rail — scenes and checks as siblings ─────────────────── */
+  .sai-seq-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .sai-seq-check {
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-left: 2px solid var(--sai-warn); border-radius: 0 6px 6px 0;
+    overflow: hidden;
+  }
+  .sai-seq-check.active { border-color: var(--sai-warn); box-shadow: 0 0 0 1px var(--sai-warn); }
+  .sai-seq-check-head {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer;
+  }
+  .sai-seq-check-head:hover { background: var(--sai-surface-2); }
+  .sai-seq-bound {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 10px 8px 34px; font-size: 10px; color: var(--sai-ink-3);
+  }
+  .sai-seq-bound.far { color: var(--sai-warn); }
+
+  /* Check editor — takes the canvas column, because a check IS the screen
+     at that point in the sequence. */
+  .sai-check-editor {
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-radius: 8px; padding: 16px 18px;
+  }
+  .sai-check-editor-head {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
+    padding-bottom: 11px; border-bottom: 1px solid var(--sai-line);
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--sai-warn);
+  }
+  .sai-ck-opt { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+  .sai-ck-mark {
+    flex: 0 0 auto; width: 26px; height: 30px; display: grid; place-items: center;
+    background: none; border: none; cursor: pointer;
+    color: var(--sai-ink-3); font-size: 12px;
+  }
+  .sai-ck-mark:hover { color: var(--sai-accent); }
+  .sai-ck-opt.correct .sai-ck-mark { color: var(--sai-output); }
+  .sai-ck-text {
+    flex: 1 1 auto; padding: 6px 9px; border-radius: 5px;
+    background: var(--sai-bg); border: 1px solid transparent;
+    font-size: 12.5px; color: var(--sai-ink); outline: none;
+  }
+  .sai-ck-text:focus { border-color: var(--sai-accent); }
+  .sai-ck-opt.correct .sai-ck-text { color: var(--sai-output); }
+
+  .sai-src-panel {
+    margin-top: 16px; padding: 12px 13px; border-radius: 6px;
+    background: var(--sai-bg); border: 1px solid var(--sai-line);
+  }
+  .sai-src-text { font-size: 12px; line-height: 1.6; color: var(--sai-ink-2); }
+  .sai-src-note {
+    display: flex; align-items: flex-start; gap: 6px; margin-top: 9px;
+    font-size: 10.5px; line-height: 1.5; color: var(--sai-ink-3);
+  }
+
   /* Visual toolbar — sits with the canvas, not the rail. */
   .sai-canvas-tools {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -2125,16 +2181,25 @@ const MODEL = {
       ],
       // Checks are BOUND to a scene's language but PLACED independently —
       // which is what lets the same check run inline or compile to the end.
+      // Delivery pattern is an ACTIVITY-level decision — whether this piece
+      // interrupts with checks as it goes, gathers them at the end, or leaves
+      // assessment to a separate assessment activity entirely.
+      settings: { checkDelivery: 'inline', scored: false, allowRetry: true },
+      // Checks are siblings of scenes in one ordered sequence. `boundTo` is
+      // the scene whose LANGUAGE the check tests — that never moves when the
+      // sequence is reordered.
       checks: [
-        { id: 'ck-1', boundTo: 'sc-2', placement: 'after-scene',
+        { id: 'ck-1', boundTo: 'sc-2',
           stem: 'Which of these is NOT part of the pre-shift inspection described?',
           options: ['Fork heel wear', 'Mast chain tension', 'Annual load test', 'Seatbelt retraction'],
           correct: 2 },
-        { id: 'ck-2', boundTo: 'sc-3', placement: 'end',
+        { id: 'ck-2', boundTo: 'sc-3',
           stem: 'You inspect a truck and find no defects. What do you do with the record?',
           options: ['Nothing — records are for defects', 'Log it anyway', 'Log it only if asked'],
           correct: 1 }
       ],
+      // The assembled sequence — what the learner moves through.
+      sequence: ['sc-1', 'sc-2', 'ck-1', 'sc-3', 'ck-2'],
       covers: {
         'info-1': { depth: 'awareness', state: 'confirmed', at: 2 },
         'info-2': { depth: 'awareness', state: 'confirmed', at: 1 },
@@ -2763,6 +2828,7 @@ function renderPointDoc(id) {
 
 let openActivity = null;
 let activeScene  = null;
+let activeItem   = null;   // scene OR check currently open in the sequence
 let tlScale      = 'words';   // 'words' | 'time'
 
 /* Narration split into words, so overlays can anchor by word index rather
@@ -2846,6 +2912,7 @@ function renderActivityDoc(id) {
   if (!a) return;
   openActivity = id;
   if (!activeScene && a.scenes && a.scenes.length) activeScene = a.scenes[0].id;
+  if (!activeItem) activeItem = activeScene;
 
   const blockers = renderBlockers(a);
   const total = (a.scenes || []).reduce((t, x) => t + x.duration, 0);
@@ -2994,90 +3061,159 @@ function renderCanvas(sc) {
 
 function renderVideoBody(a) {
   const sc = (a.scenes || []).find(x => x.id === activeScene) || a.scenes[0];
+  const seq = a.sequence || a.scenes.map(x => x.id);
 
-  // ── Scene cards — the working surface. Accordion: the open card is the
-  //    one the canvas is showing, so editing and preview stay in step.
-  const rail = a.scenes.map((x, i) => {
-    const open = x.id === activeScene;
+  // ── The SEQUENCE — scenes and checks as siblings, in delivery order.
+  //    This is the shape the learner moves through: the cuts, and the
+  //    interruptions between them.
+  let sceneNo = 0;
+  const rail = seq.map((id, pos) => {
+    const insert = `<div class="sai-insert" data-insertat="${pos}"><span>+ scene or check</span></div>`;
+    const check = (a.checks || []).find(c => c.id === id);
+
+    if (check) {
+      const src = a.scenes.find(x => x.id === check.boundTo);
+      const srcNo = a.scenes.indexOf(src) + 1;
+      // Distance between a check and the language it tests is worth seeing —
+      // a check far from its source is a signal, not a detail.
+      const srcPos = seq.indexOf(check.boundTo);
+      const far = srcPos > -1 && (pos - srcPos) > 2;
+      return insert + `
+        <article class="sai-seq-check ${activeItem === id ? 'active' : ''}" data-seqitem="${id}">
+          <div class="sai-seq-check-head" data-openitem="${id}">
+            <i class="fa-solid fa-grip-vertical sai-sc-drag"></i>
+            <i class="fa-solid fa-circle-question" style="color:var(--sai-warn);font-size:11px"></i>
+            <span class="sai-scene-gist">${check.stem.slice(0, 34)}…</span>
+            <button class="sai-sc-kebab" data-ckkebab="${id}"><i class="fa-solid fa-ellipsis"></i></button>
+          </div>
+          <div class="sai-seq-bound ${far ? 'far' : ''}">
+            <i class="fa-solid fa-link" style="font-size:8px"></i>
+            tests scene ${srcNo}'s language${far ? ' · delivered well after it' : ''}
+          </div>
+        </article>`;
+    }
+
+    const x = a.scenes.find(v => v.id === id);
+    if (!x) return insert;
+    sceneNo++;
+    const open = x.id === activeScene && activeItem === id;
     const hasAudio = x.audio !== false;
-    return `
-    <div class="sai-insert" data-insert="${x.id}"><span>+ scene</span></div>
-    <article class="sai-scene ${open ? 'active' : ''}" data-scene="${x.id}">
-      <div class="sai-scene-head" data-openscene="${x.id}">
-        <i class="fa-solid fa-grip-vertical sai-sc-drag" title="Drag to reorder"></i>
-        <span class="sai-scene-num">${i + 1}</span>
-        ${open ? '' : `<span class="sai-scene-gist">${(x.narration || '').slice(0, 40)}…</span>`}
-        <span class="sai-scene-meta">
-          <span class="sai-dur">${x.duration}s</span>
-          <button class="sai-sc-status ${x.status}" data-status="${x.id}"
-            title="Click to advance status">${x.status.replace('-', ' ')}</button>
-          ${(a.checks || []).some(c => c.boundTo === x.id)
-            ? '<i class="fa-solid fa-circle-question" style="color:var(--sai-warn);font-size:10px" title="Has a bound check-in"></i>' : ''}
-        </span>
-        ${open ? '<button class="sai-sc-kebab" data-kebab="' + x.id + '"><i class="fa-solid fa-ellipsis"></i></button>' : ''}
-      </div>
-
-      <div class="sai-scene-body">
-        <div class="sai-narr" contenteditable="true" spellcheck="false"
-             data-narr="${x.id}">${narrHTML(x)}</div>
-        <div style="font-size:10px;color:var(--sai-ink-3);margin-top:5px">
-          Select any word to set its pronunciation
+    return insert + `
+      <article class="sai-scene ${open ? 'active' : ''}" data-scene="${x.id}">
+        <div class="sai-scene-head" data-openitem="${x.id}">
+          <i class="fa-solid fa-grip-vertical sai-sc-drag" title="Drag to reorder"></i>
+          <span class="sai-scene-num">${sceneNo}</span>
+          ${open ? '' : `<span class="sai-scene-gist">${(x.narration || '').slice(0, 36)}…</span>`}
+          <span class="sai-scene-meta">
+            <span class="sai-dur">${x.duration}s</span>
+            <button class="sai-sc-status ${x.status}" data-status="${x.id}"
+              title="Click to advance status">${x.status.replace('-', ' ')}</button>
+          </span>
+          ${open ? '<button class="sai-sc-kebab" data-kebab="' + x.id + '"><i class="fa-solid fa-ellipsis"></i></button>' : ''}
         </div>
 
-        <div class="sai-sc-audio ${hasAudio ? 'has' : ''}">
-          <i class="fa-solid fa-${hasAudio ? 'circle-check' : 'circle'} state" style="font-size:9px"></i>
-          <span class="wave">${Array.from({length: 22}, (_, k) =>
-            `<span style="height:${hasAudio ? 3 + Math.abs(Math.sin(k * 1.7 + i)) * 11 : 2}px"></span>`).join('')}</span>
-          <span>${hasAudio ? x.duration + 's' : 'no audio'}</span>
-        </div>
+        <div class="sai-scene-body">
+          <div class="sai-narr" contenteditable="true" spellcheck="false"
+               data-narr="${x.id}">${narrHTML(x)}</div>
+          <div style="font-size:10px;color:var(--sai-ink-3);margin-top:5px">
+            Select any word to set its pronunciation
+          </div>
 
-        <!-- The rail owns NARRATION and AUDIO. Visual actions belong with the
-             canvas, where you can see what you are changing. -->
-        <div class="sai-sc-tools">
-          <button class="sai-sc-btn" data-voice="${x.id}">
-            <i class="fa-solid fa-microphone"></i>${x.voice}<i class="fa-solid fa-chevron-down" style="font-size:7px"></i>
-          </button>
-          <button class="sai-sc-btn gen" data-genaudio="${x.id}">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>${hasAudio ? 'Regenerate audio' : 'Generate audio'}
-          </button>
-        </div>
-      </div>
-    </article>`;
-  }).join('');
+          <div class="sai-sc-audio ${hasAudio ? 'has' : ''}">
+            <i class="fa-solid fa-${hasAudio ? 'circle-check' : 'circle'} state" style="font-size:9px"></i>
+            <span class="wave">${Array.from({length: 22}, (_, k) =>
+              `<span style="height:${hasAudio ? 3 + Math.abs(Math.sin(k * 1.7 + sceneNo)) * 11 : 2}px"></span>`).join('')}</span>
+            <span>${hasAudio ? x.duration + 's' : 'no audio'}</span>
+          </div>
 
-  const inlineChecks = (a.checks || [])
-    .filter(c => c.boundTo === sc.id && c.placement === 'after-scene').map(renderCheck).join('');
-  const endChecks = (a.checks || []).filter(c => c.placement === 'end');
+          <div class="sai-sc-tools">
+            <button class="sai-sc-btn" data-voice="${x.id}">
+              <i class="fa-solid fa-microphone"></i>${x.voice}<i class="fa-solid fa-chevron-down" style="font-size:7px"></i>
+            </button>
+            <button class="sai-sc-btn gen" data-genaudio="${x.id}">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>${hasAudio ? 'Regenerate audio' : 'Generate audio'}
+            </button>
+          </div>
+        </div>
+      </article>`;
+  }).join('') + `<div class="sai-insert" data-insertat="${seq.length}"><span>+ scene or check</span></div>`;
+
+  // The open item drives the right-hand column: a scene shows the canvas,
+  // a check shows its editor.
+  const openCheck = (a.checks || []).find(c => c.id === activeItem);
 
   return `
     <div class="sai-vid">
       <div class="sai-vid-rail">
-        <div class="sai-doc-label">Scenes</div>
+        <div class="sai-seq-head">
+          <span class="sai-doc-label" style="margin:0">Sequence</span>
+          <button class="sai-sc-btn" id="actSettings" style="margin-left:auto">
+            <i class="fa-solid fa-sliders"></i>Settings
+          </button>
+        </div>
         ${rail}
-        <div class="sai-insert" data-insert="end"><span>+ scene</span></div>
       </div>
 
       <div class="sai-vid-resize" id="railResize" title="Drag to resize"></div>
 
       <div class="sai-vid-main">
-        ${renderCanvas(sc)}
+        ${openCheck ? renderCheckEditor(a, openCheck) : `
+          ${renderCanvas(sc)}
+          <div class="sai-tl">
+            <div class="sai-tl-head">
+              <span class="sai-tl-title">Timing</span>
+              <span style="font-size:10px;color:var(--sai-ink-3)">on-screen text anchors to words, not seconds</span>
+              <span class="sai-tl-toggle">
+                <button class="sai-tl-btn ${tlScale === 'words' ? 'on' : ''}" data-scale="words">Words</button>
+                <button class="sai-tl-btn ${tlScale === 'time' ? 'on' : ''}" data-scale="time">Time</button>
+              </span>
+            </div>
+            ${renderWordRuler(sc)}
+          </div>`}
+      </div>
+    </div>`;
+}
 
-        <div class="sai-tl">
-          <div class="sai-tl-head">
-            <span class="sai-tl-title">Timing</span>
-            <span style="font-size:10px;color:var(--sai-ink-3)">on-screen text anchors to words, not seconds</span>
-            <span class="sai-tl-toggle">
-              <button class="sai-tl-btn ${tlScale === 'words' ? 'on' : ''}" data-scale="words">Words</button>
-              <button class="sai-tl-btn ${tlScale === 'time' ? 'on' : ''}" data-scale="time">Time</button>
-            </span>
-          </div>
-          ${renderWordRuler(sc)}
+/* A check's editor — takes the canvas column, since a check IS the screen at
+   that point in the sequence. */
+function renderCheckEditor(a, c) {
+  const src = a.scenes.find(x => x.id === c.boundTo);
+  const srcNo = a.scenes.indexOf(src) + 1;
+  return `
+    <div class="sai-check-editor">
+      <div class="sai-check-editor-head">
+        <i class="fa-solid fa-circle-question" style="color:var(--sai-warn)"></i>
+        <span>Check-in</span>
+        <span class="sai-check-bound" style="margin-left:auto">
+          tests scene ${srcNo}'s language
+        </span>
+      </div>
+
+      <div class="sai-doc-label">Question</div>
+      <div class="sai-narr" contenteditable="true" spellcheck="false"
+           data-ckstem="${c.id}">${c.stem}</div>
+
+      <div class="sai-doc-label" style="margin-top:12px">Options</div>
+      ${c.options.map((o, i) => `
+        <div class="sai-ck-opt ${i === c.correct ? 'correct' : ''}">
+          <button class="sai-ck-mark" data-correct="${c.id}:${i}"
+            title="${i === c.correct ? 'Correct answer' : 'Mark correct'}">
+            <i class="fa-${i === c.correct ? 'solid fa-circle-check' : 'regular fa-circle'}"></i>
+          </button>
+          <div class="sai-ck-text" contenteditable="true" spellcheck="false"
+               data-ckopt="${c.id}:${i}">${o}</div>
+        </div>`).join('')}
+
+      <div class="sai-src-panel">
+        <div class="sai-doc-label" style="margin-bottom:5px">
+          Source language — scene ${srcNo}
         </div>
-
-        ${inlineChecks}
-        ${endChecks.length ? `
-          <div class="sai-doc-label" style="margin-top:12px">Compiled at the end</div>
-          ${endChecks.map(renderCheck).join('')}` : ''}
+        <div class="sai-src-text">${src ? src.narration : '—'}</div>
+        <div class="sai-src-note">
+          <i class="fa-solid fa-circle-info" style="font-size:9px"></i>
+          A check tests the words the learner just heard, so it stays bound to this
+          scene. Edit the narration and this check may need revisiting.
+        </div>
       </div>
     </div>`;
 }
@@ -3312,18 +3448,27 @@ function openSceneMenu(a, sceneId, el) {
         const copy = JSON.parse(JSON.stringify(a.scenes[i]));
         copy.id = 'sc-' + Date.now(); copy.status = 'in-progress';
         copy.overlays = (copy.overlays || []).map(o => ({ ...o, id: 'ov-' + Math.random().toString(36).slice(2, 8) }));
-        a.scenes.splice(i + 1, 0, copy); activeScene = copy.id;
+        a.scenes.splice(i + 1, 0, copy); activeScene = copy.id; activeItem = copy.id;
+        a.sequence.splice(a.sequence.indexOf(sceneId) + 1, 0, copy.id);
         toast('Scene duplicated');
       } else if (act === 'up' || act === 'down') {
-        const j = act === 'up' ? i - 1 : i + 1;
-        [a.scenes[i], a.scenes[j]] = [a.scenes[j], a.scenes[i]];
+        // Reorder in the SEQUENCE — that is the thing with an order.
+        const p = a.sequence.indexOf(sceneId);
+        const q = act === 'up' ? p - 1 : p + 1;
+        if (q >= 0 && q < a.sequence.length) {
+          [a.sequence[p], a.sequence[q]] = [a.sequence[q], a.sequence[p]];
+        }
         // Nothing references a scene by ordinal, so a reorder repairs nothing.
-        toast('Scene moved');
+        toast('Moved in the sequence');
       } else if (act === 'del') {
         a.scenes.splice(i, 1);
+        const orphaned = (a.checks || []).filter(c => c.boundTo === sceneId).map(c => c.id);
         a.checks = (a.checks || []).filter(c => c.boundTo !== sceneId);
-        activeScene = a.scenes[Math.max(0, i - 1)].id;
-        toast('Scene deleted — bound checks removed with it');
+        a.sequence = a.sequence.filter(x => x !== sceneId && !orphaned.includes(x));
+        activeScene = a.scenes[Math.max(0, i - 1)].id; activeItem = activeScene;
+        toast(orphaned.length
+          ? `Scene deleted — ${orphaned.length} bound check${orphaned.length > 1 ? 's' : ''} removed with it`
+          : 'Scene deleted');
       } else if (act === 'regen') {
         toast('Regenerating narration from the information point…');
       }
@@ -3386,14 +3531,166 @@ function openSelTool(a, sceneId, word, rect) {
   $('#phCancel', el).addEventListener('click', () => closeSelTool(true));
 }
 
+/* Insert menu — a sequence position takes either a scene or a check. */
+function openInsertMenu(a, pos, el) {
+  openPop(el, 250, `
+    <div class="sai-pop-head">Add at this point</div>
+    <div class="sai-pop-body">
+      <button class="sai-pop-item" data-add="scene">
+        <i class="fa-solid fa-film lead"></i>
+        <span><span class="nm">Scene</span><span class="sub">Narration, media and on-screen text</span></span>
+      </button>
+      <button class="sai-pop-item" data-add="check">
+        <i class="fa-solid fa-circle-question lead"></i>
+        <span><span class="nm">Check-in</span><span class="sub">Tests the language of the scene before it</span></span>
+      </button>
+    </div>`, pop => {
+    $$('[data-add]', pop).forEach(b => b.addEventListener('click', () => {
+      const seq = a.sequence;
+      if (b.dataset.add === 'scene') {
+        const id = 'sc-' + Date.now();
+        a.scenes.push({ id, duration: 12, status: 'in-progress', voice: 'Sarah',
+          narration: 'New scene narration.', phonetic: {}, media: null, overlays: [] });
+        seq.splice(pos, 0, id);
+        activeScene = id; activeItem = id; playhead = 0;
+        toast('Scene added');
+      } else {
+        // A check binds to the nearest preceding scene — the language it
+        // follows is the language it tests.
+        let bound = null;
+        for (let i = pos - 1; i >= 0; i--) {
+          if (a.scenes.some(x => x.id === seq[i])) { bound = seq[i]; break; }
+        }
+        if (!bound) { closePop(); toast('A check needs a scene before it'); return; }
+        const id = 'ck-' + Date.now();
+        a.checks.push({ id, boundTo: bound,
+          stem: 'New question about what was just covered.',
+          options: ['First option', 'Second option', 'Third option'], correct: 0 });
+        seq.splice(pos, 0, id);
+        activeItem = id;
+        const n = a.scenes.findIndex(x => x.id === bound) + 1;
+        toast(`Check added — bound to scene ${n}'s language`);
+      }
+      closePop(); renderActivityDoc(a.id);
+    }));
+  });
+}
+
+/* Activity settings — decisions that govern the whole piece. */
+function openActivitySettings(a, el) {
+  const st = a.settings || (a.settings = { checkDelivery: 'inline', scored: false, allowRetry: true });
+  const MODES = [
+    ['inline', 'Checks as you go', 'Each check runs where it sits in the sequence'],
+    ['end',    'Checks at the end', 'All checks gather after the final scene'],
+    ['none',   'No checks',         'Teaching only — assessment lives in its own activity']
+  ];
+  openPop(el, 292, `
+    <div class="sai-pop-head">Activity settings</div>
+    <div class="sai-pop-body">
+      <div style="font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--sai-ink-3);padding:4px 9px 6px">
+        Check delivery
+      </div>
+      ${MODES.map(([k, n, d]) => `
+        <button class="sai-pop-item ${st.checkDelivery === k ? 'on' : ''}" data-mode="${k}">
+          <i class="fa-solid fa-${st.checkDelivery === k ? 'circle-check' : 'circle'} lead"></i>
+          <span><span class="nm">${n}</span><span class="sub">${d}</span></span>
+        </button>`).join('')}
+      <div class="sai-pop-sep"></div>
+      <button class="sai-pop-item" data-toggle="scored">
+        <i class="fa-solid fa-${st.scored ? 'square-check' : 'square'} lead"></i>
+        <span><span class="nm">Score the checks</span><span class="sub">Contributes to a result rather than self-check</span></span>
+      </button>
+      <button class="sai-pop-item" data-toggle="allowRetry">
+        <i class="fa-solid fa-${st.allowRetry ? 'square-check' : 'square'} lead"></i>
+        <span><span class="nm">Allow retry</span><span class="sub">Learner can answer again after feedback</span></span>
+      </button>
+    </div>`, pop => {
+    $$('[data-mode]', pop).forEach(b => b.addEventListener('click', () => {
+      st.checkDelivery = b.dataset.mode;
+      // Moving to "end" gathers the checks; back to "inline" returns each to
+      // just after the scene it is bound to. Binding is what makes this
+      // lossless — no stored position to lose.
+      const scenes = a.sequence.filter(id => a.scenes.some(x => x.id === id));
+      const checks = a.sequence.filter(id => a.checks.some(c => c.id === id));
+      if (st.checkDelivery === 'end') {
+        a.sequence = [...scenes, ...checks];
+      } else if (st.checkDelivery === 'inline') {
+        const out = [];
+        scenes.forEach(sid => {
+          out.push(sid);
+          checks.filter(cid => a.checks.find(c => c.id === cid).boundTo === sid)
+                .forEach(cid => out.push(cid));
+        });
+        a.sequence = out;
+      } else {
+        a.sequence = scenes;
+      }
+      closePop(); renderActivityDoc(a.id);
+      toast('Check delivery — ' + MODES.find(m => m[0] === st.checkDelivery)[1].toLowerCase());
+    }));
+    $$('[data-toggle]', pop).forEach(b => b.addEventListener('click', () => {
+      st[b.dataset.toggle] = !st[b.dataset.toggle];
+      openActivitySettings(a, el);
+    }));
+  });
+}
+
 /* Wire the activity surface after each render. */
 function wireActivityDoc(a) {
   const root = $('#activityDoc');
 
-  // Scene accordion — the rail selects which scene the canvas shows.
-  $$('[data-openscene]', root).forEach(el => el.addEventListener('click', () => {
-    if (activeScene !== el.dataset.openscene) { activeScene = el.dataset.openscene; playhead = 0; }
+  // Selecting a sequence item — a scene opens the canvas, a check opens its
+  // editor in the same column.
+  $$('[data-openitem]', root).forEach(el => el.addEventListener('click', () => {
+    const id = el.dataset.openitem;
+    activeItem = id;
+    if (a.scenes.some(x => x.id === id)) {
+      if (activeScene !== id) { activeScene = id; playhead = 0; }
+    }
     renderActivityDoc(a.id);
+  }));
+
+  $$('[data-insertat]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation(); openInsertMenu(a, +el.dataset.insertat, el);
+  }));
+
+  const setBtn = $('#actSettings', root);
+  if (setBtn) setBtn.addEventListener('click', e => {
+    e.stopPropagation(); openActivitySettings(a, setBtn);
+  });
+
+  // Check editing — stem, options, and which option is correct.
+  $$('[data-ckstem]', root).forEach(el => el.addEventListener('blur', () => {
+    const c = a.checks.find(x => x.id === el.dataset.ckstem);
+    if (c && el.innerText.trim()) c.stem = el.innerText.trim();
+  }));
+  $$('[data-ckopt]', root).forEach(el => el.addEventListener('blur', () => {
+    const [cid, i] = el.dataset.ckopt.split(':');
+    const c = a.checks.find(x => x.id === cid);
+    if (c && el.innerText.trim()) c.options[+i] = el.innerText.trim();
+  }));
+  $$('[data-correct]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    const [cid, i] = el.dataset.correct.split(':');
+    const c = a.checks.find(x => x.id === cid);
+    if (c) { c.correct = +i; renderActivityDoc(a.id); }
+  }));
+  $$('[data-ckkebab]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    const cid = el.dataset.ckkebab;
+    openPop(el, 220, `
+      <div class="sai-pop-body">
+        <button class="sai-pop-item danger" data-ckdel="${cid}">
+          <i class="fa-solid fa-trash lead"></i><span class="nm">Delete check</span>
+        </button>
+      </div>`, pop => {
+      $('[data-ckdel]', pop).addEventListener('click', () => {
+        a.checks = a.checks.filter(c => c.id !== cid);
+        a.sequence = a.sequence.filter(x => x !== cid);
+        if (activeItem === cid) activeItem = activeScene;
+        closePop(); renderActivityDoc(a.id); toast('Check deleted');
+      });
+    });
   }));
 
   // Narration — directly editable and prompt-targetable.
@@ -3470,9 +3767,6 @@ function wireActivityDoc(a) {
   $$('[data-scale]', root).forEach(b => b.addEventListener('click', e => {
     e.stopPropagation(); tlScale = b.dataset.scale; renderActivityDoc(a.id);
   }));
-
-  $$('[data-insert]', root).forEach(el => el.addEventListener('click', () =>
-    toast('Scene insert — not wired in this pass')));
 
   // Status cycles in place — Phase 2 used a select overlay; a click-through
   // is fewer interactions for a three-state field.
@@ -3780,7 +4074,7 @@ function switchLayer(layer) {
     t.classList.toggle('active', t.dataset.layer === layer));
   $$('.sai-view').forEach(v => v.classList.toggle('active', v.dataset.view === layer));
   if (layer !== 'point-detail') openPoint = null;
-  if (layer !== 'activity-detail') { openActivity = null; activeScene = null; }
+  if (layer !== 'activity-detail') { openActivity = null; activeScene = null; activeItem = null; }
   const meta = LAYER_META[layer];
   if (meta) {
     $('#layerName').textContent  = meta.name;
