@@ -230,9 +230,32 @@ word anchor (`w5–29`) and the background media — and clicking an overlay jum
 the playhead so the canvas shows it. Phase 2 had no such manifest; overlays were
 discoverable only on the timeline.
 
+#### Card actions
+
+All four card actions are live, as popovers anchored beside the rail so the
+canvas stays visible while you work:
+
+- **Voice** — five voices, per scene or applied across the activity. Changing a
+  voice invalidates that scene's audio, since the existing take no longer
+  matches.
+- **Media** — stock / generate / upload as tabs in one popover. Phase 2 used
+  three separate modals that all converged on "Apply to Scene"; tabs keep the
+  canvas in view while choosing.
+- **Add text** — anchors to the words where the playhead sits, and **auto-places
+  to avoid a position already occupied** while it is on screen. Overlapping
+  overlays are a real defect, so any that remain are outlined on the canvas with
+  a count.
+- **Scene actions** — regenerate narration, duplicate, move up/down, delete.
+  Deleting a scene removes the checks bound to it, since a check bound to
+  language that no longer exists is orphaned. Reordering repairs nothing, because
+  nothing references a scene by ordinal.
+
+**Rail/canvas split** is drag-resizable (280–640px), stored on `:root` so it
+survives re-renders, with double-click to reset.
+
 Built: word ruler with playhead, words/time toggle, transport, accurate
 positioned compositing, overlapping anchors in separate timeline lanes,
-full-capability scene cards with a resizable rail.
+full-capability scene cards, all four card actions, resizable split.
 
 Skipped: trim handles, per-bullet sub-clips, transition pickers — production
 detail that proves nothing new about the model.

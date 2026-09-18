@@ -751,6 +751,8 @@
      canvas react. Resizable, because narration length varies wildly. */
   .sai-vid { display: grid; grid-template-columns: var(--sai-rail-px, 360px) 5px minmax(0,1fr);
              gap: 0; align-items: start; height: 100%; }
+  body.sai-resizing { cursor: col-resize; user-select: none; }
+  body.sai-resizing .sai-vid-resize::after { background: var(--sai-accent); }
   .sai-vid-rail { display: flex; flex-direction: column; gap: 2px; padding-right: 4px; }
   .sai-vid-resize {
     align-self: stretch; min-height: 320px; cursor: col-resize;
@@ -791,6 +793,13 @@
     transition: opacity .28s ease, transform .28s ease;
   }
   .sai-ov.hidden { opacity: 0; pointer-events: none; }
+  .sai-ov.clash { outline: 1px dashed var(--sai-warn); outline-offset: 3px; }
+  .sai-canvas-warn {
+    position: absolute; left: 9px; bottom: 9px; z-index: 6;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10px; font-weight: 600; padding: 4px 9px; border-radius: 4px;
+    background: #2e2415e8; color: var(--sai-warn); border: 1px solid #5c4a2a;
+  }
   .sai-ov.enter-slide-up.hidden { transform: translateY(14px); }
   .sai-ov.enter-fade.hidden { transform: none; }
   .sai-ov[data-pos="bottom-left"] { left: 5%; bottom: 8%; }
@@ -948,6 +957,64 @@
     font-family: inherit; font-size: 10.5px; font-weight: 600; color: var(--sai-accent);
   }
   .sai-covpop-link:hover { text-decoration: underline; }
+
+  /* ── Card action popovers — voice, media, text, scene actions ────── */
+  .sai-pop {
+    position: fixed; z-index: 80;
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-radius: 8px; box-shadow: 0 10px 34px -8px #000000c4;
+    overflow: hidden;
+  }
+  .sai-pop-head {
+    padding: 9px 12px; border-bottom: 1px solid var(--sai-line);
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--sai-ink-3);
+  }
+  .sai-pop-body { padding: 6px; max-height: 340px; overflow-y: auto; }
+  .sai-pop-item {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 7px 9px; border-radius: 5px; cursor: pointer;
+    background: none; border: none; text-align: left;
+    font-family: inherit; font-size: 12px; color: var(--sai-ink);
+  }
+  .sai-pop-item:hover { background: var(--sai-surface-2); }
+  .sai-pop-item.on { background: var(--sai-accent-dim); }
+  .sai-pop-item .sub { display: block; font-size: 10.5px; color: var(--sai-ink-3); margin-top: 1px; }
+  .sai-pop-item .nm { font-weight: 600; }
+  .sai-pop-item i.lead { color: var(--sai-ink-3); font-size: 11px; width: 14px; text-align: center; }
+  .sai-pop-item.on i.lead { color: var(--sai-accent); }
+  .sai-pop-item.danger { color: #e0704a; }
+  .sai-pop-item.danger i.lead { color: #e0704a; }
+  .sai-pop-sep { height: 1px; background: var(--sai-line); margin: 5px 0; }
+
+  /* Media library — the three routes Phase 2 converged on "Apply to Scene". */
+  .sai-media-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px;
+  }
+  .sai-media-tile {
+    aspect-ratio: 16/10; border-radius: 5px; cursor: pointer;
+    border: 1px solid var(--sai-line-2); position: relative; overflow: hidden;
+    display: grid; place-items: end start;
+  }
+  .sai-media-tile:hover { border-color: var(--sai-accent); }
+  .sai-media-tile span {
+    font-size: 9.5px; color: #e4e9f0; padding: 4px 6px; line-height: 1.3;
+    background: linear-gradient(0deg,#0a0e12e8,transparent); width: 100%;
+  }
+  .sai-media-tabs { display: flex; gap: 2px; padding: 8px 8px 0; }
+  .sai-media-tab {
+    flex: 1 1 auto; padding: 5px 8px; border-radius: 4px; cursor: pointer;
+    font-family: inherit; font-size: 10.5px; font-weight: 600;
+    background: var(--sai-surface-2); border: 1px solid var(--sai-line-2); color: var(--sai-ink-3);
+  }
+  .sai-media-tab.on { background: var(--sai-accent-dim); color: var(--sai-accent); border-color: #2a4d70; }
+  .sai-gen-row { padding: 8px; display: flex; gap: 6px; }
+  .sai-gen-row input {
+    flex: 1 1 auto; background: var(--sai-bg); border: 1px solid var(--sai-line-2);
+    border-radius: 5px; padding: 6px 9px; color: var(--sai-ink);
+    font-family: inherit; font-size: 11.5px; outline: none;
+  }
+  .sai-gen-row input:focus { border-color: var(--sai-accent); }
 
   .sai-cov-list { padding: 10px 12px 13px; display: flex; flex-direction: column; gap: 11px; }
   .sai-cov-row { padding-bottom: 10px; border-bottom: 1px solid var(--sai-line); }
@@ -2818,6 +2885,14 @@ function renderCanvas(sc) {
     ? `<div class="sai-canvas-bg" style="background:${sc.media.tone || '#1a222c'}"></div>`
     : `<div class="sai-canvas-bg empty">No background media</div>`;
 
+  // Flag any position occupied by two overlays at the same moment — a QA
+  // surface should say so rather than silently render them stacked.
+  const collisions = new Set();
+  (sc.overlays || []).forEach(o => (sc.overlays || []).forEach(x => {
+    if (o.id !== x.id && o.pos === x.pos &&
+        !(o.anchorFrom > x.anchorTo || o.anchorTo < x.anchorFrom)) collisions.add(o.pos);
+  }));
+
   const overlays = (sc.overlays || []).map(o => {
     // Visible when the playhead sits inside the overlay's word anchor.
     const on = playhead >= o.anchorFrom && playhead <= o.anchorTo;
@@ -2827,14 +2902,20 @@ function renderCanvas(sc) {
       : o.kind === 'bullets'
         ? `<div class="sai-ov-bullets">${o.text.split('|').map(t => `<div>${t}</div>`).join('')}</div>`
       : `<div class="sai-ov-callout">${o.text}</div>`;
-    return `<div class="sai-ov enter-${o.enter || 'fade'} ${on ? '' : 'hidden'}"
-      data-pos="${o.pos || 'bottom-left'}" data-ov="${o.id}">${inner}</div>`;
+    const clash = collisions.has(o.pos);
+    return `<div class="sai-ov enter-${o.enter || 'fade'} ${on ? '' : 'hidden'} ${clash ? 'clash' : ''}"
+      data-pos="${o.pos || 'bottom-left'}" data-ov="${o.id}"
+      ${clash ? 'title="Two overlays share this position at the same time"' : ''}>${inner}</div>`;
   }).join('');
 
   return `
     <div class="sai-canvas-stage">
       ${bg}${overlays}
       <div class="sai-canvas-badge">preview composite · not the render</div>
+      ${collisions.size ? `<div class="sai-canvas-warn">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        ${collisions.size} position${collisions.size > 1 ? 's have' : ' has'} overlapping text
+      </div>` : ''}
     </div>
     <div class="sai-scrub">
       <button class="sai-scrub-btn" data-scrub="back" title="Previous word"><i class="fa-solid fa-backward-step"></i></button>
@@ -2981,6 +3062,228 @@ function renderCheck(c) {
     </div>`;
 }
 
+/* ── CARD ACTION POPOVERS ──────────────────────────────────────────────
+   Voice, media, on-screen text and scene actions. Phase 2 put media behind
+   three separate modals that all converged on "Apply to Scene"; here they
+   are tabs in one popover, which keeps the canvas visible while choosing.
+   ────────────────────────────────────────────────────────────────────── */
+
+const VOICES = [
+  { id: 'sarah',  name: 'Sarah',   desc: 'Neutral · American' },
+  { id: 'eric',   name: 'Eric',    desc: 'Warm · American' },
+  { id: 'aria',   name: 'Aria',    desc: 'Energetic · American' },
+  { id: 'james',  name: 'James',   desc: 'Authoritative · British' },
+  { id: 'sofia',  name: 'Sofia',   desc: 'Soft · Neutral' }
+];
+
+const STOCK = [
+  { label: 'Warehouse — forklift at bay door', tone: 'linear-gradient(150deg,#2b3a4a,#16202b 70%)' },
+  { label: 'Close-up — fork heel wear',        tone: 'linear-gradient(150deg,#3a3326,#1d1a14 70%)' },
+  { label: 'Loading dock — wide',              tone: 'linear-gradient(150deg,#26343a,#141d21 70%)' },
+  { label: 'Operator mounting truck',          tone: 'linear-gradient(150deg,#332a3a,#1a1520 70%)' },
+  { label: 'Pedestrian crossing aisle',        tone: 'linear-gradient(150deg,#2a3630,#151e1a 70%)' },
+  { label: 'Data plate detail',                tone: 'linear-gradient(150deg,#3a2f2a,#1f1815 70%)' }
+];
+
+let mediaTab = 'stock';
+
+function closePop() { const el = $('#cardPop'); if (el) el.remove(); }
+document.addEventListener('click', e => {
+  if (!e.target.closest('#cardPop') && !e.target.closest('[data-voice]') &&
+      !e.target.closest('[data-media]') && !e.target.closest('[data-addtext]') &&
+      !e.target.closest('[data-kebab]')) closePop();
+});
+
+function openPop(anchorEl, width, html, wire) {
+  closePop(); closeCovPop();
+  const pop = document.createElement('div');
+  pop.className = 'sai-pop'; pop.id = 'cardPop';
+  pop.style.width = width + 'px';
+  pop.innerHTML = html;
+  document.body.appendChild(pop);
+  // Anchor beside the card rather than below it — a popover dropped under the
+  // control covers the canvas, which is the thing you are working against.
+  const r = anchorEl.getBoundingClientRect();
+  const rail = document.querySelector('.sai-vid-rail');
+  const railRight = rail ? rail.getBoundingClientRect().right : r.right;
+  let left = railRight + 10;
+  if (left + width > window.innerWidth - 12) left = Math.max(10, r.left - width - 10);
+  pop.style.left = left + 'px';
+  pop.style.top = Math.max(12,
+    Math.min(r.top - 4, window.innerHeight - pop.offsetHeight - 12)) + 'px';
+  if (wire) wire(pop);
+  return pop;
+}
+
+function openVoicePicker(a, sceneId, el) {
+  const sc = a.scenes.find(x => x.id === sceneId);
+  openPop(el, 236, `
+    <div class="sai-pop-head">Narration voice</div>
+    <div class="sai-pop-body">
+      ${VOICES.map(v => `
+        <button class="sai-pop-item ${v.name === sc.voice ? 'on' : ''}" data-v="${v.name}">
+          <i class="fa-solid fa-${v.name === sc.voice ? 'circle-check' : 'circle'} lead"></i>
+          <span><span class="nm">${v.name}</span><span class="sub">${v.desc}</span></span>
+        </button>`).join('')}
+      <div class="sai-pop-sep"></div>
+      <button class="sai-pop-item" data-allscenes="1">
+        <i class="fa-solid fa-layer-group lead"></i>
+        <span><span class="nm">Apply to all scenes</span><span class="sub">Set one voice across the activity</span></span>
+      </button>
+    </div>`, pop => {
+    $$('[data-v]', pop).forEach(b => b.addEventListener('click', () => {
+      sc.voice = b.dataset.v; sc.audio = false;
+      closePop(); renderActivityDoc(a.id);
+      toast(`Voice set to ${sc.voice} — regenerate to hear it`);
+    }));
+    $('[data-allscenes]', pop).addEventListener('click', () => {
+      a.scenes.forEach(x => { x.voice = sc.voice; x.audio = false; });
+      closePop(); renderActivityDoc(a.id);
+      toast(`${sc.voice} applied to all ${a.scenes.length} scenes`);
+    });
+  });
+}
+
+function openMediaPicker(a, sceneId, el) {
+  const sc = a.scenes.find(x => x.id === sceneId);
+  const body =
+    mediaTab === 'generate'
+      ? `<div class="sai-gen-row">
+           <input id="genPrompt" placeholder="Describe the shot — e.g. operator inspecting forks at a dock">
+           <button class="sai-btn primary" id="genGo"><i class="fa-solid fa-wand-magic-sparkles"></i>Generate</button>
+         </div>
+         <div style="padding:0 8px 10px;font-size:10.5px;color:var(--sai-ink-3)">
+           Generated images land on this scene and can be regenerated from the card.
+         </div>`
+    : mediaTab === 'upload'
+      ? `<div style="margin:8px;padding:22px;border:1px dashed var(--sai-line-2);border-radius:6px;text-align:center;color:var(--sai-ink-3);font-size:11.5px">
+           <i class="fa-solid fa-arrow-up-from-bracket" style="font-size:16px;opacity:.5;display:block;margin-bottom:7px"></i>
+           Drop an image or video here<br><span style="font-size:10px">JPG · PNG · MP4 · up to 500 MB</span>
+         </div>`
+    : `<div class="sai-media-grid">
+         ${STOCK.map((m, i) => `
+           <button class="sai-media-tile" data-stock="${i}" style="background:${m.tone}">
+             <span>${m.label}</span>
+           </button>`).join('')}
+       </div>`;
+
+  openPop(el, 380, `
+    <div class="sai-pop-head">Background media${sc.media ? ' · replacing' : ''}</div>
+    <div class="sai-media-tabs">
+      <button class="sai-media-tab ${mediaTab === 'stock' ? 'on' : ''}" data-mt="stock">Stock</button>
+      <button class="sai-media-tab ${mediaTab === 'generate' ? 'on' : ''}" data-mt="generate">Generate</button>
+      <button class="sai-media-tab ${mediaTab === 'upload' ? 'on' : ''}" data-mt="upload">Upload</button>
+    </div>
+    ${body}`, pop => {
+    $$('[data-mt]', pop).forEach(b => b.addEventListener('click', () => {
+      mediaTab = b.dataset.mt; openMediaPicker(a, sceneId, el);
+    }));
+    $$('[data-stock]', pop).forEach(b => b.addEventListener('click', () => {
+      const m = STOCK[+b.dataset.stock];
+      sc.media = { kind: 'stock', label: m.label, tone: m.tone };
+      closePop(); renderActivityDoc(a.id); toast('Applied to scene — ' + m.label);
+    }));
+    const go = $('#genGo', pop);
+    if (go) go.addEventListener('click', () => {
+      const v = ($('#genPrompt', pop).value || 'Generated shot').trim();
+      closePop();
+      sc.media = { kind: 'generated', label: v.slice(0, 44), tone: 'linear-gradient(150deg,#2f2a3d,#171422 70%)' };
+      renderActivityDoc(a.id); toast('Generating — applied to scene');
+    });
+  });
+}
+
+function openTextPicker(a, sceneId, el) {
+  const sc = a.scenes.find(x => x.id === sceneId);
+  const words = narrWords(sc.narration);
+  openPop(el, 268, `
+    <div class="sai-pop-head">Add on-screen text</div>
+    <div class="sai-pop-body">
+      ${[['lower-third', 'Lower third', 'Title with optional subtitle'],
+         ['bullets', 'Bulleted list', 'Points revealed together'],
+         ['callout', 'Callout', 'A single emphasised line']]
+        .map(([k, n, d]) => `
+        <button class="sai-pop-item" data-kind="${k}">
+          <i class="fa-solid fa-${k === 'bullets' ? 'list-ul' : k === 'callout' ? 'comment' : 'closed-captioning'} lead"></i>
+          <span><span class="nm">${n}</span><span class="sub">${d}</span></span>
+        </button>`).join('')}
+    </div>
+    <div style="padding:8px 12px 10px;border-top:1px solid var(--sai-line);font-size:10.5px;color:var(--sai-ink-3)">
+      Anchors to words ${playhead + 1}–${Math.min(playhead + 6, words.length)} —
+      where the playhead sits now.
+    </div>`, pop => {
+    $$('[data-kind]', pop).forEach(b => b.addEventListener('click', () => {
+      const kind = b.dataset.kind;
+      sc.overlays = sc.overlays || [];
+      const from = playhead, to = Math.min(playhead + 5, words.length - 1);
+      // Don't drop new text onto a position already occupied while it is on
+      // screen — overlapping overlays are a real defect, not a layout detail.
+      const taken = (sc.overlays || [])
+        .filter(o => !(from > o.anchorTo || to < o.anchorFrom)).map(o => o.pos);
+      const order = kind === 'callout' ? ['top-left', 'bottom-left', 'right']
+                  : kind === 'bullets' ? ['right', 'top-left', 'bottom-left']
+                  : ['bottom-left', 'top-left', 'right'];
+      const pos = order.find(x => !taken.includes(x)) || order[0];
+      sc.overlays.push({
+        id: 'ov-' + Date.now(), kind,
+        text: kind === 'bullets' ? 'First point|Second point' : 'New on-screen text',
+        pos, enter: 'fade', anchorFrom: from, anchorTo: to
+      });
+      closePop(); renderActivityDoc(a.id);
+      toast(`Text added — anchored to words ${playhead + 1}–${Math.min(playhead + 6, words.length)}`);
+    }));
+  });
+}
+
+function openSceneMenu(a, sceneId, el) {
+  const i = a.scenes.findIndex(x => x.id === sceneId);
+  openPop(el, 238, `
+    <div class="sai-pop-body">
+      <button class="sai-pop-item" data-act="regen">
+        <i class="fa-solid fa-wand-magic-sparkles lead"></i>
+        <span><span class="nm">Regenerate narration</span><span class="sub">Rewrite from the information point</span></span>
+      </button>
+      <button class="sai-pop-item" data-act="dup">
+        <i class="fa-solid fa-clone lead"></i><span class="nm">Duplicate scene</span>
+      </button>
+      <button class="sai-pop-item" data-act="up" ${i === 0 ? 'disabled style="opacity:.4"' : ''}>
+        <i class="fa-solid fa-arrow-up lead"></i><span class="nm">Move up</span>
+      </button>
+      <button class="sai-pop-item" data-act="down" ${i === a.scenes.length - 1 ? 'disabled style="opacity:.4"' : ''}>
+        <i class="fa-solid fa-arrow-down lead"></i><span class="nm">Move down</span>
+      </button>
+      <div class="sai-pop-sep"></div>
+      <button class="sai-pop-item danger" data-act="del" ${a.scenes.length <= 1 ? 'disabled style="opacity:.4"' : ''}>
+        <i class="fa-solid fa-trash lead"></i><span class="nm">Delete scene</span>
+      </button>
+    </div>`, pop => {
+    $$('[data-act]', pop).forEach(b => b.addEventListener('click', () => {
+      const act = b.dataset.act;
+      if (b.hasAttribute('disabled')) return;
+      if (act === 'dup') {
+        const copy = JSON.parse(JSON.stringify(a.scenes[i]));
+        copy.id = 'sc-' + Date.now(); copy.status = 'in-progress';
+        copy.overlays = (copy.overlays || []).map(o => ({ ...o, id: 'ov-' + Math.random().toString(36).slice(2, 8) }));
+        a.scenes.splice(i + 1, 0, copy); activeScene = copy.id;
+        toast('Scene duplicated');
+      } else if (act === 'up' || act === 'down') {
+        const j = act === 'up' ? i - 1 : i + 1;
+        [a.scenes[i], a.scenes[j]] = [a.scenes[j], a.scenes[i]];
+        // Nothing references a scene by ordinal, so a reorder repairs nothing.
+        toast('Scene moved');
+      } else if (act === 'del') {
+        a.scenes.splice(i, 1);
+        a.checks = (a.checks || []).filter(c => c.boundTo !== sceneId);
+        activeScene = a.scenes[Math.max(0, i - 1)].id;
+        toast('Scene deleted — bound checks removed with it');
+      } else if (act === 'regen') {
+        toast('Regenerating narration from the information point…');
+      }
+      closePop(); playhead = 0; renderActivityDoc(a.id);
+    }));
+  });
+}
+
 /* Wire the activity surface after each render. */
 function wireActivityDoc(a) {
   const root = $('#activityDoc');
@@ -3057,26 +3360,41 @@ function wireActivityDoc(a) {
     if (o) { playhead = o.anchorFrom; renderActivityDoc(a.id); }
   }));
 
-  ['voice', 'media', 'addtext', 'kebab'].forEach(k =>
-    $$(`[data-${k}]`, root).forEach(el => el.addEventListener('click', e => {
-      e.stopPropagation();
-      toast({ voice: 'Voice picker', media: 'Media library', addtext: 'Add on-screen text', kebab: 'Scene actions' }[k] + ' — not wired in this pass');
-    })));
+  $$('[data-voice]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation(); openVoicePicker(a, el.dataset.voice, el); }));
+  $$('[data-media]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation(); openMediaPicker(a, el.dataset.media, el); }));
+  $$('[data-addtext]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation(); openTextPicker(a, el.dataset.addtext, el); }));
+  $$('[data-kebab]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation(); openSceneMenu(a, el.dataset.kebab, el); }));
 
   // Rail resize — narration length varies, so the working surface adjusts.
+  // Rail/canvas split. Stored on :root so it survives every re-render —
+  // setting it on the grid would reset each time a scene is selected.
   const rz = $('#railResize', root);
   if (rz) rz.addEventListener('mousedown', e => {
     e.preventDefault();
     const startX = e.clientX;
-    const grid = rz.parentElement;
-    const startW = parseInt(getComputedStyle(grid).gridTemplateColumns) || 360;
+    const startW = parseInt(getComputedStyle(document.documentElement)
+      .getPropertyValue('--sai-rail-px')) || 360;
+    document.body.classList.add('sai-resizing');
     const move = ev => {
-      const w = Math.max(260, Math.min(620, startW + ev.clientX - startX));
-      grid.style.setProperty('--sai-rail-px', w + 'px');
+      const w = Math.max(280, Math.min(640, startW + ev.clientX - startX));
+      document.documentElement.style.setProperty('--sai-rail-px', w + 'px');
     };
-    const up = () => { document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    const up = () => {
+      document.body.classList.remove('sai-resizing');
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    };
     document.addEventListener('mousemove', move);
     document.addEventListener('mouseup', up);
+  });
+  // Double-click resets the split.
+  if (rz) rz.addEventListener('dblclick', () => {
+    document.documentElement.style.setProperty('--sai-rail-px', '360px');
+    toast('Split reset');
   });
 
   // Word playhead — clicking a word moves it; the canvas recomposites.
