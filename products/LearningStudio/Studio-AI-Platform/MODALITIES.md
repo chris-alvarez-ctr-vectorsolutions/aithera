@@ -20,7 +20,7 @@
 |---|---|---|---|
 | Video | **yes** | **substantially built** | Working surface. One real hole: anchors persist as word *indices*, so narration edits desync them — see *Left undone* |
 | Podcast | no | no | — |
-| Scenario | no | no | — |
+| Scenario | **yes** | no | Designed 2026-09-18 from the Scenario Simulator as reference; D27–D30 came out of it |
 | Knowledge check | no | no | — |
 | Job aid | no | no | — |
 | Reflection | no | no | — |
@@ -131,7 +131,10 @@ comparable.
    decision node, item — and what fields each carries.
 2. **What is the section unit for traceability?** Which unit tags to points.
 3. **Is it a sequence, a tree, or a set?** Determines the editing model.
-4. **What is generated vs. hand-authored?** And what does regeneration preserve?
+4. ~~**What is generated vs. hand-authored?** And what does regeneration
+   preserve?~~ **Answered once, platform-wide — D30.** Both, always, scoped by
+   the author's request and by what is walled off. A modality section should
+   note only what it specifically guards, not re-answer this.
 5. **What can a targeted prompt address?** A whole unit, a field within one?
 6. **What does "done" look like?** Any modality-specific completeness signal.
 7. **Which depths can it credibly reach?** Guidance only — *format never
@@ -428,10 +431,10 @@ settings, and clip re-anchoring **as an authoring gesture**. It is the
 **Status:** not yet discussed.
 
 ### Scenario
-**Status:** discussion in progress 2026-09-18. Prior art reviewed; authoring
-model settled (the LED authors a scenario as an activity); three model-level
-decisions taken (D27–D29); the seven framework questions still open, and one
-seam to resolve before them.
+**Status:** **designed 2026-09-18, not built.** Prior art reviewed; authoring
+model settled (the LED authors a scenario as an activity, author-sized); four
+model-level decisions taken (D27–D30); **all seven framework questions
+answered** below. Build questions listed at the end of this section.
 
 #### Prior art — the Scenario Simulator (READ-ONLY reference)
 
@@ -707,13 +710,86 @@ be worth correcting rather than quietly editing.
   validates** it against the goal's evidence rules. The coverage pattern with a
   second dimension.
 
-##### Still to answer
+#### The seven framework questions — answered 2026-09-18
 
-The seven framework questions now apply normally. The activity-vs-document seam
-is resolved (size is the author's call), and v4 is **input to the answers, not a
-constraint on them** — it tells us which parameters the organization has already
-decided control a scenario, and the design is free to need more than it
-currently carries.
+v4 is **input to these answers, not a constraint on them.**
+
+**1. Body unit — the STEP.** A practice paired with a debrief.
+
+- **practice** — the learner acts. Carries a `mode` (`coach_inquiry` |
+  `roleplay` | `observe_react`), a `purpose`, an **exit gate** (how many turns
+  before it moves on), a transition, and an `interaction` whose shape the mode
+  selects.
+- **debrief** — the coach teaches *against that attempt*. A first-class
+  turn-owning unit, not a footer: `key_points`, `follow_up_turns`, an optional
+  `probe` and `final_word`. Delivery-only (`follow_up_turns: 0`) is the default
+  posture.
+
+**The step is authored as conditions and responses, not as a script.** Its
+assessment carries `look_for` / `response` per level — *what to watch for* and
+*how the coach reacts* — rather than dialogue. This is the deepest difference
+from video, where the body is language the learner receives verbatim. **A
+scenario author writes the rules of a conversation, not the conversation.**
+
+Levels are `unthoughtful` / `neutral` / `strong`, **poles required, middle
+optional** — carried over from the reference tool's own decision (2026-08-18),
+because a binary step has no neutral and requiring one is how their POC came to
+"invent middle tiers just to satisfy the schema."
+
+**2. Section unit for traceability — NONE.** Coverage tags at activity level, as
+everywhere. A deep scenario simply carries several tags at several depths.
+*(See Q11: verification of a long body is an open question, not a tagging one.)*
+
+**3. A SEQUENCE.** Steps run in order. Cross-step dependency is **`carryover`** —
+a later step reads from a named earlier step **by id**, which is the same
+bind-to-identity move used for comment anchors, point pinning and overlay
+anchors.
+
+Worth stating plainly because it contradicts the assumption that scenario is the
+modality that forces a tree: **branching is not in the shape.** A production
+scenario format concluded that a scenario is a sequence whose *responses* vary,
+not a graph of authored paths — the variation lives in the levels, not in the
+structure. Decision points are real; they resolve within a step rather than
+forking the arc.
+
+**4. Generated vs. hand-authored — see D30.** Both, always, scoped by the ask.
+Nothing scenario-specific to add except what it guards: an SME-confirmed
+`look_for` calibration is a judgment, and an edit that invalidates it must say
+so (Q12).
+
+**5. Prompt targets — a step, a unit within a step, or a field.** The natural
+targets are the step itself, its practice or its debrief, and single fields
+(`purpose`, one level's `look_for`, `key_points`). One scenario-specific target
+worth having: **a character** — *"make the supervisor less hostile"* should be
+addressable, since a character is identity and disposition shared across steps.
+
+**6. Done — a gate with human-readable blockers**, the pattern carried forward
+from video. Scenario-specific blockers, all computable from the shape:
+
+- a step whose practice has no exit gate — it never advances
+- a graded step with no `strong` calibration — nothing to recognise success by
+- a `carryover` naming a step that no longer exists, or that now runs later
+- a debrief with `follow_up_turns > 0` and nothing to ask
+- coverage: a point claimed at Mastery with no step that assesses it
+
+**7. Depths — credibly all three, and the only modality with a real claim to
+Mastery.** "Can do it unaided" is what a scenario produces evidence for: the
+learner acts, and the calibration says what counted. D15 still holds — format
+**suggests**, never determines. A shallow two-step scenario is Awareness work,
+and saying "scenario" does not make it Mastery.
+
+##### What the design must still resolve
+
+Not framework questions — build questions, to settle when the surface is designed:
+
+- **How the id-join is surfaced.** `teaching_points` projected from covered
+  points is the platform's central addition here, and v4 has no slot for it
+  (above). What does the author *see*?
+- **Whether the rail is steps or something coarser.** Video's rail is scenes and
+  checks as siblings; scenario's obvious analogue is steps, but a long scenario
+  may want grouping the format does not have.
+- **Where the character cast lives.** It is scene-world data shared across
+  steps, so it is neither a step field nor a project field.
 
 ### Knowledge check
 **Status:** not yet discussed.

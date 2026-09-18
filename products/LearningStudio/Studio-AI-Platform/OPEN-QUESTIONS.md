@@ -140,6 +140,42 @@ first body where this actually bites.
 
 ---
 
+### Q12 · Nothing detects that an activity's own content moved
+**Raised 2026-09-18 by D30. Has two callers already.**
+
+The model tracks drift on one axis only: a coverage tag pins the **point
+version** it was judged against (`at: 2`), so *"the point moved under this
+confirmation"* is computed. There is no equivalent for the other direction —
+**"the activity's own content moved"** — and two settled decisions now depend on
+it:
+
+- **Checks** (`MODALITIES.md`, *Checks and assessments are different
+  instruments*): a check is bound to the specific narration phrasing of its
+  activity, so changing that language should make the check suspect. *"Same
+  mechanic, different trigger."* Nothing computes it.
+- **SME confirmation under permissive editing (D30):** an SME confirms a depth
+  judgment — and in a scenario, a `look_for` calibration — against specific
+  content. An unscoped AI edit can rewrite that content while the confirmation
+  stays green, which makes the compliance gate assert something untrue.
+
+**What it probably needs** is the move the model already makes everywhere else:
+**bind to identity, not position.** A confirmation records *what it was made
+against*, not merely *when* — so "confirmed-against-current" stays derivable, no
+new tag state required, exactly as D20 did for point versions.
+
+The open part is what "the content it was made against" means concretely —
+an activity content hash, a per-field revision counter, or something coarser.
+Too coarse and every typo nags; too fine and it never fires.
+
+**Related:** the video anchor hole (`MODALITIES.md`, *Left undone on video*) is
+the same class of bug — an index standing in for an identity — and a token-id
+model there may supply the primitive this needs.
+
+**Would reshape:** the coverage panel's confirmation display, the check's drift
+state, and whatever surface reports "this changed since it was approved."
+
+---
+
 ## Next up
 
 ### N1 · Architecture map — a visual of how a subject exists in the platform

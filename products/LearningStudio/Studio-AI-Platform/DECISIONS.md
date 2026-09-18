@@ -601,3 +601,74 @@ answer, which Compliance does not admit."* Same surface, same shape.
 **Open:** the vocabulary of assistance levels. `helping / teaching / explaining /
 executing` came from the user as examples, not as a closed list. Hold it as data
 like `GOALS`, for the same reason — leadership will define the real one.
+
+---
+
+## D30 · Everything is editable; scope comes from the request and the walls
+**2026-09-18**
+
+**Decided:** there is no fixed split between AI-generated and hand-authored
+content. An author may start blank and write everything by hand, or take an AI
+draft and shape it. Regeneration has no fixed preserve-list either: the author
+scopes each change — a whole redraft, a single step, one field, or a concept
+expressed as a request.
+
+**User's framing:** *"technically, an author could start blank and hand author it
+completely, but we would want an AI drafting workflow as well… I think
+everything is open to edits and will be scoped by the author. They will choose to
+fully regenerate or scope changes to specific fields or concepts through
+targeting tools or specific requests with the platform AI. Essentially the AI
+will [have] the same interaction as Claude Code in VSCode. Anything is editable
+in theory, it depends what is asked for and what is specifically guarded against
+or walled off."*
+
+**This supersedes the framework's Q4** (*"what is generated vs. hand-authored,
+and what does regeneration preserve?"*) **as a per-modality question.** It is one
+answer for every modality: both, always, scoped by the ask. A modality section
+should no longer answer it — only note anything modality-specific it guards.
+
+**Why it is the right generalization:** the platform already has the parts — node
+ids, sub-range prompt targeting, per-node `capabilities`, and two walls (D23,
+D28). "Scoped by the request" is what those were built for.
+
+**Consequences accepted, recorded because they are real:**
+
+**1. Diff and undo become load-bearing, not polish.** The Claude Code analogy
+carries a working tree and version control — every edit is inspectable before and
+reversible after, which is what makes "anything is editable" tolerable there.
+This platform has neither, and everything is in-memory. A scoped regeneration
+that touches more than the author expected is otherwise **undetectable**: the
+prose reads fine, it is simply not what they approved. So the permissiveness is
+fine; it just moves "show me what changed" from a nicety to a requirement.
+
+**2. A second wall is needed — write scope, not just read scope.** D23 and D28
+wall content off from what the AI **reads**. This needs the other direction: what
+the AI may **write**. They are different lists.
+
+The load-bearing case is **SME confirmation**. An SME confirms a depth judgment
+(and, in a scenario, a `look_for` calibration) against specific content. If an
+unscoped *"tighten this scenario"* rewrites that calibration while the
+confirmation stays visibly green, the compliance gate is asserting something
+untrue — the exact failure D20 was written to prevent on the version axis.
+
+**This is not a reason to restrict editing.** It is the rule that makes
+permissive editing honest:
+
+> **An edit that invalidates someone else's judgment must say so.**
+
+Today the model detects *"the point moved under this confirmation"* (`at:` pins
+the point version). It has **no equivalent for "the activity's own content moved
+under this confirmation."** That is the same missing mechanic already flagged for
+checks — *a check depends on its activity's language, and nothing computes that
+yet* (`MODALITIES.md`). One gap, now with two callers. Tracked as **Q12**.
+
+**Rejected:** a fixed preserve-list for regeneration (sticky hand-edits, or
+structure-sticky/prose-free). Both invent a policy the author is better placed to
+state per request, and neither survives "regenerate this whole thing now the
+points have changed."
+
+**Out of scope, noted by the user:** *"folding in or allowing dedicated workflows
+for all of these AI-assisted generation workflows into our platform is another
+design and UX problem to solve."* The 0→1 drafting workflows — for a point set, a
+scenario, a course — are their own design problem, related to D7/D8's deferred
+information-authoring pass.
