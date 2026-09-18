@@ -528,13 +528,65 @@ instruction, same split:
 
 | Take | Leave |
 |---|---|
-| The **output contract** — a scenario simulation must still be producible | Its **standalone-document IA** — self-contained, no library join |
+| **What v4 shows a scenario is made of** — the parameters the org already agreed control one | Treating v4 as a **fixed target**; it is a live negotiation, and the engine evolves with the platform |
 | The **step spine** (practice → debrief), modes, exit gates, transitions | The assumption that a scenario owns its own teaching points |
 | `carryover` as an **id-bound** cross-step dependency | Name-matching a phase label to a teaching-point topic (see below) |
 | The type-agnostic shell contract (sections / renderFields / lints / list) | Eight named sim types as a user-facing choice |
 | Its repair-and-report behaviour on delete/duplicate | — |
 
-##### The output contract we must still be able to produce
+##### What a v4 document is — and what it is NOT to us
+
+**Corrected 2026-09-18.** An earlier draft of this section called v4 "the output
+contract we must still be able to produce" and said whatever we design "must
+still project to" it. That was too strong, and it was wrong about who owns the
+format.
+
+**What it is.** A v4 document is the JSON file the Scenario Simulator's **player
+engine** loads. "Scenario CML v4" is a schema owned in a *different* repo
+(`VectorLearning/scenario-simulator-poc`); `js/scenario-v4.js` is a **port** of
+it so the editor can prove an export will load before anyone hands a file over.
+
+**Why it looks immovable.** v4 sets `additionalProperties: false` at every level
+— 37 places. An unknown field does not warn, it fails the load outright. So a
+field Vector wants but the schema lacks cannot simply be added to a document.
+
+**Why it is not actually fixed.** Vector does not own v4 and is already pushing
+on it, in both directions:
+
+- `practice.answer_shape` is a **declared extension** — a field Vector authors
+  that v4 rejects, held in their own source of truth with `stripExtensions()`
+  producing a loadable copy, and each entry naming *the proposal being made to
+  the dev team* so "the reason a field exists never has to be reconstructed from
+  a diff."
+- Three content-safety flags were **removed** from the format in August, after
+  dev confirmed safety is a product feature rather than per-scenario content —
+  "a per-scenario flag was describing a decision nobody gets to make."
+
+So v4 is a **live negotiation with a dev team, not a boundary.** It changes.
+
+**Therefore, for us:** v4 is **evidence, not a requirement.** Its value is that
+it is a real, dev-agreed answer to *what parameters control a scenario output
+for this organization* — the practice/debrief spine, the exit gates, the three
+modes, the assessment poles. Each field is there because someone argued for it.
+That is the half of the user's framing worth honouring: *"reference to what a
+scenario simulation is for our organization and within our content library."*
+
+**The engine evolves with the platform.** Per the user (2026-09-18): *"As the
+platform evolves, the player engine and its capabilities will also evolve."*
+This is the same stance already taken on video rendering — the prototype is not
+limited to what today's engine can play, and where the design asks for a
+capability the engine lacks, that is **the case being made**, not a constraint
+to design around.
+
+The discipline that comes with it is the reference tool's own: when we author
+something v4 has no slot for, **declare it and say what it is for** — the way
+`answer_shape` is declared — rather than either silently inventing a field or
+quietly dropping the idea.
+
+##### The parameters v4 tells us control a scenario
+
+Read as evidence of what the organization means by a scenario simulation, not as
+a schema to satisfy.
 
 A v4 document requires, at content level:
 `title` · `coach_persona` · `teaching_points` · `phases` · `closing`
@@ -571,12 +623,27 @@ coverage tags carrying depth, provenance and a pinned version.
 
 **So the enhancement this platform makes to a scenario is not a new authoring
 gesture. It is replacing that string match with the real join** — and getting
-coverage, depth, drift and transmute for free. A scenario authored here would
-export a v4 document whose `teaching_points` are *projected from* the
-information points it covers, rather than retyped alongside them.
+coverage, depth, drift and transmute for free. A scenario authored here has
+`teaching_points` *projected from* the information points it covers, rather than
+retyped alongside them.
 
 That is the concrete version of "keep what works, leave behind what needs
 optimizing."
+
+**Be honest about what this is, though:** v4 has **no slot for a point
+reference.** Its `teaching_points` are inline strings, and
+`additionalProperties: false` means an `info-3`-style id cannot simply be added
+to a document. So this is not something we "project into" v4 — projecting *down*
+to today's format means **flattening the join back into the strings it was meant
+to replace**, and the export loses exactly the thing that made it better.
+
+That makes the id-join a **capability the engine would need to grow**, in the
+same class as `practice.answer_shape`: a field Vector authors, declares, and
+proposes. It is the clearest example of the design asking the player engine to
+evolve — which, per the user, is expected rather than a problem.
+
+It is also the sharpest argument for this platform, so it should be *stated* as
+a proposal rather than hidden inside an export that silently degrades.
 
 ##### Settled 2026-09-18
 
@@ -617,6 +684,10 @@ This is consistent with `MODEL.md`'s existing claim that a scenario *may carry
 the whole information set* — which was always in tension with a fixed LO size,
 and is not any more.
 
+**On the mapping above:** it describes how a scenario here *would* reach today's
+player, not a rule the design has to satisfy. The engine evolves with the
+platform (see above).
+
 **Consequence for this file:** the shared-workflow section's "2–5 min, one main
 point" justification for activity-level tagging was withdrawn and rejustified —
 see *Per-section traceability → activity-level tagging* above. The conclusion is
@@ -638,9 +709,11 @@ be worth correcting rather than quietly editing.
 
 ##### Still to answer
 
-The seven framework questions now apply normally — with the added constraint
-that whatever we design must still project to the v4 contract above, and with
-the activity-vs-document seam resolved first.
+The seven framework questions now apply normally. The activity-vs-document seam
+is resolved (size is the author's call), and v4 is **input to the answers, not a
+constraint on them** — it tells us which parameters the organization has already
+decided control a scenario, and the design is free to need more than it
+currently carries.
 
 ### Knowledge check
 **Status:** not yet discussed.
