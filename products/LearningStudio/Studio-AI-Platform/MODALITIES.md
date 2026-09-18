@@ -59,34 +59,66 @@ Settled. A modality discussion does **not** get to redesign these.
 | **Comments** | Activity-level — production feedback, retires with the activity (`MODEL.md`) |
 | **Drift** | Pinned point version and any drift severity surface here |
 
-### ~~Per-section traceability~~ → **activity-level tagging** — revised 2026-09-18
+### ~~Per-section traceability~~ → **activity-level tagging** — revised 2026-09-18, rejustified 2026-09-18
 
-**Superseded the same day it was proposed.** Per-section traceability was agreed
-before the LO length constraint was on the table, and does not survive it.
+**Superseded the same day it was proposed**, and the *reason* was corrected later
+the same day. Both steps are recorded because the first reason turned out to be
+wrong, and a reader who saw only the conclusion would re-derive the wrong basis
+for it.
 
-**The constraint:** a Learning Object runs **2–5 minutes and typically covers one
-main teaching point**. The activity *is* already the granularity. Slicing it to
-locate where other points are covered "in some capacity" would invent precision
-that does not exist — and would invite tagging incidental mentions as coverage,
-which is the dilution the depth scale exists to prevent.
+**The original reason — withdrawn.** Per-section traceability was dropped on the
+grounds that *"a Learning Object runs 2–5 minutes and typically covers one main
+teaching point, so the activity is already the granularity."* That premise does
+not hold. Per the user (2026-09-18): *"A scenario length is driven by its author.
+This could be a quick couple phases with a few turns each or a deep set of
+phases, turns and decisions."* Length and scope are a **design decision, not a
+property of the format** — and `MODEL.md` already says a scenario may carry the
+whole information set.
+
+**The reason that actually holds — the tagging contract.** A coverage tag is a
+claim that this activity **satisfies a point to a depth**. That claim is
+well-formed regardless of how long the activity runs: a deep scenario simply
+carries several tags at several depths, which the many-to-many model has allowed
+since D11.
+
+```js
+activity.covers = {
+  'info-3': { depth: 'working',   state: 'confirmed', at: 2 },
+  'info-4': { depth: 'mastery',   state: 'adjusted',  at: 1 },
+  'info-6': { depth: 'awareness', state: 'proposed',  at: 1 }
+}
+```
+
+Nothing about that needs a length. What per-section traceability would add is
+**where inside the body** each point is covered — and that is the part still
+judged not worth inventing: it would invite tagging incidental mentions as
+coverage, which is the dilution the depth scale exists to prevent.
 
 **So: coverage tags at ACTIVITY level.** No section unit, no span tagging, no
-named beats. A modality's body does not need an addressable section for
-traceability purposes.
+named beats.
 
-**The hierarchy this confirms:**
+**The hierarchy, corrected:**
 
 ```
-Learning Object  =  Learning Activity   — one point, 2–5 min
-Course           =  Output              — composed of many LOs
+Learning Object  =  Learning Activity   — one or more points, author-sized
+Course           =  Output              — composed of one or more activities
 ```
 
-A Course is not a large authored thing; it is an *arrangement* of short
-single-point activities. Which is why compose / decompose matter, and why the
-same LOs can serve both a Course and an Experience.
+An activity may equal an output on its own, or several may stack into one. Per
+the user: *"This is the designer's environment to control and explore based on
+the needs of the project to be successful."* The model supplies the validation,
+not the sizing.
 
-It also makes coverage counts legible: an output covering six points needs
-roughly six activities, not one sprawling one.
+**What this costs:** coverage counts are no longer legible by arithmetic — an
+output covering six points might be one deep scenario or six short activities,
+and "6 points / 1 activity" is no longer suspicious on its face. The threshold
+check is unaffected, since it reads depths rather than counts.
+
+> **Left open by this:** a long activity claiming many points at many depths is
+> harder for a reviewer or an SME to falsify than a short one making a single
+> claim. Activity-level tagging is settled; whether a *long* body needs its
+> coverage located internally is a question the scenario body design may force.
+> Tracked in `OPEN-QUESTIONS.md`.
 
 ---
 
@@ -131,7 +163,8 @@ Phase 2's IA is the linear course pipeline this platform is designed past
 ### Video
 **Status:** designed 2026-09-18, building.
 
-**1. Body unit — the SCENE.** A production chunk, 2–5 min LO total. Carries
+**1. Body unit — the SCENE.** A production chunk; the activity is author-sized
+(see the rejustification above), so the scene count follows the content. Carries
 narration (as phonetic-aware tokens), background media, on-screen text overlays,
 duration, and status. **No title** — a scene is identified by what it carries,
 not by its position. *"A scene should own its coverage, not the reverse"* — so
@@ -553,19 +586,42 @@ platform."* So a scenario is not commissioned-and-routed-out; it is a Learning
 Activity with a scenario body, sitting under the same shell, coverage panel and
 depth editing as every other modality. The shared workflow applies unchanged.
 
-This also settles the LO constraint for scenario: an activity is **2–5 minutes
-and typically covers one main teaching point**, and coverage tags sit at
-**activity level**. That sharpens the fold-in, because the reference tool's
-scenarios are whole-subject documents — a v4 document with six phases is closer
-to one of *our outputs* than to one of our activities.
+##### Scenario length is the author's call — the activity/document seam dissolves
 
-> **Open, and worth resolving early:** where the seam falls. If an LO is one
-> scenario activity of 2–5 minutes, a v4 export is either (a) one activity → one
-> short v4 document, or (b) an **output** composing several scenario activities
-> into one multi-phase v4 document. (b) reads truer to both models — v4's phases
-> are a sequence with `carryover`, which is what *compose* produces — but it
-> means a scenario activity is a **phase**, not a document. Decide before
-> designing the body.
+I raised a seam here: if an LO were fixed at 2–5 minutes and one point, a
+six-phase v4 document would be closer to one of our *outputs* than to one of our
+activities, and a scenario activity would have to be a **phase** rather than a
+document.
+
+**That seam does not exist.** Per the user (2026-09-18):
+
+> *"A scenario length is driven by its author. This could be a quick couple
+> phases with a few turns each or a deep set of phases, turns and decisions. An
+> activity could equal an output or multiple could be stacked into a single
+> output. This is the designer's environment to control and explore based on the
+> needs of the project to be successful."*
+
+So **a scenario activity is a v4 document, at whatever size its author makes
+it** — and a v4 document is also what an output projects to when several
+scenario activities stack. Both (a) and (b) are legal because the sizing is not
+the model's decision. The mapping is:
+
+```
+scenario ACTIVITY  → a v4 document, author-sized
+                     (a couple of phases, or many)
+OUTPUT of several  → a v4 document composed from them
+scenario activities  (compose supplies the phase order and carryover)
+```
+
+This is consistent with `MODEL.md`'s existing claim that a scenario *may carry
+the whole information set* — which was always in tension with a fixed LO size,
+and is not any more.
+
+**Consequence for this file:** the shared-workflow section's "2–5 min, one main
+point" justification for activity-level tagging was withdrawn and rejustified —
+see *Per-section traceability → activity-level tagging* above. The conclusion is
+unchanged; the reason is different, and the old one was load-bearing enough to
+be worth correcting rather than quietly editing.
 
 **Two further decisions came out of this discussion and are recorded in
 `DECISIONS.md`, because they are model-level rather than scenario-level:**

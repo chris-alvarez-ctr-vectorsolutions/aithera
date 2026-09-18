@@ -102,12 +102,41 @@ authoring surface within one shared workflow. Multi-session by nature; the
 framework, the shared-workflow contract, and the per-modality status live in
 `MODALITIES.md`.
 
-Settled so far: **activity-level coverage tagging** (an LO is 2–5 min and covers
-one main point, so the activity is already the granularity — this revised an
-earlier per-section proposal), **LED-side depth editing** (SME confirmation shown
+Settled so far: **activity-level coverage tagging** (justified by the tagging
+contract — an activity either satisfies a point to a depth or it does not —
+*not* by any fixed LO length; see the rejustification in `MODALITIES.md`),
+**activity size is the author's call** (an activity may equal an output, or
+several may stack into one), **LED-side depth editing** (SME confirmation shown
 as state, never performed in-platform), **scenes are a production unit** not a
-content boundary, and **checks vs. assessments** are different instruments with
-different binding and reuse rules.
+content boundary, **checks vs. assessments** are different instruments with
+different binding and reuse rules, and the **AI assistant** is a modelled entity
+(D27–D29).
+
+---
+
+### Q11 · Does a long activity need its coverage located internally?
+**Raised 2026-09-18, by activity size becoming the author's call.**
+
+Activity-level coverage tagging is settled and rejustified. But a **long** body —
+a deep scenario of many phases and decisions — may claim several points at
+several depths, and that claim is harder for a reviewer or an SME to falsify
+than a short activity making a single claim. "This 12-phase scenario covers all
+six points" is not checkable by reading a tag.
+
+Per-section traceability was rejected for good reasons that still stand (it
+invents precision that does not exist, and invites tagging incidental mentions
+as coverage). So this is **not** a proposal to reopen it — it is a question about
+whether *verification* needs something tagging does not supply:
+
+- nothing, because the SME reviews the activity itself and the tag is a summary;
+- an **evidence note** per tag (Q5's field, arriving for a different reason);
+- or a lighter affordance — "show me where" as a **review-time** aid rather than
+  an authored anchor.
+
+**Would reshape:** the coverage panel's review affordances, not the tag model.
+
+**Watch for it** when the scenario body is designed — a deep scenario is the
+first body where this actually bites.
 
 ---
 
