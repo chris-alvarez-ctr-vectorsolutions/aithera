@@ -18,7 +18,7 @@
 
 | Modality | Surface designed? | Built? | Session notes |
 |---|---|---|---|
-| Video | **yes** | in progress | See Video section |
+| Video | **yes** | **substantially built** | Working surface; see *Left undone* below |
 | Podcast | no | no | — |
 | Scenario | no | no | — |
 | Knowledge check | no | no | — |
@@ -267,7 +267,29 @@ survives re-renders, with double-click to reset.
 
 Built: word ruler with playhead, words/time toggle, transport, accurate
 positioned compositing, overlapping anchors in separate timeline lanes,
-full-capability scene cards, all four card actions, resizable split.
+full-capability scene cards, all four card actions, resizable split, the
+sequence rail with checks as siblings, the check editor with its source-language
+panel, and activity settings.
+
+#### Left undone on video
+
+Deliberate stubs, in rough order of value:
+
+- **Drag-to-reorder the sequence.** Handles render and move up/down works from
+  the kebab, but dragging is not wired. The most-missed interaction.
+- **Dragging an overlay clip to re-anchor it.** You can see word anchors and jump
+  to them; you cannot drag a clip to change which words it spans. This is the
+  authoring half of the sync model — the playhead only demonstrates it.
+- **Scene duplication of checks.** Duplicating a scene copies its overlays but
+  not the checks bound to it; the copy has no checks.
+- **"Regenerate narration"** in the scene kebab toasts rather than doing
+  anything.
+- **Upload** in the media picker is a drop-zone that accepts nothing.
+- **Render** produces no output — the gate evaluates correctly but the button
+  does not start anything.
+- **Pronunciation keys on the word string**, so a word appearing twice in one
+  scene gets the same pronunciation in both places. Usually right, occasionally
+  not.
 
 Skipped: trim handles, per-bullet sub-clips, transition pickers — production
 detail that proves nothing new about the model.

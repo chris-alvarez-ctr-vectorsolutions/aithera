@@ -42,6 +42,15 @@ The 0→1 sourcing workflow is a later pass (D7).
 
 ---
 
+## Where this stands — 2026-09-18
+
+The **information layer, activity layer and outputs** are all modelled and
+demonstrable, with depth/goal validation live. The **video modality** now has a
+substantial authoring surface. Five other modalities are undesigned.
+
+See `MODALITIES.md` for the per-modality status and what is left undone on
+video.
+
 ## What works in the prototype
 
 - Three layers, switched from the left icon rail: Information Set → Learning
@@ -53,6 +62,11 @@ The 0→1 sourcing workflow is a later pass (D7).
 - Threshold check on each output, with a **goal toggle** in the top bar that
   visibly changes the verdict on identical content
 - Manual-editor view swap (stub destination)
+- **Video authoring** — open an activity from the Activities layer: sequence
+  rail with scenes and checks as siblings, centre-stage canvas compositing
+  background and word-anchored on-screen text, a word playhead you can scrub or
+  play, editable narration with pronunciation tokens, per-scene audio and voice,
+  and activity settings governing check delivery
 
 Everything is in-memory. Reload resets.
 
