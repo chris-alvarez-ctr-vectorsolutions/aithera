@@ -1376,6 +1376,18 @@
       { name:'Lopez, Raul',     ext:'rlopez394',   status:'in-progress', mods:8,  pct:83,  time:'1h 50m', last:'Today',       exp:'11/22/2026' },
     ]},
   ];
+
+  // ── Course-fail rule (single source of truth) ────────────────────────────────
+  // A learner has only FAILED THE COURSE once they've exhausted all 3 attempts —
+  // that's when ClickSafety sends the course-failure date. Failing a quiz at 1 or 2
+  // attempts still leaves them able to retry, so they stay IN PROGRESS. We enforce
+  // this here rather than trusting each row's hand-set status: set `attempts`, and
+  // the status follows. (No-op on the current data; it guards future edits from
+  // re-introducing a "Failed" learner who hasn't used all 3 attempts.)
+  GROUPS.forEach(g => g.rows.forEach(r => {
+    if (r.status === 'failed' && (r.attempts || 0) < 3) r.status = 'in-progress';
+  }));
+
   const STATUS_LABEL = { 'passed':'Passed', 'in-progress':'In Progress', 'not-started':'Not Started', 'failed':'Failed', 'overdue':'Overdue' };
   const PCT_COLOR = { 'passed':'#22c55e', 'in-progress':'#3b82f6', 'not-started':'#d1d5db', 'failed':'#dc2626' };
 
