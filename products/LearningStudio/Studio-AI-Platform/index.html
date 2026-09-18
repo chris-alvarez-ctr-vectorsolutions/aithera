@@ -903,6 +903,31 @@
   .sai-sc-drag { color: var(--sai-ink-3); font-size: 9px; cursor: grab; opacity: 0; }
   .sai-scene:hover .sai-sc-drag { opacity: 1; }
 
+  /* Visual toolbar — sits with the canvas, not the rail. */
+  .sai-canvas-tools {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .sai-canvas-tools-label {
+    font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--sai-ink-3); margin-right: 3px;
+  }
+  .sai-canvas-layers { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-left: auto; }
+  .sai-layer-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 8px; border-radius: 4px; cursor: pointer;
+    background: var(--sai-bg); border: 1px solid var(--sai-line-2);
+    font-family: inherit; font-size: 10.5px; color: var(--sai-ink-2);
+  }
+  .sai-layer-chip:hover { border-color: var(--sai-accent); color: var(--sai-accent); }
+  .sai-layer-chip i { font-size: 9px; color: var(--sai-activity); }
+  .sai-layer-chip.warn { color: var(--sai-warn); border-color: #5c4a2a; cursor: default; }
+  .sai-layer-chip.warn i { color: var(--sai-warn); }
+  .sai-layer-chip .w {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px; color: var(--sai-ink-3);
+  }
+
   .sai-sc-ov {
     display: flex; align-items: center; gap: 6px; margin-top: 4px;
     padding: 4px 7px; border-radius: 4px; background: var(--sai-bg);
@@ -1015,6 +1040,26 @@
     font-family: inherit; font-size: 11.5px; outline: none;
   }
   .sai-gen-row input:focus { border-color: var(--sai-accent); }
+
+  /* Selection toolbar — set a pronunciation on the selected word. Phase 2's
+     token model: an atomic pill that survives narration edits. */
+  .sai-seltool {
+    position: fixed; z-index: 90; width: 244px;
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-radius: 8px; box-shadow: 0 10px 34px -8px #000000c4; padding: 10px 11px;
+  }
+  .sai-seltool-word {
+    font-size: 12px; font-weight: 600; color: var(--sai-ink); margin-bottom: 7px;
+  }
+  .sai-seltool input {
+    width: 100%; background: var(--sai-bg); border: 1px solid var(--sai-line-2);
+    border-radius: 5px; padding: 6px 8px; color: var(--sai-ink);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; outline: none;
+  }
+  .sai-seltool input:focus { border-color: var(--sai-accent); }
+  .sai-seltool-tip { font-size: 10px; color: var(--sai-ink-3); margin: 6px 0 9px; line-height: 1.45; }
+  .sai-seltool-row { display: flex; gap: 5px; }
+  .sai-seltool-row .sai-btn { flex: 0 0 auto; }
 
   .sai-cov-list { padding: 10px 12px 13px; display: flex; flex-direction: column; gap: 11px; }
   .sai-cov-row { padding-bottom: 10px; border-bottom: 1px solid var(--sai-line); }
@@ -2909,6 +2954,27 @@ function renderCanvas(sc) {
   }).join('');
 
   return `
+    <div class="sai-canvas-tools">
+      <span class="sai-canvas-tools-label">Scene visuals</span>
+      <button class="sai-sc-btn" data-media="${sc.id}">
+        <i class="fa-solid fa-image"></i>${sc.media ? 'Replace background' : 'Add background'}
+      </button>
+      <button class="sai-sc-btn" data-addtext="${sc.id}">
+        <i class="fa-solid fa-font"></i>Add on-screen text
+      </button>
+      <span class="sai-canvas-layers">
+        ${sc.media
+          ? `<span class="sai-layer-chip"><i class="fa-solid fa-image"></i>${sc.media.label}</span>`
+          : `<span class="sai-layer-chip warn"><i class="fa-solid fa-triangle-exclamation"></i>No background</span>`}
+        ${(sc.overlays || []).map(o => `
+          <button class="sai-layer-chip" data-ovjump="${o.id}"
+            title="Anchored to words ${o.anchorFrom + 1}–${o.anchorTo + 1}">
+            <i class="fa-solid fa-${o.kind === 'bullets' ? 'list-ul' : o.kind === 'callout' ? 'comment' : 'closed-captioning'}"></i>
+            ${o.text.split('|')[0].slice(0, 22)}${o.text.length > 22 ? '…' : ''}
+            <span class="w">w${o.anchorFrom + 1}–${o.anchorTo + 1}</span>
+          </button>`).join('')}
+      </span>
+    </div>
     <div class="sai-canvas-stage">
       ${bg}${overlays}
       <div class="sai-canvas-badge">preview composite · not the render</div>
@@ -2965,40 +3031,16 @@ function renderVideoBody(a) {
           <span>${hasAudio ? x.duration + 's' : 'no audio'}</span>
         </div>
 
+        <!-- The rail owns NARRATION and AUDIO. Visual actions belong with the
+             canvas, where you can see what you are changing. -->
         <div class="sai-sc-tools">
           <button class="sai-sc-btn" data-voice="${x.id}">
             <i class="fa-solid fa-microphone"></i>${x.voice}<i class="fa-solid fa-chevron-down" style="font-size:7px"></i>
           </button>
           <button class="sai-sc-btn gen" data-genaudio="${x.id}">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>${hasAudio ? 'Regenerate' : 'Generate audio'}
-          </button>
-          <button class="sai-sc-btn" data-media="${x.id}">
-            <i class="fa-solid fa-image"></i>${x.media ? 'Replace media' : 'Add media'}
-          </button>
-          <button class="sai-sc-btn" data-addtext="${x.id}">
-            <i class="fa-solid fa-font"></i>Add text
+            <i class="fa-solid fa-wand-magic-sparkles"></i>${hasAudio ? 'Regenerate audio' : 'Generate audio'}
           </button>
         </div>
-
-        ${(x.overlays || []).length ? `
-          <div style="margin-top:7px">
-            ${x.overlays.map(o => `
-              <div class="sai-sc-ov" data-ovjump="${o.id}">
-                <i class="fa-solid fa-${o.kind === 'bullets' ? 'list-ul' : o.kind === 'callout' ? 'comment' : 'closed-captioning'}"></i>
-                ${o.text.split('|')[0]}${o.text.includes('|') ? ' …' : ''}
-                <span class="anchor">w${o.anchorFrom + 1}–${o.anchorTo + 1}</span>
-              </div>`).join('')}
-          </div>` : ''}
-
-        ${x.media ? `
-          <div class="sai-sc-ov" style="margin-top:4px">
-            <i class="fa-solid fa-image" style="color:var(--sai-ink-3)"></i>${x.media.label}
-            <span class="anchor">${x.media.kind}</span>
-          </div>` : `
-          <div class="sai-sc-ov" style="margin-top:4px;border:1px dashed var(--sai-line-2)">
-            <i class="fa-solid fa-triangle-exclamation" style="color:var(--sai-warn)"></i>
-            <span style="color:var(--sai-warn)">No background media</span>
-          </div>`}
       </div>
     </article>`;
   }).join('');
@@ -3088,6 +3130,12 @@ const STOCK = [
 let mediaTab = 'stock';
 
 function closePop() { const el = $('#cardPop'); if (el) el.remove(); }
+document.addEventListener('mousedown', e => {
+  // Never close from inside the tool or from a narration field — a fresh
+  // selection there is exactly what re-opens it on mouseup.
+  if (e.target.closest('#selTool') || e.target.closest('.sai-narr')) return;
+  closeSelTool();
+});
 document.addEventListener('click', e => {
   if (!e.target.closest('#cardPop') && !e.target.closest('[data-voice]') &&
       !e.target.closest('[data-media]') && !e.target.closest('[data-addtext]') &&
@@ -3284,6 +3332,60 @@ function openSceneMenu(a, sceneId, el) {
   });
 }
 
+/* ── PRONUNCIATION ─────────────────────────────────────────────────────
+   Select a word in the narration and set how it should be spoken. Stored as
+   a token keyed on the word, so it survives narration edits — Phase 2's
+   whole-field phonetic textarea reset on every keystroke. */
+let selToolAt = 0;
+function closeSelTool(force) {
+  // A dblclick delivers two mousedown/mouseup/click bursts; without this the
+  // second burst tears down the tool the first one just opened.
+  if (!force && Date.now() - selToolAt < 350) return;
+  const el = $('#selTool'); if (el) el.remove();
+}
+
+function openSelTool(a, sceneId, word, rect) {
+  closeSelTool();
+  const sc = a.scenes.find(x => x.id === sceneId);
+  const existing = (sc.phonetic || {})[word];
+  const el = document.createElement('div');
+  el.className = 'sai-seltool'; el.id = 'selTool';
+  el.innerHTML = `
+    <div class="sai-seltool-word"><i class="fa-solid fa-ear-listen" style="color:var(--sai-info);font-size:10px;margin-right:5px"></i>${word}</div>
+    <input id="phIn" value="${existing || ''}" placeholder="e.g. pree-shift" spellcheck="false">
+    <div class="sai-seltool-tip">Spell it as it should sound. Hyphens mark syllable breaks.</div>
+    <div class="sai-seltool-row">
+      <button class="sai-btn primary" id="phApply"><i class="fa-solid fa-check"></i>Apply</button>
+      ${existing ? '<button class="sai-btn" id="phRemove">Remove</button>' : ''}
+      <button class="sai-btn" id="phCancel" style="margin-left:auto">Cancel</button>
+    </div>`;
+  document.body.appendChild(el);
+  selToolAt = Date.now();
+  el.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - 256)) + 'px';
+  el.style.top  = Math.min(rect.bottom + 8, window.innerHeight - el.offsetHeight - 12) + 'px';
+  const input = $('#phIn', el);
+  input.focus(); input.select();
+
+  const apply = () => {
+    const v = input.value.trim();
+    sc.phonetic = sc.phonetic || {};
+    if (v) sc.phonetic[word] = v; else delete sc.phonetic[word];
+    sc.audio = false;   // a pronunciation change invalidates the take
+    closeSelTool(true); renderActivityDoc(a.id);
+    toast(v ? `“${word}” → “${v}” · regenerate audio to hear it` : 'Pronunciation removed');
+  };
+  $('#phApply', el).addEventListener('click', apply);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') apply();
+    if (e.key === 'Escape') closeSelTool(true);
+  });
+  const rm = $('#phRemove', el);
+  if (rm) rm.addEventListener('click', () => {
+    delete sc.phonetic[word]; closeSelTool(true); renderActivityDoc(a.id); toast('Pronunciation removed');
+  });
+  $('#phCancel', el).addEventListener('click', () => closeSelTool(true));
+}
+
 /* Wire the activity surface after each render. */
 function wireActivityDoc(a) {
   const root = $('#activityDoc');
@@ -3303,11 +3405,51 @@ function wireActivityDoc(a) {
       $('#composerScopeText').textContent = `${a.title} · scene narration`;
       $('#composerScope').classList.add('on');
     });
+    // Save on blur, but only re-render when the text actually changed —
+    // re-rendering on every focus loss destroys the selection a user is
+    // about to act on (setting a pronunciation, say).
     el.addEventListener('blur', () => {
       const sc = a.scenes.find(x => x.id === el.dataset.narr);
-      if (sc) { sc.narration = el.innerText; renderActivityDoc(a.id); }
+      if (!sc) return;
+      const next = el.innerText.trim();
+      if (next && next !== sc.narration) {
+        sc.narration = next;
+        // Anchors past the new end would dangle; clamp them.
+        const n = narrWords(next).length;
+        (sc.overlays || []).forEach(o => {
+          o.anchorFrom = Math.min(o.anchorFrom, n - 1);
+          o.anchorTo   = Math.min(o.anchorTo, n - 1);
+        });
+        playhead = Math.min(playhead, n - 1);
+        renderActivityDoc(a.id);
+      }
     });
   });
+
+  // Selecting a word in the narration offers a pronunciation. mouseup rather
+  // than blur, so the selection is still live when the tool opens.
+  $$('[data-narr]', root).forEach(el => {
+    el.addEventListener('mouseup', () => {
+      setTimeout(() => {
+        const sel = window.getSelection();
+        const text = (sel ? sel.toString() : '').trim();
+        // An empty selection is not a request to close — a double-click fires
+        // mouseup twice and the second one reports no selection, which would
+        // tear down the tool the first one just opened.
+        if (!text) return;
+        if (text.split(/\s+/).length > 3) { closeSelTool(true); return; }
+        const r = sel.getRangeAt(0).getBoundingClientRect();
+        openSelTool(a, el.dataset.narr, text.replace(/[^\w'-]/g, ''), r);
+      }, 10);
+    });
+  });
+
+  // Clicking an existing pronunciation pill reopens it.
+  $$('.sai-ph', root).forEach(pill => pill.addEventListener('click', e => {
+    e.stopPropagation();
+    const narr = pill.closest('[data-narr]');
+    if (narr) openSelTool(a, narr.dataset.narr, pill.textContent.trim(), pill.getBoundingClientRect());
+  }));
 
   // Coverage dots open a depth popover — editing without holding a column.
   $$('[data-covpop]', root).forEach(dot => dot.addEventListener('click', e => {
@@ -3576,14 +3718,16 @@ function applySelection() {
   }
 }
 
+/* `sub` names an editable region the user is typing in — scope the composer
+   to it, but never pull focus out of it. Anything else focuses the composer,
+   since selecting a node on the canvas means you are about to prompt. */
+const EDITABLE_SUBS = new Set([...DOC_SECTIONS.map(x => x.key), 'narration']);
+
 function selectNode(id, sub) {
   selected = id;
   subTarget = sub || null;
   applySelection();
-  // Don't steal focus when the target is an editable doc section — the user
-  // is typing in it.
-  const inDoc = DOC_SECTIONS.some(x => x.key === sub);
-  if (id && !inDoc) $('#composerInput').focus();
+  if (id && !EDITABLE_SUBS.has(sub)) $('#composerInput').focus();
 }
 
 /* Canvas click — node selection, sub-targets, comments, cross-layer jumps */

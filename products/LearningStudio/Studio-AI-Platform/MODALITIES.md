@@ -250,6 +250,18 @@ canvas stays visible while you work:
   language that no longer exists is orphaned. Reordering repairs nothing, because
   nothing references a scene by ordinal.
 
+**Column contexts follow Phase 2's division of labour:** the rail owns
+**narration and audio** (editable transcript, voice, generate/regenerate,
+waveform); the canvas column owns **visuals** (background, on-screen text, and
+a layer strip showing what is composited with each overlay's word anchor).
+Actions sit with the thing they change.
+
+**Pronunciation** is authored by selecting a word in the narration. Stored as a
+token keyed on the word, so it survives narration edits — Phase 2's whole-field
+phonetic textarea reset on every keystroke, which is why that approach was
+abandoned there across three iterations. Setting one invalidates the scene's
+audio, since the existing take no longer matches.
+
 **Rail/canvas split** is drag-resizable (280–640px), stored on `:root` so it
 survives re-renders, with double-click to reset.
 
