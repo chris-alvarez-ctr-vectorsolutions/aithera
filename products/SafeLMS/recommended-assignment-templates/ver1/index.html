@@ -117,12 +117,6 @@
     letter-spacing: .6px; text-transform: uppercase; color: var(--ai-ink); }
   .ai-copy h2 { font-size: 15.5px; font-weight: 800; color: var(--ink); margin-top: 3px; }
   .ai-copy p { margin-top: 2px; font-size: 13px; line-height: 1.5; color: var(--ink-2); max-width: 760px; }
-  .ai-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
-  .ai-chip { display: inline-flex; align-items: center; gap: 7px; background: #fff; border: 1px solid var(--ai-border);
-    color: var(--ai-ink); font-size: 12px; font-weight: 600; padding: 6px 11px; border-radius: 999px; cursor: pointer;
-    transition: all .12s; }
-  .ai-chip i { color: var(--ai-1); font-size: 10px; }
-  .ai-chip:hover { background: var(--ai-tint); border-color: #C7BbFF; transform: translateY(-1px); }
   .ai-cta { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; }
   .ai-cta vaadin-button { --lumo-primary-color: var(--ai-1); --lumo-primary-text-color: var(--ai-1);
     --lumo-button-size: 38px; font-weight: 700; }
@@ -348,11 +342,6 @@
               <h2>Not sure which courses your state requires?</h2>
               <p>Ask Vectoria — it recommends the right courses for your state's compliance requirements,
                  drawn straight from the latest state Compliance Guides.</p>
-              <div class="ai-chips">
-                <button class="ai-chip" data-prompt="new-hires"><i class="fa-solid fa-arrow-turn-up" style="transform:rotate(90deg)"></i> What should I assign to new hires?</button>
-                <button class="ai-chip" data-prompt="ada"><i class="fa-solid fa-arrow-turn-up" style="transform:rotate(90deg)"></i> Which courses meet ADA requirements?</button>
-                <button class="ai-chip" data-prompt="bus"><i class="fa-solid fa-arrow-turn-up" style="transform:rotate(90deg)"></i> What's required for bus drivers in Illinois?</button>
-              </div>
             </div>
             <div class="ai-cta">
               <vaadin-button theme="primary" id="askBtn"><i class="fa-solid fa-comment-dots" style="margin-right:8px"></i>Ask Vectoria</vaadin-button>
@@ -527,56 +516,39 @@
 
 <!-- ── Design Toolbox: Flow Map scaffold ── -->
 <script>
-  const CONVO = {
-    'new-hires': {
-      q: 'What courses should I assign to new hires?',
-      intro: 'For new K-12 staff in Illinois, these courses are typically required within the first 30 days:',
-      recs: ['Mandated Reporter: Recognizing & Reporting Child Abuse','Bloodborne Pathogens Exposure Prevention','Title IX & Sexual Harassment Awareness','Anti-Bullying & Student Safety'],
-      src: 'IL K-12 Compliance Guide (updated Jul 2026)'
-    },
-    'ada': {
-      q: 'Which courses meet ADA requirements?',
-      intro: 'To align with the Americans with Disabilities Act, the Compliance Guide points to:',
-      recs: ['ADA: Serving Students & Staff with Disabilities','Section 504 Accommodations Basics','Creating Accessible Digital Content'],
-      src: 'IL K-12 Compliance Guide · ADA section'
-    },
-    'bus': {
-      q: "What's required for bus drivers in Illinois?",
-      intro: 'Illinois requires transportation staff to complete:',
-      recs: ['School Bus Driver Safety & Defensive Driving','Student Management on the Bus','Railroad Crossing Safety','Emergency Evacuation Procedures'],
-      src: 'IL K-12 Compliance Guide · Transportation'
-    }
-  };
-
   const scrim = document.getElementById('scrim');
   const chat = document.getElementById('chat');
   const chatBody = document.getElementById('chatBody');
 
-  function renderConvo(key) {
-    const c = CONVO[key] || CONVO['new-hires'];
+  // Vectoria greets, then offers one starter recommendation from the state guide.
+  function renderConvo() {
     chatBody.innerHTML = '';
-    const u = document.createElement('div');
-    u.className = 'msg user'; u.textContent = c.q; chatBody.appendChild(u);
+    const g = document.createElement('div');
+    g.className = 'msg bot';
+    g.textContent = "Hi! I'm Vectoria. I can recommend the courses to assign for your state's compliance requirements. What would you like to know?";
+    chatBody.appendChild(g);
+
     const t = document.createElement('div');
     t.className = 'typing'; t.innerHTML = '<span></span><span></span><span></span>'; chatBody.appendChild(t);
     setTimeout(() => {
       t.remove();
+      const recs = ['Mandated Reporter: Recognizing & Reporting Child Abuse','Bloodborne Pathogens Exposure Prevention','Title IX & Sexual Harassment Awareness','Anti-Bullying & Student Safety'];
       const b = document.createElement('div');
       b.className = 'msg bot';
-      b.innerHTML = c.intro +
-        '<div class="rec">' + c.recs.map(r => '<div class="rec-item"><i class="fa-solid fa-circle-check"></i><b>' + r + '</b></div>').join('') + '</div>' +
-        '<div class="src"><i class="fa-solid fa-file-pdf"></i> Source: ' + c.src + '</div>' +
+      b.innerHTML =
+        'A common starting point for Illinois K-12 new hires:' +
+        '<div class="rec">' + recs.map(r => '<div class="rec-item"><i class="fa-solid fa-circle-check"></i><b>' + r + '</b></div>').join('') + '</div>' +
+        '<div class="src"><i class="fa-solid fa-file-pdf"></i> Source: IL K-12 Compliance Guide (updated Jul 2026)</div>' +
         '<button class="addbtn"><i class="fa-solid fa-plus"></i> Add these to a Training Plan</button>';
       chatBody.appendChild(b);
       chatBody.scrollTop = chatBody.scrollHeight;
     }, 700);
   }
-  function openChat(key) { renderConvo(key || 'new-hires'); scrim.classList.add('show'); chat.classList.add('show'); }
+  function openChat() { renderConvo(); scrim.classList.add('show'); chat.classList.add('show'); }
   function closeChat() { scrim.classList.remove('show'); chat.classList.remove('show'); }
 
-  document.getElementById('askBtn').addEventListener('click', () => openChat('new-hires'));
-  document.getElementById('vfab').addEventListener('click', () => openChat('new-hires'));
-  document.querySelectorAll('.ai-chip').forEach(ch => ch.addEventListener('click', () => openChat(ch.dataset.prompt)));
+  document.getElementById('askBtn').addEventListener('click', openChat);
+  document.getElementById('vfab').addEventListener('click', openChat);
   document.getElementById('chatClose').addEventListener('click', closeChat);
   scrim.addEventListener('click', closeChat);
   document.getElementById('aiDismiss').addEventListener('click', () => { document.getElementById('aiBanner').style.display = 'none'; });
@@ -585,7 +557,7 @@
   function applyFlowState(id, opts) {
     opts = opts || {};
     switch (id) {
-      case 'chat': openChat('new-hires'); break;
+      case 'chat': openChat(); break;
       case 'plans': default: closeChat(); break;
     }
     if (!opts.instant) window.scrollTo(0, 0);
