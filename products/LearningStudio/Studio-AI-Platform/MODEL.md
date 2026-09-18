@@ -220,6 +220,44 @@ Because activities are project-owned deliverables, their depth tags stay
 unambiguous: depth is about how *this* activity treats a point *in this
 context*.
 
+### A point is the smallest definable facet of a subject
+
+Atomicity is the authoring rule. A point covers one facet — not a cluster of
+related guidance — which is what makes coverage tagging honest: an activity
+either satisfies the whole facet or it does not.
+
+### The point document
+
+A point is the **generation source**, so it carries the substance an activity is
+built from, not a summary. The card in the list is an index entry; the point
+itself is a document, drilled into and edited either directly or by targeted
+prompt.
+
+Five named sections — structured enough for reliable AI boundaries, written as
+prose so an SME reads it top to bottom:
+
+| Section | Carries |
+|---|---|
+| **The point** | the claim itself |
+| **Why it matters** | the reasoning; what goes wrong without it |
+| **Specifics & thresholds** | figures, procedures, conditions, exceptions |
+| **Common failure modes** | how it actually fails in practice |
+| **What competence looks like** | the observable behaviour of someone who has it |
+
+### Usage guidelines are walled off
+
+Directives about *how to use* a point — pairing rules, depiction constraints,
+"do not generate specific figures until the SME confirms" — live **outside the
+document**, in their own panel.
+
+This is a **guardrail, not a layout preference.** Mixed into the document, a
+directive like *"do not depict a rollover graphically"* can leak into generated
+narration. The separation gives a defined line to wall off: usage is never
+passed to language generation.
+
+It also means an SME reviewing for accuracy reads only the information, and the
+two halves have different reviewers and different lifespans.
+
 ### Point versioning and drift
 
 A coverage tag pins the point **version** it was authored and judged against:

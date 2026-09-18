@@ -365,3 +365,79 @@ updating phase, which V1 starts past (D7). V1 models the state, not the review.
 
 **Also out of scope for now** (user's call): a task/assignment primitive for
 routing that work to LEDs.
+
+---
+
+## D21 · A point is the smallest definable facet of a subject
+**2026-09-17**
+
+**Decided:** atomicity is the authoring rule — one point, one facet.
+
+**Why (user):** *"The point should be the smallest definable facet of a topic or
+subject."* It also makes coverage tagging honest: an activity either satisfies
+the whole facet or it does not, with no partial-credit ambiguity.
+
+**Consequence:** some seeded points are arguably compound ("travel with the load
+low *and* tilted back") and would split under a strict reading. Left as-is for
+now; worth revisiting when points become authorable.
+
+---
+
+## D22 · Points are documents, not summaries
+**2026-09-17**
+
+**Decided:** each point carries a five-section document — the claim, why it
+matters, specifics and thresholds, common failure modes, what competence looks
+like. Cards remain the index; the document is a drill-in with direct editing
+*and* prompt targeting.
+
+**Why (user):** *"I would expect several sentences or paragraphs required to
+cover each point in depth so it has all the context needed to generate
+activities from them."* The prior seed was summary-shaped — enough to say what a
+point was about, nowhere near enough to generate a video, a podcast and a
+scenario without the AI inventing the substance. Which is precisely the subject
+knowledge the LED lacks and the SME was meant to supply.
+
+**Structure is light and named**, not free prose and not a form: reliable
+section boundaries for generation, readable top to bottom by a human. Per the
+user: *"AI readable but formatted so they can be easily understood by humans as
+well."*
+
+**Editing is dual** — type directly into a section, or select it and prompt. Both
+route through the same node/sub-target model already used on the canvas.
+
+---
+
+## D23 · Usage guidelines are walled off from the document
+**2026-09-17**
+
+**Decided:** directives about how to *use* a point live outside the point
+document, in a separate panel, and are never passed to language generation.
+
+**Why (user's framing):** *"Separating context from usage in some way gives us a
+defined line to guardrail against usage being accidentally used in activity
+language. We can wall off the usage documents completely from the language
+generation."*
+
+This is stronger than the "different reviewers" reasoning that first motivated
+the split. It guards a real failure mode: a directive like *"do not depict a
+rollover graphically"* sitting inside the source document can surface in
+generated narration.
+
+**Secondary benefit:** an SME reviewing for accuracy reads only the information.
+The two halves have different reviewers and different lifespans.
+
+---
+
+## D24 · Points version as a whole
+**2026-09-17**
+
+**Decided:** the point is the versioned unit; sections do not version
+independently.
+
+**Why:** matches the atomicity rule (D21) — if a point is the smallest definable
+facet, its sections are facets of one thing rather than separable units.
+Per-section versioning would enable more precise drift (*"only failure modes
+changed, so activities not teaching failure modes are unaffected"*) but that
+value only lands with the delta-review flow, which is deferred (D20). Building
+the versioning half without the review half would be speculative.

@@ -505,6 +505,83 @@
   .sai-coverage-fill { height: 100%; background: var(--sai-output); }
   .sai-coverage-fill.partial { background: var(--sai-warn); }
 
+  /* ── POINT DETAIL — the document canvas ───────────────────────────────
+     A point is the generation SOURCE, so it must carry the substance an
+     activity is built from — not a summary. Cards are the index; this is the
+     document. Editable directly or by targeted prompt. */
+  /* Visibility is owned by the parent .sai-view — this only lays out. */
+  .sai-doc {
+    max-width: 1120px; margin: 0 auto;
+    display: grid; grid-template-columns: minmax(0,1fr) 300px;
+    gap: 16px; align-items: start;
+  }
+
+  .sai-doc-back {
+    display: inline-flex; align-items: center; gap: 7px;
+    margin-bottom: 11px; padding: 4px 9px; border-radius: 5px;
+    background: none; border: 1px solid transparent;
+    font-family: inherit; font-size: 11px; font-weight: 600;
+    color: var(--sai-ink-3); cursor: pointer;
+  }
+  .sai-doc-back:hover { background: var(--sai-surface-2); color: var(--sai-ink); }
+
+  .sai-doc-main { background: var(--sai-surface); border: 1px solid var(--sai-line-2); border-radius: 8px; overflow: hidden; }
+  .sai-doc-head { padding: 14px 18px; border-bottom: 1px solid var(--sai-line); }
+  .sai-doc-title {
+    font-size: 17px; font-weight: 700; line-height: 1.3; letter-spacing: -.01em;
+    margin-bottom: 7px; color: var(--sai-ink);
+  }
+  .sai-doc-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+
+  .sai-doc-body { padding: 6px 18px 18px; }
+  .sai-doc-section { padding: 11px 0; border-bottom: 1px solid var(--sai-line); }
+  .sai-doc-section:last-child { border-bottom: none; }
+  .sai-doc-label {
+    font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--sai-ink-3); margin-bottom: 6px;
+  }
+  .sai-doc-text {
+    font-size: 13px; line-height: 1.72; color: var(--sai-ink);
+    white-space: pre-wrap; border-radius: 5px;
+    padding: 4px 7px; margin: -4px -7px;
+    border: 1px solid transparent; outline: none;
+  }
+  .sai-doc-text:hover { background: var(--sai-surface-2); }
+  .sai-doc-text:focus { background: var(--sai-surface-2); border-color: var(--sai-accent); }
+  .sai-doc-text.targeted {
+    background: var(--sai-accent-dim); border-color: var(--sai-accent);
+    box-shadow: 0 0 14px -4px #4da3f080;
+  }
+  .sai-doc-section.claim .sai-doc-text { font-size: 14px; color: var(--sai-ink); font-weight: 500; }
+
+  /* ── USAGE — walled off from generation ────────────────────────────────
+     Directives about HOW to use the point, never language to generate from.
+     The separation is a guardrail: mixed into the document, a directive like
+     "do not depict a rollover" can leak into narration. */
+  .sai-usage {
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-left: 2px solid var(--sai-warn); border-radius: 8px;
+    position: sticky; top: 0;
+  }
+  .sai-usage-head { padding: 11px 13px 9px; border-bottom: 1px solid var(--sai-line); }
+  .sai-usage-title {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--sai-warn); margin-bottom: 5px;
+  }
+  .sai-usage-note { font-size: 10.5px; line-height: 1.5; color: var(--sai-ink-3); }
+  .sai-usage-list { padding: 10px 13px 13px; display: flex; flex-direction: column; gap: 8px; }
+  .sai-usage-item {
+    display: flex; gap: 8px; font-size: 11.5px; line-height: 1.55; color: var(--sai-ink-2);
+  }
+  .sai-usage-item i { color: var(--sai-warn); font-size: 8px; margin-top: 5px; flex: 0 0 auto; }
+  .sai-doc-card-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 700; color: var(--sai-accent);
+    background: none; border: none; cursor: pointer; padding: 0;
+  }
+  .sai-doc-card-link:hover { text-decoration: underline; }
+
   /* ---------------------------------------------------------------------------
      ACTIVITIES LAYER — shelf grouped by the information points each covers
      --------------------------------------------------------------------------- */
@@ -1148,6 +1225,12 @@
           <div class="sai-info-list" id="infoList"></div>
         </section>
 
+        <!-- Point detail — the document canvas. Cards are the index; a point
+             drills in here, where it can be edited directly or by prompt. -->
+        <section class="sai-view" data-view="point-detail">
+          <div class="sai-doc" id="pointDoc"></div>
+        </section>
+
         <!-- ════════════ ACTIVITIES LAYER ═════════════════════════════════
              Modality expressions of the information points. Transmute works
              laterally here — same points, different modality.
@@ -1375,6 +1458,24 @@ const MODEL = {
       text: 'Every operator completes a documented pre-shift inspection covering forks, mast, hydraulics, tires, horn, and seatbelt. An uninspected truck may not be placed in service.',
       provenance: 'OSHA 1910.178(q)(7)', sourced: true, verified: true, requires: 'working',
       version: 2, lifecycle: 'current',
+      // ── The point document. `text` above is the card summary; THIS is the
+      //    generation source. Sections are named so the AI gets reliable
+      //    boundaries and a human reads it top to bottom as prose.
+      doc: {
+        claim: 'Every operator must complete and document a pre-shift inspection before placing a forklift in service. An uninspected truck may not be operated, regardless of how recently it was last checked or who last used it.',
+        matters: 'The pre-shift inspection is the last point at which a developing mechanical fault can be caught before it becomes a failure under load. Hydraulic leaks, worn fork heels, and failing brakes rarely present suddenly — they degrade across shifts, and the operator starting the shift is the only person positioned to notice the change. A documented inspection also establishes the chain of accountability: when a truck is found defective, the record shows when it was last verified sound and by whom.',
+        specifics: 'The inspection covers, at minimum: forks (cracks, heel wear beyond 10% of original thickness, bent blades or damaged locking pins), mast and chains (kinks, broken links, uneven tension, leaks at the lift cylinders), hydraulics (visible leaks, fluid level, cylinder drift under load), tires (cuts, chunking, embedded debris, pressure on pneumatic tires), service and parking brakes, horn, lights, backup alarm, seatbelt condition and retraction, and the data plate legibility.\n\nThe inspection is performed at the start of EVERY shift, not every day. A truck run across three shifts is inspected three times. Findings are recorded whether or not a defect is found — a clean inspection is a record, not a non-event.',
+        failure: 'The dominant failure mode is the "it was fine yesterday" inspection: the operator signs the sheet without walking the truck, because it ran fine at the end of their last shift. The second is partial inspection — checking the obvious wear items but skipping the seatbelt and horn because they are rarely faulty. The third is inspecting but not reporting: an operator notices a slow hydraulic drift, judges it minor, and continues without recording it, so the fault reaches the next operator undocumented.',
+        competence: 'A competent operator can walk a truck and name what they are checking at each station without prompting, recognises heel wear and chain stretch by sight, and treats a defect finding as a normal outcome rather than an inconvenience — removing the truck from service without hesitation or needing approval.'
+      },
+      // ── WALLED OFF from generation. Directives about how to USE this point,
+      //    never language to be generated from. See the guardrail note at the
+      //    renderer.
+      usage: [
+        'Always pair with the tip-over point when building an assessment — inspection failures and tip-over causes share root conditions.',
+        'Do not generate content implying a supervisor sign-off is required; the operator owns this inspection.',
+        'Acceptable to abbreviate the checklist in awareness-level activities; must be complete at working level or above.'
+      ],
       capabilities: ['rephrase', 'split', 'comment', 'derive'] },
 
     { id: 'info-2', type: 'information.point', layer: 'information', status: 'idle',
@@ -1382,6 +1483,17 @@ const MODEL = {
       text: 'Two hands and one foot, or two feet and one hand, maintain contact at all times. Never jump from the operator compartment.',
       provenance: 'Vector EHS standard §4.2', sourced: true, verified: true, requires: 'awareness',
       version: 1, lifecycle: 'current',
+      doc: {
+        claim: 'Mounting and dismounting a forklift requires three points of contact at all times — two hands and one foot, or two feet and one hand. Never jump down from the operator compartment.',
+        matters: 'Mount and dismount injuries are among the most frequent forklift-related injuries and are almost entirely absent from operators\' risk perception — the danger is understood to be the load, the travel, the pedestrians, not the act of getting in and out several dozen times a shift. Repetition is the hazard: a step that is slightly slick, a glove with worn grip, or a distracted exit is survivable once and injurious on the fiftieth repetition. Jumping down compounds it by loading ankles and knees with the operator\'s full weight plus drop.',
+        specifics: 'Face the truck when mounting and dismounting — never step down facing away. Maintain three points of contact throughout: grab handles and steps are positioned for this and are the only approved contact surfaces. The steering wheel is not a handhold; it moves under load.\n\nClear the step of mud, ice, and debris before use. Dismount only when the truck is fully stopped, forks are grounded, and the parking brake is set.',
+        failure: 'The dominant failure is the habitual jump on exit, which operators frequently do not register as a choice. Second is using the steering wheel or an overhead guard leg as a handhold. Third is dismounting while the truck is still settling — stepping off before the forks have grounded.',
+        competence: 'A competent operator mounts and dismounts facing the truck every time without conscious effort, and treats a damaged or missing grab handle as a defect rather than an inconvenience to work around.'
+      },
+      usage: [
+        'Low-stakes point suited to awareness-level treatment; do not over-weight it in assessment relative to load and traffic points.',
+        'Good candidate for job-aid and micro-lesson modalities — it is procedural and visual.'
+      ],
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-3', type: 'information.point', layer: 'information', status: 'idle',
@@ -1389,6 +1501,18 @@ const MODEL = {
       text: 'The data plate rating assumes standard forks. Fitting a clamp, rotator, or extension reduces rated capacity — the derated figure, not the plate figure, governs.',
       provenance: 'Model knowledge — unverified against 2026 revision', sourced: false, verified: true, requires: 'mastery',
       version: 3, lifecycle: 'current',
+      doc: {
+        claim: 'The capacity shown on a forklift data plate assumes standard forks and a standard load centre. Fitting any attachment — clamp, rotator, side-shifter, fork extension — reduces the truck\'s rated capacity, and the derated figure governs. The plate figure is no longer the operating limit once an attachment is fitted.',
+        matters: 'Attachments reduce capacity through two independent mechanisms, and operators routinely account for only one. First, the attachment itself has mass, which the truck must carry before it carries anything else. Second — and far less intuitively — most attachments move the load further from the front axle, lengthening the load centre and reducing capacity disproportionately. A 200 lb clamp does not cost 200 lb of capacity; it can cost several times that once the shifted load centre is accounted for. An operator reasoning from the plate figure alone will believe they are within limits when they are materially over.',
+        specifics: 'When an attachment is fitted, the truck must carry a supplementary data plate stating the derated capacity for that specific truck-and-attachment combination. That plate, not the original, is the operating limit.\n\nCapacity is always stated at a rated load centre — commonly 24 inches. A load whose centre of gravity sits further forward than the rated centre reduces capacity below the plated figure even with standard forks. Attachments that extend reach compound this.\n\nNOTE: the derate figures in the 2026 revision differ from prior guidance — clamp attachments now carry a steeper reduction. Verify against the current standard rather than institutional memory.',
+        failure: 'The most common failure is reading the original plate with an attachment fitted. The second is assuming a derate applies per-attachment-type rather than per-combination: the same clamp on a different truck derates differently, and operators carry a remembered figure across trucks. The third is treating the supplementary plate as advisory when a load "looks fine" — capacity failures are not progressive, and a truck within limits and a truck over limits handle identically right up until the rear wheels lift.',
+        competence: 'A competent operator checks for a supplementary plate before lifting with any attachment, can explain why a heavier attachment costs more capacity than its own weight, and treats a missing or illegible supplementary plate as a defect that removes the truck from service rather than a reason to estimate.'
+      },
+      usage: [
+        'This point is under revision against the 2026 standard — do not generate specific derate percentages until the SME confirms the current figures.',
+        'Never generate a worked numerical example without SME-supplied figures; an invented derate number is a safety risk, not a plausible placeholder.',
+        'Pair with the travel-position point in scenario work — over-capacity and raised-load tip-overs share the same failure geometry.'
+      ],
       capabilities: ['rephrase', 'comment', 'derive'], flagged: true },
 
     { id: 'info-4', type: 'information.point', layer: 'information', status: 'idle',
@@ -1396,6 +1520,17 @@ const MODEL = {
       text: 'Carry loads 4–6 inches off the ground with the mast tilted back. Raised loads shift the centre of gravity and are the leading cause of tip-over.',
       provenance: 'OSHA 1910.178(n)(7)', sourced: true, verified: true, requires: 'working',
       version: 1, lifecycle: 'current',
+      doc: {
+        claim: 'Loads are carried low — 4 to 6 inches off the ground — with the mast tilted back. A raised load in transit shifts the combined centre of gravity upward and forward and is the leading contributor to tip-over.',
+        matters: 'A forklift\'s stability is described by the stability triangle: the two front wheels and the pivot point of the rear axle. The combined centre of gravity of truck and load must stay inside that triangle. Raising a load moves the centre of gravity up, which shortens the lateral distance it must travel to exit the triangle during a turn — the truck does not become gradually less stable, it becomes suddenly unstable at a lower turn speed than the operator expects. Tilting back moves the load\'s centre rearward, toward the truck, which is why the two instructions are given together and why doing one without the other leaves a real hazard.',
+        specifics: 'Travel with forks 4–6 inches from the floor, high enough to clear surface irregularities and low enough to keep the centre of gravity down. Tilt the mast back so the load rests against the backrest.\n\nRaise the load only at the point of stacking or retrieval, and lower it before travelling again — including short repositioning moves, which is where the rule is most often abandoned.\n\nOn a grade, travel with the load upgrade regardless of direction of travel: forward up the ramp, in reverse down it.',
+        failure: 'The dominant failure is travelling with a raised load over short distances, where the operator judges the exposure too brief to matter. Second is tilting forward in transit, usually a carryover from positioning at the rack. Third is taking a turn at a speed that would be safe with a grounded load and is not with a raised one — this is the mechanism that converts a raised load into an actual tip-over.',
+        competence: 'A competent operator lowers the load before every move including repositioning, can explain the stability triangle in their own terms, and adjusts turn speed to load height without being told.'
+      },
+      usage: [
+        'Pair with the tip-over survival point — this point is the cause, that point is the consequence.',
+        'Scenario treatments should require the learner to make the short-move judgment call, since that is where the rule actually fails in practice.'
+      ],
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-5', type: 'information.point', layer: 'information', status: 'idle',
@@ -1403,6 +1538,17 @@ const MODEL = {
       text: 'Sound the horn at intersections and blind corners. Make eye contact before proceeding. Never travel with a pedestrian in the path of the load.',
       provenance: 'Vector EHS standard §6.1', sourced: true, verified: true, requires: 'awareness',
       version: 2, lifecycle: 'current',
+      doc: {
+        claim: 'Pedestrians have right of way at all times. Sound the horn at intersections, blind corners, and doorways; make eye contact before proceeding; and never travel with a pedestrian in the path of the load.',
+        matters: 'Forklift-pedestrian collisions are disproportionately severe because the pedestrian has no protection and the operator frequently does not see the impact happen — a load carried at height blocks forward sight, and the operator learns to work around the obstruction rather than treat it as a stop condition. The right-of-way rule exists because the negotiation is asymmetric: the pedestrian cannot reliably judge the truck\'s stopping distance, turning radius, or whether they have been seen, so the burden of yielding sits entirely with the operator.',
+        specifics: 'Sound the horn at every intersection, blind corner, and doorway — on approach, not on entry. Make eye contact before proceeding past a pedestrian; a pedestrian who has not looked up has not seen you, regardless of how visible you believe you are.\n\nWhere a load blocks forward visibility, travel in reverse with the load trailing, looking in the direction of travel. Never carry a load over or past a person.\n\nIn mixed-traffic areas, reduce speed to the point where you can stop within the distance you can see to be clear.',
+        failure: 'The dominant failure is the assumed acknowledgement — the operator sounds the horn, the pedestrian does not visibly respond, and the operator proceeds on the assumption of being heard. Second is treating painted walkways as a guarantee rather than a convention. Third is reversing without looking in the direction of travel, typically when the operator is confident the aisle behind them was clear moments ago.',
+        competence: 'A competent operator stops rather than negotiates when eye contact is not achieved, reverses with a blocking load as a matter of course, and does not treat a horn sound as discharging their obligation.'
+      },
+      usage: [
+        'Depict pedestrians as non-compliant in at least one scenario branch; operators need practice with the case where the pedestrian is not behaving predictably.',
+        'Do not generate content that assigns fault to the pedestrian — right of way is unconditional regardless of pedestrian behaviour.'
+      ],
       capabilities: ['rephrase', 'comment', 'derive'] },
 
     { id: 'info-6', type: 'information.point', layer: 'information', status: 'idle',
@@ -1410,6 +1556,19 @@ const MODEL = {
       text: 'Do not jump. Brace, grip the wheel, lean away from the fall. Most fatal injuries occur when an operator jumps and is caught by the overhead guard.',
       provenance: 'Model knowledge — SME input requested', sourced: false, verified: false, requires: 'mastery',
       version: 1, lifecycle: 'current',
+      doc: {
+        claim: 'In a lateral tip-over, a seat-belted operator must stay in the compartment: brace the feet, grip the wheel, and lean away from the direction of the fall. Do not jump.',
+        matters: 'The instinct in a tip-over is to jump clear, and it is close to universally fatal when acted on. A tipping forklift rotates about its own wheelbase far faster than a person can clear it — the overhead guard, which is the structure protecting an operator who stays in the seat, becomes the structure that catches an operator who leaves it. The compartment is a survival cell; leaving it puts the operator directly into the path of several thousand pounds of falling counterweight. This is the single most counter-intuitive instruction in forklift operation, and teaching it as a rule to be memorised is insufficient: an operator who has not internalised WHY will act on instinct under stress.',
+        specifics: 'The response is: stay seated, brace both feet firmly, grip the steering wheel, and lean the torso AWAY from the direction of the fall — into the seat and toward the high side. The seatbelt is what makes this survivable; it holds the operator within the guarded envelope while the truck rotates.\n\nThis applies to sit-down counterbalanced trucks with overhead guards. Stand-up rider trucks have a different response — the operator steps back and out of the open rear compartment — and the two must never be taught interchangeably.',
+        failure: 'The dominant failure is jumping, driven by instinct rather than ignorance. A second is riding unbelted, which removes the option of staying in the compartment: an unbelted operator is thrown regardless of intent, so the seatbelt is not merely a restraint but the enabling condition for the correct response. A third is transferring the stand-up-truck response to a sit-down truck, or the reverse, in fleets that run both.',
+        competence: 'A competent operator wears the belt without prompting, can state the correct response and the reason it is correct, and — critically — can identify which response applies to the specific truck they are operating.'
+      },
+      usage: [
+        'SME confirmation pending on bracing guidance — verify against the current training standard before this ships.',
+        'Do NOT generate graphic depictions of injury or fatality. The consequence may be stated plainly; it must not be depicted.',
+        'Assessment for this point must test the reasoning, not just the rule — an operator who recalls "do not jump" without understanding why will not act on it under stress.',
+        'If the customer fleet includes stand-up rider trucks, this point must be generated alongside the stand-up response rather than alone.'
+      ],
       capabilities: ['rephrase', 'comment', 'derive'], flagged: true }
   ],
 
@@ -1791,6 +1950,9 @@ function renderInformation() {
                 : '<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)"><i class="fa-solid fa-clock"></i>Awaiting SME</span>'}
               <span class="sai-pill count"><i class="fa-solid fa-shapes"></i>${carriers} ${carriers === 1 ? 'activity' : 'activities'}</span>
               ${commentPill(p.id)}
+              <button class="sai-doc-card-link" data-open="${p.id}">
+                Open <i class="fa-solid fa-arrow-right"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -1943,6 +2105,96 @@ function renderWeb() {
     </div>`).join('');
 }
 
+const DOC_SECTIONS = [
+  { key: 'claim',      label: 'The point' },
+  { key: 'matters',    label: 'Why it matters' },
+  { key: 'specifics',  label: 'Specifics & thresholds' },
+  { key: 'failure',    label: 'Common failure modes' },
+  { key: 'competence', label: 'What competence looks like' }
+];
+
+let openPoint = null;
+
+/* The point document. Sections are contenteditable for direct editing and
+   targetable for prompting — the same node/sub-target model as the canvas. */
+function renderPointDoc(id) {
+  const p = byId[id];
+  if (!p) return;
+  openPoint = id;
+  const idx = MODEL.information.findIndex(x => x.id === id) + 1;
+  const req = p.requires || GOALS[MODEL.goal].defaultDepth;
+  const carriers = MODEL.activities.filter(a => a.covers[id]);
+
+  $('#pointDoc').innerHTML = `
+    <div>
+      <button class="sai-doc-back" id="docBack">
+        <i class="fa-solid fa-arrow-left"></i> All information points
+      </button>
+      <div class="sai-doc-main">
+        <div class="sai-doc-head">
+          <div class="sai-doc-title">${idx}. ${p.title}</div>
+          <div class="sai-doc-meta">
+            <span class="sai-pill sai-ver">v${p.version}</span>
+            <span class="sai-req ${'met'}">requires <b>${DEPTH[req].label}</b></span>
+            ${p.sourced
+              ? `<span class="sai-pill sourced"><i class="fa-solid fa-link"></i>${p.provenance}</span>`
+              : `<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)"><i class="fa-solid fa-triangle-exclamation"></i>${p.provenance}</span>`}
+            <span class="sai-pill count"><i class="fa-solid fa-shapes"></i>${carriers.length} ${carriers.length === 1 ? 'activity' : 'activities'}</span>
+            ${commentPill(p.id)}
+          </div>
+        </div>
+        <div class="sai-doc-body">
+          ${DOC_SECTIONS.map(sec => `
+            <div class="sai-doc-section ${sec.key}">
+              <div class="sai-doc-label">${sec.label}</div>
+              <div class="sai-doc-text" contenteditable="true" spellcheck="false"
+                   data-docsec="${sec.key}">${(p.doc && p.doc[sec.key]) || ''}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- Usage guidelines sit OUTSIDE the document. They are directives about
+         how to use the point, never source language — walling them off keeps
+         a directive from leaking into generated narration. -->
+    <aside class="sai-usage">
+      <div class="sai-usage-head">
+        <div class="sai-usage-title">
+          <i class="fa-solid fa-shield-halved"></i> Usage guidelines
+        </div>
+        <div class="sai-usage-note">
+          Directives for how this point may be used. <b>Never</b> passed to language
+          generation — walled off from the document so guidance can't surface as content.
+        </div>
+      </div>
+      <div class="sai-usage-list">
+        ${(p.usage || []).map(u => `
+          <div class="sai-usage-item"><i class="fa-solid fa-circle"></i><span>${u}</span></div>`).join('')
+          || '<div class="sai-usage-item" style="color:var(--sai-ink-3)">No usage guidelines set.</div>'}
+      </div>
+    </aside>`;
+
+  switchLayer('point-detail');
+  $('#layerName').textContent  = 'Information Point';
+  $('#layerCount').textContent = `${idx} of ${MODEL.information.length}`;
+
+  $('#docBack').addEventListener('click', () => {
+    openPoint = null;
+    switchLayer('information');
+  });
+
+  // Section-level prompt targeting — click focuses for typing; the composer
+  // scopes to whichever section has focus.
+  $$('.sai-doc-text', $('#pointDoc')).forEach(el => {
+    el.addEventListener('focus', () => {
+      selectNode(id, el.dataset.docsec);
+    });
+    el.addEventListener('blur', () => {
+      if (p.doc) p.doc[el.dataset.docsec] = el.innerText;
+    });
+  });
+}
+
 function renderValidations() {
   const course = $('#validateCourse');
   const exp    = $('#validateExperience');
@@ -1972,11 +2224,16 @@ function renderAll() {
 function applySelection() {
   $$('.sai-node').forEach(el => el.classList.toggle('selected', el.dataset.node === selected));
   $$('.sai-sub').forEach(el => el.classList.remove('subselected'));
+  $$('.sai-doc-text').forEach(el => el.classList.remove('targeted'));
 
   const scope = $('#composerScope');
   if (selected && byId[selected]) {
     const n = byId[selected];
-    const label = subTarget
+    // A doc section is a sub-target too — name it by its section label.
+    const docSec = DOC_SECTIONS.find(x => x.key === subTarget);
+    const label = docSec
+      ? `${n.title} · ${docSec.label}`
+      : subTarget
       ? `${n.title} · ${subTarget === 'title' ? 'title' : 'body text'}`
       : n.title;
     $('#composerScopeText').textContent = label;
@@ -1985,6 +2242,8 @@ function applySelection() {
     if (subTarget) {
       const el = $(`.sai-node[data-node="${selected}"] .sai-sub[data-sub="${subTarget}"]`);
       if (el) el.classList.add('subselected');
+      const sec = $(`.sai-doc-text[data-docsec="${subTarget}"]`);
+      if (sec) sec.classList.add('targeted');
     }
   } else {
     scope.classList.remove('on');
@@ -1995,13 +2254,19 @@ function selectNode(id, sub) {
   selected = id;
   subTarget = sub || null;
   applySelection();
-  if (id) $('#composerInput').focus();
+  // Don't steal focus when the target is an editable doc section — the user
+  // is typing in it.
+  const inDoc = DOC_SECTIONS.some(x => x.key === sub);
+  if (id && !inDoc) $('#composerInput').focus();
 }
 
 /* Canvas click — node selection, sub-targets, comments, cross-layer jumps */
 $('#canvas').addEventListener('click', e => {
   const commentBtn = e.target.closest('[data-comments]');
   if (commentBtn) { e.stopPropagation(); openDrawer(commentBtn.dataset.comments); return; }
+
+  const open = e.target.closest('[data-open]');
+  if (open) { e.stopPropagation(); renderPointDoc(open.dataset.open); return; }
 
   const goto = e.target.closest('[data-goto]');
   if (goto) { e.stopPropagation(); jumpToNode(goto.dataset.goto); return; }
@@ -2041,6 +2306,7 @@ function switchLayer(layer) {
   $$('.sai-iconrail-btn[data-layer]').forEach(t =>
     t.classList.toggle('active', t.dataset.layer === layer));
   $$('.sai-view').forEach(v => v.classList.toggle('active', v.dataset.view === layer));
+  if (layer !== 'point-detail') openPoint = null;
   const meta = LAYER_META[layer];
   if (meta) {
     $('#layerName').textContent  = meta.name;
