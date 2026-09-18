@@ -747,7 +747,7 @@
 
   /* ── VIDEO EDITOR LAYOUT — canvas centre-stage, scenes as a left rail.
      At its core this is a video editor, folded into the platform chrome. ── */
-  .sai-vid { display: grid; grid-template-columns: 240px minmax(0,1fr) 276px; gap: 12px; align-items: start; height: 100%; }
+  .sai-vid { display: grid; grid-template-columns: 236px minmax(0,1fr); gap: 12px; align-items: start; height: 100%; }
   .sai-vid-rail { display: flex; flex-direction: column; gap: 2px; }
   .sai-vid-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 
@@ -832,6 +832,49 @@
   .sai-vid-rail .sai-scene { margin-bottom: 0; }
   .sai-vid-rail .sai-scene-body { display: none !important; }
   .sai-vid-rail .sai-scene-gist { font-size: 11px; }
+
+  /* Coverage strip in the activity header — replaces the standing rail. */
+  .sai-cov-strip { display: inline-flex; align-items: center; gap: 4px; margin-left: 4px; }
+  .sai-cov-strip-label {
+    font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em;
+    color: var(--sai-ink-3); margin-right: 3px;
+  }
+  .sai-cov-strip .sai-cover-dot {
+    width: 19px; height: 19px; font-size: 9.5px;
+    border: none; cursor: pointer; font-family: inherit;
+  }
+  .sai-cov-strip .sai-cover-dot.is-short {
+    box-shadow: 0 0 0 1.5px var(--sai-warn); outline: none;
+  }
+  .sai-cov-strip .sai-cover-dot:hover { filter: brightness(1.3); }
+  .sai-cov-short {
+    display: inline-flex; align-items: center; gap: 4px; margin-left: 5px;
+    font-size: 10px; font-weight: 600; color: var(--sai-warn);
+  }
+  .sai-cov-short i { font-size: 8.5px; }
+
+  /* Depth popover */
+  .sai-covpop {
+    position: fixed; z-index: 80; width: 296px;
+    background: var(--sai-surface); border: 1px solid var(--sai-line-2);
+    border-radius: 8px; padding: 12px 13px;
+    box-shadow: 0 10px 34px -8px #000000c4;
+  }
+  .sai-covpop-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 11px; }
+  .sai-covpop-title { font-size: 12px; font-weight: 600; line-height: 1.4; color: var(--sai-ink); }
+  .sai-covpop-lab {
+    display: block; font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .07em; color: var(--sai-ink-3); margin-bottom: 5px;
+  }
+  .sai-covpop-row { margin-bottom: 9px; }
+  .sai-covpop-row .sai-depth-sel { width: 100%; }
+  .sai-covpop-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .sai-covpop-link {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 9px;
+    background: none; border: none; padding: 0; cursor: pointer;
+    font-family: inherit; font-size: 10.5px; font-weight: 600; color: var(--sai-accent);
+  }
+  .sai-covpop-link:hover { text-decoration: underline; }
 
   .sai-cov-list { padding: 10px 12px 13px; display: flex; flex-direction: column; gap: 11px; }
   .sai-cov-row { padding-bottom: 10px; border-bottom: 1px solid var(--sai-line); }
@@ -2626,13 +2669,10 @@ function renderActivityDoc(id) {
   // Body dispatches on modality and owns its own layout; the coverage panel
   // is shared chrome each body places for itself.
   const body = a.scenes ? renderVideoBody(a) : `
-    <div style="display:grid;grid-template-columns:minmax(0,1fr) 276px;gap:12px;align-items:start">
-      <div class="sai-empty-hint">
-        No authoring surface built for <b>${a.modality}</b> yet.<br>
-        See <code>MODALITIES.md</code> — each modality gets its own body within
-        this same shell.
-      </div>
-      ${renderCoveragePanel(a)}
+    <div class="sai-empty-hint">
+      No authoring surface built for <b>${a.modality}</b> yet.<br>
+      See <code>MODALITIES.md</code> — each modality gets its own body within
+      this same shell.
     </div>`;
 
   $('#activityDoc').innerHTML = `
@@ -2649,6 +2689,7 @@ function renderActivityDoc(id) {
             <span class="sai-pill count">${a.meta}</span>
             ${a.scenes ? `<span class="sai-pill count"><i class="fa-solid fa-film"></i>${a.scenes.length} scenes · ${total}s</span>` : ''}
             ${commentPill(a.id)}
+            ${renderCoverageStrip(a)}
           </div>
         </div>
       </div>
@@ -2794,8 +2835,6 @@ function renderVideoBody(a) {
           <div class="sai-doc-label" style="margin-top:12px">Compiled at the end</div>
           ${endChecks.map(renderCheck).join('')}` : ''}
       </div>
-
-      ${renderCoveragePanel(a)}
     </div>`;
 }
 
@@ -2821,66 +2860,17 @@ function renderCheck(c) {
     </div>`;
 }
 
-/* ── COVERAGE PANEL — shared across every modality. Depth is editable here
-   (LED-side only; SME confirmation shows as state, never performed). ──── */
-function renderCoveragePanel(a) {
-  const goal = GOALS[MODEL.goal];
-  const rows = Object.keys(a.covers || {}).map(pid => {
-    const t = tagOf(a, pid);
-    const p = byId[pid];
-    const idx = MODEL.information.findIndex(x => x.id === pid) + 1;
-    const req = p.requires || goal.defaultDepth;
-    const meets = depthRank(t.depth) >= depthRank(req);
-    return `
-      <div class="sai-cov-row" data-cov="${pid}">
-        <div class="sai-cov-top">
-          <span class="sai-cover-dot d-${t.depth} s-${t.state}" data-goto="${pid}">${idx}</span>
-          <span class="sai-cov-name">${p.title}</span>
-        </div>
-        <div class="sai-cov-ctl">
-          <select class="sai-depth-sel" data-depth="${pid}">
-            ${Object.entries(DEPTH).map(([k, d]) =>
-              `<option value="${k}" ${k === t.depth ? 'selected' : ''}>${d.label}</option>`).join('')}
-          </select>
-          <span class="sai-tagstate s-${t.state}" title="${TAG_STATE[t.state].label}">
-            <i class="fa-solid ${TAG_STATE[t.state].icon}"></i>${TAG_STATE[t.state].short}
-          </span>
-          ${t.behind ? `<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)"
-            title="Judged against v${t.at}; point is now v${p.version}">v${t.at}</span>` : ''}
-        </div>
-        <div class="sai-cov-req ${meets ? 'ok' : 'short'}">
-          <i class="fa-solid fa-${meets ? 'check' : 'triangle-exclamation'}" style="font-size:8px;margin-right:4px"></i>
-          ${meets ? `meets ${DEPTH[req].label}` : `below the ${DEPTH[req].label} this point requires`}
-        </div>
-      </div>`;
-  }).join('');
-
-  return `
-    <aside class="sai-usage" style="border-left-color:var(--sai-activity)">
-      <div class="sai-usage-head">
-        <div class="sai-usage-title" style="color:var(--sai-activity)">
-          <i class="fa-solid fa-shapes"></i> Coverage &amp; depth
-        </div>
-        <div class="sai-usage-note">
-          What this activity teaches, and how deeply. Depth is <b>your</b> judgment —
-          format never determines it. Confirmation comes from an SME outside the platform.
-        </div>
-      </div>
-      <div class="sai-cov-list">${rows}</div>
-    </aside>`;
-}
-
 /* Wire the activity surface after each render. */
 function wireActivityDoc(a) {
   const root = $('#activityDoc');
 
-  // Scene accordion — only the active scene expands.
+  // Scene accordion — the rail selects which scene the canvas shows.
   $$('[data-openscene]', root).forEach(el => el.addEventListener('click', () => {
-    activeScene = (activeScene === el.dataset.openscene) ? null : el.dataset.openscene;
+    if (activeScene !== el.dataset.openscene) { activeScene = el.dataset.openscene; playhead = 0; }
     renderActivityDoc(a.id);
   }));
 
-  // Narration is directly editable AND prompt-targetable.
+  // Narration — directly editable and prompt-targetable.
   $$('[data-narr]', root).forEach(el => {
     el.addEventListener('focus', () => {
       selectNode(a.id, 'narration');
@@ -2895,17 +2885,10 @@ function wireActivityDoc(a) {
     });
   });
 
-  // Depth editing — LED-side. Setting a depth marks the tag LED-adjusted,
-  // because a human just made the judgment. SME confirmation is not
-  // performed here; it arrives from outside the platform.
-  $$('[data-depth]', root).forEach(sel => sel.addEventListener('change', () => {
-    const pid = sel.dataset.depth;
-    const prev = tagOf(a, pid);
-    a.covers[pid] = { depth: sel.value, state: 'adjusted', at: byId[pid].version };
-    renderActivityDoc(a.id);
-    renderValidations();
-    toast(`${byId[pid].title} → ${DEPTH[sel.value].label}` +
-      (prev.state === 'confirmed' ? ' · SME confirmation cleared' : ''));
+  // Coverage dots open a depth popover — editing without holding a column.
+  $$('[data-covpop]', root).forEach(dot => dot.addEventListener('click', e => {
+    e.stopPropagation();
+    openCovPop(a, dot.dataset.covpop, dot);
   }));
 
   // Placement is independent of binding — that's the whole point.
@@ -2918,7 +2901,6 @@ function wireActivityDoc(a) {
     toast('Check moved ' + (c.placement === 'end' ? 'to the end' : 'inline after its scene'));
   }));
 
-  // Word vs. time ruler.
   $$('[data-scale]', root).forEach(b => b.addEventListener('click', e => {
     e.stopPropagation(); tlScale = b.dataset.scale; renderActivityDoc(a.id);
   }));
@@ -2933,7 +2915,7 @@ function wireActivityDoc(a) {
     renderActivityDoc(a.id);
   }));
 
-  // Transport. "Play" steps the playhead through the narration so on-screen
+  // Transport. Play steps the playhead through the narration so on-screen
   // text appears at its anchored words — the sync model, demonstrated.
   $$('[data-scrub]', root).forEach(btn => btn.addEventListener('click', e => {
     e.stopPropagation();
@@ -2950,7 +2932,7 @@ function wireActivityDoc(a) {
         if (playhead >= n) { clearInterval(playTimer); playTimer = null; playhead = n - 1; }
         const stage = $('#activityDoc .sai-canvas-stage');
         if (!stage) { clearInterval(playTimer); playTimer = null; return; }
-        // Update in place rather than re-rendering, so CSS transitions run.
+        // Update in place so CSS transitions actually run.
         (sc.overlays || []).forEach(o => {
           const el = $(`[data-ov="${o.id}"]`, stage);
           if (el) el.classList.toggle('hidden', !(playhead >= o.anchorFrom && playhead <= o.anchorTo));
@@ -2962,6 +2944,93 @@ function wireActivityDoc(a) {
     }
   }));
 }
+
+/* ── COVERAGE — shared chrome for every modality.
+   Lives in the activity header as depth-tagged dots, not a standing rail:
+   coverage is reference-and-occasional-edit, while the canvas is the work
+   surface. The dots keep the at-a-glance signal (fill = depth, ring =
+   provenance, marker = drift); the popover carries the editing.
+   Depth is LED-side — SME confirmation shows as state, never performed. ── */
+function renderCoverageStrip(a) {
+  const goal = GOALS[MODEL.goal];
+  const ids = Object.keys(a.covers || {});
+  const short = ids.filter(pid => {
+    const t = tagOf(a, pid), p = byId[pid];
+    return depthRank(t.depth) < depthRank(p.requires || goal.defaultDepth);
+  }).length;
+
+  return `
+    <span class="sai-cov-strip">
+      <span class="sai-cov-strip-label">covers</span>
+      ${ids.map(pid => {
+        const t = tagOf(a, pid);
+        const p = byId[pid];
+        const idx = MODEL.information.findIndex(x => x.id === pid) + 1;
+        const req = p.requires || goal.defaultDepth;
+        const meets = depthRank(t.depth) >= depthRank(req);
+        const drift = t.drift ? ` drift-${t.drift}` : '';
+        return `<button class="sai-cover-dot d-${t.depth} s-${t.state}${drift} ${meets ? '' : 'is-short'}"
+          data-covpop="${pid}"
+          title="Point ${idx}: ${p.title}&#10;${DEPTH[t.depth].label} · ${TAG_STATE[t.state].label}&#10;${meets ? 'Meets' : 'Below'} the ${DEPTH[req].label} this point requires">${idx}</button>`;
+      }).join('')}
+      ${short ? `<span class="sai-cov-short"><i class="fa-solid fa-triangle-exclamation"></i>${short} below depth</span>` : ''}
+    </span>`;
+}
+
+/* Popover for one point's depth — opened from a coverage dot. */
+function openCovPop(a, pid, anchorEl) {
+  closeCovPop();
+  const t = tagOf(a, pid), p = byId[pid];
+  const goal = GOALS[MODEL.goal];
+  const req = p.requires || goal.defaultDepth;
+  const meets = depthRank(t.depth) >= depthRank(req);
+  const idx = MODEL.information.findIndex(x => x.id === pid) + 1;
+
+  const pop = document.createElement('div');
+  pop.className = 'sai-covpop';
+  pop.id = 'covPop';
+  pop.innerHTML = `
+    <div class="sai-covpop-head">
+      <span class="sai-cover-dot d-${t.depth} s-${t.state}">${idx}</span>
+      <span class="sai-covpop-title">${p.title}</span>
+    </div>
+    <div class="sai-covpop-row">
+      <label class="sai-covpop-lab">Depth this activity delivers</label>
+      <select class="sai-depth-sel" data-depth="${pid}">
+        ${Object.entries(DEPTH).map(([k, d]) =>
+          `<option value="${k}" ${k === t.depth ? 'selected' : ''}>${d.label} — ${d.desc}</option>`).join('')}
+      </select>
+    </div>
+    <div class="sai-covpop-meta">
+      <span class="sai-tagstate s-${t.state}"><i class="fa-solid ${TAG_STATE[t.state].icon}"></i>${TAG_STATE[t.state].label}</span>
+      ${t.behind ? `<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)">judged against v${t.at} · now v${p.version}</span>` : ''}
+    </div>
+    <div class="sai-cov-req ${meets ? 'ok' : 'short'}">
+      <i class="fa-solid fa-${meets ? 'check' : 'triangle-exclamation'}" style="font-size:8px;margin-right:4px"></i>
+      ${meets ? `meets the ${DEPTH[req].label} this point requires` : `below the ${DEPTH[req].label} this point requires`}
+    </div>
+    <button class="sai-covpop-link" data-goto="${pid}">Open the information point <i class="fa-solid fa-arrow-right"></i></button>`;
+
+  document.body.appendChild(pop);
+  const r = anchorEl.getBoundingClientRect();
+  pop.style.top  = (r.bottom + 7) + 'px';
+  pop.style.left = Math.max(10, Math.min(r.left - 8, window.innerWidth - 310)) + 'px';
+
+  $('[data-depth]', pop).addEventListener('change', e => {
+    const prev = tagOf(a, pid);
+    a.covers[pid] = { depth: e.target.value, state: 'adjusted', at: byId[pid].version };
+    closeCovPop();
+    renderActivityDoc(a.id);
+    renderValidations();
+    toast(`${p.title} → ${DEPTH[e.target.value].label}` +
+      (prev.state === 'confirmed' ? ' · SME confirmation cleared' : ''));
+  });
+  $('[data-goto]', pop).addEventListener('click', () => { closeCovPop(); jumpToNode(pid); });
+}
+function closeCovPop() { const el = $('#covPop'); if (el) el.remove(); }
+document.addEventListener('click', e => {
+  if (!e.target.closest('#covPop') && !e.target.closest('[data-covpop]')) closeCovPop();
+});
 
 function renderValidations() {
   const course = $('#validateCourse');
