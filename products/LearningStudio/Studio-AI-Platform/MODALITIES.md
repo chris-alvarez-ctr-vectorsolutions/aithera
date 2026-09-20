@@ -58,7 +58,31 @@ Settled. A modality discussion does **not** get to redesign these.
 | **Depth editing** | LED sets and adjusts depth here. **LED-side only** — SME confirmation is shown as state, never performed in-platform (SMEs are external bookends, D8) |
 | **Comments** | Activity-level — production feedback, retires with the activity (`MODEL.md`) |
 | **Drift** | Pinned point version and any drift severity surface here |
-| **Locks** | Any node or field may be **locked** (D32). A locked target refuses all writes — the AI's and the author's — until unlocked. A request that spans a lock reports and asks, never silently works around it |
+| **Locks** | Any node or field may be **locked** (D32). A locked target refuses all writes — the AI's and the author's — until unlocked. A request that spans a lock reports and asks, never silently works around it. **Built 2026-09-20** — see below |
+
+#### Locks, as built — 2026-09-20
+
+The addressing did the work. Every editable element on both surfaces already
+carried its own address (`data-afld` / `data-sfld`) for the write handlers, and
+that address **is** the lock's sub-target — so locks were added in one pass over
+the finished DOM rather than at ~30 field sites, and no field site was rewritten.
+
+Three things worth carrying to the next modality:
+
+- **Enforcement on the capture phase**, so the refusal lands before the field's
+  own handler and before contenteditable takes a keystroke. A lock that only
+  greys a field is a hint, not a lock.
+- **The AI refuses before any staged progress runs.** An author must not watch
+  three progress rows complete and then be told nothing moved.
+- **Card-group grain.** Much of a surface is repeated rows with no label to hang
+  a control from (a cast, key points, components). A padlock on each would be
+  noise, and *"lock character 2's disposition"* is not a decision anyone makes —
+  *"the cast is settled"* is. So a card locks as a group, still under node-id +
+  sub-target. **A new modality should pick its lock grain the same way: what
+  would an author say they had decided?**
+
+One thing D32 left open and the build did not answer: whether a lock records
+*why* it was set. Still additive, still deferrable.
 
 ### ~~Per-section traceability~~ → **activity-level tagging** — revised 2026-09-18, rejustified 2026-09-18
 

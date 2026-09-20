@@ -61,11 +61,14 @@ that make a coverage claim over generated content checkable, and an export that
 reports what it cannot carry. Audited against the reference editor in
 `PARITY.md`.
 
-**The model gained a lot this session:** the AI assistant as a modelled entity
-(D27–D29), manual locks (D32), the point library (D34), approval staleness
-(D41), beats (D42, D46), and Experience reachability (D47). `DECISIONS.md` runs
-to D47; `OPEN-QUESTIONS.md` has 17 of 20 closed, with the remaining three all
-blocked on deliberately-unbuilt work.
+**The model gained a lot in the 2026-09-20 session:** the AI assistant as a
+modelled entity (D27–D29), manual locks (D32), the point library (D34),
+approval staleness (D41), beats (D42, D46), and Experience reachability (D47).
+`DECISIONS.md` runs to D47; `OPEN-QUESTIONS.md` has 17 of 20 closed, with the
+remaining three all blocked on deliberately-unbuilt work.
+
+**Locks are now built** (D32) — the last fully-decided, wholly-unimplemented
+item on the list. See *What works*.
 
 See `MODALITIES.md` for per-modality status and `PARITY.md` for how the scenario
 surface compares to the production reference.
@@ -114,6 +117,13 @@ surface compares to the production reference.
   (D47)
 - **Export** — a preview of the projected document that reports what the
   projection cannot carry, rather than pretending the loss away
+- **Locks (D32)** — lock the activity or any field; a locked target refuses
+  **all** writes, the AI's and the author's. Enforcement is real
+  (`contenteditable=false` on the capture phase), not styling. A partly-locked
+  node makes the AI **report and ask** — *"2 parts are locked. Regenerate the
+  rest, or unlock first?"* — rather than silently working around it. Locks key
+  on the node id, so they survive every repaint. First real consumer of
+  `capabilities`: a locked node answers `['comment']`
 
 Everything is in-memory. Reload resets. **That is a prototype limitation, not
 the model** — the platform is a design surface with its own version control,
@@ -126,8 +136,6 @@ detailed versioning and gates anything reaching live services (D31).
   D7). Importing one from the library works; authoring one does not.
 - **Four modalities** — podcast, knowledge check, job aid, reflection.
 - **Compose** — replies in chat; no arrangement surface.
-- **Locks** (D32) — decided in full, implemented nowhere. A `.sai-fld-txt.locked`
-  style exists and nothing applies it; that is the whole of it.
 - **The learner preview** (D44) — a button that says where it would go.
 - **Persistence** — in-memory by design here; the pipeline owns it (D31).
 
@@ -155,9 +163,18 @@ Current state, all measured:
 | Interaction editor | 35 |
 | Rehearsal bubble | 24 |
 
-The Interaction editor and rehearsal bubble read **low**, not high — they are
-the two-column stage and were left alone this pass. If anything wants attention
-next, it is those two, and the fix is width, not type size.
+The Interaction editor and rehearsal bubble read **low**, not high. This was
+chased in the following pass and the conclusion is *not* the obvious one:
+widening the bubble cap does not fix it. A long coach turn reads 39 chars/line
+at 88% and at 94%, and testing 100% reached only 33 on real content. The cause
+is 13px type in a ~400px column, and most turns are short conversational lines
+that never fill one.
+
+**So the remaining fix is a layout decision, not a number.** The stage would
+need more of the Interaction split — but the editor beside it is at 35 and
+wants width too, and the two columns are a *reference relationship* the user
+asked to keep side by side. Whoever takes this should treat it as "how is the
+split divided", not "raise a max-width".
 
 **`.sai-` class collisions have now bitten three times** — `.sai-sub` (the
 sub-range prompt target), `.sai-turn` / `.sai-bubble` (the chat rail's), and
@@ -166,6 +183,13 @@ phase-rail button and rendering as a full-width flex row inside a sentence.
 That third one broke a *mechanism*, not a measurement, and had been visible in
 every screenshot since the scenario rail landed. **Check for an existing rule
 before naming a new one** — and state `display` explicitly on an inline token.
+
+**The rehearsal now has its own visual register** (2026-09-20) — teal chrome
+on a ground *darker* than the editor, so it reads as a stage you look into
+rather than a second chat panel. Two rules if you touch it: `--sai-accent` is
+the platform's "you are editing this" signal and must not leak in here, and
+every colour in that container was contrast-checked (all AA) — re-check rather
+than eyeball if you change the ground.
 
 **Coverage and Close are no longer the thinnest stages.** That note was stale:
 Coverage carries the id-join notice, per-point depth controls, beats, approval

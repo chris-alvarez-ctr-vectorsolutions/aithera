@@ -849,6 +849,29 @@ button.**
 the discussion, or nothing). Worth a field if locks are meant to carry
 "discussed and decided," but it is additive and can wait for the surface.
 
+### Built — 2026-09-20
+
+Implemented on both the scenario and video surfaces, as specified above: the
+activity or any field, all writes refused, the partly-locked report with both
+choices offered, and `capabilitiesOf()` returning `['comment']` for a locked
+node — the `capabilities` seam's first real consumer, as this entry predicted.
+
+Two notes from building it that the decision did not anticipate:
+
+- **The addressing claim held literally.** "Locks use the existing addressing"
+  turned out to mean no field site needed touching at all — every editable
+  element already carried its address for the write handlers, so both the
+  controls and the enforcement went in as one pass over the rendered DOM.
+- **A third grain appeared, and it is the useful one.** D32 says "any node or
+  field". In practice much of a surface is repeated rows with no label — a
+  cast, a list of key points — where per-row locks would be noise and nobody
+  would use them. Those lock as a **card group** under a synthetic sub-target,
+  which is still node-id-plus-sub-target. The rule that fell out: a lock's
+  grain should match **what an author would say they had decided**, not the
+  shape of the data underneath.
+
+Still not decided: whether a lock records why it was set.
+
 ---
 
 ## D33 · Preview a probabilistic artifact by rerolling, not by showing one sample
