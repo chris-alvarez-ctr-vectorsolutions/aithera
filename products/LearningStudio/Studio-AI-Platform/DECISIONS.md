@@ -517,17 +517,42 @@ contextual AI assistant per project. For a scenario, a coach persona makes
 sense. For different modalities, the AI assistant is likely to take on different
 personas but the context is the same."*
 
-**Consequence for the fold-in:** the Scenario Simulator holds `coach_persona`
-per scenario document, because a standalone document has no project to inherit
-from. Here it is **projected down** from the project's assistant, the same way
-`teaching_points` will be projected from the information set rather than
-retyped. Two fields, one pattern: what a standalone document must carry inline,
-this platform derives from the layer above.
+**Corrected 2026-09-19.** This entry first said the persona is *"projected
+down"* from the project — inherited, read-only at the activity. **That was an
+over-tightening of what was actually said.** The user's words were *"the AI
+assistant is likely to take on different personas"* — the persona **varies**;
+only the context is constant.
 
-**Rejected:** per-activity persona as the source of truth. Across a library of
-activities derived from one information set, independently authored personas are
-drift waiting to happen — and there is no mechanism that would detect it, since
-nothing joins them.
+Per the user (2026-09-19): *"isn't this an instance of an activity determining
+what persona the project assistant takes?"* — yes. **The activity determines the
+persona**, because the persona follows from what the activity asks the learner to
+do. That is D28's rule already: the assistant's **goal** derives from what the
+learner must do to complete the activity, and the persona is how that goal is
+depicted.
+
+So the direction of authority is:
+
+| | Owner | Varies by |
+|---|---|---|
+| **Context** — what the assistant knows | the **project** (its information set) | nothing; constant across the project |
+| **Goal + persona** — what it is for, and the face it wears | the **activity** | every activity |
+
+The project's assistant supplies the **through-line** — a recognisable
+disposition a learner meets across the whole project — and each activity casts
+it for the job at hand: a coach in a scenario, a narrator in a video, a host in a
+podcast. Not one fixed voice, and not a free-for-all either.
+
+**Consequence for the fold-in:** the Scenario Simulator holds `coach_persona` per
+scenario document, which is **structurally right and stays that way here**. What
+changes is only that it is no longer authored in a vacuum — it is cast against a
+project assistant that already exists, so the surface shows what it is varying
+*from*.
+
+**Rejected:** a persona authored with **no project-level referent at all** —
+which is the reference tool's position, forced on it by being standalone. Across
+a library of activities from one information set, wholly independent personas are
+drift waiting to happen, and nothing would detect it. The project assistant is
+what they vary *from*; it is not a value they merely inherit.
 
 ---
 

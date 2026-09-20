@@ -981,6 +981,49 @@ calibration, which is beyond what today's player affords an authoring tool. Per
 D31 and the video-rendering precedent, that is **the case being made**, not a
 constraint to design around — the same posture as the compositing canvas.
 
+##### The phase spine — building a scenario has stages
+
+**Added 2026-09-19**, after the first build collapsed the whole surface into
+step-editing plus a cast strip. Per the user: *"this is missing a layer of
+navigation… there are multiple stages of building a scenario past the actual
+interaction. Setting up context, creating the world and characters, the
+interaction, the summary or results/follow up."*
+
+The reference editor's own note says why, and it is the right reason: *"authors
+work one phase at a time (a stepper they can also jump around), so a phase-level
+decision is presented at its own altitude instead of buried in one long
+scroll."*
+
+Five stages, each a different **kind** of decision:
+
+| | Stage | What it settles |
+|---|---|---|
+| 1 | **Situation & world** | the setting every step shares, and the cast |
+| 2 | **Coverage** | which information points this satisfies, and how deeply |
+| 3 | **Interaction** | the steps — the only stage with a rehearsal |
+| 4 | **The coach** | how this activity casts the project's assistant |
+| 5 | **Close** | what every learner leaves with, whatever path they took |
+
+Two differ from the reference, and both differences are the platform:
+
+- **Teaching → Coverage.** The reference *authors* teaching points inline. Here
+  they are **referenced** from the information set — the id-join — so the page
+  is a declaration of what this activity satisfies, not a place to write the
+  subject. It carries an explicit notice saying so, with a route to the
+  information set.
+- **Voice & Tone → The coach.** Not a persona invented per scenario, and not one
+  inherited read-only either. The page shows **context as project-owned** and
+  lets the activity **cast** the persona (D27, corrected) — because the persona
+  follows from what the activity asks the learner to do.
+
+**Only Interaction shows the rehearsal**, because it is the only stage with a
+conversation to rehearse. The others are authored content, so their centre
+column is the authoring page itself. Interaction splits: step editor left,
+rehearsal right.
+
+**Each phase carries its own completeness dot**, computed from the same blockers
+the render gate uses — so "not ready" is *navigable* rather than merely true.
+
 ##### What the design must still resolve
 
 Not framework questions — build questions, to settle when the surface is designed:

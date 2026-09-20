@@ -220,9 +220,13 @@ The goal then applies its evidence rules on top.
 
 ## The AI assistant
 
-A Learning Project carries **one assistant**. Each modality renders its own
-**depiction** of it — a scenario's coach, a video's narrator, a podcast's host.
-The context is constant; the face changes (D27).
+A Learning Project carries **one assistant**, and each **activity casts it** for
+the job at hand — a scenario's coach, a video's narrator, a podcast's host. The
+**context is constant; the persona varies** (D27).
+
+The project supplies the through-line, so a learner meets a recognisable
+disposition across the whole project. The activity determines the persona,
+because the persona follows from what that activity asks the learner to do.
 
 ### Two halves, and a wall between them
 
@@ -232,7 +236,7 @@ reason (D28):
 | | Context — passed to generation | Directive — walled off |
 |---|---|---|
 | **Information point** | the five-section document | usage guidelines |
-| **AI assistant** | the points it covers | the assistant's **goal** |
+| **AI assistant** | the points it covers *(project)* | the assistant's **goal** and persona *(activity)* |
 
 **Context is derived, never authored.** The assistant knows the subject because
 it holds the points; there is no subject summary to write, and therefore none to
