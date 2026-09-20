@@ -779,6 +779,88 @@ learner acts, and the calibration says what counted. D15 still holds — format
 **suggests**, never determines. A shallow two-step scenario is Awareness work,
 and saying "scenario" does not make it Mastery.
 
+##### How this compares to the reference editor
+
+Asked 2026-09-19, before building. The honest summary: **the body is nearly
+identical; the surface around it is not.**
+
+**Same — and deliberately so.** Everything about what a scenario *is*:
+
+| | Reference | Ours |
+|---|---|---|
+| Body unit | phase = practice + debrief | **same** |
+| Practice fields | mode, purpose, exit gate, transition, interaction | **same** |
+| Modes | `coach_inquiry` · `roleplay` · `observe_react` | **same** |
+| Debrief | first-class turn-owning unit; `follow_up_turns: 0` default | **same** |
+| Calibration | `look_for` / `response` per level | **same** |
+| Levels | poles required, middle optional | **same** |
+| Shape | sequence; `carryover` binds by id | **same** |
+| Characters | identity + disposition, shared across steps | **same** |
+| Steps in a rail | list with add / move / duplicate / remove | **same** |
+| Delete repairs refs | prunes carryover, reports the count | **same** (and it is where D26 came from) |
+| Done | validation with human-readable blockers | **same** |
+
+That is not incidental overlap — it is the fold-in working as intended. Their
+format is the organization's answer to *what a scenario simulation is*, and we
+adopted it wholesale rather than inventing a parallel vocabulary.
+
+**Different — and this is the entire argument for the platform.**
+
+**1. The join to information points.** The largest difference by far. Their
+editor has **no concept of coverage, depth, or an information point** —
+`grep -c "coverage\|depth\|information_point" js/studio-shell.js` returns
+**0**. Their `teaching_points` are inline strings authored inside the scenario,
+matched to a step by **string-comparing the step's label to a topic name**, which
+their own validator flags as fragile.
+
+Ours are **references to points that live above the activity**, carrying depth,
+provenance and a pinned version. Everything downstream follows from that one
+change: coverage validation, the threshold check, drift, and transmute. None of
+it is expressible in their document.
+
+**2. What the author starts from.** Theirs starts from a blank document or a
+template and writes a self-contained scenario. Ours starts from an information
+set that already exists, and the scenario is **derived** from it. Their author is
+a content designer who knows the subject; ours is an LED who does not (D8).
+
+**3. AI's role.** Theirs has a **wizard** — a staged, front-loaded interview that
+produces a draft, after which editing is manual. Ours has a **persistent
+assistant** addressable at any node or field at any time (D30), plus **locks** to
+fence off what is settled (D32). Different shape entirely: theirs generates *then*
+gets out of the way; ours stays.
+
+**4. Scope.** Theirs is one modality, standalone, producing a file. Ours is one
+modality among six inside a platform where the same points also become a video, a
+podcast, a job aid — and where an **output** validates the whole set against a
+goal. Their scenario has nowhere to belong; ours belongs to a project.
+
+**5. The prompt is not our surface.** Their inspector's primary tab is the
+**compiled prompt**, with authored-vs-locked highlighting — it is the best
+debugging tool their team has, and their own notes say it is becoming a
+permission rather than a feature as customer authoring approaches. We inherit no
+equivalent, and should not: our author is further from the model, and the
+assistant is a modelled entity (D27–D29) rather than a prompt to inspect.
+
+**What we drop from their surface**, and why — each is a *deliberate* omission,
+not an oversight:
+
+- **The compiled-prompt tab** — see above.
+- **Publish / export / import / draft-library chrome** — a publish pipeline owns
+  this (D31); the design surface should not carry a second set of the same
+  actions. Notably their integration build already **hides exactly these bars**
+  for the same reason.
+- **The Say/Do split and Playtest tabs** — genuinely useful, and genuinely
+  theirs; both are runtime-verification tools that belong wherever the scenario
+  is played, not in the authoring layer.
+- **The eight named scenario types** — already collapsed by their own format
+  ("there is no type field"); we inherit the collapse, not the history.
+
+**Net:** we are building **their body inside a different building.** If a content
+designer who uses their editor sat down at ours, the step editor would feel
+familiar and the rest of the screen would not — the coverage panel, the depth
+tags, the assistant, and the fact that the teaching points are not theirs to
+write would all be new.
+
 ##### What the design must still resolve
 
 Not framework questions — build questions, to settle when the surface is designed:
