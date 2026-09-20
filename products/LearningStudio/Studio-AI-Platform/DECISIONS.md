@@ -1173,3 +1173,119 @@ mechanism should be defined once rather than per modality.
 **Revises Q11's framing.** I had posed it as *"a long activity is hard for an SME
 to falsify"* and offered review-time aids. Length was the wrong axis: a **short**
 generated activity has the same problem, and a **long** static one does not.
+
+---
+
+## D43 · An information-set change recomputes and reports — the same treatment as drift
+**2026-09-20** · resolves **Q2**
+
+**Decided:** adding or removing an information point **recomputes every affected
+output and shows what changed**. Nothing blocks, nothing is silently repaired.
+
+- **Add a point** → every output re-evaluates against the new set. An output that
+  was complete and now is not says so, naming the point nothing covers.
+- **Remove a point** → activities carrying a tag to it are reported as orphaned,
+  and the tags are cleared on request rather than behind the author's back.
+
+**Why (user):** *"Recompute and show — same as drift."* And that consistency is
+the argument. The platform already answers every "something moved underneath
+this" question the same way: compute it, surface it, let a human decide whether
+it matters (D19 for point versions, D41 for approvals, D42 for beats). A set
+change is the same event at a different altitude, and inventing a fourth
+mechanic for it would be the odd choice.
+
+**Why it does not block.** Q2 called this *"the most likely real-world event in
+the whole system"* — which is precisely the argument *against* gating it. A
+platform that halts on its most common event is a platform people route around.
+An output dropping from 6/6 to 6/7 is information, not an error.
+
+**Removal is reported, not auto-pruned** — deliberately unlike a step deletion
+(D26), which prunes carryover immediately. The difference: a carryover names a
+step *inside the same activity*, so its author is present and the repair is
+local. A point removal reaches into **activities somebody else may own**, and
+silently editing their coverage claims is exactly the kind of invisible change
+D30's discussion ruled against.
+
+**Related:** `MODEL.md` already gives a point a `lifecycle` (`current` /
+`archived`), and archiving is the softer path — the tag survives and is flagged
+critical rather than orphaned. Whether hard removal should exist at all is worth
+asking when information authoring is built (D7).
+
+---
+
+## D44 · Rehearsal is a targeted preview; an output previews in a real player
+**2026-09-20** · resolves **Q8**
+
+**Decided:** **yes**, authors need to preview traversal — and it is **two
+different things**, which this had conflated:
+
+| | What it is | Where |
+|---|---|---|
+| **Rehearsal** (built) | a *targeted* preview — one step, one calibration, rerolled to see the spread | inside the authoring surface |
+| **Learner preview** (not built) | the real thing, as a learner meets it | **a new tab or window, in the media player UI** |
+
+**User's framing:** *"Rehearsal is a targeted preview, but all outputs should
+have a way to externally preview what the learner will see and simulate as a
+learner. This likely spawns a new tab/window with our media player UI so it's a
+realistic preview."*
+
+**Why the split matters.** Rehearsal deliberately shows its workings — level
+tags, reroll controls, the verbatim/guidance badges. That is what makes it an
+authoring instrument (D33), and it is exactly what disqualifies it as a
+representation of the learner's experience. A preview that shows the scaffolding
+is not a preview.
+
+So the learner preview is **not a mode of the authoring surface**. It leaves —
+new tab, real player chrome, no authoring affordances. The reference tool reached
+the same conclusion by a different route: its "Preview as learner" opens the
+player, and it deliberately collapsed two separate actions into one because doing
+them in the wrong order silently showed the wrong content.
+
+**Scope: all outputs, not just scenarios.** A Course and an Experience both need
+it, and the Experience needs it most — its traversal is generated, so the only
+way to see what a learner meets is to be one. With beats (D42), that walk is
+*checkable* rather than impressionistic: it can report which points were reached
+and whether every beat fired.
+
+**Not built.** It needs a player, which is out of scope here. Recorded so the
+authoring surface leaves room for it rather than growing a half-version of it
+internally.
+
+---
+
+## D45 · Tagging at scale is managed by scoping activities, not by a bulk tool
+**2026-09-20** · resolves **Q10**
+
+**Decided:** AI proposes tags for an LED to review (which D16's provenance model
+already supports), and the volume stays manageable because **activities are
+scoped to a small information set** — one an author can expect a learner to
+actually learn and retain.
+
+**User's framing:** *"A combination of the AI proposing so the LED can review,
+but also that activities' best practice is to scope them to a smaller info set
+that can be learned and retained. Also not to have several activities that repeat
+info in different ways. I'm not too concerned with an unreasonable matrix
+spawning from the info points."*
+
+**Why this dissolves the question rather than answering it.** Q10 imagined 40
+points × 30 activities as 1,200 decisions. That is a **grid**, and the model is
+not a grid — an activity covers the points it covers, typically few. The scale
+problem was an artifact of picturing a matrix where the real structure is a
+sparse set of deliberate claims.
+
+Two authoring norms keep it that way, and both are pedagogy rather than tooling:
+
+- **Scope an activity to what can be learned and retained.** An activity claiming
+  fifteen points is a design problem before it is a tagging problem.
+- **Do not build several activities that repeat the same information differently.**
+  Redundant coverage is the thing that would inflate the tag count, and it is
+  already bad practice for its own reasons.
+
+**Consequence:** no bulk-review surface is planned. If a real project produces
+enough tags that review becomes a burden, that is evidence the activities are
+scoped wrongly — a signal worth surfacing rather than a volume worth tooling
+around.
+
+**Kept from the original question:** AI proposal with LED review is still the
+creation path, and `proposed` / `adjusted` / `confirmed` (D16) is still what makes
+a guess distinguishable from a judgment.

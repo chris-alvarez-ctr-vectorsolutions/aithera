@@ -35,7 +35,15 @@
 - **Q12** (activity content moving) → **D41.** Staleness is computed and shown;
   re-approval is always human.
 
-**Thirteen of eighteen closed** (Q3 too — D41 and D42 answer it directly). What remains is one cluster (Q1/Q2/Q3 — the
+**Sixteen of eighteen closed.** A second pass the same day took **Q2 → D43**
+(recompute and report), **Q8 → D44** (rehearsal is targeted; a learner preview
+opens the real player), and **Q10 → D45** (scope activities, don't build a bulk
+tool).
+
+**Left open:** **Q1** (narrowed to the delta-review *flow*, deferred with D7),
+**Q9** (decompose's hard case — sharpened by D34: it gets easier as the library
+grows), and two raised by the answers themselves — **Q19** (does the library
+notice divergence) and **Q20** (what counts as a beat outside a scenario). What remains is one cluster (Q1/Q2/Q3 — the
 update-review flow, deferred with D7), three explicitly deferred (Q8/Q9/Q10), and
 two new ones raised by the answers (**Q19**, **Q20**).
 
@@ -92,15 +100,18 @@ working one.
 
 ---
 
-### Q2 · What happens when the information set changes after outputs exist?
-*(part of the Q1 conversation)*
+### ~~Q2 · What happens when the information set changes after outputs exist?~~
+**RESOLVED 2026-09-20 → D43.** Recompute and report — the same treatment every
+other "something moved underneath this" question gets (D19, D41, D42). Adding a
+point re-evaluates every output and names what nothing covers; removing one
+**reports** orphaned tags rather than pruning them, because a point removal
+reaches into activities somebody else may own. Nothing blocks: this was called
+the most likely event in the whole system, which is the argument against gating
+it.
 
-Add a seventh point and every existing output silently becomes incomplete.
-Remove one and activities carry tags to nothing.
-
-Is that a notification, a blocking state, a diff, a re-validation prompt? This
-is the **most likely real-world event** in the whole system and it is currently
-unmodelled — the validation engine assumes a static set.
+**Built:** a set-change banner on the information layer, point removal that says
+how many activities still claim the point, explicit orphan clearing, and an
+orphaned coverage dot so the state is visible on the activity card too.
 
 ---
 
@@ -317,29 +328,41 @@ exist. Reporting on data nobody can create or correct is a dead end.
 
 ## Safely deferred
 
-### Q8 · Learner-side runtime
-Everything built is the authoring surface. The Experience's traversal rules and
-"covered to threshold" completion imply a runtime evaluating learner results
-against the information set.
+### ~~Q8 · Learner-side runtime~~
+**RESOLVED 2026-09-20 → D44.** Yes — and it is *two* things, which this had
+conflated. **Rehearsal** is a targeted preview inside the authoring surface and
+deliberately shows its workings, which is exactly what disqualifies it as a
+representation of the learner's experience. A **learner preview** leaves: a new
+tab or window running the real media player, for any output.
 
-Not needed for an authoring UX pass. **But:** if authors need to *preview* or
-*test* traversal, that's a mode the UI must accommodate — worth a yes/no even if
-the runtime itself is far off.
+The runtime itself stays out of scope. A stub button is in place so the
+authoring surface leaves room for it rather than growing a half-version
+internally.
 
 ### Q9 · Decompose's hard case
-Breaking a course into activities is easy when activities are already tagged.
-The real migration case is a **legacy course with no information points** —
-extraction has to invent them.
+**Still open.** Breaking a course into activities is easy when activities are
+already tagged. The real migration case is a **legacy course with no information
+points** — extraction has to invent them.
 
 Depends on the deferred 0→1 workflow (D8). Decompose needs it more than compose
 does.
 
-### Q10 · Depth tagging at scale
-Six points × six activities is 36 potential tags, and it's hand-authorable. A
-real project might be 40 points × 30 activities. How tags get created and
-maintained at that volume is unaddressed — AI proposal helps, but bulk review
-and confirmation is its own UX problem.
+**Sharpened 2026-09-20 by D34:** the library gives extraction somewhere to land.
+A legacy course decomposed against an existing library of forklift points is a
+*matching* problem, which is tractable; against nothing it is an authoring
+problem, which is not. So decompose gets easier as the library grows — and the
+first decompose is the hardest one.
 
+### ~~Q10 · Depth tagging at scale~~
+**RESOLVED 2026-09-20 → D45.** The question imagined a 40 × 30 grid; the model is
+not a grid. AI proposes tags for an LED to review (D16's provenance model already
+supports this), and volume stays manageable because activities are **scoped to
+what a learner can actually retain** and are not built to repeat the same
+information several ways. Both are pedagogy rather than tooling.
+
+No bulk-review surface planned. If review becomes a burden, that is evidence the
+activities are scoped wrongly — a signal worth surfacing rather than a volume
+worth tooling around.
 ---
 
 ## Known unbuilt (not questions — just not built yet)

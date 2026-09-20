@@ -996,6 +996,25 @@
   /* The beat that guarantees a point (D42). Static content needs none — every
      learner gets the same bytes. Generated content does, because a tag over it
      is a claim about a distribution rather than about text. */
+  /* A set change, reported (D43). Advisory — recomputation is automatic,
+     repair is not. */
+  .sai-info-node:hover .sai-rowact { opacity: 1; }
+
+  .sai-setchange {
+    display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px;
+    padding: 11px 13px; border-radius: 6px; font-size: 11.5px; line-height: 1.55;
+    background: var(--sai-warn-soft); border: 1px solid var(--sai-warn);
+    color: var(--sai-warn);
+  }
+  .sai-setchange i { font-size: 12px; margin-top: 2px; }
+  .sai-setchange b { color: var(--sai-ink); }
+  .sai-setchange-act {
+    font-family: inherit; font-size: 10.5px; font-weight: 600; cursor: pointer;
+    background: none; border: 1px solid currentColor; border-radius: 3px;
+    padding: 2px 8px; color: inherit; margin-left: 6px;
+  }
+  .sai-setchange-act:hover { background: var(--sai-warn); color: var(--sai-bg); }
+
   .sai-beat {
     display: flex; align-items: center; gap: 7px; margin-top: 7px;
     padding: 6px 9px; border-radius: 4px; font-size: 10.5px; line-height: 1.45;
@@ -1860,6 +1879,11 @@
     background: var(--sai-danger); box-shadow: 0 0 0 1.5px var(--sai-surface-2);
   }
   .sai-cover-dot { position: relative; }
+  /* A tag whose point left the set. Visible as a problem, not hidden. */
+  .sai-cover-dot.orphan {
+    background: var(--sai-warn-soft); color: var(--sai-warn);
+    border: 1px dashed var(--sai-warn); cursor: help;
+  }
 
   .sai-pill.sai-ver {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -2427,6 +2451,7 @@
             <div style="font-size:11.5px;color:var(--sai-ink-2)">5 of 6 fully covered</div>
           </div>
 
+          <div id="infoChange"></div>
           <div class="sai-info-list" id="infoList"></div>
           <div id="infoLib" style="margin-top:12px"></div>
         </section>
@@ -3526,6 +3551,32 @@ function renderInformation() {
      propagate through. An SME is scoped to a project; the library is what
      accumulates as projects finish. */
   const free = LIBRARY.filter(l => !MODEL.information.some(p => p.libraryId === l.id));
+  /* D43 — a set change recomputes every output and REPORTS what moved. Adding
+     a point can leave an output short; removing one orphans tags. Both are
+     surfaced here rather than discovered later. */
+  const orphans = orphanTags();
+  const uncovered = MODEL.information.filter(p =>
+    !MODEL.activities.some(a => (a.covers || {})[p.id]));
+
+  const banner = $('#infoChange');
+  if (banner) banner.innerHTML = (orphans.length || uncovered.length) ? `
+    <div class="sai-setchange">
+      <i class="fa-solid fa-arrows-rotate"></i>
+      <div style="flex:1 1 auto">
+        <b>The set changed — everything below it was recomputed.</b>
+        ${uncovered.length ? `<div style="margin-top:4px">
+          ${uncovered.length} point${uncovered.length > 1 ? 's are' : ' is'} covered by no activity —
+          ${uncovered.map(p => p.title).join(', ')}. Any output claiming completeness is now short.
+        </div>` : ''}
+        ${orphans.length ? `<div style="margin-top:4px">
+          ${orphans.length} coverage tag${orphans.length > 1 ? 's' : ''} name a point that is no longer
+          in the set. They are left alone until you say otherwise — clearing them edits
+          activities you may not own.
+          <button class="sai-setchange-act" data-clearorphans="1">Clear them</button>
+        </div>` : ''}
+      </div>
+    </div>` : '';
+
   const lib = $('#infoLib');
   if (lib) lib.innerHTML = `
     <button class="sai-add" data-libopen="1">
@@ -3578,6 +3629,10 @@ function renderInformation() {
               ${p.libraryId ? `<span class="sai-pill" title="Imported from the point library — a copy this project now owns"
                 style="background:var(--sai-info-soft);color:var(--sai-info)">
                 <i class="fa-solid fa-book"></i>from ${p.fromProject}</span>` : ''}
+              <span class="sai-rowact" style="margin-left:auto">
+                <button class="sai-iconsm danger" data-pointdel="${p.id}"
+                  title="Remove from this project's set"><i class="fa-solid fa-trash"></i></button>
+              </span>
               ${p.verified
                 ? '<span class="sai-pill verified"><i class="fa-solid fa-circle-check"></i>Verified</span>'
                 : '<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)"><i class="fa-solid fa-clock"></i>Awaiting SME</span>'}
@@ -3626,6 +3681,11 @@ function renderActivities() {
             <div class="sai-activity-cover">
               <span class="sai-cover-label">covers</span>
               ${Object.keys(a.covers).map(cid => {
+                /* An ORPHANED tag — the point left the set (D43). A real state
+                   now, not an impossible one, so it renders as itself rather
+                   than assuming the point resolves. */
+                if (!byId[cid]) return `<span class="sai-cover-dot orphan" data-orphan="${cid}"
+                  title="This tag names ${cid}, which is no longer in the information set.&#10;Left alone until someone clears it — see the information layer.">?</span>`;
                 const t = tagOf(a, cid);
                 const idx = MODEL.information.findIndex(p => p.id === cid) + 1;
                 const drift = t.drift ? ` drift-${t.drift}` : '';
@@ -4137,12 +4197,22 @@ function renderActivityDoc(id) {
             blockers.length
               ? (a.steps ? 'Not ready to publish' : 'Not ready to render')
               : (a.steps ? 'Ready to publish'     : 'Ready to render')}</span>
-          <button class="sai-btn ${blockers.length ? '' : 'primary'}" style="margin-left:auto">
-            <i class="fa-solid fa-wand-magic-sparkles"></i>
-            ${blockers.length
-              ? (a.steps ? 'Complete & Publish' : 'Complete & Render')
-              : (a.steps ? 'Publish' : 'Render')}
-          </button>
+          <span style="margin-left:auto;display:flex;gap:7px">
+            <!-- D44 — rehearsal is a TARGETED preview and deliberately shows its
+                 workings (level tags, reroll, verbatim badges). That is what
+                 disqualifies it as a representation of the learner's
+                 experience, so this leaves: new window, player chrome, no
+                 authoring affordances. -->
+            <button class="sai-btn" data-learnerpreview="1">
+              <i class="fa-solid fa-play"></i>Preview as learner
+            </button>
+            <button class="sai-btn ${blockers.length ? '' : 'primary'}">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              ${blockers.length
+                ? (a.steps ? 'Complete & Publish' : 'Complete & Render')
+                : (a.steps ? 'Publish' : 'Render')}
+            </button>
+          </span>
         </div>
         ${blockers.length
           ? blockers.map(b => `<div class="sai-gate-blocker"><i class="fa-solid fa-circle"></i>${b}</div>`).join('')
@@ -4160,6 +4230,15 @@ function renderActivityDoc(id) {
   switchLayer('activity-detail');
   $('#layerName').textContent  = a.modality + ' activity';
   $('#layerCount').textContent = a.title;
+
+  const lp = $('#activityDoc [data-learnerpreview]');
+  if (lp) lp.addEventListener('click', () => {
+    /* Deliberately a stub. It needs the media player, which is out of scope
+       here — and building a half-version inside the authoring surface is
+       exactly what D44 rules against, since a preview that shows the
+       scaffolding is not a preview. */
+    toast('Opens in the player — a real learner view, not this surface');
+  });
 
   $('#actBack').addEventListener('click', () => {
     openActivity = null; activeScene = null;
@@ -7923,6 +8002,21 @@ function wireLibrary() {
 /* Stamp every confirmed coverage tag with the content it is approved over, so
    the prototype starts in a consistent state rather than reporting staleness
    that never happened (D41). A real build would do this at approval time. */
+/* Coverage tags naming a point that is no longer in the information set (D43).
+   Computed and REPORTED — never auto-pruned, because a point removal reaches
+   into activities somebody else may own, and silently editing their coverage
+   claims is the kind of invisible change this platform rules against. */
+function orphanTags() {
+  const live = new Set(MODEL.information.map(p => p.id));
+  const out = [];
+  MODEL.activities.forEach(a => {
+    Object.keys(a.covers || {}).forEach(pid => {
+      if (!live.has(pid)) out.push({ activity: a, pointId: pid });
+    });
+  });
+  return out;
+}
+
 function stampApprovals() {
   MODEL.activities.forEach(a => {
     if (!a.steps) return;
@@ -7935,9 +8029,37 @@ function stampApprovals() {
   });
 }
 
+/* Removing a point recomputes everything below it. Tags naming it are left
+   alone and REPORTED — clearing them edits activities the author may not own
+   (D43). */
+function wireSetChange() {
+  $$('[data-pointdel]').forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    const pid = el.dataset.pointdel;
+    const pt = byId[pid];
+    const carriers = MODEL.activities.filter(a => (a.covers || {})[pid]).length;
+    MODEL.information = MODEL.information.filter(p => p.id !== pid);
+    delete byId[pid];
+    renderAll();
+    toast(carriers
+      ? `Removed — ${carriers} activit${carriers > 1 ? 'ies' : 'y'} still claim${carriers > 1 ? '' : 's'} it`
+      : 'Removed from the set');
+  }));
+
+  const co = $('[data-clearorphans]');
+  if (co) co.addEventListener('click', e => {
+    e.stopPropagation();
+    const orphans = orphanTags();
+    orphans.forEach(o => { delete o.activity.covers[o.pointId]; });
+    renderAll();
+    toast(`${orphans.length} orphaned tag${orphans.length > 1 ? 's' : ''} cleared`);
+  });
+}
+
 function renderAll() {
   renderInformation();
   wireLibrary();
+  wireSetChange();
   renderActivities();
   renderSequence();
   renderWeb();
