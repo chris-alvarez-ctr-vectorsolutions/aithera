@@ -137,17 +137,39 @@ detailed versioning and gates anything reaching live services (D31).
 
 ## Picking up the visual pass
 
-The scenario surface was measured rather than eyeballed, and the numbers are in
-`MODALITIES.md`: the editor reads at **78 characters per line** and a rehearsal
-bubble at **55**, against a comfortable range of 45–75. Both were well under
-before the layout pass. Worth re-measuring rather than re-deciding if the layout
-changes again.
+A second visual pass ran **2026-09-20**; details in `MODALITIES.md` under
+*Measure, the parts the first pass missed* and *The third collision*.
 
-Two known rough edges a visual pass would meet first:
+**Measure the block, not a line.** Every reading width in these documents is an
+average of characters per line over a whole block. Sampling one rendered line
+reports the *longest* line and overstates by 20–40%, which is how the last pass
+briefly capped things that were fine. Comfortable range is 45–75.
 
-- **Coverage and Close are the thinnest stages.** Coverage is a list of rows;
-  Close is three stacked cards and the export.
-- **`.sai-` class collisions have bitten twice** — `.sai-sub` (the sub-range
-  prompt target) and `.sai-turn` / `.sai-bubble` (the chat rail's). The scenario
-  surface's own styles are scoped under `.sai-reh` where they overlap. Check for
-  an existing rule before naming a new one.
+Current state, all measured:
+
+| Surface | chars/line |
+|---|---|
+| Point document | 75 |
+| Card note, one-column stage | 71 |
+| Field, one-column stage | 49 |
+| Interaction editor | 35 |
+| Rehearsal bubble | 24 |
+
+The Interaction editor and rehearsal bubble read **low**, not high — they are
+the two-column stage and were left alone this pass. If anything wants attention
+next, it is those two, and the fix is width, not type size.
+
+**`.sai-` class collisions have now bitten three times** — `.sai-sub` (the
+sub-range prompt target), `.sai-turn` / `.sai-bubble` (the chat rail's), and
+`.sai-ph`, where the video pronunciation token was inheriting the scenario
+phase-rail button and rendering as a full-width flex row inside a sentence.
+That third one broke a *mechanism*, not a measurement, and had been visible in
+every screenshot since the scenario rail landed. **Check for an existing rule
+before naming a new one** — and state `display` explicitly on an inline token.
+
+**Coverage and Close are no longer the thinnest stages.** That note was stale:
+Coverage carries the id-join notice, per-point depth controls, beats, approval
+staleness and misconceptions; Close carries the verbatim summary, the expert
+answer, source references and the export. Both are substantial. If a stage
+wants work now it is **Framing**, which is three cards and a read-only
+document id.

@@ -1130,6 +1130,63 @@ The second silently capped rehearsal bubbles at the chat rail's 88%. Rehearsal
 turn styles are now scoped under `.sai-reh`, and the layout suite asserts the
 chat rail is unchanged.
 
+*(A **third** turned up in the next pass, and it broke a mechanism rather than
+a measurement — see below.)*
+
+##### Measure, the parts the first pass missed — 2026-09-20
+
+The 2026-09-19 pass above measured **Interaction** and stopped there. That is
+the two-column stage, so its editor was already boxed and the numbers looked
+healthy. Nothing had ever measured the **one-column** stages, or the point
+document, and both were running unbounded.
+
+**Measure the block, not a line.** The first attempt at this used the first
+rendered line of a sample element, which reports the *longest* line rather than
+the typical one — it read 124/145 where the block average was 101, and sent the
+fix down a wrong path (capping fields and the page, which starved short fields
+and left cards with a ragged empty right side). Averaging characters per line
+over the whole block, across 12 notes and 16 fields, gives the real picture:
+
+| | Before | After |
+|---|---|---|
+| Card note, one-column stage | 101 chars/line | **71** |
+| Point document, five sections | 97 | **75** |
+| Field, one-column stage | 49 | unchanged — never a problem |
+| Interaction editor / bubble | 35 / 24 | unchanged |
+
+**Only the note and the document were defects.** A field holds a short authored
+string; the closing summary, the longest of them, already read at 76. The
+information-set cards already carried `max-width: 96ch` and measured 74 — the
+discipline existed at one altitude and simply never propagated down.
+
+**The counterintuitive part, worth keeping:** the card note is 10.5px against
+the field's 11.5px, so it needs a **narrower** box to read at the same measure,
+not a wider one. Small type packs more characters into the same width. Equal
+*character* measures across two sizes also produce unequal *columns*, and the
+eye reads the column — which is why the note is capped in px at the size it
+renders, rather than in `ch`.
+
+##### The third collision — `.sai-ph` — 2026-09-20
+
+The pronunciation token in video narration was `.sai-ph`. So is the scenario
+**phase**-rail button, declared ~230 lines later in the same sheet at the same
+specificity, as a full-width flex row. The rail won: an inline token inside
+narration computed `display:flex; width:310px; padding:8px 9px` and broke its
+own sentence onto three lines. `.sai-ph:hover .sai-rowact` and the
+`$$('.sai-ph')` click handler were crossing the same way.
+
+Renamed to `.sai-say`, with `display:inline` stated explicitly so it cannot
+silently inherit a block role again.
+
+**Where it landed is the point:** pronunciation-as-atomic-token is video's own
+answer to a Phase 2 failure (the whole-field phonetic textarea that reset on
+every keystroke, abandoned there across three iterations). The surface built to
+demonstrate that mechanism was the one displaying it broken — and it had been
+that way in every screenshot since the scenario rail was added.
+
+**So the rule stands and has now cost three fixes:** check for an existing rule
+before naming a new `.sai-` class.
+
 ##### Parity with the reference — audited 2026-09-20
 
 Full field-by-field audit in **`PARITY.md`**. Summary: **~45% of the authoring
