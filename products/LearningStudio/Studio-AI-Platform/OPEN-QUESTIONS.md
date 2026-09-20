@@ -35,7 +35,7 @@
 - **Q12** (activity content moving) → **D41.** Staleness is computed and shown;
   re-approval is always human.
 
-**Twelve of eighteen closed.** What remains is one cluster (Q1/Q2/Q3 — the
+**Thirteen of eighteen closed** (Q3 too — D41 and D42 answer it directly). What remains is one cluster (Q1/Q2/Q3 — the
 update-review flow, deferred with D7), three explicitly deferred (Q8/Q9/Q10), and
 two new ones raised by the answers (**Q19**, **Q20**).
 
@@ -65,6 +65,11 @@ therefore settled in principle.
 
 What remains open is the *review* flow, deferred with the information-updating
 phase (D7), and what the **design surface** should show about published state.
+
+**Narrowed again 2026-09-20 by D41:** the *signal* half is built — the surface
+computes and shows when an approval has gone out of date. What is still missing
+is the **flow** a reviewer follows from that signal, which is the same
+delta-review deferred by D20.
 
 **Would reshape: the update-review surface.**
 
@@ -99,16 +104,22 @@ unmodelled — the validation engine assumes a static set.
 
 ---
 
-### Q3 · Coverage tag staleness
-*(part of the Q1 conversation)*
+### ~~Q3 · Coverage tag staleness~~
+**RESOLVED 2026-09-20 → D41 + D42.** This asked exactly the right question —
+*"if the hazard walkthrough is shortened, its tags survive unchanged"* — and it
+is now answered on both halves:
 
-Coverage tags are static. If the hazard walkthrough is shortened, its tags
-survive unchanged — it may no longer cover what it claims at the depth it
-claims.
+- **D41** computes it. An approval records what it was granted over, so the
+  surface shows *"this approval is out of date"* when that content moves.
+  Advisory, never gated; re-approval is a human step.
+- **D42** prevents the sharpest case. A point covered by generated content names
+  a **beat** that guarantees it, and deleting that beat reports the points that
+  just lost their guarantee rather than leaving a claim that quietly stopped
+  being true.
 
-Something has to invalidate them. This is the same problem the comment change
-marker solves, applied to coverage. Likely needs a `stale` state on the tag and
-a re-confirmation path.
+**Rejected as predicted-but-wrong:** a `stale` state on the tag. Staleness is
+*derived* from what the approval was made against, exactly as D20 decided for
+point versions — no fourth tag state, and one fewer thing to keep in sync.
 
 ---
 
