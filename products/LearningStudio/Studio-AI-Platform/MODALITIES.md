@@ -1024,6 +1024,50 @@ rehearsal right.
 **Each phase carries its own completeness dot**, computed from the same blockers
 the render gate uses — so "not ready" is *navigable* rather than merely true.
 
+##### Everything is authored — the collections are editable, 2026-09-19
+
+The first build of this surface was a **viewer with text inputs**: you could
+change what existed but not create or remove anything. Per the user: *"I can't
+add characters, or turns to the interaction for example. Everything is hard
+coded and doesn't seem like it can be built or edited like a designer would
+need to."*
+
+Every collection now has full add / remove / reorder:
+
+| Collection | Add | Remove | Reorder |
+|---|---|---|---|
+| Steps | ✓ (+ duplicate) | ✓ | ✓ |
+| Characters | ✓ | ✓ | — |
+| Calibration levels | ✓ | ✓ | — |
+| Debrief key points | ✓ | ✓ | ✓ |
+| Carryover links | ✓ | ✓ | — |
+| Coverage tags | ✓ | ✓ | — |
+| Expert-answer components | ✓ | ✓ | ✓ |
+
+Plus the per-step controls a form would have buried: the **mode picker** (with
+what each mode asks of the learner, since retyping changes what the calibration
+judges), the **exit gate** and **follow-up turns** as steppers, and unpinning a
+kept example.
+
+**Two rules run through all of it**, and they are the part worth keeping:
+
+1. **A removal that would orphan a reference repairs it and says how many.**
+   Deleting a step prunes every `carryover` naming it and reports the count;
+   reordering a step past its own source drops the links that would now point
+   forward and says so. Never silent, never left dangling. This is the reference
+   tool's own behaviour (`remove()` in `v4-universal.js`) and the same rule D26
+   settled for video.
+2. **An empty collection says what it is for.** "No characters yet — a roleplay
+   step needs someone for the learner to talk to" rather than blank space the
+   author has to guess about.
+
+Two smaller consequences fell out, both of which keep the model honest:
+
+- **Changing a depth revokes an SME confirmation**, because the confirmation was
+  a judgment about the *old* depth. The tag drops to `adjusted` and says so.
+- **Setting follow-up turns to 0 deletes the probe**, since a delivery-only
+  debrief speaks once and never waits — a probe there could never be answered.
+
 ##### What the design must still resolve
 
 Not framework questions — build questions, to settle when the surface is designed:
