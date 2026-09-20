@@ -805,10 +805,55 @@
      sample of a probabilistic output proves nothing.
      ═══════════════════════════════════════════════════════════════════ */
 
+  /* Layout. The phase rail COLLAPSES on a stage that rehearses, because
+     side-by-side editing and rehearsal both need width and the stage list is
+     the least valuable thing on screen while you are inside one stage. It
+     collapses to an icon strip rather than vanishing, so the spine stays
+     navigable and the author never loses their place. */
   .sai-scn { display: grid; grid-template-columns: var(--sai-rail-px, 360px) 5px minmax(0,1fr);
-             align-items: start; height: 100%; }
+             align-items: start; }
+  .sai-scn.railed { grid-template-columns: 46px 0 minmax(0,1fr); }
   .sai-scn-rail { display: flex; flex-direction: column; gap: 2px; padding-right: 4px; }
-  .sai-scn-main { padding-left: 8px; display: flex; flex-direction: column; min-height: 0; }
+  .sai-scn-main { padding-left: 8px; min-width: 0; width: 100%; }
+  /* The resizer must stay a grid ITEM when the rail collapses — display:none
+     removes it from the grid, which slides the main column into the 0px track
+     and starves it to nothing. Hide it visually, keep it in flow. */
+  .sai-scn.railed .sai-vid-resize { visibility: hidden; pointer-events: none; min-height: 0; }
+
+  /* Collapsed rail — the five stages as numbered chips. */
+  .sai-scn.railed .sai-ph { padding: 7px 0; justify-content: center; }
+  .sai-scn.railed .sai-ph-txt,
+  .sai-scn.railed .sai-ph-dot,
+  .sai-scn.railed .sai-ph-secs,
+  .sai-scn.railed .sai-seq-head span:last-child { display: none; }
+  .sai-scn.railed .sai-seq-head { justify-content: center; }
+  /* A stage with something outstanding still says so when collapsed —
+     otherwise collapsing hides the one signal the rail exists to carry. */
+  .sai-scn.railed .sai-ph { position: relative; }
+  .sai-scn.railed .sai-ph.warned::after {
+    content: ''; position: absolute; top: 5px; right: 4px;
+    width: 5px; height: 5px; border-radius: 50%; background: var(--sai-warn);
+  }
+  .sai-rail-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; margin-top: 6px; padding: 5px; cursor: pointer;
+    background: none; border: 1px solid var(--sai-line); border-radius: 5px;
+    color: var(--sai-ink-3); font-family: inherit; font-size: 10px; font-weight: 600;
+  }
+  .sai-rail-toggle:hover { color: var(--sai-ink); border-color: var(--sai-line-2); }
+
+  /* The interaction split. Editor scrolls with the page; the rehearsal is
+     PINNED to the viewport, so however far the editor runs the conversation
+     and its composer stay on screen. */
+  .sai-split { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px;
+               align-items: start; }
+  .sai-split-edit { min-width: 0; }
+  .sai-split-reh {
+    min-width: 0;
+    position: sticky;
+    /* Clears the activity header + gate, which scroll away above it. */
+    top: 4px;
+  }
 
   /* ── The PHASE spine ──────────────────────────────────────────────────
      Building a scenario is not one long scroll of fields. It has stages —
@@ -1086,10 +1131,18 @@
   .sai-lvl-pole { color: var(--sai-warn); }
 
   /* ── The rehearsal surface ────────────────────────────────────────── */
+  /* ELEVATED — it reads as a different kind of surface: something you look
+     into, not a form you type on. Lifted off the page with a real shadow and
+     a brighter edge, and sized to the viewport rather than to its content. */
   .sai-reh {
-    display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto;
-    border: 1px solid var(--sai-line-2); border-radius: 7px;
+    display: flex; flex-direction: column;
+    border: 1px solid var(--sai-line-2); border-radius: 9px;
     background: var(--sai-surface); overflow: hidden;
+    box-shadow: 0 12px 28px -8px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.3);
+    /* Pinned height: the composer is always reachable, and the transcript
+       scrolls inside rather than growing the page. */
+    height: calc(100vh - var(--sai-topbar-h) - 34px);
+    max-height: 860px;
   }
   .sai-reh-bar {
     display: flex; align-items: center; gap: 8px; padding: 7px 10px;
@@ -1116,26 +1169,33 @@
   .sai-reh-scroll { flex: 1 1 auto; overflow-y: auto; padding: 12px; min-height: 260px; }
 
   /* Turns. Coach left, learner right — the video rail's own convention. */
-  .sai-turn { display: flex; margin-bottom: 11px; }
-  .sai-turn.learner { justify-content: flex-end; }
-  .sai-turn-inner { max-width: 82%; }
-  .sai-turn-who {
+  .sai-reh .sai-turn { display: flex; margin-bottom: 11px; }
+  .sai-reh .sai-turn.learner { justify-content: flex-end; }
+  .sai-reh .sai-turn-inner { max-width: 88%; min-width: 0; width: 100%; }
+  .sai-reh .sai-turn.learner .sai-turn-inner { display: flex; flex-direction: column; align-items: flex-end; }
+  .sai-reh .sai-turn.learner .sai-bubble { max-width: 100%; }
+  .sai-reh .sai-turn-who {
     font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
     color: var(--sai-ink-3); margin-bottom: 3px; display: flex; align-items: center; gap: 5px;
   }
-  .sai-turn.learner .sai-turn-who { justify-content: flex-end; }
-  .sai-bubble {
-    padding: 9px 12px; border-radius: 9px; font-size: 12.5px; line-height: 1.6;
+  .sai-reh .sai-turn.learner .sai-turn-who { justify-content: flex-end; }
+  /* Reading type, not UI type — the rehearsal is content the way a learner
+     would meet it, so it is looser and larger than the editor beside it. */
+  /* The chat rail's `.sai-turn .sai-bubble` caps at 88% and is one class
+     deeper than a bare `.sai-reh .sai-bubble`, so it wins on specificity.
+     Match its depth to take the width back. */
+  .sai-reh .sai-turn .sai-bubble {
+    padding: 10px 13px; border-radius: 9px; font-size: 13px; line-height: 1.65;
     border: 1px solid var(--sai-line-2); background: var(--sai-surface-2); color: var(--sai-ink);
   }
-  .sai-turn.learner .sai-bubble { background: var(--sai-accent-dim); border-color: var(--sai-accent); }
-  .sai-bubble.verbatim { border-left: 2px solid var(--sai-activity); }
-  .sai-bubble.generated { border-left: 2px solid var(--sai-warn); }
+  .sai-reh .sai-turn.learner .sai-bubble { background: var(--sai-accent-dim); border-color: var(--sai-accent); }
+  .sai-reh .sai-bubble.verbatim { border-left: 2px solid var(--sai-activity); }
+  .sai-reh .sai-bubble.generated { border-left: 2px solid var(--sai-warn); }
 
   /* Provenance strip under a coach turn — which level produced this, and the
      controls that act on it. Clicking the level jumps to the field that
      steered the reply: the same job the word playhead does for on-screen text. */
-  .sai-turn-foot {
+  .sai-reh .sai-turn-foot {
     display: flex; align-items: center; gap: 7px; margin-top: 5px; flex-wrap: wrap;
   }
   .sai-lvl-tag {
@@ -1157,6 +1217,14 @@
   /* Roll counter — the SPREAD is the thing being judged, so the surface says
      how many draws you have seen. */
   .sai-roll-n { font-size: 9.5px; color: var(--sai-ink-3); }
+
+  /* Focusing an editor field lights the turn it governs — the rehearsal is a
+     reference you edit AGAINST, so the surface says which part of the
+     conversation you are changing. Same job the level tag does in reverse. */
+  .sai-reh .sai-turn.linked .sai-bubble {
+    box-shadow: 0 0 0 1px var(--sai-accent), 0 0 14px -2px var(--sai-accent);
+  }
+  .sai-reh .sai-turn.dimmed { opacity: .42; transition: opacity .15s; }
 
   .sai-reh-verb {
     font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
@@ -4019,6 +4087,11 @@ const SCN_PHASES = [
 ];
 
 let scnPhase = 'interaction';   // the stage currently open
+/* The rail collapses on a stage that rehearses, because editor + rehearsal
+   both need width there. Explicitly toggled state, so an author who wants the
+   stage list back keeps it — it is a default, not a rule. */
+let scnRailOpen = false;
+const REHEARSES = id => id === 'interaction';
 
 /* Blockers attributed to the phase that owns them, so "not ready" is
    navigable rather than merely true. */
@@ -4056,14 +4129,16 @@ function scnPhaseBlockers(a, phase) {
   return out;
 }
 
-function renderPhaseRail(a) {
+function renderPhaseRail(a, railed) {
   return `
     <div class="sai-ph-rail">
       ${SCN_PHASES.map(ph => {
         const on = ph.id === scnPhase;
         const blk = scnPhaseBlockers(a, ph.id);
         return `
-          <button class="sai-ph ${on ? 'on' : ''} ${!blk.length ? 'done' : ''}" data-phase="${ph.id}">
+          <button class="sai-ph ${on ? 'on' : ''} ${!blk.length ? 'done' : ''} ${blk.length ? 'warned' : ''}"
+            data-phase="${ph.id}"
+            title="${railed ? ph.title + (blk.length ? ' — ' + blk.length + ' outstanding' : '') : ''}">
             <span class="sai-ph-num">${ph.num}</span>
             <span class="sai-ph-txt">
               <span class="sai-ph-title">${ph.title}</span>
@@ -4102,17 +4177,24 @@ function renderScenarioBody(a) {
   const steps = a.steps || [];
   const step  = steps[scnStep] || steps[0];
   const ph    = SCN_PHASES.find(p => p.id === scnPhase) || SCN_PHASES[2];
+  const railed = REHEARSES(scnPhase) && !scnRailOpen;
 
   return `
-    <div class="sai-scn">
+    <div class="sai-scn ${railed ? 'railed' : ''}">
       <div class="sai-scn-rail">
         <div class="sai-seq-head">
-          <span class="sai-doc-label" style="margin:0">Build</span>
+          ${railed ? '' : '<span class="sai-doc-label" style="margin:0">Build</span>'}
           <span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
             5 stages
           </span>
         </div>
-        ${renderPhaseRail(a)}
+        ${renderPhaseRail(a, railed)}
+        ${REHEARSES(scnPhase) ? `
+          <button class="sai-rail-toggle" data-railtoggle="1"
+            title="${railed ? 'Show the stage list' : 'Collapse — the rehearsal needs the width'}">
+            <i class="fa-solid fa-chevron-${railed ? 'right' : 'left'}"></i>
+            ${railed ? '' : 'Collapse'}
+          </button>` : ''}
       </div>
 
       <div class="sai-vid-resize" id="railResize" title="Drag to resize"></div>
@@ -4130,19 +4212,14 @@ function renderScenarioBody(a) {
    one whose centre column is the rehearsal surface. */
 function renderInteractionPhase(a, step) {
   return `
-    <div style="display:flex;flex-direction:column;height:100%;min-height:0">
+    <div>
       <div class="sai-ph-head" style="margin-bottom:9px">
         <div class="sai-ph-eyebrow">What the learner actually does</div>
         <div class="sai-ph-h1">Step ${scnStep + 1} — ${step.label}</div>
       </div>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:11px;
-                  flex:1 1 auto;min-height:0">
-        <div style="overflow-y:auto;min-height:0;padding-right:2px">
-          ${renderStepEditor(a, step)}
-        </div>
-        <div style="display:flex;flex-direction:column;min-height:0">
-          ${renderRehearsal(a, step)}
-        </div>
+      <div class="sai-split">
+        <div class="sai-split-edit">${renderStepEditor(a, step)}</div>
+        <div class="sai-split-reh">${renderRehearsal(a, step)}</div>
       </div>
     </div>`;
 }
@@ -4676,7 +4753,8 @@ function renderTurns(a, step) {
 
   // The opening is VERBATIM — the learner reads exactly this.
   out.push(turnHTML({
-    who: 'Coach', side: 'coach', kind: 'verbatim', text: step.opening
+    who: 'Coach', side: 'coach', kind: 'verbatim', text: step.opening,
+    gov: step.id + ':opening'
   }));
 
   scnTurns.forEach((t, i) => {
@@ -4690,10 +4768,12 @@ function renderTurns(a, step) {
     out.push(`<div style="margin:16px 0 8px;font-size:9.5px;font-weight:700;
       text-transform:uppercase;letter-spacing:.06em;color:var(--sai-ink-3)">
       Debrief — shipped verbatim</div>`);
-    step.debrief.keyPoints.forEach(kp => out.push(turnHTML({
-      who: 'Coach · key point', side: 'coach', kind: 'verbatim', text: kp })));
+    step.debrief.keyPoints.forEach((kp, j) => out.push(turnHTML({
+      who: 'Coach · key point', side: 'coach', kind: 'verbatim', text: kp,
+      gov: step.id + ':debrief.keyPoints.' + j })));
     out.push(turnHTML({
-      who: 'Coach · final word', side: 'coach', kind: 'verbatim', text: step.debrief.finalWord }));
+      who: 'Coach · final word', side: 'coach', kind: 'verbatim',
+      text: step.debrief.finalWord, gov: step.id + ':debrief.finalWord' }));
   }
 
   return out.join('');
@@ -4718,7 +4798,8 @@ function turnHTML(t) {
     foot.push('<span class="sai-reh-verb">verbatim</span>');
   }
   return `
-    <div class="sai-turn ${isCoach ? 'coach' : 'learner'}">
+    <div class="sai-turn ${isCoach ? 'coach' : 'learner'}"
+         ${t.gov ? `data-gov="${t.gov}"` : ''}>
       <div class="sai-turn-inner">
         <div class="sai-turn-who">${t.who}</div>
         <div class="sai-bubble ${t.kind || ''}">${t.text}</div>
@@ -5474,6 +5555,40 @@ function wireScenario(a, root) {
     repaint();
   }));
 
+  // ── Rail collapse. A default, not a rule — the author can bring the stage
+  //    list back on a rehearsing stage if they want it.
+  const rt = $('[data-railtoggle]', root);
+  if (rt) rt.addEventListener('click', e => {
+    e.stopPropagation();
+    scnRailOpen = !scnRailOpen;
+    repaint();
+  });
+
+  /* ── The editor and the rehearsal reference each other ─────────────────
+     Focusing a field lights the turn it governs and dims the rest, so you can
+     see which part of the conversation you are changing. The level tag on a
+     turn already does the reverse — click it and the field it came from is
+     highlighted. Two directions, one relationship. */
+  $$('[data-sfld]', root).forEach(el => {
+    el.addEventListener('focus', () => {
+      const reh = $('.sai-reh', root);
+      if (!reh) return;
+      const turns = $$('.sai-turn', reh);
+      const match = turns.filter(t => t.dataset.gov === el.dataset.sfld);
+      if (!match.length) { turns.forEach(t => t.classList.remove('dimmed', 'linked')); return; }
+      turns.forEach(t => {
+        const hit = match.includes(t);
+        t.classList.toggle('linked', hit);
+        t.classList.toggle('dimmed', !hit);
+      });
+      match[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    el.addEventListener('blur', () => {
+      const reh = $('.sai-reh', root);
+      if (reh) $$('.sai-turn', reh).forEach(t => t.classList.remove('dimmed', 'linked'));
+    });
+  });
+
   // ── Phase navigation — the stage-level altitude.
   $$('[data-phase]', root).forEach(el => el.addEventListener('click', () => {
     const id = el.dataset.phase;
@@ -5527,7 +5642,8 @@ function wireScenario(a, root) {
     scnRolls = 0;
     scnTurns.push({
       who: 'Coach', side: 'coach', kind: 'generated', level, fromStep: step.id,
-      text: rollReply(step, level, 0), kept: false
+      text: rollReply(step, level, 0), kept: false,
+      gov: step.id + ':levels.' + level + '.response'
     });
     repaint();
     const sc = $('#rehScroll');

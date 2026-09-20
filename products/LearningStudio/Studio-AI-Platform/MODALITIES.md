@@ -1068,6 +1068,56 @@ Two smaller consequences fell out, both of which keep the model honest:
 - **Setting follow-up turns to 0 deletes the probe**, since a delivery-only
   debrief speaks once and never waits — a probe there could never be answered.
 
+##### Layout — measured, then fixed, 2026-09-19
+
+The first build put four vertical zones on screen before any content, and the
+numbers were bad enough to be worth recording:
+
+| | Before | After |
+|---|---|---|
+| Editor field | 51 chars/line | **78** |
+| Rehearsal bubble | 35 chars/line | **55** |
+| Zones before content | 4 (chat + icon + phase rail + editor) | 3, one collapsed |
+
+Comfortable prose reading is roughly 45–75 characters. The rehearsal — the thing
+you are meant to *read* — was the narrowest element on screen at 35.
+
+**Side-by-side stays**, per the user: *"the editor and rehearsal has to be side
+by side so you can reference the chat or part of the interaction that you're
+editing directly, and focusing an editor input takes you to the part of the
+scenario you're editing."* The two columns are a **reference relationship**, not
+a preview — which rules out mode-switching or an overlay.
+
+Three changes:
+
+**1. The phase rail collapses on a stage that rehearses.** *"Maybe the side rail
+needs to collapse when you enter a stage that requires rehearsal?"* — it does, to
+a 46px strip of numbered chips. It collapses rather than vanishing so the spine
+stays navigable, keeps a warning dot on any stage with something outstanding
+(collapsing must not hide the one signal the rail carries), and is a **default
+rather than a rule** — one toggle brings it back.
+
+**2. The rehearsal is elevated and pinned to the viewport.** Per the user:
+*"I'd like the rehearsal to be in an elevated container that is positioned in
+the viewport. This way regardless of how long the editor content is, the
+conversation and chat input/send is always in the viewport."* It is
+`position: sticky` with a viewport-derived height, so the editor scrolls freely
+beneath while the transcript and its composer stay put. The elevation is real —
+a lifted shadow and a brighter edge — so it reads as a different *kind* of
+surface: something you look into, not a form you type on. Its type is looser and
+larger than the editor's for the same reason.
+
+**3. Focusing an editor field lights the turn it governs**, dimming the rest.
+The level tag on a turn already does the reverse. Two directions, one
+relationship — the same job the word playhead does for on-screen text in video.
+
+**Two class collisions found and fixed** — both cases of the scenario surface
+reusing a name the platform already had: `.sai-sub` (the sub-range selection
+target for targeted prompting) and `.sai-turn` / `.sai-bubble` (the chat rail's).
+The second silently capped rehearsal bubbles at the chat rail's 88%. Rehearsal
+turn styles are now scoped under `.sai-reh`, and the layout suite asserts the
+chat rail is unchanged.
+
 ##### What the design must still resolve
 
 Not framework questions — build questions, to settle when the surface is designed:
