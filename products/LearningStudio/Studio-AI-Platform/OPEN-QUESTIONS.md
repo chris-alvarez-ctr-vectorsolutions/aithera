@@ -199,6 +199,97 @@ state, and whatever surface reports "this changed since it was approved."
 
 ---
 
+## Raised by the parity pass — 2026-09-20
+
+*Worked through all six PARITY.md items without stopping to ask. These are the
+decisions I made on my own judgment, or deliberately deferred. Each names what I
+did and what would change if you decide otherwise.*
+
+### Q13 · Does an activity own a scenario-level opening, or is that the output's job?
+**I built it. Worth confirming.**
+
+v4 has an `opening` — one ungraded exchange before the phases, to get the
+learner talking before any teaching. I added it as part of the Framing stage.
+
+**The tension:** an activity here is author-sized and may be composed with others
+into an output (D30-era decision). If three scenario activities stack into one
+output, the learner meets **three warm-ups**. The reference has no such problem,
+because its document *is* the whole deliverable.
+
+- **Keep it on the activity** (what I built): faithful to v4, and a standalone
+  activity needs its own way in.
+- **Move it to the output**: one warm-up per delivery, but an activity delivered
+  alone then has none.
+- **Keep it, and let compose drop all but the first**: probably right, but it is
+  a real compose rule that does not exist yet.
+
+### Q14 · Should `implementation_id` be authored at all?
+**I made it an editable field. I am not sure it should be.**
+
+The reference is explicit that *"the document carries its own identity in
+`implementation_id`; filenames are for people, and nothing downstream should
+parse them."* I exposed it as a text input on the Framing stage.
+
+But this platform already gives every node a **stable opaque id** (`MODEL.md`,
+*Node addressing*), and the whole argument there is that ids are not for humans
+to type. An author editing an implementation id can break the thing that
+identifies their scenario to a player.
+
+Likely right answer: **derive it from the activity's node id and show it
+read-only**, the way the coverage page shows point ids. One line to change.
+
+### Q15 · What is the export actually FOR?
+**Built as a preview. Not wired to anything.**
+
+The Close stage now shows the projected document, what the projection lost, and
+which fields are Vector extensions. What it does not do is *go* anywhere.
+
+Options, and they are quite different products:
+- **A read-only honesty surface** — "here is what a player would get, and here is
+  what this platform knows that it cannot carry." Argues for the format growing.
+- **A real handoff** — download, or push to the pipeline (D31).
+- **Round-trip** — import a v4 document and author it here, which is the
+  migration path for scenarios already authored in the reference editor. That is
+  a *decompose* question (`MODEL.md`) and probably the most valuable of the
+  three.
+
+### Q16 · Does a rubric item want to bind to an information point?
+**Deliberately not built.**
+
+An observe_react's rubric lists what a learner should spot. Several of those map
+onto information points — "faces the truck" *is* the three-point-contact point.
+Binding them would let coverage be computed from the rubric rather than asserted
+separately, which is the id-join argument applied one level deeper.
+
+**Why I left it:** it is the per-section traceability question again
+(`MODALITIES.md`), which was settled as *coverage tags at activity level*. Doing
+this for rubric items only would be inconsistent unless it is a deliberate
+exception — and it might be, since a rubric item is a **discrete assertion**
+rather than a span of prose, which is exactly what made span-tagging unreliable.
+
+### Q17 · The prompt-smell lint fires on authored prose. Is its list right?
+**I adapted the reference's needles and added a few.**
+
+It flags authored text containing *the ai, the model, the interface, the ui, the
+chat window, this prompt, as an ai, `[[`, `]]`*. The reference's reasoning is
+that this text is compiled into a system prompt and a learner should never meet
+it.
+
+Two things to check: whether the list is too aggressive for a platform where an
+author might legitimately write *"the AI assistant will summarise"* in a
+**purpose** field (guidance, never spoken), and whether the lint should apply
+only to **verbatim** fields rather than to all of them. Currently it scans both.
+
+### Q18 · Is `help_turns` a real authoring control?
+**Carried in the data, not exposed.**
+
+Every mode's shape has `help_turns` — how much help before the step moves on.
+I kept it in the model and the export but gave it no editor, because I could not
+tell whether it is an authoring decision or a platform default. The reference
+exposes it nowhere obvious either.
+
+---
+
 ## Next up
 
 ### N1 · Architecture map — a visual of how a subject exists in the platform
