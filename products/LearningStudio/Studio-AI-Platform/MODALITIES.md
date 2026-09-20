@@ -1130,6 +1130,29 @@ The second silently capped rehearsal bubbles at the chat rail's 88%. Rehearsal
 turn styles are now scoped under `.sai-reh`, and the layout suite asserts the
 chat rail is unchanged.
 
+##### Parity with the reference — audited 2026-09-20
+
+Full field-by-field audit in **`PARITY.md`**. Summary: **~45% of the authoring
+surface**, and the shortfall is concentrated rather than spread.
+
+**The gap that matters:** a practice `mode` is a different **shape** in the
+reference, not a different label. `roleplay` requires a partner, a character
+binding and `progression` (how the scene moves when handled well);
+`observe_react` requires an exhibit, a rubric of things to spot, and a spot
+target. Here, switching mode changes an icon. Two of three modes have no fields
+behind them.
+
+Also absent: `opening_messages` as an array (so a scenario cannot open as an
+exchange), canon facts, misconceptions, the scenario-level ungraded opening,
+`narrative`, conditional probes, `help_turns`, source references, and document
+identity — so nothing here is loadable by a player yet.
+
+**Where this surface is ahead**, and why it is not simply a smaller version of
+the reference: coverage is a real id-join to information points the reference
+has no concept of; the rehearsal loop has no equivalent there; the assistant is
+modelled per project and cast per activity; and threshold validation asks an
+output-level question a standalone document cannot.
+
 ##### What the design must still resolve
 
 Not framework questions — build questions, to settle when the surface is designed:
