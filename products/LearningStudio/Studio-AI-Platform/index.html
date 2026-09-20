@@ -113,6 +113,15 @@
        token when the reorder drop-refusal needed the same colour. */
     --sai-danger:     #e0704a;
     --sai-danger-soft:#2d1c17;
+
+    /* Lock (D32). Its own hue on purpose — every other signal here is a
+       STATE THE PLATFORM COMPUTED (warn, danger, drift, coverage), and a lock
+       is the one thing on screen a human decided. Warm brass rather than a
+       second yellow: it sits clear of --sai-warn at a glance, and reads as
+       "fastened" rather than "caution". */
+    --sai-lock:       #c9a227;
+    --sai-lock-soft:  #241f10;
+    --sai-lock-line:  #4a3f1c;
   }
 
   * { box-sizing: border-box; }
@@ -1289,7 +1298,67 @@
     color: var(--sai-ink-2); outline: none; white-space: pre-wrap;
   }
   .sai-fld-txt:focus { border-color: var(--sai-accent); color: var(--sai-ink); }
-  .sai-fld-txt.locked { opacity: .72; border-style: dashed; cursor: not-allowed; }
+  /* ── LOCKS — D32 ──────────────────────────────────────────────────────
+     A locked field has to read as DECIDED, not as disabled. Those are
+     different messages: disabled says "you can't", decided says "you already
+     did, on purpose". So it keeps full ink and takes a solid accent edge
+     rather than being greyed out — the dashed-and-faded stub that sat here
+     unused read as broken-or-pending, which is the opposite of settled. */
+  .sai-fld-txt.locked {
+    cursor: default;
+    border-color: var(--sai-lock-line);
+    border-left: 2px solid var(--sai-lock);
+    background: var(--sai-lock-soft);
+  }
+  .sai-fld-txt.locked:focus { border-color: var(--sai-lock-line); border-left-color: var(--sai-lock); }
+
+  .sai-lock {
+    font-family: inherit; font-size: 10px; cursor: pointer; flex: 0 0 auto;
+    background: none; border: 1px solid transparent; border-radius: 4px;
+    padding: 2px 5px; color: var(--sai-ink-3);
+    display: inline-flex; align-items: center; gap: 5px; line-height: 1.4;
+  }
+  /* Unlocked, this is a quiet affordance — but it has to be FINDABLE, or the
+     feature may as well not exist. `--sai-ink-3` on a card header was almost
+     invisible; this is the one step up that reads without competing. */
+  .sai-lock { opacity: .55; transition: opacity .12s, color .12s; }
+  .sai-lock:hover { opacity: 1; color: var(--sai-ink); background: var(--sai-surface-3); border-color: var(--sai-line-2); }
+  .sai-card:hover .sai-lock, .sai-fld:hover .sai-lock { opacity: .9; }
+  .sai-lock.on { opacity: 1; }
+  .sai-lock.on { color: var(--sai-lock); border-color: var(--sai-lock-line); background: var(--sai-lock-soft); }
+  .sai-lock.on:hover { color: var(--sai-lock); border-color: var(--sai-lock); }
+  /* Held by the node lock above it — shown, but not independently unlockable,
+     because the thing actually holding it is one level up. */
+  .sai-lock.by-node { opacity: .5; cursor: not-allowed; }
+  .sai-lock.by-node:hover { background: none; border-color: transparent; color: var(--sai-ink-3); }
+  .sai-lock-n {
+    font-size: 9px; font-weight: 700; padding: 0 4px; border-radius: 999px;
+    background: var(--sai-lock); color: #17130a;
+  }
+  /* The field label row has to make room for the control without the label
+     jumping when it appears — so the row is always a flex row. */
+  .sai-fld-lbl { display: flex; align-items: center; gap: 7px; }
+  .sai-fld-lbl .sai-lock { margin-left: auto; }
+  .sai-card-head .sai-lock { margin-left: auto; }
+
+  /* A locked node on the canvas says so without shouting — the lock is a
+     state of the content, not an alert about it. */
+  .sai-node.locked { border-color: var(--sai-lock-line); }
+  .sai-node.locked .sai-node-lock { color: var(--sai-lock); }
+
+  /* The AI's refusal, in the chat rail. Names what is held rather than
+     saying "some fields" — the author has to know which decision is the one
+     blocking them, or the report is just an apology. */
+  .sai-lockrep { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px; }
+  .sai-lockrep-f {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 9.5px; padding: 2px 6px; border-radius: 3px;
+    background: var(--sai-lock-soft); color: var(--sai-lock);
+    border: 1px solid var(--sai-lock-line);
+  }
+  .sai-lockrep-f i { font-size: 8px; }
+  .sai-lockrep-acts { display: flex; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+  .sai-lockrep-acts .sai-btn { font-size: 10px; padding: 3px 9px; }
 
   /* ── Calibration levels ───────────────────────────────────────────── */
   .sai-lvl {
@@ -3628,6 +3697,137 @@ const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
 let selected  = null;   // node id
 let subTarget = null;   // ephemeral sub-node range — never persisted
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOCKS — D32. The author freezes what has been decided.
+   ---------------------------------------------------------------------------
+   A locked target refuses ALL writes — the AI's and the author's own — until
+   it is explicitly unlocked. Not AI-only: with collaboration in the platform
+   (D31), the decision needs protecting from a colleague as much as from the
+   model, and "discussed, decided and locked in" is a statement about the
+   CONTENT's status, not about who is holding the keyboard.
+
+   ── Addressing ────────────────────────────────────────────────────────────
+   Locks reuse the addressing that prompt targeting already uses — a node id
+   plus an optional sub-target — so there is no second addressing model. A key
+   is either:
+
+       'act-scenario'                     the whole node
+       'act-scenario::closing:summary'    one field within it
+
+   The field half is exactly the `data-afld` / `data-sfld` path already on the
+   element, which is why no field site had to be rewritten to support this.
+
+   This deliberately differs from comments (D5), which anchor at node level
+   only because a sub-node anchor orphans when content is regenerated. That
+   reasoning does not transfer: a lock's whole job is to PREVENT that
+   regeneration, so a locked field cannot be replaced out from under its own
+   anchor.
+
+   ── Lock state is authoring state ─────────────────────────────────────────
+   It never travels to a learner and is not part of what publish ships. So it
+   lives beside the model rather than inside a node's content.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const LOCKS = new Set();
+
+const lockKey = (nodeId, field) => field ? `${nodeId}::${field}` : nodeId;
+
+function isLocked(nodeId, field) {
+  // A node lock covers every field beneath it — locking the node is the
+  // coarse gesture, and a field cannot be open inside a closed node.
+  if (LOCKS.has(nodeId)) return true;
+  return field ? LOCKS.has(lockKey(nodeId, field)) : false;
+}
+
+function toggleLock(nodeId, field) {
+  const key = lockKey(nodeId, field);
+  if (LOCKS.has(key)) { LOCKS.delete(key); return false; }
+  LOCKS.add(key); return true;
+}
+
+/* Every field lock currently held inside one node. Drives the partly-locked
+   report below, and the count shown on the node's own lock control. */
+function lockedFieldsIn(nodeId) {
+  const pre = nodeId + '::';
+  return [...LOCKS].filter(k => k.startsWith(pre)).map(k => k.slice(pre.length));
+}
+
+/* A lock target's human name. The stored key is an address — `closing:summary`,
+   `card:the-expert-answer` — which is right for the model and wrong for the
+   author: the refusal has to name the DECISION they made, not the path it is
+   filed under. Set when the control renders, so the label is whatever the
+   surface itself called that field. */
+const LOCK_LABELS = {};
+function lockLabel(key) {
+  if (LOCK_LABELS[key]) return LOCK_LABELS[key];
+  const bare = key.replace(/^card:/, '').replace(/[:.]/g, ' ').replace(/-/g, ' ');
+  return bare.charAt(0).toUpperCase() + bare.slice(1);
+}
+
+/* ── capabilities gets its first real consumer ─────────────────────────────
+   Every node has declared `capabilities` since the first build and nothing
+   read them. D32 is the canonical case: the canvas asks the node what may be
+   done to it, and a locked node answers "nothing". That is the registration
+   seam doing work rather than being asserted.
+
+   Returns the capabilities still available on a node given its lock state. */
+function capabilitiesOf(nodeId) {
+  const n = byId[nodeId];
+  if (!n) return [];
+  const all = n.capabilities || [];
+  if (LOCKS.has(nodeId)) return all.filter(c => c === 'comment');   // read-only
+  return all;
+}
+
+/* ── A partly-locked target refuses LOUDLY, never silently ─────────────────
+   The case this must not get wrong: an author locks one field, then asks to
+   regenerate the whole node.
+
+     · not silently honoured around the lock — regenerating "everything except
+       that one field" can produce a node whose parts no longer agree;
+     · not silently refused either;
+     · it REPORTS, and the author chooses.
+
+   Same posture as the render gate: human-readable blockers, never a dead
+   button. Returns null when the write may proceed untouched. */
+function lockVerdict(nodeId, field) {
+  if (field) {
+    return isLocked(nodeId, field)
+      ? { kind: 'field', msg: 'That field is locked. Unlock it to make this change.' }
+      : null;
+  }
+  if (LOCKS.has(nodeId)) {
+    return { kind: 'node', msg: 'This is locked. Unlock it to make this change.' };
+  }
+  const held = lockedFieldsIn(nodeId);
+  if (!held.length) return null;
+  return { kind: 'partial', fields: held, msg:
+    `${held.length} ${held.length === 1 ? 'field is' : 'fields are'} locked in this ` +
+    `${byId[nodeId] && byId[nodeId].layer === 'information' ? 'point' : 'activity'}. ` +
+    `Regenerate the rest, or unlock first?` };
+}
+
+/* The control itself. Rendered beside a field label or in a node header;
+   `field` omitted locks the whole node. */
+function lockBtn(nodeId, field, opts) {
+  const o = opts || {};
+  const on = field ? LOCKS.has(lockKey(nodeId, field)) : LOCKS.has(nodeId);
+  // A field inside a locked node reads as locked but is not independently
+  // unlockable — the node lock is what is holding it.
+  const byNode = !!field && LOCKS.has(nodeId);
+  const held = !field ? lockedFieldsIn(nodeId).length : 0;
+  return `<button class="sai-lock ${on ? 'on' : ''} ${byNode ? 'by-node' : ''} ${o.cls || ''}"
+    data-lock="${nodeId}" ${field ? `data-lockfld="${field}"` : ''}
+    ${byNode ? 'disabled' : ''}
+    title="${byNode
+      ? 'Locked by the activity lock — unlock the activity to edit this field'
+      : on ? 'Locked — no write reaches this, the AI\'s or yours. Click to unlock.'
+           : 'Lock this ' + (field ? 'field' : 'activity') + ' — freeze it against all writes'}"
+    ><i class="fa-solid fa-${on || byNode ? 'lock' : 'lock-open'}"></i>${
+      o.label ? `<span>${on ? 'Locked' : 'Lock'}</span>` : ''
+    }${held && o.label ? `<span class="sai-lock-n">${held}</span>` : ''}</button>`;
+}
+
 function commentCount(id) { return (MODEL.comments[id] || []).length; }
 
 function commentPill(id) {
@@ -4407,6 +4607,10 @@ function renderActivityDoc(id) {
             ${a.steps ? `<span class="sai-pill count"><i class="fa-solid fa-list-ol"></i>${a.steps.length} steps</span>` : ''}
             ${commentPill(a.id)}
             ${renderCoverageStrip(a)}
+            <!-- D32 — the coarse gesture. Locking the activity freezes every
+                 field beneath it; the count shows how many fields are held
+                 individually when it is not. -->
+            <span style="margin-left:auto">${lockBtn(a.id, null, { label: true })}</span>
           </div>
         </div>
       </div>
@@ -7519,9 +7723,128 @@ function wireScenario(a, root) {
 }
 
 /* Wire the activity surface after each render. */
+/* ── Applying locks to a rendered surface ──────────────────────────────────
+   Done in ONE pass over the finished DOM rather than at each of the ~30 field
+   sites, and that is deliberate: every editable field already carries its own
+   address in `data-afld` / `data-sfld`, which IS the lock's sub-target (D32 —
+   "locks use the existing addressing"). So the surface needed no rewriting to
+   gain locks; it already said what each field was.
+
+   Enforcement is here too, on the capture phase, so it runs before the
+   field's own blur/input handler and before contenteditable takes the
+   keystroke. A lock that only greyed the field would be a hint, not a lock —
+   and D32 is explicit that a locked target refuses ALL writes, the author's
+   included. */
+function applyLocks(a, root) {
+  const nodeLocked = LOCKS.has(a.id);
+
+  /* Put a lock control on every field that has a LABEL to hang it from.
+     Injected here rather than authored into each of the ~30 field sites, for
+     the same reason enforcement is: the address is already on the element.
+     Fields with no label row (a bare list item, a repeated key point) are
+     covered by the activity lock rather than growing a control each — D32
+     asks for "any node or field", not for a control on every row. */
+  $$('.sai-fld', root).forEach(wrap => {
+    const lbl = $('.sai-fld-lbl', wrap);
+    const ed  = $('[data-afld],[data-sfld],[data-ainp],[data-sinp]', wrap);
+    if (!lbl || !ed || $('.sai-lock', lbl)) return;
+    const fld = ed.dataset.afld || ed.dataset.sfld || ed.dataset.ainp || ed.dataset.sinp;
+    if (!fld) return;
+    // The label row also carries the verbatim/guidance badge and any count,
+    // so read only its own text nodes — a chip is not part of the name.
+    const txt = [...lbl.childNodes].filter(n => n.nodeType === 3)
+                  .map(n => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+    if (txt) LOCK_LABELS[fld] = txt;
+    lbl.insertAdjacentHTML('beforeend', lockBtn(a.id, fld));
+  });
+
+  /* Card-level locks — the grain an author actually thinks in.
+     Much of this surface is REPEATED ROWS with no label to hang a control
+     from: the cast, the key points, the expert-answer components, the
+     coverage rows. Putting a padlock on all 30 of them would be noise, and
+     "lock character 2's disposition" is not a decision anyone makes — "the
+     cast is settled" is.
+
+     So a card locks as a GROUP, keyed on a synthetic sub-target (`card:cast`)
+     built from its title. That is still D32's addressing — a node id plus a
+     sub-target — and the enforcement pass below reads it the same way. */
+  $$('.sai-card', root).forEach(card => {
+    const head = $('.sai-card-head', card);
+    if (!head || $('.sai-lock', head)) return;
+    const eds = $$('[data-afld],[data-sfld],[data-ainp],[data-sinp]', card)
+                  .filter(e => !e.closest('.sai-fld'));
+    if (!eds.length) return;
+    const only = eds.length === 1
+      ? (eds[0].dataset.afld || eds[0].dataset.sfld || eds[0].dataset.ainp || eds[0].dataset.sinp)
+      : null;
+    const title = (($('.sai-card-title', head) || {}).textContent || '').replace(/\s+/g, ' ');
+    const key = only || ('card:' + title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+    if (title.trim()) LOCK_LABELS[key] = title.trim();
+    card.dataset.lockgroup = key;
+    head.insertAdjacentHTML('beforeend', lockBtn(a.id, key));
+  });
+
+  /* A locked card freezes every row inside it. */
+  $$('[data-lockgroup]', root).forEach(card => {
+    if (!isLocked(a.id, card.dataset.lockgroup)) return;
+    $$('[data-afld],[data-sfld],[data-ainp],[data-sinp]', card).forEach(el => {
+      el.classList.add('locked');
+      if (el.isContentEditable) el.setAttribute('contenteditable', 'false');
+      else el.readOnly = true;
+      el.dataset.lockedBy = 'field';
+    });
+    $$('.sai-add, .sai-iconsm', card).forEach(b => {
+      b.disabled = true; b.style.opacity = '.4'; b.style.cursor = 'not-allowed';
+      b.title = 'This group is locked';
+    });
+  });
+
+  $$('[data-afld], [data-sfld], [data-ainp], [data-sinp], [data-narr]', root).forEach(el => {
+    const fld = el.dataset.afld || el.dataset.sfld || el.dataset.ainp
+             || el.dataset.sinp || (el.dataset.narr ? 'narration:' + el.dataset.narr : null);
+    if (!fld) return;
+    if (!isLocked(a.id, fld)) return;
+
+    el.classList.add('locked');
+    if (el.isContentEditable) el.setAttribute('contenteditable', 'false');
+    else el.readOnly = true;
+    el.dataset.lockedBy = nodeLocked ? 'node' : 'field';
+  });
+
+  // Add/remove/reorder controls are writes too. A locked node freezes its
+  // whole shape, not just its prose — otherwise "locked" would mean "locked
+  // except for deleting it", which is not a lock.
+  if (nodeLocked) {
+    $$('.sai-add, .sai-iconsm, [data-pin], [data-unpin]', root).forEach(b => {
+      b.disabled = true; b.style.opacity = '.4'; b.style.cursor = 'not-allowed';
+      b.title = 'The activity is locked';
+    });
+  }
+
+  // The refusal has to be AUDIBLE. Clicking a locked field says why, rather
+  // than doing nothing and leaving the author to wonder if the click missed.
+  $$('.locked', root).forEach(el => el.addEventListener('mousedown', e => {
+    e.preventDefault();
+    toast(el.dataset.lockedBy === 'node'
+      ? 'The activity is locked — unlock it to edit this'
+      : 'This field is locked — unlock it to edit');
+  }));
+
+  $$('[data-lock]', root).forEach(btn => btn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (btn.disabled) return;
+    const now = toggleLock(btn.dataset.lock, btn.dataset.lockfld);
+    const what = btn.dataset.lockfld ? 'Field' : (a.steps ? 'Scenario' : 'Activity');
+    toast(now
+      ? `${what} locked — no write reaches it, the AI's or yours`
+      : `${what} unlocked`);
+    renderActivityDoc(a.id);
+  }));
+}
+
 function wireActivityDoc(a) {
   const root = $('#activityDoc');
-  if (a.steps) { wireScenario(a, root); return; }
+  if (a.steps) { wireScenario(a, root); applyLocks(a, root); return; }
 
   // Selecting a sequence item — a scene opens the canvas, a check opens its
   // editor in the same column.
@@ -8074,6 +8397,8 @@ function wireActivityDoc(a) {
       }, 260);
     }
   }));
+
+  applyLocks(a, root);
 }
 
 /* ── COVERAGE — shared chrome for every modality.
@@ -8475,6 +8800,64 @@ function runPrompt(text) {
       <div class="sai-ai-mark"><i class="fa-solid fa-sparkles"></i></div>
       <div><div class="sai-bubble">Select something on the canvas to target it, and I'll scope the change to that node.</div></div>`,
       'sai-turn-ai'), 450);
+    return;
+  }
+
+  /* ── D32: the lock refuses the AI, and says so ──────────────────────────
+     This is the half that makes a lock a lock rather than a styling state.
+     The refusal happens BEFORE any staged progress runs — the author must
+     not watch three progress rows complete and then be told nothing moved.
+
+     Three verdicts, and the middle one is the case D32 says must not be got
+     wrong: a partly-locked node is neither silently worked around nor
+     silently refused. It reports what is held and hands the choice back. */
+  const verdict = lockVerdict(target.id, sub);
+  if (verdict) {
+    setTimeout(() => {
+      if (verdict.kind === 'partial') {
+        const t = addTurn(`
+          <div class="sai-ai-mark"><i class="fa-solid fa-sparkles"></i></div>
+          <div>
+            <div class="sai-bubble">
+              <b>${verdict.fields.length === 1
+                ? 'One part of' : verdict.fields.length + ' parts of'}
+                ${target.title} ${verdict.fields.length === 1 ? 'is' : 'are'} locked.</b>
+              I can regenerate everything else, or you can unlock first — but I
+              won't quietly work around a lock, because regenerating the rest
+              can leave the parts disagreeing with each other.
+              <div class="sai-lockrep">${verdict.fields.map(f =>
+                `<span class="sai-lockrep-f"><i class="fa-solid fa-lock"></i>${lockLabel(f)}</span>`).join('')}</div>
+              <div class="sai-lockrep-acts">
+                <button class="sai-btn" data-lockgo="rest">Regenerate the rest</button>
+                <button class="sai-btn" data-lockgo="open">${
+                  verdict.fields.length === 1 ? 'Unlock it first' : 'Unlock them first'}</button>
+              </div>
+            </div>
+          </div>`, 'sai-turn-ai');
+        $$('[data-lockgo]', t).forEach(b => b.addEventListener('click', () => {
+          $('.sai-lockrep-acts', t).remove();
+          if (b.dataset.lockgo === 'open') {
+            verdict.fields.forEach(f => LOCKS.delete(lockKey(target.id, f)));
+            if (openActivity === target.id) renderActivityDoc(target.id);
+            toast('Unlocked — ask again and the whole thing is in scope');
+          } else {
+            toast(`Regenerating ${target.title} — the locked ${
+              verdict.fields.length === 1 ? 'field is' : 'fields are'} untouched`);
+          }
+        }));
+      } else {
+        addTurn(`
+          <div class="sai-ai-mark"><i class="fa-solid fa-sparkles"></i></div>
+          <div><div class="sai-bubble">
+            ${verdict.kind === 'node'
+              ? `<b>${target.title}</b> is locked, so I've left it alone. Unlock it and ask again.`
+              : `That field is locked, so I've left it alone. Unlock it and ask again.`}
+            <div class="sai-lockrep"><span class="sai-lockrep-f">
+              <i class="fa-solid fa-lock"></i>${sub ? sub : 'whole ' +
+                (target.layer === 'information' ? 'point' : 'activity')}</span></div>
+          </div></div>`, 'sai-turn-ai');
+      }
+    }, 450);
     return;
   }
 
