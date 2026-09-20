@@ -1057,6 +1057,31 @@
   .sai-modebtn:hover { color: var(--sai-ink); border-color: var(--sai-ink-3); }
   .sai-modebtn.on { background: var(--sai-accent); border-color: var(--sai-accent); color: #0a1218; cursor: default; }
 
+  /* The export view — a document, so it reads as code rather than as a field. */
+  .sai-exp summary {
+    cursor: pointer; font-size: 11px; font-weight: 600; color: var(--sai-ink-3);
+    padding: 5px 0; user-select: none;
+  }
+  .sai-exp summary:hover { color: var(--sai-ink); }
+  .sai-json {
+    background: var(--sai-bg); border: 1px solid var(--sai-line);
+    border-radius: 5px; padding: 10px; margin: 6px 0 0;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 10px; line-height: 1.55; color: var(--sai-ink-2);
+    max-height: 340px; overflow: auto; white-space: pre;
+  }
+
+  /* Plain inputs and selects, for short values where a contenteditable block
+     would be more chrome than the value deserves. */
+  .sai-inp, .sai-sel {
+    background: var(--sai-bg); border: 1px solid var(--sai-line);
+    border-radius: 4px; padding: 5px 8px; font-family: inherit; font-size: 11.5px;
+    color: var(--sai-ink); outline: none; min-width: 0;
+  }
+  .sai-inp:focus, .sai-sel:focus { border-color: var(--sai-accent); }
+  .sai-inp::placeholder { color: var(--sai-ink-3); }
+  .sai-sel { cursor: pointer; }
+
   /* Empty states — a collection with nothing in it must say what it is for,
      not render as blank space the author has to guess about. */
   .sai-empty-row {
@@ -1220,6 +1245,15 @@
   /* Roll counter — the SPREAD is the thing being judged, so the surface says
      how many draws you have seen. */
   .sai-roll-n { font-size: 9.5px; color: var(--sai-ink-3); }
+
+  /* An observe_react rehearses against something the learner LOOKS at, so the
+     transcript leads with the exhibit rather than a line of dialogue. */
+  .sai-exhibit {
+    display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px;
+    padding: 10px 12px; border-radius: 7px; font-size: 11px; line-height: 1.5;
+    background: var(--sai-bg); border: 1px dashed var(--sai-line-2); color: var(--sai-ink-2);
+  }
+  .sai-exhibit > i { color: var(--sai-ink-3); font-size: 15px; margin-top: 1px; }
 
   /* Focusing an editor field lights the turn it governs — the rehearsal is a
      reference you edit AGAINST, so the surface says which part of the
@@ -2814,11 +2848,52 @@ const MODEL = {
         'info-6': { depth: 'working', state: 'adjusted',  at: 1 }
       }, placed: true,
 
+      /* Document identity. A scenario is addressed by its OWN id, never by its
+         title or filename — filenames are for people, and nothing downstream
+         should parse one. `schemaVersion` is what a player would check before
+         attempting to load it. */
+      implementationId: 'forklift-hazard-walkthrough-v1',
+      schemaVersion: '4.0',
+      modality: 'ai-conversational',
+
+      // The framing the learner reads before anything starts.
+      narrative: 'You are covering a shift supervisor\'s rounds on a dock you know '
+               + 'reasonably well. The people here are competent and busy, which is '
+               + 'exactly when the things you are about to see go unremarked.',
+
+      /* An ungraded exchange BEFORE the steps. Optional — a scenario may open
+         straight into its first practice. Nothing here is assessed; it exists
+         to get the learner talking. */
+      opening: {
+        label: 'Gut read',
+        purpose: 'Get the learner committed to a first impression before any teaching, '
+               + 'so the debrief has something of theirs to work with.',
+        messages: [
+          { text: 'Before we walk the dock — when you picture a forklift accident, what '
+                + 'do you picture?' }
+        ],
+        exitTurns: 1,
+        // An opening cannot gate: it has no bar to clear.
+        inputPlaceholder: 'Whatever comes to mind…'
+      },
+
       // The situation every step shares.
       world: {
         setting: 'A busy loading dock, mid-shift. Two trailers at the bays, a '
                + 'pallet of shrink-wrapped stock part-staged, foot traffic crossing '
                + 'the apron.',
+
+        /* Facts that are TRUE of this world. The coach may draw on them, and a
+           fact with a `revealWhen` is held back until then — which is what lets
+           a scenario withhold something without the author scripting the
+           withholding. */
+        canon: [
+          { fact: 'The clamp attachment was fitted this morning and the supplementary '
+                + 'plate has not been checked since.', revealWhen: '' },
+          { fact: 'Marcus has been told twice this week that the bay is behind.', revealWhen: '' },
+          { fact: 'The derated capacity for this truck-and-clamp combination is 1,850 kg.',
+            revealWhen: 'the learner asks for the figure' }
+        ],
         // A character is identity and disposition ONLY. How they react to being
         // handled well or badly lives in each step's LEVELS, because reactions
         // differ per step.
@@ -2832,6 +2907,24 @@ const MODEL = {
         ]
       },
 
+      /* Wrong beliefs worth correcting, each with the redirect that corrects it.
+         Distinct from a calibration's `lookFor`: that judges one answer in one
+         step, this is a belief the coach should correct wherever it surfaces. */
+      misconceptions: [
+        { misconception: 'The capacity plate figure is the truck\'s capacity, full stop.',
+          redirect: 'The plate rates the truck AS CONFIGURED. Change the configuration and '
+                  + 'the rating changes with it.' },
+        { misconception: 'An experienced operator can judge a safe load by eye.',
+          redirect: 'Capacity failures are not progressive — a truck within limits and a '
+                  + 'truck over limits handle identically until the rear wheels lift.' }
+      ],
+
+      // How the coach sounds. Distinct from the persona, which is who it IS.
+      toneGuidelines: [
+        'Plain, unhurried. No exclamation marks and no cheerleading.',
+        'Never moralise about safety; state consequences and let them land.'
+      ],
+
       // The AI assistant's depiction for THIS modality (D27) — one presence per
       // project, a different face per modality.
       coachPersona: 'A calm, experienced trainer who asks before telling. Never '
@@ -2843,9 +2936,19 @@ const MODEL = {
           purpose: 'Surface whether the learner reaches for the capacity plate at all, '
                  + 'or judges the load by eye.',
           exitTurns: 2,
-          opening: 'Dee is about to lift a part-staged pallet with a clamp attachment '
-                 + 'fitted. What would you want to know before she lifts?',
           answerShape: 'determinate',
+          /* The interaction's SHAPE is selected by the mode. A coach_inquiry
+             opens with messages and judges reasoning; a roleplay needs a scene
+             and a partner; an observe_react needs something to look at and a
+             rubric of what to spot. Three different authoring tasks. */
+          interaction: {
+            openingMessages: [
+              { text: 'Dee is about to lift a part-staged pallet with a clamp attachment fitted.' },
+              { text: 'What would you want to know before she lifts?' }
+            ],
+            inputPlaceholder: 'What would you check first?',
+            helpTurns: 1
+          },
           levels: {
             unthoughtful: {
               lookFor: 'Judges by appearance — "it looks fine", "that\'s not heavy", or '
@@ -2887,9 +2990,21 @@ const MODEL = {
           purpose: 'Test whether the learner holds a correct call under social pressure '
                  + 'from a supervisor who wants the bay cleared.',
           exitTurns: 3,
-          opening: 'Marcus: "We are forty minutes behind and that trailer has to move. '
-                 + 'Is there a problem here or not?"',
           answerShape: 'open',
+          interaction: {
+            setting: 'At the bay door, engine still running, Marcus arriving fast.',
+            characterId: 'ch-marcus',
+            partnerLabel: 'Marcus',
+            emotionHint: 'impatient, not aggressive',
+            openingMessages: [
+              { text: 'We are forty minutes behind and that trailer has to move.',
+                characterId: 'ch-marcus', emotion: 'clipped' },
+              { text: 'Is there a problem here or not?',
+                characterId: 'ch-marcus', emotion: 'pressing' }
+            ],
+            inputPlaceholder: 'Answer Marcus…',
+            helpTurns: 0
+          },
           // A later step may read from an earlier one BY ID — never by position,
           // so reordering repairs nothing and breaks nothing.
           carryover: [{ from: 'st-1', as: 'the capacity call the learner just made' }],
@@ -2899,6 +3014,9 @@ const MODEL = {
                      + 'back to him.',
               response: 'Marcus takes the opening and escalates the pressure rather than '
                       + 'relenting; the learner feels the cost of not holding.',
+              // Only a roleplay has a scene to resolve, so only a roleplay's
+              // levels carry a progression.
+              progression: 'Marcus walks away satisfied; the lift proceeds unchecked.',
               example: { learner: 'I mean, if you need it moved I can ask Dee to try it.',
                          reply: 'Marcus: "Good. Tell her to get on with it then." '
                               + '(He is already walking away.)' } },
@@ -2907,6 +3025,7 @@ const MODEL = {
                      + 'or negotiating the safety point.',
               response: 'Marcus pushes once more, then accepts — and the learner sees that '
                       + 'holding the line ends the conversation faster than hedging.',
+              progression: 'Marcus checks his watch, concedes the five minutes, and leaves.',
               example: { learner: 'There is a problem. The clamp derates the truck and I do '
                               + 'not have the figure for that combination yet. Five minutes.',
                          reply: 'Marcus: "Five minutes." (He checks his watch, but stops '
@@ -2926,9 +3045,37 @@ const MODEL = {
           purpose: 'Check that the learner spots a mount-and-dismount failure when it is '
                  + 'incidental rather than the subject of the question.',
           exitTurns: 2,
-          opening: 'Watch the clip. Dee finishes the lift, sets the load, and steps down '
-                 + 'from the cab facing away from the truck, one hand on the wheel.',
           answerShape: 'determinate',
+          interaction: {
+            exhibit: {
+              type: 'video', src: 'dock-dismount.mp4',
+              alt: 'Operator dismounting a forklift at the bay',
+              facts: [
+                'The load is set and the forks are grounded before she moves.',
+                'The step is clear of debris.',
+                'She is facing away from the truck as she steps down.',
+                'Her right hand is on the steering wheel.'
+              ]
+            },
+            // What the learner should SPOT, and how many of them counts as
+            // success. The nudge is what the coach says if they miss it.
+            rubric: [
+              { id: 'rb-facing', name: 'Facing away', standardTerm: 'Faces the truck',
+                nudge: 'Which way was she facing as she came down?' },
+              { id: 'rb-wheel', name: 'Wheel as handhold', standardTerm: 'Three points of contact',
+                nudge: 'What was her hand resting on?' },
+              { id: 'rb-contact', name: 'Contact points', standardTerm: 'Three points of contact',
+                nudge: 'How many points of contact did she keep?' }
+            ],
+            spotTarget: 2,
+            // A brief is a locked briefing over the exhibit — text only, never
+            // a chat bubble, so it carries no character or emotion.
+            brief: [
+              { text: 'Watch the dismount. Note anything that would concern you.' }
+            ],
+            jotPlaceholder: 'What did you notice?',
+            helpTurns: 1
+          },
           levels: {
             unthoughtful: {
               lookFor: 'Comments only on the load or the lift; does not mention the '
@@ -2967,6 +3114,13 @@ const MODEL = {
           'Recognises that an attachment derates the truck, and that the derate is specific to the combination.',
           'Treats an absent supplementary plate as a stop, not as a judgement call.',
           'Holds the decision under schedule pressure, stating the reason once and plainly.'
+        ],
+        /* EXTERNAL authorities only — a regulation or a standard. An internal
+           course or slide id means nothing outside the course, and this is the
+           part an auditor reads. */
+        sourceReferences: [
+          'OSHA 1910.178(o)(2) — handling loads within rated capacity',
+          'ANSI/ITSDF B56.1 §4.6 — attachment derating and supplementary plates'
         ]
       },
 
@@ -3652,26 +3806,114 @@ function renderBlockers(a) {
   if (noMedia)  out.push(`${noMedia} scene${noMedia > 1 ? 's are' : ' is'} missing background media`);
   if (noNarr)   out.push(`${noNarr} scene${noNarr > 1 ? 's have' : ' has'} no narration`);
 
-  /* Scenario blockers — all computable from the shape, all human-readable.
-     A gate says what is wrong, never just that something is. */
+  /* Scenario validation. Two layers, following the reference's own split:
+
+       SHAPE     — a field the mode requires is missing, or a count is wrong
+       CROSS-FIELD — a reference that does not resolve, or a combination the
+                   player would refuse (its §9.1 loader rules)
+
+     Plus a PROMPT-SMELL lint, adapted. The reference rejects authored strings
+     that talk about the AI or the interface, because that text is compiled into
+     a system prompt and the learner should never meet it. An AI-first platform
+     needs that MORE, not less — more of the text here is generated, so more of
+     it can drift into talking about itself. */
   (a.steps || []).forEach((st, i) => {
     const n = `Step ${i + 1} (${st.label})`;
+    const io = st.interaction || {};
+
     if (!st.exitTurns) out.push(`${n} has no exit gate — it would never advance`);
     if (!st.levels || !st.levels.strong)
       out.push(`${n} has no Strong calibration — nothing recognises a good answer`);
     if (!st.levels || !st.levels.unthoughtful)
       out.push(`${n} has no Unthoughtful calibration — nothing catches a weak answer`);
-    // A carryover naming a step that no longer exists, or that now runs LATER,
-    // is invalid by construction — the same class of error reordering creates.
+
+    // ── Per-mode shape
+    if (st.mode === 'coach_inquiry' || st.mode === 'roleplay') {
+      if (!(io.openingMessages || []).length)
+        out.push(`${n} has no opening — it would start in silence`);
+      if ((io.openingMessages || []).some(m => !(m.text || '').trim()))
+        out.push(`${n} has an empty opening message`);
+    }
+    if (st.mode === 'roleplay') {
+      if (!(io.setting || '').trim())
+        out.push(`${n} is a roleplay with no scene set`);
+      if (!(io.partnerLabel || '').trim())
+        out.push(`${n} is a roleplay with no partner label — the learner would not know who is speaking`);
+      // §9.1 rule 4 — a characterId must name a DECLARED character.
+      if (io.characterId && !(a.world.characters || []).some(c => c.id === io.characterId))
+        out.push(`${n} names a character that is not in the cast`);
+    } else {
+      // §9.1 rule 5 — progression is legal only in a roleplay.
+      if (Object.values(st.levels || {}).some(L => L && L.progression))
+        out.push(`${n} has a scene progression but is not a roleplay — there is no scene to resolve`);
+    }
+    if (st.mode === 'observe_react') {
+      const ex = io.exhibit || {};
+      const rub = io.rubric || [];
+      if (!(ex.src || '').trim())
+        out.push(`${n} has no exhibit — there is nothing to observe`);
+      if (!rub.length)
+        out.push(`${n} has an empty rubric — nothing says what is worth spotting`);
+      if (rub.some(r => !(r.nudge || '').trim()))
+        out.push(`${n} has a rubric item with no nudge — a learner who misses it gets no help`);
+      // §9.1 rule 6 — spotTarget must be within the rubric, ids unique.
+      if ((io.spotTarget || 1) > rub.length)
+        out.push(`${n} needs ${io.spotTarget} spots but the rubric holds ${rub.length}`);
+      if (new Set(rub.map(r => r.id)).size !== rub.length)
+        out.push(`${n} has duplicate rubric ids`);
+      if (!(io.brief || []).length)
+        out.push(`${n} has no brief — the learner is shown the exhibit with no framing`);
+      if ((io.brief || []).some(b => !(b.text || '').trim()))
+        out.push(`${n} has an empty brief line`);
+    }
+
+    // ── Cross-step
     (st.carryover || []).forEach(c => {
       const at = (a.steps || []).findIndex(x => x.id === c.from);
       if (at < 0) out.push(`${n} carries over from a step that no longer exists`);
       else if (at >= i) out.push(`${n} carries over from step ${at + 1}, which runs after it`);
     });
+
+    // §9.1 rule 7 — a probe needs somewhere to be answered.
     const d = st.debrief || {};
-    if (d.followUpTurns > 0 && !d.probe)
+    if (d.followUpTurns > 0 && !(d.probe || '').trim())
       out.push(`${n}'s debrief waits for an answer but asks nothing`);
+    if (!(d.keyPoints || []).filter(k => (k || '').trim()).length)
+      out.push(`${n}'s debrief has no key points — it would teach nothing`);
   });
+
+  // ── Scenario level
+  if (a.steps) {
+    if (!(a.narrative || '').trim()) out.push('No narrative — the learner starts with no framing');
+    if (!a.closing || !(a.closing.summary || '').trim())
+      out.push('No closing summary — nothing is guaranteed to every learner');
+    if (!(a.world && (a.world.characters || []).length))
+      out.push('No cast — a roleplay would have nobody to talk to');
+    // Compliance wants an external authority on the close.
+    if (MODEL.goal === 'compliance' && !((a.closing || {}).sourceReferences || []).length)
+      out.push('No source references on the close — a Compliance goal expects an external authority');
+
+    // ── Prompt smell. Authored text that talks about the AI or the interface
+    //    leaks into what the learner is told.
+    const SMELL = ['the ai', 'the model', 'the interface', 'the ui', 'the chat window',
+                   'this prompt', 'as an ai', '[[', ']]'];
+    const smelt = [];
+    const scan = (label, txt) => {
+      const t = (txt || '').toLowerCase();
+      const hit = SMELL.find(x => t.includes(x));
+      if (hit) smelt.push(`${label} ("${hit}")`);
+    };
+    scan('the narrative', a.narrative);
+    scan('the coach persona', a.coachPersona);
+    (a.steps || []).forEach((st, i) => {
+      scan(`step ${i + 1} purpose`, st.purpose);
+      ((st.interaction || {}).openingMessages || []).forEach(m => scan(`step ${i + 1} opening`, m.text));
+      Object.entries(st.levels || {}).forEach(([k, L]) => L && scan(`step ${i + 1} ${k} response`, L.response));
+      scan(`step ${i + 1} final word`, (st.debrief || {}).finalWord);
+    });
+    if (smelt.length)
+      out.push(`Authored text refers to the AI or the interface — ${smelt.slice(0, 2).join(', ')}${smelt.length > 2 ? ` and ${smelt.length - 2} more` : ''}`);
+  }
   return out;
 }
 
@@ -3996,6 +4238,16 @@ const MODE_HINT = {
    middle is optional — a binary step has no neutral, and requiring one is how
    the reference tool's own port came to invent middle tiers to satisfy a
    schema. So an absent neutral is authored intent; an absent pole is a gap. */
+/* Every step that references a character by id — as its roleplay partner, or on
+   an opening message. A reference, so it is countable and repairable. */
+function charRefs(a, cid) {
+  return (a.steps || []).filter(st => {
+    const io = st.interaction || {};
+    return io.characterId === cid
+        || (io.openingMessages || []).some(m => m.characterId === cid);
+  });
+}
+
 function levelsOf(step) {
   return LEVEL_ORDER.filter(k => step.levels && step.levels[k]);
 }
@@ -4061,30 +4313,35 @@ function rollReply(step, level, n) {
        the persona follows from what the activity asks the learner to do.
    ──────────────────────────────────────────────────────────────────────── */
 const SCN_PHASES = [
-  { id: 'world', num: '1', title: 'Situation & world', rail: 'The scene and its cast',
+  { id: 'framing', num: '1', title: 'Framing', rail: 'Narrative & opening',
+    eyebrow: 'Before anything starts',
+    lede: 'What the learner reads going in, and an optional ungraded exchange to get them '
+        + 'talking before any teaching. Plus the document identity a player loads it by.' },
+
+  { id: 'world', num: '2', title: 'Situation & world', rail: 'The scene and its cast',
     eyebrow: 'Where this happens',
     lede: 'The world the scenario plays out in — the setting every step shares, and who is in it. '
         + 'A character is identity and disposition only; how they react to being handled well or '
         + 'badly lives in each step\'s calibration, because reactions differ per step.' },
 
-  { id: 'coverage', num: '2', title: 'Coverage', rail: 'What it must teach',
+  { id: 'coverage', num: '3', title: 'Coverage', rail: 'What it must teach',
     eyebrow: 'The point of the whole thing',
     lede: 'The information points this activity satisfies, and how deeply. These are REFERENCED '
         + 'from the project\'s information set — not written here — so the same points can also '
         + 'become a video or a podcast, and a change to a point is visible everywhere it is used.' },
 
-  { id: 'interaction', num: '3', title: 'Interaction', rail: 'The core loop',
+  { id: 'interaction', num: '4', title: 'Interaction', rail: 'The core loop',
     eyebrow: 'What the learner actually does',
     lede: 'The arc, step by step: each gives the learner something to do, then has the coach teach '
         + 'against how they did it. Rehearse any step to see what your calibration actually produces.' },
 
-  { id: 'coach', num: '4', title: 'The coach', rail: 'Who is in the room',
+  { id: 'coach', num: '5', title: 'The coach', rail: 'Who is in the room',
     eyebrow: 'Casting the assistant',
     lede: 'Your project has one AI assistant — the same context, the same through-line, across every '
         + 'activity. This activity casts it: the persona follows from what you are asking the learner '
         + 'to do here.' },
 
-  { id: 'close', num: '5', title: 'Close', rail: 'Results & takeaways',
+  { id: 'close', num: '6', title: 'Close', rail: 'Results & takeaways',
     eyebrow: 'The learner\'s close',
     lede: 'What every learner leaves with, whatever path they took through the steps. Shipped '
         + 'verbatim — this is the one part of the scenario that does not vary.' }
@@ -4113,6 +4370,10 @@ const RAIL_DEFAULT = id => id === 'interaction';   // collapsed where two column
 function scnPhaseBlockers(a, phase) {
   const out = [];
   const steps = a.steps || [];
+  if (phase === 'framing') {
+    if (!(a.narrative || '').trim()) out.push('No narrative');
+    if (!a.implementationId) out.push('No document id');
+  }
   if (phase === 'world') {
     if (!a.world || !a.world.setting) out.push('No setting');
     if (!a.world || !(a.world.characters || []).length) out.push('No characters');
@@ -4294,12 +4555,9 @@ function renderStepEditor(a, st) {
         <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
              data-sfld="${st.id}:purpose">${st.purpose}</div>
       </div>
-      <div class="sai-fld">
-        <div class="sai-fld-lbl">Opening <span class="sai-fld-kind verbatim">verbatim</span></div>
-        <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
-             data-sfld="${st.id}:opening">${st.opening}</div>
-      </div>
     </div>
+
+    ${renderInteractionEditor(a, st)}
 
     <div class="sai-card">
       <div class="sai-card-head">
@@ -4377,6 +4635,12 @@ function renderStepEditor(a, st) {
             <div class="sai-fld-lbl" style="margin:7px 0 3px">Coach responds by</div>
             <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
                  data-sfld="${st.id}:levels.${k}.response">${L.response}</div>
+            ${st.mode === 'roleplay' ? `
+              <div class="sai-fld-lbl" style="margin:7px 0 3px">
+                How the scene moves <span class="sai-fld-kind guidance">roleplay only</span>
+              </div>
+              <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                   data-sfld="${st.id}:levels.${k}.progression">${L.progression || ''}</div>` : ''}
             ${L.example ? `
               <div class="sai-fld-lbl" style="margin:7px 0 3px">
                 Pinned example <i class="fa-solid fa-thumbtack" style="font-size:8px"></i>
@@ -4463,6 +4727,462 @@ function renderStepEditor(a, st) {
     </div>`;
 }
 
+/* The export, surfaced. Shows what would be produced, what the projection
+   could not carry, and which fields are Vector extensions — following the
+   reference's own convention of declaring rather than hiding both. */
+function renderExportCard(a) {
+  const { doc, lost, exts } = exportScenario(a);
+  const json = JSON.stringify(doc, null, 2);
+  const blockers = renderBlockers(a);
+  return `
+    <div class="sai-card">
+      <div class="sai-card-head">
+        <span class="sai-card-title">Export</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
+          ${(doc.content.phases || []).length} phases · ${Math.round(json.length / 1024)}KB
+        </span>
+      </div>
+      <div class="sai-card-note">
+        What a player would load. ${blockers.length
+          ? `<span style="color:var(--sai-warn)">${blockers.length} issue${blockers.length > 1 ? 's' : ''} would need resolving first.</span>`
+          : 'Nothing outstanding.'}
+      </div>
+
+      ${lost.length ? lost.map(l => `
+        <div class="sai-inherit" style="background:var(--sai-warn-soft);border-color:var(--sai-warn)">
+          <i class="fa-solid fa-triangle-exclamation" style="color:var(--sai-warn)"></i>
+          <div class="sai-inherit-txt">
+            <b style="color:var(--sai-warn)">${l.what} ${l.plural === false ? 'does' : 'do'} not survive the export.</b><br>${l.detail}
+          </div>
+        </div>`).join('') : ''}
+
+      ${exts.map(e => `
+        <div style="font-size:10.5px;color:var(--sai-ink-3);line-height:1.5;margin-bottom:8px">
+          <b style="color:var(--sai-ink-2)">${e.field}</b> is a Vector extension, not a field in
+          the format — declared rather than invented. ${e.why}
+        </div>`).join('')}
+
+      <details class="sai-exp">
+        <summary>Show the document</summary>
+        <pre class="sai-json">${json.replace(/</g, '&lt;')}</pre>
+      </details>
+    </div>`;
+}
+
+/* ── EXPORT — project the authored scenario to a loadable document ─────
+   The reference editor's whole reason for existing is that it produces JSON a
+   player can load. Until this exists here, "could produce a deliverable" is
+   untested rather than true.
+
+   Two things make this projection interesting rather than mechanical:
+
+   1. `teaching_points` are PROJECTED FROM COVERAGE. The reference authors them
+      inline as strings and matches them to a step by comparing the step's label
+      to a topic name — which its own validator flags as fragile. Here they are
+      derived from the information points this activity covers, so they cannot
+      drift from the source.
+
+   2. That projection is LOSSY, and the export says so. v4 has no slot for a
+      point reference (`additionalProperties: false`), so projecting down
+      flattens the id-join back into the strings it was meant to replace. The
+      platform's central addition is the thing the current format cannot carry —
+      which is the argument for the format growing, not for hiding the loss.
+
+   Vector-extension fields follow the reference's own convention: authored, and
+   declared with a reason, rather than silently invented or quietly dropped. */
+function exportScenario(a) {
+  const covered = Object.keys(a.covers || {}).map(pid => byId[pid]).filter(Boolean);
+
+  const doc = {
+    implementation_id: a.implementationId,
+    schema_version: a.schemaVersion,
+    modality: a.modality,
+    content: {
+      title: a.title,
+      narrative: a.narrative,
+      coach_persona: a.coachPersona,
+      tone_guidelines: a.toneGuidelines || [],
+
+      /* PROJECTED from the covered information points, not authored here.
+         One topic per point, its `points` drawn from the point's own document. */
+      teaching_points: covered.map(pt => ({
+        topic: pt.title,
+        points: [pt.claim, pt.matters].filter(Boolean).map(t => String(t).split('\n')[0])
+      })),
+
+      misconceptions: (a.misconceptions || []).map(m => ({
+        misconception: m.misconception, redirect: m.redirect
+      })),
+
+      scene_world: {
+        setting: a.world.setting,
+        canon: { facts: (a.world.canon || []).map(c => c.fact) },
+        characters: (a.world.characters || []).map(c => ({
+          id: c.id, name: c.name, role: c.role,
+          behavior: { driver: c.behavior }
+        }))
+      },
+
+      opening: a.opening ? {
+        id: 'opening', label: a.opening.label, purpose: a.opening.purpose,
+        opening_messages: (a.opening.messages || []).map(m => ({ text: m.text })),
+        exit: { when: { turns: a.opening.exitTurns } },
+        transition: { button_label: 'Start' }
+      } : undefined,
+
+      phases: (a.steps || []).map(st => {
+        const io = st.interaction || {};
+        const levels = {};
+        Object.entries(st.levels || {}).forEach(([k, L]) => {
+          if (!L) return;
+          levels[k] = { look_for: L.lookFor, response: L.response };
+          if (L.example) levels[k].example = { learner: L.example.learner, reply: L.example.reply };
+          if (st.mode === 'roleplay' && L.progression) levels[k].progression = L.progression;
+        });
+
+        let interaction;
+        if (st.mode === 'coach_inquiry') {
+          interaction = {
+            opening_messages: (io.openingMessages || []).map(m => ({ text: m.text })),
+            levels, input_placeholder: io.inputPlaceholder || ''
+          };
+        } else if (st.mode === 'roleplay') {
+          interaction = {
+            setting: io.setting, partner_label: io.partnerLabel,
+            character_id: io.characterId || null,
+            emotion_hint: io.emotionHint || '',
+            opening_messages: (io.openingMessages || []).map(m => {
+              const o = { text: m.text };
+              if (m.characterId) o.character_id = m.characterId;
+              if (m.emotion) o.emotion = m.emotion;
+              return o;
+            }),
+            levels, help_turns: io.helpTurns || 0
+          };
+        } else {
+          interaction = {
+            exhibit: {
+              type: io.exhibit.type, src: io.exhibit.src,
+              alt: io.exhibit.alt || '', facts: io.exhibit.facts || []
+            },
+            rubric: (io.rubric || []).map(r => ({
+              id: r.id, name: r.name, standard_term: r.standardTerm, nudge: r.nudge
+            })),
+            spot_target: io.spotTarget || 1,
+            brief: (io.brief || []).map(b => ({ text: b.text })),
+            levels, jot_placeholder: io.jotPlaceholder || '', help_turns: io.helpTurns || 0
+          };
+        }
+
+        const debrief = {
+          label: st.debrief.label,
+          key_points: st.debrief.keyPoints.filter(k => (k || '').trim()),
+          follow_up_turns: st.debrief.followUpTurns,
+          transition: { button_label: 'Continue' }
+        };
+        // follow_up_turns:0 is delivery-only — a probe there could never be
+        // answered, and final_word becomes the unit's whole remaining content.
+        if (st.debrief.followUpTurns === 0) debrief.final_word = st.debrief.finalWord;
+        else if (st.debrief.probe) debrief.probe = { text: st.debrief.probe };
+
+        const phase = {
+          id: st.id, label: st.label, purpose: st.purpose,
+          practice: {
+            mode: st.mode, purpose: st.purpose,
+            exit: { when: { turns: st.exitTurns } },
+            transition: { button_label: 'Continue' },
+            interaction,
+            // Vector extension — declared, not silently invented.
+            answer_shape: st.answerShape
+          },
+          debrief
+        };
+        if (st.carryover && st.carryover.length)
+          phase.practice.interaction.carryover = st.carryover.map(c => ({ from: c.from }));
+        return phase;
+      }),
+
+      closing: {
+        ideal_response: {
+          component_groups: [{ title: 'A competent response', components: a.closing.components }],
+          summary: a.closing.summary,
+          source_references: a.closing.sourceReferences || []
+        }
+      }
+    }
+  };
+
+  /* What the projection could not carry. Reported, never silent — this is the
+     honest half of "keep what works, leave behind what needs optimizing". */
+  const lost = [];
+  if (covered.length) lost.push({
+    what: 'Point references',
+    detail: `${covered.length} teaching topics were flattened from information-point ids `
+          + `(${covered.map(p => p.id).join(', ')}) into plain strings. v4 has no slot for a `
+          + `point reference, so coverage, depth and drift do not survive the export.`
+  });
+  if ((a.world.canon || []).some(c => c.revealWhen)) lost.push({
+    what: 'Conditional canon', plural: false,
+    detail: 'v4 canon facts are plain strings, so "reveal when" conditions are dropped.'
+  });
+  const exts = [{ field: 'practice.answer_shape',
+                  why: 'v4 cannot distinguish a graded practice from an open judgment one.' }];
+  return { doc, lost, exts };
+}
+
+/* Reshape a step's interaction for a new mode. Returns the names of the fields
+   that were dropped, so the surface can SAY what it discarded — retyping a step
+   is destructive and should never be silent about it.
+
+   Fields the old and new mode share are carried across (opening messages,
+   placeholders, help turns), because losing an authored opening just for
+   changing how the step is judged would be gratuitous. */
+function seedInteraction(st, mode) {
+  const io = st.interaction || {};
+  const dropped = [];
+
+  const keep = {
+    openingMessages: io.openingMessages || [],
+    helpTurns: io.helpTurns || 0
+  };
+
+  if (mode === 'coach_inquiry') {
+    if (io.setting || io.characterId || io.partnerLabel) dropped.push('the scene and partner');
+    if (io.exhibit) dropped.push('the exhibit');
+    if (io.rubric && io.rubric.length) dropped.push('the rubric');
+    st.interaction = {
+      openingMessages: keep.openingMessages,
+      inputPlaceholder: io.inputPlaceholder || io.jotPlaceholder || '',
+      helpTurns: keep.helpTurns
+    };
+  }
+
+  if (mode === 'roleplay') {
+    if (io.exhibit) dropped.push('the exhibit');
+    if (io.rubric && io.rubric.length) dropped.push('the rubric');
+    st.interaction = {
+      setting: io.setting || '',
+      characterId: io.characterId || '',
+      partnerLabel: io.partnerLabel || '',
+      emotionHint: io.emotionHint || '',
+      openingMessages: keep.openingMessages,
+      inputPlaceholder: io.inputPlaceholder || '',
+      helpTurns: keep.helpTurns
+    };
+  }
+
+  if (mode === 'observe_react') {
+    if (io.setting || io.characterId || io.partnerLabel) dropped.push('the scene and partner');
+    st.interaction = {
+      exhibit: io.exhibit || { type: 'image', src: '', alt: '', facts: [] },
+      rubric: io.rubric || [],
+      spotTarget: io.spotTarget || 1,
+      // An opening message becomes a BRIEF — text only, since a brief is a
+      // locked framing over the exhibit rather than a chat bubble.
+      brief: keep.openingMessages.map(m => ({ text: m.text })),
+      jotPlaceholder: io.jotPlaceholder || io.inputPlaceholder || '',
+      helpTurns: keep.helpTurns
+    };
+  }
+
+  /* `progression` is legal only inside a roleplay's levels — there is no scene
+     for it to resolve anywhere else. Drop it rather than carry an illegal
+     field, and say so. */
+  if (mode !== 'roleplay') {
+    let had = 0;
+    Object.values(st.levels || {}).forEach(L => { if (L && L.progression) { delete L.progression; had++; } });
+    if (had) dropped.push('scene progressions');
+  }
+  return dropped;
+}
+
+/* ── The INTERACTION editor — dispatched by mode ───────────────────────
+   A mode is a different SHAPE, not a different label. This is the registration
+   seam doing real work at the field level: the step editor asks the mode what
+   it needs and renders that, rather than knowing about roleplay or exhibits.
+
+   coach_inquiry — opening messages; judges reasoning
+   roleplay      — a scene, a partner, and levels that carry a PROGRESSION
+                   (how the scene moves when handled well)
+   observe_react — something to look at, a rubric of what to spot, and how many
+                   spots count as success
+   ─────────────────────────────────────────────────────────────────────── */
+function renderInteractionEditor(a, st) {
+  const io = st.interaction || (st.interaction = {});
+  const m = MODE_META[st.mode] || {};
+
+  // Opening messages — an ARRAY, so a step can open as a short exchange rather
+  // than one flat line. In a roleplay each message may carry a character.
+  const msgsKey = st.mode === 'observe_react' ? 'brief' : 'openingMessages';
+  const msgs = io[msgsKey] || (io[msgsKey] = []);
+  const openingBlock = (label, allowChar) => `
+    <div class="sai-fld">
+      <div class="sai-fld-lbl">${label} <span class="sai-fld-kind verbatim">verbatim</span>
+        <span style="margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0">
+          ${msgs.length} message${msgs.length === 1 ? '' : 's'}</span></div>
+      ${msgs.map((msg, i) => `
+        <div class="sai-kp">
+          <div style="flex:1 1 auto;min-width:0">
+            <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                 data-sfld="${st.id}:interaction.${msgsKey}.${i}.text">${msg.text}</div>
+            ${allowChar ? `
+              <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+                <select class="sai-sel" data-msgchar="${st.id}:${i}">
+                  <option value="">— narrator —</option>
+                  ${(a.world.characters || []).map(c => `
+                    <option value="${c.id}" ${msg.characterId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+                </select>
+                <input class="sai-inp" placeholder="emotion" value="${msg.emotion || ''}"
+                       data-msgemo="${st.id}:${i}" style="width:110px">
+              </div>` : ''}
+          </div>
+          <span class="sai-rowact">
+            <button class="sai-iconsm danger" data-msgdel="${st.id}:${i}" title="Remove">
+              <i class="fa-solid fa-xmark"></i></button>
+          </span>
+        </div>`).join('')}
+      ${!msgs.length ? '<div class="sai-empty-row">No opening — the step would start in silence.</div>' : ''}
+      <button class="sai-add inline" data-msgadd="${st.id}">
+        <i class="fa-solid fa-plus"></i>Add message
+      </button>
+    </div>`;
+
+  let body = '';
+
+  if (st.mode === 'coach_inquiry') {
+    body = openingBlock('Opening', false) + `
+      <div class="sai-fld">
+        <div class="sai-fld-lbl">Input placeholder</div>
+        <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+             data-sfld="${st.id}:interaction.inputPlaceholder">${io.inputPlaceholder || ''}</div>
+      </div>`;
+  }
+
+  if (st.mode === 'roleplay') {
+    const ch = (a.world.characters || []).find(c => c.id === io.characterId);
+    body = `
+      <div class="sai-fld">
+        <div class="sai-fld-lbl">Scene <span class="sai-fld-kind guidance">guidance</span></div>
+        <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+             data-sfld="${st.id}:interaction.setting">${io.setting || ''}</div>
+      </div>
+      <div class="sai-fld">
+        <div class="sai-fld-lbl">Who the learner is talking to</div>
+        <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap">
+          <select class="sai-sel" data-rpchar="${st.id}">
+            <option value="">— narrator-driven —</option>
+            ${(a.world.characters || []).map(c => `
+              <option value="${c.id}" ${io.characterId === c.id ? 'selected' : ''}>${c.name} · ${c.role}</option>`).join('')}
+          </select>
+          <input class="sai-inp" placeholder="partner label" value="${io.partnerLabel || ''}"
+                 data-sinp="${st.id}:interaction.partnerLabel" style="width:130px">
+          <input class="sai-inp" placeholder="emotion hint" value="${io.emotionHint || ''}"
+                 data-sinp="${st.id}:interaction.emotionHint" style="width:150px">
+        </div>
+        ${ch ? `<div style="font-size:10px;color:var(--sai-ink-3);margin-top:5px;line-height:1.5">
+          ${ch.behavior}</div>`
+          : '<div style="font-size:10px;color:var(--sai-ink-3);margin-top:5px">Narrator-driven — about what the learner DOES rather than what they say.</div>'}
+      </div>
+      ` + openingBlock('Opening messages', true);
+  }
+
+  if (st.mode === 'observe_react') {
+    const ex = io.exhibit || (io.exhibit = { type: 'image', src: '', alt: '', facts: [] });
+    const rub = io.rubric || (io.rubric = []);
+    const brief = io.brief || (io.brief = []);
+    body = `
+      <div class="sai-fld">
+        <div class="sai-fld-lbl">Exhibit — what they look at</div>
+        <div style="display:flex;gap:7px;align-items:center;margin-bottom:6px">
+          <span class="sai-modes" style="margin:0">
+            ${['image', 'video'].map(t => `
+              <button class="sai-modebtn ${ex.type === t ? 'on' : ''}" data-extype="${st.id}:${t}"
+                style="padding:4px 10px;font-size:10px">
+                <i class="fa-solid fa-${t === 'image' ? 'image' : 'film'}"></i>${t}</button>`).join('')}
+          </span>
+          <input class="sai-inp" placeholder="source" value="${ex.src || ''}"
+                 data-sinp="${st.id}:interaction.exhibit.src" style="flex:1 1 auto">
+        </div>
+        <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+             data-sfld="${st.id}:interaction.exhibit.alt">${ex.alt || ''}</div>
+        <div class="sai-fld-lbl" style="margin:8px 0 3px">What is true of it
+          <span style="margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0">
+            ${(ex.facts || []).length}</span></div>
+        ${(ex.facts || []).map((f, i) => `
+          <div class="sai-kp">
+            <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                 data-sfld="${st.id}:interaction.exhibit.facts.${i}">${f}</div>
+            <span class="sai-rowact">
+              <button class="sai-iconsm danger" data-exfactdel="${st.id}:${i}" title="Remove">
+                <i class="fa-solid fa-xmark"></i></button></span>
+          </div>`).join('')}
+        <button class="sai-add inline" data-exfactadd="${st.id}">
+          <i class="fa-solid fa-plus"></i>Add fact
+        </button>
+      </div>
+
+      <div class="sai-fld">
+        <div class="sai-fld-lbl">Rubric — what they should spot
+          <span style="margin-left:auto;font-weight:500;text-transform:none;letter-spacing:0">
+            ${rub.length} item${rub.length === 1 ? '' : 's'}</span></div>
+        <div class="sai-card-note" style="margin-bottom:7px">
+          Each is one thing worth noticing. The nudge is what the coach says if they miss it.
+        </div>
+        ${rub.map((r, i) => `
+          <div class="sai-lvl" style="margin-bottom:6px">
+            <div class="sai-lvl-head" style="color:var(--sai-ink-2)">
+              <i class="fa-solid fa-eye" style="font-size:8px"></i>
+              <input class="sai-inp" value="${r.name}" data-sinp="${st.id}:interaction.rubric.${i}.name"
+                     style="flex:1 1 auto;background:none;border:none;font-weight:700;
+                            text-transform:uppercase;letter-spacing:.06em;font-size:9.5px">
+              <span class="sai-rowact">
+                <button class="sai-iconsm danger" data-rubdel="${st.id}:${i}" title="Remove">
+                  <i class="fa-solid fa-xmark"></i></button></span>
+            </div>
+            <div class="sai-lvl-body">
+              <div class="sai-fld-lbl" style="margin-bottom:3px">Standard term</div>
+              <input class="sai-inp" value="${r.standardTerm || ''}"
+                     data-sinp="${st.id}:interaction.rubric.${i}.standardTerm" style="width:100%">
+              <div class="sai-fld-lbl" style="margin:7px 0 3px">Nudge if missed
+                <span class="sai-fld-kind verbatim">verbatim</span></div>
+              <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                   data-sfld="${st.id}:interaction.rubric.${i}.nudge">${r.nudge || ''}</div>
+            </div>
+          </div>`).join('')}
+        ${!rub.length ? '<div class="sai-empty-row">Nothing to spot — the step cannot be judged.</div>' : ''}
+        <button class="sai-add inline" data-rubadd="${st.id}">
+          <i class="fa-solid fa-plus"></i>Add rubric item
+        </button>
+      </div>
+
+      <div class="sai-fld">
+        <div class="sai-fld-lbl">How many count as success</div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <span class="sai-num">
+            <button data-spot="${st.id}:-1" ${(io.spotTarget || 1) <= 1 ? 'disabled' : ''}>−</button>
+            <span>${io.spotTarget || 1}</span>
+            <button data-spot="${st.id}:1" ${(io.spotTarget || 1) >= rub.length ? 'disabled' : ''}>+</button>
+          </span>
+          <span style="font-size:10.5px;color:var(--sai-ink-3)">
+            of ${rub.length} ${(io.spotTarget || 1) > rub.length
+              ? '— <span style="color:var(--sai-danger)">more than the rubric holds</span>' : ''}
+          </span>
+        </div>
+      </div>
+
+      ${openingBlock('Brief — the locked framing', false)}`;
+  }
+
+  return `
+    <div class="sai-card">
+      <div class="sai-card-head">
+        <i class="fa-solid ${m.icon}" style="color:var(--sai-ink-3);font-size:11px"></i>
+        <span class="sai-card-title">${m.label} — the interaction</span>
+      </div>
+      ${body}
+    </div>`;
+}
+
 /* The non-interaction phases. Each is authored content with no conversation
    to rehearse, so the centre column is the authoring page itself. */
 function renderPhasePage(a, ph) {
@@ -4497,6 +5217,7 @@ function renderPhasePage(a, ph) {
           <div class="sai-empty-row">
             No characters yet. A roleplay step needs someone for the learner to talk to.
           </div>` : ''}
+        ${!a.world.characters.length ? '' : ''}
         ${a.world.characters.map(c => `
           <div class="sai-char">
             <div class="sai-char-av">${(c.name || '?').slice(0, 1)}</div>
@@ -4519,16 +5240,47 @@ function renderPhasePage(a, ph) {
                    data-sfld="char:${c.id}">${c.behavior}</div>
               <div style="margin-top:6px;font-size:10px;color:var(--sai-ink-3)">
                 ${(() => {
-                  const n = (a.steps || []).filter(st => (st.opening || '').includes(c.name)).length;
-                  return n === 0 ? 'Not named in any step opening'
-                       : n === 1 ? 'Named in 1 step opening'
-                       : `Named in ${n} step openings`;
+                  // A characterId is a real reference, so this is countable
+                  // rather than a guess from prose.
+                  const n = charRefs(a, c.id).length;
+                  return n === 0 ? 'Not used in any step'
+                       : `Used in ${n} step${n > 1 ? 's' : ''}`;
                 })()}
               </div>
             </div>
           </div>`).join('')}
         <button class="sai-add" data-addchar="1">
           <i class="fa-solid fa-user-plus"></i>Add character
+        </button>
+      </div>
+
+      <div class="sai-card">
+        <div class="sai-card-head"><span class="sai-card-title">Canon</span>
+          <span class="sai-fld-kind guidance">guidance</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
+            ${(a.world.canon || []).length} facts</span></div>
+        <div class="sai-card-note">
+          What is true of this world. The coach may draw on these. A fact with a
+          <b>reveal when</b> is held back until that happens — which is how a scenario
+          withholds something without the author scripting the withholding.
+        </div>
+        ${(a.world.canon || []).map((cf, i) => `
+          <div class="sai-kp">
+            <div style="flex:1 1 auto;min-width:0">
+              <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                   data-afld="world.canon.${i}.fact">${cf.fact}</div>
+              <input class="sai-inp" placeholder="reveal when… (leave blank: always available)"
+                     value="${cf.revealWhen || ''}" data-ainp="world.canon.${i}.revealWhen"
+                     style="width:100%;margin-top:4px">
+            </div>
+            <span class="sai-rowact">
+              <button class="sai-iconsm danger" data-canondel="${i}" title="Remove">
+                <i class="fa-solid fa-xmark"></i></button></span>
+          </div>`).join('')}
+        ${!(a.world.canon || []).length
+          ? '<div class="sai-empty-row">No canon — the coach has no world facts to draw on.</div>' : ''}
+        <button class="sai-add inline" data-canonadd="1">
+          <i class="fa-solid fa-plus"></i>Add fact
         </button>
       </div>`;
   }
@@ -4589,7 +5341,39 @@ function renderPhasePage(a, ph) {
         </button>` : `
         <div style="font-size:10.5px;color:var(--sai-ink-3);text-align:center;padding:6px">
           This activity covers every point in the set.
-        </div>`}`;
+        </div>`}
+
+      <div class="sai-card" style="margin-top:14px">
+        <div class="sai-card-head"><span class="sai-card-title">Misconceptions</span>
+          <span class="sai-fld-kind guidance">guidance</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
+            ${(a.misconceptions || []).length}</span></div>
+        <div class="sai-card-note">
+          Wrong beliefs worth correcting wherever they surface — distinct from a
+          calibration, which judges one answer in one step.
+        </div>
+        ${(a.misconceptions || []).map((m, i) => `
+          <div class="sai-lvl" style="margin-bottom:6px">
+            <div class="sai-lvl-head" style="color:var(--sai-warn)">
+              <i class="fa-solid fa-triangle-exclamation" style="font-size:8px"></i>Believes
+              <span class="sai-rowact">
+                <button class="sai-iconsm danger" data-misdel="${i}" title="Remove">
+                  <i class="fa-solid fa-xmark"></i></button></span>
+            </div>
+            <div class="sai-lvl-body">
+              <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                   data-afld="misconceptions.${i}.misconception">${m.misconception}</div>
+              <div class="sai-fld-lbl" style="margin:7px 0 3px">Redirect with</div>
+              <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                   data-afld="misconceptions.${i}.redirect">${m.redirect}</div>
+            </div>
+          </div>`).join('')}
+        ${!(a.misconceptions || []).length
+          ? '<div class="sai-empty-row">None recorded.</div>' : ''}
+        <button class="sai-add inline" data-misadd="1">
+          <i class="fa-solid fa-plus"></i>Add misconception
+        </button>
+      </div>`;
   }
 
   if (ph.id === 'coach') {
@@ -4674,6 +5458,105 @@ function renderPhasePage(a, ph) {
         <button class="sai-add inline" data-compadd="1">
           <i class="fa-solid fa-plus"></i>Add component
         </button>
+      </div>
+
+      <div class="sai-card">
+        <div class="sai-card-head"><span class="sai-card-title">Source references</span>
+          <span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
+            ${(cl.sourceReferences || []).length}</span></div>
+        <div class="sai-card-note">
+          <b>External authorities only</b> — a regulation or a standard. An internal course
+          or slide id means nothing outside the course, and this is the part an auditor reads.
+          ${MODEL.goal === 'compliance'
+            ? '<br><span style="color:var(--sai-warn)">A Compliance goal expects at least one.</span>' : ''}
+        </div>
+        ${(cl.sourceReferences || []).map((r, i) => `
+          <div class="sai-kp">
+            <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                 data-afld="closing.sourceReferences.${i}">${r}</div>
+            <span class="sai-rowact">
+              <button class="sai-iconsm danger" data-srcdel="${i}" title="Remove">
+                <i class="fa-solid fa-xmark"></i></button></span>
+          </div>`).join('')}
+        ${!(cl.sourceReferences || []).length
+          ? '<div class="sai-empty-row">None cited.</div>' : ''}
+        <button class="sai-add inline" data-srcadd="1">
+          <i class="fa-solid fa-plus"></i>Add reference
+        </button>
+      </div>
+
+      ${renderExportCard(a)}`;
+  }
+
+  if (ph.id === 'framing') {
+    const op = a.opening;
+    body = `
+      <div class="sai-card">
+        <div class="sai-card-head"><span class="sai-card-title">Narrative</span>
+          <span class="sai-fld-kind verbatim">verbatim</span></div>
+        <div class="sai-card-note">What the learner reads before anything starts.</div>
+        <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+             data-afld="narrative" style="min-height:60px">${a.narrative || ''}</div>
+      </div>
+
+      <div class="sai-card">
+        <div class="sai-card-head">
+          <span class="sai-card-title">Opening reflection</span>
+          <span style="margin-left:auto">
+            ${op ? `<button class="sai-iconsm danger" data-opendel="1" title="Remove the opening">
+                      <i class="fa-solid fa-trash"></i></button>` : ''}
+          </span>
+        </div>
+        <div class="sai-card-note">
+          One ungraded exchange before the steps — nothing here is assessed. <b>Optional:</b>
+          a scenario may open straight into its first practice.
+        </div>
+        ${op ? `
+          <div class="sai-fld">
+            <div class="sai-fld-lbl">Label</div>
+            <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                 data-afld="opening.label">${op.label}</div>
+          </div>
+          <div class="sai-fld">
+            <div class="sai-fld-lbl">Purpose <span class="sai-fld-kind guidance">guidance</span></div>
+            <div class="sai-fld-txt" contenteditable="true" spellcheck="false"
+                 data-afld="opening.purpose">${op.purpose}</div>
+          </div>
+          <div class="sai-fld">
+            <div class="sai-fld-lbl">What it asks <span class="sai-fld-kind verbatim">verbatim</span></div>
+            ${(op.messages || []).map((m, i) => `
+              <div class="sai-fld-txt" contenteditable="true" spellcheck="false" style="margin-bottom:4px"
+                   data-afld="opening.messages.${i}.text">${m.text}</div>`).join('')}
+          </div>
+          <div class="sai-fld">
+            <div class="sai-fld-lbl">Turns</div>
+            <span class="sai-num">
+              <button data-opturns="-1" ${op.exitTurns <= 1 ? 'disabled' : ''}>−</button>
+              <span>${op.exitTurns}</span>
+              <button data-opturns="1" ${op.exitTurns >= 3 ? 'disabled' : ''}>+</button>
+            </span>
+            <span style="font-size:10.5px;color:var(--sai-ink-3);margin-left:9px">
+              An opening cannot gate — it has no bar to clear.
+            </span>
+          </div>`
+        : `<div class="sai-empty-row">No opening — the scenario starts at step 1.</div>
+           <button class="sai-add inline" data-openadd="1">
+             <i class="fa-solid fa-plus"></i>Add an opening reflection
+           </button>`}
+      </div>
+
+      <div class="sai-card">
+        <div class="sai-card-head"><span class="sai-card-title">Document</span></div>
+        <div class="sai-card-note">
+          A scenario is addressed by its own id, never by its title or filename — filenames
+          are for people, and nothing downstream should parse one.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input class="sai-inp" value="${a.implementationId || ''}" data-ainp="implementationId"
+                 style="flex:1 1 220px" placeholder="implementation id">
+          <input class="sai-inp" value="${a.schemaVersion || ''}" data-ainp="schemaVersion"
+                 style="width:90px" placeholder="schema">
+        </div>
       </div>`;
   }
 
@@ -4743,7 +5626,7 @@ function renderRehearsal(a, step) {
 /* The transcript. A carryover from a step that was never played is filled from
    that step's pinned example and SAID SO — a marked substitution, never a
    silent one, because scrubbing into the middle is the normal case. */
-function renderTurns(a, step) {
+function renderTurns(a, step) {   // `a` supplies the cast for character-bound messages
   const steps = a.steps || [];
   const out = [];
 
@@ -4765,11 +5648,43 @@ function renderTurns(a, step) {
     });
   }
 
-  // The opening is VERBATIM — the learner reads exactly this.
-  out.push(turnHTML({
-    who: 'Coach', side: 'coach', kind: 'verbatim', text: step.opening,
-    gov: step.id + ':opening'
-  }));
+  /* The opening is VERBATIM and is an ARRAY, so a step may open as a short
+     exchange. In a roleplay each message may come from a character; in an
+     observe_react the same block is the locked BRIEF over the exhibit. */
+  const io = step.interaction || {};
+  /* An observe_react's opening IS its brief — a locked framing over the
+     exhibit rather than a chat bubble, which is why it carries no character or
+     emotion. Resolve it here rather than relying on an alias, so seeded and
+     retyped steps behave identically. */
+  const opening = step.mode === 'observe_react'
+    ? (io.brief || io.openingMessages || [])
+    : (io.openingMessages || []);
+  if (step.mode === 'observe_react' && io.exhibit) {
+    out.push(`<div class="sai-exhibit">
+      <i class="fa-solid fa-${io.exhibit.type === 'video' ? 'film' : 'image'}"></i>
+      <div>
+        <b>${io.exhibit.src || 'No source set'}</b>
+        <div style="opacity:.8;margin-top:2px">${io.exhibit.alt || ''}</div>
+        ${(io.exhibit.facts || []).length
+          ? `<div style="margin-top:5px;opacity:.7">${io.exhibit.facts.length} facts the coach can draw on</div>` : ''}
+      </div>
+    </div>`);
+  }
+  opening.forEach((msg, i) => {
+    const ch = msg.characterId && a.world
+      ? (a.world.characters || []).find(c => c.id === msg.characterId) : null;
+    out.push(turnHTML({
+      who: step.mode === 'observe_react' ? 'Brief'
+         : ch ? ch.name + (msg.emotion ? ' · ' + msg.emotion : '')
+         : (io.partnerLabel || 'Coach'),
+      side: 'coach', kind: 'verbatim', text: msg.text,
+      gov: step.id + ':interaction.'
+         + (step.mode === 'observe_react' ? 'brief' : 'openingMessages') + '.' + i + '.text'
+    }));
+  });
+  if (!opening.length) {
+    out.push('<div class="sai-empty-row">This step has no opening — it would start in silence.</div>');
+  }
 
   scnTurns.forEach((t, i) => {
     const last = i === scnTurns.length - 1;
@@ -5388,8 +6303,16 @@ function wireScenario(a, root) {
     const st = steps.find(x => x.id === sid);
     if (!st || st.mode === mode) return;
     st.mode = mode;
+    /* Retyping means a different interaction SHAPE. Seed what the new mode
+       requires and drop what it has no slot for, so the step never sits in a
+       state its own schema would refuse — and say what was dropped rather than
+       silently discarding authored work. */
+    const dropped = seedInteraction(st, mode);
     scnTurns = []; scnRolls = 0;   // the transcript was produced under the old mode
-    repaint(); toast('Step is now ' + MODE_META[mode].label);
+    repaint();
+    toast(dropped.length
+      ? `Now ${MODE_META[mode].label} — ${dropped.join(', ')} ${dropped.length > 1 ? 'do' : 'does'} not apply and ${dropped.length > 1 ? 'were' : 'was'} dropped`
+      : 'Step is now ' + MODE_META[mode].label);
   }));
 
   $$('[data-turns]', root).forEach(el => el.addEventListener('click', () => {
@@ -5492,6 +6415,183 @@ function wireScenario(a, root) {
     repaint(); toast('Carryover removed');
   }));
 
+  /* ── Mode-specific interaction controls ──────────────────────────────
+     Each mode owns its own fields, so these only exist while that mode is
+     selected. Retyping a step seeds the new shape and drops what the new mode
+     has no slot for — the document never sits in a state its own schema would
+     refuse. */
+
+  // Plain inputs (short values) — commit on input, no re-render, so typing is
+  // not interrupted by a repaint on every keystroke.
+  $$('[data-sinp]', root).forEach(el => el.addEventListener('input', () => {
+    const [sid, path] = el.dataset.sinp.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (!st) return;
+    const parts = path.split('.');
+    let o = st;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (o[parts[i]] == null) o[parts[i]] = {};
+      o = o[parts[i]];
+    }
+    o[parts[parts.length - 1]] = el.value;
+  }));
+
+  // Opening messages — an array, so a step can open as an exchange.
+  $$('[data-msgadd]', root).forEach(el => el.addEventListener('click', () => {
+    const st = steps.find(x => x.id === el.dataset.msgadd);
+    if (!st) return;
+    const k = st.mode === 'observe_react' ? 'brief' : 'openingMessages';
+    st.interaction[k] = st.interaction[k] || [];
+    st.interaction[k].push({ text: '' });
+    repaint();
+  }));
+  $$('[data-msgdel]', root).forEach(el => el.addEventListener('click', () => {
+    const [sid, i] = el.dataset.msgdel.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (!st) return;
+    const k = st.mode === 'observe_react' ? 'brief' : 'openingMessages';
+    st.interaction[k].splice(+i, 1); repaint();
+  }));
+  $$('[data-msgchar]', root).forEach(el => el.addEventListener('change', () => {
+    const [sid, i] = el.dataset.msgchar.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (!st) return;
+    const msg = st.interaction.openingMessages[+i];
+    if (el.value) msg.characterId = el.value; else delete msg.characterId;
+    repaint();
+  }));
+  $$('[data-msgemo]', root).forEach(el => el.addEventListener('input', () => {
+    const [sid, i] = el.dataset.msgemo.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (st) st.interaction.openingMessages[+i].emotion = el.value;
+  }));
+
+  // Roleplay partner. A character_id must name a DECLARED character, so this
+  // is a picker over the cast rather than a free string.
+  $$('[data-rpchar]', root).forEach(el => el.addEventListener('change', () => {
+    const st = steps.find(x => x.id === el.dataset.rpchar);
+    if (!st) return;
+    if (el.value) {
+      st.interaction.characterId = el.value;
+      const c = a.world.characters.find(x => x.id === el.value);
+      // Default the partner label to the character's name — it is what the
+      // learner sees above the bubble, and retyping it is the exception.
+      if (c && !st.interaction.partnerLabel) st.interaction.partnerLabel = c.name;
+    } else delete st.interaction.characterId;
+    repaint();
+  }));
+
+  // Exhibit
+  $$('[data-extype]', root).forEach(el => el.addEventListener('click', () => {
+    const [sid, t] = el.dataset.extype.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (st) { st.interaction.exhibit.type = t; repaint(); }
+  }));
+  $$('[data-exfactadd]', root).forEach(el => el.addEventListener('click', () => {
+    const st = steps.find(x => x.id === el.dataset.exfactadd);
+    if (st) { st.interaction.exhibit.facts = st.interaction.exhibit.facts || []; 
+              st.interaction.exhibit.facts.push(''); repaint(); }
+  }));
+  $$('[data-exfactdel]', root).forEach(el => el.addEventListener('click', () => {
+    const [sid, i] = el.dataset.exfactdel.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (st) { st.interaction.exhibit.facts.splice(+i, 1); repaint(); }
+  }));
+
+  // Rubric
+  $$('[data-rubadd]', root).forEach(el => el.addEventListener('click', () => {
+    const st = steps.find(x => x.id === el.dataset.rubadd);
+    if (!st) return;
+    st.interaction.rubric = st.interaction.rubric || [];
+    st.interaction.rubric.push({ id: uid('rb'), name: 'New item', standardTerm: '', nudge: '' });
+    repaint();
+  }));
+  $$('[data-rubdel]', root).forEach(el => el.addEventListener('click', () => {
+    const [sid, i] = el.dataset.rubdel.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (!st) return;
+    st.interaction.rubric.splice(+i, 1);
+    // The spot target cannot exceed what the rubric holds.
+    const n = st.interaction.rubric.length;
+    if ((st.interaction.spotTarget || 1) > n) st.interaction.spotTarget = Math.max(1, n);
+    repaint();
+  }));
+  $$('[data-spot]', root).forEach(el => el.addEventListener('click', () => {
+    const [sid, d] = el.dataset.spot.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (!st) return;
+    const n = (st.interaction.rubric || []).length;
+    st.interaction.spotTarget = Math.max(1, Math.min(n || 1, (st.interaction.spotTarget || 1) + Number(d)));
+    repaint();
+  }));
+
+  /* ── Activity-level fields ────────────────────────────────────────────
+     Dotted paths against the activity rather than a step — narrative, canon,
+     misconceptions, the opening, source references, document identity. */
+  const setPath = (obj, path, val) => {
+    const parts = path.split('.');
+    let o = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (o[parts[i]] == null) o[parts[i]] = /^\d+$/.test(parts[i + 1]) ? [] : {};
+      o = o[parts[i]];
+    }
+    o[parts[parts.length - 1]] = val;
+  };
+  $$('[data-afld]', root).forEach(el => el.addEventListener('blur', () => {
+    const v = el.innerText.trim();
+    setPath(a, el.dataset.afld, v);
+    repaint();
+  }));
+  $$('[data-ainp]', root).forEach(el => el.addEventListener('input', () => {
+    setPath(a, el.dataset.ainp, el.value);
+  }));
+
+  // Canon
+  const cna = $('[data-canonadd]', root);
+  if (cna) cna.addEventListener('click', () => {
+    a.world.canon = a.world.canon || [];
+    a.world.canon.push({ fact: '', revealWhen: '' }); repaint();
+  });
+  $$('[data-canondel]', root).forEach(el => el.addEventListener('click', () => {
+    a.world.canon.splice(+el.dataset.canondel, 1); repaint();
+  }));
+
+  // Misconceptions
+  const misa = $('[data-misadd]', root);
+  if (misa) misa.addEventListener('click', () => {
+    a.misconceptions = a.misconceptions || [];
+    a.misconceptions.push({ misconception: '', redirect: '' }); repaint();
+  });
+  $$('[data-misdel]', root).forEach(el => el.addEventListener('click', () => {
+    a.misconceptions.splice(+el.dataset.misdel, 1); repaint();
+  }));
+
+  // Source references
+  const sra = $('[data-srcadd]', root);
+  if (sra) sra.addEventListener('click', () => {
+    a.closing.sourceReferences = a.closing.sourceReferences || [];
+    a.closing.sourceReferences.push(''); repaint();
+  });
+  $$('[data-srcdel]', root).forEach(el => el.addEventListener('click', () => {
+    a.closing.sourceReferences.splice(+el.dataset.srcdel, 1); repaint();
+  }));
+
+  // The scenario-level opening — optional, so it can be added and removed whole.
+  const opa = $('[data-openadd]', root);
+  if (opa) opa.addEventListener('click', () => {
+    a.opening = { label: 'Opening', purpose: '', messages: [{ text: '' }],
+                  exitTurns: 1, inputPlaceholder: '' };
+    repaint(); toast('Opening reflection added');
+  });
+  const opd = $('[data-opendel]', root);
+  if (opd) opd.addEventListener('click', () => {
+    a.opening = null; repaint(); toast('Opening removed — the scenario starts at step 1');
+  });
+  $$('[data-opturns]', root).forEach(el => el.addEventListener('click', () => {
+    a.opening.exitTurns = Math.max(1, Math.min(3, a.opening.exitTurns + Number(el.dataset.opturns)));
+    repaint();
+  }));
+
   // ── Characters ───────────────────────────────────────────────────────
   const ac = $('[data-addchar]', root);
   if (ac) ac.addEventListener('click', () => {
@@ -5501,14 +6601,20 @@ function wireScenario(a, root) {
   $$('[data-chardel]', root).forEach(el => el.addEventListener('click', () => {
     const id = el.dataset.chardel;
     const c = a.world.characters.find(x => x.id === id);
-    // A character named in a step opening is referenced by NAME in prose, so
-    // removing them cannot repair those references — say which steps mention
-    // them rather than leaving the author to find out at rehearsal.
-    const named = (a.steps || []).filter(st => (st.opening || '').includes(c.name));
+    /* A roleplay's characterId must name a DECLARED character, so removing one
+       would leave a dangling reference. Repair it — the step falls back to
+       narrator-driven, which is a legitimate pattern rather than a broken
+       state — and say how many steps were touched. */
+    const refs = charRefs(a, id);
+    refs.forEach(st => {
+      const io = st.interaction || {};
+      if (io.characterId === id) { delete io.characterId; io.partnerLabel = io.partnerLabel || ''; }
+      (io.openingMessages || []).forEach(m => { if (m.characterId === id) delete m.characterId; });
+    });
     a.world.characters = a.world.characters.filter(x => x.id !== id);
     repaint();
-    toast(named.length
-      ? `${c.name} removed — still named in ${named.length} step opening${named.length > 1 ? 's' : ''}`
+    toast(refs.length
+      ? `${c.name} removed — ${refs.length} step${refs.length > 1 ? 's' : ''} fell back to narrator-driven`
       : `${c.name} removed`);
   }));
 

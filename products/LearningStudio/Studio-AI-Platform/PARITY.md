@@ -13,19 +13,90 @@
 
 ## Headline
 
-**Roughly 45% of the authoring surface, and the missing 55% is not evenly
-distributed.** What is built is built properly — the sequence model, coverage,
-the rehearsal loop, and full CRUD on every collection it exposes. What is
-missing is concentrated in one place: **the two non-default practice modes are
-labels with no fields behind them.**
+**Substantially closed, 2026-09-20.** All six gaps from the first audit were
+worked through in one pass. The surface now authors all three practice modes
+with their own shapes, carries the scenario-level content the reference has, and
+**produces a document** — with an honest account of what the projection loses.
 
-| | Reference | Here |
-|---|---|---|
-| Distinct authorable fields | **66** | ~22 |
-| Practice modes with their own shape | **3** | **1** |
-| Validation rules | **32** schema + loader rules | 9 blockers |
-| Scenario-level sections | 8 | 5 stages |
-| Produces a loadable document | **yes** | no |
+| | Reference | First audit | Now |
+|---|---|---|---|
+| Distinct authorable field paths | **66** | ~22 | **~38** |
+| Practice modes with their own shape | **3** | 1 | **3** |
+| Validation rules | **32** | 9 | **~30** |
+| Scenario-level stages | 8 | 5 | **6** |
+| Produces a loadable document | **yes** | no | **yes, lossy — and says so** |
+
+> The original audit is preserved below the line, since the reasoning that
+> identified these gaps is worth keeping.
+
+---
+
+## What was closed
+
+**1. Mode-specific interaction shapes.** A mode is now a different *shape*, not a
+label. `coach_inquiry` authors opening messages and a placeholder; `roleplay`
+adds a scene, a partner picked from the declared cast, an emotion hint, and
+levels that carry a **`progression`** (how the scene moves when handled well);
+`observe_react` authors an exhibit with its facts, a rubric of what to spot with
+a nudge each, and a spot target bounded by the rubric's length.
+
+Retyping a step **reshapes it and says what it dropped** — *"Now Coach inquiry —
+the exhibit, the rubric do not apply and were dropped"* — rather than silently
+discarding authored work. Fields the two modes share are carried across.
+
+**2. `opening_messages` as an array.** A step can open as a short exchange. In a
+roleplay each message may be bound to a **character id** — a real reference, so
+removing a character repairs the steps that used it and falls them back to
+narrator-driven, which is a legitimate pattern rather than a broken state.
+
+**3. Canon and misconceptions.** Canon facts carry an optional `revealWhen`, so a
+scenario can withhold something without the author scripting the withholding.
+Misconceptions pair a wrong belief with its redirect — distinct from a
+calibration, which judges one answer in one step.
+
+**4. Framing.** A new first stage: the `narrative` the learner reads going in,
+an optional ungraded **opening reflection** (addable and removable whole), and
+the **document identity** — `implementation_id` and `schema_version`.
+
+**5. Export.** `exportScenario()` projects the authored scenario to a v4-shaped
+document. Two things make it more than mechanical:
+
+- **`teaching_points` are projected from coverage**, not authored inline — so
+  they cannot drift from the information points they came from.
+- **The projection is lossy and says so.** v4 has no slot for a point reference,
+  so the export flattens the id-join back into the strings it was meant to
+  replace, and reports exactly that (naming the point ids it flattened).
+  Conditional canon is likewise dropped. Vector extensions (`answer_shape`) are
+  **declared with a reason**, following the reference's own convention rather
+  than being invented or quietly dropped.
+
+**6. Validation.** Roughly 30 rules now, in the reference's own three layers:
+shape (a mode's required fields), cross-field (its §9.1 loader rules — carryover
+direction, a character id naming a declared character, `progression` only in a
+roleplay, `spot_target` within the rubric, unique rubric ids, a probe with
+somewhere to be answered), and a **prompt-smell lint** — authored text that talks
+about the AI or the interface. That last one an AI-first platform arguably needs
+*more* than the reference does, since more of its text is generated.
+
+---
+
+## What remains
+
+- **Reference parity is still not total.** `conditional_probes`, `help_turns` as
+  an authored control, `media` on a coach_inquiry, `partner_label` on the
+  non-roleplay modes, and most learner-facing microcopy
+  (`transition.button_label`, `landing_cta_label`) have no editor.
+- **The export is not validated against a real schema.** It is shaped like v4
+  and reasoned from v4, but nothing here runs the reference's validator, so
+  "would load" is an assertion rather than a test.
+- **No import.** A scenario cannot be brought back in from a document.
+
+---
+
+<details>
+<summary>The original audit, 2026-09-20 — preserved</summary>
+
+
 
 ---
 
@@ -154,3 +225,5 @@ In the order that buys the most:
 
 Items 1–2 would take this from *demonstrating the idea* to *plausibly
 authoring a deliverable*. Items 5–6 are what "deliverable" actually means.
+
+</details>
