@@ -1289,3 +1289,84 @@ around.
 **Kept from the original question:** AI proposal with LED review is still the
 creation path, and `proposed` / `adjusted` / `confirmed` (D16) is still what makes
 a guess distinguishable from a judgment.
+
+---
+
+## D46 · A beat is one named concept, defined per modality as they are built
+**2026-09-20** · resolves **Q20**
+
+**Decided:** **beat** is standard vocabulary across the platform — the same word
+for the same idea wherever generated content needs anchoring. Each modality
+defines what its own beats are *as it is built*, rather than the platform
+designing beats for modalities that do not exist yet.
+
+**User's framing:** *"For now everything is scoped to either video output or
+scenario, but as we develop modalities I'd like to keep the terminology
+standardized so the same concepts are conveyed with the same terms across
+modalities, activities, outputs, etc."*
+
+**What this settles, and what it deliberately does not.** Q20 asked whether a
+beat is one shared primitive or a per-modality concept, and treated that as a
+binary. It is neither: **the concept and its name are shared; the definition is
+per-modality and arrives with the modality.**
+
+So the rule is a naming discipline rather than an abstraction:
+
+> A **beat** is a unit the learner provably reaches. Wherever a modality has
+> generated content, the thing that guarantees a point is called a beat — not a
+> checkpoint, not a milestone, not a gate.
+
+**Defined so far:**
+
+| Where | A beat is | Why |
+|---|---|---|
+| **Scenario** | a **step** | the conversation is generated; the step is the unit a learner provably reaches |
+| **Output — Experience** | an **activity**, reachable on every path | the *traversal* is generated, so the guarantee is a property of the composition (D47) |
+| **Video** | — | static once rendered; every learner sees the same frames. A video *with checks* may need one, and that is the video modality's call when it gets there |
+| Podcast, job aid, reflection | — | undesigned; each defines its own when built |
+
+**Why not design the rest now.** Designing beats for a podcast before the podcast
+surface exists would be inventing a constraint for content nobody has authored.
+The naming discipline is what keeps the concepts from diverging in the meantime —
+which is the actual risk, since two modalities designed months apart will
+otherwise coin two words for the same thing.
+
+**Consequence for the docs:** *beat* joins the vocabulary in `MODEL.md` rather
+than living only in the scenario section, so the next modality inherits the term
+instead of reinventing it.
+
+---
+
+## D47 · An Experience computes reachability; the author can pin an activity required
+**2026-09-20** · resolves the second half of **Q20**
+
+**Decided:** for an output whose traversal is generated — the Experience format,
+a graph with learner-choice edges — a point's coverage is **guaranteed when every
+path from the entry passes through an activity that covers it**. That is
+computed. Where it comes out short, the author may **pin an activity as
+required**, which is what makes it so.
+
+**Why both** (user: *"compute, and let the author pin"*): the computation says
+*why* something is not guaranteed — *"reachable on 1 of 3 paths"* — which an
+authored required/optional flag cannot. The pin is the action that fixes it. One
+explains, the other repairs.
+
+**Why computing alone is not enough:** it can only report. An author looking at
+*"info-3 is reachable on 1 of 3 paths"* needs a way to act on it, and rewiring
+edges by hand to force a path is a worse interaction than saying *this one is
+required*.
+
+**Why authoring alone is not enough:** a required/optional flag **duplicates what
+the edges already say**, and the two can disagree. Then the platform has two
+answers to the same question and no way to choose. Computing from the graph keeps
+one source of truth; the pin is an input to that graph, not a parallel claim
+about it.
+
+**This is the same shape as coverage itself.** An activity *declares* what it
+covers and the output *validates* the set (D29). Here an author *declares* what is
+required and the traversal *computes* what that guarantees. Declaration plus
+derivation, not assertion.
+
+**Scope.** Only outputs with a generated or branching traversal need this. A
+structural Course is a sequence — every learner meets everything, so reachability
+is trivially total and the question does not arise.

@@ -38,6 +38,7 @@ meets the threshold is the experience they're delivered.
 | **Output** | What gets delivered. Either a **structural format** (Course, Training — defined shape, ordering rules) or an **open-ended format** (Experience — assembles from learner interaction). |
 | **Goal** | The standard the project is held to — Compliance, Capability. Sets the default depth bar and the evidence rules. |
 | **AI Assistant** | One contextual presence per project, depicted differently by each modality (a scenario's coach, a video's narrator). Holds the points as context and carries its own authored goal. |
+| **Beat** | A unit the learner **provably reaches**. Where content is generated, a coverage claim anchors to one — a scenario's beat is a step, an Experience's is an activity on every path. Each modality defines its own as it is built; the word is shared so they do not diverge (D46). |
 
 > "Outputs" is still a placeholder for the collective noun over Courses and
 > Experiences. It may not need one.

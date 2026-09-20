@@ -40,10 +40,17 @@
 opens the real player), and **Q10 → D45** (scope activities, don't build a bulk
 tool).
 
-**Left open:** **Q1** (narrowed to the delta-review *flow*, deferred with D7),
-**Q9** (decompose's hard case — sharpened by D34: it gets easier as the library
-grows), and two raised by the answers themselves — **Q19** (does the library
-notice divergence) and **Q20** (what counts as a beat outside a scenario). What remains is one cluster (Q1/Q2/Q3 — the
+**Seventeen of twenty closed**, counting the two the answers raised. **Q20** went
+to **D46** (beat is shared vocabulary, defined per modality as each is built) and
+**D47** (an Experience computes reachability; the author can pin).
+
+**Left open — all three blocked on something deliberately unbuilt:**
+
+| | Question | Blocked on |
+|---|---|---|
+| **Q1** | the delta-review *flow* | information authoring (D7) — the signal is built, the flow is not |
+| **Q9** | decompose's hard case | the 0→1 workflow (D8). Sharpened by D34: it gets easier as the library grows |
+| **Q19** | does the library notice divergence | the library surface itself, which belongs with `L1` | What remains is one cluster (Q1/Q2/Q3 — the
 update-review flow, deferred with D7), three explicitly deferred (Q8/Q9/Q10), and
 two new ones raised by the answers (**Q19**, **Q20**).
 
@@ -157,28 +164,29 @@ different binding and reuse rules, and the **AI assistant** is a modelled entity
 
 ---
 
-### Q20 · What counts as a beat outside a scenario?
-**Raised 2026-09-20 by D42.**
+### ~~Q20 · What counts as a beat outside a scenario?~~
+**RESOLVED 2026-09-20 → D46 + D47.** The question posed it as a binary — one
+shared primitive or a per-modality concept — and it is neither.
 
-D42 says generated content anchors to a required beat, and the user expects the
-pattern to *"expand past video and scenario outputs."* In a scenario a beat is a
-step. Elsewhere it is undefined:
+**D46:** the *concept and its name* are shared; the *definition* is per-modality
+and arrives with the modality. **Beat** is standard vocabulary — a unit the
+learner provably reaches — and each surface defines its own as it is built,
+rather than the platform designing beats for modalities nobody has authored yet.
+Defined so far: a scenario's beat is a **step**; an Experience's is an
+**activity reachable on every path**. Video is static once rendered and may need
+none.
 
-- **Video** is static once rendered — every learner sees the same frames — so it
-  may need no beats at all. But a video *with checks* is partly interactive, and
-  a check the learner can fail is closer to a beat than a scene is.
-- **An adaptive output** (the Experience format) is where this bites hardest: the
-  path itself is generated, so a beat has to be a property of the *composition*
-  rather than of any one activity.
-- **A podcast or job aid** may be wholly static and need nothing.
+**D47:** for a branching output, reachability is **computed** — a point is
+guaranteed when every path from the entry passes through an activity covering it
+— and where it comes up short the author can **pin** an activity as required.
+Computing explains *why*; the pin repairs it, and is an input to the graph rather
+than a parallel claim about it.
 
-**The question:** is a beat a per-modality concept that each surface defines, or
-one shared primitive — *"a unit the learner provably reaches"* — that modalities
-register against? The second is more consistent with the node model, and is
-probably right, but it has not been designed.
-
-**Would reshape:** the coverage panel wherever a modality has generated content,
-and the Experience format's validation.
+**Built:** path enumeration over the Experience graph (cycle-safe), optional vs.
+always-reached nodes marked on the map, and a panel naming every point a learner
+can miss with a one-click *require*. The seeded Experience turns out to have
+**5 paths and 2 points covered only by skippable activities** — a real gap
+nothing previously surfaced.
 
 ---
 

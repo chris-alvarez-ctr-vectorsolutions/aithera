@@ -996,6 +996,45 @@
   /* The beat that guarantees a point (D42). Static content needs none — every
      learner gets the same bytes. Generated content does, because a tag over it
      is a claim about a distribution rather than about text. */
+  /* Reachability on a branching output (D47) — what it GUARANTEES, as distinct
+     from what it contains. */
+  .sai-reach {
+    margin-top: 12px; border: 1px solid var(--sai-line-2); border-radius: 6px;
+    background: var(--sai-surface); overflow: hidden;
+  }
+  .sai-reach-head {
+    display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px;
+    border-bottom: 1px solid var(--sai-line); font-size: 11.5px; line-height: 1.5;
+    color: var(--sai-ink-2);
+  }
+  .sai-reach-head i { color: var(--sai-ink-3); margin-top: 2px; }
+  .sai-reach-head b { color: var(--sai-ink); }
+  .sai-reach-row {
+    display: flex; align-items: flex-start; gap: 9px; padding: 8px 12px;
+    font-size: 11px; line-height: 1.5; border-bottom: 1px solid var(--sai-line);
+    color: var(--sai-ink-2);
+  }
+  .sai-reach-row:last-child { border-bottom: none; }
+  .sai-reach-row > i { font-size: 10px; margin-top: 2px; color: var(--sai-output); }
+  .sai-reach-row.short > i { color: var(--sai-warn); }
+  .sai-reach-row b { color: var(--sai-ink); font-weight: 500; }
+  .sai-reach-pin {
+    font-family: inherit; font-size: 10px; font-weight: 600; cursor: pointer;
+    background: none; border: 1px solid var(--sai-line-2); border-radius: 3px;
+    padding: 3px 8px; color: var(--sai-ink-3); white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto;
+  }
+  .sai-reach-pin:hover { color: var(--sai-ink); border-color: var(--sai-ink-3); }
+  .sai-reach-pin.on { color: var(--sai-accent); border-color: var(--sai-accent); }
+
+  /* On the map: optional nodes read as optional. */
+  .sai-web-node.optional { opacity: .62; border-style: dashed; }
+  .sai-web-pin {
+    position: absolute; top: -5px; right: -5px; font-size: 8px;
+    color: var(--sai-accent); background: var(--sai-surface);
+    border-radius: 50%; padding: 2px;
+  }
+
   /* A set change, reported (D43). Advisory — recomputation is automatic,
      repair is not. */
   .sai-info-node:hover .sai-rowact { opacity: 1; }
@@ -2577,6 +2616,7 @@
                   completion = information points covered to threshold
                 </div>
                 <div class="sai-web" id="webMap"></div>
+                <div id="webReach"></div>
                 <div id="validateExperience"></div>
               </div>
             </div>
@@ -3277,6 +3317,9 @@ const MODEL = {
       { id: 'act-check',    x: 34, y: 86, label: 'Check',       icon: 'fa-circle-question' },
       { id: 'act-journal',  x: 70, y: 86, label: 'Reflection',  icon: 'fa-pen-to-square' }
     ],
+    // Activities the author has PINNED as required (D47). A pin is an input to
+    // the traversal, not a parallel claim about it.
+    required: [],
     edges: [
       ['act-video','act-podcast','learner choice'], ['act-video','act-scenario',''],
       ['act-video','act-aid','']," ",
@@ -3775,6 +3818,119 @@ function renderSequence() {
   }).join('');
 }
 
+/* ── REACHABILITY ───────────────────────────────────────────────────────
+   An Experience's traversal is GENERATED — the learner chooses at each branch —
+   so "does this activity cover the point" is not the question. The question is
+   whether every learner arrives there at all (D47).
+
+   Enumerate the paths from the entry node and ask which activities appear on
+   ALL of them. Those are the guaranteed ones; everything else is optional, and
+   a point covered only by optional activities is a claim some learners never
+   meet. An activity the author has PINNED counts as guaranteed by declaration.
+
+   Cycles are real here — the seeded graph sends a failed check back to the
+   scenario — so the walk tracks its own visited set per path rather than
+   assuming a DAG. */
+function reachability() {
+  const nodes = MODEL.web.nodes;
+  const entry = nodes.find(n => n.entry) || nodes[0];
+  if (!entry) return { paths: [], always: new Set(), pinned: new Set() };
+
+  const out = {};
+  MODEL.web.edges.forEach(([from, to]) => { (out[from] = out[from] || []).push(to); });
+
+  const paths = [];
+  (function walk(at, seen) {
+    if (seen.includes(at)) { paths.push(seen); return; }     // a cycle closes the path
+    const next = seen.concat(at);
+    const outs = (out[at] || []).filter(x => nodes.some(n => n.id === x));
+    if (!outs.length) { paths.push(next); return; }          // a leaf ends it
+    outs.forEach(n => walk(n, next));
+  })(entry.id, []);
+
+  // On every path = guaranteed by the graph.
+  const always = new Set(nodes.map(n => n.id).filter(id => paths.every(p => p.includes(id))));
+  const pinned = new Set(MODEL.web.required || []);
+  pinned.forEach(id => always.add(id));                      // pinned = required = always met
+  return { paths, always, pinned };
+}
+
+/* Which points an Experience actually guarantees, and on how much of the graph
+   the rest are reachable. */
+function experienceCoverage() {
+  const { paths, always, pinned } = reachability();
+  return MODEL.information.map(pt => {
+    const carriers = MODEL.activities.filter(a => (a.covers || {})[pt.id] && MODEL.web.nodes.some(n => n.id === a.id));
+    const guaranteed = carriers.filter(a => always.has(a.id));
+    const onPaths = paths.filter(p => carriers.some(a => p.includes(a.id))).length;
+    return {
+      point: pt, carriers, guaranteed,
+      onPaths, totalPaths: paths.length,
+      pinnable: carriers.filter(a => !always.has(a.id)),
+      pinned: carriers.filter(a => pinned.has(a.id))
+    };
+  });
+}
+
+/* What a branching output actually GUARANTEES, as distinct from what it
+   contains. A structural Course does not need this — every learner meets
+   everything, so reachability is trivially total (D47). */
+function renderReach() {
+  const host = $('#webReach');
+  if (!host) return;
+  const rows = experienceCoverage().filter(r => r.carriers.length);
+  const short = rows.filter(r => !r.guaranteed.length);
+  const { paths } = reachability();
+
+  host.innerHTML = `
+    <div class="sai-reach">
+      <div class="sai-reach-head">
+        <i class="fa-solid fa-code-branch"></i>
+        <span><b>${paths.length} paths</b> through this Experience.
+        ${short.length
+          ? `<span style="color:var(--sai-warn)">${short.length} point${short.length > 1 ? 's are' : ' is'}
+             covered only by activities a learner can skip.</span>`
+          : 'Every covered point sits on every path.'}</span>
+      </div>
+      ${rows.map(r => {
+        const ok = r.guaranteed.length > 0;
+        return `
+          <div class="sai-reach-row ${ok ? '' : 'short'}">
+            <i class="fa-solid fa-${ok ? 'circle-check' : 'circle-exclamation'}"></i>
+            <span style="flex:1 1 auto">
+              <b>${r.point.title}</b>
+              <span style="display:block;color:var(--sai-ink-3);margin-top:2px">
+                ${ok
+                  ? `guaranteed by ${r.guaranteed.map(a => a.title).join(', ')}`
+                  : `carried by ${r.carriers.map(a => a.title).join(', ')} —
+                     reachable on ${r.onPaths} of ${r.totalPaths} paths`}
+              </span>
+            </span>
+            ${!ok && r.pinnable.length ? `
+              <button class="sai-reach-pin" data-pin="${r.pinnable[0].id}">
+                <i class="fa-solid fa-thumbtack"></i>require ${r.pinnable[0].title}
+              </button>` : ''}
+            ${r.pinned.length ? `
+              <button class="sai-reach-pin on" data-unpin="${r.pinned[0].id}">
+                <i class="fa-solid fa-thumbtack"></i>required
+              </button>` : ''}
+          </div>`;
+      }).join('')}
+    </div>`;
+
+  $$('[data-pin]', host).forEach(el => el.addEventListener('click', () => {
+    MODEL.web.required = MODEL.web.required || [];
+    MODEL.web.required.push(el.dataset.pin);
+    renderWeb(); renderReach(); renderValidations();
+    toast(`${byId[el.dataset.pin].title} is now required — every learner meets it`);
+  }));
+  $$('[data-unpin]', host).forEach(el => el.addEventListener('click', () => {
+    MODEL.web.required = (MODEL.web.required || []).filter(x => x !== el.dataset.unpin);
+    renderWeb(); renderReach(); renderValidations();
+    toast('No longer required — the graph decides again');
+  }));
+}
+
 /* ── Outputs: open-ended web ────────────────────────────────────────────── */
 function renderWeb() {
   const host = $('#webMap');
@@ -3795,8 +3951,18 @@ function renderWeb() {
             ${label ? `<text class="sai-edge-label" x="${lx}%" y="${ly}%" text-anchor="middle" dy="-3">${label}</text>` : ''}`;
   }).join('');
 
+  // Which nodes every learner reaches — the map should say so, since the whole
+  // point of a branching output is that most nodes are optional (D47).
+  const { always, pinned } = reachability();
+
   host.innerHTML = `<svg>${lines}</svg>` + N.map(n => `
-    <div class="sai-web-node ${n.entry ? 'entry' : ''}" style="left:${n.x}%;top:${n.y}%" data-goto="${n.id}">
+    <div class="sai-web-node ${n.entry ? 'entry' : ''} ${always.has(n.id) ? 'always' : 'optional'}"
+         style="left:${n.x}%;top:${n.y}%" data-goto="${n.id}"
+         title="${always.has(n.id)
+           ? (pinned.has(n.id) ? 'Pinned as required — every learner meets this'
+                               : 'On every path — every learner meets this')
+           : 'Optional — a learner can finish without meeting this'}">
+      ${pinned.has(n.id) ? '<i class="fa-solid fa-thumbtack sai-web-pin"></i>' : ''}
       <i class="fa-solid ${n.icon}"></i>${n.label}
     </div>`).join('');
 }
@@ -7946,6 +8112,7 @@ function renderValidations() {
   const exp    = $('#validateExperience');
   if (course) course.innerHTML = renderValidation(MODEL.sequence);
   if (exp)    exp.innerHTML    = renderValidation(MODEL.web.nodes.map(n => n.id));
+  renderReach();
 }
 
 /* Library import. Copies the point into the project — it is now this project's,
