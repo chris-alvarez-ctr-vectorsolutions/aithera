@@ -20,7 +20,7 @@
 |---|---|---|---|
 | Video | **yes** | **substantially built** | Working surface. One real hole: anchors persist as word *indices*, so narration edits desync them — see *Left undone* |
 | Podcast | no | no | — |
-| Scenario | **yes** | no | Designed 2026-09-18 from the Scenario Simulator as reference; D27–D30 came out of it |
+| Scenario | **yes** | **substantially built** | Six-stage spine, full CRUD, all three practice modes with their own shapes, live rehearsal, beats, a lossy export. See `PARITY.md` |
 | Knowledge check | no | no | — |
 | Job aid | no | no | — |
 | Reflection | no | no | — |

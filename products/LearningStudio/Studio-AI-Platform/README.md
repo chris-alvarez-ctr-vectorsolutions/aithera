@@ -43,18 +43,32 @@ The 0→1 sourcing workflow is a later pass (D7).
 
 ---
 
-## Where this stands — 2026-09-18
+## Where this stands — 2026-09-20
 
 The **information layer, activity layer and outputs** are all modelled and
-demonstrable, with depth/goal validation live. The **video modality** now has a
-substantial authoring surface: the playhead demonstrates the word-anchored sync
-model and dragging a clip authors it. One real hole remains — anchors persist as
-word *indices*, so editing narration above an overlay shifts it onto different
-words (`MODALITIES.md`, *Left undone on video*). Five other modalities are
-undesigned.
+demonstrable, with depth/goal validation live. **Two modalities have substantial
+authoring surfaces** — video and scenario. Four are undesigned.
 
-See `MODALITIES.md` for the per-modality status and what is left undone on
-video.
+**Video** — the playhead demonstrates the word-anchored sync model and dragging a
+clip authors it. One real hole remains: anchors persist as word *indices*, so
+editing narration above an overlay shifts it onto different words
+(`MODALITIES.md`, *Left undone on video*).
+
+**Scenario** — a six-stage spine (Framing, World, Coverage, Interaction, Coach,
+Close), full add/remove/reorder on every collection, all three practice modes
+with their own field shapes, a **live rehearsal** you author against, **beats**
+that make a coverage claim over generated content checkable, and an export that
+reports what it cannot carry. Audited against the reference editor in
+`PARITY.md`.
+
+**The model gained a lot this session:** the AI assistant as a modelled entity
+(D27–D29), manual locks (D32), the point library (D34), approval staleness
+(D41), beats (D42, D46), and Experience reachability (D47). `DECISIONS.md` runs
+to D47; `OPEN-QUESTIONS.md` has 17 of 20 closed, with the remaining three all
+blocked on deliberately-unbuilt work.
+
+See `MODALITIES.md` for per-modality status and `PARITY.md` for how the scenario
+surface compares to the production reference.
 
 ## What works in the prototype
 
@@ -79,6 +93,27 @@ video.
   where it starts or ends. Commits word indices, never pixels — though an index
   is still a position, so narration edits above an anchor move it (see
   `MODALITIES.md`)
+- **Scenario authoring** — a six-stage spine in a collapsible rail, with every
+  collection add/remove/reorderable (steps, characters, calibration levels,
+  key points, carryover, coverage, expert-answer components)
+- **All three practice modes with their own field shapes** — a coach inquiry
+  opens with messages; a roleplay adds a scene, a partner picked from the cast
+  and levels carrying a scene *progression*; an observe-and-react adds an
+  exhibit, a rubric of what to spot and a spot target. Retyping a step reshapes
+  it and says what it dropped
+- **Live rehearsal** — play as the learner, watch which calibration level
+  catches your answer, **reroll** to see the spread a guideline actually
+  produces, and pin a good draw as that level's example. Verbatim content
+  updates live; generated content rerolls (D33)
+- **Beats** — a coverage claim over generated content names the step that
+  guarantees it, so "covered" becomes "covered and unskippable" (D42)
+- **Point library** — import a point another project already authored; the copy
+  is this project's own (D34)
+- **Experience reachability** — the map marks which activities every learner
+  meets, names the points a learner can skip, and offers a one-click *require*
+  (D47)
+- **Export** — a preview of the projected document that reports what the
+  projection cannot carry, rather than pretending the loss away
 
 Everything is in-memory. Reload resets. **That is a prototype limitation, not
 the model** — the platform is a design surface with its own version control,
@@ -87,5 +122,32 @@ detailed versioning and gates anything reaching live services (D31).
 
 ## What is not built
 
-See the tail of `OPEN-QUESTIONS.md`. Briefly: no information authoring, no depth
-editing, no real compose surface, no persistence.
+- **Information authoring** — no way to write a point from scratch (deferred,
+  D7). Importing one from the library works; authoring one does not.
+- **Four modalities** — podcast, knowledge check, job aid, reflection.
+- **Compose** — replies in chat; no arrangement surface.
+- **Locks** (D32) — decided in full, implemented nowhere. A `.sai-fld-txt.locked`
+  style exists and nothing applies it; that is the whole of it.
+- **The learner preview** (D44) — a button that says where it would go.
+- **Persistence** — in-memory by design here; the pipeline owns it (D31).
+
+`OPEN-QUESTIONS.md` has the three remaining questions, all blocked on the above.
+
+---
+
+## Picking up the visual pass
+
+The scenario surface was measured rather than eyeballed, and the numbers are in
+`MODALITIES.md`: the editor reads at **78 characters per line** and a rehearsal
+bubble at **55**, against a comfortable range of 45–75. Both were well under
+before the layout pass. Worth re-measuring rather than re-deciding if the layout
+changes again.
+
+Two known rough edges a visual pass would meet first:
+
+- **Coverage and Close are the thinnest stages.** Coverage is a list of rows;
+  Close is three stacked cards and the export.
+- **`.sai-` class collisions have bitten twice** — `.sai-sub` (the sub-range
+  prompt target) and `.sai-turn` / `.sai-bubble` (the chat rail's). The scenario
+  surface's own styles are scoped under `.sai-reh` where they overlap. Check for
+  an existing rule before naming a new one.

@@ -377,13 +377,22 @@ worth tooling around.
 
 These are settled in principle; they simply have no surface.
 
-- **Information authoring** — no way to create or edit a point (deferred, D7).
-- **Depth editing** — every tag and required bar is visible but not settable.
-  Given depth is now a judgment with provenance, the *set depth → route to SME →
-  see it confirm* flow is probably the highest-value next build.
+*Reviewed 2026-09-20.*
+
+- **Information authoring** — no way to write a point from scratch (deferred,
+  D7). **Importing** one from the library works (D34); authoring one does not.
+- **Locks** (D32) — decided in full, implemented nowhere. A `.sai-fld-txt.locked`
+  style exists and nothing applies it.
+- **Four modalities** — podcast, knowledge check, job aid, reflection.
+- **The learner preview** (D44) — a button that says where it would go.
 - **Goal picker** — cycles on click rather than offering a real control.
 - **Compose** — replies in chat; no arrangement surface.
 - **Decompose** — narrates rather than animating the breakdown.
 - **Manual editor** — deliberate stub. The seam is the design work.
 - **Comment posting** — reading threads works; writing doesn't.
-- **Persistence** — everything is in-memory; reload resets.
+- **Persistence** — in-memory here by design; the pipeline owns it (D31).
+
+**No longer on this list:** *depth editing* — a coverage tag's depth is now
+settable on the scenario's Coverage stage, and changing it revokes an SME
+confirmation and says so. The *route to SME → see it confirm* half is still
+unbuilt, and belongs with Q1's deferred review flow.
