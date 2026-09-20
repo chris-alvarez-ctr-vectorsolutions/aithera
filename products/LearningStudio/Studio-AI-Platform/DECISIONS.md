@@ -898,3 +898,278 @@ editor does today, and the thing this is meant to fix).
 calibration, from inside an authoring tool. Beyond today's player. Per D31 and
 the video-rendering precedent, that is the case being made rather than a
 constraint to design around.
+
+---
+
+## D34 · The project is the authoring unit; the library accumulates from projects
+**2026-09-20** · resolves **Q4**, and therefore **Q6**
+
+**Decided:** information points are **owned by a project** — authored in its
+scope, not referenced out of a global set. Separately, points **accumulate into
+a library** across projects, and a new project may **import** existing points
+rather than re-authoring them.
+
+**User's framing:** *"They are a document in the sense of each project, but
+information points will likely decompose into a library of 'what info do we have
+on forklifts' to generate new starting points for projects. The specific project
+will determine which points are authored and which ones are imported because
+they already exist in the library. We won't ask an SME to write everything they
+know about forklift safety — we'll give them the scope of the desired project,
+and over the course of several projects, develop a library of points that cover
+forklifts."*
+
+**Why this is neither of the options I offered.** I framed it as library *or*
+document: points global and referenced, versus project-owned and copied. The
+answer is that those describe **two different moments**, not two architectures.
+
+- **Authoring** is project-scoped, because an SME is given a *scope* and asked
+  about that. Nobody can write everything they know about forklifts, and asking
+  them to produces nothing.
+- **The library is an outcome**, built up as projects finish, and its job is to
+  give the *next* project a starting position rather than a blank page.
+
+This is `MODEL.md`'s back-catalog claim arrived at from the other end: the
+commercial asset is an unextracted library of information points, and this says
+where that library actually comes from. It is a **by-product of doing the work**,
+not a precondition for starting it.
+
+**Consequences:**
+
+- **No shared-edit governance problem.** A project owns its points, so editing
+  one cannot silently change another project. The question I thought Q4 was
+  asking does not arise.
+- **Import is a real operation**, and the surface it needs is a *search over the
+  library scoped by subject* — "what do we already have on forklifts" — not a
+  reference picker.
+- **Provenance gains a value.** A point is authored-here or imported-from-library
+  (alongside D8's sourced vs. model-knowledge). An imported point may carry
+  where it came from, which is what makes the library legible rather than a
+  dumping ground.
+- **Drift across the library is out of scope for now.** If project B imports a
+  point and project A later corrects it, nothing propagates — by design, since
+  the point was copied. Whether the library should notice that divergence is a
+  later question (**Q19**).
+- **Q6 follows:** an activity belongs to one project. Sharing an activity is the
+  org's existing Shared LO model (D18), unchanged.
+
+**Rejected:** points global and referenced (creates a governance question about
+who may edit a shared point, and makes an edit in one project a change in
+another); and pure copy with no library at all (loses the back-catalog argument
+entirely).
+
+---
+
+## D35 · Confirmation is the evidence; no separate evidence field
+**2026-09-20** · resolves **Q5**
+
+**Decided:** an SME's confirmation, recorded against a point version, **is** the
+audit record. No note, no structured evidence kind.
+
+**Why (user):** *"Confirmation IS the evidence."* The tag already carries who
+judged it (`state`) and what they judged it against (`at`), which is a real
+trail. A free-text reason invites prose that satisfies a field without meaning
+anything — box-ticking that looks like rigour.
+
+**Rejected:** an optional note (cheap, but a field that is usually empty and
+occasionally lied to is worse than no field); structured evidence kinds
+(queryable, but more machinery than the question justifies, and it would need
+maintaining as a vocabulary).
+
+**Revisit if** a Compliance audit actually asks *"confirmed on what basis?"* and
+`state` + `at` turns out not to answer it.
+
+---
+
+## D36 · "Outputs" stays
+**2026-09-20** · resolves **Q7**
+
+**Decided:** keep **Outputs** as the collective over Course and Experience.
+
+**Why (user):** it is accurate, neutral, already in the UI and every document,
+and nobody misreads it. *Deliverables* is warmer but buys nothing; dropping the
+collective entirely would mean renaming a layer that works.
+
+Closed rather than deferred — the question had been open since the first session
+and was costing more attention than the answer is worth.
+
+---
+
+## D37 · Prompt-smell: blocks on verbatim text, warns on guidance
+**2026-09-20** · resolves **Q17**
+
+**Decided:** authored text that talks about the AI or the interface **blocks the
+gate** when it sits in a field the learner reads literally, and **warns** when it
+sits in guidance.
+
+**Why the lint exists at all** (worth stating, since it was inherited from the
+reference without justification): the coach's dialogue is *generated* from what
+the author writes in `look_for`, `response` and `purpose` — those are compiled
+into a system prompt. An author who writes *"the AI should redirect here"* has
+put that phrasing into the prompt, and the model can echo it back. **The
+scaffolding leaks into the performance.**
+
+**Why the split:**
+
+| | Example | Treatment |
+|---|---|---|
+| **Verbatim** — the learner reads it | an opening saying *"the AI will now ask you…"* | **blocks** — definitely wrong |
+| **Guidance** — steers generation | a `response` saying *"the AI should redirect"* | **warns** — may be deliberate |
+
+The reference blocks on both, because its document *is* a prompt and it is
+protecting a loader. Here the distinction between verbatim and guidance is
+already load-bearing across the whole surface (D33), so the lint honours it
+rather than flattening it.
+
+This is also the platform's usual flag-vs-gate split (D14, D19) applied to a new
+signal: gate what is certainly broken, flag what is a judgment.
+
+---
+
+## D38 · A scenario's opening stays on the activity, with no compose rule
+**2026-09-20** · resolves **Q13**
+
+**Decided:** the ungraded opening reflection belongs to the activity. If several
+scenario activities compose into one output, the learner meets several warm-ups,
+and **nothing silently removes them**.
+
+**Why (user):** *"Keep on activity, no rule — author's problem."* What was
+authored is what is delivered. A compose rule that quietly dropped warm-ups would
+be hidden behaviour, and this platform has consistently chosen to surface a
+signal rather than act on it (D14, D19, D32).
+
+**Consistent with** *"this is the designer's environment to control and explore"*
+(D30-era). The designer can see three warm-ups in a composed output and remove
+two.
+
+**Worth revisiting** when compose gets a real surface: the *right* move there may
+be to show the collision rather than either fix it or ignore it.
+
+---
+
+## D39 · `implementation_id` is derived and read-only
+**2026-09-20** · resolves **Q14**
+
+**Decided:** the export's document id is **generated from the activity's node
+id** and displayed read-only.
+
+**Why:** `MODEL.md`'s node addressing is explicit that ids are *stable, opaque,
+and survive re-render and rebuild* — the whole point is that they are not typed
+by humans. Exposing the document id as a text field let an author break the thing
+that identifies their scenario to a player, with a typo.
+
+Shown rather than hidden, the way the coverage page shows point ids: visible,
+referenceable, not editable.
+
+**Rejected:** editable (faithful to the reference, which has no node-id model to
+derive from — it must author identity because nothing else supplies it); and
+derive-with-override (the migration case it protects is hypothetical, and an
+override is a footgun kept loaded for a case nobody has hit).
+
+---
+
+## D40 · Coverage stays at activity level — rubric items do not bind to points
+**2026-09-20** · resolves **Q16**
+
+**Decided:** an observe_react's rubric items are **not** bound to information
+points. Coverage remains a claim about the whole activity.
+
+**Why (user):** keep tagging at activity level. The argument *for* binding was
+that a rubric item is a discrete assertion rather than a span of prose, so it
+escapes the reason per-section traceability was rejected. That is true, and still
+not enough: it would make coverage computed in one modality and asserted in every
+other, which is a worse inconsistency than the precision it buys.
+
+**Consistent with** the activity-level tagging decision and its rejustification
+(`MODALITIES.md`): the tagging contract is *this activity satisfies this point to
+this depth*, and that claim is well-formed without locating it internally.
+
+---
+
+## D41 · Approval staleness is computed and shown; re-approval is always human
+**2026-09-20** · resolves **Q12**
+
+**Decided:** when content changes under an approval, the platform **shows that
+the approval is out of date**. It never re-approves anything itself. The same
+human process that granted the approval runs again over the edited content.
+
+**User's framing:** *"Whatever process set the initial approval would just happen
+again with the edited content. This will not be generated approval. We need the
+platform to show when that approval is out of date — and maybe suggest what a
+set of content satisfies — but this will always be a human-in-the-loop
+verification."*
+
+**What this settles.** Q12 was framed as a detection problem; the answer is that
+detection is the *whole* job. The platform's role is to make staleness visible
+and, at most, to **propose** what edited content appears to satisfy. The judgment
+is never derived.
+
+**Mechanically** this is D20's move, applied on the second axis. A coverage tag
+already pins the **point version** it was judged against (`at: 2`), which makes
+*"the point moved under this tag"* computable. This adds the mirror: record what
+the approval was made against on the **activity** side, so *"the activity moved
+under this approval"* is computable too. Two axes, one derivation, no new tag
+state.
+
+**Deliberately not gated.** An out-of-date approval is a signal, not a block —
+the same call D19 made for drift, for the same reason: materiality is a human
+declaration. A trivial wording fix should not invalidate an SME's judgment, and
+only a person can say which is which.
+
+**The "suggest" half is a real feature, recorded so it is not lost:** given
+edited content, the platform may propose *which points it now appears to satisfy,
+and to what depth* — as a **proposal** in the D16 sense (`proposed`, awaiting a
+human), never as an adjustment. That is the AI doing the legwork a reviewer would
+otherwise do by hand, without taking the decision.
+
+**Also resolves the check case.** A check bound to its activity's language
+(`MODALITIES.md`) is the same shape: the narration moved, so the check is
+suspect. Same mechanic, same treatment, same human in the loop.
+
+---
+
+## D42 · Static content is verified at activity level; generated content needs milestones
+**2026-09-20** · resolves **Q11**, and states a principle beyond scenario
+
+**Decided:** a point covered by **generated** content must be anchored to a
+**required beat** — a milestone in the interaction that cannot be skipped, so the
+learner reaches it whatever path they take. A beat may be satisfied by
+**testing out**: if the beat assesses the point and the learner demonstrates it,
+that counts as completion.
+
+**User's framing:** *"I think it's a required beat that can't be skipped, with
+the exception of if that beat assesses the user knows the point and they 'test
+out' of it without completing. I think the key difference here is that static
+content can be verified at the activity level because it is static. Dynamic or
+generated content needs these milestones to anchor to. This pattern will likely
+expand past video and scenario outputs."*
+
+**This is the principle, and it is bigger than scenario:**
+
+| Content | Why coverage is trustworthy | What a tag means |
+|---|---|---|
+| **Static** — narration, a key point, the closing | every learner receives the same bytes | a claim about the activity, verifiable by reading it |
+| **Generated** — a coach's replies, an adaptive path | no two learners receive the same thing | a claim about *a distribution*, unverifiable by reading any one run |
+
+So **activity-level tagging was never wrong — it was under-specified.** It is
+sufficient for static content and insufficient for generated content, and the
+platform did not previously distinguish the two.
+
+**What a required beat adds:** a coverage tag on generated content names the beat
+that guarantees it. Validation can then say something stronger than *"an activity
+claims this point"* — it can say *"every learner reaches this point, because this
+beat cannot be skipped."*
+
+**Test-out is part of the guarantee, not an exception to it.** The bar is that the
+learner **arrives at the point**, not that they sit through the teaching. A beat
+that assesses and passes them has done its job better than one that delivers to
+someone who already knew it — and this is exactly the threshold framing the whole
+model rests on (*completion is meeting a threshold, not reaching the end*).
+
+**Why this generalises**, per the user: any modality with a generated or adaptive
+element has the same hole. A branching video, an adaptive path through an output,
+a podcast that responds — each needs beats for the same reason, and the
+mechanism should be defined once rather than per modality.
+
+**Revises Q11's framing.** I had posed it as *"a long activity is hard for an SME
+to falsify"* and offered review-time aids. Length was the wrong axis: a **short**
+generated activity has the same problem, and a **long** static one does not.

@@ -993,6 +993,33 @@
   }
   .sai-cvr-depth.short { background: var(--sai-danger-soft); color: var(--sai-danger); }
 
+  /* The beat that guarantees a point (D42). Static content needs none — every
+     learner gets the same bytes. Generated content does, because a tag over it
+     is a claim about a distribution rather than about text. */
+  .sai-beat {
+    display: flex; align-items: center; gap: 7px; margin-top: 7px;
+    padding: 6px 9px; border-radius: 4px; font-size: 10.5px; line-height: 1.45;
+    background: var(--sai-output-soft); color: var(--sai-output);
+  }
+  .sai-beat i { font-size: 9px; }
+  .sai-beat.none { background: var(--sai-warn-soft); color: var(--sai-warn); }
+  .sai-beat-set {
+    font-family: inherit; font-size: 10px; font-weight: 600; cursor: pointer;
+    background: none; border: 1px solid currentColor; border-radius: 3px;
+    padding: 1px 7px; color: inherit; opacity: .75;
+  }
+  .sai-beat-set:hover { opacity: 1; }
+
+  /* An approval whose content moved underneath it (D41). Advisory — a human
+     re-approves, the platform only says that they should look. */
+  .sai-stale {
+    display: flex; align-items: flex-start; gap: 7px; margin-top: 6px;
+    padding: 7px 9px; border-radius: 4px; font-size: 10.5px; line-height: 1.5;
+    background: var(--sai-warn-soft); border: 1px solid var(--sai-warn);
+    color: var(--sai-warn);
+  }
+  .sai-stale i { font-size: 10px; margin-top: 1px; }
+
   /* ── Editing affordances ──────────────────────────────────────────────
      Every collection in a scenario is authored: steps, characters, levels,
      key points, expert-answer components, carryover links, coverage tags.
@@ -1073,6 +1100,24 @@
 
   /* Plain inputs and selects, for short values where a contenteditable block
      would be more chrome than the value deserves. */
+  /* An advisory in the gate — worth seeing, does not stop a publish. */
+  .sai-gate-note {
+    display: flex; align-items: flex-start; gap: 8px; padding: 5px 0 0 1px;
+    font-size: 11px; line-height: 1.5; color: var(--sai-ink-3);
+  }
+  .sai-gate-note i { font-size: 8px; margin-top: 4px; color: var(--sai-ink-3); }
+
+  /* A derived value: shown because it matters, not editable because it is not
+     the author's to set. */
+  .sai-ro {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--sai-bg); border: 1px dashed var(--sai-line-2);
+    border-radius: 4px; padding: 5px 9px;
+    font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+    font-size: 11px; color: var(--sai-ink-3);
+  }
+  .sai-ro i { font-size: 8px; opacity: .7; }
+
   .sai-inp, .sai-sel {
     background: var(--sai-bg); border: 1px solid var(--sai-line);
     border-radius: 4px; padding: 5px 8px; font-family: inherit; font-size: 11.5px;
@@ -2383,6 +2428,7 @@
           </div>
 
           <div class="sai-info-list" id="infoList"></div>
+          <div id="infoLib" style="margin-top:12px"></div>
         </section>
 
         <!-- Activity detail — the modality authoring surface. Shared shell,
@@ -2841,10 +2887,15 @@ const MODEL = {
     { id: 'act-scenario', type: 'interactive.scenario', layer: 'activity', status: 'idle',
       modality: 'Interactive', icon: 'fa-diagram-project',
       title: 'Hazard walkthrough — loading dock', meta: '3 steps · coach-led',
+      /* A coverage tag on GENERATED content names the beat that guarantees it
+         (D42). `onContent` records what an approval was made against, so
+         "the activity moved under this approval" is computable (D41). */
       covers: {
-        'info-3': { depth: 'working', state: 'confirmed', at: 2 },
-        'info-4': { depth: 'working', state: 'confirmed', at: 1 },
-        'info-5': { depth: 'working', state: 'adjusted',  at: 2 },
+        // `onContent` is stamped at boot from the real beat, so a seeded
+        // approval starts current rather than instantly stale.
+        'info-3': { depth: 'working', state: 'confirmed', at: 2, beat: 'st-1' },
+        'info-4': { depth: 'working', state: 'confirmed', at: 1, beat: 'st-2' },
+        'info-5': { depth: 'working', state: 'adjusted',  at: 2, beat: 'st-3' },
         'info-6': { depth: 'working', state: 'adjusted',  at: 1 }
       }, placed: true,
 
@@ -2852,7 +2903,6 @@ const MODEL = {
          title or filename — filenames are for people, and nothing downstream
          should parse one. `schemaVersion` is what a player would check before
          attempting to load it. */
-      implementationId: 'forklift-hazard-walkthrough-v1',
       schemaVersion: '4.0',
       modality: 'ai-conversational',
 
@@ -3250,6 +3300,52 @@ const depthRank = d => (DEPTH[d] ? DEPTH[d].rank : 0);
    bar. Two to start — leadership will define the real list, so the standards
    are data, not hard-coded branches.
    ───────────────────────────────────────────────────────────────────────── */
+/* ── THE POINT LIBRARY ──────────────────────────────────────────────────
+   Points are authored inside a PROJECT — an SME is given a scope and asked
+   about that, because nobody can write everything they know about forklifts
+   and asking produces nothing. The library is what ACCUMULATES as projects
+   finish, and its job is to give the next project a starting position rather
+   than a blank page (D34).
+
+   So this is not a global set that projects reference. It is a by-product of
+   doing the work, and importing from it COPIES — a project owns its points, so
+   editing one here can never silently change another project's. */
+const LIBRARY = [
+  { id: 'lib-1', title: 'Pedestrian separation in shared aisles',
+    text: 'Where trucks and people share an aisle, physical separation is the control of '
+        + 'first resort — barriers, marked walkways, or scheduled separation. Behavioural '
+        + 'controls (horns, eye contact) are the last line, not the first.',
+    provenance: 'OSHA 1910.176(a)', subject: 'Forklifts',
+    fromProject: 'Warehouse Traffic Safety', verified: true, requires: 'working' },
+
+  { id: 'lib-2', title: 'Battery charging and hydrogen accumulation',
+    text: 'Lead-acid charging releases hydrogen. Charging areas require ventilation, no '
+        + 'ignition sources, and eyewash within 25 feet. Gassing is heaviest at the end of '
+        + 'the charge cycle, which is when the area is least likely to be occupied.',
+    provenance: 'OSHA 1910.178(g)', subject: 'Forklifts',
+    fromProject: 'Powered Equipment — Maintenance', verified: true, requires: 'working' },
+
+  { id: 'lib-3', title: 'Ramp and grade travel with a load',
+    text: 'On a grade, the load travels upslope — ascend forward and descend in reverse, '
+        + 'with the load pointed uphill in both directions. Turning on a grade is not done.',
+    provenance: 'OSHA 1910.178(n)(7)', subject: 'Forklifts',
+    fromProject: 'Yard Operations', verified: true, requires: 'mastery' },
+
+  { id: 'lib-4', title: 'Dock plate and trailer restraint',
+    text: 'A trailer is restrained — wheel chocks or a dock lock — and the dock plate rated '
+        + 'for the combined load before a truck enters. Trailer creep is the mechanism behind '
+        + 'most dock-edge falls.',
+    provenance: 'OSHA 1910.178(k)(1)', subject: 'Forklifts',
+    fromProject: 'Warehouse Traffic Safety', verified: true, requires: 'working' },
+
+  { id: 'lib-5', title: 'Operator certification and refresher triggers',
+    text: 'Certification is per truck type and per workplace, refreshed every three years — '
+        + 'and immediately after an accident, a near-miss, an observed unsafe practice, or a '
+        + 'change of equipment or conditions.',
+    provenance: 'OSHA 1910.178(l)(4)', subject: 'Forklifts',
+    fromProject: 'Compliance Baseline 2025', verified: true, requires: 'awareness' }
+];
+
 const GOALS = {
   compliance: {
     label: 'Compliance',
@@ -3425,6 +3521,20 @@ function commentPill(id) {
 
 /* ── Information layer ──────────────────────────────────────────────────── */
 function renderInformation() {
+  /* Import from the library (D34). A project OWNS its points, so this copies —
+     the library is a starting position, not a shared source that edits
+     propagate through. An SME is scoped to a project; the library is what
+     accumulates as projects finish. */
+  const free = LIBRARY.filter(l => !MODEL.information.some(p => p.libraryId === l.id));
+  const lib = $('#infoLib');
+  if (lib) lib.innerHTML = `
+    <button class="sai-add" data-libopen="1">
+      <i class="fa-solid fa-book-open"></i>
+      ${free.length
+        ? `Import from the library — ${free.length} more point${free.length > 1 ? 's' : ''} on this subject`
+        : 'Every library point on this subject is already here'}
+    </button>`;
+
   $('#infoList').innerHTML = MODEL.information.map((p, i) => {
     // Coverage: how many activities carry this point
     const carriers = MODEL.activities.filter(a => a.covers[p.id]).length;
@@ -3465,6 +3575,9 @@ function renderInformation() {
               ${p.lifecycle === 'archived'
                 ? '<span class="sai-pill sai-archived"><i class="fa-solid fa-box-archive"></i>Archived — no deliver</span>' : ''}
               ${prov}
+              ${p.libraryId ? `<span class="sai-pill" title="Imported from the point library — a copy this project now owns"
+                style="background:var(--sai-info-soft);color:var(--sai-info)">
+                <i class="fa-solid fa-book"></i>from ${p.fromProject}</span>` : ''}
               ${p.verified
                 ? '<span class="sai-pill verified"><i class="fa-solid fa-circle-check"></i>Verified</span>'
                 : '<span class="sai-pill" style="background:var(--sai-warn-soft);color:var(--sai-warn)"><i class="fa-solid fa-clock"></i>Awaiting SME</span>'}
@@ -3796,9 +3909,15 @@ function narrHTML(sc) {
 }
 
 /* Render blockers — human-readable, never a dead button. */
+/* Returns blockers. Advisories — things worth seeing that do not stop a
+   publish — are collected on `renderBlockers.notes`, read by the gate. The
+   platform's standing split: gate what is certainly broken, flag what is a
+   judgment (D14, D19, D37). */
 function renderBlockers(a) {
   const sc = a.scenes || [];
   const out = [];
+  const notes = [];
+  renderBlockers.notes = notes;
   const notReady = sc.filter(x => x.status !== 'ready').length;
   const noMedia  = sc.filter(x => !x.media).length;
   const noNarr   = sc.filter(x => !x.narration || !x.narration.trim()).length;
@@ -3882,6 +4001,23 @@ function renderBlockers(a) {
       out.push(`${n}'s debrief has no key points — it would teach nothing`);
   });
 
+  /* D42 — a coverage claim over GENERATED content needs a beat. A scenario's
+     conversation is generated, so every point it claims needs one; the closing
+     and debrief key points are static and need none. */
+  if (a.steps) {
+    Object.entries(a.covers || {}).forEach(([pid, c]) => {
+      const pt = byId[pid];
+      if (!pt) return;
+      if (!c.beat) {
+        notes.push(`${pt.title} has no guaranteed beat — a learner could take a path that never reaches it`);
+      } else if (!(a.steps || []).some(x => x.id === c.beat)) {
+        out.push(`${pt.title} is guaranteed by a step that no longer exists`);
+      }
+      if (approvalStale(a, pid))
+        notes.push(`${pt.title}'s approval is out of date — its beat has been edited since`);
+    });
+  }
+
   // ── Scenario level
   if (a.steps) {
     if (!(a.narrative || '').trim()) out.push('No narrative — the learner starts with no framing');
@@ -3893,26 +4029,61 @@ function renderBlockers(a) {
     if (MODEL.goal === 'compliance' && !((a.closing || {}).sourceReferences || []).length)
       out.push('No source references on the close — a Compliance goal expects an external authority');
 
-    // ── Prompt smell. Authored text that talks about the AI or the interface
-    //    leaks into what the learner is told.
+    /* ── Prompt smell ────────────────────────────────────────────────────
+       The coach's dialogue is GENERATED from what the author writes — those
+       fields are compiled into a system prompt. An author who writes "the AI
+       should redirect here" has put that phrasing into the prompt, and the
+       model can echo it back: the scaffolding leaks into the performance.
+
+       Split by where it sits (D37), because the verbatim/guidance distinction
+       is load-bearing across this whole surface:
+
+         VERBATIM  — the learner reads it literally. Certainly wrong. Blocks.
+         GUIDANCE  — steers generation. May be deliberate. Warns.
+
+       The reference blocks on both; it is protecting a loader and its document
+       IS a prompt. Here, gate what is certainly broken and flag what is a
+       judgment — the same split as D14 and D19. */
     const SMELL = ['the ai', 'the model', 'the interface', 'the ui', 'the chat window',
                    'this prompt', 'as an ai', '[[', ']]'];
-    const smelt = [];
-    const scan = (label, txt) => {
-      const t = (txt || '').toLowerCase();
-      const hit = SMELL.find(x => t.includes(x));
-      if (hit) smelt.push(`${label} ("${hit}")`);
+    const hitIn = txt => SMELL.find(x => (txt || '').toLowerCase().includes(x));
+    const verb = [], guid = [];
+    const scan = (bucket, label, txt) => {
+      const h = hitIn(txt);
+      if (h) bucket.push(`${label} ("${h}")`);
     };
-    scan('the narrative', a.narrative);
-    scan('the coach persona', a.coachPersona);
+
+    // Verbatim — shipped to the learner as written.
+    scan(verb, 'the narrative', a.narrative);
+    scan(verb, 'the closing summary', (a.closing || {}).summary);
+    ((a.opening || {}).messages || []).forEach(m => scan(verb, 'the opening reflection', m.text));
+    // Guidance — steers what the coach generates.
+    scan(guid, 'the coach persona', a.coachPersona);
+    (a.toneGuidelines || []).forEach(t => scan(guid, 'a tone guideline', t));
+
     (a.steps || []).forEach((st, i) => {
-      scan(`step ${i + 1} purpose`, st.purpose);
-      ((st.interaction || {}).openingMessages || []).forEach(m => scan(`step ${i + 1} opening`, m.text));
-      Object.entries(st.levels || {}).forEach(([k, L]) => L && scan(`step ${i + 1} ${k} response`, L.response));
-      scan(`step ${i + 1} final word`, (st.debrief || {}).finalWord);
+      const n = `step ${i + 1}`;
+      const io = st.interaction || {};
+      (io.openingMessages || []).forEach(m => scan(verb, `${n}'s opening`, m.text));
+      (io.brief || []).forEach(b => scan(verb, `${n}'s brief`, b.text));
+      (io.rubric || []).forEach(r => scan(verb, `${n}'s rubric nudge`, r.nudge));
+      (st.debrief.keyPoints || []).forEach(k => scan(verb, `${n}'s key points`, k));
+      scan(verb, `${n}'s final word`, st.debrief.finalWord);
+      scan(verb, `${n}'s probe`, st.debrief.probe);
+
+      scan(guid, `${n}'s purpose`, st.purpose);
+      Object.entries(st.levels || {}).forEach(([k, L]) => {
+        if (!L) return;
+        scan(guid, `${n}'s ${k} look-for`, L.lookFor);
+        scan(guid, `${n}'s ${k} response`, L.response);
+      });
     });
-    if (smelt.length)
-      out.push(`Authored text refers to the AI or the interface — ${smelt.slice(0, 2).join(', ')}${smelt.length > 2 ? ` and ${smelt.length - 2} more` : ''}`);
+
+    const list = xs => xs.slice(0, 2).join(', ') + (xs.length > 2 ? ` and ${xs.length - 2} more` : '');
+    if (verb.length)
+      out.push(`The learner would be shown text about the AI — ${list(verb)}`);
+    if (guid.length)
+      notes.push(`Guidance refers to the AI, which can echo into what the coach says — ${list(guid)}`);
   }
   return out;
 }
@@ -3979,6 +4150,8 @@ function renderActivityDoc(id) {
               a.steps
                 ? 'Every step has an exit gate, both calibration poles, and a valid carryover.'
                 : 'All scenes ready, narrated and backed with media.'}</div>`}
+        ${(renderBlockers.notes || []).map(n => `
+          <div class="sai-gate-note"><i class="fa-solid fa-circle-info"></i>${n}</div>`).join('')}
       </div>
 
       ${body}
@@ -4240,6 +4413,34 @@ const MODE_HINT = {
    schema. So an absent neutral is authored intent; an absent pole is a gap. */
 /* Every step that references a character by id — as its roleplay partner, or on
    an opening message. A reference, so it is countable and repairable. */
+/* A fingerprint of the content an approval was made against (D41). Covers the
+   text a reviewer would have read — not ids, not ordering — so a reorder does
+   not invalidate a judgment about language. */
+function beatFingerprint(st) {
+  if (!st) return '';
+  const io = st.interaction || {};
+  const parts = [
+    st.purpose,
+    ...(io.openingMessages || []).map(m => m.text),
+    ...(io.brief || []).map(b => b.text),
+    ...(io.rubric || []).map(r => r.name + r.nudge),
+    ...Object.values(st.levels || {}).filter(Boolean).map(L => L.lookFor + L.response),
+    ...(st.debrief.keyPoints || []), st.debrief.finalWord
+  ].join('|');
+  let h = 0;
+  for (let i = 0; i < parts.length; i++) h = (h * 31 + parts.charCodeAt(i)) | 0;
+  return 'c-' + Math.abs(h).toString(36).slice(0, 3);
+}
+
+/* Is this approval still about the content it was granted over? Computed,
+   never gated — materiality is a human declaration (D19, D41). */
+function approvalStale(a, pid) {
+  const c = (a.covers || {})[pid];
+  if (!c || c.state !== 'confirmed' || !c.onContent || !c.beat) return false;
+  const st = (a.steps || []).find(x => x.id === c.beat);
+  return !!st && beatFingerprint(st) !== c.onContent;
+}
+
 function charRefs(a, cid) {
   return (a.steps || []).filter(st => {
     const io = st.interaction || {};
@@ -4372,7 +4573,6 @@ function scnPhaseBlockers(a, phase) {
   const steps = a.steps || [];
   if (phase === 'framing') {
     if (!(a.narrative || '').trim()) out.push('No narrative');
-    if (!a.implementationId) out.push('No document id');
   }
   if (phase === 'world') {
     if (!a.world || !a.world.setting) out.push('No setting');
@@ -4537,8 +4737,8 @@ function renderStepEditor(a, st) {
       </div>
 
       <div class="sai-fld">
-        <div class="sai-fld-lbl">Exit gate</div>
-        <div style="display:flex;align-items:center;gap:9px">
+        <div class="sai-fld-lbl">Pacing</div>
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:6px">
           <span class="sai-num">
             <button data-turns="${st.id}:-1" ${st.exitTurns <= 1 ? 'disabled' : ''}>−</button>
             <span>${st.exitTurns}</span>
@@ -4546,6 +4746,18 @@ function renderStepEditor(a, st) {
           </span>
           <span style="font-size:10.5px;color:var(--sai-ink-3)">
             turns before the coach moves on
+          </span>
+        </div>
+        <div style="display:flex;align-items:center;gap:9px">
+          <span class="sai-num">
+            <button data-help="${st.id}:-1" ${(st.interaction.helpTurns || 0) <= 0 ? 'disabled' : ''}>−</button>
+            <span>${st.interaction.helpTurns || 0}</span>
+            <button data-help="${st.id}:1" ${(st.interaction.helpTurns || 0) >= 3 ? 'disabled' : ''}>+</button>
+          </span>
+          <span style="font-size:10.5px;color:var(--sai-ink-3)">
+            ${(st.interaction.helpTurns || 0) === 0
+              ? 'no help — a stuck learner is moved on, not rescued'
+              : 'times the coach may help a stuck learner before moving on'}
           </span>
         </div>
       </div>
@@ -4746,6 +4958,9 @@ function renderExportCard(a) {
         What a player would load. ${blockers.length
           ? `<span style="color:var(--sai-warn)">${blockers.length} issue${blockers.length > 1 ? 's' : ''} would need resolving first.</span>`
           : 'Nothing outstanding.'}
+        <br><span style="opacity:.75">This is a preview of the projection, not a file —
+        publishing belongs to the pipeline. It is here to show what this platform knows
+        that the current format cannot carry.</span>
       </div>
 
       ${lost.length ? lost.map(l => `
@@ -4768,6 +4983,11 @@ function renderExportCard(a) {
       </details>
     </div>`;
 }
+
+/* A document is addressed by the activity's own node id — stable, opaque, and
+   never typed by a human (MODEL.md, node addressing). Derived rather than
+   authored, so a typo cannot repoint a scenario (D39). */
+function docId(a) { return a.id + '@' + (a.schemaVersion || '4.0'); }
 
 /* ── EXPORT — project the authored scenario to a loadable document ─────
    The reference editor's whole reason for existing is that it produces JSON a
@@ -4794,7 +5014,7 @@ function exportScenario(a) {
   const covered = Object.keys(a.covers || {}).map(pid => byId[pid]).filter(Boolean);
 
   const doc = {
-    implementation_id: a.implementationId,
+    implementation_id: docId(a),
     schema_version: a.schemaVersion,
     modality: a.modality,
     content: {
@@ -4844,7 +5064,8 @@ function exportScenario(a) {
         if (st.mode === 'coach_inquiry') {
           interaction = {
             opening_messages: (io.openingMessages || []).map(m => ({ text: m.text })),
-            levels, input_placeholder: io.inputPlaceholder || ''
+            levels, input_placeholder: io.inputPlaceholder || '',
+            help_turns: io.helpTurns || 0
           };
         } else if (st.mode === 'roleplay') {
           interaction = {
@@ -5332,6 +5553,32 @@ function renderPhasePage(a, ph) {
                     ? ` · point is now v${pt.version}` : ''}
                 </span>
               </div>
+
+              <!-- D42: a claim about GENERATED content is a claim about a
+                   distribution, so it needs a beat the learner cannot skip. -->
+              <div class="sai-beat ${c.beat ? '' : 'none'}">
+                <i class="fa-solid fa-${c.beat ? 'flag-checkered' : 'triangle-exclamation'}"></i>
+                <span style="flex:1 1 auto">
+                  ${(() => {
+                    if (!c.beat) return 'No guaranteed beat — a learner could take a path that never reaches this.';
+                    const bi = (a.steps || []).findIndex(x => x.id === c.beat);
+                    const bs = (a.steps || [])[bi];
+                    if (!bs) return 'Guaranteed by a step that no longer exists.';
+                    return `Guaranteed at <b>step ${bi + 1} — ${bs.label}</b>, which cannot be skipped`;
+                  })()}
+                </span>
+                <button class="sai-beat-set" data-beatset="${pid}">
+                  ${c.beat ? 'change' : 'set a beat'}
+                </button>
+              </div>
+
+              ${approvalStale(a, pid) ? `
+                <div class="sai-stale">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                  <span><b>This approval is out of date.</b> The beat it was confirmed
+                  against has been edited since. Re-approval is a human step — the
+                  platform will not re-confirm it.</span>
+                </div>` : ''}
             </div>
           </div>`;
       }).join('')}
@@ -5551,11 +5798,15 @@ function renderPhasePage(a, ph) {
           A scenario is addressed by its own id, never by its title or filename — filenames
           are for people, and nothing downstream should parse one.
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input class="sai-inp" value="${a.implementationId || ''}" data-ainp="implementationId"
-                 style="flex:1 1 220px" placeholder="implementation id">
-          <input class="sai-inp" value="${a.schemaVersion || ''}" data-ainp="schemaVersion"
-                 style="width:90px" placeholder="schema">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="sai-ro" style="flex:1 1 220px">
+            <i class="fa-solid fa-lock"></i>${docId(a)}
+          </span>
+          <span class="sai-ro" style="width:90px">${a.schemaVersion || '4.0'}</span>
+        </div>
+        <div style="font-size:10px;color:var(--sai-ink-3);margin-top:6px;line-height:1.5">
+          Derived from this activity's id, which is stable and survives every rebuild.
+          Nothing downstream parses a title or a filename.
         </div>
       </div>`;
   }
@@ -6283,6 +6534,12 @@ function wireScenario(a, root) {
     const i = +el.dataset.stepdel;
     const gone = steps[i];
     steps.splice(i, 1);
+    // A beat naming a deleted step guarantees nothing — clear it and say so,
+    // rather than leaving a coverage claim that silently stopped being true.
+    let unguarded = 0;
+    Object.values(a.covers || {}).forEach(c => {
+      if (c.beat === gone.id) { delete c.beat; delete c.onContent; unguarded++; }
+    });
     let pruned = 0;
     steps.forEach(st => {
       if (!st.carryover) return;
@@ -6293,8 +6550,10 @@ function wireScenario(a, root) {
     scnStep = Math.max(0, Math.min(scnStep, steps.length - 1));
     scnTurns = []; scnRolls = 0;
     repaint();
-    toast(pruned ? `Step deleted — ${pruned} carryover reference${pruned > 1 ? 's' : ''} to it removed`
-                 : 'Step deleted');
+    const bits = [];
+    if (pruned) bits.push(`${pruned} carryover reference${pruned > 1 ? 's' : ''} removed`);
+    if (unguarded) bits.push(`${unguarded} point${unguarded > 1 ? 's' : ''} lost their guaranteed beat`);
+    toast(bits.length ? `Step deleted — ${bits.join(', ')}` : 'Step deleted');
   }));
 
   // ── Mode, turn counts ────────────────────────────────────────────────
@@ -6313,6 +6572,14 @@ function wireScenario(a, root) {
     toast(dropped.length
       ? `Now ${MODE_META[mode].label} — ${dropped.join(', ')} ${dropped.length > 1 ? 'do' : 'does'} not apply and ${dropped.length > 1 ? 'were' : 'was'} dropped`
       : 'Step is now ' + MODE_META[mode].label);
+  }));
+
+  $$('[data-help]', root).forEach(el => el.addEventListener('click', () => {
+    const [sid, d] = el.dataset.help.split(':');
+    const st = steps.find(x => x.id === sid);
+    if (!st) return;
+    st.interaction.helpTurns = Math.max(0, Math.min(3, (st.interaction.helpTurns || 0) + Number(d)));
+    repaint();
   }));
 
   $$('[data-turns]', root).forEach(el => el.addEventListener('click', () => {
@@ -6641,6 +6908,49 @@ function wireScenario(a, root) {
       }));
     });
   });
+  /* Set which beat guarantees a point (D42). Only a step can be a beat —
+     static content needs none, because every learner receives it. */
+  $$('[data-beatset]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    const pid = el.dataset.beatset;
+    const c = a.covers[pid];
+    openPop(el, 360, `
+      <div class="sai-pop-head">
+        <b>Which beat guarantees this?</b>
+        <div style="font-size:10.5px;color:var(--sai-ink-3);margin-top:3px;line-height:1.5">
+          The learner reaches this step whatever path they take — or tests out of it by
+          demonstrating the point.
+        </div>
+      </div>
+      <div class="sai-pop-body">
+        ${steps.map((st, i) => `
+          <button class="sai-pop-item" data-pickbeat="${st.id}">
+            <i class="fa-solid ${(MODE_META[st.mode] || {}).icon || 'fa-circle'} lead"></i>
+            <span class="nm">Step ${i + 1} — ${st.label}
+              ${c.beat === st.id ? '<b style="color:var(--sai-output)"> · current</b>' : ''}
+            </span>
+          </button>`).join('')}
+        ${c.beat ? `
+          <button class="sai-pop-item danger" data-pickbeat="">
+            <i class="fa-solid fa-xmark lead"></i><span class="nm">No guaranteed beat</span>
+          </button>` : ''}
+      </div>`, pop => {
+      $$('[data-pickbeat]', pop).forEach(b => b.addEventListener('click', () => {
+        const id = b.dataset.pickbeat;
+        if (id) {
+          c.beat = id;
+          /* The approval was granted over different content, so re-stamp what it
+             is now about — or, if it was confirmed, mark it for a human to look
+             at rather than silently carrying the old judgment forward (D41). */
+          const st = steps.find(x => x.id === id);
+          if (c.state === 'confirmed') c.onContent = beatFingerprint(st);
+        } else { delete c.beat; delete c.onContent; }
+        closePop(); repaint();
+        toast(id ? 'Beat set — this point can no longer be skipped' : 'Beat removed');
+      }));
+    });
+  }));
+
   $$('[data-cvrdel]', root).forEach(el => el.addEventListener('click', () => {
     delete a.covers[el.dataset.cvrdel];
     repaint(); toast('No longer covering that point');
@@ -7559,8 +7869,75 @@ function renderValidations() {
   if (exp)    exp.innerHTML    = renderValidation(MODEL.web.nodes.map(n => n.id));
 }
 
+/* Library import. Copies the point into the project — it is now this project's,
+   and editing it here cannot reach any other project (D34). */
+function wireLibrary() {
+  const btn = $('[data-libopen]');
+  if (!btn) return;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const free = LIBRARY.filter(l => !MODEL.information.some(p => p.libraryId === l.id));
+    if (!free.length) { toast('Nothing left to import on this subject'); return; }
+    openPop(btn, 420, `
+      <div class="sai-pop-head">
+        <b>What we already have on ${free[0].subject}</b>
+        <div style="font-size:10.5px;color:var(--sai-ink-3);margin-top:3px;line-height:1.5">
+          Accumulated from finished projects. Importing copies the point — this
+          project will own its copy.
+        </div>
+      </div>
+      <div class="sai-pop-body">
+        ${free.map(l => `
+          <button class="sai-pop-item" data-imp="${l.id}" style="align-items:flex-start">
+            <i class="fa-solid fa-lightbulb lead" style="margin-top:2px"></i>
+            <span class="nm" style="white-space:normal">
+              ${l.title}
+              <span style="display:block;font-weight:400;color:var(--sai-ink-3);font-size:10px;margin-top:3px">
+                ${l.provenance} · from ${l.fromProject}
+              </span>
+            </span>
+          </button>`).join('')}
+      </div>`, pop => {
+      $$('[data-imp]', pop).forEach(b => b.addEventListener('click', () => {
+        const l = LIBRARY.find(x => x.id === b.dataset.imp);
+        const id = 'info-' + (MODEL.information.length + 1);
+        MODEL.information.push({
+          id, type: 'information.point', layer: 'information', status: 'idle',
+          title: l.title, text: l.text, provenance: l.provenance,
+          sourced: true, verified: l.verified, requires: l.requires,
+          version: 1, lifecycle: 'current',
+          // Where the copy came from — what makes the library legible rather
+          // than a dumping ground.
+          libraryId: l.id, fromProject: l.fromProject,
+          claim: l.text, matters: '', specifics: '', failure: '', competence: '',
+          usage: [], capabilities: ['rephrase', 'comment', 'derive']
+        });
+        byId[id] = MODEL.information[MODEL.information.length - 1];
+        closePop(); renderAll();
+        toast(`Imported — this project now owns its own copy`);
+      }));
+    });
+  });
+}
+
+/* Stamp every confirmed coverage tag with the content it is approved over, so
+   the prototype starts in a consistent state rather than reporting staleness
+   that never happened (D41). A real build would do this at approval time. */
+function stampApprovals() {
+  MODEL.activities.forEach(a => {
+    if (!a.steps) return;
+    Object.values(a.covers || {}).forEach(c => {
+      if (c.state === 'confirmed' && c.beat && !c.onContent) {
+        const st = a.steps.find(x => x.id === c.beat);
+        if (st) c.onContent = beatFingerprint(st);
+      }
+    });
+  });
+}
+
 function renderAll() {
   renderInformation();
+  wireLibrary();
   renderActivities();
   renderSequence();
   renderWeb();
@@ -8060,6 +8437,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
+stampApprovals();
 renderAll();
 </script>
 

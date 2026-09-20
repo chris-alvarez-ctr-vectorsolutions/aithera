@@ -11,6 +11,35 @@
 
 ## RESOLVED since first writing
 
+**2026-09-20 — a pass through every open question.** Nine closed:
+
+- **Q4** (library vs. document) → **D34.** Neither: the project is the authoring
+  unit, and the library is what *accumulates* from projects. Import copies.
+- **Q5** (evidence for depth) → **D35.** No separate field; confirmation is the
+  evidence.
+- **Q6** (activity in multiple projects) → **D34.** One project; sharing is the
+  org's existing Shared LO model.
+- **Q7** (collective noun) → **D36.** "Outputs" stays.
+- **Q13** (scenario opening) → **D38.** Stays on the activity, no compose rule.
+- **Q14** (`implementation_id`) → **D39.** Derived from the node id, read-only.
+- **Q15** (what the export is for) → stubbed as a preview, per the user: *"we
+  don't need this to produce or handle real files — this is just UX
+  exploration."*
+- **Q16** (rubric → point binding) → **D40.** No; coverage stays at activity
+  level.
+- **Q17** (prompt-smell lint) → **D37.** Blocks on verbatim, warns on guidance.
+- **Q18** (`help_turns`) → built as a pacing control beside the exit gate.
+- **Q11** (verifying a long activity) → **D42.** Wrong axis: it is not length but
+  whether the content is *generated*. Static content is verifiable at activity
+  level; generated content anchors to a **required beat** the learner cannot skip.
+- **Q12** (activity content moving) → **D41.** Staleness is computed and shown;
+  re-approval is always human.
+
+**Twelve of eighteen closed.** What remains is one cluster (Q1/Q2/Q3 — the
+update-review flow, deferred with D7), three explicitly deferred (Q8/Q9/Q10), and
+two new ones raised by the answers (**Q19**, **Q20**).
+
+
 - **Q4 (reuse scope)** → D18. Wrong question for points: they are design-time
   context, never delivered, so not shared. Activities are the shareable unit and
   follow the org's existing Shared/Unique/Instance model.
@@ -83,23 +112,8 @@ a re-confirmation path.
 
 ---
 
-### Q4 · Reuse scope — is the information layer a library or a document?
-**Would reshape: the information layer's entire navigation model.**
-
-Forklift safety and warehouse safety will share points, and probably activities.
-
-- **Library:** points are global, projects *reference* them. Needs search,
-  reuse affordances, "used in 4 projects" indicators, and a governance story for
-  editing a shared point.
-- **Document:** points are owned by a project and copied. Simpler; duplicates
-  diverge silently.
-
-Probably a short conversation — the answer may already be obvious — but the
-consequences are large.
-
----
-
-## In progress
+### ~~Q4 · Reuse scope — is the information layer a library or a document?~~
+**RESOLVED 2026-09-20 → D34.** Neither option as posed. Points are authored inside a project; the library is what accumulates across projects and gives the next one a starting position. Import copies, so there is no shared-edit governance problem.
 
 ### Modality authoring surfaces
 **Started 2026-09-18 — tracked in `MODALITIES.md`, not here.**
@@ -121,172 +135,87 @@ different binding and reuse rules, and the **AI assistant** is a modelled entity
 
 ---
 
-### Q11 · Does a long activity need its coverage located internally?
-**Raised 2026-09-18, by activity size becoming the author's call.**
+### Q20 · What counts as a beat outside a scenario?
+**Raised 2026-09-20 by D42.**
 
-Activity-level coverage tagging is settled and rejustified. But a **long** body —
-a deep scenario of many phases and decisions — may claim several points at
-several depths, and that claim is harder for a reviewer or an SME to falsify
-than a short activity making a single claim. "This 12-phase scenario covers all
-six points" is not checkable by reading a tag.
+D42 says generated content anchors to a required beat, and the user expects the
+pattern to *"expand past video and scenario outputs."* In a scenario a beat is a
+step. Elsewhere it is undefined:
 
-Per-section traceability was rejected for good reasons that still stand (it
-invents precision that does not exist, and invites tagging incidental mentions
-as coverage). So this is **not** a proposal to reopen it — it is a question about
-whether *verification* needs something tagging does not supply:
+- **Video** is static once rendered — every learner sees the same frames — so it
+  may need no beats at all. But a video *with checks* is partly interactive, and
+  a check the learner can fail is closer to a beat than a scene is.
+- **An adaptive output** (the Experience format) is where this bites hardest: the
+  path itself is generated, so a beat has to be a property of the *composition*
+  rather than of any one activity.
+- **A podcast or job aid** may be wholly static and need nothing.
 
-- nothing, because the SME reviews the activity itself and the tag is a summary;
-- an **evidence note** per tag (Q5's field, arriving for a different reason);
-- or a lighter affordance — "show me where" as a **review-time** aid rather than
-  an authored anchor.
+**The question:** is a beat a per-modality concept that each surface defines, or
+one shared primitive — *"a unit the learner provably reaches"* — that modalities
+register against? The second is more consistent with the node model, and is
+probably right, but it has not been designed.
 
-**Would reshape:** the coverage panel's review affordances, not the tag model.
-
-**Watch for it** when the scenario body is designed — a deep scenario is the
-first body where this actually bites.
-
----
-
-### Q12 · Nothing detects that an activity's own content moved
-**Raised 2026-09-18 by D30; scoped down by D31. Has two callers already.**
-
-**Downgraded by D32.** Manual locks let an author freeze what has been decided,
-which **prevents** the problem rather than detecting it after the fact. What
-remains here is a backstop for content nobody thought to lock — worth keeping on
-the list, no longer the primary answer.
-
-**Scope note.** This is **not** about work leaking to live — a dedicated publish
-pipeline gates that (D31) — nor about losing work, which version control and
-drafts handle. It is about a **claim inside the design surface going stale**, and
-the surface being unable to say so. Publish blocks the ship; it cannot explain
-the block to an LED or tell an SME they are re-reviewing rather than reading
-something fresh.
-
-The model tracks drift on one axis only: a coverage tag pins the **point
-version** it was judged against (`at: 2`), so *"the point moved under this
-confirmation"* is computed. There is no equivalent for the other direction —
-**"the activity's own content moved"** — and two settled decisions now depend on
-it:
-
-- **Checks** (`MODALITIES.md`, *Checks and assessments are different
-  instruments*): a check is bound to the specific narration phrasing of its
-  activity, so changing that language should make the check suspect. *"Same
-  mechanic, different trigger."* Nothing computes it.
-- **SME confirmation under permissive editing (D30):** an SME confirms a depth
-  judgment — and in a scenario, a `look_for` calibration — against specific
-  content. An unscoped AI edit can rewrite that content while the confirmation
-  stays green, which makes the compliance gate assert something untrue.
-
-**What it probably needs** is the move the model already makes everywhere else:
-**bind to identity, not position.** A confirmation records *what it was made
-against*, not merely *when* — so "confirmed-against-current" stays derivable, no
-new tag state required, exactly as D20 did for point versions.
-
-Deliberately **computed, never gated** — the same call D19 made for drift, for the
-same reason: materiality is a human declaration, and the platform should surface
-the signal rather than judge it.
-
-The open part is what "the content it was made against" means concretely —
-an activity content hash, a per-field revision counter, or something coarser.
-Too coarse and every typo nags; too fine and it never fires.
-
-**Related:** the video anchor hole (`MODALITIES.md`, *Left undone on video*) is
-the same class of bug — an index standing in for an identity — and a token-id
-model there may supply the primitive this needs.
-
-**Would reshape:** the coverage panel's confirmation display, the check's drift
-state, and whatever surface reports "this changed since it was approved."
+**Would reshape:** the coverage panel wherever a modality has generated content,
+and the Experience format's validation.
 
 ---
 
-## Raised by the parity pass — 2026-09-20
+### Q19 · Does the library notice when a copy diverges?
+**Raised 2026-09-20 by D34.**
 
-*Worked through all six PARITY.md items without stopping to ask. These are the
-decisions I made on my own judgment, or deliberately deferred. Each names what I
-did and what would change if you decide otherwise.*
+Points are project-owned and importing copies, which is what removes the
+shared-edit governance problem. The cost is the mirror image: if project B
+imports a point and project A later corrects it, **nothing propagates and
+nothing notices**.
 
-### Q13 · Does an activity own a scenario-level opening, or is that the output's job?
-**I built it. Worth confirming.**
+That is correct for delivery — B's activities were authored against B's copy,
+and changing it underneath them is exactly the drift D19 is careful about. It is
+less obviously correct for the *library*, whose value is being the place you
+find what the organisation knows. A library holding three divergent versions of
+the same OSHA rule is worth less than one that can say so.
 
-v4 has an `opening` — one ungraded exchange before the phases, to get the
-learner talking before any teaching. I added it as part of the Framing stage.
+Not a propagation question — that was settled by copying. A **reporting**
+question, and it belongs with `L1` (the information-set health surface) rather
+than with the authoring flow:
 
-**The tension:** an activity here is author-sized and may be composed with others
-into an output (D30-era decision). If three scenario activities stack into one
-output, the learner meets **three warm-ups**. The reference has no such problem,
-because its document *is* the whole deliverable.
+- does the library show that a point has diverged across projects?
+- can it show which copy is newest, or most recently SME-confirmed?
+- is "reconcile these three copies" a real operation, or a human conversation?
 
-- **Keep it on the activity** (what I built): faithful to v4, and a standalone
-  activity needs its own way in.
-- **Move it to the output**: one warm-up per delivery, but an activity delivered
-  alone then has none.
-- **Keep it, and let compose drop all but the first**: probably right, but it is
-  a real compose rule that does not exist yet.
+**Would reshape:** the library's own surface, which does not exist yet.
 
-### Q14 · Should `implementation_id` be authored at all?
-**I made it an editable field. I am not sure it should be.**
+---
 
-The reference is explicit that *"the document carries its own identity in
-`implementation_id`; filenames are for people, and nothing downstream should
-parse them."* I exposed it as a text input on the Framing stage.
+### ~~Q11 · Does a long activity need its coverage located internally?~~
+**RESOLVED 2026-09-20 → D42.** The framing was wrong: length is not the axis.
+A **short generated** activity has the same problem and a **long static** one
+does not. Static content is verifiable at activity level because every learner
+receives the same bytes; generated content needs a **required beat** — a
+milestone the learner reaches whatever path they take, or tests out of by
+demonstrating the point.
 
-But this platform already gives every node a **stable opaque id** (`MODEL.md`,
-*Node addressing*), and the whole argument there is that ids are not for humans
-to type. An author editing an implementation id can break the thing that
-identifies their scenario to a player.
+### ~~Q12 · Nothing detects that an activity's own content moved~~
+**RESOLVED 2026-09-20 → D41.** The platform computes and shows that an approval
+is out of date; a human re-approves. It may *propose* what edited content
+appears to satisfy, never adjust. Advisory, never gated — the same call D19 made
+for drift.
 
-Likely right answer: **derive it from the activity's node id and show it
-read-only**, the way the coverage page shows point ids. One line to change.
+---
 
-### Q15 · What is the export actually FOR?
-**Built as a preview. Not wired to anything.**
+## ~~Raised by the parity pass~~ — all resolved 2026-09-20
 
-The Close stage now shows the projected document, what the projection lost, and
-which fields are Vector extensions. What it does not do is *go* anywhere.
+*Six questions raised after working through the parity items, all settled the
+next day. Kept as a record of what was decided and why; the reasoning lives in
+`DECISIONS.md`.*
 
-Options, and they are quite different products:
-- **A read-only honesty surface** — "here is what a player would get, and here is
-  what this platform knows that it cannot carry." Argues for the format growing.
-- **A real handoff** — download, or push to the pipeline (D31).
-- **Round-trip** — import a v4 document and author it here, which is the
-  migration path for scenarios already authored in the reference editor. That is
-  a *decompose* question (`MODEL.md`) and probably the most valuable of the
-  three.
-
-### Q16 · Does a rubric item want to bind to an information point?
-**Deliberately not built.**
-
-An observe_react's rubric lists what a learner should spot. Several of those map
-onto information points — "faces the truck" *is* the three-point-contact point.
-Binding them would let coverage be computed from the rubric rather than asserted
-separately, which is the id-join argument applied one level deeper.
-
-**Why I left it:** it is the per-section traceability question again
-(`MODALITIES.md`), which was settled as *coverage tags at activity level*. Doing
-this for rubric items only would be inconsistent unless it is a deliberate
-exception — and it might be, since a rubric item is a **discrete assertion**
-rather than a span of prose, which is exactly what made span-tagging unreliable.
-
-### Q17 · The prompt-smell lint fires on authored prose. Is its list right?
-**I adapted the reference's needles and added a few.**
-
-It flags authored text containing *the ai, the model, the interface, the ui, the
-chat window, this prompt, as an ai, `[[`, `]]`*. The reference's reasoning is
-that this text is compiled into a system prompt and a learner should never meet
-it.
-
-Two things to check: whether the list is too aggressive for a platform where an
-author might legitimately write *"the AI assistant will summarise"* in a
-**purpose** field (guidance, never spoken), and whether the lint should apply
-only to **verbatim** fields rather than to all of them. Currently it scans both.
-
-### Q18 · Is `help_turns` a real authoring control?
-**Carried in the data, not exposed.**
-
-Every mode's shape has `help_turns` — how much help before the step moves on.
-I kept it in the model and the export but gave it no editor, because I could not
-tell whether it is an authoring decision or a platform default. The reference
-exposes it nowhere obvious either.
+| | Question | Resolution |
+|---|---|---|
+| **Q13** | Does the activity own a scenario-level opening? | **D38** — yes, and no compose rule silently removes duplicates. What was authored is what is delivered. |
+| **Q14** | Should `implementation_id` be authored? | **D39** — no. Derived from the activity's node id, shown read-only. A typo should not be able to repoint a scenario. |
+| **Q15** | What is the export for? | **Stubbed as a preview.** Per the user: *"we don't need this to produce or handle real files — this is just UX exploration."* It shows what a player would get and what the projection loses; it moves nothing. |
+| **Q16** | Should a rubric item bind to an information point? | **D40** — no. Coverage stays a claim about the whole activity; binding in one modality only would be a worse inconsistency than the precision it buys. |
+| **Q17** | Is the prompt-smell lint right? | **D37** — split it. Blocks on verbatim text (the learner reads it), warns on guidance (may be deliberate). |
+| **Q18** | Is `help_turns` a real control? | **Yes, built** — beside the exit gate, as pacing: how many times the coach may help a stuck learner before moving on. |
 
 ---
 
@@ -343,26 +272,14 @@ this repo, since the artifact is the deliverable.
 
 ## Quick to settle
 
-### Q5 · Does depth require evidence, or just assertion?
-**Scoped yes/no.**
+### ~~Q5 · Does depth require evidence, or just assertion?~~
+**RESOLVED 2026-09-20 → D35.** No separate evidence field. The tag already records who judged it and against which version.
 
-Currently an SME confirms a depth and that is the truth. For Compliance you may
-need the *reason* recorded — *"assessed via 6 scored items at an 80%
-threshold."*
+### ~~Q6 · Can an activity belong to multiple projects?~~
+**RESOLVED 2026-09-20 → D34.** One project. Sharing an activity is the org's existing Shared LO model (D18).
 
-It's one field, but deciding now avoids a retrofit.
-
-### Q6 · Can an activity belong to multiple projects?
-**Follows from Q4.** Determines whether comments and depth tags are per-project
-or global. Likely free once Q4 is settled.
-
-### Q7 · Collective noun for Outputs
-**Cosmetic.** "Outputs" is a placeholder over Courses and Experiences.
-*Deliverables* is warmer. Skipping the collective entirely is also fine.
-
----
-
-## Valuable later — explicitly out of scope for now
+### ~~Q7 · Collective noun for Outputs~~
+**RESOLVED 2026-09-20 → D36.** "Outputs" stays.
 
 ### L1 · Information-set health & analytics surface
 **Raised 2026-09-18. Build after the rest exists.**
