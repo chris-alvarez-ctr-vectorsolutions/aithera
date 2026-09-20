@@ -823,3 +823,53 @@ button.**
 **Not decided here:** whether a lock records *why* it was set (a note, a link to
 the discussion, or nothing). Worth a field if locks are meant to carry
 "discussed and decided," but it is additive and can wait for the surface.
+
+---
+
+## D33 · Preview a probabilistic artifact by rerolling, not by showing one sample
+**2026-09-19**
+
+**Decided:** where a surface previews AI-generated content, it must let the
+author **re-run the generation repeatedly** and judge the spread. A single
+generated sample is never presented as *the* output. Content shipped **verbatim**
+updates live instead, with no rerun.
+
+**User's framing:** *"Changes to AI guidelines are tested by 'regenerating' an AI
+response chat over and over to see multiple examples of how it will generate
+answers under those guidelines. Verbatim changes result in live updates and
+certain interactions of the scenario can be 'scrubbed' so the designer isn't
+going through a full scenario to see a text change."*
+
+**Why this is a decision and not a feature detail.** The video canvas is
+trustworthy because video output is **deterministic** — the same word yields the
+same frame. Generated conversation is **probabilistic**: the same calibration
+produces a different reply every run. Porting the canvas pattern naively would
+show one roll of the dice in a surface whose whole promise is *what you see is
+what it is* — inviting exactly the false confidence the *"preview composite · not
+the render"* badge was added to prevent.
+
+**Rerolling makes variability visible rather than hiding it.** The spread is the
+thing being judged, so the surface must show a spread.
+
+**Three consequences, all reusable beyond scenario:**
+
+1. **Split the preview by determinism, not by field type.** Any modality mixing
+   authored and generated content needs the same split: verbatim → live update;
+   generated → reroll.
+2. **A kept roll should become authored content.** A generated reply worth
+   remembering is pinned into the format's own `example` field rather than being
+   a screenshot. **Preview becomes an authoring gesture.**
+3. **Show which guidance produced what.** Each generated turn is tagged with the
+   calibration level that steered it, and the tag links back to the field. This
+   is the same job the word playhead does for on-screen text: make an invisible
+   binding legible and clickable.
+
+**Rejected:** showing a single generated example inline in the form (cheap, and
+actively misleading — it reads as the answer rather than as one draw); and
+generating nothing, leaving the author to imagine the output (what the reference
+editor does today, and the thing this is meant to fix).
+
+**Asks of the engine:** running turns against the real model under authored
+calibration, from inside an authoring tool. Beyond today's player. Per D31 and
+the video-rendering precedent, that is the case being made rather than a
+constraint to design around.

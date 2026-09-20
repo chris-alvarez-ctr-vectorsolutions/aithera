@@ -432,7 +432,8 @@ settings, and clip re-anchoring **as an authoring gesture**. It is the
 **Status:** not yet discussed.
 
 ### Scenario
-**Status:** **designed 2026-09-18, not built.** Prior art reviewed; authoring
+**Status:** **designed 2026-09-18–19, not built.** Includes the rehearsal
+centre-stage surface (below). Prior art reviewed; authoring
 model settled (the LED authors a scenario as an activity, author-sized); four
 model-level decisions taken (D27–D30); **all seven framework questions
 answered** below. Build questions listed at the end of this section.
@@ -861,6 +862,125 @@ familiar and the rest of the screen would not — the coverage panel, the depth
 tags, the assistant, and the fact that the teaching points are not theirs to
 write would all be new.
 
+#### The centre stage — live rehearsal, not a form
+
+**Designed 2026-09-19.** The reference editor is a three-column form: section
+nav, fields, inspector. The question put to it: *how do we do for scenario what
+the canvas did for video — less form capture, more direct creation?*
+
+##### Why the obvious port fails
+
+The video canvas works because of two properties a scenario does not share:
+
+1. **The artifact has a visual form.** A frame can be looked at and judged.
+2. **There is a spine to scrub along.** Words, then time.
+
+A scenario's artifact is **a conversation that has not happened yet**, and it has
+no timeline — the learner's path through a step is unknown until they take it.
+So "draw the conversation on a canvas" would mean drawing *one fabricated path*
+and presenting it as the artifact. That is worse than a form, because it is
+confidently wrong.
+
+##### What actually transfers — and the property that makes it different
+
+The video canvas is scrubbable because its output is **deterministic**: the same
+word yields the same frame every time. A scenario's output is **probabilistic**:
+the same calibration produces a different reply on every run.
+
+So "preview" means two different things, and the surface must treat them
+differently. Per the user (2026-09-19):
+
+> *"live rehearsal but I think it needs controls to toggle which parameters the
+> designer is testing. Changes to AI guidelines are tested by 'regenerating' an
+> AI response chat over and over to see multiple examples of how it will generate
+> answers under those guidelines. Verbatim changes result in live updates and
+> certain interactions of the scenario can be 'scrubbed' so the designer isn't
+> going through a full scenario to see a text change."*
+
+**The split is already real in the format**, which is what makes this
+implementable rather than aspirational:
+
+| | Shipped **verbatim** | **Generated** under guidance |
+|---|---|---|
+| What | `opening_messages`, `final_word`, `key_points`, a delivery-only debrief (`follow_up_turns: 0`), the closing `ideal_response` | the coach's improvised replies, steered by `look_for` / `response` per level |
+| Behaviour on edit | **live update** — deterministic, like the video canvas | **reroll** — one sample proves nothing |
+| How it is judged | read it | read *several* and judge the spread |
+
+##### The three controls
+
+**1. Live update — for verbatim content.** Edit a `final_word` or an opening
+message and the rehearsal reflects it immediately, no rerun. This is exactly the
+video canvas's behaviour, and it applies to every field the learner receives as
+written.
+
+**2. Reroll — for generated content.** A coach reply carries a **reroll**
+control. Pressing it re-runs *that turn only*, under the current calibration,
+leaving everything before it fixed. Rolling three or four times is how a designer
+sees what a guideline actually produces rather than trusting one lucky sample.
+
+> **This is the honest answer to a probabilistic artifact.** A single generated
+> reply shown once, sitting in a canvas, invites exactly the false confidence the
+> video canvas's *"preview composite · not the render"* badge exists to prevent.
+> Rerolling makes the variability visible instead of hiding it — the spread **is**
+> the thing being judged.
+
+Two affordances follow from that:
+
+- **Keep a roll.** A reply worth remembering can be pinned as that level's
+  `example` — the format already has `example: { learner, reply }` per level, so
+  this writes a real field rather than inventing one. **Rehearsal becomes an
+  authoring gesture**, not just a viewer.
+- **Show the level each turn hit.** Every coach reply is tagged with the
+  calibration level that produced it, and the tag is a link back to the field.
+  This is the scenario equivalent of the video canvas making word-anchoring
+  legible: it turns an invisible binding into something you can see and click.
+
+**3. Scrub — for position.** Jump to any step and rehearse from there, with
+earlier steps' state assumed, rather than replaying the whole scenario to check
+one line. Directly analogous to the word playhead, and load-bearing for the same
+reason: without it, every small text change costs a full playthrough.
+
+Scrubbing into the middle of a scenario has one wrinkle the video playhead does
+not: **`carryover`**. A step that reads from an earlier step needs something to
+read. The rehearsal supplies the pinned `example` for that earlier step when it
+was not actually played, and **says that it did** — a marked substitution, never
+a silent one.
+
+##### What the designer is testing — the toggle
+
+Per the user's *"controls to toggle which parameters the designer is testing."*
+Rehearsal is not one mode; it is a small set, because a designer checking
+wording has a different question than one checking calibration:
+
+| Mode | The question it answers |
+|---|---|
+| **Read** | Does the verbatim content say the right thing? *(no generation; fastest)* |
+| **Calibrate** | Does a given learner answer land on the level I think it does? *(pin the learner's line, reroll the coach)* |
+| **Play** | Does the whole step hold together as an experience? *(free conversation)* |
+
+**Calibrate is the mode the form cannot do at all**, and is the strongest
+argument for the surface: type the answer a mediocre learner would give, see
+which level catches it, and fix the `look_for` if it catches the wrong one. That
+is direct manipulation of the thing being authored — the same relationship the
+video canvas has to on-screen text.
+
+##### What stays a form, deliberately
+
+Not everything should become visual. **Structure stays structural:** step order,
+modes, exit gates, coverage tags and carryover are best seen as the arc (the rail
+and the coverage panel), not acted out. Rehearsal is for **language and
+judgment** — what the coach says and what counts as a good answer.
+
+This mirrors video's own division of labour: the rail owns narration and audio,
+the canvas owns what is composited. Actions sit with the thing they change.
+
+##### What this asks of the engine
+
+Rehearsal needs to run turns against the real model under the authored
+calibration, which is beyond what today's player affords an authoring tool. Per
+D31 and the video-rendering precedent, that is **the case being made**, not a
+constraint to design around — the same posture as the compositing canvas.
+
 ##### What the design must still resolve
 
 Not framework questions — build questions, to settle when the surface is designed:
@@ -872,7 +992,15 @@ Not framework questions — build questions, to settle when the surface is desig
   checks as siblings; scenario's obvious analogue is steps, but a long scenario
   may want grouping the format does not have.
 - **Where the character cast lives.** It is scene-world data shared across
-  steps, so it is neither a step field nor a project field.
+  steps, so it is neither a step field nor a project field. The rehearsal
+  surface gives it an obvious home it did not have in a form — a character is
+  something you *see speaking* — which may settle this.
+- **What rehearsal costs.** Every reroll is a model call, and Calibrate mode
+  invites many. Not a blocker for a prototype (the mock fakes it), but a real
+  product question the surface should not pretend away.
+- **Whether a rehearsal transcript is worth keeping.** Pinning a roll as an
+  `example` is settled (D33). Whether a whole *session* is worth saving — as
+  evidence for an SME, or as a regression check after an edit — is not.
 
 ### Knowledge check
 **Status:** not yet discussed.
