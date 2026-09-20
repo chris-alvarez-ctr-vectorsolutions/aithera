@@ -1090,12 +1090,24 @@ a preview — which rules out mode-switching or an overlay.
 
 Three changes:
 
-**1. The phase rail collapses on a stage that rehearses.** *"Maybe the side rail
-needs to collapse when you enter a stage that requires rehearsal?"* — it does, to
-a 46px strip of numbered chips. It collapses rather than vanishing so the spine
-stays navigable, keeps a warning dot on any stage with something outstanding
-(collapsing must not hide the one signal the rail carries), and is a **default
-rather than a rule** — one toggle brings it back.
+**1. The phase rail collapses — on any stage.** It collapses to a 46px strip of
+numbered chips rather than vanishing, so the spine stays navigable, and keeps a
+warning dot on any stage with something outstanding (collapsing must not hide
+the one signal the rail carries).
+
+First built as *"collapse on a stage that rehearses"*, then widened after using
+it — per the user: *"I think we should just make the side rail collapsible from
+any step after seeing this interaction."* A control that appears and disappears
+by stage is its own inconsistency.
+
+**The control is universal; the default is per-stage**, because the stages do
+not have the same problem. A one-column stage has width to spare and reads
+better with the spine visible. Interaction puts an editor and a rehearsal side by
+side, and leaving the rail open there costs both the readable width this pass was
+about — **78 → 53 chars in the editor, 55 → 38 in a bubble**, measured. So
+Interaction lands collapsed and the others land open; the moment the author
+toggles, their choice wins and persists across stages. Re-entering the activity
+restores the per-stage defaults.
 
 **2. The rehearsal is elevated and pinned to the viewport.** Per the user:
 *"I'd like the rehearsal to be in an elevated container that is positioned in

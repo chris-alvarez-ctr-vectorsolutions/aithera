@@ -826,7 +826,6 @@
   .sai-scn.railed .sai-ph-dot,
   .sai-scn.railed .sai-ph-secs,
   .sai-scn.railed .sai-seq-head span:last-child { display: none; }
-  .sai-scn.railed .sai-seq-head { justify-content: center; }
   /* A stage with something outstanding still says so when collapsed —
      otherwise collapsing hides the one signal the rail exists to carry. */
   .sai-scn.railed .sai-ph { position: relative; }
@@ -834,13 +833,17 @@
     content: ''; position: absolute; top: 5px; right: 4px;
     width: 5px; height: 5px; border-radius: 50%; background: var(--sai-warn);
   }
+  /* Lives in the rail's own header, so it reads as the rail's control rather
+     than as something belonging to the stage you happen to be on. */
   .sai-rail-toggle {
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-    width: 100%; margin-top: 6px; padding: 5px; cursor: pointer;
-    background: none; border: 1px solid var(--sai-line); border-radius: 5px;
-    color: var(--sai-ink-3); font-family: inherit; font-size: 10px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+    width: 21px; height: 21px; flex: 0 0 auto; cursor: pointer;
+    background: none; border: 1px solid transparent; border-radius: 4px;
+    color: var(--sai-ink-3); font-family: inherit; font-size: 10px;
   }
-  .sai-rail-toggle:hover { color: var(--sai-ink); border-color: var(--sai-line-2); }
+  .sai-rail-toggle:hover { color: var(--sai-ink); background: var(--sai-surface-3); border-color: var(--sai-line-2); }
+  /* Collapsed, the header holds only the toggle — so centre it. */
+  .sai-scn.railed .sai-seq-head { justify-content: center; margin-bottom: 4px; }
 
   /* The interaction split. Editor scrolls with the page; the rehearsal is
      PINNED to the viewport, so however far the editor runs the conversation
@@ -3748,6 +3751,7 @@ function renderActivityDoc(id) {
     // Leaving a scenario drops its rehearsal — a transcript is a scratch
     // artifact, not authored content (the pinned examples are the keepers).
     scnStep = 0; scnTurns = []; scnRolls = 0;
+    scnPhase = 'interaction'; scnRailed = null;
     switchLayer('activities');
   });
   wireActivityDoc(a);
@@ -4087,11 +4091,22 @@ const SCN_PHASES = [
 ];
 
 let scnPhase = 'interaction';   // the stage currently open
-/* The rail collapses on a stage that rehearses, because editor + rehearsal
-   both need width there. Explicitly toggled state, so an author who wants the
-   stage list back keeps it — it is a default, not a rule. */
-let scnRailOpen = false;
-const REHEARSES = id => id === 'interaction';
+/* The stage rail collapses to a strip of numbered chips. The CONTROL is
+   available on every stage — a toggle that appears and disappears by stage is
+   its own inconsistency — but the DEFAULT is per-stage, because the stages do
+   not have the same width problem.
+
+   A one-column stage (World, Coverage, Coach, Close) has width to spare and
+   reads better with the spine visible. Interaction puts an editor and a
+   rehearsal side by side; leaving the rail open there costs both of them the
+   readable width the layout pass was about (measured: 78 -> 53 chars in the
+   editor, 55 -> 38 in a bubble).
+
+   So: `null` means "no choice made, use the stage's default", and once the
+   author toggles, THEIR choice wins and persists across stages. A preference
+   that resets every time you navigate is not a preference. */
+let scnRailed = null;
+const RAIL_DEFAULT = id => id === 'interaction';   // collapsed where two columns compete
 
 /* Blockers attributed to the phase that owns them, so "not ready" is
    navigable rather than merely true. */
@@ -4177,24 +4192,23 @@ function renderScenarioBody(a) {
   const steps = a.steps || [];
   const step  = steps[scnStep] || steps[0];
   const ph    = SCN_PHASES.find(p => p.id === scnPhase) || SCN_PHASES[2];
-  const railed = REHEARSES(scnPhase) && !scnRailOpen;
+  const railed = scnRailed === null ? RAIL_DEFAULT(scnPhase) : scnRailed;
 
   return `
     <div class="sai-scn ${railed ? 'railed' : ''}">
       <div class="sai-scn-rail">
         <div class="sai-seq-head">
           ${railed ? '' : '<span class="sai-doc-label" style="margin:0">Build</span>'}
-          <span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
-            5 stages
-          </span>
+          ${railed ? '' : `<span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
+            ${SCN_PHASES.length} stages
+          </span>`}
+          <button class="sai-rail-toggle" data-railtoggle="1"
+            title="${railed ? 'Expand the stage list' : 'Collapse the stage list'}"
+            aria-expanded="${railed ? 'false' : 'true'}">
+            <i class="fa-solid fa-chevron-${railed ? 'right' : 'left'}"></i>
+          </button>
         </div>
         ${renderPhaseRail(a, railed)}
-        ${REHEARSES(scnPhase) ? `
-          <button class="sai-rail-toggle" data-railtoggle="1"
-            title="${railed ? 'Show the stage list' : 'Collapse — the rehearsal needs the width'}">
-            <i class="fa-solid fa-chevron-${railed ? 'right' : 'left'}"></i>
-            ${railed ? '' : 'Collapse'}
-          </button>` : ''}
       </div>
 
       <div class="sai-vid-resize" id="railResize" title="Drag to resize"></div>
@@ -5555,12 +5569,15 @@ function wireScenario(a, root) {
     repaint();
   }));
 
-  // ── Rail collapse. A default, not a rule — the author can bring the stage
-  //    list back on a rehearsing stage if they want it.
+  // ── Rail collapse. Available on every stage, and the choice persists as the
+  //    author moves between them.
   const rt = $('[data-railtoggle]', root);
   if (rt) rt.addEventListener('click', e => {
     e.stopPropagation();
-    scnRailOpen = !scnRailOpen;
+    // First toggle resolves against what is on screen now, so the control
+    // always does the visible thing rather than depending on hidden state.
+    const shown = scnRailed === null ? RAIL_DEFAULT(scnPhase) : scnRailed;
+    scnRailed = !shown;
     repaint();
   });
 
