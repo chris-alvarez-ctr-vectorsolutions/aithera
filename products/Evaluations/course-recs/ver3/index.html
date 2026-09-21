@@ -1149,7 +1149,9 @@
            vwc-course-card is a direct child and its exported parts resolve. */
         .rec-card-part-styles { display: none; }
         /* Select All re-hosted in our row, styled to match Refresh. */
+        /* min-height 24 for WCAG 2.5.8, as on .rec-refresh-btn. */
         .rec-selectall-btn {
+            min-height: 24px;
             background: none; border: none; padding: 4px 8px; cursor: pointer;
             font-family: inherit; font-size: 12px; font-weight: 600;
             color: var(--rec-accent-strong);
@@ -1180,10 +1182,13 @@
                 /* Colors/padding/radius come from theme="badge warning"; keep only the
            pill shape + type tweaks the badge theme doesn't provide. */
                 .rec-section-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        /* min-height 24 for WCAG 2.5.8 — 12px text with 4px padding left the
+           target at ~22px. Height only; the label sets the width. */
         .rec-refresh-btn {
             background: none; border: none; padding: 4px 2px; cursor: pointer;
             font-family: inherit; font-size: 12px; font-weight: 600; color: var(--rec-accent-strong);
             display: inline-flex; align-items: center; gap: 6px;
+            min-height: 24px;
         }
         .rec-refresh-btn:hover { text-decoration: underline; }
         .rec-refresh-btn i { font-size: 11px; }
@@ -1791,8 +1796,11 @@
         /* ── Reflow (WCAG 1.4.10) ── */
         @media (max-width: 760px) {
             /* Tighter side inset — at phone widths a 16px gutter each side is
-               already most of the screen. */
-            .rec-dock { left: 10px; right: 10px; }
+               already most of the screen. The base rule sets an explicit
+               `width: calc(100% - 24px)`, which would beat left/right alone,
+               so the width is overridden here too (without it this rule was
+               dead and the gutter never actually narrowed). */
+            .rec-dock { left: 10px; right: 10px; width: calc(100% - 20px); }
             /* Stacked layout: release the single-row fixed height or the
                wrapped rows are clipped out of the bar entirely. min-height
                keeps the banner from ever being shorter than the pinned
@@ -4592,12 +4600,23 @@
         }
         /* Help affordance beside each date label. Placeholder tooltip copy
            stands in until the SafeLMS help text is supplied. */
+        /* WCAG 2.5.8 Target Size (Minimum): the glyph is 11px, but the
+           TARGET must be at least 24x24. The box is padded out to 24x24 and
+           centred on the icon; the negative block margin keeps that larger hit
+           area from adding height to the label row, so the control grows
+           without the layout moving. */
         .assign-help {
             color: var(--text-muted);
             cursor: help;
             font-size: 11px;
             line-height: 1;
             display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin: -6px 0 -6px -6px;
+            flex: 0 0 auto;
         }
         .assign-help:hover { color: var(--brand); }
         .assign-help:focus-visible {
@@ -7675,13 +7694,28 @@ function setDockState(state, data) {
    The bar's own height comes off the top because .rec-bar sits above the
    drawer inside the same dock. */
 const DRAWER_TOOLBAR_GAP = 64;
+/* Absolute floor for the drawer's own scroll area once it is open at all.
+   Below this there is no point keeping it open — the caller collapses it
+   instead of rendering a sliver. */
+const DRAWER_MIN_USABLE = 72;
 function drawerMaxHeight(minH) {
     const topbar = document.querySelector('.topbar');
     // getBoundingClientRect().bottom is the toolbar's real on-screen bottom,
     // which already accounts for everything sticky above it.
     const toolbarBottom = topbar ? Math.max(0, topbar.getBoundingClientRect().bottom) : 112;
     const barH = recBar ? recBar.offsetHeight : 84;
-    return Math.max(minH, window.innerHeight - toolbarBottom - DRAWER_TOOLBAR_GAP - barH);
+    const room = window.innerHeight - toolbarBottom - DRAWER_TOOLBAR_GAP - barH;
+
+    /* WCAG 1.4.10 at 400% zoom: NOT Math.max(minH, room).
+       At a 320x256 viewport `room` goes negative, and a Math.max() floor would
+       win over the ceiling — the dock then grew taller than the viewport and,
+       being position: fixed, pushed its own heading to a negative y where it
+       could never be scrolled back into view. The ceiling has to be allowed to
+       fall below the comfortable minimum; how far the drawer may open is
+       decided by the space that actually exists, never by a constant. The
+       caller collapses the drawer entirely when what's left is unusable. */
+    if (room < minH) return Math.max(0, room);
+    return room;
 }
 
 /* The drawer's natural height = its content plus every fixed box stacked
@@ -7725,8 +7759,19 @@ function syncDrawerOpenHeight() {
            reads the content plus the real chrome around it. The toolbar and
            the resize grip are both hidden in this state ([data-empty]), and
            measuring them returns 0, so nothing extra is reserved for them. */
+        /* Capped by the same ceiling as the populated state — the 96px floor
+           must not push the dock past the viewport on a short screen (the
+           1.4.10 failure fixed in drawerMaxHeight). The copy scrolls inside
+           the body if it truly cannot fit. */
+        const emptyMax = drawerMaxHeight(96);
+        if (emptyMax < DRAWER_MIN_USABLE) {
+            drawerOpen = false;
+            delete recDock.dataset.open;
+            recDock.style.setProperty('--rec-drawer-current', '0px');
+            return;
+        }
         recDock.style.setProperty('--rec-drawer-current',
-            Math.max(96, naturalDrawerHeight()) + 'px');
+            Math.min(emptyMax, Math.max(96, naturalDrawerHeight())) + 'px');
         return;
     }
 
@@ -7739,6 +7784,17 @@ function syncDrawerOpenHeight() {
        the body, which is `flex: 1` and reports the container's height. The
        toolbar sits above it inside the drawer, so its height counts too;
        +36 covers the body's 18px top/bottom padding. */
+    /* Not enough room to open at all (very short viewport / 400% zoom): keep
+       the drawer collapsed rather than opening a sliver that pushes the bar
+       off-screen. The bar alone stays reachable, and its chevron is still the
+       way back to the list once there is room. */
+    if (maxH < DRAWER_MIN_USABLE) {
+        drawerOpen = false;
+        delete recDock.dataset.open;
+        recDock.style.setProperty('--rec-drawer-current', '0px');
+        return;
+    }
+
     let target;
     if (drawerHeightPx) {
         target = Math.min(maxH, Math.max(MIN_H, drawerHeightPx));
