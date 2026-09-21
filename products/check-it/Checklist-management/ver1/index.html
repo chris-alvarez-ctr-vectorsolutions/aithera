@@ -11197,6 +11197,32 @@ function applyFlowState(id, opts) {
       if (rg) openRepeatPreview(rg);
       break;
     }
+    /* S7/S8/S9 — the crew's surfaces. All three open the same run; they
+       differ in which block they land on, because that is what each one is
+       demonstrating. */
+    case 'run': {
+      const c = CHECKLISTS.find(x => x.id === 'apparatus-morning');
+      openRun('apparatus-morning', (c.deployments || [])[0].id);
+      break;
+    }
+    case 'runnested': {
+      const c = CHECKLISTS.find(x => x.id === 'apparatus-morning');
+      openRun('apparatus-morning', (c.deployments || [])[0].id);
+      /* Land on the block carrying the nested ladder step. */
+      const nb = (runState.blocks || []).find(b =>
+        (b.steps || []).some(st => isNested(st)));
+      if (nb) { runState.activeBlock = nb.id; renderRun(); }
+      break;
+    }
+    case 'runbulk': {
+      const c = CHECKLISTS.find(x => x.id === 'apparatus-morning');
+      openRun('apparatus-morning', (c.deployments || [])[0].id);
+      /* Pre-tag a sibling so the shared-result pattern is visible on arrival
+         rather than needing to be discovered. */
+      const sib = siblingDeps()[0];
+      if (sib) { runState.taggedDeps.push(sib.id); renderRun(); }
+      break;
+    }
     case 'blast':
       openCreator('wheels-tires');
       openBlastDialog();
@@ -11219,14 +11245,18 @@ window.TOOLBOX_CONFIG = {
     title: 'Checklist Management — Flow Map',
     applyState: 'applyFlowState',
     devNotes: '../DEV-NOTES.md',
-    canvas: { w: 1320, h: 726 },
+    canvas: { w: 1320, h: 946 },
     flows: [
       { id: 'lib', name: 'Library', pill: 'A', color: '#bcd7f0',
         lane: { x: 20, y: 20, w: 1280, h: 168 }, labelXY: { x: 40, y: 42 } },
       { id: 'build', name: 'Checklist builder', pill: 'B', color: '#c9b8f0',
         lane: { x: 20, y: 204, w: 1280, h: 334 }, labelXY: { x: 40, y: 226 } },
       { id: 'block', name: 'Block authoring', pill: 'C', color: '#b8e0cf',
-        lane: { x: 20, y: 554, w: 1280, h: 152 }, labelXY: { x: 40, y: 576 } }
+        lane: { x: 20, y: 554, w: 1280, h: 152 }, labelXY: { x: 40, y: 576 } },
+      /* The crew's lane. Everything above it is an admin authoring; this is
+         the surface the authoring exists for. */
+      { id: 'run', name: 'Performing a check', pill: 'D', color: '#f0d9b8',
+        lane: { x: 20, y: 774, w: 1280, h: 152 }, labelXY: { x: 40, y: 796 } }
     ],
     nodes: [
       { id: 'library', flow: 'lib', entry: true, x: 70, y: 92,
@@ -11278,7 +11308,18 @@ window.TOOLBOX_CONFIG = {
         desc: 'The crew\'s side, interactive: add a bottle, Select Identifier from the Equipment Pool (search or scan), work the referenced Per-Item Checklist grouped by its own sections, mark it done, add the next. Already-checked assets drop out and the header tracks the threshold live.' },
       { id: 'blast', flow: 'block', x: 370, y: 618,
         step: 'Publish', name: 'Blast Radius', state: 'blast',
-        desc: 'Publishing bumps the version and names every checklist affected. Active deployments pin to their version, so in-flight runs are untouched.' }
+        desc: 'Publishing bumps the version and names every checklist affected. Active deployments pin to their version, so in-flight runs are untouched.' },
+
+      /* ---- The crew's surfaces (S7/S8/S9) ---- */
+      { id: 'run', flow: 'run', x: 70, y: 838,
+        step: 'Perform', name: 'Perform a Check', state: 'run',
+        desc: 'S7. The crew\'s run, where everything authored upstream bites. Block index on the left because production checklists reach 1,094 steps; required steps block submit with no escape hatch (A2); a failing Pass/Fail demands a comment whatever the author set (Q12); and a failure names its own consequences where it happens rather than after submit.' },
+      { id: 'runnested', flow: 'run', x: 370, y: 838,
+        step: 'Perform', name: 'Nested Check (runtime)', state: 'runnested',
+        desc: 'S8. The ladder step resolves at run time against the ladders actually assigned to this apparatus (Q31) — nothing was pre-picked. Items checked inside the look-back window show as satisfied rather than hidden (Q36), and answers fold into this check\'s record, not a second one (Q34).' },
+      { id: 'runbulk', flow: 'run', x: 670, y: 838,
+        step: 'Perform', name: 'Bulk / Repeat', state: 'runbulk',
+        desc: 'S9. A check starts as one item and grows two ways: tag other items that share this result (one pass, one record each), or finish and repeat for the next item with its own answers. One record per item, never combined (Q32) — the opposite of the nesting rule above.' }
     ],
     edges: [
       ['library', 'blocks'],
@@ -11297,7 +11338,10 @@ window.TOOLBOX_CONFIG = {
       ['blocks', 'creator'],
       ['creator', 'blast'],
       ['creator', 'repeat'],
-      ['repeat', 'repeatrun']
+      ['repeat', 'repeatrun'],
+      ['deployments', 'run'],
+      ['run', 'runnested'],
+      ['run', 'runbulk']
     ]
   }
 };
