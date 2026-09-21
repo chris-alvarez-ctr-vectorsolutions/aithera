@@ -407,6 +407,34 @@ ul.plain li b { color: var(--ink); }
 .pcardm .upbadge { position: absolute; top: -8px; right: 8px; font-size: 9px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; background: #c47f10; color: #fff; border-radius: 999px; padding: 2px 6px; }
 .pcardm .rembadge.pending { background: var(--faint); }
 
+/* ---------- recompile toasts ----------
+   Fired from rebuild()'s plan diff: a rail change doesn't just snap the
+   plan strip to its new shape, it names what the engine just did and why,
+   using the same reason text buildPlan()/loCard() already compute for the
+   LED panel — nothing new to author, just surfaced at the moment it fires.
+   Anchored above the sticky .transport footer so it reads next to the plan
+   strip it's describing rather than floating unrelated on the page. */
+#toastStack { position: fixed; right: 18px; bottom: 132px; z-index: 90; display: flex; flex-direction: column-reverse; gap: 8px; width: 320px; pointer-events: none; }
+.toast {
+  pointer-events: auto; background: var(--card); border: 1.5px solid var(--line); border-left-width: 4px;
+  border-radius: 10px; box-shadow: var(--shadow); padding: 10px 28px 10px 12px; position: relative;
+  opacity: 0; transform: translateX(24px); transition: opacity .22s ease, transform .22s ease;
+  font-size: 12.5px; line-height: 1.45;
+}
+.toast.show { opacity: 1; transform: translateX(0); }
+.toast.hide { opacity: 0; transform: translateX(24px); }
+.toast-head { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 3px; }
+.toast-body { color: var(--ink-soft); }
+.toast-close { position: absolute; top: 6px; right: 6px; width: 18px; height: 18px; border: 0; background: none; color: var(--faint); cursor: pointer; border-radius: 5px; display: grid; place-items: center; font-size: 10px; }
+.toast-close:hover { background: var(--line2); color: var(--ink); }
+.toast.added   { border-left-color: var(--ok); }    .toast.added .toast-head   { color: var(--ok); }
+.toast.testup  { border-left-color: #c47f10; }      .toast.testup .toast-head  { color: #c47f10; }
+.toast.skip    { border-left-color: var(--faint); } .toast.skip .toast-head    { color: var(--mute); }
+.toast.sys     { border-left-color: var(--engine); }.toast.sys .toast-head     { color: var(--engine); }
+.toast.removed { border-left-color: var(--bad); }   .toast.removed .toast-head { color: var(--bad); }
+.toast-more { pointer-events: auto; text-align: center; font-size: 11px; font-weight: 700; color: var(--mute); background: var(--card-soft); border: 1px dashed var(--line); border-radius: 8px; padding: 6px; }
+@media (max-width: 760px) { #toastStack { left: 12px; right: 12px; width: auto; bottom: 148px; } }
+
 .screen { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); min-height: 340px; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
 .screen-bar { display: flex; align-items: center; gap: 10px; padding: 9px 14px; background: #fff; border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--mute); }
 .screen-bar .dotz { display: inline-flex; gap: 4px; }
@@ -1437,6 +1465,8 @@ body.mode-reference #tool { display: none; }
 })();
 </script>
 
+<div id="toastStack" aria-live="polite"></div>
+
 <script>
 /* =========================================================================
    The workbench: router + the engine model behind the worked example.
@@ -1593,7 +1623,7 @@ body.mode-reference #tool { display: none; }
     manufacturing: { learner: 'Examples set on a plant floor.', engine: 'the customer is in the manufacturing sector' },
     education:     { learner: 'Examples set in a school building.', engine: 'the customer is in the education sector' },
     aec:           { learner: 'Examples set on a renovation site.', engine: 'the customer is in the AEC sector' },
-    public:        { learner: 'Examples set on an ambulance crew.', engine: 'the customer is in the public sector' }
+    public:        { learner: 'Examples set at a police booking counter.', engine: 'the customer is in the public sector' }
   };
 
   /* ---------------------------------------------------------------------
@@ -1631,7 +1661,7 @@ body.mode-reference #tool { display: none; }
   // ask + sampled) was cut in round 1 (alignment brief D1) — no counterpart in K&A's script.
   const SAMPLE_BY_SECTOR = {
     manufacturing: { F2: false }, education: { F2: true },
-    aec: { F2: false }, public: { F2: true }
+    aec: { F2: false }, public: { F2: false }
   };
   const inSample = lo => !!(SAMPLE_BY_SECTOR[S.set.sector] || {})[lo.id];
   const isFav = r => r === 'pass' || r === 'agree';
@@ -1776,9 +1806,107 @@ body.mode-reference #tool { display: none; }
     S.plan.forEach(c => { if (c.kind === 'lo' && !c.done && !c.switched) { const p = choosePerm(c.lo, c); c.m = p.m; c.rule = p.rule; c.why = p.why; c.dress = p.dress; c.dressWhy = p.dressWhy; } });
   }
 
+  /* ---------------------------------------------------------------------
+     Recompile toasts — named at the moment the plan changes shape, using
+     the SAME reason text buildPlan()/loCard() already compute for the LED
+     panel. Diffs the outgoing S.plan against the freshly-built one rather
+     than describing the new state in isolation, so what fires is "why this
+     just changed" and not a re-statement of the whole plan.
+     --------------------------------------------------------------------- */
+  function cardKey(c) {
+    if (c.kind === 'lo' || c.kind === 'skip') return c.lo.id;
+    if (c.kind === 'pre') return c.items && c.items.length === 1 ? 'pre-' + c.items[0] : 'pre-all';
+    return c.kind; // sys, post, mastered — one of each per plan
+  }
+  // What actually matters for "did this card change" — not modality, which
+  // permutes on its own and would fire a toast for every plan even when
+  // nothing about test-out/test-up/remediation moved.
+  function cardSignature(c) {
+    return [c.kind, !!c.testUp, !!c.compliance, !!c.remediation, c.check || '', c.page || ''].join('|');
+  }
+  // Lower sorts first. A whole-module recency skip removes 8+ objective
+  // cards at once, each a valid 'removed' entry, but every one of them is
+  // just a symptom of the one 'sys' card explaining why — that headline
+  // reason should never lose the MAX-4 cutoff to its own symptoms.
+  function changePriority(chg) {
+    if (chg.type === 'removed') return 3;
+    if (chg.card.kind === 'sys') return 0;
+    if (chg.card.kind === 'mastered') return 1;
+    return 2;
+  }
+  function diffPlans(oldPlan, newPlan) {
+    const oldMap = new Map(oldPlan.map(c => [cardKey(c), c]));
+    const newMap = new Map(newPlan.map(c => [cardKey(c), c]));
+    const changes = [];
+    newMap.forEach((c, k) => {
+      const old = oldMap.get(k);
+      if (!old) changes.push({ type: 'added', card: c });
+      else if (cardSignature(old) !== cardSignature(c)) changes.push({ type: 'changed', card: c, oldCard: old });
+    });
+    oldMap.forEach((c, k) => { if (!newMap.has(k)) changes.push({ type: 'removed', oldCard: c }); });
+    changes.sort((a, b) => changePriority(a) - changePriority(b));
+    return changes;
+  }
+  function describeChange(chg) {
+    const c = chg.type === 'removed' ? chg.oldCard : chg.card;
+    const id = c.lo ? c.lo.id : null;
+    if (chg.type === 'removed') return { cls: 'removed', icon: 'fa-minus', kicker: (id || c.kind.toUpperCase()) + ' · GONE',
+      body: id ? `${id} no longer appears in the plan.` : 'A step dropped out of the plan.' };
+    if (c.kind === 'skip') return { cls: 'skip', icon: 'fa-forward', kicker: id + ' · TEST-OUT', body: c.reason };
+    if (c.kind === 'sys')  return { cls: 'sys', icon: 'fa-flag', kicker: 'MODULE · SKIPPED', body: c.reason };
+    if (c.kind === 'post') return { cls: 'sys', icon: 'fa-clipboard-check', kicker: 'POST BATTERY', body: c.reason };
+    if (c.kind === 'pre')  return { cls: chg.type === 'added' ? 'added' : 'testup', icon: 'fa-list-check', kicker: 'PRE BATTERY', body: c.reason };
+    if (c.kind === 'mastered') return { cls: 'added', icon: 'fa-flag-checkered', kicker: 'MASTERED',
+      body: c.carried ? 'Credit carried in from the prior module — nothing left to complete.' : 'Every terminal objective is proven.' };
+    if (c.kind === 'lo') {
+      if (c.testUp) return { cls: 'testup', icon: 'fa-arrow-trend-up', kicker: id + ' · TEST-UP',
+        body: `${id} is content-locked, so it still runs — the harder, arguable variant, not re-scored.` };
+      if (c.compliance) return { cls: 'testup', icon: 'fa-book-open', kicker: id + ' · DELIVERED ANYWAY',
+        body: `${id} was answered correctly, but this launch doesn’t test out — it still runs at base difficulty.` };
+      if (c.remediation) return { cls: 'testup', icon: 'fa-rotate-left', kicker: id + ' · REMEDIATION', body: `${id} needs another pass.` };
+      return { cls: chg.type === 'added' ? 'added' : 'testup', icon: 'fa-book-open',
+        kicker: id + (chg.type === 'added' ? ' · BACK IN THE PLAN' : ' · CHANGED'), body: `${id} runs at its base difficulty.` };
+    }
+    return { cls: 'added', icon: 'fa-circle-info', kicker: 'PLAN CHANGED', body: 'Something in the plan changed.' };
+  }
+  function toast(meta) {
+    const stack = $('#toastStack'); if (!stack) return;
+    const el = document.createElement('div');
+    el.className = 'toast ' + meta.cls;
+    el.innerHTML = `<button class="toast-close" type="button" aria-label="Dismiss"><i class="fa-solid fa-xmark"></i></button>` +
+      `<div class="toast-head"><i class="fa-solid ${meta.icon}"></i> ${meta.kicker}</div>` +
+      `<div class="toast-body">${meta.body}</div>`;
+    stack.appendChild(el);
+    requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('show')));
+    const dismiss = () => { el.classList.remove('show'); el.classList.add('hide'); setTimeout(() => el.remove(), 260); };
+    const timer = setTimeout(dismiss, 5500);
+    el.querySelector('.toast-close').addEventListener('click', () => { clearTimeout(timer); dismiss(); });
+  }
+  // Capped and staggered — a preset swap can move six objectives at once,
+  // and six toasts landing in the same frame reads as noise, not an
+  // explanation. The rest collapse into one "+N more" chip instead.
+  function toastPlanDiff(oldPlan, newPlan) {
+    const changes = diffPlans(oldPlan, newPlan);
+    if (!changes.length) return;
+    const MAX = 4;
+    changes.slice(0, MAX).forEach((chg, i) => setTimeout(() => toast(describeChange(chg)), i * 130));
+    if (changes.length > MAX) {
+      setTimeout(() => {
+        const stack = $('#toastStack'); if (!stack) return;
+        const extra = changes.length - MAX;
+        const more = document.createElement('div');
+        more.className = 'toast-more';
+        more.textContent = `+${extra} more change${extra > 1 ? 's' : ''}`;
+        stack.appendChild(more);
+        setTimeout(() => more.remove(), 5500);
+      }, MAX * 130);
+    }
+  }
+
   function rebuild() {
     reindex();
     const set = settings();
+    const oldPlan = S ? S.plan : null;   // null only on the very first call — nothing to diff against yet
     S = { set, pref: set.pref, seen: Object.fromEntries(LOS.map(l => [l.id, []])), state: {}, rem: [], ledger: [], cur: 0, maxCur: 0, days: 0, lmsLog: [] };
     LOS.forEach(l => S.state[l.id] = { st: 'pending', label: 'pending' });
     S.plan = buildPlan();
@@ -1791,6 +1919,7 @@ body.mode-reference #tool { display: none; }
     $('#sCost').parentElement.classList.toggle('dis', !LOS.some(l => l.sub === 'do' && l.perms.includes('roleplay')) || set.recent);
     $('#sPages').parentElement.classList.toggle('dis', set.recent);
     renderPreTable(); renderAll();
+    if (oldPlan) toastPlanDiff(oldPlan, S.plan);
   }
 
   /* ---- the pre battery table: what the engine does with each answer ---- */

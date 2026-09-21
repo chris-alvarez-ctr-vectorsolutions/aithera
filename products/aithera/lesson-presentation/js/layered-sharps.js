@@ -376,77 +376,90 @@
         ]
       }
     },
+    // Alignment brief D8, reopened 2026-09-21: K&A's Law Enforcement script
+    // (`Contain_the_Sharp_Law_Enforcement.pdf`, final) is real per-role content
+    // for one of this sector's three named roles — the thing D8 said to build
+    // "once K&A/SME author real content and hand it to us." Rebuilt from the
+    // ground up against that script: the sector previously ran an original,
+    // EMS-flavored world (an ambulance crew, IV catheters, a jump bag) with no
+    // source script behind it at all. `roles` narrows from the old umbrella
+    // ('EMS · fire · law enforcement') to what this content actually depicts,
+    // rather than claiming coverage of roles no scene here shows. EMS/fire
+    // content for this sector would need its own source material the same way
+    // this did — not invented to fill the old label.
     public: {
-      label: 'Public Sector', premise: 'use',
-      sharps: 'IV catheters, needles and lancets from the drug box. Broken ampoules. Anything sharp left on a rail by the crew before you.',
+      label: 'Public Sector', premise: 'find',
+      sharps: 'Needles and syringes recovered from a subject’s property during a search or booking. Anything sharp left where the last person didn’t secure it — a cell, an evidence locker, the back seat of a patrol vehicle.',
       facility: {
-        gloves: 'Issue puncture-resistant gloves to every crew for gurney breakdown',
-        boxes: 'Fit a second wall container within reach of the bench seat in every rig'
+        gloves: 'Issue puncture-resistant gloves to every officer for property searches and booking intake',
+        boxes: 'Add a second sharps container at the booking counter, within reach of the intake window'
       },
       sustain: {
-        conds: ['The rig is moving',
-                'My partner needs a hand with the patient',
-                'Restocking at the end of a call'],
-        hint: 'clipped to the rail by the bench seat'
+        conds: ['The line at booking is backing up',
+                'Another officer needs you across the lot',
+                'Clearing your vehicle at the end of shift'],
+        hint: 'at the booking counter, past the intake window'
       },
-      roles: 'EMS · fire · law enforcement', org: 'Kell County EMS', orgShort: 'Kell County EMS',
-      coord: { name: 'Priya Raman', title: 'EMS Training Officer', email: 'training@kellcountyems.gov' },
-      role: 'Paramedic', where: 'The back of a moving ambulance', when: 'A transfer',
-      case1: 'You place a line in the back of a moving ambulance and set the used catheter on the bench seat — both hands are on the patient.',
-      case2: 'The jump-bag container is packed past the fill line molded into its lid, and the wall unit is behind the stretcher you cannot reach from here.',
-      case3: 'At the ED doors you find a used needle loose on the gurney rail, left from the run before yours.',
-      case4: 'Your partner, breaking down the gurney at the ED, is stuck by that needle. It was from the previous crew’s run, and nobody had cleared the rail.',
+      roles: 'patrol · booking · property', org: 'Kell County Police Department', orgShort: 'Kell County PD',
+      coord: { name: 'Marcus Whitfield', title: 'Training Sergeant', email: 'training@kellcountypd.gov' },
+      role: 'Patrol officer', where: 'The station', when: 'Booking intake',
+      case1: 'You recover a used needle from a subject’s property at the booking counter and set it down — the container is across the intake area, and the line behind you is backing up.',
+      case2: 'The sharps container in the station’s processing area is packed past its fill line, and the spare is in the property room down the hall.',
+      case3: 'On your way to the container, you pass a used syringe partly hidden in a general-waste bin near the booking counter.',
+      case4: 'A custodian collecting that bin overnight is stuck through the bag. It was a needle nobody logged at intake.',
       story: {
-        by: 'Paramedic, county EMS. Told at a crew debrief.',
+        by: 'Patrol officer, county PD. Told at a shift briefing.',
         paras: [
-          'I placed a line in the back of a moving rig on a transfer. Patient was stable, the road was bad, and both my hands were doing something. I set the used catheter on the bench seat beside me. Two seconds, I thought.',
-          'We got busy at the doors. I broke down the gurney and never went back for it.',
-          'My partner Renata caught it with the side of her hand pulling the stretcher rail. She said “that’s mine, isn’t it” before I had even turned around.',
-          'She did the protocol. Twelve weeks. She rode with me the whole time and never once brought it up on a call.',
-          'I have run that transfer a hundred times since. The sharp goes in the box first now, even with a hand on the patient. It costs about four seconds.'
+          'I recovered a used needle from a subject’s property during a search, mid-arrest. Booking was backed up and both my hands were full processing the arrest, so I set it on the counter. Two minutes, I thought.',
+          'The line moved. I never went back for it.',
+          'Overnight, somebody swept the counter into the general trash. The custodian on the morning bag run got stuck through the bag pulling it out.',
+          'He did the protocol. Twelve weeks of bloodwork. He never said a word to me about it — I only found out because the sergeant pulled the incident report.',
+          'I walk it to the container now, every time, even with a line behind me. It costs about a minute.'
         ]
       },
-      // Its own incident, and deliberately NOT the IV catheter the cases and
-      // the account use: a broken ampoule out of the drug box.
-      // What counts as a sharp HERE, in prose, for the hazard article.
-      jobPara: 'A catheter or lancet out of the drug box has been in someone within the last hour. An ampoule you snapped open leaves glass on the edge, with the dose and whatever else was on your gloves still on it. The crew before you may have left something on a rail without meaning to. None of these look dramatic. That is the hazard. Something that looks like trash is easier to pick up than something that looks like a syringe.',
+      // What counts as a sharp HERE, in prose, for the hazard article — not
+      // the booking-counter needle the cases and chain use, same pattern as
+      // the other three sectors' own incident.
+      jobPara: 'A needle or syringe recovered from a subject’s property during a search or booking has been in someone within the last hour. Broken glass from an evidence intake or a holding cell can carry the same risk. None of these look dramatic. That is the hazard. Something that looks like trash is easier to pick up than something that looks like a syringe.',
+      // NOT regenerated this round — no image-generation tool available in
+      // this session. src still points at the old ambulance photo, which no
+      // longer matches; alt text describes what the real asset should show.
+      // This field is not currently rendered anywhere live (see chat summary
+      // 2026-09-21), so nothing on screen is broken by the mismatch, but it
+      // needs a real photo before this field is ever wired up.
       photo: {
         src: '../../assets/images/sharps-account-public.jpg',
-        alt: 'A used IV catheter lying on the bench seat in the back of an ambulance at night, with the gurney rail and a rain-streaked window behind it.'
+        alt: 'NEEDS A NEW PHOTO (see chat summary 2026-09-21) — a used hypodermic needle wedged into the back-seat upholstery of a patrol vehicle at night, dome light on.'
       },
       chain: {
-        end: 'Remember, you may never meet the crew that cleans the rig after you.',
-        avoided: 'Amrit never has to find out whether that ampoule mattered.',
-        setup: { time: '2:10 AM', body: 'You break an ampoule drawing up a dose in the back of the rig. The red sharps disposal container is on the wall behind the bench seat. There is also a trash bag on the rail at your knee.' },
-        // Optional per sector. The decision screen renders the lockup only
-        // where a hero exists, so the three sectors without one are unchanged.
-        hero: {
-          src: '../../assets/images/sharps-chain-public-setup.jpg',
-          alt: 'The back of an ambulance at night. A gloved hand holds a broken glass ampoule ' +
-               'over an open equipment case. A red sharps container is mounted on the far wall, ' +
-               'across the compartment. An open black bin liner hangs directly below the hand.'
-        },
+        end: 'Remember, you may never meet whoever empties the booking counter’s trash after your shift.',
+        avoided: 'Jacob never has to find out whether that needle mattered.',
+        setup: { time: '9:40 PM', body: 'You recover a used needle from a subject’s property during a search at the booking counter. Intake is backed up behind you, and both hands are already on the next subject. The designated sharps container is across the intake area. There is also the general trash bin right at the counter.' },
+        // No hero image this round — no image-generation tool available
+        // this session (see chat summary 2026-09-21). Omitted rather than
+        // pointed at a nonexistent file, same as Manufacturing, Education
+        // and AEC, which also render without one.
         pick: {
-          safe:  { t: 'The red sharps container behind the bench seat', icon: 'fa-shield-halved' },
-          short: { t: 'The trash bag on the rail', icon: 'fa-trash-can' }
+          safe:  { t: 'The sharps container across the intake area', icon: 'fa-shield-halved' },
+          short: { t: 'The general trash bin at the counter', icon: 'fa-trash-can' }
         },
         act: {
-          safe:  { time: '2:11 AM', gap: 'a minute later', gapSize: 's',
-                   body: 'You reach past the bench seat and put the glass in the wall container. It costs you about four seconds.' },
-          short: { time: '2:11 AM', gap: 'a minute later', gapSize: 's',
-                   body: 'You drop it into the bag on the rail. It is not a needle, and the run is nearly over.' }
+          safe:  { time: '9:41 PM', gap: 'a minute later', gapSize: 's',
+                   body: 'You cross the intake area to the container with the line still watching. It costs you about a minute, for a needle that was never yours to begin with.' },
+          short: { time: '9:41 PM', gap: 'a minute later', gapSize: 's',
+                   body: 'You drop it in under the counter. The line keeps moving, and intake never slows down.' }
         },
         safeAfter: [
-          { time: '6:30 AM', gap: 'four hours later', gapSize: 'l',
-            body: 'Amrit takes the rig over at shift change and restocks it for the day crew. He pulls the bag off the rail and squeezes it flat to get it into the barrel. There is nothing in it that can cut him, and he will never know that was ever in question.' }
+          { time: '6:15 AM', gap: 'eight and a half hours later', gapSize: 'l',
+            body: 'Jacob runs the trash on the morning custodial shift. He pulls the bag from under the counter the way he always does. There is nothing in it that can cut him, and he will never know that was ever in question.' }
         ],
         after: [
-          { time: '6:30 AM', gap: 'four hours later', gapSize: 'l',
-            body: 'Amrit takes the rig over at shift change and restocks it for the day crew. You have never met him — he comes on as you go off, and a bag on the rail is just a bag.' },
-          { time: '6:31 AM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
-            body: 'He pulls it off the rail and squeezes it flat to get it into the barrel. The broken edge goes through the plastic and into the side of his hand.' },
+          { time: '6:15 AM', gap: 'eight and a half hours later', gapSize: 'l',
+            body: 'Jacob runs the trash on the morning custodial shift. You have never met him — he comes in long after your shift ends, and a bag under the counter tells him nothing.' },
+          { time: '6:16 AM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
+            body: 'He pulls the bag clear to load the cart. The needle is somewhere in the middle of it, and it goes through the plastic into his hand.' },
           { time: 'Over the next twelve weeks', gap: 'and then', gapSize: 'm',
-            body: 'Amrit now has to be tested at six weeks and again at twelve to find out whether he caught anything. There was a patient\u2019s blood on that ampoule \u2014 a patient he never treated. He has done nothing wrong at any point in this chain.' }
+            body: 'Jacob now has to be tested at six weeks and again at twelve to find out whether he caught anything. Nobody can tell him whose needle it was, or how long it sat under that counter. He has done nothing wrong at any point in this chain.' }
         ]
       }
     }
@@ -507,6 +520,15 @@
   // this falls back to an unnamed line when it comes back empty.
   function savedName() {
     try { return (sessionStorage.getItem('sh-name') || '').trim().slice(0, 40); } catch (e) { return ''; }
+  }
+  // Entry sequencing: whether the pre-check battery (and the path-adjustment
+  // screen it can trigger) run BEFORE the module's own cover, or in their
+  // usual place right after it. Off by default — "Battery at start" is
+  // today's order. Read once at STEPS build time (see the reorder right
+  // before LE.register), so flipping it needs a reload to take effect, the
+  // same as every other structural Demo menu control.
+  function batteryOrderBefore() {
+    try { return sessionStorage.getItem('sh-battery-order') === 'before'; } catch (e) { return false; }
   }
   // ==========================================================================
   //  REINFORCEMENT — one extra question laid OVER the content that motivates
@@ -697,8 +719,11 @@
   // flip that changes on every reload. Alignment brief D3: Manufacturing is
   // sampled OUT — K&A's script is explicit that F2 (engineering controls) is
   // asked once for the whole course, in Module 2, and not repeated here.
+  // The final Law Enforcement script (2026-09-21) carries the identical
+  // instruction word-for-word, so Public Sector is sampled out on the same
+  // basis — no source script confirms this either way for Education/AEC.
   var SAMPLE_MAP = {
-    F2: { manufacturing: false, education: true, aec: false, public: true }
+    F2: { manufacturing: false, education: true, aec: false, public: false }
   };
   function sampled(objId) {
     var m = SAMPLE_MAP[objId];
@@ -745,19 +770,14 @@
                     // tick it. It used to borrow the timed screen's result,
                     // which was a tick for a different screen's work.
                     record: 'record' };
-  // Durations are summed from the steps themselves so the rail can never drift
-  // from the syllabus; the saving is exactly what the adaptive sections cost.
+  // Durations are summed from the steps themselves so the rail can never
+  // drift from the syllabus. `full` already includes remediation steps
+  // (e.g. remk1) alongside every adaptive one — it's the worst-case total
+  // with no test-out, which is exactly what "Max time" reports pre-battery.
   function pathMinutes() {
-    var full = 0, saved = 0;
-    STEPS.forEach(function (st) {
-      if (!st.mins) return;
-      full += st.mins;
-      // `adaptive` now marks anything the first five answers can change, and
-      // two of those get HARDER rather than shorter. Only a step with a
-      // when() predicate can actually vanish, so only those save time.
-      if (st.adaptive && st.when) saved += st.mins;
-    });
-    return { full: full, saved: saved };
+    var full = 0;
+    STEPS.forEach(function (st) { if (st.mins) full += st.mins; });
+    return { full: full };
   }
   function initials(name) {
     return String(name || '').split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
@@ -803,47 +823,24 @@
               // picker on a page the learner has not started anything on yet
               // reads as a decision being demanded rather than a setting
               // already made on their behalf. "Change" expands the same
-              // picker every in-beat screen uses, so all four options
-              // (including the declined one, honestly labeled) are still one
-              // tap away.
-              '<div class="cp-format-now" id="introModNow">' +
-                '<span class="cp-format-now-t"><i class="fa-solid" id="introModNowIcon" aria-hidden="true"></i>' +
-                  '<b id="introModNowLabel"></b></span>' +
-                '<button class="cp-format-change" id="introModChange" type="button" aria-expanded="false">' +
-                  'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
-              '</div>' +
-              '<div class="cp-format-picker" id="introModPickWrap" hidden>' +
-                modalityPicker('introModPick', MODALITY_ORDER, false) +
-              '</div>' +
+              // picker every in-beat screen uses (modalityDropdown — this
+              // card is where that shape originated; hazardInit/
+              // procedureInit below now share it rather than each rolling
+              // their own), so all four options (including the declined
+              // one, honestly labeled) are still one tap away.
+              modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
+                icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
+                MODALITY_ORDER) +
             '</div>' +
-            // D11: same collapsed-value-plus-Change shell as the format card
-            // above, reused rather than re-invented — own picker markup
-            // since a sector/role pair carries no cost line to show.
-            // Self-assigned, and URL-prefillable (?role=<sector id>) for a
-            // stamped link; still only ever the four sectors the reviewer's
-            // Demo → Context lens control already cycles through.
-            '<div class="cp-card cp-format cp-role"><h3>Your role</h3>' +
-              '<p class="cp-format-note">Sets the sector and working environment every scene uses.</p>' +
-              '<div class="cp-format-now" id="introRoleNow">' +
-                '<span class="cp-format-now-t"><i class="fa-solid fa-briefcase" aria-hidden="true"></i>' +
-                  '<b id="introRoleNowLabel"></b></span>' +
-                '<button class="cp-format-change" id="introRoleChange" type="button" aria-expanded="false">' +
-                  'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
-              '</div>' +
-              '<div class="cp-format-picker" id="introRolePickWrap" hidden>' +
-                '<div class="rl-pick" id="introRolePick" role="group" aria-label="Choose your sector and role"></div>' +
-              '</div>' +
-            '</div>' +
-            // D11: optional self-assigned identity, also URL-prefillable
-            // (?name=) for a stamped link. Read only by this screen's own
-            // "welcome back" line on a return visit — not threaded into
-            // CLARA's dialogue throughout the module, which is a bigger,
-            // separate pass this round does not take on.
-            '<div class="cp-card"><h3>Your name</h3>' +
-              '<p class="cp-format-note">So a returning visit can say it back to you. Optional.</p>' +
-              '<input type="text" id="introName" class="cp-name-input" maxlength="40" ' +
-                'placeholder="Type your name" autocomplete="given-name">' +
-            '</div>' +
+            // D11 → moved to the Demo menu: sector/role and the self-assigned
+            // name are reviewer/demo-driver settings, not a choice a real
+            // learner makes on every visit — an LMS assigns the sector, and a
+            // real name comes from SSO. Role rides the engine's own Context
+            // lens control (already in the Demo menu on this step, since
+            // `intro` is in lensedSteps); name gets its own row below. Both
+            // still work as before via ?role=/?name= launch params and
+            // sessionStorage (ll-lens/sh-name) — only the learner-facing
+            // rail cards are gone.
             // Item 17: the doc's own mastery rule, not the aptitude vision's
             // 80%-of-objectives threshold — the two are different documents
             // with different rules, and this module answers to the first.
@@ -872,7 +869,6 @@
     '</main>'; }
   function introInit(ctx) {
     var course = readCourse();
-    var L = lens();
     // Render the FULL syllabus and MARK what the entry questions removed,
     // rather than rendering visiblePath(). visiblePath() is the
     // post-compression path, so once the battery proved the procedure both
@@ -947,125 +943,41 @@
     document.getElementById('cpTime').innerHTML = cutMins
       ? '<b>≈ ' + (mins.full - cutMins) + ' minutes on your path</b>' +
         cutMins + ' minute' + (cutMins > 1 ? 's' : '') + ' came out after the first four questions'
-      : '<b>Typical ≈ ' + mins.full + ' minutes</b>Answer the first four well and save up to ' + mins.saved + ' minutes';
+      : '<b>About ' + mins.full + ' mins</b>';
 
     // The rail's format setting. Reads as "here is your current setting",
     // not "make a choice" — collapsed to the current pick until "Change" is
     // tapped, which reveals the same four-option picker every in-beat
-    // screen uses. Picking one there writes the preference, folds the
-    // picker back down, and updates the collapsed row to match; nothing
-    // else on screen needs to change.
-    var fmtNowIcon = document.getElementById('introModNowIcon');
-    var fmtNowLabel = document.getElementById('introModNowLabel');
-    var fmtChange = document.getElementById('introModChange');
-    var fmtWrap = document.getElementById('introModPickWrap');
-    var fmtPick = document.getElementById('introModPick');
-    if (fmtPick) {
-      var renderNow = function (k) {
-        var m = MODALITIES[k];
-        fmtNowIcon.className = 'fa-solid ' + m.icon;
-        fmtNowLabel.textContent = m.label;
-      };
+    // screen uses (initModalityDropdown owns the collapse/expand chrome and
+    // the outside-click close; picking an option still writes the
+    // preference here, since that write is this card's own job, not
+    // something a shared helper should do on every caller's behalf).
+    var introPick = document.getElementById('introModPick');
+    if (introPick) {
+      var introDD = initModalityDropdown(
+        { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' });
       var markFmt = function (k) {
-        [].forEach.call(fmtPick.querySelectorAll('.md-opt'), function (b) {
+        [].forEach.call(introPick.querySelectorAll('.md-opt'), function (b) {
           var on = b.dataset.m === k;
           b.classList.toggle('is-on', on);
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
       };
-      renderNow(modalityId());
+      introDD.render(modalityId());
       markFmt(modalityId());
-      fmtChange.addEventListener('click', function () {
-        var open = fmtWrap.hidden;
-        fmtWrap.hidden = !open;
-        fmtChange.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
-      fmtPick.addEventListener('click', function (e) {
+      introPick.addEventListener('click', function (e) {
         var b = e.target.closest('.md-opt');
         if (!b) return;
         try { sessionStorage.setItem('sh-modality', b.dataset.m); } catch (err) {}
         markFmt(b.dataset.m);
-        renderNow(b.dataset.m);
-        fmtWrap.hidden = true;
-        fmtChange.setAttribute('aria-expanded', 'false');
+        introDD.render(b.dataset.m);
+        introDD.collapse();
       });
-      // Click anywhere outside the open picker closes it — same convention
-      // as the shared "?" popover in layered-engine.js. Bound once for the
-      // whole document (guarded by a flag) rather than every time this step
-      // renders, since a Back navigation back to "intro" re-runs introInit
-      // but a document-level listener would otherwise pile up across
-      // visits; it looks its targets up fresh each time it fires instead of
-      // closing over this render's elements, so a stale copy is harmless.
-      if (!window.__introFmtOutsideBound) {
-        window.__introFmtOutsideBound = true;
-        document.addEventListener('click', function (e) {
-          var wrap = document.getElementById('introModPickWrap');
-          var change = document.getElementById('introModChange');
-          if (!wrap || wrap.hidden || !change) return;
-          if (wrap.contains(e.target) || change.contains(e.target)) return;
-          wrap.hidden = true;
-          change.setAttribute('aria-expanded', 'false');
-        });
-      }
     }
 
-    // D11: "Your role" — same collapsed-value-plus-Change shell as the
-    // format card above, walking LENS_ORDER instead of MODALITY_ORDER.
-    // Picking one rewrites the same 'll-lens' value the reviewer-only
-    // Context lens control already cycles through, then replays this whole
-    // screen so everything else lens-dependent on it (the hero chip, the
-    // org name, the coordinator) catches up instead of showing a stale
-    // sector next to a freshly-changed role.
-    var rlNowLabel = document.getElementById('introRoleNowLabel');
-    var rlChange = document.getElementById('introRoleChange');
-    var rlWrap = document.getElementById('introRolePickWrap');
-    var rlPick = document.getElementById('introRolePick');
-    if (rlPick) {
-      var curLens = LE.lensId();
-      rlPick.innerHTML = LENS_ORDER.map(function (id) {
-        var Ls = LENSES[id];
-        return '<button class="rl-opt' + (id === curLens ? ' is-on' : '') + '" type="button" ' +
-          'role="radio" aria-checked="' + (id === curLens ? 'true' : 'false') + '" data-lens="' + id + '">' +
-          '<b>' + esc(Ls.label) + '</b><small>' + esc(Ls.role) + '</small></button>';
-      }).join('');
-      rlNowLabel.textContent = L.label + ' — ' + L.role;
-      rlChange.addEventListener('click', function () {
-        var open = rlWrap.hidden;
-        rlWrap.hidden = !open;
-        rlChange.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
-      rlPick.addEventListener('click', function (e) {
-        var b = e.target.closest('.rl-opt');
-        if (!b) return;
-        rlWrap.hidden = true;
-        rlChange.setAttribute('aria-expanded', 'false');
-        if (b.dataset.lens === curLens) return;
-        try { sessionStorage.setItem('ll-lens', b.dataset.lens); } catch (err) {}
-        LE.goTo('intro');
-      });
-      if (!window.__introRoleOutsideBound) {
-        window.__introRoleOutsideBound = true;
-        document.addEventListener('click', function (e) {
-          var wrap = document.getElementById('introRolePickWrap');
-          var change = document.getElementById('introRoleChange');
-          if (!wrap || wrap.hidden || !change) return;
-          if (wrap.contains(e.target) || change.contains(e.target)) return;
-          wrap.hidden = true;
-          change.setAttribute('aria-expanded', 'false');
-        });
-      }
-    }
-
-    // D11: self-assigned name — prefilled from a launch link's ?name= or a
-    // previous visit, saved as the learner types. Never gates anything;
-    // every reader of savedName() already falls back to unnamed.
-    var nameEl = document.getElementById('introName');
-    if (nameEl) {
-      nameEl.value = savedName();
-      nameEl.addEventListener('input', function () {
-        try { sessionStorage.setItem('sh-name', nameEl.value.trim().slice(0, 40)); } catch (err) {}
-      });
-    }
+    // Role (sector) is now set from the Demo menu's Context lens control
+    // only — see CFG.lensedSteps below. Name has its own Demo menu row
+    // (shNameBtn in CFG.demoControls).
 
     // D11: resumable progress — offered only when an earlier visit reached
     // further than this cover screen. LE.goTo refuses a step the current
@@ -1075,7 +987,14 @@
     var resumeEl = document.getElementById('introResume');
     if (resumeEl) {
       var last = LE.lastStepId();
-      var lastStep = (last && last !== 'intro') ? LE.stepById(last) : null;
+      // Battery-before mode runs battery/adjust BEFORE this cover, so on
+      // the very FIRST pass through the module `last` is already one of
+      // them by the time we get here — that's this run continuing forward,
+      // not somebody returning after having left. Only a real return visit
+      // (anything past the cover, in the normal course content) earns the
+      // banner.
+      var justArrived = batteryOrderBefore() && (last === 'battery' || last === 'adjust');
+      var lastStep = (last && last !== 'intro' && !justArrived) ? LE.stepById(last) : null;
       if (lastStep) {
         var nm = savedName();
         resumeEl.hidden = false;
@@ -1088,7 +1007,10 @@
           '</div>';
         document.getElementById('introResumeGo').addEventListener('click', function () { LE.goTo(last); });
         document.getElementById('introResumeReset').addEventListener('click', function () {
-          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-doobject-mode', 'll-lens', 'sh-modality', 'sh-name']
+          // ll-lens and sh-name are Demo menu settings now (role, name), not
+          // this run's progress — same reason Review mode survives a Start
+          // over. Only the run itself and its learner-facing preferences reset.
+          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-doobject-mode', 'sh-modality']
             .forEach(function (k) { try { sessionStorage.removeItem(k); } catch (err) {} });
           location.reload();
         });
@@ -1108,20 +1030,41 @@
   // ==========================================================================
   var BATTERY_CONTENT =
     '<main class="ll-object">' +
-      '<div class="bl-ask sh-battery" id="blAsk">' +
-        '<p class="ll-eyebrow" id="blStep">Quick question: 1 of 5</p>' +
-        // The situation, when there is one. The module's case screens already
-        // separate the setup from the question it leads to; a stem carrying
-        // both broke across two lines mid-sentence, which is what this fixes.
-        '<p class="bl-scene" id="blScene" hidden></p>' +
-        '<h2 class="bl-q" id="blQ"></h2>' +
-        '<p class="bl-hint" id="blHint" hidden></p>' +
-        '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
-        // Choosing and answering are two acts. Shown DISABLED from the start
-        // rather than appearing on selection, so the second step is visible
-        // before the learner commits to anything — the point is that a tap
-        // cannot score them by accident.
-        '<button class="bl-check" id="blCheck" type="button" hidden disabled></button>' +
+      // Card-STACK shell (sharps-only — see the CSS comment in
+      // clara/sharps.html for why this doesn't live in the shared
+      // css/layered-beats.css .bl-* pattern). Dots read the set size up
+      // front. Two static preview cards sit behind #blAsk, receding
+      // (smaller/dimmer/higher, Time-Machine style) — see swapTo() for how
+      // their roles ping-pong as the stack advances.
+      '<div class="bl-carousel" id="blCarousel">' +
+        '<div class="bl-dots" id="blDots" role="presentation"></div>' +
+        '<div class="bl-stage" id="blStage">' +
+          '<div class="bl-ask sh-battery" id="blAsk">' +
+            '<p class="ll-eyebrow" id="blStep">Quick question: 1 of 5</p>' +
+            // The situation, when there is one. The module's case screens already
+            // separate the setup from the question it leads to; a stem carrying
+            // both broke across two lines mid-sentence, which is what this fixes.
+            '<p class="bl-scene" id="blScene" hidden></p>' +
+            '<h2 class="bl-q" id="blQ"></h2>' +
+            '<p class="bl-hint" id="blHint" hidden></p>' +
+            '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
+            // Choosing and answering are two acts. Shown DISABLED from the start
+            // rather than appearing on selection, so the second step is visible
+            // before the learner commits to anything — the point is that a tap
+            // cannot score them by accident.
+            '<button class="bl-check" id="blCheck" type="button" hidden disabled></button>' +
+          '</div>' +
+          // Static previews of the ACTUAL upcoming questions — same
+          // classes as #blAsk (via setPeekContent), so each is
+          // pixel-identical in content and typography to what it becomes.
+          // Never interactive: options render as plain elements, not
+          // buttons, and aria-hidden keeps them out of the accessibility
+          // tree — a question only becomes real (and reachable) once it's
+          // promoted into #blAsk. Which node holds "one behind" vs "two
+          // behind" ping-pongs each turn; see swapTo().
+          '<div class="bl-peek sh-battery" id="blPeek1" aria-hidden="true" hidden></div>' +
+          '<div class="bl-peek sh-battery" id="blPeek2" aria-hidden="true" hidden></div>' +
+        '</div>' +
       '</div>' +
     '</main>';
   var BATTERY = [
@@ -1168,10 +1111,10 @@
       ] },
     { obj: 'F3',
       stem: 'Of the people you work alongside, how many put a used sharp straight into the container?',
-      hint: 'Answer honestly, and we come back to this later with the real figure for your sector.',
+      hint: 'Answer honestly, and we come back to this later with the real figure.',
       cta: 'Lock it in',
       options: [
-        { t: 'Most do', icon: 'fa-users', score: 3, reply: 'Noted. We’ll see how that compares to what your sector actually reports.' },
+        { t: 'Most do', icon: 'fa-users', score: 3, reply: 'Noted. We’ll see how that compares to what the research actually found.' },
         { t: 'About half', icon: 'fa-users-slash', score: 2, reply: 'Noted. The real number surprises most people in both directions.' },
         { t: 'Hardly anyone', icon: 'fa-user-slash', score: 1, reply: 'Noted. If that’s true where you work, it matters more than the procedure does.' }
       ] }
@@ -1185,7 +1128,16 @@
     var optsEl = document.getElementById('blOptions');
     var checkEl = document.getElementById('blCheck');
     var sceneEl = document.getElementById('blScene');
+    var dotsEl = document.getElementById('blDots');
     var k1 = [];
+    // Time-machine stack: #blAsk is always the live, interactive depth-0
+    // card. The two preview nodes are fixed DOM elements but their ROLE
+    // (which one currently sits "one behind" vs "two behind") ping-pongs
+    // every turn \u2014 see swapTo(). `near` always holds the question ABOUT to
+    // be promoted (current index + 1); `far` holds the one behind that
+    // (current index + 2).
+    var near = document.getElementById('blPeek1');
+    var far = document.getElementById('blPeek2');
 
     // The eyebrow counts the questions. What it cannot say is that half of
     // them have no right answer, which is what decides whether the Feel items
@@ -1194,6 +1146,94 @@
       'These questions aren\u2019t graded.');
     ctx.floatClose();
     render(0);
+    setPeekContent(near, 1); near.className = 'bl-peek sh-battery depth1';
+    setPeekContent(far, 2); far.className = 'bl-peek sh-battery depth2';
+    pinStageHeight();
+
+    // .ll-object (the page's own wrapper) vertically centres on its TOTAL
+    // content height — fine for a static screen, but the order task (K1)
+    // renders noticeably taller than the three multiple-choice items, so
+    // without this the whole page visibly re-centres, not just the card,
+    // every time a turn promotes a differently-sized question. Measured
+    // once against the real BATTERY content rather than hardcoded, so a
+    // future copy edit that makes some question taller can't silently
+    // reintroduce the jump. #blStage stays this height regardless of which
+    // question is live; align-items:flex-start (added alongside this in
+    // the CSS) keeps #blAsk at its own natural height inside it rather
+    // than stretching to fill the reserved space.
+    function pinStageHeight() {
+      var stageEl = document.getElementById('blStage');
+      if (!stageEl) return;
+      var ruler = document.createElement('div');
+      ruler.className = 'bl-peek sh-battery bl-ruler';
+      ruler.setAttribute('aria-hidden', 'true');
+      stageEl.appendChild(ruler);
+      var max = 0;
+      for (var n = 0; n < BATTERY.length; n++) {
+        setPeekContent(ruler, n);
+        max = Math.max(max, ruler.getBoundingClientRect().height);
+      }
+      stageEl.removeChild(ruler);
+      var padTop = parseFloat(getComputedStyle(stageEl).paddingTop) || 0;
+      stageEl.style.minHeight = Math.ceil(padTop + max + 8) + 'px';
+    }
+
+    // One dot per question \u2014 filled for what's answered, enlarged on the
+    // current one, hollow for what's ahead. Lives outside .bl-stage so it
+    // never moves with the cards; it is the one piece of "where am I in
+    // the set" chrome that stays put while the stack advances underneath it.
+    function renderDots(i) {
+      if (!dotsEl) return;
+      dotsEl.innerHTML = BATTERY.map(function (_, n) {
+        return '<span class="bl-dot' + (n < i ? ' is-done' : n === i ? ' is-now' : '') + '"></span>';
+      }).join('');
+    }
+
+    // Fills a preview node with the ACTUAL question `i` \u2014 same
+    // stem/hint/options markup as #blAsk, so at whatever depth it's sitting
+    // at it reads as a real card glimpsed from behind, not a stand-in.
+    // Every option renders as a plain element, never a <button>, so
+    // nothing inside is a tab stop even though the node's own aria-hidden
+    // already pulls it out of the accessibility tree. Hidden outright once
+    // there's no such question (the set is short, or we're near the end).
+    function setPeekContent(el, i) {
+      if (!el) return;
+      var q = BATTERY[i];
+      if (!q) { el.hidden = true; return; }
+      el.hidden = false;
+      var html = '<p class="ll-eyebrow">Quick question: ' + (i + 1) + ' of ' + BATTERY.length + '</p>';
+      if (q.scene) html += '<p class="bl-scene">' + esc(q.scene) + '</p>';
+      html += '<h2 class="bl-q">' + esc(q.stem) + '</h2>';
+      if (q.hint) html += '<p class="bl-hint">' + esc(q.hint) + '</p>';
+      if (q.type === 'order') {
+        // Numbered and with its own disabled "Check order" button — the
+        // real render() shows both from the first frame (the list starts
+        // in its unsolved, authored order; the button is visible-but-
+        // disabled, not absent). Matching that here means promotion never
+        // has to grow a control the learner didn't see coming.
+        html += '<div class="ord-wrap"><ol class="ord-list">' + q.actions.map(function (a, n) {
+          return '<li class="ord-item"><span class="ord-n">' + (n + 1) + '</span>' +
+            '<i class="fa-solid fa-grip-vertical ord-grip" aria-hidden="true"></i>' +
+            '<i class="fa-solid ' + a.icon + ' ord-ico" aria-hidden="true"></i>' +
+            '<span class="ord-t">' + esc(a.t) + '</span>' +
+            '<span class="ord-mv">' +
+              '<button type="button" tabindex="-1"><i class="fa-solid fa-chevron-up"></i></button>' +
+              '<button type="button" tabindex="-1"><i class="fa-solid fa-chevron-down"></i></button>' +
+            '</span></li>';
+        }).join('') + '</ol>' +
+          '<button class="ord-check" type="button" disabled>Check order</button></div>';
+      } else {
+        // Same reasoning: the real check button is visible-but-disabled
+        // from render(), never absent until a pick is made, so the preview
+        // carries it too.
+        html += '<div class="bl-options">' + q.options.map(function (o) {
+          return '<div class="bl-option"><i class="fa-solid ' + o.icon + '" aria-hidden="true"></i>' +
+            '<span class="bl-option-label">' + esc(o.t) + '</span></div>';
+        }).join('') + '</div>' +
+          '<button class="bl-check" type="button" disabled>' + esc(q.cta || 'Check answer') + '</button>';
+      }
+      el.innerHTML = html;
+    }
 
     // A spent control keeps its space. Hiding it outright (or removing it)
     // shortened a centred column and shifted every line on the screen at the
@@ -1217,6 +1257,7 @@
 
     function render(i) {
       var q = BATTERY[i];
+      renderDots(i);
       stepEl.textContent = 'Quick question: ' + (i + 1) + ' of ' + BATTERY.length;
       sceneEl.textContent = q.scene || '';
       sceneEl.hidden = !q.scene;
@@ -1270,6 +1311,17 @@
         if (q.obj === 'K2') res.k2up = sel.opt.score >= 2;
         if (q.obj === 'F1') res.f1 = sel.opt.score;
         if (q.obj === 'F3') res.f3 = sel.opt.score;
+        // Battery-before mode runs this step with no CLARA (noCoach) — there
+        // is no reply to read between an answer and the next card, so a
+        // second click just to relabel the footer "Next question" is a step
+        // with nothing in it. One button, a brief pause to see the pick
+        // register, then it advances on its own.
+        if (batteryOrderBefore()) {
+          setTimeout(function () {
+            if (i + 1 < BATTERY.length) swapTo(i + 1); else done();
+          }, T(700));
+          return;
+        }
         ctx.floatOpen();
         ctx.setCoachSay(esc(sel.opt.reply));
         ctx.positionOrb(true);
@@ -1381,6 +1433,12 @@
         renumber();
         spend(document.getElementById('ordCheck'));
         k1.push(right ? 2 : 0);
+        // See the matching comment in checkEl.onclick above — same reasoning,
+        // and this item is always BATTERY[0], so there is always a next card.
+        if (batteryOrderBefore()) {
+          setTimeout(function () { swapTo(i + 1); }, T(700));
+          return;
+        }
         ctx.floatOpen();
         ctx.setCoachSay(esc(right ? q.okReply : q.badReply));
         ctx.positionOrb(true);
@@ -1388,14 +1446,49 @@
       }
     }
 
+    // Sets `el`'s depth class WITHOUT animating there — used to snap a
+    // recycled preview node straight to its new resting depth the instant
+    // a turn finishes, rather than animating a second time from wherever
+    // it just arrived. Standard disable/reflow/re-enable dance.
+    function snapDepth(el, depthClass) {
+      el.classList.add('no-anim');
+      el.className = 'bl-peek sh-battery no-anim ' + depthClass;
+      void el.offsetWidth;
+      el.classList.remove('no-anim');
+    }
+
     function swapTo(i) {
-      askEl.classList.add('swapping');
+      // Time-machine turn: `near` is ALREADY showing the real upcoming
+      // question at depth 1 (one behind, smaller/dimmer/higher); `far`
+      // already shows the one after that at depth 2. Advancing moves every
+      // card exactly one depth step on the SAME transition — near to
+      // depth0 (i.e., #blAsk's own resting look), far to depth1 — so
+      // nothing changes format mid-flight, only scale/position/opacity.
+      // #blAsk (just answered) isn't part of that motion, only what it
+      // reveals: it simply fades out of the stack.
+      askEl.classList.add('is-leaving');
+      near.classList.remove('depth1'); near.classList.add('depth0');
+      far.classList.remove('depth2'); far.classList.add('depth1');
       setTimeout(function () {
+        // `near` has finished landing exactly at #blAsk's resting pose.
+        // Render real, interactive content into #blAsk (still invisible)
+        // and swap everything in the SAME tick: #blAsk snaps to visible at
+        // depth 0 exactly as `near` snaps away — same content, same
+        // position, so the handoff has nothing to show. `near` is then
+        // recycled as the new depth-2 card (two behind); `far`, having
+        // just arrived at depth 1, simply stays there. Their roles
+        // ping-pong every turn.
         render(i);
-        askEl.classList.remove('swapping');
+        askEl.classList.add('no-anim');
+        askEl.classList.remove('is-leaving');
+        void askEl.offsetWidth;
+        askEl.classList.remove('no-anim');
+        snapDepth(near, 'depth2');
+        setPeekContent(near, i + 2);
+        var tmp = near; near = far; far = tmp;
         ctx.floatClose();
         ctx.positionOrb(true);
-      }, T(320));
+      }, T(440));
     }
     // The way forward is the footer, relabelled — CLARA's bubble carries only
     // the reaction to the answer that just landed, never the move past it.
@@ -1694,15 +1787,14 @@
   }
 
   //  ONE modality vocabulary, shared by every beat that offers a choice, so
-  //  the labels, icons and stated costs cannot drift between them. `label` is
-  //  what a LEARNER sees on the picker button.
-  //
-  //  The TRADEOFF line is the part that makes a chooser honest. A learner
-  //  picking a carrier needs to know what it costs them, not just what it is
-  //  called — a video is short but demands your eyes, a read is skimmable and
-  //  self-paced, audio runs in the background but takes longer and has to
-  //  interrupt to ask you anything. Offering the choice without the cost is
-  //  just a menu.
+  //  the labels and icons cannot drift between them. `label` is what a
+  //  LEARNER sees on the picker button. `cost`/`tradeoff` are authored but
+  //  currently unrendered — the picker used to state each carrier's length
+  //  next to its label, which read as clutter once the control got this
+  //  compact (see modalityDropdown below). Left in the table rather than
+  //  deleted, since it's still true and may still be useful somewhere else
+  //  (the Learning Layer view, a dev note) even though this UI stopped
+  //  showing it.
   var MODALITIES = {
     video:   { label: 'Watch', icon: 'fa-circle-play',
                cost: '2 min',
@@ -1712,12 +1804,9 @@
                cost: '1 min',
                tradeoff: 'About a minute, skimmable, and you set the pace.',
                note: 'Pre-rendered. The same content, read rather than watched.' },
-    tutor:   { label: 'Step through it', icon: 'fa-comments',
-               // Was "Slower \u00b7 asks questions" \u2014 accurate but read as a cost
-               // next to two equally-fast, passive options, so almost nobody
-               // picked it. Reframed around what it actually does now that
-               // the check-ins are click-gated rather than autoplayed: it's
-               // not slower because of the video length, it's self-paced.
+    // Label shortened to "Step" \u2014 the four-word version was the only one
+    // of the four that didn't fit the compact picker/dropdown on one line.
+    tutor:   { label: 'Step', icon: 'fa-comments',
                cost: 'Self-paced \u00b7 recall checks',
                tradeoff: 'Self-paced \u2014 CLARA checks your recall on each step instead of just telling you the next one.',
                note: 'CLARA walks the procedure one step at a time, pausing to check what you remember.' },
@@ -1729,32 +1818,95 @@
 
   //  The chooser. One implementation, so a second beat offering a choice
   //  cannot invent a different one. A beat declares which keys it offers and
-  //  in what order; every label and cost comes from the table above.
+  //  in what order; every label comes from the table above.
   //
   //  It PERSISTS rather than gating. A one-shot chooser would either hide the
   //  default carrier behind a click or vanish once used, and both are worse:
-  //  the learner arrives on the default and can still see, at any point, what
-  //  the other option is and what it costs. Each option carries its own cost
-  //  inline, so the tradeoff is visible for the route NOT taken too — which is
-  //  the half that actually informs a choice.
-  function modalityPicker(id, keys, costs) {
+  //  the learner arrives on the default and can still see, at any point,
+  //  what the other option is.
+  function modalityPicker(id, keys) {
     return '<div class="md-pick" id="' + id + '" role="group" ' +
         'aria-label="How do you want to take this?">' +
       keys.map(function (k) {
         var m = MODALITIES[k];
-        // A beat may override the duration: the same carrier is not the same
-        // length on every screen, and a shared table cannot know that.
-        // costs === false means the caller has no real duration to state at
-        // all (the title-page picker, before any beat's actual length is
-        // known) rather than one that just matches the shared table.
-        var cost = costs === false ? null : (costs && costs[k]) || m.cost;
         return '<button class="md-opt" type="button" data-m="' + k + '" aria-pressed="false">' +
           '<i class="fa-solid ' + m.icon + '" aria-hidden="true"></i>' +
-          '<span class="md-opt-t"><b>' + esc(m.label) + '</b>' +
-            (cost ? '<span class="md-cost">' + esc(cost) + '</span>' : '') + '</span>' +
+          '<span class="md-opt-t"><b>' + esc(m.label) + '</b></span>' +
         '</button>';
       }).join('') +
     '</div>';
+  }
+
+  //  THE DROPDOWN — same picker, collapsed. The three-way toggle used to sit
+  //  open on every screen, which on the video carrier pushed a 16:9 player
+  //  most of the way down the viewport. First fix reopened the exact same
+  //  wide row behind a "Change" button, which still read as a full-width tab
+  //  bar reappearing and still put real distance between the current pick
+  //  and the control that changes it. This one instead REUSES the title-page
+  //  rail's own "Preferred format" card verbatim — .cp-format-now/
+  //  .cp-format-change/.cp-format-picker, the same markup and CSS, not a
+  //  lookalike — and stacks the revealed list in a single compact column
+  //  (.md-now .md-pick below) instead of the wide segmented row. .md-now
+  //  only exists to opt OUT of .pr-wrap's stretch-to-680px so the control
+  //  hugs its own content width the way it already does inside the rail's
+  //  narrow card; the rail keeps using this same function so there is
+  //  exactly one implementation, not three.
+  //
+  //  opts.corner pins the whole control to the top-right of the beat, over
+  //  the content rather than in its own row — hazardInit/procedureInit pass
+  //  it, the title-page rail (a setting among several cards, not a global
+  //  page control) does not. See .md-now--corner in sharps.html.
+  function modalityDropdown(ids, keys, opts) {
+    var corner = opts && opts.corner;
+    return '<div class="md-now' + (corner ? ' md-now--corner' : '') + '">' +
+        '<div class="cp-format-now" id="' + ids.now + '">' +
+          '<span class="cp-format-now-t"><i class="fa-solid" id="' + ids.icon + '" aria-hidden="true"></i>' +
+            '<b id="' + ids.label + '"></b></span>' +
+          '<button class="cp-format-change" type="button" id="' + ids.btn + '" ' +
+            'aria-expanded="false" aria-controls="' + ids.wrap + '">' +
+            'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+        '</div>' +
+        '<div class="cp-format-picker" id="' + ids.wrap + '" hidden>' + modalityPicker(ids.pick, keys) + '</div>' +
+      '</div>';
+  }
+  // Wires the collapse/expand chrome only — picking an option still runs
+  // through the caller's own click handling on the picker (show(m) for the
+  // in-beat carriers, the rail's own sessionStorage write for the title
+  // page); this just keeps the collapsed summary in sync, folds the list
+  // back down once a pick lands, and closes it on an outside click.
+  //
+  // One document-level listener total, registered lazily and shared by
+  // every dropdown this runs for (keyed by ids.wrap) — three separate
+  // listeners would be harmless individually, but a beat revisited after
+  // Back re-runs its init and would otherwise stack a fresh one per visit,
+  // the exact trap the title-page rail's own outside-click code used to
+  // guard against with a one-off flag. Re-registering the same key on a
+  // revisit just replaces the stale DOM refs with the current ones.
+  var modalityDropdowns = {};
+  function initModalityDropdown(ids) {
+    var btn = document.getElementById(ids.btn), wrap = document.getElementById(ids.wrap);
+    var icon = document.getElementById(ids.icon), label = document.getElementById(ids.label);
+    function setOpen(v) { wrap.hidden = !v; btn.setAttribute('aria-expanded', v ? 'true' : 'false'); }
+    btn.addEventListener('click', function () { setOpen(wrap.hidden); });
+    modalityDropdowns[ids.wrap] = { btn: btn, wrap: wrap, close: function () { setOpen(false); } };
+    if (!window.__modDropdownOutsideBound) {
+      window.__modDropdownOutsideBound = true;
+      document.addEventListener('click', function (e) {
+        Object.keys(modalityDropdowns).forEach(function (key) {
+          var d = modalityDropdowns[key];
+          if (d.wrap.hidden || d.wrap.contains(e.target) || d.btn.contains(e.target)) return;
+          d.close();
+        });
+      });
+    }
+    return {
+      render: function (k) {
+        var m = MODALITIES[k];
+        icon.className = 'fa-solid ' + m.icon;
+        label.textContent = m.label;
+      },
+      collapse: function () { setOpen(false); }
+    };
   }
 
   //  A titled poster rather than a black rectangle. Deliberately does NOT
@@ -1994,6 +2146,14 @@
         postOpts.classList.add('answered');
         postOpts.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
         mergeResult('chain', { post: o.score });
+        // Release the hold: nothing else on this screen uses .rf-layer
+        // afterward (unlike the walk screen's part1→part2 handoff), so
+        // leaving .rf-on on the parent forever blurs and pointer-events:none's
+        // "Want to try the other path?" the instant it appears — it's
+        // revealed on the SAME settle() that triggers this reinforcement, so
+        // a learner could never have reached it. The choice was binary and
+        // is not final; answering this shouldn't be what makes it final.
+        if (post.parentElement) post.parentElement.classList.remove('rf-on');
         ctx.positionOrb(true);
       });
       postOpts.appendChild(b);
@@ -2150,6 +2310,19 @@
       closer.hidden = true;
       retry.hidden = true;
       retry.classList.remove('is-primary');
+      // Retry is reachable before the F1 "One more question" borrow is ever
+      // pressed (it sits un-blurred now — see settle()), so a replay can
+      // land here with that borrow still pending. Withdraw it rather than
+      // leave it stale: pressing the button mid-replay would otherwise fire
+      // the OLD callback — reinforce()'s blur landing over a narrative that
+      // has not even finished unfolding yet, the same jump this whole fix is
+      // for. Only on a replay: on the FIRST run there is nothing to cancel,
+      // and cancelNextAction()'s revert would reapply gate:true's disabled
+      // default before the learner has earned Continue at all. On a replay
+      // that default is wrong for the opposite reason — this route already
+      // earned Continue once, by reaching the end of the first path, and
+      // replaying the other one doesn't revoke it — so re-enable.
+      if (isReplay) { ctx.cancelNextAction(); ctx.enableNext(); }
       ctx.els.next.classList.remove('ll-btn--ghost');
       ctx.els.next.classList.add('ll-btn--primary');
       push(C.act[k]);
@@ -2220,25 +2393,42 @@
         : 'Your decision can affect your colleagues, which makes this a professional ' +
           'responsibility, rather than just a personal-safety rule.');
 
-      // D4: reveal the F1 post-rating once, on the first settle() — a replay
-      // of the other branch doesn't ask it a second time.
-      if (!postAsked) {
-        postAsked = true;
-        reinforce(ctx, post, 1, 1);
+      // The choice was binary, so there is no reason for it to be final.
+      if (!replayed) {
+        retry.hidden = false;
+        retry.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ' +
+          'Want to try the other path?';
+        // Only on the safe route does seeing the shortcut outweigh moving on —
+        // there, retry takes the primary look and Continue steps back to a
+        // plain secondary button for as long as retry is the stronger offer.
+        if (viewing === 'safe') {
+          retry.classList.add('is-primary');
+          ctx.els.next.classList.remove('ll-btn--primary');
+          ctx.els.next.classList.add('ll-btn--ghost');
+        }
       }
 
-      // The choice was binary, so there is no reason for it to be final.
-      if (replayed) { ctx.positionOrb(true); return; }
-      retry.hidden = false;
-      retry.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ' +
-        'Want to try the other path?';
-      // Only on the safe route does seeing the shortcut outweigh moving on —
-      // there, retry takes the primary look and Continue steps back to a
-      // plain secondary button for as long as retry is the stronger offer.
-      if (viewing === 'safe') {
-        retry.classList.add('is-primary');
-        ctx.els.next.classList.remove('ll-btn--primary');
-        ctx.els.next.classList.add('ll-btn--ghost');
+      // D4: reveal the F1 post-rating once, on the first settle() — a replay
+      // of the other branch doesn't ask it a second time. Bug fix 2026-09-21:
+      // this used to call reinforce() right here, in the same tick that the
+      // close line above first lands — so the blur (and reinforce()'s own
+      // scrollIntoView) covered "This is the best path"/"One person decided…"
+      // before it had ever been on screen long enough to read. Every other
+      // reinforce() in this module either opens on a screen with nothing
+      // said before it yet (walk's part 1) or waits for the learner's own
+      // next press (F2's belief scale, the debrief re-rate) — same device
+      // here, borrowing the forward button. enableNext() is re-armed inside
+      // the callback because revertNextBtn() reapplies this step's gate:true
+      // default on the press that reveals the rating, and that rating is
+      // explicitly not meant to gate anything.
+      if (!postAsked) {
+        postAsked = true;
+        ctx.els.next.classList.remove('ll-btn--ghost');
+        ctx.setNextAction('One more question', function () {
+          reinforce(ctx, post, 1, 1);
+          ctx.enableNext();
+          ctx.positionOrb(true);
+        });
       }
       ctx.positionOrb(true);
     }
@@ -2481,16 +2671,20 @@
     // for every learner, matching K&A's own Manufacturing script (the "why
     // it's dangerous" content runs as background before Case 1, no check).
     return '<main class="ll-object ll-object--chain"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow" id="hzEyebrow">Before the procedure</p>' +
       '<h1 class="pr-h">It only takes a trace.</h1>' +
       '<p class="pr-sub">A trace carries everything a large exposure would — the amount was never the mechanism.</p>' +
 
       // Item 19/D7: Listen joins the picker here — 'podcast' key, shared
-      // MODALITIES entry (label "Listen"), cost overridden for this beat's
-      // actual length. Declined at the course level (K1's procedure) does
-      // not mean declined everywhere; this is the one place the doc's own
-      // "first cut" actually calls for it.
-      modalityPicker('hzPick', ['video', 'article', 'podcast'], { article: '4 min', podcast: '2 min' }) +
+      // MODALITIES entry (label "Listen"). Declined at the course level
+      // (K1's procedure) does not mean declined everywhere; this is the one
+      // place the doc's own "first cut" actually calls for it. Collapsed to
+      // the current pick and pinned to the top-right corner (modalityDropdown,
+      // opts.corner) rather than left open in the flow — see that function's
+      // comment for why: an always-open toggle pushed the video carrier well
+      // down the page, and even collapsed-but-inline still reflowed the beat
+      // (and everything below it) every time the pick changed carrier.
+      modalityDropdown({ now: 'hzModNow', btn: 'hzModBtn', wrap: 'hzModWrap', icon: 'hzModIcon', label: 'hzModLabel', pick: 'hzPick' },
+        ['video', 'article', 'podcast'], { corner: true }) +
 
       '<div id="hzCarrier" hidden>' +
         '<div id="hzVideoWrap" hidden>' +
@@ -2519,12 +2713,13 @@
   }
 
   function hazardInit(ctx) {
-    var eyebrow = document.getElementById('hzEyebrow');
     var pick = document.getElementById('hzPick');
     var carrier = document.getElementById('hzCarrier');
     var vWrap = document.getElementById('hzVideoWrap');
     var wWrap = document.getElementById('hzWritten');
     var aWrap = document.getElementById('hzAudioWrap');
+    var dd = initModalityDropdown(
+      { btn: 'hzModBtn', wrap: 'hzModWrap', icon: 'hzModIcon', label: 'hzModLabel' });
     // Separate flags: video mounts once, audio mounts once, and each is a
     // real network/synthesis cost that should not gate on the other having
     // already happened — the original single `mounted` meant Listen never
@@ -2571,9 +2766,10 @@
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+      dd.render(m);
+      dd.collapse();
 
       if (m === 'video') {
-        eyebrow.textContent = 'Watch: 2 minutes';
         // Mounted once, on first selection rather than at page load — there is
         // no reason to fetch a clip for a learner who chose to read.
         if (!mounted) {
@@ -2584,25 +2780,15 @@
             onFallback: done,           // no clip at that path: do not strand anyone
             onEnded: done               // Skip dispatches 'ended', so it counts
           });
-          // The real duration, read off the file rather than typed into the
-          // label, so it cannot go stale when the asset is swapped.
-          var vid = document.getElementById('hzVideo');
-          if (vid) vid.addEventListener('loadedmetadata', function () {
-            if (!isFinite(vid.duration) || !vid.duration) return;
-            var mm = Math.round(vid.duration / 60);
-            eyebrow.textContent = 'Watch: ' + (mm < 1 ? 'under a minute' : mm + ' minute' + (mm > 1 ? 's' : ''));
-          });
         }
       } else if (m === 'podcast') {
         // Item 19/D7: the transcript is fully visible on arrival — same
         // reasoning as the article, nothing forces a listen.
-        eyebrow.textContent = 'Listen: about 2 minutes';
         if (!audioMounted) { audioMounted = true; mountAudio(); }
         // Held so leaving Listen before it fires can cancel it — see the
         // top of show().
         podcastTimer = setTimeout(done, T(700));
       } else {
-        eyebrow.textContent = 'Read: about 4 minutes';
         // Item 25/D1: gated on the learner's own word, the same footer
         // relabel the account screen's "Done reading" uses — a fixed delay
         // could not tell a skim from an actual read, and the other two
@@ -2827,14 +3013,17 @@
   // that control did, in the open.
   function PROCEDURE_CONTENT() {
     return '<main class="ll-object"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow" id="prEyebrow">Watch: 4 minute video</p>' +
       '<h1 class="pr-h">The order is the procedure.</h1>' +
       '<p class="pr-sub">Four steps, always in this order — plus two rules that hold no matter what.</p>' +
 
       // Item 26: podcast stays in the vocabulary (MODALITIES) so its own
       // decline banner can render, but the button itself is hidden from a
       // learner — see procedureInit. Declined, not offered, is the point.
-      modalityPicker('prPick', ['video', 'article', 'tutor', 'podcast'], { article: '2 min' }) +
+      // Collapsed and corner-pinned (modalityDropdown, opts.corner) for the
+      // same reason as the hazard beat above: an always-open toggle pushed
+      // the video carrier well down the page.
+      modalityDropdown({ now: 'prModNow', btn: 'prModBtn', wrap: 'prModWrap', icon: 'prModIcon', label: 'prModLabel', pick: 'prPick' },
+        ['video', 'article', 'tutor', 'podcast'], { corner: true }) +
 
       '<div id="prCarrier" hidden>' +
         '<div id="prVideoWrap" hidden>' +
@@ -2855,19 +3044,7 @@
       '</div>' +
     '</div></main>';
   }
-  // The live count, because a find-premise drops the alternatives step out of
-  // the numbering and a heading that says "four" would then be wrong. Counts
-  // only the numbered STEPS — the two rules after them were never a fifth
-  // and sixth step to count.
-  function procedureCount() {
-    var use = lens() && lens().premise === 'use';
-    return PROCEDURE.slice(0, 4).filter(function (s) {
-      return !(s.onlyOn && s.onlyOn !== (use ? 'use' : 'find'));
-    }).length;
-  }
-
   function procedureInit(ctx) {
-    var eyebrow = document.getElementById('prEyebrow');
     var pick = document.getElementById('prPick');
     var carrier = document.getElementById('prCarrier');
     var vWrap = document.getElementById('prVideoWrap');
@@ -2875,6 +3052,8 @@
     var declined = document.getElementById('prDeclined');
     var written = document.getElementById('prWritten');
     var mounted = false, tutorMounted = false, showing = null, handed = false;
+    var dd = initModalityDropdown(
+      { btn: 'prModBtn', wrap: 'prModWrap', icon: 'prModIcon', label: 'prModLabel' });
 
     // Item 26: declined, not offered — the banner below still exists for a
     // reviewer to check, same review-mode gate as the hazard beat's hidden
@@ -3033,9 +3212,10 @@
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+      dd.render(m);
+      dd.collapse();
 
       if (m === 'video') {
-        eyebrow.textContent = 'Watch: 4 minute video';
         if (!handed) ctx.disableNext();
         // "Watch the order" was the heading with a verb bolted on. The claim
         // after it is the one that changes how the clip gets watched.
@@ -3050,12 +3230,10 @@
           });
         }
       } else if (m === 'tutor') {
-        eyebrow.textContent = 'Step through: ' + procedureCount() + ' steps';
         if (!handed) ctx.disableNext();
         ctx.setCoachSay('Let’s take the steps one at a time.');
         if (!tutorMounted) { tutorMounted = true; runTutor(); }
       } else if (m === 'podcast') {
-        eyebrow.textContent = 'Not available as audio';
         // Silent — the declined-audio banner on screen already says the path
         // still runs on the article cut; CLARA repeating it added nothing.
         // Still has to clear the manifest's "Loading…" placeholder, though:
@@ -3064,7 +3242,6 @@
         ctx.setCoachSay('');
         done();
       } else {
-        eyebrow.textContent = 'Read: about 2 minutes';
         ctx.setCoachSay('Pay attention to the order of the steps too. Most of them happen before the sharp is ever used.');
         done();
       }
@@ -3519,9 +3696,7 @@
   }
 
   // ==========================================================================
-  //  COHORT DEBRIEF — F3. Their read of the room, then the sector's real
-  //  number. The gap IS the teaching, and the numbers are lensed because the
-  //  norm genuinely differs by sector.
+  //  COHORT DEBRIEF — F3. Their read of the room, then the real number.
   //
   //  This screen used to ask for the guess itself, which made it the SECOND
   //  time the module asked how common the shortcut is — the entry battery's
@@ -3536,12 +3711,25 @@
   //  same figure shown after the account of somebody in their trade getting
   //  stuck is a correction. The gap between those two moments is what gives
   //  the reveal its weight.
+  //
+  //  2026-09-21: both final K&A scripts (Manufacturing and Law Enforcement)
+  //  cite the same real, published figure for this exact belief — Gershon et
+  //  al. (2000), a U.S. study of sharps-disposal compliance — rather than the
+  //  per-sector illustrative numbers this screen used to show. That source
+  //  reports one aggregate compliance rate, not a three-way breakdown, so the
+  //  three original guess-bands (most/half/few) collapse to the two the
+  //  citation actually supports: always uses the container right away, or
+  //  doesn't. Inventing sub-splits within "doesn't" to keep three rows would
+  //  be fabricating what the study never measured — worse than the old
+  //  illustrative numbers, not better, since it would look sourced when it
+  //  is not. The figure is no longer sector-lensed either: the citation is
+  //  one national number, not four.
   // ==========================================================================
-  //  The entry answer, as a key into the same three bands the chart reports.
-  //  That item asked what share of the room uses the container straight away,
-  //  which is exactly what the FIRST band measures, so the two compare without
-  //  rescaling anything. Null when the battery never finished — the screen
-  //  then falls back to a plain reveal rather than inventing a guess.
+  //  The entry answer, as a key into the two bands the chart reports. That
+  //  item asked what share of the room uses the container straight away,
+  //  which is exactly what the FIRST band measures, so the two compare
+  //  without rescaling anything. Null when the battery never finished — the
+  //  screen then falls back to a plain reveal rather than inventing a guess.
   var F3_KEYS  = { 3: 'most', 2: 'half', 1: 'few' };
   var F3_WORDS = { most: 'Most do', half: 'About half', few: 'Hardly anyone' };
   // Item 14: quoted directly from the battery item rather than a separately
@@ -3553,21 +3741,23 @@
     var b = readCourse().battery;
     return (b && F3_KEYS[b.f3]) || null;
   }
-  var DEBRIEF_DATA = {
-    education:     [{ k: 'most', label: 'Use the container immediately', pct: 62 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 29 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 9 }],
-    aec:           [{ k: 'most', label: 'Use the container immediately', pct: 48 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 37 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 15 }],
-    manufacturing: [{ k: 'most', label: 'Use the container immediately', pct: 55 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 33 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 12 }],
-    public:        [{ k: 'most', label: 'Use the container immediately', pct: 71 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 22 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 7 }]
-  };
-  function debriefRows() { return DEBRIEF_DATA[LE.lensId()] || DEBRIEF_DATA.manufacturing; }
+  // Real, cited data (2026-09-21 final decks) — the same figure for every
+  // sector, so this is no longer a per-sector table. 'half' and 'few' both
+  // key into the one honest "everyone else" row; see debriefRows() below.
+  var DEBRIEF_STAT = [
+    { k: 'most', label: 'Always use the container right away', pct: 92.7 },
+    { k: 'other', label: 'Sometimes or rarely do', pct: 7.3 }
+  ];
+  var DEBRIEF_SOURCE = 'Gershon et al. (2000), “Hospital Safety Climate and Its Relationship ' +
+    'with Safe Work Practices and Workplace Exposure Incidents,” American Journal of Infection ' +
+    'Control, 28(3), 211–221.';
+  function debriefRows() { return DEBRIEF_STAT; }
+  // 'half' and 'few' both read as the single 'other' row above — see the
+  // DEBRIEF_STAT comment. The render loop's own row-vs-guess match (below)
+  // goes through this rather than a plain `===`, so whichever of the three
+  // original guesses the learner picked, the right row still gets tagged
+  // "Your guess".
+  function debriefRowKey(said) { return said === 'most' ? 'most' : said ? 'other' : null; }
   function DEBRIEF_CONTENT() {
     var said = entryF3();
     return '<main class="ll-object">' +
@@ -3593,7 +3783,7 @@
       '<div class="db-invite" id="dbInvite">' +
         '<p class="db-invite-q">' +
           (said ? 'Want to see what the real numbers are?'
-                : 'Want to see what your sector actually reports?') + '</p>' +
+                : 'Want to see what the research actually found?') + '</p>' +
         '<button class="db-reveal" id="dbReveal" type="button">' +
           '<i class="fa-solid fa-chart-simple" aria-hidden="true"></i> Show me the numbers</button>' +
       '</div>' +
@@ -3604,11 +3794,10 @@
             // Read-only rows. The guess happened at the entry battery, so the
             // band the learner was estimating is MARKED here rather than
             // clicked — their answer sits on the same line as the real figure,
-            // which is the whole comparison in one row. Bug fix: this
-            // compared every row to the literal string 'most' rather than to
-            // `said`, so a learner who guessed "Hardly anyone" had the
-            // "most" row marked as theirs and tagged "You said Most do".
-            var mine = said && d.k === said;
+            // which is the whole comparison in one row. 'half' and 'few' both
+            // read onto the 'other' row now (debriefRowKey) since the real
+            // citation only supports two bands — see the DEBRIEF_STAT comment.
+            var mine = said && debriefRowKey(said) === d.k;
             // Item 29: "Your guess: about half" — a tag beside a figure reads
             // as metadata, not as a quoted sentence, so it takes the lower-
             // cased form rather than the capitalized recall-block phrasing.
@@ -3623,18 +3812,13 @@
             '</div>';
           }).join('') +
         '</div>' +
-        // Illustrative, and labelled as such. No cohort data exists in the
-        // source material for this objective — the figures are ours. That is
-        // survivable in a prototype only while the screen says so, because
-        // here the NUMBER is the intervention: a norm correction built on an
-        // invented norm is teaching something we made up.
-        //
-        // Item 29: the disclaimer stops there. "A real deployment swaps in
-        // the customer's own cohort data" is production process, not
-        // something a learner needs to read on their way through a norm
-        // correction — it moved to the step caption, where a reviewer looks.
-        '<p class="pr-src"><i class="fa-solid fa-users" aria-hidden="true"></i> ' +
-          'Illustrative figures for ' + esc(lens().label) + '</p>' +
+        // Real, cited research (2026-09-21) rather than the illustrative
+        // per-sector figures this screen used to show — see the DEBRIEF_DATA
+        // comment above. The citation is a production detail worth a reviewer
+        // reading the full title; a learner just needs to see it is a real
+        // source, not an invented one.
+        '<p class="pr-src"><i class="fa-solid fa-book" aria-hidden="true"></i> ' +
+          esc(DEBRIEF_SOURCE) + '</p>' +
       '</div>' +
 
       // Item 14: the post leg of a Pre + post objective is the SAME item
@@ -3677,27 +3861,21 @@
         choices.querySelectorAll('.pr-fill').forEach(function (f) { f.style.width = f.dataset.w + '%'; });
       }); });
       setTimeout(function () {
-        // Whether the sector's own figure is a MAJORITY decides what this
-        // beat can honestly claim. One sector sits just under half, and the
-        // copy used to tell that learner the shortcut was the outlier while
-        // showing them data saying it was not — a norm correction arguing
-        // against its own number. A minority figure is still a finding; it
-        // is just the opposite finding, and it is the more useful one.
+        // Real, universal data (2026-09-21) is always a majority (92.7%), so
+        // the old minority branch — one sector's illustrative figure sat just
+        // under half, and the copy had to avoid calling the shortcut "the
+        // outlier" while showing data that said otherwise — is no longer
+        // reachable. Left as a plain majority check rather than hardcoded
+        // `true`, so this still degrades correctly if the figure ever changes.
         var majority = top.pct >= 50;
         // Null when there is no entry answer to have been right or wrong.
         var matched = said ? ((said === 'most') === majority) : null;
         var pct = '<strong>' + top.pct + '%</strong>';
         ctx.setCoachSay(matched === null
-          ? 'For ' + esc(lens().label) + ' it is ' + pct + '. ' + (majority
-              ? 'Which means the person who sets one down is the outlier, not the norm.'
-              : 'Just under half — in your sector the shortcut genuinely is common.')
-          : majority
-            ? (matched
-                ? 'Your read matches the data — ' + pct + '. Which means the person who sets one down is the outlier, not the norm.'
-                : 'The real figure is ' + pct + ' — higher than most people guess. The shortcut feels normal because you notice it; it is not what most of your shift does.')
-            : (matched
-                ? 'You read it right, and it is worth sitting with rather than being reassured about: ' + pct + '. Just under half. In your sector the shortcut genuinely is common — which makes the person who does not take it the one worth copying.'
-                : 'Not quite — ' + pct + ', just under half. Yours is the sector where this is hardest, so the habit is not something the room will carry for you.'));
+          ? 'The real number is ' + pct + '. Which means the person who sets one down is the outlier, not the norm.'
+          : matched
+            ? 'Your read matches the data — ' + pct + '. Which means the person who sets one down is the outlier, not the norm.'
+            : 'The real figure is ' + pct + ' — higher than most people guess. The shortcut feels normal because you notice it; it is not what most of your shift does.');
         saveResult('debrief', { guess: said, majority: majority, pct: top.pct });
         ctx.positionOrb(true);
         // The figure IS the intervention on this beat, and it used to be
@@ -4032,7 +4210,7 @@
     manufacturing: 'You spot a used blade on the next bench over. It is not yours.',
     education: 'You spot a craft blade left on the back table. It is not yours.',
     aec: 'You spot a utility blade left on a windowsill. It is not yours.',
-    public: 'You spot an uncapped needle wedged in the jump bag. It is not yours.'
+    public: 'You spot a needle wedged into the back seat of your patrol vehicle. It is not yours.'
   };
   function handoffHook() { return HANDOFF_HOOK[LE.lensId()] || HANDOFF_HOOK.manufacturing; }
 
@@ -4171,17 +4349,18 @@
     down: { cls: 'down', icon: 'fa-arrow-trend-down', label: 'Moved down' }
   };
   // F3's reportable figure is how far the learner's read of the room was from
-  // what their sector reports — norm misperception is that gap and nothing
+  // the real, cited figure — norm misperception is that gap and nothing
   // else. It used to be moveChip(entry answer, "better or worse than that
   // figure"), which are different scales: a learner who said "Most do" and
-  // then "About the same" against a 55% majority had agreed with themselves
+  // then "About the same" against a 92.7% majority had agreed with themselves
   // twice and was filed as having moved DOWN.
-  //  Graded against the sector's actual figure, not against a majority/not
-  //  binary. The binary called "Hardly anyone" CORRECT wherever the figure
-  //  came in under half — so the AEC learner who guessed hardly anyone was
-  //  filed as having read the room right about 48%, which is nearly half. No
-  //  sector in the set sits under 30%, so "hardly anyone" is always an
-  //  underestimate, and saying so IS the finding this beat exists to produce.
+  //  Graded against the real figure (92.7%, Gershon et al. 2000 — see
+  //  DEBRIEF_STAT), not against a majority/not binary. The thresholds below
+  //  predate that real figure, from when this was graded per sector against
+  //  four different illustrative numbers (as low as 48%); kept as thresholds
+  //  rather than collapsed to a flat 92.7% check so this still degrades
+  //  correctly if the figure is ever revised. With today's number, "most" is
+  //  always right and "half"/"hardly anyone" are always underestimates.
   function f3Read(f3, pct) {
     if (!f3) return null;
     if (f3 === 3) return pct >= 55 ? 'right' : 'better';           // said most
@@ -4195,7 +4374,7 @@
   function f3Note(f3, d, pct) {
     var saidAgain = low(F3_WORDS[F3_KEYS[d.post]] || '');
     if (!f3) {
-      return 'You saw the figure for your sector and, asked again, said ' + saidAgain + '. ' +
+      return 'You saw the real figure and, asked again, said ' + saidAgain + '. ' +
              'There is no earlier reading to compare it against in this run.';
     }
     var r = f3Read(f3, pct);
@@ -4315,14 +4494,14 @@
         : ['Not asked', 'band-warn', 'No answer in this run',
            'The budget choice did not come up, so there is nothing on this line. It is not counted as agreement.'],
       F3: (c.debrief && c.debrief.post)
-        ? ['Recorded', 'band-ok', 'Your read at the start, checked against your sector',
+        ? ['Recorded', 'band-ok', 'Your read at the start, checked against the real figure',
            f3Note(b.f3, c.debrief, f3Pct(c.debrief)),
            moveChip(b.f3, c.debrief.post)]
         : c.debrief
           ? ['Rated only', 'band-warn', 'From your answer at the start',
              'You gave your read of the room and saw the figures, but the second answer did not come up in this run.']
           : ['Rated only', 'band-warn', 'From your answer at the start',
-             'You gave your read of the room. The figures for your sector did not come up in this run.'],
+             'You gave your read of the room. The figures did not come up in this run.'],
       // Both of these are shown on the scenario's own page now. D6: beat ids
       // changed with the rebuild (decision / execution / container / close,
       // was decision / pressure / container / transfer) \u2014 read from the
@@ -4428,7 +4607,7 @@
       coach: { say: '' },
       content: INTRO_CONTENT, init: introInit },
 
-    { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Your Starting Point', mode: 'floating', gate: true,
+    { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Progress assessment', mode: 'floating', gate: true,
       caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; K2 (recognition, content-locked) sets its own test-up from its own item — neither derives from the other. D12: K1’s test-out shortcut ships live as built. The compliance question K&A’s script raises — whether 1910.1030(g)(2)(vii)(E)/(F) actually locks this content — is unconfirmed either way, not resolved in K1’s favor; if compliance later rules it locked, this item’s `policy`/`locked` fields are the only thing that needs to change.' },
       coach: { say: 'Loading\u2026', teaser: true },
       content: BATTERY_CONTENT, init: batteryInit,
@@ -4527,7 +4706,7 @@
       onSkip: function () { saveResult('downstream', { named: null }); } },
 
     { id: 'debrief', icon: 'fa-square-poll-vertical', mins: 1, stage: 'Learn', lesson: 'What Your Shift Does', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · Cohort debrief (F3)', note: 'The norm correction, and the POST leg of a Pre + post objective — the entry battery asked for their read of the room, and this asks them to place their own shift against a figure they now have, so the reportable number is the movement rather than either level. Figures are ILLUSTRATIVE and labelled as such on the screen: no cohort data exists in the source material, and here the number IS the intervention, so an invented norm presented as real would be teaching something we made up. AEC sits just under half on purpose — and the copy branches on whether the sector figure is a majority, because it previously told that learner the shortcut was the outlier while showing them data saying it was not. A real deployment swaps in the customer’s own cohort data in place of these figures — production detail, kept out of the learner-facing disclaimer, which only needs to say the numbers are illustrative.' },
+      caption: { title: 'LEARN · Cohort debrief (F3)', note: 'The norm correction, and the POST leg of a Pre + post objective — the entry battery asked for their read of the room, and this asks them to place their own shift against a figure they now have, so the reportable number is the movement rather than either level. 2026-09-21: figures are now REAL, cited data — both final K&A scripts (Manufacturing and Law Enforcement) quote the same figure, Gershon et al. (2000), a U.S. study of sharps-disposal compliance (92.7% always use the container). That source reports one aggregate rate, not a three-way breakdown, so the original three illustrative per-sector bands (most/half/few, as low as 48% for one sector) collapsed to the two the citation actually supports — always, or not — and the figure is no longer sector-lensed, since the citation is one national number. Sub-splitting "not" into fake half/few bands to keep three rows would be fabricating what the study never measured. The full citation renders in the learner-facing disclaimer now, in place of the old "illustrative figures for [sector]" line — it is real, so there is nothing left to caveat.' },
       // Arrives silent — an empty line means no unread dot and no idle
       // hint. The reaction later in debriefInit raises CLARA by itself.
       coach: { say: '' },
@@ -4594,6 +4773,36 @@
       coach: { say: '', ask: 'Ask CLARA about your record…' },
       content: RECORD_CONTENT, init: recordInit }
   ];
+
+  // ==========================================================================
+  //  Entry sequencing (Demo menu: "Battery timing"). Default order is
+  //  Cover → Pre-check → Updated path → the rest — the array above, as
+  //  authored. "Battery before" moves the cover to AFTER the pre-check and
+  //  its path-adjustment screen instead: Pre-check → Updated path → Cover →
+  //  the rest. Splicing here rather than re-authoring the array keeps one
+  //  source of truth for both orders, and every position-based mechanic in
+  //  the engine (section numbering, back-button disable, the resume banner)
+  //  already reads off the array's actual order rather than fixed ids, so
+  //  moving the cover is enough — nothing else needs to know which mode ran.
+  // ==========================================================================
+  if (batteryOrderBefore()) {
+    var introAt = STEPS.findIndex(function (s) { return s.id === 'intro'; });
+    var introStep = STEPS.splice(introAt, 1)[0];
+    var afterAdjust = STEPS.findIndex(function (s) { return s.id === 'adjust'; }) + 1;
+    STEPS.splice(afterAdjust, 0, introStep);
+
+    // CLARA hasn't been met yet — that's still the cover's job, and the
+    // cover now runs AFTER these two. noCoach (engine flag) drops the orb
+    // and every hint/teaser on both; hideProgress additionally blanks
+    // battery's own "Section N of N" + bar, since there's no course open
+    // yet for that count to mean anything (adjust needs no such flag —
+    // interstitial already blanks its footer the normal way).
+    var bStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'battery'; })];
+    bStep.noCoach = true;
+    bStep.hideProgress = true;
+    var aStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'adjust'; })];
+    aStep.noCoach = true;
+  }
 
   // ==========================================================================
   //  D11: URL-prefillable launch params — role (sector), name, media (format).
@@ -4663,6 +4872,34 @@
         api.replay();
       }
     }, {
+      // Reorders the array itself (see the splice right after STEPS above),
+      // so flipping it needs a fresh boot rather than a replay/refresh —
+      // same treatment as Start Over, which is why the reload also clears
+      // the run's progress keys: landing on a re-sequenced path holding
+      // answers recorded under the OLD sequence is the confusing state to
+      // avoid, not the one to build for. sh-battery-order itself is left
+      // alone, same as ll-lens/sh-name — a Demo menu setting, not progress.
+      id: 'shBatteryOrderBtn', icon: 'fa-arrow-down-up-across-line', name: 'Battery timing',
+      note: 'Whether the pre-check (and the path it can adjust) run before the module’s own cover, or in their usual place right after it',
+      visibleOn: function (step) { return step.id === 'intro' || step.id === 'battery'; },
+      state: function () { return batteryOrderBefore() ? 'Battery before' : 'Battery at start'; },
+      onClick: function (api) {
+        try {
+          sessionStorage.setItem('sh-battery-order', batteryOrderBefore() ? 'start' : 'before');
+          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-doobject-mode', 'sh-modality']
+            .forEach(function (k) { sessionStorage.removeItem(k); });
+        } catch (e) {}
+        // A plain reload() keeps this tab's current URL, which carries a
+        // ?step= deep link the engine writes on every navigation (so a
+        // refresh mid-course returns you to where you were) — and that
+        // param wins over STEPS[0] in the engine's own boot(), landing back
+        // on the step just left instead of the new sequence's actual start.
+        // Dropping it here is what makes the reorder visible immediately.
+        var u = new URL(location.href);
+        u.searchParams.delete('step');
+        location.href = u.pathname + u.search + u.hash;
+      }
+    }, {
       id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Battery result',
       note: 'Force the pre-module result and replay the routing it drives',
       visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
@@ -4694,6 +4931,20 @@
       onClick: function (api) {
         try { sessionStorage.setItem('sh-doobject-mode', doBaselineOn() ? 'live' : 'baseline'); } catch (e) {}
         api.refresh();
+      }
+    }, {
+      // D11, relocated: a real learner's name comes from SSO, not a text
+      // field on the cover screen — self-assignment is a demo convenience.
+      // Still only read by the "welcome back" banner on a return visit.
+      id: 'shNameBtn', icon: 'fa-signature', name: 'Learner name',
+      note: 'Self-assigned stand-in for SSO — only the welcome-back banner reads it',
+      visibleOn: function (step) { return step.id === 'intro'; },
+      state: function () { return savedName() || 'Not set'; },
+      onClick: function (api) {
+        var next = window.prompt('Learner name (optional):', savedName());
+        if (next === null) return;
+        try { sessionStorage.setItem('sh-name', next.trim().slice(0, 40)); } catch (e) {}
+        api.replay();
       }
     }]
   });

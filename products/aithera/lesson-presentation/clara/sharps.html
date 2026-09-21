@@ -86,6 +86,111 @@
       .sh-battery .bl-hint { margin-top: 22px; margin-bottom: 0; }
       .sh-battery .ord-wrap { margin-top: 10px; }
 
+      /* ==== Battery card stack (time-machine) ================================
+         Sharps-only: each battery question already lived in #blAsk, the
+         shared css/layered-beats.css "Quick Question" pattern the Bystander
+         course's own entry battery renders too (see the comment above). What
+         changes here is only the SHELL around it — two static previews of
+         the ACTUAL upcoming questions, receding behind #blAsk, and a dot
+         pager — built entirely in this file and layered-sharps.js's
+         batteryInit/swapTo, so Bystander's battery is untouched either way.
+
+         Two earlier versions tried a lateral slide and then a cover-flow
+         rotation; both needed two DIFFERENT kinds of motion (one card
+         sliding/rotating in, a different card fading out) to land in sync,
+         which was fragile. This one uses ONE transform recipe — scale +
+         translateY + opacity/blur — applied uniformly at three depths, the
+         way Time Machine's window stack recedes. Advancing just moves every
+         card exactly one depth step on the same easing; #blAsk (the just-
+         answered card) isn't a participant in that motion, only what it
+         reveals once the step lands, so there's never a "does this line up
+         with that" seam to get wrong. See swapTo() for the depth ping-pong.
+
+         .bl-stage centres #blAsk itself (not just #blAsk's own children) —
+         needed once #blAsk stopped being main.ll-object's direct child, or
+         it renders flush left. #blAsk stays a flex row item (not absolutely
+         positioned) so the stage's height still tracks whichever question
+         is showing (the ordering task is taller than a multiple-choice
+         one). Its own padding-top reserves room for the stack to peek
+         above #blAsk without clipping. */
+      .bl-carousel { width: 100%; display: flex; flex-direction: column; align-items: center; }
+      .bl-dots { display: flex; gap: 8px; margin-bottom: 24px; }
+      .bl-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: rgba(255, 255, 255, .18);
+        transition: background .2s ease, transform .2s ease;
+      }
+      .bl-dot.is-done { background: rgba(46, 230, 207, .55); }
+      .bl-dot.is-now  { background: var(--ll-teal); transform: scale(1.4); }
+
+      /* min-height is set once at runtime (pinStageHeight() in
+         batteryInit) to the tallest of the four questions — the order
+         task renders noticeably taller than a multiple-choice one, and
+         without a fixed footprint .ll-object's own vertical centring
+         would re-centre the WHOLE page, not just the card, every time a
+         turn promotes a differently-sized question. align-items:flex-start
+         keeps #blAsk at its own natural height inside that reserved space
+         rather than stretching to fill it. */
+      .bl-stage {
+        position: relative; width: 100%;
+        display: flex; justify-content: center; align-items: flex-start;
+        padding-top: 56px;
+      }
+      /* A real card surface — the rest of this module's screens are bare
+         floating text with nothing behind them, but a STACK needs an
+         opaque front card or the cards behind it just bleed through as
+         messy overlapping text rather than reading as depth. Scoped to
+         .sh-battery, not .bl-ask itself, so Bystander's bare battery is
+         untouched. */
+      .sh-battery {
+        background: rgba(12, 22, 34, .82);
+        border: 1px solid var(--ll-line);
+        border-radius: 22px;
+        padding: 34px clamp(20px, 4vw, 40px) 40px;
+        box-sizing: border-box;
+        backdrop-filter: blur(6px);
+      }
+      .bl-ask { position: relative; z-index: 4; transition: opacity .3s ease; }
+      .bl-ask.is-leaving { opacity: 0; }
+      .bl-ask.no-anim { transition: none !important; }
+
+      /* Depth 0 is #blAsk's own resting look, reproduced here for whichever
+         preview node is mid-promotion. left:50% + translateX(-50%) is the
+         same centring trick #blAsk gets for free from its parent flexbox;
+         top matches .bl-stage's own padding-top so depth 0 lands exactly on
+         #blAsk's top edge. */
+      .bl-peek {
+        position: absolute; left: 50%; top: 56px;
+        width: min(760px, 100%);
+        /* #blAsk gets centred children for free from the shared .bl-ask
+           class (display:flex; flex-direction:column; align-items:center)
+           in css/layered-beats.css — reproduced here since a preview node
+           only ever carries .bl-peek/.sh-battery, not .bl-ask itself.
+           Without it the eyebrow/heading/options render left-aligned at
+           rest and visibly snap centred at promotion. */
+        display: flex; flex-direction: column; align-items: center;
+        transform: translateX(-50%) translateY(0) scale(1);
+        pointer-events: none;
+        transition: transform .44s cubic-bezier(.25, .75, .35, 1), filter .44s ease, opacity .44s ease;
+      }
+      .bl-peek.depth0 { transform: translateX(-50%) translateY(0) scale(1); filter: blur(0); opacity: 1; z-index: 3; }
+      .bl-peek.depth1 { transform: translateX(-50%) translateY(-26px) scale(.93); filter: blur(.5px); opacity: .9; z-index: 2; }
+      .bl-peek.depth2 { transform: translateX(-50%) translateY(-46px) scale(.87); filter: blur(1px); opacity: .75; z-index: 1; }
+      .bl-peek.no-anim { transition: none !important; }
+      /* A throwaway measuring node (pinStageHeight()) — created, measured
+         and removed synchronously within one tick, but visibility:hidden
+         is a cheap guard against ever flashing on screen. */
+      .bl-ruler { visibility: hidden; }
+      /* Every "option" in a preview is a plain div (see setPeekContent) so
+         nothing inside is a tab stop, but it still needs to look identical
+         to the real, clickable one. */
+      .bl-peek .bl-option, .bl-peek .ord-item { cursor: default; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .bl-peek { transition: opacity .15s ease; }
+        .bl-peek.depth0, .bl-peek.depth1, .bl-peek.depth2 { filter: none; }
+      }
+
       /* ==== Ordering task ==================================================
          K1 is sequence recall, so the item asks for a sequence rather than
          offering three written ones to choose between. The three actions are
@@ -411,34 +516,6 @@
       .cp-format-change[aria-expanded="true"] i { transform: rotate(180deg); }
       .cp-format-picker { margin-top: 10px; }
 
-      /* D11: "Your role" picker — its own option markup (a sector plus its
-         role, no cost line to show), sharing the .cp-format-* collapsed
-         shell above rather than the modality picker's .md-opt/.md-pick,
-         which carries a cost line this doesn't have. */
-      .rl-pick { display: grid; gap: 8px; }
-      .rl-opt {
-        display: flex; align-items: baseline; gap: 8px;
-        width: 100%; padding: 10px 12px; border-radius: 11px; text-align: left;
-        border: 1px solid var(--ll-line-soft); background: rgba(255, 255, 255, .02);
-        color: var(--ll-ink-soft); font: inherit; font-size: 13px; cursor: pointer;
-        transition: background .14s ease, border-color .14s ease, color .14s ease;
-      }
-      .rl-opt b { color: #fff; font-weight: 700; }
-      .rl-opt small { color: var(--ll-ink-faint); }
-      .rl-opt:hover { background: rgba(255, 255, 255, .05); color: var(--ll-ink); }
-      .rl-opt.is-on { border-color: var(--ll-teal); background: rgba(46, 230, 207, .1); }
-      .rl-opt:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28); }
-
-      /* D11: the self-assigned name field — one plain text input, styled to
-         match the rest of the rail rather than a default browser control. */
-      .cp-name-input {
-        width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 11px;
-        border: 1px solid var(--ll-line-soft); background: rgba(255, 255, 255, .03);
-        color: #fff; font: inherit; font-size: 14px;
-      }
-      .cp-name-input::placeholder { color: var(--ll-ink-faint); }
-      .cp-name-input:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .28); }
-
       /* D11: the "welcome back" banner — hidden by default (#introResume in
          layered-sharps.js fills it in only when there is something to
          resume). Sits above
@@ -485,6 +562,49 @@
       .db-post { width: min(680px, 100%); display: flex; flex-direction: column; }
       .pr-h { margin: 6px 0 10px; font-size: clamp(22px, 3vw, 30px); font-weight: 800; color: #fff; letter-spacing: -.015em; }
       .pr-sub { margin: 0 0 22px; max-width: 62ch; font-size: 13.5px; line-height: 1.65; color: var(--ll-ink-faint); font-style: italic; }
+
+      /* The modality dropdown — .cp-format-now/.cp-format-change/
+         .cp-format-picker below (§ "Preferred format", the title-page rail)
+         REUSED here verbatim rather than re-skinned, so this and the rail
+         are one control, not two that happen to look alike. .md-now exists
+         only to opt this instance out of .pr-wrap's stretch-to-680px: the
+         rail's version is already compact because its card is narrow
+         (~230px), but on this wide column the same flex row would stretch
+         edge to edge and put real distance between the current pick and
+         "Change" — align-self: flex-start makes it hug its own content
+         width instead, same as it does in the rail. The picker also
+         collapses to a single compact column here (.md-now .md-pick below)
+         instead of the wide segmented row it used to be — see
+         modalityDropdown()'s comment in layered-sharps.js for why an
+         always-open (and later a reopened) wide row was the problem in the
+         first place. */
+      .md-now { display: block; align-self: flex-start; margin: 0 0 20px; }
+      .md-now .md-pick { display: flex; flex-direction: column; }
+
+      /* .md-now--corner (hazardInit/procedureInit only, via opts.corner) —
+         pinned to the beat's top-right corner, over the title/video rather
+         than in the normal flow. .ll-object is already `position: absolute`
+         (see layered-learning.css), so it's this control's containing
+         block for free; no wrapper needed. Right-inset matches the floating
+         CLARA chrome's own 26px so the two corner affordances read as one
+         visual rhythm. z-index sits above ordinary stage content but under
+         the orb (35) and frame (40). */
+      .md-now--corner {
+        position: absolute; top: clamp(24px, 5vh, 56px); right: 26px; z-index: 20;
+        margin: 0;
+      }
+      /* The revealed list floats below the pill instead of pushing the
+         video down — that push (even collapsed-and-compact) was still a
+         reflow every time the pick changed. It needs its own opaque
+         background rather than .md-pick's translucent one: a 4%-white
+         panel reads fine over the dark stage, but here it can sit over a
+         bright video frame instead. */
+      .md-now--corner .cp-format-picker {
+        position: absolute; top: 100%; right: 0; margin-top: 8px;
+      }
+      .md-now--corner .cp-format-picker .md-pick {
+        background: var(--ll-panel); box-shadow: var(--ll-shadow);
+      }
 
       /* D10: the reviewer-only Do-object baseline, same shape as .pr-wrap
          above (both are "watch, then answer") — its own class since it also
@@ -1242,44 +1362,34 @@
 
       /* ==== Modality chooser — shared by any beat offering a choice =========
          A segmented control, not a gate. The learner arrives on the default
-         carrier and can still see what the other option is and what it costs;
-         each option carries its own cost inline, so the tradeoff is legible
-         for the route NOT taken, which is the half that informs a choice. */
+         carrier and can still see what the other option is. */
       .md-pick {
         /* align-self as well as inline-flex: .pr-wrap is a stretch flex
            column, so an inline-flex child still spans the full measure. */
-        display: inline-flex; align-self: flex-start; gap: 4px; margin: 0 0 20px;
-        padding: 4px; border-radius: 14px;
+        display: inline-flex; align-self: flex-start; gap: 3px; margin: 0 0 20px;
+        padding: 3px; border-radius: 13px;
         border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .04);
       }
       .md-opt {
-        display: grid; grid-template-columns: 18px auto; gap: 11px; align-items: center;
+        display: grid; grid-template-columns: 16px auto; gap: 9px; align-items: center;
         font: inherit; text-align: left; cursor: pointer; color: var(--ll-ink-soft);
-        padding: 9px 16px; border-radius: 11px;
+        padding: 7px 14px; border-radius: 10px;
         background: none; border: 1px solid transparent;
         transition: background .16s ease, color .16s ease, border-color .16s ease;
       }
       .md-opt i { font-size: 14px; justify-self: center; }
-      .md-opt-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+      .md-opt-t { min-width: 0; }
       .md-opt b { font-size: 14.5px; font-weight: 700; }
-      .md-cost {
-        font-size: 11px; font-weight: 600; letter-spacing: .02em;
-        color: var(--ll-ink-faint); white-space: nowrap;
-      }
       .md-opt:hover { color: var(--ll-ink); background: rgba(255, 255, 255, .05); }
       .md-opt.is-on {
         color: #fff; background: rgba(46, 230, 207, .13);
         border-color: rgba(46, 230, 207, .42);
       }
       .md-opt.is-on i { color: var(--ll-teal); }
-      .md-opt.is-on .md-cost { color: rgba(46, 230, 207, .85); }
       .md-opt:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28); }
       @media (max-width: 479px) { .md-pick { display: flex; flex-direction: column; } }
-      /* The title-page rail is a narrow column at any viewport width the
-         side-by-side .cp-grid actually runs at, unlike the wide Learn-beat
-         screens this control was built for — so it needs the same stacked
-         layout the control only otherwise reaches under a 479px viewport. */
-      .cp-rail .md-pick { flex-direction: column; }
+      /* Stacked column everywhere a dropdown reveals this list — see
+         .md-now .md-pick above, which now covers the rail too. */
 
       /* ==== Capability under pressure — F4's if-then card ===================
          The rating itself runs on the shared .ef-* slider in
@@ -1320,7 +1430,7 @@
     </script>
     <script src="../js/mobius-orb.js?v=5"></script>
     <script src="../js/frame.js?v=7"></script>
-    <script src="../js/layered-engine.js?v=24"></script>
-    <script src="../js/layered-sharps.js?v=166"></script>
+    <script src="../js/layered-engine.js?v=25"></script>
+    <script src="../js/layered-sharps.js?v=189"></script>
 </body>
 </html>

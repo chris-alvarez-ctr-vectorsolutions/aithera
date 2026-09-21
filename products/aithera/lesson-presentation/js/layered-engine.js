@@ -637,7 +637,14 @@
       if (footCount) footCount.textContent = 'Course overview';
       if (footBar) footBar.style.display = 'none';
       backBtn.style.display = 'none';
-    } else if (!sec) {
+    } else if (!sec || step.hideProgress) {
+      // hideProgress: a real, counted section that still shouldn't claim a
+      // place in "Section N of N" — sharps' entry battery run BEFORE the
+      // cover, where there's no course open yet for a section count to mean
+      // anything. Same blank-footer treatment as a step with no count at
+      // all; unlike interstitial, it stays IN the denominator for every
+      // OTHER screen's count, since it's still real work, just not framed
+      // as "part of the course" on its own screen.
       // An interstitial isn't a section, so it gets no number and no bar —
       // claiming progress through a screen that teaches nothing would be a lie,
       // and a numbered gap either side of it reads as a bug.
@@ -706,7 +713,13 @@
       // queued used to inherit the previous screen's dot and promise a line it
       // did not have — which is exactly the screens that were made silent.
       delete stage.dataset.unread;
-      if (step.mode === 'floating') {
+      // noCoach: a screen CLARA has no business being on yet — sharps' entry
+      // battery, run BEFORE the cover in "Battery before" mode, is the first
+      // case (see layered-sharps.js). Not the same as a silent coach.say —
+      // that still docks the orb and renders empty chrome; this skips both.
+      if (step.noCoach) {
+        clearHint();
+      } else if (step.mode === 'floating') {
         var leads = coachLeads(step);
         setFloat(leads ? 'open' : 'closed');
         // A queued line they haven't shown yet is the only thing the dot means.
@@ -733,7 +746,7 @@
       // Coach chrome (appended last → on top → its chips/composer are clickable)
       chrome = document.createElement('div');
       chrome.className = 'clara-chrome clara-chrome--' + step.mode + (first ? '' : ' pre-enter');
-      chrome.innerHTML = chromeHTML(step.mode, step.coach || {});
+      chrome.innerHTML = step.noCoach ? '' : chromeHTML(step.mode, step.coach || {});
       stage.appendChild(chrome);
       pendingAction = false;
       pendingNext = null;
@@ -741,9 +754,13 @@
       nextBtn.classList.add('ll-btn--primary');
       delete stage.dataset.pending;
       // Only in floating mode is the orb something to press; elsewhere CLARA
-      // is the chrome itself and the orb is just their mark.
-      if (step.mode === 'floating') orbEl.dataset.launcher = '1';
+      // is the chrome itself and the orb is just their mark. noCoach hides
+      // the orb outright — an empty chrome still has a .clara-slot for it to
+      // dock in on every mode except floating, and this is the one case that
+      // should show no CLARA mark at all.
+      if (step.mode === 'floating' && !step.noCoach) orbEl.dataset.launcher = '1';
       else delete orbEl.dataset.launcher;
+      orbEl.style.display = step.noCoach ? 'none' : '';
 
       idx = i; nextHref = null;
       // PROTOTYPE CONVENIENCE: keep the current screen in the URL so a refresh
@@ -766,7 +783,7 @@
       // runs — the companion should be a way in to CLARA on every page
       // they're on, not a line you can only read. Steps can supply their own answers
       // via coach.replies.
-      if (step.mode === 'floating') wireFloatingChat(ctx, (step.coach || {}).replies);
+      if (step.mode === 'floating' && !step.noCoach) wireFloatingChat(ctx, (step.coach || {}).replies);
       if (step.init) {
         inInit = true;
         try { step.init(ctx); } catch (e) { console.error('step init', step.id, e); }
