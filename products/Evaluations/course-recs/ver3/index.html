@@ -1211,31 +1211,7 @@
         /* V2's .details-overlay / .details-panel CSS was removed here. V3
            replaced that centered-overlay panel with the right-edge
            .rec-details-panel (see the V3 block above), which sits beside the
-           pushed drawer instead of over it. .details-variant-chip survives
-           because the new panel still uses it. */
-        .details-variant-chip {
-            display: inline-flex; padding: 4px 10px; border-radius: 999px;
-            background: var(--page-bg); color: var(--text-strong);
-            font-size: 11px; font-weight: 600;
-        }
-        .details-addresses { display: flex; flex-wrap: wrap; gap: 6px; }
-        .details-panel-footer {
-            border-top: 1px solid var(--border-soft);
-            padding: 14px 20px;
-            display: flex; justify-content: space-between; gap: 8px;
-            background: #fafbfc;
-        }
-        .details-panel-footer .details-discard {
-            background: none; border: none; padding: 4px 2px; cursor: pointer;
-            font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-muted);
-        }
-        .details-panel-footer .details-discard:hover { color: var(--lumo-error-text-color); }
-        /* Add-to-assignment primary button in the details panel → rec accent */
-        .details-toggle-cart {
-            --lumo-primary-color: var(--rec-accent);
-            --lumo-primary-color-50pct: rgba(139, 92, 246, 0.5);
-            --lumo-primary-text-color: var(--rec-accent);
-        }
+           pushed drawer instead of over it. */
 
         /* "No low ratings" empty state */
         .rec-empty {
@@ -1434,16 +1410,6 @@
             display: flex; align-items: center; gap: 9px;
             flex-wrap: wrap;
         }
-        /* "AI" pill — carried over from V2's generate card so the feature's
-           identity is consistent between versions. */
-        .rec-bar-pill {
-            font-size: 10px; font-weight: 800; letter-spacing: 0.06em;
-            text-transform: uppercase;
-            padding: 2px 7px; border-radius: 999px;
-            background: rgba(255, 255, 255, 0.92);
-            color: var(--rec-grad-blue-dark);
-        }
-        .rec-dock[data-state="locked"] .rec-bar-pill { color: #333f4a; }
         .rec-bar-desc {
             margin: 3px 0 0;
             font-size: 12.5px;
@@ -1509,6 +1475,25 @@
             cursor: pointer;
             white-space: nowrap;
             transition: background 140ms ease, transform 140ms ease;
+        }
+        /* Working state — occupies the CTA's slot in the bar while the search
+           runs. Deliberately NOT button-shaped: it isn't pressable, and giving
+           it the CTA's white pill would invite a click on a dead control. */
+        .rec-bar-working {
+            display: inline-flex; align-items: center; gap: 10px;
+            font-size: 13px; font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            padding: 9px 4px;
+        }
+        /* The bar is a dark gradient, so the spinner is drawn in white.
+           Size and color go through the component's own custom properties
+           (verified in the v1.19.0 bundle: --vwc-spinner-size feeds
+           --vwc-icon-size, and --vwc-spinner-color sets the stroke). Setting
+           width/height on the host would not resize the inner icon. */
+        .rec-bar-spinner {
+            --vwc-spinner-size: 16px;
+            --vwc-spinner-color: #fff;
         }
         .rec-bar-cta:hover { background: var(--rec-grad-blue-tint); }
         .rec-bar-cta:active { transform: translateY(1px); }
@@ -1745,6 +1730,30 @@
         }
         .rec-list-section.unavailable .rec-list-title i { color: var(--text-muted); }
 
+        /* "Learn More" — the one CTA for the entire unlicensed grouping.
+           Pushed to the right end of the heading row. It deliberately does NOT
+           inherit the section's muted/disabled treatment: the cards are
+           unavailable, but this action is not. */
+        .rec-upsell-learnmore {
+            background: none;
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            padding: 5px 12px;
+            font-family: inherit;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--brand);
+            cursor: pointer;
+        }
+        .rec-upsell-learnmore:hover {
+            border-color: var(--brand);
+            background: var(--lumo-primary-color-10pct);
+        }
+        .rec-upsell-learnmore:focus-visible {
+            outline: 2px solid var(--brand);
+            outline-offset: 2px;
+        }
+
         /* Greyscale + dim is what actually sells "disabled" — opacity alone
            just looks faded. 0.55 still leaves titles readable for anyone
            deciding whether to open Details, which is the one action these
@@ -1810,13 +1819,22 @@
            shared designtoolbox/toolbox.js is untouched, since every other
            mock still wants it at bottom:16px.
            !important is required: those rules are injected by the toolbox's
-           own stylesheet at runtime. */
+           own stylesheet at runtime.
+
+           CLEARANCE IS CAPPED. --rec-dock-h tracks the drawer's real height,
+           and since the drawer now auto-sizes to its rows it can be most of
+           the viewport — riding the tooling up with it would park the dock in
+           the middle of the screen. min() holds the tooling within 220px of
+           the bottom: it still clears the collapsed bar (~84px) and a short
+           drawer, and beyond that it simply overlaps the drawer, which is the
+           correct trade per "tooling never constrains product UI". The product
+           bar keeps the bottom edge either way. */
         .tbx-dock:not(.tbx-dock--moved),
         .version-switcher:not(.tbx-dock--moved) {
-            bottom: calc(16px + var(--rec-dock-h, 0px)) !important;
+            bottom: calc(16px + min(var(--rec-dock-h, 0px), 220px)) !important;
         }
         .tbx-handle {
-            bottom: calc(8px + var(--rec-dock-h, 0px)) !important;
+            bottom: calc(8px + min(var(--rec-dock-h, 0px), 220px)) !important;
         }
 
         /* Respect reduced-motion: the dock's slide/transition is decorative. */
@@ -1955,9 +1973,6 @@
         .rec-details-text { font-size: 13px; line-height: 1.6; }
         .rec-details-text ul { margin: 4px 0 0; padding-left: 18px; }
         .rec-details-text li { margin-bottom: 4px; }
-        .rec-details-chips {
-            display: flex; flex-wrap: wrap; gap: 6px;
-        }
         .rec-details-footer {
             flex-shrink: 0;
             display: flex; align-items: center; justify-content: space-between;
@@ -1966,14 +1981,6 @@
             border-top: 1px solid var(--border-soft);
             background: var(--lumo-base-color);
         }
-        .rec-details-discard {
-            background: none; border: none;
-            font-family: inherit; font-size: 12px; font-weight: 600;
-            color: var(--lumo-error-text-color);
-            cursor: pointer;
-            padding: 6px 2px;
-        }
-        .rec-details-discard:hover { text-decoration: underline; }
 
         @media (max-width: 760px) {
             /* At this width a 420px side panel plus the drawer leaves nothing
@@ -4581,6 +4588,28 @@
             font-size: 11px;
             font-weight: 600;
             color: var(--text-strong);
+            display: flex; align-items: center; gap: 5px;
+        }
+        /* Help affordance beside each date label. Placeholder tooltip copy
+           stands in until the SafeLMS help text is supplied. */
+        .assign-help {
+            color: var(--text-muted);
+            cursor: help;
+            font-size: 11px;
+            line-height: 1;
+            display: inline-flex;
+        }
+        .assign-help:hover { color: var(--brand); }
+        .assign-help:focus-visible {
+            outline: 2px solid var(--brand);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+        /* Intro line above the date grid. */
+        .assign-defaults-intro {
+            margin: 0 0 10px;
+            font-size: 12px;
+            color: var(--text-muted);
         }
         .assign-field vaadin-date-picker { width: 100%; }
                 /* Course rows */
@@ -4658,6 +4687,12 @@
         }
         .v-modal-icon.warn { background: var(--notice-tint); color: var(--notice-text); }
         .v-modal-icon.error { background: var(--lumo-error-color-10pct); color: var(--lumo-error-text-color); }
+        /* Informational tone — no alarm. Used by the upsell "Learn More". */
+        .v-modal-icon.info { background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-color); }
+        /* Stubbed Request-a-Demo text in the upsell modal. Carries the link's
+           look so the intent is legible, with no href and no pointer cursor —
+           nothing here navigates in the prototype. */
+        .rec-demo-stub { color: var(--brand); font-weight: 600; }
         .v-modal-title { font-size: 16px; font-weight: 700; margin: 0; }
         .v-modal-body { padding: 0 22px 16px; font-size: 13px; line-height: 1.55; color: var(--text-strong); }
         .v-modal-body p { margin: 0 0 10px; }
@@ -6242,7 +6277,6 @@ let FORM_ITEMS = [];
 
 const ratings = {};
 const cart = new Set();
-const discarded = new Set();
 // Per-answer conditional requirements for conditional rating scales, keyed by
 // componentId → { [levelIndex]: { annotation, duration } }. Populated at render.
 const conditionalReqs = {};
@@ -6388,6 +6422,9 @@ let recommendationsGenerated = false;
                        it overrides the --rec-drawer-h default. */
 let drawerOpen = false;
 let recGenerating = false;
+// True only while a REFRESH is re-running; keeps the drawer open (see
+// renderRecommendations' workingState).
+let recRefreshing = false;
 let drawerHeightPx = null;
 
 /* Full teardown of the recommendation feature's transient state. Called from
@@ -6398,9 +6435,9 @@ let drawerHeightPx = null;
 function resetRecommendationState() {
     recommendationsGenerated = false;
     recGenerating = false;
+    recRefreshing = false;
     drawerOpen = false;
     cart.clear();
-    discarded.clear();
 }
 
 const formList = document.getElementById('formList');
@@ -7436,7 +7473,6 @@ function selectRating(componentId, levelIndex, qEl) {
     if (recommendationsGenerated) {
         recommendationsGenerated = false;
         cart.clear();
-        discarded.clear();
     }
     renderRecommendations();
 }
@@ -7556,7 +7592,7 @@ function courseImageUrl(courseId) {
    for the bar and the drawer to disagree about what state they're in. */
 function renderRecommendations() {
     const { recommendations, unlicensed, lowRatedTotal } = getRecommendations();
-    const visibleRecs = recommendations.filter(r => !discarded.has(r.course.id));
+    const visibleRecs = recommendations;
 
     /* GATE (unchanged rule): the feature is unavailable until every required
        question is answered. Any pending selection is dropped, since the user
@@ -7565,6 +7601,7 @@ function renderRecommendations() {
         cart.clear();
         recommendationsGenerated = false;
         recGenerating = false;
+        recRefreshing = false;
         drawerOpen = false;
         setDockState('locked');
         renderFloatingCart();
@@ -7578,7 +7615,19 @@ function renderRecommendations() {
        ever got to press it. The bar therefore stays actionable through
        `ready` regardless, and the empty outcome is rendered as the drawer's
        own empty state after Generate (see renderRecDrawer). */
-    setDockState(recommendationsGenerated ? 'results' : 'ready',
+    /* `generating` is its own dock state, ahead of results: the search is
+       still running, so the bar shows a working indicator and the drawer
+       stays collapsed. It opens onto the results only once the call lands. */
+    /* Two shapes of "working", because the reviewer is in a different place
+       for each:
+         - FIRST generate  → `generating`: the drawer has never been open, so
+           the progress belongs in the collapsed bar where the click landed.
+         - REFRESH         → stays in `results` with the drawer open, and the
+           in-drawer loading state covers the list being replaced. Collapsing
+           it here would yank the panel away mid-task. */
+    const workingState = recGenerating && !recRefreshing ? 'generating' : null;
+    setDockState(workingState
+                 || (recommendationsGenerated ? 'results' : 'ready'),
                  { visibleRecs, unlicensed, lowRatedTotal });
     renderFloatingCart();
 }
@@ -7619,6 +7668,52 @@ function setDockState(state, data) {
    resolved to a pixel value and written to --rec-drawer-current. Respects a
    user-dragged height when there is one, and clamps to the same bounds the
    resize handler uses. */
+/* Ceiling for the open drawer: it may rise until it sits 64px below the
+   bottom edge of the sticky form toolbar (the topnav + .topbar stack that
+   carries the timer). Measured live rather than hardcoded, so it stays correct
+   when the topnav wraps, the deleted banner appears, or the window resizes.
+   The bar's own height comes off the top because .rec-bar sits above the
+   drawer inside the same dock. */
+const DRAWER_TOOLBAR_GAP = 64;
+function drawerMaxHeight(minH) {
+    const topbar = document.querySelector('.topbar');
+    // getBoundingClientRect().bottom is the toolbar's real on-screen bottom,
+    // which already accounts for everything sticky above it.
+    const toolbarBottom = topbar ? Math.max(0, topbar.getBoundingClientRect().bottom) : 112;
+    const barH = recBar ? recBar.offsetHeight : 84;
+    return Math.max(minH, window.innerHeight - toolbarBottom - DRAWER_TOOLBAR_GAP - barH);
+}
+
+/* The drawer's natural height = its content plus every fixed box stacked
+   around that content. Each piece is MEASURED rather than hardcoded, because
+   a hardcoded total silently goes stale the moment any of this padding
+   changes — which is exactly what happened with an earlier `+36` guess that
+   assumed symmetric 18px body padding when the real rule is `18px 24px 32px`,
+   and which also missed the resize grip entirely. Rounded up: a fractional
+   under-estimate is the difference between "fits" and "scrolls by 1px". */
+function naturalDrawerHeight() {
+    const contentH = recDrawerInner ? recDrawerInner.getBoundingClientRect().height : 0;
+    const toolbarH = recDrawerToolbar ? recDrawerToolbar.offsetHeight : 0;
+    // The grip is display:none at narrow widths, so offsetHeight (0 when
+    // hidden) is the honest read rather than its CSS height.
+    const gripEl = document.getElementById('recDrawerResize');
+    const gripH = gripEl ? gripEl.offsetHeight : 0;
+
+    // Body padding (18 top / 32 bottom today) plus the drawer's own top border.
+    let bodyPad = 0;
+    if (recDrawerBody) {
+        const cs = getComputedStyle(recDrawerBody);
+        bodyPad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+    }
+    let borders = 0;
+    if (recDrawer) {
+        const cs = getComputedStyle(recDrawer);
+        borders = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+    }
+
+    return Math.ceil(contentH + toolbarH + gripH + bodyPad + borders);
+}
+
 function syncDrawerOpenHeight() {
     if (!recDrawer) return;
 
@@ -7626,22 +7721,30 @@ function syncDrawerOpenHeight() {
        height for it leaves a large empty panel, so that state sizes to its
        content instead — there is nothing to scroll and nothing to resize. */
     if (recDock.dataset.empty === '') {
-        /* Measure the INNER content, not the scroll body: .rec-drawer-body is
-           `flex: 1` and so already stretches to the drawer, meaning its
-           scrollHeight reports the container's height rather than the
-           content's. recDrawerInner is the thing that actually wraps the copy.
-           +36 covers the body's 18px top/bottom padding. */
-        const contentH = recDrawerInner ? recDrawerInner.offsetHeight : 0;
-        recDock.style.setProperty('--rec-drawer-current', Math.max(96, contentH + 36) + 'px');
+        /* Same measured sizing as the populated state — naturalDrawerHeight()
+           reads the content plus the real chrome around it. The toolbar and
+           the resize grip are both hidden in this state ([data-empty]), and
+           measuring them returns 0, so nothing extra is reserved for them. */
+        recDock.style.setProperty('--rec-drawer-current',
+            Math.max(96, naturalDrawerHeight()) + 'px');
         return;
     }
 
     const MIN_H = 220;
-    const maxH = Math.max(MIN_H, window.innerHeight - (recBar ? recBar.offsetHeight : 84) - 120);
-    const target = drawerHeightPx
-        ? Math.min(maxH, Math.max(MIN_H, drawerHeightPx))
-        // No drag yet: fall back to the CSS default (55vh minus the bar).
-        : Math.min(maxH, Math.max(MIN_H, Math.round(window.innerHeight * 0.55) - (recBar ? recBar.offsetHeight : 84)));
+    const maxH = drawerMaxHeight(MIN_H);
+
+    /* No drag yet: open exactly tall enough to show the rows that came back,
+       so a two-card result doesn't open a half-screen panel and a long one
+       doesn't open already-scrolled. Measure recDrawerInner (the content), not
+       the body, which is `flex: 1` and reports the container's height. The
+       toolbar sits above it inside the drawer, so its height counts too;
+       +36 covers the body's 18px top/bottom padding. */
+    let target;
+    if (drawerHeightPx) {
+        target = Math.min(maxH, Math.max(MIN_H, drawerHeightPx));
+    } else {
+        target = Math.min(maxH, Math.max(MIN_H, naturalDrawerHeight()));
+    }
     recDock.style.setProperty('--rec-drawer-current', target + 'px');
 }
 
@@ -7703,6 +7806,17 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
                 Generate recommendations
             </button>
         `,
+        /* Working state. The CTA is replaced (not merely disabled) so the
+           control can't be pressed twice, and the spinner sits where the
+           button was — the progress appears exactly where the click landed.
+           aria-live announces the wait to screen readers, and the matching
+           busy flag goes on the dock so the whole region reads as busy. */
+        generating: `
+            <span class="rec-bar-working" role="status" aria-live="polite">
+                <vwc-spinner class="rec-bar-spinner" loading></vwc-spinner>
+                Finding courses…
+            </span>
+        `,
         results: `
             ${noGaps
                 ? '<span class="rec-bar-count"><i class="fa-solid fa-circle-check" style="margin-right:6px;"></i>No gaps found</span>'
@@ -7716,22 +7830,15 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
         `
     }[state] || '';
 
-    // Copy shifts with state: pre-gate it sells the feature, post-generate it
-    // describes what's waiting in the drawer.
-    const desc = {
-        locked:  'This evaluation is set up to match low-rated areas with Vector Learning courses you can assign without leaving the form.',
-        ready:   'Match the low-rated areas of this evaluation with relevant Vector Learning courses, then assign them without leaving the form.',
-        results: noGaps
-            ? 'This evaluation has no low-rated areas, so no courses were matched.'
-            : 'Review the matched courses, select the ones that fit, and configure the assignment.'
-    }[state] || '';
+    // One fixed subhead across all states (per PM copy direction) — it
+    // describes the feature and its gating rather than narrating state.
+    const desc = 'View relevant course recommendations after completing all required form fields. Review, select and assign to this employee.';
 
     recBar.innerHTML = `
         <div class="rec-bar-icon"><i class="fa-solid fa-graduation-cap"></i></div>
         <div class="rec-bar-body">
             <h2 class="rec-bar-title" id="recBarTitle">
-                <span>Course recommendations</span>
-                <span class="rec-bar-pill">AI</span>
+                <span>Recommended Courses</span>
             </h2>
             <p class="rec-bar-desc">${desc}</p>
         </div>
@@ -7753,21 +7860,30 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
 /* Generate. The brief generating state exists so the transition reads as the
    feature doing work — snapping straight from a CTA to a full drawer makes
    the results look pre-baked rather than matched to this evaluation. */
+/* Simulated latency for the recommendation search. Real implementation:
+   replace the setTimeout below with the engine call and resolve on its
+   response — the two render passes around it stay exactly as they are. */
+const REC_SEARCH_MS = 1600;
+
 function runGenerate() {
     batchSeed = Date.now();
     cart.clear();
-    discarded.clear();
     recGenerating = true;
     recommendationsGenerated = true;
-    /* Success opens the drawer straight onto the results — that's the payoff
-       the CTA promised, so it is never left to a second click. */
-    drawerOpen = true;
+    /* The drawer stays CLOSED while the search runs. Opening it immediately
+       would expose an empty panel with a spinner in it, which reads as a
+       result that came back empty. Collapsed-with-progress is the honest
+       shape: nothing has come back yet. */
+    drawerOpen = false;
     renderRecommendations();
 
     setTimeout(() => {
         recGenerating = false;
+        /* Now the results exist, so the drawer opens onto them — that's the
+           payoff the CTA promised, never left to a second click. */
+        drawerOpen = true;
         renderRecommendations();
-    }, 900);
+    }, REC_SEARCH_MS);
 }
 
 /* The drawer: toolbar + two lists.
@@ -7786,11 +7902,15 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
        height would beat the closed-state rule and pin the drawer open — it
        would never collapse again. */
 
+    /* Reached by REFRESH only. A first Generate shows its progress in the
+       collapsed bar instead (the `generating` dock state) and never renders
+       the drawer mid-search; a refresh keeps the drawer open and swaps this
+       loading state in for the list while the call re-runs. */
     if (recGenerating) {
         recDrawerToolbar.innerHTML = '';
         recDrawerInner.innerHTML = `
             <div class="rec-drawer-loading">
-                <vwc-spinner></vwc-spinner>
+                <vwc-spinner loading></vwc-spinner>
                 <div>Matching low-rated areas to Vector Learning courses…</div>
             </div>
         `;
@@ -7812,16 +7932,16 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
                 Select All
             </button>
             <button type="button" class="rec-configure-btn" id="recConfigureBtn">
-                Configure Assignments
+                Configure Assignment
             </button>
         ` : ''}
     `;
 
     /* ── No gaps at all ──
-       Distinct from "everything was discarded": the matcher ran and this
-       evaluation simply has nothing rated low enough to need a course. This
-       is the honest place to say so — after Generate, as a result — rather
-       than pre-empting the reviewer before they've asked. */
+       The matcher ran and this evaluation simply has nothing rated low enough
+       to need a course. This is the honest place to say so — after Generate,
+       as a result — rather than pre-empting the reviewer before they've
+       asked. */
     if (!lowRatedTotal) {
         recDock.dataset.empty = '';
         recDrawerToolbar.innerHTML = '';
@@ -7845,7 +7965,7 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
             <div class="rec-list-head">
                 <h3 class="rec-list-title">
                     <i class="fa-solid fa-circle-check"></i>
-                    Recommended from your library
+                    Recommended from your libraries
                 </h3>
                 <p class="rec-list-sub">${visibleRecs.length} course${visibleRecs.length === 1 ? '' : 's'} you can assign now.</p>
             </div>
@@ -7856,8 +7976,8 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
             <div class="rec-empty" style="background:#f4f5f7;border-color:var(--border-soft);color:var(--text-muted);">
                 <i class="fa-solid fa-circle-info"></i>
                 <div class="rec-empty-text">
-                    <strong>No active recommendations.</strong>
-                    All recommendations have been discarded. <a href="#" id="restoreDiscardedLink" style="color:var(--brand); margin-left:6px;">Restore discarded</a>
+                    <strong>No matching courses in your libraries.</strong>
+                    No courses in your libraries match the performance gaps in this evaluation.
                 </div>
             </div>
         </section>
@@ -7877,9 +7997,15 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
             <div class="rec-list-head">
                 <h3 class="rec-list-title">
                     <i class="fa-solid fa-lock"></i>
-                    Not in your library
+                    Not in your libraries
                 </h3>
-                <p class="rec-list-sub">${unlicensed.length} additional match${unlicensed.length === 1 ? '' : 'es'}.</p>
+                <!-- One CTA covering the whole unlicensed grouping — placed
+                     directly after the heading (not pushed to the right edge)
+                     so it reads as belonging to it. Access is an account-level
+                     fact, so this is one CTA, not a per-card action. -->
+                <button type="button" class="rec-upsell-learnmore" id="recUpsellLearnMore">
+                    Learn More
+                </button>
             </div>
             <vwc-course-list id="recUpsellList" card-heading-level="3"></vwc-course-list>
         </section>
@@ -7891,22 +8017,34 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
     const refreshBtn = document.getElementById('refreshRecsBtn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
+            /* Refresh re-runs the same engine call as Generate, so it shows
+               the same wait rather than swapping the list instantly. The
+               drawer STAYS OPEN here (unlike Generate, which starts
+               collapsed): it is already showing results, and collapsing it
+               mid-refresh would yank the panel out from under the reviewer.
+               The in-drawer loading state covers this case. */
             const doRefresh = () => {
                 batchSeed = Date.now();
                 cart.clear();
-                discarded.clear();
+                recGenerating = true;
+                recRefreshing = true;
                 renderRecommendations();
+                setTimeout(() => {
+                    recGenerating = false;
+                    recRefreshing = false;
+                    renderRecommendations();
+                }, REC_SEARCH_MS);
             };
             if (cart.size > 0) {
                 showValidationModal({
                     tone: 'warn',
-                    title: 'Refreshing will discard pending recommendations',
+                    title: 'Refreshing will clear your selections',
                     bodyHtml: `
                         <p>You have <strong>${cart.size}</strong> course recommendation${cart.size === 1 ? '' : 's'} added but not yet assigned:</p>
                         <div class="v-modal-issues">${pendingCartListHtml()}</div>
                         <p style="margin-bottom:0;">Generating a new batch will clear these. Continue?</p>
                     `,
-                    confirmLabel: 'Refresh and discard',
+                    confirmLabel: 'Refresh and clear',
                     cancelLabel: 'Go back',
                     onConfirm: doRefresh
                 });
@@ -7941,12 +8079,28 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
         });
     }
 
-    const restoreLink = document.getElementById('restoreDiscardedLink');
-    if (restoreLink) {
-        restoreLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            discarded.clear();
-            renderRecommendations();
+    /* Upsell "Learn More" — explains why these courses aren't assignable and
+       where to go for access. Informational tone: nothing is wrong, and the
+       reviewer isn't being asked to fix anything.
+
+       The Request-a-Demo text is a STUB: styled as a link so the intent reads,
+       but deliberately not an <a> and not navigable — there is no destination
+       to send a reviewer to in a prototype. At build time this becomes a real
+       link to the Request-a-Demo page. */
+    const learnMoreBtn = document.getElementById('recUpsellLearnMore');
+    if (learnMoreBtn) {
+        learnMoreBtn.addEventListener('click', () => {
+            showValidationModal({
+                tone: 'info',
+                title: 'Not in your libraries',
+                bodyHtml: `
+                    <p>Your account does not have access to these courses in Vector LMS.</p>
+                    <p style="margin-bottom:0;">To get access, contact your institution's LMS Administrator
+                    or contact Vector Solutions directly:
+                    <span class="rec-demo-stub">Request A Demo of Vector Solutions&rsquo; Software Solutions</span></p>
+                `,
+                cancelLabel: 'Close'
+            });
         });
     }
 
@@ -7973,7 +8127,14 @@ function measureRecDock() {
     const h = hidden ? 0 : recDock.getBoundingClientRect().height + gap;
     document.documentElement.style.setProperty('--rec-dock-h', Math.round(h) + 'px');
 }
-window.addEventListener('resize', measureRecDock);
+/* On resize the ceiling itself moves (it's derived from the viewport and the
+   toolbar's position), so re-run the open-height calculation before
+   re-measuring the dock. syncDrawerOpenHeight() re-clamps a dragged height to
+   the new bounds too, so the drawer can't end up taller than the viewport. */
+window.addEventListener('resize', () => {
+    if (recDock && recDock.hasAttribute('data-open')) syncDrawerOpenHeight();
+    measureRecDock();
+});
 
 /* ── Drawer resize ──
    Pointer drag on the top edge, plus keyboard steps for parity (WCAG 2.1.1).
@@ -7984,8 +8145,8 @@ window.addEventListener('resize', measureRecDock);
     if (!grip || !recDrawer) return;
 
     const MIN_H = 220;
-    const maxH = () => Math.max(MIN_H, window.innerHeight - recBar.offsetHeight - 120);
-    const clamp = px => Math.min(maxH(), Math.max(MIN_H, px));
+    // Same ceiling the auto-open height uses, so a drag can't exceed it.
+    const clamp = px => Math.min(drawerMaxHeight(MIN_H), Math.max(MIN_H, px));
 
     /* Writes the SAME custom property the open state animates to, so a drag
        and an open/close animation can't disagree about the drawer's height.
@@ -8067,7 +8228,7 @@ const REC_COURSE_DEFINITION = [
     // components — it just isn't shown.)
     { label: 'Why this course', propertyPath: 'rationale', hideInCard: true },
     { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true },
-    { label: 'Available versions', propertyPath: 'variantsText', hideInCard: true }
+    { label: 'Available variants', propertyPath: 'variantsText', hideInCard: true }
 ];
 
 /* Maps one recommendation onto the component's Course shape. id/title/sku/
@@ -8078,7 +8239,6 @@ function courseForCard(rec, isEditorsPick) {
     return {
         id: c.id,
         title: c.title,
-        sku: c.sku,
         version: (c.variants && c.variants.length) ? c.variants[0] : undefined,
         score: isEditorsPick ? SCORE_VECTOR_CHOICE : SCORE_STANDARD,
         duration: c.duration,
@@ -8116,7 +8276,7 @@ function mountCourseList(visibleRecs) {
     list.multi = true;
     // Relabels the footer CTA; assign_label is the documented i18n key.
     list.i18n = {
-        assign_label: 'Configure Assignments',
+        assign_label: 'Configure Assignment',
         no_selection_msg: 'Select at least one course to configure.'
     };
     list.disabledCourseIds = courses.filter(c => assigned.has(c.id)).map(c => c.id);
@@ -8197,7 +8357,7 @@ const UPSELL_COURSE_DEFINITION = [
     { label: 'Course Time', propertyPath: 'duration', hideInCard: true },
     { label: 'Why this course', propertyPath: 'rationale', hideInCard: true },
     { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true },
-    { label: 'Available versions', propertyPath: 'variantsText', hideInCard: true }
+    { label: 'Available variants', propertyPath: 'variantsText', hideInCard: true }
 ];
 
 /* <vwc-course-card> hard-codes `.card-container { height: 320px }` in its
@@ -8374,10 +8534,28 @@ function shrinkCourseCards(list) {
     let tries = 0;
     const tick = () => {
         const found = apply();
-        if (found || tries++ > 40) return;
+        if (found || tries++ > 40) {
+            /* The auto-open height is measured from the rendered content, and
+               until this point there was none — the cards arrive from the
+               component's async service AFTER the drawer has already opened.
+               Re-measure once they exist so the panel settles to the real
+               number of rows instead of the MIN_H it opened at. */
+            if (found) requestAnimationFrame(resizeDrawerToContent);
+            return;
+        }
         requestAnimationFrame(tick);
     };
     tick();
+}
+
+/* Re-runs the open-height calculation after async content lands. No-op when
+   the drawer is closed, when the user has dragged their own height (that
+   choice wins), or in the empty state (already sized by its own branch). */
+function resizeDrawerToContent() {
+    if (!recDock || !recDock.hasAttribute('data-open')) return;
+    if (drawerHeightPx) return;
+    syncDrawerOpenHeight();
+    measureRecDock();
 }
 
 /* The floating cart pill is gone — <vwc-course-list> provides its own
@@ -8505,17 +8683,43 @@ function renderAssignSettingsBlock() {
     const d = assignBatchDefaults;
     return `
         <div class="assign-defaults">
+            <!-- Intro + per-field help text carried over verbatim from the
+                 SafeLMS "Select Dates" assignment step, so the two surfaces
+                 describe the same three dates in the same words. SafeLMS shows
+                 the help as persistent text under each label; this modal's
+                 three-column grid is too narrow for that, so the same strings
+                 are attached as tooltips on a help icon. Field names match
+                 SafeLMS exactly, including "Expire Date". -->
+            <p class="assign-defaults-intro">Choose the timeframes people will need to complete the chosen courses.</p>
             <div class="assign-defaults-grid">
                 <div class="assign-field">
-                    <label class="assign-field-label">Effective date</label>
+                    <label class="assign-field-label">
+                        Effective Date
+                        <span class="assign-help" id="assignHelpEffective" tabindex="0" role="button"
+                              aria-label="About the effective date"><i class="fa-regular fa-circle-question"></i></span>
+                    </label>
+                    <vaadin-tooltip for="assignHelpEffective" position="top"
+                                    text="The assignment will become available to employees on this date."></vaadin-tooltip>
                     <vaadin-date-picker theme="outlined" value="${d.effective}" data-default-field="effective"></vaadin-date-picker>
                 </div>
                 <div class="assign-field">
-                    <label class="assign-field-label">Due date</label>
+                    <label class="assign-field-label">
+                        Due Date
+                        <span class="assign-help" id="assignHelpDue" tabindex="0" role="button"
+                              aria-label="About the due date"><i class="fa-regular fa-circle-question"></i></span>
+                    </label>
+                    <vaadin-tooltip for="assignHelpDue" position="top"
+                                    text="The assignment will be due on this date."></vaadin-tooltip>
                     <vaadin-date-picker theme="outlined" value="${d.due}" data-default-field="due"></vaadin-date-picker>
                 </div>
                 <div class="assign-field">
-                    <label class="assign-field-label">Expiration date</label>
+                    <label class="assign-field-label">
+                        Expire Date
+                        <span class="assign-help" id="assignHelpExpire" tabindex="0" role="button"
+                              aria-label="About the expire date"><i class="fa-regular fa-circle-question"></i></span>
+                    </label>
+                    <vaadin-tooltip for="assignHelpExpire" position="top"
+                                    text="The assignment will no longer be available for employees after this date."></vaadin-tooltip>
                     <vaadin-date-picker theme="outlined" value="${d.expire}" data-default-field="expire"></vaadin-date-picker>
                 </div>
             </div>
@@ -8646,7 +8850,7 @@ function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
     // Vector Choice mirrors the licensed list's own badge rule: the top two
     // of the visible batch carry the above-threshold score.
     const { recommendations } = getRecommendations();
-    const visibleRecs = recommendations.filter(r => !discarded.has(r.course.id));
+    const visibleRecs = recommendations;
     const idxInVisible = visibleRecs.findIndex(r => r.course.id === c.id);
     const isVectorChoice = !unlicensed && idxInVisible >= 0 && idxInVisible < 2;
 
@@ -8675,7 +8879,6 @@ function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
             Not in your library
         </span>
     ` : `
-        <button type="button" class="rec-details-discard" id="recDetailsDiscardBtn">Discard recommendation</button>
         ${isAssigned
             ? '<span theme="badge success"><i class="fa-solid fa-check" style="margin-right:6px;"></i>Assigned</span>'
             : `<vaadin-button theme="primary" id="recDetailsCartBtn">
@@ -8696,7 +8899,7 @@ function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
         </div>
         <div class="rec-details-body">
             <h2 class="rec-details-title" id="recDetailsTitle">${escapeHtml(c.title)}</h2>
-            <p class="rec-details-meta">Course ID ${escapeHtml(c.id)} · ${escapeHtml(c.duration)} · ${escapeHtml(c.provider)}</p>
+            <p class="rec-details-meta">${escapeHtml(c.duration)}</p>
 
             ${unlicensed ? `
                 <div class="rec-details-section">
@@ -8706,33 +8909,10 @@ function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
             ` : ''}
 
             <div class="rec-details-section">
-                <div class="rec-details-label"><i class="fa-solid fa-lightbulb"></i>Why this was recommended</div>
-                <div class="rec-details-text">${escapeHtml(c.rationale)}</div>
-            </div>
-
-            <div class="rec-details-section">
-                <div class="rec-details-label"><i class="fa-solid fa-bullseye"></i>Addresses</div>
-                <div class="rec-details-text">
-                    <div class="rec-details-chips">
-                        ${rec.addresses.map(a => `<span theme="badge contrast" class="rec-addr-chip">${escapeHtml(a.componentId)}</span>`).join('')}
-                    </div>
-                </div>
-            </div>
-
-            <div class="rec-details-section">
                 <div class="rec-details-label"><i class="fa-regular fa-file-lines"></i>Course outline</div>
                 <div class="rec-details-text">
                     <p style="margin:0;">By the end of this course, you will be able to:</p>
                     <ul>${c.outline.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>
-                </div>
-            </div>
-
-            <div class="rec-details-section">
-                <div class="rec-details-label"><i class="fa-solid fa-layer-group"></i>Available versions</div>
-                <div class="rec-details-text">
-                    <div class="rec-details-chips">
-                        ${c.variants.map(v => `<span theme="badge contrast" class="details-variant-chip">${escapeHtml(v)}</span>`).join('')}
-                    </div>
                 </div>
             </div>
         </div>
@@ -8741,16 +8921,6 @@ function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
 
     document.getElementById('recDetailsCloseBtn')
         .addEventListener('click', closeRecDetailsPanel);
-
-    const discardBtn = document.getElementById('recDetailsDiscardBtn');
-    if (discardBtn) {
-        discardBtn.addEventListener('click', () => {
-            discarded.add(c.id);
-            cart.delete(c.id);
-            closeRecDetailsPanel();
-            renderRecommendations();
-        });
-    }
 
     const cartBtn = document.getElementById('recDetailsCartBtn');
     if (cartBtn) {
@@ -8822,7 +8992,8 @@ function showValidationModal({ tone = 'warn', title, bodyHtml, confirmLabel = 'C
         if (root.firstChild) return;
         root.innerHTML = `
             <span class="v-modal-icon ${tone}">
-                <i class="fa-solid ${tone === 'error' ? 'fa-circle-exclamation' : 'fa-triangle-exclamation'}"></i>
+                <i class="fa-solid ${tone === 'error' ? 'fa-circle-exclamation'
+                    : tone === 'info' ? 'fa-circle-info' : 'fa-triangle-exclamation'}"></i>
             </span>
             <h3 class="v-modal-title" id="vModalTitle">${title}</h3>`;
     };
