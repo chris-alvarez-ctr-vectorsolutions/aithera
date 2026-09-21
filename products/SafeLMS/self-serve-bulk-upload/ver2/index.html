@@ -517,6 +517,21 @@
   .ae-bulk-step .n { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff;
     font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
   .ae-bulk-step .t { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+
+  /* ---- ver2: compact bulk-upload dropper pinned to the TOP of the Add Employee
+         modal (above the single-employee form), with an "or" divider between. --- */
+  .ae-bulk-top-drop { display: flex; align-items: center; gap: 16px; border: 1.5px dashed #B9C9DA;
+    border-radius: 12px; padding: 15px 18px; background: #FAFCFF; cursor: pointer; transition: border-color .12s, background .12s; }
+  .ae-bulk-top-drop:hover { border-color: var(--blue-accent); background: #F5F9FE; }
+  .ae-bulk-top-drop .bt-ico { width: 42px; height: 42px; border-radius: 10px; background: #EDF3FA; color: var(--blue);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex: 0 0 42px; }
+  .ae-bulk-top-drop .bt-tx { flex: 1; min-width: 0; }
+  .ae-bulk-top-drop .bt-tx .t { font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .ae-bulk-top-drop .bt-tx .s { font-size: 12.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+  .ae-bulk-top-drop .bt-cta { font-size: 13px; font-weight: 600; color: var(--blue); white-space: nowrap; flex: 0 0 auto; }
+  .ae-or { display: flex; align-items: center; gap: 14px; margin: 20px 0 22px; color: var(--muted-2);
+    font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+  .ae-or::before, .ae-or::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 </style>
 </head>
 <body>
@@ -780,8 +795,10 @@
   }
 
   function pickFile(id) {
-    // V3: any picked file starts the guided assistant.
-    setState({ fileId: id, mapping: defaultMapping(id), acks: {}, step: 'guide',
+    // Any picked file starts the guided assistant. Reached from the import-flow
+    // dropzone OR the bulk dropper at the top of the Add Employee modal — so
+    // close that modal and switch into the import view.
+    setState({ fileId: id, mapping: defaultMapping(id), acks: {}, step: 'guide', view: 'import', addEmp: false,
       guideIdx: 0, guideChoices: {}, purgeUsers: false, purgeJobs: false, repSent: false, fileModal: false });
   }
 
@@ -1167,6 +1184,19 @@
       + '<div style="margin-top:14px;font-size:12.5px;color:#8CA0B4;"><i class="fa-solid fa-circle-check" style="color:#12B76A;"></i> Automated sync is already set up for your site — bulk uploads and the nightly sync use the same review.</div>';
   }
 
+  /* ver2 — a compact bulk dropper pinned to the top of the Add Employee modal.
+     Clicking it opens the file picker; picking a file launches the guided-import
+     flow (see pickFile). Sits above the single-employee form, split by an "or". */
+  function addEmpBulkTopHTML() {
+    return '<div class="ae-bulk-top-drop" data-act="openFiles">'
+      + '<span class="bt-ico"><i class="fa-solid fa-cloud-arrow-up"></i></span>'
+      + '<div class="bt-tx"><div class="t">Adding a whole roster? Bulk upload a spreadsheet</div>'
+      + '<div class="s">Drag a .csv or .xlsx here, or <a href="#" data-act="openFiles">browse</a> — review every change before it’s applied</div></div>'
+      + '<span class="bt-cta">Choose file →</span>'
+      + '</div>'
+      + '<div class="ae-or">or add one employee</div>';
+  }
+
   function addEmployeeModal(withBulk) {
     var bulk = withBulk && state.empMode === 'bulk';
     var modeBar = withBulk
@@ -1175,6 +1205,8 @@
         + '<button class="' + (bulk ? 'is-on' : '') + '" data-act="empMode" data-arg="bulk"><i class="fa-solid fa-users"></i> Many (bulk upload)</button>'
         + '</div>'
       : '';
+    // ver2 puts the bulk dropper at the top of the single-employee modal.
+    var bulkTop = (!withBulk) ? addEmpBulkTopHTML() : '';
     var foot = bulk ? '' : '<button class="ae-save" data-act="noop"><i class="fa-regular fa-floppy-disk"></i> Save</button>';
     return '<div class="modal-overlay" data-act="closeAddEmp">'
       + '<div class="modal modal--wide" data-act="noop">'
@@ -1183,7 +1215,7 @@
       + '<div class="modal-title" style="font-size:22px;">Add employee</div></div>'
       + '<div style="display:flex;align-items:center;gap:14px;">' + foot
       + '<button class="modal-x" data-act="closeAddEmp" aria-label="Close" style="width:34px;height:34px;border-radius:50%;background:#EDF1F6;">✕</button></div></div>'
-      + '<div class="modal-body" style="padding:24px 26px;">' + modeBar + (bulk ? addEmpBulkHTML() : addEmpFormHTML()) + '</div>'
+      + '<div class="modal-body" style="padding:24px 26px;">' + modeBar + bulkTop + (bulk ? addEmpBulkHTML() : addEmpFormHTML()) + '</div>'
       + '</div></div>';
   }
 
@@ -1937,8 +1969,8 @@
     $app.innerHTML = variantsPanel()
       + '<div class="app">' + sidebar()
       + '<div class="main">' + topbar() + settingsTabsBar() + '<div class="scroll">' + main + '</div></div></div>'
-      + (state.fileModal ? fileModalHTML() : '')
-      + (state.addEmp ? addEmployeeModal(false) : '');
+      + (state.addEmp ? addEmployeeModal(false) : '')
+      + (state.fileModal ? fileModalHTML() : '');  // picker renders LAST so it stacks above the Add Employee modal
   }
 
   /* -------------------------------------------------------------- interaction */
@@ -2121,7 +2153,7 @@
         /* ── Manual import: wizard on the left, then one branch per severity ──
            Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
         { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — Import button', state: 'employees',
-          desc: 'Bulk import now lives under the Employees tab. ver2 entry point = an “Import” button beside Export (Add Employee stays the normal single-add primary). Clicking Import launches the upload → guided-assistant flow. Automated sync is already set up for the site.' },
+          desc: 'Bulk import now lives under the Employees tab. ver2 has TWO entry points: an “Import” button beside Export, AND a compact bulk-upload dropper pinned to the top of the Add Employee modal (above the single-employee form, split by an “or add one employee” divider). Either one opens the file picker → guided-assistant flow. Automated sync is already set up for the site.' },
         { id: 'upload', flow: 'import', x: 250, y: 250, step: 'Step 1', name: 'Upload file', state: 'upload',
           desc: 'Drag a file or pick a sample. Nothing imports until reviewed. The Template variant instead asks you to download the SafeLMS template first.' },
         { id: 'guide', flow: 'import', x: 500, y: 250, step: 'Guided', name: 'Guided assistant', state: 'guide',

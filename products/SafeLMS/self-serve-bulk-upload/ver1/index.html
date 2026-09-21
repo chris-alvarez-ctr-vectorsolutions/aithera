@@ -489,6 +489,21 @@
   .ae-bulk-step .n { width: 22px; height: 22px; border-radius: 50%; background: var(--blue); color: #fff;
     font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-bottom: 8px; }
   .ae-bulk-step .t { font-size: 12.5px; color: var(--ink-2); line-height: 1.45; }
+
+  /* ---- Full-screen bulk import (ver1) --------------------------------------
+     After the Bulk Upload button opens the file picker and a file is chosen,
+     the import takes over the whole viewport — pushing the sidebar/topbar
+     chrome aside — with its own slim header (file id + close) over the flow. */
+  .import-full { position: fixed; inset: 0; z-index: 950; background: #EEF1F5;
+    display: flex; flex-direction: column; animation: fadeup .18s ease; }
+  .import-full-bar { flex: 0 0 60px; height: 60px; background: #fff; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 22px; }
+  .import-full-bar .iff-id { display: flex; align-items: center; gap: 13px; min-width: 0; }
+  .import-full-bar .iff-t { line-height: 1.2; min-width: 0; }
+  .import-full-bar .iff-t b { display: block; font-size: 15px; font-weight: 700; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .import-full-bar .iff-t span { font-size: 12.5px; color: var(--muted); }
+  .import-full-body { flex: 1; min-height: 0; overflow-y: auto; }
 </style>
 </head>
 <body>
@@ -723,6 +738,7 @@
     notifySuccess: false,
     openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
     view: 'employees',   // 'employees' = the Employees-tab landing (list + entry point); 'import' = bulk-import flow; 'sync' = automated-sync detail page
+    importFull: false,   // ver1: the import flow has taken over the full viewport (after a file is picked)
     disc: {},            // open/closed state for the progressive-disclosure expanders
     attnSev: 'fixable',  // attention-needed step severity: 'fixable' (amber) | 'escalate' (red)
     attnSent: false,     // escalate handed to Vector's team
@@ -751,8 +767,15 @@
   }
 
   function pickFile(id) {
-    setState({ fileId: id, mapping: defaultMapping(id), acks: {},
+    // Picking a file drops the picker and takes the import full-screen at the
+    // next step (Map columns / Import settings) — the upload step is done.
+    setState({ fileId: id, mapping: defaultMapping(id), acks: {}, view: 'import', importFull: true,
       step: isMap() ? 'map' : 'settings', purgeUsers: false, purgeJobs: false, repSent: false, fileModal: false });
+  }
+
+  function currentFile() {
+    for (var i = 0; i < FILES.length; i++) { if (FILES[i].id === state.fileId) return FILES[i]; }
+    return null;
   }
 
   function go(step) {
@@ -1851,9 +1874,29 @@
 
   var EMP_BACK = '<div class="sync-back" data-act="goEmployees"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to employees</div>';
 
+  /* Full-screen bulk import (ver1) — the flow lifted out of the app chrome into
+     a full-viewport overlay with its own slim header (picked-file id + close). */
+  function importFullHTML() {
+    var f = currentFile();
+    var meta = f ? (esc(f.name) + ' · ' + f.rows + ' rows') : 'Choose a file to begin';
+    return '<div class="import-full">'
+      + '<div class="import-full-bar">'
+      + '<div class="iff-id"><span class="ae-head-ico"><i class="fa-solid fa-file-arrow-up"></i></span>'
+      + '<div class="iff-t"><b>Bulk upload employees</b><span>' + meta + '</span></div></div>'
+      + '<button class="modal-x" data-act="goEmployees" aria-label="Close bulk upload" '
+      + 'style="width:34px;height:34px;border-radius:50%;background:#EDF1F6;">✕</button>'
+      + '</div>'
+      + '<div class="import-full-body"><div class="content">' + importTab() + '</div></div>'
+      + '</div>';
+  }
+
   function render() {
-    var main;
-    if (state.view === 'employees') {
+    var main, overlay = '';
+    if (state.view === 'import' && state.importFull) {
+      // Bulk import has taken over the whole viewport; the list sits behind it.
+      overlay = importFullHTML();
+      main = employeesLanding();
+    } else if (state.view === 'employees') {
       // The Employees-tab landing: the list + this version's entry point.
       main = employeesLanding();
     } else if (state.view === 'sync') {
@@ -1873,6 +1916,7 @@
     $app.innerHTML = variantsPanel()
       + '<div class="app">' + sidebar()
       + '<div class="main">' + topbar() + settingsTabsBar() + '<div class="scroll">' + main + '</div></div></div>'
+      + overlay
       + (state.fileModal ? fileModalHTML() : '')
       + (state.addEmp ? addEmployeeModal(false) : '');
   }
@@ -1881,6 +1925,8 @@
   function scrollTop() {
     var s = $app.querySelector('.scroll');
     if (s) s.scrollTop = 0;
+    var f = $app.querySelector('.import-full-body');
+    if (f) f.scrollTop = 0;
     window.scrollTo(0, 0);
   }
 
@@ -1904,11 +1950,13 @@
     switch (act) {
       case 'noop': e.preventDefault(); break;
       /* Employees-tab entry points */
-      case 'goEmployees': e.preventDefault(); setState({ view: 'employees', addEmp: false }); scrollTop(); break;
+      case 'goEmployees': e.preventDefault(); setState({ view: 'employees', addEmp: false, importFull: false }); scrollTop(); break;
       case 'addSingle': e.preventDefault(); setState({ addEmp: true, empMode: 'single' }); break;
       case 'closeAddEmp': setState({ addEmp: false }); break;
       case 'empMode': setState({ empMode: arg }); break;
-      case 'goBulk': e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, addEmp: false, validating: false }); scrollTop(); break;
+      /* ver1 Bulk Upload — open the file picker straight away; picking a file
+         takes the import full-screen (see pickFile). */
+      case 'goBulk': e.preventDefault(); setState({ view: 'employees', addEmp: false, fileId: null, importFull: false, validating: false, fileModal: true }); break;
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':
@@ -1992,30 +2040,30 @@
     var v = {}; for (var k in state.variants) v[k] = state.variants[k];
     v.automationStage = stg;
     if (scn) v.syncScenario = scn;
-    setState({ tab: 'sync', view: 'sync', blessed: false, variants: v });
+    setState({ tab: 'sync', view: 'sync', blessed: false, importFull: false, variants: v });
   }
 
   function reviewFor(fileId, pu, pj) {
-    setState({ tab: 'import', view: 'import', fileId: fileId, mapping: defaultMapping(fileId),
+    setState({ tab: 'import', view: 'import', importFull: true, fileId: fileId, mapping: defaultMapping(fileId),
       purgeUsers: !!pu, purgeJobs: !!pj, repSent: false, acks: {}, step: 'review', validating: false });
   }
 
   function applyFlowState(id) {
     switch (id) {
-      case 'employees': setState({ view: 'employees', addEmp: false }); break;
-      case 'upload': setState({ tab: 'import', view: 'import', step: 'upload', fileId: null, validating: false }); break;
-      case 'map': setState({ tab: 'import', view: 'import', fileId: 'saml', mapping: defaultMapping('saml'), purgeUsers: false, purgeJobs: false, acks: {}, step: 'map', validating: false }); break;
-      case 'settings': setState({ tab: 'import', view: 'import', fileId: 'confirm', mapping: defaultMapping('confirm'), purgeUsers: false, purgeJobs: false, repSent: false, acks: {}, step: 'settings', validating: false }); break;
+      case 'employees': setState({ view: 'employees', addEmp: false, importFull: false }); break;
+      case 'upload': setState({ tab: 'import', view: 'import', importFull: true, step: 'upload', fileId: null, validating: false }); break;
+      case 'map': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'saml', mapping: defaultMapping('saml'), purgeUsers: false, purgeJobs: false, acks: {}, step: 'map', validating: false }); break;
+      case 'settings': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'confirm', mapping: defaultMapping('confirm'), purgeUsers: false, purgeJobs: false, repSent: false, acks: {}, step: 'settings', validating: false }); break;
       /* Manual import — one node per severity path */
       case 'review-info':     reviewFor('clean', false, false); break;  // INFO only — runs freely
       case 'review-confirm':  reviewFor('confirm', true, true); break;  // CONFIRM ×3 (+ info) — name change, deactivations, job removals
       case 'review-blocked':  reviewFor('blast', false, false); break;  // BLOCKED — blast radius
       case 'review-saml':     reviewFor('saml', false, false); break;   // BLOCKED — SAML mismatch
       case 'review-escalate': reviewFor('dupes', false, false); break;  // BLOCKED ×2 + CONTACT VECTOR
-      case 'done': setState({ tab: 'import', view: 'import', fileId: 'confirm', doneCounts: summaryFor('confirm', false, false), step: 'done', validating: false }); break;
+      case 'done': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'confirm', doneCounts: summaryFor('confirm', false, false), step: 'done', validating: false }); break;
       /* Attention-needed step (V1 treatment = inline alert mode) */
-      case 'attn-fixable':  setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'fixable', attnSent: false }); break;   // AMBER — you fix it
-      case 'attn-escalate': setState({ tab: 'import', view: 'import', step: 'attn', attnSev: 'escalate', attnSent: false }); break; // RED — Vector's team
+      case 'attn-fixable':  setState({ tab: 'import', view: 'import', importFull: true, step: 'attn', attnSev: 'fixable', attnSent: false }); break;   // AMBER — you fix it
+      case 'attn-escalate': setState({ tab: 'import', view: 'import', importFull: true, step: 'attn', attnSev: 'escalate', attnSent: false }); break; // RED — Vector's team
       /* Automated sync — already set up; one node per severity path */
       case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
       case 'sync-failed':   setSyncState('active-failed', 'confirm'); break;  // CONFIRM — approve changes
@@ -2048,7 +2096,7 @@
         /* ── Manual import: wizard on the left, then one branch per severity ──
            Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
         { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — split buttons', state: 'employees',
-          desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload” (launches the import flow). Automated sync is already set up for the site.' },
+          desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload”. Clicking Bulk Upload opens the file-picker modal right away; picking a file drops the picker and takes the import FULL-SCREEN at the next step (Map / Import settings), pushing the app chrome aside. Automated sync is already set up for the site.' },
         { id: 'upload', flow: 'import', x: 250, y: 250, step: 'Step 1', name: 'Upload file', state: 'upload',
           desc: 'Drag a file or pick a sample. Nothing imports until reviewed. The Template variant instead asks you to download the SafeLMS template first.' },
         { id: 'map', flow: 'import', x: 500, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
