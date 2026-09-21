@@ -1801,18 +1801,80 @@
                so the width is overridden here too (without it this rule was
                dead and the gutter never actually narrowed). */
             .rec-dock { left: 10px; right: 10px; width: calc(100% - 20px); }
-            /* Stacked layout: release the single-row fixed height or the
-               wrapped rows are clipped out of the bar entirely. min-height
-               keeps the banner from ever being shorter than the pinned
-               single-row version. */
+            /* ── Single-row bar (WCAG 1.4.10) ──
+               The banner previously wrapped to THREE rows here (icon, then
+               body at flex-basis:100%, then actions at 100%), which made it
+               218px tall — 85% of a 320x256 viewport at 400% zoom, before the
+               drawer opened at all. At this width it collapses to one row:
+               a small icon, the heading, and a single icon-only CTA.
+
+               What is dropped is the marketing copy, NOT the function: every
+               action available on the wide bar is still here, and the heading
+               still names the feature. */
             .rec-bar {
-                flex-wrap: wrap;
-                padding: 12px 16px;
+                flex-wrap: nowrap;
+                padding: 10px 12px;
+                gap: 10px;
                 height: auto;
-                min-height: var(--rec-bar-h);
+                min-height: 0;
             }
-            .rec-bar-body { flex-basis: 100%; order: 2; }
-            .rec-bar-actions { order: 3; flex-basis: 100%; justify-content: flex-end; }
+            /* Smaller badge — 42px is a desktop flourish at this width. */
+            .rec-bar-icon {
+                width: 30px; height: 30px;
+                border-radius: 8px;
+                font-size: 13px;
+            }
+            /* The body must be allowed to shrink, or the heading pushes the
+               CTA off the end of the row. */
+            .rec-bar-body { min-width: 0; flex: 1 1 auto; }
+            /* The description is the single biggest height cost and the least
+               load-bearing content — the drawer itself explains the feature. */
+            .rec-bar-desc { display: none; }
+            /* One line, ellipsized rather than wrapped. */
+            .rec-bar-title {
+                font-size: 13.5px;
+                flex-wrap: nowrap;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: block;
+            }
+            .rec-bar-actions { flex-shrink: 0; gap: 8px; }
+
+            /* Icon-only CTA. The label is hidden VISUALLY ONLY — it stays in
+               the accessibility tree, and the button also carries an explicit
+               aria-label, so the control is still named. Never `display: none`
+               here: that would remove it from the tree and leave an unnamed
+               icon button. */
+            .rec-cta-label {
+                position: absolute;
+                width: 1px; height: 1px;
+                padding: 0; margin: -1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+                border: 0;
+            }
+            /* Square target once the label is gone — 36px clears the 24px
+               minimum (WCAG 2.5.8) with room to spare. */
+            .rec-bar-cta,
+            .rec-bar-working {
+                width: 36px; height: 36px;
+                padding: 0;
+                justify-content: center;
+                gap: 0;
+            }
+            /* The count chip duplicates what the drawer shows the moment it
+               opens, and the chevron beside it is the actual control. */
+            .rec-bar-count { display: none; }
+            /* Match the CTA so the single row has one consistent control
+               height; still well above the 24px minimum. */
+            .rec-bar-chevron { width: 36px; height: 36px; }
+
+            /* The fixed 62vh below is now a FLOOR-less leftover: the JS sizes
+               the open drawer from its content and caps it against the
+               viewport (see drawerMaxHeight), and that value wins via
+               .rec-dock[data-open]. Kept only as the pre-JS fallback. */
             /* A drag-resized drawer is not usable at this width; fix the
                height and hide the grip. */
             .rec-drawer { height: 62vh; }
@@ -7847,19 +7909,21 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
         locked: `
             <span class="rec-bar-cta-wrap" id="recGateWrap" tabindex="0"
                   role="button" aria-disabled="true"
+                  aria-label="Generate recommendations"
                   aria-describedby="recGateTip">
                 <span class="rec-bar-cta disabled" aria-hidden="true">
                     <i class="fa-solid fa-lock"></i>
-                    Generate recommendations
+                    <span class="rec-cta-label">Generate recommendations</span>
                 </span>
             </span>
             <vaadin-tooltip for="recGateWrap" position="top"
                 text="Answer all required questions to generate course recommendations for this evaluation."></vaadin-tooltip>
         `,
         ready: `
-            <button type="button" class="rec-bar-cta" id="recGenerateBtn">
+            <button type="button" class="rec-bar-cta" id="recGenerateBtn"
+                    aria-label="Generate recommendations">
                 <i class="fa-solid fa-wand-sparkles"></i>
-                Generate recommendations
+                <span class="rec-cta-label">Generate recommendations</span>
             </button>
         `,
         /* Working state. The CTA is replaced (not merely disabled) so the
@@ -7870,7 +7934,7 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
         generating: `
             <span class="rec-bar-working" role="status" aria-live="polite">
                 <vwc-spinner class="rec-bar-spinner" loading></vwc-spinner>
-                Finding courses…
+                <span class="rec-cta-label">Finding courses…</span>
             </span>
         `,
         results: `
