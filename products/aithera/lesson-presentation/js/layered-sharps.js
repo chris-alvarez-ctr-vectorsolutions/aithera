@@ -1139,12 +1139,6 @@
     var near = document.getElementById('blPeek1');
     var far = document.getElementById('blPeek2');
 
-    // The eyebrow counts the questions. What it cannot say is that half of
-    // them have no right answer, which is what decides whether the Feel items
-    // get an honest answer or a flattering one.
-    ctx.setCoachSay('Two questions about the procedure, two about how you see it. ' +
-      'These questions aren\u2019t graded.');
-    ctx.floatClose();
     render(0);
     setPeekContent(near, 1); near.className = 'bl-peek sh-battery depth1';
     setPeekContent(far, 2); far.className = 'bl-peek sh-battery depth2';
@@ -1311,22 +1305,14 @@
         if (q.obj === 'K2') res.k2up = sel.opt.score >= 2;
         if (q.obj === 'F1') res.f1 = sel.opt.score;
         if (q.obj === 'F3') res.f3 = sel.opt.score;
-        // Battery-before mode runs this step with no CLARA (noCoach) — there
-        // is no reply to read between an answer and the next card, so a
-        // second click just to relabel the footer "Next question" is a step
-        // with nothing in it. One button, a brief pause to see the pick
-        // register, then it advances on its own.
-        if (batteryOrderBefore()) {
-          setTimeout(function () {
-            if (i + 1 < BATTERY.length) swapTo(i + 1); else done();
-          }, T(700));
-          return;
-        }
-        ctx.floatOpen();
-        ctx.setCoachSay(esc(sel.opt.reply));
-        ctx.positionOrb(true);
-        if (i + 1 < BATTERY.length) offerNext(i + 1);
-        else done();
+        // This step carries no CLARA (noCoach, always — see the STEPS
+        // entry): there's no reply to read between an answer and the next
+        // card, so one click answers it. A brief pause shows the pick
+        // register, then it advances on its own — select, confirm, next
+        // question loads.
+        setTimeout(function () {
+          if (i + 1 < BATTERY.length) swapTo(i + 1); else done();
+        }, T(700));
       };
     }
     // The three actions are on screen from the start, in the wrong order, and
@@ -1435,14 +1421,7 @@
         k1.push(right ? 2 : 0);
         // See the matching comment in checkEl.onclick above — same reasoning,
         // and this item is always BATTERY[0], so there is always a next card.
-        if (batteryOrderBefore()) {
-          setTimeout(function () { swapTo(i + 1); }, T(700));
-          return;
-        }
-        ctx.floatOpen();
-        ctx.setCoachSay(esc(right ? q.okReply : q.badReply));
-        ctx.positionOrb(true);
-        offerNext(i + 1);
+        setTimeout(function () { swapTo(i + 1); }, T(700));
       }
     }
 
@@ -1486,13 +1465,8 @@
         snapDepth(near, 'depth2');
         setPeekContent(near, i + 2);
         var tmp = near; near = far; far = tmp;
-        ctx.floatClose();
-        ctx.positionOrb(true);
       }, T(440));
     }
-    // The way forward is the footer, relabelled — CLARA's bubble carries only
-    // the reaction to the answer that just landed, never the move past it.
-    function offerNext(i) { ctx.setNextAction('Next question', function () { swapTo(i); }); }
     function done() {
       // K1 is proven only on a clean sweep — it is mandated content, and the
       // simulation still re-verifies it performatively either way. One item
@@ -4608,8 +4582,12 @@
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Progress assessment', mode: 'floating', gate: true,
+      // No CLARA on this screen, in either entry-sequencing mode: a rapid-
+      // fire stack of four quick questions has no room for a reaction
+      // between one and the next, so it runs as a plain one-click battery
+      // instead — select, confirm, next question loads (see batteryInit).
+      noCoach: true,
       caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; K2 (recognition, content-locked) sets its own test-up from its own item — neither derives from the other. D12: K1’s test-out shortcut ships live as built. The compliance question K&A’s script raises — whether 1910.1030(g)(2)(vii)(E)/(F) actually locks this content — is unconfirmed either way, not resolved in K1’s favor; if compliance later rules it locked, this item’s `policy`/`locked` fields are the only thing that needs to change.' },
-      coach: { say: 'Loading\u2026', teaser: true },
       content: BATTERY_CONTENT, init: batteryInit,
       onSkip: function () { saveResult('battery', { k1: 'unproven', skipped: true }); } },
 
@@ -4792,13 +4770,13 @@
     STEPS.splice(afterAdjust, 0, introStep);
 
     // CLARA hasn't been met yet — that's still the cover's job, and the
-    // cover now runs AFTER these two. noCoach (engine flag) drops the orb
-    // and every hint/teaser on both; hideProgress additionally blanks
-    // battery's own "Section N of N" + bar, since there's no course open
-    // yet for that count to mean anything (adjust needs no such flag —
-    // interstitial already blanks its footer the normal way).
+    // cover now runs AFTER these two. Battery is noCoach unconditionally
+    // (see its STEPS entry); adjust only needs it here, since in the
+    // default order it follows the cover and CLARA is already around by
+    // then. hideProgress blanks battery's own "Section N of N" + bar, since
+    // there's no course open yet for that count to mean anything (adjust
+    // needs no such flag — interstitial already blanks its footer normally).
     var bStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'battery'; })];
-    bStep.noCoach = true;
     bStep.hideProgress = true;
     var aStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'adjust'; })];
     aStep.noCoach = true;
@@ -4863,10 +4841,10 @@
     // control now (procedureInit), the same as the hazard beat's, and needs
     // no reviewer-only cycle to reach it.
     demoControls: [{
-      id: 'shImagesBtn', icon: 'fa-image', name: 'Visuals',
+      id: 'shImagesBtn', icon: 'fa-image', name: 'Show visuals',
       note: 'Whether a beat carries art is a derivation decision, not a property of the beat',
       visibleOn: function (step) { return !!IMAGE_STEPS[step.id]; },
-      state: function () { return imagesOn() ? 'On' : 'Off'; },
+      type: 'toggle', on: imagesOn,
       onClick: function (api) {
         try { sessionStorage.setItem('sh-images', imagesOn() ? 'off' : 'on'); } catch (e) {}
         api.replay();
@@ -4879,10 +4857,10 @@
       // answers recorded under the OLD sequence is the confusing state to
       // avoid, not the one to build for. sh-battery-order itself is left
       // alone, same as ll-lens/sh-name — a Demo menu setting, not progress.
-      id: 'shBatteryOrderBtn', icon: 'fa-arrow-down-up-across-line', name: 'Battery timing',
+      id: 'shBatteryOrderBtn', icon: 'fa-arrow-down-up-across-line', name: 'Battery before module',
       note: 'Whether the pre-check (and the path it can adjust) run before the module’s own cover, or in their usual place right after it',
       visibleOn: function (step) { return step.id === 'intro' || step.id === 'battery'; },
-      state: function () { return batteryOrderBefore() ? 'Battery before' : 'Battery at start'; },
+      type: 'toggle', on: batteryOrderBefore,
       onClick: function (api) {
         try {
           sessionStorage.setItem('sh-battery-order', batteryOrderBefore() ? 'start' : 'before');
@@ -4900,10 +4878,10 @@
         location.href = u.pathname + u.search + u.hash;
       }
     }, {
-      id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Battery result',
+      id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Procedure proven',
       note: 'Force the pre-module result and replay the routing it drives',
       visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
-      state: function () { return batteryResult() === 'proven' ? 'Procedure proven' : 'Not proven'; },
+      type: 'toggle', on: function () { return batteryResult() === 'proven'; },
       onClick: function (api) {
         var next = batteryResult() === 'proven' ? 'unproven' : 'proven';
         try { sessionStorage.setItem('sh-battery', next); } catch (e) {}
@@ -4927,7 +4905,7 @@
       id: 'shDoBaselineBtn', icon: 'fa-clapperboard', name: 'Do-object baseline',
       note: 'Swap the live scenario for a video plus one stand-in question — the PRD’s literal Do-object ask (D10)',
       visibleOn: function (step) { return step.id === 'handoff'; },
-      state: function () { return doBaselineOn() ? 'Baseline' : 'Live'; },
+      type: 'toggle', on: doBaselineOn,
       onClick: function (api) {
         try { sessionStorage.setItem('sh-doobject-mode', doBaselineOn() ? 'live' : 'baseline'); } catch (e) {}
         api.refresh();

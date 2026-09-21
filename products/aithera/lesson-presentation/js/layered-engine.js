@@ -83,6 +83,12 @@
     try { sessionStorage.setItem('ll-lens', next); } catch (e) {}
     return next;
   }
+  // Direct set for the Demo menu's Context lens dropdown — picking a sector
+  // by name, rather than cycling past the ones in between.
+  function setLens(id) {
+    if (!CFG.lenses || !CFG.lenses[id]) return;
+    try { sessionStorage.setItem('ll-lens', id); } catch (e) {}
+  }
   // --- Review mode -----------------------------------------------------------
   // One flag for every affordance that exists so a reviewer can reach a
   // screen without doing the work in front of it, and that a real learner
@@ -1003,7 +1009,8 @@
     // right below stays reachable either way, since the Demo menu it lives in
     // already carries that framing.
     if (CFG.reviewGate) {
-      rows.push({ icon: 'fa-user-check', name: 'Review mode', state: reviewMode() ? 'On' : 'Off',
+      rows.push({ icon: 'fa-user-check', name: 'Review mode', type: 'toggle',
+        on: reviewMode(),
         note: 'Unlocks the S-key skip and the video Skip pill',
         run: function () { setReviewMode(!reviewMode()); showStep(idx, 'fwd', false); } });
     }
@@ -1015,16 +1022,21 @@
         run: skipStep });
     }
     // Context lens — engine-owned, shown where the course says it applies.
+    // More than two named sectors, so a dropdown reads faster than a cycling
+    // button — picking "Public Sector" directly beats clicking past AEC.
     if (CFG.lenses && CFG.lensedSteps[step.id]) {
-      rows.push({ icon: 'fa-layer-group', name: 'Context lens', state: lens().label,
+      rows.push({ icon: 'fa-layer-group', name: 'Context lens', type: 'select',
+        value: lensId(),
+        options: CFG.lensOrder.map(function (id) { return { value: id, label: CFG.lenses[id].label }; }),
         note: 'Same objectives and rubric, different working environment',
-        run: function () { cycleLens(); showStep(idx, 'fwd', false); } });
+        onChange: function (id) { setLens(id); showStep(idx, 'fwd', false); } });
     }
     // Whatever else the course declared for this step.
     demoBtns.forEach(function (d) {
       var spec = d.spec;
       if (spec.visibleOn && !spec.visibleOn(step)) return;
-      rows.push({ icon: spec.icon || 'fa-shuffle', name: spec.name || 'Demo',
+      rows.push({ icon: spec.icon || 'fa-shuffle', name: spec.name || 'Demo', type: spec.type,
+        on: spec.on ? !!spec.on() : false,
         state: spec.state ? spec.state() : '', note: spec.note || '',
         run: function () {
           spec.onClick({
@@ -1041,24 +1053,65 @@
         } });
     });
 
+    // Three widgets for three kinds of setting: a real switch for a plain
+    // on/off flag, a real dropdown for a named set of options (so picking
+    // one is direct, not "click until it cycles past"), and — for anything
+    // else, e.g. Skip — the original whole-row button.
     demoMenu.innerHTML =
       '<p class="ll-demo-head">Review only · not shown to a learner</p>' +
       (rows.length
         ? rows.map(function (r, i) {
+            var icon = '<i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>';
+            var text = '<b>' + esc(r.name) + '</b>' + (r.note ? '<small>' + esc(r.note) + '</small>' : '');
+            // Toggle/select controls sit to the right of the title/description,
+            // same as the state pill on an action row. A toggle carries no text
+            // of its own — its title is written as the assertion that's true
+            // when it's on (e.g. "Battery before module"), so the switch's
+            // position is the only state a reader needs.
+            if (r.type === 'toggle') {
+              var sw = '<button type="button" class="ll-demo-switch" role="switch" ' +
+                  'aria-checked="' + (r.on ? 'true' : 'false') + '" aria-label="' + esc(r.name) + '" data-i="' + i + '">' +
+                  '<span class="ll-demo-switch-track"><span class="ll-demo-switch-thumb"></span></span>' +
+                '</button>';
+              return '<div class="ll-demo-item ll-demo-item--static">' + icon +
+                '<span class="ll-demo-main">' + text + '</span>' + sw + '</div>';
+            }
+            if (r.type === 'select') {
+              var sel = '<select class="ll-demo-select" aria-label="' + esc(r.name) + '" data-i="' + i + '">' +
+                  r.options.map(function (o) {
+                    return '<option value="' + esc(o.value) + '"' + (o.value === r.value ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+                  }).join('') +
+                '</select>';
+              return '<div class="ll-demo-item ll-demo-item--static">' + icon +
+                '<span class="ll-demo-main">' + text + '</span>' + sel + '</div>';
+            }
             return '<button class="ll-demo-item" type="button" role="menuitem" data-i="' + i + '">' +
-              '<i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>' +
-              '<span class="ll-demo-main"><b>' + esc(r.name) + '</b>' +
-              (r.note ? '<small>' + esc(r.note) + '</small>' : '') + '</span>' +
+              icon + '<span class="ll-demo-main">' + text + '</span>' +
               (r.state ? '<span class="ll-demo-state">' + esc(r.state) + '</span>' : '') +
             '</button>';
           }).join('')
         : '<p class="ll-demo-empty">Nothing to demonstrate on this screen.</p>');
 
-    demoMenu.querySelectorAll('.ll-demo-item').forEach(function (b) {
+    demoMenu.querySelectorAll('.ll-demo-item[role="menuitem"]').forEach(function (b) {
       b.addEventListener('click', function () {
         if (busy) return;
         closeDemoMenu();
         rows[+b.dataset.i].run();
+      });
+    });
+    demoMenu.querySelectorAll('.ll-demo-switch').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (busy) return;
+        closeDemoMenu();
+        rows[+b.dataset.i].run();
+      });
+    });
+    demoMenu.querySelectorAll('.ll-demo-select').forEach(function (s) {
+      s.addEventListener('change', function () {
+        if (busy) return;
+        var row = rows[+s.dataset.i];
+        closeDemoMenu();
+        row.onChange(s.value);
       });
     });
 
@@ -1067,7 +1120,7 @@
     demoMenu.style.top = Math.round(r.bottom + 8) + 'px';
     demoMenu.style.right = Math.round(window.innerWidth - r.right) + 'px';
     demoBtn.setAttribute('aria-expanded', 'true');
-    var first = demoMenu.querySelector('.ll-demo-item');
+    var first = demoMenu.querySelector('.ll-demo-item[role="menuitem"], .ll-demo-switch, .ll-demo-select');
     if (first) first.focus();
   }
 
