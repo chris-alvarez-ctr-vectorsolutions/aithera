@@ -1110,7 +1110,7 @@
         /* Collapse the component's own toolbars — Select All (above the grid)
            and the Assign action button (below it). Both are documented parts,
            so hiding them here is stable; both controls are re-hosted in the
-           drawer toolbar so they sit on one line with Refresh.
+           drawer toolbar so they sit on one line with the other controls.
 
            Once the buttons are hidden the wrapping .card-grid-toolbar rows
            measure 0px on their own — verified in the shadow root. What
@@ -1148,8 +1148,8 @@
            the list's shadow root instead (see styleCourseCards), where
            vwc-course-card is a direct child and its exported parts resolve. */
         .rec-card-part-styles { display: none; }
-        /* Select All re-hosted in our row, styled to match Refresh. */
-        /* min-height 24 for WCAG 2.5.8, as on .rec-refresh-btn. */
+        /* Select All re-hosted in our row. */
+        /* min-height 24 for WCAG 2.5.8. */
         .rec-selectall-btn {
             min-height: 24px;
             background: none; border: none; padding: 4px 8px; cursor: pointer;
@@ -1182,16 +1182,6 @@
                 /* Colors/padding/radius come from theme="badge warning"; keep only the
            pill shape + type tweaks the badge theme doesn't provide. */
                 .rec-section-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        /* min-height 24 for WCAG 2.5.8 — 12px text with 4px padding left the
-           target at ~22px. Height only; the label sets the width. */
-        .rec-refresh-btn {
-            background: none; border: none; padding: 4px 2px; cursor: pointer;
-            font-family: inherit; font-size: 12px; font-weight: 600; color: var(--rec-accent-strong);
-            display: inline-flex; align-items: center; gap: 6px;
-            min-height: 24px;
-        }
-        .rec-refresh-btn:hover { text-decoration: underline; }
-        .rec-refresh-btn i { font-size: 11px; }
                 /* Recs are catalogued by component code only — no domain coloring
            because this prototype's flat form has no domain concept. */
                         /* The recommendation cards are the real <vwc-course-list> /
@@ -1654,14 +1644,13 @@
         }
         body.rec-resizing { cursor: ns-resize; user-select: none; }
 
-        /* Drawer toolbar — hosts Refresh / Select All / Configure Assignments.
+        /* Drawer toolbar — hosts Select All / Configure Assignment.
            Sticky-free: it's outside the scroll body, so it never overlaps
            content and needs no opaque-token workaround. */
-        /* ONE ROW, always. Refresh / Select All / Configure Assignment are
-           three short controls; letting them wrap cost a whole extra toolbar
-           row at narrow widths, which came straight out of the scroll area
-           the cards need. nowrap + min-width:0 on the spacer keeps them on a
-           single line, and the labels shorten at narrow widths (see the
+        /* ONE ROW, always. Letting the controls wrap cost a whole extra
+           toolbar row at narrow widths, which came straight out of the scroll
+           area the cards need. nowrap + min-width:0 on the spacer keeps them
+           on a single line, and the labels shorten at narrow widths (see the
            760px block) rather than stacking. */
         .rec-drawer-toolbar {
             flex-shrink: 0;
@@ -1672,6 +1661,11 @@
             border-bottom: 1px solid var(--border-soft);
         }
         .rec-drawer-toolbar-spacer { flex: 1 1 auto; min-width: 0; }
+        .rec-toolbar-caption {
+            font-size: 12px; font-weight: 600;
+            color: var(--text-muted);
+            white-space: nowrap;
+        }
 
         /* The scroll body. Both lists live here and scroll together, so the
            upsell list is reached by continuing to scroll past the licensed
@@ -1892,11 +1886,10 @@
             /* ── Toolbar stays ONE row at phone widths ──
                Three full labels are ~347px of content in ~268px of usable
                width, so the optional half of each label is dropped rather
-               than allowed to wrap: "Refresh" becomes its icon alone,
-               "Select All" -> "Select", "Configure Assignment" ->
-               "Configure". Hidden visually only, so the accessible names are
-               unchanged (Refresh and Configure also carry explicit
-               aria-labels). */
+               than allowed to wrap: "Select All" -> "Select" and
+               "Configure Assignment" -> "Configure". Hidden visually only, so
+               the accessible names are unchanged (Configure also carries an
+               explicit aria-label). */
             .tb-label {
                 position: absolute;
                 width: 1px; height: 1px;
@@ -1907,8 +1900,6 @@
                 border: 0;
             }
             .rec-drawer-toolbar { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
-            /* Icon-only now — square it up to a proper target (2.5.8). */
-            .rec-refresh-btn { width: 32px; padding: 0; justify-content: center; gap: 0; }
             .rec-configure-btn { margin-left: 0; padding: 8px 12px; }
             .rec-selectall-btn,
             .rec-configure-btn { white-space: nowrap; }
@@ -6372,9 +6363,15 @@ COURSES.forEach(c => c.addresses.forEach(cid => {
 }));
 
 const LOW_RATING_MAX_INDEX = 1;
-const MAX_RECS_PER_BATCH = 6;
+/* Top N licensed results. There is no Refresh any more: one generation
+   returns the strongest matches, and the only way to a different list is to
+   change an answer, which invalidates the run and asks for a new one. */
+const MAX_RECS_SHOWN = 8;
 // Cap on the upsell list — the nudge should feel curated, not like a catalog dump.
 const MAX_UNLICENSED_SHOWN = 4;
+/* Bumped on each generation. Not a shuffle seed any more — the ranking is
+   deterministic — but <vwc-course-list> needs a NEW payload object reference
+   to refetch, so this is the run id that guarantees one. */
 let batchSeed = 1;
 
 function isLowRating(componentId) {
@@ -6388,34 +6385,20 @@ function getLowRatedComponents() {
     })));
     return out;
 }
-function seededRng(seed) {
-    let s = seed | 0;
-    return function() {
-        s = (s * 9301 + 49297) | 0;
-        return ((s % 233280) + 233280) % 233280 / 233280;
-    };
-}
-function shuffleSeeded(arr, seed) {
-    const rng = seededRng(seed);
-    const out = arr.slice();
-    for (let i = out.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        [out[i], out[j]] = [out[j], out[i]];
-    }
-    return out;
-}
 /* The engine matches low-rated components against the whole catalog, then
    splits the results by license:
 
-     recommendations  → licensed, assignable. Batched to MAX_RECS_PER_BATCH
-                        and driven by batchSeed so Refresh gives a new mix.
+     recommendations  → licensed, assignable. The TOP MAX_RECS_SHOWN by match
+                        strength — deterministic, not shuffled: with no
+                        Refresh, "top 8" has to mean the best 8, and the same
+                        answers must always produce the same list.
      unlicensed       → matched but not in the org's library. These are the
                         marketing nudge in the drawer's second list, so they
                         are NOT batched or shuffled: the same upsell should be
-                        stable across refreshes rather than shuffling around.
+                        stable rather than shuffling around.
 
    `recommendations` keeps its name and shape so every existing caller
-   (gate, cart, assign modal, refresh, discard) works unchanged. */
+   (gate, cart, assign modal) works unchanged. */
 function getRecommendations() {
     const low = getLowRatedComponents();
     const seen = new Map();
@@ -6430,8 +6413,14 @@ function getRecommendations() {
     const licensedMatched = allMatched.filter(r => r.course.licensed !== false);
     const unlicensed = allMatched.filter(r => r.course.licensed === false)
                                  .slice(0, MAX_UNLICENSED_SHOWN);
-    const shuffled = shuffleSeeded(licensedMatched, batchSeed);
-    const recommendations = shuffled.slice(0, MAX_RECS_PER_BATCH);
+    /* Rank by match strength: a course that addresses more of this
+       evaluation's low-rated components is the better recommendation. Ties
+       break on catalog id so the order is stable run to run (no shuffle —
+       there is nothing to re-roll now that Refresh is gone). */
+    const ranked = licensedMatched.slice().sort((a, b) =>
+        b.addresses.length - a.addresses.length ||
+        a.course.id.localeCompare(b.course.id));
+    const recommendations = ranked.slice(0, MAX_RECS_SHOWN);
     const overflowCount = Math.max(0, licensedMatched.length - recommendations.length);
     const coveredIds = new Set();
     recommendations.forEach(r => r.addresses.forEach(a => coveredIds.add(a.componentId)));
@@ -6601,9 +6590,6 @@ let recommendationsGenerated = false;
                        it overrides the --rec-drawer-h default. */
 let drawerOpen = false;
 let recGenerating = false;
-// True only while a REFRESH is re-running; keeps the drawer open (see
-// renderRecommendations' workingState).
-let recRefreshing = false;
 let drawerHeightPx = null;
 
 /* Full teardown of the recommendation feature's transient state. Called from
@@ -6614,7 +6600,6 @@ let drawerHeightPx = null;
 function resetRecommendationState() {
     recommendationsGenerated = false;
     recGenerating = false;
-    recRefreshing = false;
     drawerOpen = false;
     cart.clear();
 }
@@ -7649,8 +7634,16 @@ function selectRating(componentId, levelIndex, qEl) {
         if (q.dataset.conditional === 'true') refreshConditionalReqs(q);
     }
     updateProgress();
+    /* Changing an answer INVALIDATES the run. There is no Refresh to re-roll
+       the list, so the only way back to recommendations is a new generation:
+       the bar returns to its "Generate recommendations" state and any pending
+       selection is dropped, because it was made against ratings that no
+       longer hold. drawerOpen is reset too — without it the flag stays true
+       from the previous run and the next Generate would skip the collapsed
+       working state and pop straight open. */
     if (recommendationsGenerated) {
         recommendationsGenerated = false;
+        drawerOpen = false;
         cart.clear();
     }
     renderRecommendations();
@@ -7751,7 +7744,7 @@ function courseImageUrl(courseId) {
 
 /* ═══ V3 recommendation dock ═══════════════════════════════════════════
    renderRecommendations() is still the single entry point every existing
-   caller uses (rating changes, refresh, discard, submit, reset). What
+   caller uses (rating changes, submit, reset). What
    changed is where it renders: the feature now lives in the pinned dock
    rather than in the page flow.
 
@@ -7780,7 +7773,6 @@ function renderRecommendations() {
         cart.clear();
         recommendationsGenerated = false;
         recGenerating = false;
-        recRefreshing = false;
         drawerOpen = false;
         setDockState('locked');
         renderFloatingCart();
@@ -7797,16 +7789,11 @@ function renderRecommendations() {
     /* `generating` is its own dock state, ahead of results: the search is
        still running, so the bar shows a working indicator and the drawer
        stays collapsed. It opens onto the results only once the call lands. */
-    /* Two shapes of "working", because the reviewer is in a different place
-       for each:
-         - FIRST generate  → `generating`: the drawer has never been open, so
-           the progress belongs in the collapsed bar where the click landed.
-         - REFRESH         → stays in `results` with the drawer open, and the
-           in-drawer loading state covers the list being replaced. Collapsing
-           it here would yank the panel away mid-task. */
-    const workingState = recGenerating && !recRefreshing ? 'generating' : null;
-    setDockState(workingState
-                 || (recommendationsGenerated ? 'results' : 'ready'),
+    /* While the search runs the bar shows a working indicator and the drawer
+       stays collapsed; it opens onto the results once the call lands. There is
+       only one way in now that Refresh is gone — a fresh Generate. */
+    setDockState(recGenerating ? 'generating'
+                 : (recommendationsGenerated ? 'results' : 'ready'),
                  { visibleRecs, unlicensed, lowRatedTotal });
     renderFloatingCart();
 }
@@ -8132,10 +8119,11 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
        height would beat the closed-state rule and pin the drawer open — it
        would never collapse again. */
 
-    /* Reached by REFRESH only. A first Generate shows its progress in the
-       collapsed bar instead (the `generating` dock state) and never renders
-       the drawer mid-search; a refresh keeps the drawer open and swaps this
-       loading state in for the list while the call re-runs. */
+    /* Defensive only — not reachable in the current flow. Generate shows its
+       progress in the COLLAPSED bar (the `generating` dock state), and
+       setDockState() renders the drawer solely for `results`, by which point
+       recGenerating is already false. Kept so the drawer can never paint a
+       stale list if a future caller renders it mid-search. */
     if (recGenerating) {
         recDrawerToolbar.innerHTML = '';
         recDrawerInner.innerHTML = `
@@ -8149,15 +8137,14 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
 
     delete recDock.dataset.empty;
 
-    /* No gaps means nothing to refresh, select or assign — an empty toolbar
-       is correct rather than a row of dead controls. */
+    /* No gaps means nothing to select or assign — an empty toolbar is
+       correct rather than a row of dead controls. */
     recDrawerToolbar.innerHTML = `
-        <button type="button" class="rec-refresh-btn" id="refreshRecsBtn"
-                aria-label="Refresh recommendations"
-                title="Generate a new batch of recommendations">
-            <i class="fa-solid fa-arrows-rotate"></i>
-            <span class="tb-label">Refresh</span>
-        </button>
+        <!-- Left of the spacer: what the list is showing. With Refresh gone
+             the toolbar's left end was empty, and this is the honest thing to
+             put there — the list is a fixed top-N, so saying so sets the
+             expectation that there is no "more" to page to. -->
+        ${visibleRecs.length ? `<span class="rec-toolbar-caption">Top ${visibleRecs.length} match${visibleRecs.length === 1 ? '' : 'es'}</span>` : ''}
         <div class="rec-drawer-toolbar-spacer"></div>
         ${visibleRecs.length ? `
             <button type="button" class="rec-selectall-btn" id="recSelectAllBtn">
@@ -8247,46 +8234,6 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
     recDrawerInner.innerHTML = licensedHtml + upsellHtml;
 
     // ── Toolbar wiring ──
-    const refreshBtn = document.getElementById('refreshRecsBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            /* Refresh re-runs the same engine call as Generate, so it shows
-               the same wait rather than swapping the list instantly. The
-               drawer STAYS OPEN here (unlike Generate, which starts
-               collapsed): it is already showing results, and collapsing it
-               mid-refresh would yank the panel out from under the reviewer.
-               The in-drawer loading state covers this case. */
-            const doRefresh = () => {
-                batchSeed = Date.now();
-                cart.clear();
-                recGenerating = true;
-                recRefreshing = true;
-                renderRecommendations();
-                setTimeout(() => {
-                    recGenerating = false;
-                    recRefreshing = false;
-                    renderRecommendations();
-                }, REC_SEARCH_MS);
-            };
-            if (cart.size > 0) {
-                showValidationModal({
-                    tone: 'warn',
-                    title: 'Refreshing will clear your selections',
-                    bodyHtml: `
-                        <p>You have <strong>${cart.size}</strong> course recommendation${cart.size === 1 ? '' : 's'} added but not yet assigned:</p>
-                        <div class="v-modal-issues">${pendingCartListHtml()}</div>
-                        <p style="margin-bottom:0;">Generating a new batch will clear these. Continue?</p>
-                    `,
-                    confirmLabel: 'Refresh and clear',
-                    cancelLabel: 'Go back',
-                    onConfirm: doRefresh
-                });
-            } else {
-                doRefresh();
-            }
-        });
-    }
-
     /* Select All and Configure Assignments are re-hosted in the drawer
        toolbar (the component's own toolbar/footer are collapsed via ::part).
        Both delegate to the component's public API so every behavior is
