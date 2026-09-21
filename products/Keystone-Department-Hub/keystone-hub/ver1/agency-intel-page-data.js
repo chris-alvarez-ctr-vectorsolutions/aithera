@@ -803,6 +803,7 @@
       }
 
       let assignedTo = null;
+      let lastAudience = null;
       let status;
       if (rnd() < 0.5) {
         assignedTo = { titles: pickN(titleIds, 1 + Math.floor(rnd() * 3)), individuals: rnd() < 0.55 ? pickN(indIds, 1 + Math.floor(rnd() * 4)) : [] };
@@ -824,6 +825,24 @@
         status = 'published';
       } else {
         status = rnd() < 0.5 ? 'draft' : 'private';
+        // A few of these were live once and were TAKEN DOWN. Unpublishing
+        // remembers the audience the dashboard had, so reopening its publish
+        // dialog offers to put it back rather than making you rebuild the
+        // roster — seeding a couple means that path is demoable on load
+        // instead of having to publish something first just to unpublish it.
+        //
+        // Keyed off the loop counter and reusing ids already drawn above: an
+        // extra rnd() draw here would reshuffle every dashboard's name, dates
+        // and widgets, same trap the audience rules above call out. i % 3 === 0
+        // is the "owned by You" arm of ownerId below — someone else's would
+        // need a "manage all" grant before it could be restored.
+        if (status === 'draft' && i % 6 === 0) {
+          lastAudience = {
+            titles: [],
+            individuals: [indIds[i % indIds.length], indIds[(i + 3) % indIds.length]],
+            groups: [],
+          };
+        }
       }
 
       // Roughly a third of views also (or only) go out as a report.
@@ -859,6 +878,7 @@
         // One window for the whole dashboard — see DATE_RANGES.
         dateRange: DATE_RANGES[Math.floor(rnd() * DATE_RANGES.length)].value,
         assignedTo: assignedTo,
+        lastAudience: lastAudience,
         delivery: delivery,
         widgets: widgets,
       });

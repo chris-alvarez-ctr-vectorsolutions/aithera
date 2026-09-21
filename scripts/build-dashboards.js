@@ -138,11 +138,22 @@ function gitRecentChanges(productSlug) {
     if (/^chore\(dashboards\)/i.test(subj) || /\[skip ci\]/i.test(subj)) continue;
 
     const files = body.split('\n').map(f => f.trim()).filter(Boolean);
-    // Every changed file under this product that isn't in the dashboard folder.
+    // Every changed file under this product that isn't in the dashboard folder
+    // or a _planning folder.
     // One entry per file so a commit touching several mocks credits ALL of them
     // (the dashboard dedupes same-commit rows within a single card's log).
-    const matched = files.filter(f => f.startsWith(productPrefix) && !f.startsWith(productPrefix + 'dashboard/'));
-    if (!matched.length) continue; // commit only touched dashboard/ — skip
+    //
+    // _planning/ holds PRDs and source docs — working INPUTS, not design
+    // output. They are usually confidential, so listing them here (by filename,
+    // on a public site) was a small disclosure with no upside: nobody reading a
+    // dashboard is looking for "someone added a PRD". Most _planning content is
+    // git-ignored, but this filter also covers anything committed before that
+    // rule existed, or force-added since.
+    const matched = files.filter(f =>
+      f.startsWith(productPrefix) &&
+      !f.startsWith(productPrefix + 'dashboard/') &&
+      !/(^|\/)_planning\//.test(f));
+    if (!matched.length) continue; // commit only touched dashboard/ or _planning/ — skip
 
     for (const file of matched) {
       changes.push({

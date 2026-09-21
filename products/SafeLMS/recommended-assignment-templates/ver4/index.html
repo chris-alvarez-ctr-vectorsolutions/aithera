@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SafeLMS — Training Plans · V4 (Recommendation Carousel)</title>
+
+<!-- Vector Web Components (Core) -->
+<script
+  type="module"
+  src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+<!-- Vector Web Components (Themes) — must be a plain script -->
+<script
+  src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+<!-- Vector standard font — Open Sans -->
+<link
+  rel="stylesheet"
+  href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<!-- Font Awesome 6 PRO (self-hosted at repo root; depth-relative) -->
+<link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+
+<style>
+  /* ==========================================================================
+     SafeLMS — Training Plans · V4 "Recommendation Carousel"
+     Faithful rebuild of the real Group Training / Training Plans page. Between the
+     tabs and the assignment toolbar sits a carousel of recommended-course banners
+     (sourced from the state Compliance Guide). Each banner offers two actions:
+     "Assign" (adds it) or "Already Done" (dismiss). Handling one advances to the
+     next until the admin is caught up.
+     Vanilla HTML/CSS/JS — no frameworks (per project rules).
+     ========================================================================== */
+  :root {
+    --ink: #17263a; --ink-2: #33465c; --muted: #5f7288; --muted-2: #93a4b7;
+    --line: #E3E8EF; --hair: #EBEFF4; --hair-2: #F2F5F9; --bg: #FFFFFF;
+    --canvas: #F4F6FA;
+    --blue: #1D54C4; --blue-strong: #1746B0; --blue-soft: #EAF0FC; --blue-soft-2: #F2F6FE;
+    --blue-border: #C9D9F4;
+    --green: #1E9E57; --green-ink: #0E7A41;
+    --red: #D64541; --red-bg: #FCE9E9; --red-border: #F3C4C2;
+    --amber-ink: #8A5A0B;
+    /* Vectoria / AI accent */
+    --ai-1: #6D4AFF; --ai-2: #2E6BFF; --ai-tint: #F4F1FF; --ai-tint-2: #EAF1FF;
+    --ai-ink: #3B2B8F; --ai-border: #DAD2FF;
+    --sans: 'Open Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: var(--bg); font-family: var(--sans); color: var(--ink); }
+  button, input { font-family: inherit; }
+  a { color: var(--blue); text-decoration: none; }
+
+  .app { display: grid; grid-template-columns: 232px minmax(0,1fr); height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar { background: #fff; border-right: 1px solid var(--hair); padding: 20px 22px 84px;
+    position: relative; display: flex; flex-direction: column; }
+  .logo { display: flex; align-items: center; gap: 9px; }
+  .logo .wordmark { display: flex; flex-direction: column; line-height: 1; }
+  .logo .wordmark .brand { font-weight: 800; font-size: 17px; letter-spacing: .1px; color: #1f3350; }
+  .logo .wordmark .brand sup { font-size: 8px; font-weight: 700; }
+  .logo .wordmark .sub { font-size: 9px; margin-top: 4px; color: var(--muted); letter-spacing: .2px; }
+
+  .user { display: flex; align-items: center; gap: 11px; margin: 26px 0 6px; }
+  .user .avatar { width: 34px; height: 34px; border-radius: 50%; background: #fff; border: 1.5px solid #dbe2ec;
+    display: grid; place-items: center; color: var(--muted-2); flex-shrink: 0; }
+  .user .name { font-size: 14px; line-height: 1.35; color: #2c3e54; }
+  .user .name span { color: var(--muted); font-size: 12.5px; }
+  .user .name b { display: block; font-weight: 700; font-size: 15px; color: #1f3350; }
+
+  .nav-group { margin-top: 26px; }
+  .nav-group .glabel { font-size: 11px; font-weight: 800; letter-spacing: .8px; color: #3660b8;
+    padding: 0 4px; margin-bottom: 8px; }
+  .nav-item { display: flex; align-items: center; gap: 13px; padding: 8px 6px; border-radius: 7px;
+    font-size: 14px; color: #33465c; cursor: pointer; text-decoration: none; }
+  .nav-item:hover { background: var(--hair-2); }
+  .nav-item .ico { width: 19px; text-align: center; color: #5b7392; flex: 0 0 19px; font-size: 15px; }
+  .nav-item.active { font-weight: 800; color: #12233b; }
+  .nav-item.active .lbl { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 2px; }
+  .nav-item.active .ico { color: var(--blue); }
+  .nav-item .chev { margin-left: auto; color: var(--muted-2); font-size: 11px; }
+
+  .sidebar-footer { position: absolute; left: 0; right: 0; bottom: 20px; display: grid; place-items: center; }
+  .crest { width: 92px; height: 92px; }
+
+  /* ── Main ── */
+  .main { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--canvas); }
+
+  /* Blue header band */
+  .topbar { flex: 0 0 auto; min-height: 96px; display: flex; align-items: center; gap: 26px;
+    padding: 18px 34px; color: #fff;
+    background: linear-gradient(100deg, #123778 0%, #1a49a6 48%, #2a63d1 100%); }
+  .topbar .t-title { font-weight: 800; font-size: 33px; letter-spacing: .2px; white-space: nowrap; }
+  .topbar .t-sub { font-size: 14.5px; line-height: 1.45; color: #eaf1ff; max-width: 720px; opacity: .96; }
+
+  .scroll { flex: 1; min-height: 0; overflow-y: auto; }
+  .surface { background: #fff; min-height: 100%; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 30px; padding: 0 34px; border-bottom: 1px solid var(--line); }
+  .tab { padding: 18px 2px 15px; font-size: 15px; font-weight: 600; color: #6b7c90; cursor: pointer;
+    border-bottom: 3px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: #13253d; font-weight: 800; border-bottom-color: var(--blue); }
+
+  .work { padding: 22px 34px 60px; }
+
+  /* ════ Recommendation carousel (the deliverable) ════
+     A slider of recommended-course banners. One is shown at a time; arrows/dots
+     navigate; each banner offers Assign or "Already Done" (dismiss). */
+  .rc-region { margin-bottom: 20px; }
+  .rc-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+  .rc-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 800; color: var(--ai-ink); }
+  .rc-eyebrow .sp { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; color: #fff;
+    font-size: 11px; background: linear-gradient(135deg, var(--ai-1), var(--ai-2)); }
+  .rc-src { font-size: 11.5px; color: var(--muted); }
+  .rc-pos { margin-left: auto; font-size: 12px; color: var(--muted); font-weight: 700; }
+
+  .rc-stage { display: flex; align-items: stretch; gap: 12px; }
+  .rc-arrow { flex: 0 0 42px; align-self: center; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line);
+    background: #fff; color: var(--ink-2); cursor: pointer; font-size: 15px; display: grid; place-items: center;
+    box-shadow: 0 1px 2px rgba(16,24,40,.06); transition: background .12s; }
+  .rc-arrow:hover:not(:disabled) { background: var(--hair-2); }
+  .rc-arrow:disabled { opacity: .35; cursor: default; }
+
+  .rc-viewport { flex: 1; min-width: 0; overflow: hidden; border-radius: 14px; }
+  .rc-track { display: flex; transition: transform .3s ease; }
+  .rc-slide { flex: 0 0 100%; min-width: 0; }
+
+  /* the recommendation banner itself */
+  .rc-banner { position: relative; overflow: hidden; display: flex; align-items: center; gap: 18px; min-height: 132px;
+    padding: 20px 22px; border-radius: 14px; border: 1px solid var(--ai-border);
+    background: radial-gradient(130% 200% at 0% 0%, var(--ai-tint) 0%, var(--ai-tint-2) 55%, #fff 100%); }
+  .rc-banner::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    background: linear-gradient(180deg, var(--ai-1), var(--ai-2)); }
+  .rc-mark { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 13px; color: #fff; display: grid; place-items: center;
+    font-size: 22px; background: linear-gradient(135deg, var(--ai-1), var(--ai-2)); box-shadow: 0 6px 16px rgba(78,58,190,.30); }
+  .rc-copy { flex: 1; min-width: 0; }
+  .rc-copy .eb { display: inline-flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; letter-spacing: .6px;
+    text-transform: uppercase; color: var(--ai-ink); }
+  .rc-copy h3 { font-size: 17px; font-weight: 800; color: var(--ink); margin-top: 4px; }
+  .rc-copy p { margin-top: 3px; font-size: 13px; line-height: 1.5; color: var(--ink-2); max-width: 520px; }
+  .rc-metachips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+  .rc-chip { display: inline-flex; align-items: center; gap: 6px; background: #fff; border: 1px solid var(--ai-border);
+    color: var(--ink-2); font-size: 11.5px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+  .rc-chip i { color: var(--ai-1); font-size: 10px; }
+  .rc-actions { flex: 0 0 auto; display: flex; flex-direction: column; gap: 8px; width: 168px; }
+  .rc-assign { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--ai-1); color: #fff;
+    border: 0; border-radius: 9px; padding: 11px 16px; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .rc-assign:hover { background: #5a37e6; }
+  .rc-done { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #fff; color: var(--ink-2);
+    border: 1px solid #C6D3E1; border-radius: 9px; padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+  .rc-done:hover { background: var(--hair-2); }
+
+  .rc-dots { display: flex; justify-content: center; gap: 7px; margin-top: 13px; }
+  .rc-dot { width: 7px; height: 7px; border-radius: 50%; background: #d5deea; cursor: pointer; transition: all .2s; padding: 0; border: 0; }
+  .rc-dot.active { background: var(--ai-1); width: 22px; border-radius: 999px; }
+
+  /* empty / all-caught-up state */
+  .rc-empty { display: none; flex-direction: column; align-items: center; text-align: center; gap: 6px;
+    padding: 34px 24px; border-radius: 14px; background: #F1FBF5; border: 1px solid #A6E5C3; }
+  .rc-empty .big { width: 56px; height: 56px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-size: 24px;
+    background: linear-gradient(135deg, #1E9E57, #0E7A41); margin-bottom: 6px; }
+  .rc-empty h3 { font-size: 17px; font-weight: 800; color: var(--ink); }
+  .rc-empty p { font-size: 13px; color: var(--ink-2); }
+  .rc-region.empty .rc-top, .rc-region.empty .rc-stage, .rc-region.empty .rc-dots { display: none; }
+  .rc-region.empty .rc-empty { display: flex; }
+
+  /* toast confirmation */
+  .toast { position: fixed; top: 18px; left: 50%; transform: translateX(-50%) translateY(-20px); z-index: 950;
+    display: inline-flex; align-items: center; gap: 10px; background: #10321f; color: #fff; border-radius: 10px;
+    padding: 11px 16px; font-size: 13.5px; font-weight: 600; box-shadow: 0 10px 30px rgba(16,24,40,.28);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.neutral { background: #22303f; }
+  .toast i { color: #5BE39B; }
+  .toast.neutral i { color: #b9c6d6; }
+
+  /* ── Assignment toolbar (row 1) ── */
+  .bar1 { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .btn-primary { display: inline-flex; align-items: center; gap: 9px; background: var(--blue); color: #fff;
+    border: 0; border-radius: 9px; padding: 12px 20px; font-size: 14.5px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 1px 2px rgba(16,24,40,.12); white-space: nowrap; }
+  .btn-primary:hover { background: var(--blue-strong); }
+  .daterange { display: inline-flex; align-items: center; gap: 12px; background: #fff; border: 1px solid var(--line);
+    border-radius: 999px; padding: 9px 16px; box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+  .datefield { display: inline-flex; align-items: center; gap: 9px; font-size: 14px; color: var(--ink-2); }
+  .datefield i { color: var(--muted); font-size: 14px; }
+  .daterange .arrow { color: var(--muted-2); }
+  .search { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; background: #fff;
+    border: 1.5px solid var(--blue); border-radius: 999px; padding: 10px 16px; width: 300px; }
+  .search input { border: 0; outline: 0; font-size: 14px; color: var(--ink); flex: 1; background: transparent; }
+  .search i { color: var(--muted-2); }
+
+  /* ── Filter toolbar (row 2) ── */
+  .bar2 { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .btn-outline { display: inline-flex; align-items: center; gap: 9px; background: #fff; border: 1px solid var(--blue-border);
+    color: var(--blue); border-radius: 8px; padding: 9px 15px; font-size: 13.5px; font-weight: 700; cursor: pointer; }
+  .btn-outline:hover { background: var(--blue-soft-2); }
+  .ddl { display: inline-flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 14px; font-size: 13.5px; cursor: pointer; }
+  .ddl .k { color: var(--muted); } .ddl .v { color: var(--ink); font-weight: 700; }
+  .ddl i { color: var(--muted-2); font-size: 11px; }
+  .bar2 .right { margin-left: auto; display: inline-flex; align-items: center; gap: 22px; }
+  .sortby { font-size: 13.5px; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+  .sortby b { color: var(--blue); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  .sortby i { color: var(--muted-2); font-size: 11px; }
+
+  /* ── Table ── */
+  .grid { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; }
+  .grid-head { display: grid; grid-template-columns: 2.3fr 1.9fr 1.7fr 130px 44px; gap: 16px;
+    background: #F1F4F9; padding: 13px 22px; }
+  .grid-head span { font-size: 11.5px; font-weight: 800; letter-spacing: .5px; color: var(--muted); }
+  .row { display: grid; grid-template-columns: 2.3fr 1.9fr 1.7fr 130px 44px; gap: 16px; align-items: center;
+    padding: 16px 22px; border-top: 1px solid var(--hair); }
+  .row:hover { background: #FBFCFE; }
+  .row.error { background: var(--red-bg); }
+
+  /* course cell */
+  .course { display: flex; gap: 13px; align-items: flex-start; min-width: 0; }
+  .thumb { flex: 0 0 50px; width: 50px; height: 50px; border-radius: 9px; display: grid; place-items: center;
+    color: #fff; font-size: 18px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.05); }
+  .c-body { min-width: 0; }
+  .c-name { font-size: 14.5px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .c-type { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .cat { display: inline-flex; align-items: center; gap: 9px; margin-top: 8px; border: 1px solid var(--line);
+    border-radius: 7px; padding: 5px 10px; font-size: 12px; color: var(--ink-2); font-weight: 600; cursor: pointer; }
+  .cat i { color: var(--muted-2); font-size: 10px; }
+  .cat.empty { min-width: 54px; justify-content: center; }
+
+  /* job & dates cells */
+  .cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .cico { position: relative; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 9px; background: var(--blue-soft);
+    color: var(--blue); display: grid; place-items: center; font-size: 15px; }
+  .cico .bang { position: absolute; top: -6px; left: -6px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--red); color: #fff; display: grid; place-items: center; font-size: 10px; border: 2px solid #fff; }
+  .job b { font-size: 14px; color: var(--ink); font-weight: 700; display: block; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; }
+  .job span { font-size: 12.5px; color: var(--muted); }
+  .job span b { display: inline; font-weight: 700; color: var(--ink-2); }
+  .dates .dpair { display: flex; align-items: center; gap: 12px; }
+  .dcol .d { font-size: 13.5px; color: var(--ink); font-weight: 600; line-height: 1.2; }
+  .dcol .l { font-size: 11.5px; color: var(--muted); }
+  .dates .arrow { color: var(--blue); font-size: 12px; }
+
+  /* status + actions */
+  .status { display: flex; justify-content: flex-start; }
+  .st { display: inline-flex; align-items: center; gap: 8px; border-radius: 8px; padding: 9px 16px; font-size: 13.5px;
+    font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .st.publish { background: var(--blue-soft); color: var(--blue); }
+  .st.publish:hover { background: #dfeafb; }
+  .st.live { background: var(--green); color: #fff; }
+  .st.errors { color: var(--red); background: transparent; cursor: default; }
+  .kebab { color: var(--muted-2); cursor: pointer; text-align: center; font-size: 17px; }
+  .kebab:hover { color: var(--ink-2); }
+
+  /* Floating Vectoria launcher (exists in the real product) */
+  .vfab { position: fixed; right: 26px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, #2E6BFF, #1D54C4); color: #fff; border: 0; cursor: pointer; z-index: 850;
+    box-shadow: 0 10px 26px rgba(29,84,196,.45); font-size: 24px; font-weight: 800; display: grid; place-items: center; }
+  .vfab::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid rgba(46,107,255,.35); }
+  .vfab:hover { transform: translateY(-2px); }
+  .vfab .spark { position: absolute; top: -3px; right: -3px; font-size: 12px; color: #FFD54A; }
+
+  /* (The Vectoria chat panel from V1 isn't used in this carousel variant.) */
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ═══ Sidebar ═══ -->
+  <aside class="sidebar">
+    <div class="logo">
+      <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true">
+        <path d="M4 8 L16 8 L21 18 L15 18 Z" fill="#2E63D1"/>
+        <path d="M12 8 L24 8 L31 22 L24 22 Z" fill="#1E4AA8"/>
+        <path d="M20 8 L33 8 L22 30 L16 20 Z" fill="#12377A"/>
+      </svg>
+      <div class="wordmark">
+        <span class="brand">Vector<span style="font-weight:400">Solutions</span><sup>™</sup></span>
+        <span class="sub">Vector Training, K-12 Edition</span>
+      </div>
+    </div>
+
+    <div class="user">
+      <div class="avatar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></svg></div>
+      <div class="name"><span>Welcome,</span><b>Deborah Kim</b></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="glabel">MAIN</div>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-house"></i></span><span class="lbl">My Assignments</span></a>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-clock-rotate-left"></i></span><span class="lbl">Training History</span></a>
+    </div>
+
+    <div class="nav-group">
+      <div class="glabel">ADMIN</div>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-gauge-high"></i></span><span class="lbl">Dashboard</span></a>
+      <a class="nav-item active"><span class="ico"><i class="fa-solid fa-calendar-check"></i></span><span class="lbl">Training Plans</span></a>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-users"></i></span><span class="lbl">Employees</span></a>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-circle-play"></i></span><span class="lbl">Courses</span></a>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-table-cells-large"></i></span><span class="lbl">Reports</span></a>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-gear"></i></span><span class="lbl">Settings</span></a>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-circle-question"></i></span><span class="lbl">Help</span></a>
+    </div>
+
+    <div class="nav-group" style="margin-top:22px;">
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-globe"></i></span><span class="lbl">Language</span><span class="chev"><i class="fa-solid fa-chevron-right"></i></span></a>
+      <a class="nav-item"><span class="ico"><i class="fa-solid fa-arrow-right-from-bracket"></i></span><span class="lbl">Log Out</span></a>
+    </div>
+
+    <div class="sidebar-footer">
+      <svg class="crest" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="47" fill="#fff" stroke="#2E63D1" stroke-width="2"/>
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#2E63D1" stroke-width="1"/>
+        <path id="tp" d="M22 50 A28 28 0 0 1 78 50" fill="none"/>
+        <text font-family="Open Sans, sans-serif" font-size="9" font-weight="800" fill="#1E4AA8" letter-spacing="1">
+          <textPath href="#tp" startOffset="14%">SAMPLE</textPath>
+        </text>
+        <text x="50" y="86" text-anchor="middle" font-family="Open Sans, sans-serif" font-size="8" font-weight="800" fill="#1E4AA8" letter-spacing=".5">SCHOOL DISTRICT</text>
+        <path d="M34 57 L50 46 L66 57 Z" fill="#D64541"/>
+        <rect x="39" y="57" width="22" height="14" fill="#D64541"/>
+        <rect x="47" y="62" width="6" height="9" fill="#fff"/>
+      </svg>
+    </div>
+  </aside>
+
+  <!-- ═══ Main ═══ -->
+  <div class="main">
+    <div class="topbar">
+      <div class="t-title">Training Plans</div>
+      <div class="t-sub">Set the configuration of your Training Plan with the options below. Here is where you will select courses, targeted audience, and dates for topic completion.</div>
+    </div>
+
+    <div class="scroll">
+      <div class="surface">
+        <!-- Tabs -->
+        <div class="tabs">
+          <div class="tab active">Group Training</div>
+          <div class="tab">Repeating Training</div>
+          <div class="tab">New Hire Training</div>
+          <div class="tab">Offline Training</div>
+        </div>
+
+        <div class="work">
+
+          <!-- ════ OPTION 4: Recommendation carousel ════ -->
+          <section class="rc-region" id="rcRegion" aria-label="Recommended courses">
+            <div class="rc-top">
+              <span class="rc-eyebrow"><span class="sp"><i class="fa-solid fa-wand-magic-sparkles"></i></span> Recommended for you</span>
+              <span class="rc-src">Based on your state Compliance Guide · IL K-12</span>
+              <span class="rc-pos" id="rcPos">1 of 5</span>
+            </div>
+            <div class="rc-stage">
+              <button class="rc-arrow" id="rcPrev" aria-label="Previous recommendation"><i class="fa-solid fa-chevron-left"></i></button>
+              <div class="rc-viewport"><div class="rc-track" id="rcTrack"><!-- slides injected by script --></div></div>
+              <button class="rc-arrow" id="rcNext" aria-label="Next recommendation"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="rc-dots" id="rcDots"></div>
+            <div class="rc-empty">
+              <div class="big"><i class="fa-solid fa-circle-check"></i></div>
+              <h3>You're all caught up</h3>
+              <p id="rcEmptyMsg">You've reviewed every recommended course for Illinois&nbsp;K-12.</p>
+            </div>
+          </section>
+
+          <!-- Assignment toolbar -->
+          <div class="bar1">
+            <button class="btn-primary"><i class="fa-solid fa-plus"></i> New Assignment</button>
+            <div class="daterange">
+              <span class="datefield"><i class="fa-regular fa-calendar"></i> 09/17/2026</span>
+              <span class="arrow"><i class="fa-solid fa-arrow-right"></i></span>
+              <span class="datefield"><i class="fa-regular fa-calendar"></i> 09/17/2026</span>
+            </div>
+            <div class="search"><input placeholder="Search course, position, …" /><i class="fa-solid fa-magnifying-glass"></i></div>
+          </div>
+
+          <!-- Filter toolbar -->
+          <div class="bar2">
+            <button class="btn-outline"><i class="fa-regular fa-copy"></i> Duplicate</button>
+            <div class="ddl"><span class="k">Category</span> <span class="v">All</span> <i class="fa-solid fa-chevron-down"></i></div>
+            <div class="ddl"><span class="k">Published</span> <span class="v">All</span> <i class="fa-solid fa-chevron-down"></i></div>
+            <div class="right">
+              <span class="sortby">Sort By <b>Course</b> <i class="fa-solid fa-chevron-down"></i></span>
+              <span class="sortby">Group By <b>None</b> <i class="fa-solid fa-chevron-down"></i></span>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="grid">
+            <div class="grid-head">
+              <span>COURSE</span><span>JOB</span><span>DATES</span><span></span><span></span>
+            </div>
+
+            <!-- Row 1 -->
+            <div class="row">
+              <div class="course">
+                <div class="thumb" style="background:linear-gradient(135deg,#5b8def,#3a63c4)"><i class="fa-solid fa-clipboard-check"></i></div>
+                <div class="c-body">
+                  <div class="c-name">Acceptance DB Check</div>
+                  <div class="c-type">Custom</div>
+                  <div class="cat">Mandatory Training <i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+              </div>
+              <div class="cell job"><div class="cico"><i class="fa-solid fa-user-group"></i></div><div><b>Associate Mechanic</b><span>at <b>Sample School District</b></span></div></div>
+              <div class="cell dates"><div class="cico"><i class="fa-regular fa-calendar"></i></div><div class="dpair"><div class="dcol"><div class="d">Jun 3, 2026</div><div class="l">Effective</div></div><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span><div class="dcol"><div class="d">Jul 17, 2026</div><div class="l">Due</div></div></div></div>
+              <div class="status"><span class="st publish">Publish</span></div>
+              <div class="kebab"><i class="fa-solid fa-ellipsis"></i></div>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="row">
+              <div class="course">
+                <div class="thumb" style="background:linear-gradient(135deg,#7a9e5b,#4f7a3a)"><i class="fa-solid fa-graduation-cap"></i></div>
+                <div class="c-body">
+                  <div class="c-name">AlcoholEdu for Sanctions</div>
+                  <div class="c-type">Full Course</div>
+                  <div class="cat">Suggested Training <i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+              </div>
+              <div class="cell job"><div class="cico"><i class="fa-solid fa-user-group"></i></div><div><b>Campus Police Officer</b><span>at <b>Sample School District</b></span></div></div>
+              <div class="cell dates"><div class="cico"><i class="fa-regular fa-calendar"></i></div><div class="dpair"><div class="dcol"><div class="d">Aug 14, 2026</div><div class="l">Effective</div></div><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span><div class="dcol"><div class="d">Sep 13, 2026</div><div class="l">Due</div></div></div></div>
+              <div class="status"><span class="st live"><i class="fa-solid fa-check"></i> Live</span></div>
+              <div class="kebab"><i class="fa-solid fa-ellipsis"></i></div>
+            </div>
+
+            <!-- Row 3 -->
+            <div class="row">
+              <div class="course">
+                <div class="thumb" style="background:linear-gradient(135deg,#3a4657,#20293a)"><i class="fa-solid fa-droplet"></i></div>
+                <div class="c-body">
+                  <div class="c-name">Bloodborne Pathogens</div>
+                  <div class="c-type">Full Course</div>
+                  <div class="cat">Compulsory Training <i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+              </div>
+              <div class="cell job"><div class="cico"><i class="fa-solid fa-user-group"></i></div><div><b>Sample School District Employees</b><span>at <b>Sample School District</b></span></div></div>
+              <div class="cell dates"><div class="cico"><i class="fa-regular fa-calendar"></i></div><div class="dpair"><div class="dcol"><div class="d">Oct 1, 2025</div><div class="l">Effective</div></div><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span><div class="dcol"><div class="d">Oct 31, 2025</div><div class="l">Due</div></div></div></div>
+              <div class="status"><span class="st publish">Publish</span></div>
+              <div class="kebab"><i class="fa-solid fa-ellipsis"></i></div>
+            </div>
+
+            <!-- Row 4 -->
+            <div class="row">
+              <div class="course">
+                <div class="thumb" style="background:linear-gradient(135deg,#d98a4a,#b5632a)"><i class="fa-solid fa-utensils"></i></div>
+                <div class="c-body">
+                  <div class="c-name">CB - School Kitchen Staff (Food Courses)/Policy PDF/Text Item/YouTube/Survey (forced order)</div>
+                  <div class="c-type">Custom</div>
+                  <div class="cat">Mandatory Training <i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+              </div>
+              <div class="cell job"><div class="cico"><i class="fa-solid fa-user-group"></i></div><div><b>Associate Mechanic</b><span>at <b>Sample School District</b></span></div></div>
+              <div class="cell dates"><div class="cico"><i class="fa-regular fa-calendar"></i></div><div class="dpair"><div class="dcol"><div class="d">Jun 3, 2026</div><div class="l">Effective</div></div><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span><div class="dcol"><div class="d">Jul 17, 2026</div><div class="l">Due</div></div></div></div>
+              <div class="status"><span class="st live"><i class="fa-solid fa-check"></i> Live</span></div>
+              <div class="kebab"><i class="fa-solid fa-ellipsis"></i></div>
+            </div>
+
+            <!-- Row 5 — ERROR state -->
+            <div class="row error">
+              <div class="course">
+                <div class="thumb" style="background:linear-gradient(135deg,#5b8def,#3a63c4)"><i class="fa-solid fa-clipboard"></i></div>
+                <div class="c-body">
+                  <div class="c-name">CPN Policy Test</div>
+                  <div class="c-type">Custom</div>
+                  <div class="cat empty"><i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+              </div>
+              <div class="cell job"><div class="cico"><span class="bang"><i class="fa-solid fa-exclamation"></i></span><i class="fa-solid fa-user-group"></i></div><div><b>--</b><span>at --</span></div></div>
+              <div class="cell dates"><div class="cico"><span class="bang"><i class="fa-solid fa-exclamation"></i></span><i class="fa-regular fa-calendar"></i></div><div class="dpair"><div class="dcol"><div class="d">--</div><div class="l">Effective</div></div><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span><div class="dcol"><div class="d">--</div><div class="l">Due</div></div></div></div>
+              <div class="status"><span class="st errors">Errors <i class="fa-solid fa-triangle-exclamation"></i></span></div>
+              <div class="kebab"><i class="fa-solid fa-ellipsis"></i></div>
+            </div>
+
+            <!-- Row 6 -->
+            <div class="row">
+              <div class="course">
+                <div class="thumb" style="background:linear-gradient(135deg,#5b8def,#3a63c4)"><i class="fa-solid fa-clipboard"></i></div>
+                <div class="c-body">
+                  <div class="c-name">CPN Policy Test</div>
+                  <div class="c-type">Custom</div>
+                  <div class="cat">Bundling Examples <i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+              </div>
+              <div class="cell job"><div class="cico"><i class="fa-solid fa-user-group"></i></div><div><b>04272023</b><span>at <b>Sample School District</b></span></div></div>
+              <div class="cell dates"><div class="cico"><i class="fa-regular fa-calendar"></i></div><div class="dpair"><div class="dcol"><div class="d">Aug 19, 2026</div><div class="l">Effective</div></div><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span><div class="dcol"><div class="d">Sep 18, 2026</div><div class="l">Due</div></div></div></div>
+              <div class="status"><span class="st publish">Publish</span></div>
+              <div class="kebab"><i class="fa-solid fa-ellipsis"></i></div>
+            </div>
+
+            <!-- Row 7 -->
+            <div class="row">
+              <div class="course">
+                <div class="thumb" style="background:linear-gradient(135deg,#5b8def,#3a63c4)"><i class="fa-solid fa-clipboard"></i></div>
+                <div class="c-body">
+                  <div class="c-name">CPN Policy Test</div>
+                  <div class="c-type">Custom</div>
+                  <div class="cat">Bundling Examples <i class="fa-solid fa-chevron-down"></i></div>
+                </div>
+              </div>
+              <div class="cell job"><div class="cico"><i class="fa-solid fa-user-group"></i></div><div><b>RH Upload Test 25-07-31 Should…</b><span>at <b>Sample School District</b></span></div></div>
+              <div class="cell dates"><div class="cico"><i class="fa-regular fa-calendar"></i></div><div class="dpair"><div class="dcol"><div class="d">Aug 19, 2026</div><div class="l">Effective</div></div><span class="arrow"><i class="fa-solid fa-arrow-right"></i></span><div class="dcol"><div class="d">Sep 18, 2026</div><div class="l">Due</div></div></div></div>
+              <div class="status"><span class="st publish">Publish</span></div>
+              <div class="kebab"><i class="fa-solid fa-ellipsis"></i></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Floating Vectoria launcher (part of the real product chrome; not the focus of this option) -->
+<button class="vfab" id="vfab" aria-label="Vectoria assistant" title="Vectoria assistant"><span class="spark"><i class="fa-solid fa-sparkles"></i></span>V</button>
+
+<!-- Toast confirmation -->
+<div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i> <span id="toastMsg">Assigned</span></div>
+
+<!-- ── Design Toolbox: Flow Map scaffold ── -->
+<script>
+  // Recommended courses (sourced from the state Compliance Guide). One banner
+  // per item; each is Assigned or dismissed as "Already Done".
+  const REC = [
+    { id: 'r1', name: 'ADA / Section 504 Accommodations', cat: 'Mandatory', type: 'Full Course', audience: 'All Staff',
+      icon: 'fa-universal-access', reason: 'Required for all IL K-12 staff — supporting students & staff with disabilities.' },
+    { id: 'r2', name: 'Anti-Bullying & Student Safety', cat: 'Mandatory', type: 'Full Course', audience: 'All Staff',
+      icon: 'fa-hand-holding-heart', reason: 'Illinois requires anti-bullying training for all school staff each year.' },
+    { id: 'r3', name: 'School Safety Drills & Emergency Procedures', cat: 'Compulsory', type: 'Full Course', audience: 'All Staff',
+      icon: 'fa-fire-extinguisher', reason: 'Required for all IL K-12 staff — fire, severe-weather, and lockdown readiness.' },
+    { id: 'r4', name: 'Cybersecurity Awareness for Staff', cat: 'Recommended', type: 'Full Course', audience: 'All Staff',
+      icon: 'fa-lock', reason: 'Recommended in the IL K-12 Compliance Guide to protect student data.' },
+    { id: 'r5', name: 'Youth Mental Health Awareness', cat: 'Recommended', type: 'Full Course', audience: 'Teachers, Counselors',
+      icon: 'fa-heart-pulse', reason: 'Recommended for staff who work directly with students.' }
+  ];
+
+  let items = REC.slice();
+  let index = 0;
+  let assignedCount = 0, doneCount = 0;
+
+  const region = document.getElementById('rcRegion');
+  const track = document.getElementById('rcTrack');
+  const dotsEl = document.getElementById('rcDots');
+  const posEl = document.getElementById('rcPos');
+  const prevBtn = document.getElementById('rcPrev');
+  const nextBtn = document.getElementById('rcNext');
+
+  const toast = document.getElementById('toast');
+  const toastMsg = document.getElementById('toastMsg');
+  let toastTimer = null;
+  function showToast(msg, neutral) {
+    toastMsg.textContent = msg;
+    toast.classList.toggle('neutral', !!neutral);
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+  }
+
+  function slideHTML(it) {
+    return (
+      '<div class="rc-slide">' +
+        '<div class="rc-banner">' +
+          '<div class="rc-mark"><i class="fa-solid ' + it.icon + '"></i></div>' +
+          '<div class="rc-copy">' +
+            '<span class="eb"><i class="fa-solid fa-sparkles"></i> Recommended · ' + it.cat + '</span>' +
+            '<h3>' + it.name + '</h3>' +
+            '<p>' + it.reason + '</p>' +
+            '<div class="rc-metachips">' +
+              '<span class="rc-chip"><i class="fa-solid fa-user-group"></i> Suggested: ' + it.audience + '</span>' +
+              '<span class="rc-chip"><i class="fa-solid fa-graduation-cap"></i> ' + it.type + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="rc-actions">' +
+            '<button class="rc-assign" onclick="rcHandle(\'' + it.id + '\',\'assign\')"><i class="fa-solid fa-circle-plus"></i> Assign</button>' +
+            '<button class="rc-done" onclick="rcHandle(\'' + it.id + '\',\'done\')"><i class="fa-solid fa-check"></i> Already Done</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }
+
+  function buildTrack() {
+    track.innerHTML = items.map(slideHTML).join('');
+    dotsEl.innerHTML = items.map((_, i) => '<button class="rc-dot" aria-label="Go to recommendation ' + (i + 1) + '" onclick="rcGoTo(' + i + ')"></button>').join('');
+  }
+
+  function update() {
+    if (items.length === 0) {
+      region.classList.add('empty');
+      document.getElementById('rcEmptyMsg').textContent =
+        'You assigned ' + assignedCount + ' and marked ' + doneCount + ' as already done. Nothing else is recommended for Illinois K-12 right now.';
+      return;
+    }
+    region.classList.remove('empty');
+    if (index > items.length - 1) index = items.length - 1;
+    if (index < 0) index = 0;
+    track.style.transform = 'translateX(-' + (index * 100) + '%)';
+    posEl.textContent = (index + 1) + ' of ' + items.length;
+    prevBtn.disabled = index === 0;
+    nextBtn.disabled = index === items.length - 1;
+    Array.prototype.forEach.call(dotsEl.children, (d, i) => d.classList.toggle('active', i === index));
+  }
+
+  function render() { buildTrack(); update(); }
+
+  function rcHandle(id, action) {
+    const idx = items.findIndex(it => it.id === id);
+    if (idx < 0) return;
+    const it = items[idx];
+    items.splice(idx, 1);
+    if (idx < index) index--;
+    if (action === 'assign') { assignedCount++; showToast('“' + it.name + '” assigned', false); }
+    else { doneCount++; showToast('“' + it.name + '” marked as already done', true); }
+    render();
+  }
+  function rcGoTo(i) { index = i; update(); }
+  function rcNav(delta) { index += delta; update(); }
+  window.rcHandle = rcHandle;
+  window.rcGoTo = rcGoTo;
+
+  prevBtn.addEventListener('click', () => rcNav(-1));
+  nextBtn.addEventListener('click', () => rcNav(1));
+
+  render();
+
+  // ── Flow map host contract ──
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    switch (id) {
+      case 'caughtup':                         // fast-forward to the all-caught-up state
+        while (items.length) { assignedCount++; items.pop(); }
+        render();
+        break;
+      case 'plans': default: break;            // entry screen already shows the carousel
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Recommended Assignment Templates — V4 (Recommendation Carousel)',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 440 },
+      flows: [ { id: 'main', name: 'Recommendation Carousel', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1200, h: 400 }, labelXY: { x: 40, y: 40 } } ],
+      nodes: [
+        { id: 'plans', flow: 'main', entry: true, x: 80, y: 170, step: 'Entry', name: 'Carousel (1 of 5)', state: 'plans',
+          desc: 'Group Training page with a carousel of recommended-course banners; each offers Assign or Already Done.' },
+        { id: 'caughtup', flow: 'main', x: 640, y: 170, step: 'Caught up', name: 'All caught up', state: 'caughtup',
+          desc: 'After the admin handles every recommendation (Assign / Already Done), the carousel shows the caught-up state.' }
+      ],
+      edges: [ ['plans', 'caughtup'] ]
+    }
+  };
+</script>
+
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
