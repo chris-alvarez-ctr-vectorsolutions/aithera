@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Path Update (minimal) — Riff 03</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<link rel="stylesheet" href="../../css/frame.css?v=5" />
+<style>
+  /* Tokens lifted from css/layered-learning.css — see the celebratory riff
+     (02) for the same note. This riff is the opposite bet: say as little as
+     possible about WHAT moved, and let a progress indicator carry the feeling
+     that something got calibrated. */
+  :root{
+    --bg:        #070b14;
+    --ink:       #eaf0fb;
+    --ink-soft:  #aab6cc;
+    --ink-faint: #7a879e;
+    --line:      rgba(255,255,255,.11);
+    --teal:      #2ee6cf;
+    --grad:      linear-gradient(135deg, #46f0dc 0%, #16b8a6 55%, #0c8f83 100%);
+    --amber:     #f1b34a;
+    --violet:    #c4b5fd;
+    --ease:      cubic-bezier(.2,.7,.2,1);
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:"Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow:hidden;
+  }
+
+  .stage{
+    position:fixed; left:0; right:0; top:var(--header-h); bottom:80px;
+    overflow:hidden;
+    background: radial-gradient(130% 110% at 50% -10%, #0f1a2e 0%, #0a1120 52%, #05080f 100%);
+  }
+  .stage::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(60% 55% at 50% 42%, rgba(46,230,207,.06), transparent 70%),
+      radial-gradient(100% 100% at 50% 120%, rgba(0,0,0,.55), transparent 60%);
+  }
+
+  .stage-inner{
+    position:absolute; inset:0; z-index:1;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:24px; text-align:center;
+  }
+
+  .orb-slot{
+    width:120px; height:120px; margin-bottom:26px;
+    transition:width .5s var(--ease), height .5s var(--ease), margin-bottom .5s var(--ease);
+  }
+  /* Mirrors the real screen's phase 1 (orb alone, oversized, "reading" the
+     answers before it has anything to show) — used only by the "current"
+     variant below. */
+  .orb-slot.is-reading{ width:170px; height:170px; margin-bottom:34px; }
+  .orb-mount{ width:100%; height:100%; }
+
+  /* ---- Loading phase: status line + track ---- */
+  .min-status{
+    margin:0 0 20px; font-size:15px; letter-spacing:.01em; color:var(--ink-soft);
+    transition:opacity .28s ease;
+  }
+  .min-status.fade-out{ opacity:0; }
+
+  .min-track{
+    width:min(320px, 70vw); height:6px; border-radius:999px; overflow:hidden;
+    background:rgba(255,255,255,.08); position:relative;
+    transition:opacity .28s ease;
+  }
+  .min-track.fade-out{ opacity:0; }
+
+  /* Both bars are always in the DOM; which one animates (and how) is driven
+     entirely by [data-variant] on the track, not by inline styles — a fill
+     bar and an indeterminate bar want opposite CSS (width vs. left+right), and
+     mixing the two through JS-set inline widths is what silently pinned the
+     indeterminate bar to 0 width before (an inline style always beats a class,
+     so it never showed). Splitting them into two selectors avoids that trap. */
+  .min-fill, .min-fill-b{ position:absolute; top:0; height:100%; border-radius:999px; background:var(--grad); }
+
+  .min-track[data-variant="deterministic"] .min-fill{ left:0; width:0%; }
+  .min-track[data-variant="deterministic"] .min-fill.is-filling{
+    width:100%; transition:width 2.1s cubic-bezier(.3,.6,.2,1);
+  }
+  .min-track[data-variant="deterministic"] .min-fill-b{ display:none; }
+
+  /* Non-deterministic: two bars chasing each other (the standard "indeterminate
+     progress" shape) rather than one bar sliding — a silhouette nobody reads
+     as counting toward a known total, which is the point: there's no real
+     "amount of work" to report for a calibration step, so the bar never
+     implies one the way a single growing/sweeping segment would. */
+  .min-track[data-variant="indeterminate"] .min-fill{
+    width:auto; animation: ind-a 2.1s cubic-bezier(.65,.815,.735,.395) infinite;
+  }
+  .min-track[data-variant="indeterminate"] .min-fill-b{
+    display:block; width:auto;
+    animation: ind-b 2.1s cubic-bezier(.165,.84,.44,1) infinite;
+    animation-delay: 1.1s;
+  }
+  @keyframes ind-a{
+    0%   { left:-35%; right:100%; }
+    60%  { left:100%;  right:-90%; }
+    100% { left:100%;  right:-90%; }
+  }
+  @keyframes ind-b{
+    0%   { left:-200%; right:100%; }
+    25%  { left:-200%; right:100%; }
+    50%  { left:107%;  right:-8%; }
+    100% { left:107%;  right:-8%; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .min-track[data-variant="indeterminate"] .min-fill,
+    .min-track[data-variant="indeterminate"] .min-fill-b{
+      left:0; right:0; width:100%; animation:ind-pulse 1.6s ease-in-out infinite;
+    }
+    .min-track[data-variant="indeterminate"] .min-fill-b{ animation-delay:.8s; }
+  }
+  @keyframes ind-pulse{ 0%, 100% { opacity:.22; } 50% { opacity:.55; } }
+
+  .min-pct{
+    margin:10px 0 0; font-size:12px; font-variant-numeric:tabular-nums;
+    color:var(--ink-faint); transition:opacity .28s ease;
+  }
+  .min-pct.fade-out{ opacity:0; }
+
+  /* ---- Ready phase: the ONLY thing the learner is told — that it's done,
+     not what changed or how the system decided. ---- */
+  .min-result{ opacity:0; transform:translateY(8px); transition:opacity .5s var(--ease), transform .5s var(--ease); }
+  .min-result.in{ opacity:1; transform:none; }
+  .min-eyebrow{
+    margin:0 0 12px; font-size:12px; font-weight:800; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--teal);
+  }
+  .min-headline{ margin:0 0 10px; font-size:clamp(26px,3.4vw,34px); font-weight:800; color:#fff; letter-spacing:-.01em; }
+  .min-sub{ margin:0; max-width:40ch; font-size:15px; line-height:1.55; color:var(--ink-soft); }
+
+  @media (prefers-reduced-motion: reduce){
+    .min-result{ transition:opacity .2s linear; transform:none; }
+  }
+
+  /* ---- "Current" variant: the production screen's own reveal (see
+     clara/sharps.html's ADJUST_CONTENT / adjustInit), reproduced here so it
+     sits side-by-side with the two progress-bar takes instead of living in a
+     separate tab a reviewer has to alt-tab to compare against. Same two
+     phases as the real thing: the orb alone while "reading," then a stack of
+     mocked sections that resolve one at a time to Skipped/Adapted, then the
+     verdict copy. Row data is illustrative, not live. ---- */
+  .cur-wrap{ width:100%; max-width:520px; }
+  .cur-reading{ margin:0; font-size:15px; letter-spacing:.01em; color:var(--ink-soft); }
+  .cur-wrap:not(.is-reading) .cur-reading{ display:none; }
+  .cur-body{ display:none; flex-direction:column; align-items:center; width:100%; }
+  .cur-wrap:not(.is-reading) .cur-body{ display:flex; }
+
+  .cur-eyebrow{
+    margin:0 0 10px; font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--teal); visibility:hidden; opacity:0; transition:opacity .38s var(--ease);
+  }
+  .cur-eyebrow.in{ visibility:visible; opacity:1; }
+  .cur-headline{
+    margin:0 0 4px; max-width:22ch; font-size:clamp(22px,3vw,28px); font-weight:800;
+    line-height:1.2; letter-spacing:-.01em; color:#fff; text-align:center;
+    visibility:hidden; opacity:0; transition:opacity .38s var(--ease);
+  }
+  .cur-headline.in{ visibility:visible; opacity:1; }
+
+  .cur-stack{ list-style:none; margin:18px 0 0; padding:0; width:100%; display:grid; gap:6px; }
+  .cur-row{
+    display:grid; grid-template-columns:32px 1fr auto; gap:13px; align-items:center;
+    padding:10px 14px; border-radius:12px;
+    background:rgba(255,255,255,.04); border:1px solid var(--line);
+  }
+  .cur-row[data-state="pending"]{ opacity:.62; }
+  .cur-ico{
+    width:32px; height:32px; border-radius:50%; display:grid; place-items:center;
+    background:rgba(255,255,255,.06); border:1px solid var(--line); color:var(--ink-soft); font-size:13px;
+  }
+  .cur-row[data-state="dropped"] .cur-ico{ opacity:.4; }
+  .cur-row[data-state="harder"] .cur-ico{ color:var(--teal); border-color:rgba(46,230,207,.3); }
+  .cur-main{ text-align:left; min-width:0; }
+  .cur-label{ font-size:14px; font-weight:600; color:#fff; }
+  .cur-row[data-state="dropped"] .cur-label{ color:var(--ink-faint); text-decoration:line-through; }
+  .cur-state{ min-width:92px; display:flex; justify-content:flex-end; align-items:center; }
+  .cur-spin{
+    width:14px; height:14px; border-radius:50%;
+    border:2px solid var(--line); border-top-color:var(--ink-soft);
+    animation:cur-spin .7s linear infinite;
+  }
+  @keyframes cur-spin{ to{ transform:rotate(360deg); } }
+  .cur-chip{ display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:11px; font-weight:800; letter-spacing:.02em; }
+  .cur-chip i{ font-size:9px; }
+  .cur-chip--drop{ background:rgba(241,179,74,.14); color:var(--amber); border:1px solid rgba(241,179,74,.32); }
+  .cur-chip--harder{ background:rgba(167,139,250,.14); color:var(--violet); border:1px solid rgba(167,139,250,.35); }
+
+  .cur-saved{
+    margin:15px 0 0; font-size:13px; color:var(--teal); text-align:center;
+    visibility:hidden; opacity:0; transition:opacity .38s var(--ease);
+  }
+  .cur-saved.in{ visibility:visible; opacity:1; }
+
+  @media (prefers-reduced-motion: reduce){
+    .cur-spin{ animation:none; border-top-color:var(--ink-soft); }
+    .cur-eyebrow, .cur-headline, .cur-saved{ transition:opacity .15s linear; }
+  }
+
+  /* ---- Reviewer-only comparison toggle. NOT part of the design — it exists
+     so this one file can hold all three options side by side (the two
+     progress-bar takes plus the production screen's own reveal) rather than
+     forcing a pick, or a second tab, before a designer has seen all three.
+     Drop this block once a direction wins. ---- */
+  .riff-toggle{
+    position:absolute; top:16px; right:16px; z-index:5;
+    display:flex; align-items:center; gap:6px;
+    padding:6px; border-radius:10px;
+    background:rgba(8,12,22,.72); border:1px dashed rgba(255,255,255,.22);
+    backdrop-filter:blur(6px);
+  }
+  .riff-toggle-label{ font-size:10px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); padding:0 4px; }
+  .riff-toggle-btn{
+    font:inherit; font-size:11px; font-weight:700; color:var(--ink-soft);
+    background:transparent; border:1px solid transparent; border-radius:7px;
+    padding:6px 10px; cursor:pointer;
+  }
+  .riff-toggle-btn:hover{ color:var(--ink); }
+  .riff-toggle-btn.is-active{ background:rgba(46,230,207,.14); border-color:rgba(46,230,207,.4); color:var(--teal); }
+
+  /* ---- Footer ---- */
+  .foot{
+    position:fixed; left:0; right:0; bottom:0; height:80px; z-index:45;
+    display:flex; align-items:center; justify-content:flex-end; gap:10px;
+    padding:0 24px;
+    background:linear-gradient(180deg, #0b1322 0%, #070c16 100%);
+    border-top:1px solid var(--line);
+  }
+  .btn{
+    display:inline-flex; align-items:center; gap:9px; height:44px; padding:0 20px;
+    border-radius:11px; border:1px solid transparent; font:inherit; font-size:14px; font-weight:700;
+    cursor:pointer; transition:background .16s ease, border-color .16s ease, transform .1s ease, opacity .16s ease;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn--ghost{ background:transparent; border-color:var(--line); color:var(--ink-soft); }
+  .btn--ghost:not(:disabled):hover{ border-color:rgba(255,255,255,.3); color:var(--ink); }
+  .btn--primary{ background:var(--grad); color:#052b27; box-shadow:0 6px 18px rgba(20,184,166,.34); }
+  .btn--primary:not(:disabled):hover{ filter:brightness(1.06); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <div class="riff-toggle" role="group" aria-label="Reveal style — comparison only, not part of the design">
+      <span class="riff-toggle-label">Reveal style</span>
+      <button type="button" class="riff-toggle-btn is-active" id="btnDeterministic">Deterministic</button>
+      <button type="button" class="riff-toggle-btn" id="btnIndeterminate">Non-deterministic</button>
+      <button type="button" class="riff-toggle-btn" id="btnCurrent">Current</button>
+    </div>
+
+    <div class="stage-inner">
+      <div class="orb-slot"><div class="orb-mount" id="orbMount"></div></div>
+
+      <p class="min-status" id="minStatus">Calibrating your path…</p>
+      <div class="min-track" id="minTrack" data-variant="deterministic">
+        <div class="min-fill" id="minFill"></div>
+        <div class="min-fill-b" id="minFillB"></div>
+      </div>
+      <p class="min-pct" id="minPct">0%</p>
+
+      <!--
+        The only copy the learner ever sees once this resolves. No list of
+        what got skipped or made harder — the brief for this riff is to leave
+        the "how" invisible and let the outcome (Continue unlocking) do the
+        convincing instead.
+      -->
+      <div class="min-result" id="minResult" hidden>
+        <p class="min-eyebrow">Path ready</p>
+        <h1 class="min-headline">You're set.</h1>
+        <p class="min-sub">We fit this to how you answered.</p>
+      </div>
+
+      <!--
+        "Current" variant — the production screen's own copy and structure,
+        mocked here for comparison. Row states are illustrative placeholders,
+        not computed from any real answer.
+      -->
+      <div class="cur-wrap" id="curWrap" hidden>
+        <p class="cur-reading" id="curReading">Reading your answers…</p>
+        <div class="cur-body" id="curBody">
+          <p class="cur-eyebrow" id="curEyebrow">Path updated</p>
+          <h1 class="cur-headline" id="curHeadline">Here&rsquo;s what&rsquo;s next.</h1>
+          <ol class="cur-stack" id="curStack" aria-live="polite"></ol>
+          <p class="cur-saved" id="curSaved">Adapted for you based on your previous answers.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button class="btn btn--ghost" type="button" id="backBtn">Back</button>
+    <button class="btn btn--primary" type="button" id="nextBtn" disabled>Continue <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+  </footer>
+
+  <script>
+    window.LESSON_FRAME = {
+      course: 'Bloodborne Pathogens',
+      lesson: 'Your Updated Path',
+      step: '',
+      progress: null,
+      backHref: 'index.html',
+    };
+  </script>
+  <script src="../../js/mobius-orb.js?v=5"></script>
+  <script src="../../js/frame.js?v=7"></script>
+  <script>
+    if (window.MobiusOrb) MobiusOrb.create(document.getElementById('orbMount'));
+
+    document.getElementById('nextBtn').addEventListener('click', function () {
+      // Riff only — the real screen advances to the next lesson.
+    });
+
+    var orbSlot  = document.querySelector('.orb-slot');
+    var statusEl = document.getElementById('minStatus');
+    var trackEl  = document.getElementById('minTrack');
+    var fillEl   = document.getElementById('minFill');
+    var pctEl    = document.getElementById('minPct');
+    var resultEl = document.getElementById('minResult');
+    var nextBtn  = document.getElementById('nextBtn');
+    var btnDet   = document.getElementById('btnDeterministic');
+    var btnInd   = document.getElementById('btnIndeterminate');
+    var btnCur   = document.getElementById('btnCurrent');
+
+    var curWrap     = document.getElementById('curWrap');
+    var curStack    = document.getElementById('curStack');
+    var curEyebrow  = document.getElementById('curEyebrow');
+    var curHeadline = document.getElementById('curHeadline');
+    var curSaved    = document.getElementById('curSaved');
+
+    // Mocked, not computed — the same five sections shown on the real
+    // "Your Updated Path" screen this whole page riffs on.
+    var CURRENT_ROWS = [
+      { icon: 'fa-diagram-project', label: 'Safe Handling, Step by Step', state: 'dropped' },
+      { icon: 'fa-shield-halved',   label: 'A Sharp Set Down',            state: 'dropped' },
+      { icon: 'fa-route',           label: 'Planning the Route',          state: 'dropped' },
+      { icon: 'fa-vial',            label: 'Past the Fill Line',          state: 'harder'  },
+      { icon: 'fa-user-group',      label: 'Left by Someone Else',        state: 'harder'  }
+    ];
+    var CUR_CHIPS = {
+      dropped: '<span class="cur-chip cur-chip--drop"><i class="fa-solid fa-forward" aria-hidden="true"></i> Skipped</span>',
+      harder:  '<span class="cur-chip cur-chip--harder"><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> Adapted</span>'
+    };
+
+    var runToken = 0;
+
+    function animateCounter(durationMs, token) {
+      var start = null;
+      function step(ts) {
+        if (token !== runToken) return;
+        if (!start) start = ts;
+        var t = Math.min(1, (ts - start) / durationMs);
+        // Ease-out so the number settles rather than ticking linearly.
+        var eased = 1 - Math.pow(1 - t, 3);
+        pctEl.textContent = Math.round(eased * 100) + '%';
+        if (t < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function finish(token) {
+      if (token !== runToken) return;
+      statusEl.classList.add('fade-out');
+      trackEl.classList.add('fade-out');
+      pctEl.classList.add('fade-out');
+      setTimeout(function () {
+        if (token !== runToken) return;
+        statusEl.hidden = true;
+        trackEl.hidden = true;
+        pctEl.hidden = true;
+        resultEl.hidden = false;
+        requestAnimationFrame(function () { resultEl.classList.add('in'); });
+        nextBtn.disabled = false;
+      }, 280);
+    }
+
+    // ---- "Current" variant: same two-phase choreography as adjustInit() in
+    // js/layered-sharps.js — orb alone and oversized while "reading," then it
+    // settles back down and the stack resolves one row at a time, then the
+    // verdict copy fades in last. ----
+    function runCurrent(token) {
+      orbSlot.classList.add('is-reading');
+      curWrap.classList.add('is-reading');
+      curEyebrow.classList.remove('in');
+      curHeadline.classList.remove('in');
+      curSaved.classList.remove('in');
+
+      curStack.innerHTML = CURRENT_ROWS.map(function (r) {
+        return '<li class="cur-row" data-state="pending">' +
+                 '<span class="cur-ico"><i class="fa-solid ' + r.icon + '" aria-hidden="true"></i></span>' +
+                 '<span class="cur-main"><span class="cur-label">' + r.label + '</span></span>' +
+                 '<span class="cur-state"><span class="cur-spin" aria-hidden="true"></span></span>' +
+               '</li>';
+      }).join('');
+      var rowEls = [].slice.call(curStack.children);
+
+      setTimeout(function () {
+        if (token !== runToken) return;
+        orbSlot.classList.remove('is-reading');
+        curWrap.classList.remove('is-reading');
+
+        rowEls.forEach(function (li, i) {
+          setTimeout(function () {
+            // Guarded: the toggle can switch variants mid-sequence, which
+            // replaces this stack — don't reach into a DOM that's moved on.
+            if (token !== runToken || !li.isConnected) return;
+            var r = CURRENT_ROWS[i];
+            li.dataset.state = r.state;
+            var stateEl = li.querySelector('.cur-state');
+            if (stateEl) stateEl.innerHTML = CUR_CHIPS[r.state];
+          }, i * 420);
+        });
+
+        setTimeout(function () {
+          if (token !== runToken) return;
+          curEyebrow.classList.add('in');
+          curHeadline.classList.add('in');
+          curSaved.classList.add('in');
+          nextBtn.disabled = false;
+        }, rowEls.length * 420 + 300);
+      }, 1200);
+    }
+
+    function run(variant) {
+      runToken += 1;
+      var token = runToken;
+
+      // Reset every surface so switching mid-animation never leaves a stale
+      // state from whichever variant was showing before.
+      resultEl.classList.remove('in'); resultEl.hidden = true;
+      curWrap.hidden = true; curWrap.classList.remove('is-reading');
+      orbSlot.classList.remove('is-reading');
+      nextBtn.disabled = true;
+
+      if (variant === 'current') {
+        statusEl.hidden = true;
+        trackEl.hidden = true;
+        pctEl.hidden = true;
+        curWrap.hidden = false;
+        runCurrent(token);
+        return;
+      }
+
+      statusEl.hidden = false; statusEl.classList.remove('fade-out');
+      trackEl.hidden = false; trackEl.classList.remove('fade-out');
+      pctEl.hidden = (variant === 'indeterminate'); pctEl.classList.remove('fade-out');
+      pctEl.textContent = '0%';
+
+      // [data-variant] on the track alone decides which bar(s) show and how —
+      // no inline styles from here on, so there's nothing for a leftover
+      // style to pin in place on the next run.
+      trackEl.dataset.variant = variant;
+      fillEl.classList.remove('is-filling');
+
+      if (variant === 'deterministic') {
+        void fillEl.offsetWidth; // reflow so re-adding .is-filling retriggers the width transition on replay
+        requestAnimationFrame(function () { fillEl.classList.add('is-filling'); });
+        animateCounter(2100, token);
+        setTimeout(function () { finish(token); }, 2160);
+      } else {
+        setTimeout(function () { finish(token); }, 2400);
+      }
+    }
+
+    function setActive(btn) {
+      [btnDet, btnInd, btnCur].forEach(function (b) { b.classList.toggle('is-active', b === btn); });
+    }
+
+    btnDet.addEventListener('click', function () { setActive(btnDet); run('deterministic'); });
+    btnInd.addEventListener('click', function () { setActive(btnInd); run('indeterminate'); });
+    btnCur.addEventListener('click', function () { setActive(btnCur); run('current'); });
+
+    run('deterministic');
+  </script>
+</body>
+</html>

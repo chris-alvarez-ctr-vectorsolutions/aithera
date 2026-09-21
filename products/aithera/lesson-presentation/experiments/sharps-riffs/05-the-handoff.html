@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Teach Back — Riff 05</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<link rel="stylesheet" href="../../css/frame.css?v=5" />
+<style>
+  /* Tokens copied from Riff 01 (the CLARA brand palette) so this reads as the
+     same visual language, and because it's a direct continuation of that
+     riff's scenario: same unclaimed-blade dilemma, now taught forward. */
+  :root{
+    --c-bg:          #070b14;
+    --c-surface:     #111a2e;
+    --c-surface-2:   #16203a;
+    --c-ink:         #eaf0fb;
+    --c-ink-soft:    #aab6cc;
+    --c-ink-faint:   #7a879e;
+    --c-line:        rgba(255,255,255,.11);
+    --c-accent:      #2ee6cf;
+    --c-accent-strong:#14b8a6;
+    --c-accent-soft: rgba(46,230,207,.14);
+    --c-on-accent:   #04121a;
+    --radius:16px; --radius-sm:10px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+    --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+    --ease: cubic-bezier(.4,0,.2,1);
+  }
+  *{ box-sizing:border-box; }
+  /* .feedback's own rule below sets `display` for its visible state — an
+     author stylesheet always beats the UA's `[hidden]{display:none}`, so
+     without this the hidden attribute alone gets silently overridden the
+     moment a class also declares display. */
+  [hidden]{ display:none !important; }
+  html,body{
+    margin:0; height:100%; background:var(--c-bg); color:var(--c-ink);
+    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  /* App shell: same fixed/flex-column pattern as Riff 01, so the response
+     controls at the bottom stay pinned regardless of feedback content height. */
+  .app{ position:fixed; inset:0; display:flex; flex-direction:column; background:var(--c-bg); }
+  .main{ flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; }
+  /* width:100% is load-bearing here, not decorative: a flex item with auto
+     cross-axis margins (margin:0 auto) never stretches to fill its
+     container per spec — it shrink-wraps to content instead, silently
+     ignoring max-width as an upper bound that ends up never being reached.
+     Same fix applies to .responder below. */
+  .main-inner{ width:100%; max-width:640px; margin:0 auto; padding:32px 20px 24px; display:flex; flex-direction:column; gap:22px; }
+
+  /* ---- The ask — a plain task card, not a roleplay chat thread. "New hire"
+     is who this is targeted at, not a character to stage a conversation
+     with; a fake incoming-message bubble was fighting the layout below it
+     for the same visual attention the talk/text controls need. ---- */
+  .task-card{ padding-top:4px; text-align:center; }
+  .task-eyebrow{
+    display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--c-accent-strong); margin:0 0 10px;
+  }
+  .task-headline{ margin:0 0 10px; font-size:clamp(24px,4vw,32px); font-weight:800; color:var(--c-ink); letter-spacing:-.01em; }
+  /* Prose stays left-aligned within a capped measure even though the card
+     around it is centered — centering multi-line body text hurts readability. */
+  .task-sub{ max-width:44ch; margin:0 auto; text-align:left; font-size:14.5px; line-height:1.55; color:var(--c-ink-soft); }
+
+  /* ---- Feedback: a coach reaction first (this IS the coaching), then the
+     rubric tiles as supporting detail underneath — not a bare checklist. ---- */
+  .feedback{ display:flex; flex-direction:column; gap:10px; padding-top:4px; }
+  .fb-eyebrow{ display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--c-accent-strong); }
+  .fb-eyebrow.fb-eyebrow-quiet{ color:var(--c-ink-faint); margin-top:6px; }
+
+  .typing{
+    align-self:flex-start; display:inline-flex; align-items:center; gap:9px; margin-top:2px;
+    padding:13px 15px; border-radius:4px 14px 14px 14px;
+    background:var(--c-surface-2); border:1px solid var(--c-line); box-shadow:var(--shadow-sm);
+  }
+  .typing .tdots{ display:inline-flex; gap:5px; }
+  .typing .tdots span{ width:7px; height:7px; border-radius:50%; background:var(--c-ink-faint); animation:bob 1.2s infinite ease-in-out; }
+  .typing .tdots span:nth-child(2){ animation-delay:.15s; }
+  .typing .tdots span:nth-child(3){ animation-delay:.3s; }
+  @keyframes bob{ 0%,60%,100%{ transform:translateY(0); opacity:.5; } 30%{ transform:translateY(-5px); opacity:1; } }
+
+  .coach-msg{ display:flex; gap:11px; align-items:flex-start; margin-top:2px; }
+  .coach-msg.enter{ animation:chatFadeIn .3s var(--ease) both; }
+  @keyframes chatFadeIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+  .coach-avatar{
+    flex:0 0 auto; width:32px; height:32px; border-radius:50%; display:grid; place-items:center;
+    background:linear-gradient(135deg, var(--c-accent), var(--c-accent-strong)); color:var(--c-on-accent);
+    font-size:13px; box-shadow:var(--shadow-sm);
+  }
+  .coach-body{ min-width:0; }
+  .coach-label{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--c-ink-faint); margin:2px 0 5px; }
+  .coach-bubble{
+    background:var(--c-surface-2); border:1px solid var(--c-line); border-radius:4px 14px 14px 14px;
+    padding:11px 14px; font-size:14.5px; line-height:1.5; color:var(--c-ink);
+  }
+
+  .fb-tiles{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .fb-tile{
+    display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:10px;
+    background:var(--c-surface); border:1px solid var(--c-line); font-size:14px; color:var(--c-ink-faint);
+    opacity:0; transform:translateY(6px); animation:fbIn .4s var(--ease) forwards;
+  }
+  .fb-tile i{ flex:0 0 auto; }
+  .fb-tile.is-covered{ color:var(--c-ink); border-color:color-mix(in srgb, var(--c-accent) 35%, transparent); }
+  .fb-tile.is-covered i{ color:var(--c-accent); }
+  @keyframes fbIn{ to{ opacity:1; transform:none; } }
+  .fb-quote-label{ font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--c-ink-faint); margin-bottom:6px; }
+  .fb-quote blockquote{
+    margin:0; padding:12px 15px; border-left:3px solid var(--c-line); font-size:14px; line-height:1.5;
+    color:var(--c-ink-soft); font-style:italic;
+  }
+  .fb-empty{ font-style:normal; color:var(--c-ink-faint); }
+
+  /* ---- The response — ONE field, not a mode toggle plus a separate big
+     talk surface. A toggle that swapped the whole composer for a ring/button
+     (with the transcript showing up as a caption *next to* it, not *in* it)
+     was two different mental models for one answer. The shared component's
+     own actual pattern is simpler than that: the mic lives inside the field
+     and dictates into it directly — same text, same box, whichever way you
+     put it there. ---- */
+  .composer-field{ width:100%; max-width:560px; margin:8px auto 0; display:flex; flex-direction:column; gap:6px; }
+  .text-shell{
+    display:flex; align-items:flex-end; gap:6px;
+    border:1.5px solid var(--c-line); border-radius:12px;
+    background:var(--c-surface); padding:6px 8px 6px 14px;
+    transition:border-color .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .text-shell:focus-within{ border-color:var(--c-accent); box-shadow:0 0 0 3px var(--c-accent-soft); }
+  #composer{
+    flex:1 1 auto; resize:none; border:0; background:transparent; outline:none;
+    font:inherit; font-size:15px; line-height:1.5; color:var(--c-ink); padding:9px 0;
+  }
+  #composer::placeholder{ color:var(--c-ink-faint); }
+  #composer:disabled{ opacity:.6; cursor:not-allowed; }
+  .field-hint{ min-height:16px; text-align:center; font-size:12.5px; color:var(--c-ink-faint); }
+
+  /* ---- Footer: a single Continue action, like the rest of the course
+     chrome — not a second submit button competing with the response card
+     above it. Disabled until there's a real answer; once pressed it locks
+     the response and shows as complete (restarting is the header's job). ---- */
+  .action-bar{
+    flex:0 0 auto; background:var(--c-surface); border-top:1px solid var(--c-line);
+    display:flex; justify-content:flex-end;
+    padding:14px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .btn-continue{
+    display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border:1px solid transparent; border-radius:10px;
+    background:var(--c-accent); color:var(--c-on-accent); font:inherit; font-size:14px; font-weight:700; cursor:pointer;
+    transition: background .15s ease, opacity .15s ease, transform .1s ease, border-color .15s ease, color .15s ease;
+  }
+  .btn-continue:hover:not(:disabled){ filter:brightness(1.05); }
+  .btn-continue:active:not(:disabled){ transform:scale(.97); }
+  .btn-continue:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-continue.is-complete{
+    background:transparent; border-color:var(--c-line); color:var(--c-ink-soft); opacity:1; cursor:default;
+  }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="main">
+      <div class="main-inner">
+        <div class="task-card">
+          <div class="task-eyebrow"><i class="fa-solid fa-user-plus"></i> Teach-back</div>
+          <h1 class="task-headline">New hire starts Monday.</h1>
+          <p class="task-sub">In under 30 seconds, tell them how to handle a sharp that isn't theirs — talk it or type it.</p>
+        </div>
+
+        <div class="composer-field">
+          <div class="text-shell" id="inputShell">
+            <textarea id="composer" rows="1" placeholder="Type your answer, or tap the mic to talk…" aria-label="Your teach-back response"></textarea>
+          </div>
+          <div class="field-hint" id="composerHint"></div>
+        </div>
+
+        <div class="feedback" id="feedback" hidden></div>
+      </div>
+    </div>
+
+    <footer class="action-bar">
+      <button class="btn-continue" id="continueBtn" type="button" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button>
+    </footer>
+  </div>
+
+  <button class="tb-btn" id="restartBtn" aria-label="Restart" hidden>
+    <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
+  </button>
+
+  <script>
+    window.LESSON_FRAME = {
+      mount: '#app',
+      course: 'Interactive scenario',
+      lesson: 'The Handoff',
+      step: '',
+      progress: null,
+      backHref: 'index.html',
+    };
+  </script>
+  <script src="../../js/frame.js?v=7"></script>
+  <script>
+    (function () {
+      function relocate() {
+        var slot = document.querySelector('.vt-frame .vt-actions');
+        var btn = document.getElementById('restartBtn');
+        if (slot && btn) { slot.appendChild(btn); btn.hidden = false; }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
+      else relocate();
+    })();
+  </script>
+  <script src="../../../scenario-simulator/js/sim-voice-input.js?v=1"></script>
+
+<script>
+(() => {
+  // ---- Rubric — a demo-mode fallback grader (keyword overlap against the
+  // transcript), the same shape as sim-teachback.js's own fallbackGrade():
+  // this riff never calls a model, so it can't do real semantic credit, but
+  // it's a legitimate stand-in for what the real coverage-board grading
+  // feels like, not just a stub. Three points, tied to Riff 01's exact
+  // dilemma (unclaimed blade, coworker calling for help mid-task).
+  const RUBRIC = [
+    {
+      id: 'not-your-job',
+      label: '"Not yours" still means you deal with it',
+      synonyms: ['not yours', 'not mine', "doesn't matter whose", 'regardless of whose', 'still your job', 'you deal with it', 'still have to'],
+      nudge: "Start there — whether it's yours almost never changes what you do next."
+    },
+    {
+      id: 'finish-first',
+      label: 'Finish securing it before you help anyone else',
+      synonyms: ['before you help', 'before helping', 'before i go', 'before you go', 'finish first', "don't walk away", "don't leave it", "don't set it down", 'deal with it first'],
+      nudge: "Don't let the coworker's request pull you away mid-task — finish securing it first."
+    },
+    {
+      id: 'sharps-container',
+      label: 'It goes in the sharps container — nowhere else',
+      synonyms: ['sharps container', 'the container', 'dispose', 'throw it away', 'bin it', 'in the bin'],
+      nudge: "Name where it actually goes — a bench or a pocket isn't secure."
+    }
+  ];
+
+  function gradeTranscript(text) {
+    const t = text.toLowerCase();
+    const results = RUBRIC.map(item => ({ ...item, covered: item.synonyms.some(s => t.includes(s)) }));
+    return { results, coveredCount: results.filter(r => r.covered).length, total: RUBRIC.length };
+  }
+
+  // The coaching reaction, not just a pass/fail score — praises what's there
+  // and nudges toward the single most useful next gap, the same shape as the
+  // real teach-back surface's own {covered, nudge} grading output.
+  function coachMessage(results, coveredCount, total) {
+    if (coveredCount === total) {
+      return "Nailed it — that's the whole rule in under 30 seconds. A new hire hearing that would know exactly what to do.";
+    }
+    const missed = results.find(r => !r.covered);
+    const opener = coveredCount === 0
+      ? "That's a start, but the new hire needs more before Monday."
+      : "Good — you're most of the way there.";
+    return `${opener} ${missed.nudge}`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---- Elements ----
+  const feedback = document.getElementById('feedback');
+  const composer = document.getElementById('composer');
+  const continueBtn = document.getElementById('continueBtn');
+
+  let completed = false;
+
+  // ---- Voice: the same shared composer component used across the real live
+  // pages, mounted the way it's actually meant to be used — its own compact
+  // mic button lives inside the field itself and dictates straight into the
+  // textarea, rather than a separate "talk mode" with its own big control.
+  // `demo` stays on so the riff still dictates (via the scripted fallback) in
+  // a browser with no mic permission or no Web Speech API.
+  const voice = window.SimVoiceInput && window.SimVoiceInput.attach({
+    shell: '#inputShell',
+    textarea: '#composer',
+    hint: '#composerHint',
+    demo: true,
+    sampleProvider: () => "Even though it's not mine, I still deal with it — I finish securing it in the sharps container before I go help anyone else."
+  });
+
+  // Enforce the 30-second cap by polling isListening() rather than timing
+  // our own click: SimVoiceInput can flip its own listening state on its own
+  // schedule (real speech recognition failing on a blocked mic permission
+  // auto-retries into the scripted demo fallback about 500ms later), so a
+  // timer scoped to "since I clicked start" would drift from what's actually
+  // being recorded.
+  let recStart = 0, wasListening = false;
+  if (voice) {
+    setInterval(() => {
+      const listening = voice.isListening();
+      if (listening && !wasListening) recStart = Date.now();
+      if (listening && Date.now() - recStart >= 30000) voice.stop(); // "less than 30 seconds" — enforced, not just suggested
+      wasListening = listening;
+    }, 200);
+  }
+
+  composer.addEventListener('input', () => {
+    if (!completed) continueBtn.disabled = composer.value.trim().length < 8;
+  });
+
+  function renderFeedback(text) {
+    const { results, coveredCount, total } = gradeTranscript(text);
+    const message = coachMessage(results, coveredCount, total);
+
+    feedback.innerHTML = `
+      <div class="fb-eyebrow"><i class="fa-solid fa-comment-dots"></i> AI Coach</div>
+      <div class="typing" id="coachTyping"><span class="tdots"><span></span><span></span><span></span></span></div>
+      <div class="fb-eyebrow fb-eyebrow-quiet"><i class="fa-solid fa-clipboard-check"></i> Coverage</div>
+      <ul class="fb-tiles">
+        ${results.map((r, i) => `
+          <li class="fb-tile ${r.covered ? 'is-covered' : ''}" style="animation-delay:${500 + i * 90}ms">
+            <i class="fa-solid ${r.covered ? 'fa-circle-check' : 'fa-circle'}"></i>
+            <span>${r.label}</span>
+          </li>`).join('')}
+      </ul>
+      <div class="fb-quote">
+        <div class="fb-quote-label">What you said</div>
+        <blockquote>${text ? escapeHtml(text) : '<span class="fb-empty">(nothing recorded)</span>'}</blockquote>
+      </div>
+    `;
+    feedback.hidden = false;
+    feedback.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // A brief typing beat before the reaction lands — same convention Riff 01
+    // uses for the coach's own turns, so this doesn't feel like a form result.
+    setTimeout(() => {
+      const typing = document.getElementById('coachTyping');
+      if (!typing) return;
+      typing.outerHTML = `
+        <div class="coach-msg enter">
+          <div class="coach-avatar"><i class="fa-solid fa-comment"></i></div>
+          <div class="coach-body">
+            <div class="coach-label">AI Coach</div>
+            <div class="coach-bubble">${escapeHtml(message)}</div>
+          </div>
+        </div>`;
+    }, 550);
+  }
+
+  function completeActivity() {
+    if (completed || continueBtn.disabled) return;
+    completed = true;
+    if (voice && voice.isListening()) voice.stop();
+    // Lock the response in place rather than hiding it — the coaching that
+    // follows is a reaction to what's still sitting right there, not to a
+    // form that's disappeared. Disabling the textarea alone makes the mic a
+    // no-op (SimVoiceInput's own start() refuses a disabled field), but the
+    // button would still look clickable, so disable it explicitly too.
+    composer.disabled = true;
+    if (voice) voice.el.disabled = true;
+    continueBtn.disabled = true;
+    continueBtn.classList.add('is-complete');
+    continueBtn.innerHTML = '<i class="fa-solid fa-check"></i> Completed';
+    renderFeedback(composer.value.trim());
+  }
+
+  continueBtn.addEventListener('click', completeActivity);
+
+  function resetAll() {
+    completed = false;
+    if (voice && voice.isListening()) voice.stop();
+    composer.disabled = false;
+    if (voice) voice.el.disabled = false;
+    composer.value = '';
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    feedback.hidden = true;
+    feedback.innerHTML = '';
+    continueBtn.classList.remove('is-complete');
+    continueBtn.innerHTML = 'Continue <i class="fa-solid fa-arrow-right"></i>';
+  }
+
+  document.getElementById('restartBtn').addEventListener('click', resetAll);
+})();
+</script>
+</body>
+</html>

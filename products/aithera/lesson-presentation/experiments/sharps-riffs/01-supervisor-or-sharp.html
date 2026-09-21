@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>A Critical Choice — Riff 01</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<link rel="stylesheet" href="../../css/frame.css?v=5" />
+<style>
+  /* Tokens + coach-panel/composer rules below are lifted from the CLARA brand
+     (:root.clara-brand) in scenario-simulator/composed-scenarios/index.html,
+     so this riff reads as the same visual language as the real module. The
+     app shell (.app/.main, fixed + flex column) is the same pattern that
+     module uses to keep its composer pinned to the bottom. */
+  :root{
+    --c-bg:          #070b14;
+    --c-surface:     #111a2e;
+    --c-surface-2:   #16203a;
+    --c-ink:         #eaf0fb;
+    --c-ink-soft:    #aab6cc;
+    --c-ink-faint:   #7a879e;
+    --c-line:        rgba(255,255,255,.11);
+    --c-accent:      #2ee6cf;
+    --c-accent-strong:#14b8a6;
+    --c-accent-soft: rgba(46,230,207,.14);
+    --c-on-accent:   #04121a;
+    --radius:16px; --radius-sm:10px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+    --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+    --ease: cubic-bezier(.4,0,.2,1);
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; height:100%; background:var(--c-bg); color:var(--c-ink);
+    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow:hidden;
+  }
+
+  /* --- App shell: fixed to the viewport, flex column, so the composer at
+     the bottom never moves regardless of how tall the chat gets --- */
+  .app{ position:fixed; inset:0; display:flex; flex-direction:column; background:var(--c-bg); }
+  .main{ flex:1 1 auto; min-height:0; overflow-y:auto; position:relative; }
+
+  /* --- Hero: the binocular POV scan, filling .main completely so the coach
+     panel (anchored to the hero's own bottom edge) sits flush against the
+     footer below with no gap, exactly like the real player's coach-panel
+     sitting right above its input bar. --- */
+  .hero{
+    position:relative; width:100%; height:100%;
+    background:#000; overflow:hidden;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .frame{ filter: drop-shadow(0 0 40px rgba(0,0,0,.85)); }
+  .viewport{ position:relative; background:#000; mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat; }
+  .depth-vignette{
+    position:absolute; inset:0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,.55) 100%);
+    pointer-events:none;
+  }
+  .jitter{ position:absolute; inset:0; will-change:transform; }
+  .scene-img{
+    position:absolute; top:0; left:0; transform-origin:0 0;
+    /* width/height transition too (not just transform) so a zoom change —
+       e.g. settling to the full view — eases smoothly instead of jump-cutting
+       the scale while only the position glides. Duration must match
+       TRANSITION_MS below. */
+    transition: transform 1.8s cubic-bezier(.45,.05,.15,1),
+                width 1.8s cubic-bezier(.45,.05,.15,1),
+                height 1.8s cubic-bezier(.45,.05,.15,1);
+    user-select:none; pointer-events:none; -webkit-user-drag:none;
+  }
+  /* Two lids, each anchored to its own outer edge and growing INWARD, so a
+     blink closes top-down and bottom-up and meets in the middle — a real
+     eyelid — rather than one shape growing outward from the center. */
+  .eyelid-top, .eyelid-bottom{
+    position:absolute; left:0; right:0; height:50%;
+    background:#050505; pointer-events:none; transform:scaleY(0);
+  }
+  .eyelid-top{ top:0; transform-origin:top; }
+  .eyelid-bottom{ bottom:0; transform-origin:bottom; }
+  .eyelid-top.blinking, .eyelid-bottom.blinking{ animation: blink-close 260ms ease-in-out; }
+  @keyframes blink-close{ 0%,100% { transform:scaleY(0); } 45%,55% { transform:scaleY(1); } }
+
+  /* --- Coach panel — exact copy of .coach-panel / .coach-panel-head /
+     .coach-panel-body from the real player: a raised sheet with its own
+     surface + shadow, floating over the scene, NOT text laid on a gradient. --- */
+  .coach-panel{
+    position:absolute; left:0; right:0; bottom:0;
+    max-width:860px; margin:0 auto; max-height:56vh;
+    background:var(--c-surface); border:1px solid var(--c-line); border-bottom:0;
+    border-radius:var(--radius) var(--radius) 0 0;
+    box-shadow:var(--shadow-lg);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .coach-panel-head{
+    flex:0 0 auto; display:flex; align-items:center; gap:10px;
+    padding:13px 16px 12px; border-bottom:1px solid var(--c-line);
+  }
+  .coach-panel-head .ttl{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--c-accent-strong);
+  }
+  .coach-panel-body{
+    flex:1 1 auto; min-height:0; overflow-y:auto; overflow-anchor:none;
+    padding:16px 16px 22px; display:flex; flex-direction:column; gap:14px;
+  }
+
+  .coach-msg{ display:flex; gap:11px; align-items:flex-start; max-width:88%; }
+  .coach-avatar{
+    flex:0 0 auto; width:34px; height:34px; border-radius:50%;
+    display:grid; place-items:center;
+    background: linear-gradient(135deg, var(--c-accent), var(--c-accent-strong));
+    color:#04121a; font-size:13px; font-weight:700;
+    box-shadow: var(--shadow-sm);
+  }
+  .coach-body{ min-width:0; }
+  .coach-label{
+    font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--c-ink-faint); margin:3px 0 5px;
+  }
+  .coach-bubble{
+    background:var(--c-surface); border:1px solid var(--c-line);
+    border-radius:4px 16px 16px 16px; padding:12px 15px;
+    font-size:15px; line-height:1.55; color:var(--c-ink);
+    white-space:pre-wrap; box-shadow:var(--shadow-sm);
+    transition: box-shadow .45s var(--ease), border-color .45s var(--ease);
+  }
+  .coach-msg.is-prompt .coach-bubble{
+    border-color: color-mix(in srgb, var(--c-accent) 38%, transparent);
+    box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent),
+                0 2px 6px rgba(16,24,40,.10);
+  }
+  @media (prefers-reduced-motion: no-preference){
+    .coach-msg.just-asked .coach-bubble{ animation: promptSettle .7s var(--ease); }
+  }
+  @keyframes promptSettle{
+    0%   { box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+    55%  { box-shadow: 0 13px 30px -6px color-mix(in srgb, var(--c-accent) 58%, transparent), 0 2px 6px rgba(16,24,40,.10); }
+    100% { box-shadow: 0 8px 24px -6px color-mix(in srgb, var(--c-accent) 45%, transparent), 0 2px 6px rgba(16,24,40,.10); }
+  }
+
+  /* ---- Coach run = ONE identity (WhatsApp-style grouping), copied from the
+     real player: the label shows once at the top, the avatar once at the
+     bottom, and grouped bubbles tuck closer together. ---- */
+  .coach-msg:not(.grp-first) .coach-label{ display:none; }
+  .coach-msg:not(.grp-last) .coach-avatar{ visibility:hidden; }
+  .coach-msg.grp-last{ align-items:flex-end; }
+  .coach-msg + .coach-msg:not(.grp-first){ margin-top:-8px; }
+
+  /* ---- Typing indicator — exact copy of .typing/.tdots from the real
+     player (scenario-simulator/composed-scenarios), used between bubbles
+     while a coach turn is "typing" itself out in parts. ---- */
+  .typing{
+    align-self:flex-start; display:inline-flex; align-items:center; gap:9px;
+    padding:13px 15px; border-radius:14px;
+    background:var(--c-surface); border:1px solid var(--c-line); box-shadow:var(--shadow-sm);
+    animation: typing-in .3s var(--ease) both;
+  }
+  @keyframes typing-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce){ .typing{ animation:none; } }
+  .typing .tdots{ display:inline-flex; gap:5px; }
+  .typing .tdots span{
+    width:7px; height:7px; border-radius:50%;
+    background:var(--c-ink-faint); animation: bob 1.2s infinite ease-in-out;
+  }
+  .typing .tdots span:nth-child(2){ animation-delay:.15s; }
+  .typing .tdots span:nth-child(3){ animation-delay:.3s; }
+  @keyframes bob{ 0%,60%,100%{ transform:translateY(0); opacity:.5; } 30%{ transform:translateY(-5px); opacity:1; } }
+
+  .you-coach{ display:flex; flex-direction:column; align-items:flex-end; max-width:88%; margin-left:auto; }
+  .you-coach .cap{
+    font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase;
+    color:var(--c-ink-faint); margin:0 2px 5px 0;
+  }
+  .you-coach .bubble{
+    background:var(--c-accent); color:var(--c-on-accent);
+    border-radius:16px 4px 16px 16px; padding:11px 15px;
+    font-size:15px; line-height:1.5; white-space:pre-wrap; box-shadow:var(--shadow-sm);
+  }
+  .coach-msg.enter, .you-coach.enter{ animation: chat-fade-in .28s var(--ease) both; }
+  @keyframes chat-fade-in{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+
+  /* --- Composer — exact copy of .inputbar / .input-row / .input-shell /
+     .send-btn / .input-foot from scenario-simulator/composed-scenarios
+     (the real Sharps scenario player), full-width bar with a centered
+     max-width content column, not a floating card. --- */
+  .inputbar{
+    position:relative; z-index:55; flex:0 0 auto;
+    min-height:104px;
+    display:flex; flex-direction:column; justify-content:center;
+    background:var(--c-surface); border-top:1px solid var(--c-line);
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    transition: background .2s var(--ease), border-color .2s var(--ease);
+  }
+  .input-row{ max-width:720px; margin:0 auto; display:flex; align-items:flex-end; gap:10px; }
+  .input-shell{
+    flex:1 1 auto; display:flex; align-items:flex-end; gap:8px;
+    border:1.5px solid var(--c-line); border-radius:4px; background:var(--c-bg);
+    padding:4px 6px 4px 14px;
+    transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .input-shell:focus-within{ border-color:var(--c-accent); box-shadow:0 0 0 3px var(--c-accent-soft); }
+  #composer{
+    flex:1 1 auto; resize:none; border:0; background:transparent; outline:none;
+    font:inherit; font-size:15px; line-height:1.45; color:var(--c-ink);
+    max-height:120px; padding:9px 0;
+  }
+  #composer::placeholder{ color:var(--c-ink-faint); }
+  #composer:disabled{ opacity:.55; cursor:not-allowed; }
+  .send-btn{
+    flex:0 0 auto; width:40px; align-self:stretch; min-height:40px; border:0; border-radius:4px;
+    background:var(--c-accent); color:var(--c-on-accent); font-size:15px; cursor:pointer;
+    transition: background .15s var(--ease), transform .1s var(--ease);
+  }
+  .send-btn:hover{ background:var(--c-accent-strong); }
+  .send-btn:active{ transform:scale(.95); }
+  .send-btn:disabled{ opacity:.45; cursor:default; }
+  .input-foot{
+    max-width:720px; margin:8px auto 0;
+    display:flex; align-items:center; gap:12px;
+    font-size:11.5px; color:var(--c-ink-faint);
+  }
+  .input-foot .hint{ flex:1 1 auto; }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="main">
+      <div class="hero">
+        <div class="frame">
+          <div class="viewport">
+            <div class="jitter"><img class="scene-img" src="../images/sharps-decision-scene.jpg" alt="" /></div>
+            <div class="depth-vignette"></div>
+            <div class="eyelid-top"></div>
+            <div class="eyelid-bottom"></div>
+          </div>
+        </div>
+
+        <div class="coach-panel">
+          <div class="coach-panel-head"><span class="ttl"><i class="fa-solid fa-comment-dots"></i> AI Coach</span></div>
+          <!-- Populated by playIntro() as a typed-out run of bubbles, not static markup. -->
+          <div class="coach-panel-body" id="convo"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="inputbar">
+      <div class="input-main">
+        <div class="input-row">
+          <div class="input-shell">
+            <textarea id="composer" rows="1" placeholder="Type your answer…" aria-label="Your message"></textarea>
+          </div>
+          <button class="send-btn" id="sendBtn" aria-label="Send" disabled><i class="fa-solid fa-arrow-up"></i></button>
+        </div>
+        <div class="input-foot"><span class="hint">Enter to send · Shift+Enter for a new line</span></div>
+      </div>
+    </footer>
+  </div>
+
+  <button class="tb-btn" id="restartBtn" aria-label="Restart" hidden>
+    <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
+  </button>
+
+  <script>
+    // Embed the real course-delivery frame into our own app shell (not a
+    // fixed overlay), matching how scenario-simulator/composed-scenarios
+    // wires it up.
+    window.LESSON_FRAME = {
+      mount: '#app',
+      course: 'Interactive scenario',
+      lesson: 'The blade that is not yours',
+      step: '',        // hide the step label — not a stepped lesson
+      progress: null,  // hide the progress bar
+      backHref: 'index.html',
+    };
+  </script>
+  <script src="../../js/frame.js?v=7"></script>
+  <script>
+    // Relocate the Restart control onto the frame's actions slot so it rides
+    // the frame instead of a second bar (same pattern as composed-scenarios).
+    (function () {
+      function relocate() {
+        var slot = document.querySelector('.vt-frame .vt-actions');
+        var btn = document.getElementById('restartBtn');
+        if (slot && btn) { btn.hidden = false; slot.appendChild(btn); }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
+      else relocate();
+    })();
+  </script>
+
+<script>
+(() => {
+  // ---- Binocular hero ----
+  const FOCAL_POINTS = [
+    { name:'sharp',    fx:0.52, fy:0.72, hold:2600 },
+    { name:'coworker', fx:0.27, fy:0.40, hold:2200 },
+    { name:'container',fx:0.90, fy:0.36, hold:2200 },
+  ];
+  // Once the learner responds, pull back to the full establishing shot
+  // instead of holding a telephoto crop — a moving scan behind the coach
+  // panel would be distracting once there's something to read.
+  const FULL_VIEW = { fx:0.50, fy:0.46, zoom:1.0 };
+  const ZOOM = 2.0;
+  const TRANSITION_MS = 1800;
+  const LENS_FRACTION = 0.46;
+  const OVERLAP = 0.36;
+
+  const hero = document.querySelector('.hero');
+  const viewport = document.querySelector('.viewport');
+  const img = document.querySelector('.scene-img');
+  const jitterEl = document.querySelector('.jitter');
+  const eyelids = [document.querySelector('.eyelid-top'), document.querySelector('.eyelid-bottom')];
+
+  let naturalW, naturalH;
+  let current = FOCAL_POINTS[0];
+  let seqIndex = 0;
+  let locked = false; // frozen once the learner responds
+  let runId = 0;       // invalidates stale timeout chains after a restart
+
+  function layoutLenses(){
+    const D = Math.min(hero.clientWidth, hero.clientHeight) * LENS_FRACTION;
+    const d = D * (1 - OVERLAP);
+    const width = D + d, height = D, r = D / 2;
+    const feather = Math.max(14, r * 0.12);
+    const solidR = Math.max(0, r - feather);
+    viewport.style.width = width + 'px';
+    viewport.style.height = height + 'px';
+    const lensGradient = cx => `radial-gradient(circle at ${cx}px ${r}px, #fff 0, #fff ${solidR}px, transparent ${r}px)`;
+    const maskImg = `${lensGradient(r)}, ${lensGradient(r + d)}`;
+    viewport.style.maskImage = maskImg;
+    viewport.style.webkitMaskImage = maskImg;
+  }
+
+  function applyFocal(fx, fy, zoom){
+    const rect = viewport.getBoundingClientRect();
+    const coverScale = Math.max(rect.width / naturalW, rect.height / naturalH);
+    const scale = coverScale * zoom;
+    const rw = naturalW * scale, rh = naturalH * scale;
+    img.style.width = rw + 'px';
+    img.style.height = rh + 'px';
+    img.style.transform = `translate(${rect.width/2 - fx*rw}px, ${rect.height/2 - fy*rh}px)`;
+  }
+
+  let currentZoom = ZOOM;
+
+  function goTo(point, withTransition, zoom){
+    current = point;
+    currentZoom = zoom != null ? zoom : ZOOM;
+    if (!withTransition) img.style.transition = 'none';
+    applyFocal(point.fx, point.fy, currentZoom);
+    if (!withTransition) requestAnimationFrame(() => { img.style.transition = ''; });
+  }
+
+  function nextWaypoint(myRun){
+    if (locked || myRun !== runId) return;
+    seqIndex = (seqIndex + 1) % FOCAL_POINTS.length;
+    const wp = FOCAL_POINTS[seqIndex];
+    goTo(wp, true);
+    setTimeout(() => nextWaypoint(myRun), TRANSITION_MS + wp.hold);
+  }
+
+  function jitterLoop(t){
+    const jx = Math.sin(t / 1300) * 2.4 + Math.sin(t / 370) * 0.8;
+    const jy = Math.cos(t / 1500) * 2.0 + Math.sin(t / 430) * 0.6;
+    jitterEl.style.transform = `translate(${jx}px, ${jy}px)`;
+    requestAnimationFrame(jitterLoop);
+  }
+
+  function scheduleBlink(){
+    if (locked) return; // no more blinking once the learner is in the scenario
+    const delay = 3200 + Math.random() * 4200;
+    setTimeout(() => {
+      if (locked) return; // may have locked while this was pending
+      eyelids.forEach(e => {
+        e.classList.remove('blinking');
+        void e.offsetWidth; // restart the animation
+        e.classList.add('blinking');
+      });
+      scheduleBlink();
+    }, delay);
+  }
+  eyelids.forEach(e => e.addEventListener('animationend', () => e.classList.remove('blinking')));
+
+  window.addEventListener('resize', () => { layoutLenses(); goTo(current, false, currentZoom); });
+
+  const probe = new Image();
+  probe.onload = () => {
+    naturalW = probe.naturalWidth;
+    naturalH = probe.naturalHeight;
+    layoutLenses();
+    goTo(FOCAL_POINTS[0], false);
+    setTimeout(() => nextWaypoint(runId), FOCAL_POINTS[0].hold);
+    requestAnimationFrame(jitterLoop);
+    scheduleBlink();
+  };
+  probe.src = img.src;
+
+  // ---- Composer ----
+  const convo = document.getElementById('convo');
+  const composer = document.getElementById('composer');
+  const sendBtn = document.getElementById('sendBtn');
+
+  composer.addEventListener('input', () => { sendBtn.disabled = composer.value.trim().length === 0; });
+  composer.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener('click', send);
+
+  // ---- Intro: the opening prompt types itself out as a run of bubbles,
+  // split into natural beats with a typing indicator between each — not one
+  // static wall of text landing all at once.
+  const PROMPT_CHUNKS = [
+    "You are at your bench when you spot it: a used utility blade sitting exposed on the corner of the next bench over. It is not yours, and you do not recognize whose it is.",
+    "You pick it up to deal with it — and that is when a coworker two benches down calls out: they are jammed on the line and need a hand right now.",
+    "The blade is still in your hand. What do you do?",
+  ];
+
+  function wait(ms){ return new Promise(res => setTimeout(res, ms)); }
+
+  function makeTyping(){
+    const el = document.createElement('div');
+    el.className = 'typing';
+    el.innerHTML = '<span class="tdots"><span></span><span></span><span></span></span>';
+    return el;
+  }
+
+  // first/last control the WhatsApp-style grouping (label shown once at the
+  // top of a run, avatar once at the bottom); prompt marks the live question
+  // that gets the glowing "answer me" treatment. A lone bubble is its own
+  // whole run, so first/last both default true.
+  function makeCoachMsg(text, { first = true, last = true, prompt = false } = {}){
+    const el = document.createElement('div');
+    const cls = ['coach-msg', 'enter'];
+    if (first) cls.push('grp-first');
+    if (last) cls.push('grp-last');
+    if (prompt) cls.push('is-prompt', 'just-asked');
+    el.className = cls.join(' ');
+    el.innerHTML = `
+      <div class="coach-avatar"><i class="fa-solid fa-comment"></i></div>
+      <div class="coach-body">
+        <div class="coach-label">AI Coach</div>
+        <div class="coach-bubble"></div>
+      </div>`;
+    el.querySelector('.coach-bubble').textContent = text;
+    return el;
+  }
+
+  let introRunId = 0;
+  async function playIntro(){
+    const myRun = ++introRunId;
+    convo.innerHTML = '';
+    composer.disabled = true;
+    for (let i = 0; i < PROMPT_CHUNKS.length; i++){
+      const typing = makeTyping();
+      convo.appendChild(typing);
+      typing.scrollIntoView({ behavior:'smooth', block:'end' });
+      const typingMs = Math.min(1800, Math.max(650, 450 + PROMPT_CHUNKS[i].length * 10));
+      await wait(typingMs);
+      if (myRun !== introRunId) return; // a restart happened mid-sequence
+      typing.remove();
+      const msg = makeCoachMsg(PROMPT_CHUNKS[i], {
+        first: i === 0,
+        last: i === PROMPT_CHUNKS.length - 1,
+        prompt: i === PROMPT_CHUNKS.length - 1,
+      });
+      convo.appendChild(msg);
+      msg.scrollIntoView({ behavior:'smooth', block:'end' });
+      await wait(350);
+      if (myRun !== introRunId) return;
+    }
+    composer.disabled = false;
+  }
+
+  function send(){
+    const text = composer.value.trim();
+    if (!text) return;
+
+    document.querySelectorAll('.coach-msg').forEach(m => m.classList.remove('is-prompt', 'just-asked'));
+
+    const you = document.createElement('div');
+    you.className = 'you-coach enter';
+    you.innerHTML = `<div class="cap">You</div><div class="bubble"></div>`;
+    you.querySelector('.bubble').textContent = text;
+    convo.appendChild(you);
+
+    composer.value = '';
+    sendBtn.disabled = true;
+
+    if (!locked){
+      locked = true;
+      goTo(FULL_VIEW, true, FULL_VIEW.zoom); // pull back to the full shot and stop scanning
+    }
+
+    setTimeout(() => {
+      const typing = makeTyping();
+      convo.appendChild(typing);
+      typing.scrollIntoView({ behavior:'smooth', block:'end' });
+      setTimeout(() => {
+        typing.remove();
+        const ack = makeCoachMsg("Logged — this riff doesn't grade responses (the real scenario coaches you through tiered feedback here).");
+        convo.appendChild(ack);
+        ack.scrollIntoView({ behavior:'smooth', block:'end' });
+      }, 900);
+    }, 500);
+  }
+
+  playIntro();
+
+  // ---- Restart ----
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    playIntro();
+    composer.value = '';
+    sendBtn.disabled = true;
+    locked = false;
+    seqIndex = 0;
+    runId += 1;
+    goTo(FOCAL_POINTS[0], true);
+    setTimeout(() => nextWaypoint(runId), FOCAL_POINTS[0].hold);
+    scheduleBlink(); // blinking stopped when we locked — resume it
+  });
+})();
+</script>
+</body>
+</html>

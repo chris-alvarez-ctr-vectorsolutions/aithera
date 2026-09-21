@@ -1,0 +1,723 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Choice Reflection — Riff 04</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<link rel="stylesheet" href="../../css/frame.css?v=5" />
+<style>
+  /* Same starting point as the live "chain" beat in clara/sharps.html
+     (js/layered-sharps.js, CHAIN_CONTENT/chainInit) — the Manufacturing
+     sector's Chris/Jacob incident, reproduced verbatim below so this riff
+     opens on the exact screen in the screenshot. Tokens and the .ch-* rules
+     are lifted from that file's <style> block; var(--ll-*) renamed to the
+     shorter local names the other riffs use.
+
+     What's DIFFERENT from production: no CLARA orb (this riff doesn't use
+     one at all — see the other riffs' notes on lifting the brand look), no
+     "Begin" gate screen (we open straight on the setup + choice), no replay
+     of the other route (the follow-up question below does that job in
+     words instead), and one new beat: after the choice, CLARA asks why the
+     other option lost.
+
+     v2: the answer no longer vanishes — once sent, it's folded into the SAME
+     chain list as its own node (push()'d like any other moment), so it
+     recedes into a peek exactly like everything else instead of fading to
+     nothing. And the closing reinforcement is now a REAL model call: this
+     riff loads ../../../scenario-simulator/js/sim-core.js and calls its
+     already-deployed proxy Worker directly (same WORKER_URL + MODELS.DIALOGUE
+     used by clara/scenario.html's live Renee scenario — no new Cloudflare
+     setup needed). SimCore.callModel() itself is bypassed in favor of a
+     thin local fetch, because callModel() discards the response's `usage`
+     field and this riff wants real input/output token counts for the cost
+     readout below CLARA's line. A network failure or empty reply falls back
+     to the same templated line this riff used before — see settle().
+
+     v3: both CLARA beats (the "why not" ask AND the closing reply) now use
+     the SAME reinforcement-overlay language the rest of the module uses for
+     "a question laid over the content that motivates it" — .rf-on/.rf-layer,
+     ported verbatim from js/layered-sharps.js's reinforce() (see
+     clara/sharps.html's own <style> for the source rule). The content behind
+     stays legible (held, blurred, not replaced) while the card that needs
+     the learner's attention right now rises in front. Each use releases the
+     blur once it's resolved — answered for the ask, landed for the reply —
+     same as reinforce()'s own convention, so nothing on screen stays
+     unreachable once its moment has passed. */
+  :root{
+    --bg:        #070b14;
+    --ink:       #eaf0fb;
+    --ink-soft:  #aab6cc;
+    --ink-faint: #7a879e;
+    --line:      rgba(255,255,255,.11);
+    --teal:      #2ee6cf;
+    --grad:      linear-gradient(135deg, #46f0dc 0%, #16b8a6 55%, #0c8f83 100%);
+    --amber:     #f1b34a;
+    --ease:      cubic-bezier(.2,.7,.2,1);
+  }
+  *{ box-sizing:border-box; }
+  html,body{
+    margin:0; height:100%; background:var(--bg); color:var(--ink);
+    font-family:"Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    overflow:hidden;
+  }
+
+  /* ---- Stage: same dark radial wash as .ll-stage, between the frame
+     header and the footer bar. ---- */
+  .stage{
+    position:fixed; left:0; right:0; top:var(--header-h); bottom:80px;
+    overflow:hidden;
+    background: radial-gradient(130% 110% at 50% -10%, #0f1a2e 0%, #0a1120 52%, #05080f 100%);
+  }
+  .stage::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:
+      radial-gradient(60% 55% at 50% 42%, rgba(46,230,207,.06), transparent 70%),
+      radial-gradient(100% 100% at 50% 120%, rgba(0,0,0,.55), transparent 60%);
+  }
+  /* ---- Object: same as .ll-object, but this beat is always top-aligned
+     (.ll-object--chain), so it's baked in rather than a modifier. ---- */
+  .obj{
+    position:absolute; inset:0; overflow:auto;
+    display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+    padding: clamp(24px, 5vh, 56px);
+  }
+  .eyebrow{
+    font-size:12px; font-weight:800; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--teal); margin:0 0 14px;
+  }
+
+  .ch-wrap{ width:min(660px, 100%); margin-top:8px; display:flex; flex-direction:column; align-items:stretch; }
+
+  /* ---- The timeline itself — verbatim from clara/sharps.html ---- */
+  .ch-chain{ list-style:none; margin:18px 0 0; padding:0; }
+  .ch-node{
+    display:grid; grid-template-columns:26px 1fr; gap:16px; position:relative;
+    animation: chNodeIn .42s var(--ease) both;
+  }
+  @keyframes chNodeIn{ from{ opacity:0; transform:translateY(6px); } to{ opacity:1; transform:none; } }
+  .ch-node.is-past .ch-main{ opacity:.5; }
+  .ch-node.is-past.is-open .ch-main{ opacity:.72; }
+  .ch-node.is-past .ch-dot{ opacity:.6; }
+  @media (prefers-reduced-motion: reduce){ .ch-node{ animation:none; } }
+
+  .ch-head{
+    display:flex; align-items:baseline; gap:12px; width:100%;
+    margin:0; padding:0; text-align:left; font:inherit; color:inherit; background:none; border:0; border-radius:7px;
+  }
+  .ch-head:disabled{ cursor:default; }
+  .ch-node.is-past .ch-head{ cursor:pointer; }
+  .ch-head:not(:disabled):focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.28); }
+  .ch-time{
+    flex:0 0 auto; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--teal); font-variant-numeric:tabular-nums;
+  }
+  .ch-peek{ display:none; }
+  .ch-chev{ display:none; flex:0 0 auto; margin-left:auto; font-size:10px; color:var(--ink-faint); transition:transform .2s ease; }
+  .ch-node.is-past .ch-chev{ display:block; }
+  .ch-node.is-past.is-open .ch-chev{ transform:rotate(180deg); }
+  .ch-node.is-past:not(.is-open) .ch-body{ display:none; }
+  .ch-node.is-past:not(.is-open) .ch-peek{
+    display:block; flex:1 1 auto; min-width:0; font-size:14px; line-height:1.5; color:var(--ink-soft);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .ch-node.is-past .ch-head:hover .ch-time,
+  .ch-node.is-past .ch-head:hover .ch-peek,
+  .ch-node.is-past .ch-head:hover .ch-chev{ color:var(--teal); }
+  @media (prefers-reduced-motion: reduce){ .ch-chev{ transition:none; } }
+
+  .ch-gapline{ position:relative; display:grid; grid-template-columns:26px 1fr; gap:16px; align-items:center; }
+  .ch-gapline::before{
+    content:""; position:absolute; left:12.5px; top:0; bottom:0; width:1px;
+    background:rgba(46,230,207,.45); animation:chLineIn .5s var(--ease) both; transform-origin:top;
+  }
+  @keyframes chLineIn{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
+  .ch-gapline span{
+    grid-column:2; font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-faint); text-align:left;
+  }
+  .ch-gapline.gap-s{ min-height:38px; }
+  .ch-gapline.gap-m{ min-height:68px; }
+  .ch-gapline.gap-l{ min-height:104px; }
+  .ch-gapline.is-past.gap-s, .ch-gapline.is-past.gap-m, .ch-gapline.is-past.gap-l{ min-height:26px; }
+  .ch-gapline.is-past span{ font-size:9.5px; opacity:.68; }
+  @media (prefers-reduced-motion: reduce){ .ch-gapline::before{ animation:none; } }
+
+  .ch-dot{
+    width:26px; height:26px; margin-top:2px; border-radius:50%; display:grid; place-items:center;
+    background:rgba(46,230,207,.14); border:1px solid rgba(46,230,207,.42);
+  }
+  .ch-dot::after{ content:""; width:8px; height:8px; border-radius:50%; background:var(--teal); }
+  .ch-dot--injury{ background:rgba(241,179,74,.16); border-color:rgba(241,179,74,.55); }
+  .ch-dot--injury::after{ background:var(--amber); }
+  .ch-main{ display:flex; flex-direction:column; gap:5px; min-width:0; transition:opacity .42s ease; }
+  .ch-body{ font-size:16px; line-height:1.62; color:var(--ink); text-align:left; }
+  .ch-alarm{
+    display:inline-flex; align-self:flex-start; align-items:center; gap:7px;
+    font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--amber); background:rgba(241,179,74,.12); border:1px solid rgba(241,179,74,.4);
+    border-radius:999px; padding:5px 13px 5px 10px; margin:1px 0;
+  }
+  .ch-alarm i{ font-size:11px; }
+  .ch-node--injury .ch-body{ color:#ffd9a3; font-weight:600; }
+
+  /* ---- The decision card ---- */
+  .ch-pick{ margin-top:22px; transition:opacity .24s ease, transform .24s var(--ease); }
+  .ch-pick.is-leaving{ opacity:0; transform:translateY(-6px); }
+  .ch-lockup{ border:1px solid var(--line); border-radius:16px; overflow:hidden; background:rgba(255,255,255,.035); }
+  .ch-lockup-body{ padding:17px 18px 18px; }
+  .ch-pick-q{ margin:0 0 13px; font-size:18px; font-weight:800; color:#fff; text-align:left; }
+  .ch-pick-opts{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:559px){ .ch-pick-opts{ grid-template-columns:1fr; } }
+  .ch-pick-opt{
+    display:grid; grid-template-columns:20px 1fr; gap:12px; align-items:center;
+    font:inherit; font-size:14.5px; line-height:1.4; text-align:left; color:var(--ink); cursor:pointer;
+    padding:14px 16px; border-radius:12px; background:rgba(255,255,255,.05); border:1px solid var(--line);
+    transition:border-color .16s ease, background .16s ease, opacity .16s ease;
+  }
+  .ch-pick-opt:hover:not(:disabled){ border-color:rgba(46,230,207,.55); background:rgba(46,230,207,.08); }
+  .ch-pick-opt:focus-visible{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(46,230,207,.25); }
+  .ch-pick-opt i{ color:var(--teal); font-size:15px; justify-self:center; }
+  .ch-pick-opt:disabled{ cursor:default; }
+  .ch-pick-opt.picked{ border-color:rgba(46,230,207,.6); background:rgba(46,230,207,.1); }
+  .ch-pick-opt.picked i{ color:#fff; }
+  .ch-pick-opt.faded{ opacity:.4; }
+
+  /* ---- Reinforcement overlay — ported verbatim from js/layered-sharps.js's
+     reinforce() + clara/sharps.html's own .rf-on/.rf-layer rule (see that
+     file's "Reinforcement layer" comment). Everything already on screen
+     stays legible behind a light blur — held, not replaced — while the one
+     card that needs the learner's attention right now rises in front of it.
+     .rf-on goes on .ch-wrap (the shared parent of every beat on this
+     screen); .rf-layer goes on whichever card is currently the ask. ---- */
+  .rf-on > *:not(.rf-layer){
+    filter:blur(2.4px); opacity:.42; pointer-events:none; user-select:none;
+    transition:filter .42s ease, opacity .42s ease;
+  }
+  .rf-layer{
+    position:relative; margin-top:26px; padding:22px 24px 24px;
+    box-sizing:content-box; text-align:left;
+    border:1px solid rgba(46,230,207,.3); border-radius:18px;
+    background:linear-gradient(180deg, rgba(16,32,48,.97), rgba(9,19,31,.99));
+    box-shadow:0 20px 54px rgba(0,0,0,.55);
+    animation: rfRise .44s var(--ease) both;
+  }
+  .rf-layer > :first-child{ margin-top:0; }
+  .rf-layer{ transition:opacity .24s ease, transform .24s var(--ease); }
+  .rf-layer.is-leaving{ opacity:0; transform:translateY(-6px); }
+  .rf-layer:focus{ outline:none; }
+  .rf-layer:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.28), 0 20px 54px rgba(0,0,0,.55); }
+  @keyframes rfRise{ from{ opacity:0; transform:translateY(16px); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce){
+    .rf-layer, .ch-pick{ animation:none; transition:none; }
+    .rf-on > *:not(.rf-layer){ filter:none; opacity:.5; transition:none; }
+  }
+
+  @keyframes ctRise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce){ .ch-close, .clara-note{ animation:none; } }
+  /* The closing reply — plain flowing content where the summary actually
+     lands, not a card that pops up over it. An earlier version raised it as
+     an .rf-layer with the rest of the screen blurred behind, which blurred
+     .ch-close (right above it, revealed in the SAME settle() call) before
+     the learner had a beat to read it, and added a "held" interruption this
+     moment never needed — nothing here requires the learner's attention
+     RIGHT NOW the way the "why not" ask does. Same quote-rule language as
+     .ch-close, so the two read as one continuous close rather than two
+     different treatments. */
+  .clara-note{
+    margin-top:26px; padding:2px 0 2px 20px; border-left:2px solid rgba(46,230,207,.35);
+    animation: ctRise .38s ease both;
+  }
+  .clara-name{
+    margin:0 0 8px; font-size:12px; font-weight:800; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--teal);
+  }
+  .clara-q{ margin:0; font-size:16px; line-height:1.55; color:#fff; font-weight:600; }
+  .clara-note-body{ margin:0; font-size:16px; line-height:1.6; color:var(--ink-soft); }
+  .clara-note-body.thinking{ font-style:italic; color:var(--ink-faint); }
+  /* Plain metadata about the call, not CLARA's own voice — a caption, not
+     another line of dialogue. */
+  .cost-note{
+    margin:12px 0 0; padding-top:10px; border-top:1px solid var(--line);
+    font-size:12px; line-height:1.6; color:var(--ink-faint);
+  }
+  .cost-note b{ color:var(--ink-soft); font-weight:700; }
+
+  .ch-input{
+    width:100%; margin-top:14px; padding:13px 15px; font:inherit; font-size:15px; line-height:1.55;
+    color:var(--ink); background:rgba(255,255,255,.05); border:1px solid var(--line); border-radius:13px; resize:vertical;
+  }
+  .ch-input::placeholder{ color:var(--ink-faint); }
+  .ch-input:focus{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(46,230,207,.2); }
+  .ch-input:disabled{ opacity:.6; }
+  .ch-send{
+    margin-top:12px; align-self:flex-start; font:inherit; font-size:14px; font-weight:700; color:#04121a;
+    background:var(--teal); border:0; border-radius:999px; padding:10px 24px; cursor:pointer; transition:filter .16s ease;
+  }
+  .ch-send:hover:not(:disabled){ filter:brightness(1.08); }
+  .ch-send:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.35); }
+  .ch-send:disabled{ opacity:.4; cursor:default; }
+  .ch-echo{ margin:14px 0 0; font-size:14px; line-height:1.6; color:var(--ink-faint); }
+
+  /* The main CTA while walking the timeline — nothing else on screen is
+     clickable at this point (the footer's Continue is disabled until
+     settle()), so this gets the same primary green treatment as
+     .btn--primary instead of reading as a quiet secondary action. */
+  .ch-next{
+    align-self:flex-start; margin-top:22px; font:inherit; font-size:14px; font-weight:700; color:#052b27;
+    background:var(--grad); border:0; border-radius:999px; padding:11px 24px; cursor:pointer;
+    box-shadow:0 6px 18px rgba(20,184,166,.34);
+    transition:filter .16s ease, transform .1s ease;
+  }
+  .ch-next:hover{ filter:brightness(1.06); }
+  .ch-next:active{ transform:translateY(1px); }
+  .ch-next:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.35); }
+  .ch-next i{ margin-left:7px; font-size:11px; }
+
+  .ch-close{
+    margin-top:26px; padding:2px 0 2px 20px; border-left:2px solid rgba(46,230,207,.35);
+    animation: ctRise .38s ease both;
+  }
+  .ch-close p{ margin:0; font-size:17px; line-height:1.6; color:#fff; text-align:left; font-weight:600; }
+  .ch-close p + p{ margin-top:10px; color:var(--ink-soft); font-weight:400; font-size:16px; }
+  @media (prefers-reduced-motion: reduce){ .ch-close{ animation:none; } }
+
+  /* ---- Footer ---- */
+  .foot{
+    position:fixed; left:0; right:0; bottom:0; height:80px; z-index:45;
+    display:flex; align-items:center; justify-content:space-between; gap:16px; padding:0 24px;
+    background:linear-gradient(180deg, #0b1322 0%, #070c16 100%); border-top:1px solid var(--line);
+  }
+  .foot-meta{ display:flex; align-items:center; gap:13px; min-width:0; }
+  .foot-count{ font-size:12px; font-weight:600; color:var(--ink-soft); white-space:nowrap; }
+  .foot-bar{ width:140px; height:4px; border-radius:999px; background:rgba(255,255,255,.14); overflow:hidden; }
+  .foot-bar-fill{ width:14%; height:100%; background:var(--teal); border-radius:999px; }
+  .btn{
+    display:inline-flex; align-items:center; gap:9px; height:44px; padding:0 20px;
+    border-radius:11px; border:1px solid transparent; font:inherit; font-size:14px; font-weight:700;
+    cursor:pointer; transition:background .16s ease, border-color .16s ease, transform .1s ease, opacity .16s ease;
+  }
+  .btn:active{ transform:translateY(1px); }
+  .btn:disabled{ opacity:.4; cursor:default; }
+  .btn--ghost{ background:transparent; border-color:var(--line); color:var(--ink-soft); }
+  .btn--ghost:hover{ border-color:rgba(255,255,255,.3); color:var(--ink); }
+  .btn--primary{ background:var(--grad); color:#052b27; box-shadow:0 6px 18px rgba(20,184,166,.34); }
+  .btn--primary:not(:disabled):hover{ filter:brightness(1.06); }
+</style>
+</head>
+<body>
+  <div class="stage">
+    <main class="obj">
+      <div class="ch-wrap" id="chWrap">
+        <p class="eyebrow">One sharp, two possible outcomes</p>
+        <ol class="ch-chain" id="chChain"></ol>
+
+        <div class="ch-pick" id="chPick">
+          <div class="ch-lockup">
+            <div class="ch-lockup-body">
+              <p class="ch-pick-q">Where do you put the sharp?</p>
+              <div class="ch-pick-opts" id="chPickOpts" role="group" aria-label="Where do you put the sharp?"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- The new beat: CLARA's follow-up rises as its own card, with the
+             rest of the screen held (blurred) behind it — a separate,
+             attention-getting moment rather than one more block intermixed
+             with everything else. -->
+        <div id="claraAsk" hidden>
+          <p class="clara-name">CLARA</p>
+          <p class="clara-q" id="claraAskQ"></p>
+          <textarea class="ch-input" id="claraInput" rows="2" placeholder="Say why, in your own words"></textarea>
+          <button class="ch-send" id="claraSend" type="button" disabled>Send</button>
+          <p class="ch-echo" id="claraEcho" hidden></p>
+        </div>
+
+        <button class="ch-next" id="chNext" type="button" hidden></button>
+
+        <div class="ch-close" id="chClose" hidden>
+          <p id="chCloseA"></p>
+          <p id="chCloseB"></p>
+        </div>
+
+        <!-- The reinforcement, once the timeline has finished — CLARA reads
+             the earlier answer back rather than grading it. A real model
+             call by default (see the script below); the cost line under it
+             only appears when that call actually happened. Plain flowing
+             content right after .ch-close, not a card over anything. -->
+        <div class="clara-note" id="claraFollowup" hidden>
+          <p class="clara-name">CLARA</p>
+          <p class="clara-note-body" id="claraFollowupText"></p>
+          <p class="cost-note" id="costNote" hidden></p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <footer class="foot">
+    <div class="foot-meta">
+      <span class="foot-count">Section 2 of 14</span>
+      <div class="foot-bar"><div class="foot-bar-fill"></div></div>
+    </div>
+    <div class="foot-nav">
+      <button class="btn btn--ghost" id="backBtn" type="button">Back</button>
+      <button class="btn btn--primary" id="nextBtn" type="button" disabled>Continue <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+    </div>
+  </footer>
+
+  <script>
+    window.LESSON_FRAME = {
+      course: 'Bloodborne Pathogens',
+      lesson: 'Why Disposal Shortcuts Are Risky',
+      step: '',
+      progress: null,
+      backHref: 'index.html',
+    };
+  </script>
+  <script src="../../js/frame.js?v=7"></script>
+  <!-- The shared AI turn engine every live CLARA/Renee page already uses
+       (clara/scenario.html, the scenario-simulator itself). Its WORKER_URL
+       and MODELS.DIALOGUE constants are real, already-deployed infra — this
+       riff calls that same Worker directly (see callClara() below) rather
+       than duplicating it. -->
+  <script src="../../../scenario-simulator/js/sim-core.js?v=12"></script>
+
+  <script>
+  (() => {
+    // ---- Content: Manufacturing sector's chain, verbatim from
+    // js/layered-sharps.js (the SECTORS.manufacturing.chain object). ----
+    const SETUP = { time: '4:52 PM', body: 'Chris, next to you on the line, gets a call he has to take. He presses his used insulin pen into your hand on his way out — “hang onto this a second” — and jogs off toward the office. The red sharps disposal container is across the plant floor, past the press line. There is also a lidded bin two feet away.' };
+    const PICK = {
+      safe:  { t: 'The red sharps container across the plant floor', icon: 'fa-shield-halved' },
+      short: { t: 'The lidded bin two feet away', icon: 'fa-trash-can' }
+    };
+    const ACT = {
+      safe:  { time: '4:53 PM', gap: 'a minute later', gapSize: 's',
+               body: 'You walk it across the floor and past the press line to the container. It costs you about two minutes holding a sharp that was never yours.' },
+      short: { time: '4:53 PM', gap: 'a minute later', gapSize: 's',
+               body: 'You drop it in the bin, under a paper towel. It was not yours to begin with, and Chris is already back on the phone.' }
+    };
+    const SAFE_AFTER = [
+      { time: '11:20 PM', gap: 'six and a half hours later', gapSize: 'l',
+        body: 'Jacob empties the break-room bins on nights. He gathers the bag against his leg to lift it clear of the frame, the way he always does. There is nothing in it that can hurt him, and he will never know that was ever in question.' }
+    ];
+    const AFTER = [
+      { time: '11:20 PM', gap: 'six and a half hours later', gapSize: 'l',
+        body: 'Jacob empties the break-room bins on nights. You have never met him — he comes in after second shift clocks out, and a lidded bin tells him nothing.' },
+      { time: '11:21 PM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
+        body: 'He gathers the bag against his leg to lift it clear of the frame. The needle is somewhere in the middle of it, and it goes through the plastic into his thigh.' },
+      { time: 'Over the next six months', gap: 'and then', gapSize: 'm',
+        body: 'Jacob now has to be tested at six weeks, twelve weeks and six months to find out whether he caught anything. It was Chris’s blood on that needle, handed off in a hurry. He has done nothing wrong at any point in this chain.' }
+    ];
+    const CLOSE = 'One person decided. A different person paid.';
+    const CLOSE_SAFE = 'This is the best path.';
+    const END = 'Remember, you may never meet the person who empties your break-room bin.';
+    const AVOIDED = 'Jacob never has to find out whether that needle mattered.';
+    const OUTCOME = {
+      safe: 'Jacob, the night-shift worker who empties the break-room bins, never found out whether the needle mattered — nothing happened to him.',
+      short: 'Jacob, the night-shift worker who empties the break-room bins and has never met the learner, was stuck by that same needle hours later and now has to be tested for exposure over the next six months.'
+    };
+
+    // ---- Cost model — Haiku 4.5 published pricing (claude.com/pricing,
+    // checked 2026-09-21): $1/MTok in, $5/MTok out. The "full scenario"
+    // side isn't a guess: it's measured from a live captured request/
+    // response on the real Renee scenario (clara/scenario.html) on the same
+    // date — system prompt 28,715 chars, one real turn's usage was 7,709
+    // input / 92 output tokens. Only the TURN COUNT below is an assumption
+    // (a guided arc with a handful of phases), flagged as such in the UI.
+    const HAIKU_PRICE = { in: 1 / 1e6, out: 5 / 1e6 };
+    const FULL_SIM = { inputTokensPerTurn: 7700, outputTokensPerTurn: 150, turns: 8 };
+    function usd(n) {
+      if (!n) return '$0';
+      const d = n < 0.001 ? 6 : n < 0.01 ? 5 : n < 1 ? 4 : 2;
+      return '$' + n.toFixed(d);
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+    function peek(text) {
+      const t = String(text || '');
+      if (t.length <= 72) return t;
+      const cut = t.slice(0, 72), sp = cut.lastIndexOf(' ');
+      return (sp > 44 ? cut.slice(0, sp) : cut) + '…';
+    }
+    function other(k) { return k === 'safe' ? 'short' : 'safe'; }
+    function lowerFirst(s) { return s.charAt(0).toLowerCase() + s.slice(1); }
+    // Strip any sentence-ending punctuation the learner already typed, so
+    // wrapping their answer in a quote never lands a double "..".
+    function quotable(s) { return s.replace(/[.!?]+\s*$/, ''); }
+
+    const wrap      = document.getElementById('chWrap');
+    const list      = document.getElementById('chChain');
+    const pick      = document.getElementById('chPick');
+    const pickOpts  = document.getElementById('chPickOpts');
+    const claraAsk  = document.getElementById('claraAsk');
+    const claraAskQ = document.getElementById('claraAskQ');
+    const claraInput= document.getElementById('claraInput');
+    const claraSend = document.getElementById('claraSend');
+    const claraEcho = document.getElementById('claraEcho');
+    const advance   = document.getElementById('chNext');
+    const closer    = document.getElementById('chClose');
+    const closeA    = document.getElementById('chCloseA');
+    const closeB    = document.getElementById('chCloseB');
+    const followup  = document.getElementById('claraFollowup');
+    const followupText = document.getElementById('claraFollowupText');
+    const costNote  = document.getElementById('costNote');
+    const nextBtn   = document.getElementById('nextBtn');
+
+    let took = null, otherReason = '', queue = [];
+
+    // ---- Timeline node rendering — same push()/fold behavior as
+    // chainInit() in js/layered-sharps.js. ----
+    function push(n) {
+      if (n.gap) {
+        const g = document.createElement('li');
+        g.className = 'ch-gapline gap-' + (n.gapSize || 's');
+        g.innerHTML = '<span>' + esc(n.gap) + '</span>';
+        list.appendChild(g);
+      }
+      list.querySelectorAll('.ch-node').forEach(el => {
+        el.classList.add('is-past');
+        const h = el.querySelector('.ch-head');
+        if (h) { h.disabled = false; h.setAttribute('aria-expanded', el.classList.contains('is-open') ? 'true' : 'false'); }
+      });
+      list.querySelectorAll('.ch-gapline').forEach(el => el.classList.add('is-past'));
+
+      const li = document.createElement('li');
+      li.className = 'ch-node' + (n.injury ? ' ch-node--injury' : '');
+      li.innerHTML = '<span class="ch-dot' + (n.injury ? ' ch-dot--injury' : '') + '" aria-hidden="true"></span>' +
+        '<span class="ch-main">' +
+          '<button class="ch-head" type="button" disabled aria-expanded="true" ' +
+            'aria-label="' + esc((n.injury ? n.injury + '. ' : '') + n.time + '. ' + n.body) + '">' +
+            '<span class="ch-time">' + esc(n.time) + '</span>' +
+            '<span class="ch-peek">' + esc(peek(n.body)) + '</span>' +
+            '<i class="fa-solid fa-chevron-down ch-chev" aria-hidden="true"></i>' +
+          '</button>' +
+          (n.injury ? '<span class="ch-alarm"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' + esc(n.injury) + '</span>' : '') +
+          '<span class="ch-body">' + esc(n.body) + '</span>' +
+        '</span>';
+      list.appendChild(li);
+      return li;
+    }
+
+    list.addEventListener('click', (e) => {
+      const h = e.target.closest ? e.target.closest('.ch-head') : null;
+      if (!h || h.disabled) return;
+      const li = h.closest('.ch-node');
+      if (!li) return;
+      const open = li.classList.toggle('is-open');
+      h.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+
+    push(SETUP);
+
+    ['safe', 'short'].forEach(k => {
+      const o = PICK[k];
+      const b = document.createElement('button');
+      b.className = 'ch-pick-opt'; b.type = 'button'; b.dataset.k = k;
+      b.innerHTML = '<i class="fa-solid ' + o.icon + '" aria-hidden="true"></i><span>' + esc(o.t) + '</span>';
+      b.addEventListener('click', () => choose(k));
+      pickOpts.appendChild(b);
+    });
+
+    function choose(k) {
+      if (took) return;
+      took = k;
+      pickOpts.querySelectorAll('.ch-pick-opt').forEach(b => {
+        b.disabled = true;
+        b.classList.add(b.dataset.k === k ? 'picked' : 'faded');
+      });
+      claraAskQ.textContent = 'Why not ' + lowerFirst(PICK[other(k)].t) + '?';
+      claraAsk.hidden = false;
+      claraAsk.classList.add('rf-layer');
+      wrap.classList.add('rf-on');
+      requestAnimationFrame(() => claraInput.focus());
+    }
+
+    claraInput.addEventListener('input', () => {
+      claraSend.disabled = claraInput.value.trim().length === 0;
+    });
+    claraInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!claraSend.disabled) send(); }
+    });
+    claraSend.addEventListener('click', send);
+
+    // Folds the choice + CLARA's follow-up into the SAME chain list as its
+    // own node, so it recedes into a peek like every other past moment
+    // instead of just disappearing when the widgets above hide.
+    function pushDecisionNode(k, reason) {
+      push({
+        time: 'Your decision',
+        body: 'You picked ' + lowerFirst(PICK[k].t) + '. CLARA asked why not ' +
+          lowerFirst(PICK[other(k)].t) + ' — you said “' + quotable(reason) + '.”'
+      });
+    }
+
+    function send() {
+      const text = claraInput.value.trim();
+      if (!text || otherReason) return;
+      otherReason = text;
+      claraInput.disabled = true;
+      claraSend.disabled = true;
+      claraEcho.hidden = false;
+      claraEcho.textContent = '“' + text + '” — noted.';
+
+      // Give the answer a moment to sit before the timeline moves on —
+      // proceeding instantly would read as if nobody had read it.
+      setTimeout(() => {
+        pick.classList.add('is-leaving');
+        claraAsk.classList.add('is-leaving');
+        setTimeout(() => {
+          // Released the same way reinforce() releases it in
+          // js/layered-sharps.js: once the card covering it is actually
+          // gone, not at the same instant it starts fading — unblurring
+          // and fading at once read as two things happening at once.
+          wrap.classList.remove('rf-on');
+          pick.hidden = true;
+          claraAsk.hidden = true;
+          pushDecisionNode(took, text);
+          // Let the decision land and hold at full brightness for a beat
+          // before the next node arrives and recedes it into the past —
+          // these two used to land in the same tick, which read as one
+          // blur of motion instead of "this happened, then this did."
+          setTimeout(() => runTimeline(took), 650);
+        }, 260);
+      }, 700);
+    }
+
+    function label(text, icon) {
+      advance.innerHTML = esc(text) + ' <i class="fa-solid ' + icon + '" aria-hidden="true"></i>';
+    }
+
+    function runTimeline(k) {
+      push(ACT[k]);
+      queue = (k === 'short' ? AFTER : SAFE_AFTER).slice();
+      if (!queue.length) { settle(k); return; }
+      label('Then what', 'fa-arrow-down');
+      advance.hidden = false;
+    }
+
+    advance.addEventListener('click', () => {
+      if (!queue.length) return;
+      push(queue.shift());
+      if (!queue.length) { advance.hidden = true; settle(took); }
+    });
+
+    // Same shape as SimCore.callModel (js/sim-core.js in scenario-simulator)
+    // but a thin local fetch instead of the wrapper: callModel() throws away
+    // the response's `usage` field, and this riff needs real token counts
+    // for the cost readout. Reuses the SAME deployed Worker + model
+    // constant, one attempt only — no retry/backoff machinery, since a
+    // single coaching line in a disposable riff can just fall back to the
+    // templated line on failure rather than earning a retry policy of
+    // its own.
+    async function callClara(system, userText, maxTokens) {
+      const res = await fetch(SimCore.WORKER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: SimCore.MODELS.DIALOGUE,
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: 'user', content: userText }]
+        })
+      });
+      if (!res.ok) throw new Error('Worker HTTP ' + res.status);
+      const data = await res.json();
+      const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim();
+      if (!text) throw new Error('Empty reply');
+      return { text, usage: data.usage || null };
+    }
+
+    function templatedFallback(k, reason) {
+      return k === 'safe'
+        ? 'You said the lidded bin lost out because “' + reason + '.” That’s the two extra minutes this chain is really asking for — and it’s why Jacob never has to find out whether that needle mattered.'
+        : 'You said the walk across the floor wasn’t worth it because “' + reason + '.” Weigh that against what you just watched happen to Jacob — your two minutes against his six months of testing.';
+    }
+
+    async function settle(k) {
+      closeA.textContent = k === 'safe' ? CLOSE_SAFE : CLOSE;
+      closeB.textContent = k === 'safe' ? AVOIDED : END;
+      closer.hidden = false;
+      nextBtn.disabled = false;
+
+      const reason = quotable(otherReason);
+      followup.hidden = false;
+      followupText.textContent = 'Thinking…';
+      followupText.classList.add('thinking');
+
+      const live = SimCore && typeof SimCore.WORKER_URL === 'string' && SimCore.WORKER_URL;
+      let text = templatedFallback(k, reason);
+      let usage = null;
+
+      if (live) {
+        try {
+          // The first two live drafts of this opened with "I hear you" and
+          // then explained the risk the learner had actually AVOIDED by
+          // picking the safe route — the model's default coaching register
+          // is "validate, then gently correct," applied uniformly whether
+          // the learner was right or not. Explicit branching + a banned-
+          // opener list below is what stops that: a correct choice gets
+          // REAFFIRMED, not softened as if it still needs defending.
+          const system = 'You are CLARA, an AI coach inside a short workplace safety lesson on sharps ' +
+            'disposal. Write ONE reply, 1–2 sentences, no more than about 40 words. Never open with a ' +
+            'sympathizing phrase like "I hear you", "I understand", or "I get it" — you are not consoling ' +
+            'them, you are telling them plainly where they stand. No bullet points, no headers, no generic ' +
+            '"good job."\n\n' +
+            (k === 'safe'
+              ? 'The learner made the SAFE, correct choice. REAFFIRM that directly — say plainly that it ' +
+                'was the right call — and connect their own stated reason to why it still holds up. Do ' +
+                'not raise the shortcut’s risk as a warning, as if they need protecting from something ' +
+                'they did not do.'
+              : 'The learner took the riskier shortcut. Be direct, not scolding, about the gap between ' +
+                'their stated reason and what actually happened, referencing their own words specifically. ' +
+                'Only push back on the reasoning itself if it is clearly wrong; if it is understandable, ' +
+                'say so plainly before naming the gap.');
+          const userText = 'The learner chose: ' + PICK[k].t + ' — this was the ' +
+            (k === 'safe' ? 'SAFE, correct choice' : 'riskier shortcut, not the correct choice') + '.\n' +
+            'They did NOT choose: ' + PICK[other(k)].t + '.\n' +
+            'When asked why not, they said: "' + reason + '."\n' +
+            'What happened next: ' + OUTCOME[k] + '\n' +
+            'Give your one short coaching reply now.';
+          const result = await callClara(system, userText, 120);
+          text = result.text;
+          usage = result.usage;
+        } catch (e) {
+          // Network hiccup, CORS, or a cold Worker — fall back silently to
+          // the templated line rather than surfacing an error to the learner.
+        }
+      }
+
+      followupText.classList.remove('thinking');
+      followupText.textContent = text;
+
+      if (usage && usage.input_tokens != null) {
+        const riffCost = usage.input_tokens * HAIKU_PRICE.in + usage.output_tokens * HAIKU_PRICE.out;
+        const fullSimCost = FULL_SIM.turns *
+          (FULL_SIM.inputTokensPerTurn * HAIKU_PRICE.in + FULL_SIM.outputTokensPerTurn * HAIKU_PRICE.out);
+        const times = Math.max(1, Math.round(fullSimCost / riffCost));
+        costNote.innerHTML = 'Real Claude Haiku 4.5 call: ' + usage.input_tokens + ' in + ' + usage.output_tokens +
+          ' out tokens → <b>' + usd(riffCost) + '</b>. A full scenario run resends its whole system ' +
+          'prompt every turn (measured live at ~7,700 input tokens/turn) — an assumed ' + FULL_SIM.turns +
+          '-turn run costs roughly <b>' + usd(fullSimCost) + '</b>, about ' + times + '× more than this one reply.';
+        costNote.hidden = false;
+      } else if (live) {
+        costNote.textContent = 'The live call didn’t come through, so this fell back to the offline line above — no real usage to report.';
+        costNote.hidden = false;
+      } else {
+        costNote.hidden = true;
+      }
+    }
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      // Riff only — no real prior screen to return to.
+    });
+    nextBtn.addEventListener('click', () => {
+      // Riff only — the real screen advances to the next lesson.
+    });
+  })();
+  </script>
+</body>
+</html>
