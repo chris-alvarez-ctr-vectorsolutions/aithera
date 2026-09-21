@@ -3873,6 +3873,64 @@
                (≤1140px), so the actions row has the space for it. Keep it compact
                so all four controls fit without horizontal scrolling. */
             #cancelFormBtn { padding: 0 8px; }
+
+            /* ── Single-row header ──
+               Ported from the evaluation-form V2 accessibility pass (commit
+               13054412), which ver3 predates. The actions cluster measured
+               191px (Cancel 59 + Compare 40 + Save 40 + ⋯ 40 + gaps), wider
+               than the space left beside the title, so the title was pushed
+               onto a row of its own and the header stood 142px over three
+               rows.
+               Two changes bring it to one row: Compare Forms moves INTO the ⋯
+               menu (the popover renderer adds the item against this same
+               breakpoint), and the Back crumb stacks ABOVE the title instead
+               of sitting beside it — a shorter, narrower title block. */
+            /* Collapsed, NOT removed: #comparePopover is anchored to
+               #compareFormsBtn, and a display:none anchor gives the overlay
+               nothing to position against (it then renders empty). Zeroing the
+               footprint keeps the anchor alive while freeing the row's width. */
+            #compareMenuWrap {
+                width: 0;
+                overflow: hidden;
+                opacity: 0;
+                pointer-events: none;
+                flex: 0 0 0;
+            }
+            .topbar-title-block {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0;
+                min-width: 0;
+            }
+            /* The crumb's text is small, but the TARGET must still clear the
+               24px WCAG 2.5.8 minimum — so the height is held at 24px and the
+               extra is taken as negative margin, which keeps the visual block
+               tight without shrinking the hit area. */
+            .topbar-back-tertiary {
+                height: 24px;
+                min-height: 24px;
+                padding: 0;
+                margin: -4px 0 -2px;
+                font-size: 11px;
+                line-height: 1.4;
+            }
+            .topbar-back-tertiary::part(label) { padding: 0; }
+            .topbar-title {
+                font-size: 15px;
+                line-height: 1.2;
+                margin: 0;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            /* The topbar itself no longer needs to wrap for the title/actions
+               pair — only the timer row (order 3) wraps below them. */
+            .topbar {
+                align-items: center;
+                gap: 8px;
+            }
         }
 
         /* ─── Share dialog (content styles; shell is vaadin-dialog) ─── */
@@ -5007,6 +5065,14 @@
             <vaadin-popover id="actionsPopover" for="actionsMenuBtn"></vaadin-popover>
             <template id="actionsMenuTpl">
                 <div class="actions-menu" role="menu">
+                    <!-- Compare Forms — only rendered into this menu at narrow
+                         widths, where the standalone topbar button is hidden so
+                         the header can collapse to a single row. Shown/hidden by
+                         the popover renderer against the same media query. -->
+                    <button class="actions-menu-item" type="button" role="menuitem" id="compareFormsMenuItem">
+                        <i class="fa-solid fa-code-compare"></i> Compare Forms
+                    </button>
+                    <div class="actions-menu-divider" id="compareFormsMenuDivider"></div>
                     <button class="actions-menu-item" type="button" role="menuitem" id="copyFormItem">
                         <i class="fa-solid fa-copy"></i> Copy
                     </button>
@@ -11011,6 +11077,30 @@ document.getElementById('saveFormBtn').addEventListener('click', handleSaveDraft
     pop.renderer = (root) => {
         root.innerHTML = '';
         root.appendChild(tpl.content.cloneNode(true));
+
+        // Compare Forms lives in this menu only while the standalone topbar
+        // button is collapsed away (≤720px, see the header reflow media query).
+        // Matching the SAME query here keeps one source of truth for the
+        // breakpoint and avoids the item appearing twice on desktop.
+        const cmpItem = root.querySelector('#compareFormsMenuItem');
+        const cmpDiv = root.querySelector('#compareFormsMenuDivider');
+        const collapsed = window.matchMedia('(max-width: 720px)').matches;
+        if (!collapsed) {
+            cmpItem && cmpItem.remove();
+            cmpDiv && cmpDiv.remove();
+        } else if (cmpItem) {
+            // Open the existing compare chooser. Its popover is anchored
+            // `for="compareFormsBtn"`, so that button must stay in the layout —
+            // the header rule hides it with opacity/size, NOT display:none,
+            // precisely so this overlay still has an anchor to position against.
+            cmpItem.addEventListener('click', () => {
+                pop.opened = false;
+                setTimeout(() => {
+                    const cp = document.getElementById('comparePopover');
+                    if (cp) cp.opened = true;
+                }, 60);
+            });
+        }
 
         const del = root.querySelector('#deleteFormItem');
         del.disabled = !formCreated;
