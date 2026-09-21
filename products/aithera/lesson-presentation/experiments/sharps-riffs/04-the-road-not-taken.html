@@ -251,13 +251,27 @@
   .ch-input::placeholder{ color:var(--ink-faint); }
   .ch-input:focus{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(46,230,207,.2); }
   .ch-input:disabled{ opacity:.6; }
+  .ask-actions{ display:flex; align-items:center; gap:18px; margin-top:12px; }
   .ch-send{
-    margin-top:12px; align-self:flex-start; font:inherit; font-size:14px; font-weight:700; color:#04121a;
+    font:inherit; font-size:14px; font-weight:700; color:#04121a;
     background:var(--teal); border:0; border-radius:999px; padding:10px 24px; cursor:pointer; transition:filter .16s ease;
   }
   .ch-send:hover:not(:disabled){ filter:brightness(1.08); }
   .ch-send:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.35); }
   .ch-send:disabled{ opacity:.4; cursor:default; }
+  /* A quiet way out of the question itself — not a second CTA. Seeing the
+     comparison spelled out ("...instead of the red sharps container?") can
+     read as a hint that the other option was the right one, and without an
+     escape hatch the only way off this card is to answer for a pick you now
+     doubt. */
+  .ch-change{
+    font:inherit; font-size:13px; font-weight:600; color:var(--ink-faint);
+    background:none; border:0; padding:4px 0; cursor:pointer; text-decoration:underline;
+    text-decoration-color:transparent; transition:color .15s ease, text-decoration-color .15s ease;
+  }
+  .ch-change:hover:not(:disabled){ color:var(--ink-soft); text-decoration-color:currentColor; }
+  .ch-change:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.25); border-radius:4px; }
+  .ch-change:disabled{ opacity:.4; cursor:default; text-decoration-color:transparent; }
   .ch-echo{ margin:14px 0 0; font-size:14px; line-height:1.6; color:var(--ink-faint); }
 
   /* The main CTA while walking the timeline — nothing else on screen is
@@ -330,7 +344,10 @@
           <p class="clara-name">CLARA</p>
           <p class="clara-q" id="claraAskQ"></p>
           <textarea class="ch-input" id="claraInput" rows="2" placeholder="Say why, in your own words"></textarea>
-          <button class="ch-send" id="claraSend" type="button" disabled>Send</button>
+          <div class="ask-actions">
+            <button class="ch-send" id="claraSend" type="button" disabled>Send</button>
+            <button class="ch-change" id="claraChange" type="button">Change my answer</button>
+          </div>
           <p class="ch-echo" id="claraEcho" hidden></p>
         </div>
 
@@ -457,6 +474,7 @@
     const claraAskQ = document.getElementById('claraAskQ');
     const claraInput= document.getElementById('claraInput');
     const claraSend = document.getElementById('claraSend');
+    const claraChange = document.getElementById('claraChange');
     const claraEcho = document.getElementById('claraEcho');
     const advance   = document.getElementById('chNext');
     const closer    = document.getElementById('chClose');
@@ -551,6 +569,27 @@
     });
     claraSend.addEventListener('click', send);
 
+    // Undoes choose(k) entirely — the comparison question spells out the
+    // option not taken ("...instead of the red sharps container?"), and
+    // reading that back can read as a hint the other one was right. Only
+    // offered before Send: once an answer is on its way to the timeline,
+    // the pick is what it is.
+    claraChange.addEventListener('click', () => {
+      took = null;
+      claraInput.value = '';
+      claraSend.disabled = true;
+      claraAsk.classList.add('is-leaving');
+      setTimeout(() => {
+        wrap.classList.remove('rf-on');
+        claraAsk.hidden = true;
+        claraAsk.classList.remove('is-leaving', 'rf-layer');
+        pickOpts.querySelectorAll('.ch-pick-opt').forEach(b => {
+          b.disabled = false;
+          b.classList.remove('picked', 'faded');
+        });
+      }, 260);
+    });
+
     // Folds the choice + CLARA's follow-up into the SAME chain list as its
     // own node, so it recedes into a peek like every other past moment
     // instead of just disappearing when the widgets above hide.
@@ -568,6 +607,7 @@
       otherReason = text;
       claraInput.disabled = true;
       claraSend.disabled = true;
+      claraChange.disabled = true;
       claraEcho.hidden = false;
       claraEcho.textContent = '“' + text + '” — noted.';
 
