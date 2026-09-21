@@ -805,16 +805,30 @@ href="../../../../assets/fontawesome/css/all.min.css"
      The first child is now .cm-cfg-section, which zeroes its own top spacing
      via :first-child — so a 0 here left the IDENTITY label jammed against the
      summary row. */
-  .cm-setup::part(content) { padding: 4px 14px 16px; }
+  /* Matches the step card's body padding (12px) rather than the roomier
+     14/16 it used to carry. The setup panel and a step card are the same kind
+     of object — a titled container of config sections — and two different
+     paddings made the editor read as two design systems stacked. */
+  .cm-setup::part(content) { padding: 2px 12px 12px; }
   /* Left padding must MATCH ::part(content)'s 14px — the summary is slotted
      into the host, which has no padding of its own, so a left of 0 put
      "Setup" flush against the card border while the fields below sat inset.
      The two were visibly out of line. */
   .cm-setup-summary {
     display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-    padding: 12px 14px; cursor: pointer;
+    padding: 10px 12px; cursor: pointer;
+    /* Same zebra ground and hairline as .cm-stepcard-head, so a collapsed
+       panel and a collapsed step read as the same component. */
+    background: var(--cm-zebra);
+    border-bottom: 1px solid var(--cm-line-soft);
+    border-radius: var(--lumo-border-radius-m, .5em) var(--lumo-border-radius-m, .5em) 0 0;
   }
-  .cm-setup-title { font-size: 15px; font-weight: 700; }
+  /* Closed, there is no content below — the hairline would float. */
+  .cm-setup:not([opened]) .cm-setup-summary {
+    border-bottom-color: transparent;
+    border-radius: var(--lumo-border-radius-m, .5em);
+  }
+  .cm-setup-title { font-size: 14px; font-weight: 700; }
   /* The recap exists so a COLLAPSED Setup still states type, cadence and
      version. Open, those fields are right there — so the recap would just be
      the same facts twice. Hide it while open. */
@@ -838,16 +852,29 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
      Rule for this block: only modifier classes set columns, and every
      breakpoint restates the modifier it means to change. */
+  /* 11px gap, matching .cm-form-grid inside a step card — the setup fields
+     and a step's config fields are the same kind of row and should sit on the
+     same rhythm. */
   .cm-setup-grid {
-    display: grid; gap: 12px;
+    display: grid; gap: 11px;
     align-items: start;
   }
   .cm-setup-grid > * { width: 100%; min-width: 0; }
 
   /* Identity: name wide, type short, description wide. */
+  /* Three across, deliberately. Stacking the description under Name and Type
+     was measurably WORSE — a Vaadin field is ~78px with its label, so a second
+     row costs a full 78px, where keeping the description alongside costs only
+     the 20px by which it exceeds the fields beside it. The text area is
+     capped just below in the same spirit. */
   .cm-setup-grid--identity {
     grid-template-columns: minmax(220px, 1.3fr) minmax(150px, .7fr) minmax(260px, 1.6fr);
   }
+  /* Height is set in JS (see compactTextAreas) by putting `rows` on the
+     SLOTTED textarea. Neither route through CSS works in v1.22.3: there is no
+     height custom property, --vaadin-text-area-default-height is silently
+     ignored, and a `rows` attribute on the host element is not forwarded to
+     the textarea inside. All three were measured. */
   /* Schedule: a single control, capped so it does not stretch across the card. */
   .cm-setup-grid--schedule { grid-template-columns: minmax(240px, 380px); }
 
@@ -1218,9 +1245,12 @@ href="../../../../assets/fontawesome/css/all.min.css"
      ==================================================================== */
 
   /* L1 — section divider inside a panel or card. */
+  /* Shared by the setup panel and a step card's config regions, so the two
+     read identically. Tightened from 20/14 — that spacing was tuned when this
+     only appeared in the roomier setup panel. */
   .cm-cfg-section {
     display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-    margin: 20px 0 12px; padding-top: 14px;
+    margin: 14px 0 9px; padding-top: 11px;
     border-top: 1px solid var(--cm-line-soft);
   }
   .cm-cfg-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
@@ -1535,6 +1565,15 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cm-rstep-fx li { font-size: 12.5px; display: flex; align-items: center; gap: 8px; }
   .cm-rstep-fx li i { width: 14px; text-align: center; color: var(--lumo-error-text-color, #ca150c); }
 
+  /* Block info: instructions text beside its image tiles, so the two read as
+     one decision rather than two stacked fields. */
+  .cm-setup-grid--instr {
+    grid-template-columns: minmax(280px, 2fr) minmax(200px, 1fr);
+    align-items: start;
+  }
+  @media (max-width: 860px) {
+    .cm-setup-grid--instr { grid-template-columns: 1fr; }
+  }
   /* Q40 — block instructions. Authoring tiles first, then the run-time card. */
   .cm-instr-images { display: flex; flex-wrap: wrap; gap: 7px; }
   .cm-instr-img {
@@ -1774,8 +1813,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
      implies there could be more. */
   .cm-statusset { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
   .cm-statusopt {
-    display: flex; align-items: flex-start; gap: 9px; cursor: pointer;
-    padding: 9px 13px; min-width: 210px; flex: 1 1 210px;
+    display: flex; align-items: center; gap: 9px; cursor: pointer;
+    padding: 7px 12px; min-width: 0; flex: 0 1 auto;
     border: 1px solid var(--lumo-contrast-20pct, #1c375a29);
     border-radius: var(--lumo-border-radius-m, .5em);
     background: var(--cm-card-bg); font-size: 13px;
@@ -1785,8 +1824,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
     border-color: var(--lumo-primary-color, #0271ce);
     background: var(--lumo-primary-color-10pct, #0271ce1a);
   }
-  .cm-statusopt vaadin-checkbox { flex-shrink: 0; margin-top: -2px; }
-  .cm-statusopt-text { min-width: 0; }
+  .cm-statusopt vaadin-checkbox { flex-shrink: 0; }
+  .cm-statusopt-text { min-width: 0; white-space: nowrap; }
 
   /* ---- Three-state segmented control ------------------------------
      Off | Allowed | Required. One control instead of two switches, so
@@ -2196,7 +2235,9 @@ href="../../../../assets/fontawesome/css/all.min.css"
                 </vaadin-button>
               </div>
             </div>
-            <vaadin-grid id="blGrid" all-rows-visible></vaadin-grid>
+            <!-- Same drill-in behaviour as the checklist grid: whole-row
+                 click plus a chevron, rather than an Edit button. -->
+            <vaadin-grid id="blGrid" class="cm-grid-clickable" all-rows-visible></vaadin-grid>
             <div class="cm-empty" id="blEmpty" style="display:none">
               <i class="fa-solid fa-cube" aria-hidden="true"></i>
               <h3>No content blocks match these filters</h3>
@@ -2262,7 +2303,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
                 <div class="cm-setup-grid cm-setup-grid--identity">
                   <vaadin-text-field theme="outlined" label="Checklist name" id="bName" value="Apparatus Morning Check"></vaadin-text-field>
                   <vaadin-select theme="outlined" label="Type" id="bType"></vaadin-select>
-                  <vaadin-text-area theme="outlined" label="Description" id="bDesc"
+                  <vaadin-text-area theme="outlined" label="Description" id="bDesc" data-compact
                     placeholder="What this checklist covers, and when crews run it."></vaadin-text-area>
                 </div>
 
@@ -2469,63 +2510,71 @@ href="../../../../assets/fontawesome/css/all.min.css"
             </div>
           </div>
 
-          <div class="cm-builder-grid">
-            <div>
-              <div class="cm-panel">
-                <div class="cm-panel-head">
-                  <div>
-                    <h2 class="cm-panel-title">Check steps</h2>
-                    <div class="cm-panel-sub" id="cStepCount">4 steps</div>
-                  </div>
-                  <div class="cm-panel-actions">
-                    <vaadin-button theme="secondary" id="btnAddStep">
-                      <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>Add check step
-                    </vaadin-button>
-                  </div>
-                </div>
-                <div class="cm-panel-body" id="stepList"></div>
+          <!-- Block info sits ABOVE the steps, not in a side rail — same
+               shape as the checklist builder's Setup panel. These fields
+               describe the block as a whole, and moving them out of a 320px
+               column gives the step list the full page width, which it needs
+               once a step's config sections are open. Collapsible for when
+               the steps need the vertical room. -->
+          <div class="cm-setup-row">
+            <vaadin-details id="cSetup" class="cm-setup" opened>
+              <div slot="summary" class="cm-setup-summary">
+                <span class="cm-setup-title">Block info</span>
+                <span class="cm-setup-recap" id="cSetupRecap"></span>
+                <i class="fa-solid fa-chevron-down cm-setup-caret" aria-hidden="true"></i>
               </div>
-            </div>
 
-            <div class="cm-inspector">
-              <div class="cm-panel">
-                <div class="cm-panel-head"><h2 class="cm-panel-title">Block info</h2></div>
-                <div class="cm-panel-body">
-                  <div class="cm-field-row">
-                    <vaadin-text-field theme="outlined" label="Block name" id="cName" value="Wheels &amp; Tires"></vaadin-text-field>
-                  </div>
-                  <div class="cm-field-row">
-                    <vaadin-select theme="outlined" label="Domain / category" id="cDomain"></vaadin-select>
-                  </div>
-                  <div class="cm-field-row">
-                    <vaadin-text-area theme="outlined" label="Short description" id="cDescription"
-                      placeholder="One line crews will see in the block library."></vaadin-text-area>
-                  </div>
-                  <vwc-divider></vwc-divider>
-                  <!-- Q40 — instructions for the block AS A WHOLE, not a step.
-                       "For all the questions below, make sure the pump is
-                       engaged." Distinct from a step's own context (Q12):
-                       this is read once, before answering anything in the
-                       block, and it stays on screen while the crew works. -->
-                  <div class="cm-field-row">
-                    <vaadin-text-area theme="outlined" label="Instructions for this block" id="cInstructions"
-                      helper-text="Shown above every step in this block while the check is performed."
-                      placeholder="e.g. For all the questions below, make sure the pump is engaged."></vaadin-text-area>
-                  </div>
-                  <div class="cm-field-row">
-                    <div class="cm-instr-images" id="cInstrImages"></div>
-                  </div>
-                  <vwc-divider></vwc-divider>
-                  <div class="cm-switch-row">
-                    <div class="cm-switch-text">
-                      <div class="cm-switch-label">Allow multiple uses per checklist</div>
-                      <div class="cm-switch-help">Each instance then needs a context label, e.g. "Driver front".</div>
-                    </div>
-                    <vwc-switch id="cMultiUse" checked accessible-name="Allow multiple uses per checklist"></vwc-switch>
-                  </div>
+              <div class="cm-cfg-section">
+                <span class="cm-cfg-section-title">Identity</span>
+              </div>
+              <div class="cm-setup-grid cm-setup-grid--identity">
+                <vaadin-text-field theme="outlined" label="Block name" id="cName" value="Wheels &amp; Tires"></vaadin-text-field>
+                <vaadin-select theme="outlined" label="Domain / category" id="cDomain"></vaadin-select>
+                <vaadin-text-area theme="outlined" label="Short description" id="cDescription" data-compact
+                  placeholder="One line crews will see in the block library."></vaadin-text-area>
+              </div>
+
+              <!-- Q40 — instructions for the block AS A WHOLE, not a step.
+                   "For all the questions below, make sure the pump is
+                   engaged." Distinct from a step's own context (Q12): this is
+                   read once, before answering anything in the block, and it
+                   stays on screen while the crew works. -->
+              <div class="cm-cfg-section">
+                <span class="cm-cfg-section-title">Instructions</span>
+                <span class="cm-cfg-section-note">Shown above every step while the check is performed</span>
+              </div>
+              <div class="cm-setup-grid cm-setup-grid--instr">
+                <vaadin-text-area theme="outlined" label="Instructions for this block" id="cInstructions"
+                  placeholder="e.g. For all the questions below, make sure the pump is engaged."></vaadin-text-area>
+                <div class="cm-instr-images" id="cInstrImages"></div>
+              </div>
+
+              <div class="cm-cfg-section">
+                <span class="cm-cfg-section-title">Reuse</span>
+              </div>
+              <div class="cm-switch-row">
+                <div class="cm-switch-text">
+                  <div class="cm-switch-label">Allow multiple uses per checklist</div>
+                  <div class="cm-switch-help">Each instance then needs a context label, e.g. "Driver front".</div>
                 </div>
+                <vwc-switch id="cMultiUse" checked accessible-name="Allow multiple uses per checklist"></vwc-switch>
+              </div>
+            </vaadin-details>
+          </div>
+
+          <div class="cm-panel">
+            <div class="cm-panel-head">
+              <div>
+                <h2 class="cm-panel-title">Check steps</h2>
+                <div class="cm-panel-sub" id="cStepCount">4 steps</div>
+              </div>
+              <div class="cm-panel-actions">
+                <vaadin-button theme="secondary" id="btnAddStep">
+                  <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>Add check step
+                </vaadin-button>
               </div>
             </div>
+            <div class="cm-panel-body" id="stepList"></div>
           </div>
 
           <div class="cm-editor-foot">
@@ -6090,11 +6139,18 @@ function buildBlockGrid() {
       '<div class="cm-cell-row">' +
         '<span class="cm-block-icon"><i class="fa-solid ' + dm.icon + '" aria-hidden="true"></i></span>' +
         '<div class="cm-cell-stack">' +
-          '<span class="cm-cell-strong">' + b.name +
-            (b.multiUse ? ' <span theme="badge contrast pill">Multi-use</span>' : '') + '</span>' +
-          '<span class="cm-cell-sub">' + b.description + '</span>' +
+          '<a class="cm-drill" href="#" role="button">' + escHtml(b.name) + '</a>' +
+          (b.multiUse ? ' <span theme="badge contrast pill">Multi-use</span>' : '') +
+          '<span class="cm-cell-sub">' + escHtml(b.description) + '</span>' +
         '</div>' +
       '</div>';
+    /* The name stays a real link even though the whole row navigates: it is
+       the keyboard-reachable path to the same destination, and it is what a
+       screen reader announces as the row's target. vaadin-grid suppresses
+       active-item-changed for clicks on focusable content, so the two paths
+       do not double-fire. Bound per render because cells are recycled. */
+    const link = root.querySelector('.cm-drill');
+    if (link) link.addEventListener('click', ev => { ev.preventDefault(); openCreator(b.id); });
   };
   blGrid.appendChild(nameCol);
 
@@ -6138,20 +6194,30 @@ function buildBlockGrid() {
   };
   blGrid.appendChild(useCol);
 
+  /* Drill-in affordance, not a button — matching the checklist grid. "Edit"
+     opened exactly the same screen as clicking the name, so it was a second
+     control for one destination, and it implied a separate edit mode that
+     does not exist: the detail view is already editable. */
   const actCol = document.createElement('vaadin-grid-column');
-  actCol.setAttribute('width', '108px');
+  actCol.setAttribute('width', '48px');
   actCol.setAttribute('flex-grow', '0');
   actCol.setAttribute('text-align', 'end');
-  actCol.renderer = (root, col, model) => {
-    root.innerHTML = '';
-    const edit = document.createElement('vaadin-button');
-    edit.setAttribute('theme', 'tertiary');
-    edit.style.cssText = CELL_CONTROL + 'text-align:right;';
-    edit.textContent = 'Edit';
-    edit.addEventListener('click', () => openCreator(model.item.id));
-    root.appendChild(edit);
+  actCol.renderer = (root) => {
+    root.innerHTML = '<i class="fa-solid fa-chevron-right cm-row-go" aria-hidden="true"></i>';
   };
   blGrid.appendChild(actCol);
+
+  /* Whole-row navigation. vaadin-grid suppresses active-item-changed for
+     clicks landing on a focusable control, so the selection checkbox keeps
+     working without an exclusion list. activeItem is cleared immediately so
+     clicking the same row twice still fires and no row stays marked active
+     after we navigate away. */
+  blGrid.addEventListener('active-item-changed', e => {
+    const item = e.detail && e.detail.value;
+    if (!item || !item.id) return;
+    blGrid.activeItem = null;
+    openCreator(item.id);
+  });
 
   renderBlockGrid();
 }
@@ -6209,6 +6275,7 @@ function openBuilder(id) {
 
   renderSetupRecap();
   renderStatusSet();
+  compactTextAreas();
   renderReleaseBar();
 
   renderSections();
@@ -6281,6 +6348,36 @@ function renderSetupRecap() {
     ' · ' + (c.hasDraft ? 'draft v' + c.version : 'v' + c.version);
 }
 
+/* A one-line summary needs one line. Left at its default a vaadin-text-area
+   is three rows tall, which set the height of the whole Identity row for
+   content nobody writes a paragraph into — the fields beside it are 78px and
+   it was 98px, so the row paid 20px for empty space.
+
+   Has to be done on the SLOTTED textarea: `rows` on the host is not forwarded
+   and no CSS property exposes the height. The field still grows as the author
+   types, so nothing is lost. */
+function compactTextAreas(root) {
+  (root || document).querySelectorAll('vaadin-text-area[data-compact]').forEach(ta => {
+    const inner = ta.querySelector('textarea');
+    if (inner) inner.rows = 1;
+  });
+}
+
+/* The collapsed Block info panel still has to say what it contains —
+   otherwise collapsing it hides the domain and version entirely. Mirrors
+   renderSetupRecap() on the checklist side. */
+function renderBlockRecap() {
+  const b = blockById(activeBlockId);
+  const el = document.getElementById('cSetupRecap');
+  if (!el || !b) return;
+  const n = (b.steps || []).length;
+  const bits = [domainMeta(b.domain).label, 'v' + b.version,
+                n + ' step' + (n === 1 ? '' : 's')];
+  if (b.multiUse) bits.push('multi-use');
+  if (hasInstructions(b)) bits.push('has instructions');
+  el.textContent = bits.join(' · ');
+}
+
 /* The Q3 status-set control. Three fixed checkboxes — not a combo box: the
    set is closed at three values (Q5), so every option should be visible
    rather than hidden behind a dropdown that implies more exist. */
@@ -6336,8 +6433,12 @@ function renderStatusSet() {
     });
     const txt = document.createElement('span');
     txt.className = 'cm-statusopt-text';
-    txt.innerHTML = ENTITY_STATUS[v] +
-      '<span class="cm-cfg-help">' + STATUS_SET_HELP[v] + '</span>';
+    /* Label only. The per-option guidance moved to the option's title: an
+       author setting this the first time can still reach it, and three
+       two-line cards were costing more height than the three checkboxes
+       they wrapped. */
+    txt.textContent = ENTITY_STATUS[v];
+    cell.title = STATUS_SET_HELP[v];
     cell.appendChild(cb); cell.appendChild(txt);
     host.appendChild(cell);
   });
@@ -7653,6 +7754,8 @@ function openCreator(id) {
     (blockInstructions(b) || {}).text || '';
   renderInstrImages();
   document.getElementById('cMultiUse').checked = !!b.multiUse;
+  renderBlockRecap();
+  compactTextAreas();
 
   const st = document.getElementById('cStatus');
   st.setAttribute('theme', 'badge ' + (STATUS_BADGE[b.status] || '') + ' pill');
