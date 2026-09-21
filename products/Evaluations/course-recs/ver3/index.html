@@ -1568,9 +1568,11 @@
                220px floor is enforced where it actually matters instead: the
                resize clamp and syncDrawerOpenHeight(), both of which compute
                the drawer's resting height. */
-            /* Never taller than the viewport minus the bar and some breathing
-               room for the form above. */
-            max-height: calc(100vh - var(--rec-bar-h) - 120px);
+            /* Never taller than the viewport minus the bar and a little
+               breathing room for the form above. This is only a backstop —
+               the JS ceiling (drawerMaxHeight) is the real limit and is
+               tighter in every realistic case. */
+            max-height: calc(100vh - var(--rec-bar-h) - 56px);
             background: var(--workspace-bg);
             border-top: 1px solid var(--border-soft);
             overflow: hidden;
@@ -1655,15 +1657,21 @@
         /* Drawer toolbar — hosts Refresh / Select All / Configure Assignments.
            Sticky-free: it's outside the scroll body, so it never overlaps
            content and needs no opaque-token workaround. */
+        /* ONE ROW, always. Refresh / Select All / Configure Assignment are
+           three short controls; letting them wrap cost a whole extra toolbar
+           row at narrow widths, which came straight out of the scroll area
+           the cards need. nowrap + min-width:0 on the spacer keeps them on a
+           single line, and the labels shorten at narrow widths (see the
+           760px block) rather than stacking. */
         .rec-drawer-toolbar {
             flex-shrink: 0;
             display: flex; align-items: center; gap: 14px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             padding: 10px 24px;
             background: var(--lumo-base-color);
             border-bottom: 1px solid var(--border-soft);
         }
-        .rec-drawer-toolbar-spacer { flex: 1; }
+        .rec-drawer-toolbar-spacer { flex: 1 1 auto; min-width: 0; }
 
         /* The scroll body. Both lists live here and scroll together, so the
            upsell list is reached by continuing to scroll past the licensed
@@ -1880,6 +1888,30 @@
             .rec-drawer { height: 62vh; }
             .rec-drawer-resize { display: none; }
             .rec-drawer-toolbar, .rec-drawer-body { padding-left: 16px; padding-right: 16px; }
+
+            /* ── Toolbar stays ONE row at phone widths ──
+               Three full labels are ~347px of content in ~268px of usable
+               width, so the optional half of each label is dropped rather
+               than allowed to wrap: "Refresh" becomes its icon alone,
+               "Select All" -> "Select", "Configure Assignment" ->
+               "Configure". Hidden visually only, so the accessible names are
+               unchanged (Refresh and Configure also carry explicit
+               aria-labels). */
+            .tb-label {
+                position: absolute;
+                width: 1px; height: 1px;
+                padding: 0; margin: -1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+                border: 0;
+            }
+            .rec-drawer-toolbar { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+            /* Icon-only now — square it up to a proper target (2.5.8). */
+            .rec-refresh-btn { width: 32px; padding: 0; justify-content: center; gap: 0; }
+            .rec-configure-btn { margin-left: 0; padding: 8px 12px; }
+            .rec-selectall-btn,
+            .rec-configure-btn { white-space: nowrap; }
         }
 
         /* ── Design Toolbox / version-switcher clearance ──
@@ -7755,11 +7787,23 @@ function setDockState(state, data) {
    when the topnav wraps, the deleted banner appears, or the window resizes.
    The bar's own height comes off the top because .rec-bar sits above the
    drawer inside the same dock. */
-const DRAWER_TOOLBAR_GAP = 64;
+/* Gap left between the top of the open drawer and the bottom of the sticky
+   form toolbar. Small on purpose: the drawer is the thing the reviewer is
+   working in once it is open, so it takes as much of the screen as it can
+   while keeping the toolbar (and the form row under it) visible. */
+const DRAWER_TOOLBAR_GAP = 24;
 /* Absolute floor for the drawer's own scroll area once it is open at all.
    Below this there is no point keeping it open — the caller collapses it
    instead of rendering a sliver. */
 const DRAWER_MIN_USABLE = 72;
+/* NOTE — the Design Toolbox is NOT an input to this calculation, and must
+   never become one. It is prototyping tooling that is stripped at dev
+   handoff, so sizing product UI around it would bake a review artifact into
+   the design. It is position:fixed, appended to <body>, and sets no body
+   padding, so it cannot affect layout on its own; the only rule that mentions
+   it moves the TOOLING out of the product's way, never the reverse. If the
+   drawer ever looks short, the cause is here (the gap and the topbar offset)
+   or the CSS max-height backstop — not the widget. */
 function drawerMaxHeight(minH) {
     const topbar = document.querySelector('.topbar');
     // getBoundingClientRect().bottom is the toolbar's real on-screen bottom,
@@ -8042,17 +8086,20 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
     /* No gaps means nothing to refresh, select or assign — an empty toolbar
        is correct rather than a row of dead controls. */
     recDrawerToolbar.innerHTML = `
-        <button type="button" class="rec-refresh-btn" id="refreshRecsBtn" title="Generate a new batch of recommendations">
+        <button type="button" class="rec-refresh-btn" id="refreshRecsBtn"
+                aria-label="Refresh recommendations"
+                title="Generate a new batch of recommendations">
             <i class="fa-solid fa-arrows-rotate"></i>
-            Refresh
+            <span class="tb-label">Refresh</span>
         </button>
         <div class="rec-drawer-toolbar-spacer"></div>
         ${visibleRecs.length ? `
             <button type="button" class="rec-selectall-btn" id="recSelectAllBtn">
-                Select All
+                Select<span class="tb-label"> All</span>
             </button>
-            <button type="button" class="rec-configure-btn" id="recConfigureBtn">
-                Configure Assignment
+            <button type="button" class="rec-configure-btn" id="recConfigureBtn"
+                    aria-label="Configure Assignment">
+                Configure<span class="tb-label"> Assignment</span>
             </button>
         ` : ''}
     `;
