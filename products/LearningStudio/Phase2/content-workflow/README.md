@@ -31,7 +31,7 @@ Two panes:
 
 **Template-as-structure:** on the `template` / `combined` paths, the flow opens with an upload; the template's structure seeds the `Structure` field as the skeleton and the conversation fills the rest.
 
-The workflow ends at **Generate** — everything downstream (scene generation, media, review) is out of scope, matching the plan/execute split in `../chat-builder-setup-and-planning-spec.md`.
+The workflow ends at **Generate** — everything downstream (scene generation, media, review) is out of scope, matching the plan/execute split in `../_planning/chat-builder-setup-and-planning-spec.md` (local-only — see `../_planning/README.md`).
 
 ## Sample scenario context
 
