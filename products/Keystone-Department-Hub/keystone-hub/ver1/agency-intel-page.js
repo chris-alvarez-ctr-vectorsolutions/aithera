@@ -1212,10 +1212,14 @@
     }
     var ready = state.draft.trim() && !state.thinking;
     return '<div class="cpv-panel">' +
-      '<div class="cpv-head">' + agencyIntelMark(30) +
+      // Two rows, not one: the intro line below is a sentence and a half, and
+      // in the old single-row header it shared a ~240px column with the mark
+      // and both icon buttons — four wrapped lines with the buttons floating
+      // in the middle of them. As its own full-width row it gets the panel's
+      // whole 376px and the title row stays the height of its buttons.
+      '<div class="cpv-head"><div class="cpv-head-row">' + agencyIntelMark(30) +
       '<div style="flex:1;min-width:0">' +
-      '<div style="font-weight:700;font-size:15px;color:var(--ink-900);line-height:1.1">Agency Intelligence</div>' +
-      '<div style="font-size:11.5px;color:var(--ink-500)">Building “this dashboard” with you</div></div>' +
+      '<div style="font-weight:700;font-size:15px;color:var(--ink-900);line-height:1.1">Agency Intelligence</div></div>' +
       /* Plain buttons, not vaadin-button theme="tertiary": the Vector theme
          styles a tertiary button as an underlined text link, which is right
          for a word and wrong for an icon — these two were rendering as blue
@@ -1232,6 +1236,12 @@
       '<button class="cpv-iconbtn" id="cpvCollapse" title="Collapse Agency Intelligence" ' +
       'aria-label="Collapse Agency Intelligence">' +
       '<i class="fa-solid fa-angles-left" aria-hidden="true"></i></button></div>' +
+      // Replaces the old “Building &ldquo;this dashboard&rdquo; with you” subtitle rather
+      // than joining it — that line said the same thing in fewer words, and two
+      // subtitles making one point is worse than either alone.
+      '<p class="cpv-head-note">Use this chat to build and edit any widget in ' +
+      'this dashboard. I’m smart, so you can talk to me using normal language.</p>' +
+      '</div>' +
 
       '<div class="cpv-thread" id="cpvThread">' +
       state.thread.map(agencyIntelTurn).join('') +
