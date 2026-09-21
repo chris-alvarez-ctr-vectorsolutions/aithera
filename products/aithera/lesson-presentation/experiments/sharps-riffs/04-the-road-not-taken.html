@@ -529,7 +529,14 @@
         b.disabled = true;
         b.classList.add(b.dataset.k === k ? 'picked' : 'faded');
       });
-      claraAskQ.textContent = 'Why not ' + lowerFirst(PICK[other(k)].t) + '?';
+      // Generic on purpose: derived entirely from the two option labels the
+      // LXD already has to write for the pick card itself — no separate
+      // "reflection question" field for them to author per decision. Framed
+      // as a neutral comparison ("instead of", not "why not") rather than a
+      // counterfactual, so it doesn't presuppose either option was wrong —
+      // that judgment lives in the system prompt (see settle()), keyed off
+      // which branch is actually safe, not in the question's own wording.
+      claraAskQ.textContent = 'What made you pick “' + PICK[k].t + '” instead of “' + PICK[other(k)].t + '”?';
       claraAsk.hidden = false;
       claraAsk.classList.add('rf-layer');
       wrap.classList.add('rf-on');
@@ -550,8 +557,8 @@
     function pushDecisionNode(k, reason) {
       push({
         time: 'Your decision',
-        body: 'You picked ' + lowerFirst(PICK[k].t) + '. CLARA asked why not ' +
-          lowerFirst(PICK[other(k)].t) + ' — you said “' + quotable(reason) + '.”'
+        body: 'You picked ' + lowerFirst(PICK[k].t) + ' over ' + lowerFirst(PICK[other(k)].t) +
+          '. CLARA asked what made you pick it — you said “' + quotable(reason) + '.”'
       });
     }
 
@@ -578,11 +585,12 @@
           pick.hidden = true;
           claraAsk.hidden = true;
           pushDecisionNode(took, text);
-          // Let the decision land and hold at full brightness for a beat
-          // before the next node arrives and recedes it into the past —
-          // these two used to land in the same tick, which read as one
-          // blur of motion instead of "this happened, then this did."
-          setTimeout(() => runTimeline(took), 650);
+          // No auto-advance timer — a fixed pause here (however long) was
+          // still a guess at how long someone needs to read it, and one
+          // learner's answer is a one-liner while another's is a paragraph.
+          // The decision node now stays expanded and current until the
+          // learner themselves clicks through, same as every later step.
+          readyNext(took);
         }, 260);
       }, 700);
     }
@@ -591,10 +599,12 @@
       advance.innerHTML = esc(text) + ' <i class="fa-solid ' + icon + '" aria-hidden="true"></i>';
     }
 
-    function runTimeline(k) {
-      push(ACT[k]);
-      queue = (k === 'short' ? AFTER : SAFE_AFTER).slice();
-      if (!queue.length) { settle(k); return; }
+    // Queues up everything still to reveal — the consequence node AND the
+    // after-effects that follow it — behind ONE consistent "Then what"
+    // control, so the decision node the learner just read isn't folded into
+    // the past by anything but their own click.
+    function readyNext(k) {
+      queue = [ACT[k]].concat(k === 'short' ? AFTER : SAFE_AFTER);
       label('Then what', 'fa-arrow-down');
       advance.hidden = false;
     }
@@ -678,7 +688,7 @@
           const userText = 'The learner chose: ' + PICK[k].t + ' — this was the ' +
             (k === 'safe' ? 'SAFE, correct choice' : 'riskier shortcut, not the correct choice') + '.\n' +
             'They did NOT choose: ' + PICK[other(k)].t + '.\n' +
-            'When asked why not, they said: "' + reason + '."\n' +
+            'Asked what made them pick it over the other option, they said: "' + reason + '."\n' +
             'What happened next: ' + OUTCOME[k] + '\n' +
             'Give your one short coaching reply now.';
           const result = await callClara(system, userText, 120);
