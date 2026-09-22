@@ -1,0 +1,621 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Teach Back — Evidence — Riff 06</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<link rel="stylesheet" href="../../css/frame.css?v=5" />
+<style>
+  /* Tokens copied from Riff 05 (itself from Riff 01's CLARA palette). This is
+     a separate cut of Riff 05: same activity, same grading call, restructured
+     around the answer field itself rather than a chat-style feedback thread —
+     type or talk → check it → a quick reinforcement modal → an optional,
+     visual-first "why" layer with the credited phrases highlighted in place. */
+  :root{
+    --c-bg:          #070b14;
+    --c-surface:     #111a2e;
+    --c-surface-2:   #16203a;
+    --c-ink:         #eaf0fb;
+    --c-ink-soft:    #aab6cc;
+    --c-ink-faint:   #7a879e;
+    --c-line:        rgba(255,255,255,.11);
+    --c-accent:      #2ee6cf;
+    --c-accent-strong:#14b8a6;
+    --c-accent-soft: rgba(46,230,207,.14);
+    --c-on-accent:   #04121a;
+    --radius:16px; --radius-sm:10px;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-md: 0 6px 18px rgba(0,0,0,.45);
+    --shadow-lg: 0 18px 48px rgba(0,0,0,.6);
+    --ease: cubic-bezier(.4,0,.2,1);
+    /* One color per rubric item — shared between the Coverage tiles and the
+       evidence highlights, so both views read as one system. */
+    --tag-1: #2ee6cf;
+    --tag-2: #7aa2f7;
+    --tag-3: #f0b429;
+  }
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{
+    margin:0; height:100%; background:var(--c-bg); color:var(--c-ink);
+    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .app{ position:fixed; inset:0; display:flex; flex-direction:column; background:var(--c-bg); }
+  .main{ flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; justify-content:center; }
+  .main-inner{ width:100%; max-width:640px; margin:0 auto; padding:32px 20px 40px; display:flex; flex-direction:column; gap:26px; }
+
+  .task-card{ padding-top:4px; text-align:center; }
+  .task-eyebrow{
+    display:inline-flex; align-items:center; gap:7px; font-size:11.5px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase; color:var(--c-accent-strong); margin:0 0 10px;
+  }
+  .task-headline{ margin:0 0 10px; font-size:clamp(24px,4vw,32px); font-weight:800; color:var(--c-ink); letter-spacing:-.01em; }
+  .task-sub{ max-width:44ch; margin:0 auto; text-align:left; font-size:14.5px; line-height:1.55; color:var(--c-ink-soft); }
+
+  /* ---- The answer field is the star of the screen — big type, generous
+     box — not a small chat composer. "Check my answer" lives right under it,
+     so the next step is never in doubt. ---- */
+  .composer-field{ width:100%; max-width:600px; margin:6px auto 0; display:flex; flex-direction:column; align-items:center; gap:12px; }
+  /* No boxed background or border — the field reads as text sitting
+     directly on the page, not a form control framed in a card. The focus
+     ring is the only chrome, and only while actually typing. */
+  .text-shell{
+    width:100%; display:flex; align-items:flex-end; gap:10px;
+    border:2px solid transparent; border-radius:16px;
+    padding:16px 18px;
+    transition:border-color .15s var(--ease), box-shadow .15s var(--ease);
+  }
+  .text-shell:focus-within{ border-color:var(--c-accent); box-shadow:0 0 0 4px var(--c-accent-soft); }
+  #composer{
+    flex:1 1 auto; resize:none; border:0; background:transparent; outline:none;
+    font:inherit; font-size:23px; font-weight:600; line-height:1.75; color:var(--c-ink); padding:4px 0; min-height:100px;
+  }
+  #composer::placeholder{ color:var(--c-ink-faint); font-weight:400; }
+  #composer:disabled{ opacity:.55; cursor:not-allowed; }
+  .text-shell .siv-mic{ width:44px !important; height:44px !important; font-size:19px !important; align-self:flex-end; }
+  .field-hint{ min-height:16px; text-align:center; font-size:12.5px; color:var(--c-ink-faint); }
+
+  /* The evidence view isn't a separate screen — it's the SAME field, showing
+     the same words back with the credited phrases marked, in place of the
+     plain textarea. Matches #composer's own type size (and now its
+     line-height too) so nothing visually jumps when the two swap. The
+     taller line-height matters more here than on the plain textarea: without
+     it, a wrapped highlight's padding/border on one line crowds the mark
+     directly below it on the next. */
+  .composer-highlighted{
+    flex:1 1 auto; position:relative; font:inherit; font-size:23px; font-weight:600;
+    line-height:1.75; color:var(--c-ink); padding:4px 0; white-space:pre-wrap;
+  }
+
+  .btn-check{
+    display:inline-flex; align-items:center; gap:9px; padding:14px 30px; border:0; border-radius:12px;
+    background:var(--c-accent); color:var(--c-on-accent); font:inherit; font-size:15.5px; font-weight:800; cursor:pointer;
+    transition: background .15s ease, opacity .15s ease, transform .1s ease;
+  }
+  .btn-check:hover:not(:disabled){ filter:brightness(1.05); }
+  .btn-check:active:not(:disabled){ transform:scale(.97); }
+  .btn-check:disabled{ opacity:.35; cursor:not-allowed; }
+  .btn-check.is-done{ background:transparent; border:1px solid var(--c-line); color:var(--c-ink-soft); opacity:1; cursor:default; }
+
+  /* ---- Coverage tiles — reused inside the modal. ---- */
+  .fb-tiles{ list-style:none; margin:0 0 4px; padding:0; display:flex; flex-direction:column; gap:8px; width:100%; }
+  .fb-tile{
+    display:flex; align-items:center; gap:10px; padding:11px 13px; border-radius:10px;
+    background:var(--c-surface-2); border:1px solid var(--c-line); font-size:13.5px; color:var(--c-ink-faint); text-align:left;
+    opacity:0; transform:translateY(6px); animation:fbIn .4s var(--ease) forwards;
+  }
+  .fb-tile i{ flex:0 0 auto; }
+  .fb-tile.is-covered{ color:var(--c-ink); border-color:color-mix(in srgb, var(--tile-color, var(--c-accent)) 35%, transparent); }
+  .fb-tile.is-covered i{ color:var(--tile-color, var(--c-accent)); }
+  @keyframes fbIn{ to{ opacity:1; transform:none; } }
+  .fb-empty{ font-style:normal; color:var(--c-ink-faint); }
+
+  /* ---- Evidence highlights — inline marks + a click-to-inspect tooltip, a
+     "tap to inspect" moment rather than a report to read. ---- */
+  .ev-hint{ font-size:11.5px; color:var(--c-ink-faint); margin-top:9px; text-align:center; }
+  .ev-mark{
+    position:relative; border-radius:5px; padding:1px 3px 3px; margin:0 -1px;
+    border-bottom:2px solid transparent; color:var(--c-ink); font-weight:700; cursor:pointer;
+    transition:filter .15s ease;
+  }
+  .ev-mark:hover, .ev-mark.is-open{ filter:brightness(1.18); }
+  /* opacity, not transform:scale — `transform` forces inline-block (or block)
+     layout to apply at all, and inline-block on a long segment wraps
+     internally then claims the FULL container width once it does, which
+     shoves the next mark onto its own line. Marks need to stay genuinely
+     inline (mark's own default) so they wrap into the paragraph's normal
+     line flow exactly like the plain text around them. */
+  @keyframes markIn{ from{ opacity:0; } to{ opacity:1; } }
+  .ev-mark.enter{ animation:markIn .3s var(--ease) both; }
+  @media (prefers-reduced-motion: reduce){ .ev-mark.enter{ animation:none; } }
+
+  .ev-tip{
+    position:absolute; z-index:5; width:max-content; max-width:220px;
+    background:var(--c-surface); border:1.5px solid var(--tip-color, var(--c-accent)); border-radius:10px;
+    padding:8px 11px; font-size:12.5px; line-height:1.4; font-style:normal; color:var(--c-ink);
+    box-shadow:var(--shadow-md); opacity:0; transform:translateY(4px) scale(.94); pointer-events:none;
+    transition:opacity .15s var(--ease), transform .15s var(--ease);
+  }
+  .ev-tip.is-visible{ opacity:1; transform:translateY(0) scale(1); }
+  .ev-tip::after{
+    content:''; position:absolute; left:var(--tip-arrow-left, 50%); width:9px; height:9px;
+    background:var(--c-surface); transform:translateX(-50%) rotate(45deg);
+    border-right:1.5px solid var(--tip-color, var(--c-accent)); border-bottom:1.5px solid var(--tip-color, var(--c-accent));
+  }
+  .ev-tip:not(.below)::after{ bottom:-5.5px; }
+  .ev-tip.below::after{ top:-5.5px; transform:translateX(-50%) rotate(225deg); }
+
+  /* ---- The modal — a quick reinforcement screen, not a form result. Icon,
+     one-line verdict, tiles, a plain-language takeaway, the answer itself,
+     then either "see what stood out" or "Continue." No coach avatar, no
+     chat bubble — this is a check-in, not a conversation. ---- */
+  .modal-backdrop{
+    position:fixed; inset:0; z-index:20; display:flex; align-items:center; justify-content:center;
+    background:rgba(3,6,12,.72); backdrop-filter:blur(3px); padding:24px;
+  }
+  .modal-card{
+    width:100%; max-width:440px; max-height:calc(100vh - 48px); overflow-y:auto;
+    background:var(--c-surface); border:1px solid var(--c-line); border-radius:20px;
+    box-shadow:var(--shadow-lg); padding:30px 26px 24px; text-align:center;
+    animation:modalIn .28s var(--ease) both;
+  }
+  @keyframes modalIn{ from{ opacity:0; transform:translateY(10px) scale(.97); } to{ opacity:1; transform:none; } }
+  @media (prefers-reduced-motion: reduce){ .modal-card{ animation:none; } }
+  .modal-icon{
+    width:54px; height:54px; margin:0 auto 14px; border-radius:50%; display:grid; place-items:center;
+    background:color-mix(in srgb, var(--modal-color, var(--c-accent)) 20%, transparent);
+    color:var(--modal-color, var(--c-accent)); font-size:23px;
+  }
+  .modal-headline{ margin:0 0 14px; font-size:22px; font-weight:800; color:var(--c-ink); }
+  .modal-body-text{ margin:0 0 16px; font-size:14.5px; line-height:1.55; color:var(--c-ink-soft); }
+  .modal-quote{
+    margin:0 0 20px; padding:12px 15px; border-radius:10px; border:1px solid var(--c-line);
+    background:var(--c-surface-2); font-size:13.5px; line-height:1.5; color:var(--c-ink-soft);
+    font-style:italic; text-align:left;
+  }
+  .modal-actions{ display:flex; flex-direction:column; gap:8px; margin-top:6px; }
+  .btn-continue{
+    width:100%; display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding:13px 22px; border:0; border-radius:10px;
+    background:var(--c-accent); color:var(--c-on-accent); font:inherit; font-size:14.5px; font-weight:800; cursor:pointer;
+    transition: background .15s ease, transform .1s ease;
+  }
+  .btn-continue:hover{ filter:brightness(1.05); }
+  .btn-continue:active{ transform:scale(.98); }
+</style>
+</head>
+<body>
+  <div class="app" id="app">
+    <div class="main">
+      <div class="main-inner">
+        <div class="task-card">
+          <div class="task-eyebrow"><i class="fa-solid fa-user-plus"></i> Teach-back</div>
+          <h1 class="task-headline">New hire starts Monday.</h1>
+          <p class="task-sub">In under 30 seconds, tell them how to handle a sharp that isn't theirs — talk it or type it.</p>
+        </div>
+
+        <div class="composer-field">
+          <div class="text-shell" id="inputShell">
+            <textarea id="composer" rows="3" placeholder="Type your answer, or tap the mic to talk…" aria-label="Your teach-back response"></textarea>
+            <div class="composer-highlighted" id="composerHighlighted" hidden></div>
+          </div>
+          <div class="field-hint" id="composerHint"></div>
+          <button class="btn-check" id="checkBtn" type="button" disabled>Check my answer <i class="fa-solid fa-arrow-right"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop" hidden>
+    <div class="modal-card" id="modalCard"></div>
+  </div>
+
+  <button class="tb-btn" id="restartBtn" aria-label="Restart" hidden>
+    <i class="fa-solid fa-rotate-left"></i><span class="label">Restart</span>
+  </button>
+
+  <script>
+    window.LESSON_FRAME = {
+      mount: '#app',
+      course: 'Interactive scenario',
+      lesson: 'Teach Back — Evidence',
+      step: '',
+      progress: null,
+      backHref: 'index.html',
+    };
+  </script>
+  <script src="../../js/frame.js?v=7"></script>
+  <script>
+    (function () {
+      function relocate() {
+        var slot = document.querySelector('.vt-frame .vt-actions');
+        var btn = document.getElementById('restartBtn');
+        if (slot && btn) { slot.appendChild(btn); btn.hidden = false; }
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocate);
+      else relocate();
+    })();
+  </script>
+  <script src="../../../scenario-simulator/js/sim-core.js?v=12"></script>
+  <script src="../../../scenario-simulator/js/sim-voice-input.js?v=1"></script>
+
+<script>
+(() => {
+  // ---- Rubric. `detail` feeds the live grading prompt; `color` is shared
+  // between the Coverage tiles and the evidence highlights. `synonyms`/
+  // `nudge` feed the offline fallback grader — which never gets evidence
+  // segments (see localGrade): keyword overlap can say THAT a rubric point
+  // was probably covered, but not WHICH exact phrase proves it, so the
+  // honest move is to not offer the highlight view when we're not actually
+  // looking at the words with a model.
+  const RUBRIC = [
+    {
+      id: 'not-your-job',
+      label: '"Not yours" still means you deal with it',
+      detail: '"Not mine" doesn\'t mean "not my problem" — the learner still deals with it themselves, regardless of whose it is.',
+      synonyms: ['not yours', 'not mine', "doesn't matter whose", 'regardless of whose', 'still your job', 'you deal with it', 'still have to'],
+      nudge: "Start there — whether it's yours almost never changes what you do next.",
+      color: 'var(--tag-1)'
+    },
+    {
+      id: 'finish-first',
+      label: 'Finish securing it before you help anyone else',
+      detail: "They secure or dispose of it BEFORE going to help the coworker who's calling for help — they don't set it down or walk away from it mid-task.",
+      synonyms: ['before you help', 'before helping', 'before i go', 'before you go', 'finish first', "don't walk away", "don't leave it", "don't set it down", 'deal with it first'],
+      nudge: "Don't let the coworker's request pull you away mid-task — finish securing it first.",
+      color: 'var(--tag-2)'
+    },
+    {
+      id: 'sharps-container',
+      label: 'It goes in the sharps container — nowhere else',
+      detail: 'It specifically goes into the sharps container — not just "disposed of" or "thrown away" vaguely, and not left on a bench or in a pocket.',
+      synonyms: ['sharps container', 'the container', 'dispose', 'throw it away', 'bin it', 'in the bin'],
+      nudge: "Name where it actually goes — a bench or a pocket isn't secure.",
+      color: 'var(--tag-3)'
+    }
+  ];
+
+  const MIN_WORDS_FOR_EVIDENCE = 12;
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---- Offline fallback grader — keyword overlap, same idea as
+  // sim-teachback.js's fallbackGrade(). No segments: see the note on RUBRIC.
+  function localGrade(text) {
+    const t = text.toLowerCase();
+    const results = RUBRIC.map(item => ({ ...item, covered: item.synonyms.some(s => t.includes(s)) }));
+    const coveredCount = results.filter(r => r.covered).length;
+    const missed = results.find(r => !r.covered);
+    const message = coveredCount === RUBRIC.length
+      ? "That's the whole rule in under 30 seconds — a new hire hearing that would know exactly what to do."
+      : (coveredCount === 0
+          ? "That's a start, but the new hire needs more before Monday. "
+          : "You're most of the way there. ") + (missed ? missed.nudge : '');
+    return { coveredIds: results.filter(r => r.covered).map(r => r.id), message, segments: null };
+  }
+
+  // ---- Segment validation — the load-bearing safety check for the whole
+  // evidence feature. Asking a model to hand back exact character offsets
+  // into text it doesn't see rendered is exactly the kind of thing models
+  // get subtly wrong (off-by-one drift, a paraphrased word, dropped
+  // punctuation) — and a WRONG highlight is worse than no highlight, because
+  // it looks authoritative. So instead of offsets, the model re-emits the
+  // learner's text as ordered segments, and we verify by concatenation: if
+  // joining every segment.text back together doesn't reproduce the original
+  // (normalizing only whitespace), we don't trust ANY of it and just skip
+  // the highlight view — same as the offline path.
+  function validateSegments(original, segments) {
+    if (!Array.isArray(segments) || !segments.length) return false;
+    const norm = s => String(s || '').replace(/\s+/g, ' ').trim();
+    const rebuilt = segments.map(s => (s && typeof s.text === 'string') ? s.text : '').join('');
+    return norm(rebuilt) === norm(original);
+  }
+
+  // ---- Live grading — same SimCore.callModel plumbing every real sim page
+  // uses. One call does three jobs: score the rubric, react as a coach, and
+  // tag which of the learner's own phrases support which point.
+  function gradeSystemPrompt() {
+    const rubricText = RUBRIC.map((r, i) => `${i + 1}. ${r.detail}`).join('\n');
+    return 'You are the AI Coach for a short "teach-back" exercise in a workplace safety training. '
+      + "A learner just explained — by talking or typing — how they'd handle finding a used sharp that isn't theirs, "
+      + 'as if teaching a brand-new hire who starts Monday. Score what they actually said against this numbered rubric; '
+      + 'only credit an item their own words clearly cover, never a near-miss or something implied but unsaid:\n\n'
+      + rubricText + '\n\n'
+      + "React like a real coach would, in 1-3 sentences: name what's genuinely strong first, and if something's missing, "
+      + 'name the SINGLE most useful gap to close next. Speak directly to the learner ("you"), warmly, and never invent '
+      + 'that they said something they did not.\n\n'
+      + "Then break the learner's OWN text into consecutive segments that, concatenated in order, reproduce it EXACTLY — "
+      + 'same words, same punctuation, same spacing, nothing paraphrased, nothing dropped or added, no segment skipped. '
+      + 'Keep TAGGED segments SHORT and surgical — the specific few words (typically 3-8) that actually prove the '
+      + 'point, e.g. "you still have to deal with it" or "into the sharps container", never a whole sentence wrapped '
+      + 'around it. Untagged segments (the connective tissue between them — "so", "and", "before you go anywhere") can '
+      + 'be any length. Tag each tagged segment with the rubric numbers (from the list above) that phrase gives clear '
+      + 'evidence for — most segments will have no tags at all, and that is expected and correct, not a failure. For a '
+      + 'tagged segment only, add a "why": ONE short, casual aside (under 10 words) — like a quick nudge, not a formal '
+      + 'explanation. "This is the mindset that matters most" — not "This demonstrates recognition that ownership is '
+      + 'irrelevant."\n\n'
+      + 'Return ONLY this JSON object, no other text:\n'
+      + '{"covered": [numbers 1-' + RUBRIC.length + ' clearly covered], '
+      + '"message": "your coach reaction", '
+      + '"segments": [{"text": "exact phrase, verbatim", "tags": [rubric numbers, or an empty array], "why": "short reason, only when tags is non-empty"}]}';
+  }
+
+  async function gradeAndCoach(text) {
+    if (window.SimCore && SimCore.WORKER_URL) {
+      try {
+        const raw = await SimCore.callModel({
+          system: gradeSystemPrompt(),
+          messages: [{ role: 'user', content: "Here is what the learner said:\n\n" + text }],
+          maxTokens: 900,   // segments add real bulk over the plain grade call
+          model: SimCore.MODELS.FAST,
+        });
+        const parsed = SimCore.parseJson(raw);
+        const message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
+        if (message) {
+          // The model reports 1-based positions in the numbered rubric text
+          // above (sim-teachback.js's own gradePrompt convention: `covered:
+          // [topic numbers]`) — map position → id here rather than asking it
+          // to echo back an id token it never actually saw.
+          const toIds = (arr) => Array.from(new Set((Array.isArray(arr) ? arr : [])
+            .map(Number).filter(n => Number.isInteger(n) && n >= 1 && n <= RUBRIC.length)
+            .map(n => RUBRIC[n - 1].id)));
+          const coveredIds = toIds(parsed.covered);
+
+          let segments = null;
+          if (Array.isArray(parsed.segments)) {
+            const cleaned = parsed.segments
+              .filter(s => s && typeof s.text === 'string')
+              .map(s => ({
+                text: s.text,
+                tags: toIds(s.tags),
+                why: typeof s.why === 'string' ? s.why.trim() : ''
+              }));
+            if (validateSegments(text, cleaned)) segments = cleaned;
+          }
+          return { coveredIds, message, segments };
+        }
+      } catch (e) { /* fall through to the offline grader below */ }
+    }
+    return localGrade(text);
+  }
+
+  // ---- Elements ----
+  const composer = document.getElementById('composer');
+  const checkBtn = document.getElementById('checkBtn');
+  const modalBackdrop = document.getElementById('modalBackdrop');
+  const modalCard = document.getElementById('modalCard');
+
+  let completed = false;
+
+  const voice = window.SimVoiceInput && window.SimVoiceInput.attach({
+    shell: '#inputShell',
+    textarea: '#composer',
+    hint: '#composerHint',
+    demo: true,
+    sampleProvider: () => "Even though it's not mine, I still deal with it — I finish securing it in the sharps container before I go help anyone else."
+  });
+
+  let recStart = 0, wasListening = false;
+  if (voice) {
+    setInterval(() => {
+      const listening = voice.isListening();
+      if (listening && !wasListening) recStart = Date.now();
+      if (listening && Date.now() - recStart >= 30000) voice.stop();
+      wasListening = listening;
+    }, 200);
+  }
+
+  composer.addEventListener('input', () => {
+    if (!completed) checkBtn.disabled = composer.value.trim().length < 8;
+  });
+
+  // ---- Evidence rendering — inline marks + a click-to-inspect tooltip. ----
+  function rubricColor(id) { const r = RUBRIC.find(x => x.id === id); return r ? r.color : 'var(--c-accent)'; }
+
+  function renderAnnotatedText(segments) {
+    return segments.map((seg, i) => {
+      if (!seg.tags.length) return escapeHtml(seg.text);
+      const colors = seg.tags.map(rubricColor);
+      const edge = colors[0];
+      // 30% read as barely-there on the dark surface, and made the three
+      // rubric colors hard to tell apart at that low a saturation — bumped
+      // to 55%, plus a solid-color bottom border per mark so two adjacent
+      // highlights (e.g. right where one segment ends and the next begins)
+      // still read as distinct even if their tints are visually close.
+      const bg = colors.length === 1
+        ? `color-mix(in srgb, ${colors[0]} 55%, transparent)`
+        : `linear-gradient(90deg, ${colors.map((c, ci) => {
+            const a = Math.round((ci / colors.length) * 100), b = Math.round(((ci + 1) / colors.length) * 100);
+            return `color-mix(in srgb, ${c} 55%, transparent) ${a}%, color-mix(in srgb, ${c} 55%, transparent) ${b}%`;
+          }).join(', ')})`;
+      const why = escapeHtml(seg.why || '');
+      return `<mark class="ev-mark enter" style="background:${bg}; border-bottom-color:${edge}; --tip-color:${edge}; animation-delay:${i * 55}ms" `
+        + `data-why="${why}" data-color="${edge}" tabindex="0" role="button" aria-label="Why this mattered">`
+        + `${escapeHtml(seg.text)}</mark>`;
+    }).join('');
+  }
+
+  // One shared tooltip per container: click a mark to open it near that word,
+  // click again (or elsewhere) to close it. Position is computed from the
+  // mark's own on-screen rect, so it tracks wrapped lines correctly and
+  // clamps to the box edges instead of overflowing.
+  function setupEvidenceInteraction(wrap) {
+    const tip = document.createElement('div');
+    tip.className = 'ev-tip';
+    wrap.appendChild(tip);
+    let openMark = null;
+
+    function closeTip() {
+      tip.classList.remove('is-visible');
+      if (openMark) openMark.classList.remove('is-open');
+      openMark = null;
+    }
+    function openTip(mark) {
+      const why = mark.getAttribute('data-why');
+      if (!why) return;
+      tip.textContent = why;
+      tip.style.setProperty('--tip-color', mark.getAttribute('data-color') || 'var(--c-accent)');
+
+      const wrapRect = wrap.getBoundingClientRect();
+      const markRect = mark.getBoundingClientRect();
+      const tipW = tip.offsetWidth, tipH = tip.offsetHeight;
+      const markCenterX = markRect.left - wrapRect.left + markRect.width / 2;
+      let left = Math.max(6, Math.min(markCenterX - tipW / 2, wrapRect.width - tipW - 6));
+      let top = markRect.top - wrapRect.top - tipH - 12;
+      let below = false;
+      if (top < 4) { top = markRect.bottom - wrapRect.top + 12; below = true; }
+
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+      tip.style.setProperty('--tip-arrow-left', (markCenterX - left) + 'px');
+      tip.classList.toggle('below', below);
+      tip.classList.add('is-visible');
+
+      if (openMark && openMark !== mark) openMark.classList.remove('is-open');
+      mark.classList.add('is-open');
+      openMark = mark;
+    }
+    wrap.addEventListener('click', (e) => {
+      const mark = e.target.closest('.ev-mark');
+      if (!mark) { closeTip(); return; }
+      if (openMark === mark) { closeTip(); return; }
+      openTip(mark);
+    });
+    wrap.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const mark = e.target.closest && e.target.closest('.ev-mark');
+      if (!mark) return;
+      e.preventDefault();
+      if (openMark === mark) closeTip(); else openTip(mark);
+    });
+    document.addEventListener('click', (e) => {
+      if (!wrap.isConnected || wrap.contains(e.target)) return;
+      closeTip();
+    });
+  }
+
+  // ---- Modal flow: Summary (reinforcement) → optional Highlights (visual,
+  // evidence-first) → Continue. No coach avatar, no chat thread anywhere. ----
+  function tilesHtml(coveredIds) {
+    return RUBRIC.map((r, i) => {
+      const covered = coveredIds.includes(r.id);
+      return `<li class="fb-tile ${covered ? 'is-covered' : ''}" style="--tile-color:${r.color}; animation-delay:${i * 90}ms">
+          <i class="fa-solid ${covered ? 'fa-circle-check' : 'fa-circle'}"></i>
+          <span>${r.label}</span>
+        </li>`;
+    }).join('');
+  }
+
+  function verdictFor(coveredCount, total) {
+    if (coveredCount === total) return { headline: 'Nailed it!', icon: 'fa-check', color: 'var(--c-accent)' };
+    if (coveredCount === 0) return { headline: "Let's tighten this up", icon: 'fa-rotate', color: 'var(--c-ink-faint)' };
+    return { headline: 'Good start', icon: 'fa-arrow-up-right-dots', color: 'var(--tag-2)' };
+  }
+
+  function openModal(html) { modalCard.innerHTML = html; modalBackdrop.hidden = false; }
+  function closeModal() { modalBackdrop.hidden = true; modalCard.innerHTML = ''; }
+
+  function showSummary(text, coveredIds, message, segments) {
+    const v = verdictFor(coveredIds.length, RUBRIC.length);
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    const tagged = (segments || []).filter(s => s.tags.length);
+    const eligible = words >= MIN_WORDS_FOR_EVIDENCE && tagged.length > 0;
+
+    openModal(`
+      <div class="modal-icon" style="--modal-color:${v.color}"><i class="fa-solid ${v.icon}"></i></div>
+      <h2 class="modal-headline">${v.headline}</h2>
+      <ul class="fb-tiles">${tilesHtml(coveredIds)}</ul>
+      <p class="modal-body-text">${escapeHtml(message)}</p>
+      <blockquote class="modal-quote">${text ? escapeHtml(text) : '<span class="fb-empty">(nothing recorded)</span>'}</blockquote>
+      <div class="modal-actions">
+        ${eligible
+          ? '<button type="button" class="btn-continue" id="modalDeeper"><i class="fa-solid fa-wand-magic-sparkles"></i> See what stood out</button>'
+          : '<button type="button" class="btn-continue" id="modalFinish">Continue <i class="fa-solid fa-arrow-right"></i></button>'}
+      </div>
+    `);
+
+    if (eligible) {
+      document.getElementById('modalDeeper').addEventListener('click', () => revealHighlightsInline(segments));
+    } else {
+      document.getElementById('modalFinish').addEventListener('click', finishActivity);
+    }
+  }
+
+  // "See what stood out" doesn't open a second screen — it closes the modal
+  // and returns to the SAME field the learner just answered in, now showing
+  // their own words back with the credited phrases marked. Continuing from
+  // here is a fresh, explicit step (checkBtn switches to "Continue" mode),
+  // not an automatic finish.
+  const composerHighlighted = document.getElementById('composerHighlighted');
+  function revealHighlightsInline(segments) {
+    closeModal();
+    composer.hidden = true;
+    composerHighlighted.innerHTML = renderAnnotatedText(segments);
+    composerHighlighted.hidden = false;
+    setupEvidenceInteraction(composerHighlighted);
+    if (voice && voice.el && voice.el.parentElement) voice.el.parentElement.style.display = 'none';
+
+    checkBtn.dataset.mode = 'continue';
+    checkBtn.disabled = false;
+    checkBtn.innerHTML = 'Continue <i class="fa-solid fa-arrow-right"></i>';
+  }
+
+  function finishActivity() {
+    closeModal();
+    checkBtn.dataset.mode = 'check';
+    checkBtn.disabled = true;
+    checkBtn.classList.add('is-done');
+    checkBtn.innerHTML = '<i class="fa-solid fa-check"></i> Completed';
+  }
+
+  async function runCheck() {
+    if (completed || checkBtn.disabled) return;
+    completed = true;
+    if (voice && voice.isListening()) voice.stop();
+    const text = composer.value.trim();
+    composer.disabled = true;
+    if (voice) voice.el.disabled = true;
+    checkBtn.disabled = true;
+    checkBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Checking…';
+
+    const { coveredIds, message, segments } = await gradeAndCoach(text);
+    showSummary(text, coveredIds, message, segments);
+  }
+
+  checkBtn.dataset.mode = 'check';
+  checkBtn.addEventListener('click', () => {
+    if (checkBtn.dataset.mode === 'continue') finishActivity();
+    else runCheck();
+  });
+
+  function resetAll() {
+    completed = false;
+    if (voice && voice.isListening()) voice.stop();
+    composer.disabled = false;
+    composer.hidden = false;
+    composerHighlighted.hidden = true;
+    composerHighlighted.innerHTML = '';
+    if (voice && voice.el) {
+      voice.el.disabled = false;
+      if (voice.el.parentElement) voice.el.parentElement.style.display = '';
+    }
+    composer.value = '';
+    composer.dispatchEvent(new Event('input', { bubbles: true }));
+    const hint = document.getElementById('composerHint');
+    if (hint) hint.textContent = '';
+    checkBtn.dataset.mode = 'check';
+    checkBtn.classList.remove('is-done');
+    checkBtn.innerHTML = 'Check my answer <i class="fa-solid fa-arrow-right"></i>';
+    closeModal();
+  }
+
+  document.getElementById('restartBtn').addEventListener('click', resetAll);
+})();
+</script>
+</body>
+</html>
