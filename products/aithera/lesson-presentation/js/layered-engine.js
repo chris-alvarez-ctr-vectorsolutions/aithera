@@ -329,7 +329,7 @@
   // ==========================================================================
   //  Shell — built once; steps swap in place.
   // ==========================================================================
-  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, demoBtn, demoMenu;
+  var stage, orbEl, orb, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, demoBtn, demoMenu;
   var demoBtns = [];
   // True only while a step's own init() is running. It's what separates CLARA's
   // opening line for a screen (narration — stays behind the orb) from a line
@@ -915,7 +915,7 @@
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); orbEl.click(); }
     });
     document.body.appendChild(orbEl);
-    if (window.MobiusOrb) window.MobiusOrb.create(orbEl);
+    if (window.MobiusOrb) orb = window.MobiusOrb.create(orbEl);
     // In floating mode the orb is the launcher — tap to tuck/expand.
     orbEl.addEventListener('click', function () {
       if (stage.dataset.mode !== 'floating' || busy) return;
@@ -1031,26 +1031,34 @@
         note: 'Same objectives and rubric, different working environment',
         onChange: function (id) { setLens(id); showStep(idx, 'fwd', false); } });
     }
-    // Whatever else the course declared for this step.
+    // Whatever else the course declared for this step. Most rows are a
+    // button or a toggle (spec.onClick, called through `run`); a course can
+    // also declare type: 'select' — spec.value()/spec.options/spec.onChange
+    // — for a named set with more than two members, the same widget the
+    // engine's own Context lens row above uses. Only the pair the rendered
+    // control actually type answers is ever called, so a spec only needs to
+    // supply the one it uses.
     demoBtns.forEach(function (d) {
       var spec = d.spec;
       if (spec.visibleOn && !spec.visibleOn(step)) return;
+      var api = {
+        step: STEPS[idx],
+        replay: function () { showStep(idx, 'fwd', false); },
+        go: go,
+        refresh: function () {
+          var st = STEPS[idx];
+          var wasOpen = !nextBtn.disabled;
+          updateFooter(st); updateFrame(st);
+          if (wasOpen) nextBtn.disabled = false;
+        }
+      };
       rows.push({ icon: spec.icon || 'fa-shuffle', name: spec.name || 'Demo', type: spec.type,
         on: spec.on ? !!spec.on() : false,
         state: spec.state ? spec.state() : '', note: spec.note || '',
-        run: function () {
-          spec.onClick({
-            step: STEPS[idx],
-            replay: function () { showStep(idx, 'fwd', false); },
-            go: go,
-            refresh: function () {
-              var st = STEPS[idx];
-              var wasOpen = !nextBtn.disabled;
-              updateFooter(st); updateFrame(st);
-              if (wasOpen) nextBtn.disabled = false;
-            }
-          });
-        } });
+        value: spec.value ? spec.value() : undefined,
+        options: spec.options,
+        onChange: spec.onChange ? function (val) { spec.onChange(val, api); } : undefined,
+        run: function () { if (spec.onClick) spec.onClick(api); } });
     });
 
     // Three widgets for three kinds of setting: a real switch for a plain
@@ -1138,6 +1146,13 @@
     } catch (e) {}
     buildFooter();
     buildOrb();
+    // A course that wants the orb's own colours to reflect boot-time state
+    // (e.g. a design-style flag already applied by an inline <head> snippet,
+    // same pattern as SCENARIO_ALLOW_DARK) has nowhere else to hook this —
+    // buildOrb() just ran, register() ran before DOMContentLoaded fired, and
+    // nothing else calls back into content code. Optional; most courses
+    // never set it.
+    if (CFG.onOrbReady) CFG.onOrbReady();
     cacheFrame();
 
     // Open at ?step=<id> if present (e.g. returning from the scenario), else 0.
@@ -1237,6 +1252,21 @@
       Object.keys(cfg || {}).forEach(function (k) { CFG[k] = cfg[k]; });
       STEPS = CFG.steps || [];
       if (!CFG.lensOrder.length && CFG.lenses) CFG.lensOrder = Object.keys(CFG.lenses);
+    },
+    // Live-recolour the orb (MobiusOrb.setConfig — no recreate, no reload).
+    // green/blue/deep each take a '#rrggbb' string or a [r,g,b] 0–1 array.
+    // Pass a falsy cfg (or omit a channel) to fall back to MobiusOrb's own
+    // PRESET, so a course can always get back to the true default rather
+    // than having to remember what it overrode.
+    setOrbColors: function (cfg) {
+      if (!orb || !orb.setConfig) return;
+      var base = (window.MobiusOrb && window.MobiusOrb.PRESET) || {};
+      cfg = cfg || {};
+      orb.setConfig({
+        green: cfg.green || base.green,
+        blue: cfg.blue || base.blue,
+        deep: cfg.deep || base.deep
+      });
     }
   };
 

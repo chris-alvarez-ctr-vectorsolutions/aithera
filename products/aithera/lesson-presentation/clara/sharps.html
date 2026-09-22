@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contain the Sharp — Course</title>
+    <title>Bloodborne Pathogens — Course</title>
 
     <!-- Vector Web Components -->
     <script type="module"
@@ -15,12 +15,121 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
 
     <link rel="stylesheet" href="../css/frame.css?v=5" />
-    <link rel="stylesheet" href="../css/layered-learning.css?v=2" />
+    <link rel="stylesheet" href="../css/layered-learning.css?v=3" />
     <!-- Every beat pattern this module reuses comes from here; the <style>
          below is only what "Contain the Sharp" adds on top. -->
-    <link rel="stylesheet" href="../css/layered-beats.css?v=21" />
+    <link rel="stylesheet" href="../css/layered-beats.css?v=22" />
+
+    <!-- Design style is OPT-IN, same pattern as SCENARIO_ALLOW_DARK: default
+         is CLARA's own teal, and the Demo menu's "Design style" dropdown
+         (js/layered-sharps.js) persists the pick — clara / vector-dark /
+         vector-light — per tab via sessionStorage. Applied here, before
+         paint, so a return visit with a Vector pick already set doesn't
+         flash teal before flipping over. -->
+    <script>
+      (function () {
+        try {
+          var mode = sessionStorage.getItem('sh-style');
+          if (mode === 'vector-dark' || mode === 'vector-light') {
+            document.documentElement.classList.add('ll-vector-style');
+          }
+          if (mode === 'vector-light') {
+            document.documentElement.classList.add('ll-vector-light');
+          }
+        } catch (e) {}
+      })();
+    </script>
 
     <style>
+      /* ==== Vector-aligned alternate style ====================================
+         Optional re-skin, OFF by default, picked from the Demo menu's
+         "Design style" dropdown (js/layered-sharps.js): CLARA (teal, dark —
+         the default), Vector, dark, or Vector, light. The accent/shape swap
+         is the same pass already shipped on the scenario-simulator system —
+         see interaction-style-reference.html for the source tokens: Vector
+         Blue (`--lumo-primary-color` #0271ce) replaces the coach accent,
+         Vivid Violet (`--vwc-color-vivid-violet-400` #c173d1) replaces the
+         adaptive/remediate accent, amber is RETAINED (Vector's palette has
+         no gold), and primary controls square to Vector's 4px
+         (`--vaadin-button-border-radius`/`--vaadin-input-field-border-radius`).
+         Both Vector variants share this block — html.ll-vector-style — since
+         the accent doesn't depend on light vs. dark.
+         Every var(--ll-teal*)/var(--ll-violet*) consumer in this file, in
+         css/layered-learning.css and in css/layered-beats.css reads through
+         these tokens (plus their -rgb triplets, for the alpha-varied
+         accents that can't take a var() directly inside rgba()), so this one
+         class re-skins the whole module — including the shared footer, the
+         orb and the Demo menu itself.
+         KNOWN GAP: the CLARA orb (js/mobius-orb.js) is a WebGL canvas that
+         takes no colour options and reads no CSS custom property — it stays
+         its own fixed teal in every variant. Reskinning it is a shader
+         change, out of scope for a CSS pass. */
+      html.ll-vector-style {
+        --ll-teal:      #0271ce;
+        --ll-teal-2:    #015aa8;
+        --ll-teal-2-rgb: 1, 90, 168;
+        --ll-teal-deep: #014073;
+        --ll-teal-rgb:  2, 113, 206;
+        --ll-grad:      linear-gradient(135deg, #2e8fe0 0%, #0271ce 55%, #015aa8 100%);
+        --ll-violet:      #c173d1;
+        --ll-violet-rgb:  193, 115, 209;
+        --sh-ctrl-radius: 4px;
+      }
+
+      /* The light variant layers on top of html.ll-vector-style (both classes
+         are applied together for "Vector, light"): it re-derives CLARA's
+         bg/panel/ink/line/shadow neutrals for a light surface — the one part
+         of this pass the scenario-simulator system never had to solve, since
+         its chrome was light to begin with and only the accent moved there.
+         Values are Vector's own documented light tokens where
+         interaction-style-reference.html gives one (page-bg/surface/surface-2,
+         ink/ink-soft, the two shadow tiers); --ll-ink-faint and --ll-line-soft
+         have no direct Vector equivalent (Vector's docs don't split a third
+         ink tier or a softer line), so they're DERIVED — kept at roughly the
+         same proportion to their sibling token that the dark values have.
+         --ll-surface-rgb flips every rgba(var(--ll-surface-rgb), X) wash
+         (card tints, hovers, borders) from a white-on-dark reading to a
+         black-on-light one at the same alpha, the standard "state layer"
+         technique — and the same trick used for --ll-teal-rgb/--ll-violet-rgb
+         above, just applied to the neutral surfaces instead of the accent. */
+      html.ll-vector-light {
+        --ll-bg:        #f4f6f9;   /* --ref-page-bg */
+        --ll-panel:     #ffffff;   /* --ref-surface / --lumo-base-color */
+        --ll-panel-rgb: 255, 255, 255;
+        --ll-panel-2:   #eef1f6;   /* --ref-surface-2 */
+        --ll-line:      #1a38601a; /* --ref-line / --lumo-contrast-10pct */
+        --ll-line-soft: #1a38600f; /* derived — same ~55% ratio to --ll-line the dark pair has */
+        --ll-ink:        #000000de; /* --ref-ink / --lumo-body-text-color */
+        --ll-ink-soft:   #00000099; /* --ref-ink-soft / --lumo-secondary-text-color */
+        --ll-ink-faint:  #00000073; /* derived — Vector's docs give one secondary tier, not two */
+        --ll-ink-strong: #000000;
+        --ll-surface-rgb: 0, 0, 0;
+        --ll-shadow:    0 3px 18px -2px #1c375a29, 0 12px 48px -6px #1c324f61; /* --ref-shadow-lg */
+        --ll-shadow-sm: 0 1px 4px -1px #1c304a85;                             /* --ref-shadow-xs */
+        --ll-vignette-a: .08;  /* the stage's bottom vignette, turned way down */
+        --sh-recess-a:   .045; /* the .wk-route "well" — a wash now, not a black fill */
+        --sh-injury:     #8a5a1f; /* the hazard case's injury-severity text, darkened to read on a light .ch-node */
+        --sh-decline:    #c0392b; /* .apt-mom.down — same reasoning, a readable red instead of a pastel tuned for the dark stage */
+      }
+      /* Two more shared-chrome surfaces this course actually renders (the
+         course-nav footer on every step, the "Record" step's sidebar-docked
+         CLARA) still end their gradient in a hardcoded dark stop —
+         css/layered-learning.css only wraps literals that repeat elsewhere
+         in that file, and these two don't. Overridden here rather than
+         edited there, same as .ll-stage below, so course.html/scenario.html
+         — which never set this class — render byte-identical to before. */
+      html.ll-vector-light .ll-footer {
+        background: linear-gradient(180deg, var(--ll-panel) 0%, var(--ll-bg) 100%);
+      }
+      html.ll-vector-light .clara-chrome--sidebar {
+        background: linear-gradient(180deg, var(--ll-panel) 0%, var(--ll-panel-2) 100%);
+      }
+      /* Derived from the two tokens above rather than a third hardcoded
+         gradient, so the light stage never drifts out of sync with them. */
+      html.ll-vector-light .ll-stage {
+        background: radial-gradient(130% 110% at 50% -10%, var(--ll-panel-2) 0%, var(--ll-bg) 60%, var(--ll-bg) 100%);
+      }
+
       /* ==== Assessment policy chips ==========================================
          The deck's Part Three, made visible. Every objective carries a policy —
          GATE, REMEDIATE, ASK, NEVER SKIPPED — and that flag, not the objective,
@@ -33,11 +142,11 @@
         padding: 3px 9px; border-radius: 999px; white-space: nowrap;
       }
       .pol i { font-size: 9px; }
-      .pol-gate    { background: rgba(46, 230, 207, .12); color: var(--ll-teal);  border: 1px solid rgba(46, 230, 207, .3); }
-      .pol-remed   { background: rgba(167, 139, 250, .14); color: #c4b5fd;        border: 1px solid rgba(167, 139, 250, .32); }
-      .pol-ask     { background: rgba(255, 255, 255, .05); color: var(--ll-ink-soft); border: 1px solid var(--ll-line); }
+      .pol-gate    { background: rgba(var(--ll-teal-rgb), .12); color: var(--ll-teal);  border: 1px solid rgba(var(--ll-teal-rgb), .3); }
+      .pol-remed   { background: rgba(var(--ll-violet-rgb), .14); color: var(--ll-violet);        border: 1px solid rgba(var(--ll-violet-rgb), .32); }
+      .pol-ask     { background: rgba(var(--ll-surface-rgb), .05); color: var(--ll-ink-soft); border: 1px solid var(--ll-line); }
       .pol-never   { background: rgba(241, 179, 74, .14); color: #f1b34a;         border: 1px solid rgba(241, 179, 74, .32); }
-      .pol-lock    { background: rgba(255, 255, 255, .05); color: #f1b34a;        border: 1px solid rgba(241, 179, 74, .4); }
+      .pol-lock    { background: rgba(var(--ll-surface-rgb), .05); color: #f1b34a;        border: 1px solid rgba(241, 179, 74, .4); }
       /* The objective this item serves, said quietly under the policy chip. */
       .pol-row { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 14px; }
       .pol-obj { font-size: 11px; color: var(--ll-ink-faint); }
@@ -72,7 +181,7 @@
       .bl-scene {
         margin: 0; max-width: var(--sh-measure);
         font-size: clamp(24px, 3.4vw, 34px); font-weight: 800; line-height: 1.2;
-        letter-spacing: -.01em; text-align: center; color: #fff;
+        letter-spacing: -.01em; text-align: center; color: var(--ll-ink-strong);
         /* Narrow screens wrapped this to "You have just used a / sharp.",
            orphaning one word. Balanced wrapping evens the lines instead. */
         text-wrap: balance;
@@ -117,10 +226,10 @@
       .bl-dots { display: flex; gap: 8px; margin-bottom: 24px; }
       .bl-dot {
         width: 7px; height: 7px; border-radius: 50%;
-        background: rgba(255, 255, 255, .18);
+        background: rgba(var(--ll-surface-rgb), .18);
         transition: background .2s ease, transform .2s ease;
       }
-      .bl-dot.is-done { background: rgba(46, 230, 207, .55); }
+      .bl-dot.is-done { background: rgba(var(--ll-teal-rgb), .55); }
       .bl-dot.is-now  { background: var(--ll-teal); transform: scale(1.4); }
 
       /* min-height is set once at runtime (pinStageHeight() in
@@ -143,7 +252,7 @@
          .sh-battery, not .bl-ask itself, so Bystander's bare battery is
          untouched. */
       .sh-battery {
-        background: rgba(12, 22, 34, .82);
+        background: rgba(var(--ll-panel-rgb), .82);
         border: 1px solid var(--ll-line);
         border-radius: 22px;
         padding: 34px clamp(20px, 4vw, 40px) 40px;
@@ -203,46 +312,46 @@
         display: grid; grid-template-columns: 30px 14px 20px 1fr auto; gap: 12px; align-items: center;
         padding: 13px 14px 13px 12px;
         border: 1px solid var(--ll-line); border-radius: 13px;
-        background: rgba(255, 255, 255, .05);
+        background: rgba(var(--ll-surface-rgb), .05);
         cursor: grab; user-select: none;
         transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
       }
-      .ord-item:hover { border-color: rgba(46, 230, 207, .38); background: rgba(255, 255, 255, .07); }
+      .ord-item:hover { border-color: rgba(var(--ll-teal-rgb), .38); background: rgba(var(--ll-surface-rgb), .07); }
       .ord-item.dragging { opacity: .45; cursor: grabbing; border-style: dashed; }
       .ord-list.settled .ord-item { cursor: default; }
       .ord-n {
         width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
-        background: rgba(46, 230, 207, .12); border: 1px solid rgba(46, 230, 207, .3);
+        background: rgba(var(--ll-teal-rgb), .12); border: 1px solid rgba(var(--ll-teal-rgb), .3);
         color: var(--ll-teal); font-size: 13px; font-weight: 800;
       }
       .ord-grip { color: var(--ll-ink-faint); font-size: 13px; }
       .ord-ico  { color: var(--ll-teal); font-size: 15px; justify-self: center; }
-      .ord-t    { font-size: 14.5px; color: #fff; text-align: left; line-height: 1.35; }
+      .ord-t    { font-size: 14.5px; color: var(--ll-ink-strong); text-align: left; line-height: 1.35; }
       /* Arrow pair: the same move as a drag, for touch and keyboard. */
       .ord-mv { display: flex; flex-direction: column; gap: 3px; }
       .ord-mv button {
         width: 30px; height: 21px; display: grid; place-items: center;
-        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .05); border: 1px solid var(--ll-line);
         border-radius: 7px; color: var(--ll-ink); font-size: 10px; cursor: pointer;
         transition: border-color .14s ease, background .14s ease, color .14s ease;
       }
-      .ord-mv button:hover:not(:disabled) { border-color: rgba(46, 230, 207, .55); color: var(--ll-teal); background: rgba(46, 230, 207, .1); }
-      .ord-mv button:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .25); }
+      .ord-mv button:hover:not(:disabled) { border-color: rgba(var(--ll-teal-rgb), .55); color: var(--ll-teal); background: rgba(var(--ll-teal-rgb), .1); }
+      .ord-mv button:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .25); }
       .ord-mv button:disabled { opacity: .28; cursor: default; }
       /* Graded: right where it belongs, wrong where it doesn't. */
-      .ord-item.is-right { border-color: rgba(46, 230, 207, .55); background: rgba(46, 230, 207, .1); }
+      .ord-item.is-right { border-color: rgba(var(--ll-teal-rgb), .55); background: rgba(var(--ll-teal-rgb), .1); }
       .ord-item.is-wrong { border-color: rgba(241, 179, 74, .5); background: rgba(241, 179, 74, .08); }
       .ord-item.is-wrong .ord-n { background: rgba(241, 179, 74, .14); border-color: rgba(241, 179, 74, .35); color: #f1b34a; }
       .ord-item.is-wrong .ord-ico { color: #f1b34a; }
       .ord-check {
         align-self: center; margin-top: 18px;
         font: inherit; font-size: 14px; font-weight: 700; color: #04121a;
-        background: var(--ll-teal); border: 0; border-radius: 999px;
+        background: var(--ll-teal); border: 0; border-radius: var(--sh-ctrl-radius, 999px);
         padding: 11px 26px; cursor: pointer;
         transition: filter .16s ease, transform .16s ease;
       }
       .ord-check:hover { filter: brightness(1.08); transform: translateY(-1px); }
-      .ord-check:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      .ord-check:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .35); }
       @media (prefers-reduced-motion: reduce) { .ord-check:hover { transform: none; } }
 
       /* The battery's commit control. Same pill as the ordering item's, since
@@ -254,12 +363,12 @@
       .bl-check {
         margin-top: 26px;
         font: inherit; font-size: 14px; font-weight: 700; color: #04121a;
-        background: var(--ll-teal); border: 0; border-radius: 999px;
+        background: var(--ll-teal); border: 0; border-radius: var(--sh-ctrl-radius, 999px);
         padding: 11px 26px; cursor: pointer;
         transition: filter .16s ease, transform .16s ease, opacity .2s ease;
       }
       .bl-check:hover:not(:disabled) { filter: brightness(1.08); transform: translateY(-1px); }
-      .bl-check:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      .bl-check:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .35); }
       /* Dimmed rather than hidden, so the second step is legible before the
          learner picks and a tap never scores them by surprise. */
       .bl-check:disabled { opacity: .3; cursor: default; }
@@ -295,7 +404,7 @@
 
       /* The situation: quoted, not carded — the same rule the story beat uses,
          so nothing about it invites a click. */
-      .cs-scene { padding: 2px 0 2px 20px; border-left: 2px solid rgba(46, 230, 207, .35); }
+      .cs-scene { padding: 2px 0 2px 20px; border-left: 2px solid rgba(var(--ll-teal-rgb), .35); }
       .cs-tag {
         display: inline-flex; align-items: center; gap: 7px; margin-bottom: 8px;
         font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
@@ -308,7 +417,7 @@
          in full white at heading size. */
       .ll-object .cs-q {
         margin: 28px 0 14px; font-size: clamp(18px, 2.2vw, 21px); font-weight: 800;
-        color: #fff; letter-spacing: -.01em; line-height: 1.32; text-align: left;
+        color: var(--ll-ink-strong); letter-spacing: -.01em; line-height: 1.32; text-align: left;
       }
 
       /* A question that IS the screen rather than following a scene: larger,
@@ -323,7 +432,7 @@
       .cs-opt {
         display: grid; grid-template-columns: 22px 1fr; gap: 13px; align-items: center;
         text-align: left; font: inherit; font-size: 15px; line-height: 1.45; color: var(--ll-ink);
-        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .05); border: 1px solid var(--ll-line);
         border-radius: 12px; padding: 14px 16px; cursor: pointer;
         transition: border-color .18s ease, background .18s ease, transform .18s ease, opacity .3s ease;
       }
@@ -333,22 +442,22 @@
         display: grid; place-items: center; color: #04121a; font-size: 10px;
         transition: background .18s ease, border-color .18s ease;
       }
-      .cs-opt:hover:not(:disabled) { border-color: rgba(46, 230, 207, .5); background: rgba(255, 255, 255, .075); transform: translateY(-1px); }
-      .cs-opt:hover:not(:disabled) .cs-mark { border-color: rgba(46, 230, 207, .6); }
-      .cs-opt:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .25); }
-      .cs-opt.pick-ok   { border-color: var(--ll-teal); background: rgba(46, 230, 207, .12); color: #fff; }
-      .cs-opt.pick-near { border-color: rgba(241, 179, 74, .5); background: rgba(241, 179, 74, .1); color: #fff; }
-      .cs-opt.pick-bad  { border-color: rgba(255, 107, 107, .45); background: rgba(255, 107, 107, .09); color: #fff; }
+      .cs-opt:hover:not(:disabled) { border-color: rgba(var(--ll-teal-rgb), .5); background: rgba(var(--ll-surface-rgb), .075); transform: translateY(-1px); }
+      .cs-opt:hover:not(:disabled) .cs-mark { border-color: rgba(var(--ll-teal-rgb), .6); }
+      .cs-opt:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .25); }
+      .cs-opt.pick-ok   { border-color: var(--ll-teal); background: rgba(var(--ll-teal-rgb), .12); color: var(--ll-ink-strong); }
+      .cs-opt.pick-near { border-color: rgba(241, 179, 74, .5); background: rgba(241, 179, 74, .1); color: var(--ll-ink-strong); }
+      .cs-opt.pick-bad  { border-color: rgba(255, 107, 107, .45); background: rgba(255, 107, 107, .09); color: var(--ll-ink-strong); }
       /* Item 16: the harder test-up variant is served, not scored — a plain
          "this is what you picked" mark, deliberately none of the three
          verdict colours above, since there is no verdict to give one. */
-      .cs-opt.pick-neutral { border-color: rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .08); color: #fff; }
+      .cs-opt.pick-neutral { border-color: rgba(var(--ll-surface-rgb), .5); background: rgba(var(--ll-surface-rgb), .08); color: var(--ll-ink-strong); }
       /* The verdict is in the mark as well as the colour, so it survives being
          read by someone who can't tell teal from amber. */
       .cs-opt.pick-ok   .cs-mark { background: var(--ll-teal);      border-color: var(--ll-teal); }
       .cs-opt.pick-near .cs-mark { background: #f1b34a;             border-color: #f1b34a; }
       .cs-opt.pick-bad  .cs-mark { background: #ff6b6b;             border-color: #ff6b6b; }
-      .cs-opt.pick-neutral .cs-mark { background: rgba(255, 255, 255, .7); border-color: rgba(255, 255, 255, .7); }
+      .cs-opt.pick-neutral .cs-mark { background: rgba(var(--ll-surface-rgb), .7); border-color: rgba(var(--ll-surface-rgb), .7); }
       .cs-opts.answered .cs-opt:not([class*="pick-"]) { opacity: .32; }
       .cs-opt:disabled { cursor: default; transform: none; }
       @media (prefers-reduced-motion: reduce) { .cs-opt:hover:not(:disabled) { transform: none; } }
@@ -360,9 +469,9 @@
       .story-wrap { width: min(680px, 100%); display: flex; flex-direction: column; align-items: stretch; }
       .ll-object .story-h {
         margin: 0 0 20px; font-size: clamp(23px, 3vw, 30px); font-weight: 800;
-        color: #fff; letter-spacing: -.01em; text-align: left;
+        color: var(--ll-ink-strong); letter-spacing: -.01em; text-align: left;
       }
-      .story { margin: 0; padding: 0 0 0 20px; border-left: 2px solid rgba(46, 230, 207, .35); text-align: left; }
+      .story { margin: 0; padding: 0 0 0 20px; border-left: 2px solid rgba(var(--ll-teal-rgb), .35); text-align: left; }
       .story p {
         margin: 0 0 15px; max-width: 62ch;
         font-size: 16px; line-height: 1.72; color: var(--ll-ink);
@@ -387,7 +496,7 @@
          border, 16:9, and it never grows past the reading measure. */
       .fig svg {
         display: block; width: 100%; height: auto; border-radius: 14px;
-        background: linear-gradient(160deg, #0e1826, #0a1120);
+        background: linear-gradient(160deg, var(--ll-panel-2), var(--ll-bg));
         border: 1px solid var(--ll-line-soft);
       }
       /* A real image in the same frame as the inline SVGs. It carries its own
@@ -408,15 +517,15 @@
       .cp-hero-band {
         display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
         gap: 0; align-items: stretch; border-radius: 18px; overflow: hidden;
-        background: rgba(255, 255, 255, .035); border: 1px solid var(--ll-line-soft);
+        background: rgba(var(--ll-surface-rgb), .035); border: 1px solid var(--ll-line-soft);
       }
       .cp-hero { padding: 26px 28px 28px; }
-      .cp-hero h1 { margin: 4px 0 12px; font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; color: #fff; letter-spacing: -.015em; }
+      .cp-hero h1 { margin: 4px 0 12px; font-size: clamp(26px, 3.4vw, 38px); font-weight: 800; color: var(--ll-ink-strong); letter-spacing: -.015em; }
       .cp-art {
         display: grid; place-items: center; background:
-          radial-gradient(60% 60% at 50% 40%, rgba(46, 230, 207, .16), transparent 70%),
-          linear-gradient(160deg, #10203a, #0a1120);
-        color: rgba(46, 230, 207, .5); font-size: 74px;
+          radial-gradient(60% 60% at 50% 40%, rgba(var(--ll-teal-rgb), .16), transparent 70%),
+          linear-gradient(160deg, var(--ll-panel-2), var(--ll-bg));
+        color: rgba(var(--ll-teal-rgb), .5); font-size: 74px;
       }
       @media (max-width: 860px) { .cp-hero-band { grid-template-columns: 1fr; } .cp-art { min-height: 120px; font-size: 48px; } }
       .cp-desc { margin: 0 0 16px; max-width: 62ch; font-size: 14.5px; line-height: 1.65; color: var(--ll-ink-soft); }
@@ -424,7 +533,7 @@
       .cp-chip {
         display: inline-flex; align-items: center; gap: 7px;
         font-size: 12px; font-weight: 600; color: var(--ll-ink-soft);
-        background: rgba(255, 255, 255, .04); border: 1px solid var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .04); border: 1px solid var(--ll-line);
         border-radius: 999px; padding: 5px 12px;
       }
       .cp-chip i { color: var(--ll-teal); font-size: 11px; }
@@ -433,76 +542,68 @@
       .cp-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 26px; align-items: start; }
       .cp-grid > * { min-width: 0; }
       @media (max-width: 900px) { .cp-grid { grid-template-columns: 1fr; } }
-      .cp-sections { background: rgba(255, 255, 255, .03); border: 1px solid var(--ll-line-soft); border-radius: 16px; padding: 16px 18px; }
-      .cp-sec-head h2 { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: #fff; }
-      .cp-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center; padding: 11px 0; border-top: 1px solid var(--ll-line-soft); }
+      .cp-sections { background: rgba(var(--ll-surface-rgb), .03); border: 1px solid var(--ll-line-soft); border-radius: 16px; padding: 16px 18px; }
+      .cp-sec-head h2 { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: var(--ll-ink-strong); }
+      .cp-row { display: grid; grid-template-columns: 44px 1fr auto; gap: 16px; align-items: center; padding: 17px 0; border-top: 1px solid var(--ll-line-soft); }
       .cp-row:first-of-type { border-top: 0; }
-      /* A jumpable section. It is a <button>, so the browser's own styling has
-         to be undone before it looks like the row it replaced — the grid,
-         width and text alignment are the parts a button does not inherit. */
-      button.cp-row {
-        width: 100%; text-align: left; font: inherit; color: inherit;
-        background: none; border-left: 0; border-right: 0; border-bottom: 0;
-        cursor: pointer; border-radius: 8px;
-        transition: background .15s ease;
-      }
-      button.cp-row:hover { background: rgba(255, 255, 255, .05); }
-      button.cp-row:hover .cp-row-ico { border-color: rgba(46, 230, 207, .45); color: var(--ll-teal); }
-      button.cp-row:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .3); }
-      @media (prefers-reduced-motion: reduce) { button.cp-row { transition: none; } }
       .cp-row-ico {
-        width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
-        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
-        color: var(--ll-ink-soft); font-size: 13px;
+        width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center;
+        background: rgba(var(--ll-surface-rgb), .05); border: 1px solid var(--ll-line);
+        color: var(--ll-ink-soft); font-size: 16px;
       }
-      .cp-row-main b { display: block; font-size: 13.5px; color: #fff; font-weight: 700; }
-      .cp-row-meta { font-size: 11.5px; color: var(--ll-ink-faint); display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; }
+      .cp-row-main b { display: block; font-size: 15px; color: var(--ll-ink-strong); font-weight: 700; }
+      .cp-row-meta { font-size: 12.5px; color: var(--ll-ink-faint); display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 3px; }
       .cp-row-meta .stage { color: var(--ll-teal); font-weight: 700; letter-spacing: .04em; text-transform: uppercase; font-size: 10px; }
-      .cp-row-meta .adapt { color: #c4b5fd; }
+      .cp-row-meta .adapt { color: var(--ll-violet); }
       .cp-row-meta .adapt i { font-size: 9px; margin-right: 3px; }
       /* These five rules exist on the Bystander module's title page and were
          dropped when this one was ported from it — so the state pills rendered
          as 14px body text and the legend under the list rendered as ordinary
          prose rather than as a caption, which is why nothing on the screen
          looked like a label. */
-      .cp-row-state { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-      .cp-row-state.done { background: rgba(46, 230, 207, .12); color: var(--ll-teal); border: 1px solid rgba(46, 230, 207, .3); }
-      .cp-row-state.todo { background: rgba(255, 255, 255, .04); color: var(--ll-ink-faint); border: 1px solid var(--ll-line); }
-      .cp-adapt-note { margin: 12px 0 0; font-size: 11.5px; line-height: 1.55; color: var(--ll-ink-faint); }
-      .cp-adapt-note i { color: #c4b5fd; margin-right: 5px; }
-      .cp-adapt-note b { color: #c4b5fd; font-weight: 700; }
+      .cp-row-state { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px; white-space: nowrap; }
+      .cp-row-state.done { background: rgba(var(--ll-teal-rgb), .12); color: var(--ll-teal); border: 1px solid rgba(var(--ll-teal-rgb), .3); }
+      .cp-row-state.todo { background: rgba(var(--ll-surface-rgb), .04); color: var(--ll-ink-faint); border: 1px solid var(--ll-line); }
 
-      /* A section the entry questions removed. Shown struck through rather
-         than omitted: the rail's job on this screen is to say what the module
-         will be for THIS learner, and a compression you cannot see is
-         indistinguishable from a module that never had those sections. The
-         pill borrows the adaptive chip's violet so "adaptive" and "skipped"
-         read as the same mechanism. */
-      .cp-row.is-cut { opacity: .6; }
-      .cp-row.is-cut .cp-row-main b { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--ll-ink-soft); }
-      .cp-row.is-cut .cp-row-ico { color: var(--ll-ink-faint); }
-      .cp-row-state.cut { background: rgba(167, 139, 250, .12); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, .32); }
+      /* A sibling module this course hasn't reached yet. Dimmed rather than
+         struck through — "locked" is a different claim than "skipped", and
+         reusing the old adaptive-cut treatment here would say the wrong
+         thing about a module the battery never touched. */
+      .cp-row.is-locked { opacity: .55; }
+      .cp-row.is-locked .cp-row-ico { color: var(--ll-ink-faint); }
+      .cp-row-state.locked { background: rgba(var(--ll-surface-rgb), .03); color: var(--ll-ink-faint); border: 1px solid var(--ll-line-soft); }
+
+      /* The one row this page can act on. Two buttons, not a whole clickable
+         row (see D-modidx in layered-sharps.js) — "Resume" and "Start over"
+         are different actions and neither should be guessable from tapping
+         the row body. */
+      .cp-row-state-wrap { display: flex; align-items: center; gap: 8px; }
+      .cp-row-state.resume {
+        font: inherit; letter-spacing: .05em; cursor: pointer;
+        background: rgba(var(--ll-teal-rgb), .16); color: var(--ll-teal); border: 1px solid rgba(var(--ll-teal-rgb), .4);
+        transition: filter .16s ease;
+      }
+      .cp-row-state.resume:hover { filter: brightness(1.12); }
+      .cp-row-state.resume:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .3); }
+      .cp-row-reset {
+        flex: 0 0 auto; width: 30px; height: 30px; border-radius: 999px;
+        display: grid; place-items: center; font-size: 11.5px; cursor: pointer;
+        background: transparent; color: var(--ll-ink-faint); border: 1px solid var(--ll-line-soft);
+      }
+      .cp-row-reset:hover { color: var(--ll-ink-strong); border-color: var(--ll-ink-soft); }
+      .cp-row-reset:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .28); }
       .cp-rail { display: grid; gap: 14px; }
-      .cp-card { background: rgba(255, 255, 255, .03); border: 1px solid var(--ll-line-soft); border-radius: 16px; padding: 15px 17px; }
+      .cp-card { background: rgba(var(--ll-surface-rgb), .03); border: 1px solid var(--ll-line-soft); border-radius: 16px; padding: 15px 17px; }
       .cp-card h3 { margin: 0 0 10px; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--ll-teal); }
-      .cp-req { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
-      .cp-req li { display: flex; gap: 10px; align-items: baseline; font-size: 12.5px; line-height: 1.5; color: var(--ll-ink-soft); }
-      .cp-req li i { color: var(--ll-teal); font-size: 11px; flex: 0 0 auto; }
-      .cp-req b { color: #fff; }
-      .cp-kv { display: grid; gap: 9px; }
-      .cp-kv .kv { font-size: 12.5px; line-height: 1.5; color: var(--ll-ink-soft); }
-      .cp-kv .kv b { display: block; color: #fff; font-size: 12px; }
       .cp-res a { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ll-ink); text-decoration: none; padding: 6px 0; }
       .cp-res a:hover { color: var(--ll-teal); }
       .cp-res a i.ext { margin-left: auto; font-size: 10px; color: var(--ll-ink-faint); }
-      .cp-res-note { margin: 8px 0 0; font-size: 10.5px; color: var(--ll-ink-faint); font-style: italic; }
-      .cp-format-note { margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; color: var(--ll-ink-soft); }
       .cp-format-now {
         display: flex; align-items: center; justify-content: space-between; gap: 10px;
         padding: 10px 8px 10px 12px; border-radius: 11px;
-        background: rgba(46, 230, 207, .08); border: 1px solid rgba(46, 230, 207, .28);
+        background: rgba(var(--ll-teal-rgb), .08); border: 1px solid rgba(var(--ll-teal-rgb), .28);
       }
-      .cp-format-now-t { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #fff; }
+      .cp-format-now-t { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ll-ink-strong); }
       .cp-format-now-t i { color: var(--ll-teal); font-size: 14px; width: 16px; text-align: center; }
       .cp-format-now-t b { font-weight: 700; }
       .cp-format-change {
@@ -510,44 +611,15 @@
         background: none; border: 0; cursor: pointer; border-radius: 8px;
         display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px;
       }
-      .cp-format-change:hover { background: rgba(46, 230, 207, .12); }
-      .cp-format-change:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28); }
+      .cp-format-change:hover { background: rgba(var(--ll-teal-rgb), .12); }
+      .cp-format-change:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .28); }
       .cp-format-change i { font-size: 9px; transition: transform .18s ease; }
       .cp-format-change[aria-expanded="true"] i { transform: rotate(180deg); }
       .cp-format-picker { margin-top: 10px; }
 
-      /* D11: the "welcome back" banner — hidden by default (#introResume in
-         layered-sharps.js fills it in only when there is something to
-         resume). Sits above
-         the hero band rather than inside it, since it is a transient state
-         of THIS VISIT rather than part of the course's own description. */
-      .cp-resume {
-        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px;
-        margin-bottom: 16px; padding: 14px 18px; border-radius: 14px;
-        background: rgba(46, 230, 207, .07); border: 1px solid rgba(46, 230, 207, .24);
-      }
-      .cp-resume p { margin: 0; font-size: 13.5px; color: var(--ll-ink-soft); }
-      .cp-resume p i { margin-right: 8px; color: var(--ll-teal); }
-      .cp-resume-actions { display: flex; gap: 10px; flex: 0 0 auto; }
-      .cp-resume-go {
-        font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
-        padding: 9px 16px; border-radius: 999px; white-space: nowrap;
-        color: #04211d; background: var(--ll-teal); border: 1px solid var(--ll-teal);
-        transition: filter .16s ease;
-      }
-      .cp-resume-go:hover { filter: brightness(1.08); }
-      .cp-resume-reset {
-        font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap;
-        padding: 9px 14px; border-radius: 999px; color: var(--ll-ink-soft);
-        background: transparent; border: 1px solid var(--ll-line-soft);
-      }
-      .cp-resume-reset:hover { color: #fff; border-color: var(--ll-ink-soft); }
-      .cp-resume-go:focus-visible, .cp-resume-reset:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28); }
-      @media (max-width: 560px) { .cp-resume { flex-direction: column; align-items: stretch; } }
-
       .cp-coord { display: flex; gap: 11px; align-items: center; }
-      .cp-coord .ava { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(46, 230, 207, .12); border: 1px solid rgba(46, 230, 207, .3); color: var(--ll-teal); font-size: 12px; font-weight: 800; }
-      .cp-coord b { display: block; font-size: 13px; color: #fff; }
+      .cp-coord .ava { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: rgba(var(--ll-teal-rgb), .12); border: 1px solid rgba(var(--ll-teal-rgb), .3); color: var(--ll-teal); font-size: 12px; font-weight: 800; }
+      .cp-coord b { display: block; font-size: 13px; color: var(--ll-ink-strong); }
       .cp-coord small { font-size: 11.5px; color: var(--ll-ink-soft); }
 
       /* ==== The procedure beat — K1, taught ==================================
@@ -560,7 +632,7 @@
          question is about those rows, and at 600px it wrapped five pixels
          short of fitting on one line. */
       .db-post { width: min(680px, 100%); display: flex; flex-direction: column; }
-      .pr-h { margin: 6px 0 10px; font-size: clamp(22px, 3vw, 30px); font-weight: 800; color: #fff; letter-spacing: -.015em; }
+      .pr-h { margin: 6px 0 10px; font-size: clamp(22px, 3vw, 30px); font-weight: 800; color: var(--ll-ink-strong); letter-spacing: -.015em; }
       .pr-sub { margin: 0 0 22px; max-width: 62ch; font-size: 13.5px; line-height: 1.65; color: var(--ll-ink-faint); font-style: italic; }
 
       /* The modality dropdown — .cp-format-now/.cp-format-change/
@@ -617,10 +689,10 @@
       .pr-item, .pr-turn, .pr-rule { display: grid; grid-template-columns: 32px 1fr; gap: 14px; align-items: start; }
       .pr-n {
         width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
-        background: rgba(46, 230, 207, .12); border: 1px solid rgba(46, 230, 207, .3);
+        background: rgba(var(--ll-teal-rgb), .12); border: 1px solid rgba(var(--ll-teal-rgb), .3);
         color: var(--ll-teal); font-size: 13px; font-weight: 800;
       }
-      .pr-main b { display: block; font-size: 15px; color: #fff; font-weight: 700; margin-bottom: 3px; }
+      .pr-main b { display: block; font-size: 15px; color: var(--ll-ink-strong); font-weight: 700; margin-bottom: 3px; }
       .pr-d { display: block; font-size: 13.5px; line-height: 1.6; color: var(--ll-ink-soft); }
 
       /* Item 26: two rules that hold at every point in the sequence, not a
@@ -652,18 +724,18 @@
          Not a battery item: nothing here is scored or written to the
          record, a click just advances the sequence. Correct/wrong reuses
          the ordering item's own teal/amber convention (.ord-item). */
-      .pr-check-mark { background: rgba(46, 230, 207, .12); border-color: rgba(46, 230, 207, .3); color: var(--ll-teal); }
+      .pr-check-mark { background: rgba(var(--ll-teal-rgb), .12); border-color: rgba(var(--ll-teal-rgb), .3); color: var(--ll-teal); }
       .pr-check-q { margin-bottom: 9px; }
       .pr-check-opts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
       .pr-check-opt {
         font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
         padding: 7px 14px; border-radius: 999px;
-        border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .04); color: var(--ll-ink-soft);
+        border: 1px solid var(--ll-line); background: rgba(var(--ll-surface-rgb), .04); color: var(--ll-ink-soft);
         transition: border-color .15s ease, background .15s ease, color .15s ease;
       }
-      .pr-check-opt:hover:not(:disabled) { border-color: rgba(46, 230, 207, .5); color: var(--ll-teal); background: rgba(46, 230, 207, .08); }
+      .pr-check-opt:hover:not(:disabled) { border-color: rgba(var(--ll-teal-rgb), .5); color: var(--ll-teal); background: rgba(var(--ll-teal-rgb), .08); }
       .pr-check-opt:disabled { cursor: default; }
-      .pr-check-opt.is-correct { border-color: rgba(46, 230, 207, .55); background: rgba(46, 230, 207, .1); color: var(--ll-teal); }
+      .pr-check-opt.is-correct { border-color: rgba(var(--ll-teal-rgb), .55); background: rgba(var(--ll-teal-rgb), .1); color: var(--ll-teal); }
       .pr-check-opt.is-wrong.is-picked { border-color: rgba(241, 179, 74, .5); background: rgba(241, 179, 74, .08); color: #f1b34a; }
       .pr-check-note {
         display: block; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--ll-line);
@@ -679,24 +751,29 @@
          it once that finishes. */
       .cv-video {
         position: absolute; inset: 0; width: 100%; height: 100%;
+        /* A letterbox/loading backdrop for real footage, not page chrome —
+           left dark in every variant, same reasoning as .cv-skip above. */
         object-fit: contain; background: #05080f; visibility: hidden;
       }
       .ll-media.is-ready .cv-video { visibility: visible; }
       .cv-loader {
         position: absolute; inset: 0; z-index: 2;
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-        color: #aab6cc; font-size: 13px;
+        color: var(--ll-ink-soft); font-size: 13px;
       }
       .ll-media.is-ready .cv-loader { display: none; }
       .cv-spinner {
         width: 42px; height: 42px; border-radius: 50%;
-        border: 3px solid rgba(255, 255, 255, .14); border-top-color: #2ee6cf;
+        border: 3px solid rgba(var(--ll-surface-rgb), .14); border-top-color: var(--ll-teal);
         animation: cv-spin .8s linear infinite;
       }
       @keyframes cv-spin { to { transform: rotate(360deg); } }
-      .cv-loader b { color: #2ee6cf; font-weight: 700; }
+      .cv-loader b { color: var(--ll-teal); font-weight: 700; }
       /* Prototype-only skip ON the video. Top-right so it clears the native
-         controls. Never shown to a learner. */
+         controls. Never shown to a learner. A dark translucent scrim + white
+         text/focus-ring, same as any video player's own chrome (YouTube's
+         controls don't go light on a light page either) — exempt from both
+         Vector-style overrides below, deliberately still literal colours. */
       .cv-skip {
         position: absolute; top: 12px; right: 12px; z-index: 4;
         display: inline-flex; align-items: center; gap: 7px;
@@ -724,7 +801,7 @@
       .pr-dec-h i { margin-right: 7px; }
       .pr-declined p { margin: 0 0 9px; font-size: 13.5px; line-height: 1.6; color: var(--ll-ink-soft); }
       .pr-declined p:last-child { margin-bottom: 0; }
-      .pr-declined b { color: #fff; }
+      .pr-declined b { color: var(--ll-ink-strong); }
       .pr-dec-fall { font-style: italic; color: var(--ll-ink-faint) !important; }
 
       /* A procedure step that does not apply on this sector's premise. Not
@@ -733,7 +810,7 @@
          list of things they can actually do. */
       .pr-item.is-context { opacity: .72; }
       .pr-item.is-context .pr-n {
-        background: rgba(255, 255, 255, .05); border-color: var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .05); border-color: var(--ll-line);
         color: var(--ll-ink-faint); font-size: 12px;
       }
       .pr-item.is-context .pr-main b { color: var(--ll-ink-soft); font-weight: 600; }
@@ -760,15 +837,15 @@
         border: 1px solid var(--ll-line); border-radius: 999px; padding: 7px 15px;
         transition: color .2s ease, border-color .2s ease, background .2s ease;
       }
-      .aud-play:hover { color: var(--ll-teal); border-color: rgba(46, 230, 207, .5); background: rgba(46, 230, 207, .08); }
-      .aud-play.on { color: var(--ll-teal); border-color: rgba(46, 230, 207, .45); background: rgba(46, 230, 207, .12); }
+      .aud-play:hover { color: var(--ll-teal); border-color: rgba(var(--ll-teal-rgb), .5); background: rgba(var(--ll-teal-rgb), .08); }
+      .aud-play.on { color: var(--ll-teal); border-color: rgba(var(--ll-teal-rgb), .45); background: rgba(var(--ll-teal-rgb), .12); }
       .aud-play:disabled { cursor: default; opacity: .5; }
       .aud-text {
         margin: 0; font-size: clamp(17px, 1.5vw, 19.5px); line-height: 1.8;
         color: var(--ll-ink);
       }
       .aud-text .w { border-radius: 4px; padding: 0 1px; transition: background .12s ease, color .12s ease; }
-      .aud-text .w.hot { background: rgba(46, 230, 207, .25); color: #fff; }
+      .aud-text .w.hot { background: rgba(var(--ll-teal-rgb), .25); color: var(--ll-ink-strong); }
       .aud-note { margin-top: 20px; font-size: 11px; color: var(--ll-ink-faint); visibility: hidden; }
       .aud-note.show { visibility: visible; }
 
@@ -778,7 +855,7 @@
       }
       /* The opening paragraph carries a little more weight, so the eye has an
          obvious place to start rather than four equal candidates. */
-      .hz-lede { font-size: 18px !important; line-height: 1.66 !important; color: #fff !important; }
+      .hz-lede { font-size: 18px !important; line-height: 1.66 !important; color: var(--ll-ink-strong) !important; }
       /* The figure sits INSIDE the argument, at the paragraph it illustrates. */
       .hz-article .fig { margin: 24px 0 26px; }
 
@@ -786,7 +863,7 @@
          they are the thing a returning reader scans for. */
       .hz-h {
         margin: 34px 0 12px !important; font-size: 20px !important; font-weight: 800;
-        line-height: 1.3; color: #fff !important; letter-spacing: -.01em;
+        line-height: 1.3; color: var(--ll-ink-strong) !important; letter-spacing: -.01em;
       }
       .hz-article > .hz-h:first-child { margin-top: 0 !important; }
 
@@ -799,7 +876,7 @@
       }
       .hz-path-row {
         display: grid; grid-template-columns: 132px 1fr; gap: 16px;
-        padding: 14px 17px; background: #0d1521;
+        padding: 14px 17px; background: var(--ll-panel-2);
       }
       .hz-path-row b { font-size: 14.5px; font-weight: 800; color: var(--ll-teal); line-height: 1.45; }
       .hz-path-row span { font-size: 14px; line-height: 1.6; color: var(--ll-ink-soft); }
@@ -811,15 +888,15 @@
          gets the treatment rather than being a fourth paragraph. */
       .hz-pull {
         margin: 26px 0; padding: 2px 0 2px 20px;
-        border-left: 3px solid rgba(46, 230, 207, .55);
-        font-size: 19px; line-height: 1.55; font-weight: 600; color: #fff;
+        border-left: 3px solid rgba(var(--ll-teal-rgb), .55);
+        font-size: 19px; line-height: 1.55; font-weight: 600; color: var(--ll-ink-strong);
       }
 
       /* The précis: three headlines for a skimmer. Small, boxed, and clearly
          secondary to the prose it summarises. */
       .hz-keys {
         margin: 28px 0 22px; padding: 15px 18px 16px; border-radius: 14px;
-        border: 1px solid var(--ll-line-soft); background: rgba(46, 230, 207, .05);
+        border: 1px solid var(--ll-line-soft); background: rgba(var(--ll-teal-rgb), .05);
       }
       .hz-keys-h {
         margin: 0 0 11px !important; font-size: 10.5px !important; font-weight: 800;
@@ -842,7 +919,7 @@
       }
       .hz-coda {
         margin: 12px 0 0 !important;
-        font-size: 15px !important; font-weight: 700; color: #fff !important; line-height: 1.5 !important;
+        font-size: 15px !important; font-weight: 700; color: var(--ll-ink-strong) !important; line-height: 1.5 !important;
       }
 
       /* The sector strip: what counts as a sharp on THIS job. The generic
@@ -881,21 +958,21 @@
       .db-recall {
         width: min(640px, 100%); margin-top: 22px; text-align: left;
         padding: 16px 18px; border-radius: 14px;
-        border: 1px solid var(--ll-line); border-left: 3px solid rgba(46, 230, 207, .55);
-        background: rgba(255, 255, 255, .04);
+        border: 1px solid var(--ll-line); border-left: 3px solid rgba(var(--ll-teal-rgb), .55);
+        background: rgba(var(--ll-surface-rgb), .04);
       }
       .db-recall-h {
         margin: 0; font-size: 10px; font-weight: 800; letter-spacing: .09em;
         text-transform: uppercase; color: var(--ll-ink-faint);
       }
-      .db-recall-h i { margin-right: 6px; color: rgba(46, 230, 207, .7); }
+      .db-recall-h i { margin-right: 6px; color: rgba(var(--ll-teal-rgb), .7); }
       /* Left-aligned and measure-capped: it is a sentence of prose, not a
          label, and the surrounding object centres its text. */
       .db-recall-q { margin: 9px 0 0; max-width: 62ch; font-size: 15px; line-height: 1.45; color: var(--ll-ink-soft); }
-      .db-recall-a { margin: 12px 0 0; font-size: 20px; font-weight: 800; color: #fff; }
+      .db-recall-a { margin: 12px 0 0; font-size: 20px; font-weight: 800; color: var(--ll-ink-strong); }
 
       .db-invite { margin-top: 26px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-      .db-invite-q { margin: 0; font-size: 17px; font-weight: 700; color: #fff; }
+      .db-invite-q { margin: 0; font-size: 17px; font-weight: 700; color: var(--ll-ink-strong); }
       .db-reveal {
         font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
         display: inline-flex; align-items: center; gap: 9px;
@@ -954,15 +1031,15 @@
         box-sizing: content-box;
         align-items: stretch;
         text-align: left;
-        border: 1px solid rgba(46, 230, 207, .3);
+        border: 1px solid rgba(var(--ll-teal-rgb), .3);
         border-radius: 18px;
-        background: linear-gradient(180deg, rgba(16, 32, 48, .97), rgba(9, 19, 31, .99));
-        box-shadow: 0 20px 54px rgba(0, 0, 0, .55);
+        background: linear-gradient(180deg, var(--ll-panel-2), var(--ll-bg));
+        box-shadow: var(--ll-shadow);
         animation: rf-rise .44s var(--ll-ease) both;
       }
       /* The card carries its own edge, so the divider .ct-second draws when it
          is stacked underneath would be a second line in the same place. */
-      .rf-layer.ct-second { border-top: 1px solid rgba(46, 230, 207, .3); padding-top: 24px; }
+      .rf-layer.ct-second { border-top: 1px solid rgba(var(--ll-teal-rgb), .3); padding-top: 24px; }
       .rf-layer > :first-child { margin-top: 0; }
       /* Where you are in a screen that asks twice. Top-right of the card so it
          reads as a property of the card rather than as another line of copy
@@ -972,12 +1049,12 @@
         font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase;
         color: var(--ll-ink-faint);
         padding: 3px 9px; border-radius: 999px;
-        background: rgba(255, 255, 255, .04); border: 1px solid var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .04); border: 1px solid var(--ll-line);
       }
       /* The card takes focus when it appears, and a focus ring on a whole card
          reads as an error state — the reveal animation is the cue instead. */
       .rf-layer:focus { outline: none; }
-      .rf-layer:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28), 0 20px 54px rgba(0, 0, 0, .55); }
+      .rf-layer:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .28), 0 20px 54px rgba(0, 0, 0, .55); }
       @keyframes rf-rise {
         from { opacity: 0; transform: translateY(16px); }
         to   { opacity: 1; transform: none; }
@@ -996,7 +1073,7 @@
          learner to pick a follow-up date. */
       .wk-field-h {
         margin: 18px 0 10px; max-width: var(--sh-measure, 62ch);
-        font-size: 14px; font-weight: 700; color: #fff; text-align: left;
+        font-size: 14px; font-weight: 700; color: var(--ll-ink-strong); text-align: left;
       }
       /* The sentence the field completes, shown above it. One weight, one
          size, italic — it is a quotation, not another instruction. */
@@ -1008,22 +1085,25 @@
       .wk-conds { display: grid; gap: 8px; max-width: 560px; }
       .wk-cond {
         padding: 12px 15px; border-radius: 11px; text-align: left;
-        border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .03);
+        border: 1px solid var(--ll-line); background: rgba(var(--ll-surface-rgb), .03);
         color: var(--ll-ink); font: inherit; font-size: 14px; cursor: pointer;
         transition: border-color .15s ease, background .15s ease;
       }
-      .wk-cond:hover:not(:disabled) { border-color: rgba(46, 230, 207, .4); background: rgba(46, 230, 207, .05); }
-      .wk-cond:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .3); }
-      .wk-cond.picked { border-color: rgba(46, 230, 207, .6); background: rgba(46, 230, 207, .09); color: #fff; }
+      .wk-cond:hover:not(:disabled) { border-color: rgba(var(--ll-teal-rgb), .4); background: rgba(var(--ll-teal-rgb), .05); }
+      .wk-cond:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .3); }
+      .wk-cond.picked { border-color: rgba(var(--ll-teal-rgb), .6); background: rgba(var(--ll-teal-rgb), .09); color: var(--ll-ink-strong); }
       .wk-cond:disabled { cursor: default; opacity: .5; }
       .wk-cond.picked:disabled { opacity: 1; }
       .wk-route {
         width: 100%; max-width: 560px; padding: 13px 15px;
         border-radius: 11px; border: 1px solid var(--ll-line);
-        background: rgba(0, 0, 0, .25); color: #fff; font: inherit; font-size: 15px;
+        /* A recessed "well" a shade darker than the panel it sits on. --sh-recess-a
+           is the darkening amount, not a fixed colour, so the light variant can
+           turn it down instead of inverting it to a muddy black-on-white fill. */
+        background: rgba(0, 0, 0, var(--sh-recess-a, .25)); color: var(--ll-ink-strong); font: inherit; font-size: 15px;
       }
       .wk-route::placeholder { color: var(--ll-ink-faint); }
-      .wk-route:focus { outline: none; border-color: rgba(46, 230, 207, .5); }
+      .wk-route:focus { outline: none; border-color: rgba(var(--ll-teal-rgb), .5); }
       .wk-route:disabled { opacity: .8; }
       #wkCommit { margin-top: 16px; }
 
@@ -1048,8 +1128,8 @@
         display: grid; place-items: center;
         width: 52px; height: 52px; margin-bottom: 22px;
         border-radius: 14px;
-        background: rgba(46, 230, 207, .12);
-        border: 1px solid rgba(46, 230, 207, .3);
+        background: rgba(var(--ll-teal-rgb), .12);
+        border: 1px solid rgba(var(--ll-teal-rgb), .3);
         color: var(--ll-teal); font-size: 21px;
       }
       /* Cross-fade into the timeline. The frame used to be switched off and
@@ -1065,7 +1145,7 @@
       .ch-lead {
         margin: 0; max-width: 30ch;
         font-size: clamp(26px, 5vw, 38px); font-weight: 800; line-height: 1.18;
-        letter-spacing: -.015em; color: #fff; text-align: left;
+        letter-spacing: -.015em; color: var(--ll-ink-strong); text-align: left;
       }
       .ch-lead-sub {
         margin: 16px 0 0; max-width: 44ch;
@@ -1074,12 +1154,12 @@
       .ch-start {
         margin-top: 30px; align-self: flex-start;
         font: inherit; font-size: 14px; font-weight: 700; color: #04121a;
-        background: var(--ll-teal); border: 0; border-radius: 999px;
+        background: var(--ll-teal); border: 0; border-radius: var(--sh-ctrl-radius, 999px);
         padding: 11px 26px; cursor: pointer;
         transition: filter .16s ease, transform .16s ease;
       }
       .ch-start:hover { filter: brightness(1.08); transform: translateY(-1px); }
-      .ch-start:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      .ch-start:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .35); }
       @media (prefers-reduced-motion: reduce) { .ch-start:hover { transform: none; } }
 
       /* Item 31/D11: the bridge into the culminating scenario. Same shape as
@@ -1092,14 +1172,14 @@
         display: grid; place-items: center;
         width: 52px; height: 52px; margin-bottom: 22px;
         border-radius: 14px;
-        background: rgba(46, 230, 207, .12);
-        border: 1px solid rgba(46, 230, 207, .3);
+        background: rgba(var(--ll-teal-rgb), .12);
+        border: 1px solid rgba(var(--ll-teal-rgb), .3);
         color: var(--ll-teal); font-size: 21px;
       }
       .ho-lead {
         margin: 0; max-width: 34ch;
         font-size: clamp(24px, 4.5vw, 34px); font-weight: 800; line-height: 1.2;
-        letter-spacing: -.015em; color: #fff; text-align: left;
+        letter-spacing: -.015em; color: var(--ll-ink-strong); text-align: left;
       }
       .ho-lead-sub {
         margin: 16px 0 0; max-width: 46ch;
@@ -1107,7 +1187,7 @@
       }
       .ho-what {
         margin-top: 28px; padding: 16px 18px; max-width: 46ch;
-        border-radius: 14px; border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .03);
+        border-radius: 14px; border: 1px solid var(--ll-line); background: rgba(var(--ll-surface-rgb), .03);
       }
       .ho-what-h { margin: 0 0 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ll-teal); }
       .ho-what-d { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ll-ink-soft); }
@@ -1153,7 +1233,7 @@
       .ch-head:disabled { cursor: default; }
       .ch-node.is-past .ch-head { cursor: pointer; }
       .ch-head:not(:disabled):focus-visible {
-        outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28);
+        outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .28);
       }
       .ch-time { flex: 0 0 auto; }
       /* Hidden while the node is expanded — the body is saying it already. */
@@ -1189,7 +1269,7 @@
       }
       .ch-gapline::before {
         content: ''; position: absolute; left: 12.5px; top: 0; bottom: 0; width: 1px;
-        background: rgba(46, 230, 207, .45);
+        background: rgba(var(--ll-teal-rgb), .45);
         animation: chLineIn .5s var(--ll-ease) both; transform-origin: top;
       }
       @keyframes chLineIn { from { transform: scaleY(0); } to { transform: scaleY(1); } }
@@ -1220,7 +1300,7 @@
          the image, so nothing has to branch in CSS. */
       .ch-lockup {
         border: 1px solid var(--ll-line); border-radius: 16px; overflow: hidden;
-        background: rgba(255, 255, 255, .035);
+        background: rgba(var(--ll-surface-rgb), .035);
       }
       .ch-hero {
         display: block; width: 100%; height: auto;
@@ -1228,10 +1308,12 @@
            to 371px at this measure. Biased upward so the wall container near
            the top edge survives the crop — it is one of the two answers. */
         max-height: 268px; object-fit: cover; object-position: 50% 38%;
+        /* Letterbox backdrop for a real photo, not page chrome — same
+           reasoning as .cv-video above, left dark in every variant. */
         background: #060a11;
       }
       .ch-lockup-body { padding: 17px 18px 18px; }
-      .ch-pick-q { margin: 0 0 13px; font-size: 18px; font-weight: 800; color: #fff; text-align: left; }
+      .ch-pick-q { margin: 0 0 13px; font-size: 18px; font-weight: 800; color: var(--ll-ink-strong); text-align: left; }
       /* Two abreast: it is a binary choice and side-by-side says so, while
          also keeping the lockup short. Stacks under 560px. */
       .ch-pick-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1241,11 +1323,11 @@
         font: inherit; font-size: 14.5px; line-height: 1.4; text-align: left;
         color: var(--ll-ink); cursor: pointer;
         padding: 14px 16px; border-radius: 12px;
-        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .05); border: 1px solid var(--ll-line);
         transition: border-color .16s ease, background .16s ease;
       }
-      .ch-pick-opt:hover { border-color: rgba(46, 230, 207, .55); background: rgba(46, 230, 207, .08); }
-      .ch-pick-opt:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .25); }
+      .ch-pick-opt:hover { border-color: rgba(var(--ll-teal-rgb), .55); background: rgba(var(--ll-teal-rgb), .08); }
+      .ch-pick-opt:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .25); }
       .ch-pick-opt i { color: var(--ll-teal); font-size: 15px; justify-self: center; }
 
       /* Take the other route. On the UNSAFE route this is what it has always
@@ -1266,10 +1348,10 @@
       .ch-retry i { margin-right: 8px; font-size: 12px; }
       .ch-retry.is-primary {
         color: #052b27; background: var(--ll-grad); border-color: transparent;
-        box-shadow: 0 6px 18px rgba(20, 184, 166, .34);
+        box-shadow: 0 6px 18px rgba(var(--ll-teal-2-rgb), .34);
       }
       .ch-retry.is-primary:hover { background: var(--ll-grad); filter: brightness(1.06); }
-      .ch-retry.is-primary:focus-visible { box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      .ch-retry.is-primary:focus-visible { box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .35); }
 
       /* ==== The downstream question, on its own screen ==================== */
       .dn-wrap { width: min(620px, 100%); display: flex; flex-direction: column; align-items: stretch; }
@@ -1278,7 +1360,7 @@
       .ch-dot {
         width: 26px; height: 26px; margin-top: 2px; border-radius: 50%;
         display: grid; place-items: center;
-        background: rgba(46, 230, 207, .14); border: 1px solid rgba(46, 230, 207, .42);
+        background: rgba(var(--ll-teal-rgb), .14); border: 1px solid rgba(var(--ll-teal-rgb), .42);
       }
       .ch-dot::after {
         content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--ll-teal);
@@ -1309,28 +1391,28 @@
         padding: 5px 13px 5px 10px; margin: 1px 0;
       }
       .ch-alarm i { font-size: 11px; }
-      .ch-node--injury .ch-body { color: #ffd9a3; font-weight: 600; }
+      .ch-node--injury .ch-body { color: var(--sh-injury, #ffd9a3); font-weight: 600; }
 
       .ch-next {
         align-self: flex-start; margin-top: 22px;
         font: inherit; font-size: 13.5px; font-weight: 600; color: var(--ll-ink);
-        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .05); border: 1px solid var(--ll-line);
         border-radius: 999px; padding: 10px 22px; cursor: pointer;
         transition: border-color .15s ease, background .15s ease, color .15s ease;
       }
-      .ch-next:hover { border-color: var(--ll-teal); color: var(--ll-teal); background: rgba(46, 230, 207, .1); }
-      .ch-next:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .25); }
+      .ch-next:hover { border-color: var(--ll-teal); color: var(--ll-teal); background: rgba(var(--ll-teal-rgb), .1); }
+      .ch-next:focus-visible { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .25); }
       .ch-next i { margin-left: 7px; font-size: 11px; }
 
       /* The close. Two lines, quoted rather than carded — the same register
          the account uses, so nothing about it invites a click. */
       .ch-close {
         margin-top: 26px; padding: 2px 0 2px 20px;
-        border-left: 2px solid rgba(46, 230, 207, .35);
+        border-left: 2px solid rgba(var(--ll-teal-rgb), .35);
         animation: ct-rise .38s ease both;
       }
       .ch-close p {
-        margin: 0; font-size: 17px; line-height: 1.6; color: #fff; text-align: left; font-weight: 600;
+        margin: 0; font-size: 17px; line-height: 1.6; color: var(--ll-ink-strong); text-align: left; font-weight: 600;
       }
       .ch-close p + p { margin-top: 10px; color: var(--ll-ink-soft); font-weight: 400; font-size: 16px; }
       @media (prefers-reduced-motion: reduce) { .ch-close { animation: none; } }
@@ -1340,20 +1422,20 @@
       .ch-input {
         width: 100%; margin-top: 16px; padding: 13px 15px;
         font: inherit; font-size: 15px; line-height: 1.55; color: var(--ll-ink);
-        background: rgba(255, 255, 255, .05); border: 1px solid var(--ll-line);
+        background: rgba(var(--ll-surface-rgb), .05); border: 1px solid var(--ll-line);
         border-radius: 13px; resize: vertical;
       }
       .ch-input::placeholder { color: var(--ll-ink-faint); }
-      .ch-input:focus { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(46, 230, 207, .2); }
+      .ch-input:focus { outline: none; border-color: var(--ll-teal); box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .2); }
       .ch-input:disabled { opacity: .6; }
       .ch-send {
         margin-top: 14px; align-self: flex-start;
         font: inherit; font-size: 14px; font-weight: 700; color: #04121a;
-        background: var(--ll-teal); border: 0; border-radius: 999px;
+        background: var(--ll-teal); border: 0; border-radius: var(--sh-ctrl-radius, 999px);
         padding: 10px 24px; cursor: pointer; transition: filter .16s ease;
       }
       .ch-send:hover:not(:disabled) { filter: brightness(1.08); }
-      .ch-send:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .35); }
+      .ch-send:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .35); }
       .ch-send:disabled { opacity: .4; cursor: default; }
       .ch-echo {
         margin: 16px 0 0; max-width: 62ch;
@@ -1368,7 +1450,7 @@
            column, so an inline-flex child still spans the full measure. */
         display: inline-flex; align-self: flex-start; gap: 3px; margin: 0 0 20px;
         padding: 3px; border-radius: 13px;
-        border: 1px solid var(--ll-line); background: rgba(255, 255, 255, .04);
+        border: 1px solid var(--ll-line); background: rgba(var(--ll-surface-rgb), .04);
       }
       .md-opt {
         display: grid; grid-template-columns: 16px auto; gap: 9px; align-items: center;
@@ -1380,13 +1462,13 @@
       .md-opt i { font-size: 14px; justify-self: center; }
       .md-opt-t { min-width: 0; }
       .md-opt b { font-size: 14.5px; font-weight: 700; }
-      .md-opt:hover { color: var(--ll-ink); background: rgba(255, 255, 255, .05); }
+      .md-opt:hover { color: var(--ll-ink); background: rgba(var(--ll-surface-rgb), .05); }
       .md-opt.is-on {
-        color: #fff; background: rgba(46, 230, 207, .13);
-        border-color: rgba(46, 230, 207, .42);
+        color: var(--ll-ink-strong); background: rgba(var(--ll-teal-rgb), .13);
+        border-color: rgba(var(--ll-teal-rgb), .42);
       }
       .md-opt.is-on i { color: var(--ll-teal); }
-      .md-opt:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(46, 230, 207, .28); }
+      .md-opt:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .28); }
       @media (max-width: 479px) { .md-pick { display: flex; flex-direction: column; } }
       /* Stacked column everywhere a dropdown reveals this list — see
          .md-now .md-pick above, which now covers the rail too. */
@@ -1396,19 +1478,19 @@
          css/layered-beats.css. Only the threshold-gated card is local. */
       .wk-plan {
         padding: 18px 20px; border-radius: 14px;
-        border: 1px solid rgba(46, 230, 207, .32); background: rgba(46, 230, 207, .07);
+        border: 1px solid rgba(var(--ll-teal-rgb), .32); background: rgba(var(--ll-teal-rgb), .07);
       }
       .wk-plan-h {
-        margin: 0 0 12px; font-size: 14.5px; font-weight: 700; color: #fff; text-align: left;
+        margin: 0 0 12px; font-size: 14.5px; font-weight: 700; color: var(--ll-ink-strong); text-align: left;
       }
       .wk-plan-h i { margin-right: 9px; color: var(--ll-teal); font-size: 13px; }
       .wk-say {
         margin: 0; font-size: 16px; line-height: 1.62; color: var(--ll-ink); text-align: left;
       }
-      .wk-say b { color: #fff; font-weight: 700; }
+      .wk-say b { color: var(--ll-ink-strong); font-weight: 700; }
       .wk-plan-note {
         margin: 12px 0 0 !important; padding-top: 12px;
-        border-top: 1px solid rgba(46, 230, 207, .2);
+        border-top: 1px solid rgba(var(--ll-teal-rgb), .2);
         font-size: 13.5px !important; line-height: 1.6; color: var(--ll-ink-soft) !important; text-align: left;
       }
       .wk-held {
@@ -1427,7 +1509,7 @@
       }
       .pm-badge {
         width: 60px; height: 60px; border-radius: 50%; margin-bottom: 8px;
-        background: rgba(46, 230, 207, .14); border: 1px solid rgba(46, 230, 207, .4);
+        background: rgba(var(--ll-teal-rgb), .14); border: 1px solid rgba(var(--ll-teal-rgb), .4);
         display: flex; align-items: center; justify-content: center;
         color: var(--ll-teal); font-size: 22px;
       }
@@ -1435,7 +1517,7 @@
       .pm-sub { margin: 0 0 4px; color: var(--ll-ink-soft); font-size: 14.5px; }
       .pm-stats { display: flex; gap: 30px; margin-top: 10px; }
       .pm-stat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-      .pm-stat-val { font-size: 19px; font-weight: 800; color: #fff; }
+      .pm-stat-val { font-size: 19px; font-weight: 800; color: var(--ll-ink-strong); }
       .pm-stat-lbl { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ll-ink-faint); }
 
       .ld-page {
@@ -1444,13 +1526,13 @@
       }
       .ld-spinner {
         width: 44px; height: 44px; border-radius: 50%;
-        border: 3px solid rgba(255, 255, 255, .14); border-top-color: var(--ll-teal);
+        border: 3px solid rgba(var(--ll-surface-rgb), .14); border-top-color: var(--ll-teal);
         animation: ld-spin .8s linear infinite;
       }
       @keyframes ld-spin { to { transform: rotate(360deg); } }
       .ld-label { margin: 0; font-size: 14px; color: var(--ll-ink-soft); }
       @media (prefers-reduced-motion: reduce) {
-        .ld-spinner { animation: none; border-top-color: rgba(255, 255, 255, .4); }
+        .ld-spinner { animation: none; border-top-color: rgba(var(--ll-surface-rgb), .4); }
       }
 
     </style>
@@ -1464,9 +1546,9 @@
     <script>
       window.LESSON_FRAME = { course: 'Bloodborne Pathogens', lesson: 'Welcome' };
     </script>
-    <script src="../js/mobius-orb.js?v=5"></script>
+    <script src="../js/mobius-orb.js?v=7"></script>
     <script src="../js/frame.js?v=7"></script>
-    <script src="../js/layered-engine.js?v=29"></script>
-    <script src="../js/layered-sharps.js?v=198"></script>
+    <script src="../js/layered-engine.js?v=32"></script>
+    <script src="../js/layered-sharps.js?v=208"></script>
 </body>
 </html>
