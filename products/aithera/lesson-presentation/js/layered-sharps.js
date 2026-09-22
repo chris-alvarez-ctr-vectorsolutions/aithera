@@ -934,28 +934,40 @@
           '<span class="cp-row-state ' + m.state + '">' + (m.state === 'done' ? 'Complete' : 'Locked') + '</span>' +
         '</div>';
       }
-      // The one row this page can act on — Sharps is the only module with
-      // real content behind it. Two separate buttons rather than a whole
-      // clickable row: "Resume" and "Start over" are different actions, and
-      // neither should be guessable from tapping the row body.
-      var curState = hasProgress ?
-        '<span class="cp-row-state-wrap">' +
-          '<button class="cp-row-state resume" type="button" data-action="resume">Resume</button>' +
-          '<button class="cp-row-reset" type="button" data-action="reset" title="Start over" aria-label="Start over"><i class="fa-solid fa-rotate-left"></i></button>' +
-        '</span>' :
-        '<span class="cp-row-state todo">Up next</span>';
-      return '<div class="cp-row is-current">' +
-        '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
+      // Sharps is the only module with real content behind it, so it's the
+      // only row this page can act on. Resume gets two separate buttons
+      // ("Resume" and "Start over" are different actions, neither should be
+      // guessable from tapping the row body) — but up next has exactly ONE
+      // possible action, so the whole row can safely be that action.
+      var icoMain = '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
         '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
-          '<span class="cp-row-meta"><span>About ' + mins.full + ' min' + (mins.full > 1 ? 's' : '') + '</span></span></span>' +
-        curState +
-      '</div>';
+          '<span class="cp-row-meta"><span>About ' + mins.full + ' min' + (mins.full > 1 ? 's' : '') + '</span></span></span>';
+      if (hasProgress) {
+        return '<div class="cp-row is-current">' + icoMain +
+          '<span class="cp-row-state-wrap">' +
+            '<button class="cp-row-state resume" type="button" data-action="resume">Resume</button>' +
+            '<button class="cp-row-reset" type="button" data-action="reset" title="Start over" aria-label="Start over"><i class="fa-solid fa-rotate-left"></i></button>' +
+          '</span>' +
+        '</div>';
+      }
+      return '<button class="cp-row is-current is-startable" type="button" data-action="start" aria-label="Start ' + esc(m.name) + '">' + icoMain +
+        '<span class="cp-row-state todo">Up next</span>' +
+      '</button>';
     }).join('');
 
     document.getElementById('cpRows').addEventListener('click', function (e) {
       var btn = e.target.closest('[data-action]');
       if (!btn) return;
       if (btn.dataset.action === 'resume') { LE.goTo(last); return; }
+      if (btn.dataset.action === 'start') {
+        // The same "one step forward" the footer's Start module button
+        // does — found live off STEPS rather than hardcoded, so a reordered
+        // syllabus can't strand this row on a step that moved.
+        var introIdx = STEPS.findIndex(function (st) { return st.id === 'intro'; });
+        var firstStep = STEPS[introIdx + 1];
+        if (firstStep) LE.goTo(firstStep.id);
+        return;
+      }
       // Start over — the same reset the old welcome-back banner ran. ll-lens
       // and sh-name are Demo menu settings now (role, name), not this run's
       // progress — same reason Review mode survives a Start over. Only the
