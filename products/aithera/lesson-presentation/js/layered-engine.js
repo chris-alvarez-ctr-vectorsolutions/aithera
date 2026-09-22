@@ -1064,39 +1064,38 @@
     // Three widgets for three kinds of setting: a real switch for a plain
     // on/off flag, a real dropdown for a named set of options (so picking
     // one is direct, not "click until it cycles past"), and — for anything
-    // else, e.g. Skip — the original whole-row button.
+    // else, e.g. Skip — the original whole-row button. Every row shares the
+    // same shape: title + control share a line (the control is small, so
+    // this rarely costs the title anything), and the description runs full
+    // width on its own line below — sharing a column with a wide control
+    // (a long select value, a worded state pill) is what turned a row into
+    // an eight-line wrap the last time this was tried.
     demoMenu.innerHTML =
       '<p class="ll-demo-head">Review only · not shown to a learner</p>' +
       (rows.length
         ? rows.map(function (r, i) {
             var icon = '<i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>';
-            var text = '<b>' + esc(r.name) + '</b>' + (r.note ? '<small>' + esc(r.note) + '</small>' : '');
-            // Toggle/select controls sit to the right of the title/description,
-            // same as the state pill on an action row. A toggle carries no text
-            // of its own — its title is written as the assertion that's true
-            // when it's on (e.g. "Battery before module"), so the switch's
-            // position is the only state a reader needs.
+            var control = '';
             if (r.type === 'toggle') {
-              var sw = '<button type="button" class="ll-demo-switch" role="switch" ' +
+              control = '<button type="button" class="ll-demo-switch" role="switch" ' +
                   'aria-checked="' + (r.on ? 'true' : 'false') + '" aria-label="' + esc(r.name) + '" data-i="' + i + '">' +
                   '<span class="ll-demo-switch-track"><span class="ll-demo-switch-thumb"></span></span>' +
                 '</button>';
-              return '<div class="ll-demo-item ll-demo-item--static">' + icon +
-                '<span class="ll-demo-main">' + text + '</span>' + sw + '</div>';
-            }
-            if (r.type === 'select') {
-              var sel = '<select class="ll-demo-select" aria-label="' + esc(r.name) + '" data-i="' + i + '">' +
+            } else if (r.type === 'select') {
+              control = '<select class="ll-demo-select" aria-label="' + esc(r.name) + '" data-i="' + i + '">' +
                   r.options.map(function (o) {
                     return '<option value="' + esc(o.value) + '"' + (o.value === r.value ? ' selected' : '') + '>' + esc(o.label) + '</option>';
                   }).join('') +
                 '</select>';
-              return '<div class="ll-demo-item ll-demo-item--static">' + icon +
-                '<span class="ll-demo-main">' + text + '</span>' + sel + '</div>';
+            } else if (r.state) {
+              control = '<span class="ll-demo-state">' + esc(r.state) + '</span>';
             }
-            return '<button class="ll-demo-item" type="button" role="menuitem" data-i="' + i + '">' +
-              icon + '<span class="ll-demo-main">' + text + '</span>' +
-              (r.state ? '<span class="ll-demo-state">' + esc(r.state) + '</span>' : '') +
-            '</button>';
+            var body = '<span class="ll-demo-main"><span class="ll-demo-row-head"><b>' + esc(r.name) + '</b>' + control + '</span>' +
+              (r.note ? '<small>' + esc(r.note) + '</small>' : '') + '</span>';
+            if (r.type === 'toggle' || r.type === 'select') {
+              return '<div class="ll-demo-item ll-demo-item--static">' + icon + body + '</div>';
+            }
+            return '<button class="ll-demo-item" type="button" role="menuitem" data-i="' + i + '">' + icon + body + '</button>';
           }).join('')
         : '<p class="ll-demo-empty">Nothing to demonstrate on this screen.</p>');
 
