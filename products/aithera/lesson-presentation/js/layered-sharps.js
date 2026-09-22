@@ -4598,7 +4598,8 @@
     '<main class="ll-object">' +
       '<div class="ld-page">' +
         '<div class="ld-spinner" aria-hidden="true"></div>' +
-        '<p class="ld-label">Loading progress assessment…</p>' +
+        '<p class="ll-eyebrow">Next up: Contain the Sharp</p>' +
+        '<p class="ld-label">Checking what you already know…</p>' +
       '</div>' +
     '</main>';
 
@@ -4911,20 +4912,25 @@
         api.replay();
       }
     }, {
-      // Reorders the array itself (see the splice right after STEPS above),
-      // so flipping it needs a fresh boot rather than a replay/refresh —
-      // same treatment as Start Over, which is why the reload also clears
-      // the run's progress keys: landing on a re-sequenced path holding
-      // answers recorded under the OLD sequence is the confusing state to
-      // avoid, not the one to build for. sh-battery-order itself is left
-      // alone, same as ll-lens/sh-name — a Demo menu setting, not progress.
+      // A one-shot preview, not a toggle — "Try it" always forces the
+      // before-mode order and reloads, rather than flipping a state a
+      // presenter has to remember to switch back. Normal order comes back
+      // with any fresh session (a new tab, or the hub's "Reset all
+      // progress"): sh-battery-order is deliberately left alone here, same
+      // as ll-lens/sh-name, rather than wired into this reload's own
+      // clear-list. Reorders the array itself (see the splice right after
+      // STEPS above), so it needs a fresh boot rather than a replay/refresh
+      // — same treatment as Start Over, which is why this reload also
+      // clears the run's progress keys: landing on a re-sequenced path
+      // holding answers recorded under the OLD sequence is the confusing
+      // state to avoid, not the one to build for.
       id: 'shBatteryOrderBtn', icon: 'fa-arrow-down-up-across-line', name: 'Battery before module',
-      note: 'Whether the pre-check (and the path it can adjust) run before the module’s own cover, or in their usual place right after it',
+      note: 'Preview the pre-check (and the path it can adjust) running before the module’s own cover, instead of in their usual place right after it',
       visibleOn: function (step) { return step.id === 'intro' || step.id === 'battery'; },
-      type: 'toggle', on: batteryOrderBefore,
+      state: function () { return 'Try it'; },
       onClick: function (api) {
         try {
-          sessionStorage.setItem('sh-battery-order', batteryOrderBefore() ? 'start' : 'before');
+          sessionStorage.setItem('sh-battery-order', 'before');
           ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-doobject-mode', 'sh-modality']
             .forEach(function (k) { sessionStorage.removeItem(k); });
         } catch (e) {}
