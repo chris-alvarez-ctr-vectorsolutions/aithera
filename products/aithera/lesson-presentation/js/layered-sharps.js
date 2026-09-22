@@ -855,7 +855,7 @@
               '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
             '</div>' +
           '</div>' +
-          '<div class="cp-art"><i class="fa-solid fa-syringe" aria-hidden="true"></i></div>' +
+          '<div class="cp-art"><img src="../../assets/images/sharps-header.jpg" alt="" /></div>' +
         '</header>' +
         '<div class="cp-grid">' +
           '<section class="cp-sections">' +
