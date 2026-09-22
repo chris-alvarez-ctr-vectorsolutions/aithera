@@ -446,6 +446,21 @@
     .scene .scene-head .mini-btn { display: none; }
     .scene.selected .scene-head .mini-btn { display: inline-flex; }
 
+    /* On an unselected card the only job of any descendant is to be part of
+       the click target, so none of them should intercept the event. The
+       controls that legitimately act without selecting (.scene-insert, and
+       the head's .status / .mini-btn) opt back in below. Without this a
+       click that happens to land on the media thumbnail, the time chip or
+       the read-only transcript could be swallowed before it reaches the
+       card. */
+    .scene:not(.selected) .scene-body,
+    .scene:not(.selected) .scene-read,
+    .scene:not(.selected) .scene-media,
+    .scene:not(.selected) .scene-foot { pointer-events: none; }
+    .scene:not(.selected) .scene-insert,
+    .scene:not(.selected) .scene-head .status,
+    .scene:not(.selected) .scene-head .mini-btn { pointer-events: auto; }
+
     /* Transcript: textarea when selected, static text otherwise. */
     .scene .scene-body textarea { display: none; }
     .scene.selected .scene-body textarea { display: block; }
@@ -470,6 +485,12 @@
        per edge, anchored to this card so the insertion point is never
        ambiguous, revealed only while the card is hovered. */
     .scene { position: relative; }
+
+    /* Clicking anywhere on an unselected card selects it, so the whole card
+       -- not just its text -- has to read as a target. The selected card
+       drops the pointer again: it is the editing surface, and its own
+       regions carry their own cursors. */
+    .scene:not(.selected) { cursor: pointer; }
     .scene-insert {
       position: absolute;
       left: 50%;
@@ -964,6 +985,25 @@
     /* The placeholder inherits the fill's text colour but stays muted. */
     .tpl-overlay .tpl-placeholder { opacity: .6; }
 
+    /* A video's still carries a play badge so the card reads as video at
+       a glance -- the filename alone is too easy to miss in a gallery. */
+    .scene-media-visual { position: relative; display: block; }
+    .media-badge {
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, .55);
+      color: #fff;
+      font-size: 13px;
+      pointer-events: none;
+    }
+    /* The play glyph is optically left-heavy; nudge it back to centre. */
+    .media-badge i { margin-left: 2px; }
+    .scene-media-name .smn-icon { margin-right: 6px; opacity: .75; }
+
     /* Filled media slot in a scene card's image view. */
     .scene-media-filled { display: block; }
     .scene-media-thumb {
@@ -1291,19 +1331,28 @@
        The generated LO is NOT gated -- it never went through publishing. */
 
     /* Bottom banner. Sits above the app chrome, full width. */
+    /* Amber, not green: this banner reports a LOCK, not a success. The
+       LO is read-only because it is Vector-provided content, and the
+       author has to act (Edit) to change that -- which is the warning
+       role in the theme, not the success role. Tokens quoted from the
+       themes CONTEXT.md for the version loaded above. */
     .gate-banner {
       position: fixed; left: 0; right: 0; bottom: 0; z-index: 2500;
       display: none; align-items: center; gap: 14px;
       padding: 14px 24px;
-      background: #e8f5ee;
-      border-top: 1px solid #b7dcc6;
+      background: var(--lumo-warning-color-10pct);
+      border-top: 1px solid var(--lumo-warning-color);
     }
     body.is-gated .gate-banner { display: flex; }
     .gate-check {
       flex: 0 0 auto;
       width: 26px; height: 26px; border-radius: 50%;
       display: inline-flex; align-items: center; justify-content: center;
-      background: #1a8b52; color: #fff; font-size: 13px;
+      /* The theme's own on-warning colour. White fails AA on amber
+         (3.05:1) where this dark ink passes at 4.97:1. */
+      background: var(--lumo-warning-color);
+      color: var(--lumo-warning-contrast-color);
+      font-size: 13px;
     }
     .gate-text { flex: 1 1 auto; min-width: 0; }
     .gate-title {
@@ -1803,8 +1852,16 @@
             Upload from your device
           </h4>
           <!-- Design-system upload component. Per the core CONTEXT.md,
-               vaadin-upload does NOT take theme="outlined". -->
-          <vaadin-upload id="mediaUpload" accept="image/*,video/*" max-files="1"></vaadin-upload>
+               vaadin-upload does NOT take theme="outlined".
+
+               There is NO `no-auto` and NO server. Picking a file starts an
+               upload immediately, and the `upload-request` handler below
+               cancels the XHR and simulates a successful one -- so the file
+               runs Connecting -> Processing -> complete and never sits in
+               the "Queued" state with a play button that would POST into
+               the void. See simulateUpload(). -->
+          <vaadin-upload id="mediaUpload" accept="image/*,video/*"
+                         max-files="1"></vaadin-upload>
           <p class="media-hint">JPG, PNG, SVG, MP4 or WebM · up to 50&nbsp;MB</p>
         </section>
 
@@ -2225,7 +2282,14 @@
       // view show it without the rep having to add media by hand.
       host.querySelectorAll('.scene').forEach((card, i) => {
         const sc = list[i];
-        if (sc && sc.image) card.__media = { name: sc.image, src: 'assets/' + sc.image };
+        // `mediaName` presents an image-backed scene AS another file --
+        // a video, whose first frame is what the canvas shows. The image
+        // stays the visual; only the displayed filename and icon change.
+        if (sc && sc.image) card.__media = {
+          name: sc.mediaName || sc.image,
+          src: 'assets/' + sc.image,
+          kind: sc.mediaName ? mediaKind(sc.mediaName) : 'image'
+        };
         // Paint every card's media slot now, not just the selected one.
         // restoreSceneCanvas() fills a slot only when its card becomes
         // active, which left the image view showing a single thumbnail --
@@ -2361,6 +2425,24 @@
     // ALL scenes, so this must not be tied to which card is selected.
     // Exposed on window: the media modal lives in a separate <script> block
     // and needs this to clear a scene's thumbnail (same reason
+    /* ---- Media kind ---------------------------------------------------
+       A scene's visual is always an image, but it can be PRESENTED as a
+       different file -- the Studio editor shows a video's first frame on
+       the canvas while the media container lists the video itself. These
+       two helpers decide, from the displayed filename alone, which icon
+       and badge that presentation gets. Unknown extensions fall back to
+       image, so an unrecognised name degrades to today's behaviour. */
+    const VIDEO_EXT = ['mp4', 'mov', 'webm', 'm4v', 'avi'];
+    function mediaKind(name) {
+      const ext = String(name).split('.').pop().toLowerCase();
+      return VIDEO_EXT.includes(ext) ? 'video' : 'image';
+    }
+    function mediaIcon(kind) {
+      return kind === 'video' ? 'fa-regular fa-file-video' : 'fa-regular fa-image';
+    }
+    window.mediaKind = mediaKind;
+    window.mediaIcon = mediaIcon;
+
     // __mediaForScene is global).
     window.fillSceneMediaSlot = fillSceneMediaSlot;
     function fillSceneMediaSlot(card) {
@@ -2368,8 +2450,16 @@
       if (!slot) return;
       slot.innerHTML = card.__media
         ? '<div class="scene-media-filled">' +
-            '<img class="scene-media-img" src="' + card.__media.src + '" alt="" />' +
-            '<span class="scene-media-name">' + card.__media.name + '</span>' +
+            '<span class="scene-media-visual">' +
+              '<img class="scene-media-img" src="' + card.__media.src + '" alt="" />' +
+              (card.__media.kind === 'video'
+                ? '<span class="media-badge" title="Video"><i class="fa-solid fa-play"></i></span>'
+                : '') +
+            '</span>' +
+            '<span class="scene-media-name">' +
+              '<i class="' + mediaIcon(card.__media.kind) + ' smn-icon"></i>' +
+              card.__media.name +
+            '</span>' +
           '</div>'
         : '<div class="scene-media-empty">' +
             '<i class="fa-regular fa-image"></i>' +
@@ -2995,7 +3085,7 @@
           .replace(/"/g, '&quot;');
         mediaProp.innerHTML =
           '<div class="media-prop-row">' +
-            '<i class="fa-regular fa-image mp-icon"></i>' +
+            '<i class="' + mediaIcon(media.kind) + ' mp-icon"></i>' +
             '<span class="media-prop-name" title="' + safe + '">' + safe + '</span>' +
             '<button class="media-prop-del" type="button" title="Remove media from this scene" ' +
                     'aria-label="Remove media from this scene">' +
@@ -3081,6 +3171,100 @@
         src: 'assets/generate-img-sample.jpeg'
       };
 
+      /* ---- The rep's own uploaded file --------------------------------
+         vaadin-upload keeps the NATIVE File objects in its `files` array
+         (it decorates them with status fields rather than copying them),
+         so the newest pick is files[0] and can be previewed directly with
+         createObjectURL -- no server, no reading the bytes.
+
+         Only rasterisable images are previewed. A video would need a
+         <video> element on the canvas, which paintStage() does not build,
+         so video falls back to the demo asset rather than rendering a
+         broken <img>. */
+      let lastObjectURL = null;
+      const PREVIEWABLE = /^image\/(png|jpeg|jpg|gif|webp|svg\+xml|avif)$/i;
+
+      function pickedMediaFile() {
+        const up = document.getElementById('mediaUpload');
+        const f = up && up.files && up.files[0];
+        if (!f) return null;
+        // A file the component rejected or errored on is not a successful
+        // upload, so it must not reach the canvas.
+        if (f.error) return null;
+        return PREVIEWABLE.test(f.type || '') ? f : null;
+      }
+
+      function mediaFromFile(file) {
+        // Release the previous preview before minting a new one.
+        if (lastObjectURL) URL.revokeObjectURL(lastObjectURL);
+        lastObjectURL = URL.createObjectURL(file);
+        return {
+          name: file.name,
+          src: lastObjectURL,
+          kind: mediaKind(file.name)
+        };
+      }
+
+      // A closed modal should not keep a stale pick around: the next open
+      // starts empty, the same way the generate route resets its prompt.
+      function clearMediaUpload() {
+        const up = document.getElementById('mediaUpload');
+        if (up) up.files = [];
+      }
+
+      /* ---- Simulated upload ---------------------------------------------
+         There is no server behind the demo, so a real POST fails and the
+         file lands in an error state -- or, with `no-auto`, sits in the
+         "Queued" state whose play button POSTs into the void and shows a
+         restriction error.
+
+         `upload-request` is dispatched cancelable and the component only
+         calls xhr.send() when it is NOT cancelled, so preventDefault() here
+         stops the network entirely. We then drive the same file fields the
+         component's own success path sets, and re-render its list, so the
+         row reports a finished upload.
+
+         The 900ms is cosmetic: an instant jump to "complete" reads as a
+         bug on a call, a brief processing state reads as a save. */
+      function simulateUpload(up, file) {
+        file.held = false;
+        file.error = '';
+        file.abort = false;
+        file.indeterminate = false;
+        file.uploading = true;
+        file.status = 'Processing File...';
+        file.progress = 100;
+        file.loaded = file.size;
+        up._renderFileList && up._renderFileList();
+
+        setTimeout(() => {
+          file.uploading = false;
+          file.indeterminate = false;
+          file.status = '';
+          file.complete = true;
+          file.progress = 100;
+          up._renderFileList && up._renderFileList();
+          // Mirror the component's own success signal so anything listening
+          // behaves as it would after a real upload.
+          up.dispatchEvent(new CustomEvent('upload-success', {
+            detail: { file, xhr: null }
+          }));
+        }, 900);
+      }
+
+      (function wireUploadSimulation() {
+        const up = document.getElementById('mediaUpload');
+        if (!up) return;
+        // Cancel the real request, then fake a successful one.
+        up.addEventListener('upload-request', (e) => {
+          e.preventDefault();
+          simulateUpload(up, e.detail.file);
+        });
+        // A file the component rejects (wrong type, too many) must not look
+        // like it uploaded -- leave the component's own error showing.
+        up.addEventListener('file-reject', () => {});
+      })();
+
 
       function setRoute(next) {
         route = next;
@@ -3094,8 +3278,10 @@
         ['generate', 'upload'].forEach(r => {
           document.getElementById('mpane-' + r).classList.toggle('active', r === next);
         });
-        // The primary action is named for the route it completes.
-        confirm.textContent = next === 'generate' ? 'Generate' : 'Use Upload';
+        // The primary action is named for the route it completes. The upload
+        // route says "Add to Scene" -- the same words the generate route's
+        // enhance step uses, since both end by putting media on the scene.
+        confirm.textContent = next === 'generate' ? 'Generate' : 'Add to Scene';
       }
 
       tabs.addEventListener('click', (e) => {
@@ -3117,10 +3303,18 @@
 
         // A real file renders as an <img>; anything without a src
         // falls back to a tinted swatch.
+        // Media added during the demo is named by the rep's own file, so
+        // derive its kind the same way authored media does.
+        if (!media.kind) media.kind = mediaKind(media.name);
         const visual = media.src
-          ? '<img class="scene-media-img" src="' + media.src + '" alt="" />'
+          ? '<span class="scene-media-visual">' +
+              '<img class="scene-media-img" src="' + media.src + '" alt="" />' +
+              (media.kind === 'video'
+                ? '<span class="media-badge" title="Video"><i class="fa-solid fa-play"></i></span>'
+                : '') +
+            '</span>'
           : '<span class="scene-media-thumb" style="background:' + media.swatch + '">' +
-              '<i class="fa-regular fa-image"></i>' +
+              '<i class="' + mediaIcon(media.kind) + '"></i>' +
             '</span>';
 
         // Only the ACTIVE scene's slot. This used to write into every
@@ -3132,7 +3326,12 @@
             slot.innerHTML =
               '<div class="scene-media-filled">' +
                 visual +
-                '<span class="scene-media-name">' + media.name + '</span>' +
+                '<span class="scene-media-name">' +
+                  '<i class="' + mediaIcon(media.kind) + ' smn-icon"></i>' +
+                  // The rep picks this filename on a live call, so escape it
+                  // rather than interpolating it raw into innerHTML.
+                  escapeHTML(media.name) +
+                '</span>' +
               '</div>';
           }
         }
@@ -3169,10 +3368,16 @@
           }, 3000);
 
         } else {
-          // Upload. An uploaded file resolves to the same demo image -- the
-          // file a rep picks on a call can't be rendered, and a fixed
-          // outcome is the point.
-          applyMedia({ ...GENERATED_IMAGE });
+          /* Upload. The rep's OWN file is shown when it is an image we can
+             render locally; anything else falls back to the demo asset so a
+             mis-pick on a live call still lands somewhere sensible.
+
+             The object URL is session-only by design -- it dies with the
+             page, nothing is stored or transmitted. Each new pick revokes
+             the previous URL so a long demo doesn't leak blobs. */
+          const picked = pickedMediaFile();
+          if (picked) applyMedia(mediaFromFile(picked));
+          else applyMedia({ ...GENERATED_IMAGE });
         }
       });
 
@@ -3213,6 +3418,7 @@
         if (document.body.classList.contains('is-gated')) return;
         titleEl.textContent = sceneMedia ? 'Replace Media' : 'Add Media';
         resetGenerate();
+        clearMediaUpload();
         document.getElementById('genDesc').value = '';
         setRoute('generate');
         modal.classList.add('open');
