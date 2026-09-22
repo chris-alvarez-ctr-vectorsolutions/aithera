@@ -4568,6 +4568,62 @@
   }
 
   // ==========================================================================
+  //  BATTERY-BEFORE ONLY: two screens ahead of the pre-check. Neither is a
+  //  real learner-facing beat outside the Demo menu's "Battery before"
+  //  toggle — spliced onto the front of STEPS below, never part of the
+  //  base array. See batteryOrderBefore() and the splice near the bottom.
+  //
+  //  PRIORMOD sells the premise: the pre-check has to feel like it is
+  //  running after something, not opening the module cold, so this is a
+  //  stand-in "you just finished Module 3" screen — same course chrome,
+  //  a different (invented) lesson. LOADING then sells the jump into THIS
+  //  module as a real transition rather than a cut, and hands off to
+  //  'battery' on its own after a beat, no click required.
+  // ==========================================================================
+  var PRIORMOD_CONTENT =
+    '<main class="ll-object">' +
+      '<div class="pm-page">' +
+        '<div class="pm-badge"><i class="fa-solid fa-check" aria-hidden="true"></i></div>' +
+        '<p class="ll-eyebrow">Bloodborne Pathogens · Module 3 of 6</p>' +
+        '<h1>Personal Protective Equipment</h1>' +
+        '<p class="pm-sub">Module complete.</p>' +
+        '<div class="pm-stats">' +
+          '<div class="pm-stat"><span class="pm-stat-val">100%</span><span class="pm-stat-lbl">Final check</span></div>' +
+          '<div class="pm-stat"><span class="pm-stat-val">6 min</span><span class="pm-stat-lbl">Time spent</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</main>';
+
+  var LOADING_CONTENT =
+    '<main class="ll-object">' +
+      '<div class="ld-page">' +
+        '<div class="ld-spinner" aria-hidden="true"></div>' +
+        '<p class="ld-label">Loading progress assessment…</p>' +
+      '</div>' +
+    '</main>';
+
+  function batteryLoadingInit(ctx) {
+    // No click required — a load screen a learner has to dismiss isn't
+    // selling a transition, it's just another step. LE.goTo, not ctx.go:
+    // this step has no engine-exposed nav helper of its own, and the id
+    // it names never changes regardless of what runs before it.
+    setTimeout(function () { LE.goTo('battery'); }, T(1400));
+  }
+
+  var PRIORMOD_STEP = {
+    id: 'priorModule', icon: 'fa-clipboard-check', lesson: 'Personal Protective Equipment',
+    mode: 'floating', noCoach: true, interstitial: true,
+    caption: { title: 'DEMO · Simulated prior module', note: 'Battery-before only. A stand-in "Module 3 complete" screen — invented, never authored content — so the pre-check has something believable to follow instead of opening the module cold. Reuses this course’s own chrome rather than looking like a different product.' },
+    content: PRIORMOD_CONTENT
+  };
+  var BATTERYLOADING_STEP = {
+    id: 'batteryLoading', icon: 'fa-spinner', lesson: 'Progress assessment',
+    mode: 'floating', noCoach: true, interstitial: true,
+    caption: { title: 'DEMO · Transition into the pre-check', note: 'Battery-before only. A brief loader between the simulated prior module and the real pre-check; advances itself after a beat (batteryLoadingInit) — nothing for a learner to click through.' },
+    content: LOADING_CONTENT, init: batteryLoadingInit
+  };
+
+  // ==========================================================================
   //  THE PATH. Entry → Learn → Check → Perform → Record, with the assessment
   //  policy deciding what is here at all.
   // ==========================================================================
@@ -4780,6 +4836,11 @@
     bStep.hideProgress = true;
     var aStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'adjust'; })];
     aStep.noCoach = true;
+
+    // The simulated prior module + its loader run BEFORE all of the above —
+    // 'battery' is index 0 at this point, so the front of the array is
+    // exactly where they belong.
+    STEPS.splice(0, 0, PRIORMOD_STEP, BATTERYLOADING_STEP);
   }
 
   // ==========================================================================
