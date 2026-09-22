@@ -570,12 +570,21 @@
   };
   function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
+  /* Sample files for the prototype picker — ordered CLEANEST FIRST → MOST ISSUES
+     LAST, and each tagged with the kind of errors it triggers so a tester can grab
+     the right scenario. tag = short label, kind drives the pill color (see
+     fileModalHTML), note = one-line description of what it demonstrates. */
   var FILES = [
-    { id: 'clean',   name: 'staff_roster_2026.csv',      rows: 45,  note: 'September new-hire batch from HR' },
-    { id: 'confirm', name: 'fall_staff_roster.csv',      rows: 164, note: 'Full fall roster export — all buildings' },
-    { id: 'saml',    name: 'hr_export_powerschool.csv',  rows: 156, note: 'Raw export straight from PowerSchool' },
-    { id: 'dupes',   name: 'combined_hr_athletics.csv',  rows: 152, note: 'HR list merged with athletics staff list' },
-    { id: 'blast',   name: 'all_users_rebuild.csv',      rows: 168, note: 'Complete rebuild from the new HR system' }
+    { id: 'clean',   name: 'clean_new_hires.csv',              rows: 45,  tag: 'Clean · no errors',        kind: 'ok',
+      note: 'September new-hire batch — imports straight through with nothing to fix.' },
+    { id: 'confirm', name: 'fall_roster_confirm_changes.csv',  rows: 164, tag: 'Needs confirmation',        kind: 'confirm',
+      note: 'Full fall roster — name changes, deactivations & job removals to confirm before it runs.' },
+    { id: 'saml',    name: 'powerschool_saml_mismatch.csv',    rows: 156, tag: 'Blocked · SAML mismatch',   kind: 'blocked',
+      note: 'PowerSchool export — the Username column doesn’t match your SSO (SAML) sign-in. Must be fixed to run.' },
+    { id: 'dupes',   name: 'merged_duplicate_emails.csv',      rows: 152, tag: 'Blocked · needs Vector',    kind: 'escalate',
+      note: 'HR + athletics merged — two accounts share one email; Vector has to merge them before it can run.' },
+    { id: 'blast',   name: 'full_rebuild_mass_change.csv',     rows: 168, tag: 'Blocked · mass change',     kind: 'blocked',
+      note: 'Full rebuild — would change usernames on 148 of 170 accounts and break sign-in district-wide.' }
   ];
 
   var COLS = {
@@ -1095,12 +1104,14 @@
     }).join('');
   }
 
-  /* ENTRY POINT — ver4 = uploader lives INSIDE the Add employee modal; bulk mode
-     OPENS THE IMPORT IN A NEW BROWSER TAB. Toolbar is the standard '+ Add
-     Employee' primary + Export + Search. */
+  /* ENTRY POINT — split buttons (shared across versions): "Add Single Employee"
+     opens the modal on the single form; "Bulk Upload" opens the SAME modal on the
+     bulk tab (ver4's in-modal concept), where bulk mode OPENS THE IMPORT IN A NEW
+     BROWSER TAB. */
   function entryLeft() {
     return '<div class="emp-entry">'
-      + '<button class="btn btn--primary btn--lg" data-act="addSingle"><i class="fa-solid fa-user-plus"></i> Add Employee</button>'
+      + '<button class="btn btn--ghost btn--lg" data-act="addSingle"><i class="fa-solid fa-user-plus"></i> Add Single Employee</button>'
+      + '<button class="btn btn--primary btn--lg" data-act="goBulk"><i class="fa-solid fa-file-arrow-up"></i> Bulk Upload</button>'
       + '</div>';
   }
   function entryRight() {
@@ -1224,11 +1235,23 @@
      OS file chooser. The sample files live HERE (not on the page) so the upload
      screen matches the real product; picking one loads its scenario and closes. */
   function fileModalHTML() {
+    // Colored pill naming the error type each sample triggers (matches TIER palette).
+    function tagPill(f) {
+      var c = ({ ok:       ['#067647', '#ECFDF3', '#A6E5C3'],
+                 confirm:  ['#8A5A0B', '#FFFAEB', '#F2D69B'],
+                 blocked:  ['#B42318', '#FEF3F2', '#F1C0BB'],
+                 escalate: ['#3E3A8F', '#F4F3FB', '#CBC9EC'] })[f.kind] || ['#5B6B7E', '#F0F4F9', '#E1E7EE'];
+      return '<span style="font-size:11px;font-weight:700;letter-spacing:.3px;color:' + c[0]
+        + ';background:' + c[1] + ';border:1px solid ' + c[2] + ';border-radius:5px;padding:2px 8px;white-space:nowrap;">'
+        + esc(f.tag) + '</span>';
+    }
     var files = FILES.map(function (f) {
       return '<div class="file-row" data-act="pickFile" data-arg="' + f.id + '">'
         + '<div class="file-badge">CSV</div>'
-        + '<div style="flex:1;min-width:0;"><div class="mono" style="font-size:13px;font-weight:500;">' + esc(f.name) + '</div>'
-        + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:1px;">' + esc(f.note) + '</div></div>'
+        + '<div style="flex:1;min-width:0;">'
+        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+        + '<span class="mono" style="font-size:13px;font-weight:500;">' + esc(f.name) + '</span>' + tagPill(f) + '</div>'
+        + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:3px;">' + esc(f.note) + '</div></div>'
         + '<div style="font-size:12.5px;color:#8CA0B4;white-space:nowrap;">' + f.rows + ' rows</div>'
         + '<div style="font-size:13px;color:#1257B8;font-weight:600;white-space:nowrap;">Select →</div></div>';
     }).join('');
@@ -1236,7 +1259,7 @@
       + '<div class="modal" data-act="noop">'
       + '<div class="modal-head"><div>'
       + '<div class="modal-title">Choose a file to upload</div>'
-      + '<div class="modal-sub">Prototype stand-in for your computer’s file picker — each sample loads a different scenario.</div>'
+      + '<div class="modal-sub">Prototype stand-in for your computer’s file picker. Samples are sorted <b>cleanest first → most issues last</b>, and each is tagged with the kind of errors it triggers so you can load the right scenario.</div>'
       + '</div><button class="modal-x" data-act="closeFiles" aria-label="Close">✕</button></div>'
       + '<div class="modal-body">'
       + '<div class="modal-drop"><div class="dropzone-icon" style="margin:0 auto 8px;"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
@@ -1329,27 +1352,24 @@
     return out;
   }
 
-  /* Import settings — two independent, off-by-default choices ("deactivate/remove",
-     the customer wording for purge), each destructive. Shows the full itemized
-     impact (who/what changes and how many people) as the toggles flip, so the
-     scope is concrete before anything runs. Re-confirmed with a review next step. */
+  /* Import settings — ONE all-or-nothing choice (the two independent toggles were
+     collapsed at the designer's request: all on or all off). Off = add/update only;
+     On = make the file the complete roster. Shows the full itemized impact as the
+     toggle flips, and it's re-confirmed on the review step. */
   function settingsHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
-    var pu = state.purgeUsers, pj = state.purgeJobs;
-
-    function optRow(on, act, title, sub) {
-      return '<div class="opt-row' + (on ? ' is-on is-danger' : '') + '">'
-        + '<div class="toggle" data-act="' + act + '" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
-        + '<div class="toggle-knob" style="left:' + (on ? '17px' : '2px') + ';"></div></div>'
-        + '<div class="opt-main"><div class="opt-title">' + title + '</div><div class="opt-sub">' + sub + '</div></div></div>';
-    }
+    // ONE all-or-nothing choice replaces the two independent toggles: either the
+    // file is treated as the complete roster (deactivate missing users + remove
+    // their old jobs) or it only adds and updates. purgeUsers / purgeJobs are kept
+    // in lock-step so the impact preview and review step keep working unchanged.
+    var on = state.purgeUsers && state.purgeJobs;
 
     // Per-person example — a user in the file whose jobs differ (remove-jobs effect)
     var chips = '<span class="job-chip job-keep">Teacher · Lincoln Elementary</span>'
-      + (pj ? '<span class="job-chip job-remove">Coach · Ridgewood High</span>'
+      + (on ? '<span class="job-chip job-remove">Coach · Ridgewood High</span>'
             : '<span class="job-chip job-keep">Coach · Ridgewood High</span>')
       + '<span class="job-chip job-add">+ Counselor · Lincoln Elementary</span>';
-    var jobNote = pj
+    var jobNote = on
       ? 'Coach · Ridgewood High is <b>removed</b> and Counselor · Lincoln Elementary is <b>added</b> — her record becomes an exact mirror of the file.'
       : 'Counselor · Lincoln Elementary is <b>added</b>; everything she already has is <b>kept</b> — nothing is removed.';
     var exJobs = '<div class="ex-card" style="margin-bottom:0;">'
@@ -1362,20 +1382,26 @@
       ? '<div style="margin-top:14px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#067647;"><span style="font-weight:600;">Sent to your Vector rep.</span> They’ll follow up by email to help you choose — nothing runs in the meantime.</div>'
       : '<div style="font-size:12.5px;color:#5B6B7E;margin-top:14px;">Not sure which to choose? <a href="#" data-act="askRep">Send this file to your Vector rep for help →</a></div>';
 
+    // One toggle, all-or-nothing. Off = add/update only; On = make the file the roster.
+    var optCard = '<div class="opt-row' + (on ? ' is-on is-danger' : '') + '">'
+      + '<div class="toggle" data-act="togglePurgeAll" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
+      + '<div class="toggle-knob" style="left:' + (on ? '17px' : '2px') + ';"></div></div>'
+      + '<div class="opt-main"><div class="opt-title">Make this file the complete roster</div>'
+      + '<div class="opt-sub">Turn this on only when the file lists <b>everyone</b>. Anyone not in it is <b>deactivated</b> (training history is kept, and they come back if they return in a later file), and any position or location a user no longer has is <b>removed</b> — so each record becomes an exact mirror of the file.<br><br>Leave it <b>off</b> to only add and update: new people and jobs come in, and everyone and everything already on your site is left exactly as it is. Best for partial lists — new hires, one building, one department.</div></div></div>';
+
+    var summary = '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#3D4F63;line-height:1.7;margin-top:12px;">'
+      + '<div style="font-weight:600;color:#1B2B3E;margin-bottom:3px;">' + (on ? 'With this on' : 'With this off') + '</div>'
+      + (on
+          ? '• Users missing from your file are <b>deactivated</b>.<br>• Each user’s positions &amp; locations are <b>synced to exactly match</b> the file.'
+          : '• Users missing from your file <b>stay active</b>.<br>• New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
+      + '</div>';
+
     return '<div class="fadeup" style="max-width:900px;">'
       + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What should happen to users and jobs that aren’t in this file?</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows. Both options are off by default — nothing is removed unless you turn it on, and you’ll confirm the exact changes on the next step.</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows. This is <b>off by default</b> — nothing is removed unless you turn it on, and you’ll confirm the exact changes on the next step.</div>'
       + '<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">'
       + '<div style="flex:1;min-width:330px;">'
-      + optRow(pu, 'togglePurgeUsers', 'Deactivate users not in this file',
-          'Any active user missing from the file loses access. Their training history is kept and they reactivate if they appear in a later file. Leave off for partial lists — new hires, one building, one department.')
-      + optRow(pj, 'togglePurgeJobs', 'Remove positions &amp; locations not in this file',
-          'For users in the file, any position or location they hold that isn’t in the file is removed — so the file becomes the exact record. Leave off to only add what’s new and keep everything else.')
-      + '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#3D4F63;line-height:1.7;">'
-      + '<div style="font-weight:600;color:#1B2B3E;margin-bottom:3px;">With these settings</div>'
-      + '• ' + (pu ? 'Users missing from your file are <b>deactivated</b>.' : 'Users missing from your file <b>stay active</b>.') + '<br>'
-      + '• ' + (pj ? 'Each user’s positions &amp; locations are <b>synced to exactly match</b> the file.' : 'New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
-      + '</div>' + repRow
+      + optCard + summary + repRow
       + '</div>'
       + '<div style="flex:1;min-width:300px;"><div class="section-eyebrow" style="margin-bottom:10px;">What would change on your site</div>'
       + impactBreakdown()
@@ -1973,7 +1999,7 @@
       case 'closeAddEmp': setState({ addEmp: false }); break;
       case 'empMode': setState({ empMode: arg }); break;
       case 'bulkNewTab': e.preventDefault(); window.open(location.pathname + '#fm=upload', '_blank'); setState({ addEmp: false }); break;
-      case 'goBulk': e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, addEmp: false, s5Fixed: {}, validating: false }); scrollTop(); break;
+      case 'goBulk': e.preventDefault(); setState({ addEmp: true, empMode: 'bulk' }); break;  // Bulk Upload opens the Add Employee modal on the bulk tab (ver4's in-modal concept)
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, s5Fixed: {}, validating: false }); scrollTop(); break;
       case 'backToImport':
@@ -1990,8 +2016,7 @@
       case 's5Back': e.preventDefault(); setState({ fileId: null, step: 'upload', s5Fixed: {} }); scrollTop(); break;
       case 'attnFix': e.preventDefault(); setState({ attnFix: +arg }); break;
       case 'attnSend': e.preventDefault(); setState({ attnSent: true }); break;
-      case 'togglePurgeUsers': setState({ purgeUsers: !state.purgeUsers }); break;
-      case 'togglePurgeJobs': setState({ purgeJobs: !state.purgeJobs }); break;
+      case 'togglePurgeAll': { var pv = !(state.purgeUsers && state.purgeJobs); setState({ purgeUsers: pv, purgeJobs: pv }); break; }  // one all-or-nothing switch
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
       case 'fixMapping': go('map'); scrollTop(); break;
       case 'replaceFile': setState({ fileId: null, step: 'upload' }); scrollTop(); break;
@@ -2115,8 +2140,8 @@
       nodes: [
         /* ── Manual import: wizard on the left, then one branch per severity ──
            Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
-        { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — modal → new tab', state: 'employees',
-          desc: 'Bulk import now lives under the Employees tab. ver4 entry point = the uploader is INSIDE the Add employee modal (One-employee / Many-bulk toggle); bulk mode OPENS THE IMPORT IN A NEW BROWSER TAB (the three big screens run there). Automated sync is already set up for the site.' },
+        { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — split buttons → modal → new tab', state: 'employees',
+          desc: 'Bulk import lives under the Employees tab, entered from split buttons: “Add Single Employee” opens the Add employee modal on the single form; “Bulk Upload” opens the SAME modal on the bulk tab (One-employee / Many-bulk toggle). From bulk mode the import OPENS IN A NEW BROWSER TAB (the three big screens run there). Automated sync is already set up for the site.' },
         { id: 'upload', flow: 'import', x: 250, y: 250, step: 'Upload (1 of 3)', name: 'Upload file', state: 'upload',
           desc: 'Opens in a new tab. Drag a file or pick a sample. Nothing imports until reviewed.' },
         { id: 'fix', flow: 'import', x: 500, y: 250, step: 'Fix (2 of 3)', name: 'Fix screen', state: 'fix',
