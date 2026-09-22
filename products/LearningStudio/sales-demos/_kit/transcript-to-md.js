@@ -137,9 +137,14 @@ const scenes = chunks.map((chunk, i) => {
   // Per-scene keys sit at the top of the chunk; everything after them is
   // the transcript, preserved exactly (only outer blank lines trimmed).
   const image    = (chunk.match(/^\s*image:\s*(.+)$/m) || [])[1] || '';
+  // Optional. Presents an image-backed scene AS another file -- a video,
+  // whose first frame is the still above. Only the displayed filename and
+  // icon change; `image:` is still what renders.
+  const media    = (chunk.match(/^\s*media:\s*(.+)$/m) || [])[1] || '';
   const authored = (chunk.match(/^\s*duration:\s*(.+)$/m) || [])[1];
   const text     = chunk
     .replace(/^\s*image:.*$/m, '')
+    .replace(/^\s*media:.*$/m, '')
     .replace(/^\s*duration:.*$/m, '')
     .trim();
 
@@ -149,7 +154,8 @@ const scenes = chunks.map((chunk, i) => {
             : fmtDur(estimateSeconds(text));
 
   if (!image) console.error(`  ! scene ${i + 1} has no image:`);
-  return { n: i + 1, image: image.trim(), dur, text, estimated: !authored && !fixedDur };
+  return { n: i + 1, image: image.trim(), media: media.trim(), dur, text,
+           estimated: !authored && !fixedDur };
 });
 
 // ---- emit ----
@@ -161,7 +167,9 @@ if (flag('hidden')) out.push('hidden: true');
 out.push('');
 
 scenes.forEach(s => {
-  out.push(`#### scene ${s.n} | ${s.dur} | ${s.image}`);
+  // The 4th field is emitted only when authored, so plain-image scenes
+  // keep the shorter three-field form.
+  out.push(`#### scene ${s.n} | ${s.dur} | ${s.image}` + (s.media ? ` | ${s.media}` : ''));
   out.push(s.text);
   out.push('');
 });

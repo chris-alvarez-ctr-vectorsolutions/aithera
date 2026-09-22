@@ -1110,7 +1110,7 @@
         /* Collapse the component's own toolbars — Select All (above the grid)
            and the Assign action button (below it). Both are documented parts,
            so hiding them here is stable; both controls are re-hosted in the
-           drawer toolbar so they sit on one line with Refresh.
+           drawer toolbar so they sit on one line with the other controls.
 
            Once the buttons are hidden the wrapping .card-grid-toolbar rows
            measure 0px on their own — verified in the shadow root. What
@@ -1148,8 +1148,10 @@
            the list's shadow root instead (see styleCourseCards), where
            vwc-course-card is a direct child and its exported parts resolve. */
         .rec-card-part-styles { display: none; }
-        /* Select All re-hosted in our row, styled to match Refresh. */
+        /* Select All re-hosted in our row. */
+        /* min-height 24 for WCAG 2.5.8. */
         .rec-selectall-btn {
+            min-height: 24px;
             background: none; border: none; padding: 4px 8px; cursor: pointer;
             font-family: inherit; font-size: 12px; font-weight: 600;
             color: var(--rec-accent-strong);
@@ -1180,13 +1182,6 @@
                 /* Colors/padding/radius come from theme="badge warning"; keep only the
            pill shape + type tweaks the badge theme doesn't provide. */
                 .rec-section-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        .rec-refresh-btn {
-            background: none; border: none; padding: 4px 2px; cursor: pointer;
-            font-family: inherit; font-size: 12px; font-weight: 600; color: var(--rec-accent-strong);
-            display: inline-flex; align-items: center; gap: 6px;
-        }
-        .rec-refresh-btn:hover { text-decoration: underline; }
-        .rec-refresh-btn i { font-size: 11px; }
                 /* Recs are catalogued by component code only — no domain coloring
            because this prototype's flat form has no domain concept. */
                         /* The recommendation cards are the real <vwc-course-list> /
@@ -1563,9 +1558,11 @@
                220px floor is enforced where it actually matters instead: the
                resize clamp and syncDrawerOpenHeight(), both of which compute
                the drawer's resting height. */
-            /* Never taller than the viewport minus the bar and some breathing
-               room for the form above. */
-            max-height: calc(100vh - var(--rec-bar-h) - 120px);
+            /* Never taller than the viewport minus the bar and a little
+               breathing room for the form above. This is only a backstop —
+               the JS ceiling (drawerMaxHeight) is the real limit and is
+               tighter in every realistic case. */
+            max-height: calc(100vh - var(--rec-bar-h) - 56px);
             background: var(--workspace-bg);
             border-top: 1px solid var(--border-soft);
             overflow: hidden;
@@ -1647,18 +1644,23 @@
         }
         body.rec-resizing { cursor: ns-resize; user-select: none; }
 
-        /* Drawer toolbar — hosts Refresh / Select All / Configure Assignments.
+        /* Drawer toolbar — hosts Select All / Configure Assignment.
            Sticky-free: it's outside the scroll body, so it never overlaps
            content and needs no opaque-token workaround. */
+        /* ONE ROW, always. Letting the controls wrap cost a whole extra
+           toolbar row at narrow widths, which came straight out of the scroll
+           area the cards need. nowrap + min-width:0 on the spacer keeps them
+           on a single line, and the labels shorten at narrow widths (see the
+           760px block) rather than stacking. */
         .rec-drawer-toolbar {
             flex-shrink: 0;
             display: flex; align-items: center; gap: 14px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             padding: 10px 24px;
             background: var(--lumo-base-color);
             border-bottom: 1px solid var(--border-soft);
         }
-        .rec-drawer-toolbar-spacer { flex: 1; }
+        .rec-drawer-toolbar-spacer { flex: 1 1 auto; min-width: 0; }
 
         /* The scroll body. Both lists live here and scroll together, so the
            upsell list is reached by continuing to scroll past the licensed
@@ -1791,25 +1793,111 @@
         /* ── Reflow (WCAG 1.4.10) ── */
         @media (max-width: 760px) {
             /* Tighter side inset — at phone widths a 16px gutter each side is
-               already most of the screen. */
-            .rec-dock { left: 10px; right: 10px; }
-            /* Stacked layout: release the single-row fixed height or the
-               wrapped rows are clipped out of the bar entirely. min-height
-               keeps the banner from ever being shorter than the pinned
-               single-row version. */
+               already most of the screen. The base rule sets an explicit
+               `width: calc(100% - 24px)`, which would beat left/right alone,
+               so the width is overridden here too (without it this rule was
+               dead and the gutter never actually narrowed). */
+            .rec-dock { left: 10px; right: 10px; width: calc(100% - 20px); }
+            /* ── Single-row bar (WCAG 1.4.10) ──
+               The banner previously wrapped to THREE rows here (icon, then
+               body at flex-basis:100%, then actions at 100%), which made it
+               218px tall — 85% of a 320x256 viewport at 400% zoom, before the
+               drawer opened at all. At this width it collapses to one row:
+               a small icon, the heading, and a single icon-only CTA.
+
+               What is dropped is the marketing copy, NOT the function: every
+               action available on the wide bar is still here, and the heading
+               still names the feature. */
             .rec-bar {
-                flex-wrap: wrap;
-                padding: 12px 16px;
+                flex-wrap: nowrap;
+                padding: 10px 12px;
+                gap: 10px;
                 height: auto;
-                min-height: var(--rec-bar-h);
+                min-height: 0;
             }
-            .rec-bar-body { flex-basis: 100%; order: 2; }
-            .rec-bar-actions { order: 3; flex-basis: 100%; justify-content: flex-end; }
+            /* Smaller badge — 42px is a desktop flourish at this width. */
+            .rec-bar-icon {
+                width: 30px; height: 30px;
+                border-radius: 8px;
+                font-size: 13px;
+            }
+            /* The body must be allowed to shrink, or the heading pushes the
+               CTA off the end of the row. */
+            .rec-bar-body { min-width: 0; flex: 1 1 auto; }
+            /* The description is the single biggest height cost and the least
+               load-bearing content — the drawer itself explains the feature. */
+            .rec-bar-desc { display: none; }
+            /* One line, ellipsized rather than wrapped. */
+            .rec-bar-title {
+                font-size: 13.5px;
+                flex-wrap: nowrap;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: block;
+            }
+            .rec-bar-actions { flex-shrink: 0; gap: 8px; }
+
+            /* Icon-only CTA. The label is hidden VISUALLY ONLY — it stays in
+               the accessibility tree, and the button also carries an explicit
+               aria-label, so the control is still named. Never `display: none`
+               here: that would remove it from the tree and leave an unnamed
+               icon button. */
+            .rec-cta-label {
+                position: absolute;
+                width: 1px; height: 1px;
+                padding: 0; margin: -1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+                border: 0;
+            }
+            /* Square target once the label is gone — 36px clears the 24px
+               minimum (WCAG 2.5.8) with room to spare. */
+            .rec-bar-cta,
+            .rec-bar-working {
+                width: 36px; height: 36px;
+                padding: 0;
+                justify-content: center;
+                gap: 0;
+            }
+            /* The count chip duplicates what the drawer shows the moment it
+               opens, and the chevron beside it is the actual control. */
+            .rec-bar-count { display: none; }
+            /* Match the CTA so the single row has one consistent control
+               height; still well above the 24px minimum. */
+            .rec-bar-chevron { width: 36px; height: 36px; }
+
+            /* The fixed 62vh below is now a FLOOR-less leftover: the JS sizes
+               the open drawer from its content and caps it against the
+               viewport (see drawerMaxHeight), and that value wins via
+               .rec-dock[data-open]. Kept only as the pre-JS fallback. */
             /* A drag-resized drawer is not usable at this width; fix the
                height and hide the grip. */
             .rec-drawer { height: 62vh; }
             .rec-drawer-resize { display: none; }
             .rec-drawer-toolbar, .rec-drawer-body { padding-left: 16px; padding-right: 16px; }
+
+            /* ── Toolbar stays ONE row at phone widths ──
+               Three full labels are ~347px of content in ~268px of usable
+               width, so the optional half of each label is dropped rather
+               than allowed to wrap: "Select All" -> "Select" and
+               "Configure Assignment" -> "Configure". Hidden visually only, so
+               the accessible names are unchanged (Configure also carries an
+               explicit aria-label). */
+            .tb-label {
+                position: absolute;
+                width: 1px; height: 1px;
+                padding: 0; margin: -1px;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+                border: 0;
+            }
+            .rec-drawer-toolbar { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+            .rec-configure-btn { margin-left: 0; padding: 8px 12px; }
+            .rec-selectall-btn,
+            .rec-configure-btn { white-space: nowrap; }
         }
 
         /* ── Design Toolbox / version-switcher clearance ──
@@ -3771,6 +3859,64 @@
                (≤1140px), so the actions row has the space for it. Keep it compact
                so all four controls fit without horizontal scrolling. */
             #cancelFormBtn { padding: 0 8px; }
+
+            /* ── Single-row header ──
+               Ported from the evaluation-form V2 accessibility pass (commit
+               13054412), which ver3 predates. The actions cluster measured
+               191px (Cancel 59 + Compare 40 + Save 40 + ⋯ 40 + gaps), wider
+               than the space left beside the title, so the title was pushed
+               onto a row of its own and the header stood 142px over three
+               rows.
+               Two changes bring it to one row: Compare Forms moves INTO the ⋯
+               menu (the popover renderer adds the item against this same
+               breakpoint), and the Back crumb stacks ABOVE the title instead
+               of sitting beside it — a shorter, narrower title block. */
+            /* Collapsed, NOT removed: #comparePopover is anchored to
+               #compareFormsBtn, and a display:none anchor gives the overlay
+               nothing to position against (it then renders empty). Zeroing the
+               footprint keeps the anchor alive while freeing the row's width. */
+            #compareMenuWrap {
+                width: 0;
+                overflow: hidden;
+                opacity: 0;
+                pointer-events: none;
+                flex: 0 0 0;
+            }
+            .topbar-title-block {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0;
+                min-width: 0;
+            }
+            /* The crumb's text is small, but the TARGET must still clear the
+               24px WCAG 2.5.8 minimum — so the height is held at 24px and the
+               extra is taken as negative margin, which keeps the visual block
+               tight without shrinking the hit area. */
+            .topbar-back-tertiary {
+                height: 24px;
+                min-height: 24px;
+                padding: 0;
+                margin: -4px 0 -2px;
+                font-size: 11px;
+                line-height: 1.4;
+            }
+            .topbar-back-tertiary::part(label) { padding: 0; }
+            .topbar-title {
+                font-size: 15px;
+                line-height: 1.2;
+                margin: 0;
+                max-width: 100%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            /* The topbar itself no longer needs to wrap for the title/actions
+               pair — only the timer row (order 3) wraps below them. */
+            .topbar {
+                align-items: center;
+                gap: 8px;
+            }
         }
 
         /* ─── Share dialog (content styles; shell is vaadin-dialog) ─── */
@@ -4592,12 +4738,23 @@
         }
         /* Help affordance beside each date label. Placeholder tooltip copy
            stands in until the SafeLMS help text is supplied. */
+        /* WCAG 2.5.8 Target Size (Minimum): the glyph is 11px, but the
+           TARGET must be at least 24x24. The box is padded out to 24x24 and
+           centred on the icon; the negative block margin keeps that larger hit
+           area from adding height to the label row, so the control grows
+           without the layout moving. */
         .assign-help {
             color: var(--text-muted);
             cursor: help;
             font-size: 11px;
             line-height: 1;
             display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            margin: -6px 0 -6px -6px;
+            flex: 0 0 auto;
         }
         .assign-help:hover { color: var(--brand); }
         .assign-help:focus-visible {
@@ -4894,6 +5051,14 @@
             <vaadin-popover id="actionsPopover" for="actionsMenuBtn"></vaadin-popover>
             <template id="actionsMenuTpl">
                 <div class="actions-menu" role="menu">
+                    <!-- Compare Forms — only rendered into this menu at narrow
+                         widths, where the standalone topbar button is hidden so
+                         the header can collapse to a single row. Shown/hidden by
+                         the popover renderer against the same media query. -->
+                    <button class="actions-menu-item" type="button" role="menuitem" id="compareFormsMenuItem">
+                        <i class="fa-solid fa-code-compare"></i> Compare Forms
+                    </button>
+                    <div class="actions-menu-divider" id="compareFormsMenuDivider"></div>
                     <button class="actions-menu-item" type="button" role="menuitem" id="copyFormItem">
                         <i class="fa-solid fa-copy"></i> Copy
                     </button>
@@ -6193,9 +6358,15 @@ COURSES.forEach(c => c.addresses.forEach(cid => {
 }));
 
 const LOW_RATING_MAX_INDEX = 1;
-const MAX_RECS_PER_BATCH = 6;
+/* Top N licensed results. There is no Refresh any more: one generation
+   returns the strongest matches, and the only way to a different list is to
+   change an answer, which invalidates the run and asks for a new one. */
+const MAX_RECS_SHOWN = 8;
 // Cap on the upsell list — the nudge should feel curated, not like a catalog dump.
 const MAX_UNLICENSED_SHOWN = 4;
+/* Bumped on each generation. Not a shuffle seed any more — the ranking is
+   deterministic — but <vwc-course-list> needs a NEW payload object reference
+   to refetch, so this is the run id that guarantees one. */
 let batchSeed = 1;
 
 function isLowRating(componentId) {
@@ -6209,34 +6380,20 @@ function getLowRatedComponents() {
     })));
     return out;
 }
-function seededRng(seed) {
-    let s = seed | 0;
-    return function() {
-        s = (s * 9301 + 49297) | 0;
-        return ((s % 233280) + 233280) % 233280 / 233280;
-    };
-}
-function shuffleSeeded(arr, seed) {
-    const rng = seededRng(seed);
-    const out = arr.slice();
-    for (let i = out.length - 1; i > 0; i--) {
-        const j = Math.floor(rng() * (i + 1));
-        [out[i], out[j]] = [out[j], out[i]];
-    }
-    return out;
-}
 /* The engine matches low-rated components against the whole catalog, then
    splits the results by license:
 
-     recommendations  → licensed, assignable. Batched to MAX_RECS_PER_BATCH
-                        and driven by batchSeed so Refresh gives a new mix.
+     recommendations  → licensed, assignable. The TOP MAX_RECS_SHOWN by match
+                        strength — deterministic, not shuffled: with no
+                        Refresh, "top 8" has to mean the best 8, and the same
+                        answers must always produce the same list.
      unlicensed       → matched but not in the org's library. These are the
                         marketing nudge in the drawer's second list, so they
                         are NOT batched or shuffled: the same upsell should be
-                        stable across refreshes rather than shuffling around.
+                        stable rather than shuffling around.
 
    `recommendations` keeps its name and shape so every existing caller
-   (gate, cart, assign modal, refresh, discard) works unchanged. */
+   (gate, cart, assign modal) works unchanged. */
 function getRecommendations() {
     const low = getLowRatedComponents();
     const seen = new Map();
@@ -6251,8 +6408,14 @@ function getRecommendations() {
     const licensedMatched = allMatched.filter(r => r.course.licensed !== false);
     const unlicensed = allMatched.filter(r => r.course.licensed === false)
                                  .slice(0, MAX_UNLICENSED_SHOWN);
-    const shuffled = shuffleSeeded(licensedMatched, batchSeed);
-    const recommendations = shuffled.slice(0, MAX_RECS_PER_BATCH);
+    /* Rank by match strength: a course that addresses more of this
+       evaluation's low-rated components is the better recommendation. Ties
+       break on catalog id so the order is stable run to run (no shuffle —
+       there is nothing to re-roll now that Refresh is gone). */
+    const ranked = licensedMatched.slice().sort((a, b) =>
+        b.addresses.length - a.addresses.length ||
+        a.course.id.localeCompare(b.course.id));
+    const recommendations = ranked.slice(0, MAX_RECS_SHOWN);
     const overflowCount = Math.max(0, licensedMatched.length - recommendations.length);
     const coveredIds = new Set();
     recommendations.forEach(r => r.addresses.forEach(a => coveredIds.add(a.componentId)));
@@ -6422,9 +6585,6 @@ let recommendationsGenerated = false;
                        it overrides the --rec-drawer-h default. */
 let drawerOpen = false;
 let recGenerating = false;
-// True only while a REFRESH is re-running; keeps the drawer open (see
-// renderRecommendations' workingState).
-let recRefreshing = false;
 let drawerHeightPx = null;
 
 /* Full teardown of the recommendation feature's transient state. Called from
@@ -6435,7 +6595,6 @@ let drawerHeightPx = null;
 function resetRecommendationState() {
     recommendationsGenerated = false;
     recGenerating = false;
-    recRefreshing = false;
     drawerOpen = false;
     cart.clear();
 }
@@ -7470,8 +7629,16 @@ function selectRating(componentId, levelIndex, qEl) {
         if (q.dataset.conditional === 'true') refreshConditionalReqs(q);
     }
     updateProgress();
+    /* Changing an answer INVALIDATES the run. There is no Refresh to re-roll
+       the list, so the only way back to recommendations is a new generation:
+       the bar returns to its "Generate recommendations" state and any pending
+       selection is dropped, because it was made against ratings that no
+       longer hold. drawerOpen is reset too — without it the flag stays true
+       from the previous run and the next Generate would skip the collapsed
+       working state and pop straight open. */
     if (recommendationsGenerated) {
         recommendationsGenerated = false;
+        drawerOpen = false;
         cart.clear();
     }
     renderRecommendations();
@@ -7572,7 +7739,7 @@ function courseImageUrl(courseId) {
 
 /* ═══ V3 recommendation dock ═══════════════════════════════════════════
    renderRecommendations() is still the single entry point every existing
-   caller uses (rating changes, refresh, discard, submit, reset). What
+   caller uses (rating changes, submit, reset). What
    changed is where it renders: the feature now lives in the pinned dock
    rather than in the page flow.
 
@@ -7601,7 +7768,6 @@ function renderRecommendations() {
         cart.clear();
         recommendationsGenerated = false;
         recGenerating = false;
-        recRefreshing = false;
         drawerOpen = false;
         setDockState('locked');
         renderFloatingCart();
@@ -7618,16 +7784,11 @@ function renderRecommendations() {
     /* `generating` is its own dock state, ahead of results: the search is
        still running, so the bar shows a working indicator and the drawer
        stays collapsed. It opens onto the results only once the call lands. */
-    /* Two shapes of "working", because the reviewer is in a different place
-       for each:
-         - FIRST generate  → `generating`: the drawer has never been open, so
-           the progress belongs in the collapsed bar where the click landed.
-         - REFRESH         → stays in `results` with the drawer open, and the
-           in-drawer loading state covers the list being replaced. Collapsing
-           it here would yank the panel away mid-task. */
-    const workingState = recGenerating && !recRefreshing ? 'generating' : null;
-    setDockState(workingState
-                 || (recommendationsGenerated ? 'results' : 'ready'),
+    /* While the search runs the bar shows a working indicator and the drawer
+       stays collapsed; it opens onto the results once the call lands. There is
+       only one way in now that Refresh is gone — a fresh Generate. */
+    setDockState(recGenerating ? 'generating'
+                 : (recommendationsGenerated ? 'results' : 'ready'),
                  { visibleRecs, unlicensed, lowRatedTotal });
     renderFloatingCart();
 }
@@ -7674,14 +7835,41 @@ function setDockState(state, data) {
    when the topnav wraps, the deleted banner appears, or the window resizes.
    The bar's own height comes off the top because .rec-bar sits above the
    drawer inside the same dock. */
-const DRAWER_TOOLBAR_GAP = 64;
+/* Gap left between the top of the open drawer and the bottom of the sticky
+   form toolbar. Small on purpose: the drawer is the thing the reviewer is
+   working in once it is open, so it takes as much of the screen as it can
+   while keeping the toolbar (and the form row under it) visible. */
+const DRAWER_TOOLBAR_GAP = 24;
+/* Absolute floor for the drawer's own scroll area once it is open at all.
+   Below this there is no point keeping it open — the caller collapses it
+   instead of rendering a sliver. */
+const DRAWER_MIN_USABLE = 72;
+/* NOTE — the Design Toolbox is NOT an input to this calculation, and must
+   never become one. It is prototyping tooling that is stripped at dev
+   handoff, so sizing product UI around it would bake a review artifact into
+   the design. It is position:fixed, appended to <body>, and sets no body
+   padding, so it cannot affect layout on its own; the only rule that mentions
+   it moves the TOOLING out of the product's way, never the reverse. If the
+   drawer ever looks short, the cause is here (the gap and the topbar offset)
+   or the CSS max-height backstop — not the widget. */
 function drawerMaxHeight(minH) {
     const topbar = document.querySelector('.topbar');
     // getBoundingClientRect().bottom is the toolbar's real on-screen bottom,
     // which already accounts for everything sticky above it.
     const toolbarBottom = topbar ? Math.max(0, topbar.getBoundingClientRect().bottom) : 112;
     const barH = recBar ? recBar.offsetHeight : 84;
-    return Math.max(minH, window.innerHeight - toolbarBottom - DRAWER_TOOLBAR_GAP - barH);
+    const room = window.innerHeight - toolbarBottom - DRAWER_TOOLBAR_GAP - barH;
+
+    /* WCAG 1.4.10 at 400% zoom: NOT Math.max(minH, room).
+       At a 320x256 viewport `room` goes negative, and a Math.max() floor would
+       win over the ceiling — the dock then grew taller than the viewport and,
+       being position: fixed, pushed its own heading to a negative y where it
+       could never be scrolled back into view. The ceiling has to be allowed to
+       fall below the comfortable minimum; how far the drawer may open is
+       decided by the space that actually exists, never by a constant. The
+       caller collapses the drawer entirely when what's left is unusable. */
+    if (room < minH) return Math.max(0, room);
+    return room;
 }
 
 /* The drawer's natural height = its content plus every fixed box stacked
@@ -7725,8 +7913,19 @@ function syncDrawerOpenHeight() {
            reads the content plus the real chrome around it. The toolbar and
            the resize grip are both hidden in this state ([data-empty]), and
            measuring them returns 0, so nothing extra is reserved for them. */
+        /* Capped by the same ceiling as the populated state — the 96px floor
+           must not push the dock past the viewport on a short screen (the
+           1.4.10 failure fixed in drawerMaxHeight). The copy scrolls inside
+           the body if it truly cannot fit. */
+        const emptyMax = drawerMaxHeight(96);
+        if (emptyMax < DRAWER_MIN_USABLE) {
+            drawerOpen = false;
+            delete recDock.dataset.open;
+            recDock.style.setProperty('--rec-drawer-current', '0px');
+            return;
+        }
         recDock.style.setProperty('--rec-drawer-current',
-            Math.max(96, naturalDrawerHeight()) + 'px');
+            Math.min(emptyMax, Math.max(96, naturalDrawerHeight())) + 'px');
         return;
     }
 
@@ -7739,6 +7938,17 @@ function syncDrawerOpenHeight() {
        the body, which is `flex: 1` and reports the container's height. The
        toolbar sits above it inside the drawer, so its height counts too;
        +36 covers the body's 18px top/bottom padding. */
+    /* Not enough room to open at all (very short viewport / 400% zoom): keep
+       the drawer collapsed rather than opening a sliver that pushes the bar
+       off-screen. The bar alone stays reachable, and its chevron is still the
+       way back to the list once there is room. */
+    if (maxH < DRAWER_MIN_USABLE) {
+        drawerOpen = false;
+        delete recDock.dataset.open;
+        recDock.style.setProperty('--rec-drawer-current', '0px');
+        return;
+    }
+
     let target;
     if (drawerHeightPx) {
         target = Math.min(maxH, Math.max(MIN_H, drawerHeightPx));
@@ -7791,19 +8001,21 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
         locked: `
             <span class="rec-bar-cta-wrap" id="recGateWrap" tabindex="0"
                   role="button" aria-disabled="true"
+                  aria-label="Generate recommendations"
                   aria-describedby="recGateTip">
                 <span class="rec-bar-cta disabled" aria-hidden="true">
                     <i class="fa-solid fa-lock"></i>
-                    Generate recommendations
+                    <span class="rec-cta-label">Generate recommendations</span>
                 </span>
             </span>
             <vaadin-tooltip for="recGateWrap" position="top"
                 text="Answer all required questions to generate course recommendations for this evaluation."></vaadin-tooltip>
         `,
         ready: `
-            <button type="button" class="rec-bar-cta" id="recGenerateBtn">
+            <button type="button" class="rec-bar-cta" id="recGenerateBtn"
+                    aria-label="Generate recommendations">
                 <i class="fa-solid fa-wand-sparkles"></i>
-                Generate recommendations
+                <span class="rec-cta-label">Generate recommendations</span>
             </button>
         `,
         /* Working state. The CTA is replaced (not merely disabled) so the
@@ -7814,7 +8026,7 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
         generating: `
             <span class="rec-bar-working" role="status" aria-live="polite">
                 <vwc-spinner class="rec-bar-spinner" loading></vwc-spinner>
-                Finding courses…
+                <span class="rec-cta-label">Finding courses…</span>
             </span>
         `,
         results: `
@@ -7902,10 +8114,11 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
        height would beat the closed-state rule and pin the drawer open — it
        would never collapse again. */
 
-    /* Reached by REFRESH only. A first Generate shows its progress in the
-       collapsed bar instead (the `generating` dock state) and never renders
-       the drawer mid-search; a refresh keeps the drawer open and swaps this
-       loading state in for the list while the call re-runs. */
+    /* Defensive only — not reachable in the current flow. Generate shows its
+       progress in the COLLAPSED bar (the `generating` dock state), and
+       setDockState() renders the drawer solely for `results`, by which point
+       recGenerating is already false. Kept so the drawer can never paint a
+       stale list if a future caller renders it mid-search. */
     if (recGenerating) {
         recDrawerToolbar.innerHTML = '';
         recDrawerInner.innerHTML = `
@@ -7919,20 +8132,17 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
 
     delete recDock.dataset.empty;
 
-    /* No gaps means nothing to refresh, select or assign — an empty toolbar
-       is correct rather than a row of dead controls. */
+    /* No gaps means nothing to select or assign — an empty toolbar is
+       correct rather than a row of dead controls. */
     recDrawerToolbar.innerHTML = `
-        <button type="button" class="rec-refresh-btn" id="refreshRecsBtn" title="Generate a new batch of recommendations">
-            <i class="fa-solid fa-arrows-rotate"></i>
-            Refresh
-        </button>
         <div class="rec-drawer-toolbar-spacer"></div>
         ${visibleRecs.length ? `
             <button type="button" class="rec-selectall-btn" id="recSelectAllBtn">
-                Select All
+                Select<span class="tb-label"> All</span>
             </button>
-            <button type="button" class="rec-configure-btn" id="recConfigureBtn">
-                Configure Assignment
+            <button type="button" class="rec-configure-btn" id="recConfigureBtn"
+                    aria-label="Configure Assignment">
+                Configure<span class="tb-label"> Assignment</span>
             </button>
         ` : ''}
     `;
@@ -8014,46 +8224,6 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
     recDrawerInner.innerHTML = licensedHtml + upsellHtml;
 
     // ── Toolbar wiring ──
-    const refreshBtn = document.getElementById('refreshRecsBtn');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', () => {
-            /* Refresh re-runs the same engine call as Generate, so it shows
-               the same wait rather than swapping the list instantly. The
-               drawer STAYS OPEN here (unlike Generate, which starts
-               collapsed): it is already showing results, and collapsing it
-               mid-refresh would yank the panel out from under the reviewer.
-               The in-drawer loading state covers this case. */
-            const doRefresh = () => {
-                batchSeed = Date.now();
-                cart.clear();
-                recGenerating = true;
-                recRefreshing = true;
-                renderRecommendations();
-                setTimeout(() => {
-                    recGenerating = false;
-                    recRefreshing = false;
-                    renderRecommendations();
-                }, REC_SEARCH_MS);
-            };
-            if (cart.size > 0) {
-                showValidationModal({
-                    tone: 'warn',
-                    title: 'Refreshing will clear your selections',
-                    bodyHtml: `
-                        <p>You have <strong>${cart.size}</strong> course recommendation${cart.size === 1 ? '' : 's'} added but not yet assigned:</p>
-                        <div class="v-modal-issues">${pendingCartListHtml()}</div>
-                        <p style="margin-bottom:0;">Generating a new batch will clear these. Continue?</p>
-                    `,
-                    confirmLabel: 'Refresh and clear',
-                    cancelLabel: 'Go back',
-                    onConfirm: doRefresh
-                });
-            } else {
-                doRefresh();
-            }
-        });
-    }
-
     /* Select All and Configure Assignments are re-hosted in the drawer
        toolbar (the component's own toolbar/footer are collapsed via ::part).
        Both delegate to the component's public API so every behavior is
@@ -10844,6 +11014,30 @@ document.getElementById('saveFormBtn').addEventListener('click', handleSaveDraft
     pop.renderer = (root) => {
         root.innerHTML = '';
         root.appendChild(tpl.content.cloneNode(true));
+
+        // Compare Forms lives in this menu only while the standalone topbar
+        // button is collapsed away (≤720px, see the header reflow media query).
+        // Matching the SAME query here keeps one source of truth for the
+        // breakpoint and avoids the item appearing twice on desktop.
+        const cmpItem = root.querySelector('#compareFormsMenuItem');
+        const cmpDiv = root.querySelector('#compareFormsMenuDivider');
+        const collapsed = window.matchMedia('(max-width: 720px)').matches;
+        if (!collapsed) {
+            cmpItem && cmpItem.remove();
+            cmpDiv && cmpDiv.remove();
+        } else if (cmpItem) {
+            // Open the existing compare chooser. Its popover is anchored
+            // `for="compareFormsBtn"`, so that button must stay in the layout —
+            // the header rule hides it with opacity/size, NOT display:none,
+            // precisely so this overlay still has an anchor to position against.
+            cmpItem.addEventListener('click', () => {
+                pop.opened = false;
+                setTimeout(() => {
+                    const cp = document.getElementById('comparePopover');
+                    if (cp) cp.opened = true;
+                }, 60);
+            });
+        }
 
         const del = root.querySelector('#deleteFormItem');
         del.disabled = !formCreated;

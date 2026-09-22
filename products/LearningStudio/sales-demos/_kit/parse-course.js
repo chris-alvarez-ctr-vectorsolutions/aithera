@@ -137,12 +137,20 @@ function parseCourse(md) {
           warnings.push(`line ${i + 1}: "#### ${text}" appears before any "### learning object" — skipped`);
           continue;
         }
-        // `scene 1 | 0:20 | image.jpg` — number is positional, so only the
-        // duration and image matter.
+        // `scene 1 | 0:20 | image.jpg | as.mp4` — number is positional, so
+        // only the duration, image and optional display-name matter.
+        //
+        // The 4th field exists because the Studio editor shows a VIDEO's
+        // first frame on the canvas while the media container lists the
+        // video file. So a scene can carry a still as its visual and be
+        // PRESENTED as the media file named here: the image is what gets
+        // painted, this name is what gets labelled. Omit it and the scene
+        // is a plain image, named by its own filename.
         const parts = text.split('|').map(p => p.trim());
         scene = {
           dur: parseDuration(parts[1]) || 0,
           image: parts[2] || '',
+          mediaName: parts[3] || '',
           _lines: []
         };
         continue;
