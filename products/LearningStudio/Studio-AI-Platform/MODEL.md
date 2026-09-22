@@ -32,7 +32,8 @@ meets the threshold is the experience they're delivered.
 | Term | Meaning |
 |---|---|
 | **Learning Project** | Top-level container. Holds one information set and everything derived from it. Authoring-side term; learners never see it. |
-| **Information Set** | The verified teaching points that define the subject. The primary artifact. |
+| **Knowledge Library** | Everything the organization has established about a subject. **Every point lives here**, however it arrived — authored new for a project, or already present from earlier work (D48). |
+| **Information Set** | The **curated subset** of the library that this project's learner must meet, verified by an SME as covering the project's scope. The primary artifact. |
 | **Information Point** | One teaching point. **Design-time context, never delivered to a learner** — it is the source an activity is authored from. The durable unit; survives every regeneration below it. |
 | **Learning Activity** | A modality expression of one or more points: video, podcast, scenario, knowledge check, job aid, reflection. |
 | **Output** | What gets delivered. Either a **structural format** (Course, Training — defined shape, ordering rules) or an **open-ended format** (Experience — assembles from learner interaction). |
@@ -48,13 +49,20 @@ meets the threshold is the experience they're delivered.
 ## The three layers
 
 ```
+KNOWLEDGE LIBRARY — everything established about forklifts
+  every point lives here, however it arrived (D48):
+    authored new for a project  ──┐
+    already there from prior work ┴──▶  THE LIBRARY
+         │
+         │  curate to project scope · SME verifies the selection covers it
+         ▼
 Learning Project — "Forklift Safety & Operation"   goal: Compliance
   │   AI ASSISTANT — one presence, depicted per modality
   │     context: the information points (derived)
   │     goal:    helping / teaching / explaining / executing (authored, walled off)
   │
   ├─ INFORMATION SET            ← the primary artifact
-  │    6 verified teaching points
+  │    6 verified teaching points — a CURATED SUBSET of the library
   │    each declares a REQUIRED DEPTH
   │         │
   │         │  derive ↓          (transmute works laterally here)
@@ -76,6 +84,17 @@ platform — you are building an information architecture with content generatio
 attached, not a content editor with an information model bolted on. It is also
 why the back catalog is commercially interesting: it isn't a library of courses,
 it's an unextracted library of information points.
+
+**And the set is a *curation*, not a composition** (D48). A point always lives in
+the library; a project selects from it. Authoring a new point is one of two ways
+a point enters the library — not an alternative to it — so "authored here" and
+"imported" describe how a point *arrived*, never where it lives.
+
+**This is the line the whole model turns on.** At curation, an SME settles
+**what a learner must know** for this project. Everything below that line —
+modality, pathway, output format — decides only **how it reaches whom**. The
+subject is finished being decided at the information set; what follows is
+delivery, fitted to the learner rather than to the content.
 
 ### Operations
 
