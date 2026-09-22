@@ -45,7 +45,7 @@
       ]},
       { title: 'Field-based Trainings', tiles: [
         { name: 'Facilities Training',     color: '#C5DDF5', ink: 'dark',  icon: 'fa-building',           launch: 'rca' },
-        { name: 'Harbor Familiarization',  color: '#CBD5F5', ink: 'dark',  icon: 'fa-ship',               launch: 'rca' },
+        { name: 'Harbor Familiar\u00ADization', /* soft hyphen: breaks cleanly in a narrow tile */ color: '#CBD5F5', ink: 'dark',  icon: 'fa-ship',               launch: 'rca' },
         { name: 'Ladder Training',         color: '#DCCFF0', ink: 'dark',  icon: 'fa-truck-ladder',       launch: 'rca' },
         { name: 'Offshore Basics',         color: '#F7D3DE', ink: 'dark',  icon: 'fa-life-ring',          launch: 'rca' },
         { name: 'Sprinkler Systems',       color: '#FBE0C6', ink: 'dark',  icon: 'fa-sprinkler-ceiling',  launch: 'rca' },
@@ -62,8 +62,7 @@
     { icon: 'fa-arrow-up-right-from-square', title: 'Open Web Platform',
       sub: 'Full TargetSolutions in your browser',
       sheet: { title: 'Web Browser Shortcut',
-               body: 'This launches the full TargetSolutions web platform in your default mobile browser, landing on your Home page in this same account. Your app session carries over — no second login.' } },
-    { icon: 'fa-user', title: 'Profile',               sub: 'Jordan Lee · Company Officer',     goto: 'profile' }
+               body: 'This launches the full TargetSolutions web platform in your default mobile browser, landing on your Home page in this same account. Your app session carries over — no second login.' } }
   ];
 
   /* Example notifications the app might surface. Read-only by design — there is
@@ -98,7 +97,7 @@
     scan:          { tab: 'scan',   title: 'Scan' },
     more:          { tab: 'more',   title: 'More' },
     notifications: { tab: 'home',   title: 'Notifications',          back: 'home' },
-    profile:       { tab: 'more',   title: 'Profile',               back: 'more' }
+    profile:       { tab: 'home',   title: 'Profile',               back: 'home' }  // opened from the header avatar
   };
 
   /* ===========================================================================
