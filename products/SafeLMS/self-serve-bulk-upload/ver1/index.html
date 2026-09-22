@@ -167,7 +167,7 @@
   .mono { font-family: var(--mono); }
 
   /* ---- Map grid ---- */
-  .map-grid { display: grid; grid-template-columns: 180px 1fr 1fr 90px; }
+  .map-grid { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(130px, 1fr) 240px 88px; }
   .map-head { font-size: 12px; font-weight: 600; color: var(--muted-2); text-transform: uppercase;
     letter-spacing: .6px; padding: 10px 20px; border-bottom: 1px solid var(--line-2); }
   .map-row { align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--line-3); }
@@ -585,11 +585,22 @@
     blast:   [['FIRST_NAME','Alan'],['LAST_NAME','Pruitt'],['EMAIL','apruitt@ridgewood.k12.us'],['USER_ID','apruitt2026'],['SITE','Kennedy Middle'],['ROLE','Custodian']]
   };
 
+  // Mapping TARGETS. The first six line up (by position) with the sample files'
+  // columns so the auto-match pre-fills correctly. Required = Username, First name,
+  // Last name only (AC-1.4); Email is optional. Building/position CODES are
+  // deliberately absent (AC-1.5). Title / Begin date / End date are extra standard
+  // targets (AC-1.3).
   var FIELDS = [
     { field: 'First name', req: true },  { field: 'Last name', req: true },
-    { field: 'Email', req: true },       { field: 'Username', req: true },
-    { field: 'Location', req: false },   { field: 'Position', req: false }
+    { field: 'Email', req: false },      { field: 'Username', req: true },
+    { field: 'Location', req: false },   { field: 'Position', req: false },
+    { field: 'Title', req: false },      { field: 'Begin date', req: false },
+    { field: 'End date', req: false }
   ];
+
+  // The site's own configured attributes — these vary per customer (AC-1.3), shown
+  // as a separate group of targets in the mapping dropdown.
+  var ATTRIBUTES = ['Employee ID', 'Department', 'Grade level', 'Hire date'];
 
   var NOT_IMPORTED = '— Not imported —';
 
@@ -767,9 +778,18 @@
   }
 
   function defaultMapping(fileId) {
+    // Positional auto-match: the i-th file column pre-fills the i-th core field.
+    // Extra targets (Title / Begin date / End date / attributes) start unmapped.
     var cols = COLS[fileId], m = {};
-    FIELDS.forEach(function (f, i) { m[f.field] = cols[i][0]; });
+    FIELDS.forEach(function (f, i) { if (cols[i]) m[f.field] = cols[i][0]; });
     return m;
+  }
+
+  // Which SafeLMS target (if any) a given file column currently maps to. The
+  // mapping state stays keyed field->column; this inverts it for the column view.
+  function fieldForCol(col) {
+    for (var f in state.mapping) { if (state.mapping[f] === col) return f; }
+    return NOT_IMPORTED;
   }
 
   function pickFile(id) {
@@ -1277,33 +1297,49 @@
   function mapHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     var cols = COLS[state.fileId];
-    var colOptions = [{ v: NOT_IMPORTED }].concat(cols.map(function (c) { return { v: c[0] }; }));
-    var rows = FIELDS.map(function (f) {
-      var val = state.mapping[f.field] || NOT_IMPORTED;
-      var src = cols.find(function (c) { return c[0] === val; });
-      var samlBad = f.field === 'Username' && samlMismatch() && isMap();
-      var badge = samlBad ? '⚠ check' : (val !== NOT_IMPORTED ? 'Matched' : '');
-      var badgeColor = samlBad ? '#B54708' : '#12B76A';
-      var opts = colOptions.map(function (o) {
-        return '<option value="' + esc(o.v) + '"' + (o.v === val ? ' selected' : '') + '>' + esc(o.v) + '</option>';
-      }).join('');
+    // AC-1.2: one row per COLUMN IN THE CUSTOMER'S FILE; each column picks a target.
+    function targetOpts(sel) {
+      var out = '<option value="' + esc(NOT_IMPORTED) + '"' + (sel === NOT_IMPORTED ? ' selected' : '') + '>' + esc(NOT_IMPORTED) + '</option>';
+      out += '<optgroup label="Standard fields">';
+      FIELDS.forEach(function (f) {
+        out += '<option value="' + esc(f.field) + '"' + (sel === f.field ? ' selected' : '') + '>' + esc(f.field) + (f.req ? ' (required)' : '') + '</option>';
+      });
+      out += '</optgroup><optgroup label="Your site’s attributes">';
+      ATTRIBUTES.forEach(function (a) {
+        out += '<option value="' + esc(a) + '"' + (sel === a ? ' selected' : '') + '>' + esc(a) + '</option>';
+      });
+      out += '</optgroup>';
+      return out;
+    }
+    var rows = cols.map(function (c) {
+      var colName = c[0], sample = c[1];
+      var target = fieldForCol(colName);
+      var samlBad = state.fileId === 'saml' && target === 'Username' && colName !== 'EMAIL_ADDR' && isMap();
+      var mapped = target !== NOT_IMPORTED;
+      var badge = samlBad ? '⚠ check' : (mapped ? 'Mapped' : 'Not imported');
+      var badgeColor = samlBad ? '#B54708' : (mapped ? '#12B76A' : '#8CA0B4');
       return '<div class="map-grid map-row">'
-        + '<div style="font-size:13.5px;font-weight:600;">' + esc(f.field) + (f.req ? '<span style="color:#D92D20;"> *</span>' : '') + '</div>'
-        + '<div style="padding-right:20px;"><select class="map-select" data-act="mapChange" data-arg="' + esc(f.field) + '">' + opts + '</select></div>'
-        + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(src ? src[1] : '—') + '</div>'
+        + '<div class="mono" style="font-size:13px;font-weight:600;color:#1B2B3E;">' + esc(colName) + '</div>'
+        + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(sample) + '</div>'
+        + '<div style="padding-right:20px;"><select class="map-select" data-act="mapColTarget" data-arg="' + esc(colName) + '">' + targetOpts(target) + '</select></div>'
         + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
         + '</div>';
     }).join('');
-    var complete = FIELDS.filter(function (f) { return f.req; }).every(function (f) {
-      return state.mapping[f.field] && state.mapping[f.field] !== NOT_IMPORTED;
+    // Required targets (Username, First, Last) must each be claimed by some column.
+    var reqMissing = FIELDS.filter(function (f) { return f.req; }).filter(function (f) {
+      return !state.mapping[f.field] || state.mapping[f.field] === NOT_IMPORTED;
     });
+    var complete = reqMissing.length === 0;
+    var missHint = complete ? ''
+      : '<div style="font-size:12.5px;color:#B54708;background:#FFFAEB;border:1px solid #F2D69B;border-radius:8px;padding:9px 12px;margin-top:14px;"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Still needed: point a column at ' + reqMissing.map(function (f) { return '<b>' + esc(f.field) + '</b>'; }).join(', ') + '. Username, first name and last name are required.</div>';
     return '<div class="fadeup"><div class="card" style="overflow:hidden;">'
       + '<div style="padding:16px 20px;border-bottom:1px solid #EDF1F6;display:flex;justify-content:space-between;align-items:center;gap:16px;">'
       + '<div><div style="font-size:15px;font-weight:600;">Match your columns to SafeLMS fields</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">We matched what we could from <span class="mono">' + esc(file.name) + '</span>. Check each one — the sample values come from your file.</div></div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Each row is a column from <span class="mono">' + esc(file.name) + '</span> — choose what it should import as. We pre-filled the obvious matches; set anything you don’t need to “' + esc(NOT_IMPORTED) + '.”</div></div>'
       + '<div style="font-size:12px;color:#5B6B7E;background:#F0F4F9;border-radius:6px;padding:5px 10px;white-space:nowrap;">' + file.rows + ' rows detected</div></div>'
-      + '<div class="map-grid map-head"><div>SafeLMS field</div><div>Column in your file</div><div>Sample from your file</div><div></div></div>'
+      + '<div class="map-grid map-head"><div>Column in your file</div><div>Sample from your file</div><div>Import as (SafeLMS field)</div><div></div></div>'
       + rows + '</div>'
+      + missHint
       + '<div style="display:flex;justify-content:space-between;margin-top:18px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
       + '<button class="btn ' + (complete ? 'btn--primary' : 'btn--disabled') + '" data-act="next"' + (complete ? '' : ' disabled') + '>Continue to import settings →</button>'
@@ -2043,9 +2079,13 @@
     var el = e.target.closest('[data-act]');
     if (!el) return;
     var act = el.getAttribute('data-act');
-    if (act === 'mapChange') {
+    if (act === 'mapColTarget') {
+      // Column-oriented: data-arg is the file column, el.value is the chosen target.
+      // Keep the field->column model: unmap this column from any field, then assign.
+      var col = el.getAttribute('data-arg'), tgt = el.value;
       var m = {}; for (var k in state.mapping) m[k] = state.mapping[k];
-      m[el.getAttribute('data-arg')] = el.value;
+      for (var ff in m) { if (m[ff] === col) m[ff] = NOT_IMPORTED; }
+      if (tgt !== NOT_IMPORTED) m[tgt] = col;
       setState({ mapping: m });
     } else if (act === 'ack') {
       var id = el.getAttribute('data-arg');
