@@ -625,7 +625,6 @@
       diffLabel: 'After sync', more: 'Show all 8 rows',
       buttons: [
         { cls: 'btn--primary', act: 'bless', label: 'These are correct — apply the changes' },
-        { cls: 'btn--ghost',   act: 'noop',  label: 'Download the 8 rows' },
         { cls: 'btn--ghost',   act: 'noop',  label: 'Something looks wrong — contact support' }
       ],
       foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
@@ -644,7 +643,6 @@
       rows: ['slinden   →   sarah.linden', 'mreyes   →   maria.reyes', 'tallen   →   tom.allen', '… and 145 more'],
       buttons: [
         { cls: 'btn--primary', act: 'goImport', label: 'Fix it in the manual uploader' },
-        { cls: 'btn--ghost',   act: 'noop',     label: 'Download the file' },
         { cls: 'btn--ghost',   act: 'noop',     label: 'Contact support' }
       ],
       foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Nothing was changed — your roster stays as it was until a corrected file comes in.'
@@ -662,8 +660,7 @@
       ],
       rows: ['cdelgado · cdelgado@ridgewood.k12.us — 11 completions', 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions'],
       buttons: [
-        { cls: 'btn--primary', act: 'noop', label: 'Contact Vector support' },
-        { cls: 'btn--ghost',   act: 'noop', label: 'Download the file' }
+        { cls: 'btn--primary', act: 'noop', label: 'Contact Vector support' }
       ],
       foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
     }
@@ -706,19 +703,19 @@
       usually: 'Usually it’s a nickname or name change and is safe to accept. Only decline if you don’t recognize them as the same person.'
     },
     'deact-blast': {
-      means: 'This file has only part of your users, but “Deactivate users not in this file” is on — so everyone missing would be signed out (here, 128 of 170).',
+      means: 'This file has only part of your users, but “Make this file the complete roster” is on — so everyone missing would be deactivated (here, 128 of 170).',
       ab: { aLabel: 'File contains (A)', a: '45 of 170 users', bLabel: 'Would deactivate (B)', b: '128 users · 75% of the site' },
-      usually: 'Usually the answer is: for a new-hire batch or one building, turn off “Deactivate users not in this file.”'
+      usually: 'Usually the answer is: for a new-hire batch or one building, leave “Make this file the complete roster” off.'
     },
     purge: {
-      means: 'You turned on “Deactivate users not in this file,” and these active people are missing from it — so they’d be signed out.',
+      means: 'You turned on “Make this file the complete roster,” and these active people are missing from it — so they’d be deactivated.',
       ab: { aLabel: 'Missing from file (A)', a: 'gharper · active', bLabel: 'What happens (B)', b: 'Deactivated · history kept' },
       usually: 'Usually the answer is: if this is a partial list, turn the setting off so no one is deactivated; otherwise add anyone who should stay.'
     },
     'purge-jobs': {
-      means: 'You turned on “Remove positions & locations not in this file,” so any position or location a person holds that isn’t in the file is removed — along with the training tied to it.',
-      ab: { aLabel: 'Held now, not in file (A)', a: 'Coach · Ridgewood High', bLabel: 'What happens (B)', b: 'removed from 4 people · + its training' },
-      usually: 'Usually the answer is: only turn this on when the file is the full, current list of everyone’s positions & locations.'
+      means: 'You turned on “Make this file the complete roster,” so any job — a position at a location — a person no longer holds is end-dated. The position and location themselves stay on your site; only that person’s assignment ends, along with the training tied to it.',
+      ab: { aLabel: 'Held now, not in file (A)', a: 'Coach · Ridgewood High', bLabel: 'What happens (B)', b: 'end-dated for 4 people · + its training' },
+      usually: 'Usually the answer is: only turn this on when the file is the full, current roster for everyone.'
     }
   };
 
@@ -1221,14 +1218,14 @@
   }
 
   function uploadHTML() {
-    var banner = '';
-    if (!isMap()) {
-      banner = '<div class="banner"><div>'
-        + '<div style="font-size:14px;font-weight:600;">Your file must use the SafeLMS template</div>'
-        + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Column headers must match the template exactly. Download it, paste your data in, and upload it below.</div>'
-        + '</div><button class="btn sm btn--outline-blue" style="white-space:nowrap;">Download template (.csv)</button></div>';
-    }
-    return '<div class="fadeup">' + banner
+    // AC-1.1: a blank SafeLMS template and a link to positions & locations guidance
+    // are available from the upload screen. The template is a convenient starting
+    // shape, not a requirement — any export can be uploaded and its columns mapped.
+    var helper = '<div class="banner"><div>'
+      + '<div style="font-size:14px;font-weight:600;">New here? Start from the SafeLMS template</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Optional — download it, paste your roster in, and upload. Or upload the export your system already produces; you’ll map its columns on the next step. <a href="#" data-act="noop">Positions &amp; locations guidance</a></div>'
+      + '</div><button class="btn sm btn--outline-blue" style="white-space:nowrap;" data-act="noop">Download template (.csv)</button></div>';
+    return '<div class="fadeup">' + helper
       + '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
       + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
       + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
@@ -1319,10 +1316,10 @@
     var pu = state.purgeUsers, pj = state.purgeJobs, sum = summary();
     if (!pu && !pj) {
       return '<div class="ex-card" style="margin-bottom:0;"><div style="font-size:13px;color:#3D4F63;line-height:1.6;">'
-        + '<b>Nothing will be removed.</b> Users and jobs in your file are added or updated; everyone and everything else is left exactly as it is.</div></div>';
+        + '<b>Nothing is deactivated or end-dated.</b> Users and jobs in your file are added or updated; everyone and everything else is left exactly as it is.</div></div>';
     }
     var out = '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:10px 13px;font-size:12.5px;color:#B42318;margin-bottom:12px;line-height:1.5;">'
-      + '<b>This is permanent.</b> Deactivations and removals — and the training tied to a removed job — can’t be undone once you run the import.</div>';
+      + '<b>This is permanent.</b> Deactivations and end-dates — and the training tied to an end-dated job — can’t be undone once you run the import.</div>';
 
     if (pu) {
       var ds = IMPACT.deacts.slice(0, 3);
@@ -1342,8 +1339,8 @@
       var js = IMPACT.jobs.slice(0, 3);
       out += '<div class="ex-card" style="margin-bottom:0;">'
         + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
-        + '<div class="ex-eyebrow" style="margin:0;">Positions &amp; locations removed</div>'
-        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.jobsRemoved + ' removed · ' + sum.jobsPeople + ' people</div></div>'
+        + '<div class="ex-eyebrow" style="margin:0;">Jobs end-dated</div>'
+        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.jobsRemoved + ' end-dated · ' + sum.jobsPeople + ' people</div></div>'
         + js.map(function (j) {
             return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12.5px;padding:6px 0;border-top:1px solid #F3F6FA;">'
               + '<div><span class="job-chip job-remove" style="margin:0;">' + esc(j.pos + ' · ' + j.loc) + '</span>'
@@ -1351,7 +1348,7 @@
               + '<div style="color:#B42318;white-space:nowrap;">from ' + j.people + ' ' + (j.people === 1 ? 'person' : 'people') + '</div></div>';
           }).join('')
         + '<div class="ba-more" style="margin-top:6px;">Show all ' + sum.jobsRemoved + ' changes</div>'
-        + '<div style="font-size:12px;color:#5B6B7E;margin-top:9px;line-height:1.5;border-top:1px solid #F3F6FA;padding-top:9px;">Touches <b>' + sum.pos + ' positions</b> across <b>' + sum.loc + ' locations</b>. Removing a job also removes the training assigned to it.</div>'
+        + '<div style="font-size:12px;color:#5B6B7E;margin-top:9px;line-height:1.5;border-top:1px solid #F3F6FA;padding-top:9px;">Touches <b>' + sum.pos + ' positions</b> across <b>' + sum.loc + ' locations</b>. Ending a job also ends the training tied to that position &amp; location; the positions and locations themselves stay.</div>'
         + '</div>';
     }
     return out;
@@ -1364,9 +1361,9 @@
   function settingsHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     // ONE all-or-nothing choice replaces the two independent toggles: either the
-    // file is treated as the complete roster (deactivate missing users + remove
-    // their old jobs) or it only adds and updates. purgeUsers / purgeJobs are kept
-    // in lock-step so the impact preview and review step keep working unchanged.
+    // file is treated as the complete roster (deactivate missing users + end-date
+    // their absent jobs) or it only adds and updates. purgeUsers / purgeJobs are
+    // kept in lock-step so the impact preview and review step keep working.
     var on = state.purgeUsers && state.purgeJobs;
 
     // Per-person example — a user in the file whose jobs differ (remove-jobs effect)
@@ -1375,7 +1372,7 @@
             : '<span class="job-chip job-keep">Coach · Ridgewood High</span>')
       + '<span class="job-chip job-add">+ Counselor · Lincoln Elementary</span>';
     var jobNote = on
-      ? 'Coach · Ridgewood High is <b>removed</b> and Counselor · Lincoln Elementary is <b>added</b> — her record becomes an exact mirror of the file.'
+      ? 'Coach · Ridgewood High is <b>end-dated</b> (she no longer holds it) and Counselor · Lincoln Elementary is <b>added</b> — her record becomes an exact mirror of the file. The position and location themselves stay on your site.'
       : 'Counselor · Lincoln Elementary is <b>added</b>; everything she already has is <b>kept</b> — nothing is removed.';
     var exJobs = '<div class="ex-card" style="margin-bottom:0;">'
       + '<div class="ex-eyebrow">A user in your file with changed jobs — Maya Torres</div>'
@@ -1392,18 +1389,18 @@
       + '<div class="toggle" data-act="togglePurgeAll" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
       + '<div class="toggle-knob" style="left:' + (on ? '17px' : '2px') + ';"></div></div>'
       + '<div class="opt-main"><div class="opt-title">Make this file the complete roster</div>'
-      + '<div class="opt-sub">Turn this on only when the file lists <b>everyone</b>. Anyone not in it is <b>deactivated</b> (training history is kept, and they come back if they return in a later file), and any position or location a user no longer has is <b>removed</b> — so each record becomes an exact mirror of the file.<br><br>Leave it <b>off</b> to only add and update: new people and jobs come in, and everyone and everything already on your site is left exactly as it is. Best for partial lists — new hires, one building, one department.</div></div></div>';
+      + '<div class="opt-sub">Turn this on only when the file lists <b>everyone</b>. Anyone not in it is <b>deactivated</b> (training history is kept, and they come back if they return in a later file), and any job — a position at a location — a user no longer holds is <b>end-dated</b>. The positions and locations themselves are never deleted; only a person’s assignment to them ends.<br><br>Leave it <b>off</b> to only add and update: new people and jobs come in, and everyone and everything already on your site is left exactly as it is. Best for partial lists — new hires, one building, one department.</div></div></div>';
 
     var summary = '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#3D4F63;line-height:1.7;margin-top:12px;">'
       + '<div style="font-weight:600;color:#1B2B3E;margin-bottom:3px;">' + (on ? 'With this on' : 'With this off') + '</div>'
       + (on
-          ? '• Users missing from your file are <b>deactivated</b>.<br>• Each user’s positions &amp; locations are <b>synced to exactly match</b> the file.'
+          ? '• Users missing from your file are <b>deactivated</b>.<br>• Jobs a user no longer holds are <b>end-dated</b>; the positions and locations themselves <b>stay</b>.'
           : '• Users missing from your file <b>stay active</b>.<br>• New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
       + '</div>';
 
     return '<div class="fadeup" style="max-width:900px;">'
       + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What should happen to users and jobs that aren’t in this file?</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows. This is <b>off by default</b> — nothing is removed unless you turn it on, and you’ll confirm the exact changes on the next step.</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows. This is <b>off by default</b> — nothing is deactivated or end-dated unless you turn it on, and you’ll confirm the exact changes on the next step.</div>'
       + '<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">'
       + '<div style="flex:1;min-width:330px;">'
       + optCard + summary + repRow
@@ -1572,7 +1569,7 @@
       + '<div style="width:52px;height:52px;border-radius:50%;background:#ECFDF3;border:1.5px solid #A6E5C3;color:#067647;font-size:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">✓</div>'
       + '<div style="font-size:19px;font-weight:700;">Import complete</div>'
       + '<div style="font-size:13.5px;color:#5B6B7E;margin-top:6px;">' + dc.add + ' users added, ' + dc.mod + ' updated, ' + dc.deact + ' deactivated on Ridgewood Public Schools — Staff.</div>'
-      + '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:14px 18px;margin:18px 0;font-size:13px;color:#5B6B7E;text-align:left;">A confirmation with the full change log was emailed to <span style="font-weight:600;color:#1B2B3E;">vpollock@ridgewood.k12.us</span>. You can also download it from the import history at any time.</div>'
+      + '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:14px 18px;margin:18px 0;font-size:13px;color:#5B6B7E;text-align:left;">A confirmation was emailed to <span style="font-weight:600;color:#1B2B3E;">vpollock@ridgewood.k12.us</span>. This import is recorded in your <a href="#" data-act="noop">upload log</a>, where you can see who ran it, when, and the alerts it raised.</div>'
       + '<div style="display:flex;gap:10px;justify-content:center;">'
       + '<button class="btn btn--ghost" data-act="restart">Start another import</button>'
       + '<button class="btn btn--primary" data-act="goSync">View automated sync</button></div></div>';
