@@ -86,6 +86,22 @@ screen), V4 (new tab), V5 (stays in the modal).
 - **PII is district-configurable — PENDING.** A district can be flagged "PII
   District" and tell Vector which fields are allowed; the tool should read those
   settings rather than hard-block address/FERPA fields.
+- **Consolidated to ONE all-or-nothing switch.** The two toggles were collapsed
+  into a single **"Make this file the complete roster"** switch (on = deactivate
+  missing users + end-date absent jobs; off = add/update only).
+- **(2026-09-23) Right-side preview removed; page condensed.** The itemized "What
+  would change on your site" preview (deactivated-users list, end-dated-jobs list,
+  the Maya-Torres per-user example) was removed from the Import-settings step and
+  the layout condensed to a single column (toggle + on/off summary + rep-help). A
+  compact "This is permanent" note stays when the switch is on. The full itemized
+  changes are still confirmed on the **Review changes** step.
+
+## map
+
+- **(2026-09-23) Required-field asterisk is fixed to the column, not the mapping.**
+  The red `*` on a file column now reflects the column's natural (auto-detected)
+  target being a required field (First name / Last name / Username), so it stays
+  put regardless of what the "Import as" dropdown is currently set to.
 
 ## sync-failed
 

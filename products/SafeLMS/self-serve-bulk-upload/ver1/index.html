@@ -1354,6 +1354,9 @@
   function mapHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     var cols = COLS[state.fileId];
+    // The column's natural (auto-detected) target, so the required-field asterisk
+    // is a fixed property of the column and doesn't depend on the current mapping.
+    var defMap = defaultMapping(state.fileId);
     // AC-1.2: one row per COLUMN IN THE CUSTOMER'S FILE; each column picks a target.
     function targetOpts(sel) {
       var out = '<option value="' + esc(NOT_IMPORTED) + '"' + (sel === NOT_IMPORTED ? ' selected' : '') + '>' + esc(NOT_IMPORTED) + '</option>';
@@ -1373,8 +1376,10 @@
       var target = fieldForCol(colName);
       var samlBad = state.fileId === 'saml' && target === 'Username' && colName !== 'EMAIL_ADDR' && isMap();
       var mapped = target !== NOT_IMPORTED;
-      // Red asterisk on the file column when it maps to a required field (First/Last/Username).
-      var reqStar = FIELDS.some(function (f) { return f.req && f.field === target; })
+      // Red asterisk on the file column when its NATURAL target is a required field
+      // (First/Last/Username). Based on the auto-detected mapping, not the current
+      // "Import as" selection, so re-mapping a required column keeps its asterisk.
+      var reqStar = FIELDS.some(function (f) { return f.req && defMap[f.field] === colName; })
         ? '<span style="color:#D92D20;" title="Required field"> *</span>' : '';
       var badge = samlBad ? '⚠ check' : (mapped ? 'Mapped' : 'Not imported');
       var badgeColor = samlBad ? '#B54708' : (mapped ? '#12B76A' : '#8CA0B4');
@@ -1406,49 +1411,8 @@
       + '</div></div>';
   }
 
-  /* "Everything that would change" — itemized deactivations and job removals with
-     per-item people counts, so the scope + permanence are visible while choosing. */
-  function impactBreakdown() {
-    var pu = state.purgeUsers, pj = state.purgeJobs, sum = summary();
-    if (!pu && !pj) {
-      return '<div class="ex-card" style="margin-bottom:0;"><div style="font-size:13px;color:#3D4F63;line-height:1.6;">'
-        + '<b>Nothing is deactivated or end-dated.</b> Users and jobs in your file are added or updated; everyone and everything else is left exactly as it is.</div></div>';
-    }
-    var out = '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:10px 13px;font-size:12.5px;color:#B42318;margin-bottom:12px;line-height:1.5;">'
-      + '<b>This is permanent.</b> Deactivations and end-dates — and the training tied to an end-dated job — can’t be undone once you run the import.</div>';
-
-    if (pu) {
-      var ds = IMPACT.deacts.slice(0, 3);
-      out += '<div class="ex-card" style="margin-bottom:10px;">'
-        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
-        + '<div class="ex-eyebrow" style="margin:0;">Users deactivated</div>'
-        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.deact + ' people lose access</div></div>'
-        + ds.map(function (d) {
-            return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:6px 0;border-top:1px solid #F3F6FA;">'
-              + '<div><span style="font-weight:600;">' + esc(d.name) + '</span> <span class="mono" style="color:#8CA0B4;font-size:11.5px;">' + esc(d.user) + '</span></div>'
-              + '<div style="color:#8CA0B4;text-align:right;">' + esc(d.job) + '</div></div>';
-          }).join('')
-        + (sum.deact > ds.length ? '<div class="ba-more" style="margin-top:6px;">Show all ' + sum.deact + ' users</div>' : '')
-        + '</div>';
-    }
-    if (pj) {
-      var js = IMPACT.jobs.slice(0, 3);
-      out += '<div class="ex-card" style="margin-bottom:0;">'
-        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">'
-        + '<div class="ex-eyebrow" style="margin:0;">Jobs end-dated</div>'
-        + '<div style="font-size:13px;font-weight:700;color:#B42318;white-space:nowrap;">' + sum.jobsRemoved + ' end-dated · ' + sum.jobsPeople + ' people</div></div>'
-        + js.map(function (j) {
-            return '<div style="display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:12.5px;padding:6px 0;border-top:1px solid #F3F6FA;">'
-              + '<div><span class="job-chip job-remove" style="margin:0;">' + esc(j.pos + ' · ' + j.loc) + '</span>'
-              + (j.note ? ' <span style="color:#8CA0B4;font-size:11.5px;">(' + esc(j.note) + ')</span>' : '') + '</div>'
-              + '<div style="color:#B42318;white-space:nowrap;">from ' + j.people + ' ' + (j.people === 1 ? 'person' : 'people') + '</div></div>';
-          }).join('')
-        + '<div class="ba-more" style="margin-top:6px;">Show all ' + sum.jobsRemoved + ' changes</div>'
-        + '<div style="font-size:12px;color:#5B6B7E;margin-top:9px;line-height:1.5;border-top:1px solid #F3F6FA;padding-top:9px;">Touches <b>' + sum.pos + ' positions</b> across <b>' + sum.loc + ' locations</b>. Ending a job also ends the training tied to that position &amp; location; the positions and locations themselves stay.</div>'
-        + '</div>';
-    }
-    return out;
-  }
+  /* (impactBreakdown removed — the itemized "what would change" preview no longer
+     appears on the Import-settings step; the exact changes are confirmed on Review.) */
 
   /* Import settings — ONE all-or-nothing choice (the two independent toggles were
      collapsed at the designer's request: all on or all off). Off = add/update only;
@@ -1461,20 +1425,6 @@
     // their absent jobs) or it only adds and updates. purgeUsers / purgeJobs are
     // kept in lock-step so the impact preview and review step keep working.
     var on = state.purgeUsers && state.purgeJobs;
-
-    // Per-person example — a user in the file whose jobs differ (remove-jobs effect)
-    var chips = '<span class="job-chip job-keep">Teacher · Lincoln Elementary</span>'
-      + (on ? '<span class="job-chip job-remove">Coach · Ridgewood High</span>'
-            : '<span class="job-chip job-keep">Coach · Ridgewood High</span>')
-      + '<span class="job-chip job-add">+ Counselor · Lincoln Elementary</span>';
-    var jobNote = on
-      ? 'Coach · Ridgewood High is <b>end-dated</b> (she no longer holds it) and Counselor · Lincoln Elementary is <b>added</b> — her record becomes an exact mirror of the file. The position and location themselves stay on your site.'
-      : 'Counselor · Lincoln Elementary is <b>added</b>; everything she already has is <b>kept</b> — nothing is removed.';
-    var exJobs = '<div class="ex-card" style="margin-bottom:0;">'
-      + '<div class="ex-eyebrow">A user in your file with changed jobs — Maya Torres</div>'
-      + '<div style="font-size:12px;color:#5B6B7E;margin-bottom:6px;">Her positions &amp; locations after import:</div>'
-      + '<div style="margin-bottom:9px;">' + chips + '</div>'
-      + '<div style="font-size:12px;color:#3D4F63;line-height:1.5;">' + jobNote + '</div></div>';
 
     var repRow = state.repSent
       ? '<div style="margin-top:14px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#067647;"><span style="font-weight:600;">Sent to your Vector rep.</span> They’ll follow up by email to help you choose — nothing runs in the meantime.</div>'
@@ -1494,17 +1444,18 @@
           : '• Users missing from your file <b>stay active</b>.<br>• New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
       + '</div>';
 
-    return '<div class="fadeup" style="max-width:900px;">'
+    // Condensed single column: the itemized "What would change on your site" preview
+    // (deactivated users, end-dated jobs, per-user example) was removed at the
+    // designer's request — those exact changes are confirmed on the Review step.
+    // When the roster switch is on, a compact permanence note stays.
+    var permaNote = on
+      ? '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#B42318;margin-top:12px;line-height:1.5;"><b>This is permanent.</b> Deactivations and end-dates can’t be undone once you run the import — you’ll confirm the exact list on the next step.</div>'
+      : '';
+
+    return '<div class="fadeup" style="max-width:640px;">'
       + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What should happen to users and jobs that aren’t in this file?</div>'
       + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file contains ' + file.rows + ' rows. This is <b>off by default</b> — nothing is deactivated or end-dated unless you turn it on, and you’ll confirm the exact changes on the next step.</div>'
-      + '<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;">'
-      + '<div style="flex:1;min-width:330px;">'
-      + optCard + summary + repRow
-      + '</div>'
-      + '<div style="flex:1;min-width:300px;"><div class="section-eyebrow" style="margin-bottom:10px;">What would change on your site</div>'
-      + impactBreakdown()
-      + '<div style="margin-top:14px;">' + exJobs + '</div></div>'
-      + '</div>'
+      + optCard + summary + permaNote + repRow
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
       + '<button class="btn btn--primary" data-act="next">Review changes →</button>'
