@@ -2433,8 +2433,8 @@
     // rows (after Riff 03's "Path ready / You're set."); no stack, no
     // summary line.
     if (!rows.length) {
-      document.getElementById('adjEyebrow').textContent = 'Let\u2019s continue';
-      document.getElementById('adjHead').textContent = 'You\u2019re all set.';
+      document.getElementById('adjEyebrow').textContent = 'Analysis complete';
+      document.getElementById('adjHead').textContent = 'Let\u2019s keep going!';
       document.getElementById('adjSaved').hidden = true;
       stack.hidden = true;
     }
