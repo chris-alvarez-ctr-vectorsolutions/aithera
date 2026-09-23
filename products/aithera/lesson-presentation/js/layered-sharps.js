@@ -5863,17 +5863,17 @@
     // version's question serves that case's remedial video next.
     deckStep('c1base', { when: function () { return !k1TestUp(); },
       caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Listen carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
-    deckStep('c1up', { adaptive: true, when: function () { return k1TestUp(); },
+    deckStep('c1up', { adaptive: true, variant: 'Mastery version', when: function () { return k1TestUp(); },
       caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
-    deckStep('c1rem', { adaptive: true,
+    deckStep('c1rem', { adaptive: true, variant: 'Remedial version',
       when: function () { return checkMissed('k1check'); },
       caption: { title: 'LEARN · Case 1, remedial (K1) — deck slide 7', note: 'Only after a missed case 1 mastery check (either version). Re-teaches the never-recap, straight-to-container rule. Then re-asks the question that was missed (slide 6 or 9, whichever version ran); a second miss just moves the learner on.' } }),
 
     deckStep('c2base', { when: function () { return !k2TestUp(); },
       caption: { title: 'LEARN · Case 2, base (K2) — deck slides 10–11', note: 'Served unless pre-check question 2 was answered correctly. K2 is compliance-locked: it can test up, never out. Slide 11 mastery check on the reinforcement layer once the carrier finishes; a miss serves slide 12.' } }),
-    deckStep('c2up', { adaptive: true, when: function () { return k2TestUp(); },
+    deckStep('c2up', { adaptive: true, variant: 'Mastery version', when: function () { return k2TestUp(); },
       caption: { title: 'LEARN · Case 2, test-up (K2) — deck slides 13–14', note: 'Served INSTEAD of the base case when pre-check question 2 was answered correctly. Slide 14 mastery check over it; a miss serves the remedial video (slide 12).' } }),
-    deckStep('c2rem', { adaptive: true,
+    deckStep('c2rem', { adaptive: true, variant: 'Remedial version',
       when: function () { return checkMissed('k2check'); },
       caption: { title: 'LEARN · Case 2, remedial (K2) — deck slide 12', note: 'Only after a missed case 2 mastery check (either version). Re-teaches both recognition calls. Then re-asks the question that was missed (slide 11 or 14); a second miss just moves the learner on.' } }),
 
@@ -5885,11 +5885,11 @@
     // whichever version ran — the pre/post pair is the measure.
     deckStep('case3', { when: function () { return !feelLow('f1'); },
       caption: { title: 'LEARN · Case 3, base (F1) — deck slides 17 + 19', note: 'Served when the pre-check F1 statement was answered 4–5 (agree). The F1 statement is asked again over it (slide 19); the record reports the move.' } }),
-    deckStep('case3rf', { adaptive: true, when: function () { return feelLow('f1'); },
+    deckStep('case3rf', { adaptive: true, variant: 'Reinforced version', when: function () { return feelLow('f1'); },
       caption: { title: 'LEARN · Case 3, reinforced (F1) — deck slides 18 + 19', note: 'Served INSTEAD of the base story when the pre-check F1 statement was answered 1–3 (neutral or below — the deck calls agree the healthy answer). The longer story follows the cost past the needlestick. Same F1 re-ask over it (slide 19).' } }),
     deckStep('debrief', { when: function () { return !feelLow('f3'); },
       caption: { title: 'LEARN · Debrief, base (F3) — deck slides 20 + 22', note: 'Served when the pre-check F3 statement was answered 4–5. Cites Gershon et al. (2000), 92.7%. The F3 statement is asked again over it (slide 22).' } }),
-    deckStep('debriefrf', { adaptive: true, when: function () { return feelLow('f3'); },
+    deckStep('debriefrf', { adaptive: true, variant: 'Reinforced version', when: function () { return feelLow('f3'); },
       caption: { title: 'LEARN · Debrief, reinforced (F3) — deck slides 21 + 22', note: 'Served INSTEAD of the base debrief when the pre-check F3 statement was answered 1–3. The norm correction given more room. Same F3 re-ask over it (slide 22).' } }),
 
     { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'A sharp decision', mode: 'floating', gate: true,
