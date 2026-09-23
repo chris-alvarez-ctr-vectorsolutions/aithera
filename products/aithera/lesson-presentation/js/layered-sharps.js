@@ -1449,7 +1449,9 @@
             '<section class="dk-layer dk-layer--read" id="dkRead" aria-label="Reading view" data-size="' + readSize() + '">' +
               '<div class="dk-read-scroll" id="dkReadScroll"><article class="dk-read-col">' +
                 d.narration.map(function (p, i) {
-                  return '<p class="dk-para" data-i="' + i + '">' + esc(p) + '</p>';
+                  // Every paragraph gets a fixed-height slot for the button, so
+                  // moving it between paragraphs never shifts the text.
+                  return '<p class="dk-para" data-i="' + i + '">' + esc(p) + '</p><div class="dk-slot"></div>';
                 }).join('') +
                 (d.source ? '<p class="dk-src"><i class="fa-solid fa-book" aria-hidden="true"></i> ' + esc(DECK_SOURCE) + '</p>' : '') +
               '</article></div>' +
@@ -1570,8 +1572,9 @@
           next.innerHTML = last
             ? '<i class="fa-solid fa-check" aria-hidden="true"></i><span>Done reading</span>'
             : '<span>Next</span><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>';
-          if (paras[at].nextSibling !== next) {
-            paras[at].parentNode.insertBefore(next, paras[at].nextSibling);
+          var slot = paras[at].nextElementSibling;
+          if (next.parentNode !== slot) {
+            slot.appendChild(next);
             // Re-run the entrance so the move reads as the control following along.
             next.style.animation = 'none'; void next.offsetWidth; next.style.animation = '';
           }
@@ -1593,7 +1596,8 @@
         function focus(i, smooth) {
           light(i);
           var p = paras[at];
-          var h = next.offsetTop + next.offsetHeight - p.offsetTop;
+          var slot = p.nextElementSibling;
+          var h = slot.offsetTop + slot.offsetHeight - p.offsetTop;
           var top = Math.max(0, p.offsetTop - (scroller.clientHeight - h) / 2);
           // Our own scroll must not be read back as the learner's (see below).
           if (smooth && Math.abs(scroller.scrollTop - top) > 1) {
