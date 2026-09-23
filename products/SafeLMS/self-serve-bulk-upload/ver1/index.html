@@ -258,6 +258,46 @@
     display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .modal-drop { border: 1.5px dashed #B9C9DA; border-radius: 10px; padding: 18px; text-align: center; margin-bottom: 16px; }
 
+  /* ---- OS-style "Open file" browser (prototype stand-in for the real chooser).
+         Looks like a native file dialog; the preloaded samples sit in a gray,
+         boxed "Prototype only" area so it's clear they aren't real files. ---- */
+  .modal--fp { width: 780px; }
+  .fp-titlebar { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line);
+    background: linear-gradient(#FBFCFE, #EEF2F7); }
+  .fp-lights { display: flex; gap: 7px; }
+  .fp-lights i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .fp-title-txt { flex: 1; text-align: center; font-size: 13px; font-weight: 700; color: var(--ink-2); margin-right: 40px; }
+  .fp-toolbar { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid var(--line-2); background: #fff; }
+  .fp-crumb { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); font-weight: 600; }
+  .fp-crumb .nav { color: var(--muted-2); font-size: 12px; }
+  .fp-search { margin-left: auto; display: flex; align-items: center; gap: 7px; background: #EEF1F5; border-radius: 7px;
+    padding: 6px 11px; font-size: 12px; color: var(--muted-2); min-width: 140px; }
+  .fp-cols { display: flex; min-height: 288px; max-height: 50vh; }
+  .fp-side { width: 166px; flex: 0 0 166px; border-right: 1px solid var(--line-2); padding: 9px 8px; overflow-y: auto; background: #FAFBFD; }
+  .fp-side .fp-grp { font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); padding: 9px 8px 4px; }
+  .fp-side .fp-item { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 6px; font-size: 12.5px; color: var(--ink-2); cursor: default; }
+  .fp-side .fp-item i { color: var(--muted-2); width: 15px; text-align: center; font-size: 13px; }
+  .fp-side .fp-item.is-active { background: #E6EEFB; color: var(--blue-2); font-weight: 600; }
+  .fp-side .fp-item.is-active i { color: var(--blue); }
+  .fp-main { flex: 1; min-width: 0; overflow-y: auto; padding: 12px 14px; background: #fff; }
+  .fp-proto { border: 1.5px dashed #C6D3E1; background: #F3F5F8; border-radius: 10px; padding: 10px 10px 8px; }
+  .fp-proto-hd { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; margin: 2px 2px 9px; }
+  .fp-proto-tag { font-size: 10px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase; color: #8A5A0B;
+    background: #FFF7E6; border: 1px solid #F2D69B; border-radius: 5px; padding: 2px 8px; white-space: nowrap; }
+  .fp-proto-note { font-size: 11.5px; color: var(--muted); }
+  .fp-file { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 8px; cursor: pointer;
+    filter: grayscale(1); opacity: .78; transition: background .1s, opacity .1s, filter .1s; }
+  .fp-file + .fp-file { border-top: 1px solid #E7ECF2; }
+  .fp-file:hover { background: #EAF1FC; opacity: 1; filter: grayscale(0); }
+  .fp-file .fp-ico { width: 30px; flex: 0 0 30px; text-align: center; font-size: 23px; color: #217346; }
+  .fp-file .fp-nm { flex: 1; min-width: 0; }
+  .fp-file .fp-nm .n { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fp-file .fp-nm .m { font-size: 11px; color: var(--muted-2); margin-top: 1px; }
+  .fp-file .fp-sz { font-size: 11.5px; color: var(--muted-2); white-space: nowrap; }
+  .fp-foot { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); background: #FAFBFD; }
+  .fp-namefield { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); min-width: 0; }
+  .fp-namefield input { flex: 1; min-width: 0; border: 1px solid var(--btn-border); border-radius: 7px; padding: 7px 10px; font-size: 12.5px; color: var(--ink); background: #fff; }
+
   /* ---- Settings placement: full-width tab bar under the blue topbar ---- */
   .settings-tabbar { flex: 0 0 auto; background: #fff; border-bottom: 1px solid var(--line);
     padding: 0 32px; display: flex; gap: 2px; overflow-x: auto; }
@@ -1257,40 +1297,57 @@
      OS file chooser. The sample files live HERE (not on the page) so the upload
      screen matches the real product; picking one loads its scenario and closes. */
   function fileModalHTML() {
-    // Colored pill naming the error type each sample triggers (matches TIER palette).
-    function tagPill(f) {
-      var c = ({ ok:       ['#067647', '#ECFDF3', '#A6E5C3'],
-                 confirm:  ['#8A5A0B', '#FFFAEB', '#F2D69B'],
-                 blocked:  ['#B42318', '#FEF3F2', '#F1C0BB'],
-                 escalate: ['#3E3A8F', '#F4F3FB', '#CBC9EC'] })[f.kind] || ['#5B6B7E', '#F0F4F9', '#E1E7EE'];
-      return '<span style="font-size:11px;font-weight:700;letter-spacing:.3px;color:' + c[0]
-        + ';background:' + c[1] + ';border:1px solid ' + c[2] + ';border-radius:5px;padding:2px 8px;white-space:nowrap;">'
-        + esc(f.tag) + '</span>';
-    }
+    // Preloaded sample "files" — greyed and boxed so it's clear they're mock
+    // stand-ins, not real files on the tester's computer. Sorted cleanest → worst
+    // (their order in FILES); the scenario/tag rides along in the meta line.
     var files = FILES.map(function (f) {
-      return '<div class="file-row" data-act="pickFile" data-arg="' + f.id + '">'
-        + '<div class="file-badge">CSV</div>'
-        + '<div style="flex:1;min-width:0;">'
-        + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
-        + '<span class="mono" style="font-size:13px;font-weight:500;">' + esc(f.name) + '</span>' + tagPill(f) + '</div>'
-        + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:3px;">' + esc(f.note) + '</div></div>'
-        + '<div style="font-size:12.5px;color:#8CA0B4;white-space:nowrap;">' + f.rows + ' rows</div>'
-        + '<div style="font-size:13px;color:#1257B8;font-weight:600;white-space:nowrap;">Select →</div></div>';
+      var kb = Math.max(2, Math.round(f.rows * 0.28));  // plausible fake size
+      return '<div class="fp-file" data-act="pickFile" data-arg="' + f.id + '">'
+        + '<div class="fp-ico"><i class="fa-solid fa-file-csv"></i></div>'
+        + '<div class="fp-nm"><div class="n">' + esc(f.name) + '</div>'
+        + '<div class="m">CSV · ' + f.rows + ' rows · ' + esc(f.tag) + '</div></div>'
+        + '<div class="fp-sz">' + kb + ' KB</div></div>';
     }).join('');
+    function side(ico, label, active) {
+      return '<div class="fp-item' + (active ? ' is-active' : '') + '"><i class="fa-solid ' + ico + '"></i> ' + label + '</div>';
+    }
     return '<div class="modal-overlay" data-act="closeFiles">'
-      + '<div class="modal" data-act="noop">'
-      + '<div class="modal-head"><div>'
-      + '<div class="modal-title">Choose a file to upload</div>'
-      + '<div class="modal-sub">Prototype stand-in for your computer’s file picker. Samples are sorted <b>cleanest first → most issues last</b>, and each is tagged with the kind of errors it triggers so you can load the right scenario.</div>'
-      + '</div><button class="modal-x" data-act="closeFiles" aria-label="Close">✕</button></div>'
-      + '<div class="modal-body">'
-      + '<div class="modal-drop"><div class="dropzone-icon" style="margin:0 auto 8px;"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
-      + '<div style="font-size:13.5px;font-weight:600;">Drop a .csv or .xlsx here</div>'
-      + '<div style="font-size:12px;color:#8CA0B4;margin-top:2px;">or pick a sample below</div></div>'
-      + '<div style="display:flex;flex-direction:column;gap:8px;">' + files + '</div>'
+      + '<div class="modal modal--fp" data-act="noop">'
+      // Native-looking title bar
+      + '<div class="fp-titlebar">'
+      +   '<div class="fp-lights"><i style="background:#FF5F57;"></i><i style="background:#FEBC2E;"></i><i style="background:#28C840;"></i></div>'
+      +   '<div class="fp-title-txt">Open — choose a roster file</div>'
+      +   '<button class="modal-x" data-act="closeFiles" aria-label="Close">✕</button>'
       + '</div>'
-      + '<div class="modal-foot"><span style="font-size:12px;color:#8CA0B4;">Sample files for this test session</span>'
-      + '<button class="btn sm btn--ghost" data-act="closeFiles">Cancel</button></div>'
+      // Path / search toolbar
+      + '<div class="fp-toolbar">'
+      +   '<div class="fp-crumb"><i class="fa-solid fa-chevron-left nav"></i><i class="fa-solid fa-chevron-right nav"></i>'
+      +     '<i class="fa-solid fa-folder-open" style="color:#5A8CD6;margin-left:4px;"></i> Downloads</div>'
+      +   '<div class="fp-search"><i class="fa-solid fa-magnifying-glass"></i> Search</div>'
+      + '</div>'
+      // Sidebar + file list
+      + '<div class="fp-cols">'
+      +   '<div class="fp-side">'
+      +     '<div class="fp-grp">Favorites</div>'
+      +     side('fa-clock-rotate-left', 'Recents') + side('fa-desktop', 'Desktop')
+      +     side('fa-file-lines', 'Documents') + side('fa-download', 'Downloads', true)
+      +     '<div class="fp-grp">Locations</div>'
+      +     side('fa-hard-drive', 'This PC') + side('fa-cloud', 'OneDrive')
+      +   '</div>'
+      +   '<div class="fp-main">'
+      +     '<div class="fp-proto">'
+      +       '<div class="fp-proto-hd"><span class="fp-proto-tag"><i class="fa-solid fa-flask" style="margin-right:5px;"></i>Prototype only</span>'
+      +         '<span class="fp-proto-note">These sample files stand in for your computer — pick one to load a scenario.</span></div>'
+      +       files
+      +     '</div>'
+      +   '</div>'
+      + '</div>'
+      // Footer: filename field + Cancel / Open (cosmetic — clicking a file opens it)
+      + '<div class="fp-foot">'
+      +   '<div class="fp-namefield">File name:<input value="" placeholder="Pick a sample above…" readonly /></div>'
+      +   '<button class="btn sm btn--ghost" data-act="closeFiles">Cancel</button>'
+      +   '<button class="btn sm btn--disabled" data-act="noop" disabled>Open</button>'
+      + '</div>'
       + '</div></div>';
   }
 
@@ -1302,7 +1359,7 @@
       var out = '<option value="' + esc(NOT_IMPORTED) + '"' + (sel === NOT_IMPORTED ? ' selected' : '') + '>' + esc(NOT_IMPORTED) + '</option>';
       out += '<optgroup label="Standard fields">';
       FIELDS.forEach(function (f) {
-        out += '<option value="' + esc(f.field) + '"' + (sel === f.field ? ' selected' : '') + '>' + esc(f.field) + (f.req ? ' (required)' : '') + '</option>';
+        out += '<option value="' + esc(f.field) + '"' + (sel === f.field ? ' selected' : '') + '>' + esc(f.field) + '</option>';
       });
       out += '</optgroup><optgroup label="Your site’s attributes">';
       ATTRIBUTES.forEach(function (a) {
@@ -1316,10 +1373,13 @@
       var target = fieldForCol(colName);
       var samlBad = state.fileId === 'saml' && target === 'Username' && colName !== 'EMAIL_ADDR' && isMap();
       var mapped = target !== NOT_IMPORTED;
+      // Red asterisk on the file column when it maps to a required field (First/Last/Username).
+      var reqStar = FIELDS.some(function (f) { return f.req && f.field === target; })
+        ? '<span style="color:#D92D20;" title="Required field"> *</span>' : '';
       var badge = samlBad ? '⚠ check' : (mapped ? 'Mapped' : 'Not imported');
       var badgeColor = samlBad ? '#B54708' : (mapped ? '#12B76A' : '#8CA0B4');
       return '<div class="map-grid map-row">'
-        + '<div class="mono" style="font-size:13px;font-weight:600;color:#1B2B3E;">' + esc(colName) + '</div>'
+        + '<div class="mono" style="font-size:13px;font-weight:600;color:#1B2B3E;">' + esc(colName) + reqStar + '</div>'
         + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(sample) + '</div>'
         + '<div style="padding-right:20px;"><select class="map-select" data-act="mapColTarget" data-arg="' + esc(colName) + '">' + targetOpts(target) + '</select></div>'
         + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
