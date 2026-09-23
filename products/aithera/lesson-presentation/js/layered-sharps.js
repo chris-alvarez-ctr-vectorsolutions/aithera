@@ -376,77 +376,90 @@
         ]
       }
     },
+    // Alignment brief D8, reopened 2026-09-21: K&A's Law Enforcement script
+    // (`Contain_the_Sharp_Law_Enforcement.pdf`, final) is real per-role content
+    // for one of this sector's three named roles — the thing D8 said to build
+    // "once K&A/SME author real content and hand it to us." Rebuilt from the
+    // ground up against that script: the sector previously ran an original,
+    // EMS-flavored world (an ambulance crew, IV catheters, a jump bag) with no
+    // source script behind it at all. `roles` narrows from the old umbrella
+    // ('EMS · fire · law enforcement') to what this content actually depicts,
+    // rather than claiming coverage of roles no scene here shows. EMS/fire
+    // content for this sector would need its own source material the same way
+    // this did — not invented to fill the old label.
     public: {
-      label: 'Public Sector', premise: 'use',
-      sharps: 'IV catheters, needles and lancets from the drug box. Broken ampoules. Anything sharp left on a rail by the crew before you.',
+      label: 'Public Sector', premise: 'find',
+      sharps: 'Needles and syringes recovered from a subject’s property during a search or booking. Anything sharp left where the last person didn’t secure it — a cell, an evidence locker, the back seat of a patrol vehicle.',
       facility: {
-        gloves: 'Issue puncture-resistant gloves to every crew for gurney breakdown',
-        boxes: 'Fit a second wall container within reach of the bench seat in every rig'
+        gloves: 'Issue puncture-resistant gloves to every officer for property searches and booking intake',
+        boxes: 'Add a second sharps container at the booking counter, within reach of the intake window'
       },
       sustain: {
-        conds: ['The rig is moving',
-                'My partner needs a hand with the patient',
-                'Restocking at the end of a call'],
-        hint: 'clipped to the rail by the bench seat'
+        conds: ['The line at booking is backing up',
+                'Another officer needs you across the lot',
+                'Clearing your vehicle at the end of shift'],
+        hint: 'at the booking counter, past the intake window'
       },
-      roles: 'EMS · fire · law enforcement', org: 'Kell County EMS', orgShort: 'Kell County EMS',
-      coord: { name: 'Priya Raman', title: 'EMS Training Officer', email: 'training@kellcountyems.gov' },
-      role: 'Paramedic', where: 'The back of a moving ambulance', when: 'A transfer',
-      case1: 'You place a line in the back of a moving ambulance and set the used catheter on the bench seat — both hands are on the patient.',
-      case2: 'The jump-bag container is packed past the fill line molded into its lid, and the wall unit is behind the stretcher you cannot reach from here.',
-      case3: 'At the ED doors you find a used needle loose on the gurney rail, left from the run before yours.',
-      case4: 'Your partner, breaking down the gurney at the ED, is stuck by that needle. It was from the previous crew’s run, and nobody had cleared the rail.',
+      roles: 'patrol · booking · property', org: 'Kell County Police Department', orgShort: 'Kell County PD',
+      coord: { name: 'Marcus Whitfield', title: 'Training Sergeant', email: 'training@kellcountypd.gov' },
+      role: 'Patrol officer', where: 'The station', when: 'Booking intake',
+      case1: 'You recover a used needle from a subject’s property at the booking counter and set it down — the container is across the intake area, and the line behind you is backing up.',
+      case2: 'The sharps container in the station’s processing area is packed past its fill line, and the spare is in the property room down the hall.',
+      case3: 'On your way to the container, you pass a used syringe partly hidden in a general-waste bin near the booking counter.',
+      case4: 'A custodian collecting that bin overnight is stuck through the bag. It was a needle nobody logged at intake.',
       story: {
-        by: 'Paramedic, county EMS. Told at a crew debrief.',
+        by: 'Patrol officer, county PD. Told at a shift briefing.',
         paras: [
-          'I placed a line in the back of a moving rig on a transfer. Patient was stable, the road was bad, and both my hands were doing something. I set the used catheter on the bench seat beside me. Two seconds, I thought.',
-          'We got busy at the doors. I broke down the gurney and never went back for it.',
-          'My partner Renata caught it with the side of her hand pulling the stretcher rail. She said “that’s mine, isn’t it” before I had even turned around.',
-          'She did the protocol. Twelve weeks. She rode with me the whole time and never once brought it up on a call.',
-          'I have run that transfer a hundred times since. The sharp goes in the box first now, even with a hand on the patient. It costs about four seconds.'
+          'I recovered a used needle from a subject’s property during a search, mid-arrest. Booking was backed up and both my hands were full processing the arrest, so I set it on the counter. Two minutes, I thought.',
+          'The line moved. I never went back for it.',
+          'Overnight, somebody swept the counter into the general trash. The custodian on the morning bag run got stuck through the bag pulling it out.',
+          'He did the protocol. Twelve weeks of bloodwork. He never said a word to me about it — I only found out because the sergeant pulled the incident report.',
+          'I walk it to the container now, every time, even with a line behind me. It costs about a minute.'
         ]
       },
-      // Its own incident, and deliberately NOT the IV catheter the cases and
-      // the account use: a broken ampoule out of the drug box.
-      // What counts as a sharp HERE, in prose, for the hazard article.
-      jobPara: 'A catheter or lancet out of the drug box has been in someone within the last hour. An ampoule you snapped open leaves glass on the edge, with the dose and whatever else was on your gloves still on it. The crew before you may have left something on a rail without meaning to. None of these look dramatic. That is the hazard. Something that looks like trash is easier to pick up than something that looks like a syringe.',
+      // What counts as a sharp HERE, in prose, for the hazard article — not
+      // the booking-counter needle the cases and chain use, same pattern as
+      // the other three sectors' own incident.
+      jobPara: 'A needle or syringe recovered from a subject’s property during a search or booking has been in someone within the last hour. Broken glass from an evidence intake or a holding cell can carry the same risk. None of these look dramatic. That is the hazard. Something that looks like trash is easier to pick up than something that looks like a syringe.',
+      // NOT regenerated this round — no image-generation tool available in
+      // this session. src still points at the old ambulance photo, which no
+      // longer matches; alt text describes what the real asset should show.
+      // This field is not currently rendered anywhere live (see chat summary
+      // 2026-09-21), so nothing on screen is broken by the mismatch, but it
+      // needs a real photo before this field is ever wired up.
       photo: {
         src: '../../assets/images/sharps-account-public.jpg',
-        alt: 'A used IV catheter lying on the bench seat in the back of an ambulance at night, with the gurney rail and a rain-streaked window behind it.'
+        alt: 'NEEDS A NEW PHOTO (see chat summary 2026-09-21) — a used hypodermic needle wedged into the back-seat upholstery of a patrol vehicle at night, dome light on.'
       },
       chain: {
-        end: 'Remember, you may never meet the crew that cleans the rig after you.',
-        avoided: 'Amrit never has to find out whether that ampoule mattered.',
-        setup: { time: '2:10 AM', body: 'You break an ampoule drawing up a dose in the back of the rig. The red sharps disposal container is on the wall behind the bench seat. There is also a trash bag on the rail at your knee.' },
-        // Optional per sector. The decision screen renders the lockup only
-        // where a hero exists, so the three sectors without one are unchanged.
-        hero: {
-          src: '../../assets/images/sharps-chain-public-setup.jpg',
-          alt: 'The back of an ambulance at night. A gloved hand holds a broken glass ampoule ' +
-               'over an open equipment case. A red sharps container is mounted on the far wall, ' +
-               'across the compartment. An open black bin liner hangs directly below the hand.'
-        },
+        end: 'Remember, you may never meet whoever empties the booking counter’s trash after your shift.',
+        avoided: 'Jacob never has to find out whether that needle mattered.',
+        setup: { time: '9:40 PM', body: 'You recover a used needle from a subject’s property during a search at the booking counter. Intake is backed up behind you, and both hands are already on the next subject. The designated sharps container is across the intake area. There is also the general trash bin right at the counter.' },
+        // No hero image this round — no image-generation tool available
+        // this session (see chat summary 2026-09-21). Omitted rather than
+        // pointed at a nonexistent file, same as Manufacturing, Education
+        // and AEC, which also render without one.
         pick: {
-          safe:  { t: 'The red sharps container behind the bench seat', icon: 'fa-shield-halved' },
-          short: { t: 'The trash bag on the rail', icon: 'fa-trash-can' }
+          safe:  { t: 'The sharps container across the intake area', icon: 'fa-shield-halved' },
+          short: { t: 'The general trash bin at the counter', icon: 'fa-trash-can' }
         },
         act: {
-          safe:  { time: '2:11 AM', gap: 'a minute later', gapSize: 's',
-                   body: 'You reach past the bench seat and put the glass in the wall container. It costs you about four seconds.' },
-          short: { time: '2:11 AM', gap: 'a minute later', gapSize: 's',
-                   body: 'You drop it into the bag on the rail. It is not a needle, and the run is nearly over.' }
+          safe:  { time: '9:41 PM', gap: 'a minute later', gapSize: 's',
+                   body: 'You cross the intake area to the container with the line still watching. It costs you about a minute, for a needle that was never yours to begin with.' },
+          short: { time: '9:41 PM', gap: 'a minute later', gapSize: 's',
+                   body: 'You drop it in under the counter. The line keeps moving, and intake never slows down.' }
         },
         safeAfter: [
-          { time: '6:30 AM', gap: 'four hours later', gapSize: 'l',
-            body: 'Amrit takes the rig over at shift change and restocks it for the day crew. He pulls the bag off the rail and squeezes it flat to get it into the barrel. There is nothing in it that can cut him, and he will never know that was ever in question.' }
+          { time: '6:15 AM', gap: 'eight and a half hours later', gapSize: 'l',
+            body: 'Jacob runs the trash on the morning custodial shift. He pulls the bag from under the counter the way he always does. There is nothing in it that can cut him, and he will never know that was ever in question.' }
         ],
         after: [
-          { time: '6:30 AM', gap: 'four hours later', gapSize: 'l',
-            body: 'Amrit takes the rig over at shift change and restocks it for the day crew. You have never met him — he comes on as you go off, and a bag on the rail is just a bag.' },
-          { time: '6:31 AM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
-            body: 'He pulls it off the rail and squeezes it flat to get it into the barrel. The broken edge goes through the plastic and into the side of his hand.' },
+          { time: '6:15 AM', gap: 'eight and a half hours later', gapSize: 'l',
+            body: 'Jacob runs the trash on the morning custodial shift. You have never met him — he comes in long after your shift ends, and a bag under the counter tells him nothing.' },
+          { time: '6:16 AM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
+            body: 'He pulls the bag clear to load the cart. The needle is somewhere in the middle of it, and it goes through the plastic into his hand.' },
           { time: 'Over the next twelve weeks', gap: 'and then', gapSize: 'm',
-            body: 'Amrit now has to be tested at six weeks and again at twelve to find out whether he caught anything. There was a patient\u2019s blood on that ampoule \u2014 a patient he never treated. He has done nothing wrong at any point in this chain.' }
+            body: 'Jacob now has to be tested at six weeks and again at twelve to find out whether he caught anything. Nobody can tell him whose needle it was, or how long it sat under that counter. He has done nothing wrong at any point in this chain.' }
         ]
       }
     }
@@ -493,9 +506,42 @@
   // ==========================================================================
   // Steps that carry art today. Adding one is a line here plus a figure()
   // call in its content builder.
-  var IMAGE_STEPS = { hazard: 1 };
+  var IMAGE_STEPS = {};
   function imagesOn() {
     try { return sessionStorage.getItem('sh-images') !== 'off'; } catch (e) { return true; }
+  }
+  // Design style: 'clara' (default) | 'vector-dark' | 'vector-light' — see
+  // the html.ll-vector-style/html.ll-vector-light token overrides in
+  // clara/sharps.html's <style>, and the boot snippet in its <head> that
+  // applies the right class(es) before first paint. Mostly a CSS swap, so
+  // the Demo menu control below never needs a replay/refresh — but the
+  // Möbius orb (js/mobius-orb.js) is a WebGL canvas that reads no CSS
+  // custom property, so its colours are re-set here too, live, via
+  // LE.setOrbColors (MobiusOrb.setConfig — no recreate).
+  //
+  // The orb's default green/blue are tuned as glowing highlights against
+  // CLARA's near-black stage — bright, light-value colour that pops out of
+  // near-black. On Vector-light's near-white stage that relationship
+  // inverts: the same light values read as pale and washed out, because
+  // contrast against a light surface comes from lower value/more
+  // saturation, not from brightness. So LIGHT_ORB_COLORS isn't a "brighter"
+  // palette, it's a darker, more saturated one — Vector's own accent blue
+  // (matches --ll-teal under html.ll-vector-style) and its documented
+  // success green (--lumo-success-color fallback, interaction-style-
+  // reference.html), leaving the shadow-toned `deep` channel alone since a
+  // dark base tone reads fine against either surface.
+  var LIGHT_ORB_COLORS = { blue: '#0271ce', green: '#158444' };
+  function styleMode() {
+    try {
+      var v = sessionStorage.getItem('sh-style');
+      return (v === 'vector-dark' || v === 'vector-light') ? v : 'clara';
+    } catch (e) { return 'clara'; }
+  }
+  function applyStyleMode(mode) {
+    var html = document.documentElement;
+    html.classList.toggle('ll-vector-style', mode === 'vector-dark' || mode === 'vector-light');
+    html.classList.toggle('ll-vector-light', mode === 'vector-light');
+    if (LE.setOrbColors) LE.setOrbColors(mode === 'vector-light' ? LIGHT_ORB_COLORS : null);
   }
   // D10: off by default, so every learner gets the live scenario. Reviewer-
   // only, flipped from the Demo menu — see DOBASELINE_CONTENT/doBaselineInit.
@@ -507,6 +553,15 @@
   // this falls back to an unnamed line when it comes back empty.
   function savedName() {
     try { return (sessionStorage.getItem('sh-name') || '').trim().slice(0, 40); } catch (e) { return ''; }
+  }
+  // Entry sequencing: whether the pre-check battery (and the path-adjustment
+  // screen it can trigger) run BEFORE the module's own cover, or in their
+  // usual place right after it. Off by default — "Battery at start" is
+  // today's order. Read once at STEPS build time (see the reorder right
+  // before LE.register), so flipping it needs a reload to take effect, the
+  // same as every other structural Demo menu control.
+  function batteryOrderBefore() {
+    try { return sessionStorage.getItem('sh-battery-order') === 'before'; } catch (e) { return false; }
   }
   // ==========================================================================
   //  REINFORCEMENT — one extra question laid OVER the content that motivates
@@ -697,42 +752,26 @@
   // flip that changes on every reload. Alignment brief D3: Manufacturing is
   // sampled OUT — K&A's script is explicit that F2 (engineering controls) is
   // asked once for the whole course, in Module 2, and not repeated here.
+  // The final Law Enforcement script (2026-09-21) carries the identical
+  // instruction word-for-word, so Public Sector is sampled out on the same
+  // basis — no source script confirms this either way for Education/AEC.
   var SAMPLE_MAP = {
-    F2: { manufacturing: false, education: true, aec: false, public: true }
+    F2: { manufacturing: false, education: true, aec: false, public: false }
   };
   function sampled(objId) {
     var m = SAMPLE_MAP[objId];
     return !m || !!m[LE.lensId()];
   }
-  function batteryResult() {
-    try { var o = sessionStorage.getItem('sh-battery');
-          if (o === 'proven' || o === 'unproven') return o; } catch (e) {}
-    var b = readCourse().battery;
-    if (b && b.k1) return b.k1 === 'proven' ? 'proven' : 'unproven';
-    return 'unproven';
-  }
-  // K2 (recognition) is content-locked, on its own battery item — a strong K1
-  // result does not decide it (that was the bug: K2 was never even IN the
-  // battery, and its harder-cases trigger was reading K1).
+  // 'proven' now means the K1 pre-check question was answered correctly,
+  // which serves case 1's harder (test-up) version. Kept under its old name
+  // for the Demo menu's sh-battery override and the code that reads it.
+  function batteryResult() { return k1TestUp() ? 'proven' : 'unproven'; }
+  // K2's own pre-check question decides case 2's test-up, independently of K1.
   function k2TestUp() {
-    var b = readCourse().battery;
-    if (b && typeof b.k2up === 'boolean') return b.k2up;
-    // No battery record — the presenter forced the result from the Demo
-    // menu, which moves both (K1/K2) together for one coherent "proven"
-    // state rather than reporting proven with test-up silently switched
-    // off, which put a KEPT chip on the same screen as a summary line
-    // saying it got harder.
-    return batteryResult() === 'proven';
+    try { var o = sessionStorage.getItem('sh-battery');
+          if (o === 'proven') return true; if (o === 'unproven') return false; } catch (e) {}
+    return !!(readCourse().battery || {}).k2up;
   }
-  // There is deliberately no feelLow() here. The two Feel items set a
-  // BASELINE and route nothing: their whole job is to be comparable to the
-  // same question asked again later, and the reportable figure is the MOVE.
-  // The adjustment screen used to print an "Added" row off a low score,
-  // naming a beat that in fact runs for every learner — a claim with no
-  // change behind it, on the one screen whose argument is that every line
-  // points at a real moment. Feel may still make a beat heavier; when it
-  // does, the row goes back with the weight, not ahead of it.
-
   // ==========================================================================
   //  TITLE PAGE — the same LMS anatomy as the Bystander module, rendered from
   //  the live path so it foreshadows compression honestly.
@@ -745,49 +784,68 @@
                     // tick it. It used to borrow the timed screen's result,
                     // which was a tick for a different screen's work.
                     record: 'record' };
-  // Durations are summed from the steps themselves so the rail can never drift
-  // from the syllabus; the saving is exactly what the adaptive sections cost.
+  // Durations are summed from the steps themselves so the rail can never
+  // drift from the syllabus. `full` already includes remediation steps
+  // (e.g. remk1) alongside every adaptive one — it's the worst-case total
+  // with no test-out, which is exactly what "Max time" reports pre-battery.
+  // Deck-aligned 2026-09-22: every case now has alternate versions (base /
+  // test-up / reinforced) of which a learner sees ONE, so summing every step
+  // double-counted them. Counts the path as it currently stands instead —
+  // before the pre-check, that is the standard path.
   function pathMinutes() {
-    var full = 0, saved = 0;
-    STEPS.forEach(function (st) {
-      if (!st.mins) return;
-      full += st.mins;
-      // `adaptive` now marks anything the first five answers can change, and
-      // two of those get HARDER rather than shorter. Only a step with a
-      // when() predicate can actually vanish, so only those save time.
-      if (st.adaptive && st.when) saved += st.mins;
-    });
-    return { full: full, saved: saved };
+    var full = 0;
+    STEPS.forEach(function (st) { if (st.mins && (!st.when || st.when())) full += st.mins; });
+    return { full: full };
   }
   function initials(name) {
     return String(name || '').split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0); }).join('').toUpperCase();
   }
-  function INTRO_CONTENT() { var L = lens(), mins = pathMinutes(); return '' +
+  // D-modidx: this list used to render Sharps' OWN sections (Learn/Practice/
+  // Debrief) so a learner could see and jump back into what was inside the
+  // one module they were on. It now renders the course's SIBLING modules
+  // instead — Sharps is one row among six, distinguished only by the state
+  // it's actually in — so the page reads as a course home, not a syllabus.
+  // The old per-section list (with its adaptive-cut demonstration) still
+  // has a job, just not here: it belongs AFTER the battery has actually run,
+  // where "here's what came out of your path" is true. That screen doesn't
+  // exist yet.
+  // Every entry but 'sharps' is a stand-in — there's no real syllabus behind
+  // the other five yet, so their names and minutes are illustrative, not
+  // sourced. 'sharps' has no fixed mins: its row reads the live
+  // pathMinutes() below like the old rail card did, so it can't drift from
+  // the syllabus it's actually describing.
+  var COURSE_MODULES = [
+    { name: 'Understanding Bloodborne Pathogens', icon: 'fa-virus', mins: 15, state: 'done' },
+    { name: 'Universal Precautions', icon: 'fa-shield-halved', mins: 20, state: 'done' },
+    { name: 'Personal Protective Equipment', icon: 'fa-mask-face', mins: 18, state: 'done' },
+    { name: 'Contain the Sharp', icon: 'fa-syringe', current: true },
+    { name: 'Spill Response & Decontamination', icon: 'fa-spray-can-sparkles', mins: 12, state: 'locked' },
+    { name: 'Exposure Incidents & Reporting', icon: 'fa-file-medical', mins: 10, state: 'locked' }
+  ];
+  function INTRO_CONTENT() { var L = lens(); return '' +
     '<main class="ll-object">' +
       '<div class="cp-page">' +
-        // D11: hidden by default, filled in by introInit only when there is
-        // something to resume — a fresh session never sees an empty banner.
-        '<div class="cp-resume" id="introResume" hidden></div>' +
         '<header class="cp-hero-band">' +
           '<div class="cp-hero">' +
-            '<p class="ll-eyebrow">Bloodborne Pathogens · Module 4 of 6</p>' +
-            '<h1>Contain the Sharp</h1>' +
-            '<p class="cp-desc">When I am about to use, handle, or dispose of a needle or sharp, I plan the ' +
-              'disposal route before I start, activate the safety feature, and put it straight into a ' +
-              'designated container — never into general waste.</p>' +
+            '<p class="ll-eyebrow">' + COURSE_MODULES.length + ' Modules</p>' +
+            '<h1>Bloodborne Pathogens</h1>' +
+            '<p class="cp-desc">This course covers what OSHA’s Bloodborne Pathogens Standard (29 CFR ' +
+              '1910.1030) requires of anyone who could contact blood or other potentially infectious ' +
+              'materials on the job — recognizing exposure risks, applying universal precautions, using ' +
+              'personal protective equipment correctly, and handling sharps, spills, and exposure incidents ' +
+              'safely.</p>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
             '</div>' +
           '</div>' +
-          '<div class="cp-art"><i class="fa-solid fa-syringe" aria-hidden="true"></i></div>' +
+          '<div class="cp-art"><img src="../../assets/images/sharps-header.jpg" alt="" /></div>' +
         '</header>' +
         '<div class="cp-grid">' +
           '<section class="cp-sections">' +
-            '<div class="cp-sec-head"><h2>Course sections</h2></div>' +
+            '<div class="cp-sec-head"><h2>Course modules</h2></div>' +
             '<div id="cpRows"></div>' +
-            '<p class="cp-adapt-note" id="cpAdaptNote"></p>' +
           '</section>' +
           '<aside class="cp-rail">' +
             // Set before anything else in the module runs, so the very first
@@ -798,71 +856,33 @@
             // a second, competing preference — changing it later on any one
             // screen IS changing it everywhere else too, which is the point.
             '<div class="cp-card cp-format"><h3>Preferred format</h3>' +
-              '<p class="cp-format-note">How CLARA delivers instruction across this module.</p>' +
               // Collapsed to the current choice by default — a full four-way
               // picker on a page the learner has not started anything on yet
               // reads as a decision being demanded rather than a setting
               // already made on their behalf. "Change" expands the same
-              // picker every in-beat screen uses, so all four options
-              // (including the declined one, honestly labeled) are still one
-              // tap away.
-              '<div class="cp-format-now" id="introModNow">' +
-                '<span class="cp-format-now-t"><i class="fa-solid" id="introModNowIcon" aria-hidden="true"></i>' +
-                  '<b id="introModNowLabel"></b></span>' +
-                '<button class="cp-format-change" id="introModChange" type="button" aria-expanded="false">' +
-                  'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
-              '</div>' +
-              '<div class="cp-format-picker" id="introModPickWrap" hidden>' +
-                modalityPicker('introModPick', MODALITY_ORDER, false) +
-              '</div>' +
+              // picker every in-beat screen uses (modalityDropdown — this
+              // card is where that shape originated; hazardInit/
+              // procedureInit below now share it rather than each rolling
+              // their own), so all four options (including the declined
+              // one, honestly labeled) are still one tap away.
+              modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
+                icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
+                DK_OFFERED) +
             '</div>' +
-            // D11: same collapsed-value-plus-Change shell as the format card
-            // above, reused rather than re-invented — own picker markup
-            // since a sector/role pair carries no cost line to show.
-            // Self-assigned, and URL-prefillable (?role=<sector id>) for a
-            // stamped link; still only ever the four sectors the reviewer's
-            // Demo → Context lens control already cycles through.
-            '<div class="cp-card cp-format cp-role"><h3>Your role</h3>' +
-              '<p class="cp-format-note">Sets the sector and working environment every scene uses.</p>' +
-              '<div class="cp-format-now" id="introRoleNow">' +
-                '<span class="cp-format-now-t"><i class="fa-solid fa-briefcase" aria-hidden="true"></i>' +
-                  '<b id="introRoleNowLabel"></b></span>' +
-                '<button class="cp-format-change" id="introRoleChange" type="button" aria-expanded="false">' +
-                  'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
-              '</div>' +
-              '<div class="cp-format-picker" id="introRolePickWrap" hidden>' +
-                '<div class="rl-pick" id="introRolePick" role="group" aria-label="Choose your sector and role"></div>' +
-              '</div>' +
-            '</div>' +
-            // D11: optional self-assigned identity, also URL-prefillable
-            // (?name=) for a stamped link. Read only by this screen's own
-            // "welcome back" line on a return visit — not threaded into
-            // CLARA's dialogue throughout the module, which is a bigger,
-            // separate pass this round does not take on.
-            '<div class="cp-card"><h3>Your name</h3>' +
-              '<p class="cp-format-note">So a returning visit can say it back to you. Optional.</p>' +
-              '<input type="text" id="introName" class="cp-name-input" maxlength="40" ' +
-                'placeholder="Type your name" autocomplete="given-name">' +
-            '</div>' +
-            // Item 17: the doc's own mastery rule, not the aptitude vision's
-            // 80%-of-objectives threshold — the two are different documents
-            // with different rules, and this module answers to the first.
-            // Bystander still carries the 80% card; that inconsistency is
-            // tracked, not swept here (a separate pass touches every module).
-            '<div class="cp-card"><h3>Competency requirement</h3>' +
-              '<ul class="cp-req">' +
-                '<li><i class="fa-solid fa-list-check"></i><span>Every section completed.</span></li>' +
-                '<li><i class="fa-solid fa-clipboard-check"></i><span>Each check passed.</span></li>' +
-                '<li><i class="fa-solid fa-comments"></i><span>The culminating scenario performed.</span></li>' +
-                '<li><i class="fa-solid fa-circle-info"></i><span>No final test.</span></li>' +
-              '</ul></div>' +
-            '<div class="cp-card"><h3>Time needed to complete</h3>' +
-              '<div class="cp-kv"><div class="kv" id="cpTime"></div></div></div>' +
+            // D11 → moved to the Demo menu: sector/role and the self-assigned
+            // name are reviewer/demo-driver settings, not a choice a real
+            // learner makes on every visit — an LMS assigns the sector, and a
+            // real name comes from SSO. Role rides the engine's own Context
+            // lens control (already in the Demo menu on this step, since
+            // `intro` is in lensedSteps); name gets its own row below. Both
+            // still work as before via ?role=/?name= launch params and
+            // sessionStorage (ll-lens/sh-name) — only the learner-facing
+            // rail cards are gone.
             '<div class="cp-card cp-res"><h3>Resources</h3>' +
               '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-file-pdf"></i> ' + esc(L.orgShort) + ' exposure control plan <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
               '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-kit-medical"></i> What to do after a needlestick <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
               '<a href="#" onclick="return false" title="Mocked for the prototype"><i class="fa-solid fa-scale-balanced"></i> OSHA 1910.1030 <i class="fa-solid fa-arrow-up-right-from-square ext"></i></a>' +
-              '<p class="cp-res-note">All resources open in a new window.</p></div>' +
+            '</div>' +
             '<div class="cp-card"><h3>Course coordinator</h3>' +
               '<div class="cp-coord"><span class="ava">' + esc(initials(L.coord.name)) + '</span>' +
                 '<span><b>' + esc(L.coord.name) + '</b><small>' + esc(L.coord.title) + ' · ' + esc(L.coord.email) + '</small></span></div></div>' +
@@ -872,233 +892,882 @@
     '</main>'; }
   function introInit(ctx) {
     var course = readCourse();
-    var L = lens();
-    // Render the FULL syllabus and MARK what the entry questions removed,
-    // rather than rendering visiblePath(). visiblePath() is the
-    // post-compression path, so once the battery proved the procedure both
-    // adaptive sections simply vanished from this list — leaving no "adaptive"
-    // label anywhere on the screen and a legend underneath pointing at
-    // nothing, while the time card still offered to save time the learner had
-    // already saved. Showing the cut is the entire demonstration; a
-    // compression you cannot see is indistinguishable from a module that never
-    // had those sections.
-    var rows = STEPS.filter(function (st) { return st.id !== 'intro'; });
-    var review = LE.reviewMode();
-    var cutCount = 0, cutMins = 0;
-    document.getElementById('cpRows').innerHTML = rows.map(function (st) {
-      var gone = !!(st.when && !st.when());
-      // An interstitial is a system screen with no news of its own, not a
-      // section — off the syllabus whether or not it is running, so a
-      // learner on the proven path never sees "Your Updated Path" advertised
-      // as something to visit.
-      if (st.interstitial) return '';
-      // Only ADAPTIVE absences count toward this tally — the sentence below
-      // reads "N sections marked adaptive came out because of your first
-      // five answers", which is specifically about battery-driven
-      // compression. A remediation card being gone (item 10) is a DIFFERENT
-      // kind of absence — it depends on later in-module checks, not the
-      // battery — and counting it here would claim credit the battery never
-      // earned, or blame it for a card that was never coming out either way.
-      if (gone && st.adaptive) { cutCount++; cutMins += (st.mins || 0); }
-      var done = !gone && !!course[DONE_KEYS[st.id]];
-      var meta = [];
-      if (st.stage) meta.push('<span class="stage">' + esc(st.stage) + '</span>');
-      if (st.mins) meta.push('<span>About ' + st.mins + ' min' + (st.mins > 1 ? 's' : '') + '</span>');
-      if (st.adaptive) meta.push('<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles"></i>adaptive</span>');
-      var state = gone ? ['cut', 'Skipped'] : done ? ['done', 'Done'] : ['todo', 'Not started'];
-      // A section already completed is a real destination — a learner
-      // revisiting it is not "ahead of the gate" the way an untouched one
-      // would be. Anything still ahead only opens in review mode, via the
-      // Demo menu's Review mode toggle: a production build would unlock
-      // exactly this same set (completed sections), nothing more.
-      var jumpable = !gone && (done || review);
-      var tag = jumpable ? 'button' : 'div';
-      var attrs = jumpable ?
-        ' type="button" data-step="' + esc(st.id) + '"' +
-        ' aria-label="Go to ' + esc(st.lesson) + '"' : '';
-      return '<' + tag + ' class="cp-row' + (done ? ' done' : '') + (gone ? ' is-cut' : jumpable ? ' is-jump' : '') + '"' + attrs + '>' +
-        '<span class="cp-row-ico"><i class="fa-solid ' + (st.icon || 'fa-circle') + '"></i></span>' +
-        '<span class="cp-row-main"><b>' + esc(st.lesson) + '</b>' +
-          '<span class="cp-row-meta">' + meta.join('') + '</span></span>' +
-        '<span class="cp-row-state ' + state[0] + '">' + state[1] + '</span>' +
-      '</' + tag + '>';
+
+    // D11: resumable progress now lives on the Sharps row itself (see the
+    // "resume" state below) instead of a banner above the page. Battery-
+    // before mode runs battery/adjust BEFORE this cover, so on the very
+    // FIRST pass through the module `last` is already one of them by the
+    // time we get here — that's this run continuing forward, not somebody
+    // returning after having left. Only a real return visit (anything past
+    // the cover, in the normal course content) counts as progress worth
+    // resuming. LE.goTo refuses a step the current path no longer contains
+    // (a when()-excluded remediation, say), which here just means Resume
+    // quietly does nothing rather than stranding anyone; Start over always
+    // works regardless.
+    var last = LE.lastStepId();
+    var justArrived = batteryOrderBefore() && (last === 'battery' || last === 'adjust');
+    var hasProgress = !!(last && last !== 'intro' && !justArrived && LE.stepById(last));
+
+    var mins = pathMinutes();
+
+    document.getElementById('cpRows').innerHTML = COURSE_MODULES.map(function (m) {
+      if (!m.current) {
+        return '<div class="cp-row' + (m.state === 'locked' ? ' is-locked' : '') + '">' +
+          '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
+          '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
+            '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span></span></span>' +
+          '<span class="cp-row-state ' + m.state + '">' + (m.state === 'done' ? 'Complete' : 'Locked') + '</span>' +
+        '</div>';
+      }
+      // Sharps is the only module with real content behind it, so it's the
+      // only row this page can act on. Resume gets two separate buttons
+      // ("Resume" and "Start over" are different actions, neither should be
+      // guessable from tapping the row body) — but up next has exactly ONE
+      // possible action, so the whole row can safely be that action.
+      var icoMain = '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
+        '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
+          '<span class="cp-row-meta"><span>About ' + mins.full + ' min' + (mins.full > 1 ? 's' : '') + '</span></span></span>';
+      if (hasProgress) {
+        return '<div class="cp-row is-current">' + icoMain +
+          '<span class="cp-row-state-wrap">' +
+            '<button class="cp-row-state resume" type="button" data-action="resume">Resume</button>' +
+            '<button class="cp-row-reset" type="button" data-action="reset" title="Start over" aria-label="Start over"><i class="fa-solid fa-rotate-left"></i></button>' +
+          '</span>' +
+        '</div>';
+      }
+      return '<button class="cp-row is-current is-startable" type="button" data-action="start" aria-label="Start ' + esc(m.name) + '">' + icoMain +
+        '<span class="cp-row-state todo">Up next</span>' +
+      '</button>';
     }).join('');
 
-    // PROTOTYPE CONVENIENCE — see the row markup above.
     document.getElementById('cpRows').addEventListener('click', function (e) {
-      var row = e.target.closest('.cp-row.is-jump');
-      if (!row || !row.dataset.step) return;
-      LE.goTo(row.dataset.step);
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      if (btn.dataset.action === 'resume') { LE.goTo(last); return; }
+      if (btn.dataset.action === 'start') {
+        // The same "one step forward" the footer's Start module button
+        // does — found live off STEPS rather than hardcoded, so a reordered
+        // syllabus can't strand this row on a step that moved.
+        var introIdx = STEPS.findIndex(function (st) { return st.id === 'intro'; });
+        var firstStep = STEPS[introIdx + 1];
+        if (firstStep) LE.goTo(firstStep.id);
+        return;
+      }
+      // Start over — the same reset the old welcome-back banner ran. ll-lens
+      // and sh-name are Demo menu settings now (role, name), not this run's
+      // progress — same reason Review mode survives a Start over. Only the
+      // run itself and its learner-facing preferences reset.
+      ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-feel', 'sh-doobject-mode', 'sh-modality']
+        .forEach(function (k) { try { sessionStorage.removeItem(k); } catch (err) {} });
+      location.reload();
     });
-
-    // Both the legend and the time card are written for the state the learner
-    // is actually in. In the future tense they were addressing somebody who
-    // had not answered yet, which after test-out is the wrong person.
-    var mins = pathMinutes();
-    var cutPhrase = cutCount === 1 ? 'The section marked <b>adaptive</b> came'
-                  : cutCount === 2 ? 'Both sections marked <b>adaptive</b> came'
-                  : 'All ' + cutCount + ' sections marked <b>adaptive</b> came';
-    document.getElementById('cpAdaptNote').innerHTML =
-      '<i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> ' + (cutCount
-        ? cutPhrase + ' out because your first four answers showed you already had the procedure. ' +
-          'The other sections marked <b>adaptive</b> are still here \u2014 those get harder rather than shorter.'
-        : 'Sections marked <b>adaptive</b> change with what you show in the first four questions: some come ' +
-          'out, and some get harder instead. Nothing else on this list moves either way.');
-    document.getElementById('cpTime').innerHTML = cutMins
-      ? '<b>≈ ' + (mins.full - cutMins) + ' minutes on your path</b>' +
-        cutMins + ' minute' + (cutMins > 1 ? 's' : '') + ' came out after the first four questions'
-      : '<b>Typical ≈ ' + mins.full + ' minutes</b>Answer the first four well and save up to ' + mins.saved + ' minutes';
 
     // The rail's format setting. Reads as "here is your current setting",
     // not "make a choice" — collapsed to the current pick until "Change" is
     // tapped, which reveals the same four-option picker every in-beat
-    // screen uses. Picking one there writes the preference, folds the
-    // picker back down, and updates the collapsed row to match; nothing
-    // else on screen needs to change.
-    var fmtNowIcon = document.getElementById('introModNowIcon');
-    var fmtNowLabel = document.getElementById('introModNowLabel');
-    var fmtChange = document.getElementById('introModChange');
-    var fmtWrap = document.getElementById('introModPickWrap');
-    var fmtPick = document.getElementById('introModPick');
-    if (fmtPick) {
-      var renderNow = function (k) {
-        var m = MODALITIES[k];
-        fmtNowIcon.className = 'fa-solid ' + m.icon;
-        fmtNowLabel.textContent = m.label;
-      };
+    // screen uses (initModalityDropdown owns the collapse/expand chrome and
+    // the outside-click close; picking an option still writes the
+    // preference here, since that write is this card's own job, not
+    // something a shared helper should do on every caller's behalf).
+    var introPick = document.getElementById('introModPick');
+    if (introPick) {
+      var introDD = initModalityDropdown(
+        { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' });
       var markFmt = function (k) {
-        [].forEach.call(fmtPick.querySelectorAll('.md-opt'), function (b) {
+        [].forEach.call(introPick.querySelectorAll('.md-opt'), function (b) {
           var on = b.dataset.m === k;
           b.classList.toggle('is-on', on);
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
       };
-      renderNow(modalityId());
+      introDD.render(modalityId());
       markFmt(modalityId());
-      fmtChange.addEventListener('click', function () {
-        var open = fmtWrap.hidden;
-        fmtWrap.hidden = !open;
-        fmtChange.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
-      fmtPick.addEventListener('click', function (e) {
+      introPick.addEventListener('click', function (e) {
         var b = e.target.closest('.md-opt');
         if (!b) return;
         try { sessionStorage.setItem('sh-modality', b.dataset.m); } catch (err) {}
         markFmt(b.dataset.m);
-        renderNow(b.dataset.m);
-        fmtWrap.hidden = true;
-        fmtChange.setAttribute('aria-expanded', 'false');
-      });
-      // Click anywhere outside the open picker closes it — same convention
-      // as the shared "?" popover in layered-engine.js. Bound once for the
-      // whole document (guarded by a flag) rather than every time this step
-      // renders, since a Back navigation back to "intro" re-runs introInit
-      // but a document-level listener would otherwise pile up across
-      // visits; it looks its targets up fresh each time it fires instead of
-      // closing over this render's elements, so a stale copy is harmless.
-      if (!window.__introFmtOutsideBound) {
-        window.__introFmtOutsideBound = true;
-        document.addEventListener('click', function (e) {
-          var wrap = document.getElementById('introModPickWrap');
-          var change = document.getElementById('introModChange');
-          if (!wrap || wrap.hidden || !change) return;
-          if (wrap.contains(e.target) || change.contains(e.target)) return;
-          wrap.hidden = true;
-          change.setAttribute('aria-expanded', 'false');
-        });
-      }
-    }
-
-    // D11: "Your role" — same collapsed-value-plus-Change shell as the
-    // format card above, walking LENS_ORDER instead of MODALITY_ORDER.
-    // Picking one rewrites the same 'll-lens' value the reviewer-only
-    // Context lens control already cycles through, then replays this whole
-    // screen so everything else lens-dependent on it (the hero chip, the
-    // org name, the coordinator) catches up instead of showing a stale
-    // sector next to a freshly-changed role.
-    var rlNowLabel = document.getElementById('introRoleNowLabel');
-    var rlChange = document.getElementById('introRoleChange');
-    var rlWrap = document.getElementById('introRolePickWrap');
-    var rlPick = document.getElementById('introRolePick');
-    if (rlPick) {
-      var curLens = LE.lensId();
-      rlPick.innerHTML = LENS_ORDER.map(function (id) {
-        var Ls = LENSES[id];
-        return '<button class="rl-opt' + (id === curLens ? ' is-on' : '') + '" type="button" ' +
-          'role="radio" aria-checked="' + (id === curLens ? 'true' : 'false') + '" data-lens="' + id + '">' +
-          '<b>' + esc(Ls.label) + '</b><small>' + esc(Ls.role) + '</small></button>';
-      }).join('');
-      rlNowLabel.textContent = L.label + ' — ' + L.role;
-      rlChange.addEventListener('click', function () {
-        var open = rlWrap.hidden;
-        rlWrap.hidden = !open;
-        rlChange.setAttribute('aria-expanded', open ? 'true' : 'false');
-      });
-      rlPick.addEventListener('click', function (e) {
-        var b = e.target.closest('.rl-opt');
-        if (!b) return;
-        rlWrap.hidden = true;
-        rlChange.setAttribute('aria-expanded', 'false');
-        if (b.dataset.lens === curLens) return;
-        try { sessionStorage.setItem('ll-lens', b.dataset.lens); } catch (err) {}
-        LE.goTo('intro');
-      });
-      if (!window.__introRoleOutsideBound) {
-        window.__introRoleOutsideBound = true;
-        document.addEventListener('click', function (e) {
-          var wrap = document.getElementById('introRolePickWrap');
-          var change = document.getElementById('introRoleChange');
-          if (!wrap || wrap.hidden || !change) return;
-          if (wrap.contains(e.target) || change.contains(e.target)) return;
-          wrap.hidden = true;
-          change.setAttribute('aria-expanded', 'false');
-        });
-      }
-    }
-
-    // D11: self-assigned name — prefilled from a launch link's ?name= or a
-    // previous visit, saved as the learner types. Never gates anything;
-    // every reader of savedName() already falls back to unnamed.
-    var nameEl = document.getElementById('introName');
-    if (nameEl) {
-      nameEl.value = savedName();
-      nameEl.addEventListener('input', function () {
-        try { sessionStorage.setItem('sh-name', nameEl.value.trim().slice(0, 40)); } catch (err) {}
+        introDD.render(b.dataset.m);
+        introDD.collapse();
       });
     }
 
-    // D11: resumable progress — offered only when an earlier visit reached
-    // further than this cover screen. LE.goTo refuses a step the current
-    // path no longer contains (a when()-excluded remediation, say), which
-    // here just means Resume quietly does nothing rather than stranding
-    // anyone; Start over always works regardless.
-    var resumeEl = document.getElementById('introResume');
-    if (resumeEl) {
-      var last = LE.lastStepId();
-      var lastStep = (last && last !== 'intro') ? LE.stepById(last) : null;
-      if (lastStep) {
-        var nm = savedName();
-        resumeEl.hidden = false;
-        resumeEl.innerHTML =
-          '<p><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Welcome back' +
-            (nm ? ', ' + esc(nm) : '') + ' — you have progress saved from a previous visit.</p>' +
-          '<div class="cp-resume-actions">' +
-            '<button class="cp-resume-go" id="introResumeGo" type="button">Resume where you left off</button>' +
-            '<button class="cp-resume-reset" id="introResumeReset" type="button">Start over</button>' +
-          '</div>';
-        document.getElementById('introResumeGo').addEventListener('click', function () { LE.goTo(last); });
-        document.getElementById('introResumeReset').addEventListener('click', function () {
-          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-doobject-mode', 'll-lens', 'sh-modality', 'sh-name']
-            .forEach(function (k) { try { sessionStorage.removeItem(k); } catch (err) {} });
-          location.reload();
-        });
-      } else {
-        resumeEl.hidden = true;
-      }
-    }
+    // Role (sector) is now set from the Demo menu's Context lens control
+    // only — see CFG.lensedSteps below. Name has its own Demo menu row
+    // (shNameBtn in CFG.demoControls).
 
     ctx.floatClose();
     ctx.positionOrb(false);
+  }
+
+  // ==========================================================================
+  //  THE DECK BEATS (2026-09-22). Every learner-facing screen between the
+  //  pre-check and the scenario hand-off is now authored straight from the
+  //  stakeholder deck, Contain_the_Sharp_Manufacturing (2).pdf, slides 2–22.
+  //  Copy below is the deck's own, verbatim — questions, choices, narration
+  //  and correct-answer feedback. The previous cut of these screens (the
+  //  chain, the hazard article, the procedure, the case ladder, the budget
+  //  choice, the walk plan…) is preserved as a frozen snapshot in
+  //  experiments/sharps-riffs/00-sharps-module/.
+  //
+  //  One shape for every content screen: a Watch / Read / Listen carrier of
+  //  the slide's narration, and — when the slide has one — a question laid
+  //  over it with the reinforcement layer once the carrier is finished.
+  //  Watch finishes when the clip ends, Read on the learner's own "Done
+  //  reading", Listen when the narration ends (or on "Done listening", since
+  //  browser speech is not guaranteed to run at all).
+  // ==========================================================================
+
+  // One placeholder clip for every screen until the produced videos exist.
+  // Short on purpose, so the video → question hand-off is quick to review.
+  var DECK_VIDEO = '../../assets/videos/sharps-doobject-baseline.mp4';
+  var LIKERT_ENDS = ['Strongly Disagree', 'Strongly Agree'];
+  var LETTERS = 'ABCDEFGH';
+
+  // ---- The question formats ------------------------------------------------
+  // Two formats, shared by the pre-check stack and the questions laid over
+  // the videos, so the same question looks the same wherever it is asked.
+  // `live` false renders the static preview the battery stack peeks behind
+  // the current card: same markup, no buttons, nothing focusable.
+  function mcqHtml(options, live) {
+    return '<div class="cs-opts dk-opts"' + (live ? ' role="radiogroup"' : '') + '>' +
+      options.map(function (o, i) {
+        var inner = '<span class="cs-mark dk-letter" aria-hidden="true">' + LETTERS.charAt(i) + '</span>' +
+                    '<span class="cs-opt-t">' + esc(o.t) + '</span>';
+        return live
+          ? '<button class="cs-opt" type="button" role="radio" aria-checked="false" data-i="' + i + '" ' +
+              'aria-label="' + esc(LETTERS.charAt(i) + '. ' + o.t) + '">' + inner + '</button>'
+          : '<div class="cs-opt">' + inner + '</div>';
+      }).join('') +
+    '</div>';
+  }
+  function likertHtml(live) {
+    var pts = '';
+    for (var v = 1; v <= 5; v++) {
+      var name = v + (v === 1 ? ', ' + LIKERT_ENDS[0] : v === 5 ? ', ' + LIKERT_ENDS[1] : '');
+      pts += live
+        ? '<button class="lk-pt" type="button" role="radio" aria-checked="false" data-v="' + v + '" ' +
+            'aria-label="' + esc(name) + '">' + v + '</button>'
+        : '<span class="lk-pt">' + v + '</span>';
+    }
+    return '<div class="lk"' + (live ? ' role="radiogroup" aria-label="' +
+        esc('1, ' + LIKERT_ENDS[0] + ', to 5, ' + LIKERT_ENDS[1]) + '"' : '') + '>' +
+      '<div class="lk-pts">' + pts + '</div>' +
+      '<div class="lk-ends" aria-hidden="true"><span>' + esc(LIKERT_ENDS[0]) + '</span>' +
+        '<span>' + esc(LIKERT_ENDS[1]) + '</span></div>' +
+    '</div>';
+  }
+  // Wires a rendered question: a pick lights the choice and arms the submit
+  // button, and only the submit counts — a mis-tap never scores anyone.
+  // Calls onCommit(value, pickedEl), value being the option index (multiple
+  // choice) or 1–5 (likert).
+  function wireChoice(host, btn, onCommit) {
+    var sel = null, settled = false;
+    var radios = [].slice.call(host.querySelectorAll('[role="radio"]'));
+    radios.forEach(function (r) {
+      r.addEventListener('click', function () {
+        if (settled) return;
+        if (sel) sel.setAttribute('aria-checked', 'false');
+        sel = r;
+        r.setAttribute('aria-checked', 'true');
+        btn.disabled = false;
+      });
+    });
+    LE.pickGroup(host);
+    btn.disabled = true;
+    btn.onclick = function () {
+      if (settled || !sel) return;
+      settled = true;
+      host.classList.add('answered');
+      radios.forEach(function (r) { r.disabled = true; });
+      onCommit(sel.dataset.v ? +sel.dataset.v : +sel.dataset.i, sel);
+    };
+  }
+
+  // ---- The pre-check items (slides 2–4) ------------------------------------
+  // Two knowledge questions that decide test-up (K1 → case 1, K2 → case 2)
+  // and two agreement statements that set the baseline for the same
+  // statements asked again after case 3 and the debrief. A low agreement
+  // (neutral or below) serves the longer, reinforced version of that video.
+  var K1_PRE = {
+    obj: 'K1', type: 'mcq',
+    stem: 'Which of these correctly describes how to dispose of a used hypodermic needle?',
+    correct: 0,
+    options: [
+      { t: 'Place it in a designated sharps container immediately or as soon as possible.' },
+      { t: 'Recap the needle carefully, then place it in the nearest trash can.' },
+      { t: 'Bend or break the needle so it can’t poke anyone, then throw it away.' },
+      { t: 'Wrap it in a paper towel and put it in a sealed plastic bag before disposal.' }
+    ]
+  };
+  var K2_PRE = {
+    obj: 'K2', type: 'mcq',
+    stem: 'Which of these should be treated as a sharps hazard?',
+    correct: 0,
+    options: [
+      { t: 'A used sharp set down on a work surface.' },
+      { t: 'A used sharp already dropped into a designated sharps container.' },
+      { t: 'A used sharp in hand, on its way to the sharps container.' },
+      { t: 'A work surface cleared and wiped down at the end of the last shift.' }
+    ]
+  };
+  var F1_STATEMENT = 'When I dispose of a sharp, I am making a safety decision that affects not just ' +
+    'myself, but every coworker who handles waste downstream.';
+  var F3_STATEMENT = 'Most people on my shift use the sharps container right away instead of setting ' +
+    'a used sharp down for a moment.';
+  // Learner-facing copy on every deck screen is the deck's own — nothing is
+  // added around it (no hints, no wrong-answer lines, no invented labels).
+  var F1_ITEM = { obj: 'F1', type: 'likert', stem: '\u201c' + F1_STATEMENT + '\u201d' };
+  var F3_ITEM = { obj: 'F3', type: 'likert', stem: '\u201c' + F3_STATEMENT + '\u201d' };
+
+  // ---- Routing ---------------------------------------------------------------
+  // The Demo menu can force either side of a routing decision (sh-battery for
+  // the two knowledge questions, sh-feel for the two agreement statements);
+  // otherwise the pre-check's own record decides.
+  function k1TestUp() {
+    try { var o = sessionStorage.getItem('sh-battery');
+          if (o === 'proven') return true; if (o === 'unproven') return false; } catch (e) {}
+    return !!(readCourse().battery || {}).k1up;
+  }
+  function feelLow(key) {
+    try { var o = sessionStorage.getItem('sh-feel');
+          if (o === 'low') return true; if (o === 'high') return false; } catch (e) {}
+    var v = (readCourse().battery || {})[key];
+    return v != null && v <= 3;
+  }
+  // A knowledge check the learner missed, on either permutation, serves that
+  // case's remedial video (slides 6/9 → 7, 11/14 → 12).
+  function checkMissed(key) {
+    var r = readCourse()[key];
+    return !!(r && r.passed === false);
+  }
+
+  // ---- Screen content (slides 5–22) -----------------------------------------
+  // `narration` is the slide's NARRATION block, verbatim, split into
+  // paragraphs only where the Read carrier needs a breath.
+  var DECK = {
+    c1base: {
+      eyebrow: 'Case 1 \u00b7 Deferred disposal', title: 'The blade at the bench',
+      narration: [
+        'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is down at the end of the line, and the used blade is still at your bench. Like a needle or other sharp object, the blade is considered a sharp because it can puncture or cut the skin.',
+        'Whether or not it’s visibly contaminated, an exposed blade left on a surface is a hazard to the next person who reaches for that spot — which is why the safe-handling procedure applies to every sharp, every time.',
+        'Plan how you’ll dispose of it, use a safer alternative when one exists, and activate any available safety feature. Once used, don’t recap, bend, or break a sharp. Put it directly into a designated sharps container.'
+      ],
+      check: { kind: 'mcq', key: 'k1check', variant: 'base',
+        stem: 'You have a used sharp to deal with, and the designated sharps container is at the other end of your work area. What do you do with it right now?',
+        correct: 0,
+        options: [
+          { t: 'Dispose of it in the sharps container following your workplace’s approved procedure.' },
+          { t: 'Set it down where you’re working and get back to the task.' },
+          { t: 'Wrap it and drop it in the general-waste bin.' },
+          { t: 'Bend or break it so it can’t cut anyone, then put it in the regular bin.' }
+        ],
+        okFb: 'Plan the disposal route before you handle the sharp, then place the used sharp directly into a designated sharps container following your workplace’s approved procedure.' }
+    },
+    c1rem: {
+      recheck: { of: 'k1check', key: 'k1recheck', base: 'c1base', up: 'c1up' },
+      eyebrow: 'Case 1 \u00b7 Deferred disposal', title: 'The blade at the bench',
+      narration: [
+        'You’re cleaning up your workstation after changing a cutting blade. The used blade is still in your hand, and you’re deciding how to handle it before moving on.',
+        'Snapping it or setting it aside might seem like ways to make it safer, but they don’t properly contain the sharp. Depending on your facility’s procedures, you may need to wrap the exposed edge before disposal.',
+        'Once a sharp is used, don’t recap, bend, or break it, and don’t leave it on a work surface or place it in general waste. The safe-handling procedure is to move it directly to a designated sharps container.'
+      ]
+    },
+    c1up: {
+      eyebrow: 'Case 1 \u00b7 Deferred disposal', title: 'When the container is a walk away',
+      narration: [
+        'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is several workstations away. Your line is about to restart, and a coworker is waving you back to your station.',
+        'Nothing about setting the blade down at your own workstation feels careless: you can see exactly where it is, and you’re planning to carry it down on your next scheduled break. But the safe-handling procedure doesn’t change when work gets busy.',
+        'Once a sharp is used, don’t recap, bend, or break it, and don’t set it aside for later. It should go directly into a designated sharps container. Leaving the blade at your workstation, even temporarily, creates a hazard for anyone who reaches for that spot before you return.'
+      ],
+      check: { kind: 'mcq', key: 'k1check', variant: 'up',
+        stem: 'You have a used sharp to deal with. The designated sharps container is a walk away, and someone is calling you over to help with something that can’t wait. What do you do right now?',
+        correct: 0,
+        options: [
+          { t: 'Make the walk to the sharps container before taking the other task.' },
+          { t: 'Set it down where you can see it and carry it down on your next break.' },
+          { t: 'Ask a coworker to keep an eye on it until you can get back to it.' },
+          { t: 'Keep it in your hand for now and deal with it after you’ve helped.' }
+        ],
+        okFb: 'A few extra steps don’t change the procedure. Plan the disposal route before you handle the sharp, then put the used sharp directly into a designated sharps container.' }
+    },
+    c2base: {
+      eyebrow: 'Case 2 \u00b7 Recognizing the hazard', title: 'At the fill line',
+      narration: [
+        'You’re carrying a used sharp to a designated sharps container on the production floor. As you approach, you notice the container is full. On the way there, you also pass a piece of contaminated glass sitting in a general-waste bin. Both are sharps hazards, even though they look very different.',
+        'A sharps container at its fill line should no longer be used because there is less room to place another sharp safely without coming into contact with the sharps already inside. A sharp left where it doesn’t belong, whether on a work surface, concealed in other material, or mixed into general waste, can also put the next person who encounters it at risk.',
+        'Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.'
+      ],
+      check: { kind: 'mcq', key: 'k2check', variant: 'base',
+        stem: 'Which of these is a sharps hazard, even though it might not look like one?',
+        correct: 0,
+        options: [
+          { t: 'A sharps container filled right up to its marked fill line.' },
+          { t: 'A sealed replacement sharps container still in its packaging on the supply shelf.' },
+          { t: 'A sharps container mounted on the wall, about a quarter full.' },
+          { t: 'A general-waste bin emptied and relined at the start of the shift.' }
+        ],
+        okFb: 'Once a sharps container reaches its marked fill line, it should be treated as full and should not be used. Trying to add another sharp could bring you into contact with the sharps already inside.' }
+    },
+    c2rem: {
+      recheck: { of: 'k2check', key: 'k2recheck', base: 'c2base', up: 'c2up' },
+      eyebrow: 'Case 2 \u00b7 Recognizing the hazard', title: 'At the fill line',
+      narration: [
+        'You arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely. Pressing the sharps down or trying to fit another one in could bring your hand into contact with a used sharp.',
+        'When a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.',
+        'A sharp can also become a hazard when it is left somewhere it doesn’t belong. A sharp left on a work surface, concealed in other material, or placed in general waste can expose someone who doesn’t expect it to be there. Whether the hazard is a full container or a misplaced sharp, recognizing the unsafe condition is the first step in preventing a sharps injury.'
+      ]
+    },
+    c2up: {
+      eyebrow: 'Case 2 \u00b7 Recognizing the hazard', title: 'When the hazard is less obvious',
+      narration: [
+        'You’re carrying a used sharp toward a designated sharps container on the production floor. As you approach, you notice that the container is nearing its marked fill line. There appears to be room for another sharp, but the contents are already crowded near the top.',
+        'On the way, you also notice something partially concealed in a general-waste bin. It looks like it could be a piece of contaminated glass, but you can’t tell without disturbing the contents.',
+        'Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely, while a possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.'
+      ],
+      check: { kind: 'mcq', key: 'k2check', variant: 'up',
+        stem: 'The sharps container is nearing its fill line. Nearby, you notice something partially concealed in a general-waste bin that could be contaminated glass. What should you recognize?',
+        correct: 0,
+        options: [
+          { t: 'Both conditions could present a sharps hazard, even though neither is immediately obvious.' },
+          { t: 'Only the container is a concern because the object in the bin hasn’t been confirmed as a sharp.' },
+          { t: 'Only the object in the bin is a concern because the container hasn’t reached its fill line.' },
+          { t: 'Neither is a concern yet because the container still has room and the object hasn’t been identified.' }
+        ],
+        okFb: 'Sharps hazards aren’t always obvious. A container nearing its fill line leaves less room for safe disposal, while something that could be a sharp concealed in general waste may put someone at risk if the contents are disturbed or handled.' }
+    },
+    controls: {
+      eyebrow: 'Why it works \u00b7 Engineering controls', title: 'Why the container beats the gloves',
+      narration: [
+        'A facility is looking for ways to better protect employees who may come into contact with used sharps. One option is to provide heavier protective gloves. Another is to make designated sharps containers more accessible throughout the facility. Both can provide protection, but they don’t control the hazard in the same way.',
+        'Heavy-duty gloves can help protect against cuts, punctures, and exposure, but even thick gloves can be penetrated by a needle. A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it.',
+        'That provides stronger protection against needlestick injuries than relying on PPE alone.'
+      ],
+      // Slide 16. Climate data, reported at the cohort level — never graded
+      // and never routes. Looks like any other question to the learner.
+      check: { kind: 'insight', key: 'insight', label: 'What you\u2019ve seen on the floor',
+        stem: 'In the last 12 months, how many times have you come across a sharp that was improperly disposed of?',
+        options: [ { t: 'Never' }, { t: 'Once or twice' }, { t: 'Three to five times' }, { t: 'More than five times' } ] }
+    },
+    case3: {
+      eyebrow: 'Case 3 \u00b7 The risk you leave behind', title: 'A risk Jacob never chose',
+      narration: [
+        'Chris works on the line and manages his diabetes with insulin. One afternoon, he can’t find a sharps container nearby. He’s in the middle of a task, so just this once, he tosses the used needle into the general trash.',
+        'Later, Jacob collects the bag for sanitation. The needle sticks him through the bag. Jacob never used the needle. He never even saw it. But a needlestick can expose someone to bloodborne pathogens such as HIV, hepatitis B, and hepatitis C.',
+        'The shortcut was Chris’s. The risk became Jacob’s. One decision. Someone else’s injury.'
+      ],
+      check: { kind: 'likert', key: 'f1post', stem: '“' + F1_STATEMENT + '”' }
+    },
+    case3rf: {
+      eyebrow: 'Case 3 \u00b7 The risk you leave behind', title: 'Beyond the needlestick',
+      narration: [
+        'Chris works on the line and manages his diabetes with insulin. One afternoon, he can’t find a sharps container nearby. He’s in the middle of a task, so just this once, he tosses the used needle into the general trash.',
+        'Later, Jacob collects the bag for sanitation. The needle sticks him through the bag. Jacob never used the needle. He never even saw it. For Jacob, it didn’t end with the stick. It meant reporting the injury, a medical evaluation, blood tests, and weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C — weeks his family spent waiting with him, the same question sitting at their dinner table every night.',
+        'Jacob had no part in the shortcut, but he was left carrying its consequences, and so did the people who love him. He couldn’t see the needle, avoid the shortcut, or choose differently. Chris saved himself a trip to the sharps container. Jacob inherited the risk. That is how far one disposal choice can reach.',
+        'If it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?'
+      ],
+      check: { kind: 'likert', key: 'f1post', stem: '“' + F1_STATEMENT + '”' }
+    },
+    debrief: {
+      eyebrow: 'Debrief \u00b7 What people actually do', title: 'The shortcut is the exception',
+      narration: [
+        'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. Making the trip to a designated container can feel unrealistic when work is moving quickly.',
+        'But that shortcut isn’t necessarily the norm. In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container.',
+        'The shortcut stands out because it’s memorable and because of what can happen when someone takes it, not because it’s how the work normally gets done. Safe disposal is the norm, even when the container isn’t convenient.'
+      ],
+      source: true,
+      check: { kind: 'likert', key: 'f3post', stem: '“' + F3_STATEMENT + '”' }
+    },
+    debriefrf: {
+      eyebrow: 'Debrief \u00b7 What people actually do', title: 'Memorable isn\u2019t the same as normal',
+      narration: [
+        'When a sharps container isn’t nearby, it can feel like taking the shortcut is simply what people do, and that expecting everyone to make the trip is unrealistic. But what stands out isn’t always what’s most common.',
+        'In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container. The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.',
+        'Memorable isn’t the same as normal. Safe disposal is the expected practice, even when the container isn’t convenient.'
+      ],
+      source: true,
+      check: { kind: 'likert', key: 'f3post', stem: '“' + F3_STATEMENT + '”' }
+    }
+  };
+  // ---- Public Sector (law enforcement) ------------------------------------
+  // Contain_the_Sharp_Law_Enforcement.pdf, slides 5–22, verbatim. Same
+  // screens, questions and routing as Manufacturing; only what differs is
+  // listed here and laid over the Manufacturing screen (deckFor). Identical
+  // in both decks, so not repeated: the pre-check, the case 1 / case 2 base
+  // questions and feedback, the case 2 remedial (slide 12) and both debriefs.
+  // Education and AEC have no deck yet and show Manufacturing's.
+  var DECK_LENS = {
+    public: {
+      c1base: { title: 'The needle at the counter', narration: [
+        'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. The designated sharps container is across the intake area, and the needle is still in your gloved hand. A used needle retains a small amount of blood after use, and its sharpness makes it likely to penetrate someone else’s skin and expose them to that retained blood.',
+        'Whether or not it looks contaminated, a needle left on the counter or dropped into a property tray is a hazard to the next person who reaches for that spot — which is why the safe-handling procedure applies to every sharp, every time.',
+        'Plan how the sharp will be disposed of before you handle it, use a needle alternative when one is available, and activate any available safety feature. Once used, don’t recap, bend, or break a sharp. Put it directly into a designated sharps container.'
+      ] },
+      c1rem: { title: 'The needle at the counter', narration: [
+        'You’ve recovered a used needle during a property search, and it’s still in your gloved hand while you decide how to handle it before moving on. Recapping it or setting it aside might seem like ways to make it safer, but they don’t properly contain the sharp.',
+        'If no designated sharps container is immediately available, don’t place the needle in general waste, and don’t improvise a wrapping out of soft material such as a paper towel or a plastic bag.',
+        'Once a sharp is used, don’t recap, bend, or break it, and don’t leave it on a work surface or place it in general waste. The safe-handling procedure is to seek a designated sharps container and move the sharp directly into it.'
+      ] },
+      c1up: { title: 'When the container is across the room', narration: [
+        'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. The designated sharps container is at the far end of the intake area. The queue behind you is backing up, and another officer is calling you over to help with a subject in the next room.',
+        'Nothing about setting the needle down on the counter feels careless: you can see exactly where it is, and you’re planning to deal with it as soon as you’re back. But the safe-handling procedure doesn’t change when the room gets busy.',
+        'Once a sharp is used, don’t recap, bend, or break it, and don’t set it aside for later. It should go directly into a designated sharps container. Leaving the needle on the counter, even briefly, creates a hazard for anyone who reaches for that spot before you return.'
+      ] },
+      c2base: { narration: [
+        'You’re carrying a used needle recovered during a property search to the designated sharps container in the station’s processing area. As you approach, you notice the container has reached its fill line. On the way there, you also pass a used syringe sitting in a general-waste bin. Both situations present a sharps hazard, but for different reasons.',
+        'A sharps container at its fill line should no longer be used because there is less room to place another sharp safely without coming into contact with the sharps already inside. A sharp left where it doesn’t belong, whether on a work surface, concealed in other material, or mixed into general waste, can also put the next person who encounters it at risk.',
+        'Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.'
+      ] },
+      c2up: { narration: [
+        'You’re carrying a recovered sharp toward the designated sharps container in the station’s processing area. As you approach, you notice that the container is nearing its marked fill line. There appears to be room for another sharp, but the contents are already crowded near the top.',
+        'On the way, you also notice something partially concealed in a general-waste bin. It looks like it could be a used syringe, but you can’t tell without disturbing the contents.',
+        'Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely, while a possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.'
+      ], check: { stem: 'The sharps container is nearing its fill line. Nearby, you notice something partially concealed in a general-waste bin that could be a used syringe. What should you recognize?' } },
+      controls: { narration: [
+        'An agency is looking for ways to better protect officers who may come into contact with used sharps. One option is to issue heavier protective gloves. Another is to make designated sharps containers more accessible throughout its stations and intake areas. Both can provide protection, but they don’t control the hazard in the same way.',
+        'Heavy-duty gloves can help protect against cuts, punctures, and exposure, but even thick gloves can be penetrated by a needle. A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it.',
+        'That provides stronger protection against needlestick injuries than relying on PPE alone.'
+      ], check: { label: 'What you’ve seen on shift' } },
+      case3: { narration: [
+        'Chris recovers a used needle from a subject’s property during an arrest. He can’t find a sharps container nearby. He’s in the middle of the intake, so just this once, he drops the used needle into the general trash at the station.',
+        'Later, Jacob collects the bag for custodial pickup. The needle sticks him through the bag. Jacob never handled the arrest. He never even saw the needle. But a needlestick can expose someone to bloodborne pathogens such as HIV, hepatitis B, and hepatitis C.',
+        'The shortcut was Chris’s. The risk became Jacob’s. One decision. Someone else’s injury.'
+      ] },
+      case3rf: { narration: [
+        'Chris recovers a used needle from a subject’s property during an arrest. He can’t find a sharps container nearby. He’s in the middle of the intake, so just this once, he drops the used needle into the general trash at the station.',
+        'Later, Jacob collects the bag for custodial pickup. The needle sticks him through the bag. Jacob never handled the arrest. He never even saw the needle. For Jacob, it didn’t end with the stick. It meant reporting the injury, a medical evaluation, blood tests, and weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C — weeks his family spent waiting with him, the same question sitting at their dinner table every night.',
+        'Jacob had no part in the shortcut, but he was left carrying its consequences, along with the people who love him. He couldn’t see the needle, avoid the shortcut, or choose differently. Chris saved himself a trip to the sharps container. Jacob inherited the risk. That is how far one disposal choice can reach.',
+        'If it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?'
+      ] }
+    }
+  };
+  // The current sector's version of a screen: Manufacturing's, with that
+  // sector's differences (DECK_LENS) laid over it — the question too.
+  function deckFor(id) {
+    var base = DECK[id], over = (DECK_LENS[LE.lensId()] || {})[id];
+    if (!over) return base;
+    var d = {}, k;
+    for (k in base) d[k] = base[k];
+    for (k in over) if (k !== 'check') d[k] = over[k];
+    if (over.check && base.check) {
+      d.check = {};
+      for (k in base.check) d.check[k] = base.check[k];
+      for (k in over.check) d.check[k] = over.check[k];
+    }
+    return d;
+  }
+
+  var DECK_SOURCE = 'Source: Gershon et al. (2000), “Hospital Safety Climate and Its Relationship ' +
+    'with Safe Work Practices and Workplace Exposure Incidents,” American Journal of Infection ' +
+    'Control, 28(3), 211–221.';
+
+  // ---- The screen ------------------------------------------------------------
+  // One template for all eleven screens above. Every id is fixed — only one
+  // step is ever mounted at a time — so the template needs no per-screen
+  // prefixes.
+  var DK_IDS = { wrap: 'dkMedia', video: 'dkVideo', note: 'dkVfall', pct: 'dkPct', skip: 'dkSkip' };
+  var DK_OFFERED = ['video', 'article', 'podcast'];
+
+  // A remedial screen re-asks whichever version's question was missed (base
+  // or test-up), saved under its own key so the first answer is kept.
+  function deckCheck(d) {
+    if (!d.recheck) return d.check;
+    var r = d.recheck, missed = readCourse()[r.of] || {};
+    var src = deckFor(missed.variant === 'up' ? r.up : r.base).check, q = {};
+    for (var k in src) q[k] = src[k];
+    q.key = r.key;
+    return q;
+  }
+  // The question card. The outer node is the reinforcement layer itself,
+  // stretched over the stage; the card inside it is what reads as the ask.
+  function deckCheckHtml(q) {
+    return '<div class="dk-check" id="dkCheck" hidden><div class="dk-card">' +
+      (q.label ? '<p class="ll-eyebrow">' + esc(q.label) + '</p>' : '') +
+      '<h2 class="cs-q cs-q--lead">' + esc(q.stem) + '</h2>' +
+      (q.kind === 'likert'
+        ? likertHtml(true)
+        : mcqHtml(q.options, true)) +
+      '<button class="bl-check dk-submit" id="dkSubmit" type="button" disabled>' +
+        (q.kind === 'mcq' ? 'Check answer' : 'Submit answer') + '</button>' +
+      '<p class="dk-fb" id="dkFb" role="status" hidden></p>' +
+    '</div></div>';
+  }
+
+  // ---- THE STAGE (2026-09-22) ------------------------------------------------
+  // Video is the most immersive carrier, so it gets the room: a 16:9 stage
+  // sized to whatever fits between the header and the footer. Read and Listen
+  // play on the SAME stage rather than as a page of their own — one frame, one
+  // title row above it, and one progress rail along its bottom edge that every
+  // carrier drives (clip time, reading position, narration time). Switching
+  // carrier cross-fades what is inside the frame and nothing else moves,
+  // which is what keeps the switch from feeling like leaving the screen.
+  //
+  //  Read   — an immersive reader: large type, one paragraph in focus at a
+  //           time with the rest dimmed, text size, and paragraph stepping.
+  //  Listen — a produced-style player: the real loudness of the narration
+  //           scrolling past a playhead (SHARPS_NARRATION.env, measured from
+  //           the file), and the sentence being spoken as a large caption,
+  //           word by word.
+  //
+  // The question rises over the stage itself when any carrier finishes; the
+  // held content blurs behind it (the reinforcement layer).
+  var DK_MODES = [
+    { m: 'video',   label: 'Watch',  icon: 'fa-circle-play' },
+    { m: 'article', label: 'Read',   icon: 'fa-book-open' },
+    { m: 'podcast', label: 'Listen', icon: 'fa-headphones' }
+  ];
+  var NARRATION_DIR = '../../assets/audio/sharps/';
+  function narrationFor(id) {
+    var all = window.SHARPS_NARRATION || {};
+    return all[LE.lensId() + '/' + id] || all['manufacturing/' + id] || null;
+  }
+  function mmss(t) {
+    t = Math.max(0, Math.round(t || 0));
+    return Math.floor(t / 60) + ':' + ('0' + (t % 60)).slice(-2);
+  }
+  function readSize() {
+    try { var v = +sessionStorage.getItem('sh-read-size'); if (v >= 0 && v <= 3) return v; } catch (e) {}
+    return 1;
+  }
+
+  function deckContent(id) {
+    return function () {
+      var d = deckFor(id);
+      var nar = narrationFor(id);
+      var q = deckCheck(d);
+      return '<main class="ll-object dk-object"><div class="dk-theater">' +
+        '<header class="dk-head">' +
+          '<div class="dk-head-t">' +
+            '<p class="ll-eyebrow">' + esc(d.eyebrow) + '</p>' +
+            '<h1 class="dk-title">' + esc(d.title) + '</h1>' +
+          '</div>' +
+          '<div class="dk-switch" id="dkSwitch" role="group" aria-label="How do you want to take this?">' +
+            DK_MODES.map(function (x) {
+              return '<button class="dk-sw" type="button" data-m="' + x.m + '" aria-pressed="false">' +
+                '<i class="fa-solid ' + x.icon + '" aria-hidden="true"></i><span>' + x.label + '</span></button>';
+            }).join('') +
+          '</div>' +
+        '</header>' +
+
+        '<div class="dk-stagewrap">' +
+          '<div class="dk-stage" id="dkStage">' +
+
+            // Watch
+            '<section class="dk-layer dk-layer--video" id="dkVideoWrap" aria-label="Video">' +
+              videoFrame({ ids: DK_IDS, src: DECK_VIDEO, poster: videoPoster('PLACEHOLDER VIDEO', d.title, '') }) +
+            '</section>' +
+
+            // Read
+            '<section class="dk-layer dk-layer--read" id="dkRead" aria-label="Reading view" data-size="' + readSize() + '">' +
+              '<div class="dk-read-scroll" id="dkReadScroll"><article class="dk-read-col">' +
+                d.narration.map(function (p, i) {
+                  return '<p class="dk-para" data-i="' + i + '">' + esc(p) + '</p>';
+                }).join('') +
+                (d.source ? '<p class="dk-src"><i class="fa-solid fa-book" aria-hidden="true"></i> ' + esc(DECK_SOURCE) + '</p>' : '') +
+              '</article></div>' +
+              '<div class="dk-tools" role="toolbar" aria-label="Reading controls">' +
+                '<button class="dk-tool" type="button" id="dkParaPrev" aria-label="Previous paragraph"><i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>' +
+                '<span class="dk-tool-n" id="dkParaN" aria-live="polite"></span>' +
+                '<button class="dk-tool" type="button" id="dkParaNext" aria-label="Next paragraph"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+                '<span class="dk-tool-sep" aria-hidden="true"></span>' +
+                '<button class="dk-tool" type="button" id="dkSizeDown" aria-label="Smaller text"><span class="dk-a sm">A</span></button>' +
+                '<button class="dk-tool" type="button" id="dkSizeUp" aria-label="Larger text"><span class="dk-a lg">A</span></button>' +
+              '</div>' +
+            '</section>' +
+
+            // Listen
+            '<section class="dk-layer dk-layer--listen" id="dkListen" aria-label="Audio">' +
+              (nar
+                ? '<audio id="dkAudio" preload="auto" src="' + esc(NARRATION_DIR + nar.src) + '"></audio>' +
+                  '<div class="dk-wave-wrap"><canvas class="dk-wave" id="dkWave" aria-hidden="true"></canvas>' +
+                    '<span class="dk-playhead" aria-hidden="true"></span></div>' +
+                  '<div class="dk-caps" aria-live="off">' +
+                    '<p class="dk-cap-prev" id="dkCapPrev"></p>' +
+                    '<p class="dk-cap-now" id="dkCapNow"></p>' +
+                  '</div>' +
+                  '<div class="dk-player">' +
+                    '<button class="dk-play" type="button" id="dkPlay" aria-label="Play narration"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
+                    '<span class="dk-time" id="dkTime">0:00 / ' + mmss(nar.dur) + '</span>' +
+                    '<span class="dk-voice-note">Placeholder voice</span>' +
+                  '</div>'
+                : '<p class="dk-cap-now">' + esc(d.narration.join(' ')) + '</p>') +
+            '</section>' +
+
+            // The rail every carrier drives.
+            '<div class="dk-rail" aria-hidden="true"><span class="dk-rail-fill" id="dkRail"></span></div>' +
+          '</div>' +
+          (q ? deckCheckHtml(q) : '') +
+        '</div>' +
+      '</div></main>';
+    };
+  }
+
+  function deckInit(id) {
+    return function (ctx) {
+      var d = deckFor(id);
+      var q = deckCheck(d);
+      var nar = narrationFor(id);
+      var stage = document.getElementById('dkStage');
+      var sw = document.getElementById('dkSwitch');
+      var rail = document.getElementById('dkRail');
+      var video = document.getElementById(DK_IDS.video);
+      var audio = document.getElementById('dkAudio');
+      var videoMounted = false, showing = null, handed = false;
+      ctx.setCoachSay('');
+      ctx.floatClose();
+
+      function setRail(f) { rail.style.transform = 'scaleX(' + Math.max(0, Math.min(1, f || 0)) + ')'; }
+
+      // One carrier at a time, on the same stage. Leaving a carrier pauses it
+      // and withdraws whatever it borrowed from the footer, so a stale "Done
+      // reading" can never fire after the learner has moved on.
+      function show(m) {
+        if (showing === m) return;
+        if (!handed && (showing === 'article' || showing === 'podcast')) ctx.cancelNextAction();
+        if (showing === 'video' && video) try { video.pause(); } catch (e) {}
+        if (showing === 'podcast' && audio) audio.pause();
+        showing = m;
+        stage.dataset.mode = m;
+        [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
+          b.setAttribute('aria-pressed', b.dataset.m === m ? 'true' : 'false');
+        });
+        try { sessionStorage.setItem('sh-modality', m); } catch (e) {}
+
+        if (m === 'video') {
+          if (!videoMounted) {
+            videoMounted = true;
+            // mountVideo unlocks Continue on 'ended' by itself; finished()
+            // shuts it again on a screen whose question is still to come.
+            mountVideo(ctx, { ids: DK_IDS, src: DECK_VIDEO, onFallback: finished, onEnded: finished });
+            video.addEventListener('timeupdate', function () {
+              if (showing === 'video' && video.duration) setRail(video.currentTime / video.duration);
+            });
+          }
+          setRail(video && video.duration ? video.currentTime / video.duration : 0);
+        } else if (m === 'podcast') {
+          listen.enter();
+          if (!handed) ctx.setNextAction('Done listening', finished);
+        } else {
+          read.enter();
+          if (!handed) ctx.setNextAction('Done reading', finished);
+        }
+      }
+
+      // ---- Read: the immersive reader --------------------------------------
+      var read = (function () {
+        var box = document.getElementById('dkRead');
+        var scroller = document.getElementById('dkReadScroll');
+        var paras = [].slice.call(box.querySelectorAll('.dk-para'));
+        var nEl = document.getElementById('dkParaN');
+        var at = 0;
+        function focus(i, smooth) {
+          at = Math.max(0, Math.min(paras.length - 1, i));
+          paras.forEach(function (p, j) { p.classList.toggle('is-on', j === at); p.classList.toggle('is-past', j < at); });
+          nEl.textContent = (at + 1) + ' / ' + paras.length;
+          document.getElementById('dkParaPrev').disabled = at === 0;
+          document.getElementById('dkParaNext').disabled = at === paras.length - 1;
+          var p = paras[at];
+          var top = p.offsetTop - (scroller.clientHeight - p.offsetHeight) / 2;
+          scroller.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
+          if (showing === 'article') setRail((at + 1) / paras.length);
+        }
+        paras.forEach(function (p, j) { p.addEventListener('click', function () { focus(j, true); }); });
+        document.getElementById('dkParaPrev').addEventListener('click', function () { focus(at - 1, true); });
+        document.getElementById('dkParaNext').addEventListener('click', function () { focus(at + 1, true); });
+        function size(delta) {
+          var v = Math.max(0, Math.min(3, (+box.dataset.size || 0) + delta));
+          box.dataset.size = v;
+          try { sessionStorage.setItem('sh-read-size', v); } catch (e) {}
+          document.getElementById('dkSizeDown').disabled = v === 0;
+          document.getElementById('dkSizeUp').disabled = v === 3;
+          requestAnimationFrame(function () { focus(at, false); });
+        }
+        document.getElementById('dkSizeDown').addEventListener('click', function () { size(-1); });
+        document.getElementById('dkSizeUp').addEventListener('click', function () { size(1); });
+        // Arrow keys step paragraphs while the reader is showing and focus is
+        // not in a control that owns them.
+        box.addEventListener('keydown', function (e) {
+          if (e.key === 'ArrowDown' || e.key === 'PageDown') { e.preventDefault(); focus(at + 1, true); }
+          if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); focus(at - 1, true); }
+        });
+        size(0);
+        return { enter: function () { requestAnimationFrame(function () { focus(at, false); }); } };
+      })();
+
+      // ---- Listen: waveform + live captions --------------------------------
+      var listen = (function () {
+        if (!audio || !nar) return { enter: function () { setRail(0); } };
+        var canvas = document.getElementById('dkWave');
+        var g = canvas.getContext('2d');
+        var play = document.getElementById('dkPlay');
+        var timeEl = document.getElementById('dkTime');
+        var capNow = document.getElementById('dkCapNow');
+        var capPrev = document.getElementById('dkCapPrev');
+        var env = nar.env, HZ = 30;
+        var BAR = 4, GAP = 3;             // CSS px per bar and gap
+        var raf = 0, lastSent = -1, spans = [];
+        var cs = getComputedStyle(document.documentElement);
+        function tok(name, fb) { return (cs.getPropertyValue(name) || fb).trim(); }
+
+        // The caption: the current sentence, word by word (words are timed by
+        // their share of the sentence's characters — close enough to track a
+        // steady read), with the previous sentence fading out above it.
+        function setSentence(i) {
+          if (i === lastSent) return;
+          lastSent = i;
+          var st = nar.sents[i];
+          capPrev.textContent = i > 0 ? nar.sents[i - 1].t : '';
+          capNow.innerHTML = st ? st.t.split(' ').map(function (w) { return '<span>' + esc(w) + '</span>'; }).join(' ') : '';
+          spans = [].slice.call(capNow.children);
+          capNow.classList.remove('is-in'); void capNow.offsetWidth; capNow.classList.add('is-in');
+        }
+        function words(t) {
+          var st = nar.sents[lastSent];
+          if (!st) return;
+          var f = (t - st.s) / Math.max(.01, st.e - st.s), total = st.t.length, acc = 0;
+          spans.forEach(function (sp) {
+            var mid = (acc + sp.textContent.length / 2) / total;
+            acc += sp.textContent.length + 1;
+            sp.classList.toggle('is-said', mid <= f);
+          });
+        }
+        function sentenceAt(t) {
+          for (var i = nar.sents.length - 1; i >= 0; i--) if (t >= nar.sents[i].s) return i;
+          return 0;
+        }
+
+        function fit() {
+          var r = canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+          canvas.width = Math.max(1, Math.round(r.width * dpr));
+          canvas.height = Math.max(1, Math.round(r.height * dpr));
+          g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+        // The real loudness of the track, scrolling right-to-left past a fixed
+        // playhead: what has been said is lit, what is coming is dim. Mirrored
+        // round-capped bars, one per envelope sample.
+        function draw(t) {
+          var w = canvas.clientWidth, h = canvas.clientHeight;
+          if (!w || !h) return;
+          // Re-fit whenever the box changed (the caption rows settle after
+          // the first frame, and the window can resize) — a stale bitmap
+          // stretches and leaves ghost bars.
+          var dpr = window.devicePixelRatio || 1;
+          if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) fit();
+          g.clearRect(0, 0, w, h);
+          var mid = h / 2, cx = w / 2, pitch = BAR + GAP;
+          var pos = t * HZ;                         // playhead, in samples
+          var first = Math.floor(pos - cx / pitch) - 1, last = Math.ceil(pos + cx / pitch) + 1;
+          var lit = tok('--ll-teal', '#2ee6cf'), dim = 'rgba(' + tok('--ll-surface-rgb', '255,255,255') + ',.16)';
+          for (var i = first; i <= last; i++) {
+            if (i < 0 || i >= env.length) continue;
+            var v = parseInt(env.charAt(i), 36) / 35;
+            var bh = Math.max(3, v * (h * .92));
+            var x = cx + (i - pos) * pitch - BAR / 2;
+            g.fillStyle = i <= pos ? lit : dim;
+            g.globalAlpha = i <= pos ? .35 + .65 * (1 - Math.min(1, (pos - i) / (cx / pitch))) : 1;
+            var r = BAR / 2, y = mid - bh / 2;
+            g.beginPath();
+            if (g.roundRect) g.roundRect(x, y, BAR, bh, r); else g.rect(x, y, BAR, bh);
+            g.fill();
+          }
+          g.globalAlpha = 1;
+        }
+        function tick() {
+          var t = audio.currentTime;
+          draw(t);
+          setSentence(sentenceAt(t));
+          words(t);
+          timeEl.textContent = mmss(t) + ' / ' + mmss(nar.dur);
+          if (showing === 'podcast') setRail(t / nar.dur);
+          if (!audio.paused) raf = requestAnimationFrame(tick);
+        }
+        function setPlaying(on) {
+          play.innerHTML = '<i class="fa-solid ' + (on ? 'fa-pause' : audio.ended ? 'fa-rotate-left' : 'fa-play') + '" aria-hidden="true"></i>';
+          play.setAttribute('aria-label', on ? 'Pause narration' : 'Play narration');
+          stage.classList.toggle('is-playing', on);
+        }
+        play.addEventListener('click', function () {
+          if (audio.paused) { audio.play().catch(function () {}); } else audio.pause();
+        });
+        audio.addEventListener('play', function () { setPlaying(true); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); });
+        audio.addEventListener('pause', function () { setPlaying(false); tick(); });
+        audio.addEventListener('ended', function () {
+          setPlaying(false);
+          // Heard to the end counts as finished, same as a clip that ends.
+          if (showing === 'podcast' && !handed) { ctx.cancelNextAction(); finished(); }
+        });
+        // Click / drag the waveform to scrub.
+        canvas.parentNode.addEventListener('click', function (e) {
+          var r = canvas.getBoundingClientRect();
+          var dt = (e.clientX - (r.left + r.width / 2)) / (BAR + GAP) / HZ;
+          audio.currentTime = Math.max(0, Math.min(nar.dur, audio.currentTime + dt));
+          tick();
+        });
+        window.addEventListener('resize', function () { if (canvas.isConnected) { fit(); tick(); } });
+        // Stop talking when the screen is torn down (no per-step teardown hook).
+        var stageEl = document.querySelector('.ll-stage');
+        if (stageEl && window.MutationObserver) {
+          var mo = new MutationObserver(function () {
+            if (document.body.contains(audio)) return;
+            mo.disconnect(); audio.pause(); cancelAnimationFrame(raf);
+          });
+          mo.observe(stageEl, { childList: true });
+        }
+        setSentence(0);
+        return { enter: function () { requestAnimationFrame(function () { fit(); tick(); }); } };
+      })();
+
+      // The carrier is done. With no question, Continue opens. With one, the
+      // question rises over the stage and Continue stays shut until it is
+      // answered.
+      function finished() {
+        if (handed) return; handed = true;
+        if (!q) { ctx.enableNext(); return; }
+        ctx.disableNext();
+        if (video) try { video.pause(); } catch (e) {}
+        if (audio) audio.pause();
+        var el = document.getElementById('dkCheck');
+        reinforce(ctx, el, 1, 1);
+        var host = el.querySelector('.dk-opts, .lk');
+        var fb = document.getElementById('dkFb');
+        wireChoice(host, document.getElementById('dkSubmit'), function (v, picked) {
+          document.getElementById('dkSubmit').classList.add('is-spent');
+          if (q.kind === 'mcq') {
+            var ok = v === q.correct;
+            csMark(picked, ok ? 'ok' : 'bad');
+            if (!ok) csMark(host.querySelectorAll('.cs-opt')[q.correct], 'ok');
+            if (ok) {
+              fb.textContent = q.okFb;
+              fb.className = 'dk-fb is-ok';
+              fb.hidden = false;
+            }
+            saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: showing });
+          } else if (q.kind === 'insight') {
+            csMark(picked, 'neutral');
+            saveResult(q.key, { picked: v, answer: q.options[v].t, carrier: showing });
+          } else {
+            picked.classList.add('is-picked');
+            saveResult(q.key, { score: v, carrier: showing });
+          }
+          ctx.enableNext();
+        });
+      }
+
+      [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
+        b.addEventListener('click', function () { show(b.dataset.m); });
+      });
+      show(modalityDefault(DK_OFFERED, 'video'));
+    };
+  }
+
+  function deckStep(id, extra) {
+    var s = { id: id, icon: 'fa-circle-play', mins: 2, stage: 'Learn',
+              mode: 'floating', gate: true, coach: { say: '' },
+              content: deckContent(id), init: deckInit(id) };
+    // A getter, so the lesson name follows the sector like the screen does.
+    Object.defineProperty(s, 'lesson', { enumerable: true, get: function () { return deckFor(id).title; } });
+    for (var k in extra) s[k] = extra[k];
+    return s;
   }
 
   // ==========================================================================
@@ -1108,76 +1777,48 @@
   // ==========================================================================
   var BATTERY_CONTENT =
     '<main class="ll-object">' +
-      '<div class="bl-ask sh-battery" id="blAsk">' +
-        '<p class="ll-eyebrow" id="blStep">Quick question: 1 of 5</p>' +
-        // The situation, when there is one. The module's case screens already
-        // separate the setup from the question it leads to; a stem carrying
-        // both broke across two lines mid-sentence, which is what this fixes.
-        '<p class="bl-scene" id="blScene" hidden></p>' +
-        '<h2 class="bl-q" id="blQ"></h2>' +
-        '<p class="bl-hint" id="blHint" hidden></p>' +
-        '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
-        // Choosing and answering are two acts. Shown DISABLED from the start
-        // rather than appearing on selection, so the second step is visible
-        // before the learner commits to anything — the point is that a tap
-        // cannot score them by accident.
-        '<button class="bl-check" id="blCheck" type="button" hidden disabled></button>' +
+      // Card-STACK shell (sharps-only — see the CSS comment in
+      // clara/sharps.html for why this doesn't live in the shared
+      // css/layered-beats.css .bl-* pattern). Dots read the set size up
+      // front. Two static preview cards sit behind #blAsk, receding
+      // (smaller/dimmer/higher, Time-Machine style) — see swapTo() for how
+      // their roles ping-pong as the stack advances.
+      '<div class="bl-carousel" id="blCarousel">' +
+        '<div class="bl-dots" id="blDots" role="presentation"></div>' +
+        '<div class="bl-stage" id="blStage">' +
+          '<div class="bl-ask sh-battery" id="blAsk">' +
+            '<p class="ll-eyebrow" id="blStep">Quick question: 1 of 5</p>' +
+            // The situation, when there is one. The module's case screens already
+            // separate the setup from the question it leads to; a stem carrying
+            // both broke across two lines mid-sentence, which is what this fixes.
+            '<p class="bl-scene" id="blScene" hidden></p>' +
+            '<h2 class="bl-q" id="blQ"></h2>' +
+            '<p class="bl-hint" id="blHint" hidden></p>' +
+            '<div class="bl-options" id="blOptions" role="radiogroup" aria-labelledby="blQ"></div>' +
+            // Choosing and answering are two acts. Shown DISABLED from the start
+            // rather than appearing on selection, so the second step is visible
+            // before the learner commits to anything — the point is that a tap
+            // cannot score them by accident.
+            '<button class="bl-check" id="blCheck" type="button" hidden disabled></button>' +
+          '</div>' +
+          // Static previews of the ACTUAL upcoming questions — same
+          // classes as #blAsk (via setPeekContent), so each is
+          // pixel-identical in content and typography to what it becomes.
+          // Never interactive: options render as plain elements, not
+          // buttons, and aria-hidden keeps them out of the accessibility
+          // tree — a question only becomes real (and reachable) once it's
+          // promoted into #blAsk. Which node holds "one behind" vs "two
+          // behind" ping-pongs each turn; see swapTo().
+          '<div class="bl-peek sh-battery" id="blPeek1" aria-hidden="true" hidden></div>' +
+          '<div class="bl-peek sh-battery" id="blPeek2" aria-hidden="true" hidden></div>' +
+        '</div>' +
       '</div>' +
     '</main>';
-  var BATTERY = [
-    // K1 is sequence recall, so the item is an actual ordering task rather
-    // than a choice between three written sequences. Reading a sequence and
-    // producing one are different things, and only the second is the
-    // objective. The list is on screen in the wrong order and the learner
-    // rearranges it — an affordance that needs no instruction to read.
-    { obj: 'K1', type: 'order',
-      scene: 'You have just used a sharp.',
-      stem: 'What do you do next?',
-      hint: 'Put the next three actions in order by dragging or using arrows.',
-      correct: ['feature', 'move', 'dispose'],
-      actions: [
-        { id: 'move',    icon: 'fa-person-walking', t: 'Walk to the container' },
-        { id: 'dispose', icon: 'fa-inbox',          t: 'Drop it in' },
-        { id: 'feature', icon: 'fa-shield-halved',  t: 'Activate the safety feature' }
-      ],
-      okReply: 'Exactly. Safety first, then disposal.',
-      badReply: 'Not quite. The safety feature goes on FIRST, before the sharp moves: an unshielded point in transit is where most injuries happen.' },
-    // K2, diagnostic — recognition, not recall: can the learner already spot
-    // the condition case 2 is built on (a container past its fill line)? The
-    // two wrong answers are the conditions people mistake for the real signal
-    // (time, quantity) rather than the one that actually matters (fill level).
-    { obj: 'K2',
-      stem: 'Which of these is a sign a sharps container is no longer safe to use?',
-      cta: 'Check answer',
-      options: [
-        { t: 'It is filled above the line marked full', icon: 'fa-triangle-exclamation', score: 2,
-          reply: 'Right. Past the fill line, the safety feature can’t do its job even if the lid still closes.' },
-        { t: 'It has been in place for more than a week', icon: 'fa-calendar', score: 0,
-          reply: 'Not quite. A container is judged by how full it is, not how long it has been there.' },
-        { t: 'It already has a few sharps inside it', icon: 'fa-box', score: 0,
-          reply: 'Not quite. A container with a few sharps in it is simply doing its job.' }
-      ] },
-    { obj: 'F1',
-      stem: 'Safe sharps disposal protects your coworkers, not just you.',
-      hint: 'No right or wrong answer here, and nothing is graded. Answer honestly \u2014 we come back to this question later.',
-      cta: 'Lock it in',
-      options: [
-        { t: 'Strongly agree', icon: 'fa-heart', score: 3, reply: 'Your answer also has to hold up when you’re in a hurry.' },
-        { t: 'Somewhat', icon: 'fa-scale-balanced', score: 2, reply: 'Fair. We’ll explore who actually ends up carrying the risk.' },
-        { t: 'It is mostly a formality', icon: 'fa-file-lines', score: 1, reply: 'That’s worth testing.' }
-      ] },
-    { obj: 'F3',
-      stem: 'Of the people you work alongside, how many put a used sharp straight into the container?',
-      hint: 'Answer honestly, and we come back to this later with the real figure for your sector.',
-      cta: 'Lock it in',
-      options: [
-        { t: 'Most do', icon: 'fa-users', score: 3, reply: 'Noted. We’ll see how that compares to what your sector actually reports.' },
-        { t: 'About half', icon: 'fa-users-slash', score: 2, reply: 'Noted. The real number surprises most people in both directions.' },
-        { t: 'Hardly anyone', icon: 'fa-user-slash', score: 1, reply: 'Noted. If that’s true where you work, it matters more than the procedure does.' }
-      ] }
-  ];
+  // Slides 2–4, in the deck's order: two knowledge questions, then the two
+  // agreement statements — each its own card in the stack.
+  var BATTERY = [K1_PRE, K2_PRE, F1_ITEM, F3_ITEM];
   function batteryInit(ctx) {
-    var res = { k1: 'unproven', k1score: 0, k2up: false, f1: 3, f3: 3 };
+    var res = { k1up: false, k2up: false, f1: null, f3: null };
     var askEl = document.getElementById('blAsk');
     var stepEl = document.getElementById('blStep');
     var qEl = document.getElementById('blQ');
@@ -1185,15 +1826,109 @@
     var optsEl = document.getElementById('blOptions');
     var checkEl = document.getElementById('blCheck');
     var sceneEl = document.getElementById('blScene');
+    var dotsEl = document.getElementById('blDots');
     var k1 = [];
+    // Time-machine stack: #blAsk is always the live, interactive depth-0
+    // card. The two preview nodes are fixed DOM elements but their ROLE
+    // (which one currently sits "one behind" vs "two behind") ping-pongs
+    // every turn \u2014 see swapTo(). `near` always holds the question ABOUT to
+    // be promoted (current index + 1); `far` holds the one behind that
+    // (current index + 2).
+    var near = document.getElementById('blPeek1');
+    var far = document.getElementById('blPeek2');
 
-    // The eyebrow counts the questions. What it cannot say is that half of
-    // them have no right answer, which is what decides whether the Feel items
-    // get an honest answer or a flattering one.
-    ctx.setCoachSay('Two questions about the procedure, two about how you see it. ' +
-      'These questions aren\u2019t graded.');
-    ctx.floatClose();
     render(0);
+    setPeekContent(near, 1); near.className = 'bl-peek sh-battery depth1';
+    setPeekContent(far, 2); far.className = 'bl-peek sh-battery depth2';
+    pinStageHeight();
+
+    // .ll-object (the page's own wrapper) vertically centres on its TOTAL
+    // content height — fine for a static screen, but the order task (K1)
+    // renders noticeably taller than the three multiple-choice items, so
+    // without this the whole page visibly re-centres, not just the card,
+    // every time a turn promotes a differently-sized question. Measured
+    // once against the real BATTERY content rather than hardcoded, so a
+    // future copy edit that makes some question taller can't silently
+    // reintroduce the jump. #blStage stays this height regardless of which
+    // question is live; align-items:flex-start (added alongside this in
+    // the CSS) keeps #blAsk at its own natural height inside it rather
+    // than stretching to fill the reserved space.
+    function pinStageHeight() {
+      var stageEl = document.getElementById('blStage');
+      if (!stageEl) return;
+      var ruler = document.createElement('div');
+      ruler.className = 'bl-peek sh-battery bl-ruler';
+      ruler.setAttribute('aria-hidden', 'true');
+      stageEl.appendChild(ruler);
+      var max = 0;
+      for (var n = 0; n < BATTERY.length; n++) {
+        setPeekContent(ruler, n);
+        max = Math.max(max, ruler.getBoundingClientRect().height);
+      }
+      stageEl.removeChild(ruler);
+      var padTop = parseFloat(getComputedStyle(stageEl).paddingTop) || 0;
+      stageEl.style.minHeight = Math.ceil(padTop + max + 8) + 'px';
+    }
+
+    // One dot per question \u2014 filled for what's answered, enlarged on the
+    // current one, hollow for what's ahead. Lives outside .bl-stage so it
+    // never moves with the cards; it is the one piece of "where am I in
+    // the set" chrome that stays put while the stack advances underneath it.
+    function renderDots(i) {
+      if (!dotsEl) return;
+      dotsEl.innerHTML = BATTERY.map(function (_, n) {
+        return '<span class="bl-dot' + (n < i ? ' is-done' : n === i ? ' is-now' : '') + '"></span>';
+      }).join('');
+    }
+
+    // Fills a preview node with the ACTUAL question `i` \u2014 same
+    // stem/hint/options markup as #blAsk, so at whatever depth it's sitting
+    // at it reads as a real card glimpsed from behind, not a stand-in.
+    // Every option renders as a plain element, never a <button>, so
+    // nothing inside is a tab stop even though the node's own aria-hidden
+    // already pulls it out of the accessibility tree. Hidden outright once
+    // there's no such question (the set is short, or we're near the end).
+    function setPeekContent(el, i) {
+      if (!el) return;
+      var q = BATTERY[i];
+      if (!q) { el.hidden = true; return; }
+      el.hidden = false;
+      var html = '<p class="ll-eyebrow">Quick question: ' + (i + 1) + ' of ' + BATTERY.length + '</p>';
+      if (q.scene) html += '<p class="bl-scene">' + esc(q.scene) + '</p>';
+      html += '<h2 class="bl-q">' + esc(q.stem) + '</h2>';
+      if (q.hint) html += '<p class="bl-hint">' + esc(q.hint) + '</p>';
+      if (q.type === 'mcq' || q.type === 'likert') {
+        html += (q.type === 'mcq' ? mcqHtml(q.options, false) : likertHtml(false)) +
+          '<button class="bl-check" type="button" disabled>Submit answer</button>';
+      } else if (q.type === 'order') {
+        // Numbered and with its own disabled "Check order" button — the
+        // real render() shows both from the first frame (the list starts
+        // in its unsolved, authored order; the button is visible-but-
+        // disabled, not absent). Matching that here means promotion never
+        // has to grow a control the learner didn't see coming.
+        html += '<div class="ord-wrap"><ol class="ord-list">' + q.actions.map(function (a, n) {
+          return '<li class="ord-item"><span class="ord-n">' + (n + 1) + '</span>' +
+            '<i class="fa-solid fa-grip-vertical ord-grip" aria-hidden="true"></i>' +
+            '<i class="fa-solid ' + a.icon + ' ord-ico" aria-hidden="true"></i>' +
+            '<span class="ord-t">' + esc(a.t) + '</span>' +
+            '<span class="ord-mv">' +
+              '<button type="button" tabindex="-1"><i class="fa-solid fa-chevron-up"></i></button>' +
+              '<button type="button" tabindex="-1"><i class="fa-solid fa-chevron-down"></i></button>' +
+            '</span></li>';
+        }).join('') + '</ol>' +
+          '<button class="ord-check" type="button" disabled>Check order</button></div>';
+      } else {
+        // Same reasoning: the real check button is visible-but-disabled
+        // from render(), never absent until a pick is made, so the preview
+        // carries it too.
+        html += '<div class="bl-options">' + q.options.map(function (o) {
+          return '<div class="bl-option"><i class="fa-solid ' + o.icon + '" aria-hidden="true"></i>' +
+            '<span class="bl-option-label">' + esc(o.t) + '</span></div>';
+        }).join('') + '</div>' +
+          '<button class="bl-check" type="button" disabled>' + esc(q.cta || 'Check answer') + '</button>';
+      }
+      el.innerHTML = html;
+    }
 
     // A spent control keeps its space. Hiding it outright (or removing it)
     // shortened a centred column and shifted every line on the screen at the
@@ -1217,6 +1952,7 @@
 
     function render(i) {
       var q = BATTERY[i];
+      renderDots(i);
       stepEl.textContent = 'Quick question: ' + (i + 1) + ' of ' + BATTERY.length;
       sceneEl.textContent = q.scene || '';
       sceneEl.hidden = !q.scene;
@@ -1226,6 +1962,7 @@
       // The ordering item carries its own commit control inside its markup.
       checkEl.hidden = true;
       if (q.type === 'order') { renderOrder(i, q); return; }
+      if (q.type === 'mcq' || q.type === 'likert') { renderDeckItem(i, q); return; }
       optsEl.className = 'bl-options';
       optsEl.innerHTML = '';
       // `sel` is the pick BEFORE it counts. Nothing is recorded, nothing is
@@ -1270,12 +2007,37 @@
         if (q.obj === 'K2') res.k2up = sel.opt.score >= 2;
         if (q.obj === 'F1') res.f1 = sel.opt.score;
         if (q.obj === 'F3') res.f3 = sel.opt.score;
-        ctx.floatOpen();
-        ctx.setCoachSay(esc(sel.opt.reply));
-        ctx.positionOrb(true);
-        if (i + 1 < BATTERY.length) offerNext(i + 1);
-        else done();
+        // This step carries no CLARA (noCoach, always — see the STEPS
+        // entry): there's no reply to read between an answer and the next
+        // card, so one click answers it. A brief pause shows the pick
+        // register, then it advances on its own — select, confirm, next
+        // question loads.
+        setTimeout(function () {
+          if (i + 1 < BATTERY.length) swapTo(i + 1); else done();
+        }, T(700));
       };
+    }
+    // The deck's formats: a lettered multiple-choice list (slides 2–3) or a
+    // 1–5 agreement scale (slide 4). No verdict on the pre-check — select,
+    // submit, and the next card comes forward.
+    function renderDeckItem(i, q) {
+      optsEl.removeAttribute('role');
+      optsEl.className = 'bl-deck';
+      optsEl.innerHTML = q.type === 'mcq' ? mcqHtml(q.options, true) : likertHtml(true);
+      optsEl.firstChild.setAttribute('aria-labelledby', 'blQ');
+      arm(checkEl);
+      checkEl.hidden = false;
+      checkEl.textContent = 'Submit answer';
+      wireChoice(optsEl.firstChild, checkEl, function (v) {
+        spend(checkEl);
+        if (q.obj === 'K1') res.k1up = v === q.correct;
+        if (q.obj === 'K2') res.k2up = v === q.correct;
+        if (q.obj === 'F1') res.f1 = v;
+        if (q.obj === 'F3') res.f3 = v;
+        setTimeout(function () {
+          if (i + 1 < BATTERY.length) swapTo(i + 1); else done();
+        }, T(700));
+      });
     }
     // The three actions are on screen from the start, in the wrong order, and
     // the learner rearranges them. Nothing to place, so nothing to explain:
@@ -1381,36 +2143,58 @@
         renumber();
         spend(document.getElementById('ordCheck'));
         k1.push(right ? 2 : 0);
-        ctx.floatOpen();
-        ctx.setCoachSay(esc(right ? q.okReply : q.badReply));
-        ctx.positionOrb(true);
-        offerNext(i + 1);
+        // See the matching comment in checkEl.onclick above — same reasoning,
+        // and this item is always BATTERY[0], so there is always a next card.
+        setTimeout(function () { swapTo(i + 1); }, T(700));
       }
     }
 
-    function swapTo(i) {
-      askEl.classList.add('swapping');
-      setTimeout(function () {
-        render(i);
-        askEl.classList.remove('swapping');
-        ctx.floatClose();
-        ctx.positionOrb(true);
-      }, T(320));
+    // Sets `el`'s depth class WITHOUT animating there — used to snap a
+    // recycled preview node straight to its new resting depth the instant
+    // a turn finishes, rather than animating a second time from wherever
+    // it just arrived. Standard disable/reflow/re-enable dance.
+    function snapDepth(el, depthClass) {
+      el.classList.add('no-anim');
+      el.className = 'bl-peek sh-battery no-anim ' + depthClass;
+      void el.offsetWidth;
+      el.classList.remove('no-anim');
     }
-    // The way forward is the footer, relabelled — CLARA's bubble carries only
-    // the reaction to the answer that just landed, never the move past it.
-    function offerNext(i) { ctx.setNextAction('Next question', function () { swapTo(i); }); }
+
+    function swapTo(i) {
+      // Time-machine turn: `near` is ALREADY showing the real upcoming
+      // question at depth 1 (one behind, smaller/dimmer/higher); `far`
+      // already shows the one after that at depth 2. Advancing moves every
+      // card exactly one depth step on the SAME transition — near to
+      // depth0 (i.e., #blAsk's own resting look), far to depth1 — so
+      // nothing changes format mid-flight, only scale/position/opacity.
+      // #blAsk (just answered) isn't part of that motion, only what it
+      // reveals: it simply fades out of the stack.
+      askEl.classList.add('is-leaving');
+      near.classList.remove('depth1'); near.classList.add('depth0');
+      far.classList.remove('depth2'); far.classList.add('depth1');
+      setTimeout(function () {
+        // `near` has finished landing exactly at #blAsk's resting pose.
+        // Render real, interactive content into #blAsk (still invisible)
+        // and swap everything in the SAME tick: #blAsk snaps to visible at
+        // depth 0 exactly as `near` snaps away — same content, same
+        // position, so the handoff has nothing to show. `near` is then
+        // recycled as the new depth-2 card (two behind); `far`, having
+        // just arrived at depth 1, simply stays there. Their roles
+        // ping-pong every turn.
+        render(i);
+        askEl.classList.add('no-anim');
+        askEl.classList.remove('is-leaving');
+        void askEl.offsetWidth;
+        askEl.classList.remove('no-anim');
+        snapDepth(near, 'depth2');
+        setPeekContent(near, i + 2);
+        var tmp = near; near = far; far = tmp;
+      }, T(440));
+    }
     function done() {
-      // K1 is proven only on a clean sweep — it is mandated content, and the
-      // simulation still re-verifies it performatively either way. One item
-      // now that the second K1 question moved to the in-flow bank (D4), so
-      // the threshold is that item's own max score, not a fixed 4 left over
-      // from when two items fed this sum.
-      res.k1score = k1.reduce(function (a, b) { return a + b; }, 0);
-      res.k1 = (res.k1score >= 2) ? 'proven' : 'unproven';
-      // K2 (recognition) is content-locked: its own item decides whether it
-      // gets served HARDER, not K1's result — res.k2up is already set by its
-      // own option above.
+      // K1 → case 1 test-up, K2 → case 2 test-up, each from its own item
+      // (already set in renderDeckItem). F1/F3 are the baselines the same
+      // statements are compared against after case 3 and the debrief.
       stepEl.textContent = 'Quick questions: all ' + BATTERY.length + ' done';
       saveResult('battery', res);
       ctx.enableNext();
@@ -1445,7 +2229,8 @@
     '</main>';
   var ADJUST_CHIPS = {
     dropped: '<span class="adj-chip adj-chip--drop"><i class="fa-solid fa-forward"></i> Skipped</span>',
-    harder:  '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-arrow-trend-up"></i> Adapted</span>'
+    harder:  '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-arrow-trend-up"></i> Adapted</span>',
+    expanded: '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-layer-group"></i> Expanded</span>'
   };
   // The row set for THIS result. Extracted so the step's `when` can ask the
   // same question the screen answers: did the four answers move anything?
@@ -1456,13 +2241,14 @@
   // Every entry names a STEP, so the label and mark on this screen are the
   // same ones the learner already read in the sections list. `state` is the
   // only thing this table owns.
+  // One row per routing decision the pre-check made (deck slides 2–4): a
+  // correct knowledge answer swaps that case for its harder version, and a
+  // low agreement swaps case 3 / the debrief for its longer version.
   var ADJUST_ROWS = [
-    { id: 'procedure', state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
-    { id: 'case1',     state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
-    { id: 'inflow',    state: function () { return batteryResult() === 'proven' ? 'dropped' : 'kept'; } },
-    { id: 'case2',     state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
-    { id: 'case3',     state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
-    { id: 'enact',     state: function () { return 'kept'; } }
+    { id: 'c1up',      state: function () { return k1TestUp() ? 'harder' : 'kept'; } },
+    { id: 'c2up',      state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
+    { id: 'case3rf',   state: function () { return feelLow('f1') ? 'expanded' : 'kept'; } },
+    { id: 'debriefrf', state: function () { return feelLow('f3') ? 'expanded' : 'kept'; } }
   ];
   function adjustRows() {
     return ADJUST_ROWS.map(function (r) {
@@ -1487,7 +2273,6 @@
     // a list that's mostly unchanged sections reads as noise around the two
     // things that matter: what got skipped and what got harder.
     var rows = adjustRows().filter(function (r) { return r.state !== 'kept'; });
-    var harder = rows.some(function (r) { return r.state === 'harder'; });
     var stageEl = ctx.stage;
 
     ctx.floatClose();
@@ -1543,9 +2328,7 @@
         eb.classList.add('in');
         document.getElementById('adjHead').classList.add('in');
         document.getElementById('adjSaved').classList.add('in');
-        ctx.setCoachSay(harder
-          ? 'Notice what did not move: spotting the conditions got harder, not shorter. That section never comes off.'
-          : 'Note what did not move: spotting the conditions and the simulation stay exactly where they were.');
+        ctx.setCoachSay('');
         LE.refreshNav();
         ctx.enableNext();
       }, T(460 + rows.length * 420 + 260));
@@ -1694,15 +2477,14 @@
   }
 
   //  ONE modality vocabulary, shared by every beat that offers a choice, so
-  //  the labels, icons and stated costs cannot drift between them. `label` is
-  //  what a LEARNER sees on the picker button.
-  //
-  //  The TRADEOFF line is the part that makes a chooser honest. A learner
-  //  picking a carrier needs to know what it costs them, not just what it is
-  //  called — a video is short but demands your eyes, a read is skimmable and
-  //  self-paced, audio runs in the background but takes longer and has to
-  //  interrupt to ask you anything. Offering the choice without the cost is
-  //  just a menu.
+  //  the labels and icons cannot drift between them. `label` is what a
+  //  LEARNER sees on the picker button. `cost`/`tradeoff` are authored but
+  //  currently unrendered — the picker used to state each carrier's length
+  //  next to its label, which read as clutter once the control got this
+  //  compact (see modalityDropdown below). Left in the table rather than
+  //  deleted, since it's still true and may still be useful somewhere else
+  //  (the Learning Layer view, a dev note) even though this UI stopped
+  //  showing it.
   var MODALITIES = {
     video:   { label: 'Watch', icon: 'fa-circle-play',
                cost: '2 min',
@@ -1712,49 +2494,109 @@
                cost: '1 min',
                tradeoff: 'About a minute, skimmable, and you set the pace.',
                note: 'Pre-rendered. The same content, read rather than watched.' },
-    tutor:   { label: 'Step through it', icon: 'fa-comments',
-               // Was "Slower \u00b7 asks questions" \u2014 accurate but read as a cost
-               // next to two equally-fast, passive options, so almost nobody
-               // picked it. Reframed around what it actually does now that
-               // the check-ins are click-gated rather than autoplayed: it's
-               // not slower because of the video length, it's self-paced.
+    // Label shortened to "Step" \u2014 the four-word version was the only one
+    // of the four that didn't fit the compact picker/dropdown on one line.
+    tutor:   { label: 'Step', icon: 'fa-comments',
                cost: 'Self-paced \u00b7 recall checks',
                tradeoff: 'Self-paced \u2014 CLARA checks your recall on each step instead of just telling you the next one.',
                note: 'CLARA walks the procedure one step at a time, pausing to check what you remember.' },
-    podcast: { label: 'Listen', icon: 'fa-podcast', declined: true,
+    podcast: { label: 'Listen', icon: 'fa-headphones',
                cost: 'Longest \u00b7 hands free',
                tradeoff: 'Runs while you do something else, but takes longer and stops to ask you things.',
-               note: 'Declined at module level. Audio is offered one level up, across the course.' }
+               note: 'The narration read aloud, word-highlighted as it plays.' }
   };
 
   //  The chooser. One implementation, so a second beat offering a choice
   //  cannot invent a different one. A beat declares which keys it offers and
-  //  in what order; every label and cost comes from the table above.
+  //  in what order; every label comes from the table above.
   //
   //  It PERSISTS rather than gating. A one-shot chooser would either hide the
   //  default carrier behind a click or vanish once used, and both are worse:
-  //  the learner arrives on the default and can still see, at any point, what
-  //  the other option is and what it costs. Each option carries its own cost
-  //  inline, so the tradeoff is visible for the route NOT taken too — which is
-  //  the half that actually informs a choice.
-  function modalityPicker(id, keys, costs) {
+  //  the learner arrives on the default and can still see, at any point,
+  //  what the other option is.
+  function modalityPicker(id, keys) {
     return '<div class="md-pick" id="' + id + '" role="group" ' +
         'aria-label="How do you want to take this?">' +
       keys.map(function (k) {
         var m = MODALITIES[k];
-        // A beat may override the duration: the same carrier is not the same
-        // length on every screen, and a shared table cannot know that.
-        // costs === false means the caller has no real duration to state at
-        // all (the title-page picker, before any beat's actual length is
-        // known) rather than one that just matches the shared table.
-        var cost = costs === false ? null : (costs && costs[k]) || m.cost;
         return '<button class="md-opt" type="button" data-m="' + k + '" aria-pressed="false">' +
           '<i class="fa-solid ' + m.icon + '" aria-hidden="true"></i>' +
-          '<span class="md-opt-t"><b>' + esc(m.label) + '</b>' +
-            (cost ? '<span class="md-cost">' + esc(cost) + '</span>' : '') + '</span>' +
+          '<span class="md-opt-t"><b>' + esc(m.label) + '</b></span>' +
         '</button>';
       }).join('') +
     '</div>';
+  }
+
+  //  THE DROPDOWN — same picker, collapsed. The three-way toggle used to sit
+  //  open on every screen, which on the video carrier pushed a 16:9 player
+  //  most of the way down the viewport. First fix reopened the exact same
+  //  wide row behind a "Change" button, which still read as a full-width tab
+  //  bar reappearing and still put real distance between the current pick
+  //  and the control that changes it. This one instead REUSES the title-page
+  //  rail's own "Preferred format" card verbatim — .cp-format-now/
+  //  .cp-format-change/.cp-format-picker, the same markup and CSS, not a
+  //  lookalike — and stacks the revealed list in a single compact column
+  //  (.md-now .md-pick below) instead of the wide segmented row. .md-now
+  //  only exists to opt OUT of .pr-wrap's stretch-to-680px so the control
+  //  hugs its own content width the way it already does inside the rail's
+  //  narrow card; the rail keeps using this same function so there is
+  //  exactly one implementation, not three.
+  //
+  //  opts.corner pins the whole control to the top-right of the beat, over
+  //  the content rather than in its own row — hazardInit/procedureInit pass
+  //  it, the title-page rail (a setting among several cards, not a global
+  //  page control) does not. See .md-now--corner in sharps.html.
+  function modalityDropdown(ids, keys, opts) {
+    var corner = opts && opts.corner;
+    return '<div class="md-now' + (corner ? ' md-now--corner' : '') + '">' +
+        '<div class="cp-format-now" id="' + ids.now + '">' +
+          '<span class="cp-format-now-t"><i class="fa-solid" id="' + ids.icon + '" aria-hidden="true"></i>' +
+            '<b id="' + ids.label + '"></b></span>' +
+          '<button class="cp-format-change" type="button" id="' + ids.btn + '" ' +
+            'aria-expanded="false" aria-controls="' + ids.wrap + '">' +
+            'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
+        '</div>' +
+        '<div class="cp-format-picker" id="' + ids.wrap + '" hidden>' + modalityPicker(ids.pick, keys) + '</div>' +
+      '</div>';
+  }
+  // Wires the collapse/expand chrome only — picking an option still runs
+  // through the caller's own click handling on the picker (show(m) for the
+  // in-beat carriers, the rail's own sessionStorage write for the title
+  // page); this just keeps the collapsed summary in sync, folds the list
+  // back down once a pick lands, and closes it on an outside click.
+  //
+  // One document-level listener total, registered lazily and shared by
+  // every dropdown this runs for (keyed by ids.wrap) — three separate
+  // listeners would be harmless individually, but a beat revisited after
+  // Back re-runs its init and would otherwise stack a fresh one per visit,
+  // the exact trap the title-page rail's own outside-click code used to
+  // guard against with a one-off flag. Re-registering the same key on a
+  // revisit just replaces the stale DOM refs with the current ones.
+  var modalityDropdowns = {};
+  function initModalityDropdown(ids) {
+    var btn = document.getElementById(ids.btn), wrap = document.getElementById(ids.wrap);
+    var icon = document.getElementById(ids.icon), label = document.getElementById(ids.label);
+    function setOpen(v) { wrap.hidden = !v; btn.setAttribute('aria-expanded', v ? 'true' : 'false'); }
+    btn.addEventListener('click', function () { setOpen(wrap.hidden); });
+    modalityDropdowns[ids.wrap] = { btn: btn, wrap: wrap, close: function () { setOpen(false); } };
+    if (!window.__modDropdownOutsideBound) {
+      window.__modDropdownOutsideBound = true;
+      document.addEventListener('click', function (e) {
+        Object.keys(modalityDropdowns).forEach(function (key) {
+          var d = modalityDropdowns[key];
+          if (d.wrap.hidden || d.wrap.contains(e.target) || d.btn.contains(e.target)) return;
+          d.close();
+        });
+      });
+    }
+    return {
+      render: function (k) {
+        var m = MODALITIES[k];
+        icon.className = 'fa-solid ' + m.icon;
+        label.textContent = m.label;
+      },
+      collapse: function () { setOpen(false); }
+    };
   }
 
   //  A titled poster rather than a black rectangle. Deliberately does NOT
@@ -1994,6 +2836,14 @@
         postOpts.classList.add('answered');
         postOpts.querySelectorAll('.bl-option').forEach(function (x) { if (x !== b) x.disabled = true; });
         mergeResult('chain', { post: o.score });
+        // Release the hold: nothing else on this screen uses .rf-layer
+        // afterward (unlike the walk screen's part1→part2 handoff), so
+        // leaving .rf-on on the parent forever blurs and pointer-events:none's
+        // "Want to try the other path?" the instant it appears — it's
+        // revealed on the SAME settle() that triggers this reinforcement, so
+        // a learner could never have reached it. The choice was binary and
+        // is not final; answering this shouldn't be what makes it final.
+        if (post.parentElement) post.parentElement.classList.remove('rf-on');
         ctx.positionOrb(true);
       });
       postOpts.appendChild(b);
@@ -2150,6 +3000,19 @@
       closer.hidden = true;
       retry.hidden = true;
       retry.classList.remove('is-primary');
+      // Retry is reachable before the F1 "One more question" borrow is ever
+      // pressed (it sits un-blurred now — see settle()), so a replay can
+      // land here with that borrow still pending. Withdraw it rather than
+      // leave it stale: pressing the button mid-replay would otherwise fire
+      // the OLD callback — reinforce()'s blur landing over a narrative that
+      // has not even finished unfolding yet, the same jump this whole fix is
+      // for. Only on a replay: on the FIRST run there is nothing to cancel,
+      // and cancelNextAction()'s revert would reapply gate:true's disabled
+      // default before the learner has earned Continue at all. On a replay
+      // that default is wrong for the opposite reason — this route already
+      // earned Continue once, by reaching the end of the first path, and
+      // replaying the other one doesn't revoke it — so re-enable.
+      if (isReplay) { ctx.cancelNextAction(); ctx.enableNext(); }
       ctx.els.next.classList.remove('ll-btn--ghost');
       ctx.els.next.classList.add('ll-btn--primary');
       push(C.act[k]);
@@ -2220,25 +3083,42 @@
         : 'Your decision can affect your colleagues, which makes this a professional ' +
           'responsibility, rather than just a personal-safety rule.');
 
-      // D4: reveal the F1 post-rating once, on the first settle() — a replay
-      // of the other branch doesn't ask it a second time.
-      if (!postAsked) {
-        postAsked = true;
-        reinforce(ctx, post, 1, 1);
+      // The choice was binary, so there is no reason for it to be final.
+      if (!replayed) {
+        retry.hidden = false;
+        retry.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ' +
+          'Want to try the other path?';
+        // Only on the safe route does seeing the shortcut outweigh moving on —
+        // there, retry takes the primary look and Continue steps back to a
+        // plain secondary button for as long as retry is the stronger offer.
+        if (viewing === 'safe') {
+          retry.classList.add('is-primary');
+          ctx.els.next.classList.remove('ll-btn--primary');
+          ctx.els.next.classList.add('ll-btn--ghost');
+        }
       }
 
-      // The choice was binary, so there is no reason for it to be final.
-      if (replayed) { ctx.positionOrb(true); return; }
-      retry.hidden = false;
-      retry.innerHTML = '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i> ' +
-        'Want to try the other path?';
-      // Only on the safe route does seeing the shortcut outweigh moving on —
-      // there, retry takes the primary look and Continue steps back to a
-      // plain secondary button for as long as retry is the stronger offer.
-      if (viewing === 'safe') {
-        retry.classList.add('is-primary');
-        ctx.els.next.classList.remove('ll-btn--primary');
-        ctx.els.next.classList.add('ll-btn--ghost');
+      // D4: reveal the F1 post-rating once, on the first settle() — a replay
+      // of the other branch doesn't ask it a second time. Bug fix 2026-09-21:
+      // this used to call reinforce() right here, in the same tick that the
+      // close line above first lands — so the blur (and reinforce()'s own
+      // scrollIntoView) covered "This is the best path"/"One person decided…"
+      // before it had ever been on screen long enough to read. Every other
+      // reinforce() in this module either opens on a screen with nothing
+      // said before it yet (walk's part 1) or waits for the learner's own
+      // next press (F2's belief scale, the debrief re-rate) — same device
+      // here, borrowing the forward button. enableNext() is re-armed inside
+      // the callback because revertNextBtn() reapplies this step's gate:true
+      // default on the press that reveals the rating, and that rating is
+      // explicitly not meant to gate anything.
+      if (!postAsked) {
+        postAsked = true;
+        ctx.els.next.classList.remove('ll-btn--ghost');
+        ctx.setNextAction('One more question', function () {
+          reinforce(ctx, post, 1, 1);
+          ctx.enableNext();
+          ctx.positionOrb(true);
+        });
       }
       ctx.positionOrb(true);
     }
@@ -2481,16 +3361,20 @@
     // for every learner, matching K&A's own Manufacturing script (the "why
     // it's dangerous" content runs as background before Case 1, no check).
     return '<main class="ll-object ll-object--chain"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow" id="hzEyebrow">Before the procedure</p>' +
       '<h1 class="pr-h">It only takes a trace.</h1>' +
       '<p class="pr-sub">A trace carries everything a large exposure would — the amount was never the mechanism.</p>' +
 
       // Item 19/D7: Listen joins the picker here — 'podcast' key, shared
-      // MODALITIES entry (label "Listen"), cost overridden for this beat's
-      // actual length. Declined at the course level (K1's procedure) does
-      // not mean declined everywhere; this is the one place the doc's own
-      // "first cut" actually calls for it.
-      modalityPicker('hzPick', ['video', 'article', 'podcast'], { article: '4 min', podcast: '2 min' }) +
+      // MODALITIES entry (label "Listen"). Declined at the course level
+      // (K1's procedure) does not mean declined everywhere; this is the one
+      // place the doc's own "first cut" actually calls for it. Collapsed to
+      // the current pick and pinned to the top-right corner (modalityDropdown,
+      // opts.corner) rather than left open in the flow — see that function's
+      // comment for why: an always-open toggle pushed the video carrier well
+      // down the page, and even collapsed-but-inline still reflowed the beat
+      // (and everything below it) every time the pick changed carrier.
+      modalityDropdown({ now: 'hzModNow', btn: 'hzModBtn', wrap: 'hzModWrap', icon: 'hzModIcon', label: 'hzModLabel', pick: 'hzPick' },
+        ['video', 'article', 'podcast'], { corner: true }) +
 
       '<div id="hzCarrier" hidden>' +
         '<div id="hzVideoWrap" hidden>' +
@@ -2519,12 +3403,13 @@
   }
 
   function hazardInit(ctx) {
-    var eyebrow = document.getElementById('hzEyebrow');
     var pick = document.getElementById('hzPick');
     var carrier = document.getElementById('hzCarrier');
     var vWrap = document.getElementById('hzVideoWrap');
     var wWrap = document.getElementById('hzWritten');
     var aWrap = document.getElementById('hzAudioWrap');
+    var dd = initModalityDropdown(
+      { btn: 'hzModBtn', wrap: 'hzModWrap', icon: 'hzModIcon', label: 'hzModLabel' });
     // Separate flags: video mounts once, audio mounts once, and each is a
     // real network/synthesis cost that should not gate on the other having
     // already happened — the original single `mounted` meant Listen never
@@ -2571,9 +3456,10 @@
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+      dd.render(m);
+      dd.collapse();
 
       if (m === 'video') {
-        eyebrow.textContent = 'Watch: 2 minutes';
         // Mounted once, on first selection rather than at page load — there is
         // no reason to fetch a clip for a learner who chose to read.
         if (!mounted) {
@@ -2584,25 +3470,15 @@
             onFallback: done,           // no clip at that path: do not strand anyone
             onEnded: done               // Skip dispatches 'ended', so it counts
           });
-          // The real duration, read off the file rather than typed into the
-          // label, so it cannot go stale when the asset is swapped.
-          var vid = document.getElementById('hzVideo');
-          if (vid) vid.addEventListener('loadedmetadata', function () {
-            if (!isFinite(vid.duration) || !vid.duration) return;
-            var mm = Math.round(vid.duration / 60);
-            eyebrow.textContent = 'Watch: ' + (mm < 1 ? 'under a minute' : mm + ' minute' + (mm > 1 ? 's' : ''));
-          });
         }
       } else if (m === 'podcast') {
         // Item 19/D7: the transcript is fully visible on arrival — same
         // reasoning as the article, nothing forces a listen.
-        eyebrow.textContent = 'Listen: about 2 minutes';
         if (!audioMounted) { audioMounted = true; mountAudio(); }
         // Held so leaving Listen before it fires can cancel it — see the
         // top of show().
         podcastTimer = setTimeout(done, T(700));
       } else {
-        eyebrow.textContent = 'Read: about 4 minutes';
         // Item 25/D1: gated on the learner's own word, the same footer
         // relabel the account screen's "Done reading" uses — a fixed delay
         // could not tell a skim from an actual read, and the other two
@@ -2827,14 +3703,17 @@
   // that control did, in the open.
   function PROCEDURE_CONTENT() {
     return '<main class="ll-object"><div class="pr-wrap">' +
-      '<p class="ll-eyebrow" id="prEyebrow">Watch: 4 minute video</p>' +
       '<h1 class="pr-h">The order is the procedure.</h1>' +
       '<p class="pr-sub">Four steps, always in this order — plus two rules that hold no matter what.</p>' +
 
       // Item 26: podcast stays in the vocabulary (MODALITIES) so its own
       // decline banner can render, but the button itself is hidden from a
       // learner — see procedureInit. Declined, not offered, is the point.
-      modalityPicker('prPick', ['video', 'article', 'tutor', 'podcast'], { article: '2 min' }) +
+      // Collapsed and corner-pinned (modalityDropdown, opts.corner) for the
+      // same reason as the hazard beat above: an always-open toggle pushed
+      // the video carrier well down the page.
+      modalityDropdown({ now: 'prModNow', btn: 'prModBtn', wrap: 'prModWrap', icon: 'prModIcon', label: 'prModLabel', pick: 'prPick' },
+        ['video', 'article', 'tutor', 'podcast'], { corner: true }) +
 
       '<div id="prCarrier" hidden>' +
         '<div id="prVideoWrap" hidden>' +
@@ -2855,19 +3734,7 @@
       '</div>' +
     '</div></main>';
   }
-  // The live count, because a find-premise drops the alternatives step out of
-  // the numbering and a heading that says "four" would then be wrong. Counts
-  // only the numbered STEPS — the two rules after them were never a fifth
-  // and sixth step to count.
-  function procedureCount() {
-    var use = lens() && lens().premise === 'use';
-    return PROCEDURE.slice(0, 4).filter(function (s) {
-      return !(s.onlyOn && s.onlyOn !== (use ? 'use' : 'find'));
-    }).length;
-  }
-
   function procedureInit(ctx) {
-    var eyebrow = document.getElementById('prEyebrow');
     var pick = document.getElementById('prPick');
     var carrier = document.getElementById('prCarrier');
     var vWrap = document.getElementById('prVideoWrap');
@@ -2875,6 +3742,8 @@
     var declined = document.getElementById('prDeclined');
     var written = document.getElementById('prWritten');
     var mounted = false, tutorMounted = false, showing = null, handed = false;
+    var dd = initModalityDropdown(
+      { btn: 'prModBtn', wrap: 'prModWrap', icon: 'prModIcon', label: 'prModLabel' });
 
     // Item 26: declined, not offered — the banner below still exists for a
     // reviewer to check, same review-mode gate as the hazard beat's hidden
@@ -3033,9 +3902,10 @@
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
       });
+      dd.render(m);
+      dd.collapse();
 
       if (m === 'video') {
-        eyebrow.textContent = 'Watch: 4 minute video';
         if (!handed) ctx.disableNext();
         // "Watch the order" was the heading with a verb bolted on. The claim
         // after it is the one that changes how the clip gets watched.
@@ -3050,12 +3920,10 @@
           });
         }
       } else if (m === 'tutor') {
-        eyebrow.textContent = 'Step through: ' + procedureCount() + ' steps';
         if (!handed) ctx.disableNext();
         ctx.setCoachSay('Let’s take the steps one at a time.');
         if (!tutorMounted) { tutorMounted = true; runTutor(); }
       } else if (m === 'podcast') {
-        eyebrow.textContent = 'Not available as audio';
         // Silent — the declined-audio banner on screen already says the path
         // still runs on the article cut; CLARA repeating it added nothing.
         // Still has to clear the manifest's "Loading…" placeholder, though:
@@ -3064,7 +3932,6 @@
         ctx.setCoachSay('');
         done();
       } else {
-        eyebrow.textContent = 'Read: about 2 minutes';
         ctx.setCoachSay('Pay attention to the order of the steps too. Most of them happen before the sharp is ever used.');
         done();
       }
@@ -3519,9 +4386,7 @@
   }
 
   // ==========================================================================
-  //  COHORT DEBRIEF — F3. Their read of the room, then the sector's real
-  //  number. The gap IS the teaching, and the numbers are lensed because the
-  //  norm genuinely differs by sector.
+  //  COHORT DEBRIEF — F3. Their read of the room, then the real number.
   //
   //  This screen used to ask for the guess itself, which made it the SECOND
   //  time the module asked how common the shortcut is — the entry battery's
@@ -3536,12 +4401,25 @@
   //  same figure shown after the account of somebody in their trade getting
   //  stuck is a correction. The gap between those two moments is what gives
   //  the reveal its weight.
+  //
+  //  2026-09-21: both final K&A scripts (Manufacturing and Law Enforcement)
+  //  cite the same real, published figure for this exact belief — Gershon et
+  //  al. (2000), a U.S. study of sharps-disposal compliance — rather than the
+  //  per-sector illustrative numbers this screen used to show. That source
+  //  reports one aggregate compliance rate, not a three-way breakdown, so the
+  //  three original guess-bands (most/half/few) collapse to the two the
+  //  citation actually supports: always uses the container right away, or
+  //  doesn't. Inventing sub-splits within "doesn't" to keep three rows would
+  //  be fabricating what the study never measured — worse than the old
+  //  illustrative numbers, not better, since it would look sourced when it
+  //  is not. The figure is no longer sector-lensed either: the citation is
+  //  one national number, not four.
   // ==========================================================================
-  //  The entry answer, as a key into the same three bands the chart reports.
-  //  That item asked what share of the room uses the container straight away,
-  //  which is exactly what the FIRST band measures, so the two compare without
-  //  rescaling anything. Null when the battery never finished — the screen
-  //  then falls back to a plain reveal rather than inventing a guess.
+  //  The entry answer, as a key into the two bands the chart reports. That
+  //  item asked what share of the room uses the container straight away,
+  //  which is exactly what the FIRST band measures, so the two compare
+  //  without rescaling anything. Null when the battery never finished — the
+  //  screen then falls back to a plain reveal rather than inventing a guess.
   var F3_KEYS  = { 3: 'most', 2: 'half', 1: 'few' };
   var F3_WORDS = { most: 'Most do', half: 'About half', few: 'Hardly anyone' };
   // Item 14: quoted directly from the battery item rather than a separately
@@ -3553,21 +4431,23 @@
     var b = readCourse().battery;
     return (b && F3_KEYS[b.f3]) || null;
   }
-  var DEBRIEF_DATA = {
-    education:     [{ k: 'most', label: 'Use the container immediately', pct: 62 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 29 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 9 }],
-    aec:           [{ k: 'most', label: 'Use the container immediately', pct: 48 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 37 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 15 }],
-    manufacturing: [{ k: 'most', label: 'Use the container immediately', pct: 55 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 33 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 12 }],
-    public:        [{ k: 'most', label: 'Use the container immediately', pct: 71 },
-                    { k: 'half', label: 'Sometimes set it down first', pct: 22 },
-                    { k: 'few',  label: 'Routinely set it down', pct: 7 }]
-  };
-  function debriefRows() { return DEBRIEF_DATA[LE.lensId()] || DEBRIEF_DATA.manufacturing; }
+  // Real, cited data (2026-09-21 final decks) — the same figure for every
+  // sector, so this is no longer a per-sector table. 'half' and 'few' both
+  // key into the one honest "everyone else" row; see debriefRows() below.
+  var DEBRIEF_STAT = [
+    { k: 'most', label: 'Always use the container right away', pct: 92.7 },
+    { k: 'other', label: 'Sometimes or rarely do', pct: 7.3 }
+  ];
+  var DEBRIEF_SOURCE = 'Gershon et al. (2000), “Hospital Safety Climate and Its Relationship ' +
+    'with Safe Work Practices and Workplace Exposure Incidents,” American Journal of Infection ' +
+    'Control, 28(3), 211–221.';
+  function debriefRows() { return DEBRIEF_STAT; }
+  // 'half' and 'few' both read as the single 'other' row above — see the
+  // DEBRIEF_STAT comment. The render loop's own row-vs-guess match (below)
+  // goes through this rather than a plain `===`, so whichever of the three
+  // original guesses the learner picked, the right row still gets tagged
+  // "Your guess".
+  function debriefRowKey(said) { return said === 'most' ? 'most' : said ? 'other' : null; }
   function DEBRIEF_CONTENT() {
     var said = entryF3();
     return '<main class="ll-object">' +
@@ -3593,7 +4473,7 @@
       '<div class="db-invite" id="dbInvite">' +
         '<p class="db-invite-q">' +
           (said ? 'Want to see what the real numbers are?'
-                : 'Want to see what your sector actually reports?') + '</p>' +
+                : 'Want to see what the research actually found?') + '</p>' +
         '<button class="db-reveal" id="dbReveal" type="button">' +
           '<i class="fa-solid fa-chart-simple" aria-hidden="true"></i> Show me the numbers</button>' +
       '</div>' +
@@ -3604,11 +4484,10 @@
             // Read-only rows. The guess happened at the entry battery, so the
             // band the learner was estimating is MARKED here rather than
             // clicked — their answer sits on the same line as the real figure,
-            // which is the whole comparison in one row. Bug fix: this
-            // compared every row to the literal string 'most' rather than to
-            // `said`, so a learner who guessed "Hardly anyone" had the
-            // "most" row marked as theirs and tagged "You said Most do".
-            var mine = said && d.k === said;
+            // which is the whole comparison in one row. 'half' and 'few' both
+            // read onto the 'other' row now (debriefRowKey) since the real
+            // citation only supports two bands — see the DEBRIEF_STAT comment.
+            var mine = said && debriefRowKey(said) === d.k;
             // Item 29: "Your guess: about half" — a tag beside a figure reads
             // as metadata, not as a quoted sentence, so it takes the lower-
             // cased form rather than the capitalized recall-block phrasing.
@@ -3623,18 +4502,13 @@
             '</div>';
           }).join('') +
         '</div>' +
-        // Illustrative, and labelled as such. No cohort data exists in the
-        // source material for this objective — the figures are ours. That is
-        // survivable in a prototype only while the screen says so, because
-        // here the NUMBER is the intervention: a norm correction built on an
-        // invented norm is teaching something we made up.
-        //
-        // Item 29: the disclaimer stops there. "A real deployment swaps in
-        // the customer's own cohort data" is production process, not
-        // something a learner needs to read on their way through a norm
-        // correction — it moved to the step caption, where a reviewer looks.
-        '<p class="pr-src"><i class="fa-solid fa-users" aria-hidden="true"></i> ' +
-          'Illustrative figures for ' + esc(lens().label) + '</p>' +
+        // Real, cited research (2026-09-21) rather than the illustrative
+        // per-sector figures this screen used to show — see the DEBRIEF_DATA
+        // comment above. The citation is a production detail worth a reviewer
+        // reading the full title; a learner just needs to see it is a real
+        // source, not an invented one.
+        '<p class="pr-src"><i class="fa-solid fa-book" aria-hidden="true"></i> ' +
+          esc(DEBRIEF_SOURCE) + '</p>' +
       '</div>' +
 
       // Item 14: the post leg of a Pre + post objective is the SAME item
@@ -3677,27 +4551,21 @@
         choices.querySelectorAll('.pr-fill').forEach(function (f) { f.style.width = f.dataset.w + '%'; });
       }); });
       setTimeout(function () {
-        // Whether the sector's own figure is a MAJORITY decides what this
-        // beat can honestly claim. One sector sits just under half, and the
-        // copy used to tell that learner the shortcut was the outlier while
-        // showing them data saying it was not — a norm correction arguing
-        // against its own number. A minority figure is still a finding; it
-        // is just the opposite finding, and it is the more useful one.
+        // Real, universal data (2026-09-21) is always a majority (92.7%), so
+        // the old minority branch — one sector's illustrative figure sat just
+        // under half, and the copy had to avoid calling the shortcut "the
+        // outlier" while showing data that said otherwise — is no longer
+        // reachable. Left as a plain majority check rather than hardcoded
+        // `true`, so this still degrades correctly if the figure ever changes.
         var majority = top.pct >= 50;
         // Null when there is no entry answer to have been right or wrong.
         var matched = said ? ((said === 'most') === majority) : null;
         var pct = '<strong>' + top.pct + '%</strong>';
         ctx.setCoachSay(matched === null
-          ? 'For ' + esc(lens().label) + ' it is ' + pct + '. ' + (majority
-              ? 'Which means the person who sets one down is the outlier, not the norm.'
-              : 'Just under half — in your sector the shortcut genuinely is common.')
-          : majority
-            ? (matched
-                ? 'Your read matches the data — ' + pct + '. Which means the person who sets one down is the outlier, not the norm.'
-                : 'The real figure is ' + pct + ' — higher than most people guess. The shortcut feels normal because you notice it; it is not what most of your shift does.')
-            : (matched
-                ? 'You read it right, and it is worth sitting with rather than being reassured about: ' + pct + '. Just under half. In your sector the shortcut genuinely is common — which makes the person who does not take it the one worth copying.'
-                : 'Not quite — ' + pct + ', just under half. Yours is the sector where this is hardest, so the habit is not something the room will carry for you.'));
+          ? 'The real number is ' + pct + '. Which means the person who sets one down is the outlier, not the norm.'
+          : matched
+            ? 'Your read matches the data — ' + pct + '. Which means the person who sets one down is the outlier, not the norm.'
+            : 'The real figure is ' + pct + ' — higher than most people guess. The shortcut feels normal because you notice it; it is not what most of your shift does.');
         saveResult('debrief', { guess: said, majority: majority, pct: top.pct });
         ctx.positionOrb(true);
         // The figure IS the intervention on this beat, and it used to be
@@ -4032,7 +4900,7 @@
     manufacturing: 'You spot a used blade on the next bench over. It is not yours.',
     education: 'You spot a craft blade left on the back table. It is not yours.',
     aec: 'You spot a utility blade left on a windowsill. It is not yours.',
-    public: 'You spot an uncapped needle wedged in the jump bag. It is not yours.'
+    public: 'You spot a needle wedged into the back seat of your patrol vehicle. It is not yours.'
   };
   function handoffHook() { return HANDOFF_HOOK[LE.lensId()] || HANDOFF_HOOK.manufacturing; }
 
@@ -4171,17 +5039,18 @@
     down: { cls: 'down', icon: 'fa-arrow-trend-down', label: 'Moved down' }
   };
   // F3's reportable figure is how far the learner's read of the room was from
-  // what their sector reports — norm misperception is that gap and nothing
+  // the real, cited figure — norm misperception is that gap and nothing
   // else. It used to be moveChip(entry answer, "better or worse than that
   // figure"), which are different scales: a learner who said "Most do" and
-  // then "About the same" against a 55% majority had agreed with themselves
+  // then "About the same" against a 92.7% majority had agreed with themselves
   // twice and was filed as having moved DOWN.
-  //  Graded against the sector's actual figure, not against a majority/not
-  //  binary. The binary called "Hardly anyone" CORRECT wherever the figure
-  //  came in under half — so the AEC learner who guessed hardly anyone was
-  //  filed as having read the room right about 48%, which is nearly half. No
-  //  sector in the set sits under 30%, so "hardly anyone" is always an
-  //  underestimate, and saying so IS the finding this beat exists to produce.
+  //  Graded against the real figure (92.7%, Gershon et al. 2000 — see
+  //  DEBRIEF_STAT), not against a majority/not binary. The thresholds below
+  //  predate that real figure, from when this was graded per sector against
+  //  four different illustrative numbers (as low as 48%); kept as thresholds
+  //  rather than collapsed to a flat 92.7% check so this still degrades
+  //  correctly if the figure is ever revised. With today's number, "most" is
+  //  always right and "half"/"hardly anyone" are always underestimates.
   function f3Read(f3, pct) {
     if (!f3) return null;
     if (f3 === 3) return pct >= 55 ? 'right' : 'better';           // said most
@@ -4195,7 +5064,7 @@
   function f3Note(f3, d, pct) {
     var saidAgain = low(F3_WORDS[F3_KEYS[d.post]] || '');
     if (!f3) {
-      return 'You saw the figure for your sector and, asked again, said ' + saidAgain + '. ' +
+      return 'You saw the real figure and, asked again, said ' + saidAgain + '. ' +
              'There is no earlier reading to compare it against in this run.';
     }
     var r = f3Read(f3, pct);
@@ -4243,8 +5112,6 @@
   function recordInit(ctx) {
     var c = readCourse();
     var b = c.battery || {};
-    var proven = batteryResult() === 'proven';
-    var ctrl = c.controls || null;
     var beats = scenarioBeats();
     // Item 20/D8: reaching the record marks Module 4 mastered for the
     // composite shell (clara/bloodborne.html), the same "arriving here is
@@ -4260,69 +5127,47 @@
       }
     } catch (e) {}
     // [ status, band, where it came from, what happened, move-chip ]
+    // Deck-aligned 2026-09-22: K1/K2 read their case's mastery check (base or
+    // test-up version, and whether the remedial video ran); F1/F3 compare the
+    // pre-check agreement against the same statement asked again.
+    function knowRow(chk, re, upWord) {
+      if (!chk) return ['Not asked', 'band-warn', 'No answer in this run', 'The case did not come up in this run.'];
+      var up = chk.variant === 'up';
+      if (chk.passed) {
+        return up
+          ? ['Shown', 'band-exc', 'From the pre-check and the harder case',
+             'You answered the pre-check correctly, so you got the harder version of this case — ' + upWord + ' — and answered its question correctly too.']
+          : ['Taught', 'band-ok', 'From the case and its question',
+             'Taught in the case, then checked straight afterwards — answered correctly.'];
+      }
+      return ['Taught', 'band-ok', 'From the case, its question' + (re ? ', and a second look' : ''),
+        'Missed the question after the ' + (up ? 'harder ' : '') + 'case' +
+        (!re ? '.' : re.passed ? ', then answered it correctly after a second look.'
+                               : ', and again after a second look.')];
+    }
+    function feelRow(pre, post, what) {
+      if (post && pre) {
+        return ['Recorded', 'band-ok', 'Asked at the start and again after ' + what,
+          'You rated this ' + pre + ' of 5 at the start and ' + post.score + ' of 5 after ' + what + '.',
+          moveChip(pre, post.score)];
+      }
+      if (post) {
+        return ['Recorded', 'band-ok', 'Asked after ' + what,
+          'You rated this ' + post.score + ' of 5 after ' + what + '. There is no rating from the start to compare it against.'];
+      }
+      return ['Rated only', 'band-warn', 'From your answer at the start',
+        pre ? 'You rated this ' + pre + ' of 5 at the start. The second ask did not come up in this run.'
+            : 'Neither ask came up in this run.'];
+    }
     var state = {
-      K1: proven
-        ? ['Shown', 'band-exc', 'From the four questions',
-           'You put the steps in the right order before the module even started.']
-        : (c.remk1 && c.remk1.passed)
-          ? ['Taught', 'band-ok', 'From the lesson, the quick check, and a second look',
-             'Missed the first check, so the procedure came back a different way — passed on the second look, ' +
-             (remk1Modality() === 'tutor' ? 'step by step' : 'in writing') + '.']
-          : ['Taught', 'band-ok', 'From the lesson and the quick check',
-             'Taught here as ' + (MODALITY_LABEL[c.procedure && c.procedure.modality] || 'a lesson') +
-             ', then checked again straight afterwards.'],
-      // Item 16: the harder cases are a permutation, not a re-quiz — proven
-      // at the start, served harder, not re-scored.
-      K2: k2TestUp()
-        ? ['Shown', 'band-exc', 'From the case screens',
-           'Proven at the start, so both cases served harder — not re-scored, since you had already shown you get this one. This one is never taken away, only made harder.']
-        : ['Taught', 'band-ok', 'From the case screens',
-           'Served in full. This one is never shortened, whatever you answer.'],
-      F1: (c.chain && c.chain.post)
-        ? ['Recorded', 'band-ok', 'Asked before and after the chain',
-           'You said where you stood at the start, walked the chain to see where the decision lands, and answered the same question again.' +
-           // Item 15: F1 is remediate — the downstream follow-up only runs
-           // when the post answer stayed at Somewhat or below, so a strong
-           // agreement here genuinely means no named-person question came up.
-           (c.downstream ? namedNote(c)
-             : ' You already agreed strongly, so the follow-up question about who is downstream of you never came up.'),
-           moveChip(b.f1, c.chain.post)]
-        : (c.chain && c.chain.walked)
-          ? ['Rated only', 'band-warn', 'From your answer at the start',
-             'You walked the chain but the second answer did not come up in this run, so there is nothing to compare.' + namedNote(c)]
-          : ['Rated only', 'band-warn', 'From your answer at the start',
-             'You said where you stood at the start. The chain did not come up in this run.' + namedNote(c)],
-      F2: ctrl
-        ? (ctrl.sampled === false
-            // D6/item 15: ask + sampled — the choice is still real evidence
-            // either way, the self-report on top of it just was not asked
-            // of this sector this run.
-            ? ['Shown', 'band-ok', 'From the budget choice',
-               (ctrl.choice === 'boxes'
-                 ? 'You put the money on containers rather than gloves — the control that removes the hazard instead of resisting it. '
-                 : 'You put the money on gloves. ') +
-               'Not asked of you this time — sampled across your cohort.']
-            : [ctrl.choice === 'boxes' ? 'Shown' : 'Recorded',
-               ctrl.choice === 'boxes' ? 'band-exc' : 'band-ok',
-               'From the budget choice, then your own rating',
-               ctrl.choice === 'boxes'
-                 ? 'You put the money on containers rather than gloves — the control that removes the hazard instead of resisting it.'
-                 : ctrl.agree >= 3
-                   // The reason this objective is asked in two parts. A single
-                   // agreement scale files this learner as fully on board.
-                   ? 'Two answers that point different ways: you rated containers above PPE and then spent the budget on gloves. That gap is the finding, and it is a purchasing habit rather than a belief.'
-                   : 'You put the money on gloves and rated it accordingly. Recorded as you gave it; the containers are the buy that stops the injury happening at all.'])
-        : ['Not asked', 'band-warn', 'No answer in this run',
-           'The budget choice did not come up, so there is nothing on this line. It is not counted as agreement.'],
-      F3: (c.debrief && c.debrief.post)
-        ? ['Recorded', 'band-ok', 'Your read at the start, checked against your sector',
-           f3Note(b.f3, c.debrief, f3Pct(c.debrief)),
-           moveChip(b.f3, c.debrief.post)]
-        : c.debrief
-          ? ['Rated only', 'band-warn', 'From your answer at the start',
-             'You gave your read of the room and saw the figures, but the second answer did not come up in this run.']
-          : ['Rated only', 'band-warn', 'From your answer at the start',
-             'You gave your read of the room. The figures for your sector did not come up in this run.'],
+      K1: knowRow(c.k1check, c.k1recheck, 'the container a walk away and someone calling you over'),
+      K2: knowRow(c.k2check, c.k2recheck, 'a container nearing its line and a hazard you could not confirm'),
+      F1: feelRow(b.f1, c.f1post, 'the story of Chris and Jacob'),
+      // No question on F2 in this module — it is asked once for the whole
+      // course, in Module 2 (deck slide 15).
+      F2: ['Taught', 'band-ok', 'From the engineering controls section',
+           'Why a container protects more than gloves do. Asked once for the whole course, in an earlier module, so there is no question on it here.'],
+      F3: feelRow(b.f3, c.f3post, 'the debrief'),
       // Both of these are shown on the scenario's own page now. D6: beat ids
       // changed with the rebuild (decision / execution / container / close,
       // was decision / pressure / container / transfer) \u2014 read from the
@@ -4330,13 +5175,29 @@
       // same for every run regardless of what actually happened. `close` is
       // sentiment only, not a KFD objective per K&A's script, so it has no
       // row of its own here.
-      D1: (beats && beats.decision)
+      D1: c.scene
+        ? [c.scene.decision === 'now' ? 'Shown' : 'Recorded',
+           c.scene.decision === 'shortcut' ? 'band-warn' : c.scene.decision === 'now' ? 'band-exc' : 'band-ok',
+           'From the scenario',
+           c.scene.decision === 'now' ? 'You dealt with the sharp before answering the call.'
+             : c.scene.decision === 'later' ? 'You kept hold of the sharp but put off disposing of it until after helping.'
+             : 'You set the sharp down to answer the call.']
+        : (beats && beats.decision)
         ? ['Shown', SCENARIO_TIER_RANK[beats.decision] === 0 ? 'band-warn' : 'band-ok',
            'From the scenario',
            'The decision beat ' + SCENARIO_TIER_WORD[beats.decision] + ' \u2014 what you did with the hazard the moment you were pulled away.']
         : ['In the scenario', 'band-ok', 'From the scenario',
            'Shown where you actually did it, with a real interruption rather than a button on a page. The scenario\u2019s own debrief carries what happened.'],
-      D2: (beats && (beats.execution || beats.container))
+      D2: c.scene && c.scene.rubric
+        ? (function () {
+            var r = c.scene.rubric, names = { 2: 'met', 1: 'partly met', 0: 'missed' };
+            var parts = SCENE_RUBRIC.map(function (x) {
+              return x.name + ' ' + (r[x.id] && r[x.id].score != null ? names[r[x.id].score] : 'not shown');
+            });
+            var anyMiss = SCENE_RUBRIC.some(function (x) { return r[x.id] && r[x.id].score === 0; });
+            return ['Shown', anyMiss ? 'band-warn' : 'band-ok', 'From the scenario', parts.join(' \u00b7 ') + '.'];
+          })()
+        : (beats && (beats.execution || beats.container))
         ? ['Shown', SCENARIO_TIER_RANK[beats.execution] === 0 || SCENARIO_TIER_RANK[beats.container] === 0 ? 'band-warn' : 'band-ok', 'From the scenario',
            'The walk-through beat ' + (SCENARIO_TIER_WORD[beats.execution] || 'did not come up') +
            ', and the container beat ' + (SCENARIO_TIER_WORD[beats.container] || 'did not come up') +
@@ -4351,9 +5212,8 @@
         ? ['Committed', 'band-ok', 'From the plan you wrote',
            'You named ' + esc(low(c.sustain.cond)) + ' as the shift most likely to break it, and said the container is ' +
            esc(c.sustain.route) + '. Still open \u2014 nothing today can show whether it held. The plan itself is the record.']
-        : ['Open', 'band-warn', 'No plan written in this run',
-           'Nothing you did today can answer this one, and no plan was written either. It stays open, with nothing on ' +
-           'your record to show either way.']
+        : ['Open', 'band-warn', 'Nothing to show yet',
+           'Nothing you did today can answer this one. It stays open, with nothing on your record to show either way.']
     };
     // Item 13: the count is computed, not asserted. D3 (Sustain) is excluded
     // from it outright rather than status-matched — it structurally cannot
@@ -4395,7 +5255,7 @@
     // below, and CLARA restating it read as a fourth voice for one fact.
     // The one case that keeps a line is the plain one: nothing moved, and
     // nothing on screen already says so.
-    var movedLine = (proven || k2TestUp())
+    var movedLine = (k1TestUp() || k2TestUp() || feelLow('f1') || feelLow('f3'))
       ? ''
       : 'Based on the initial assessment, nothing about your path changed.';
     // The count is stated once, in recBasis above — CLARA repeating the same
@@ -4406,12 +5266,503 @@
       'Ask me about any line and I will tell you where it came from.'
     ].filter(Boolean));
     wireChat(ctx, [
-      'That one came from the four questions at the start. Get those right and you skip the section that teaches it — which is the only place answering well buys you anything.',
+      'The two knowledge lines come from the cases. Answer the matching question right at the start and you get a harder version of that case instead of the standard one.',
       'Spotting unsafe conditions is named in the regulation, so it is never taken away. A strong answer makes it harder instead.',
-      'The budget question is recorded and passed on without changing your path — what you chose, and how you rated it afterwards. Those are two different things and I keep them apart.',
-      'The last line is your own plan, not a score. Whether it held stays open — nothing today can show that, one way or the other.'
+      'The two agreement lines compare your rating at the start with the same statement asked again later. The move between them is the finding, not either number on its own.',
+      'The last line stays open on purpose — nothing today can show what you keep doing afterwards.'
     ]);
     ctx.positionOrb(false);
+  }
+
+  // ==========================================================================
+  //  BATTERY-BEFORE ONLY: two screens ahead of the pre-check. Neither is a
+  //  real learner-facing beat outside the Demo menu's "Battery before"
+  //  toggle — spliced onto the front of STEPS below, never part of the
+  //  base array. See batteryOrderBefore() and the splice near the bottom.
+  //
+  //  PRIORMOD sells the premise: the pre-check has to feel like it is
+  //  running after something, not opening the module cold, so this is a
+  //  stand-in "you just finished Module 3" screen — same course chrome,
+  //  a different (invented) lesson. LOADING then sells the jump into THIS
+  //  module as a real transition rather than a cut, and hands off to
+  //  'battery' on its own after a beat, no click required.
+  // ==========================================================================
+  var PRIORMOD_CONTENT =
+    '<main class="ll-object">' +
+      '<div class="pm-page">' +
+        '<div class="pm-badge"><i class="fa-solid fa-check" aria-hidden="true"></i></div>' +
+        '<p class="ll-eyebrow">Bloodborne Pathogens · Module 3 of 6</p>' +
+        '<h1>Personal Protective Equipment</h1>' +
+        '<p class="pm-sub">Module complete.</p>' +
+        '<div class="pm-stats">' +
+          '<div class="pm-stat"><span class="pm-stat-val">100%</span><span class="pm-stat-lbl">Final check</span></div>' +
+          '<div class="pm-stat"><span class="pm-stat-val">6 min</span><span class="pm-stat-lbl">Time spent</span></div>' +
+        '</div>' +
+      '</div>' +
+    '</main>';
+
+  var LOADING_CONTENT =
+    '<main class="ll-object">' +
+      '<div class="ld-page">' +
+        '<div class="ld-spinner" aria-hidden="true"></div>' +
+        '<p class="ll-eyebrow">Next up: Contain the Sharp</p>' +
+        '<p class="ld-label">Checking what you already know…</p>' +
+      '</div>' +
+    '</main>';
+
+  function batteryLoadingInit(ctx) {
+    // No click required — a load screen a learner has to dismiss isn't
+    // selling a transition, it's just another step. LE.goTo, not ctx.go:
+    // this step has no engine-exposed nav helper of its own, and the id
+    // it names never changes regardless of what runs before it.
+    setTimeout(function () { LE.goTo('battery'); }, T(1400));
+  }
+
+  var PRIORMOD_STEP = {
+    id: 'priorModule', icon: 'fa-clipboard-check', lesson: 'Personal Protective Equipment',
+    mode: 'floating', noCoach: true, interstitial: true,
+    caption: { title: 'DEMO · Simulated prior module', note: 'Battery-before only. A stand-in "Module 3 complete" screen — invented, never authored content — so the pre-check has something believable to follow instead of opening the module cold. Reuses this course’s own chrome rather than looking like a different product.' },
+    content: PRIORMOD_CONTENT
+  };
+  var BATTERYLOADING_STEP = {
+    id: 'batteryLoading', icon: 'fa-spinner', lesson: 'Progress assessment',
+    mode: 'floating', noCoach: true, interstitial: true,
+    caption: { title: 'DEMO · Transition into the pre-check', note: 'Battery-before only. A brief loader between the simulated prior module and the real pre-check; advances itself after a beat (batteryLoadingInit) — nothing for a learner to click through.' },
+    content: LOADING_CONTENT, init: batteryLoadingInit
+  };
+
+  // ==========================================================================
+  //  THE SIMULATION (deck slides 23–27, 2026-09-22) — in the module, on the
+  //  stage, instead of a hand-off to the full conversation simulator.
+  //
+  //  The deck's scenario is four moments, not a conversation: a decision
+  //  (whether you act), a described disposal (how well, on the four-part
+  //  rubric), an adaptive complication (the Recovery test, or a correction
+  //  inside the scene for a learner who is struggling), and one open close
+  //  that is never scored. So it runs as the "A Critical Choice" riff did
+  //  (experiments/sharps-riffs/01): one first-person still, scanned through a
+  //  binocular view, with the coach setting each moment in a panel over the
+  //  scene and the learner answering in their own words, typed or spoken.
+  //  Each moment turns the view to the part of the scene it is about.
+  //
+  //  Copy is the deck's own. The coach's lines ARE the slides' setup and
+  //  prompts; the only model-written text is the in-scene correction on the
+  //  struggling path (slide 26), per the stakeholder. The full simulator is
+  //  still reachable from the Demo menu ("Full scenario simulator").
+  // ==========================================================================
+  var SCENE_ART = {
+    // Generated stills (2026-09-22), the same layout in both sectors: the
+    // person calling on the left, the sharp front and center, the container
+    // on the right — plus a close-up of the container at its fill line.
+    manufacturing: { src: '../../assets/images/sharps-scene-manufacturing.jpg',
+      focal: { sharp: [0.557, 0.780], person: [0.190, 0.300], container: [0.870, 0.200] },
+      zoom: { sharp: 2.6 },
+      closeup: { src: '../../assets/images/sharps-scene-container-manufacturing.jpg', x: 0.68 } },
+    // Generated still (2026-09-22). The syringe is small in this frame, so
+    // the view leans in closer on it (zoom.sharp).
+    public: { src: '../../assets/images/sharps-scene-public.jpg',
+      focal: { sharp: [0.570, 0.570], person: [0.148, 0.300], container: [0.940, 0.290] },
+      zoom: { sharp: 3.4 },
+      // Beat 3's own still: arriving at the container and finding it at its
+      // fill line. `x` is where the container sits across the frame, so the
+      // crop keeps it in view in a narrow scene column.
+      closeup: { src: '../../assets/images/sharps-scene-container-public.jpg', x: 0.69 } }
+  };
+  function sceneArt() { return SCENE_ART[LE.lensId()] || SCENE_ART.manufacturing; }
+
+  // The deck's copy, per sector (slides 23–27).
+  var SCENE_COPY = {
+    manufacturing: {
+      setup: 'You’re replacing a cutting blade at a workstation on the production floor when you notice a used blade sitting on the edge of the neighboring workbench. You didn’t put it there, and you don’t know who did.',
+      beat1: 'You pick up the used blade from the workbench. Before you can deal with it, a coworker calls for your help with a problem on the line. They need you now. The blade is still in your hand. What do you do?',
+      beat2: 'The used blade still has to be dealt with, and the designated sharps container is at the end of the line. Describe what you do next, step by step, until the blade is disposed of.',
+      item: 'blade'
+    },
+    public: {
+      setup: 'You’re clearing your patrol vehicle at the end of shift when you find a used hypodermic needle wedged into the back seat. You didn’t put it there, and you don’t know who did.',
+      beat1: 'You lift the used needle clear of the seat. Before you can deal with it, another officer calls for your help across the lot. They need you now. The needle is still in your gloved hand. What do you do?',
+      beat2: 'The used needle still has to be dealt with, and the designated sharps container is inside the station. Describe what you do next, step by step, until the needle is disposed of.',
+      item: 'needle'
+    }
+  };
+  // Slide 26 is written about the learner ("the container they reach…");
+  // on screen it is said to them. Slide 27 is the deck's own quote.
+  var SCENE_BEAT3 = 'The container you reach is at its fill line, and the spare is in another room. What do you do?';
+  var SCENE_BEAT4 = 'What would make this hardest to do right on your worst shift?';
+  function sceneCopy() { return SCENE_COPY[LE.lensId()] || SCENE_COPY.manufacturing; }
+
+  // The rubric slide ("the same in every version"), verbatim. Beat 1 scores
+  // whether the learner acts; Beat 2 scores how well — kept separate on
+  // purpose, as the slide says. Recovery is confirmed by Beat 3.
+  var SCENE_RUBRIC = [
+    { id: 'timing',    name: 'Timing',    def: 'Disposed at the point of use — not deferred to the end of the task.' },
+    { id: 'technique', name: 'Technique', def: 'Safety feature on · no recapping, no bending, no setting it down in between.' },
+    { id: 'route',     name: 'Route',     def: 'A designated container, fill line respected · never general waste or linen.' },
+    { id: 'recovery',  name: 'Recovery',  def: 'When the container is full or missing, finds another proper one — never improvises.' }
+  ];
+  var SCENE_DECISION = { name: 'Dispose now, or set it down?',
+    def: 'Setting the sharp down on any surface it wasn’t disposed into is the shortcut — the moment it leaves your hand, the next person is the one at risk.' };
+
+  function sceneSimulatorOn() {
+    try { return sessionStorage.getItem('sh-scene-mode') === 'simulator'; } catch (e) { return false; }
+  }
+
+  // ---- Grading ------------------------------------------------------------
+  // One fast-model call per graded moment, through the same live Worker every
+  // sim page uses (SimCore.callModel). Each has an offline fallback so the
+  // scene still runs without the Worker (or on file://).
+  function sceneContext() {
+    var c = sceneCopy();
+    return 'Workplace safety training, bloodborne pathogens module, safe sharps disposal. ' +
+      'The scene: ' + c.setup + ' ' + c.beat1;
+  }
+  function askModel(system, user, maxTokens) {
+    if (!(window.SimCore && SimCore.WORKER_URL)) return Promise.reject(new Error('offline'));
+    return SimCore.callModel({ system: system, messages: [{ role: 'user', content: user }],
+      maxTokens: maxTokens || 400, model: SimCore.MODELS.FAST }).then(SimCore.parseJson);
+  }
+  // Offline keyword checks drop negated phrases first ("I don't force it
+  // in" must not read as forcing it in).
+  function affirmed(t) {
+    return String(t || '').toLowerCase()
+      .replace(/\b(don['\u2019]?t|do not|never|won['\u2019]?t|wouldn['\u2019]?t|not|no)\b(\s+\S+){1,4}/g, ' ');
+  }
+  function has(t, re) { return re.test(affirmed(t)); }
+
+  // Beat 1: whether they act. now = deals with it before helping; later =
+  // keeps hold of it but defers; shortcut = sets it down anywhere that is
+  // not a designated container.
+  function gradeDecision(text) {
+    var sys = sceneContext() + '\n\nThe learner answered "What do you do?". Classify ONLY whether they act on the sharp:\n' +
+      '"now" = they dispose of it in a designated sharps container (or go straight to one) before helping;\n' +
+      '"later" = they keep it under control but defer disposal until after helping;\n' +
+      '"shortcut" = they set it down on any surface it was not disposed into, pocket it, bin it, or hand it off.\n' +
+      'Judge only what they actually said. Return ONLY JSON: {"decision":"now"|"later"|"shortcut"}';
+    return askModel(sys, 'The learner said:\n\n' + text, 60).then(function (r) {
+      return /^(now|later|shortcut)$/.test(r.decision) ? r.decision : localDecision(text);
+    }).catch(function () { return localDecision(text); });
+  }
+  function localDecision(t) {
+    if (has(t, /\b(set|put|leave|lay|place)\b[^.]*\b(down|bench|table|seat|counter|aside)\b|\btrash\b|\bpocket\b/)) return 'shortcut';
+    var a = affirmed(t), bin = a.search(/\bcontainer\b|\bdispos/), help = a.search(/\bhelp/);
+    if (bin < 0) return 'later';
+    // Disposal named before the help (or no help at all) is acting now.
+    return help < 0 || bin < help ? 'now' : 'later';
+  }
+
+  // Beat 2: how well, on the four rubric criteria (0 = missed, 1 = partly,
+  // 2 = met, null = the answer gives no evidence either way). Also writes the
+  // in-scene correction used only on the struggling path.
+  function gradeExecution(text, decisionText) {
+    var rub = SCENE_RUBRIC.map(function (r, i) { return (i + 1) + '. ' + r.name + ' — ' + r.def; }).join('\n');
+    var sys = sceneContext() + '\n\nThen: ' + sceneCopy().beat2 + '\n\nRate the learner’s described disposal on this rubric:\n' + rub +
+      '\n\nFor each criterion give 0 (missed or contradicted), 1 (partly), 2 (clearly met), or null if their words give no evidence either way ' +
+      '(Recovery is usually null here — nothing has gone wrong yet). Credit only what they actually said: Route is met only if they say the ' +
+      'sharp goes into a designated sharps container — "take it inside" or "get rid of it" alone is partly at most. For each non-null score, quote the ' +
+      'shortest exact phrase from their answer that is the evidence (verbatim substring, or "" if none).\n' +
+      'Also write "correction": 1-2 plain sentences spoken to the learner ("you") inside the scene, correcting the single most important gap ' +
+      'in what they described, as feedback rather than a do-over. Stay inside the scene as given: add no new people, events or outcomes. ' +
+      'No praise words, no lists.\n' +
+      'Return ONLY JSON: {"timing":{"score":0|1|2|null,"quote":""},"technique":{...},"route":{...},"recovery":{...},"correction":""}';
+    var user = 'Their first answer ("What do you do?"): ' + decisionText + '\n\nTheir step-by-step description:\n\n' + text;
+    return askModel(sys, user, 500).then(function (r) {
+      var out = { correction: typeof r.correction === 'string' ? r.correction.trim() : '' };
+      SCENE_RUBRIC.forEach(function (c) { out[c.id] = normCrit(r[c.id], text); });
+      if (!out.correction) out.correction = localExecution(text).correction;
+      return out;
+    }).catch(function () { return localExecution(text); });
+  }
+  function normCrit(x, text) {
+    x = x || {};
+    var s = x.score === 0 || x.score === 1 || x.score === 2 ? x.score : null;
+    var q = typeof x.quote === 'string' && x.quote && String(text).indexOf(x.quote) > -1 ? x.quote : '';
+    return { score: s, quote: q };
+  }
+  function localExecution(t) {
+    var bad = has(t, /\brecap|\bbend|\bbreak|\btrash\b|\bgarbage\b|\bset it down\b/);
+    var out = {
+      timing:    { score: has(t, /\b(straight|right away|immediately|directly|first)\b/) ? 2 : 1, quote: '' },
+      technique: { score: bad ? 0 : has(t, /\bsafety (feature|cap|shield)|\bretract|\bsheath/) ? 2 : 1, quote: '' },
+      route:     { score: has(t, /\bcontainer\b/) ? (has(t, /\bfill line|\bfull\b/) ? 2 : 1) : 0, quote: '' },
+      recovery:  { score: null, quote: '' },
+      correction: 'Keep it in your hand, walk it directly to the designated sharps container, and put it straight in — no recapping, bending, or setting it down on the way.'
+    };
+    return out;
+  }
+  // Beat 3 (doing well): the Recovery test.
+  function gradeRecovery(text) {
+    var r = SCENE_RUBRIC[3];
+    var sys = sceneContext() + '\n\nComplication: ' + SCENE_BEAT3 + '\n\nRate ONLY ' + r.name + ' — ' + r.def +
+      '\n0 = improvises (forces it in, presses contents down, balances it on top, general waste, sets it down); 1 = does not improvise but ' +
+      'names no proper route (waits, hands it off); 2 = keeps the sharp under control and goes for the spare or another designated container. ' +
+      'Quote the shortest exact phrase from their answer that is the evidence. Return ONLY JSON: {"score":0|1|2,"quote":""}';
+    return askModel(sys, 'The learner said:\n\n' + text, 120).then(function (x) {
+      var n = normCrit(x, text); if (n.score == null) n.score = 1; return n;
+    }).catch(function () {
+      return { score: has(t0(text), /\bforce|\bpush|\bpress|\bon top\b|\btrash\b|\bset it down\b/) ? 0
+        : has(t0(text), /\bspare\b|\banother\b|\bother (container|room)\b|\bget (a|the) (new|spare)/) ? 2 : 1, quote: '' };
+    });
+  }
+  function t0(t) { return String(t || ''); }
+  // Struggling = the decision was the shortcut, or any of the first three
+  // criteria came back missed. The complication is for a learner doing well.
+  function sceneStruggling(decision, ex) {
+    return decision === 'shortcut' || ['timing', 'technique', 'route'].some(function (k) { return ex[k] && ex[k].score === 0; });
+  }
+
+  // ---- The screen -----------------------------------------------------------
+  function SCENE_CONTENT() {
+    var art = sceneArt();
+    return '<main class="ll-object dk-object"><div class="dk-theater">' +
+      '<header class="dk-head"><div class="dk-head-t">' +
+        '<p class="ll-eyebrow">The simulation</p>' +
+        '<h1 class="dk-title">The hands-on final scene</h1>' +
+      '</div>' +
+      (art.placeholder ? '<span class="sc-ph"><i class="fa-solid fa-image" aria-hidden="true"></i> Placeholder scene</span>' : '') +
+      '</header>' +
+      '<div class="dk-stagewrap">' +
+        '<div class="dk-stage sc-stage" id="scStage">' +
+          '<div class="sc-scene" id="scScene" data-view="wide">' +
+            // Three views, one showing at a time (data-view):
+            //   wide  — the whole still, nothing cropped (a blurred copy fills
+            //           the frame around it); the establishing shot and the
+            //           pull-back for the close
+            //   bino  — the binocular view on one subject
+            //   close — a second still for the moment you reach the container
+            '<div class="sc-view sc-wide"><img class="sc-img sc-img-bg" src="' + esc(art.src) + '" alt="">' +
+              '<img class="sc-img sc-img-fit" src="' + esc(art.src) + '" alt=""></div>' +
+            '<div class="sc-view sc-bino" id="scBino"><div class="sc-jitter" id="scJitter">' +
+              '<img class="sc-img" id="scImg" src="' + esc(art.src) + '" alt=""></div></div>' +
+            (art.closeup
+              ? '<div class="sc-view sc-close"><img class="sc-img" src="' + esc(art.closeup.src) + '" alt="" ' +
+                  'style="object-position:' + Math.round(art.closeup.x * 100) + '% 50%"></div>'
+              : '') +
+            '<div class="sc-vignette" aria-hidden="true"></div>' +
+          '</div>' +
+          '<aside class="sc-panel" aria-label="Scenario">' +
+            '<div class="sc-panel-head"><span class="sc-dot" aria-hidden="true"></span> CLARA ' +
+              '<span class="sc-beat" id="scBeat"></span></div>' +
+            '<div class="sc-thread" id="scThread" aria-live="polite"></div>' +
+            '<div class="sc-compose" id="scCompose">' +
+              '<div class="input-shell sc-shell" id="scShell">' +
+                '<textarea id="scInput" rows="2" placeholder="Type, or tap the mic to talk" aria-label="Your answer" disabled></textarea>' +
+                '<button class="sc-send" id="scSend" type="button" aria-label="Send" disabled><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>' +
+              '</div>' +
+              '<p class="sc-hint" id="scHint"></p>' +
+            '</div>' +
+          '</aside>' +
+        '</div>' +
+        '<div class="dk-check sc-result" id="scResult" hidden><div class="dk-card sc-card">' +
+          '<h2 class="cs-q cs-q--lead">The rubric</h2>' +
+          '<div class="sc-rows" id="scRows"></div>' +
+        '</div></div>' +
+      '</div>' +
+    '</div></main>';
+  }
+
+  function sceneInit(ctx) {
+    var art = sceneArt(), copy = sceneCopy();
+    var thread = document.getElementById('scThread');
+    var input = document.getElementById('scInput');
+    var send = document.getElementById('scSend');
+    var beatEl = document.getElementById('scBeat');
+    var hint = document.getElementById('scHint');
+    var scene = document.getElementById('scScene');
+    var bino = document.getElementById('scBino');
+    var img = document.getElementById('scImg');
+    var jit = document.getElementById('scJitter');
+    var alive = true, res = { answers: {} };
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    ctx.disableNext();
+
+    // ---- The binocular view (ported from Riff 01): two overlapping lenses
+    // over one still, panning between focal points with a hand-held drift.
+    var nat = { w: 2000, h: 857 }, cur = { f: art.focal.sharp, zoom: 2 }, base = 1;
+    function layout() {
+      var W = scene.clientWidth, H = scene.clientHeight;
+      var D = Math.min(W * 0.8 / 1.64, H * 0.92), d = D * 0.64, r = D / 2, fe = Math.max(14, r * .12);
+      var lens = function (cx) { return 'radial-gradient(circle at ' + cx + 'px 50%, #000 0, #000 ' + (r - fe) + 'px, transparent ' + r + 'px)'; };
+      bino.style.width = (D + d) + 'px'; bino.style.height = D + 'px';
+      bino.style.webkitMaskImage = bino.style.maskImage = lens(r) + ', ' + lens(r + d);
+      // The image is sized ONCE, to just cover the lenses; every move after
+      // that is a transform (translate + scale), which the browser animates
+      // on the GPU. Animating width/height re-laid the image out every frame.
+      base = Math.max((D + d) / nat.w, D / nat.h);
+      img.style.width = nat.w * base + 'px'; img.style.height = nat.h * base + 'px';
+      aim(cur.f, cur.zoom, false);
+    }
+    function aim(f, zoom, smooth) {
+      cur = { f: f, zoom: zoom };
+      var bw = bino.clientWidth, bh = bino.clientHeight;
+      if (!bw) return;
+      var rw = nat.w * base * zoom, rh = nat.h * base * zoom;
+      // Clamped so a subject near the frame's edge never pans the lens past
+      // the image into black.
+      var tx = Math.min(0, Math.max(bw - rw, bw / 2 - f[0] * rw));
+      var ty = Math.min(0, Math.max(bh - rh, bh / 2 - f[1] * rh));
+      img.style.transition = smooth ? '' : 'none';
+      img.style.transform = 'translate(' + tx + 'px,' + ty + 'px) scale(' + zoom + ')';
+      if (!smooth) void img.offsetWidth;
+    }
+    // Each moment turns to the part of the scene its line is about, and HOLDS
+    // there while the learner answers: 'wide' (everything), a binocular
+    // subject ('sharp' / 'person' / 'container'), or 'close' (the container
+    // close-up; without one, the lens leans in on the container instead).
+    // Raising the binoculars from the wide shot, the lens is placed while it
+    // is still hidden, so it arrives already on its subject — the swap reads
+    // as raising and lowering them rather than one picture fading into another.
+    function look(point, zoom) {
+      if (point === 'wide') { scene.dataset.view = 'wide'; return; }
+      if (point === 'close') {
+        if (art.closeup) { scene.dataset.view = 'close'; return; }
+        point = 'container'; zoom = 3.2;
+      }
+      var z = (art.zoom && art.zoom[point]) || zoom || 2;
+      var raising = scene.dataset.view !== 'bino';
+      aim(art.focal[point], z, !raising);
+      scene.dataset.view = 'bino';
+    }
+    function sized() { nat = { w: img.naturalWidth || 2000, h: img.naturalHeight || 857 }; layout(); }
+    img.addEventListener('load', sized);
+    if (img.complete && img.naturalWidth) sized();   // already cached
+    window.addEventListener('resize', function () { if (alive && bino.isConnected) layout(); });
+    (function drift(t) {
+      if (!bino.isConnected) { alive = false; return; }
+      jit.style.transform = 'translate(' + (Math.sin(t / 1300) * 2.4 + Math.sin(t / 370) * .8) + 'px,' +
+        (Math.cos(t / 1500) * 2 + Math.sin(t / 430) * .6) + 'px)';
+      requestAnimationFrame(drift);
+    })(0);
+    requestAnimationFrame(layout);
+
+    // ---- The thread -----------------------------------------------------
+    function wait(ms) { return new Promise(function (r) { setTimeout(r, T(ms)); }); }
+    function bubble(cls, html) {
+      var el = document.createElement('div');
+      el.className = 'sc-msg ' + cls;
+      el.innerHTML = html;
+      thread.appendChild(el);
+      thread.scrollTop = thread.scrollHeight;
+      return el;
+    }
+    function coach(text) {
+      var t = bubble('sc-coach is-typing', '<span class="tdots"><span></span><span></span><span></span></span>');
+      return wait(Math.min(1400, 450 + text.length * 8)).then(function () {
+        if (!alive) return;
+        t.classList.remove('is-typing'); t.textContent = text;
+        thread.scrollTop = thread.scrollHeight;
+      });
+    }
+    function thinking() { return bubble('sc-coach is-typing', '<span class="tdots"><span></span><span></span><span></span></span>'); }
+
+    // ---- Answering: type or talk (the shared mic component) -------------
+    var voice = window.SimVoiceInput && window.SimVoiceInput.attach({
+      shell: '#scShell', textarea: '#scInput', sendButton: '#scSend', hint: '#scHint', demo: false });
+    var pending = null;
+    input.addEventListener('input', function () { send.disabled = input.value.trim().length < 2; });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!send.disabled) send.click(); }
+    });
+    send.addEventListener('click', function () {
+      var v = input.value.trim();
+      if (!v || !pending) return;
+      if (voice && voice.isListening()) voice.stop();
+      var p = pending; pending = null;
+      input.value = ''; input.disabled = true; send.disabled = true;
+      if (voice) voice.el.disabled = true;
+      bubble('sc-you', esc(v));
+      p(v);
+    });
+    function answer() {
+      return new Promise(function (resolve) {
+        pending = resolve;
+        input.disabled = false;
+        if (voice) voice.el.disabled = false;
+        try { input.focus({ preventScroll: true }); } catch (e) {}
+      });
+    }
+    function beat(n) { beatEl.textContent = n ? n + ' / 4' : ''; }
+
+    // ---- The four moments -------------------------------------------------
+    (async function run() {
+      // Slide 23 — the setup, on the whole scene; then up to the needle it
+      // names, and a moment to find it.
+      beat(1);
+      await wait(600); if (!alive) return;
+      await coach(copy.setup);
+      await wait(700); if (!alive) return;
+      look('sharp', 2.1);
+      await wait(2000); if (!alive) return;
+      // Slide 24 — the needle is in your hand when the call comes: the lens
+      // swings to the officer as the line lands, and holds for the answer.
+      var line1 = coach(copy.beat1);
+      setTimeout(function () { if (alive) look('person', 2); }, T(700));
+      await line1;
+      var a1 = await answer(); if (!alive) return;
+      res.answers.decision = a1;
+      var th = thinking();
+      res.decision = await gradeDecision(a1);
+      th.remove();
+
+      // Slide 25 — the container, through the station door.
+      beat(2);
+      look('container', 1.8);
+      await coach(copy.beat2);
+      var a2 = await answer(); if (!alive) return;
+      res.answers.execution = a2;
+      th = thinking();
+      res.rubric = await gradeExecution(a2, a1);
+      th.remove();
+
+      beat(3);
+      if (sceneStruggling(res.decision, res.rubric)) {
+        // Slide 26, struggling: corrected inside the scene, not a do-over.
+        res.path = 'corrected';
+        look('sharp', 1.9);
+        await coach(res.rubric.correction);
+      } else {
+        res.path = 'complication';
+        // Slide 26 — you reach it, and it is full.
+        look('close');
+        await coach(SCENE_BEAT3);
+        var a3 = await answer(); if (!alive) return;
+        res.answers.recovery = a3;
+        th = thinking();
+        res.rubric.recovery = await gradeRecovery(a3);
+        th.remove();
+      }
+
+      // Slide 27 — binoculars down: the whole scene, for the one question
+      // that is not about any part of it.
+      beat(4);
+      await wait(500); look('wide');
+      await coach(SCENE_BEAT4);
+      res.answers.close = await answer(); if (!alive) return;
+      beat(0);
+      saveResult('scene', res);
+      await wait(700); if (!alive) return;
+      showRubric();
+    })();
+
+    // ---- The rubric, over the scene -------------------------------------
+    var MARK = { 2: ['is-met', 'fa-check', 'Met'], 1: ['is-part', 'fa-minus', 'Partly'], 0: ['is-miss', 'fa-xmark', 'Missed'] };
+    var DEC = { now: 2, later: 1, shortcut: 0 };
+    function row(name, def, score, quote) {
+      var m = score == null ? ['is-none', 'fa-circle', 'Not shown'] : MARK[score];
+      return '<div class="sc-row ' + m[0] + '">' +
+        '<span class="sc-mark" role="img" aria-label="' + m[2] + '"><i class="fa-solid ' + m[1] + '" aria-hidden="true"></i></span>' +
+        '<div class="sc-row-t"><b>' + esc(name) + '</b><span>' + esc(def) + '</span>' +
+          (quote ? '<q>' + esc(quote) + '</q>' : '') + '</div></div>';
+    }
+    function showRubric() {
+      var r = res.rubric;
+      document.getElementById('scRows').innerHTML =
+        row(SCENE_DECISION.name, SCENE_DECISION.def, DEC[res.decision], '') +
+        '<div class="sc-rule" aria-hidden="true"></div>' +
+        SCENE_RUBRIC.map(function (c) { return row(c.name, c.def, r[c.id].score, r[c.id].quote); }).join('');
+      reinforce(ctx, document.getElementById('scResult'), 1, 1);
+      ctx.enableNext();
+    }
   }
 
   // ==========================================================================
@@ -4420,7 +5771,7 @@
   // ==========================================================================
   var STEPS = [
     { id: 'intro', mode: 'floating', lesson: 'Welcome', cover: true, nextLabel: 'Start module',
-      caption: { title: 'Course title page', note: 'Module 4 of six behavioral outcomes decomposed from Bloodborne Pathogens (RVCT-303B). The sections list renders from the live path, so it foreshadows what the battery can remove.' },
+      caption: { title: 'Course title page', note: 'Module 4 of six behavioral outcomes decomposed from Bloodborne Pathogens (RVCT-303B). The list below now renders the course’s sibling modules rather than Sharps’ own sections — Sharps is the only row wired to real content, and carries its own Resume/Start-over state.' },
       // Silent. The line here narrated the cover back to the learner \u2014 the
       // sections, the runtime, the exposure plan \u2014 all three of which are on
       // the page in larger type, and "ask me anything" is what the orb's own
@@ -4428,125 +5779,64 @@
       coach: { say: '' },
       content: INTRO_CONTENT, init: introInit },
 
-    { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Your Starting Point', mode: 'floating', gate: true,
-      caption: { title: 'ENTRY · Pre-module battery', note: 'Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; K2 (recognition, content-locked) sets its own test-up from its own item — neither derives from the other. D12: K1’s test-out shortcut ships live as built. The compliance question K&A’s script raises — whether 1910.1030(g)(2)(vii)(E)/(F) actually locks this content — is unconfirmed either way, not resolved in K1’s favor; if compliance later rules it locked, this item’s `policy`/`locked` fields are the only thing that needs to change.' },
-      coach: { say: 'Loading\u2026', teaser: true },
+    { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Progress assessment', mode: 'floating', gate: true,
+      // No CLARA on this screen, in either entry-sequencing mode: a rapid-
+      // fire stack of four quick questions has no room for a reaction
+      // between one and the next, so it runs as a plain one-click battery
+      // instead — select, confirm, next question loads (see batteryInit).
+      noCoach: true,
+      caption: { title: 'ENTRY · Pre-module battery — deck slides 2–4', note: 'Deck-aligned 2026-09-22: question 1 (K1) and question 2 (K2) are the slides’ own lettered multiple-choice items; a correct answer serves that case’s harder test-up version instead of its base. The two agreement statements (F1, F3) are 1–5 scales, each its own card; neutral or below serves the reinforced version of case 3 / the debrief, and the same statement is asked again afterwards. Earlier note follows. Four items: two gate-flagged Know and two remediate-flagged Feel. NEVER a Do objective — a question cannot credibly measure behavior. The policy chip above each item shows which rule put it here. K1 clean sweep = test-out; K2 (recognition, content-locked) sets its own test-up from its own item — neither derives from the other. D12: K1’s test-out shortcut ships live as built. The compliance question K&A’s script raises — whether 1910.1030(g)(2)(vii)(E)/(F) actually locks this content — is unconfirmed either way, not resolved in K1’s favor; if compliance later rules it locked, this item’s `policy`/`locked` fields are the only thing that needs to change.' },
       content: BATTERY_CONTENT, init: batteryInit,
-      onSkip: function () { saveResult('battery', { k1: 'unproven', skipped: true }); } },
+      onSkip: function () { saveResult('battery', { k1up: false, k2up: false, f1: null, f3: null, skipped: true }); } },
 
     { id: 'adjust', icon: 'fa-diagram-project', mins: 1, stage: 'Entry', lesson: 'Your Updated Path', mode: 'crown', gate: true, interstitial: true,
       when: adjustMoved,
-      caption: { title: 'ENTRY · Knowledge Layer', note: 'Two different moves in one screen, which is the point: a beat REMOVED (test-out) and a beat made HARDER (content-locked → test-up). Compression is only one of the things an assessment policy can do. It reported a THIRD — a beat added on a low Feel score — and that row is gone: the beat it named (“The One That Landed”) runs for every learner on every path, so the screen was telling a learner their answer had changed something it had not. Both Feel items now set a baseline and route nothing, which means only the two Know items can move the path and this screen appears only when the procedure was proven. Runs ONLY when something actually fired: a learner whose answers moved nothing never sees it, because a page reporting that nothing happened is a non-event, and it would land as an EXTRA screen on the path that is already longer. Presenter control: Demo → Battery result; flipping to a result that moves nothing advances past this screen, which is itself the demonstration.' },
+      caption: { title: 'ENTRY · Knowledge Layer', note: 'Deck-aligned 2026-09-22: four possible rows — each case swapped for its harder version (a correct pre-check answer), and case 3 / the debrief swapped for their longer versions (low agreement). Only rows that actually moved are shown, and the screen drops out entirely when nothing did. Earlier note follows. Two different moves in one screen, which is the point: a beat REMOVED (test-out) and a beat made HARDER (content-locked → test-up). Compression is only one of the things an assessment policy can do. It reported a THIRD — a beat added on a low Feel score — and that row is gone: the beat it named (“The One That Landed”) runs for every learner on every path, so the screen was telling a learner their answer had changed something it had not. Both Feel items now set a baseline and route nothing, which means only the two Know items can move the path and this screen appears only when the procedure was proven. Runs ONLY when something actually fired: a learner whose answers moved nothing never sees it, because a page reporting that nothing happened is a non-event, and it would land as an EXTRA screen on the path that is already longer. Presenter control: Demo → Battery result; flipping to a result that moves nothing advances past this screen, which is itself the demonstration.' },
       coach: { say: '' },
       content: ADJUST_CONTENT, init: adjustInit },
 
-    { id: 'chain', icon: 'fa-hand-pointer', mins: 3, stage: 'Learn', lesson: 'Why Disposal Shortcuts Are Risky', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · The chain (F1, Feel / Believe)', note: 'The module\u2019s first content screen, and the ordering is the argument: consequence before rule. D9: Feel leads Know here on purpose, departing from the doc\u2019s conventional Know \u2192 Feel \u2192 Do \u2014 the procedure is not yet taught, and the case for needing it has to land before the rule does, or the rule is just an instruction to follow. The procedure used to be taught at position five with the consequence arriving at position ten, which spends the only moment a learner is receptive. Nodes revealed one tap at a time, earlier ones dimmed rather than removed, a clock on each and the elapsed gap named on the connector between them \u2014 the learner advancing the consequence is a different act from watching it advance, and only the first constructs the belief rather than asserting it. THE DECISION IS REAL: the eyebrow always promised one and there was none, because the shortcut was narrated FOR the learner in a subjectless fragment (\u201cInto the bag on the rail.\u201d) and the final node then held them responsible for it \u2014 so a reader could not tell whether they had done it, watched it, or were being accused of it. The setup now stops at the choice. A learner who picks the container still sees the whole chain, under a header naming it as the route they did NOT take, which is a different act from being told they caused it. The injury also happens on screen now: every sector set up the hazard and then reported bloodwork with no puncture in between, leaving the one event the screen exists to deliver to inference. The downstream worker gets a node introducing who they are and why they cannot know, and the stick gets its own. This objective was previously served by a statement on a slide, here and in the re-composed course, which is the failure the spec\u2019s own rule names. Each sector walks its own incident, drawn from that sector\u2019s list of what counts as a sharp and deliberately NOT the one its cases and its first-person account use. The open prompt is scored for one thing and not by a model: whether a specific person downstream now has a name. Ungated \u2014 only Know gates in this module.' },
-      // hint:false \u2014 each node is a few sentences to read between taps, and a
-      // reader who pauses on one past 7s should not be interrupted mid-brief.
-      coach: { say: 'Loading\u2026', hint: false },
-      content: CHAIN_CONTENT, init: chainInit,
-      onSkip: function () { saveResult('chain', { walked: false, named: null }); } },
+    // ---- Deck slides 5–22 ----------------------------------------------------
+    // Each case serves ONE of its versions: base, or the harder test-up version
+    // when its pre-check question was answered correctly. A miss on either
+    // version's question serves that case's remedial video next.
+    deckStep('c1base', { when: function () { return !k1TestUp(); },
+      caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Listen carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
+    deckStep('c1up', { adaptive: true, when: function () { return k1TestUp(); },
+      caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
+    deckStep('c1rem', { adaptive: true,
+      when: function () { return checkMissed('k1check'); },
+      caption: { title: 'LEARN · Case 1, remedial (K1) — deck slide 7', note: 'Only after a missed case 1 mastery check (either version). Re-teaches the never-recap, straight-to-container rule. Then re-asks the question that was missed (slide 6 or 9, whichever version ran); a second miss just moves the learner on.' } }),
 
-    { id: 'hazard', icon: 'fa-photo-film', mins: 4, stage: 'Learn', lesson: 'Why Sharps Are Dangerous', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · The premise (ungated)', note: 'Alignment brief D1: this used to be K2’s own teaching beat, gated, with an in-flow check and a test-up permutation. The mechanism content — what a sharp is, that a used one keeps a trace of blood, what that trace can carry — is no longer a tracked objective, so it now runs as plain narration, identical for every learner, matching K&A’s Manufacturing script (this content runs ahead of Case 1 with no check at all). Delivered as ONE screen because it is one chain of reasoning: trace → route → what it carries. The clip supplied for this beat was the course’s “Controls and Prevention” section video — 9 min 31 s and 145 MB, which is over GitHub’s per-file ceiling and was the largest single line item in the module. It is now cut to the one stretch that shows a sharp being handled at all (3:48–6:00, 2 min 12 s): the engineering-versus-administrative controls comparison and a syringe going into a red container. Worth knowing what that footage is and is not — it shows DISPOSAL, which is K1’s subject and the budget beat’s argument, and it does NOT teach this beat’s mechanism, because nothing in the source does. So the written chain runs ALONGSIDE it rather than as its fallback. Anything over 25 MB still STREAMS rather than being fetched whole to a blob, and the eyebrow reports the clip’s real duration read off the file rather than a typed-in estimate.' },
-      // Arrives silent — an empty line means no unread dot and no idle
-      // hint. The reaction later in hazardInit raises CLARA by itself.
-      coach: { say: '' },
-      content: HAZARD_CONTENT, init: hazardInit,
-      onSkip: function () { saveResult('hazard', { skipped: true }); } },
+    deckStep('c2base', { when: function () { return !k2TestUp(); },
+      caption: { title: 'LEARN · Case 2, base (K2) — deck slides 10–11', note: 'Served unless pre-check question 2 was answered correctly. K2 is compliance-locked: it can test up, never out. Slide 11 mastery check on the reinforcement layer once the carrier finishes; a miss serves slide 12.' } }),
+    deckStep('c2up', { adaptive: true, when: function () { return k2TestUp(); },
+      caption: { title: 'LEARN · Case 2, test-up (K2) — deck slides 13–14', note: 'Served INSTEAD of the base case when pre-check question 2 was answered correctly. Slide 14 mastery check over it; a miss serves the remedial video (slide 12).' } }),
+    deckStep('c2rem', { adaptive: true,
+      when: function () { return checkMissed('k2check'); },
+      caption: { title: 'LEARN · Case 2, remedial (K2) — deck slide 12', note: 'Only after a missed case 2 mastery check (either version). Re-teaches both recognition calls. Then re-asks the question that was missed (slide 11 or 14); a second miss just moves the learner on.' } }),
 
-    { id: 'procedure', icon: 'fa-shapes', mins: 4, stage: 'Learn', lesson: 'Safe Handling, Step by Step', mode: 'floating', gate: true, adaptive: true,
-      when: function () { return batteryResult() !== 'proven'; },
-      caption: { title: 'LEARN · The procedure (K1, taught)', note: 'The instruction the adjustment screen has always promised and the module never contained. K1 is a mandated four-step sequence — there is nothing to reason toward, so it is TAUGHT before it is practised; K2 is discoverable, so it keeps the case ladder. Structure declared per objective, the way policy already is. Dropped whole on test-out, alongside its case. This is also the module’s only modality-varying beat, and item 26 exposed the Watch/Read/Step-through choice to the learner directly (same in-place swap as the hazard beat) rather than leaving it behind a reviewer-only Demo control. Podcast is DECLINED rather than rendered — under a minute of instruction is a clip, not an episode. Audio’s honest unit is the COURSE, six modules assembled into one listen, which is Assembly and not Transformation — the decline banner is still there to check, just behind review mode rather than a learner-visible button. Nothing on the learner’s side of this beat names an objective, a policy or a capability; that vocabulary lives here and in the Learning Layer view.' },
-      // hint:false — a step list read at a still mouse should not be
-      // interrupted at 7s.
-      coach: { say: 'Loading…', hint: false },
-      content: PROCEDURE_CONTENT, init: procedureInit,
-      onSkip: function () { saveResult('procedure', { skipped: true }); } },
+    deckStep('controls', {
+      caption: { title: 'LEARN · Engineering controls (F2) — deck slides 15–16', note: 'Every learner. F2 carries no question in this module (asked once for the course, in Module 2). The slide 16 climate-and-culture question rises over the video once it finishes: every learner is asked, it is never graded and never routes, and nothing on screen says so — it looks like any other question. Reported at the cohort level.' } }),
 
-    { id: 'case1', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'A Sharp Set Down', mode: 'floating', gate: true, adaptive: true,
-      when: function () { return batteryResult() !== 'proven'; },
-      caption: { title: 'LEARN · Case 1 (K1)', note: 'The procedure case. Compressed out when the battery proved K1 — the only beat in the module that test-out can remove, and only because the simulation re-verifies it performatively.' },
-      // Item 27/A2: the opener ("read it and tell me what the actual failure
-      // is") sets how to read the scene below it — tucked behind the unread
-      // dot, a learner could answer the case without ever seeing it.
-      coach: { say: 'Loading…', lead: true },
-      content: caseContent(CASE1), init: caseInit(CASE1),
-      onSkip: function () { saveResult('case1', { skipped: true }); } },
+    // Case 3 and the debrief each serve one of two versions off the matching
+    // pre-check agreement statement, then ask that same statement again over
+    // whichever version ran — the pre/post pair is the measure.
+    deckStep('case3', { when: function () { return !feelLow('f1'); },
+      caption: { title: 'LEARN · Case 3, base (F1) — deck slides 17 + 19', note: 'Served when the pre-check F1 statement was answered 4–5 (agree). The F1 statement is asked again over it (slide 19); the record reports the move.' } }),
+    deckStep('case3rf', { adaptive: true, when: function () { return feelLow('f1'); },
+      caption: { title: 'LEARN · Case 3, reinforced (F1) — deck slides 18 + 19', note: 'Served INSTEAD of the base story when the pre-check F1 statement was answered 1–3 (neutral or below — the deck calls agree the healthy answer). The longer story follows the cost past the needlestick. Same F1 re-ask over it (slide 19).' } }),
+    deckStep('debrief', { when: function () { return !feelLow('f3'); },
+      caption: { title: 'LEARN · Debrief, base (F3) — deck slides 20 + 22', note: 'Served when the pre-check F3 statement was answered 4–5. Cites Gershon et al. (2000), 92.7%. The F3 statement is asked again over it (slide 22).' } }),
+    deckStep('debriefrf', { adaptive: true, when: function () { return feelLow('f3'); },
+      caption: { title: 'LEARN · Debrief, reinforced (F3) — deck slides 21 + 22', note: 'Served INSTEAD of the base debrief when the pre-check F3 statement was answered 1–3. The norm correction given more room. Same F3 re-ask over it (slide 22).' } }),
 
-    { id: 'inflow', icon: 'fa-circle-dot', mins: 1, stage: 'Learn', lesson: 'Planning the Route', mode: 'floating', gate: true, adaptive: true,
-      // Item 12: the pre-battery proof stands. K1 tested out — proven once,
-      // performatively, in the battery's ordering task — used to be checked
-      // again here regardless, which is the doc's rule broken twice over:
-      // K1 was verified twice, and the "checked again straight afterwards"
-      // record line (see recordInit) described a check that never ran for
-      // that learner.
-      when: function () { return batteryResult() !== 'proven'; },
-      caption: { title: 'LEARN · In-flow check (K1)', note: 'Only for a learner who did NOT test out — the pre-battery proof stands (item 12), where it used to run for everyone regardless and re-check a learner the battery had already proven. Two attempts, a bank of two items (D4 — the battery’s old "never acceptable" item moved here); a second miss closes the item outright rather than reframing (item 11): the correct option is marked, the set disables, and the answer is stated.' },
-      // Arrives silent — an empty line means no unread dot and no idle
-      // hint. The reaction later in inflowInit raises CLARA by itself.
-      coach: { say: '' },
-      content: INFLOW_CONTENT, init: inflowInit },
-
-    { id: 'case2', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Past the Fill Line', mode: 'floating', gate: true, adaptive: true,
-      caption: { title: 'LEARN · Case 2 (K2, content-locked)', note: 'Never removed. On test-up the three options are replaced with genuinely arguable ones — the same objective, served harder. 1910.1030(g)(2)(vii)(E): recognition is sector-specific, so a generic pass does not satisfy it. The fill-line specifics in each sector’s scene (three-quarters up the container, packed past a stamped or molded line) are invented for the prototype rather than pulled from a customer’s exposure control plan — chosen because three-quarters full is the common manufacturer convention for a sharps container’s fill line, not a fabricated fraction. A real deployment swaps these for the customer’s own container spec; the correct answer deliberately never states a number (“set by your site’s plan, not by eye”) so the lesson survives that swap unchanged.' },
-      // Item 27/A2: same reasoning as case 1 — "this one is about the
-      // container, not the sharp" is the posture for the scene, not a
-      // reaction to anything the learner does.
-      coach: { say: 'Loading…', lead: true },
-      content: caseContent(CASE2), init: caseInit(CASE2) },
-
-    { id: 'case3', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Left by Someone Else', mode: 'floating', gate: true, adaptive: true,
-      caption: { title: 'LEARN · Case 3 (K2)', note: 'The second half of the locked objective: recognizing a condition you did not create. Independent of the other cases — this is what makes Option B compressible without editorial repair.' },
-      coach: { say: 'Loading…', lead: true },
-      content: caseContent(CASE3), init: caseInit(CASE3) },
-
-    { id: 'controls', icon: 'fa-clipboard-question', mins: 1, stage: 'Learn', lesson: 'Gloves or Containers', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · The budget choice (F2, Feel / Value)', note: 'The beat that used to not exist. The record has always printed a line for this objective reading “Recorded · from your own answer”, and nothing in the module ever asked it — an invented line on the one screen whose entire argument is that every line points at a real moment. The scenario is the re-composed course’s own: gloves for every waste handler, or more containers. Their version assesses it with an agreement scale on an empirical claim, which measures knowledge and files it as a value; this splits the two, so the CHOICE is the evidence and the scale afterwards is the self-report. A learner who buys gloves and then rates high on “controls prevent injuries” has told us something one scale never could. Placed AFTER the account because all four sector accounts end with a needle going through a glove — the story earns the question.' },
-      // Arrives silent — an empty line means no unread dot and no idle
-      // hint. The reaction later in controlsInit raises CLARA by itself.
-      coach: { say: '' },
-      content: CONTROLS_CONTENT, init: controlsInit,
-      onSkip: function () { saveResult('controls', { skipped: true }); } },
-
-    { id: 'downstream', icon: 'fa-pen-to-square', mins: 1, stage: 'Learn', lesson: 'Who Handles Your Waste', mode: 'floating', gate: true,
-      // Item 15/D6: F1's remediation, not a screen every learner meets.
-      // Alignment brief D4: the F1 post-rating moved from the retired case4
-      // onto chain, much earlier in the flow — this still fires off that
-      // same signal, just read from 'chain' now instead of 'case4'. Fires
-      // only when the post answer stayed at Somewhat or below — a learner
-      // who already agreed strongly doesn't need the belief reinforced a
-      // second time. Defaults to running when chain's post hasn't resolved
-      // yet (undefined), so it is never silently dropped by a run that
-      // reaches this step out of order.
-      when: function () { var p = (readCourse().chain || {}).post; return p == null || p <= 2; },
-      caption: { title: 'LEARN · Who is downstream (F1 remediation, Feel / Believe)', note: 'F1 is remediate (D6): this only runs when chain’s post answer stayed at Somewhat or below — a learner who already agreed strongly does not need the belief reinforced a second time. One open question, on its own screen. Scored for one thing and NOT by a model — whether a specific person downstream has a name. That is F1 operationalised; an agreement scale on the same idea has a ceiling nobody falls below. D4: previously placed for adjacency to the now-retired case4 account; that reasoning no longer applies since F1’s post-ask moved to chain, much earlier — left in its current position for this round rather than restructuring the debrief/walk sequence around it, so the gap between the ask and its remediation is wider than before. Worth revisiting. The answer reaches the record.' },
-      coach: { say: 'Loading…' },
-      content: DOWN_CONTENT, init: downInit,
-      onSkip: function () { saveResult('downstream', { named: null }); } },
-
-    { id: 'debrief', icon: 'fa-square-poll-vertical', mins: 1, stage: 'Learn', lesson: 'What Your Shift Does', mode: 'floating', gate: true,
-      caption: { title: 'LEARN · Cohort debrief (F3)', note: 'The norm correction, and the POST leg of a Pre + post objective — the entry battery asked for their read of the room, and this asks them to place their own shift against a figure they now have, so the reportable number is the movement rather than either level. Figures are ILLUSTRATIVE and labelled as such on the screen: no cohort data exists in the source material, and here the number IS the intervention, so an invented norm presented as real would be teaching something we made up. AEC sits just under half on purpose — and the copy branches on whether the sector figure is a majority, because it previously told that learner the shortcut was the outlier while showing them data saying it was not. A real deployment swaps in the customer’s own cohort data in place of these figures — production detail, kept out of the learner-facing disclaimer, which only needs to say the numbers are illustrative.' },
-      // Arrives silent — an empty line means no unread dot and no idle
-      // hint. The reaction later in debriefInit raises CLARA by itself.
-      coach: { say: '' },
-      content: DEBRIEF_CONTENT, init: debriefInit },
-
-    { id: 'remk1', icon: 'fa-rotate-left', mins: 2, stage: 'Learn', lesson: 'Another Look: The Procedure', mode: 'floating', gate: true,
-      when: function () { var c = readCourse(); return !!(c.inflow && c.inflow.passed === false); },
-      caption: { title: 'LEARN · Remediation (K1, gate)', note: 'D2/item 10. K1 gates, so failing the in-flow check does not get to stand: this re-teaches the procedure in whichever modality the learner was not taught in (a different carrier, not a repeat), then asks a fresh item from a 2-item bank. Loops — a new bank item on every miss — until passed, since a gate has no give-up path. Runs only when inflow.passed === false; a learner who passed on the first two tries never sees it.' },
-      content: REMK1_CONTENT, init: remk1Init },
-
-    { id: 'walk', icon: 'fa-sliders', mins: 1, stage: 'Learn', lesson: 'When You Are Behind', mode: 'floating', gate: true,
-      // Alignment brief D1: F4 (the self-efficacy rating this screen used to
-      // open with) is cut, so it now arrives silent and opens directly on the
-      // D3 (Sustain) plan — same pattern as hazard/controls/debrief.
-      caption: { title: 'LEARN · Planning the walk (D3, Do / Sustain)', note: 'The objective the module had no screen for. Placed immediately before the simulation on purpose: an if-then plan written here, then tested for real a few screens later, is the closest a one-sitting module gets to evidencing maintenance. Policy: none — recorded, never gates, never routes. Two parts, reinforced in sequence: which shift is riskiest, then the plan itself in the learner’s own words.' },
-      coach: { say: '' },
-      content: WALK_CONTENT, init: walkInit },
+    { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'The hands-on final scene', mode: 'floating', gate: true,
+      when: function () { return !sceneSimulatorOn(); },
+      caption: { title: 'PERFORM · The simulation, in the module — deck slides 23–27', note: 'Runs for every learner. Four moments on one first-person still (the "A Critical Choice" riff\u2019s binocular view), the coach setting each in the deck\u2019s own words and the learner answering typed or spoken. Beat 1 (D1) scores WHETHER they act — now / later / set it down — and is kept separate from the rubric on purpose, per the rubric slide. Beat 2 (D2) is rated by the live model on the four rubric criteria (Timing, Technique, Route, Recovery), quoting the learner\u2019s own words as evidence. Beat 3 adapts: doing well → the full-container complication (the Recovery test); struggling (set it down, or any of the first three missed) → a model-written correction inside the scene, not a do-over. Beat 4 is sentiment only — saved, never scored, never routes. Ends on the rubric over the scene. Demo → "Full scenario simulator" swaps this for the previous hand-off to the conversation simulator. Public Sector runs on a PLACEHOLDER still until the produced image lands.' },
+      content: SCENE_CONTENT, init: sceneInit },
 
     { id: 'handoff', icon: 'fa-comments', mins: 5, stage: 'Perform', lesson: 'The Unclaimed Hazard', mode: 'floating',
+      when: function () { return sceneSimulatorOn(); },
       nextLabel: 'Enter the scenario',
       caption: { title: 'PERFORM · The bridge into the scenario (D11)', note: 'Item 31. This screen frames the moment before the one CTA that means it. The player is told to skip its own establishing card in turn (see enact’s ?handoff=1) — showing it too would be a third framing of the same moment in a row.' },
       // Silent — the screen states its own purpose in its own copy; there is
@@ -4572,6 +5862,7 @@
       // true with D10's toggle on: the in-page baseline below stays
       // uncounted too, since it exists only for a reviewer to demonstrate.
       interstitial: true,
+      when: function () { return sceneSimulatorOn(); },
       // D10: a function, not a fixed string — checked fresh on every visit so
       // the Demo menu's "Do-object baseline" toggle (set on the handoff
       // screen above) takes effect without a reload. Live is the only path a
@@ -4596,6 +5887,41 @@
   ];
 
   // ==========================================================================
+  //  Entry sequencing (Demo menu: "Battery timing"). Default order is
+  //  Cover → Pre-check → Updated path → the rest — the array above, as
+  //  authored. "Battery before" moves the cover to AFTER the pre-check and
+  //  its path-adjustment screen instead: Pre-check → Updated path → Cover →
+  //  the rest. Splicing here rather than re-authoring the array keeps one
+  //  source of truth for both orders, and every position-based mechanic in
+  //  the engine (section numbering, back-button disable, the resume banner)
+  //  already reads off the array's actual order rather than fixed ids, so
+  //  moving the cover is enough — nothing else needs to know which mode ran.
+  // ==========================================================================
+  if (batteryOrderBefore()) {
+    var introAt = STEPS.findIndex(function (s) { return s.id === 'intro'; });
+    var introStep = STEPS.splice(introAt, 1)[0];
+    var afterAdjust = STEPS.findIndex(function (s) { return s.id === 'adjust'; }) + 1;
+    STEPS.splice(afterAdjust, 0, introStep);
+
+    // CLARA hasn't been met yet — that's still the cover's job, and the
+    // cover now runs AFTER these two. Battery is noCoach unconditionally
+    // (see its STEPS entry); adjust only needs it here, since in the
+    // default order it follows the cover and CLARA is already around by
+    // then. hideProgress blanks battery's own "Section N of N" + bar, since
+    // there's no course open yet for that count to mean anything (adjust
+    // needs no such flag — interstitial already blanks its footer normally).
+    var bStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'battery'; })];
+    bStep.hideProgress = true;
+    var aStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'adjust'; })];
+    aStep.noCoach = true;
+
+    // The simulated prior module + its loader run BEFORE all of the above —
+    // 'battery' is index 0 at this point, so the front of the array is
+    // exactly where they belong.
+    STEPS.splice(0, 0, PRIORMOD_STEP, BATTERYLOADING_STEP);
+  }
+
+  // ==========================================================================
   //  D11: URL-prefillable launch params — role (sector), name, media (format).
   //  A stamped link (an LMS enrollment, a shared demo link) can hand the
   //  learner a pre-set context without them touching anything on arrival.
@@ -4611,7 +5937,7 @@
     var media = p.get('media');
     // Podcast is declined at module level (item 26) — not a valid launch
     // value either, the same reason it is hidden from the picker itself.
-    if (media && MODALITY_ORDER.slice(0, 3).indexOf(media) > -1) {
+    if (media && DK_OFFERED.indexOf(media) > -1) {
       try { sessionStorage.setItem('sh-modality', media); } catch (e) {}
     }
     var name = p.get('name');
@@ -4621,10 +5947,25 @@
   // ==========================================================================
   //  Hand it to the engine.
   // ==========================================================================
+  // On the adjustment screen a forced result can leave nothing to report,
+  // which removes the screen itself — advancing IS the demonstration then.
+  function adjustReplay(api) {
+    if (api.step && api.step.id === 'adjust') {
+      if (!adjustMoved()) { api.go(1); return; }
+      api.replay();
+      return;
+    }
+    api.refresh();
+  }
   LE.register({
     course: COURSE,
     steps: STEPS,
     storageKey: 'sh-course',
+    // The <head> boot snippet already applied the right html classes before
+    // paint (see applyStyleMode); this is what syncs the orb's own colours
+    // to match on a page that loaded straight into Vector-light, since
+    // buildOrb() itself always starts from MobiusOrb's plain default.
+    onOrbReady: function () { applyStyleMode(styleMode()); },
     // CLARA no longer speaks on arrival — the default is the unread dot, and
     // only two beats declare coach.lead. This is the other half: if a screen
     // is WAITING on the learner and they have not touched anything, that line
@@ -4641,8 +5982,10 @@
     // Every beat with a scene in it moves with the sector.
     // Every screen with a scene in it moves with the sector. The chain walks
     // its own incident per sector; the rating screen borrows that chain's clock.
-    lensedSteps: { intro: 1, chain: 1, hazard: 1, case1: 1, case2: 1, case3: 1,
-                   controls: 1, debrief: 1, walk: 1 },
+    // The deck screens move with the sector: Public Sector has its own deck
+    // (DECK_LENS); Education and AEC show Manufacturing's until theirs exist.
+    lensedSteps: { intro: 1, scene: 1, c1base: 1, c1up: 1, c1rem: 1, c2base: 1, c2up: 1, c2rem: 1,
+                   controls: 1, case3: 1, case3rf: 1, debrief: 1, debriefrf: 1 },
     replies: [
       'Short version: the sharp should never exist outside a container for longer than it takes to walk there. Decide the route before you start.',
       'Five things are absolute: a used needle is never bent, broken, recapped, removed, or separated from its syringe.',
@@ -4654,34 +5997,84 @@
     // control now (procedureInit), the same as the hazard beat's, and needs
     // no reviewer-only cycle to reach it.
     demoControls: [{
-      id: 'shImagesBtn', icon: 'fa-image', name: 'Visuals',
+      id: 'shImagesBtn', icon: 'fa-image', name: 'Show visuals',
       note: 'Whether a beat carries art is a derivation decision, not a property of the beat',
       visibleOn: function (step) { return !!IMAGE_STEPS[step.id]; },
-      state: function () { return imagesOn() ? 'On' : 'Off'; },
+      type: 'toggle', on: imagesOn,
       onClick: function (api) {
         try { sessionStorage.setItem('sh-images', imagesOn() ? 'off' : 'on'); } catch (e) {}
         api.replay();
       }
     }, {
-      id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Battery result',
-      note: 'Force the pre-module result and replay the routing it drives',
-      visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
-      state: function () { return batteryResult() === 'proven' ? 'Procedure proven' : 'Not proven'; },
+      // A one-click switch, not a toggle SWITCH WIDGET — the state pill
+      // names the OTHER order (the one a click lands you on), not an
+      // on/off reading of the current one. Visible on priorModule/
+      // batteryLoading too: those only exist mid-preview, and without this
+      // row reachable there, "Try it" was a one-way door — see item on
+      // 2026-09-22. Reorders the array itself (see the splice right after
+      // STEPS above), so it needs a fresh boot rather than a replay/refresh
+      // — same treatment as Start Over, which is why this reload also
+      // clears the run's progress keys: landing on a re-sequenced path
+      // holding answers recorded under the OLD sequence is the confusing
+      // state to avoid, not the one to build for.
+      id: 'shBatteryOrderBtn', icon: 'fa-arrow-down-up-across-line', name: 'Battery before module',
+      note: 'Preview the pre-check (and the path it can adjust) running before the module’s own cover, instead of in their usual place right after it',
+      visibleOn: function (step) {
+        return step.id === 'intro' || step.id === 'battery' ||
+               step.id === 'priorModule' || step.id === 'batteryLoading';
+      },
+      state: function () { return batteryOrderBefore() ? 'Battery inside module' : 'Try it'; },
       onClick: function (api) {
-        var next = batteryResult() === 'proven' ? 'unproven' : 'proven';
-        try { sessionStorage.setItem('sh-battery', next); } catch (e) {}
-        var c = readCourse();
-        if (c.battery) saveResult('battery', { k1: next, k2up: next === 'proven',
-                                                f1: c.battery.f1, f3: c.battery.f3 });
-        if (api.step && api.step.id === 'adjust') {
-          // This screen only exists when something moved, so flipping to a
-          // result that moves nothing deletes it out from under us. Advancing
-          // IS the demonstration — the same way the Bystander module does it.
-          if (!adjustMoved()) { api.go(1); return; }
-          api.replay();
-          return;
-        }
-        api.refresh();
+        try {
+          sessionStorage.setItem('sh-battery-order', batteryOrderBefore() ? 'start' : 'before');
+          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-feel', 'sh-doobject-mode', 'sh-modality']
+            .forEach(function (k) { sessionStorage.removeItem(k); });
+        } catch (e) {}
+        // A plain reload() keeps this tab's current URL, which carries a
+        // ?step= deep link the engine writes on every navigation (so a
+        // refresh mid-course returns you to where you were) — and that
+        // param wins over STEPS[0] in the engine's own boot(), landing back
+        // on the step just left instead of the new sequence's actual start.
+        // Dropping it here is what makes the reorder visible immediately.
+        var u = new URL(location.href);
+        u.searchParams.delete('step');
+        location.href = u.pathname + u.search + u.hash;
+      }
+    }, {
+      id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Knowledge questions correct',
+      note: 'Force both pre-check knowledge questions right (harder cases) or wrong (standard cases), and replay the routing',
+      visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
+      type: 'toggle', on: function () { return k1TestUp(); },
+      onClick: function (api) {
+        var up = !k1TestUp();
+        try { sessionStorage.setItem('sh-battery', up ? 'proven' : 'unproven'); } catch (e) {}
+        var b = readCourse().battery || {};
+        saveResult('battery', { k1up: up, k2up: up, f1: b.f1 == null ? null : b.f1, f3: b.f3 == null ? null : b.f3 });
+        adjustReplay(api);
+      }
+    }, {
+      id: 'shFeelBtn', icon: 'fa-heart', name: 'Low agreement',
+      note: 'Force both pre-check agreement statements low (the longer case 3 and debrief) or high (the standard ones)',
+      visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
+      type: 'toggle', on: function () { return feelLow('f1'); },
+      onClick: function (api) {
+        var low = !feelLow('f1');
+        try { sessionStorage.setItem('sh-feel', low ? 'low' : 'high'); } catch (e) {}
+        var b = readCourse().battery || {};
+        saveResult('battery', { k1up: !!b.k1up, k2up: !!b.k2up, f1: low ? 2 : 5, f3: low ? 2 : 5 });
+        adjustReplay(api);
+      }
+    }, {
+      // The previous Perform step — a hand-off to the full conversation
+      // simulator — kept one switch away for comparison.
+      id: 'shSceneModeBtn', icon: 'fa-comments', name: 'Full scenario simulator',
+      note: 'Swap the in-module scene for the previous hand-off to the conversation simulator',
+      visibleOn: function (step) { return step.id === 'scene' || step.id === 'handoff'; },
+      type: 'toggle', on: sceneSimulatorOn,
+      onClick: function (api) {
+        var on = !sceneSimulatorOn();
+        try { sessionStorage.setItem('sh-scene-mode', on ? 'simulator' : 'scene'); } catch (e) {}
+        LE.goTo(on ? 'handoff' : 'scene');
       }
     }, {
       // D10: offered on the handoff screen — the last screen before `enact`
@@ -4690,10 +6083,43 @@
       id: 'shDoBaselineBtn', icon: 'fa-clapperboard', name: 'Do-object baseline',
       note: 'Swap the live scenario for a video plus one stand-in question — the PRD’s literal Do-object ask (D10)',
       visibleOn: function (step) { return step.id === 'handoff'; },
-      state: function () { return doBaselineOn() ? 'Baseline' : 'Live'; },
+      type: 'toggle', on: doBaselineOn,
       onClick: function (api) {
         try { sessionStorage.setItem('sh-doobject-mode', doBaselineOn() ? 'live' : 'baseline'); } catch (e) {}
         api.refresh();
+      }
+    }, {
+      // D11, relocated: a real learner's name comes from SSO, not a text
+      // field on the cover screen — self-assignment is a demo convenience.
+      // Still only read by the "welcome back" banner on a return visit.
+      id: 'shNameBtn', icon: 'fa-signature', name: 'Learner name',
+      note: 'Self-assigned stand-in for SSO — only the welcome-back banner reads it',
+      visibleOn: function (step) { return step.id === 'intro'; },
+      state: function () { return savedName() || 'Not set'; },
+      onClick: function (api) {
+        var next = window.prompt('Learner name (optional):', savedName());
+        if (next === null) return;
+        try { sessionStorage.setItem('sh-name', next.trim().slice(0, 40)); } catch (e) {}
+        api.replay();
+      }
+    }, {
+      // A pure CSS swap (see html.ll-vector-style/html.ll-vector-light in
+      // clara/sharps.html), so unlike every other row here it touches no
+      // content and needs no replay/refresh — flipping the class(es) is the
+      // entire effect, live, without a reload. Shown on every step, not
+      // just one. Three named states rather than a toggle, since Vector
+      // itself splits into a dark and a light option.
+      id: 'shStyleBtn', icon: 'fa-palette', name: 'Design style',
+      note: 'Swap CLARA’s teal for Vector’s own palette + control shape — the same pass already shipped on the scenario-simulator system, dark or light',
+      type: 'select', value: styleMode,
+      options: [
+        { value: 'clara', label: 'CLARA (teal, dark)' },
+        { value: 'vector-dark', label: 'Vector, dark' },
+        { value: 'vector-light', label: 'Vector, light' }
+      ],
+      onChange: function (mode) {
+        try { sessionStorage.setItem('sh-style', mode); } catch (e) {}
+        applyStyleMode(mode);
       }
     }]
   });

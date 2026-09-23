@@ -251,13 +251,27 @@
   .ch-input::placeholder{ color:var(--ink-faint); }
   .ch-input:focus{ outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(46,230,207,.2); }
   .ch-input:disabled{ opacity:.6; }
+  .ask-actions{ display:flex; align-items:center; gap:18px; margin-top:12px; }
   .ch-send{
-    margin-top:12px; align-self:flex-start; font:inherit; font-size:14px; font-weight:700; color:#04121a;
+    font:inherit; font-size:14px; font-weight:700; color:#04121a;
     background:var(--teal); border:0; border-radius:999px; padding:10px 24px; cursor:pointer; transition:filter .16s ease;
   }
   .ch-send:hover:not(:disabled){ filter:brightness(1.08); }
   .ch-send:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.35); }
   .ch-send:disabled{ opacity:.4; cursor:default; }
+  /* A quiet way out of the question itself — not a second CTA. Seeing the
+     comparison spelled out ("...instead of the red sharps container?") can
+     read as a hint that the other option was the right one, and without an
+     escape hatch the only way off this card is to answer for a pick you now
+     doubt. */
+  .ch-change{
+    font:inherit; font-size:13px; font-weight:600; color:var(--ink-faint);
+    background:none; border:0; padding:4px 0; cursor:pointer; text-decoration:underline;
+    text-decoration-color:transparent; transition:color .15s ease, text-decoration-color .15s ease;
+  }
+  .ch-change:hover:not(:disabled){ color:var(--ink-soft); text-decoration-color:currentColor; }
+  .ch-change:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(46,230,207,.25); border-radius:4px; }
+  .ch-change:disabled{ opacity:.4; cursor:default; text-decoration-color:transparent; }
   .ch-echo{ margin:14px 0 0; font-size:14px; line-height:1.6; color:var(--ink-faint); }
 
   /* The main CTA while walking the timeline — nothing else on screen is
@@ -330,7 +344,10 @@
           <p class="clara-name">CLARA</p>
           <p class="clara-q" id="claraAskQ"></p>
           <textarea class="ch-input" id="claraInput" rows="2" placeholder="Say why, in your own words"></textarea>
-          <button class="ch-send" id="claraSend" type="button" disabled>Send</button>
+          <div class="ask-actions">
+            <button class="ch-send" id="claraSend" type="button" disabled>Send</button>
+            <button class="ch-change" id="claraChange" type="button">Change my answer</button>
+          </div>
           <p class="ch-echo" id="claraEcho" hidden></p>
         </div>
 
@@ -457,6 +474,7 @@
     const claraAskQ = document.getElementById('claraAskQ');
     const claraInput= document.getElementById('claraInput');
     const claraSend = document.getElementById('claraSend');
+    const claraChange = document.getElementById('claraChange');
     const claraEcho = document.getElementById('claraEcho');
     const advance   = document.getElementById('chNext');
     const closer    = document.getElementById('chClose');
@@ -529,7 +547,14 @@
         b.disabled = true;
         b.classList.add(b.dataset.k === k ? 'picked' : 'faded');
       });
-      claraAskQ.textContent = 'Why not ' + lowerFirst(PICK[other(k)].t) + '?';
+      // Generic on purpose: derived entirely from the two option labels the
+      // LXD already has to write for the pick card itself — no separate
+      // "reflection question" field for them to author per decision. Framed
+      // as a neutral comparison ("instead of", not "why not") rather than a
+      // counterfactual, so it doesn't presuppose either option was wrong —
+      // that judgment lives in the system prompt (see settle()), keyed off
+      // which branch is actually safe, not in the question's own wording.
+      claraAskQ.textContent = 'What made you pick “' + PICK[k].t + '” instead of “' + PICK[other(k)].t + '”?';
       claraAsk.hidden = false;
       claraAsk.classList.add('rf-layer');
       wrap.classList.add('rf-on');
@@ -544,14 +569,35 @@
     });
     claraSend.addEventListener('click', send);
 
+    // Undoes choose(k) entirely — the comparison question spells out the
+    // option not taken ("...instead of the red sharps container?"), and
+    // reading that back can read as a hint the other one was right. Only
+    // offered before Send: once an answer is on its way to the timeline,
+    // the pick is what it is.
+    claraChange.addEventListener('click', () => {
+      took = null;
+      claraInput.value = '';
+      claraSend.disabled = true;
+      claraAsk.classList.add('is-leaving');
+      setTimeout(() => {
+        wrap.classList.remove('rf-on');
+        claraAsk.hidden = true;
+        claraAsk.classList.remove('is-leaving', 'rf-layer');
+        pickOpts.querySelectorAll('.ch-pick-opt').forEach(b => {
+          b.disabled = false;
+          b.classList.remove('picked', 'faded');
+        });
+      }, 260);
+    });
+
     // Folds the choice + CLARA's follow-up into the SAME chain list as its
     // own node, so it recedes into a peek like every other past moment
     // instead of just disappearing when the widgets above hide.
     function pushDecisionNode(k, reason) {
       push({
         time: 'Your decision',
-        body: 'You picked ' + lowerFirst(PICK[k].t) + '. CLARA asked why not ' +
-          lowerFirst(PICK[other(k)].t) + ' — you said “' + quotable(reason) + '.”'
+        body: 'You picked ' + lowerFirst(PICK[k].t) + ' over ' + lowerFirst(PICK[other(k)].t) +
+          '. CLARA asked what made you pick it — you said “' + quotable(reason) + '.”'
       });
     }
 
@@ -561,6 +607,7 @@
       otherReason = text;
       claraInput.disabled = true;
       claraSend.disabled = true;
+      claraChange.disabled = true;
       claraEcho.hidden = false;
       claraEcho.textContent = '“' + text + '” — noted.';
 
@@ -578,11 +625,12 @@
           pick.hidden = true;
           claraAsk.hidden = true;
           pushDecisionNode(took, text);
-          // Let the decision land and hold at full brightness for a beat
-          // before the next node arrives and recedes it into the past —
-          // these two used to land in the same tick, which read as one
-          // blur of motion instead of "this happened, then this did."
-          setTimeout(() => runTimeline(took), 650);
+          // No auto-advance timer — a fixed pause here (however long) was
+          // still a guess at how long someone needs to read it, and one
+          // learner's answer is a one-liner while another's is a paragraph.
+          // The decision node now stays expanded and current until the
+          // learner themselves clicks through, same as every later step.
+          readyNext(took);
         }, 260);
       }, 700);
     }
@@ -591,10 +639,12 @@
       advance.innerHTML = esc(text) + ' <i class="fa-solid ' + icon + '" aria-hidden="true"></i>';
     }
 
-    function runTimeline(k) {
-      push(ACT[k]);
-      queue = (k === 'short' ? AFTER : SAFE_AFTER).slice();
-      if (!queue.length) { settle(k); return; }
+    // Queues up everything still to reveal — the consequence node AND the
+    // after-effects that follow it — behind ONE consistent "Then what"
+    // control, so the decision node the learner just read isn't folded into
+    // the past by anything but their own click.
+    function readyNext(k) {
+      queue = [ACT[k]].concat(k === 'short' ? AFTER : SAFE_AFTER);
       label('Then what', 'fa-arrow-down');
       advance.hidden = false;
     }
@@ -678,7 +728,7 @@
           const userText = 'The learner chose: ' + PICK[k].t + ' — this was the ' +
             (k === 'safe' ? 'SAFE, correct choice' : 'riskier shortcut, not the correct choice') + '.\n' +
             'They did NOT choose: ' + PICK[other(k)].t + '.\n' +
-            'When asked why not, they said: "' + reason + '."\n' +
+            'Asked what made them pick it over the other option, they said: "' + reason + '."\n' +
             'What happened next: ' + OUTCOME[k] + '\n' +
             'Give your one short coaching reply now.';
           const result = await callClara(system, userText, 120);

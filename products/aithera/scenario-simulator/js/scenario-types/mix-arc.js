@@ -1258,29 +1258,37 @@
   };
 
   /* =======================================================================
-     EXAMPLE — "The Needle in the Jump Bag", the Public Sector (EMS) parallel
-     to EXAMPLE_SHARPS. Same alignment-brief §6.3 rationale as the two
-     versions above; sourced against `LENSES.public` — case2's own "packed
-     past the fill line molded into its lid" and the wall unit "behind the
-     stretcher" are reused rather than re-invented. Avoids case3's exact
-     hazard (a needle left on the gurney rail by the crew before) for the
-     same "not a situation they've already met" reason; this one is found
-     restocking, not arriving at the ED.
+     EXAMPLE — "The Needle in the Back Seat", the Public Sector (Law
+     Enforcement) parallel to EXAMPLE_SHARPS.
+
+     Rebuilt 2026-09-21 against K&A's final Law Enforcement script
+     (`Contain_the_Sharp_Law_Enforcement.pdf`), which supplied a real,
+     sector-specific simulation premise for the first time — the previous
+     version ("The Needle in the Jump Bag") was original EMS-flavored content
+     with no source script behind it (alignment brief §6.3, 2026-09-16).
+     Matches the script's own setup almost verbatim: clearing a patrol
+     vehicle at end of shift, a needle wedged into the back seat, another
+     officer calling for help mid-decision, the container inside the
+     station, a full container with the spare in another room. Same
+     alignment-brief §6.3 rationale as the other three sectors for why this
+     stays a mix-arc example with four `coach-led` beats rather than a
+     roleplay — there is no character to negotiate with, only a decision, a
+     description, a complication, and a closing question.
      ======================================================================= */
   const EXAMPLE_SHARPS_PUBLIC = {
     v: 1, type: 'mix-arc',
-    title: 'Interactive scenario: The needle in the jump bag',
+    title: 'Interactive scenario: The needle in the back seat',
     course: 'Bloodborne Pathogens — Module 4, Contain the Sharp',
     learnerName: 'you', characterName: '',
     elevatedStakes: false, involvesMinors: false, threatContent: false,
     framing: 'the culminating activity for a module on safe sharps handling and disposal. The learner has already been taught the four-step procedure and practiced recognizing hazard conditions across three cases. This scenario is a cold test of both: an unclaimed sharp, no character to negotiate with, and a real interruption partway through.',
-    learnerRole: 'a paramedic restocking the rig after a call',
+    learnerRole: 'a patrol officer, clearing your vehicle at the end of shift',
     establishing: {
-      eyebrow: 'Interactive Scenario', title: 'The needle in the jump bag',
-      sub: 'You spot an uncapped needle wedged in the jump bag. It is not yours, and you do not know which crew left it. What you do next is the roleplay.',
+      eyebrow: 'Interactive Scenario', title: 'The needle in the back seat',
+      sub: 'You find a used hypodermic needle wedged into the back seat of your patrol vehicle. You didn’t put it there, and you don’t know who did. What you do next is the roleplay.',
       hideCourse: true,
     },
-    openingImage: 'The back bay at the station, mid-restock after a call. Wedged in the jump bag’s side pocket, an uncapped needle sits exposed — no one nearby, and nothing marks which crew left it.',
+    openingImage: 'A patrol vehicle at the end of shift, parked in the station lot. Wedged into the seam of the back seat, a used hypodermic needle sits exposed — no one nearby, and nothing marks who left it there.',
     intro: { type: 'none', video: { sound: false, scenes: [] }, audio: { eyebrow: '', title: '', text: '' } },
     voice: { persona: 'a plain-spoken safety lead who has worked a floor — direct, never preachy, and interested in the judgment call itself rather than reciting the rule back', guidance: '' },
     reflection: { enabled: false, prompt: '', feedbackGuidance: '' },
@@ -1288,7 +1296,7 @@
     beats: [
       {
         id: 'decision', label: 'The Decision', level: 'Beat 1 · the first move', type: 'coach-led', maxTurns: 2,
-        entry: { bridge: '', signpost: 'You are restocking the rig after a call when you spot it: an uncapped needle wedged in the jump bag’s side pocket. It is not yours, and you do not recognize which crew left it. You pick it up to deal with it — and that is when dispatch tones out a new run. The needle is still in your hand. What do you do?', prompt: '', beats: [], cta: 'Think it through' },
+        entry: { bridge: '', signpost: 'You are clearing your patrol vehicle at the end of shift when you find a used hypodermic needle wedged into the back seat. You lift it clear of the seat. Before you can deal with it, another officer calls for your help across the lot — they need you now. The needle is still in your gloved hand. What do you do?', prompt: '', beats: [], cta: 'Think it through' },
         inputPlaceholder: 'What do you do?',
         exitCriteria: 'the learner states a first action toward the needle — correct or not. Advance on any stated action; do not hold this beat waiting for the ideal answer.',
         reactionGuidance: 'No character to voice — this is a direct decision point, not a negotiation. Accept whatever the learner states as their action and move on.',
@@ -1297,9 +1305,9 @@
         character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
         media: { segments: [], affectiveBeat: false, openingReaction: '' },
         calibration: [
-          { tier: 'MISSED', guidance: 'tucks the needle back into the bag pocket, sets it on the bench "for a second," or climbs into the rig without it — the shortcut the whole module is about' },
-          { tier: 'PARTIAL', guidance: 'holds onto the needle but does not activate a safety feature or state a route to a container before responding to the tone-out' },
-          { tier: 'SOUND', guidance: 'activates a safety feature if the needle has one, or states it will go straight into a designated container, and either carries it along or takes the few seconds to secure it before answering the tone-out' } ],
+          { tier: 'MISSED', guidance: 'sets the needle down on the seat or dash, tucks it aside "for a second," or crosses the lot without it — the shortcut the whole module is about' },
+          { tier: 'PARTIAL', guidance: 'holds onto the needle but does not activate a safety feature or state a route to a container before responding to the other officer' },
+          { tier: 'SOUND', guidance: 'activates a safety feature if the needle has one, or states it will go straight into a designated container, and either carries it along or takes the few seconds to secure it before answering the call' } ],
         debrief: {
           talkItThrough: 'Before we go further — the first thing you said there is the whole beat, so let’s look at it.',
           points: 'quote their actual first action back to them; land that a sharp you did not leave is still yours the moment you pick it up, and that an interruption is not a reason it gets set back down' },
@@ -1307,7 +1315,7 @@
       },
       {
         id: 'execution', label: 'The Execution', level: 'Beat 2 · walking it through', type: 'coach-led', maxTurns: 2,
-        entry: { bridge: '', signpost: 'Your partner is already climbing in. The needle is still with you, and the sharps container is clipped to the rail by the bench seat. Walk me through exactly what you do from here, step by step, until it is disposed of.', prompt: '', beats: [], cta: '' },
+        entry: { bridge: '', signpost: 'The other officer’s situation is handled. The needle still has to be dealt with, and the designated sharps container is inside the station. Walk me through exactly what you do from here, step by step, until it is disposed of.', prompt: '', beats: [], cta: '' },
         inputPlaceholder: 'Describe what you do, step by step…',
         exitCriteria: 'the learner describes the disposal steps in order: any safety feature engaged or acknowledged, a direct route with no detours, and placement in a designated container without recapping, bending, or setting it down again along the way',
         reactionGuidance: 'No character — this is a direct narration, not a conversation. Judge the described sequence itself: does it name the safety feature, is the route direct, does it end in a designated container. If a step is skipped, probe on its own turn first (action: continue, no tier yet) — do not ask a follow-up and close the phase in the same turn. Move on and report a tier regardless of whether they add the missing step on the probe.',
@@ -1316,7 +1324,7 @@
         character: { name: '', backstory: '', driver: '', reactions: [], styleNotes: '' },
         media: { segments: [], affectiveBeat: false, openingReaction: '' },
         calibration: [
-          { tier: 'MISSED', guidance: 'describes recapping, bending, setting it down en route, or handing it off to a crewmate to deal with' },
+          { tier: 'MISSED', guidance: 'describes recapping, bending, setting it down en route, or handing it off to another officer to deal with' },
           { tier: 'PARTIAL', guidance: 'reaches a container but is vague or silent on the safety feature, or describes an indirect route with a stop along the way' },
           { tier: 'SOUND', guidance: 'describes the safety feature, a direct route with no stops, and placing it straight into the designated container' } ],
         debrief: {
@@ -1326,7 +1334,7 @@
       },
       {
         id: 'container', label: 'The Complication', level: 'Beat 3 · when the container fails', type: 'coach-led', maxTurns: 2,
-        entry: { bridge: '', signpost: 'You get to the rail. The container is packed past the fill line molded into its lid, and the second wall container is behind the stretcher — blocked while your partner has the patient on it. What do you do?', prompt: '', beats: [], cta: '' },
+        entry: { bridge: '', signpost: 'You get to the container inside the station. It is packed to the fill line, and the spare is in the property room down the hall. What do you do?', prompt: '', beats: [], cta: '' },
         inputPlaceholder: 'What do you do?',
         exitCriteria: 'the learner either goes for another proper container or reports the full one, or improvises (forcing it in, leaving it balanced on top, falling back to general waste). Either closes the beat.',
         reactionGuidance: 'No character to react — accept whatever the learner decides and close the beat honestly, including an improvised answer. Always report a tier on the closing turn, even for an improvised answer.',
@@ -1337,7 +1345,7 @@
         calibration: [
           { tier: 'MISSED', guidance: 'forces it in, presses the contents down, leaves it balanced on top, or falls back to general waste' },
           { tier: 'PARTIAL', guidance: 'refuses to improvise but stops there — waits, or hands the problem off, without naming a route for the needle' },
-          { tier: 'SOUND', guidance: 'holds the needle and waits for the stretcher to clear before reaching the second container, or reports the full one, keeping it under their own control throughout' } ],
+          { tier: 'SOUND', guidance: 'goes for the spare in the property room or reports the full one, keeping the needle under their own control throughout' } ],
         debrief: {
           talkItThrough: 'This is the one that separates knowing the procedure from being able to run it when the equipment has failed.',
           points: 'name what they actually did; land that pressing contents down is the most direct route to a stick in the entire module, and that the needle staying in a controlled hand is always better than parked somewhere undesignated' },
@@ -1345,7 +1353,7 @@
       },
       {
         id: 'close', label: 'The Close', level: 'Beat 4 · one honest question', type: 'coach-led', maxTurns: 1,
-        entry: { bridge: '', signpost: 'Last one, and there is no right answer here. What would make this hardest to do right on your worst call?', prompt: '', beats: [], cta: '' },
+        entry: { bridge: '', signpost: 'Last one, and there is no right answer here. What would make this hardest to do right on your worst shift?', prompt: '', beats: [], cta: '' },
         inputPlaceholder: 'Whatever comes to mind…',
         exitCriteria: 'ANYTHING the learner offers closes this beat, including a short or minimal answer. Never held open, never re-asked.',
         reactionGuidance: 'No character. This is sentiment only, scored for nothing — take whatever they say at face value, acknowledge it briefly without correcting or grading it, and close.',
@@ -1367,14 +1375,14 @@
       { title: 'The safety feature goes on in your hand', body: 'Sheath, retract, or blunt it the moment you are done, while the device is still under your control and nobody else is near it.' },
       { title: 'A sharp does not have to be yours to be your responsibility', body: 'If you did not leave it and do not know whose it is, that changes nothing about what happens next. Recognizing the hazard is the first half of the job.' },
       { title: 'An interruption does not change the decision', body: 'Getting pulled away mid-task is exactly when the shortcut happens. Whatever you decided to do with the sharp does not wait for the interruption to end.' },
-      { title: 'A full container is not a container', body: 'Past the fill line molded into its lid, it has stopped swallowing the point — so it is a hazard wearing the label of a safeguard. Seal it and walk; never put a hand inside one.' },
+      { title: 'A full container is not a container', body: 'Past the fill line, it has stopped swallowing the point — so it is a hazard wearing the label of a safeguard. Seal it and walk; never put a hand inside one.' },
     ],
     resources: {
       lead: 'The decision this scenario turns on is made in about four seconds, so it is worth having these where you can reach them:',
       items: [
-        { title: 'Your service’s exposure control plan', body: 'Where it says the fill line sits, and who to tell when a container is past it. It is a specific document with a specific owner, not a general principle.' },
+        { title: 'Your department’s exposure control plan', body: 'Where it says the fill line sits, and who to tell when a container is past it. It is a specific document with a specific owner, not a general principle.' },
         { title: 'What to do after a needlestick', body: 'Worth reading before you need it. The window for post-exposure follow-up is measured in hours.' },
-        { title: 'Where every container on your rig is', body: 'The first step of the procedure is knowledge you either have before the call starts or do not. Walk it once and it stops being a decision.' },
+        { title: 'Where every container is', body: 'In your vehicle, at the booking counter, in the property room. The first step of the procedure is knowledge you either have before the shift starts or do not.' },
       ],
     },
   };

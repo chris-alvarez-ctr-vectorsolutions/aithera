@@ -211,59 +211,108 @@
       else relocate();
     })();
   </script>
+  <script src="../../../scenario-simulator/js/sim-core.js?v=12"></script>
   <script src="../../../scenario-simulator/js/sim-voice-input.js?v=1"></script>
 
 <script>
 (() => {
-  // ---- Rubric — a demo-mode fallback grader (keyword overlap against the
-  // transcript), the same shape as sim-teachback.js's own fallbackGrade():
-  // this riff never calls a model, so it can't do real semantic credit, but
-  // it's a legitimate stand-in for what the real coverage-board grading
-  // feels like, not just a stub. Three points, tied to Riff 01's exact
-  // dilemma (unclaimed blade, coworker calling for help mid-task).
+  // ---- Rubric. `detail` feeds the live grading prompt below; `synonyms`
+  // and `nudge` feed the offline fallback grader (keyword overlap against
+  // the transcript, the same shape as sim-teachback.js's own
+  // fallbackGrade()) for when the model call fails or SimCore isn't loaded.
+  // Three points, tied to Riff 01's exact dilemma (unclaimed blade, coworker
+  // calling for help mid-task).
   const RUBRIC = [
     {
       id: 'not-your-job',
       label: '"Not yours" still means you deal with it',
+      detail: '"Not mine" doesn\'t mean "not my problem" — the learner still deals with it themselves, regardless of whose it is.',
       synonyms: ['not yours', 'not mine', "doesn't matter whose", 'regardless of whose', 'still your job', 'you deal with it', 'still have to'],
       nudge: "Start there — whether it's yours almost never changes what you do next."
     },
     {
       id: 'finish-first',
       label: 'Finish securing it before you help anyone else',
+      detail: "They secure or dispose of it BEFORE going to help the coworker who's calling for help — they don't set it down or walk away from it mid-task.",
       synonyms: ['before you help', 'before helping', 'before i go', 'before you go', 'finish first', "don't walk away", "don't leave it", "don't set it down", 'deal with it first'],
       nudge: "Don't let the coworker's request pull you away mid-task — finish securing it first."
     },
     {
       id: 'sharps-container',
       label: 'It goes in the sharps container — nowhere else',
+      detail: 'It specifically goes into the sharps container — not just "disposed of" or "thrown away" vaguely, and not left on a bench or in a pocket.',
       synonyms: ['sharps container', 'the container', 'dispose', 'throw it away', 'bin it', 'in the bin'],
       nudge: "Name where it actually goes — a bench or a pocket isn't secure."
     }
   ];
 
-  function gradeTranscript(text) {
-    const t = text.toLowerCase();
-    const results = RUBRIC.map(item => ({ ...item, covered: item.synonyms.some(s => t.includes(s)) }));
-    return { results, coveredCount: results.filter(r => r.covered).length, total: RUBRIC.length };
-  }
-
-  // The coaching reaction, not just a pass/fail score — praises what's there
-  // and nudges toward the single most useful next gap, the same shape as the
-  // real teach-back surface's own {covered, nudge} grading output.
-  function coachMessage(results, coveredCount, total) {
-    if (coveredCount === total) {
-      return "Nailed it — that's the whole rule in under 30 seconds. A new hire hearing that would know exactly what to do.";
-    }
-    const missed = results.find(r => !r.covered);
-    const opener = coveredCount === 0
-      ? "That's a start, but the new hire needs more before Monday."
-      : "Good — you're most of the way there.";
-    return `${opener} ${missed.nudge}`;
-  }
-
   function escapeHtml(s) {
     return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  // ---- Offline fallback grader — keyword overlap, same idea as
+  // sim-teachback.js's fallbackGrade(). Used only when the live call below
+  // fails or SimCore isn't on the page.
+  function localGrade(text) {
+    const t = text.toLowerCase();
+    const results = RUBRIC.map(item => ({ ...item, covered: item.synonyms.some(s => t.includes(s)) }));
+    const coveredCount = results.filter(r => r.covered).length;
+    const missed = results.find(r => !r.covered);
+    const message = coveredCount === RUBRIC.length
+      ? "Nailed it — that's the whole rule in under 30 seconds. A new hire hearing that would know exactly what to do."
+      : (coveredCount === 0
+          ? "That's a start, but the new hire needs more before Monday. "
+          : "Good — you're most of the way there. ") + (missed ? missed.nudge : '');
+    return { coveredIds: results.filter(r => r.covered).map(r => r.id), message };
+  }
+
+  // ---- Live grading — the same SimCore.callModel plumbing every real sim
+  // page uses (js/sim-core.js), asking a fast model to score the transcript
+  // against the rubric and react to it like a coach would, in one call.
+  // Mirrors sim-teachback.js's own gradePrompt/{covered,nudge} contract,
+  // just folded into one field ("message") since this UI shows a single
+  // coach bubble rather than a separate headline + nudge line.
+  function gradeSystemPrompt() {
+    const rubricText = RUBRIC.map((r, i) => `${i + 1}. ${r.detail}`).join('\n');
+    return 'You are the AI Coach for a short "teach-back" exercise in a workplace safety training. '
+      + "A learner just explained — by talking or typing — how they'd handle finding a used sharp that isn't theirs, "
+      + 'as if teaching a brand-new hire who starts Monday. Score what they actually said against this numbered rubric; '
+      + 'only credit an item their own words clearly cover, never a near-miss or something implied but unsaid:\n\n'
+      + rubricText + '\n\n'
+      + "Then react like a real coach would, in 1-3 sentences: name what's genuinely strong first, and if something's "
+      + 'missing, name the SINGLE most useful gap to close next — not a list of everything absent. Speak directly to '
+      + 'the learner ("you"), warmly, and never invent that they said something they did not.\n\n'
+      + 'Return ONLY this JSON object, no other text:\n'
+      + '{"covered": [the NUMBERS (1-' + RUBRIC.length + ') of the rubric items above that were clearly covered, e.g. [1,3]], "message": "your coach reaction"}';
+  }
+
+  async function gradeAndCoach(text) {
+    if (window.SimCore && SimCore.WORKER_URL) {
+      try {
+        const raw = await SimCore.callModel({
+          system: gradeSystemPrompt(),
+          messages: [{ role: 'user', content: "Here is what the learner said:\n\n" + text }],
+          maxTokens: 300,
+          model: SimCore.MODELS.FAST,
+        });
+        const parsed = SimCore.parseJson(raw);
+        const message = typeof parsed.message === 'string' ? parsed.message.trim() : '';
+        if (message) {
+          // The model reports 1-based positions in the numbered rubric text
+          // above (the same convention sim-teachback.js's own gradePrompt
+          // uses: `covered: [topic numbers]`), not our internal string ids —
+          // map position → id here rather than asking the model to echo back
+          // an id token it never actually saw.
+          const nums = Array.isArray(parsed.covered) ? parsed.covered : [];
+          const ids = nums
+            .map(n => Number(n))
+            .filter(n => Number.isInteger(n) && n >= 1 && n <= RUBRIC.length)
+            .map(n => RUBRIC[n - 1].id);
+          return { coveredIds: Array.from(new Set(ids)), message };
+        }
+      } catch (e) { /* fall through to the offline grader below */ }
+    }
+    return localGrade(text);
   }
 
   // ---- Elements ----
@@ -307,21 +356,16 @@
     if (!completed) continueBtn.disabled = composer.value.trim().length < 8;
   });
 
-  function renderFeedback(text) {
-    const { results, coveredCount, total } = gradeTranscript(text);
-    const message = coachMessage(results, coveredCount, total);
-
+  async function renderFeedback(text) {
+    // Tiles render blank (nothing graded yet) and the coach shows as typing
+    // until the real grading call resolves — this is now an actual model
+    // round-trip, not an instant local lookup, so there's real waiting to
+    // account for rather than a beat to fake.
     feedback.innerHTML = `
       <div class="fb-eyebrow"><i class="fa-solid fa-comment-dots"></i> AI Coach</div>
       <div class="typing" id="coachTyping"><span class="tdots"><span></span><span></span><span></span></span></div>
       <div class="fb-eyebrow fb-eyebrow-quiet"><i class="fa-solid fa-clipboard-check"></i> Coverage</div>
-      <ul class="fb-tiles">
-        ${results.map((r, i) => `
-          <li class="fb-tile ${r.covered ? 'is-covered' : ''}" style="animation-delay:${500 + i * 90}ms">
-            <i class="fa-solid ${r.covered ? 'fa-circle-check' : 'fa-circle'}"></i>
-            <span>${r.label}</span>
-          </li>`).join('')}
-      </ul>
+      <ul class="fb-tiles" id="fbTiles"></ul>
       <div class="fb-quote">
         <div class="fb-quote-label">What you said</div>
         <blockquote>${text ? escapeHtml(text) : '<span class="fb-empty">(nothing recorded)</span>'}</blockquote>
@@ -330,11 +374,29 @@
     feedback.hidden = false;
     feedback.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-    // A brief typing beat before the reaction lands — same convention Riff 01
-    // uses for the coach's own turns, so this doesn't feel like a form result.
-    setTimeout(() => {
-      const typing = document.getElementById('coachTyping');
-      if (!typing) return;
+    const startedAt = Date.now();
+    const { coveredIds, message } = await gradeAndCoach(text);
+
+    // A brief typing beat before the reaction lands, same convention Riff 01
+    // uses for the coach's own turns — a fast local-fallback response would
+    // otherwise flash the tiles in instantly with no "thinking" feel at all.
+    const MIN_BEAT_MS = 550;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < MIN_BEAT_MS) await new Promise(r => setTimeout(r, MIN_BEAT_MS - elapsed));
+
+    const tiles = document.getElementById('fbTiles');
+    if (tiles) {
+      tiles.innerHTML = RUBRIC.map((r, i) => {
+        const covered = coveredIds.includes(r.id);
+        return `<li class="fb-tile ${covered ? 'is-covered' : ''}" style="animation-delay:${i * 90}ms">
+            <i class="fa-solid ${covered ? 'fa-circle-check' : 'fa-circle'}"></i>
+            <span>${r.label}</span>
+          </li>`;
+      }).join('');
+    }
+
+    const typing = document.getElementById('coachTyping');
+    if (typing) {
       typing.outerHTML = `
         <div class="coach-msg enter">
           <div class="coach-avatar"><i class="fa-solid fa-comment"></i></div>
@@ -343,7 +405,7 @@
             <div class="coach-bubble">${escapeHtml(message)}</div>
           </div>
         </div>`;
-    }, 550);
+    }
   }
 
   function completeActivity() {

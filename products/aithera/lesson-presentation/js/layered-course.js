@@ -426,7 +426,7 @@
     if (entryDecided) document.getElementById('cpAdaptNote').hidden = true;
     // The Start CTA lives in the bottom nav on this step (see updateFooter);
     // on a return visit it reads Continue instead.
-    if (doneCount > 0) nextBtn.innerHTML = 'Continue course <i class="fa-solid fa-arrow-right"></i>';
+    if (doneCount > 0) ctx.els.next.innerHTML = 'Continue course <i class="fa-solid fa-arrow-right"></i>';
     ctx.floatClose();   // orb only — the page speaks for itself here
     ctx.positionOrb(false);
   }

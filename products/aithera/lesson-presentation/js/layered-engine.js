@@ -83,6 +83,12 @@
     try { sessionStorage.setItem('ll-lens', next); } catch (e) {}
     return next;
   }
+  // Direct set for the Demo menu's Context lens dropdown — picking a sector
+  // by name, rather than cycling past the ones in between.
+  function setLens(id) {
+    if (!CFG.lenses || !CFG.lenses[id]) return;
+    try { sessionStorage.setItem('ll-lens', id); } catch (e) {}
+  }
   // --- Review mode -----------------------------------------------------------
   // One flag for every affordance that exists so a reviewer can reach a
   // screen without doing the work in front of it, and that a real learner
@@ -323,7 +329,7 @@
   // ==========================================================================
   //  Shell — built once; steps swap in place.
   // ==========================================================================
-  var stage, orbEl, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, demoBtn, demoMenu;
+  var stage, orbEl, orb, chrome, object, footer, nextBtn, backBtn, footCount, footBar, pop, infoBtn, demoBtn, demoMenu;
   var demoBtns = [];
   // True only while a step's own init() is running. It's what separates CLARA's
   // opening line for a screen (narration — stays behind the orb) from a line
@@ -637,7 +643,14 @@
       if (footCount) footCount.textContent = 'Course overview';
       if (footBar) footBar.style.display = 'none';
       backBtn.style.display = 'none';
-    } else if (!sec) {
+    } else if (!sec || step.hideProgress) {
+      // hideProgress: a real, counted section that still shouldn't claim a
+      // place in "Section N of N" — sharps' entry battery run BEFORE the
+      // cover, where there's no course open yet for a section count to mean
+      // anything. Same blank-footer treatment as a step with no count at
+      // all; unlike interstitial, it stays IN the denominator for every
+      // OTHER screen's count, since it's still real work, just not framed
+      // as "part of the course" on its own screen.
       // An interstitial isn't a section, so it gets no number and no bar —
       // claiming progress through a screen that teaches nothing would be a lie,
       // and a numbered gap either side of it reads as a bug.
@@ -706,7 +719,13 @@
       // queued used to inherit the previous screen's dot and promise a line it
       // did not have — which is exactly the screens that were made silent.
       delete stage.dataset.unread;
-      if (step.mode === 'floating') {
+      // noCoach: a screen CLARA has no business being on yet — sharps' entry
+      // battery, run BEFORE the cover in "Battery before" mode, is the first
+      // case (see layered-sharps.js). Not the same as a silent coach.say —
+      // that still docks the orb and renders empty chrome; this skips both.
+      if (step.noCoach) {
+        clearHint();
+      } else if (step.mode === 'floating') {
         var leads = coachLeads(step);
         setFloat(leads ? 'open' : 'closed');
         // A queued line they haven't shown yet is the only thing the dot means.
@@ -733,7 +752,7 @@
       // Coach chrome (appended last → on top → its chips/composer are clickable)
       chrome = document.createElement('div');
       chrome.className = 'clara-chrome clara-chrome--' + step.mode + (first ? '' : ' pre-enter');
-      chrome.innerHTML = chromeHTML(step.mode, step.coach || {});
+      chrome.innerHTML = step.noCoach ? '' : chromeHTML(step.mode, step.coach || {});
       stage.appendChild(chrome);
       pendingAction = false;
       pendingNext = null;
@@ -741,9 +760,13 @@
       nextBtn.classList.add('ll-btn--primary');
       delete stage.dataset.pending;
       // Only in floating mode is the orb something to press; elsewhere CLARA
-      // is the chrome itself and the orb is just their mark.
-      if (step.mode === 'floating') orbEl.dataset.launcher = '1';
+      // is the chrome itself and the orb is just their mark. noCoach hides
+      // the orb outright — an empty chrome still has a .clara-slot for it to
+      // dock in on every mode except floating, and this is the one case that
+      // should show no CLARA mark at all.
+      if (step.mode === 'floating' && !step.noCoach) orbEl.dataset.launcher = '1';
       else delete orbEl.dataset.launcher;
+      orbEl.style.display = step.noCoach ? 'none' : '';
 
       idx = i; nextHref = null;
       // PROTOTYPE CONVENIENCE: keep the current screen in the URL so a refresh
@@ -766,7 +789,7 @@
       // runs — the companion should be a way in to CLARA on every page
       // they're on, not a line you can only read. Steps can supply their own answers
       // via coach.replies.
-      if (step.mode === 'floating') wireFloatingChat(ctx, (step.coach || {}).replies);
+      if (step.mode === 'floating' && !step.noCoach) wireFloatingChat(ctx, (step.coach || {}).replies);
       if (step.init) {
         inInit = true;
         try { step.init(ctx); } catch (e) { console.error('step init', step.id, e); }
@@ -892,7 +915,7 @@
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); orbEl.click(); }
     });
     document.body.appendChild(orbEl);
-    if (window.MobiusOrb) window.MobiusOrb.create(orbEl);
+    if (window.MobiusOrb) orb = window.MobiusOrb.create(orbEl);
     // In floating mode the orb is the launcher — tap to tuck/expand.
     orbEl.addEventListener('click', function () {
       if (stage.dataset.mode !== 'floating' || busy) return;
@@ -986,7 +1009,8 @@
     // right below stays reachable either way, since the Demo menu it lives in
     // already carries that framing.
     if (CFG.reviewGate) {
-      rows.push({ icon: 'fa-user-check', name: 'Review mode', state: reviewMode() ? 'On' : 'Off',
+      rows.push({ icon: 'fa-user-check', name: 'Review mode', type: 'toggle',
+        on: reviewMode(),
         note: 'Unlocks the S-key skip and the video Skip pill',
         run: function () { setReviewMode(!reviewMode()); showStep(idx, 'fwd', false); } });
     }
@@ -998,50 +1022,103 @@
         run: skipStep });
     }
     // Context lens — engine-owned, shown where the course says it applies.
+    // More than two named sectors, so a dropdown reads faster than a cycling
+    // button — picking "Public Sector" directly beats clicking past AEC.
     if (CFG.lenses && CFG.lensedSteps[step.id]) {
-      rows.push({ icon: 'fa-layer-group', name: 'Context lens', state: lens().label,
+      rows.push({ icon: 'fa-layer-group', name: 'Context lens', type: 'select',
+        value: lensId(),
+        options: CFG.lensOrder.map(function (id) { return { value: id, label: CFG.lenses[id].label }; }),
         note: 'Same objectives and rubric, different working environment',
-        run: function () { cycleLens(); showStep(idx, 'fwd', false); } });
+        onChange: function (id) { setLens(id); showStep(idx, 'fwd', false); } });
     }
-    // Whatever else the course declared for this step.
+    // Whatever else the course declared for this step. Most rows are a
+    // button or a toggle (spec.onClick, called through `run`); a course can
+    // also declare type: 'select' — spec.value()/spec.options/spec.onChange
+    // — for a named set with more than two members, the same widget the
+    // engine's own Context lens row above uses. Only the pair the rendered
+    // control actually type answers is ever called, so a spec only needs to
+    // supply the one it uses.
     demoBtns.forEach(function (d) {
       var spec = d.spec;
       if (spec.visibleOn && !spec.visibleOn(step)) return;
-      rows.push({ icon: spec.icon || 'fa-shuffle', name: spec.name || 'Demo',
+      var api = {
+        step: STEPS[idx],
+        replay: function () { showStep(idx, 'fwd', false); },
+        go: go,
+        refresh: function () {
+          var st = STEPS[idx];
+          var wasOpen = !nextBtn.disabled;
+          updateFooter(st); updateFrame(st);
+          if (wasOpen) nextBtn.disabled = false;
+        }
+      };
+      rows.push({ icon: spec.icon || 'fa-shuffle', name: spec.name || 'Demo', type: spec.type,
+        on: spec.on ? !!spec.on() : false,
         state: spec.state ? spec.state() : '', note: spec.note || '',
-        run: function () {
-          spec.onClick({
-            step: STEPS[idx],
-            replay: function () { showStep(idx, 'fwd', false); },
-            go: go,
-            refresh: function () {
-              var st = STEPS[idx];
-              var wasOpen = !nextBtn.disabled;
-              updateFooter(st); updateFrame(st);
-              if (wasOpen) nextBtn.disabled = false;
-            }
-          });
-        } });
+        value: spec.value ? spec.value() : undefined,
+        options: spec.options,
+        onChange: spec.onChange ? function (val) { spec.onChange(val, api); } : undefined,
+        run: function () { if (spec.onClick) spec.onClick(api); } });
     });
 
+    // Three widgets for three kinds of setting: a real switch for a plain
+    // on/off flag, a real dropdown for a named set of options (so picking
+    // one is direct, not "click until it cycles past"), and — for anything
+    // else, e.g. Skip — the original whole-row button. Every row shares the
+    // same shape: title + control share a line (the control is small, so
+    // this rarely costs the title anything), and the description runs full
+    // width on its own line below — sharing a column with a wide control
+    // (a long select value, a worded state pill) is what turned a row into
+    // an eight-line wrap the last time this was tried.
     demoMenu.innerHTML =
       '<p class="ll-demo-head">Review only · not shown to a learner</p>' +
       (rows.length
         ? rows.map(function (r, i) {
-            return '<button class="ll-demo-item" type="button" role="menuitem" data-i="' + i + '">' +
-              '<i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>' +
-              '<span class="ll-demo-main"><b>' + esc(r.name) + '</b>' +
-              (r.note ? '<small>' + esc(r.note) + '</small>' : '') + '</span>' +
-              (r.state ? '<span class="ll-demo-state">' + esc(r.state) + '</span>' : '') +
-            '</button>';
+            var icon = '<i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>';
+            var control = '';
+            if (r.type === 'toggle') {
+              control = '<button type="button" class="ll-demo-switch" role="switch" ' +
+                  'aria-checked="' + (r.on ? 'true' : 'false') + '" aria-label="' + esc(r.name) + '" data-i="' + i + '">' +
+                  '<span class="ll-demo-switch-track"><span class="ll-demo-switch-thumb"></span></span>' +
+                '</button>';
+            } else if (r.type === 'select') {
+              control = '<select class="ll-demo-select" aria-label="' + esc(r.name) + '" data-i="' + i + '">' +
+                  r.options.map(function (o) {
+                    return '<option value="' + esc(o.value) + '"' + (o.value === r.value ? ' selected' : '') + '>' + esc(o.label) + '</option>';
+                  }).join('') +
+                '</select>';
+            } else if (r.state) {
+              control = '<span class="ll-demo-state">' + esc(r.state) + '</span>';
+            }
+            var body = '<span class="ll-demo-main"><span class="ll-demo-row-head"><b>' + esc(r.name) + '</b>' + control + '</span>' +
+              (r.note ? '<small>' + esc(r.note) + '</small>' : '') + '</span>';
+            if (r.type === 'toggle' || r.type === 'select') {
+              return '<div class="ll-demo-item ll-demo-item--static">' + icon + body + '</div>';
+            }
+            return '<button class="ll-demo-item" type="button" role="menuitem" data-i="' + i + '">' + icon + body + '</button>';
           }).join('')
         : '<p class="ll-demo-empty">Nothing to demonstrate on this screen.</p>');
 
-    demoMenu.querySelectorAll('.ll-demo-item').forEach(function (b) {
+    demoMenu.querySelectorAll('.ll-demo-item[role="menuitem"]').forEach(function (b) {
       b.addEventListener('click', function () {
         if (busy) return;
         closeDemoMenu();
         rows[+b.dataset.i].run();
+      });
+    });
+    demoMenu.querySelectorAll('.ll-demo-switch').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (busy) return;
+        closeDemoMenu();
+        rows[+b.dataset.i].run();
+      });
+    });
+    demoMenu.querySelectorAll('.ll-demo-select').forEach(function (s) {
+      s.addEventListener('change', function () {
+        if (busy) return;
+        var row = rows[+s.dataset.i];
+        closeDemoMenu();
+        row.onChange(s.value);
       });
     });
 
@@ -1050,7 +1127,7 @@
     demoMenu.style.top = Math.round(r.bottom + 8) + 'px';
     demoMenu.style.right = Math.round(window.innerWidth - r.right) + 'px';
     demoBtn.setAttribute('aria-expanded', 'true');
-    var first = demoMenu.querySelector('.ll-demo-item');
+    var first = demoMenu.querySelector('.ll-demo-item[role="menuitem"], .ll-demo-switch, .ll-demo-select');
     if (first) first.focus();
   }
 
@@ -1068,6 +1145,13 @@
     } catch (e) {}
     buildFooter();
     buildOrb();
+    // A course that wants the orb's own colours to reflect boot-time state
+    // (e.g. a design-style flag already applied by an inline <head> snippet,
+    // same pattern as SCENARIO_ALLOW_DARK) has nowhere else to hook this —
+    // buildOrb() just ran, register() ran before DOMContentLoaded fired, and
+    // nothing else calls back into content code. Optional; most courses
+    // never set it.
+    if (CFG.onOrbReady) CFG.onOrbReady();
     cacheFrame();
 
     // Open at ?step=<id> if present (e.g. returning from the scenario), else 0.
@@ -1167,6 +1251,21 @@
       Object.keys(cfg || {}).forEach(function (k) { CFG[k] = cfg[k]; });
       STEPS = CFG.steps || [];
       if (!CFG.lensOrder.length && CFG.lenses) CFG.lensOrder = Object.keys(CFG.lenses);
+    },
+    // Live-recolour the orb (MobiusOrb.setConfig — no recreate, no reload).
+    // green/blue/deep each take a '#rrggbb' string or a [r,g,b] 0–1 array.
+    // Pass a falsy cfg (or omit a channel) to fall back to MobiusOrb's own
+    // PRESET, so a course can always get back to the true default rather
+    // than having to remember what it overrode.
+    setOrbColors: function (cfg) {
+      if (!orb || !orb.setConfig) return;
+      var base = (window.MobiusOrb && window.MobiusOrb.PRESET) || {};
+      cfg = cfg || {};
+      orb.setConfig({
+        green: cfg.green || base.green,
+        blue: cfg.blue || base.blue,
+        deep: cfg.deep || base.deep
+      });
     }
   };
 
