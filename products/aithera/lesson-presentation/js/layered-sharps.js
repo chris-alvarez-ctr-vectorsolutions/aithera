@@ -1576,20 +1576,56 @@
             next.style.animation = 'none'; void next.offsetWidth; next.style.animation = '';
           }
         }
-        function focus(i, smooth) {
+        // Which paragraph is lit, and everything that follows from it — the
+        // button, the count, the arrows, the rail. No scrolling here, so the
+        // scroll handler below can call it too.
+        function light(i) {
           at = Math.max(0, Math.min(paras.length - 1, i));
           paras.forEach(function (p, j) { p.classList.toggle('is-on', j === at); p.classList.toggle('is-past', j < at); });
           placeNext();
           nEl.textContent = (at + 1) + ' / ' + paras.length;
           document.getElementById('dkParaPrev').disabled = at === 0;
           document.getElementById('dkParaNext').disabled = at === paras.length - 1;
-          var p = paras[at];
-          // Centre the paragraph together with the button under it.
-          var h = next.offsetTop + next.offsetHeight - p.offsetTop;
-          var top = p.offsetTop - (scroller.clientHeight - h) / 2;
-          scroller.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
           if (showing === 'article') setRail((at + 1) / paras.length);
         }
+        // Light a paragraph and bring it (with its button) to the middle.
+        var auto = false, autoT = 0;
+        function focus(i, smooth) {
+          light(i);
+          var p = paras[at];
+          var h = next.offsetTop + next.offsetHeight - p.offsetTop;
+          var top = Math.max(0, p.offsetTop - (scroller.clientHeight - h) / 2);
+          // Our own scroll must not be read back as the learner's (see below).
+          if (smooth && Math.abs(scroller.scrollTop - top) > 1) {
+            auto = true;
+            clearTimeout(autoT);
+            autoT = setTimeout(function () { auto = false; }, 700);
+          }
+          scroller.scrollTo({ top: top, behavior: smooth ? 'smooth' : 'auto' });
+        }
+        scroller.addEventListener('scrollend', function () { auto = false; clearTimeout(autoT); });
+        // Scrolling IS reading. The text used to scroll freely while the lit
+        // paragraph stayed put, so a learner could scroll it (and its button)
+        // out of view and be left in all-dimmed text with no way on. Now the
+        // paragraph at the reading line is the lit one, and the button follows.
+        // "Reading line" = the last paragraph whose top has passed ~45% of the
+        // view; moving the button shifts later text in the direction that
+        // keeps the choice stable, so there's no flicker at a boundary. The
+        // ends are pinned so the first and last paragraphs are always reachable
+        // (the last one carries "Done reading").
+        scroller.addEventListener('scroll', function () {
+          if (auto || showing !== 'article') return;
+          var y = scroller.scrollTop, max = scroller.scrollHeight - scroller.clientHeight;
+          var pick;
+          if (y >= max - 2) pick = paras.length - 1;
+          else if (y <= 2) pick = 0;
+          else {
+            var line = y + scroller.clientHeight * 0.45;
+            pick = 0;
+            paras.forEach(function (p, j) { if (p.offsetTop <= line) pick = j; });
+          }
+          if (pick !== at) light(pick);
+        }, { passive: true });
         paras.forEach(function (p, j) { p.addEventListener('click', function () { focus(j, true); }); });
         document.getElementById('dkParaPrev').addEventListener('click', function () { focus(at - 1, true); });
         document.getElementById('dkParaNext').addEventListener('click', function () { focus(at + 1, true); });
