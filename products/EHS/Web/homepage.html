@@ -7,9 +7,8 @@
     <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
     <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
-    <!-- Font Awesome 6 PRO, self-hosted (works on file://, localhost and Pages alike).
-         Pro is required here for the diagonal trend arrows in the My Open Items
-         change pills; Pro 6 is a superset of Free 6 so all other icons are unchanged. -->
+    <!-- Font Awesome 6 PRO, self-hosted: the repo's standard include (works on
+         file://, localhost and Pages alike). Pro 6 is a superset of Free 6. -->
     <link rel="stylesheet" href="../../../assets/fontawesome/css/all.min.css"/>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -176,40 +175,49 @@
         }
         .settings-btn:hover { background: var(--surface); color: var(--text); }
 
-        /* ── Action buttons row ── */
+        /* ── Action buttons row ──
+           Large outlined quick-action cards: a light-weight Pro icon above a
+           bold blue label, inside a rounded 2px blue card. The first action is
+           filled. Labels never wrap (`white-space: nowrap`) so "Add
+           Observations" stays on one line; the row drops to 3-up before the
+           cards get narrow enough to clip. */
         .action-row {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
-            gap: 12px;
+            gap: 14px;
             margin-bottom: 20px;
         }
+        @media (max-width: 1100px) { .action-row { grid-template-columns: repeat(3, 1fr); } }
         .action-btn {
             background: var(--surface);
-            border: 1px solid #c8d6e8;
-            border-radius: 6px;
-            padding: 16px 12px;
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 20px 14px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            gap: 8px;
+            gap: 14px;
             cursor: pointer; font-family: inherit;
             transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
-            min-height: 88px;
+            min-height: 112px;
         }
-        .action-btn:hover { border-color: var(--primary); box-shadow: 0 2px 6px rgba(29,78,216,0.10); }
+        .action-btn:hover { background: var(--primary-soft); box-shadow: 0 2px 8px rgba(29,78,216,0.12); }
         .action-btn.primary {
             background: var(--primary);
             border-color: var(--primary);
             color: white;
         }
-        .action-btn.primary:hover { background: var(--primary-hover); }
+        .action-btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
         .action-btn-icon {
-            width: 26px; height: 26px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px;
-            border: 1.5px solid currentColor;
+            font-size: 32px; line-height: 1;
             color: var(--primary);
         }
-        .action-btn.primary .action-btn-icon { border-color: white; color: white; }
-        .action-btn-label { font-size: 14px; font-weight: 600; color: var(--primary); }
+        .action-btn.primary .action-btn-icon { color: white; }
+        .action-btn-label {
+            font-size: 15px; font-weight: 700; color: var(--primary);
+            white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 7px;
+        }
+        .action-btn-label .action-btn-caret { font-size: 11px; }
         .action-btn.primary .action-btn-label { color: white; }
 
         /* ── Module / card chrome (shared) ── */
@@ -246,15 +254,16 @@
 
         /* ── My Open Items (EHS-22823) ──
            Re-introduces the legacy home.aspx "My Open Items" widget in the new
-           module chrome. One clickable tile per record type the user can access
-           (Incidents, Claims, Inspections, Corrective Actions); each tile carries
-           the count and the module name. The assignment + open-status rule that
-           produced the count lives in the tile's tooltip and href, not on the
-           face of the tile. Zero counts still render, muted. */
-        .oi-subtitle {
-            font-size: 12.5px; color: var(--text-muted);
-            margin-top: 2px; line-height: 1.4;
-        }
+           module chrome as a compact HALF-WIDTH module: one tile per record type
+           the user can access (Incidents, Claims, Inspections, Corrective
+           Actions). A tile shows the outlined type icon, the type name and the
+           count; clicking it launches that module's summary page, filtered to
+           the same records the count was built from. The assignment +
+           open-status rule sits in the tile tooltip. Zero counts still render,
+           muted. Sized for the 2 to 3 types a typical user has; 4 wraps to 2x2. */
+        .module-half { width: calc(50% - 8px); }   /* a second half-width module can sit beside it on a 16px gutter */
+        @media (max-width: 1100px) { .module-half { width: 100%; } }
+
         .oi-actions { display: flex; align-items: center; gap: 10px; }
         .oi-updated {
             display: inline-flex; align-items: center; gap: 5px;
@@ -273,90 +282,102 @@
 
         .oi-body {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 16px; padding: 16px 18px 18px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));   /* JS resets this from the number of visible types */
+            gap: 12px; padding: 14px 18px 16px;
         }
-        /* Tile = a stat card, modeled on analytics / management dashboards:
-           the number is the hero, the type is recognizable at a glance from a
-           tinted icon + short muted label, and one supporting line adds
-           context. Two header layouts, switched from the review-only toggle in
-           the module header (choice persisted per browser):
-             icon-left   ->  [icon] Type name
-             icon-right  ->  Type name .............. [icon]
-           Value row: large count + change-vs-last-month pill (caret up / down;
-           fewer open items is better, so up = red, down = green, flat = gray).
-           Last line: "vs. N last month". The whole card is the link; hover
-           lifts it and tints the type name primary. */
+        /* Tile: the type icon and name on one row above the hero count. Two card
+           treatments, switched from the review strip (choice persisted per
+           browser):
+             shaded  ->  the design-system light shade (the semantic 10% tint)
+                         of the colour bucket the record type belongs to
+             white   ->  same white as the module, borders alone doing the work
+           The whole card is the link; hover lifts it and tints the name. */
         .oi-tile {
             display: flex; flex-direction: column;
-            padding: 20px 22px 18px;
-            border: 1px solid var(--border); border-radius: 12px;
-            background: var(--surface);
+            padding: 14px 16px;
+            border: 1px solid #e2e8f0; border-radius: 10px;
+            background-color: #ffffff;
             color: inherit; text-decoration: none;
             transition: border-color 0.12s, box-shadow 0.12s;
         }
+        /* Shaded = the theme's own light shade for each bucket: Incidents sit in
+           the error bucket, Inspections in primary/blue, Claims and Corrective
+           Actions in warning. Tokens, not hard-coded tints, so the cards follow
+           the theme. Keep background-color OUT of the transition list — a
+           var()-backed value in a transitioned background stalls and leaves
+           on-screen cards unrepainted. */
+        .oi-body[data-cardbg="shaded"] .oi-t-incident   { background-color: var(--lumo-error-color-10pct); }
+        .oi-body[data-cardbg="shaded"] .oi-t-inspection { background-color: var(--lumo-primary-color-10pct); }
+        .oi-body[data-cardbg="shaded"] .oi-t-claim      { background-color: var(--lumo-warning-color-10pct); }
+        .oi-body[data-cardbg="shaded"] .oi-t-corrective { background-color: var(--lumo-warning-color-10pct); }
+        /* Shaded cards carry a very light version of the type colour at rest,
+           derived from the same --oi-tone so there is still one source of truth,
+           and darken to the full tone on hover. Only the colour changes, so
+           nothing shifts, and it fades via the existing border-color transition. */
+        .oi-body[data-cardbg="shaded"] .oi-tile {
+            border-color: color-mix(in srgb, var(--oi-tone) 25%, white);
+        }
+        .oi-body[data-cardbg="shaded"] .oi-tile:hover,
+        .oi-body[data-cardbg="shaded"] .oi-tile:focus-visible { border-color: var(--oi-tone); }
         .oi-tile:hover, .oi-tile:focus-visible {
             border-color: var(--primary);
             box-shadow: 0 2px 6px rgba(29,78,216,0.10);
             outline: none;
         }
-
-        /* Header row */
-        .oi-tile-top { display: flex; align-items: center; gap: 10px; min-height: 32px; }
-        .oi-body[data-layout="icon-right"] .oi-tile-top { justify-content: space-between; }
-        .oi-body[data-layout="icon-right"] .oi-icon { order: 2; }
+        .oi-tile-top { display: flex; align-items: center; gap: 10px; min-height: 28px; }
         .oi-icon {
-            width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+            width: 22px; height: 22px; flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px;
+            font-size: 19px; line-height: 1;
         }
-        /* Per-type tones follow the standing EHS module color buckets:
-           Incidents = red, Inspections = blue, Claims + Corrective Actions =
-           warning orange. Values match this page's incident / observation /
-           hazard badges so the widget reads as one system with the rest. */
-        .oi-incident   { background: #fee2e2; color: #b91c1c; }
-        .oi-claim      { background: #fef3c7; color: #92400e; }
-        .oi-inspection { background: #dbeafe; color: #1d4ed8; }
-        .oi-corrective { background: #fef3c7; color: #92400e; }
+        /* --oi-tone is the type's full-strength bucket colour, set once on the
+           tile and consumed by BOTH the icon and the shaded card's border, so
+           the border always matches the icon. Buckets: Incidents = red,
+           Inspections = blue, Claims + Corrective Actions = warning orange. */
+        .oi-t-incident   { --oi-tone: #dc2626; }
+        .oi-t-inspection { --oi-tone: #1d4ed8; }
+        .oi-t-claim      { --oi-tone: #d97706; }
+        .oi-t-corrective { --oi-tone: #d97706; }
+        .oi-icon { color: var(--oi-tone); }
         .oi-label {
-            font-size: 13px; font-weight: 600; color: #475569;
+            font-size: 13px; font-weight: 600; color: var(--text);
             line-height: 1.3; min-width: 0; transition: color 0.12s;
         }
         .oi-tile:hover .oi-label { color: var(--primary); }
-
-        /* Value row: the hero number, then the change pill */
-        .oi-value-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
         .oi-count {
-            font-size: 36px; font-weight: 700; line-height: 1;
+            font-size: 32px; font-weight: 700; line-height: 1;
             color: var(--text); letter-spacing: -0.03em;
             font-variant-numeric: tabular-nums;
+            margin-top: 10px;
         }
-        .oi-tile.is-zero .oi-count { color: var(--text-light); }
-        .oi-delta {
-            display: inline-flex; align-items: center; gap: 4px;
-            padding: 3px 8px; border-radius: 999px;
-            font-size: 12px; font-weight: 600; white-space: nowrap;
-            background: #f1f5f9; color: var(--text-muted);
-        }
-        .oi-delta i { font-size: 11px; }
-        .oi-delta.is-better { background: #d1fae5; color: #065f46; }
-        .oi-delta.is-worse  { background: #fee2e2; color: #b91c1c; }
-        .oi-compare { font-size: 12px; color: var(--text-muted); line-height: 1.3; margin-top: 8px; }
 
-        /* Review-only segmented toggle for the two header layouts */
-        .oi-layout-toggle {
+        /* Review-only strip. Sits OUTSIDE the module, on the page background, so
+           the module itself stays clean product chrome. Dashed border marks it as
+           scaffolding: tile-header layout and how many modules the user has in
+           scope. NOT part of the design — delete this block, the .oi-review
+           markup and its JS once both are settled. */
+        .oi-review {
+            display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 7px 12px;
+            margin-bottom: 10px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            background: #fbfcfe;
+        }
+        .oi-review-label { font-size: 11px; font-weight: 600; color: var(--text-light); }
+        .oi-seg {
             display: inline-flex; overflow: hidden;
             border: 1px solid var(--border); border-radius: 6px;
             background: var(--surface);
         }
-        .oi-layout-btn {
-            background: transparent; border: 0; padding: 5px 10px;
+        .oi-seg-btn {
+            background: transparent; border: 0; padding: 4px 10px;
             font-family: inherit; font-size: 12px; font-weight: 500; line-height: 1.3;
             color: var(--text-muted); cursor: pointer;
         }
-        .oi-layout-btn + .oi-layout-btn { border-left: 1px solid var(--border); }
-        .oi-layout-btn:hover { background: var(--bg); color: var(--text); }
-        .oi-layout-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
+        .oi-seg-btn + .oi-seg-btn { border-left: 1px solid var(--border); }
+        .oi-seg-btn:hover { background: var(--bg); color: var(--text); }
+        .oi-seg-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 
         /* ── Recent Activity ── */
         .activity-body { padding: 16px 18px; }
@@ -736,51 +757,25 @@
             <!-- Action button row -->
             <div class="action-row">
                 <button class="action-btn primary">
-                    <span class="action-btn-icon"><i class="fa-solid fa-circle-exclamation"></i></span>
-                    <span class="action-btn-label">Add Incident</span>
+                    <span class="action-btn-icon"><i class="fa-regular fa-circle-exclamation"></i></span>
+                    <span class="action-btn-label">Add Incidents</span>
                 </button>
                 <button class="action-btn">
-                    <span class="action-btn-icon"><i class="fa-solid fa-clipboard-check"></i></span>
-                    <span class="action-btn-label">Add Inspection</span>
+                    <span class="action-btn-icon"><i class="fa-regular fa-clipboard"></i></span>
+                    <span class="action-btn-label">Add Inspections</span>
                 </button>
                 <button class="action-btn">
-                    <span class="action-btn-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                    <span class="action-btn-icon"><i class="fa-regular fa-triangle-exclamation"></i></span>
                     <span class="action-btn-label">Add Hazards</span>
                 </button>
                 <button class="action-btn">
                     <span class="action-btn-icon"><i class="fa-regular fa-eye"></i></span>
-                    <span class="action-btn-label">Add Observation</span>
+                    <span class="action-btn-label">Add Observations</span>
                 </button>
                 <button class="action-btn">
-                    <span class="action-btn-icon"><i class="fa-solid fa-plus"></i></span>
-                    <span class="action-btn-label">Add More</span>
+                    <span class="action-btn-icon"><i class="fa-regular fa-plus"></i></span>
+                    <span class="action-btn-label">Add More <i class="fa-solid fa-chevron-down action-btn-caret"></i></span>
                 </button>
-            </div>
-
-            <!-- ── My Open Items Module (EHS-22823) ──
-                 Tiles are rendered by JS from OPEN_ITEM_TYPES so the scope check
-                 (permission + archived) and the count / click-through filters
-                 come from one place. -->
-            <div class="module" id="openItemsModule">
-                <div class="module-header">
-                    <div>
-                        <span class="module-title">My Open Items <span id="openItemsTotal">(0)</span></span>
-                        <div class="oi-subtitle">Open records assigned to you. Select a count to open that module's list, filtered to the same records.</div>
-                    </div>
-                    <div class="oi-actions">
-                        <!-- Review-only: switches the tile header between icon-left and icon-right -->
-                        <div class="oi-layout-toggle" role="group" aria-label="Tile layout">
-                            <button class="oi-layout-btn active" data-layout="icon-left" type="button">Icon left</button>
-                            <button class="oi-layout-btn" data-layout="icon-right" type="button">Icon right</button>
-                        </div>
-                        <span class="oi-updated"><i class="fa-regular fa-clock"></i> <span id="openItemsUpdated">Updated just now</span></span>
-                        <button class="oi-refresh" id="openItemsRefresh" aria-label="Refresh counts" title="Refresh counts"><i class="fa-solid fa-arrows-rotate"></i></button>
-                        <span class="module-drag" title="Drag to reorder"><i class="fa-solid fa-grip-lines"></i></span>
-                    </div>
-                </div>
-                <div class="oi-body" id="openItemsBody">
-                    <!-- Tiles injected by JS from OPEN_ITEM_TYPES -->
-                </div>
             </div>
 
             <!-- ── Recommended Actions Module (top-level, no AI branding) ── -->
@@ -862,6 +857,37 @@
                     </div>
                 </div>
                 <div class="module-foot-link"><a href="#">View All (5)</a></div>
+            </div>
+
+            <!-- Review-only controls, not part of the design. -->
+            <div class="oi-review">
+                <span class="oi-review-label">Review only</span>
+                <div class="oi-seg" role="group" aria-label="Modules in scope">
+                    <button class="oi-seg-btn" data-count="2" type="button">2 items</button>
+                    <button class="oi-seg-btn" data-count="3" type="button">3 items</button>
+                    <button class="oi-seg-btn active" data-count="4" type="button">4 items</button>
+                </div>
+                <div class="oi-seg" role="group" aria-label="Card background">
+                    <button class="oi-seg-btn active" data-cardbg="shaded" type="button">Shaded cards</button>
+                    <button class="oi-seg-btn" data-cardbg="white" type="button">White cards</button>
+                </div>
+            </div>
+            <!-- ── My Open Items Module (EHS-22823) ──
+                 Half-width module. Tiles are rendered by JS from OPEN_ITEM_TYPES so
+                 the scope check (permission + archived), the count and the
+                 summary-page click-through come from one place. -->
+            <div class="module module-half" id="openItemsModule">
+                <div class="module-header">
+                    <span class="module-title">My Open Items <span id="openItemsTotal">(0)</span></span>
+                    <div class="oi-actions">
+                        <span class="oi-updated"><i class="fa-regular fa-clock"></i> <span id="openItemsUpdated">Updated just now</span></span>
+                        <button class="oi-refresh" id="openItemsRefresh" aria-label="Refresh counts" title="Refresh counts"><i class="fa-solid fa-arrows-rotate"></i></button>
+                        <span class="module-drag" title="Drag to reorder"><i class="fa-solid fa-grip-lines"></i></span>
+                    </div>
+                </div>
+                <div class="oi-body" id="openItemsBody">
+                    <!-- Tiles injected by JS from OPEN_ITEM_TYPES -->
+                </div>
             </div>
 
             <!-- Compliance Calendar Module -->
@@ -1146,6 +1172,7 @@ function renderNav(items) {
 function buildLink(item) {
     const a = document.createElement('a');
     a.href = '#';
+    a.dataset.navId = item.id;
     a.className = 'sb-item' + (item.active ? ' active' : '');
     a.innerHTML = `<span class="sb-icon"><i class="${item.fa}"></i></span><span class="sb-text">${item.text}</span>`;
     return a;
@@ -1154,6 +1181,7 @@ function buildLink(item) {
 function buildChildLink(item) {
     const a = document.createElement('a');
     a.href = '#';
+    a.dataset.navId = item.id;
     a.className = 'sb-child' + (item.active ? ' active' : '');
     a.innerHTML = `<span class="sb-icon"><i class="${item.fa}"></i></span><span class="sb-text">${item.text}</span>`;
     return a;
@@ -1335,84 +1363,76 @@ initRecommendations();
 
 // ─── My Open Items: scope + assignment + open-status rules (EHS-22823) ───────
 // One entry per record type the widget can show. Each type carries ITS OWN
-// assignment rule and open-status definition (REQ-2.1 / REQ-3.1), and its
-// click-through href encodes exactly those same two filters (REQ-5.1 / 5.2),
-// so the list a user lands on always matches the count they clicked.
+// assignment rule and open-status definition (REQ-2.1 / REQ-3.1). Clicking a
+// tile launches that module's SUMMARY page (`summaryPage`, `href`); the href
+// encodes exactly the two filters the count was built from (REQ-5.1 / 5.2), so
+// the list a user lands on always matches the number they clicked.
 // `hasAccess` (any permission level) and `archived` (tenant module state) are
 // the scope check from REQ-1.2; both are re-read on every render (page load and
 // Refresh), which is REQ-6.1 in mock form. A zero count still renders
-// (REQ-4.2). `lastMonth` is the same count as of one month ago; it drives
-// the change pill and the "vs. N last month" line (a design addition, not in
-// the ticket). Flip counts and flags below to preview other states.
+// (REQ-4.2). A real user often has only 2 or 3 of these modules; the review
+// strip's items toggle flips `hasAccess` on the first N types so every case can
+// be previewed. All four ship in scope by default.
 const OPEN_ITEM_TYPES = [
     {
         id: 'incidents', label: 'Incidents', tone: 'incident', icon: 'fa-triangle-exclamation',
         assignRule: 'Prepared by you', openRule: 'Not closed',
-        count: 4, lastMonth: 3, hasAccess: true, archived: false,
-        href: '#incidents?preparer=me&status=not-closed',
+        count: 4, hasAccess: true, archived: false,
+        summaryPage: 'Incidents Summary', navId: 'incidents',
+        href: '#incidents-summary?preparer=me&status=not-closed',
     },
     {
         id: 'claims', label: 'Claims', tone: 'claim', icon: 'fa-file-invoice-dollar',
         assignRule: 'Completed by you', openRule: 'Status is Open',
-        count: 0, lastMonth: 1, hasAccess: true, archived: false,
+        count: 0, hasAccess: true, archived: false,
         // Legacy had no Claims destination (REQ-5.3). Assumed target here: the
-        // Claims list filtered to completed-by = me and status = Open. Confirm
-        // with product before dev picks this up.
-        href: '#claims?completed-by=me&status=open',
+        // Claims summary filtered to completed-by = me and status = Open.
+        // Confirm with product before dev picks this up.
+        summaryPage: 'Claims Summary', navId: 'claims',
+        href: '#claims-summary?completed-by=me&status=open',
     },
     {
         id: 'inspections', label: 'Inspections', tone: 'inspection', icon: 'fa-clipboard-list',
         assignRule: 'Audited by you', openRule: 'Not closed',
-        count: 2, lastMonth: 2, hasAccess: true, archived: false,
-        href: '#inspections?auditor=me&status=not-closed',
+        count: 2, hasAccess: true, archived: false,
+        summaryPage: 'Inspections Summary', navId: 'inspect-summary',
+        href: '#inspections-summary?auditor=me&status=not-closed',
     },
     {
         id: 'corrective-actions', label: 'Corrective Actions', tone: 'corrective', icon: 'fa-circle-check',
         assignRule: 'Managed by you', openRule: 'Not closed',
-        count: 5, lastMonth: 7, hasAccess: true, archived: false,
-        href: '#corrective-actions?manager=me&status=not-closed',
+        count: 5, hasAccess: true, archived: false,
+        summaryPage: 'Corrective Actions Summary', navId: 'corrective',
+        href: '#corrective-actions-summary?manager=me&status=not-closed',
     },
 ];
 
-// Month-over-month change for the pill. Fewer open items is the good
-// direction, so an increase is tinted "worse" and a decrease "better".
-function describeChange(type) {
-    const diff = type.count - type.lastMonth;
-    const dir  = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
-    let text;
-    if (type.lastMonth === 0) {
-        text = diff === 0 ? '0%' : `+${diff}`;          // no baseline to divide by
-    } else {
-        text = `${Math.round(Math.abs(diff) / type.lastMonth * 100)}%`;
-    }
-    return {
-        text,
-        tone: dir === 'up' ? 'is-worse' : dir === 'down' ? 'is-better' : 'is-flat',
-        // Diagonal trend arrows (Pro) read more current than solid carets;
-        // a flat month gets a horizontal arrow rather than a dash.
-        icon: dir === 'up' ? 'fa-arrow-up-right' : dir === 'down' ? 'fa-arrow-down-right' : 'fa-arrow-right',
-        label: dir === 'flat' ? 'No change vs. last month' : `${dir === 'up' ? 'Up' : 'Down'} ${text} vs. last month`,
-    };
-}
-
 function buildOpenItemTile(type) {
     const tile = document.createElement('a');
-    tile.className = 'oi-tile' + (type.count === 0 ? ' is-zero' : '');
+    tile.className = `oi-tile oi-t-${type.tone}`;
     tile.href = type.href;
-    tile.title = `${type.assignRule} · ${type.openRule}`;   // the rule behind the count
-    const change = describeChange(type);
+    tile.title = `Opens ${type.summaryPage} · ${type.assignRule} · ${type.openRule}`;
     tile.innerHTML = `
         <span class="oi-tile-top">
-            <span class="oi-icon oi-${type.tone}"><i class="fa-solid ${type.icon}"></i></span>
+            <span class="oi-icon"><i class="fa-regular ${type.icon}"></i></span>
             <span class="oi-label">${type.label}</span>
         </span>
-        <span class="oi-value-row">
-            <span class="oi-count">${type.count.toLocaleString()}</span>
-            <span class="oi-delta ${change.tone}" title="${change.label}"><i class="fa-solid ${change.icon}"></i> ${change.text}</span>
-        </span>
-        <span class="oi-compare">vs. ${type.lastMonth.toLocaleString()} last month</span>
+        <span class="oi-count">${type.count.toLocaleString()}</span>
     `;
+    tile.addEventListener('click', () => launchSummaryPage(type));
     return tile;
+}
+
+// Mock stand-in for navigating to the module's summary page: the URL hash takes
+// the destination + filters (from the href), and the sidebar highlights the page
+// the user would land on. In the product this is a real route change.
+function launchSummaryPage(type) {
+    document.querySelectorAll('.sb-item.active, .sb-child.active').forEach(el => el.classList.remove('active'));
+    const target = document.querySelector(`[data-nav-id="${type.navId}"]`);
+    if (target) {
+        target.classList.add('active');
+        target.scrollIntoView({ block: 'nearest' });
+    }
 }
 
 function renderOpenItems() {
@@ -1428,6 +1448,8 @@ function renderOpenItems() {
         return;
     }
     module.hidden = false;
+    // One row for up to 3 types; 4 wraps to a 2x2 so tiles stay readable at half width.
+    body.style.gridTemplateColumns = `repeat(${visible.length <= 3 ? visible.length : 2}, minmax(0, 1fr))`;
     visible.forEach(t => body.appendChild(buildOpenItemTile(t)));
     const total = visible.reduce((sum, t) => sum + t.count, 0);
     document.getElementById('openItemsTotal').textContent = `(${total})`;
@@ -1444,29 +1466,51 @@ document.getElementById('openItemsRefresh').addEventListener('click', (e) => {
     renderOpenItems();
 });
 
-renderOpenItems();
+// ─── My Open Items: review-only toggles ─────────────────────────────────────
+// Two review controls, both persisted per browser so a reviewer keeps their
+// view across reloads:
+//   count   - how many modules the user has in scope (2, 3 or 4), which flips
+//             `hasAccess` on the first N types and re-renders
+//   cardbg  - card background, "shaded" (light wash) or "white"
+// The tile header layout is settled (icon left), so its picker is gone.
+// Delete this block, the .oi-review markup and its CSS once both are settled.
+const OI_COUNT_KEY  = 'ehs-home-open-items-count';
+const OI_CARDBG_KEY = 'ehs-home-open-items-cardbg';
 
-// ─── My Open Items: tile layout toggle (review only) ─────────────────────────
-// Two header layouts for the tiles, "icon-left" and "icon-right". The choice
-// is kept per browser so reviewers can compare without re-clicking on every
-// load. Delete this block and .oi-layout-toggle once a layout is chosen.
-const OI_LAYOUT_KEY = 'ehs-home-open-items-layout';
-
-function setOpenItemsLayout(layout) {
-    document.getElementById('openItemsBody').dataset.layout = layout;
-    document.querySelectorAll('.oi-layout-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.layout === layout);
+function setOpenItemsCount(n) {
+    OPEN_ITEM_TYPES.forEach((type, i) => { type.hasAccess = i < n; });
+    document.querySelectorAll('.oi-seg-btn[data-count]').forEach(btn => {
+        btn.classList.toggle('active', Number(btn.dataset.count) === n);
     });
-    try { localStorage.setItem(OI_LAYOUT_KEY, layout); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem(OI_COUNT_KEY, String(n)); } catch (e) { /* storage unavailable */ }
+    renderOpenItems();
 }
 
-document.querySelectorAll('.oi-layout-btn').forEach(btn => {
-    btn.addEventListener('click', () => setOpenItemsLayout(btn.dataset.layout));
+// The attribute lives on #openItemsBody, which renderOpenItems() refills rather
+// than replaces, so the choice survives a re-render and a refresh.
+function setOpenItemsCardBg(value) {
+    document.getElementById('openItemsBody').dataset.cardbg = value;
+    document.querySelectorAll('.oi-seg-btn[data-cardbg]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.cardbg === value);
+    });
+    try { localStorage.setItem(OI_CARDBG_KEY, value); } catch (e) { /* storage unavailable */ }
+}
+
+document.querySelectorAll('.oi-seg-btn[data-count]').forEach(btn => {
+    btn.addEventListener('click', () => setOpenItemsCount(Number(btn.dataset.count)));
+});
+document.querySelectorAll('.oi-seg-btn[data-cardbg]').forEach(btn => {
+    btn.addEventListener('click', () => setOpenItemsCardBg(btn.dataset.cardbg));
 });
 
-let oiInitialLayout = 'icon-left';
-try { oiInitialLayout = localStorage.getItem(OI_LAYOUT_KEY) || 'icon-left'; } catch (e) { /* storage unavailable */ }
-setOpenItemsLayout(oiInitialLayout);
+let oiInitialCount  = OPEN_ITEM_TYPES.length;   // all four in scope by default
+let oiInitialCardBg = 'shaded';
+try {
+    oiInitialCount  = Number(localStorage.getItem(OI_COUNT_KEY)) || oiInitialCount;
+    oiInitialCardBg = localStorage.getItem(OI_CARDBG_KEY) || oiInitialCardBg;
+} catch (e) { /* storage unavailable */ }
+setOpenItemsCount(oiInitialCount);
+setOpenItemsCardBg(oiInitialCardBg);
 
 // ─── Module tabs (toggle active state within their parent .module-tabs) ──────
 document.querySelectorAll('.module-tabs').forEach(group => {

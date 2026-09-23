@@ -141,6 +141,13 @@
     .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
     /* Standard buttons (shared dialog styling) */
     .btn { font-family:inherit; font-size:13px; font-weight:600; border-radius:7px; padding:9px 15px; cursor:pointer; border:1px solid transparent; display:inline-flex; align-items:center; gap:7px; transition:background .12s,border-color .12s,color .12s; }
+    /* Read-only banner shown when the page is opened from a "View details" row */
+    .ro-note { display:flex; align-items:center; gap:10px; margin:0 0 14px; padding:11px 14px; border:1px solid #dbe6f5; border-left:3px solid var(--vblue); background:#f2f7fd; border-radius:8px; font-size:12.5px; color:#374151; line-height:1.5; }
+    .ro-note > i { color:var(--vblue); font-size:14px; flex-shrink:0; }
+    .ro-note > div { flex:1; min-width:0; }
+    .ro-note strong { color:#1a1a2e; }
+    .ro-note-btn { flex-shrink:0; border:1px solid var(--vblue); background:#fff; color:var(--vblue); border-radius:7px; padding:6px 13px; font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+    .ro-note-btn:hover { background:var(--vblue); color:#fff; }
     .btn-primary { background:var(--vblue); color:#fff; }
     .btn-primary:hover { background:var(--vblue-hover); }
     .btn-secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
@@ -438,7 +445,8 @@
   window.SHELL_CONFIG = {
     active: 'act-activities',
     parent: 'Activities',
-    title:  'Edit Activity',
+    // Opened from a "View details" row (accredited content), the page is read-only
+    title:  new URLSearchParams(location.search).get('mode') === 'view' ? 'View Activity' : 'Edit Activity',
     context: new URLSearchParams(location.search).get('location') || 'UAT Environment'
   };
 </script>
@@ -454,6 +462,10 @@
      edited in Learning Studio, so both CTAs are hidden for every other type. */
   const actIsCbt  = (actType === 'CBT');
   const actLoc    = params.get('location') || 'UAT Environment';
+  /* Read-only view (&mode=view): the same page opened from a "View details" row.
+     Accredited Vector Solutions content is not the org's to change, so every
+     mutating control is dropped and the fields are locked. */
+  const actReadOnly = params.get('mode') === 'view';
 
   /* Three-gear "configure" icon (matches the Activities list chip) */
   const GEAR_D = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
@@ -493,8 +505,48 @@
       document.querySelectorAll('.type-pill').forEach(p => p.textContent = actType);
     }
 
+    if (actReadOnly) applyReadOnly();
+
     setVersion('legacy');   // default to the current layout + set the content background
   });
+
+  /* ── Read-only mode ──
+     Drop the controls that would change the activity (keeping the ones that only
+     look: Preview, and the version toggle), lock every field, and say why up top. */
+  function applyReadOnly(){
+    const MUTATING = /save|delete|cancel|update file|configure|learning studio|recomplete/i;
+    const ADDS = /^add\b|add thumbnail|add attachment|add attribute/i;
+    document.querySelectorAll('#cv-page button, #cv-page vaadin-button').forEach(b => {
+      if (b.closest('.ro-note')) return;                       // the notice's own actions stay
+      const label = (b.textContent || '').trim();
+      if (MUTATING.test(label)) { b.remove(); return; }
+      // "Add thumbnail / attachment / attribute" would change the record too, but the
+      // sections read oddly without them, so they stay visible and inert.
+      if (ADDS.test(label)) { b.disabled = true; b.style.opacity = '.5'; b.style.pointerEvents = 'none'; }
+    });
+    // Lock the fields. Vaadin components take a readonly attribute; plain inputs too.
+    document.querySelectorAll('#cv-page input, #cv-page textarea, #cv-page select').forEach(el => {
+      el.setAttribute('readonly', '');
+      if (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio' || el.type === 'file') el.disabled = true;
+    });
+    document.querySelectorAll('#cv-page [class*="vaadin-"], #cv-page vaadin-text-field, #cv-page vaadin-text-area, #cv-page vaadin-select, #cv-page vaadin-checkbox')
+      .forEach(el => el.setAttribute('readonly', ''));
+    // A banner at the top of each layout version, explaining the state and the way out
+    const note = () => {
+      const d = document.createElement('div');
+      d.className = 'ro-note';
+      d.innerHTML = '<i class="fa-regular fa-eye"></i><div><strong>View only.</strong> ' +
+        'This is accredited ' + esc(actSource) + ' content, so it cannot be edited here. ' +
+        'Duplicate it to create an editable copy of your own.</div>' +
+        '<button class="ro-note-btn" onclick="toast(\'Duplicate (prototype).\')">Duplicate</button>';
+      return d;
+    };
+    ['v-legacy', 'v-modern'].forEach(id => {
+      const v = document.getElementById(id);
+      if (v) v.insertBefore(note(), v.firstChild);
+    });
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   /* ── Version toggle ── */
   function setVersion(v){

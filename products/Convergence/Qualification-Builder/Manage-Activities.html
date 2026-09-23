@@ -481,18 +481,23 @@ ACTS.forEach((a, i) => {
   a.repository = REPO_FOLDERS[i % REPO_FOLDERS.length];   // saved folder location (independent of source/tab)
   a.configurable = isCbt(a);                           // CBT only - see THE RULE above
   a.lsEditable   = isCbt(a);                           // CBT only - see THE RULE above
+  // Accredited Vector Solutions content is not the org's to change: its row opens the
+  // activity page read-only ("View details") instead of the editable version.
+  a.editable     = (a.source !== 'Vector Solutions');
   a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
   a.size        = ACT_SIZES[i % ACT_SIZES.length];
   a.quals       = REQ_TO_QUALS[a.requirement] || [];    // qualifications this activity is part of (via its requirement); drives delete impact
   a.learners    = a.quals.length ? (40 + ((i * 7) % 9) * 55) : 0;   // learners affected if deleted (varies for pagination)
 });
 
-/* Link to the Edit Activity page, passing enough identity for that page to populate + branch the LS dialog. */
+/* Link to the Edit Activity page, passing enough identity for that page to populate + branch the LS dialog.
+   Activities the org cannot edit open the same page in read-only mode (&mode=view). */
 function editActivityHref(a){
   return 'Edit-Activity.html?name=' + encodeURIComponent(a.name) +
          '&source=' + encodeURIComponent(a.source || '') +
          '&type=' + encodeURIComponent(a.type || '') +          // drives THE RULE on the edit page
-         '&location=' + encodeURIComponent(a.location || '');
+         '&location=' + encodeURIComponent(a.location || '') +
+         (a.editable === false ? '&mode=view' : '');
 }
 function nameRenderer(p){
   const a = p.data;
@@ -715,12 +720,18 @@ function actionsRenderer(p){
   const sparkle = p.data.lsEditable
     ? `<button class="row-action-btn" title="Edit in Learning Studio">${sparkleSvg(15)}</button>`
     : '';
+  // Activities the org cannot edit (accredited Vector Solutions content) get an eye
+  // instead of a pencil: same destination, opened read-only.
+  const canEdit = p.data.editable !== false;
+  const openBtn = canEdit
+    ? `<button class="row-action-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>`
+    : `<button class="row-action-btn" title="View details"><i class="fa-regular fa-eye"></i></button>`;
   e.innerHTML =
     `${sparkle}
-     <button class="row-action-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>
+     ${openBtn}
      <button class="row-action-btn" title="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
   const studioBtn = e.querySelector('[title="Edit in Learning Studio"]');
-  const editBtn   = e.querySelector('[title="Edit"]');
+  const editBtn   = e.querySelector(canEdit ? '[title="Edit"]' : '[title="View details"]');
   const moreBtn   = e.querySelector('[title="More actions"]');
   if (studioBtn) studioBtn.addEventListener('click', ev => { ev.stopPropagation(); openLearningStudio(p.data); });
   editBtn.addEventListener('click', () => { window.location.href = editActivityHref(p.data); });
