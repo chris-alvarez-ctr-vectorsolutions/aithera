@@ -930,8 +930,8 @@
       if (hasProgress) {
         return '<div class="cp-row is-current">' + icoMain +
           '<span class="cp-row-state-wrap">' +
-            '<button class="cp-row-state resume" type="button" data-action="resume">Resume</button>' +
             '<button class="cp-row-reset" type="button" data-action="reset" title="Start over" aria-label="Start over"><i class="fa-solid fa-rotate-left"></i></button>' +
+            '<button class="cp-row-state resume" type="button" data-action="resume">Resume</button>' +
           '</span>' +
         '</div>';
       }
