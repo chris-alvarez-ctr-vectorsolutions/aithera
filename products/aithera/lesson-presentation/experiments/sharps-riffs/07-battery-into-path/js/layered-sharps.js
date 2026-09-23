@@ -2430,11 +2430,12 @@
     document.getElementById('adjSaved').textContent =
       'Adapted for you based on your previous answers.';
     // RIFF 07: nothing moved. Same reading beat, then a verdict with no
-    // rows (Riff 03's "Path ready / You're set."); the stack stays empty.
+    // rows (after Riff 03's "Path ready / You're set."); no stack, no
+    // summary line.
     if (!rows.length) {
-      document.getElementById('adjEyebrow').textContent = 'Path ready';
-      document.getElementById('adjHead').textContent = 'You\u2019re set.';
-      document.getElementById('adjSaved').textContent = 'No changes to your path.';
+      document.getElementById('adjEyebrow').textContent = 'Let\u2019s continue';
+      document.getElementById('adjHead').textContent = 'You\u2019re all set.';
+      document.getElementById('adjSaved').hidden = true;
       stack.hidden = true;
     }
 
