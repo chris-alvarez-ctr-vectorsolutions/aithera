@@ -829,13 +829,15 @@
   // sourced. 'sharps' has no fixed mins: its row reads the live
   // pathMinutes() below like the old rail card did, so it can't drift from
   // the syllabus it's actually describing.
+  // Names + minutes updated 2026-09-23 to match the live module (the deck's
+  // six behavioral-outcome modules; stakeholder minutes). Otherwise frozen.
   var COURSE_MODULES = [
-    { name: 'Understanding Bloodborne Pathogens', icon: 'fa-virus', mins: 15, state: 'done' },
-    { name: 'Universal Precautions', icon: 'fa-shield-halved', mins: 20, state: 'done' },
-    { name: 'Personal Protective Equipment', icon: 'fa-mask-face', mins: 18, state: 'done' },
-    { name: 'Contain the Sharp', icon: 'fa-syringe', current: true },
-    { name: 'Spill Response & Decontamination', icon: 'fa-spray-can-sparkles', mins: 12, state: 'locked' },
-    { name: 'Exposure Incidents & Reporting', icon: 'fa-file-medical', mins: 10, state: 'locked' }
+    { name: 'Know the Risk', icon: 'fa-virus', mins: 11, state: 'done' },
+    { name: 'Barrier First', icon: 'fa-shield-halved', mins: 10, state: 'done' },
+    { name: 'Control the Hazard', icon: 'fa-sitemap', mins: 11, state: 'done' },
+    { name: 'Contain the Sharp', icon: 'fa-syringe', mins: 10, current: true },
+    { name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked' },
+    { name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked' }
   ];
   function INTRO_CONTENT() { var L = lens(); return '' +
     '<main class="ll-object">' +
@@ -846,9 +848,8 @@
             '<h1>Bloodborne Pathogens</h1>' +
             '<p class="cp-desc">This course covers what OSHA’s Bloodborne Pathogens Standard (29 CFR ' +
               '1910.1030) requires of anyone who could contact blood or other potentially infectious ' +
-              'materials on the job — recognizing exposure risks, applying universal precautions, using ' +
-              'personal protective equipment correctly, and handling sharps, spills, and exposure incidents ' +
-              'safely.</p>' +
+              'materials on the job — knowing the risk, putting a barrier first, controlling the hazard, ' +
+              'containing sharps, using protective equipment correctly, and acting on an exposure.</p>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
@@ -941,7 +942,7 @@
       // possible action, so the whole row can safely be that action.
       var icoMain = '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
         '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
-          '<span class="cp-row-meta"><span>About ' + mins.full + ' min' + (mins.full > 1 ? 's' : '') + '</span></span></span>';
+          '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span></span></span>';
       if (hasProgress) {
         return '<div class="cp-row is-current">' + icoMain +
           '<span class="cp-row-state-wrap">' +

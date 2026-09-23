@@ -234,7 +234,7 @@
       }
     },
     aec: {
-      label: 'Commercial AEC', premise: 'find',
+      label: 'AEC', premise: 'find',
       sharps: 'Syringes left in wall cavities and voids. Broken glass and glazing offcuts. Utility blades.',
       facility: {
         gloves: 'Issue cut-resistant gloves to every labourer on demolition and clear-out',
@@ -388,7 +388,7 @@
     // content for this sector would need its own source material the same way
     // this did — not invented to fill the old label.
     public: {
-      label: 'Public Sector', premise: 'find',
+      label: 'Law Enforcement', premise: 'find',
       sharps: 'Needles and syringes recovered from a subject’s property during a search or booking. Anything sharp left where the last person didn’t secure it — a cell, an evidence locker, the back seat of a patrol vehicle.',
       facility: {
         gloves: 'Issue puncture-resistant gloves to every officer for property searches and booking intake',
@@ -800,18 +800,19 @@
   // has a job, just not here: it belongs AFTER the battery has actually run,
   // where "here's what came out of your path" is true. That screen doesn't
   // exist yet.
-  // Every entry but 'sharps' is a stand-in — there's no real syllabus behind
-  // the other five yet, so their names and minutes are illustrative, not
-  // sourced. 'sharps' has no fixed mins: its row reads the live
-  // pathMinutes() below like the old rail card did, so it can't drift from
-  // the syllabus it's actually describing.
+  // Names (2026-09-23): the six behavioral-outcome modules from the ideal
+  // prototype deck's recomposition slide (BO-1 to BO-6), matching
+  // clara/bloodborne.html. Minutes (2026-09-23, stakeholder feedback): fixed per module, roughly
+  // proportional to each module's LO count in the source material. They
+  // sum to 59, down from the ~92 the old illustrative numbers added up to. Sharps shows its
+  // fixed 10 too, not the live pathMinutes() total.
   var COURSE_MODULES = [
-    { name: 'Understanding Bloodborne Pathogens', icon: 'fa-virus', mins: 15, state: 'done' },
-    { name: 'Universal Precautions', icon: 'fa-shield-halved', mins: 20, state: 'done' },
-    { name: 'Personal Protective Equipment', icon: 'fa-mask-face', mins: 18, state: 'done' },
-    { name: 'Contain the Sharp', icon: 'fa-syringe', current: true },
-    { name: 'Spill Response & Decontamination', icon: 'fa-spray-can-sparkles', mins: 12, state: 'locked' },
-    { name: 'Exposure Incidents & Reporting', icon: 'fa-file-medical', mins: 10, state: 'locked' }
+    { name: 'Know the Risk', icon: 'fa-virus', mins: 11, state: 'done' },
+    { name: 'Barrier First', icon: 'fa-shield-halved', mins: 10, state: 'done' },
+    { name: 'Control the Hazard', icon: 'fa-sitemap', mins: 11, state: 'done' },
+    { name: 'Contain the Sharp', icon: 'fa-syringe', mins: 10, current: true },
+    { name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked' },
+    { name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked' }
   ];
   function INTRO_CONTENT() { var L = lens(); return '' +
     '<main class="ll-object">' +
@@ -822,9 +823,8 @@
             '<h1>Bloodborne Pathogens</h1>' +
             '<p class="cp-desc">This course covers what OSHA’s Bloodborne Pathogens Standard (29 CFR ' +
               '1910.1030) requires of anyone who could contact blood or other potentially infectious ' +
-              'materials on the job — recognizing exposure risks, applying universal precautions, using ' +
-              'personal protective equipment correctly, and handling sharps, spills, and exposure incidents ' +
-              'safely.</p>' +
+              'materials on the job — knowing the risk, putting a barrier first, controlling the hazard, ' +
+              'containing sharps, using protective equipment correctly, and acting on an exposure.</p>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
@@ -893,7 +893,6 @@
     var last = LE.lastStepId();
     var hasProgress = !!(last && last !== 'intro' && LE.stepById(last));
 
-    var mins = pathMinutes();
 
     document.getElementById('cpRows').innerHTML = COURSE_MODULES.map(function (m) {
       if (!m.current) {
@@ -911,7 +910,7 @@
       // possible action, so the whole row can safely be that action.
       var icoMain = '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
         '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
-          '<span class="cp-row-meta"><span>About ' + mins.full + ' min' + (mins.full > 1 ? 's' : '') + '</span></span></span>';
+          '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span></span></span>';
       if (hasProgress) {
         return '<div class="cp-row is-current">' + icoMain +
           '<span class="cp-row-state-wrap">' +
@@ -5578,8 +5577,8 @@
     var art = sceneArt();
     return '<main class="ll-object dk-object"><div class="dk-theater">' +
       '<header class="dk-head"><div class="dk-head-t">' +
-        '<p class="ll-eyebrow">The simulation</p>' +
-        '<h1 class="dk-title">The hands-on final scene</h1>' +
+        '<p class="ll-eyebrow">Interactive scenario</p>' +
+        '<h1 class="dk-title">A sharp decision</h1>' +
       '</div>' +
       (art.placeholder ? '<span class="sc-ph"><i class="fa-solid fa-image" aria-hidden="true"></i> Placeholder scene</span>' : '') +
       '</header>' +
@@ -5893,7 +5892,7 @@
     deckStep('debriefrf', { adaptive: true, when: function () { return feelLow('f3'); },
       caption: { title: 'LEARN · Debrief, reinforced (F3) — deck slides 21 + 22', note: 'Served INSTEAD of the base debrief when the pre-check F3 statement was answered 1–3. The norm correction given more room. Same F3 re-ask over it (slide 22).' } }),
 
-    { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'The hands-on final scene', mode: 'floating', gate: true,
+    { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'A sharp decision', mode: 'floating', gate: true,
       when: function () { return !sceneSimulatorOn(); },
       caption: { title: 'PERFORM · The simulation, in the module — deck slides 23–27', note: 'Runs for every learner. Four moments on one first-person still (the "A Critical Choice" riff\u2019s binocular view), the coach setting each in the deck\u2019s own words and the learner answering typed or spoken. Beat 1 (D1) scores WHETHER they act — now / later / set it down — and is kept separate from the rubric on purpose, per the rubric slide. Beat 2 (D2) is rated by the live model on the four rubric criteria (Timing, Technique, Route, Recovery), quoting the learner\u2019s own words as evidence. Beat 3 adapts: doing well → the full-container complication (the Recovery test); struggling (set it down, or any of the first three missed) → a model-written correction inside the scene, not a do-over. Beat 4 is sentiment only — saved, never scored, never routes. Ends on the rubric over the scene. Demo → "Full scenario simulator" swaps this for the previous hand-off to the conversation simulator. Public Sector runs on a PLACEHOLDER still until the produced image lands.' },
       content: SCENE_CONTENT, init: sceneInit },
