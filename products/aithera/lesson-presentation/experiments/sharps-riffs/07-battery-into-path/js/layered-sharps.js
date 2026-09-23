@@ -1927,7 +1927,8 @@
     // skip the questions and show what it does to the path.
     if (revealNow) {
       revealNow = false;
-      if (adjustMoved()) { reveal(true); return; }
+      reveal(true);
+      return;
     }
 
     render(0);
@@ -2290,13 +2291,11 @@
       // statements are compared against after case 3 and the debrief.
       stepEl.textContent = 'Quick questions: all ' + BATTERY.length + ' done';
       saveResult('battery', res);
-      // RIFF 07: when the answers moved something, the last card drops off
-      // and the path summary comes up behind it on this same page. When they
-      // moved nothing there's no news to show (the production screen drops
-      // out of the path for the same reason), so this stays exactly as it
-      // was: the answered card, and Continue.
-      if (adjustMoved()) reveal(false);
-      else ctx.enableNext();
+      // RIFF 07: the last card drops off and the path summary comes up
+      // behind it on this same page. When the answers moved nothing, the
+      // summary resolves to a "you're set" verdict with no rows (the pattern
+      // from Riff 03) instead of leaving the answered card on screen.
+      reveal(false);
     }
 
     // RIFF 07 — the merge. Two moves, one page:
@@ -2319,6 +2318,13 @@
         carousel.hidden = true;
         adj.hidden = false;
         ctx.stage.dataset.mode = 'crown';
+        // The engine has no teardown hook, and the empty state never clears
+        // the reading class on its own — drop both on the way out.
+        [ctx.els.next, ctx.els.back].forEach(function (b) {
+          if (b) b.addEventListener('click', function () {
+            ctx.stage.classList.remove('is-adj-reading', 'is-adj-empty');
+          }, { once: true, capture: true });
+        });
         ctx.chrome.className = 'clara-chrome clara-chrome--crown';
         ctx.chrome.innerHTML = '<div class="clara-slot"></div>';
         ctx.orb.style.display = '';
@@ -2328,7 +2334,7 @@
         ctx.orb.classList.add('is-orb-in');
         setTimeout(function () { ctx.orb.classList.remove('is-orb-in'); }, 700);
         var fl = document.querySelector('.vt-frame .vt-lesson');
-        if (fl) fl.textContent = 'Your Updated Path';
+        if (fl) fl.textContent = adjustMoved() ? 'Your Updated Path' : 'Your Path';
       }, immediate ? 0 : T(300));
     }
   }
@@ -2423,6 +2429,14 @@
     document.getElementById('adjHead').textContent = 'Here\u2019s what\u2019s next.';
     document.getElementById('adjSaved').textContent =
       'Adapted for you based on your previous answers.';
+    // RIFF 07: nothing moved. Same reading beat, then a verdict with no
+    // rows (Riff 03's "Path ready / You're set."); the stack stays empty.
+    if (!rows.length) {
+      document.getElementById('adjEyebrow').textContent = 'Path ready';
+      document.getElementById('adjHead').textContent = 'You\u2019re set.';
+      document.getElementById('adjSaved').textContent = 'No changes to your path.';
+      stack.hidden = true;
+    }
 
     // A row is a label and a verdict. The per-row reasons are gone: four of
     // them repeated in small grey text is most of what made this page feel
@@ -2438,8 +2452,16 @@
 
     // ---- Phase 2: the orb drops in, the stack resolves one row at a time ----
     setTimeout(function () {
-      stageEl.classList.remove('is-adj-reading');
-      ctx.positionOrb(true);
+      // RIFF 07: with no rows there's nothing to make room for, so the orb
+      // stays where it read the answers (mid-stage) and the verdict simply
+      // replaces the "Reading…" line under it. is-adj-empty swaps the two;
+      // both classes come off when the learner leaves (see reveal()).
+      if (rows.length) {
+        stageEl.classList.remove('is-adj-reading');
+        ctx.positionOrb(true);
+      } else {
+        stageEl.classList.add('is-adj-empty');
+      }
       rows.forEach(function (r, i) {
         setTimeout(function () {
           // Guarded: this chain runs for ~2.5s and nothing cancels it on
@@ -6000,8 +6022,8 @@
   // which removes the screen itself — advancing IS the demonstration then.
   function adjustReplay(api) {
     // RIFF 07: on the battery screen (which now holds the path summary), a
-    // forced result that moves something replays straight into the reveal.
-    if (api.step && api.step.id === 'battery' && adjustMoved()) {
+    // forced result replays straight into the reveal, changed or not.
+    if (api.step && api.step.id === 'battery') {
       revealNow = true;
       api.replay();
       return;
