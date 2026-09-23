@@ -49,8 +49,12 @@
     pointer-events:none; z-index:2;
   }
 
+  /* Text sits ABOVE the confetti layer (was below it, z-index 1 < 2) — the
+     first pass let particles fly directly over the headline, which is what
+     read as "too intense" as much as the sheer count did. Confetti now
+     frames the reward instead of covering it, no matter how dense it gets. */
   .stage-inner{
-    position:absolute; inset:0; z-index:1;
+    position:absolute; inset:0; z-index:3;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     padding:24px; text-align:center;
   }
@@ -218,37 +222,41 @@
       window.addEventListener('resize', resize);
 
       var COLORS = ['#2ee6cf', '#5aa9f6', '#f1b34a', '#c4b5fd', '#ff8fa8', '#ffffff'];
-      var DURATION = 3400;
-      var GRAVITY = 0.34;
-      var DRAG = 0.992;
+      var DURATION = 2500;
+      var GRAVITY = 0.4;
+      var DRAG = 0.985;
       var w = canvas.clientWidth, h = canvas.clientHeight;
 
-      // A fixed particle count read as sparse once this ran full-bleed on a
-      // real monitor instead of a small preview frame — scale density to the
-      // viewport instead, clamped so it never gets absurd on an ultrawide.
-      var perCorner = Math.max(110, Math.min(260, Math.round(w / 7)));
+      // The previous pass over-corrected for "underwhelming" — a wide 72° max
+      // spread meant plenty of particles flew nearly horizontally, sheeting
+      // all the way across the stage and right over the headline, and the
+      // width-scaled count (up to 260/corner) turned that sheet solid on a
+      // real monitor. Text now sits above this canvas regardless (see
+      // .stage-inner), but a full-screen blizzard was still the wrong scale
+      // for a one-line reward — this keeps it to two modest fountains that
+      // stay mostly on their own side and clear the stage quickly.
+      var perCorner = Math.max(30, Math.min(60, Math.round(w / 22)));
 
-      // Two party-popper cannons, firing from just inside the bottom corners
-      // (not the literal edge) so more of the arc crosses the headline in the
-      // middle instead of piling up off to the sides. dir flips which way a
-      // corner's cone leans: the left corner arcs right, the right corner
-      // arcs left, so the two bursts cross rather than mirror past each other.
-      // ~30% of each burst is a longer "streamer" strip mixed in with the
-      // small dots/squares — that mix of scales is most of what reads as a
-      // real confetti pop rather than a sprinkle of confetti dust.
+      // Two party-popper cannons, firing from just inside the bottom corners.
+      // dir flips which way a corner's cone leans: the left corner arcs
+      // right, the right corner arcs left, so the two bursts cross near the
+      // middle without either one sweeping the full width on its own. ~25%
+      // of each burst is a longer "streamer" strip mixed in with the small
+      // dots/squares — that mix of scales is most of what reads as a real
+      // confetti pop rather than a sprinkle of dust.
       function makeBurst(originX, dir) {
         var out = [];
         for (var i = 0; i < perCorner; i++) {
-          var speed = 17 + Math.random() * 17;
-          var spreadDeg = 14 + Math.random() * 58;            // 14°–72° off straight up
+          var speed = 13 + Math.random() * 13;
+          var spreadDeg = 14 + Math.random() * 34;            // 14°–48° off straight up (was up to 72° — too flat/horizontal)
           var rad = (90 - spreadDeg) * Math.PI / 180;          // → angle from horizontal
-          var streamer = Math.random() < 0.3;
+          var streamer = Math.random() < 0.25;
           out.push({
             x: originX,
             y: h,
             vx: dir * Math.cos(rad) * speed,
             vy: -Math.sin(rad) * speed,
-            size: streamer ? 11 + Math.random() * 11 : 5 + Math.random() * 7,
+            size: streamer ? 9 + Math.random() * 8 : 4 + Math.random() * 5,
             streamer: streamer,
             rot: Math.random() * Math.PI * 2,
             vr: (Math.random() - 0.5) * 0.4,
