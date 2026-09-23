@@ -89,6 +89,12 @@ screen), V4 (new tab), V5 (stays in the modal).
 - **Consolidated to ONE all-or-nothing switch.** The two toggles were collapsed
   into a single **"Make this file the complete roster"** switch (on = deactivate
   missing users + end-date absent jobs; off = add/update only).
+- **(2026-09-23) Plain-language copy pass.** Import-settings microcopy reworded:
+  heading "What happens to people and jobs that aren’t in this file?", an On/Off
+  labeled contrast under the toggle, a three-bullet "With this on" box, and a
+  "This can’t be undone" permanence note. "end-dated" → "ended" throughout this
+  screen (help-tooltip copy on the Review step is unchanged). Copy-only — no logic,
+  layout, or the single-toggle behavior changed.
 - **(2026-09-23) Right-side preview removed; page condensed.** The itemized "What
   would change on your site" preview (deactivated-users list, end-dated-jobs list,
   the Maya-Torres per-user example) was removed from the Import-settings step and
