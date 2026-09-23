@@ -719,9 +719,8 @@
       // queued used to inherit the previous screen's dot and promise a line it
       // did not have — which is exactly the screens that were made silent.
       delete stage.dataset.unread;
-      // noCoach: a screen CLARA has no business being on yet — sharps' entry
-      // battery, run BEFORE the cover in "Battery before" mode, is the first
-      // case (see layered-sharps.js). Not the same as a silent coach.say —
+      // noCoach: a screen CLARA has no business being on — sharps' entry
+      // battery, a rapid one-click stack, is the case (see layered-sharps.js). Not the same as a silent coach.say —
       // that still docks the orb and renders empty chrome; this skips both.
       if (step.noCoach) {
         clearHint();

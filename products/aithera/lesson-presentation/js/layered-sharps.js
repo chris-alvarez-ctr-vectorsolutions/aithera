@@ -554,15 +554,6 @@
   function savedName() {
     try { return (sessionStorage.getItem('sh-name') || '').trim().slice(0, 40); } catch (e) { return ''; }
   }
-  // Entry sequencing: whether the pre-check battery (and the path-adjustment
-  // screen it can trigger) run BEFORE the module's own cover, or in their
-  // usual place right after it. Off by default — "Battery at start" is
-  // today's order. Read once at STEPS build time (see the reorder right
-  // before LE.register), so flipping it needs a reload to take effect, the
-  // same as every other structural Demo menu control.
-  function batteryOrderBefore() {
-    try { return sessionStorage.getItem('sh-battery-order') === 'before'; } catch (e) { return false; }
-  }
   // ==========================================================================
   //  REINFORCEMENT — one extra question laid OVER the content that motivates
   //  it, instead of stacked underneath it.
@@ -894,19 +885,13 @@
     var course = readCourse();
 
     // D11: resumable progress now lives on the Sharps row itself (see the
-    // "resume" state below) instead of a banner above the page. Battery-
-    // before mode runs battery/adjust BEFORE this cover, so on the very
-    // FIRST pass through the module `last` is already one of them by the
-    // time we get here — that's this run continuing forward, not somebody
-    // returning after having left. Only a real return visit (anything past
-    // the cover, in the normal course content) counts as progress worth
-    // resuming. LE.goTo refuses a step the current path no longer contains
+    // "resume" state below) instead of a banner above the page. Anything
+    // past the cover counts as progress worth resuming. LE.goTo refuses a step the current path no longer contains
     // (a when()-excluded remediation, say), which here just means Resume
     // quietly does nothing rather than stranding anyone; Start over always
     // works regardless.
     var last = LE.lastStepId();
-    var justArrived = batteryOrderBefore() && (last === 'battery' || last === 'adjust');
-    var hasProgress = !!(last && last !== 'intro' && !justArrived && LE.stepById(last));
+    var hasProgress = !!(last && last !== 'intro' && LE.stepById(last));
 
     var mins = pathMinutes();
 
@@ -5370,63 +5355,6 @@
   }
 
   // ==========================================================================
-  //  BATTERY-BEFORE ONLY: two screens ahead of the pre-check. Neither is a
-  //  real learner-facing beat outside the Demo menu's "Battery before"
-  //  toggle — spliced onto the front of STEPS below, never part of the
-  //  base array. See batteryOrderBefore() and the splice near the bottom.
-  //
-  //  PRIORMOD sells the premise: the pre-check has to feel like it is
-  //  running after something, not opening the module cold, so this is a
-  //  stand-in "you just finished Module 3" screen — same course chrome,
-  //  a different (invented) lesson. LOADING then sells the jump into THIS
-  //  module as a real transition rather than a cut, and hands off to
-  //  'battery' on its own after a beat, no click required.
-  // ==========================================================================
-  var PRIORMOD_CONTENT =
-    '<main class="ll-object">' +
-      '<div class="pm-page">' +
-        '<div class="pm-badge"><i class="fa-solid fa-check" aria-hidden="true"></i></div>' +
-        '<p class="ll-eyebrow">Bloodborne Pathogens · Module 3 of 6</p>' +
-        '<h1>Personal Protective Equipment</h1>' +
-        '<p class="pm-sub">Module complete.</p>' +
-        '<div class="pm-stats">' +
-          '<div class="pm-stat"><span class="pm-stat-val">100%</span><span class="pm-stat-lbl">Final check</span></div>' +
-          '<div class="pm-stat"><span class="pm-stat-val">6 min</span><span class="pm-stat-lbl">Time spent</span></div>' +
-        '</div>' +
-      '</div>' +
-    '</main>';
-
-  var LOADING_CONTENT =
-    '<main class="ll-object">' +
-      '<div class="ld-page">' +
-        '<div class="ld-spinner" aria-hidden="true"></div>' +
-        '<p class="ll-eyebrow">Next up: Contain the Sharp</p>' +
-        '<p class="ld-label">Checking what you already know…</p>' +
-      '</div>' +
-    '</main>';
-
-  function batteryLoadingInit(ctx) {
-    // No click required — a load screen a learner has to dismiss isn't
-    // selling a transition, it's just another step. LE.goTo, not ctx.go:
-    // this step has no engine-exposed nav helper of its own, and the id
-    // it names never changes regardless of what runs before it.
-    setTimeout(function () { LE.goTo('battery'); }, T(1400));
-  }
-
-  var PRIORMOD_STEP = {
-    id: 'priorModule', icon: 'fa-clipboard-check', lesson: 'Personal Protective Equipment',
-    mode: 'floating', noCoach: true, interstitial: true,
-    caption: { title: 'DEMO · Simulated prior module', note: 'Battery-before only. A stand-in "Module 3 complete" screen — invented, never authored content — so the pre-check has something believable to follow instead of opening the module cold. Reuses this course’s own chrome rather than looking like a different product.' },
-    content: PRIORMOD_CONTENT
-  };
-  var BATTERYLOADING_STEP = {
-    id: 'batteryLoading', icon: 'fa-spinner', lesson: 'Progress assessment',
-    mode: 'floating', noCoach: true, interstitial: true,
-    caption: { title: 'DEMO · Transition into the pre-check', note: 'Battery-before only. A brief loader between the simulated prior module and the real pre-check; advances itself after a beat (batteryLoadingInit) — nothing for a learner to click through.' },
-    content: LOADING_CONTENT, init: batteryLoadingInit
-  };
-
-  // ==========================================================================
   //  THE SIMULATION (deck slides 23–27, 2026-09-22) — in the module, on the
   //  stage, instead of a hand-off to the full conversation simulator.
   //
@@ -5875,7 +5803,7 @@
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Progress assessment', mode: 'floating', gate: true,
-      // No CLARA on this screen, in either entry-sequencing mode: a rapid-
+      // No CLARA on this screen: a rapid-
       // fire stack of four quick questions has no room for a reaction
       // between one and the next, so it runs as a plain one-click battery
       // instead — select, confirm, next question loads (see batteryInit).
@@ -5982,41 +5910,6 @@
   ];
 
   // ==========================================================================
-  //  Entry sequencing (Demo menu: "Battery timing"). Default order is
-  //  Cover → Pre-check → Updated path → the rest — the array above, as
-  //  authored. "Battery before" moves the cover to AFTER the pre-check and
-  //  its path-adjustment screen instead: Pre-check → Updated path → Cover →
-  //  the rest. Splicing here rather than re-authoring the array keeps one
-  //  source of truth for both orders, and every position-based mechanic in
-  //  the engine (section numbering, back-button disable, the resume banner)
-  //  already reads off the array's actual order rather than fixed ids, so
-  //  moving the cover is enough — nothing else needs to know which mode ran.
-  // ==========================================================================
-  if (batteryOrderBefore()) {
-    var introAt = STEPS.findIndex(function (s) { return s.id === 'intro'; });
-    var introStep = STEPS.splice(introAt, 1)[0];
-    var afterAdjust = STEPS.findIndex(function (s) { return s.id === 'adjust'; }) + 1;
-    STEPS.splice(afterAdjust, 0, introStep);
-
-    // CLARA hasn't been met yet — that's still the cover's job, and the
-    // cover now runs AFTER these two. Battery is noCoach unconditionally
-    // (see its STEPS entry); adjust only needs it here, since in the
-    // default order it follows the cover and CLARA is already around by
-    // then. hideProgress blanks battery's own "Section N of N" + bar, since
-    // there's no course open yet for that count to mean anything (adjust
-    // needs no such flag — interstitial already blanks its footer normally).
-    var bStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'battery'; })];
-    bStep.hideProgress = true;
-    var aStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'adjust'; })];
-    aStep.noCoach = true;
-
-    // The simulated prior module + its loader run BEFORE all of the above —
-    // 'battery' is index 0 at this point, so the front of the array is
-    // exactly where they belong.
-    STEPS.splice(0, 0, PRIORMOD_STEP, BATTERYLOADING_STEP);
-  }
-
-  // ==========================================================================
   //  D11: URL-prefillable launch params — role (sector), name, media (format).
   //  A stamped link (an LMS enrollment, a shared demo link) can hand the
   //  learner a pre-set context without them touching anything on arrival.
@@ -6099,41 +5992,6 @@
       onClick: function (api) {
         try { sessionStorage.setItem('sh-images', imagesOn() ? 'off' : 'on'); } catch (e) {}
         api.replay();
-      }
-    }, {
-      // A one-click switch, not a toggle SWITCH WIDGET — the state pill
-      // names the OTHER order (the one a click lands you on), not an
-      // on/off reading of the current one. Visible on priorModule/
-      // batteryLoading too: those only exist mid-preview, and without this
-      // row reachable there, "Try it" was a one-way door — see item on
-      // 2026-09-22. Reorders the array itself (see the splice right after
-      // STEPS above), so it needs a fresh boot rather than a replay/refresh
-      // — same treatment as Start Over, which is why this reload also
-      // clears the run's progress keys: landing on a re-sequenced path
-      // holding answers recorded under the OLD sequence is the confusing
-      // state to avoid, not the one to build for.
-      id: 'shBatteryOrderBtn', icon: 'fa-arrow-down-up-across-line', name: 'Battery before module',
-      note: 'Preview the pre-check (and the path it can adjust) running before the module’s own cover, instead of in their usual place right after it',
-      visibleOn: function (step) {
-        return step.id === 'intro' || step.id === 'battery' ||
-               step.id === 'priorModule' || step.id === 'batteryLoading';
-      },
-      state: function () { return batteryOrderBefore() ? 'Battery inside module' : 'Try it'; },
-      onClick: function (api) {
-        try {
-          sessionStorage.setItem('sh-battery-order', batteryOrderBefore() ? 'start' : 'before');
-          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-feel', 'sh-doobject-mode', 'sh-modality']
-            .forEach(function (k) { sessionStorage.removeItem(k); });
-        } catch (e) {}
-        // A plain reload() keeps this tab's current URL, which carries a
-        // ?step= deep link the engine writes on every navigation (so a
-        // refresh mid-course returns you to where you were) — and that
-        // param wins over STEPS[0] in the engine's own boot(), landing back
-        // on the step just left instead of the new sequence's actual start.
-        // Dropping it here is what makes the reorder visible immediately.
-        var u = new URL(location.href);
-        u.searchParams.delete('step');
-        location.href = u.pathname + u.search + u.hash;
       }
     }, {
       id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Knowledge questions correct',
