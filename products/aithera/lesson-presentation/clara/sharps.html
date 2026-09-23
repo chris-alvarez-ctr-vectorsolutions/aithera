@@ -581,14 +581,27 @@
       @media (max-width: 900px) { .cp-grid { grid-template-columns: 1fr; } }
       .cp-sections { background: rgba(var(--ll-surface-rgb), .03); border: 1px solid var(--ll-line-soft); border-radius: 16px; padding: 16px 18px; }
       .cp-sec-head h2 { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: var(--ll-ink-strong); }
-      .cp-row { display: grid; grid-template-columns: 44px 1fr auto; gap: 16px; align-items: center; padding: 17px 0; border-top: 1px solid var(--ll-line-soft); }
+      /* Horizontal padding + a matching negative margin: content lines up
+         with the header above exactly as it did at padding:17px 0, but the
+         row's own box (what a hover background / focus ring draws against)
+         now extends past the icon and pill instead of hugging them — the
+         hoverable "Up next" row was reading cramped without it. */
+      .cp-row { display: grid; grid-template-columns: 44px 1fr auto; gap: 16px; align-items: center; padding: 17px 14px; margin: 0 -14px; border-top: 1px solid var(--ll-line-soft); }
       .cp-row:first-of-type { border-top: 0; }
       /* Up next is the only row with exactly one possible action, so unlike
          the resume row (two buttons, see below) the whole row can safely be
          the control. Undoes the browser's own button chrome so it still
          reads as a plain row. */
       button.cp-row {
-        width: 100%; text-align: left; font: inherit; color: inherit;
+        /* +28px, not 100%: a <button> keeps a shrink-to-fit width even
+           under display:grid (a plain div in the same spot auto-expands to
+           fill the row instead) — width:100% alone pins it to the row's
+           un-expanded content width, ignoring the shared .cp-row rule's
+           margin: 0 -14px on both sides. Matching that pair of margins is
+           what makes this row exactly as wide as its div siblings again;
+           dropping to 100% collapsed it to fit its own content instead. */
+        width: calc(100% + 28px);
+        text-align: left; font: inherit; color: inherit;
         background: none; border-left: 0; border-right: 0; border-bottom: 0;
         cursor: pointer; border-radius: 8px;
         transition: background .15s ease;
@@ -1069,6 +1082,30 @@
       .cs-opt[aria-checked="true"] { border-color: var(--ll-teal); background: rgba(var(--ll-teal-rgb), .1); color: var(--ll-ink-strong); }
       .cs-opt[aria-checked="true"] .cs-mark { background: var(--ll-teal); border-color: var(--ll-teal); color: #04121a; }
       .cs-opts.answered .cs-opt[aria-checked="true"]:not([class*="pick-"]) { opacity: 1; }
+      /* The verdict outranks the selection. The pick is still aria-checked
+         after it's graded, and the rule above is declared later than the
+         .pick-* set — so a wrong pick kept its teal "selected" look and read
+         as a second right answer next to the real one. */
+      .cs-opt[aria-checked="true"].pick-bad { border-color: rgba(255, 107, 107, .6); background: rgba(255, 107, 107, .1); }
+      .cs-opt[aria-checked="true"].pick-bad .cs-mark { background: #ff6b6b; border-color: #ff6b6b; }
+      html.ll-vector-light .cs-opt.pick-bad { border-color: rgba(192, 57, 43, .55); background: rgba(192, 57, 43, .07); }
+      html.ll-vector-light .cs-opt.pick-bad .cs-mark { background: var(--sh-decline); border-color: var(--sh-decline); color: #fff; }
+      /* The lettered badge's soft ink carried over onto a graded row, so the
+         check on the correct answer was grey-on-teal. Graded marks get the
+         same dark glyph a selected one does (white on Vector blue / red). */
+      .cs-opt[class*="pick-"] .cs-mark.dk-letter { color: #04121a; }
+      html.ll-vector-style .cs-opt.pick-ok .cs-mark,
+      html.ll-vector-style .cs-opt.pick-bad .cs-mark,
+      html.ll-vector-style .cs-opt[aria-checked="true"] .cs-mark { color: #fff; }
+      /* On a miss, the two graded rows say which is which in words as well
+         as colour: plain metadata tags, right-aligned in the row. */
+      .cs-opt.has-tag { grid-template-columns: 22px 1fr auto; }
+      .cs-tag {
+        font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+        white-space: nowrap; color: var(--ll-teal);
+      }
+      .cs-opt.pick-bad .cs-tag { color: #ff8a8a; }
+      html.ll-vector-light .cs-opt.pick-bad .cs-tag { color: var(--sh-decline); }
 
       .lk { width: 100%; }
       .lk-pts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
@@ -1097,6 +1134,13 @@
       .sh-battery .lk, .bl-peek .lk { margin-top: 26px; width: var(--sh-measure); }
       .bl-peek .dk-opts { width: var(--sh-measure); margin-top: 26px; text-align: left; }
       .sh-battery .bl-check { margin-top: 24px; }
+      /* In the live card the list/scale sits inside #blOptions (.bl-deck),
+         which already carries the 26px — the scale's own margin stacked on
+         top of it, so an agreement card grew 26px under its question the
+         instant it was promoted from its (single-margin) preview. The
+         wrapper owns the gap; what's inside it starts flush. */
+      .sh-battery .bl-deck > .lk,
+      .sh-battery .bl-deck > .cs-opts { margin-top: 0; }
 
       /* Over the video: the question card and its feedback. */
       .dk-check .cs-q--lead { margin-bottom: 16px; }
@@ -1216,6 +1260,25 @@
       .dk-tool:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(var(--ll-teal-rgb), .5); }
       .dk-tool-n { min-width: 44px; text-align: center; font-size: 12px; font-weight: 700; color: var(--ll-ink-soft); font-variant-numeric: tabular-nums; }
       .dk-tool-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--ll-line); }
+      /* Upcoming / earlier paragraphs answer the pointer, so it's visible
+         that they can be clicked into focus. */
+      .dk-para:not(.is-on):hover { opacity: .6; filter: none; }
+      /* The in-flow step: sits right under the paragraph in focus, so the way
+         forward is where the eye already is rather than only in the corner
+         toolbar. On the last paragraph it becomes the "Done reading". */
+      .dk-next {
+        display: inline-flex; align-items: center; gap: 8px;
+        margin: -.2em 0 1.4em; padding: 8px 16px; border-radius: 999px;
+        border: 1px solid rgba(var(--ll-teal-rgb), .45); background: rgba(var(--ll-teal-rgb), .1);
+        font: inherit; font-size: 14px; font-weight: 700; color: var(--ll-teal); cursor: pointer;
+        animation: dk-next-in .35s var(--ll-ease) both;
+        transition: background .2s ease, border-color .2s ease;
+      }
+      .dk-next:hover { background: rgba(var(--ll-teal-rgb), .18); border-color: var(--ll-teal); }
+      .dk-next:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .35); }
+      .dk-next i { font-size: 12px; }
+      .dk-next[hidden] { display: none; }
+      @keyframes dk-next-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
       .dk-a { font-weight: 800; line-height: 1; }
       .dk-a.sm { font-size: 12px; } .dk-a.lg { font-size: 17px; }
 
@@ -1256,16 +1319,55 @@
       @keyframes dk-pulse { 0% { box-shadow: 0 0 0 0 rgba(var(--ll-teal-rgb), .45); } 70%, 100% { box-shadow: 0 0 0 16px rgba(var(--ll-teal-rgb), 0); } }
       .dk-time { font-size: 13px; font-weight: 700; color: var(--ll-ink-soft); font-variant-numeric: tabular-nums; min-width: 88px; }
       .dk-voice-note { font-size: 11px; color: var(--ll-ink-faint); letter-spacing: .04em; text-transform: uppercase; }
+      /* Review mode only (same rule as the clip's .cv-skip). */
+      .dk-skip {
+        display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+        border: 1px solid var(--ll-line); border-radius: 999px; background: transparent;
+        font: inherit; font-size: 12px; font-weight: 700; color: var(--ll-ink-soft); cursor: pointer;
+      }
+      .dk-skip:hover { color: var(--ll-ink-strong); border-color: rgba(var(--ll-teal-rgb), .5); }
+      .dk-skip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .3); }
+      .dk-skip[hidden] { display: none; }
+      .dk-skip i { font-size: 10px; }
+
+      /* Light mode. The stage was a fixed dark "screen" while the ink tokens
+         flipped to black, so Read and Listen rendered black on navy. Watch
+         keeps its own dark player surface (.ll-media); the reading and
+         listening surfaces follow the page's panel tokens instead. */
+      html.ll-vector-light .dk-stage {
+        background: radial-gradient(120% 120% at 30% 10%, var(--ll-panel) 0%, var(--ll-panel-2) 100%);
+      }
+      html.ll-vector-light .dk-tools {
+        background: rgba(var(--ll-panel-rgb), .9); box-shadow: var(--ll-shadow-sm);
+      }
+      html.ll-vector-light .dk-play { color: #fff; }
+      html.ll-vector-light .dk-check.rf-layer { background: rgba(var(--ll-panel-rgb), .35); }
+      html.ll-vector-light .dk-card { background: var(--ll-panel); }
 
       /* The question, over the stage. The layer spans the stage; the card
          inside it is the ask. Tall questions scroll inside the layer. */
-      .dk-stagewrap.rf-on > .dk-stage { filter: blur(6px) saturate(.8); opacity: .38; }
       .dk-check.rf-layer {
         position: absolute; inset: 0; margin: 0; padding: clamp(12px, 3vh, 36px) 16px;
         box-sizing: border-box; border: 0; border-radius: 18px; background: rgba(4, 8, 16, .35);
         box-shadow: none; display: flex; align-items: safe center; justify-content: center; overflow-y: auto;
       }
       .dk-check.rf-layer:focus-visible { box-shadow: none; }
+      /* Over the whole page, not just the frame. When the question rises,
+         the layer is moved to <body> (deckInit → finished) and fixed to the
+         viewport: a scrim over the site header, the title row and the stage,
+         with the card centred in it. The footer (z 45) stays above so Back /
+         Continue remain reachable; the layer stops at its top edge. Fixed to
+         the viewport, the card is never limited by the frame's height, and a
+         card taller than the window scrolls inside the scrim. */
+      .dk-check.dk-check--page {
+        position: fixed; top: 0; left: 0; right: 0; bottom: var(--ll-footer-h);
+        z-index: 44; margin: 0; padding: clamp(16px, 4vh, 48px) 16px;
+        border-radius: 0; box-shadow: none;
+        background: rgba(4, 8, 16, .55);
+        -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+        overflow-y: auto; overscroll-behavior: contain;
+      }
+      html.ll-vector-light .dk-check.dk-check--page { background: rgba(var(--ll-panel-rgb), .5); }
       .dk-card {
         width: min(720px, 100%); box-sizing: border-box; margin: auto 0;
         display: flex; flex-direction: column; text-align: left;
@@ -1275,6 +1377,9 @@
         box-shadow: var(--ll-shadow);
       }
       .dk-card > :first-child { margin-top: 0; }
+      /* .rf-layer > :first-child zeroes the top margin, which left only the
+         bottom auto margin and pinned the card to the top of the stage. */
+      .dk-check.rf-layer > .dk-card { margin: auto 0; }
 
       /* ==== The simulation (deck slides 23–27) ============================
          The "A Critical Choice" riff's binocular view on the stage, with the
@@ -1383,11 +1488,14 @@
         .dk-theater { --dk-w: 100%; }
         .dk-stage { aspect-ratio: auto; height: max(420px, calc(100vh - 320px)); }
         .dk-stage[data-mode="video"] { aspect-ratio: 16 / 9; height: auto; }
+        .dk-check.dk-check--page { padding: 12px 10px; }
+        .dk-card { padding: 18px 16px 20px; }
         .dk-sw span { display: none; }
         .dk-sw { padding: 8px 12px; }
       }
       @media (prefers-reduced-motion: reduce) {
         .dk-layer, .dk-para, .dk-rail-fill { transition: none; }
+        .dk-next { animation: none; }
         .dk-cap-now.is-in, .dk-stage:not(.is-playing) .dk-play { animation: none; }
       }
 
@@ -1944,6 +2052,6 @@
     <script src="../../scenario-simulator/js/sim-core.js?v=12"></script>
     <script src="../../scenario-simulator/js/sim-voice-input.js?v=1"></script>
     <script src="../js/sharps-narration.js?v=1"></script>
-    <script src="../js/layered-sharps.js?v=226"></script>
+    <script src="../js/layered-sharps.js?v=230"></script>
 </body>
 </html>

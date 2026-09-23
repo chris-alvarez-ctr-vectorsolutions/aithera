@@ -1014,8 +1014,11 @@
   //  the slide's narration, and — when the slide has one — a question laid
   //  over it with the reinforcement layer once the carrier is finished.
   //  Watch finishes when the clip ends, Read on the learner's own "Done
-  //  reading", Listen when the narration ends (or on "Done listening", since
-  //  browser speech is not guaranteed to run at all).
+  //  reading" (the in-flow button on the last paragraph), Listen when the
+  //  narration ends — the same rule as Watch: no learner-facing way past it,
+  //  a Skip that exists only in review mode, and a manual "Done listening"
+  //  only when there is no playable audio (so nobody is stranded, the way a
+  //  missing clip falls back to the written version).
   // ==========================================================================
 
   // One placeholder clip for every screen until the produced videos exist.
@@ -1489,6 +1492,7 @@
                     '<button class="dk-play" type="button" id="dkPlay" aria-label="Play narration"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
                     '<span class="dk-time" id="dkTime">0:00 / ' + mmss(nar.dur) + '</span>' +
                     '<span class="dk-voice-note">Placeholder voice</span>' +
+                    '<button class="dk-skip" id="dkLSkip" type="button" hidden aria-label="Skip narration">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
                   '</div>'
                 : '<p class="dk-cap-now">' + esc(d.narration.join(' ')) + '</p>') +
             '</section>' +
@@ -1546,10 +1550,14 @@
           setRail(video && video.duration ? video.currentTime / video.duration : 0);
         } else if (m === 'podcast') {
           listen.enter();
-          if (!handed) ctx.setNextAction('Done listening', finished);
+          // Only offered when the narration can't play — otherwise Listen
+          // finishes on the audio's own 'ended', like a clip.
+          if (!handed && listen.manual()) ctx.setNextAction('Done listening', finished);
         } else {
+          // No footer "Done reading": the in-flow Next button walks the text
+          // and becomes "Done reading" on the last paragraph, and a second
+          // copy of it in the footer only doubled up at the end.
           read.enter();
-          if (!handed) ctx.setNextAction('Done reading', finished);
         }
       }
 
@@ -1560,14 +1568,40 @@
         var paras = [].slice.call(box.querySelectorAll('.dk-para'));
         var nEl = document.getElementById('dkParaN');
         var at = 0;
+        // The way forward, in flow: one button that follows the paragraph in
+        // focus. "Next" steps on; on the last paragraph it is the same "Done
+        // reading" (the only one — the footer doesn't offer it), and once the question has been handed
+        // over it has nothing left to do and goes away.
+        var next = document.createElement('button');
+        next.type = 'button';
+        next.className = 'dk-next';
+        next.addEventListener('click', function () {
+          if (at < paras.length - 1) { focus(at + 1, true); next.focus({ preventScroll: true }); }
+          else if (!handed) finished();
+        });
+        function placeNext() {
+          var last = at === paras.length - 1;
+          next.hidden = last && handed;
+          next.innerHTML = last
+            ? '<i class="fa-solid fa-check" aria-hidden="true"></i><span>Done reading</span>'
+            : '<span>Next</span><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>';
+          if (paras[at].nextSibling !== next) {
+            paras[at].parentNode.insertBefore(next, paras[at].nextSibling);
+            // Re-run the entrance so the move reads as the control following along.
+            next.style.animation = 'none'; void next.offsetWidth; next.style.animation = '';
+          }
+        }
         function focus(i, smooth) {
           at = Math.max(0, Math.min(paras.length - 1, i));
           paras.forEach(function (p, j) { p.classList.toggle('is-on', j === at); p.classList.toggle('is-past', j < at); });
+          placeNext();
           nEl.textContent = (at + 1) + ' / ' + paras.length;
           document.getElementById('dkParaPrev').disabled = at === 0;
           document.getElementById('dkParaNext').disabled = at === paras.length - 1;
           var p = paras[at];
-          var top = p.offsetTop - (scroller.clientHeight - p.offsetHeight) / 2;
+          // Centre the paragraph together with the button under it.
+          var h = next.offsetTop + next.offsetHeight - p.offsetTop;
+          var top = p.offsetTop - (scroller.clientHeight - h) / 2;
           scroller.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
           if (showing === 'article') setRail((at + 1) / paras.length);
         }
@@ -1591,12 +1625,34 @@
           if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); focus(at - 1, true); }
         });
         size(0);
-        return { enter: function () { requestAnimationFrame(function () { focus(at, false); }); } };
+        return {
+          enter: function () { requestAnimationFrame(function () { focus(at, false); }); },
+          sync: placeNext
+        };
       })();
 
       // ---- Listen: waveform + live captions --------------------------------
       var listen = (function () {
-        if (!audio || !nar) return { enter: function () { setRail(0); } };
+        if (!audio || !nar) return { enter: function () { setRail(0); }, manual: function () { return true; } };
+        var broken = false;
+        // Couldn't load or play: say so, and fall back to the manual finish.
+        audio.addEventListener('error', function () {
+          broken = true;
+          var note = document.querySelector('.dk-voice-note');
+          if (note) note.textContent = 'Audio unavailable';
+          if (showing === 'podcast' && !handed) ctx.setNextAction('Done listening', finished);
+        });
+        // Review-mode skip, same rule as the clip's: jump to the end and count
+        // it as heard. Never shown to a learner.
+        var lskip = document.getElementById('dkLSkip');
+        if (lskip) {
+          lskip.hidden = !LE.reviewMode();
+          lskip.addEventListener('click', function () {
+            audio.pause();
+            try { audio.currentTime = nar.dur; } catch (e) {}
+            if (!handed) finished();
+          });
+        }
         var canvas = document.getElementById('dkWave');
         var g = canvas.getContext('2d');
         var play = document.getElementById('dkPlay');
@@ -1714,7 +1770,10 @@
           mo.observe(stageEl, { childList: true });
         }
         setSentence(0);
-        return { enter: function () { requestAnimationFrame(function () { fit(); tick(); }); } };
+        return {
+          enter: function () { requestAnimationFrame(function () { fit(); tick(); }); },
+          manual: function () { return broken; }
+        };
       })();
 
       // The carrier is done. With no question, Continue opens. With one, the
@@ -1722,12 +1781,31 @@
       // answered.
       function finished() {
         if (handed) return; handed = true;
+        read.sync();
         if (!q) { ctx.enableNext(); return; }
         ctx.disableNext();
         if (video) try { video.pause(); } catch (e) {}
         if (audio) audio.pause();
         var el = document.getElementById('dkCheck');
         reinforce(ctx, el, 1, 1);
+        // Over the whole page: lifted out of the stage onto <body> (a fixed
+        // layer inside the step would be trapped by any transformed or
+        // filtered ancestor), and taken away again when the step is torn
+        // down, since the engine only clears its own stage. Moved AFTER
+        // reinforce(), which marks the layer's parent as held — done on
+        // <body> that would blur the footer too.
+        el.classList.add('dk-check--page');
+        document.body.appendChild(el);
+        try { el.focus({ preventScroll: true }); } catch (e) {}
+        var stageRoot = document.querySelector('.ll-stage');
+        if (stageRoot && window.MutationObserver) {
+          var gone = new MutationObserver(function () {
+            if (document.body.contains(stage)) return;
+            gone.disconnect();
+            if (el.parentNode) el.parentNode.removeChild(el);
+          });
+          gone.observe(stageRoot, { childList: true, subtree: true });
+        }
         var host = el.querySelector('.dk-opts, .lk');
         var fb = document.getElementById('dkFb');
         wireChoice(host, document.getElementById('dkSubmit'), function (v, picked) {
@@ -1735,7 +1813,14 @@
           if (q.kind === 'mcq') {
             var ok = v === q.correct;
             csMark(picked, ok ? 'ok' : 'bad');
-            if (!ok) csMark(host.querySelectorAll('.cs-opt')[q.correct], 'ok');
+            if (!ok) {
+              // A miss names both rows, so the right answer can't be mistaken
+              // for a second pick (colour + mark + words).
+              var right = host.querySelectorAll('.cs-opt')[q.correct];
+              csMark(right, 'ok');
+              csTag(picked, 'Your answer');
+              csTag(right, 'Correct answer');
+            }
             if (ok) {
               fb.textContent = q.okFb;
               fb.className = 'dk-fb is-ok';
@@ -3994,6 +4079,16 @@
   // 'neutral' (item 16): a plain pick, no verdict — served harder, not
   // quizzed, so a check/minus/x would all overclaim.
   var CS_GLYPH = { ok: 'fa-check', near: 'fa-minus', bad: 'fa-xmark', neutral: 'fa-circle' };
+  function csTag(b, text) {
+    if (!b || b.querySelector('.cs-tag')) return;
+    var t = document.createElement('span');
+    t.className = 'cs-tag';
+    t.textContent = text;
+    b.appendChild(t);
+    b.classList.add('has-tag');
+    var name = b.getAttribute('aria-label');
+    if (name) b.setAttribute('aria-label', name + ' (' + text + ')');
+  }
   function csMark(b, grade) {
     b.classList.add('pick-' + grade);
     var m = b.querySelector('.cs-mark');
