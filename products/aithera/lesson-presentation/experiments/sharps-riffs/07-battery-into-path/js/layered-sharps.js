@@ -2434,7 +2434,7 @@
     // summary line.
     if (!rows.length) {
       document.getElementById('adjEyebrow').textContent = 'Analysis complete';
-      document.getElementById('adjHead').textContent = 'Let\u2019s keep going!';
+      document.getElementById('adjHead').textContent = 'Let\u2019s continue!';
       document.getElementById('adjSaved').hidden = true;
       stack.hidden = true;
     }
