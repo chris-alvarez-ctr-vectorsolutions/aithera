@@ -1,13 +1,12 @@
 <!-- Live URL: https://vectorlearning.github.io/ux-mockups/products/SafeLMS/osha-report/?v=ver1_2 -->
 <!-- V1.2 — same layout as V1.1, but the Status Distribution pie is DYNAMIC: clicking an Action
-     Needed card drills the pie into that group.
-       • Not Started (0 of 48) → explicit EMPTY-state cue (not a spinner). Three treatments are
-         wired behind a temporary A/B/C switcher under the pie — pick one and we drop the switcher.
-       • Behind the Expected Pace → the In Progress population split into On Track vs Behind.
-       • Failure (2+ quiz failures) → a new breakdown pie: failures BY COURSE while 2+ courses are
-         in scope, dropping to "failed twice vs failed the course" once one course is in scope.
-     Demo data is 48 learners (Not Started 0, Behind 6, failure group 10 = five failed-twice + five
-     failed-3×, ~50/50, spread 4/3/3 across courses). V1.1 is untouched at ../ver1.1/index.html. -->
+     Needed card drills the pie to JUST THAT ONE status (its share of all learners in scope).
+       • Not Started (0 of 48) → explicit EMPTY / "no data" cue (Style A: dashed hollow ring), never
+         a spinner. Any drill whose group is 0 shows the same empty state.
+       • Behind the Expected Pace → just that one status.
+       • Failure (2+ quiz failures) → just that one status.
+     Demo data is 48 learners (Not Started 0, Behind 6, Failure group 10, Passed 20). V1.1 is
+     untouched at ../ver1.1/index.html. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -199,20 +198,11 @@
   .pie-empty-msg { grid-column: 1 / -1; justify-self: stretch; display: flex; flex-direction: column; gap: 2px; text-align: center; }
   .pie-empty-msg b { color: var(--ink-2); font-size: 14px; }
   .pie-empty-msg span { color: var(--muted); font-size: 12.5px; }
-  /* A/B/C switcher to preview the empty-state look, then pick one (temporary chooser). */
-  .empty-style-pick { grid-column: 1 / -1; justify-self: stretch; display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 8px; }
-  .empty-style-pick .esp-lbl { font-size: 12px; color: var(--muted-2); }
-  .esp-btn { border: 1px solid var(--hair); background: #fff; border-radius: 6px; min-width: 26px; height: 24px; padding: 0 6px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--muted); cursor: pointer; }
-  .esp-btn:hover { border-color: var(--muted-2); }
-  .esp-btn.active { border-color: var(--blue-primary); color: var(--blue-primary); background: #eff6ff; }
-  /* Empty-state pie circle — three treatments; each must read as "empty", not "loading". */
+  /* Empty / null-state pie circle (Style A) — a dashed hollow ring; reads as "no data", not "loading". */
   .pie-chart.empty-a { background: #fff !important; border: 2px dashed var(--muted-2); display: grid; place-items: center; }
-  .pie-chart.empty-b { background: #f3f4f6 !important; border-radius: 14px; display: grid; place-items: center; color: var(--muted-2); font-size: 40px; }
-  .pie-chart.empty-c { background: #eceef1 !important; display: grid; place-items: center; }
   .pie-empty-center { text-align: center; line-height: 1.15; }
   .pie-empty-center b { display: block; font-size: 30px; font-weight: 800; color: var(--muted); }
   .pie-empty-center > span { font-size: 12px; color: var(--muted-2); }
-  .pie-empty-center .pie-empty-pill { display: inline-block; margin-top: 3px; padding: 1px 8px; border-radius: 999px; background: #fff; border: 1px solid var(--hair); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--muted-2); }
   .pie-legend { display: flex; gap: 14px; margin-top: 14px; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); }
   .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
@@ -2553,16 +2543,13 @@
   /* ═══════════════ Overview chart — DYNAMIC Status Distribution pie (V1.2) ═══════════════ */
   // The pie honors every APPLIED panel filter (course, audience, due-soon, near-limit) — it
   // ignores only the Action-Needed quick filter, because the ACTIVE action card is what the pie
-  // drills into:
+  // drills into. Each drill shows JUST THAT ONE status as its share of all learners in scope:
   //   • no card          → overall status distribution (Passed / In Progress / Not Started / Failed)
-  //   • Not Started card → that group (0 here) → an explicit EMPTY state, never a spinner
-  //   • Behind Pace card → In Progress, split into On Track vs Behind the Expected Pace
-  //   • Failure card     → learners with 2+ quiz failures, broken down BY COURSE while 2+ courses
-  //                        are in scope; drops to "failed twice vs failed the course" once it's one
-  //                        course. Recomputes live as the applied filters narrow the scope.
+  //   • Not Started card → just Not Started (0 here → an explicit EMPTY / "no data" state, never a spinner)
+  //   • Behind Pace card → just Behind the Expected Pace
+  //   • Failure card     → just Failure (learners with 2+ quiz failures)
+  // Any drill whose group has 0 learners shows the empty state, so it always reads as "empty", not "loading".
   function cardScopeWrappers() { return rows.filter(passesBase); }   // every applied filter EXCEPT the action drill
-  const COURSE_PIE_COLORS = ['#dc2626', '#f97316', '#b45309'];       // a distinct warm hue per course (failure context)
-  let emptyPieStyle = 'a';   // temporary A/B/C chooser for the 0-learner empty state — pick one, then we drop the switcher
   function activeAction() { return filters.actions.size ? [...filters.actions][0] : null; }
 
   // Paint a normal multi-slice conic pie + its legend (label · count · %). `caption` is an optional
@@ -2580,28 +2567,24 @@
     document.getElementById('pieLabels').innerHTML = legend + (caption ? `<span class="pie-caption">${caption}</span>` : '');
   }
 
-  // Paint the EMPTY state for a drill-down whose group has 0 learners (here: Not Started = 0 of 48).
-  // Three visual treatments, flipped live with the A/B/C switcher so we can settle on one.
-  function paintEmptyPie(count, of, label) {
+  // Paint the EMPTY / null state for a drill whose group has 0 learners (e.g. Not Started = 0 of 48):
+  // a dashed hollow ring with the 0 count, so it reads as "no data", never "loading".
+  function paintEmptyPie(of, label) {
     const pie = document.getElementById('pieChart');
     pie.style.background = '';
-    if (emptyPieStyle === 'b') {
-      pie.className = 'pie-chart empty-b';
-      pie.innerHTML = '<i class="fa-solid fa-inbox" aria-hidden="true"></i>';
-    } else if (emptyPieStyle === 'c') {
-      pie.className = 'pie-chart empty-c';
-      pie.innerHTML = `<div class="pie-empty-center"><b>${count}</b><span class="pie-empty-pill">empty</span></div>`;
-    } else {
-      pie.className = 'pie-chart empty-a';
-      pie.innerHTML = `<div class="pie-empty-center"><b>${count}</b><span>of ${of}</span></div>`;
-    }
-    const chooser = `<div class="empty-style-pick" role="group" aria-label="Empty-state style (preview)">
-        <span class="esp-lbl">Empty style:</span>
-        ${['a', 'b', 'c'].map(s => `<button type="button" class="esp-btn${emptyPieStyle === s ? ' active' : ''}" data-empty="${s}">${s.toUpperCase()}</button>`).join('')}
-      </div>`;
+    pie.className = 'pie-chart empty-a';
+    pie.innerHTML = `<div class="pie-empty-center"><b>0</b><span>of ${of}</span></div>`;
     document.getElementById('pieLabels').innerHTML =
-      `<span class="pie-empty-msg"><b>No learners ${label}</b><span>Nothing to show — this group is empty (not loading).</span></span>` + chooser;
-    document.querySelectorAll('.esp-btn').forEach(b => b.addEventListener('click', () => { emptyPieStyle = b.dataset.empty; renderDistribution(); }));
+      `<span class="pie-empty-msg"><b>No learners ${label}</b><span>No data — this group is empty (0 of ${of}), not loading.</span></span>`;
+  }
+
+  // Paint a SINGLE status as its share of all learners in scope: the one status in its color, the
+  // rest of the scope as a neutral "all other learners" slice, so the proportion still reads at a glance.
+  function paintSingleStatus(label, color, n, ofTotal) {
+    paintPie([
+      { label, color, n },
+      { label: 'All other learners', color: '#e5e7eb', n: Math.max(0, ofTotal - n) },
+    ]);
   }
 
   function setPieTitle(t) { const el = document.getElementById('pieTitle'); if (el) el.textContent = t; }
@@ -2611,46 +2594,27 @@
     const data = wraps.map(x => x.r);
     const action = activeAction();
 
-    if (action === 'intervene') {                       // Not Started drill — 0 here → empty state
+    if (action === 'intervene') {                       // Not Started — one status (0 here → empty state)
       setPieTitle('Not Started');
       const n = data.filter(GROUP_MATCH.intervene).length;
-      if (n === 0) { paintEmptyPie(0, data.length, 'Not Started'); return; }
-      paintPie([{ label: 'Not Started', color: '#9ca3af', n }]);
+      if (!n) { paintEmptyPie(data.length, 'Not Started'); return; }
+      paintSingleStatus('Not Started', '#9ca3af', n, data.length);
       return;
     }
 
-    if (action === 'nudge') {                            // In Progress → On Track vs Behind pace
-      setPieTitle('In Progress — pace');
-      const ip = data.filter(r => r.status === 'in-progress');
-      if (!ip.length) { paintEmptyPie(0, data.length, 'In Progress'); return; }
-      const behind = ip.filter(r => r.behind).length;
-      paintPie([
-        { label: 'On Track', color: '#3b82f6', n: ip.length - behind },
-        { label: 'Behind the Expected Pace', color: '#f59e0b', n: behind },
-      ]);
+    if (action === 'nudge') {                            // Behind the Expected Pace — one status
+      setPieTitle('Behind the Expected Pace');
+      const n = data.filter(GROUP_MATCH.nudge).length;
+      if (!n) { paintEmptyPie(data.length, 'behind the expected pace'); return; }
+      paintSingleStatus('Behind the Expected Pace', '#f59e0b', n, data.length);
       return;
     }
 
-    if (action === 'retry') {                            // Failures — by course, or twice-vs-failed for one course
-      const failWraps = wraps.filter(x => GROUP_MATCH.retry(x.r));
-      if (!failWraps.length) { setPieTitle('Failures'); paintEmptyPie(0, data.length, 'with 2+ quiz failures'); return; }
-      const twice  = failWraps.filter(x => (x.r.attempts || 0) === 2).length;
-      const failed = failWraps.filter(x => (x.r.attempts || 0) >= 3).length;
-      const caption = `Failed twice (retrying): ${twice} · Failed the course: ${failed}`;
-      const courses = [...new Set(failWraps.map(x => x.course))];
-      if (courses.length > 1) {
-        setPieTitle('Failures by course');
-        paintPie(courses.map((c, i) => ({
-          label: c.replace(/^OSHA /, ''), color: COURSE_PIE_COLORS[i % COURSE_PIE_COLORS.length],
-          n: failWraps.filter(x => x.course === c).length,
-        })), caption);
-      } else {
-        setPieTitle('Failures — attempts used');
-        paintPie([
-          { label: 'Failed twice (retrying)', color: '#f59e0b', n: twice },
-          { label: 'Failed the course', color: '#dc2626', n: failed },
-        ], courses[0] ? courses[0].replace(/^OSHA /, '') : '');
-      }
+    if (action === 'retry') {                            // Failure (2+ quiz failures) — one status
+      setPieTitle('Failure');
+      const n = data.filter(GROUP_MATCH.retry).length;
+      if (!n) { paintEmptyPie(data.length, 'with 2+ quiz failures'); return; }
+      paintSingleStatus('Failed — 2+ quiz failures', '#dc2626', n, data.length);
       return;
     }
 
