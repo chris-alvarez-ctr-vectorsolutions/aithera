@@ -1995,7 +1995,17 @@
      a full-viewport overlay with its own slim header (picked-file id + close). */
   function importFullHTML() {
     var f = currentFile();
-    var meta = f ? (esc(f.name) + ' · ' + f.rows + ' rows') : 'Choose a file to begin';
+    // Header meta: the picked file once chosen; on the empty Upload-file landing
+    // it previews the sample roster (per design) even though nothing is imported yet.
+    var meta;
+    if (f) {
+      meta = esc(f.name) + ' · ' + f.rows + ' rows';
+    } else if (state.step === 'upload') {
+      var pv = FILES.filter(function (x) { return x.id === 'confirm'; })[0];
+      meta = pv ? (esc(pv.name) + ' · ' + pv.rows + ' rows') : 'Choose a file to begin';
+    } else {
+      meta = 'Choose a file to begin';
+    }
     return '<div class="import-full">'
       + '<div class="import-full-bar">'
       + '<div class="iff-id"><span class="ae-head-ico"><i class="fa-solid fa-file-arrow-up"></i></span>'
@@ -2071,9 +2081,10 @@
       case 'addSingle': e.preventDefault(); setState({ addEmp: true, empMode: 'single' }); break;
       case 'closeAddEmp': setState({ addEmp: false }); break;
       case 'empMode': setState({ empMode: arg }); break;
-      /* ver1 Bulk Upload — open the file picker straight away; picking a file
-         takes the import full-screen (see pickFile). */
-      case 'goBulk': e.preventDefault(); setState({ view: 'employees', addEmp: false, fileId: null, importFull: false, validating: false, fileModal: true }); break;
+      /* ver1 Bulk Upload — land on the full-screen "Upload file" step (Manual-import
+         banner + stepper + template card + drop zone). The drop zone / "browse"
+         then opens the file picker to actually choose a file (see pickFile). */
+      case 'goBulk': e.preventDefault(); setState({ tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'upload' }); scrollTop(); break;
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':
@@ -2216,7 +2227,7 @@
         /* ── Manual import: wizard on the left, then one branch per severity ──
            Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
         { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — split buttons', state: 'employees',
-          desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload”. Clicking Bulk Upload opens the file-picker modal right away; picking a file drops the picker and takes the import FULL-SCREEN at the next step (Map / Import settings), pushing the app chrome aside. Automated sync is already set up for the site.' },
+          desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload”. Clicking Bulk Upload takes the import FULL-SCREEN and lands on the Upload-file step (Manual-import banner + stepper + “Start from the SafeLMS template” card + drop zone). From there the drop zone / “browse” opens the file picker; picking a file continues to Map columns / Import settings. Automated sync is already set up for the site.' },
         { id: 'upload', flow: 'import', x: 250, y: 250, step: 'Step 1', name: 'Upload file', state: 'upload',
           desc: 'Drag a file or pick a sample. Nothing imports until reviewed. The Template variant instead asks you to download the SafeLMS template first.' },
         { id: 'map', flow: 'import', x: 500, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
