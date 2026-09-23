@@ -1717,25 +1717,23 @@
             margin: 0;
         }
 
-        /* ── Unavailable section ──
-           No container, no tint, no badge, no explanatory paragraph. An
-           earlier version wrapped these in a tinted dashed-border panel with a
-           licensing pitch, which made the courses the reviewer CAN'T use
-           louder than the ones they can.
+        /* ── Gated (not-yet-licensed) section ──
+           These courses are an OFFER, not a failure. An earlier version
+           desaturated and dimmed them like disabled controls, which made the
+           merchandise look broken — you cannot sell a course that is painted
+           to look switched off.
 
-           The cards carry the meaning instead, through a genuinely disabled
-           treatment: desaturated and dimmed. That reads as "not available to
-           you" without a sentence saying so. */
-        .rec-list-section.unavailable .rec-list-title,
-        .rec-list-section.unavailable .rec-list-sub {
-            color: var(--text-muted);
-        }
-        .rec-list-section.unavailable .rec-list-title i { color: var(--text-muted); }
+           So: full color, full opacity, normal legibility. The gating is
+           carried by an explicit lock affordance instead of by degrading the
+           card (see .rec-upsell-lock below). The heading keeps the accent
+           color rather than the muted grey the disabled treatment used. */
+        .rec-list-section.unavailable .rec-list-title { color: var(--text-strong); }
+        .rec-list-section.unavailable .rec-list-title i { color: var(--rec-accent); }
 
-        /* "Learn More" — the one CTA for the entire unlicensed grouping.
-           Pushed to the right end of the heading row. It deliberately does NOT
-           inherit the section's muted/disabled treatment: the cards are
-           unavailable, but this action is not. */
+        /* "Learn More" — the one CTA for the entire gated grouping, beside
+           the heading. Now that the section is no longer muted, this reads as
+           the section's natural next step rather than the one live control in
+           a greyed-out block. */
         .rec-upsell-learnmore {
             background: none;
             border: 1px solid var(--border-soft);
@@ -1756,21 +1754,12 @@
             outline-offset: 2px;
         }
 
-        /* Greyscale + dim is what actually sells "disabled" — opacity alone
-           just looks faded. 0.55 still leaves titles readable for anyone
-           deciding whether to open Details, which is the one action these
-           cards keep (selection is already off via disableSelection). */
-        .rec-list-section.unavailable vwc-course-list {
-            filter: grayscale(1);
-            opacity: 0.55;
-            transition: opacity 140ms ease;
-        }
-        /* Lift the dimming while the reviewer is actually inspecting them, so
-           the disabled look never costs legibility. */
-        .rec-list-section.unavailable vwc-course-list:hover,
-        .rec-list-section.unavailable vwc-course-list:focus-within {
-            opacity: 0.85;
-        }
+        /* NO filter/opacity here on purpose — see the section note above. The
+           cards render exactly like the licensed ones; only the lock badge and
+           the section heading say they are gated. Selection is already off via
+           disableSelection, so there is no interactive affordance to suppress
+           and nothing for a dimmed look to usefully communicate. */
+        .rec-list-section.unavailable vwc-course-list { opacity: 1; filter: none; }
 
         /* Details-panel footer status for an unavailable course — replaces the
            old Request access button. A statement, not a call to action. */
@@ -8206,8 +8195,8 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
         <section class="rec-list-section unavailable">
             <div class="rec-list-head">
                 <h3 class="rec-list-title">
-                    <i class="fa-solid fa-lock"></i>
-                    Not in your libraries
+                    <i class="fa-solid fa-lock-open"></i>
+                    Also recommended &mdash; available with an expanded library
                 </h3>
                 <!-- One CTA covering the whole unlicensed grouping — placed
                      directly after the heading (not pushed to the right edge)
@@ -8262,11 +8251,12 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
         learnMoreBtn.addEventListener('click', () => {
             showValidationModal({
                 tone: 'info',
-                title: 'Not in your libraries',
+                title: 'Expand your course library',
                 bodyHtml: `
-                    <p>Your account does not have access to these courses in Vector LMS.</p>
-                    <p style="margin-bottom:0;">To get access, contact your institution's LMS Administrator
-                    or contact Vector Solutions directly:
+                    <p>These courses match this evaluation, and they are part of Vector&rsquo;s
+                    wider catalog &mdash; your library doesn&rsquo;t include them yet.</p>
+                    <p style="margin-bottom:0;">To add them, reach out to your institution&rsquo;s
+                    LMS Administrator, or contact Vector Solutions directly:
                     <span class="rec-demo-stub">Request A Demo of Vector Solutions&rsquo; Software Solutions</span></p>
                 `,
                 cancelLabel: 'Close'
@@ -8509,10 +8499,10 @@ function mountUpsellList(unlicensed) {
     list.courseDefinition = UPSELL_COURSE_DEFINITION;
     list.disableSelection = true;
     list.cardHeadingLevel = 3;
-    list.i18n = { no_courses_msg: 'No additional matches outside your library.' };
+    list.i18n = { no_courses_msg: 'No additional matches in Vector\u2019s wider catalog.' };
     list.payload = { upsell: true, count: courses.length };
 
-    shrinkCourseCards(list);
+    shrinkCourseCards(list, { gated: true });
     interceptCardDetails(list, unlicensed, { unlicensed: true });
 }
 
@@ -8604,7 +8594,7 @@ function injectCardPartStyles(root) {
     root.appendChild(st);
 }
 
-function shrinkCourseCards(list) {
+function shrinkCourseCards(list, { gated = false } = {}) {
     const apply = () => {
         const root = list.shadowRoot;
         if (!root) return 0;
@@ -8646,6 +8636,39 @@ function shrinkCourseCards(list) {
             const r = card.shadowRoot;
             if (!r) return;
             const container = r.querySelector('.card-container');
+            /* ── Gated badge ──
+               These cards are deliberately NOT dimmed or desaturated (they are
+               merchandise, not broken controls), so the gating needs its own
+               affordance. A small lock badge sits on the card corner: it reads
+               as "you don't have this yet" without degrading the card.
+               Added once — keyed by a data flag, since this whole function is
+               re-run by the rAF poll until the cards exist. */
+            if (gated && container && !container.dataset.gatedBadge) {
+                container.dataset.gatedBadge = '1';
+                container.style.setProperty('position', 'relative', 'important');
+                const badge = document.createElement('span');
+                badge.setAttribute('aria-hidden', 'true');
+                /* INLINE SVG, not a Font Awesome class or glyph. A webfont
+                   icon that fails to resolve renders as a zero-width invisible
+                   box with no error — and this badge is the ONLY thing marking
+                   these cards as gated now that the dimming is gone, so it
+                   must not be able to fail silently. An MDI lock-open path has
+                   no font or stylesheet dependency at all. */
+                badge.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12"'
+                    + ' fill="currentColor" focusable="false"><path d="M12 17a2 2 0 0 0'
+                    + ' 2-2 2 2 0 0 0-2-2 2 2 0 0 0-2 2 2 2 0 0 0 2 2m6-9a2 2 0 0 1 2 2v10a2 2'
+                    + ' 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h1V6a5 5 0 0 1 5-5 5 5 0 0 1'
+                    + ' 5 5h-1.9c0-1.71-1.39-3.1-3.1-3.1S8.9 4.29 8.9 6v2H18Z"/></svg>';
+                badge.style.cssText = [
+                    'position:absolute', 'top:8px', 'right:8px', 'z-index:2',
+                    'width:24px', 'height:24px', 'border-radius:999px',
+                    'display:flex', 'align-items:center', 'justify-content:center',
+                    'background:rgba(17,24,39,0.72)', 'color:#fff',
+                    'pointer-events:none',
+                    'box-shadow:0 1px 3px rgba(16,24,40,0.3)'
+                ].join(';');
+                container.appendChild(badge);
+            }
             const content = r.querySelector('.card-content');
             const details = r.querySelector('.card-content-details');
             if (container) container.style.setProperty('height', 'auto', 'important');
@@ -9035,7 +9058,7 @@ function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
     }
 
     const chip = unlicensed
-        ? '<span class="rec-details-chip unlicensed"><i class="fa-solid fa-lock"></i>Not in your library</span>'
+        ? '<span class="rec-details-chip unlicensed"><i class="fa-solid fa-lock-open"></i>Available with an expanded library</span>'
         : (isVectorChoice
             ? '<span class="rec-details-chip vector-choice"><i class="fa-solid fa-star"></i>Vector Choice</span>'
             : '<span class="rec-details-chip"><i class="fa-regular fa-bookmark"></i>Vector Training</span>');
@@ -9045,8 +9068,8 @@ function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
        An unlicensed course has no add-to-assignment path at all. */
     const footerHtml = unlicensed ? `
         <span class="rec-details-unavailable">
-            <i class="fa-solid fa-lock"></i>
-            Not in your library
+            <i class="fa-solid fa-lock-open"></i>
+            Add this course to your library to assign it
         </span>
     ` : `
         ${isAssigned
