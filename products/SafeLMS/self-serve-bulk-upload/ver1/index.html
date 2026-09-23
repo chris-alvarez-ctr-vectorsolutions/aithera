@@ -1969,6 +1969,13 @@
   }
 
   function render() {
+    // Preserve scroll position across the full-DOM re-render so an in-place click
+    // (toggling a switch, opening a disclosure, mapping a column…) doesn't snap the
+    // view back to the top. Navigation that WANTS the top still calls scrollTop()
+    // after setState, which overrides this restore.
+    var _m = $app.querySelector('.scroll'), _mTop = _m ? _m.scrollTop : 0;
+    var _f = $app.querySelector('.import-full-body'), _fTop = _f ? _f.scrollTop : 0;
+
     var main, overlay = '';
     if (state.view === 'import' && state.importFull) {
       // Bulk import has taken over the whole viewport; the list sits behind it.
@@ -1997,6 +2004,10 @@
       + overlay
       + (state.fileModal ? fileModalHTML() : '')
       + (state.addEmp ? addEmployeeModal(false) : '');
+
+    // Restore the captured scroll positions onto the freshly-built containers.
+    var _m2 = $app.querySelector('.scroll'); if (_m2) _m2.scrollTop = _mTop;
+    var _f2 = $app.querySelector('.import-full-body'); if (_f2) _f2.scrollTop = _fTop;
   }
 
   /* -------------------------------------------------------------- interaction */
@@ -2022,6 +2033,8 @@
   $app.addEventListener('click', function (e) {
     var el = e.target.closest('[data-act]');
     if (!el) return;
+    // In-app action links use href="#"; stop the browser from jumping to the top.
+    if (el.tagName === 'A') e.preventDefault();
     var act = el.getAttribute('data-act');
     var arg = el.getAttribute('data-arg');
 
