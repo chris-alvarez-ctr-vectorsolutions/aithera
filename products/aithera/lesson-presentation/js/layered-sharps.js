@@ -5662,6 +5662,13 @@
     '</div></main>';
   }
 
+  // The frame header's current text, as a player URL param (&course= / &lesson=).
+  function frameText(which) {
+    var el = document.querySelector('.vt-frame .vt-' + which);
+    var t = el ? el.textContent.trim() : '';
+    return t ? '&' + which + '=' + encodeURIComponent(t) : '';
+  }
+
   // One listener for the life of the page (the Next button outlives every
   // step). Capture phase on document, so it runs before the engine's own
   // Next handler and can hold the hand-off until the fake transition lands.
@@ -6584,6 +6591,9 @@
             // has one, carries over as the player's backdrop (hero).
             + '&notitle=1&practice=0'
             + (handoffHero() ? '&hero=' + encodeURIComponent(handoffHero().src) : '')
+            // …and the blue header band keeps this module's own text (read off
+            // the frame as it stands, so it always matches what was on screen)
+            + frameText('course') + frameText('lesson')
             + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record');
       },
       gate: true,
