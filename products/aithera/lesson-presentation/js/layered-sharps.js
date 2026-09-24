@@ -5627,19 +5627,27 @@
   // still get one: Manufacturing's factory floor behind a classroom
   // teacher's "craft blade on the back table" would be a continuity error,
   // so Education and AEC keep the icon-mark version until their stills land.
-  // Same files, same focal points as the in-module scene (SCENE_ART).
+  // Same files as the in-module scene (SCENE_ART).
   function handoffHero() {
     var a = SCENE_ART[LE.lensId()];
-    return a ? { src: a.src, pos: (a.focal.sharp[0] * 100).toFixed(1) + '% ' + (a.focal.sharp[1] * 100).toFixed(1) + '%' } : null;
+    return a ? { src: a.src } : null;
   }
 
+  // With a hero, this screen IS the simulator's first frame: the still runs
+  // full-bleed behind the copy, framed exactly as the player frames its own
+  // backdrop (center / cover). "Enter the scenario" then fakes the jump —
+  // the copy leaves, the still blurs and darkens to the player's coach-up
+  // state (.ho-sim reproduces its two washes: the has-hero gradient and the
+  // coach scrim), and a cross-document View Transition hands over to the
+  // player, which opens on that same picture with the coach sheet rising.
   function HANDOFF_CONTENT() {
     var hero = handoffHero();
-    return '<main class="ll-object ll-object--chain"><div class="ho-wrap' + (hero ? ' ho-wrap--hero' : '') + '">' +
+    return '<main class="ll-object ll-object--chain' + (hero ? ' ho-object' : '') + '">' +
       (hero
-        ? '<figure class="ho-hero"><img src="' + esc(hero.src) + '" alt="" style="object-position:' + hero.pos + '" /></figure>'
+        ? '<div class="ho-bg" aria-hidden="true" style="background-image:url(\'' + esc(hero.src) + '\')"></div>' +
+          '<div class="ho-read" aria-hidden="true"></div><div class="ho-sim" aria-hidden="true"></div>'
         : '') +
-      '<div class="ho-copy">' +
+      '<div class="ho-wrap">' +
       '<p class="ll-eyebrow">Perform: live scenario, about 5 minutes</p>' +
       (hero ? '' : '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>') +
       '<p class="ho-lead">' + esc(handoffHook()) + '</p>' +
@@ -5651,9 +5659,32 @@
           'of lines to pick from, just what you would actually do. It runs about five minutes ' +
           'and closes with a debrief of what happened.</p>' +
       '</div>' +
-      '</div>' +
     '</div></main>';
   }
+
+  // One listener for the life of the page (the Next button outlives every
+  // step). Capture phase on document, so it runs before the engine's own
+  // Next handler and can hold the hand-off until the fake transition lands.
+  var handoffLeaving = false;
+  document.addEventListener('click', function (e) {
+    var next = e.target.closest && e.target.closest('#llNext');
+    var obj = document.querySelector('.ll-object.ho-object:not(.leaving)');
+    if (!obj || !next || next.disabled || handoffLeaving) return;
+    // The Demo menu's Do-object baseline keeps `enact` in-page — nothing to
+    // hand over to, so no fake jump either.
+    if (doBaselineOn()) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    handoffLeaving = true;
+    // Both documents opt in to a same-origin cross-document View Transition;
+    // this side opts in only now, so no other navigation off this page fades.
+    var vt = document.createElement('style');
+    vt.textContent = '@view-transition { navigation: auto; }';
+    document.head.appendChild(vt);
+    var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    obj.classList.add('ho-entering');
+    setTimeout(function () { next.click(); handoffLeaving = false; }, still ? 0 : 700);
+  }, true);
+
   function handoffInit(ctx) {
     // Ungated — there is nothing to answer here, only to read before moving
     // on. Silent on arrival: the screen states its own purpose in its own

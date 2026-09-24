@@ -33,6 +33,23 @@
         if (new URLSearchParams(location.search).get('brand') === 'clara') {
           document.documentElement.classList.add('clara-brand');
         }
+        /* ?hero=<path> — the calling module's scene still, as the stage backdrop
+           (see :root.has-hero .stage). Set HERE, before first paint, so a caller
+           that fakes the jump into this page (sharps' hand-off screen) has an
+           identical first frame to cross-fade into — which is also why the
+           same-origin cross-document View Transition is opted into only here.
+           Relative image paths only, so a URL param can't inject CSS or pull a
+           remote asset; resolved against this page's own URL, not the
+           <base href="../"> below. */
+        var hero = new URLSearchParams(location.search).get('hero') || '';
+        if (/^[\w\-./]+\.(jpe?g|png|webp)$/i.test(hero) && !/^\/\//.test(hero)) {
+          var root = document.documentElement;
+          root.classList.add('has-hero');
+          root.style.setProperty('--hero-img', 'url("' + new URL(hero, location.href).href + '")');
+          var vt = document.createElement('style');
+          vt.textContent = '@view-transition { navigation: auto; }';
+          document.head.appendChild(vt);
+        }
       })();
     </script>
 
@@ -446,11 +463,11 @@
 
       /* The stage IS the practice base — always the warm, dark, vignetted room. */
       .stage { background: var(--scene-paint); }
-      /* ?hero=<image> — the calling module's own scene-setting still, carried in
+      /* ?hero=<image> (applied in the <head>) — the calling module's own scene-setting still, carried in
          as the stage backdrop so the learner lands on the same picture they
          just read the context over. Darkened hard: it sits behind the coach
          sheet as atmosphere, never as something to read. */
-      .stage.has-hero {
+      :root.has-hero .stage {
         background:
           linear-gradient(rgba(8, 12, 22, .62), rgba(8, 12, 22, .82)),
           var(--hero-img) center / cover no-repeat,
@@ -1934,15 +1951,7 @@
        outright rather than shown with a permanently dead half. */
     const NO_PRACTICE = new URLSearchParams(location.search).get('practice') === '0';
 
-    /* ?hero=<path> — see .stage.has-hero. Relative image paths only, so a URL
-       param can never inject CSS or a remote asset. Resolved against THIS
-       page's own URL, not document.baseURI — the <base href="../"> in the
-       head would otherwise put it one folder too high. */
-    const HERO_IMG = (() => {
-      const h = new URLSearchParams(location.search).get('hero') || '';
-      return /^[\w\-./]+\.(jpe?g|png|webp)$/i.test(h) && !/^\/\//.test(h)
-        ? new URL(h, location.href).href : '';
-    })();
+    // ?hero=<path> is applied in the <head> (see :root.has-hero), before first paint.
 
     const state = {
       mode: 'coaching',          // 'coaching' | 'scene'
@@ -4479,10 +4488,6 @@
     // Opening beat: anchor on the practice base ("Kendra's room") with an "Enter
     // scenario" prompt. The cold-open video and the coach sheet both stay down
     // until the learner chooses to begin.
-    if (HERO_IMG) {
-      stage.style.setProperty('--hero-img', `url("${HERO_IMG}")`);
-      stage.classList.add('has-hero');
-    }
     render();
     // ?notitle=1: no title card to anchor on — bring the coach straight in.
     if (NO_TITLE) CONTEXT.begin();
