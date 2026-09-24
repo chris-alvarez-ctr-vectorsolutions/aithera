@@ -53,6 +53,9 @@
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes fadeup { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .fadeup { animation: fadeup .25s ease; }
+  /* In-place re-renders (toggles, disclosures) skip the entrance animations so the
+     rebuilt DOM doesn't flash; render() sets this when the screen hasn't changed. */
+  .no-anim, .no-anim * { animation: none !important; }
 
   /* ==========================================================================
      App shell — authentic VectorSolutions / SafeLMS product chrome.
@@ -1493,17 +1496,14 @@
       + '</div>';
 
     // Condensed single column: the itemized "What would change on your site" preview
-    // (deactivated users, end-dated jobs, per-user example) was removed at the
-    // designer's request — those exact changes are confirmed on the Review step.
-    // When the roster switch is on, a compact permanence note stays.
-    var permaNote = on
-      ? '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#B42318;margin-top:12px;line-height:1.5;"><b>This can’t be undone.</b> Once you run the import, deactivations and ended jobs are permanent. You’ll confirm the exact list on the next step.</div>'
-      : '';
+    // was removed at the designer's request — those exact changes are confirmed on the
+    // Review step, which is also where the "can't be undone" note now lives (next to
+    // Run import, at the moment it matters).
 
     return '<div class="fadeup" style="max-width:640px;">'
       + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What happens to people and jobs that aren’t in this file?</div>'
       + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file has ' + file.rows + ' rows. This is <b>off by default</b> — nothing is removed unless you turn it on, and you’ll confirm every change on the next step.</div>'
-      + optCard + summary + permaNote + repRow
+      + optCard + summary + repRow
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
       + '<button class="btn btn--primary" data-act="next">Review changes →</button>'
@@ -1667,6 +1667,11 @@
     }
     if (confirms.length && blocked.length === 0) {
       side += '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">' + acked.length + ' of ' + confirms.length + ' confirmation' + (confirms.length === 1 ? '' : 's') + ' acknowledged</div>';
+    }
+    // Roster mode on: the permanence warning sits right above Run import (moved here
+    // from Import settings) so it's read at the point of commitment.
+    if (state.purgeUsers && state.purgeJobs) {
+      side += '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;line-height:1.5;"><b>This can’t be undone.</b> Once you run the import, deactivations and ended jobs are permanent.</div>';
     }
     side += '<button class="btn" data-act="runImport" style="width:100%;border:none;background:' + (canSubmit ? '#1257B8' : '#C6D3E1') + ';color:#fff;font-size:14px;font-weight:600;padding:11px 0;border-radius:8px;cursor:' + (canSubmit ? 'pointer' : 'not-allowed') + ';"' + (canSubmit ? '' : ' disabled') + '>Run import</button>'
       + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it. Once it runs, it cannot be paused or undone.</div>'
@@ -2047,6 +2052,11 @@
     // after setState, which overrides this restore.
     var _m = $app.querySelector('.scroll'), _mTop = _m ? _m.scrollTop : 0;
     var _f = $app.querySelector('.import-full-body'), _fTop = _f ? _f.scrollTop : 0;
+    // Only replay entrance animations when the screen actually changes (new view,
+    // step, or an overlay/modal opening). Same-screen clicks re-render silently.
+    var _screen = [state.view, state.importFull, state.step, state.fileModal, state.addEmp].join('|');
+    $app.classList.toggle('no-anim', _screen === render._lastScreen);
+    render._lastScreen = _screen;
 
     var main, overlay = '';
     if (state.view === 'import' && state.importFull) {
