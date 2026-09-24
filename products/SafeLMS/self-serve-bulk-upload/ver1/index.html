@@ -60,7 +60,7 @@
      steps only animates the step content, so the Employees page never shows through. */
   .import-full.is-static { animation: none; }
 
-  /* ---- Intro page (before Upload): overview, template, help link ---- */
+  /* ---- Upload step: template + Help Center resource cards ---- */
   .intro-res { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .intro-res-card { display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 1px solid var(--line);
     border-radius: 10px; padding: 14px 16px; }
@@ -1353,13 +1353,11 @@
     return out + '</div>';
   }
 
-  /* Intro page — shown before Upload (2026-09-24 readout): a quick overview of the
-     steps (the stepper above it), the downloadable template, and Help Center links. */
-  function introHTML() {
-    return '<div class="fadeup" style="max-width:860px;">'
-      + '<div style="font-size:20px;font-weight:700;">Bulk upload employees</div>'
-      + '<div style="font-size:13.5px;color:#5B6B7E;margin-top:4px;">Add or update many people at once from one file. It takes a few minutes.</div>'
-      + '<div class="intro-res" style="margin-top:18px;">'
+  function uploadHTML() {
+    // Upload file step (merged with the former Intro page, 2026-09-24): the template +
+    // Help Center links sit above the drop zone. AC-1.1: the template is a convenient
+    // starting shape, not a requirement — any export can be uploaded and mapped.
+    var resources = '<div class="intro-res" style="margin-bottom:14px;">'
       +   '<div class="intro-res-card"><div class="ico"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>'
       +     '<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">SafeLMS template</div>'
       +     '<div style="font-size:12.5px;color:#5B6B7E;margin-top:2px;">Optional starting point with the right columns.</div>'
@@ -1371,31 +1369,16 @@
       +     '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;font-size:13px;">'
       +       helpLink('best', 'Best practices for structuring user data')
       +       helpLink('errors', 'Common upload errors') + '</div></div></div>'
-      + '</div>'
-      + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
-      + '<button class="btn btn--ghost" data-act="goEmployees">← Back</button>'
-      + '<button class="btn btn--primary" data-act="startUpload">Get started →</button></div>'
       + '</div>';
-  }
-
-  function uploadHTML() {
-    // AC-1.1: a blank SafeLMS template and a link to positions & locations guidance
-    // are available from the upload screen. The template is a convenient starting
-    // shape, not a requirement — any export can be uploaded and its columns mapped.
-    // The template + Help Center now lead on the Intro page; keep quick links here.
-    var helper = '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">'
-      + '<a href="#" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Download template (.csv)</a>'
-      + ' &nbsp;·&nbsp; ' + helpLink('template', 'Template guide')
-      + ' &nbsp;·&nbsp; ' + helpLink('best', 'Best practices') + '</div>';
     var cancelled = state.cancelled
       ? '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#3D4F63;margin-bottom:12px;"><b>Import cancelled.</b> Nothing was changed. Upload a new file to start again.</div>'
       : '';
-    return '<div class="fadeup">' + cancelled + helper
+    return '<div class="fadeup">' + cancelled + resources
       + '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
       + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
       + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
       + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
-      + '<div style="margin-top:18px;"><button class="btn btn--ghost" data-act="backIntro">← Back</button></div>'
+      + '<div style="margin-top:18px;"><button class="btn btn--ghost" data-act="goEmployees">← Back</button></div>'
       + '</div>';
   }
 
@@ -1860,7 +1843,6 @@
     if (state.step === 'attn') return attnAlertMode();
     var body;
     switch (state.step) {
-      case 'intro':    return '<section data-screen-label="Intro">' + stepperHTML() + introHTML() + '</section>';
       case 'upload':   body = uploadHTML(); break;
       case 'map':      body = mapHTML(); break;
       case 'settings': body = settingsHTML(); break;
@@ -2215,7 +2197,7 @@
       /* ver1 Bulk Upload — land on the full-screen "Upload file" step (Manual-import
          banner + stepper + template card + drop zone). The drop zone / "browse"
          then opens the file picker to actually choose a file (see pickFile). */
-      case 'goBulk': e.preventDefault(); setState({ tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'intro' }); scrollTop(); break;
+      case 'goBulk': e.preventDefault(); setState({ tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'upload' }); scrollTop(); break;
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':
@@ -2229,8 +2211,6 @@
       case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
       case 'togglePurgeAll': { var pv = !(state.purgeUsers && state.purgeJobs); setState({ purgeUsers: pv, purgeJobs: pv }); break; }  // one all-or-nothing switch
       case 'toggleSummary': setState({ summaryOpen: !state.summaryOpen }); break;  // collapsed "With this off/on" summary
-      case 'startUpload': setState({ step: 'upload' }); scrollTop(); break;
-      case 'backIntro': setState({ step: 'intro' }); scrollTop(); break;
       case 'cancelImport': e.preventDefault(); setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false, validating: false, cancelled: true }); scrollTop(); break;
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
       case 'fixMapping': go('map'); scrollTop(); break;
@@ -2317,7 +2297,7 @@
   function applyFlowState(id) {
     switch (id) {
       case 'employees': setState({ view: 'employees', addEmp: false, importFull: false }); break;
-      case 'intro': setState({ tab: 'import', view: 'import', importFull: true, step: 'intro', fileId: null, validating: false }); break;
+      case 'intro':   // former Intro page, now merged into Upload
       case 'upload': setState({ tab: 'import', view: 'import', importFull: true, step: 'upload', fileId: null, validating: false }); break;
       case 'map': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'saml', mapping: defaultMapping('saml'), purgeUsers: false, purgeJobs: false, acks: {}, step: 'map', validating: false }); break;
       case 'settings': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'confirm', mapping: defaultMapping('confirm'), purgeUsers: false, purgeJobs: false, repSent: false, acks: {}, step: 'settings', validating: false }); break;
@@ -2364,10 +2344,8 @@
            Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
         { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — split buttons', state: 'employees',
           desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload”. Clicking Bulk Upload takes the import FULL-SCREEN and lands on the Upload-file step (Manual-import banner + stepper + “Start from the SafeLMS template” card + drop zone). From there the drop zone / “browse” opens the file picker; picking a file continues to Map columns / Import settings. Automated sync is already set up for the site.' },
-        { id: 'intro', flow: 'import', x: 40, y: 430, step: 'Intro', name: 'Before you start', state: 'intro',
-          desc: 'Shown when Bulk Upload is clicked, before the Upload step: a 4-step overview, the downloadable SafeLMS template, and a link to the Help Center article (URL TBD). “Get started” continues to Upload.' },
         { id: 'upload', flow: 'import', x: 250, y: 250, step: 'Step 1', name: 'Upload file', state: 'upload',
-          desc: 'Reached from the Intro page. Drag a file or pick a sample; quick links to the template + Help Center. After Cancel import, lands here with an “Import cancelled” note. Nothing imports until reviewed.' },
+          desc: 'Manual-import banner + stepper, then the SafeLMS template card and Help Center links (template guide, best practices, common errors), then the drop zone. ← Back returns to Employees. After Cancel import, lands here with an “Import cancelled” note. Nothing imports until reviewed.' },
         { id: 'map', flow: 'import', x: 500, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
           desc: 'Match your file columns to SafeLMS fields (skipped in the Template variant).' },
         { id: 'settings', flow: 'import', x: 500, y: 410, step: 'Step 3', name: 'Import settings', state: 'settings',
@@ -2403,7 +2381,7 @@
           desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
       ],
       edges: [
-        ['employees', 'intro'], ['intro', 'upload'],
+        ['employees', 'upload'],
         ['upload', 'map'], ['upload', 'settings'], ['map', 'settings'],
         ['settings', 'review-info'], ['settings', 'review-confirm'], ['settings', 'review-blocked'],
         ['settings', 'review-saml'], ['settings', 'review-escalate'],

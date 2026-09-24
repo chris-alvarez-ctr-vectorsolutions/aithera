@@ -13,13 +13,13 @@ in progress, **[TODO]** not started, **[PARKED]** revisit later, **[EXTERNAL]** 
 the mock.
 
 **Pre-upload / intro step**
-- **[DONE 2026-09-24]** Intro page BEFORE file upload (Bulk Upload now lands here):
-  4-step overview, downloadable template, and Help Center links (`HELP` in the mock):
-  [Process & template](https://support.vectortrainingeducation.com/s/article/User-Data-Bulk-Upload-Process-and-Template),
-  [Best practices](https://support.vectortrainingeducation.com/s/article/Best-Practices-for-Uploading-and-Structuring-User-Data-in-Vector-LMS-Higher-Education),
-  [Common upload errors](https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors).
-  Upload links template + best practices; Import settings "Learn more" → best
-  practices; Review side panel → common errors.
+- **[DONE 2026-09-24]** Pre-upload content lives ON the Upload file step (a separate
+  intro page was tried, then merged back in at the designer's request): template card
+  (download + [process & template guide](https://support.vectortrainingeducation.com/s/article/User-Data-Bulk-Upload-Process-and-Template))
+  and Help Center card ([best practices](https://support.vectortrainingeducation.com/s/article/Best-Practices-for-Uploading-and-Structuring-User-Data-in-Vector-LMS-Higher-Education),
+  [common upload errors](https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors))
+  above the drop zone; the stepper is the steps overview. ← Back returns to Employees.
+  Import settings "Learn more" → best practices; Review side panel → common errors.
 - **[DONE 2026-09-24]** Bug where the page "jumps and goes out and comes back in" —
   root cause was the full-screen import overlay replaying its fade-in on every
   re-render (Employees page showed through). It now fades in only when it opens;
