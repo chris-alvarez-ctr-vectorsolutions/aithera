@@ -17,6 +17,12 @@ const detailsBtn = (kind, id, label) =>
   `<button class="icon-btn js-open" data-open="${kind}:${id}" title="View details: ${esc(label)}" aria-label="View details: ${esc(label)}"><i class="fa-solid fa-circle-info"></i></button>`;
 const attachBtn = (kind, id, label) =>
   `<button class="icon-btn js-open" data-open="${kind}:${id}" title="View attachments: ${esc(label)}" aria-label="View attachments: ${esc(label)}"><i class="fa-solid fa-paperclip"></i></button>`;
+const printBtn = (label) =>
+  `<button class="icon-btn" title="Print: ${esc(label)}" aria-label="Print: ${esc(label)}"><i class="fa-solid fa-print"></i></button>`;
+/* Row / card actions, always in the same order: info first (leftmost),
+   then print, then attachments. Up to three. */
+const rowActs = (a) =>
+  `<span class="row-acts">${detailsBtn('act', a.id, a.name)}${a.printable ? printBtn(a.name) : ''}${a.attachment ? attachBtn('act', a.id, a.name) : ''}</span>`;
 /* A class that still needs a session cannot be launched; its action opens
    the details page where the session is chosen. */
 const actionBtn = (a) => a.type === 'class'
@@ -158,7 +164,7 @@ function rowHTML(a) {
     <span class="col-num col-dur">${esc(a.dur || '')}</span>
     <span class="col-num col-spent ${a.spent ? '' : 'col-empty'}">${esc(a.spent || '-')}</span>
     <span class="col-num col-due ${overdue ? 'is-overdue' : (a.due ? '' : 'col-empty')}">${esc(a.due || '-')}</span>
-    <span class="col-actions"><span class="row-acts">${detailsBtn('act', a.id, a.name)}${a.attachment ? attachBtn('act', a.id, a.name) : ''}</span></span>
+    <span class="col-actions">${rowActs(a)}</span>
   </div>`;
 }
 
@@ -184,7 +190,7 @@ function cardHTML(a) {
       </div>
     </div>
     <div class="tcard-foot">
-      <span class="row-acts">${detailsBtn('act', a.id, a.name)}${a.attachment ? attachBtn('act', a.id, a.name) : ''}</span>
+      ${rowActs(a)}
       ${actionBtn(a)}
     </div>
   </article>`;

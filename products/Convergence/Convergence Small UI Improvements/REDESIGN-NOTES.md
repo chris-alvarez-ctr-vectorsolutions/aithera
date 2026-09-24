@@ -581,6 +581,25 @@ for the final treatment.
   assignment the activity came through, with the assigned date and who assigned it. Demo
   data only; the assignment record on the activity model is a logic item.
 
+## Round 12: three row actions (info, print, attachments)
+
+An activity can be printable AND carry an attachment, so the action cluster holds up to
+three icons beside Launch. The print action is new in this pass (`fa-print`, derived from
+the activity type: documents and tasklists), and the order is fixed everywhere: info,
+print, attachments.
+
+- **Small card.** Three full-size icons plus Launch need 211px of content, which the small
+  card did not have at ANY width (it ran 184-224px, so it overflowed by 11px at its widest
+  and ~51px at its narrowest). Tightening the icons alone was not enough either, so both
+  levers were used: the dense card now uses 30px icon buttons butted together (`gap: 0`,
+  still above the 24px minimum target) with Launch trimming its side padding, and the track
+  grows from 184-224 to 200-236. Result at the rendered 236px track: 174px of content in
+  212px of space, 38px slack. Height, font, colour and order are unchanged between
+  densities; only size and padding differ, as with the existing dense title and body padding.
+- **List view.** The same third icon overflowed the 84px Actions column by 22px, so that
+  track is now 112px, at both the default and 1400px breakpoint grids.
+- **Large card** needed no change: 69px of slack already.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest
@@ -605,6 +624,9 @@ CSS-only alternative is given.
 7. **Away-from-home chip on the location trigger** needs the user's home location. CSS-only
    alternative: omit the chip.
 8. **Section headers in the side nav** need the nav model to carry a section level (see Area 1).
+9. **Printable flag per activity.** The prototype derives it from the activity type
+   (documents and tasklists); the real model needs the flag, since printability is a
+   property of the content, not of its type.
 
 ## Global consistency summary
 

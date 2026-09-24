@@ -269,7 +269,13 @@ const HOME = {
    data stays easy to scan. */
 (function () {
   let n = 0;
-  TRAINING.quals.forEach(q => q.reqs.forEach(r => r.acts.forEach(a => { a.id = 'a' + (++n); })));
+  TRAINING.quals.forEach(q => q.reqs.forEach(r => r.acts.forEach(a => {
+    a.id = 'a' + (++n);
+    // Printable content: documents and tasklists can be printed to take into
+    // the field. An activity may be BOTH printable and carry an attachment,
+    // which is the three-icon case the card action row has to fit.
+    if (a.type === 'doc' || a.type === 'tasklist') a.printable = true;
+  })));
 
   const set = (name, extra) =>
     TRAINING.quals.forEach(q => q.reqs.forEach(r => r.acts.forEach(a => {

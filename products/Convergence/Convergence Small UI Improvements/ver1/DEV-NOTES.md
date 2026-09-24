@@ -43,6 +43,7 @@
 - Round 10: accordion type glyphs are plain icons (14px, `--c-primary`), no chip fill. The 24px `--c-primary-soft` chip remains only where an icon stands alone (detail hero, catalog type column, View-by list).
 - Round 8: qualification rows use `fa-graduation-cap` (never the medal); requirements keep `fa-award`. Same cap in the side nav, View-by list, detail hero and catalog cards.
 - Canvas: `--c-canvas` is `#f5f9fd`, the product CLAUDE.md default (round 8 tried the gray `#f0f2f5`; round 10 reverted it at designer direction). The round 8 table retune stays: bands `#f3f5f9` / `#edf1f7`, borders `#dbe0e8`, hairlines `#e9edf3`, `--c-meta` darkened to `#5b6779`. AA on the canvas: meta 5.42, links 4.66.
+- The Actions column is 112px (was 84px) so it holds three 34px icon buttons; the 1400px breakpoint grid carries the same width. A third action would need another 34px.
 - ONE column grid is declared once and reused by the header and every depth, so group, qualification, requirement and activity rows align their Completion / Duration / Time spent / Due / Actions values under the same headings.
 - Dropping a column at a breakpoint must hide that cell at EVERY depth, or the deeper rows spill onto a second grid line.
 - The empty completion capsule with the tiny caption is replaced by `.meter`: a 76px bar plus a single-line label, "**0 of 5** qualifications", vertically centred. Needs a completion ratio in the row model; if only the counts exist, derive the bar from them.
@@ -79,7 +80,10 @@
 ## t-cards-s - Compact cards (Area 4)
 - Same card component as the large size. The ONLY difference is the grid track size: `--card-min: 168px; --card-max: 208px`, plus slightly tighter body padding and a 13px title.
 - Thumbnail ratio, badge placement, radius, shadow and controls must not change between densities.
+- Round 12: an activity can carry THREE actions (info, print, attachments). The small card could not fit three 34px buttons plus Launch, so the dense card tightens the cluster (30px buttons, `gap: 0`, Launch `padding-inline: 10px`) AND the track grows 184-224 -> 200-236. Measured at the 236px track: 90 icons + 4 gap + 80 Launch = 174 in 212 of inner width, 38px slack. Either change alone was short: three full-size icons plus Launch need 211px of content, more than the old card had at ANY width.
 - Round 4 worked example: the 12-activity requirement (RV - HSEML - Site Hazards) demonstrates the responsive grid. Measured: large cards 4 / 3 / 2 per row and small cards 5 / 4 / 2 per row at 1600 / 1180 / 820px, 16px gutters at every size. Auto-fill min-max tracks derive the count from the width; do not hardcode column counts.
+- Action order is fixed everywhere (list rows and both card sizes): info, then print, then attachments. `rowActs()` in views.js builds the cluster once so the three surfaces cannot drift.
+- Printable content is derived from the activity type (`doc`, `tasklist`) in the data.js enrichment IIFE. LOGIC ITEM: the real model needs a printable flag per activity; do not ship the type heuristic.
 - Round 2: cards carry the design-system XS shadow (`--e-xs`) as their ONLY elevation: no border. Type icons are centred with grid place-items + line-height 1 and one normalised size per thumbnail size.
 - Round 10 padding (dense): body `12 12 8`, footer `0 12 12` - the same model as the large card, one spacing step tighter.
 
