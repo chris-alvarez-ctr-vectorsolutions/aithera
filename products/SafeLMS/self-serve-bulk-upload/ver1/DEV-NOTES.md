@@ -103,13 +103,13 @@ Positions / Quick Groups / … top-tab bar, the toolbar + paginated employee lis
 Each version launches the import from a **different entry point on that screen** —
 that entry point is now the axis that varies between versions.
 
-**Automated sync is assumed already set up (2026-09-16).** The earlier "how do you
-turn sync on" experiment (earn-it gate / concierge request / per-version placement)
-is **retired**. Every version now assumes Vector has already configured the site's
-automated roster sync, so **both manual upload and automated sync are available**.
-Sync surfaces as a light "Automated sync is on" status (banner / detail page) with
-two states only — **up to date** and **needs your attention** — reachable from the
-import flow. The bottom-left "Preview · AutoSync" panel toggles those two states.
+**Automated sync is OUT OF SCOPE (2026-09-24).** Customers can't be given automated
+sync self-serve, so the sync page, the "Automated sync is on" banner, the Preview ·
+AutoSync panel, and the flow map's sync lane (B) were **removed** from the mock. Where
+sync used to be offered, the mock now links a Help Center article, **"How to get
+automated sync"** (URL TBD): the Upload step's Help Center line, the Add employee
+modal's bulk tab, and the Import complete page. (Supersedes the 2026-09-16 "sync is
+assumed already set up" decision.)
 
 **Versions — 5, one entry point each (2026-09-16).** V1+V2 (the old earn-it and
 concierge variants) were consolidated into one standard flow; the reimagined flows
@@ -202,17 +202,6 @@ screen), V4 (new tab), V5 (stays in the modal).
   The red `*` on a file column now reflects the column's natural (auto-detected)
   target being a required field (First name / Last name / Username), so it stays
   put regardless of what the "Import as" dropdown is currently set to.
-
-## sync-failed
-
-- **Summary-first failure card**, with the fuller explanation + affected rows behind
-  a single expander. The decision + its action stay visible.
-- **Notifications = email, PII-light — PENDING detail.** Keep names/PII out of the
-  email body; drive recipients into the app to see rows.
-- **Retry routes through the manual uploader** — a failed auto-upload is corrected
-  and retried via the manual flow, not a bespoke mechanism.
-- **Care alerting thresholds — backend, not mock.** When Care gets a case (every
-  failure? after N?) is out of mock scope.
 
 ## upload
 

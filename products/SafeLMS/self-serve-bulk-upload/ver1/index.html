@@ -443,17 +443,6 @@
   .disc-body { border-top: 1px solid var(--line-3); }
   .disc-body-inner { padding: 13px 16px 15px; font-size: 12.5px; color: var(--ink-2); line-height: 1.6; }
 
-  /* ---- Sync status header — one compact strip that NAMES the current state
-         (Up to date / Needs your review / Not available), so the customer always
-         knows which state they’re in before reading any detail. ---- */
-  .sync-status { display: flex; align-items: center; gap: 14px; background: #fff; border: 1px solid var(--line);
-    border-radius: 10px; padding: 15px 18px; }
-  .sync-status .ss-badge { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center;
-    justify-content: center; font-size: 18px; flex: 0 0 42px; }
-  .sync-status .ss-main { flex: 1; min-width: 0; }
-  .sync-status .ss-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); }
-  .sync-status .ss-title { font-size: 16px; font-weight: 700; margin-top: 1px; }
-  .sync-status .ss-sub { font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
 
   /* ---- V4 error help tooltip — a click-open popover on each review alert with
          a what-it-means line, an A→B before/after example, and a "usually…" hint.
@@ -488,15 +477,7 @@
   .hp-usually i { color: var(--amber); margin-right: 6px; }
   .hp-link { font-size: 12px; font-weight: 600; }
 
-  /* ---- Sync status banner (manual-import landing) + deeper-page back link.
-         Automated sync now lives on its own page; on the main page it's just this
-         one-line banner. ---- */
-  .sync-banner { display: flex; align-items: center; gap: 12px; border-radius: 10px; padding: 11px 16px;
-    margin-bottom: 18px; cursor: pointer; transition: filter .12s; }
-  .sync-banner:hover { filter: brightness(.985); }
-  .sync-banner .sb-ico { font-size: 15px; flex: 0 0 auto; }
-  .sync-banner .sb-text { flex: 1; font-size: 13px; font-weight: 500; }
-  .sync-banner .sb-cta { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+  /* ---- Deeper-page back link ---- */
   .sync-back { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600;
     color: var(--blue); margin-bottom: 16px; cursor: pointer; }
   .sync-back:hover { text-decoration: none; color: var(--blue-2); }
@@ -646,20 +627,7 @@
       + ' <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" style="font-size:10px;"></i></a>';
   }
 
-  /* VERSION KNOB — layout of the User Import tab.
-       'A' = Manual import / Automated sync as a segmented sub-control (legacy).
-       'B' = one page — manual import (centered), automated sync stacked in a
-             full-width, edge-to-edge band underneath. This is now the layout for
-             ALL versions; the axis that varies between versions is the automated-
-             sync SETUP MODEL and error-help style, not the layout:
-               ver1 self-serve unlock · gate 3   ver2 self-serve unlock · gate 4
-               ver3 concierge (Vector sets it up) ver4 earn-it @4 + tooltips
-               ver5 reimagined import view. */
   var VERSION = 'B';
-
-  /* Automated-sync qualification gate. Designer spec = 3 clean imports in a row;
-     the PRD / earlier card said 4 (flagged in DEV-NOTES). One constant to flip. */
-  var SYNC_GATE = 4, SYNC_DONE = 3;
 
   /* Illustrative rows for the "everything that would change" purge breakdown —
      who gets deactivated, and which position/location (job) assignments get
@@ -737,69 +705,6 @@
     info:     { chip: 'Info',           icon: 'fa-circle-info',          chipBg: '#5B8DC9', border: '#E1E7EE', headBg: '#F5F9FE', titleColor: '#1B2B3E', proceedLabel: 'What it means' }
   };
 
-  /* Automated-sync failure scenarios — one per severity path, mirroring the manual
-     tiers so the sync flow shows the same Blocked / Confirm / Contact-Vector split.
-     Picked by state.variants.syncScenario and rendered by syncFailureCard(). */
-  var SYNC_FAILS = {
-    confirm: {
-      tier: 'confirm',
-      summary: '8 accounts arrive with a different first or last name. Apply the changes to update the names and keep every account’s training history — the rest of the file (2 new users, 41 updates) imports as normal.',
-      detailLabel: 'Review all 8 name changes',
-      title: 'Your sync stopped this morning — 8 changes need your confirmation',
-      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
-      lines: [
-        ['What happened', '8 rows in this file have a different first or last name than the existing account with the same username. This is usually a legal name change or a nickname — Susan becoming Sue — but it can also mean the row belongs to a different person.'],
-        ['If you apply the changes', 'the 8 names are updated and all training history stays with each account. The rest of the file (2 new users, 41 updates) imports as normal.']
-      ],
-      diff: [
-        { row: '12', field: 'First name', current: 'Susan (Hartley)', incoming: 'Sue', result: 'Sue Hartley' },
-        { row: '47', field: 'Last name', current: '(Amara) Okafor', incoming: 'Okafor-Reed', result: 'Amara Okafor-Reed' },
-        { row: '95', field: 'First name', current: 'Robert (Ellis)', incoming: 'Bobby', result: 'Bobby Ellis' }
-      ],
-      diffLabel: 'After sync', more: 'Show all 8 rows',
-      buttons: [
-        { cls: 'btn--primary', act: 'bless', label: 'These are correct — apply the changes' },
-        { cls: 'btn--ghost',   act: 'noop',  label: 'Something looks wrong — contact support' }
-      ],
-      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
-    },
-    blocked: {
-      tier: 'blocked',
-      summary: 'This morning’s file would rewrite usernames on 148 of 170 accounts (87%) and break sign-in across the district. Fix the export at its source, or bring today’s roster in through the manual uploader.',
-      detailLabel: 'See why it’s blocked',
-      title: 'Your sync stopped this morning — this file would change usernames on 148 of 170 accounts (87%)',
-      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
-      lines: [
-        ['What happened', 'The username column in this morning’s export changed format — it now sends first.last where your site signs people in by email. Applying it would rewrite the username on nearly every account.'],
-        ['Why it’s blocked', 'Sign-in would break across the district at once and duplicate accounts would appear as people log back in. There is no undo, so SafeLMS will not apply a change this large on its own.'],
-        ['What to do', 'Fix the export at its source so the username column matches your site, and the next sync will pick it up. To get today’s roster in now, upload a corrected file through the manual uploader.']
-      ],
-      rows: ['slinden   →   sarah.linden', 'mreyes   →   maria.reyes', 'tallen   →   tom.allen', '… and 145 more'],
-      buttons: [
-        { cls: 'btn--primary', act: 'goImport', label: 'Fix it in the manual uploader' },
-        { cls: 'btn--ghost',   act: 'noop',     label: 'Contact support' }
-      ],
-      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Nothing was changed — your roster stays as it was until a corrected file comes in.'
-    },
-    escalate: {
-      tier: 'escalate',
-      summary: 'Two accounts on your site already use the same email, so this morning’s file can’t resolve them. Vector merges the two accounts, then your sync resumes automatically — nothing for you to fix in the file.',
-      detailLabel: 'See the details',
-      title: 'Your sync stopped — 2 accounts on your site already share one email address',
-      meta: 'ridgewood_staff_20260901.csv · arrived 6:31 AM · stopped 7:04 AM · No changes have been made to your site.',
-      lines: [
-        ['What happened', 'cdelgado and c.delgado are two separate accounts that already use cdelgado@ridgewood.k12.us. This morning’s file can’t resolve it, because the duplicate already exists on your site.'],
-        ['Why Vector has to do this', 'Two accounts with the same email can’t be told apart at sign-in, and merging them has to be done by Vector — it can’t be undone from here.'],
-        ['What to do', 'Contact Vector to merge these two accounts. Your sync resumes automatically once they’re merged.']
-      ],
-      rows: ['cdelgado · cdelgado@ridgewood.k12.us — 11 completions', 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions'],
-      buttons: [
-        { cls: 'btn--primary', act: 'noop', label: 'Contact Vector support' }
-      ],
-      foot: 'Emailed to Mark Osei (Technology Director) at 7:04 AM. Your roster has not updated since Aug 31 while this is waiting.'
-    }
-  };
-
   /* HELP CATALOG (V4) — per-error tooltip content. Instead of laying every
      description out on the page, each alert shows a tight one-liner + a "Help"
      button that opens this: what it means, an A→B before/after example with a
@@ -855,7 +760,7 @@
 
   /* ------------------------------------------------------------------ state */
   var state = {
-    variants: { uploadVariant: 'column-mapping', automationStage: 'active-healthy', syncScenario: 'confirm', startTab: 'import' },
+    variants: { uploadVariant: 'column-mapping', startTab: 'import' },
     tab: null,
     addEmp: false,       // Add Employee modal open
     empMode: 'single',   // Add Employee modal mode: 'single' | 'bulk' (used by modal-entry versions)
@@ -878,7 +783,7 @@
     notifyFail: true,
     notifySuccess: false,
     openHelp: null,      // id of the review alert whose A→B help tooltip is open (V4)
-    view: 'employees',   // 'employees' = the Employees-tab landing (list + entry point); 'import' = bulk-import flow; 'sync' = automated-sync detail page
+    view: 'employees',   // 'employees' = the Employees-tab landing (list + entry point); 'import' = bulk-import flow detail page
     importFull: false,   // ver1: the import flow has taken over the full viewport (after a file is picked)
     disc: {},            // open/closed state for the progressive-disclosure expanders
     attnSev: 'fixable',  // attention-needed step severity: 'fixable' (amber) | 'escalate' (red)
@@ -891,9 +796,6 @@
 
   /* ---------------------------------------------------------------- helpers */
   function variant() { return state.variants.uploadVariant; }
-  function stage() { return state.variants.automationStage; }
-  function syncDone() { return stage() === 'unlocked' ? SYNC_GATE : SYNC_DONE; }  // V1: 'unlocked' = the 4th came in
-  function syncScenario() { return state.variants.syncScenario; }
   function isMap() { return variant() === 'column-mapping'; }
   function curTab() { return state.tab || state.variants.startTab; }
 
@@ -1116,34 +1018,6 @@
     }).join('');
     return '<div class="variants-row"><div class="variants-label">' + label + '</div>'
       + '<div class="seg">' + btns + '</div></div>';
-  }
-
-  /* Prototype helper, reframed as a BEFORE → AFTER preview of automated sync
-     becoming available. Per version the options differ; here (earn-it) you can
-     watch it go from locked (3/4) → the 4th coming in → running. */
-  function baPanel(opts, cur, hint) {
-    var btns = opts.map(function (o) {
-      return '<button data-act="setSync" data-arg="' + o.k + '"' + (cur === o.k ? ' class="is-on"' : '') + '>' + o.l + '</button>';
-    }).join('');
-    var link = state.view === 'sync'
-      ? '<a href="#" data-act="backToImport">← back to import</a>'
-      : '<a href="#" data-act="openSync">open the sync page →</a>';
-    return '<div class="variants' + (state.variantsCollapsed ? ' is-collapsed' : '') + '">'
-      + '<div class="variants-title"><span>Preview · AutoSync</span>'
-      + '<span class="collapse" data-act="toggleVariants" title="Collapse">' + (state.variantsCollapsed ? '+' : '–') + '</span></div>'
-      + '<div class="variants-body">'
-      + '<div class="variants-label" style="margin-bottom:6px;">Automated-sync states</div>'
-      + '<div class="ba-list">' + btns + '</div>'
-      + '<div class="variants-hint">Watch the banner + sync page change. ' + hint + ' ' + link + '</div>'
-      + '</div></div>';
-  }
-  function variantsPanel() {
-    var st = stage();
-    var cur = st === 'active-failed' ? 'alert' : 'running';
-    return baPanel([
-      { k: 'running', l: '① Automated sync on — up to date' },
-      { k: 'alert',   l: '② Sync needs your attention' }
-    ], cur, 'Vector has set up automated sync for this site — it’s always on.');
   }
 
   /* Authentic VectorSolutions / SafeLMS side navigation. Icons use the mock's
@@ -1578,8 +1452,8 @@
     // Run import, at the moment it matters).
 
     return '<div class="fadeup" style="max-width:640px;">'
-      + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">Is this file your full employee list?</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">If not, leave this off. ' + helpLink('best', 'Learn more') + '</div>'
+      + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">Should your site match this file exactly, or are you just adding new employees?</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">Just adding employees? Leave this off. Turn it on to deactivate anyone not in the file. ' + helpLink('best', 'Learn more') + '</div>'
       + optCard + beforeAfterHTML(on) + summary + repRow
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
@@ -1893,231 +1767,6 @@
     return '<section data-screen-label="Manual import">' + stepper + body + '</section>';
   }
 
-  /* One compact strip that NAMES the current sync state, shown above any detail so
-     the customer always knows which state they’re looking at. */
-  function syncStatus(bg, col, ico, title, sub) {
-    return '<div class="sync-status">'
-      + '<div class="ss-badge" style="background:' + bg + ';color:' + col + ';"><i class="fa-solid ' + ico + '" aria-hidden="true"></i></div>'
-      + '<div class="ss-main"><div class="ss-eyebrow">Automated sync</div>'
-      + '<div class="ss-title">' + title + '</div>'
-      + '<div class="ss-sub">' + sub + '</div></div></div>';
-  }
-  function syncStatusHeader() {
-    var st = stage();
-    if (st === 'active-healthy') {
-      return syncStatus('#ECFDF3', '#067647', 'fa-circle-check', 'Up to date',
-        'Last import today 6:42 AM · next check within 30 minutes. Nothing needs you.');
-    }
-    if (st === 'active-failed' && state.blessed) {
-      return syncStatus('#ECFDF3', '#067647', 'fa-circle-check', 'Up to date',
-        'You applied the waiting changes just now — your roster is current.');
-    }
-    return '';   // active-failed (unresolved) leads with the failure card itself
-  }
-
-  /* Compact sync status banner shown on the manual-import landing. It is the only
-     automated-sync presence on the main page — one line: all-clean, needs-
-     attention, or (earn-it) progress toward unlocking. Click opens the deeper page. */
-  function syncBanner() {
-    var st = stage(), tone, icon, text, cta = 'View';
-    if (st === 'active-failed' && !state.blessed) {
-      tone = 'warn'; icon = 'fa-triangle-exclamation';
-      text = 'Automated sync needs attention — 1 file stopped this morning.';
-      cta = 'Review';
-    } else {
-      tone = 'ok'; icon = 'fa-circle-check';
-      text = 'Automated sync is on — everything’s clean. Last import today 6:42 AM.';
-      cta = 'Manage';
-    }
-    var c = tone === 'ok' ? { bg: '#ECFDF3', bd: '#A6E5C3', fg: '#067647' }
-      : tone === 'warn' ? { bg: '#FFFAEB', bd: '#F2D69B', fg: '#8A5A0B' }
-      : { bg: '#EEF2F7', bd: '#DCE3EC', fg: '#5B6B7E' };
-    return '<div class="sync-banner" data-act="openSync" style="background:' + c.bg + ';border:1px solid ' + c.bd + ';">'
-      + '<span class="sb-ico" style="color:' + c.fg + ';"><i class="fa-solid ' + icon + '" aria-hidden="true"></i></span>'
-      + '<span class="sb-text" style="color:' + c.fg + ';">' + text + '</span>'
-      + '<span class="sb-cta" style="color:' + c.fg + ';">' + cta + ' <i class="fa-solid fa-chevron-right" aria-hidden="true" style="font-size:10px;"></i></span>'
-      + '</div>';
-  }
-
-  /* Progressive-disclosure row — summary always visible, detail on demand. */
-  function disc(id, ico, title, sub, detailHTML) {
-    var open = !!state.disc[id];
-    return '<div class="disc' + (open ? ' is-open' : '') + '">'
-      + '<div class="disc-sum" data-act="toggleDisc" data-arg="' + id + '">'
-      + '<div class="disc-ico"><i class="fa-solid ' + ico + '" aria-hidden="true"></i></div>'
-      + '<div class="disc-tt"><div class="dt">' + title + '</div>'
-      + (sub ? '<div class="ds">' + sub + '</div>' : '') + '</div>'
-      + '<div class="disc-chev"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></div></div>'
-      + (open ? '<div class="disc-body"><div class="disc-body-inner">' + detailHTML + '</div></div>' : '')
-      + '</div>';
-  }
-
-  /* The sync decision, summary-first: a clear tier chip + headline + one-line
-     summary + the primary actions stay visible; the fuller explanation and the
-     row-level data collapse behind a single expander — less to read on first
-     entry, nothing lost. Chip carries severity by shape (WCAG 1.4.1). */
-  function syncFailureCard() {
-    var sc = SYNC_FAILS[syncScenario()] || SYNC_FAILS.confirm;
-    var t = TIER[sc.tier];
-    var lines = sc.lines.map(function (l) {
-      return '<div class="alert-line"><b>' + esc(l[0]) + ' — </b>' + esc(l[1]) + '</div>';
-    }).join('');
-    var box = sc.rows
-      ? '<div style="background:#F8FAFC;border:1px solid #EDF1F6;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:5px;">'
-        + sc.rows.map(function (r) { return '<div class="mono" style="font-size:12.5px;color:#3D4F63;">' + esc(r) + '</div>'; }).join('')
-        + '</div>'
-      : '';
-    var diff = sc.diff ? beforeAfter(sc.diff, sc.diffLabel, sc.more) : '';
-    var foot = sc.foot ? '<div style="font-size:12.5px;color:#8CA0B4;">' + esc(sc.foot) + '</div>' : '';
-    var detail = '<div style="display:flex;flex-direction:column;gap:10px;">' + lines + box + diff + foot + '</div>';
-    var btns = sc.buttons.map(function (b) {
-      return '<button class="btn sm ' + b.cls + '" data-act="' + b.act + '">' + esc(b.label) + '</button>';
-    }).join('');
-    return '<div class="card" style="border-color:' + t.border + ';overflow:hidden;">'
-      + '<div style="background:' + t.headBg + ';padding:14px 18px;display:flex;gap:12px;align-items:flex-start;">'
-      + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
-      + '<div><div style="font-size:14.5px;font-weight:600;color:' + t.titleColor + ';">' + esc(sc.title) + '</div>'
-      + '<div style="font-size:12.5px;color:' + t.titleColor + ';opacity:.75;margin-top:3px;">' + esc(sc.meta) + '</div></div></div>'
-      + '<div style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">'
-      + '<div style="font-size:13.5px;color:#3D4F63;line-height:1.6;">' + esc(sc.summary) + '</div>'
-      + '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns + '</div>'
-      + disc('syncfail-detail', 'fa-list-ul', sc.detailLabel || 'See the details', 'What happened, and the exact rows affected', detail)
-      + '</div></div>';
-  }
-
-  /* Locked automated sync (stage 'qualifying'). The progress tracker is the hero;
-     the how-it-works explanation and the run history collapse behind expanders so
-     first entry is light. Returns the inner column only — syncTab() adds the
-     state-naming header above it. */
-  function lockedBody() {
-    var d = syncDone(), toGo = SYNC_GATE - d, done = d >= SYNC_GATE;
-    var segs = '';
-    for (var i = 0; i < SYNC_GATE; i++) {
-      segs += '<div style="flex:1;height:9px;border-radius:5px;background:' + (i < d ? '#12B76A' : '#E1E7EE') + ';"></div>';
-    }
-    var runs = [];
-    if (done) runs.push({ mark: '✓', bg: '#12B76A', label: 'Clean import — 1 added, 5 updated', sub: 'Streak 4 of ' + SYNC_GATE + ' · unlocked automation', date: 'Today' });
-    runs.push(
-      { mark: '✓', bg: '#12B76A', label: 'Clean import — 2 added, 14 updated', sub: 'Streak 3 of ' + SYNC_GATE + (done ? '' : ' · one more unlocks automation'), date: 'Aug 28' },
-      { mark: '✓', bg: '#12B76A', label: 'Clean import — 0 added, 9 updated',  sub: 'Streak 2 of ' + SYNC_GATE, date: 'Aug 21' },
-      { mark: '✓', bg: '#12B76A', label: 'Clean import — 1 added, 6 updated',  sub: 'Streak 1 of ' + SYNC_GATE, date: 'Aug 14' },
-      { mark: '✕', bg: '#D92D20', label: 'Import had errors — file arrived as .xlsx instead of .csv', sub: 'Streak reset — any error starts the count over', date: 'Aug 5' }
-    );
-    var runsHtml = runs.map(function (q) {
-      return '<div style="display:flex;align-items:flex-start;gap:11px;padding:9px 0;border-top:1px solid #F3F6FA;">'
-        + '<div style="width:20px;height:20px;border-radius:50%;background:' + q.bg + ';color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;flex:0 0 20px;margin-top:1px;">' + q.mark + '</div>'
-        + '<div style="flex:1;"><div style="font-size:12.5px;color:#1B2B3E;">' + esc(q.label) + '</div>'
-        + '<div style="font-size:11.5px;color:#8CA0B4;margin-top:1px;">' + esc(q.sub) + '</div></div>'
-        + '<div style="color:#8CA0B4;font-size:12px;white-space:nowrap;">' + q.date + '</div></div>';
-    }).join('');
-    runsHtml = runsHtml.replace('border-top:1px solid #F3F6FA;', 'border-top:0;');
-
-    // Just unlocked — the 4th clean import came in.
-    if (done) {
-      var celebrate = '<div class="card" style="padding:24px 22px;text-align:center;">'
-        + '<div style="width:54px;height:54px;border-radius:50%;background:#ECFDF3;border:1.5px solid #A6E5C3;color:#067647;font-size:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;"><i class="fa-solid fa-unlock" aria-hidden="true"></i></div>'
-        + '<div style="font-size:19px;font-weight:800;">Automated sync is unlocked</div>'
-        + '<div style="font-size:13px;color:#5B6B7E;margin:7px auto 0;max-width:430px;line-height:1.55;">Your 4th clean import just came in. SafeLMS will import your roster from SFTP automatically from now on — no manual upload.</div>'
-        + '<div style="display:flex;gap:6px;max-width:380px;margin:18px auto 6px;">' + segs + '</div>'
-        + '<div style="font-size:12px;color:#8CA0B4;">' + SYNC_GATE + ' of ' + SYNC_GATE + ' clean imports</div>'
-        + '<div style="margin-top:18px;"><button class="btn btn--primary" data-act="setSync" data-arg="running">See it running →</button></div>'
-        + '</div>';
-      return celebrate + disc('locked-runs', 'fa-clock-rotate-left', 'Your recent imports', 'Latest: today', runsHtml);
-    }
-
-    var howDetail = 'Automated sync drops your roster file on your SFTP folder and SafeLMS imports it for you — no manual upload. '
-      + 'Keep the format, columns, and file-name pattern identical each time; an import with any error resets the streak to zero.';
-
-    var progress = '<div class="card" style="padding:20px 22px;">'
-      + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'
-      + '<div style="font-size:14px;font-weight:700;">' + d + ' of ' + SYNC_GATE + ' clean imports</div>'
-      + '<div style="font-size:12px;font-weight:700;color:#8A5A0B;background:#FFFAEB;border:1px solid #F2D69B;border-radius:6px;padding:5px 11px;white-space:nowrap;">' + toGo + ' to go</div></div>'
-      + '<div style="display:flex;gap:6px;">' + segs + '</div>'
-      + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:12px;line-height:1.55;">Automated sync imports your roster for you once you’ve had <b>' + SYNC_GATE + ' clean manual imports in a row</b> — ' + toGo + ' more to go.</div>'
-      + '<div style="display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;">'
-      + '<button class="btn btn--primary" data-act="goImport">Run a manual import →</button>'
-      + '<span style="font-size:12px;color:#8CA0B4;">Unlocks after your ' + ordinal(SYNC_GATE) + ' clean import</span>'
-      + '</div></div>';
-
-    return progress
-      + disc('locked-how', 'fa-circle-info', 'How automated sync works', 'Imports from SFTP · turns on after ' + SYNC_GATE + ' clean imports', howDetail)
-      + disc('locked-runs', 'fa-clock-rotate-left', 'Your recent imports', 'Last checked Aug 19', runsHtml);
-  }
-
-  /* Automated sync — single, calm column. It leads with the state-naming header
-     (or the failure card when a decision is waiting); the recent activity, the
-     how-it-works, and the notification settings all collapse into expanders, so
-     first entry is light while every explanation stays one click away. */
-  function syncTab() {
-    var st = stage();
-    var qualifying = st === 'qualifying' || st === 'unlocked';   // both use the locked/progress view
-    var failed = st === 'active-failed';
-    var showFailure = failed && !state.blessed;
-    var showResolved = failed && state.blessed;
-    var healthy = st === 'active-healthy';
-
-    var col = '';
-    if (qualifying) {
-      col = lockedBody();
-    } else {
-      if (showFailure) col += syncFailureCard();
-
-      // Recent activity — collapsed; the summary line carries the latest event.
-      var activity = (showResolved || healthy) ? [
-        { label: 'ridgewood_staff_20260901.csv — imported' + (showResolved ? ' after your confirmation (2 added, 41 updated, 8 names)' : ''), when: showResolved ? 'Today, just now' : 'Today, 6:42 AM', dot: '#12B76A' },
-        { label: 'ridgewood_staff_20260831.csv — imported (0 added, 6 updated)', when: 'Aug 31, 6:38 AM', dot: '#12B76A' },
-        { label: 'ridgewood_staff_20260830.csv — imported (1 added, 3 updated)', when: 'Aug 30, 6:45 AM', dot: '#12B76A' },
-        { label: 'ridgewood_staff_20260829.csv — imported (0 added, 11 updated)', when: 'Aug 29, 6:33 AM', dot: '#12B76A' }
-      ] : [
-        { label: 'ridgewood_staff_20260901.csv — stopped, waiting for your review', when: 'Today, 7:04 AM', dot: '#D92D20' },
-        { label: 'ridgewood_staff_20260831.csv — imported (0 added, 6 updated)', when: 'Aug 31, 6:38 AM', dot: '#12B76A' },
-        { label: 'ridgewood_staff_20260830.csv — imported (1 added, 3 updated)', when: 'Aug 30, 6:45 AM', dot: '#12B76A' },
-        { label: 'ridgewood_staff_20260829.csv — imported (0 added, 11 updated)', when: 'Aug 29, 6:33 AM', dot: '#12B76A' }
-      ];
-      var actRows = activity.map(function (ev, i) {
-        return '<div style="display:flex;align-items:center;gap:12px;padding:9px 0;' + (i ? 'border-top:1px solid #F3F6FA;' : '') + '">'
-          + '<div style="width:9px;height:9px;border-radius:50%;background:' + ev.dot + ';flex:0 0 9px;"></div>'
-          + '<div style="flex:1;font-size:12.5px;">' + esc(ev.label) + '</div>'
-          + '<div style="font-size:12px;color:#8CA0B4;white-space:nowrap;">' + ev.when + '</div></div>';
-      }).join('');
-      col += disc('sync-activity', 'fa-clock-rotate-left', 'Recent sync activity',
-        (showFailure ? '1 file waiting · last clean import Aug 31' : 'Last import ' + activity[0].when.toLowerCase()), actRows);
-
-      // How your sync works — collapsed.
-      var howDetail = 'SafeLMS checks your SFTP folder every 30 minutes for a file matching '
-        + '<span class="mono" style="font-size:12px;background:#F0F4F9;padding:1px 5px;border-radius:4px;">ridgewood_staff_*.csv</span>. '
-        + 'Keep the format, columns, and file-name pattern the same — changing any of them will stop the sync.';
-      col += disc('sync-how', 'fa-circle-info', 'How your sync works', 'Checks SFTP every 30 min for ridgewood_staff_*.csv', howDetail);
-
-      // Notifications — collapsed; the recipient editor + toggles live inside.
-      var recips = state.recipients.map(function (r, i) {
-        var initials = r.name.split(' ').map(function (w) { return w[0]; }).join('');
-        return '<div style="display:flex;align-items:center;gap:10px;border:1px solid #EDF1F6;border-radius:8px;padding:8px 10px;">'
-          + '<div style="width:28px;height:28px;border-radius:50%;background:#DCE7F2;color:#0E2A43;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex:0 0 28px;">' + esc(initials) + '</div>'
-          + '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;">' + esc(r.name) + '</div>'
-          + '<div style="font-size:11.5px;color:#8CA0B4;">' + esc(r.role) + '</div></div>'
-          + '<div data-act="removeRecip" data-arg="' + i + '" style="font-size:15px;color:#8CA0B4;cursor:pointer;padding:0 2px;">×</div></div>';
-      }).join('');
-      var notifDetail = '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:10px;line-height:1.5;">When a sync fails or needs confirmation, these people are emailed directly — not just whoever logs in next. They don’t need permission to run imports; the person who should know a sync broke often isn’t the one who runs it.</div>'
-        + '<div style="display:flex;flex-direction:column;gap:8px;">' + recips + '</div>'
-        + '<div style="display:flex;gap:8px;margin-top:10px;">'
-        + '<input id="recipInput" placeholder="Add by email…" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #C6D3E1;border-radius:7px;font-size:12.5px;">'
-        + '<button class="btn sm btn--outline-blue" data-act="addRecip" style="padding:7px 12px;font-size:12.5px;">Add</button></div>'
-        + '<div class="divider" style="margin:14px 0;"></div>'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:13px;color:#3D4F63;">Email when a sync needs attention</span>'
-        + '<div class="toggle" data-act="toggleFail" style="background:' + (state.notifyFail ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifyFail ? '17px' : '2px') + ';"></div></div></div>'
-        + '<div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:13px;color:#3D4F63;">Email a summary after each successful sync</span>'
-        + '<div class="toggle" data-act="toggleSuccess" style="background:' + (state.notifySuccess ? '#12B76A' : '#C6D3E1') + ';"><div class="toggle-knob" style="left:' + (state.notifySuccess ? '17px' : '2px') + ';"></div></div></div>';
-      col += disc('sync-notif', 'fa-bell', 'Notifications',
-        state.recipients.length + ' ' + (state.recipients.length === 1 ? 'person' : 'people') + ' emailed when a sync needs attention', notifDetail);
-    }
-
-    var label = st === 'qualifying' ? 'Automated sync — not available yet' : st === 'unlocked' ? 'Automated sync — just unlocked' : 'Automated sync';
-    return '<section data-screen-label="' + label + '">'
-      + '<div style="display:flex;flex-direction:column;gap:12px;">'
-      + syncStatusHeader() + col + '</div></section>';
-  }
-
   var EMP_BACK = '<div class="sync-back" data-act="goEmployees"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to employees</div>';
 
   /* Full-screen bulk import (ver1) — the flow lifted out of the app chrome into
@@ -2169,22 +1818,12 @@
     } else if (state.view === 'employees') {
       // The Employees-tab landing: the list + this version's entry point.
       main = employeesLanding();
-    } else if (state.view === 'sync') {
-      // Automated-sync detail, reached from the import banner (sync is already set up).
-      main = '<div class="content">'
-        + '<div class="sync-back" data-act="backToImport"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to import</div>'
-        + '<div style="font-size:20px;font-weight:700;">Automated sync</div>'
-        + '<div style="font-size:13px;color:#5B6B7E;margin:2px 0 18px;">Vector has set up an automated roster sync for your site — it imports from SFTP on a schedule. Run a manual import any time from Employees.</div>'
-        + syncTab() + '</div>';
     } else {
-      // The bulk-import flow (launched from the Employees entry point). A compact
-      // "automated sync is on" banner sits on the upload landing.
-      var banner = (state.step === 'upload') ? syncBanner() : '';
-      main = '<div class="content">' + EMP_BACK + banner + importTab() + '</div>';
+      // The bulk-import flow (launched from the Employees entry point).
+      main = '<div class="content">' + EMP_BACK + importTab() + '</div>';
     }
 
-    $app.innerHTML = variantsPanel()
-      + '<div class="app">' + sidebar()
+    $app.innerHTML = '<div class="app">' + sidebar()
       + '<div class="main">' + topbar() + settingsTabsBar() + '<div class="scroll">' + main + '</div></div></div>'
       + overlay
       + (state.fileModal ? fileModalHTML() : '')
@@ -2204,17 +1843,6 @@
     var f = $app.querySelector('.import-full-body');
     if (f) f.scrollTop = 0;
     window.scrollTo(0, 0);
-  }
-
-  // Version B has no sync tab — "go to sync" scrolls to the stacked section instead.
-  function scrollToSync(where) {
-    var s = $app.querySelector('.scroll');
-    if (!s) return;
-    if (where === 'autosync') {
-      var el = document.getElementById('autosync');
-      if (el) { s.scrollTop = Math.max(0, el.offsetTop - 12); return; }
-    }
-    s.scrollTop = 0;
   }
 
   $app.addEventListener('click', function (e) {
@@ -2240,8 +1868,6 @@
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':
         e.preventDefault(); setState({ view: 'import' }); scrollTop(); break;
-      case 'goSyncTab': case 'goSync': case 'openSync':
-        e.preventDefault(); setState({ view: 'sync' }); scrollTop(); break;
       case 'pickFile': pickFile(arg); scrollTop(); break;
       case 'openFiles': e.preventDefault(); setState({ fileModal: true }); break;
       case 'closeFiles': setState({ fileModal: false }); break;
@@ -2284,21 +1910,12 @@
       }
       case 'toggleVariants': setState({ variantsCollapsed: !state.variantsCollapsed }); break;
       case 'attnSend': e.preventDefault(); setState({ attnSent: true }); break;
-      case 'setSync': {
-        e.preventDefault();
-        var sv = {}; for (var sk in state.variants) sv[sk] = state.variants[sk];
-        var m = { locked: 'qualifying', unlocked: 'unlocked', running: 'active-healthy', alert: 'active-failed' };
-        sv.automationStage = m[arg] || 'qualifying';
-        setState({ variants: sv, blessed: false });
-        break;
-      }
       case 'setVariant': {
         var parts = arg.split(':'), key = parts[0], val = parts[1];
         var vs = {}; for (var k in state.variants) vs[k] = state.variants[k]; vs[key] = val;
         var patch = { variants: vs };
         if (key === 'startTab') patch.tab = val;
         if (key === 'uploadVariant') { patch.fileId = null; patch.step = 'upload'; patch.acks = {}; }
-        if (key === 'automationStage' || key === 'syncScenario') patch.blessed = false;
         setState(patch);
         break;
       }
@@ -2331,13 +1948,6 @@
   });
 
   /* --------------------------------------------- Design Toolbox flow-map host */
-  function setSyncState(stg, scn) {
-    var v = {}; for (var k in state.variants) v[k] = state.variants[k];
-    v.automationStage = stg;
-    if (scn) v.syncScenario = scn;
-    setState({ tab: 'sync', view: 'sync', blessed: false, importFull: false, variants: v });
-  }
-
   function reviewFor(fileId, pu, pj) {
     setState({ tab: 'import', view: 'import', importFull: true, fileId: fileId, mapping: defaultMapping(fileId),
       purgeUsers: !!pu, purgeJobs: !!pj, repSent: false, acks: {}, step: 'review', validating: false });
@@ -2360,11 +1970,6 @@
       /* Attention-needed step (V1 treatment = inline alert mode) */
       case 'attn-fixable':  setState({ tab: 'import', view: 'import', importFull: true, step: 'attn', attnSev: 'fixable', attnSent: false }); break;   // AMBER — you fix it
       case 'attn-escalate': setState({ tab: 'import', view: 'import', importFull: true, step: 'attn', attnSev: 'escalate', attnSent: false }); break; // RED — Vector's team
-      /* Automated sync — already set up; one node per severity path */
-      case 'sync-healthy':  setSyncState('active-healthy', null); break;      // INFO — up to date
-      case 'sync-failed':   setSyncState('active-failed', 'confirm'); break;  // CONFIRM — approve changes
-      case 'sync-blocked':  setSyncState('active-failed', 'blocked'); break;  // BLOCKED — fix at source
-      case 'sync-escalate': setSyncState('active-failed', 'escalate'); break; // CONTACT VECTOR
       default: break;
     }
     scrollTop();
@@ -2381,20 +1986,18 @@
     flowMap: {
       title: 'Bulk User Import · V1 (Employees tab · split buttons) — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 1680, h: 1300 },
+      canvas: { w: 1680, h: 830 },
       flows: [
         { id: 'import', name: 'Manual import — severity paths', pill: 'A', color: '#c9d9f0',
-          lane: { x: 20, y: 20, w: 1640, h: 790 }, labelXY: { x: 40, y: 46 } },
-        { id: 'sync', name: 'Automated sync — severity paths', pill: 'B', color: '#c9b8f0',
-          lane: { x: 20, y: 850, w: 1640, h: 420 }, labelXY: { x: 40, y: 876 } }
+          lane: { x: 20, y: 20, w: 1640, h: 790 }, labelXY: { x: 40, y: 46 } }
       ],
       nodes: [
         /* ── Manual import: wizard on the left, then one branch per severity ──
            Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
         { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — split buttons', state: 'employees',
-          desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload”. Clicking Bulk Upload takes the import FULL-SCREEN and lands on the Upload-file step (Manual-import banner + stepper + “Start from the SafeLMS template” card + drop zone). From there the drop zone / “browse” opens the file picker; picking a file continues to Map columns / Import settings. Automated sync is already set up for the site.' },
+          desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload”. Clicking Bulk Upload takes the import FULL-SCREEN and lands on the Upload-file step (Manual-import banner + stepper + “Start from the SafeLMS template” card + drop zone). From there the drop zone / “browse” opens the file picker; picking a file continues to Map columns / Import settings.' },
         { id: 'upload', flow: 'import', x: 250, y: 250, step: 'Step 1', name: 'Upload file', state: 'upload',
-          desc: 'Manual-import banner + stepper, then the SafeLMS template card and Help Center links (template guide, best practices, common errors), then the drop zone. ← Back returns to Employees. After Cancel import, lands here with an “Import cancelled” note. Nothing imports until reviewed.' },
+          desc: 'Stepper, then the “Start with the SafeLMS template” card (Download button + template guide), the drop zone, and a Help Center line (best practices, common errors, how to get automated sync). ← Back returns to Employees. After Cancel import, lands here with an “Import cancelled” note. Nothing imports until reviewed.' },
         { id: 'map', flow: 'import', x: 500, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
           desc: 'Match your file columns to SafeLMS fields (skipped in the Template variant).' },
         { id: 'settings', flow: 'import', x: 500, y: 410, step: 'Step 3', name: 'Import settings', state: 'settings',
@@ -2417,25 +2020,14 @@
         { id: 'attn-fixable', flow: 'import', x: 700, y: 620, step: 'Attention · amber', name: 'Alert mode — you fix it', state: 'attn-fixable',
           desc: 'V1 attention treatment = inline ALERT MODE, AMBER: a distinct colored card (not red) for a problem the customer fixes themselves — plain-language cause, A→B, “Fix it & upload again.”' },
         { id: 'attn-escalate', flow: 'import', x: 1030, y: 620, step: 'Attention · red', name: 'Alert mode — Vector’s team', state: 'attn-escalate',
-          desc: 'Same alert mode in RED: reserved for a blocker only Vector can resolve (two site accounts share an email). “Send to Vector — we’ll take it from here” → CARE ref.' },
-
-        /* ── Automated sync: already set up → healthy → the three tiers ── */
-        { id: 'sync-healthy', flow: 'sync', entry: true, x: 40, y: 900, step: 'Info', name: 'Set up — up to date', state: 'sync-healthy',
-          desc: 'Automated sync is already set up for the site (Vector configured it). The clean path: the last sync applied its changes, nothing is waiting, next check within 30 min.' },
-        { id: 'sync-failed', flow: 'sync', x: 680, y: 900, step: 'Confirm', name: 'Confirm — approve changes', state: 'sync-failed',
-          desc: 'Sync stopped on CONFIRM-tier changes (name changes). Same row-level view; the customer approves and applies in place — no case.' },
-        { id: 'sync-blocked', flow: 'sync', x: 1000, y: 900, step: 'Blocked', name: 'Blocked — fix at source', state: 'sync-blocked',
-          desc: 'Sync stopped on a BLOCKED change (username format drift would rewrite most accounts). Can’t self-apply — fix the export or use the manual uploader.' },
-        { id: 'sync-escalate', flow: 'sync', x: 1320, y: 900, step: 'Contact Vector', name: 'Contact Vector — email collision', state: 'sync-escalate',
-          desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
+          desc: 'Same alert mode in RED: reserved for a blocker only Vector can resolve (two site accounts share an email). “Send to Vector — we’ll take it from here” → CARE ref.' }
       ],
       edges: [
         ['employees', 'upload'],
         ['upload', 'map'], ['upload', 'settings'], ['map', 'settings'],
         ['settings', 'review-info'], ['settings', 'review-confirm'], ['settings', 'review-blocked'],
         ['settings', 'review-saml'], ['settings', 'review-escalate'],
-        ['review-info', 'done'], ['review-confirm', 'done'],
-        ['sync-healthy', 'sync-failed'], ['sync-healthy', 'sync-blocked'], ['sync-healthy', 'sync-escalate']
+        ['review-info', 'done'], ['review-confirm', 'done']
       ]
     }
   };
