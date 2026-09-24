@@ -65,6 +65,20 @@
   .import-full.is-static { animation: none; }
 
   /* ---- Upload step: template + Help Center resource cards ---- */
+  .pencil-banner { position: relative; display: flex; align-items: flex-start; gap: 16px; margin: 0 0 20px;
+    padding: 18px 48px 18px 22px; background: #fff; border-radius: 4px; border-left: 6px solid var(--blue);
+    box-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06); }
+  .pencil-banner .pb-icon { flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px; background: #E1EBF9;
+    color: var(--blue); display: grid; place-items: center; }
+  .pencil-banner .pb-text { flex: 1; align-self: center; font-size: 14px; line-height: 1.55; color: #1D2939; }
+  .pencil-banner .pb-close { position: absolute; top: 50%; right: 16px; transform: translateY(-50%); background: 0; border: 0;
+    color: #99A1AF; cursor: pointer; display: grid; place-items: center; padding: 6px; border-radius: 6px; }
+  .pencil-banner .pb-close:hover { color: #475467; background: #F2F4F7; }
+  .tpl-card { display: flex; gap: 16px; align-items: flex-start; background: #F5F9FE; border: 1.5px solid #B9D1F0;
+    border-radius: 12px; padding: 18px 20px; margin-bottom: 12px; }
+  .tpl-card .tpl-ico { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 10px; background: #E1EBF9; color: var(--blue);
+    display: flex; align-items: center; justify-content: center; font-size: 20px; }
+  @media (max-width: 720px) { .tpl-card { flex-wrap: wrap; } }
   .intro-res { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .intro-res-card { display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 1px solid var(--line);
     border-radius: 10px; padding: 14px 16px; }
@@ -937,7 +951,7 @@
   function go(step) {
     if (step === 'review') {
       clearTimeout(_validateTimer);
-      setState({ step: step, validating: true });
+      setState({ step: step, validating: true, disc: {} });   // every "See details" starts closed
       _validateTimer = setTimeout(function () { setState({ validating: false }); }, 1100);
     } else { setState({ step: step }); }
   }
@@ -1373,22 +1387,19 @@
   }
 
   function uploadHTML() {
-    // Upload file step (merged with the former Intro page, 2026-09-24): the template +
-    // Help Center links sit above the drop zone. AC-1.1: the template is a convenient
+    // Upload file step: template-focused pencil banner on top, then the stepper, then a
+    // prominent template card, a compact Help Center line, and the drop zone. AC-1.1: the template is a convenient
     // starting shape, not a requirement — any export can be uploaded and mapped.
-    var resources = '<div class="intro-res" style="margin-bottom:14px;">'
-      +   '<div class="intro-res-card"><div class="ico"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>'
-      +     '<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">SafeLMS template</div>'
-      +     '<div style="font-size:12.5px;color:#5B6B7E;margin-top:2px;">Optional starting point with the right columns.</div>'
-      +     '<button class="btn sm btn--outline-blue" style="margin-top:10px;" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Download template (.csv)</button>'
-      +     '<div style="font-size:12.5px;margin-top:8px;">' + helpLink('template', 'Upload process &amp; template guide') + '</div></div></div>'
-      +   '<div class="intro-res-card"><div class="ico"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>'
-      +     '<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">Help Center</div>'
-      +     '<div style="font-size:12.5px;color:#5B6B7E;margin-top:2px;">Guides for preparing your file and fixing common errors.</div>'
-      +     '<div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;font-size:13px;">'
-      +       helpLink('best', 'Best practices for structuring user data')
-      +       helpLink('errors', 'Common upload errors') + '</div></div></div>'
-      + '</div>';
+    // Template gets the emphasis: a full-width card right under the stepper.
+    var resources = '<div class="tpl-card">'
+      +   '<div class="tpl-ico"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>'
+      +   '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:700;">Download the SafeLMS template</div>'
+      +   '<div style="font-size:13px;color:#3D4F63;margin-top:3px;">Has every column SafeLMS needs. Paste your roster in, save, and upload it below.</div>'
+      +   '<div style="font-size:12.5px;margin-top:8px;">' + helpLink('template', 'How to fill in the template') + '</div></div>'
+      +   '<button class="btn btn--primary" data-act="noop" style="white-space:nowrap;align-self:center;"><i class="fa-solid fa-download" aria-hidden="true"></i> Download template (.csv)</button>'
+      + '</div>'
+      + '<div style="font-size:12.5px;color:#5B6B7E;margin:0 0 14px;"><i class="fa-solid fa-book-open" aria-hidden="true" style="color:var(--blue);margin-right:4px;"></i> Help Center: '
+      +   helpLink('best', 'Best practices for structuring user data') + ' &nbsp;·&nbsp; ' + helpLink('errors', 'Common upload errors') + '</div>';
     var cancelled = state.cancelled
       ? '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#3D4F63;margin-bottom:12px;"><b>Import cancelled.</b> Nothing was changed. Upload a new file to start again.</div>'
       : '';
@@ -1397,6 +1408,7 @@
       + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
       + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
       + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
+      + '<div style="font-size:12.5px;color:#5B6B7E;margin-top:10px;"><a href="#" data-act="goSyncTab">Automated sync is already set up for this site — see its recent runs →</a></div>'
       + '<div style="margin-top:18px;"><button class="btn btn--ghost" data-act="goEmployees">← Back</button></div>'
       + '</div>';
   }
@@ -1812,13 +1824,15 @@
   /* Manual-import walkthrough / overview. Full card frames what a manual import
      is (SafeLMS "pencil banner" pattern); compact strip is the persistent form. */
   function walkthroughHTML() {
-    return '<div class="wt-card">'
-      + '<div class="wt-icon"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></div>'
-      + '<div style="flex:1;min-width:0;"><div class="wt-title">Manual import</div>'
-      + '<div class="wt-body">Upload a file to add, update, deactivate, or remove users on this site. Best for one-off changes — a new-hire batch, one building’s roster, year-end cleanup. Nothing changes until you review the exact changes and run it.</div>'
-      + '<div class="wt-link"><a href="#" data-act="goSyncTab">Automated sync is already set up for this site — see its recent runs →</a></div>'
-      + '</div></div>';
+    // Pencil banner (SafeLMS pattern): leads with the template, 2026-09-24.
+    if (state.tplBannerHidden) return '';
+    return '<div class="pencil-banner">'
+      + '<span class="pb-icon"><i class="fa-solid fa-circle-info" aria-hidden="true" style="font-size:19px;"></i></span>'
+      + '<span class="pb-text"><b>Start with the SafeLMS template.</b> Files that use its columns match automatically and run into fewer errors. You can still upload your own export and map its columns.</span>'
+      + '<button class="pb-close" data-act="hideTplBanner" aria-label="Dismiss"><i class="fa-solid fa-xmark" aria-hidden="true" style="font-size:17px;"></i></button>'
+      + '</div>';
   }
+
 
   /* ===================================================================
      ATTENTION-NEEDED STEP — shared content, two severities that read by COLOR:
@@ -2257,6 +2271,7 @@
       case 'back': go(flow()[Math.max(0, flow().indexOf(state.step) - 1)]); scrollTop(); break;
       case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
       case 'togglePurgeAll': { var pv = !(state.purgeUsers && state.purgeJobs); setState({ purgeUsers: pv, purgeJobs: pv }); break; }  // one all-or-nothing switch
+      case 'hideTplBanner': setState({ tplBannerHidden: true }); break;
       case 'toggleSummary': setState({ summaryOpen: !state.summaryOpen }); break;  // collapsed "With this off/on" summary
       case 'cancelImport': e.preventDefault(); setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false, validating: false, cancelled: true }); scrollTop(); break;
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
