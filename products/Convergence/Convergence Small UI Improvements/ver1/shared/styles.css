@@ -392,7 +392,52 @@ vwc-tree-list { display: block; }
 .segmented button:hover { color: var(--c-ink); background: rgba(255,255,255,.7); }
 .segmented button[aria-pressed="true"] { background: var(--c-surface); color: var(--c-primary); box-shadow: var(--e-1); }
 
-.canvas { flex: 1; min-height: 0; display: flex; }
+.canvas { flex: 1; min-height: 0; display: flex; position: relative; }
+
+/* Loading between states: a skeleton of the next screen over the canvas,
+   chrome untouched. Shimmer is decorative and honours reduced motion. */
+.loading {
+  position: absolute; inset: 0; z-index: 6;
+  background: var(--c-canvas); padding: var(--s-6);
+  display: flex; flex-direction: column; gap: var(--s-4);
+}
+.loading[hidden] { display: none; }
+.loading-head { display: flex; align-items: center; gap: var(--s-3); min-height: 32px; font-size: var(--t-meta); color: var(--c-meta); }
+.loading-head vwc-spinner { --vwc-spinner-size: 24px; --vwc-spinner-color: var(--c-primary); }
+.sk { position: relative; overflow: hidden; background: var(--c-surface-alt2); border-radius: var(--r-sm); }
+.sk::after {
+  content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+  animation: sk-shimmer 1.4s infinite;
+}
+@keyframes sk-shimmer { to { transform: translateX(100%); } }
+.sk-banner { height: 56px; border-radius: var(--r-md); background: var(--c-surface-alt); border: 1px solid var(--c-line-soft); }
+.sk-panel {
+  background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--r-md);
+  padding: var(--s-5) var(--s-4); display: flex; flex-direction: column; gap: var(--s-5);
+}
+.sk-row { height: 18px; }
+.sk-row.w40 { width: 40%; } .sk-row.w55 { width: 55%; } .sk-row.w60 { width: 60%; }
+.sk-row.w70 { width: 70%; } .sk-row.w75 { width: 75%; } .sk-row.w80 { width: 80%; }
+@media (prefers-reduced-motion: reduce) { .sk::after { animation: none; } }
+
+/* Loading content modal (Launch) */
+.ld-overlay {
+  position: fixed; inset: 0; z-index: 90;
+  background: rgba(16, 24, 40, .45);
+  display: flex; align-items: center; justify-content: center; padding: var(--s-6);
+}
+.ld-overlay[hidden] { display: none; }
+.ld-modal {
+  width: 420px; max-width: 100%;
+  background: var(--c-surface); border-radius: var(--r-lg); box-shadow: var(--e-3);
+  padding: var(--s-8) var(--s-6) var(--s-6); text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: var(--s-2);
+}
+.ld-modal vwc-spinner { --vwc-spinner-size: 40px; --vwc-spinner-color: var(--c-primary); margin-bottom: var(--s-2); }
+.ld-title { margin: 0; font-size: var(--t-section); font-weight: 600; color: var(--c-ink); }
+.ld-name { margin: 0; font-size: var(--t-row); font-weight: 500; color: var(--c-body); }
+.ld-text { margin: 0 0 var(--s-3); font-size: var(--t-meta); color: var(--c-meta); line-height: 1.5; max-width: 34ch; }
 .view { display: none; flex: 1; min-width: 0; min-height: 0; }
 .view.active { display: flex; }
 .view-scroll { flex: 1; min-width: 0; overflow: auto; padding: var(--s-6); }
@@ -680,10 +725,30 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 .tcard:hover { box-shadow: var(--e-2); transform: translateY(-2px); }
 .tcard-thumb > i { font-size: 30px; }
 .tcard-thumb { aspect-ratio: 16 / 9; width: 100%; }
-.tcard-badge { position: absolute; top: var(--s-2); left: var(--s-2); }
+.tcard-badge { position: absolute; top: var(--s-2); left: var(--s-2); z-index: 2; }
+/* Hover: a scrim over the thumbnail and a View details pill in its centre.
+   Also shown on focus-within so keyboard users reach the same control. */
+.tcard-thumb::after {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  background: rgba(16, 24, 40, .35); opacity: 0; transition: opacity .16s;
+}
+.tcard:hover .tcard-thumb::after, .tcard:focus-within .tcard-thumb::after { opacity: 1; }
+.tcard-view {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3;
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  height: 32px; padding: 0 14px; border: 0; border-radius: var(--r-pill);
+  background: var(--c-surface); color: var(--c-ink); box-shadow: var(--e-2);
+  font: 600 var(--t-meta) inherit; font-family: inherit; cursor: pointer;
+  opacity: 0; pointer-events: none; transition: opacity .16s, background .12s;
+}
+.tcard-view i { font-size: 13px; color: var(--c-primary); }
+.tcard:hover .tcard-view, .tcard:focus-within .tcard-view { opacity: 1; pointer-events: auto; }
+.tcard-view:hover { background: var(--c-primary-soft); }
+.tcard-view:focus-visible { outline: none; box-shadow: var(--focus-ring), var(--e-2); }
+@media (hover: none) { .tcard-view { opacity: 1; pointer-events: auto; } }
 .tcard-badge .pill { height: 22px; background: rgba(255,255,255,.94); backdrop-filter: blur(2px); }
 .tcard-dur {
-  position: absolute; bottom: var(--s-2); right: var(--s-2);
+  position: absolute; bottom: var(--s-2); right: var(--s-2); z-index: 2;
   background: rgba(16,24,40,.78); color: #fff;
   border-radius: var(--r-xs); padding: 4px 8px;
   font-size: var(--t-micro); font-weight: 600; font-variant-numeric: tabular-nums;
@@ -710,16 +775,18 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
   padding: 0 var(--s-4) var(--s-4);
   margin-top: auto;
 }
+/* The icon buttons carry 10px of internal inset around a 14px glyph, so the
+   cluster is pulled left by that inset: the first glyph lines up with the
+   title's edge and the footer reads as evenly padded on both sides. */
+.tcard-foot .row-acts { margin-left: -10px; gap: 2px; }
+.tcard-foot .row-acts:empty { display: none; }
 .tp-cards.dense .tcard-title { font-size: var(--t-meta); }
 .tp-cards.dense .tcard-body { padding: var(--s-3) var(--s-3) var(--s-2); }
 .tp-cards.dense .tcard-foot { padding: 0 var(--s-3) var(--s-3); gap: var(--s-1); }
-/* An activity can carry up to THREE actions (info, print, attachments)
-   beside Launch. At the small card's 200px minimum that does not fit at
-   full size, so the dense card tightens the icon cluster: 30px buttons
-   (still above the 24px minimum target) butted together, and Launch trims
-   its side padding. Height, font, colour and order are unchanged. */
-.tp-cards.dense .tcard-foot .icon-btn { width: 30px; height: 30px; }
-.tp-cards.dense .tcard-foot .row-acts { gap: 0; }
+/* With info on the thumbnail hover, a card footer holds at most two icons
+   (print, attachments) beside Launch: 70 + 8 + 80 = 158px, inside the small
+   card's 176px at its 200px minimum. Only Launch trims its side padding in
+   the dense card; the icon buttons stay the shared 34px. */
 .tp-cards.dense .tcard-foot vaadin-button { padding-inline: 10px; }
 
 /* ---------------------------------------------------------------------------
@@ -1101,7 +1168,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 .thumb.t-qual { background: linear-gradient(135deg, #35548b, #1d3560); }
 .thumb.t-req  { background: linear-gradient(135deg, #4a6d8c, #2b4a66); }
 
-.d-info { display: flex; flex-direction: column; gap: var(--s-2); min-width: 0; flex: 1; }
+.d-info { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; flex: 1; }
 .d-kind {
   align-self: flex-start;
   padding: 4px 8px; border-radius: var(--r-pill);
@@ -1110,7 +1177,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 }
 .d-title { margin: 0; font-size: 20px; font-weight: 600; color: var(--c-ink); letter-spacing: -.2px; line-height: 1.3; }
 .d-meta {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;
   font-size: var(--t-meta); color: var(--c-meta);
 }
 .d-meta i { margin-right: 4px; }
@@ -1118,7 +1185,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 .d-parent { margin: 0; font-size: var(--t-meta); color: var(--c-meta); }
 .d-link { color: var(--c-primary); text-decoration: none; font-weight: 600; }
 .d-link:hover { text-decoration: underline; }
-.d-actions { margin-top: var(--s-2); }
+.d-actions { margin-top: var(--s-3); }
 
 .d-desc { margin: 0; padding: 0 var(--s-5) var(--s-5); font-size: var(--t-row); color: var(--c-body); line-height: 1.55; max-width: 82ch; }
 .d-desc.none { color: var(--c-faint); }
@@ -1130,7 +1197,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
   font-size: var(--t-section); font-weight: 600; color: var(--c-ink);
 }
 .d-sec-hint { margin: 4px 0 var(--s-2); padding: 0 var(--s-5); font-size: var(--t-meta); color: var(--c-meta); }
-.d-sec-title + .d-row, .d-sec-title + .d-table, .d-sec-title + .d-file, .d-sec-title + .empty { margin-top: var(--s-3); }
+.d-sec-title + .d-row, .d-sec-title + .d-table, .d-sec-title + .d-file, .d-sec-title + .d-kv, .d-sec-title + .empty { margin-top: var(--s-3); }
 
 /* Drill-in rows: one grid, requirement group rows and activity rows */
 /* Contents list: a plain, static list of activities under their requirement
@@ -1167,9 +1234,16 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 .d-num { font-size: var(--t-meta); color: var(--c-body); font-variant-numeric: tabular-nums; }
 .d-dur { text-align: right; white-space: nowrap; }
 
-/* Assignment line in the activity hero, beside the Part of line */
-.d-assign i { font-size: 12px; margin-right: 6px; color: var(--c-meta); }
-.d-assign strong { color: var(--c-ink); font-weight: 600; }
+/* Assignment section: label / value pairs (Part of, Assignment, Assigned by,
+   Assigned on). Where the activity came from, out of the hero's way. */
+.d-kv {
+  display: grid; grid-template-columns: 140px minmax(0, 1fr);
+  row-gap: var(--s-3); column-gap: var(--s-4);
+  margin: 0; padding: 0 var(--s-5) var(--s-5);
+}
+.d-kv > div { display: contents; }
+.d-kv dt { font-size: var(--t-meta); color: var(--c-meta); }
+.d-kv dd { margin: 0; font-size: var(--t-row); color: var(--c-body); min-width: 0; }
 
 /* Attachment row */
 .d-file {

@@ -405,7 +405,9 @@ icon-button dismiss with an aria-label. Demo shows all three at once.
 
 **Info icon leftmost.** The circle-info action is the first icon in every action row:
 training list rows, both training card sizes, and catalog cards (which now carry the same
-action row). The paperclip follows it when attachments exist.
+action row). The paperclip follows it when attachments exist. *Superseded: round 13 moved
+card details to a hover pill, and round 14 moved the list-row info button to the RIGHT end
+so it holds a fixed position.*
 
 **Responsive card grid, worked example.** A 12-activity requirement (RV - HSEML - Site
 Hazards) demonstrates the reflow. Measured columns, from the auto-fill grid on the
@@ -425,8 +427,8 @@ the Top picks container reference supplied in review: white surface, hairline bo
 radius, `--e-1`, 20px padding, with the circular prev/next arrows top-right in the header
 beside View all. Catalog cards ARE the small Training Plan card component now: same
 structure, sizing, 16:9 thumbnail, badges and XS shadow, plus the E tag and the solid green
-Assigned badge, with the info action leftmost in the card foot. No separate catalog card
-style remains.
+Assigned badge. No separate catalog card style remains (round 14: the card foot and its info
+button are gone; View details is the hover pill, as on the training cards).
 
 ## Round 5: Fin (Vectoria) launcher
 
@@ -585,8 +587,8 @@ for the final treatment.
 
 An activity can be printable AND carry an attachment, so the action cluster holds up to
 three icons beside Launch. The print action is new in this pass (`fa-print`, derived from
-the activity type: documents and tasklists), and the order is fixed everywhere: info,
-print, attachments.
+the activity type: documents and tasklists). Order, since round 14: print, attachments,
+info (list rows only, and info last so it is always in the same place).
 
 - **Small card.** Three full-size icons plus Launch need 211px of content, which the small
   card did not have at ANY width (it ran 184-224px, so it overflowed by 11px at its widest
@@ -599,6 +601,38 @@ print, attachments.
 - **List view.** The same third icon overflowed the 84px Actions column by 22px, so that
   track is now 112px, at both the default and 1400px breakpoint grids.
 - **Large card** needed no change: 69px of slack already.
+
+## Round 13: loading states, a calmer activity page, card hover
+
+- **Loading screen between states.** A skeleton layer over the canvas: chrome stays,
+  the incoming screen's shape (banner, panel, rows) shimmers under a 24px `vwc-spinner`
+  and a "Loading <screen>" label. It flashes for 500ms on every route change and page
+  load in the prototype; in the product it stays until the data arrives.
+- **Loading content modal.** Every Launch opens a 420px modal - 40px spinner, "Loading
+  content", the activity name, a one-line expectation, Cancel - until the training
+  window is ready (prototype: auto-closes after 2.4s). Escape, backdrop and Cancel dismiss.
+- **Activity page decluttered.** The hero had five kinds of information stacked with 8px
+  between them. Now it is the activity alone (chip, title, status and timing, Launch) with
+  12px rows, and provenance moved to a new **Assignment** section directly above Past
+  completions: a label/value grid (round 14 wording: Qualification, Requirement, Assigned by
+  <name> on <date>).
+- **Cards: View details on hover.** A white pill with an eye glyph appears over the
+  thumbnail (35% ink scrim) on hover and on focus-within, and stays visible on touch
+  devices. The info icon button is removed from cards; the footer holds only print and
+  attachments beside Launch, with the icon cluster pulled left by the buttons' internal
+  inset so the first glyph aligns with the title and the footer reads as evenly padded.
+  With two icons at most, the small card's icon buttons return to the shared 34px.
+
+## Round 14: fixed info position, plainer assignment section
+
+- **List rows: info is rightmost.** Print and attachments are optional, so with info first
+  the one button every row has kept shifting left. It now comes last in the right-aligned
+  cluster and sits at the same x on every row; the optional icons grow leftwards from it.
+- **Assignment section reads as three plain facts.** Qualification (link), Requirement
+  (link; omitted for individually assigned activities), and "Assigned by <name> on <date>"
+  on one line. The separate assignment-name and assigned-on rows are gone.
+- **Catalog cards catch up with round 13.** Their footer and info button are removed and
+  the same View details hover pill is used, so every card in the prototype behaves alike.
 
 ## OUT OF SCOPE - needs functionality or logic
 
@@ -624,7 +658,10 @@ CSS-only alternative is given.
 7. **Away-from-home chip on the location trigger** needs the user's home location. CSS-only
    alternative: omit the chip.
 8. **Section headers in the side nav** need the nav model to carry a section level (see Area 1).
-9. **Printable flag per activity.** The prototype derives it from the activity type
+9. **Loading states** need to be driven by real fetch / content-ready events: the skeleton
+   hides when the next screen's data lands, the Loading content modal closes when the
+   training window opens (and Cancel must abort the launch). Both are timers here.
+10. **Printable flag per activity.** The prototype derives it from the activity type
    (documents and tasklists); the real model needs the flag, since printability is a
    property of the content, not of its type.
 

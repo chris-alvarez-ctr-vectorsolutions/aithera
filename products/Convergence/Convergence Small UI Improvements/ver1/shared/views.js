@@ -19,10 +19,12 @@ const attachBtn = (kind, id, label) =>
   `<button class="icon-btn js-open" data-open="${kind}:${id}" title="View attachments: ${esc(label)}" aria-label="View attachments: ${esc(label)}"><i class="fa-solid fa-paperclip"></i></button>`;
 const printBtn = (label) =>
   `<button class="icon-btn" title="Print: ${esc(label)}" aria-label="Print: ${esc(label)}"><i class="fa-solid fa-print"></i></button>`;
-/* Row / card actions, always in the same order: info first (leftmost),
-   then print, then attachments. Up to three. */
-const rowActs = (a) =>
-  `<span class="row-acts">${detailsBtn('act', a.id, a.name)}${a.printable ? printBtn(a.name) : ''}${a.attachment ? attachBtn('act', a.id, a.name) : ''}</span>`;
+/* Row actions: print, then attachments, then info LAST. The cluster is
+   right-aligned, so putting the always-present info button last pins it to
+   the same x on every row no matter how many optional icons precede it.
+   Cards pass info:false; their details live on the thumbnail hover. */
+const rowActs = (a, { info = true } = {}) =>
+  `<span class="row-acts">${a.printable ? printBtn(a.name) : ''}${a.attachment ? attachBtn('act', a.id, a.name) : ''}${info ? detailsBtn('act', a.id, a.name) : ''}</span>`;
 /* A class that still needs a session cannot be launched; its action opens
    the details page where the session is chosen. */
 const actionBtn = (a) => a.type === 'class'
@@ -177,6 +179,7 @@ function cardHTML(a) {
       <span class="tcard-badge">${pill(a.status)}</span>
       ${a.dur ? `<span class="tcard-dur">${esc(a.dur)}</span>` : ''}
       ${a.elective ? '<span class="etag" title="Elective">E</span>' : ''}
+      <button class="tcard-view js-open" data-open="act:${a.id}" aria-label="View details: ${esc(a.name)}"><i class="fa-regular fa-eye" aria-hidden="true"></i>View details</button>
     </div>
     <div class="tcard-body">
       <h3 class="tcard-title">
@@ -190,7 +193,7 @@ function cardHTML(a) {
       </div>
     </div>
     <div class="tcard-foot">
-      ${rowActs(a)}
+      ${rowActs(a, { info: false })}
       ${actionBtn(a)}
     </div>
   </article>`;
@@ -706,12 +709,7 @@ function renderDetails() {
              a.dur ? `<i class="fa-regular fa-clock"></i> ${esc(a.dur)}` : '',
              a.spent ? `${esc(a.spent)} spent` : '',
              a.due ? `<span class="${a.status === 'overdue' ? 'd-overdue' : ''}"><i class="fa-regular fa-calendar"></i> Due ${esc(a.due)}</span>` : '']),
-      (indiv
-        ? `<p class="d-parent">Assigned individually, from ${parentLink('qual', q.id, q.name)}</p>`
-        : `<p class="d-parent">Part of ${parentLink('req', r.id, r.name)} in ${parentLink('qual', q.id, q.name)}</p>`)
-      + (q.assignment
-        ? `<p class="d-parent d-assign"><i class="fa-solid fa-user-plus" aria-hidden="true"></i>Assignment: <strong>${esc(q.assignment.name)}</strong>, assigned ${esc(q.assignment.on)} by ${esc(q.assignment.by)}</p>`
-        : ''),
+      '',
       a.type === 'class' ? `<vaadin-button theme="secondary">Select a session</vaadin-button>` : `<vaadin-button theme="primary">Launch</vaadin-button>`,
       t.thumb, t.icon));
 
@@ -726,6 +724,19 @@ function renderDetails() {
         </div>
       </div>`);
     }
+
+    /* Assignment: where this activity came from and who assigned it, as a
+       label/value list. Moved out of the hero so the hero only carries the
+       activity itself (kind, title, status, timing, Launch). */
+    const asg = q.assignment || {};
+    out.push(`<div class="d-section">
+      <h3 class="d-sec-title">Assignment</h3>
+      <dl class="d-kv">
+        <div><dt>Qualification</dt><dd>${parentLink('qual', q.id, q.name)}</dd></div>
+        ${indiv ? '' : `<div><dt>Requirement</dt><dd>${parentLink('req', r.id, r.name)}</dd></div>`}
+        <div><dt>Assigned by</dt><dd>${esc(asg.by || '')}${asg.on ? ' on ' + esc(asg.on) : ''}</dd></div>
+      </dl>
+    </div>`);
 
     out.push(`<div class="d-section">
       <h3 class="d-sec-title">Past completions</h3>`);
@@ -761,8 +772,10 @@ function renderDetails() {
    filtered to that category. Additive - the table stays intact.
    ======================================================================== */
 /* One card component: the catalog card is the small Training Plan card
-   (same structure, sizing, thumbnail ratio, badges, XS shadow), with the
-   info action leftmost in the action row. */
+   (same structure, sizing, thumbnail ratio, badges, XS shadow). Like the
+   training cards it has no info button; View details appears over the
+   thumbnail on hover. Catalog items have no drill-in page here, so the pill
+   is a placeholder control. */
 function ccardHTML(c) {
   const t = TYPES[c.type];
   const labels = [c.assigned ? 'assigned' : '', c.elective ? 'elective' : ''].filter(Boolean).join(', ');
@@ -772,15 +785,13 @@ function ccardHTML(c) {
       <i class="fa-solid ${t.icon}" aria-hidden="true"></i>
       ${c.assigned ? '<span class="tcard-badge"><span class="pill pill-assigned no-dot">Assigned</span></span>' : ''}
       ${c.elective ? '<span class="etag" title="Elective">E</span>' : ''}
+      <button class="tcard-view" type="button" aria-label="View details: ${esc(c.name)}"><i class="fa-regular fa-eye" aria-hidden="true"></i>View details</button>
     </div>
     <div class="tcard-body">
       <h3 class="tcard-title">
         <span title="${esc(c.name)}">${esc(c.name)}</span>
       </h3>
       <p class="tcard-meta"><i class="fa-solid ${t.icon}" aria-hidden="true"></i>${t.label}</p>
-    </div>
-    <div class="tcard-foot">
-      <span class="row-acts"><button class="icon-btn" title="View details: ${esc(c.name)}" aria-label="View details: ${esc(c.name)}"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button></span>
     </div>
   </article>`;
 }
