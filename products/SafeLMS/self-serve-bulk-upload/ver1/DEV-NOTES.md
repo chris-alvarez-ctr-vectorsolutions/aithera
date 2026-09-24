@@ -89,6 +89,10 @@ screen), V4 (new tab), V5 (stays in the modal).
 - **Consolidated to ONE all-or-nothing switch.** The two toggles were collapsed
   into a single **"Make this file the complete roster"** switch (on = deactivate
   missing users + end-date absent jobs; off = add/update only).
+- **(2026-09-24) Reduced density.** The long On/Off paragraph under the toggle was
+  redundant with the "With this on" bullet box, so it was collapsed to a single
+  guidance line ("Turn this on only when your file lists everyone"). The scannable
+  bullet box now carries the consequences; permanence note + rep link unchanged.
 - **(2026-09-23) Plain-language copy pass.** Import-settings microcopy reworded:
   heading "What happens to people and jobs that aren’t in this file?", an On/Off
   labeled contrast under the toggle, a three-bullet "With this on" box, and a
