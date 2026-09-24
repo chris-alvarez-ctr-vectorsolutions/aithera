@@ -6,6 +6,76 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-24) Review readout — open backlog
+
+A working session covered the whole flow. Status tags: **[DONE]** shipped, **[WIP]**
+in progress, **[TODO]** not started, **[PARKED]** revisit later, **[EXTERNAL]** outside
+the mock.
+
+**Pre-upload / intro step**
+- **[TODO]** Add an intro page/modal BEFORE file upload: downloadable template, a quick
+  overview of the steps, and a link out to a Help Center article. (The Upload-file step
+  already has the template + drop zone; this asks for a fuller intro.)
+- **[DONE]** Bug where this page "jumps and goes out and comes back in" — the
+  view-jump-on-click fix landed 2026-09-23; re-confirm it fully covers this.
+- **[DONE]** Email is NOT required (confirmed).
+- **[NOTED]** One discussed function flagged "not feasible" — no fix specified.
+
+**Map columns**
+- **[DONE]** Start from the columns SafeLMS needs; the user maps THEIR columns to each —
+  mirrors the internal uploader. 10 file columns → 10 rows. Target dropdown = core
+  fields (first/last/username/location/position/title/begin/end date) + the site's own
+  custom attributes (dynamic per customer). Username/first/last required. Withhold
+  internal-only fields (building/position codes). Extra unmapped columns OK. Liz: "run
+  with it." (Asterisk now fixed to the column, 2026-09-23.)
+
+**Import settings (complete-roster toggle)**
+- **[WIP]** Too context-dense — simplify. (Right preview removed + On/Off paragraph
+  collapsed already; keep going.) Liz to play with the toggle copy.
+- **[TODO]** Bring in a before/after TOTAL: headcount/jobs before vs after
+  activation/deactivation (customers already have this today). Keep it simple — e.g.
+  "6 people, 21 jobs" — NOT full detail (details live on Review). Possibly drop the
+  immediate detailed check. Goal: absorb what the toggle does, then move on; lean on a
+  help article for more.
+
+**Review changes**
+- **[TODO]** Cut word count. Replace verbose lines ("if you run this import compared
+  against 170 existing users") with a short "Change summary."
+- **[TODO]** Keep the summary fields: new users added, existing users updated, users
+  deactivated.
+- **[TODO]** Rename "Replace file" → "Cancel import" (an unconfirmed upload = a
+  canceled/failed attempt → a whole new upload). OPEN: does an unconfirmed upload show
+  in the log as an attempted upload? That answer drives the button name.
+- **[TODO]** Provide a cancel path so a blocked user can scrap & redo (blocked users can
+  only cancel anyway).
+- **[TODO]** Remove the "Replace file" option under the red alert (reduce clutter).
+
+**Error / alert display** — **[DONE 2026-09-24]** redesigned:
+- **[DONE]** Each alert's explanation + example merged into ONE "See details" box,
+  CLOSED by default; the separate Help popover is gone.
+- **[DONE]** Code-like dot/dash lists → scannable TABLE (`.axt`).
+- **[DONE]** "from → to" now a big before→after (green/red cards or a Now→After table)
+  with a large arrow, not the code-like glyph.
+- **[DONE]** Alerts share ~one footprint by default (colored header + one-line gist +
+  actions); detail expands on demand.
+- **[DONE]** Color-coded by severity via tiers: blocked=red, confirm=amber/yellow,
+  info=blue, contact-Vector=indigo.
+- **[DONE]** No row data shown by default; the detail table is height-capped and
+  scrolls (`.axt-wrap`, max-height 220px) so large sets never render a 150-row wall.
+- **[DONE]** "Replace file" removed from under the alerts (redo path stays in the side
+  panel). NOTE: the side-panel "Replace file"→"Cancel import" rename is still **TODO**
+  (pending the open "does an unconfirmed upload log as an attempt?" question).
+
+**Parked**
+- **[PARKED]** Export the file with error messages inline — Liz recalled Rich saying
+  it's possible; not in the PRD. Revisit later.
+
+**Error-message documentation (Confluence)**
+- **[EXTERNAL / DONE]** Confluence page cataloging every error message (key, plain
+  meaning, current internal "red" text, admin-facing message, extra details) is live.
+  Source = Rich's Perl file; neither Liz nor Deborah has Bitbucket access. Framework
+  first, then tag-team fill over 1–2 weeks.
+
 **Placement (2026-09-16) — moved to the Employees tab.** Bulk user import no longer
 lives under Settings ▸ User Import. It now lives under the **Employees tab** (the
 K-12 admin screen: sidebar `Employees` active, the Employees / Dynamic Groups /
@@ -86,6 +156,32 @@ screen), V4 (new tab), V5 (stays in the modal).
 - **PII is district-configurable — PENDING.** A district can be flagged "PII
   District" and tell Vector which fields are allowed; the tool should read those
   settings rather than hard-block address/FERPA fields.
+- **Consolidated to ONE all-or-nothing switch.** The two toggles were collapsed
+  into a single **"Make this file the complete roster"** switch (on = deactivate
+  missing users + end-date absent jobs; off = add/update only).
+- **(2026-09-24) Reduced density.** The long On/Off paragraph under the toggle was
+  redundant with the "With this on" bullet box, so it was collapsed to a single
+  guidance line ("Turn this on only when your file lists everyone"). The scannable
+  bullet box now carries the consequences; permanence note + rep link unchanged.
+- **(2026-09-23) Plain-language copy pass.** Import-settings microcopy reworded:
+  heading "What happens to people and jobs that aren’t in this file?", an On/Off
+  labeled contrast under the toggle, a three-bullet "With this on" box, and a
+  "This can’t be undone" permanence note. "end-dated" → "ended" throughout this
+  screen (help-tooltip copy on the Review step is unchanged). Copy-only — no logic,
+  layout, or the single-toggle behavior changed.
+- **(2026-09-23) Right-side preview removed; page condensed.** The itemized "What
+  would change on your site" preview (deactivated-users list, end-dated-jobs list,
+  the Maya-Torres per-user example) was removed from the Import-settings step and
+  the layout condensed to a single column (toggle + on/off summary + rep-help). A
+  compact "This is permanent" note stays when the switch is on. The full itemized
+  changes are still confirmed on the **Review changes** step.
+
+## map
+
+- **(2026-09-23) Required-field asterisk is fixed to the column, not the mapping.**
+  The red `*` on a file column now reflects the column's natural (auto-detected)
+  target being a required field (First name / Last name / Username), so it stays
+  put regardless of what the "Import as" dropdown is currently set to.
 
 ## sync-failed
 

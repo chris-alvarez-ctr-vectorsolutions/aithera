@@ -234,7 +234,7 @@
       }
     },
     aec: {
-      label: 'Commercial AEC', premise: 'find',
+      label: 'AEC', premise: 'find',
       sharps: 'Syringes left in wall cavities and voids. Broken glass and glazing offcuts. Utility blades.',
       facility: {
         gloves: 'Issue cut-resistant gloves to every labourer on demolition and clear-out',
@@ -388,7 +388,7 @@
     // content for this sector would need its own source material the same way
     // this did — not invented to fill the old label.
     public: {
-      label: 'Public Sector', premise: 'find',
+      label: 'Law Enforcement', premise: 'find',
       sharps: 'Needles and syringes recovered from a subject’s property during a search or booking. Anything sharp left where the last person didn’t secure it — a cell, an evidence locker, the back seat of a patrol vehicle.',
       facility: {
         gloves: 'Issue puncture-resistant gloves to every officer for property searches and booking intake',
@@ -553,15 +553,6 @@
   // this falls back to an unnamed line when it comes back empty.
   function savedName() {
     try { return (sessionStorage.getItem('sh-name') || '').trim().slice(0, 40); } catch (e) { return ''; }
-  }
-  // Entry sequencing: whether the pre-check battery (and the path-adjustment
-  // screen it can trigger) run BEFORE the module's own cover, or in their
-  // usual place right after it. Off by default — "Battery at start" is
-  // today's order. Read once at STEPS build time (see the reorder right
-  // before LE.register), so flipping it needs a reload to take effect, the
-  // same as every other structural Demo menu control.
-  function batteryOrderBefore() {
-    try { return sessionStorage.getItem('sh-battery-order') === 'before'; } catch (e) { return false; }
   }
   // ==========================================================================
   //  REINFORCEMENT — one extra question laid OVER the content that motivates
@@ -809,18 +800,19 @@
   // has a job, just not here: it belongs AFTER the battery has actually run,
   // where "here's what came out of your path" is true. That screen doesn't
   // exist yet.
-  // Every entry but 'sharps' is a stand-in — there's no real syllabus behind
-  // the other five yet, so their names and minutes are illustrative, not
-  // sourced. 'sharps' has no fixed mins: its row reads the live
-  // pathMinutes() below like the old rail card did, so it can't drift from
-  // the syllabus it's actually describing.
+  // Names (2026-09-23): the six behavioral-outcome modules from the ideal
+  // prototype deck's recomposition slide (BO-1 to BO-6), matching
+  // clara/bloodborne.html. Minutes (2026-09-23, stakeholder feedback): fixed per module, roughly
+  // proportional to each module's LO count in the source material. They
+  // sum to 59, down from the ~92 the old illustrative numbers added up to. Sharps shows its
+  // fixed 10 too, not the live pathMinutes() total.
   var COURSE_MODULES = [
-    { name: 'Understanding Bloodborne Pathogens', icon: 'fa-virus', mins: 15, state: 'done' },
-    { name: 'Universal Precautions', icon: 'fa-shield-halved', mins: 20, state: 'done' },
-    { name: 'Personal Protective Equipment', icon: 'fa-mask-face', mins: 18, state: 'done' },
-    { name: 'Contain the Sharp', icon: 'fa-syringe', current: true },
-    { name: 'Spill Response & Decontamination', icon: 'fa-spray-can-sparkles', mins: 12, state: 'locked' },
-    { name: 'Exposure Incidents & Reporting', icon: 'fa-file-medical', mins: 10, state: 'locked' }
+    { name: 'Know the Risk', icon: 'fa-virus', mins: 11, state: 'done' },
+    { name: 'Barrier First', icon: 'fa-shield-halved', mins: 10, state: 'done' },
+    { name: 'Control the Hazard', icon: 'fa-sitemap', mins: 11, state: 'done' },
+    { name: 'Contain the Sharp', icon: 'fa-syringe', mins: 10, current: true },
+    { name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked' },
+    { name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked' }
   ];
   function INTRO_CONTENT() { var L = lens(); return '' +
     '<main class="ll-object">' +
@@ -831,12 +823,10 @@
             '<h1>Bloodborne Pathogens</h1>' +
             '<p class="cp-desc">This course covers what OSHA’s Bloodborne Pathogens Standard (29 CFR ' +
               '1910.1030) requires of anyone who could contact blood or other potentially infectious ' +
-              'materials on the job — recognizing exposure risks, applying universal precautions, using ' +
-              'personal protective equipment correctly, and handling sharps, spills, and exposure incidents ' +
-              'safely.</p>' +
+              'materials on the job — knowing the risk, putting a barrier first, controlling the hazard, ' +
+              'containing sharps, using protective equipment correctly, and acting on an exposure.</p>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
-              '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
             '</div>' +
           '</div>' +
@@ -894,21 +884,14 @@
     var course = readCourse();
 
     // D11: resumable progress now lives on the Sharps row itself (see the
-    // "resume" state below) instead of a banner above the page. Battery-
-    // before mode runs battery/adjust BEFORE this cover, so on the very
-    // FIRST pass through the module `last` is already one of them by the
-    // time we get here — that's this run continuing forward, not somebody
-    // returning after having left. Only a real return visit (anything past
-    // the cover, in the normal course content) counts as progress worth
-    // resuming. LE.goTo refuses a step the current path no longer contains
+    // "resume" state below) instead of a banner above the page. Anything
+    // past the cover counts as progress worth resuming. LE.goTo refuses a step the current path no longer contains
     // (a when()-excluded remediation, say), which here just means Resume
     // quietly does nothing rather than stranding anyone; Start over always
     // works regardless.
     var last = LE.lastStepId();
-    var justArrived = batteryOrderBefore() && (last === 'battery' || last === 'adjust');
-    var hasProgress = !!(last && last !== 'intro' && !justArrived && LE.stepById(last));
+    var hasProgress = !!(last && last !== 'intro' && LE.stepById(last));
 
-    var mins = pathMinutes();
 
     document.getElementById('cpRows').innerHTML = COURSE_MODULES.map(function (m) {
       if (!m.current) {
@@ -926,12 +909,12 @@
       // possible action, so the whole row can safely be that action.
       var icoMain = '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
         '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
-          '<span class="cp-row-meta"><span>About ' + mins.full + ' min' + (mins.full > 1 ? 's' : '') + '</span></span></span>';
+          '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span></span></span>';
       if (hasProgress) {
         return '<div class="cp-row is-current">' + icoMain +
           '<span class="cp-row-state-wrap">' +
-            '<button class="cp-row-state resume" type="button" data-action="resume">Resume</button>' +
             '<button class="cp-row-reset" type="button" data-action="reset" title="Start over" aria-label="Start over"><i class="fa-solid fa-rotate-left"></i></button>' +
+            '<button class="cp-row-state resume" type="button" data-action="resume">Resume</button>' +
           '</span>' +
         '</div>';
       }
@@ -1014,8 +997,11 @@
   //  the slide's narration, and — when the slide has one — a question laid
   //  over it with the reinforcement layer once the carrier is finished.
   //  Watch finishes when the clip ends, Read on the learner's own "Done
-  //  reading", Listen when the narration ends (or on "Done listening", since
-  //  browser speech is not guaranteed to run at all).
+  //  reading" (the in-flow button on the last paragraph), Listen when the
+  //  narration ends — the same rule as Watch: no learner-facing way past it,
+  //  a Skip that exists only in review mode, and a manual "Done listening"
+  //  only when there is no playable audio (so nobody is stranded, the way a
+  //  missing clip falls back to the written version).
   // ==========================================================================
 
   // One placeholder clip for every screen until the produced videos exist.
@@ -1357,6 +1343,520 @@
     return d;
   }
 
+  // ---- The podcast scripts (Read + Listen) ---------------------------------
+  // Jessica's podcast cut of the same screens (Contain_the_Sharp_<sector>_
+  // Podcast.pdf, v0.1, 21 Sep 2026): the deck's narration re-voiced as a
+  // two-host conversation (Dana, Ray), and case 3 as a first-person interview
+  // with Jacob. One chapter per screen, one-to-one with the deck — CH-M4-01A
+  // is c1base, 01R c1rem, 01B c1up, 02A/R/B the case 2 trio, 03 controls,
+  // 04A/B case 3, 05A/B the debrief. Verbatim; don't edit here, re-extract.
+  //
+  // Read shows these as a transcript and Listen plays them (tools/sharps-
+  // narration voices them, one placeholder voice per speaker). The deck
+  // narration above stays as the Watch script. Questions stay in the flow, over the
+  // screen, as for every carrier — the doc's "every check at the end" listen
+  // is parked until testers say they want it (2026-09-23 review).
+  //
+  // Each line is [speaker, text]; ['PAUSE'] is the script's own "(pause)".
+  // The ident ("This is Contain the Sharp…") is left out: it heads a
+  // continuous listen, and here each chapter plays on its own screen.
+  // Education and AEC fall back to Manufacturing, like the deck screens.
+  var PODCAST = {
+    manufacturing: {
+      c1base: [
+        ['DANA', 'The blade at the bench. Ray, set it up for me.'],
+        ['RAY', 'You’re at your bench. You’ve just changed out a used box-cutter blade.'],
+        ['DANA', 'Routine.'],
+        ['RAY', 'Completely routine. The designated sharps container is down at the end of the line. And the used blade is still sitting at your bench.'],
+        ['DANA', 'Let me ask the obvious one. When I hear “sharps,” I think needles. This is a box cutter.'],
+        ['RAY', 'Good question, because the definition is wider than people expect. Like a needle or any other sharp object, that blade is a sharp — because it can puncture or cut the skin, it’s a hazard.'],
+        ['DANA', 'Even if there’s nothing visible on it?'],
+        ['RAY', 'Whether or not it’s visibly contaminated. An exposed blade left on a surface is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.'],
+        ['DANA', 'So what is the procedure? Say it plainly.'],
+        ['RAY', 'Four things. Plan how you’re going to dispose of it. Use a safer alternative when one exists. Activate any available safety feature. And once it’s been used — don’t recap it, don’t bend it, don’t break it. It goes directly into a designated sharps container.'],
+        ['DANA', 'Directly.'],
+        ['RAY', 'Directly.']
+      ],
+      c1rem: [
+        ['DANA', 'The blade at the bench. Let’s take this one slowly.'],
+        ['RAY', 'You’re cleaning up your workstation after changing a cutting blade. The used blade is still in your hand, and you’re deciding how to handle it before you move on.'],
+        ['DANA', 'My instinct is to make it safer first. Snap it. Or set it down somewhere obvious.'],
+        ['RAY', 'That instinct makes sense — both of those feel like the responsible move. What they don’t do is properly contain the sharp. That’s the distinction.'],
+        ['DANA', 'Is there a wrapping step?'],
+        ['RAY', 'Depending on your facility’s procedures, you may need to wrap the exposed edge before disposal. So check yours. The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste.'],
+        ['DANA', 'And instead.'],
+        ['RAY', 'Move it directly to a designated sharps container. That’s the safe-handling procedure.']
+      ],
+      c1up: [
+        ['DANA', 'When the container is a walk away. Ray, set it up for me.'],
+        ['RAY', 'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is several workstations away. Your line is about to restart. And a coworker is waving you back.'],
+        ['DANA', 'That’s a real situation.'],
+        ['RAY', 'That’s the situation.'],
+        ['DANA', 'And here’s my honest read — setting it down at my own station doesn’t feel careless. I can see it. It’s mine. I’ll take it down on my break.'],
+        ['RAY', 'That’s exactly how it feels. You can see exactly where it is, and you’re planning to carry it down on your next scheduled break. Nothing about that feels careless.'],
+        ['DANA', 'And yet.'],
+        ['RAY', 'The safe-handling procedure doesn’t change when work gets busy. Once a sharp is used — don’t recap it, don’t bend it, don’t break it, and don’t set it aside for later. It goes directly into a designated sharps container.'],
+        ['DANA', 'Even for a few minutes.'],
+        ['RAY', 'Leaving that blade at your workstation, even temporarily, creates a hazard for anyone who reaches for that spot before you get back.']
+      ],
+      c2base: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. Ray, this is all about what you notice when you’re following procedure.'],
+        ['RAY', 'It is. Knowing what to do is one thing. Spotting the condition is a separate skill.'],
+        ['DANA', 'Give me the scene.'],
+        ['RAY', 'You’re carrying a used sharp to a designated sharps container on the production floor. You get close, and the container is full.'],
+        ['DANA', 'Full.'],
+        ['RAY', 'Full. And on the way there, you passed a piece of contaminated glass sitting in a general-waste bin.'],
+        ['DANA', 'Those feel like two unrelated things to me. One’s a container doing its job. The other is something somebody else left.'],
+        ['RAY', 'They look nothing alike, and both are sharps hazards.'],
+        ['DANA', 'Start with the container. Why does full count?'],
+        ['RAY', 'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.'],
+        ['DANA', 'And the glass in the bin?'],
+        ['RAY', 'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk.'],
+        ['DANA', 'So the skill here is seeing it.'],
+        ['RAY', 'Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.']
+      ],
+      c2rem: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. There are two separate conditions in this one, so let’s take them one at a time.'],
+        ['RAY', 'Good idea. First one. You arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely.'],
+        ['DANA', 'So what happens if you try?'],
+        ['RAY', 'Pressing the sharps down, or trying to fit another one in, could bring your hand into contact with a used sharp.'],
+        ['DANA', 'Your hand.'],
+        ['RAY', 'Yours. So when a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.'],
+        ['DANA', 'Second condition.'],
+        ['RAY', 'A sharp can also become a hazard when it is left somewhere it doesn’t belong. On a work surface. Concealed in other material. Placed in general waste. Any of those can expose someone who doesn’t expect it to be there.'],
+        ['DANA', 'And what connects them?'],
+        ['RAY', 'Whether the hazard is a full container or a misplaced sharp, recognizing the unsafe condition is the first step in preventing a sharps injury.']
+      ],
+      c2up: [
+        ['DANA', 'Let’s talk about when hazards aren’t as obvious. Ray, take me through it.'],
+        ['RAY', 'You’re carrying a used sharp toward a designated sharps container on the production floor. As you approach, the container is nearing its marked fill line.'],
+        ['DANA', 'Nearing. Not at it.'],
+        ['RAY', 'Nearing. There appears to be room for another sharp — but the contents are already crowded near the top.'],
+        ['DANA', 'Okay.'],
+        ['RAY', 'And on the way, you notice something partially concealed in a general-waste bin. It looks like it could be a piece of contaminated glass. You can’t tell without disturbing the contents.'],
+        ['DANA', 'So now I have two maybes. And my first read is that neither one is mine to act on yet.'],
+        ['RAY', 'That’s a common read, and it’s worth slowing down on. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.'],
+        ['DANA', 'And the one in the bin, even though nobody’s confirmed what it is?'],
+        ['RAY', 'A possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.']
+      ],
+      controls: [
+        ['DANA', 'Why the container beats the gloves. Ray, I want to take the other side of this for a minute.'],
+        ['RAY', 'Please.'],
+        ['DANA', 'A facility is looking for ways to better protect employees who may come into contact with used sharps. Two options. One, provide heavier protective gloves. Two, make designated sharps containers more accessible throughout the facility.'],
+        ['RAY', 'Both on the table.'],
+        ['DANA', 'And I’d take the gloves. Gloves are on the person, everywhere they go. The container only works if somebody walks to it.'],
+        ['RAY', 'That’s a reasonable case, and both can provide protection. Where they differ is how they control the hazard.'],
+        ['DANA', 'Go on.'],
+        ['RAY', 'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.'],
+        ['DANA', 'So the glove protects the person. At least usually.'],
+        ['RAY', 'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.'],
+        ['DANA', 'One protects the person. One contains the hazard.'],
+        ['RAY', 'That’s the difference.']
+      ],
+      case3: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'I collect the bags. Sanitation.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s a guy on the line. Chris. He manages his diabetes with insulin. That afternoon he couldn’t find a sharps container nearby. He was in the middle of a task. So just that once, he tossed the used needle into the general trash.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up the bag. The needle stuck me through the bag.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never used that needle. I never even saw it.'],
+        ['DANA', 'And a needlestick carries more than the stick.'],
+        ['JACOB', 'A needlestick can expose you to bloodborne pathogens. HIV. Hepatitis B. Hepatitis C.'],
+        ['PAUSE'],
+        ['DANA', 'How do you think about it now?'],
+        ['JACOB', 'The shortcut was his. The risk became mine. One decision became someone else’s injury.']
+      ],
+      case3rf: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'I collect the bags. Sanitation.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s a guy on the line. Chris. He manages his diabetes with insulin. That afternoon he couldn’t find a sharps container nearby. He was in the middle of a task. So just that once, he tossed the used needle into the general trash.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up that bag. The needle stuck me through it.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never used that needle. I never even saw it.'],
+        ['DANA', 'What happened from there?'],
+        ['JACOB', 'It didn’t end with the stick. It meant reporting the injury. A medical evaluation. Blood tests. And weeks of waiting to learn whether I’d been exposed to HIV, hepatitis B, or hepatitis C.'],
+        ['DANA', 'Weeks.'],
+        ['JACOB', 'Weeks. And my family waited them with me. The same question sitting at our dinner table every night.'],
+        ['PAUSE'],
+        ['DANA', 'You had no part in the decision.'],
+        ['JACOB', 'No part in it. And I’m the one who was left carrying it. Me, and the people who love me. I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.'],
+        ['DANA', 'What would you want someone to take from it?'],
+        ['JACOB', 'Chris saved himself a trip to the sharps container. I inherited the risk. That’s how far one disposal choice can reach. And if it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?']
+      ],
+      debrief: [
+        ['DANA', 'The shortcut is the exception. Ray, I want to say the common assumption out loud.'],
+        ['RAY', 'Say it.'],
+        ['DANA', 'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. And making the trip to a designated container can feel unrealistic when work is moving quickly.'],
+        ['RAY', 'That’s the assumption. And that shortcut isn’t necessarily the norm.'],
+        ['DANA', 'Meaning there’s a number.'],
+        ['RAY', 'There’s a number. In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'Ninety-two point seven.'],
+        ['RAY', 'Always.'],
+        ['DANA', 'So why does it feel like the reverse?'],
+        ['RAY', 'The shortcut stands out because it’s memorable, and because of what can happen when someone takes it. Not because it’s how the work normally gets done.'],
+        ['DANA', 'So the version we tell each other is the exception.'],
+        ['RAY', 'Safe disposal is the norm, even when the container isn’t convenient.']
+      ],
+      debriefrf: [
+        ['DANA', 'Memorable isn’t the same as normal. Ray, I want to stay with this one, because it’s a belief a lot of people hold.'],
+        ['RAY', 'Start with why people believe it.'],
+        ['DANA', 'When a sharps container isn’t nearby, it can feel like taking the shortcut is simply what people do. And that expecting everyone to make the trip is unrealistic.'],
+        ['RAY', 'That’s how it feels. And what stands out isn’t always what’s most common.'],
+        ['DANA', 'Give me the number.'],
+        ['RAY', 'In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'That’s higher than I would have guessed.'],
+        ['RAY', 'The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.'],
+        ['DANA', 'So memorable isn’t the same as normal.'],
+        ['RAY', 'Safe disposal is the expected practice, even when the container isn’t convenient.']
+      ]
+    },
+    public: {
+      c1base: [
+        ['DANA', 'The needle at the counter. Ray, set it up for me.'],
+        ['RAY', 'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter.'],
+        ['DANA', 'So it’s already in your hand.'],
+        ['RAY', 'In your gloved hand. And the designated sharps container is across the intake area.'],
+        ['DANA', 'Help me with the risk. It’s one needle.'],
+        ['RAY', 'A used needle retains a small amount of blood after use. And its sharpness makes it likely to penetrate someone else’s skin and expose them to that retained blood.'],
+        ['DANA', 'Does it matter whether it looks contaminated?'],
+        ['RAY', 'It doesn’t. Whether or not it looks contaminated, a needle left on the counter or dropped into a property tray is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.'],
+        ['DANA', 'So what is the procedure? Say it plainly.'],
+        ['RAY', 'Four things. Plan how the sharp will be disposed of before you handle it. Use a needle alternative when one is available. Activate any available safety feature. And once it’s been used — don’t recap it, don’t bend it, don’t break it. It goes directly into a designated sharps container.'],
+        ['DANA', 'Directly.'],
+        ['RAY', 'Directly.']
+      ],
+      c1rem: [
+        ['DANA', 'The needle at the counter. Let’s take this one slowly.'],
+        ['RAY', 'You’ve recovered a used needle during a property search. It’s still in your gloved hand while you decide how to handle it before moving on.'],
+        ['DANA', 'My instinct is to make it safer first. Recap it. Or set it aside.'],
+        ['RAY', 'That instinct makes sense — both of those feel like the responsible move. What they don’t do is properly contain the sharp. That’s the distinction.'],
+        ['DANA', 'What if there’s no container right there?'],
+        ['RAY', 'If no designated sharps container is immediately available, don’t place the needle in general waste. And don’t improvise a wrapping out of soft material — a paper towel, a plastic bag.'],
+        ['DANA', 'So what’s left?'],
+        ['RAY', 'The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste. The safe-handling procedure is to seek a designated sharps container and move the sharp directly into it.']
+      ],
+      c1up: [
+        ['DANA', 'When the container is across the room. Ray, set it up for me.'],
+        ['RAY', 'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. The designated sharps container is at the far end of the intake area. The queue behind you is backing up. And another officer is calling you over to help with a subject in the next room.'],
+        ['DANA', 'That’s a real situation.'],
+        ['RAY', 'That’s the situation.'],
+        ['DANA', 'And here’s my honest read — setting it down on the counter doesn’t feel careless. I can see exactly where it is. I’ll deal with it as soon as I’m back.'],
+        ['RAY', 'That’s exactly how it feels. Nothing about that feels careless.'],
+        ['DANA', 'And yet.'],
+        ['RAY', 'The safe-handling procedure doesn’t change when the room gets busy. Once a sharp is used — don’t recap it, don’t bend it, don’t break it, and don’t set it aside for later. It goes directly into a designated sharps container.'],
+        ['DANA', 'Even briefly.'],
+        ['RAY', 'Leaving that needle on the counter, even briefly, creates a hazard for anyone who reaches for that spot before you return.']
+      ],
+      c2base: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. Ray, this is all about what you notice when you’re following procedure.'],
+        ['RAY', 'It is. Knowing what to do is one thing. Spotting the condition is a separate skill.'],
+        ['DANA', 'Give me the scene.'],
+        ['RAY', 'You’re carrying a used needle recovered during a property search to the designated sharps container in the station’s processing area. As you approach, you notice the container has reached its fill line.'],
+        ['DANA', 'At the line.'],
+        ['RAY', 'At the line. And on the way there, you passed a used syringe sitting in a general-waste bin.'],
+        ['DANA', 'Two very different situations.'],
+        ['RAY', 'Both present a sharps hazard, but for different reasons.'],
+        ['DANA', 'Start with the container. Why does reaching the line count?'],
+        ['RAY', 'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.'],
+        ['DANA', 'And the syringe in the bin?'],
+        ['RAY', 'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk.'],
+        ['DANA', 'So the skill here is seeing it.'],
+        ['RAY', 'Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.']
+      ],
+      c2rem: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. There are two separate conditions in this one, so let’s take them one at a time.'],
+        ['RAY', 'Good idea. First one. You arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely.'],
+        ['DANA', 'So what happens if you try?'],
+        ['RAY', 'Pressing the sharps down, or trying to fit another one in, could bring your hand into contact with a used sharp.'],
+        ['DANA', 'Your hand.'],
+        ['RAY', 'Yours. So when a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.'],
+        ['DANA', 'Second condition.'],
+        ['RAY', 'A sharp can also become a hazard when it is left somewhere it doesn’t belong. On a work surface. Concealed in other material. Placed in general waste. Any of those can expose someone who doesn’t expect it to be there.'],
+        ['DANA', 'And what connects them?'],
+        ['RAY', 'Whether the hazard is a full container or a misplaced sharp, recognizing the unsafe condition is the first step in preventing a sharps injury.']
+      ],
+      c2up: [
+        ['DANA', 'Let’s talk about when hazards aren’t as obvious. Ray, take me through it.'],
+        ['RAY', 'You’re carrying a recovered sharp toward the designated sharps container in the station’s processing area. As you approach, the container is nearing its marked fill line.'],
+        ['DANA', 'Nearing. Not at it.'],
+        ['RAY', 'Nearing. There appears to be room for another sharp — but the contents are already crowded near the top.'],
+        ['DANA', 'Okay.'],
+        ['RAY', 'And on the way, you notice something partially concealed in a general-waste bin. It looks like it could be a used syringe. You can’t tell without disturbing the contents.'],
+        ['DANA', 'So now I have two maybes. And my first read is that neither one is mine to act on yet.'],
+        ['RAY', 'That’s a common read, and it’s worth slowing down on. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.'],
+        ['DANA', 'And the one in the bin, even though nobody’s confirmed what it is?'],
+        ['RAY', 'A possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.']
+      ],
+      controls: [
+        ['DANA', 'Why the container beats the gloves. Ray, I want to take the other side of this for a minute.'],
+        ['RAY', 'Please.'],
+        ['DANA', 'An agency is looking for ways to better protect officers who may come into contact with used sharps. Two options. One, issue heavier protective gloves. Two, make designated sharps containers more accessible throughout its stations and intake areas.'],
+        ['RAY', 'Both on the table.'],
+        ['DANA', 'And I’d take the gloves. Gloves are on the officer, everywhere they go. The container only works if somebody walks to it.'],
+        ['RAY', 'That’s a reasonable case, and both can provide protection. Where they differ is how they control the hazard.'],
+        ['DANA', 'Go on.'],
+        ['RAY', 'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.'],
+        ['DANA', 'So the glove protects the officer. At least usually.'],
+        ['RAY', 'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.'],
+        ['DANA', 'One protects the person. One contains the hazard.'],
+        ['RAY', 'That’s the difference.']
+      ],
+      case3: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'Custodial pickup. I collect the bags.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s an officer, Chris. He recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake. So just that once, he dropped the used needle into the general trash at the station.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up the bag. The needle stuck me through the bag.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never handled the arrest. I never even saw the needle.'],
+        ['DANA', 'And a needlestick carries more than the stick.'],
+        ['JACOB', 'A needlestick can expose you to bloodborne pathogens. HIV. Hepatitis B. Hepatitis C.'],
+        ['PAUSE'],
+        ['DANA', 'How do you think about it now?'],
+        ['JACOB', 'The shortcut was his. The risk became mine. One decision became someone else’s injury.']
+      ],
+      case3rf: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'Custodial pickup. I collect the bags.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s an officer, Chris. He recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake. So just that once, he dropped the used needle into the general trash at the station.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up that bag. The needle stuck me through it.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never handled the arrest. I never even saw the needle.'],
+        ['DANA', 'What happened from there?'],
+        ['JACOB', 'It didn’t end with the stick. It meant reporting the injury. A medical evaluation. Blood tests. And weeks of waiting to learn whether I’d been exposed to HIV, hepatitis B, or hepatitis C.'],
+        ['DANA', 'Weeks.'],
+        ['JACOB', 'Weeks. And my family waited them with me. The same question sitting at our dinner table every night.'],
+        ['PAUSE'],
+        ['DANA', 'You had no part in the decision.'],
+        ['JACOB', 'No part in it. And I’m the one who was left carrying it, along with the people who love me. I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.'],
+        ['DANA', 'What would you want someone to take from it?'],
+        ['JACOB', 'Chris saved himself a trip to the sharps container. I inherited the risk. That’s how far one disposal choice can reach. And if it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?']
+      ],
+      debrief: [
+        ['DANA', 'The shortcut is the exception. Ray, I want to say the common assumption out loud.'],
+        ['RAY', 'Say it.'],
+        ['DANA', 'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. And making the trip to a designated container can feel unrealistic when work is moving quickly.'],
+        ['RAY', 'That’s the assumption. And that shortcut isn’t necessarily the norm.'],
+        ['DANA', 'Meaning there’s a number.'],
+        ['RAY', 'There’s a number. In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'Ninety-two point seven.'],
+        ['RAY', 'Always.'],
+        ['DANA', 'So why does it feel like the reverse?'],
+        ['RAY', 'The shortcut stands out because it’s memorable, and because of what can happen when someone takes it. Not because it’s how the work normally gets done.'],
+        ['DANA', 'So the version we tell each other is the exception.'],
+        ['RAY', 'Safe disposal is the norm, even when the container isn’t convenient.']
+      ],
+      debriefrf: [
+        ['DANA', 'Memorable isn’t the same as normal. Ray, I want to stay with this one, because it’s a belief a lot of people hold.'],
+        ['RAY', 'Start with why people believe it.'],
+        ['DANA', 'When a sharps container isn’t nearby, it can feel like taking the shortcut is simply what people do. And that expecting everyone to make the trip is unrealistic.'],
+        ['RAY', 'That’s how it feels. And what stands out isn’t always what’s most common.'],
+        ['DANA', 'Give me the number.'],
+        ['RAY', 'In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'That’s higher than I would have guessed.'],
+        ['RAY', 'The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.'],
+        ['DANA', 'So memorable isn’t the same as normal.'],
+        ['RAY', 'Safe disposal is the expected practice, even when the container isn’t convenient.']
+      ]
+    }
+  };
+  var PODCAST_WHO = { DANA: 'Dana', RAY: 'Ray', JACOB: 'Jacob' };
+  function podcastFor(id) {
+    return (PODCAST[LE.lensId()] || {})[id] || PODCAST.manufacturing[id] || null;
+  }
+  // ---- The article (Read, default) -----------------------------------------
+  // 2026-09-24: reading a two-host script as text read like reading a
+  // script, so Read defaults to this: the same podcast chapters rewritten as
+  // plain prose. Every fact, rule and figure is the podcast's (and so the
+  // deck's) — the procedure and rule sentences stay close to verbatim; only
+  // the dialogue scaffolding is gone. The podcast's shape survives: the
+  // scene, the tempting read of it, then the correction. Case 3 is told as a
+  // short feature, Jacob's own lines kept as quotes. Demo → "Read view"
+  // switches back to the podcast transcript. Public Sector's case 2 remedial
+  // and both debriefs are identical to Manufacturing in the podcast, so they
+  // fall back to it, as do Education and AEC.
+  var ARTICLE = {
+    manufacturing: {
+      c1base: [
+        'You’ve just changed out a used box-cutter blade at your bench. It’s a routine job. The designated sharps container is down at the end of the line, and the used blade is still sitting at your bench.',
+        'When most people hear “sharps,” they think of needles. The definition is wider than that. Like a needle or any other sharp object, a blade is a sharp: it can puncture or cut the skin, and that makes it a hazard, whether or not it’s visibly contaminated.',
+        'An exposed blade left on a surface is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.',
+        'The procedure comes down to four things. Plan how you’re going to dispose of the sharp. Use a safer alternative when one exists. Activate any available safety feature. And once it’s been used, don’t recap it, bend it, or break it. It goes directly into a designated sharps container.'
+      ],
+      c1rem: [
+        'You’re cleaning up your workstation after changing a cutting blade. The used blade is still in your hand, and you’re deciding how to handle it before you move on.',
+        'The instinct is to make it safer first: snap it, or set it down somewhere obvious. Both feel like the responsible move. What they don’t do is properly contain the sharp, and that’s the distinction that matters.',
+        'Depending on your facility’s procedures, you may need to wrap the exposed edge before disposal, so check yours. The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste.',
+        'Instead, move it directly to a designated sharps container. That’s the safe-handling procedure.'
+      ],
+      c1up: [
+        'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is several workstations away. Your line is about to restart, and a coworker is waving you back.',
+        'Setting the blade down at your own station doesn’t feel careless. You can see exactly where it is, it’s yours, and you’re planning to carry it down on your next scheduled break.',
+        'But the safe-handling procedure doesn’t change when work gets busy. Once a sharp is used, don’t recap it, bend it, or break it, and don’t set it aside for later. It goes directly into a designated sharps container.',
+        'Leaving the blade at your workstation, even for a few minutes, creates a hazard for anyone who reaches for that spot before you get back.'
+      ],
+      c2base: [
+        'Knowing what to do with a sharp is one skill. Spotting an unsafe condition while you’re following the procedure is a separate one.',
+        'You’re carrying a used sharp to a designated sharps container on the production floor. When you get close, you see the container is full. On the way there, you passed a piece of contaminated glass sitting in a general-waste bin.',
+        'The two can feel unrelated: one is a container doing its job, the other is something somebody else left behind. They look nothing alike, and both are sharps hazards.',
+        'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.',
+        'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk. Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.'
+      ],
+      c2rem: [
+        'There are two separate conditions to recognize here, so take them one at a time.',
+        'First, you arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely. Pressing the sharps down, or trying to fit another one in, could bring your hand into contact with a used sharp.',
+        'So when a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.',
+        'Second, a sharp can also become a hazard when it’s left somewhere it doesn’t belong: on a work surface, concealed in other material, or placed in general waste. Any of those can expose someone who doesn’t expect it to be there.',
+        'Whether the hazard is a full container or a misplaced sharp, recognizing the unsafe condition is the first step in preventing a sharps injury.'
+      ],
+      c2up: [
+        'You’re carrying a used sharp toward a designated sharps container on the production floor. As you approach, you see the container is nearing its marked fill line. It isn’t at the line, and there appears to be room for another sharp, but the contents are already crowded near the top.',
+        'On the way, you notice something partially concealed in a general-waste bin. It looks like it could be a piece of contaminated glass, but you can’t tell without disturbing the contents.',
+        'That’s two maybes, and a common first read is that neither one is yours to act on yet. It’s worth slowing down on that. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.',
+        'And even though nobody has confirmed what’s in the bin, a possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.'
+      ],
+      controls: [
+        'A facility is looking for ways to better protect employees who may come into contact with used sharps. It has two options: provide heavier protective gloves, or make designated sharps containers more accessible throughout the facility.',
+        'There’s a reasonable case for the gloves. They’re on the person, everywhere they go, while a container only works if somebody walks to it. Both can provide protection. Where they differ is in how they control the hazard.',
+        'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.',
+        'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.',
+        'One protects the person. The other contains the hazard.'
+      ],
+      case3: [
+        'Jacob collects the bags. He works in sanitation.',
+        'One afternoon, a man on the line named Chris, who manages his diabetes with insulin, couldn’t find a sharps container nearby. He was in the middle of a task, so just that once, he tossed the used needle into the general trash.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never used that needle,” he says. “I never even saw it.”',
+        'A needlestick carries more than the stick. It can expose you to bloodborne pathogens: HIV, hepatitis B, and hepatitis C.',
+        '“The shortcut was his,” Jacob says. “The risk became mine. One decision became someone else’s injury.”'
+      ],
+      case3rf: [
+        'Jacob collects the bags. He works in sanitation.',
+        'One afternoon, a man on the line named Chris, who manages his diabetes with insulin, couldn’t find a sharps container nearby. He was in the middle of a task, so just that once, he tossed the used needle into the general trash.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never used that needle,” he says. “I never even saw it.”',
+        'It didn’t end with the stick. For Jacob, it meant reporting the injury, a medical evaluation, blood tests, and weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C.',
+        '“My family waited them with me,” he says. “The same question sitting at our dinner table every night.”',
+        'Jacob had no part in the decision, but he’s the one who was left carrying it, along with the people who love him. “I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.”',
+        '“Chris saved himself a trip to the sharps container,” he says. “I inherited the risk. That’s how far one disposal choice can reach.”',
+        'If it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?'
+      ],
+      debrief: [
+        'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. Making the trip to a designated container can feel unrealistic when work is moving quickly.',
+        'But that shortcut isn’t necessarily the norm. In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container.',
+        'So why does it feel like the reverse? The shortcut stands out because it’s memorable, and because of what can happen when someone takes it, not because it’s how the work normally gets done. The version people tell each other is the exception. Safe disposal is the norm, even when the container isn’t convenient.'
+      ],
+      debriefrf: [
+        'It’s a belief a lot of people hold: when a sharps container isn’t nearby, taking the shortcut is simply what people do, and expecting everyone to make the trip is unrealistic.',
+        'That’s how it feels. But what stands out isn’t always what’s most common. In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container.',
+        'The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.',
+        'Memorable isn’t the same as normal. Safe disposal is the expected practice, even when the container isn’t convenient.'
+      ]
+    },
+    public: {
+      c1base: [
+        'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. It’s already in your gloved hand, and the designated sharps container is across the intake area.',
+        'It’s one needle, but the risk is real. A used needle retains a small amount of blood after use, and its sharpness makes it likely to penetrate someone else’s skin and expose them to that retained blood.',
+        'It doesn’t matter whether it looks contaminated. A needle left on the counter or dropped into a property tray is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.',
+        'The procedure comes down to four things. Plan how the sharp will be disposed of before you handle it. Use a needle alternative when one is available. Activate any available safety feature. And once it’s been used, don’t recap it, bend it, or break it. It goes directly into a designated sharps container.'
+      ],
+      c1rem: [
+        'You’ve recovered a used needle during a property search. It’s still in your gloved hand while you decide how to handle it before moving on.',
+        'The instinct is to make it safer first: recap it, or set it aside. Both feel like the responsible move. What they don’t do is properly contain the sharp, and that’s the distinction that matters.',
+        'If no designated sharps container is immediately available, don’t place the needle in general waste. And don’t improvise a wrapping out of soft material, such as a paper towel or a plastic bag.',
+        'The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste. The safe-handling procedure is to seek a designated sharps container and move the sharp directly into it.'
+      ],
+      c1up: [
+        'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. The designated sharps container is at the far end of the intake area. The queue behind you is backing up, and another officer is calling you over to help with a subject in the next room.',
+        'Setting the needle down on the counter doesn’t feel careless. You can see exactly where it is, and you’ll deal with it as soon as you’re back.',
+        'But the safe-handling procedure doesn’t change when the room gets busy. Once a sharp is used, don’t recap it, bend it, or break it, and don’t set it aside for later. It goes directly into a designated sharps container.',
+        'Leaving the needle on the counter, even briefly, creates a hazard for anyone who reaches for that spot before you return.'
+      ],
+      c2base: [
+        'Knowing what to do with a sharp is one skill. Spotting an unsafe condition while you’re following the procedure is a separate one.',
+        'You’re carrying a used needle recovered during a property search to the designated sharps container in the station’s processing area. As you approach, you see the container has reached its fill line. On the way there, you passed a used syringe sitting in a general-waste bin.',
+        'They’re two very different situations, and both present a sharps hazard, for different reasons.',
+        'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.',
+        'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk. Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.'
+      ],
+      c2up: [
+        'You’re carrying a recovered sharp toward the designated sharps container in the station’s processing area. As you approach, you see the container is nearing its marked fill line. It isn’t at the line, and there appears to be room for another sharp, but the contents are already crowded near the top.',
+        'On the way, you notice something partially concealed in a general-waste bin. It looks like it could be a used syringe, but you can’t tell without disturbing the contents.',
+        'That’s two maybes, and a common first read is that neither one is yours to act on yet. It’s worth slowing down on that. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.',
+        'And even though nobody has confirmed what’s in the bin, a possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.'
+      ],
+      controls: [
+        'An agency is looking for ways to better protect officers who may come into contact with used sharps. It has two options: issue heavier protective gloves, or make designated sharps containers more accessible throughout its stations and intake areas.',
+        'There’s a reasonable case for the gloves. They’re on the officer, everywhere they go, while a container only works if somebody walks to it. Both can provide protection. Where they differ is in how they control the hazard.',
+        'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.',
+        'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.',
+        'One protects the person. The other contains the hazard.'
+      ],
+      case3: [
+        'Jacob does custodial pickup. He collects the bags.',
+        'An officer named Chris recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake, so just that once, he dropped the used needle into the general trash at the station.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never handled the arrest,” he says. “I never even saw the needle.”',
+        'A needlestick carries more than the stick. It can expose you to bloodborne pathogens: HIV, hepatitis B, and hepatitis C.',
+        '“The shortcut was his,” Jacob says. “The risk became mine. One decision became someone else’s injury.”'
+      ],
+      case3rf: [
+        'Jacob does custodial pickup. He collects the bags.',
+        'An officer named Chris recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake, so just that once, he dropped the used needle into the general trash at the station.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never handled the arrest,” he says. “I never even saw the needle.”',
+        'It didn’t end with the stick. For Jacob, it meant reporting the injury, a medical evaluation, blood tests, and weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C.',
+        '“My family waited them with me,” he says. “The same question sitting at our dinner table every night.”',
+        'Jacob had no part in the decision, but he’s the one who was left carrying it, along with the people who love him. “I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.”',
+        '“Chris saved himself a trip to the sharps container,” he says. “I inherited the risk. That’s how far one disposal choice can reach.”',
+        'If it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?'
+      ]
+    }
+  };
+  function articleFor(id) {
+    return (ARTICLE[LE.lensId()] || {})[id] || ARTICLE.manufacturing[id] || [];
+  }
+  // 'article' (default) | 'podcast' — the Demo menu's "Read view".
+  function readStyle() {
+    try { return sessionStorage.getItem('sh-read-style') === 'podcast' ? 'podcast' : 'article'; }
+    catch (e) { return 'article'; }
+  }
+
+  // Read steps through the text a run at a time — transcript turns or
+  // article paragraphs. Items are gathered into a step until it holds at
+  // least READ_STEP_MIN characters, so "Directly." / "Even if there's
+  // nothing visible on it?" (or a one-line paragraph) ride along with what's
+  // around them instead of each being its own two-second step. A short
+  // leftover at the end joins the step before it.
+  var READ_STEP_MIN = 240;
+  function readSteps(items, len) {
+    var steps = [], cur = [], n = 0;
+    items.forEach(function (l) {
+      cur.push(l); n += len(l);
+      if (n >= READ_STEP_MIN) { steps.push(cur); cur = []; n = 0; }
+    });
+    if (cur.length) {
+      if (steps.length && n < READ_STEP_MIN / 2) steps[steps.length - 1] = steps[steps.length - 1].concat(cur);
+      else steps.push(cur);
+    }
+    return steps;
+  }
+  // The spoken turns only — the reader has nothing to show for a pause.
+  function podcastTurns(id) {
+    return (podcastFor(id) || []).filter(function (l) { return l[0] !== 'PAUSE'; });
+  }
+
   var DECK_SOURCE = 'Source: Gershon et al. (2000), “Hospital Safety Climate and Its Relationship ' +
     'with Safe Work Practices and Workplace Exposure Incidents,” American Journal of Infection ' +
     'Control, 28(3), 211–221.';
@@ -1417,6 +1917,10 @@
     { m: 'podcast', label: 'Listen', icon: 'fa-headphones' }
   ];
   var NARRATION_DIR = '../../assets/audio/sharps/';
+  // Re-rendering the audio writes new bytes to the SAME file names, so bump
+  // this whenever tools/sharps-narration is re-run, or browsers keep playing
+  // the copy they already have. 2 = the podcast scripts (2026-09-24).
+  var NARRATION_V = '2';
   function narrationFor(id) {
     var all = window.SHARPS_NARRATION || {};
     return all[LE.lensId() + '/' + id] || all['manufacturing/' + id] || null;
@@ -1460,8 +1964,23 @@
             // Read
             '<section class="dk-layer dk-layer--read" id="dkRead" aria-label="Reading view" data-size="' + readSize() + '">' +
               '<div class="dk-read-scroll" id="dkReadScroll"><article class="dk-read-col">' +
-                d.narration.map(function (p, i) {
-                  return '<p class="dk-para" data-i="' + i + '">' + esc(p) + '</p>';
+                // The article (default) or the podcast transcript, per the
+                // Demo menu's "Read view". A reading step is a run of
+                // paragraphs or turns, never one short line (readSteps).
+                // Every step gets a fixed-height slot for the button, so moving
+                // it between steps never shifts the text.
+                (readStyle() === 'podcast'
+                  ? readSteps(podcastTurns(id), function (l) { return l[1].length; }).map(function (grp) {
+                      return grp.map(function (l) {
+                        return '<p class="dk-turn" data-who="' + l[0].toLowerCase() + '">' +
+                          '<span class="dk-who">' + esc(PODCAST_WHO[l[0]] || l[0]) + '</span>' + esc(l[1]) + '</p>';
+                      }).join('');
+                    })
+                  : readSteps(articleFor(id), function (t) { return t.length; }).map(function (grp) {
+                      return grp.map(function (t) { return '<p class="dk-ppar">' + esc(t) + '</p>'; }).join('');
+                    })
+                ).map(function (html, i) {
+                  return '<div class="dk-para dk-step" data-i="' + i + '">' + html + '</div><div class="dk-slot"></div>';
                 }).join('') +
                 (d.source ? '<p class="dk-src"><i class="fa-solid fa-book" aria-hidden="true"></i> ' + esc(DECK_SOURCE) + '</p>' : '') +
               '</article></div>' +
@@ -1478,19 +1997,24 @@
             // Listen
             '<section class="dk-layer dk-layer--listen" id="dkListen" aria-label="Audio">' +
               (nar
-                ? '<audio id="dkAudio" preload="auto" src="' + esc(NARRATION_DIR + nar.src) + '"></audio>' +
+                ? '<audio id="dkAudio" preload="auto" src="' + esc(NARRATION_DIR + nar.src + '?v=' + NARRATION_V) + '"></audio>' +
                   '<div class="dk-wave-wrap"><canvas class="dk-wave" id="dkWave" aria-hidden="true"></canvas>' +
                     '<span class="dk-playhead" aria-hidden="true"></span></div>' +
                   '<div class="dk-caps" aria-live="off">' +
-                    '<p class="dk-cap-prev" id="dkCapPrev"></p>' +
+                    '<p class="dk-cap-who" id="dkCapWho"></p>' +
                     '<p class="dk-cap-now" id="dkCapNow"></p>' +
                   '</div>' +
+                  // Three columns: voice label in the left corner, play in the
+                  // centre, time (and the review-only Skip) in the right corner.
                   '<div class="dk-player">' +
-                    '<button class="dk-play" type="button" id="dkPlay" aria-label="Play narration"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
-                    '<span class="dk-time" id="dkTime">0:00 / ' + mmss(nar.dur) + '</span>' +
                     '<span class="dk-voice-note">Placeholder voice</span>' +
+                    '<button class="dk-play" type="button" id="dkPlay" aria-label="Play narration"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
+                    '<span class="dk-player-end">' +
+                      '<button class="dk-skip" id="dkLSkip" type="button" hidden aria-label="Skip narration">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
+                      '<span class="dk-time" id="dkTime">0:00 / ' + mmss(nar.dur) + '</span>' +
+                    '</span>' +
                   '</div>'
-                : '<p class="dk-cap-now">' + esc(d.narration.join(' ')) + '</p>') +
+                : '<p class="dk-cap-now">' + esc(podcastTurns(id).map(function (l) { return l[1]; }).join(' ')) + '</p>') +
             '</section>' +
 
             // The rail every carrier drives.
@@ -1546,10 +2070,14 @@
           setRail(video && video.duration ? video.currentTime / video.duration : 0);
         } else if (m === 'podcast') {
           listen.enter();
-          if (!handed) ctx.setNextAction('Done listening', finished);
+          // Only offered when the narration can't play — otherwise Listen
+          // finishes on the audio's own 'ended', like a clip.
+          if (!handed && listen.manual()) ctx.setNextAction('Done listening', finished);
         } else {
+          // No footer "Done reading": the in-flow Next button walks the text
+          // and becomes "Done reading" on the last paragraph, and a second
+          // copy of it in the footer only doubled up at the end.
           read.enter();
-          if (!handed) ctx.setNextAction('Done reading', finished);
         }
       }
 
@@ -1560,17 +2088,81 @@
         var paras = [].slice.call(box.querySelectorAll('.dk-para'));
         var nEl = document.getElementById('dkParaN');
         var at = 0;
-        function focus(i, smooth) {
+        // The way forward, in flow: one button that follows the paragraph in
+        // focus. "Next" steps on; on the last paragraph it is the same "Done
+        // reading" (the only one — the footer doesn't offer it), and once the question has been handed
+        // over it has nothing left to do and goes away.
+        var next = document.createElement('button');
+        next.type = 'button';
+        next.className = 'dk-next';
+        next.addEventListener('click', function () {
+          if (at < paras.length - 1) { focus(at + 1, true); next.focus({ preventScroll: true }); }
+          else if (!handed) finished();
+        });
+        function placeNext() {
+          var last = at === paras.length - 1;
+          next.hidden = last && handed;
+          next.innerHTML = last
+            ? '<i class="fa-solid fa-check" aria-hidden="true"></i><span>Done reading</span>'
+            : '<span>Next</span><i class="fa-solid fa-arrow-down" aria-hidden="true"></i>';
+          var slot = paras[at].nextElementSibling;
+          if (next.parentNode !== slot) {
+            slot.appendChild(next);
+            // Re-run the entrance so the move reads as the control following along.
+            next.style.animation = 'none'; void next.offsetWidth; next.style.animation = '';
+          }
+        }
+        // Which paragraph is lit, and everything that follows from it — the
+        // button, the count, the arrows, the rail. No scrolling here, so the
+        // scroll handler below can call it too.
+        function light(i) {
           at = Math.max(0, Math.min(paras.length - 1, i));
           paras.forEach(function (p, j) { p.classList.toggle('is-on', j === at); p.classList.toggle('is-past', j < at); });
+          placeNext();
           nEl.textContent = (at + 1) + ' / ' + paras.length;
           document.getElementById('dkParaPrev').disabled = at === 0;
           document.getElementById('dkParaNext').disabled = at === paras.length - 1;
-          var p = paras[at];
-          var top = p.offsetTop - (scroller.clientHeight - p.offsetHeight) / 2;
-          scroller.scrollTo({ top: Math.max(0, top), behavior: smooth ? 'smooth' : 'auto' });
           if (showing === 'article') setRail((at + 1) / paras.length);
         }
+        // Light a paragraph and bring it (with its button) to the middle.
+        var auto = false, autoT = 0;
+        function focus(i, smooth) {
+          light(i);
+          var p = paras[at];
+          var slot = p.nextElementSibling;
+          var h = slot.offsetTop + slot.offsetHeight - p.offsetTop;
+          var top = Math.max(0, p.offsetTop - (scroller.clientHeight - h) / 2);
+          // Our own scroll must not be read back as the learner's (see below).
+          if (smooth && Math.abs(scroller.scrollTop - top) > 1) {
+            auto = true;
+            clearTimeout(autoT);
+            autoT = setTimeout(function () { auto = false; }, 700);
+          }
+          scroller.scrollTo({ top: top, behavior: smooth ? 'smooth' : 'auto' });
+        }
+        scroller.addEventListener('scrollend', function () { auto = false; clearTimeout(autoT); });
+        // Scrolling IS reading. The text used to scroll freely while the lit
+        // paragraph stayed put, so a learner could scroll it (and its button)
+        // out of view and be left in all-dimmed text with no way on. Now the
+        // paragraph at the reading line is the lit one, and the button follows.
+        // "Reading line" = the last paragraph whose top has passed ~45% of the
+        // view; moving the button shifts later text in the direction that
+        // keeps the choice stable, so there's no flicker at a boundary. The
+        // ends are pinned so the first and last paragraphs are always reachable
+        // (the last one carries "Done reading").
+        scroller.addEventListener('scroll', function () {
+          if (auto || showing !== 'article') return;
+          var y = scroller.scrollTop, max = scroller.scrollHeight - scroller.clientHeight;
+          var pick;
+          if (y >= max - 2) pick = paras.length - 1;
+          else if (y <= 2) pick = 0;
+          else {
+            var line = y + scroller.clientHeight * 0.45;
+            pick = 0;
+            paras.forEach(function (p, j) { if (p.offsetTop <= line) pick = j; });
+          }
+          if (pick !== at) light(pick);
+        }, { passive: true });
         paras.forEach(function (p, j) { p.addEventListener('click', function () { focus(j, true); }); });
         document.getElementById('dkParaPrev').addEventListener('click', function () { focus(at - 1, true); });
         document.getElementById('dkParaNext').addEventListener('click', function () { focus(at + 1, true); });
@@ -1591,18 +2183,40 @@
           if (e.key === 'ArrowUp' || e.key === 'PageUp') { e.preventDefault(); focus(at - 1, true); }
         });
         size(0);
-        return { enter: function () { requestAnimationFrame(function () { focus(at, false); }); } };
+        return {
+          enter: function () { requestAnimationFrame(function () { focus(at, false); }); },
+          sync: placeNext
+        };
       })();
 
       // ---- Listen: waveform + live captions --------------------------------
       var listen = (function () {
-        if (!audio || !nar) return { enter: function () { setRail(0); } };
+        if (!audio || !nar) return { enter: function () { setRail(0); }, manual: function () { return true; } };
+        var broken = false;
+        // Couldn't load or play: say so, and fall back to the manual finish.
+        audio.addEventListener('error', function () {
+          broken = true;
+          var note = document.querySelector('.dk-voice-note');
+          if (note) note.textContent = 'Audio unavailable';
+          if (showing === 'podcast' && !handed) ctx.setNextAction('Done listening', finished);
+        });
+        // Review-mode skip, same rule as the clip's: jump to the end and count
+        // it as heard. Never shown to a learner.
+        var lskip = document.getElementById('dkLSkip');
+        if (lskip) {
+          lskip.hidden = !LE.reviewMode();
+          lskip.addEventListener('click', function () {
+            audio.pause();
+            try { audio.currentTime = nar.dur; } catch (e) {}
+            if (!handed) finished();
+          });
+        }
         var canvas = document.getElementById('dkWave');
         var g = canvas.getContext('2d');
         var play = document.getElementById('dkPlay');
         var timeEl = document.getElementById('dkTime');
         var capNow = document.getElementById('dkCapNow');
-        var capPrev = document.getElementById('dkCapPrev');
+        var capWho = document.getElementById('dkCapWho');
         var env = nar.env, HZ = 30;
         var BAR = 4, GAP = 3;             // CSS px per bar and gap
         var raf = 0, lastSent = -1, spans = [];
@@ -1611,12 +2225,20 @@
 
         // The caption: the current sentence, word by word (words are timed by
         // their share of the sentence's characters — close enough to track a
-        // steady read), with the previous sentence fading out above it.
+        // steady read). Only the current sentence: the previous one used to
+        // fade out above it, and under a new speaker's name it read as that
+        // speaker's line (2026-09-24). A mono voiceover has no `w`, so the
+        // speaker label stays empty there.
         function setSentence(i) {
           if (i === lastSent) return;
           lastSent = i;
           var st = nar.sents[i];
-          capPrev.textContent = i > 0 ? nar.sents[i - 1].t : '';
+          // Who is speaking, above their line (the podcast has two hosts and
+          // an interviewee; sentences carry it as `w`).
+          if (capWho) {
+            capWho.textContent = st && st.w ? (PODCAST_WHO[st.w] || st.w) : '';
+            capWho.dataset.who = st && st.w ? st.w.toLowerCase() : '';
+          }
           capNow.innerHTML = st ? st.t.split(' ').map(function (w) { return '<span>' + esc(w) + '</span>'; }).join(' ') : '';
           spans = [].slice.call(capNow.children);
           capNow.classList.remove('is-in'); void capNow.offsetWidth; capNow.classList.add('is-in');
@@ -1714,7 +2336,10 @@
           mo.observe(stageEl, { childList: true });
         }
         setSentence(0);
-        return { enter: function () { requestAnimationFrame(function () { fit(); tick(); }); } };
+        return {
+          enter: function () { requestAnimationFrame(function () { fit(); tick(); }); },
+          manual: function () { return broken; }
+        };
       })();
 
       // The carrier is done. With no question, Continue opens. With one, the
@@ -1722,25 +2347,64 @@
       // answered.
       function finished() {
         if (handed) return; handed = true;
+        read.sync();
         if (!q) { ctx.enableNext(); return; }
         ctx.disableNext();
         if (video) try { video.pause(); } catch (e) {}
         if (audio) audio.pause();
         var el = document.getElementById('dkCheck');
         reinforce(ctx, el, 1, 1);
+        // Over the whole page: lifted out of the stage onto <body> (a fixed
+        // layer inside the step would be trapped by any transformed or
+        // filtered ancestor), and taken away again when the step is torn
+        // down, since the engine only clears its own stage. Moved AFTER
+        // reinforce(), which marks the layer's parent as held — done on
+        // <body> that would blur the footer too.
+        el.classList.add('dk-check--page');
+        document.body.appendChild(el);
+        try { el.focus({ preventScroll: true }); } catch (e) {}
+        var stageRoot = document.querySelector('.ll-stage');
+        if (stageRoot && window.MutationObserver) {
+          var gone = new MutationObserver(function () {
+            if (document.body.contains(stage)) return;
+            gone.disconnect();
+            if (el.parentNode) el.parentNode.removeChild(el);
+          });
+          gone.observe(stageRoot, { childList: true, subtree: true });
+        }
         var host = el.querySelector('.dk-opts, .lk');
         var fb = document.getElementById('dkFb');
         wireChoice(host, document.getElementById('dkSubmit'), function (v, picked) {
           document.getElementById('dkSubmit').classList.add('is-spent');
           if (q.kind === 'mcq') {
             var ok = v === q.correct;
+            // 2026-09-24 live review: say the verdict in words, both ways.
+            // A first miss does NOT reveal the right answer: the learner
+            // goes into the remedial content next and meets this question
+            // again, so the feedback only says what happens next. A second
+            // miss (the re-ask on the remedial screen) is the last time
+            // they see it, so that one still names the right answer.
+            // The incorrect line is Rob's wording, standing in until
+            // Jessica's authored feedback lands in the deck (q.noFb).
+            var last = !!d.recheck;
             csMark(picked, ok ? 'ok' : 'bad');
-            if (!ok) csMark(host.querySelectorAll('.cs-opt')[q.correct], 'ok');
-            if (ok) {
-              fb.textContent = q.okFb;
-              fb.className = 'dk-fb is-ok';
-              fb.hidden = false;
+            if (!ok) csTag(picked, 'Your answer');
+            if (!ok && last) {
+              // Names both rows, so the right answer can't be mistaken
+              // for a second pick (colour + mark + words).
+              var right = host.querySelectorAll('.cs-opt')[q.correct];
+              csMark(right, 'ok');
+              csTag(right, 'Correct answer');
             }
+            var body = ok ? q.okFb
+              : last ? ''
+              : (q.noFb || 'Let\u2019s dig into this again from a slightly different lens.');
+            fb.innerHTML = '<strong class="dk-fb-h"><i class="fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle-xmark') +
+                '" aria-hidden="true"></i> ' + (ok ? 'Correct' : 'Not quite') + '</strong>' +
+              (body ? '<span class="dk-fb-b">' + esc(body) + '</span>' : '');
+            fb.className = 'dk-fb ' + (ok ? 'is-ok' : 'is-bad');
+            fb.hidden = false;
+            clearFooter(fb);
             saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: showing });
           } else if (q.kind === 'insight') {
             csMark(picked, 'neutral');
@@ -2202,48 +2866,62 @@
   }
 
   // ==========================================================================
-  //  WHAT CHANGES — the same adjustment screen as the Bystander module, but
-  //  reporting two kinds of move rather than one: a beat removed AND a beat
-  //  made HARDER. Compression is not the only thing a policy can do.
+  //  YOUR UPDATED PATH — 2026-09-24 live review: the row list is gone.
+  //  Learners saw "Skipped" / "Adapted" beside section names and had no idea
+  //  what adapted meant or why it happened (Chuck), and Rob agreed. The
+  //  learner doesn't need to know what moved, only that something did. Two
+  //  treatments, from experiments/sharps-riffs 03 and 02, picked from the
+  //  Demo menu ("Path update style"):
   //
-  //  It reported a third — a beat ADDED on a low Feel score — and that row
-  //  came off, because nothing was behind it: the beat it named runs for every
-  //  learner on every path. Only the Know items move anything, so this screen
-  //  now appears only when the procedure was proven.
+  //   calibrate (default) — "Calibrating your path…" over a progress bar,
+  //                          then "You're all set." Says nothing about what moved.
+  //   celebrate           — the same bar, then a playful reward: a flash,
+  //                          one short confetti burst, a "Nice work" chip.
+  //
+  //  Celebrate only fires on a PROVEN knowledge answer (a harder case). When
+  //  the only move is a longer case 3 / debrief (low agreement), the path got
+  //  longer, and confetti for "here's more" would be wrong, so it falls back
+  //  to calibrate. It carries no "time saved" figure: in this module a correct
+  //  answer swaps a case for a harder one of about the same length and skips
+  //  nothing, so there is no saved time to report.
+  //
+  //  The screen still only appears when something actually moved (adjustMoved).
   // ==========================================================================
-  //  The screen runs in two phases. FIRST the orb alone, large and low on the
-  //  stage, with one line under it — there is nothing to read yet, so there is
-  //  nothing else on screen. THEN it drops into its crown slot and the stack
-  //  arrives beneath it. Entering the page should present one thing, not five.
   var ADJUST_CONTENT =
     '<main class="ll-object ll-object--crowned" id="adjustObject">' +
-      '<div class="adj">' +
-        '<p class="adj-reading" id="adjReading">Reading your answers…</p>' +
-        '<div class="adj-body" id="adjBody">' +
-          '<p class="ll-eyebrow adj-verdict" id="adjEyebrow">Path updated</p>' +
-          '<h2 class="adj-head adj-verdict" id="adjHead"></h2>' +
-          '<ol class="adj-stack" id="adjStack" aria-live="polite"></ol>' +
-          '<p class="adj-saved" id="adjSaved">&nbsp;</p>' +
+      '<canvas class="pu-confetti" id="puConfetti" aria-hidden="true"></canvas>' +
+      '<div class="pu">' +
+        '<div class="pu-load" id="puLoad">' +
+          '<p class="pu-status">Calibrating your path…</p>' +
+          '<div class="pu-track" role="progressbar" aria-label="Calibrating your path" ' +
+            'aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="puTrack">' +
+            '<div class="pu-fill" id="puFill"></div></div>' +
+          '<p class="pu-pct" id="puPct" aria-hidden="true">0%</p>' +
         '</div>' +
+        '<div class="pu-flash" id="puFlash" aria-hidden="true"></div>' +
+        '<div class="pu-result" id="puResult" role="status"></div>' +
       '</div>' +
     '</main>';
-  var ADJUST_CHIPS = {
-    dropped: '<span class="adj-chip adj-chip--drop"><i class="fa-solid fa-forward"></i> Skipped</span>',
-    harder:  '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-arrow-trend-up"></i> Adapted</span>',
-    expanded: '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-layer-group"></i> Expanded</span>'
+  // One lookup per treatment: what lands once the bar fills.
+  var PU_RESULT = {
+    calibrate:
+      '<p class="ll-eyebrow pu-eyebrow">Path ready</p>' +
+      '<h2 class="pu-head">You’re all set.</h2>' +
+      '<p class="pu-sub">This module has adapted to your answers.</p>',
+    celebrate:
+      '<p class="pu-chip"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Nice work</p>' +
+      '<h2 class="pu-head">You already know the basics.</h2>' +
+      '<p class="pu-sub">We’ll go straight to the harder cases.</p>'
   };
-  // The row set for THIS result. Extracted so the step's `when` can ask the
-  // same question the screen answers: did the four answers move anything?
-  //
-  // Each note now carries the REASON only. The chip beside it already carries
-  // the verdict, so the old notes printed "kept" and "harder" a second time
-  // in prose — the loudest of the duplications that made this read as noise.
-  // Every entry names a STEP, so the label and mark on this screen are the
-  // same ones the learner already read in the sections list. `state` is the
-  // only thing this table owns.
+  function pathUpdateStyle() {
+    try { return sessionStorage.getItem('sh-path-style') === 'celebrate' ? 'celebrate' : 'calibrate'; }
+    catch (e) { return 'calibrate'; }
+  }
   // One row per routing decision the pre-check made (deck slides 2–4): a
   // correct knowledge answer swaps that case for its harder version, and a
-  // low agreement swaps case 3 / the debrief for its longer version.
+  // low agreement swaps case 3 / the debrief for its longer version. Nothing
+  // on screen lists these any more; they decide whether the screen runs at
+  // all, and whether the celebrate treatment has earned its confetti.
   var ADJUST_ROWS = [
     { id: 'c1up',      state: function () { return k1TestUp() ? 'harder' : 'kept'; } },
     { id: 'c2up',      state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
@@ -2251,10 +2929,7 @@
     { id: 'debriefrf', state: function () { return feelLow('f3') ? 'expanded' : 'kept'; } }
   ];
   function adjustRows() {
-    return ADJUST_ROWS.map(function (r) {
-      var st = LE.stepById(r.id) || {};
-      return { icon: st.icon || 'fa-circle', label: st.lesson || r.id, state: r.state() };
-    }).filter(function (r) { return r.label; });
+    return ADJUST_ROWS.map(function (r) { return { id: r.id, state: r.state() }; });
   }
 
   // Did anything actually move? When the answer is no, this screen has no news
@@ -2267,72 +2942,95 @@
   }
 
   function adjustInit(ctx) {
-    var stack = document.getElementById('adjStack');
-    // Only the rows that actually moved are worth a learner's attention on
-    // this screen — a "Kept" chip is just a section named as unchanged, and
-    // a list that's mostly unchanged sections reads as noise around the two
-    // things that matter: what got skipped and what got harder.
-    var rows = adjustRows().filter(function (r) { return r.state !== 'kept'; });
-    var stageEl = ctx.stage;
+    var proven = adjustRows().some(function (r) { return r.state === 'harder'; });
+    var style = (pathUpdateStyle() === 'celebrate' && proven) ? 'celebrate' : 'calibrate';
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var load = document.getElementById('puLoad');
+    var track = document.getElementById('puTrack');
+    var fill = document.getElementById('puFill');
+    var pct = document.getElementById('puPct');
+    var result = document.getElementById('puResult');
+    var DUR = T(1900);
 
     ctx.floatClose();
+    ctx.setCoachSay('');
 
-    // ---- Phase 1 -----------------------------------------------------------
-    // The orb is sized by the slot it tracks, so growing that slot and
-    // re-positioning IS the animation — no second orb, no engine change, and
-    // the Bystander screen (same stylesheet) is untouched because every rule
-    // hangs off this stage class.
-    stageEl.classList.add('is-adj-reading');
-    ctx.positionOrb(false);
+    // The bar and the number move together; ease-out so it settles rather
+    // than ticking linearly toward 100.
+    var t0 = null;
+    function tick(ts) {
+      if (!fill.isConnected) return;            // learner already moved on
+      if (t0 === null) t0 = ts;
+      var t = Math.min(1, (ts - t0) / DUR), v = Math.round((1 - Math.pow(1 - t, 3)) * 100);
+      fill.style.width = v + '%';
+      pct.textContent = v + '%';
+      track.setAttribute('aria-valuenow', v);
+      if (t < 1) requestAnimationFrame(tick); else setTimeout(reveal, T(180));
+    }
+    requestAnimationFrame(tick);
 
-    // Written now, revealed later. Filling the headline while it is invisible
-    // means its box is already the right height when the verdict lands, so the
-    // stack underneath never shifts.
-    document.getElementById('adjHead').textContent = 'Here\u2019s what\u2019s next.';
-    document.getElementById('adjSaved').textContent =
-      'Adapted for you based on your previous answers.';
+    function reveal() {
+      if (!result.isConnected) return;
+      load.classList.add('is-done');
+      result.innerHTML = PU_RESULT[style];
+      result.classList.add('in');
+      if (style === 'celebrate' && !still) {
+        document.getElementById('puFlash').classList.add('pop');
+        puConfetti(document.getElementById('puConfetti'));
+      }
+      LE.refreshNav();
+      ctx.enableNext();
+    }
+  }
 
-    // A row is a label and a verdict. The per-row reasons are gone: four of
-    // them repeated in small grey text is most of what made this page feel
-    // like a wall, and the chip already carries the only word that matters.
-    stack.innerHTML = rows.map(function (r) {
-      return '<li class="adj-row" data-state="pending">' +
-               '<span class="adj-ico"><i class="fa-solid ' + r.icon + '" aria-hidden="true"></i></span>' +
-               '<span class="adj-main"><span class="adj-label">' + esc(r.label) + '</span></span>' +
-               '<span class="adj-state"><span class="adj-spin" aria-hidden="true"></span></span>' +
-             '</li>';
-    }).join('');
-    var els = [].slice.call(stack.children);
-
-    // ---- Phase 2: the orb drops in, the stack resolves one row at a time ----
-    setTimeout(function () {
-      stageEl.classList.remove('is-adj-reading');
-      ctx.positionOrb(true);
-      rows.forEach(function (r, i) {
-        setTimeout(function () {
-          // Guarded: this chain runs for ~2.5s and nothing cancels it on
-          // teardown, so a learner who advances before it finishes was
-          // dereferencing a DOM that had already been replaced.
-          var li = els[i];
-          if (!li || !li.isConnected) return;
-          li.dataset.state = r.state;
-          var st = li.querySelector('.adj-state');
-          if (st) st.innerHTML = ADJUST_CHIPS[r.state];
-        }, T(460 + i * 420));
+  // One short burst from the two bottom corners, no library. Ported from
+  // experiments/sharps-riffs/02-path-update-celebratory.html, where the
+  // count and spread were already tuned down from "blizzard" to "two modest
+  // fountains that stay mostly on their own side". The canvas sits under the
+  // text, so particles frame the reward rather than covering it.
+  function puConfetti(canvas) {
+    if (!canvas || !canvas.getContext) return;
+    var c = canvas.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    var COLORS = ['#2ee6cf', '#5aa9f6', '#f1b34a', '#c4b5fd', '#ff8fa8', '#ffffff'];
+    var DURATION = 2500, per = Math.max(30, Math.min(60, Math.round(w / 22)));
+    function burst(x0, dir) {
+      var out = [];
+      for (var i = 0; i < per; i++) {
+        var speed = 13 + Math.random() * 13;
+        var rad = (90 - (14 + Math.random() * 34)) * Math.PI / 180;
+        var streamer = Math.random() < 0.25;
+        out.push({ x: x0, y: h, vx: dir * Math.cos(rad) * speed, vy: -Math.sin(rad) * speed,
+                   size: streamer ? 9 + Math.random() * 8 : 4 + Math.random() * 5, streamer: streamer,
+                   rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.4,
+                   color: COLORS[(Math.random() * COLORS.length) | 0],
+                   rect: streamer || Math.random() < 0.55 });
+      }
+      return out;
+    }
+    var ps = burst(w * 0.06, 1).concat(burst(w * 0.94, -1)), start = null;
+    function frame(ts) {
+      if (!canvas.isConnected) return;
+      if (start === null) start = ts;
+      var el = ts - start, a = el > DURATION - 800 ? Math.max(0, (DURATION - el) / 800) : 1;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, canvas.width, canvas.height);
+      c.scale(dpr, dpr);
+      ps.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.vx *= 0.985; p.rot += p.vr;
+        c.save(); c.translate(p.x, p.y); c.rotate(p.rot);
+        c.globalAlpha = a; c.fillStyle = p.color;
+        if (p.rect) {
+          var len = p.streamer ? p.size * 2 : p.size;
+          c.fillRect(-len / 2, -p.size * 0.28, len, p.size * 0.42);
+        } else { c.beginPath(); c.arc(0, 0, p.size / 2, 0, Math.PI * 2); c.fill(); }
+        c.restore();
       });
-
-      // ---- Phase 3: the verdict ------------------------------------------
-      setTimeout(function () {
-        var eb = document.getElementById('adjEyebrow');
-        if (!eb) return;              // screen already gone; nothing to reveal
-        eb.classList.add('in');
-        document.getElementById('adjHead').classList.add('in');
-        document.getElementById('adjSaved').classList.add('in');
-        ctx.setCoachSay('');
-        LE.refreshNav();
-        ctx.enableNext();
-      }, T(460 + rows.length * 420 + 260));
-    }, T(1500));
+      if (el < DURATION) requestAnimationFrame(frame);
+      else { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, canvas.width, canvas.height); }
+    }
+    requestAnimationFrame(frame);
   }
 
   // ==========================================================================
@@ -3994,6 +4692,16 @@
   // 'neutral' (item 16): a plain pick, no verdict — served harder, not
   // quizzed, so a check/minus/x would all overclaim.
   var CS_GLYPH = { ok: 'fa-check', near: 'fa-minus', bad: 'fa-xmark', neutral: 'fa-circle' };
+  function csTag(b, text) {
+    if (!b || b.querySelector('.cs-tag')) return;
+    var t = document.createElement('span');
+    t.className = 'cs-tag';
+    t.textContent = text;
+    b.appendChild(t);
+    b.classList.add('has-tag');
+    var name = b.getAttribute('aria-label');
+    if (name) b.setAttribute('aria-label', name + ' (' + text + ')');
+  }
   function csMark(b, grade) {
     b.classList.add('pick-' + grade);
     var m = b.querySelector('.cs-mark');
@@ -4914,10 +5622,34 @@
   //  external URL) to skip ITS establishing card in turn, since showing both
   //  would frame the same moment twice in a row.
   // ==========================================================================
+  // The hero still that sets the scene on this screen — and rides into the
+  // player as its backdrop (?hero=). Only sectors with their OWN produced
+  // still get one: Manufacturing's factory floor behind a classroom
+  // teacher's "craft blade on the back table" would be a continuity error,
+  // so Education and AEC keep the icon-mark version until their stills land.
+  // Same files as the in-module scene (SCENE_ART).
+  function handoffHero() {
+    var a = SCENE_ART[LE.lensId()];
+    return a ? { src: a.src } : null;
+  }
+
+  // With a hero, this screen IS the simulator's first frame: the still runs
+  // full-bleed behind the copy, framed exactly as the player frames its own
+  // backdrop (center / cover). "Enter the scenario" then fakes the jump —
+  // the copy leaves, the still blurs and darkens to the player's coach-up
+  // state (.ho-sim reproduces its two washes: the has-hero gradient and the
+  // coach scrim), and a cross-document View Transition hands over to the
+  // player, which opens on that same picture with the coach sheet rising.
   function HANDOFF_CONTENT() {
-    return '<main class="ll-object ll-object--chain"><div class="ho-wrap">' +
+    var hero = handoffHero();
+    return '<main class="ll-object ll-object--chain' + (hero ? ' ho-object' : '') + '">' +
+      (hero
+        ? '<div class="ho-bg" aria-hidden="true" style="background-image:url(\'' + esc(hero.src) + '\')"></div>' +
+          '<div class="ho-read" aria-hidden="true"></div><div class="ho-sim" aria-hidden="true"></div>'
+        : '') +
+      '<div class="ho-wrap">' +
       '<p class="ll-eyebrow">Perform: live scenario, about 5 minutes</p>' +
-      '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>' +
+      (hero ? '' : '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>') +
       '<p class="ho-lead">' + esc(handoffHook()) + '</p>' +
       '<p class="ho-lead-sub">Nobody is asking you about it — you have to notice it, decide what ' +
         'to do, and carry it through. What you do next is the scenario.</p>' +
@@ -4929,6 +5661,37 @@
       '</div>' +
     '</div></main>';
   }
+
+  // The frame header's current text, as a player URL param (&course= / &lesson=).
+  function frameText(which) {
+    var el = document.querySelector('.vt-frame .vt-' + which);
+    var t = el ? el.textContent.trim() : '';
+    return t ? '&' + which + '=' + encodeURIComponent(t) : '';
+  }
+
+  // One listener for the life of the page (the Next button outlives every
+  // step). Capture phase on document, so it runs before the engine's own
+  // Next handler and can hold the hand-off until the fake transition lands.
+  var handoffLeaving = false;
+  document.addEventListener('click', function (e) {
+    var next = e.target.closest && e.target.closest('#llNext');
+    var obj = document.querySelector('.ll-object.ho-object:not(.leaving)');
+    if (!obj || !next || next.disabled || handoffLeaving) return;
+    // The Demo menu's Do-object baseline keeps `enact` in-page — nothing to
+    // hand over to, so no fake jump either.
+    if (doBaselineOn()) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    handoffLeaving = true;
+    // Both documents opt in to a same-origin cross-document View Transition;
+    // this side opts in only now, so no other navigation off this page fades.
+    var vt = document.createElement('style');
+    vt.textContent = '@view-transition { navigation: auto; }';
+    document.head.appendChild(vt);
+    var still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    obj.classList.add('ho-entering');
+    setTimeout(function () { next.click(); handoffLeaving = false; }, still ? 0 : 700);
+  }, true);
+
   function handoffInit(ctx) {
     // Ungated — there is nothing to answer here, only to read before moving
     // on. Silent on arrival: the screen states its own purpose in its own
@@ -5275,63 +6038,6 @@
   }
 
   // ==========================================================================
-  //  BATTERY-BEFORE ONLY: two screens ahead of the pre-check. Neither is a
-  //  real learner-facing beat outside the Demo menu's "Battery before"
-  //  toggle — spliced onto the front of STEPS below, never part of the
-  //  base array. See batteryOrderBefore() and the splice near the bottom.
-  //
-  //  PRIORMOD sells the premise: the pre-check has to feel like it is
-  //  running after something, not opening the module cold, so this is a
-  //  stand-in "you just finished Module 3" screen — same course chrome,
-  //  a different (invented) lesson. LOADING then sells the jump into THIS
-  //  module as a real transition rather than a cut, and hands off to
-  //  'battery' on its own after a beat, no click required.
-  // ==========================================================================
-  var PRIORMOD_CONTENT =
-    '<main class="ll-object">' +
-      '<div class="pm-page">' +
-        '<div class="pm-badge"><i class="fa-solid fa-check" aria-hidden="true"></i></div>' +
-        '<p class="ll-eyebrow">Bloodborne Pathogens · Module 3 of 6</p>' +
-        '<h1>Personal Protective Equipment</h1>' +
-        '<p class="pm-sub">Module complete.</p>' +
-        '<div class="pm-stats">' +
-          '<div class="pm-stat"><span class="pm-stat-val">100%</span><span class="pm-stat-lbl">Final check</span></div>' +
-          '<div class="pm-stat"><span class="pm-stat-val">6 min</span><span class="pm-stat-lbl">Time spent</span></div>' +
-        '</div>' +
-      '</div>' +
-    '</main>';
-
-  var LOADING_CONTENT =
-    '<main class="ll-object">' +
-      '<div class="ld-page">' +
-        '<div class="ld-spinner" aria-hidden="true"></div>' +
-        '<p class="ll-eyebrow">Next up: Contain the Sharp</p>' +
-        '<p class="ld-label">Checking what you already know…</p>' +
-      '</div>' +
-    '</main>';
-
-  function batteryLoadingInit(ctx) {
-    // No click required — a load screen a learner has to dismiss isn't
-    // selling a transition, it's just another step. LE.goTo, not ctx.go:
-    // this step has no engine-exposed nav helper of its own, and the id
-    // it names never changes regardless of what runs before it.
-    setTimeout(function () { LE.goTo('battery'); }, T(1400));
-  }
-
-  var PRIORMOD_STEP = {
-    id: 'priorModule', icon: 'fa-clipboard-check', lesson: 'Personal Protective Equipment',
-    mode: 'floating', noCoach: true, interstitial: true,
-    caption: { title: 'DEMO · Simulated prior module', note: 'Battery-before only. A stand-in "Module 3 complete" screen — invented, never authored content — so the pre-check has something believable to follow instead of opening the module cold. Reuses this course’s own chrome rather than looking like a different product.' },
-    content: PRIORMOD_CONTENT
-  };
-  var BATTERYLOADING_STEP = {
-    id: 'batteryLoading', icon: 'fa-spinner', lesson: 'Progress assessment',
-    mode: 'floating', noCoach: true, interstitial: true,
-    caption: { title: 'DEMO · Transition into the pre-check', note: 'Battery-before only. A brief loader between the simulated prior module and the real pre-check; advances itself after a beat (batteryLoadingInit) — nothing for a learner to click through.' },
-    content: LOADING_CONTENT, init: batteryLoadingInit
-  };
-
-  // ==========================================================================
   //  THE SIMULATION (deck slides 23–27, 2026-09-22) — in the module, on the
   //  stage, instead of a hand-off to the full conversation simulator.
   //
@@ -5513,10 +6219,10 @@
   // ---- The screen -----------------------------------------------------------
   function SCENE_CONTENT() {
     var art = sceneArt();
-    return '<main class="ll-object dk-object"><div class="dk-theater">' +
+    return '<main class="ll-object dk-object sc-object"><div class="dk-theater">' +
       '<header class="dk-head"><div class="dk-head-t">' +
-        '<p class="ll-eyebrow">The simulation</p>' +
-        '<h1 class="dk-title">The hands-on final scene</h1>' +
+        '<p class="ll-eyebrow">Interactive scenario</p>' +
+        '<h1 class="dk-title">A sharp decision</h1>' +
       '</div>' +
       (art.placeholder ? '<span class="sc-ph"><i class="fa-solid fa-image" aria-hidden="true"></i> Placeholder scene</span>' : '') +
       '</header>' +
@@ -5581,7 +6287,11 @@
     var nat = { w: 2000, h: 857 }, cur = { f: art.focal.sharp, zoom: 2 }, base = 1;
     function layout() {
       var W = scene.clientWidth, H = scene.clientHeight;
-      var D = Math.min(W * 0.8 / 1.64, H * 0.92), d = D * 0.64, r = D / 2, fe = Math.max(14, r * .12);
+      // How much of the scene's height the lenses may take: the page's CSS
+      // sets --sc-lens-h (lower in the stacked layout, so the band keeps
+      // room above and below the binoculars).
+      var fill = parseFloat(getComputedStyle(scene).getPropertyValue('--sc-lens-h')) || 0.92;
+      var D = Math.min(W * 0.8 / 1.64, H * fill), d = D * 0.64, r = D / 2, fe = Math.max(14, r * .12);
       var lens = function (cx) { return 'radial-gradient(circle at ' + cx + 'px 50%, #000 0, #000 ' + (r - fe) + 'px, transparent ' + r + 'px)'; };
       bino.style.width = (D + d) + 'px'; bino.style.height = D + 'px';
       bino.style.webkitMaskImage = bino.style.maskImage = lens(r) + ', ' + lens(r + d);
@@ -5780,7 +6490,7 @@
       content: INTRO_CONTENT, init: introInit },
 
     { id: 'battery', icon: 'fa-list-check', mins: 1, stage: 'Entry', lesson: 'Progress assessment', mode: 'floating', gate: true,
-      // No CLARA on this screen, in either entry-sequencing mode: a rapid-
+      // No CLARA on this screen: a rapid-
       // fire stack of four quick questions has no room for a reaction
       // between one and the next, so it runs as a plain one-click battery
       // instead — select, confirm, next question loads (see batteryInit).
@@ -5801,17 +6511,17 @@
     // version's question serves that case's remedial video next.
     deckStep('c1base', { when: function () { return !k1TestUp(); },
       caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Listen carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
-    deckStep('c1up', { adaptive: true, when: function () { return k1TestUp(); },
+    deckStep('c1up', { adaptive: true, variant: 'Mastery version', when: function () { return k1TestUp(); },
       caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
-    deckStep('c1rem', { adaptive: true,
+    deckStep('c1rem', { adaptive: true, variant: 'Remedial version',
       when: function () { return checkMissed('k1check'); },
       caption: { title: 'LEARN · Case 1, remedial (K1) — deck slide 7', note: 'Only after a missed case 1 mastery check (either version). Re-teaches the never-recap, straight-to-container rule. Then re-asks the question that was missed (slide 6 or 9, whichever version ran); a second miss just moves the learner on.' } }),
 
     deckStep('c2base', { when: function () { return !k2TestUp(); },
       caption: { title: 'LEARN · Case 2, base (K2) — deck slides 10–11', note: 'Served unless pre-check question 2 was answered correctly. K2 is compliance-locked: it can test up, never out. Slide 11 mastery check on the reinforcement layer once the carrier finishes; a miss serves slide 12.' } }),
-    deckStep('c2up', { adaptive: true, when: function () { return k2TestUp(); },
+    deckStep('c2up', { adaptive: true, variant: 'Mastery version', when: function () { return k2TestUp(); },
       caption: { title: 'LEARN · Case 2, test-up (K2) — deck slides 13–14', note: 'Served INSTEAD of the base case when pre-check question 2 was answered correctly. Slide 14 mastery check over it; a miss serves the remedial video (slide 12).' } }),
-    deckStep('c2rem', { adaptive: true,
+    deckStep('c2rem', { adaptive: true, variant: 'Remedial version',
       when: function () { return checkMissed('k2check'); },
       caption: { title: 'LEARN · Case 2, remedial (K2) — deck slide 12', note: 'Only after a missed case 2 mastery check (either version). Re-teaches both recognition calls. Then re-asks the question that was missed (slide 11 or 14); a second miss just moves the learner on.' } }),
 
@@ -5823,14 +6533,14 @@
     // whichever version ran — the pre/post pair is the measure.
     deckStep('case3', { when: function () { return !feelLow('f1'); },
       caption: { title: 'LEARN · Case 3, base (F1) — deck slides 17 + 19', note: 'Served when the pre-check F1 statement was answered 4–5 (agree). The F1 statement is asked again over it (slide 19); the record reports the move.' } }),
-    deckStep('case3rf', { adaptive: true, when: function () { return feelLow('f1'); },
+    deckStep('case3rf', { adaptive: true, variant: 'Reinforced version', when: function () { return feelLow('f1'); },
       caption: { title: 'LEARN · Case 3, reinforced (F1) — deck slides 18 + 19', note: 'Served INSTEAD of the base story when the pre-check F1 statement was answered 1–3 (neutral or below — the deck calls agree the healthy answer). The longer story follows the cost past the needlestick. Same F1 re-ask over it (slide 19).' } }),
     deckStep('debrief', { when: function () { return !feelLow('f3'); },
       caption: { title: 'LEARN · Debrief, base (F3) — deck slides 20 + 22', note: 'Served when the pre-check F3 statement was answered 4–5. Cites Gershon et al. (2000), 92.7%. The F3 statement is asked again over it (slide 22).' } }),
-    deckStep('debriefrf', { adaptive: true, when: function () { return feelLow('f3'); },
+    deckStep('debriefrf', { adaptive: true, variant: 'Reinforced version', when: function () { return feelLow('f3'); },
       caption: { title: 'LEARN · Debrief, reinforced (F3) — deck slides 21 + 22', note: 'Served INSTEAD of the base debrief when the pre-check F3 statement was answered 1–3. The norm correction given more room. Same F3 re-ask over it (slide 22).' } }),
 
-    { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'The hands-on final scene', mode: 'floating', gate: true,
+    { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'A sharp decision', mode: 'floating', gate: true,
       when: function () { return !sceneSimulatorOn(); },
       caption: { title: 'PERFORM · The simulation, in the module — deck slides 23–27', note: 'Runs for every learner. Four moments on one first-person still (the "A Critical Choice" riff\u2019s binocular view), the coach setting each in the deck\u2019s own words and the learner answering typed or spoken. Beat 1 (D1) scores WHETHER they act — now / later / set it down — and is kept separate from the rubric on purpose, per the rubric slide. Beat 2 (D2) is rated by the live model on the four rubric criteria (Timing, Technique, Route, Recovery), quoting the learner\u2019s own words as evidence. Beat 3 adapts: doing well → the full-container complication (the Recovery test); struggling (set it down, or any of the first three missed) → a model-written correction inside the scene, not a do-over. Beat 4 is sentiment only — saved, never scored, never routes. Ends on the rubric over the scene. Demo → "Full scenario simulator" swaps this for the previous hand-off to the conversation simulator. Public Sector runs on a PLACEHOLDER still until the produced image lands.' },
       content: SCENE_CONTENT, init: sceneInit },
@@ -5874,6 +6584,16 @@
         return doBaselineOn() ? null
           : '../../scenario-simulator/composed-scenarios/index.html'
             + '?type=mix-arc&scenario=' + scenarioKey() + '&handoff=1&brand=clara'
+            // This screen's handoff page IS the title card now, so the player
+            // drops its own and opens on the coach (notitle); every beat here
+            // is coach-led, so its Learn | Practice toggle has nothing to
+            // switch to (practice=0); and the hero still, when this sector
+            // has one, carries over as the player's backdrop (hero).
+            + '&notitle=1&practice=0'
+            + (handoffHero() ? '&hero=' + encodeURIComponent(handoffHero().src) : '')
+            // …and the blue header band keeps this module's own text (read off
+            // the frame as it stands, so it always matches what was on screen)
+            + frameText('course') + frameText('lesson')
             + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record');
       },
       gate: true,
@@ -5885,41 +6605,6 @@
       coach: { say: '', ask: 'Ask CLARA about your record…' },
       content: RECORD_CONTENT, init: recordInit }
   ];
-
-  // ==========================================================================
-  //  Entry sequencing (Demo menu: "Battery timing"). Default order is
-  //  Cover → Pre-check → Updated path → the rest — the array above, as
-  //  authored. "Battery before" moves the cover to AFTER the pre-check and
-  //  its path-adjustment screen instead: Pre-check → Updated path → Cover →
-  //  the rest. Splicing here rather than re-authoring the array keeps one
-  //  source of truth for both orders, and every position-based mechanic in
-  //  the engine (section numbering, back-button disable, the resume banner)
-  //  already reads off the array's actual order rather than fixed ids, so
-  //  moving the cover is enough — nothing else needs to know which mode ran.
-  // ==========================================================================
-  if (batteryOrderBefore()) {
-    var introAt = STEPS.findIndex(function (s) { return s.id === 'intro'; });
-    var introStep = STEPS.splice(introAt, 1)[0];
-    var afterAdjust = STEPS.findIndex(function (s) { return s.id === 'adjust'; }) + 1;
-    STEPS.splice(afterAdjust, 0, introStep);
-
-    // CLARA hasn't been met yet — that's still the cover's job, and the
-    // cover now runs AFTER these two. Battery is noCoach unconditionally
-    // (see its STEPS entry); adjust only needs it here, since in the
-    // default order it follows the cover and CLARA is already around by
-    // then. hideProgress blanks battery's own "Section N of N" + bar, since
-    // there's no course open yet for that count to mean anything (adjust
-    // needs no such flag — interstitial already blanks its footer normally).
-    var bStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'battery'; })];
-    bStep.hideProgress = true;
-    var aStep = STEPS[STEPS.findIndex(function (s) { return s.id === 'adjust'; })];
-    aStep.noCoach = true;
-
-    // The simulated prior module + its loader run BEFORE all of the above —
-    // 'battery' is index 0 at this point, so the front of the array is
-    // exactly where they belong.
-    STEPS.splice(0, 0, PRIORMOD_STEP, BATTERYLOADING_STEP);
-  }
 
   // ==========================================================================
   //  D11: URL-prefillable launch params — role (sector), name, media (format).
@@ -5942,6 +6627,13 @@
     }
     var name = p.get('name');
     if (name) { try { sessionStorage.setItem('sh-name', name.trim().slice(0, 40)); } catch (e) {} }
+    // ?sim=1 / ?sim=0 — the Demo menu's "Full scenario simulator" switch as a
+    // link, since that row only shows on the Perform screen itself. With
+    // ?step=handoff it lands a reviewer straight on the hero bridge screen.
+    var sim = p.get('sim');
+    if (sim === '1' || sim === '0') {
+      try { sessionStorage.setItem('sh-scene-mode', sim === '1' ? 'simulator' : 'scene'); } catch (e) {}
+    }
   })();
 
   // ==========================================================================
@@ -6006,41 +6698,6 @@
         api.replay();
       }
     }, {
-      // A one-click switch, not a toggle SWITCH WIDGET — the state pill
-      // names the OTHER order (the one a click lands you on), not an
-      // on/off reading of the current one. Visible on priorModule/
-      // batteryLoading too: those only exist mid-preview, and without this
-      // row reachable there, "Try it" was a one-way door — see item on
-      // 2026-09-22. Reorders the array itself (see the splice right after
-      // STEPS above), so it needs a fresh boot rather than a replay/refresh
-      // — same treatment as Start Over, which is why this reload also
-      // clears the run's progress keys: landing on a re-sequenced path
-      // holding answers recorded under the OLD sequence is the confusing
-      // state to avoid, not the one to build for.
-      id: 'shBatteryOrderBtn', icon: 'fa-arrow-down-up-across-line', name: 'Battery before module',
-      note: 'Preview the pre-check (and the path it can adjust) running before the module’s own cover, instead of in their usual place right after it',
-      visibleOn: function (step) {
-        return step.id === 'intro' || step.id === 'battery' ||
-               step.id === 'priorModule' || step.id === 'batteryLoading';
-      },
-      state: function () { return batteryOrderBefore() ? 'Battery inside module' : 'Try it'; },
-      onClick: function (api) {
-        try {
-          sessionStorage.setItem('sh-battery-order', batteryOrderBefore() ? 'start' : 'before');
-          ['sh-course', 'sh-course-last', 'sh-images', 'sh-battery', 'sh-feel', 'sh-doobject-mode', 'sh-modality']
-            .forEach(function (k) { sessionStorage.removeItem(k); });
-        } catch (e) {}
-        // A plain reload() keeps this tab's current URL, which carries a
-        // ?step= deep link the engine writes on every navigation (so a
-        // refresh mid-course returns you to where you were) — and that
-        // param wins over STEPS[0] in the engine's own boot(), landing back
-        // on the step just left instead of the new sequence's actual start.
-        // Dropping it here is what makes the reorder visible immediately.
-        var u = new URL(location.href);
-        u.searchParams.delete('step');
-        location.href = u.pathname + u.search + u.hash;
-      }
-    }, {
       id: 'shBatteryBtn', icon: 'fa-shuffle', name: 'Knowledge questions correct',
       note: 'Force both pre-check knowledge questions right (harder cases) or wrong (standard cases), and replay the routing',
       visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
@@ -6051,6 +6708,23 @@
         var b = readCourse().battery || {};
         saveResult('battery', { k1up: up, k2up: up, f1: b.f1 == null ? null : b.f1, f3: b.f3 == null ? null : b.f3 });
         adjustReplay(api);
+      }
+    }, {
+      // 2026-09-24 live review: the old list of adaptations is gone. Two
+      // treatments for the moment the path updates, side by side for
+      // comparison — see ADJUST_CONTENT. Celebrate only shows on a proven
+      // knowledge answer; otherwise it falls back to calibrate.
+      id: 'shPathStyleBtn', icon: 'fa-wand-magic-sparkles', name: 'Path update style',
+      note: 'Simple progress bar, or a playful reward. The reward only shows when a knowledge question was answered correctly',
+      visibleOn: function (step) { return step.id === 'adjust'; },
+      type: 'select', value: pathUpdateStyle,
+      options: [
+        { value: 'calibrate', label: 'Calibrating (simple)' },
+        { value: 'celebrate', label: 'Nice work (playful)' }
+      ],
+      onChange: function (v, api) {
+        try { sessionStorage.setItem('sh-path-style', v); } catch (e) {}
+        api.replay();
       }
     }, {
       id: 'shFeelBtn', icon: 'fa-heart', name: 'Low agreement',
@@ -6101,6 +6775,33 @@
         if (next === null) return;
         try { sessionStorage.setItem('sh-name', next.trim().slice(0, 40)); } catch (e) {}
         api.replay();
+      }
+    }, {
+      // Read as an article (default) or as Jessica's podcast transcript —
+      // the same chapters either way; see ARTICLE / PODCAST.
+      id: 'shReadStyleBtn', icon: 'fa-book-open', name: 'Read view',
+      note: 'Plain article, or the podcast script as a transcript with speaker names',
+      visibleOn: function (step) { return !!DECK[step.id]; },
+      type: 'select', value: readStyle,
+      options: [
+        { value: 'article', label: 'Article' },
+        { value: 'podcast', label: 'Podcast transcript' }
+      ],
+      onChange: function (v, api) {
+        try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-modality', 'article'); } catch (e) {}
+        api.replay();
+      }
+    }, {
+      // 2026-09-24 live review (Rob): show the standard experience without
+      // Ask CLARA, then switch it on to ask whether it adds value. Off by
+      // default. A pure CSS swap like Design style (html.sh-ask-off, set
+      // before paint in clara/sharps.html's <head>), so nothing re-renders.
+      id: 'shAskBtn', icon: 'fa-comment-dots', name: 'Ask CLARA',
+      note: 'Show the bottom-right Ask CLARA launcher. Off by default, so the standard module runs without it',
+      type: 'toggle', on: function () { return !document.documentElement.classList.contains('sh-ask-off'); },
+      onClick: function () {
+        var on = !document.documentElement.classList.toggle('sh-ask-off');
+        try { sessionStorage.setItem('sh-ask', on ? 'on' : 'off'); } catch (e) {}
       }
     }, {
       // A pure CSS swap (see html.ll-vector-style/html.ll-vector-light in

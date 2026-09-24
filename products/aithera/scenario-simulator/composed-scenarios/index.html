@@ -33,6 +33,23 @@
         if (new URLSearchParams(location.search).get('brand') === 'clara') {
           document.documentElement.classList.add('clara-brand');
         }
+        /* ?hero=<path> — the calling module's scene still, as the stage backdrop
+           (see :root.has-hero .stage). Set HERE, before first paint, so a caller
+           that fakes the jump into this page (sharps' hand-off screen) has an
+           identical first frame to cross-fade into — which is also why the
+           same-origin cross-document View Transition is opted into only here.
+           Relative image paths only, so a URL param can't inject CSS or pull a
+           remote asset; resolved against this page's own URL, not the
+           <base href="../"> below. */
+        var hero = new URLSearchParams(location.search).get('hero') || '';
+        if (/^[\w\-./]+\.(jpe?g|png|webp)$/i.test(hero) && !/^\/\//.test(hero)) {
+          var root = document.documentElement;
+          root.classList.add('has-hero');
+          root.style.setProperty('--hero-img', 'url("' + new URL(hero, location.href).href + '")');
+          var vt = document.createElement('style');
+          vt.textContent = '@view-transition { navigation: auto; }';
+          document.head.appendChild(vt);
+        }
       })();
     </script>
 
@@ -446,6 +463,16 @@
 
       /* The stage IS the practice base — always the warm, dark, vignetted room. */
       .stage { background: var(--scene-paint); }
+      /* ?hero=<image> (applied in the <head>) — the calling module's own scene-setting still, carried in
+         as the stage backdrop so the learner lands on the same picture they
+         just read the context over. Darkened hard: it sits behind the coach
+         sheet as atmosphere, never as something to read. */
+      :root.has-hero .stage {
+        background:
+          linear-gradient(rgba(8, 12, 22, .62), rgba(8, 12, 22, .82)),
+          var(--hero-img) center / cover no-repeat,
+          var(--scene-paint);
+      }
 
       /* —— Establishing card — the practice base before the scene begins.
          Anchors the learner to what they're about to practice while the coach
@@ -1910,6 +1937,22 @@
        other caller still gets the establishing card exactly as before. */
     const SKIP_ESTABLISHING = new URLSearchParams(location.search).get('handoff') === '1';
 
+    /* ?notitle=1 — the calling module owns the whole front door. Its own rich
+       context page (image, the moment, what will happen) is the title screen,
+       so this page drops its "Enter scenario" title card entirely and opens
+       straight into the coach conversation on load (and again on Restart).
+       Pairs with ?handoff=1, which covers the LATER establishing card. Off by
+       default — every other caller still lands on the title card. */
+    const NO_TITLE = new URLSearchParams(location.search).get('notitle') === '1';
+
+    /* ?practice=0 — for coach-led-only scenarios (the sharps "unclaimed blade"
+       set: four direct questions, no scene, nobody to roleplay with) the
+       Learn | Practice toggle has nothing to switch to, so it's removed
+       outright rather than shown with a permanently dead half. */
+    const NO_PRACTICE = new URLSearchParams(location.search).get('practice') === '0';
+
+    // ?hero=<path> is applied in the <head> (see :root.has-hero), before first paint.
+
     const state = {
       mode: 'coaching',          // 'coaching' | 'scene'
       inputTarget: 'coach',      // 'coach' | 'character'
@@ -2893,7 +2936,7 @@
       // aria-hidden + inert must track visibility, or the toggle stays invisible
       // to screen readers (while its buttons stay tabbable) for the whole session.
       // A surface with a LINEAR flow (teach-back) hides the two-world toggle entirely.
-      const hideToggle = !state.started || !!(SURFACE && SURFACE.hideModeToggle);
+      const hideToggle = !state.started || NO_PRACTICE || !!(SURFACE && SURFACE.hideModeToggle);
       modeIndicator.classList.toggle('is-hidden', hideToggle);
       modeIndicator.setAttribute('aria-hidden', String(hideToggle));
       modeIndicator.inert = hideToggle;
@@ -2978,6 +3021,9 @@
           // never reflows the scene card (no jump/jitter).
           stageInner.appendChild(sceneCardAll(messages, !complete && !state.delivering && !state.sending));
           // resources live in the coach sheet (the practice never shows them)
+        } else if (NO_TITLE) {
+          // the calling module's context page was the title card — leave the
+          // stage empty (or the ?hero backdrop) behind the coach sheet
         } else {
           const est = el('div', 'establishing');
           const estab = ACTIVE_SCENARIO.establishing || {};
@@ -4180,6 +4226,7 @@
       followStage = true;
       announce('Practice restarted.');
       render();   // back to the scene anchor with an "Enter scenario" prompt
+      if (NO_TITLE) CONTEXT.begin();   // …unless the caller dropped the title card: straight back into the coach
     }
 
     // "Chat with AI Coach" — the learner brings the coach in on their command. The
@@ -4442,6 +4489,8 @@
     // scenario" prompt. The cold-open video and the coach sheet both stay down
     // until the learner chooses to begin.
     render();
+    // ?notitle=1: no title card to anchor on — bring the coach straight in.
+    if (NO_TITLE) CONTEXT.begin();
     </script>
 
     <!-- ===== Course-delivery frame ===================================== -->
@@ -4450,7 +4499,15 @@
          progress bar (this is a conversational sim, not a stepped lesson). -->
     <script>
       // Embed into the app shell; course/lesson auto-derive from #scenarioName.
-      window.LESSON_FRAME = { mount: '#app' };
+      // ?course= / ?lesson= override that: a calling module that fakes the jump
+      // in (sharps' hand-off screen) keeps ITS header text, so the blue band
+      // doesn't retitle itself mid-crossfade. Plain text — frame.js escapes it.
+      (function () {
+        var q = new URLSearchParams(location.search);
+        window.LESSON_FRAME = { mount: '#app' };
+        if (q.get('course')) window.LESSON_FRAME.course = q.get('course').slice(0, 120);
+        if (q.get('lesson')) window.LESSON_FRAME.lesson = q.get('lesson').slice(0, 120);
+      })();
     </script>
     <script src="../lesson-presentation/js/frame.js?v=7"></script>
     <script>

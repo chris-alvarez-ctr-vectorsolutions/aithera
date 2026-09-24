@@ -36,6 +36,10 @@
           if (mode === 'vector-light') {
             document.documentElement.classList.add('ll-vector-light');
           }
+          // Ask CLARA is off unless the Demo menu has switched it on.
+          if (sessionStorage.getItem('sh-ask') !== 'on') {
+            document.documentElement.classList.add('sh-ask-off');
+          }
         } catch (e) {}
       })();
     </script>
@@ -581,14 +585,27 @@
       @media (max-width: 900px) { .cp-grid { grid-template-columns: 1fr; } }
       .cp-sections { background: rgba(var(--ll-surface-rgb), .03); border: 1px solid var(--ll-line-soft); border-radius: 16px; padding: 16px 18px; }
       .cp-sec-head h2 { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: var(--ll-ink-strong); }
-      .cp-row { display: grid; grid-template-columns: 44px 1fr auto; gap: 16px; align-items: center; padding: 17px 0; border-top: 1px solid var(--ll-line-soft); }
+      /* Horizontal padding + a matching negative margin: content lines up
+         with the header above exactly as it did at padding:17px 0, but the
+         row's own box (what a hover background / focus ring draws against)
+         now extends past the icon and pill instead of hugging them — the
+         hoverable "Up next" row was reading cramped without it. */
+      .cp-row { display: grid; grid-template-columns: 44px 1fr auto; gap: 16px; align-items: center; padding: 17px 14px; margin: 0 -14px; border-top: 1px solid var(--ll-line-soft); }
       .cp-row:first-of-type { border-top: 0; }
       /* Up next is the only row with exactly one possible action, so unlike
          the resume row (two buttons, see below) the whole row can safely be
          the control. Undoes the browser's own button chrome so it still
          reads as a plain row. */
       button.cp-row {
-        width: 100%; text-align: left; font: inherit; color: inherit;
+        /* +28px, not 100%: a <button> keeps a shrink-to-fit width even
+           under display:grid (a plain div in the same spot auto-expands to
+           fill the row instead) — width:100% alone pins it to the row's
+           un-expanded content width, ignoring the shared .cp-row rule's
+           margin: 0 -14px on both sides. Matching that pair of margins is
+           what makes this row exactly as wide as its div siblings again;
+           dropping to 100% collapsed it to fit its own content instead. */
+        width: calc(100% + 28px);
+        text-align: left; font: inherit; color: inherit;
         background: none; border-left: 0; border-right: 0; border-bottom: 0;
         cursor: pointer; border-radius: 8px;
         transition: background .15s ease;
@@ -1069,6 +1086,30 @@
       .cs-opt[aria-checked="true"] { border-color: var(--ll-teal); background: rgba(var(--ll-teal-rgb), .1); color: var(--ll-ink-strong); }
       .cs-opt[aria-checked="true"] .cs-mark { background: var(--ll-teal); border-color: var(--ll-teal); color: #04121a; }
       .cs-opts.answered .cs-opt[aria-checked="true"]:not([class*="pick-"]) { opacity: 1; }
+      /* The verdict outranks the selection. The pick is still aria-checked
+         after it's graded, and the rule above is declared later than the
+         .pick-* set — so a wrong pick kept its teal "selected" look and read
+         as a second right answer next to the real one. */
+      .cs-opt[aria-checked="true"].pick-bad { border-color: rgba(255, 107, 107, .6); background: rgba(255, 107, 107, .1); }
+      .cs-opt[aria-checked="true"].pick-bad .cs-mark { background: #ff6b6b; border-color: #ff6b6b; }
+      html.ll-vector-light .cs-opt.pick-bad { border-color: rgba(192, 57, 43, .55); background: rgba(192, 57, 43, .07); }
+      html.ll-vector-light .cs-opt.pick-bad .cs-mark { background: var(--sh-decline); border-color: var(--sh-decline); color: #fff; }
+      /* The lettered badge's soft ink carried over onto a graded row, so the
+         check on the correct answer was grey-on-teal. Graded marks get the
+         same dark glyph a selected one does (white on Vector blue / red). */
+      .cs-opt[class*="pick-"] .cs-mark.dk-letter { color: #04121a; }
+      html.ll-vector-style .cs-opt.pick-ok .cs-mark,
+      html.ll-vector-style .cs-opt.pick-bad .cs-mark,
+      html.ll-vector-style .cs-opt[aria-checked="true"] .cs-mark { color: #fff; }
+      /* On a miss, the two graded rows say which is which in words as well
+         as colour: plain metadata tags, right-aligned in the row. */
+      .cs-opt.has-tag { grid-template-columns: 22px 1fr auto; }
+      .cs-tag {
+        font-size: 10.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+        white-space: nowrap; color: var(--ll-teal);
+      }
+      .cs-opt.pick-bad .cs-tag { color: #ff8a8a; }
+      html.ll-vector-light .cs-opt.pick-bad .cs-tag { color: var(--sh-decline); }
 
       .lk { width: 100%; }
       .lk-pts { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
@@ -1097,6 +1138,70 @@
       .sh-battery .lk, .bl-peek .lk { margin-top: 26px; width: var(--sh-measure); }
       .bl-peek .dk-opts { width: var(--sh-measure); margin-top: 26px; text-align: left; }
       .sh-battery .bl-check { margin-top: 24px; }
+      /* In the live card the list/scale sits inside #blOptions (.bl-deck),
+         which already carries the 26px — the scale's own margin stacked on
+         top of it, so an agreement card grew 26px under its question the
+         instant it was promoted from its (single-margin) preview. The
+         wrapper owns the gap; what's inside it starts flush. */
+      .sh-battery .bl-deck > .lk,
+      .sh-battery .bl-deck > .cs-opts { margin-top: 0; }
+
+      /* ==== Your updated path (2026-09-24) ================================
+         A progress bar under CLARA's crowned orb, then one short verdict.
+         No list of what moved — see ADJUST_CONTENT in js/layered-sharps.js.
+         The confetti canvas (celebrate treatment only) sits UNDER the text. */
+      /* Centred on the stage, not anchored under the crown: the orb and the
+         verdict read as one group in the middle of the page. The crown slot
+         (which the orb tracks) moves down to sit --pu-orb above the content,
+         and .pu reserves a fixed height so the group stays put as the loader
+         gives way to the result. */
+      .ll-stage:has(.pu) { --pu-orb: 76px; --pu-h: 170px; }
+      .ll-stage:has(.pu) .ll-object { padding-top: 0; padding-bottom: 0; justify-content: center; }
+      .ll-stage:has(.pu) .clara-chrome--crown { top: calc(50% - (var(--pu-orb) + var(--pu-h)) / 2); }
+      .pu { position: relative; z-index: 1; width: min(520px, 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        min-height: var(--pu-h); margin-top: var(--pu-orb); }
+      .pu-load { display: flex; flex-direction: column; align-items: center; max-height: 120px; overflow: hidden;
+        transition: max-height .6s var(--ll-ease), opacity .35s ease; }
+      .pu-load.is-done { max-height: 0; opacity: 0; }
+      .pu-status { margin: 0 0 20px; font-size: 15px; color: var(--ll-ink-soft); }
+      .pu-track { position: relative; width: min(320px, 70vw); height: 6px; border-radius: 999px; overflow: hidden; background: rgba(var(--ll-surface-rgb), .08); }
+      .pu-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit;
+        background: linear-gradient(135deg, var(--ll-teal) 0%, rgba(var(--ll-teal-rgb), .7) 100%); }
+      .pu-pct { margin: 10px 0 0; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ll-ink-faint); }
+      .pu-result { opacity: 0; transform: translateY(8px); transition: opacity .5s var(--ll-ease), transform .5s var(--ll-ease); }
+      .pu-result.in { opacity: 1; transform: none; }
+      .pu-eyebrow { margin-bottom: 12px; }
+      .ll-object .pu-head { margin: 0 0 10px; font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; line-height: 1.18; letter-spacing: -.01em; color: var(--ll-ink-strong); }
+      .pu-sub { margin: 0 auto; max-width: 40ch; font-size: 15px; line-height: 1.55; color: var(--ll-ink-soft); }
+      .pu-chip { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 6px 14px; border-radius: 999px;
+        background: rgba(241, 179, 74, .14); border: 1px solid rgba(241, 179, 74, .32); color: #f1b34a;
+        font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+      .pu-chip i { font-size: 11px; }
+      .pu-confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+      /* One flash behind the headline, timed with the confetti, so the
+         reward has an instant to land on. */
+      .pu-flash { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; opacity: 0;
+        transform: translate(-50%, -50%) scale(0);
+        background: radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(var(--ll-teal-rgb), .55) 35%, transparent 72%); }
+      .pu-flash.pop { animation: pu-flash .65s ease-out forwards; }
+      @keyframes pu-flash {
+        0%   { transform: translate(-50%, -50%) scale(0);  opacity: .95; }
+        55%  { transform: translate(-50%, -50%) scale(46); opacity: .4; }
+        100% { transform: translate(-50%, -50%) scale(70); opacity: 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .pu-load, .pu-result { transition: opacity .2s linear; transform: none; }
+      }
+
+      /* ==== Ask CLARA off (Demo menu, 2026-09-24) ==========================
+         Off by default: stakeholders see the module without the bottom-right
+         launcher, and the presenter switches it on to ask "does this add
+         value?". Only the tucked launcher goes — when a screen raises CLARA
+         with something to say (the bubble is open), they still show. The
+         class is set before first paint in <head>; the toggle lives in
+         js/layered-sharps.js (shAskBtn). */
+      html.sh-ask-off .ll-stage[data-float="closed"] .clara-chrome--floating,
+      html.sh-ask-off body:has(.ll-stage[data-mode="floating"][data-float="closed"]) .clara-orb[data-launcher] { display: none !important; }
 
       /* Over the video: the question card and its feedback. */
       .dk-check .cs-q--lead { margin-bottom: 16px; }
@@ -1109,6 +1214,12 @@
       }
       .dk-fb.is-ok  { border-color: rgba(var(--ll-teal-rgb), .45); background: rgba(var(--ll-teal-rgb), .08); }
       .dk-fb.is-bad { border-color: rgba(255, 107, 107, .4); background: rgba(255, 107, 107, .07); }
+      /* The verdict in words, on its own line above the deck's feedback. */
+      .dk-fb-h { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; }
+      .dk-fb.is-ok  .dk-fb-h { color: var(--ll-teal); }
+      .dk-fb.is-bad .dk-fb-h { color: #ff8a8a; }
+      html.ll-vector-light .dk-fb.is-bad .dk-fb-h { color: var(--sh-decline); }
+      .dk-fb-b { display: block; margin-top: 6px; }
       .dk-check { display: flex; flex-direction: column; }
       .dk-check[hidden] { display: none; }
 
@@ -1192,7 +1303,7 @@
       .dk-layer--read[data-size="2"] { --dk-fs: clamp(22px, 2.3vw, 31px); }
       .dk-layer--read[data-size="3"] { --dk-fs: clamp(25px, 2.7vw, 36px); }
       .dk-para {
-        margin: 0 0 1.1em; font-size: 1em; line-height: 1.55; font-weight: 500;
+        margin: 0 0 .5em; font-size: 1em; line-height: 1.55; font-weight: 500;
         color: var(--ll-ink-strong); opacity: .26; cursor: pointer;
         transition: opacity .35s ease, filter .35s ease;
         filter: blur(.4px);
@@ -1200,6 +1311,19 @@
       .dk-para.is-past { opacity: .34; }
       .dk-para.is-on { opacity: 1; filter: none; cursor: default; }
       .dk-src { margin: 1.4em 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ll-ink-faint); }
+      /* The podcast transcript: the speaker's name above each turn, one
+         colour per voice so a back-and-forth is easy to follow. Turns are
+         short, so they sit closer together than prose paragraphs. */
+      .dk-who {
+        display: block; margin-bottom: .25em; font-size: max(12px, .52em); font-weight: 800;
+        letter-spacing: .1em; text-transform: uppercase; color: var(--ll-ink-soft);
+      }
+      [data-who="ray"] > .dk-who, .dk-cap-who[data-who="ray"] { color: var(--ll-teal); }
+      [data-who="jacob"] > .dk-who, .dk-cap-who[data-who="jacob"] { color: #f1b34a; }
+      html.ll-vector-light [data-who="jacob"] > .dk-who, html.ll-vector-light .dk-cap-who[data-who="jacob"] { color: #9a6200; }
+      .dk-turn, .dk-ppar { margin: 0; }
+      .dk-ppar + .dk-ppar { margin-top: .7em; }
+      .dk-turn + .dk-turn { margin-top: .7em; }
       .dk-tools {
         position: absolute; right: 16px; bottom: 16px; z-index: 5;
         display: flex; align-items: center; gap: 2px; padding: 4px;
@@ -1216,6 +1340,29 @@
       .dk-tool:focus-visible { outline: none; box-shadow: 0 0 0 2px rgba(var(--ll-teal-rgb), .5); }
       .dk-tool-n { min-width: 44px; text-align: center; font-size: 12px; font-weight: 700; color: var(--ll-ink-soft); font-variant-numeric: tabular-nums; }
       .dk-tool-sep { width: 1px; height: 18px; margin: 0 4px; background: var(--ll-line); }
+      /* Upcoming / earlier paragraphs answer the pointer, so it's visible
+         that they can be clicked into focus. */
+      .dk-para:not(.is-on):hover { opacity: .6; filter: none; }
+      /* The in-flow step: sits right under the paragraph in focus, so the way
+         forward is where the eye already is rather than only in the corner
+         toolbar. On the last paragraph it becomes the "Done reading". */
+      .dk-next {
+        display: inline-flex; align-items: center; gap: 8px;
+        margin: 0; padding: 8px 16px; border-radius: 999px;
+        border: 1px solid rgba(var(--ll-teal-rgb), .45); background: rgba(var(--ll-teal-rgb), .1);
+        font: inherit; font-size: 14px; font-weight: 700; color: var(--ll-teal); cursor: pointer;
+        animation: dk-next-in .35s var(--ll-ease) both;
+        transition: background .2s ease, border-color .2s ease;
+      }
+      /* Fixed height whether or not the button is in it — the button moving
+         between slots used to add and remove ~40px mid-text and jump the
+         paragraph being read. */
+      .dk-slot { height: 38px; margin-bottom: 1.1em; }
+      .dk-next:hover { background: rgba(var(--ll-teal-rgb), .18); border-color: var(--ll-teal); }
+      .dk-next:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .35); }
+      .dk-next i { font-size: 12px; }
+      .dk-next[hidden] { display: none; }
+      @keyframes dk-next-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
       .dk-a { font-weight: 800; line-height: 1; }
       .dk-a.sm { font-size: 12px; } .dk-a.lg { font-size: 17px; }
 
@@ -1231,19 +1378,21 @@
       }
       .dk-stage.is-playing .dk-playhead { opacity: 1; }
       .dk-caps { text-align: center; min-height: 6.2em; display: flex; flex-direction: column; justify-content: flex-end; }
-      .dk-cap-prev {
-        margin: 0 auto 10px; max-width: 52ch; font-size: clamp(13px, 1.1vw, 15px); line-height: 1.5;
-        color: var(--ll-ink-faint); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-      }
       .dk-cap-now {
         margin: 0 auto; max-width: 40ch; font-size: clamp(19px, 2vw, 28px); line-height: 1.4; font-weight: 700;
         color: rgba(var(--ll-surface-rgb), .42); text-wrap: balance;
       }
       .dk-cap-now.is-in { animation: dk-cap-in .35s var(--ll-ease) both; }
+      .dk-cap-who {
+        margin: 0 auto 6px; min-height: 1.4em; font-size: 12px; font-weight: 800; letter-spacing: .12em;
+        text-transform: uppercase; color: var(--ll-ink-soft);
+      }
       .dk-cap-now span { transition: color .18s ease; }
       .dk-cap-now span.is-said { color: var(--ll-ink-strong); }
       @keyframes dk-cap-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-      .dk-player { display: flex; align-items: center; justify-content: center; gap: 16px; }
+      .dk-player { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; }
+      .dk-player .dk-voice-note { justify-self: start; }
+      .dk-player-end { justify-self: end; display: flex; align-items: center; gap: 12px; }
       .dk-play {
         width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center;
         border: 0; cursor: pointer; font-size: 18px; color: #04121a;
@@ -1254,18 +1403,57 @@
       .dk-play:focus-visible { outline: none; box-shadow: 0 0 0 4px rgba(var(--ll-teal-rgb), .35); }
       .dk-stage:not(.is-playing) .dk-play { animation: dk-pulse 2.4s ease-out infinite; }
       @keyframes dk-pulse { 0% { box-shadow: 0 0 0 0 rgba(var(--ll-teal-rgb), .45); } 70%, 100% { box-shadow: 0 0 0 16px rgba(var(--ll-teal-rgb), 0); } }
-      .dk-time { font-size: 13px; font-weight: 700; color: var(--ll-ink-soft); font-variant-numeric: tabular-nums; min-width: 88px; }
+      .dk-time { font-size: 13px; font-weight: 700; color: var(--ll-ink-soft); font-variant-numeric: tabular-nums; }
       .dk-voice-note { font-size: 11px; color: var(--ll-ink-faint); letter-spacing: .04em; text-transform: uppercase; }
+      /* Review mode only (same rule as the clip's .cv-skip). */
+      .dk-skip {
+        display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+        border: 1px solid var(--ll-line); border-radius: 999px; background: transparent;
+        font: inherit; font-size: 12px; font-weight: 700; color: var(--ll-ink-soft); cursor: pointer;
+      }
+      .dk-skip:hover { color: var(--ll-ink-strong); border-color: rgba(var(--ll-teal-rgb), .5); }
+      .dk-skip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(var(--ll-teal-rgb), .3); }
+      .dk-skip[hidden] { display: none; }
+      .dk-skip i { font-size: 10px; }
+
+      /* Light mode. The stage was a fixed dark "screen" while the ink tokens
+         flipped to black, so Read and Listen rendered black on navy. Watch
+         keeps its own dark player surface (.ll-media); the reading and
+         listening surfaces follow the page's panel tokens instead. */
+      html.ll-vector-light .dk-stage {
+        background: radial-gradient(120% 120% at 30% 10%, var(--ll-panel) 0%, var(--ll-panel-2) 100%);
+      }
+      html.ll-vector-light .dk-tools {
+        background: rgba(var(--ll-panel-rgb), .9); box-shadow: var(--ll-shadow-sm);
+      }
+      html.ll-vector-light .dk-play { color: #fff; }
+      html.ll-vector-light .dk-check.rf-layer { background: rgba(var(--ll-panel-rgb), .35); }
+      html.ll-vector-light .dk-card { background: var(--ll-panel); }
 
       /* The question, over the stage. The layer spans the stage; the card
          inside it is the ask. Tall questions scroll inside the layer. */
-      .dk-stagewrap.rf-on > .dk-stage { filter: blur(6px) saturate(.8); opacity: .38; }
       .dk-check.rf-layer {
         position: absolute; inset: 0; margin: 0; padding: clamp(12px, 3vh, 36px) 16px;
         box-sizing: border-box; border: 0; border-radius: 18px; background: rgba(4, 8, 16, .35);
         box-shadow: none; display: flex; align-items: safe center; justify-content: center; overflow-y: auto;
       }
       .dk-check.rf-layer:focus-visible { box-shadow: none; }
+      /* Over the whole page, not just the frame. When the question rises,
+         the layer is moved to <body> (deckInit → finished) and fixed to the
+         viewport: a scrim over the site header, the title row and the stage,
+         with the card centred in it. The footer (z 45) stays above so Back /
+         Continue remain reachable; the layer stops at its top edge. Fixed to
+         the viewport, the card is never limited by the frame's height, and a
+         card taller than the window scrolls inside the scrim. */
+      .dk-check.dk-check--page {
+        position: fixed; top: 0; left: 0; right: 0; bottom: var(--ll-footer-h);
+        z-index: 44; margin: 0; padding: clamp(16px, 4vh, 48px) 16px;
+        border-radius: 0; box-shadow: none;
+        background: rgba(4, 8, 16, .55);
+        -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+        overflow-y: auto; overscroll-behavior: contain;
+      }
+      html.ll-vector-light .dk-check.dk-check--page { background: rgba(var(--ll-panel-rgb), .5); }
       .dk-card {
         width: min(720px, 100%); box-sizing: border-box; margin: auto 0;
         display: flex; flex-direction: column; text-align: left;
@@ -1275,6 +1463,9 @@
         box-shadow: var(--ll-shadow);
       }
       .dk-card > :first-child { margin-top: 0; }
+      /* .rf-layer > :first-child zeroes the top margin, which left only the
+         bottom auto margin and pinned the card to the top of the stage. */
+      .dk-check.rf-layer > .dk-card { margin: auto 0; }
 
       /* ==== The simulation (deck slides 23–27) ============================
          The "A Critical Choice" riff's binocular view on the stage, with the
@@ -1314,6 +1505,18 @@
         --c-ink: var(--ll-ink-strong); --c-ink-soft: var(--ll-ink-soft); --c-ink-faint: var(--ll-ink-faint);
         --c-surface-2: rgba(255, 255, 255, .08); --c-accent: var(--ll-teal);
       }
+      /* Light mode: the panel was a fixed navy while its ink flipped to
+         black. It follows the page's panel tokens instead; the scene beside
+         it is a photograph and stays as it is. */
+      html.ll-vector-light .sc-panel {
+        background: rgba(var(--ll-panel-rgb), .96);
+        --c-surface-2: rgba(0, 0, 0, .06);
+      }
+      html.ll-vector-light .sc-send { color: #fff; }
+      /* The scene stage shares .dk-stage, so the light reading-stage rule
+         turned the binocular surround white. A photograph through
+         binoculars stays dark in every style. */
+      html.ll-vector-light .dk-stage.sc-stage { background: #05080f; }
       .sc-panel-head {
         display: flex; align-items: center; gap: 8px; padding: 14px 16px;
         font-size: 11px; font-weight: 800; letter-spacing: .1em; color: var(--ll-ink-soft);
@@ -1367,9 +1570,57 @@
       .sc-row-t span { font-size: 13.5px; line-height: 1.5; color: var(--ll-ink-soft); }
       .sc-row-t q { margin-top: 4px; font-size: 13px; font-style: italic; color: var(--ll-ink); }
       .sc-rule { height: 1px; background: var(--ll-line); margin: 4px 0; }
-      @media (max-width: 860px) {
-        .sc-stage { grid-template-columns: 1fr; grid-template-rows: 42% 1fr; aspect-ratio: auto; height: max(560px, calc(100vh - 300px)); }
+
+      /* ---- Sizing. The scene doesn't share the video stage's 16:9 frame:
+         that frame is sized from the window's height, so on a laptop-short
+         window it shrank the whole scene and left the CLARA panel ~200px
+         wide. The scene instead fills the room between the title row and
+         the footer, and the panel never drops below a readable width. The
+         side gutters keep the Ask CLARA launcher (bottom-right of the
+         stage) off the composer. */
+      .ll-object.sc-object { padding-inline: 100px; justify-content: flex-start; }
+      .sc-object .dk-theater { --dk-w: min(100%, 1360px); min-width: 0; flex: 1 1 0; max-height: 880px; }
+      .sc-object .dk-stagewrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .sc-object .dk-stage.sc-stage { flex: 1; aspect-ratio: auto; height: auto; min-height: 380px; }
+      /* rows pinned to the frame, so a long thread scrolls inside the panel
+         instead of stretching the frame past the footer */
+      .sc-stage { grid-template-columns: minmax(0, 1fr) clamp(320px, 34%, 400px); grid-template-rows: minmax(0, 1fr); }
+
+      /* ---- Breakout. Below ~900px, or on any portrait window (a tablet
+         held upright), a framed scene beside a panel leaves the picture a
+         tall narrow column of black, so the scene leaves the frame: it runs
+         edge to edge between the header and the footer, the picture as a
+         band across the top and the CLARA thread under it. The title row
+         goes (the header band above already names the step) but stays for
+         screen readers; the placeholder chip rides on the picture. */
+      /* Short windows fold the title row away too — it only repeats the
+         header band — so the frame gets the height. */
+      @media (max-width: 900px), (orientation: portrait), (max-height: 720px) {
+        .sc-object .dk-theater { gap: 0; }
+        .sc-object .dk-head { position: absolute; top: 12px; right: 12px; z-index: 4; }
+        .sc-object .dk-head-t {
+          position: absolute; width: 1px; height: 1px; overflow: hidden;
+          clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+        }
+        .sc-object .sc-ph { background: rgba(5, 8, 15, .7); }
+      }
+      @media (min-width: 901px) and (orientation: landscape) and (max-height: 720px) {
+        .sc-object .dk-head { top: calc(clamp(14px, 3vh, 32px) + 12px); right: 112px; }
+        .sc-object .dk-stage.sc-stage { min-height: 320px; }
+      }
+      @media (max-width: 900px), (orientation: portrait) {
+        .ll-object.sc-object { padding: 0; }
+        .sc-object .dk-theater { --dk-w: 100%; width: 100%; max-height: none; }
+        .sc-object .dk-stage.sc-stage {
+          grid-template-columns: 1fr; grid-template-rows: clamp(190px, 42%, 460px) minmax(0, 1fr);
+          min-height: 460px; border: 0; border-radius: 0; box-shadow: none;
+        }
+        .sc-scene { --sc-lens-h: .78; }
+        .sc-msg { max-width: min(94%, 64ch); }   /* a readable measure on a wide tablet */
         .sc-panel { border-left: 0; border-top: 1px solid var(--ll-line); }
+        /* clear of the Ask CLARA launcher, which now sits over the panel */
+        .sc-compose { padding-right: 88px; }
+        .ll-stage:has(.sc-object) .clara-cue { display: none; }
       }
       @media (prefers-reduced-motion: reduce) {
         .sc-bino .sc-img, .sc-view { transition: none; }
@@ -1383,11 +1634,14 @@
         .dk-theater { --dk-w: 100%; }
         .dk-stage { aspect-ratio: auto; height: max(420px, calc(100vh - 320px)); }
         .dk-stage[data-mode="video"] { aspect-ratio: 16 / 9; height: auto; }
+        .dk-check.dk-check--page { padding: 12px 10px; }
+        .dk-card { padding: 18px 16px 20px; }
         .dk-sw span { display: none; }
         .dk-sw { padding: 8px 12px; }
       }
       @media (prefers-reduced-motion: reduce) {
         .dk-layer, .dk-para, .dk-rail-fill { transition: none; }
+        .dk-next { animation: none; }
         .dk-cap-now.is-in, .dk-stage:not(.is-playing) .dk-play { animation: none; }
       }
 
@@ -1581,6 +1835,54 @@
       }
       .ho-what-h { margin: 0 0 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ll-teal); }
       .ho-what-d { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ll-ink-soft); }
+
+      /* The hero version: the scene's still runs full-bleed behind the copy,
+         framed the way the scenario player frames its own backdrop
+         (center / cover), so this screen reads as the simulator's first frame.
+         .ho-read is the reading wash (heavy on the copy side, light over the
+         sharp); .ho-sim is the player's coach-up state — its has-hero
+         gradient plus its coach scrim — faded in on "Enter the scenario"
+         while the copy leaves and the still takes the player's 2.5px blur. */
+      /* Copy pinned LEFT, not centred: at wide windows the still fills the
+         width (cover crops only top/bottom), so it can't slide over — the sharp
+         sits just right of centre, and the copy has to stay clear of it. */
+      .ll-object.ho-object {
+        isolation: isolate; justify-content: center; align-items: flex-start;
+        padding-inline: clamp(24px, 6vw, 104px);
+      }
+      .ho-object .ho-wrap { max-width: min(500px, 42vw); }
+      .ho-object .ho-lead { font-size: clamp(24px, 2.5vw, 34px); }
+      .ho-bg, .ho-read, .ho-sim { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+      .ho-bg {
+        background-position: center; background-size: cover; background-repeat: no-repeat;
+        transition: filter .6s ease;
+      }
+      .ho-read {
+        background:
+          linear-gradient(90deg, rgba(7, 11, 20, .94) 0%, rgba(7, 11, 20, .86) 34%, rgba(7, 11, 20, .35) 62%, rgba(7, 11, 20, .12) 100%),
+          linear-gradient(0deg, rgba(7, 11, 20, .45), transparent 30%);
+        transition: opacity .6s ease;
+      }
+      .ho-sim {
+        background:
+          linear-gradient(rgba(8, 7, 5, .55), rgba(8, 7, 5, .55)),
+          linear-gradient(rgba(8, 12, 22, .62), rgba(8, 12, 22, .82));
+        opacity: 0; transition: opacity .6s ease;
+      }
+      .ho-object .ho-wrap { position: relative; text-shadow: 0 1px 12px rgba(0, 0, 0, .5); transition: opacity .35s ease, transform .35s ease; }
+      .ho-object .ho-what { background: rgba(7, 11, 20, .55); backdrop-filter: blur(6px); }
+      .ho-object.ho-entering .ho-wrap { opacity: 0; transform: translateY(-10px); }
+      .ho-object.ho-entering .ho-bg { filter: blur(2.5px); }
+      .ho-object.ho-entering .ho-read { opacity: 0; }
+      .ho-object.ho-entering .ho-sim { opacity: 1; }
+      /* narrow: no room beside the copy, so the wash evens out top to bottom */
+      @media (max-width: 760px) {
+        .ho-object .ho-wrap { max-width: none; }
+        .ho-read { background: linear-gradient(rgba(7, 11, 20, .55), rgba(7, 11, 20, .9) 45%); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .ho-bg, .ho-read, .ho-sim, .ho-object .ho-wrap { transition: none; }
+      }
 
       /* The nodes are APPENDED as they are revealed, not pre-rendered and
          un-hidden. Holding all of them in the DOM kept the list from
@@ -1888,43 +2190,18 @@
         font-size: 14.5px; line-height: 1.62; color: var(--ll-ink-soft); text-align: left;
       }
 
-      /* ==== Battery-before demo only: the two screens ahead of the cover ====
-         A fake "you just finished the last module" beat, then a loader that
-         sells the jump into this one as a real transition rather than a cut.
-         Neither exists in "Battery at start" — see the STEPS splice in
-         layered-sharps.js — so both stay local to this file. */
-      .pm-page {
-        width: min(520px, 100%); margin: 0 auto; text-align: center;
-        display: flex; flex-direction: column; align-items: center; gap: 6px;
+      /* Reviewer label to the LEFT of the Demo button on screens serving a
+         non-base version of their content (layered-engine.js
+         updateVariantTag). Quieter than Demo: no fill, dashed edge, so it
+         reads as a status, not a control. */
+      .ll-variant-tag {
+        display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px;
+        border: 1px dashed rgba(255, 255, 255, .45); border-radius: 999px;
+        font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+        color: rgba(255, 255, 255, .85); white-space: nowrap;
       }
-      .pm-badge {
-        width: 60px; height: 60px; border-radius: 50%; margin-bottom: 8px;
-        background: rgba(var(--ll-teal-rgb), .14); border: 1px solid rgba(var(--ll-teal-rgb), .4);
-        display: flex; align-items: center; justify-content: center;
-        color: var(--ll-teal); font-size: 22px;
-      }
-      .pm-page h1 { margin: 4px 0 2px; font-size: 27px; }
-      .pm-sub { margin: 0 0 4px; color: var(--ll-ink-soft); font-size: 14.5px; }
-      .pm-stats { display: flex; gap: 30px; margin-top: 10px; }
-      .pm-stat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
-      .pm-stat-val { font-size: 19px; font-weight: 800; color: var(--ll-ink-strong); }
-      .pm-stat-lbl { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ll-ink-faint); }
-
-      .ld-page {
-        width: 100%; display: flex; flex-direction: column; align-items: center;
-        gap: 18px; padding-top: 8vh;
-      }
-      .ld-spinner {
-        width: 44px; height: 44px; border-radius: 50%;
-        border: 3px solid rgba(var(--ll-surface-rgb), .14); border-top-color: var(--ll-teal);
-        animation: ld-spin .8s linear infinite;
-      }
-      @keyframes ld-spin { to { transform: rotate(360deg); } }
-      .ld-label { margin: 0; font-size: 14px; color: var(--ll-ink-soft); }
-      @media (prefers-reduced-motion: reduce) {
-        .ld-spinner { animation: none; border-top-color: rgba(var(--ll-surface-rgb), .4); }
-      }
-
+      .ll-variant-tag[hidden] { display: none; }
+      .ll-variant-tag i { font-size: 10px; }
     </style>
 </head>
 <body>
@@ -1938,12 +2215,12 @@
     </script>
     <script src="../js/mobius-orb.js?v=7"></script>
     <script src="../js/frame.js?v=7"></script>
-    <script src="../js/layered-engine.js?v=33"></script>
+    <script src="../js/layered-engine.js?v=34"></script>
     <!-- The in-module scene grades through the same live Worker every sim
          page uses, and takes spoken answers through the shared mic. -->
     <script src="../../scenario-simulator/js/sim-core.js?v=12"></script>
     <script src="../../scenario-simulator/js/sim-voice-input.js?v=1"></script>
-    <script src="../js/sharps-narration.js?v=1"></script>
-    <script src="../js/layered-sharps.js?v=226"></script>
+    <script src="../js/sharps-narration.js?v=2"></script>
+    <script src="../js/layered-sharps.js?v=253"></script>
 </body>
 </html>

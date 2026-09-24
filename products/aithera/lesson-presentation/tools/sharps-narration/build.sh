@@ -1,7 +1,7 @@
 #!/bin/bash
 # Rebuild the Sharps narration audio + js/sharps-narration.js. Run from lesson-presentation/.
 set -e
-WORK=/tmp/sharps-narration
+WORK=${TMPDIR:-/tmp}/sharps-narration
 OUT=../assets/audio/sharps
 node tools/sharps-narration/extract.js "$WORK"
 python3 tools/sharps-narration/gen.py "$OUT" "$WORK"

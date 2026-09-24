@@ -629,6 +629,28 @@
     if (frameLesson) frameLesson.textContent = step.lesson;
     if (frameStep) frameStep.textContent = sec ? 'Section ' + sec.n + ' of ' + sec.total : '';
     if (frameBar) frameBar.setAttribute('value', sec ? String(sec.n / sec.total) : '0');
+    updateVariantTag(step);
+  }
+
+  // Reviewer label beside the Demo button, on screens serving a NON-BASE
+  // version of their content (a remedial, harder or reinforced variant), so
+  // a reviewer can tell which version they're looking at. A step opts in with
+  // `variant: 'Label'` (or a function returning one); steps without it — and
+  // courses that never set it — show nothing. Presenter chrome, like Demo
+  // itself: never part of the learner experience.
+  var variantTag = null;
+  function updateVariantTag(step) {
+    var actions = document.querySelector('.vt-frame .vt-actions');
+    if (!actions) return;
+    var v = typeof step.variant === 'function' ? step.variant() : step.variant;
+    if (!variantTag) {
+      variantTag = document.createElement('span');
+      variantTag.className = 'll-variant-tag';
+      variantTag.title = 'Review-only: this screen is serving a non-base version of its content';
+      actions.insertBefore(variantTag, actions.firstChild);
+    }
+    variantTag.hidden = !v;
+    variantTag.innerHTML = v ? '<i class="fa-solid fa-code-branch" aria-hidden="true"></i> ' + esc(v) : '';
   }
 
   function updateFooter(step) {
@@ -719,9 +741,8 @@
       // queued used to inherit the previous screen's dot and promise a line it
       // did not have — which is exactly the screens that were made silent.
       delete stage.dataset.unread;
-      // noCoach: a screen CLARA has no business being on yet — sharps' entry
-      // battery, run BEFORE the cover in "Battery before" mode, is the first
-      // case (see layered-sharps.js). Not the same as a silent coach.say —
+      // noCoach: a screen CLARA has no business being on — sharps' entry
+      // battery, a rapid one-click stack, is the case (see layered-sharps.js). Not the same as a silent coach.say —
       // that still docks the orb and renders empty chrome; this skips both.
       if (step.noCoach) {
         clearHint();
