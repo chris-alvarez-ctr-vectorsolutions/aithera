@@ -6,6 +6,71 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-24) Review readout — open backlog
+
+A working session covered the whole flow. Status tags: **[DONE]** shipped, **[WIP]**
+in progress, **[TODO]** not started, **[PARKED]** revisit later, **[EXTERNAL]** outside
+the mock.
+
+**Pre-upload / intro step**
+- **[TODO]** Add an intro page/modal BEFORE file upload: downloadable template, a quick
+  overview of the steps, and a link out to a Help Center article. (The Upload-file step
+  already has the template + drop zone; this asks for a fuller intro.)
+- **[DONE]** Bug where this page "jumps and goes out and comes back in" — the
+  view-jump-on-click fix landed 2026-09-23; re-confirm it fully covers this.
+- **[DONE]** Email is NOT required (confirmed).
+- **[NOTED]** One discussed function flagged "not feasible" — no fix specified.
+
+**Map columns**
+- **[DONE]** Start from the columns SafeLMS needs; the user maps THEIR columns to each —
+  mirrors the internal uploader. 10 file columns → 10 rows. Target dropdown = core
+  fields (first/last/username/location/position/title/begin/end date) + the site's own
+  custom attributes (dynamic per customer). Username/first/last required. Withhold
+  internal-only fields (building/position codes). Extra unmapped columns OK. Liz: "run
+  with it." (Asterisk now fixed to the column, 2026-09-23.)
+
+**Import settings (complete-roster toggle)**
+- **[WIP]** Too context-dense — simplify. (Right preview removed + On/Off paragraph
+  collapsed already; keep going.) Liz to play with the toggle copy.
+- **[TODO]** Bring in a before/after TOTAL: headcount/jobs before vs after
+  activation/deactivation (customers already have this today). Keep it simple — e.g.
+  "6 people, 21 jobs" — NOT full detail (details live on Review). Possibly drop the
+  immediate detailed check. Goal: absorb what the toggle does, then move on; lean on a
+  help article for more.
+
+**Review changes**
+- **[TODO]** Cut word count. Replace verbose lines ("if you run this import compared
+  against 170 existing users") with a short "Change summary."
+- **[TODO]** Keep the summary fields: new users added, existing users updated, users
+  deactivated.
+- **[TODO]** Rename "Replace file" → "Cancel import" (an unconfirmed upload = a
+  canceled/failed attempt → a whole new upload). OPEN: does an unconfirmed upload show
+  in the log as an attempted upload? That answer drives the button name.
+- **[TODO]** Provide a cancel path so a blocked user can scrap & redo (blocked users can
+  only cancel anyway).
+- **[TODO]** Remove the "Replace file" option under the red alert (reduce clutter).
+
+**Error / alert display** (active work)
+- **[WIP]** Merge each alert's explanation + example into ONE collapsible box, CLOSED by
+  default ("See details"); comprehensive and easy to read.
+- **[TODO]** Convert the code-like dots/dashes preview into a TABLE (scannable).
+- **[TODO]** For "from → to", use a bigger, more visual ARROW — make the before→after
+  obvious, not code-like.
+- **[TODO]** Each alert ~same visual footprint by default; expand for detail.
+- **[TODO]** Color-code by severity: red / yellow / blue (tiers already exist).
+- **[TODO]** No row data by default. For large sets ("affecting 120 people") don't
+  expand into a 150-item list — constrain with a scroll area / resizable box.
+
+**Parked**
+- **[PARKED]** Export the file with error messages inline — Liz recalled Rich saying
+  it's possible; not in the PRD. Revisit later.
+
+**Error-message documentation (Confluence)**
+- **[EXTERNAL / DONE]** Confluence page cataloging every error message (key, plain
+  meaning, current internal "red" text, admin-facing message, extra details) is live.
+  Source = Rich's Perl file; neither Liz nor Deborah has Bitbucket access. Framework
+  first, then tag-team fill over 1–2 weeks.
+
 **Placement (2026-09-16) — moved to the Employees tab.** Bulk user import no longer
 lives under Settings ▸ User Import. It now lives under the **Employees tab** (the
 K-12 admin screen: sidebar `Employees` active, the Employees / Dynamic Groups /
