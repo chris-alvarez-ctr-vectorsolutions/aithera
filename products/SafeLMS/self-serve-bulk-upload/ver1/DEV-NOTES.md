@@ -50,16 +50,21 @@ the mock.
   only cancel anyway).
 - **[TODO]** Remove the "Replace file" option under the red alert (reduce clutter).
 
-**Error / alert display** (active work)
-- **[WIP]** Merge each alert's explanation + example into ONE collapsible box, CLOSED by
-  default ("See details"); comprehensive and easy to read.
-- **[TODO]** Convert the code-like dots/dashes preview into a TABLE (scannable).
-- **[TODO]** For "from → to", use a bigger, more visual ARROW — make the before→after
-  obvious, not code-like.
-- **[TODO]** Each alert ~same visual footprint by default; expand for detail.
-- **[TODO]** Color-code by severity: red / yellow / blue (tiers already exist).
-- **[TODO]** No row data by default. For large sets ("affecting 120 people") don't
-  expand into a 150-item list — constrain with a scroll area / resizable box.
+**Error / alert display** — **[DONE 2026-09-24]** redesigned:
+- **[DONE]** Each alert's explanation + example merged into ONE "See details" box,
+  CLOSED by default; the separate Help popover is gone.
+- **[DONE]** Code-like dot/dash lists → scannable TABLE (`.axt`).
+- **[DONE]** "from → to" now a big before→after (green/red cards or a Now→After table)
+  with a large arrow, not the code-like glyph.
+- **[DONE]** Alerts share ~one footprint by default (colored header + one-line gist +
+  actions); detail expands on demand.
+- **[DONE]** Color-coded by severity via tiers: blocked=red, confirm=amber/yellow,
+  info=blue, contact-Vector=indigo.
+- **[DONE]** No row data shown by default; the detail table is height-capped and
+  scrolls (`.axt-wrap`, max-height 220px) so large sets never render a 150-row wall.
+- **[DONE]** "Replace file" removed from under the alerts (redo path stays in the side
+  panel). NOTE: the side-panel "Replace file"→"Cancel import" rename is still **TODO**
+  (pending the open "does an unconfirmed upload log as an attempt?" question).
 
 **Parked**
 - **[PARKED]** Export the file with error messages inline — Liz recalled Rich saying

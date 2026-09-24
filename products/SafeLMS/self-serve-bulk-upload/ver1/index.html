@@ -199,6 +199,48 @@
   .diff-row { font-size: 12.5px; padding: 7px 12px; border-top: 1px solid var(--line-3); align-items: center; }
   .more-link { font-size: 12px; color: var(--blue); border-top: 1px solid var(--line-3); padding: 7px 12px; cursor: pointer; }
 
+  /* ---- Redesigned alert: collapsed by default, one combined "See details" box,
+         before→after cards + a scannable table (no code-like dot/dash lists). ---- */
+  .alert-guardrail { font-size: 11.5px; color: #B42318; font-weight: 600; margin-top: 2px; }
+  .ax-toggle { margin-left: auto; flex: 0 0 auto; align-self: center; background: #fff; border: 1px solid #C6D3E1;
+    color: #1257B8; font-weight: 600; font-size: 12.5px; padding: 6px 12px; border-radius: 7px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .ax-toggle:hover { background: #F0F4F9; }
+  .ax-toggle i { font-size: 11px; transition: transform .15s ease; }
+  .ax-toggle.is-open i { transform: rotate(90deg); }
+  .ax-detail { border: 1px solid #E1E7EE; border-radius: 9px; background: #fff; padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 12px; }
+  .ax-what { font-size: 13px; color: #3D4F63; line-height: 1.55; }
+  .ax-todo { font-size: 13px; color: #3D4F63; line-height: 1.55; background: #F5F9FE; border: 1px solid #E1E7EE;
+    border-radius: 8px; padding: 9px 12px; }
+  .ax-todo .ax-lbl { font-weight: 700; color: #1B2B3E; }
+  .ax-tip { font-size: 12.5px; color: #5B6B7E; line-height: 1.5; display: flex; gap: 8px; align-items: flex-start; }
+  .ax-tip i { color: #DC8A12; margin-top: 2px; }
+  .ax-link { font-size: 12.5px; font-weight: 600; }
+  /* big before → after */
+  .ax-ba { display: flex; align-items: stretch; gap: 12px; }
+  .ax-ba-card { flex: 1; min-width: 0; border-radius: 9px; padding: 10px 13px; }
+  .ax-ba-card.ax-from { background: #FEF3F2; border: 1px solid #F1C0BB; }
+  .ax-ba-card.ax-to { background: #ECFDF3; border: 1px solid #A6E5C3; }
+  .ax-ba-l { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8CA0B4; }
+  .ax-ba-v { font-size: 14px; font-weight: 600; color: #1B2B3E; margin-top: 5px; word-break: break-word; }
+  .ax-ba-card.ax-to .ax-ba-v { color: #067647; }
+  .ax-ba-arrow { flex: 0 0 auto; align-self: center; color: #5B8DC9; font-size: 24px; }
+  /* scannable table (scrolls for large sets instead of a 150-row wall) */
+  .axt-wrap { max-height: 220px; overflow: auto; border: 1px solid #EDF1F6; border-radius: 8px; }
+  .axt { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .axt thead th { position: sticky; top: 0; background: #F8FAFC; text-align: left; font-size: 10.5px; font-weight: 700;
+    letter-spacing: .4px; text-transform: uppercase; color: #8CA0B4; padding: 8px 12px; border-bottom: 1px solid #EDF1F6; }
+  .axt td { padding: 8px 12px; border-bottom: 1px solid #F3F6FA; color: #3D4F63; vertical-align: middle; }
+  .axt tbody tr:last-child td { border-bottom: 0; }
+  .axt-k { font-weight: 600; color: #1B2B3E; }
+  .axt-from { color: #8CA0B4; }
+  .axt-arrow { text-align: center; color: #5B8DC9; font-size: 18px; width: 34px; }
+  .axt-to { font-weight: 600; color: #067647; }
+  .axt-to.is-loss { color: #B42318; }
+  .axt-more { font-size: 12px; color: #1257B8; font-weight: 600; padding: 8px 2px 0; }
+  .alert-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
   /* ---- Side-by-side "Now → After you accept" comparison ---- */
   .ba { display: flex; flex-direction: column; gap: 12px; }
   .ba-head { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
@@ -1489,72 +1531,96 @@
     return '<div class="ba">' + rows + (more ? '<div class="ba-more">' + esc(more) + '</div>' : '') + '</div>';
   }
 
-  /* The A→B help tooltip for a review alert (V4). */
-  function helpPopover(a) {
-    var h = HELP[a.id]; if (!h) return '';
-    return '<div class="help-pop">'
-      + '<div class="help-pop-head"><span><i class="fa-solid fa-circle-question" aria-hidden="true"></i>What this means &amp; how to fix it</span>'
-      + '<button class="help-x" data-act="closeHelp" aria-label="Close">✕</button></div>'
-      + '<div class="help-pop-body">'
-      + '<div class="hp-means">' + esc(h.means) + '</div>'
-      + '<div class="ab-mini">'
-      + '<div class="ab-mini-card ab-a"><div class="ab-mini-l">' + esc(h.ab.aLabel) + '</div><div class="ab-mini-v mono">' + esc(h.ab.a) + '</div></div>'
-      + '<div class="ab-mini-arrow"><i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></div>'
-      + '<div class="ab-mini-card ab-b"><div class="ab-mini-l">' + esc(h.ab.bLabel) + '</div><div class="ab-mini-v mono">' + esc(h.ab.b) + '</div></div>'
-      + '</div>'
-      + '<div class="hp-usually"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i>' + esc(h.usually) + '</div>'
-      + '<a class="hp-link" href="https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors" target="_blank" rel="noopener">See all upload errors in Vector Help ↗</a>'
-      + '</div></div>';
+  /* --- Review-alert detail helpers: before→after cards + a scannable table --- */
+  function axArrow() { return '<i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i>'; }
+
+  // Two big cards with a large arrow between — a clear "from → to".
+  function axBaCard(aLabel, aVal, bLabel, bVal) {
+    return '<div class="ax-ba">'
+      + '<div class="ax-ba-card ax-from"><div class="ax-ba-l">' + esc(aLabel) + '</div><div class="ax-ba-v">' + esc(aVal) + '</div></div>'
+      + '<div class="ax-ba-arrow">' + axArrow() + '</div>'
+      + '<div class="ax-ba-card ax-to"><div class="ax-ba-l">' + esc(bLabel) + '</div><div class="ax-ba-v">' + esc(bVal) + '</div></div>'
+      + '</div>';
   }
 
+  // Per-row before→after as a table (Now → After), scrollable for large sets.
+  function axDiffTable(diff, tier, more) {
+    var afterHead = tier === 'confirm' ? 'After you accept' : 'After import';
+    var body = diff.map(function (d) {
+      var deact = /Deactivat/i.test(d.result);
+      var label = (d.row && d.row !== '—') ? ('Row ' + d.row + (d.field ? ' · ' + d.field : '')) : d.field;
+      return '<tr>'
+        + '<td class="axt-k">' + esc(label) + '</td>'
+        + '<td class="axt-from">' + esc(d.current) + '</td>'
+        + '<td class="axt-arrow">' + axArrow() + '</td>'
+        + '<td class="axt-to' + (deact ? ' is-loss' : '') + '">' + esc(d.result) + '</td>'
+        + '</tr>';
+    }).join('');
+    return '<div class="axt-wrap"><table class="axt"><thead><tr><th></th><th>Now in SafeLMS</th><th></th><th>' + esc(afterHead) + '</th></tr></thead><tbody>' + body + '</tbody></table></div>'
+      + (more ? '<div class="axt-more">' + esc(more) + '</div>' : '');
+  }
+
+  // A plain "Item — detail" list rendered as a two-column table (no dot/dash code).
+  function axLinesTable(lines) {
+    var body = lines.map(function (l) {
+      var s = l.t, i = s.indexOf(' — ');
+      var left = i >= 0 ? s.slice(0, i) : s, right = i >= 0 ? s.slice(i + 3) : '';
+      return '<tr><td class="axt-k">' + esc(left) + '</td><td>' + esc(right) + '</td></tr>';
+    }).join('');
+    return '<div class="axt-wrap"><table class="axt"><tbody>' + body + '</tbody></table></div>';
+  }
+
+  /* One review alert: colored header (severity tier) + a short gist, with everything
+     else — explanation, before→after, the affected list, what-to-do, and the help
+     link — merged into a single "See details" box that is CLOSED by default. */
   function alertHTML(a) {
     var t = TIER[a.tier];
     var acked = !!state.acks[ackKey(a.id)];
-    var hasHelp = !!HELP[a.id];
-    var helpOpen = state.openHelp === a.id;
-    var body = '';
+    var h = HELP[a.id];
+    var open = !!state.disc['ax:' + a.id];
 
-    // Compact: a single one-liner replaces the three laid-out description lines.
-    // The full explanation + the A→B "how to fix" example live in the Help tooltip.
     var oneLine = String(a.what).split('. ')[0].replace(/\.$/, '') + '.';
-    body += '<div class="alert-line">' + esc(oneLine) + '</div>';
 
-    if (a.compare) {
-      body += '<div style="display:flex;border:1px solid #F1C0BB;border-radius:8px;overflow:hidden;font-size:13px;">'
-        + '<div style="flex:1;padding:10px 14px;background:#FEF7F6;"><div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#8CA0B4;">Your sign-on sends</div><div class="mono" style="margin-top:4px;">' + esc(a.compare.idp) + '</div></div>'
-        + '<div style="width:1px;background:#F1C0BB;"></div>'
-        + '<div style="flex:1;padding:10px 14px;background:#FEF7F6;"><div style="font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#8CA0B4;">Your file sends</div><div class="mono" style="margin-top:4px;color:#B42318;">' + esc(a.compare.file) + '</div></div>'
-        + '</div>';
+    // Combined, comprehensive detail — hidden until "See details" is opened.
+    var detail = '';
+    if (open) {
+      var inner = '<div class="ax-what">' + esc(a.what) + '</div>';
+      if (a.diff) inner += axDiffTable(a.diff, a.tier, a.more);
+      else if (h && h.ab) inner += axBaCard(h.ab.aLabel, h.ab.a, h.ab.bLabel, h.ab.b);
+      else if (a.compare) inner += axBaCard('Your file sends', a.compare.file, 'Your sign-on expects', a.compare.idp);
+      if (a.lines) inner += axLinesTable(a.lines);
+      inner += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.action) + '</div>';
+      if (h && h.usually) inner += '<div class="ax-tip"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i><span>' + esc(h.usually) + '</span></div>';
+      inner += '<a class="ax-link" href="https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors" target="_blank" rel="noopener">See all upload errors in Vector Help ↗</a>';
+      detail = '<div class="ax-detail">' + inner + '</div>';
     }
-    if (a.lines) {
-      body += '<div style="background:#F8FAFC;border:1px solid #EDF1F6;border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:5px;">'
-        + a.lines.map(function (l) { return '<div class="mono" style="font-size:12.5px;color:#3D4F63;">' + esc(l.t) + '</div>'; }).join('') + '</div>';
-    }
-    if (a.diff) body += beforeAfter(a.diff, a.tier === 'confirm' ? 'After you accept' : 'After import', a.more);
+
+    // Actions stay visible so the alert can be acted on without expanding.
+    // "Replace file" removed from alerts per 2026-09-24 feedback (redo path lives
+    // in the review side panel).
+    var actions = '';
     if (a.tier === 'confirm') {
-      body += '<label style="display:flex;gap:10px;align-items:flex-start;background:#FFFAEB;border:1px solid #F2D69B;border-radius:8px;padding:11px 14px;cursor:pointer;">'
+      actions += '<label style="display:flex;gap:10px;align-items:flex-start;background:#FFFAEB;border:1px solid #F2D69B;border-radius:8px;padding:11px 14px;cursor:pointer;">'
         + '<input type="checkbox" data-act="ack" data-arg="' + a.id + '"' + (acked ? ' checked' : '') + ' style="margin-top:2px;width:15px;height:15px;accent-color:#B54708;">'
         + '<span style="font-size:13px;line-height:1.5;color:#6B4A0A;">' + esc(a.ackLabel) + '</span></label>';
     }
     var btns = [];
     if (a.supportBtn)  btns.push('<button class="btn sm btn--primary" data-act="noop">Contact Vector support</button>');
     if (a.fixMapBtn)   btns.push('<button class="btn sm btn--danger" data-act="fixMapping">Fix column mapping</button>');
-    if (a.replaceBtn)  btns.push('<button class="btn sm btn--ghost" data-act="replaceFile">Replace file</button>');
     if (a.settingsBtn) btns.push('<button class="btn sm btn--danger" data-act="changeSettings">Change import settings</button>');
     if (a.repBtn)      btns.push(state.repSent
       ? '<button class="btn sm btn--ghost" data-act="noop" style="color:#067647;border-color:#A6E5C3;">Sent to your Vector rep ✓</button>'
       : '<button class="btn sm btn--outline-blue" data-act="askRep">Not sure? Send to my Vector rep</button>');
-    if (btns.length) body += '<div style="display:flex;gap:10px;flex-wrap:wrap;">' + btns.join('') + '</div>';
+    if (btns.length) actions += '<div class="alert-btns">' + btns.join('') + '</div>';
 
-    return '<div class="alert" style="position:relative;border-color:' + t.border + ';">'
+    return '<div class="alert" style="border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
-      + '<div style="flex:1;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
-      + (a.guardrail ? '<div style="font-size:11.5px;color:#B42318;font-weight:600;margin-top:2px;">Site-wide guardrail — blocked regardless of individual errors</div>' : '')
+      + '<div style="flex:1;min-width:0;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
+      + (a.guardrail ? '<div class="alert-guardrail">Site-wide guardrail — blocked regardless of individual errors</div>' : '')
       + '</div>'
-      + (hasHelp ? '<button class="help-btn' + (helpOpen ? ' is-open' : '') + '" data-act="toggleHelp" data-arg="' + a.id + '"><i class="fa-solid fa-circle-question" aria-hidden="true"></i>Help</button>' : '')
-      + '</div><div class="alert-body">' + body + '</div>'
-      + (helpOpen ? helpPopover(a) : '')
+      + '<button class="ax-toggle' + (open ? ' is-open' : '') + '" data-act="toggleDisc" data-arg="ax:' + a.id + '"><i class="fa-solid fa-chevron-right"></i>' + (open ? 'Hide details' : 'See details') + '</button>'
+      + '</div><div class="alert-body"><div class="alert-line">' + esc(oneLine) + '</div>' + detail + actions + '</div>'
       + '</div>';
   }
 
