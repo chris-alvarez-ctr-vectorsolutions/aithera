@@ -6586,6 +6586,13 @@
     }
     var name = p.get('name');
     if (name) { try { sessionStorage.setItem('sh-name', name.trim().slice(0, 40)); } catch (e) {} }
+    // ?sim=1 / ?sim=0 — the Demo menu's "Full scenario simulator" switch as a
+    // link, since that row only shows on the Perform screen itself. With
+    // ?step=handoff it lands a reviewer straight on the hero bridge screen.
+    var sim = p.get('sim');
+    if (sim === '1' || sim === '0') {
+      try { sessionStorage.setItem('sh-scene-mode', sim === '1' ? 'simulator' : 'scene'); } catch (e) {}
+    }
   })();
 
   // ==========================================================================
