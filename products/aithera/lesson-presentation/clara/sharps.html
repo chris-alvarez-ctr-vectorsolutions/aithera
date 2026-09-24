@@ -1570,9 +1570,57 @@
       .sc-row-t span { font-size: 13.5px; line-height: 1.5; color: var(--ll-ink-soft); }
       .sc-row-t q { margin-top: 4px; font-size: 13px; font-style: italic; color: var(--ll-ink); }
       .sc-rule { height: 1px; background: var(--ll-line); margin: 4px 0; }
-      @media (max-width: 860px) {
-        .sc-stage { grid-template-columns: 1fr; grid-template-rows: 42% 1fr; aspect-ratio: auto; height: max(560px, calc(100vh - 300px)); }
+
+      /* ---- Sizing. The scene doesn't share the video stage's 16:9 frame:
+         that frame is sized from the window's height, so on a laptop-short
+         window it shrank the whole scene and left the CLARA panel ~200px
+         wide. The scene instead fills the room between the title row and
+         the footer, and the panel never drops below a readable width. The
+         side gutters keep the Ask CLARA launcher (bottom-right of the
+         stage) off the composer. */
+      .ll-object.sc-object { padding-inline: 100px; justify-content: flex-start; }
+      .sc-object .dk-theater { --dk-w: min(100%, 1360px); min-width: 0; flex: 1 1 0; max-height: 880px; }
+      .sc-object .dk-stagewrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .sc-object .dk-stage.sc-stage { flex: 1; aspect-ratio: auto; height: auto; min-height: 380px; }
+      /* rows pinned to the frame, so a long thread scrolls inside the panel
+         instead of stretching the frame past the footer */
+      .sc-stage { grid-template-columns: minmax(0, 1fr) clamp(320px, 34%, 400px); grid-template-rows: minmax(0, 1fr); }
+
+      /* ---- Breakout. Below ~900px, or on any portrait window (a tablet
+         held upright), a framed scene beside a panel leaves the picture a
+         tall narrow column of black, so the scene leaves the frame: it runs
+         edge to edge between the header and the footer, the picture as a
+         band across the top and the CLARA thread under it. The title row
+         goes (the header band above already names the step) but stays for
+         screen readers; the placeholder chip rides on the picture. */
+      /* Short windows fold the title row away too — it only repeats the
+         header band — so the frame gets the height. */
+      @media (max-width: 900px), (orientation: portrait), (max-height: 720px) {
+        .sc-object .dk-theater { gap: 0; }
+        .sc-object .dk-head { position: absolute; top: 12px; right: 12px; z-index: 4; }
+        .sc-object .dk-head-t {
+          position: absolute; width: 1px; height: 1px; overflow: hidden;
+          clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+        }
+        .sc-object .sc-ph { background: rgba(5, 8, 15, .7); }
+      }
+      @media (min-width: 901px) and (orientation: landscape) and (max-height: 720px) {
+        .sc-object .dk-head { top: calc(clamp(14px, 3vh, 32px) + 12px); right: 112px; }
+        .sc-object .dk-stage.sc-stage { min-height: 320px; }
+      }
+      @media (max-width: 900px), (orientation: portrait) {
+        .ll-object.sc-object { padding: 0; }
+        .sc-object .dk-theater { --dk-w: 100%; width: 100%; max-height: none; }
+        .sc-object .dk-stage.sc-stage {
+          grid-template-columns: 1fr; grid-template-rows: clamp(190px, 42%, 460px) minmax(0, 1fr);
+          min-height: 460px; border: 0; border-radius: 0; box-shadow: none;
+        }
+        .sc-scene { --sc-lens-h: .78; }
+        .sc-msg { max-width: min(94%, 64ch); }   /* a readable measure on a wide tablet */
         .sc-panel { border-left: 0; border-top: 1px solid var(--ll-line); }
+        /* clear of the Ask CLARA launcher, which now sits over the panel */
+        .sc-compose { padding-right: 88px; }
+        .ll-stage:has(.sc-object) .clara-cue { display: none; }
       }
       @media (prefers-reduced-motion: reduce) {
         .sc-bino .sc-img, .sc-view { transition: none; }
@@ -1787,6 +1835,27 @@
       }
       .ho-what-h { margin: 0 0 8px; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--ll-teal); }
       .ho-what-d { margin: 0; font-size: 14.5px; line-height: 1.6; color: var(--ll-ink-soft); }
+
+      /* The hero version: the scene's own still sets the moment beside the
+         copy (stacked above it on narrow windows). The still is ~21:9, so the
+         side-by-side 4:3 crop centres on the sharp itself (object-position comes
+         from SCENE_ART's focal point). Replaces the icon mark — the picture
+         does that job now. */
+      .ho-copy { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+      .ho-hero { margin: 0; overflow: hidden; border-radius: 16px; border: 1px solid var(--ll-line); background: #05080f; }
+      .ho-hero img { display: block; width: 100%; height: 100%; object-fit: cover; }
+      .ho-wrap--hero .ll-eyebrow { margin-bottom: 18px; }
+      .ho-wrap--hero { align-items: stretch; gap: 24px; }
+      .ho-wrap--hero .ho-hero { aspect-ratio: 21 / 9; }
+      @media (min-width: 900px) {
+        .ho-wrap--hero {
+          display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+          align-items: center; gap: clamp(28px, 4vw, 56px);
+        }
+        .ho-wrap--hero .ho-copy { grid-column: 1; grid-row: 1; }
+        .ho-wrap--hero .ho-hero { grid-column: 2; grid-row: 1; aspect-ratio: 4 / 3; max-height: calc(100vh - 290px); }
+        .ho-wrap--hero .ho-lead { font-size: clamp(24px, 2.6vw, 34px); }
+      }
 
       /* The nodes are APPENDED as they are revealed, not pre-rendered and
          un-hidden. Holding all of them in the DOM kept the list from
@@ -2125,6 +2194,6 @@
     <script src="../../scenario-simulator/js/sim-core.js?v=12"></script>
     <script src="../../scenario-simulator/js/sim-voice-input.js?v=1"></script>
     <script src="../js/sharps-narration.js?v=2"></script>
-    <script src="../js/layered-sharps.js?v=248"></script>
+    <script src="../js/layered-sharps.js?v=249"></script>
 </body>
 </html>

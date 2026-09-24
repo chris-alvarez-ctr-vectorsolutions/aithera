@@ -5053,6 +5053,7 @@
           'aria-label="' + esc(DOWN_ASK) + '"></textarea>' +
         '<button class="ch-send" id="dnSend" type="button">Done</button>' +
         '<p class="ch-echo" id="dnEcho" hidden></p>' +
+      '</div>' +
     '</main>';
   }
 
@@ -5621,10 +5622,26 @@
   //  external URL) to skip ITS establishing card in turn, since showing both
   //  would frame the same moment twice in a row.
   // ==========================================================================
+  // The hero still that sets the scene on this screen — and rides into the
+  // player as its backdrop (?hero=). Only sectors with their OWN produced
+  // still get one: Manufacturing's factory floor behind a classroom
+  // teacher's "craft blade on the back table" would be a continuity error,
+  // so Education and AEC keep the icon-mark version until their stills land.
+  // Same files, same focal points as the in-module scene (SCENE_ART).
+  function handoffHero() {
+    var a = SCENE_ART[LE.lensId()];
+    return a ? { src: a.src, pos: (a.focal.sharp[0] * 100).toFixed(1) + '% ' + (a.focal.sharp[1] * 100).toFixed(1) + '%' } : null;
+  }
+
   function HANDOFF_CONTENT() {
-    return '<main class="ll-object ll-object--chain"><div class="ho-wrap">' +
+    var hero = handoffHero();
+    return '<main class="ll-object ll-object--chain"><div class="ho-wrap' + (hero ? ' ho-wrap--hero' : '') + '">' +
+      (hero
+        ? '<figure class="ho-hero"><img src="' + esc(hero.src) + '" alt="" style="object-position:' + hero.pos + '" /></figure>'
+        : '') +
+      '<div class="ho-copy">' +
       '<p class="ll-eyebrow">Perform: live scenario, about 5 minutes</p>' +
-      '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>' +
+      (hero ? '' : '<span class="ho-mark" aria-hidden="true"><i class="fa-solid fa-magnifying-glass"></i></span>') +
       '<p class="ho-lead">' + esc(handoffHook()) + '</p>' +
       '<p class="ho-lead-sub">Nobody is asking you about it — you have to notice it, decide what ' +
         'to do, and carry it through. What you do next is the scenario.</p>' +
@@ -6164,7 +6181,7 @@
   // ---- The screen -----------------------------------------------------------
   function SCENE_CONTENT() {
     var art = sceneArt();
-    return '<main class="ll-object dk-object"><div class="dk-theater">' +
+    return '<main class="ll-object dk-object sc-object"><div class="dk-theater">' +
       '<header class="dk-head"><div class="dk-head-t">' +
         '<p class="ll-eyebrow">Interactive scenario</p>' +
         '<h1 class="dk-title">A sharp decision</h1>' +
@@ -6232,7 +6249,11 @@
     var nat = { w: 2000, h: 857 }, cur = { f: art.focal.sharp, zoom: 2 }, base = 1;
     function layout() {
       var W = scene.clientWidth, H = scene.clientHeight;
-      var D = Math.min(W * 0.8 / 1.64, H * 0.92), d = D * 0.64, r = D / 2, fe = Math.max(14, r * .12);
+      // How much of the scene's height the lenses may take: the page's CSS
+      // sets --sc-lens-h (lower in the stacked layout, so the band keeps
+      // room above and below the binoculars).
+      var fill = parseFloat(getComputedStyle(scene).getPropertyValue('--sc-lens-h')) || 0.92;
+      var D = Math.min(W * 0.8 / 1.64, H * fill), d = D * 0.64, r = D / 2, fe = Math.max(14, r * .12);
       var lens = function (cx) { return 'radial-gradient(circle at ' + cx + 'px 50%, #000 0, #000 ' + (r - fe) + 'px, transparent ' + r + 'px)'; };
       bino.style.width = (D + d) + 'px'; bino.style.height = D + 'px';
       bino.style.webkitMaskImage = bino.style.maskImage = lens(r) + ', ' + lens(r + d);
@@ -6525,6 +6546,13 @@
         return doBaselineOn() ? null
           : '../../scenario-simulator/composed-scenarios/index.html'
             + '?type=mix-arc&scenario=' + scenarioKey() + '&handoff=1&brand=clara'
+            // This screen's handoff page IS the title card now, so the player
+            // drops its own and opens on the coach (notitle); every beat here
+            // is coach-led, so its Learn | Practice toggle has nothing to
+            // switch to (practice=0); and the hero still, when this sector
+            // has one, carries over as the player's backdrop (hero).
+            + '&notitle=1&practice=0'
+            + (handoffHero() ? '&hero=' + encodeURIComponent(handoffHero().src) : '')
             + '&back=' + encodeURIComponent('../../lesson-presentation/clara/sharps.html?step=record');
       },
       gate: true,
