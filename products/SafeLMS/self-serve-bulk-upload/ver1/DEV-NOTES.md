@@ -13,11 +13,13 @@ in progress, **[TODO]** not started, **[PARKED]** revisit later, **[EXTERNAL]** 
 the mock.
 
 **Pre-upload / intro step**
-- **[TODO]** Add an intro page/modal BEFORE file upload: downloadable template, a quick
-  overview of the steps, and a link out to a Help Center article. (The Upload-file step
-  already has the template + drop zone; this asks for a fuller intro.)
-- **[DONE]** Bug where this page "jumps and goes out and comes back in" — the
-  view-jump-on-click fix landed 2026-09-23; re-confirm it fully covers this.
+- **[DONE 2026-09-24]** Intro page BEFORE file upload (Bulk Upload now lands here):
+  4-step overview, downloadable template, and a Help Center link. **Help Center
+  article URL is a placeholder (`HELP_URL`) — TBD.** Upload keeps quick links to both.
+- **[DONE 2026-09-24]** Bug where the page "jumps and goes out and comes back in" —
+  root cause was the full-screen import overlay replaying its fade-in on every
+  re-render (Employees page showed through). It now fades in only when it opens;
+  in-place clicks don't animate at all.
 - **[DONE]** Email is NOT required (confirmed).
 - **[NOTED]** One discussed function flagged "not feasible" — no fix specified.
 
@@ -30,25 +32,26 @@ the mock.
   with it." (Asterisk now fixed to the column, 2026-09-23.)
 
 **Import settings (complete-roster toggle)**
-- **[WIP]** Too context-dense — simplify. (Right preview removed + On/Off paragraph
-  collapsed already; keep going.) Liz to play with the toggle copy.
-- **[TODO]** Bring in a before/after TOTAL: headcount/jobs before vs after
-  activation/deactivation (customers already have this today). Keep it simple — e.g.
-  "6 people, 21 jobs" — NOT full detail (details live on Review). Possibly drop the
-  immediate detailed check. Goal: absorb what the toggle does, then move on; lean on a
-  help article for more.
+- **[DONE 2026-09-24]** Simplified: one-line intro + "Learn more" (help article),
+  the "With this off/on" summary collapsed by default, and the "can't be undone"
+  note moved to Review (above Run import). **Liz to play with the toggle copy.**
+- **[DONE 2026-09-24]** Before → after TOTALS: two tiles, Active users (170 → N) and
+  Active jobs (214 → N), each with a one-line delta ("+12 new · 6 deactivated").
+  No itemized detail here — that lives on Review. `JOBS_TOTAL` (214) is mock data.
 
 **Review changes**
-- **[TODO]** Cut word count. Replace verbose lines ("if you run this import compared
-  against 170 existing users") with a short "Change summary."
-- **[TODO]** Keep the summary fields: new users added, existing users updated, users
-  deactivated.
-- **[TODO]** Rename "Replace file" → "Cancel import" (an unconfirmed upload = a
-  canceled/failed attempt → a whole new upload). OPEN: does an unconfirmed upload show
-  in the log as an attempted upload? That answer drives the button name.
-- **[TODO]** Provide a cancel path so a blocked user can scrap & redo (blocked users can
-  only cancel anyway).
-- **[TODO]** Remove the "Replace file" option under the red alert (reduce clutter).
+- **[DONE 2026-09-24]** Side panel header is now just "Change summary"; the
+  "compared against N users" line is gone and the footer is "Nothing changes until
+  you run it."
+- **[DONE 2026-09-24]** Summary fields: New users added, Existing users updated, Users
+  deactivated — plus "Jobs ended" only when roster mode actually ends jobs.
+- **[DONE 2026-09-24]** "Replace file" → **Cancel import** (secondary button under Run
+  import). It discards the upload and returns to Upload with an "Import cancelled —
+  nothing was changed" note. **OPEN:** does a cancelled/unconfirmed upload appear in
+  the upload log as an attempt? Name stays "Cancel import" until answered.
+- **[DONE 2026-09-24]** Blocked imports: Cancel import is the way out; the
+  mapping/settings links are hidden while blocked.
+- **[DONE]** "Replace file" removed from under the red alerts.
 
 **Error / alert display** — **[DONE 2026-09-24]** redesigned:
 - **[DONE]** Each alert's explanation + example merged into ONE "See details" box,
@@ -63,8 +66,7 @@ the mock.
 - **[DONE]** No row data shown by default; the detail table is height-capped and
   scrolls (`.axt-wrap`, max-height 220px) so large sets never render a 150-row wall.
 - **[DONE]** "Replace file" removed from under the alerts (redo path stays in the side
-  panel). NOTE: the side-panel "Replace file"→"Cancel import" rename is still **TODO**
-  (pending the open "does an unconfirmed upload log as an attempt?" question).
+  panel). The side-panel rename to "Cancel import" is done (see Review changes).
 
 **Parked**
 - **[PARKED]** Export the file with error messages inline — Liz recalled Rich saying

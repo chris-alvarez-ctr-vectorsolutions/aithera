@@ -56,6 +56,31 @@
   /* In-place re-renders (toggles, disclosures) skip the entrance animations so the
      rebuilt DOM doesn't flash; render() sets this when the screen hasn't changed. */
   .no-anim, .no-anim * { animation: none !important; }
+  /* The full-screen import overlay fades in ONCE when it opens; moving between its
+     steps only animates the step content, so the Employees page never shows through. */
+  .import-full.is-static { animation: none; }
+
+  /* ---- Intro page (before Upload): overview, template, help link ---- */
+  .intro-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 18px 0 20px; }
+  .intro-step { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 14px 16px; }
+  .intro-step .n { width: 24px; height: 24px; border-radius: 50%; background: #E1EBF9; color: var(--blue);
+    font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .intro-step .t { font-size: 13.5px; font-weight: 600; margin-top: 10px; }
+  .intro-step .d { font-size: 12.5px; color: var(--ink-2); line-height: 1.5; margin-top: 3px; }
+  .intro-res { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .intro-res-card { display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 1px solid var(--line);
+    border-radius: 10px; padding: 14px 16px; }
+  .intro-res-card .ico { flex: 0 0 34px; width: 34px; height: 34px; border-radius: 9px; background: #E1EBF9;
+    color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 15px; }
+  @media (max-width: 820px) { .intro-steps { grid-template-columns: 1fr 1fr; } .intro-res { grid-template-columns: 1fr; } }
+
+  /* ---- Import settings: compact before -> after totals ---- */
+  .ba-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .ba-cell { background: #fff; border: 1px solid #E1E7EE; border-radius: 9px; padding: 10px 14px; }
+  .ba-cell .l { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: #8CA0B4; }
+  .ba-cell .v { font-size: 18px; font-weight: 700; color: #1B2B3E; margin-top: 3px; display: flex; align-items: center; gap: 8px; }
+  .ba-cell .v i { font-size: 13px; color: #8CA0B4; }
+  .ba-cell .c { font-size: 12px; color: #5B6B7E; margin-top: 2px; }
 
   /* ==========================================================================
      App shell — authentic VectorSolutions / SafeLMS product chrome.
@@ -607,6 +632,8 @@
 
   /* ------------------------------------------------------------------ data */
   var TOTAL = 170;
+  var JOBS_TOTAL = 214;   // active jobs (person + position + location) on the site — for the before/after totals
+  var HELP_URL = '#';     // PLACEHOLDER — Help Center article on bulk user import (URL TBD)
 
   /* VERSION KNOB — layout of the User Import tab.
        'A' = Manual import / Automated sync as a segmented sub-control (legacy).
@@ -881,7 +908,7 @@
   function pickFile(id) {
     // Picking a file drops the picker and takes the import full-screen at the
     // next step (Map columns / Import settings) — the upload step is done.
-    setState({ fileId: id, mapping: defaultMapping(id), acks: {}, view: 'import', importFull: true,
+    setState({ fileId: id, mapping: defaultMapping(id), acks: {}, view: 'import', importFull: true, cancelled: false,
       step: isMap() ? 'map' : 'settings', purgeUsers: false, purgeJobs: false, repSent: false, fileModal: false });
   }
 
@@ -933,7 +960,7 @@
         title: 'This file contains only 45 of your 170 active users',
         what: 'Deactivating users not in this file signs out every active user who isn’t in it. This file has only 45 of your 170 users, so 128 would be deactivated — 75% of the site.',
         ifProceed: '128 staff would immediately lose access to their training. Their history is kept and accounts reactivate if re-added, but the lockout itself cannot be undone.',
-        action: 'If this is a partial list — like a new-hire batch — turn off “Deactivate users not in this file.” Only deactivate with a complete export of everyone.',
+        action: 'If this is a partial list — like a new-hire batch — turn off “Make this file the complete roster.” Only use it with a complete export of everyone.',
         settingsBtn: true });
     }
     if (fileId === 'blast') {
@@ -999,9 +1026,9 @@
       if (pu) {
         A.push({ id: 'purge', tier: 'confirm', repBtn: true,
           title: '6 active users are not in this file and will be deactivated',
-          what: 'You turned on “Deactivate users not in this file,” and these six people are missing from it.',
+          what: 'You made this file the complete roster, and these six people are missing from it.',
           ifProceed: 'They lose access immediately. Their training history is kept, and their accounts reactivate if they appear in a future file.',
-          action: 'Check the list. If any of them should stay active, add them to your file — or turn off “Deactivate users not in this file.”',
+          action: 'Check the list. If any of them should stay active, add them to your file — or turn off “Make this file the complete roster.”',
           diff: [
             { row: '—', field: 'gharper', current: 'Active', incoming: 'Not in file', result: 'Deactivated' },
             { row: '—', field: 'mreyes', current: 'Active', incoming: 'Not in file', result: 'Deactivated' },
@@ -1028,7 +1055,7 @@
       var js = summaryFor(fileId, pu, pj);
       A.push({ id: 'purge-jobs', tier: 'confirm', repBtn: true,
         title: js.jobsRemoved + ' positions & locations will be removed — affecting ' + js.jobsPeople + ' people',
-        what: 'You turned on “Remove positions & locations not in this file.” For each user in the file, any position or location they hold that isn’t in the file is removed — along with the training assigned to it. This touches ' + js.pos + ' positions across ' + js.loc + ' locations; most are routine (a grade level or role that changed), but some may be intentional extras.',
+        what: 'You made this file the complete roster. For each user in the file, any position or location they hold that isn’t in the file is removed — along with the training assigned to it. This touches ' + js.pos + ' positions across ' + js.loc + ' locations; most are routine (a grade level or role that changed), but some may be intentional extras.',
         ifProceed: 'The ' + js.jobsRemoved + ' extra positions & locations are removed from ' + js.jobsPeople + ' people, and the training tied to them comes off those users. Anything still in the file is kept and new ones are added — the record becomes an exact mirror of the file.',
         action: 'Check the examples below — each shows how many people it affects. Proceed only if the file is the complete, current list of each person’s positions & locations.',
         lines: [
@@ -1323,19 +1350,54 @@
     return out + '</div>';
   }
 
+  /* Intro page — shown before Upload (2026-09-24 readout): a quick overview of the
+     steps, the downloadable template, and a link out to the Help Center article. */
+  function introHTML() {
+    var steps = [
+      ['Upload your file', 'The SafeLMS template or the export your system already makes (.csv or .xlsx).'],
+      ['Map columns', 'Tell us which of your columns are username, first name and last name — the rest is optional.'],
+      ['Choose settings', 'Add and update only, or treat the file as your complete roster.'],
+      ['Review &amp; run', 'See every change before anything happens. Nothing changes until you run it.']
+    ];
+    if (!isMap()) steps.splice(1, 1);
+    return '<div class="fadeup" style="max-width:860px;">'
+      + '<div style="font-size:20px;font-weight:700;">Bulk upload employees</div>'
+      + '<div style="font-size:13.5px;color:#5B6B7E;margin-top:4px;">Add or update many people at once from one file. It takes a few minutes.</div>'
+      + '<div class="intro-steps" style="grid-template-columns:repeat(' + steps.length + ',1fr);">' + steps.map(function (st, i) {
+          return '<div class="intro-step"><div class="n">' + (i + 1) + '</div><div class="t">' + st[0] + '</div><div class="d">' + st[1] + '</div></div>';
+        }).join('') + '</div>'
+      + '<div class="intro-res">'
+      +   '<div class="intro-res-card"><div class="ico"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>'
+      +     '<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">SafeLMS template</div>'
+      +     '<div style="font-size:12.5px;color:#5B6B7E;margin-top:2px;">Optional starting point with the right columns.</div>'
+      +     '<button class="btn sm btn--outline-blue" style="margin-top:10px;" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Download template (.csv)</button></div></div>'
+      +   '<div class="intro-res-card"><div class="ico"><i class="fa-solid fa-book-open" aria-hidden="true"></i></div>'
+      +     '<div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">Help Center</div>'
+      +     '<div style="font-size:12.5px;color:#5B6B7E;margin-top:2px;">Step-by-step guide, required fields and what each setting does.</div>'
+      +     '<a href="' + HELP_URL + '" target="_blank" rel="noopener" data-act="noop" style="display:inline-block;margin-top:12px;font-size:13px;">Read the bulk upload guide <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" style="font-size:11px;"></i></a></div></div>'
+      + '</div>'
+      + '<div style="display:flex;justify-content:flex-end;margin-top:22px;">'
+      + '<button class="btn btn--primary" data-act="startUpload">Get started →</button></div>'
+      + '</div>';
+  }
+
   function uploadHTML() {
     // AC-1.1: a blank SafeLMS template and a link to positions & locations guidance
     // are available from the upload screen. The template is a convenient starting
     // shape, not a requirement — any export can be uploaded and its columns mapped.
-    var helper = '<div class="banner"><div>'
-      + '<div style="font-size:14px;font-weight:600;">New here? Start from the SafeLMS template</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">Optional — download it, paste your roster in, and upload. Or upload the export your system already produces; you’ll map its columns on the next step. <a href="#" data-act="noop">Positions &amp; locations guidance</a></div>'
-      + '</div><button class="btn sm btn--outline-blue" style="white-space:nowrap;" data-act="noop">Download template (.csv)</button></div>';
-    return '<div class="fadeup">' + helper
+    // The template + Help Center now lead on the Intro page; keep quick links here.
+    var helper = '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">'
+      + '<a href="#" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Download template (.csv)</a>'
+      + ' &nbsp;·&nbsp; <a href="' + HELP_URL + '" target="_blank" rel="noopener" data-act="noop">Help Center guide</a></div>';
+    var cancelled = state.cancelled
+      ? '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#3D4F63;margin-bottom:12px;"><b>Import cancelled.</b> Nothing was changed. Upload a new file to start again.</div>'
+      : '';
+    return '<div class="fadeup">' + cancelled + helper
       + '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
       + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
       + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
       + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
+      + '<div style="margin-top:18px;"><button class="btn btn--ghost" data-act="backIntro">← Back</button></div>'
       + '</div>';
   }
 
@@ -1464,6 +1526,23 @@
      collapsed at the designer's request: all on or all off). Off = add/update only;
      On = make the file the complete roster. Shows the full itemized impact as the
      toggle flips, and it's re-confirmed on the review step. */
+  /* Before -> after totals for the site (2026-09-24 readout: customers already see
+     this today). Deliberately simple — just the totals and a one-line delta; the
+     itemized list lives on Review. */
+  function beforeAfterHTML(on) {
+    var sm = summaryFor(state.fileId, on, on);
+    var uAfter = TOTAL + sm.add - sm.deact, jAfter = JOBS_TOTAL + sm.jobsAdded - sm.jobsRemoved;
+    function cell(label, before, after, note) {
+      return '<div class="ba-cell"><div class="l">' + label + '</div>'
+        + '<div class="v">' + before + ' <i class="fa-solid fa-arrow-right" aria-hidden="true"></i> ' + after + '</div>'
+        + '<div class="c">' + note + '</div></div>';
+    }
+    return '<div class="ba-strip">'
+      + cell('Active users', TOTAL, uAfter, '+' + sm.add + ' new' + (on ? ' · ' + sm.deact + ' deactivated' : ''))
+      + cell('Active jobs', JOBS_TOTAL, jAfter, '+' + sm.jobsAdded + ' new' + (on ? ' · ' + sm.jobsRemoved + ' ended' : ''))
+      + '</div>';
+  }
+
   function settingsHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     // ONE all-or-nothing choice replaces the two independent toggles: either the
@@ -1502,8 +1581,8 @@
 
     return '<div class="fadeup" style="max-width:640px;">'
       + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">What happens to people and jobs that aren’t in this file?</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">This site has ' + TOTAL + ' active users. Your file has ' + file.rows + ' rows. This is <b>off by default</b> — nothing is removed unless you turn it on, and you’ll confirm every change on the next step.</div>'
-      + optCard + summary + repRow
+      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;"><b>Off by default</b> — nothing is removed unless you turn it on. <a href="' + HELP_URL + '" target="_blank" rel="noopener" data-act="noop">Learn more</a></div>'
+      + optCard + beforeAfterHTML(on) + summary + repRow
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
       + '<button class="btn btn--primary" data-act="next">Review changes →</button>'
@@ -1652,14 +1731,13 @@
     var sum = summary();
 
     var side = '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:18px 20px;">'
-      + '<div class="kpi-eyebrow">If you run this import</div>'
-      + '<div style="font-size:12px;color:#8CA0B4;margin-top:2px;">Compared against ' + TOTAL + ' existing users</div>'
-      + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px;">'
+      + '<div class="kpi-eyebrow">Change summary</div>'
+      + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">'
       + '<div class="kpi-row"><span class="k">New users added</span><span class="v" style="color:#067647;">' + sum.add + '</span></div>'
       + '<div class="kpi-row"><span class="k">Existing users updated</span><span class="v" style="color:#1257B8;">' + sum.mod + '</span></div>'
       + '<div class="kpi-row"><span class="k">Users deactivated</span><span class="v" style="color:' + (sum.deact > 0 ? '#B42318' : '#8CA0B4') + ';">' + sum.deact + '</span></div>'
-      + '<div class="kpi-row"><span class="k">Positions/locations added</span><span class="v" style="color:#067647;">' + sum.jobsAdded + '</span></div>'
-      + '<div class="kpi-row"><span class="k">Positions/locations removed</span><span class="v" style="color:' + (sum.jobsRemoved > 0 ? '#B42318' : '#8CA0B4') + ';">' + sum.jobsRemoved + '</span></div>'
+      // Jobs only when roster mode actually ends some (keeps the default summary to 3 lines).
+      + (sum.jobsRemoved > 0 ? '<div class="kpi-row"><span class="k">Jobs ended</span><span class="v" style="color:#B42318;">' + sum.jobsRemoved + '</span></div>' : '')
       + '</div><div class="divider" style="margin:16px 0;"></div>';
     if (blocked.length) {
       side += '<div style="background:#FEF3F2;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;"><span style="font-weight:700;">'
@@ -1674,12 +1752,16 @@
       side += '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;line-height:1.5;"><b>This can’t be undone.</b> Once you run the import, deactivations and ended jobs are permanent.</div>';
     }
     side += '<button class="btn" data-act="runImport" style="width:100%;border:none;background:' + (canSubmit ? '#1257B8' : '#C6D3E1') + ';color:#fff;font-size:14px;font-weight:600;padding:11px 0;border-radius:8px;cursor:' + (canSubmit ? 'pointer' : 'not-allowed') + ';"' + (canSubmit ? '' : ' disabled') + '>Run import</button>'
-      + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it. Once it runs, it cannot be paused or undone.</div>'
-      + '<div class="divider" style="margin:14px 0;"></div>'
-      + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">'
-      + '<a href="#" data-act="linkUpload">Replace file</a>'
-      + (isMap() && !blocked.length ? '<a href="#" data-act="linkMap">Edit column mapping</a>' : '')
-      + '<a href="#" data-act="linkSettings">Change import settings</a></div></div>';
+      // "Replace file" -> "Cancel import" (2026-09-24): an unconfirmed upload is a
+      // cancelled attempt; the user starts a whole new upload. Also the one way out
+      // for a BLOCKED import. OPEN: does a cancelled upload appear in the upload log?
+      + '<button class="btn btn--ghost" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
+      + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it.</div>'
+      + (blocked.length ? '' : '<div class="divider" style="margin:14px 0;"></div>'
+        + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">'
+        + (isMap() ? '<a href="#" data-act="linkMap">Edit column mapping</a>' : '')
+        + '<a href="#" data-act="linkSettings">Change import settings</a></div>')
+      + '</div>';
 
     return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
       + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">' + alertsHtml + '</div>'
@@ -1779,6 +1861,7 @@
     if (state.step === 'attn') return attnAlertMode();
     var body;
     switch (state.step) {
+      case 'intro':    return '<section data-screen-label="Intro">' + introHTML() + '</section>';
       case 'upload':   body = uploadHTML(); break;
       case 'map':      body = mapHTML(); break;
       case 'settings': body = settingsHTML(); break;
@@ -2057,6 +2140,8 @@
     var _screen = [state.view, state.importFull, state.step, state.fileModal, state.addEmp].join('|');
     $app.classList.toggle('no-anim', _screen === render._lastScreen);
     render._lastScreen = _screen;
+    var _overlayWasOpen = !!render._fullOpen;
+    render._fullOpen = state.view === 'import' && state.importFull;
 
     var main, overlay = '';
     if (state.view === 'import' && state.importFull) {
@@ -2088,6 +2173,7 @@
       + (state.addEmp ? addEmployeeModal(false) : '');
 
     // Restore the captured scroll positions onto the freshly-built containers.
+    var _ov = $app.querySelector('.import-full'); if (_ov && _overlayWasOpen) _ov.classList.add('is-static');
     var _m2 = $app.querySelector('.scroll'); if (_m2) _m2.scrollTop = _mTop;
     var _f2 = $app.querySelector('.import-full-body'); if (_f2) _f2.scrollTop = _fTop;
   }
@@ -2130,7 +2216,7 @@
       /* ver1 Bulk Upload — land on the full-screen "Upload file" step (Manual-import
          banner + stepper + template card + drop zone). The drop zone / "browse"
          then opens the file picker to actually choose a file (see pickFile). */
-      case 'goBulk': e.preventDefault(); setState({ tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'upload' }); scrollTop(); break;
+      case 'goBulk': e.preventDefault(); setState({ tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'intro' }); scrollTop(); break;
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':
@@ -2144,6 +2230,9 @@
       case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
       case 'togglePurgeAll': { var pv = !(state.purgeUsers && state.purgeJobs); setState({ purgeUsers: pv, purgeJobs: pv }); break; }  // one all-or-nothing switch
       case 'toggleSummary': setState({ summaryOpen: !state.summaryOpen }); break;  // collapsed "With this off/on" summary
+      case 'startUpload': setState({ step: 'upload' }); scrollTop(); break;
+      case 'backIntro': setState({ step: 'intro' }); scrollTop(); break;
+      case 'cancelImport': e.preventDefault(); setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false, validating: false, cancelled: true }); scrollTop(); break;
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
       case 'fixMapping': go('map'); scrollTop(); break;
       case 'replaceFile': setState({ fileId: null, step: 'upload' }); scrollTop(); break;
@@ -2229,6 +2318,7 @@
   function applyFlowState(id) {
     switch (id) {
       case 'employees': setState({ view: 'employees', addEmp: false, importFull: false }); break;
+      case 'intro': setState({ tab: 'import', view: 'import', importFull: true, step: 'intro', fileId: null, validating: false }); break;
       case 'upload': setState({ tab: 'import', view: 'import', importFull: true, step: 'upload', fileId: null, validating: false }); break;
       case 'map': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'saml', mapping: defaultMapping('saml'), purgeUsers: false, purgeJobs: false, acks: {}, step: 'map', validating: false }); break;
       case 'settings': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'confirm', mapping: defaultMapping('confirm'), purgeUsers: false, purgeJobs: false, repSent: false, acks: {}, step: 'settings', validating: false }); break;
@@ -2275,12 +2365,14 @@
            Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
         { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — split buttons', state: 'employees',
           desc: 'Bulk import now lives under the Employees tab. ver1 entry point = split buttons: a secondary “Add Single Employee” (opens the Add employee modal) beside a primary “Bulk Upload”. Clicking Bulk Upload takes the import FULL-SCREEN and lands on the Upload-file step (Manual-import banner + stepper + “Start from the SafeLMS template” card + drop zone). From there the drop zone / “browse” opens the file picker; picking a file continues to Map columns / Import settings. Automated sync is already set up for the site.' },
+        { id: 'intro', flow: 'import', x: 40, y: 430, step: 'Intro', name: 'Before you start', state: 'intro',
+          desc: 'Shown when Bulk Upload is clicked, before the Upload step: a 4-step overview, the downloadable SafeLMS template, and a link to the Help Center article (URL TBD). “Get started” continues to Upload.' },
         { id: 'upload', flow: 'import', x: 250, y: 250, step: 'Step 1', name: 'Upload file', state: 'upload',
-          desc: 'Drag a file or pick a sample. Nothing imports until reviewed. The Template variant instead asks you to download the SafeLMS template first.' },
+          desc: 'Reached from the Intro page. Drag a file or pick a sample; quick links to the template + Help Center. After Cancel import, lands here with an “Import cancelled” note. Nothing imports until reviewed.' },
         { id: 'map', flow: 'import', x: 500, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
           desc: 'Match your file columns to SafeLMS fields (skipped in the Template variant).' },
         { id: 'settings', flow: 'import', x: 500, y: 410, step: 'Step 3', name: 'Import settings', state: 'settings',
-          desc: 'Two off-by-default choices — Deactivate users / Remove positions & locations — with a live example of how a user’s record changes. Both are re-confirmed on review; a “send to your Vector rep” escape is offered.' },
+          desc: 'One off-by-default switch — “Make this file the complete roster” — with before → after totals (active users, active jobs) and a collapsed “With this off/on” summary. Details are confirmed on Review; a “send to your Vector rep” escape is offered.' },
 
         { id: 'review-info', flow: 'import', x: 700, y: 60, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
@@ -2312,7 +2404,7 @@
           desc: 'Sync stopped on a pre-existing on-site email collision. Resolves only via Vector; the sync resumes after the merge.' }
       ],
       edges: [
-        ['employees', 'upload'],
+        ['employees', 'intro'], ['intro', 'upload'],
         ['upload', 'map'], ['upload', 'settings'], ['map', 'settings'],
         ['settings', 'review-info'], ['settings', 'review-confirm'], ['settings', 'review-blocked'],
         ['settings', 'review-saml'], ['settings', 'review-escalate'],
