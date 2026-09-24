@@ -36,6 +36,10 @@
           if (mode === 'vector-light') {
             document.documentElement.classList.add('ll-vector-light');
           }
+          // Ask CLARA is off unless the Demo menu has switched it on.
+          if (sessionStorage.getItem('sh-ask') !== 'on') {
+            document.documentElement.classList.add('sh-ask-off');
+          }
         } catch (e) {}
       })();
     </script>
@@ -1142,6 +1146,63 @@
       .sh-battery .bl-deck > .lk,
       .sh-battery .bl-deck > .cs-opts { margin-top: 0; }
 
+      /* ==== Your updated path (2026-09-24) ================================
+         A progress bar under CLARA's crowned orb, then one short verdict.
+         No list of what moved — see ADJUST_CONTENT in js/layered-sharps.js.
+         The confetti canvas (celebrate treatment only) sits UNDER the text. */
+      /* Centred on the stage, not anchored under the crown: the orb and the
+         verdict read as one group in the middle of the page. The crown slot
+         (which the orb tracks) moves down to sit --pu-orb above the content,
+         and .pu reserves a fixed height so the group stays put as the loader
+         gives way to the result. */
+      .ll-stage:has(.pu) { --pu-orb: 76px; --pu-h: 170px; }
+      .ll-stage:has(.pu) .ll-object { padding-top: 0; padding-bottom: 0; justify-content: center; }
+      .ll-stage:has(.pu) .clara-chrome--crown { top: calc(50% - (var(--pu-orb) + var(--pu-h)) / 2); }
+      .pu { position: relative; z-index: 1; width: min(520px, 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        min-height: var(--pu-h); margin-top: var(--pu-orb); }
+      .pu-load { display: flex; flex-direction: column; align-items: center; max-height: 120px; overflow: hidden;
+        transition: max-height .6s var(--ll-ease), opacity .35s ease; }
+      .pu-load.is-done { max-height: 0; opacity: 0; }
+      .pu-status { margin: 0 0 20px; font-size: 15px; color: var(--ll-ink-soft); }
+      .pu-track { position: relative; width: min(320px, 70vw); height: 6px; border-radius: 999px; overflow: hidden; background: rgba(var(--ll-surface-rgb), .08); }
+      .pu-fill { position: absolute; inset: 0 auto 0 0; width: 0; border-radius: inherit;
+        background: linear-gradient(135deg, var(--ll-teal) 0%, rgba(var(--ll-teal-rgb), .7) 100%); }
+      .pu-pct { margin: 10px 0 0; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ll-ink-faint); }
+      .pu-result { opacity: 0; transform: translateY(8px); transition: opacity .5s var(--ll-ease), transform .5s var(--ll-ease); }
+      .pu-result.in { opacity: 1; transform: none; }
+      .pu-eyebrow { margin-bottom: 12px; }
+      .ll-object .pu-head { margin: 0 0 10px; font-size: clamp(26px, 3.4vw, 36px); font-weight: 800; line-height: 1.18; letter-spacing: -.01em; color: var(--ll-ink-strong); }
+      .pu-sub { margin: 0 auto; max-width: 40ch; font-size: 15px; line-height: 1.55; color: var(--ll-ink-soft); }
+      .pu-chip { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 6px 14px; border-radius: 999px;
+        background: rgba(241, 179, 74, .14); border: 1px solid rgba(241, 179, 74, .32); color: #f1b34a;
+        font-size: 12px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+      .pu-chip i { font-size: 11px; }
+      .pu-confetti { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+      /* One flash behind the headline, timed with the confetti, so the
+         reward has an instant to land on. */
+      .pu-flash { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; opacity: 0;
+        transform: translate(-50%, -50%) scale(0);
+        background: radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(var(--ll-teal-rgb), .55) 35%, transparent 72%); }
+      .pu-flash.pop { animation: pu-flash .65s ease-out forwards; }
+      @keyframes pu-flash {
+        0%   { transform: translate(-50%, -50%) scale(0);  opacity: .95; }
+        55%  { transform: translate(-50%, -50%) scale(46); opacity: .4; }
+        100% { transform: translate(-50%, -50%) scale(70); opacity: 0; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .pu-load, .pu-result { transition: opacity .2s linear; transform: none; }
+      }
+
+      /* ==== Ask CLARA off (Demo menu, 2026-09-24) ==========================
+         Off by default: stakeholders see the module without the bottom-right
+         launcher, and the presenter switches it on to ask "does this add
+         value?". Only the tucked launcher goes — when a screen raises CLARA
+         with something to say (the bubble is open), they still show. The
+         class is set before first paint in <head>; the toggle lives in
+         js/layered-sharps.js (shAskBtn). */
+      html.sh-ask-off .ll-stage[data-float="closed"] .clara-chrome--floating,
+      html.sh-ask-off body:has(.ll-stage[data-mode="floating"][data-float="closed"]) .clara-orb[data-launcher] { display: none !important; }
+
       /* Over the video: the question card and its feedback. */
       .dk-check .cs-q--lead { margin-bottom: 16px; }
       .dk-hint { margin: -6px 0 16px; font-size: 13.5px; color: var(--ll-ink-faint); }
@@ -1153,6 +1214,12 @@
       }
       .dk-fb.is-ok  { border-color: rgba(var(--ll-teal-rgb), .45); background: rgba(var(--ll-teal-rgb), .08); }
       .dk-fb.is-bad { border-color: rgba(255, 107, 107, .4); background: rgba(255, 107, 107, .07); }
+      /* The verdict in words, on its own line above the deck's feedback. */
+      .dk-fb-h { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; }
+      .dk-fb.is-ok  .dk-fb-h { color: var(--ll-teal); }
+      .dk-fb.is-bad .dk-fb-h { color: #ff8a8a; }
+      html.ll-vector-light .dk-fb.is-bad .dk-fb-h { color: var(--sh-decline); }
+      .dk-fb-b { display: block; margin-top: 6px; }
       .dk-check { display: flex; flex-direction: column; }
       .dk-check[hidden] { display: none; }
 
@@ -2043,6 +2110,6 @@
     <script src="../../scenario-simulator/js/sim-core.js?v=12"></script>
     <script src="../../scenario-simulator/js/sim-voice-input.js?v=1"></script>
     <script src="../js/sharps-narration.js?v=1"></script>
-    <script src="../js/layered-sharps.js?v=238"></script>
+    <script src="../js/layered-sharps.js?v=243"></script>
 </body>
 </html>

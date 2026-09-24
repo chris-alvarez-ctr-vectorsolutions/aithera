@@ -827,7 +827,6 @@
               'containing sharps, using protective equipment correctly, and acting on an exposure.</p>' +
             '<div class="cp-chips">' +
               '<span class="cp-chip due"><i class="fa-solid fa-calendar-day"></i> Required · due Oct 3</span>' +
-              '<span class="cp-chip"><i class="fa-solid fa-wand-magic-sparkles"></i> AI-guided · CLARA</span>' +
               '<span class="cp-chip"><i class="fa-solid fa-briefcase"></i> ' + esc(L.label) + '</span>' +
             '</div>' +
           '</div>' +
@@ -1836,20 +1835,33 @@
           document.getElementById('dkSubmit').classList.add('is-spent');
           if (q.kind === 'mcq') {
             var ok = v === q.correct;
+            // 2026-09-24 live review: say the verdict in words, both ways.
+            // A first miss does NOT reveal the right answer: the learner
+            // goes into the remedial content next and meets this question
+            // again, so the feedback only says what happens next. A second
+            // miss (the re-ask on the remedial screen) is the last time
+            // they see it, so that one still names the right answer.
+            // The incorrect line is Rob's wording, standing in until
+            // Jessica's authored feedback lands in the deck (q.noFb).
+            var last = !!d.recheck;
             csMark(picked, ok ? 'ok' : 'bad');
-            if (!ok) {
-              // A miss names both rows, so the right answer can't be mistaken
+            if (!ok) csTag(picked, 'Your answer');
+            if (!ok && last) {
+              // Names both rows, so the right answer can't be mistaken
               // for a second pick (colour + mark + words).
               var right = host.querySelectorAll('.cs-opt')[q.correct];
               csMark(right, 'ok');
-              csTag(picked, 'Your answer');
               csTag(right, 'Correct answer');
             }
-            if (ok) {
-              fb.textContent = q.okFb;
-              fb.className = 'dk-fb is-ok';
-              fb.hidden = false;
-            }
+            var body = ok ? q.okFb
+              : last ? ''
+              : (q.noFb || 'Let\u2019s dig into this again from a slightly different lens.');
+            fb.innerHTML = '<strong class="dk-fb-h"><i class="fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle-xmark') +
+                '" aria-hidden="true"></i> ' + (ok ? 'Correct' : 'Not quite') + '</strong>' +
+              (body ? '<span class="dk-fb-b">' + esc(body) + '</span>' : '');
+            fb.className = 'dk-fb ' + (ok ? 'is-ok' : 'is-bad');
+            fb.hidden = false;
+            clearFooter(fb);
             saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: showing });
           } else if (q.kind === 'insight') {
             csMark(picked, 'neutral');
@@ -2311,48 +2323,62 @@
   }
 
   // ==========================================================================
-  //  WHAT CHANGES — the same adjustment screen as the Bystander module, but
-  //  reporting two kinds of move rather than one: a beat removed AND a beat
-  //  made HARDER. Compression is not the only thing a policy can do.
+  //  YOUR UPDATED PATH — 2026-09-24 live review: the row list is gone.
+  //  Learners saw "Skipped" / "Adapted" beside section names and had no idea
+  //  what adapted meant or why it happened (Chuck), and Rob agreed. The
+  //  learner doesn't need to know what moved, only that something did. Two
+  //  treatments, from experiments/sharps-riffs 03 and 02, picked from the
+  //  Demo menu ("Path update style"):
   //
-  //  It reported a third — a beat ADDED on a low Feel score — and that row
-  //  came off, because nothing was behind it: the beat it named runs for every
-  //  learner on every path. Only the Know items move anything, so this screen
-  //  now appears only when the procedure was proven.
+  //   calibrate (default) — "Calibrating your path…" over a progress bar,
+  //                          then "You're all set." Says nothing about what moved.
+  //   celebrate           — the same bar, then a playful reward: a flash,
+  //                          one short confetti burst, a "Nice work" chip.
+  //
+  //  Celebrate only fires on a PROVEN knowledge answer (a harder case). When
+  //  the only move is a longer case 3 / debrief (low agreement), the path got
+  //  longer, and confetti for "here's more" would be wrong, so it falls back
+  //  to calibrate. It carries no "time saved" figure: in this module a correct
+  //  answer swaps a case for a harder one of about the same length and skips
+  //  nothing, so there is no saved time to report.
+  //
+  //  The screen still only appears when something actually moved (adjustMoved).
   // ==========================================================================
-  //  The screen runs in two phases. FIRST the orb alone, large and low on the
-  //  stage, with one line under it — there is nothing to read yet, so there is
-  //  nothing else on screen. THEN it drops into its crown slot and the stack
-  //  arrives beneath it. Entering the page should present one thing, not five.
   var ADJUST_CONTENT =
     '<main class="ll-object ll-object--crowned" id="adjustObject">' +
-      '<div class="adj">' +
-        '<p class="adj-reading" id="adjReading">Reading your answers…</p>' +
-        '<div class="adj-body" id="adjBody">' +
-          '<p class="ll-eyebrow adj-verdict" id="adjEyebrow">Path updated</p>' +
-          '<h2 class="adj-head adj-verdict" id="adjHead"></h2>' +
-          '<ol class="adj-stack" id="adjStack" aria-live="polite"></ol>' +
-          '<p class="adj-saved" id="adjSaved">&nbsp;</p>' +
+      '<canvas class="pu-confetti" id="puConfetti" aria-hidden="true"></canvas>' +
+      '<div class="pu">' +
+        '<div class="pu-load" id="puLoad">' +
+          '<p class="pu-status">Calibrating your path…</p>' +
+          '<div class="pu-track" role="progressbar" aria-label="Calibrating your path" ' +
+            'aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="puTrack">' +
+            '<div class="pu-fill" id="puFill"></div></div>' +
+          '<p class="pu-pct" id="puPct" aria-hidden="true">0%</p>' +
         '</div>' +
+        '<div class="pu-flash" id="puFlash" aria-hidden="true"></div>' +
+        '<div class="pu-result" id="puResult" role="status"></div>' +
       '</div>' +
     '</main>';
-  var ADJUST_CHIPS = {
-    dropped: '<span class="adj-chip adj-chip--drop"><i class="fa-solid fa-forward"></i> Skipped</span>',
-    harder:  '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-arrow-trend-up"></i> Adapted</span>',
-    expanded: '<span class="adj-chip adj-chip--harder"><i class="fa-solid fa-layer-group"></i> Expanded</span>'
+  // One lookup per treatment: what lands once the bar fills.
+  var PU_RESULT = {
+    calibrate:
+      '<p class="ll-eyebrow pu-eyebrow">Path ready</p>' +
+      '<h2 class="pu-head">You’re all set.</h2>' +
+      '<p class="pu-sub">This module has adapted to your answers.</p>',
+    celebrate:
+      '<p class="pu-chip"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Nice work</p>' +
+      '<h2 class="pu-head">You already know the basics.</h2>' +
+      '<p class="pu-sub">We’ll go straight to the harder cases.</p>'
   };
-  // The row set for THIS result. Extracted so the step's `when` can ask the
-  // same question the screen answers: did the four answers move anything?
-  //
-  // Each note now carries the REASON only. The chip beside it already carries
-  // the verdict, so the old notes printed "kept" and "harder" a second time
-  // in prose — the loudest of the duplications that made this read as noise.
-  // Every entry names a STEP, so the label and mark on this screen are the
-  // same ones the learner already read in the sections list. `state` is the
-  // only thing this table owns.
+  function pathUpdateStyle() {
+    try { return sessionStorage.getItem('sh-path-style') === 'celebrate' ? 'celebrate' : 'calibrate'; }
+    catch (e) { return 'calibrate'; }
+  }
   // One row per routing decision the pre-check made (deck slides 2–4): a
   // correct knowledge answer swaps that case for its harder version, and a
-  // low agreement swaps case 3 / the debrief for its longer version.
+  // low agreement swaps case 3 / the debrief for its longer version. Nothing
+  // on screen lists these any more; they decide whether the screen runs at
+  // all, and whether the celebrate treatment has earned its confetti.
   var ADJUST_ROWS = [
     { id: 'c1up',      state: function () { return k1TestUp() ? 'harder' : 'kept'; } },
     { id: 'c2up',      state: function () { return k2TestUp() ? 'harder' : 'kept'; } },
@@ -2360,10 +2386,7 @@
     { id: 'debriefrf', state: function () { return feelLow('f3') ? 'expanded' : 'kept'; } }
   ];
   function adjustRows() {
-    return ADJUST_ROWS.map(function (r) {
-      var st = LE.stepById(r.id) || {};
-      return { icon: st.icon || 'fa-circle', label: st.lesson || r.id, state: r.state() };
-    }).filter(function (r) { return r.label; });
+    return ADJUST_ROWS.map(function (r) { return { id: r.id, state: r.state() }; });
   }
 
   // Did anything actually move? When the answer is no, this screen has no news
@@ -2376,72 +2399,95 @@
   }
 
   function adjustInit(ctx) {
-    var stack = document.getElementById('adjStack');
-    // Only the rows that actually moved are worth a learner's attention on
-    // this screen — a "Kept" chip is just a section named as unchanged, and
-    // a list that's mostly unchanged sections reads as noise around the two
-    // things that matter: what got skipped and what got harder.
-    var rows = adjustRows().filter(function (r) { return r.state !== 'kept'; });
-    var stageEl = ctx.stage;
+    var proven = adjustRows().some(function (r) { return r.state === 'harder'; });
+    var style = (pathUpdateStyle() === 'celebrate' && proven) ? 'celebrate' : 'calibrate';
+    var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var load = document.getElementById('puLoad');
+    var track = document.getElementById('puTrack');
+    var fill = document.getElementById('puFill');
+    var pct = document.getElementById('puPct');
+    var result = document.getElementById('puResult');
+    var DUR = T(1900);
 
     ctx.floatClose();
+    ctx.setCoachSay('');
 
-    // ---- Phase 1 -----------------------------------------------------------
-    // The orb is sized by the slot it tracks, so growing that slot and
-    // re-positioning IS the animation — no second orb, no engine change, and
-    // the Bystander screen (same stylesheet) is untouched because every rule
-    // hangs off this stage class.
-    stageEl.classList.add('is-adj-reading');
-    ctx.positionOrb(false);
+    // The bar and the number move together; ease-out so it settles rather
+    // than ticking linearly toward 100.
+    var t0 = null;
+    function tick(ts) {
+      if (!fill.isConnected) return;            // learner already moved on
+      if (t0 === null) t0 = ts;
+      var t = Math.min(1, (ts - t0) / DUR), v = Math.round((1 - Math.pow(1 - t, 3)) * 100);
+      fill.style.width = v + '%';
+      pct.textContent = v + '%';
+      track.setAttribute('aria-valuenow', v);
+      if (t < 1) requestAnimationFrame(tick); else setTimeout(reveal, T(180));
+    }
+    requestAnimationFrame(tick);
 
-    // Written now, revealed later. Filling the headline while it is invisible
-    // means its box is already the right height when the verdict lands, so the
-    // stack underneath never shifts.
-    document.getElementById('adjHead').textContent = 'Here\u2019s what\u2019s next.';
-    document.getElementById('adjSaved').textContent =
-      'Adapted for you based on your previous answers.';
+    function reveal() {
+      if (!result.isConnected) return;
+      load.classList.add('is-done');
+      result.innerHTML = PU_RESULT[style];
+      result.classList.add('in');
+      if (style === 'celebrate' && !still) {
+        document.getElementById('puFlash').classList.add('pop');
+        puConfetti(document.getElementById('puConfetti'));
+      }
+      LE.refreshNav();
+      ctx.enableNext();
+    }
+  }
 
-    // A row is a label and a verdict. The per-row reasons are gone: four of
-    // them repeated in small grey text is most of what made this page feel
-    // like a wall, and the chip already carries the only word that matters.
-    stack.innerHTML = rows.map(function (r) {
-      return '<li class="adj-row" data-state="pending">' +
-               '<span class="adj-ico"><i class="fa-solid ' + r.icon + '" aria-hidden="true"></i></span>' +
-               '<span class="adj-main"><span class="adj-label">' + esc(r.label) + '</span></span>' +
-               '<span class="adj-state"><span class="adj-spin" aria-hidden="true"></span></span>' +
-             '</li>';
-    }).join('');
-    var els = [].slice.call(stack.children);
-
-    // ---- Phase 2: the orb drops in, the stack resolves one row at a time ----
-    setTimeout(function () {
-      stageEl.classList.remove('is-adj-reading');
-      ctx.positionOrb(true);
-      rows.forEach(function (r, i) {
-        setTimeout(function () {
-          // Guarded: this chain runs for ~2.5s and nothing cancels it on
-          // teardown, so a learner who advances before it finishes was
-          // dereferencing a DOM that had already been replaced.
-          var li = els[i];
-          if (!li || !li.isConnected) return;
-          li.dataset.state = r.state;
-          var st = li.querySelector('.adj-state');
-          if (st) st.innerHTML = ADJUST_CHIPS[r.state];
-        }, T(460 + i * 420));
+  // One short burst from the two bottom corners, no library. Ported from
+  // experiments/sharps-riffs/02-path-update-celebratory.html, where the
+  // count and spread were already tuned down from "blizzard" to "two modest
+  // fountains that stay mostly on their own side". The canvas sits under the
+  // text, so particles frame the reward rather than covering it.
+  function puConfetti(canvas) {
+    if (!canvas || !canvas.getContext) return;
+    var c = canvas.getContext('2d'), dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    var COLORS = ['#2ee6cf', '#5aa9f6', '#f1b34a', '#c4b5fd', '#ff8fa8', '#ffffff'];
+    var DURATION = 2500, per = Math.max(30, Math.min(60, Math.round(w / 22)));
+    function burst(x0, dir) {
+      var out = [];
+      for (var i = 0; i < per; i++) {
+        var speed = 13 + Math.random() * 13;
+        var rad = (90 - (14 + Math.random() * 34)) * Math.PI / 180;
+        var streamer = Math.random() < 0.25;
+        out.push({ x: x0, y: h, vx: dir * Math.cos(rad) * speed, vy: -Math.sin(rad) * speed,
+                   size: streamer ? 9 + Math.random() * 8 : 4 + Math.random() * 5, streamer: streamer,
+                   rot: Math.random() * Math.PI * 2, vr: (Math.random() - 0.5) * 0.4,
+                   color: COLORS[(Math.random() * COLORS.length) | 0],
+                   rect: streamer || Math.random() < 0.55 });
+      }
+      return out;
+    }
+    var ps = burst(w * 0.06, 1).concat(burst(w * 0.94, -1)), start = null;
+    function frame(ts) {
+      if (!canvas.isConnected) return;
+      if (start === null) start = ts;
+      var el = ts - start, a = el > DURATION - 800 ? Math.max(0, (DURATION - el) / 800) : 1;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, canvas.width, canvas.height);
+      c.scale(dpr, dpr);
+      ps.forEach(function (p) {
+        p.x += p.vx; p.y += p.vy; p.vy += 0.4; p.vx *= 0.985; p.rot += p.vr;
+        c.save(); c.translate(p.x, p.y); c.rotate(p.rot);
+        c.globalAlpha = a; c.fillStyle = p.color;
+        if (p.rect) {
+          var len = p.streamer ? p.size * 2 : p.size;
+          c.fillRect(-len / 2, -p.size * 0.28, len, p.size * 0.42);
+        } else { c.beginPath(); c.arc(0, 0, p.size / 2, 0, Math.PI * 2); c.fill(); }
+        c.restore();
       });
-
-      // ---- Phase 3: the verdict ------------------------------------------
-      setTimeout(function () {
-        var eb = document.getElementById('adjEyebrow');
-        if (!eb) return;              // screen already gone; nothing to reveal
-        eb.classList.add('in');
-        document.getElementById('adjHead').classList.add('in');
-        document.getElementById('adjSaved').classList.add('in');
-        ctx.setCoachSay('');
-        LE.refreshNav();
-        ctx.enableNext();
-      }, T(460 + rows.length * 420 + 260));
-    }, T(1500));
+      if (el < DURATION) requestAnimationFrame(frame);
+      else { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, canvas.width, canvas.height); }
+    }
+    requestAnimationFrame(frame);
   }
 
   // ==========================================================================
@@ -6045,6 +6091,23 @@
         adjustReplay(api);
       }
     }, {
+      // 2026-09-24 live review: the old list of adaptations is gone. Two
+      // treatments for the moment the path updates, side by side for
+      // comparison — see ADJUST_CONTENT. Celebrate only shows on a proven
+      // knowledge answer; otherwise it falls back to calibrate.
+      id: 'shPathStyleBtn', icon: 'fa-wand-magic-sparkles', name: 'Path update style',
+      note: 'Simple progress bar, or a playful reward. The reward only shows when a knowledge question was answered correctly',
+      visibleOn: function (step) { return step.id === 'adjust'; },
+      type: 'select', value: pathUpdateStyle,
+      options: [
+        { value: 'calibrate', label: 'Calibrating (simple)' },
+        { value: 'celebrate', label: 'Nice work (playful)' }
+      ],
+      onChange: function (v, api) {
+        try { sessionStorage.setItem('sh-path-style', v); } catch (e) {}
+        api.replay();
+      }
+    }, {
       id: 'shFeelBtn', icon: 'fa-heart', name: 'Low agreement',
       note: 'Force both pre-check agreement statements low (the longer case 3 and debrief) or high (the standard ones)',
       visibleOn: function (step) { return step.id === 'adjust' || step.id === 'battery'; },
@@ -6093,6 +6156,18 @@
         if (next === null) return;
         try { sessionStorage.setItem('sh-name', next.trim().slice(0, 40)); } catch (e) {}
         api.replay();
+      }
+    }, {
+      // 2026-09-24 live review (Rob): show the standard experience without
+      // Ask CLARA, then switch it on to ask whether it adds value. Off by
+      // default. A pure CSS swap like Design style (html.sh-ask-off, set
+      // before paint in clara/sharps.html's <head>), so nothing re-renders.
+      id: 'shAskBtn', icon: 'fa-comment-dots', name: 'Ask CLARA',
+      note: 'Show the bottom-right Ask CLARA launcher. Off by default, so the standard module runs without it',
+      type: 'toggle', on: function () { return !document.documentElement.classList.contains('sh-ask-off'); },
+      onClick: function () {
+        var on = !document.documentElement.classList.toggle('sh-ask-off');
+        try { sessionStorage.setItem('sh-ask', on ? 'on' : 'off'); } catch (e) {}
       }
     }, {
       // A pure CSS swap (see html.ll-vector-style/html.ll-vector-light in
