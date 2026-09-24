@@ -824,6 +824,7 @@
     purgeUsers: false,   // deactivate users not in the file
     purgeJobs: false,    // remove positions/locations not in the file
     repSent: false,      // "sent to your Vector rep" acknowledgement
+    summaryOpen: false,  // Import settings: "With this off/on" summary collapsed by default
     fileModal: false,    // sample-file picker modal (prototype stand-in for the OS file chooser)
     validating: false,
     acks: {},
@@ -1479,11 +1480,16 @@
       + '<div class="opt-main"><div class="opt-title">Make this file the complete roster</div>'
       + '<div class="opt-sub">Turn this on only when your file lists <b>everyone</b> on your site.</div></div></div>';
 
-    var summary = '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:9px;padding:12px 14px;font-size:12.5px;color:#3D4F63;line-height:1.7;margin-top:12px;">'
-      + '<div style="font-weight:600;color:#1B2B3E;margin-bottom:3px;">' + (on ? 'With this on' : 'With this off') + '</div>'
-      + (on
+    // Collapsed by default: a disclosure header ("With this off/on" + chevron) that
+    // expands to the bullet summary. Open/closed survives the toggle re-render.
+    var sOpen = !!state.summaryOpen;
+    var summary = '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:9px;font-size:12.5px;color:#3D4F63;line-height:1.7;margin-top:12px;">'
+      + '<button type="button" data-act="toggleSummary" aria-expanded="' + sOpen + '" style="all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:12px 14px;font-weight:600;color:#1B2B3E;border-radius:9px;">'
+      + '<span>' + (on ? 'With this on' : 'With this off') + '</span>'
+      + '<i class="fa-solid fa-chevron-down" aria-hidden="true" style="font-size:11px;color:#5B6B7E;transition:transform .15s;' + (sOpen ? 'transform:rotate(180deg);' : '') + '"></i></button>'
+      + (!sOpen ? '' : '<div style="padding:0 14px 12px;">' + (on
           ? '• People missing from your file are <b>deactivated</b> — their training history is kept, and they come back automatically if they’re in a later file.<br>• Jobs a person no longer holds are <b>ended</b>. The positions and locations themselves stay.<br>• New people and jobs from the file are added.'
-          : '• Users missing from your file <b>stay active</b>.<br>• New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.')
+          : '• Users missing from your file <b>stay active</b>.<br>• New positions &amp; locations are <b>added</b>; existing ones are <b>kept</b>.') + '</div>')
       + '</div>';
 
     // Condensed single column: the itemized "What would change on your site" preview
@@ -2127,6 +2133,7 @@
       case 'back': go(flow()[Math.max(0, flow().indexOf(state.step) - 1)]); scrollTop(); break;
       case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
       case 'togglePurgeAll': { var pv = !(state.purgeUsers && state.purgeJobs); setState({ purgeUsers: pv, purgeJobs: pv }); break; }  // one all-or-nothing switch
+      case 'toggleSummary': setState({ summaryOpen: !state.summaryOpen }); break;  // collapsed "With this off/on" summary
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
       case 'fixMapping': go('map'); scrollTop(); break;
       case 'replaceFile': setState({ fileId: null, step: 'upload' }); scrollTop(); break;
