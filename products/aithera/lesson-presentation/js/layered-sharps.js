@@ -1343,6 +1343,520 @@
     return d;
   }
 
+  // ---- The podcast scripts (Read + Listen) ---------------------------------
+  // Jessica's podcast cut of the same screens (Contain_the_Sharp_<sector>_
+  // Podcast.pdf, v0.1, 21 Sep 2026): the deck's narration re-voiced as a
+  // two-host conversation (Dana, Ray), and case 3 as a first-person interview
+  // with Jacob. One chapter per screen, one-to-one with the deck — CH-M4-01A
+  // is c1base, 01R c1rem, 01B c1up, 02A/R/B the case 2 trio, 03 controls,
+  // 04A/B case 3, 05A/B the debrief. Verbatim; don't edit here, re-extract.
+  //
+  // Read shows these as a transcript and Listen plays them (tools/sharps-
+  // narration voices them, one placeholder voice per speaker). The deck
+  // narration above stays as the Watch script. Questions stay in the flow, over the
+  // screen, as for every carrier — the doc's "every check at the end" listen
+  // is parked until testers say they want it (2026-09-23 review).
+  //
+  // Each line is [speaker, text]; ['PAUSE'] is the script's own "(pause)".
+  // The ident ("This is Contain the Sharp…") is left out: it heads a
+  // continuous listen, and here each chapter plays on its own screen.
+  // Education and AEC fall back to Manufacturing, like the deck screens.
+  var PODCAST = {
+    manufacturing: {
+      c1base: [
+        ['DANA', 'The blade at the bench. Ray, set it up for me.'],
+        ['RAY', 'You’re at your bench. You’ve just changed out a used box-cutter blade.'],
+        ['DANA', 'Routine.'],
+        ['RAY', 'Completely routine. The designated sharps container is down at the end of the line. And the used blade is still sitting at your bench.'],
+        ['DANA', 'Let me ask the obvious one. When I hear “sharps,” I think needles. This is a box cutter.'],
+        ['RAY', 'Good question, because the definition is wider than people expect. Like a needle or any other sharp object, that blade is a sharp — because it can puncture or cut the skin, it’s a hazard.'],
+        ['DANA', 'Even if there’s nothing visible on it?'],
+        ['RAY', 'Whether or not it’s visibly contaminated. An exposed blade left on a surface is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.'],
+        ['DANA', 'So what is the procedure? Say it plainly.'],
+        ['RAY', 'Four things. Plan how you’re going to dispose of it. Use a safer alternative when one exists. Activate any available safety feature. And once it’s been used — don’t recap it, don’t bend it, don’t break it. It goes directly into a designated sharps container.'],
+        ['DANA', 'Directly.'],
+        ['RAY', 'Directly.']
+      ],
+      c1rem: [
+        ['DANA', 'The blade at the bench. Let’s take this one slowly.'],
+        ['RAY', 'You’re cleaning up your workstation after changing a cutting blade. The used blade is still in your hand, and you’re deciding how to handle it before you move on.'],
+        ['DANA', 'My instinct is to make it safer first. Snap it. Or set it down somewhere obvious.'],
+        ['RAY', 'That instinct makes sense — both of those feel like the responsible move. What they don’t do is properly contain the sharp. That’s the distinction.'],
+        ['DANA', 'Is there a wrapping step?'],
+        ['RAY', 'Depending on your facility’s procedures, you may need to wrap the exposed edge before disposal. So check yours. The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste.'],
+        ['DANA', 'And instead.'],
+        ['RAY', 'Move it directly to a designated sharps container. That’s the safe-handling procedure.']
+      ],
+      c1up: [
+        ['DANA', 'When the container is a walk away. Ray, set it up for me.'],
+        ['RAY', 'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is several workstations away. Your line is about to restart. And a coworker is waving you back.'],
+        ['DANA', 'That’s a real situation.'],
+        ['RAY', 'That’s the situation.'],
+        ['DANA', 'And here’s my honest read — setting it down at my own station doesn’t feel careless. I can see it. It’s mine. I’ll take it down on my break.'],
+        ['RAY', 'That’s exactly how it feels. You can see exactly where it is, and you’re planning to carry it down on your next scheduled break. Nothing about that feels careless.'],
+        ['DANA', 'And yet.'],
+        ['RAY', 'The safe-handling procedure doesn’t change when work gets busy. Once a sharp is used — don’t recap it, don’t bend it, don’t break it, and don’t set it aside for later. It goes directly into a designated sharps container.'],
+        ['DANA', 'Even for a few minutes.'],
+        ['RAY', 'Leaving that blade at your workstation, even temporarily, creates a hazard for anyone who reaches for that spot before you get back.']
+      ],
+      c2base: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. Ray, this is all about what you notice when you’re following procedure.'],
+        ['RAY', 'It is. Knowing what to do is one thing. Spotting the condition is a separate skill.'],
+        ['DANA', 'Give me the scene.'],
+        ['RAY', 'You’re carrying a used sharp to a designated sharps container on the production floor. You get close, and the container is full.'],
+        ['DANA', 'Full.'],
+        ['RAY', 'Full. And on the way there, you passed a piece of contaminated glass sitting in a general-waste bin.'],
+        ['DANA', 'Those feel like two unrelated things to me. One’s a container doing its job. The other is something somebody else left.'],
+        ['RAY', 'They look nothing alike, and both are sharps hazards.'],
+        ['DANA', 'Start with the container. Why does full count?'],
+        ['RAY', 'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.'],
+        ['DANA', 'And the glass in the bin?'],
+        ['RAY', 'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk.'],
+        ['DANA', 'So the skill here is seeing it.'],
+        ['RAY', 'Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.']
+      ],
+      c2rem: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. There are two separate conditions in this one, so let’s take them one at a time.'],
+        ['RAY', 'Good idea. First one. You arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely.'],
+        ['DANA', 'So what happens if you try?'],
+        ['RAY', 'Pressing the sharps down, or trying to fit another one in, could bring your hand into contact with a used sharp.'],
+        ['DANA', 'Your hand.'],
+        ['RAY', 'Yours. So when a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.'],
+        ['DANA', 'Second condition.'],
+        ['RAY', 'A sharp can also become a hazard when it is left somewhere it doesn’t belong. On a work surface. Concealed in other material. Placed in general waste. Any of those can expose someone who doesn’t expect it to be there.'],
+        ['DANA', 'And what connects them?'],
+        ['RAY', 'Whether the hazard is a full container or a misplaced sharp, recognizing the unsafe condition is the first step in preventing a sharps injury.']
+      ],
+      c2up: [
+        ['DANA', 'Let’s talk about when hazards aren’t as obvious. Ray, take me through it.'],
+        ['RAY', 'You’re carrying a used sharp toward a designated sharps container on the production floor. As you approach, the container is nearing its marked fill line.'],
+        ['DANA', 'Nearing. Not at it.'],
+        ['RAY', 'Nearing. There appears to be room for another sharp — but the contents are already crowded near the top.'],
+        ['DANA', 'Okay.'],
+        ['RAY', 'And on the way, you notice something partially concealed in a general-waste bin. It looks like it could be a piece of contaminated glass. You can’t tell without disturbing the contents.'],
+        ['DANA', 'So now I have two maybes. And my first read is that neither one is mine to act on yet.'],
+        ['RAY', 'That’s a common read, and it’s worth slowing down on. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.'],
+        ['DANA', 'And the one in the bin, even though nobody’s confirmed what it is?'],
+        ['RAY', 'A possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.']
+      ],
+      controls: [
+        ['DANA', 'Why the container beats the gloves. Ray, I want to take the other side of this for a minute.'],
+        ['RAY', 'Please.'],
+        ['DANA', 'A facility is looking for ways to better protect employees who may come into contact with used sharps. Two options. One, provide heavier protective gloves. Two, make designated sharps containers more accessible throughout the facility.'],
+        ['RAY', 'Both on the table.'],
+        ['DANA', 'And I’d take the gloves. Gloves are on the person, everywhere they go. The container only works if somebody walks to it.'],
+        ['RAY', 'That’s a reasonable case, and both can provide protection. Where they differ is how they control the hazard.'],
+        ['DANA', 'Go on.'],
+        ['RAY', 'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.'],
+        ['DANA', 'So the glove protects the person. At least usually.'],
+        ['RAY', 'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.'],
+        ['DANA', 'One protects the person. One contains the hazard.'],
+        ['RAY', 'That’s the difference.']
+      ],
+      case3: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'I collect the bags. Sanitation.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s a guy on the line. Chris. He manages his diabetes with insulin. That afternoon he couldn’t find a sharps container nearby. He was in the middle of a task. So just that once, he tossed the used needle into the general trash.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up the bag. The needle stuck me through the bag.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never used that needle. I never even saw it.'],
+        ['DANA', 'And a needlestick carries more than the stick.'],
+        ['JACOB', 'A needlestick can expose you to bloodborne pathogens. HIV. Hepatitis B. Hepatitis C.'],
+        ['PAUSE'],
+        ['DANA', 'How do you think about it now?'],
+        ['JACOB', 'The shortcut was his. The risk became mine. One decision became someone else’s injury.']
+      ],
+      case3rf: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'I collect the bags. Sanitation.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s a guy on the line. Chris. He manages his diabetes with insulin. That afternoon he couldn’t find a sharps container nearby. He was in the middle of a task. So just that once, he tossed the used needle into the general trash.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up that bag. The needle stuck me through it.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never used that needle. I never even saw it.'],
+        ['DANA', 'What happened from there?'],
+        ['JACOB', 'It didn’t end with the stick. It meant reporting the injury. A medical evaluation. Blood tests. And weeks of waiting to learn whether I’d been exposed to HIV, hepatitis B, or hepatitis C.'],
+        ['DANA', 'Weeks.'],
+        ['JACOB', 'Weeks. And my family waited them with me. The same question sitting at our dinner table every night.'],
+        ['PAUSE'],
+        ['DANA', 'You had no part in the decision.'],
+        ['JACOB', 'No part in it. And I’m the one who was left carrying it. Me, and the people who love me. I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.'],
+        ['DANA', 'What would you want someone to take from it?'],
+        ['JACOB', 'Chris saved himself a trip to the sharps container. I inherited the risk. That’s how far one disposal choice can reach. And if it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?']
+      ],
+      debrief: [
+        ['DANA', 'The shortcut is the exception. Ray, I want to say the common assumption out loud.'],
+        ['RAY', 'Say it.'],
+        ['DANA', 'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. And making the trip to a designated container can feel unrealistic when work is moving quickly.'],
+        ['RAY', 'That’s the assumption. And that shortcut isn’t necessarily the norm.'],
+        ['DANA', 'Meaning there’s a number.'],
+        ['RAY', 'There’s a number. In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'Ninety-two point seven.'],
+        ['RAY', 'Always.'],
+        ['DANA', 'So why does it feel like the reverse?'],
+        ['RAY', 'The shortcut stands out because it’s memorable, and because of what can happen when someone takes it. Not because it’s how the work normally gets done.'],
+        ['DANA', 'So the version we tell each other is the exception.'],
+        ['RAY', 'Safe disposal is the norm, even when the container isn’t convenient.']
+      ],
+      debriefrf: [
+        ['DANA', 'Memorable isn’t the same as normal. Ray, I want to stay with this one, because it’s a belief a lot of people hold.'],
+        ['RAY', 'Start with why people believe it.'],
+        ['DANA', 'When a sharps container isn’t nearby, it can feel like taking the shortcut is simply what people do. And that expecting everyone to make the trip is unrealistic.'],
+        ['RAY', 'That’s how it feels. And what stands out isn’t always what’s most common.'],
+        ['DANA', 'Give me the number.'],
+        ['RAY', 'In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'That’s higher than I would have guessed.'],
+        ['RAY', 'The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.'],
+        ['DANA', 'So memorable isn’t the same as normal.'],
+        ['RAY', 'Safe disposal is the expected practice, even when the container isn’t convenient.']
+      ]
+    },
+    public: {
+      c1base: [
+        ['DANA', 'The needle at the counter. Ray, set it up for me.'],
+        ['RAY', 'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter.'],
+        ['DANA', 'So it’s already in your hand.'],
+        ['RAY', 'In your gloved hand. And the designated sharps container is across the intake area.'],
+        ['DANA', 'Help me with the risk. It’s one needle.'],
+        ['RAY', 'A used needle retains a small amount of blood after use. And its sharpness makes it likely to penetrate someone else’s skin and expose them to that retained blood.'],
+        ['DANA', 'Does it matter whether it looks contaminated?'],
+        ['RAY', 'It doesn’t. Whether or not it looks contaminated, a needle left on the counter or dropped into a property tray is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.'],
+        ['DANA', 'So what is the procedure? Say it plainly.'],
+        ['RAY', 'Four things. Plan how the sharp will be disposed of before you handle it. Use a needle alternative when one is available. Activate any available safety feature. And once it’s been used — don’t recap it, don’t bend it, don’t break it. It goes directly into a designated sharps container.'],
+        ['DANA', 'Directly.'],
+        ['RAY', 'Directly.']
+      ],
+      c1rem: [
+        ['DANA', 'The needle at the counter. Let’s take this one slowly.'],
+        ['RAY', 'You’ve recovered a used needle during a property search. It’s still in your gloved hand while you decide how to handle it before moving on.'],
+        ['DANA', 'My instinct is to make it safer first. Recap it. Or set it aside.'],
+        ['RAY', 'That instinct makes sense — both of those feel like the responsible move. What they don’t do is properly contain the sharp. That’s the distinction.'],
+        ['DANA', 'What if there’s no container right there?'],
+        ['RAY', 'If no designated sharps container is immediately available, don’t place the needle in general waste. And don’t improvise a wrapping out of soft material — a paper towel, a plastic bag.'],
+        ['DANA', 'So what’s left?'],
+        ['RAY', 'The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste. The safe-handling procedure is to seek a designated sharps container and move the sharp directly into it.']
+      ],
+      c1up: [
+        ['DANA', 'When the container is across the room. Ray, set it up for me.'],
+        ['RAY', 'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. The designated sharps container is at the far end of the intake area. The queue behind you is backing up. And another officer is calling you over to help with a subject in the next room.'],
+        ['DANA', 'That’s a real situation.'],
+        ['RAY', 'That’s the situation.'],
+        ['DANA', 'And here’s my honest read — setting it down on the counter doesn’t feel careless. I can see exactly where it is. I’ll deal with it as soon as I’m back.'],
+        ['RAY', 'That’s exactly how it feels. Nothing about that feels careless.'],
+        ['DANA', 'And yet.'],
+        ['RAY', 'The safe-handling procedure doesn’t change when the room gets busy. Once a sharp is used — don’t recap it, don’t bend it, don’t break it, and don’t set it aside for later. It goes directly into a designated sharps container.'],
+        ['DANA', 'Even briefly.'],
+        ['RAY', 'Leaving that needle on the counter, even briefly, creates a hazard for anyone who reaches for that spot before you return.']
+      ],
+      c2base: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. Ray, this is all about what you notice when you’re following procedure.'],
+        ['RAY', 'It is. Knowing what to do is one thing. Spotting the condition is a separate skill.'],
+        ['DANA', 'Give me the scene.'],
+        ['RAY', 'You’re carrying a used needle recovered during a property search to the designated sharps container in the station’s processing area. As you approach, you notice the container has reached its fill line.'],
+        ['DANA', 'At the line.'],
+        ['RAY', 'At the line. And on the way there, you passed a used syringe sitting in a general-waste bin.'],
+        ['DANA', 'Two very different situations.'],
+        ['RAY', 'Both present a sharps hazard, but for different reasons.'],
+        ['DANA', 'Start with the container. Why does reaching the line count?'],
+        ['RAY', 'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.'],
+        ['DANA', 'And the syringe in the bin?'],
+        ['RAY', 'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk.'],
+        ['DANA', 'So the skill here is seeing it.'],
+        ['RAY', 'Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.']
+      ],
+      c2rem: [
+        ['DANA', 'Let’s talk about a sharps container that’s at the fill line. There are two separate conditions in this one, so let’s take them one at a time.'],
+        ['RAY', 'Good idea. First one. You arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely.'],
+        ['DANA', 'So what happens if you try?'],
+        ['RAY', 'Pressing the sharps down, or trying to fit another one in, could bring your hand into contact with a used sharp.'],
+        ['DANA', 'Your hand.'],
+        ['RAY', 'Yours. So when a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.'],
+        ['DANA', 'Second condition.'],
+        ['RAY', 'A sharp can also become a hazard when it is left somewhere it doesn’t belong. On a work surface. Concealed in other material. Placed in general waste. Any of those can expose someone who doesn’t expect it to be there.'],
+        ['DANA', 'And what connects them?'],
+        ['RAY', 'Whether the hazard is a full container or a misplaced sharp, recognizing the unsafe condition is the first step in preventing a sharps injury.']
+      ],
+      c2up: [
+        ['DANA', 'Let’s talk about when hazards aren’t as obvious. Ray, take me through it.'],
+        ['RAY', 'You’re carrying a recovered sharp toward the designated sharps container in the station’s processing area. As you approach, the container is nearing its marked fill line.'],
+        ['DANA', 'Nearing. Not at it.'],
+        ['RAY', 'Nearing. There appears to be room for another sharp — but the contents are already crowded near the top.'],
+        ['DANA', 'Okay.'],
+        ['RAY', 'And on the way, you notice something partially concealed in a general-waste bin. It looks like it could be a used syringe. You can’t tell without disturbing the contents.'],
+        ['DANA', 'So now I have two maybes. And my first read is that neither one is mine to act on yet.'],
+        ['RAY', 'That’s a common read, and it’s worth slowing down on. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.'],
+        ['DANA', 'And the one in the bin, even though nobody’s confirmed what it is?'],
+        ['RAY', 'A possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.']
+      ],
+      controls: [
+        ['DANA', 'Why the container beats the gloves. Ray, I want to take the other side of this for a minute.'],
+        ['RAY', 'Please.'],
+        ['DANA', 'An agency is looking for ways to better protect officers who may come into contact with used sharps. Two options. One, issue heavier protective gloves. Two, make designated sharps containers more accessible throughout its stations and intake areas.'],
+        ['RAY', 'Both on the table.'],
+        ['DANA', 'And I’d take the gloves. Gloves are on the officer, everywhere they go. The container only works if somebody walks to it.'],
+        ['RAY', 'That’s a reasonable case, and both can provide protection. Where they differ is how they control the hazard.'],
+        ['DANA', 'Go on.'],
+        ['RAY', 'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.'],
+        ['DANA', 'So the glove protects the officer. At least usually.'],
+        ['RAY', 'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.'],
+        ['DANA', 'One protects the person. One contains the hazard.'],
+        ['RAY', 'That’s the difference.']
+      ],
+      case3: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'Custodial pickup. I collect the bags.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s an officer, Chris. He recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake. So just that once, he dropped the used needle into the general trash at the station.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up the bag. The needle stuck me through the bag.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never handled the arrest. I never even saw the needle.'],
+        ['DANA', 'And a needlestick carries more than the stick.'],
+        ['JACOB', 'A needlestick can expose you to bloodborne pathogens. HIV. Hepatitis B. Hepatitis C.'],
+        ['PAUSE'],
+        ['DANA', 'How do you think about it now?'],
+        ['JACOB', 'The shortcut was his. The risk became mine. One decision became someone else’s injury.']
+      ],
+      case3rf: [
+        ['DANA', 'This one is an interview. Jacob, thank you for doing this.'],
+        ['JACOB', 'Sure.'],
+        ['DANA', 'Tell me what you do.'],
+        ['JACOB', 'Custodial pickup. I collect the bags.'],
+        ['DANA', 'Take me to that day.'],
+        ['JACOB', 'There’s an officer, Chris. He recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake. So just that once, he dropped the used needle into the general trash at the station.'],
+        ['DANA', 'And you came through after.'],
+        ['JACOB', 'I came through after. I picked up that bag. The needle stuck me through it.'],
+        ['DANA', 'Did you see it?'],
+        ['JACOB', 'No. I never handled the arrest. I never even saw the needle.'],
+        ['DANA', 'What happened from there?'],
+        ['JACOB', 'It didn’t end with the stick. It meant reporting the injury. A medical evaluation. Blood tests. And weeks of waiting to learn whether I’d been exposed to HIV, hepatitis B, or hepatitis C.'],
+        ['DANA', 'Weeks.'],
+        ['JACOB', 'Weeks. And my family waited them with me. The same question sitting at our dinner table every night.'],
+        ['PAUSE'],
+        ['DANA', 'You had no part in the decision.'],
+        ['JACOB', 'No part in it. And I’m the one who was left carrying it, along with the people who love me. I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.'],
+        ['DANA', 'What would you want someone to take from it?'],
+        ['JACOB', 'Chris saved himself a trip to the sharps container. I inherited the risk. That’s how far one disposal choice can reach. And if it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?']
+      ],
+      debrief: [
+        ['DANA', 'The shortcut is the exception. Ray, I want to say the common assumption out loud.'],
+        ['RAY', 'Say it.'],
+        ['DANA', 'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. And making the trip to a designated container can feel unrealistic when work is moving quickly.'],
+        ['RAY', 'That’s the assumption. And that shortcut isn’t necessarily the norm.'],
+        ['DANA', 'Meaning there’s a number.'],
+        ['RAY', 'There’s a number. In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'Ninety-two point seven.'],
+        ['RAY', 'Always.'],
+        ['DANA', 'So why does it feel like the reverse?'],
+        ['RAY', 'The shortcut stands out because it’s memorable, and because of what can happen when someone takes it. Not because it’s how the work normally gets done.'],
+        ['DANA', 'So the version we tell each other is the exception.'],
+        ['RAY', 'Safe disposal is the norm, even when the container isn’t convenient.']
+      ],
+      debriefrf: [
+        ['DANA', 'Memorable isn’t the same as normal. Ray, I want to stay with this one, because it’s a belief a lot of people hold.'],
+        ['RAY', 'Start with why people believe it.'],
+        ['DANA', 'When a sharps container isn’t nearby, it can feel like taking the shortcut is simply what people do. And that expecting everyone to make the trip is unrealistic.'],
+        ['RAY', 'That’s how it feels. And what stands out isn’t always what’s most common.'],
+        ['DANA', 'Give me the number.'],
+        ['RAY', 'In a U.S. study, ninety-two point seven percent of workers surveyed reported always disposing of sharp objects in a sharps container.'],
+        ['DANA', 'That’s higher than I would have guessed.'],
+        ['RAY', 'The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.'],
+        ['DANA', 'So memorable isn’t the same as normal.'],
+        ['RAY', 'Safe disposal is the expected practice, even when the container isn’t convenient.']
+      ]
+    }
+  };
+  var PODCAST_WHO = { DANA: 'Dana', RAY: 'Ray', JACOB: 'Jacob' };
+  function podcastFor(id) {
+    return (PODCAST[LE.lensId()] || {})[id] || PODCAST.manufacturing[id] || null;
+  }
+  // ---- The article (Read, default) -----------------------------------------
+  // 2026-09-24: reading a two-host script as text read like reading a
+  // script, so Read defaults to this: the same podcast chapters rewritten as
+  // plain prose. Every fact, rule and figure is the podcast's (and so the
+  // deck's) — the procedure and rule sentences stay close to verbatim; only
+  // the dialogue scaffolding is gone. The podcast's shape survives: the
+  // scene, the tempting read of it, then the correction. Case 3 is told as a
+  // short feature, Jacob's own lines kept as quotes. Demo → "Read view"
+  // switches back to the podcast transcript. Public Sector's case 2 remedial
+  // and both debriefs are identical to Manufacturing in the podcast, so they
+  // fall back to it, as do Education and AEC.
+  var ARTICLE = {
+    manufacturing: {
+      c1base: [
+        'You’ve just changed out a used box-cutter blade at your bench. It’s a routine job. The designated sharps container is down at the end of the line, and the used blade is still sitting at your bench.',
+        'When most people hear “sharps,” they think of needles. The definition is wider than that. Like a needle or any other sharp object, a blade is a sharp: it can puncture or cut the skin, and that makes it a hazard, whether or not it’s visibly contaminated.',
+        'An exposed blade left on a surface is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.',
+        'The procedure comes down to four things. Plan how you’re going to dispose of the sharp. Use a safer alternative when one exists. Activate any available safety feature. And once it’s been used, don’t recap it, bend it, or break it. It goes directly into a designated sharps container.'
+      ],
+      c1rem: [
+        'You’re cleaning up your workstation after changing a cutting blade. The used blade is still in your hand, and you’re deciding how to handle it before you move on.',
+        'The instinct is to make it safer first: snap it, or set it down somewhere obvious. Both feel like the responsible move. What they don’t do is properly contain the sharp, and that’s the distinction that matters.',
+        'Depending on your facility’s procedures, you may need to wrap the exposed edge before disposal, so check yours. The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste.',
+        'Instead, move it directly to a designated sharps container. That’s the safe-handling procedure.'
+      ],
+      c1up: [
+        'You’ve just changed out a used box-cutter blade at your bench. The designated sharps container is several workstations away. Your line is about to restart, and a coworker is waving you back.',
+        'Setting the blade down at your own station doesn’t feel careless. You can see exactly where it is, it’s yours, and you’re planning to carry it down on your next scheduled break.',
+        'But the safe-handling procedure doesn’t change when work gets busy. Once a sharp is used, don’t recap it, bend it, or break it, and don’t set it aside for later. It goes directly into a designated sharps container.',
+        'Leaving the blade at your workstation, even for a few minutes, creates a hazard for anyone who reaches for that spot before you get back.'
+      ],
+      c2base: [
+        'Knowing what to do with a sharp is one skill. Spotting an unsafe condition while you’re following the procedure is a separate one.',
+        'You’re carrying a used sharp to a designated sharps container on the production floor. When you get close, you see the container is full. On the way there, you passed a piece of contaminated glass sitting in a general-waste bin.',
+        'The two can feel unrelated: one is a container doing its job, the other is something somebody else left behind. They look nothing alike, and both are sharps hazards.',
+        'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.',
+        'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk. Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.'
+      ],
+      c2rem: [
+        'There are two separate conditions to recognize here, so take them one at a time.',
+        'First, you arrive at a designated sharps container and notice that several used sharps are already crowded near the top. One is resting near the opening, leaving little room to add another safely. Pressing the sharps down, or trying to fit another one in, could bring your hand into contact with a used sharp.',
+        'So when a container reaches its fill line, it should be treated as full and should not be used. Use another designated sharps container instead.',
+        'Second, a sharp can also become a hazard when it’s left somewhere it doesn’t belong: on a work surface, concealed in other material, or placed in general waste. Any of those can expose someone who doesn’t expect it to be there.',
+        'Whether the hazard is a full container or a misplaced sharp, recognizing the unsafe condition is the first step in preventing a sharps injury.'
+      ],
+      c2up: [
+        'You’re carrying a used sharp toward a designated sharps container on the production floor. As you approach, you see the container is nearing its marked fill line. It isn’t at the line, and there appears to be room for another sharp, but the contents are already crowded near the top.',
+        'On the way, you notice something partially concealed in a general-waste bin. It looks like it could be a piece of contaminated glass, but you can’t tell without disturbing the contents.',
+        'That’s two maybes, and a common first read is that neither one is yours to act on yet. It’s worth slowing down on that. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.',
+        'And even though nobody has confirmed what’s in the bin, a possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.'
+      ],
+      controls: [
+        'A facility is looking for ways to better protect employees who may come into contact with used sharps. It has two options: provide heavier protective gloves, or make designated sharps containers more accessible throughout the facility.',
+        'There’s a reasonable case for the gloves. They’re on the person, everywhere they go, while a container only works if somebody walks to it. Both can provide protection. Where they differ is in how they control the hazard.',
+        'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.',
+        'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.',
+        'One protects the person. The other contains the hazard.'
+      ],
+      case3: [
+        'Jacob collects the bags. He works in sanitation.',
+        'One afternoon, a man on the line named Chris, who manages his diabetes with insulin, couldn’t find a sharps container nearby. He was in the middle of a task, so just that once, he tossed the used needle into the general trash.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never used that needle,” he says. “I never even saw it.”',
+        'A needlestick carries more than the stick. It can expose you to bloodborne pathogens: HIV, hepatitis B, and hepatitis C.',
+        '“The shortcut was his,” Jacob says. “The risk became mine. One decision became someone else’s injury.”'
+      ],
+      case3rf: [
+        'Jacob collects the bags. He works in sanitation.',
+        'One afternoon, a man on the line named Chris, who manages his diabetes with insulin, couldn’t find a sharps container nearby. He was in the middle of a task, so just that once, he tossed the used needle into the general trash.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never used that needle,” he says. “I never even saw it.”',
+        'It didn’t end with the stick. For Jacob, it meant reporting the injury, a medical evaluation, blood tests, and weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C.',
+        '“My family waited them with me,” he says. “The same question sitting at our dinner table every night.”',
+        'Jacob had no part in the decision, but he’s the one who was left carrying it, along with the people who love him. “I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.”',
+        '“Chris saved himself a trip to the sharps container,” he says. “I inherited the risk. That’s how far one disposal choice can reach.”',
+        'If it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?'
+      ],
+      debrief: [
+        'There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. Making the trip to a designated container can feel unrealistic when work is moving quickly.',
+        'But that shortcut isn’t necessarily the norm. In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container.',
+        'So why does it feel like the reverse? The shortcut stands out because it’s memorable, and because of what can happen when someone takes it, not because it’s how the work normally gets done. The version people tell each other is the exception. Safe disposal is the norm, even when the container isn’t convenient.'
+      ],
+      debriefrf: [
+        'It’s a belief a lot of people hold: when a sharps container isn’t nearby, taking the shortcut is simply what people do, and expecting everyone to make the trip is unrealistic.',
+        'That’s how it feels. But what stands out isn’t always what’s most common. In a U.S. study, 92.7% of workers surveyed reported always disposing of sharp objects in a sharps container.',
+        'The shortcut feels common because it’s the behavior that gets noticed and remembered. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t.',
+        'Memorable isn’t the same as normal. Safe disposal is the expected practice, even when the container isn’t convenient.'
+      ]
+    },
+    public: {
+      c1base: [
+        'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. It’s already in your gloved hand, and the designated sharps container is across the intake area.',
+        'It’s one needle, but the risk is real. A used needle retains a small amount of blood after use, and its sharpness makes it likely to penetrate someone else’s skin and expose them to that retained blood.',
+        'It doesn’t matter whether it looks contaminated. A needle left on the counter or dropped into a property tray is a hazard to the next person who reaches for that spot. That’s why the safe-handling procedure applies to every sharp, every time.',
+        'The procedure comes down to four things. Plan how the sharp will be disposed of before you handle it. Use a needle alternative when one is available. Activate any available safety feature. And once it’s been used, don’t recap it, bend it, or break it. It goes directly into a designated sharps container.'
+      ],
+      c1rem: [
+        'You’ve recovered a used needle during a property search. It’s still in your gloved hand while you decide how to handle it before moving on.',
+        'The instinct is to make it safer first: recap it, or set it aside. Both feel like the responsible move. What they don’t do is properly contain the sharp, and that’s the distinction that matters.',
+        'If no designated sharps container is immediately available, don’t place the needle in general waste. And don’t improvise a wrapping out of soft material, such as a paper towel or a plastic bag.',
+        'The rule underneath stays the same. Once a sharp is used, don’t recap it, bend it, or break it. Don’t leave it on a work surface, and don’t place it in general waste. The safe-handling procedure is to seek a designated sharps container and move the sharp directly into it.'
+      ],
+      c1up: [
+        'You’ve just recovered a used hypodermic needle from a subject’s property at the booking counter. The designated sharps container is at the far end of the intake area. The queue behind you is backing up, and another officer is calling you over to help with a subject in the next room.',
+        'Setting the needle down on the counter doesn’t feel careless. You can see exactly where it is, and you’ll deal with it as soon as you’re back.',
+        'But the safe-handling procedure doesn’t change when the room gets busy. Once a sharp is used, don’t recap it, bend it, or break it, and don’t set it aside for later. It goes directly into a designated sharps container.',
+        'Leaving the needle on the counter, even briefly, creates a hazard for anyone who reaches for that spot before you return.'
+      ],
+      c2base: [
+        'Knowing what to do with a sharp is one skill. Spotting an unsafe condition while you’re following the procedure is a separate one.',
+        'You’re carrying a used needle recovered during a property search to the designated sharps container in the station’s processing area. As you approach, you see the container has reached its fill line. On the way there, you passed a used syringe sitting in a general-waste bin.',
+        'They’re two very different situations, and both present a sharps hazard, for different reasons.',
+        'A sharps container at its fill line should no longer be used, because there’s less room to place another sharp safely without coming into contact with the sharps already inside.',
+        'A sharp left where it doesn’t belong — on a work surface, concealed in other material, or mixed into general waste — can put the next person who encounters it at risk. Recognizing these conditions before someone is injured is an important part of preventing sharps exposures.'
+      ],
+      c2up: [
+        'You’re carrying a recovered sharp toward the designated sharps container in the station’s processing area. As you approach, you see the container is nearing its marked fill line. It isn’t at the line, and there appears to be room for another sharp, but the contents are already crowded near the top.',
+        'On the way, you notice something partially concealed in a general-waste bin. It looks like it could be a used syringe, but you can’t tell without disturbing the contents.',
+        'That’s two maybes, and a common first read is that neither one is yours to act on yet. It’s worth slowing down on that. Sharps hazards aren’t always obvious. A container nearing capacity can leave less room to place another sharp safely.',
+        'And even though nobody has confirmed what’s in the bin, a possible sharp concealed in general waste can put someone at risk if the material is disturbed or handled without recognizing what may be inside. Recognizing the warning signs matters even when the hazard isn’t immediately clear.'
+      ],
+      controls: [
+        'An agency is looking for ways to better protect officers who may come into contact with used sharps. It has two options: issue heavier protective gloves, or make designated sharps containers more accessible throughout its stations and intake areas.',
+        'There’s a reasonable case for the gloves. They’re on the officer, everywhere they go, while a container only works if somebody walks to it. Both can provide protection. Where they differ is in how they control the hazard.',
+        'Heavy-duty gloves can help protect against cuts, punctures, and exposure. But even thick gloves can be penetrated by a needle.',
+        'A designated sharps container is an engineering control. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.',
+        'One protects the person. The other contains the hazard.'
+      ],
+      case3: [
+        'Jacob does custodial pickup. He collects the bags.',
+        'An officer named Chris recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake, so just that once, he dropped the used needle into the general trash at the station.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never handled the arrest,” he says. “I never even saw the needle.”',
+        'A needlestick carries more than the stick. It can expose you to bloodborne pathogens: HIV, hepatitis B, and hepatitis C.',
+        '“The shortcut was his,” Jacob says. “The risk became mine. One decision became someone else’s injury.”'
+      ],
+      case3rf: [
+        'Jacob does custodial pickup. He collects the bags.',
+        'An officer named Chris recovered a used needle from a subject’s property during an arrest. He couldn’t find a sharps container nearby. He was in the middle of the intake, so just that once, he dropped the used needle into the general trash at the station.',
+        'Jacob came through after. He picked up the bag, and the needle stuck him through it. “I never handled the arrest,” he says. “I never even saw the needle.”',
+        'It didn’t end with the stick. For Jacob, it meant reporting the injury, a medical evaluation, blood tests, and weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C.',
+        '“My family waited them with me,” he says. “The same question sitting at our dinner table every night.”',
+        'Jacob had no part in the decision, but he’s the one who was left carrying it, along with the people who love him. “I couldn’t see the needle. I couldn’t avoid the shortcut. I couldn’t choose differently.”',
+        '“Chris saved himself a trip to the sharps container,” he says. “I inherited the risk. That’s how far one disposal choice can reach.”',
+        'If it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?'
+      ]
+    }
+  };
+  function articleFor(id) {
+    return (ARTICLE[LE.lensId()] || {})[id] || ARTICLE.manufacturing[id] || [];
+  }
+  // 'article' (default) | 'podcast' — the Demo menu's "Read view".
+  function readStyle() {
+    try { return sessionStorage.getItem('sh-read-style') === 'podcast' ? 'podcast' : 'article'; }
+    catch (e) { return 'article'; }
+  }
+
+  // Read steps through the text a run at a time — transcript turns or
+  // article paragraphs. Items are gathered into a step until it holds at
+  // least READ_STEP_MIN characters, so "Directly." / "Even if there's
+  // nothing visible on it?" (or a one-line paragraph) ride along with what's
+  // around them instead of each being its own two-second step. A short
+  // leftover at the end joins the step before it.
+  var READ_STEP_MIN = 240;
+  function readSteps(items, len) {
+    var steps = [], cur = [], n = 0;
+    items.forEach(function (l) {
+      cur.push(l); n += len(l);
+      if (n >= READ_STEP_MIN) { steps.push(cur); cur = []; n = 0; }
+    });
+    if (cur.length) {
+      if (steps.length && n < READ_STEP_MIN / 2) steps[steps.length - 1] = steps[steps.length - 1].concat(cur);
+      else steps.push(cur);
+    }
+    return steps;
+  }
+  // The spoken turns only — the reader has nothing to show for a pause.
+  function podcastTurns(id) {
+    return (podcastFor(id) || []).filter(function (l) { return l[0] !== 'PAUSE'; });
+  }
+
   var DECK_SOURCE = 'Source: Gershon et al. (2000), “Hospital Safety Climate and Its Relationship ' +
     'with Safe Work Practices and Workplace Exposure Incidents,” American Journal of Infection ' +
     'Control, 28(3), 211–221.';
@@ -1403,6 +1917,10 @@
     { m: 'podcast', label: 'Listen', icon: 'fa-headphones' }
   ];
   var NARRATION_DIR = '../../assets/audio/sharps/';
+  // Re-rendering the audio writes new bytes to the SAME file names, so bump
+  // this whenever tools/sharps-narration is re-run, or browsers keep playing
+  // the copy they already have. 2 = the podcast scripts (2026-09-24).
+  var NARRATION_V = '2';
   function narrationFor(id) {
     var all = window.SHARPS_NARRATION || {};
     return all[LE.lensId() + '/' + id] || all['manufacturing/' + id] || null;
@@ -1446,10 +1964,23 @@
             // Read
             '<section class="dk-layer dk-layer--read" id="dkRead" aria-label="Reading view" data-size="' + readSize() + '">' +
               '<div class="dk-read-scroll" id="dkReadScroll"><article class="dk-read-col">' +
-                d.narration.map(function (p, i) {
-                  // Every paragraph gets a fixed-height slot for the button, so
-                  // moving it between paragraphs never shifts the text.
-                  return '<p class="dk-para" data-i="' + i + '">' + esc(p) + '</p><div class="dk-slot"></div>';
+                // The article (default) or the podcast transcript, per the
+                // Demo menu's "Read view". A reading step is a run of
+                // paragraphs or turns, never one short line (readSteps).
+                // Every step gets a fixed-height slot for the button, so moving
+                // it between steps never shifts the text.
+                (readStyle() === 'podcast'
+                  ? readSteps(podcastTurns(id), function (l) { return l[1].length; }).map(function (grp) {
+                      return grp.map(function (l) {
+                        return '<p class="dk-turn" data-who="' + l[0].toLowerCase() + '">' +
+                          '<span class="dk-who">' + esc(PODCAST_WHO[l[0]] || l[0]) + '</span>' + esc(l[1]) + '</p>';
+                      }).join('');
+                    })
+                  : readSteps(articleFor(id), function (t) { return t.length; }).map(function (grp) {
+                      return grp.map(function (t) { return '<p class="dk-ppar">' + esc(t) + '</p>'; }).join('');
+                    })
+                ).map(function (html, i) {
+                  return '<div class="dk-para dk-step" data-i="' + i + '">' + html + '</div><div class="dk-slot"></div>';
                 }).join('') +
                 (d.source ? '<p class="dk-src"><i class="fa-solid fa-book" aria-hidden="true"></i> ' + esc(DECK_SOURCE) + '</p>' : '') +
               '</article></div>' +
@@ -1466,20 +1997,24 @@
             // Listen
             '<section class="dk-layer dk-layer--listen" id="dkListen" aria-label="Audio">' +
               (nar
-                ? '<audio id="dkAudio" preload="auto" src="' + esc(NARRATION_DIR + nar.src) + '"></audio>' +
+                ? '<audio id="dkAudio" preload="auto" src="' + esc(NARRATION_DIR + nar.src + '?v=' + NARRATION_V) + '"></audio>' +
                   '<div class="dk-wave-wrap"><canvas class="dk-wave" id="dkWave" aria-hidden="true"></canvas>' +
                     '<span class="dk-playhead" aria-hidden="true"></span></div>' +
                   '<div class="dk-caps" aria-live="off">' +
-                    '<p class="dk-cap-prev" id="dkCapPrev"></p>' +
+                    '<p class="dk-cap-who" id="dkCapWho"></p>' +
                     '<p class="dk-cap-now" id="dkCapNow"></p>' +
                   '</div>' +
+                  // Three columns: voice label in the left corner, play in the
+                  // centre, time (and the review-only Skip) in the right corner.
                   '<div class="dk-player">' +
-                    '<button class="dk-play" type="button" id="dkPlay" aria-label="Play narration"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
-                    '<span class="dk-time" id="dkTime">0:00 / ' + mmss(nar.dur) + '</span>' +
                     '<span class="dk-voice-note">Placeholder voice</span>' +
-                    '<button class="dk-skip" id="dkLSkip" type="button" hidden aria-label="Skip narration">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
+                    '<button class="dk-play" type="button" id="dkPlay" aria-label="Play narration"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
+                    '<span class="dk-player-end">' +
+                      '<button class="dk-skip" id="dkLSkip" type="button" hidden aria-label="Skip narration">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
+                      '<span class="dk-time" id="dkTime">0:00 / ' + mmss(nar.dur) + '</span>' +
+                    '</span>' +
                   '</div>'
-                : '<p class="dk-cap-now">' + esc(d.narration.join(' ')) + '</p>') +
+                : '<p class="dk-cap-now">' + esc(podcastTurns(id).map(function (l) { return l[1]; }).join(' ')) + '</p>') +
             '</section>' +
 
             // The rail every carrier drives.
@@ -1681,7 +2216,7 @@
         var play = document.getElementById('dkPlay');
         var timeEl = document.getElementById('dkTime');
         var capNow = document.getElementById('dkCapNow');
-        var capPrev = document.getElementById('dkCapPrev');
+        var capWho = document.getElementById('dkCapWho');
         var env = nar.env, HZ = 30;
         var BAR = 4, GAP = 3;             // CSS px per bar and gap
         var raf = 0, lastSent = -1, spans = [];
@@ -1690,12 +2225,20 @@
 
         // The caption: the current sentence, word by word (words are timed by
         // their share of the sentence's characters — close enough to track a
-        // steady read), with the previous sentence fading out above it.
+        // steady read). Only the current sentence: the previous one used to
+        // fade out above it, and under a new speaker's name it read as that
+        // speaker's line (2026-09-24). A mono voiceover has no `w`, so the
+        // speaker label stays empty there.
         function setSentence(i) {
           if (i === lastSent) return;
           lastSent = i;
           var st = nar.sents[i];
-          capPrev.textContent = i > 0 ? nar.sents[i - 1].t : '';
+          // Who is speaking, above their line (the podcast has two hosts and
+          // an interviewee; sentences carry it as `w`).
+          if (capWho) {
+            capWho.textContent = st && st.w ? (PODCAST_WHO[st.w] || st.w) : '';
+            capWho.dataset.who = st && st.w ? st.w.toLowerCase() : '';
+          }
           capNow.innerHTML = st ? st.t.split(' ').map(function (w) { return '<span>' + esc(w) + '</span>'; }).join(' ') : '';
           spans = [].slice.call(capNow.children);
           capNow.classList.remove('is-in'); void capNow.offsetWidth; capNow.classList.add('is-in');
@@ -4510,7 +5053,6 @@
           'aria-label="' + esc(DOWN_ASK) + '"></textarea>' +
         '<button class="ch-send" id="dnSend" type="button">Done</button>' +
         '<p class="ch-echo" id="dnEcho" hidden></p>' +
-      '</div>' +
     '</main>';
   }
 
@@ -5091,6 +5633,7 @@
         '<p class="ho-what-d">You will describe what you do and say in real time — no list ' +
           'of lines to pick from, just what you would actually do. It runs about five minutes ' +
           'and closes with a debrief of what happened.</p>' +
+      '</div>' +
       '</div>' +
     '</div></main>';
   }
@@ -6155,6 +6698,21 @@
         var next = window.prompt('Learner name (optional):', savedName());
         if (next === null) return;
         try { sessionStorage.setItem('sh-name', next.trim().slice(0, 40)); } catch (e) {}
+        api.replay();
+      }
+    }, {
+      // Read as an article (default) or as Jessica's podcast transcript —
+      // the same chapters either way; see ARTICLE / PODCAST.
+      id: 'shReadStyleBtn', icon: 'fa-book-open', name: 'Read view',
+      note: 'Plain article, or the podcast script as a transcript with speaker names',
+      visibleOn: function (step) { return !!DECK[step.id]; },
+      type: 'select', value: readStyle,
+      options: [
+        { value: 'article', label: 'Article' },
+        { value: 'podcast', label: 'Podcast transcript' }
+      ],
+      onChange: function (v, api) {
+        try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-modality', 'article'); } catch (e) {}
         api.replay();
       }
     }, {
