@@ -60,6 +60,16 @@ the mock.
 - **[DONE 2026-09-24]** Blocked imports: Cancel import is the way out; the
   mapping/settings links are hidden while blocked.
 - **[DONE]** "Replace file" removed from under the red alerts.
+- **[DONE 2026-09-24]** Run import now asks twice: clicking it opens a "Run this
+  import?" modal (recap counts + the **"This can't be undone"** warning, moved OFF the
+  Change summary panel) with Go back / **Yes, run import** (red when the import
+  deactivates users or ends jobs).
+- **[DONE 2026-09-24]** Cancel import is a secondary RED (outline) button.
+- **[DONE 2026-09-24]** Stepper: completed steps are clickable (and keyboard-operable)
+  to jump back to that page; jumping to Upload discards the current file.
+- **[DONE 2026-09-24]** "See details" list tables now have column labels (e.g. "Job
+  being removed (position · location)" / "Who it affects"; "Row in your file" /
+  "Would import as · already exists as").
 
 **Error / alert display** — **[DONE 2026-09-24]** redesigned:
 - **[DONE]** Each alert's explanation + example merged into ONE "See details" box,

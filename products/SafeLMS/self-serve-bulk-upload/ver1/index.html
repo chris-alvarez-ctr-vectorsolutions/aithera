@@ -56,6 +56,10 @@
   /* In-place re-renders (toggles, disclosures) skip the entrance animations so the
      rebuilt DOM doesn't flash; render() sets this when the screen hasn't changed. */
   .no-anim, .no-anim * { animation: none !important; }
+  /* Stepper: completed steps are links back to that page */
+  .step-body.is-link { cursor: pointer; border-radius: 6px; }
+  .step-body.is-link:hover .step-label { color: var(--blue) !important; text-decoration: underline; }
+  .step-body.is-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
   /* The full-screen import overlay fades in ONCE when it opens; moving between its
      steps only animates the step content, so the Employees page never shows through. */
   .import-full.is-static { animation: none; }
@@ -168,6 +172,9 @@
   .btn--primary { background: var(--blue); color: #fff; }
   .btn--primary:hover { background: var(--blue-2); }
   .btn--ghost { border: 1px solid var(--btn-border); background: #fff; color: var(--ink-2); }
+  /* Secondary destructive button (red outline) */
+  .btn--outline-red { border: 1px solid #D92D20; background: #fff; color: #B42318; }
+  .btn--outline-red:hover { background: #FEF3F2; }
   .btn--ghost:hover { background: #F5F8FB; }
   .btn--outline-blue { border: 1px solid var(--btn-border); background: #fff; color: var(--blue); }
   .btn--outline-blue:hover { background: #F0F6FD; }
@@ -1003,6 +1010,7 @@
         what: 'Rows 34 and 91 are two different usernames using the same email — most likely the same person listed twice, once by HR and once by athletics.',
         ifProceed: 'Two accounts with the same email can’t be told apart at sign-in. This person would be unable to log in at all, and fixing it later requires a manual account merge by Vector.',
         action: 'Decide which username is correct, remove or fix the other row in your file, and upload it again.',
+        linesHead: ['Row in your file', 'Username · email'],
         lines: [{ t: 'Row 34 — jsmith · jsmith@ridgewood.k12.us' }, { t: 'Row 91 — john.smith · jsmith@ridgewood.k12.us' }],
         replaceBtn: true });
       A.push({ id: 'dupe-name', tier: 'blocked',
@@ -1010,6 +1018,7 @@
         what: 'These names already exist on your site under a different username. Importing them as-is creates a second account for the same person.',
         ifProceed: 'Each person would end up with two accounts — one with their history, one without — and would stop being able to sign in reliably.',
         action: 'Change these rows to the existing username shown below, or remove them if they’re duplicates, then upload the file again.',
+        linesHead: ['Row in your file', 'Would import as · already exists as'],
         lines: [
           { t: 'Row 12 — Sarah Linden arrives as sarah.linden2 · exists as slinden' },
           { t: 'Row 58 — Marcus Webb arrives as marcus.webb · exists as mwebb' },
@@ -1020,6 +1029,7 @@
         what: 'cdelgado and c.delgado are two separate accounts that already use cdelgado@ridgewood.k12.us. This happened before this upload — your file can’t fix it, because the duplicate already exists on the site.',
         ifProceed: 'While both accounts exist this person can’t sign in reliably, and importing over either one keeps the problem. Merging the two accounts has to be done by Vector and can’t be undone from here.',
         action: 'Contact Vector to merge these two accounts. Once they’re merged, upload your file again.',
+        linesHead: ['Account on your site (username · email)', 'Training history'],
         lines: [
           { t: 'cdelgado · cdelgado@ridgewood.k12.us — 11 completions' },
           { t: 'c.delgado · cdelgado@ridgewood.k12.us — 0 completions' }
@@ -1068,6 +1078,7 @@
         what: 'You turned on “Deactivate anyone not in this file.” For each user in the file, any position or location they hold that isn’t in the file is removed — along with the training assigned to it. This touches ' + js.pos + ' positions across ' + js.loc + ' locations; most are routine (a grade level or role that changed), but some may be intentional extras.',
         ifProceed: 'The ' + js.jobsRemoved + ' extra positions & locations are removed from ' + js.jobsPeople + ' people, and the training tied to them comes off those users. Anything still in the file is kept and new ones are added — the record becomes an exact mirror of the file.',
         action: 'Check the examples below — each shows how many people it affects. Proceed only if the file is the complete, current list of each person’s positions & locations.',
+        linesHead: ['Job being removed (position · location)', 'Who it affects'],
         lines: [
           { t: 'Coach · Ridgewood High — removed from 4 people' },
           { t: 'Grade 9 · Ridgewood High — removed from 12 people (→ Grade 10)' },
@@ -1350,7 +1361,8 @@
       var bg = done ? '#12B76A' : isCur ? '#1257B8' : '#fff';
       var col = (done || isCur) ? '#fff' : '#8CA0B4';
       var bd = done ? '#12B76A' : isCur ? '#1257B8' : '#D5DEE8';
-      out += '<div class="step"><div class="step-body">'
+      // Completed steps are clickable — jump back to that page.
+      out += '<div class="step"><div class="step-body' + (done ? ' is-link" role="button" tabindex="0" data-act="goStep" data-arg="' + pair[0] + '" title="Back to ' + esc(pair[1]) + '"' : '"') + '>'
         + '<div class="step-circle" style="background:' + bg + ';color:' + col + ';border:1.5px solid ' + bd + ';">'
         + (done ? '✓' : (i + 1)) + '</div>'
         + '<div class="step-label" style="font-weight:' + (isCur ? 600 : 500)
@@ -1635,13 +1647,15 @@
   }
 
   // A plain "Item — detail" list rendered as a two-column table (no dot/dash code).
-  function axLinesTable(lines) {
+  function axLinesTable(lines, head) {
     var body = lines.map(function (l) {
       var s = l.t, i = s.indexOf(' — ');
       var left = i >= 0 ? s.slice(0, i) : s, right = i >= 0 ? s.slice(i + 3) : '';
       return '<tr><td class="axt-k">' + esc(left) + '</td><td>' + esc(right) + '</td></tr>';
     }).join('');
-    return '<div class="axt-wrap"><table class="axt"><tbody>' + body + '</tbody></table></div>';
+    // Column labels say what each side is (e.g. "Row in your file" / "Would import as").
+    var thead = head ? '<thead><tr><th>' + esc(head[0]) + '</th><th>' + esc(head[1]) + '</th></tr></thead>' : '';
+    return '<div class="axt-wrap"><table class="axt">' + thead + '<tbody>' + body + '</tbody></table></div>';
   }
 
   /* One review alert: colored header (severity tier) + a short gist, with everything
@@ -1662,7 +1676,7 @@
       if (a.diff) inner += axDiffTable(a.diff, a.tier, a.more);
       else if (h && h.ab) inner += axBaCard(h.ab.aLabel, h.ab.a, h.ab.bLabel, h.ab.b);
       else if (a.compare) inner += axBaCard('Your file sends', a.compare.file, 'Your sign-on expects', a.compare.idp);
-      if (a.lines) inner += axLinesTable(a.lines);
+      if (a.lines) inner += axLinesTable(a.lines, a.linesHead);
       inner += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.action) + '</div>';
       if (h && h.usually) inner += '<div class="ax-tip"><i class="fa-solid fa-lightbulb" aria-hidden="true"></i><span>' + esc(h.usually) + '</span></div>';
       inner += '<a class="ax-link" href="https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors" target="_blank" rel="noopener">See all upload errors in Vector Help ↗</a>';
@@ -1735,16 +1749,11 @@
     if (confirms.length && blocked.length === 0) {
       side += '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">' + acked.length + ' of ' + confirms.length + ' confirmation' + (confirms.length === 1 ? '' : 's') + ' acknowledged</div>';
     }
-    // Roster mode on: the permanence warning sits right above Run import (moved here
-    // from Import settings) so it's read at the point of commitment.
-    if (state.purgeUsers && state.purgeJobs) {
-      side += '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;line-height:1.5;"><b>This can’t be undone.</b> Once you run the import, deactivations and ended jobs are permanent.</div>';
-    }
     side += '<button class="btn" data-act="runImport" style="width:100%;border:none;background:' + (canSubmit ? '#1257B8' : '#C6D3E1') + ';color:#fff;font-size:14px;font-weight:600;padding:11px 0;border-radius:8px;cursor:' + (canSubmit ? 'pointer' : 'not-allowed') + ';"' + (canSubmit ? '' : ' disabled') + '>Run import</button>'
       // "Replace file" -> "Cancel import" (2026-09-24): an unconfirmed upload is a
       // cancelled attempt; the user starts a whole new upload. Also the one way out
       // for a BLOCKED import. OPEN: does a cancelled upload appear in the upload log?
-      + '<button class="btn btn--ghost" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
+      + '<button class="btn btn--outline-red" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
       + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it.</div>'
       + (blocked.length ? '' : '<div class="divider" style="margin:14px 0;"></div>'
         + '<div style="display:flex;flex-direction:column;gap:6px;font-size:13px;">'
@@ -1757,6 +1766,35 @@
       + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">' + alertsHtml + '</div>'
       + '<div style="width:290px;flex:0 0 290px;position:sticky;top:0;">' + side + '</div>'
       + '</div></div>';
+  }
+
+  /* Second confirmation for Run import. Holds the "can't be undone" warning (moved
+     off the Change summary panel) plus a compact recap of what will happen. */
+  function confirmRunHTML() {
+    var sum = summary(), f = currentFile();
+    var destructive = sum.deact > 0 || sum.jobsRemoved > 0;
+    function row(k, v, col) {
+      return '<div class="kpi-row"><span class="k">' + k + '</span><span class="v" style="color:' + col + ';">' + v + '</span></div>';
+    }
+    return '<div class="modal-overlay" data-act="confirmRunNo">'
+      + '<div class="modal" data-act="noop" role="dialog" aria-modal="true" aria-labelledby="cr-title" style="width:460px;">'
+      + '<div class="modal-head"><div><div class="modal-title" id="cr-title">Run this import?</div>'
+      + '<div class="modal-sub">' + (f ? esc(f.name) : '') + '</div></div>'
+      + '<button class="modal-x" data-act="confirmRunNo" aria-label="Close">✕</button></div>'
+      + '<div class="modal-body">'
+      + '<div style="display:flex;flex-direction:column;gap:8px;">'
+      + row('New users added', sum.add, '#067647')
+      + row('Existing users updated', sum.mod, '#1257B8')
+      + (sum.deact > 0 ? row('Users deactivated', sum.deact, '#B42318') : '')
+      + (sum.jobsRemoved > 0 ? row('Jobs ended', sum.jobsRemoved, '#B42318') : '')
+      + '</div>'
+      + '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-top:16px;line-height:1.5;"><b>This can’t be undone.</b> '
+      + (destructive ? 'Once you run the import, deactivations and ended jobs are permanent.' : 'Once the import runs, it can’t be paused or reversed.')
+      + '</div></div>'
+      + '<div class="modal-foot" style="display:flex;justify-content:flex-end;gap:10px;">'
+      + '<button class="btn btn--ghost" data-act="confirmRunNo">Go back</button>'
+      + '<button class="btn btn--primary" data-act="confirmRunYes"' + (destructive ? ' style="background:#D92D20;border-color:#D92D20;"' : '') + '>Yes, run import</button>'
+      + '</div></div></div>';
   }
 
   function doneHTML() {
@@ -2126,7 +2164,7 @@
     var _f = $app.querySelector('.import-full-body'), _fTop = _f ? _f.scrollTop : 0;
     // Only replay entrance animations when the screen actually changes (new view,
     // step, or an overlay/modal opening). Same-screen clicks re-render silently.
-    var _screen = [state.view, state.importFull, state.step, state.fileModal, state.addEmp].join('|');
+    var _screen = [state.view, state.importFull, state.step, state.fileModal, state.addEmp, state.confirmRun].join('|');
     $app.classList.toggle('no-anim', _screen === render._lastScreen);
     render._lastScreen = _screen;
     var _overlayWasOpen = !!render._fullOpen;
@@ -2159,7 +2197,8 @@
       + '<div class="main">' + topbar() + settingsTabsBar() + '<div class="scroll">' + main + '</div></div></div>'
       + overlay
       + (state.fileModal ? fileModalHTML() : '')
-      + (state.addEmp ? addEmployeeModal(false) : '');
+      + (state.addEmp ? addEmployeeModal(false) : '')
+      + (state.confirmRun ? confirmRunHTML() : '');
 
     // Restore the captured scroll positions onto the freshly-built containers.
     var _ov = $app.querySelector('.import-full'); if (_ov && _overlayWasOpen) _ov.classList.add('is-static');
@@ -2224,9 +2263,15 @@
       case 'fixMapping': go('map'); scrollTop(); break;
       case 'replaceFile': setState({ fileId: null, step: 'upload' }); scrollTop(); break;
       case 'changeSettings': go('settings'); scrollTop(); break;
-      case 'runImport': setState({ doneCounts: summary(), step: 'done' }); scrollTop(); break;
+      case 'runImport': if (el.disabled) break; setState({ confirmRun: true }); break;   // 1st click -> confirmation modal
+      case 'confirmRunNo': setState({ confirmRun: false }); break;
+      case 'confirmRunYes': setState({ confirmRun: false, doneCounts: summary(), step: 'done' }); scrollTop(); break;
       case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
       case 'bless': setState({ blessed: true }); break;
+      case 'goStep':
+        if (arg === 'upload') setState({ fileId: null, step: 'upload', acks: {}, validating: false });
+        else go(arg);
+        scrollTop(); break;
       case 'linkUpload': e.preventDefault(); setState({ fileId: null, step: 'upload' }); scrollTop(); break;
       case 'linkMap': e.preventDefault(); go('map'); scrollTop(); break;
       case 'linkSettings': e.preventDefault(); go('settings'); scrollTop(); break;
@@ -2267,6 +2312,11 @@
         break;
       }
     }
+  });
+
+  // Keyboard access for non-button clickables (e.g. completed stepper steps).
+  $app.addEventListener('keydown', function (e) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-act]')) { e.preventDefault(); e.target.click(); }
   });
 
   $app.addEventListener('change', function (e) {
