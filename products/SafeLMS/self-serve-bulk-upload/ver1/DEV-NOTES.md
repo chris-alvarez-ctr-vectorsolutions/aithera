@@ -38,7 +38,11 @@ the mock.
 **Import settings (complete-roster toggle)**
 - **[DONE 2026-09-24]** Simplified: one-line intro + "Learn more" (help article),
   the "With this off/on" summary collapsed by default, and the "can't be undone"
-  note moved to Review (above Run import). **Liz to play with the toggle copy.**
+  note moved to Review (above Run import).
+- **[DONE 2026-09-24]** Toggle copy shortened: heading "Is this file your full
+  employee list?", switch "Deactivate anyone not in this file" (sub: "Only turn on if
+  the file lists everyone."), collapsed summary "What happens when off/on" with 2–3
+  short bullets. Review alerts quote the new switch name. Liz may still tune it.
 - **[DONE 2026-09-24]** Before → after TOTALS: two tiles, Active users (170 → N) and
   Active jobs (214 → N), each with a one-line delta ("+12 new · 6 deactivated").
   No itemized detail here — that lives on Review. `JOBS_TOTAL` (214) is mock data.
