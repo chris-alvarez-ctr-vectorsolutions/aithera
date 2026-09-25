@@ -6,6 +6,32 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-25) Designer feedback round
+
+- **[DONE]** **Usernames can never be changed by an upload.** Any row that matches an
+  existing person but sends a different username is Blocked (not a % threshold).
+  Map columns carries a note saying so.
+- **[DONE]** Blocked (and Contact Vector) alerts are now **red**; Confirm stays yellow,
+  Info blue.
+- **[DONE]** Blocked alerts show **Where** — the exact row(s) + spreadsheet column
+  (e.g. Column D (USER_ID), from row 2) — without expanding. Details show "Why it's
+  blocked" instead of a before → after (no green "new value" box, since the change
+  isn't possible); the current value is shown locked.
+- **[DONE]** "See details" lists **every** affected person/row (all 166, all 31 jobs,
+  all 118 updates…) in a scrolling table with a count + CSV download — not just a
+  count. Added Info alerts for new users and updated users so every change is reviewable.
+- **[DONE]** Import settings: switch renamed **"Deactivate anyone and any jobs not in
+  this file"**; the On/Off description is always visible under the switch and
+  follows its state; before → after totals moved to a side panel like Review's.
+- **[DONE]** Users-only or jobs-only deactivation is not self-serve — a banner routes
+  to Vector Care via the Support Center. **PENDING:** exact Care contact URL (links to
+  the Support Center home for now).
+- **[DONE]** Review side panel: "Edit column mapping / Change import settings" links
+  replaced with support articles (stepper still jumps back).
+- **[DONE]** New **Upload log** (Employees → Upload log, and from Import complete):
+  every upload with when, file, who, Manual vs Automated, result, and changes.
+  **PENDING:** confirm blocked/cancelled attempts should be logged (mock logs them).
+
 ## (2026-09-24) Review readout — open backlog
 
 A working session covered the whole flow. Status tags: **[DONE]** shipped, **[WIP]**
