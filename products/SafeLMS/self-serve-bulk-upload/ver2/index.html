@@ -1067,15 +1067,22 @@
   var PERSON_HEAD = ['Row', 'Username', 'First name', 'Last name'];
   function codeRows(list) { return list.map(function (x) { return x.map(function (v, j) { return j === 0 ? { v: v, c: 'row' } : v; }); }); }
   var DUP = { v: 'Duplicate account', c: 'loss' };
+  var NEWV = { v: 'No match — will be new', c: 'from' };
 
   var CATALOG = {
     /* 1. Upload summary, change detection & date/attribute validation */
-    total_person_change: { tier: 'confirm', msg: 'Heads up — none of the people in this file match anyone already on your site. Double-check you’ve uploaded the right file before continuing.' },
-    total_pos_change:    { tier: 'confirm', msg: 'None of the positions in this file match existing ones — all will be created as new.' },
-    total_bldg_change:   { tier: 'confirm', msg: 'None of the locations in this file match existing ones — all will be created as new.' },
-    large_person_change: { tier: 'confirm', msg: 'Only a few people in this file match existing users — most will be added as new. Make sure that’s expected.' },
-    large_pos_change:    { tier: 'confirm', msg: 'Only a few positions match existing ones — most will be created as new.' },
-    large_bldg_change:   { tier: 'confirm', msg: 'Only a few locations match existing ones — most will be created as new.' },
+    total_person_change: { tier: 'confirm', msg: 'Heads up — none of the people in this file match anyone already on your site. Double-check you’ve uploaded the right file before continuing.',
+                           head: PERSON_HEAD.concat(['On your site']), rows: function (n) { return pRows(n, 800, function () { return [NEWV]; }); } },
+    total_pos_change:    { tier: 'confirm', msg: 'None of the positions in this file match existing ones — all will be created as new.',
+                           head: ['Position in your file', 'On your site'], rows: function () { return POS.map(function (x) { return [x, NEWV]; }); } },
+    total_bldg_change:   { tier: 'confirm', msg: 'None of the locations in this file match existing ones — all will be created as new.',
+                           head: ['Location in your file', 'On your site'], rows: function () { return LOC.map(function (x) { return [x, NEWV]; }); } },
+    large_person_change: { tier: 'confirm', msg: 'Only a few people in this file match existing users — most will be added as new. Make sure that’s expected.',
+                           head: PERSON_HEAD.concat(['On your site']), rows: function (n) { return pRows(n, 830, function (p, i) { return [i % 8 ? NEWV : 'Matches existing']; }); } },
+    large_pos_change:    { tier: 'confirm', msg: 'Only a few positions match existing ones — most will be created as new.',
+                           head: ['Position in your file', 'On your site'], rows: function () { return POS.map(function (x, i) { return [x, i === 0 ? 'Matches existing' : NEWV]; }); } },
+    large_bldg_change:   { tier: 'confirm', msg: 'Only a few locations match existing ones — most will be created as new.',
+                           head: ['Location in your file', 'On your site'], rows: function () { return LOC.map(function (x, i) { return [x, i === 0 ? 'Matches existing' : NEWV]; }); } },
     new_person:          { tier: 'info', msg: '{count} new people will be added.', head: PERSON_HEAD, rows: function (n) { return pRows(n, 500); } },
     new_pos:             { tier: 'info', msg: '{count} new positions will be created.', head: ['Position', 'Rows using it'],
                            rows: function () { return [['Athletic Trainer', '3'], ['Instructional Coach', '2']]; } },
@@ -1086,7 +1093,7 @@
     removed_rows:        { tier: 'confirm', msg: '{count} rows were skipped and won’t be loaded (blank or invalid). Expand to see which.', head: PERSON_HEAD.concat(['Why']),
                            rows: function () { return [[{ v: 'Row 71', c: 'row' }, { v: '—', c: 'row' }, 'Luis', 'Ortiz', 'No username'],
                                                        [{ v: 'Row 112', c: 'row' }, { v: '—', c: 'row' }, '—', '—', 'Blank row']]; } },
-    unchanged_rows:      { tier: 'info', msg: '{count} rows already match your site — no changes will be made to them.' },
+    unchanged_rows:      { tier: 'info', msg: '{count} rows already match your site — no changes will be made to them.', head: PERSON_HEAD, rows: function (n) { return pRows(n, 860); } },
     missing_bldg_codes:  { tier: 'info', msg: 'This file includes {count} building codes that aren’t on your site yet.', head: ['Building code', 'Location name'],
                            rows: function () { return codeRows([['B-114', 'Westside Annex'], ['B-120', 'Early Learning Center']]); } },
     missing_pos_codes:   { tier: 'info', msg: 'This file includes {count} position codes that aren’t on your site yet.', head: ['Position code', 'Position name'],
@@ -1179,7 +1186,7 @@
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
     blast:   null   // copy review: EVERY catalog message, in catalog order
   };
-  var SUMMARY_COUNTS = { total_person_change: 0, total_pos_change: 0, total_bldg_change: 0, large_person_change: 0, large_pos_change: 0,
+  var SUMMARY_COUNTS = { total_person_change: 24, total_pos_change: 0, total_bldg_change: 0, large_person_change: 24, large_pos_change: 0,
     large_bldg_change: 0, unchanged_rows: 32, all_rows: 168, all_bldg_codes: 151, all_pos_codes: 149, new_person: 6, reactivated_person: 2, password_changed: 2 };
 
   function catalogAlert(key, n) {
@@ -1646,8 +1653,8 @@
       + '<div class="kpi-eyebrow">After this import</div>'
       + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">'
       // Green = added, red = deactivated / ended (same colors as Review's Change summary).
-      + tot('Active users', TOTAL, uAfter, '<span class="ba-add">+' + sm.add + ' new</span>' + (on ? ' · <span class="ba-rem">−' + sm.deact + ' deactivated</span>' : ''))
-      + tot('Active jobs', JOBS_TOTAL, jAfter, '<span class="ba-add">+' + sm.jobsAdded + ' new</span>' + (on ? ' · <span class="ba-rem">−' + sm.jobsRemoved + ' ended</span>' : ''))
+      + tot('Active users', TOTAL, uAfter, '<span class="ba-add">+' + sm.add + ' new</span>' + (on && sm.deact ? ' · <span class="ba-rem">−' + sm.deact + ' deactivated</span>' : ''))
+      + tot('Active jobs', JOBS_TOTAL, jAfter, '<span class="ba-add">+' + sm.jobsAdded + ' new</span>' + (on && sm.jobsRemoved ? ' · <span class="ba-rem">−' + sm.jobsRemoved + ' ended</span>' : ''))
       + '<div class="set-tot"><div class="kpi-row"><span class="k">Existing users updated</span><span class="v" style="color:#1257B8;">' + sm.mod + '</span></div></div>'
       + '</div>'
       + '<div style="font-size:12px;color:#8CA0B4;margin-top:12px;line-height:1.5;">Totals update as you flip the switch. You’ll see every change, person by person, on the next step.</div>'
@@ -1693,7 +1700,7 @@
       + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;">'
       + '<div style="font-size:16px;font-weight:700;">Import settings</div>'
       + '<div style="font-size:12.5px;">' + helpLink('best', 'Learn more') + '</div></div>'
-      + optCard + effect + repBanner + care
+      + optCard + effect + care
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
       + '<button class="btn btn--primary" data-act="next">Review changes →</button>'
@@ -1845,8 +1852,7 @@
     }
     var raw = buildAlerts();
     var alertsHtml = raw.length
-      ? (state.fileId === 'blast' ? '<div class="copy-review"><b>Copy review file.</b> Every message in the <a href="' + CATALOG_URL + '" target="_blank" rel="noopener">Error &amp; Notification Message Catalog</a> (' + CATALOG_KEYS.length + '), in catalog order, with its key. (Turn on the Import setting to also see the deactivation and job messages, which aren’t in the catalog yet.)</div>' : '')
-        + raw.map(alertHTML).join('')
+      ? raw.map(alertHTML).join('')
       : '<div style="background:#ECFDF3;border:1px solid #A6E5C3;border-radius:10px;padding:16px 18px;font-size:13.5px;color:#067647;"><span style="font-weight:600;">No issues found.</span> Every row checks out against your site and your sign-on settings.</div>';
 
     // Blocked and escalate ('contact Vector') both hard-stop the import.
@@ -1890,9 +1896,9 @@
 
     return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
       + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">'
-      + '<div class="rev-h">Your choices</div>' + choicesHTML()
-      + '<div class="rev-h" style="margin-top:8px;">What we found in your file</div>' + alertsHtml + '</div>'
-      + '<div style="width:290px;flex:0 0 290px;position:sticky;top:0;">' + side + '</div>'
+      + '<div class="rev-h" style="margin:0 0 -2px;">What we found in your file</div>' + alertsHtml + '</div>'
+      // margin-top = the findings heading, so the summary card's top lines up with the first alert.
+      + '<div style="width:290px;flex:0 0 290px;position:sticky;top:0;margin-top:24px;">' + side + '</div>'
       + '</div></div>';
   }
 
