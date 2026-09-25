@@ -264,12 +264,14 @@ function go(route, arg) {
   if (PAGE.standalone && route !== PAGE.route && !(ROUTES[route] && ROUTES[route].virtual)) {
     let href = PAGE_FILES[route] || PAGE_FILES.guide;
     if ((route === 'training' || route === 'catalog') && typeof arg === 'string') href += '?view=' + arg;
+    showLoading(ROUTES[route] ? ROUTES[route].title : '');   // stays up until the sibling page paints
     location.href = href;
     return;
   }
 
   state.route = route;
   const r = ROUTES[route];
+  flashLoading(route === 'details' ? 'details' : r.title);
 
   $$('.tab').forEach(t => {
     const active = t.dataset.route === r.tab || (r.tab === 'admin' && t.dataset.route === 'admin');
@@ -331,6 +333,37 @@ function collapseDemo() {
 /* ===========================================================================
    BOOT
    ======================================================================== */
+/* ===========================================================================
+   LOADING STATES
+   1. Between states: a skeleton layer over the canvas (chrome stays put)
+      that flashes on every route change and on page load. In the product
+      it stays up until the next screen's data has arrived.
+   2. Loading content: the modal shown when a training is launched, up
+      until the content window opens. Prototype: auto-closes after 2.4s.
+   ======================================================================== */
+let loadingTimer = null;
+function showLoading(label) {
+  $('#loadingLabel').textContent = label ? 'Loading ' + label.toLowerCase() : 'Loading';
+  $('#loading').hidden = false;
+}
+function hideLoading() { clearTimeout(loadingTimer); $('#loading').hidden = true; }
+function flashLoading(label, ms = 500) {
+  showLoading(label);
+  clearTimeout(loadingTimer);
+  loadingTimer = setTimeout(() => { $('#loading').hidden = true; }, ms);
+}
+
+let ldTimer = null;
+function openLoadingModal(name, opts = {}) {
+  $('#ldName').textContent = name;
+  $('#ldOverlay').hidden = false;
+  $('#ldCancel').focus();
+  clearTimeout(ldTimer);
+  // Prototype stand-in for the content window opening.
+  if (!opts.hold) ldTimer = setTimeout(closeLoadingModal, 2400);
+}
+function closeLoadingModal() { clearTimeout(ldTimer); $('#ldOverlay').hidden = true; }
+
 function boot() {
   renderNav();
   renderHome();
@@ -355,6 +388,19 @@ function boot() {
   });
   filterLocTree('');
   applyLocation(HOME_LOC);
+
+  // Loading content modal: every Launch on the page opens it. Delegated, so
+  // list rows, cards, the detail hero and the Home list all share one path.
+  document.addEventListener('click', e => {
+    const b = e.target.closest('vaadin-button');
+    if (!b || b.textContent.trim() !== 'Launch') return;
+    const row = b.closest('.tp-act, .tcard, .d-hero, .up-row, tr, .d-row');
+    const nameEl = row && row.querySelector('.tp-title, .tcard-title span, .d-title, .up-name, .d-row-title');
+    openLoadingModal(nameEl ? nameEl.textContent.trim() : 'your training');
+  });
+  $('#ldCancel').addEventListener('click', closeLoadingModal);
+  $('#ldOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeLoadingModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLoadingModal(); });
 
   // Nav
   $('#navSearch').addEventListener('input', e => renderNav(e.target.value));
@@ -433,6 +479,8 @@ function applyFlowState(id, opts) {
     case 'd-act':      go('training', 'list'); showDetails('act', 'a5'); break;  // LOTO Tasklist Affected Employees
     case 'catalog':    state.catalogCat = 'safety'; go('catalog', 'table'); break;
     case 'cat-cards':  go('catalog', 'cards'); break;
+    case 'loading':    go('training', 'list'); showLoading('My training'); break;
+    case 'load-modal': go('training', 'list'); openLoadingModal('LOTO Tasklist Affected Employees', { hold: true }); break;
     case 'wz1':        go('wizard', 1); break;
     case 'wz2':        state.wizard.method = 'create'; state.wizard.type = 'quiz'; go('wizard', 2); break;
     case 'wz3':        state.wizard.method = 'create'; state.wizard.type = 'quiz'; go('wizard', 3); break;
@@ -443,6 +491,8 @@ function applyFlowState(id, opts) {
       break;
     default: go('guide');
   }
+  if (id !== 'loading') hideLoading();
+  if (id !== 'load-modal') closeLoadingModal();
   if (instant) window.scrollTo(0, 0);
 }
 window.applyFlowState = applyFlowState;

@@ -6,6 +6,96 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-24) Review readout — open backlog
+
+A working session covered the whole flow. Status tags: **[DONE]** shipped, **[WIP]**
+in progress, **[TODO]** not started, **[PARKED]** revisit later, **[EXTERNAL]** outside
+the mock.
+
+**Pre-upload / intro step**
+- **[DONE 2026-09-24]** Pre-upload content lives ON the Upload file step (a separate
+  intro page was tried, then merged back in at the designer's request): template card
+  (download + [process & template guide](https://support.vectortrainingeducation.com/s/article/User-Data-Bulk-Upload-Process-and-Template))
+  and Help Center card ([best practices](https://support.vectortrainingeducation.com/s/article/Best-Practices-for-Uploading-and-Structuring-User-Data-in-Vector-LMS-Higher-Education),
+  [common upload errors](https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors))
+  above the drop zone; the stepper is the steps overview. ← Back returns to Employees.
+  Import settings "Learn more" → best practices; Review side panel → common errors.
+- **[DONE 2026-09-24]** Bug where the page "jumps and goes out and comes back in" —
+  root cause was the full-screen import overlay replaying its fade-in on every
+  re-render (Employees page showed through). It now fades in only when it opens;
+  in-place clicks don't animate at all.
+- **[DONE]** Email is NOT required (confirmed).
+- **[NOTED]** One discussed function flagged "not feasible" — no fix specified.
+
+**Map columns**
+- **[DONE]** Start from the columns SafeLMS needs; the user maps THEIR columns to each —
+  mirrors the internal uploader. 10 file columns → 10 rows. Target dropdown = core
+  fields (first/last/username/location/position/title/begin/end date) + the site's own
+  custom attributes (dynamic per customer). Username/first/last required. Withhold
+  internal-only fields (building/position codes). Extra unmapped columns OK. Liz: "run
+  with it." (Asterisk now fixed to the column, 2026-09-23.)
+
+**Import settings (complete-roster toggle)**
+- **[DONE 2026-09-24]** Simplified: one-line intro + "Learn more" (help article),
+  the "With this off/on" summary collapsed by default, and the "can't be undone"
+  note moved to Review (above Run import).
+- **[DONE 2026-09-24]** Toggle copy shortened: heading "Is this file your full
+  employee list?", switch "Deactivate anyone not in this file" (sub: "Only turn on if
+  the file lists everyone."), collapsed summary "What happens when off/on" with 2–3
+  short bullets. Review alerts quote the new switch name. Liz may still tune it.
+- **[DONE 2026-09-24]** Before → after TOTALS: two tiles, Active users (170 → N) and
+  Active jobs (214 → N), each with a one-line delta ("+12 new · 6 deactivated").
+  No itemized detail here — that lives on Review. `JOBS_TOTAL` (214) is mock data.
+
+**Review changes**
+- **[DONE 2026-09-24]** Side panel header is now just "Change summary"; the
+  "compared against N users" line is gone and the footer is "Nothing changes until
+  you run it."
+- **[DONE 2026-09-24]** Summary fields: New users added, Existing users updated, Users
+  deactivated — plus "Jobs ended" only when roster mode actually ends jobs.
+- **[DONE 2026-09-24]** "Replace file" → **Cancel import** (secondary button under Run
+  import). It discards the upload and returns to Upload with an "Import cancelled —
+  nothing was changed" note. **OPEN:** does a cancelled/unconfirmed upload appear in
+  the upload log as an attempt? Name stays "Cancel import" until answered.
+- **[DONE 2026-09-24]** Blocked imports: Cancel import is the way out; the
+  mapping/settings links are hidden while blocked.
+- **[DONE]** "Replace file" removed from under the red alerts.
+- **[DONE 2026-09-24]** Run import now asks twice: clicking it opens a "Run this
+  import?" modal (recap counts + the **"This can't be undone"** warning, moved OFF the
+  Change summary panel) with Go back / **Yes, run import** (red when the import
+  deactivates users or ends jobs).
+- **[DONE 2026-09-24]** Cancel import is a secondary RED (outline) button.
+- **[DONE 2026-09-24]** Stepper: completed steps are clickable (and keyboard-operable)
+  to jump back to that page; jumping to Upload discards the current file.
+- **[DONE 2026-09-24]** "See details" list tables now have column labels (e.g. "Job
+  being removed (position · location)" / "Who it affects"; "Row in your file" /
+  "Would import as · already exists as").
+
+**Error / alert display** — **[DONE 2026-09-24]** redesigned:
+- **[DONE]** Each alert's explanation + example merged into ONE "See details" box,
+  CLOSED by default; the separate Help popover is gone.
+- **[DONE]** Code-like dot/dash lists → scannable TABLE (`.axt`).
+- **[DONE]** "from → to" now a big before→after (green/red cards or a Now→After table)
+  with a large arrow, not the code-like glyph.
+- **[DONE]** Alerts share ~one footprint by default (colored header + one-line gist +
+  actions); detail expands on demand.
+- **[DONE]** Color-coded by severity via tiers: blocked=red, confirm=amber/yellow,
+  info=blue, contact-Vector=indigo.
+- **[DONE]** No row data shown by default; the detail table is height-capped and
+  scrolls (`.axt-wrap`, max-height 220px) so large sets never render a 150-row wall.
+- **[DONE]** "Replace file" removed from under the alerts (redo path stays in the side
+  panel). The side-panel rename to "Cancel import" is done (see Review changes).
+
+**Parked**
+- **[PARKED]** Export the file with error messages inline — Liz recalled Rich saying
+  it's possible; not in the PRD. Revisit later.
+
+**Error-message documentation (Confluence)**
+- **[EXTERNAL / DONE]** Confluence page cataloging every error message (key, plain
+  meaning, current internal "red" text, admin-facing message, extra details) is live.
+  Source = Rich's Perl file; neither Liz nor Deborah has Bitbucket access. Framework
+  first, then tag-team fill over 1–2 weeks.
+
 **Placement (2026-09-16) — moved to the Employees tab.** Bulk user import no longer
 lives under Settings ▸ User Import. It now lives under the **Employees tab** (the
 K-12 admin screen: sidebar `Employees` active, the Employees / Dynamic Groups /
@@ -13,13 +103,13 @@ Positions / Quick Groups / … top-tab bar, the toolbar + paginated employee lis
 Each version launches the import from a **different entry point on that screen** —
 that entry point is now the axis that varies between versions.
 
-**Automated sync is assumed already set up (2026-09-16).** The earlier "how do you
-turn sync on" experiment (earn-it gate / concierge request / per-version placement)
-is **retired**. Every version now assumes Vector has already configured the site's
-automated roster sync, so **both manual upload and automated sync are available**.
-Sync surfaces as a light "Automated sync is on" status (banner / detail page) with
-two states only — **up to date** and **needs your attention** — reachable from the
-import flow. The bottom-left "Preview · AutoSync" panel toggles those two states.
+**Automated sync is OUT OF SCOPE (2026-09-24).** Customers can't be given automated
+sync self-serve, so the sync page, the "Automated sync is on" banner, the Preview ·
+AutoSync panel, and the flow map's sync lane (B) were **removed** from the mock. Where
+sync used to be offered, the mock now links a Help Center article, **"How to get
+automated sync"** (URL TBD): the Upload step's Help Center line, the Add employee
+modal's bulk tab, and the Import complete page. (Supersedes the 2026-09-16 "sync is
+assumed already set up" decision.)
 
 **Versions — 5, one entry point each (2026-09-16).** V1+V2 (the old earn-it and
 concierge variants) were consolidated into one standard flow; the reimagined flows
@@ -89,6 +179,10 @@ screen), V4 (new tab), V5 (stays in the modal).
 - **Consolidated to ONE all-or-nothing switch.** The two toggles were collapsed
   into a single **"Make this file the complete roster"** switch (on = deactivate
   missing users + end-date absent jobs; off = add/update only).
+- **(2026-09-24) Reduced density.** The long On/Off paragraph under the toggle was
+  redundant with the "With this on" bullet box, so it was collapsed to a single
+  guidance line ("Turn this on only when your file lists everyone"). The scannable
+  bullet box now carries the consequences; permanence note + rep link unchanged.
 - **(2026-09-23) Plain-language copy pass.** Import-settings microcopy reworded:
   heading "What happens to people and jobs that aren’t in this file?", an On/Off
   labeled contrast under the toggle, a three-bullet "With this on" box, and a
@@ -108,17 +202,6 @@ screen), V4 (new tab), V5 (stays in the modal).
   The red `*` on a file column now reflects the column's natural (auto-detected)
   target being a required field (First name / Last name / Username), so it stays
   put regardless of what the "Import as" dropdown is currently set to.
-
-## sync-failed
-
-- **Summary-first failure card**, with the fuller explanation + affected rows behind
-  a single expander. The decision + its action stay visible.
-- **Notifications = email, PII-light — PENDING detail.** Keep names/PII out of the
-  email body; drive recipients into the app to see rows.
-- **Retry routes through the manual uploader** — a failed auto-upload is corrected
-  and retried via the manual flow, not a bespoke mechanism.
-- **Care alerting thresholds — backend, not mock.** When Care gets a case (every
-  failure? after N?) is out of mock scope.
 
 ## upload
 

@@ -35,7 +35,7 @@ const SPECS = {
     ['Empty state', 'icon 44px circle · title 16/600 · body 14'],
   ]),
   training: specHTML([
-    ['List columns', 'minmax(0,1fr) 248 96 96 108 84 · gap 12'],
+    ['List columns', 'minmax(0,1fr) 248 96 96 108 112 · gap 12'],
     ['Depth indents', '16 / 32 / 44 / 60px'],
     ['Type glyphs', 'accordion rows: plain --c-primary icons, no chip'],
     ['Card meta', 'type line + due line · 12px --c-meta · icons 14px col'],
@@ -46,12 +46,17 @@ const SPECS = {
     ['Status pills', 'h 24 · text 12/600 · status tokens'],
     ['Progress meter', 'bar 72x6 · label 14'],
     ['Banners', 'pad 8 8 8 16 · radius 8 · stack gap 12 · max 3'],
-    ['Cards (small)', 'tracks 184-224 · title 14/600'],
+    ['Cards (small)', 'tracks 200-236 · title 14/600'],
     ['Cards (large)', 'tracks 256-312 · title 16/600'],
     ['Card grid', 'gap 16 · thumb 16:9 · shadow --e-xs, no border'],
     ['Card padding', 'body 16 · foot 0 16 16 · dense 12 · no reserved title slot'],
     ['Card badges', 'status top-left · duration bottom-right'],
-    ['Row actions', 'info leftmost · icon-btn 34 · column 84'],
+    ['Row actions', 'print · attachments · info RIGHTMOST (fixed x) · icon-btn 34 · column 112'],
+    ['Card actions', 'print · attachments only (info moved to hover) · glyph aligned to the text edge'],
+    ['Card hover', 'View details pill over the thumb · 35% ink scrim · also on focus-within'],
+    ['Cards (small) fit', 'icon-btn 34 · Launch pad 10 · tracks 200-236'],
+    ['Loading state', 'skeleton on --c-canvas · vwc-spinner 24 · 500ms flash between states'],
+    ['Loading modal', '420px · vwc-spinner 40 · Cancel · auto-close 2.4s (prototype)'],
     ['Elective marker', '20px E tag inline · hidden until toggled'],
     ['Panel toggles', 'chevrons-up/down = all · square-star = electives'],
   ]),
@@ -60,7 +65,8 @@ const SPECS = {
     ['Kind chip', 'text 12/600 on --c-primary-soft'],
     ['Title', '20/600 · meta row 14'],
     ['List rows', 'static · minmax(0,1fr) auto · min 52px · token-for-token the plan rows (.tp-req / .tp-act): bg, separators, text, hover'],
-    ['Provenance', 'Part of + Assignment lines · 14px --c-meta · names 600 ink'],
+    ['Hero', 'kind chip · title 20/600 · meta row 14 · Launch; nothing else'],
+    ['Assignment section', 'Qualification · Requirement · Assigned by <name> on <date> · grid 140px + 1fr'],
     ['Nested indent', '+28px on activity rows'],
     ['Completions table', 'cols 130 90 120 1fr · rows min 40'],
     ['Back control', '16/500 --c-primary · hover soft fill'],
@@ -156,6 +162,17 @@ const SPECS = {
       <div class="sn-list" id="navList"></div>
     </aside>
 
+    <!-- Loading content: shown from Launch until the training window opens -->
+    <div class="ld-overlay" id="ldOverlay" hidden>
+      <div class="ld-modal" role="dialog" aria-modal="true" aria-labelledby="ldTitle" aria-describedby="ldText">
+        <vwc-spinner loading loading-message="Loading content" load-complete-message="Content ready"></vwc-spinner>
+        <h2 class="ld-title" id="ldTitle">Loading content</h2>
+        <p class="ld-name" id="ldName"></p>
+        <p class="ld-text" id="ldText">Your training opens in a new window as soon as it is ready. This usually takes a few seconds.</p>
+        <vaadin-button theme="tertiary" class="btn-compact" id="ldCancel">Cancel</vaadin-button>
+      </div>
+    </div>
+
     <main class="main">
 
       <!-- ============ AREA 2 - PAGE HEADER (replaces the dark bar) ============ -->
@@ -209,6 +226,20 @@ const SPECS = {
       </div>
 
       <div class="canvas" id="canvas">
+
+        <!-- Loading between states: a skeleton of the next screen over the
+             canvas. Chrome stays; only the content is pending. -->
+        <div class="loading" id="loading" hidden aria-live="polite" aria-busy="true">
+          <div class="loading-head">
+            <vwc-spinner loading loading-message="Loading" load-complete-message="Loaded"></vwc-spinner>
+            <span class="loading-label" id="loadingLabel">Loading</span>
+          </div>
+          <div class="sk sk-banner"></div>
+          <div class="sk-panel">
+            <div class="sk sk-row w40"></div><div class="sk sk-row w70"></div><div class="sk sk-row w55"></div>
+            <div class="sk sk-row w80"></div><div class="sk sk-row w60"></div><div class="sk sk-row w75"></div>
+          </div>
+        </div>
 
         <!-- ===================== REVIEW GUIDE ===================== -->
         <section class="view" id="view-guide">

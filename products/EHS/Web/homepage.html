@@ -254,16 +254,14 @@
 
         /* ── My Open Items (EHS-22823) ──
            Re-introduces the legacy home.aspx "My Open Items" widget in the new
-           module chrome as a compact HALF-WIDTH module: one tile per record type
+           module chrome as a full-width module of slim cards, one per record type
            the user can access (Incidents, Claims, Inspections, Corrective
-           Actions). A tile shows the outlined type icon, the type name and the
-           count; clicking it launches that module's summary page, filtered to
-           the same records the count was built from. The assignment +
-           open-status rule sits in the tile tooltip. Zero counts still render,
-           muted. Sized for the 2 to 3 types a typical user has; 4 wraps to 2x2. */
-        .module-half { width: calc(50% - 8px); }   /* a second half-width module can sit beside it on a 16px gutter */
-        @media (max-width: 1100px) { .module-half { width: 100%; } }
-
+           Actions). A card is a single row: the outlined type icon, the type
+           name, and the count hard right. Clicking it launches that module's
+           summary page, filtered to the same records the count was built from;
+           the assignment + open-status rule sits in the tooltip. Zero counts
+           still render. All types sit on one row; a card is never wider than it
+           would be with all four present, so 2 or 3 stay that size, left-aligned. */
         .oi-actions { display: flex; align-items: center; gap: 10px; }
         .oi-updated {
             display: inline-flex; align-items: center; gap: 5px;
@@ -285,7 +283,9 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));   /* JS resets this from the number of visible types */
             gap: 12px; padding: 14px 18px 16px;
         }
-        /* Tile: the type icon and name on one row above the hero count. Two card
+        /* Tile: type icon and name on the first line, the count beneath them, and
+           a diagonal go-to arrow pinned to the top right, marking the card as a
+           link out to that module's summary page. Two card
            treatments, switched from the review strip (choice persisted per
            browser):
              shaded  ->  the design-system light shade (the semantic 10% tint)
@@ -293,9 +293,9 @@
              white   ->  same white as the module, borders alone doing the work
            The whole card is the link; hover lifts it and tints the name. */
         .oi-tile {
-            display: flex; flex-direction: column;
-            padding: 14px 16px;
-            border: 1px solid #e2e8f0; border-radius: 10px;
+            display: flex; flex-direction: row; align-items: center; gap: 10px;
+            padding: 12px 14px;
+            border: 1px solid #e2e8f0; border-radius: 8px;
             background-color: #ffffff;
             color: inherit; text-decoration: none;
             transition: border-color 0.12s, box-shadow 0.12s;
@@ -306,29 +306,37 @@
            the theme. Keep background-color OUT of the transition list — a
            var()-backed value in a transitioned background stalls and leaves
            on-screen cards unrepainted. */
-        .oi-body[data-cardbg="shaded"] .oi-t-incident   { background-color: var(--lumo-error-color-10pct); }
-        .oi-body[data-cardbg="shaded"] .oi-t-inspection { background-color: var(--lumo-primary-color-10pct); }
-        .oi-body[data-cardbg="shaded"] .oi-t-claim      { background-color: var(--lumo-warning-color-10pct); }
-        .oi-body[data-cardbg="shaded"] .oi-t-corrective { background-color: var(--lumo-warning-color-10pct); }
-        /* Shaded cards carry a very light version of the type colour at rest,
-           derived from the same --oi-tone so there is still one source of truth,
-           and darken to the full tone on hover. Only the colour changes, so
-           nothing shifts, and it fades via the existing border-color transition. */
-        .oi-body[data-cardbg="shaded"] .oi-tile {
-            border-color: color-mix(in srgb, var(--oi-tone) 25%, white);
-        }
-        .oi-body[data-cardbg="shaded"] .oi-tile:hover,
-        .oi-body[data-cardbg="shaded"] .oi-tile:focus-visible { border-color: var(--oi-tone); }
+        .oi-t-incident   { background-color: var(--lumo-error-color-10pct); }
+        .oi-t-inspection { background-color: var(--lumo-primary-color-10pct); }
+        .oi-t-claim      { background-color: var(--lumo-warning-color-10pct); }
+        .oi-t-corrective { background-color: var(--lumo-warning-color-10pct); }
+        /* A very light version of the type colour at rest, derived from the same
+           --oi-tone so there is one source of truth, darkening to the full tone
+           on hover. Only the colour changes, so nothing shifts, and it fades via
+           the border-color transition. */
+        .oi-tile { border-color: color-mix(in srgb, var(--oi-tone) 25%, white); }
         .oi-tile:hover, .oi-tile:focus-visible {
-            border-color: var(--primary);
+            border-color: var(--oi-tone);
             box-shadow: 0 2px 6px rgba(29,78,216,0.10);
             outline: none;
         }
-        .oi-tile-top { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+        /* Everything but the go-to arrow stacks in this column. */
+        .oi-main { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 0; }
+        .oi-tile-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .oi-goto {
+            /* --text-light was only ~2.4:1 on the card tints and barely read;
+               --text-muted roughly doubles that while staying secondary to the
+               near-black type name and count. */
+            font-size: 14px; color: var(--text-muted); flex-shrink: 0;
+            align-self: flex-start;   /* top right, level with the type name */
+            margin-top: 1px;
+            transition: color 0.12s;
+        }
+        .oi-tile:hover .oi-goto { color: var(--oi-tone); }
         .oi-icon {
-            width: 22px; height: 22px; flex-shrink: 0;
+            width: 18px; height: 18px; flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
-            font-size: 19px; line-height: 1;
+            font-size: 15px; line-height: 1;
         }
         /* --oi-tone is the type's full-strength bucket colour, set once on the
            tile and consumed by BOTH the icon and the shaded card's border, so
@@ -340,44 +348,15 @@
         .oi-t-corrective { --oi-tone: #d97706; }
         .oi-icon { color: var(--oi-tone); }
         .oi-label {
-            font-size: 13px; font-weight: 600; color: var(--text);
+            font-size: 12.5px; font-weight: 600; color: var(--text);
             line-height: 1.3; min-width: 0; transition: color 0.12s;
         }
         .oi-tile:hover .oi-label { color: var(--primary); }
         .oi-count {
-            font-size: 32px; font-weight: 700; line-height: 1;
-            color: var(--text); letter-spacing: -0.03em;
+            font-size: 24px; font-weight: 700; line-height: 1;
+            color: var(--text); letter-spacing: -0.02em;
             font-variant-numeric: tabular-nums;
-            margin-top: 10px;
         }
-
-        /* Review-only strip. Sits OUTSIDE the module, on the page background, so
-           the module itself stays clean product chrome. Dashed border marks it as
-           scaffolding: tile-header layout and how many modules the user has in
-           scope. NOT part of the design — delete this block, the .oi-review
-           markup and its JS once both are settled. */
-        .oi-review {
-            display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap;
-            padding: 7px 12px;
-            margin-bottom: 10px;
-            border: 1px dashed #cbd5e1;
-            border-radius: 8px;
-            background: #fbfcfe;
-        }
-        .oi-review-label { font-size: 11px; font-weight: 600; color: var(--text-light); }
-        .oi-seg {
-            display: inline-flex; overflow: hidden;
-            border: 1px solid var(--border); border-radius: 6px;
-            background: var(--surface);
-        }
-        .oi-seg-btn {
-            background: transparent; border: 0; padding: 4px 10px;
-            font-family: inherit; font-size: 12px; font-weight: 500; line-height: 1.3;
-            color: var(--text-muted); cursor: pointer;
-        }
-        .oi-seg-btn + .oi-seg-btn { border-left: 1px solid var(--border); }
-        .oi-seg-btn:hover { background: var(--bg); color: var(--text); }
-        .oi-seg-btn.active { background: var(--primary-soft); color: var(--primary); font-weight: 600; }
 
         /* ── Recent Activity ── */
         .activity-body { padding: 16px 18px; }
@@ -859,24 +838,11 @@
                 <div class="module-foot-link"><a href="#">View All (5)</a></div>
             </div>
 
-            <!-- Review-only controls, not part of the design. -->
-            <div class="oi-review">
-                <span class="oi-review-label">Review only</span>
-                <div class="oi-seg" role="group" aria-label="Modules in scope">
-                    <button class="oi-seg-btn" data-count="2" type="button">2 items</button>
-                    <button class="oi-seg-btn" data-count="3" type="button">3 items</button>
-                    <button class="oi-seg-btn active" data-count="4" type="button">4 items</button>
-                </div>
-                <div class="oi-seg" role="group" aria-label="Card background">
-                    <button class="oi-seg-btn active" data-cardbg="shaded" type="button">Shaded cards</button>
-                    <button class="oi-seg-btn" data-cardbg="white" type="button">White cards</button>
-                </div>
-            </div>
             <!-- ── My Open Items Module (EHS-22823) ──
-                 Half-width module. Tiles are rendered by JS from OPEN_ITEM_TYPES so
+                 Full-width module. Tiles are rendered by JS from OPEN_ITEM_TYPES so
                  the scope check (permission + archived), the count and the
                  summary-page click-through come from one place. -->
-            <div class="module module-half" id="openItemsModule">
+            <div class="module" id="openItemsModule">
                 <div class="module-header">
                     <span class="module-title">My Open Items <span id="openItemsTotal">(0)</span></span>
                     <div class="oi-actions">
@@ -1413,11 +1379,14 @@ function buildOpenItemTile(type) {
     tile.href = type.href;
     tile.title = `Opens ${type.summaryPage} · ${type.assignRule} · ${type.openRule}`;
     tile.innerHTML = `
-        <span class="oi-tile-top">
-            <span class="oi-icon"><i class="fa-regular ${type.icon}"></i></span>
-            <span class="oi-label">${type.label}</span>
+        <span class="oi-main">
+            <span class="oi-tile-top">
+                <span class="oi-icon"><i class="fa-regular ${type.icon}"></i></span>
+                <span class="oi-label">${type.label}</span>
+            </span>
+            <span class="oi-count">${type.count.toLocaleString()}</span>
         </span>
-        <span class="oi-count">${type.count.toLocaleString()}</span>
+        <i class="fa-regular fa-arrow-up-right oi-goto" aria-hidden="true"></i>
     `;
     tile.addEventListener('click', () => launchSummaryPage(type));
     return tile;
@@ -1443,13 +1412,29 @@ function renderOpenItems() {
     const visible = OPEN_ITEM_TYPES.filter(t => t.hasAccess && !t.archived);
     body.innerHTML = '';
     if (visible.length === 0) {
-        // Nothing in scope: hide the whole widget rather than show an empty card.
+        // Nothing in scope: hide the widget rather than show an empty card.
         module.hidden = true;
         return;
     }
     module.hidden = false;
-    // One row for up to 3 types; 4 wraps to a 2x2 so tiles stay readable at half width.
-    body.style.gridTemplateColumns = `repeat(${visible.length <= 3 ? visible.length : 2}, minmax(0, 1fr))`;
+    // Every type sits on one row.
+    const cols = visible.length;
+    body.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+    // A card is never wider than it would be with ALL types in the row. Measure
+    // the unconstrained container, work out that full-row card width, and cap
+    // the grid to hold `cols` of them, so 2 or 3 cards keep the same size as 4
+    // and sit left-aligned instead of stretching. With all types present the
+    // cap equals the container, so the row fills edge to edge.
+    body.style.maxWidth = '';
+    const cs  = getComputedStyle(body);
+    const gap = parseFloat(cs.columnGap) || 12;
+    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    const available = body.clientWidth - pad;
+    if (available > 0) {
+        const all = OPEN_ITEM_TYPES.length;
+        const cardMax = (available - (all - 1) * gap) / all;
+        body.style.maxWidth = `${cols * cardMax + (cols - 1) * gap + pad}px`;
+    }
     visible.forEach(t => body.appendChild(buildOpenItemTile(t)));
     const total = visible.reduce((sum, t) => sum + t.count, 0);
     document.getElementById('openItemsTotal').textContent = `(${total})`;
@@ -1466,51 +1451,7 @@ document.getElementById('openItemsRefresh').addEventListener('click', (e) => {
     renderOpenItems();
 });
 
-// ─── My Open Items: review-only toggles ─────────────────────────────────────
-// Two review controls, both persisted per browser so a reviewer keeps their
-// view across reloads:
-//   count   - how many modules the user has in scope (2, 3 or 4), which flips
-//             `hasAccess` on the first N types and re-renders
-//   cardbg  - card background, "shaded" (light wash) or "white"
-// The tile header layout is settled (icon left), so its picker is gone.
-// Delete this block, the .oi-review markup and its CSS once both are settled.
-const OI_COUNT_KEY  = 'ehs-home-open-items-count';
-const OI_CARDBG_KEY = 'ehs-home-open-items-cardbg';
-
-function setOpenItemsCount(n) {
-    OPEN_ITEM_TYPES.forEach((type, i) => { type.hasAccess = i < n; });
-    document.querySelectorAll('.oi-seg-btn[data-count]').forEach(btn => {
-        btn.classList.toggle('active', Number(btn.dataset.count) === n);
-    });
-    try { localStorage.setItem(OI_COUNT_KEY, String(n)); } catch (e) { /* storage unavailable */ }
-    renderOpenItems();
-}
-
-// The attribute lives on #openItemsBody, which renderOpenItems() refills rather
-// than replaces, so the choice survives a re-render and a refresh.
-function setOpenItemsCardBg(value) {
-    document.getElementById('openItemsBody').dataset.cardbg = value;
-    document.querySelectorAll('.oi-seg-btn[data-cardbg]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.cardbg === value);
-    });
-    try { localStorage.setItem(OI_CARDBG_KEY, value); } catch (e) { /* storage unavailable */ }
-}
-
-document.querySelectorAll('.oi-seg-btn[data-count]').forEach(btn => {
-    btn.addEventListener('click', () => setOpenItemsCount(Number(btn.dataset.count)));
-});
-document.querySelectorAll('.oi-seg-btn[data-cardbg]').forEach(btn => {
-    btn.addEventListener('click', () => setOpenItemsCardBg(btn.dataset.cardbg));
-});
-
-let oiInitialCount  = OPEN_ITEM_TYPES.length;   // all four in scope by default
-let oiInitialCardBg = 'shaded';
-try {
-    oiInitialCount  = Number(localStorage.getItem(OI_COUNT_KEY)) || oiInitialCount;
-    oiInitialCardBg = localStorage.getItem(OI_CARDBG_KEY) || oiInitialCardBg;
-} catch (e) { /* storage unavailable */ }
-setOpenItemsCount(oiInitialCount);
-setOpenItemsCardBg(oiInitialCardBg);
+renderOpenItems();
 
 // ─── Module tabs (toggle active state within their parent .module-tabs) ──────
 document.querySelectorAll('.module-tabs').forEach(group => {

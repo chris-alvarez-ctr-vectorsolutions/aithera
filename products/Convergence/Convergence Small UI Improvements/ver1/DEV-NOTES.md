@@ -43,6 +43,7 @@
 - Round 10: accordion type glyphs are plain icons (14px, `--c-primary`), no chip fill. The 24px `--c-primary-soft` chip remains only where an icon stands alone (detail hero, catalog type column, View-by list).
 - Round 8: qualification rows use `fa-graduation-cap` (never the medal); requirements keep `fa-award`. Same cap in the side nav, View-by list, detail hero and catalog cards.
 - Canvas: `--c-canvas` is `#f5f9fd`, the product CLAUDE.md default (round 8 tried the gray `#f0f2f5`; round 10 reverted it at designer direction). The round 8 table retune stays: bands `#f3f5f9` / `#edf1f7`, borders `#dbe0e8`, hairlines `#e9edf3`, `--c-meta` darkened to `#5b6779`. AA on the canvas: meta 5.42, links 4.66.
+- The Actions column is 112px (was 84px) so it holds three 34px icon buttons; the 1400px breakpoint grid carries the same width. A third action would need another 34px.
 - ONE column grid is declared once and reused by the header and every depth, so group, qualification, requirement and activity rows align their Completion / Duration / Time spent / Due / Actions values under the same headings.
 - Dropping a column at a breakpoint must hide that cell at EVERY depth, or the deeper rows spill onto a second grid line.
 - The empty completion capsule with the tiny caption is replaced by `.meter`: a 76px bar plus a single-line label, "**0 of 5** qualifications", vertically centred. Needs a completion ratio in the row model; if only the counts exist, derive the bar from them.
@@ -59,7 +60,7 @@
 - Round 2: classes that need a session carry the amber "Needs scheduling" badge (row, card and detail hero) instead of the legacy flashing yellow corner, and the banner carries the same badge on the same warn tokens. Class actions are Details / Select a session, never Launch.
 - Round 2: the accordion's collapsed-state set records USER TOGGLES (XOR with the default), otherwise default-collapsed groups can never be expanded.
 - Round 4: up to THREE stacked banners above the plan, one construction (icon, text, optional action, dismiss X), severity from the status tokens (warn / err / info). Stack gap 12, margin below 16, all from the scale. Dismissal is per session in the prototype; persistence is server-side. After dismissing, keyboard focus moves to the next banner's dismiss control.
-- Round 4: the circle-info details action is ALWAYS the leftmost icon in an action row; the paperclip follows it. Applies to list rows, both card sizes and catalog cards.
+- Round 4 placed the circle-info action leftmost; SUPERSEDED. Round 13 removed it from cards (details are the hover pill) and round 14 moved it to the RIGHT end of list rows, so it sits at a fixed x whether or not print / attachments precede it.
 
 ## t-filter - Filter panel open (Area 3)
 - Two bordered icon-button toggles: chevrons collapse/expand all, square-star shows electives; both keep `title`/`aria-label` in sync with state.
@@ -79,7 +80,10 @@
 ## t-cards-s - Compact cards (Area 4)
 - Same card component as the large size. The ONLY difference is the grid track size: `--card-min: 168px; --card-max: 208px`, plus slightly tighter body padding and a 13px title.
 - Thumbnail ratio, badge placement, radius, shadow and controls must not change between densities.
+- Round 12/13: the small card track is 200-236 (was 184-224). With info moved to the hover pill a footer holds at most two icons, so the buttons stay the shared 34px; only Launch trims its side padding in the dense card (`padding-inline: 10px`). Fit at the 200px minimum: 70 icons + 8 gap + 80 Launch = 158 in 176. The footer's icon cluster is pulled left by the buttons' 10px inset (`margin-left: -10px`) so the first glyph aligns with the title edge and both sides read as evenly padded.
 - Round 4 worked example: the 12-activity requirement (RV - HSEML - Site Hazards) demonstrates the responsive grid. Measured: large cards 4 / 3 / 2 per row and small cards 5 / 4 / 2 per row at 1600 / 1180 / 820px, 16px gutters at every size. Auto-fill min-max tracks derive the count from the width; do not hardcode column counts.
+- Action order is fixed: print, then attachments, then info LAST (list rows only). The cluster is right-aligned, so info always renders at the same x regardless of how many optional icons precede it. `rowActs(a, { info })` in views.js builds the cluster once for rows and cards; cards pass `info: false` because details live on the thumbnail hover.
+- Printable content is derived from the activity type (`doc`, `tasklist`) in the data.js enrichment IIFE. LOGIC ITEM: the real model needs a printable flag per activity; do not ship the type heuristic.
 - Round 2: cards carry the design-system XS shadow (`--e-xs`) as their ONLY elevation: no border. Type icons are centred with grid place-items + line-height 1 and one normalised size per thumbnail size.
 - Round 10 padding (dense): body `12 12 8`, footer `0 12 12` - the same model as the large card, one spacing step tighter.
 
@@ -87,7 +91,7 @@
 - `--card-min: 248px; --card-max: 300px`. Grid tracks are CAPPED so a partial row keeps the card size instead of stretching a few cards across the page. That plus moving the group progress meter into the Completion column removes the "cards clustered left, capsule floating right" gap.
 - Fixed 16:9 thumbnail (`aspect-ratio`). Status badge top-left using the shared pill on a translucent white plate; duration badge bottom-right.
 - The due date moved from the thumbnail corner to a meta line under the title (red when overdue) so it can never collide with the duration badge.
-- Title is 13.5/600 clamped to two lines, content-type glyph aligned to the first line. Footer: tertiary details icon button left, primary Launch right: the same pills and buttons as the list view.
+- Footer (round 13): print and attachments icon buttons left (only when the activity has them), primary Launch right. The info button is GONE from cards: details open from the View details pill that appears over the thumbnail on hover and on focus-within (a 35% ink scrim under a white pill, `--e-2`); on touch devices (`hover: none`) the pill is always visible. List rows keep the info button as their first action.
 - Round 10 padding: body `16 16 12` with an 8px stack gap; footer `0 16 16` pinned to the card bottom (`margin-top: auto`). No reserved title slot - the due-date line follows the title at the flex gap.
 - GOTCHA: `.tcard-title` is an `h3` and `.tcard-meta` a `p`; both zero their margins in CSS. Without that the UA default margins stack ~36px of phantom space onto the 8px gap. Keep `margin: 0` if the elements change.
 - The card title carries NO type icon. The activity type is a meta line under the title, styled identically to the due-date line: `.tcard-metas` stacks `icon + type label` then `icon + due`, 12px `--c-meta`, 4px apart; `.tcard-meta i` sits in a fixed 14px centred column so both lines' text left-aligns.
@@ -170,11 +174,22 @@
 
 ## d-act - Activity details
 - Hero: type chip, title, status pill + duration + time spent + due (red when overdue), and the primary Launch. The legacy page buried Launch under a bare duration line.
-- Provenance is explicit and clickable: "Part of <requirement> in <qualification>", or "Assigned individually" for direct assignments. The legacy line ("Activity from Individually Assigned Activities from an individual assignment") was unreadable.
-- Assignment line (round 11): the hero also names the assignment the activity came through - name, assigned date and who assigned it (demo data: `qualification.assignment`). LOGIC ITEM: the activity model needs its assignment record.
+- Round 13: the hero is only the activity itself - kind chip, title, status + duration + time spent + due, Launch - with `--s-3` between rows so it no longer reads as one squashed block. Provenance moved out of it.
+- Assignment section (rounds 13-14), directly above Past completions: a `dl.d-kv` label/value grid (140px + 1fr) with exactly three rows - Qualification (link), Requirement (link; the row is omitted for individually assigned activities, which have no requirement), and "Assigned by <First Last> on <date>" as one line. Dates use the plan's MM-DD-YYYY format. Demo data: `qualification.assignment`. LOGIC ITEM: the activity model needs its assignment record (assigner + date).
 - Attachments appear as a file row (icon, name, size, Download): this is where the paperclip in the list leads.
 - Past completions is a 4-column table (Completed / Version / Time spent / Score). Empty is the shared neutral empty state, NOT the legacy red "No records to display" row: red stays reserved for errors and overdue. The legacy Expire/Ignore date columns are dropped unless populated: confirm whether they carry data before build.
 - Deep link: ?details=act:a4.
+
+## loading - Loading screen between states
+- A skeleton layer (`#loading`) sits over the canvas; the topnav, side nav and page header stay put so the user keeps their bearings. Content: `vwc-spinner` (24px, `loading` set - it is invisible otherwise) + a "Loading <screen>" label, a banner-shaped block and a panel of six shimmering rows on `--c-surface-alt2`.
+- Prototype timing: `flashLoading()` shows it for 500ms on every in-place route change and on page load; a standalone page also shows it the moment it leaves for a sibling file. In the product it stays until the next screen's data has arrived, then hides. LOGIC ITEM: tie show/hide to the real fetch.
+- `aria-live=polite` + `aria-busy` on the layer; the spinner's `loading-message` / `load-complete-message` announce start and end. Shimmer honours `prefers-reduced-motion`.
+- Flow map: the `loading` state holds the layer open for review; every other state hides it.
+
+## load-modal - Loading content modal
+- Every Launch on the page (list rows, both card sizes, the activity hero, the Home list) opens the same modal through one delegated click handler; the activity name is read from the row it sits in.
+- Modal: 420px, `vwc-spinner` 40px, "Loading content", the activity name, one line of expectation ("opens in a new window as soon as it is ready"), and a tertiary Cancel. `role=dialog`, `aria-modal`, labelled by the title; focus lands on Cancel; Escape, the backdrop and Cancel dismiss it.
+- Prototype auto-closes after 2.4s in place of the content window opening. LOGIC ITEM: close on the real window-open / content-ready event, and decide what Cancel does to an in-flight launch. Build with `vaadin-dialog` (renderer-based; see CONTEXT.md) rather than the hand-rolled overlay used here.
 
 ## cat-cards - Catalog category carousels (Area 5, round 2)
 - Additive card view, default for the catalog; the table stays intact behind the segmented toggle and behind every View all.
@@ -185,7 +200,7 @@
 - Round 3: strips DO NOT horizontally scroll by hand. Flanking 36px circular arrow buttons page each row by about one viewport (smooth scroll, disabled at either end); the keyboard arrows still walk card to card. No visible scrollbar.
 - Round 3: card titles show two full lines (2-line clamp with a matching min-height) instead of one truncated line.
 - Round 4: each category is its own grouped module (white surface, hairline border, 12px radius, --e-1, 20px padding) per the Top picks reference; the circular prev/next arrows sit TOP-RIGHT in the category header beside View all.
-- Round 4: catalog cards ARE the small Training Plan card (.tcard): same structure, sizing, thumbnail ratio, badges and XS shadow, plus the E tag and Assigned badge, and an action row whose info button is leftmost. There is no separate catalog card style.
+- Round 4: catalog cards ARE the small Training Plan card (.tcard): same structure, sizing, thumbnail ratio, badges and XS shadow, plus the E tag and Assigned badge. Round 14: like the training cards they have no footer and no info button; View details is the hover pill over the thumbnail (a placeholder here, since catalog items have no drill-in page in this prototype). There is no separate catalog card style.
 - View all sets the category and opens the table view; deep link the views with ?view=cards or ?view=table on catalog.html.
 - Category data is illustrative (the reference's Driver Safety / Emergency Procedures / First Aid / Qualifications rows); the existing seven Safety items are unchanged and remain the Safety category.
 
