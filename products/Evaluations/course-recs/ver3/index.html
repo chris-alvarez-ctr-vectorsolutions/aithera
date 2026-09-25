@@ -8236,7 +8236,7 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
             <div class="rec-list-head">
                 <h3 class="rec-list-title">
                     <i class="fa-solid fa-lock-open"></i>
-                    Also recommended &mdash; available with an expanded library
+                    Available in other libraries
                 </h3>
                 <!-- One CTA covering the whole unlicensed grouping — placed
                      directly after the heading (not pushed to the right edge)
@@ -8681,38 +8681,47 @@ function shrinkCourseCards(list, { gated = false } = {}) {
             const r = card.shadowRoot;
             if (!r) return;
             const container = r.querySelector('.card-container');
-            /* ── Gated badge ──
+            /* ── Gated lock ──
                These cards are deliberately NOT dimmed or desaturated (they are
                merchandise, not broken controls), so the gating needs its own
-               affordance. A small lock badge sits on the card corner: it reads
-               as "you don't have this yet" without degrading the card.
+               affordance. The lock takes the CHECKBOX's slot in the card's
+               header stripe — verified against the lms v1.3.10 bundle, where
+               `.card-header-checkbox-wrapper` is `position:absolute; top:8px;
+               right:8px; 16x16` inside a `.card-header` that is `min-height:
+               30px; position: relative`. Putting it exactly where the
+               selection control sits on an assignable card is what makes the
+               swap read: same place, different affordance.
+               Bare icon — no disc, no fill. The header stripe is already a
+               solid colour, so a chip on top of it would be a badge on a
+               badge.
                Added once — keyed by a data flag, since this whole function is
                re-run by the rAF poll until the cards exist. */
-            if (gated && container && !container.dataset.gatedBadge) {
-                container.dataset.gatedBadge = '1';
-                container.style.setProperty('position', 'relative', 'important');
-                const badge = document.createElement('span');
-                badge.setAttribute('aria-hidden', 'true');
+            const header = r.querySelector('.card-header');
+            if (gated && header && !header.dataset.gatedLock) {
+                header.dataset.gatedLock = '1';
+                const lock = document.createElement('span');
+                lock.setAttribute('aria-hidden', 'true');
                 /* INLINE SVG, not a Font Awesome class or glyph. A webfont
                    icon that fails to resolve renders as a zero-width invisible
-                   box with no error — and this badge is the ONLY thing marking
-                   these cards as gated now that the dimming is gone, so it
-                   must not be able to fail silently. An MDI lock-open path has
-                   no font or stylesheet dependency at all. */
-                badge.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12"'
+                   box with no error — and this is the ONLY thing marking these
+                   cards as gated now that the dimming is gone, so it must not
+                   be able to fail silently. An MDI lock path has no font or
+                   stylesheet dependency at all. */
+                lock.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14"'
                     + ' fill="currentColor" focusable="false"><path d="M12 17a2 2 0 0 0'
                     + ' 2-2 2 2 0 0 0-2-2 2 2 0 0 0-2 2 2 2 0 0 0 2 2m6-9a2 2 0 0 1 2 2v10a2 2'
                     + ' 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h1V6a5 5 0 0 1 5-5 5 5 0 0 1'
-                    + ' 5 5h-1.9c0-1.71-1.39-3.1-3.1-3.1S8.9 4.29 8.9 6v2H18Z"/></svg>';
-                badge.style.cssText = [
+                    + ' 5 5v2h1m-6-5A3 3 0 0 0 9 6v2h6V6a3 3 0 0 0-3-3Z"/></svg>';
+                lock.style.cssText = [
                     'position:absolute', 'top:8px', 'right:8px', 'z-index:2',
-                    'width:24px', 'height:24px', 'border-radius:999px',
+                    'width:16px', 'height:16px',
                     'display:flex', 'align-items:center', 'justify-content:center',
-                    'background:rgba(17,24,39,0.72)', 'color:#fff',
-                    'pointer-events:none',
-                    'box-shadow:0 1px 3px rgba(16,24,40,0.3)'
+                    /* Matches .card-header-text, which is the stripe's own
+                       foreground colour. */
+                    'color:var(--lumo-primary-contrast-color, #fff)',
+                    'pointer-events:none'
                 ].join(';');
-                container.appendChild(badge);
+                header.appendChild(lock);
             }
             const content = r.querySelector('.card-content');
             const details = r.querySelector('.card-content-details');
