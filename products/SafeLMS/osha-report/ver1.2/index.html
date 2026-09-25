@@ -4,9 +4,9 @@
      blue=In Progress, amber=Behind, orange=2+ quiz failures).
        • Not Started → the whole pie is Not Started (it's a status). 0 of 48 here → a dashed empty
          ring + the normal key ("Not Started: 0 of 48") — no extra explanation text.
-       • Behind the Expected Pace → the pie is the In Progress group, with the behind learners
-         called out inside it (Behind vs. the rest of In Progress).
-       • At least 2 quiz failures → also INSIDE In Progress (failing a quiz ≠ failing the course):
+       • Behind the Expected Pace → the pie is the In Progress group (out of 23): Behind 6 vs.
+         Other In Progress 17. The card reads "6 of 23" for the same reason.
+       • At least 2 quiz failures → also INSIDE In Progress, card reads "5 of 23" (failing a quiz ≠ failing the course):
          2+ quiz failures vs. the rest of In Progress. Course-failed learners (3 attempts) are not
          in this bucket.
      Demo data is 48 learners (Not Started 0, In Progress 23 = 6 behind + 5 with 2+ quiz failures
@@ -175,7 +175,10 @@
   .chart-col-bar { flex: 1; min-width: 280px; }
   /* Pie column: title on top, then the pie + legend centered in the remaining height so the
      chart aligns with the middle of the Action Needed cards beside it (not shoved top-left). */
-  .chart-col:not(.chart-col-bar) { display: flex; flex-direction: column; min-width: 210px; }
+  /* FIXED width (V1.2): the pie column must not resize as the legend changes between drills —
+     otherwise the pie shifts and the Action Needed cards beside it grow/shrink. Sized to fit the
+     default 2-column status legend; drill legends stack one per row to fit inside it. */
+  .chart-col:not(.chart-col-bar) { display: flex; flex-direction: column; flex: 0 0 320px; width: 320px; }
   .chart-section-title {
     font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
     color: var(--muted); margin-bottom: 12px;
@@ -194,6 +197,8 @@
     background: var(--hair-2); /* live conic-gradient set by renderDistribution() */
   }
   .pie-labels { display: grid; grid-template-columns: repeat(2, auto); gap: 7px 20px; justify-items: start; align-items: center; }
+  /* Drill views (Behind / 2+ quiz failures): one status per row so long labels never widen the column */
+  .pie-labels.stacked { grid-template-columns: auto; }
   .pie-label { font-size: 14px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
   .pie-label .pd { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   /* ── Dynamic pie (V1.2): counts in legend, a per-drill caption line, and empty-state cues ── */
@@ -2497,12 +2502,14 @@
     // course/status/etc. base scope (they ignore the action filter) so all three bucket sizes
     // stay visible even while the table is scoped to one bucket.
     const data = cardScopeLearners();
-    // Every card is "N of the total number of students" — same denominator across all three.
     const total = data.length;
+    // Behind + 2+ quiz failures are subsets of In Progress, so they count out of In Progress;
+    // Not Started is a status of its own, so it counts out of everyone.
+    const inProgTotal = data.filter(r => r.status === 'in-progress').length;
     const cards = [
       { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
-      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: total, label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures within a module — connect for remediation' },
+      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: inProgTotal, ofLabel: 'in progress', label: 'Behind the expected pace — needs a nudge' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: inProgTotal, ofLabel: 'in progress', label: 'At least 2 failures within a module — connect for remediation' },
     ];
     const wrap = document.getElementById('actionCards');
     // A card is the active table filter when its bucket is in filters.actions. Clicking the card
@@ -2514,7 +2521,7 @@
       <div class="action-card${on ? ' active' : ''}" data-action="${c.type}" role="button" tabindex="0" aria-pressed="${on}" aria-label="Filter report to: ${c.label}">
         <span class="ac-ico ${c.cls}"><i aria-hidden="true" class="fa-solid ${c.icon}"></i></span>
         <span class="ac-body">
-          <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
+          <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}${c.ofLabel ? ' ' + c.ofLabel : ''}</span></span>
           <span class="ac-label">${c.label}</span>
         </span>
       </div>`;
@@ -2556,7 +2563,7 @@
 
   // Paint a conic pie + its legend (label · count · %). A single-segment call fills the pie at 100%
   // (used by the status-mapped drills). `caption` is an optional full-width line under the legend.
-  function paintPie(segs, caption) {
+  function paintPie(segs, caption, stacked) {
     const total = segs.reduce((s, x) => s + x.n, 0) || 1;
     const pie = document.getElementById('pieChart');
     pie.className = 'pie-chart';
@@ -2564,6 +2571,7 @@
     let acc = 0;
     const stops = segs.map(s => { const a = acc / total * 360; acc += s.n; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
     pie.style.background = `conic-gradient(${stops})`;
+    document.getElementById('pieLabels').classList.toggle('stacked', !!stacked);
     const legend = segs.map(s =>
       `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.n} <span class="pie-pct">(${Math.round(s.n / total * 100)}%)</span></span>`).join('');
     document.getElementById('pieLabels').innerHTML = legend + (caption ? `<span class="pie-caption">${caption}</span>` : '');
@@ -2576,6 +2584,7 @@
     pie.style.background = '';
     pie.className = 'pie-chart empty-a';
     pie.innerHTML = `<div class="pie-empty-center"><b>0</b><span>of ${of}</span></div>`;
+    document.getElementById('pieLabels').classList.add('stacked');
     document.getElementById('pieLabels').innerHTML =
       `<span class="pie-label"><span class="pd" style="background:${color}"></span> ${label}: 0 <span class="pie-pct">of ${of}</span></span>`;
   }
@@ -2604,17 +2613,17 @@
       paintPie([
         { label, color, n },
         { label: 'Other In Progress', color: '#3b82f6', n: inProg.length - n },
-      ]);
+      ], null, true);   // one status per row
     };
 
-    if (action === 'nudge') {                            // Behind — inside In Progress
-      setPieTitle('In Progress — Behind the Expected Pace');
+    if (action === 'nudge') {                            // Behind — inside In Progress (out of In Progress)
+      setPieTitle('Behind the Expected Pace');
       drillInProgress(GROUP_MATCH.nudge, 'Behind the Expected Pace', '#f59e0b');   // amber
       return;
     }
 
     if (action === 'retry') {                            // 2+ quiz failures — inside In Progress
-      setPieTitle('In Progress — At least 2 quiz failures');
+      setPieTitle('2+ Quiz Failures');
       drillInProgress(GROUP_MATCH.retry, '2+ quiz failures', '#f97316');   // orange
       return;
     }
