@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Fill — V2 (static default + filters)</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Current production scheduler UI uses Source Sans — loaded so the host
+         modal replica matches production type. -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@300;400;500;600;700&display=swap" />
+
+    <!-- Font Awesome 6 PRO Icons (Default Icon Library) — self-hosted at the repo root.
+
+         Self-hosted rather than a Kit or the Pro CDN because both of those are
+         domain-locked, and a domain lock breaks `file://` — designers must be able
+         to double-click an HTML file and still see icons.
+
+         The path is depth-relative, like the Design Toolbox include. Every mock lives
+         at products/<Product>/<feature>/verN/index.html — four levels below the repo
+         root — so `../../../../` is correct for any mock scaffolded from this template.
+         (That makes the link dead in this template file itself, which sits one level
+         down. That is expected; it resolves once copied into verN/.)
+
+         Pro unlocks fa-light, fa-thin, fa-duotone and fa-sharp on top of fa-solid /
+         fa-regular / fa-brands. Pro 6 is a superset of Free 6, so anything that worked
+         on the old CDN link still works. -->
+    <link
+    rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css"
+    />
+</head>
+<body>
+
+<!-- ============================================================
+     QUICK FILL — RULES BUILDER
+     Imported from Claude Design ("Quick-Fill Rules Builder.dc.html").
+
+     Layout: the production "fill shift" modal (left, 720px) with the new
+     QUALIFIED PERSONNEL panel docked to its right (560px). The panel ranks
+     eligible people live using an Approach (WHO is eligible) + Rule (HOW they
+     rank), both defaulted from the shift's qualifier and overridable inline.
+
+     NOTE: like Event Indicator's current-ui.html, the host modal deliberately
+     reproduces the CURRENT production (Bootstrap-era) look rather than Vector
+     components, so the new panel is judged in its real surroundings. All
+     styles are namespaced .qf-*.
+     ============================================================ -->
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #43454e; font-family: "Source Sans 3", "Source Sans Pro", "Helvetica Neue", Arial, sans-serif; color: #333; -webkit-font-smoothing: antialiased; }
+  @keyframes qfIn  { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+  @keyframes rowIn { from { opacity: 0; transform: translateY(-4px); }  to { opacity: 1; transform: translateY(0); } }
+  input::placeholder, textarea::placeholder { color: #b0b0b0; }
+
+  /* ── Backdrop: dimmed stand-in for the schedule behind the modal ── */
+  .qf-backdrop {
+    min-height: 100vh; padding: 55px 20px 50px;
+    background-image: linear-gradient(rgba(20,22,28,.72), rgba(20,22,28,.72)),
+                      repeating-linear-gradient(0deg, #6e6e6e 0 34px, #7a7a7a 34px 68px);
+  }
+  .qf-stage { display: flex; align-items: flex-start; justify-content: center; }
+
+  /* ── Host modal: replica of the CURRENT production "add/fill shift" dialog
+        (Bootstrap-era, Source Sans). Measured against a production screenshot
+        (Engine 27 — Engineer) at 1:1 CSS px. ── */
+  .qf-modal { width: 700px; flex: none; background: #fff; border-radius: 3px; box-shadow: 0 6px 30px rgba(0,0,0,.5); overflow: hidden; position: relative; }
+  .qf-stage.panel-open .qf-modal { border-radius: 3px 0 0 3px; }
+  .qf-head { padding: 15px 60px 0 32px; }
+  .qf-title { font-size: 19px; line-height: 24px; font-weight: 400; color: #22435a; }
+  .qf-x { position: absolute; top: 14px; right: 19px; color: #999; font-size: 15px; cursor: pointer; line-height: 1; background: none; border: 0; padding: 0; }
+  .qf-x:hover { color: #333; }
+  .qf-position { margin: 30px 0 0 3px; font-size: 26px; line-height: 31px; font-weight: 400; color: #505c62; }
+
+  /* Two columns: fields (left) / notes + patterns (right) */
+  .qf-grid { padding: 8px 0 0 35px; display: grid; grid-template-columns: 345px 233px; column-gap: 42px; align-items: start; }
+  .qf-col { display: flex; flex-direction: column; gap: 16px; }
+  .qf-label { display: flex; align-items: center; gap: 10px; margin-bottom: 3px; font-size: 13px; line-height: 20px; font-weight: 400; color: #333; text-transform: uppercase; }
+  .qf-label small { font-size: 11px; color: #777; margin-left: 4px; }
+  .qf-help { color: #687b8d; font-size: 12px; margin-left: 4px; }
+
+  .qf-input, .qf-textarea {
+    display: block; width: 100%; padding: 6px 12px; border: 1px solid #cfdadd; border-radius: 2px;
+    font-size: 15px; font-weight: 300; font-family: inherit; outline: none; color: #555; background: #fff;
+  }
+  .qf-input { height: 34px; }
+  .qf-textarea { height: 73px; resize: vertical; }
+  .qf-input:focus, .qf-textarea:focus { border-color: #66afe9; box-shadow: 0 0 6px rgba(102,175,233,.5); }
+  .qf-input[disabled] { background: #eee; color: #777; font-size: 16px; }
+
+  /* Native-looking select: text + thin chevron. Stacked selects butt together. */
+  .qf-select {
+    height: 34px; padding: 0 10px 0 16px; border: 1px solid #cfdadd; border-radius: 2px; background: #fff;
+    font-size: 16px; font-weight: 300; color: #555; display: flex; align-items: center; justify-content: space-between; gap: 8px; white-space: nowrap;
+  }
+  .qf-select .car { color: #555; font-size: 9.5px; flex: none; }
+  .qf-select.lg { height: 45px; font-size: 18px; padding-left: 21px; }
+  .qf-select.md { font-size: 14.5px; }
+  .qf-stack > * + * { margin-top: -1px; }
+  .qf-stack > * + .qf-select { margin-top: 1px; }
+  .qf-select.time { width: 60px; flex: none; padding: 0 8px 0 15px; font-size: 15px; }
+  .qf-select.date { width: 139px; flex: none; padding-left: 12px; }
+  .qf-select[data-action] { cursor: pointer; }
+  .qf-select[data-action]:hover { border-color: #66afe9; }
+
+  /* select2-style single select with a clear × (Covering For) */
+  .qf-s2 { height: 27px; padding: 0 8px 0 8px; border: 1px solid #cfdadd; border-radius: 2px; display: flex; align-items: center; font-size: 13px; font-weight: 300; color: #666; }
+  .qf-s2 .v { flex: 1; }
+  .qf-s2 .clr { font-weight: 700; color: #333; margin-right: 8px; font-size: 13px; }
+  .qf-s2 .car { color: #777; font-size: 12px; }
+
+  .qf-row { display: flex; gap: 3.5px; }
+  .qf-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 13.5px; color: #333; }
+  .qf-link { font-size: 13px; font-weight: 300; color: #29abe2; cursor: pointer; text-transform: uppercase; display: inline-flex; align-items: center; gap: 7px; }
+  .qf-link i { font-size: 13px; }
+  .qf-link:hover { color: #1a8cc0; }
+
+  /* Tag box (qualifier tags, and the employee field once filled) */
+  .qf-tags { min-height: 34px; padding: 5px 10px; border: 1px solid #cfdadd; border-radius: 2px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; background: #fff; }
+  .qf-chip { display: inline-flex; align-items: center; gap: 7px; height: 21px; padding: 0 7px 0 6px; border-radius: 5px; background: #dde6e9; font-size: 11.5px; color: #555; }
+  .qf-chip .dot { width: 4px; height: 4px; border-radius: 50%; background: #999; }
+  .qf-chip .rm { color: #808080; font-size: 12px; cursor: pointer; }
+  .qf-chip .rm:hover { color: #a94442; }
+  .qf-chip .badge { color: #7b8e98; font-size: 11px; }
+  .qf-token-box { animation: rowIn .15s ease; }
+
+  /* Grey option boxes (repeating pattern / compound rotation) */
+  .qf-box { background: #e6e6e6; border-radius: 4px; padding: 6px 10px 10px; }
+  .qf-box-h { font-size: 13px; line-height: 20px; font-weight: 400; color: #333; text-transform: uppercase; display: flex; align-items: center; gap: 5px; }
+  .qf-box-h i { font-size: 13px; }
+  .qf-repeat-row { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 13.5px; color: #333; }
+  .qf-repeat-row input { width: 16px; height: 16px; margin: 0 2px 0 0; }
+  .qf-dark-btn { padding: 2px 6px; border-radius: 3px; background: #363b48; color: #fff; font-size: 12.5px; cursor: pointer; }
+  .qf-dark-btn:hover { background: #22262f; }
+  .qf-box .qf-select { margin-top: 8px; }
+
+  /* Footer actions — split button + icon-segment buttons */
+  .qf-foot { display: flex; align-items: center; justify-content: flex-end; gap: 5px; padding: 40px 35px 25px; }
+  .qf-split { display: flex; align-items: stretch; height: 30px; border: 1px solid #ddd; border-radius: 3px; overflow: hidden; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+  .qf-split > div { padding: 0 10px; font-size: 13px; color: #444; cursor: pointer; display: grid; place-items: center; }
+  .qf-split > div:last-child { width: 25px; padding: 0; font-size: 12px; border-left: 1px solid #ddd; color: #555; }
+  .qf-split > div:hover { background: #f4f4f4; }
+  .qf-btn { display: flex; align-items: stretch; height: 30px; border-radius: 3px; overflow: hidden; color: #fff; font-size: 13px; font-weight: 400; cursor: pointer; }
+  .qf-btn .ic { width: 31px; display: grid; place-items: center; font-size: 13px; }
+  .qf-btn .tx { padding: 0 11px 0 10px; display: grid; place-items: center; }
+  .qf-btn.teal  { background: #177592; } .qf-btn.teal .ic  { background: #146a84; }
+  .qf-btn.green { background: #27c24c; } .qf-btn.green .ic { background: #22b145; }
+  .qf-btn.green .tx { padding: 0 20px 0 18px; }
+  .qf-btn:hover { filter: brightness(.94); }
+
+  /* ── QUALIFIED PERSONNEL panel (the new design) ── */
+  .qp {
+    width: 560px; flex: none; align-self: stretch; background: #fbfbfb; border-left: 1px solid #d8d8d8;
+    border-radius: 0 5px 5px 0; box-shadow: 0 6px 30px rgba(0,0,0,.5);
+    display: flex; flex-direction: column; animation: qfIn .22s cubic-bezier(.2,.7,.3,1);
+    max-height: calc(100vh - 76px);
+  }
+  .qp-head { padding: 16px 18px 12px; border-bottom: 1px solid #e4e4e4; background: #fff; border-radius: 0 5px 0 0; flex: none; }
+  .qp-head-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .qp-title { font-size: 12px; font-weight: 700; letter-spacing: .03em; color: #34638c; }
+  .qp-sub { font-size: 12px; color: #888; margin-top: 4px; }
+  .qp-head .qf-x { position: static; color: #999; font-size: 15px; }
+  /* V2: the default approach + rule is a STATEMENT (the answer), not a control.
+     Changing it happens through a separate Filter button; changes show as
+     removable filter chips — no "Overridden" pill / Reset. */
+  .qp-rec { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 12px; }
+  .qp-rec-txt { font-size: 13px; line-height: 19px; color: #555; }
+  .qp-rec-txt b { font-weight: 600; color: #333; }
+  .qp-rec-txt .src { display: block; font-size: 11px; color: #999; margin-top: 1px; }
+  .qp-rec-txt.muted, .qp-rec-txt.muted b { color: #999; }
+  .qp-filter-btn { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid #ccc; border-radius: 3px; background: #fff; font: inherit; font-size: 12px; color: #444; cursor: pointer; }
+  .qp-filter-btn:hover, .qp-filter-btn.open { border-color: #66afe9; color: #2c5f80; }
+  .qp-filter-btn .n { min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #34638c; color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+  .qp-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .qp-chip { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px; border-radius: 12px; background: #eaf3f8; border: 1px solid #b8d6e6; font-size: 11.5px; color: #2c5f80; }
+  .qp-chip .k { color: #6f94ab; }
+  .qp-chip i { font-size: 10px; color: #6f94ab; cursor: pointer; }
+  .qp-chip i:hover { color: #a94442; }
+  .qp-clear { font-size: 11.5px; color: #2e6da4; cursor: pointer; margin-left: 2px; }
+  .qp-clear:hover { text-decoration: underline; }
+
+  /* Filter drawer: approach + rule side by side */
+  .qp-filters { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .qp-opt .def { margin-left: 6px; padding: 0 5px; border-radius: 3px; background: #eee; color: #888; font-size: 9.5px; font-weight: 700; letter-spacing: .03em; vertical-align: 1px; }
+  .qp-opt.on { border-color: #66afe9; background: #f3f8fc; }
+  .qp-menu-foot { display: flex; justify-content: flex-end; margin-top: 10px; }
+  .qp-done { padding: 5px 14px; border-radius: 3px; background: #3f8dbf; color: #fff; border: 1px solid #337ab7; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+  /* Inline option menus (approach / rule) */
+  .qp-menu { padding: 11px 18px; background: #fff; border-bottom: 1px solid #e4e4e4; animation: rowIn .15s ease; flex: none; }
+  .qp-menu-h { font-size: 11px; font-weight: 700; color: #999; letter-spacing: .04em; margin-bottom: 8px; }
+  .qp-opts { display: flex; flex-direction: column; gap: 5px; }
+  .qp-opt { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 9px; border: 1px solid #e2e2e2; border-radius: 3px; cursor: pointer; background: #fff; }
+  .qp-opt:hover { border-color: #66afe9; background: #f7fbfd; }
+  .qp-opt .n { font-size: 12px; font-weight: 500; display: block; }
+  .qp-opt .m { font-size: 11px; color: #999; }
+  .qp-opt .chk { color: #2e6da4; font-weight: 700; }
+
+  .qp-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 18px; background: #f2f2f2; border-bottom: 1px solid #e4e4e4; flex: none; font-size: 11px; color: #777; }
+  .qp-count .ex { color: #999; }
+
+  /* Ranked candidate cards */
+  .qp-list { flex: 1; overflow: auto; padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 7px; }
+  .qp-card { border: 1px solid #e2e2e2; border-radius: 4px; background: #fff; padding: 9px 11px; display: flex; align-items: flex-start; gap: 10px; }
+  .qp-card:hover { border-color: #66afe9; }
+  .qp-card.filled { background: #f3f9f3; border-color: #a3d3a3; }
+  .qp-rank { width: 26px; height: 26px; flex: none; border-radius: 3px; background: #eee; color: #777; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
+  .qp-card.top .qp-rank { background: #34638c; color: #fff; }
+  .qp-body { flex: 1; min-width: 0; }
+  .qp-line1 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .qp-name { font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .qp-rankmeta { font-size: 11px; color: #999; white-space: nowrap; }
+  .qp-auto { padding: 1px 7px; border-radius: 9px; background: #dff0d8; color: #3c763d; font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .qp-line2 { display: flex; align-items: center; gap: 9px; margin-top: 3px; font-size: 11px; color: #777; white-space: nowrap; }
+  .qp-line2 .ph { font-family: ui-monospace, Menlo, monospace; }
+  .qp-line2 .sep { color: #ccc; }
+  .qp-factors { display: flex; align-items: center; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+  /* Factor chips — the one driving the current rule is highlighted blue */
+  .qp-factor { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 7px; border-radius: 3px; background: #f4f4f4; border: 1px solid #e4e4e4; font-size: 11px; white-space: nowrap; }
+  .qp-factor .l { color: #8a8a8a; } .qp-factor .v { font-weight: 600; color: #666; }
+  .qp-factor.decisive { background: #eaf3f8; border-color: #b8d6e6; } .qp-factor.decisive .v { color: #2c5f80; }
+  .qp-fill { flex: none; padding: 6px 14px; border-radius: 3px; background: #3f8dbf; color: #fff; border: 1px solid #337ab7; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .qp-fill:hover { opacity: .88; }
+  .qp-card.filled .qp-fill { background: #5cb85c; border-color: #4cae4c; }
+  .qp-foot { padding: 10px 18px; border-top: 1px solid #e4e4e4; background: #fff; border-radius: 0 0 5px 0; font-size: 11px; color: #999; flex: none; }
+</style>
+
+<div class="qf-backdrop">
+  <div class="qf-stage" id="stage">
+
+    <!-- ── Host modal: production fill-shift dialog ── -->
+    <div class="qf-modal">
+      <div class="qf-head">
+        <div class="qf-title">Engine 27 — Friday, September 25, 2026</div>
+        <button class="qf-x" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+        <!-- Position being filled -->
+        <div class="qf-position">Engineer</div>
+      </div>
+
+      <div class="qf-grid">
+        <!-- Left column -->
+        <div class="qf-col">
+          <div>
+            <div class="qf-label">Choose employee(s) <small>(TYPE NAME)</small></div>
+            <div class="qf-stack">
+              <!-- Rendered by JS: empty text input, or the filled-person token -->
+              <div id="employeeField"></div>
+              <!-- Quick Fill entry point: the "qualified employees" picker opens the ranked panel -->
+              <div class="qf-select lg" data-action="togglePanel">
+                <span>... or choose from qualified employees...</span><i class="car fa-regular fa-chevron-down"></i>
+              </div>
+              <div class="qf-select md">
+                <span>... or choose from ALL available employees</span><i class="car fa-regular fa-chevron-down"></i>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="qf-label">Project code</div>
+            <div class="qf-select"><span></span><i class="car fa-regular fa-chevron-down"></i></div>
+          </div>
+
+          <div>
+            <div class="qf-label">Covering for <i class="qf-help fa-solid fa-circle-question"></i></div>
+            <div class="qf-s2"><span class="v">Trey Lance</span><span class="clr">×</span><i class="car fa-solid fa-caret-down"></i></div>
+          </div>
+
+          <div>
+            <div class="qf-label">Covering for - project code <i class="qf-help fa-solid fa-circle-question"></i></div>
+            <div class="qf-select"><span></span><i class="car fa-regular fa-chevron-down"></i></div>
+          </div>
+
+          <div>
+            <div class="qf-label">Covering for - time off type <i class="qf-help fa-solid fa-circle-question"></i></div>
+            <input type="text" class="qf-input" value="Vacation [1]" disabled />
+          </div>
+
+          <div>
+            <div class="qf-label">Work type</div>
+            <div class="qf-select"><span>Normal [RT]</span><i class="car fa-regular fa-chevron-down"></i></div>
+          </div>
+
+          <div>
+            <div class="qf-label">Shift from</div>
+            <div class="qf-row">
+              <div class="qf-select date">Fri, Sep 25, 2026</div>
+              <div class="qf-select time"><span>08</span><i class="car fa-regular fa-chevron-down"></i></div>
+              <div class="qf-select time"><span>00</span><i class="car fa-regular fa-chevron-down"></i></div>
+            </div>
+          </div>
+
+          <div>
+            <div class="qf-label">Shift to</div>
+            <div class="qf-row">
+              <div class="qf-select date">Sat, Sep 26, 2026</div>
+              <div class="qf-select time"><span>08</span><i class="car fa-regular fa-chevron-down"></i></div>
+              <div class="qf-select time"><span>00</span><i class="car fa-regular fa-chevron-down"></i></div>
+            </div>
+            <div class="qf-meta">
+              <span>24 hours</span>
+              <span class="qf-link"><i class="fa-solid fa-circle-plus"></i>Add break</span>
+            </div>
+          </div>
+
+          <div style="margin-top:-4px;"><span class="qf-link"><i class="fa-solid fa-circle-plus"></i>Add secondary work type</span></div>
+
+          <div>
+            <div class="qf-label">Add qualifier tags <i class="qf-help fa-solid fa-circle-question"></i> <small>(OPTIONAL)</small></div>
+            <div class="qf-stack">
+              <div class="qf-tags">
+                <span class="qf-chip"><span class="dot"></span>Paramedic<i class="rm fa-solid fa-xmark"></i></span>
+              </div>
+              <div class="qf-select"><span>Select qualifier to add...</span><i class="car fa-regular fa-chevron-down"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div class="qf-col">
+          <div>
+            <div class="qf-label">Notes <small>(OPTIONAL)</small></div>
+            <textarea class="qf-textarea"></textarea>
+          </div>
+          <div>
+            <div class="qf-label">Label(s) <small>(OPTIONAL)</small></div>
+            <div class="qf-stack">
+              <input type="text" class="qf-input" />
+              <div class="qf-select"><span>Select label to add...</span><i class="car fa-regular fa-chevron-down"></i></div>
+            </div>
+          </div>
+          <div class="qf-box">
+            <div class="qf-box-h"><i class="fa-solid fa-clock-rotate-left"></i>Repeating pattern</div>
+            <div class="qf-repeat-row">
+              <label style="display:flex;align-items:center;gap:4px;"><input type="checkbox" /> Does not repeat</label>
+              <div class="qf-dark-btn">+ Edit...</div>
+            </div>
+          </div>
+          <div class="qf-box">
+            <div class="qf-box-h"><i class="fa-solid fa-sliders"></i>... or compound rotation</div>
+            <div class="qf-select"><span></span><i class="car fa-regular fa-chevron-down"></i></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="qf-foot">
+        <div class="qf-split"><div>Open Force Hire List</div><div><i class="fa-solid fa-caret-up"></i></div></div>
+        <div class="qf-btn teal" data-action="togglePanel"><span class="ic"><i class="fa-solid fa-phone"></i></span><span class="tx">Fill w/ CallBack™</span></div>
+        <div class="qf-btn green"><span class="ic"><i class="fa-solid fa-plus"></i></span><span class="tx">Add User</span></div>
+      </div>
+    </div>
+
+    <!-- ── Qualified Personnel panel — rendered by JS into here ── -->
+    <div id="panelSlot" style="display: contents;"></div>
+  </div>
+</div>
+
+<script>
+  /* ── Mock data ─────────────────────────────────────────────── */
+  // Approach = WHO is eligible. a1 is the default for this shift's qualifier.
+  const APPROACHES = [
+    { id: 'a1', name: 'Medic Callback Pool',       meta: '38 qualified · default for this qualifier' },
+    { id: 'a2', name: 'Station 4 + Adjacent',      meta: '21 qualified · geographic' },
+    { id: 'a3', name: 'ALS Overtime Volunteers',   meta: '14 qualified · opt-in list' },
+    { id: 'a4', name: 'All Paramedics (District)', meta: '96 qualified · broadest' }
+  ];
+  // Rule = HOW they rank. r1 is the default for this shift's qualifier.
+  const RULES = [
+    { id: 'r1', name: 'Lowest OT Hours',               meta: 'ascending OT · default for this qualifier' },
+    { id: 'r2', name: 'Seniority (Most Senior First)', meta: 'by hire date' },
+    { id: 'r3', name: 'Rotational Order',              meta: 'next in base rotation' },
+    { id: 'r4', name: 'Least Recently Called',         meta: 'longest since last callback' }
+  ];
+  const PEOPLE = [
+    { name: 'D. Ferraro',   phone: '(408) 555-0142', auto: true,  rotation: 'Rot. A · pos 4', ot: 12.5, sen: '2011-03-14', senY: 15, last: 26, rot: 4 },
+    { name: 'M. Okonjo',    phone: '(408) 555-0198', auto: false, rotation: 'Rot. C · pos 1', ot: 14.0, sen: '2016-07-02', senY: 10, last: 12, rot: 1 },
+    { name: 'S. Whitaker',  phone: '(408) 555-0177', auto: true,  rotation: 'Rot. B · pos 7', ot: 18.0, sen: '2009-01-20', senY: 17, last: 41, rot: 7 },
+    { name: 'J. Halvorsen', phone: '(408) 555-0106', auto: false, rotation: 'Rot. A · pos 9', ot: 22.5, sen: '2019-05-11', senY: 7,  last: 5,  rot: 9 },
+    { name: 'P. Nowak',     phone: '(408) 555-0231', auto: true,  rotation: 'Rot. D · pos 2', ot: 26.0, sen: '2013-09-30', senY: 12, last: 33, rot: 2 },
+    { name: 'T. Arceneaux', phone: '(408) 555-0165', auto: false, rotation: 'Rot. C · pos 6', ot: 31.5, sen: '2021-02-08', senY: 5,  last: 19, rot: 6 },
+    { name: 'V. Lindqvist', phone: '(408) 555-0119', auto: false, rotation: 'Rot. B · pos 3', ot: 34.0, sen: '2007-11-05', senY: 18, last: 58, rot: 3 },
+    { name: 'H. Bramble',   phone: '(408) 555-0288', auto: true,  rotation: 'Rot. D · pos 8', ot: 40.0, sen: '2018-04-17', senY: 8,  last: 9,  rot: 8 }
+  ];
+  // How many of PEOPLE each approach admits, and who it filtered out.
+  const POOL_SIZE = { a1: 8, a2: 6, a3: 5, a4: 8 };
+  const EXCLUDED = {
+    a1: '4 excluded — 2 time off, 1 working, 1 opted out',
+    a2: '3 excluded — 2 working, 1 time off',
+    a3: '1 excluded — opted out',
+    a4: '9 excluded — 5 working, 3 time off, 1 opted out'
+  };
+  const SORTS = {
+    r1: (a, b) => a.ot - b.ot,
+    r2: (a, b) => a.sen.localeCompare(b.sen),
+    r3: (a, b) => a.rot - b.rot,
+    r4: (a, b) => b.last - a.last
+  };
+  const RANK_META = {
+    r1: p => p.ot.toFixed(1) + ' OT hrs',
+    r2: p => p.senY + ' yrs service',
+    r3: p => 'rotation slot ' + p.rot,
+    r4: p => p.last + ' days since callback'
+  };
+  const DECISIVE = { r1: 'ot', r2: 'sen', r3: 'rot', r4: 'last' };
+
+  /* ── State ─────────────────────────────────────────────────── */
+  // V2: filterOpen replaces the per-picker menus. a1/r1 are THE default answer.
+  const DEFAULT_APPROACH = 'a1', DEFAULT_RULE = 'r1';
+  const DEFAULT_STATE = { panelOpen: true, filterOpen: false, approach: DEFAULT_APPROACH, rule: DEFAULT_RULE, filled: null };
+  let state = Object.assign({}, DEFAULT_STATE);
+  function setState(patch) { Object.assign(state, patch); render(); }
+
+  function ranked() {
+    return PEOPLE.slice(0, POOL_SIZE[state.approach] || PEOPLE.length).sort(SORTS[state.rule]);
+  }
+
+  /* ── Render ────────────────────────────────────────────────── */
+  function renderEmployeeField() {
+    const el = document.getElementById('employeeField');
+    if (!state.filled) {
+      // Keep the existing input (and whatever was typed) when nothing changed
+      if (!el.querySelector('input')) el.innerHTML = '<input type="text" class="qf-input" />';
+      return;
+    }
+    const p = PEOPLE.find(x => x.name === state.filled);
+    el.innerHTML = `
+      <div class="qf-tags qf-token-box">
+        <span class="qf-chip">
+          <span class="dot"></span>${p.name}
+          <span class="badge">${p.auto ? 'auto-accept · callback' : 'callback'}</span>
+          <i class="rm fa-solid fa-xmark" data-action="clearFill" title="Remove"></i>
+        </span>
+      </div>`;
+  }
+
+  function optsHtml(heading, items, activeId, defaultId, action) {
+    return `
+      <div>
+        <div class="qp-menu-h">${heading}</div>
+        <div class="qp-opts">
+          ${items.map(o => `
+            <div class="qp-opt${o.id === activeId ? ' on' : ''}" data-action="${action}" data-id="${o.id}">
+              <span><span class="n">${o.name}${o.id === defaultId ? '<span class="def">DEFAULT</span>' : ''}</span><span class="m">${o.meta.replace(' · default for this qualifier', '')}</span></span>
+              ${o.id === activeId ? '<span class="chk">✓</span>' : ''}
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  function factor(label, value, key) {
+    const cls = DECISIVE[state.rule] === key ? ' decisive' : '';
+    return `<span class="qp-factor${cls}"><span class="l">${label}</span><span class="v">${value}</span></span>`;
+  }
+
+  function cardHtml(p, i) {
+    const filled = state.filled === p.name;
+    return `
+      <div class="qp-card${i === 0 ? ' top' : ''}${filled ? ' filled' : ''}">
+        <div class="qp-rank">${i + 1}</div>
+        <div class="qp-body">
+          <div class="qp-line1">
+            <span class="qp-name">${p.name}</span>
+            <span class="qp-rankmeta">${RANK_META[state.rule](p)}</span>
+            ${p.auto ? '<span class="qp-auto">AUTO-ACCEPT</span>' : ''}
+          </div>
+          <div class="qp-line2">
+            <span class="ph">${p.phone}</span><span class="sep">|</span><span>${p.rotation}</span>
+          </div>
+          <div class="qp-factors">
+            ${factor('OT', p.ot.toFixed(1) + ' h', 'ot')}
+            ${factor('Seniority', p.senY + ' yr', 'sen')}
+            ${factor('Last CB', p.last + ' d', 'last')}
+            ${factor('Rotation', '#' + p.rot, 'rot')}
+          </div>
+        </div>
+        <button class="qp-fill" data-action="fill" data-name="${p.name}">${filled ? '✓ Filled' : 'Fill'}</button>
+      </div>`;
+  }
+
+  function renderPanel() {
+    const slot = document.getElementById('panelSlot');
+    document.getElementById('stage').classList.toggle('panel-open', state.panelOpen);
+    if (!state.panelOpen) { slot.innerHTML = ''; return; }
+
+    const list = ranked();
+    const isDefault = state.approach === DEFAULT_APPROACH && state.rule === DEFAULT_RULE;
+    const activeCount = (state.approach !== DEFAULT_APPROACH) + (state.rule !== DEFAULT_RULE);
+    const defApproach = APPROACHES.find(a => a.id === DEFAULT_APPROACH);
+    const defRule = RULES.find(r => r.id === DEFAULT_RULE);
+    const approach = APPROACHES.find(a => a.id === state.approach);
+    const rule = RULES.find(r => r.id === state.rule);
+    const wasOpen = !!slot.querySelector('.qp');   // only animate the slide-in on first open
+
+    slot.innerHTML = `
+      <aside class="qp" aria-label="Qualified personnel"${wasOpen ? ' style="animation:none"' : ''}>
+        <div class="qp-head">
+          <div class="qp-head-top">
+            <div>
+              <div class="qp-title">QUALIFIED PERSONNEL</div>
+              <div class="qp-sub">Engine 27 · Engineer · Paramedic · 08:00 – 08:00</div>
+            </div>
+            <button class="qf-x" data-action="togglePanel" aria-label="Close panel">✖</button>
+          </div>
+          <!-- The answer: static default, never a selector -->
+          <div class="qp-rec">
+            <div class="qp-rec-txt${isDefault ? '' : ' muted'}">
+              Recommended: <b>${defApproach.name}</b>, ranked by <b>${defRule.name}</b>
+              <span class="src">Default for the Paramedic qualifier on this shift</span>
+            </div>
+            <button class="qp-filter-btn${state.filterOpen ? ' open' : ''}" data-action="toggleFilter">
+              <i class="fa-solid fa-sliders"></i>Filter${activeCount ? `<span class="n">${activeCount}</span>` : ''}
+            </button>
+          </div>
+          ${isDefault ? '' : `
+          <div class="qp-chips">
+            ${state.approach !== DEFAULT_APPROACH ? `<span class="qp-chip"><span class="k">Approach</span>${approach.name}<i class="fa-solid fa-xmark" data-action="clearApproach" title="Remove filter"></i></span>` : ''}
+            ${state.rule !== DEFAULT_RULE ? `<span class="qp-chip"><span class="k">Rule</span>${rule.name}<i class="fa-solid fa-xmark" data-action="clearRule" title="Remove filter"></i></span>` : ''}
+            <span class="qp-clear" data-action="clearFilters">Clear filters</span>
+          </div>`}
+        </div>
+
+        ${state.filterOpen ? `
+        <div class="qp-menu">
+          <div class="qp-filters">
+            ${optsHtml('APPROACH — WHO IS ELIGIBLE', APPROACHES, state.approach, DEFAULT_APPROACH, 'pickApproach')}
+            ${optsHtml('RULE — HOW THEY RANK', RULES, state.rule, DEFAULT_RULE, 'pickRule')}
+          </div>
+          <div class="qp-menu-foot"><button class="qp-done" data-action="toggleFilter">Done</button></div>
+        </div>` : ''}
+
+        <div class="qp-count">
+          <span>${list.length} available, ranked${isDefault ? '' : ' · filtered'}</span>
+          <span class="ex">${EXCLUDED[state.approach]}</span>
+        </div>
+
+        <div class="qp-list">${list.map(cardHtml).join('')}</div>
+
+        <div class="qp-foot">Ranking computed live by the rules engine. Ties broken by seniority date.</div>
+      </aside>`;
+  }
+
+  function render() { renderEmployeeField(); renderPanel(); }
+
+  /* ── Interactions (delegated) ──────────────────────────────── */
+  document.addEventListener('click', e => {
+    const t = e.target.closest('[data-action]');
+    if (!t) return;
+    switch (t.dataset.action) {
+      case 'togglePanel':        setState({ panelOpen: !state.panelOpen }); break;
+      case 'toggleFilter':       setState({ filterOpen: !state.filterOpen }); break;
+      case 'pickApproach':       setState({ approach: t.dataset.id }); break;   // applies live; drawer stays open
+      case 'pickRule':           setState({ rule: t.dataset.id }); break;
+      case 'clearApproach':      setState({ approach: DEFAULT_APPROACH }); break;
+      case 'clearRule':          setState({ rule: DEFAULT_RULE }); break;
+      case 'clearFilters':       setState({ approach: DEFAULT_APPROACH, rule: DEFAULT_RULE }); break;
+      case 'fill':               setState({ filled: t.dataset.name }); break;
+      case 'clearFill':          setState({ filled: null }); break;
+    }
+  });
+
+  render();
+</script>
+
+
+<!-- ── Design Toolbox: Flow Map scaffold ──────────────────────────────────────
+     Every new mock ships with THREE things: the version loader (the feature
+     folder's index.html + versions.json), the comment widget, and this flow map.
+     The flow map is the 🗺 button in the bottom toolbox dock; it shows your
+     screens as nodes with live thumbnails and per-step dev notes.
+
+     It needs a tiny host contract, all defined below:
+       1) applyFlowState(id) — put the page into the screen for a node's `state`
+       2) #fm=<state> hash boot — so thumbnails / deep links land on that screen
+       3) window.TOOLBOX_CONFIG.flowMap — the node + edge config
+
+     The starter map has ONE entry node. As you build screens, add a `case` to
+     applyFlowState AND a matching node (+ edge) below — and rename `title`.
+     Full docs: designtoolbox/README.md ("Flow Map"). -->
+<script>
+  // 1) State driver — put the page into the screen for node `id`.
+  //    Add one `case` per screen. A single-screen mock's entry case can stay a
+  //    no-op (the page already shows that screen).
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    const base = Object.assign({}, DEFAULT_STATE);
+    switch (id) {
+      case 'modal':     setState(Object.assign(base, { panelOpen: false })); break;
+      case 'filters':   setState(Object.assign(base, { filterOpen: true })); break;
+      case 'filtered':  setState(Object.assign(base, { approach: 'a2', rule: 'r2' })); break;
+      case 'filled':    setState(Object.assign(base, { filled: 'D. Ferraro' })); break;
+      case 'panel':
+      default:          setState(base); break;   // unknown state → the entry screen
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  // 2) Hash boot — honor #fm=<state> on load and on change.
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  // 3) Flow-map config — add one node per screen, wire them with edges.
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Quick Fill — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 520 },
+      flows: [
+        { id: 'main', name: 'Quick Fill', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1200, h: 480 }, labelXY: { x: 40, y: 40 } }
+      ],
+      nodes: [
+        { id: 'modal', flow: 'main', x: 60, y: 200,
+          step: 'Step 1', name: 'Fill shift modal', state: 'modal',
+          desc: 'Production fill-shift dialog. "... or choose from qualified employees..." or "Fill w/ CallBack™" opens the panel.' },
+        { id: 'panel', flow: 'main', entry: true, x: 340, y: 200,
+          step: 'Step 2', name: 'Qualified personnel', state: 'panel',
+          desc: 'The answer: a static recommendation (default approach + rule from the qualifier) with ranked candidates.' },
+        { id: 'filters', flow: 'main', x: 620, y: 70,
+          step: 'Optional', name: 'Filter drawer', state: 'filters',
+          desc: 'Filter opens approach (WHO) + rule (HOW) side by side; the default is tagged. Picks re-rank live.' },
+        { id: 'filtered', flow: 'main', x: 900, y: 200,
+          step: 'Optional', name: 'Filtered', state: 'filtered',
+          desc: 'Changes show as removable chips under the static recommendation; "Clear filters" returns to the default answer.' },
+        { id: 'filled', flow: 'main', x: 900, y: 370,
+          step: 'Step 3', name: 'Filled', state: 'filled',
+          desc: 'Fill drops the person into the employee field as a token; the card turns green.' }
+      ],
+      edges: [
+        ['modal', 'panel'],
+        ['panel', 'filters'],
+        ['filters', 'filtered'],
+        ['panel', 'filled']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: pin-and-comment review widget + flow map. Included by
+     DEFAULT in every mock, for every product, with comments ENABLED. Do NOT
+     remove this line, and never disable comments via a window.TOOLBOX override
+     in a design file — that switch belongs only in dev_handoff.html builds
+     (see the Dev Handoff Process in CLAUDE.md).
+     Depth-relative like the Font Awesome link above: correct once this template
+     is copied to products/<Product>/<feature>/verN/index.html. (Dead in this
+     template file itself, which sits one level up — expected.)
+     Review tooling only — NOT part of the product; developers strip this line
+     for production. -->
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
