@@ -7665,24 +7665,18 @@ function setDockState(state, data) {
 
     if (shouldOpen) syncDrawerOpenHeight();
 
-    /* syncDrawerOpenHeight() can VETO the open on a very short viewport (no
-       usable room -> it collapses the drawer and clears drawerOpen). The bar
-       was rendered above with the pre-veto value, so the chevron's
-       aria-expanded / aria-label would claim "expanded" while the drawer is
-       shut. Re-sync the control to the settled truth, and disable it outright
-       when there is nowhere for the drawer to go — a live control that does
-       nothing is worse than one that says it can't. */
+    /* Re-sync the chevron from the SETTLED state. renderRecBar() stamped its
+       aria-expanded from drawerOpen before syncDrawerOpenHeight() ran, so any
+       adjustment there would otherwise leave the accessible state contradicting
+       the drawer. (The drawer always opens now — it scrolls instead of refusing
+       — so there is no "vetoed" case to disable the control for.) */
     const settledOpen = recDock.hasAttribute('data-open');
     const toggleBtn = document.getElementById('recDrawerToggle');
     if (toggleBtn) {
-        const vetoed = shouldOpen && !settledOpen;
         toggleBtn.setAttribute('aria-expanded', settledOpen ? 'true' : 'false');
         toggleBtn.setAttribute('aria-label',
             settledOpen ? 'Hide recommended courses' : 'Show recommended courses');
-        toggleBtn.disabled = vetoed;
-        toggleBtn.title = vetoed
-            ? 'Not enough room to show courses — zoom out or rotate the device'
-            : (settledOpen ? 'Hide courses' : 'Show courses');
+        toggleBtn.title = settledOpen ? 'Hide courses' : 'Show courses';
     }
 
     /* The drawer is height:0 when closed, but its toolbar buttons and cards
@@ -7773,23 +7767,16 @@ function syncDrawerOpenHeight() {
        height for it leaves a large empty panel, so that state sizes to its
        content instead — there is nothing to scroll and nothing to resize. */
     if (recDock.dataset.empty === '') {
-        /* Same measured sizing as the populated state — naturalDrawerHeight()
-           reads the content plus the real chrome around it. The toolbar and
-           the resize grip are both hidden in this state ([data-empty]), and
-           measuring them returns 0, so nothing extra is reserved for them. */
-        /* Capped by the same ceiling as the populated state — the 96px floor
-           must not push the dock past the viewport on a short screen (the
-           1.4.10 failure fixed in drawerMaxHeight). The copy scrolls inside
-           the body if it truly cannot fit. */
+        /* Same measured sizing and the same open-and-scroll rule as the
+           populated state below: naturalDrawerHeight() reads the content plus
+           its real chrome (the toolbar is hidden in this state and measures 0),
+           capped by drawerMaxHeight() so the dock can never push its own
+           heading off a short viewport, and floored so it still opens there —
+           this state is one line of copy, so it almost always fits anyway. */
         const emptyMax = drawerMaxHeight(96);
-        if (emptyMax < DRAWER_MIN_USABLE) {
-            drawerOpen = false;
-            delete recDock.dataset.open;
-            recDock.style.setProperty('--rec-drawer-current', '0px');
-            return;
-        }
+        const emptyFloor = Math.min(96, Math.max(DRAWER_MIN_USABLE, emptyMax));
         recDock.style.setProperty('--rec-drawer-current',
-            Math.min(emptyMax, Math.max(96, naturalDrawerHeight())) + 'px');
+            Math.max(emptyFloor, Math.min(emptyMax, naturalDrawerHeight())) + 'px');
         return;
     }
 
@@ -7802,18 +7789,23 @@ function syncDrawerOpenHeight() {
        the body, which is `flex: 1` and reports the container's height. The
        toolbar sits above it inside the drawer, so its height counts too;
        +36 covers the body's 18px top/bottom padding. */
-    /* Not enough room to open at all (very short viewport / 400% zoom): keep
-       the drawer collapsed rather than opening a sliver that pushes the bar
-       off-screen. The bar alone stays reachable, and its chevron is still the
-       way back to the list once there is room. */
-    if (maxH < DRAWER_MIN_USABLE) {
-        drawerOpen = false;
-        delete recDock.dataset.open;
-        recDock.style.setProperty('--rec-drawer-current', '0px');
-        return;
-    }
+    /* Very short viewport (400% zoom): the drawer OPENS INTO WHATEVER ROOM
+       EXISTS and scrolls, rather than refusing to open.
 
-    const target = Math.min(maxH, Math.max(MIN_H, naturalDrawerHeight()));
+       An earlier pass collapsed it outright below DRAWER_MIN_USABLE, which
+       kept the dock inside the viewport but left the reviewer with no path to
+       the list at all — a dead chevron and an unreachable feature. Scrolling
+       is the better trade: .rec-drawer-body is already `overflow-y: auto`
+       with `overscroll-behavior: contain`, so a short panel is cramped but
+       fully usable, and every card stays reachable.
+
+       maxH is still the ceiling, so the dock cannot grow past the viewport
+       and push its own heading off-screen (the 1.4.10 fix this sits on top
+       of). The floor is DRAWER_MIN_USABLE rather than MIN_H: below that a
+       "panel" is a sliver of chrome with no content showing, so MIN_H is
+       honored only when the room is actually there. */
+    const floor = Math.min(MIN_H, Math.max(DRAWER_MIN_USABLE, maxH));
+    const target = Math.max(floor, Math.min(maxH, naturalDrawerHeight()));
     recDock.style.setProperty('--rec-drawer-current', target + 'px');
 }
 
