@@ -1203,11 +1203,6 @@
         /* .rec-locked* was the in-page locked empty state, removed in V3 —
            the gate is communicated by the pinned bar's lock chip instead. */
 
-        /* V2's .details-overlay / .details-panel CSS was removed here. V3
-           replaced that centered-overlay panel with the right-edge
-           .rec-details-panel (see the V3 block above), which sits beside the
-           pushed drawer instead of over it. */
-
         /* "No low ratings" empty state */
         .rec-empty {
             background: var(--lumo-success-color-10pct);
@@ -1762,15 +1757,6 @@
            and nothing for a dimmed look to usefully communicate. */
         .rec-list-section.unavailable vwc-course-list { opacity: 1; filter: none; }
 
-        /* Details-panel footer status for an unavailable course — replaces the
-           old Request access button. A statement, not a call to action. */
-        .rec-details-unavailable {
-            display: inline-flex; align-items: center; gap: 8px;
-            font-size: 12.5px; font-weight: 600;
-            color: var(--text-muted);
-        }
-        .rec-details-unavailable i { font-size: 12px; }
-
         /* ── Loading + generated transition ── */
         .rec-drawer-loading {
             display: flex; flex-direction: column; align-items: center;
@@ -1922,148 +1908,9 @@
                including the drawer's grow/shrink and the chevron's rotation.
                The JS still measures correctly: it reads real geometry each
                frame rather than assuming a duration. */
-            .rec-dock, .rec-details-panel, .rec-drawer,
+            .rec-dock, .rec-drawer,
             .rec-drawer-toolbar, .rec-drawer-body,
             .rec-bar-chevron i { transition: none; }
-        }
-
-        /* ═══ Details side panel (V3) ═══
-           The course card's built-in Details button opens a centered
-           vaadin-dialog, which would cover the very list the reviewer is
-           comparing against. V3 intercepts it and opens this right-edge panel
-           instead: full viewport height, so it sits BESIDE the pushed drawer
-           rather than on top of it, and both stay readable at once.
-
-           It is intentionally NOT aria-modal. Because the drawer pushes
-           instead of overlaying, nothing behind the panel is obscured or
-           unreachable, so trapping focus and hiding the rest of the page from
-           assistive tech would remove access the sighted user still has. The
-           panel is a complementary region with its own labelled heading; Esc
-           and the close button dismiss it. */
-        .rec-details-panel {
-            position: fixed;
-            top: 0; right: 0; bottom: 0;
-            width: 420px;
-            max-width: 92vw;
-            /* 280 puts this in the same band as the mock's other right-side
-               overlay panels (video review 280, attachment drawer 300) and,
-               critically, ABOVE the page chrome — the topnav is z-index 100
-               and the topbar 50.
-
-               This was 60, which sat below the topnav: the nav painted over
-               the panel's top 72px, hiding the close button and the top of the
-               hero image. A hit test at the close button's centre returned
-               VWC-USER-MENU rather than the button, so it was unclickable, not
-               just visually clipped. */
-            z-index: 280;
-            display: flex;
-            flex-direction: column;
-            background: var(--surface-opaque);
-            border-left: 1px solid var(--border-soft);
-            box-shadow: -8px 0 28px rgba(16, 24, 40, 0.16);
-            transform: translateX(100%);
-            transition: transform 220ms ease;
-        }
-        .rec-details-panel.open { transform: translateX(0); }
-
-        /* While the details panel is open, slide the prototype/tooling widgets
-           left so they don't sit on top of it. Tooling yields to product UI. */
-        body.rec-details-open .proto-widget:not(.dragging) {
-            right: calc(16px + 420px);
-        }
-
-        .rec-details-hero {
-            flex-shrink: 0;
-            height: 132px;
-            background-size: cover;
-            background-position: center;
-            position: relative;
-        }
-        /* Scrim so the header chips/close button hold contrast over any image. */
-        .rec-details-hero::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.35) 100%);
-        }
-        .rec-details-hero-row {
-            position: relative; z-index: 1;
-            display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 10px;
-            padding: 12px 14px;
-        }
-        .rec-details-chip {
-            display: inline-flex; align-items: center; gap: 6px;
-            font-size: 11px; font-weight: 700;
-            padding: 4px 10px; border-radius: 999px;
-            background: rgba(0, 0, 0, 0.55);
-            color: #fff;
-            backdrop-filter: blur(2px);
-        }
-        .rec-details-chip.vector-choice {
-            background: #fff;
-            color: var(--rec-grad-blue-dark);
-        }
-        .rec-details-chip.unlicensed {
-            background: var(--rec-accent-strong);
-            color: #fff;
-        }
-        .rec-details-close {
-            width: 30px; height: 30px; flex-shrink: 0;
-            border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(0, 0, 0, 0.55);
-            border: none;
-            color: #fff;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .rec-details-close:hover { background: rgba(0, 0, 0, 0.75); }
-
-        .rec-details-body {
-            flex: 1;
-            min-height: 0;
-            overflow-y: auto;
-            /* Same scroll-chaining guard as the drawer body: reaching the end
-               of the details panel must not start scrolling the form behind
-               it. */
-            overscroll-behavior: contain;
-            padding: 16px 18px 20px;
-        }
-        .rec-details-title {
-            margin: 0 0 4px;
-            font-size: 16px; font-weight: 700;
-            line-height: 1.35;
-        }
-        .rec-details-meta {
-            margin: 0 0 16px;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        .rec-details-section { margin-bottom: 16px; }
-        .rec-details-label {
-            display: flex; align-items: center; gap: 7px;
-            font-size: 11px; font-weight: 800;
-            letter-spacing: 0.04em; text-transform: uppercase;
-            color: var(--text-muted);
-            margin-bottom: 5px;
-        }
-        .rec-details-label i { color: var(--rec-accent); font-size: 11px; }
-        .rec-details-text { font-size: 13px; line-height: 1.6; }
-        .rec-details-text ul { margin: 4px 0 0; padding-left: 18px; }
-        .rec-details-text li { margin-bottom: 4px; }
-        .rec-details-footer {
-            flex-shrink: 0;
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 10px;
-            padding: 12px 18px;
-            border-top: 1px solid var(--border-soft);
-            background: var(--lumo-base-color);
-        }
-
-        @media (max-width: 760px) {
-            /* At this width a 420px side panel plus the drawer leaves nothing
-               for the form, so the panel takes the full width. */
-            .rec-details-panel { width: 100%; max-width: 100%; }
         }
 
         /* ─── Back-to-top button ───
@@ -7725,9 +7572,6 @@ function allRequiredAnswered() {
 }
 
 // ─── Recommendations ───
-function courseImageUrl(courseId) {
-    return `https://picsum.photos/seed/${encodeURIComponent(courseId)}/480/270`;
-}
 
 /* ═══ V3 recommendation dock ═══════════════════════════════════════════
    renderRecommendations() is still the single entry point every existing
@@ -8427,13 +8271,14 @@ const ICON_CLOCK = { type: 'svg', path: 'M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8
 const REC_COURSE_DEFINITION = [
     // Label text is hidden in CSS; the clock icon carries the meaning.
     { label: 'Course Time', propertyPath: 'duration', icon: ICON_CLOCK },
-    // Dialog-only. No "Addresses" field: courses aren't tied to distinct
-    // tags, so the card face carries only Course Time. (The `addresses`
-    // data itself stays — it's how the engine matches courses to low-rated
-    // components — it just isn't shown.)
-    { label: 'Why this course', propertyPath: 'rationale', hideInCard: true },
-    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true },
-    { label: 'Available variants', propertyPath: 'variantsText', hideInCard: true }
+    /* `hideInCard` = dialog only. This array IS the Course Details dialog's
+       content now that the dialog is the component's own, so the PM's
+       removals live here: "Why this was recommended" (rationale) and
+       "Available versions" (variantsText) are deliberately absent — keeping
+       them as hideInCard entries would put them straight back into details.
+       The `addresses` data also stays out; it's how the engine matches
+       courses to low-rated components, not something to show. */
+    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true }
 ];
 
 /* Maps one recommendation onto the component's Course shape. id/title/sku/
@@ -8510,7 +8355,9 @@ function mountCourseList(visibleRecs) {
     // Cards render asynchronously after the fetch resolves; shrink them then.
     shrinkCourseCards(list);
     // Redirect each card's built-in Details dialog into the side panel.
-    interceptCardDetails(list, visibleRecs, { unlicensed: false });
+    /* Details opens the COMPONENT's own "Course Details" dialog — the
+       default behaviour, nothing intercepted. Content comes from
+       REC_COURSE_DEFINITION. */
 }
 
 /* ── Upsell list wiring ───────────────────────────────────────────────
@@ -8548,7 +8395,7 @@ function mountUpsellList(unlicensed) {
     list.payload = { upsell: true, count: courses.length };
 
     shrinkCourseCards(list, { gated: true });
-    interceptCardDetails(list, unlicensed, { unlicensed: true });
+    /* Same as the licensed list: the component's own details dialog. */
 }
 
 /* Upsell cards trade the Course Time field for the collection name — what
@@ -8560,9 +8407,7 @@ const UPSELL_COURSE_DEFINITION = [
     // Icon-only label, same condensed row as the licensed cards' Course Time.
     { label: 'Included in', propertyPath: 'collection', icon: ICON_COLLECTION },
     { label: 'Course Time', propertyPath: 'duration', hideInCard: true },
-    { label: 'Why this course', propertyPath: 'rationale', hideInCard: true },
-    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true },
-    { label: 'Available variants', propertyPath: 'variantsText', hideInCard: true }
+    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true }
 ];
 
 /* <vwc-course-card> hard-codes `.card-container { height: 320px }` in its
@@ -9022,186 +8867,26 @@ function commitAssignment() {
     renderRecommendations();
 }
 
-/* ═══ Details side panel (V3) ═══════════════════════════════════════════
-   <vwc-course-card> renders its own "Details" button that opens a centered
-   vaadin-dialog. In V3 that dialog is the wrong surface: the drawer PUSHES
-   the page rather than overlaying it, precisely so the reviewer can see the
-   evaluation and the course list at once — and a centered modal would cover
-   the list they're comparing against.
+/* ═══ Course details ═══════════════════════════════════════════════════
+   Details opens <vwc-course-card>'s OWN "Course Details" dialog — the
+   component default, with nothing intercepted.
 
-   ⚠ PROTOTYPE-ONLY OVERRIDE — flag at dev handoff.
-   The Details button is `#details-button` inside the card's shadow root and
-   fires no cancelable event, so there is no supported way to redirect it.
-   This attaches a CAPTURE-phase click listener on that shadow button and
-   stops the event before the component's own handler (`toggleDetailsDialog`)
-   runs.
+   V3 previously replaced it with a right-edge side panel, reasoning that the
+   drawer pushes rather than overlays so a centered modal would cover the list
+   being compared against. That needed a capture-phase click listener on
+   `#details-button` inside the card's shadow root (the button fires no
+   cancelable event) — a prototype-only override flagged for handoff.
+   Reverted: the supported default is worth more than the layout gain, and it
+   removes the override entirely.
 
-   It degrades safely: if a future version renames the button, the selector
-   simply misses and the component's own dialog opens — still fully
-   functional, just not the panel. Production should ask the component team
-   for either a cancelable `pre-details` event or a "details target" hook.
-
-   Verified against lms v1.3.10: the click handler is bound inline on
-   `<vaadin-button id="details-button" @click="toggleDetailsDialog">`. */
-function interceptCardDetails(list, recs, { unlicensed }) {
-    const byId = new Map(recs.map(r => [r.course.id, r]));
-
-    const wire = () => {
-        const root = list.shadowRoot;
-        if (!root) return 0;
-        const cards = root.querySelectorAll('vwc-course-card');
-        let wired = 0;
-        cards.forEach(card => {
-            const r = card.shadowRoot;
-            if (!r) return;
-            const btn = r.getElementById('details-button');
-            if (!btn || btn.dataset.recIntercepted) return;
-            btn.dataset.recIntercepted = '1';
-            btn.addEventListener('click', (e) => {
-                const id = card.course && card.course.id;
-                const rec = id && byId.get(id);
-                if (!rec) return;   // unknown course: let the built-in dialog handle it
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                openRecDetailsPanel(rec, { unlicensed });
-            }, true);   // capture — must run before the component's own handler
-            wired++;
-        });
-        return wired;
-    };
-
-    // Cards mount asynchronously after the service resolves, so poll briefly
-    // (same pattern as shrinkCourseCards).
-    let tries = 0;
-    const tick = () => {
-        const found = wire();
-        if (found || tries++ > 40) return;
-        requestAnimationFrame(tick);
-    };
-    tick();
-}
-
-/* The panel itself. Right-edge, full viewport height, so it sits BESIDE the
-   pushed drawer instead of over it.
-
-   Deliberately not aria-modal / no focus trap: because the drawer pushes
-   rather than overlays, everything behind the panel stays visible and
-   reachable for a sighted user, so hiding the page from assistive tech would
-   remove access that sighted users keep. It's a labelled complementary
-   region, dismissed by Esc or its close button. */
-function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
-    const c = rec.course;
-    const inCart = cart.has(c.id);
-    const isAssigned = assigned.has(c.id);
-
-    // Vector Choice mirrors the licensed list's own badge rule: the top two
-    // of the visible batch carry the above-threshold score.
-    const { recommendations } = getRecommendations();
-    const visibleRecs = recommendations;
-    const idxInVisible = visibleRecs.findIndex(r => r.course.id === c.id);
-    const isVectorChoice = !unlicensed && idxInVisible >= 0 && idxInVisible < 2;
-
-    let panel = document.getElementById('recDetailsPanel');
-    if (!panel) {
-        panel = document.createElement('aside');
-        panel.id = 'recDetailsPanel';
-        panel.className = 'rec-details-panel';
-        panel.setAttribute('role', 'complementary');
-        panel.setAttribute('aria-labelledby', 'recDetailsTitle');
-        document.body.appendChild(panel);
-    }
-
-    const chip = unlicensed
-        ? '<span class="rec-details-chip unlicensed"><i class="fa-solid fa-lock-open"></i>Available with an expanded library</span>'
-        : (isVectorChoice
-            ? '<span class="rec-details-chip vector-choice"><i class="fa-solid fa-star"></i>Vector Choice</span>'
-            : '<span class="rec-details-chip"><i class="fa-regular fa-bookmark"></i>Vector Training</span>');
-
-    /* Footer action depends on which list the card came from — this is where
-       the licensed/unlicensed split becomes behavioral rather than cosmetic.
-       An unlicensed course has no add-to-assignment path at all. */
-    const footerHtml = unlicensed ? `
-        <span class="rec-details-unavailable">
-            <i class="fa-solid fa-lock-open"></i>
-            Add this course to your library to assign it
-        </span>
-    ` : `
-        ${isAssigned
-            ? '<span theme="badge success"><i class="fa-solid fa-check" style="margin-right:6px;"></i>Assigned</span>'
-            : `<vaadin-button theme="primary" id="recDetailsCartBtn">
-                    ${inCart
-                        ? '<i class="fa-solid fa-check" style="margin-right:6px;"></i>Selected for assignment'
-                        : '<i class="fa-solid fa-plus" style="margin-right:6px;"></i>Select for assignment'}
-               </vaadin-button>`}
-    `;
-
-    panel.innerHTML = `
-        <div class="rec-details-hero" style="background-image:url('${courseImageUrl(c.id)}');">
-            <div class="rec-details-hero-row">
-                ${chip}
-                <button type="button" class="rec-details-close" id="recDetailsCloseBtn" aria-label="Close course details">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-        </div>
-        <div class="rec-details-body">
-            <h2 class="rec-details-title" id="recDetailsTitle">${escapeHtml(c.title)}</h2>
-            <p class="rec-details-meta">${escapeHtml(c.duration)}</p>
-
-            ${unlicensed ? `
-                <div class="rec-details-section">
-                    <div class="rec-details-label"><i class="fa-solid fa-box-open"></i>Included in</div>
-                    <div class="rec-details-text">${escapeHtml(c.collection || '—')}</div>
-                </div>
-            ` : ''}
-
-            <div class="rec-details-section">
-                <div class="rec-details-label"><i class="fa-regular fa-file-lines"></i>Course outline</div>
-                <div class="rec-details-text">
-                    <p style="margin:0;">By the end of this course, you will be able to:</p>
-                    <ul>${c.outline.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>
-                </div>
-            </div>
-        </div>
-        <div class="rec-details-footer">${footerHtml}</div>
-    `;
-
-    document.getElementById('recDetailsCloseBtn')
-        .addEventListener('click', closeRecDetailsPanel);
-
-    const cartBtn = document.getElementById('recDetailsCartBtn');
-    if (cartBtn) {
-        cartBtn.addEventListener('click', () => {
-            /* Selecting commits and returns the reviewer to the list — the
-               panel was opened to answer "is this the right course?", and once
-               that's answered there is nothing left to read. The card's
-               checkbox in the drawer behind is the confirmation, so re-opening
-               the panel just to flip its own label would be a dead end.
-
-               Deliberately additive rather than a toggle: closing on click
-               means the "Selected" label is never the thing you click next, so
-               a toggle-off branch here would be unreachable. Deselecting is
-               done on the card's checkbox, which is visible the moment the
-               panel closes. */
-            cart.add(c.id);
-            closeRecDetailsPanel();
-            // Remounts the list so the card reflects the new selection.
-            renderRecommendations();
-        });
-    }
-
-    document.body.classList.add('rec-details-open');
-    requestAnimationFrame(() => panel.classList.add('open'));
-}
-
-function closeRecDetailsPanel() {
-    const panel = document.getElementById('recDetailsPanel');
-    if (panel) panel.classList.remove('open');
-    document.body.classList.remove('rec-details-open');
-}
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeRecDetailsPanel();
-});
+   Consequences, verified in the lms v1.3.10 bundle:
+     - The dialog is READ-ONLY: title, Version/SKU, and the courseDefinition
+       fields. No footer, no assign action — so the old panel's "Select for
+       assignment" button is gone. Selection happens on the card's checkbox,
+       visible again the moment the dialog closes.
+     - Its content is ENTIRELY courseDefinition (entries with
+       `hideInCard: true` are dialog-only), making that array the single place
+       details content is configured. */
 
 // ─── Toast (vaadin-notification) ───
 // Lightweight, auto-dismissing confirmation for non-blocking success messages
