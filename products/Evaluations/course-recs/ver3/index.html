@@ -1892,7 +1892,12 @@
             /* Lifted clear of the pinned recommendation dock (V3). --rec-dock-h
                is the dock's live measured height, so the pill rides up when the
                drawer opens and settles back when it closes. */
-            bottom: calc(26px + var(--rec-dock-h, 0px) + env(safe-area-inset-bottom, 0px));
+            /* CAPPED, like the toolbox clearance above. --rec-dock-h tracks
+               the drawer's real height, so with a tall drawer an uncapped
+               offset pushed this pill up behind the sticky topbar (z-index 40
+               vs 50) — painted, but not clickable. min() keeps it within
+               220px of the bottom edge. */
+            bottom: calc(26px + min(var(--rec-dock-h, 0px), 220px) + env(safe-area-inset-bottom, 0px));
             z-index: 40;
             border-radius: 999px;
             border: 1px solid var(--border-soft);
@@ -7660,14 +7665,38 @@ function setDockState(state, data) {
 
     if (shouldOpen) syncDrawerOpenHeight();
 
+    /* syncDrawerOpenHeight() can VETO the open on a very short viewport (no
+       usable room -> it collapses the drawer and clears drawerOpen). The bar
+       was rendered above with the pre-veto value, so the chevron's
+       aria-expanded / aria-label would claim "expanded" while the drawer is
+       shut. Re-sync the control to the settled truth, and disable it outright
+       when there is nowhere for the drawer to go — a live control that does
+       nothing is worse than one that says it can't. */
+    const settledOpen = recDock.hasAttribute('data-open');
+    const toggleBtn = document.getElementById('recDrawerToggle');
+    if (toggleBtn) {
+        const vetoed = shouldOpen && !settledOpen;
+        toggleBtn.setAttribute('aria-expanded', settledOpen ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label',
+            settledOpen ? 'Hide recommended courses' : 'Show recommended courses');
+        toggleBtn.disabled = vetoed;
+        toggleBtn.title = vetoed
+            ? 'Not enough room to show courses — zoom out or rotate the device'
+            : (settledOpen ? 'Hide courses' : 'Show courses');
+    }
+
+    /* The drawer is height:0 when closed, but its toolbar buttons and cards
+       stay focusable — one tab stop landed at y=-36, invisible. The gate uses
+       visibility for exactly this reason; give the drawer the same treatment. */
+    if (recDrawer) recDrawer.toggleAttribute('inert', !settledOpen);
+
     // Only animate the push when the open/closed state actually changed.
     (shouldOpen !== wasOpen) ? animateDockHeight() : measureRecDock();
 }
 
 /* A CSS transition can't run to `auto`, so the drawer's open height is
    resolved to a pixel value and written to --rec-drawer-current. Respects a
-   user-dragged height when there is one, and clamps to the same bounds the
-   resize handler uses. */
+   the same bounds every other path uses. */
 /* Ceiling for the open drawer: it may rise until it sits 64px below the
    bottom edge of the sticky form toolbar (the topnav + .topbar stack that
    carries the timer). Measured live rather than hardcoded, so it stays correct
@@ -7933,8 +7962,8 @@ function runGenerate() {
 function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 }) {
     if (!recDrawerInner || !recDrawerToolbar) return;
 
-    /* A drag-set height is applied through --rec-drawer-current (see
-       setHeight / syncDrawerOpenHeight), NOT as an inline height. An inline
+    /* The open height is applied through --rec-drawer-current (see
+       syncDrawerOpenHeight), NOT as an inline height. An inline
        height would beat the closed-state rule and pin the drawer open — it
        would never collapse again. */
 
@@ -8129,11 +8158,18 @@ function measureRecDock() {
 }
 /* On resize the ceiling itself moves (it's derived from the viewport and the
    toolbar's position), so re-run the open-height calculation before
-   re-measuring the dock. syncDrawerOpenHeight() re-clamps a dragged height to
-   the new bounds too, so the drawer can't end up taller than the viewport. */
+   re-measuring the dock, so the drawer can't end up taller than the
+   viewport. */
 window.addEventListener('resize', () => {
     if (recDock && recDock.hasAttribute('data-open')) syncDrawerOpenHeight();
-    measureRecDock();
+    /* animateDockHeight(), not a single measureRecDock(): syncDrawerOpenHeight()
+       may have just changed the drawer's height, and that change TRANSITIONS.
+       Measuring once, immediately, samples the height mid-flight and leaves
+       --rec-dock-h permanently stale (it read 173px for a 57px dock after a
+       shrinking resize), which then mis-sizes the form's bottom padding and
+       every offset derived from it. animateDockHeight() re-measures each frame
+       for the transition's duration and settles on the real value. */
+    animateDockHeight();
 });
 
 
