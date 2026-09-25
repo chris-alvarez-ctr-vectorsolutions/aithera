@@ -1315,10 +1315,49 @@
                token as its background. */
             background: var(--surface-opaque);
             box-shadow: 0 -4px 20px rgba(16, 24, 40, 0.14);
-            transition: transform 240ms ease;
+            /* The transform transition lives on the [data-gate] rules below —
+               declaring one here too would leave two competing definitions of
+               the same animation. */
         }
         /* Hidden entirely when the feature has nothing to say (no gaps). */
         .rec-dock[data-state="none"] { display: none; }
+
+        /* ── Gated out of view ──
+           The banner does not exist for the reviewer until every required
+           question is answered — there is no locked/disabled CTA to explain
+           itself, because there is nothing on screen to explain. It slides up
+           from the bottom edge when the gate clears, and drops back out if an
+           answer is removed.
+
+           `display: none` cannot be transitioned, so the hidden state is a
+           transform instead: the dock stays in the layout and is pushed fully
+           below its own bottom edge. visibility (not display) keeps it out of
+           the tab order and off the a11y tree while hidden, and it is
+           deferred until the slide finishes so the exit animation is visible.
+
+           110% rather than 100% clears the shadow that paints above the
+           dock's box. */
+        .rec-dock[data-gate="closed"] {
+            transform: translateY(110%);
+            visibility: hidden;
+            transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                        visibility 0s linear 260ms;
+            pointer-events: none;
+        }
+        .rec-dock[data-gate="open"] {
+            transform: translateY(0);
+            visibility: visible;
+            transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                        visibility 0s;
+        }
+        /* First paint must not animate — the banner should be absent, not
+           seen sliding away, when the form loads with the gate unmet. */
+        .rec-dock.rec-gate-init { transition: none !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .rec-dock[data-gate="closed"],
+            .rec-dock[data-gate="open"] { transition: none; }
+        }
 
         /* ── ALWAYS PINNED ──
            Every state sits flush on the bottom edge of the content column —
@@ -1418,44 +1457,6 @@
             flex-shrink: 0;
             display: flex; align-items: center; gap: 12px;
         }
-        /* ── Gated CTA ──
-           While locked, the action cluster shows the SAME button as the ready
-           state, in a disabled treatment, with the explanation moved into a
-           tooltip. The long sentence used to sit inline and wrap to two lines,
-           which made the bar's tallest state a paragraph of helper text.
-
-           Showing the real CTA (rather than a status chip) also tells the
-           reviewer what this feature will DO once it unlocks — the promise is
-           the marketing, and it now stays on screen the whole time.
-
-           The wrapper, not the button, is the interactive element: a truly
-           disabled <button> swallows pointer events, so a tooltip anchored to
-           it would never fire. The wrapper is focusable and carries
-           role="button" + aria-disabled="true", so the control is reachable by
-           keyboard and announced as disabled, while the inner visual is
-           aria-hidden to avoid the label being read twice. */
-        .rec-bar-cta-wrap {
-            display: inline-flex;
-            border-radius: 6px;
-            /* Not `cursor: not-allowed` — that reads as an error. This is a
-               "not yet" state, and the tooltip explains it. */
-            cursor: default;
-        }
-        .rec-bar-cta-wrap:focus-visible {
-            outline: 2px solid #fff;
-            outline-offset: 2px;
-        }
-        /* Matches the live CTA's box exactly, so the bar's action cluster does
-           not resize or shift when the gate clears — only the fill changes. */
-        .rec-bar-cta.disabled {
-            background: rgba(255, 255, 255, 0.16);
-            border-color: rgba(255, 255, 255, 0.32);
-            /* 0.78 white on the gradient's lighter stop (#0271ce) still clears
-               4.5:1, so the label stays AA-legible while reading as inactive. */
-            color: rgba(255, 255, 255, 0.78);
-            pointer-events: none;
-        }
-
         /* The bar's own CTA. A plain button rather than vaadin-button: it sits
            on a saturated gradient, where the theme's primary fill has no
            contrast to work against. */
@@ -5569,7 +5570,9 @@
      PUSH not overlay: measureRecDock() writes the container's real height to
      --rec-dock-h, and .app's bottom padding is derived from it, so the form
      always scrolls clear of the dock and no content is trapped beneath it. -->
-<section class="rec-dock" id="recDock" data-state="locked" aria-labelledby="recBarTitle">
+<!-- data-gate="closed" is the INITIAL state: the banner starts out of view
+     and slides up only once every required question is answered. -->
+<section class="rec-dock" id="recDock" data-state="ready" data-gate="closed" aria-labelledby="recBarTitle">
     <!-- The banner. role/aria-live are NOT set here: the state changes are
          reflected in the CTA the user just acted on, so announcing the whole
          banner again would be redundant chatter. -->
@@ -7732,36 +7735,46 @@ function courseImageUrl(courseId) {
    changed is where it renders: the feature now lives in the pinned dock
    rather than in the page flow.
 
-   State machine, driven onto #recDock as data-state:
+   TWO independent axes, both re-derived from scratch on every call:
 
-     none    → no low ratings. Nothing to recommend and nothing to sell, so
-               the dock hides entirely and the in-page zone reports it.
-     locked  → the required-question gate is unmet. The banner shows in full
-               marketing dress (so the reviewer learns the feature exists
-               while filling the form) but the CTA is replaced by helper text
-               naming what unblocks it.
-     ready   → gate cleared. The CTA goes live: "Generate recommendations".
-     results → generated. The CTA becomes the drawer toggle and the bar
-               carries a count chip.
+   1. data-gate — does the feature exist for this reviewer yet?
+        closed → a required question is unanswered. The dock is slid out of
+                 view entirely; there is no locked CTA, because there is
+                 nothing on screen to lock. (This replaced a `locked` state
+                 that showed the banner with a disabled CTA and a tooltip.)
+        open   → every required question answered; the banner slides up.
 
-   Every state is re-derived from scratch on each call, so there is no way
-   for the bar and the drawer to disagree about what state they're in. */
+   2. data-state — what is the visible banner saying?
+        none    → unused. Kept as the hard-hide hook; the gate now owns
+                  hiding, and "no low ratings" is reported by the drawer's
+                  own empty state after Generate, not by hiding the dock.
+        ready   → the CTA is live: "Generate recommendations".
+        generating → the search is running; the bar shows a working
+                  indicator and the drawer stays collapsed.
+        results → generated. The CTA becomes the drawer toggle.
+
+   Because both are recomputed together, the bar, the drawer and the gate
+   can never disagree about what state they're in. */
 function renderRecommendations() {
     const { recommendations, unlicensed, lowRatedTotal } = getRecommendations();
     const visibleRecs = recommendations;
 
-    /* GATE (unchanged rule): the feature is unavailable until every required
-       question is answered. Any pending selection is dropped, since the user
-       is going back to the form. */
+    /* GATE: the banner does not appear at all until every required question
+       is answered — there is no locked CTA, because there is nothing on
+       screen to be locked. Removing a required answer re-closes the gate and
+       the banner slides back out, dropping any pending selection with it
+       (that selection was made against an evaluation that no longer stands). */
     if (!allRequiredAnswered()) {
         cart.clear();
         recommendationsGenerated = false;
         recGenerating = false;
         drawerOpen = false;
-        setDockState('locked');
+        setGateOpen(false);
+        setDockState('ready');
         renderFloatingCart();
         return;
     }
+    setGateOpen(true);
 
     /* NOTE: "no performance gaps" is deliberately NOT checked here.
        Whether an evaluation has gaps is a RESULT of running the matcher, so
@@ -7785,6 +7798,39 @@ function renderRecommendations() {
 /* Renders the bar for a state and, when there are results, the drawer.
    Kept as one function so bar and drawer can never be rendered from
    different snapshots of the data. */
+/* ── Gate visibility ──
+   Drives the banner's slide. Kept separate from setDockState() because the
+   gate is about whether the feature EXISTS for this reviewer yet, while the
+   dock state is about what it is saying once it does.
+
+   --rec-dock-h has to go to 0 while hidden or the form keeps reserving the
+   banner's height as bottom padding for a banner nobody can see. */
+let gateOpen = null;
+function setGateOpen(open) {
+    if (!recDock) return;
+    if (gateOpen === open) return;
+
+    /* First call: set the state with transitions suppressed, so a form that
+       loads with the gate unmet shows no banner at all rather than one
+       sliding away. The class is dropped on the next frame. */
+    const first = gateOpen === null;
+    if (first) recDock.classList.add('rec-gate-init');
+
+    gateOpen = open;
+    recDock.dataset.gate = open ? 'open' : 'closed';
+
+    if (first) {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => recDock.classList.remove('rec-gate-init'));
+        });
+    }
+
+    /* Closing: the reserved page space must shrink WITH the slide, not snap
+       when it ends — measureRecDock() reads real geometry each frame, so
+       animateDockHeight() drives it for the duration either way. */
+    animateDockHeight();
+}
+
 function setDockState(state, data) {
     if (!recDock) return;
     recDock.dataset.state = state;
@@ -7987,19 +8033,7 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
        would just restate the chip. The chevron carries an aria-label so the
        control is still named for assistive tech. */
     const actionsHtml = {
-        locked: `
-            <span class="rec-bar-cta-wrap" id="recGateWrap" tabindex="0"
-                  role="button" aria-disabled="true"
-                  aria-label="Generate recommendations"
-                  aria-describedby="recGateTip">
-                <span class="rec-bar-cta disabled" aria-hidden="true">
-                    <i class="fa-solid fa-lock"></i>
-                    <span class="rec-cta-label">Generate recommendations</span>
-                </span>
-            </span>
-            <vaadin-tooltip for="recGateWrap" position="top"
-                text="Answer all required questions to generate course recommendations for this evaluation."></vaadin-tooltip>
-        `,
+
         ready: `
             <button type="button" class="rec-bar-cta" id="recGenerateBtn"
                     aria-label="Generate recommendations">
@@ -8033,6 +8067,12 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
 
     // One fixed subhead across all states (per PM copy direction) — it
     // describes the feature and its gating rather than narrating state.
+    /* NOTE: the first clause ("after completing all required form fields")
+       described the OLD gated state, when the banner was visible-but-locked
+       while fields were still outstanding. The banner now appears only once
+       the gate is met, so by the time anyone reads this the condition is
+       already satisfied. Left as the PM-approved wording pending their call
+       on trimming it — see the handoff notes. */
     const desc = 'View relevant course recommendations after completing all required form fields. Review, select and assign to this employee.';
 
     recBar.innerHTML = `
@@ -8278,7 +8318,12 @@ function measureRecDock() {
     /* NB: an offsetParent check is NOT valid here — the dock is
        position: fixed, so offsetParent is always null. Read the state and
        the computed display instead. */
+    /* A gated-out dock is slid below the viewport by a transform, and
+       getBoundingClientRect() reports the element's LAID-OUT height
+       regardless — so without this check the form would keep reserving
+       bottom padding for a banner nobody can see. */
     const hidden = recDock.dataset.state === 'none'
+        || recDock.dataset.gate === 'closed'
         || getComputedStyle(recDock).display === 'none';
     /* Include the floating card's offset from the bottom edge, otherwise the
        reserved space is short by that gap and the form's last row tucks
@@ -11145,6 +11190,10 @@ function markFormCreated() {
         });
         markFormCreated();
         updateProgress();
+        /* Answers changed, so the gate has to be re-evaluated — this helper
+           can complete the last required question and should bring the banner
+           up, exactly as answering it by hand would. */
+        renderRecommendations();
         showToast(n ? `Marked ${n} question${n === 1 ? '' : 's'} as passing.` : 'No scoreable questions to pass.');
     }
 
