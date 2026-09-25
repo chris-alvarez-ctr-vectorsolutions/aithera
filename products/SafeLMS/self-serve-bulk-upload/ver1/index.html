@@ -687,6 +687,14 @@
   .alert-head + .alert-body { border-top: 1px solid rgba(16,24,40,.04); }
   .ack-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #6B4A0A; cursor: pointer; }
   .ack-row input { margin-top: 2px; width: 15px; height: 15px; accent-color: #B54708; }
+  .ax-list { border: 1px solid #E1E7EE; border-radius: 9px; background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .ax-list .axt-wrap { border: 0; border-radius: 0; }
+  .ax-list-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 2px 0; }
+  .ax-more { border: none; background: none; color: #1257B8; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; padding: 2px 0; }
+  .ax-more:hover { text-decoration: underline; }
+  .ax-more i { font-size: 10.5px; transition: transform .15s; }
+  .ax-list.is-open .ax-more i { transform: rotate(180deg); }
   .ack-row.is-acked { color: #0C3F87; }
   .ack-row.is-acked input { accent-color: #1257B8; }
   .ax-drawer { border: 1px solid #E1E7EE; border-radius: 9px; background: #fff; overflow: hidden; }
@@ -1593,8 +1601,8 @@
       // Green = added, red = deactivated / ended (same colors as Review's Change summary).
       + tot('Active users', TOTAL, uAfter, '<span class="ba-add">+' + sm.add + ' new</span>' + (on && sm.deact ? ' · <span class="ba-rem">−' + sm.deact + ' deactivated</span>' : ''))
       + tot('Active jobs', JOBS_TOTAL, jAfter, '<span class="ba-add">+' + sm.jobsAdded + ' new</span>' + (on && sm.jobsRemoved ? ' · <span class="ba-rem">−' + sm.jobsRemoved + ' ended</span>' : ''))
-      + '<div class="set-tot"><div class="kpi-row"><span class="k">Existing users updated</span><span class="v" style="color:#1257B8;">' + sm.mod + '</span></div></div>'
-      + '</div>'
+      + '</div><div class="divider" style="margin:14px 0;"></div>'
+      + '<div class="kpi-row"><span class="k">Existing users updated</span><span class="v" style="color:#1257B8;">' + sm.mod + '</span></div>'
       + '<div style="font-size:12px;color:#8CA0B4;margin-top:12px;line-height:1.5;">Totals update as you flip the switch. You’ll see every change, person by person, on the next step.</div>'
       + '</div>';
   }
@@ -1634,10 +1642,9 @@
 
     return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
       + '<div style="flex:1;min-width:0;max-width:640px;">'
-      // Short header (2026-09-25) — the live On/Off box under the switch does the explaining.
-      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;">'
-      + '<div style="font-size:16px;font-weight:700;">Import settings</div>'
-      + '<div style="font-size:12.5px;">' + helpLink('best', 'Learn more') + '</div></div>'
+      // Header in the same shape as Map columns: what this step decides + one helpful line.
+      + '<div style="font-size:15px;font-weight:600;">Choose how this file updates your site</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin:3px 0 14px;">By default it only adds and updates people. Turn this on only if the file is your complete staff list.</div>'
       + optCard + effect + care
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
@@ -1720,17 +1727,31 @@
     var open = !!state.disc['ax:' + a.id];
     var copyReview = state.fileId === 'blast';
 
-    var n = a.list ? a.list.rows.length : 0;
-    // Drawer: a strip inside the card; the list opens directly beneath it.
-    var detail = !a.list ? '' : '<div class="ax-drawer' + (open ? ' is-open' : '') + '">'
-      + '<button class="ax-drawer-btn" data-act="toggleDisc" data-arg="ax:' + a.id + '" aria-expanded="' + open + '">'
-      + '<span>' + (open ? 'Hide' : 'Show') + ' ' + n + (n === 1 ? ' row' : ' rows') + '</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>'
-      + (open ? '<div class="ax-drawer-body">' + axList(a.list)
-        + (a.fix ? '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>' : '') + '</div>' : '')
-      + '</div>';
-    var where = a.where
-      ? '<div class="alert-where"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i><span><b>Where:</b> ' + a.where + '</span></div>'
-      : '';
+    // Details are visible without opening anything (2026-09-25): the list shows its
+    // header + first row; "Show N more rows" reveals the rest. For BLOCKING, the
+    // row/column location sits inside the same list box, and "What to do" is always shown.
+    var detail = '';
+    if (a.list) {
+      var all = a.list.rows, more = all.length - 1, shown = open ? all : all.slice(0, 1);
+      var th = a.list.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('');
+      var tb = shown.map(function (r) {
+        return '<tr>' + r.map(function (c, j) {
+          var o = (c && typeof c === 'object') ? c : { v: c };
+          var cls = o.c ? 'axt-' + o.c : (j === 0 ? 'axt-k' : '');
+          return '<td' + (cls ? ' class="' + cls + '"' : '') + '>'
+            + (o.lock ? '<i class="fa-solid fa-lock" aria-hidden="true" title="Can’t be changed by an upload"></i>' : '') + esc(o.v) + '</td>';
+        }).join('') + '</tr>';
+      }).join('');
+      detail = '<div class="ax-list' + (open ? ' is-open' : '') + '">'
+        + (a.where ? '<div class="alert-where"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i><span><b>Where:</b> ' + a.where + '</span></div>' : '')
+        + '<div class="axt-wrap' + (open && all.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
+        + (more > 0 ? '<div class="ax-list-foot">'
+            + '<button class="ax-more" data-act="toggleDisc" data-arg="ax:' + a.id + '" aria-expanded="' + open + '">'
+            + (open ? 'Show fewer rows' : 'Show ' + more + ' more row' + (more === 1 ? '' : 's')) + ' <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>'
+            + '<button class="axt-dl" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Download list (.csv)</button></div>' : '')
+        + '</div>';
+    }
+    if (a.fix) detail += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>';
 
     var actions = '';
     if (a.tier === 'confirm') {
@@ -1745,7 +1766,7 @@
       : '<button class="btn sm btn--outline-blue" data-act="askRep">Not sure? Send to my Vector rep</button>');
     if (btns.length) actions += '<div class="alert-btns">' + btns.join('') + '</div>';
 
-    var body = where + detail + actions;
+    var body = detail + actions;
     return '<div class="alert" style="border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
