@@ -6,6 +6,25 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-25) Review uses the error catalog only
+
+- **[DONE]** Every Review alert comes from the [Error & Notification Message Catalog](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29424549907)
+  — its key, tier (Blocking / Warning / Info) and admin-facing copy. Non-catalog
+  checks (SAML mismatch, mass-username guardrail, email-update notices) were removed.
+- **[DONE]** Condensed alerts: catalog message as title + one line; "Show N rows" opens
+  only the list (+ one "What to do" line for Blocking). Count/summary messages have
+  no list. Blocking always shows **Where** (row + column).
+- **[DONE]** `potential_duplicate_user` rows show "Duplicate account" as the result so
+  it reads as a duplicate, not a username change.
+- **[DONE]** Last sample file = copy review: all 44 catalog messages in catalog order,
+  each labelled with its key.
+- **[DONE]** Review opens with **Your choices** — column mapping and the import setting,
+  each with Edit.
+- **PENDING (catalog):** deactivations and ended jobs from the Import setting have no
+  catalog key yet (suggest `deactivated_person` / `ended_job`, WARNING).
+- **PENDING (catalog):** `potential_duplicate_user` is WARNING in the catalog, so it can
+  be acknowledged and run — conflicts with "usernames can't be changed"? Confirm tier.
+
 ## (2026-09-25) Designer feedback round
 
 - **[DONE]** **Usernames can never be changed by an upload.** Any row that matches an
