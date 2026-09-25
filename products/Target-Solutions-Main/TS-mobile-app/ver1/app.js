@@ -92,13 +92,21 @@
 
   /* Screen metadata — drives the header and which tab reads as active. */
   var SCREENS = {
-    home:          { tab: 'home',   brand: true },
-    record:        { tab: 'record', title: 'Record Completions' },
+    /* Home draws the brand bar INSIDE its scroll content (see index.html), so it
+       scrolls away like a native large title — nothing in it needs to stay pinned. */
+    home:          { tab: 'home',   noHeader: true },
+    /* `task` hides the tab bar; `noHeader` drops the app bar too — the screen
+       draws its own title row (record.js does, with the X that keeps the draft). */
+    record:        { tab: 'record', title: 'Record Completions', task: true, noHeader: true },
+    'record-done': { tab: 'record', title: 'Record Completions' },
     scan:          { tab: 'scan',   title: 'Scan' },
     more:          { tab: 'more',   title: 'More' },
-    notifications: { tab: 'home',   title: 'Notifications',          back: 'home' },
-    profile:       { tab: 'home',   title: 'Profile',               back: 'home' }  // opened from the header avatar
+    notifications: { tab: 'notifications', title: 'Alerts' },   // its own tab, with the unread count
+    profile:       { tab: 'more',   title: 'Profile',               back: 'more' }  // reached from the account row in More
   };
+
+  /* The signed-in user — shown on the account row in More and on Profile. */
+  var USER = { initials: 'JL', name: 'Jordan Lee', role: 'Company Officer', department: 'Springfield Fire Department' };
 
   /* ===========================================================================
      ELEMENTS
@@ -110,14 +118,10 @@
   var header     = $('#app-header');
   var statusBar  = $('#status-bar');
   var sheet      = $('#sheet');
-  var unreadCount = 0;   // drives the header bell badge
+  var unreadCount = 0;   // drives the Alerts tab badge
   var currentScreen = 'login';
   var faceIdEnabled = false;    // set by the opt-in switch on the login form
   var pushPromptSeen = false;   // the opt-in pre-prompt is a first-run screen
-  /* When a screen is opened from a header ICON (bell, avatar) it behaves like an
-     overlay: it closes with an X back to wherever you were, rather than a back
-     arrow into a list you never came from. Null when opened normally. */
-  var overlayReturn = null;
 
   /* ===========================================================================
      RENDER
@@ -170,30 +174,31 @@
 
   function renderHeader(id) {
     var meta = SCREENS[id] || {};
-    if (meta.brand) {
-      header.innerHTML =
-        // PARKED: the Vector/TargetSolutions lockup. The artwork still lives at
-        // ts-logo.svg and its styles are still in styles.css — to bring it back,
-        // swap the line below for the commented block and set --header-h to 72px.
-        //   '<span class="app-header__brand">' +
-        //   '<img class="app-header__logo" src="ts-logo.svg" alt="Vector Solutions TargetSolutions">' +
-        //   '<span class="app-header__dept">Springfield Fire Department</span></span>' +
-        '<span class="app-header__dept">Springfield Fire Department</span>' +
-        '<button class="app-header__btn" data-goto="notifications" data-overlay type="button" aria-label="Notifications">' +
-        '<i class="fa-solid fa-bell"></i>' + (unreadCount ? '<span class="badge-dot"></span>' : '') + '</button>' +
-        '<button class="app-header__btn" data-goto="profile" data-overlay type="button" aria-label="Profile" ' +
-        'style="padding:0"><span class="t-Avatar">JL</span></button>';
-    } else {
-      header.innerHTML =
-        (overlayReturn
-          ? '<button class="app-header__btn" data-goto="' + overlayReturn + '" type="button" ' +
-            'aria-label="Close"><i class="fa-solid fa-xmark"></i></button>'
-          : meta.back
-            ? '<button class="app-header__btn" data-goto="' + meta.back + '" type="button" ' +
-              'aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>'
-            : '') +
-        '<span class="app-header__title">' + (meta.title || '') + '</span>';
-    }
+    if (meta.noHeader) { header.innerHTML = ''; return; }   // the screen draws its own title row / brand bar
+    header.innerHTML =
+      (meta.back
+        ? '<button class="app-header__btn" data-goto="' + meta.back + '" type="button" ' +
+          'aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>'
+        : '') +
+      '<span class="app-header__title">' + (meta.title || '') + '</span>';
+  }
+
+  /* Account row at the top of More — the route to Profile / Log Out now that the
+     header no longer carries an avatar. */
+  function renderAccount() {
+    $('#more-account').innerHTML =
+      '<button class="more-account" data-goto="profile" type="button">' +
+      '<span class="t-Avatar t-Avatar--md">' + USER.initials + '</span>' +
+      '<span class="more-account__main"><span class="more-account__name">' + USER.name + '</span>' +
+      '<span class="more-account__sub">' + USER.role + ' \u00b7 ' + USER.department + '</span></span>' +
+      '<i class="fa-solid fa-chevron-right t-ListItem__after"></i></button>';
+  }
+
+  /* Unread count on the Alerts tab */
+  function renderTabBadge() {
+    var b = $('#tab-alerts-badge');
+    b.textContent = unreadCount;
+    b.hidden = !unreadCount;
   }
 
   /* ===========================================================================
@@ -201,7 +206,6 @@
      ======================================================================== */
   function goTo(id, opts) {
     opts = opts || {};
-    overlayReturn = opts.closeTo || null;
 
     // Screens that live outside the tabbed shell
     login.classList.toggle('is-active', id === 'login');
@@ -230,55 +234,19 @@
     document.querySelectorAll('.screen, .scanner').forEach(function (el) {
       el.classList.toggle('is-active', el.id === 'screen-' + id);
     });
-    // An overlay-opened screen keeps the ORIGIN tab lit — you never left it.
-    var activeTab = (overlayReturn && SCREENS[overlayReturn])
-      ? SCREENS[overlayReturn].tab
-      : SCREENS[id].tab;
+    var activeTab = SCREENS[id].tab;
     document.querySelectorAll('.t-Tabs__tab').forEach(function (tab) {
       tab.classList.toggle('is-active', tab.dataset.tab === activeTab);
     });
+    // Full-screen tasks (Record Completions) hide the tab bar while open.
+    app.classList.toggle('app--task', !!SCREENS[id].task);
+    header.classList.toggle('is-none', !!SCREENS[id].noHeader);
     renderHeader(id);
-    setHeaderHidden(false);
-    lastScrollY = 0;
 
     var active = $('#screen-' + id);
     if (active) active.scrollTop = 0;
   }
   window.goTo = goTo;   // consumed by the Design Toolbox flow map
-
-  /* ---------------------------------------------------------------------------
-     Scroll-reveal header (Home)
-     ---------------------------------------------------------------------------
-     Scrolling DOWN slides the brand bar up out of the way; the moment the user
-     scrolls back UP — from anywhere on the page — it pulls straight back down.
-     Only Home does this: the sub-screen bars carry the back button, and hiding
-     that would strand the user.
-     ------------------------------------------------------------------------ */
-  var headerHidden = false;
-  var lastScrollY  = 0;
-  var SCROLL_NOISE = 5;    // px of jitter to ignore before reacting
-
-  function setHeaderHidden(hidden) {
-    if (hidden === headerHidden) return;
-    headerHidden = hidden;
-    header.classList.toggle('is-hidden', hidden);
-  }
-
-  // `scroll` doesn't bubble, so listen in the capture phase to catch whichever
-  // .screen is doing the scrolling.
-  document.addEventListener('scroll', function (e) {
-    var el = e.target;
-    if (!el || el.id !== 'screen-home') return;
-
-    var y = el.scrollTop;
-    // At (or near) the top the bar is always shown.
-    if (y <= SCROLL_NOISE) { setHeaderHidden(false); lastScrollY = y; return; }
-
-    var dy = y - lastScrollY;
-    if (Math.abs(dy) < SCROLL_NOISE) return;
-    setHeaderHidden(dy > 0);          // down hides, up reveals
-    lastScrollY = y;
-  }, true);
 
   /* ---------------------------------------------------------------------------
      Face ID
@@ -315,15 +283,16 @@
   // Anything carrying data-goto navigates.
   document.addEventListener('click', function (e) {
     var nav = e.target.closest('[data-goto]');
-    if (nav) {
-      // A header icon opens the screen as an overlay that closes back to here.
-      goTo(nav.dataset.goto, nav.hasAttribute('data-overlay') ? { closeTo: currentScreen } : {});
-      return;
-    }
+    if (nav) { goTo(nav.dataset.goto); return; }
 
-    // Quick Link tile → the sheet naming its launch behavior
+    // Header X on a full-screen task: leave, keeping the draft.
+    if (e.target.closest('[data-task-leave]')) { if (window.RC) window.RC.leave(false); return; }
+
+    // Quick Link tile. RCA tiles open Record Completions with that activity
+    // already added; the other launch types still explain themselves in a sheet.
     var tile = e.target.closest('.ql-tile');
     if (tile) {
+      if (tile.dataset.launch === 'rca' && window.RC) { window.RC.openWith(tile.dataset.name); return; }
       var spec = LAUNCH[tile.dataset.launch];
       openSheet(spec.title, spec.body.replace('{name}', tile.dataset.name));
       return;
@@ -413,7 +382,8 @@
     var doc = document.documentElement;
     if (doc.scrollHeight <= doc.clientHeight) return;      // page doesn't scroll
 
-    var pane = e.target && e.target.closest ? e.target.closest('.screen') : null;
+    // .js-scroll marks inner scrollers (the Record Completions form, picker lists)
+    var pane = e.target && e.target.closest ? e.target.closest('.js-scroll, .screen') : null;
     if (pane) {
       var atTop = pane.scrollTop <= 0;
       var atEnd = pane.scrollTop + pane.clientHeight >= pane.scrollHeight - 1;
@@ -430,6 +400,8 @@
      ======================================================================== */
   renderQuickLinks();
   renderMore();
+  renderAccount();
   unreadCount = renderNotifications();
+  renderTabBadge();
   goTo('login');
 })();
