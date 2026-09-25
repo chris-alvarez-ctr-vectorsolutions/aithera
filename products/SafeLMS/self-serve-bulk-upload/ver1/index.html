@@ -104,6 +104,9 @@
   .care-banner .cb-tx b { color: var(--ink); }
   .care-banner .btn { white-space: nowrap; display: inline-flex; align-items: center; gap: 7px; text-decoration: none; }
   @media (max-width: 720px) { .care-banner { flex-wrap: wrap; } }
+  .care-banner.is-sent { border-left-color: #12B76A; }
+  .care-banner.is-sent .cb-ico { background: #ECFDF3; color: #067647; }
+  .set-helper { font-size: 12.5px; color: #5B6B7E; line-height: 1.5; margin-top: 12px; }
   .side-help-h { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); margin-bottom: 7px; }
   .side-help { display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; }
 
@@ -1581,9 +1584,16 @@
   function settingsHTML() {
     var on = state.purgeUsers && state.purgeJobs;
 
-    var repRow = state.repSent
-      ? '<div style="margin-top:14px;background:#ECFDF3;border:1px solid #A6E5C3;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#067647;"><span style="font-weight:600;">Sent to your Vector rep.</span> They’ll follow up by email to help you choose — nothing runs in the meantime.</div>'
-      : '<div style="font-size:12.5px;color:#5B6B7E;margin-top:14px;">Not sure? <a href="#" data-act="askRep">Send this file to your Vector rep for help →</a></div>';
+    // "Not sure?" is the pencil banner (2026-09-25); it flips to a confirmation once sent.
+    var repBanner = state.repSent
+      ? '<div class="care-banner is-sent">'
+        + '<span class="cb-ico"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>'
+        + '<div class="cb-tx"><b>Sent to your Vector rep.</b> They’ll follow up by email to help you choose — nothing runs in the meantime.</div></div>'
+      : '<div class="care-banner">'
+        + '<span class="cb-ico"><i class="fa-solid fa-user-headset" aria-hidden="true"></i></span>'
+        + '<div class="cb-tx"><b>Not sure which to choose?</b> Send this file to your Vector rep and they’ll help you decide.</div>'
+        + '<button class="btn sm btn--outline-blue" data-act="askRep">Send to my Vector rep</button>'
+        + '</div>';
 
     var optCard = '<div class="opt-row' + (on ? ' is-on is-danger' : '') + '">'
       + '<div class="toggle" data-act="togglePurgeAll" role="switch" aria-checked="' + on + '" tabindex="0" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
@@ -1600,18 +1610,17 @@
         + 'Only <b>adds</b> new people and jobs from the file and <b>updates</b> details for people already on your site. '
         + 'No one is deactivated and no jobs end.</span></div>';
 
-    // Users-only or jobs-only deactivation isn't self-serve — route to Vector Care.
-    var care = '<div class="care-banner">'
-      + '<span class="cb-ico"><i class="fa-solid fa-headset" aria-hidden="true"></i></span>'
-      + '<div class="cb-tx"><b>Need to deactivate only people, or only jobs?</b> This switch always does both. Reach out to Vector Care and we’ll set it up for you.</div>'
-      + '<a class="btn sm btn--outline-blue" href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Support Center <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" style="font-size:10px;"></i></a>'
-      + '</div>';
+    // Users-only or jobs-only deactivation isn't self-serve — plain helper text + Support Center.
+    var care = '<div class="set-helper">Need to deactivate only people, or only jobs? This switch always does both — reach out to Vector Care in the '
+      + helpLink('support', 'Support Center') + ' and we’ll set it up for you.</div>';
 
     return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
       + '<div style="flex:1;min-width:0;max-width:640px;">'
-      + '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">Should your site match this file exactly, or are you just adding new employees?</div>'
-      + '<div style="font-size:13px;color:#5B6B7E;margin-bottom:16px;">If you’re just adding employees, leave this off. ' + helpLink('best', 'Learn more') + '</div>'
-      + optCard + effect + care + repRow
+      // Short header (2026-09-25) — the live On/Off box under the switch does the explaining.
+      + '<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;">'
+      + '<div style="font-size:16px;font-weight:700;">Import settings</div>'
+      + '<div style="font-size:12.5px;">' + helpLink('best', 'Learn more') + '</div></div>'
+      + optCard + effect + repBanner + care
       + '<div style="display:flex;justify-content:space-between;margin-top:22px;">'
       + '<button class="btn btn--ghost" data-act="back">← Back</button>'
       + '<button class="btn btn--primary" data-act="next">Review changes →</button>'
