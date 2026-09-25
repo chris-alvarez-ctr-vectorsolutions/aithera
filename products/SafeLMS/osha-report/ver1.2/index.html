@@ -1877,6 +1877,10 @@
   // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
   const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), sel: { ...f.sel }, dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly });
   let draft = cloneFilters(filters);
+  // The Action Needed CARD the admin clicked (or null). Separate from filters.actions on purpose:
+  // multi-selecting Action Needed in the filter PANEL only filters the table — it never highlights a
+  // card or drills the pie. Only a card click sets this (one card at a time).
+  let cardAction = null;
   function commitDraft() {
     filters.statuses = new Set(draft.statuses);
     filters.courses = new Set(draft.courses);
@@ -2000,6 +2004,9 @@
   // Table row visibility = applied filters + the temporary search box.
   function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
   function applyFilters() {
+    // A clicked card stays highlighted only while the action filter is still exactly that one card's
+    // bucket — if the panel/chips change the action selection, the card highlight + pie drill drop.
+    if (cardAction && !(filters.actions.size === 1 && filters.actions.has(cardAction))) cardAction = null;
     rows.forEach(x => {
       const key = rowKey(x.gid, x.r.ext);
       const vis = rowVisible(x);
@@ -2517,7 +2524,7 @@
     // toggles that filter (scopes the TABLE only — the pie is untouched). To email a bucket,
     // filter to it, then use the toolbar "Email Learners" button.
     wrap.innerHTML = cards.map(c => {
-      const on = filters.actions.has(c.type);
+      const on = cardAction === c.type;   // only a CLICKED card highlights (not panel selections)
       return `
       <div class="action-card${on ? ' active' : ''}" data-action="${c.type}" role="button" tabindex="0" aria-pressed="${on}" aria-label="Filter report to: ${c.label}">
         <span class="ac-ico ${c.cls}"><i aria-hidden="true" class="fa-solid ${c.icon}"></i></span>
@@ -2540,9 +2547,10 @@
   // table never AND-stacks two mutually-exclusive statuses); clicking the active card clears it.
   // Keep the draft + panel checkboxes in step, then re-render (which refreshes the highlight).
   function toggleActionCard(type) {
-    const wasActive = filters.actions.has(type);
+    const wasActive = cardAction === type;
     filters.actions.clear();
     if (!wasActive) filters.actions.add(type);
+    cardAction = wasActive ? null : type;
     draft = cloneFilters(filters);
     syncActionChecks();
     applyFilters();
@@ -2560,7 +2568,7 @@
   //   • 2+ quiz failures → the In Progress group: 2+ quiz failures (orange) vs. the rest (blue)
   // A drill with 0 learners shows the empty ring with its normal key line, so it reads as "empty".
   function cardScopeWrappers() { return rows.filter(passesBase); }   // every applied filter EXCEPT the action drill
-  function activeAction() { return filters.actions.size ? [...filters.actions][0] : null; }
+  function activeAction() { return cardAction; }   // pie drills only for a clicked card, never for panel multi-select
 
   // Paint a conic pie + its legend (label · count · %). A single-segment call fills the pie at 100%
   // (used by the status-mapped drills). `caption` is an optional full-width line under the legend.
