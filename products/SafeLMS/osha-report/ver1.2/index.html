@@ -1,14 +1,16 @@
 <!-- Live URL: https://vectorlearning.github.io/ux-mockups/products/SafeLMS/osha-report/?v=ver1_2 -->
 <!-- V1.2 — same layout as V1.1, but the Status Distribution pie is DYNAMIC: clicking an Action
      Needed card drills the pie into that bucket, on a SHARED color key (gray=Not Started,
-     amber=Behind, red=Failed). A bucket that maps to one status fills the pie with that key color
-     at 100% (a "you're looking at this group" confirmation); the Failure bucket is a distinct
-     cross-cutting group, so it alone keeps a real breakdown.
-       • Not Started (0 of 48) → explicit EMPTY / "no data" cue (Style A: dashed gray ring), never a spinner.
-       • Behind the Expected Pace → amber at 100%.
-       • Failure (2+ quiz failures) → split into "failed twice, still retrying" vs "failed the course".
-     Demo data is 48 learners (Not Started 0, Behind 6, Failure group 10 = 5 twice + 5 failed,
-     Passed 20). V1.1 is untouched at ../ver1.1/index.html. -->
+     blue=In Progress, amber=Behind, orange=2+ quiz failures).
+       • Not Started → the whole pie is Not Started (it's a status). 0 of 48 here → a dashed empty
+         ring + the normal key ("Not Started: 0 of 48") — no extra explanation text.
+       • Behind the Expected Pace → the pie is the In Progress group, with the behind learners
+         called out inside it (Behind vs. the rest of In Progress).
+       • At least 2 quiz failures → also INSIDE In Progress (failing a quiz ≠ failing the course):
+         2+ quiz failures vs. the rest of In Progress. Course-failed learners (3 attempts) are not
+         in this bucket.
+     Demo data is 48 learners (Not Started 0, In Progress 23 = 6 behind + 5 with 2+ quiz failures
+     + 12 on track, Failed 5, Passed 20). V1.1 is untouched at ../ver1.1/index.html. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -197,10 +199,7 @@
   /* ── Dynamic pie (V1.2): counts in legend, a per-drill caption line, and empty-state cues ── */
   .pie-pct { color: var(--muted-2); font-weight: 400; }
   .pie-caption { grid-column: 1 / -1; justify-self: stretch; text-align: center; font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .pie-empty-msg { grid-column: 1 / -1; justify-self: stretch; display: flex; flex-direction: column; gap: 2px; text-align: center; }
-  .pie-empty-msg b { color: var(--ink-2); font-size: 14px; }
-  .pie-empty-msg span { color: var(--muted); font-size: 12.5px; }
-  /* Empty / null-state pie circle (Style A) — a dashed hollow ring; reads as "no data", not "loading". */
+    /* Empty / null-state pie circle (Style A) — a dashed hollow ring; reads as "no data", not "loading". */
   .pie-chart.empty-a { background: #fff !important; border: 2px dashed var(--muted-2); display: grid; place-items: center; }
   .pie-empty-center { text-align: center; line-height: 1.15; }
   .pie-empty-center b { display: block; font-size: 30px; font-weight: 800; color: var(--muted); }
@@ -1341,9 +1340,8 @@
   // Action-Needed drill-down:
   //   • Not Started = 0 of 48  → the pie shows an explicit EMPTY state (not a spinner).
   //   • In Progress = 23       → splits On Track (17) vs Behind the Expected Pace (6).
-  //   • Failure group = 10 (at least 2 quiz failures): five "failed twice" (attempts 2, still
-  //     In Progress) + five "failed the course" (attempts 3), ~50/50, spread 4/3/3 across the
-  //     three courses so the failures-by-course pie reads clearly.
+  //   • 2+ quiz failures = 5 — in-progress learners at attempts 2 (a slice of In Progress).
+  //   • Failed = 5 — used all 3 attempts (a course status, not part of the 2+ quiz-failures card).
   //   • Passed = 20.
   const GROUPS = [
     { id:'g1', course:'OSHA 10-Hour General Industry', expanded:true, rows:[
@@ -2408,7 +2406,7 @@
   // Header context line: "Not started · OSHA 10 – Construction". The status/action segment
   // comes from the email type (or, for the filter-based send, the active filters); the course
   // segment collapses to a single course name or "N courses" for mixed groups.
-  const TYPE_CONTEXT = { intervene: 'Not started', nudge: 'Behind pace', retry: 'Failed' };
+  const TYPE_CONTEXT = { intervene: 'Not started', nudge: 'Behind pace', retry: '2+ quiz failures' };
   function emailContextLine(recipients, content, opts) {
     const parts = [];
     let statusPart = TYPE_CONTEXT[content.type];
@@ -2492,7 +2490,7 @@
   const GROUP_MATCH = {
     intervene: r => r.status === 'not-started',
     nudge:     r => r.status === 'in-progress' && r.behind,
-    retry:     r => (r.attempts || 0) >= 2,   // at-risk: 2+ quiz failures — still retrying (attempts 2) OR failed the course (attempts 3)
+    retry:     r => r.status === 'in-progress' && (r.attempts || 0) >= 2,   // 2+ quiz failures, still in progress (a course fail at 3 attempts is a status, not this bucket)
   };
   function renderActionCards() {
     // Each card is BOTH a read-out and a toggle quick filter (V1). Counts always reflect the
@@ -2546,15 +2544,13 @@
   // The pie honors every APPLIED panel filter (course, audience, due-soon, near-limit) — it
   // ignores only the Action-Needed quick filter, because the ACTIVE action card is what the pie
   // drills into. The color KEY is shared across every state (gray = Not Started, blue = In Progress,
-  // green = Passed, red = Failed), so a color always means the same thing. A bucket that maps to a
-  // single status just fills the pie with that key color at 100% — a "you're looking at this group"
-  // confirmation, not new analysis. The Failure bucket is a DISTINCT cross-cutting group, so it alone
-  // keeps a real breakdown:
+  // green = Passed, red = Failed; amber = Behind and orange = 2+ quiz failures are sub-slices of
+  // In Progress), so a color always means the same thing.
   //   • no card          → overall status distribution (Passed / In Progress / Not Started / Failed)
-  //   • Not Started card → gray, but it's the 0-learner bucket → explicit EMPTY / "no data" state, never a spinner
-  //   • Behind Pace card → amber at 100% (the behind group)
-  //   • Failure card     → 2+ quiz failures, split into "failed twice, still retrying" vs "failed the course"
-  // Any drill whose group has 0 learners shows the empty state, so it always reads as "empty", not "loading".
+  //   • Not Started card → the whole pie is Not Started (gray at 100%); 0 → dashed empty ring + key
+  //   • Behind Pace card → the In Progress group: Behind (amber) vs. the rest of In Progress (blue)
+  //   • 2+ quiz failures → the In Progress group: 2+ quiz failures (orange) vs. the rest (blue)
+  // A drill with 0 learners shows the empty ring with its normal key line, so it reads as "empty".
   function cardScopeWrappers() { return rows.filter(passesBase); }   // every applied filter EXCEPT the action drill
   function activeAction() { return filters.actions.size ? [...filters.actions][0] : null; }
 
@@ -2574,14 +2570,14 @@
   }
 
   // Paint the EMPTY / null state for a drill whose group has 0 learners (e.g. Not Started = 0 of 48):
-  // a dashed hollow ring with the 0 count, so it reads as "no data", never "loading".
-  function paintEmptyPie(of, label) {
+  // a dashed hollow ring with the 0 count plus the normal key line — no extra explanation.
+  function paintEmptyPie(of, label, color) {
     const pie = document.getElementById('pieChart');
     pie.style.background = '';
     pie.className = 'pie-chart empty-a';
     pie.innerHTML = `<div class="pie-empty-center"><b>0</b><span>of ${of}</span></div>`;
     document.getElementById('pieLabels').innerHTML =
-      `<span class="pie-empty-msg"><b>No learners ${label}</b><span>No data — this group is empty (0 of ${of}), not loading.</span></span>`;
+      `<span class="pie-label"><span class="pd" style="background:${color}"></span> ${label}: 0 <span class="pie-pct">of ${of}</span></span>`;
   }
 
   function setPieTitle(t) { const el = document.getElementById('pieTitle'); if (el) el.textContent = t; }
@@ -2594,28 +2590,32 @@
     if (action === 'intervene') {                       // Not Started — key color (0 here → empty state)
       setPieTitle('Not Started');
       const n = data.filter(GROUP_MATCH.intervene).length;
-      if (!n) { paintEmptyPie(data.length, 'Not Started'); return; }
+      if (!n) { paintEmptyPie(data.length, 'Not Started', '#d1d5db'); return; }
       paintPie([{ label: 'Not Started', color: '#d1d5db', n }]);   // gray, 100%
       return;
     }
 
-    if (action === 'nudge') {                            // Behind the Expected Pace — key color at 100%
-      setPieTitle('Behind the Expected Pace');
-      const n = data.filter(GROUP_MATCH.nudge).length;
-      if (!n) { paintEmptyPie(data.length, 'behind the expected pace'); return; }
-      paintPie([{ label: 'Behind the Expected Pace', color: '#f59e0b', n }]);   // amber, 100%
+    // Behind + 2+ quiz failures are both slices OF In Progress, so those drills show the In Progress
+    // group with that slice called out against the rest of In Progress.
+    const inProg = data.filter(r => r.status === 'in-progress');
+    const drillInProgress = (match, label, color) => {
+      const n = inProg.filter(match).length;
+      if (!inProg.length) { paintEmptyPie(data.length, 'In Progress', '#3b82f6'); return; }
+      paintPie([
+        { label, color, n },
+        { label: 'Other In Progress', color: '#3b82f6', n: inProg.length - n },
+      ]);
+    };
+
+    if (action === 'nudge') {                            // Behind — inside In Progress
+      setPieTitle('In Progress — Behind the Expected Pace');
+      drillInProgress(GROUP_MATCH.nudge, 'Behind the Expected Pace', '#f59e0b');   // amber
       return;
     }
 
-    if (action === 'retry') {                            // Failure — DISTINCT group → real breakdown
-      setPieTitle('Failure — 2+ quiz failures');
-      const twice  = data.filter(r => (r.attempts || 0) === 2).length;   // still in progress, one attempt left
-      const failed = data.filter(r => (r.attempts || 0) >= 3).length;    // used all 3 → failed the course
-      if (!(twice + failed)) { paintEmptyPie(data.length, 'with 2+ quiz failures'); return; }
-      paintPie([
-        { label: 'Failed twice — still retrying', color: '#f97316', n: twice },
-        { label: 'Failed the course',             color: '#dc2626', n: failed },
-      ]);
+    if (action === 'retry') {                            // 2+ quiz failures — inside In Progress
+      setPieTitle('In Progress — At least 2 quiz failures');
+      drillInProgress(GROUP_MATCH.retry, '2+ quiz failures', '#f97316');   // orange
       return;
     }
 
