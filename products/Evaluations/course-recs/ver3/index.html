@@ -1551,9 +1551,8 @@
             /* NO min-height here. It would clamp the animated height on the
                way open — the panel snaps straight to 220px and only then
                begins gliding, which is the jump this animation removes. The
-               220px floor is enforced where it actually matters instead: the
-               resize clamp and syncDrawerOpenHeight(), both of which compute
-               the drawer's resting height. */
+               220px floor is enforced where it actually matters instead:
+               syncDrawerOpenHeight(), which computes the resting height. */
             /* Never taller than the viewport minus the bar and a little
                breathing room for the form above. This is only a backstop —
                the JS ceiling (drawerMaxHeight) is the real limit and is
@@ -1598,14 +1597,8 @@
         .rec-dock:not([data-open]) .rec-drawer-body {
             opacity: 0;
         }
-        /* While dragging the resize grip the height is driven frame by frame,
-           so the transition must be off or it fights the pointer. */
-        .rec-dock.rec-no-anim .rec-drawer { transition: none; }
-
         /* No-gaps result: the panel is sized to its one line of copy, so the
-           resize grip and the (empty) toolbar's divider would both be
-           furniture around nothing. */
-        .rec-dock[data-empty] .rec-drawer-resize,
+           (empty) toolbar's divider would be furniture around nothing. */
         .rec-dock[data-empty] .rec-drawer-toolbar { display: none; }
 
         /* The chevron ROTATES rather than swapping glyphs — swapping would
@@ -1616,29 +1609,6 @@
             transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
         }
         .rec-dock[data-open] .rec-bar-chevron i { transform: rotate(180deg); }
-
-        /* Drag handle on the drawer's TOP edge — the drawer grows upward, so
-           the resize grip belongs on the edge that moves. */
-        .rec-drawer-resize {
-            flex-shrink: 0;
-            height: 12px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: ns-resize;
-            background: var(--lumo-base-color);
-            border-bottom: 1px solid var(--border-soft);
-        }
-        .rec-drawer-resize::before {
-            content: '';
-            width: 46px; height: 4px;
-            border-radius: 999px;
-            background: var(--lumo-contrast-20pct);
-        }
-        .rec-drawer-resize:hover::before { background: var(--rec-accent); }
-        .rec-drawer-resize:focus-visible {
-            outline: 2px solid var(--rec-accent);
-            outline-offset: -2px;
-        }
-        body.rec-resizing { cursor: ns-resize; user-select: none; }
 
         /* Drawer toolbar — hosts Select All / Configure Assignment.
            Sticky-free: it's outside the scroll body, so it never overlaps
@@ -1848,10 +1818,7 @@
                the open drawer from its content and caps it against the
                viewport (see drawerMaxHeight), and that value wins via
                .rec-dock[data-open]. Kept only as the pre-JS fallback. */
-            /* A drag-resized drawer is not usable at this width; fix the
-               height and hide the grip. */
             .rec-drawer { height: 62vh; }
-            .rec-drawer-resize { display: none; }
             .rec-drawer-toolbar, .rec-drawer-body { padding-left: 16px; padding-right: 16px; }
 
             /* ── Toolbar stays ONE row at phone widths ──
@@ -5427,13 +5394,6 @@
 
     <!-- Drawer — hidden until the dock carries data-open. -->
     <div class="rec-drawer" id="recDrawer">
-        <!-- Resize grip on the top edge (the edge that moves). Keyboard
-             operable: Up/Down adjust the height in steps, Home/End jump to
-             the min/max. -->
-        <div class="rec-drawer-resize" id="recDrawerResize"
-             role="separator" aria-orientation="horizontal" tabindex="0"
-             aria-label="Resize recommendations drawer"
-             title="Drag to resize"></div>
         <div class="rec-drawer-toolbar" id="recDrawerToolbar"></div>
         <div class="rec-drawer-body" id="recDrawerBody">
             <div class="rec-drawer-inner" id="recDrawerInner"></div>
@@ -6420,11 +6380,11 @@ let recommendationsGenerated = false;
                        bar's chevron, which is the only drawer control.
    recGenerating     — the brief generating state, so the drawer can show
                        progress instead of snapping straight to results.
-   drawerHeightPx    — null until the user drags the resize grip, after which
-                       it overrides the --rec-drawer-h default. */
+   (The drawer is no longer user-resizable: it sizes itself to the results,
+   which for a fixed top-8 list is a height the reviewer had no reason to
+   override.) */
 let drawerOpen = false;
 let recGenerating = false;
-let drawerHeightPx = null;
 
 /* Full teardown of the recommendation feature's transient state. Called from
    every path that invalidates a generated batch (save-as-draft, clear all,
@@ -7761,10 +7721,6 @@ function drawerMaxHeight(minH) {
 function naturalDrawerHeight() {
     const contentH = recDrawerInner ? recDrawerInner.getBoundingClientRect().height : 0;
     const toolbarH = recDrawerToolbar ? recDrawerToolbar.offsetHeight : 0;
-    // The grip is display:none at narrow widths, so offsetHeight (0 when
-    // hidden) is the honest read rather than its CSS height.
-    const gripEl = document.getElementById('recDrawerResize');
-    const gripH = gripEl ? gripEl.offsetHeight : 0;
 
     // Body padding (18 top / 32 bottom today) plus the drawer's own top border.
     let bodyPad = 0;
@@ -7778,7 +7734,7 @@ function naturalDrawerHeight() {
         borders = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
     }
 
-    return Math.ceil(contentH + toolbarH + gripH + bodyPad + borders);
+    return Math.ceil(contentH + toolbarH + bodyPad + borders);
 }
 
 function syncDrawerOpenHeight() {
@@ -7828,12 +7784,7 @@ function syncDrawerOpenHeight() {
         return;
     }
 
-    let target;
-    if (drawerHeightPx) {
-        target = Math.min(maxH, Math.max(MIN_H, drawerHeightPx));
-    } else {
-        target = Math.min(maxH, Math.max(MIN_H, naturalDrawerHeight()));
-    }
+    const target = Math.min(maxH, Math.max(MIN_H, naturalDrawerHeight()));
     recDock.style.setProperty('--rec-drawer-current', target + 'px');
 }
 
@@ -8185,65 +8136,6 @@ window.addEventListener('resize', () => {
     measureRecDock();
 });
 
-/* ── Drawer resize ──
-   Pointer drag on the top edge, plus keyboard steps for parity (WCAG 2.1.1).
-   Bounds keep the drawer usable at the bottom and leave the form visible at
-   the top. */
-(function initDrawerResize() {
-    const grip = document.getElementById('recDrawerResize');
-    if (!grip || !recDrawer) return;
-
-    const MIN_H = 220;
-    // Same ceiling the auto-open height uses, so a drag can't exceed it.
-    const clamp = px => Math.min(drawerMaxHeight(MIN_H), Math.max(MIN_H, px));
-
-    /* Writes the SAME custom property the open state animates to, so a drag
-       and an open/close animation can't disagree about the drawer's height.
-       (An inline style.height would win over the CSS rule and freeze the
-       drawer open — it would no longer collapse on close.) */
-    function setHeight(px) {
-        drawerHeightPx = clamp(px);
-        recDock.style.setProperty('--rec-drawer-current', drawerHeightPx + 'px');
-        measureRecDock();
-    }
-
-    let dragging = false;
-    grip.addEventListener('pointerdown', (e) => {
-        dragging = true;
-        grip.setPointerCapture(e.pointerId);
-        document.body.classList.add('rec-resizing');
-        // The height transition would lag behind the pointer; kill it for the
-        // duration of the drag so the panel tracks the cursor exactly.
-        recDock.classList.add('rec-no-anim');
-        e.preventDefault();
-    });
-    grip.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        // The drawer is anchored to the bottom, so its height is simply the
-        // distance from the pointer to the bottom of the viewport.
-        setHeight(window.innerHeight - e.clientY);
-    });
-    const endDrag = (e) => {
-        if (!dragging) return;
-        dragging = false;
-        try { grip.releasePointerCapture(e.pointerId); } catch (_) {}
-        document.body.classList.remove('rec-resizing');
-        recDock.classList.remove('rec-no-anim');
-    };
-    grip.addEventListener('pointerup', endDrag);
-    grip.addEventListener('pointercancel', endDrag);
-
-    /* Keyboard steps keep the transition ON — a jump would be exactly the
-       thing this animation exists to avoid, and each press is discrete. */
-    grip.addEventListener('keydown', (e) => {
-        const cur = drawerHeightPx || recDrawer.getBoundingClientRect().height;
-        const STEP = 40;
-        if (e.key === 'ArrowUp')        { setHeight(cur + STEP); e.preventDefault(); }
-        else if (e.key === 'ArrowDown') { setHeight(cur - STEP); e.preventDefault(); }
-        else if (e.key === 'Home')      { setHeight(maxH()); e.preventDefault(); }
-        else if (e.key === 'End')       { setHeight(MIN_H); e.preventDefault(); }
-    });
-})();
 
 /* ── Course list wiring ───────────────────────────────────────────────
    <vwc-course-list> is data-driven: it fetches through a CourseListService
@@ -8641,11 +8533,10 @@ function shrinkCourseCards(list, { gated = false } = {}) {
 }
 
 /* Re-runs the open-height calculation after async content lands. No-op when
-   the drawer is closed, when the user has dragged their own height (that
-   choice wins), or in the empty state (already sized by its own branch). */
+   the drawer is closed, or in the empty state (already sized by its own
+   branch). */
 function resizeDrawerToContent() {
     if (!recDock || !recDock.hasAttribute('data-open')) return;
-    if (drawerHeightPx) return;
     syncDrawerOpenHeight();
     measureRecDock();
 }
