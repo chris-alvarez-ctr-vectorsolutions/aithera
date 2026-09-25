@@ -737,6 +737,7 @@
   .ack-row input { margin-top: 2px; width: 15px; height: 15px; accent-color: #B54708; }
   .ax-list { border: 1px solid #E1E7EE; border-radius: 9px; background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
   .ax-list .axt-wrap { border: 0; border-radius: 0; }
+  .ax-note { font-size: 12.5px; color: #3D4F63; padding: 0 2px; }
   .ax-list-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 2px 2px 0; }
   .ax-more { border: none; background: none; color: #1257B8; font-size: 12.5px; font-weight: 600; cursor: pointer;
     display: inline-flex; align-items: center; gap: 6px; padding: 2px 0; }
@@ -1077,112 +1078,146 @@
   var DUP = { v: 'Duplicate account', c: 'loss' };
   var NEWV = { v: 'No match — will be new', c: 'from' };
 
+  // Username / first / last only (catalog: "username, first & last name").
+  function uRows(n, seed, extra) {
+    return people(n, seed).map(function (p, i) {
+      var r = [{ v: p.user, c: 'row' }, p.first, p.last];
+      return extra ? r.concat(extra(p, i)) : r;
+    });
+  }
+  function R(n) { return { v: 'Row ' + n, c: 'row' }; }
+  function M(v) { return { v: v, c: 'row' }; }
+  var U3 = ['Username', 'First name', 'Last name'];
+  var NEWFLAG = { v: 'New', c: 'from' };
+
+  /* Additional details shown (expanded view) — re-synced with the catalog
+     2026-09-25. `note` = the breakdown / sample caption shown above the list. */
   var CATALOG = {
     /* 1. Upload summary, change detection & date/attribute validation */
     total_person_change: { tier: 'confirm', msg: 'Heads up — none of the people in this file match anyone already on your site. Double-check you’ve uploaded the right file before continuing.',
-                           head: PERSON_HEAD.concat(['On your site']), rows: function (n) { return pRows(n, 800, function () { return [NEWV]; }); } },
-    total_pos_change:    { tier: 'confirm', msg: 'None of the positions in this file match existing ones — all will be created as new.',
-                           head: ['Position in your file', 'On your site'], rows: function () { return POS.map(function (x) { return [x, NEWV]; }); } },
-    total_bldg_change:   { tier: 'confirm', msg: 'None of the locations in this file match existing ones — all will be created as new.',
-                           head: ['Location in your file', 'On your site'], rows: function () { return LOC.map(function (x) { return [x, NEWV]; }); } },
+      note: function (n) { return 'First 10 of ' + n + ' rows — none matched anyone on your site.'; },
+      head: U3.concat(['On your site']), rows: function () { return uRows(10, 800, function () { return [{ v: 'No match in system', c: 'from' }]; }); } },
+    total_pos_change: { tier: 'confirm', msg: 'None of the positions in this file match existing ones — all will be created as new.',
+      head: ['Position', 'Code', 'On your site'], rows: function () { return POS.map(function (x, i) { return [x, M('P-' + (501 + i)), NEWFLAG]; }); } },
+    total_bldg_change: { tier: 'confirm', msg: 'None of the locations in this file match existing ones — all will be created as new.',
+      head: ['Location', 'Code', 'On your site'], rows: function () { return LOC.map(function (x, i) { return [x, M('B-' + (201 + i)), NEWFLAG]; }); } },
     large_person_change: { tier: 'confirm', msg: 'Only a few people in this file match existing users — most will be added as new. Make sure that’s expected.',
-                           head: PERSON_HEAD.concat(['On your site']), rows: function (n) { return pRows(n, 830, function (p, i) { return [i % 8 ? NEWV : 'Matches existing']; }); } },
-    large_pos_change:    { tier: 'confirm', msg: 'Only a few positions match existing ones — most will be created as new.',
-                           head: ['Position in your file', 'On your site'], rows: function () { return POS.map(function (x, i) { return [x, i === 0 ? 'Matches existing' : NEWV]; }); } },
-    large_bldg_change:   { tier: 'confirm', msg: 'Only a few locations match existing ones — most will be created as new.',
-                           head: ['Location in your file', 'On your site'], rows: function () { return LOC.map(function (x, i) { return [x, i === 0 ? 'Matches existing' : NEWV]; }); } },
-    new_person:          { tier: 'info', msg: '{count} new people will be added.', head: PERSON_HEAD, rows: function (n) { return pRows(n, 500); } },
-    new_pos:             { tier: 'info', msg: '{count} new positions will be created.', head: ['Position', 'Rows using it'],
-                           rows: function () { return [['Athletic Trainer', '3'], ['Instructional Coach', '2']]; } },
-    new_bldg:            { tier: 'info', msg: '{count} new locations will be created.', head: ['Location', 'Rows using it'],
-                           rows: function () { return [['Westside Annex', '6']]; } },
-    reactivated_person:  { tier: 'info', msg: '{count} previously deactivated people will be reactivated.', head: PERSON_HEAD, rows: function (n) { return pRows(n, 610); } },
-    password_changed:    { tier: 'confirm', msg: 'This upload will change the password for {count} people. Confirm you meant to include passwords.', head: PERSON_HEAD, rows: function (n) { return pRows(n, 640); } },
-    removed_rows:        { tier: 'confirm', msg: '{count} rows were skipped and won’t be loaded (blank or invalid). Expand to see which.', head: PERSON_HEAD.concat(['Why']),
-                           rows: function () { return [[{ v: 'Row 71', c: 'row' }, { v: '—', c: 'row' }, 'Luis', 'Ortiz', 'No username'],
-                                                       [{ v: 'Row 112', c: 'row' }, { v: '—', c: 'row' }, '—', '—', 'Blank row']]; } },
-    unchanged_rows:      { tier: 'info', msg: '{count} rows already match your site — no changes will be made to them.', head: PERSON_HEAD, rows: function (n) { return pRows(n, 860); } },
-    missing_bldg_codes:  { tier: 'info', msg: 'This file includes {count} building codes that aren’t on your site yet.', head: ['Building code', 'Location name'],
-                           rows: function () { return codeRows([['B-114', 'Westside Annex'], ['B-120', 'Early Learning Center']]); } },
-    missing_pos_codes:   { tier: 'info', msg: 'This file includes {count} position codes that aren’t on your site yet.', head: ['Position code', 'Position name'],
-                           rows: function () { return codeRows([['P-305', 'Athletic Trainer']]); } },
-    all_rows:            { tier: 'info', msg: '{count} rows will be loaded.' },
-    all_bldg_codes:      { tier: 'info', msg: '{count} rows include a building code.' },
-    all_pos_codes:       { tier: 'info', msg: '{count} rows include a position code.' },
-    broken_begin_date:   { tier: 'blocked', msg: 'We couldn’t read the begin date on {count} rows. Check the date format and re-upload.',
-                           col: 'BEGIN_DATE', head: ['Row', 'Username', 'Begin date in your file'],
-                           rows: function () { return [[{ v: 'Row 14', c: 'row' }, { v: 'bhughes', c: 'row' }, { v: '2024-13-45', c: 'bad' }],
-                                                       [{ v: 'Row 27', c: 'row' }, { v: 'cortiz', c: 'row' }, { v: 'Sept 31', c: 'bad' }],
-                                                       [{ v: 'Row 88', c: 'row' }, { v: 'gmorris', c: 'row' }, { v: 'TBD', c: 'bad' }]]; },
-                           rowsWhere: 'rows 14, 27 and 88', fix: 'Use one date format (like 2024-09-01) in that column, then upload the file again.' },
-    broken_end_date:     { tier: 'blocked', msg: 'We couldn’t read the end date on {count} rows. Check the date format and re-upload.',
-                           col: 'END_DATE', head: ['Row', 'Username', 'End date in your file'],
-                           rows: function () { return [[{ v: 'Row 40', c: 'row' }, { v: 'fevans', c: 'row' }, { v: '06/31/2025', c: 'bad' }]]; },
-                           rowsWhere: 'row 40', fix: 'Use one date format (like 2025-06-30) in that column, then upload the file again.' },
-    early_begin_date:    { tier: 'confirm', msg: '{count} rows have a begin date before 1940 — usually a typo. Please double-check.', head: ['Row', 'Username', 'Begin date'],
-                           rows: function () { return [[{ v: 'Row 52', c: 'row' }, { v: 'tyoung', c: 'row' }, '1924-08-15'], [{ v: 'Row 97', c: 'row' }, { v: 'wbrooks', c: 'row' }, '1901-01-01']]; } },
-    early_end_date:      { tier: 'confirm', msg: '{count} rows have an end date before 1940 — usually a typo. Please double-check.', head: ['Row', 'Username', 'End date'],
-                           rows: function () { return [[{ v: 'Row 63', c: 'row' }, { v: 'ydunn', c: 'row' }, '1925-06-30']]; } },
-    unknown_attribute:   { tier: 'confirm', msg: '{count} rows have a value we don’t recognize for one of your custom fields. Check the allowed values.', head: ['Row', 'Username', 'Attribute', 'Value in your file'],
-                           rows: function () { return [[{ v: 'Row 19', c: 'row' }, { v: 'kjones', c: 'row' }, 'Grade level', 'Grade 13'], [{ v: 'Row 45', c: 'row' }, { v: 'nwalsh', c: 'row' }, 'Department', 'Athletix']]; } },
+      note: function () { return '8 of 168 users matched · 160 new. A sample of the users that will be created new:'; },
+      head: U3, rows: function () { return uRows(10, 830); } },
+    large_pos_change: { tier: 'confirm', msg: 'Only a few positions match existing ones — most will be created as new.',
+      note: function () { return '1 of 8 positions matched · 7 new. The positions that will be created new:'; },
+      head: ['Position', 'Code'], rows: function () { return POS.slice(1).map(function (x, i) { return [x, M('P-' + (602 + i))]; }); } },
+    large_bldg_change: { tier: 'confirm', msg: 'Only a few locations match existing ones — most will be created as new.',
+      note: function () { return '1 of 5 locations matched · 4 new. The locations that will be created new:'; },
+      head: ['Location', 'Code'], rows: function () { return LOC.slice(1).map(function (x, i) { return [x, M('B-' + (302 + i))]; }); } },
+    new_person: { tier: 'info', msg: '{count} new people will be added.', head: U3, rows: function (n) { return uRows(n, 500); } },
+    new_pos: { tier: 'info', msg: '{count} new positions will be created.', head: ['Position', 'Code'],
+      rows: function () { return [['Athletic Trainer', M('P-305')], ['Instructional Coach', M('P-306')]]; } },
+    new_bldg: { tier: 'info', msg: '{count} new locations will be created.', head: ['Location', 'Code'],
+      rows: function () { return [['Westside Annex', M('B-114')]]; } },
+    reactivated_person: { tier: 'info', msg: '{count} previously deactivated people will be reactivated.', head: U3.concat(['Deactivated on']),
+      rows: function (n) { return uRows(n, 610, function (p, i) { return [['Jun 12, 2025', 'Aug 30, 2025', 'Jan 5, 2026'][i % 3]]; }); } },
+    password_changed: { tier: 'confirm', msg: 'This upload will change the password for {count} people. Confirm you meant to include passwords.',
+      note: function () { return 'Password values are never shown.'; }, head: U3, rows: function (n) { return uRows(n, 640); } },
+    removed_rows: { tier: 'confirm', msg: '{count} rows were skipped and won’t be loaded (blank or invalid). Expand to see which.',
+      head: ['Row', 'Username', 'First name', 'Last name', 'Why it was removed'],
+      rows: function () { return [[R(71), M('—'), 'Luis', 'Ortiz', 'Missing required field (Username)'],
+                                  [R(112), M('—'), '—', '—', 'Blank row'],
+                                  [R(139), M('tturner'), 'Tara', '', 'Missing required field (Last name)']]; } },
+    unchanged_rows: { tier: 'info', msg: '{count} rows already match your site — no changes will be made to them.',
+      note: function (n) { return 'A sample of unchanged usernames to spot-check (10 of ' + n + '):'; },
+      head: ['Username'], rows: function () { return people(10, 860).map(function (p) { return [M(p.user)]; }); } },
+    missing_bldg_codes: { tier: 'info', msg: 'This file includes {count} building codes that aren’t on your site yet.', head: ['Building code', 'Location name in your file'],
+      rows: function () { return [[M('B-114'), 'Westside Annex'], [M('B-120'), 'Early Learning Center']]; } },
+    missing_pos_codes: { tier: 'info', msg: 'This file includes {count} position codes that aren’t on your site yet.', head: ['Position code', 'Position name in your file'],
+      rows: function () { return [[M('P-305'), 'Athletic Trainer']]; } },
+    all_rows: { tier: 'info', msg: '{count} rows will be loaded.' },   // total count only — no list
+    all_bldg_codes: { tier: 'info', msg: '{count} rows include a building code.',
+      note: function () { return 'A sample of rows with a building code:'; }, head: ['Username', 'Building code'],
+      rows: function () { return people(5, 880).map(function (p, i) { return [M(p.user), M('B-' + (101 + i))]; }); } },
+    all_pos_codes: { tier: 'info', msg: '{count} rows include a position code.',
+      note: function () { return 'A sample of rows with a position code:'; }, head: ['Username', 'Position code'],
+      rows: function () { return people(5, 890).map(function (p, i) { return [M(p.user), M('P-' + (201 + i))]; }); } },
+    broken_begin_date: { tier: 'blocked', msg: 'We couldn’t read the begin date on {count} rows. Check the date format and re-upload.',
+      col: 'BEGIN_DATE', head: ['Row', 'Username', 'Begin date that couldn’t be read'],
+      rows: function () { return [[R(14), M('bhughes'), { v: '13/45/2026', c: 'bad' }], [R(27), M('cortiz'), { v: 'Sept 31', c: 'bad' }], [R(88), M('gmorris'), { v: 'TBD', c: 'bad' }]]; },
+      rowsWhere: 'rows 14, 27 and 88', fix: 'Use one date format (like 2026-09-01) in that column, then upload the file again.' },
+    broken_end_date: { tier: 'blocked', msg: 'We couldn’t read the end date on {count} rows. Check the date format and re-upload.',
+      col: 'END_DATE', head: ['Row', 'Username', 'End date that couldn’t be read'],
+      rows: function () { return [[R(40), M('fevans'), { v: '2026-31-12', c: 'bad' }]]; },
+      rowsWhere: 'row 40', fix: 'Use one date format (like 2026-12-31) in that column, then upload the file again.' },
+    early_begin_date: { tier: 'confirm', msg: '{count} rows have a begin date before 1940 — usually a typo. Please double-check.', head: ['Row', 'Username', 'Begin date'],
+      rows: function () { return [[R(52), M('tyoung'), '01/01/1902'], [R(97), M('wbrooks'), '08/15/1924']]; } },
+    early_end_date: { tier: 'confirm', msg: '{count} rows have an end date before 1940 — usually a typo. Please double-check.', head: ['Row', 'Username', 'End date'],
+      rows: function () { return [[R(63), M('ydunn'), '06/15/1901']]; } },
+    unknown_attribute: { tier: 'confirm', msg: '{count} rows have a value we don’t recognize for one of your custom fields. Check the allowed values.',
+      head: ['Row', 'Username', 'Attribute', 'Value in your file', 'Allowed values'],
+      rows: function () { return [[R(19), M('kjones'), 'Grade level', { v: 'Grade 13', c: 'bad' }, 'K, 1–12'],
+                                  [R(45), M('nwalsh'), 'Department', { v: 'Athletix', c: 'bad' }, 'Academics, Athletics, Facilities, Transportation']]; } },
 
     /* 2. Building & Position code / name conflicts */
-    bldg_same_codes_diff_name: { tier: 'confirm', msg: 'This file has locations that share a code but have different names. Review before continuing.', head: ['Code', 'Names in your file'],
-                                 rows: function () { return codeRows([['B-102', 'Lincoln Elementary · Lincoln Elem.']]); } },
-    bldg_same_name_diff_codes: { tier: 'confirm', msg: 'This file has locations that share a name but have different codes. Review before continuing.', head: ['Name', 'Codes in your file'],
-                                 rows: function () { return [['Kennedy Middle', 'B-104 · B-140']]; } },
-    pos_same_codes_diff_name:  { tier: 'confirm', msg: 'This file has positions that share a code but have different names. Review before continuing.', head: ['Code', 'Names in your file'],
-                                 rows: function () { return codeRows([['P-210', 'Counselor · School Counselor']]); } },
-    pos_same_name_diff_codes:  { tier: 'confirm', msg: 'This file has positions that share a name but have different codes. Review before continuing.', head: ['Name', 'Codes in your file'],
-                                 rows: function () { return [['Bus Driver', 'P-401 · P-410']]; } },
-    bldg_code_difference:      { tier: 'confirm', msg: 'Some location codes in this file have a different name than what’s on your site. Confirm which name is correct.', head: ['Code', 'In your file', 'On your site'],
-                                 rows: function () { return codeRows([['B-103', 'Ridgewood HS', 'Ridgewood High']]); } },
-    pos_code_difference:       { tier: 'confirm', msg: 'Some position codes in this file have a different name than what’s on your site. Confirm which name is correct.', head: ['Code', 'In your file', 'On your site'],
-                                 rows: function () { return codeRows([['P-120', 'Para', 'Paraprofessional']]); } },
+    bldg_same_codes_diff_name: { tier: 'confirm', msg: 'This file has locations that share a code but have different names. Review before continuing.',
+      head: ['Shared code', 'Name A', 'Name B', 'Rows'], rows: function () { return [[M('B-102'), 'Lincoln Elementary', 'Lincoln Elem.', 'Rows 8, 33, 71']]; } },
+    bldg_same_name_diff_codes: { tier: 'confirm', msg: 'This file has locations that share a name but have different codes. Review before continuing.',
+      head: ['Shared name', 'Code A', 'Code B', 'Rows'], rows: function () { return [['Kennedy Middle', M('B-104'), M('B-140'), 'Rows 12, 90']]; } },
+    pos_same_codes_diff_name: { tier: 'confirm', msg: 'This file has positions that share a code but have different names. Review before continuing.',
+      head: ['Shared code', 'Name A', 'Name B', 'Rows'], rows: function () { return [[M('P-210'), 'Counselor', 'School Counselor', 'Rows 5, 61']]; } },
+    pos_same_name_diff_codes: { tier: 'confirm', msg: 'This file has positions that share a name but have different codes. Review before continuing.',
+      head: ['Shared name', 'Code A', 'Code B', 'Rows'], rows: function () { return [['Bus Driver', M('P-401'), M('P-410'), 'Rows 44, 102, 118']]; } },
+    bldg_code_difference: { tier: 'confirm', msg: 'Some location codes in this file have a different name than what’s on your site. Confirm which name is correct.',
+      head: ['Code', 'Name in your file', 'Name on your site'], rows: function () { return [[M('B-103'), 'Ridgewood HS', 'Ridgewood High']]; } },
+    pos_code_difference: { tier: 'confirm', msg: 'Some position codes in this file have a different name than what’s on your site. Confirm which name is correct.',
+      head: ['Code', 'Name in your file', 'Name on your site'], rows: function () { return [[M('P-120'), 'Para', 'Paraprofessional']]; } },
 
     /* 3. Duplicate & identity detection (users) */
-    duplicate_email_in_upload: { tier: 'confirm', msg: 'The same email is used for more than one username in this file. Review these rows.', head: ['Row', 'Email', 'Username'],
-                                 rows: function () { return [[{ v: 'Row 34', c: 'row' }, 'jsmith@ridgewood.k12.us', { v: 'jsmith', c: 'row' }], [{ v: 'Row 91', c: 'row' }, 'jsmith@ridgewood.k12.us', { v: 'john.smith', c: 'row' }]]; } },
-    duplicate_user_in_upload:  { tier: 'confirm', msg: 'The same username appears with more than one name in this file. Review these rows.', head: ['Row', 'Username', 'Name in your file'],
-                                 rows: function () { return [[{ v: 'Row 22', c: 'row' }, { v: 'achen', c: 'row' }, 'Amy Chen'], [{ v: 'Row 130', c: 'row' }, { v: 'achen', c: 'row' }, 'Andrew Chen']]; } },
-    duplicate_user_in_system:  { tier: 'confirm', msg: 'Some usernames have a different name here than on your site. If someone’s name changed, you can accept it.', head: ['Row', 'Username', 'On your site', 'In your file'],
-                                 rows: function () { return [[{ v: 'Row 87', c: 'row' }, { v: 'shartley', c: 'row' }, { v: 'Susan Hartley', c: 'from' }, { v: 'Sue Hartley', c: 'to' }],
-                                                             [{ v: 'Row 122', c: 'row' }, { v: 'jmocadlo', c: 'row' }, { v: 'Jessyca Mocadlo', c: 'from' }, { v: 'Jesse Mocadlo', c: 'to' }]]; } },
-    non_identical_username:    { tier: 'confirm', msg: 'This file has people with the same first and last name but different usernames. Confirm they’re different people.', head: ['Row', 'Name', 'Username'],
-                                 rows: function () { return [[{ v: 'Row 9', c: 'row' }, 'Maria Lopez', { v: 'mlopez', c: 'row' }], [{ v: 'Row 150', c: 'row' }, 'Maria Lopez', { v: 'mlopez2', c: 'row' }]]; } },
-    // Existing person, new username → shown as the duplicate it would create (2026-09-25).
-    potential_duplicate_user:  { tier: 'confirm', msg: 'Some people here have the same name as existing users but a different username — they may be duplicates. Please review.',
-                                 head: ['Row', 'Name', 'Username in your file', 'Already on your site as', 'If you continue'],
-                                 rows: function () { return [[{ v: 'Row 12', c: 'row' }, 'Sarah Linden', { v: 'sarah.linden2', c: 'bad' }, { v: 'slinden', c: 'lock', lock: true }, DUP],
-                                                             [{ v: 'Row 58', c: 'row' }, 'Marcus Webb', { v: 'marcus.webb', c: 'bad' }, { v: 'mwebb', c: 'lock', lock: true }, DUP],
-                                                             [{ v: 'Row 103', c: 'row' }, 'Priya Nair', { v: 'priya.nair2', c: 'bad' }, { v: 'pnair', c: 'lock', lock: true }, DUP]]; } },
-    duplicate_external_unique_id_in_upload: { tier: 'confirm', msg: 'The same External Unique ID appears on more than one row in this file. Review these rows.', head: ['External Unique ID', 'Rows'],
-                                 rows: function () { return codeRows([['E-004417', 'Rows 16 and 77']]); } },
-    duplicate_external_unique_id_in_system: { tier: 'confirm', msg: 'Some External Unique IDs match existing users but with a different name. Please review.', head: ['External Unique ID', 'Name in your file', 'Name on your site'],
-                                 rows: function () { return codeRows([['E-002290', 'Dana Baker', 'Dana Whitfield']]); } },
-    non_identical_external_unique_id: { tier: 'confirm', msg: 'This file has people with the same name but different External Unique IDs. Confirm they’re different people.', head: ['Row', 'Name', 'External Unique ID'],
-                                 rows: function () { return [[{ v: 'Row 30', c: 'row' }, 'Tom Allen', 'E-001873'], [{ v: 'Row 118', c: 'row' }, 'Tom Allen', 'E-003305']]; } },
+    duplicate_email_in_upload: { tier: 'confirm', msg: 'The same email is used for more than one username in this file. Review these rows.',
+      head: ['Email', 'Row', 'Username', 'First name', 'Last name'],
+      rows: function () { return [['jsmith@ridgewood.k12.us', R(34), M('jsmith'), 'John', 'Smith'], ['jsmith@ridgewood.k12.us', R(91), M('john.smith'), 'John', 'Smith']]; } },
+    duplicate_user_in_upload: { tier: 'confirm', msg: 'The same username appears with more than one name in this file. Review these rows.',
+      head: ['Username', 'Name A', 'Name B', 'Rows'], rows: function () { return [[M('achen'), 'Amy Chen', 'Andrew Chen', 'Rows 22, 130']]; } },
+    duplicate_user_in_system: { tier: 'confirm', msg: 'Some usernames have a different name here than on your site. If someone’s name changed, you can accept it.',
+      head: ['Username', 'Name on your site', 'Name in your file'],
+      rows: function () { return [[M('jsmith2'), { v: 'Jessyca Smith', c: 'from' }, { v: 'Jesse Smith', c: 'to' }], [M('shartley'), { v: 'Susan Hartley', c: 'from' }, { v: 'Sue Hartley', c: 'to' }]]; } },
+    non_identical_username: { tier: 'confirm', msg: 'This file has people with the same first and last name but different usernames. Confirm they’re different people.',
+      head: ['Name', 'Username A', 'Username B', 'Rows'], rows: function () { return [['Maria Lopez', M('mlopez'), M('mlopez2'), 'Rows 9, 150']]; } },
+    // Kept: "Duplicate account" result so it reads as a duplicate (2026-09-25).
+    potential_duplicate_user: { tier: 'confirm', msg: 'Some people here have the same name as existing users but a different username — they may be duplicates. Please review.',
+      head: ['Name', 'Username in your file', 'Existing user’s username', 'If you continue'],
+      rows: function () { return [['Sarah Linden', { v: 'sarah.linden2', c: 'bad' }, { v: 'slinden', c: 'lock', lock: true }, DUP],
+                                  ['Marcus Webb', { v: 'marcus.webb', c: 'bad' }, { v: 'mwebb', c: 'lock', lock: true }, DUP],
+                                  ['Priya Nair', { v: 'priya.nair2', c: 'bad' }, { v: 'pnair', c: 'lock', lock: true }, DUP]]; } },
+    duplicate_external_unique_id_in_upload: { tier: 'confirm', msg: 'The same External Unique ID appears on more than one row in this file. Review these rows.',
+      head: ['External Unique ID', 'Row', 'Username', 'First name', 'Last name'],
+      rows: function () { return [[M('E-004417'), R(16), M('dbaker'), 'Dana', 'Baker'], [M('E-004417'), R(77), M('dwhitfield'), 'Dana', 'Whitfield']]; } },
+    duplicate_external_unique_id_in_system: { tier: 'confirm', msg: 'Some External Unique IDs match existing users but with a different name. Please review.',
+      head: ['External Unique ID', 'Name in your file', 'Name on your site'], rows: function () { return [[M('E-002290'), 'Dana Baker', 'Dana Whitfield']]; } },
+    non_identical_external_unique_id: { tier: 'confirm', msg: 'This file has people with the same name but different External Unique IDs. Confirm they’re different people.',
+      head: ['Name', 'ID A', 'ID B', 'Rows'], rows: function () { return [['Tom Allen', M('E-001873'), M('E-003305'), 'Rows 30, 118']]; } },
     potential_duplicate_user_external_unique_id: { tier: 'confirm', msg: 'Some people match existing users by name but have a different External Unique ID — they may be duplicates. Please review.',
-                                 head: ['Row', 'Name', 'ID in your file', 'ID on your site', 'If you continue'],
-                                 rows: function () { return [[{ v: 'Row 66', c: 'row' }, 'Gary Harper', { v: 'E-009912', c: 'bad' }, { v: 'E-000418', c: 'lock', lock: true }, DUP]]; } },
+      head: ['Name', 'ID in your file', 'Existing user’s ID', 'If you continue'],
+      rows: function () { return [['Gary Harper', { v: 'E-009912', c: 'bad' }, { v: 'E-000418', c: 'lock', lock: true }, DUP]]; } },
 
     /* 4. Missing references, conflicts & sync */
-    missing_pos:    { tier: 'confirm', msg: 'This file references groups that aren’t on your site yet.', head: ['Group'], rows: function () { return [['Summer Camp Staff']]; } },
-    missing_bldg:   { tier: 'confirm', msg: 'This file references locations that aren’t on your site yet.', head: ['Location'], rows: function () { return [['Westside Annex']]; } },
-    missing_person: { tier: 'confirm', msg: 'This file references people who aren’t on your site yet.', head: ['Row', 'Username', 'Name'],
-                      rows: function () { return [[{ v: 'Row 141', c: 'row' }, { v: 'rsilva', c: 'row' }, 'Rosa Silva']]; } },
+    missing_pos: { tier: 'confirm', msg: 'This file references groups that aren’t on your site yet.',
+      head: ['Group', 'Rows / users referencing it'], rows: function () { return [['Summer Camp Staff', 'Rows 58, 60, 61 · mwebb, kbell, dcho']]; } },
+    missing_bldg: { tier: 'confirm', msg: 'This file references locations that aren’t on your site yet.',
+      head: ['Location', 'Rows referencing it'], rows: function () { return [['Westside Annex', 'Rows 3, 17, 26, 49, 88, 140']]; } },
+    missing_person: { tier: 'confirm', msg: 'This file references people who aren’t on your site yet.',
+      head: ['Row', 'Username', 'First name', 'Last name'], rows: function () { return [[R(141), M('rsilva'), 'Rosa', 'Silva']]; } },
     inconsistent_person_data: { tier: 'blocked', msg: 'Some rows contain information that conflicts with what’s on your site. Review the differences before continuing.',
-                      col: 'EMAIL', head: ['Row', 'Username', 'Field', 'In your file', 'On your site'],
-                      rows: function () { return [[{ v: 'Row 55', c: 'row' }, { v: 'pnair', c: 'row' }, 'Email', { v: 'priya.nair@gmail.com', c: 'bad' }, { v: 'pnair@ridgewood.k12.us', c: 'lock', lock: true }]]; },
-                      rowsWhere: 'row 55', fix: 'Correct the value in your file to match your site (or update it on the person’s record first), then upload again.' },
+      col: 'EMAIL', head: ['Row', 'Username', 'Field', 'In your file', 'On your site'],
+      rows: function () { return [[R(55), M('pnair'), 'Email', { v: 'priya.nair@gmail.com', c: 'bad' }, { v: 'pnair@ridgewood.k12.us', c: 'lock', lock: true }]]; },
+      rowsWhere: 'row 55', fix: 'Correct the value in your file to match your site (or update it on the person’s record first), then upload again.' },
     duplicate_person: { tier: 'blocked', msg: 'A username in this file matches more than one active user on your site. This needs to be resolved before you can continue.',
-                      col: null, head: ['Username in your file', 'Active users on your site with it'],
-                      rows: function () { return [[{ v: 'cdelgado', c: 'row' }, 'Carlos Delgado (11 completions) · Carla Delgado (0 completions)']]; },
-                      whereText: '<b>Row 48</b> · username <b>cdelgado</b>. The duplicate is on your site, not in your file.',
-                      fix: 'Contact Vector support to merge or rename one of these accounts, then upload again.', support: true },
-    sync_error:     { tier: 'blocked', msg: 'Something went wrong during the upload. Please try again, and contact your Vector rep if it keeps happening.',
-                      head: ['Error reference'], rows: function () { return codeRows([['ERR-2026-0925-4471']]); },
-                      whereText: 'Not in your file — this was a problem on our side.', fix: 'Try the upload again. If it keeps happening, contact support with the error reference.', support: true }
+      head: ['Username', 'Active user on your site', 'Identifying detail'],
+      rows: function () { return [[M('cdelgado'), 'Carlos Delgado', 'cdelgado@ridgewood.k12.us · Lincoln Elementary · 11 completions'],
+                                  [M('cdelgado'), 'Carla Delgado', 'carla.delgado@ridgewood.k12.us · District Office · 0 completions']]; },
+      whereText: '<b>Row 48</b> · username <b>cdelgado</b>. The duplicate is on your site, not in your file.',
+      fix: 'Contact Vector support to merge or rename one of these accounts, then upload again.', support: true },
+    sync_error: { tier: 'blocked', msg: 'Something went wrong during the upload. Please try again, and contact your Vector rep if it keeps happening.',
+      note: function () { return 'This is a system error — no people or rows in your file are affected.'; },
+      head: ['Error reference'], rows: function () { return [[M('ERR-2026-0925-4471')]]; },
+      whereText: 'Not in your file — this was a problem on our side.', fix: 'Try the upload again. If it keeps happening, contact support with the error reference.', support: true }
   };
   var CATALOG_KEYS = Object.keys(CATALOG);
 
@@ -1194,15 +1229,17 @@
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
     blast:   null   // copy review: EVERY catalog message, in catalog order
   };
-  var SUMMARY_COUNTS = { total_person_change: 24, total_pos_change: 0, total_bldg_change: 0, large_person_change: 24, large_pos_change: 0,
-    large_bldg_change: 0, unchanged_rows: 32, all_rows: 168, all_bldg_codes: 151, all_pos_codes: 149, new_person: 6, reactivated_person: 2, password_changed: 2 };
+  // Totals for the copy-review file. Sampled messages show a subset of rows but say the real total.
+  var SUMMARY_COUNTS = { total_person_change: 168, large_person_change: 160, unchanged_rows: 32, all_rows: 168,
+    all_bldg_codes: 151, all_pos_codes: 149, new_person: 6, reactivated_person: 2, password_changed: 2 };
 
   function catalogAlert(key, n) {
     var c = CATALOG[key], rows = c.rows ? c.rows(n || SUMMARY_COUNTS[key] || 3) : null;
-    var count = rows ? rows.length : (n != null ? n : (SUMMARY_COUNTS[key] || 0));
+    // Samples (first 10 of N) keep the real total in {count}; full lists count their rows.
+    var count = n != null ? n : (SUMMARY_COUNTS[key] != null ? SUMMARY_COUNTS[key] : (rows ? rows.length : 0));
     var text = c.msg.replace('{count}', count), cut = text.indexOf('. ');
     var a = { id: key, key: key, tier: c.tier, title: cut > 0 ? text.slice(0, cut + 1) : text, sub: cut > 0 ? text.slice(cut + 2) : '',
-      list: rows ? { head: c.head, rows: rows } : null, fix: c.fix, supportBtn: !!c.support,
+      list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '' } : null, fix: c.fix, supportBtn: !!c.support,
       ackLabel: 'I’ve reviewed this — continue with the upload.' };
     if (c.tier === 'blocked') {
       a.where = c.whereText || ('<b>' + colRef(state.fileId, c.col) + '</b> · ' + c.rowsWhere);
@@ -1805,6 +1842,7 @@
         }).join('') + '</tr>';
       }).join('');
       detail = '<div class="ax-list' + (open ? ' is-open' : '') + '">'
+        + (a.list.note ? '<div class="ax-note">' + esc(a.list.note) + '</div>' : '')
         + (a.where ? '<div class="alert-where"><i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i><span><b>Where:</b> ' + a.where + '</span></div>' : '')
         + '<div class="axt-wrap' + (open && all.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
         + (more > 0 ? '<div class="ax-list-foot">'
