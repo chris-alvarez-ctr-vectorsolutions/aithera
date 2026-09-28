@@ -164,7 +164,7 @@
   .qf-btn:hover { filter: brightness(.94); }
 
   /* ── QUALIFIED PERSONNEL panel (the new design) ──
-     V2 is built with Vector: vaadin-select filters for approach/rule,
+     V2 is built with Vector: filter chips (vaadin-button + vaadin-popover) for approach/rule,
      vwc-card per candidate, vaadin-button, Lumo badges, and Lumo/VWC tokens
      (quoted from context/themes/v1.9.3/CONTEXT.md). The HOST modal on the left
      stays a production replica on purpose. */
@@ -181,20 +181,29 @@
   .qp-sub { font-size: 12px; color: var(--lumo-secondary-text-color); margin-top: 2px; }
 
   /* System choice: what the engine picked, and one-click alternatives */
-  /* Approach + Rule — both always show a value. While a value is the system's
-     DEFAULT the select is tinted with a bold value; once the user picks
-     something else it becomes a plain (white) filter and "Clear filters" appears. */
-  .qp-picks { margin-top: 12px; position: relative; }
-  .qp-clear { position: absolute; top: -13px; right: 0; margin: 0; z-index: 1; }
-  .qp-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .qp-picks vaadin-select { width: 100%; padding-top: 0; }
-  .qp-picks vaadin-select::part(label) { font-size: 12px; }
-  /* !important: the VWC outlined theme forces a transparent field background */
-  .qp-picks vaadin-select.is-default::part(input-field) { background: var(--lumo-primary-color-10pct) !important; }
-  .qp-picks vaadin-select.is-default vaadin-select-value-button { font-weight: 600; color: var(--lumo-primary-text-color); }
-  /* In the open list only (not the field), tag the default option */
-  vaadin-select-list-box vaadin-select-item.qp-rec-item::after { content: "Default"; margin-left: 8px; padding: 1px 6px; border-radius: 4px;
-    background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); font-size: 11px; font-weight: 600; }
+  /* Filter chips (V2) — a filter BAR, deliberately unlike V1's boxed pickers.
+     Each chip always shows its value. On the default it's a light chip with a
+     "Default" tag; once changed it turns solid primary. Clicking a chip opens a
+     vaadin-popover with the options (vaadin-list-box + vaadin-item). */
+  .qp-chips { margin-top: 12px; display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .qp-chips > i { color: var(--lumo-secondary-text-color); font-size: 13px; margin-right: 2px; }
+  /* VWC sizes every vaadin-button at 40px / 24px padding; chips are compact */
+  .qp-chips vaadin-button.qp-chip { margin: 0; border-radius: 999px; height: 30px !important; min-height: 30px; padding: 0 10px 0 12px !important; font-size: 12.5px; }
+  .qp-chips vaadin-button.qp-clear { height: 30px !important; padding: 0 6px !important; }
+  .qp-chip .k { font-weight: 400; opacity: .8; margin-right: 5px; }
+  .qp-chip .v { font-weight: 600; }
+  .qp-chip .tag { margin-left: 6px; }
+  .qp-chip i.car { font-size: 10px; margin-left: 6px; }
+  .qp-chip.is-default { background: var(--lumo-contrast-5pct); border-color: var(--lumo-contrast-20pct); color: var(--lumo-body-text-color); }
+  .qp-chips .qp-clear { margin: 0 0 0 auto; }
+
+  /* Popover content */
+  .qp-pop { width: 280px; padding: 4px 0; font-family: var(--lumo-font-family); }
+  .qp-pop-h { padding: 6px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lumo-secondary-text-color); }
+  .qp-pop vaadin-item { cursor: pointer; }
+  .qp-pop .n { display: block; font-size: 13px; }
+  .qp-pop .m { display: block; font-size: 11.5px; color: var(--lumo-secondary-text-color); }
+  .qp-pop [theme~="badge"] { margin-left: 6px; }
 
   .qp-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 20px; background: var(--lumo-contrast-5pct); border-bottom: 1px solid var(--lumo-contrast-10pct); flex: none; font-size: 12px; color: var(--lumo-secondary-text-color); }
   .qp-count b { color: var(--lumo-body-text-color); font-weight: 600; }
@@ -357,7 +366,7 @@
   // Rule = HOW they rank. r1 is the default for this shift's qualifier.
   const RULES = [
     { id: 'r1', short: 'Lowest OT', name: 'Lowest OT Hours',               meta: 'ascending OT · default for this qualifier' },
-    { id: 'r2', short: 'Seniority', name: 'Seniority (Most Senior First)', meta: 'by hire date' },
+    { id: 'r2', short: 'Seniority', chip: 'Most Senior First', name: 'Seniority (Most Senior First)', meta: 'by hire date' },
     { id: 'r3', short: 'Position', name: 'Position Order',                meta: 'next position in order' },
     { id: 'r4', short: 'Least Recent', name: 'Least Recently Called',         meta: 'longest since last callback' }
   ];
@@ -462,6 +471,26 @@
       </vwc-card>`;
   }
 
+  function chipHtml(dim, label, item, isDef) {
+    return `<vaadin-button class="qp-chip${isDef ? ' is-default' : ''}" theme="${isDef ? 'secondary' : 'primary'} small" data-chip="${dim}" aria-haspopup="listbox">
+      <span class="k">${label}</span><span class="v">${item.chip || item.name}</span>${isDef ? '<span class="tag" theme="badge contrast small pill">Default</span>' : ''}<i class="car fa-solid fa-chevron-down"></i>
+    </vaadin-button>`;
+  }
+
+  // Popover option list for one dimension. Picking the default clears that filter.
+  function popHtml(heading, items, activeId, defaultId, action) {
+    const idx = items.findIndex(o => o.id === activeId);
+    return `<div class="qp-pop">
+      <div class="qp-pop-h">${heading}</div>
+      <vaadin-list-box selected="${idx}">
+        ${items.map(o => `<vaadin-item data-action="${action}" data-id="${o.id}">
+          <span class="n">${o.name}${o.id === defaultId ? '<span theme="badge contrast small pill">Default</span>' : ''}</span>
+          <span class="m">${o.meta.replace(' · default for this qualifier', '')}</span>
+        </vaadin-item>`).join('')}
+      </vaadin-list-box>
+    </div>`;
+  }
+
   function renderPanel() {
     const slot = document.getElementById('panelSlot');
     document.getElementById('stage').classList.toggle('panel-open', state.panelOpen);
@@ -470,6 +499,7 @@
     const list = ranked();
     const rule = RULES.find(r => r.id === state.rule);
     const isDefault = !state.fApproach && !state.fRule;
+    const approach = APPROACHES.find(a => a.id === state.approach);
     const defApproach = APPROACHES.find(a => a.id === DEFAULT_APPROACH);
     const defRule = RULES.find(r => r.id === DEFAULT_RULE);
     const wasOpen = !!slot.querySelector('.qp');   // only animate the slide-in on first open
@@ -486,14 +516,12 @@
             <vaadin-button theme="icon" data-action="togglePanel" aria-label="Close panel"><i class="fa-solid fa-xmark"></i></vaadin-button>
           </div>
 
-          <!-- Approach + Rule: pre-selected with the default; change either to filter -->
-          <div class="qp-picks">
-            <!-- Clear filters — only once a filter differs from the default; sits on the label line so nothing shifts -->
+          <!-- Filter bar: chips always show the value in use -->
+          <div class="qp-chips" role="group" aria-label="Filters">
+            <i class="fa-solid fa-filter" aria-hidden="true"></i>
+            ${chipHtml('approach', 'Approach', approach, !state.fApproach)}
+            ${chipHtml('rule', 'Rule', rule, !state.fRule)}
             ${isDefault ? '' : '<vaadin-button class="qp-clear" theme="tertiary small" data-action="useRecommended"><i class="fa-solid fa-xmark" slot="prefix"></i>Clear filters</vaadin-button>'}
-            <vaadin-select theme="outlined small" id="fApproach" label="Approach — who is eligible"${state.fApproach ? '' : ' class="is-default"'}>
-            </vaadin-select>
-            <vaadin-select theme="outlined small" id="fRule" label="Rule — how they rank"${state.fRule ? '' : ' class="is-default"'}>
-            </vaadin-select>
           </div>
         </div>
 
@@ -508,12 +536,18 @@
       </aside>`;
     slot.querySelector('.qp-list').scrollTop = scroll;
 
-    // Hydrate the vaadin-select filters (items + current value; '' shows the placeholder)
-    // Both always show a value: the filter if set, else the recommended default.
-    const opt = o => ({ label: o.name, value: o.id, className: (o.id === DEFAULT_APPROACH || o.id === DEFAULT_RULE) ? 'qp-rec-item' : '' });
-    const fa = slot.querySelector('#fApproach'), fr = slot.querySelector('#fRule');
-    fa.items = APPROACHES.map(opt); fa.value = state.approach;
-    fr.items = RULES.map(opt);      fr.value = state.rule;
+    // Hydrate: attach each chip's option popover
+    // One vaadin-popover per chip (recreated with each render)
+    [['approach', 'Approach — who is eligible', APPROACHES, state.approach, DEFAULT_APPROACH, 'pickApproach'],
+     ['rule',     'Rule — how they rank',       RULES,      state.rule,     DEFAULT_RULE,     'pickRule']
+    ].forEach(([dim, heading, items, activeId, defaultId, action]) => {
+      const pop = document.createElement('vaadin-popover');
+      pop.target = slot.querySelector(`[data-chip="${dim}"]`);
+      pop.position = 'bottom-start';
+      pop.trigger = ['click'];
+      pop.renderer = root => { root.innerHTML = popHtml(heading, items, activeId, defaultId, action); };
+      slot.querySelector('.qp').appendChild(pop);
+    });
   }
 
   function render() { renderEmployeeField(); renderPanel(); }
@@ -525,16 +559,11 @@
     switch (t.dataset.action) {
       case 'togglePanel':        setState({ panelOpen: !state.panelOpen }); break;
       case 'useRecommended':     setFilters('', ''); break;   // Clear filters → both back to the defaults
+      case 'pickApproach':       setFilters(t.dataset.id === DEFAULT_APPROACH ? '' : t.dataset.id, state.fRule); break;
+      case 'pickRule':           setFilters(state.fApproach, t.dataset.id === DEFAULT_RULE ? '' : t.dataset.id); break;
       case 'fill':               setState({ filled: t.dataset.name }); break;
       case 'clearFill':          setState({ filled: null }); break;
     }
-  });
-
-  // Filter dropdowns — 'change' fires only on user selection
-  document.addEventListener('change', e => {
-    // choosing the recommended option again puts that dimension back to default
-    if (e.target.id === 'fApproach') { const v = e.target.value; setTimeout(() => setFilters(v === DEFAULT_APPROACH ? '' : v, state.fRule)); }
-    if (e.target.id === 'fRule')     { const v = e.target.value; setTimeout(() => setFilters(state.fApproach, v === DEFAULT_RULE ? '' : v)); }
   });
 
   render();
@@ -597,10 +626,10 @@
           desc: 'Production fill-shift dialog. "... or choose from qualified employees..." or "Fill w/ CallBack™" opens the panel.' },
         { id: 'panel', flow: 'main', entry: true, x: 340, y: 200,
           step: 'Step 2', name: 'Qualified personnel', state: 'panel',
-          desc: 'Approach + Rule selects open pre-selected with the defaults for the qualifier (tinted).' },
+          desc: 'Filter chips for Approach + Rule open on the qualifier defaults (light chip + Default tag); each chip opens a popover of options.' },
         { id: 'changed', flow: 'main', x: 620, y: 70,
           step: 'Optional', name: 'Filtered', state: 'changed',
-          desc: 'Approach and/or rule filter dropdowns re-rank live; a changed select turns into a plain filter. Clear filters puts both back on the defaults.' },
+          desc: 'Picking from a chip popover re-ranks live; a changed chip turns solid blue. Clear filters puts both back on the defaults.' },
         { id: 'filled', flow: 'main', x: 900, y: 370,
           step: 'Step 3', name: 'Filled', state: 'filled',
           desc: 'Fill drops the person into the employee field as a token; the card turns green.' }
