@@ -136,9 +136,10 @@ rather than using a hardcoded constant — an earlier constant went stale and le
 
 **Select All** and **Configure Assignment** are re-hosted here and delegate to
 the component's public API (`selectAll()`, `actionClick()`), so the component's
-own behaviour is preserved. One row always: below 760px the optional half of
-each label is hidden (`Select All` → `Select`, `Configure Assignment` →
-`Configure`), visually only, so accessible names are unchanged.
+own behaviour is preserved. One row always, with **full labels at every width** —
+the full-bleed dock leaves ~296px of usable row at a 320px viewport and the two
+buttons need ~250px. (`.tb-label` spans remain in the markup as the seam for
+shortening them again if a narrower case ever needs it.)
 
 ---
 
@@ -194,6 +195,12 @@ One schedule for the whole assignment — no per-course overrides. Three
 `vaadin-date-picker` fields (Effective / Due / Expire), each with a `?` help icon
 carrying the SafeLMS help text via `vaadin-tooltip`. Field names match SafeLMS
 exactly, including **"Expire Date"**.
+
+The three fields share the row evenly. Note that `width: 100%` alone does **not**
+stretch a `vaadin-date-picker`: it carries `--vaadin-field-default-width: 12em`
+(~168px), which acts as a min-content floor and makes a bare `1fr` grid track
+size to the field rather than the column. The grid uses `minmax(0, 1fr)` and the
+picker zeroes that token.
 
 ⚠️ **No date validation is implemented** — see the callout in
 `mock-definition.md`. The rules must mirror the current SafeLMS implementation
