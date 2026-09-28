@@ -1738,12 +1738,21 @@
 
         /* ── Reflow (WCAG 1.4.10) ── */
         @media (max-width: 760px) {
-            /* Tighter side inset — at phone widths a 16px gutter each side is
-               already most of the screen. The base rule sets an explicit
-               `width: calc(100% - 24px)`, which would beat left/right alone,
-               so the width is overridden here too (without it this rule was
-               dead and the gutter never actually narrowed). */
-            .rec-dock { left: 10px; right: 10px; width: calc(100% - 20px); }
+            /* ── FULL BLEED at phone widths ──
+               The desktop dock deliberately overhangs the form's column to
+               read as a layer above the page. At phone widths there is no
+               column left to overhang, and a side gutter just spends scarce
+               horizontal space on decoration — so the dock goes edge to edge.
+               The base rule's explicit `width: calc(100% - 24px)` and
+               `max-width` both have to be overridden, or they beat left/right
+               and the gutter survives. The top corners square off: a radius
+               only reads as "panel" when there is page visible beside it. */
+            .rec-dock {
+                left: 0; right: 0;
+                width: 100%;
+                max-width: none;
+                border-radius: 0;
+            }
             /* ── Single-row bar (WCAG 1.4.10) ──
                The banner previously wrapped to THREE rows here (icon, then
                body at flex-basis:100%, then actions at 100%), which made it
@@ -1819,7 +1828,12 @@
                viewport (see drawerMaxHeight), and that value wins via
                .rec-dock[data-open]. Kept only as the pre-JS fallback. */
             .rec-drawer { height: 62vh; }
-            .rec-drawer-toolbar, .rec-drawer-body { padding-left: 16px; padding-right: 16px; }
+            /* The dock is now full-bleed, so this padding is the ONLY inset
+               between the cards and the screen edge — 12px reads as a margin
+               without spending the width the 265px card grid needs (it clears
+               320px by only ~4px). The bar keeps its own 12px from the
+               single-row rule above, so all three stay aligned. */
+            .rec-drawer-toolbar, .rec-drawer-body { padding-left: 12px; padding-right: 12px; }
 
             /* ── Toolbar stays ONE row at phone widths ──
                Three full labels are ~347px of content in ~268px of usable
@@ -4521,9 +4535,13 @@
             gap: 8px;
         }
         .assign-defaults-title i { color: var(--brand); font-size: 12px; }
+        /* THREE fields (Effective / Due / Expire), so three tracks. This was
+           `repeat(4, 1fr)` — a leftover from when a fourth field existed —
+           which left a permanently empty column and squeezed the three real
+           fields into 75% of the row. */
         .assign-defaults-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 10px;
             align-items: end;
         }
@@ -7882,14 +7900,14 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
     }[state] || '';
 
     // One fixed subhead across all states (per PM copy direction) — it
-    // describes the feature and its gating rather than narrating state.
-    /* NOTE: the first clause ("after completing all required form fields")
-       described the OLD gated state, when the banner was visible-but-locked
-       while fields were still outstanding. The banner now appears only once
-       the gate is met, so by the time anyone reads this the condition is
-       already satisfied. Left as the PM-approved wording pending their call
-       on trimming it — see the handoff notes. */
-    const desc = 'View relevant course recommendations after completing all required form fields. Review, select and assign to this employee.';
+    /* One fixed subhead. The original PM copy opened with "after completing
+       all required form fields", which described the OLD gated state (banner
+       visible but locked while fields were outstanding). The banner now only
+       appears once that condition is met, so the clause was describing
+       something already true by the time anyone could read it — and a screen
+       reader would announce it. Dropped; the PM's second sentence, which says
+       what to actually do, is unchanged. */
+    const desc = 'Relevant course recommendations for this evaluation. Review, select and assign to this employee.';
 
     recBar.innerHTML = `
         <div class="rec-bar-icon"><i class="fa-solid fa-graduation-cap"></i></div>

@@ -62,7 +62,7 @@ of this section.
 | Recs | Offline | ❌ not addressed | Confirm whether the form is used offline; if so, Generate needs an offline state |
 | Cards | Boundary — long titles | ⚠️ component clamps lines; untested with very long titles | Spot-check a 120-character course title |
 | Assignment | Destructive confirmation | ✅ leaving with unassigned selections warns on submit/save-draft | — |
-| Reflow | 320px / 400% zoom | ✅ no horizontal overflow in any state | One residual risk — see *Open questions* |
+| Reflow | 320px / 400% zoom | ✅ no horizontal overflow in any state; dock is full-bleed below 760px | — |
 
 ---
 
@@ -332,11 +332,14 @@ Token values quoted from `context/themes/v1.9.3/CONTEXT.md`; presence in the loa
    every evaluator, the CTA needs gating.
 4. **Concurrency** — what happens if the evaluation is edited elsewhere while an
    assignment is in flight?
-5. **Reflow headroom at 320px.** The licensed grid passes with only ~4px of
-   slack, because `course-list` v1.5.10 uses a fixed `repeat(auto-fill, 265px)`
-   track against a 264px card. It breaks at ~300px. Nothing to fix in the mock —
-   but any future padding change to the drawer body could tip it, and the
-   library fix is tracked in *Component confirmation*.
+5. **Reflow headroom at 320px — resolved in the mock, still a library bug.**
+   `course-list` v1.5.10 uses a fixed `repeat(auto-fill, 265px)` track against a
+   264px card, so the grid used to clear 320px by only ~4px. Taking the dock
+   full-bleed at phone widths (no side gutter, 12px body padding) widened the
+   usable row from 268px to 296px, so the grid now clears by ~31px and would not
+   overflow until ~289px. The component defect is unchanged and still worth
+   filing — see *Component confirmation* — but the mock is no longer close to
+   the edge of it.
 6. **Vector Choice** — the mock marks the top two results. The badge is the
    component's own feature and whether to use it is a leadership call; the
    prototype's rule is a placeholder and is not intended as a spec.

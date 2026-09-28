@@ -68,6 +68,7 @@ on screen to explain.
 | Icon badge | Font Awesome | Decorative |
 | Title "Recommended Courses" | `<h2>` | Never shrinks below 760px — it ellipsizes on one line |
 | Subhead | `<p>` | **Hidden below 760px** (biggest height cost, least load-bearing) |
+| Container | — | **Full-bleed below 760px**: no side gutter, square top corners. The desktop dock overhangs the form column deliberately; at phone widths there is no column to overhang. |
 | Generate CTA | plain `<button>` | Not `vaadin-button`: it sits on a saturated gradient and needs a white-on-gradient treatment the DS variants do not provide |
 | Working state | `vwc-spinner` + text | See the spinner gotcha below |
 | Drawer toggle | plain `<button>` | Chevron rotates; carries `aria-expanded` + `aria-controls` |
@@ -226,8 +227,9 @@ Covered by a 400% zoom pass against WCAG 2.2 AA **1.4.10 Reflow** and
 - Targets in the rec feature clear 24×24. Two exceptions are **in the component**
   and tracked as library asks: the card's 16×16 selection checkbox (mitigated in
   practice by a 264×82px slotted label covering the card face) and the fixed
-  `repeat(auto-fill, 265px)` grid track, which passes 320px with only ~4px of
-  headroom and breaks around 300px.
+  `repeat(auto-fill, 265px)` grid track. The grid now clears 320px by ~31px
+  (the full-bleed dock widened the usable row to 296px) and would not overflow
+  until ~289px — but the fixed track is still a library defect.
 - The banner's icon-only CTA keeps its accessible name via a visually-hidden
   label plus a matching `aria-label`.
 - Contrast, focus order and full keyboard navigation were **not** in scope for
