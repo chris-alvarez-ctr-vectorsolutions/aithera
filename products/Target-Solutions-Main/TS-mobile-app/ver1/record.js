@@ -14,8 +14,10 @@
        only validation happens at Submit
      • participants are ONE list ("All 3 activities") with per-person
        exceptions, instead of the web's one-card-per-activity matrix
-     • smart defaults: date = today, time = now, instructor = you, and the
-       "apply to all" checkboxes start checked
+     • smart defaults: date = today, time = now, and the "apply to all"
+       checkboxes start checked. Instructor is NOT pre-filled (the data model
+       can't seed it from the logged-in user) — VoiceComplete or a manual pick
+       fills it
      • the draft survives leaving the flow; only Cancel discards it
      • the confirmation screen offers "Same participants, new activities"
 
@@ -83,10 +85,16 @@
                     techniques: true, areas: true, notes: true } }
   ];
 
+  /* Techniques are admin-configured and can run long, so the form shows them
+     in a searchable bottom sheet rather than inline chips. */
   var TECHNIQUES = ['Hands-on practice', 'Classroom instruction', 'Live drill',
-                    'Simulation exercise', 'Equipment familiarization', 'Team coordination'];
+                    'Simulation exercise', 'Equipment familiarization', 'Team coordination',
+                    'Demonstration', 'Tabletop exercise', 'Case study review', 'Video / e-learning',
+                    'Skills station rotation', 'Scenario-based training', 'Peer instruction',
+                    'Written assessment', 'Apparatus operation', 'Radio procedure'];
 
-  /* First entry is the signed-in officer — the default instructor. */
+  /* First entry is the signed-in officer. It is NOT the default — the field
+     starts empty and is filled by VoiceComplete or a manual pick. */
   var INSTRUCTORS = ['Jordan Lee (you)', 'Captain Johnson', 'Lieutenant Smith', 'Captain Brown', 'Battalion Chief Davis'];
 
   /* People the officer can add. `recent` = the picker's "Last used" group: the
@@ -202,7 +210,7 @@
     return {
       id: def.id, open: false,
       date: isoDate(now), time: pad(now.getHours()) + ':' + pad(now.getMinutes()), duration: '',
-      instructor: INSTRUCTORS[0], applyDate: true, applyInstructor: true,
+      instructor: '', applyDate: true, applyInstructor: true,
       objectives: [], techniques: [], areas: '', notes: '',
       voice: { status: 'idle', text: '', editing: false }
     };
@@ -304,7 +312,7 @@
       var summary = filled
         ? '<div class="rc-panel__summary"><span>' + prettyDate(a.date) + '</span>' +
           (a.duration ? '<span>' + esc(a.duration) + ' hrs</span>' : '') +
-          '<span class="rc-panel__summary-end">' + esc(shortName(a.instructor)) + '</span></div>'
+          (a.instructor ? '<span class="rc-panel__summary-end">' + esc(shortName(a.instructor)) + '</span>' : '') + '</div>'
         : '';
       return '<div class="rc-panel' + (filled ? ' is-filled' : '') + '">' + head + summary + '</div>';
     }
@@ -325,21 +333,19 @@
     /* Voice capture — button, live box, or the "filled" strip */
     h += renderVoice(a, idx);
 
-    /* Fixed fields */
-    h += '<div class="rc-row">' +
+    /* Fixed fields — one per row (the earlier two-up rows tested poorly).
+       Each "apply to all" checkbox sits directly under the field it copies. */
+    h += '<div class="rc-stack">' +
          field('Date', '<input class="t-Input" type="date" data-field="date" data-idx="' + idx + '" value="' + a.date + '">') +
          field('Time', '<input class="t-Input" type="time" data-field="time" data-idx="' + idx + '" value="' + a.time + '">') +
-         '</div>';
-    h += '<div class="rc-row rc-row--split">' +
+         (many ? '<div class="rc-applyrow">' + check('applyDate', a.applyDate, 'Apply date &amp; time to all activities', idx) + '</div>' : '') +
          field('Duration (hrs)', '<input class="t-Input" type="number" inputmode="decimal" step="0.25" min="0" placeholder="e.g. 1.5" data-field="duration" data-idx="' + idx + '" value="' + esc(a.duration) + '">') +
-         field('Instructor', '<select class="t-Input" data-field="instructor" data-idx="' + idx + '">' +
+         // Instructor starts empty: the placeholder option is the only "unset" state
+         field('Instructor', '<select class="t-Input' + (a.instructor ? '' : ' is-placeholder') + '" data-field="instructor" data-idx="' + idx + '">' +
+               '<option value="" disabled' + (a.instructor ? '' : ' selected') + '>Select instructor…</option>' +
                INSTRUCTORS.map(function (i) { return '<option' + (i === a.instructor ? ' selected' : '') + '>' + i + '</option>'; }).join('') + '</select>') +
+         (many ? '<div class="rc-applyrow">' + check('applyInstructor', a.applyInstructor, 'Apply instructor to all activities', idx) + '</div>' : '') +
          '</div>';
-    if (many) {
-      h += '<div class="rc-applyrow">' +
-           check('applyDate', a.applyDate, 'Apply date &amp; time to all activities', idx) +
-           check('applyInstructor', a.applyInstructor, 'Apply instructor to all activities', idx) + '</div>';
-    }
 
     /* Admin-configured components */
     if (c.objectives && c.objectives.length) {
@@ -350,12 +356,15 @@
            }).join('') + '</div>';
     }
     if (c.techniques) {
-      h += '<div class="rc-group"><span class="rc-group__label">Techniques used</span><div class="rc-chips">' +
-           TECHNIQUES.map(function (t) {
-             var on = a.techniques.indexOf(t) > -1;
-             return '<button class="rc-chip' + (on ? ' is-on' : '') + '" data-rc="technique" data-t="' + esc(t) + '" data-idx="' + idx + '" type="button" aria-pressed="' + on + '">' +
-                    (on ? '<i class="fa-solid fa-check"></i>' : '') + esc(t) + '</button>';
-           }).join('') + '</div></div>';
+      // Multi-select: a field-shaped trigger that shows the picks as chips and
+      // opens a searchable checklist sheet (the list is admin-configured and can run long)
+      var nT = a.techniques.length;
+      h += '<div class="t-Fieldset rc-field"><span class="t-Label">Techniques used</span>' +
+           '<button class="rc-multi' + (nT ? ' has-value' : '') + '" data-rc="techniques" data-idx="' + idx + '" type="button" aria-haspopup="dialog">' +
+           (nT ? '<span class="rc-multi__chips">' + a.techniques.map(function (t) { return '<span class="rc-multi__chip">' + esc(t) + '</span>'; }).join('') + '</span>'
+               : '<span class="rc-multi__ph">Select techniques…</span>') +
+           '<i class="fa-solid fa-chevron-down"></i></button>' +
+           (nT ? '<span class="rc-multi__hint">' + nT + ' selected · tap to add or remove</span>' : '') + '</div>';
     }
     if (c.areas) h += textarea('Areas covered', 'areas', a.areas, idx, 'Enter areas covered…');
     if (c.notes) h += textarea('Notes', 'notes', a.notes, idx, 'Add any additional notes…');
@@ -704,9 +713,69 @@
     voiceStart(idx);
   }
 
-  /* "Apply to all" — copy this activity's date/time or instructor onto the rest */
+  /* "Apply to all" — copy this activity's date/time or instructor onto the rest.
+     Instructor only propagates once it has a value, so an empty field never
+     wipes a sibling that VoiceComplete already filled. */
   function propagate(from, fields) {
-    draft.activities.forEach(function (o) { if (o !== from) fields.forEach(function (f) { o[f] = from[f]; }); });
+    draft.activities.forEach(function (o) { if (o !== from) fields.forEach(function (f) { if (f !== 'instructor' || from.instructor) o[f] = from[f]; }); });
+  }
+
+  /* ===========================================================================
+     TECHNIQUES SHEET — searchable multi-select checklist in a bottom sheet.
+     Picks apply immediately (like the objectives checklist); Done just closes.
+     ======================================================================== */
+  var tsheet = null;   // { idx, query }
+  function openTechniques(idx) {
+    tsheet = { idx: idx, query: '' };
+    renderTechniques();
+    menuEl.classList.add('is-open');
+  }
+  function closeTechniques() {
+    menuEl.classList.remove('is-open');
+    menuEl.onchange = menuEl.oninput = null;
+    tsheet = null;
+    render();
+  }
+  function techniqueRows() {
+    var a = draft.activities[tsheet.idx], q = tsheet.query.trim().toLowerCase();
+    var list = TECHNIQUES.slice().sort(function (x, y) { return x.localeCompare(y); })
+                         .filter(function (t) { return !q || t.toLowerCase().indexOf(q) > -1; });
+    if (!list.length) return '<p class="rc-picker__empty">No matches.</p>';
+    return list.map(function (t) {
+      var on = a.techniques.indexOf(t) > -1;
+      return '<label class="rc-check rc-tsheet__row"><input type="checkbox" data-ts="t" data-t="' + esc(t) + '"' + (on ? ' checked' : '') +
+             '><span class="rc-check__box"></span><span>' + esc(t) + '</span></label>';
+    }).join('');
+  }
+  function renderTechniques() {
+    var a = draft.activities[tsheet.idx], n = a.techniques.length;
+    menuEl.innerHTML = '<div class="t-Sheet__frame rc-menu rc-tsheet"><div class="t-Sheet__handle"></div>' +
+      '<div class="rc-tsheet__head"><span class="t-H4">Techniques used</span>' +
+      '<button class="rc-picker__groupbtn" data-ts="clear" type="button"' + (n ? '' : ' disabled') + '>Clear</button></div>' +
+      '<label class="rc-picker__search rc-tsheet__search"><i class="fa-solid fa-magnifying-glass"></i>' +
+      '<input class="t-Input" type="search" placeholder="Search techniques…" value="' + esc(tsheet.query) + '" data-ts="q"></label>' +
+      '<div class="rc-tsheet__list js-scroll">' + techniqueRows() + '</div>' +
+      '<button class="t-Button t-Button--primary rc-tsheet__done" data-ts="done" type="button">Done' + (n ? ' (' + n + ')' : '') + '</button></div>';
+    menuEl.onclick = function (e) {
+      var btn = e.target.closest('[data-ts]');
+      if (e.target === menuEl || (btn && btn.dataset.ts === 'done')) { closeTechniques(); return; }
+      if (btn && btn.dataset.ts === 'clear') { a.techniques = []; draft.dirty = true; renderTechniques(); }
+    };
+    menuEl.onchange = function (e) {
+      if (e.target.dataset.ts !== 't') return;
+      var t = e.target.dataset.t, pos = a.techniques.indexOf(t);
+      if (e.target.checked && pos === -1) a.techniques.push(t);
+      if (!e.target.checked && pos > -1) a.techniques.splice(pos, 1);
+      draft.dirty = true;
+      var k = a.techniques.length;
+      menuEl.querySelector('[data-ts="done"]').textContent = 'Done' + (k ? ' (' + k + ')' : '');
+      menuEl.querySelector('[data-ts="clear"]').disabled = !k;
+    };
+    menuEl.oninput = function (e) {
+      if (e.target.dataset.ts !== 'q') return;
+      tsheet.query = e.target.value;
+      menuEl.querySelector('.rc-tsheet__list').innerHTML = techniqueRows();   // list only, so the search keeps focus
+    };
   }
 
   /* ===========================================================================
@@ -866,11 +935,7 @@
           { icon: 'fa-trash-can', label: 'Delete activity', danger: true, onPick: function () { deleteActivity(idx); } }
         ]);
         break;
-      case 'technique':
-        var t = el.dataset.t, pos = a.techniques.indexOf(t);
-        if (pos > -1) a.techniques.splice(pos, 1); else a.techniques.push(t);
-        draft.dirty = true; render();
-        break;
+      case 'techniques': openTechniques(idx); break;
       case 'mic':
         toast('Dictation would fill this field. Use VoiceComplete to fill the whole form.');
         break;
@@ -947,6 +1012,7 @@
     }
     if (f === 'voiceText') { a.voice.text = el.value; return; }
     a[f] = el.value;
+    if (f === 'instructor') el.classList.toggle('is-placeholder', !el.value);
     if ((f === 'date' || f === 'time') && a.applyDate) propagate(a, ['date', 'time']);
     if (f === 'instructor' && a.applyInstructor) propagate(a, ['instructor']);
     if (e.type === 'change') refreshPanelHead(+el.dataset.idx);

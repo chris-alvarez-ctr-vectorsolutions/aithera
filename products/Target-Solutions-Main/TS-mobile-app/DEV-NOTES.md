@@ -32,8 +32,11 @@
 - (2026-09-28) **Clear all filters:** the filter sheet has a Clear all action at the top (both pickers) that empties the pending selection; Apply / Cancel still commit or discard. Disabled when nothing is pending.
 
 ## record-form
-- **Smart defaults:** date = today, time = now, instructor = signed-in user, and both "apply to all" checkboxes start checked. Changing the date/time or instructor with those on copies the value to every activity.
+- **Smart defaults:** date = today, time = now, and both "apply to all" checkboxes start checked. Changing the date/time or instructor with those on copies the value to every activity.
+- (2026-09-28) **Instructor is not pre-filled.** The data model can't seed it from the logged-in user, so the field starts on a "Select instructor…" placeholder and is filled by VoiceComplete or a manual pick. "Apply instructor to all" only copies once there is a value, so an empty field never wipes a sibling. The collapsed panel summary omits the instructor until set.
+- (2026-09-28) **Single column.** Date, Time, Duration, and Instructor are one field per row (the two-up Date | Time and Duration | Instructor rows tested poorly with users). Each "apply to all" checkbox sits directly under the field it copies.
 - **Native pickers:** date, time, and a numeric duration field instead of typed text.
+- (2026-09-28) **Techniques used is a sheet, not inline chips.** The admin-configured list can run long, so the field is a select-shaped trigger showing the picks as chips (or "Select techniques…"); tapping opens a bottom sheet with a search box, an A–Z checklist, Clear, and Done (n). Checks apply immediately; Done just closes. Same paradigm as the participant picker, scaled down to a sheet.
 - **Components:** everything below the instructor row is the activity's admin-configured components (objectives checklist, techniques multi-select, Areas Covered, Notes). An activity with no components shows the "hasn't been configured" notice and blocks Submit.
 - **Kebab:** Clear form, Delete activity.
 
