@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quick Fill — V2 (system pick + one-click toggles)</title>
+    <title>Quick Fill — V2 (recommended + filter dropdowns)</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
@@ -164,7 +164,7 @@
   .qf-btn:hover { filter: brightness(.94); }
 
   /* ── QUALIFIED PERSONNEL panel (the new design) ──
-     V2 is built with Vector: vwc-toggle-button-group for approach/rule,
+     V2 is built with Vector: vaadin-select filters for approach/rule,
      vwc-card per candidate, vaadin-button, Lumo badges, and Lumo/VWC tokens
      (quoted from context/themes/v1.9.3/CONTEXT.md). The HOST modal on the left
      stays a production replica on purpose. */
@@ -181,19 +181,30 @@
   .qp-sub { font-size: 12px; color: var(--lumo-secondary-text-color); margin-top: 2px; }
 
   /* System choice: what the engine picked, and one-click alternatives */
-  .qp-sys { margin-top: var(--lumo-space-m); padding: 12px 14px; border-radius: 6px; background: var(--lumo-primary-color-10pct); }
-  .qp-sys-h { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--lumo-primary-text-color); }
-  .qp-sys-h + p { margin: 2px 0 0; font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .qp-dim { margin-top: 12px; }
-  .qp-dim-h { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lumo-secondary-text-color); }
-  .qp-dim-h span { font-weight: 400; letter-spacing: 0; text-transform: none; }
-  /* Equal-width segments; tighten the built-in button via its exposed ::part(button) */
-  .qp-dim vwc-toggle-button-group { display: flex; width: 100%; }   /* theme default is inline-flex */
-  .qp-dim vwc-toggle-button { flex: 1 1 0; min-width: 0; }
-  .qp-dim vwc-toggle-button::part(button) { width: 100%; height: 32px; padding-inline: 6px; font-size: 12.5px; white-space: nowrap; }
-  .qp-spark { color: currentColor; font-size: 10.5px; margin-right: 5px; }
-  .qp-dim-note { margin-top: 5px; font-size: 11.5px; color: var(--lumo-secondary-text-color); }
-  .qp-dim-note b { font-weight: 600; color: var(--lumo-body-text-color); }
+  /* Recommended tile — the system's pick. Selected by default; clicking it
+     returns to the default AND empties both filters. It deliberately looks
+     different from the filter dropdowns below it. */
+  .qp-rec { margin-top: var(--lumo-space-m); display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 12px 14px;
+            border: 2px solid var(--lumo-contrast-20pct); border-radius: 8px; background: var(--lumo-base-color);
+            font: inherit; color: inherit; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+  .qp-rec:hover { border-color: var(--lumo-primary-color-50pct); }
+  .qp-rec.on { border-color: var(--lumo-primary-color); background: var(--lumo-primary-color-10pct); cursor: default; }
+  .qp-rec-ic { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-color); font-size: 13px; }
+  .qp-rec.on .qp-rec-ic { background: var(--lumo-primary-color); color: var(--lumo-primary-contrast-color); }
+  .qp-rec-body { flex: 1; min-width: 0; }
+  .qp-rec-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .qp-rec-h { font-size: 13px; font-weight: 700; color: var(--lumo-primary-text-color); }
+  .qp-rec-state { font-size: 12px; font-weight: 600; color: var(--lumo-primary-text-color); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .qp-rec-pick { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 2px; margin-top: 6px; font-size: 13px; }
+  .qp-rec-pick dt { color: var(--lumo-secondary-text-color); font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; line-height: 19px; }
+  .qp-rec-pick dd { margin: 0; font-weight: 600; color: var(--lumo-body-text-color); }
+  .qp-rec-pick dd span { font-weight: 400; color: var(--lumo-secondary-text-color); }
+  .qp-rec-src { margin-top: 4px; font-size: 11.5px; color: var(--lumo-secondary-text-color); }
+
+  .qp-filters { margin-top: 12px; }
+  .qp-filters-h { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--lumo-secondary-text-color); margin-bottom: 4px; }
+  .qp-filters-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .qp-filters-row vaadin-select { width: 100%; }
 
   .qp-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 20px; background: var(--lumo-contrast-5pct); border-bottom: 1px solid var(--lumo-contrast-10pct); flex: none; font-size: 12px; color: var(--lumo-secondary-text-color); }
   .qp-count b { color: var(--lumo-body-text-color); font-weight: 600; }
@@ -357,18 +368,18 @@
   const RULES = [
     { id: 'r1', short: 'Lowest OT', name: 'Lowest OT Hours',               meta: 'ascending OT · default for this qualifier' },
     { id: 'r2', short: 'Seniority', name: 'Seniority (Most Senior First)', meta: 'by hire date' },
-    { id: 'r3', short: 'Rotation', name: 'Rotational Order',              meta: 'next in base rotation' },
+    { id: 'r3', short: 'Position', name: 'Position Order',                meta: 'next position in order' },
     { id: 'r4', short: 'Least Recent', name: 'Least Recently Called',         meta: 'longest since last callback' }
   ];
   const PEOPLE = [
-    { name: 'D. Ferraro',   phone: '(408) 555-0142', auto: true,  rotation: 'Rot. A · pos 4', ot: 12.5, sen: '2011-03-14', senY: 15, last: 26, rot: 4 },
-    { name: 'M. Okonjo',    phone: '(408) 555-0198', auto: false, rotation: 'Rot. C · pos 1', ot: 14.0, sen: '2016-07-02', senY: 10, last: 12, rot: 1 },
-    { name: 'S. Whitaker',  phone: '(408) 555-0177', auto: true,  rotation: 'Rot. B · pos 7', ot: 18.0, sen: '2009-01-20', senY: 17, last: 41, rot: 7 },
-    { name: 'J. Halvorsen', phone: '(408) 555-0106', auto: false, rotation: 'Rot. A · pos 9', ot: 22.5, sen: '2019-05-11', senY: 7,  last: 5,  rot: 9 },
-    { name: 'P. Nowak',     phone: '(408) 555-0231', auto: true,  rotation: 'Rot. D · pos 2', ot: 26.0, sen: '2013-09-30', senY: 12, last: 33, rot: 2 },
-    { name: 'T. Arceneaux', phone: '(408) 555-0165', auto: false, rotation: 'Rot. C · pos 6', ot: 31.5, sen: '2021-02-08', senY: 5,  last: 19, rot: 6 },
-    { name: 'V. Lindqvist', phone: '(408) 555-0119', auto: false, rotation: 'Rot. B · pos 3', ot: 34.0, sen: '2007-11-05', senY: 18, last: 58, rot: 3 },
-    { name: 'H. Bramble',   phone: '(408) 555-0288', auto: true,  rotation: 'Rot. D · pos 8', ot: 40.0, sen: '2018-04-17', senY: 8,  last: 9,  rot: 8 }
+    { name: 'D. Ferraro',   phone: '(408) 555-0142', auto: true,  position: 'Position 4', ot: 12.5, sen: '2011-03-14', senY: 15, last: 26, rot: 4 },
+    { name: 'M. Okonjo',    phone: '(408) 555-0198', auto: false, position: 'Position 1', ot: 14.0, sen: '2016-07-02', senY: 10, last: 12, rot: 1 },
+    { name: 'S. Whitaker',  phone: '(408) 555-0177', auto: true,  position: 'Position 7', ot: 18.0, sen: '2009-01-20', senY: 17, last: 41, rot: 7 },
+    { name: 'J. Halvorsen', phone: '(408) 555-0106', auto: false, position: 'Position 9', ot: 22.5, sen: '2019-05-11', senY: 7,  last: 5,  rot: 9 },
+    { name: 'P. Nowak',     phone: '(408) 555-0231', auto: true,  position: 'Position 2', ot: 26.0, sen: '2013-09-30', senY: 12, last: 33, rot: 2 },
+    { name: 'T. Arceneaux', phone: '(408) 555-0165', auto: false, position: 'Position 6', ot: 31.5, sen: '2021-02-08', senY: 5,  last: 19, rot: 6 },
+    { name: 'V. Lindqvist', phone: '(408) 555-0119', auto: false, position: 'Position 3', ot: 34.0, sen: '2007-11-05', senY: 18, last: 58, rot: 3 },
+    { name: 'H. Bramble',   phone: '(408) 555-0288', auto: true,  position: 'Position 8', ot: 40.0, sen: '2018-04-17', senY: 8,  last: 9,  rot: 8 }
   ];
   // How many of PEOPLE each approach admits, and who it filtered out.
   const POOL_SIZE = { a1: 8, a2: 6, a3: 5, a4: 8 };
@@ -387,15 +398,20 @@
   const RANK_META = {
     r1: p => p.ot.toFixed(1) + ' OT hrs',
     r2: p => p.senY + ' yrs service',
-    r3: p => 'rotation slot ' + p.rot,
+    r3: p => 'position ' + p.rot,
     r4: p => p.last + ' days since callback'
   };
   const DECISIVE = { r1: 'ot', r2: 'sen', r3: 'rot', r4: 'last' };
 
   /* ── State ─────────────────────────────────────────────────── */
-  // V2: a1/r1 are the SYSTEM PICK for this shift's qualifier (always marked ✦).
+  // V2: a1/r1 are the RECOMMENDED pick for this shift's qualifier.
   const DEFAULT_APPROACH = 'a1', DEFAULT_RULE = 'r1';
-  const DEFAULT_STATE = { panelOpen: true, approach: DEFAULT_APPROACH, rule: DEFAULT_RULE, filled: null };
+  // fApproach / fRule are the FILTERS ('' = empty). approach / rule are what's
+  // actually in effect: the filter if set, otherwise the recommended default.
+  const DEFAULT_STATE = { panelOpen: true, fApproach: '', fRule: '', approach: DEFAULT_APPROACH, rule: DEFAULT_RULE, filled: null };
+  function setFilters(fApproach, fRule) {
+    setState({ fApproach, fRule, approach: fApproach || DEFAULT_APPROACH, rule: fRule || DEFAULT_RULE });
+  }
   let state = Object.assign({}, DEFAULT_STATE);
   function setState(patch) { Object.assign(state, patch); render(); }
 
@@ -422,23 +438,6 @@
       </div>`;
   }
 
-  // One row of Vector toggle buttons per dimension; the system pick carries ✦.
-  function dimHtml(label, hint, items, activeId, systemId, dim) {
-    const active = items.find(o => o.id === activeId);
-    const note = activeId === systemId
-      ? `<b>${active.name}</b> · ${active.meta.replace(' · default for this qualifier', '')}`
-      : `<b>${active.name}</b> · ${active.meta} · system picked ${items.find(o => o.id === systemId).name}`;
-    return `
-      <div class="qp-dim">
-        <div class="qp-dim-h">${label} <span>${hint}</span></div>
-        <vwc-toggle-button-group selected="${activeId}" data-dim="${dim}">
-          ${items.map(o => `
-            <vwc-toggle-button value="${o.id}" title="${o.name}${o.id === systemId ? ' (system pick)' : ''}">${o.id === systemId ? '<i class="qp-spark fa-solid fa-sparkles"></i>' : ''}${o.short || o.name}</vwc-toggle-button>`).join('')}
-        </vwc-toggle-button-group>
-        <div class="qp-dim-note">${note}</div>
-      </div>`;
-  }
-
   // Factor badges — the one driving the current rule uses the (blue) default badge
   function factor(label, value, key) {
     const theme = DECISIVE[state.rule] === key ? 'badge' : 'badge contrast';
@@ -459,13 +458,13 @@
               ${p.auto ? '<span theme="badge success pill">Auto-accept</span>' : ''}
             </div>
             <div class="qp-line2">
-              <span>${p.phone}</span><span class="sep">|</span><span>${p.rotation}</span>
+              <span>${p.phone}</span><span class="sep">|</span><span>${p.position}</span>
             </div>
             <div class="qp-factors">
               ${factor('OT', p.ot.toFixed(1) + ' h', 'ot')}
               ${factor('Seniority', p.senY + ' yr', 'sen')}
               ${factor('Last CB', p.last + ' d', 'last')}
-              ${factor('Rotation', '#' + p.rot, 'rot')}
+              ${factor('Position', '#' + p.rot, 'rot')}
             </div>
           </div>
           <vaadin-button theme="${btnTheme}" data-action="fill" data-name="${p.name}">${filled ? '<i class="fa-solid fa-check" slot="prefix"></i>Filled' : 'Fill'}</vaadin-button>
@@ -480,6 +479,9 @@
 
     const list = ranked();
     const rule = RULES.find(r => r.id === state.rule);
+    const isDefault = !state.fApproach && !state.fRule;
+    const defApproach = APPROACHES.find(a => a.id === DEFAULT_APPROACH);
+    const defRule = RULES.find(r => r.id === DEFAULT_RULE);
     const wasOpen = !!slot.querySelector('.qp');   // only animate the slide-in on first open
     const scroll = wasOpen ? slot.querySelector('.qp-list').scrollTop : 0;
 
@@ -494,13 +496,30 @@
             <vaadin-button theme="icon" data-action="togglePanel" aria-label="Close panel"><i class="fa-solid fa-xmark"></i></vaadin-button>
           </div>
 
-          <!-- What the system chose — always full strength; alternatives are one click away -->
-          <section class="qp-sys" aria-label="System selection">
-            <div class="qp-sys-h"><i class="fa-solid fa-sparkles"></i>The system picked an approach and a rule for this shift</div>
-            <p>Based on the Paramedic qualifier. Choose another option to re-rank; ✦ marks the system's pick.</p>
-            ${dimHtml('Approach', '— who is eligible', APPROACHES, state.approach, DEFAULT_APPROACH, 'approach')}
-            ${dimHtml('Rule', '— how they rank', RULES, state.rule, DEFAULT_RULE, 'rule')}
-          </section>
+          <!-- Recommended (default) — selected unless a filter is set -->
+          <button class="qp-rec${isDefault ? ' on' : ''}" data-action="useRecommended" aria-pressed="${isDefault}">
+            <span class="qp-rec-ic"><i class="fa-solid fa-sparkles"></i></span>
+            <span class="qp-rec-body">
+              <span class="qp-rec-top">
+                <span class="qp-rec-h">Recommended for this shift</span>
+                <span class="qp-rec-state">${isDefault ? '<i class="fa-solid fa-circle-check"></i>Selected' : '<i class="fa-solid fa-rotate-left"></i>Use recommended'}</span>
+              </span>
+              <dl class="qp-rec-pick">
+                <dt>Approach</dt><dd>${defApproach.name} <span>· ${defApproach.meta.replace(' · default for this qualifier', '')}</span></dd>
+                <dt>Rule</dt><dd>${defRule.name} <span>· ${defRule.meta.replace(' · default for this qualifier', '')}</span></dd>
+              </dl>
+              <span class="qp-rec-src" style="display:block">Chosen by the system from the Paramedic qualifier</span>
+            </span>
+          </button>
+
+          <!-- Filters — empty by default; either one on its own also works -->
+          <div class="qp-filters">
+            <div class="qp-filters-h">Or try a different approach or rule</div>
+            <div class="qp-filters-row">
+              <vaadin-select theme="outlined" id="fApproach" label="Approach" placeholder="Filter by approach"></vaadin-select>
+              <vaadin-select theme="outlined" id="fRule" label="Rule" placeholder="Filter by rule"></vaadin-select>
+            </div>
+          </div>
         </div>
 
         <div class="qp-count">
@@ -513,6 +532,12 @@
         <div class="qp-foot">Ranking computed live by the rules engine. Ties broken by seniority date.</div>
       </aside>`;
     slot.querySelector('.qp-list').scrollTop = scroll;
+
+    // Hydrate the vaadin-select filters (items + current value; '' shows the placeholder)
+    const opt = o => ({ label: o.name + (o.id === DEFAULT_APPROACH || o.id === DEFAULT_RULE ? ' (recommended)' : ''), value: o.id });
+    const fa = slot.querySelector('#fApproach'), fr = slot.querySelector('#fRule');
+    fa.items = APPROACHES.map(opt); fa.value = state.fApproach;
+    fr.items = RULES.map(opt);      fr.value = state.fRule;
   }
 
   function render() { renderEmployeeField(); renderPanel(); }
@@ -523,23 +548,17 @@
     if (!t) return;
     switch (t.dataset.action) {
       case 'togglePanel':        setState({ panelOpen: !state.panelOpen }); break;
+      case 'useRecommended':     setFilters('', ''); break;   // back to default, filters emptied
       case 'fill':               setState({ filled: t.dataset.name }); break;
       case 'clearFill':          setState({ filled: null }); break;
     }
   });
 
-  // Approach / rule toggles. Listen to each vwc-toggle-button's checked-change
-  // (detail = true when it becomes selected) — in core v1.22.3 the group's
-  // selection-change detail still carries the PREVIOUS value when it fires.
-  // checked-change doesn't bubble, so we listen in the capture phase.
-  document.addEventListener('checked-change', e => {
-    const btn = e.target, dim = btn.closest && btn.closest('vwc-toggle-button-group[data-dim]');
-    if (!dim || e.detail !== true) return;
-    const v = btn.getAttribute('value');
-    // defer so the group finishes its own update before we re-render it
-    if (dim.dataset.dim === 'approach' && v !== state.approach) setTimeout(() => setState({ approach: v }));
-    if (dim.dataset.dim === 'rule' && v !== state.rule) setTimeout(() => setState({ rule: v }));
-  }, true);   // capture phase: checked-change does not bubble
+  // Filter dropdowns — 'change' fires only on user selection
+  document.addEventListener('change', e => {
+    if (e.target.id === 'fApproach') setTimeout(() => setFilters(e.target.value || '', state.fRule));
+    if (e.target.id === 'fRule')     setTimeout(() => setFilters(state.fApproach, e.target.value || ''));
+  });
 
   render();
 </script>
@@ -568,7 +587,7 @@
     const base = Object.assign({}, DEFAULT_STATE);
     switch (id) {
       case 'modal':     setState(Object.assign(base, { panelOpen: false })); break;
-      case 'changed':   setState(Object.assign(base, { approach: 'a2', rule: 'r2' })); break;
+      case 'changed':   setState(Object.assign(base, { fApproach: 'a2', fRule: 'r2', approach: 'a2', rule: 'r2' })); break;
       case 'filled':    setState(Object.assign(base, { filled: 'D. Ferraro' })); break;
       case 'panel':
       default:          setState(base); break;   // unknown state → the entry screen
@@ -601,10 +620,10 @@
           desc: 'Production fill-shift dialog. "... or choose from qualified employees..." or "Fill w/ CallBack™" opens the panel.' },
         { id: 'panel', flow: 'main', entry: true, x: 340, y: 200,
           step: 'Step 2', name: 'Qualified personnel', state: 'panel',
-          desc: 'The system picks an approach + rule from the qualifier (✦) and ranks candidates; alternatives are one-click toggles.' },
+          desc: 'Recommended approach + rule (from the qualifier) is selected by default; empty Approach / Rule filter dropdowns sit below it.' },
         { id: 'changed', flow: 'main', x: 620, y: 70,
-          step: 'Optional', name: 'Changed approach + rule', state: 'changed',
-          desc: 'One click on another toggle re-ranks live. The ✦ system pick stays marked, so going back is one click too — no reset.' },
+          step: 'Optional', name: 'Filtered', state: 'changed',
+          desc: 'Approach and/or rule filter dropdowns re-rank live; the Recommended tile drops to unselected. Clicking it returns to the default and empties both filters.' },
         { id: 'filled', flow: 'main', x: 900, y: 370,
           step: 'Step 3', name: 'Filled', state: 'filled',
           desc: 'Fill drops the person into the employee field as a token; the card turns green.' }
