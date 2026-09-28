@@ -22,9 +22,14 @@
 - **Quick Links:** an RCA-targeted Quick Link opens this flow with its activity already added and open; a draft in progress keeps what it had. Home-side multi-select of Quick Links is a later pass.
 
 ## record-picker
-- **One picker, two data sets:** the same sheet serves activities and participants, mirroring the web User Selection Tool (search, Filters, Recent + A–Z, View Selected, Save Selection).
+- **One picker, two data sets:** the same sheet serves activities and participants, mirroring the web User Selection Tool (search, Filters, Recent / Last used + All, View Selected, Save Selection).
 - **Saving is the source of truth:** unchecking an already-added item removes it from the draft.
-- **Filters:** every field from the UST (Category, Activity type, Credential for activities; Station, Shift, Rank, EMS, Specialty, Region, Department for people) is a working multi-select — a select-shaped header that opens a chip list. Values within a field are OR'd, fields are AND'd.
+- **Filters:** every field from the UST (Category, Activity type, Credential for activities; User Status, Station, Shift, Rank, EMS, Specialty, Region, Department for people) is a working multi-select — a select-shaped header that opens a chip list. Values within a field are OR'd, fields are AND'd.
+- (2026-09-28) **"Last used" replaces "Recent" for participants:** the group is the exact roster from the officer's last submission — no recency time window. Re-synced on every Submit. Activities keep a plain Recent group.
+- (2026-09-28) **Last used is pre-checked:** opening the participant picker with no participants on the step checks the whole Last used roster. Once the draft has people, their choices win and reopening never re-checks someone they removed.
+- (2026-09-28) **Last used header controls:** a chevron collapses / expands the group; a Deselect all / Select all toggle acts on the roster currently visible (search + filters applied). The label flips as rows are checked.
+- (2026-09-28) **Sort:** the "All" header (both pickers) shows the row count and an A–Z / Z–A toggle that sorts every group, including Last used. While searching the header reads "Results".
+- (2026-09-28) **Clear all filters:** the filter sheet has a Clear all action at the top (both pickers) that empties the pending selection; Apply / Cancel still commit or discard. Disabled when nothing is pending.
 
 ## record-form
 - **Smart defaults:** date = today, time = now, instructor = signed-in user, and both "apply to all" checkboxes start checked. Changing the date/time or instructor with those on copies the value to every activity.
