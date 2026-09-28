@@ -54,13 +54,52 @@
     </div>
 
     <!-- ================================================================
-         LOGIN — Initial App Foundation. Happy path only, per direction:
-         no SSO, merged-auth toggle or error states in this iteration.
+         COUNTRY PICKER — shown before the credentials form.
+         US and Canada accounts live in separate databases and usernames
+         are not unique across them, so the app has to know which one to
+         authenticate against BEFORE the user types anything. One tap, two
+         equal choices, no default. The choice is remembered: after the
+         first pick the app opens on the login form with a "Change" link.
          ================================================================ -->
-    <section class="login is-active" id="screen-login">
+    <section class="login region is-active" id="screen-region">
       <div class="login__brand">
         <div class="login__brand-mark">Target<em>Solutions</em></div>
         <div class="login__brand-sub">Vector Solutions</div>
+      </div>
+
+      <div class="t-YStack region__body">
+        <h1 class="region__title">Where is your organization?</h1>
+
+        <div class="t-YStack" style="gap:var(--space-3)">
+          <button class="region-btn" type="button" data-region="us">
+            <span class="region-btn__flag" aria-hidden="true">&#x1F1FA;&#x1F1F8;</span>
+            <span class="region-btn__label">United States</span>
+            <i class="fa-solid fa-chevron-right region-btn__chev" aria-hidden="true"></i>
+          </button>
+          <button class="region-btn" type="button" data-region="ca">
+            <span class="region-btn__flag" aria-hidden="true">&#x1F1E8;&#x1F1E6;</span>
+            <span class="region-btn__label">Canada</span>
+            <i class="fa-solid fa-chevron-right region-btn__chev" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         LOGIN — Initial App Foundation. Happy path only, per direction:
+         no SSO, merged-auth toggle or error states in this iteration.
+         ================================================================ -->
+    <section class="login" id="screen-login">
+      <div class="login__brand">
+        <div class="login__brand-mark">Target<em>Solutions</em></div>
+        <div class="login__brand-sub">Vector Solutions</div>
+        <!-- Remembered country. "Change" is the only way back to the picker
+             after the first launch, so switching never costs more than a tap. -->
+        <button class="region-current" id="btn-change-region" type="button">
+          <span class="region-current__flag" id="region-current-flag" aria-hidden="true"></span>
+          <span>Signing in to <strong id="region-current-name"></strong></span>
+          <span class="region-current__change">Change</span>
+        </button>
       </div>
 
       <!-- Pane A — username / password, with the Face ID opt-in -->
@@ -295,58 +334,62 @@
       title: 'TS Mobile App — Flow Map',
       applyState: 'applyFlowState',
       devNotes: '../DEV-NOTES.md',   // one copy at the feature root, shared with dev_handoff.html
-      canvas: { w: 1700, h: 560 },
+      canvas: { w: 1870, h: 560 },
       flows: [
         { id: 'onboarding', name: 'Getting In', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 400, h: 520 }, labelXY: { x: 40, y: 40 } },
+          lane: { x: 20, y: 20, w: 570, h: 520 }, labelXY: { x: 40, y: 40 } },
         { id: 'main', name: 'In the App', pill: 'B', color: '#a8d5ba',
-          lane: { x: 440, y: 20, w: 1240, h: 520 }, labelXY: { x: 460, y: 40 } }
+          lane: { x: 610, y: 20, w: 1240, h: 520 }, labelXY: { x: 630, y: 40 } }
       ],
       nodes: [
-        { id: 'login', flow: 'onboarding', entry: true, x: 60, y: 180,
-          step: 'Entry', name: 'Log In', state: 'login',
-          desc: 'Happy-path login only. SSO, merged auth and error states are deferred.' },
-        { id: 'prompt', flow: 'onboarding', x: 230, y: 180,
+        { id: 'region', flow: 'onboarding', entry: true, x: 60, y: 180,
+          step: 'Entry', name: 'Choose Country', state: 'region',
+          desc: 'US and Canada accounts live in separate databases and usernames are not unique across them, so the app asks once, before credentials. Two equal buttons, no default. Remembered after the first pick.' },
+        { id: 'login', flow: 'onboarding', x: 230, y: 180,
+          step: 'Sign in', name: 'Log In', state: 'login',
+          desc: 'Happy-path login only. SSO, merged auth and error states are deferred. Shows the remembered country with a Change link back to the picker.' },
+        { id: 'prompt', flow: 'onboarding', x: 400, y: 180,
           step: 'First launch', name: 'Notification Opt-In', state: 'prompt',
           desc: 'The custom pre-prompt the PRD requires before the native OS dialog, including shared-device guidance.' },
-        { id: 'home', flow: 'main', x: 480, y: 180,
+        { id: 'home', flow: 'main', x: 650, y: 180,
           step: 'Home', name: 'Quick Links', state: 'home',
           desc: 'Home shows Quick Links only, under a brand bar (department name, --brand colour) that scrolls away with the page. One customer-named card with customer-named group sub-headers and admin-ordered, admin-colored tiles.' },
-        { id: 'record', flow: 'main', x: 660, y: 60,
+        { id: 'record', flow: 'main', x: 830, y: 60,
           step: 'Tab', name: 'Record: Activities', state: 'record',
           desc: 'Step 1 of the full-screen task. No app bar: the screen draws its own title row (X keeps the draft, Vector AI badge) and the tab bar hides while the flow is open. Empty state offers Add Activities; RCA Quick Links land here with their activity already added. Both stepper steps are always tappable.' },
-        { id: 'record-picker', flow: 'main', x: 860, y: 40,
+        { id: 'record-picker', flow: 'main', x: 1030, y: 40,
           step: 'Sheet', name: 'Select Activities', state: 'record-picker',
           desc: 'Mobile take on the User Selection Tool, shared by both steps: search, Filters, Recent + A–Z rows, View Selected, Save Selection. Every filter field is a working multi-select (select-shaped header that opens chips).' },
-        { id: 'record-form', flow: 'main', x: 1060, y: 40,
+        { id: 'record-form', flow: 'main', x: 1230, y: 40,
           step: 'Form', name: 'Activity Form', state: 'record-form',
           desc: 'One accordion panel per activity, one open at a time. Date, time and instructor default to today / now / you, with apply-to-all checked. Below that: the admin-configured components (objectives, techniques, areas, notes). Kebab holds Clear form and Delete activity.' },
-        { id: 'record-voice', flow: 'main', x: 1260, y: 40,
+        { id: 'record-voice', flow: 'main', x: 1430, y: 40,
           step: 'Voice', name: 'VoiceComplete', state: 'record-voice',
           desc: 'Live transcript with Pause and Analyze. When the form scrolls past it, the transcript sticks under the panel header so the user can read the form while speaking.' },
-        { id: 'record-filled', flow: 'main', x: 1460, y: 40,
+        { id: 'record-filled', flow: 'main', x: 1630, y: 40,
           step: 'AI fill', name: 'Form Filled', state: 'record-filled',
           desc: 'Analyze fills the fields from the transcript and collapses the capture to a strip with Re-record and Edit transcript. Fields stay directly editable — that is the correction path.' },
-        { id: 'record-participants', flow: 'main', x: 860, y: 160,
+        { id: 'record-participants', flow: 'main', x: 1030, y: 160,
           step: 'Step 2', name: 'Participants', state: 'record-participants',
           desc: 'One list, not one card per activity: each person shows “All 3 activities” and expands for per-activity exceptions. The officer must add themselves explicitly. Submit is the only validation point.' },
-        { id: 'record-done', flow: 'main', x: 1060, y: 160,
+        { id: 'record-done', flow: 'main', x: 1230, y: 160,
           step: 'Done', name: 'Completions Recorded', state: 'record-done',
           desc: 'Confirmation with the tab bar back. Record more, Same participants + new activities (a mobile-only shortcut for back-to-back drills), or Home.' },
-        { id: 'scan', flow: 'main', x: 660, y: 175,
+        { id: 'scan', flow: 'main', x: 830, y: 175,
           step: 'Tab', name: 'Scan', state: 'scan',
           desc: 'QR/barcode viewfinder. A scan resolves to a placeholder sheet rather than a real activity launch.' },
-        { id: 'more', flow: 'main', x: 660, y: 290,
+        { id: 'more', flow: 'main', x: 830, y: 290,
           step: 'Tab', name: 'More', state: 'more',
           desc: 'Account row (→ Profile) and the web platform shortcut.' },
-        { id: 'notifications', flow: 'main', x: 660, y: 405,
+        { id: 'notifications', flow: 'main', x: 830, y: 405,
           step: 'Tab', name: 'Alerts', state: 'notifications',
           desc: 'Its own tab, with the unread count as a badge, so alerts are reachable from every screen. Read-only feed across the four in-scope types; preferences stay in the web platform. Tapping one deep-links out to the browser.' },
-        { id: 'profile', flow: 'main', x: 860, y: 300,
+        { id: 'profile', flow: 'main', x: 1030, y: 300,
           step: 'Detail', name: 'Profile', state: 'profile',
           desc: 'Reached from the account row at the top of More (the header no longer carries an avatar). Name, role, department and log out — the barebones Phase 1 profile the PRD calls for.' }
       ],
       edges: [
+        ['region', 'login'],
         ['login', 'prompt'],
         ['prompt', 'home'],
         ['home', 'record'],

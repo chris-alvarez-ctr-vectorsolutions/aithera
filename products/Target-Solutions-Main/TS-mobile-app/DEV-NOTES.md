@@ -2,6 +2,12 @@
 
 > date: 2026-09-25
 
+## region
+- (2026-09-28) **Why it exists:** US and Canada accounts are two separate databases and usernames are not unique across them, so the app cannot work out the country from the credentials. The country has to be chosen before the login request is sent.
+- (2026-09-28) **One tap, no default:** two equal full-width buttons (United States, Canada). No radio group, no Continue button, no pre-selection — tapping a country is the whole step.
+- (2026-09-28) **Remembered:** persist the choice on the device. Later launches open straight on the login form; the picker is only shown again from the "Change" link on the login form. Log out does not clear it.
+- (2026-09-28) **Login form shows the country:** a "Signing in to United States · Change" line under the brand mark, so a user on the wrong side sees it before typing.
+
 ## home
 - **Brand bar scrolls with the page:** the department name sits in a `--brand`-coloured block at the top of Home's scroll content, so it scrolls away like a native large title. It carries no controls.
 - **Alerts is a tab** (fifth tab, bell icon) with the unread count as a badge, so notifications are reachable from every screen outside the Record task.

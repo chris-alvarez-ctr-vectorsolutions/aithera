@@ -113,13 +113,22 @@
      ======================================================================== */
   var $  = function (sel) { return document.querySelector(sel); };
   var app        = $('#app');
+  var region     = $('#screen-region');
   var login      = $('#screen-login');
   var prompt     = $('#screen-prompt');
   var header     = $('#app-header');
   var statusBar  = $('#status-bar');
   var sheet      = $('#sheet');
   var unreadCount = 0;   // drives the Alerts tab badge
-  var currentScreen = 'login';
+  var currentScreen = 'region';
+  /* Which database to sign in against. US and Canada accounts live in separate
+     databases with no cross-database username uniqueness, so this has to be
+     known before the credentials are sent. null = not chosen yet; once chosen
+     it is remembered across log-outs, and only the "Change" link on the login
+     form leads back to the picker. */
+  var REGIONS = { us: { name: 'United States', flag: '\uD83C\uDDFA\uD83C\uDDF8' },
+                  ca: { name: 'Canada',        flag: '\uD83C\uDDE8\uD83C\uDDE6' } };
+  var regionId = null;
   var faceIdEnabled = false;    // set by the opt-in switch on the login form
   var pushPromptSeen = false;   // the opt-in pre-prompt is a first-run screen
 
@@ -208,15 +217,17 @@
     opts = opts || {};
 
     // Screens that live outside the tabbed shell
+    var outside = id === 'region' || id === 'login' || id === 'prompt';
+    region.classList.toggle('is-active', id === 'region');
     login.classList.toggle('is-active', id === 'login');
     prompt.classList.toggle('is-active', id === 'prompt');
     statusBar.classList.toggle('status-bar--light', id === 'prompt');
-    statusBar.classList.toggle('status-bar--brand', id !== 'login' && id !== 'prompt');
+    statusBar.classList.toggle('status-bar--brand', !outside);
 
-    if (id === 'login') showLoginPane();
+    if (id === 'login') { if (!regionId) regionId = 'us'; showLoginPane(); }   // deep links land here with a default
     if (id === 'home') pushPromptSeen = true;   // the pre-prompt has been answered
 
-    var inApp = id !== 'login' && id !== 'prompt';
+    var inApp = !outside;
     app.hidden = !inApp;
     if (!inApp) {
       // Clear the in-app screens on the way out so logging back in never
@@ -255,6 +266,9 @@
      The scan is simulated on a timer — there is no real biometric API here.
      ------------------------------------------------------------------------ */
   function showLoginPane() {
+    var r = REGIONS[regionId];
+    $('#region-current-flag').textContent = r.flag;
+    $('#region-current-name').textContent = r.name;
     $('#login-password').hidden = faceIdEnabled;
     $('#login-faceid').hidden   = !faceIdEnabled;
     resetFaceScan();
@@ -328,6 +342,15 @@
     if (tab) { goTo(tab.dataset.tab); return; }
   });
 
+  // Country picker → login form. Either tap is a full choice; nothing to confirm.
+  document.querySelectorAll('.region-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      regionId = btn.dataset.region;
+      goTo('login');
+    });
+  });
+  $('#btn-change-region').addEventListener('click', function () { goTo('region'); });
+
   $('#btn-login').addEventListener('click', function () {
     faceIdEnabled = $('#faceid-toggle').getAttribute('aria-checked') === 'true';
     signIn();
@@ -353,6 +376,7 @@
     $('#faceid-toggle').setAttribute('aria-checked', 'false');
     showLoginPane();
   });
+  // Log out keeps the remembered country — only "Change" on the login form clears it.
   $('#btn-logout').addEventListener('click', function () { goTo('login'); });
 
   $('#btn-scan').addEventListener('click', function () {
@@ -403,5 +427,5 @@
   renderAccount();
   unreadCount = renderNotifications();
   renderTabBadge();
-  goTo('login');
+  goTo(regionId ? 'login' : 'region');   // first launch asks for the country; later launches remember it
 })();
