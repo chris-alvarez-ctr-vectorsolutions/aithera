@@ -560,6 +560,9 @@
   .filter-check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 1.35; color: var(--ink-2); cursor: pointer; }
   /* Nudge the checkbox down a hair so it lines up with the first line of a wrapping label. */
   .filter-check-row vaadin-checkbox { margin-top: 1px; flex-shrink: 0; }
+  /* Action Needed — single-select radio list, sized to match the checkbox rows around it */
+  .action-radios { padding: 0; }
+  .action-radios vaadin-radio-button { font-size: 15px; line-height: 1.35; color: var(--ink-2); }
   .filter-panel-footer { padding: 12px 16px; border-top: 1px solid var(--hair); flex-shrink: 0; }
   .filter-panel-footer vaadin-button { width: 100%; }
 
@@ -700,7 +703,8 @@
      card to scope the TABLE to that ONE bucket (click a different card to
      switch; click the active card to clear). One status at a time — the
      cards never AND-stack two buckets.
-     The panel's Action Needed checkboxes stay in sync; the pie is
+     The panel's Action Needed radio group (single-select) stays in sync —
+     applying a bucket there highlights its card, same as a click; the pie is
      unaffected (it tracks the course filter only). Email Learners
      messages everyone in the bucket within the applied filters.
      ============================================================ */
@@ -1105,11 +1109,15 @@
           <!-- Action Needed -->
           <div class="filter-section">
             <label class="filter-label">Action Needed</label>
-            <div class="filter-checkboxes" id="actionChecks">
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures within a module — connect for remediation</span></label>
-            </div>
+            <!-- SINGLE-SELECT (radio group): one Action Needed bucket at a time, same as the cards.
+                 Applying a bucket here highlights the matching Action Needed card + drills the pie,
+                 exactly as if the admin had clicked that card. "All learners" = no action filter. -->
+            <vaadin-radio-group id="actionRadios" class="action-radios" theme="vertical" value="all" aria-label="Action Needed">
+              <vaadin-radio-button value="all" label="All learners"></vaadin-radio-button>
+              <vaadin-radio-button value="intervene" label="Not started — needs intervention"></vaadin-radio-button>
+              <vaadin-radio-button value="nudge" label="Behind pace — needs a nudge"></vaadin-radio-button>
+              <vaadin-radio-button value="retry" label="At least 2 failures within a module — connect for remediation"></vaadin-radio-button>
+            </vaadin-radio-group>
           </div>
 
           <div class="filter-divider"></div>
@@ -1890,9 +1898,9 @@
   // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
   const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), sel: { ...f.sel }, dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly });
   let draft = cloneFilters(filters);
-  // The Action Needed CARD the admin clicked (or null). Separate from filters.actions on purpose:
-  // multi-selecting Action Needed in the filter PANEL only filters the table — it never highlights a
-  // card or drills the pie. Only a card click sets this (one card at a time).
+  // The active Action Needed CARD (or null) — highlighted + drilled into by the pie. Action Needed is
+  // SINGLE-SELECT everywhere: clicking a card OR applying a bucket from the panel's radio group sets
+  // it, so both entry points behave identically (one bucket at a time).
   let cardAction = null;
   function commitDraft() {
     filters.statuses = new Set(draft.statuses);
@@ -2017,9 +2025,9 @@
   // Table row visibility = applied filters + the temporary search box.
   function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
   function applyFilters() {
-    // A clicked card stays highlighted only while the action filter is still exactly that one card's
-    // bucket — if the panel/chips change the action selection, the card highlight + pie drill drop.
-    if (cardAction && !(filters.actions.size === 1 && filters.actions.has(cardAction))) cardAction = null;
+    // The applied action bucket (from a card click OR the panel's single-select) IS the active card:
+    // it highlights + drives the pie drill. Removing the chip / picking "All learners" clears it.
+    cardAction = filters.actions.size === 1 ? [...filters.actions][0] : null;
     rows.forEach(x => {
       const key = rowKey(x.gid, x.r.ext);
       const vis = rowVisible(x);
@@ -2047,11 +2055,10 @@
       cb.checked ? draft.statuses.add(s) : draft.statuses.delete(s);
     });
   });
-  document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const a = cb.dataset.action;
-      cb.checked ? draft.actions.add(a) : draft.actions.delete(a);
-    });
+  // Action Needed is single-select: the radio group holds at most one bucket ("all" = none).
+  document.getElementById('actionRadios').addEventListener('value-changed', e => {
+    const a = e.detail.value;
+    draft.actions = (a && a !== 'all') ? new Set([a]) : new Set();
   });
   /* ═══════════════ Audience — People Selector → Group Selector / list picker ═══════════════
      One entry point (the People card). Step 1 picks a mechanism; step 2 is the matching picker.
@@ -2243,7 +2250,7 @@
   function extraFilterCount() {
     let n = 0;
     if (filters.statuses.size) n++;
-    if (filters.actions.size) n += filters.actions.size;
+    if (filters.actions.size) n++;
     if (filters.sel.mode !== 'all') n++;
     if (filters.dueSoonOnly) n++;
     if (filters.nearLimitOnly) n++;
@@ -2262,7 +2269,7 @@
     document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.statuses.has(cb.dataset.status); });
   }
   function syncActionChecks() {
-    document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.actions.has(cb.dataset.action); });
+    document.getElementById('actionRadios').value = [...draft.actions][0] || 'all';
   }
   function syncCourseChecks() {
     document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.courses.has(cb.dataset.course); });
