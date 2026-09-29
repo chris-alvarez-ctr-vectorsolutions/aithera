@@ -818,10 +818,13 @@
     { name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked', podcast: true },
     { name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked', adaptive: true }
   ];
+  // Tags only on modules still to take: they help a learner decide how to
+  // take one, and on a finished module they're noise (2026-09-25 review).
   function moduleMeta(m) {
+    var tags = m.state !== 'done';
     return '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span>' +
-      (m.adaptive ? '<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Adaptive</span>' : '') +
-      (m.podcast ? '<span class="pod"><i class="fa-solid fa-headphones" aria-hidden="true"></i>Available as podcast</span>' : '') +
+      (tags && m.adaptive ? '<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Adaptive</span>' : '') +
+      (tags && m.podcast ? '<span class="pod"><i class="fa-solid fa-headphones" aria-hidden="true"></i>Listen mode</span>' : '') +
     '</span>';
   }
   function INTRO_CONTENT() { var L = lens(); return '' +
@@ -1935,7 +1938,9 @@
   var DK_MODES = [
     { m: 'video',   label: 'Watch',  icon: 'fa-circle-play' },
     { m: 'article', label: 'Read',   icon: 'fa-book-open' },
-    { m: 'podcast', label: 'Listen', icon: 'fa-headphones' }
+    // "Read to me", not "Listen" (2026-09-29): "Listen mode" is the
+    // whole-module audio path now, and this is one screen's narration.
+    { m: 'podcast', label: 'Read to me', icon: 'fa-volume-high' }
   ];
   var NARRATION_DIR = '../../assets/audio/sharps/';
   // Re-rendering the audio writes new bytes to the SAME file names, so bump
@@ -2490,7 +2495,9 @@
   }
 
   // ==========================================================================
-  //  THE PODCAST PATH (2026-09-25). The podcast script's own shape
+  //  LISTEN MODE (2026-09-25; renamed from "the podcast path" 2026-09-29 —
+  //  "podcast" carried baggage, so no learner surface says it. Internal names
+  //  — podcastPath(), PODCAST, the podpath/podpos keys — keep the old word). The podcast script's own shape
   //  (Contain_the_Sharp_<sector>_Podcast.pdf, "One continuous listen. Every
   //  check at the end."), parked 2026-09-23 and now built:
   //
@@ -2566,63 +2573,114 @@
   function episodeMinutes() { return Math.max(1, Math.round(episodeBuild(podcastCut()).dur / 60)); }
 
   // ---- The offer -------------------------------------------------------------
-  // After the pre-check, because the pre-check is what builds the episode.
-  // Two plain choices; how the podcast works sits behind "How it works"
-  // rather than in the way of the choice (2026-09-25 review).
-  function screenFormat() {
-    var m = modalityId();
-    return m === 'article' ? 'article' : 'video';
+  // After the pre-check, because the pre-check is what builds the listen.
+  // Two modes: Listen mode, or Standard mode (the screen-by-screen path in
+  // whatever format each screen offers — so not "Watch", which every screen
+  // lets them change). How Listen mode works sits behind its own toggle.
+  //
+  // 2026-09-29: the page reflects the learner's saved mode preference. With
+  // one saved, that mode is preselected ("Continue in…", tagged Your
+  // preference) and the other reads "Switch to…"; picking the other offers
+  // to make it the new preference. With none saved, whichever they pick can
+  // be saved for future modules. Select, then Continue — the choice no
+  // longer advances on its own, since a checkbox now travels with it.
+  //
+  // The preference is a learner PROFILE setting, not this run's progress, so
+  // it lives in localStorage and survives Start over. PROTOTYPE: a real
+  // build reads and writes it on the learner's profile. Demo → "Mode
+  // preference" sets or clears it.
+  var MODE_PREF_KEY = 'sh-mode-pref';
+  function modePref() {
+    try { var v = localStorage.getItem(MODE_PREF_KEY); return v === 'listen' || v === 'standard' ? v : null; }
+    catch (e) { return null; }
+  }
+  function setModePref(v) {
+    try { if (v) localStorage.setItem(MODE_PREF_KEY, v); else localStorage.removeItem(MODE_PREF_KEY); } catch (e) {}
+  }
+  var MODES = {
+    listen:   { icon: 'fa-headphones', name: 'Listen mode',
+                sub: function () { return 'About ' + episodeMinutes() + ' min · Questions at the end'; } },
+    standard: { icon: 'fa-display', name: 'Standard mode',
+                sub: function () { return 'Watch or read, one section at a time'; } }
+  };
+  function modeLabel(k, pref) {
+    if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Standard mode';
+    return (k === pref ? 'Continue in ' : 'Switch to ') + MODES[k].name;
   }
   function PODOFFER_CONTENT() {
-    var f = MODALITIES[screenFormat()];
+    var pref = modePref();
     return '<main class="ll-object po-object"><div class="po">' +
       '<div class="po-top">' +
-        '<h1 class="po-head">This module is available as a podcast</h1>' +
+        '<h1 class="po-head">This module is available in Listen mode</h1>' +
         '<div class="po-how">' +
           '<button class="po-how-btn" type="button" id="poHowBtn" aria-expanded="false" aria-controls="poHow">' +
-            '<i class="fa-solid fa-circle-info" aria-hidden="true"></i> How the podcast works</button>' +
+            '<i class="fa-solid fa-circle-info" aria-hidden="true"></i> How Listen mode works</button>' +
           '<div class="po-how-tip" id="poHow" role="tooltip" hidden>' +
-            'One continuous episode, put together from your answers. It keeps playing with your screen ' +
+            'One continuous listen, put together from your answers. It keeps playing with your screen ' +
             'locked. When it ends, you answer the questions on screen and finish the module there. ' +
-            'Once you start, the module stays in this format.' +
+            'Once you start, the module stays in this mode.' +
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="po-opts" role="group" aria-label="How do you want to take this module?">' +
-        '<button class="po-opt" type="button" data-pick="podcast" aria-pressed="false">' +
-          '<span class="po-ico"><i class="fa-solid fa-headphones" aria-hidden="true"></i></span>' +
-          '<span class="po-txt"><b>Listen as a podcast</b><small>About ' + episodeMinutes() + ' min · Questions at the end</small></span>' +
-        '</button>' +
-        '<button class="po-opt" type="button" data-pick="screen" aria-pressed="false">' +
-          '<span class="po-ico"><i class="fa-solid ' + f.icon + '" aria-hidden="true"></i></span>' +
-          '<span class="po-txt"><b>Continue with ' + esc(f.label) + '</b><small>One section at a time</small></span>' +
-        '</button>' +
+      '<div class="po-opts" role="radiogroup" aria-label="How do you want to take this module?">' +
+        ['listen', 'standard'].map(function (k) {
+          var m = MODES[k];
+          return '<button class="po-opt" type="button" role="radio" aria-checked="false" data-pick="' + k + '">' +
+            '<span class="po-ico"><i class="fa-solid ' + m.icon + '" aria-hidden="true"></i></span>' +
+            '<span class="po-txt"><b>' + esc(modeLabel(k, pref)) + '</b><small>' + esc(m.sub()) + '</small></span>' +
+            (k === pref ? '<span class="po-tag">Your preference</span>' : '') +
+          '</button>';
+        }).join('') +
       '</div>' +
+      '<label class="po-save" id="poSave" hidden>' +
+        '<input type="checkbox" id="poSaveBox" />' +
+        '<span id="poSaveLabel"></span>' +
+      '</label>' +
     '</div></main>';
   }
   function podofferInit(ctx) {
     ctx.setCoachSay('');
     ctx.floatClose();
-    var chosen = readCourse().podpath;
+    var pref = modePref();
     var opts = [].slice.call(document.querySelectorAll('.po-opt'));
-    function mark(pick) {
-      opts.forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.pick === pick ? 'true' : 'false'); });
+    var save = document.getElementById('poSave'), box = document.getElementById('poSaveBox');
+    var saveLabel = document.getElementById('poSaveLabel');
+    var picked = null;
+
+    // Commit the pick for this module: which path runs, and (for Listen
+    // mode) the frozen cut.
+    function commit(k) {
+      var pod = k === 'listen';
+      var was = readCourse().podpath;
+      // A fresh choice (or a changed one) starts the listen from the top.
+      if (!was || !!was.podcast !== pod) { saveResult('podpos', null); saveResult('podcast', null); }
+      saveResult('podpath', { podcast: pod, cut: pod ? podcastCutLive() : null });
+      LE.refreshNav();
     }
-    if (chosen) { mark(chosen.podcast ? 'podcast' : 'screen'); ctx.enableNext(); }
+    function pick(k) {
+      picked = k;
+      opts.forEach(function (b) { b.setAttribute('aria-checked', b.dataset.pick === k ? 'true' : 'false'); });
+      commit(k);
+      // The checkbox: save a first preference, or replace a different one.
+      // Picking the mode that's already the preference needs neither.
+      var offer = !pref || pref !== k;
+      save.hidden = !offer;
+      box.checked = false;
+      saveLabel.textContent = !pref ? 'Save as my preference for future modules'
+        : 'Make ' + MODES[k].name + ' my preference';
+      setModePref(pref);          // an unchecked box never changes what was saved
+      ctx.enableNext();
+    }
+    opts.forEach(function (b) { b.addEventListener('click', function () { pick(b.dataset.pick); }); });
+    box.addEventListener('change', function () { setModePref(box.checked ? picked : pref); });
+
+    // Back from later in the module: this run's own pick wins. Otherwise the
+    // saved preference is preselected, so Continue carries straight on.
+    var chosen = readCourse().podpath;
+    if (chosen) pick(chosen.podcast ? 'listen' : 'standard');
+    else if (pref) pick(pref);
     else ctx.disableNext();
-    opts.forEach(function (b) {
-      b.addEventListener('click', function () {
-        var pod = b.dataset.pick === 'podcast';
-        var was = readCourse().podpath;
-        // A fresh choice (or a changed one) starts the episode from the top.
-        if (!was || !!was.podcast !== pod) { saveResult('podpos', null); saveResult('podcast', null); }
-        saveResult('podpath', { podcast: pod, cut: pod ? podcastCutLive() : null });
-        mark(b.dataset.pick);
-        LE.refreshNav();
-        ctx.enableNext();
-        ctx.els.next.click();
-      });
-    });
+
     var how = document.getElementById('poHowBtn'), tip = document.getElementById('poHow');
     how.addEventListener('click', function () {
       var open = tip.hidden;
@@ -2643,14 +2701,14 @@
     var ep = episodeBuild(podcastCut());
     return '<main class="ll-object dk-object ep-object"><div class="dk-theater">' +
       '<header class="dk-head"><div class="dk-head-t">' +
-        '<p class="ll-eyebrow" id="epEyebrow">Podcast</p>' +
+        '<p class="ll-eyebrow" id="epEyebrow">Listen mode</p>' +
         '<h1 class="dk-title" id="epTitle">Contain the Sharp</h1>' +
       '</div>' +
         '<button class="ep-ch-btn" type="button" id="epChBtn" aria-label="Chapters" aria-expanded="false" aria-controls="epChPanel">' +
           '<i class="fa-solid fa-list-ul" aria-hidden="true"></i><span>Chapters</span></button>' +
       '</header>' +
       '<div class="dk-stagewrap"><div class="dk-stage" id="epStage" data-mode="podcast">' +
-        '<section class="dk-layer dk-layer--listen" aria-label="Podcast">' +
+        '<section class="dk-layer dk-layer--listen" aria-label="Listen mode">' +
           '<audio id="epAudio" preload="auto"></audio>' +
           '<div class="dk-wave-wrap ep-wave-wrap"><canvas class="dk-wave" id="epWave" aria-hidden="true"></canvas>' +
             '<span class="dk-playhead" aria-hidden="true"></span></div>' +
@@ -2664,7 +2722,7 @@
                 '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>15</span></button>' +
               '<span class="dk-voice-note">Placeholder voice</span>' +
             '</span>' +
-            '<button class="dk-play" type="button" id="epPlay" aria-label="Play podcast"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
+            '<button class="dk-play" type="button" id="epPlay" aria-label="Play"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
             '<span class="dk-player-end">' +
               '<button class="dk-skip" id="epSkip" type="button" hidden aria-label="Skip to the end">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
               '<span class="dk-time" id="epTime">0:00 / ' + mmss(ep.dur) + '</span>' +
@@ -2739,7 +2797,7 @@
       if (it.ch === lastCh) return;
       lastCh = it.ch;
       var n = ep.chapters.length;
-      eyebrow.textContent = it.ch ? 'Podcast · Chapter ' + it.ch + ' of ' + n : 'Podcast';
+      eyebrow.textContent = it.ch ? 'Listen mode · Chapter ' + it.ch + ' of ' + n : 'Listen mode';
       titleEl.textContent = it.title;
       chEls.forEach(function (li) {
         var c = +li.dataset.ch;
@@ -2769,7 +2827,7 @@
     }
     function setPlaying(on) {
       play.innerHTML = '<i class="fa-solid ' + (on ? 'fa-pause' : 'fa-play') + '" aria-hidden="true"></i>';
-      play.setAttribute('aria-label', on ? 'Pause podcast' : 'Play podcast');
+      play.setAttribute('aria-label', on ? 'Pause' : 'Play');
       stage.classList.toggle('is-playing', on);
       if (ms) try { ms.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
     }
@@ -3834,7 +3892,7 @@
                cost: 'Self-paced \u00b7 recall checks',
                tradeoff: 'Self-paced \u2014 CLARA checks your recall on each step instead of just telling you the next one.',
                note: 'CLARA walks the procedure one step at a time, pausing to check what you remember.' },
-    podcast: { label: 'Listen', icon: 'fa-headphones',
+    podcast: { label: 'Read to me', icon: 'fa-volume-high',
                cost: 'Longest \u00b7 hands free',
                tradeoff: 'Runs while you do something else, but takes longer and stops to ask you things.',
                note: 'The narration read aloud, word-highlighted as it plays.' }
@@ -7144,19 +7202,19 @@
     // ---- The podcast path (see THE PODCAST PATH above) ----------------------
     { id: 'podoffer', icon: 'fa-headphones', stage: 'Entry', lesson: 'Choose a format', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
-      caption: { title: 'ENTRY · The podcast offer (2026-09-25)', note: 'After the pre-check, because the pre-check is what builds the episode: its answers pick the chapters, and the runtime shown is that cut\u2019s real length. Yes freezes the cut; the module then stays on the podcast path (no switching partway). No keeps the screen-by-screen path in the learner\u2019s Watch or Read preference. How it works sits behind the info toggle. From the podcast script (Contain_the_Sharp_<sector>_Podcast.pdf): one continuous listen, every check at the end.' },
+      caption: { title: 'ENTRY · The Listen mode offer (2026-09-25)', note: 'After the pre-check, because the pre-check is what builds the listen: its answers pick the chapters, and the runtime shown is that cut\u2019s real length. Yes freezes the cut; the module then stays in Listen mode (no switching partway). No keeps the screen-by-screen path in the learner\u2019s Watch or Read preference. How it works sits behind the info toggle. From the audio script (Contain_the_Sharp_<sector>_Podcast.pdf): one continuous listen, every check at the end. Called Listen mode, not podcast, on every learner surface (2026-09-29).' },
       content: PODOFFER_CONTENT, init: podofferInit },
     { id: 'podcast', icon: 'fa-headphones', stage: 'Learn', lesson: 'Contain the Sharp', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
       get mins() { return episodeMinutes(); },
       when: function () { return podcastPath(); },
-      caption: { title: 'LEARN · The episode (podcast path)', note: 'The whole cut as one listen: the script\u2019s ident, each chapter the pre-check put in (joined on a sting), and one closing line, “You may now continue the lesson.” Continue opens only when it ends. Resumes at the start of the sentence it was paused on. Play/pause and back 15s on screen; play/pause only on the lock screen; no scrubbing ahead and no speed control. Review mode shows Skip. Prototype: a playlist on one audio element, not a single stream — see THE PODCAST PATH in layered-sharps.js.' },
+      caption: { title: 'LEARN · The listen (Listen mode)', note: 'The whole cut as one listen: the script\u2019s ident, each chapter the pre-check put in (joined on a sting), and one closing line, “You may now continue the lesson.” Continue opens only when it ends. Resumes at the start of the sentence it was paused on. Play/pause and back 15s on screen; play/pause only on the lock screen; no scrubbing ahead and no speed control. Review mode shows Skip. Prototype: a playlist on one audio element, not a single stream — see LISTEN MODE in layered-sharps.js.' },
       content: EPISODE_CONTENT, init: episodeInit },
     { id: 'podcheck', icon: 'fa-list-check', stage: 'Check', lesson: 'Questions', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
       get mins() { return Math.max(1, Math.round(podcheckItems().length / 2)); },
       when: function () { return podcastPath(); },
-      caption: { title: 'CHECK · The episode’s questions (podcast path)', note: 'Every chapter’s question from the deck, in the order the chapters played, as one stack in the pre-check’s look. Saved under the same keys as the screen-by-screen path (k1check, k2check, insight, f1post, f3post), so remediation routes off them unchanged. Knowledge questions show the deck’s verdict and wait for Next question; agreement and insight items move on by themselves. The last card hands straight on to remedial content (if any) or the simulation.' },
+      caption: { title: 'CHECK · The listen’s questions (Listen mode)', note: 'Every chapter’s question from the deck, in the order the chapters played, as one stack in the pre-check’s look. Saved under the same keys as the screen-by-screen path (k1check, k2check, insight, f1post, f3post), so remediation routes off them unchanged. Knowledge questions show the deck’s verdict and wait for Next question; agreement and insight items move on by themselves. The last card hands straight on to remedial content (if any) or the simulation.' },
       content: PODCHECK_CONTENT, init: podcheckInit },
 
     // ---- Deck slides 5–22 ----------------------------------------------------
@@ -7164,7 +7222,7 @@
     // when its pre-check question was answered correctly. A miss on either
     // version's question serves that case's remedial video next.
     deckStep('c1base', { when: function () { return !k1TestUp(); },
-      caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Listen carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
+      caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Read to me carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
     deckStep('c1up', { adaptive: true, variant: 'Mastery version', when: function () { return k1TestUp(); },
       caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
     deckStep('c1rem', { adaptive: true, variant: 'Remedial version',
@@ -7199,10 +7257,10 @@
     // (Watch / Read) — never Listen.
     deckStep('c1rem-pod', { deck: 'c1rem', adaptive: true, variant: 'Remedial version',
       when: function () { return checkMissed('k1check') && podcastPath(); },
-      caption: { title: 'LEARN · Case 1, remedial (K1), podcast path — deck slide 7', note: 'The podcast path\u2019s copy of c1rem: after every question from the episode, not straight after case 1\u2019s. Watch or Read only. Then re-asks the question that was missed.' } }),
+      caption: { title: 'LEARN · Case 1, remedial (K1), Listen mode — deck slide 7', note: 'Listen mode\u2019s copy of c1rem: after every question from the listen, not straight after case 1\u2019s. Watch or Read only. Then re-asks the question that was missed.' } }),
     deckStep('c2rem-pod', { deck: 'c2rem', adaptive: true, variant: 'Remedial version',
       when: function () { return checkMissed('k2check') && podcastPath(); },
-      caption: { title: 'LEARN · Case 2, remedial (K2), podcast path — deck slide 12', note: 'The podcast path\u2019s copy of c2rem, after every question from the episode. Watch or Read only. Then re-asks the question that was missed.' } }),
+      caption: { title: 'LEARN · Case 2, remedial (K2), Listen mode — deck slide 12', note: 'Listen mode\u2019s copy of c2rem, after every question from the listen. Watch or Read only. Then re-asks the question that was missed.' } }),
 
     { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'A sharp decision', mode: 'floating', gate: true,
       when: function () { return !sceneSimulatorOn(); },
@@ -7441,15 +7499,33 @@
         api.replay();
       }
     }, {
+      // The learner's saved mode preference (see THE OFFER) — a profile
+      // setting, so it survives Start over. Clear it to see the first-time
+      // version of the offer.
+      id: 'shModePrefBtn', icon: 'fa-headphones', name: 'Mode preference',
+      note: 'The learner’s saved Listen / Standard mode preference, which the offer screen reflects',
+      visibleOn: function (step) { return step.id === 'podoffer'; },
+      type: 'select', value: function () { return modePref() || 'none'; },
+      options: [
+        { value: 'none', label: 'None saved' },
+        { value: 'listen', label: 'Listen mode' },
+        { value: 'standard', label: 'Standard mode' }
+      ],
+      onChange: function (v, api) {
+        setModePref(v === 'none' ? null : v);
+        saveResult('podpath', null);
+        api.replay();
+      }
+    }, {
       // Read as an article (default) or as Jessica's podcast transcript —
       // the same chapters either way; see ARTICLE / PODCAST.
       id: 'shReadStyleBtn', icon: 'fa-book-open', name: 'Read view',
-      note: 'Plain article, or the podcast script as a transcript with speaker names',
+      note: 'Plain article, or the audio script as a transcript with speaker names',
       visibleOn: function (step) { return !!DECK[step.id]; },
       type: 'select', value: readStyle,
       options: [
         { value: 'article', label: 'Article' },
-        { value: 'podcast', label: 'Podcast transcript' }
+        { value: 'podcast', label: 'Audio script' }
       ],
       onChange: function (v, api) {
         try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-modality', 'article'); } catch (e) {}
