@@ -88,7 +88,7 @@
   .ba-rem { color: #B42318; font-weight: 600; }
   /* Live description of the switch, directly under it — flips with the toggle. */
   .opt-effect { display: flex; gap: 10px; align-items: flex-start; border-radius: 9px; padding: 11px 14px;
-    font-size: 13px; line-height: 1.55; margin: -4px 0 12px; }
+    font-size: 13px; line-height: 1.55; margin: 0 0 12px; }
   .opt-effect i { margin-top: 3px; }
   .opt-effect.is-off { background: #F5F9FE; border: 1px solid #E1E7EE; color: #3D4F63; }
   .opt-effect.is-off i { color: #1257B8; }
@@ -266,9 +266,8 @@
     letter-spacing: .6px; padding: 10px 20px; border-bottom: 1px solid var(--line-2); }
   .map-row { align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--line-3); }
   /* Lock sits in the left gutter so column names stay aligned; the hint lines up under the name. */
-  .map-lock { color: #8CA0B4; font-size: 11px; margin-left: -17px; width: 17px; }
-  .map-hint { font-size: 12px; color: #5B6B7E; line-height: 1.45; padding: 0 20px 10px; margin-top: -4px;
-    border-bottom: 1px solid var(--line-3); }
+  .map-lock { color: #8CA0B4; font-size: 10px; margin-right: 5px; }
+  .map-hint { font-size: 12px; color: #5B6B7E; line-height: 1.4; margin-top: 3px; padding-right: 16px; }
   .map-select { width: 100%; padding: 7px 10px; border: 1px solid var(--btn-border); border-radius: 7px;
     font-size: 13px; background: #fff; color: var(--ink); }
 
@@ -393,6 +392,8 @@
   .opt-row { background: #fff; border: 1.5px solid var(--line); border-radius: 10px; padding: 15px 18px;
     display: flex; gap: 14px; align-items: flex-start; margin-bottom: 12px; }
   .opt-row.is-on.is-danger { border-color: var(--red-border); background: #FEF7F6; }
+  .opt-plain { display: flex; gap: 12px; align-items: center; margin: 4px 0 12px; }
+  .opt-plain .toggle { margin-top: 0 !important; }
   .opt-main { flex: 1; min-width: 0; }
   .opt-title { font-size: 14px; font-weight: 600; }
   .opt-sub { font-size: 12.5px; color: var(--muted); margin-top: 4px; line-height: 1.5; }
@@ -1658,16 +1659,16 @@
         ? '<span style="color:#D92D20;" title="Required field"> *</span>' : '';
       var badge = samlBad ? '⚠ check' : (mapped ? 'Mapped' : 'Not imported');
       var badgeColor = samlBad ? '#B54708' : (mapped ? '#12B76A' : '#8CA0B4');
-      return '<div class="map-grid map-row"' + (target === 'Username' ? ' style="border-bottom:0;"' : '') + '>'
-        + '<div class="mono" style="font-size:13px;font-weight:600;color:#1B2B3E;">'
-        + (target === 'Username' ? '<i class="fa-solid fa-lock map-lock" aria-hidden="true" title="Existing usernames can’t be changed"></i>' : '')
+      var isUser = target === 'Username';
+      return '<div class="map-grid map-row">'
+        // Usernames are the match key — lock + note ride on whichever column is imported as Username.
+        + '<div><div class="mono" style="font-size:13px;font-weight:600;color:#1B2B3E;">'
         + esc(colName) + reqStar + '</div>'
+        + (isUser ? '<div class="map-hint"><i class="fa-solid fa-lock map-lock" aria-hidden="true"></i>An upload can add new usernames but can’t change an existing one.</div>' : '') + '</div>'
         + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(sample) + '</div>'
         + '<div style="padding-right:20px;"><select class="map-select" data-act="mapColTarget" data-arg="' + esc(colName) + '">' + targetOpts(target) + '</select></div>'
         + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
-        + '</div>'
-        // Usernames are the match key — the note rides on whichever column is imported as Username.
-        + (target === 'Username' ? '<div class="map-hint">An upload can add new usernames but can’t change an existing one.</div>' : '');
+        + '</div>';
     }).join('');
     // Required targets (Username, First, Last) must each be claimed by some column.
     var reqMissing = FIELDS.filter(function (f) { return f.req; }).filter(function (f) {
@@ -1729,23 +1730,23 @@
         + '<button class="btn sm btn--outline-blue" data-act="askRep">Send to my Vector rep</button>'
         + '</div>';
 
-    var optCard = '<div class="opt-row' + (on ? ' is-on is-danger' : '') + '">'
+    // Just the switch + label (no box); the On/Off box under it does the explaining.
+    var optCard = '<div class="opt-plain">'
       + '<div class="toggle" data-act="togglePurgeAll" role="switch" aria-checked="' + on + '" tabindex="0" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
       + '<div class="toggle-knob" style="left:' + (on ? '17px' : '2px') + ';"></div></div>'
-      + '<div class="opt-main"><div class="opt-title">Deactivate anyone and any jobs not in this file</div>'
-      + '<div class="opt-sub">Only turn on if the file lists <b>everyone</b>.</div></div></div>';
+      + '<div class="opt-main"><div class="opt-title">Deactivate anyone and any jobs not in this file</div></div></div>';
 
     // What happens — always visible, directly under the switch, and follows its state.
     var effect = on
       ? '<div class="opt-effect is-on"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span><b>On:</b> '
-        + 'Anyone not in the file is <b>deactivated</b>, and any job a person holds that isn’t in the file <b>ends</b> — along with the training tied to it. '
+        + 'Anyone not in the file is <b>deactivated</b>, and any job a person holds that isn’t in the file <b>is removed</b> — along with the training tied to it. '
         + 'New people and jobs are added and details are updated, so your site matches this file exactly. Training history is always kept.</span></div>'
       : '<div class="opt-effect is-off"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span><b>Off:</b> '
         + 'Only <b>adds</b> new people and jobs from the file and <b>updates</b> details for people already on your site. '
-        + 'No one is deactivated and no jobs end.</span></div>';
+        + 'No one is deactivated and no jobs are removed.</span></div>';
 
     // Users-only or jobs-only deactivation isn't self-serve — plain helper text + Support Center.
-    var care = '<div class="set-helper">Need to deactivate only people, or only jobs? This switch always does both — reach out to Vector Care in the '
+    var care = '<div class="set-helper">Need to deactivate only people, or only jobs? Reach out to Vector Care in the '
       + helpLink('support', 'Support Center') + ' and we’ll set it up for you.</div>';
 
     return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
