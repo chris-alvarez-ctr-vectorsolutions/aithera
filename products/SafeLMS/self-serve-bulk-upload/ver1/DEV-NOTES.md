@@ -8,6 +8,13 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-09-29) Rows on every alert; complete list of changes
 
+- **[DONE]** Every **Blocking** alert ends with **"Submit a ticket to get this solved"** + "Have a
+  question about this? **Raise an issue ticket**." (both → Support Center; replaces "Contact Vector
+  support"). **PENDING:** real ticket URLs / whether they're two different ticket types.
+- **[DONE]** Approving an automated run: no "Back to upload log" button — the header ✕ goes back to the log.
+- **[DONE]** Completed log page: **Change report (.csv)** and **Data before this upload (.csv)**
+  removed — neither is in the PRD (it asks for upload history: what each import changed + who ran
+  it). "Original file" stays for now; also not named in the PRD.
 - **[DONE]** Upload log: runs that didn't go leave the change columns empty — no "No changes" /
   "See what stopped it" text, just the row's arrow. A run waiting for approval keeps "Review & approve" (no arrow — the row chevron moves forward).
 - **[DONE]** **Blocked is automated-only.** A manual upload with Blocking issues can only be cancelled,

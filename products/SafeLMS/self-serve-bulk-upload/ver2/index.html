@@ -391,6 +391,8 @@
   .axt-lock i { color: #8CA0B4; font-size: 10.5px; margin-right: 5px; }
   .axt-loss { font-weight: 600; color: #B42318; white-space: nowrap; }
   /* Column in THEIR file, under the header it applies to (replaced the dashed "Where" box 2026-09-29). */
+  .ax-ask { font-size: 12.5px; color: #5B6B7E; margin-top: -2px; }
+  .ax-ask a { color: #1257B8; font-weight: 600; }
   .full-list { display: flex; align-items: center; gap: 12px; background: #F8FAFC; border: 1px dashed #C6D3E1; border-radius: 10px; padding: 14px 16px; }
   .full-list.is-ready { background: #fff; border: 1px solid #C6D9F0; }
   .full-list .fl-ico { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 8px; background: #EDF1F6; color: #8CA0B4;
@@ -1307,11 +1309,11 @@
       head: ['Username', 'Active user on your site', 'Identifying detail'], col: [0, 'username'],
       rows: function () { return [[M('cdelgado'), 'Carlos Delgado', 'cdelgado@ridgewood.k12.us · Lincoln Elementary · 11 completions'],
                                   [M('cdelgado'), 'Carla Delgado', 'carla.delgado@ridgewood.k12.us · District Office · 0 completions']]; },
-      fix: 'Contact Vector support to merge or rename one of these accounts, then upload again.', support: true },
+      fix: 'Submit a ticket and we’ll merge or rename one of these accounts, then upload again.', support: true },
     sync_error: { tier: 'blocked', msg: 'Something went wrong during the upload. Please try again, and contact your Vector rep if it keeps happening.',
       note: function () { return 'This is a system error — no people or rows in your file are affected.'; },
       head: ['Error reference'], rows: function () { return [[M('ERR-2026-0925-4471')]]; },
-      fix: 'Try the upload again. If it keeps happening, contact support with the error reference.', support: true }
+      fix: 'Try the upload again. If it keeps happening, submit a ticket with the error reference.', support: true }
   };
   var CATALOG_KEYS = Object.keys(CATALOG);
 
@@ -1977,11 +1979,17 @@
         + '<span>' + esc(a.ackLabel) + '</span></label>';
     }
     var btns = [];
-    if (a.supportBtn) btns.push('<a class="btn sm btn--outline-blue" href="' + HELP_LINKS.support + '" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;">Contact Vector support <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" style="font-size:10px;"></i></a>');
+    // Blocking (2026-09-29): a ticket to get it solved, and an issue ticket for questions — both in the Support Center.
+    var ask = '';
+    if (a.tier === 'blocked' || a.tier === 'escalate') {
+      btns.push('<a class="btn sm btn--outline-blue" href="' + HELP_LINKS.support + '" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;">Submit a ticket to get this solved <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" style="font-size:10px;"></i></a>');
+      ask = '<div class="ax-ask">Have a question about this? <a href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Raise an issue ticket</a>.</div>';
+    }
     if (a.repBtn) btns.push(state.repSent
       ? '<button class="btn sm btn--ghost" data-act="noop" style="color:#067647;border-color:#A6E5C3;">Sent to your Vector rep ✓</button>'
       : '<button class="btn sm btn--outline-blue" data-act="askRep">Not sure? Send to my Vector rep</button>');
     if (btns.length) actions += '<div class="alert-btns">' + btns.join('') + '</div>';
+    actions += ask;
 
     var body = detail + actions;
     return '<div class="alert" style="border-color:' + t.border + ';">'
@@ -2077,8 +2085,7 @@
       // cancelled attempt; the user starts a whole new upload. Also the one way out
       // for a BLOCKED import. OPEN: does a cancelled upload appear in the upload log?
       + (state.autoReview != null
-        ? '<button class="btn btn--ghost" data-act="autoBack" style="width:100%;margin-top:8px;">Back to upload log</button>'
-          + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you approve it. Tonight’s automated upload still runs as usual.</div>'
+        ? '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you approve it. Tonight’s automated upload still runs as usual.</div>'
         : '<button class="btn btn--outline-red" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
           + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it.</div>')
       // Older data (2026-09-29): a snapshot of the site before anything changes.
@@ -2281,8 +2288,6 @@
         : '<div style="font-size:13px;color:#5B6B7E;margin-top:10px;">Nothing was changed on your site.</div>')
       + '<div class="divider" style="margin:16px 0;"></div><div style="display:flex;flex-direction:column;gap:8px;">'
       + (r.rows ? '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-download" aria-hidden="true"></i> Original file</button>' : '')
-      + (done ? '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Change report (.csv)</button>'
-        + '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Data before this upload (.csv)</button>' : '')
       + '</div></div>';
     var notes = (r.notes && r.notes.length)
       ? '<div class="ld-card"><div class="kpi-eyebrow" style="margin-bottom:8px;">Alerts &amp; notes</div><ul class="ld-notes">'
@@ -2436,7 +2441,7 @@
       + '<div class="import-full-bar">'
       + '<div class="iff-id"><span class="ae-head-ico"><i class="fa-solid fa-file-arrow-up"></i></span>'
       + '<div class="iff-t"><b>Bulk upload employees</b><span>' + meta + '</span></div></div>'
-      + '<button class="modal-x" data-act="goEmployees" aria-label="Close bulk upload" '
+      + '<button class="modal-x" data-act="' + (state.autoReview != null ? 'autoBack' : 'goEmployees') + '" aria-label="' + (state.autoReview != null ? 'Back to upload log' : 'Close bulk upload') + '" '
       + 'style="width:34px;height:34px;border-radius:50%;background:#EDF1F6;">✕</button>'
       + '</div>'
       + '<div class="import-full-body"><div class="content">' + importTab() + '</div></div>'
@@ -2716,7 +2721,7 @@
         { id: 'review-saml', flow: 'import', x: 1030, y: 420, step: 'Review · Blocking', name: 'Blocking — unreadable dates', state: 'review-saml',
           desc: 'broken_begin_date (BLOCKING — rows 14, 27, 88 in the table; the header tags Column H · BEGIN_DATE) + early_end_date (WARNING) + info.' },
         { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Blocking', name: 'Blocking — duplicate accounts', state: 'review-escalate',
-          desc: 'duplicate_person (BLOCKING → Contact Vector support) + potential_duplicate_user (WARNING, each row shown as the duplicate account it would create) + duplicate_email_in_upload (WARNING).' },
+          desc: 'duplicate_person (BLOCKING → Submit a ticket) + potential_duplicate_user (WARNING, each row shown as the duplicate account it would create) + duplicate_email_in_upload (WARNING).' },
 
         { id: 'attn-fixable', flow: 'import', x: 700, y: 620, step: 'Attention · amber', name: 'Alert mode — you fix it', state: 'attn-fixable',
           desc: 'V1 attention treatment = inline ALERT MODE, AMBER: a distinct colored card (not red) for a problem the customer fixes themselves — plain-language cause, A→B, “Fix it & upload again.”' },
