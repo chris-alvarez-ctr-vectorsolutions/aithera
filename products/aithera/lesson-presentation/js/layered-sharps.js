@@ -851,14 +851,11 @@
             '<div id="cpRows"></div>' +
           '</section>' +
           '<aside class="cp-rail">' +
-            // Set before anything else in the module runs, so the very first
-            // screen that offers a choice (hazard) already opens on it rather
-            // than on a hardcoded default the learner then has to notice and
-            // correct. Writes to the SAME session value the in-beat pickers
-            // already read and write (modalityId()/'sh-modality') rather than
-            // a second, competing preference — changing it later on any one
-            // screen IS changing it everywhere else too, which is the point.
-            '<div class="cp-card cp-format"><h3>Preferred format</h3>' +
+            // 2026-09-29: the card sets the learner's MODE preference
+            // (Standard / Listen mode, the one the Listen mode offer screen
+            // reads), not a per-screen format. Watch / Read / Read to me is
+            // chosen on each screen and no longer carries between screens.
+            '<div class="cp-card cp-format"><h3>Preferred mode</h3>' +
               // Collapsed to the current choice by default — a full four-way
               // picker on a page the learner has not started anything on yet
               // reads as a decision being demanded rather than a setting
@@ -870,7 +867,8 @@
               // one, honestly labeled) are still one tap away.
               modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
                 icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
-                DK_OFFERED) +
+                ['standard', 'listen'], null, MODE_CARD) +
+              '<p class="cp-format-note">Listen mode applies to modules that offer it.</p>' +
             '</div>' +
             // D11 → moved to the Demo menu: sector/role and the self-assigned
             // name are reviewer/demo-driver settings, not a choice a real
@@ -966,7 +964,11 @@
     var introPick = document.getElementById('introModPick');
     if (introPick) {
       var introDD = initModalityDropdown(
-        { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' });
+        { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' },
+        MODE_CARD);
+      // No saved preference reads as Standard mode, the default — the offer
+      // screen still treats it as unsaved and offers to save one.
+      var curMode = function () { return modePref() || 'standard'; };
       var markFmt = function (k) {
         [].forEach.call(introPick.querySelectorAll('.md-opt'), function (b) {
           var on = b.dataset.m === k;
@@ -974,12 +976,12 @@
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
       };
-      introDD.render(modalityId());
-      markFmt(modalityId());
+      introDD.render(curMode());
+      markFmt(curMode());
       introPick.addEventListener('click', function (e) {
         var b = e.target.closest('.md-opt');
         if (!b) return;
-        try { sessionStorage.setItem('sh-modality', b.dataset.m); } catch (err) {}
+        setModePref(b.dataset.m);
         markFmt(b.dataset.m);
         introDD.render(b.dataset.m);
         introDD.collapse();
@@ -2130,7 +2132,6 @@
         [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
           b.setAttribute('aria-pressed', b.dataset.m === m ? 'true' : 'false');
         });
-        try { sessionStorage.setItem('sh-modality', m); } catch (e) {}
 
         if (m === 'video') {
           if (!videoMounted) {
@@ -2466,7 +2467,13 @@
       [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
         b.addEventListener('click', function () { show(b.dataset.m); });
       });
-      show(modalityDefault(offered, 'video'));
+      // Per screen (2026-09-29): every screen opens on Watch and the learner
+      // switches it there; a switch no longer carries to the next screen.
+      // The Demo menu's Read view is the one exception — a one-shot, so a
+      // reviewer lands in the reader it just changed.
+      var demo = null;
+      try { demo = sessionStorage.getItem('sh-demo-carrier'); sessionStorage.removeItem('sh-demo-carrier'); } catch (e) {}
+      show(offered.indexOf(demo) > -1 ? demo : 'video');
     };
   }
 
@@ -2602,6 +2609,11 @@
                 sub: function () { return 'About ' + episodeMinutes() + ' min · Questions at the end'; } },
     standard: { icon: 'fa-display', name: 'Standard mode',
                 sub: function () { return 'Watch or read, one section at a time'; } }
+  };
+  // The title page's Preferred mode card, in the picker's own shape.
+  var MODE_CARD = {
+    standard: { icon: MODES.standard.icon, label: MODES.standard.name },
+    listen:   { icon: MODES.listen.icon, label: MODES.listen.name }
   };
   function modeLabel(k, pref) {
     if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Standard mode';
@@ -3906,11 +3918,14 @@
   //  default carrier behind a click or vanish once used, and both are worse:
   //  the learner arrives on the default and can still see, at any point,
   //  what the other option is.
-  function modalityPicker(id, keys) {
+  // `table` defaults to MODALITIES; the title page's mode card passes its own
+  // (MODE_CARD — Standard / Listen mode) through the same picker.
+  function modalityPicker(id, keys, table) {
+    table = table || MODALITIES;
     return '<div class="md-pick" id="' + id + '" role="group" ' +
         'aria-label="How do you want to take this?">' +
       keys.map(function (k) {
-        var m = MODALITIES[k];
+        var m = table[k];
         return '<button class="md-opt" type="button" data-m="' + k + '" aria-pressed="false">' +
           '<i class="fa-solid ' + m.icon + '" aria-hidden="true"></i>' +
           '<span class="md-opt-t"><b>' + esc(m.label) + '</b></span>' +
@@ -3938,7 +3953,7 @@
   //  the content rather than in its own row — hazardInit/procedureInit pass
   //  it, the title-page rail (a setting among several cards, not a global
   //  page control) does not. See .md-now--corner in sharps.html.
-  function modalityDropdown(ids, keys, opts) {
+  function modalityDropdown(ids, keys, opts, table) {
     var corner = opts && opts.corner;
     return '<div class="md-now' + (corner ? ' md-now--corner' : '') + '">' +
         '<div class="cp-format-now" id="' + ids.now + '">' +
@@ -3948,7 +3963,7 @@
             'aria-expanded="false" aria-controls="' + ids.wrap + '">' +
             'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
         '</div>' +
-        '<div class="cp-format-picker" id="' + ids.wrap + '" hidden>' + modalityPicker(ids.pick, keys) + '</div>' +
+        '<div class="cp-format-picker" id="' + ids.wrap + '" hidden>' + modalityPicker(ids.pick, keys, table) + '</div>' +
       '</div>';
   }
   // Wires the collapse/expand chrome only — picking an option still runs
@@ -3965,7 +3980,8 @@
   // guard against with a one-off flag. Re-registering the same key on a
   // revisit just replaces the stale DOM refs with the current ones.
   var modalityDropdowns = {};
-  function initModalityDropdown(ids) {
+  function initModalityDropdown(ids, table) {
+    table = table || MODALITIES;
     var btn = document.getElementById(ids.btn), wrap = document.getElementById(ids.wrap);
     var icon = document.getElementById(ids.icon), label = document.getElementById(ids.label);
     function setOpen(v) { wrap.hidden = !v; btn.setAttribute('aria-expanded', v ? 'true' : 'false'); }
@@ -3983,7 +3999,7 @@
     }
     return {
       render: function (k) {
-        var m = MODALITIES[k];
+        var m = table[k];
         icon.className = 'fa-solid ' + m.icon;
         label.textContent = m.label;
       },
@@ -7528,7 +7544,7 @@
         { value: 'podcast', label: 'Audio script' }
       ],
       onChange: function (v, api) {
-        try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-modality', 'article'); } catch (e) {}
+        try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-demo-carrier', 'article'); } catch (e) {}
         api.replay();
       }
     }, {
