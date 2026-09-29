@@ -6,6 +6,23 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-29) Rows on every alert; complete list of changes
+
+- **[DONE]** Every row-level alert (Blocking, Warning and Info) lists the **row** it's on: a "Row"
+  column for people, a "Rows" column for positions / locations / codes. Lists of people who
+  *aren't* in the file (deactivations, positions ended) say there's no row to point to.
+- **[DONE]** The dashed **"Where:"** box is gone. The column now sits in the table, under the
+  header it applies to (red mono tag, e.g. "Column H · BEGIN_DATE"), only when the file has it.
+  Same on V2's blocked-run log page.
+- **[DONE]** Per-alert **"Download list (.csv)"** removed (it was a 2026-09-25 addition, not from
+  the catalog). Replaced by one **Complete list of changes** card at the end of Review: shown
+  only when nothing is Blocking, locked until every warning is reviewed, then Download (.csv).
+  Also linked in the Run import confirmation.
+- **[DONE]** "Not sure? Send to my Vector rep" removed from the Review alerts (manual and the
+  automated-run approval page).
+- **[DONE]** Log → Review & approve (V2) uses the same Review as the manual flow: most severe
+  first, rows + column tags, checkbox boxes, complete list, pre-import download.
+
 ## (2026-09-29) Import settings copy; switch inside the box; Upload log one line per upload
 
 - **[DONE]** "Jobs" → **"positions"** in everything users read: switch label ("Deactivate all people
