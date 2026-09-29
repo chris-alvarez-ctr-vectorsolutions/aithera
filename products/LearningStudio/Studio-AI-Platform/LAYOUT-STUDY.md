@@ -194,6 +194,50 @@ Interaction without a per-stage exception.
 
 ---
 
+## Trial result — Coverage, 2026-09-29
+
+**B is built on the Coverage stage.** Held to the trial's terms: one stage, no
+new column, no styling or theming change, reversible.
+
+| | Before | After |
+|---|---|---|
+| Coverage stage height | 1165px | **607px** collapsed · 686px with a card open |
+| Framing / World / Coach / Close | 769 / 1071 / 555 / 1105 | **unchanged** |
+| Reading measures (note / field / inherit) | 60 / 57 / 67 | **unchanged** |
+
+The collapsed summary reads:
+
+```
+info-6   Stay in the compartment during a tip-over              ●
+         working · below mastery · adjusted · no beat
+```
+
+**What the trial confirmed:**
+
+- The summary line is the whole value. Depth-against-bar, provenance, and the
+  two states that are the actual reasons to open a card — a missing beat (D42)
+  and a stale approval (D41). *"Which points are short?"* is now a glance.
+- **The status dot cost nothing.** `scnPhaseBlockers()` already names specific
+  items, so this was attribution of an existing signal, exactly as predicted.
+- **The video accordion transferred cleanly.** No second expand model, and the
+  precedent made the interaction obvious rather than novel.
+- Locks (D32) still enforce through the new layout — fields freeze, adds
+  disable — because the lock pass runs over the rendered DOM and did not care
+  that the DOM changed shape.
+
+**One thing the study did not anticipate:** Misconceptions had to collapse too.
+Left as a full-height card beneath four summary cards, the stage read as two
+different layouts stacked. A list has to be uniform to be scannable, so a
+group with no per-item state still needs a summary row.
+
+**Still open, deliberately.** Whether the other stages should follow. World and
+Close (1071 / 1105px) are the next candidates and have the same shape — a few
+groups, each a collection. Framing and Coach are short enough that collapsing
+them would add a click for nothing, which is worth saying plainly: **this
+pattern is for stages with enough items to scan, not a house style.**
+
+---
+
 ## What a summary card needs to carry
 
 Whichever option, the card is the real design object. From the reference,
