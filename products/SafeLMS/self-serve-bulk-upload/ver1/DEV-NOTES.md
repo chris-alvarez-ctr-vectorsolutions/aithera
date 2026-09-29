@@ -6,6 +6,27 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-29) Import settings copy; switch inside the box; Upload log one line per upload
+
+- **[DONE]** "Jobs" → **"positions"** in everything users read: switch label ("Deactivate all people
+  and positions not in this file"), the On/Off copy, the Vector Care line, the Review alert
+  ("N positions aren't in this file and will be ended"), Change summary / run confirmation / log
+  ("Positions ended"). The Add employee pop-up keeps its "Job" section — it copies the live product.
+- **[DONE]** Import settings copy: subheading "By default this file only adds and updates people
+  and jobs. Turn this on only if the file is your complete list of staff and the jobs they hold."
+  Switch label → **"Deactivate all people and jobs not in this file"** (was "Deactivate all users
+  and jobs not in this file"; also renamed on the Review recap and the log page). **Off:** "Adds and
+  updates only. People and jobs already on your site are left as they are." **On:** "Your site will
+  match this file." + 3 bullets (people deactivated · jobs ended for the people who hold them ·
+  training history kept). Vector Care line: "This applies to both people and jobs. To deactivate
+  only one, contact Vector Care in the Support Center."
+- **[DONE]** No "This file will deactivate N people and end N jobs" line under On — those counts
+  can't be calculated at this step (same reason the totals panel came out). Review shows them.
+- **[DONE]** The switch sits inside the Off/On box and the whole box toggles it (bigger touch target).
+- **[DONE]** Upload log: one "didn't run" result — **Blocked** (Failed retired). Method is plain
+  text + gray icon, not a colored tag. One line per upload: When · File · Rows · Uploaded by · Role ·
+  Method · Result · Added · Updated · Deactivated · Jobs ended.
+
 ## (2026-09-29) Severity order, older-data download, switch label
 
 - **[DONE]** Review is ordered most severe first: Blocking → warnings that cause permanent loss
@@ -16,7 +37,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 - **[DONE]** "Download current data (.csv)" on the Review side panel (a snapshot of the site
   before the import), "Data before this import" on Import complete, and "Data before this
   upload" on a completed run's log page.
-- **[DONE]** Switch label → **"Deactivate all users and jobs not in this file"**.
+- **[DONE]** Switch label → **"Deactivate all users and jobs not in this file"** (superseded same day — see above).
 - **PENDING:** how long before-import snapshots are kept, and whether it's the full employee export
   or only the rows the import touches.
 
