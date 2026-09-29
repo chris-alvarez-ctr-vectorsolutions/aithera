@@ -6,6 +6,21 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-29) Upload log → pages; approving stopped automated runs
+
+- **[DONE]** Log rows open their own page instead of expanding. A completed, cancelled or
+  failed run opens a detail page (who, method, setting, alerts & notes, what changed,
+  downloads).
+- **[DONE]** An automated run that stopped opens the **Review changes** design for that run
+  (a banner replaces the stepper). Warnings only → the admin acknowledges each and clicks
+  **Approve & run import** — the manual permission an automated run can't give itself.
+  The log row then shows Completed with "Approved and run by …". Blocking → can't be
+  approved; fix the export.
+- **[DONE]** V2 failure email is generic: what ran, when, that it failed, one
+  **View upload log** button. Details live in the log, not the email.
+- **PENDING:** does approving run the stopped file as-is, or re-fetch the latest export?
+  Mock assumes as-is.
+
 ## (2026-09-29) Import settings
 
 - **[DONE]** Removed the "After this import" before → after totals panel — those counts

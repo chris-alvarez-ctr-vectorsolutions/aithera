@@ -141,6 +141,21 @@
     display: flex; flex-direction: column; gap: 10px; font-size: 13px; color: var(--ink-2); }
   .log-detail .ld-k { font-weight: 600; color: var(--ink); }
   .log-detail ul { margin: 0 0 0 18px; line-height: 1.6; }
+  .log-review { color: #1257B8; font-weight: 600; white-space: nowrap; }
+  .log-review i { font-size: 10.5px; }
+  .auto-banner { display: flex; gap: 12px; align-items: flex-start; background: #F4F1FD; border: 1px solid #DCD3F7;
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; }
+  .auto-banner .ab-ico { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 8px; background: #fff; color: #5B3FB8;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .auto-banner .ab-t { font-size: 14px; font-weight: 700; color: #3B2A7A; }
+  .auto-banner .ab-s { font-size: 12.5px; color: #4A3D7A; margin-top: 2px; line-height: 1.5; }
+  .ld-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .ld-fact, .ld-card { background: #fff; border: 1px solid #E1E7EE; border-radius: 10px; padding: 12px 14px; }
+  .ld-fact .k { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8CA0B4; margin-bottom: 6px; }
+  .ld-fact .v { font-size: 13.5px; font-weight: 600; color: #1B2B3E; }
+  .ld-fact .l2 { font-size: 12px; font-weight: 400; color: #5B6B7E; margin-top: 2px; }
+  .ld-notes { margin: 0 0 0 18px; font-size: 13px; color: #3D4F63; line-height: 1.7; }
+  @media (max-width: 900px) { .ld-facts { grid-template-columns: 1fr; } }
   .log-empty { padding: 28px 20px; text-align: center; font-size: 13px; color: var(--muted); }
   @media (max-width: 1000px) { .log-grid { grid-template-columns: 130px 1fr 1fr 110px 24px; }
     .log-grid > .lg-hide { display: none; } .log-detail { padding-left: 20px; } }
@@ -818,7 +833,8 @@
       method: 'manual', status: 'completed', add: 12, mod: 118, deact: 6, jobsEnd: 31, roster: true,
       notes: ['2 first-name changes confirmed', '6 deactivations confirmed', '31 job removals confirmed'] },
     { at: 'Sep 24, 2026', time: '2:00 AM', file: 'powerschool_staff_2026-09-24.csv', rows: 171, by: 'Automated sync', role: 'PowerSchool · nightly (SFTP)',
-      method: 'auto', status: 'completed', add: 1, mod: 14, deact: 0, jobsEnd: 2, roster: true, notes: [] },
+      method: 'auto', status: 'failed', roster: true, reviewId: 'auto',
+      notes: ['Stopped: warnings need an admin’s approval — automated uploads can’t approve warnings on their own', 'Nothing was changed'] },
     { at: 'Sep 23, 2026', time: '3:41 PM', file: 'powerschool_export_full.csv', rows: 168, by: 'Mark Osei', role: 'Technology Director',
       method: 'manual', status: 'blocked', roster: false,
       notes: ['Blocking: A username in this file matches more than one active user on your site (row 48)', 'Nothing was changed'] },
@@ -878,6 +894,12 @@
   // as a separate group of targets in the mapping dropdown.
   var ATTRIBUTES = ['Employee ID', 'Department', 'Grade level', 'Hire date'];
 
+  /* Automated runs reopened from the upload log (2026-09-29) — not in the picker.
+     'auto' = stopped on warnings (admin can approve & run); 'autob' = blocked. */
+  FILES.push({ id: 'auto',  name: 'powerschool_staff_2026-09-24.csv', rows: 171, hidden: true },
+             { id: 'autob', name: 'powerschool_staff_2026-09-25.csv', rows: 171, hidden: true });
+  COLS.auto = COLS.autob = COLS.saml;
+
   var NOT_IMPORTED = '— Not imported —';
 
   /* Colors (2026-09-25): BLUE = imports fine (info); YELLOW = a change to confirm;
@@ -926,7 +948,9 @@
     disc: {},            // open/closed state for the progressive-disclosure expanders
     attnSev: 'fixable',  // attention-needed step severity: 'fixable' (amber) | 'escalate' (red)
     attnSent: false,     // escalate handed to Vector's team
-    variantsCollapsed: false
+    variantsCollapsed: false,
+    logDetail: null,     // index of the upload shown on its own page
+    autoReview: null     // index of the automated log run being reviewed / approved
   };
   var _validateTimer = null;
 
@@ -986,6 +1010,7 @@
       case 'saml':    b = { add: 9,  mod: 147, deactOn: 14,  jobsAdd: 18, jobsRem: 40,  ppl: 33,  pos: 6, loc: 4 }; break;
       case 'dupes':   b = { add: 26, mod: 124, deactOn: 12,  jobsAdd: 30, jobsRem: 27,  ppl: 21,  pos: 5, loc: 3 }; break;
       case 'blast':   b = { add: 2,  mod: 166, deactOn: 0,   jobsAdd: 4,  jobsRem: 150, ppl: 120, pos: 9, loc: 6 }; break;
+      case 'auto': case 'autob': b = { add: 3, mod: 14, deactOn: 1, jobsAdd: 2, jobsRem: 2, ppl: 2, pos: 1, loc: 1 }; break;
       default:        b = { add: 0,  mod: 0,   deactOn: 0,   jobsAdd: 0,  jobsRem: 0,   ppl: 0,   pos: 0, loc: 0 }; break;
     }
     return { add: b.add, mod: b.mod, deact: pu ? b.deactOn : 0,
@@ -1173,7 +1198,9 @@
     confirm: [['duplicate_user_in_system'], ['removed_rows'], ['early_begin_date'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
     saml:    [['broken_begin_date'], ['unknown_attribute'], ['password_changed', 2], ['early_end_date'], ['new_person', 9], ['all_rows', 156]],
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
-    blast:   null   // copy review: EVERY catalog message, in catalog order
+    blast:   null,  // copy review: EVERY catalog message, in catalog order
+    auto:    [['duplicate_user_in_system'], ['password_changed', 2], ['new_person', 3], ['all_rows', 171]],
+    autob:   [['broken_begin_date'], ['duplicate_person'], ['new_person', 3], ['all_rows', 171]]
   };
   // Totals for the copy-review file. Sampled messages show a subset of rows but say the real total.
   var SUMMARY_COUNTS = { total_person_change: 168, large_person_change: 160, unchanged_rows: 32, all_rows: 168,
@@ -1207,10 +1234,10 @@
       var dp = fileId === 'confirm' ? IMPACT.deacts.map(function (d) { return { name: d.name, user: d.user, job: d.job }; })
         : people(sm.deact, 200).map(function (p) { return { name: p.name, user: p.user, job: p.pos + ' · ' + p.loc }; });
       A.push({ id: 'purge', key: 'not in catalog', tier: 'confirm', repBtn: true,
-        title: sm.deact + ' people aren’t in this file and will be deactivated.', sub: 'Their training history is kept.',
+        title: sm.deact + (sm.deact === 1 ? ' person isn’t' : ' people aren’t') + ' in this file and will be deactivated.', sub: 'Their training history is kept.',
         list: { head: ['Person', 'Username', 'Current job', 'If you continue'],
           rows: dp.map(function (d) { return [d.name, { v: d.user, c: 'row' }, d.job, { v: 'Deactivated', c: 'loss' }]; }) },
-        ackLabel: 'I’ve checked the list — deactivate these ' + sm.deact + ' people.' });
+        ackLabel: 'I’ve checked the list — deactivate ' + (sm.deact === 1 ? 'this person.' : 'these ' + sm.deact + ' people.') });
     }
     if (pj && sm.jobsRemoved > 0) {
       var jobs = [];
@@ -1220,7 +1247,7 @@
       }
       jobs.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0; });
       A.push({ id: 'purge-jobs', key: 'not in catalog', tier: 'confirm', repBtn: true,
-        title: sm.jobsRemoved + ' jobs aren’t in this file and will end.', sub: 'The training tied to them comes off those people.',
+        title: sm.jobsRemoved + (sm.jobsRemoved === 1 ? ' job isn’t' : ' jobs aren’t') + ' in this file and will be removed.', sub: 'The training tied to them comes off those people.',
         list: { head: ['Person', 'Username', 'Job ending'], rows: jobs },
         ackLabel: 'I’ve checked these — end the jobs that aren’t in my file.' });
     }
@@ -1514,7 +1541,7 @@
     // Preloaded sample "files" — greyed and boxed so it's clear they're mock
     // stand-ins, not real files on the tester's computer. Sorted cleanest → worst
     // (their order in FILES); the scenario/tag rides along in the meta line.
-    var files = FILES.map(function (f) {
+    var files = FILES.filter(function (f) { return !f.hidden; }).map(function (f) {
       var kb = Math.max(2, Math.round(f.rows * 0.28));  // plausible fake size
       return '<div class="fp-file" data-act="pickFile" data-arg="' + f.id + '">'
         + '<div class="fp-ico"><i class="fa-solid fa-file-csv"></i></div>'
@@ -1885,12 +1912,15 @@
     if (confirms.length && blocked.length === 0) {
       side += '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">' + acked.length + ' of ' + confirms.length + ' confirmation' + (confirms.length === 1 ? '' : 's') + ' acknowledged</div>';
     }
-    side += '<button class="btn" data-act="runImport" style="width:100%;border:none;background:' + (canSubmit ? '#1257B8' : '#C6D3E1') + ';color:#fff;font-size:14px;font-weight:600;padding:11px 0;border-radius:8px;cursor:' + (canSubmit ? 'pointer' : 'not-allowed') + ';"' + (canSubmit ? '' : ' disabled') + '>Run import</button>'
+    side += '<button class="btn" data-act="runImport" style="width:100%;border:none;background:' + (canSubmit ? '#1257B8' : '#C6D3E1') + ';color:#fff;font-size:14px;font-weight:600;padding:11px 0;border-radius:8px;cursor:' + (canSubmit ? 'pointer' : 'not-allowed') + ';"' + (canSubmit ? '' : ' disabled') + '>' + (state.autoReview != null ? 'Approve &amp; run import' : 'Run import') + '</button>'
       // "Replace file" -> "Cancel import" (2026-09-24): an unconfirmed upload is a
       // cancelled attempt; the user starts a whole new upload. Also the one way out
       // for a BLOCKED import. OPEN: does a cancelled upload appear in the upload log?
-      + '<button class="btn btn--outline-red" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
-      + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it.</div>'
+      + (state.autoReview != null
+        ? '<button class="btn btn--ghost" data-act="autoBack" style="width:100%;margin-top:8px;">Back to upload log</button>'
+          + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you approve it. Tonight’s automated upload still runs as usual.</div>'
+        : '<button class="btn btn--outline-red" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
+          + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it.</div>')
       // Support articles (2026-09-25 — replaces the Edit mapping / Change settings
       // links; the stepper already jumps back to earlier steps).
       + '<div class="divider" style="margin:14px 0;"></div>'
@@ -1971,6 +2001,7 @@
     };
     function pill(cls, ico, label) { return '<span class="log-pill ' + cls + '"><i class="fa-solid ' + ico + '" aria-hidden="true"></i>' + label + '</span>'; }
     function changes(r) {
+      if (r.reviewId) return '<span class="log-review">' + (runHasBlock(r.reviewId) ? 'See what stopped it' : 'Review &amp; approve') + ' <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>';
       if (r.status !== 'completed') return '<span style="color:#8CA0B4;">No changes</span>';
       function s(cls, txt) { return '<span class="' + cls + '" style="white-space:nowrap;">' + txt + '</span>'; }
       var out = [s('ba-add', r.add + ' added'), s('', r.mod + ' updated')];
@@ -1981,7 +2012,7 @@
     var body = rows.map(function (x) {
       var r = x.r, open = state.logOpen === x.i, st = STATUS[r.status];
       var method = r.method === 'auto' ? pill('lp-auto', 'fa-arrows-rotate', 'Automated') : pill('lp-manual', 'fa-user', 'Manual');
-      var row = '<div class="log-grid log-row' + (open ? ' is-open' : '') + '" data-act="logOpen" data-arg="' + x.i + '" role="button" tabindex="0" aria-expanded="' + open + '">'
+      var row = '<div class="log-grid log-row' + (open ? ' is-open' : '') + '" data-act="' + (r.reviewId ? 'reviewAuto' : 'logDetail') + '" data-arg="' + x.i + '" role="button" tabindex="0">'
         + '<div><div class="l1">' + esc(r.at) + '</div><div class="l2">' + esc(r.time) + '</div></div>'
         + '<div style="min-width:0;"><div class="fname" title="' + esc(r.file) + '">' + esc(r.file) + '</div><div class="l2">' + (r.rows ? r.rows + ' rows' : '—') + '</div></div>'
         + '<div class="lg-hide" style="min-width:0;"><div class="l1">' + esc(r.by) + '</div><div class="l2">' + esc(r.role) + '</div></div>'
@@ -1990,17 +2021,6 @@
         + '<div style="font-size:12.5px;color:#3D4F63;line-height:1.45;">' + changes(r) + '</div>'
         + '<div class="chev"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></div>'
         + '</div>';
-      if (open) {
-        row += '<div class="log-detail">'
-          + '<div><span class="ld-k">Run by:</span> ' + esc(r.by) + ' · ' + esc(r.role) + ' — ' + (r.method === 'auto' ? 'automated (set up by Vector)' : 'manual upload') + '</div>'
-          + '<div><span class="ld-k">Result:</span> ' + st[2] + ' · ' + changes(r) + '</div>'
-          + '<div><span class="ld-k">“Deactivate anyone and any jobs not in this file”:</span> ' + (r.roster ? 'On' : 'Off') + '</div>'
-          + (r.notes && r.notes.length ? '<div><span class="ld-k">Alerts &amp; notes</span><ul>' + r.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>' : '')
-          + '<div style="display:flex;gap:10px;flex-wrap:wrap;">'
-          + (r.rows ? '<button class="btn sm btn--ghost" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Original file</button>' : '')
-          + (r.status === 'completed' ? '<button class="btn sm btn--ghost" data-act="noop"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Change report (.csv)</button>' : '')
-          + '</div></div>';
-      }
       return row;
     }).join('');
     return '<div class="fadeup">'
@@ -2013,6 +2033,62 @@
       + '<div class="log-grid log-th"><div>When</div><div>File</div><div class="lg-hide">Uploaded by</div><div>Method</div><div class="lg-hide">Result</div><div>Changes</div><div></div></div>'
       + (body || '<div class="log-empty">No uploads match this filter.</div>')
       + '</div></div>';
+  }
+
+  /* One upload's own page (2026-09-29) — opened from a log row instead of expanding it. */
+  function logDetailHTML() {
+    var r = state.log[state.logDetail]; if (!r) return '';
+    var STATUS = { completed: ['lp-ok', 'fa-circle-check', 'Completed'], blocked: ['lp-blocked', 'fa-ban', 'Blocked'],
+      cancelled: ['lp-cancelled', 'fa-circle-xmark', 'Cancelled'], failed: ['lp-failed', 'fa-triangle-exclamation', 'Failed'] };
+    var st = STATUS[r.status];
+    function pill(cls, ico, label) { return '<span class="log-pill ' + cls + '"><i class="fa-solid ' + ico + '" aria-hidden="true"></i>' + label + '</span>'; }
+    function fact(k, v) { return '<div class="ld-fact"><div class="k">' + k + '</div><div class="v">' + v + '</div></div>'; }
+    function kpi(k, v, col) { return '<div class="kpi-row"><span class="k">' + k + '</span><span class="v" style="color:' + col + ';">' + v + '</span></div>'; }
+    var done = r.status === 'completed';
+    var side = '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:18px 20px;">'
+      + '<div class="kpi-eyebrow">What changed</div>'
+      + (done
+        ? '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">' + kpi('New users added', r.add, '#067647') + kpi('Existing users updated', r.mod, '#1257B8')
+          + kpi('Users deactivated', r.deact || 0, r.deact ? '#B42318' : '#8CA0B4') + (r.jobsEnd ? kpi('Jobs ended', r.jobsEnd, '#B42318') : '') + '</div>'
+        : '<div style="font-size:13px;color:#5B6B7E;margin-top:10px;">Nothing was changed on your site.</div>')
+      + '<div class="divider" style="margin:16px 0;"></div><div style="display:flex;flex-direction:column;gap:8px;">'
+      + (r.rows ? '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-download" aria-hidden="true"></i> Original file</button>' : '')
+      + (done ? '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Change report (.csv)</button>' : '')
+      + '</div></div>';
+    var notes = (r.notes && r.notes.length)
+      ? '<div class="ld-card"><div class="kpi-eyebrow" style="margin-bottom:8px;">Alerts &amp; notes</div><ul class="ld-notes">'
+        + r.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></div>' : '';
+    return '<div class="fadeup">'
+      + '<a href="#" class="sync-back" data-act="goLog"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to upload log</a>'
+      + '<div class="log-card" style="padding:24px 28px;">'
+      + '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;">'
+      + '<div style="min-width:0;"><div class="log-title mono" style="font-size:17px;word-break:break-all;">' + esc(r.file) + '</div>'
+      + '<div class="log-sub">' + (r.rows ? r.rows + ' rows · ' : '') + esc(r.at) + ' at ' + esc(r.time) + '</div></div>'
+      + pill(st[0], st[1], st[2]) + '</div>'
+      + '<div style="display:flex;gap:20px;align-items:flex-start;">'
+      + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">'
+      + '<div class="ld-facts">'
+      + fact('Uploaded by', esc(r.by) + '<div class="l2">' + esc(r.role) + '</div>')
+      + fact('Method', r.method === 'auto' ? pill('lp-auto', 'fa-arrows-rotate', 'Automated') : pill('lp-manual', 'fa-user', 'Manual'))
+      + fact('Deactivate anyone and any jobs not in this file', r.roster ? 'On' : 'Off')
+      + '</div>' + notes + '</div>'
+      + '<div style="width:290px;flex:0 0 290px;">' + side + '</div>'
+      + '</div></div></div>';
+  }
+
+  function runHasBlock(id) {
+    return (FILE_MSGS[id] || []).some(function (m) { return CATALOG[m[0]] && CATALOG[m[0]].tier === 'blocked'; });
+  }
+  /* Header for an automated run reopened from the log (replaces the stepper). */
+  function autoBannerHTML() {
+    var r = state.log[state.autoReview]; if (!r) return '';
+    var blocked = runHasBlock(r.reviewId);
+    return '<div class="auto-banner"><span class="ab-ico"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></span><div>'
+      + '<div class="ab-t">' + (blocked ? 'This automated upload was stopped' : 'This automated upload is waiting for your approval') + '</div>'
+      + '<div class="ab-s">' + esc(r.role) + ' · ' + esc(r.at) + ' at ' + esc(r.time) + '. '
+      + (blocked ? 'It has Blocking issues, so it can’t be approved — fix these rows in your export and the next automated upload picks it up.'
+                 : 'Automated uploads can’t approve warnings on their own. Review each one, then approve to run this file now.')
+      + ' Nothing has changed yet.</div></div></div>';
   }
 
   // Adds the current file's attempt to the top of the upload log.
@@ -2104,7 +2180,7 @@
       case 'done':     body = doneHTML(); break;
       default:         body = uploadHTML();
     }
-    var stepper = state.step !== 'done' ? stepperHTML() : '';
+    var stepper = state.autoReview != null ? (state.step === 'review' ? autoBannerHTML() : '') : (state.step !== 'done' ? stepperHTML() : '');
     // The template message lives in the template card under the stepper (merged with
     // the former top banner, 2026-09-24).
     return '<section data-screen-label="Manual import">' + stepper + body + '</section>';
@@ -2158,6 +2234,8 @@
       // Bulk import has taken over the whole viewport; the list sits behind it.
       overlay = importFullHTML();
       main = employeesLanding();
+    } else if (state.view === 'logDetail') {
+      main = '<div class="content emp-content">' + logDetailHTML() + '</div>';
     } else if (state.view === 'log') {
       main = '<div class="content emp-content">' + EMP_BACK + logHTML() + '</div>';
     } else if (state.view === 'employees') {
@@ -2201,8 +2279,16 @@
     switch (act) {
       case 'noop': e.preventDefault(); break;
       /* Employees-tab entry points */
-      case 'goEmployees': e.preventDefault(); setState({ view: 'employees', addEmp: false, importFull: false }); scrollTop(); break;
+      case 'goEmployees': e.preventDefault(); setState({ view: 'employees', addEmp: false, importFull: false, autoReview: null }); scrollTop(); break;
       case 'goLog': e.preventDefault(); setState({ view: 'log', importFull: false, addEmp: false, logOpen: null }); scrollTop(); break;
+      case 'reviewAuto': {
+        var rr = state.log[+arg];
+        setState({ view: 'import', importFull: true, fileId: rr.reviewId, mapping: defaultMapping(rr.reviewId), purgeUsers: !!rr.roster,
+          purgeJobs: !!rr.roster, acks: {}, disc: {}, step: 'review', validating: false, autoReview: +arg, confirmRun: false });
+        scrollTop(); break;
+      }
+      case 'autoBack': e.preventDefault(); setState({ view: 'log', importFull: false, logHl: state.autoReview, autoReview: null }); scrollTop(); break;
+      case 'logDetail': setState({ view: 'logDetail', logDetail: +arg }); scrollTop(); break;
       case 'logFilter': setState({ logFilter: arg, logOpen: null }); break;
       case 'logOpen': setState({ logOpen: state.logOpen === +arg ? null : +arg }); break;
       case 'addSingle': e.preventDefault(); setState({ addEmp: true, empMode: 'single' }); break;
@@ -2211,7 +2297,7 @@
       /* ver1 Bulk Upload — land on the full-screen "Upload file" step (Manual-import
          banner + stepper + template card + drop zone). The drop zone / "browse"
          then opens the file picker to actually choose a file (see pickFile). */
-      case 'goBulk': e.preventDefault(); setState({ tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'upload' }); scrollTop(); break;
+      case 'goBulk': e.preventDefault(); setState({ autoReview: null, tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'upload' }); scrollTop(); break;
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':
@@ -2236,6 +2322,14 @@
       case 'runImport': if (el.disabled) break; setState({ confirmRun: true }); break;   // 1st click -> confirmation modal
       case 'confirmRunNo': setState({ confirmRun: false }); break;
       case 'confirmRunYes':
+        if (state.autoReview != null) {   // approving an automated run updates ITS log row
+          var sa = summary(), lg = state.log.slice(), ar = {};
+          for (var lk in lg[state.autoReview]) ar[lk] = lg[state.autoReview][lk];
+          ar.status = 'completed'; ar.add = sa.add; ar.mod = sa.mod; ar.deact = sa.deact; ar.jobsEnd = sa.jobsRemoved; delete ar.reviewId;
+          ar.notes = ['Approved and run by Deborah Kim · Today'].concat(buildAlerts().filter(function (x) { return x.tier === 'confirm'; }).map(function (x) { return 'Approved: ' + x.title; }));
+          lg[state.autoReview] = ar; state.log = lg;
+          setState({ confirmRun: false, doneCounts: sa, step: 'done', autoReview: null }); scrollTop(); break;
+        }
         state.log = logAttempt('completed', buildAlerts().filter(function (x) { return x.tier === 'confirm'; })
           .map(function (x) { return 'Confirmed: ' + x.title; }));
         setState({ confirmRun: false, doneCounts: summary(), step: 'done' }); scrollTop(); break;
@@ -2312,7 +2406,12 @@
   function applyFlowState(id) {
     switch (id) {
       case 'employees': setState({ view: 'employees', addEmp: false, importFull: false }); break;
-      case 'log': setState({ view: 'log', addEmp: false, importFull: false, logOpen: 0, logFilter: 'all' }); break;
+      case 'auto-review': {
+        var ai = -1; state.log.forEach(function (r, i) { if (ai < 0 && r.reviewId === 'auto') ai = i; });
+        setState({ view: 'import', importFull: true, fileId: 'auto', mapping: defaultMapping('auto'), purgeUsers: true, purgeJobs: true,
+          acks: {}, disc: {}, step: 'review', validating: false, autoReview: ai }); break;
+      }
+      case 'log': setState({ view: 'log', addEmp: false, importFull: false, logFilter: 'all' }); break;
       case 'intro':   // former Intro page, now merged into Upload
       case 'upload': setState({ tab: 'import', view: 'import', importFull: true, step: 'upload', fileId: null, validating: false }); break;
       case 'map': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'saml', mapping: defaultMapping('saml'), purgeUsers: false, purgeJobs: false, acks: {}, step: 'map', validating: false }); break;
@@ -2364,6 +2463,8 @@
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
         { id: 'review-confirm', flow: 'import', x: 1030, y: 60, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
           desc: 'duplicate_user_in_system (name change, e.g. Jessyca → Jesse) + info; with the setting on, deactivation and job-ending lists (not in the catalog yet). Every WARNING is acknowledged before Run import unlocks. Review opens with “Your choices” (mapping + setting, each with Edit).' },
+        { id: 'auto-review', flow: 'import', x: 1030, y: 250, step: 'Log → Review', name: 'Approve a stopped automated run', state: 'auto-review',
+          desc: 'Clicking an automated upload that stopped in the log opens the Review changes design for that run (a banner replaces the stepper). Warnings only → the admin acknowledges each and clicks “Approve & run import” (the manual permission the automated run can’t give itself); the log row flips to Completed · Approved by …. Blocking issues → can’t be approved; fix the export.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',
           desc: 'Every upload on the site: when, file, who ran it, Manual vs Automated, result (Completed / Blocked / Cancelled / Failed) and what changed. Filter by method; rows expand for the setting used, alerts, and downloads. Reached from Employees → Upload log and the Import complete screen.' },
         { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Import complete', state: 'done',
@@ -2386,7 +2487,7 @@
         ['upload', 'map'], ['upload', 'settings'], ['map', 'settings'],
         ['settings', 'review-info'], ['settings', 'review-confirm'], ['settings', 'review-blocked'],
         ['settings', 'review-saml'], ['settings', 'review-escalate'],
-        ['review-info', 'done'], ['review-confirm', 'done'], ['done', 'log'], ['employees', 'log']
+        ['review-info', 'done'], ['review-confirm', 'done'], ['done', 'log'], ['employees', 'log'], ['log', 'auto-review']
       ]
     }
   };
