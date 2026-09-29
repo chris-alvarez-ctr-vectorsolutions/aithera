@@ -31,6 +31,17 @@ const KIT_FILES = ['index.html', 'object-manager.html', 'demo.css'];
    media, since only lockout-tagout happened to have the file. */
 const KIT_ASSETS = ['generate-img-sample.jpeg'];
 
+/* A course can OVERRIDE any kit asset by putting a file of the same name
+   in its own `kit-assets/` folder. The generated media sample is the
+   obvious case: it is what a customer sees the moment a rep "generates"
+   an image, so a pumps demo wants a pump, not the generic sample.
+
+   Overrides live in `kit-assets/` rather than `assets/` on purpose.
+   `assets/` is a build OUTPUT for these filenames -- the kit copies over
+   it every build -- so a file placed there is silently reverted on the
+   next run. `kit-assets/` is authored input and is never written to. */
+const COURSE_ASSET_OVERRIDES = 'kit-assets';
+
 function fmtMSS(t) {
   return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
 }
@@ -157,13 +168,19 @@ function findObject(course, objectId) {
   // Assets the shared UI needs. Copied every build so a course can't drift
   // from the kit, and never overwriting course content (these filenames are
   // kit-owned — don't author a scene image with the same name).
+  // A course's own kit-assets/<name> wins over the kit's copy.
+  const overridden = [];
   KIT_ASSETS.forEach(f => {
-    const src = path.join(KIT, 'assets', f);
+    const own = path.join(dir, COURSE_ASSET_OVERRIDES, f);
+    const src = fs.existsSync(own) ? own : path.join(KIT, 'assets', f);
+    if (src === own) overridden.push(f);
     if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dir, 'assets', f));
   });
 
   console.log(`    ✓ course-data.js + ${KIT_FILES.length} kit files + ` +
-              `${KIT_ASSETS.length} kit asset${KIT_ASSETS.length === 1 ? '' : 's'}\n`);
+              `${KIT_ASSETS.length} kit asset${KIT_ASSETS.length === 1 ? '' : 's'}` +
+              (overridden.length ? ` (${overridden.join(', ')} from this course)` : '') +
+              `\n`);
   return true;
 }
 
