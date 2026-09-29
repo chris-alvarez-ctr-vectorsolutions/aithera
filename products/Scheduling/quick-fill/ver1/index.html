@@ -183,8 +183,8 @@
   .qp-picker:hover, .qp-picker.open { border-color: #66afe9; }
   .qp-picker .k { color: #999; } .qp-picker .v { font-weight: 600; } .qp-picker .car { color: #888; font-size: 9px; }
   .qp-default { font-size: 11px; color: #999; }
-  .qp-override { display: inline-flex; align-items: center; gap: 8px; }
-  .qp-pill { padding: 2px 8px; border-radius: 10px; background: #fcf3d6; color: #8a6d3b; font-size: 11px; font-weight: 600; }
+  .qp-opt-end { display: inline-flex; align-items: center; gap: 8px; flex: none; }
+  .qp-deftag { padding: 1px 7px; border-radius: 9px; background: #eaf3f8; border: 1px solid #b8d6e6; color: #2c5f80; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
   .qp-reset { font-size: 11px; color: #2e6da4; cursor: pointer; }
   .qp-reset:hover { text-decoration: underline; }
 
@@ -196,7 +196,7 @@
   .qp-opt:hover { border-color: #66afe9; background: #f7fbfd; }
   .qp-opt .n { font-size: 12px; font-weight: 500; display: block; }
   .qp-opt .m { font-size: 11px; color: #999; }
-  .qp-opt .chk { color: #2e6da4; font-weight: 700; }
+  .qp-opt .chk { width: 12px; text-align: center; color: #2e6da4; font-weight: 700; }   /* fixed width so the Default tag doesn't shift */
 
   .qp-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 18px; background: #f2f2f2; border-bottom: 1px solid #e4e4e4; flex: none; font-size: 11px; color: #777; }
   .qp-count .ex { color: #999; }
@@ -360,14 +360,14 @@
   /* ── Mock data ─────────────────────────────────────────────── */
   // Approach = WHO is eligible. a1 is the default for this shift's qualifier.
   const APPROACHES = [
-    { id: 'a1', name: 'Medic Callback Pool',       meta: '38 qualified · default for this qualifier' },
+    { id: 'a1', name: 'Medic Callback Pool',       meta: '38 qualified' },
     { id: 'a2', name: 'Station 4 + Adjacent',      meta: '21 qualified · geographic' },
     { id: 'a3', name: 'ALS Overtime Volunteers',   meta: '14 qualified · opt-in list' },
     { id: 'a4', name: 'All Paramedics (District)', meta: '96 qualified · broadest' }
   ];
   // Rule = HOW they rank. r1 is the default for this shift's qualifier.
   const RULES = [
-    { id: 'r1', name: 'Lowest OT Hours',               meta: 'ascending OT · default for this qualifier' },
+    { id: 'r1', name: 'Lowest OT Hours',               meta: 'ascending OT' },
     { id: 'r2', name: 'Seniority (Most Senior First)', meta: 'by hire date' },
     { id: 'r3', name: 'Position Order',                meta: 'next position in order' },
     { id: 'r4', name: 'Least Recently Called',         meta: 'longest since last callback' }
@@ -432,7 +432,8 @@
       </div>`;
   }
 
-  function menuHtml(heading, items, activeId, action) {
+  // Default tag stays on the qualifier default; the ✓ follows the current pick.
+  function menuHtml(heading, items, activeId, defaultId, action) {
     return `
       <div class="qp-menu">
         <div class="qp-menu-h">${heading}</div>
@@ -440,7 +441,10 @@
           ${items.map(o => `
             <div class="qp-opt" data-action="${action}" data-id="${o.id}">
               <span><span class="n">${o.name}</span><span class="m">${o.meta}</span></span>
-              ${o.id === activeId ? '<span class="chk">✓</span>' : ''}
+              <span class="qp-opt-end">
+                ${o.id === defaultId ? '<span class="qp-deftag">Default</span>' : ''}
+                <span class="chk">${o.id === activeId ? '✓' : ''}</span>
+              </span>
             </div>`).join('')}
         </div>
       </div>`;
@@ -506,12 +510,12 @@
             </div>
             ${isDefault
               ? '<span class="qp-default">defaulted from qualifier</span>'
-              : '<span class="qp-override"><span class="qp-pill">Overridden</span><span class="qp-reset" data-action="reset">Reset</span></span>'}
+              : '<span class="qp-reset" data-action="reset">Reset to default</span>'}
           </div>
         </div>
 
-        ${state.approachMenuOpen ? menuHtml('APPROACH — WHO IS ELIGIBLE', APPROACHES, state.approach, 'pickApproach') : ''}
-        ${state.ruleMenuOpen ? menuHtml('RULE — HOW THEY RANK', RULES, state.rule, 'pickRule') : ''}
+        ${state.approachMenuOpen ? menuHtml('APPROACH — WHO IS ELIGIBLE', APPROACHES, state.approach, 'a1', 'pickApproach') : ''}
+        ${state.ruleMenuOpen ? menuHtml('RULE — HOW THEY RANK', RULES, state.rule, 'r1', 'pickRule') : ''}
 
         <div class="qp-count">
           <span>${list.length} available, ranked</span>
@@ -612,8 +616,8 @@
           step: 'Override', name: 'Pick rule', state: 'rule',
           desc: 'Rule = HOW they rank. The deciding factor chip is highlighted on every card.' },
         { id: 'override', flow: 'main', x: 900, y: 200,
-          step: 'Override', name: 'Overridden', state: 'override',
-          desc: 'Non-default approach/rule shows an "Overridden" pill with a one-click Reset.' },
+          step: 'Override', name: 'Changed', state: 'override',
+          desc: 'Non-default approach/rule shows a one-click Reset to default; the Default tag stays on the original option in each menu.' },
         { id: 'filled', flow: 'main', x: 900, y: 370,
           step: 'Step 3', name: 'Filled', state: 'filled',
           desc: 'Fill drops the person into the employee field as a token; the card turns green.' }
