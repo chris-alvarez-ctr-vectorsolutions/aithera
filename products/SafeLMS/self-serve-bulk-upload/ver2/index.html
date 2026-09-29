@@ -943,8 +943,8 @@
       method: 'auto', status: 'blocked', roster: true, reviewId: 'auto',
       notes: ['Stopped: warnings need an admin’s approval — automated uploads can’t approve warnings on their own', 'Nothing was changed'] },
     { at: 'Sep 23, 2026', time: '3:41 PM', file: 'safeschools_export_full.csv', rows: 168, by: 'Mark Osei', role: 'Technology Director',
-      method: 'manual', status: 'blocked', roster: false,
-      notes: ['Blocking: A username in this file matches more than one active user on your site (row 48)', 'Nothing was changed'] },
+      method: 'manual', status: 'cancelled', roster: false,
+      notes: ['Cancelled on Review changes — it had a Blocking issue: a username matches more than one active user on your site (row 48)', 'Nothing was changed'] },
     { at: 'Sep 23, 2026', time: '2:00 AM', file: 'safeschools_staff_2026-09-23.csv', rows: 170, by: 'Automated sync', role: 'SafeSchools · nightly (SFTP)',
       method: 'auto', status: 'completed', add: 0, mod: 6, deact: 0, jobsEnd: 0, roster: true, notes: [] },
     { at: 'Sep 22, 2026', time: '11:15 AM', file: 'athletics_coaches.xlsx', rows: 18, by: 'Dana Whitfield', role: 'HR Coordinator',
@@ -2175,8 +2175,9 @@
     function pill(cls, ico, label) { return '<span class="log-pill ' + cls + '"><i class="fa-solid ' + ico + '" aria-hidden="true"></i>' + label + '</span>'; }
     // One row per upload (2026-09-29): changes get their own number columns instead of a wrapped sentence.
     function changes(r) {
-      if (r.reviewId) return '<div class="lg-span4"><span class="log-review">' + (runHasBlock(r.reviewId) ? 'See what stopped it' : 'Review &amp; approve') + ' <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span></div>';
-      if (r.status !== 'completed') return '<div class="lg-span4" style="color:#8CA0B4;">No changes</div>';
+      // Didn't run: no "No changes" text — just the row's arrow. Waiting-for-approval runs keep their call to action.
+      if (r.reviewId && !runHasBlock(r.reviewId)) return '<div class="lg-span4"><span class="log-review">Review &amp; approve <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span></div>';
+      if (r.status !== 'completed') return '<div class="lg-span4"></div>';
       function n(v, danger) { return '<div class="lg-num' + (v ? (danger ? ' ba-rem' : '') : ' is-zero') + '">' + (v || 0) + '</div>'; }
       return n(r.add) + n(r.mod) + n(r.deact, true) + n(r.jobsEnd, true);
     }
@@ -2544,10 +2545,11 @@
       case 'next': go(flow()[Math.min(flow().length - 1, flow().indexOf(state.step) + 1)]); scrollTop(); break;
       case 'togglePurgeAll': { var pv = !(state.purgeUsers && state.purgeJobs); setState({ purgeUsers: pv, purgeJobs: pv }); break; }  // one all-or-nothing switch
       case 'cancelImport': e.preventDefault();
-        // Cancelled (or blocked) attempts are logged too — nothing changed, but admins can see the try.
+        // Cancelled attempts are logged too. A manual upload is never "Blocked" (2026-09-29) —
+        // with Blocking issues the admin can only cancel, so it's Cancelled; only automated runs show Blocked.
         var hard = buildAlerts().filter(function (x) { return x.tier === 'blocked' || x.tier === 'escalate'; });
-        state.log = logAttempt(hard.length ? 'blocked' : 'cancelled', hard.length
-          ? hard.map(function (x) { return 'Blocked: ' + x.title; }).concat(['Nothing was changed'])
+        state.log = logAttempt('cancelled', hard.length
+          ? ['Cancelled on Review changes — it had ' + (hard.length === 1 ? 'a Blocking issue' : hard.length + ' Blocking issues')].concat(hard.map(function (x) { return 'Blocking: ' + x.title; }), ['Nothing was changed'])
           : ['Cancelled on Review changes — nothing was changed']);
         setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false, validating: false, cancelled: true }); scrollTop(); break;
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
@@ -2705,7 +2707,7 @@
         { id: 'auto-review', flow: 'import', x: 1030, y: 250, step: 'Log → Review', name: 'Approve a stopped automated run', state: 'auto-review',
           desc: 'Clicking an automated upload that stopped in the log opens the Review changes design for that run (a banner replaces the stepper). Warnings only → the admin acknowledges each and clicks “Approve & run import” (the manual permission the automated run can’t give itself); the log row flips to Completed · Approved by …. Blocking issues → can’t be approved; fix the export.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',
-          desc: 'Every upload on the site: when, file, who ran it, Manual vs Automated, result (Completed / Blocked / Cancelled) and what changed. Filter by method; rows expand for the setting used, alerts, and downloads. Reached from Employees → Upload log and the Import complete screen.' },
+          desc: 'Every upload on the site: when, file, who ran it, Manual vs Automated, result (Completed / Blocked — automated only / Cancelled) and what changed; runs that didn’t go show just the arrow. Filter by method; each row opens its own page. Reached from Employees → Upload log and the Import complete screen.' },
         { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Import complete', state: 'done',
           desc: 'Reached from the Info and Confirm paths. Irreversible once run — the design leans on prevention, not undo.' },
 

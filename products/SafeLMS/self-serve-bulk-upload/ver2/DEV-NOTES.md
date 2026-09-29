@@ -8,6 +8,10 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-09-29) Rows on every alert; complete list of changes
 
+- **[DONE]** Upload log: runs that didn't go leave the change columns empty — no "No changes" /
+  "See what stopped it" text, just the row's arrow. A run waiting for approval keeps "Review & approve →".
+- **[DONE]** **Blocked is automated-only.** A manual upload with Blocking issues can only be cancelled,
+  so it's logged as **Cancelled** (its note lists the Blocking issues).
 - **[DONE]** Every row-level alert (Blocking, Warning and Info) lists the **row** it's on: a "Row"
   column for people, a "Rows" column for positions / locations / codes. Lists of people who
   *aren't* in the file (deactivations, positions ended) say there's no row to point to.
