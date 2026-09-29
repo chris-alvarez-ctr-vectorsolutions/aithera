@@ -640,7 +640,8 @@
         /* ─── Form header (record identity) ───
            Left-aligned title with a two-column field grid below (label-beside-
            value pairs, sentence case). Sits at the top of the form content.
-           Shared status is not shown here — see .form-actions below. */
+           Its LAST row is the action cluster (.form-actions), divided off from
+           the meta grid — Pass all / Clear all, Privacy, Share. */
         /* Header container — matches the form-list card (same bg, border,
            radius, shadow) so it reads as a sibling of the form. */
         .form-header {
@@ -719,16 +720,22 @@
            bulk scoring actions, the privacy selection, and Share. Reads as a bar
            of chrome rather than a card, so it's flatter/tighter than .form-header
            and uses the page bg instead of the card bg. */
+        /* A dedicated row INSIDE the record header, not a card of its own.
+           It was a separate standalone card; nesting it means dropping the
+           card chrome (own background, border, radius, bottom margin) and
+           keeping only a top rule to divide it from the meta grid above.
+           The negative side margins pull the row out to the header's padding
+           edge so the divider spans the full card width rather than floating
+           inset; the padding puts the controls back on the header's own
+           alignment. */
         .form-actions {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
             gap: 8px 16px;
-            padding: 10px 16px;
-            margin-bottom: 16px;
-            background: var(--page-bg);
-            border: 1px solid var(--border-soft);
-            border-radius: 10px;
+            margin: 16px -24px 0;
+            padding: 14px 24px 0;
+            border-top: 1px solid var(--border-soft);
         }
         .form-actions-group {
             display: inline-flex;
@@ -1203,11 +1210,6 @@
         /* .rec-locked* was the in-page locked empty state, removed in V3 —
            the gate is communicated by the pinned bar's lock chip instead. */
 
-        /* V2's .details-overlay / .details-panel CSS was removed here. V3
-           replaced that centered-overlay panel with the right-edge
-           .rec-details-panel (see the V3 block above), which sits beside the
-           pushed drawer instead of over it. */
-
         /* "No low ratings" empty state */
         .rec-empty {
             background: var(--lumo-success-color-10pct);
@@ -1315,10 +1317,49 @@
                token as its background. */
             background: var(--surface-opaque);
             box-shadow: 0 -4px 20px rgba(16, 24, 40, 0.14);
-            transition: transform 240ms ease;
+            /* The transform transition lives on the [data-gate] rules below —
+               declaring one here too would leave two competing definitions of
+               the same animation. */
         }
         /* Hidden entirely when the feature has nothing to say (no gaps). */
         .rec-dock[data-state="none"] { display: none; }
+
+        /* ── Gated out of view ──
+           The banner does not exist for the reviewer until every required
+           question is answered — there is no locked/disabled CTA to explain
+           itself, because there is nothing on screen to explain. It slides up
+           from the bottom edge when the gate clears, and drops back out if an
+           answer is removed.
+
+           `display: none` cannot be transitioned, so the hidden state is a
+           transform instead: the dock stays in the layout and is pushed fully
+           below its own bottom edge. visibility (not display) keeps it out of
+           the tab order and off the a11y tree while hidden, and it is
+           deferred until the slide finishes so the exit animation is visible.
+
+           110% rather than 100% clears the shadow that paints above the
+           dock's box. */
+        .rec-dock[data-gate="closed"] {
+            transform: translateY(110%);
+            visibility: hidden;
+            transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                        visibility 0s linear 260ms;
+            pointer-events: none;
+        }
+        .rec-dock[data-gate="open"] {
+            transform: translateY(0);
+            visibility: visible;
+            transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1),
+                        visibility 0s;
+        }
+        /* First paint must not animate — the banner should be absent, not
+           seen sliding away, when the form loads with the gate unmet. */
+        .rec-dock.rec-gate-init { transition: none !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .rec-dock[data-gate="closed"],
+            .rec-dock[data-gate="open"] { transition: none; }
+        }
 
         /* ── ALWAYS PINNED ──
            Every state sits flush on the bottom edge of the content column —
@@ -1418,44 +1459,6 @@
             flex-shrink: 0;
             display: flex; align-items: center; gap: 12px;
         }
-        /* ── Gated CTA ──
-           While locked, the action cluster shows the SAME button as the ready
-           state, in a disabled treatment, with the explanation moved into a
-           tooltip. The long sentence used to sit inline and wrap to two lines,
-           which made the bar's tallest state a paragraph of helper text.
-
-           Showing the real CTA (rather than a status chip) also tells the
-           reviewer what this feature will DO once it unlocks — the promise is
-           the marketing, and it now stays on screen the whole time.
-
-           The wrapper, not the button, is the interactive element: a truly
-           disabled <button> swallows pointer events, so a tooltip anchored to
-           it would never fire. The wrapper is focusable and carries
-           role="button" + aria-disabled="true", so the control is reachable by
-           keyboard and announced as disabled, while the inner visual is
-           aria-hidden to avoid the label being read twice. */
-        .rec-bar-cta-wrap {
-            display: inline-flex;
-            border-radius: 6px;
-            /* Not `cursor: not-allowed` — that reads as an error. This is a
-               "not yet" state, and the tooltip explains it. */
-            cursor: default;
-        }
-        .rec-bar-cta-wrap:focus-visible {
-            outline: 2px solid #fff;
-            outline-offset: 2px;
-        }
-        /* Matches the live CTA's box exactly, so the bar's action cluster does
-           not resize or shift when the gate clears — only the fill changes. */
-        .rec-bar-cta.disabled {
-            background: rgba(255, 255, 255, 0.16);
-            border-color: rgba(255, 255, 255, 0.32);
-            /* 0.78 white on the gradient's lighter stop (#0271ce) still clears
-               4.5:1, so the label stays AA-legible while reading as inactive. */
-            color: rgba(255, 255, 255, 0.78);
-            pointer-events: none;
-        }
-
         /* The bar's own CTA. A plain button rather than vaadin-button: it sits
            on a saturated gradient, where the theme's primary fill has no
            contrast to work against. */
@@ -1555,9 +1558,8 @@
             /* NO min-height here. It would clamp the animated height on the
                way open — the panel snaps straight to 220px and only then
                begins gliding, which is the jump this animation removes. The
-               220px floor is enforced where it actually matters instead: the
-               resize clamp and syncDrawerOpenHeight(), both of which compute
-               the drawer's resting height. */
+               220px floor is enforced where it actually matters instead:
+               syncDrawerOpenHeight(), which computes the resting height. */
             /* Never taller than the viewport minus the bar and a little
                breathing room for the form above. This is only a backstop —
                the JS ceiling (drawerMaxHeight) is the real limit and is
@@ -1602,14 +1604,8 @@
         .rec-dock:not([data-open]) .rec-drawer-body {
             opacity: 0;
         }
-        /* While dragging the resize grip the height is driven frame by frame,
-           so the transition must be off or it fights the pointer. */
-        .rec-dock.rec-no-anim .rec-drawer { transition: none; }
-
         /* No-gaps result: the panel is sized to its one line of copy, so the
-           resize grip and the (empty) toolbar's divider would both be
-           furniture around nothing. */
-        .rec-dock[data-empty] .rec-drawer-resize,
+           (empty) toolbar's divider would be furniture around nothing. */
         .rec-dock[data-empty] .rec-drawer-toolbar { display: none; }
 
         /* The chevron ROTATES rather than swapping glyphs — swapping would
@@ -1620,29 +1616,6 @@
             transition: transform 260ms cubic-bezier(0.4, 0, 0.2, 1);
         }
         .rec-dock[data-open] .rec-bar-chevron i { transform: rotate(180deg); }
-
-        /* Drag handle on the drawer's TOP edge — the drawer grows upward, so
-           the resize grip belongs on the edge that moves. */
-        .rec-drawer-resize {
-            flex-shrink: 0;
-            height: 12px;
-            display: flex; align-items: center; justify-content: center;
-            cursor: ns-resize;
-            background: var(--lumo-base-color);
-            border-bottom: 1px solid var(--border-soft);
-        }
-        .rec-drawer-resize::before {
-            content: '';
-            width: 46px; height: 4px;
-            border-radius: 999px;
-            background: var(--lumo-contrast-20pct);
-        }
-        .rec-drawer-resize:hover::before { background: var(--rec-accent); }
-        .rec-drawer-resize:focus-visible {
-            outline: 2px solid var(--rec-accent);
-            outline-offset: -2px;
-        }
-        body.rec-resizing { cursor: ns-resize; user-select: none; }
 
         /* Drawer toolbar — hosts Select All / Configure Assignment.
            Sticky-free: it's outside the scroll body, so it never overlaps
@@ -1717,25 +1690,23 @@
             margin: 0;
         }
 
-        /* ── Unavailable section ──
-           No container, no tint, no badge, no explanatory paragraph. An
-           earlier version wrapped these in a tinted dashed-border panel with a
-           licensing pitch, which made the courses the reviewer CAN'T use
-           louder than the ones they can.
+        /* ── Gated (not-yet-licensed) section ──
+           These courses are an OFFER, not a failure. An earlier version
+           desaturated and dimmed them like disabled controls, which made the
+           merchandise look broken — you cannot sell a course that is painted
+           to look switched off.
 
-           The cards carry the meaning instead, through a genuinely disabled
-           treatment: desaturated and dimmed. That reads as "not available to
-           you" without a sentence saying so. */
-        .rec-list-section.unavailable .rec-list-title,
-        .rec-list-section.unavailable .rec-list-sub {
-            color: var(--text-muted);
-        }
-        .rec-list-section.unavailable .rec-list-title i { color: var(--text-muted); }
+           So: full color, full opacity, normal legibility. The gating is
+           carried by an explicit lock affordance instead of by degrading the
+           card (see .rec-upsell-lock below). The heading keeps the accent
+           color rather than the muted grey the disabled treatment used. */
+        .rec-list-section.unavailable .rec-list-title { color: var(--text-strong); }
+        .rec-list-section.unavailable .rec-list-title i { color: var(--rec-accent); }
 
-        /* "Learn More" — the one CTA for the entire unlicensed grouping.
-           Pushed to the right end of the heading row. It deliberately does NOT
-           inherit the section's muted/disabled treatment: the cards are
-           unavailable, but this action is not. */
+        /* "Learn More" — the one CTA for the entire gated grouping, beside
+           the heading. Now that the section is no longer muted, this reads as
+           the section's natural next step rather than the one live control in
+           a greyed-out block. */
         .rec-upsell-learnmore {
             background: none;
             border: 1px solid var(--border-soft);
@@ -1756,30 +1727,12 @@
             outline-offset: 2px;
         }
 
-        /* Greyscale + dim is what actually sells "disabled" — opacity alone
-           just looks faded. 0.55 still leaves titles readable for anyone
-           deciding whether to open Details, which is the one action these
-           cards keep (selection is already off via disableSelection). */
-        .rec-list-section.unavailable vwc-course-list {
-            filter: grayscale(1);
-            opacity: 0.55;
-            transition: opacity 140ms ease;
-        }
-        /* Lift the dimming while the reviewer is actually inspecting them, so
-           the disabled look never costs legibility. */
-        .rec-list-section.unavailable vwc-course-list:hover,
-        .rec-list-section.unavailable vwc-course-list:focus-within {
-            opacity: 0.85;
-        }
-
-        /* Details-panel footer status for an unavailable course — replaces the
-           old Request access button. A statement, not a call to action. */
-        .rec-details-unavailable {
-            display: inline-flex; align-items: center; gap: 8px;
-            font-size: 12.5px; font-weight: 600;
-            color: var(--text-muted);
-        }
-        .rec-details-unavailable i { font-size: 12px; }
+        /* NO filter/opacity here on purpose — see the section note above. The
+           cards render exactly like the licensed ones; only the lock badge and
+           the section heading say they are gated. Selection is already off via
+           disableSelection, so there is no interactive affordance to suppress
+           and nothing for a dimmed look to usefully communicate. */
+        .rec-list-section.unavailable vwc-course-list { opacity: 1; filter: none; }
 
         /* ── Loading + generated transition ── */
         .rec-drawer-loading {
@@ -1792,12 +1745,21 @@
 
         /* ── Reflow (WCAG 1.4.10) ── */
         @media (max-width: 760px) {
-            /* Tighter side inset — at phone widths a 16px gutter each side is
-               already most of the screen. The base rule sets an explicit
-               `width: calc(100% - 24px)`, which would beat left/right alone,
-               so the width is overridden here too (without it this rule was
-               dead and the gutter never actually narrowed). */
-            .rec-dock { left: 10px; right: 10px; width: calc(100% - 20px); }
+            /* ── FULL BLEED at phone widths ──
+               The desktop dock deliberately overhangs the form's column to
+               read as a layer above the page. At phone widths there is no
+               column left to overhang, and a side gutter just spends scarce
+               horizontal space on decoration — so the dock goes edge to edge.
+               The base rule's explicit `width: calc(100% - 24px)` and
+               `max-width` both have to be overridden, or they beat left/right
+               and the gutter survives. The top corners square off: a radius
+               only reads as "panel" when there is page visible beside it. */
+            .rec-dock {
+                left: 0; right: 0;
+                width: 100%;
+                max-width: none;
+                border-radius: 0;
+            }
             /* ── Single-row bar (WCAG 1.4.10) ──
                The banner previously wrapped to THREE rows here (icon, then
                body at flex-basis:100%, then actions at 100%), which made it
@@ -1872,28 +1834,23 @@
                the open drawer from its content and caps it against the
                viewport (see drawerMaxHeight), and that value wins via
                .rec-dock[data-open]. Kept only as the pre-JS fallback. */
-            /* A drag-resized drawer is not usable at this width; fix the
-               height and hide the grip. */
             .rec-drawer { height: 62vh; }
-            .rec-drawer-resize { display: none; }
-            .rec-drawer-toolbar, .rec-drawer-body { padding-left: 16px; padding-right: 16px; }
+            /* The dock is now full-bleed, so this padding is the ONLY inset
+               between the cards and the screen edge — 12px reads as a margin
+               without spending the width the 265px card grid needs (it clears
+               320px by only ~4px). The bar keeps its own 12px from the
+               single-row rule above, so all three stay aligned. */
+            .rec-drawer-toolbar, .rec-drawer-body { padding-left: 12px; padding-right: 12px; }
 
             /* ── Toolbar stays ONE row at phone widths ──
-               Three full labels are ~347px of content in ~268px of usable
-               width, so the optional half of each label is dropped rather
-               than allowed to wrap: "Select All" -> "Select" and
-               "Configure Assignment" -> "Configure". Hidden visually only, so
-               the accessible names are unchanged (Configure also carries an
-               explicit aria-label). */
-            .tb-label {
-                position: absolute;
-                width: 1px; height: 1px;
-                padding: 0; margin: -1px;
-                overflow: hidden;
-                clip-path: inset(50%);
-                white-space: nowrap;
-                border: 0;
-            }
+               The labels stay FULL — "Select All" and "Configure Assignment"
+               — because the full-bleed dock made room for them: usable width
+               went from 268px to 296px at a 320px viewport, and the two
+               buttons need ~250px. An earlier pass shortened them to
+               "Select" / "Configure" when the dock still had a side gutter
+               and they did not fit; that is no longer true.
+               (.tb-label is kept in the markup as the seam for shortening
+               them again if a narrower case ever needs it.) */
             .rec-drawer-toolbar { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
             .rec-configure-btn { margin-left: 0; padding: 8px 12px; }
             .rec-selectall-btn,
@@ -1932,148 +1889,9 @@
                including the drawer's grow/shrink and the chevron's rotation.
                The JS still measures correctly: it reads real geometry each
                frame rather than assuming a duration. */
-            .rec-dock, .rec-details-panel, .rec-drawer,
+            .rec-dock, .rec-drawer,
             .rec-drawer-toolbar, .rec-drawer-body,
             .rec-bar-chevron i { transition: none; }
-        }
-
-        /* ═══ Details side panel (V3) ═══
-           The course card's built-in Details button opens a centered
-           vaadin-dialog, which would cover the very list the reviewer is
-           comparing against. V3 intercepts it and opens this right-edge panel
-           instead: full viewport height, so it sits BESIDE the pushed drawer
-           rather than on top of it, and both stay readable at once.
-
-           It is intentionally NOT aria-modal. Because the drawer pushes
-           instead of overlaying, nothing behind the panel is obscured or
-           unreachable, so trapping focus and hiding the rest of the page from
-           assistive tech would remove access the sighted user still has. The
-           panel is a complementary region with its own labelled heading; Esc
-           and the close button dismiss it. */
-        .rec-details-panel {
-            position: fixed;
-            top: 0; right: 0; bottom: 0;
-            width: 420px;
-            max-width: 92vw;
-            /* 280 puts this in the same band as the mock's other right-side
-               overlay panels (video review 280, attachment drawer 300) and,
-               critically, ABOVE the page chrome — the topnav is z-index 100
-               and the topbar 50.
-
-               This was 60, which sat below the topnav: the nav painted over
-               the panel's top 72px, hiding the close button and the top of the
-               hero image. A hit test at the close button's centre returned
-               VWC-USER-MENU rather than the button, so it was unclickable, not
-               just visually clipped. */
-            z-index: 280;
-            display: flex;
-            flex-direction: column;
-            background: var(--surface-opaque);
-            border-left: 1px solid var(--border-soft);
-            box-shadow: -8px 0 28px rgba(16, 24, 40, 0.16);
-            transform: translateX(100%);
-            transition: transform 220ms ease;
-        }
-        .rec-details-panel.open { transform: translateX(0); }
-
-        /* While the details panel is open, slide the prototype/tooling widgets
-           left so they don't sit on top of it. Tooling yields to product UI. */
-        body.rec-details-open .proto-widget:not(.dragging) {
-            right: calc(16px + 420px);
-        }
-
-        .rec-details-hero {
-            flex-shrink: 0;
-            height: 132px;
-            background-size: cover;
-            background-position: center;
-            position: relative;
-        }
-        /* Scrim so the header chips/close button hold contrast over any image. */
-        .rec-details-hero::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.35) 100%);
-        }
-        .rec-details-hero-row {
-            position: relative; z-index: 1;
-            display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 10px;
-            padding: 12px 14px;
-        }
-        .rec-details-chip {
-            display: inline-flex; align-items: center; gap: 6px;
-            font-size: 11px; font-weight: 700;
-            padding: 4px 10px; border-radius: 999px;
-            background: rgba(0, 0, 0, 0.55);
-            color: #fff;
-            backdrop-filter: blur(2px);
-        }
-        .rec-details-chip.vector-choice {
-            background: #fff;
-            color: var(--rec-grad-blue-dark);
-        }
-        .rec-details-chip.unlicensed {
-            background: var(--rec-accent-strong);
-            color: #fff;
-        }
-        .rec-details-close {
-            width: 30px; height: 30px; flex-shrink: 0;
-            border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(0, 0, 0, 0.55);
-            border: none;
-            color: #fff;
-            cursor: pointer;
-            font-size: 14px;
-        }
-        .rec-details-close:hover { background: rgba(0, 0, 0, 0.75); }
-
-        .rec-details-body {
-            flex: 1;
-            min-height: 0;
-            overflow-y: auto;
-            /* Same scroll-chaining guard as the drawer body: reaching the end
-               of the details panel must not start scrolling the form behind
-               it. */
-            overscroll-behavior: contain;
-            padding: 16px 18px 20px;
-        }
-        .rec-details-title {
-            margin: 0 0 4px;
-            font-size: 16px; font-weight: 700;
-            line-height: 1.35;
-        }
-        .rec-details-meta {
-            margin: 0 0 16px;
-            font-size: 12px;
-            color: var(--text-muted);
-        }
-        .rec-details-section { margin-bottom: 16px; }
-        .rec-details-label {
-            display: flex; align-items: center; gap: 7px;
-            font-size: 11px; font-weight: 800;
-            letter-spacing: 0.04em; text-transform: uppercase;
-            color: var(--text-muted);
-            margin-bottom: 5px;
-        }
-        .rec-details-label i { color: var(--rec-accent); font-size: 11px; }
-        .rec-details-text { font-size: 13px; line-height: 1.6; }
-        .rec-details-text ul { margin: 4px 0 0; padding-left: 18px; }
-        .rec-details-text li { margin-bottom: 4px; }
-        .rec-details-footer {
-            flex-shrink: 0;
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 10px;
-            padding: 12px 18px;
-            border-top: 1px solid var(--border-soft);
-            background: var(--lumo-base-color);
-        }
-
-        @media (max-width: 760px) {
-            /* At this width a 420px side panel plus the drawer leaves nothing
-               for the form, so the panel takes the full width. */
-            .rec-details-panel { width: 100%; max-width: 100%; }
         }
 
         /* ─── Back-to-top button ───
@@ -2088,7 +1906,12 @@
             /* Lifted clear of the pinned recommendation dock (V3). --rec-dock-h
                is the dock's live measured height, so the pill rides up when the
                drawer opens and settles back when it closes. */
-            bottom: calc(26px + var(--rec-dock-h, 0px) + env(safe-area-inset-bottom, 0px));
+            /* CAPPED, like the toolbox clearance above. --rec-dock-h tracks
+               the drawer's real height, so with a tall drawer an uncapped
+               offset pushed this pill up behind the sticky topbar (z-index 40
+               vs 50) — painted, but not clickable. min() keeps it within
+               220px of the bottom edge. */
+            bottom: calc(26px + min(var(--rec-dock-h, 0px), 220px) + env(safe-area-inset-bottom, 0px));
             z-index: 40;
             border-radius: 999px;
             border: 1px solid var(--border-soft);
@@ -4712,17 +4535,24 @@
             gap: 8px;
         }
         .assign-defaults-title i { color: var(--brand); font-size: 12px; }
+        /* THREE fields (Effective / Due / Expire), so three tracks. This was
+           `repeat(4, 1fr)` — a leftover from when a fourth field existed —
+           which left a permanently empty column and squeezed the three real
+           fields into 75% of the row. */
         .assign-defaults-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            /* minmax(0, 1fr), not 1fr: a bare 1fr floors at min-content, which
+               is what let the date pickers' 12em intrinsic width dictate the
+               column instead of the other way round. */
+            grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 10px;
             align-items: end;
         }
         @media (max-width: 720px) {
-            .assign-defaults-grid { grid-template-columns: repeat(2, 1fr); }
+            .assign-defaults-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (max-width: 480px) {
-            .assign-defaults-grid { grid-template-columns: 1fr; }
+            .assign-defaults-grid { grid-template-columns: minmax(0, 1fr); }
         }
         .assign-field {
             display: flex;
@@ -4768,7 +4598,18 @@
             font-size: 12px;
             color: var(--text-muted);
         }
-        .assign-field vaadin-date-picker { width: 100%; }
+        /* `width: 100%` alone does NOT stretch these. vaadin-date-picker
+           carries `--vaadin-field-default-width: 12em` (verified in the core
+           v1.19.0 bundle), which acts as a min-content floor: a `1fr` grid
+           track sizes to that ~168px rather than filling the column, so at
+           narrow widths the fields sat marooned with ~50px of dead space on
+           each side. Zeroing the token lets the track govern the width, and
+           min-width:0 on the field lets it shrink below the intrinsic size. */
+        .assign-field vaadin-date-picker {
+            width: 100%;
+            --vaadin-field-default-width: 0;
+            min-width: 0;
+        }
                 /* Course rows */
         .assign-courses-header {
             display: flex;
@@ -5515,50 +5356,51 @@
                         <span class="form-header-value">Yes</span>
                     </div>
                 </div>
-            </div>
+                <!-- ─── Form action row ───
+                     The last row INSIDE the record header, divided off from
+                     the meta grid above it: bulk scoring actions, then the
+                     privacy selection, then Share. Share lives here (not the
+                     topbar) so the topbar's Save stays the page's single
+                     primary CTA. -->
+                <div class="form-actions" id="formActions">
+                    <div class="form-actions-group">
+                        <vaadin-button theme="secondary" id="passAllBtn">
+                            Pass all
+                        </vaadin-button>
+                        <vaadin-button theme="secondary" id="clearAllBtn">
+                            Clear all
+                        </vaadin-button>
+                    </div>
 
-            <!-- ─── Form action cluster ───
-                 Sits between the record header and the first form section: bulk
-                 scoring actions on the left, then the privacy selection, then
-                 Share on the right. Share lives here (not the topbar) so the
-                 topbar's Save stays the page's single primary CTA. -->
-            <div class="form-actions" id="formActions">
-                <div class="form-actions-group">
-                    <vaadin-button theme="secondary" id="passAllBtn">
-                        Pass all
-                    </vaadin-button>
-                    <vaadin-button theme="secondary" id="clearAllBtn">
-                        Clear all
-                    </vaadin-button>
-                </div>
+                    <div class="form-actions-divider" aria-hidden="true"></div>
 
-                <div class="form-actions-divider" aria-hidden="true"></div>
+                    <!-- Privacy: On = visible only to the author until shared. Plain
+                         buttons rather than vwc-toggle-button-group, which behaves
+                         additively outside a form context.
+                         Off is first and is the default. No icons and no hint text —
+                         the On/Off labels carry the meaning on their own. Privacy
+                         stays toggleable after the form is shared. -->
+                    <div class="form-actions-group">
+                        <span class="form-actions-label" id="privacyLabel">Privacy</span>
+                        <div class="privacy-toggle" role="radiogroup" aria-labelledby="privacyLabel">
+                            <button type="button" class="privacy-opt active" data-privacy="off" role="radio" aria-checked="true">
+                                Off
+                            </button>
+                            <button type="button" class="privacy-opt" data-privacy="on" role="radio" aria-checked="false">
+                                On
+                            </button>
+                        </div>
+                    </div>
 
-                <!-- Privacy: On = visible only to the author until shared. Plain
-                     buttons rather than vwc-toggle-button-group, which behaves
-                     additively outside a form context.
-                     Off is first and is the default. No icons and no hint text —
-                     the On/Off labels carry the meaning on their own. Privacy
-                     stays toggleable after the form is shared. -->
-                <div class="form-actions-group">
-                    <span class="form-actions-label" id="privacyLabel">Privacy</span>
-                    <div class="privacy-toggle" role="radiogroup" aria-labelledby="privacyLabel">
-                        <button type="button" class="privacy-opt active" data-privacy="off" role="radio" aria-checked="true">
-                            Off
-                        </button>
-                        <button type="button" class="privacy-opt" data-privacy="on" role="radio" aria-checked="false">
-                            On
-                        </button>
+                    <!-- Share — right-aligned, still irreversible and still gated by
+                         the confirmation modal, which flips the form to "Shared". -->
+                    <div class="form-actions-share">
+                        <vaadin-button theme="secondary" id="shareFormBtn"> Share
+                        </vaadin-button>
                     </div>
                 </div>
-
-                <!-- Share — right-aligned, still irreversible and still gated by
-                     the confirmation modal, which flips the form to "Shared". -->
-                <div class="form-actions-share">
-                    <vaadin-button theme="secondary" id="shareFormBtn"> Share
-                    </vaadin-button>
-                </div>
             </div>
+
 
             <!-- Flat list of "questions" rendered by the form builder. No grouping containers. -->
             <div class="form-list" id="formList"></div>
@@ -5580,7 +5422,9 @@
      PUSH not overlay: measureRecDock() writes the container's real height to
      --rec-dock-h, and .app's bottom padding is derived from it, so the form
      always scrolls clear of the dock and no content is trapped beneath it. -->
-<section class="rec-dock" id="recDock" data-state="locked" aria-labelledby="recBarTitle">
+<!-- data-gate="closed" is the INITIAL state: the banner starts out of view
+     and slides up only once every required question is answered. -->
+<section class="rec-dock" id="recDock" data-state="ready" data-gate="closed" aria-labelledby="recBarTitle">
     <!-- The banner. role/aria-live are NOT set here: the state changes are
          reflected in the CTA the user just acted on, so announcing the whole
          banner again would be redundant chatter. -->
@@ -5588,13 +5432,6 @@
 
     <!-- Drawer — hidden until the dock carries data-open. -->
     <div class="rec-drawer" id="recDrawer">
-        <!-- Resize grip on the top edge (the edge that moves). Keyboard
-             operable: Up/Down adjust the height in steps, Home/End jump to
-             the min/max. -->
-        <div class="rec-drawer-resize" id="recDrawerResize"
-             role="separator" aria-orientation="horizontal" tabindex="0"
-             aria-label="Resize recommendations drawer"
-             title="Drag to resize"></div>
         <div class="rec-drawer-toolbar" id="recDrawerToolbar"></div>
         <div class="rec-drawer-body" id="recDrawerBody">
             <div class="rec-drawer-inner" id="recDrawerInner"></div>
@@ -6581,11 +6418,11 @@ let recommendationsGenerated = false;
                        bar's chevron, which is the only drawer control.
    recGenerating     — the brief generating state, so the drawer can show
                        progress instead of snapping straight to results.
-   drawerHeightPx    — null until the user drags the resize grip, after which
-                       it overrides the --rec-drawer-h default. */
+   (The drawer is no longer user-resizable: it sizes itself to the results,
+   which for a fixed top-8 list is a height the reviewer had no reason to
+   override.) */
 let drawerOpen = false;
 let recGenerating = false;
-let drawerHeightPx = null;
 
 /* Full teardown of the recommendation feature's transient state. Called from
    every path that invalidates a generated batch (save-as-draft, clear all,
@@ -7733,9 +7570,6 @@ function allRequiredAnswered() {
 }
 
 // ─── Recommendations ───
-function courseImageUrl(courseId) {
-    return `https://picsum.photos/seed/${encodeURIComponent(courseId)}/480/270`;
-}
 
 /* ═══ V3 recommendation dock ═══════════════════════════════════════════
    renderRecommendations() is still the single entry point every existing
@@ -7743,36 +7577,46 @@ function courseImageUrl(courseId) {
    changed is where it renders: the feature now lives in the pinned dock
    rather than in the page flow.
 
-   State machine, driven onto #recDock as data-state:
+   TWO independent axes, both re-derived from scratch on every call:
 
-     none    → no low ratings. Nothing to recommend and nothing to sell, so
-               the dock hides entirely and the in-page zone reports it.
-     locked  → the required-question gate is unmet. The banner shows in full
-               marketing dress (so the reviewer learns the feature exists
-               while filling the form) but the CTA is replaced by helper text
-               naming what unblocks it.
-     ready   → gate cleared. The CTA goes live: "Generate recommendations".
-     results → generated. The CTA becomes the drawer toggle and the bar
-               carries a count chip.
+   1. data-gate — does the feature exist for this reviewer yet?
+        closed → a required question is unanswered. The dock is slid out of
+                 view entirely; there is no locked CTA, because there is
+                 nothing on screen to lock. (This replaced a `locked` state
+                 that showed the banner with a disabled CTA and a tooltip.)
+        open   → every required question answered; the banner slides up.
 
-   Every state is re-derived from scratch on each call, so there is no way
-   for the bar and the drawer to disagree about what state they're in. */
+   2. data-state — what is the visible banner saying?
+        none    → unused. Kept as the hard-hide hook; the gate now owns
+                  hiding, and "no low ratings" is reported by the drawer's
+                  own empty state after Generate, not by hiding the dock.
+        ready   → the CTA is live: "Generate recommendations".
+        generating → the search is running; the bar shows a working
+                  indicator and the drawer stays collapsed.
+        results → generated. The CTA becomes the drawer toggle.
+
+   Because both are recomputed together, the bar, the drawer and the gate
+   can never disagree about what state they're in. */
 function renderRecommendations() {
     const { recommendations, unlicensed, lowRatedTotal } = getRecommendations();
     const visibleRecs = recommendations;
 
-    /* GATE (unchanged rule): the feature is unavailable until every required
-       question is answered. Any pending selection is dropped, since the user
-       is going back to the form. */
+    /* GATE: the banner does not appear at all until every required question
+       is answered — there is no locked CTA, because there is nothing on
+       screen to be locked. Removing a required answer re-closes the gate and
+       the banner slides back out, dropping any pending selection with it
+       (that selection was made against an evaluation that no longer stands). */
     if (!allRequiredAnswered()) {
         cart.clear();
         recommendationsGenerated = false;
         recGenerating = false;
         drawerOpen = false;
-        setDockState('locked');
+        setGateOpen(false);
+        setDockState('ready');
         renderFloatingCart();
         return;
     }
+    setGateOpen(true);
 
     /* NOTE: "no performance gaps" is deliberately NOT checked here.
        Whether an evaluation has gaps is a RESULT of running the matcher, so
@@ -7796,6 +7640,39 @@ function renderRecommendations() {
 /* Renders the bar for a state and, when there are results, the drawer.
    Kept as one function so bar and drawer can never be rendered from
    different snapshots of the data. */
+/* ── Gate visibility ──
+   Drives the banner's slide. Kept separate from setDockState() because the
+   gate is about whether the feature EXISTS for this reviewer yet, while the
+   dock state is about what it is saying once it does.
+
+   --rec-dock-h has to go to 0 while hidden or the form keeps reserving the
+   banner's height as bottom padding for a banner nobody can see. */
+let gateOpen = null;
+function setGateOpen(open) {
+    if (!recDock) return;
+    if (gateOpen === open) return;
+
+    /* First call: set the state with transitions suppressed, so a form that
+       loads with the gate unmet shows no banner at all rather than one
+       sliding away. The class is dropped on the next frame. */
+    const first = gateOpen === null;
+    if (first) recDock.classList.add('rec-gate-init');
+
+    gateOpen = open;
+    recDock.dataset.gate = open ? 'open' : 'closed';
+
+    if (first) {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => recDock.classList.remove('rec-gate-init'));
+        });
+    }
+
+    /* Closing: the reserved page space must shrink WITH the slide, not snap
+       when it ends — measureRecDock() reads real geometry each frame, so
+       animateDockHeight() drives it for the duration either way. */
+    animateDockHeight();
+}
+
 function setDockState(state, data) {
     if (!recDock) return;
     recDock.dataset.state = state;
@@ -7821,14 +7698,32 @@ function setDockState(state, data) {
 
     if (shouldOpen) syncDrawerOpenHeight();
 
+    /* Re-sync the chevron from the SETTLED state. renderRecBar() stamped its
+       aria-expanded from drawerOpen before syncDrawerOpenHeight() ran, so any
+       adjustment there would otherwise leave the accessible state contradicting
+       the drawer. (The drawer always opens now — it scrolls instead of refusing
+       — so there is no "vetoed" case to disable the control for.) */
+    const settledOpen = recDock.hasAttribute('data-open');
+    const toggleBtn = document.getElementById('recDrawerToggle');
+    if (toggleBtn) {
+        toggleBtn.setAttribute('aria-expanded', settledOpen ? 'true' : 'false');
+        toggleBtn.setAttribute('aria-label',
+            settledOpen ? 'Hide recommended courses' : 'Show recommended courses');
+        toggleBtn.title = settledOpen ? 'Hide courses' : 'Show courses';
+    }
+
+    /* The drawer is height:0 when closed, but its toolbar buttons and cards
+       stay focusable — one tab stop landed at y=-36, invisible. The gate uses
+       visibility for exactly this reason; give the drawer the same treatment. */
+    if (recDrawer) recDrawer.toggleAttribute('inert', !settledOpen);
+
     // Only animate the push when the open/closed state actually changed.
     (shouldOpen !== wasOpen) ? animateDockHeight() : measureRecDock();
 }
 
 /* A CSS transition can't run to `auto`, so the drawer's open height is
    resolved to a pixel value and written to --rec-drawer-current. Respects a
-   user-dragged height when there is one, and clamps to the same bounds the
-   resize handler uses. */
+   the same bounds every other path uses. */
 /* Ceiling for the open drawer: it may rise until it sits 64px below the
    bottom edge of the sticky form toolbar (the topnav + .topbar stack that
    carries the timer). Measured live rather than hardcoded, so it stays correct
@@ -7882,10 +7777,6 @@ function drawerMaxHeight(minH) {
 function naturalDrawerHeight() {
     const contentH = recDrawerInner ? recDrawerInner.getBoundingClientRect().height : 0;
     const toolbarH = recDrawerToolbar ? recDrawerToolbar.offsetHeight : 0;
-    // The grip is display:none at narrow widths, so offsetHeight (0 when
-    // hidden) is the honest read rather than its CSS height.
-    const gripEl = document.getElementById('recDrawerResize');
-    const gripH = gripEl ? gripEl.offsetHeight : 0;
 
     // Body padding (18 top / 32 bottom today) plus the drawer's own top border.
     let bodyPad = 0;
@@ -7899,7 +7790,7 @@ function naturalDrawerHeight() {
         borders = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
     }
 
-    return Math.ceil(contentH + toolbarH + gripH + bodyPad + borders);
+    return Math.ceil(contentH + toolbarH + bodyPad + borders);
 }
 
 function syncDrawerOpenHeight() {
@@ -7909,23 +7800,16 @@ function syncDrawerOpenHeight() {
        height for it leaves a large empty panel, so that state sizes to its
        content instead — there is nothing to scroll and nothing to resize. */
     if (recDock.dataset.empty === '') {
-        /* Same measured sizing as the populated state — naturalDrawerHeight()
-           reads the content plus the real chrome around it. The toolbar and
-           the resize grip are both hidden in this state ([data-empty]), and
-           measuring them returns 0, so nothing extra is reserved for them. */
-        /* Capped by the same ceiling as the populated state — the 96px floor
-           must not push the dock past the viewport on a short screen (the
-           1.4.10 failure fixed in drawerMaxHeight). The copy scrolls inside
-           the body if it truly cannot fit. */
+        /* Same measured sizing and the same open-and-scroll rule as the
+           populated state below: naturalDrawerHeight() reads the content plus
+           its real chrome (the toolbar is hidden in this state and measures 0),
+           capped by drawerMaxHeight() so the dock can never push its own
+           heading off a short viewport, and floored so it still opens there —
+           this state is one line of copy, so it almost always fits anyway. */
         const emptyMax = drawerMaxHeight(96);
-        if (emptyMax < DRAWER_MIN_USABLE) {
-            drawerOpen = false;
-            delete recDock.dataset.open;
-            recDock.style.setProperty('--rec-drawer-current', '0px');
-            return;
-        }
+        const emptyFloor = Math.min(96, Math.max(DRAWER_MIN_USABLE, emptyMax));
         recDock.style.setProperty('--rec-drawer-current',
-            Math.min(emptyMax, Math.max(96, naturalDrawerHeight())) + 'px');
+            Math.max(emptyFloor, Math.min(emptyMax, naturalDrawerHeight())) + 'px');
         return;
     }
 
@@ -7938,23 +7822,23 @@ function syncDrawerOpenHeight() {
        the body, which is `flex: 1` and reports the container's height. The
        toolbar sits above it inside the drawer, so its height counts too;
        +36 covers the body's 18px top/bottom padding. */
-    /* Not enough room to open at all (very short viewport / 400% zoom): keep
-       the drawer collapsed rather than opening a sliver that pushes the bar
-       off-screen. The bar alone stays reachable, and its chevron is still the
-       way back to the list once there is room. */
-    if (maxH < DRAWER_MIN_USABLE) {
-        drawerOpen = false;
-        delete recDock.dataset.open;
-        recDock.style.setProperty('--rec-drawer-current', '0px');
-        return;
-    }
+    /* Very short viewport (400% zoom): the drawer OPENS INTO WHATEVER ROOM
+       EXISTS and scrolls, rather than refusing to open.
 
-    let target;
-    if (drawerHeightPx) {
-        target = Math.min(maxH, Math.max(MIN_H, drawerHeightPx));
-    } else {
-        target = Math.min(maxH, Math.max(MIN_H, naturalDrawerHeight()));
-    }
+       An earlier pass collapsed it outright below DRAWER_MIN_USABLE, which
+       kept the dock inside the viewport but left the reviewer with no path to
+       the list at all — a dead chevron and an unreachable feature. Scrolling
+       is the better trade: .rec-drawer-body is already `overflow-y: auto`
+       with `overscroll-behavior: contain`, so a short panel is cramped but
+       fully usable, and every card stays reachable.
+
+       maxH is still the ceiling, so the dock cannot grow past the viewport
+       and push its own heading off-screen (the 1.4.10 fix this sits on top
+       of). The floor is DRAWER_MIN_USABLE rather than MIN_H: below that a
+       "panel" is a sliver of chrome with no content showing, so MIN_H is
+       honored only when the room is actually there. */
+    const floor = Math.min(MIN_H, Math.max(DRAWER_MIN_USABLE, maxH));
+    const target = Math.max(floor, Math.min(maxH, naturalDrawerHeight()));
     recDock.style.setProperty('--rec-drawer-current', target + 'px');
 }
 
@@ -7998,19 +7882,7 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
        would just restate the chip. The chevron carries an aria-label so the
        control is still named for assistive tech. */
     const actionsHtml = {
-        locked: `
-            <span class="rec-bar-cta-wrap" id="recGateWrap" tabindex="0"
-                  role="button" aria-disabled="true"
-                  aria-label="Generate recommendations"
-                  aria-describedby="recGateTip">
-                <span class="rec-bar-cta disabled" aria-hidden="true">
-                    <i class="fa-solid fa-lock"></i>
-                    <span class="rec-cta-label">Generate recommendations</span>
-                </span>
-            </span>
-            <vaadin-tooltip for="recGateWrap" position="top"
-                text="Answer all required questions to generate course recommendations for this evaluation."></vaadin-tooltip>
-        `,
+
         ready: `
             <button type="button" class="rec-bar-cta" id="recGenerateBtn"
                     aria-label="Generate recommendations">
@@ -8042,9 +7914,13 @@ function renderRecBar(state, { visibleRecs = [], unlicensed = [], lowRatedTotal 
         `
     }[state] || '';
 
-    // One fixed subhead across all states (per PM copy direction) — it
-    // describes the feature and its gating rather than narrating state.
-    const desc = 'View relevant course recommendations after completing all required form fields. Review, select and assign to this employee.';
+    /* One fixed subhead across every state. Earlier copy opened with "after
+       completing all required form fields", which described the OLD gated
+       state (banner visible but locked while fields were outstanding) — a
+       condition already satisfied by the time the banner appears at all, and
+       one a screen reader would still announce. This states what the feature
+       is for instead. */
+    const desc = 'Review, select, and assign course recommendations for this evaluation.';
 
     recBar.innerHTML = `
         <div class="rec-bar-icon"><i class="fa-solid fa-graduation-cap"></i></div>
@@ -8109,8 +7985,8 @@ function runGenerate() {
 function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 }) {
     if (!recDrawerInner || !recDrawerToolbar) return;
 
-    /* A drag-set height is applied through --rec-drawer-current (see
-       setHeight / syncDrawerOpenHeight), NOT as an inline height. An inline
+    /* The open height is applied through --rec-drawer-current (see
+       syncDrawerOpenHeight), NOT as an inline height. An inline
        height would beat the closed-state rule and pin the drawer open — it
        would never collapse again. */
 
@@ -8140,8 +8016,7 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
             <button type="button" class="rec-selectall-btn" id="recSelectAllBtn">
                 Select<span class="tb-label"> All</span>
             </button>
-            <button type="button" class="rec-configure-btn" id="recConfigureBtn"
-                    aria-label="Configure Assignment">
+            <button type="button" class="rec-configure-btn" id="recConfigureBtn">
                 Configure<span class="tb-label"> Assignment</span>
             </button>
         ` : ''}
@@ -8206,8 +8081,8 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
         <section class="rec-list-section unavailable">
             <div class="rec-list-head">
                 <h3 class="rec-list-title">
-                    <i class="fa-solid fa-lock"></i>
-                    Not in your libraries
+                    <i class="fa-solid fa-lock-open"></i>
+                    Available in other libraries
                 </h3>
                 <!-- One CTA covering the whole unlicensed grouping — placed
                      directly after the heading (not pushed to the right edge)
@@ -8262,11 +8137,12 @@ function renderRecDrawer({ visibleRecs = [], unlicensed = [], lowRatedTotal = 0 
         learnMoreBtn.addEventListener('click', () => {
             showValidationModal({
                 tone: 'info',
-                title: 'Not in your libraries',
+                title: 'Expand your course library',
                 bodyHtml: `
-                    <p>Your account does not have access to these courses in Vector LMS.</p>
-                    <p style="margin-bottom:0;">To get access, contact your institution's LMS Administrator
-                    or contact Vector Solutions directly:
+                    <p>These courses match this evaluation, and they are part of Vector&rsquo;s
+                    wider catalog &mdash; your library doesn&rsquo;t include them yet.</p>
+                    <p style="margin-bottom:0;">To add them, reach out to your institution&rsquo;s
+                    LMS Administrator, or contact Vector Solutions directly:
                     <span class="rec-demo-stub">Request A Demo of Vector Solutions&rsquo; Software Solutions</span></p>
                 `,
                 cancelLabel: 'Close'
@@ -8288,7 +8164,12 @@ function measureRecDock() {
     /* NB: an offsetParent check is NOT valid here — the dock is
        position: fixed, so offsetParent is always null. Read the state and
        the computed display instead. */
+    /* A gated-out dock is slid below the viewport by a transform, and
+       getBoundingClientRect() reports the element's LAID-OUT height
+       regardless — so without this check the form would keep reserving
+       bottom padding for a banner nobody can see. */
     const hidden = recDock.dataset.state === 'none'
+        || recDock.dataset.gate === 'closed'
         || getComputedStyle(recDock).display === 'none';
     /* Include the floating card's offset from the bottom edge, otherwise the
        reserved space is short by that gap and the form's last row tucks
@@ -8299,72 +8180,20 @@ function measureRecDock() {
 }
 /* On resize the ceiling itself moves (it's derived from the viewport and the
    toolbar's position), so re-run the open-height calculation before
-   re-measuring the dock. syncDrawerOpenHeight() re-clamps a dragged height to
-   the new bounds too, so the drawer can't end up taller than the viewport. */
+   re-measuring the dock, so the drawer can't end up taller than the
+   viewport. */
 window.addEventListener('resize', () => {
     if (recDock && recDock.hasAttribute('data-open')) syncDrawerOpenHeight();
-    measureRecDock();
+    /* animateDockHeight(), not a single measureRecDock(): syncDrawerOpenHeight()
+       may have just changed the drawer's height, and that change TRANSITIONS.
+       Measuring once, immediately, samples the height mid-flight and leaves
+       --rec-dock-h permanently stale (it read 173px for a 57px dock after a
+       shrinking resize), which then mis-sizes the form's bottom padding and
+       every offset derived from it. animateDockHeight() re-measures each frame
+       for the transition's duration and settles on the real value. */
+    animateDockHeight();
 });
 
-/* ── Drawer resize ──
-   Pointer drag on the top edge, plus keyboard steps for parity (WCAG 2.1.1).
-   Bounds keep the drawer usable at the bottom and leave the form visible at
-   the top. */
-(function initDrawerResize() {
-    const grip = document.getElementById('recDrawerResize');
-    if (!grip || !recDrawer) return;
-
-    const MIN_H = 220;
-    // Same ceiling the auto-open height uses, so a drag can't exceed it.
-    const clamp = px => Math.min(drawerMaxHeight(MIN_H), Math.max(MIN_H, px));
-
-    /* Writes the SAME custom property the open state animates to, so a drag
-       and an open/close animation can't disagree about the drawer's height.
-       (An inline style.height would win over the CSS rule and freeze the
-       drawer open — it would no longer collapse on close.) */
-    function setHeight(px) {
-        drawerHeightPx = clamp(px);
-        recDock.style.setProperty('--rec-drawer-current', drawerHeightPx + 'px');
-        measureRecDock();
-    }
-
-    let dragging = false;
-    grip.addEventListener('pointerdown', (e) => {
-        dragging = true;
-        grip.setPointerCapture(e.pointerId);
-        document.body.classList.add('rec-resizing');
-        // The height transition would lag behind the pointer; kill it for the
-        // duration of the drag so the panel tracks the cursor exactly.
-        recDock.classList.add('rec-no-anim');
-        e.preventDefault();
-    });
-    grip.addEventListener('pointermove', (e) => {
-        if (!dragging) return;
-        // The drawer is anchored to the bottom, so its height is simply the
-        // distance from the pointer to the bottom of the viewport.
-        setHeight(window.innerHeight - e.clientY);
-    });
-    const endDrag = (e) => {
-        if (!dragging) return;
-        dragging = false;
-        try { grip.releasePointerCapture(e.pointerId); } catch (_) {}
-        document.body.classList.remove('rec-resizing');
-        recDock.classList.remove('rec-no-anim');
-    };
-    grip.addEventListener('pointerup', endDrag);
-    grip.addEventListener('pointercancel', endDrag);
-
-    /* Keyboard steps keep the transition ON — a jump would be exactly the
-       thing this animation exists to avoid, and each press is discrete. */
-    grip.addEventListener('keydown', (e) => {
-        const cur = drawerHeightPx || recDrawer.getBoundingClientRect().height;
-        const STEP = 40;
-        if (e.key === 'ArrowUp')        { setHeight(cur + STEP); e.preventDefault(); }
-        else if (e.key === 'ArrowDown') { setHeight(cur - STEP); e.preventDefault(); }
-        else if (e.key === 'Home')      { setHeight(maxH()); e.preventDefault(); }
-        else if (e.key === 'End')       { setHeight(MIN_H); e.preventDefault(); }
-    });
-})();
 
 /* ── Course list wiring ───────────────────────────────────────────────
    <vwc-course-list> is data-driven: it fetches through a CourseListService
@@ -8392,13 +8221,14 @@ const ICON_CLOCK = { type: 'svg', path: 'M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8
 const REC_COURSE_DEFINITION = [
     // Label text is hidden in CSS; the clock icon carries the meaning.
     { label: 'Course Time', propertyPath: 'duration', icon: ICON_CLOCK },
-    // Dialog-only. No "Addresses" field: courses aren't tied to distinct
-    // tags, so the card face carries only Course Time. (The `addresses`
-    // data itself stays — it's how the engine matches courses to low-rated
-    // components — it just isn't shown.)
-    { label: 'Why this course', propertyPath: 'rationale', hideInCard: true },
-    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true },
-    { label: 'Available variants', propertyPath: 'variantsText', hideInCard: true }
+    /* `hideInCard` = dialog only. This array IS the Course Details dialog's
+       content now that the dialog is the component's own, so the PM's
+       removals live here: "Why this was recommended" (rationale) and
+       "Available versions" (variantsText) are deliberately absent — keeping
+       them as hideInCard entries would put them straight back into details.
+       The `addresses` data also stays out; it's how the engine matches
+       courses to low-rated components, not something to show. */
+    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true }
 ];
 
 /* Maps one recommendation onto the component's Course shape. id/title/sku/
@@ -8449,6 +8279,13 @@ function mountCourseList(visibleRecs) {
         assign_label: 'Configure Assignment',
         no_selection_msg: 'Select at least one course to configure.'
     };
+    /* "Version" -> "Variant" WITHOUT a library change. Verified in the
+       bundles the mock loads: lms v1.3.10 renders the label via
+       `localize("version_label", "Version")`, and course-list v1.5.10 binds
+       `.i18n="${this.cardI18n}"` straight onto each card — so this one key
+       relabels the field on the card face AND in the component's own Course
+       Details dialog. */
+    list.cardI18n = { version_label: 'Variant' };
     list.disabledCourseIds = courses.filter(c => assigned.has(c.id)).map(c => c.id);
     list.selectedCourseIds = courses.filter(c => cart.has(c.id)).map(c => c.id);
 
@@ -8475,7 +8312,9 @@ function mountCourseList(visibleRecs) {
     // Cards render asynchronously after the fetch resolves; shrink them then.
     shrinkCourseCards(list);
     // Redirect each card's built-in Details dialog into the side panel.
-    interceptCardDetails(list, visibleRecs, { unlicensed: false });
+    /* Details opens the COMPONENT's own "Course Details" dialog — the
+       default behaviour, nothing intercepted. Content comes from
+       REC_COURSE_DEFINITION. */
 }
 
 /* ── Upsell list wiring ───────────────────────────────────────────────
@@ -8509,11 +8348,12 @@ function mountUpsellList(unlicensed) {
     list.courseDefinition = UPSELL_COURSE_DEFINITION;
     list.disableSelection = true;
     list.cardHeadingLevel = 3;
-    list.i18n = { no_courses_msg: 'No additional matches outside your library.' };
+    list.i18n = { no_courses_msg: 'No additional matches in Vector\u2019s wider catalog.' };
+    list.cardI18n = { version_label: 'Variant' };
     list.payload = { upsell: true, count: courses.length };
 
-    shrinkCourseCards(list);
-    interceptCardDetails(list, unlicensed, { unlicensed: true });
+    shrinkCourseCards(list, { gated: true });
+    /* Same as the licensed list: the component's own details dialog. */
 }
 
 /* Upsell cards trade the Course Time field for the collection name — what
@@ -8525,9 +8365,7 @@ const UPSELL_COURSE_DEFINITION = [
     // Icon-only label, same condensed row as the licensed cards' Course Time.
     { label: 'Included in', propertyPath: 'collection', icon: ICON_COLLECTION },
     { label: 'Course Time', propertyPath: 'duration', hideInCard: true },
-    { label: 'Why this course', propertyPath: 'rationale', hideInCard: true },
-    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true },
-    { label: 'Available variants', propertyPath: 'variantsText', hideInCard: true }
+    { label: 'Course Outline', propertyPath: 'outlineHtml', isHTML: true, hideInCard: true }
 ];
 
 /* <vwc-course-card> hard-codes `.card-container { height: 320px }` in its
@@ -8604,7 +8442,7 @@ function injectCardPartStyles(root) {
     root.appendChild(st);
 }
 
-function shrinkCourseCards(list) {
+function shrinkCourseCards(list, { gated = false } = {}) {
     const apply = () => {
         const root = list.shadowRoot;
         if (!root) return 0;
@@ -8646,6 +8484,48 @@ function shrinkCourseCards(list) {
             const r = card.shadowRoot;
             if (!r) return;
             const container = r.querySelector('.card-container');
+            /* ── Gated lock ──
+               These cards are deliberately NOT dimmed or desaturated (they are
+               merchandise, not broken controls), so the gating needs its own
+               affordance. The lock takes the CHECKBOX's slot in the card's
+               header stripe — verified against the lms v1.3.10 bundle, where
+               `.card-header-checkbox-wrapper` is `position:absolute; top:8px;
+               right:8px; 16x16` inside a `.card-header` that is `min-height:
+               30px; position: relative`. Putting it exactly where the
+               selection control sits on an assignable card is what makes the
+               swap read: same place, different affordance.
+               Bare icon — no disc, no fill. The header stripe is already a
+               solid colour, so a chip on top of it would be a badge on a
+               badge.
+               Added once — keyed by a data flag, since this whole function is
+               re-run by the rAF poll until the cards exist. */
+            const header = r.querySelector('.card-header');
+            if (gated && header && !header.dataset.gatedLock) {
+                header.dataset.gatedLock = '1';
+                const lock = document.createElement('span');
+                lock.setAttribute('aria-hidden', 'true');
+                /* INLINE SVG, not a Font Awesome class or glyph. A webfont
+                   icon that fails to resolve renders as a zero-width invisible
+                   box with no error — and this is the ONLY thing marking these
+                   cards as gated now that the dimming is gone, so it must not
+                   be able to fail silently. An MDI lock path has no font or
+                   stylesheet dependency at all. */
+                lock.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14"'
+                    + ' fill="currentColor" focusable="false"><path d="M12 17a2 2 0 0 0'
+                    + ' 2-2 2 2 0 0 0-2-2 2 2 0 0 0-2 2 2 2 0 0 0 2 2m6-9a2 2 0 0 1 2 2v10a2 2'
+                    + ' 0 0 1-2 2H6a2 2 0 0 1-2-2V10a2 2 0 0 1 2-2h1V6a5 5 0 0 1 5-5 5 5 0 0 1'
+                    + ' 5 5v2h1m-6-5A3 3 0 0 0 9 6v2h6V6a3 3 0 0 0-3-3Z"/></svg>';
+                lock.style.cssText = [
+                    'position:absolute', 'top:8px', 'right:8px', 'z-index:2',
+                    'width:16px', 'height:16px',
+                    'display:flex', 'align-items:center', 'justify-content:center',
+                    /* Matches .card-header-text, which is the stripe's own
+                       foreground colour. */
+                    'color:var(--lumo-primary-contrast-color, #fff)',
+                    'pointer-events:none'
+                ].join(';');
+                header.appendChild(lock);
+            }
             const content = r.querySelector('.card-content');
             const details = r.querySelector('.card-content-details');
             if (container) container.style.setProperty('height', 'auto', 'important');
@@ -8719,11 +8599,10 @@ function shrinkCourseCards(list) {
 }
 
 /* Re-runs the open-height calculation after async content lands. No-op when
-   the drawer is closed, when the user has dragged their own height (that
-   choice wins), or in the empty state (already sized by its own branch). */
+   the drawer is closed, or in the empty state (already sized by its own
+   branch). */
 function resizeDrawerToContent() {
     if (!recDock || !recDock.hasAttribute('data-open')) return;
-    if (drawerHeightPx) return;
     syncDrawerOpenHeight();
     measureRecDock();
 }
@@ -8945,186 +8824,26 @@ function commitAssignment() {
     renderRecommendations();
 }
 
-/* ═══ Details side panel (V3) ═══════════════════════════════════════════
-   <vwc-course-card> renders its own "Details" button that opens a centered
-   vaadin-dialog. In V3 that dialog is the wrong surface: the drawer PUSHES
-   the page rather than overlaying it, precisely so the reviewer can see the
-   evaluation and the course list at once — and a centered modal would cover
-   the list they're comparing against.
+/* ═══ Course details ═══════════════════════════════════════════════════
+   Details opens <vwc-course-card>'s OWN "Course Details" dialog — the
+   component default, with nothing intercepted.
 
-   ⚠ PROTOTYPE-ONLY OVERRIDE — flag at dev handoff.
-   The Details button is `#details-button` inside the card's shadow root and
-   fires no cancelable event, so there is no supported way to redirect it.
-   This attaches a CAPTURE-phase click listener on that shadow button and
-   stops the event before the component's own handler (`toggleDetailsDialog`)
-   runs.
+   V3 previously replaced it with a right-edge side panel, reasoning that the
+   drawer pushes rather than overlays so a centered modal would cover the list
+   being compared against. That needed a capture-phase click listener on
+   `#details-button` inside the card's shadow root (the button fires no
+   cancelable event) — a prototype-only override flagged for handoff.
+   Reverted: the supported default is worth more than the layout gain, and it
+   removes the override entirely.
 
-   It degrades safely: if a future version renames the button, the selector
-   simply misses and the component's own dialog opens — still fully
-   functional, just not the panel. Production should ask the component team
-   for either a cancelable `pre-details` event or a "details target" hook.
-
-   Verified against lms v1.3.10: the click handler is bound inline on
-   `<vaadin-button id="details-button" @click="toggleDetailsDialog">`. */
-function interceptCardDetails(list, recs, { unlicensed }) {
-    const byId = new Map(recs.map(r => [r.course.id, r]));
-
-    const wire = () => {
-        const root = list.shadowRoot;
-        if (!root) return 0;
-        const cards = root.querySelectorAll('vwc-course-card');
-        let wired = 0;
-        cards.forEach(card => {
-            const r = card.shadowRoot;
-            if (!r) return;
-            const btn = r.getElementById('details-button');
-            if (!btn || btn.dataset.recIntercepted) return;
-            btn.dataset.recIntercepted = '1';
-            btn.addEventListener('click', (e) => {
-                const id = card.course && card.course.id;
-                const rec = id && byId.get(id);
-                if (!rec) return;   // unknown course: let the built-in dialog handle it
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                openRecDetailsPanel(rec, { unlicensed });
-            }, true);   // capture — must run before the component's own handler
-            wired++;
-        });
-        return wired;
-    };
-
-    // Cards mount asynchronously after the service resolves, so poll briefly
-    // (same pattern as shrinkCourseCards).
-    let tries = 0;
-    const tick = () => {
-        const found = wire();
-        if (found || tries++ > 40) return;
-        requestAnimationFrame(tick);
-    };
-    tick();
-}
-
-/* The panel itself. Right-edge, full viewport height, so it sits BESIDE the
-   pushed drawer instead of over it.
-
-   Deliberately not aria-modal / no focus trap: because the drawer pushes
-   rather than overlays, everything behind the panel stays visible and
-   reachable for a sighted user, so hiding the page from assistive tech would
-   remove access that sighted users keep. It's a labelled complementary
-   region, dismissed by Esc or its close button. */
-function openRecDetailsPanel(rec, { unlicensed = false } = {}) {
-    const c = rec.course;
-    const inCart = cart.has(c.id);
-    const isAssigned = assigned.has(c.id);
-
-    // Vector Choice mirrors the licensed list's own badge rule: the top two
-    // of the visible batch carry the above-threshold score.
-    const { recommendations } = getRecommendations();
-    const visibleRecs = recommendations;
-    const idxInVisible = visibleRecs.findIndex(r => r.course.id === c.id);
-    const isVectorChoice = !unlicensed && idxInVisible >= 0 && idxInVisible < 2;
-
-    let panel = document.getElementById('recDetailsPanel');
-    if (!panel) {
-        panel = document.createElement('aside');
-        panel.id = 'recDetailsPanel';
-        panel.className = 'rec-details-panel';
-        panel.setAttribute('role', 'complementary');
-        panel.setAttribute('aria-labelledby', 'recDetailsTitle');
-        document.body.appendChild(panel);
-    }
-
-    const chip = unlicensed
-        ? '<span class="rec-details-chip unlicensed"><i class="fa-solid fa-lock"></i>Not in your library</span>'
-        : (isVectorChoice
-            ? '<span class="rec-details-chip vector-choice"><i class="fa-solid fa-star"></i>Vector Choice</span>'
-            : '<span class="rec-details-chip"><i class="fa-regular fa-bookmark"></i>Vector Training</span>');
-
-    /* Footer action depends on which list the card came from — this is where
-       the licensed/unlicensed split becomes behavioral rather than cosmetic.
-       An unlicensed course has no add-to-assignment path at all. */
-    const footerHtml = unlicensed ? `
-        <span class="rec-details-unavailable">
-            <i class="fa-solid fa-lock"></i>
-            Not in your library
-        </span>
-    ` : `
-        ${isAssigned
-            ? '<span theme="badge success"><i class="fa-solid fa-check" style="margin-right:6px;"></i>Assigned</span>'
-            : `<vaadin-button theme="primary" id="recDetailsCartBtn">
-                    ${inCart
-                        ? '<i class="fa-solid fa-check" style="margin-right:6px;"></i>Selected for assignment'
-                        : '<i class="fa-solid fa-plus" style="margin-right:6px;"></i>Select for assignment'}
-               </vaadin-button>`}
-    `;
-
-    panel.innerHTML = `
-        <div class="rec-details-hero" style="background-image:url('${courseImageUrl(c.id)}');">
-            <div class="rec-details-hero-row">
-                ${chip}
-                <button type="button" class="rec-details-close" id="recDetailsCloseBtn" aria-label="Close course details">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-        </div>
-        <div class="rec-details-body">
-            <h2 class="rec-details-title" id="recDetailsTitle">${escapeHtml(c.title)}</h2>
-            <p class="rec-details-meta">${escapeHtml(c.duration)}</p>
-
-            ${unlicensed ? `
-                <div class="rec-details-section">
-                    <div class="rec-details-label"><i class="fa-solid fa-box-open"></i>Included in</div>
-                    <div class="rec-details-text">${escapeHtml(c.collection || '—')}</div>
-                </div>
-            ` : ''}
-
-            <div class="rec-details-section">
-                <div class="rec-details-label"><i class="fa-regular fa-file-lines"></i>Course outline</div>
-                <div class="rec-details-text">
-                    <p style="margin:0;">By the end of this course, you will be able to:</p>
-                    <ul>${c.outline.map(o => `<li>${escapeHtml(o)}</li>`).join('')}</ul>
-                </div>
-            </div>
-        </div>
-        <div class="rec-details-footer">${footerHtml}</div>
-    `;
-
-    document.getElementById('recDetailsCloseBtn')
-        .addEventListener('click', closeRecDetailsPanel);
-
-    const cartBtn = document.getElementById('recDetailsCartBtn');
-    if (cartBtn) {
-        cartBtn.addEventListener('click', () => {
-            /* Selecting commits and returns the reviewer to the list — the
-               panel was opened to answer "is this the right course?", and once
-               that's answered there is nothing left to read. The card's
-               checkbox in the drawer behind is the confirmation, so re-opening
-               the panel just to flip its own label would be a dead end.
-
-               Deliberately additive rather than a toggle: closing on click
-               means the "Selected" label is never the thing you click next, so
-               a toggle-off branch here would be unreachable. Deselecting is
-               done on the card's checkbox, which is visible the moment the
-               panel closes. */
-            cart.add(c.id);
-            closeRecDetailsPanel();
-            // Remounts the list so the card reflects the new selection.
-            renderRecommendations();
-        });
-    }
-
-    document.body.classList.add('rec-details-open');
-    requestAnimationFrame(() => panel.classList.add('open'));
-}
-
-function closeRecDetailsPanel() {
-    const panel = document.getElementById('recDetailsPanel');
-    if (panel) panel.classList.remove('open');
-    document.body.classList.remove('rec-details-open');
-}
-document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeRecDetailsPanel();
-});
+   Consequences, verified in the lms v1.3.10 bundle:
+     - The dialog is READ-ONLY: title, Version/SKU, and the courseDefinition
+       fields. No footer, no assign action — so the old panel's "Select for
+       assignment" button is gone. Selection happens on the card's checkbox,
+       visible again the moment the dialog closes.
+     - Its content is ENTIRELY courseDefinition (entries with
+       `hideInCard: true` are dialog-only), making that array the single place
+       details content is configured. */
 
 // ─── Toast (vaadin-notification) ───
 // Lightweight, auto-dismissing confirmation for non-blocking success messages
@@ -11122,6 +10841,10 @@ function markFormCreated() {
         });
         markFormCreated();
         updateProgress();
+        /* Answers changed, so the gate has to be re-evaluated — this helper
+           can complete the last required question and should bring the banner
+           up, exactly as answering it by hand would. */
+        renderRecommendations();
         showToast(n ? `Marked ${n} question${n === 1 ? '' : 's'} as passing.` : 'No scoreable questions to pass.');
     }
 
@@ -11308,8 +11031,9 @@ function setSharedState() {
     formShared = true;
     document.getElementById('topbarSharedStatus')?.removeAttribute('hidden');
 
-    // The action cluster carries the shared signal now (no header banner): tint
-    // the whole strip and swap the Share button for a solid pill.
+    // The action row carries the shared signal (no header banner): swap the
+    // Share button for a solid pill. `.is-shared` is a state hook only — no
+    // tint is attached to it, and the pill is the whole signal.
     const cluster = document.getElementById('formActions');
     if (cluster) cluster.classList.add('is-shared');
     const shareWrap = document.querySelector('.form-actions-share');
