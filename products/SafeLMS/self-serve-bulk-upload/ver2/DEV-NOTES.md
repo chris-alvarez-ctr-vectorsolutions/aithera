@@ -6,6 +6,12 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-29) Import settings
+
+- **[DONE]** Removed the "After this import" before → after totals panel — those counts
+  can't be calculated at the Import settings step. Totals appear only in Review's
+  Change summary.
+
 ## (2026-09-25) Review uses the error catalog only
 
 - **[DONE]** Every Review alert comes from the [Error & Notification Message Catalog](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29424549907)
