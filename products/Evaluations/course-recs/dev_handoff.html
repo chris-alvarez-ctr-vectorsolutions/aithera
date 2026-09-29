@@ -640,7 +640,8 @@
         /* ─── Form header (record identity) ───
            Left-aligned title with a two-column field grid below (label-beside-
            value pairs, sentence case). Sits at the top of the form content.
-           Shared status is not shown here — see .form-actions below. */
+           Its LAST row is the action cluster (.form-actions), divided off from
+           the meta grid — Pass all / Clear all, Privacy, Share. */
         /* Header container — matches the form-list card (same bg, border,
            radius, shadow) so it reads as a sibling of the form. */
         .form-header {
@@ -719,16 +720,22 @@
            bulk scoring actions, the privacy selection, and Share. Reads as a bar
            of chrome rather than a card, so it's flatter/tighter than .form-header
            and uses the page bg instead of the card bg. */
+        /* A dedicated row INSIDE the record header, not a card of its own.
+           It was a separate standalone card; nesting it means dropping the
+           card chrome (own background, border, radius, bottom margin) and
+           keeping only a top rule to divide it from the meta grid above.
+           The negative side margins pull the row out to the header's padding
+           edge so the divider spans the full card width rather than floating
+           inset; the padding puts the controls back on the header's own
+           alignment. */
         .form-actions {
             display: flex;
             align-items: center;
             flex-wrap: wrap;
             gap: 8px 16px;
-            padding: 10px 16px;
-            margin-bottom: 16px;
-            background: var(--page-bg);
-            border: 1px solid var(--border-soft);
-            border-radius: 10px;
+            margin: 16px -24px 0;
+            padding: 14px 24px 0;
+            border-top: 1px solid var(--border-soft);
         }
         .form-actions-group {
             display: inline-flex;
@@ -5349,50 +5356,51 @@
                         <span class="form-header-value">Yes</span>
                     </div>
                 </div>
-            </div>
+                <!-- ─── Form action row ───
+                     The last row INSIDE the record header, divided off from
+                     the meta grid above it: bulk scoring actions, then the
+                     privacy selection, then Share. Share lives here (not the
+                     topbar) so the topbar's Save stays the page's single
+                     primary CTA. -->
+                <div class="form-actions" id="formActions">
+                    <div class="form-actions-group">
+                        <vaadin-button theme="secondary" id="passAllBtn">
+                            Pass all
+                        </vaadin-button>
+                        <vaadin-button theme="secondary" id="clearAllBtn">
+                            Clear all
+                        </vaadin-button>
+                    </div>
 
-            <!-- ─── Form action cluster ───
-                 Sits between the record header and the first form section: bulk
-                 scoring actions on the left, then the privacy selection, then
-                 Share on the right. Share lives here (not the topbar) so the
-                 topbar's Save stays the page's single primary CTA. -->
-            <div class="form-actions" id="formActions">
-                <div class="form-actions-group">
-                    <vaadin-button theme="secondary" id="passAllBtn">
-                        Pass all
-                    </vaadin-button>
-                    <vaadin-button theme="secondary" id="clearAllBtn">
-                        Clear all
-                    </vaadin-button>
-                </div>
+                    <div class="form-actions-divider" aria-hidden="true"></div>
 
-                <div class="form-actions-divider" aria-hidden="true"></div>
+                    <!-- Privacy: On = visible only to the author until shared. Plain
+                         buttons rather than vwc-toggle-button-group, which behaves
+                         additively outside a form context.
+                         Off is first and is the default. No icons and no hint text —
+                         the On/Off labels carry the meaning on their own. Privacy
+                         stays toggleable after the form is shared. -->
+                    <div class="form-actions-group">
+                        <span class="form-actions-label" id="privacyLabel">Privacy</span>
+                        <div class="privacy-toggle" role="radiogroup" aria-labelledby="privacyLabel">
+                            <button type="button" class="privacy-opt active" data-privacy="off" role="radio" aria-checked="true">
+                                Off
+                            </button>
+                            <button type="button" class="privacy-opt" data-privacy="on" role="radio" aria-checked="false">
+                                On
+                            </button>
+                        </div>
+                    </div>
 
-                <!-- Privacy: On = visible only to the author until shared. Plain
-                     buttons rather than vwc-toggle-button-group, which behaves
-                     additively outside a form context.
-                     Off is first and is the default. No icons and no hint text —
-                     the On/Off labels carry the meaning on their own. Privacy
-                     stays toggleable after the form is shared. -->
-                <div class="form-actions-group">
-                    <span class="form-actions-label" id="privacyLabel">Privacy</span>
-                    <div class="privacy-toggle" role="radiogroup" aria-labelledby="privacyLabel">
-                        <button type="button" class="privacy-opt active" data-privacy="off" role="radio" aria-checked="true">
-                            Off
-                        </button>
-                        <button type="button" class="privacy-opt" data-privacy="on" role="radio" aria-checked="false">
-                            On
-                        </button>
+                    <!-- Share — right-aligned, still irreversible and still gated by
+                         the confirmation modal, which flips the form to "Shared". -->
+                    <div class="form-actions-share">
+                        <vaadin-button theme="secondary" id="shareFormBtn"> Share
+                        </vaadin-button>
                     </div>
                 </div>
-
-                <!-- Share — right-aligned, still irreversible and still gated by
-                     the confirmation modal, which flips the form to "Shared". -->
-                <div class="form-actions-share">
-                    <vaadin-button theme="secondary" id="shareFormBtn"> Share
-                    </vaadin-button>
-                </div>
             </div>
+
 
             <!-- Flat list of "questions" rendered by the form builder. No grouping containers. -->
             <div class="form-list" id="formList"></div>
@@ -11023,8 +11031,9 @@ function setSharedState() {
     formShared = true;
     document.getElementById('topbarSharedStatus')?.removeAttribute('hidden');
 
-    // The action cluster carries the shared signal now (no header banner): tint
-    // the whole strip and swap the Share button for a solid pill.
+    // The action row carries the shared signal (no header banner): swap the
+    // Share button for a solid pill. `.is-shared` is a state hook only — no
+    // tint is attached to it, and the pill is the whole signal.
     const cluster = document.getElementById('formActions');
     if (cluster) cluster.classList.add('is-shared');
     const shareWrap = document.querySelector('.form-actions-share');
