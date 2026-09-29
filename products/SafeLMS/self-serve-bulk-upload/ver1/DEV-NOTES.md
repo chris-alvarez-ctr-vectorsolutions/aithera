@@ -6,6 +6,20 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-29) Severity order, older-data download, switch label
+
+- **[DONE]** Review is ordered most severe first: Blocking → warnings that cause permanent loss
+  (deactivations, jobs removed, "none of these match" file checks) → wrong/duplicate accounts,
+  password changes, skipped rows, "only a few match" → other warnings (dates, codes, columns) →
+  info. Ties keep catalog order. The copy-review file uses the same order now (was catalog order).
+  Weights live in `WARN_WEIGHT` / `severity()`.
+- **[DONE]** "Download current data (.csv)" on the Review side panel (a snapshot of the site
+  before the import), "Data before this import" on Import complete, and "Data before this
+  upload" on a completed run's log page.
+- **[DONE]** Switch label → **"Deactivate all users and jobs not in this file"**.
+- **PENDING:** how long before-import snapshots are kept, and whether it's the full employee export
+  or only the rows the import touches.
+
 ## (2026-09-29) Upload log → pages; approving stopped automated runs
 
 - **[DONE]** Log rows open their own page instead of expanding. A completed, cancelled or

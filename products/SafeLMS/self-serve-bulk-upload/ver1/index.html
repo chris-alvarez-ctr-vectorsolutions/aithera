@@ -1231,6 +1231,22 @@
     return a;
   }
 
+  /* Warning weight: lower = shown higher. 0 = permanent loss (deactivations, jobs
+     removed, the wrong file); 1 = wrong or duplicate accounts, sign-in changes, skipped rows;
+     2 = everything else (dates, codes, unmatched columns). */
+  var WARN_WEIGHT = {
+    purge: 0, 'purge-jobs': 0, total_person_change: 0, total_pos_change: 0, total_bldg_change: 0,
+    removed_rows: 1,    duplicate_user_in_system: 1, duplicate_user_in_upload: 1, duplicate_email_in_upload: 1, potential_duplicate_user: 1,
+    non_identical_username: 1, duplicate_external_unique_id_in_upload: 1, duplicate_external_unique_id_in_system: 1,
+    non_identical_external_unique_id: 1, potential_duplicate_user_external_unique_id: 1, password_changed: 1,
+    missing_person: 1, large_person_change: 1, large_pos_change: 1, large_bldg_change: 1
+  };
+  function severity(a) {
+    if (a.tier === 'blocked' || a.tier === 'escalate') return 0;
+    if (a.tier === 'confirm') return 1 + (WARN_WEIGHT.hasOwnProperty(a.id) ? WARN_WEIGHT[a.id] : 2);
+    return 4;
+  }
+
   function buildAlerts() {
     var fileId = state.fileId, pu = state.purgeUsers, pj = state.purgeJobs;
     var sm = summaryFor(fileId, pu, pj), A;
@@ -1263,10 +1279,10 @@
         ackLabel: 'I’ve checked these — end the jobs that aren’t in my file.' });
     }
 
-    if (!FILE_MSGS[fileId]) return A;   // copy review keeps catalog order
-    var rank = { blocked: 0, confirm: 1, info: 2 };
+    // Most severe first (2026-09-29): Blocking, then the biggest warnings, then info.
+    // Ties keep their catalog order. Applies to the copy-review file too.
     return A.map(function (a, i) { return { a: a, i: i }; })
-      .sort(function (x, y) { return (rank[x.a.tier] - rank[y.a.tier]) || (x.i - y.i); })
+      .sort(function (x, y) { return (severity(x.a) - severity(y.a)) || (x.i - y.i); })
       .map(function (x) { return x.a; });
   }
 
@@ -1710,7 +1726,7 @@
     var optCard = '<div class="opt-plain">'
       + '<div class="toggle" data-act="togglePurgeAll" role="switch" aria-checked="' + on + '" tabindex="0" style="flex:0 0 34px;margin-top:2px;background:' + (on ? '#D92D20' : '#C6D3E1') + ';">'
       + '<div class="toggle-knob" style="left:' + (on ? '17px' : '2px') + ';"></div></div>'
-      + '<div class="opt-main"><div class="opt-title">Deactivate anyone and any jobs not in this file</div></div></div>';
+      + '<div class="opt-main"><div class="opt-title">Deactivate all users and jobs not in this file</div></div></div>';
 
     // What happens — always visible, directly under the switch, and follows its state.
     var effect = on
@@ -1880,7 +1896,7 @@
       + '</div>';
     var setCard = '<div class="choice">'
       + '<div class="choice-h"><span>Import settings</span><button class="choice-edit" data-act="linkSettings"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button></div>'
-      + '<div class="choice-set"><span class="log-pill ' + (on ? 'lp-blocked' : 'lp-manual') + '">' + (on ? 'On' : 'Off') + '</span> Deactivate anyone and any jobs not in this file</div>'
+      + '<div class="choice-set"><span class="log-pill ' + (on ? 'lp-blocked' : 'lp-manual') + '">' + (on ? 'On' : 'Off') + '</span> Deactivate all users and jobs not in this file</div>'
       + '<div class="choice-note">' + (on ? 'Anyone and any job not in the file is deactivated / ended.' : 'Only adds and updates — no one is deactivated.') + '</div>'
       + '</div>';
     return '<div class="choices">' + mapCard + setCard + '</div>';
@@ -1932,6 +1948,10 @@
           + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you approve it. Tonight’s automated upload still runs as usual.</div>'
         : '<button class="btn btn--outline-red" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
           + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it.</div>')
+      // Older data (2026-09-29): a snapshot of the site before anything changes.
+      + '<div class="divider" style="margin:14px 0;"></div>'
+      + '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-download" aria-hidden="true"></i> Download current data (.csv)</button>'
+          + '<div style="font-size:12px;color:#8CA0B4;margin-top:6px;line-height:1.5;">Your employees as they are now, before this import — keep a copy in case you need to put anything back.</div>'
       // Support articles (2026-09-25 — replaces the Edit mapping / Change settings
       // links; the stepper already jumps back to earlier steps).
       + '<div class="divider" style="margin:14px 0;"></div>'
@@ -1987,6 +2007,7 @@
       + '<div style="font-size:13.5px;color:#5B6B7E;margin-top:6px;">' + dc.add + ' users added, ' + dc.mod + ' updated, ' + dc.deact + ' deactivated on Ridgewood Public Schools — Staff.</div>'
       + '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:14px 18px;margin:18px 0;font-size:13px;color:#5B6B7E;text-align:left;">A confirmation was emailed to <span style="font-weight:600;color:#1B2B3E;">vpollock@ridgewood.k12.us</span>. This import is recorded in your <a href="#" data-act="goLog">upload log</a>, where you can see who ran it, when, and the alerts it raised.</div>'
       + '<div style="display:flex;gap:10px;justify-content:center;">'
+      + '<button class="btn btn--ghost" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Data before this import (.csv)</button>'
       + '<button class="btn btn--ghost" data-act="restart">Start another import</button>'
       + '<button class="btn btn--primary" data-act="goEmployees">Back to Employees</button></div>'
       // Automated sync can't be self-served — offer the how-to article, not a sync page.
@@ -2064,7 +2085,8 @@
         : '<div style="font-size:13px;color:#5B6B7E;margin-top:10px;">Nothing was changed on your site.</div>')
       + '<div class="divider" style="margin:16px 0;"></div><div style="display:flex;flex-direction:column;gap:8px;">'
       + (r.rows ? '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-download" aria-hidden="true"></i> Original file</button>' : '')
-      + (done ? '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Change report (.csv)</button>' : '')
+      + (done ? '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Change report (.csv)</button>'
+        + '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i> Data before this upload (.csv)</button>' : '')
       + '</div></div>';
     var notes = (r.notes && r.notes.length)
       ? '<div class="ld-card"><div class="kpi-eyebrow" style="margin-bottom:8px;">Alerts &amp; notes</div><ul class="ld-notes">'
@@ -2081,7 +2103,7 @@
       + '<div class="ld-facts">'
       + fact('Uploaded by', esc(r.by) + '<div class="l2">' + esc(r.role) + '</div>')
       + fact('Method', r.method === 'auto' ? pill('lp-auto', 'fa-arrows-rotate', 'Automated') : pill('lp-manual', 'fa-user', 'Manual'))
-      + fact('Deactivate anyone and any jobs not in this file', r.roster ? 'On' : 'Off')
+      + fact('Deactivate all users and jobs not in this file', r.roster ? 'On' : 'Off')
       + '</div>' + notes + '</div>'
       + '<div style="width:290px;flex:0 0 290px;">' + side + '</div>'
       + '</div></div></div>';
@@ -2468,7 +2490,7 @@
         { id: 'map', flow: 'import', x: 500, y: 120, step: 'Step 2', name: 'Map columns', state: 'map',
           desc: 'Match your file columns to SafeLMS fields (skipped in the Template variant).' },
         { id: 'settings', flow: 'import', x: 500, y: 410, step: 'Step 3', name: 'Import settings', state: 'settings',
-          desc: 'One off-by-default switch — “Deactivate anyone and any jobs not in this file” — with a live On/Off description directly under it. Users-only or jobs-only deactivation isn’t self-serve: a banner routes to Vector Care via the Support Center.' },
+          desc: 'One off-by-default switch — “Deactivate all users and jobs not in this file” — with a live On/Off description directly under it. Users-only or jobs-only deactivation isn’t self-serve: a banner routes to Vector Care via the Support Center.' },
 
         { id: 'review-info', flow: 'import', x: 700, y: 60, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
@@ -2482,7 +2504,7 @@
           desc: 'Reached from the Info and Confirm paths. Irreversible once run — the design leans on prevention, not undo.' },
 
         { id: 'review-blocked', flow: 'import', x: 700, y: 420, step: 'Review · Copy review', name: 'Every catalog message', state: 'review-blocked',
-          desc: 'Copy review: the last sample file raises all 44 messages from the Error & Notification Message Catalog (PMC 29424549907) in catalog order, each tagged with its key, so the copy and tiers can be checked against Confluence.' },
+          desc: 'Copy review: the last sample file raises all 44 messages from the Error & Notification Message Catalog (PMC 29424549907) most severe first, each tagged with its key, so the copy and tiers can be checked against Confluence.' },
         { id: 'review-saml', flow: 'import', x: 1030, y: 420, step: 'Review · Blocking', name: 'Blocking — unreadable dates', state: 'review-saml',
           desc: 'broken_begin_date (BLOCKING, Where = Column H (BEGIN_DATE) · rows 14, 27, 88) + early_end_date (WARNING) + info.' },
         { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Blocking', name: 'Blocking — duplicate accounts', state: 'review-escalate',
