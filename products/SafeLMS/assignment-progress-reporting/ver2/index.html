@@ -31,8 +31,10 @@
 <style>
   /* ════════════════════════════════════════════════════════════════
      Assignment Progress Reporting (SAFELMS-25167) — V2 · RINGS
-     Same as V1 on both reports (# Not started / # In progress columns). The difference is
+     The visual take. Training Compliance: one Progress column with a segmented bar,
+     the count printed inside each section, each section clickable (2026-09-30).
      Training Plans: a progress ring with counts replaces the course picture.
+     Compliance by Employee is the same as V1.
      Two report screens, matched to the current production Reports UI:
        1. Training Compliance  — per-assignment progress breakout
        2. Compliance by Employee — Status filter: Outstanding (Not started,
@@ -323,6 +325,30 @@
   .count-link { background: 0; border: 0; padding: 2px 0; font-size: 14px; color: var(--blue-accent); cursor: pointer; }
   .count-link:hover { text-decoration: underline; }
   .count-zero { font-size: 14px; color: var(--muted-2); }
+  /* ── V2 progress bar (Training Compliance) ──
+     One section per state, width ∝ learners, 2px gaps. The count sits inside each section
+     with the state's icon, so state never relies on color alone. A section with learners
+     is a button that opens them; tiny shares still get room for their number. */
+  table.data th.th-progress { width: 290px; }
+  .pbar { display: flex; gap: 2px; width: 270px; height: 28px; }
+  .pbar .seg {
+    flex: var(--n) 1 0; min-width: max-content; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+    padding: 0 7px; border: 0; font-size: 12.5px; font-weight: 700; font-family: inherit; white-space: nowrap;
+    cursor: pointer; transition: filter .12s;
+  }
+  .pbar .seg:first-child { border-radius: 4px 0 0 4px; }
+  .pbar .seg:last-child  { border-radius: 0 4px 4px 0; }
+  .pbar .seg:only-child  { border-radius: 4px; }
+  .pbar .seg i { font-size: 11px; }
+  .pbar .seg.c  { background: var(--st-c); color: #fff; }
+  .pbar .seg.ip { background: var(--st-ip); color: #fff; }
+  .pbar .seg.ns { background: #C3CBD6; color: var(--ink); }
+  .pbar .seg:hover { filter: brightness(.9); }
+  .pbar .seg:hover .n { text-decoration: underline; }
+  .pbar .seg:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .pbar-empty { display: flex; align-items: center; width: 270px; height: 28px; padding: 0 10px; border: 1px dashed #D0D5DD;
+    border-radius: 4px; font-size: 12.5px; color: var(--muted); }
+  .pbar-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
   .defs-wrap { position: relative; }
   .defs-link { background: 0; border: 0; padding: 4px 0; font-size: 13px; color: var(--blue-accent); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
   .defs-link:hover { text-decoration: underline; }
@@ -581,6 +607,12 @@ Engagement</button>
               <div class="foot">Each assigned learner is in exactly one state, so the three always add up to the total assigned. <b>Compliance is unchanged:</b> completed ÷ assigned.</div>
             </div>
         </div>
+        <!-- Legend: names the three bar sections once for the whole table -->
+        <div class="legend" aria-hidden="true">
+          <span><i class="sw" style="background:var(--st-c)"></i><span data-label="c">Completed</span></span>
+          <span><i class="sw" style="background:var(--st-ip)"></i><span data-label="ip">In progress</span></span>
+          <span><i class="sw" style="background:#C3CBD6"></i><span data-label="ns">Not started</span></span>
+        </div>
         <div class="right">
           <span class="results" id="tc-results">9 RESULTS</span>
           <div class="pager"><button disabled>First</button><button disabled><i class="fa-solid fa-chevron-left"></i></button><span class="num">1</span><button disabled><i class="fa-solid fa-chevron-right"></i></button><button disabled>Last</button></div>
@@ -595,10 +627,9 @@ Engagement</button>
               <th>Position</th>
               <th>Location</th>
               <th>Due Date</th>
-              <!-- ★ New: the non-completed remainder split into two counts (FR-1), same "x / y" form as # Completed -->
-              <th class="num"># Not started</th>
-              <th class="num"># In progress</th>
-              <th class="num"># Completed</th>
+              <!-- ★ New (V2): one Progress column — a segmented bar replaces # Completed, the number
+                   in each section, so the table doesn't grow wider (FR-1, PRD UX constraints) -->
+              <th class="th-progress">Progress</th>
               <th>Compliance</th>
             </tr>
           </thead>
@@ -807,14 +838,16 @@ Engagement</button>
   }
 
   /* ── Screen 1: Training Compliance ───────────────────────── */
-  // A count is a link to the learners behind it (FR-3) — same blue link style production
-  // already uses for "# Completed". All three use the same "11 / 85" compound value
-  // (eng review 2026-09-29, Liz 35:11: "keep the same structure").
-  function countLink(a, s, withTotal) {
-    const n = a[s], txt = withTotal ? `${fmt(n)} / ${fmt(total(a))}` : fmt(n);
-    if (!n) return `<span class="count-zero">${txt}</span>`;
-    return `<button class="count-link" data-drill="${a.id}" data-state="${s}"
-              title="View these ${fmt(n)} learners in Compliance by Employee">${txt}</button>`;
+  // V2: segmented bar, Completed → In progress → Not started (left to right toward "not done")
+  function progressBar(a) {
+    const t = total(a);
+    if (!t) return '<div class="pbar-empty">No learners assigned</div>';
+    const segs = ORDER.filter(s => a[s] > 0).map(s =>
+      `<button class="seg ${s}" style="--n:${a[s]}" data-drill="${a.id}" data-state="${s}"
+         title="${fmt(a[s])} ${LABELS[s]} (${Math.round(a[s] / t * 1000) / 10}%) — view these learners"
+         aria-label="${fmt(a[s])} ${LABELS[s]}, view these learners"><i class="${ICONS[s].replace(/ ico-\w+/, '')}"></i><span class="n">${fmt(a[s])}</span></button>`).join('');
+    return `<div class="pbar" role="group" aria-label="${a.course}: progress">${segs}</div>
+            <div class="pbar-sub">${fmt(t)} assigned</div>`;
   }
 
   function renderTC() {
@@ -829,9 +862,7 @@ Engagement</button>
         <td class="cell-sm">${a.position}</td>
         <td class="cell-sm">${a.location}</td>
         <td class="cell-sm">${fmtDate(a.due)}</td>
-        <td class="num">${countLink(a, 'ns', true)}</td>
-        <td class="num">${countLink(a, 'ip', true)}</td>
-        <td class="num">${countLink(a, 'c', true)}</td>
+        <td>${progressBar(a)}</td>
         <td class="comp-cell"><span theme="${theme}">${p}%</span></td>
       </tr>`;
     }).join('');
@@ -849,7 +880,7 @@ Engagement</button>
 
   // Click-through: a count → Compliance by Employee, pre-filtered (FR-3 / AC-3.1)
   document.getElementById('tc-body').addEventListener('click', e => {
-    const b = e.target.closest('.count-link');
+    const b = e.target.closest('.seg');
     if (!b) return;
     drillTo(b.dataset.drill, b.dataset.state);
   });
@@ -1281,11 +1312,11 @@ Engagement</button>
       ],
       nodes: [
         { id: 'tc', flow: 'drill', entry: true, x: 60, y: 100, step: 'Entry', name: 'Training Compliance', state: 'tc',
-          desc: 'Counts, not a chart: # Not started and # In progress sit next to the existing # Completed; each count opens those learners. Course picture and Compliance % unchanged.' },
+          desc: 'V2: one Progress column with a segmented bar, the count inside each section. Clicking a section opens those learners. Course picture and Compliance % unchanged.' },
         { id: 'tc-defs', flow: 'drill', x: 340, y: 100, step: 'Info', name: 'How progress is counted', state: 'tc-defs',
           desc: '"How progress is counted" above the table defines each state and says the compliance % is unchanged.' },
         { id: 'cbe-drill', flow: 'drill', x: 620, y: 100, step: 'Click a count', name: 'Pre-filtered learner list', state: 'cbe-drill',
-          desc: 'Clicking "11 / 85" In progress on Winter Driving opens Compliance by Employee already run. Position, location, course and status are filled in and highlighted (no banner); the count matches.' },
+          desc: 'Clicking the 11 In progress section on Winter Driving opens Compliance by Employee already run. Position, location, course and status are filled in and highlighted (no banner); the count matches.' },
         { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'In progress + Past due', state: 'cbe-pastdue',
           desc: 'Changing a filter drops its highlight: Course back to All, Status + Past due, so only the past-due In progress learners in that position show.' },
         { id: 'cbe-status', flow: 'filter', entry: true, x: 60, y: 410, step: 'Entry', name: 'Status filter', state: 'cbe-status',
