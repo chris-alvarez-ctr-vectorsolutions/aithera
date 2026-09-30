@@ -492,12 +492,14 @@
   /* V2: a pie chart takes the course picture's place (PRD: "course imagery is low-value real
      estate"; Liz, eng review 45:26 "a pie chart with three possible statuses"). Each slice
      opens those learners; the counts sit under the category. */
-  /* Status column (2026-09-30): total at the pie's top left, the three counts stacked under it */
+  /* Status column (2026-09-30): the total in the middle of the pie, the three counts stacked under it */
   #screen-tp .tp-grid { grid-template-columns: 158px minmax(160px, 1fr) minmax(170px, 1fr) minmax(290px, 1.2fr) 78px 30px;
     column-gap: 14px; min-width: 950px; }
   .tp-stat { display: flex; flex-direction: column; align-items: flex-start; }
-  .pie-top { display: flex; align-items: flex-start; gap: 8px; }
-  .pie-total { font-size: 14px; font-weight: 700; color: var(--ink); line-height: 1; min-width: 28px; }
+  /* Total in the middle: dark text with a white halo so it reads over any slice color */
+  .pie .tot { font-size: 14px; font-weight: 700; fill: var(--ink); stroke: #fff; stroke-width: 4px; paint-order: stroke;
+    stroke-linejoin: round; pointer-events: none; }
+  .pie .tot.sm { font-size: 12px; }
   .ring-legend.stacked { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 0; margin-top: 8px; }
   .pie { display: block; overflow: visible; }
   .pie .slice { cursor: pointer; transition: opacity .12s; }
@@ -1231,7 +1233,8 @@ Engagement</button>
   function pie(a, size) {
     const t = total(a), r = size / 2, c = r;
     if (!t) return `<svg class="pie" width="${size}" height="${size}" role="img" aria-label="No learners assigned">
-      <circle cx="${c}" cy="${c}" r="${r - 1}" fill="none" stroke="#D0D5DD" stroke-width="1.5" stroke-dasharray="4 4"></circle></svg>`;
+      <circle cx="${c}" cy="${c}" r="${r - 1}" fill="none" stroke="#D0D5DD" stroke-width="1.5" stroke-dasharray="4 4"></circle>
+      <text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle" class="tot" aria-hidden="true">0</text></svg>`;
     const paint = { c: 'var(--st-c)', ip: 'url(#apr-ip-stripe)', ns: '#C3CBD6' };
     const nz = ORDER.filter(s => a[s] > 0);
     let angs = nz.map(s => Math.max(360 * a[s] / t, 16));
@@ -1247,7 +1250,8 @@ Engagement</button>
       return `<path class="slice" d="${d}" fill="${paint[s]}" stroke="#fff" stroke-width="${nz.length > 1 ? 2 : 0}" stroke-linejoin="round"
           data-drill="${a.id}" data-state="${s}" tabindex="0" role="button" aria-label="${lbl}, view these learners"><title>${lbl} — view these learners</title></path>`;
     }).join('');
-    return `<svg class="pie" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="group" aria-label="${a.course}: ${compliance(a)}% completed">${slices}</svg>`;
+    return `<svg class="pie" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="group" aria-label="${a.course}: ${fmt(t)} assigned, ${compliance(a)}% completed">${slices}
+      <text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle" class="tot${fmt(t).length > 5 ? ' sm' : ''}" aria-hidden="true">${fmt(t)}</text></svg>`;
   }
   function legendBtns(a, src) {
     return ORDER.map(s => {
@@ -1277,8 +1281,7 @@ Engagement</button>
     document.getElementById('tp-body').innerHTML = ASSIGNMENTS.map(a => `
       <div class="tp-grid tp-row">
         <div class="tp-stat">
-          <div class="pie-top"><span class="pie-total" title="${fmt(total(a))} assigned" aria-label="${fmt(total(a))} assigned">${loading ? '' : fmt(total(a))}</span>
-            ${loading ? '<span class="skel pie-sk" aria-hidden="true"></span>' : pie(a, 80)}</div>
+          ${loading ? '<span class="skel pie-sk" aria-hidden="true"></span>' : pie(a, 80)}
           <div class="ring-legend stacked">${loading ? '<span class="skel" style="width:110px;height:14px;margin:6px 0"></span>'.repeat(3)
             : total(a) ? legendBtns(a, 'tp') : '<span class="no-learners">No learners assigned</span>'}</div>
         </div>
@@ -1447,7 +1450,7 @@ Engagement</button>
         { id: 'tp-loading', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Loading progress', state: 'tp-loading',
           desc: 'The list shows right away; progress fills in a moment later, so the page never waits on it. "Progress as of" says how fresh it is (updated about daily).' },
         { id: 'tp', flow: 'plans', x: 340, y: 720, step: 'Loaded', name: 'Training Plans', state: 'tp',
-          desc: 'Phase 2 (FR-4), V1: matched to the production page. A Status column replaces the course picture: pie chart, total at its top left, the three counts stacked under it. Slices and counts open those learners.' },
+          desc: 'Phase 2 (FR-4), V1: matched to the production page. A Status column replaces the course picture: pie chart with the total in the middle, the three counts stacked under it. Slices and counts open those learners.' },
         { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
           desc: 'Clicking "8 Not started" on OSHA 30-Hour opens the learner report already run, with position, location, course and status set and highlighted (AC-4.3).' }
       ],
