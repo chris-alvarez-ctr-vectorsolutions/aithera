@@ -5,30 +5,56 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Edit Activity | Convergence LMS</title>
 
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       UNIFIED ACTIVITY EDITOR
+       One page for both ways into editing an activity:
+         Path A  Training Import And Creation > Quizzes > Edit   -> ?id=<id>&tab=content
+         Path B  Activities > Edit                               -> ?id=<id>&tab=details
+       Tabs: Content | Details, with the version history inside Details. Both panels stay mounted and edit ONE
+       in-memory record, so switching tabs never loses work; leaving the page with unsaved
+       changes is guarded. Deep links: ?tab=content|details, ?layout=legacy|modern, ?from=cbt (marks the
+       Computer Based Trainings grid as the page to return to),
+       ?new=quiz (fresh draft), ?mode=view (read-only, accredited content).
+       Two layouts share that record and every behaviour:
+         MVP (legacy)  the current Convergence metadata form and content page, joined by a
+                       Content | Details tab bar under the page header (the minimum-change build)
+         Modern        the builder-aligned design (sticky header, cards, drag-to-reorder content)
+       Quiz is the first full Content implementation. Other types reuse Details and get a
+       placeholder Content panel (see activity-types.js `content`).
+       ═══════════════════════════════════════════════════════════════════════ -->
+
   <!-- Convergence chrome (topnav + admin sidenav + breadcrumb) -->
   <link rel="stylesheet" href="../_shell/chrome.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
-  <!-- Vector design system (used by the modern version) -->
+  <!-- Vector design system -->
   <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
   <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <!-- Shared: activity types, records, and the builders' Advanced Properties + Attributes accordion -->
+  <script src="activity-types.js"></script>
+  <script src="activities-data.js"></script>
+  <script src="qb-attributes.js"></script>
 
   <style>
     :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; --canvas:#f5f9fd; }
     * { box-sizing:border-box; }
     body { margin:0; font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:#1a1a2e; background:var(--canvas); }
     .hidden { display:none !important; }
-    /* The shell relocates #cv-page into #cv-content; drop its default padding so each version controls its own. */
+    /* The shell relocates #cv-page into #cv-content; drop its default padding so each layout controls its own. */
     #cv-content { padding:0; }
+    /* CBT-only fields and CTAs (pre-test / exam score / sequential, Configure, Learning Studio) hide for every other type */
+    #cv-page.not-cbt .cbt-only { display:none !important; }
+    /* Read-only mode (accredited content): hide everything that would change the record */
+    #cv-page.readonly .ro-hide { display:none !important; }
+    /* A CBT Learning Studio cannot customize (licensed third-party, uploaded package): no Learning Studio CTA anywhere */
+    #cv-page.no-ls .ls-cta { display:none !important; }
 
-    /* ── Prototype version toggle (floating, not part of either design) ── */
+    /* ── Prototype layout toggle (floating, not part of either design) ── */
     .proto-toggle { position:fixed; bottom:18px; right:18px; z-index:5000; display:flex; align-items:center; gap:4px; background:#1f2937; color:#fff; padding:6px; border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.3); font:600 12.5px "Open Sans",sans-serif; }
-    .proto-toggle .pt-label { padding:0 8px; opacity:.7; font-size:11px; text-transform:none; }
+    .proto-toggle .pt-label { padding:0 8px; opacity:.7; font-size:11px; }
     .proto-toggle button { border:none; background:transparent; color:#cbd5e1; font:inherit; padding:7px 14px; border-radius:999px; cursor:pointer; white-space:nowrap; }
     .proto-toggle button.active { background:#fff; color:#1f2937; }
 
-    /* ─────────────────────────────────────────────────────────────
-       AI-styled "Edit in Learning Studio" CTA (gradient border + text + sparkle).
-       Used in BOTH versions. ───────────────────────────────────── */
+    /* AI-styled "Edit in Learning Studio" CTA (gradient border + text + sparkle). Used in BOTH layouts. */
     .ls-cta { position:relative; display:inline-flex; align-items:center; gap:9px; border:2px solid transparent; border-radius:10px; padding:9px 16px; font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer;
       background:linear-gradient(#fff,#fff) padding-box, linear-gradient(95deg,#2b7cff 0%,#8b5cf6 55%,#d65db1 100%) border-box; transition:box-shadow .15s, transform .05s; }
     .ls-cta:hover { box-shadow:0 4px 16px rgba(124,92,246,.30); }
@@ -36,25 +62,40 @@
     .ls-cta .ls-cta-text { background:linear-gradient(95deg,#2b7cff 0%,#7c5cf6 55%,#c14fb0 100%); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; color:transparent; }
     .ls-cta svg { width:20px; height:20px; flex-shrink:0; }
 
-    /* ═══════════════════════ VERSION A — LEGACY (form + gray action toolbar, inside the shell) ═══════════════════════ */
-    /* Gray action toolbar */
-    .leg-toolbar { display:flex; align-items:center; gap:8px; background:#8b9197; padding:9px 14px; }
-    .leg-btn { display:inline-flex; align-items:center; gap:7px; background:#fff; border:1px solid #d3d8de; border-radius:6px; padding:7px 13px; font-family:inherit; font-size:13px; font-weight:600; color:#3c4148; cursor:pointer; }
+    /* ═══════════════════════ LAYOUT A: MVP (LEGACY) ═══════════════════════ */
+    .leg-toolbar { display:flex; align-items:center; gap:8px; background:#8b9197; padding:9px 14px; flex-wrap:wrap; }
+    .leg-btn { display:inline-flex; align-items:center; gap:7px; background:#fff; border:1px solid #d3d8de; border-radius:6px; padding:7px 13px; font-family:inherit; font-size:13px; font-weight:600; color:#3c4148; cursor:pointer; position:relative; }
     .leg-btn:hover { background:#f3f5f7; }
     .leg-btn i { color:var(--vblue); font-size:13px; }
     .leg-btn .trash { color:#6b7280; }
     .leg-btn .caret { color:#6b7280; font-size:10px; margin-left:2px; }
+    .leg-btn.dirty::after { content:''; position:absolute; top:-4px; right:-4px; width:10px; height:10px; border-radius:50%; background:#f59e0b; border:2px solid #8b9197; }
     .leg-toolbar .ls-cta { padding:7px 14px; font-size:13px; }
     .leg-toolbar .push { margin-left:auto; }
+    /* The legacy cross-links (Edit Content on the metadata page, Properties on the content page) show only on their own tab */
+    #cv-page[data-tab="content"] .tab-only-details, #cv-page[data-tab="details"] .tab-only-content { display:none !important; }
 
-    /* Form body */
+    /* Legacy tab strip (dark, matches the legacy section heads) */
+    .leg-tabs { display:flex; align-items:stretch; background:#3c4148; padding:0 14px; }
+    .leg-tab { border:none; background:transparent; color:#cbd2d9; font-family:inherit; font-size:13.5px; font-weight:700; padding:12px 18px; cursor:pointer; border-bottom:3px solid transparent; display:inline-flex; align-items:center; gap:8px; }
+    .leg-tab:hover { color:#fff; background:#4a5057; }
+    .leg-tab.active { color:#fff; border-bottom-color:#fff; background:#4a5057; }
+    .leg-tab-count { font-size:11px; font-weight:700; background:#cbd2d9; color:#3c4148; border-radius:10px; padding:1px 7px; }
+    .leg-unsaved { display:inline-flex; align-items:center; gap:8px; background:#fff4d6; border:1px solid #f0c36d; color:#7a4b00; font-size:12.5px; font-weight:600; border-radius:4px; padding:8px 12px; margin-bottom:14px; }
+    .leg-unsaved i { color:#d97706; }
+    .leg-context { font-size:13px; color:#3c4148; margin-bottom:14px; }
+    .leg-context strong { color:#1a1a2e; }
+    .leg-context .leg-pill { display:inline-block; background:#dde1e6; color:#3c4148; border-radius:3px; padding:2px 8px; font-size:12px; font-weight:700; margin-left:6px; }
+    .leg-context .leg-pill.pub { background:#d3f1de; color:#0a7637; }
+
     .leg-body { padding:22px 26px 60px; max-width:980px; }
-    .leg-thumb { width:240px; height:150px; background:#3c4148; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:46px; }
+    .leg-thumb { width:240px; height:150px; background:#3c4148; border-radius:4px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:46px; background-size:cover; background-position:center; }
     .leg-add-thumb { margin-top:12px; }
     .btn-blue { display:inline-flex; align-items:center; gap:7px; background:var(--vblue); color:#fff; border:none; border-radius:6px; padding:9px 15px; font-family:inherit; font-size:13px; font-weight:600; cursor:pointer; }
     .btn-blue:hover { background:var(--vblue-hover); }
     .leg-reqnote { margin:22px 0 16px; font-size:13px; color:#444; }
     .leg-reqnote .req { color:#d33; font-weight:700; }
+    .leg-errs { background:#fdecec; border:1px solid #f5b5b5; color:#8a1c1c; font-size:13px; border-radius:4px; padding:10px 14px; margin-bottom:14px; }
 
     .leg-field { display:flex; align-items:flex-start; gap:18px; padding:9px 0; }
     .leg-field > label { flex:0 0 200px; font-size:13.5px; font-weight:700; color:#333; padding-top:7px; }
@@ -66,38 +107,75 @@
     .leg-pickbtn { width:34px; height:34px; border:none; border-radius:6px; background:var(--vblue); color:#fff; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; }
     .leg-input { border:1px solid #b9c0c7; border-radius:3px; padding:8px 10px; font-family:inherit; font-size:13.5px; color:#1a1a2e; background:#fff; }
     .leg-input:focus { outline:none; border-color:var(--vblue); box-shadow:0 0 0 2px var(--vblue-10); }
+    .leg-input.invalid { border-color:#d33; box-shadow:0 0 0 2px #d3333322; }
     .leg-input.txt { width:280px; }
     .leg-input.num { width:90px; }
     textarea.leg-input { width:330px; height:78px; resize:vertical; }
     .leg-unit { font-size:13px; color:#555; font-style:italic; }
     .leg-check { width:17px; height:17px; accent-color:var(--vblue); }
+    .leg-err { flex-basis:100%; color:#b91c1c; font-size:12px; }
 
-    /* Sections (Activity Versions, Recomplete, Attachments) */
     .leg-section { margin-top:26px; border:1px solid #c9ced4; border-radius:3px; overflow:hidden; background:#fff; }
-    .leg-section-head { background:#3c4148; color:#fff; font-size:14px; font-weight:700; padding:11px 14px; }
+    .leg-section-head { background:#3c4148; color:#fff; font-size:14px; font-weight:700; padding:11px 14px; display:flex; align-items:center; gap:10px; }
+    .leg-section-head .grow { flex:1; }
+    .leg-section-head .leg-head-btn { background:#fff; color:#3c4148; border:none; border-radius:4px; padding:5px 10px; font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .leg-section-head .leg-head-btn:hover { background:#eef2f7; }
     .leg-table { width:100%; border-collapse:collapse; }
     .leg-table th { background:#c9ced4; color:#3c4148; font-size:12px; font-weight:700; text-align:left; padding:9px 14px; }
     .leg-table td { background:#dde1e6; color:#333; font-size:13px; padding:11px 14px; border-top:2px solid #eef2f7; }
+    .leg-table td .leg-input { padding:6px 8px; font-size:13px; }
     .leg-mini-btn { background:var(--vblue); color:#fff; border:none; border-radius:5px; padding:6px 14px; font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer; }
+    .leg-mini-btn.gray { background:#6b7280; }
+    .leg-mini-btn + .leg-mini-btn { margin-left:6px; }
     .leg-recomplete { background:#c9ced4; padding:18px 16px; }
     .leg-recomplete p { font-size:13px; color:#3c4148; line-height:1.55; margin:0 0 14px; }
     .leg-recomplete .rc-check { display:flex; align-items:center; gap:10px; font-size:13.5px; font-weight:700; color:#1a1a2e; margin-bottom:14px; }
     .leg-recomplete p.note { margin:0; }
     .leg-norecords { display:flex; align-items:center; gap:10px; background:#c0392b; color:#fff; font-size:13px; font-weight:600; padding:11px 14px; }
-    .leg-section-foot { padding:14px; background:#eef2f7; }
-    .leg-attr-bar { display:flex; align-items:center; gap:14px; margin-top:26px; background:#3c4148; padding:12px 16px; border-radius:3px; }
+    .leg-section-foot { padding:14px; background:#eef2f7; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .leg-attr-bar { display:flex; align-items:center; gap:14px; margin-top:26px; background:#3c4148; padding:12px 16px; border-radius:3px 3px 0 0; }
     .leg-attr-bar > span { color:#fff; font-size:14px; font-weight:700; }
     .leg-attr-bar select { flex:1; max-width:430px; height:34px; border:1px solid #b9c0c7; border-radius:3px; padding:0 10px; font-family:inherit; font-size:13.5px; background:#fff; }
+    .leg-attr-wrap { border:1px solid #c9ced4; border-top:none; border-radius:0 0 3px 3px; overflow:hidden; }
     .leg-advanced { display:flex; align-items:center; justify-content:space-between; margin-top:14px; background:#3c4148; color:#fff; padding:14px 16px; border-radius:3px; font-size:14px; font-weight:700; cursor:pointer; }
-    .leg-advanced i { color:#cbd2d9; }
+    .leg-advanced i { color:#cbd2d9; transition:transform .15s; }
+    .leg-advanced.open { border-radius:3px 3px 0 0; }
+    .leg-advanced.open i { transform:rotate(180deg); }
+    .leg-adv-panel { border:1px solid #c9ced4; border-top:none; border-radius:0 0 3px 3px; overflow:hidden; }
+    .leg-adv-panel .leg-table td:first-child { font-weight:700; width:220px; }
 
-    /* ═══════════════════════ VERSION B — MODERN (builder-aligned) ═══════════════════════ */
-    .mod-header { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid #e5e9ef; padding:16px 28px; display:flex; align-items:center; justify-content:space-between; gap:20px; box-shadow:0 1px 3px rgba(16,24,40,.04); }
-    .mod-title { font-size:20px; font-weight:700; color:#1a1a2e; display:flex; align-items:center; gap:10px; }
-    .mod-title .type-pill { font-size:11.5px; font-weight:700; color:#475569; background:#eef1f5; border-radius:999px; padding:3px 10px; }
+    /* Legacy content editor: question list styled like the legacy tables (grid rows so they can be dragged) */
+    .leg-qhead, .leg-qrow { display:grid; grid-template-columns:150px 48px 150px minmax(0,1fr); align-items:center; gap:10px; padding:9px 14px; font-size:13px; }
+    .leg-qhead { background:#c9ced4; color:#3c4148; font-size:12px; font-weight:700; }
+    .leg-qrow { background:#dde1e6; color:#333; border-top:2px solid #eef2f7; cursor:grab; }
+    .leg-qrow.dragging { opacity:.4; }
+    .leg-qrow .leg-qgrip { color:#6b7280; margin-right:8px; }
+    .leg-qrow .leg-qtype { font-weight:600; color:#3c4148; }
+    .leg-qrow .leg-qtype i { color:var(--vblue); margin-right:5px; }
+    .leg-qrow .leg-qtext { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .leg-qrow .leg-qtext .bank-tag { margin-left:6px; }
+    .leg-qedit { background:#eef2f7; padding:14px 16px 16px; border-top:2px solid #fff; }
+    .leg-qempty { background:#dde1e6; color:#555; font-size:13px; padding:14px; border-top:2px solid #eef2f7; text-align:center; }
+
+    /* ═══════════════════════ LAYOUT B: MODERN (builder-aligned) ═══════════════════════ */
+    .mod-header { position:sticky; top:0; z-index:20; background:#fff; border-bottom:1px solid #e5e9ef; box-shadow:0 1px 3px rgba(16,24,40,.04); }
+    .mod-header-row { padding:16px 28px 12px; display:flex; align-items:center; justify-content:space-between; gap:20px; }
+    .mod-title-wrap { min-width:0; }
+    /* Back link: returns to the list the activity was opened from (Activities, Quizzes or Computer Based Trainings) */
+    .mod-back { display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:600; color:#6b7280; text-decoration:none; margin:0 0 6px -6px; padding:3px 8px 3px 6px; border-radius:6px; transition:background .12s, color .12s; }
+    .mod-back:hover { background:#f3f4f6; color:var(--vblue); }
+    .mod-back i { font-size:12px; }
+    .mod-title { font-size:20px; font-weight:700; color:#1a1a2e; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .mod-title .type-pill { font-size:11.5px; font-weight:700; color:#475569; background:#eef1f5; border-radius:999px; padding:3px 10px; display:inline-flex; align-items:center; gap:6px; }
+    .mod-title .type-pill i { font-size:11px; color:#64748b; }
+    .mod-title span[theme~="badge"] { font-size:12px; }
+    .ver-chip { font-size:12px; font-weight:600; color:#475569; font-family:ui-monospace,"SF Mono",monospace; background:#f3f4f6; border-radius:6px; padding:3px 8px; }
+    .mod-sub { font-size:12.5px; color:#6b7280; margin-top:4px; display:flex; align-items:center; gap:6px; }
+    .mod-sub.dirty { color:#b45309; font-weight:600; }
+    .mod-sub.dirty i { color:#f59e0b; }
     .mod-actions { display:flex; align-items:center; gap:10px; flex-shrink:0; }
     .mod-actions .div { width:1px; height:26px; background:#e5e9ef; margin:0 2px; }
-    .m-btn { display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:13px; font-weight:600; border-radius:8px; padding:9px 15px; cursor:pointer; border:1px solid transparent; transition:background .12s,border-color .12s,color .12s; }
+    .m-btn { position:relative; display:inline-flex; align-items:center; gap:8px; font-family:inherit; font-size:13px; font-weight:600; border-radius:8px; padding:9px 15px; cursor:pointer; border:1px solid transparent; transition:background .12s,border-color .12s,color .12s; }
     .m-btn.primary { background:var(--vblue); color:#fff; }
     .m-btn.primary:hover { background:var(--vblue-hover); }
     .m-btn.secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
@@ -106,13 +184,31 @@
     .m-btn.danger:hover { background:#fee2e2; }
     .m-btn.ghost { background:transparent; color:#6b7280; }
     .m-btn.ghost:hover { background:#eef1f5; color:#374151; }
+    .m-btn.dirty::after { content:''; position:absolute; top:-4px; right:-4px; width:10px; height:10px; border-radius:50%; background:#f59e0b; border:2px solid #fff; }
+    .m-btn:disabled { opacity:.5; cursor:not-allowed; }
 
-    .mod-body { padding:24px 28px 60px; max-width:1080px; margin:0 auto; display:grid; grid-template-columns:260px 1fr; gap:22px; align-items:start; }
+    /* Editor tabs: underline tabs in the header block, same idiom as the Activities grid */
+    .ed-tabs { display:flex; align-items:flex-end; gap:4px; padding:0 28px; }
+    .ed-tab { position:relative; border:none; background:none; font-family:inherit; font-size:13.5px; font-weight:600; color:#6b7280; padding:9px 12px 12px; border-radius:7px 7px 0 0; cursor:pointer; display:inline-flex; align-items:center; gap:8px; line-height:1.2; transition:color .12s, background .12s; }
+    .ed-tab::after { content:''; position:absolute; left:8px; right:8px; bottom:0; height:2px; border-radius:2px 2px 0 0; background:transparent; transition:background .12s; }
+    .ed-tab:hover { color:#1a1a2e; background:var(--lumo-contrast-5pct, #f3f4f6); }
+    .ed-tab:focus-visible { outline:2px solid var(--lumo-primary-color, var(--vblue)); outline-offset:-2px; }
+    .ed-tab.active { color:var(--lumo-primary-color, var(--vblue)); }
+    .ed-tab.active::after { background:var(--lumo-primary-color, var(--vblue)); }
+    .ed-tab .tab-count { font-size:11.5px; font-weight:600; color:#6b7280; background:var(--lumo-contrast-10pct, #eef1f5); border-radius:999px; padding:2px 7px; min-width:20px; text-align:center; line-height:1.2; }
+    .ed-tab.active .tab-count { color:var(--lumo-primary-color, var(--vblue)); background:var(--lumo-primary-color-10pct, var(--vblue-10)); }
+    .ed-tab .tab-dot { width:7px; height:7px; border-radius:50%; background:#f59e0b; }
+
+    .mod-body { padding:24px 28px 80px; max-width:1080px; margin:0 auto; }
+    .det-grid { display:grid; grid-template-columns:260px 1fr; gap:22px; align-items:start; }
     .mod-card { background:#fff; border:1px solid #e5e9ef; border-radius:12px; padding:22px 24px; box-shadow:0 1px 3px rgba(16,24,40,.04); }
     .mod-card + .mod-card { margin-top:20px; }
-    .mod-card h2 { font-size:14px; font-weight:700; color:#1a1a2e; margin:0 0 16px; }
-    .mod-aside { position:sticky; top:92px; }
-    .mod-thumb { width:100%; aspect-ratio:16/10; background:linear-gradient(135deg,#3c4148,#23272c); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:42px; margin-bottom:12px; }
+    .mod-card h2 { font-size:14px; font-weight:700; color:#1a1a2e; margin:0 0 16px; display:flex; align-items:center; gap:8px; }
+    .mod-card h2 .h2-sub { font-size:12px; font-weight:400; color:#6b7280; margin-left:auto; }
+    .mod-aside { position:sticky; top:118px; }
+    .mod-thumb { width:100%; aspect-ratio:16/10; background:linear-gradient(135deg,#3c4148,#23272c); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:42px; margin-bottom:12px; background-size:cover; background-position:center; }
+    .mod-thumb-actions { display:flex; gap:8px; }
+    .mod-thumb-actions vaadin-button { flex:1; }
     .mod-meta { margin-top:16px; font-size:12.5px; }
     .mod-meta .row { display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid #f0f2f5; }
     .mod-meta .row:first-child { border-top:none; }
@@ -121,309 +217,592 @@
     .mod-grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px 20px; }
     .mod-grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:16px 20px; }
     .mod-field-label { display:block; font-size:12.5px; font-weight:600; color:#374151; margin-bottom:6px; }
+    .mod-field-label .req { color:#dc2626; margin-left:2px; }
+    .mod-file-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .mod-file-row .file-name { display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#1a1a2e; background:#f8fafc; border:1px solid #e5e9ef; border-radius:8px; padding:8px 12px; }
+    .mod-file-row .file-name i { color:#64748b; }
+    .mod-file-row.invalid .file-name { border-color:#dc2626; }
+    .mod-err { font-size:12px; color:#dc2626; margin-top:6px; }
     .mod-switch-row { display:flex; align-items:center; gap:12px; padding:10px 0; }
     .mod-switch-row .lbl { font-size:13px; font-weight:600; color:#374151; }
     .mod-switch-row .desc { font-size:12px; color:#8a93a0; }
     .mod-table { width:100%; border-collapse:collapse; }
     .mod-table th { text-align:left; font-size:11.5px; font-weight:700; color:#64748b; padding:8px 10px; border-bottom:1px solid #e5e9ef; }
-    .mod-table td { font-size:13px; color:#374151; padding:11px 10px; border-bottom:1px solid #f0f2f5; }
-    .mod-empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:26px; color:#9aa3af; font-size:13px; }
+    .mod-table td { font-size:13px; color:#374151; padding:11px 10px; border-bottom:1px solid #f0f2f5; vertical-align:middle; }
+    .mod-empty { display:flex; flex-direction:column; align-items:center; gap:8px; padding:26px; color:#9aa3af; font-size:13px; text-align:center; }
     .mod-empty i { font-size:22px; color:#c4cad3; }
     .full { width:100%; }
+    .mod-err-summary { display:flex; gap:10px; align-items:flex-start; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:13px; }
+    .mod-err-summary i { margin-top:2px; }
+    .mod-lock-note { display:flex; align-items:center; gap:10px; margin:0 0 16px; padding:11px 14px; border:1px solid #dbe6f5; border-left:3px solid var(--vblue); background:#f2f7fd; border-radius:8px; font-size:12.5px; color:#374151; line-height:1.5; }
+    .mod-lock-note i { color:var(--vblue); }
+    .ver-current { font-size:10.5px; font-weight:700; color:#0a7637; background:#d3f1de; border-radius:999px; padding:2px 7px; margin-left:8px; }
+    .ver-num { font-weight:700; font-family:ui-monospace,"SF Mono",monospace; }
 
-    /* ── Shared "Edit in Learning Studio" confirmation dialog (identical to the management page) ── */
-    .confirm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:6000; display:flex; align-items:center; justify-content:center; }
-    .confirm-overlay.hidden { display:none !important; }
-    /* Edit in Learning Studio dialog: matches the standard confirm dialog used across the suite */
+    /* ── Content editor (modern) ── */
+    .ce-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+    .ce-summary { font-size:13px; color:#6b7280; }
+    .ce-summary strong { color:#1a1a2e; }
+    .ce-actions { display:flex; gap:8px; }
+    .cmp { background:#fff; border:1px solid #e5e9ef; border-radius:12px; box-shadow:0 1px 3px rgba(16,24,40,.04); margin-bottom:14px; overflow:visible; }
+    .cmp-head { display:flex; align-items:center; gap:10px; padding:12px 16px; }
+    .cmp-caret { width:26px; height:26px; border:none; background:transparent; border-radius:6px; color:#6b7280; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:12px; transition:transform .15s; }
+    .cmp-caret:hover { background:#eef1f5; }
+    .cmp.collapsed .cmp-caret { transform:rotate(-90deg); }
+    .cmp-icon { width:28px; height:28px; border-radius:8px; background:var(--vblue-10); color:var(--vblue); display:inline-flex; align-items:center; justify-content:center; font-size:12px; }
+    .cmp-title { font-size:14px; font-weight:700; color:#1a1a2e; cursor:text; padding:2px 6px; border-radius:6px; border:1px solid transparent; }
+    .cmp-title:hover { background:#f8fafc; border-color:#e5e9ef; }
+    .cmp-title-input { font-size:14px; font-weight:700; color:#1a1a2e; font-family:inherit; border:1px solid var(--vblue); border-radius:6px; padding:2px 6px; outline:none; min-width:240px; }
+    .cmp-count { font-size:11.5px; font-weight:600; color:#6b7280; background:#eef1f5; border-radius:999px; padding:2px 8px; }
+    .cmp-head .grow { flex:1; }
+    .icon-btn { width:28px; height:28px; border:none; background:transparent; border-radius:6px; color:#6b7280; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+    .icon-btn:hover { background:#eef1f5; color:#374151; }
+    .icon-btn.danger:hover { background:#fee2e2; color:#dc2626; }
+    .cmp-body { border-top:1px solid #f0f2f5; padding:12px 16px 14px; }
+    .cmp.collapsed .cmp-body { display:none; }
+    .cmp-foot { display:flex; gap:8px; padding-top:10px; }
+    .qzone { min-height:12px; }
+    .qz-empty { border:1.5px dashed #d1d5db; border-radius:10px; padding:20px; text-align:center; color:#9ca3af; font-size:13px; }
+    .qzone.over .qz-empty { border-color:var(--vblue); background:var(--vblue-10); color:var(--vblue); }
+    .drop-line { height:3px; border-radius:3px; background:var(--vblue); margin:4px 0; }
+    .qc { border:1px solid #e5e9ef; border-radius:10px; background:#fff; margin-bottom:10px; }
+    .qc.dragging { opacity:.4; }
+    .qc-head { display:flex; align-items:center; gap:8px; padding:8px 10px 8px 6px; border-bottom:1px solid #f0f2f5; background:#fbfcfd; border-radius:10px 10px 0 0; }
+    .qc-grip { width:22px; color:#c4cad3; cursor:grab; text-align:center; font-size:13px; }
+    .qc-grip:active { cursor:grabbing; }
+    .qc-num { font-size:12px; font-weight:700; color:#6b7280; min-width:24px; }
+    .qc-type { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:#475569; background:#eef1f5; border-radius:999px; padding:3px 9px; }
+    .qc-type i { font-size:11px; color:#64748b; }
+    .bank-tag { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:700; color:#075985; background:#e0f2fe; border-radius:999px; padding:2px 8px; }
+    .qc-head .grow { flex:1; }
+    .qc-body { padding:12px 14px 14px 36px; }
+    .qe-field { margin-bottom:10px; }
+    .qe-label { display:block; font-size:12px; font-weight:600; color:#374151; margin-bottom:5px; }
+    .qe-input, .qe-textarea { width:100%; border:1px solid #d1d5db; border-radius:7px; padding:8px 10px; font-family:inherit; font-size:13px; color:#1a1a2e; background:#fff; outline:none; transition:border-color .12s, box-shadow .12s; }
+    .qe-textarea { min-height:56px; resize:vertical; line-height:1.5; }
+    .qe-input:focus, .qe-textarea:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
+    .qe-input:disabled, .qe-textarea:disabled { background:#f8fafc; color:#475569; }
+    .qe-choices { display:flex; flex-direction:column; gap:6px; }
+    .qe-choice { display:flex; align-items:center; gap:10px; }
+    .qe-choice input[type=radio], .qe-choice input[type=checkbox] { accent-color:var(--vblue); width:16px; height:16px; margin:0; flex-shrink:0; }
+    .qe-choice .qe-input { flex:1; }
+    .qe-choice.correct .qe-input { border-color:#86efac; background:#f0fdf4; }
+    .qe-hint { font-size:11.5px; color:#9ca3af; margin-top:6px; }
+    .qe-add { border:1px dashed #d1d5db; background:transparent; color:#374151; border-radius:7px; padding:7px 12px; font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px; margin-top:8px; }
+    .qe-add:hover { border-color:var(--vblue); color:var(--vblue); }
+    .qe-tf { display:flex; gap:16px; }
+    .qe-tf label { display:inline-flex; align-items:center; gap:8px; font-size:13px; color:#374151; cursor:pointer; border:1px solid #e5e9ef; border-radius:8px; padding:8px 14px; }
+    .qe-tf label.on { border-color:#86efac; background:#f0fdf4; font-weight:600; }
+    .qe-seg { display:inline-flex; border:1px solid #d4d9e0; border-radius:8px; overflow:hidden; }
+    .qe-seg button { border:none; background:#fff; color:#374151; font-family:inherit; font-size:12.5px; font-weight:600; padding:7px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+    .qe-seg button + button { border-left:1px solid #d4d9e0; }
+    .qe-seg button.on { background:var(--vblue-10); color:var(--vblue); }
+    .qe-media { display:flex; gap:12px; align-items:flex-start; margin-top:10px; }
+    .qe-media-box { width:180px; height:110px; border-radius:8px; background:#f1f5f9; border:1px dashed #cbd5e1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:#64748b; font-size:12px; flex-shrink:0; background-size:cover; background-position:center; }
+    .qe-media-box i { font-size:22px; color:#94a3b8; }
+    .qe-media-fields { flex:1; }
+    .qe-locked { display:flex; align-items:center; gap:10px; font-size:12.5px; color:#075985; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:8px 12px; margin-bottom:10px; }
+    .qe-locked .grow { flex:1; }
+    .qe-locked button { border:1px solid #7dd3fc; background:#fff; color:#075985; border-radius:6px; padding:4px 10px; font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+    .qe-locked button:hover { background:#e0f2fe; }
+    .ce-placeholder { display:flex; gap:18px; align-items:flex-start; }
+    .ce-placeholder .ph-icon { width:56px; height:56px; border-radius:12px; background:#eef1f5; color:#64748b; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    .ce-placeholder h3 { font-size:14px; margin:0 0 6px; }
+    .ce-placeholder p { font-size:13px; color:#6b7280; margin:0 0 12px; line-height:1.6; }
+    .ce-placeholder .ph-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+    /* Floating menu (Add question) */
+    .fmenu { position:fixed; background:#fff; border:1px solid #e5e9ef; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:9999; min-width:240px; padding:5px; }
+    .fmenu-item { display:flex; align-items:center; gap:10px; width:100%; padding:9px 12px; border:none; background:none; font-family:inherit; font-size:13px; color:#374151; cursor:pointer; border-radius:7px; text-align:left; }
+    .fmenu-item:hover { background:#f3f4f6; }
+    .fmenu-item i { width:16px; text-align:center; font-size:12.5px; color:#6b7280; }
+    .fmenu-item .fm-sub { display:block; font-size:11.5px; color:#9ca3af; }
+    .fmenu-divider { height:1px; background:#eef1f5; margin:4px 0; }
+
+    /* ── Dialogs ── */
+    .overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:6000; display:flex; align-items:center; justify-content:center; }
+    .overlay.hidden { display:none !important; }
+    .dlg { background:#fff; border-radius:12px; width:520px; max-width:calc(100vw - 48px); max-height:calc(100vh - 80px); display:flex; flex-direction:column; box-shadow:0 25px 60px rgba(0,0,0,.2); overflow:hidden; }
+    .dlg-head { padding:22px 24px 10px; }
+    .dlg-head h3 { font-size:17px; font-weight:700; color:#1a1a2e; margin:0; }
+    .dlg-head p { font-size:12.5px; color:#6b7280; margin:6px 0 0; line-height:1.55; }
+    .dlg-body { padding:8px 24px 6px; overflow-y:auto; }
+    .dlg-foot { padding:14px 24px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .dlg-foot .grow { flex:1; }
+    .dlg-foot .btns { display:flex; gap:8px; }
+    .dlg .field { margin-bottom:14px; }
+    .dlg .field label { display:block; font-size:12.5px; font-weight:600; color:#374151; margin-bottom:6px; }
+    .dlg .field textarea, .dlg .field input[type=text] { width:100%; border:1px solid #d1d5db; border-radius:7px; padding:9px 11px; font-family:inherit; font-size:13px; color:#374151; outline:none; }
+    .dlg .field textarea { min-height:72px; resize:vertical; }
+    .dlg .field textarea:focus, .dlg .field input:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
+    .dlg .chk { display:flex; align-items:flex-start; gap:10px; font-size:13px; color:#374151; cursor:pointer; }
+    .dlg .chk input { accent-color:var(--vblue); margin-top:2px; }
+    .dlg .chk small { display:block; color:#9ca3af; font-size:11.5px; }
+    .pub-checks { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+    .pub-check { display:flex; gap:10px; align-items:flex-start; font-size:12.5px; color:#374151; background:#f8fafc; border:1px solid #eef1f5; border-radius:8px; padding:9px 12px; }
+    .pub-check i { margin-top:2px; color:#158444; }
+    .pub-check.warn { background:#fffbeb; border-color:#fde68a; }
+    .pub-check.warn i { color:#d97706; }
+    .pub-check.block { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+    .pub-check.block i { color:#dc2626; }
+    .cd-icon { font-size:30px; color:#dc2626; margin-bottom:12px; }
+    .cd-icon.warn { color:#f59e0b; }
+    /* Question bank picker */
+    .bank-tools { display:flex; gap:10px; align-items:center; padding:0 24px 10px; flex-wrap:wrap; }
+    .bank-search { flex:1; min-width:200px; border:1px solid #d1d5db; border-radius:7px; padding:8px 11px; font-family:inherit; font-size:13px; outline:none; }
+    .bank-search:focus { border-color:var(--vblue); }
+    .bank-cats { display:flex; gap:6px; flex-wrap:wrap; padding:0 24px 10px; }
+    .bank-cat { border:1px solid #d4d9e0; background:#fff; color:#374151; border-radius:999px; padding:4px 10px; font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; }
+    .bank-cat.on { background:var(--vblue-10); border-color:var(--vblue); color:var(--vblue); }
+    .bank-list { flex:1; overflow-y:auto; border-top:1px solid #eef0f3; border-bottom:1px solid #eef0f3; padding:6px 12px; max-height:380px; }
+    .bank-opt { display:flex; align-items:flex-start; gap:11px; padding:10px 12px; border-radius:8px; cursor:pointer; }
+    .bank-opt:hover { background:#f8fafc; }
+    .bank-opt.disabled { opacity:.45; cursor:not-allowed; }
+    .bank-opt .bcb { width:17px; height:17px; border:1.5px solid #cbd5e1; border-radius:4px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:transparent; font-size:10px; margin-top:2px; }
+    .bank-opt.checked .bcb { background:var(--vblue); border-color:var(--vblue); color:#fff; }
+    .bank-opt .bq { flex:1; font-size:13px; color:#1a1a2e; line-height:1.45; }
+    .bank-opt .bmeta { display:flex; gap:8px; margin-top:4px; font-size:11px; color:#6b7280; }
+    .bank-opt .bmeta span { background:#eef1f5; border-radius:999px; padding:1px 7px; }
+    .loc-list { display:flex; flex-direction:column; gap:4px; }
+    .loc-opt { display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:8px; cursor:pointer; font-size:13px; color:#374151; }
+    .loc-opt:hover { background:#f8fafc; }
+    .loc-opt input { accent-color:var(--vblue); }
+    .loc-opt i { color:#9ca3af; font-size:11px; }
+
+    /* Shared dialog buttons + Learning Studio warning (same as the management page) */
+    .btn { font-family:inherit; font-size:13px; font-weight:600; border-radius:7px; padding:9px 15px; cursor:pointer; border:1px solid transparent; display:inline-flex; align-items:center; gap:7px; transition:background .12s,border-color .12s,color .12s; }
+    .btn-primary { background:var(--vblue); color:#fff; }
+    .btn-primary:hover { background:var(--vblue-hover); }
+    .btn-primary:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
+    .btn-secondary:hover { background:#f3f4f6; }
+    .btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
+    .btn-danger:hover { background:#b91c1c; }
+    .btn-sm { padding:7px 12px; font-size:12.5px; }
     .confirm-dialog { background:#fff; border-radius:12px; width:460px; max-width:calc(100vw - 48px); padding:26px 28px 22px; box-shadow:0 25px 60px rgba(0,0,0,.2); }
     .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin:0 0 8px; }
     .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin:0 0 18px; }
+    .confirm-dialog p strong { color:#1a1a2e; }
     .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
-    /* Standard buttons (shared dialog styling) */
-    .btn { font-family:inherit; font-size:13px; font-weight:600; border-radius:7px; padding:9px 15px; cursor:pointer; border:1px solid transparent; display:inline-flex; align-items:center; gap:7px; transition:background .12s,border-color .12s,color .12s; }
-    /* Read-only banner shown when the page is opened from a "View details" row */
+    .ls-warning { display:flex; gap:12px; align-items:flex-start; background:#fff8f3; border:1px solid #f1d8c0; border-radius:8px; padding:14px 16px; margin-bottom:18px; }
+    .ls-warning i { color:#c2520e; font-size:20px; flex-shrink:0; margin-top:1px; }
+    .ls-warning p { font-size:12.5px; font-weight:600; color:#1a1a2e; line-height:1.55; margin:0; }
     .ro-note { display:flex; align-items:center; gap:10px; margin:0 0 14px; padding:11px 14px; border:1px solid #dbe6f5; border-left:3px solid var(--vblue); background:#f2f7fd; border-radius:8px; font-size:12.5px; color:#374151; line-height:1.5; }
     .ro-note > i { color:var(--vblue); font-size:14px; flex-shrink:0; }
     .ro-note > div { flex:1; min-width:0; }
     .ro-note strong { color:#1a1a2e; }
     .ro-note-btn { flex-shrink:0; border:1px solid var(--vblue); background:#fff; color:var(--vblue); border-radius:7px; padding:6px 13px; font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; }
     .ro-note-btn:hover { background:var(--vblue); color:#fff; }
-    .btn-primary { background:var(--vblue); color:#fff; }
-    .btn-primary:hover { background:var(--vblue-hover); }
-    .btn-secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
-    .btn-secondary:hover { background:#f3f4f6; }
-    .btn-sm { padding:7px 12px; font-size:12.5px; }
-    /* Warning callout (no colored left border) */
-    .ls-warning { display:flex; gap:12px; align-items:flex-start; background:#fff8f3; border:1px solid #f1d8c0; border-radius:8px; padding:14px 16px; margin-bottom:18px; }
-    .ls-warning i { color:#c2520e; font-size:20px; flex-shrink:0; margin-top:1px; }
-    .ls-warning p { font-size:12.5px; font-weight:600; color:#1a1a2e; line-height:1.55; margin:0; }
 
     /* Toast */
     .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:7000; }
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    .toast.toast-success { background:#065f46; }
   </style>
 </head>
 <body>
 
-<!-- Prototype version toggle -->
+<!-- Prototype layout toggle: MVP (the legacy form, merged) vs the Modern design. Both edit the same record. -->
 <div class="proto-toggle" role="tablist" aria-label="Switch layout version">
   <span class="pt-label">Layout</span>
-  <button id="tg-legacy" class="active" onclick="setVersion('legacy')">Current</button>
+  <button id="tg-legacy" class="active" onclick="setVersion('legacy')">MVP (legacy)</button>
   <button id="tg-modern" onclick="setVersion('modern')">Modern</button>
 </div>
 
-
 <div id="cv-page">
 
-<!-- ═══════════════════════ VERSION A — LEGACY ═══════════════════════ -->
+<!-- ═══════════════════════ LAYOUT A: MVP (LEGACY) ═══════════════════════ -->
 <div id="v-legacy">
 
   <div class="leg-toolbar">
-    <button class="leg-btn" onclick="toast('Saved (prototype).')"><i class="fa-solid fa-circle-check"></i> Save</button>
-    <button class="leg-btn" onclick="toast('Delete (prototype).')"><i class="fa-regular fa-trash-can trash"></i> Delete</button>
-    <button class="leg-btn" onclick="toast('Update File (prototype).')"><i class="fa-solid fa-folder-open"></i> Update File</button>
-    <button class="leg-btn" onclick="toast('Preview (prototype).')"><i class="fa-solid fa-play"></i> Preview</button>
-    <button class="leg-btn" onclick="launchConfigure()"><span class="gears-slot"></span> Configure</button>
-    <button class="ls-cta" onclick="openLearningStudio()">
+    <button class="leg-btn ro-hide" id="leg-save" onclick="saveActivity()"><i class="fa-solid fa-circle-check"></i> Save</button>
+    <button class="leg-btn ro-hide" onclick="openPublish()"><i class="fa-solid fa-upload"></i> Publish</button>
+    <button class="leg-btn ro-hide" onclick="openDelete()"><i class="fa-regular fa-trash-can trash"></i> Delete</button>
+    <!-- The two old cross-links keep working: Edit Content (metadata page) and Properties (content page) switch tabs -->
+    <button class="leg-btn tab-only-details" onclick="setTab('content')"><i class="fa-solid fa-pen-to-square"></i> Edit Content</button>
+    <button class="leg-btn tab-only-content" onclick="setTab('details')"><i class="fa-solid fa-gear"></i> Properties</button>
+    <button class="leg-btn ro-hide" onclick="pickFile()"><i class="fa-solid fa-folder-open"></i> Update File</button>
+    <button class="leg-btn" onclick="openPreview()"><i class="fa-solid fa-play"></i> Preview</button>
+    <button class="leg-btn cbt-only ro-hide" onclick="launchConfigure()"><span class="gears-slot"></span> Configure</button>
+    <button class="ls-cta cbt-only ro-hide" onclick="openLearningStudio()">
       <span class="sparkle-slot"></span>
       <span class="ls-cta-text">Edit in Learning Studio</span>
     </button>
     <button class="leg-btn" onclick="toast('Other Actions (prototype).')">Other Actions <i class="fa-solid fa-chevron-down caret"></i></button>
     <button class="leg-btn push" onclick="toast('Help (prototype).')"><i class="fa-regular fa-circle-question"></i> Help</button>
-    <button class="leg-btn" onclick="toast('Close (prototype).')"><i class="fa-solid fa-xmark"></i> Close</button>
+    <button class="leg-btn" onclick="closeEditor()"><i class="fa-solid fa-xmark"></i> Close</button>
+  </div>
+
+  <!-- Tab bar just below the page header, on every entry: the two old pages (Edit Content, Edit Activity metadata)
+       in one place. The toolbar's Edit Content / Properties buttons still switch pages too. Version history lives
+       inside Details, as on the metadata page. -->
+  <div class="leg-tabs" role="tablist" aria-label="Editor sections">
+    <button class="leg-tab" role="tab" data-tab="content" onclick="setTab('content')">Content <span class="leg-tab-count" data-count="content">0</span></button>
+    <button class="leg-tab active" role="tab" data-tab="details" onclick="setTab('details')">Details</button>
   </div>
 
   <div class="leg-body">
-    <div class="leg-thumb"><i class="fa-solid fa-display"></i></div>
-    <button class="btn-blue leg-add-thumb"><i class="fa-solid fa-image"></i> Add Thumbnail</button>
+    <div class="leg-context">Editing <strong data-show="name"></strong> <span class="leg-pill" data-show="typeLong"></span> <span class="leg-pill" data-show="versionLabel"></span> <span class="leg-pill" id="leg-publish-pill">Draft</span></div>
+    <div class="leg-unsaved hidden" id="leg-unsaved"><i class="fa-solid fa-circle-exclamation"></i> You have unsaved changes. Click Save to keep them, or Publish to save and release a new version.</div>
 
-    <p class="leg-reqnote"><span class="req">*</span> Indicates a Required Field.</p>
-
-    <div class="leg-field">
-      <label><span class="req">*</span>Location:</label>
-      <div class="leg-control">
-        <a class="leg-link" id="leg-location" href="#">UAT Environment</a>
-        <button class="leg-pickbtn" title="Choose location"><i class="fa-solid fa-table-cells-large"></i></button>
+    <!-- Edit Metadata -->
+    <div class="leg-pane" data-pane="details">
+      <div class="leg-errs hidden" id="leg-errs"></div>
+      <div class="leg-thumb" data-thumb><i class="fa-solid" data-thumb-icon></i></div>
+      <div style="display:flex; gap:8px; margin-top:12px">
+        <button class="btn-blue ro-hide" onclick="pickThumb()"><i class="fa-solid fa-image"></i> <span data-thumb-label>Add Thumbnail</span></button>
+        <button class="leg-mini-btn gray ro-hide hidden" data-thumb-remove onclick="removeThumb()">Remove</button>
       </div>
-    </div>
-    <div class="leg-field">
-      <label><span class="req">*</span>Name:</label>
-      <div class="leg-control"><input class="leg-input txt" id="leg-name" value="03 Phil Knight PPE CBT"></div>
-    </div>
-    <div class="leg-field">
-      <label>Description:</label>
-      <div class="leg-control"><textarea class="leg-input"></textarea></div>
-    </div>
-    <div class="leg-field">
-      <label>Estimated Duration:</label>
-      <div class="leg-control"><input class="leg-input num" type="number" value="15"> <span class="leg-unit">(Minutes)</span></div>
-    </div>
-    <div class="leg-field">
-      <label>Custom Pre-test Score:</label>
-      <div class="leg-control"><input class="leg-input num" type="number"> <span class="leg-unit">(Percentage)</span></div>
-    </div>
-    <div class="leg-field">
-      <label>Custom Exam Score:</label>
-      <div class="leg-control"><input class="leg-input num" type="number"> <span class="leg-unit">(Percentage)</span></div>
-    </div>
-    <div class="leg-field">
-      <label>Force Sequential Completion:</label>
-      <div class="leg-control"><input class="leg-check" type="checkbox"></div>
-    </div>
-    <div class="leg-field">
-      <label>Mobile Compatible:</label>
-      <div class="leg-control"><input class="leg-check" type="checkbox" checked></div>
-    </div>
-    <div class="leg-field">
-      <label><span class="req">*</span>Type:</label>
-      <div class="leg-control"><span class="static">Computer-Based</span></div>
-    </div>
-    <div class="leg-field">
-      <label><span class="req">*</span>Display Width:</label>
-      <div class="leg-control"><input class="leg-input num" type="number" value="640"></div>
-    </div>
-    <div class="leg-field">
-      <label><span class="req">*</span>Display Height:</label>
-      <div class="leg-control"><input class="leg-input num" type="number" value="480"></div>
-    </div>
-    <div class="leg-field">
-      <label><span class="req">*</span>File:</label>
-      <div class="leg-control">
-        <a class="leg-link" id="leg-file" href="#">03 Phil Knight PPE CBT</a>
-        <button class="leg-pickbtn" title="Choose file"><i class="fa-solid fa-table-cells-large"></i></button>
+
+      <p class="leg-reqnote"><span class="req">*</span> Indicates a Required Field.</p>
+
+      <div class="leg-field">
+        <label><span class="req">*</span>Location:</label>
+        <div class="leg-control">
+          <a class="leg-link" href="#" onclick="openLocationPicker(); return false;" data-show="location">UAT Environment</a>
+          <button class="leg-pickbtn ro-hide" title="Choose location" onclick="openLocationPicker()"><i class="fa-solid fa-table-cells-large"></i></button>
+          <span class="leg-err hidden" data-err="location">Location is required.</span>
+        </div>
       </div>
-    </div>
-    <div class="leg-field">
-      <label>License Type:</label>
-      <div class="leg-control"><span class="static" id="leg-license">Private</span></div>
-    </div>
-    <div class="leg-field">
-      <label>Current Version:</label>
-      <div class="leg-control"><span class="static">1</span></div>
-    </div>
-
-    <!-- Activity Versions -->
-    <div class="leg-section">
-      <div class="leg-section-head">Activity Versions:</div>
-      <table class="leg-table">
-        <thead><tr><th style="width:130px">ACTIONS</th><th style="width:130px">VERSION</th><th>DESCRIPTION</th><th style="width:230px">CREATED ON</th></tr></thead>
-        <tbody><tr>
-          <td><button class="leg-mini-btn" onclick="toast('Preview version 1.1 (prototype).')">Preview</button></td>
-          <td>1.1</td><td></td><td>3/31/2026 9:45:08 PM</td>
-        </tr></tbody>
-      </table>
-    </div>
-
-    <!-- Recomplete Activity -->
-    <div class="leg-section">
-      <div class="leg-section-head">Recomplete Activity</div>
-      <div class="leg-recomplete">
-        <p>1 user has previously completed this activity. Click the check box below and then click Save to have the users recomplete this activity.</p>
-        <label class="rc-check"><input class="leg-check" type="checkbox"> Require users to recomplete this activity</label>
-        <p class="note">To send notifications to users who have previously completed this activity, activate the <strong>Completion status changed</strong> notification on the Notifications page.</p>
+      <div class="leg-field">
+        <label><span class="req">*</span>Name:</label>
+        <div class="leg-control"><input class="leg-input txt" data-bind="name"><span class="leg-err hidden" data-err="name">Name is required.</span></div>
       </div>
+      <div class="leg-field">
+        <label>Description:</label>
+        <div class="leg-control"><textarea class="leg-input" data-bind="desc"></textarea></div>
+      </div>
+      <div class="leg-field">
+        <label>Estimated Duration:</label>
+        <div class="leg-control"><input class="leg-input num" type="number" min="0" data-bind="duration"> <span class="leg-unit">(Minutes)</span></div>
+      </div>
+      <div class="leg-field cbt-only">
+        <label>Custom Pre-test Score:</label>
+        <div class="leg-control"><input class="leg-input num" type="number" min="0" max="100" data-bind="pretest"> <span class="leg-unit">(Percentage)</span></div>
+      </div>
+      <div class="leg-field cbt-only">
+        <label>Custom Exam Score:</label>
+        <div class="leg-control"><input class="leg-input num" type="number" min="0" max="100" data-bind="examScore"> <span class="leg-unit">(Percentage)</span></div>
+      </div>
+      <div class="leg-field cbt-only">
+        <label>Force Sequential Completion:</label>
+        <div class="leg-control"><input class="leg-check" type="checkbox" data-bind="forceSequential"></div>
+      </div>
+      <div class="leg-field">
+        <label>Mobile Compatible:</label>
+        <div class="leg-control"><input class="leg-check" type="checkbox" data-bind="mobile"></div>
+      </div>
+      <div class="leg-field">
+        <label><span class="req">*</span>Type:</label>
+        <div class="leg-control"><span class="static" data-show="typeLong"></span></div>
+      </div>
+      <div class="leg-field">
+        <label><span class="req">*</span>Display Width:</label>
+        <div class="leg-control"><input class="leg-input num" type="number" min="1" data-bind="displayWidth"><span class="leg-err hidden" data-err="displayWidth">Display width is required.</span></div>
+      </div>
+      <div class="leg-field">
+        <label><span class="req">*</span>Display Height:</label>
+        <div class="leg-control"><input class="leg-input num" type="number" min="1" data-bind="displayHeight"><span class="leg-err hidden" data-err="displayHeight">Display height is required.</span></div>
+      </div>
+      <div class="leg-field">
+        <label><span class="req">*</span>File:</label>
+        <div class="leg-control">
+          <a class="leg-link" href="#" onclick="return false;" data-show="file"></a>
+          <button class="leg-pickbtn ro-hide" title="Choose file" onclick="pickFile()"><i class="fa-solid fa-table-cells-large"></i></button>
+          <span class="leg-err hidden" data-err="file">A file is required.</span>
+        </div>
+      </div>
+      <div class="leg-field">
+        <label>License Type:</label>
+        <div class="leg-control"><span class="static" data-show="license"></span></div>
+      </div>
+      <div class="leg-field">
+        <label>Current Version:</label>
+        <div class="leg-control"><span class="static" data-show="version"></span></div>
+      </div>
+      <div class="leg-field">
+        <label>Created Date:</label>
+        <div class="leg-control"><span class="static" data-show="createdOnLong"></span></div>
+      </div>
+
+      <!-- Activity Versions (inside the metadata page, as in the product) -->
+      <div id="leg-versions"></div>
+
+      <!-- Recomplete Activity -->
+      <div class="leg-section">
+        <div class="leg-section-head">Recomplete Activity</div>
+        <div class="leg-recomplete">
+          <p data-show="recompleteCopy"></p>
+          <label class="rc-check"><input class="leg-check" type="checkbox" data-bind="recomplete"> Users must recomplete this activity even if previously completed</label>
+          <p class="note">To send notifications to users who have previously completed this activity, activate the <strong>Completion status changed</strong> notification on the Notifications page.</p>
+        </div>
+      </div>
+
+      <!-- Past attachments -->
+      <div class="leg-section">
+        <div class="leg-section-head">Past Attachments</div>
+        <div id="leg-attachments"></div>
+        <div class="leg-section-foot"><button class="btn-blue ro-hide" onclick="addAttachment()"><i class="fa-solid fa-paperclip"></i> Add Attachment</button></div>
+      </div>
+
+      <!-- Attributes (legacy bar + table, same list as the modern accordion) -->
+      <div class="leg-attr-bar">
+        <span>Attributes</span>
+        <select id="leg-attr-select" class="ro-hide"></select>
+        <button class="btn-blue ro-hide" onclick="legacyAddAttr()">Add</button>
+      </div>
+      <div class="leg-attr-wrap" id="leg-attr-wrap"></div>
+
+      <!-- Advanced Properties (legacy bar, expands to the system fields) -->
+      <div class="leg-advanced" id="leg-advanced" onclick="toggleLegacyAdvanced()">
+        <span>Advanced Properties</span>
+        <i class="fa-solid fa-chevron-down"></i>
+      </div>
+      <div class="leg-adv-panel hidden" id="leg-adv-panel"></div>
     </div>
 
-    <!-- Attachments -->
-    <div class="leg-section">
-      <div class="leg-section-head">Attachments</div>
-      <table class="leg-table">
-        <thead><tr><th style="width:130px">ACTIONS</th><th style="width:110px">VERSION</th><th>NAME</th><th style="width:150px">CREATED</th><th style="width:150px">UPDATED</th></tr></thead>
-      </table>
-      <div class="leg-norecords"><i class="fa-solid fa-ban"></i> No records to display.</div>
-      <div class="leg-section-foot"><button class="btn-blue" onclick="toast('Add Attachment (prototype).')"><i class="fa-solid fa-paperclip"></i> Add Attachment</button></div>
-    </div>
+    <!-- Edit Content -->
+    <div class="leg-pane hidden" data-pane="content" id="leg-pane-content"></div>
 
-    <!-- Attributes -->
-    <div class="leg-attr-bar">
-      <span>Attributes</span>
-      <select><option></option><option>Confined Space</option><option>Hot Work</option><option>PPE</option></select>
-      <button class="btn-blue" onclick="toast('Add attribute (prototype).')">Add</button>
-    </div>
-
-    <!-- Advanced Properties -->
-    <div class="leg-advanced" onclick="toast('Advanced Properties (prototype).')">
-      <span>Advanced Properties</span>
-      <i class="fa-solid fa-chevron-down"></i>
-    </div>
   </div>
 </div>
 
 
-<!-- ═══════════════════════ VERSION B — MODERN ═══════════════════════ -->
+<!-- ═══════════════════════ LAYOUT B: MODERN ═══════════════════════ -->
 <div id="v-modern" class="hidden">
 
+  <!-- Persistent header: name, type, publish status, version, primary actions. Tabs live in the same sticky block. -->
   <div class="mod-header">
-    <div>
-      <div class="mod-title"><span id="mod-title-name">03 Phil Knight PPE CBT</span> <span class="type-pill">Computer-Based</span></div>
+    <div class="mod-header-row">
+      <div class="mod-title-wrap">
+        <a class="mod-back" id="mod-back" href="Manage-Activities.html" onclick="closeEditor(); return false;"><i class="fa-solid fa-arrow-left"></i> <span id="mod-back-label">Back to Activities</span></a>
+        <div class="mod-title">
+          <span id="mod-title-name" data-show="name"></span>
+          <span class="type-pill"><i class="fa-solid" id="mod-type-icon"></i> <span data-show="typeLong"></span></span>
+          <span theme="badge contrast" id="mod-publish-badge">Draft</span>
+          <span class="ver-chip" data-show="versionLabel">v1.0</span>
+        </div>
+        <div class="mod-sub" id="mod-sub"></div>
+      </div>
+      <div class="mod-actions">
+        <button class="ls-cta cbt-only ro-hide" onclick="openLearningStudio()"><span class="sparkle-slot"></span> <span class="ls-cta-text">Edit in Learning Studio</span></button>
+        <button class="m-btn secondary cbt-only ro-hide" onclick="launchConfigure()"><span class="gears-slot"></span> Configure</button>
+        <span class="div cbt-only"></span>
+        <button class="m-btn ghost ro-hide" onclick="openDelete()" title="Delete activity"><i class="fa-regular fa-trash-can"></i></button>
+        <button class="m-btn secondary" onclick="openPreview()"><i class="fa-regular fa-eye"></i> Preview</button>
+        <button class="m-btn secondary ro-hide" id="mod-save" onclick="saveActivity()"><i class="fa-solid fa-check"></i> Save</button>
+        <button class="m-btn primary ro-hide" id="mod-publish" onclick="openPublish()"><i class="fa-solid fa-upload"></i> Publish</button>
+      </div>
     </div>
-    <div class="mod-actions">
-      <button class="ls-cta" onclick="openLearningStudio()"><span class="sparkle-slot"></span> <span class="ls-cta-text">Edit in Learning Studio</span></button>
-      <button class="m-btn secondary" onclick="launchConfigure()"><span class="gears-slot"></span> Configure</button>
-      <span class="div"></span>
-      <button class="m-btn ghost" onclick="toast('Delete (prototype).')"><i class="fa-regular fa-trash-can"></i> Delete</button>
-      <button class="m-btn secondary" onclick="toast('Discarded (prototype).')">Cancel</button>
-      <button class="m-btn primary" onclick="toast('Saved (prototype).')"><i class="fa-solid fa-check"></i> Save</button>
-    </div>
+    <nav class="ed-tabs" role="tablist" aria-label="Editor sections">
+      <button class="ed-tab active" role="tab" data-tab="details" onclick="setTab('details')"><i class="fa-solid fa-sliders" style="font-size:12px"></i> Details</button>
+      <button class="ed-tab" role="tab" data-tab="content" onclick="setTab('content')"><i class="fa-regular fa-rectangle-list" style="font-size:12px"></i> Content <span class="tab-count" data-count="content">0</span></button>
+    </nav>
   </div>
 
   <div class="mod-body">
-    <!-- Aside: thumbnail + read-only meta -->
-    <aside class="mod-aside">
-      <div class="mod-card">
-        <div class="mod-thumb"><i class="fa-solid fa-display"></i></div>
-        <vaadin-button theme="secondary" style="width:100%"><i class="fa-solid fa-image" slot="prefix"></i> Add thumbnail</vaadin-button>
-        <div class="mod-meta">
-          <div class="row"><span class="k">Type</span><span class="v">Computer-Based</span></div>
-          <div class="row"><span class="k">License type</span><span class="v" id="mod-license">Private</span></div>
-          <div class="row"><span class="k">Current version</span><span class="v">1</span></div>
-          <div class="row"><span class="k">Location</span><span class="v" id="mod-location">UAT Environment</span></div>
-        </div>
-      </div>
-    </aside>
 
-    <!-- Main column -->
-    <div>
-      <div class="mod-card">
-        <h2>Details</h2>
-        <div style="margin-bottom:16px">
-          <vaadin-text-field class="full" theme="outlined" label="Name" required value="03 Phil Knight PPE CBT" id="mod-name"></vaadin-text-field>
-        </div>
-        <div style="margin-bottom:16px">
-          <vaadin-text-area class="full" theme="outlined" label="Description" placeholder="Add a description"></vaadin-text-area>
-        </div>
-        <div class="mod-grid3">
-          <vaadin-number-field theme="outlined" label="Estimated duration" value="15" helper-text="Minutes"></vaadin-number-field>
-          <vaadin-number-field theme="outlined" label="Custom pre-test score" helper-text="Percentage"></vaadin-number-field>
-          <vaadin-number-field theme="outlined" label="Custom exam score" helper-text="Percentage"></vaadin-number-field>
-        </div>
-        <div style="margin-top:6px">
-          <div class="mod-switch-row">
-            <vwc-switch></vwc-switch>
-            <div><div class="lbl">Force sequential completion</div><div class="desc">Learners must complete content in order.</div></div>
+    <!-- Details -->
+    <section data-pane="details">
+      <div class="mod-err-summary hidden" id="mod-errs"><i class="fa-solid fa-circle-exclamation"></i><div></div></div>
+      <div class="det-grid">
+        <aside class="mod-aside">
+          <div class="mod-card">
+            <div class="mod-thumb" data-thumb><i class="fa-solid" data-thumb-icon></i></div>
+            <div class="mod-thumb-actions ro-hide">
+              <vaadin-button theme="secondary" onclick="pickThumb()"><i class="fa-solid fa-image" slot="prefix"></i> <span data-thumb-label>Add thumbnail</span></vaadin-button>
+              <vaadin-button theme="tertiary" class="hidden" data-thumb-remove onclick="removeThumb()">Remove</vaadin-button>
+            </div>
+            <div class="mod-meta">
+              <div class="row"><span class="k">Type</span><span class="v" data-show="typeLong"></span></div>
+              <div class="row"><span class="k">License type</span><span class="v" data-show="license"></span></div>
+              <div class="row"><span class="k">Current version</span><span class="v" data-show="version"></span></div>
+              <div class="row"><span class="k">Created</span><span class="v" data-show="createdOn"></span></div>
+              <div class="row"><span class="k">Source</span><span class="v" data-show="source"></span></div>
+            </div>
           </div>
-          <div class="mod-switch-row">
-            <vwc-switch checked></vwc-switch>
-            <div><div class="lbl">Mobile compatible</div><div class="desc">Available in the Convergence mobile app.</div></div>
+        </aside>
+
+        <div>
+          <div class="mod-card">
+            <h2>Details</h2>
+            <div style="margin-bottom:16px">
+              <label class="mod-field-label">Location<span class="req">*</span></label>
+              <div class="mod-file-row" data-errbox="location">
+                <span class="file-name"><i class="fa-solid fa-location-dot"></i> <span data-show="location"></span></span>
+                <vaadin-button theme="tertiary" class="ro-hide" onclick="openLocationPicker()"><i class="fa-solid fa-table-cells-large" slot="prefix"></i> Choose location</vaadin-button>
+              </div>
+              <div class="mod-err hidden" data-err="location">Location is required.</div>
+            </div>
+            <div style="margin-bottom:16px">
+              <vaadin-text-field class="full" theme="outlined" label="Activity name" required data-bind="name" error-message="Name is required."></vaadin-text-field>
+            </div>
+            <div style="margin-bottom:16px">
+              <vaadin-text-area class="full" theme="outlined" label="Description" placeholder="Add a description" data-bind="desc"></vaadin-text-area>
+            </div>
+            <div class="mod-grid3">
+              <vaadin-number-field theme="outlined" label="Estimated duration" helper-text="Minutes" min="0" data-bind="duration"></vaadin-number-field>
+              <vaadin-number-field theme="outlined" label="Custom pre-test score" helper-text="Percentage" min="0" max="100" class="cbt-only" data-bind="pretest"></vaadin-number-field>
+              <vaadin-number-field theme="outlined" label="Custom exam score" helper-text="Percentage" min="0" max="100" class="cbt-only" data-bind="examScore"></vaadin-number-field>
+            </div>
+            <div style="margin-top:10px">
+              <div class="mod-switch-row cbt-only">
+                <vaadin-checkbox data-bind="forceSequential" aria-label="Force sequential completion"></vaadin-checkbox>
+                <div><div class="lbl">Force sequential completion</div><div class="desc">Learners must complete content in order.</div></div>
+              </div>
+              <div class="mod-switch-row">
+                <vaadin-checkbox data-bind="mobile" aria-label="Mobile compatible"></vaadin-checkbox>
+                <div><div class="lbl">Mobile compatible</div><div class="desc">Available in the Convergence mobile app.</div></div>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      <div class="mod-card">
-        <h2>Delivery</h2>
-        <div class="mod-grid2">
-          <vaadin-number-field theme="outlined" label="Display width" value="640"></vaadin-number-field>
-          <vaadin-number-field theme="outlined" label="Display height" value="480"></vaadin-number-field>
-        </div>
-        <div style="margin-top:16px">
-          <label class="mod-field-label">File</label>
-          <div style="display:flex; align-items:center; gap:12px">
-            <a class="leg-link" id="mod-file" href="#">03 Phil Knight PPE CBT</a>
-            <vaadin-button theme="tertiary"><i class="fa-solid fa-arrow-up-from-bracket" slot="prefix"></i> Update file</vaadin-button>
+          <div class="mod-card">
+            <h2>Delivery</h2>
+            <div class="mod-grid2">
+              <vaadin-number-field theme="outlined" label="Display width" required min="1" data-bind="displayWidth" error-message="Display width is required."></vaadin-number-field>
+              <vaadin-number-field theme="outlined" label="Display height" required min="1" data-bind="displayHeight" error-message="Display height is required."></vaadin-number-field>
+            </div>
+            <div style="margin-top:16px">
+              <label class="mod-field-label">File<span class="req">*</span></label>
+              <div class="mod-file-row" data-errbox="file">
+                <span class="file-name"><i class="fa-regular fa-file"></i> <span data-show="file"></span></span>
+                <vaadin-button theme="tertiary" class="ro-hide" onclick="pickFile()"><i class="fa-solid fa-arrow-up-from-bracket" slot="prefix"></i> Update file</vaadin-button>
+              </div>
+              <div class="mod-err hidden" data-err="file">A file is required.</div>
+            </div>
           </div>
+
+          <!-- Version history lives inside Details -->
+          <div class="mod-card" id="mod-versions"></div>
+
+          <div class="mod-card">
+            <h2>Recomplete activity</h2>
+            <p style="font-size:13px; color:#475569; line-height:1.6; margin:0 0 10px" data-show="recompleteCopy"></p>
+            <div class="mod-switch-row" style="padding-top:0">
+              <vaadin-checkbox data-bind="recomplete" aria-label="Users must recomplete this activity"></vaadin-checkbox>
+              <div><div class="lbl">Users must recomplete this activity even if previously completed</div><div class="desc">To notify affected users, enable the Completion status changed notification.</div></div>
+            </div>
+          </div>
+
+          <div class="mod-card">
+            <h2>Past attachments <span class="h2-sub" data-show="attachmentCount"></span></h2>
+            <div id="mod-attachments"></div>
+          </div>
+
+          <!-- Advanced Properties + Attributes: the builders' accordion, mounted from qb-attributes.js.
+               The builder-details wrapper carries the builders' spacing rules for these cards. -->
+          <div class="mod-card"><div class="builder-details"><div id="qb-advanced"></div></div></div>
         </div>
       </div>
+    </section>
 
-      <div class="mod-card">
-        <h2>Activity versions</h2>
-        <table class="mod-table">
-          <thead><tr><th>Version</th><th>Description</th><th>Created on</th><th style="text-align:right">Actions</th></tr></thead>
-          <tbody><tr>
-            <td><strong>1.1</strong></td><td style="color:#9aa3af">No description</td><td>Mar 31, 2026, 9:45 PM</td>
-            <td style="text-align:right"><vaadin-button theme="tertiary" onclick="toast('Preview version 1.1 (prototype).')">Preview</vaadin-button></td>
-          </tr></tbody>
-        </table>
-      </div>
+    <!-- Content -->
+    <section data-pane="content" class="hidden" id="mod-pane-content"></section>
 
-      <div class="mod-card">
-        <h2>Recomplete activity</h2>
-        <p style="font-size:13px; color:#475569; line-height:1.6; margin:0 0 14px">1 user has previously completed this activity. Turn this on and save to require those users to recomplete it.</p>
-        <div class="mod-switch-row" style="padding-top:0">
-          <vwc-switch></vwc-switch>
-          <div><div class="lbl">Require users to recomplete this activity</div><div class="desc">To notify affected users, enable the Completion status changed notification.</div></div>
-        </div>
-      </div>
-
-      <div class="mod-card">
-        <h2>Attachments</h2>
-        <div class="mod-empty"><i class="fa-regular fa-folder-open"></i> No attachments yet.
-          <vaadin-button theme="secondary" onclick="toast('Add Attachment (prototype).')"><i class="fa-solid fa-paperclip" slot="prefix"></i> Add attachment</vaadin-button>
-        </div>
-      </div>
-
-      <vaadin-details style="margin-top:20px" theme="filled">
-        <div slot="summary">Advanced properties</div>
-        <div style="font-size:13px; color:#6b7280; padding:8px 0">Advanced configuration options appear here.</div>
-      </vaadin-details>
-    </div>
   </div>
 </div>
 
 </div><!-- /#cv-page -->
 
+<!-- Hidden file inputs shared by both layouts -->
+<input type="file" id="thumb-input" accept="image/*" class="hidden" onchange="onThumbChosen(this)">
+<input type="file" id="file-input" class="hidden" onchange="onFileChosen(this)">
+<input type="file" id="media-input" accept="image/*,video/*" class="hidden">
+<input type="file" id="attach-input" class="hidden" onchange="onAttachChosen(this)">
 
-<!-- Shared "Edit in Learning Studio" confirmation dialog -->
-<div class="confirm-overlay hidden" id="ls-overlay">
+<!-- ══ Publish dialog ══ -->
+<div class="overlay hidden" id="publish-overlay">
+  <div class="dlg">
+    <div class="dlg-head">
+      <h3>Publish <span id="pub-name"></span></h3>
+      <p>Publishing creates <strong id="pub-version"></strong> and makes it the version learners launch. Attempts already in progress finish on the version they started; new assignments use the new version.</p>
+    </div>
+    <div class="dlg-body">
+      <div class="pub-checks" id="pub-checks"></div>
+      <div class="field">
+        <label for="pub-notes">Publish notes</label>
+        <textarea id="pub-notes" placeholder="What changed in this version? Shown in the version history."></textarea>
+      </div>
+      <label class="chk"><input type="checkbox" id="pub-recomplete"> <span>Users must recomplete this activity even if previously completed<small>Sets the Recomplete option on the Details tab.</small></span></label>
+    </div>
+    <div class="dlg-foot">
+      <span class="grow"></span>
+      <div class="btns">
+        <button class="btn btn-secondary" onclick="closePublish()">Cancel</button>
+        <button class="btn btn-primary" id="pub-confirm" onclick="confirmPublish()"><i class="fa-solid fa-upload"></i> Publish</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Vector Question Bank picker ══ -->
+<div class="overlay hidden" id="bank-overlay">
+  <div class="dlg" style="width:640px">
+    <div class="dlg-head">
+      <h3>Add from the Vector Question Bank</h3>
+      <p>Pick existing Vector questions. They are added to <strong id="bank-target"></strong> and stay linked to the bank until you unlink them.</p>
+    </div>
+    <div class="bank-tools"><input type="text" class="bank-search" id="bank-search" placeholder="Search questions..." oninput="renderBank()"></div>
+    <div class="bank-cats" id="bank-cats"></div>
+    <div class="bank-list" id="bank-list"></div>
+    <div class="dlg-foot">
+      <span class="ce-summary" id="bank-count">0 selected</span>
+      <div class="btns">
+        <button class="btn btn-secondary" onclick="closeBank()">Cancel</button>
+        <button class="btn btn-primary" id="bank-add" disabled onclick="addBankQuestions()">Add questions</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Location picker ══ -->
+<div class="overlay hidden" id="loc-overlay">
+  <div class="dlg" style="width:460px">
+    <div class="dlg-head">
+      <h3>Choose location</h3>
+      <p>The organization node this activity belongs to. Permissions follow the location.</p>
+    </div>
+    <div class="dlg-body"><div class="loc-list" id="loc-list"></div></div>
+    <div class="dlg-foot">
+      <span class="grow"></span>
+      <div class="btns">
+        <button class="btn btn-secondary" onclick="closeLocationPicker()">Cancel</button>
+        <button class="btn btn-primary" onclick="applyLocation()">Select</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Delete confirmation ══ -->
+<div class="overlay hidden" id="delete-overlay">
+  <div class="confirm-dialog">
+    <div class="cd-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3 id="delete-title">Delete this activity?</h3>
+    <p>It will be removed from every requirement that uses it. Learner records are kept. <strong>Deleting is permanent and cannot be undone.</strong></p>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeDelete()">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Unsaved changes on Close ══ -->
+<div class="overlay hidden" id="leave-overlay">
+  <div class="confirm-dialog">
+    <div class="cd-icon warn"><i class="fa-solid fa-circle-exclamation"></i></div>
+    <h3>Unsaved changes</h3>
+    <p>You have changes that have not been saved. Save them before closing, or discard them.</p>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeLeave()">Keep editing</button>
+      <button class="btn btn-secondary btn-sm" onclick="discardAndLeave()">Discard</button>
+      <button class="btn btn-primary btn-sm" onclick="saveAndLeave()">Save and close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Edit in Learning Studio confirmation (same as the management page) ══ -->
+<div class="overlay hidden" id="ls-overlay">
   <div class="confirm-dialog">
     <h3>Edit in Learning Studio</h3>
     <p>This will duplicate <strong id="ls-activity-name">this activity</strong> to create a new, customizable course in Learning Studio. Learning Studio will then open so you can make your edits.</p>
@@ -440,40 +819,76 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- Convergence shell: configure BEFORE chrome.js builds the topnav + sidenav + breadcrumb -->
+<!-- Convergence shell: the record is resolved BEFORE chrome.js so the breadcrumb can show its title and location -->
 <script>
+  const params    = new URLSearchParams(location.search);
+  const isNew     = params.get('new') === 'quiz';
+  const readOnly  = params.get('mode') === 'view';
+  const fromCbt   = params.get('from') === 'cbt';   // arrived from the Computer Based Trainings grid (drives the Back link / Close target)
+  function loadRecord(){
+    if (isNew) return createQuiz('Untitled Quiz', params.get('location') || undefined);
+    const id = params.get('id');
+    let rec = id ? findActivity(id) : null;
+    if (!rec && params.get('name')) rec = ACTIVITIES.find(a => a.name === params.get('name')) || null;
+    if (rec) return JSON.parse(JSON.stringify(rec));
+    // A link that predates ?id= with no matching record: build a stub so the page still renders
+    const name = params.get('name') || '03 Phil Knight PPE CBT';
+    const type = params.get('type') || 'CBT';
+    const stub = createQuiz(name, params.get('location') || 'UAT Environment');
+    delete stub.__new;
+    Object.assign(stub, {
+      id: id || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'), type, source: params.get('source') || 'Vector Solutions',
+      content: type === 'Quiz' ? stub.content : null, publishStatus: 'Published', version: 'v1.1',
+      versions: [ { version:'1.0', notes:'Initial publish', createdOn:'2026-03-31T21:45:08', author:'Andy Xia' }, { version:'1.1', notes:'', createdOn:'2026-03-31T21:45:08', author:'Andy Xia' } ],
+      configurable: type === 'CBT', lsEditable: type === 'CBT', editable: !readOnly, file: name + (type === 'CBT' ? '.zip' : ''),
+      displayWidth: 640, displayHeight: 480, duration: 15, recompleteUsers: 1, license: params.get('source') === 'Vector Solutions' ? 'Public' : 'Private',
+    });
+    return stub;
+  }
+  let A = loadRecord();
   window.SHELL_CONFIG = {
     active: 'act-activities',
     parent: 'Activities',
-    // Opened from a "View details" row (accredited content), the page is read-only
-    title:  new URLSearchParams(location.search).get('mode') === 'view' ? 'View Activity' : 'Edit Activity',
-    context: new URLSearchParams(location.search).get('location') || 'UAT Environment'
+    title:  readOnly ? 'View Activity' : (isNew ? 'New Quiz' : 'Edit Activity'),
+    context: A.location || 'UAT Environment'
   };
 </script>
 <script src="../_shell/chrome.js"></script>
 
 <script>
-  /* ── Read the activity passed from the Activities list ── */
-  const params    = new URLSearchParams(location.search);
-  const actName   = params.get('name')     || '03 Phil Knight PPE CBT';
-  const actSource = params.get('source')   || 'Vector Solutions';
-  const actType   = params.get('type')     || 'CBT';   // the sample activity is a CBT
-  /* THE RULE (same as the Activities list): only CBT activities can be configured or
-     edited in Learning Studio, so both CTAs are hidden for every other type. */
-  const actIsCbt  = (actType === 'CBT');
-  const actLoc    = params.get('location') || 'UAT Environment';
-  /* Read-only view (&mode=view): the same page opened from a "View details" row.
-     Accredited Vector Solutions content is not the org's to change, so every
-     mutating control is dropped and the fields are locked. */
-  const actReadOnly = params.get('mode') === 'view';
+  /* ═══════════════════════════════════════════════════════════
+     STATE
+     A        the working record (deep copy; see activities-data.js for its shape)
+     dirty    true once anything changed since the last Save / Publish
+     tab      details | content | versions      layout  legacy | modern
+  ═══════════════════════════════════════════════════════════ */
+  const T = ACTIVITY_TYPE(A.type);
+  const isCbtType = A.type === 'CBT';
+  const hasQuizEditor = T.content === 'quiz';
+  let dirty = false;
+  let currentTab = 'details';
+  let layout = 'legacy';
+  const AUTHOR = 'Andy Xia';
 
-  /* Three-gear "configure" icon (matches the Activities list chip) */
+  const $  = s => document.querySelector(s);
+  const $$ = s => [...document.querySelectorAll(s)];
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? '-' : d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); };
+  const fmtDateTime = iso => { const d = new Date(iso); return isNaN(d) ? '-' : d.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }); };
+  const fmtLegacy = iso => { const d = new Date(iso); return isNaN(d) ? '-' : d.toLocaleString('en-US'); };
+  const verNum = () => String(A.version || 'v1.0').replace(/^v/, '');
+  const uid = p => (p || 'q') + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const comps = () => (A.content && A.content.competencies) || [];
+  const compById = id => comps().find(c => c.id === id);
+  const totalQuestions = () => comps().reduce((n, c) => n + c.questions.length, 0);
+  const scoredQuestions = () => comps().reduce((n, c) => n + c.questions.filter(q => q.type !== 'info' && q.type !== 'link').length, 0);
+
+  /* Three-gear "configure" icon + gradient sparkle (same as the Activities list) */
   const GEAR_D = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
   function gearsSvg(px, color){
     const g = (t, s) => `<path transform="translate(${t}) scale(${s})" d="${GEAR_D}"/>`;
     return `<svg viewBox="0 0 24 24" width="${px}" height="${px}" fill="${color}" fill-rule="evenodd" aria-hidden="true">${g('-1.04,5.36',0.72)}${g('12.48,1.48',0.46)}${g('12.48,11.48',0.46)}</svg>`;
   }
-  /* Gradient sparkle for the Learning Studio CTA */
   function sparkleSvg(id){
     return `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
       <defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2b7cff"/><stop offset="1" stop-color="#a855f7"/></linearGradient></defs>
@@ -481,109 +896,849 @@
     </svg>`;
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    // Inject the shared icons
-    document.querySelectorAll('.gears-slot').forEach(s => s.innerHTML = gearsSvg(16, '#374151'));
-    document.querySelectorAll('.sparkle-slot').forEach((s, i) => s.innerHTML = sparkleSvg('lsg' + i));
+  /* ═══════════════════════ Dirty tracking + header ═══════════════════════ */
+  function markDirty(){ if (readOnly) return; dirty = true; updateHeader(); }
+  function clearDirty(){ dirty = false; updateHeader(); }
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-    // Populate the activity identity
-    document.getElementById('leg-name').value = actName;
-    document.getElementById('mod-name').setAttribute('value', actName);
-    document.getElementById('mod-title-name').textContent = actName;
-    document.getElementById('leg-file').textContent = actName;
-    document.getElementById('mod-file').textContent = actName;
-    document.getElementById('leg-location').textContent = actLoc;
-    document.getElementById('mod-location').textContent = actLoc;
-
-    // CBT-only actions: drop the Configure and Edit in Learning Studio CTAs for
-    // every other activity type, in both layout versions.
-    if (!actIsCbt) {
-      document.querySelectorAll('.ls-cta, .gears-slot').forEach(el => {
-        const btn = el.closest('button');
-        if (btn) btn.remove();
-      });
-      document.querySelectorAll('.type-pill').forEach(p => p.textContent = actType);
+  function updateHeader(){
+    const name = A.name || 'Untitled activity';
+    $$('[data-show]').forEach(el => { el.textContent = showValue(el.dataset.show); });
+    // publish badge (modern) + pill (legacy)
+    const published = A.publishStatus === 'Published';
+    const badge = $('#mod-publish-badge');
+    badge.textContent = published ? 'Published' : 'Draft';
+    badge.setAttribute('theme', published ? 'badge success' : 'badge contrast');
+    const pill = $('#leg-publish-pill');
+    pill.textContent = published ? 'Published' : 'Draft';
+    pill.classList.toggle('pub', published);
+    // subtitle
+    const sub = $('#mod-sub');
+    const last = A.versions && A.versions.length ? A.versions[A.versions.length - 1] : null;
+    if (dirty) { sub.className = 'mod-sub dirty'; sub.innerHTML = '<i class="fa-solid fa-circle"></i> Unsaved changes'; }
+    else if (published) { sub.className = 'mod-sub'; sub.textContent = 'Published' + (last ? ' ' + fmtDateTime(last.createdOn) + ' by ' + last.author : '') + '. Last saved ' + fmtDateTime(A.updatedOn) + '.'; }
+    else if (last) { sub.className = 'mod-sub'; sub.textContent = 'Draft with unpublished changes. Last published v' + last.version + ' on ' + fmtDate(last.createdOn) + '.'; }
+    else { sub.className = 'mod-sub'; sub.textContent = isNew && !A.__saved ? 'New quiz, not saved yet.' : 'Draft. Not published yet.'; }
+    $('#mod-save').classList.toggle('dirty', dirty);
+    $('#leg-save').classList.toggle('dirty', dirty);
+    $('#leg-unsaved').classList.toggle('hidden', !dirty);
+    $$('[data-count="content"]').forEach(el => { el.textContent = hasQuizEditor ? totalQuestions() : ''; el.classList.toggle('hidden', !hasQuizEditor); });
+    document.title = (dirty ? '• ' : '') + name + ' | ' + (readOnly ? 'View Activity' : 'Edit Activity') + ' | Convergence LMS';
+    const bc = document.querySelector('.PageActionTitle'); if (bc) bc.textContent = (readOnly ? 'View Activity' : 'Edit Activity') + ': ' + name;
+  }
+  function showValue(key){
+    switch (key) {
+      case 'name': return A.name || 'Untitled activity';
+      case 'typeLong': return T.longLabel;
+      case 'version': return verNum();
+      case 'versionLabel': return 'v' + verNum();
+      case 'createdOn': return fmtDate(A.createdOn);
+      case 'createdOnLong': return fmtLegacy(A.createdOn);
+      case 'license': return A.license || 'Private';
+      case 'location': return A.location || '';
+      case 'file': return A.file || 'No file selected';
+      case 'source': return A.source || 'Custom';
+      case 'attachmentCount': { const n = (A.attachments || []).length; return n ? n + ' file' + (n !== 1 ? 's' : '') : ''; }
+      case 'recompleteCopy': {
+        const n = A.recompleteUsers || 0;
+        return n ? n + ' user' + (n !== 1 ? 's have' : ' has') + ' previously completed this activity. Turn this on and save to require those users to recomplete it.'
+                 : 'No users have completed this activity yet. Turning this on applies to future versions.';
+      }
     }
+    return '';
+  }
 
-    if (actReadOnly) applyReadOnly();
-
-    setVersion('legacy');   // default to the current layout + set the content background
-  });
-
-  /* ── Read-only mode ──
-     Drop the controls that would change the activity (keeping the ones that only
-     look: Preview, and the version toggle), lock every field, and say why up top. */
-  function applyReadOnly(){
-    const MUTATING = /save|delete|cancel|update file|configure|learning studio|recomplete/i;
-    const ADDS = /^add\b|add thumbnail|add attachment|add attribute/i;
-    document.querySelectorAll('#cv-page button, #cv-page vaadin-button').forEach(b => {
-      if (b.closest('.ro-note')) return;                       // the notice's own actions stay
-      const label = (b.textContent || '').trim();
-      if (MUTATING.test(label)) { b.remove(); return; }
-      // "Add thumbnail / attachment / attribute" would change the record too, but the
-      // sections read oddly without them, so they stay visible and inert.
-      if (ADDS.test(label)) { b.disabled = true; b.style.opacity = '.5'; b.style.pointerEvents = 'none'; }
-    });
-    // Lock the fields. Vaadin components take a readonly attribute; plain inputs too.
-    document.querySelectorAll('#cv-page input, #cv-page textarea, #cv-page select').forEach(el => {
-      el.setAttribute('readonly', '');
-      if (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio' || el.type === 'file') el.disabled = true;
-    });
-    document.querySelectorAll('#cv-page [class*="vaadin-"], #cv-page vaadin-text-field, #cv-page vaadin-text-area, #cv-page vaadin-select, #cv-page vaadin-checkbox')
-      .forEach(el => el.setAttribute('readonly', ''));
-    // A banner at the top of each layout version, explaining the state and the way out
-    const note = () => {
-      const d = document.createElement('div');
-      d.className = 'ro-note';
-      d.innerHTML = '<i class="fa-regular fa-eye"></i><div><strong>View only.</strong> ' +
-        'This is accredited ' + esc(actSource) + ' content, so it cannot be edited here. ' +
-        'Duplicate it to create an editable copy of your own.</div>' +
-        '<button class="ro-note-btn" onclick="toast(\'Duplicate (prototype).\')">Duplicate</button>';
-      return d;
-    };
-    ['v-legacy', 'v-modern'].forEach(id => {
-      const v = document.getElementById(id);
-      if (v) v.insertBefore(note(), v.firstChild);
+  /* ═══════════════════════ Two-way binding (both layouts) ═══════════════════════ */
+  function coerce(el){
+    if (el.type === 'checkbox' || el.tagName === 'VAADIN-CHECKBOX') return !!el.checked;
+    if (el.type === 'number' || el.tagName === 'VAADIN-NUMBER-FIELD') return el.value === '' || el.value == null ? '' : Number(el.value);
+    return el.value;
+  }
+  function onBindEvent(e){
+    const el = e.target && e.target.closest ? e.target.closest('[data-bind]') : null;
+    if (!el || el.dataset.syncing) return;
+    const key = el.dataset.bind;
+    const val = coerce(el);
+    if (A[key] === val) return;
+    A[key] = val;
+    // Keep the other layout's copy of this field in step without touching focus
+    $$('[data-bind="' + key + '"]').forEach(o => { if (o !== el) setField(o, val); });
+    if (key === 'name' || key === 'file') updateHeader();
+    clearFieldError(key);
+    markDirty();
+  }
+  function setField(el, v){
+    el.dataset.syncing = '1';
+    if (el.type === 'checkbox' || el.tagName === 'VAADIN-CHECKBOX') el.checked = !!v;
+    else el.value = (v == null ? '' : String(v));
+    delete el.dataset.syncing;
+  }
+  function syncForms(){
+    $$('[data-bind]').forEach(el => setField(el, A[el.dataset.bind]));
+    updateHeader();
+    renderThumb();
+  }
+  ['input', 'change'].forEach(evt => document.addEventListener(evt, onBindEvent));
+  // Vaadin property notifications do not bubble, so also listen on each element directly
+  function bindVaadin(){
+    $$('[data-bind]').forEach(el => {
+      if (el.tagName.startsWith('VAADIN-') && !el.dataset.wired) {
+        el.dataset.wired = '1';
+        el.addEventListener('value-changed', onBindEvent);
+        el.addEventListener('checked-changed', onBindEvent);
+      }
     });
   }
-  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-  /* ── Version toggle ── */
+  /* ═══════════════════════ Validation (fields marked * are required) ═══════════════════════ */
+  const REQUIRED = [
+    { key:'location',      label:'Location' },
+    { key:'name',          label:'Activity name' },
+    { key:'displayWidth',  label:'Display width' },
+    { key:'displayHeight', label:'Display height' },
+    { key:'file',          label:'File' },
+  ];
+  function validate(){
+    const missing = REQUIRED.filter(r => { const v = A[r.key]; return v === '' || v == null || (typeof v === 'string' && !v.trim()) || (typeof v === 'number' && !(v > 0)); });
+    // clear first
+    REQUIRED.forEach(r => clearFieldError(r.key));
+    $('#mod-errs').classList.add('hidden'); $('#leg-errs').classList.add('hidden');
+    if (!missing.length) return true;
+    missing.forEach(r => {
+      $$('[data-bind="' + r.key + '"]').forEach(el => { if (el.tagName.startsWith('VAADIN-')) el.invalid = true; else el.classList.add('invalid'); });
+      $$('[data-err="' + r.key + '"]').forEach(el => el.classList.remove('hidden'));
+      $$('[data-errbox="' + r.key + '"]').forEach(el => el.classList.add('invalid'));
+    });
+    const msg = 'Complete the required field' + (missing.length !== 1 ? 's' : '') + ': ' + missing.map(m => m.label).join(', ') + '.';
+    $('#mod-errs').classList.remove('hidden'); $('#mod-errs div').textContent = msg;
+    $('#leg-errs').classList.remove('hidden'); $('#leg-errs').textContent = msg;
+    setTab('details', 'replace');
+    toast(msg);
+    return false;
+  }
+  function clearFieldError(key){
+    $$('[data-bind="' + key + '"]').forEach(el => { if (el.tagName.startsWith('VAADIN-')) el.invalid = false; else el.classList.remove('invalid'); });
+    $$('[data-err="' + key + '"]').forEach(el => el.classList.add('hidden'));
+    $$('[data-errbox="' + key + '"]').forEach(el => el.classList.remove('invalid'));
+  }
+
+  /* ═══════════════════════ Tabs + layout ═══════════════════════ */
+  /* Tabs: Content | Details. Each tab is a URL state (?tab=) pushed to history, so deep links and the
+     browser back button work. 'versions' is accepted from older links and lands on Details, where the
+     version history now lives. updateUrl: undefined = push (user click), 'replace' = replace, false = leave the URL. */
+  function setTab(tab, updateUrl){
+    if (tab === 'versions') tab = 'details';
+    if (!['details', 'content'].includes(tab)) tab = 'details';
+    const changed = tab !== currentTab;
+    currentTab = tab;
+    $('#cv-page').dataset.tab = tab;
+    $$('[data-tab]').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    $$('[data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== tab));
+    if (updateUrl !== false) {
+      const u = new URL(location.href); u.searchParams.set('tab', tab);
+      if (updateUrl === 'replace' || !changed) history.replaceState({ tab }, '', u); else history.pushState({ tab }, '', u);
+    }
+    if (tab === 'content') renderContent();
+    if (tab === 'details') renderVersions();
+    const sc = document.getElementById('cv-content'); if (sc && sc.scrollTo) sc.scrollTo({ top: 0 });
+  }
+  window.addEventListener('popstate', e => {
+    const t = (e.state && e.state.tab) || new URLSearchParams(location.search).get('tab') || 'details';
+    setTab(t, false);
+  });
   function setVersion(v){
-    const legacy = (v === 'legacy');
-    document.getElementById('v-legacy').classList.toggle('hidden', !legacy);
-    document.getElementById('v-modern').classList.toggle('hidden', legacy);
-    document.getElementById('tg-legacy').classList.toggle('active', legacy);
-    document.getElementById('tg-modern').classList.toggle('active', !legacy);
-    // Paint the shell content area to match the active version.
+    layout = (v === 'modern') ? 'modern' : 'legacy';
+    const legacy = layout === 'legacy';
+    $('#v-legacy').classList.toggle('hidden', !legacy);
+    $('#v-modern').classList.toggle('hidden', legacy);
+    $('#tg-legacy').classList.toggle('active', legacy);
+    $('#tg-modern').classList.toggle('active', !legacy);
     const c = document.getElementById('cv-content');
     if (c) c.style.background = legacy ? '#eef2f7' : '#f5f9fd';
+    const u = new URL(location.href); u.searchParams.set('layout', layout); history.replaceState(null, '', u);
+    syncForms();
+    renderAttachments();
+    renderLegacyAttrs();
+    renderLegacyAdvanced();
+    if (!legacy) QBAttrs.setAttributes(A.attributes || []);
+    renderContent();
+    renderVersions();
   }
 
-  /* ── Configure ── */
-  function launchConfigure(){ toast('Opening content configuration for "' + actName + '" (prototype).'); }
+  /* ═══════════════════════ Thumbnail / file / attachments ═══════════════════════ */
+  function pickThumb(){ $('#thumb-input').click(); }
+  function onThumbChosen(inp){
+    const f = inp.files && inp.files[0]; if (!f) return;
+    A.thumb = { name: f.name, url: URL.createObjectURL(f) };
+    inp.value = ''; markDirty(); renderThumb();
+  }
+  function removeThumb(){ A.thumb = null; markDirty(); renderThumb(); }
+  function renderThumb(){
+    const has = !!(A.thumb && A.thumb.url);
+    $$('[data-thumb]').forEach(el => { el.style.backgroundImage = has ? 'url(' + A.thumb.url + ')' : ''; });
+    $$('[data-thumb-icon]').forEach(el => { el.className = 'fa-solid ' + T.icon; el.style.display = has ? 'none' : ''; });
+    $$('[data-thumb-label]').forEach(el => { el.textContent = has ? (layout === 'legacy' ? 'Replace Thumbnail' : 'Replace thumbnail') : (layout === 'legacy' ? 'Add Thumbnail' : 'Add thumbnail'); });
+    $$('[data-thumb-remove]').forEach(el => el.classList.toggle('hidden', !has));
+  }
+  function pickFile(){ $('#file-input').click(); }
+  function onFileChosen(inp){
+    const f = inp.files && inp.files[0]; if (!f) return;
+    A.file = f.name; inp.value = '';
+    clearFieldError('file'); markDirty(); syncForms();
+    toast('File updated to ' + f.name + '. Save to keep it.');
+  }
+  function addAttachment(){ $('#attach-input').click(); }
+  function onAttachChosen(inp){
+    const f = inp.files && inp.files[0]; if (!f) return;
+    A.attachments = A.attachments || [];
+    A.attachments.push({ name: f.name, version: verNum(), createdOn: new Date().toISOString(), updatedOn: new Date().toISOString() });
+    inp.value = ''; markDirty(); renderAttachments(); updateHeader();
+  }
+  function removeAttachment(i){ A.attachments.splice(i, 1); markDirty(); renderAttachments(); updateHeader(); }
+  function renderAttachments(){
+    const list = A.attachments || [];
+    // modern
+    const m = $('#mod-attachments');
+    if (!list.length) {
+      m.innerHTML = `<div class="mod-empty"><i class="fa-regular fa-folder-open"></i> No attachments yet.
+        <vaadin-button theme="secondary" class="ro-hide" onclick="addAttachment()"><i class="fa-solid fa-paperclip" slot="prefix"></i> Add attachment</vaadin-button></div>`;
+    } else {
+      m.innerHTML = `<table class="mod-table"><thead><tr><th>Name</th><th>Version</th><th>Created</th><th>Updated</th><th style="text-align:right">Actions</th></tr></thead><tbody>` +
+        list.map((f, i) => `<tr><td><i class="fa-regular fa-file" style="color:#64748b;margin-right:6px"></i><strong>${esc(f.name)}</strong></td><td>${esc(f.version)}</td><td>${fmtDate(f.createdOn)}</td><td>${fmtDate(f.updatedOn)}</td>
+          <td style="text-align:right"><vaadin-button theme="tertiary" onclick="toast('Downloading ${esc(f.name)} (prototype).')">Download</vaadin-button><vaadin-button theme="tertiary error" class="ro-hide" onclick="removeAttachment(${i})">Remove</vaadin-button></td></tr>`).join('') +
+        `</tbody></table><div style="margin-top:12px" class="ro-hide"><vaadin-button theme="secondary" onclick="addAttachment()"><i class="fa-solid fa-paperclip" slot="prefix"></i> Add attachment</vaadin-button></div>`;
+    }
+    // legacy
+    const l = $('#leg-attachments');
+    l.innerHTML = `<table class="leg-table"><thead><tr><th style="width:150px">Actions</th><th style="width:110px">Version</th><th>Name</th><th style="width:150px">Created</th><th style="width:150px">Updated</th></tr></thead><tbody>` +
+      list.map((f, i) => `<tr><td><button class="leg-mini-btn" onclick="toast('Downloading ${esc(f.name)} (prototype).')">Open</button><button class="leg-mini-btn gray ro-hide" onclick="removeAttachment(${i})">Delete</button></td><td>${esc(f.version)}</td><td>${esc(f.name)}</td><td>${fmtDate(f.createdOn)}</td><td>${fmtDate(f.updatedOn)}</td></tr>`).join('') +
+      `</tbody></table>` + (list.length ? '' : `<div class="leg-norecords"><i class="fa-solid fa-ban"></i> No records to display.</div>`);
+  }
 
-  /* ── Edit in Learning Studio dialog (same as the management page) ── */
+  /* ═══════════════════════ Location picker ═══════════════════════ */
+  let locChoice = '';
+  function openLocationPicker(){
+    if (readOnly) return;
+    const locs = ['UAT Environment', ...new Set(ACTIVITIES.map(a => a.location).filter(Boolean))];
+    if (A.location && !locs.includes(A.location)) locs.unshift(A.location);
+    locChoice = A.location || '';
+    $('#loc-list').innerHTML = locs.map(l => `<label class="loc-opt"><input type="radio" name="loc" value="${esc(l)}" ${l === locChoice ? 'checked' : ''} onchange="locChoice=this.value"><i class="fa-solid fa-location-dot"></i> ${esc(l)}</label>`).join('');
+    $('#loc-overlay').classList.remove('hidden');
+  }
+  function closeLocationPicker(){ $('#loc-overlay').classList.add('hidden'); }
+  function applyLocation(){
+    if (locChoice && locChoice !== A.location) { A.location = locChoice; clearFieldError('location'); markDirty(); syncForms(); }
+    closeLocationPicker();
+  }
+
+  /* ═══════════════════════ Attributes + Advanced Properties ═══════════════════════
+     Modern: the builders' accordion (qb-attributes.js) mounted once; its onChange writes back to A.
+     Legacy: the current product's bar + a table over the same list. Both read/write A.attributes. */
+  function mountAdvanced(){
+    QBAttrs.mount($('#qb-advanced'), {
+      idLabel: 'Activity ID', recordId: A.__new ? '' : 'ACT-' + (A.sku ? A.sku.replace(/^ACT-/, '') : '10000'),
+      externalId: A.externalId || '', sku: A.sku || '', createdOn: A.__new ? '' : fmtDateTime(A.createdOn), updatedOn: A.__new ? '' : fmtDateTime(A.updatedOn),
+      active: A.status !== 'Inactive', typeLabel: 'activity', attributes: A.attributes || [],
+      onChange: attrs => { A.attributes = attrs.map(a => ({ key: a.key, value: a.value })); renderLegacyAttrs(); markDirty(); },
+    });
+  }
+  function renderLegacyAttrs(){
+    const list = A.attributes || [];
+    const added = new Set(list.map(a => a.key));
+    const sel = $('#leg-attr-select');
+    sel.innerHTML = '<option value="">Select an attribute...</option>' + ATTR_CATALOG.filter(c => !added.has(c.key)).map(c => `<option value="${c.key}">${esc(c.name)}</option>`).join('');
+    const wrap = $('#leg-attr-wrap');
+    if (!list.length) { wrap.innerHTML = '<div class="leg-norecords" style="background:#dde1e6;color:#555"><i class="fa-solid fa-ban" style="color:#6b7280"></i> No attributes have been added to this activity.</div>'; return; }
+    wrap.innerHTML = `<table class="leg-table"><thead><tr><th style="width:150px">Actions</th><th style="width:220px">Attribute</th><th>Value</th></tr></thead><tbody>` +
+      list.map((a, i) => {
+        const def = ATTR_CATALOG.find(c => c.key === a.key) || { name: a.key, type: 'text', options: [] };
+        const input = def.type === 'select'
+          ? `<select class="leg-input" onchange="legacySetAttr(${i}, this.value)">${def.options.map(o => `<option ${a.value === o ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+          : `<input class="leg-input" type="${def.type === 'number' ? 'number' : (def.type === 'date' ? 'date' : 'text')}" value="${esc(a.value)}" oninput="legacySetAttr(${i}, this.value)" style="width:100%;max-width:430px">`;
+        return `<tr><td><button class="leg-mini-btn gray ro-hide" onclick="legacyRemoveAttr(${i})">Remove</button></td><td>${esc(def.name)}</td><td>${input}</td></tr>`;
+      }).join('') + `</tbody></table>`;
+  }
+  function legacyAddAttr(){
+    const sel = $('#leg-attr-select'); const key = sel.value; if (!key) return;
+    const def = ATTR_CATALOG.find(c => c.key === key);
+    A.attributes = A.attributes || [];
+    A.attributes.push({ key, value: def.type === 'select' ? (def.options[0] || '') : '' });
+    QBAttrs.setAttributes(A.attributes); renderLegacyAttrs(); markDirty(); toast('Attribute added');
+  }
+  function legacySetAttr(i, v){ A.attributes[i].value = v; QBAttrs.setAttributes(A.attributes); markDirty(); }
+  function legacyRemoveAttr(i){ A.attributes.splice(i, 1); QBAttrs.setAttributes(A.attributes); renderLegacyAttrs(); markDirty(); toast('Attribute removed'); }
+  function toggleLegacyAdvanced(){ $('#leg-advanced').classList.toggle('open'); $('#leg-adv-panel').classList.toggle('hidden'); }
+  function renderLegacyAdvanced(){
+    const rows = [
+      ['Status', A.status || 'Active'],
+      ['Activity ID', A.__new ? 'Assigned on save' : 'ACT-' + (A.sku ? A.sku.replace(/^ACT-/, '') : '10000')],
+      ['External ID (UID)', A.externalId || 'Assigned on save'],
+      ['SKU', A.sku || 'Assigned on save'],
+      ['Created on', A.__new ? 'Not saved yet' : fmtLegacy(A.createdOn)],
+      ['Updated on', A.__new ? 'Not saved yet' : fmtLegacy(A.updatedOn)],
+    ];
+    $('#leg-adv-panel').innerHTML = `<table class="leg-table"><tbody>${rows.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</tbody></table>
+      <div class="leg-section-foot"><button class="btn-blue" onclick="openAudit()"><i class="fa-solid fa-clock-rotate-left"></i> View Audit History</button></div>`;
+  }
+
+  /* ═══════════════════════ CONTENT TAB ═══════════════════════ */
+  const QTYPES = {
+    bank:   { label:'From the Vector Question Bank', short:'Question Bank', icon:'fa-building-columns', sub:'Pick from existing Vector questions' },
+    tf:     { label:'True/False',      short:'True/False',      icon:'fa-toggle-on',       sub:'One statement, true or false' },
+    single: { label:'Single answer',   short:'Single answer',   icon:'fa-circle-dot',      sub:'Several choices, one correct' },
+    multi:  { label:'Multiple choice', short:'Multiple choice', icon:'fa-square-check',    sub:'Several choices, one or more correct' },
+    info:   { label:'Info slide',      short:'Info slide',      icon:'fa-circle-info',     sub:'Title, text and one image or video' },
+    link:   { label:'Link a URL',      short:'Link',            icon:'fa-link',            sub:'Send learners to a web page' },
+  };
+  const ADD_ORDER = ['bank', 'tf', 'single', 'multi', 'info', 'link'];
+  const shortText = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+  const qTitle = q => q.type === 'info' ? (q.title || 'Untitled info slide') : (q.type === 'link' ? (q.prompt || q.url || 'Link') : (q.prompt || 'Untitled question'));
+
+  function renderContent(){
+    const modern = $('#mod-pane-content'), legacy = $('#leg-pane-content');
+    if (!hasQuizEditor) { modern.innerHTML = placeholderModern(); legacy.innerHTML = placeholderLegacy(); return; }
+    const list = comps();
+    const n = totalQuestions();
+    modern.innerHTML = `
+      <div class="ce-toolbar">
+        <div class="ce-summary"><strong>${list.length}</strong> competenc${list.length === 1 ? 'y' : 'ies'} &middot; <strong>${n}</strong> question${n !== 1 ? 's' : ''}${scoredQuestions() !== n ? ' (' + scoredQuestions() + ' scored)' : ''} &middot; drag questions to reorder, within or between competencies</div>
+        <div class="ce-actions ro-hide">
+          <button class="m-btn secondary" onclick="addCompetency()"><i class="fa-solid fa-folder-plus"></i> Add competency</button>
+          <button class="m-btn primary" onclick="openAddMenu(event, '')"><i class="fa-solid fa-plus"></i> Add question <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+        </div>
+      </div>
+      ${list.map((c, ci) => competencyHtml(c, ci, list.length)).join('')}`;
+    legacy.innerHTML = `
+      <div class="leg-section" style="margin-top:0">
+        <div class="leg-section-head">Quiz Content <span class="grow"></span>
+          <button class="leg-head-btn ro-hide" onclick="addCompetency()"><i class="fa-solid fa-folder-plus"></i> Add Competency</button>
+          <button class="leg-head-btn ro-hide" onclick="openAddMenu(event, '')"><i class="fa-solid fa-plus"></i> Add Question <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+        </div>
+        <div class="leg-section-foot" style="justify-content:space-between"><span style="font-size:13px;color:#3c4148">${list.length} competenc${list.length === 1 ? 'y' : 'ies'}, ${n} question${n !== 1 ? 's' : ''}. Drag a row to reorder questions, within or between competencies.</span></div>
+      </div>
+      ${list.map((c, ci) => legacyCompetencyHtml(c, ci, list.length)).join('')}`;
+    wireDnD();
+    if (readOnly) lockInputs(modern), lockInputs(legacy);
+  }
+
+  function competencyHtml(c, ci, total){
+    const n = c.questions.length;
+    return `<div class="cmp ${c.collapsed ? 'collapsed' : ''}" data-cid="${c.id}">
+      <div class="cmp-head">
+        <button class="cmp-caret" onclick="toggleCompetency('${c.id}')" title="${c.collapsed ? 'Expand' : 'Collapse'}" aria-expanded="${!c.collapsed}"><i class="fa-solid fa-chevron-down"></i></button>
+        <span class="cmp-icon"><i class="fa-solid fa-layer-group"></i></span>
+        <span class="cmp-title" id="ct-${c.id}" onclick="renameCompetency('${c.id}')" title="Click to rename">${esc(c.name)}</span>
+        <span class="cmp-count">${n} question${n !== 1 ? 's' : ''}</span>
+        <span class="grow"></span>
+        <button class="icon-btn ro-hide" onclick="moveCompetency('${c.id}', -1)" title="Move up" ${ci === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+        <button class="icon-btn ro-hide" onclick="moveCompetency('${c.id}', 1)" title="Move down" ${ci === total - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+        <button class="icon-btn ro-hide" onclick="renameCompetency('${c.id}')" title="Rename"><i class="fa-solid fa-pen"></i></button>
+        <button class="icon-btn danger ro-hide" onclick="deleteCompetency('${c.id}')" title="Delete competency"><i class="fa-regular fa-trash-can"></i></button>
+      </div>
+      <div class="cmp-body">
+        <div class="qzone" data-dropzone="${c.id}">
+          ${n ? c.questions.map((q, qi) => questionCardHtml(c, q, qi)).join('') : `<div class="qz-empty">No questions yet. Add one below, or drag questions here.</div>`}
+        </div>
+        <div class="cmp-foot ro-hide">
+          <button class="qe-add" style="margin-top:0" onclick="openAddMenu(event, '${c.id}')"><i class="fa-solid fa-plus"></i> Add question</button>
+          <button class="qe-add" style="margin-top:0" onclick="openBank('${c.id}')"><i class="fa-solid fa-building-columns"></i> From Question Bank</button>
+        </div>
+      </div>
+    </div>`;
+  }
+  function questionCardHtml(c, q, qi){
+    const t = QTYPES[q.type] || QTYPES.single;
+    return `<div class="qc qitem" draggable="${readOnly ? 'false' : 'true'}" data-qid="${q.id}" data-cid="${c.id}">
+      <div class="qc-head">
+        <span class="qc-grip ro-hide" title="Drag to reorder"><i class="fa-solid fa-grip-vertical"></i></span>
+        <span class="qc-num">${qi + 1}</span>
+        <span class="qc-type"><i class="fa-solid ${t.icon}"></i> ${t.short}</span>
+        ${q.source === 'bank' ? '<span class="bank-tag"><i class="fa-solid fa-building-columns"></i> Question Bank</span>' : ''}
+        <span class="grow"></span>
+        <button class="icon-btn ro-hide" onclick="duplicateQuestion('${c.id}','${q.id}')" title="Duplicate"><i class="fa-regular fa-copy"></i></button>
+        <button class="icon-btn danger ro-hide" onclick="removeQuestion('${c.id}','${q.id}')" title="Delete question"><i class="fa-regular fa-trash-can"></i></button>
+      </div>
+      <div class="qc-body">${questionEditorHtml(q)}</div>
+    </div>`;
+  }
+  /* The type-specific editor, shared by both layouts (the legacy layout restyles the same classes). */
+  function questionEditorHtml(q){
+    const locked = q.source === 'bank';
+    const dis = locked ? 'disabled' : '';
+    const lockNote = locked ? `<div class="qe-locked"><i class="fa-solid fa-building-columns"></i><span class="grow">Linked to the Vector Question Bank. Unlink to edit the wording here.</span><button class="ro-hide" onclick="unlinkBank('${q.id}')">Unlink</button></div>` : '';
+    if (q.type === 'tf') {
+      return lockNote + `<div class="qe-field"><label class="qe-label">Statement</label><textarea class="qe-textarea" ${dis} placeholder="Write the statement learners judge as true or false" oninput="setQ('${q.id}','prompt',this.value)">${esc(q.prompt)}</textarea></div>
+        <div class="qe-field"><label class="qe-label">Correct answer</label>
+          <div class="qe-tf">
+            <label class="${q.answer === true ? 'on' : ''}"><input type="radio" name="tf-${q.id}" ${q.answer === true ? 'checked' : ''} ${dis} onchange="setQ('${q.id}','answer',true,true)"> True</label>
+            <label class="${q.answer === false ? 'on' : ''}"><input type="radio" name="tf-${q.id}" ${q.answer === false ? 'checked' : ''} ${dis} onchange="setQ('${q.id}','answer',false,true)"> False</label>
+          </div></div>`;
+    }
+    if (q.type === 'single' || q.type === 'multi') {
+      const multi = q.type === 'multi';
+      return lockNote + `<div class="qe-field"><label class="qe-label">Question</label><textarea class="qe-textarea" ${dis} placeholder="Write the question" oninput="setQ('${q.id}','prompt',this.value)">${esc(q.prompt)}</textarea></div>
+        <div class="qe-field"><label class="qe-label">Choices <span style="font-weight:400;color:#9ca3af">${multi ? 'Check every correct answer' : 'Select the correct answer'}</span></label>
+          <div class="qe-choices">${(q.choices || []).map((o, i) => `<div class="qe-choice ${o.correct ? 'correct' : ''}">
+              <input type="${multi ? 'checkbox' : 'radio'}" name="ch-${q.id}" ${o.correct ? 'checked' : ''} ${dis} title="${multi ? 'Correct answer' : 'The correct answer'}" onchange="setCorrect('${q.id}',${i},this.checked)">
+              <input type="text" class="qe-input" ${dis} value="${esc(o.text)}" placeholder="Choice ${i + 1}" oninput="setChoiceText('${q.id}',${i},this.value)">
+              <button class="icon-btn danger ro-hide" ${dis} onclick="removeChoice('${q.id}',${i})" title="Remove choice"><i class="fa-solid fa-xmark"></i></button>
+            </div>`).join('')}</div>
+          ${locked ? '' : `<button class="qe-add ro-hide" onclick="addChoice('${q.id}')"><i class="fa-solid fa-plus"></i> Add choice</button>`}
+          ${(q.choices || []).some(o => o.correct) ? '' : '<div class="qe-hint"><i class="fa-solid fa-circle-exclamation" style="color:#d97706"></i> No correct answer marked yet.</div>'}
+        </div>`;
+    }
+    if (q.type === 'info') {
+      const kind = (q.media && q.media.kind) || '';
+      return `<div class="qe-field"><label class="qe-label">Title</label><input type="text" class="qe-input" value="${esc(q.title)}" placeholder="Slide title" oninput="setQ('${q.id}','title',this.value)"></div>
+        <div class="qe-field"><label class="qe-label">Text</label><textarea class="qe-textarea" placeholder="What learners should read before continuing" oninput="setQ('${q.id}','text',this.value)">${esc(q.text)}</textarea></div>
+        <div class="qe-field"><label class="qe-label">Media <span style="font-weight:400;color:#9ca3af">one image or video</span></label>
+          <div class="qe-seg ro-hide">
+            <button class="${kind === '' ? 'on' : ''}" onclick="setMediaKind('${q.id}','')"><i class="fa-solid fa-ban"></i> None</button>
+            <button class="${kind === 'image' ? 'on' : ''}" onclick="setMediaKind('${q.id}','image')"><i class="fa-regular fa-image"></i> Image</button>
+            <button class="${kind === 'video' ? 'on' : ''}" onclick="setMediaKind('${q.id}','video')"><i class="fa-regular fa-circle-play"></i> Video</button>
+          </div>
+          ${kind ? `<div class="qe-media">
+            <div class="qe-media-box" ${q.media.preview ? `style="background-image:url(${q.media.preview})"` : ''}>${q.media.preview ? '' : `<i class="fa-regular ${kind === 'video' ? 'fa-circle-play' : 'fa-image'}"></i>${esc(q.media.url || 'No ' + kind + ' yet')}`}</div>
+            <div class="qe-media-fields">
+              <label class="qe-label">${kind === 'video' ? 'Video' : 'Image'} file or URL</label>
+              <input type="text" class="qe-input" value="${esc(q.media.url)}" placeholder="${kind === 'video' ? 'https://... or choose a video file' : 'https://... or choose an image file'}" oninput="setMedia('${q.id}','url',this.value)">
+              <button class="qe-add ro-hide" onclick="pickMedia('${q.id}')"><i class="fa-solid fa-arrow-up-from-bracket"></i> Choose ${kind} file</button>
+            </div></div>` : ''}
+        </div>`;
+    }
+    if (q.type === 'link') {
+      return `<div class="qe-field"><label class="qe-label">Link text</label><input type="text" class="qe-input" value="${esc(q.prompt)}" placeholder="What learners click" oninput="setQ('${q.id}','prompt',this.value)"></div>
+        <div class="qe-field"><label class="qe-label">URL</label><input type="text" class="qe-input" value="${esc(q.url)}" placeholder="https://" oninput="setQ('${q.id}','url',this.value)"><div class="qe-hint">Opens in a new tab for the learner.</div></div>`;
+    }
+    return '';
+  }
+  function legacyCompetencyHtml(c, ci, total){
+    const n = c.questions.length;
+    return `<div class="leg-section" data-cid="${c.id}">
+      <div class="leg-section-head">Competency: <span id="lct-${c.id}">${esc(c.name)}</span> <span class="leg-tab-count">${n}</span><span class="grow"></span>
+        <button class="leg-head-btn ro-hide" onclick="moveCompetency('${c.id}', -1)" ${ci === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
+        <button class="leg-head-btn ro-hide" onclick="moveCompetency('${c.id}', 1)" ${ci === total - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
+        <button class="leg-head-btn ro-hide" onclick="renameCompetency('${c.id}')"><i class="fa-solid fa-pen"></i> Rename</button>
+        <button class="leg-head-btn ro-hide" onclick="deleteCompetency('${c.id}')"><i class="fa-regular fa-trash-can"></i> Delete</button>
+      </div>
+      <div class="leg-qhead"><span>Actions</span><span>#</span><span>Type</span><span>Question</span></div>
+      <div data-dropzone="${c.id}">
+        ${n ? c.questions.map((q, qi) => legacyRowHtml(c, q, qi)).join('') : `<div class="leg-qempty">No questions in this competency. Use Add Question, or drag a question here.</div>`}
+      </div>
+      <div class="leg-section-foot ro-hide">
+        <button class="btn-blue" onclick="openAddMenu(event, '${c.id}')"><i class="fa-solid fa-plus"></i> Add Question <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+        <button class="leg-mini-btn gray" onclick="openBank('${c.id}')">From Question Bank</button>
+      </div>
+    </div>`;
+  }
+  function legacyRowHtml(c, q, qi){
+    const t = QTYPES[q.type] || QTYPES.single;
+    return `<div class="qitem" data-qid="${q.id}" data-cid="${c.id}">
+      <div class="leg-qrow" draggable="${readOnly ? 'false' : 'true'}" data-qid="${q.id}" data-cid="${c.id}">
+        <span><i class="fa-solid fa-grip-vertical leg-qgrip ro-hide"></i><button class="leg-mini-btn" onclick="toggleLegacyEdit('${q.id}')">${q._open ? 'Done' : (readOnly ? 'View' : 'Edit')}</button><button class="leg-mini-btn gray ro-hide" onclick="removeQuestion('${c.id}','${q.id}')">Delete</button></span>
+        <span>${qi + 1}</span>
+        <span class="leg-qtype"><i class="fa-solid ${t.icon}"></i>${t.short}</span>
+        <span class="leg-qtext" title="${esc(qTitle(q))}">${esc(shortText(qTitle(q), 110))}${q.source === 'bank' ? '<span class="bank-tag">Question Bank</span>' : ''}</span>
+      </div>
+      ${q._open ? `<div class="leg-qedit">${questionEditorHtml(q)}</div>` : ''}
+    </div>`;
+  }
+  /* CBT content page copy + action: Learning Studio when the course qualifies, otherwise the reason and Update File */
+  function cbtContentNote(){ return (isCbtType && !A.lsEditable) ? (A.lsReason || 'This course package cannot be customized in Learning Studio') + '. Replace the package with Update File.' : T.contentNote; }
+  function placeholderModern(){
+    const ph = `<div class="mod-card"><div class="ce-placeholder"><div class="ph-icon"><i class="fa-solid ${T.icon}"></i></div><div>
+      <h3>${esc(T.longLabel)} content</h3><p>${esc(cbtContentNote())}</p>
+      <div class="ph-actions">${isCbtType
+        ? `<span class="file-name" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;background:#f8fafc;border:1px solid #e5e9ef;border-radius:8px;padding:8px 12px"><i class="fa-regular fa-file-zipper" style="color:#64748b"></i> ${esc(A.file || 'No package')}</span>
+           ${A.lsEditable ? `<button class="ls-cta ro-hide" onclick="openLearningStudio()"><span class="sparkle-slot"></span> <span class="ls-cta-text">Edit in Learning Studio</span></button>` : `<button class="m-btn secondary ro-hide" onclick="pickFile()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Update file</button>`}`
+        : (T.content === 'file'
+          ? `<span class="file-name" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;background:#f8fafc;border:1px solid #e5e9ef;border-radius:8px;padding:8px 12px"><i class="fa-regular fa-file" style="color:#64748b"></i> ${esc(A.file || 'No file')}</span><button class="m-btn secondary ro-hide" onclick="pickFile()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Update file</button>`
+          : `<button class="m-btn secondary" onclick="toast('The ${esc(T.longLabel)} editor opens here (prototype).')"><i class="fa-solid fa-pen-to-square"></i> Open ${esc(T.longLabel)} editor</button>`)}</div>
+    </div></div></div>`;
+    return ph;
+  }
+  function placeholderLegacy(){
+    return `<div class="leg-section" style="margin-top:0"><div class="leg-section-head">${esc(T.longLabel)} Content</div>
+      <div class="leg-section-foot" style="display:block"><p style="margin:0 0 12px;font-size:13px;color:#3c4148">${esc(cbtContentNote())}</p>
+      ${isCbtType ? (A.lsEditable ? `<button class="ls-cta ro-hide" onclick="openLearningStudio()"><span class="sparkle-slot"></span><span class="ls-cta-text">Edit in Learning Studio</span></button>` : `<button class="btn-blue ro-hide" onclick="pickFile()"><i class="fa-solid fa-folder-open"></i> Update File</button>`)
+        : (T.content === 'file' ? `<span style="font-size:13px">File: <a class="leg-link" href="#" onclick="return false">${esc(A.file || 'No file')}</a></span> <button class="btn-blue ro-hide" onclick="pickFile()"><i class="fa-solid fa-folder-open"></i> Update File</button>`
+        : `<button class="btn-blue" onclick="toast('The ${esc(T.longLabel)} editor opens here (prototype).')">Open ${esc(T.longLabel)} Editor</button>`)}
+      </div></div>`;
+  }
+  function lockInputs(root){ root.querySelectorAll('input, textarea, select, button.qe-add').forEach(el => { el.disabled = true; }); }
+
+  /* ── Competency operations ── */
+  function addCompetency(){
+    const n = comps().length + 1;
+    A.content.competencies.push({ id: uid('c'), name: n === 1 ? 'Quiz Questions' : 'Competency ' + n, collapsed: false, questions: [] });
+    markDirty(); renderContent();
+    const el = $$('.cmp').pop(); if (el && layout === 'modern') el.scrollIntoView({ behavior:'smooth', block:'center' });
+    toast('Competency added');
+  }
+  function toggleCompetency(cid){ const c = compById(cid); c.collapsed = !c.collapsed; renderContent(); }
+  function renameCompetency(cid){
+    if (readOnly) return;
+    const c = compById(cid);
+    const el = $('#ct-' + cid) || $('#lct-' + cid); if (!el) return;
+    const inp = document.createElement('input');
+    inp.className = 'cmp-title-input'; inp.value = c.name;
+    el.replaceWith(inp); inp.focus(); inp.select();
+    const done = () => { const v = inp.value.trim(); if (v && v !== c.name) { c.name = v; markDirty(); } renderContent(); };
+    inp.addEventListener('blur', done);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } if (e.key === 'Escape') { inp.value = c.name; inp.blur(); } });
+  }
+  function deleteCompetency(cid){
+    const list = comps(); const c = compById(cid);
+    if (list.length === 1) { toast('A quiz needs at least one competency. Rename this one instead.'); return; }
+    if (c.questions.length && !confirm('Delete "' + c.name + '" and its ' + c.questions.length + ' question' + (c.questions.length !== 1 ? 's' : '') + '?')) return;
+    A.content.competencies = list.filter(x => x.id !== cid);
+    markDirty(); renderContent(); toast('Competency deleted');
+  }
+  function moveCompetency(cid, dir){
+    const list = comps(); const i = list.findIndex(c => c.id === cid); const j = i + dir;
+    if (j < 0 || j >= list.length) return;
+    [list[i], list[j]] = [list[j], list[i]];
+    markDirty(); renderContent();
+  }
+
+  /* ── Question operations (field edits update state without re-rendering, so focus is kept) ── */
+  function findQ(qid){ for (const c of comps()) { const q = c.questions.find(x => x.id === qid); if (q) return { c, q }; } return null; }
+  function setQ(qid, key, val, rerender){
+    const f = findQ(qid); if (!f) return;
+    f.q[key] = val; markDirty();
+    if (rerender) renderContent(); else if (key === 'prompt' || key === 'title') updateRowText(f.c, f.q);
+  }
+  function updateRowText(c, q){
+    const row = document.querySelector('.leg-qrow[data-qid="' + q.id + '"] .leg-qtext');
+    if (row) { row.textContent = shortText(qTitle(q), 110); if (q.source === 'bank') row.innerHTML += '<span class="bank-tag">Question Bank</span>'; }
+  }
+  function setChoiceText(qid, i, v){ const f = findQ(qid); if (f) { f.q.choices[i].text = v; markDirty(); } }
+  function setCorrect(qid, i, checked){
+    const f = findQ(qid); if (!f) return;
+    if (f.q.type === 'single') f.q.choices.forEach((o, k) => o.correct = (k === i));
+    else f.q.choices[i].correct = checked;
+    markDirty(); renderContent();
+  }
+  function addChoice(qid){ const f = findQ(qid); if (!f) return; f.q.choices.push({ text:'', correct:false }); markDirty(); renderContent(); focusLastChoice(qid); }
+  function focusLastChoice(qid){ const card = document.querySelector((layout === 'modern' ? '.qc' : '.qitem') + '[data-qid="' + qid + '"]'); const inputs = card ? card.querySelectorAll('.qe-choice .qe-input') : []; if (inputs.length) inputs[inputs.length - 1].focus(); }
+  function removeChoice(qid, i){ const f = findQ(qid); if (!f) return; if (f.q.choices.length <= 2) { toast('A question needs at least two choices.'); return; } f.q.choices.splice(i, 1); markDirty(); renderContent(); }
+  function setMediaKind(qid, kind){ const f = findQ(qid); if (!f) return; f.q.media = kind ? { kind, url: (f.q.media && f.q.media.kind === kind) ? f.q.media.url : '', preview: (f.q.media && f.q.media.kind === kind) ? f.q.media.preview : '' } : { kind:'', url:'' }; markDirty(); renderContent(); }
+  function setMedia(qid, key, val){ const f = findQ(qid); if (!f) return; f.q.media[key] = val; if (key === 'url') f.q.media.preview = ''; markDirty(); }
+  function pickMedia(qid){
+    const f = findQ(qid); if (!f) return;
+    const inp = $('#media-input');
+    inp.accept = f.q.media.kind === 'video' ? 'video/*' : 'image/*';
+    inp.onchange = () => { const file = inp.files && inp.files[0]; if (!file) return; f.q.media.url = file.name; f.q.media.preview = f.q.media.kind === 'image' ? URL.createObjectURL(file) : ''; inp.value = ''; markDirty(); renderContent(); };
+    inp.click();
+  }
+  function unlinkBank(qid){ const f = findQ(qid); if (!f) return; delete f.q.source; delete f.q.bankId; markDirty(); renderContent(); toast('Question unlinked from the Question Bank'); }
+  function removeQuestion(cid, qid){ const c = compById(cid); c.questions = c.questions.filter(q => q.id !== qid); markDirty(); renderContent(); toast('Question removed'); }
+  function duplicateQuestion(cid, qid){
+    const c = compById(cid); const i = c.questions.findIndex(q => q.id === qid);
+    const copy = JSON.parse(JSON.stringify(c.questions[i])); copy.id = uid('q'); delete copy.source; delete copy.bankId;
+    c.questions.splice(i + 1, 0, copy); markDirty(); renderContent();
+  }
+  function toggleLegacyEdit(qid){ const f = findQ(qid); if (!f) return; f.q._open = !f.q._open; renderContent(); }
+  function newQuestion(type){
+    const base = { id: uid('q'), type };
+    if (type === 'tf') return Object.assign(base, { prompt:'', answer:true });
+    if (type === 'single' || type === 'multi') return Object.assign(base, { prompt:'', choices:[ { text:'', correct:false }, { text:'', correct:false }, { text:'', correct:false } ] });
+    if (type === 'info') return Object.assign(base, { title:'', text:'', media:{ kind:'', url:'' } });
+    if (type === 'link') return Object.assign(base, { prompt:'', url:'' });
+    return base;
+  }
+  function addQuestion(cid, type){
+    const c = compById(cid) || comps()[comps().length - 1];
+    if (!c) { addCompetency(); return addQuestion(comps()[0].id, type); }
+    const q = newQuestion(type); if (layout === 'legacy') q._open = true;
+    c.questions.push(q); c.collapsed = false;
+    markDirty(); renderContent();
+    const card = document.querySelector((layout === 'modern' ? '.qc' : '.qitem') + '[data-qid="' + q.id + '"]');
+    if (card) { card.scrollIntoView({ behavior:'smooth', block:'center' }); const first = card.querySelector('textarea, input[type=text]'); if (first) first.focus(); }
+  }
+
+  /* Add-question menu: a floating list of the six question sources. `cid` = '' adds to the last competency. */
+  let activeMenu = null;
+  function closeMenu(){ if (activeMenu) { activeMenu.remove(); activeMenu = null; } }
+  function openAddMenu(ev, cid){
+    ev.stopPropagation(); closeMenu();
+    const btn = ev.currentTarget || ev.target;
+    const menu = document.createElement('div'); menu.className = 'fmenu';
+    menu.innerHTML = ADD_ORDER.map(t => `<button class="fmenu-item" data-type="${t}"><i class="fa-solid ${QTYPES[t].icon}"></i><span>${QTYPES[t].label}<span class="fm-sub">${QTYPES[t].sub}</span></span></button>` + (t === 'bank' ? '<div class="fmenu-divider"></div>' : '')).join('');
+    menu.querySelectorAll('.fmenu-item').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation(); closeMenu();
+      const type = b.dataset.type;
+      const target = cid || (comps()[comps().length - 1] || {}).id;
+      if (type === 'bank') openBank(target); else addQuestion(target, type);
+    }));
+    document.body.appendChild(menu); activeMenu = menu;
+    const r = btn.getBoundingClientRect();
+    const mw = menu.offsetWidth, mh = menu.offsetHeight;
+    let left = Math.min(r.left, window.innerWidth - mw - 8); let top = r.bottom + 6;
+    if (top + mh > window.innerHeight - 8) top = Math.max(8, r.top - mh - 6);
+    menu.style.left = left + 'px'; menu.style.top = top + 'px';
+    setTimeout(() => document.addEventListener('click', closeMenu, { once:true }), 0);
+  }
+
+  /* ── Drag and drop: questions move within and between competencies (HTML5 DnD, both layouts) ── */
+  let drag = null;
+  function wireDnD(){
+    if (readOnly) return;
+    $$('[draggable="true"][data-qid]').forEach(el => {
+      el.addEventListener('dragstart', e => {
+        drag = { qid: el.dataset.qid, cid: el.dataset.cid };
+        el.classList.add('dragging'); const item = el.closest('.qitem'); if (item) item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', el.dataset.qid);
+      });
+      el.addEventListener('dragend', () => { el.classList.remove('dragging'); const item = el.closest('.qitem'); if (item) item.classList.remove('dragging'); clearDropLines(); drag = null; });
+    });
+    $$('[data-dropzone]').forEach(zone => {
+      zone.addEventListener('dragover', e => { if (!drag) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; zone.classList.add('over'); positionDropLine(zone, e.clientY); });
+      zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) { zone.classList.remove('over'); clearDropLines(); } });
+      zone.addEventListener('drop', e => {
+        e.preventDefault(); if (!drag) return;
+        const idx = dropIndex(zone, e.clientY);
+        moveQuestion(drag.qid, drag.cid, zone.dataset.dropzone, idx);
+        drag = null; clearDropLines();
+      });
+    });
+  }
+  function zoneItems(zone){ return [...zone.querySelectorAll(':scope > .qitem:not(.dragging)')]; }
+  function dropIndex(zone, y){
+    const els = zoneItems(zone); let idx = els.length;
+    for (let i = 0; i < els.length; i++) { const r = els[i].getBoundingClientRect(); if (y < r.top + r.height / 2) { idx = i; break; } }
+    return idx;
+  }
+  function positionDropLine(zone, y){
+    clearDropLines();
+    const els = zoneItems(zone); const idx = dropIndex(zone, y);
+    const line = document.createElement('div'); line.className = 'drop-line';
+    if (idx >= els.length) zone.appendChild(line); else zone.insertBefore(line, els[idx]);
+  }
+  function clearDropLines(){ $$('.drop-line').forEach(l => l.remove()); $$('[data-dropzone].over').forEach(z => z.classList.remove('over')); }
+  function moveQuestion(qid, fromCid, toCid, idx){
+    const from = compById(fromCid), to = compById(toCid); if (!from || !to) return;
+    const i = from.questions.findIndex(q => q.id === qid); if (i < 0) return;
+    const [q] = from.questions.splice(i, 1);
+    to.questions.splice(Math.min(idx, to.questions.length), 0, q);
+    markDirty(); renderContent();
+    if (from !== to) toast('Moved to ' + to.name);
+  }
+
+  /* ── Vector Question Bank picker ── */
+  let bankTarget = '', bankSel = new Set(), bankCat = '';
+  function openBank(cid){
+    if (readOnly) return;
+    bankTarget = cid || (comps()[comps().length - 1] || {}).id; bankSel = new Set(); bankCat = '';
+    const c = compById(bankTarget); $('#bank-target').textContent = c ? c.name : 'the quiz';
+    $('#bank-search').value = '';
+    const cats = [...new Set(QUESTION_BANK.map(q => q.category))];
+    $('#bank-cats').innerHTML = `<button class="bank-cat on" onclick="setBankCat('')">All</button>` + cats.map(c => `<button class="bank-cat" onclick="setBankCat('${esc(c)}')">${esc(c)}</button>`).join('');
+    renderBank();
+    $('#bank-overlay').classList.remove('hidden');
+    setTimeout(() => $('#bank-search').focus(), 50);
+  }
+  function closeBank(){ $('#bank-overlay').classList.add('hidden'); }
+  function setBankCat(c){ bankCat = c; $$('.bank-cat').forEach(b => b.classList.toggle('on', b.textContent === (c || 'All'))); renderBank(); }
+  function renderBank(){
+    const used = new Set(); comps().forEach(c => c.questions.forEach(q => { if (q.bankId) used.add(q.bankId); }));
+    const q = ($('#bank-search').value || '').toLowerCase();
+    const items = QUESTION_BANK.filter(b => (!bankCat || b.category === bankCat) && (!q || b.prompt.toLowerCase().includes(q) || b.category.toLowerCase().includes(q)));
+    $('#bank-list').innerHTML = items.map(b => {
+      const added = used.has(b.id), on = bankSel.has(b.id);
+      return `<div class="bank-opt ${added ? 'disabled' : ''} ${on ? 'checked' : ''}" ${added ? '' : `onclick="toggleBankSel('${b.id}')"`}>
+        <div class="bcb"><i class="fa-solid fa-check"></i></div>
+        <div class="bq">${esc(b.prompt)}<div class="bmeta"><span><i class="fa-solid ${QTYPES[b.type].icon}"></i> ${QTYPES[b.type].short}</span><span>${esc(b.category)}</span>${added ? '<span>Already in this quiz</span>' : ''}</div></div>
+      </div>`;
+    }).join('') || '<div class="mod-empty">No matching questions.</div>';
+    $('#bank-count').textContent = bankSel.size + ' selected';
+    $('#bank-add').disabled = bankSel.size === 0;
+    $('#bank-add').textContent = bankSel.size > 1 ? 'Add ' + bankSel.size + ' questions' : 'Add question';
+  }
+  function toggleBankSel(id){ bankSel.has(id) ? bankSel.delete(id) : bankSel.add(id); renderBank(); }
+  function addBankQuestions(){
+    const c = compById(bankTarget) || comps()[0]; if (!c) return;
+    bankSel.forEach(id => {
+      const b = QUESTION_BANK.find(x => x.id === id); if (!b) return;
+      const q = { id: uid('q'), type: b.type, prompt: b.prompt, source:'bank', bankId: b.id };
+      if (b.type === 'tf') q.answer = b.answer; else q.choices = JSON.parse(JSON.stringify(b.choices));
+      if (layout === 'legacy') q._open = false;
+      c.questions.push(q);
+    });
+    const n = bankSel.size; c.collapsed = false; closeBank(); markDirty(); renderContent();
+    toast(n + ' question' + (n !== 1 ? 's' : '') + ' added from the Question Bank');
+  }
+
+  /* ═══════════════════════ VERSIONS TAB ═══════════════════════ */
+  function renderVersions(){
+    const list = (A.versions || []).slice().reverse();
+    const cur = verNum();
+    const m = $('#mod-versions');
+    m.innerHTML = `
+      <h2>Version history <span class="h2-sub">${list.length ? 'Current version v' + esc(cur) + (A.publishStatus !== 'Published' ? ', with unpublished changes' : '') : 'Not published yet'}</span></h2>
+      ${list.length ? `<table class="mod-table"><thead><tr><th style="width:110px">Version</th><th>Notes</th><th style="width:190px">Published on</th><th style="width:150px">Author</th><th style="width:110px;text-align:right">Actions</th></tr></thead><tbody>` +
+        list.map(v => `<tr><td><span class="ver-num">v${esc(v.version)}</span>${v.version === cur ? '<span class="ver-current">Current</span>' : ''}</td><td>${esc(v.notes) || '<span style="color:#9aa3af">No notes</span>'}</td><td>${fmtDateTime(v.createdOn)}</td><td>${esc(v.author)}</td>
+          <td style="text-align:right"><vaadin-button theme="tertiary" onclick="openPreview('${esc(v.version)}')"><i class="fa-regular fa-eye" slot="prefix"></i> Preview</vaadin-button></td></tr>`).join('') + `</tbody></table>`
+        : `<div class="mod-empty"><i class="fa-solid fa-clock-rotate-left"></i> This activity has not been published yet. Publishing creates version 1.0.${readOnly ? '' : '<vaadin-button theme="primary" class="ro-hide" onclick="openPublish()">Publish now</vaadin-button>'}</div>`}
+      <p style="font-size:12px;color:#8a93a0;margin:14px 0 0">Preview opens the selected version in a new tab. Attempts in progress finish on the version they started; new assignments use the current version.</p>`;
+    const l = $('#leg-versions');
+    l.innerHTML = `<div class="leg-section">
+      <div class="leg-section-head">Activity Versions:</div>
+      <table class="leg-table">
+        <thead><tr><th style="width:130px">Actions</th><th style="width:130px">Version</th><th>Description</th><th style="width:230px">Created On</th><th style="width:160px">Created By</th></tr></thead>
+        <tbody>${list.map(v => `<tr><td><button class="leg-mini-btn" onclick="openPreview('${esc(v.version)}')">Preview</button></td><td>${esc(v.version)}${v.version === cur ? ' (current)' : ''}</td><td>${esc(v.notes)}</td><td>${fmtLegacy(v.createdOn)}</td><td>${esc(v.author)}</td></tr>`).join('')}</tbody>
+      </table>
+      ${list.length ? '' : '<div class="leg-norecords"><i class="fa-solid fa-ban"></i> No records to display. Publish to create version 1.0.</div>'}
+    </div>`;
+  }
+
+  /* ═══════════════════════ SAVE / PUBLISH / PREVIEW / DELETE / CLOSE ═══════════════════════ */
+  function cleanForStore(){
+    comps().forEach(c => c.questions.forEach(q => { delete q._open; if (q.media && q.media.preview) delete q.media.preview; }));
+    if (A.thumb && A.thumb.url && A.thumb.url.startsWith('blob:')) A.thumb = { name: A.thumb.name };
+  }
+  function nextVersion(){
+    const list = A.versions || [];
+    if (!list.length) return '1.0';
+    const m = /^(\d+)\.(\d+)/.exec(verNum()) || [0, 1, 0];
+    return m[1] + '.' + (Number(m[2]) + 1);
+  }
+  function saveActivity(silent){
+    if (readOnly) return false;
+    if (!validate()) return false;
+    cleanForStore();
+    A.updatedOn = new Date().toISOString();
+    if (A.__new) { A.createdOn = A.createdOn || A.updatedOn; }
+    // Saved changes are not live until published: a published activity that changes becomes a Draft again
+    if (dirty && (A.versions || []).length) A.publishStatus = 'Draft';
+    if (!(A.versions || []).length) A.publishStatus = 'Draft';
+    A.__saved = true;
+    persistActivity(A);
+    if (A.__new) { const u = new URL(location.href); u.searchParams.delete('new'); u.searchParams.set('id', A.id); history.replaceState(null, '', u); }
+    QBAttrs.update({ recordId: 'ACT-' + (A.sku ? A.sku.replace(/^ACT-/, '') : '10000'), updatedOn: fmtDateTime(A.updatedOn), createdOn: fmtDateTime(A.createdOn) });
+    renderLegacyAdvanced();
+    clearDirty(); renderVersions();
+    if (!silent) toast('Saved. ' + (A.publishStatus === 'Draft' ? 'Publish to make these changes live for learners.' : ''), true);
+    return true;
+  }
+  function openPublish(){
+    if (readOnly) return;
+    if (!validate()) return;
+    $('#pub-name').textContent = A.name || 'this activity';
+    $('#pub-version').textContent = 'version ' + nextVersion();
+    $('#pub-notes').value = '';
+    $('#pub-recomplete').checked = !!A.recomplete;
+    const checks = []; let blocked = false;
+    if (hasQuizEditor) {
+      const n = scoredQuestions(), info = totalQuestions() - n;
+      if (!n) { blocked = true; checks.push({ cls:'block', icon:'fa-circle-xmark', text:'The quiz has no scored questions. Add at least one question before publishing.' }); }
+      else checks.push({ cls:'', icon:'fa-circle-check', text: n + ' scored question' + (n !== 1 ? 's' : '') + ' in ' + comps().length + ' competenc' + (comps().length === 1 ? 'y' : 'ies') + (info ? ', plus ' + info + ' info slide' + (info !== 1 ? 's' : '') + ' or link' + (info !== 1 ? 's' : '') : '') + '.' });
+      const noAnswer = comps().reduce((k, c) => k + c.questions.filter(q => (q.type === 'single' || q.type === 'multi') && !(q.choices || []).some(o => o.correct)).length, 0);
+      if (noAnswer) checks.push({ cls:'warn', icon:'fa-triangle-exclamation', text: noAnswer + ' question' + (noAnswer !== 1 ? 's have' : ' has') + ' no correct answer marked. Learners cannot pass those.' });
+      const blank = comps().reduce((k, c) => k + c.questions.filter(q => q.type !== 'info' && q.type !== 'link' && !(q.prompt || '').trim()).length, 0);
+      if (blank) checks.push({ cls:'warn', icon:'fa-triangle-exclamation', text: blank + ' question' + (blank !== 1 ? 's are' : ' is') + ' missing text.' });
+    } else {
+      checks.push({ cls:'', icon:'fa-circle-check', text: T.longLabel + ' content: ' + (A.file || 'no file') + '.' });
+    }
+    if (A.recompleteUsers) checks.push({ cls:'', icon:'fa-users', text: A.recompleteUsers + ' user' + (A.recompleteUsers !== 1 ? 's have' : ' has') + ' completed a previous version.' });
+    $('#pub-checks').innerHTML = checks.map(c => `<div class="pub-check ${c.cls}"><i class="fa-solid ${c.icon}"></i><span>${c.text}</span></div>`).join('');
+    $('#pub-confirm').disabled = blocked;
+    $('#publish-overlay').classList.remove('hidden');
+    setTimeout(() => $('#pub-notes').focus(), 50);
+  }
+  function closePublish(){ $('#publish-overlay').classList.add('hidden'); }
+  function confirmPublish(){
+    const v = nextVersion();
+    A.recomplete = $('#pub-recomplete').checked;
+    A.versions = A.versions || [];
+    A.versions.push({ version: v, notes: $('#pub-notes').value.trim(), createdOn: new Date().toISOString(), author: AUTHOR });
+    A.version = 'v' + v;
+    closePublish();
+    dirty = false;
+    cleanForStore();
+    A.updatedOn = new Date().toISOString(); A.publishStatus = 'Published'; A.__saved = true;
+    persistActivity(A);
+    if (A.__new) { const u = new URL(location.href); u.searchParams.delete('new'); u.searchParams.set('id', A.id); history.replaceState(null, '', u); }
+    QBAttrs.update({ recordId: 'ACT-' + (A.sku ? A.sku.replace(/^ACT-/, '') : '10000'), updatedOn: fmtDateTime(A.updatedOn), createdOn: fmtDateTime(A.createdOn) });
+    renderLegacyAdvanced(); syncForms(); renderVersions();
+    toast('Published version ' + v + '. Learners now launch this version.', true);
+  }
+  function openPreview(version){
+    if (version) { window.open(previewActivityHref(A, version), '_blank'); return; }
+    // Preview what is on screen, saved or not: stash the working record for the preview tab
+    try { const snap = JSON.parse(JSON.stringify(A)); sessionStorage.setItem('cv-preview-' + A.id, JSON.stringify(snap)); } catch (e) {}
+    window.open(previewActivityHref(A) + '&draft=1', '_blank');
+  }
+  function openDelete(){ if (readOnly) return; $('#delete-title').textContent = 'Delete "' + (A.name || 'this activity') + '"?'; $('#delete-overlay').classList.remove('hidden'); }
+  function closeDelete(){ $('#delete-overlay').classList.add('hidden'); }
+  function confirmDelete(){ closeDelete(); dirty = false; deleteActivityRecord(A.id); location.href = listHref(); }
+  function listHref(){
+    const r = document.referrer || '';
+    if (fromCbt || /Manage-CBTs/.test(r)) return 'Manage-CBTs.html';
+    if (/Manage-Quizzes/.test(r)) return 'Manage-Quizzes.html';
+    return 'Manage-Activities.html';
+  }
+  function listLabel(){ const h = listHref(); return /CBTs/.test(h) ? 'Computer Based Trainings' : (/Quizzes/.test(h) ? 'Quizzes' : 'Activities'); }
+  function closeEditor(){ if (dirty) { $('#leave-overlay').classList.remove('hidden'); return; } location.href = listHref(); }
+  function closeLeave(){ $('#leave-overlay').classList.add('hidden'); }
+  function discardAndLeave(){ dirty = false; closeLeave(); location.href = listHref(); }
+  function saveAndLeave(){ closeLeave(); if (saveActivity(true)) location.href = listHref(); }
+
+  /* ── Configure + Edit in Learning Studio (CBT only, same dialog as the management page) ── */
+  function launchConfigure(){ toast('Opening content configuration for "' + A.name + '" (prototype).'); }
   function openLearningStudio(){
-    document.getElementById('ls-activity-name').textContent = actName;
-    // Compliance warning only applies to accredited Vector Solutions content.
-    const warn = document.getElementById('ls-warning');
-    warn.style.display = (actSource === 'Custom' || actSource === 'Learning Studio') ? 'none' : '';
-    document.getElementById('ls-overlay').classList.remove('hidden');
+    $('#ls-activity-name').textContent = A.name;
+    $('#ls-warning').style.display = (A.source === 'Custom' || A.source === 'Learning Studio') ? 'none' : '';
+    $('#ls-overlay').classList.remove('hidden');
   }
-  function closeLearningStudio(){ document.getElementById('ls-overlay').classList.add('hidden'); }
-  function confirmLearningStudio(){
-    closeLearningStudio();
-    toast('Created a Learning Studio copy of "' + actName + '" and launched Learning Studio (prototype).');
+  function closeLearningStudio(){ $('#ls-overlay').classList.add('hidden'); }
+  function confirmLearningStudio(){ closeLearningStudio(); toast('Created a Learning Studio copy of "' + A.name + '" and launched Learning Studio (prototype).'); }
+
+  /* ── Read-only mode (accredited Vector Solutions content opened from "View details") ── */
+  function applyReadOnly(){
+    $('#cv-page').classList.add('readonly');
+    $$('#cv-page input, #cv-page textarea, #cv-page select').forEach(el => { el.setAttribute('readonly', ''); if (el.tagName === 'SELECT' || el.type === 'checkbox' || el.type === 'radio' || el.type === 'file') el.disabled = true; });
+    $$('#cv-page vaadin-text-field, #cv-page vaadin-text-area, #cv-page vaadin-number-field, #cv-page vaadin-checkbox').forEach(el => el.setAttribute('readonly', ''));
+    const note = () => {
+      const d = document.createElement('div'); d.className = 'ro-note';
+      d.innerHTML = '<i class="fa-regular fa-eye"></i><div><strong>View only.</strong> This is accredited ' + esc(A.source) + ' content, so it cannot be edited here. Duplicate it to create an editable copy of your own.</div><button class="ro-note-btn" onclick="toast(\'Duplicate (prototype).\')">Duplicate</button>';
+      return d;
+    };
+    $('#v-legacy .leg-body').insertBefore(note(), $('#v-legacy .leg-body').firstChild);
+    $('#v-modern .mod-body').insertBefore(note(), $('#v-modern .mod-body').firstChild);
   }
 
   /* ── Toast ── */
   let _t = null;
-  function toast(msg){
-    const el = document.getElementById('toast');
-    el.textContent = msg; el.classList.add('show');
-    clearTimeout(_t); _t = setTimeout(() => el.classList.remove('show'), 2600);
+  function toast(msg, success){
+    const el = $('#toast'); el.textContent = msg; el.className = 'toast show' + (success ? ' toast-success' : '');
+    clearTimeout(_t); _t = setTimeout(() => el.classList.remove('show'), 2800);
   }
+  window.showToast = toast;   // qb-attributes.js reports through the page's toast
+
+  /* ═══════════════════════ INIT ═══════════════════════ */
+  document.addEventListener('DOMContentLoaded', () => {
+    $$('.gears-slot').forEach(s => s.innerHTML = gearsSvg(16, '#374151'));
+    $$('.sparkle-slot').forEach((s, i) => s.innerHTML = sparkleSvg('lsg' + i));
+    if (!isCbtType) $('#cv-page').classList.add('not-cbt');
+    if (isCbtType && !A.lsEditable) $('#cv-page').classList.add('no-ls');
+    $('#mod-back').href = listHref(); $('#mod-back-label').textContent = 'Back to ' + listLabel();
+    $('#mod-type-icon').className = 'fa-solid ' + T.icon;
+    mountAdvanced();
+    bindVaadin();
+    syncForms();
+    renderAttachments();
+    renderLegacyAttrs();
+    renderLegacyAdvanced();
+    renderContent();
+    renderVersions();
+    if (readOnly) applyReadOnly();
+    setVersion(params.get('layout') === 'modern' ? 'modern' : 'legacy');
+    setTab(params.get('tab') || 'details', 'replace');
+    // Re-apply icons inside markup rendered later (Configure / Learning Studio placeholders)
+    new MutationObserver(() => { $$('.gears-slot:empty').forEach(s => s.innerHTML = gearsSvg(16, '#374151')); $$('.sparkle-slot:empty').forEach((s, i) => s.innerHTML = sparkleSvg('lsgx' + i + Date.now())); }).observe($('#cv-page'), { childList:true, subtree:true });
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeMenu(); ['publish', 'bank', 'loc', 'delete', 'leave', 'ls'].forEach(k => $('#' + k + '-overlay').classList.add('hidden')); } });
 </script>
 <!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
      NOT part of the product - do not ship this script in production. -->

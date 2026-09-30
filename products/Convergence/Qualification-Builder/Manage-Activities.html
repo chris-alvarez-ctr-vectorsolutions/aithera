@@ -15,6 +15,9 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css"/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css"/>
   <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+  <!-- Shared activity data: the type list + the records, so this grid, the Quizzes grid and the editor read one source -->
+  <script src="activity-types.js"></script>
+  <script src="activities-data.js"></script>
 
   <style>
     :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; --background-color:#f5f9fd; /* background color: page canvas behind cards and content */ }
@@ -23,6 +26,14 @@
        canvas is flush to the chrome edges (no white frame/gap around the page). */
     #cv-content { background: var(--background-color); padding: 0; }
     .mgmt-page { padding:24px 28px 40px; }
+    .hidden { display:none !important; }
+
+    /* Prototype version toggle (floating, not part of the design): MVP hides Publish Status, Learning Studio and
+       Configurability on this page (they live on the type-specific grids); V2 shows all three here too */
+    .proto-toggle { position:fixed; bottom:18px; right:18px; z-index:5000; display:flex; align-items:center; gap:4px; background:#1f2937; color:#fff; padding:6px; border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.3); font:600 12.5px "Open Sans",sans-serif; }
+    .proto-toggle .pt-label { padding:0 8px; opacity:.7; font-size:11px; }
+    .proto-toggle a { color:#cbd5e1; text-decoration:none; padding:7px 14px; border-radius:999px; white-space:nowrap; }
+    .proto-toggle a.active { background:#fff; color:#1f2937; }
 
     .mgmt-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
     .mgmt-header h1 { font-size:22px; font-weight:700; color:#1a1a2e; }
@@ -67,16 +78,33 @@
     .search-wrap input:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
     .filter-select { height:36px; border:1px solid #d4d9e0; border-radius:7px; padding:0 10px; font-family:inherit; font-size:13px; background:#fff; color:#374151; cursor:pointer; }
 
-    /* Source tabs (All / Custom / Vector Solutions / Learning Studio): a content-source filter above the toolbar */
-    .source-tabs { display:flex; gap:2px; border-bottom:1px solid #e5e9ef; }
-    .source-tab { position:relative; border:none; background:none; font-family:inherit; font-size:13.5px; font-weight:600; color:#6b7280; padding:10px 14px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; border-bottom:2px solid transparent; margin-bottom:-1px; transition:color .12s; }
-    .source-tab:hover { color:#1a1a2e; }
-    .source-tab.active { color:var(--vblue); border-bottom-color:var(--vblue); }
-    .st-count { font-size:11.5px; font-weight:700; color:#6b7280; background:#eef1f5; border-radius:10px; padding:1px 8px; min-width:20px; text-align:center; }
-    .source-tab.active .st-count { color:var(--vblue); background:var(--vblue-10); }
-    .source-tab-desc { font-size:12.5px; color:#6b7280; margin:10px 0 16px; line-height:1.5; max-width:760px; }
+    /* Source tabs (All / Custom / Vector Solutions / Learning Studio): a content-source filter above the toolbar.
+       Underline tabs in the current SaaS-dashboard idiom: quiet resting state, soft hover fill, a 2px primary
+       underline on the active tab, and count pills. Colors come from the Vector theme tokens
+       (--lumo-primary-color, --lumo-primary-color-10pct, --lumo-contrast-10pct, --lumo-contrast-5pct) with hex fallbacks. */
+    .source-tabs { display:flex; align-items:flex-end; gap:4px; border-bottom:1px solid var(--lumo-contrast-10pct, #e5e9ef); margin-bottom:14px; }
+    .source-tab { position:relative; border:none; background:none; font-family:inherit; font-size:13.5px; font-weight:600; color:#6b7280; padding:9px 12px 11px; border-radius:7px 7px 0 0; cursor:pointer; display:inline-flex; align-items:center; gap:8px; line-height:1.2; transition:color .12s, background .12s; }
+    .source-tab::after { content:''; position:absolute; left:8px; right:8px; bottom:-1px; height:2px; border-radius:2px 2px 0 0; background:transparent; transition:background .12s; }
+    .source-tab:hover { color:#1a1a2e; background:var(--lumo-contrast-5pct, #f3f4f6); }
+    .source-tab:focus-visible { outline:2px solid var(--lumo-primary-color, var(--vblue)); outline-offset:-2px; }
+    .source-tab.active { color:var(--lumo-primary-color, var(--vblue)); }
+    .source-tab.active::after { background:var(--lumo-primary-color, var(--vblue)); }
+    .st-count { font-size:11.5px; font-weight:600; color:#6b7280; background:var(--lumo-contrast-10pct, #eef1f5); border-radius:999px; padding:2px 7px; min-width:20px; text-align:center; line-height:1.2; }
+    .source-tab.active .st-count { color:var(--lumo-primary-color, var(--vblue)); background:var(--lumo-primary-color-10pct, var(--vblue-10)); }
+    .source-tab-desc { font-size:12.5px; color:#6b7280; margin:-4px 0 16px; line-height:1.5; max-width:760px; }
     /* The All tab has no description, so the line collapses rather than leaving its margins behind */
     .source-tab-desc.hidden { display:none; }
+
+    /* Active filters as removable chips (type, publish status, search) + Clear all. Filters combine with AND. */
+    .filter-chips { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:-4px 0 14px; }
+    .filter-chips.hidden { display:none; }
+    .fchips-label { font-size:12px; color:#6b7280; margin-right:2px; }
+    .fchip { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 4px 0 10px; border-radius:999px; background:var(--lumo-primary-color-10pct, var(--vblue-10)); color:#0b3d66; font-size:12.5px; font-weight:600; }
+    .fchip .fchip-k { color:#4b5f76; font-weight:500; }
+    .fchip button { border:none; background:transparent; width:20px; height:20px; border-radius:50%; cursor:pointer; color:inherit; display:inline-flex; align-items:center; justify-content:center; font-size:11px; padding:0; }
+    .fchip button:hover { background:rgba(2,113,206,.18); }
+    .fchips-clear { border:none; background:none; color:var(--vblue); font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer; padding:4px 6px; border-radius:6px; }
+    .fchips-clear:hover { text-decoration:underline; }
 
     /* AG Grid theming */
     .ag-theme-quartz {
@@ -249,6 +277,14 @@
 </head>
 <body>
 
+<!-- Prototype version toggle: MVP (default) keeps Publish Status, Learning Studio and Configurability off this page,
+     they live on the type-specific grids (Computer Based Trainings); V2 adds all three here (columns, filter, row actions) -->
+<div class="proto-toggle" role="group" aria-label="Prototype version">
+  <span class="pt-label">Version</span>
+  <a id="pv-v1" href="?v=1" title="MVP: no Publish Status, Learning Studio or Configurability on this page">MVP</a>
+  <a id="pv-v2" href="?v=2" title="V2: Publish Status, Learning Studio and Configurability also on this page">V2</a>
+</div>
+
 <div id="cv-page">
   <div class="mgmt-page">
 
@@ -281,6 +317,8 @@
         <input type="text" id="quick-filter" placeholder="Search activities..." oninput="onSearch(this.value)"/>
       </div>
       <vaadin-multi-select-combo-box theme="outlined" id="type-filter" placeholder="All Types" style="min-width:220px"></vaadin-multi-select-combo-box>
+      <!-- V2 only -->
+      <vaadin-select theme="outlined" class="hidden" id="publish-filter" placeholder="Publish status" style="min-width:170px" aria-label="Filter by publish status"></vaadin-select>
       <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
         <div class="export-split">
           <button class="btn btn-secondary btn-sm" onclick="toggleExportMenu(event)" aria-haspopup="true" aria-label="Export options"><i class="fa-solid fa-download"></i> Export <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
@@ -306,6 +344,9 @@
         </div>
       </div>
     </div>
+
+    <!-- Active filters (type, publish status, search) as removable chips, with Clear all -->
+    <div class="filter-chips hidden" id="filter-chips" aria-live="polite"></div>
 
     <!-- Bulk-actions bar (appears when rows are selected, like a mail client) -->
     <div class="bulk-bar hidden" id="bulk-bar">
@@ -397,108 +438,23 @@
 <script src="../_shell/chrome.js"></script>
 
 <script>
-const ACTS = [
-  // Energy Isolation Fundamentals (3)
-  { name:'Lockout/Tagout Basics',               desc:'Core training on energy isolation and tagout procedures',      type:'CBT',    version:'v2.1', status:'Active', location:'Safety > Lockout/Tagout',           requirement:'Energy Isolation Fundamentals' },
-  { name:'LOTO Knowledge Check',                desc:'Knowledge assessment for lockout/tagout fundamentals',         type:'Quiz',      version:'v1.4', status:'Active', location:'Safety > Lockout/Tagout',           requirement:'Energy Isolation Fundamentals' },
-  { name:'Energy Isolation Field Verification', desc:'Verify zero-energy state in the field before service',         type:'Tasklist',  version:'v1.0', status:'Active', location:'Safety > Lockout/Tagout',           requirement:'Energy Isolation Fundamentals' },
-  // Lockout Device Application (3)
-  { name:'Lockout Device Selection',            desc:'Choosing the correct lock and tag for each energy source',     type:'CBT',    version:'v1.2', status:'Active', location:'Safety > Lockout/Tagout',           requirement:'Lockout Device Application' },
-  { name:'Device Application Demonstration',    desc:'Supervised demonstration of applying lockout devices',          type:'Tasklist',  version:'v1.0', status:'Active', location:'Safety > Lockout/Tagout',           requirement:'Lockout Device Application' },
-  { name:'Lockout Device Quiz',                 desc:'Assessment on lockout device selection and use',               type:'Quiz',      version:'v1.1', status:'Active', location:'Safety > Lockout/Tagout',           requirement:'Lockout Device Application' },
-  // Confined Space Atmospheric Testing (2)
-  { name:'Atmospheric Testing Procedure',       desc:'Gas monitoring, sampling order, and entry thresholds',         type:'CBT',    version:'v3.0', status:'Active', location:'Safety > Confined Space',           requirement:'Confined Space Atmospheric Testing' },
-  { name:'Gas Meter Calibration',               desc:'Calibrate and bump-test the multi-gas meter before entry',     type:'Tasklist',  version:'v1.3', status:'Active', location:'Safety > Confined Space',           requirement:'Confined Space Atmospheric Testing' },
-  // PPE Selection & Inspection (2)
-  { name:'PPE Selection Fundamentals',          desc:'Choosing the right protective equipment for the hazard',       type:'CBT',    version:'v2.0', status:'Active', location:'Safety > PPE',                      requirement:'PPE Selection & Inspection' },
-  { name:'PPE Inspection Checklist',            desc:'Pre-use inspection of personal protective equipment',          type:'Tasklist',  version:'v1.5', status:'Active', location:'Safety > PPE',                      requirement:'PPE Selection & Inspection' },
-  // Forklift Pre-Operation Inspection (3)
-  { name:'Forklift Daily Inspection',           desc:'Pre-shift inspection checklist for powered industrial trucks',  type:'Tasklist',  version:'v2.2', status:'Active', location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
-  { name:'Forklift Safety Course',              desc:'Operating fundamentals and stability for forklifts',           type:'CBT',    version:'v4.1', status:'Active', location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
-  { name:'Forklift Operation Quiz',             desc:'Assessment on safe forklift operation',                        type:'Quiz',      version:'v1.0', status:'Inactive', location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
-  // Fire Watch Procedures (1)
-  { name:'Fire Watch Responsibilities',         desc:'Instructor-led walkthrough of fire-watch and permit steps',   type:'Classroom', version:'v1.1', status:'Inactive', location:'Safety > Hot Work',                 requirement:'Fire Watch Procedures' },
-  // Respirator Fit Test (2)
-  { name:'Respirator Fit Test Record',          desc:'Capture and acknowledge respirator fit test results',          type:'Signature', version:'v2.0', status:'Active', location:'Safety > Respiratory Protection',   requirement:'Respirator Fit Test' },
-  { name:'Respirator Selection Guide',          desc:'Reference for selecting the appropriate respirator',           type:'Document',  version:'v1.3', status:'Active', location:'Safety > Respiratory Protection',   requirement:'Respirator Fit Test' },
-  // Rigging & Load Charts (3)
-  { name:'Rigging Load Chart Reading',          desc:'Reading load charts and selecting rigging hardware',           type:'CBT',    version:'v2.3', status:'Active', location:'Operations > Rigging',              requirement:'Rigging & Load Charts' },
-  { name:'Sling & Hardware Inspection',         desc:'Inspect slings, shackles, and hardware before a lift',         type:'Tasklist',  version:'v1.2', status:'Active', location:'Operations > Rigging',              requirement:'Rigging & Load Charts' },
-  { name:'Rigging Safety Quiz',                 desc:'Assessment on rigging selection and load handling',            type:'Quiz',      version:'v1.0', status:'Active', location:'Operations > Rigging',              requirement:'Rigging & Load Charts' },
-  // Additional activity types: Event, Survey, Video
-  { name:'Confined Space Rescue Drill',         desc:'Scheduled hands-on rescue drill for permit-required entries',      type:'Event',     version:'v1.0', status:'Active', location:'Safety > Confined Space',           requirement:'Confined Space Atmospheric Testing' },
-  { name:'PPE Program Feedback Survey',         desc:'Collect worker feedback on protective equipment fit and comfort',  type:'Survey',    version:'v1.2', status:'Active', location:'Safety > PPE',                      requirement:'PPE Selection & Inspection' },
-  { name:'Forklift Stability Overview',         desc:'Short video on load stability and the stability triangle',         type:'Video',     version:'v2.0', status:'Active', location:'Operations > Forklift',             requirement:'Forklift Pre-Operation Inspection' },
-];
-
-/* Derive the content-management columns (prototype values, varied across rows) */
-const ACT_SIZES = ['8 KB','512 KB','1.2 MB','3.4 MB','680 KB','12 MB','2.1 MB','46 KB','5.8 MB','920 KB'];
-/* Repository = the saved folder / collection in the content library where the file lives (a storage location).
-   It is NOT the content source and NOT the tab the activity appears under. */
-const REPO_FOLDERS = ['Safety Training Library','Compliance and OSHA','Operations Library','Onboarding and Orientation','Equipment Training','Field Procedures'];
-/* Which qualifications include each requirement, so an activity's delete impact can list the qualifications it belongs to. */
-const REQ_TO_QUALS = {
-  'Energy Isolation Fundamentals':      ['Lockout/Tagout Authorization', 'AC Motor Controller Operation'],
-  'Lockout Device Application':         ['Lockout/Tagout Authorization'],
-  'Confined Space Atmospheric Testing': ['Confined Space Entry'],
-  'PPE Selection & Inspection':         ['OSHA 30-Hour General Industry', 'Fall Protection Competency'],
-  'Forklift Pre-Operation Inspection':  ['Forklift Operator Certification'],
-  'Fire Watch Procedures':              ['Hot Work Permit Authorization'],
-  'Respirator Fit Test':                ['Respirator Fit & Use'],
-  'Rigging & Load Charts':              ['Crane & Hoist Operation'],
-};
-/* Content source drives the tabs (All / Custom / Vector Solutions / Learning Studio):
-   - Vector Solutions = accredited, pre-built content from Vector Solutions
-   - Learning Studio   = content created or edited in Learning Studio (editing an accredited
-                         Vector Solutions item in Learning Studio removes its accreditation, so it lands here)
-   - Custom            = everything the organization built itself */
-/* THE RULE: only CBT activities can be configured or edited in Learning Studio.
-   Learning Studio authors course content, and content configuration applies to a
-   course package - neither applies to a Tasklist, Quiz, Classroom, Signature,
-   Document, Event, Survey or Video activity. Both the Configurability and
-   Learning Studio columns, the row sparkle action and the More > Configure item
-   all derive from this one predicate, so they can never disagree. */
+/* Records and their derived columns (source, file type, license, repository, configurability,
+   publish status, versions, quiz content) live in activities-data.js, shared with the Quizzes grid
+   and the unified editor so every entry point reads the same record.
+   THE RULE: only CBT activities can be configured or edited in Learning Studio. Learning Studio
+   authors course content, and content configuration applies to a course package - neither applies
+   to a Tasklist, Quiz, Classroom, Signature, Document, Event, Survey or Video activity. The
+   Configurability and Learning Studio columns, the row sparkle action and More > Configure all
+   derive from that one predicate (a.configurable / a.lsEditable), so they can never disagree.
+   editActivityHref(a, tab) is also shared: it links into Edit-Activity.html?id=...&tab=... */
+const ACTS = window.ACTIVITIES;
 const isCbt = a => a.type === 'CBT';
+/* Prototype versions of THIS page. MVP (default): no Publish Status, Learning Studio or Configurability here;
+   those columns and their row actions live on the type-specific grids (Computer Based Trainings). V2 (?v=2)
+   adds the Publish Status column + filter + chip, the Configurability and Learning Studio columns, the
+   Learning Studio row action and the Configure kebab item. */
+const V2_FULL = new URLSearchParams(location.search).get('v') === '2';
 
-/* LS_IDX must stay a subset of the CBTs: content that came out of Learning Studio
-   is by definition a Learning Studio course. */
-const LS_IDX = new Set([8, 11, 16]);         // created/edited in Learning Studio (all CBT)
-const LS_DRAFT_IDX = new Set([8, 16]);       // Learning Studio content still being authored (shows as Draft, not yet published)
-const VS_IDX = new Set([0, 3, 6, 15]);       // pre-built, accredited Vector Solutions content
-ACTS.forEach((a, i) => {
-  a.source = LS_IDX.has(i) ? 'Learning Studio' : (VS_IDX.has(i) ? 'Vector Solutions' : 'Custom');
-  if (a.source === 'Vector Solutions') {
-    a.fileType    = (a.type === 'CBT') ? 'SCORM' : 'VSP Content';
-    a.licenseType = 'Commercial';
-  } else if (a.source === 'Learning Studio') {
-    a.fileType    = 'VSP Content';
-    a.licenseType = 'None';
-    if (LS_DRAFT_IDX.has(i)) a.status = 'Draft';   // Learning Studio content still being authored (not yet published)
-  } else { // Custom
-    a.fileType    = 'VSP Content';
-    a.licenseType = 'None';
-  }
-  a.repository = REPO_FOLDERS[i % REPO_FOLDERS.length];   // saved folder location (independent of source/tab)
-  a.configurable = isCbt(a);                           // CBT only - see THE RULE above
-  a.lsEditable   = isCbt(a);                           // CBT only - see THE RULE above
-  // Accredited Vector Solutions content is not the org's to change: its row opens the
-  // activity page read-only ("View details") instead of the editable version.
-  a.editable     = (a.source !== 'Vector Solutions');
-  a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';   // a few flagged as newly updated
-  a.size        = ACT_SIZES[i % ACT_SIZES.length];
-  a.quals       = REQ_TO_QUALS[a.requirement] || [];    // qualifications this activity is part of (via its requirement); drives delete impact
-  a.learners    = a.quals.length ? (40 + ((i * 7) % 9) * 55) : 0;   // learners affected if deleted (varies for pagination)
-});
-
-/* Link to the Edit Activity page, passing enough identity for that page to populate + branch the LS dialog.
-   Activities the org cannot edit open the same page in read-only mode (&mode=view). */
-function editActivityHref(a){
-  return 'Edit-Activity.html?name=' + encodeURIComponent(a.name) +
-         '&source=' + encodeURIComponent(a.source || '') +
-         '&type=' + encodeURIComponent(a.type || '') +          // drives THE RULE on the edit page
-         '&location=' + encodeURIComponent(a.location || '') +
-         (a.editable === false ? '&mode=view' : '');
-}
 function nameRenderer(p){
   const a = p.data;
   return `<div class="cell-name-wrap">
@@ -506,22 +462,24 @@ function nameRenderer(p){
     <div class="cell-desc">${a.desc}</div>
   </div>`;
 }
-const TYPE_ICONS = {
-  CBT:'fa-desktop', Quiz:'fa-circle-question', Tasklist:'fa-list-check',
-  Classroom:'fa-chalkboard-user', Signature:'fa-signature', Document:'fa-file-lines',
-  Event:'fa-calendar', Survey:'fa-clipboard', Video:'fa-circle-play'
-};
+/* Type badge: icon + label from the shared type list (activity-types.js), never a local map */
 function typeRenderer(p){
-  const icon = TYPE_ICONS[p.value] || 'fa-cube';
-  return `<span theme="badge" style="display:inline-flex;align-items:center;gap:5px"><i class="fa-solid ${icon}" style="font-size:11.5px"></i> ${p.value}</span>`;
+  const t = ACTIVITY_TYPE(p.value);
+  return `<span theme="badge" style="display:inline-flex;align-items:center;gap:5px"><i class="fa-solid ${t.icon}" style="font-size:11.5px"></i> ${t.label}</span>`;
 }
 function versionRenderer(p){
   return `<span class="cell-version">${p.value || '-'}</span>`;
 }
 function statusRenderer(p){
-  if (p.value === 'Draft') return `<span theme="badge dot" class="badge-draft">${p.value}</span>`;
   const conn = p.value === 'Active' ? 'success' : 'contrast';
   return `<span theme="badge dot ${conn}">${p.value}</span>`;
+}
+/* V2 only. Publish Status: whether the current content has been published to learners, separate from
+   Active/Inactive. Neutral pill for Draft, green for Published. */
+function publishRenderer(p){
+  return p.value === 'Published'
+    ? `<span theme="badge success">Published</span>`
+    : `<span theme="badge contrast">Draft</span>`;
 }
 /* Which content source (and therefore which tab) an activity belongs to. Shown only on the All tab, where sources are mixed. */
 function sourceRenderer(p){
@@ -585,7 +543,7 @@ function configRenderer(p){
 function lsRenderer(p){
   return p.value
     ? actionableBadge({ theme:'badge dot', extraClass:'ls-badge', label:'Editable', icon: sparkleSvg(14), title:'Edit in Learning Studio', onClick: () => openLearningStudio(p.data) })
-    : mutedDash('Only CBT activities can be edited in Learning Studio');
+    : mutedDash(p.data.lsReason || 'Only CBT activities can be edited in Learning Studio');
 }
 /* Launch the content-configuration flow for an activity (prototype: toast only). */
 function launchConfigure(a){
@@ -717,7 +675,7 @@ function actionsRenderer(p){
   e.className = 'row-actions';
   // Sparkle (Edit in Learning Studio) only for LS-editable activities. It's placed FIRST (leftmost) and the
   // row is right-aligned, so when it's absent the always-present Edit/More buttons keep their position.
-  const sparkle = p.data.lsEditable
+  const sparkle = (V2_FULL && p.data.lsEditable)
     ? `<button class="row-action-btn" title="Edit in Learning Studio">${sparkleSvg(15)}</button>`
     : '';
   // Activities the org cannot edit (accredited Vector Solutions content) get an eye
@@ -751,8 +709,10 @@ function actionsRenderer(p){
           else apply();
         }},
       // "Configure" is only available for configurable activities (mirrors the Configurability column).
-      ...(p.data.configurable ? [{ iconHtml: gearsSvg(15, 'dd-gears'), label:'Configure', action: () => launchConfigure(p.data) }] : []),
-      { icon:'fa-regular fa-eye', label:'Preview', action: () => alert('Preview "' + p.data.name + '" (prototype).') },
+      ...((V2_FULL && p.data.configurable) ? [{ iconHtml: gearsSvg(15, 'dd-gears'), label:'Configure', action: () => launchConfigure(p.data) }] : []),
+      // "Edit content" opens the unified editor on its Content tab (types with a built-in content editor, e.g. Quiz).
+      ...(ACTIVITY_TYPE(p.data.type).content === 'quiz' ? [{ icon:'fa-solid fa-pen-to-square', label:'Edit content', action: () => { window.location.href = editActivityHref(p.data, 'content'); } }] : []),
+      { icon:'fa-regular fa-eye', label:'Preview', action: () => window.open(previewActivityHref(p.data), '_blank') },
       // Share opens the Direct Link + QR popover right beside the kebab (no need to edit the activity first).
       { icon:'fa-solid fa-arrow-up-from-bracket', label:'Share', action: () => openSharePopover(moreBtn, p.data) },
       { icon:'fa-regular fa-copy', label:'Duplicate', action: () => alert('Duplicate "' + p.data.name + '" (prototype).') },
@@ -766,6 +726,7 @@ function actionsRenderer(p){
 
 let gridApi = null;
 let typeFilter = new Set();   // selected activity types (empty = all)
+let publishFilter = '';       // V2 only: '' = all, or 'Draft' | 'Published'
 let reqValue  = '';
 let sourceValue = '';   // active content-source tab ('' = All)
 
@@ -777,9 +738,12 @@ const gridOptions = {
     { headerName:'Type',            field:'type',         width:165, cellRenderer:typeRenderer },
     { headerName:'Version',         field:'version',      width:100, cellRenderer:versionRenderer },
     { headerName:'Status',          field:'status',       width:120, cellRenderer:statusRenderer },
+    ...(V2_FULL ? [{ headerName:'Publish Status', field:'publishStatus', width:145, cellRenderer:publishRenderer }] : []),
     { headerName:'Location',        field:'location',     flex:2, minWidth:220, cellRenderer:locationRenderer },
-    { headerName:'Configurability', field:'configurable', width:165, cellRenderer:configRenderer },
-    { headerName:'Learning Studio', field:'lsEditable',   width:165, cellRenderer:lsRenderer },
+    ...(V2_FULL ? [
+      { headerName:'Configurability', field:'configurable', width:165, cellRenderer:configRenderer },
+      { headerName:'Learning Studio', field:'lsEditable',   width:165, cellRenderer:lsRenderer },
+    ] : []),
     { headerName:'Source',          field:'source',       width:175, cellRenderer:sourceRenderer },
     { headerName:'Update Status',   field:'updateStatus', width:130, cellRenderer:updateRenderer },
     { headerName:'File Type',       field:'fileType',     width:150, cellRenderer:fileTypeRenderer },
@@ -799,9 +763,11 @@ const gridOptions = {
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 25, 50],
   domLayout: 'autoHeight',
-  isExternalFilterPresent: () => typeFilter.size > 0 || reqValue !== '' || sourceValue !== '',
+  /* All filters combine with AND: source tab, type, publish status (V2), requirement (plus the quick-filter search). */
+  isExternalFilterPresent: () => typeFilter.size > 0 || publishFilter !== '' || reqValue !== '' || sourceValue !== '',
   doesExternalFilterPass: (node) =>
     (!typeFilter.size || typeFilter.has(node.data.type)) &&
+    (!publishFilter || node.data.publishStatus === publishFilter) &&
     (!reqValue    || node.data.requirement === reqValue) &&
     (!sourceValue || node.data.source === sourceValue),
   onGridReady: () => { updateCount(); updateTabCounts(); applySourceColVisibility(); },
@@ -809,7 +775,7 @@ const gridOptions = {
   onSelectionChanged: () => updateBulkBar(),
 };
 
-function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); }
+function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); renderFilterChips(); }
 /* ─── Multiselect Type filter (design-system multi-select combo box) ─── */
 function applyTypeFilter(){
   if (gridApi) gridApi.onFilterChanged();
@@ -818,8 +784,54 @@ function applyTypeFilter(){
 function setupTypeFilter(){
   const cb = document.getElementById('type-filter');
   if (!cb) return;
-  cb.items = ['CBT', 'Quiz', 'Tasklist', 'Classroom', 'Signature', 'Document', 'Event', 'Survey', 'Video'];
-  cb.addEventListener('selected-items-changed', () => { typeFilter = new Set(cb.selectedItems || []); applyTypeFilter(); });
+  cb.items = ACTIVITY_TYPE_KEYS;   // every type the system supports, from activity-types.js (CBT included)
+  cb.addEventListener('selected-items-changed', () => { typeFilter = new Set(cb.selectedItems || []); applyTypeFilter(); renderFilterChips(); });
+}
+/* ─── Publish Status filter (V2 only): All / Draft / Published, a design-system select ─── */
+function setupPublishFilter(){
+  const sel = document.getElementById('publish-filter');
+  if (!sel || !V2_FULL) return;
+  sel.classList.remove('hidden');
+  sel.items = [ { label:'All', value:'' }, { label:'Draft', value:'Draft' }, { label:'Published', value:'Published' } ];
+  sel.addEventListener('value-changed', e => { publishFilter = (e.detail && e.detail.value) || ''; applyTypeFilter(); renderFilterChips(); });
+}
+/* ─── Active filter chips: one per selected type, the publish status (V2), and the search text.
+   Each chip removes just its own filter; Clear all resets every filter (the source tab is a scope, not a filter). ─── */
+function renderFilterChips(){
+  const wrap = document.getElementById('filter-chips'); if (!wrap) return;
+  const search = (document.getElementById('quick-filter') || {}).value || '';
+  const chips = [];
+  [...typeFilter].forEach(t => chips.push({ k:'Type', v:ACTIVITY_TYPE(t).label, remove:`removeTypeChip('${t}')` }));
+  if (publishFilter) chips.push({ k:'Publish status', v:publishFilter, remove:'clearPublishChip()' });
+  if (search.trim()) chips.push({ k:'Search', v:search.trim().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])), remove:'clearSearchChip()' });
+  if (!chips.length){ wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+  wrap.classList.remove('hidden');
+  wrap.innerHTML = '<span class="fchips-label">Filters:</span>' + chips.map(c =>
+    `<span class="fchip"><span class="fchip-k">${c.k}:</span> ${c.v}<button type="button" onclick="${c.remove}" title="Remove filter" aria-label="Remove ${c.k} filter"><i class="fa-solid fa-xmark"></i></button></span>`
+  ).join('') + `<button type="button" class="fchips-clear" onclick="clearAllFilters()">Clear all</button>`;
+}
+function removeTypeChip(t){
+  const cb = document.getElementById('type-filter');
+  typeFilter.delete(t);
+  if (cb) cb.selectedItems = (cb.selectedItems || []).filter(x => x !== t);
+  applyTypeFilter(); renderFilterChips();
+}
+function clearPublishChip(){
+  publishFilter = '';
+  const sel = document.getElementById('publish-filter'); if (sel) sel.value = '';
+  applyTypeFilter(); renderFilterChips();
+}
+function clearSearchChip(){
+  const q = document.getElementById('quick-filter'); if (q) q.value = '';
+  onSearch('');
+}
+function clearAllFilters(){
+  typeFilter = new Set(); publishFilter = '';
+  const cb = document.getElementById('type-filter'); if (cb) cb.selectedItems = [];
+  const sel = document.getElementById('publish-filter'); if (sel) sel.value = '';
+  const q = document.getElementById('quick-filter'); if (q) q.value = '';
+  if (gridApi) gridApi.setGridOption('quickFilterText', '');
+  applyTypeFilter(); renderFilterChips();
 }
 
 /* ─── Content-source tabs ─── */
@@ -858,6 +870,7 @@ function updateTabCounts(){
   const count = (src) => ACTS.filter(a =>
     (!reqValue  || a.requirement === reqValue) &&
     (!typeFilter.size || typeFilter.has(a.type)) &&
+    (!publishFilter || a.publishStatus === publishFilter) &&
     (!src       || a.source === src)
   ).length;
   const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
@@ -1110,13 +1123,14 @@ function confirmLearningStudio(){
   if (!a) return;
   // Duplicate the activity as a new Learning Studio course. The original is untouched and keeps its accreditation.
   const copy = Object.assign({}, a, {
+    id: a.id + '-learning-studio',
     name: a.name + ' (Learning Studio)',
     source: 'Learning Studio',
     fileType: 'VSP Content',
     licenseType: 'None',
-    status: 'Draft',            // a freshly duplicated Learning Studio copy starts as a draft being authored
+    publishStatus: 'Draft',     // a freshly duplicated Learning Studio copy starts as a draft being authored
     updateStatus: 'New',
-    configurable: true,
+    configurable: false,        // a draft is not released to Convergence yet, so it cannot be configured
   });   // repository (saved folder) is inherited from the original activity
   ACTS.push(copy);
   if (gridApi) gridApi.applyTransaction({ add: [copy] });
@@ -1148,6 +1162,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const el = document.getElementById('act-grid');
   if (window.agGrid && el) gridApi = agGrid.createGrid(el, gridOptions);
   setupTypeFilter();
+  setupPublishFilter();
+  // Version pill: mark the active version and keep any other params (e.g. ?requirement=) on the links
+  ['1', '2'].forEach(v => { const a = document.getElementById('pv-v' + v); if (!a) return; const u = new URL(location.href); u.searchParams.set('v', v); a.href = u.search; a.classList.toggle('active', V2_FULL ? v === '2' : v === '1'); });
 });
 </script>
 <!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).

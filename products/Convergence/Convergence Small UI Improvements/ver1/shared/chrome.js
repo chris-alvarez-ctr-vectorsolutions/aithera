@@ -15,6 +15,7 @@ function specHTML(rows) {
 }
 const SPECS = {
   guide: specHTML([
+    ['Canvas', '#e8ebef = --lumo-contrast-10pct on white · panel vs page 1.20:1'],
     ['Top nav height', '60px (--h-topnav)'],
     ['Page header', 'min 72px · title 22/600 · crumb 14'],
     ['Side nav width', '268px open · 58px rail'],

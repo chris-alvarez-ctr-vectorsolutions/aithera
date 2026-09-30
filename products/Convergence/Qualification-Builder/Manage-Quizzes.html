@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quizzes | Convergence LMS</title>
+
+  <!-- Training Import And Creation > Quizzes: the activity-type CRUD list for quizzes (Path A into the editor).
+       Both this grid and Manage-Activities.html open the SAME unified editor (Edit-Activity.html); this one
+       lands on its Content tab, the activity library lands on Details. -->
+
+  <!-- Convergence chrome (topnav + admin sidenav + breadcrumb) -->
+  <link rel="stylesheet" href="../_shell/chrome.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <!-- Vector design system: themed badge (theme="badge ...") for the status pills -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <!-- AG Grid (community) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+  <!-- Shared activity data: the type list + the records, same source as Manage-Activities.html and the editor -->
+  <script src="activity-types.js"></script>
+  <script src="activities-data.js"></script>
+
+  <style>
+    :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; --background-color:#f5f9fd; }
+    #cv-page { font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:#1a1a2e; background:var(--background-color); }
+    #cv-content { background: var(--background-color); padding: 0; }
+    .mgmt-page { padding:24px 28px 40px; }
+
+    .mgmt-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
+    .mgmt-header h1 { font-size:22px; font-weight:700; color:#1a1a2e; margin:0; }
+    .mgmt-header .sub { font-size:13px; color:#6b7280; margin-top:3px; }
+
+    .btn { font-family:inherit; font-size:13px; font-weight:600; border-radius:7px; padding:9px 15px; cursor:pointer; border:1px solid transparent; display:inline-flex; align-items:center; gap:7px; text-decoration:none; transition:background .12s,border-color .12s,color .12s; }
+    .btn-primary { background:var(--vblue); color:#fff; }
+    .btn-primary:hover { background:var(--vblue-hover); }
+    .btn-secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
+    .btn-secondary:hover { background:#f3f4f6; }
+    .btn-sm { padding:7px 12px; font-size:12.5px; }
+    .btn-secondary.danger { color:#dc2626; border-color:#f0b4b4; }
+    .btn-secondary.danger:hover { background:#fee2e2; }
+    .btn.btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
+    .btn.btn-danger:hover { background:#b91c1c; border-color:#b91c1c; }
+
+    /* Publish-status tabs: same modern underline tabs as the Activities page */
+    .source-tabs { display:flex; align-items:flex-end; gap:4px; border-bottom:1px solid var(--lumo-contrast-10pct, #e5e9ef); margin-bottom:14px; }
+    .source-tab { position:relative; border:none; background:none; font-family:inherit; font-size:13.5px; font-weight:600; color:#6b7280; padding:9px 12px 11px; border-radius:7px 7px 0 0; cursor:pointer; display:inline-flex; align-items:center; gap:8px; line-height:1.2; transition:color .12s, background .12s; }
+    .source-tab::after { content:''; position:absolute; left:8px; right:8px; bottom:-1px; height:2px; border-radius:2px 2px 0 0; background:transparent; transition:background .12s; }
+    .source-tab:hover { color:#1a1a2e; background:#f3f4f6; }
+    .source-tab:focus-visible { outline:2px solid var(--lumo-primary-color, var(--vblue)); outline-offset:-2px; }
+    .source-tab.active { color:var(--lumo-primary-color, var(--vblue)); }
+    .source-tab.active::after { background:var(--lumo-primary-color, var(--vblue)); }
+    .st-count { font-size:11.5px; font-weight:600; color:#6b7280; background:var(--lumo-contrast-10pct, #eef1f5); border-radius:999px; padding:2px 7px; min-width:20px; text-align:center; line-height:1.2; }
+    .source-tab.active .st-count { color:var(--lumo-primary-color, var(--vblue)); background:var(--lumo-primary-color-10pct, var(--vblue-10)); }
+
+    .mgmt-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+    .search-wrap { position:relative; }
+    .search-wrap i { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:12px; }
+    .search-wrap input { width:300px; height:36px; border:1px solid #d4d9e0; border-radius:7px; padding:0 12px 0 32px; font-family:inherit; font-size:13px; outline:none; background:#fff; }
+    .search-wrap input:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
+
+    /* Active filters as removable chips + Clear all */
+    .filter-chips { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:-4px 0 14px; }
+    .filter-chips.hidden { display:none; }
+    .fchips-label { font-size:12px; color:#6b7280; margin-right:2px; }
+    .fchip { display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 4px 0 10px; border-radius:999px; background:var(--lumo-primary-color-10pct, var(--vblue-10)); color:#0b3d66; font-size:12.5px; font-weight:600; }
+    .fchip .fchip-k { color:#4b5f76; font-weight:500; }
+    .fchip button { border:none; background:transparent; width:20px; height:20px; border-radius:50%; cursor:pointer; color:inherit; display:inline-flex; align-items:center; justify-content:center; font-size:11px; padding:0; }
+    .fchip button:hover { background:rgba(2,113,206,.18); }
+    .fchips-clear { border:none; background:none; color:var(--vblue); font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer; padding:4px 6px; border-radius:6px; }
+    .fchips-clear:hover { text-decoration:underline; }
+
+    /* AG Grid theming (matches the Activities page) */
+    .ag-theme-quartz {
+      --ag-font-family:"Open Sans","Segoe UI",Arial,sans-serif; --ag-font-size:13px;
+      --ag-header-background-color:#f8fafc; --ag-header-foreground-color:#475569; --ag-header-font-weight:600;
+      --ag-row-hover-color:var(--vblue-10); --ag-selected-row-background-color:var(--vblue-10);
+      --ag-border-color:#e5e9ef; --ag-row-border-color:#eef1f5; --ag-accent-color:var(--vblue); --ag-cell-horizontal-padding:16px;
+      border:1px solid #e5e9ef; border-radius:10px; overflow:hidden; background:#fff; box-shadow:0 1px 3px rgba(16,24,40,.04);
+    }
+    .ag-theme-quartz .ag-cell { display:flex; align-items:center; }
+    .ag-theme-quartz .ag-cell[col-id="select"] { padding-left:0; padding-right:0; justify-content:center; }
+    .ag-theme-quartz .ag-cell[col-id="select"] .ag-cell-wrapper { display:flex; width:100%; justify-content:center; align-items:center; }
+    .ag-theme-quartz .ag-cell[col-id="select"] .ag-cell-value { display:none; }
+    .ag-theme-quartz .ag-cell[col-id="select"] .ag-selection-checkbox { margin:0; }
+    .ag-theme-quartz .ag-header-cell[col-id="select"] { padding-left:0; padding-right:0; }
+    .ag-theme-quartz .ag-header-cell[col-id="select"] .ag-header-cell-comp-wrapper { justify-content:center; }
+    .ag-theme-quartz .ag-header-cell[col-id="select"] .ag-header-select-all { margin:0; }
+    .ag-theme-quartz .ag-cell[col-id="actions"] { padding-left:8px; padding-right:8px; justify-content:flex-end; }
+    .ag-theme-quartz .ag-header-cell[col-id="actions"] { padding-left:8px; padding-right:8px; }
+    .ag-theme-quartz span[theme~="badge"] { font-size: 13.5px; }
+
+    .cell-name-wrap { line-height:1.35; padding:7px 0; }
+    .cell-name { font-weight:600; font-size:13.5px; color:#1a1a2e; }
+    .cell-name-link { text-decoration:none; cursor:pointer; }
+    .cell-name-link:hover { color:var(--vblue); text-decoration:underline; }
+    .cell-desc { font-size:11.5px; color:#9ca3af; margin-top:1px; max-width:480px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
+    .cell-version { font-size:12px; color:#475569; font-family:ui-monospace,"SF Mono",monospace; }
+    .cell-muted { font-size:12.5px; color:#9ca3af; }
+    .cell-count { font-size:13px; color:#374151; font-weight:600; }
+    .cell-count small { font-weight:400; color:#9ca3af; margin-left:4px; }
+    .cell-loc { display:flex; align-items:flex-start; gap:6px; font-size:12.5px; color:#6b7280; }
+    .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; margin-top:3px; }
+    .cell-loc .loc-text { line-height:1.4; }
+    .cell-date { font-size:12.5px; color:#6b7280; }
+
+    .row-actions { display:flex; gap:4px; align-items:center; justify-content:flex-end; width:100%; }
+    .row-action-btn { width:30px; height:30px; border:none; background:transparent; border-radius:6px; color:#6b7280; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; justify-content:center; }
+    .row-action-btn:hover { background:#eef1f5; color:#374151; }
+    .row-dropdown { position:fixed; background:#fff; border:1px solid #e5e9ef; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:9999; min-width:180px; padding:4px; }
+    .row-dropdown-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 12px; border:none; background:none; font-family:inherit; font-size:13px; color:#374151; cursor:pointer; border-radius:6px; text-align:left; }
+    .row-dropdown-item:hover { background:#f3f4f6; }
+    .row-dropdown-item.danger { color:#dc2626; }
+    .row-dropdown-item.danger:hover { background:#fee2e2; }
+    .row-dropdown-item i { width:14px; text-align:center; font-size:12px; color:#9ca3af; }
+    .row-dropdown-item.danger i { color:#dc2626; }
+    .row-dropdown-divider { height:1px; background:#e5e9ef; margin:4px 0; }
+
+    .bulk-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10); border:1px solid #b6dcfa; border-radius:8px; padding:8px 10px 8px 14px; margin-bottom:12px; }
+    .bulk-bar.hidden { display:none; }
+    .bulk-bar-left { display:flex; align-items:center; gap:8px; }
+    .bulk-count { font-size:13px; font-weight:700; color:#0b3d66; }
+    .bulk-clear { width:26px; height:26px; border:none; background:none; border-radius:5px; color:#0b3d66; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+    .bulk-clear:hover { background:rgba(2,113,206,.14); }
+    .bulk-bar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+    .grid-footer { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#6b7280; padding:10px 2px 0; }
+
+    .mgmt-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1100; }
+    .mgmt-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    .confirm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:3000; display:flex; align-items:center; justify-content:center; }
+    .confirm-overlay.hidden { display:none; }
+    .confirm-dialog { background:#fff; border-radius:12px; width:460px; max-width:calc(100vw - 48px); padding:26px 28px 22px; box-shadow:0 25px 60px rgba(0,0,0,.2); }
+    .confirm-dialog .cd-icon { font-size:30px; color:#dc2626; margin-bottom:12px; }
+    .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin:0 0 8px; }
+    .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin:0 0 18px; }
+    .confirm-dialog p strong { color:#1a1a2e; }
+    .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
+  </style>
+</head>
+<body>
+
+<div id="cv-page">
+  <div class="mgmt-page">
+
+    <div class="mgmt-header">
+      <div>
+        <h1>Quizzes</h1>
+        <div class="sub">Create and edit quizzes. Questions are grouped into competencies.</div>
+      </div>
+      <div>
+        <!-- New quizzes open straight in the unified editor on the Content tab -->
+        <a class="btn btn-primary" href="Edit-Activity.html?new=quiz&amp;tab=content"><i class="fa-solid fa-plus"></i> New Quiz</a>
+      </div>
+    </div>
+
+    <div class="mgmt-toolbar">
+      <div class="search-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="quick-filter" placeholder="Search quizzes..." oninput="onSearch(this.value)"/>
+      </div>
+      <vaadin-select theme="outlined" id="status-filter" placeholder="Status" style="min-width:150px" aria-label="Filter by status"></vaadin-select>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+        <button class="btn btn-secondary btn-sm" onclick="showToast('Exported the current view (prototype).')"><i class="fa-solid fa-download"></i> Export</button>
+      </div>
+    </div>
+
+    <div class="filter-chips hidden" id="filter-chips" aria-live="polite"></div>
+
+    <div class="bulk-bar hidden" id="bulk-bar">
+      <div class="bulk-bar-left">
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+        <button class="bulk-clear" onclick="clearSelection()" title="Clear selection"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="bulk-bar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="showToast(bulkRows().length + ' quizzes exported (prototype).')"><i class="fa-solid fa-download"></i> Export</button>
+        <button class="btn btn-secondary btn-sm danger" onclick="bulkDelete()"><i class="fa-regular fa-trash-can"></i> Delete</button>
+      </div>
+    </div>
+
+    <div id="quiz-grid" class="ag-theme-quartz" style="width:100%;"></div>
+    <div class="grid-footer">
+      <span id="row-count"></span>
+      <span>Vector LMS, Convergence Training Edition</span>
+    </div>
+
+  </div>
+  <div class="mgmt-toast" id="mgmt-toast"></div>
+</div>
+
+<!-- Delete confirmation -->
+<div class="confirm-overlay hidden" id="delete-overlay">
+  <div class="confirm-dialog">
+    <div class="cd-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3 id="delete-title">Delete this quiz?</h3>
+    <p id="delete-body"></p>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeDelete()">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteAction()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Convergence chrome -->
+<script>
+  window.SHELL_CONFIG = { active: 'ti-quizzes', parent: 'Training Import And Creation', title: 'Quizzes' };
+</script>
+<script src="../_shell/chrome.js"></script>
+
+<script>
+/* Only the Quiz-type records from the shared list */
+const QUIZZES = window.ACTIVITIES.filter(a => a.type === 'Quiz');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = iso => { const d = new Date(iso); return isNaN(d) ? '-' : d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' }); };
+
+/* ─── Cell renderers ─── */
+function nameRenderer(p){
+  const a = p.data;
+  return `<div class="cell-name-wrap">
+    <a class="cell-name cell-name-link" href="${editActivityHref(a, 'content')}">${esc(a.name)}</a>
+    <div class="cell-desc">${esc(a.desc) || '<span class="cell-muted">No description</span>'}</div>
+  </div>`;
+}
+function countRenderer(field){
+  return p => {
+    const c = quizCounts(p.data);
+    const n = c[field];
+    return `<span class="cell-count">${n}</span>`;
+  };
+}
+function statusRenderer(p){
+  const conn = p.value === 'Active' ? 'success' : 'contrast';
+  return `<span theme="badge dot ${conn}">${p.value}</span>`;
+}
+function versionRenderer(p){ return `<span class="cell-version">${esc(p.value) || '-'}</span>`; }
+function locationRenderer(p){
+  const full = p.value || '';
+  const parts = full.split(/[›>]/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return `<span class="cell-muted">-</span>`;
+  return `<span class="cell-loc" title="${esc(full)}"><i class="fa-solid fa-location-dot"></i><span class="loc-text">${esc(parts[parts.length - 1])}</span></span>`;
+}
+function dateRenderer(p){ return `<span class="cell-date">${fmtDate(p.value)}</span>`; }
+
+/* Shared floating dropdown (same as the Activities page) */
+let activeDropdown = null;
+function closeDropdown(){ if (activeDropdown){ activeDropdown.remove(); activeDropdown = null; } }
+function showDropdown(btn, items){
+  closeDropdown();
+  const dd = document.createElement('div');
+  dd.className = 'row-dropdown';
+  items.forEach(item => {
+    if (item.divider){ const d = document.createElement('div'); d.className = 'row-dropdown-divider'; dd.appendChild(d); return; }
+    const b = document.createElement('button');
+    b.className = 'row-dropdown-item' + (item.danger ? ' danger' : '');
+    b.innerHTML = `<i class="${item.icon}"></i> ${item.label}`;
+    b.addEventListener('click', e => { e.stopPropagation(); closeDropdown(); item.action(); });
+    dd.appendChild(b);
+  });
+  document.body.appendChild(dd);
+  activeDropdown = dd;
+  const rect = btn.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.right = (window.innerWidth - rect.right) + 'px';
+  setTimeout(() => document.addEventListener('click', closeDropdown, { once:true }), 0);
+}
+
+function actionsRenderer(p){
+  const e = document.createElement('div');
+  e.className = 'row-actions';
+  e.innerHTML =
+    `<button class="row-action-btn" title="Edit content"><i class="fa-solid fa-pencil"></i></button>
+     <button class="row-action-btn" title="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+  e.querySelector('[title="Edit content"]').addEventListener('click', () => { window.location.href = editActivityHref(p.data, 'content'); });
+  const moreBtn = e.querySelector('[title="More actions"]');
+  moreBtn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    showDropdown(moreBtn, [
+      { icon:'fa-solid fa-pen-to-square', label:'Edit content',  action: () => { window.location.href = editActivityHref(p.data, 'content'); } },
+      { icon:'fa-solid fa-sliders',       label:'Edit details',  action: () => { window.location.href = editActivityHref(p.data, 'details'); } },
+      { icon:'fa-solid fa-clock-rotate-left', label:'Versions',  action: () => { window.location.href = editActivityHref(p.data, 'versions'); } },
+      { icon:'fa-regular fa-eye',         label:'Preview',       action: () => window.open(previewActivityHref(p.data), '_blank') },
+      { icon:'fa-regular fa-copy',        label:'Duplicate',     action: () => duplicateQuiz(p.data) },
+      { divider:true },
+      { icon:'fa-regular fa-trash-can',   label:'Delete', danger:true, action: () => openDelete([p.data]) },
+    ]);
+  });
+  return e;
+}
+
+/* ─── Grid ─── */
+let gridApi = null;
+let statusFilter = '';   // '' | Active | Inactive
+
+const gridOptions = {
+  rowData: QUIZZES,
+  columnDefs: [
+    { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
+    { headerName:'Quiz',           field:'name',          flex:2.6, minWidth:320, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
+    { headerName:'Competencies',   colId:'competencies',  width:140, valueGetter:p=>quizCounts(p.data).competencies, cellRenderer:countRenderer('competencies') },
+    { headerName:'Questions',      colId:'questions',     width:120, valueGetter:p=>quizCounts(p.data).questions,    cellRenderer:countRenderer('questions') },
+    { headerName:'Version',        field:'version',       width:100, cellRenderer:versionRenderer },
+    { headerName:'Status',         field:'status',        width:120, cellRenderer:statusRenderer },
+    { headerName:'Location',       field:'location',      flex:1.4, minWidth:180, cellRenderer:locationRenderer },
+    { headerName:'Modified',       field:'updatedOn',     width:130, cellRenderer:dateRenderer },
+    { headerName:'Actions', colId:'actions', width:100, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false, pinned:'right' },
+  ],
+  defaultColDef: { sortable:true, resizable:true, filter:true },
+  rowHeight: 68, headerHeight: 44, animateRows: true, suppressCellFocus: true,
+  rowSelection: 'multiple', suppressRowClickSelection: true,
+  pagination: true, paginationPageSize: 10, paginationPageSizeSelector: [10, 25, 50],
+  domLayout: 'autoHeight',
+  isExternalFilterPresent: () => statusFilter !== '',
+  doesExternalFilterPass: node => (!statusFilter || node.data.status === statusFilter),
+  onGridReady: () => { updateCount(); },
+  onModelUpdated: () => updateCount(),
+  onSelectionChanged: () => updateBulkBar(),
+};
+
+function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); renderFilterChips(); }
+function updateCount(){
+  if (!gridApi) return;
+  const el = document.getElementById('row-count');
+  if (el) el.textContent = 'Showing ' + gridApi.getDisplayedRowCount() + ' of ' + QUIZZES.length + ' quizzes';
+}
+function setupStatusFilter(){
+  const sel = document.getElementById('status-filter'); if (!sel) return;
+  sel.items = [ { label:'All', value:'' }, { label:'Active', value:'Active' }, { label:'Inactive', value:'Inactive' } ];
+  sel.addEventListener('value-changed', e => { statusFilter = (e.detail && e.detail.value) || ''; if (gridApi) gridApi.onFilterChanged(); renderFilterChips(); });
+}
+function renderFilterChips(){
+  const wrap = document.getElementById('filter-chips'); if (!wrap) return;
+  const search = (document.getElementById('quick-filter') || {}).value || '';
+  const chips = [];
+  if (statusFilter) chips.push({ k:'Status', v:statusFilter, remove:'clearStatusChip()' });
+  if (search.trim()) chips.push({ k:'Search', v:esc(search.trim()), remove:'clearSearchChip()' });
+  if (!chips.length){ wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+  wrap.classList.remove('hidden');
+  wrap.innerHTML = '<span class="fchips-label">Filters:</span>' + chips.map(c =>
+    `<span class="fchip"><span class="fchip-k">${c.k}:</span> ${c.v}<button type="button" onclick="${c.remove}" title="Remove filter" aria-label="Remove ${c.k} filter"><i class="fa-solid fa-xmark"></i></button></span>`
+  ).join('') + `<button type="button" class="fchips-clear" onclick="clearAllFilters()">Clear all</button>`;
+}
+function clearStatusChip(){ statusFilter = ''; const s = document.getElementById('status-filter'); if (s) s.value = ''; if (gridApi) gridApi.onFilterChanged(); renderFilterChips(); }
+function clearSearchChip(){ const q = document.getElementById('quick-filter'); if (q) q.value = ''; onSearch(''); }
+function clearAllFilters(){ const q = document.getElementById('quick-filter'); if (q) q.value = ''; if (gridApi) gridApi.setGridOption('quickFilterText', ''); clearStatusChip(); }
+
+/* ─── Selection + bulk ─── */
+function updateBulkBar(){
+  if (!gridApi) return;
+  const n = gridApi.getSelectedNodes().length;
+  const bar = document.getElementById('bulk-bar');
+  if (n > 0){ bar.classList.remove('hidden'); document.getElementById('bulk-count').textContent = n + ' selected'; }
+  else bar.classList.add('hidden');
+}
+function clearSelection(){ if (gridApi) gridApi.deselectAll(); }
+function bulkRows(){ return gridApi ? gridApi.getSelectedRows() : []; }
+function bulkDelete(){ const rows = bulkRows(); if (rows.length) openDelete(rows); }
+
+/* ─── Duplicate / Delete ─── */
+function duplicateQuiz(a){
+  const copy = JSON.parse(JSON.stringify(a));
+  copy.id = a.id + '-copy-' + Date.now().toString(36);
+  copy.name = a.name + ' (copy)';
+  copy.publishStatus = 'Draft'; copy.version = 'v1.0'; copy.versions = []; copy.__new = true;
+  copy.createdOn = copy.updatedOn = new Date().toISOString();
+  persistActivity(copy);
+  QUIZZES.push(copy);
+  if (gridApi) gridApi.applyTransaction({ add:[copy] });
+  updateCount();
+  showToast('Duplicated "' + a.name + '" as a draft.');
+}
+let _deleteRows = null;
+function openDelete(rows){
+  _deleteRows = rows;
+  const single = rows.length === 1;
+  document.getElementById('delete-title').textContent = single ? 'Delete "' + rows[0].name + '"?' : 'Delete ' + rows.length + ' quizzes?';
+  document.getElementById('delete-body').innerHTML = (single ? 'This quiz' : 'These quizzes') + ' will be removed from every requirement that uses ' + (single ? 'it' : 'them') + '. Learner records are kept. <strong>Deleting is permanent and cannot be undone.</strong>';
+  document.getElementById('delete-overlay').classList.remove('hidden');
+}
+function closeDelete(){ document.getElementById('delete-overlay').classList.add('hidden'); _deleteRows = null; }
+function confirmDeleteAction(){
+  const rows = _deleteRows || []; closeDelete();
+  if (!rows.length) return;
+  rows.forEach(r => { deleteActivityRecord(r.id); const i = QUIZZES.indexOf(r); if (i >= 0) QUIZZES.splice(i, 1); });
+  gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
+  showToast('Deleted ' + rows.length + ' quiz' + (rows.length !== 1 ? 'zes' : '') + ' (prototype).');
+}
+
+/* ─── Toast ─── */
+let _toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('mgmt-toast'); if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+document.addEventListener('click', closeDropdown);
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('quiz-grid');
+  if (window.agGrid && el) gridApi = agGrid.createGrid(el, gridOptions);
+  setupStatusFilter();
+});
+</script>
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

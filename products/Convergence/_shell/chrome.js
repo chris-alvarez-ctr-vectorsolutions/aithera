@@ -76,7 +76,7 @@
       {id:"org-places",label:"Places"},{id:"org-contacts",label:"Contacts"},
     ]},
     { id:"training", label:"Training Import And Creation", icon:"trainingImport", children:[
-      {id:"ti-content",label:"Content Wizard"},{id:"ti-quizzes",label:"Quizzes"},{id:"ti-surveys",label:"Surveys"},
+      {id:"ti-content",label:"Content Wizard"},{id:"ti-quizzes",label:"Quizzes",href:"Manage-Quizzes.html"},{id:"ti-cbt",label:"Computer Based Trainings",href:"Manage-CBTs.html"},{id:"ti-surveys",label:"Surveys"},
       {id:"ti-tasklists",label:"Tasklists"},{id:"ti-signatures",label:"Signatures"},{id:"ti-classes",label:"Classes"},
     ]},
     { id:"files", label:"Files", icon:"files", children:[ {id:"files-repos",label:"Repositories"} ]},

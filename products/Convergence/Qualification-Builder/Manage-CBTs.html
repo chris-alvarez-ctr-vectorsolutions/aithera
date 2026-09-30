@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Computer Based Trainings | Convergence LMS</title>
+
+  <!-- Training Import And Creation > Computer Based Trainings: the type-scoped CRUD list for CBTs.
+       Same grid, styling and row handlers as Manage-Activities.html, filtered to type CBT, plus the
+       columns the MVP keeps off the activity library: Publish Status, Configurability and Learning Studio
+       (not every CBT is Learning Studio editable). Edit opens the unified editor on its Content page in
+       the legacy layout; the tab bar there switches to Details. -->
+
+  <!-- Convergence chrome (topnav + admin sidenav + breadcrumb) -->
+  <link rel="stylesheet" href="../_shell/chrome.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <!-- Vector design system: themed badge (theme="badge ...") for the status pills -->
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <!-- AG Grid (community) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-grid.css"/>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/styles/ag-theme-quartz.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/dist/ag-grid-community.min.js"></script>
+  <!-- Shared activity data: the type list + the records, same source as Manage-Activities.html and the editor -->
+  <script src="activity-types.js"></script>
+  <script src="activities-data.js"></script>
+
+  <style>
+    :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; --background-color:#f5f9fd; }
+    #cv-page { font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:#1a1a2e; background:var(--background-color); }
+    #cv-content { background: var(--background-color); padding: 0; }
+    .mgmt-page { padding:24px 28px 40px; }
+
+    .mgmt-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
+    .mgmt-header h1 { font-size:22px; font-weight:700; color:#1a1a2e; margin:0; }
+    .mgmt-header .sub { font-size:13px; color:#6b7280; margin-top:3px; }
+
+    .btn { font-family:inherit; font-size:13px; font-weight:600; border-radius:7px; padding:9px 15px; cursor:pointer; border:1px solid transparent; display:inline-flex; align-items:center; gap:7px; text-decoration:none; transition:background .12s,border-color .12s,color .12s; }
+    .btn-primary { background:var(--vblue); color:#fff; }
+    .btn-primary:hover { background:var(--vblue-hover); }
+    .btn-secondary { background:#fff; color:#374151; border-color:#d4d9e0; }
+    .btn-secondary:hover { background:#f3f4f6; }
+    .btn-sm { padding:7px 12px; font-size:12.5px; }
+    .btn-secondary.danger { color:#dc2626; border-color:#f0b4b4; }
+    .btn-secondary.danger:hover { background:#fee2e2; }
+    .btn.btn-danger { background:#dc2626; color:#fff; border-color:#dc2626; }
+    .btn.btn-danger:hover { background:#b91c1c; border-color:#b91c1c; }
+
+    .mgmt-toolbar { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+    .search-wrap { position:relative; }
+    .search-wrap i { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:12px; }
+    .search-wrap input { width:300px; height:36px; border:1px solid #d4d9e0; border-radius:7px; padding:0 12px 0 32px; font-family:inherit; font-size:13px; outline:none; background:#fff; }
+    .search-wrap input:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
+
+    /* AG Grid theming (matches the Activities page) */
+    .ag-theme-quartz {
+      --ag-font-family:"Open Sans","Segoe UI",Arial,sans-serif; --ag-font-size:13px;
+      --ag-header-background-color:#f8fafc; --ag-header-foreground-color:#475569; --ag-header-font-weight:600;
+      --ag-row-hover-color:var(--vblue-10); --ag-selected-row-background-color:var(--vblue-10);
+      --ag-border-color:#e5e9ef; --ag-row-border-color:#eef1f5; --ag-accent-color:var(--vblue); --ag-cell-horizontal-padding:16px;
+      border:1px solid #e5e9ef; border-radius:10px; overflow:hidden; background:#fff; box-shadow:0 1px 3px rgba(16,24,40,.04);
+    }
+    .ag-theme-quartz .ag-cell { display:flex; align-items:center; }
+    .ag-theme-quartz .ag-cell[col-id="select"] { padding-left:0; padding-right:0; justify-content:center; }
+    .ag-theme-quartz .ag-cell[col-id="select"] .ag-cell-wrapper { display:flex; width:100%; justify-content:center; align-items:center; }
+    .ag-theme-quartz .ag-cell[col-id="select"] .ag-cell-value { display:none; }
+    .ag-theme-quartz .ag-cell[col-id="select"] .ag-selection-checkbox { margin:0; }
+    .ag-theme-quartz .ag-header-cell[col-id="select"] { padding-left:0; padding-right:0; }
+    .ag-theme-quartz .ag-header-cell[col-id="select"] .ag-header-cell-comp-wrapper { justify-content:center; }
+    .ag-theme-quartz .ag-header-cell[col-id="select"] .ag-header-select-all { margin:0; }
+    .ag-theme-quartz .ag-cell[col-id="actions"] { padding-left:8px; padding-right:8px; justify-content:flex-end; }
+    .ag-theme-quartz .ag-header-cell[col-id="actions"] { padding-left:8px; padding-right:8px; }
+    .ag-theme-quartz span[theme~="badge"] { font-size: 13.5px; }
+
+    .cell-name-wrap { line-height:1.35; padding:7px 0; }
+    .cell-name { font-weight:600; font-size:13.5px; color:#1a1a2e; }
+    .cell-name-link { text-decoration:none; cursor:pointer; }
+    .cell-name-link:hover { color:var(--vblue); text-decoration:underline; }
+    .cell-desc { font-size:11.5px; color:#9ca3af; margin-top:1px; max-width:480px; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
+    .cell-version { font-size:12px; color:#475569; font-family:ui-monospace,"SF Mono",monospace; }
+    .cell-muted { font-size:12.5px; color:#9ca3af; }
+    .cell-meta { font-size:12.5px; color:#374151; }
+    .cell-loc { display:flex; align-items:flex-start; gap:6px; font-size:12.5px; color:#6b7280; }
+    .cell-loc i { color:#9ca3af; font-size:11px; flex-shrink:0; margin-top:3px; }
+    .cell-loc .loc-text { line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; }
+
+    /* Actionable Configurability badge (same as the Activities page): reveals a suffix icon on hover */
+    .act-badge { cursor: pointer; }
+    .act-badge .ab-suffix { display: none; align-items: center; margin-left: 5px; }
+    .act-badge:hover .ab-suffix, .act-badge:focus-visible .ab-suffix { display: inline-flex; }
+    .ag-theme-quartz .ag-row:hover .act-badge .ab-suffix { display: inline-flex; }
+    .act-badge .ab-suffix svg { width: 14px; height: 14px; display: block; }
+    .act-badge:focus-visible { outline: 2px solid var(--vblue); outline-offset: 1px; }
+    /* Purple "Learning Studio" badge (recolors the default Lumo badge, keeping the same size/shape) */
+    .ls-badge[theme~="badge"] { background-color: #f3e8ff !important; color: #6d28d9 !important; }
+
+    .row-actions { display:flex; gap:4px; align-items:center; justify-content:flex-end; width:100%; }
+    .row-action-btn { width:30px; height:30px; border:none; background:transparent; border-radius:6px; color:#6b7280; cursor:pointer; font-size:13px; display:inline-flex; align-items:center; justify-content:center; }
+    .row-action-btn:hover { background:#eef1f5; color:#374151; }
+    /* The Learning Studio launcher: the AI sparkle, tinted so it reads as a distinct action */
+    .row-action-btn.ls { color:#6d28d9; }
+    .row-action-btn.ls:hover { background:#f3e8ff; color:#5b21b6; }
+    .row-dropdown { position:fixed; background:#fff; border:1px solid #e5e9ef; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.14); z-index:9999; min-width:190px; padding:4px; }
+    .row-dropdown-item { display:flex; align-items:center; gap:9px; width:100%; padding:8px 12px; border:none; background:none; font-family:inherit; font-size:13px; color:#374151; cursor:pointer; border-radius:6px; text-align:left; }
+    .row-dropdown-item:hover { background:#f3f4f6; }
+    .row-dropdown-item.danger { color:#dc2626; }
+    .row-dropdown-item.danger:hover { background:#fee2e2; }
+    .row-dropdown-item i { width:14px; text-align:center; font-size:12px; color:#9ca3af; }
+    .row-dropdown-item .dd-gears { width:15px; height:15px; flex-shrink:0; color:#9ca3af; }
+    .row-dropdown-item.danger i { color:#dc2626; }
+    .row-dropdown-divider { height:1px; background:#e5e9ef; margin:4px 0; }
+
+    .bulk-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--vblue-10); border:1px solid #b6dcfa; border-radius:8px; padding:8px 10px 8px 14px; margin-bottom:12px; }
+    .bulk-bar.hidden { display:none; }
+    .bulk-bar-left { display:flex; align-items:center; gap:8px; }
+    .bulk-count { font-size:13px; font-weight:700; color:#0b3d66; }
+    .bulk-clear { width:26px; height:26px; border:none; background:none; border-radius:5px; color:#0b3d66; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+    .bulk-clear:hover { background:rgba(2,113,206,.14); }
+    .bulk-bar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+
+    .grid-footer { display:flex; align-items:center; justify-content:space-between; font-size:12px; color:#6b7280; padding:10px 2px 0; }
+
+    .mgmt-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); background:#1f2937; color:#fff; padding:10px 18px; border-radius:8px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:1100; }
+    .mgmt-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* Confirm dialogs (deactivate, delete with impact, Learning Studio): same as the Activities page */
+    .confirm-overlay { position:fixed; inset:0; background:rgba(15,23,42,.45); z-index:3000; display:flex; align-items:center; justify-content:center; }
+    .confirm-overlay.hidden { display:none; }
+    .confirm-dialog { background:#fff; border-radius:12px; width:460px; max-width:calc(100vw - 48px); padding:26px 28px 22px; box-shadow:0 25px 60px rgba(0,0,0,.2); }
+    .confirm-dialog .cd-icon { font-size:30px; color:#f59e0b; margin-bottom:12px; }
+    .confirm-dialog .cd-icon.danger { color:#dc2626; }
+    .confirm-dialog h3 { font-size:16px; font-weight:700; color:#1a1a2e; margin:0 0 8px; }
+    .confirm-dialog p { font-size:13px; color:#6b7280; line-height:1.6; margin:0 0 18px; }
+    .confirm-dialog p strong { color:#1a1a2e; }
+    .confirm-dialog .cd-btns { display:flex; gap:8px; justify-content:flex-end; }
+    .delete-dialog { width:600px; }
+    .del-intro { font-size:13px; color:#6b7280; line-height:1.55; margin-bottom:14px; }
+    .del-intro strong { color:#1a1a2e; }
+    .del-tabs { display:flex; gap:2px; border-bottom:1px solid #e5e9ef; }
+    .del-tabs.hidden { display:none; }
+    .del-tab { border:none; background:none; font-family:inherit; font-size:12.5px; font-weight:600; color:#6b7280; padding:9px 12px; cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; display:inline-flex; align-items:center; gap:7px; }
+    .del-tab:hover { color:#1a1a2e; }
+    .del-tab.active { color:var(--vblue); border-bottom-color:var(--vblue); }
+    .del-tab-count { font-size:11px; font-weight:700; color:#6b7280; background:#eef1f5; border-radius:10px; padding:1px 7px; }
+    .del-tab.active .del-tab-count { color:var(--vblue); background:var(--vblue-10); }
+    .del-grid { height:352px; margin-top:12px; }
+    .del-tabs:not(.hidden) + .del-grid { margin-top:0; border-top-left-radius:0; border-top-right-radius:0; }
+    .del-grid .du-name { font-weight:600; color:#1a1a2e; }
+    .del-note { font-size:13px; color:#6b7280; line-height:1.6; margin:16px 0 18px; }
+    .ls-warning { display:flex; gap:12px; align-items:flex-start; background:#fff8f3; border:1px solid #f1d8c0; border-radius:8px; padding:14px 16px; margin-bottom:18px; }
+    .ls-warning i { color:#c2520e; font-size:20px; flex-shrink:0; margin-top:1px; }
+    .ls-warning p { font-size:12.5px; font-weight:600; color:#1a1a2e; line-height:1.55; margin:0; }
+
+    /* View Assignments modal (same as Manage Qualifications) */
+    .assign-overlay { position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:1000; display:flex; align-items:center; justify-content:center; }
+    .assign-overlay.hidden { display:none; }
+    .assign-modal { background:#fff; border-radius:12px; width:860px; max-width:94vw; max-height:90vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.22); overflow:hidden; }
+    .assign-head { display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e5e9ef; }
+    .assign-head h2 { font-size:17px; font-weight:700; color:#1a1a2e; margin:0; }
+    .assign-close { width:30px; height:30px; border:none; background:none; cursor:pointer; color:#9ca3af; border-radius:6px; font-size:15px; display:flex; align-items:center; justify-content:center; }
+    .assign-close:hover { background:#f3f4f6; color:#374151; }
+    .assign-body { padding:6px 22px 18px; overflow-y:auto; }
+    .assign-intro { font-size:13px; color:#6b7280; margin:12px 0 14px; line-height:1.5; }
+    .assign-table { width:100%; border-collapse:collapse; }
+    .assign-table th { text-align:left; font-size:11px; font-weight:700; color:#9ca3af; padding:8px 10px; border-bottom:1px solid #e5e9ef; }
+    .assign-table td { font-size:13px; color:#374151; padding:10px; border-bottom:1px solid #f3f4f6; }
+    .assign-id { color:var(--vblue); font-weight:700; text-decoration:none; }
+    .assign-id:hover { text-decoration:underline; }
+    .assign-empty { padding:40px 16px; text-align:center; color:#9ca3af; font-size:14px; }
+    .assign-empty i { font-size:32px; color:#cbd5e1; display:block; margin-bottom:12px; }
+    .assign-foot { padding:14px 22px; border-top:1px solid #e5e9ef; display:flex; justify-content:flex-end; gap:8px; }
+  </style>
+</head>
+<body>
+
+<div id="cv-page">
+  <div class="mgmt-page">
+
+    <div class="mgmt-header">
+      <div>
+        <h1>Computer Based Trainings</h1>
+        <div class="sub">Manage course packages: uploaded SCORM, Vector Solutions courses, and courses customized in Learning Studio. Publish status shows whether the current version has been released to learners.</div>
+      </div>
+      <div>
+        <button class="btn btn-primary" onclick="showToast('Opening the Content Wizard to import a course package (prototype).')"><i class="fa-solid fa-plus"></i> Content Wizard</button>
+      </div>
+    </div>
+
+    <div class="mgmt-toolbar">
+      <div class="search-wrap">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="quick-filter" placeholder="Search computer based trainings..." oninput="onSearch(this.value)"/>
+      </div>
+      <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+        <button class="btn btn-secondary btn-sm" onclick="showToast('Exported the current view (prototype).')"><i class="fa-solid fa-download"></i> Export</button>
+      </div>
+    </div>
+
+    <div class="bulk-bar hidden" id="bulk-bar">
+      <div class="bulk-bar-left">
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+        <button class="bulk-clear" onclick="clearSelection()" title="Clear selection"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="bulk-bar-actions">
+        <button class="btn btn-secondary btn-sm" onclick="bulkActivate()"><i class="fa-solid fa-circle-play"></i> Activate</button>
+        <button class="btn btn-secondary btn-sm" onclick="bulkDeactivate()"><i class="fa-solid fa-circle-stop"></i> Deactivate</button>
+        <button class="btn btn-secondary btn-sm danger" onclick="bulkDelete()"><i class="fa-regular fa-trash-can"></i> Delete</button>
+      </div>
+    </div>
+
+    <div id="cbt-grid" class="ag-theme-quartz" style="width:100%;"></div>
+    <div class="grid-footer">
+      <span id="row-count"></span>
+      <span>Vector LMS, Convergence Training Edition</span>
+    </div>
+
+  </div>
+  <div class="mgmt-toast" id="mgmt-toast"></div>
+</div>
+
+<!-- Deactivate confirmation -->
+<div class="confirm-overlay hidden" id="deactivate-overlay">
+  <div class="confirm-dialog">
+    <div class="cd-icon"><i class="fa-solid fa-circle-stop"></i></div>
+    <h3 id="deactivate-title">Deactivate this activity?</h3>
+    <p id="deactivate-body">Deactivating hides this activity from the activity picker, so it cannot be added to new requirements. It stays in every requirement and qualification that already uses it, learner progress and records are unaffected, and you can reactivate it at any time.</p>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeDeactivate()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmDeactivateAction()">Deactivate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete confirmation (deletion impact: qualifications, requirements and users affected) -->
+<div class="confirm-overlay hidden" id="delete-overlay">
+  <div class="confirm-dialog delete-dialog">
+    <div class="cd-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <h3 id="delete-title">Delete this activity?</h3>
+    <p class="del-intro" id="delete-intro"></p>
+    <div class="del-tabs" id="delete-tabs"></div>
+    <div id="delete-grid" class="ag-theme-quartz del-grid"></div>
+    <p class="del-note">Deleting is permanent and cannot be undone.</p>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeDelete()">Cancel</button>
+      <button class="btn btn-danger btn-sm" onclick="confirmDeleteAction()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit in Learning Studio confirmation (same dialog as the Activities page) -->
+<div class="confirm-overlay hidden" id="ls-overlay">
+  <div class="confirm-dialog">
+    <h3>Edit in Learning Studio</h3>
+    <p>This will duplicate <strong id="ls-activity-name">this activity</strong> to create a new, customizable course in Learning Studio. Learning Studio will then open so you can make your edits.</p>
+    <div class="ls-warning" id="ls-warning">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <p>You are creating a copy of a Vector Solutions course. Changes to this course may impact its ability to meet regulatory, certification, or compliance requirements. You are responsible for ensuring compliance is maintained after any modifications.</p>
+    </div>
+    <div class="cd-btns">
+      <button class="btn btn-secondary btn-sm" onclick="closeLearningStudio()">Back</button>
+      <button class="btn btn-primary btn-sm" onclick="confirmLearningStudio()"><i class="fa-solid fa-check"></i> Launch in Learning Studio</button>
+    </div>
+  </div>
+</div>
+
+<!-- View Assignments -->
+<div class="assign-overlay hidden" id="assign-overlay">
+  <div class="assign-modal">
+    <div class="assign-head">
+      <h2 id="assign-title">Assignments</h2>
+      <button class="assign-close" onclick="closeAssignments()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="assign-body" id="assign-body"></div>
+    <div class="assign-foot">
+      <button class="btn btn-secondary" onclick="closeAssignments()">Close</button>
+      <button class="btn btn-primary" onclick="newAssignment()"><i class="fa-solid fa-plus"></i> New Assignment</button>
+    </div>
+  </div>
+</div>
+
+<!-- Convergence chrome -->
+<script>
+  window.SHELL_CONFIG = { active: 'ti-cbt', parent: 'Training Import And Creation', title: 'Computer Based Trainings' };
+</script>
+<script src="../_shell/chrome.js"></script>
+
+<script>
+/* Only the CBT records from the shared list. THE RULE from the Activities page holds: every CBT is
+   configurable and editable in Learning Studio; no other type is. */
+const CBTS = window.ACTIVITIES.filter(a => a.type === 'CBT');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* Edit opens the existing Edit Content page first (legacy layout); the tab bar there switches to Details.
+   Accredited Vector Solutions content opens read-only (&mode=view via the shared helper). */
+function cbtEditHref(a){ return editActivityHref(a, 'content') + '&layout=legacy&from=cbt'; }
+
+/* ─── Cell renderers (same as the Activities page) ─── */
+function nameRenderer(p){
+  const a = p.data;
+  return `<div class="cell-name-wrap">
+    <a class="cell-name cell-name-link" href="${cbtEditHref(a)}">${esc(a.name)}</a>
+    <div class="cell-desc">${esc(a.desc)}</div>
+  </div>`;
+}
+function versionRenderer(p){ return `<span class="cell-version">${esc(p.value) || '-'}</span>`; }
+/* Publish Status: only this page shows it. Draft = the current content is not yet released to learners
+   (a Learning Studio course still being authored); Published = released. Uploaded SCORM and Vector
+   Solutions courses have no draft state, so they always read Published. */
+function publishRenderer(p){
+  return p.value === 'Published'
+    ? `<span theme="badge success">Published</span>`
+    : `<span theme="badge contrast">Draft</span>`;
+}
+function statusRenderer(p){
+  const conn = p.value === 'Active' ? 'success' : 'contrast';
+  return `<span theme="badge dot ${conn}">${p.value}</span>`;
+}
+function locationRenderer(p){
+  const full = p.value || '';
+  const parts = full.split(/[›>]/).map(s => s.trim()).filter(Boolean);
+  if (!parts.length) return `<span class="cell-muted">-</span>`;
+  return `<span class="cell-loc" title="${esc(full)}"><i class="fa-solid fa-location-dot"></i><span class="loc-text">${esc(parts[parts.length - 1])}</span></span>`;
+}
+function fileTypeRenderer(p){ return p.value ? `<span class="cell-meta">${esc(p.value)}</span>` : `<span class="cell-muted">-</span>`; }
+function sizeRenderer(p){ return `<span class="cell-muted">${esc(p.value) || '-'}</span>`; }
+/* License Type: Private (the organization's own) or Public (Vector Solutions) */
+function licenseRenderer(p){
+  return p.value === 'Public'
+    ? `<span theme="badge">Public</span>`
+    : `<span theme="badge contrast">Private</span>`;
+}
+function repoRenderer(p){ return p.value ? `<span class="cell-loc"><span class="loc-text">${esc(p.value)}</span></span>` : `<span class="cell-muted">-</span>`; }
+
+/* Three-gear "configure" icon + sparkle, shared with the Activities page */
+const GEAR_D = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z";
+function gearsSvg(px, cls){
+  const g = (t, s) => `<path transform="translate(${t}) scale(${s})" d="${GEAR_D}"/>`;
+  return `<svg class="${cls || ''}" viewBox="0 0 24 24" width="${px}" height="${px}" fill="currentColor" fill-rule="evenodd" aria-hidden="true">${g('-1.04,5.36', 0.72)}${g('12.48,1.48', 0.46)}${g('12.48,11.48', 0.46)}</svg>`;
+}
+const SPARKLE_D = "M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5zM19 15l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z";
+function sparkleSvg(px){ return `<svg viewBox="0 0 24 24" width="${px}" height="${px}" fill="currentColor" aria-hidden="true"><path d="${SPARKLE_D}"/></svg>`; }
+
+function actionableBadge(opts){
+  const span = document.createElement('span');
+  span.setAttribute('theme', opts.theme);
+  span.className = 'act-badge' + (opts.extraClass ? ' ' + opts.extraClass : '');
+  span.title = opts.title;
+  span.setAttribute('role', 'button');
+  span.tabIndex = 0;
+  span.innerHTML = opts.label + `<span class="ab-suffix">${opts.icon}</span>`;
+  const fire = ev => { ev.stopPropagation(); opts.onClick(); };
+  span.addEventListener('click', fire);
+  span.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fire(e); } });
+  return span;
+}
+function mutedDash(title){ const s = document.createElement('span'); s.className = 'cell-muted'; s.textContent = '-'; if (title) s.title = title; return s; }
+function configRenderer(p){
+  return p.value
+    ? actionableBadge({ theme:'badge dot success', label:'Configurable', icon: gearsSvg(14), title:'Configure content', onClick: () => launchConfigure(p.data) })
+    : mutedDash('This course package cannot be configured');
+}
+function launchConfigure(a){ showToast('Opening content configuration for "' + a.name + '" (prototype).'); }
+/* Learning Studio: an actionable purple badge when the course can be customized there, otherwise a dash whose
+   tooltip says why (licensed third-party course, or an uploaded package Learning Studio cannot customize). */
+function lsRenderer(p){
+  return p.value
+    ? actionableBadge({ theme:'badge dot', extraClass:'ls-badge', label:'Editable', icon: sparkleSvg(14), title:'Edit in Learning Studio', onClick: () => openLearningStudio(p.data) })
+    : mutedDash(p.data.lsReason || 'Not editable in Learning Studio');
+}
+
+/* Shared floating dropdown */
+let activeDropdown = null;
+function closeDropdown(){ if (activeDropdown){ activeDropdown.remove(); activeDropdown = null; } }
+function showDropdown(btn, items){
+  closeDropdown();
+  const dd = document.createElement('div');
+  dd.className = 'row-dropdown';
+  items.forEach(item => {
+    if (item.divider){ const d = document.createElement('div'); d.className = 'row-dropdown-divider'; dd.appendChild(d); return; }
+    const b = document.createElement('button');
+    b.className = 'row-dropdown-item' + (item.danger ? ' danger' : '');
+    b.innerHTML = `${item.iconHtml || `<i class="${item.icon}"></i>`} ${item.label}`;
+    b.addEventListener('click', e => { e.stopPropagation(); closeDropdown(); item.action(); });
+    dd.appendChild(b);
+  });
+  document.body.appendChild(dd);
+  activeDropdown = dd;
+  const rect = btn.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 4) + 'px';
+  dd.style.right = (window.innerWidth - rect.right) + 'px';
+  setTimeout(() => document.addEventListener('click', closeDropdown, { once:true }), 0);
+}
+
+/* ─── Actions column: Learning Studio (AI sparkle), Edit or View, kebab ─── */
+function actionsRenderer(p){
+  const e = document.createElement('div');
+  e.className = 'row-actions';
+  // Edit permission: the mock's only permission signal is the record's `editable` flag
+  // (false for accredited Vector Solutions content). A pencil edits; an eye opens read-only.
+  const canEdit = p.data.editable !== false;
+  const openBtn = canEdit
+    ? `<button class="row-action-btn" title="Edit"><i class="fa-solid fa-pencil"></i></button>`
+    : `<button class="row-action-btn" title="View (read-only)"><i class="fa-regular fa-eye"></i></button>`;
+  // The Learning Studio launcher shows only for courses Learning Studio can customize. It is leftmost and the
+  // row is right-aligned, so Edit/View and More keep their position when it is absent.
+  const sparkle = p.data.lsEditable ? `<button class="row-action-btn ls" title="Edit with Learning Studio">${sparkleSvg(15)}</button>` : '';
+  e.innerHTML =
+    `${sparkle}
+     ${openBtn}
+     <button class="row-action-btn" title="More actions"><i class="fa-solid fa-ellipsis-vertical"></i></button>`;
+  const lsBtn = e.querySelector('.ls');
+  if (lsBtn) lsBtn.addEventListener('click', ev => { ev.stopPropagation(); openLearningStudio(p.data); });
+  e.querySelector(canEdit ? '[title="Edit"]' : '[title="View (read-only)"]').addEventListener('click', () => { window.location.href = cbtEditHref(p.data); });
+  const moreBtn = e.querySelector('[title="More actions"]');
+  moreBtn.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const isActive = p.data.status === 'Active';
+    showDropdown(moreBtn, [
+      { icon: isActive ? 'fa-solid fa-circle-stop' : 'fa-solid fa-circle-play',
+        label: isActive ? 'Deactivate' : 'Activate',
+        action: () => {
+          const apply = () => { p.data.status = isActive ? 'Inactive' : 'Active'; persistActivity(p.data); gridApi.applyTransaction({ update:[p.data] }); gridApi.refreshCells({ rowNodes:[p.node], columns:['status','actions'], force:true }); };
+          if (isActive) openDeactivate({ title: 'Deactivate "' + p.data.name + '"?', onConfirm: apply }); else apply();
+        } },
+      // Configure only for configurable CBTs (mirrors the Configurability column)
+      ...(p.data.configurable ? [{ iconHtml: gearsSvg(15, 'dd-gears'), label:'Configure', action: () => launchConfigure(p.data) }] : []),
+      { icon:'fa-regular fa-eye', label:'Preview', action: () => window.open(previewActivityHref(p.data), '_blank') },
+      { icon:'fa-solid fa-users', label:'View Assignments', action: () => openAssignments(p.data) },
+      { divider: true },
+      { icon:'fa-regular fa-trash-can', label:'Delete', danger:true, action: () => openDeleteConfirm([p.data]) },
+    ]);
+  });
+  return e;
+}
+
+/* ─── Grid ─── */
+let gridApi = null;
+const gridOptions = {
+  rowData: CBTS,
+  columnDefs: [
+    { colId:'select', width:46, maxWidth:46, pinned:'left', checkboxSelection:true, sortable:false, filter:false, resizable:false, suppressMovable:true, suppressHeaderMenuButton:true },
+    { headerName:'Name',            field:'name',          flex:2.4, minWidth:320, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
+    { headerName:'Version',         field:'version',       width:100, cellRenderer:versionRenderer },
+    { headerName:'Publish Status',  field:'publishStatus', width:145, cellRenderer:publishRenderer },
+    { headerName:'Status',          field:'status',        width:120, cellRenderer:statusRenderer },
+    { headerName:'Location',        field:'location',      flex:1.3, minWidth:170, cellRenderer:locationRenderer },
+    { headerName:'Configurability', field:'configurable',  width:160, cellRenderer:configRenderer },
+    { headerName:'Learning Studio', field:'lsEditable',    width:160, cellRenderer:lsRenderer },
+    { headerName:'File Type',       field:'fileType',      width:120, cellRenderer:fileTypeRenderer },
+    { headerName:'Size',            field:'size',          width:90,  cellRenderer:sizeRenderer },
+    { headerName:'License Type',    field:'license',       width:130, cellRenderer:licenseRenderer },
+    { headerName:'Repository Name', field:'repository',    width:200, cellRenderer:repoRenderer },
+    { headerName:'Actions', colId:'actions', width:140, cellRenderer:actionsRenderer, sortable:false, filter:false, resizable:false, pinned:'right' },
+  ],
+  defaultColDef: { sortable:true, resizable:true, filter:true },
+  rowHeight: 68, headerHeight: 44, animateRows: true, suppressCellFocus: true,
+  rowSelection: 'multiple', suppressRowClickSelection: true,
+  pagination: true, paginationPageSize: 10, paginationPageSizeSelector: [10, 25, 50],
+  domLayout: 'autoHeight',
+  onGridReady: () => updateCount(),
+  onModelUpdated: () => updateCount(),
+  onSelectionChanged: () => updateBulkBar(),
+};
+function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); }
+function updateCount(){
+  if (!gridApi) return;
+  const el = document.getElementById('row-count');
+  if (el) el.textContent = 'Showing ' + gridApi.getDisplayedRowCount() + ' of ' + CBTS.length + ' computer based trainings';
+}
+
+/* ─── Selection + bulk ─── */
+function updateBulkBar(){
+  if (!gridApi) return;
+  const n = gridApi.getSelectedNodes().length;
+  const bar = document.getElementById('bulk-bar');
+  if (n > 0){ bar.classList.remove('hidden'); document.getElementById('bulk-count').textContent = n + ' selected'; }
+  else bar.classList.add('hidden');
+}
+function clearSelection(){ if (gridApi) gridApi.deselectAll(); }
+function bulkRows(){ return gridApi ? gridApi.getSelectedRows() : []; }
+function bulkSetStatus(status){
+  const rows = bulkRows(); if (!rows.length) return;
+  rows.forEach(r => { r.status = status; persistActivity(r); });
+  gridApi.applyTransaction({ update: rows });
+  gridApi.refreshCells({ force:true, columns:['status'] });
+  showToast(rows.length + ' course' + (rows.length !== 1 ? 's' : '') + ' ' + (status === 'Active' ? 'activated' : 'deactivated'));
+}
+function bulkActivate(){ bulkSetStatus('Active'); }
+function bulkDeactivate(){
+  const rows = bulkRows(); if (!rows.length) return;
+  openDeactivate({ title: 'Deactivate ' + rows.length + ' course' + (rows.length !== 1 ? 's' : '') + '?', onConfirm: () => bulkSetStatus('Inactive') });
+}
+function bulkDelete(){ const rows = bulkRows(); if (rows.length) openDeleteConfirm(rows); }
+
+/* ─── Deactivate confirmation (same as the Activities page) ─── */
+let _deactivateCb = null;
+function openDeactivate(opts){
+  opts = opts || {};
+  document.getElementById('deactivate-title').textContent = opts.title || 'Deactivate this activity?';
+  _deactivateCb = opts.onConfirm || null;
+  document.getElementById('deactivate-overlay').classList.remove('hidden');
+}
+function closeDeactivate(){ document.getElementById('deactivate-overlay').classList.add('hidden'); _deactivateCb = null; }
+function confirmDeactivateAction(){ const cb = _deactivateCb; closeDeactivate(); if (cb) cb(); }
+
+/* ─── Delete confirmation with impact tabs (same as the Activities page) ─── */
+const DEL_FIRST = ['Misa','Brandon','Andy','Clare','Jordan','Priya','Marcus','Sofia','Liam','Hana','Diego','Amara','Noah','Yuki','Ellie','Omar','Grace','Tariq','Nina','Caleb','Ava','Mateo','Zara','Ruben','Freya','Kenji','Lucia','Sam','Ingrid','Devon'];
+const DEL_LAST = ['Escalera','Orlando','Xia','Epstein','Lee','Nair','Bell','Ramirez','Byrne','Kim','Torres','Okafor','Schmidt','Tanaka','Novak','Haddad','Lin','Aziz','Petrov','Wright','Fischer','Rossi','Malik','Diaz','Larsen','Watanabe','Moreno','Okoye','Holt','Clarke'];
+const DEL_SITES = ['Orlando › Line 3','Orlando › Warehouse','Orlando › Facilities','Orlando › Welding Shop','Orlando › Maintenance','Orlando › Safety','Orlando › Construction','Orlando › Hot Work'];
+function genUsers(n){ const out=[]; for(let i=0;i<n;i++){ out.push({ name: DEL_LAST[(i*7+3)%DEL_LAST.length]+', '+DEL_FIRST[i%DEL_FIRST.length], site: DEL_SITES[i%DEL_SITES.length] }); } return out; }
+const USER_COLS = [{ headerName:'Name', field:'name', flex:1.3, cellClass:'du-name' }, { headerName:'Location', field:'site', flex:1.7 }];
+const QUAL_COLS = [{ headerName:'Qualification', field:'name', flex:1, cellClass:'du-name' }];
+const REQ_COLS  = [{ headerName:'Requirement', field:'name', flex:1, cellClass:'du-name' }];
+let _deleteRows = null, _delTabs = [], _delActive = 0, delGridApi = null;
+function openDeleteConfirm(rows){
+  rows = (rows||[]).filter(Boolean); if(!rows.length) return;
+  _deleteRows = rows;
+  const single = rows.length === 1;
+  document.getElementById('delete-title').textContent = single ? 'Delete "' + rows[0].name + '"?' : 'Delete ' + rows.length + ' courses?';
+  const quals = [...new Set(rows.flatMap(a => a.quals || []))].map(n => ({ name:n }));
+  const reqs  = [...new Set(rows.map(a => a.requirement).filter(Boolean))].map(n => ({ name:n }));
+  const users = genUsers(rows.reduce((s,a)=>s+(a.learners||0), 0));
+  _delTabs = [
+    { label:'Qualifications', columnDefs:QUAL_COLS, rowData:quals },
+    { label:'Requirements',   columnDefs:REQ_COLS,  rowData:reqs },
+    { label:'Users',          columnDefs:USER_COLS, rowData:users },
+  ];
+  document.getElementById('delete-intro').innerHTML = 'Deleting ' + (single?'this course':'these courses') + ' affects <strong>' + quals.length + ' qualification' + (quals.length!==1?'s':'') + '</strong>, <strong>' + reqs.length + ' requirement' + (reqs.length!==1?'s':'') + '</strong>, and <strong>' + users.length.toLocaleString() + ' user' + (users.length!==1?'s':'') + '</strong>. Review what is affected before deleting.';
+  _delActive = 0; renderDelTabs();
+  document.getElementById('delete-overlay').classList.remove('hidden');
+  requestAnimationFrame(delShowGrid);
+}
+function renderDelTabs(){
+  const bar = document.getElementById('delete-tabs');
+  bar.classList.remove('hidden');
+  bar.innerHTML = _delTabs.map((t,i)=>`<button class="del-tab ${i===_delActive?'active':''}" onclick="delSelectTab(${i})">${t.label} <span class="del-tab-count">${t.rowData.length}</span></button>`).join('');
+}
+function delSelectTab(i){ _delActive=i; renderDelTabs(); delShowGrid(); }
+function delShowGrid(){
+  const tab=_delTabs[_delActive]; if(!tab) return;
+  const el=document.getElementById('delete-grid');
+  if(delGridApi){ delGridApi.setGridOption('columnDefs', tab.columnDefs); delGridApi.setGridOption('rowData', tab.rowData); delGridApi.paginationGoToFirstPage(); }
+  else if(window.agGrid && el){ delGridApi = agGrid.createGrid(el, { columnDefs: tab.columnDefs, rowData: tab.rowData, defaultColDef: { sortable:true, resizable:true, flex:1 }, headerHeight:44, rowHeight:44, suppressCellFocus:true, pagination:true, paginationAutoPageSize:true }); }
+}
+function closeDelete(){ document.getElementById('delete-overlay').classList.add('hidden'); _deleteRows = null; if(delGridApi){ delGridApi.destroy(); delGridApi=null; } }
+function confirmDeleteAction(){
+  const rows = _deleteRows || []; closeDelete();
+  if(!rows.length) return;
+  rows.forEach(r => { deleteActivityRecord(r.id); const i = CBTS.indexOf(r); if (i >= 0) CBTS.splice(i, 1); });
+  gridApi.applyTransaction({ remove: rows }); updateCount(); updateBulkBar();
+  showToast('Deleted ' + rows.length + ' course' + (rows.length!==1?'s':'') + ' (prototype).');
+}
+
+/* ─── Edit with Learning Studio ───
+   TODO(Learning Studio): there is no real integration in the prototype. This reuses the Activities
+   page's dialog: a Learning Studio course opens directly; any other course is duplicated as a Draft
+   Learning Studio copy (accredited content shows the compliance warning). Replace with the SSO launch
+   (short-lived JWT form-POST, see the Learning Studio PRD, FR4) when the integration exists. */
+let _lsActivity = null;
+function openLearningStudio(a){
+  if (!a || !a.lsEditable){ showToast(a && a.lsReason ? a.lsReason + '.' : 'This course cannot be edited in Learning Studio.'); return; }
+  if (a.source === 'Learning Studio'){ showToast('Opening "' + a.name + '" in Learning Studio to edit (prototype).'); return; }
+  _lsActivity = a;
+  document.getElementById('ls-activity-name').textContent = a.name;
+  document.getElementById('ls-warning').style.display = (a.source === 'Vector Solutions') ? '' : 'none';
+  document.getElementById('ls-overlay').classList.remove('hidden');
+}
+function closeLearningStudio(){ document.getElementById('ls-overlay').classList.add('hidden'); _lsActivity = null; }
+function confirmLearningStudio(){
+  const a = _lsActivity; closeLearningStudio(); if (!a) return;
+  const copy = Object.assign({}, JSON.parse(JSON.stringify(a)), {
+    id: a.id + '-learning-studio', name: a.name + ' (Learning Studio)', source: 'Learning Studio',
+    fileType: 'VSP Content', licenseType: 'None', license: 'Private', publishStatus: 'Draft', updateStatus: 'New',
+    configurable: false, editable: true, lsEditable: true, lsReason: '', versions: [], __new: true,   // a draft cannot be configured until it is released
+  });
+  persistActivity(copy); CBTS.push(copy);
+  if (gridApi) gridApi.applyTransaction({ add: [copy] });
+  updateCount();
+  showToast('Created a Learning Studio copy of "' + a.name + '" and launched Learning Studio (prototype).');
+}
+
+/* ─── View Assignments (same modal as Manage Qualifications, scoped to the course) ─── */
+const ASSIGN_SAMPLE = [
+  { on:'08/12/2026', to:'Orlando › Line 3 (team)' }, { on:'08/04/2026', to:'Escalera, Misa' }, { on:'07/29/2026', to:'Orlando › Warehouse (team)' },
+  { on:'07/21/2026', to:'Orlando, Brandon' }, { on:'07/15/2026', to:'Maintenance Technicians (group)' }, { on:'06/30/2026', to:'Epstein, Clare' },
+  { on:'06/18/2026', to:'Orlando › Facilities (team)' }, { on:'06/02/2026', to:'New Hires 2026 (group)' },
+];
+function assignmentsFor(a){
+  if (a.status !== 'Active') return [];
+  const n = Math.min(a.learners || 0, 40);
+  const out = [];
+  for (let i = 0; i < n; i++){ const s = ASSIGN_SAMPLE[i % ASSIGN_SAMPLE.length]; out.push({ id: String(4100 + i), on: s.on, to: s.to }); }
+  return out;
+}
+let _assignName = '';
+function openAssignments(a){
+  _assignName = a.name;
+  document.getElementById('assign-title').textContent = 'Assignments: ' + a.name;
+  const list = assignmentsFor(a);
+  const body = document.getElementById('assign-body');
+  body.innerHTML = list.length
+    ? '<p class="assign-intro">All active assignments that include <strong>' + esc(a.name) + '</strong> are shown below. Click the "ID" column to edit that assignment.</p>' +
+      '<table class="assign-table"><thead><tr><th>ID</th><th>Assigned On</th><th>Assigned To</th></tr></thead><tbody>' +
+      list.map(x => '<tr><td><a class="assign-id" href="#" onclick="return false">' + x.id + '</a></td><td>' + x.on + '</td><td>' + esc(x.to) + '</td></tr>').join('') + '</tbody></table>'
+    : '<div class="assign-empty"><i class="fa-regular fa-folder-open"></i>No active assignments found for this course.</div>';
+  document.getElementById('assign-overlay').classList.remove('hidden');
+}
+function closeAssignments(){ document.getElementById('assign-overlay').classList.add('hidden'); }
+function newAssignment(){ closeAssignments(); showToast('Opening Assign Training with "' + _assignName + '" preselected (prototype).'); }
+
+/* ─── Toast ─── */
+let _toastTimer = null;
+function showToast(msg){
+  const t = document.getElementById('mgmt-toast'); if (!t) return;
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(_toastTimer); _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+document.addEventListener('click', closeDropdown);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeDropdown(); closeAssignments(); closeDelete(); closeDeactivate(); closeLearningStudio(); } });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('cbt-grid');
+  if (window.agGrid && el) gridApi = agGrid.createGrid(el, gridOptions);
+});
+</script>
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
