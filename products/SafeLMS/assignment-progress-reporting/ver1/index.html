@@ -169,6 +169,16 @@
   .pos-block b { font-weight: 700; }
   .pos-block .at { color: var(--muted); }
 
+  /* Filters set by a click-through from Training Compliance / Training Plans. They stay
+     highlighted until the admin changes them; a single pulse on arrival draws the eye. */
+  .ff.from-drill .ff-trigger { background: var(--lumo-primary-color-10pct, #0271ce1a); border-color: var(--blue-accent);
+    box-shadow: inset 0 0 0 1px var(--blue-accent); }
+  .pos-block.from-drill { background: var(--lumo-primary-color-10pct, #0271ce1a); box-shadow: inset 0 0 0 2px var(--blue-accent); }
+  .pos-block.from-drill .pos-ico { background: #fff; color: var(--blue-accent); }
+  .from-drill.pulse .ff-trigger, .pos-block.from-drill.pulse { animation: drill-pulse 1.4s ease-out 1; }
+  @keyframes drill-pulse { 0% { outline: 6px solid rgba(2,113,206,.35); outline-offset: 0; } 100% { outline: 6px solid rgba(2,113,206,0); outline-offset: 4px; } }
+  @media (prefers-reduced-motion: reduce) { .from-drill.pulse .ff-trigger, .pos-block.from-drill.pulse { animation: none; } }
+
   /* Filter trigger (matches production "Label  Value ▾" outlined selects) */
   .ff { position: relative; }
   .ff-trigger {
@@ -578,14 +588,8 @@ Engagement</button>
 <main class="screen" id="screen-cbe">
   <div class="wrap">
 
-    <!-- Drill-through context banner (only when arriving from Training Compliance) -->
-    <div class="pencil-banner hidden" id="drill-banner">
-      <span class="pb-icon"><i class="fa-solid fa-filter"></i></span>
-      <span class="pb-text" id="drill-text"></span>
-      <button class="pb-action" id="drill-back"><i class="fa-solid fa-arrow-left"></i> Back to Training Compliance</button>
-      <button class="pb-close" aria-label="Dismiss" id="drill-close"><i class="fa-solid fa-xmark"></i></button>
-    </div>
-
+    <!-- No banner on a click-through: the filters it set (position + location, course,
+         status) are highlighted instead, and the report is already run (2026-09-30). -->
     <div class="daterow">
       <span class="date-pill">07/01/2026 <i class="fa-regular fa-calendar"></i> <i class="fa-solid fa-arrow-right arrow"></i> 09/29/2026 <i class="fa-regular fa-calendar"></i></span>
       <button class="help-btn" aria-label="Help">?</button>
@@ -594,9 +598,9 @@ Engagement</button>
 
     <section class="report-card">
       <div class="filters">
-        <div class="pos-block">
+        <div class="pos-block" id="pos-block">
           <span class="pos-ico"><i class="fa-regular fa-users"></i></span>
-          <div><b>All positions</b><br><span class="at">at</span> <b>All Locations</b></div>
+          <div><b id="pos-v">All positions</b><br><span class="at">at</span> <b id="loc-v">All Locations</b></div>
         </div>
 
         <div class="filter-cols">
@@ -827,7 +831,8 @@ Engagement</button>
   // states: any of ns / ip / c.  pastDue: the "Past due" status option — it keeps only the
   // past-due learners of the outstanding states picked (both, if none are picked), which is
   // exactly what today's "Past due" option returns. [] + false = All.
-  let applied = { course: 'all', states: [], pastDue: false };
+  // pos / loc: '' = All positions / All Locations.
+  let applied = { course: 'all', pos: '', loc: '', states: [], pastDue: false };
   let draft   = { ...applied, states: [] };
   let drill   = null;   // { id, state } when arriving from Training Compliance
   let page    = 1;
@@ -872,6 +877,8 @@ Engagement</button>
   function rowMatches(f, a, s) {
     if (!s) return false;
     if (f.course !== 'all' && f.course !== a.id) return false;
+    if (f.pos && a.position !== f.pos) return false;
+    if (f.loc && a.location !== f.loc) return false;
     if (!f.states.length && !f.pastDue) return true;
     if (s === 'c') return f.states.includes('c');
     let out = f.states.filter(x => x !== 'c');
@@ -963,7 +970,10 @@ Engagement</button>
     document.getElementById('cb-pastdue').checked = draft.pastDue;
     document.getElementById('status-v').textContent = statusLabel(draft);
     const a = ASSIGNMENTS.find(x => x.id === draft.course);
-    document.getElementById('course-v').textContent = a ? `${a.course} (${a.position})` : 'All';
+    document.getElementById('course-v').textContent = a ? a.course : 'All';   // position shows in the block on the left
+    document.getElementById('pos-v').textContent = draft.pos || 'All positions';
+    document.getElementById('loc-v').textContent = draft.loc || 'All Locations';
+    syncHighlights();
     renderCoursePanel();
     const dirty = JSON.stringify(draft) !== JSON.stringify(applied);
     document.getElementById('cbe-run').classList.toggle('pending', dirty);
@@ -981,11 +991,6 @@ Engagement</button>
   function run(instant) {
     applied = { ...draft, states: [...draft.states] };
     page = 1;
-    // If the admin changed filters, the view is no longer "the N learners you clicked"
-    const same = (x, y) => x.course === y.course && x.pastDue === y.pastDue && [...x.states].sort().join() === [...y.states].sort().join();
-    if (drill && !same(applied, drill.filter)) {
-      document.getElementById('drill-banner').classList.add('hidden');
-    }
     const wrap = document.getElementById('cbe-body-wrap');
     if (instant) { renderCBE(); syncControls(); return; }
     wrap.classList.add('loading');
@@ -1042,27 +1047,38 @@ Engagement</button>
   document.getElementById('pg-next').onclick  = () => { page = Math.min(lastPage(), page + 1); renderCBE(); };
   document.getElementById('pg-last').onclick  = () => { page = lastPage(); renderCBE(); };
 
-  // Drill-through to the learner report, pre-filtered (FR-3 / AC-4.3).
-  // `source` = the screen the admin came from, so the banner's Back link returns there.
-  const SOURCES = { tc: 'the Training Compliance report', tp: 'Training Plans' };
-  const BACK    = { tc: 'Back to Training Compliance', tp: 'Back to Training Plans' };
-  function openDrill(filter, text, source) {
-    drill = { filter: { ...filter, states: [...filter.states] }, source };   // pastDue: false
-    draft = { ...filter, states: [...filter.states] };
-    run(true);
-    document.getElementById('drill-text').innerHTML = `${text}, from ${SOURCES[source]}.`;
-    document.getElementById('drill-back').innerHTML = `<i class="fa-solid fa-arrow-left"></i> ${BACK[source]}`;
-    document.getElementById('drill-banner').classList.remove('hidden');
-    showScreen('cbe');
-  }
+  // Drill-through to the learner report, pre-filtered and already run (FR-3 / AC-3.1, AC-4.3).
+  // The row's position, location, course and the clicked status become the filters.
+  const SOURCES = { tc: 'Training Compliance', tp: 'Training Plans' };
   function drillTo(id, state, source) {
     const a = ASSIGNMENTS.find(x => x.id === id);
-    openDrill({ course: id, states: [state], pastDue: false },
-      `Showing the <b>${fmt(a[state])} ${LABELS[state].toLowerCase()}</b> learner${a[state] === 1 ? '' : 's'} for <b>${a.course}</b> (${a.position})`,
-      source || 'tc');
+    const filter = { course: id, pos: a.position, loc: a.location, states: [state], pastDue: false };
+    drill = { filter, source: source || 'tc' };
+    draft = { ...filter, states: [state] };
+    run(true);
+    showScreen('cbe');
+    // one pulse on the highlighted filters so the admin sees what was set for them
+    document.querySelectorAll('.from-drill').forEach(el => {
+      el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+    });
   }
-  document.getElementById('drill-back').onclick = () => { const src = drill ? drill.source : 'tc'; showScreen(src); if (src === 'tp') loadTP(true); };
-  document.getElementById('drill-close').onclick = () => document.getElementById('drill-banner').classList.add('hidden');
+  // A filter stays highlighted while it still holds the value the click-through gave it
+  function syncHighlights() {
+    const d = drill && drill.filter;
+    const sameStates = d && draft.pastDue === d.pastDue && [...draft.states].sort().join() === [...d.states].sort().join();
+    const marks = [
+      ['pos-block', d && draft.pos === d.pos && draft.loc === d.loc],
+      ['ff-course', d && draft.course === d.course],
+      ['ff-status', sameStates]
+    ];
+    marks.forEach(([id, on]) => {
+      const el = document.getElementById(id);
+      el.classList.toggle('from-drill', !!on);
+      if (!on) el.classList.remove('pulse');
+      const tgt = el.querySelector('.ff-trigger') || el;
+      if (on) tgt.setAttribute('title', `Set from ${SOURCES[drill.source]}`); else tgt.removeAttribute('title');
+    });
+  }
 
   /* ── Screen 3: Training Plans ────────────────────────────── */
   // loading = true draws the page with placeholders where progress will appear
@@ -1107,7 +1123,7 @@ Engagement</button>
     closePanels();
   }
   document.querySelectorAll('.tab[data-screen]').forEach(t => t.addEventListener('click', () => {
-    if (t.dataset.screen === 'cbe') document.getElementById('drill-banner').classList.add('hidden');
+    if (t.dataset.screen === 'cbe' && drill) { drill = null; draft = { course: 'all', pos: '', loc: '', states: [], pastDue: false }; run(true); }
     showScreen(t.dataset.screen);
   }));
 
@@ -1131,8 +1147,7 @@ Engagement</button>
   function applyFlowState(id, opts) {
     opts = opts || {};
     closePanels();
-    const reset = () => { drill = null; draft = { course: 'all', states: [], pastDue: false }; run(true);
-                          document.getElementById('drill-banner').classList.add('hidden'); };
+    const reset = () => { drill = null; draft = { course: 'all', pos: '', loc: '', states: [], pastDue: false }; run(true); };
     const whenReady = fn => customElements.whenDefined('vaadin-checkbox').then(() => setTimeout(fn, 0));
     switch (id) {
       case 'tc':
@@ -1164,7 +1179,7 @@ Engagement</button>
         drillTo('osha30', 'ns', 'tp');
         break;
       case 'cbe-legacy':
-        reset(); draft = { course: 'all', states: ['ns', 'ip'], pastDue: false }; run(true); showScreen('cbe');
+        reset(); draft = { course: 'all', pos: '', loc: '', states: ['ns', 'ip'], pastDue: false }; run(true); showScreen('cbe');
         whenReady(() => { syncControls(); document.getElementById('ff-status').classList.add('open'); });
         break;
       default:
@@ -1202,9 +1217,9 @@ Engagement</button>
         { id: 'tc-defs', flow: 'drill', x: 340, y: 100, step: 'Info', name: 'How progress is counted', state: 'tc-defs',
           desc: '"How progress is counted" above the table defines each state and says the compliance % is unchanged.' },
         { id: 'cbe-drill', flow: 'drill', x: 620, y: 100, step: 'Click a count', name: 'Pre-filtered learner list', state: 'cbe-drill',
-          desc: 'Clicking "11 In progress" on Winter Driving opens Compliance by Employee with course + status already set; the count matches.' },
+          desc: 'Clicking "11 / 85" In progress on Winter Driving opens Compliance by Employee already run. Position, location, course and status are filled in and highlighted (no banner); the count matches.' },
         { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'In progress + Past due', state: 'cbe-pastdue',
-          desc: 'Ticking Past due with In progress keeps only the past-due In progress learners, across all courses.' },
+          desc: 'Changing a filter drops its highlight: Course back to All, Status + Past due, so only the past-due In progress learners in that position show.' },
         { id: 'cbe-status', flow: 'filter', entry: true, x: 60, y: 410, step: 'Entry', name: 'Status filter', state: 'cbe-status',
           desc: 'Today\'s options stay (Outstanding, Past due, Completed); Not started and In progress sit indented under Outstanding.' },
         { id: 'cbe-legacy', flow: 'filter', x: 340, y: 410, step: 'Existing use', name: 'Outstanding = both', state: 'cbe-legacy',
@@ -1214,7 +1229,7 @@ Engagement</button>
         { id: 'tp', flow: 'plans', x: 340, y: 720, step: 'Loaded', name: 'Training Plans', state: 'tp',
           desc: 'Phase 2 (FR-4), V1: the course picture stays and three "x / y" count columns sit after Dates, same as Training Compliance. Numbers match it.' },
         { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
-          desc: 'Clicking "8 / 40" Not started on OSHA 30-Hour opens the learner report pre-filtered; the banner links back to Training Plans (AC-4.3).' }
+          desc: 'Clicking "8 / 40" Not started on OSHA 30-Hour opens the learner report already run, with position, location, course and status set and highlighted (AC-4.3).' }
       ],
       edges: [
         ['tc', 'tc-defs'],
