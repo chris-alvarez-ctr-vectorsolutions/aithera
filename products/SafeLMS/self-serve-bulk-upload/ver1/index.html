@@ -393,6 +393,16 @@
   /* Column in THEIR file, under the header it applies to (replaced the dashed "Where" box 2026-09-29). */
   .ax-ask { font-size: 12.5px; color: #5B6B7E; margin-top: -2px; }
   .ax-ask a { color: #1257B8; font-weight: 600; }
+  /* collapsed alert banner (2026-09-30) */
+  .alert-head { align-items: center; }
+  .ax-toggle { flex: 0 0 auto; border: none; background: none; color: #1257B8; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 2px; white-space: nowrap; font-family: inherit; }
+  .ax-toggle:hover { text-decoration: underline; }
+  .ax-toggle i { font-size: 10.5px; transition: transform .15s; }
+  .alert.is-open .ax-toggle i { transform: rotate(180deg); }
+  .ax-need { flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: #B54708; white-space: nowrap; }
+  .ax-n { font-size: 12px; color: #5B6B7E; }
+  .alert-body > .alert-sub { margin-top: 0; }
   .full-list { display: flex; align-items: center; gap: 12px; background: #F8FAFC; border: 1px dashed #C6D3E1; border-radius: 10px; padding: 14px 16px; }
   .full-list.is-ready { background: #fff; border: 1px solid #C6D9F0; }
   .full-list .fl-ico { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 8px; background: #EDF1F6; color: #8CA0B4;
@@ -886,7 +896,7 @@
       notes: ['Stopped: warnings need an admin’s approval — automated uploads can’t approve warnings on their own', 'Nothing was changed'] },
     { at: 'Sep 23, 2026', time: '3:41 PM', file: 'safeschools_export_full.csv', rows: 168, by: 'Mark Osei', role: 'Technology Director',
       method: 'manual', status: 'cancelled', roster: false,
-      notes: ['Cancelled on Review changes — it had a Blocking issue: a username matches more than one active user on your site (row 48)', 'Nothing was changed'] },
+      notes: ['Cancelled on Review changes — it was blocked: a username matches more than one active user on your site (row 48)', 'Nothing was changed'] },
     { at: 'Sep 23, 2026', time: '2:00 AM', file: 'safeschools_staff_2026-09-23.csv', rows: 170, by: 'Automated sync', role: 'SafeSchools · nightly (SFTP)',
       method: 'auto', status: 'completed', add: 0, mod: 6, deact: 0, jobsEnd: 0, roster: true, notes: [] },
     { at: 'Sep 22, 2026', time: '11:15 AM', file: 'athletics_coaches.xlsx', rows: 18, by: 'Dana Whitfield', role: 'HR Coordinator',
@@ -910,9 +920,9 @@
       note: 'September new-hire batch — imports straight through with nothing to fix.' },
     { id: 'confirm', name: 'needs_confirmation_fall_roster.csv',  rows: 164, tag: 'Warnings only · confirm to run',        kind: 'confirm',
       note: 'Full fall roster — a name change, a skipped row and early dates to confirm; no blocks.' },
-    { id: 'saml',    name: 'blocked_unreadable_dates.csv',    rows: 156, tag: 'Blocking + warnings · bad dates',   kind: 'blocked',
+    { id: 'saml',    name: 'blocked_unreadable_dates.csv',    rows: 156, tag: 'Blocked + warnings · bad dates',   kind: 'blocked',
       note: 'Unreadable begin dates block it; unknown attribute values, passwords and early dates are warnings.' },
-    { id: 'dupes',   name: 'blocked_duplicate_accounts.csv',      rows: 152, tag: 'Blocking + warnings · duplicates',    kind: 'escalate',
+    { id: 'dupes',   name: 'blocked_duplicate_accounts.csv',      rows: 152, tag: 'Blocked + warnings · duplicates',    kind: 'escalate',
       note: 'A username matches two active accounts (blocks); possible duplicate people and shared emails are warnings.' },
     { id: 'blast',   name: 'copy_review_every_catalog_message.csv',     rows: 168, tag: 'Has all the errors · all 44 catalog messages',     kind: 'blocked',
       note: 'Has all the errors — every message in the Error & Notification Message Catalog, in catalog order, for checking copy.' }
@@ -959,7 +969,7 @@
   function yellow(o) { for (var k in YELLOW) o[k] = YELLOW[k]; return o; }
   function red(o) { for (var k in RED) o[k] = RED[k]; return o; }
   var TIER = {
-    blocked:  red({ chip: 'Blocking',        icon: 'fa-ban',                  proceedLabel: 'Why it’s blocked' }),
+    blocked:  red({ chip: 'Blocked',         icon: 'fa-ban',                  proceedLabel: 'Why it’s blocked' }),
     escalate: red({ chip: 'Contact Vector', icon: 'fa-headset',              proceedLabel: 'Why Vector has to do this' }),
     confirm:  yellow({ chip: 'Warning',        icon: 'fa-triangle-exclamation', proceedLabel: 'If you proceed' }),
     info:     { chip: 'Info',           icon: 'fa-circle-info',          chipBg: '#5B8DC9', border: '#E1E7EE', headBg: '#F5F9FE', titleColor: '#1B2B3E', proceedLabel: 'What it means' }
@@ -1277,7 +1287,7 @@
     var text = c.msg.replace('{count}', count), cut = text.indexOf('. ');
     var a = { id: key, key: key, tier: c.tier, title: cut > 0 ? text.slice(0, cut + 1) : text, sub: cut > 0 ? text.slice(cut + 2) : '',
       list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '', col: c.col ? { at: c.col[0], tag: colTag(state.fileId, c.col[1]) } : null } : null,
-      fix: c.fix, supportBtn: !!c.support,
+      fix: c.fix, supportBtn: !!c.support, count: count,
       ackLabel: 'I’ve reviewed this — continue with the upload.' };
     return a;
   }
@@ -1311,7 +1321,7 @@
     if (pu && sm.deact > 0) {
       var dp = fileId === 'confirm' ? IMPACT.deacts.map(function (d) { return { name: d.name, user: d.user, job: d.job }; })
         : people(sm.deact, 200).map(function (p) { return { name: p.name, user: p.user, job: p.pos + ' · ' + p.loc }; });
-      A.push({ id: 'purge', key: 'not in catalog', tier: 'confirm',
+      A.push({ id: 'purge', key: 'not in catalog', tier: 'confirm', count: sm.deact,
         title: sm.deact + (sm.deact === 1 ? ' person isn’t' : ' people aren’t') + ' in this file and will be deactivated.', sub: 'Their training history is kept.',
         list: { note: 'These people aren’t in your file, so there’s no row to point to.', head: ['Person', 'Username', 'Current position', 'If you continue'],
           rows: dp.map(function (d) { return [d.name, { v: d.user, c: 'row' }, d.job, { v: 'Deactivated', c: 'loss' }]; }) },
@@ -1324,7 +1334,7 @@
         jobs.push([jp.name, { v: jp.user, c: 'row' }, { v: POS[(ji * 5 + Math.floor(ji / sm.jobsPeople) * 3 + 2) % POS.length] + ' · ' + LOC[(ji * 3) % LOC.length], c: 'loss' }]);
       }
       jobs.sort(function (x, y) { return x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0; });
-      A.push({ id: 'purge-jobs', key: 'not in catalog', tier: 'confirm',
+      A.push({ id: 'purge-jobs', key: 'not in catalog', tier: 'confirm', count: sm.jobsRemoved,
         title: sm.jobsRemoved + (sm.jobsRemoved === 1 ? ' position isn’t' : ' positions aren’t') + ' in this file and will be ended.', sub: 'The training tied to them comes off those people.',
         list: { note: 'These positions aren’t in your file, so there’s no row to point to.', head: ['Person', 'Username', 'Position ending'], rows: jobs },
         ackLabel: 'I’ve checked these — end the positions that aren’t in my file.' });
@@ -1877,23 +1887,26 @@
      list (+ one "what to do" line for BLOCKING). Count/summary messages: no toggle. */
   // A WARNING that's been acknowledged turns blue "Reviewed" — done, but not a green "success".
   var REVIEWED = { chip: 'Reviewed', icon: 'fa-circle-check', chipBg: '#1257B8', border: '#C6D9F0', headBg: '#F5F9FE', titleColor: '#1B2B3E' };
+  /* Review alerts are short banners (2026-09-30): chip + title only, so the page reads as
+     a list of titles. "View details" opens the rest — the sub-line, the full list (scrolls
+     when long), "What to do", and for a Warning the checkbox (so it's confirmed after it's
+     seen). Warnings and Blocked with more than 20 people/rows also get "Download CSV". */
+  var CSV_OVER = 20;
   function alertHTML(a) {
     var acked = !!state.acks[ackKey(a.id)];
     var t = (a.tier === 'confirm' && acked) ? REVIEWED : TIER[a.tier];
     var open = !!state.disc['ax:' + a.id];
     var copyReview = state.fileId === 'blast';
+    var hard = a.tier === 'blocked' || a.tier === 'escalate';
 
-    // Details are visible without opening anything (2026-09-25): the list shows its
-    // header + first row; "Show N more rows" reveals the rest. For BLOCKING, the
-    // row/column location sits inside the same list box, and "What to do" is always shown.
-    var detail = '';
+    var body = '';
+    if (a.sub) body += '<div class="alert-sub">' + esc(a.sub) + '</div>';
     if (a.list) {
-      var all = a.list.rows, more = all.length - 1, shown = open ? all : all.slice(0, 1);
       var ct = a.list.col;
       var th = a.list.head.map(function (h, j) {
         return '<th>' + esc(h) + (ct && ct.tag && ct.at === j ? '<span class="axt-col">' + esc(ct.tag) + '</span>' : '') + '</th>';
       }).join('');
-      var tb = shown.map(function (r) {
+      var tb = a.list.rows.map(function (r) {
         return '<tr>' + r.map(function (c, j) {
           var o = (c && typeof c === 'object') ? c : { v: c };
           var cls = o.c ? 'axt-' + o.c : (j === 0 ? 'axt-k' : '');
@@ -1901,45 +1914,35 @@
             + (o.lock ? '<i class="fa-solid fa-lock" aria-hidden="true" title="Can’t be changed by an upload"></i>' : '') + esc(o.v) + '</td>';
         }).join('') + '</tr>';
       }).join('');
-      detail = '<div class="ax-list' + (open ? ' is-open' : '') + '">'
+      var csv = (hard || a.tier === 'confirm') && (a.count || a.list.rows.length) > CSV_OVER;
+      body += '<div class="ax-list">'
         + (a.list.note ? '<div class="ax-note">' + esc(a.list.note) + '</div>' : '')
-        + '<div class="axt-wrap' + (open && all.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
-        + (more > 0 ? '<div class="ax-list-foot">'
-            + '<button class="ax-more" data-act="toggleDisc" data-arg="ax:' + a.id + '" aria-expanded="' + open + '">'
-            + (open ? 'Show fewer rows' : 'Show ' + more + ' more row' + (more === 1 ? '' : 's')) + ' <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button></div>' : '')
+        + '<div class="axt-wrap' + (a.list.rows.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
+        + (csv ? '<div class="ax-list-foot"><span class="ax-n">' + (a.count || a.list.rows.length) + ' in this list</span>'
+            + '<button class="btn sm btn--outline-blue" data-act="noop"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV</button></div>' : '')
         + '</div>';
     }
-    if (a.fix) detail += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>';
-
-    var actions = '';
+    if (a.fix) body += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>';
     if (a.tier === 'confirm') {
-      actions += '<label class="ack-row' + (acked ? ' is-acked' : '') + '">'
+      body += '<label class="ack-row' + (acked ? ' is-acked' : '') + '">'
         + '<input type="checkbox" data-act="ack" data-arg="' + a.id + '"' + (acked ? ' checked' : '') + '>'
         + '<span>' + esc(a.ackLabel) + '</span></label>';
     }
-    var btns = [];
-    // Blocking (2026-09-29): a ticket to get it solved, and an issue ticket for questions — both in the Support Center.
-    var ask = '';
-    if (a.tier === 'blocked' || a.tier === 'escalate') {
-      btns.push('<a class="btn sm btn--outline-blue" href="' + HELP_LINKS.support + '" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:7px;">Submit a ticket to get this solved <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" style="font-size:10px;"></i></a>');
-      ask = '<div class="ax-ask">Have a question about this? <a href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Raise an issue ticket</a>.</div>';
-    }
-    if (a.repBtn) btns.push(state.repSent
-      ? '<button class="btn sm btn--ghost" data-act="noop" style="color:#067647;border-color:#A6E5C3;">Sent to your Vector rep ✓</button>'
-      : '<button class="btn sm btn--outline-blue" data-act="askRep">Not sure? Send to my Vector rep</button>');
-    if (btns.length) actions += '<div class="alert-btns">' + btns.join('') + '</div>';
-    actions += ask;
+    // Blocked: questions go to an issue ticket in the Support Center (the "Submit a ticket" button was removed 2026-09-30).
+    if (hard) body += '<div class="ax-ask">Have a question about this? <a href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Raise an issue ticket</a>.</div>';
 
-    var body = detail + actions;
-    return '<div class="alert" style="border-color:' + t.border + ';">'
+    var status = a.tier === 'confirm' && !acked ? '<span class="ax-need">Needs review</span>' : '';
+    var toggle = body
+      ? '<button class="ax-toggle" data-act="toggleDisc" data-arg="ax:' + a.id + '" aria-expanded="' + open + '">'
+        + (open ? 'Hide details' : 'View details') + ' <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' : '';
+    return '<div class="alert' + (open ? ' is-open' : '') + '" style="border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
       + '<div style="flex:1;min-width:0;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
-      + (a.sub ? '<div class="alert-sub">' + esc(a.sub) + '</div>' : '')
       + (copyReview ? '<div class="alert-key">' + esc(a.key) + '</div>' : '')
+      + '</div>' + status + toggle
       + '</div>'
-      + '</div>'
-      + (body ? '<div class="alert-body">' + body + '</div>' : '')
+      + (open && body ? '<div class="alert-body">' + body + '</div>' : '')
       + '</div>';
   }
 
@@ -2146,6 +2149,10 @@
       + '<div class="log-head"><div><div class="log-title">Upload log</div>'
       + '<div class="log-sub">Every employee upload on this site — who ran it, whether it was manual or automated, and what changed.</div></div>'
       + '<button class="btn btn--primary" data-act="goBulk" style="display:inline-flex;align-items:center;gap:8px;"><i class="fa-solid fa-file-arrow-up" aria-hidden="true"></i> Bulk Upload</button></div>'
+      // Uploads can't be undone (PRD), so a mistake goes to Care (2026-09-30).
+      + '<div class="care-banner" style="margin:0 0 14px;"><span class="cb-ico"><i class="fa-solid fa-user-headset" aria-hidden="true"></i></span>'
+      + '<div class="cb-tx"><b>Made a mistake in an upload?</b> Reach out to Vector Care and we’ll help you sort out the changes.</div>'
+      + '<a class="btn sm btn--outline-blue" href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Contact Vector Care <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true" style="font-size:10px;"></i></a></div>'
       + '<div class="log-card">'
       + '<div class="log-filters"><div class="subtabs">' + seg('all', 'All uploads') + seg('manual', 'Manual', 'fa-user') + seg('auto', 'Automated', 'fa-arrows-rotate') + '</div>'
       + '<div class="log-count">' + rows.length + ' upload' + (rows.length === 1 ? '' : 's') + '</div></div>'
@@ -2205,7 +2212,7 @@
     return '<div class="auto-banner"><span class="ab-ico"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></span><div>'
       + '<div class="ab-t">' + (blocked ? 'This automated upload was stopped' : 'This automated upload is waiting for your approval') + '</div>'
       + '<div class="ab-s">' + esc(r.role) + ' · ' + esc(r.at) + ' at ' + esc(r.time) + '. '
-      + (blocked ? 'It has Blocking issues, so it can’t be approved — fix these rows in your export and the next automated upload picks it up.'
+      + (blocked ? 'It’s blocked, so it can’t be approved — fix these rows in your export and the next automated upload picks it up.'
                  : 'Automated uploads can’t approve warnings on their own. Review each one, then approve to run this file now.')
       + ' Nothing has changed yet.</div></div></div>';
   }
@@ -2433,7 +2440,7 @@
         // with Blocking issues the admin can only cancel, so it's Cancelled; only automated runs show Blocked.
         var hard = buildAlerts().filter(function (x) { return x.tier === 'blocked' || x.tier === 'escalate'; });
         state.log = logAttempt('cancelled', hard.length
-          ? ['Cancelled on Review changes — it had ' + (hard.length === 1 ? 'a Blocking issue' : hard.length + ' Blocking issues')].concat(hard.map(function (x) { return 'Blocking: ' + x.title; }), ['Nothing was changed'])
+          ? ['Cancelled on Review changes — it was blocked (' + (hard.length === 1 ? '1 issue' : hard.length + ' issues') + ')'].concat(hard.map(function (x) { return 'Blocked: ' + x.title; }), ['Nothing was changed'])
           : ['Cancelled on Review changes — nothing was changed']);
         setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false, validating: false, cancelled: true }); scrollTop(); break;
       case 'askRep': e.preventDefault(); setState({ repSent: true }); break;
@@ -2586,7 +2593,7 @@
         { id: 'review-confirm', flow: 'import', x: 1030, y: 60, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
           desc: 'duplicate_user_in_system (name change, e.g. Jessyca → Jesse) + info; with the setting on, deactivation and position-ending lists (not in the catalog yet). Every WARNING is acknowledged before Run import unlocks. Review opens with “Your choices” (mapping + setting, each with Edit).' },
         { id: 'auto-review', flow: 'import', x: 1030, y: 250, step: 'Log → Review', name: 'Approve a stopped automated run', state: 'auto-review',
-          desc: 'Clicking an automated upload that stopped in the log opens the Review changes design for that run (a banner replaces the stepper). Warnings only → the admin acknowledges each and clicks “Approve & run import” (the manual permission the automated run can’t give itself); the log row flips to Completed · Approved by …. Blocking issues → can’t be approved; fix the export.' },
+          desc: 'Clicking an automated upload that stopped in the log opens the Review changes design for that run (a banner replaces the stepper). Warnings only → the admin acknowledges each and clicks “Approve & run import” (the manual permission the automated run can’t give itself); the log row flips to Completed · Approved by …. Blocked → can’t be approved; fix the export.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',
           desc: 'Every upload on the site: when, file, who ran it, Manual vs Automated, result (Completed / Blocked — automated only / Cancelled) and what changed; runs that didn’t go show just the arrow. Filter by method; each row opens its own page. Reached from Employees → Upload log and the Import complete screen.' },
         { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Import complete', state: 'done',
@@ -2594,9 +2601,9 @@
 
         { id: 'review-blocked', flow: 'import', x: 700, y: 420, step: 'Review · Copy review', name: 'Every catalog message', state: 'review-blocked',
           desc: 'Copy review: the last sample file raises all 44 messages from the Error & Notification Message Catalog (PMC 29424549907) most severe first, each tagged with its key, so the copy and tiers can be checked against Confluence.' },
-        { id: 'review-saml', flow: 'import', x: 1030, y: 420, step: 'Review · Blocking', name: 'Blocking — unreadable dates', state: 'review-saml',
+        { id: 'review-saml', flow: 'import', x: 1030, y: 420, step: 'Review · Blocked', name: 'Blocked — unreadable dates', state: 'review-saml',
           desc: 'broken_begin_date (BLOCKING — rows 14, 27, 88 in the table; the header tags Column H · BEGIN_DATE) + early_end_date (WARNING) + info.' },
-        { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Blocking', name: 'Blocking — duplicate accounts', state: 'review-escalate',
+        { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Blocked', name: 'Blocked — duplicate accounts', state: 'review-escalate',
           desc: 'duplicate_person (BLOCKING → Submit a ticket) + potential_duplicate_user (WARNING, each row shown as the duplicate account it would create) + duplicate_email_in_upload (WARNING).' },
 
         { id: 'attn-fixable', flow: 'import', x: 700, y: 620, step: 'Attention · amber', name: 'Alert mode — you fix it', state: 'attn-fixable',
