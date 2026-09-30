@@ -270,6 +270,20 @@
 
   /* ── Data table ── */
   .table-wrap { padding: 0 24px 24px; overflow-x: auto; }
+
+  /* Report tables fit the screen (2026-09-30): the table box ends at the bottom of the window
+     (JS sets max-height = what's left below it), so its horizontal scrollbar is always on
+     screen, and the header row sticks to the top of the box while rows scroll under it. */
+  .table-wrap.fit { overflow: auto; padding-bottom: 0; margin-bottom: 12px; }
+  .table-wrap.fit table.data thead th { position: sticky; top: 0; z-index: 2; }
+  #screen-tc, #screen-cbe { padding-bottom: 16px; }
+  /* Always-visible scrollbars (macOS otherwise hides them until you scroll) */
+  .table-wrap.fit::-webkit-scrollbar { width: 12px; height: 12px; }
+  .table-wrap.fit::-webkit-scrollbar-track { background: #F2F5F8; border-radius: 6px; }
+  .table-wrap.fit::-webkit-scrollbar-thumb { background: #B8C2D0; border-radius: 6px; border: 2px solid #F2F5F8; }
+  .table-wrap.fit::-webkit-scrollbar-thumb:hover { background: #98A3B3; }
+  .table-wrap.fit::-webkit-scrollbar-corner { background: transparent; }
+  @supports not selector(::-webkit-scrollbar) { .table-wrap.fit { scrollbar-color: #B8C2D0 #F2F5F8; } }
   table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
   table.data thead th {
     text-align: left; padding: 16px 12px; background: #EEF2F8;
@@ -575,7 +589,7 @@ Engagement</button>
     <div class="pencil-banner" id="tc-banner">
       <span class="pb-icon"><i class="fa-regular fa-message-dots"></i></span>
       <span class="pb-text"><b>Recent changes are not yet reflected in reports.</b></span>
-      <button class="pb-close" aria-label="Dismiss" onclick="this.parentElement.classList.add('hidden')"><i class="fa-solid fa-xmark"></i></button>
+      <button class="pb-close" aria-label="Dismiss" onclick="this.parentElement.classList.add('hidden'); fitTables()"><i class="fa-solid fa-xmark"></i></button>
     </div>
 
     <div class="daterow">
@@ -621,7 +635,7 @@ Engagement</button>
         </div>
       </div>
 
-      <div class="table-wrap">
+      <div class="table-wrap fit">
         <table class="data" id="tc-table">
           <thead>
             <tr>
@@ -724,7 +738,7 @@ Engagement</button>
       </div>
 
       <div class="results-body" id="cbe-body-wrap">
-        <div class="table-wrap">
+        <div class="table-wrap fit">
           <table class="data" id="cbe-table">
             <thead>
               <tr>
@@ -898,7 +912,7 @@ Engagement</button>
   let draft   = { ...applied, states: [] };
   let drill   = null;   // { id, state } when arriving from Training Compliance
   let page    = 1;
-  const PAGE_SIZE = 10;     // learners per page (each learner can span several course rows)
+  const PAGE_SIZE = 50;     // learners per page (each learner can span several course rows) — a long report
 
   const FIRST = ['Andrew','Paul','Maya','Jordan','Elena','Marcus','Priya','Dev','Sofia','Tyler','Aisha','Luis','Grace','Owen','Nina','Caleb','Hana','Isaac','Rosa','Theo','Leah','Omar','Chloe','Wes','Zara'];
   const LAST  = ['Fair','Belden','Alvarez','Brooks','Chen','Diaz','Evans','Foster','Garcia','Hughes','Ito','Johnson','Kim','Lopez','Morgan','Nguyen','Ortiz','Patel','Quinn','Reyes','Shah','Turner','Usman','Vega','Walsh','Young'];
@@ -1213,6 +1227,21 @@ Engagement</button>
   });
 
   /* ── Screen switching (tabs) ─────────────────────────────── */
+  // Size each visible report table so it ends just above the bottom of the window.
+  // Short windows (under 220px — about 4 rows — left below the filters): the box is as tall as the window
+  // instead, so scrolling the page down to it shows the whole box, scrollbar included.
+  function fitTables() {
+    document.querySelectorAll('.screen.active .table-wrap.fit').forEach(w => {
+      const top = w.getBoundingClientRect().top + window.scrollY;
+      const below = 12 + 16;   // wrap margin + screen padding
+      const left = window.innerHeight - top - below;
+      w.style.maxHeight = (left >= 220 ? left : window.innerHeight - below - 12) + 'px';
+    });
+  }
+  window.addEventListener('resize', fitTables);
+  // Filters wrapping to more rows (narrow windows) push the table down — re-fit
+  new ResizeObserver(() => fitTables()).observe(document.querySelector('#screen-cbe .filters'));
+
   function showScreen(id) {
     const tp = id === 'tp';
     document.getElementById('chrome-reports').hidden = tp;
@@ -1222,6 +1251,7 @@ Engagement</button>
     document.querySelectorAll('.tab[data-screen]').forEach(t => t.classList.toggle('active', t.dataset.screen === id));
     document.querySelectorAll('.tab:not([data-screen])').forEach(t => t.classList.remove('active'));
     closePanels();
+    fitTables();
   }
   document.querySelectorAll('.tab[data-screen]').forEach(t => t.addEventListener('click', () => {
     if (t.dataset.screen === 'cbe' && drill) { drill = null; draft = { course: 'all', pos: '', loc: '', states: [], pastDue: false }; run(true); }
@@ -1240,6 +1270,8 @@ Engagement</button>
   renderTC();
   renderTP();
   run(true);
+  fitTables();
+  customElements.whenDefined('vaadin-checkbox').then(() => setTimeout(fitTables, 50));   // after components size
 </script>
 
 <!-- ── Design Toolbox: Flow Map ─────────────────────────────────────────────── -->
