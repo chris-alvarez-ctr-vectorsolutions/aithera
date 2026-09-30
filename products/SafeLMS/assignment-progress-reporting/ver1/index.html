@@ -30,10 +30,11 @@
 
 <style>
   /* ════════════════════════════════════════════════════════════════
-     Assignment Progress Reporting (SAFELMS-25167) — V1 · COLUMNS
-     The simplest take (Liz, eng review 2026-09-29, 19:51 / 37:21): add # Not started and
-     # In progress columns next to # Completed, and do the same on Training Plans.
-     V2 is the same except Training Plans keeps the progress ring.
+     Assignment Progress Reporting (SAFELMS-25167) — V1 · MINIMUM
+     Training Compliance: add # Not Started and # In Progress next to # Completed (Liz, eng
+     review 2026-09-29, 19:51 / 37:21). Training Plans: the page stays as it is today, plus
+     "View progress details" in each assignment's ⋯ menu — the minimum Liz set at kickoff
+     (22:16 "at the very least, some ability to see the details"). V2 is the ideal version.
      Two report screens, matched to the current production Reports UI:
        1. Training Compliance  — per-assignment progress breakout
        2. Compliance by Employee — Status filter: Outstanding (Not started,
@@ -419,14 +420,12 @@
 
   /* Assignment list */
   .tp-list { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); }
-  .tp-grid { display: grid; grid-template-columns: minmax(200px, 2fr) minmax(130px, 1fr) 176px repeat(3, 124px) 20px;
-    gap: 12px; align-items: center; padding: 0 24px; min-width: 1018px; }
-  .tp-head .num { white-space: nowrap; }
-  .tp-row .num { font-size: 14px; white-space: nowrap; }
+  .tp-grid { display: grid; grid-template-columns: minmax(420px, 2.2fr) minmax(170px, 1fr) 220px 40px;
+    gap: 16px; align-items: center; padding: 0 24px; min-width: 900px; }
   .tp-row .thumb { flex-basis: 48px; width: 48px; height: 48px; font-size: 19px; }
   /* The list is a screen-fit box too: header sticks; a white ring hides rows scrolling past its margins */
   .tp-list.fit .tp-head { position: sticky; top: 0; z-index: 2; box-shadow: 0 0 0 16px #fff; }
-  .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 986px;
+  .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 868px;
     font-size: 13px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: #2B3A55; }
   .tp-row { padding-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--hair); }
   .tp-row:last-child { border-bottom: 0; }
@@ -441,14 +440,22 @@
   .tp-cell b { color: var(--ink); }
   .tp-dates { display: flex; align-items: center; gap: 10px; }
   .tp-dates .l { font-size: 11.5px; color: var(--muted); }
-  .tp-kebab { color: var(--muted); text-align: center; }
-  .tp-asof { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .tp-kebab { text-align: center; }
+  .kebab-btn { width: 36px; height: 36px; border: 0; border-radius: 6px; background: 0; color: var(--muted); cursor: pointer; font-size: 16px; }
+  .kebab-btn:hover, .kebab-btn[aria-expanded="true"] { background: var(--hair-2); color: var(--ink); }
 
-  /* Loading: the list renders first, progress fills in after (lazy load — Dean, eng review 7:51) */
-  .skel { display: inline-block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #EDF0F4 25%, #F6F8FA 50%, #EDF0F4 75%);
-    background-size: 200% 100%; animation: skel 1.2s linear infinite; vertical-align: middle; }
-  @keyframes skel { from { background-position: 200% 0; } to { background-position: 0 0; } }
-  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+  /* Row ⋯ menu — one shared, position:fixed menu so the scrolling list never clips it */
+  .row-menu { position: fixed; z-index: 60; min-width: 220px; background: #fff; border-radius: 8px; padding: 6px;
+    box-shadow: var(--lumo-box-shadow-m, 0 2px 6px -1px #1c375a29, 0 8px 24px -4px #1c324f61); }
+  .row-menu[hidden] { display: none; }
+  .row-menu .mi { display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: 4px;
+    background: 0; font-size: 14px; color: var(--ink); text-align: left; cursor: pointer; }
+  .row-menu .mi i { width: 16px; text-align: center; color: #4A5565; }
+  .row-menu .mi:hover, .row-menu .mi:focus-visible { background: var(--hair-2); outline: 0; }
+  .row-menu .mi.new { font-weight: 600; }
+  .row-menu .mi.new i { color: var(--blue-accent); }
+  .row-menu .mi [theme~="badge"] { margin-left: auto; }
+  .row-menu .sep { height: 1px; background: var(--hair); margin: 6px -6px; }
 
   @media (max-width: 1100px) {
     .tab { font-size: 12px; padding: 10px 6px; }
@@ -716,29 +723,34 @@ Engagement</button>
 </main>
 
 <!-- ════════════════════════════════════════════════════════════
-     SCREEN 3 — TRAINING PLANS (Phase 2 · FR-4) — V1: columns
-     The course picture stays; three count columns, same "x / y" links as
-     Training Compliance, sit after Dates. No chart.
+     SCREEN 3 — TRAINING PLANS (Phase 2 · FR-4) — V1: minimum
+     The page as it is today (course picture, job, dates). The only addition is
+     "View progress details" in each row's ⋯ menu, which opens Compliance by
+     Employee already run for that assignment (kickoff: Elizabeth 17:49 "click the
+     dots and take it to the report", Liz 17:57, Kelsey 20:54). No numbers here, so
+     nothing extra to load (eng review: Rich 4:42, Dean 7:43 on cost).
      ════════════════════════════════════════════════════════════ -->
 <main class="screen" id="screen-tp">
   <div class="wrap">
     <div class="tp-toolbar">
       <vaadin-button theme="primary"><i class="fa-solid fa-plus" slot="prefix"></i> New Assignment</vaadin-button>
       <span class="date-pill">09/01/2026 <i class="fa-regular fa-calendar"></i> <i class="fa-solid fa-arrow-right arrow"></i> 12/31/2026 <i class="fa-regular fa-calendar"></i></span>
-      <!-- Progress comes from the personal assignment list, rebuilt about once a day (Rich, eng
-           review 4:42: "20 up to 24 hours in arrears") — so say how fresh it is. -->
-      <span class="tp-asof" id="tp-asof"><i class="fa-regular fa-clock"></i> Progress as of Sep 29, 2:00 AM</span>
       <span class="spacer"></span>
       <vaadin-text-field theme="outlined" placeholder="Search course, position, …" style="width:280px" aria-label="Search assignments"><i class="fa-regular fa-magnifying-glass" slot="prefix"></i></vaadin-text-field>
     </div>
 
     <section class="tp-list fit" aria-label="Assignments">
       <div class="tp-grid tp-head">
-        <div>Course</div><div>Job</div><div>Dates</div>
-        <div class="num"># Not started</div><div class="num"># In progress</div><div class="num"># Completed</div><div></div>
+        <div>Course</div><div>Job</div><div>Dates</div><div></div>
       </div>
       <div id="tp-body"></div>
     </section>
+    <!-- Shared row menu (filled for whichever row's ⋯ was clicked) -->
+    <div class="row-menu" id="tp-menu" role="menu" hidden>
+      <button class="mi new" role="menuitem" id="tp-menu-progress"><i class="fa-regular fa-chart-simple"></i> View progress details <span theme="badge primary small pill">New</span></button>
+      <div class="sep" role="separator"></div>
+      <button class="mi" role="menuitem"><i class="fa-regular fa-calendar-pen"></i> Edit dates</button>
+    </div>
   </div>
 </main>
 
@@ -1046,6 +1058,7 @@ Engagement</button>
   function closePanels() {
     document.querySelectorAll('.ff.open').forEach(f => f.classList.remove('open'));
     defs.classList.remove('open'); defsBtn.setAttribute('aria-expanded', 'false');
+    if (typeof closeRowMenu === 'function') closeRowMenu();
   }
   document.addEventListener('click', closePanels);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(); });
@@ -1094,9 +1107,10 @@ Engagement</button>
   const SOURCES = { tc: 'Training Compliance', tp: 'Training Plans' };
   function drillTo(id, state, source) {
     const a = ASSIGNMENTS.find(x => x.id === id);
-    const filter = { course: id, pos: a.position, loc: a.location, states: [state], pastDue: false };
+    const states = state ? [state] : [];   // null = every status ("View progress details")
+    const filter = { course: id, pos: a.position, loc: a.location, states, pastDue: false };
     drill = { filter, source: source || 'tc' };
-    draft = { ...filter, states: [state] };
+    draft = { ...filter, states: [...states] };
     run(true);
     showScreen('cbe');
     // one pulse on the highlighted filters so the admin sees what was set for them
@@ -1107,7 +1121,8 @@ Engagement</button>
   // A filter stays highlighted while it still holds the value the click-through gave it
   function syncHighlights() {
     const d = drill && drill.filter;
-    const sameStates = d && draft.pastDue === d.pastDue && [...draft.states].sort().join() === [...d.states].sort().join();
+    // Status is only highlighted when the click-through actually set one
+    const sameStates = d && (d.states.length || d.pastDue) && draft.pastDue === d.pastDue && [...draft.states].sort().join() === [...d.states].sort().join();
     const marks = [
       ['pos-block', d && draft.pos === d.pos && draft.loc === d.loc],
       ['ff-course', d && draft.course === d.course],
@@ -1123,9 +1138,7 @@ Engagement</button>
   }
 
   /* ── Screen 3: Training Plans ────────────────────────────── */
-  // loading = true draws the page with placeholders where progress will appear
-  function renderTP(loading) {
-    const cell = (a, s) => `<div class="num">${loading ? '<span class="skel" style="width:58px"></span>' : countLink(a, s, true)}</div>`;
+  function renderTP() {
     document.getElementById('tp-body').innerHTML = ASSIGNMENTS.map(a => `
       <div class="tp-grid tp-row">
         <div class="tp-prog">
@@ -1133,25 +1146,45 @@ Engagement</button>
           <div class="tp-course"><div class="nm">${a.course}</div><div class="ty">${a.plan}</div></div></div>
         <div class="tp-cell"><div><b>${a.position}</b><br>at <b>${a.location}</b></div></div>
         <div class="tp-cell"><div class="tp-dates"><div><b>${fmtDate(effDate(a))}</b><div class="l">Effective</div></div><i class="fa-solid fa-arrow-right" style="color:var(--muted-2)"></i><div><b>${fmtDate(a.due)}</b><div class="l">Due</div></div></div></div>
-        ${cell(a, 'ns')}${cell(a, 'ip')}${cell(a, 'c')}
-        <div class="tp-kebab"><i class="fa-solid fa-ellipsis"></i></div>
+        <div class="tp-kebab"><button class="kebab-btn" data-menu="${a.id}" aria-haspopup="menu" aria-expanded="false"
+          aria-controls="tp-menu" aria-label="Actions for ${a.course}"><i class="fa-solid fa-ellipsis"></i></button></div>
       </div>`).join('');
   }
-  // Opening Training Plans: rows first, progress a moment later
-  let tpTimer = null;
-  function loadTP(instant) {
-    clearTimeout(tpTimer);
-    document.getElementById('tp-body').setAttribute('aria-busy', instant ? 'false' : 'true');
-    if (instant) return renderTP(false);
-    renderTP(true);
-    tpTimer = setTimeout(() => { renderTP(false); document.getElementById('tp-body').setAttribute('aria-busy', 'false'); }, 1100);
-  }
+  function loadTP() { renderTP(); }   // nothing to fetch: V1 shows no progress numbers here
   function effDate(a) { const d = new Date(a.due + 'T12:00:00'); d.setDate(d.getDate() - 45); return d.toISOString().slice(0, 10); }
 
+  // ⋯ menu: opens under the button (fixed-position, so the scrolling list can't clip it)
+  const tpMenu = document.getElementById('tp-menu');
+  let menuFor = null;
+  function openRowMenu(btn) {
+    closePanels();
+    menuFor = btn.dataset.menu;
+    btn.setAttribute('aria-expanded', 'true');
+    tpMenu.hidden = false;
+    const r = btn.getBoundingClientRect(), m = tpMenu.getBoundingClientRect();
+    const below = r.bottom + 4 + m.height <= window.innerHeight;
+    tpMenu.style.top = (below ? r.bottom + 4 : r.top - 4 - m.height) + 'px';
+    tpMenu.style.left = Math.max(8, r.right - m.width) + 'px';
+    document.getElementById('tp-menu-progress').focus({ preventScroll: true });
+  }
+  function closeRowMenu() {
+    tpMenu.hidden = true; menuFor = null;
+    document.querySelectorAll('.kebab-btn[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  }
   document.getElementById('screen-tp').addEventListener('click', e => {
-    const b = e.target.closest('.count-link');
-    if (b && b.dataset.drill) return drillTo(b.dataset.drill, b.dataset.state, 'tp');
+    const k = e.target.closest('.kebab-btn');
+    if (!k) return;
+    e.stopPropagation();
+    if (menuFor === k.dataset.menu) return closeRowMenu();
+    openRowMenu(k);
   });
+  tpMenu.addEventListener('click', e => e.stopPropagation());
+  // View progress details → Compliance by Employee for this assignment, all statuses, already run
+  document.getElementById('tp-menu-progress').addEventListener('click', () => {
+    const id = menuFor; closeRowMenu(); drillTo(id, null, 'tp');
+  });
+  document.querySelector('#screen-tp .tp-list').addEventListener('scroll', closeRowMenu);
+  window.addEventListener('resize', closeRowMenu);
 
   /* ── Screen switching (tabs) ─────────────────────────────── */
   // Size each visible report table so it ends just above the bottom of the window.
@@ -1234,13 +1267,14 @@ Engagement</button>
         whenReady(() => { syncControls(); setOutExpanded(true); document.getElementById('ff-status').classList.add('open'); });
         break;
       case 'tp':
-        showScreen('tp'); loadTP(true);
+        showScreen('tp'); loadTP();
         break;
-      case 'tp-loading':
-        showScreen('tp'); clearTimeout(tpTimer); renderTP(true);
+      case 'tp-menu':
+        showScreen('tp'); loadTP();
+        setTimeout(() => openRowMenu(document.querySelector('.kebab-btn[data-menu="osha30"]')), 0);
         break;
       case 'tp-drill':
-        drillTo('osha30', 'ns', 'tp');
+        drillTo('osha30', null, 'tp');
         break;
       case 'cbe-legacy':
         reset(); draft = { course: 'all', pos: '', loc: '', states: ['ns', 'ip'], pastDue: false }; run(true); showScreen('cbe');
@@ -1290,12 +1324,12 @@ Engagement</button>
           desc: 'The chevron shows Not Started and In Progress nested under Outstanding. Ticking just one shows Outstanding half-checked.' },
         { id: 'cbe-legacy', flow: 'filter', x: 620, y: 410, step: 'Existing use', name: 'Outstanding = both', state: 'cbe-legacy',
           desc: 'Ticking Outstanding ticks both sub-states, so saved and scheduled reports on Outstanding return the same learners.' },
-        { id: 'tp-loading', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Loading progress', state: 'tp-loading',
-          desc: 'The list shows right away; progress fills in a moment later, so the page never waits on it. "Progress as of" says how fresh it is (updated about daily).' },
-        { id: 'tp', flow: 'plans', x: 340, y: 720, step: 'Loaded', name: 'Training Plans', state: 'tp',
-          desc: 'Phase 2 (FR-4), V1: the course picture stays and three "x / y" count columns sit after Dates, same as Training Compliance. Numbers match it.' },
-        { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
-          desc: 'Clicking "8 / 40" Not started on OSHA 30-Hour opens the learner report already run, with position, location, course and status set and highlighted (AC-4.3).' }
+        { id: 'tp', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Training Plans (as today)', state: 'tp',
+          desc: 'V1 is the minimum for Phase 2: the page is unchanged — course picture, job, dates. No progress numbers, so nothing extra to load.' },
+        { id: 'tp-menu', flow: 'plans', x: 340, y: 720, step: 'Open ⋯', name: 'View progress details', state: 'tp-menu',
+          desc: 'The one addition: "View progress details" at the top of each assignment\'s ⋯ menu (kickoff: Elizabeth 17:49, Liz 17:57).' },
+        { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Choose it', name: 'Progress for this assignment', state: 'tp-drill',
+          desc: 'Opens Compliance by Employee already run for that assignment — position, location and course set and highlighted, every status, with the Status column showing each learner\'s state.' }
       ],
       edges: [
         ['tc', 'tc-defs'],
@@ -1304,8 +1338,8 @@ Engagement</button>
         ['cbe-drill', 'tc'],
         ['cbe-status', 'cbe-tree'],
         ['cbe-tree', 'cbe-legacy'],
-        ['tp-loading', 'tp'],
-        ['tp', 'tp-drill']
+        ['tp', 'tp-menu'],
+        ['tp-menu', 'tp-drill']
       ]
     }
   };
