@@ -240,6 +240,9 @@
   .refresh { background: 0; border: 0; color: var(--navy); font-size: 15px; font-weight: 600; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
   .genrow .right { margin-left: auto; display: flex; align-items: center; gap: 18px; }
   .results { font-size: 13px; font-weight: 700; letter-spacing: .4px; color: var(--navy); }
+  .state-counts { display: inline-flex; gap: 8px; font-size: 13px; color: #475467; white-space: nowrap; }
+  .state-counts b { color: var(--ink); }
+  .state-counts .dot { color: var(--muted-2); }
   .pager {
     display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 8px;
     box-shadow: 0 0 0 1px var(--hair);
@@ -266,17 +269,14 @@
   table.data tbody td { padding: 16px 12px; border-bottom: 1px solid var(--hair); vertical-align: middle; color: #2B3A55; }
   table.data tbody td:first-child { padding-left: 24px; }
   table.data tbody tr:last-child td { border-bottom: 0; }
-  .th-info {
-    background: 0; border: 0; color: var(--blue-accent); cursor: pointer; padding: 2px 4px; margin-left: 2px;
-    font-size: 14px; vertical-align: -1px;
-  }
 
   /* Course cell */
-  .course-cell { display: flex; align-items: center; gap: 18px; }
-  .course-cell .counts { margin-top: 6px; }
+  .course-cell { display: flex; align-items: center; gap: 24px; }
+  /* Course picture: measured from the production screenshot (2026-09-30) — a 56px
+     square, ~8px corners, soft shadow, ~24px before the course name. */
   .thumb {
-    flex: 0 0 68px; height: 68px; border-radius: 10px; display: grid; place-items: center;
-    font-size: 26px; box-shadow: 0 2px 6px rgba(16,24,40,.18);
+    flex: 0 0 56px; width: 56px; height: 56px; aspect-ratio: 1 / 1; border-radius: 8px;
+    display: grid; place-items: center; font-size: 22px; box-shadow: 0 2px 6px rgba(16,24,40,.18);
   }
   .course-name { font-size: 17px; color: var(--ink); line-height: 1.3; }
   .course-plan { font-size: 13px; color: #2B3A55; margin-top: 2px; }
@@ -307,6 +307,16 @@
   .comp-cell { white-space: nowrap; }
   .comp-cell [theme~="badge"] { font-size: 14px; font-weight: 700; padding: .35em .8em; }
   .comp-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  /* Count headers wrap to two lines ("# Not / started") so the new columns stay narrow (PRD: no undue width) */
+  table.data th.num { white-space: normal; width: 84px; line-height: 1.3; }
+  table.data td.num { white-space: nowrap; }
+  .count-link { background: 0; border: 0; padding: 2px 0; font-size: 14px; color: var(--blue-accent); cursor: pointer; }
+  .count-link:hover { text-decoration: underline; }
+  .count-zero { font-size: 14px; color: var(--muted-2); }
+  .defs-wrap { position: relative; }
+  .defs-link { background: 0; border: 0; padding: 4px 0; font-size: 13px; color: var(--blue-accent); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .defs-link:hover { text-decoration: underline; }
+  .defs-wrap .defs { top: calc(100% + 6px); left: 0; }
 
   /* Definitions popover (PROGRESS header ⓘ) */
   .defs {
@@ -541,10 +551,16 @@ Engagement</button>
         <div class="gen"><b>Sep 29, 2026 2:00 PM</b><span>Generated</span></div>
         <button class="refresh"><i class="fa-regular fa-arrows-rotate"></i> Refresh</button>
         <!-- Legend: names the three states once so each row can stay compact -->
-        <div class="legend" aria-label="Progress legend">
-          <span><i class="fa-solid fa-circle-check ico-c"></i> Completed</span>
-          <span><i class="fa-solid fa-circle-half-stroke ico-ip"></i> In progress</span>
-          <span><i class="fa-regular fa-circle ico-ns"></i> Not started</span>
+        <div class="defs-wrap">
+          <button class="defs-link" id="defs-btn" aria-expanded="false"><i class="fa-regular fa-circle-info"></i> How progress is counted</button>
+            <!-- Definitions: In Progress = advanced past disclaimer/acknowledgement (PRD, Proposed Solution) -->
+            <div class="defs" id="defs" role="dialog" aria-label="How progress is counted">
+              <h4>How progress is counted</h4>
+              <div class="d"><i class="fa-solid fa-circle-check ico-c"></i><div><b data-label="c">Completed</b> — a completion record exists.</div></div>
+              <div class="d"><i class="fa-solid fa-circle-half-stroke ico-ip"></i><div><b data-label="ip">In progress</b> — moved past the course disclaimer or acknowledgement into course content, but hasn't completed.</div></div>
+              <div class="d"><i class="fa-regular fa-circle ico-ns"></i><div><b data-label="ns">Not started</b> — assigned, but hasn't started course content.</div></div>
+              <div class="foot">Each assigned learner is in exactly one state, so the three always add up to the total assigned. <b>Compliance is unchanged:</b> completed ÷ assigned.</div>
+            </div>
         </div>
         <div class="right">
           <span class="results" id="tc-results">9 RESULTS</span>
@@ -556,21 +572,14 @@ Engagement</button>
         <table class="data" id="tc-table">
           <thead>
             <tr>
-              <th>
-                Course &amp; progress
-                <button class="th-info" id="defs-btn" aria-label="How progress is counted" aria-expanded="false"><i class="fa-regular fa-circle-info"></i></button>
-                <!-- Definitions: In Progress = advanced past disclaimer/acknowledgement (PRD, Proposed Solution) -->
-                <div class="defs" id="defs" role="dialog" aria-label="How progress is counted">
-                  <h4>How progress is counted</h4>
-                  <div class="d"><i class="fa-solid fa-circle-check ico-c"></i><div><b data-label="c">Completed</b> — a completion record exists.</div></div>
-                  <div class="d"><i class="fa-solid fa-circle-half-stroke ico-ip"></i><div><b data-label="ip">In progress</b> — moved past the course disclaimer or acknowledgement into course content, but hasn't completed.</div></div>
-                  <div class="d"><i class="fa-regular fa-circle ico-ns"></i><div><b data-label="ns">Not started</b> — assigned, but hasn't started course content.</div></div>
-                  <div class="foot">Each assigned learner is in exactly one state, so the three always add up to the total assigned. <b>Compliance is unchanged:</b> completed ÷ assigned.</div>
-                </div>
-              </th>
+              <th>Course</th>
               <th>Position</th>
               <th>Location</th>
               <th>Due Date</th>
+              <!-- ★ New: the non-completed remainder split into two counts (FR-1), next to the existing # Completed -->
+              <th class="num"># Not started</th>
+              <th class="num"># In progress</th>
+              <th class="num"># Completed</th>
               <th>Compliance</th>
             </tr>
           </thead>
@@ -673,6 +682,7 @@ Engagement</button>
         <div class="gen"><b>Sep 29, 2026 2:04 PM</b><span>Generated</span></div>
         <button class="refresh"><i class="fa-regular fa-arrows-rotate"></i> Refresh</button>
         <div class="right">
+          <span class="state-counts" id="cbe-counts" aria-label="Results by status"></span>
           <span class="results" id="cbe-results"></span>
           <div class="pager">
             <button id="pg-first">First</button>
@@ -798,16 +808,13 @@ Engagement</button>
   }
 
   /* ── Screen 1: Training Compliance ───────────────────────── */
-  // Clickable counts under the course name (FR-3): Completed · In progress · Not started
-  function countBtns(a) {
-    return ORDER.map(s => {
-      const n = a[s], zero = n === 0;
-      return `<button class="count-btn ${zero ? 'zero' : ''}" ${zero ? 'disabled' : ''}
-                data-drill="${a.id}" data-state="${s}"
-                aria-label="${fmt(n)} ${LABELS[s]}${zero ? '' : ' — view learners'}"
-                title="${zero ? 'No learners ' + LABELS[s].toLowerCase() : 'View these ' + fmt(n) + ' learners in Compliance by Employee'}">
-                <i class="${ICONS[s]}"></i><span class="n">${fmt(n)}</span></button>`;
-    }).join('');
+  // A count is a link to the learners behind it (FR-3) — same blue link style production
+  // already uses for "# Completed". # Completed keeps its existing "61 / 85" form.
+  function countLink(a, s, withTotal) {
+    const n = a[s], txt = withTotal ? `${fmt(n)} / ${fmt(total(a))}` : fmt(n);
+    if (!n) return `<span class="count-zero">${txt}</span>`;
+    return `<button class="count-link" data-drill="${a.id}" data-state="${s}"
+              title="View these ${fmt(n)} learners in Compliance by Employee">${txt}</button>`;
   }
 
   function renderTC() {
@@ -816,15 +823,16 @@ Engagement</button>
       const theme = p >= 90 ? 'badge success pill' : 'badge error pill';
       return `<tr>
         <td><div class="course-cell">
-              ${ring(a, 72, 'total')}
-              <div><div class="course-name">${a.course}</div><div class="course-plan">${a.plan}</div>
-                ${total(a) ? `<div class="counts">${countBtns(a)}</div>` : '<div class="no-learners">No learners assigned</div>'}</div>
+              <div class="thumb" style="background:${a.bg};color:${a.fg}"><i class="fa-solid ${a.icon}"></i></div>
+              <div><div class="course-name">${a.course}</div><div class="course-plan">${a.plan}</div></div>
             </div></td>
         <td class="cell-sm">${a.position}</td>
         <td class="cell-sm">${a.location}</td>
         <td class="cell-sm">${fmtDate(a.due)}</td>
-        <td class="comp-cell"><span theme="${theme}">${p}%</span>
-            <div class="comp-sub">${fmt(a.c)} / ${fmt(total(a))}</div></td>
+        <td class="num">${countLink(a, 'ns')}</td>
+        <td class="num">${countLink(a, 'ip')}</td>
+        <td class="num">${countLink(a, 'c', true)}</td>
+        <td class="comp-cell"><span theme="${theme}">${p}%</span></td>
       </tr>`;
     }).join('');
   }
@@ -841,8 +849,8 @@ Engagement</button>
 
   // Click-through: a count → Compliance by Employee, pre-filtered (FR-3 / AC-3.1)
   document.getElementById('tc-body').addEventListener('click', e => {
-    const b = e.target.closest('.count-btn');
-    if (!b || b.disabled) return;
+    const b = e.target.closest('.count-link');
+    if (!b) return;
     drillTo(b.dataset.drill, b.dataset.state);
   });
 
@@ -926,6 +934,11 @@ Engagement</button>
     const pages = lastPageCount = Math.max(1, Math.ceil(learners.length / PAGE_SIZE));
     page = Math.min(page, pages);
     document.getElementById('cbe-results').textContent = `${fmt(n)} RESULT${n === 1 ? '' : 'S'}`;
+    // How many results are in each status (counts only — the three always add up to RESULTS)
+    const by = { c: 0, ip: 0, ns: 0 };
+    learners.forEach(l => l.rows.forEach(r => by[r.s]++));
+    document.getElementById('cbe-counts').innerHTML = n ? ['ns', 'ip', 'c'].filter(s => by[s])
+      .map(s => `<span><b>${fmt(by[s])}</b> ${LABELS[s].toLowerCase()}</span>`).join('<span class="dot">·</span>') : '';
     document.getElementById('pg-num').textContent = page + (pages > 1 ? ` of ${fmt(pages)}` : '');
     ['pg-first', 'pg-prev'].forEach(id => document.getElementById(id).disabled = page <= 1);
     ['pg-next', 'pg-last'].forEach(id => document.getElementById(id).disabled = page >= pages);
@@ -1231,9 +1244,9 @@ Engagement</button>
       ],
       nodes: [
         { id: 'tc', flow: 'drill', entry: true, x: 60, y: 100, step: 'Entry', name: 'Training Compliance', state: 'tc',
-          desc: 'A progress ring sits in front of each course name (in place of the course image), with clickable Completed / In progress / Not started counts under the name. Compliance % is unchanged.' },
+          desc: 'Counts, not a chart: # Not started and # In progress sit next to the existing # Completed; each count opens those learners. Course picture and Compliance % unchanged.' },
         { id: 'tc-defs', flow: 'drill', x: 340, y: 100, step: 'Info', name: 'How progress is counted', state: 'tc-defs',
-          desc: 'The ⓘ on the Course & progress header defines each state and says the compliance % is unchanged.' },
+          desc: '"How progress is counted" above the table defines each state and says the compliance % is unchanged.' },
         { id: 'cbe-drill', flow: 'drill', x: 620, y: 100, step: 'Click a count', name: 'Pre-filtered learner list', state: 'cbe-drill',
           desc: 'Clicking "11 In progress" on Winter Driving opens Compliance by Employee with course + status already set; the count matches.' },
         { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'Outstanding + Past due', state: 'cbe-pastdue',
