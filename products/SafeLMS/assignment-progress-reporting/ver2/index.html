@@ -305,7 +305,7 @@
   table.data tbody tr:last-child td { border-bottom: 0; }
 
   /* Course cell */
-  .course-cell { display: flex; align-items: center; gap: 24px; }
+  .course-cell { display: flex; align-items: center; gap: 16px; }
   /* Course picture: measured from the production screenshot (2026-09-30) — a 56px
      square, ~8px corners, soft shadow, ~24px before the course name. */
   .thumb {
@@ -353,26 +353,35 @@
      legend above the table and each section's tooltip / label. The total assigned sits to
      the right. A section with learners is a button that opens them; tiny shares still get
      room for their number. */
-  table.data th.th-progress { width: 300px; }
+  table.data th.th-progress { white-space: nowrap; }
+  .th-legend { display: inline-flex; gap: 8px; margin-left: 10px; vertical-align: 1px;
+    font-size: 11px; font-weight: 400; letter-spacing: 0; text-transform: none; color: #475467; }
+  .th-legend .sw { width: 8px; height: 8px; }
+  .th-legend > span { gap: 4px; }
+  /* room for the legend: slightly tighter neighbours, as in V1 */
+  #tc-table th:not(:first-child):not(.th-progress), #tc-table td:not(:first-child) { padding-left: 10px; padding-right: 10px; }
   .pbar-row { display: flex; align-items: center; gap: 12px; }
   .pbar-total { font-size: 14px; font-weight: 600; color: var(--ink); min-width: 48px; }
-  .pbar { display: flex; gap: 2px; width: 230px; height: 28px; }
+  /* Section lengths are NOT proportional — three fixed sizes keep the build simple (2026-09-30):
+       0 learners → no section · small share (< 20%) → short · otherwise → medium ·
+       the state with the most learners → fills whatever is left. The number inside each
+       section carries the exact value. */
+  .pbar { display: flex; gap: 2px; width: 210px; height: 22px; }
   .pbar .seg {
-    flex: var(--n) 1 0; min-width: max-content; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-    padding: 0 7px; border: 0; font-size: 12.5px; font-weight: 700; font-family: inherit; white-space: nowrap;
-    cursor: pointer; transition: filter .12s;
+    display: inline-flex; align-items: center; justify-content: center; padding: 0 6px; border: 0; border-radius: 6px;
+    font-size: 11.5px; font-weight: 700; font-family: inherit; white-space: nowrap; cursor: pointer; transition: filter .12s;
   }
-  .pbar .seg:first-child { border-radius: 4px 0 0 4px; }
-  .pbar .seg:last-child  { border-radius: 0 4px 4px 0; }
-  .pbar .seg:only-child  { border-radius: 4px; }
+  .pbar .seg.sm   { flex: 0 0 44px; }
+  .pbar .seg.md   { flex: 0 0 60px; }   /* ≤ 2 × 60 + gaps leaves the biggest ≥ 86px */
+  .pbar .seg.fill { flex: 1 1 auto; }
   .pbar .seg.c  { background: var(--st-c); color: #fff; }
   .pbar .seg.ip { background: var(--st-ip); color: #fff; }
   .pbar .seg.ns { background: #C3CBD6; color: var(--ink); }
   .pbar .seg:hover { filter: brightness(.9); }
   .pbar .seg:hover .n { text-decoration: underline; }
   .pbar .seg:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-  .pbar-empty { display: flex; align-items: center; width: 230px; height: 28px; padding: 0 10px; border: 1px dashed #D0D5DD;
-    border-radius: 4px; font-size: 12.5px; color: var(--muted); }
+  .pbar-empty { display: flex; align-items: center; width: 210px; height: 22px; padding: 0 10px; border: 1px dashed #D0D5DD;
+    border-radius: 6px; font-size: 12px; color: var(--muted); }
   .defs-wrap { position: relative; }
   .defs-link { background: 0; border: 0; padding: 4px 0; font-size: 13px; color: var(--blue-accent); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
   .defs-link:hover { text-decoration: underline; }
@@ -676,12 +685,6 @@ Engagement</button>
               <div class="foot">Each assigned learner is in exactly one state, so the three always add up to the total assigned. <b>Compliance is unchanged:</b> completed ÷ assigned.</div>
             </div>
         </div>
-        <!-- Legend: names the three bar sections once for the whole table -->
-        <div class="legend" aria-hidden="true">
-          <span><i class="sw" style="background:var(--st-c)"></i><span data-label="c">Completed</span></span>
-          <span><i class="sw" style="background:var(--st-ip)"></i><span data-label="ip">In progress</span></span>
-          <span><i class="sw" style="background:#C3CBD6"></i><span data-label="ns">Not started</span></span>
-        </div>
         <div class="right">
           <span class="results" id="tc-results">9 RESULTS</span>
           <div class="pager"><button disabled>First</button><button disabled><i class="fa-solid fa-chevron-left"></i></button><span class="num">1</span><button disabled><i class="fa-solid fa-chevron-right"></i></button><button disabled>Last</button></div>
@@ -698,7 +701,13 @@ Engagement</button>
               <th>Due Date</th>
               <!-- ★ New (V2): one Progress column — a segmented bar replaces # Completed, the number
                    in each section, so the table doesn't grow wider (FR-1, PRD UX constraints) -->
-              <th class="th-progress">Progress</th>
+              <th class="th-progress">Progress
+                <!-- Legend lives in the column header (2026-09-30), naming the bar sections once -->
+                <span class="legend th-legend" aria-hidden="true">
+                  <span><i class="sw" style="background:var(--st-c)"></i><span data-label="c">Completed</span></span>
+                  <span><i class="sw" style="background:var(--st-ip)"></i><span data-label="ip">In Progress</span></span>
+                  <span><i class="sw" style="background:#C3CBD6"></i><span data-label="ns">Not Started</span></span>
+                </span></th>
               <th>Compliance</th>
             </tr>
           </thead>
@@ -934,8 +943,12 @@ Engagement</button>
   function progressBar(a) {
     const t = total(a);
     if (!t) return '<div class="pbar-empty">No learners assigned</div>';
-    const segs = ORDER.filter(s => a[s] > 0).map(s =>
-      `<button class="seg ${s}" style="--n:${a[s]}" data-drill="${a.id}" data-state="${s}"
+    // Fixed-length tiers: the biggest state fills the rest; the others are short or medium
+    const nz = ORDER.filter(s => a[s] > 0);
+    const top = nz.reduce((m, s) => a[s] > a[m] ? s : m, nz[0]);
+    const tier = s => s === top ? 'fill' : a[s] / t < 0.2 ? 'sm' : 'md';
+    const segs = nz.map(s =>
+      `<button class="seg ${s} ${tier(s)}" data-drill="${a.id}" data-state="${s}"
          title="${fmt(a[s])} ${LABELS[s]} (${Math.round(a[s] / t * 1000) / 10}%) — view these learners"
          aria-label="${fmt(a[s])} ${LABELS[s]}, view these learners"><span class="n">${fmt(a[s])}</span></button>`).join('');
     return `<div class="pbar-row"><div class="pbar" role="group" aria-label="${a.course}: progress">${segs}</div>
