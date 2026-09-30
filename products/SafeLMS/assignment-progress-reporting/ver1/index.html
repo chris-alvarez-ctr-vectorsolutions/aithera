@@ -324,7 +324,9 @@
   .comp-cell [theme~="badge"] { font-size: 14px; font-weight: 700; padding: .35em .8em; }
   .comp-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
   /* Count headers wrap to two lines ("# Not / started") so the new columns stay narrow (PRD: no undue width) */
-  table.data th.num { white-space: normal; width: 96px; line-height: 1.3; }
+  table.data th.num { white-space: normal; width: 88px; line-height: 1.3; }
+  .num.total { font-size: 14px; font-weight: 600; color: var(--ink); }
+  table.data th.num, table.data td.num { padding-left: 6px; padding-right: 6px; }
   table.data td.num { white-space: nowrap; }
   .count-link { background: 0; border: 0; padding: 2px 0; font-size: 14px; color: var(--blue-accent); cursor: pointer; }
   .count-link:hover { text-decoration: underline; }
@@ -415,13 +417,13 @@
 
   /* Assignment list */
   .tp-list { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); }
-  .tp-grid { display: grid; grid-template-columns: minmax(250px, 2fr) minmax(150px, 1fr) 190px repeat(3, 92px) 20px;
-    gap: 14px; align-items: center; padding: 0 24px; min-width: 1010px; }
+  .tp-grid { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(140px, 1fr) 180px repeat(4, 80px) 20px;
+    gap: 12px; align-items: center; padding: 0 24px; min-width: 1000px; }
   .tp-head .num { line-height: 1.3; }
   .tp-row .num { font-size: 14px; white-space: nowrap; }
   .tp-row .thumb { flex-basis: 48px; width: 48px; height: 48px; font-size: 19px; }
   .tp-list { overflow-x: auto; }   /* very narrow windows scroll the list, never the page */
-  .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 978px;
+  .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 968px;
     font-size: 13px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: #2B3A55; }
   .tp-row { padding-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--hair); }
   .tp-row:last-child { border-bottom: 0; }
@@ -587,9 +589,11 @@ Engagement</button>
               <th>Position</th>
               <th>Location</th>
               <th>Due Date</th>
-              <!-- ★ New: the non-completed remainder split into two counts (FR-1), same "x / y" form as # Completed -->
-              <th class="num"># Not started</th>
-              <th class="num"># In progress</th>
+              <!-- ★ New: Total assigned, then one plain count per state (FR-1) — no "x / y"
+                   (2026-09-30). Each count opens those learners. -->
+              <th class="num">Total</th>
+              <th class="num"># Not Started</th>
+              <th class="num"># In Progress</th>
               <th class="num"># Completed</th>
               <th>Compliance</th>
             </tr>
@@ -712,7 +716,7 @@ Engagement</button>
 
 <!-- ════════════════════════════════════════════════════════════
      SCREEN 3 — TRAINING PLANS (Phase 2 · FR-4) — V1: columns
-     The course picture stays; three count columns, same "x / y" links as
+     The course picture stays; Total + three plain count columns, same as
      Training Compliance, sit after Dates. No chart.
      ════════════════════════════════════════════════════════════ -->
 <main class="screen" id="screen-tp">
@@ -730,7 +734,7 @@ Engagement</button>
     <section class="tp-list" aria-label="Assignments">
       <div class="tp-grid tp-head">
         <div>Course</div><div>Job</div><div>Dates</div>
-        <div class="num"># Not started</div><div class="num"># In progress</div><div class="num"># Completed</div><div></div>
+        <div class="num">Total</div><div class="num"># Not Started</div><div class="num"># In Progress</div><div class="num"># Completed</div><div></div>
       </div>
       <div id="tp-body"></div>
     </section>
@@ -807,8 +811,8 @@ Engagement</button>
 
   /* ── Screen 1: Training Compliance ───────────────────────── */
   // A count is a link to the learners behind it (FR-3) — same blue link style production
-  // already uses for "# Completed". All three use the same "11 / 85" compound value
-  // (eng review 2026-09-29, Liz 35:11: "keep the same structure").
+  // already uses for "# Completed". Plain numbers; the Total column carries the
+  // denominator (2026-09-30).
   function countLink(a, s, withTotal) {
     const n = a[s], txt = withTotal ? `${fmt(n)} / ${fmt(total(a))}` : fmt(n);
     if (!n) return `<span class="count-zero">${txt}</span>`;
@@ -828,9 +832,10 @@ Engagement</button>
         <td class="cell-sm">${a.position}</td>
         <td class="cell-sm">${a.location}</td>
         <td class="cell-sm">${fmtDate(a.due)}</td>
-        <td class="num">${countLink(a, 'ns', true)}</td>
-        <td class="num">${countLink(a, 'ip', true)}</td>
-        <td class="num">${countLink(a, 'c', true)}</td>
+        <td class="num total">${fmt(total(a))}</td>
+        <td class="num">${countLink(a, 'ns')}</td>
+        <td class="num">${countLink(a, 'ip')}</td>
+        <td class="num">${countLink(a, 'c')}</td>
         <td class="comp-cell"><span theme="${theme}">${p}%</span></td>
       </tr>`;
     }).join('');
@@ -1120,7 +1125,9 @@ Engagement</button>
   /* ── Screen 3: Training Plans ────────────────────────────── */
   // loading = true draws the page with placeholders where progress will appear
   function renderTP(loading) {
-    const cell = (a, s) => `<div class="num">${loading ? '<span class="skel" style="width:58px"></span>' : countLink(a, s, true)}</div>`;
+    const skel = '<span class="skel" style="width:40px"></span>';
+    const cell = (a, s) => `<div class="num">${loading ? skel : countLink(a, s)}</div>`;
+    const totalCell = a => `<div class="num total">${loading ? skel : fmt(total(a))}</div>`;
     document.getElementById('tp-body').innerHTML = ASSIGNMENTS.map(a => `
       <div class="tp-grid tp-row">
         <div class="tp-prog">
@@ -1128,7 +1135,7 @@ Engagement</button>
           <div class="tp-course"><div class="nm">${a.course}</div><div class="ty">${a.plan}</div></div></div>
         <div class="tp-cell"><div><b>${a.position}</b><br>at <b>${a.location}</b></div></div>
         <div class="tp-cell"><div class="tp-dates"><div><b>${fmtDate(effDate(a))}</b><div class="l">Effective</div></div><i class="fa-solid fa-arrow-right" style="color:var(--muted-2)"></i><div><b>${fmtDate(a.due)}</b><div class="l">Due</div></div></div></div>
-        ${cell(a, 'ns')}${cell(a, 'ip')}${cell(a, 'c')}
+        ${totalCell(a)}${cell(a, 'ns')}${cell(a, 'ip')}${cell(a, 'c')}
         <div class="tp-kebab"><i class="fa-solid fa-ellipsis"></i></div>
       </div>`).join('');
   }
@@ -1276,7 +1283,7 @@ Engagement</button>
         { id: 'tc-defs', flow: 'drill', x: 340, y: 100, step: 'Info', name: 'How progress is counted', state: 'tc-defs',
           desc: '"How progress is counted" above the table defines each state and says the compliance % is unchanged.' },
         { id: 'cbe-drill', flow: 'drill', x: 620, y: 100, step: 'Click a count', name: 'Pre-filtered learner list', state: 'cbe-drill',
-          desc: 'Clicking "11 / 85" In progress on Winter Driving opens Compliance by Employee already run. Position, location, course and status are filled in and highlighted (no banner); the count matches.' },
+          desc: 'Clicking the 11 under In Progress on Winter Driving opens Compliance by Employee already run. Position, location, course and status are filled in and highlighted (no banner); the count matches.' },
         { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'In progress + Past due', state: 'cbe-pastdue',
           desc: 'Changing a filter drops its highlight: Course back to All, Status + Past due, so only the past-due In progress learners in that position show.' },
         { id: 'cbe-status', flow: 'filter', entry: true, x: 60, y: 410, step: 'Entry', name: 'Status filter', state: 'cbe-status',
@@ -1288,9 +1295,9 @@ Engagement</button>
         { id: 'tp-loading', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Loading progress', state: 'tp-loading',
           desc: 'The list shows right away; progress fills in a moment later, so the page never waits on it. "Progress as of" says how fresh it is (updated about daily).' },
         { id: 'tp', flow: 'plans', x: 340, y: 720, step: 'Loaded', name: 'Training Plans', state: 'tp',
-          desc: 'Phase 2 (FR-4), V1: the course picture stays and three "x / y" count columns sit after Dates, same as Training Compliance. Numbers match it.' },
+          desc: 'Phase 2 (FR-4), V1: the course picture stays and Total plus three plain count columns sit after Dates, same as Training Compliance. Numbers match it.' },
         { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
-          desc: 'Clicking "8 / 40" Not started on OSHA 30-Hour opens the learner report already run, with position, location, course and status set and highlighted (AC-4.3).' }
+          desc: 'Clicking the 8 under Not Started on OSHA 30-Hour opens the learner report already run, with position, location, course and status set and highlighted (AC-4.3).' }
       ],
       edges: [
         ['tc', 'tc-defs'],
