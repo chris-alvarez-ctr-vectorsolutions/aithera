@@ -10,9 +10,10 @@
        One page for both ways into editing an activity:
          Path A  Training Import And Creation > Quizzes > Edit   -> ?id=<id>&tab=content
          Path B  Activities > Edit                               -> ?id=<id>&tab=details
-       No tabs: the ENTRY POINT decides what you edit. Launching from an activity-type grid (Quizzes,
-       Computer Based Trainings) opens the Content page; launching from Manage Activities opens Details
-       (metadata), with the version history inside it. The legacy toolbar's Edit Content / Properties buttons
+       No tabs: the ENTRY POINT decides what you edit. The Quizzes grid opens the Content page; Manage
+       Activities and the Computer Based Trainings grid open Details (metadata), with the version history
+       inside it. A CBT has no content page here at all: Learning Studio owns its content, launched from
+       the one button in the top toolbar. The legacy toolbar's Edit Content / Properties buttons
        cross over, the way the product does today. Both panels stay mounted and edit ONE
        in-memory record, so switching tabs never loses work; leaving the page with unsaved
        changes is guarded. Deep links: ?tab=content|details, ?layout=legacy|modern, ?from=cbt|quizzes|activities
@@ -50,6 +51,8 @@
     #cv-page.readonly .ro-hide { display:none !important; }
     /* A CBT Learning Studio cannot customize (licensed third-party, uploaded package): no Learning Studio CTA anywhere */
     #cv-page.no-ls .ls-cta { display:none !important; }
+    /* A CBT has no content page of its own (Learning Studio owns its content), so the cross-link to one is dropped */
+    #cv-page.cbt-no-content .tab-only-details { display:none !important; }
 
     /* ── Prototype layout toggle (floating, not part of either design) ── */
     .proto-toggle { position:fixed; bottom:18px; right:18px; z-index:5000; display:flex; align-items:center; gap:4px; background:#1f2937; color:#fff; padding:6px; border-radius:999px; box-shadow:0 10px 30px rgba(0,0,0,.3); font:600 12.5px "Open Sans",sans-serif; }
@@ -1013,6 +1016,7 @@
      type-specific grid, details from Manage Activities) and the toolbar cross-links switch it. */
   function setTab(tab, updateUrl){
     if (tab === 'versions') tab = 'details';
+    if (isCbtType) tab = 'details';   // a CBT has no content page here: Learning Studio owns its content
     if (!['details', 'content'].includes(tab)) tab = 'details';
     const changed = tab !== currentTab;
     currentTab = tab;
@@ -1334,7 +1338,7 @@
       <h3>${esc(T.longLabel)} content</h3><p>${esc(cbtContentNote())}</p>
       <div class="ph-actions">${isCbtType
         ? `<span class="file-name" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;background:#f8fafc;border:1px solid #e5e9ef;border-radius:8px;padding:8px 12px"><i class="fa-regular fa-file-zipper" style="color:#64748b"></i> ${esc(A.file || 'No package')}</span>
-           ${A.lsEditable ? `<button class="ls-cta ro-hide" onclick="openLearningStudio()"><span class="sparkle-slot"></span> <span class="ls-cta-text">Edit in Learning Studio</span></button>` : `<button class="m-btn secondary ro-hide" onclick="pickFile()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Update file</button>`}`
+           ${A.lsEditable ? '' : `<button class="m-btn secondary ro-hide" onclick="pickFile()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Update file</button>`}`
         : (T.content === 'file'
           ? `<span class="file-name" style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;background:#f8fafc;border:1px solid #e5e9ef;border-radius:8px;padding:8px 12px"><i class="fa-regular fa-file" style="color:#64748b"></i> ${esc(A.file || 'No file')}</span><button class="m-btn secondary ro-hide" onclick="pickFile()"><i class="fa-solid fa-arrow-up-from-bracket"></i> Update file</button>`
           : `<button class="m-btn secondary" onclick="toast('The ${esc(T.longLabel)} editor opens here (prototype).')"><i class="fa-solid fa-pen-to-square"></i> Open ${esc(T.longLabel)} editor</button>`)}</div>
@@ -1344,7 +1348,7 @@
   function placeholderLegacy(){
     return `<div class="leg-section" style="margin-top:0"><div class="leg-section-head">${esc(T.longLabel)} Content</div>
       <div class="leg-section-foot" style="display:block"><p style="margin:0 0 12px;font-size:13px;color:#3c4148">${esc(cbtContentNote())}</p>
-      ${isCbtType ? (A.lsEditable ? `<button class="ls-cta ro-hide" onclick="openLearningStudio()"><span class="sparkle-slot"></span><span class="ls-cta-text">Edit in Learning Studio</span></button>` : `<button class="btn-blue ro-hide" onclick="pickFile()"><i class="fa-solid fa-folder-open"></i> Update File</button>`)
+      ${isCbtType ? (A.lsEditable ? '' : `<button class="btn-blue ro-hide" onclick="pickFile()"><i class="fa-solid fa-folder-open"></i> Update File</button>`)
         : (T.content === 'file' ? `<span style="font-size:13px">File: <a class="leg-link" href="#" onclick="return false">${esc(A.file || 'No file')}</a></span> <button class="btn-blue ro-hide" onclick="pickFile()"><i class="fa-solid fa-folder-open"></i> Update File</button>`
         : `<button class="btn-blue" onclick="toast('The ${esc(T.longLabel)} editor opens here (prototype).')">Open ${esc(T.longLabel)} Editor</button>`)}
       </div></div>`;
@@ -1706,6 +1710,7 @@
     $$('.sparkle-slot').forEach((s, i) => s.innerHTML = sparkleSvg('lsg' + i));
     if (!isCbtType) $('#cv-page').classList.add('not-cbt');
     if (isCbtType && !A.lsEditable) $('#cv-page').classList.add('no-ls');
+    if (isCbtType) $('#cv-page').classList.add('cbt-no-content');   // its content is edited in Learning Studio, not here
     $('#mod-back').href = listHref(); $('#mod-back-label').textContent = 'Back to ' + listLabel();
     $('#mod-type-icon').className = 'fa-solid ' + T.icon;
     mountAdvanced();
