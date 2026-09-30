@@ -6,10 +6,32 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-30) Collapsed Review; "Blocked"; CSV over 20; log Care banner
+
+- **[DONE]** Review alerts are **short banners**: chip + title only, with **View details ▾** on the
+  right (warnings also show "Needs review"). Opening shows the sub-line, the full list (scrolls when
+  long), "What to do", and — for a Warning — the checkbox, so it's confirmed after it's seen.
+  The first-row preview and "Show N more rows" are gone.
+- **[DONE]** Tier label **"Blocking" → "Blocked"** (chip, sample-file tags, log notes, flow map).
+- **[DONE]** "Submit a ticket to get this solved" button removed. Blocked alerts keep "Have a
+  question about this? Raise an issue ticket."
+- **[DONE]** Warnings and Blocked with **more than 20** people/rows get **Download CSV** under the
+  list (uses the alert's real count, not just the rows shown). Info never does.
+- **[DONE]** Upload log: pencil banner — "**Made a mistake in an upload?** Reach out to Vector Care
+  and we'll help you sort out the changes." + Contact Vector Care (Support Center). Uploads can't be
+  undone (PRD), so Care is the path.
+
 ## (2026-09-29) Rows on every alert; complete list of changes
 
+- **[DONE]** Every **Blocking** alert ends with **"Submit a ticket to get this solved"** + "Have a
+  question about this? **Raise an issue ticket**." (both → Support Center; replaces "Contact Vector
+  support"). **PENDING:** real ticket URLs / whether they're two different ticket types.
+- **[DONE]** Approving an automated run: no "Back to upload log" button — the header ✕ goes back to the log.
+- **[DONE]** Completed log page: **Change report (.csv)** and **Data before this upload (.csv)**
+  removed — neither is in the PRD (it asks for upload history: what each import changed + who ran
+  it). "Original file" stays (designer call, 2026-09-30); "Error report (.csv)" removed.
 - **[DONE]** Upload log: runs that didn't go leave the change columns empty — no "No changes" /
-  "See what stopped it" text, just the row's arrow. A run waiting for approval keeps "Review & approve →".
+  "See what stopped it" text, just the row's arrow. A run waiting for approval keeps "Review & approve" (no arrow — the row chevron moves forward).
 - **[DONE]** **Blocked is automated-only.** A manual upload with Blocking issues can only be cancelled,
   so it's logged as **Cancelled** (its note lists the Blocking issues).
 - **[DONE]** Every row-level alert (Blocking, Warning and Info) lists the **row** it's on: a "Row"
