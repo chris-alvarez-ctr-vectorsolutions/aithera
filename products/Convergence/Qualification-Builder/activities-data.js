@@ -288,16 +288,18 @@
     return rec;
   };
 
-  /* Link to the unified editor. `tab` = details | content | versions. The name/type/source/location
+  /* Link to the unified editor. `tab` = details | content (the entry point decides: a type-specific grid
+     opens content, Manage Activities opens details); `from` = the list to return to. The name/type/source/location
      params are kept for backward compatibility with links that predate ?id=. */
-  window.editActivityHref = function (a, tab) {
+  window.editActivityHref = function (a, tab, from) {
     return 'Edit-Activity.html?id=' + encodeURIComponent(a.id) +
            '&name=' + encodeURIComponent(a.name) +
            '&source=' + encodeURIComponent(a.source || '') +
            '&type=' + encodeURIComponent(a.type || '') +
            '&location=' + encodeURIComponent(a.location || '') +
            (a.editable === false ? '&mode=view' : '') +
-           (tab ? '&tab=' + encodeURIComponent(tab) : '');
+           (tab ? '&tab=' + encodeURIComponent(tab) : '') +
+           (from ? '&from=' + encodeURIComponent(from) : '');
   };
   window.previewActivityHref = function (a, version) {
     return 'Preview-Activity.html?id=' + encodeURIComponent(a.id) + (version ? '&version=' + encodeURIComponent(version) : '');

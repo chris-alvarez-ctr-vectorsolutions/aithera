@@ -422,7 +422,9 @@ Hazards) demonstrates the reflow. Measured columns, from the auto-fill grid on t
 Auto-fill tracks between a min and max mean the count falls out of the available width at
 every size, gutters stay 16px, and partial rows keep card size instead of stretching.
 
-**Catalog card view adjustments.** Each category now sits in its own grouped module, per
+**Catalog card view adjustments.** (Superseded 2026-09-30: the grouped module was removed
+again. Rows sit directly on the canvas, separated by 32px of white space; the cards are the
+only surface.) Each category previously sat in its own grouped module, per
 the Top picks container reference supplied in review: white surface, hairline border, 12px
 radius, `--e-1`, 20px padding, with the circular prev/next arrows top-right in the header
 beside View all. Catalog cards ARE the small Training Plan card component now: same

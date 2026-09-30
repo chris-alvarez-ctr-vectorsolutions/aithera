@@ -24,6 +24,7 @@ const SPECS = {
     ['Nav icon column', '20px · 15px glyph · label clamp 2'],
     ['Location panel', '380px · radius 12 · --e-3'],
     ['Fin launcher', '30x30 · radius 15 0 0 15 · gutter 40px'],
+    ['Search box', 'clamp(280px, 24vw, 440px) · 36px tall · clamp(180px, 18vw, 260px) under 1400px'],
   ]),
   home: specHTML([
     ['Dashboard grid', '12 cols · 24px gutters · spans 8+4, 4+8'],
@@ -54,7 +55,9 @@ const SPECS = {
     ['Card badges', 'status top-left · duration bottom-right'],
     ['Row actions', 'print · attachments · info RIGHTMOST (fixed x) · icon-btn 34 · column 112'],
     ['Card actions', 'print · attachments only (info moved to hover) · glyph aligned to the text edge'],
-    ['Card hover', 'View details pill over the thumb · 35% ink scrim · also on focus-within'],
+    ['Page width', 'max 1360px, centred · matches home and catalog'],
+    ['Card hover', 'View details pill over the thumb · 14/600, one line · 35% ink scrim · also on focus-within'],
+    ['Card CTA', 'Launch pinned bottom-right · icon buttons left'],
     ['Cards (small) fit', 'icon-btn 34 · Launch pad 10 · tracks 200-236'],
     ['Loading state', 'skeleton on --c-canvas · vwc-spinner 24 · 500ms flash between states'],
     ['Loading modal', '420px · vwc-spinner 40 · Cancel · auto-close 2.4s (prototype)'],

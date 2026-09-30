@@ -10,10 +10,13 @@
        One page for both ways into editing an activity:
          Path A  Training Import And Creation > Quizzes > Edit   -> ?id=<id>&tab=content
          Path B  Activities > Edit                               -> ?id=<id>&tab=details
-       Tabs: Content | Details, with the version history inside Details. Both panels stay mounted and edit ONE
+       No tabs: the ENTRY POINT decides what you edit. Launching from an activity-type grid (Quizzes,
+       Computer Based Trainings) opens the Content page; launching from Manage Activities opens Details
+       (metadata), with the version history inside it. The legacy toolbar's Edit Content / Properties buttons
+       cross over, the way the product does today. Both panels stay mounted and edit ONE
        in-memory record, so switching tabs never loses work; leaving the page with unsaved
-       changes is guarded. Deep links: ?tab=content|details, ?layout=legacy|modern, ?from=cbt (marks the
-       Computer Based Trainings grid as the page to return to),
+       changes is guarded. Deep links: ?tab=content|details, ?layout=legacy|modern, ?from=cbt|quizzes|activities
+       (the list to return to),
        ?new=quiz (fresh draft), ?mode=view (read-only, accredited content).
        Two layouts share that record and every behaviour:
          MVP (legacy)  the current Convergence metadata form and content page, joined by a
@@ -76,11 +79,8 @@
     #cv-page[data-tab="content"] .tab-only-details, #cv-page[data-tab="details"] .tab-only-content { display:none !important; }
 
     /* Legacy tab strip (dark, matches the legacy section heads) */
-    .leg-tabs { display:flex; align-items:stretch; background:#3c4148; padding:0 14px; }
-    .leg-tab { border:none; background:transparent; color:#cbd2d9; font-family:inherit; font-size:13.5px; font-weight:700; padding:12px 18px; cursor:pointer; border-bottom:3px solid transparent; display:inline-flex; align-items:center; gap:8px; }
-    .leg-tab:hover { color:#fff; background:#4a5057; }
-    .leg-tab.active { color:#fff; border-bottom-color:#fff; background:#4a5057; }
-    .leg-tab-count { font-size:11px; font-weight:700; background:#cbd2d9; color:#3c4148; border-radius:10px; padding:1px 7px; }
+    /* Count badge on a legacy section head (competency question count) */
+    .leg-count-badge { font-size:11px; font-weight:700; background:#cbd2d9; color:#3c4148; border-radius:10px; padding:1px 7px; }
     .leg-unsaved { display:inline-flex; align-items:center; gap:8px; background:#fff4d6; border:1px solid #f0c36d; color:#7a4b00; font-size:12.5px; font-weight:600; border-radius:4px; padding:8px 12px; margin-bottom:14px; }
     .leg-unsaved i { color:#d97706; }
     .leg-context { font-size:13px; color:#3c4148; margin-bottom:14px; }
@@ -188,16 +188,6 @@
     .m-btn:disabled { opacity:.5; cursor:not-allowed; }
 
     /* Editor tabs: underline tabs in the header block, same idiom as the Activities grid */
-    .ed-tabs { display:flex; align-items:flex-end; gap:4px; padding:0 28px; }
-    .ed-tab { position:relative; border:none; background:none; font-family:inherit; font-size:13.5px; font-weight:600; color:#6b7280; padding:9px 12px 12px; border-radius:7px 7px 0 0; cursor:pointer; display:inline-flex; align-items:center; gap:8px; line-height:1.2; transition:color .12s, background .12s; }
-    .ed-tab::after { content:''; position:absolute; left:8px; right:8px; bottom:0; height:2px; border-radius:2px 2px 0 0; background:transparent; transition:background .12s; }
-    .ed-tab:hover { color:#1a1a2e; background:var(--lumo-contrast-5pct, #f3f4f6); }
-    .ed-tab:focus-visible { outline:2px solid var(--lumo-primary-color, var(--vblue)); outline-offset:-2px; }
-    .ed-tab.active { color:var(--lumo-primary-color, var(--vblue)); }
-    .ed-tab.active::after { background:var(--lumo-primary-color, var(--vblue)); }
-    .ed-tab .tab-count { font-size:11.5px; font-weight:600; color:#6b7280; background:var(--lumo-contrast-10pct, #eef1f5); border-radius:999px; padding:2px 7px; min-width:20px; text-align:center; line-height:1.2; }
-    .ed-tab.active .tab-count { color:var(--lumo-primary-color, var(--vblue)); background:var(--lumo-primary-color-10pct, var(--vblue-10)); }
-    .ed-tab .tab-dot { width:7px; height:7px; border-radius:50%; background:#f59e0b; }
 
     .mod-body { padding:24px 28px 80px; max-width:1080px; margin:0 auto; }
     .det-grid { display:grid; grid-template-columns:260px 1fr; gap:22px; align-items:start; }
@@ -433,13 +423,6 @@
     <button class="leg-btn" onclick="closeEditor()"><i class="fa-solid fa-xmark"></i> Close</button>
   </div>
 
-  <!-- Tab bar just below the page header, on every entry: the two old pages (Edit Content, Edit Activity metadata)
-       in one place. The toolbar's Edit Content / Properties buttons still switch pages too. Version history lives
-       inside Details, as on the metadata page. -->
-  <div class="leg-tabs" role="tablist" aria-label="Editor sections">
-    <button class="leg-tab" role="tab" data-tab="content" onclick="setTab('content')">Content <span class="leg-tab-count" data-count="content">0</span></button>
-    <button class="leg-tab active" role="tab" data-tab="details" onclick="setTab('details')">Details</button>
-  </div>
 
   <div class="leg-body">
     <div class="leg-context">Editing <strong data-show="name"></strong> <span class="leg-pill" data-show="typeLong"></span> <span class="leg-pill" data-show="versionLabel"></span> <span class="leg-pill" id="leg-publish-pill">Draft</span></div>
@@ -589,15 +572,14 @@
         <button class="m-btn secondary cbt-only ro-hide" onclick="launchConfigure()"><span class="gears-slot"></span> Configure</button>
         <span class="div cbt-only"></span>
         <button class="m-btn ghost ro-hide" onclick="openDelete()" title="Delete activity"><i class="fa-regular fa-trash-can"></i></button>
+        <!-- Cross-link to the other page, mirroring the legacy toolbar's Edit Content / Properties buttons -->
+        <button class="m-btn secondary tab-only-details" onclick="setTab('content')"><i class="fa-solid fa-pen-to-square"></i> Edit content</button>
+        <button class="m-btn secondary tab-only-content" onclick="setTab('details')"><i class="fa-solid fa-sliders"></i> Details</button>
         <button class="m-btn secondary" onclick="openPreview()"><i class="fa-regular fa-eye"></i> Preview</button>
         <button class="m-btn secondary ro-hide" id="mod-save" onclick="saveActivity()"><i class="fa-solid fa-check"></i> Save</button>
         <button class="m-btn primary ro-hide" id="mod-publish" onclick="openPublish()"><i class="fa-solid fa-upload"></i> Publish</button>
       </div>
     </div>
-    <nav class="ed-tabs" role="tablist" aria-label="Editor sections">
-      <button class="ed-tab active" role="tab" data-tab="details" onclick="setTab('details')"><i class="fa-solid fa-sliders" style="font-size:12px"></i> Details</button>
-      <button class="ed-tab" role="tab" data-tab="content" onclick="setTab('content')"><i class="fa-regular fa-rectangle-list" style="font-size:12px"></i> Content <span class="tab-count" data-count="content">0</span></button>
-    </nav>
   </div>
 
   <div class="mod-body">
@@ -824,7 +806,7 @@
   const params    = new URLSearchParams(location.search);
   const isNew     = params.get('new') === 'quiz';
   const readOnly  = params.get('mode') === 'view';
-  const fromCbt   = params.get('from') === 'cbt';   // arrived from the Computer Based Trainings grid (drives the Back link / Close target)
+  const fromList  = params.get('from') || '';       // cbt | quizzes | activities: the list to return to
   function loadRecord(){
     if (isNew) return createQuiz('Untitled Quiz', params.get('location') || undefined);
     const id = params.get('id');
@@ -846,10 +828,12 @@
     return stub;
   }
   let A = loadRecord();
+  /* The breadcrumb names the page you are on, since there is no tab bar to show it */
+  const onContent = (params.get('tab') || 'details') === 'content';
   window.SHELL_CONFIG = {
-    active: 'act-activities',
-    parent: 'Activities',
-    title:  readOnly ? 'View Activity' : (isNew ? 'New Quiz' : 'Edit Activity'),
+    active: fromList === 'cbt' ? 'ti-cbt' : (fromList === 'quizzes' ? 'ti-quizzes' : 'act-activities'),
+    parent: fromList === 'cbt' || fromList === 'quizzes' ? 'Training Import And Creation' : 'Activities',
+    title:  readOnly ? 'View Activity' : (isNew ? 'New Quiz' : (onContent ? 'Edit Content' : 'Edit Activity')),
     context: A.location || 'UAT Environment'
   };
 </script>
@@ -922,7 +906,6 @@
     $('#mod-save').classList.toggle('dirty', dirty);
     $('#leg-save').classList.toggle('dirty', dirty);
     $('#leg-unsaved').classList.toggle('hidden', !dirty);
-    $$('[data-count="content"]').forEach(el => { el.textContent = hasQuizEditor ? totalQuestions() : ''; el.classList.toggle('hidden', !hasQuizEditor); });
     document.title = (dirty ? '• ' : '') + name + ' | ' + (readOnly ? 'View Activity' : 'Edit Activity') + ' | Convergence LMS';
     const bc = document.querySelector('.PageActionTitle'); if (bc) bc.textContent = (readOnly ? 'View Activity' : 'Edit Activity') + ': ' + name;
   }
@@ -1026,13 +1009,14 @@
   /* Tabs: Content | Details. Each tab is a URL state (?tab=) pushed to history, so deep links and the
      browser back button work. 'versions' is accepted from older links and lands on Details, where the
      version history now lives. updateUrl: undefined = push (user click), 'replace' = replace, false = leave the URL. */
+  /* Which page the editor is on. There is no tab bar: the entry point sets this (content from a
+     type-specific grid, details from Manage Activities) and the toolbar cross-links switch it. */
   function setTab(tab, updateUrl){
     if (tab === 'versions') tab = 'details';
     if (!['details', 'content'].includes(tab)) tab = 'details';
     const changed = tab !== currentTab;
     currentTab = tab;
-    $('#cv-page').dataset.tab = tab;
-    $$('[data-tab]').forEach(b => { const on = b.dataset.tab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    $('#cv-page').dataset.tab = tab;   /* drives which cross-link button shows */
     $$('[data-pane]').forEach(p => p.classList.toggle('hidden', p.dataset.pane !== tab));
     if (updateUrl !== false) {
       const u = new URL(location.href); u.searchParams.set('tab', tab);
@@ -1315,7 +1299,7 @@
   function legacyCompetencyHtml(c, ci, total){
     const n = c.questions.length;
     return `<div class="leg-section" data-cid="${c.id}">
-      <div class="leg-section-head">Competency: <span id="lct-${c.id}">${esc(c.name)}</span> <span class="leg-tab-count">${n}</span><span class="grow"></span>
+      <div class="leg-section-head">Competency: <span id="lct-${c.id}">${esc(c.name)}</span> <span class="leg-count-badge">${n}</span><span class="grow"></span>
         <button class="leg-head-btn ro-hide" onclick="moveCompetency('${c.id}', -1)" ${ci === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></button>
         <button class="leg-head-btn ro-hide" onclick="moveCompetency('${c.id}', 1)" ${ci === total - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></button>
         <button class="leg-head-btn ro-hide" onclick="renameCompetency('${c.id}')"><i class="fa-solid fa-pen"></i> Rename</button>
@@ -1674,8 +1658,8 @@
   function confirmDelete(){ closeDelete(); dirty = false; deleteActivityRecord(A.id); location.href = listHref(); }
   function listHref(){
     const r = document.referrer || '';
-    if (fromCbt || /Manage-CBTs/.test(r)) return 'Manage-CBTs.html';
-    if (/Manage-Quizzes/.test(r)) return 'Manage-Quizzes.html';
+    if (fromList === 'cbt' || /Manage-CBTs/.test(r)) return 'Manage-CBTs.html';
+    if (fromList === 'quizzes' || /Manage-Quizzes/.test(r)) return 'Manage-Quizzes.html';
     return 'Manage-Activities.html';
   }
   function listLabel(){ const h = listHref(); return /CBTs/.test(h) ? 'Computer Based Trainings' : (/Quizzes/.test(h) ? 'Quizzes' : 'Activities'); }

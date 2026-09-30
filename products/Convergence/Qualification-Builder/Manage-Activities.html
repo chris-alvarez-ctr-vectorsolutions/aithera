@@ -78,23 +78,6 @@
     .search-wrap input:focus { border-color:var(--vblue); box-shadow:0 0 0 3px var(--vblue-10); }
     .filter-select { height:36px; border:1px solid #d4d9e0; border-radius:7px; padding:0 10px; font-family:inherit; font-size:13px; background:#fff; color:#374151; cursor:pointer; }
 
-    /* Source tabs (All / Custom / Vector Solutions / Learning Studio): a content-source filter above the toolbar.
-       Underline tabs in the current SaaS-dashboard idiom: quiet resting state, soft hover fill, a 2px primary
-       underline on the active tab, and count pills. Colors come from the Vector theme tokens
-       (--lumo-primary-color, --lumo-primary-color-10pct, --lumo-contrast-10pct, --lumo-contrast-5pct) with hex fallbacks. */
-    .source-tabs { display:flex; align-items:flex-end; gap:4px; border-bottom:1px solid var(--lumo-contrast-10pct, #e5e9ef); margin-bottom:14px; }
-    .source-tab { position:relative; border:none; background:none; font-family:inherit; font-size:13.5px; font-weight:600; color:#6b7280; padding:9px 12px 11px; border-radius:7px 7px 0 0; cursor:pointer; display:inline-flex; align-items:center; gap:8px; line-height:1.2; transition:color .12s, background .12s; }
-    .source-tab::after { content:''; position:absolute; left:8px; right:8px; bottom:-1px; height:2px; border-radius:2px 2px 0 0; background:transparent; transition:background .12s; }
-    .source-tab:hover { color:#1a1a2e; background:var(--lumo-contrast-5pct, #f3f4f6); }
-    .source-tab:focus-visible { outline:2px solid var(--lumo-primary-color, var(--vblue)); outline-offset:-2px; }
-    .source-tab.active { color:var(--lumo-primary-color, var(--vblue)); }
-    .source-tab.active::after { background:var(--lumo-primary-color, var(--vblue)); }
-    .st-count { font-size:11.5px; font-weight:600; color:#6b7280; background:var(--lumo-contrast-10pct, #eef1f5); border-radius:999px; padding:2px 7px; min-width:20px; text-align:center; line-height:1.2; }
-    .source-tab.active .st-count { color:var(--lumo-primary-color, var(--vblue)); background:var(--lumo-primary-color-10pct, var(--vblue-10)); }
-    .source-tab-desc { font-size:12.5px; color:#6b7280; margin:-4px 0 16px; line-height:1.5; max-width:760px; }
-    /* The All tab has no description, so the line collapses rather than leaving its margins behind */
-    .source-tab-desc.hidden { display:none; }
-
     /* Active filters as removable chips (type, publish status, search) + Clear all. Filters combine with AND. */
     .filter-chips { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:-4px 0 14px; }
     .filter-chips.hidden { display:none; }
@@ -301,16 +284,6 @@
       </div>
     </div>
 
-    <!-- Content-source tabs: separate activities by where they came from. The distinction matters because
-         editing accredited Vector Solutions content in Learning Studio removes its accreditation. -->
-    <nav class="source-tabs" role="tablist" aria-label="Filter activities by content source">
-      <button class="source-tab active" role="tab" aria-selected="true" data-source="" onclick="onSourceTab(this)">All <span class="st-count" id="st-count-all">0</span></button>
-      <button class="source-tab" role="tab" aria-selected="false" data-source="Custom" onclick="onSourceTab(this)">Custom <span class="st-count" id="st-count-custom">0</span></button>
-      <button class="source-tab" role="tab" aria-selected="false" data-source="Vector Solutions" onclick="onSourceTab(this)">Vector Solutions <span class="st-count" id="st-count-vs">0</span></button>
-      <button class="source-tab" role="tab" aria-selected="false" data-source="Learning Studio" onclick="onSourceTab(this)">Learning Studio <span class="st-count" id="st-count-ls">0</span></button>
-    </nav>
-    <div class="source-tab-desc hidden" id="source-tab-desc"></div>
-
     <div class="mgmt-toolbar">
       <div class="search-wrap">
         <i class="fa-solid fa-magnifying-glass"></i>
@@ -458,7 +431,7 @@ const V2_FULL = new URLSearchParams(location.search).get('v') === '2';
 function nameRenderer(p){
   const a = p.data;
   return `<div class="cell-name-wrap">
-    <a class="cell-name cell-name-link" href="${editActivityHref(a)}">${a.name}</a>
+    <a class="cell-name cell-name-link" href="${editActivityHref(a, 'details', 'activities')}">${a.name}</a>
     <div class="cell-desc">${a.desc}</div>
   </div>`;
 }
@@ -692,7 +665,8 @@ function actionsRenderer(p){
   const editBtn   = e.querySelector(canEdit ? '[title="Edit"]' : '[title="View details"]');
   const moreBtn   = e.querySelector('[title="More actions"]');
   if (studioBtn) studioBtn.addEventListener('click', ev => { ev.stopPropagation(); openLearningStudio(p.data); });
-  editBtn.addEventListener('click', () => { window.location.href = editActivityHref(p.data); });
+  // Manage Activities is the metadata entry point: Edit opens the Details page.
+  editBtn.addEventListener('click', () => { window.location.href = editActivityHref(p.data, 'details', 'activities'); });
   moreBtn.addEventListener('click', ev => {
     ev.stopPropagation();
     const isActive = p.data.status === 'Active';
@@ -710,8 +684,7 @@ function actionsRenderer(p){
         }},
       // "Configure" is only available for configurable activities (mirrors the Configurability column).
       ...((V2_FULL && p.data.configurable) ? [{ iconHtml: gearsSvg(15, 'dd-gears'), label:'Configure', action: () => launchConfigure(p.data) }] : []),
-      // "Edit content" opens the unified editor on its Content tab (types with a built-in content editor, e.g. Quiz).
-      ...(ACTIVITY_TYPE(p.data.type).content === 'quiz' ? [{ icon:'fa-solid fa-pen-to-square', label:'Edit content', action: () => { window.location.href = editActivityHref(p.data, 'content'); } }] : []),
+      // Content is edited from the activity-type grids (Quizzes, Computer Based Trainings), not from here.
       { icon:'fa-regular fa-eye', label:'Preview', action: () => window.open(previewActivityHref(p.data), '_blank') },
       // Share opens the Direct Link + QR popover right beside the kebab (no need to edit the activity first).
       { icon:'fa-solid fa-arrow-up-from-bracket', label:'Share', action: () => openSharePopover(moreBtn, p.data) },
@@ -728,7 +701,6 @@ let gridApi = null;
 let typeFilter = new Set();   // selected activity types (empty = all)
 let publishFilter = '';       // V2 only: '' = all, or 'Draft' | 'Published'
 let reqValue  = '';
-let sourceValue = '';   // active content-source tab ('' = All)
 
 const gridOptions = {
   rowData: ACTS,
@@ -737,7 +709,7 @@ const gridOptions = {
     { headerName:'Activity',        field:'name',         flex:2.6, minWidth:360, cellRenderer:nameRenderer, getQuickFilterText:p=>p.data.name+' '+p.data.desc },
     { headerName:'Type',            field:'type',         width:165, cellRenderer:typeRenderer },
     { headerName:'Version',         field:'version',      width:100, cellRenderer:versionRenderer },
-    { headerName:'Status',          field:'status',       width:120, cellRenderer:statusRenderer },
+    { headerName:'Active Status',   field:'status',       width:130, cellRenderer:statusRenderer },
     ...(V2_FULL ? [{ headerName:'Publish Status', field:'publishStatus', width:145, cellRenderer:publishRenderer }] : []),
     { headerName:'Location',        field:'location',     flex:2, minWidth:220, cellRenderer:locationRenderer },
     ...(V2_FULL ? [
@@ -763,14 +735,15 @@ const gridOptions = {
   paginationPageSize: 10,
   paginationPageSizeSelector: [10, 25, 50],
   domLayout: 'autoHeight',
-  /* All filters combine with AND: source tab, type, publish status (V2), requirement (plus the quick-filter search). */
-  isExternalFilterPresent: () => typeFilter.size > 0 || publishFilter !== '' || reqValue !== '' || sourceValue !== '',
+  /* All filters combine with AND: type, publish status (V2), requirement (plus the quick-filter search).
+     Content source is a per-row column, not a scope: the All / Custom / Vector Solutions / Learning Studio
+     tabs were removed, so every activity is listed together. */
+  isExternalFilterPresent: () => typeFilter.size > 0 || publishFilter !== '' || reqValue !== '',
   doesExternalFilterPass: (node) =>
     (!typeFilter.size || typeFilter.has(node.data.type)) &&
     (!publishFilter || node.data.publishStatus === publishFilter) &&
-    (!reqValue    || node.data.requirement === reqValue) &&
-    (!sourceValue || node.data.source === sourceValue),
-  onGridReady: () => { updateCount(); updateTabCounts(); applySourceColVisibility(); },
+    (!reqValue    || node.data.requirement === reqValue),
+  onGridReady: () => { updateCount(); },
   onModelUpdated: () => updateCount(),
   onSelectionChanged: () => updateBulkBar(),
 };
@@ -779,7 +752,6 @@ function onSearch(v){ if (gridApi) gridApi.setGridOption('quickFilterText', v); 
 /* ─── Multiselect Type filter (design-system multi-select combo box) ─── */
 function applyTypeFilter(){
   if (gridApi) gridApi.onFilterChanged();
-  updateTabCounts();
 }
 function setupTypeFilter(){
   const cb = document.getElementById('type-filter');
@@ -834,51 +806,6 @@ function clearAllFilters(){
   applyTypeFilter(); renderFilterChips();
 }
 
-/* ─── Content-source tabs ─── */
-const SOURCE_DESC = {
-  '': '',                                 // All tab: the tab itself says it
-  'Custom': 'Content created by your organization.',
-  'Vector Solutions': 'Accredited, ready-to-deploy content built by Vector Solutions.',
-  'Learning Studio': 'Content created or edited in Learning Studio. Editing accredited Vector Solutions content in Learning Studio removes its accreditation, so it moves here.'
-};
-function onSourceTab(btn){
-  sourceValue = btn.dataset.source;
-  document.querySelectorAll('.source-tab').forEach(t => {
-    const on = (t === btn);
-    t.classList.toggle('active', on);
-    t.setAttribute('aria-selected', on ? 'true' : 'false');
-  });
-  const d = document.getElementById('source-tab-desc');
-  if (d){
-    const txt = SOURCE_DESC[sourceValue] || '';
-    d.textContent = txt;
-    d.classList.toggle('hidden', !txt);
-  }
-  if (gridApi){
-    gridApi.deselectAll();              // selection from the previous tab no longer applies
-    gridApi.onFilterChanged();
-    gridApi.paginationGoToFirstPage();
-    applySourceColVisibility();         // Source column shows only on the All tab (mixed sources)
-  }
-}
-/* The tabs already filter by source, so the per-row Source column is only useful on the All tab (mixed sources). */
-function applySourceColVisibility(){
-  if (gridApi) gridApi.setColumnsVisible(['source'], sourceValue === '');
-}
-/* Per-tab counts respect the Type dropdown and any requirement filter, but not the free-text search. */
-function updateTabCounts(){
-  const count = (src) => ACTS.filter(a =>
-    (!reqValue  || a.requirement === reqValue) &&
-    (!typeFilter.size || typeFilter.has(a.type)) &&
-    (!publishFilter || a.publishStatus === publishFilter) &&
-    (!src       || a.source === src)
-  ).length;
-  const set = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n; };
-  set('st-count-all', count(''));
-  set('st-count-custom', count('Custom'));
-  set('st-count-vs', count('Vector Solutions'));
-  set('st-count-ls', count('Learning Studio'));
-}
 function updateCount(){
   if (!gridApi) return;
   const shown = gridApi.getDisplayedRowCount();
@@ -934,7 +861,7 @@ function toggleExportMenu(ev){
 function closeExportMenu(){ const m=document.getElementById('export-menu'); if(m) m.classList.add('hidden'); }
 
 /* ─── Column customization (AG Grid columns tool-panel style: show/hide) ─── */
-const COL_PANEL_EXCLUDE = ['select', 'actions', 'source'];   // structural / context-managed columns, not user-toggleable (Source shows only on the All tab)
+const COL_PANEL_EXCLUDE = ['select', 'actions'];   // structural columns, not user-toggleable
 function toggleColumnPanel(ev){
   ev.stopPropagation();
   closeExportMenu();
@@ -995,7 +922,6 @@ function filterColumnPanel(q){
 function resetColumns(){
   if (!gridApi) return;
   gridApi.resetColumnState();
-  applySourceColVisibility();   // keep Source tied to the All tab even after a reset
   const s = document.getElementById('col-panel-search'); if (s) s.value = '';
   buildColumnPanel();
   filterColumnPanel('');
@@ -1134,7 +1060,6 @@ function confirmLearningStudio(){
   });   // repository (saved folder) is inherited from the original activity
   ACTS.push(copy);
   if (gridApi) gridApi.applyTransaction({ add: [copy] });
-  updateTabCounts();
   updateCount();
   showToast('Created a Learning Studio copy of "' + a.name + '" and launched Learning Studio (prototype).');
 }
