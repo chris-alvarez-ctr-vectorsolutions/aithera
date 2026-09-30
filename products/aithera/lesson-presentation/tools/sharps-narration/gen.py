@@ -56,4 +56,31 @@ for key, lines in narr.items():
     subprocess.run(['afconvert','-f','m4af','-d','aac','-b','48000',wav,os.path.join(OUT,base+'.m4a')],check=True)
     data[key]={'src':base+'.m4a','dur':round(t0,2),'sents':timeline,'env':q}
     print(key, len(timeline),'sentences', round(t0,1),'s')
+# The sting: the short music cue, no voice, that joins chapters in the
+# continuous listen (the podcast script's "Chapters join on a sting").
+# Placeholder — two soft bell tones, synthesised here so the cue is as
+# reproducible as the voices. Sector-free; stored under manufacturing/ so the
+# page's usual sector fallback finds it.
+def sting():
+    R=22050; dur=1.6; n=int(R*dur); out=[]
+    notes=[(0.00,659.25),(0.18,987.77)]           # E5, then B5
+    for i in range(n):
+        t=i/R; v=0.0
+        for t0,f in notes:
+            if t>=t0:
+                u=t-t0; a=min(1,u/0.012)*math.exp(-u*3.2)
+                v+=a*(math.sin(2*math.pi*f*u)+0.25*math.sin(2*math.pi*2*f*u))
+        out.append(int(max(-1,min(1,v*0.22))*32767))
+    frames=struct.pack('<%dh'%n,*out)
+    step=R//ENV_HZ; env=[]
+    for i in range(0,n,step):
+        c=out[i:i+step]; env.append(math.sqrt(sum(x*x for x in c)/max(1,len(c)))/32768)
+    peak=max(env) or 1
+    q=''.join('0123456789abcdefghijklmnopqrstuvwxyz'[min(35,int(35*(v/peak)**0.7))] for v in env)
+    wav=os.path.join(S,'aud','sting.wav')
+    w=wave.open(wav,'wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(R); w.writeframes(frames); w.close()
+    subprocess.run(['afconvert','-f','m4af','-d','aac','-b','48000',wav,os.path.join(OUT,'sting.m4a')],check=True)
+    data['manufacturing/sting']={'src':'sting.m4a','dur':round(dur,2),'sents':[],'env':q}
+    print('sting', dur, 's')
+sting()
 json.dump(data,open(os.path.join(S,'timing.json'),'w'))

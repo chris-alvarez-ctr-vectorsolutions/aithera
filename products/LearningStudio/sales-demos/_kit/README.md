@@ -181,6 +181,7 @@ contain example `###` / `####` markup without creating phantom sections.
 |---|---|
 | `course.md` | **authored** — the only file you edit |
 | `assets/` | **authored** — drop images here |
+| `kit-assets/` | **authored** — optional; overrides a kit asset for this course |
 | `course-data.js` | generated — do not hand-edit |
 | `index.html` | copied from `_kit/` |
 | `object-manager.html` | copied from `_kit/` |
@@ -188,6 +189,33 @@ contain example `###` / `####` markup without creating phantom sections.
 
 Editing a generated file works until the next build, then it's lost. Change
 `_kit/` (for all courses) or `course.md` (for one) instead.
+
+### Overriding a kit asset for ONE course
+
+A few filenames in `assets/` belong to the kit, not the course —
+`generate-img-sample.jpeg` is the sample a rep sees the moment they
+"generate" an image. The build copies those in from `_kit/assets/` on
+**every** build, so a course-specific version can't just be dropped into
+`assets/`: it is silently reverted on the next run, with no error.
+
+To give one course its own version, put a file of the same name in that
+course's **`kit-assets/`** folder:
+
+```
+pumps-introduction/
+  kit-assets/
+    generate-img-sample.jpeg   <- this course's version
+  assets/
+    generate-img-sample.jpeg   <- generated: copied from kit-assets/ above
+```
+
+`kit-assets/` is authored input and is never written to. The build reports
+when an override is in play:
+
+    ✓ course-data.js + 3 kit files + 1 kit asset (generate-img-sample.jpeg from this course)
+
+Courses without the folder keep using the kit's copy, so an override
+affects exactly one demo.
 
 ## How the two screens connect
 

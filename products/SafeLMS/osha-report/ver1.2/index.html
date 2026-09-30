@@ -1,14 +1,16 @@
 <!-- Live URL: https://vectorlearning.github.io/ux-mockups/products/SafeLMS/osha-report/?v=ver1_2 -->
 <!-- V1.2 — same layout as V1.1, but the Status Distribution pie is DYNAMIC: clicking an Action
      Needed card drills the pie into that bucket, on a SHARED color key (gray=Not Started,
-     amber=Behind, red=Failed). A bucket that maps to one status fills the pie with that key color
-     at 100% (a "you're looking at this group" confirmation); the Failure bucket is a distinct
-     cross-cutting group, so it alone keeps a real breakdown.
-       • Not Started (0 of 48) → explicit EMPTY / "no data" cue (Style A: dashed gray ring), never a spinner.
-       • Behind the Expected Pace → amber at 100%.
-       • Failure (2+ quiz failures) → split into "failed twice, still retrying" vs "failed the course".
-     Demo data is 48 learners (Not Started 0, Behind 6, Failure group 10 = 5 twice + 5 failed,
-     Passed 20). V1.1 is untouched at ../ver1.1/index.html. -->
+     blue=In Progress, amber=Behind, orange=2+ quiz failures).
+       • Not Started → the whole pie is Not Started (it's a status). 0 of 48 here → a dashed empty
+         ring + the normal key ("Not Started: 0 of 48") — no extra explanation text.
+       • Behind the Expected Pace → the pie is the In Progress group (out of 23): Behind 6 vs.
+         Other In Progress 17. The card reads "6 of 23" for the same reason.
+       • At least 2 quiz failures → also INSIDE In Progress, card reads "5 of 23" (failing a quiz ≠ failing the course):
+         2+ quiz failures vs. the rest of In Progress. Course-failed learners (3 attempts) are not
+         in this bucket.
+     Demo data is 48 learners (Not Started 0, In Progress 23 = 6 behind + 5 with 2+ quiz failures
+     + 12 on track, Failed 5, Passed 20). V1.1 is untouched at ../ver1.1/index.html. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -173,7 +175,10 @@
   .chart-col-bar { flex: 1; min-width: 280px; }
   /* Pie column: title on top, then the pie + legend centered in the remaining height so the
      chart aligns with the middle of the Action Needed cards beside it (not shoved top-left). */
-  .chart-col:not(.chart-col-bar) { display: flex; flex-direction: column; min-width: 210px; }
+  /* FIXED width (V1.2): the pie column must not resize as the legend changes between drills —
+     otherwise the pie shifts and the Action Needed cards beside it grow/shrink. Sized to fit the
+     default 2-column status legend; drill legends stack one per row to fit inside it. */
+  .chart-col:not(.chart-col-bar) { display: flex; flex-direction: column; flex: 0 0 320px; width: 320px; }
   .chart-section-title {
     font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px;
     color: var(--muted); margin-bottom: 12px;
@@ -186,21 +191,21 @@
   }
   .section-info:hover, .section-info:focus-visible { color: var(--blue-accent); outline: none; }
   /* Legend UNDER the pie, both centered; flex:1 so the group centers vertically in the column. */
-  .pie-chart-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; }
+  /* V1.2: pie pinned to a fixed spot (top, not vertically centered) so it never shifts when the legend length changes between drills */
+  .pie-chart-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 22px; padding-top: 12px; }
   .pie-chart {
     width: 132px; height: 132px; border-radius: 50%; flex-shrink: 0;
     background: var(--hair-2); /* live conic-gradient set by renderDistribution() */
   }
   .pie-labels { display: grid; grid-template-columns: repeat(2, auto); gap: 7px 20px; justify-items: start; align-items: center; }
+  /* Drill views (Behind / 2+ quiz failures): one status per row so long labels never widen the column */
+  .pie-labels.stacked { grid-template-columns: auto; }
   .pie-label { font-size: 14px; color: var(--ink-2); display: flex; align-items: center; gap: 6px; }
   .pie-label .pd { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
   /* ── Dynamic pie (V1.2): counts in legend, a per-drill caption line, and empty-state cues ── */
   .pie-pct { color: var(--muted-2); font-weight: 400; }
   .pie-caption { grid-column: 1 / -1; justify-self: stretch; text-align: center; font-size: 13px; color: var(--muted); margin-top: 2px; }
-  .pie-empty-msg { grid-column: 1 / -1; justify-self: stretch; display: flex; flex-direction: column; gap: 2px; text-align: center; }
-  .pie-empty-msg b { color: var(--ink-2); font-size: 14px; }
-  .pie-empty-msg span { color: var(--muted); font-size: 12.5px; }
-  /* Empty / null-state pie circle (Style A) — a dashed hollow ring; reads as "no data", not "loading". */
+    /* Empty / null-state pie circle (Style A) — a dashed hollow ring; reads as "no data", not "loading". */
   .pie-chart.empty-a { background: #fff !important; border: 2px dashed var(--muted-2); display: grid; place-items: center; }
   .pie-empty-center { text-align: center; line-height: 1.15; }
   .pie-empty-center b { display: block; font-size: 30px; font-weight: 800; color: var(--muted); }
@@ -552,6 +557,9 @@
   .filter-check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 15px; line-height: 1.35; color: var(--ink-2); cursor: pointer; }
   /* Nudge the checkbox down a hair so it lines up with the first line of a wrapping label. */
   .filter-check-row vaadin-checkbox { margin-top: 1px; flex-shrink: 0; }
+  /* Action Needed — single-select radio list, sized to match the checkbox rows around it */
+  .action-radios { padding: 0; }
+  .action-radios vaadin-radio-button { font-size: 15px; line-height: 1.35; color: var(--ink-2); }
   .filter-panel-footer { padding: 12px 16px; border-top: 1px solid var(--hair); flex-shrink: 0; }
   .filter-panel-footer vaadin-button { width: 100%; }
 
@@ -692,7 +700,8 @@
      card to scope the TABLE to that ONE bucket (click a different card to
      switch; click the active card to clear). One status at a time — the
      cards never AND-stack two buckets.
-     The panel's Action Needed checkboxes stay in sync; the pie is
+     The panel's Action Needed radio group (single-select) stays in sync —
+     applying a bucket there highlights its card, same as a click; the pie is
      unaffected (it tracks the course filter only). Email Learners
      messages everyone in the bucket within the applied filters.
      ============================================================ */
@@ -1097,11 +1106,15 @@
           <!-- Action Needed -->
           <div class="filter-section">
             <label class="filter-label">Action Needed</label>
-            <div class="filter-checkboxes" id="actionChecks">
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="intervene"></vaadin-checkbox><span>Not started — needs intervention</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="nudge"></vaadin-checkbox><span>Behind pace — needs a nudge</span></label>
-              <label class="filter-check-row"><vaadin-checkbox theme="small" data-action="retry"></vaadin-checkbox><span>At least 2 failures within a module — connect for remediation</span></label>
-            </div>
+            <!-- SINGLE-SELECT (radio group): one Action Needed bucket at a time, same as the cards.
+                 Applying a bucket here highlights the matching Action Needed card + drills the pie,
+                 exactly as if the admin had clicked that card. "All learners" = no action filter. -->
+            <vaadin-radio-group id="actionRadios" class="action-radios" theme="vertical" value="all" aria-label="Action Needed">
+              <vaadin-radio-button value="all" label="All learners"></vaadin-radio-button>
+              <vaadin-radio-button value="intervene" label="Not started — needs intervention"></vaadin-radio-button>
+              <vaadin-radio-button value="nudge" label="Behind pace — needs a nudge"></vaadin-radio-button>
+              <vaadin-radio-button value="retry" label="At least 2 failures within a module — connect for remediation"></vaadin-radio-button>
+            </vaadin-radio-group>
           </div>
 
           <div class="filter-divider"></div>
@@ -1341,9 +1354,8 @@
   // Action-Needed drill-down:
   //   • Not Started = 0 of 48  → the pie shows an explicit EMPTY state (not a spinner).
   //   • In Progress = 23       → splits On Track (17) vs Behind the Expected Pace (6).
-  //   • Failure group = 10 (at least 2 quiz failures): five "failed twice" (attempts 2, still
-  //     In Progress) + five "failed the course" (attempts 3), ~50/50, spread 4/3/3 across the
-  //     three courses so the failures-by-course pie reads clearly.
+  //   • 2+ quiz failures = 5 — in-progress learners at attempts 2 (a slice of In Progress).
+  //   • Failed = 5 — used all 3 attempts (a course status, not part of the 2+ quiz-failures card).
   //   • Passed = 20.
   const GROUPS = [
     { id:'g1', course:'OSHA 10-Hour General Industry', expanded:true, rows:[
@@ -1873,6 +1885,10 @@
   // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
   const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), sel: { ...f.sel }, dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly });
   let draft = cloneFilters(filters);
+  // The active Action Needed CARD (or null) — highlighted + drilled into by the pie. Action Needed is
+  // SINGLE-SELECT everywhere: clicking a card OR applying a bucket from the panel's radio group sets
+  // it, so both entry points behave identically (one bucket at a time).
+  let cardAction = null;
   function commitDraft() {
     filters.statuses = new Set(draft.statuses);
     filters.courses = new Set(draft.courses);
@@ -1996,6 +2012,9 @@
   // Table row visibility = applied filters + the temporary search box.
   function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
   function applyFilters() {
+    // The applied action bucket (from a card click OR the panel's single-select) IS the active card:
+    // it highlights + drives the pie drill. Removing the chip / picking "All learners" clears it.
+    cardAction = filters.actions.size === 1 ? [...filters.actions][0] : null;
     rows.forEach(x => {
       const key = rowKey(x.gid, x.r.ext);
       const vis = rowVisible(x);
@@ -2023,11 +2042,10 @@
       cb.checked ? draft.statuses.add(s) : draft.statuses.delete(s);
     });
   });
-  document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => {
-    cb.addEventListener('change', () => {
-      const a = cb.dataset.action;
-      cb.checked ? draft.actions.add(a) : draft.actions.delete(a);
-    });
+  // Action Needed is single-select: the radio group holds at most one bucket ("all" = none).
+  document.getElementById('actionRadios').addEventListener('value-changed', e => {
+    const a = e.detail.value;
+    draft.actions = (a && a !== 'all') ? new Set([a]) : new Set();
   });
   /* ═══════════════ Audience — People Selector → Group Selector / list picker ═══════════════
      One entry point (the People card). Step 1 picks a mechanism; step 2 is the matching picker.
@@ -2219,7 +2237,7 @@
   function extraFilterCount() {
     let n = 0;
     if (filters.statuses.size) n++;
-    if (filters.actions.size) n += filters.actions.size;
+    if (filters.actions.size) n++;
     if (filters.sel.mode !== 'all') n++;
     if (filters.dueSoonOnly) n++;
     if (filters.nearLimitOnly) n++;
@@ -2238,7 +2256,7 @@
     document.querySelectorAll('#statusChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.statuses.has(cb.dataset.status); });
   }
   function syncActionChecks() {
-    document.querySelectorAll('#actionChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.actions.has(cb.dataset.action); });
+    document.getElementById('actionRadios').value = [...draft.actions][0] || 'all';
   }
   function syncCourseChecks() {
     document.querySelectorAll('#courseChecks vaadin-checkbox').forEach(cb => { cb.checked = draft.courses.has(cb.dataset.course); });
@@ -2408,7 +2426,7 @@
   // Header context line: "Not started · OSHA 10 – Construction". The status/action segment
   // comes from the email type (or, for the filter-based send, the active filters); the course
   // segment collapses to a single course name or "N courses" for mixed groups.
-  const TYPE_CONTEXT = { intervene: 'Not started', nudge: 'Behind pace', retry: 'Failed' };
+  const TYPE_CONTEXT = { intervene: 'Not started', nudge: 'Behind pace', retry: '2+ quiz failures' };
   function emailContextLine(recipients, content, opts) {
     const parts = [];
     let statusPart = TYPE_CONTEXT[content.type];
@@ -2492,31 +2510,33 @@
   const GROUP_MATCH = {
     intervene: r => r.status === 'not-started',
     nudge:     r => r.status === 'in-progress' && r.behind,
-    retry:     r => (r.attempts || 0) >= 2,   // at-risk: 2+ quiz failures — still retrying (attempts 2) OR failed the course (attempts 3)
+    retry:     r => r.status === 'in-progress' && (r.attempts || 0) >= 2,   // 2+ quiz failures, still in progress (a course fail at 3 attempts is a status, not this bucket)
   };
   function renderActionCards() {
     // Each card is BOTH a read-out and a toggle quick filter (V1). Counts always reflect the
     // course/status/etc. base scope (they ignore the action filter) so all three bucket sizes
     // stay visible even while the table is scoped to one bucket.
     const data = cardScopeLearners();
-    // Every card is "N of the total number of students" — same denominator across all three.
     const total = data.length;
+    // Behind + 2+ quiz failures are subsets of In Progress, so they count out of In Progress;
+    // Not Started is a status of its own, so it counts out of everyone.
+    const inProgTotal = data.filter(r => r.status === 'in-progress').length;
     const cards = [
       { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
-      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: total, label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, label: 'At least 2 failures within a module — connect for remediation' },
+      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: inProgTotal, ofLabel: 'in progress', label: 'Behind the expected pace — needs a nudge' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: inProgTotal, ofLabel: 'in progress', label: 'At least 2 failures within a module — connect for remediation' },
     ];
     const wrap = document.getElementById('actionCards');
     // A card is the active table filter when its bucket is in filters.actions. Clicking the card
     // toggles that filter (scopes the TABLE only — the pie is untouched). To email a bucket,
     // filter to it, then use the toolbar "Email Learners" button.
     wrap.innerHTML = cards.map(c => {
-      const on = filters.actions.has(c.type);
+      const on = cardAction === c.type;   // only a CLICKED card highlights (not panel selections)
       return `
       <div class="action-card${on ? ' active' : ''}" data-action="${c.type}" role="button" tabindex="0" aria-pressed="${on}" aria-label="Filter report to: ${c.label}">
         <span class="ac-ico ${c.cls}"><i aria-hidden="true" class="fa-solid ${c.icon}"></i></span>
         <span class="ac-body">
-          <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}</span></span>
+          <span class="ac-count">${c.count} <span class="ac-of">of ${c.of}${c.ofLabel ? ' ' + c.ofLabel : ''}</span></span>
           <span class="ac-label">${c.label}</span>
         </span>
       </div>`;
@@ -2534,9 +2554,10 @@
   // table never AND-stacks two mutually-exclusive statuses); clicking the active card clears it.
   // Keep the draft + panel checkboxes in step, then re-render (which refreshes the highlight).
   function toggleActionCard(type) {
-    const wasActive = filters.actions.has(type);
+    const wasActive = cardAction === type;
     filters.actions.clear();
     if (!wasActive) filters.actions.add(type);
+    cardAction = wasActive ? null : type;
     draft = cloneFilters(filters);
     syncActionChecks();
     applyFilters();
@@ -2546,21 +2567,19 @@
   // The pie honors every APPLIED panel filter (course, audience, due-soon, near-limit) — it
   // ignores only the Action-Needed quick filter, because the ACTIVE action card is what the pie
   // drills into. The color KEY is shared across every state (gray = Not Started, blue = In Progress,
-  // green = Passed, red = Failed), so a color always means the same thing. A bucket that maps to a
-  // single status just fills the pie with that key color at 100% — a "you're looking at this group"
-  // confirmation, not new analysis. The Failure bucket is a DISTINCT cross-cutting group, so it alone
-  // keeps a real breakdown:
+  // green = Passed, red = Failed; amber = Behind and orange = 2+ quiz failures are sub-slices of
+  // In Progress), so a color always means the same thing.
   //   • no card          → overall status distribution (Passed / In Progress / Not Started / Failed)
-  //   • Not Started card → gray, but it's the 0-learner bucket → explicit EMPTY / "no data" state, never a spinner
-  //   • Behind Pace card → amber at 100% (the behind group)
-  //   • Failure card     → 2+ quiz failures, split into "failed twice, still retrying" vs "failed the course"
-  // Any drill whose group has 0 learners shows the empty state, so it always reads as "empty", not "loading".
+  //   • Not Started card → the whole pie is Not Started (gray at 100%); 0 → dashed empty ring + key
+  //   • Behind Pace card → the In Progress group: Behind (amber) vs. the rest of In Progress (blue)
+  //   • 2+ quiz failures → the In Progress group: 2+ quiz failures (orange) vs. the rest (blue)
+  // A drill with 0 learners shows the empty ring with its normal key line, so it reads as "empty".
   function cardScopeWrappers() { return rows.filter(passesBase); }   // every applied filter EXCEPT the action drill
-  function activeAction() { return filters.actions.size ? [...filters.actions][0] : null; }
+  function activeAction() { return cardAction; }   // pie drills only for a clicked card, never for panel multi-select
 
   // Paint a conic pie + its legend (label · count · %). A single-segment call fills the pie at 100%
   // (used by the status-mapped drills). `caption` is an optional full-width line under the legend.
-  function paintPie(segs, caption) {
+  function paintPie(segs, caption, stacked) {
     const total = segs.reduce((s, x) => s + x.n, 0) || 1;
     const pie = document.getElementById('pieChart');
     pie.className = 'pie-chart';
@@ -2568,20 +2587,22 @@
     let acc = 0;
     const stops = segs.map(s => { const a = acc / total * 360; acc += s.n; return `${s.color} ${a}deg ${acc / total * 360}deg`; }).join(', ');
     pie.style.background = `conic-gradient(${stops})`;
+    document.getElementById('pieLabels').classList.toggle('stacked', !!stacked);
     const legend = segs.map(s =>
       `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.n} <span class="pie-pct">(${Math.round(s.n / total * 100)}%)</span></span>`).join('');
     document.getElementById('pieLabels').innerHTML = legend + (caption ? `<span class="pie-caption">${caption}</span>` : '');
   }
 
   // Paint the EMPTY / null state for a drill whose group has 0 learners (e.g. Not Started = 0 of 48):
-  // a dashed hollow ring with the 0 count, so it reads as "no data", never "loading".
-  function paintEmptyPie(of, label) {
+  // a dashed hollow ring with the 0 count plus the normal key line — no extra explanation.
+  function paintEmptyPie(of, label, color) {
     const pie = document.getElementById('pieChart');
     pie.style.background = '';
     pie.className = 'pie-chart empty-a';
     pie.innerHTML = `<div class="pie-empty-center"><b>0</b><span>of ${of}</span></div>`;
+    document.getElementById('pieLabels').classList.add('stacked');
     document.getElementById('pieLabels').innerHTML =
-      `<span class="pie-empty-msg"><b>No learners ${label}</b><span>No data — this group is empty (0 of ${of}), not loading.</span></span>`;
+      `<span class="pie-label"><span class="pd" style="background:${color}"></span> ${label}: 0 <span class="pie-pct">of ${of}</span></span>`;
   }
 
   function setPieTitle(t) { const el = document.getElementById('pieTitle'); if (el) el.textContent = t; }
@@ -2594,28 +2615,32 @@
     if (action === 'intervene') {                       // Not Started — key color (0 here → empty state)
       setPieTitle('Not Started');
       const n = data.filter(GROUP_MATCH.intervene).length;
-      if (!n) { paintEmptyPie(data.length, 'Not Started'); return; }
+      if (!n) { paintEmptyPie(data.length, 'Not Started', '#d1d5db'); return; }
       paintPie([{ label: 'Not Started', color: '#d1d5db', n }]);   // gray, 100%
       return;
     }
 
-    if (action === 'nudge') {                            // Behind the Expected Pace — key color at 100%
+    // Behind + 2+ quiz failures are both slices OF In Progress, so those drills show the In Progress
+    // group with that slice called out against the rest of In Progress.
+    const inProg = data.filter(r => r.status === 'in-progress');
+    const drillInProgress = (match, label, color) => {
+      const n = inProg.filter(match).length;
+      if (!inProg.length) { paintEmptyPie(data.length, 'In Progress', '#3b82f6'); return; }
+      paintPie([
+        { label, color, n },
+        { label: 'Other In Progress', color: '#3b82f6', n: inProg.length - n },
+      ], null, true);   // one status per row
+    };
+
+    if (action === 'nudge') {                            // Behind — inside In Progress (out of In Progress)
       setPieTitle('Behind the Expected Pace');
-      const n = data.filter(GROUP_MATCH.nudge).length;
-      if (!n) { paintEmptyPie(data.length, 'behind the expected pace'); return; }
-      paintPie([{ label: 'Behind the Expected Pace', color: '#f59e0b', n }]);   // amber, 100%
+      drillInProgress(GROUP_MATCH.nudge, 'Behind the Expected Pace', '#f59e0b');   // amber
       return;
     }
 
-    if (action === 'retry') {                            // Failure — DISTINCT group → real breakdown
-      setPieTitle('Failure — 2+ quiz failures');
-      const twice  = data.filter(r => (r.attempts || 0) === 2).length;   // still in progress, one attempt left
-      const failed = data.filter(r => (r.attempts || 0) >= 3).length;    // used all 3 → failed the course
-      if (!(twice + failed)) { paintEmptyPie(data.length, 'with 2+ quiz failures'); return; }
-      paintPie([
-        { label: 'Failed twice — still retrying', color: '#f97316', n: twice },
-        { label: 'Failed the course',             color: '#dc2626', n: failed },
-      ]);
+    if (action === 'retry') {                            // 2+ quiz failures — inside In Progress
+      setPieTitle('2+ Quiz Failures');
+      drillInProgress(GROUP_MATCH.retry, '2+ quiz failures', '#f97316');   // orange
       return;
     }
 

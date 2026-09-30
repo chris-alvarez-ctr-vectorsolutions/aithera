@@ -6,6 +6,128 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-29) Rows on every alert; complete list of changes
+
+- **[DONE]** Upload log: runs that didn't go leave the change columns empty — no "No changes" /
+  "See what stopped it" text, just the row's arrow. A run waiting for approval keeps "Review & approve →".
+- **[DONE]** **Blocked is automated-only.** A manual upload with Blocking issues can only be cancelled,
+  so it's logged as **Cancelled** (its note lists the Blocking issues).
+- **[DONE]** Every row-level alert (Blocking, Warning and Info) lists the **row** it's on: a "Row"
+  column for people, a "Rows" column for positions / locations / codes. Lists of people who
+  *aren't* in the file (deactivations, positions ended) say there's no row to point to.
+- **[DONE]** The dashed **"Where:"** box is gone. The column now sits in the table, under the
+  header it applies to (red mono tag, e.g. "Column H · BEGIN_DATE"), only when the file has it.
+  Same on V2's blocked-run log page.
+- **[DONE]** Per-alert **"Download list (.csv)"** removed (it was a 2026-09-25 addition, not from
+  the catalog). Replaced by one **Complete list of changes** card at the end of Review: shown
+  only when nothing is Blocking, locked until every warning is reviewed, then Download (.csv).
+  Also linked in the Run import confirmation.
+- **[DONE]** "Not sure? Send to my Vector rep" removed from the Review alerts (manual and the
+  automated-run approval page).
+- **[DONE]** Log → Review & approve (V2) uses the same Review as the manual flow: most severe
+  first, rows + column tags, checkbox boxes, complete list, pre-import download.
+
+## (2026-09-29) Import settings copy; switch inside the box; Upload log one line per upload
+
+- **[DONE]** "Jobs" → **"positions"** in everything users read: switch label ("Deactivate all people
+  and positions not in this file"), the On/Off copy, the Vector Care line, the Review alert
+  ("N positions aren't in this file and will be ended"), Change summary / run confirmation / log
+  ("Positions ended"). The Add employee pop-up keeps its "Job" section — it copies the live product.
+- **[DONE]** Import settings copy: subheading "By default this file only adds and updates people
+  and jobs. Turn this on only if the file is your complete list of staff and the jobs they hold."
+  Switch label → **"Deactivate all people and jobs not in this file"** (was "Deactivate all users
+  and jobs not in this file"; also renamed on the Review recap and the log page). **Off:** "Adds and
+  updates only. People and jobs already on your site are left as they are." **On:** "Your site will
+  match this file." + 3 bullets (people deactivated · jobs ended for the people who hold them ·
+  training history kept). Vector Care line: "This applies to both people and jobs. To deactivate
+  only one, contact Vector Care in the Support Center."
+- **[DONE]** No "This file will deactivate N people and end N jobs" line under On — those counts
+  can't be calculated at this step (same reason the totals panel came out). Review shows them.
+- **[DONE]** The switch sits inside the Off/On box and the whole box toggles it (bigger touch target).
+- **[DONE]** Upload log: one "didn't run" result — **Blocked** (Failed retired). Method is plain
+  text + gray icon, not a colored tag. One line per upload: When · File · Rows · Uploaded by · Role ·
+  Method · Result · Added · Updated · Deactivated · Jobs ended.
+
+## (2026-09-29) Severity order, older-data download, switch label
+
+- **[DONE]** Review is ordered most severe first: Blocking → warnings that cause permanent loss
+  (deactivations, jobs removed, "none of these match" file checks) → wrong/duplicate accounts,
+  password changes, skipped rows, "only a few match" → other warnings (dates, codes, columns) →
+  info. Ties keep catalog order. The copy-review file uses the same order now (was catalog order).
+  Weights live in `WARN_WEIGHT` / `severity()`.
+- **[DONE]** "Download current data (.csv)" on the Review side panel (a snapshot of the site
+  before the import), "Data before this import" on Import complete, and "Data before this
+  upload" on a completed run's log page.
+- **[DONE]** Switch label → **"Deactivate all users and jobs not in this file"** (superseded same day — see above).
+- **PENDING:** how long before-import snapshots are kept, and whether it's the full employee export
+  or only the rows the import touches.
+
+## (2026-09-29) Upload log → pages; approving stopped automated runs
+
+- **[DONE]** Log rows open their own page instead of expanding. A completed, cancelled or
+  failed run opens a detail page (who, method, setting, alerts & notes, what changed,
+  downloads).
+- **[DONE]** An automated run that stopped opens the **Review changes** design for that run
+  (a banner replaces the stepper). Warnings only → the admin acknowledges each and clicks
+  **Approve & run import** — the manual permission an automated run can't give itself.
+  The log row then shows Completed with "Approved and run by …". Blocking → can't be
+  approved; fix the export.
+- **[DONE]** V2 failure email is generic: what ran, when, that it failed, one
+  **View upload log** button. Details live in the log, not the email.
+- **PENDING:** does approving run the stopped file as-is, or re-fetch the latest export?
+  Mock assumes as-is.
+
+## (2026-09-29) Import settings
+
+- **[DONE]** Removed the "After this import" before → after totals panel — those counts
+  can't be calculated at the Import settings step. Totals appear only in Review's
+  Change summary.
+
+## (2026-09-25) Review uses the error catalog only
+
+- **[DONE]** Every Review alert comes from the [Error & Notification Message Catalog](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29424549907)
+  — its key, tier (Blocking / Warning / Info) and admin-facing copy. Non-catalog
+  checks (SAML mismatch, mass-username guardrail, email-update notices) were removed.
+- **[DONE]** Condensed alerts: catalog message as title + one line; "Show N rows" opens
+  only the list (+ one "What to do" line for Blocking). Count/summary messages have
+  no list. Blocking always shows **Where** (row + column).
+- **[DONE]** `potential_duplicate_user` rows show "Duplicate account" as the result so
+  it reads as a duplicate, not a username change.
+- **[DONE]** Last sample file = copy review: all 44 catalog messages in catalog order,
+  each labelled with its key.
+- **[DONE]** Review opens with **Your choices** — column mapping and the import setting,
+  each with Edit.
+- **PENDING (catalog):** deactivations and ended jobs from the Import setting have no
+  catalog key yet (suggest `deactivated_person` / `ended_job`, WARNING).
+- **PENDING (catalog):** `potential_duplicate_user` is WARNING in the catalog, so it can
+  be acknowledged and run — conflicts with "usernames can't be changed"? Confirm tier.
+
+## (2026-09-25) Designer feedback round
+
+- **[DONE]** **Usernames can never be changed by an upload.** Any row that matches an
+  existing person but sends a different username is Blocked (not a % threshold).
+  Map columns carries a note saying so.
+- **[DONE]** Blocked (and Contact Vector) alerts are now **red**; Confirm stays yellow,
+  Info blue.
+- **[DONE]** Blocked alerts show **Where** — the exact row(s) + spreadsheet column
+  (e.g. Column D (USER_ID), from row 2) — without expanding. Details show "Why it's
+  blocked" instead of a before → after (no green "new value" box, since the change
+  isn't possible); the current value is shown locked.
+- **[DONE]** "See details" lists **every** affected person/row (all 166, all 31 jobs,
+  all 118 updates…) in a scrolling table with a count + CSV download — not just a
+  count. Added Info alerts for new users and updated users so every change is reviewable.
+- **[DONE]** Import settings: switch renamed **"Deactivate anyone and any jobs not in
+  this file"**; the On/Off description is always visible under the switch and
+  follows its state; before → after totals moved to a side panel like Review's.
+- **[DONE]** Users-only or jobs-only deactivation is not self-serve — a banner routes
+  to Vector Care via the Support Center. **PENDING:** exact Care contact URL (links to
+  the Support Center home for now).
+- **[DONE]** Review side panel: "Edit column mapping / Change import settings" links
+  replaced with support articles (stepper still jumps back).
+- **[DONE]** New **Upload log** (Employees → Upload log, and from Import complete):
+  every upload with when, file, who, Manual vs Automated, result, and changes.
+  **PENDING:** confirm blocked/cancelled attempts should be logged (mock logs them).
+
 ## (2026-09-24) Review readout — open backlog
 
 A working session covered the whole flow. Status tags: **[DONE]** shipped, **[WIP]**
@@ -13,13 +135,13 @@ in progress, **[TODO]** not started, **[PARKED]** revisit later, **[EXTERNAL]** 
 the mock.
 
 **Pre-upload / intro step**
-- **[DONE 2026-09-24]** Intro page BEFORE file upload (Bulk Upload now lands here):
-  4-step overview, downloadable template, and Help Center links (`HELP` in the mock):
-  [Process & template](https://support.vectortrainingeducation.com/s/article/User-Data-Bulk-Upload-Process-and-Template),
-  [Best practices](https://support.vectortrainingeducation.com/s/article/Best-Practices-for-Uploading-and-Structuring-User-Data-in-Vector-LMS-Higher-Education),
-  [Common upload errors](https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors).
-  Upload links template + best practices; Import settings "Learn more" → best
-  practices; Review side panel → common errors.
+- **[DONE 2026-09-24]** Pre-upload content lives ON the Upload file step (a separate
+  intro page was tried, then merged back in at the designer's request): template card
+  (download + [process & template guide](https://support.vectortrainingeducation.com/s/article/User-Data-Bulk-Upload-Process-and-Template))
+  and Help Center card ([best practices](https://support.vectortrainingeducation.com/s/article/Best-Practices-for-Uploading-and-Structuring-User-Data-in-Vector-LMS-Higher-Education),
+  [common upload errors](https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors))
+  above the drop zone; the stepper is the steps overview. ← Back returns to Employees.
+  Import settings "Learn more" → best practices; Review side panel → common errors.
 - **[DONE 2026-09-24]** Bug where the page "jumps and goes out and comes back in" —
   root cause was the full-screen import overlay replaying its fade-in on every
   re-render (Employees page showed through). It now fades in only when it opens;
@@ -60,6 +182,16 @@ the mock.
 - **[DONE 2026-09-24]** Blocked imports: Cancel import is the way out; the
   mapping/settings links are hidden while blocked.
 - **[DONE]** "Replace file" removed from under the red alerts.
+- **[DONE 2026-09-24]** Run import now asks twice: clicking it opens a "Run this
+  import?" modal (recap counts + the **"This can't be undone"** warning, moved OFF the
+  Change summary panel) with Go back / **Yes, run import** (red when the import
+  deactivates users or ends jobs).
+- **[DONE 2026-09-24]** Cancel import is a secondary RED (outline) button.
+- **[DONE 2026-09-24]** Stepper: completed steps are clickable (and keyboard-operable)
+  to jump back to that page; jumping to Upload discards the current file.
+- **[DONE 2026-09-24]** "See details" list tables now have column labels (e.g. "Job
+  being removed (position · location)" / "Who it affects"; "Row in your file" /
+  "Would import as · already exists as").
 
 **Error / alert display** — **[DONE 2026-09-24]** redesigned:
 - **[DONE]** Each alert's explanation + example merged into ONE "See details" box,
@@ -93,13 +225,13 @@ Positions / Quick Groups / … top-tab bar, the toolbar + paginated employee lis
 Each version launches the import from a **different entry point on that screen** —
 that entry point is now the axis that varies between versions.
 
-**Automated sync is assumed already set up (2026-09-16).** The earlier "how do you
-turn sync on" experiment (earn-it gate / concierge request / per-version placement)
-is **retired**. Every version now assumes Vector has already configured the site's
-automated roster sync, so **both manual upload and automated sync are available**.
-Sync surfaces as a light "Automated sync is on" status (banner / detail page) with
-two states only — **up to date** and **needs your attention** — reachable from the
-import flow. The bottom-left "Preview · AutoSync" panel toggles those two states.
+**Automated sync is OUT OF SCOPE (2026-09-24).** Customers can't be given automated
+sync self-serve, so the sync page, the "Automated sync is on" banner, the Preview ·
+AutoSync panel, and the flow map's sync lane (B) were **removed** from the mock. Where
+sync used to be offered, the mock now links a Help Center article, **"How to get
+automated sync"** (URL TBD): the Upload step's Help Center line, the Add employee
+modal's bulk tab, and the Import complete page. (Supersedes the 2026-09-16 "sync is
+assumed already set up" decision.)
 
 **Versions — 5, one entry point each (2026-09-16).** V1+V2 (the old earn-it and
 concierge variants) were consolidated into one standard flow; the reimagined flows
@@ -192,17 +324,6 @@ screen), V4 (new tab), V5 (stays in the modal).
   The red `*` on a file column now reflects the column's natural (auto-detected)
   target being a required field (First name / Last name / Username), so it stays
   put regardless of what the "Import as" dropdown is currently set to.
-
-## sync-failed
-
-- **Summary-first failure card**, with the fuller explanation + affected rows behind
-  a single expander. The decision + its action stay visible.
-- **Notifications = email, PII-light — PENDING detail.** Keep names/PII out of the
-  email body; drive recipients into the app to see rows.
-- **Retry routes through the manual uploader** — a failed auto-upload is corrected
-  and retried via the manual flow, not a bespoke mechanism.
-- **Care alerting thresholds — backend, not mock.** When Care gets a case (every
-  failure? after N?) is out of mock scope.
 
 ## upload
 

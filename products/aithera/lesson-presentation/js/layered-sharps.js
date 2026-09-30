@@ -806,14 +806,27 @@
   // proportional to each module's LO count in the source material. They
   // sum to 59, down from the ~92 the old illustrative numbers added up to. Sharps shows its
   // fixed 10 too, not the live pathMinutes() total.
+  // Tags (2026-09-25): which modules adapt to the pre-check, and which can
+  // be taken as one continuous podcast. Illustrative on every row but
+  // Sharps, whose two are real — partly here to see how learners react to
+  // "podcast" named as a way to take a module, before it is ever offered.
   var COURSE_MODULES = [
-    { name: 'Know the Risk', icon: 'fa-virus', mins: 11, state: 'done' },
+    { name: 'Know the Risk', icon: 'fa-virus', mins: 11, state: 'done', adaptive: true },
     { name: 'Barrier First', icon: 'fa-shield-halved', mins: 10, state: 'done' },
-    { name: 'Control the Hazard', icon: 'fa-sitemap', mins: 11, state: 'done' },
-    { name: 'Contain the Sharp', icon: 'fa-syringe', mins: 10, current: true },
-    { name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked' },
-    { name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked' }
+    { name: 'Control the Hazard', icon: 'fa-sitemap', mins: 11, state: 'done', adaptive: true, podcast: true },
+    { name: 'Contain the Sharp', icon: 'fa-syringe', mins: 10, current: true, adaptive: true, podcast: true },
+    { name: 'Gear Up, Gear Down', icon: 'fa-mask-face', mins: 8, state: 'locked', podcast: true },
+    { name: 'Act on Exposure', icon: 'fa-file-medical', mins: 9, state: 'locked', adaptive: true }
   ];
+  // Tags only on modules still to take: they help a learner decide how to
+  // take one, and on a finished module they're noise (2026-09-25 review).
+  function moduleMeta(m) {
+    var tags = m.state !== 'done';
+    return '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span>' +
+      (tags && m.adaptive ? '<span class="adapt"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Adaptive</span>' : '') +
+      (tags && m.podcast ? '<span class="pod"><i class="fa-solid fa-headphones" aria-hidden="true"></i>Listen mode</span>' : '') +
+    '</span>';
+  }
   function INTRO_CONTENT() { var L = lens(); return '' +
     '<main class="ll-object">' +
       '<div class="cp-page">' +
@@ -838,14 +851,11 @@
             '<div id="cpRows"></div>' +
           '</section>' +
           '<aside class="cp-rail">' +
-            // Set before anything else in the module runs, so the very first
-            // screen that offers a choice (hazard) already opens on it rather
-            // than on a hardcoded default the learner then has to notice and
-            // correct. Writes to the SAME session value the in-beat pickers
-            // already read and write (modalityId()/'sh-modality') rather than
-            // a second, competing preference — changing it later on any one
-            // screen IS changing it everywhere else too, which is the point.
-            '<div class="cp-card cp-format"><h3>Preferred format</h3>' +
+            // 2026-09-29: the card sets the learner's MODE preference
+            // (Standard / Listen mode, the one the Listen mode offer screen
+            // reads), not a per-screen format. Watch / Read / Read to me is
+            // chosen on each screen and no longer carries between screens.
+            '<div class="cp-card cp-format"><h3>Preferred mode</h3>' +
               // Collapsed to the current choice by default — a full four-way
               // picker on a page the learner has not started anything on yet
               // reads as a decision being demanded rather than a setting
@@ -857,7 +867,8 @@
               // one, honestly labeled) are still one tap away.
               modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
                 icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
-                DK_OFFERED) +
+                ['standard', 'listen'], null, MODE_CARD) +
+              '<p class="cp-format-note">Listen mode applies to modules that offer it.</p>' +
             '</div>' +
             // D11 → moved to the Demo menu: sector/role and the self-assigned
             // name are reviewer/demo-driver settings, not a choice a real
@@ -897,8 +908,7 @@
       if (!m.current) {
         return '<div class="cp-row' + (m.state === 'locked' ? ' is-locked' : '') + '">' +
           '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
-          '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
-            '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span></span></span>' +
+          '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' + moduleMeta(m) + '</span>' +
           '<span class="cp-row-state ' + m.state + '">' + (m.state === 'done' ? 'Complete' : 'Locked') + '</span>' +
         '</div>';
       }
@@ -908,8 +918,7 @@
       // guessable from tapping the row body) — but up next has exactly ONE
       // possible action, so the whole row can safely be that action.
       var icoMain = '<span class="cp-row-ico"><i class="fa-solid ' + m.icon + '"></i></span>' +
-        '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' +
-          '<span class="cp-row-meta"><span>About ' + m.mins + ' min' + (m.mins > 1 ? 's' : '') + '</span></span></span>';
+        '<span class="cp-row-main"><b>' + esc(m.name) + '</b>' + moduleMeta(m) + '</span>';
       if (hasProgress) {
         return '<div class="cp-row is-current">' + icoMain +
           '<span class="cp-row-state-wrap">' +
@@ -955,7 +964,11 @@
     var introPick = document.getElementById('introModPick');
     if (introPick) {
       var introDD = initModalityDropdown(
-        { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' });
+        { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' },
+        MODE_CARD);
+      // No saved preference reads as Standard mode, the default — the offer
+      // screen still treats it as unsaved and offers to save one.
+      var curMode = function () { return modePref() || 'standard'; };
       var markFmt = function (k) {
         [].forEach.call(introPick.querySelectorAll('.md-opt'), function (b) {
           var on = b.dataset.m === k;
@@ -963,12 +976,12 @@
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
       };
-      introDD.render(modalityId());
-      markFmt(modalityId());
+      introDD.render(curMode());
+      markFmt(curMode());
       introPick.addEventListener('click', function (e) {
         var b = e.target.closest('.md-opt');
         if (!b) return;
-        try { sessionStorage.setItem('sh-modality', b.dataset.m); } catch (err) {}
+        setModePref(b.dataset.m);
         markFmt(b.dataset.m);
         introDD.render(b.dataset.m);
         introDD.collapse();
@@ -1363,6 +1376,19 @@
   // Education and AEC fall back to Manufacturing, like the deck screens.
   var PODCAST = {
     manufacturing: {
+      // The spine of the continuous listen (the podcast path, PODCAST_EP
+      // below), not screens. `ident` is the script's own, verbatim (the
+      // chapter-4 variant, "I'm Dana." alone, applies only when the cut OPENS
+      // on the interview — it never does here). `outro` is ours, not the
+      // script's (which has "no episode close"): one neutral line that works
+      // on a phone or at a desk, so the learner knows to come back to the
+      // screen (2026-09-25 review). Both play in every sector.
+      ident: [
+        ['DANA', 'This is Contain the Sharp. Bloodborne Pathogens, Module 4. I’m Dana, with Ray.']
+      ],
+      outro: [
+        ['DANA', 'You may now continue the lesson.']
+      ],
       c1base: [
         ['DANA', 'The blade at the bench. Ray, set it up for me.'],
         ['RAY', 'You’re at your bench. You’ve just changed out a used box-cutter blade.'],
@@ -1914,7 +1940,9 @@
   var DK_MODES = [
     { m: 'video',   label: 'Watch',  icon: 'fa-circle-play' },
     { m: 'article', label: 'Read',   icon: 'fa-book-open' },
-    { m: 'podcast', label: 'Listen', icon: 'fa-headphones' }
+    // "Read to me", not "Listen" (2026-09-29): "Listen mode" is the
+    // whole-module audio path now, and this is one screen's narration.
+    { m: 'podcast', label: 'Read to me', icon: 'fa-volume-high' }
   ];
   var NARRATION_DIR = '../../assets/audio/sharps/';
   // Re-rendering the audio writes new bytes to the SAME file names, so bump
@@ -1932,6 +1960,45 @@
   function readSize() {
     try { var v = +sessionStorage.getItem('sh-read-size'); if (v >= 0 && v <= 3) return v; } catch (e) {}
     return 1;
+  }
+
+  // The Listen waveform: the track's real loudness (30 Hz envelope, base-36)
+  // scrolling right-to-left past a fixed playhead — what has been said is
+  // lit, what is coming is dim. Shared by the per-screen Listen carrier and
+  // the podcast path's continuous episode, so the two can't drift apart.
+  var WAVE_HZ = 30, WAVE_BAR = 4, WAVE_GAP = 3;   // CSS px per bar and gap
+  function drawEnvelope(canvas, g, env, t) {
+    var w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w || !h) return;
+    // Re-fit whenever the box changed (the caption rows settle after the
+    // first frame, and the window can resize) — a stale bitmap stretches
+    // and leaves ghost bars.
+    var dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.max(1, Math.round(w * dpr));
+      canvas.height = Math.max(1, Math.round(h * dpr));
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+    g.clearRect(0, 0, w, h);
+    var cs = getComputedStyle(document.documentElement);
+    function tok(name, fb) { return (cs.getPropertyValue(name) || fb).trim(); }
+    var mid = h / 2, cx = w / 2, pitch = WAVE_BAR + WAVE_GAP;
+    var pos = t * WAVE_HZ;                    // playhead, in samples
+    var first = Math.floor(pos - cx / pitch) - 1, last = Math.ceil(pos + cx / pitch) + 1;
+    var lit = tok('--ll-teal', '#2ee6cf'), dim = 'rgba(' + tok('--ll-surface-rgb', '255,255,255') + ',.16)';
+    for (var i = first; i <= last; i++) {
+      if (i < 0 || i >= env.length) continue;
+      var v = parseInt(env.charAt(i), 36) / 35;
+      var bh = Math.max(3, v * (h * .92));
+      var x = cx + (i - pos) * pitch - WAVE_BAR / 2;
+      g.fillStyle = i <= pos ? lit : dim;
+      g.globalAlpha = i <= pos ? .35 + .65 * (1 - Math.min(1, (pos - i) / (cx / pitch))) : 1;
+      var r = WAVE_BAR / 2, y = mid - bh / 2;
+      g.beginPath();
+      if (g.roundRect) g.roundRect(x, y, WAVE_BAR, bh, r); else g.rect(x, y, WAVE_BAR, bh);
+      g.fill();
+    }
+    g.globalAlpha = 1;
   }
 
   function deckContent(id) {
@@ -2037,6 +2104,16 @@
       var video = document.getElementById(DK_IDS.video);
       var audio = document.getElementById('dkAudio');
       var videoMounted = false, showing = null, handed = false;
+      // The podcast path (see THE PODCAST PATH below) only ever reaches the
+      // remedial screens — its chapters were heard in the episode and their
+      // questions asked in the stack after it. Those still teach, but on
+      // screen: Watch or Read, never Listen (2026-09-25 review — the episode
+      // is the base content only).
+      var onPodcast = podcastPath();
+      var offered = onPodcast ? ['video', 'article'] : DK_OFFERED;
+      if (onPodcast) [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
+        if (offered.indexOf(b.dataset.m) < 0) b.hidden = true;
+      });
       ctx.setCoachSay('');
       ctx.floatClose();
 
@@ -2055,7 +2132,6 @@
         [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
           b.setAttribute('aria-pressed', b.dataset.m === m ? 'true' : 'false');
         });
-        try { sessionStorage.setItem('sh-modality', m); } catch (e) {}
 
         if (m === 'video') {
           if (!videoMounted) {
@@ -2217,11 +2293,8 @@
         var timeEl = document.getElementById('dkTime');
         var capNow = document.getElementById('dkCapNow');
         var capWho = document.getElementById('dkCapWho');
-        var env = nar.env, HZ = 30;
-        var BAR = 4, GAP = 3;             // CSS px per bar and gap
+        var env = nar.env;
         var raf = 0, lastSent = -1, spans = [];
-        var cs = getComputedStyle(document.documentElement);
-        function tok(name, fb) { return (cs.getPropertyValue(name) || fb).trim(); }
 
         // The caption: the current sentence, word by word (words are timed by
         // their share of the sentence's characters — close enough to track a
@@ -2267,33 +2340,7 @@
         // The real loudness of the track, scrolling right-to-left past a fixed
         // playhead: what has been said is lit, what is coming is dim. Mirrored
         // round-capped bars, one per envelope sample.
-        function draw(t) {
-          var w = canvas.clientWidth, h = canvas.clientHeight;
-          if (!w || !h) return;
-          // Re-fit whenever the box changed (the caption rows settle after
-          // the first frame, and the window can resize) — a stale bitmap
-          // stretches and leaves ghost bars.
-          var dpr = window.devicePixelRatio || 1;
-          if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) fit();
-          g.clearRect(0, 0, w, h);
-          var mid = h / 2, cx = w / 2, pitch = BAR + GAP;
-          var pos = t * HZ;                         // playhead, in samples
-          var first = Math.floor(pos - cx / pitch) - 1, last = Math.ceil(pos + cx / pitch) + 1;
-          var lit = tok('--ll-teal', '#2ee6cf'), dim = 'rgba(' + tok('--ll-surface-rgb', '255,255,255') + ',.16)';
-          for (var i = first; i <= last; i++) {
-            if (i < 0 || i >= env.length) continue;
-            var v = parseInt(env.charAt(i), 36) / 35;
-            var bh = Math.max(3, v * (h * .92));
-            var x = cx + (i - pos) * pitch - BAR / 2;
-            g.fillStyle = i <= pos ? lit : dim;
-            g.globalAlpha = i <= pos ? .35 + .65 * (1 - Math.min(1, (pos - i) / (cx / pitch))) : 1;
-            var r = BAR / 2, y = mid - bh / 2;
-            g.beginPath();
-            if (g.roundRect) g.roundRect(x, y, BAR, bh, r); else g.rect(x, y, BAR, bh);
-            g.fill();
-          }
-          g.globalAlpha = 1;
-        }
+        function draw(t) { drawEnvelope(canvas, g, env, t); }
         function tick() {
           var t = audio.currentTime;
           draw(t);
@@ -2321,7 +2368,7 @@
         // Click / drag the waveform to scrub.
         canvas.parentNode.addEventListener('click', function (e) {
           var r = canvas.getBoundingClientRect();
-          var dt = (e.clientX - (r.left + r.width / 2)) / (BAR + GAP) / HZ;
+          var dt = (e.clientX - (r.left + r.width / 2)) / (WAVE_BAR + WAVE_GAP) / WAVE_HZ;
           audio.currentTime = Math.max(0, Math.min(nar.dur, audio.currentTime + dt));
           tick();
         });
@@ -2420,18 +2467,669 @@
       [].forEach.call(sw.querySelectorAll('.dk-sw'), function (b) {
         b.addEventListener('click', function () { show(b.dataset.m); });
       });
-      show(modalityDefault(DK_OFFERED, 'video'));
+      // Per screen (2026-09-29): every screen opens on Watch and the learner
+      // switches it there; a switch no longer carries to the next screen.
+      // The Demo menu's Read view is the one exception — a one-shot, so a
+      // reviewer lands in the reader it just changed.
+      var demo = null;
+      try { demo = sessionStorage.getItem('sh-demo-carrier'); sessionStorage.removeItem('sh-demo-carrier'); } catch (e) {}
+      show(offered.indexOf(demo) > -1 ? demo : 'video');
     };
   }
 
+  // `extra.deck` serves a DECK entry under a different step id — the podcast
+  // path runs the remedial screens again after its questions (c1rem-pod),
+  // and two steps can't share an id.
+  //
+  // `served` is the step's own routing rule (base vs harder vs reinforced),
+  // kept apart from `when` because the podcast path skips every non-remedial
+  // screen yet still needs to know which version this learner is served —
+  // that's how the episode picks its chapters (podcastCutLive).
   function deckStep(id, extra) {
+    var deck = (extra && extra.deck) || id;
     var s = { id: id, icon: 'fa-circle-play', mins: 2, stage: 'Learn',
               mode: 'floating', gate: true, coach: { say: '' },
-              content: deckContent(id), init: deckInit(id) };
+              content: deckContent(deck), init: deckInit(deck) };
     // A getter, so the lesson name follows the sector like the screen does.
-    Object.defineProperty(s, 'lesson', { enumerable: true, get: function () { return deckFor(id).title; } });
-    for (var k in extra) s[k] = extra[k];
+    Object.defineProperty(s, 'lesson', { enumerable: true, get: function () { return deckFor(deck).title; } });
+    for (var k in extra) if (k !== 'deck') s[k] = extra[k];
+    if (!DECK[deck].recheck) {
+      var served = s.when || function () { return true; };
+      s.served = served;
+      s.when = function () { return served() && !podcastPath(); };
+    }
     return s;
+  }
+
+  // ==========================================================================
+  //  LISTEN MODE (2026-09-25; renamed from "the podcast path" 2026-09-29 —
+  //  "podcast" carried baggage, so no learner surface says it. Internal names
+  //  — podcastPath(), PODCAST, the podpath/podpos keys — keep the old word). The podcast script's own shape
+  //  (Contain_the_Sharp_<sector>_Podcast.pdf, "One continuous listen. Every
+  //  check at the end."), parked 2026-09-23 and now built:
+  //
+  //    pre-check → the offer → ONE continuous episode → the questions →
+  //    remedial content (Watch / Read) → the simulation → the record
+  //
+  //  The pre-check decides which chapters are in the episode (the same
+  //  when() rules that decide which screens a screen-by-screen learner
+  //  sees), and the cut is FROZEN when the learner says yes — a resume
+  //  never rebuilds it. Chapters join on a sting; the script's ident opens
+  //  the episode, and our one-line close ("You may now continue the lesson")
+  //  ends it. No CLARA anywhere on this path, and no switching formats
+  //  partway through: the choice is made once, here.
+  //
+  //  Every chapter's question comes back after the episode in one stack
+  //  (podcheck, below); the chapters' own deck screens never load on this
+  //  path. Remedial screens follow the stack (c1rem-pod / c2rem-pod), on
+  //  screen, since the episode is base content only.
+  //
+  //  PROTOTYPE LIMITS: the episode is a playlist on ONE <audio> element,
+  //  advanced on 'ended'. With the screen locked, mobile Safari usually lets
+  //  that hand-off through, but doesn't promise to; a production build
+  //  should serve the frozen cut as one stream (joined file or HLS). Resume
+  //  lives in sessionStorage like the rest of this module's progress.
+  // ==========================================================================
+  var POD_CHAPTERS = ['c1base', 'c1up', 'c2base', 'c2up', 'controls', 'case3', 'case3rf', 'debrief', 'debriefrf'];
+  function podcastPath() { return !!(readCourse().podpath || {}).podcast; }
+  // The chapters this learner's pre-check answers put in the episode, live.
+  function podcastCutLive() {
+    return POD_CHAPTERS.filter(function (id) {
+      var st = LE.stepById(id);
+      return st && st.served();
+    });
+  }
+  // …and the one they were actually given, once they chose it.
+  function podcastCut() {
+    var p = readCourse().podpath;
+    return (p && p.cut) || podcastCutLive();
+  }
+  // The episode as one timeline: every item's clip, where it starts, and the
+  // whole thing's loudness and sentences on the same clock, so the waveform
+  // and captions run straight across the joins.
+  function episodeBuild(cut) {
+    var items = [];
+    function add(key, ch, title) {
+      var nar = narrationFor(key);
+      if (nar) items.push({ key: key, ch: ch, title: title, nar: nar });
+    }
+    add('ident', 0, 'Contain the Sharp');
+    cut.forEach(function (id, i) {
+      // The sting belongs to the chapter it leads into, so the lock screen
+      // already names what's coming.
+      if (i) add('sting', i + 1, deckFor(id).title);
+      add(id, i + 1, deckFor(id).title);
+    });
+    add('sting', cut.length, deckFor(cut[cut.length - 1]).title);
+    add('outro', cut.length, deckFor(cut[cut.length - 1]).title);
+    var t = 0, env = '', sents = [];
+    items.forEach(function (it, n) {
+      it.at = t;
+      // Pad or trim each envelope to its clip's exact length, so the
+      // waveform never drifts off the audio after a join.
+      var len = Math.round(it.nar.dur * WAVE_HZ), e = it.nar.env.slice(0, len);
+      while (e.length < len) e += '0';
+      env += e;
+      it.nar.sents.forEach(function (st) {
+        sents.push({ w: st.w, t: st.t, s: t + st.s, e: t + st.e, item: n });
+      });
+      t += it.nar.dur;
+    });
+    return { items: items, chapters: cut, dur: t, env: env, sents: sents };
+  }
+  function episodeMinutes() { return Math.max(1, Math.round(episodeBuild(podcastCut()).dur / 60)); }
+
+  // ---- The offer -------------------------------------------------------------
+  // After the pre-check, because the pre-check is what builds the listen.
+  // Two modes: Listen mode, or Standard mode (the screen-by-screen path in
+  // whatever format each screen offers — so not "Watch", which every screen
+  // lets them change). How Listen mode works sits behind its own toggle.
+  //
+  // 2026-09-29: the page reflects the learner's saved mode preference. With
+  // one saved, that mode is preselected ("Continue in…", tagged Your
+  // preference) and the other reads "Switch to…"; picking the other offers
+  // to make it the new preference. With none saved, whichever they pick can
+  // be saved for future modules. Select, then Continue — the choice no
+  // longer advances on its own, since a checkbox now travels with it.
+  //
+  // The preference is a learner PROFILE setting, not this run's progress, so
+  // it lives in localStorage and survives Start over. PROTOTYPE: a real
+  // build reads and writes it on the learner's profile. Demo → "Mode
+  // preference" sets or clears it.
+  var MODE_PREF_KEY = 'sh-mode-pref';
+  function modePref() {
+    try { var v = localStorage.getItem(MODE_PREF_KEY); return v === 'listen' || v === 'standard' ? v : null; }
+    catch (e) { return null; }
+  }
+  function setModePref(v) {
+    try { if (v) localStorage.setItem(MODE_PREF_KEY, v); else localStorage.removeItem(MODE_PREF_KEY); } catch (e) {}
+  }
+  var MODES = {
+    listen:   { icon: 'fa-headphones', name: 'Listen mode',
+                sub: function () { return 'About ' + episodeMinutes() + ' min · Questions at the end'; } },
+    standard: { icon: 'fa-display', name: 'Standard mode',
+                sub: function () { return 'Watch or read, one section at a time'; } }
+  };
+  // The title page's Preferred mode card, in the picker's own shape.
+  var MODE_CARD = {
+    standard: { icon: MODES.standard.icon, label: MODES.standard.name },
+    listen:   { icon: MODES.listen.icon, label: MODES.listen.name }
+  };
+  function modeLabel(k, pref) {
+    if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Standard mode';
+    return (k === pref ? 'Continue in ' : 'Switch to ') + MODES[k].name;
+  }
+  function PODOFFER_CONTENT() {
+    var pref = modePref();
+    return '<main class="ll-object po-object"><div class="po">' +
+      '<div class="po-top">' +
+        '<h1 class="po-head">This module is available in Listen mode</h1>' +
+        '<div class="po-how">' +
+          '<button class="po-how-btn" type="button" id="poHowBtn" aria-expanded="false" aria-controls="poHow">' +
+            '<i class="fa-solid fa-circle-info" aria-hidden="true"></i> How Listen mode works</button>' +
+          '<div class="po-how-tip" id="poHow" role="tooltip" hidden>' +
+            'One continuous listen, put together from your answers. It keeps playing with your screen ' +
+            'locked. When it ends, you answer the questions on screen and finish the module there. ' +
+            'Once you start, the module stays in this mode.' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="po-opts" role="radiogroup" aria-label="How do you want to take this module?">' +
+        ['listen', 'standard'].map(function (k) {
+          var m = MODES[k];
+          return '<button class="po-opt" type="button" role="radio" aria-checked="false" data-pick="' + k + '">' +
+            '<span class="po-ico"><i class="fa-solid ' + m.icon + '" aria-hidden="true"></i></span>' +
+            '<span class="po-txt"><b>' + esc(modeLabel(k, pref)) + '</b><small>' + esc(m.sub()) + '</small></span>' +
+            (k === pref ? '<span class="po-tag">Your preference</span>' : '') +
+          '</button>';
+        }).join('') +
+      '</div>' +
+      '<label class="po-save" id="poSave" hidden>' +
+        '<input type="checkbox" id="poSaveBox" />' +
+        '<span id="poSaveLabel"></span>' +
+      '</label>' +
+    '</div></main>';
+  }
+  function podofferInit(ctx) {
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    var pref = modePref();
+    var opts = [].slice.call(document.querySelectorAll('.po-opt'));
+    var save = document.getElementById('poSave'), box = document.getElementById('poSaveBox');
+    var saveLabel = document.getElementById('poSaveLabel');
+    var picked = null;
+
+    // Commit the pick for this module: which path runs, and (for Listen
+    // mode) the frozen cut.
+    function commit(k) {
+      var pod = k === 'listen';
+      var was = readCourse().podpath;
+      // A fresh choice (or a changed one) starts the listen from the top.
+      if (!was || !!was.podcast !== pod) { saveResult('podpos', null); saveResult('podcast', null); }
+      saveResult('podpath', { podcast: pod, cut: pod ? podcastCutLive() : null });
+      LE.refreshNav();
+    }
+    function pick(k) {
+      picked = k;
+      opts.forEach(function (b) { b.setAttribute('aria-checked', b.dataset.pick === k ? 'true' : 'false'); });
+      commit(k);
+      // The checkbox: save a first preference, or replace a different one.
+      // Picking the mode that's already the preference needs neither.
+      var offer = !pref || pref !== k;
+      save.hidden = !offer;
+      box.checked = false;
+      saveLabel.textContent = !pref ? 'Save as my preference for future modules'
+        : 'Make ' + MODES[k].name + ' my preference';
+      setModePref(pref);          // an unchecked box never changes what was saved
+      ctx.enableNext();
+    }
+    opts.forEach(function (b) { b.addEventListener('click', function () { pick(b.dataset.pick); }); });
+    box.addEventListener('change', function () { setModePref(box.checked ? picked : pref); });
+
+    // Back from later in the module: this run's own pick wins. Otherwise the
+    // saved preference is preselected, so Continue carries straight on.
+    var chosen = readCourse().podpath;
+    if (chosen) pick(chosen.podcast ? 'listen' : 'standard');
+    else if (pref) pick(pref);
+    else ctx.disableNext();
+
+    var how = document.getElementById('poHowBtn'), tip = document.getElementById('poHow');
+    how.addEventListener('click', function () {
+      var open = tip.hidden;
+      tip.hidden = !open;
+      how.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+  }
+
+  // ---- The episode -----------------------------------------------------------
+  // The per-screen Listen player's look (the same stage, waveform and word-
+  // by-word captions), run over the whole cut. The page never scrolls: the
+  // chapter list opens over the stage from "Chapters" in the header
+  // (2026-09-25 review), and reads as a list, not a menu — chapters can't
+  // be picked. Play/pause and back 15 seconds; no scrubbing ahead, no speed control
+  // (some courses carry a required duration). The lock screen shows the
+  // chapter playing and offers play/pause only.
+  function EPISODE_CONTENT() {
+    var ep = episodeBuild(podcastCut());
+    return '<main class="ll-object dk-object ep-object"><div class="dk-theater">' +
+      '<header class="dk-head"><div class="dk-head-t">' +
+        '<p class="ll-eyebrow" id="epEyebrow">Listen mode</p>' +
+        '<h1 class="dk-title" id="epTitle">Contain the Sharp</h1>' +
+      '</div>' +
+        '<button class="ep-ch-btn" type="button" id="epChBtn" aria-label="Chapters" aria-expanded="false" aria-controls="epChPanel">' +
+          '<i class="fa-solid fa-list-ul" aria-hidden="true"></i><span>Chapters</span></button>' +
+      '</header>' +
+      '<div class="dk-stagewrap"><div class="dk-stage" id="epStage" data-mode="podcast">' +
+        '<section class="dk-layer dk-layer--listen" aria-label="Listen mode">' +
+          '<audio id="epAudio" preload="auto"></audio>' +
+          '<div class="dk-wave-wrap ep-wave-wrap"><canvas class="dk-wave" id="epWave" aria-hidden="true"></canvas>' +
+            '<span class="dk-playhead" aria-hidden="true"></span></div>' +
+          '<div class="dk-caps" aria-live="off">' +
+            '<p class="dk-cap-who" id="epCapWho"></p>' +
+            '<p class="dk-cap-now" id="epCapNow"></p>' +
+          '</div>' +
+          '<div class="dk-player">' +
+            '<span class="ep-player-start">' +
+              '<button class="ep-back" type="button" id="epBack" aria-label="Back 15 seconds">' +
+                '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>15</span></button>' +
+              '<span class="dk-voice-note">Placeholder voice</span>' +
+            '</span>' +
+            '<button class="dk-play" type="button" id="epPlay" aria-label="Play"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
+            '<span class="dk-player-end">' +
+              '<button class="dk-skip" id="epSkip" type="button" hidden aria-label="Skip to the end">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
+              '<span class="dk-time" id="epTime">0:00 / ' + mmss(ep.dur) + '</span>' +
+            '</span>' +
+          '</div>' +
+        '</section>' +
+        '<div class="ep-ch-panel" id="epChPanel" hidden>' +
+          '<div class="ep-ch-head"><h2>Chapters</h2>' +
+            '<button class="ep-ch-close" type="button" id="epChClose" aria-label="Close chapters">' +
+              '<i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>' +
+          '<ol class="ep-chapters" id="epChapters">' +
+            ep.chapters.map(function (id, i) {
+              return '<li class="ep-ch" data-ch="' + (i + 1) + '">' +
+                '<span class="ep-ch-n" aria-hidden="true">' + (i + 1) + '</span>' +
+                '<span class="ep-ch-t">' + esc(deckFor(id).title) + '</span>' +
+                '<span class="ep-ch-d">' + mmss(narrationFor(id).dur) + '</span>' +
+              '</li>';
+            }).join('') +
+          '</ol>' +
+        '</div>' +
+        '<div class="dk-rail" aria-hidden="true"><span class="dk-rail-fill" id="epRail"></span></div>' +
+      '</div></div>' +
+    '</div></main>';
+  }
+  function episodeInit(ctx) {
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    var ep = episodeBuild(podcastCut());
+    var audio = document.getElementById('epAudio');
+    var stage = document.getElementById('epStage');
+    var canvas = document.getElementById('epWave'), g = canvas.getContext('2d');
+    var play = document.getElementById('epPlay');
+    var timeEl = document.getElementById('epTime');
+    var rail = document.getElementById('epRail');
+    var capNow = document.getElementById('epCapNow'), capWho = document.getElementById('epCapWho');
+    var eyebrow = document.getElementById('epEyebrow'), titleEl = document.getElementById('epTitle');
+    var chEls = [].slice.call(document.querySelectorAll('.ep-ch'));
+    var last = ep.items.length - 1;
+    var cur = -1, raf = 0, lastSent = -1, spans = [], lastCh = -1, finishedOnce = false, lastSave = 0;
+    var done = !!(readCourse().podcast || {}).done;
+    var art = new URL('../../assets/images/sharps-header.jpg', location.href).href;
+    var ms = 'mediaSession' in navigator ? navigator.mediaSession : null;
+
+    function gt() { return cur < 0 ? 0 : ep.items[cur].at + (audio.currentTime || 0); }
+    function sentenceAt(t) {
+      for (var i = ep.sents.length - 1; i >= 0; i--) if (t >= ep.sents[i].s) return i;
+      return -1;
+    }
+    function setSentence(i) {
+      if (i === lastSent) return;
+      lastSent = i;
+      var st = ep.sents[i];
+      capWho.textContent = st && st.w ? (PODCAST_WHO[st.w] || st.w) : '';
+      capWho.dataset.who = st && st.w ? st.w.toLowerCase() : '';
+      capNow.innerHTML = st ? st.t.split(' ').map(function (w) { return '<span>' + esc(w) + '</span>'; }).join(' ') : '';
+      spans = [].slice.call(capNow.children);
+      capNow.classList.remove('is-in'); void capNow.offsetWidth; capNow.classList.add('is-in');
+    }
+    function words(t) {
+      var st = ep.sents[lastSent];
+      if (!st) return;
+      var f = (t - st.s) / Math.max(.01, st.e - st.s), total = st.t.length, acc = 0;
+      spans.forEach(function (sp) {
+        var mid = (acc + sp.textContent.length / 2) / total;
+        acc += sp.textContent.length + 1;
+        sp.classList.toggle('is-said', mid <= f);
+      });
+    }
+    // The header, the chapter list and the lock screen all follow the item
+    // that is playing.
+    function setChapter(it) {
+      if (it.ch === lastCh) return;
+      lastCh = it.ch;
+      var n = ep.chapters.length;
+      eyebrow.textContent = it.ch ? 'Listen mode · Chapter ' + it.ch + ' of ' + n : 'Listen mode';
+      titleEl.textContent = it.title;
+      chEls.forEach(function (li) {
+        var c = +li.dataset.ch;
+        li.classList.toggle('is-now', c === it.ch && !done);
+        li.classList.toggle('is-done', done || c < it.ch);
+        if (c === it.ch) li.setAttribute('aria-current', 'true'); else li.removeAttribute('aria-current');
+      });
+      if (ms && window.MediaMetadata) {
+        try {
+          ms.metadata = new MediaMetadata({
+            title: it.title,
+            artist: it.ch ? 'Chapter ' + it.ch + ' of ' + n : 'Contain the Sharp',
+            album: 'Bloodborne Pathogens · Module 4',
+            artwork: [{ src: art, sizes: '1200x675', type: 'image/jpeg' }]
+          });
+        } catch (e) {}
+      }
+    }
+    function tick() {
+      var t = gt();
+      drawEnvelope(canvas, g, ep.env, t);
+      setSentence(sentenceAt(t));
+      words(t);
+      timeEl.textContent = mmss(t) + ' / ' + mmss(ep.dur);
+      rail.style.transform = 'scaleX(' + Math.max(0, Math.min(1, t / ep.dur)) + ')';
+      if (!audio.paused) raf = requestAnimationFrame(tick);
+    }
+    function setPlaying(on) {
+      play.innerHTML = '<i class="fa-solid ' + (on ? 'fa-pause' : 'fa-play') + '" aria-hidden="true"></i>';
+      play.setAttribute('aria-label', on ? 'Pause' : 'Play');
+      stage.classList.toggle('is-playing', on);
+      if (ms) try { ms.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
+    }
+    // Where to pick up: the start of the sentence that was playing, so a
+    // resume never lands mid-word.
+    function save(force) {
+      if (cur < 0 || done) return;
+      var now = Date.now();
+      if (!force && now - lastSave < 2000) return;
+      lastSave = now;
+      saveResult('podpos', { i: cur, t: Math.round(audio.currentTime * 10) / 10 });
+    }
+    function load(i, t, autoplay) {
+      cur = Math.max(0, Math.min(last, i));
+      var it = ep.items[cur];
+      setChapter(it);
+      audio.src = NARRATION_DIR + it.nar.src + '?v=' + NARRATION_V;
+      var seek = function () {
+        audio.removeEventListener('loadedmetadata', seek);
+        if (t > 0) try { audio.currentTime = t; } catch (e) {}
+        tick();
+      };
+      audio.addEventListener('loadedmetadata', seek);
+      if (autoplay) audio.play().catch(function () { setPlaying(false); });
+    }
+    function back(sec) {
+      var t = Math.max(0, gt() - sec), i = last;
+      while (i > 0 && ep.items[i].at > t) i--;
+      var wasPlaying = !audio.paused;
+      if (i === cur) { audio.currentTime = t - ep.items[i].at; tick(); }
+      else load(i, t - ep.items[i].at, wasPlaying);
+    }
+    function finish() {
+      if (finishedOnce) return;
+      finishedOnce = true;
+      done = true;
+      saveResult('podcast', { done: true, cut: ep.chapters });
+      saveResult('podpos', null);
+      lastCh = -1; setChapter(ep.items[last]);
+      setPlaying(false);
+      ctx.enableNext();
+    }
+
+    play.addEventListener('click', function () {
+      if (audio.paused) audio.play().catch(function () {}); else audio.pause();
+    });
+    document.getElementById('epBack').addEventListener('click', function () { back(15); });
+    audio.addEventListener('play', function () { setPlaying(true); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); });
+    audio.addEventListener('pause', function () { setPlaying(false); save(true); tick(); });
+    audio.addEventListener('timeupdate', function () { save(false); });
+    audio.addEventListener('ended', function () {
+      if (cur < last) load(cur + 1, 0, true);
+      else finish();
+    });
+    audio.addEventListener('error', function () {
+      document.querySelector('.ep-object .dk-voice-note').textContent = 'Audio unavailable';
+      ctx.setNextAction('Done listening', finish);
+    });
+    window.addEventListener('pagehide', function () { save(true); });
+    window.addEventListener('resize', function () { if (canvas.isConnected) tick(); });
+
+    // Review-mode skip, same rule as the clips': straight to the close, so a
+    // reviewer can see the hand-back without sitting through the episode.
+    // Chapters: over the stage, closed by the same button, its own ×, or Esc.
+    var chBtn = document.getElementById('epChBtn'), chPanel = document.getElementById('epChPanel');
+    function chapters(open) {
+      chPanel.hidden = !open;
+      chBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      stage.classList.toggle('is-ch-open', open);
+      (open ? document.getElementById('epChClose') : chBtn).focus({ preventScroll: true });
+    }
+    chBtn.addEventListener('click', function () { chapters(chPanel.hidden); });
+    document.getElementById('epChClose').addEventListener('click', function () { chapters(false); });
+    chPanel.addEventListener('keydown', function (e) { if (e.key === 'Escape') chapters(false); });
+
+    var skip = document.getElementById('epSkip');
+    skip.hidden = !LE.reviewMode();
+    skip.addEventListener('click', function () { load(last - 1, 0, true); });
+
+    // The lock screen: play and pause, nothing that moves the playhead
+    // forward.
+    if (ms) {
+      try {
+        ms.setActionHandler('play', function () { audio.play().catch(function () {}); });
+        ms.setActionHandler('pause', function () { audio.pause(); });
+        ['seekforward', 'seekto', 'nexttrack', 'previoustrack', 'seekbackward'].forEach(function (a) {
+          try { ms.setActionHandler(a, null); } catch (e) {}
+        });
+      } catch (e) {}
+    }
+
+    // Stop, and let go of the lock screen, when the step is torn down.
+    var stageRoot = document.querySelector('.ll-stage');
+    if (stageRoot && window.MutationObserver) {
+      var mo = new MutationObserver(function () {
+        if (document.body.contains(audio)) return;
+        mo.disconnect(); save(true); audio.pause(); cancelAnimationFrame(raf);
+        if (ms) try { ms.metadata = null; ms.setActionHandler('play', null); ms.setActionHandler('pause', null); } catch (e) {}
+      });
+      mo.observe(stageRoot, { childList: true });
+    }
+
+    if (done) {
+      // Heard already (Back from the questions): parked at the close.
+      finishedOnce = true;
+      load(last, ep.items[last].nar.dur, false);
+      ctx.enableNext();
+      return;
+    }
+    ctx.disableNext();
+    var pos = readCourse().podpos;
+    if (pos && ep.items[pos.i]) {
+      var t0 = 0;
+      ep.items[pos.i].nar.sents.forEach(function (st) { if (st.s <= (pos.t || 0)) t0 = st.s; });
+      load(pos.i, t0, true);
+    } else load(0, 0, true);
+  }
+
+  // ---- The questions ---------------------------------------------------------
+  // Every chapter's question, straight after the episode, as ONE stack in the
+  // pre-check's own card-stack look (2026-09-25 review) — its own screen with
+  // its own purpose, rather than walking back through each chapter's page
+  // with a question laid over it. The questions, their answers and feedback
+  // are the deck's (deckCheck), saved under the same keys the screen-by-
+  // screen path uses, so remediation routes off them unchanged.
+  //
+  // Knowledge questions give the deck's verdict in the card and wait for
+  // "Next question"; agreement and insight items have no verdict and move on
+  // by themselves, like the pre-check. The last card hands straight on to
+  // the next step. The stack mechanics mirror batteryInit's (same markup,
+  // same depth classes), trimmed to the two formats the deck's checks use.
+  function PODCHECK_CONTENT() {
+    return BATTERY_CONTENT.replace(
+      '<button class="bl-check" id="blCheck"',
+      '<p class="dk-fb bl-fb" id="blFb" role="status" hidden></p><button class="bl-check" id="blCheck"');
+  }
+  function podcheckItems() {
+    return podcastCut().map(function (id) {
+      return { id: id, title: deckFor(id).title, q: deckCheck(deckFor(id)) };
+    }).filter(function (it) { return it.q; });
+  }
+  function podcheckInit(ctx) {
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    ctx.disableNext();
+    var items = podcheckItems(), n = items.length;
+    var askEl = document.getElementById('blAsk');
+    var stepEl = document.getElementById('blStep');
+    var qEl = document.getElementById('blQ');
+    var optsEl = document.getElementById('blOptions');
+    var checkEl = document.getElementById('blCheck');
+    var fbEl = document.getElementById('blFb');
+    var dotsEl = document.getElementById('blDots');
+    var near = document.getElementById('blPeek1');
+    var far = document.getElementById('blPeek2');
+    var MISS = 'Let’s dig into this again from a slightly different lens.';
+
+    function eyebrow(i) { return 'Question ' + (i + 1) + ' of ' + n + ' · ' + items[i].title; }
+    function answerHtml(q, live) {
+      return q.kind === 'likert' ? likertHtml(live) : mcqHtml(q.options, live);
+    }
+    function setPeekContent(el, i, withFb) {
+      if (!el) return;
+      var it = items[i];
+      if (!it) { el.hidden = true; return; }
+      el.hidden = false;
+      el.innerHTML = '<p class="ll-eyebrow">' + esc(eyebrow(i)) + '</p>' +
+        '<h2 class="bl-q">' + esc(it.q.stem) + '</h2>' +
+        answerHtml(it.q, false) +
+        // Measuring only: the tallest card is a knowledge question WITH its
+        // feedback showing, and the stage has to hold that without moving.
+        (withFb && it.q.kind === 'mcq'
+          ? '<p class="dk-fb"><strong class="dk-fb-h">Correct</strong><span class="dk-fb-b">' + esc(it.q.okFb || MISS) + '</span></p>'
+          : '') +
+        '<button class="bl-check" type="button" disabled>Submit answer</button>';
+    }
+    // Same as batteryInit's: the stage is pinned to its tallest card, so the
+    // page never re-centres as cards of different heights come forward.
+    function pinStageHeight() {
+      var stageEl = document.getElementById('blStage');
+      var ruler = document.createElement('div');
+      ruler.className = 'bl-peek sh-battery bl-ruler';
+      ruler.setAttribute('aria-hidden', 'true');
+      stageEl.appendChild(ruler);
+      var max = 0;
+      for (var k = 0; k < n; k++) {
+        setPeekContent(ruler, k, true);
+        max = Math.max(max, ruler.getBoundingClientRect().height);
+      }
+      stageEl.removeChild(ruler);
+      var padTop = parseFloat(getComputedStyle(stageEl).paddingTop) || 0;
+      stageEl.style.minHeight = Math.ceil(padTop + max + 8) + 'px';
+    }
+    function renderDots(i) {
+      dotsEl.innerHTML = items.map(function (_, k) {
+        return '<span class="bl-dot' + (k < i ? ' is-done' : k === i ? ' is-now' : '') + '"></span>';
+      }).join('');
+    }
+    function arm(el) {
+      el.classList.remove('is-spent');
+      el.removeAttribute('aria-hidden');
+      el.removeAttribute('tabindex');
+    }
+    function spend(el) {
+      el.classList.add('is-spent');
+      el.disabled = true;
+      el.setAttribute('aria-hidden', 'true');
+      el.tabIndex = -1;
+    }
+    function advance(i) {
+      if (i + 1 < n) swapTo(i + 1); else done();
+    }
+    function render(i) {
+      var q = items[i].q;
+      renderDots(i);
+      stepEl.textContent = eyebrow(i);
+      qEl.textContent = q.stem;
+      fbEl.hidden = true; fbEl.className = 'dk-fb bl-fb'; fbEl.innerHTML = '';
+      optsEl.removeAttribute('role');
+      optsEl.className = 'bl-deck';
+      optsEl.innerHTML = answerHtml(q, true);
+      optsEl.firstChild.setAttribute('aria-labelledby', 'blQ');
+      arm(checkEl);
+      checkEl.hidden = false;
+      checkEl.textContent = q.kind === 'mcq' ? 'Check answer' : 'Submit answer';
+      wireChoice(optsEl.firstChild, checkEl, function (v, picked) {
+        if (q.kind === 'mcq') {
+          // The deck screen's own verdict: in words both ways, the right
+          // answer not revealed on a miss (the remedial content comes next).
+          var ok = v === q.correct;
+          csMark(picked, ok ? 'ok' : 'bad');
+          if (!ok) csTag(picked, 'Your answer');
+          var body = ok ? q.okFb : (q.noFb || MISS);
+          fbEl.innerHTML = '<strong class="dk-fb-h"><i class="fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle-xmark') +
+              '" aria-hidden="true"></i> ' + (ok ? 'Correct' : 'Not quite') + '</strong>' +
+            (body ? '<span class="dk-fb-b">' + esc(body) + '</span>' : '');
+          fbEl.className = 'dk-fb bl-fb ' + (ok ? 'is-ok' : 'is-bad');
+          fbEl.hidden = false;
+          saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: 'podcast' });
+          checkEl.textContent = i + 1 < n ? 'Next question' : 'Continue';
+          checkEl.disabled = false;
+          checkEl.onclick = function () { checkEl.onclick = null; spend(checkEl); advance(i); };
+          checkEl.focus({ preventScroll: true });
+          return;
+        }
+        spend(checkEl);
+        if (q.kind === 'insight') {
+          csMark(picked, 'neutral');
+          saveResult(q.key, { picked: v, answer: q.options[v].t, carrier: 'podcast' });
+        } else {
+          picked.classList.add('is-picked');
+          saveResult(q.key, { score: v, carrier: 'podcast' });
+        }
+        setTimeout(function () { advance(i); }, T(700));
+      });
+    }
+    function snapDepth(el, depthClass) {
+      el.className = 'bl-peek sh-battery no-anim ' + depthClass;
+      void el.offsetWidth;
+      el.classList.remove('no-anim');
+    }
+    function swapTo(i) {
+      askEl.classList.add('is-leaving');
+      near.classList.remove('depth1'); near.classList.add('depth0');
+      far.classList.remove('depth2'); far.classList.add('depth1');
+      setTimeout(function () {
+        if (!askEl.isConnected) return;
+        render(i);
+        askEl.classList.add('no-anim');
+        askEl.classList.remove('is-leaving');
+        void askEl.offsetWidth;
+        askEl.classList.remove('no-anim');
+        snapDepth(near, 'depth2');
+        setPeekContent(near, i + 2);
+        var tmp = near; near = far; far = tmp;
+      }, T(440));
+    }
+    // Like the pre-check's last card: it drops off, and the module moves on.
+    function done() {
+      saveResult('podcheck', { done: true });
+      askEl.classList.add('is-dropping');
+      dotsEl.classList.add('is-gone');
+      ctx.enableNext();
+      setTimeout(function () { if (askEl.isConnected) ctx.els.next.click(); }, T(380));
+    }
+
+    render(0);
+    setPeekContent(near, 1); near.className = 'bl-peek sh-battery depth1';
+    setPeekContent(far, 2); far.className = 'bl-peek sh-battery depth2';
+    pinStageHeight();
   }
 
   // ==========================================================================
@@ -2861,7 +3559,15 @@
       // statements are compared against after case 3 and the debrief.
       stepEl.textContent = 'Quick questions: all ' + BATTERY.length + ' done';
       saveResult('battery', res);
+      // 2026-09-25 (from Riff 07): the last card drops off the stack and the
+      // module moves straight on to the path screen — the footer's Continue
+      // was easy to miss once the last Submit had been pressed.
+      askEl.classList.add('is-dropping');
+      if (dotsEl) dotsEl.classList.add('is-gone');
       ctx.enableNext();
+      setTimeout(function () {
+        if (askEl.isConnected) ctx.els.next.click();
+      }, T(380));
     }
   }
 
@@ -3198,7 +3904,7 @@
                cost: 'Self-paced \u00b7 recall checks',
                tradeoff: 'Self-paced \u2014 CLARA checks your recall on each step instead of just telling you the next one.',
                note: 'CLARA walks the procedure one step at a time, pausing to check what you remember.' },
-    podcast: { label: 'Listen', icon: 'fa-headphones',
+    podcast: { label: 'Read to me', icon: 'fa-volume-high',
                cost: 'Longest \u00b7 hands free',
                tradeoff: 'Runs while you do something else, but takes longer and stops to ask you things.',
                note: 'The narration read aloud, word-highlighted as it plays.' }
@@ -3212,11 +3918,14 @@
   //  default carrier behind a click or vanish once used, and both are worse:
   //  the learner arrives on the default and can still see, at any point,
   //  what the other option is.
-  function modalityPicker(id, keys) {
+  // `table` defaults to MODALITIES; the title page's mode card passes its own
+  // (MODE_CARD — Standard / Listen mode) through the same picker.
+  function modalityPicker(id, keys, table) {
+    table = table || MODALITIES;
     return '<div class="md-pick" id="' + id + '" role="group" ' +
         'aria-label="How do you want to take this?">' +
       keys.map(function (k) {
-        var m = MODALITIES[k];
+        var m = table[k];
         return '<button class="md-opt" type="button" data-m="' + k + '" aria-pressed="false">' +
           '<i class="fa-solid ' + m.icon + '" aria-hidden="true"></i>' +
           '<span class="md-opt-t"><b>' + esc(m.label) + '</b></span>' +
@@ -3244,7 +3953,7 @@
   //  the content rather than in its own row — hazardInit/procedureInit pass
   //  it, the title-page rail (a setting among several cards, not a global
   //  page control) does not. See .md-now--corner in sharps.html.
-  function modalityDropdown(ids, keys, opts) {
+  function modalityDropdown(ids, keys, opts, table) {
     var corner = opts && opts.corner;
     return '<div class="md-now' + (corner ? ' md-now--corner' : '') + '">' +
         '<div class="cp-format-now" id="' + ids.now + '">' +
@@ -3254,7 +3963,7 @@
             'aria-expanded="false" aria-controls="' + ids.wrap + '">' +
             'Change<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' +
         '</div>' +
-        '<div class="cp-format-picker" id="' + ids.wrap + '" hidden>' + modalityPicker(ids.pick, keys) + '</div>' +
+        '<div class="cp-format-picker" id="' + ids.wrap + '" hidden>' + modalityPicker(ids.pick, keys, table) + '</div>' +
       '</div>';
   }
   // Wires the collapse/expand chrome only — picking an option still runs
@@ -3271,7 +3980,8 @@
   // guard against with a one-off flag. Re-registering the same key on a
   // revisit just replaces the stale DOM refs with the current ones.
   var modalityDropdowns = {};
-  function initModalityDropdown(ids) {
+  function initModalityDropdown(ids, table) {
+    table = table || MODALITIES;
     var btn = document.getElementById(ids.btn), wrap = document.getElementById(ids.wrap);
     var icon = document.getElementById(ids.icon), label = document.getElementById(ids.label);
     function setOpen(v) { wrap.hidden = !v; btn.setAttribute('aria-expanded', v ? 'true' : 'false'); }
@@ -3289,7 +3999,7 @@
     }
     return {
       render: function (k) {
-        var m = MODALITIES[k];
+        var m = table[k];
         icon.className = 'fa-solid ' + m.icon;
         label.textContent = m.label;
       },
@@ -6505,16 +7215,34 @@
       coach: { say: '' },
       content: ADJUST_CONTENT, init: adjustInit },
 
+    // ---- The podcast path (see THE PODCAST PATH above) ----------------------
+    { id: 'podoffer', icon: 'fa-headphones', stage: 'Entry', lesson: 'Choose a format', mode: 'floating', gate: true,
+      noCoach: true, coach: { say: '' },
+      caption: { title: 'ENTRY · The Listen mode offer (2026-09-25)', note: 'After the pre-check, because the pre-check is what builds the listen: its answers pick the chapters, and the runtime shown is that cut\u2019s real length. Yes freezes the cut; the module then stays in Listen mode (no switching partway). No keeps the screen-by-screen path in the learner\u2019s Watch or Read preference. How it works sits behind the info toggle. From the audio script (Contain_the_Sharp_<sector>_Podcast.pdf): one continuous listen, every check at the end. Called Listen mode, not podcast, on every learner surface (2026-09-29).' },
+      content: PODOFFER_CONTENT, init: podofferInit },
+    { id: 'podcast', icon: 'fa-headphones', stage: 'Learn', lesson: 'Contain the Sharp', mode: 'floating', gate: true,
+      noCoach: true, coach: { say: '' },
+      get mins() { return episodeMinutes(); },
+      when: function () { return podcastPath(); },
+      caption: { title: 'LEARN · The listen (Listen mode)', note: 'The whole cut as one listen: the script\u2019s ident, each chapter the pre-check put in (joined on a sting), and one closing line, “You may now continue the lesson.” Continue opens only when it ends. Resumes at the start of the sentence it was paused on. Play/pause and back 15s on screen; play/pause only on the lock screen; no scrubbing ahead and no speed control. Review mode shows Skip. Prototype: a playlist on one audio element, not a single stream — see LISTEN MODE in layered-sharps.js.' },
+      content: EPISODE_CONTENT, init: episodeInit },
+    { id: 'podcheck', icon: 'fa-list-check', stage: 'Check', lesson: 'Questions', mode: 'floating', gate: true,
+      noCoach: true, coach: { say: '' },
+      get mins() { return Math.max(1, Math.round(podcheckItems().length / 2)); },
+      when: function () { return podcastPath(); },
+      caption: { title: 'CHECK · The listen’s questions (Listen mode)', note: 'Every chapter’s question from the deck, in the order the chapters played, as one stack in the pre-check’s look. Saved under the same keys as the screen-by-screen path (k1check, k2check, insight, f1post, f3post), so remediation routes off them unchanged. Knowledge questions show the deck’s verdict and wait for Next question; agreement and insight items move on by themselves. The last card hands straight on to remedial content (if any) or the simulation.' },
+      content: PODCHECK_CONTENT, init: podcheckInit },
+
     // ---- Deck slides 5–22 ----------------------------------------------------
     // Each case serves ONE of its versions: base, or the harder test-up version
     // when its pre-check question was answered correctly. A miss on either
     // version's question serves that case's remedial video next.
     deckStep('c1base', { when: function () { return !k1TestUp(); },
-      caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Listen carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
+      caption: { title: 'LEARN · Case 1, base (K1) — deck slides 5–6', note: 'Served unless pre-check question 1 was answered correctly. Watch / Read / Read to me carrier of the slide 5 narration; when it finishes, the slide 6 mastery check rises over it on the reinforcement layer. A miss serves the remedial video (slide 7) next.' } }),
     deckStep('c1up', { adaptive: true, variant: 'Mastery version', when: function () { return k1TestUp(); },
       caption: { title: 'LEARN · Case 1, test-up (K1) — deck slides 8–9', note: 'Served INSTEAD of the base case when pre-check question 1 was answered correctly. The harder version of the same procedure, then the slide 9 mastery check over it. A miss serves the remedial video (slide 7), same as the base case.' } }),
     deckStep('c1rem', { adaptive: true, variant: 'Remedial version',
-      when: function () { return checkMissed('k1check'); },
+      when: function () { return checkMissed('k1check') && !podcastPath(); },
       caption: { title: 'LEARN · Case 1, remedial (K1) — deck slide 7', note: 'Only after a missed case 1 mastery check (either version). Re-teaches the never-recap, straight-to-container rule. Then re-asks the question that was missed (slide 6 or 9, whichever version ran); a second miss just moves the learner on.' } }),
 
     deckStep('c2base', { when: function () { return !k2TestUp(); },
@@ -6522,7 +7250,7 @@
     deckStep('c2up', { adaptive: true, variant: 'Mastery version', when: function () { return k2TestUp(); },
       caption: { title: 'LEARN · Case 2, test-up (K2) — deck slides 13–14', note: 'Served INSTEAD of the base case when pre-check question 2 was answered correctly. Slide 14 mastery check over it; a miss serves the remedial video (slide 12).' } }),
     deckStep('c2rem', { adaptive: true, variant: 'Remedial version',
-      when: function () { return checkMissed('k2check'); },
+      when: function () { return checkMissed('k2check') && !podcastPath(); },
       caption: { title: 'LEARN · Case 2, remedial (K2) — deck slide 12', note: 'Only after a missed case 2 mastery check (either version). Re-teaches both recognition calls. Then re-asks the question that was missed (slide 11 or 14); a second miss just moves the learner on.' } }),
 
     deckStep('controls', {
@@ -6539,6 +7267,16 @@
       caption: { title: 'LEARN · Debrief, base (F3) — deck slides 20 + 22', note: 'Served when the pre-check F3 statement was answered 4–5. Cites Gershon et al. (2000), 92.7%. The F3 statement is asked again over it (slide 22).' } }),
     deckStep('debriefrf', { adaptive: true, variant: 'Reinforced version', when: function () { return feelLow('f3'); },
       caption: { title: 'LEARN · Debrief, reinforced (F3) — deck slides 21 + 22', note: 'Served INSTEAD of the base debrief when the pre-check F3 statement was answered 1–3. The norm correction given more room. Same F3 re-ask over it (slide 22).' } }),
+
+    // The podcast path's remedial screens: the same two, after ALL of the
+    // episode's questions rather than straight after their own, and on screen
+    // (Watch / Read) — never Listen.
+    deckStep('c1rem-pod', { deck: 'c1rem', adaptive: true, variant: 'Remedial version',
+      when: function () { return checkMissed('k1check') && podcastPath(); },
+      caption: { title: 'LEARN · Case 1, remedial (K1), Listen mode — deck slide 7', note: 'Listen mode\u2019s copy of c1rem: after every question from the listen, not straight after case 1\u2019s. Watch or Read only. Then re-asks the question that was missed.' } }),
+    deckStep('c2rem-pod', { deck: 'c2rem', adaptive: true, variant: 'Remedial version',
+      when: function () { return checkMissed('k2check') && podcastPath(); },
+      caption: { title: 'LEARN · Case 2, remedial (K2), Listen mode — deck slide 12', note: 'Listen mode\u2019s copy of c2rem, after every question from the listen. Watch or Read only. Then re-asks the question that was missed.' } }),
 
     { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'A sharp decision', mode: 'floating', gate: true,
       when: function () { return !sceneSimulatorOn(); },
@@ -6777,18 +7515,36 @@
         api.replay();
       }
     }, {
+      // The learner's saved mode preference (see THE OFFER) — a profile
+      // setting, so it survives Start over. Clear it to see the first-time
+      // version of the offer.
+      id: 'shModePrefBtn', icon: 'fa-headphones', name: 'Mode preference',
+      note: 'The learner’s saved Listen / Standard mode preference, which the offer screen reflects',
+      visibleOn: function (step) { return step.id === 'podoffer'; },
+      type: 'select', value: function () { return modePref() || 'none'; },
+      options: [
+        { value: 'none', label: 'None saved' },
+        { value: 'listen', label: 'Listen mode' },
+        { value: 'standard', label: 'Standard mode' }
+      ],
+      onChange: function (v, api) {
+        setModePref(v === 'none' ? null : v);
+        saveResult('podpath', null);
+        api.replay();
+      }
+    }, {
       // Read as an article (default) or as Jessica's podcast transcript —
       // the same chapters either way; see ARTICLE / PODCAST.
       id: 'shReadStyleBtn', icon: 'fa-book-open', name: 'Read view',
-      note: 'Plain article, or the podcast script as a transcript with speaker names',
+      note: 'Plain article, or the audio script as a transcript with speaker names',
       visibleOn: function (step) { return !!DECK[step.id]; },
       type: 'select', value: readStyle,
       options: [
         { value: 'article', label: 'Article' },
-        { value: 'podcast', label: 'Podcast transcript' }
+        { value: 'podcast', label: 'Audio script' }
       ],
       onChange: function (v, api) {
-        try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-modality', 'article'); } catch (e) {}
+        try { sessionStorage.setItem('sh-read-style', v); sessionStorage.setItem('sh-demo-carrier', 'article'); } catch (e) {}
         api.replay();
       }
     }, {

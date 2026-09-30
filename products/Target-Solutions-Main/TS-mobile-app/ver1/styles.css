@@ -42,6 +42,11 @@
   --color-gray-800:  #2b3648;
   --color-white:     #ffffff;
   --color-green-500: #158444;
+  --color-green-50:  #e3f3e9;
+  --color-blue-700:  #0d3f82;   /* deep end of the Record Completions card gradient */
+  --color-purple-600:#7c3aed;   /* Vector AI accent (badge, VoiceComplete) */
+  --color-purple-500:#9b5cf6;
+  --color-purple-50: #efe7fd;
 
   /* ── semantic tokens (Tamagui theme keys) ───────────────────────────────── */
   --background:      var(--color-gray-50);
@@ -53,6 +58,12 @@
   --accent:          var(--color-red-500);
   --link:            var(--color-blue-500);
   --chrome:          var(--color-navy-800);
+  /* Customer theme hook. Only the status bar and app header use --brand, so a
+     TS theme can recolor the chrome without touching buttons, links or the
+     active tab (which stay on --accent / --link for contrast reasons). A
+     theme = this pair (+ optionally --accent). Default: Vector red on white. */
+  --brand:           var(--color-red-500);
+  --brandContrast:   #ffffff;
 
   /* ── space scale ($1–$8) ────────────────────────────────────────────────── */
   --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
@@ -144,7 +155,7 @@ body {
   background: var(--chrome); position: relative; z-index: 10;
 }
 .status-bar--light { background: var(--color-white); color: var(--color); }
-.status-bar--brand { background: var(--accent); color: #fff; }
+.status-bar--brand { background: var(--brand); color: var(--brandContrast); }
 .status-bar .sb-icons { display: flex; gap: var(--space-2); font-size: var(--fs-2); }
 /* Floats OVER the active screen rather than sitting in flow, so a dark screen
    (login, scanner) runs edge to edge instead of ending in a pale strip. */
@@ -240,6 +251,17 @@ body {
 .t-ListItem__sub { font-size: var(--fs-2); color: var(--colorFaint); margin-top: 2px; }
 .t-ListItem__after { margin-left: auto; color: var(--color-gray-300); font-size: var(--fs-3); }
 
+/* Account row (More → Profile) */
+.t-Avatar--md { width: 44px; height: 44px; font-size: var(--fs-4); }
+.more-account {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: var(--space-4);
+  background: var(--card); border: 0; cursor: pointer; font-family: var(--font); text-align: left; color: var(--color);
+}
+.more-account:hover { background: var(--color-gray-50); }
+.more-account__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.more-account__name { font-size: var(--fs-5); font-weight: 700; }
+.more-account__sub { font-size: var(--fs-2); color: var(--colorFaint); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 /* Chip / badge */
 .t-Chip {
   font-size: var(--fs-1); font-weight: 800; letter-spacing: .4px; text-transform: uppercase;
@@ -282,17 +304,6 @@ body {
 .notif__dot {
   width: 8px; height: 8px; border-radius: var(--radius-round);
   background: var(--link); flex: none; margin-top: var(--space-2);
-}
-
-/* Unread badge on the header bell */
-.app-header__btn { position: relative; }
-/* Unread badge: a white ring with the header's red showing through the middle.
-   The centre is filled with the accent rather than left transparent so the bell
-   glyph behind it can't peek through the hole. */
-.badge-dot {
-  position: absolute; top: 1px; right: 2px; width: 11px; height: 11px;
-  border-radius: var(--radius-round);
-  background: var(--accent); border: 2px solid #fff;
 }
 
 /* Sheet — bottom sheet used for every placeholder result in this prototype */
@@ -343,14 +354,13 @@ body {
 .app-header {
   position: absolute; top: 0; left: 0; right: 0; z-index: 5;
   display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-2) var(--space-3); background: var(--accent); color: #fff;
+  padding: var(--space-2) var(--space-3); background: var(--brand); color: var(--brandContrast);
   height: var(--header-h);
   box-shadow: var(--shadow-header);   /* lifts the bar off the content beneath */
-  transition: transform .26s cubic-bezier(.2,.8,.3,1);
+  transition: height .22s cubic-bezier(.2,.8,.3,1);
 }
-/* Hidden state — driven by scroll direction on Home (see app.js) */
-.app-header.is-hidden { transform: translateY(-100%); }
-
+/* Screens that draw their own title row (Record Completions) get no app bar */
+.app-header.is-none { display: none; }
 /* The department name is the header's primary label. */
 .app-header__dept {
   flex: 1; min-width: 0; font-size: var(--fs-5); font-weight: 700;
@@ -373,7 +383,7 @@ body {
 /* Sub-screens reuse the bar for a back button + title */
 .app-header__title { flex: 1; min-width: 0; font-size: var(--fs-4); font-weight: 700; }
 .app-header__btn {
-  background: none; border: 0; color: #fff; font-size: var(--fs-4);
+  background: none; border: 0; color: var(--brandContrast); font-size: var(--fs-4);
   padding: var(--space-1) var(--space-2); cursor: pointer; border-radius: var(--radius-2);
   flex: none;
 }
@@ -388,6 +398,17 @@ body {
 .prompt::-webkit-scrollbar { width: 0; height: 0; }
 .login, .prompt { scrollbar-width: none; }
 .screen.is-active { display: block; }
+/* Home has no pinned bar: its brand bar is scroll content (see .home-brand) */
+#screen-home.screen { padding-top: 0; }
+
+/* Home brand bar — scrolls with the page. Only the status bar and this block
+   take the --brand colour, which is the customer-theme hook. */
+.home-brand {
+  background: var(--brand); color: var(--brandContrast);
+  padding: var(--space-5) var(--space-4) var(--space-5);
+  box-shadow: var(--shadow-header);
+}
+.home-brand__dept { display: block; font-size: var(--fs-6); font-weight: 800; letter-spacing: -.2px; line-height: 1.2; }
 .screen__body { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
 
 /* =============================================================================
@@ -436,6 +457,48 @@ body {
 }
 .login__brand-mark em { font-style: normal; color: #ff5a70; }
 .login__brand-sub { font-size: var(--fs-3); color: #a8b6c8; margin-top: var(--space-2); }
+
+/* --- Country picker ---------------------------------------------------------
+   Shares the login gradient (section carries both .login and .region). Two
+   equal-weight buttons on translucent white, like the Face ID surfaces — no
+   primary/secondary bias, because neither country is the default. Tall
+   targets so a gloved thumb can't miss. */
+.region__body { gap: var(--space-5); margin-top: var(--space-4); }
+.region__title {
+  margin: 0; color: #fff; font-size: var(--fs-6); font-weight: 700;
+  line-height: 1.25; text-align: center;
+}
+.region-btn {
+  display: flex; align-items: center; gap: var(--space-4); width: 100%;
+  min-height: 84px; padding: var(--space-4) var(--space-5);
+  background: rgba(255,255,255,.08); border: 1.5px solid rgba(255,255,255,.22);
+  border-radius: var(--radius-4); color: #fff; font: inherit; text-align: left;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, transform .1s ease;
+}
+.region-btn:hover  { background: rgba(255,255,255,.14); border-color: rgba(255,255,255,.4); }
+.region-btn:active { transform: scale(.985); background: rgba(255,255,255,.18); }
+.region-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.region-btn__flag  { font-size: 34px; line-height: 1; flex: none; }
+.region-btn__label { flex: 1; font-size: var(--fs-6); font-weight: 700; letter-spacing: -.2px; }
+.region-btn__chev  { color: #a8b6c8; font-size: var(--fs-4); flex: none; }
+
+/* Remembered country on the login form: a single tappable line under the
+   brand mark that reads as status first and "Change" second. */
+.region-current {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  margin-top: var(--space-4); padding: var(--space-2) var(--space-3);
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16);
+  border-radius: var(--radius-round); color: #a8b6c8; font: inherit;
+  font-size: var(--fs-2); cursor: pointer;
+}
+.region-current:hover { background: rgba(255,255,255,.14); }
+.region-current strong { color: #fff; font-weight: 700; }
+.region-current__flag { font-size: var(--fs-4); line-height: 1; }
+.region-current__change {
+  color: #fff; font-weight: 600; text-decoration: underline;
+  text-underline-offset: 2px; margin-left: var(--space-1);
+}
 
 /* --- Face ID --------------------------------------------------------------
    Opt-in row on the password form, and the sign-in pane it unlocks. Both sit on
@@ -529,6 +592,387 @@ body {
 }
 @keyframes sweep { 0%,100% { top: 14px; } 50% { top: 214px; } }
 .scanner__hint { color: #c3ceda; font-size: var(--fs-3); text-align: center; max-width: 240px; line-height: 1.5; }
+
+/* =============================================================================
+   RECORD COMPLETIONS  (feature #1)
+   -----------------------------------------------------------------------------
+   Styled after the Figma "Mobile views" (updated styling) frame: a blue
+   gradient card holding white accordion panels, a two-step stepper, a purple
+   Vector AI accent, and a sticky footer. Behavior lives in record.js.
+   ========================================================================== */
+
+/* Full-screen task: tab bar hides, footer takes its place */
+.app--task .t-Tabs { display: none; }
+
+/* Draft dot on the Record tab, unread count on the Alerts tab */
+.t-Tabs__tab { position: relative; }
+.tab-badge {
+  position: absolute; top: 3px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: var(--radius-round); background: var(--accent); color: #fff; border: 2px solid var(--card);
+  font-size: var(--fs-0); font-weight: 800; line-height: 14px; text-align: center;
+}
+.tab-dot {
+  position: absolute; top: 6px; left: calc(50% + 8px); width: 9px; height: 9px;
+  border-radius: var(--radius-round); background: var(--accent); border: 2px solid var(--card);
+}
+
+/* Vector AI badge in the header */
+.ai-badge {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  padding: 4px 10px; border-radius: var(--radius-round);
+  background: rgba(255,255,255,.18); color: #fff;
+  font-size: var(--fs-1); font-weight: 800; letter-spacing: .2px;
+}
+
+/* The record screen is a column: scroller + footer. Overrides .screen's block
+   display; the app header still floats over the top. */
+.screen--task.is-active { display: flex; flex-direction: column; overflow: hidden; padding-top: 0; }
+.rc__scroll { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.rc__scroll::-webkit-scrollbar { width: 0; height: 0; }
+/* Padding lives on the BODY, not the scroller: sticky offsets (the panel
+   header, the live transcript) are measured from the scroller's content edge,
+   so padding on the scroller would push everything sticky down by that much.
+   There is no app bar on this screen (record.js draws its own title row). */
+#rc-body { padding: var(--space-3) var(--space-4) var(--space-6); }
+
+/* Inline title row: X (keeps the draft), title, Vector AI badge */
+.rc-title { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-2); }
+.rc-title__text { flex: 1; min-width: 0; font-size: var(--fs-6); font-weight: 800; margin: 0; color: var(--color); letter-spacing: -.2px; }
+.rc-title .rc-iconbtn { background: transparent; margin-left: calc(-1 * var(--space-2)); }
+.ai-badge--tint { background: var(--color-purple-50); color: var(--color-purple-600); }
+.rc__footer {
+  flex: none; display: flex; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) calc(var(--space-3) + 18px);   /* + home-indicator clearance */
+  background: var(--card); border-top: 1px solid var(--borderColor);
+  box-shadow: 0 -2px 10px rgba(19,32,51,.08); position: relative; z-index: 3;
+}
+.rc-footer__btn { min-height: 44px; padding: var(--space-2) var(--space-4); border-radius: var(--radius-round); }
+.rc__footer .t-Button--primary { background: var(--link); }
+.rc__footer .t-Button--primary:hover { background: var(--color-blue-600); }
+.rc__footer .t-Button--secondary { color: var(--link); border-color: var(--link); }
+
+/* --- Stepper ---------------------------------------------------------------
+   Two always-tappable steps; the line between them is decorative. */
+.rc-stepper { display: flex; align-items: flex-start; justify-content: center; margin: var(--space-1) 0 var(--space-4); }
+.rc-step {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: var(--font); color: var(--colorSubtle);
+}
+.rc-step__dot {
+  width: 30px; height: 30px; border-radius: var(--radius-round); display: flex; align-items: center; justify-content: center;
+  border: 2px solid var(--color-gray-300); background: var(--card); color: var(--colorSubtle);
+  font-size: var(--fs-3); font-weight: 800; transition: background .15s ease, border-color .15s ease;
+}
+.rc-step.is-done .rc-step__dot { border-color: var(--link); color: var(--link); }
+.rc-step.is-current .rc-step__dot { background: var(--link); border-color: var(--link); color: #fff; }
+.rc-step__label { font-size: var(--fs-3); font-weight: 700; color: var(--color); }
+.rc-step.is-current .rc-step__label { color: var(--link); }
+.rc-step__label em { font-style: normal; color: var(--accent); }
+.rc-step__sub { font-size: var(--fs-1); color: var(--colorFaint); }
+.rc-stepper__line { flex: none; width: 90px; height: 2px; background: var(--link); margin-top: 14px; }
+
+/* --- Gradient hero card (holds the panels / the empty CTA) ----------------- */
+.rc-hero {
+  border-radius: var(--radius-5); padding: var(--space-4);
+  background: linear-gradient(165deg, var(--color-blue-500) 0%, var(--color-blue-700) 100%);
+  color: #fff; display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
+  box-shadow: var(--shadow-2);
+}
+.rc-hero:not(.rc-hero--list) { padding-bottom: var(--space-6); min-height: 210px; justify-content: center; }
+.rc-hero__title { align-self: flex-start; font-size: var(--fs-5); font-weight: 700; margin: 0; color: #fff; }
+.rc-hero__hint { margin: 0; font-size: var(--fs-3); color: rgba(255,255,255,.8); text-align: center; line-height: 1.45; max-width: 280px; }
+.rc-hero--list { padding: var(--space-2); gap: var(--space-2); align-items: stretch; }
+.rc-hero__bar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-2) var(--space-1); }
+.rc-hero__bar .rc-hero__title { flex: 1; }
+
+/* White pill button on the gradient */
+.rc-pill {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 52px; padding: var(--space-3) var(--space-6); border: 0; cursor: pointer;
+  border-radius: var(--radius-round); background: linear-gradient(180deg, #fff, #e9f0fb);
+  color: var(--link); font-family: var(--font); font-size: var(--fs-4); font-weight: 700;
+  box-shadow: var(--shadow-2);
+}
+.rc-pill:active { transform: scale(.97); }
+.rc-pill--sm { min-height: 36px; padding: var(--space-1) var(--space-4); font-size: var(--fs-3); box-shadow: none; }
+
+/* Round icon buttons: on white (default), on the gradient (--light), danger */
+.rc-iconbtn {
+  width: 40px; height: 40px; flex: none; border-radius: var(--radius-round); border: 0; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-gray-100); color: var(--colorSubtle); font-size: var(--fs-4);
+}
+.rc-iconbtn:hover { background: var(--color-gray-200); }
+.rc-iconbtn--light { background: rgba(255,255,255,.18); color: #fff; }
+.rc-iconbtn--light:hover { background: rgba(255,255,255,.3); }
+.rc-iconbtn--danger { background: #fdeef0; color: var(--accent); }
+
+/* --- Activity accordion panel --------------------------------------------- */
+.rc-panel { background: var(--card); border-radius: var(--radius-4); overflow: visible; }
+.rc-panel + .rc-panel { margin-top: var(--space-2); }
+.rc-panel__head {
+  width: 100%; display: flex; align-items: center; gap: var(--space-3); min-height: 52px;
+  padding: var(--space-3) var(--space-4); background: var(--card); border: 0; cursor: pointer;
+  border-radius: var(--radius-4); font-family: var(--font); text-align: left; color: var(--color);
+}
+.rc-panel__head > i:first-child { color: var(--link); font-size: var(--fs-3); width: 14px; }
+.rc-panel__name { flex: 1; font-size: var(--fs-5); font-weight: 700; line-height: 1.2; }
+.rc-panel__check { color: var(--color-green-500); }
+.rc-panel__count { font-size: var(--fs-3); color: var(--colorFaint); flex: none; }
+/* Open panel: the header sticks under the app bar while its body scrolls */
+.rc-panel.is-open .rc-panel__head {
+  position: sticky; top: 0; z-index: 2;
+  border-radius: var(--radius-4) var(--radius-4) 0 0; border-bottom: 1px solid var(--borderColor);
+}
+.rc-panel__summary {
+  display: flex; gap: var(--space-4); padding: 0 var(--space-4) var(--space-3) calc(var(--space-4) + 26px);
+  font-size: var(--fs-3); color: var(--colorSubtle);
+}
+.rc-panel__summary-end { margin-left: auto; }
+.rc-panel__body { padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4); }
+
+.rc-unconfigured { text-align: center; padding: var(--space-2) 0 var(--space-4); }
+.rc-unconfigured .rc-iconbtn { float: right; }
+.rc-unconfigured p { clear: both; margin: var(--space-6) 0 0; font-size: var(--fs-4); line-height: 1.5; color: var(--color); }
+
+/* Form layout */
+.rc-toolbar { display: flex; align-items: center; gap: var(--space-3); }
+.rc-row { display: flex; gap: var(--space-3); }
+.rc-row > .rc-field { flex: 1; min-width: 0; }
+/* Duration is short; give the instructor name the room */
+.rc-row--split > .rc-field:first-child { flex: 0 0 38%; }
+.rc-field > .t-Label { text-transform: none; letter-spacing: 0; font-size: var(--fs-3); font-weight: 600; color: var(--colorSubtle); }
+.rc-field .t-Input { min-height: 44px; padding: var(--space-2) var(--space-3); }
+select.t-Input { appearance: none; -webkit-appearance: none; background-image: linear-gradient(45deg, transparent 50%, var(--colorFaint) 50%), linear-gradient(135deg, var(--colorFaint) 50%, transparent 50%); background-position: calc(100% - 18px) 50%, calc(100% - 13px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 32px; }
+.rc-applyrow { display: flex; flex-direction: column; gap: var(--space-2); margin-top: calc(-1 * var(--space-2)); }
+.rc-group { display: flex; flex-direction: column; gap: var(--space-2); }
+.rc-group__label { font-size: var(--fs-3); font-weight: 600; color: var(--colorSubtle); }
+
+/* Checkbox with label (custom box so it matches across platforms) */
+.rc-check { display: flex; align-items: flex-start; gap: var(--space-3); cursor: pointer; font-size: var(--fs-4); line-height: 1.4; color: var(--color); position: relative; }
+.rc-check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rc-check__box {
+  flex: none; width: 22px; height: 22px; border-radius: var(--radius-2); margin-top: 1px;
+  border: 2px solid var(--color-gray-300); background: var(--card);
+  display: inline-flex; align-items: center; justify-content: center; transition: background .12s ease, border-color .12s ease;
+}
+.rc-check input:checked + .rc-check__box,
+.rc-pickrow input:checked + .rc-check__box { background: var(--link); border-color: var(--link); }
+.rc-check input:checked + .rc-check__box::after,
+.rc-pickrow input:checked + .rc-check__box::after {
+  content: ""; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: translateY(-1px) rotate(45deg);
+}
+.rc-check input:focus-visible + .rc-check__box { box-shadow: 0 0 0 3px var(--color-blue-50); }
+.rc-check--sm { font-size: var(--fs-3); color: var(--colorSubtle); }
+.rc-check--sm .rc-check__box { width: 18px; height: 18px; }
+.rc-check--sm input:checked + .rc-check__box::after { width: 5px; height: 9px; }
+
+/* Technique chips (multi-select) */
+.rc-chips { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.rc-chip {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 12px;
+  border-radius: var(--radius-round); border: 1px solid var(--color-gray-300); background: var(--card);
+  color: var(--color); font-family: var(--font); font-size: var(--fs-3); font-weight: 600; cursor: pointer;
+}
+.rc-chip.is-on { background: var(--color-blue-50); border-color: var(--link); color: var(--link); }
+
+/* Textarea with a dictation mic in the corner */
+.rc-field--area .t-Input { resize: none; line-height: 1.45; padding-right: 48px; }
+.rc-area { position: relative; display: block; }
+.rc-mic {
+  position: absolute; right: 8px; bottom: 8px; width: 34px; height: 34px; border-radius: var(--radius-round);
+  border: 0; background: var(--color-gray-100); color: var(--link); cursor: pointer; font-size: var(--fs-3);
+}
+
+/* --- VoiceComplete ---------------------------------------------------------- */
+.rc-voicebtn {
+  flex: 1; min-height: 48px; border: 0; cursor: pointer; border-radius: var(--radius-round);
+  background: linear-gradient(90deg, var(--color-purple-600), var(--color-purple-500)); color: #fff;
+  font-family: var(--font); font-size: var(--fs-4); font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  box-shadow: 0 4px 12px rgba(124,58,237,.28);
+}
+.rc-voicebtn:active { transform: scale(.98); }
+
+.rc-voice {
+  border-radius: var(--radius-4); background: var(--card); display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-3); border: 1px solid var(--color-purple-500);
+}
+/* Live capture sticks just under the (sticky) panel header, so the transcript
+   stays on screen while the user scrolls the form to check it. */
+.rc-voice.is-live {
+  position: sticky; top: 52px; z-index: 1;
+  box-shadow: var(--shadow-2); background: var(--color-purple-50); border-color: transparent;
+}
+.rc-voice.is-done { background: var(--color-green-50); border-color: transparent; }
+.rc-voice__row { display: flex; align-items: flex-start; gap: var(--space-3); }
+.rc-voice__mic {
+  flex: none; width: 34px; height: 34px; border-radius: var(--radius-round); display: inline-flex; align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; font-size: var(--fs-4);
+}
+.rc-voice__mic.is-pulsing { animation: rc-pulse 1.2s ease-in-out infinite; }
+.rc-voice__mic.is-done { background: var(--color-green-500); }
+@keyframes rc-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(200,16,46,.45); } 50% { box-shadow: 0 0 0 8px rgba(200,16,46,0); } }
+.rc-voice__text {
+  flex: 1; margin: 0; font-size: var(--fs-3); line-height: 1.45; color: var(--color);
+  max-height: 84px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+}
+.rc-voice.is-done .rc-voice__text { max-height: none; -webkit-line-clamp: unset; color: var(--colorSubtle); }
+.rc-voice.is-done .rc-voice__text strong { color: var(--color); }
+.rc-voice__hint { color: var(--colorFaint); font-style: italic; }
+.rc-voice__actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+.rc-voice__ghost { width: auto; min-height: 36px; padding: var(--space-1) var(--space-3); font-size: var(--fs-3); }
+.rc-voice__analyze {
+  display: inline-flex; align-items: center; gap: var(--space-2); min-height: 38px; padding: var(--space-1) var(--space-4);
+  border: 0; border-radius: var(--radius-round); cursor: pointer;
+  background: linear-gradient(90deg, var(--color-purple-600), var(--color-purple-500)); color: #fff;
+  font-family: var(--font); font-size: var(--fs-3); font-weight: 700;
+}
+.rc-voice__status { font-size: var(--fs-3); color: var(--color-purple-600); font-weight: 700; margin-right: auto; }
+.rc-voice__status i { animation: rc-spin 1.4s linear infinite; }
+@keyframes rc-spin { to { transform: rotate(360deg); } }
+.rc-voice__edit { min-height: 96px; font-size: var(--fs-3); }
+
+/* --- Participants list ------------------------------------------------------ */
+.rc-list { background: var(--card); border-radius: var(--radius-4); overflow: hidden; }
+.rc-person + .rc-person { border-top: 1px solid var(--borderColor); }
+.rc-person__row {
+  width: 100%; display: flex; align-items: center; gap: var(--space-3); min-height: 60px;
+  padding: var(--space-3) var(--space-4); background: var(--card); border: 0; cursor: pointer;
+  font-family: var(--font); text-align: left; color: var(--color);
+}
+.rc-person__row:hover { background: var(--color-gray-50); }
+.rc-person__avatar { background: var(--color-blue-50); color: var(--link); }
+.rc-person__main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rc-person__name { font-size: var(--fs-4); font-weight: 600; }
+.rc-person__sub { font-size: var(--fs-2); color: var(--colorFaint); margin-top: 2px; }
+.rc-person.is-none .rc-person__sub { color: var(--accent); font-weight: 600; }
+.rc-person__chev { color: var(--color-gray-300); font-size: var(--fs-3); }
+.rc-person.is-open .rc-person__row { background: var(--color-gray-50); }
+.rc-person__detail {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4) calc(var(--space-4) + 42px); background: var(--color-gray-50);
+}
+.rc-person__remove { width: auto; align-self: flex-start; min-height: 36px; padding: var(--space-1) var(--space-2); font-size: var(--fs-3); color: var(--accent); margin-left: calc(-1 * var(--space-2)); }
+
+/* --- Picker (mobile User Selection Tool) ----------------------------------- */
+.rc-picker {
+  position: absolute; inset: 0; z-index: 25; background: var(--card);
+  display: flex; flex-direction: column; transform: translateY(100%);
+  transition: transform .26s cubic-bezier(.2,.8,.3,1); visibility: hidden;
+}
+.rc-picker.is-open { transform: translateY(0); visibility: visible; }
+.rc-picker__head {
+  flex: none; display: flex; align-items: center; justify-content: center; position: relative;
+  padding: calc(44px + var(--space-3)) var(--space-4) var(--space-3);   /* below the status bar */
+  border-bottom: 1px solid var(--borderColor);
+}
+.rc-picker__head .rc-iconbtn { position: absolute; right: var(--space-3); bottom: var(--space-2); background: transparent; }
+.rc-picker__tools { flex: none; display: flex; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
+.rc-picker__search { flex: 1; position: relative; display: block; }
+.rc-picker__search > i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--colorFaint); font-size: var(--fs-3); }
+.rc-picker__search .t-Input { min-height: 44px; padding-left: 38px; border-radius: var(--radius-round); }
+.rc-picker__filter {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 0 var(--space-4); min-height: 44px;
+  border-radius: var(--radius-round); border: 1px solid var(--link); background: var(--card); color: var(--link);
+  font-family: var(--font); font-size: var(--fs-3); font-weight: 700; cursor: pointer;
+}
+.rc-picker__filter.is-on { background: var(--color-blue-50); }
+.rc-picker__chips { flex: none; display: flex; flex-wrap: wrap; gap: var(--space-2); padding: 0 var(--space-4) var(--space-3); }
+.rc-filterchip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: var(--radius-round);
+  background: var(--color-blue-50); color: var(--link); font-size: var(--fs-2); font-weight: 700;
+}
+.rc-filterchip button { border: 0; background: none; color: inherit; cursor: pointer; width: 22px; height: 22px; border-radius: var(--radius-round); font-size: var(--fs-2); }
+.rc-picker__list { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; border-top: 1px solid var(--borderColor); }
+.rc-picker__list::-webkit-scrollbar { width: 0; height: 0; }
+.rc-picker__group {
+  position: sticky; top: 0; z-index: 1; padding: var(--space-2) var(--space-4);
+  background: var(--color-gray-50); font-size: var(--fs-1); font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--colorFaint);
+}
+.rc-pickrow {
+  display: flex; align-items: center; gap: var(--space-3); min-height: 60px; padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--borderColor); cursor: pointer; position: relative;
+}
+.rc-pickrow input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rc-pickrow.is-on { background: #eef5fd; }
+.rc-pickrow__main { display: flex; flex-direction: column; min-width: 0; }
+.rc-pickrow__name { font-size: var(--fs-4); font-weight: 600; color: var(--color); }
+.rc-pickrow__sub { font-size: var(--fs-2); color: var(--colorFaint); margin-top: 2px; }
+.rc-picker__empty { padding: var(--space-6) var(--space-4); text-align: center; color: var(--colorFaint); font-size: var(--fs-3); }
+.rc-picker__foot {
+  flex: none; display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) calc(var(--space-3) + 18px);
+  border-top: 1px solid var(--borderColor); background: var(--card); box-shadow: 0 -2px 10px rgba(19,32,51,.08);
+}
+.rc-picker__foot .t-Button--primary { background: var(--link); }
+.rc-picker__foot .t-Button--secondary { color: var(--link); border-color: var(--link); }
+.rc-picker__foot .t-Button[disabled] { opacity: .45; cursor: default; }
+.rc-picker__count { position: absolute; left: 0; right: 0; top: -22px; text-align: center; font-size: var(--fs-2); color: var(--colorFaint); }
+.rc-picker__foot { position: relative; }
+.rc-picker__filters { padding: var(--space-3) var(--space-4) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); }
+/* One collapsible multi-select per filter field: a select-shaped header that
+   opens a chip list underneath (a native <select multiple> is awkward on phones) */
+.rc-filterfield { border: 1px solid var(--color-gray-200); border-radius: var(--radius-3); background: var(--card); }
+.rc-filterfield.is-open { border-color: var(--link); }
+.rc-filterfield.is-set { border-color: var(--link); }
+.rc-filterfield__head {
+  width: 100%; display: flex; align-items: center; gap: var(--space-2); min-height: 48px; padding: var(--space-2) var(--space-3);
+  background: none; border: 0; cursor: pointer; font-family: var(--font); text-align: left;
+}
+.rc-filterfield__label { font-size: var(--fs-2); font-weight: 700; color: var(--colorSubtle); display: block; }
+.rc-filterfield__value { font-size: var(--fs-4); color: var(--colorFaint); display: block; margin-top: 1px; }
+.rc-filterfield.is-set .rc-filterfield__value { color: var(--color); }
+.rc-filterfield__head > i { margin-left: auto; color: var(--colorFaint); font-size: var(--fs-3); }
+.rc-filterfield__options { padding: 0 var(--space-3) var(--space-3); }
+.rc-picker__subhead { flex: none; display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); }
+.rc-picker__clear { width: auto; min-height: 36px; padding: var(--space-1) var(--space-2); font-size: var(--fs-3); }
+.rc-selrow {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  margin: var(--space-2) var(--space-4) 0; padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  background: var(--color-gray-100); border-radius: var(--radius-3); font-size: var(--fs-4); color: var(--color);
+}
+.rc-selrow .rc-iconbtn { width: 32px; height: 32px; background: transparent; }
+
+/* --- Dialog / action sheet / toast ----------------------------------------- */
+.rc-dialog__overlay {
+  position: absolute; inset: 0; z-index: 30; background: rgba(19,32,51,.5);
+  display: flex; align-items: center; justify-content: center; padding: var(--space-6);
+  opacity: 0; pointer-events: none; transition: opacity .18s ease;
+}
+.rc-dialog__overlay.is-open { opacity: 1; pointer-events: auto; }
+.rc-dialog { width: 100%; background: var(--card); border-radius: var(--radius-5); padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-3); box-shadow: var(--shadow-3); }
+.rc-dialog__actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.rc-dialog__actions .t-Button { width: auto; min-height: 40px; padding: var(--space-2) var(--space-4); }
+
+#rc-menu { z-index: 26; }
+.rc-menu__title { margin: 0 0 var(--space-3); font-size: var(--fs-3); font-weight: 700; color: var(--colorFaint); text-align: center; }
+.rc-menu__item {
+  width: 100%; display: flex; align-items: center; gap: var(--space-4); min-height: 52px; padding: var(--space-3) var(--space-3);
+  background: none; border: 0; border-top: 1px solid var(--borderColor); cursor: pointer;
+  font-family: var(--font); font-size: var(--fs-4); font-weight: 600; color: var(--color); text-align: left;
+}
+.rc-menu__item i { width: 22px; text-align: center; color: var(--link); }
+.rc-menu__item.is-danger, .rc-menu__item.is-danger i { color: var(--accent); }
+
+.rc-toast {
+  position: absolute; left: var(--space-4); right: var(--space-4); bottom: 96px; z-index: 40;
+  padding: var(--space-3) var(--space-4); border-radius: var(--radius-4);
+  background: var(--color-navy-800); color: #fff; font-size: var(--fs-3); line-height: 1.4; text-align: center;
+  box-shadow: var(--shadow-3); opacity: 0; transform: translateY(8px); pointer-events: none;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.rc-toast.is-open { opacity: 1; transform: translateY(0); }
+
+/* --- Confirmation ------------------------------------------------------------ */
+.rc-done { align-items: center; text-align: center; padding-top: var(--space-8); gap: var(--space-4); }
+.rc-done__icon {
+  width: 84px; height: 84px; border-radius: var(--radius-round);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--color-green-50); color: var(--color-green-500); font-size: 36px;
+}
+.rc-done__list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--space-1); width: 100%; }
+.rc-done__list li { background: var(--card); border-radius: var(--radius-3); padding: var(--space-3) var(--space-4); font-size: var(--fs-4); font-weight: 600; color: var(--color); box-shadow: var(--shadow-1); }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }

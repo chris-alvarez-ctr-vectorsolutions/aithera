@@ -64,8 +64,14 @@ reports what it cannot carry. Audited against the reference editor in
 **The model gained a lot in the 2026-09-20 session:** the AI assistant as a
 modelled entity (D27–D29), manual locks (D32), the point library (D34),
 approval staleness (D41), beats (D42, D46), and Experience reachability (D47).
-`DECISIONS.md` runs to D47; `OPEN-QUESTIONS.md` has 17 of 20 closed, with the
+`DECISIONS.md` runs to D48; `OPEN-QUESTIONS.md` has 17 of 20 closed, with the
 remaining three all blocked on deliberately-unbuilt work.
+
+**D48 sharpens where a point lives** (2026-09-22): every point is in the
+knowledge library however it arrived, and an information set is **always a
+curated subset** of it — authored-here and imported describe how a point
+*arrived*, not where it lives. Which makes the set the line the model turns on:
+above it the subject is being decided, below it every decision is delivery.
 
 **Locks are now built** (D32) — the last fully-decided, wholly-unimplemented
 item on the list. See *What works*.

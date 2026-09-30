@@ -1393,3 +1393,69 @@ derivation, not assertion.
 **Scope.** Only outputs with a generated or branching traversal need this. A
 structural Course is a sequence — every learner meets everything, so reachability
 is trivially total and the question does not arise.
+
+---
+
+## D48 · Every point lives in the library; an information set is always a curated subset
+**2026-09-22** · sharpens **D34**
+
+**Decided:** an information point **always exists in the library**, regardless of
+how it entered the system. A project's information set is **always a curated
+subset of the library** — whether its points were authored new for this project
+(and thereby added to the library) or curated from what the library already held.
+
+**User's framing:** *"New information likely comes from newly authored content,
+but the point to clarify is that an information point will always exist in the
+library regardless of how it was brought into the system. A project is always a
+curated subset of the library whether it was authored new and added to the
+library or curated from the existing library."*
+
+**What this fixes in D34.** D34 framed authoring and importing as **two paths** —
+points are "owned by a project," and the library is what "accumulates" from
+finished projects, with import as the next project's convenience. That reads as
+though a freshly authored point lives in the project and only later becomes
+library material, which makes the library a *destination* rather than a home.
+
+It is one path with two entry points:
+
+```
+                    ┌─ authored new for this project ─┐
+                    │                                  ▼
+  source material ──┤                            THE LIBRARY
+                    │                                  │
+                    └─ already there from prior work ──┤
+                                                       │ curate to project scope
+                                                       ▼
+                                            INFORMATION SET
+                                     the verified subset for THIS project
+```
+
+**What survives from D34 unchanged:** authoring is still **project-scoped** — an
+SME is given a scope and asked about that, because nobody can write everything
+they know about forklifts. The library still **grows as a by-product of doing the
+work** rather than needing to be built up front. Import is still a **copy**, so
+there is still no shared-edit governance problem and Q19 (does the library notice
+divergence) stays open.
+
+**What changes is where a point *lives*.** Not "authored in a project, later
+accumulated into a library" but "**entered into the library, curated into a
+project**." The project owns its *selection and its verification*; the library
+owns the *point*.
+
+**Why it matters beyond bookkeeping — curation becomes the SME act.**
+Under D34's reading, the SME's job is writing points. Under this one, the SME's
+job on any project past the first is **deciding which points this project needs
+and verifying that selection covers it**. That is a smaller, more answerable
+question than "write everything you know", and it is the one that scales: the
+library gets deeper with every project, so the authoring share shrinks and the
+curation share grows.
+
+**Consequence for the threshold.** It also says what an information set *is*, in
+one line: not "the points someone wrote for this project" but **the subset of
+what is known that this project's learner must actually meet**. Which is why
+everything below it is a delivery decision — the *what* is settled at curation,
+and modality, pathway and output only determine *how it reaches whom*.
+
+**Not changed:** a point is still never delivered to a learner (D18), still the
+smallest definable facet (D21), still versioned as a whole (D24). This is about
+where points live, not what they are.
