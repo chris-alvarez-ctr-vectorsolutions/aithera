@@ -15,7 +15,7 @@
      • participants are ONE list ("All 3 activities") with per-person
        exceptions, instead of the web's one-card-per-activity matrix
      • smart defaults: date = today, time = now, and the "apply to all"
-       checkboxes start checked. Instructor is NOT pre-filled (the data model
+       switches start on. Instructor is NOT pre-filled (the data model
        can't seed it from the logged-in user) — VoiceComplete or a manual pick
        fills it
      • the draft survives leaving the flow; only Cancel discards it
@@ -373,9 +373,13 @@
     function field(label, control) {
       return '<label class="t-Fieldset rc-field"><span class="t-Label">' + label + '</span>' + control + '</label>';
     }
+    /* "Apply to all" is a setting that changes how the form behaves, not an item
+       being recorded — so it is a switch (label left, track right), and the
+       objectives stay checkboxes. Same change handler: the input is a checkbox. */
     function check(f, on, label, i) {
-      return '<label class="rc-check rc-check--sm"><input type="checkbox" data-field="' + f + '" data-idx="' + i + '"' + (on ? ' checked' : '') +
-             '><span class="rc-check__box"></span><span>' + label + '</span></label>';
+      return '<label class="rc-switch"><span class="rc-switch__label">' + label + '</span>' +
+             '<input type="checkbox" role="switch" data-field="' + f + '" data-idx="' + i + '"' + (on ? ' checked' : '') +
+             '><span class="rc-switch__track" aria-hidden="true"></span></label>';
     }
     function textarea(label, f, val, i, ph) {
       return '<label class="t-Fieldset rc-field rc-field--area"><span class="t-Label">' + label + '</span>' +

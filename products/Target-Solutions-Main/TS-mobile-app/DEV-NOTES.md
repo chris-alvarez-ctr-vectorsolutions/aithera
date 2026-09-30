@@ -32,7 +32,8 @@
 - (2026-09-28) **Clear all filters:** the filter sheet has a Clear all action at the top (both pickers) that empties the pending selection; Apply / Cancel still commit or discard. Disabled when nothing is pending.
 
 ## record-form
-- **Smart defaults:** date = today, time = now, and both "apply to all" checkboxes start checked. Changing the date/time or instructor with those on copies the value to every activity.
+- **Smart defaults:** date = today, time = now, and both "apply to all" switches start on. Changing the date/time or instructor with those on copies the value to every activity.
+- (2026-09-30) **"Apply to all" is a switch, not a checkbox.** It is a setting that changes how the form behaves, so it uses the settings pattern (label left, track right, same look as the Face ID switch on login). The training objectives stay checkboxes because they are items being recorded. This replaces the earlier small-checkbox variant, which read as an inconsistency next to the full-size objective checkboxes.
 - (2026-09-28) **Instructor is not pre-filled.** The data model can't seed it from the logged-in user, so the field starts on a "Select instructor…" placeholder and is filled by VoiceComplete or a manual pick. "Apply instructor to all" only copies once there is a value, so an empty field never wipes a sibling. The collapsed panel summary omits the instructor until set.
 - (2026-09-28) **Single column.** Date, Time, Duration, and Instructor are one field per row (the two-up Date | Time and Duration | Instructor rows tested poorly with users). Each "apply to all" checkbox sits directly under the field it copies.
 - **Native pickers:** date, time, and a numeric duration field instead of typed text.
