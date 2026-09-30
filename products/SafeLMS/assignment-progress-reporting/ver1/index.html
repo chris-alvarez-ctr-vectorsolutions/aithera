@@ -30,11 +30,14 @@
 
 <style>
   /* ════════════════════════════════════════════════════════════════
-     Assignment Progress Reporting (SAFELMS-25167) — V1
+     Assignment Progress Reporting (SAFELMS-25167) — V1 · COLUMNS
+     The simplest take (Liz, eng review 2026-09-29, 19:51 / 37:21): add # Not started and
+     # In progress columns next to # Completed, and do the same on Training Plans.
+     V2 is the same except Training Plans keeps the progress ring.
      Two report screens, matched to the current production Reports UI:
        1. Training Compliance  — per-assignment progress breakout
-       2. Compliance by Employee — mutually exclusive Status filter
-                                   + independent Past due filter
+       2. Compliance by Employee — Status filter: Outstanding (Not started,
+                                   In progress indented), Past due, Completed
      Layout follows the SafeLMS "Reports UI patterns" (products/SafeLMS/CLAUDE.md):
      gray canvas, floating white cards (no border, soft shadow).
      ════════════════════════════════════════════════════════════════ */
@@ -196,6 +199,7 @@
     color: var(--muted); margin: 0 0 6px;
   }
   .ff-panel .opt { display: flex; align-items: flex-start; gap: 4px; padding: 2px 0; }
+  .ff-panel .opt.sub { padding-left: 28px; }   /* sub-states of Outstanding */
   .ff-panel .opt-help { font-size: 12px; color: var(--muted); margin: -6px 0 6px 34px; line-height: 1.4; }
   .ff-panel .p-divider { height: 1px; background: var(--hair); margin: 10px -16px; }
   .ff-panel .quick {
@@ -240,9 +244,6 @@
   .refresh { background: 0; border: 0; color: var(--navy); font-size: 15px; font-weight: 600; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
   .genrow .right { margin-left: auto; display: flex; align-items: center; gap: 18px; }
   .results { font-size: 13px; font-weight: 700; letter-spacing: .4px; color: var(--navy); }
-  .state-counts { display: inline-flex; gap: 8px; font-size: 13px; color: #475467; white-space: nowrap; }
-  .state-counts b { color: var(--ink); }
-  .state-counts .dot { color: var(--muted-2); }
   .pager {
     display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 8px;
     box-shadow: 0 0 0 1px var(--hair);
@@ -282,22 +283,6 @@
   .course-plan { font-size: 13px; color: #2B3A55; margin-top: 2px; }
   .cell-sm { font-size: 13px; }
 
-  /* ── Clickable state counts (under the course name) ── */
-  .counts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-  .count-btn {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: 0; border: 0; border-radius: 4px; padding: 3px 6px; margin-left: -6px;
-    font-size: 13px; color: var(--blue-accent); cursor: pointer; white-space: nowrap;
-  }
-  .count-btn + .count-btn { margin-left: 4px; }
-  .count-btn:hover { background: var(--lumo-primary-color-10pct, #0271ce1a); }
-  .count-btn:hover .n { text-decoration: underline; }
-  .count-btn .n { font-weight: 700; }
-  .count-btn .lbl { color: #475467; }
-  .count-btn.zero { color: var(--muted-2); cursor: default; }
-  .count-btn.zero .lbl { color: var(--muted-2); }
-  .count-btn.zero:hover { background: 0; }
-  .count-btn.zero:hover .n { text-decoration: none; }
   .ico-c  { color: var(--st-c); }
   .ico-ip { color: var(--st-ip); }
   .ico-ns { color: #667085; }
@@ -308,7 +293,7 @@
   .comp-cell [theme~="badge"] { font-size: 14px; font-weight: 700; padding: .35em .8em; }
   .comp-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
   /* Count headers wrap to two lines ("# Not / started") so the new columns stay narrow (PRD: no undue width) */
-  table.data th.num { white-space: normal; width: 84px; line-height: 1.3; }
+  table.data th.num { white-space: normal; width: 104px; line-height: 1.3; }
   table.data td.num { white-space: nowrap; }
   .count-link { background: 0; border: 0; padding: 2px 0; font-size: 14px; color: var(--blue-accent); cursor: pointer; }
   .count-link:hover { text-decoration: underline; }
@@ -399,21 +384,17 @@
 
   /* Assignment list */
   .tp-list { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); }
-  .tp-grid { display: grid; grid-template-columns: minmax(420px, 2.2fr) minmax(170px, 1fr) 220px 24px;
-    gap: 16px; align-items: center; padding: 0 24px; min-width: 900px; }
+  .tp-grid { display: grid; grid-template-columns: minmax(250px, 2fr) minmax(150px, 1fr) 190px repeat(3, 92px) 20px;
+    gap: 14px; align-items: center; padding: 0 24px; min-width: 1010px; }
+  .tp-head .num { line-height: 1.3; }
+  .tp-row .num { font-size: 14px; white-space: nowrap; }
+  .tp-row .thumb { flex-basis: 48px; width: 48px; height: 48px; font-size: 19px; }
   .tp-list { overflow-x: auto; }   /* very narrow windows scroll the list, never the page */
-  .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 868px;
+  .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 978px;
     font-size: 13px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: #2B3A55; }
   .tp-row { padding-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--hair); }
   .tp-row:last-child { border-bottom: 0; }
   .tp-prog { display: flex; align-items: center; gap: 16px; }
-  .ring { flex: 0 0 auto; display: block; }
-  .ring .pct { font-size: 15px; font-weight: 700; fill: var(--ink); }
-  .ring .pct.sm { font-size: 12px; }
-  .ring .lbl { font-size: 9.5px; fill: var(--muted); }
-  .ring-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 6px; }
-  .ring-legend .count-btn { margin-left: -6px; }
-  .ring-legend .count-btn + .count-btn { margin-left: -6px; }
   .tp-prog .tp-course { min-width: 0; }
   .tp-course .nm { font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.3; }
   .tp-course .ty { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
@@ -425,6 +406,13 @@
   .tp-dates { display: flex; align-items: center; gap: 10px; }
   .tp-dates .l { font-size: 11.5px; color: var(--muted); }
   .tp-kebab { color: var(--muted); text-align: center; }
+  .tp-asof { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+  /* Loading: the list renders first, progress fills in after (lazy load — Dean, eng review 7:51) */
+  .skel { display: inline-block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #EDF0F4 25%, #F6F8FA 50%, #EDF0F4 75%);
+    background-size: 200% 100%; animation: skel 1.2s linear infinite; vertical-align: middle; }
+  @keyframes skel { from { background-position: 200% 0; } to { background-position: 0 0; } }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
 
   @media (max-width: 1100px) {
     .tab { font-size: 12px; padding: 10px 6px; }
@@ -434,15 +422,6 @@
 </style>
 </head>
 <body>
-
-<!-- Shared SVG defs: the striped fill for "In progress" (texture = a second cue besides color) -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-  <defs>
-    <pattern id="apr-ip-stripe" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
-      <rect width="6" height="6" fill="#0271ce"></rect><rect width="2.5" height="6" fill="#4d9be0"></rect>
-    </pattern>
-  </defs>
-</svg>
 
 <div class="app">
 <!-- ═══ Left nav (SafeLMS admin) ═══ -->
@@ -553,12 +532,13 @@ Engagement</button>
         <!-- Legend: names the three states once so each row can stay compact -->
         <div class="defs-wrap">
           <button class="defs-link" id="defs-btn" aria-expanded="false"><i class="fa-regular fa-circle-info"></i> How progress is counted</button>
-            <!-- Definitions: In Progress = advanced past disclaimer/acknowledgement (PRD, Proposed Solution) -->
+            <!-- Definitions: In progress = the coursework is In progress, i.e. the learner opened a course item.
+                 Accepting the disclaimer alone does NOT count (tested live in the eng review, 16:05–17:43). -->
             <div class="defs" id="defs" role="dialog" aria-label="How progress is counted">
               <h4>How progress is counted</h4>
               <div class="d"><i class="fa-solid fa-circle-check ico-c"></i><div><b data-label="c">Completed</b> — a completion record exists.</div></div>
-              <div class="d"><i class="fa-solid fa-circle-half-stroke ico-ip"></i><div><b data-label="ip">In progress</b> — moved past the course disclaimer or acknowledgement into course content, but hasn't completed.</div></div>
-              <div class="d"><i class="fa-regular fa-circle ico-ns"></i><div><b data-label="ns">Not started</b> — assigned, but hasn't started course content.</div></div>
+              <div class="d"><i class="fa-solid fa-circle-half-stroke ico-ip"></i><div><b data-label="ip">In progress</b> — opened course content, but hasn't completed. Accepting the course disclaimer on its own doesn't count. For a bundle, opening any course inside it counts.</div></div>
+              <div class="d"><i class="fa-regular fa-circle ico-ns"></i><div><b data-label="ns">Not started</b> — assigned, but hasn't opened any course content yet.</div></div>
               <div class="foot">Each assigned learner is in exactly one state, so the three always add up to the total assigned. <b>Compliance is unchanged:</b> completed ÷ assigned.</div>
             </div>
         </div>
@@ -576,7 +556,7 @@ Engagement</button>
               <th>Position</th>
               <th>Location</th>
               <th>Due Date</th>
-              <!-- ★ New: the non-completed remainder split into two counts (FR-1), next to the existing # Completed -->
+              <!-- ★ New: the non-completed remainder split into two counts (FR-1), same "x / y" form as # Completed -->
               <th class="num"># Not started</th>
               <th class="num"># In progress</th>
               <th class="num"># Completed</th>
@@ -592,7 +572,7 @@ Engagement</button>
 
 <!-- ════════════════════════════════════════════════════════════
      SCREEN 2 — COMPLIANCE BY EMPLOYEE
-     FR-2 mutually exclusive Status + independent Past due
+     FR-2 Status filter: Outstanding → Not started / In progress, Past due, Completed
      FR-3 destination of the click-through (pre-filtered)
      ════════════════════════════════════════════════════════════ -->
 <main class="screen" id="screen-cbe">
@@ -629,26 +609,18 @@ Engagement</button>
               <div class="ff-panel" id="course-panel" role="listbox" style="min-width:360px; max-height:340px; overflow:auto"></div>
             </div>
 
-            <!-- ★ Status — restructured: three mutually exclusive states -->
+            <!-- ★ Status — keeps today's options (Outstanding / Past due / Completed) so saved and
+                 scheduled reports keep working, and adds Not started + In progress INDENTED under
+                 Outstanding (eng review 2026-09-29: Dean 28:58, Rich 29:45). Outstanding is just a
+                 shortcut that ticks both sub-states. Plain multi-select, no extra copy. -->
             <div class="ff" id="ff-status">
               <button class="ff-trigger" aria-haspopup="dialog"><span class="k">Status</span><span class="v" id="status-v">All</span><i class="fa-solid fa-chevron-down caret"></i></button>
-              <!-- Plain multi-select: the three states only, no extra copy (2026-09-30) -->
-              <div class="ff-panel" style="min-width:220px">
-                <div class="opt"><vaadin-checkbox data-state="ns" label="Not started" data-label-attr="ns"></vaadin-checkbox></div>
-                <div class="opt"><vaadin-checkbox data-state="ip" label="In progress" data-label-attr="ip"></vaadin-checkbox></div>
+              <div class="ff-panel" style="min-width:230px">
+                <div class="opt"><vaadin-checkbox id="cb-outstanding" label="Outstanding"></vaadin-checkbox></div>
+                <div class="opt sub"><vaadin-checkbox data-state="ns" label="Not started" data-label-attr="ns"></vaadin-checkbox></div>
+                <div class="opt sub"><vaadin-checkbox data-state="ip" label="In progress" data-label-attr="ip"></vaadin-checkbox></div>
+                <div class="opt"><vaadin-checkbox id="cb-pastdue" label="Past due"></vaadin-checkbox></div>
                 <div class="opt"><vaadin-checkbox data-state="c" label="Completed" data-label-attr="c"></vaadin-checkbox></div>
-              </div>
-            </div>
-
-            <!-- ★ Past due — new independent filter -->
-            <div class="ff" id="ff-pastdue">
-              <button class="ff-trigger" aria-haspopup="dialog"><span class="k">Past due</span><span class="v" id="pastdue-v">Any</span><i class="fa-solid fa-chevron-down caret"></i></button>
-              <div class="ff-panel" style="min-width:200px">
-                <vaadin-radio-group id="pastdue-group" theme="vertical" value="any">
-                  <vaadin-radio-button value="any" label="Any"></vaadin-radio-button>
-                  <vaadin-radio-button value="yes" label="Past due only"></vaadin-radio-button>
-                  <vaadin-radio-button value="no" label="Not past due"></vaadin-radio-button>
-                </vaadin-radio-group>
               </div>
             </div>
 
@@ -674,7 +646,6 @@ Engagement</button>
         <div class="gen"><b>Sep 29, 2026 2:04 PM</b><span>Generated</span></div>
         <button class="refresh"><i class="fa-regular fa-arrows-rotate"></i> Refresh</button>
         <div class="right">
-          <span class="state-counts" id="cbe-counts" aria-label="Results by status"></span>
           <span class="results" id="cbe-results"></span>
           <div class="pager">
             <button id="pg-first">First</button>
@@ -708,23 +679,26 @@ Engagement</button>
 </main>
 
 <!-- ════════════════════════════════════════════════════════════
-     SCREEN 3 — TRAINING PLANS (Phase 2 · FR-4)
-     Summary progress bar for the tab + a ring chart per assignment in place of
-     the course image (PRD: "course imagery is low-value real estate").
-     Reference: the EverFi assignments page CPN customers had before migrating.
+     SCREEN 3 — TRAINING PLANS (Phase 2 · FR-4) — V1: columns
+     The course picture stays; three count columns, same "x / y" links as
+     Training Compliance, sit after Dates. No chart.
      ════════════════════════════════════════════════════════════ -->
 <main class="screen" id="screen-tp">
   <div class="wrap">
     <div class="tp-toolbar">
       <vaadin-button theme="primary"><i class="fa-solid fa-plus" slot="prefix"></i> New Assignment</vaadin-button>
       <span class="date-pill">09/01/2026 <i class="fa-regular fa-calendar"></i> <i class="fa-solid fa-arrow-right arrow"></i> 12/31/2026 <i class="fa-regular fa-calendar"></i></span>
+      <!-- Progress comes from the personal assignment list, rebuilt about once a day (Rich, eng
+           review 4:42: "20 up to 24 hours in arrears") — so say how fresh it is. -->
+      <span class="tp-asof" id="tp-asof"><i class="fa-regular fa-clock"></i> Progress as of Sep 29, 2:00 AM</span>
       <span class="spacer"></span>
       <vaadin-text-field theme="outlined" placeholder="Search course, position, …" style="width:280px" aria-label="Search assignments"><i class="fa-regular fa-magnifying-glass" slot="prefix"></i></vaadin-text-field>
     </div>
 
     <section class="tp-list" aria-label="Assignments">
       <div class="tp-grid tp-head">
-        <div>Course &amp; progress</div><div>Job</div><div>Dates</div><div></div>
+        <div>Course</div><div>Job</div><div>Dates</div>
+        <div class="num"># Not started</div><div class="num"># In progress</div><div class="num"># Completed</div><div></div>
       </div>
       <div id="tp-body"></div>
     </section>
@@ -801,7 +775,8 @@ Engagement</button>
 
   /* ── Screen 1: Training Compliance ───────────────────────── */
   // A count is a link to the learners behind it (FR-3) — same blue link style production
-  // already uses for "# Completed". # Completed keeps its existing "61 / 85" form.
+  // already uses for "# Completed". All three use the same "11 / 85" compound value
+  // (eng review 2026-09-29, Liz 35:11: "keep the same structure").
   function countLink(a, s, withTotal) {
     const n = a[s], txt = withTotal ? `${fmt(n)} / ${fmt(total(a))}` : fmt(n);
     if (!n) return `<span class="count-zero">${txt}</span>`;
@@ -821,8 +796,8 @@ Engagement</button>
         <td class="cell-sm">${a.position}</td>
         <td class="cell-sm">${a.location}</td>
         <td class="cell-sm">${fmtDate(a.due)}</td>
-        <td class="num">${countLink(a, 'ns')}</td>
-        <td class="num">${countLink(a, 'ip')}</td>
+        <td class="num">${countLink(a, 'ns', true)}</td>
+        <td class="num">${countLink(a, 'ip', true)}</td>
         <td class="num">${countLink(a, 'c', true)}</td>
         <td class="comp-cell"><span theme="${theme}">${p}%</span></td>
       </tr>`;
@@ -849,7 +824,10 @@ Engagement</button>
   /* ── Screen 2: Compliance by Employee ────────────────────── */
   // `applied` = what the results show; `draft` = what the filter controls say.
   // Like production, changes take effect when the admin presses RUN REPORT.
-  let applied = { course: 'all', states: [], pastDue: 'any' };   // states [] = All
+  // states: any of ns / ip / c.  pastDue: the "Past due" status option — it keeps only the
+  // past-due learners of the outstanding states picked (both, if none are picked), which is
+  // exactly what today's "Past due" option returns. [] + false = All.
+  let applied = { course: 'all', states: [], pastDue: false };
   let draft   = { ...applied, states: [] };
   let drill   = null;   // { id, state } when arriving from Training Compliance
   let page    = 1;
@@ -894,9 +872,11 @@ Engagement</button>
   function rowMatches(f, a, s) {
     if (!s) return false;
     if (f.course !== 'all' && f.course !== a.id) return false;
-    if (f.states.length && !f.states.includes(s)) return false;
-    const pd = s !== 'c' && isPast(a.due);
-    return f.pastDue === 'any' || (f.pastDue === 'yes') === pd;
+    if (!f.states.length && !f.pastDue) return true;
+    if (s === 'c') return f.states.includes('c');
+    let out = f.states.filter(x => x !== 'c');
+    if (f.pastDue && !out.length) out = ['ns', 'ip'];
+    return out.includes(s) && (!f.pastDue || isPast(a.due));
   }
   // Every learner with ≥1 matching course row, in order. (≈10k learners — cheap enough for a mock.)
   function matchingLearners(f) {
@@ -910,12 +890,17 @@ Engagement</button>
     return out;
   }
 
-  function statusLabel(states) {
-    const set = [...states].sort().join(',');
-    if (!states.length || states.length === 3) return 'All';
-    return ['ns', 'ip', 'c'].filter(s => states.includes(s)).map(s => LABELS[s]).join(', ');   // same order as the checkboxes
+  // Trigger summary, in checkbox order: "Outstanding", "In progress, past due", "Past due, Completed"…
+  function statusLabel(f) {
+    const has = s => f.states.includes(s);
+    if (!f.pastDue && (!f.states.length || f.states.length === 3)) return 'All';
+    const parts = [];
+    const out = has('ns') && has('ip') ? 'Outstanding' : has('ns') ? LABELS.ns : has('ip') ? LABELS.ip : '';
+    if (out) parts.push(f.pastDue ? `${out}, past due` : out);
+    else if (f.pastDue) parts.push('Past due');
+    if (has('c')) parts.push(LABELS.c);
+    return parts.join(', ');
   }
-  const PASTDUE_LABELS = { any: 'Any', yes: 'Past due only', no: 'Not past due' };
   const COLS = 14;
   let lastPageCount = 1;
 
@@ -925,22 +910,16 @@ Engagement</button>
     const pages = lastPageCount = Math.max(1, Math.ceil(learners.length / PAGE_SIZE));
     page = Math.min(page, pages);
     document.getElementById('cbe-results').textContent = `${fmt(n)} RESULT${n === 1 ? '' : 'S'}`;
-    // How many results are in each status (counts only — the three always add up to RESULTS)
-    const by = { c: 0, ip: 0, ns: 0 };
-    learners.forEach(l => l.rows.forEach(r => by[r.s]++));
-    document.getElementById('cbe-counts').innerHTML = n ? ['ns', 'ip', 'c'].filter(s => by[s])
-      .map(s => `<span><b>${fmt(by[s])}</b> ${LABELS[s].toLowerCase()}</span>`).join('<span class="dot">·</span>') : '';
     document.getElementById('pg-num').textContent = page + (pages > 1 ? ` of ${fmt(pages)}` : '');
     ['pg-first', 'pg-prev'].forEach(id => document.getElementById(id).disabled = page <= 1);
     ['pg-next', 'pg-last'].forEach(id => document.getElementById(id).disabled = page >= pages);
 
     const body = document.getElementById('cbe-body');
     if (!n) {
-      const onlyCompleted = applied.states.length === 1 && applied.states[0] === 'c' && applied.pastDue === 'yes';
       body.innerHTML = `<tr><td colspan="${COLS}"><div class="empty-state">
           <i class="fa-regular fa-magnifying-glass"></i>
           <h4>No learners match these filters</h4>
-          <p>${onlyCompleted ? 'Completed assignments are never past due. Try another status, or set Past due to Any.' : 'Try widening the Status or Past due filter.'}</p>
+          <p>Try another course, or widen the Status filter.</p>
         </div></td></tr>`;
       return;
     }
@@ -974,12 +953,15 @@ Engagement</button>
 
   // Keep filter controls in sync with `draft`
   function syncControls() {
-    document.querySelectorAll('#ff-status vaadin-checkbox').forEach(cb => {
+    document.querySelectorAll('#ff-status vaadin-checkbox[data-state]').forEach(cb => {
       cb.checked = draft.states.includes(cb.dataset.state);
     });
-    document.getElementById('status-v').textContent = statusLabel(draft.states);
-    document.getElementById('pastdue-group').value = draft.pastDue;
-    document.getElementById('pastdue-v').textContent = PASTDUE_LABELS[draft.pastDue];
+    // Outstanding = both sub-states; one of the two shows it half-checked
+    const nOut = ['ns', 'ip'].filter(s => draft.states.includes(s)).length;
+    const outCb = document.getElementById('cb-outstanding');
+    outCb.checked = nOut === 2; outCb.indeterminate = nOut === 1;
+    document.getElementById('cb-pastdue').checked = draft.pastDue;
+    document.getElementById('status-v').textContent = statusLabel(draft);
     const a = ASSIGNMENTS.find(x => x.id === draft.course);
     document.getElementById('course-v').textContent = a ? `${a.course} (${a.position})` : 'All';
     renderCoursePanel();
@@ -1029,16 +1011,21 @@ Engagement</button>
   document.addEventListener('click', closePanels);
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(); });
 
-  document.querySelectorAll('#ff-status vaadin-checkbox').forEach(cb => {
+  document.querySelectorAll('#ff-status vaadin-checkbox[data-state]').forEach(cb => {
     cb.addEventListener('change', () => {
       const s = cb.dataset.state;
       draft.states = cb.checked ? [...new Set([...draft.states, s])] : draft.states.filter(x => x !== s);
       syncControls();
     });
   });
-  document.getElementById('pastdue-group').addEventListener('value-changed', e => {
-    if (!e.detail.value || e.detail.value === draft.pastDue) return;
-    draft.pastDue = e.detail.value; syncControls();
+  // Outstanding ticks / clears both sub-states together
+  document.getElementById('cb-outstanding').addEventListener('change', e => {
+    const on = e.target.checked;
+    draft.states = draft.states.filter(x => x === 'c').concat(on ? ['ns', 'ip'] : []);
+    syncControls();
+  });
+  document.getElementById('cb-pastdue').addEventListener('change', e => {
+    draft.pastDue = e.target.checked; syncControls();
   });
   document.getElementById('course-panel').addEventListener('click', e => {
     const b = e.target.closest('[data-course]');
@@ -1060,7 +1047,7 @@ Engagement</button>
   const SOURCES = { tc: 'the Training Compliance report', tp: 'Training Plans' };
   const BACK    = { tc: 'Back to Training Compliance', tp: 'Back to Training Plans' };
   function openDrill(filter, text, source) {
-    drill = { filter: { ...filter, states: [...filter.states] }, source };
+    drill = { filter: { ...filter, states: [...filter.states] }, source };   // pastDue: false
     draft = { ...filter, states: [...filter.states] };
     run(true);
     document.getElementById('drill-text').innerHTML = `${text}, from ${SOURCES[source]}.`;
@@ -1070,70 +1057,42 @@ Engagement</button>
   }
   function drillTo(id, state, source) {
     const a = ASSIGNMENTS.find(x => x.id === id);
-    openDrill({ course: id, states: [state], pastDue: 'any' },
+    openDrill({ course: id, states: [state], pastDue: false },
       `Showing the <b>${fmt(a[state])} ${LABELS[state].toLowerCase()}</b> learner${a[state] === 1 ? '' : 's'} for <b>${a.course}</b> (${a.position})`,
       source || 'tc');
   }
-  document.getElementById('drill-back').onclick = () => showScreen(drill ? drill.source : 'tc');
+  document.getElementById('drill-back').onclick = () => { const src = drill ? drill.source : 'tc'; showScreen(src); if (src === 'tp') loadTP(true); };
   document.getElementById('drill-close').onclick = () => document.getElementById('drill-banner').classList.add('hidden');
 
   /* ── Screen 3: Training Plans ────────────────────────────── */
-  // Ring chart: Completed + In progress arcs over a gray Not-started track, 2px gaps
-  // between segments, % complete (= the unchanged compliance %) in the center.
-  function ring(a, size, center) {
-    size = size || 76;
-    const sw = 10, r = (size - sw) / 2, C = 2 * Math.PI * r, t = total(a), cx = size / 2;
-    const label = t ? ORDER.map(s => `${fmt(a[s])} ${LABELS[s]}`).join(', ') + ` of ${fmt(t)} assigned` : 'No learners assigned';
-    if (!t) {
-      return `<svg class="ring" width="${size}" height="${size}" role="img" aria-label="${label}">
-        <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="#D0D5DD" stroke-width="2" stroke-dasharray="4 4"></circle>
-        <text x="50%" y="52%" text-anchor="middle" class="lbl" dominant-baseline="middle">None</text></svg>`;
-    }
-    const nz = ORDER.filter(s => a[s] > 0);
-    const gap = nz.length > 1 ? 2 : 0;
-    // Tiny non-zero shares (9 of 10,528) still get a visible sliver
-    let lens = nz.map(s => Math.max(C * a[s] / t, 4 + gap));
-    const k = C / lens.reduce((x, y) => x + y, 0); lens = lens.map(l => l * k);
-    const paint = { c: 'var(--st-c)', ip: 'url(#apr-ip-stripe)', ns: '#C3CBD6' };
-    let off = 0;
-    const arcs = nz.map((s, i) => {
-      const L = lens[i], pctS = Math.round(a[s] / t * 1000) / 10;
-      const el = `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${paint[s]}" stroke-width="${sw}"
-          stroke-dasharray="${Math.max(L - gap, 1)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cx})">
-          <title>${fmt(a[s])} ${LABELS[s]} (${pctS}%)</title></circle>`;
-      off += L; return el;
-    }).join('');
-    return `<svg class="ring" width="${size}" height="${size}" role="img" aria-label="${label}">${arcs}
-      ${center === 'total'
-        ? `<text x="50%" y="45%" text-anchor="middle" class="pct${fmt(t).length > 5 ? ' sm' : ''}" dominant-baseline="middle">${fmt(t)}</text>
-           <text x="50%" y="66%" text-anchor="middle" class="lbl" dominant-baseline="middle">assigned</text>`
-        : `<text x="50%" y="45%" text-anchor="middle" class="pct" dominant-baseline="middle">${compliance(a)}%</text>
-           <text x="50%" y="66%" text-anchor="middle" class="lbl" dominant-baseline="middle">complete</text>`}</svg>`;
-  }
-  function legendBtns(a, src) {
-    return ORDER.map(s => {
-      const n = a[s], zero = n === 0;
-      return `<button class="count-btn ${zero ? 'zero' : ''}" ${zero ? 'disabled' : ''} data-drill="${a.id}" data-state="${s}" data-src="${src}"
-                title="${zero ? 'No learners ' + LABELS[s].toLowerCase() : 'View these ' + fmt(n) + ' learners'}">
-                <i class="${ICONS[s]}"></i><span class="n">${fmt(n)}</span><span class="lbl">${LABELS[s]}</span></button>`;
-    }).join('');
-  }
-  function renderTP() {
+  // loading = true draws the page with placeholders where progress will appear
+  function renderTP(loading) {
+    const cell = (a, s) => `<div class="num">${loading ? '<span class="skel" style="width:58px"></span>' : countLink(a, s, true)}</div>`;
     document.getElementById('tp-body').innerHTML = ASSIGNMENTS.map(a => `
       <div class="tp-grid tp-row">
-        <div class="tp-prog">${ring(a)}
-          <div class="tp-course"><div class="nm">${a.course}</div>
-            <div class="ring-legend">${total(a) ? legendBtns(a, 'tp') : '<span class="no-learners">No learners assigned</span>'}</div></div></div>
+        <div class="tp-prog">
+          <div class="thumb" style="background:${a.bg};color:${a.fg}"><i class="fa-solid ${a.icon}"></i></div>
+          <div class="tp-course"><div class="nm">${a.course}</div><div class="ty">${a.plan}</div></div></div>
         <div class="tp-cell"><div><b>${a.position}</b><br>at <b>${a.location}</b></div></div>
         <div class="tp-cell"><div class="tp-dates"><div><b>${fmtDate(effDate(a))}</b><div class="l">Effective</div></div><i class="fa-solid fa-arrow-right" style="color:var(--muted-2)"></i><div><b>${fmtDate(a.due)}</b><div class="l">Due</div></div></div></div>
+        ${cell(a, 'ns')}${cell(a, 'ip')}${cell(a, 'c')}
         <div class="tp-kebab"><i class="fa-solid fa-ellipsis"></i></div>
       </div>`).join('');
+  }
+  // Opening Training Plans: rows first, progress a moment later
+  let tpTimer = null;
+  function loadTP(instant) {
+    clearTimeout(tpTimer);
+    document.getElementById('tp-body').setAttribute('aria-busy', instant ? 'false' : 'true');
+    if (instant) return renderTP(false);
+    renderTP(true);
+    tpTimer = setTimeout(() => { renderTP(false); document.getElementById('tp-body').setAttribute('aria-busy', 'false'); }, 1100);
   }
   function effDate(a) { const d = new Date(a.due + 'T12:00:00'); d.setDate(d.getDate() - 45); return d.toISOString().slice(0, 10); }
 
   document.getElementById('screen-tp').addEventListener('click', e => {
-    const b = e.target.closest('.count-btn');
-    if (b && !b.disabled && b.dataset.drill) return drillTo(b.dataset.drill, b.dataset.state, 'tp');
+    const b = e.target.closest('.count-link');
+    if (b && b.dataset.drill) return drillTo(b.dataset.drill, b.dataset.state, 'tp');
   });
 
   /* ── Screen switching (tabs) ─────────────────────────────── */
@@ -1152,7 +1111,10 @@ Engagement</button>
     showScreen(t.dataset.screen);
   }));
 
-  document.querySelectorAll('.sb-item[data-nav]').forEach(b => b.addEventListener('click', () => showScreen(b.dataset.nav)));
+  document.querySelectorAll('.sb-item[data-nav]').forEach(b => b.addEventListener('click', () => {
+    showScreen(b.dataset.nav);
+    if (b.dataset.nav === 'tp') loadTP();
+  }));
 
   // Apply the LABELS constant everywhere static markup names a state
   document.querySelectorAll('[data-label]').forEach(el => el.textContent = LABELS[el.dataset.label]);
@@ -1169,7 +1131,7 @@ Engagement</button>
   function applyFlowState(id, opts) {
     opts = opts || {};
     closePanels();
-    const reset = () => { drill = null; draft = { course: 'all', states: [], pastDue: 'any' }; run(true);
+    const reset = () => { drill = null; draft = { course: 'all', states: [], pastDue: false }; run(true);
                           document.getElementById('drill-banner').classList.add('hidden'); };
     const whenReady = fn => customElements.whenDefined('vaadin-checkbox').then(() => setTimeout(fn, 0));
     switch (id) {
@@ -1185,7 +1147,7 @@ Engagement</button>
         break;
       case 'cbe-pastdue':
         drillTo('winter', 'ip');
-        draft.states = ['ns', 'ip']; draft.pastDue = 'yes'; draft.course = 'all';
+        draft.states = ['ip']; draft.pastDue = true; draft.course = 'all';
         run(true);
         break;
       case 'cbe-status':
@@ -1193,13 +1155,17 @@ Engagement</button>
         whenReady(() => { syncControls(); document.getElementById('ff-status').classList.add('open'); });
         break;
       case 'tp':
-        showScreen('tp');
+        showScreen('tp'); loadTP(true);
+        break;
+      case 'tp-loading':
+        showScreen('tp'); clearTimeout(tpTimer); renderTP(true);
         break;
       case 'tp-drill':
         drillTo('osha30', 'ns', 'tp');
         break;
-      case 'cbe-empty':
-        reset(); draft = { course: 'all', states: ['c'], pastDue: 'yes' }; run(true); showScreen('cbe');
+      case 'cbe-legacy':
+        reset(); draft = { course: 'all', states: ['ns', 'ip'], pastDue: false }; run(true); showScreen('cbe');
+        whenReady(() => { syncControls(); document.getElementById('ff-status').classList.add('open'); });
         break;
       default:
         showScreen('tc');
@@ -1237,23 +1203,26 @@ Engagement</button>
           desc: '"How progress is counted" above the table defines each state and says the compliance % is unchanged.' },
         { id: 'cbe-drill', flow: 'drill', x: 620, y: 100, step: 'Click a count', name: 'Pre-filtered learner list', state: 'cbe-drill',
           desc: 'Clicking "11 In progress" on Winter Driving opens Compliance by Employee with course + status already set; the count matches.' },
-        { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'Outstanding + Past due', state: 'cbe-pastdue',
-          desc: 'Status and Past due combine freely: Not started + In progress that is past due, across all courses.' },
-        { id: 'cbe-status', flow: 'filter', entry: true, x: 60, y: 410, step: 'Entry', name: 'Status filter (restructured)', state: 'cbe-status',
-          desc: 'A plain multi-select of the three non-overlapping states. Past due is its own filter next to it.' },
-        { id: 'cbe-empty', flow: 'filter', x: 340, y: 410, step: 'Edge case', name: 'Completed + Past due', state: 'cbe-empty',
-          desc: 'A combination that can never match gets an explanatory empty state instead of a blank table.' },
-        { id: 'tp', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Training Plans', state: 'tp',
-          desc: 'Phase 2 (FR-4). A progress ring in front of each plain course name, counts under it. Numbers match Training Compliance.' },
-        { id: 'tp-drill', flow: 'plans', x: 340, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
-          desc: 'Clicking "8 Not started" on OSHA 30-Hour opens the learner report pre-filtered; the banner links back to Training Plans (AC-4.3).' }
+        { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'In progress + Past due', state: 'cbe-pastdue',
+          desc: 'Ticking Past due with In progress keeps only the past-due In progress learners, across all courses.' },
+        { id: 'cbe-status', flow: 'filter', entry: true, x: 60, y: 410, step: 'Entry', name: 'Status filter', state: 'cbe-status',
+          desc: 'Today\'s options stay (Outstanding, Past due, Completed); Not started and In progress sit indented under Outstanding.' },
+        { id: 'cbe-legacy', flow: 'filter', x: 340, y: 410, step: 'Existing use', name: 'Outstanding = both', state: 'cbe-legacy',
+          desc: 'Ticking Outstanding ticks both sub-states, so saved and scheduled reports on Outstanding return the same learners.' },
+        { id: 'tp-loading', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Loading progress', state: 'tp-loading',
+          desc: 'The list shows right away; progress fills in a moment later, so the page never waits on it. "Progress as of" says how fresh it is (updated about daily).' },
+        { id: 'tp', flow: 'plans', x: 340, y: 720, step: 'Loaded', name: 'Training Plans', state: 'tp',
+          desc: 'Phase 2 (FR-4), V1: the course picture stays and three "x / y" count columns sit after Dates, same as Training Compliance. Numbers match it.' },
+        { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
+          desc: 'Clicking "8 / 40" Not started on OSHA 30-Hour opens the learner report pre-filtered; the banner links back to Training Plans (AC-4.3).' }
       ],
       edges: [
         ['tc', 'tc-defs'],
         ['tc', 'cbe-drill'],
         ['cbe-drill', 'cbe-pastdue'],
         ['cbe-drill', 'tc'],
-        ['cbe-status', 'cbe-empty'],
+        ['cbe-status', 'cbe-legacy'],
+        ['tp-loading', 'tp'],
         ['tp', 'tp-drill']
       ]
     }

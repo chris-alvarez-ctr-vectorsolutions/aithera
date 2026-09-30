@@ -1,0 +1,1304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assignment Progress Reporting</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 PRO Icons (Default Icon Library) — self-hosted at the repo root.
+         Depth-relative: every mock lives at products/<Product>/<feature>/verN/index.html. -->
+    <link
+    rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css"
+    />
+
+<style>
+  /* ════════════════════════════════════════════════════════════════
+     Assignment Progress Reporting (SAFELMS-25167) — V2 · RINGS
+     Same as V1 on both reports (# Not started / # In progress columns). The difference is
+     Training Plans: a progress ring with counts replaces the course picture.
+     Two report screens, matched to the current production Reports UI:
+       1. Training Compliance  — per-assignment progress breakout
+       2. Compliance by Employee — Status filter: Outstanding (Not started,
+                                   In progress indented), Past due, Completed
+     Layout follows the SafeLMS "Reports UI patterns" (products/SafeLMS/CLAUDE.md):
+     gray canvas, floating white cards (no border, soft shadow).
+     ════════════════════════════════════════════════════════════════ */
+  :root {
+    --blue-primary: #155DFC;
+    --blue-accent:  #0271CE;          /* = --lumo-primary-color */
+    --navy:         #1B3A8C;
+    --ink:   #101828;
+    --ink-2: #344055;
+    --muted: #6A7282;
+    --muted-2: #99A1AF;
+    --hair:   #E5E7EB;
+    --hair-2: #F3F4F6;
+    --canvas: #EEF1F5;
+    --card-shadow: 0 1px 3px rgba(16,24,40,.10), 0 1px 2px rgba(16,24,40,.06);
+
+    /* Progress-state colors. Semantic Vector tokens; each state ALSO has its own
+       icon + text label so state is never conveyed by color alone (NFR a11y). */
+    --st-c:  var(--lumo-success-color, #158444);
+    --st-ip: var(--lumo-primary-color, #0271ce);
+    --st-ns: var(--lumo-contrast-20pct, #1c375a29);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  /* vwc-switch sizes itself as content + padding; border-box would squish its track to 36px */
+  vwc-switch { box-sizing: content-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--canvas);
+    font-family: "Open Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; }
+  .wrap { max-width: 1340px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── Blue header ── */
+  .topbar {
+    background: linear-gradient(90deg, #0b2a6f 0%, #1a4fd6 100%);
+    color: #fff;
+  }
+  .topbar .wrap { display: flex; align-items: center; gap: 24px; height: 84px; }
+  .topbar .t-title { font-weight: 700; font-size: 34px; letter-spacing: .2px; }
+  .topbar .t-sub { font-size: 15px; font-weight: 600; opacity: .95; }
+  .report-log-btn {
+    margin-left: auto; background: #fff; color: var(--navy); border: 0; border-radius: 4px;
+    padding: 9px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+
+  /* ── Report tabs ── */
+  .tabs { background: #fff; border-bottom: 1px solid var(--hair); }
+  .tabs .wrap { display: flex; justify-content: space-between; }
+  .tab {
+    padding: 12px 10px 13px; text-align: center; white-space: pre-line;
+    font-size: 13px; font-weight: 600; line-height: 1.35; color: #2B3A55;
+    background: 0; border: 0; border-bottom: 3px solid transparent; margin-bottom: -1px;
+    cursor: pointer; display: flex; align-items: center;
+  }
+  .tab:hover { color: var(--blue-accent); }
+  .tab.active { border-bottom-color: var(--blue-primary); color: var(--ink); }
+
+  /* ── Screens ── */
+  .screen { display: none; padding-bottom: 60px; }
+  .screen.active { display: block; }
+
+  /* Pencil banner (canonical SafeLMS pattern) */
+  .pencil-banner {
+    position: relative; display: flex; align-items: center; gap: 16px;
+    margin: 12px 0 0; padding: 14px 52px 14px 20px;
+    background: #fff; border-radius: 4px; border-left: 6px solid var(--blue-primary);
+    box-shadow: var(--card-shadow);
+  }
+  .pencil-banner.hidden { display: none; }
+  .pencil-banner .pb-icon {
+    flex-shrink: 0; width: 40px; height: 40px; border-radius: 10px;
+    background: #E1EBF9; color: var(--blue-primary);
+    display: grid; place-items: center; font-size: 18px;
+  }
+  .pencil-banner .pb-text { flex: 1; font-size: 14px; line-height: 1.55; color: #1D2939; }
+  .pencil-banner .pb-text b { font-weight: 700; }
+  .pencil-banner .pb-action {
+    background: 0; border: 0; color: var(--blue-accent); font-weight: 600; font-size: 13px;
+    cursor: pointer; padding: 6px 4px; white-space: nowrap;
+  }
+  .pencil-banner .pb-action:hover { text-decoration: underline; }
+  .pencil-banner .pb-close {
+    position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
+    background: 0; border: 0; color: #99A1AF; cursor: pointer; font-size: 18px;
+    padding: 6px 8px; border-radius: 6px;
+  }
+  .pencil-banner .pb-close:hover { color: #475467; background: var(--hair-2); }
+
+  /* Date row */
+  .daterow { display: flex; align-items: center; gap: 12px; padding: 14px 0 12px; }
+  .date-pill {
+    display: inline-flex; align-items: center; gap: 14px;
+    padding: 12px 24px; background: #fff; border-radius: 999px;
+    box-shadow: 0 2px 8px rgba(16,24,40,.08); font-size: 15px; color: #2B3A55;
+  }
+  .date-pill i { color: var(--ink); }
+  .date-pill .arrow { color: var(--muted); }
+  .help-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: 0; background: #fff;
+    box-shadow: 0 2px 8px rgba(16,24,40,.08); color: var(--navy); font-weight: 800; font-size: 16px;
+    cursor: pointer;
+  }
+  .export-btn {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 10px;
+    padding: 12px 20px; border: 0; border-radius: 6px; background: #E4E9F1;
+    font-size: 14px; font-weight: 600; color: var(--navy); cursor: pointer;
+  }
+  .export-btn:hover { background: #D9E0EB; }
+
+  /* Report card: filters header + results */
+  .report-card { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); }
+  .filters {
+    display: flex; align-items: center; gap: 24px;
+    padding: 18px 24px; border-bottom: 1px solid var(--hair);
+  }
+  .filters .filter-cols { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .filter-row { display: flex; flex-wrap: wrap; gap: 12px; }
+  .pos-block {
+    display: flex; align-items: center; gap: 12px; padding: 6px 12px 6px 6px;
+    background: #F2F5FA; border-radius: 8px; font-size: 14px; line-height: 1.35; align-self: center;
+  }
+  .pos-block .pos-ico {
+    width: 40px; height: 40px; border-radius: 8px; background: #E1EBF9; color: var(--navy);
+    display: grid; place-items: center;
+  }
+  .pos-block b { font-weight: 700; }
+  .pos-block .at { color: var(--muted); }
+
+  /* Filter trigger (matches production "Label  Value ▾" outlined selects) */
+  .ff { position: relative; }
+  .ff-trigger {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 9px 14px; min-height: 42px; background: #fff;
+    border: 1px solid #1B3A8C; border-radius: 3px;
+    font-size: 14px; color: #2B3A55; cursor: pointer; max-width: 340px;
+  }
+  .ff-trigger:hover { background: #F7F9FC; }
+  .ff-trigger .k { color: #4A5565; }
+  .ff-trigger .v { font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ff-trigger .caret { color: var(--muted); font-size: 11px; }
+  .ff-trigger .new-dot {
+    font-size: 10px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  }
+  .ff.open .ff-trigger { box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct, #0271ce1a); }
+
+  /* Filter panel (dropdown) — NOT inside an overflow:hidden card, so it isn't clipped */
+  .ff-panel {
+    display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 50;
+    min-width: 300px; background: #fff; border-radius: 8px;
+    box-shadow: var(--lumo-box-shadow-m, 0 2px 6px -1px #1c375a29, 0 8px 24px -4px #1c324f61);
+    padding: 14px 16px;
+  }
+  .ff.open .ff-panel { display: block; }
+  .ff-panel .p-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+    color: var(--muted); margin: 0 0 6px;
+  }
+  .ff-panel .opt { display: flex; align-items: flex-start; gap: 4px; padding: 2px 0; }
+  .ff-panel .opt.sub { padding-left: 28px; }   /* sub-states of Outstanding */
+  .ff-panel .opt-help { font-size: 12px; color: var(--muted); margin: -6px 0 6px 34px; line-height: 1.4; }
+  .ff-panel .p-divider { height: 1px; background: var(--hair); margin: 10px -16px; }
+  .ff-panel .quick {
+    display: flex; align-items: center; gap: 8px; width: 100%;
+    background: #F2F5FA; border: 0; border-radius: 6px; padding: 9px 10px;
+    font-size: 13px; color: var(--ink); cursor: pointer; text-align: left;
+  }
+  .ff-panel .quick:hover { background: #E6ECF5; }
+  .ff-panel .quick .sub { color: var(--muted); }
+  .ff-panel .quick.on { background: var(--lumo-primary-color-10pct, #0271ce1a); box-shadow: inset 0 0 0 1px var(--blue-accent); }
+  .ff-panel .p-note {
+    display: flex; gap: 8px; font-size: 12px; line-height: 1.45; color: #475467; margin-top: 10px;
+  }
+  .ff-panel .p-note i { color: var(--blue-accent); margin-top: 2px; }
+  .ff-panel .list-opt {
+    display: block; width: 100%; text-align: left; background: 0; border: 0;
+    padding: 8px 10px; border-radius: 4px; font-size: 13px; color: var(--ink); cursor: pointer;
+  }
+  .ff-panel .list-opt:hover { background: var(--hair-2); }
+  .ff-panel .list-opt.sel { font-weight: 700; color: var(--blue-accent); }
+  .state-ico { width: 16px; text-align: center; }
+
+  /* Email switch row */
+  .switch-row { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: #2B3A55; }
+
+  /* Run button (production gradient) */
+  .run-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    min-width: 250px; height: 56px; padding: 0 24px;
+    background: linear-gradient(90deg, #0b2a6f 0%, #1a4fd6 100%); color: #fff;
+    border: 0; border-radius: 4px; font-size: 16px; font-weight: 700; letter-spacing: .3px;
+    box-shadow: 0 4px 12px rgba(26,79,214,.28); cursor: pointer;
+  }
+  .run-btn:hover { filter: brightness(1.1); }
+  .run-btn.pending { box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--blue-primary); }
+  .run-note { font-size: 12px; color: var(--muted); text-align: center; margin-top: 6px; min-height: 16px; }
+
+  /* Results header row */
+  .genrow { display: flex; align-items: center; gap: 28px; padding: 22px 24px 16px; flex-wrap: wrap; }
+  .gen b { display: block; font-size: 15px; font-weight: 600; }
+  .gen span { font-size: 13px; }
+  .refresh { background: 0; border: 0; color: var(--navy); font-size: 15px; font-weight: 600; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+  .genrow .right { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+  .results { font-size: 13px; font-weight: 700; letter-spacing: .4px; color: var(--navy); }
+  .pager {
+    display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; padding: 4px 8px;
+    box-shadow: 0 0 0 1px var(--hair);
+  }
+  .pager button { background: 0; border: 0; padding: 6px 10px; font-size: 13px; color: var(--navy); font-weight: 600; cursor: pointer; }
+  .pager button:disabled { color: var(--muted-2); cursor: default; }
+  .pager .num { color: var(--ink); font-size: 14px; }
+
+  /* Legend (sits in the results header on Training Compliance) */
+  .legend { display: flex; align-items: center; gap: 16px; font-size: 12.5px; color: #475467; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 14px; height: 8px; border-radius: 2px; display: inline-block; }
+
+  /* ── Data table ── */
+  .table-wrap { padding: 0 24px 24px; overflow-x: auto; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.data thead th {
+    text-align: left; padding: 16px 12px; background: #EEF2F8;
+    font-size: 13px; font-weight: 600; letter-spacing: .3px; color: #2B3A55; text-transform: uppercase;
+    white-space: nowrap; position: relative;
+  }
+  table.data thead th:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; padding-left: 24px; }
+  table.data thead th:last-child  { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
+  table.data tbody td { padding: 16px 12px; border-bottom: 1px solid var(--hair); vertical-align: middle; color: #2B3A55; }
+  table.data tbody td:first-child { padding-left: 24px; }
+  table.data tbody tr:last-child td { border-bottom: 0; }
+
+  /* Course cell */
+  .course-cell { display: flex; align-items: center; gap: 24px; }
+  /* Course picture: measured from the production screenshot (2026-09-30) — a 56px
+     square, ~8px corners, soft shadow, ~24px before the course name. */
+  .thumb {
+    flex: 0 0 56px; width: 56px; height: 56px; aspect-ratio: 1 / 1; border-radius: 8px;
+    display: grid; place-items: center; font-size: 22px; box-shadow: 0 2px 6px rgba(16,24,40,.18);
+  }
+  .course-name { font-size: 17px; color: var(--ink); line-height: 1.3; }
+  .course-plan { font-size: 13px; color: #2B3A55; margin-top: 2px; }
+  .cell-sm { font-size: 13px; }
+
+  /* ── Clickable state counts (under the course name) ── */
+  .counts { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+  .count-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: 0; border: 0; border-radius: 4px; padding: 3px 6px; margin-left: -6px;
+    font-size: 13px; color: var(--blue-accent); cursor: pointer; white-space: nowrap;
+  }
+  .count-btn + .count-btn { margin-left: 4px; }
+  .count-btn:hover { background: var(--lumo-primary-color-10pct, #0271ce1a); }
+  .count-btn:hover .n { text-decoration: underline; }
+  .count-btn .n { font-weight: 700; }
+  .count-btn .lbl { color: #475467; }
+  .count-btn.zero { color: var(--muted-2); cursor: default; }
+  .count-btn.zero .lbl { color: var(--muted-2); }
+  .count-btn.zero:hover { background: 0; }
+  .count-btn.zero:hover .n { text-decoration: none; }
+  .ico-c  { color: var(--st-c); }
+  .ico-ip { color: var(--st-ip); }
+  .ico-ns { color: #667085; }
+  .no-learners { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+  /* Compliance stays visually primary — same pill as production, a touch larger */
+  .comp-cell { white-space: nowrap; }
+  .comp-cell [theme~="badge"] { font-size: 14px; font-weight: 700; padding: .35em .8em; }
+  .comp-sub { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  /* Count headers wrap to two lines ("# Not / started") so the new columns stay narrow (PRD: no undue width) */
+  table.data th.num { white-space: normal; width: 104px; line-height: 1.3; }
+  table.data td.num { white-space: nowrap; }
+  .count-link { background: 0; border: 0; padding: 2px 0; font-size: 14px; color: var(--blue-accent); cursor: pointer; }
+  .count-link:hover { text-decoration: underline; }
+  .count-zero { font-size: 14px; color: var(--muted-2); }
+  .defs-wrap { position: relative; }
+  .defs-link { background: 0; border: 0; padding: 4px 0; font-size: 13px; color: var(--blue-accent); cursor: pointer; display: inline-flex; gap: 6px; align-items: center; }
+  .defs-link:hover { text-decoration: underline; }
+  .defs-wrap .defs { top: calc(100% + 6px); left: 0; }
+
+  /* Definitions popover (PROGRESS header ⓘ) */
+  .defs {
+    display: none; position: absolute; top: calc(100% + 6px); left: 0; z-index: 40;
+    width: 380px; background: #fff; border-radius: 8px; padding: 16px 18px;
+    box-shadow: var(--lumo-box-shadow-m, 0 8px 24px -4px #1c324f61);
+    text-transform: none; letter-spacing: 0; white-space: normal; font-weight: 400; color: #2B3A55;
+  }
+  .defs.open { display: block; }
+  .defs h4 { margin: 0 0 10px; font-size: 14px; color: var(--ink); }
+  .defs .d { display: flex; gap: 10px; font-size: 13px; line-height: 1.45; margin-bottom: 10px; }
+  .defs .d i { margin-top: 3px; }
+  .defs .d b { color: var(--ink); }
+  .defs .foot { border-top: 1px solid var(--hair); padding-top: 10px; font-size: 12.5px; color: #475467; line-height: 1.45; }
+
+  /* ── Compliance by Employee table ── */
+  /* Grouped like production: row lines run under the course columns only;
+     a full-width line separates learners. */
+  #cbe-table { font-size: 14px; width: max-content; min-width: 100%; }
+  #cbe-table td { max-width: 190px; }
+  #cbe-table tbody td { border-bottom: 0; border-top: 1px solid var(--hair); vertical-align: top; padding-top: 18px; padding-bottom: 18px; }
+  #cbe-table tbody td[rowspan] { border-top: 0; }
+  #cbe-table tbody td.lib { border-top: 1px solid var(--hair); }
+  #cbe-table tbody tr.learner-start td { border-top: 1px solid #CBD2DD; }
+  #cbe-table tbody tr:first-child td { border-top: 0; }
+  #cbe-table thead th { white-space: nowrap; }
+  #cbe-table .guid { max-width: 130px; word-break: break-all; }
+  #cbe-table .lib { max-width: 90px; }
+  #cbe-table .c-course { min-width: 150px; max-width: 200px; }
+  #cbe-table .th-new { background: #E3ECFB; }
+  #cbe-table .th-new [theme~="badge"] { margin-left: 4px; vertical-align: 1px; }
+  #cbe-table td.status-cell { background: #F7FAFF; }
+  .learner-user { font-weight: 700; color: var(--ink); }
+  .status-cell { white-space: nowrap; }
+  .status-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+  .due-cell { white-space: nowrap; }
+  .due-cell [theme~="badge"] { margin-left: 6px; }
+  .empty-state { text-align: center; padding: 48px 24px 56px; color: #475467; }
+  .empty-state i { font-size: 28px; color: var(--muted-2); }
+  .empty-state h4 { margin: 12px 0 4px; font-size: 16px; color: var(--ink); }
+  .empty-state p { margin: 0; font-size: 14px; }
+
+  /* Running spinner overlay on the results */
+  .results-body.loading { opacity: .35; pointer-events: none; transition: opacity .1s; }
+
+  /* Floating chat bubble (production) */
+  .chat {
+    position: fixed; right: 24px; bottom: 24px; width: 56px; height: 56px; border-radius: 50%;
+    background: #1a4fd6; color: #fff; display: grid; place-items: center; font-size: 22px;
+    box-shadow: 0 6px 18px rgba(16,24,40,.25); z-index: 5;
+  }
+
+
+  /* ════════ App shell: left nav (so Reports and Training Plans are both reachable) ════════ */
+  .app { display: grid; grid-template-columns: 200px minmax(0, 1fr); min-height: 100vh; }
+  .sidebar { background: #fff; border-right: 1px solid var(--hair-2); padding: 16px 14px 40px; }
+  .sb-logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: #374C61; }
+  .sb-logo .v { color: var(--blue-primary); font-size: 20px; }
+  .sb-logo small { display: block; font-size: 9px; font-weight: 400; color: var(--muted); margin-top: 1px; }
+  .sb-user { display: flex; align-items: center; gap: 10px; margin: 22px 0 6px; font-size: 12px; color: #364153; }
+  .sb-user .av { width: 30px; height: 30px; border-radius: 50%; background: #E9EBF0; display: grid; place-items: center; font-weight: 700; font-size: 11px; }
+  .sb-label { font-size: 10px; font-weight: 700; letter-spacing: .8px; color: var(--muted-2); margin: 20px 6px 4px; }
+  .sb-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 8px; border: 0; background: 0;
+    border-radius: 6px; font-size: 13px; color: #364153; cursor: pointer; text-align: left; }
+  .sb-item i { width: 16px; text-align: center; color: #4A5565; }
+  .sb-item:hover { background: var(--hair-2); }
+  .sb-item.active { background: #E8EFFD; color: var(--ink); font-weight: 700; }
+  .sb-item.active i { color: var(--blue-primary); }
+  .app-main { min-width: 0; }
+  .chrome[hidden] { display: none; }
+
+  /* ════════ Screen 3 — Training Plans (Phase 2, FR-4) ════════ */
+  .tp-tabs { background: #fff; border-bottom: 1px solid var(--hair); }
+  .tp-tabs .wrap { display: flex; gap: 6px; }
+  .tp-tab { padding: 14px 14px 12px; font-size: 14px; font-weight: 600; color: #4A5565; background: 0; border: 0;
+    border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; }
+  .tp-tab.active { color: var(--ink); border-bottom-color: var(--blue-primary); }
+  .tp-toolbar { display: flex; align-items: center; gap: 14px; padding: 18px 0 14px; flex-wrap: wrap; }
+  .tp-toolbar .spacer { flex: 1; }
+
+  /* Assignment list */
+  .tp-list { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); }
+  .tp-grid { display: grid; grid-template-columns: minmax(420px, 2.2fr) minmax(170px, 1fr) 220px 24px;
+    gap: 16px; align-items: center; padding: 0 24px; min-width: 900px; }
+  .tp-list { overflow-x: auto; }   /* very narrow windows scroll the list, never the page */
+  .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 868px;
+    font-size: 13px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: #2B3A55; }
+  .tp-row { padding-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--hair); }
+  .tp-row:last-child { border-bottom: 0; }
+  .tp-prog { display: flex; align-items: center; gap: 16px; }
+  .ring { flex: 0 0 auto; display: block; }
+  .ring .pct { font-size: 15px; font-weight: 700; fill: var(--ink); }
+  .ring .pct.sm { font-size: 12px; }
+  .ring .lbl { font-size: 9.5px; fill: var(--muted); }
+  .ring-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-top: 6px; }
+  .ring-legend .count-btn { margin-left: -6px; }
+  .ring-legend .count-btn + .count-btn { margin-left: -6px; }
+  .tp-prog .tp-course { min-width: 0; }
+  .tp-course .nm { font-size: 15px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+  .tp-course .ty { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .tp-course .cat { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px; font-size: 12px; color: #2B3A55;
+    background: #F2F5FA; border-radius: 4px; padding: 2px 8px; }
+  .tp-cell { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #2B3A55; line-height: 1.4; }
+  .tp-cell .ico { width: 34px; height: 34px; border-radius: 8px; background: #F2F5FA; color: var(--navy); display: grid; place-items: center; flex: 0 0 34px; }
+  .tp-cell b { color: var(--ink); }
+  .tp-dates { display: flex; align-items: center; gap: 10px; }
+  .tp-dates .l { font-size: 11.5px; color: var(--muted); }
+  .tp-kebab { color: var(--muted); text-align: center; }
+  .tp-asof { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+
+  /* Loading: the list renders first, progress fills in after (lazy load — Dean, eng review 7:51) */
+  .skel { display: inline-block; height: 12px; border-radius: 6px; background: linear-gradient(90deg, #EDF0F4 25%, #F6F8FA 50%, #EDF0F4 75%);
+    background-size: 200% 100%; animation: skel 1.2s linear infinite; vertical-align: middle; }
+  .skel.ring-sk { width: 76px; height: 76px; border-radius: 50%; flex: 0 0 76px; background: none; box-shadow: inset 0 0 0 10px #EDF0F4; animation: none; }
+  @keyframes skel { from { background-position: 200% 0; } to { background-position: 0 0; } }
+  @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+  @media (max-width: 1100px) {
+    .tab { font-size: 12px; padding: 10px 6px; }
+    .topbar .t-sub { display: none; }
+    .filters { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Shared SVG defs: the striped fill for "In progress" (texture = a second cue besides color) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <pattern id="apr-ip-stripe" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+      <rect width="6" height="6" fill="#0271ce"></rect><rect width="2.5" height="6" fill="#4d9be0"></rect>
+    </pattern>
+  </defs>
+</svg>
+
+<div class="app">
+<!-- ═══ Left nav (SafeLMS admin) ═══ -->
+<aside class="sidebar" aria-label="Main navigation">
+  <div class="sb-logo"><span class="v"><i class="fa-solid fa-v"></i></span><div>VectorSolutions<small>Vector Training, K-12 Edition</small></div></div>
+  <div class="sb-user"><span class="av">DK</span><div>Welcome,<br><b>Deborah Kim</b></div></div>
+  <div class="sb-label">MAIN</div>
+  <button class="sb-item"><i class="fa-regular fa-house"></i>My Assignments</button>
+  <button class="sb-item"><i class="fa-regular fa-clock-rotate-left"></i>Training History</button>
+  <div class="sb-label">ADMIN</div>
+  <button class="sb-item"><i class="fa-regular fa-grid-2"></i>Dashboard</button>
+  <button class="sb-item" data-nav="tp"><i class="fa-regular fa-calendar-check"></i>Training Plans</button>
+  <button class="sb-item"><i class="fa-regular fa-users"></i>Employees</button>
+  <button class="sb-item"><i class="fa-regular fa-circle-play"></i>Courses</button>
+  <button class="sb-item active" data-nav="tc"><i class="fa-regular fa-table"></i>Reports</button>
+  <button class="sb-item"><i class="fa-regular fa-gear"></i>Settings</button>
+</aside>
+
+<div class="app-main">
+<div class="chrome" id="chrome-reports">
+
+<!-- ═══ Blue header ═══ -->
+<header class="topbar">
+  <div class="wrap">
+    <div class="t-title">Reports</div>
+    <div class="t-sub">Generate selected reporting metrics to view course completions and employee success.</div>
+    <button class="report-log-btn">Report Log</button>
+  </div>
+</header>
+
+<!-- ═══ Report tabs (same order as production) ═══ -->
+<nav class="tabs" aria-label="Report types">
+  <div class="wrap">
+    <button class="tab">Quick
+Reports</button>
+    <button class="tab" data-screen="cbe">Compliance by
+Employee</button>
+    <button class="tab">Completions by
+Employee</button>
+    <button class="tab">Completions
+by Time</button>
+    <button class="tab active" data-screen="tc">Training
+Compliance</button>
+    <button class="tab">Assessments</button>
+    <button class="tab">Assessment
+Improvement</button>
+    <button class="tab">Survey
+Results</button>
+    <button class="tab">Survey
+Results</button>
+    <button class="tab">Drinker
+Profile</button>
+    <button class="tab">Student
+Engagement</button>
+  </div>
+</nav>
+</div><!-- /#chrome-reports -->
+
+<!-- Training Plans header (shown on the Training Plans screen) -->
+<div class="chrome" id="chrome-tp" hidden>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="t-title">Training Plans</div>
+      <div class="t-sub">Set the configuration of your Training Plan with the options below.</div>
+    </div>
+  </header>
+  <nav class="tp-tabs" aria-label="Training plan types">
+    <div class="wrap">
+      <button class="tp-tab active">Group Training</button>
+      <button class="tp-tab">Repeating Training</button>
+      <button class="tp-tab">New Hire Training</button>
+      <button class="tp-tab">Offline Training</button>
+    </div>
+  </nav>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 1 — TRAINING COMPLIANCE
+     FR-1 progress breakout · FR-3 click-through to learners
+     ════════════════════════════════════════════════════════════ -->
+<main class="screen active" id="screen-tc">
+  <div class="wrap">
+
+    <div class="pencil-banner" id="tc-banner">
+      <span class="pb-icon"><i class="fa-regular fa-message-dots"></i></span>
+      <span class="pb-text"><b>Recent changes are not yet reflected in reports.</b></span>
+      <button class="pb-close" aria-label="Dismiss" onclick="this.parentElement.classList.add('hidden')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="daterow">
+      <span class="date-pill">08/05/2026 <i class="fa-regular fa-calendar"></i> <i class="fa-solid fa-arrow-right arrow"></i> 09/29/2026 <i class="fa-regular fa-calendar"></i></span>
+      <button class="export-btn"><i class="fa-regular fa-file-export"></i> Export Report <i class="fa-solid fa-chevron-down" style="font-size:11px"></i></button>
+    </div>
+
+    <section class="report-card">
+      <div class="filters">
+        <div class="ff">
+          <button class="ff-trigger"><span class="k">Employees</span><span class="v">All</span><i class="fa-solid fa-chevron-down caret"></i></button>
+        </div>
+        <div style="margin-left:auto">
+          <button class="run-btn" id="tc-run"><i class="fa-regular fa-table"></i> RUN REPORT</button>
+        </div>
+      </div>
+
+      <div class="genrow">
+        <div class="gen"><b>Sep 29, 2026 2:00 PM</b><span>Generated</span></div>
+        <button class="refresh"><i class="fa-regular fa-arrows-rotate"></i> Refresh</button>
+        <!-- Legend: names the three states once so each row can stay compact -->
+        <div class="defs-wrap">
+          <button class="defs-link" id="defs-btn" aria-expanded="false"><i class="fa-regular fa-circle-info"></i> How progress is counted</button>
+            <!-- Definitions: In progress = the coursework is In progress, i.e. the learner opened a course item.
+                 Accepting the disclaimer alone does NOT count (tested live in the eng review, 16:05–17:43). -->
+            <div class="defs" id="defs" role="dialog" aria-label="How progress is counted">
+              <h4>How progress is counted</h4>
+              <div class="d"><i class="fa-solid fa-circle-check ico-c"></i><div><b data-label="c">Completed</b> — a completion record exists.</div></div>
+              <div class="d"><i class="fa-solid fa-circle-half-stroke ico-ip"></i><div><b data-label="ip">In progress</b> — opened course content, but hasn't completed. Accepting the course disclaimer on its own doesn't count. For a bundle, opening any course inside it counts.</div></div>
+              <div class="d"><i class="fa-regular fa-circle ico-ns"></i><div><b data-label="ns">Not started</b> — assigned, but hasn't opened any course content yet.</div></div>
+              <div class="foot">Each assigned learner is in exactly one state, so the three always add up to the total assigned. <b>Compliance is unchanged:</b> completed ÷ assigned.</div>
+            </div>
+        </div>
+        <div class="right">
+          <span class="results" id="tc-results">9 RESULTS</span>
+          <div class="pager"><button disabled>First</button><button disabled><i class="fa-solid fa-chevron-left"></i></button><span class="num">1</span><button disabled><i class="fa-solid fa-chevron-right"></i></button><button disabled>Last</button></div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data" id="tc-table">
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Position</th>
+              <th>Location</th>
+              <th>Due Date</th>
+              <!-- ★ New: the non-completed remainder split into two counts (FR-1), same "x / y" form as # Completed -->
+              <th class="num"># Not started</th>
+              <th class="num"># In progress</th>
+              <th class="num"># Completed</th>
+              <th>Compliance</th>
+            </tr>
+          </thead>
+          <tbody id="tc-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 2 — COMPLIANCE BY EMPLOYEE
+     FR-2 Status filter: Outstanding → Not started / In progress, Past due, Completed
+     FR-3 destination of the click-through (pre-filtered)
+     ════════════════════════════════════════════════════════════ -->
+<main class="screen" id="screen-cbe">
+  <div class="wrap">
+
+    <!-- Drill-through context banner (only when arriving from Training Compliance) -->
+    <div class="pencil-banner hidden" id="drill-banner">
+      <span class="pb-icon"><i class="fa-solid fa-filter"></i></span>
+      <span class="pb-text" id="drill-text"></span>
+      <button class="pb-action" id="drill-back"><i class="fa-solid fa-arrow-left"></i> Back to Training Compliance</button>
+      <button class="pb-close" aria-label="Dismiss" id="drill-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <div class="daterow">
+      <span class="date-pill">07/01/2026 <i class="fa-regular fa-calendar"></i> <i class="fa-solid fa-arrow-right arrow"></i> 09/29/2026 <i class="fa-regular fa-calendar"></i></span>
+      <button class="help-btn" aria-label="Help">?</button>
+      <button class="export-btn" id="cbe-export"><i class="fa-regular fa-file-export"></i> Export Report <i class="fa-solid fa-chevron-down" style="font-size:11px"></i></button>
+    </div>
+
+    <section class="report-card">
+      <div class="filters">
+        <div class="pos-block">
+          <span class="pos-ico"><i class="fa-regular fa-users"></i></span>
+          <div><b>All positions</b><br><span class="at">at</span> <b>All Locations</b></div>
+        </div>
+
+        <div class="filter-cols">
+          <div class="filter-row">
+            <div class="ff"><button class="ff-trigger"><span class="k">Library</span><span class="v">All</span><i class="fa-solid fa-chevron-down caret"></i></button></div>
+
+            <!-- Course (single select) -->
+            <div class="ff" id="ff-course">
+              <button class="ff-trigger" aria-haspopup="listbox"><span class="k">Course</span><span class="v" id="course-v">All</span><i class="fa-solid fa-chevron-down caret"></i></button>
+              <div class="ff-panel" id="course-panel" role="listbox" style="min-width:360px; max-height:340px; overflow:auto"></div>
+            </div>
+
+            <!-- ★ Status — keeps today's options (Outstanding / Past due / Completed) so saved and
+                 scheduled reports keep working, and adds Not started + In progress INDENTED under
+                 Outstanding (eng review 2026-09-29: Dean 28:58, Rich 29:45). Outstanding is just a
+                 shortcut that ticks both sub-states. Plain multi-select, no extra copy. -->
+            <div class="ff" id="ff-status">
+              <button class="ff-trigger" aria-haspopup="dialog"><span class="k">Status</span><span class="v" id="status-v">All</span><i class="fa-solid fa-chevron-down caret"></i></button>
+              <div class="ff-panel" style="min-width:230px">
+                <div class="opt"><vaadin-checkbox id="cb-outstanding" label="Outstanding"></vaadin-checkbox></div>
+                <div class="opt sub"><vaadin-checkbox data-state="ns" label="Not started" data-label-attr="ns"></vaadin-checkbox></div>
+                <div class="opt sub"><vaadin-checkbox data-state="ip" label="In progress" data-label-attr="ip"></vaadin-checkbox></div>
+                <div class="opt"><vaadin-checkbox id="cb-pastdue" label="Past due"></vaadin-checkbox></div>
+                <div class="opt"><vaadin-checkbox data-state="c" label="Completed" data-label-attr="c"></vaadin-checkbox></div>
+              </div>
+            </div>
+
+            <div class="ff"><button class="ff-trigger"><span class="k">Category</span><span class="v">All</span><i class="fa-solid fa-chevron-down caret"></i></button></div>
+          </div>
+          <div class="filter-row">
+            <div class="ff"><button class="ff-trigger"><span class="k">Detail</span><span class="v">All Assignments</span><i class="fa-solid fa-chevron-down caret"></i></button></div>
+            <div class="ff"><button class="ff-trigger"><span class="k">Employees</span><span class="v">Active as of now</span><i class="fa-solid fa-chevron-down caret"></i></button></div>
+          </div>
+          <div class="switch-row">
+            <vwc-switch id="email-switch" accessible-name="Show e-mail address in report"></vwc-switch>
+            <span>Show E-Mail Address In Report</span>
+          </div>
+        </div>
+
+        <div>
+          <button class="run-btn" id="cbe-run"><i class="fa-regular fa-table"></i> RUN REPORT</button>
+          <div class="run-note" id="run-note"></div>
+        </div>
+      </div>
+
+      <div class="genrow">
+        <div class="gen"><b>Sep 29, 2026 2:04 PM</b><span>Generated</span></div>
+        <button class="refresh"><i class="fa-regular fa-arrows-rotate"></i> Refresh</button>
+        <div class="right">
+          <span class="results" id="cbe-results"></span>
+          <div class="pager">
+            <button id="pg-first">First</button>
+            <button id="pg-prev" aria-label="Previous page"><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="num" id="pg-num">1</span>
+            <button id="pg-next" aria-label="Next page"><i class="fa-solid fa-chevron-right"></i></button>
+            <button id="pg-last">Last</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="results-body" id="cbe-body-wrap">
+        <div class="table-wrap">
+          <table class="data" id="cbe-table">
+            <thead>
+              <tr>
+                <th>External Unique ID</th><th>Username</th><th>First Name</th><th>Last Name</th>
+                <th>Library</th><th>Course</th><th>Due Date</th><th>Start Date</th><th>Time Spent</th>
+                <th>Progress (%)</th><th>Complete Date</th>
+                <!-- ★ New column: the assignment state, using the same three definitions as the filter -->
+                <th class="th-new">Status <span theme="badge primary small pill">New</span></th>
+                <th>Positions</th><th>Locations</th>
+              </tr>
+            </thead>
+            <tbody id="cbe-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<!-- ════════════════════════════════════════════════════════════
+     SCREEN 3 — TRAINING PLANS (Phase 2 · FR-4) — V2: ring + counts
+     A ring chart per assignment in place of
+     the course image (PRD: "course imagery is low-value real estate").
+     Reference: the EverFi assignments page CPN customers had before migrating.
+     ════════════════════════════════════════════════════════════ -->
+<main class="screen" id="screen-tp">
+  <div class="wrap">
+    <div class="tp-toolbar">
+      <vaadin-button theme="primary"><i class="fa-solid fa-plus" slot="prefix"></i> New Assignment</vaadin-button>
+      <span class="date-pill">09/01/2026 <i class="fa-regular fa-calendar"></i> <i class="fa-solid fa-arrow-right arrow"></i> 12/31/2026 <i class="fa-regular fa-calendar"></i></span>
+      <!-- Progress comes from the personal assignment list, rebuilt about once a day (Rich, eng
+           review 4:42: "20 up to 24 hours in arrears") — so say how fresh it is. -->
+      <span class="tp-asof" id="tp-asof"><i class="fa-regular fa-clock"></i> Progress as of Sep 29, 2:00 AM</span>
+      <span class="spacer"></span>
+      <vaadin-text-field theme="outlined" placeholder="Search course, position, …" style="width:280px" aria-label="Search assignments"><i class="fa-regular fa-magnifying-glass" slot="prefix"></i></vaadin-text-field>
+    </div>
+
+    <section class="tp-list" aria-label="Assignments">
+      <div class="tp-grid tp-head">
+        <div>Course &amp; progress</div><div>Job</div><div>Dates</div><div></div>
+      </div>
+      <div id="tp-body"></div>
+    </section>
+  </div>
+</main>
+
+</div><!-- /.app-main -->
+</div><!-- /.app -->
+
+<div class="chat" aria-hidden="true"><i class="fa-solid fa-v"></i></div>
+
+<script>
+  /* ════════════════════════════════════════════════════════════
+     Mock data + rendering. Vanilla JS, no backend.
+     ════════════════════════════════════════════════════════════ */
+
+  // State names live in ONE place. The PRD (D-1) says final wording must match the
+  // partner report ("Not Yet Started" / "In Progress" / "Completed") — change it here.
+  const LABELS = { c: 'Completed', ip: 'In progress', ns: 'Not started' };
+  const ICONS  = {
+    c:  'fa-solid fa-circle-check ico-c',
+    ip: 'fa-solid fa-circle-half-stroke ico-ip',
+    ns: 'fa-regular fa-circle ico-ns'
+  };
+  const ORDER = ['c', 'ip', 'ns'];
+  const LIB_ORDER = ['Test Library', 'Vector Training, K-12 Edition'];          // bar + counts read left→right toward "done"
+  const TODAY = new Date('2026-09-29T12:00:00');
+
+  // Assignment rows — courses/positions from the production screenshot; counts are
+  // mock data chosen to cover the edge cases (0 assigned, 100%, tiny %, 0 in progress).
+  const ASSIGNMENTS = [
+    { id: 'kitchen', lib: 'Test Library', off: 0, course: 'CB - School Kitchen Staff (Food Courses)/Policy PDF/Text Item/YouTube/Survey (forced order)',
+      plan: 'Mandatory Training', position: 'Associate Mechanic', location: 'Sample School District',
+      due: '2026-07-17', c: 0, ip: 1, ns: 1, icon: 'fa-utensils', bg: '#FDEBD3', fg: '#B45309' },
+    { id: 'osha10c', lib: 'Vector Training, K-12 Edition', off: 7, course: 'OSHA 10 Hour Construction Program', plan: 'Suggested Training',
+      position: 'Sample School District Employees', location: 'Sample School District',
+      due: '2025-12-19', c: 38, ip: 9, ns: 5, icon: 'fa-helmet-safety', bg: '#FFF3C4', fg: '#A16207' },
+    { id: 'osha10g', lib: 'Vector Training, K-12 Edition', off: 0, course: 'OSHA 10-Hour General Industry Program', plan: 'Suggested Training',
+      position: 'Sample School District Employees', location: 'Sample School District',
+      due: '2025-12-19', c: 0, ip: 0, ns: 0, icon: 'fa-industry', bg: '#E0ECFF', fg: '#1D4ED8' },
+    { id: 'osha30', lib: 'Vector Training, K-12 Edition', off: 13, course: 'OSHA 30-Hour Construction', plan: 'Suggested Training',
+      position: 'Sample School District Employees', location: 'Sample School District',
+      due: '2026-10-30', c: 12, ip: 20, ns: 8, icon: 'fa-person-digging', bg: '#FFE4D6', fg: '#C2410C' },
+    { id: 'cpn1', lib: 'Test Library', off: 5, course: 'CPN Policy Test', plan: 'A', position: 'Sample School District Employees',
+      location: 'Sample School District', due: '2026-09-24', c: 214, ip: 4, ns: 2,
+      icon: 'fa-file-shield', bg: '#DCFCE7', fg: '#15803D' },
+    { id: 'cpn2', lib: 'Test Library', off: 3, course: 'CPN Policy Test', plan: 'A', position: 'Positions',
+      location: 'Sample School District', due: '2026-09-24', c: 18, ip: 0, ns: 0,
+      icon: 'fa-file-shield', bg: '#DCFCE7', fg: '#15803D' },
+    { id: 'alcohol', lib: 'Vector Training, K-12 Edition', off: 4, course: 'AlcoholEdu for Sanctions', plan: 'Suggested Training', position: 'Campus Police Officer',
+      location: 'Sample School District', due: '2026-11-13', c: 3, ip: 0, ns: 12,
+      icon: 'fa-wine-bottle', bg: '#EDE4FF', fg: '#6D28D9' },
+    { id: 'clicksafety', lib: 'Vector Training, K-12 Edition', off: 2, course: 'ClickSafety Tiny Test Course', plan: 'Test Check',
+      position: 'Sample School District Employees', location: 'Sample School District',
+      due: '2026-12-31', c: 9, ip: 1204, ns: 9315, icon: 'fa-shield-halved', bg: '#E0F2FE', fg: '#0369A1' },
+    { id: 'winter', lib: 'Vector Training, K-12 Edition', off: 9, course: 'Winter Driving', plan: 'RH=26-08-06', position: 'Sample School District Employees',
+      location: 'Sample School District', due: '2026-10-15', c: 61, ip: 11, ns: 13,
+      icon: 'fa-snowflake', bg: '#E2E8F0', fg: '#334155' }
+  ];
+
+  const fmt = n => n.toLocaleString('en-US');
+  const total = a => a.c + a.ip + a.ns;
+  const fmtDate = iso => new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const isPast = iso => new Date(iso + 'T23:59:59') < TODAY;
+
+  // Existing compliance % — UNCHANGED definition (completed ÷ assigned; 0 assigned shows 100%
+  // exactly as production does today).
+  function compliance(a) {
+    const t = total(a);
+    if (!t) return 100;
+    const p = a.c / t * 100;
+    return p > 0 && p < 1 ? Math.round(p * 100) / 100 : Math.round(p);
+  }
+
+  /* ── Screen 1: Training Compliance ───────────────────────── */
+  // A count is a link to the learners behind it (FR-3) — same blue link style production
+  // already uses for "# Completed". All three use the same "11 / 85" compound value
+  // (eng review 2026-09-29, Liz 35:11: "keep the same structure").
+  function countLink(a, s, withTotal) {
+    const n = a[s], txt = withTotal ? `${fmt(n)} / ${fmt(total(a))}` : fmt(n);
+    if (!n) return `<span class="count-zero">${txt}</span>`;
+    return `<button class="count-link" data-drill="${a.id}" data-state="${s}"
+              title="View these ${fmt(n)} learners in Compliance by Employee">${txt}</button>`;
+  }
+
+  function renderTC() {
+    document.getElementById('tc-body').innerHTML = ASSIGNMENTS.map(a => {
+      const p = compliance(a);
+      const theme = p >= 90 ? 'badge success pill' : 'badge error pill';
+      return `<tr>
+        <td><div class="course-cell">
+              <div class="thumb" style="background:${a.bg};color:${a.fg}"><i class="fa-solid ${a.icon}"></i></div>
+              <div><div class="course-name">${a.course}</div><div class="course-plan">${a.plan}</div></div>
+            </div></td>
+        <td class="cell-sm">${a.position}</td>
+        <td class="cell-sm">${a.location}</td>
+        <td class="cell-sm">${fmtDate(a.due)}</td>
+        <td class="num">${countLink(a, 'ns', true)}</td>
+        <td class="num">${countLink(a, 'ip', true)}</td>
+        <td class="num">${countLink(a, 'c', true)}</td>
+        <td class="comp-cell"><span theme="${theme}">${p}%</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Definitions popover
+  const defs = document.getElementById('defs');
+  const defsBtn = document.getElementById('defs-btn');
+  defsBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    const open = defs.classList.toggle('open');
+    defsBtn.setAttribute('aria-expanded', open);
+  });
+  defs.addEventListener('click', e => e.stopPropagation());
+
+  // Click-through: a count → Compliance by Employee, pre-filtered (FR-3 / AC-3.1)
+  document.getElementById('tc-body').addEventListener('click', e => {
+    const b = e.target.closest('.count-link');
+    if (!b) return;
+    drillTo(b.dataset.drill, b.dataset.state);
+  });
+
+  /* ── Screen 2: Compliance by Employee ────────────────────── */
+  // `applied` = what the results show; `draft` = what the filter controls say.
+  // Like production, changes take effect when the admin presses RUN REPORT.
+  // states: any of ns / ip / c.  pastDue: the "Past due" status option — it keeps only the
+  // past-due learners of the outstanding states picked (both, if none are picked), which is
+  // exactly what today's "Past due" option returns. [] + false = All.
+  let applied = { course: 'all', states: [], pastDue: false };
+  let draft   = { ...applied, states: [] };
+  let drill   = null;   // { id, state } when arriving from Training Compliance
+  let page    = 1;
+  const PAGE_SIZE = 10;     // learners per page (each learner can span several course rows)
+
+  const FIRST = ['Andrew','Paul','Maya','Jordan','Elena','Marcus','Priya','Dev','Sofia','Tyler','Aisha','Luis','Grace','Owen','Nina','Caleb','Hana','Isaac','Rosa','Theo','Leah','Omar','Chloe','Wes','Zara'];
+  const LAST  = ['Fair','Belden','Alvarez','Brooks','Chen','Diaz','Evans','Foster','Garcia','Hughes','Ito','Johnson','Kim','Lopez','Morgan','Nguyen','Ortiz','Patel','Quinn','Reyes','Shah','Turner','Usman','Vega','Walsh','Young'];
+
+  // Learner #i is assigned every assignment with more than i learners. Their state in
+  // assignment `a` comes from a rotation of 0..total-1, so each assignment's
+  // Completed / In progress / Not started counts match Training Compliance EXACTLY (AC-3.2).
+  function stateOf(a, i) {
+    const t = total(a);
+    if (i >= t) return null;
+    const p = (i + a.off) % t;
+    return p < a.c ? 'c' : p < a.c + a.ip ? 'ip' : 'ns';
+  }
+  const hex = (n, len) => { let h = ''; for (let k = 0; k < len; k++) h += '0123456789abcdef'[(n * (k + 7) * 2654435761 >>> (k % 5)) & 15]; return h; };
+  function person(i) {
+    return {
+      extId: i % 3 === 0 ? 'E_' + String(i + 1).padStart(4, '0') : '',
+      user: `${hex(i + 11, 8)}-${hex(i + 3, 4)}-11e${i % 9}-${hex(i + 5, 4)}-${hex(i + 17, 12)}`,   // production shows GUID usernames
+      first: FIRST[(i * 7) % FIRST.length],
+      last: LAST[(i * 11 + Math.floor(i / FIRST.length)) % LAST.length]
+    };
+  }
+  function courseRow(a, s, i) {
+    const iso = d => d.toISOString().slice(0, 10);
+    const due = new Date(a.due + 'T12:00:00');
+    const start = new Date(due); start.setDate(due.getDate() - 40 + (i % 25));
+    const done = new Date(start); done.setDate(start.getDate() + 2 + (i % 9));
+    const cap = d => (d < TODAY ? d : TODAY);
+    return {
+      a, state: s,
+      start: s === 'ns' ? '' : iso(cap(start)),
+      done:  s === 'c'  ? iso(cap(done))  : '',
+      spent: s === 'ns' ? '' : s === 'c' ? `${1 + i % 2}h ${String(5 + i % 50).padStart(2, '0')}m` : `${8 + i % 45}m`,
+      pct:   s === 'ns' ? '' : s === 'c' ? '100%' : `${12 + (i * 7) % 80}%`,
+      pastDue: s !== 'c' && isPast(a.due)
+    };
+  }
+  function rowMatches(f, a, s) {
+    if (!s) return false;
+    if (f.course !== 'all' && f.course !== a.id) return false;
+    if (!f.states.length && !f.pastDue) return true;
+    if (s === 'c') return f.states.includes('c');
+    let out = f.states.filter(x => x !== 'c');
+    if (f.pastDue && !out.length) out = ['ns', 'ip'];
+    return out.includes(s) && (!f.pastDue || isPast(a.due));
+  }
+  // Every learner with ≥1 matching course row, in order. (≈10k learners — cheap enough for a mock.)
+  function matchingLearners(f) {
+    const maxT = Math.max(...ASSIGNMENTS.map(total));
+    const out = [];
+    for (let i = 0; i < maxT; i++) {
+      const rows = LIB_ORDER.flatMap(lib => ASSIGNMENTS.filter(a => a.lib === lib))
+        .map(a => ({ a, s: stateOf(a, i) })).filter(r => rowMatches(f, r.a, r.s));
+      if (rows.length) out.push({ i, rows });
+    }
+    return out;
+  }
+
+  // Trigger summary, in checkbox order: "Outstanding", "In progress, past due", "Past due, Completed"…
+  function statusLabel(f) {
+    const has = s => f.states.includes(s);
+    if (!f.pastDue && (!f.states.length || f.states.length === 3)) return 'All';
+    const parts = [];
+    const out = has('ns') && has('ip') ? 'Outstanding' : has('ns') ? LABELS.ns : has('ip') ? LABELS.ip : '';
+    if (out) parts.push(f.pastDue ? `${out}, past due` : out);
+    else if (f.pastDue) parts.push('Past due');
+    if (has('c')) parts.push(LABELS.c);
+    return parts.join(', ');
+  }
+  const COLS = 14;
+  let lastPageCount = 1;
+
+  function renderCBE() {
+    const learners = matchingLearners(applied);
+    const n = learners.reduce((t, l) => t + l.rows.length, 0);     // RESULTS = course rows, like production
+    const pages = lastPageCount = Math.max(1, Math.ceil(learners.length / PAGE_SIZE));
+    page = Math.min(page, pages);
+    document.getElementById('cbe-results').textContent = `${fmt(n)} RESULT${n === 1 ? '' : 'S'}`;
+    document.getElementById('pg-num').textContent = page + (pages > 1 ? ` of ${fmt(pages)}` : '');
+    ['pg-first', 'pg-prev'].forEach(id => document.getElementById(id).disabled = page <= 1);
+    ['pg-next', 'pg-last'].forEach(id => document.getElementById(id).disabled = page >= pages);
+
+    const body = document.getElementById('cbe-body');
+    if (!n) {
+      body.innerHTML = `<tr><td colspan="${COLS}"><div class="empty-state">
+          <i class="fa-regular fa-magnifying-glass"></i>
+          <h4>No learners match these filters</h4>
+          <p>Try another course, or widen the Status filter.</p>
+        </div></td></tr>`;
+      return;
+    }
+
+    // Production layout: learner columns print once per learner, Library once per
+    // library group, then one row per course.
+    body.innerHTML = learners.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map(({ i, rows }) => {
+      const p = person(i);
+      return rows.map((r0, k) => {
+        const r = courseRow(r0.a, r0.s, i);
+        const firstOfLib = k === 0 || rows[k - 1].a.lib !== r0.a.lib;
+        const learnerCells = k === 0
+          ? `<td rowspan="${rows.length}">${p.extId}</td>
+             <td rowspan="${rows.length}" class="guid">${p.user}</td>
+             <td rowspan="${rows.length}">${p.first}</td>
+             <td rowspan="${rows.length}">${p.last}</td>` : '';
+        const libSpan = rows.slice(k).findIndex(x => x.a.lib !== r0.a.lib);
+        const libCell = firstOfLib
+          ? `<td rowspan="${libSpan === -1 ? rows.length - k : libSpan}" class="lib">${r0.a.lib}</td>` : '';
+        return `<tr class="${k === 0 ? 'learner-start' : ''}">
+          ${learnerCells}${libCell}
+          <td class="c-course">${r.a.course.length > 44 ? r.a.course.slice(0, 42) + '…' : r.a.course}</td>
+          <td class="due-cell">${r.a.due}${r.pastDue ? '<br><span theme="badge error small">Past due</span>' : ''}</td>
+          <td>${r.start}</td><td>${r.spent}</td><td>${r.pct}</td><td>${r.done}</td>
+          <td class="status-cell"><span class="status-tag"><i class="${ICONS[r.state]}"></i>${LABELS[r.state]}</span></td>
+          <td>${r.a.position}</td><td>${r.a.location}</td>
+        </tr>`;
+      }).join('');
+    }).join('');
+  }
+
+  // Keep filter controls in sync with `draft`
+  function syncControls() {
+    document.querySelectorAll('#ff-status vaadin-checkbox[data-state]').forEach(cb => {
+      cb.checked = draft.states.includes(cb.dataset.state);
+    });
+    // Outstanding = both sub-states; one of the two shows it half-checked
+    const nOut = ['ns', 'ip'].filter(s => draft.states.includes(s)).length;
+    const outCb = document.getElementById('cb-outstanding');
+    outCb.checked = nOut === 2; outCb.indeterminate = nOut === 1;
+    document.getElementById('cb-pastdue').checked = draft.pastDue;
+    document.getElementById('status-v').textContent = statusLabel(draft);
+    const a = ASSIGNMENTS.find(x => x.id === draft.course);
+    document.getElementById('course-v').textContent = a ? `${a.course} (${a.position})` : 'All';
+    renderCoursePanel();
+    const dirty = JSON.stringify(draft) !== JSON.stringify(applied);
+    document.getElementById('cbe-run').classList.toggle('pending', dirty);
+    document.getElementById('run-note').textContent = dirty ? 'Run the report to apply your changes' : '';
+  }
+
+  function renderCoursePanel() {
+    const opts = [{ id: 'all', label: 'All' }].concat(
+      ASSIGNMENTS.map(a => ({ id: a.id, label: `${a.course} (${a.position})` })));
+    document.getElementById('course-panel').innerHTML =
+      '<div class="p-title">Course</div>' +
+      opts.map(o => `<button class="list-opt ${draft.course === o.id ? 'sel' : ''}" role="option" data-course="${o.id}">${o.label}</button>`).join('');
+  }
+
+  function run(instant) {
+    applied = { ...draft, states: [...draft.states] };
+    page = 1;
+    // If the admin changed filters, the view is no longer "the N learners you clicked"
+    const same = (x, y) => x.course === y.course && x.pastDue === y.pastDue && [...x.states].sort().join() === [...y.states].sort().join();
+    if (drill && !same(applied, drill.filter)) {
+      document.getElementById('drill-banner').classList.add('hidden');
+    }
+    const wrap = document.getElementById('cbe-body-wrap');
+    if (instant) { renderCBE(); syncControls(); return; }
+    wrap.classList.add('loading');
+    setTimeout(() => { renderCBE(); syncControls(); wrap.classList.remove('loading'); }, 350);
+  }
+
+  // Filter panels — one open at a time, close on outside click
+  document.querySelectorAll('.ff').forEach(ff => {
+    const trig = ff.querySelector('.ff-trigger');
+    if (!ff.querySelector('.ff-panel')) return;
+    trig.addEventListener('click', e => {
+      e.stopPropagation();
+      const was = ff.classList.contains('open');
+      closePanels();
+      ff.classList.toggle('open', !was);
+    });
+    ff.querySelector('.ff-panel').addEventListener('click', e => e.stopPropagation());
+  });
+  function closePanels() {
+    document.querySelectorAll('.ff.open').forEach(f => f.classList.remove('open'));
+    defs.classList.remove('open'); defsBtn.setAttribute('aria-expanded', 'false');
+  }
+  document.addEventListener('click', closePanels);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePanels(); });
+
+  document.querySelectorAll('#ff-status vaadin-checkbox[data-state]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const s = cb.dataset.state;
+      draft.states = cb.checked ? [...new Set([...draft.states, s])] : draft.states.filter(x => x !== s);
+      syncControls();
+    });
+  });
+  // Outstanding ticks / clears both sub-states together
+  document.getElementById('cb-outstanding').addEventListener('change', e => {
+    const on = e.target.checked;
+    draft.states = draft.states.filter(x => x === 'c').concat(on ? ['ns', 'ip'] : []);
+    syncControls();
+  });
+  document.getElementById('cb-pastdue').addEventListener('change', e => {
+    draft.pastDue = e.target.checked; syncControls();
+  });
+  document.getElementById('course-panel').addEventListener('click', e => {
+    const b = e.target.closest('[data-course]');
+    if (!b) return;
+    draft.course = b.dataset.course; syncControls(); closePanels();
+  });
+  document.getElementById('cbe-run').addEventListener('click', () => { closePanels(); run(); });
+  document.getElementById('tc-run').addEventListener('click', () => {});
+
+  // Pager
+  const lastPage = () => lastPageCount;
+  document.getElementById('pg-first').onclick = () => { page = 1; renderCBE(); };
+  document.getElementById('pg-prev').onclick  = () => { page = Math.max(1, page - 1); renderCBE(); };
+  document.getElementById('pg-next').onclick  = () => { page = Math.min(lastPage(), page + 1); renderCBE(); };
+  document.getElementById('pg-last').onclick  = () => { page = lastPage(); renderCBE(); };
+
+  // Drill-through to the learner report, pre-filtered (FR-3 / AC-4.3).
+  // `source` = the screen the admin came from, so the banner's Back link returns there.
+  const SOURCES = { tc: 'the Training Compliance report', tp: 'Training Plans' };
+  const BACK    = { tc: 'Back to Training Compliance', tp: 'Back to Training Plans' };
+  function openDrill(filter, text, source) {
+    drill = { filter: { ...filter, states: [...filter.states] }, source };   // pastDue: false
+    draft = { ...filter, states: [...filter.states] };
+    run(true);
+    document.getElementById('drill-text').innerHTML = `${text}, from ${SOURCES[source]}.`;
+    document.getElementById('drill-back').innerHTML = `<i class="fa-solid fa-arrow-left"></i> ${BACK[source]}`;
+    document.getElementById('drill-banner').classList.remove('hidden');
+    showScreen('cbe');
+  }
+  function drillTo(id, state, source) {
+    const a = ASSIGNMENTS.find(x => x.id === id);
+    openDrill({ course: id, states: [state], pastDue: false },
+      `Showing the <b>${fmt(a[state])} ${LABELS[state].toLowerCase()}</b> learner${a[state] === 1 ? '' : 's'} for <b>${a.course}</b> (${a.position})`,
+      source || 'tc');
+  }
+  document.getElementById('drill-back').onclick = () => { const src = drill ? drill.source : 'tc'; showScreen(src); if (src === 'tp') loadTP(true); };
+  document.getElementById('drill-close').onclick = () => document.getElementById('drill-banner').classList.add('hidden');
+
+  /* ── Screen 3: Training Plans ────────────────────────────── */
+  // Ring chart: Completed + In progress arcs over a gray Not-started track, 2px gaps
+  // between segments, % complete (= the unchanged compliance %) in the center.
+  function ring(a, size, center) {
+    size = size || 76;
+    const sw = 10, r = (size - sw) / 2, C = 2 * Math.PI * r, t = total(a), cx = size / 2;
+    const label = t ? ORDER.map(s => `${fmt(a[s])} ${LABELS[s]}`).join(', ') + ` of ${fmt(t)} assigned` : 'No learners assigned';
+    if (!t) {
+      return `<svg class="ring" width="${size}" height="${size}" role="img" aria-label="${label}">
+        <circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="#D0D5DD" stroke-width="2" stroke-dasharray="4 4"></circle>
+        <text x="50%" y="52%" text-anchor="middle" class="lbl" dominant-baseline="middle">None</text></svg>`;
+    }
+    const nz = ORDER.filter(s => a[s] > 0);
+    const gap = nz.length > 1 ? 2 : 0;
+    // Tiny non-zero shares (9 of 10,528) still get a visible sliver
+    let lens = nz.map(s => Math.max(C * a[s] / t, 4 + gap));
+    const k = C / lens.reduce((x, y) => x + y, 0); lens = lens.map(l => l * k);
+    const paint = { c: 'var(--st-c)', ip: 'url(#apr-ip-stripe)', ns: '#C3CBD6' };
+    let off = 0;
+    const arcs = nz.map((s, i) => {
+      const L = lens[i], pctS = Math.round(a[s] / t * 1000) / 10;
+      const el = `<circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${paint[s]}" stroke-width="${sw}"
+          stroke-dasharray="${Math.max(L - gap, 1)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 ${cx} ${cx})">
+          <title>${fmt(a[s])} ${LABELS[s]} (${pctS}%)</title></circle>`;
+      off += L; return el;
+    }).join('');
+    return `<svg class="ring" width="${size}" height="${size}" role="img" aria-label="${label}">${arcs}
+      ${center === 'total'
+        ? `<text x="50%" y="45%" text-anchor="middle" class="pct${fmt(t).length > 5 ? ' sm' : ''}" dominant-baseline="middle">${fmt(t)}</text>
+           <text x="50%" y="66%" text-anchor="middle" class="lbl" dominant-baseline="middle">assigned</text>`
+        : `<text x="50%" y="45%" text-anchor="middle" class="pct" dominant-baseline="middle">${compliance(a)}%</text>
+           <text x="50%" y="66%" text-anchor="middle" class="lbl" dominant-baseline="middle">complete</text>`}</svg>`;
+  }
+  function legendBtns(a, src) {
+    return ORDER.map(s => {
+      const n = a[s], zero = n === 0;
+      return `<button class="count-btn ${zero ? 'zero' : ''}" ${zero ? 'disabled' : ''} data-drill="${a.id}" data-state="${s}" data-src="${src}"
+                title="${zero ? 'No learners ' + LABELS[s].toLowerCase() : 'View these ' + fmt(n) + ' learners'}">
+                <i class="${ICONS[s]}"></i><span class="n">${fmt(n)}</span><span class="lbl">${LABELS[s]}</span></button>`;
+    }).join('');
+  }
+  // loading = true draws the page with placeholders where progress will appear
+  function renderTP(loading) {
+    document.getElementById('tp-body').innerHTML = ASSIGNMENTS.map(a => `
+      <div class="tp-grid tp-row">
+        <div class="tp-prog">${loading ? '<span class="skel ring-sk" aria-hidden="true"></span>' : ring(a)}
+          <div class="tp-course"><div class="nm">${a.course}</div>
+            <div class="ring-legend">${loading ? '<span class="skel" style="width:240px;margin-top:8px"></span>'
+              : total(a) ? legendBtns(a, 'tp') : '<span class="no-learners">No learners assigned</span>'}</div></div></div>
+        <div class="tp-cell"><div><b>${a.position}</b><br>at <b>${a.location}</b></div></div>
+        <div class="tp-cell"><div class="tp-dates"><div><b>${fmtDate(effDate(a))}</b><div class="l">Effective</div></div><i class="fa-solid fa-arrow-right" style="color:var(--muted-2)"></i><div><b>${fmtDate(a.due)}</b><div class="l">Due</div></div></div></div>
+        <div class="tp-kebab"><i class="fa-solid fa-ellipsis"></i></div>
+      </div>`).join('');
+  }
+  // Opening Training Plans: rows first, progress a moment later
+  let tpTimer = null;
+  function loadTP(instant) {
+    clearTimeout(tpTimer);
+    document.getElementById('tp-body').setAttribute('aria-busy', instant ? 'false' : 'true');
+    if (instant) return renderTP(false);
+    renderTP(true);
+    tpTimer = setTimeout(() => { renderTP(false); document.getElementById('tp-body').setAttribute('aria-busy', 'false'); }, 1100);
+  }
+  function effDate(a) { const d = new Date(a.due + 'T12:00:00'); d.setDate(d.getDate() - 45); return d.toISOString().slice(0, 10); }
+
+  document.getElementById('screen-tp').addEventListener('click', e => {
+    const b = e.target.closest('.count-btn');
+    if (b && !b.disabled && b.dataset.drill) return drillTo(b.dataset.drill, b.dataset.state, 'tp');
+  });
+
+  /* ── Screen switching (tabs) ─────────────────────────────── */
+  function showScreen(id) {
+    const tp = id === 'tp';
+    document.getElementById('chrome-reports').hidden = tp;
+    document.getElementById('chrome-tp').hidden = !tp;
+    document.querySelectorAll('.sb-item[data-nav]').forEach(b => b.classList.toggle('active', tp ? b.dataset.nav === 'tp' : b.dataset.nav === 'tc'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + id));
+    document.querySelectorAll('.tab[data-screen]').forEach(t => t.classList.toggle('active', t.dataset.screen === id));
+    document.querySelectorAll('.tab:not([data-screen])').forEach(t => t.classList.remove('active'));
+    closePanels();
+  }
+  document.querySelectorAll('.tab[data-screen]').forEach(t => t.addEventListener('click', () => {
+    if (t.dataset.screen === 'cbe') document.getElementById('drill-banner').classList.add('hidden');
+    showScreen(t.dataset.screen);
+  }));
+
+  document.querySelectorAll('.sb-item[data-nav]').forEach(b => b.addEventListener('click', () => {
+    showScreen(b.dataset.nav);
+    if (b.dataset.nav === 'tp') loadTP();
+  }));
+
+  // Apply the LABELS constant everywhere static markup names a state
+  document.querySelectorAll('[data-label]').forEach(el => el.textContent = LABELS[el.dataset.label]);
+  document.querySelectorAll('[data-label-attr]').forEach(el => el.setAttribute('label', LABELS[el.dataset.labelAttr]));
+
+  renderTC();
+  renderTP();
+  run(true);
+</script>
+
+<!-- ── Design Toolbox: Flow Map ─────────────────────────────────────────────── -->
+<script>
+  // 1) State driver — put the page into the screen for node `id`.
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    closePanels();
+    const reset = () => { drill = null; draft = { course: 'all', states: [], pastDue: false }; run(true);
+                          document.getElementById('drill-banner').classList.add('hidden'); };
+    const whenReady = fn => customElements.whenDefined('vaadin-checkbox').then(() => setTimeout(fn, 0));
+    switch (id) {
+      case 'tc':
+        showScreen('tc');
+        break;
+      case 'tc-defs':
+        showScreen('tc');
+        setTimeout(() => { defs.classList.add('open'); defsBtn.setAttribute('aria-expanded', 'true'); }, 0);
+        break;
+      case 'cbe-drill':
+        drillTo('winter', 'ip');
+        break;
+      case 'cbe-pastdue':
+        drillTo('winter', 'ip');
+        draft.states = ['ip']; draft.pastDue = true; draft.course = 'all';
+        run(true);
+        break;
+      case 'cbe-status':
+        reset(); showScreen('cbe');
+        whenReady(() => { syncControls(); document.getElementById('ff-status').classList.add('open'); });
+        break;
+      case 'tp':
+        showScreen('tp'); loadTP(true);
+        break;
+      case 'tp-loading':
+        showScreen('tp'); clearTimeout(tpTimer); renderTP(true);
+        break;
+      case 'tp-drill':
+        drillTo('osha30', 'ns', 'tp');
+        break;
+      case 'cbe-legacy':
+        reset(); draft = { course: 'all', states: ['ns', 'ip'], pastDue: false }; run(true); showScreen('cbe');
+        whenReady(() => { syncControls(); document.getElementById('ff-status').classList.add('open'); });
+        break;
+      default:
+        showScreen('tc');
+    }
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  // 2) Hash boot — honor #fm=<state> on load and on change.
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  // 3) Flow-map config
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Assignment Progress Reporting — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 950 },
+      flows: [
+        { id: 'drill', name: 'Number → named learners', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1200, h: 290 }, labelXY: { x: 40, y: 40 } },
+        { id: 'filter', name: 'Filter the learner report directly', pill: 'B', color: '#b8e0c9',
+          lane: { x: 20, y: 330, w: 1200, h: 290 }, labelXY: { x: 40, y: 350 } },
+        { id: 'plans', name: 'Training Plans at a glance (Phase 2)', pill: 'C', color: '#f5d9a8',
+          lane: { x: 20, y: 640, w: 1200, h: 290 }, labelXY: { x: 40, y: 660 } }
+      ],
+      nodes: [
+        { id: 'tc', flow: 'drill', entry: true, x: 60, y: 100, step: 'Entry', name: 'Training Compliance', state: 'tc',
+          desc: 'Counts, not a chart: # Not started and # In progress sit next to the existing # Completed; each count opens those learners. Course picture and Compliance % unchanged.' },
+        { id: 'tc-defs', flow: 'drill', x: 340, y: 100, step: 'Info', name: 'How progress is counted', state: 'tc-defs',
+          desc: '"How progress is counted" above the table defines each state and says the compliance % is unchanged.' },
+        { id: 'cbe-drill', flow: 'drill', x: 620, y: 100, step: 'Click a count', name: 'Pre-filtered learner list', state: 'cbe-drill',
+          desc: 'Clicking "11 In progress" on Winter Driving opens Compliance by Employee with course + status already set; the count matches.' },
+        { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'In progress + Past due', state: 'cbe-pastdue',
+          desc: 'Ticking Past due with In progress keeps only the past-due In progress learners, across all courses.' },
+        { id: 'cbe-status', flow: 'filter', entry: true, x: 60, y: 410, step: 'Entry', name: 'Status filter', state: 'cbe-status',
+          desc: 'Today\'s options stay (Outstanding, Past due, Completed); Not started and In progress sit indented under Outstanding.' },
+        { id: 'cbe-legacy', flow: 'filter', x: 340, y: 410, step: 'Existing use', name: 'Outstanding = both', state: 'cbe-legacy',
+          desc: 'Ticking Outstanding ticks both sub-states, so saved and scheduled reports on Outstanding return the same learners.' },
+        { id: 'tp-loading', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Loading progress', state: 'tp-loading',
+          desc: 'The list shows right away; progress fills in a moment later, so the page never waits on it. "Progress as of" says how fresh it is (updated about daily).' },
+        { id: 'tp', flow: 'plans', x: 340, y: 720, step: 'Loaded', name: 'Training Plans', state: 'tp',
+          desc: 'Phase 2 (FR-4). A progress ring in front of each plain course name, counts under it. Numbers match Training Compliance.' },
+        { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
+          desc: 'Clicking "8 Not started" on OSHA 30-Hour opens the learner report pre-filtered; the banner links back to Training Plans (AC-4.3).' }
+      ],
+      edges: [
+        ['tc', 'tc-defs'],
+        ['tc', 'cbe-drill'],
+        ['cbe-drill', 'cbe-pastdue'],
+        ['cbe-drill', 'tc'],
+        ['cbe-status', 'cbe-legacy'],
+        ['tp-loading', 'tp'],
+        ['tp', 'tp-drill']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: pin-and-comment review widget + flow map. Included by
+     DEFAULT in every mock. Review tooling only — NOT part of the product. -->
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
