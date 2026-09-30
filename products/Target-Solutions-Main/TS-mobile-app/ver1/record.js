@@ -93,9 +93,10 @@
                     'Skills station rotation', 'Scenario-based training', 'Peer instruction',
                     'Written assessment', 'Apparatus operation', 'Radio procedure'];
 
-  /* First entry is the signed-in officer. It is NOT the default — the field
-     starts empty and is filled by VoiceComplete or a manual pick. */
-  var INSTRUCTORS = ['Jordan Lee (you)', 'Captain Johnson', 'Lieutenant Smith', 'Captain Brown', 'Battalion Chief Davis'];
+  /* Instructor list. Nothing marks the signed-in officer — the app has no way
+     to link an instructor record to the logged-in user — and the field starts
+     empty, filled by VoiceComplete or a manual pick. */
+  var INSTRUCTORS = ['Jordan Lee', 'Captain Johnson', 'Lieutenant Smith', 'Captain Brown', 'Battalion Chief Davis'];
 
   /* People the officer can add. `recent` = the picker's "Last used" group: the
      exact roster from the officer's last submission (re-synced on every Submit),
@@ -230,7 +231,6 @@
     var p = iso.split('-');
     return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+p[1] - 1] + ' ' + (+p[2]) + ', ' + p[0];
   }
-  function shortName(n) { return n.replace(' (you)', ''); }
   /* "Cox, Sandra" → "Sandra Cox" for the participant list */
   function displayName(p) { var parts = p.name.split(', '); return parts.length === 2 ? parts[1] + ' ' + parts[0] : p.name; }
 
@@ -312,7 +312,7 @@
       var summary = filled
         ? '<div class="rc-panel__summary"><span>' + prettyDate(a.date) + '</span>' +
           (a.duration ? '<span>' + esc(a.duration) + ' hrs</span>' : '') +
-          (a.instructor ? '<span class="rc-panel__summary-end">' + esc(shortName(a.instructor)) + '</span>' : '') + '</div>'
+          (a.instructor ? '<span class="rc-panel__summary-end">' + esc(a.instructor) + '</span>' : '') + '</div>'
         : '';
       return '<div class="rc-panel' + (filled ? ' is-filled' : '') + '">' + head + summary + '</div>';
     }
