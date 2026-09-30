@@ -281,16 +281,17 @@
   /* Report tables fit the screen (2026-09-30): the table box ends at the bottom of the window
      (JS sets max-height = what's left below it), so its horizontal scrollbar is always on
      screen, and the header row sticks to the top of the box while rows scroll under it. */
-  .table-wrap.fit { overflow: auto; padding-bottom: 0; margin-bottom: 12px; }
+  .fit { overflow: auto; margin-bottom: 12px; }
+  .table-wrap.fit { padding-bottom: 0; }
   .table-wrap.fit table.data thead th { position: sticky; top: 0; z-index: 2; }
-  #screen-tc, #screen-cbe { padding-bottom: 16px; }
-  /* Always-visible scrollbars (macOS otherwise hides them until you scroll) */
-  .table-wrap.fit::-webkit-scrollbar { width: 12px; height: 12px; }
-  .table-wrap.fit::-webkit-scrollbar-track { background: #F2F5F8; border-radius: 6px; }
-  .table-wrap.fit::-webkit-scrollbar-thumb { background: #B8C2D0; border-radius: 6px; border: 2px solid #F2F5F8; }
-  .table-wrap.fit::-webkit-scrollbar-thumb:hover { background: #98A3B3; }
-  .table-wrap.fit::-webkit-scrollbar-corner { background: transparent; }
-  @supports not selector(::-webkit-scrollbar) { .table-wrap.fit { scrollbar-color: #B8C2D0 #F2F5F8; } }
+  #screen-tc, #screen-cbe, #screen-tp { padding-bottom: 16px; }
+  /* Scrollbars: the horizontal one is always visible (macOS otherwise hides it until you
+     scroll); the vertical one is hidden — rows still scroll with the wheel / trackpad. */
+  .fit::-webkit-scrollbar { width: 0; height: 12px; }
+  .fit::-webkit-scrollbar-track { background: #F2F5F8; border-radius: 6px; }
+  .fit::-webkit-scrollbar-thumb { background: #B8C2D0; border-radius: 6px; border: 2px solid #F2F5F8; }
+  .fit::-webkit-scrollbar-thumb:hover { background: #98A3B3; }
+  @supports not selector(::-webkit-scrollbar) { .fit { scrollbar-color: #B8C2D0 #F2F5F8; } }
   table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
   table.data thead th {
     text-align: left; padding: 16px 12px; background: #EEF2F8;
@@ -460,7 +461,8 @@
   .tp-list { background: #fff; border-radius: 12px; box-shadow: var(--card-shadow); }
   .tp-grid { display: grid; grid-template-columns: minmax(420px, 2.2fr) minmax(170px, 1fr) 220px 24px;
     gap: 16px; align-items: center; padding: 0 24px; min-width: 900px; }
-  .tp-list { overflow-x: auto; }   /* very narrow windows scroll the list, never the page */
+  /* The list is a screen-fit box too: header sticks; a white ring hides rows scrolling past its margins */
+  .tp-list.fit .tp-head { position: sticky; top: 0; z-index: 2; box-shadow: 0 0 0 16px #fff; }
   .tp-head { background: #EEF2F8; border-radius: 8px; margin: 16px 16px 0; padding: 14px 8px 14px 8px; min-width: 868px;
     font-size: 13px; font-weight: 600; letter-spacing: .3px; text-transform: uppercase; color: #2B3A55; }
   .tp-row { padding-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--hair); }
@@ -790,7 +792,7 @@ Engagement</button>
       <vaadin-text-field theme="outlined" placeholder="Search course, position, …" style="width:280px" aria-label="Search assignments"><i class="fa-regular fa-magnifying-glass" slot="prefix"></i></vaadin-text-field>
     </div>
 
-    <section class="tp-list" aria-label="Assignments">
+    <section class="tp-list fit" aria-label="Assignments">
       <div class="tp-grid tp-head">
         <div>Course &amp; progress</div><div>Job</div><div>Dates</div><div></div>
       </div>
@@ -1254,7 +1256,7 @@ Engagement</button>
   // Short windows (under 220px — about 4 rows — left below the filters): the box is as tall as the window
   // instead, so scrolling the page down to it shows the whole box, scrollbar included.
   function fitTables() {
-    document.querySelectorAll('.screen.active .table-wrap.fit').forEach(w => {
+    document.querySelectorAll('.screen.active .fit').forEach(w => {
       const top = w.getBoundingClientRect().top + window.scrollY;
       const below = 12 + 16;   // wrap margin + screen padding
       const left = window.innerHeight - top - below;
