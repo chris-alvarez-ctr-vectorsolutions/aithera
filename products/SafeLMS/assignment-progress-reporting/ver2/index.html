@@ -210,10 +210,14 @@
     color: var(--muted); margin: 0 0 6px;
   }
   .ff-panel .opt { display: flex; align-items: flex-start; gap: 4px; padding: 2px 0; }
-  /* Secondary options (Outstanding, Past due): same checkboxes, lighter + smaller label */
-  .ff-panel .opt.secondary vaadin-checkbox { font-size: 13px; }
-  .ff-panel .opt.secondary vaadin-checkbox::part(label),
-  .ff-panel .opt.secondary vaadin-checkbox > label { color: var(--muted); }
+  /* Status tree: Outstanding Assignments expands to its two sub-states */
+  .ff-panel .tree-parent { justify-content: space-between; align-items: center; gap: 12px; }
+  .tree-toggle { flex: 0 0 28px; width: 28px; height: 28px; border: 0; border-radius: 4px; background: 0;
+    color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+  .tree-toggle:hover { background: var(--hair-2); color: var(--ink); }
+  .tree-toggle i { font-size: 12px; transition: transform .15s; }
+  .tree-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
+  .ff-panel .opt.sub { padding-left: 30px; }
   .ff-panel .opt-help { font-size: 12px; color: var(--muted); margin: -6px 0 6px 34px; line-height: 1.4; }
   .ff-panel .p-divider { height: 1px; background: var(--hair); margin: 10px -16px; }
   .ff-panel .quick {
@@ -692,20 +696,25 @@ Engagement</button>
               <div class="ff-panel" id="course-panel" role="listbox" style="min-width:360px; max-height:340px; overflow:auto"></div>
             </div>
 
-            <!-- ★ Status — the three states are the main options. Today's Outstanding and Past due
-                 stay as ordinary checkboxes (saved + scheduled reports keep working — eng review
-                 2026-09-29, Dean 28:58), grouped below a divider in a lighter style as secondary
-                 options (2026-09-30). Outstanding ticks Not started + In progress; Past due keeps
-                 only the past-due outstanding learners. Plain multi-select, no extra copy. -->
+            <!-- ★ Status — today's three options, in today's words, with the two new states nested
+                 under Outstanding Assignments behind a chevron (2026-09-30; eng review 2026-09-29,
+                 Dean 28:58 / Rich 29:45). Outstanding ticks both sub-states; ticking one shows it
+                 half-checked. Past Due keeps only the past-due outstanding learners. Saved and
+                 scheduled reports on the old options keep returning the same learners. -->
             <div class="ff" id="ff-status">
               <button class="ff-trigger" aria-haspopup="dialog"><span class="k">Status</span><span class="v" id="status-v">All</span><i class="fa-solid fa-chevron-down caret"></i></button>
-              <div class="ff-panel" style="min-width:230px">
-                <div class="opt"><vaadin-checkbox data-state="ns" label="Not started" data-label-attr="ns"></vaadin-checkbox></div>
-                <div class="opt"><vaadin-checkbox data-state="ip" label="In progress" data-label-attr="ip"></vaadin-checkbox></div>
-                <div class="opt"><vaadin-checkbox data-state="c" label="Completed" data-label-attr="c"></vaadin-checkbox></div>
-                <div class="p-divider"></div>
-                <div class="opt secondary"><vaadin-checkbox id="cb-outstanding" label="Outstanding"></vaadin-checkbox></div>
-                <div class="opt secondary"><vaadin-checkbox id="cb-pastdue" label="Past due"></vaadin-checkbox></div>
+              <div class="ff-panel" style="min-width:290px">
+                <div class="opt tree-parent">
+                  <vaadin-checkbox id="cb-outstanding" label="Outstanding Assignments"></vaadin-checkbox>
+                  <button class="tree-toggle" id="out-toggle" aria-expanded="false" aria-controls="out-children"
+                          aria-label="Show Not Started and In Progress"><i class="fa-solid fa-chevron-down"></i></button>
+                </div>
+                <div class="tree-children" id="out-children" hidden>
+                  <div class="opt sub"><vaadin-checkbox data-state="ns" label="Not Started" data-label-attr="ns"></vaadin-checkbox></div>
+                  <div class="opt sub"><vaadin-checkbox data-state="ip" label="In Progress" data-label-attr="ip"></vaadin-checkbox></div>
+                </div>
+                <div class="opt"><vaadin-checkbox id="cb-pastdue" label="Past Due Assignments"></vaadin-checkbox></div>
+                <div class="opt"><vaadin-checkbox data-state="c" label="Completions"></vaadin-checkbox></div>
               </div>
             </div>
 
@@ -802,7 +811,7 @@ Engagement</button>
 
   // State names live in ONE place. The PRD (D-1) says final wording must match the
   // partner report ("Not Yet Started" / "In Progress" / "Completed") — change it here.
-  const LABELS = { c: 'Completed', ip: 'In progress', ns: 'Not started' };
+  const LABELS = { c: 'Completed', ip: 'In Progress', ns: 'Not Started' };
   const ICONS  = {
     c:  'fa-solid fa-circle-check ico-c',
     ip: 'fa-solid fa-circle-half-stroke ico-ip',
@@ -978,15 +987,15 @@ Engagement</button>
     return out;
   }
 
-  // Trigger summary: "Outstanding", "In progress, past due", "Past due, Completed"…
+  // Trigger summary: "Outstanding", "In Progress, Past Due", "Past Due, Completions"…
   function statusLabel(f) {
     const has = s => f.states.includes(s);
     if (!f.pastDue && (!f.states.length || f.states.length === 3)) return 'All';
     const parts = [];
     const out = has('ns') && has('ip') ? 'Outstanding' : has('ns') ? LABELS.ns : has('ip') ? LABELS.ip : '';
-    if (out) parts.push(f.pastDue ? `${out}, past due` : out);
-    else if (f.pastDue) parts.push('Past due');
-    if (has('c')) parts.push(LABELS.c);
+    if (out) parts.push(f.pastDue ? `${out}, Past Due` : out);
+    else if (f.pastDue) parts.push('Past Due');
+    if (has('c')) parts.push('Completions');
     return parts.join(', ');
   }
   const COLS = 14;
@@ -1048,6 +1057,7 @@ Engagement</button>
     const nOut = ['ns', 'ip'].filter(s => draft.states.includes(s)).length;
     const outCb = document.getElementById('cb-outstanding');
     outCb.checked = nOut === 2; outCb.indeterminate = nOut === 1;
+    if (nOut === 1) setOutExpanded(true);   // a partial pick is never hidden behind the chevron
     document.getElementById('cb-pastdue').checked = draft.pastDue;
     document.getElementById('status-v').textContent = statusLabel(draft);
     const a = ASSIGNMENTS.find(x => x.id === draft.course);
@@ -1104,6 +1114,14 @@ Engagement</button>
       syncControls();
     });
   });
+  function setOutExpanded(on) {
+    document.getElementById('out-children').hidden = !on;
+    const t = document.getElementById('out-toggle');
+    t.setAttribute('aria-expanded', on);
+    t.setAttribute('aria-label', `${on ? 'Hide' : 'Show'} Not Started and In Progress`);
+  }
+  document.getElementById('out-toggle').addEventListener('click', e =>
+    setOutExpanded(e.currentTarget.getAttribute('aria-expanded') !== 'true'));
   // Outstanding ticks / clears both sub-states together
   document.getElementById('cb-outstanding').addEventListener('change', e => {
     const on = e.target.checked;
@@ -1305,7 +1323,11 @@ Engagement</button>
         break;
       case 'cbe-status':
         reset(); showScreen('cbe');
-        whenReady(() => { syncControls(); document.getElementById('ff-status').classList.add('open'); });
+        whenReady(() => { syncControls(); setOutExpanded(false); document.getElementById('ff-status').classList.add('open'); });
+        break;
+      case 'cbe-tree':
+        reset(); draft = { course: 'all', pos: '', loc: '', states: ['ip'], pastDue: false }; run(true); showScreen('cbe');
+        whenReady(() => { syncControls(); setOutExpanded(true); document.getElementById('ff-status').classList.add('open'); });
         break;
       case 'tp':
         showScreen('tp'); loadTP(true);
@@ -1318,7 +1340,7 @@ Engagement</button>
         break;
       case 'cbe-legacy':
         reset(); draft = { course: 'all', pos: '', loc: '', states: ['ns', 'ip'], pastDue: false }; run(true); showScreen('cbe');
-        whenReady(() => { syncControls(); document.getElementById('ff-status').classList.add('open'); });
+        whenReady(() => { syncControls(); setOutExpanded(true); document.getElementById('ff-status').classList.add('open'); });
         break;
       default:
         showScreen('tc');
@@ -1359,8 +1381,10 @@ Engagement</button>
         { id: 'cbe-pastdue', flow: 'drill', x: 900, y: 100, step: 'Refine', name: 'In progress + Past due', state: 'cbe-pastdue',
           desc: 'Changing a filter drops its highlight: Course back to All, Status + Past due, so only the past-due In progress learners in that position show.' },
         { id: 'cbe-status', flow: 'filter', entry: true, x: 60, y: 410, step: 'Entry', name: 'Status filter', state: 'cbe-status',
-          desc: 'Not started, In progress and Completed are the main options; today\'s Outstanding and Past due stay as lighter secondary checkboxes below a divider.' },
-        { id: 'cbe-legacy', flow: 'filter', x: 340, y: 410, step: 'Existing use', name: 'Outstanding = both', state: 'cbe-legacy',
+          desc: 'Today\'s options in today\'s words: Outstanding Assignments, Past Due Assignments, Completions. Outstanding has a chevron that opens the new states.' },
+        { id: 'cbe-tree', flow: 'filter', x: 340, y: 410, step: 'Expand', name: 'Not Started / In Progress', state: 'cbe-tree',
+          desc: 'The chevron shows Not Started and In Progress nested under Outstanding. Ticking just one shows Outstanding half-checked.' },
+        { id: 'cbe-legacy', flow: 'filter', x: 620, y: 410, step: 'Existing use', name: 'Outstanding = both', state: 'cbe-legacy',
           desc: 'Ticking Outstanding ticks both sub-states, so saved and scheduled reports on Outstanding return the same learners.' },
         { id: 'tp-loading', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Loading progress', state: 'tp-loading',
           desc: 'The list shows right away; progress fills in a moment later, so the page never waits on it. "Progress as of" says how fresh it is (updated about daily).' },
@@ -1374,7 +1398,8 @@ Engagement</button>
         ['tc', 'cbe-drill'],
         ['cbe-drill', 'cbe-pastdue'],
         ['cbe-drill', 'tc'],
-        ['cbe-status', 'cbe-legacy'],
+        ['cbe-status', 'cbe-tree'],
+        ['cbe-tree', 'cbe-legacy'],
         ['tp-loading', 'tp'],
         ['tp', 'tp-drill']
       ]
