@@ -6,6 +6,14 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-30) Only the newest automated run can be approved
+
+- **[DONE]** Only the **newest** automated upload can be reviewed & approved; an older stopped run
+  would overwrite newer data. V2's seed now matches: the newest run (Sep 25, the one the failure
+  email is about) stopped on warnings → **Review & approve**; the older Sep 24 run is Blocked
+  (Blocking issues, can't be approved). **PENDING:** what an older stopped run shows once a newer
+  one exists (e.g. "A newer automated upload replaced this one").
+
 ## (2026-09-29) Rows on every alert; complete list of changes
 
 - **[DONE]** Every **Blocking** alert ends with **"Submit a ticket to get this solved"** + "Have a
