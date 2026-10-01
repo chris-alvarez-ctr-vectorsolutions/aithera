@@ -445,6 +445,13 @@
     background: #F8FAFC; border: 1px solid #E1E7EE; border-radius: 8px; padding: 10px 12px; }
   .keep-copy input { margin-top: 3px; width: 15px; height: 15px; accent-color: #1257B8; flex: 0 0 auto; }
   .keep-copy b { color: #1B2B3E; }
+  .run-note { display: flex; gap: 9px; align-items: flex-start; border-radius: 8px; padding: 10px 12px; font-size: 12.5px; line-height: 1.45; margin-bottom: 12px; border: 1px solid; }
+  .run-note i { margin-top: 2px; }
+  .run-note.is-yellow { background: #FFFAEB; border-color: #F2D69B; color: #7A4B06; }
+  .run-note.is-yellow i { color: #DC8A0B; }
+  .run-note.is-red { background: #FEF3F2; border-color: #F1C0BB; color: #B42318; }
+  .run-note.is-blue { background: #EEF4FC; border-color: #C6D9F0; color: #0C3F87; }
+  .run-note.is-blue i { color: #1257B8; }
   .side-csv .sc-t { font-size: 14px; font-weight: 700; color: #1B2B3E; }
   .side-csv .sc-s { font-size: 12.5px; color: #5B6B7E; margin-top: 3px; line-height: 1.45; }
   .modal.csv-modal { width: 1040px; }
@@ -2124,11 +2131,16 @@
       + (sum.jobsRemoved > 0 ? '<div class="kpi-row"><span class="k">Positions ended</span><span class="v" style="color:#B42318;">' + sum.jobsRemoved + '</span></div>' : '')
       + '</div><div class="divider" style="margin:16px 0;"></div>';
     if (blocked.length) {
-      side += '<div style="background:#FEF3F2;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-bottom:12px;"><span style="font-weight:700;">'
-        + (blocked.length === 1 ? '1 issue' : blocked.length + ' issues') + '</span> must be resolved before this import can run. Each one shows where to look.</div>';
-    }
-    if (confirms.length && blocked.length === 0) {
-      side += '<div style="font-size:12.5px;color:#5B6B7E;margin-bottom:12px;">' + acked.length + ' of ' + confirms.length + ' confirmation' + (confirms.length === 1 ? '' : 's') + ' acknowledged</div>';
+      side += '<div class="run-note is-red"><i class="fa-solid fa-ban" aria-hidden="true"></i><span><b>'
+        + (blocked.length === 1 ? '1 blocked issue' : blocked.length + ' blocked issues') + '</b> must be fixed in your file before this import can run. Fix those rows, then upload the file again.</span></div>';
+    } else if (confirms.length) {
+      var left = confirms.length - acked.length;
+      side += left
+        ? '<div class="run-note is-yellow"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span><b>'
+          + (left === 1 ? '1 warning needs' : left + ' warnings need') + ' your review.</b> Check “I’ve reviewed this” on '
+          + (left === 1 ? 'it' : 'each one') + ' to run the import. ' + acked.length + ' of ' + confirms.length + ' done.</span></div>'
+        : '<div class="run-note is-blue"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span><b>'
+          + (confirms.length === 1 ? 'Warning reviewed.' : 'All ' + confirms.length + ' warnings reviewed.') + '</b> You’re ready to run the import.</span></div>';
     }
     side += '<button class="btn" data-act="runImport" style="width:100%;border:none;background:' + (canSubmit ? '#1257B8' : '#C6D3E1') + ';color:#fff;font-size:14px;font-weight:600;padding:11px 0;border-radius:8px;cursor:' + (canSubmit ? 'pointer' : 'not-allowed') + ';"' + (canSubmit ? '' : ' disabled') + '>' + (state.autoReview != null ? 'Approve &amp; run import' : 'Run import') + '</button>'
       // "Replace file" -> "Cancel import" (2026-09-24): an unconfirmed upload is a
@@ -2148,11 +2160,19 @@
       + helpLink('best', 'Best practices for structuring user data')
       + '</div></div>';
 
-    return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
-      + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">'
-      + '<div class="rev-h" style="margin:0 0 -2px;">What we found in your file</div>' + alertsHtml + '</div>'
-      // margin-top = the findings heading, so the summary card's top lines up with the first alert.
-      + '<div style="width:290px;flex:0 0 290px;position:sticky;top:0;margin-top:24px;">' + side + '</div>'
+    // Header (2026-10-01) — same shape as Map columns / Import settings; the line under it
+    // says what this page needs from them, by what the file has.
+    var revSub = blocked.length
+      ? 'This file can’t be imported yet. Fix the blocked rows in your file — or delete them — then upload it again.'
+      : confirms.length
+        ? 'Here’s what this file will change. Review each warning and check “I’ve reviewed this” — once they’re all reviewed, you can run the import.'
+        : 'Here’s what this file will change. Nothing needs your review — run the import when you’re ready.';
+    return '<div class="fadeup">'
+      + '<div style="margin-bottom:14px;"><div style="font-size:15px;font-weight:600;">Review changes</div>'
+      + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">' + revSub + '</div></div>'
+      + '<div style="display:flex;gap:20px;align-items:flex-start;">'
+      + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">' + alertsHtml + '</div>'
+      + '<div style="width:290px;flex:0 0 290px;position:sticky;top:0;">' + side + '</div>'
       + '</div></div>';
   }
 

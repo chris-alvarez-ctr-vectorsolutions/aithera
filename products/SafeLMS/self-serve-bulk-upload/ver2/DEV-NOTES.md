@@ -8,6 +8,13 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-10-01) Review alert head + clearer CSV copy
 
+- **[DONE]** Review page header **"Review changes"** (same shape as Map columns / Import settings) with
+  a line that says what's needed: warnings → "Review each warning and check 'I've reviewed this' — once
+  they're all reviewed, you can run the import."; blocked → fix or delete the rows in the file and
+  re-upload; info only → nothing to review. Replaces the "What we found in your file" eyebrow.
+- **[DONE]** Above Run import: a **yellow** note while warnings are open ("3 warnings need your review.
+  Check 'I've reviewed this' on each one to run the import. 2 of 5 done."), **blue** when all are
+  reviewed, **red** when blocked. Replaces "2 of 5 confirmations acknowledged".
 - **[DONE]** **Blocked** alerts: "What to do" always sends them back to the file — "Open your file and
   fix … in these rows — or delete the rows — then upload the file again." (sync_error stays "try again"
   — it isn't a file problem.) Blocked tables show **rows only** (no column tag — it's obvious once
