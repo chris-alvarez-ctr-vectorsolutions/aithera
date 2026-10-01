@@ -2746,9 +2746,8 @@
           '<button class="po-how-btn" type="button" id="poHowBtn" aria-expanded="false" aria-controls="poHow">' +
             '<i class="fa-solid fa-circle-info" aria-hidden="true"></i> How Listen mode works</button>' +
           '<div class="po-how-tip" id="poHow" role="tooltip" hidden>' +
-            'One continuous listen, put together from your answers. It keeps playing with your screen ' +
-            'locked. When it ends, you answer the questions on screen and finish the module there. ' +
-            'Once you start, the module stays in this mode.' +
+            'One continuous listen with content presented as a host-led conversation. ' +
+            'Once complete, you\u2019ll answer the questions on screen.' +
           '</div>' +
         '</div>' +
       '</div>' +
