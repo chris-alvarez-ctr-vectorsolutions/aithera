@@ -8,6 +8,10 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-10-01) Review alert head + clearer CSV copy
 
+- **[DONE]** **Blocked** alerts: "What to do" always sends them back to the file — "Open your file and
+  fix … in these rows — or delete the rows — then upload the file again." (sync_error stays "try again"
+  — it isn't a file problem.) Blocked tables show **rows only** (no column tag — it's obvious once
+  they're in the file); duplicate_person now has a Row column (Row 48). Warnings keep their column tags.
 - **[DONE]** Warning banners: **"I've reviewed this" top right**; **View details** is the second row,
   under the title (Info / Blocked show just View details there).
 - **[DONE]** Side panel CSV copy: "**Everything we found, in one file** — Every blocked issue, warning

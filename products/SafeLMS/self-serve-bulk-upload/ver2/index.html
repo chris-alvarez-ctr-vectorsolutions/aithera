@@ -999,10 +999,10 @@
       method: 'auto', status: 'blocked', roster: true, reviewId: 'autob',
       // Catalog messages (BLOCKING) — broken_begin_date + duplicate_person.
       issues: [
-        { t: 'We couldn’t read the begin date on 3 rows.', col: [1, 'Column H · BEGIN_DATE'],
+        { t: 'We couldn’t read the begin date on 3 rows.',
           head: ['Row', 'Begin date in your file', 'Username'],
           rows: [['Row 14', '2024-13-45', 'bhughes'], ['Row 27', 'Sept 31', 'cortiz'], ['Row 88', 'TBD', 'gmorris']], dupe: false, dateRows: true },
-        { t: 'A username in this file matches more than one active user on your site.', col: [1, 'Column D · Username'],
+        { t: 'A username in this file matches more than one active user on your site.',
           head: ['Row', 'Username in your file', 'Active users on your site with it'],
           rows: [['Row 48', 'cdelgado', 'Carlos Delgado · Carla Delgado']], dupe: true }
       ],
@@ -1309,11 +1309,11 @@
     broken_begin_date: { tier: 'blocked', msg: 'We couldn’t read the begin date on {count} rows. Check the date format and re-upload.',
       col: [2, 'begin'], head: ['Row', 'Username', 'Begin date that couldn’t be read'],
       rows: function () { return [[R(14), M('bhughes'), { v: '13/45/2026', c: 'bad' }], [R(27), M('cortiz'), { v: 'Sept 31', c: 'bad' }], [R(88), M('gmorris'), { v: 'TBD', c: 'bad' }]]; },
-      fix: 'Use one date format (like 2026-09-01) in that column, then upload the file again.' },
+      fix: 'Open your file and fix the begin date in these rows (use one format, like 2026-09-01) — or delete the rows — then upload the file again.' },
     broken_end_date: { tier: 'blocked', msg: 'We couldn’t read the end date on {count} rows. Check the date format and re-upload.',
       col: [2, 'end'], head: ['Row', 'Username', 'End date that couldn’t be read'],
       rows: function () { return [[R(40), M('fevans'), { v: '2026-31-12', c: 'bad' }]]; },
-      fix: 'Use one date format (like 2026-12-31) in that column, then upload the file again.' },
+      fix: 'Open your file and fix the end date in this row (use one format, like 2026-12-31) — or delete the row — then upload the file again.' },
     early_begin_date: { tier: 'confirm', msg: '{count} rows have a begin date before 1940 — usually a typo. Please double-check.', head: ['Row', 'Username', 'Begin date'], col: [2, 'begin'],
       rows: function () { return [[R(52), M('tyoung'), '01/01/1902'], [R(97), M('wbrooks'), '08/15/1924']]; } },
     early_end_date: { tier: 'confirm', msg: '{count} rows have an end date before 1940 — usually a typo. Please double-check.', head: ['Row', 'Username', 'End date'], col: [2, 'end'],
@@ -1375,13 +1375,13 @@
     inconsistent_person_data: { tier: 'blocked', msg: 'Some rows contain information that conflicts with what’s on your site. Review the differences before continuing.',
       col: [3, 'email'], head: ['Row', 'Username', 'Field', 'In your file', 'On your site'],
       rows: function () { return [[R(55), M('pnair'), 'Email', { v: 'priya.nair@gmail.com', c: 'bad' }, { v: 'pnair@ridgewood.k12.us', c: 'lock', lock: true }]]; },
-      fix: 'Correct the value in your file to match your site (or update it on the person’s record first), then upload again.' },
+      fix: 'Open your file and change the value in this row to match your site — or delete the row — then upload the file again.' },
     duplicate_person: { tier: 'blocked', msg: 'A username in this file matches more than one active user on your site. This needs to be resolved before you can continue.',
-      note: function () { return 'Row 48 in your file uses cdelgado. These are the accounts on your site that share it:'; },
-      head: ['Username', 'Active user on your site', 'Identifying detail'], col: [0, 'username'],
-      rows: function () { return [[M('cdelgado'), 'Carlos Delgado', 'cdelgado@ridgewood.k12.us · Lincoln Elementary · 11 completions'],
-                                  [M('cdelgado'), 'Carla Delgado', 'carla.delgado@ridgewood.k12.us · District Office · 0 completions']]; },
-      fix: 'Submit a ticket and we’ll merge or rename one of these accounts, then upload again.', support: true },
+      note: function () { return 'Two active accounts on your site already use this username:'; },
+      head: ['Row', 'Username', 'Active user on your site', 'Identifying detail'],
+      rows: function () { return [[R(48), M('cdelgado'), 'Carlos Delgado', 'cdelgado@ridgewood.k12.us · Lincoln Elementary · 11 completions'],
+                                  [R(48), M('cdelgado'), 'Carla Delgado', 'carla.delgado@ridgewood.k12.us · District Office · 0 completions']]; },
+      fix: 'Open your file and change the username in this row to the right person’s — or delete the row — then upload the file again.', support: true },
     sync_error: { tier: 'blocked', msg: 'Something went wrong during the upload. Please try again, and contact your Vector rep if it keeps happening.',
       note: function () { return 'This is a system error — no people or rows in your file are affected.'; },
       head: ['Error reference'], rows: function () { return [[M('ERR-2026-0925-4471')]]; },
@@ -1409,7 +1409,7 @@
     var count = n != null ? n : (SUMMARY_COUNTS[key] != null ? SUMMARY_COUNTS[key] : (rows ? rows.length : 0));
     var text = c.msg.replace('{count}', count), cut = text.indexOf('. ');
     var a = { id: key, key: key, tier: c.tier, title: cut > 0 ? text.slice(0, cut + 1) : text, sub: cut > 0 ? text.slice(cut + 2) : '',
-      list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '', col: c.col ? { at: c.col[0], tag: colTag(state.fileId, c.col[1]) } : null } : null,
+      list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '', col: c.col && c.tier !== 'blocked' ? { at: c.col[0], tag: colTag(state.fileId, c.col[1]) } : null } : null,   // Blocked: rows only — the column is obvious in the file
       fix: c.fix, supportBtn: !!c.support, count: count,
       ackLabel: 'I’ve reviewed this — continue with the upload.' };
     return a;
