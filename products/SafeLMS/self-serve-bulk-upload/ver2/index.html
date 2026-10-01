@@ -397,12 +397,24 @@
   .alert-head { align-items: center; }
   .ax-toggle { flex: 0 0 auto; border: none; background: none; color: #1257B8; font-size: 12.5px; font-weight: 600; cursor: pointer;
     display: inline-flex; align-items: center; gap: 6px; padding: 4px 2px; white-space: nowrap; font-family: inherit; }
-  .ax-toggle:hover { text-decoration: underline; }
-  .ax-toggle i { font-size: 10.5px; transition: transform .15s; }
+  .ax-toggle, .ax-toggle:hover, .ax-toggle:focus { text-decoration: none; background: none; box-shadow: none; }
+  .ax-toggle:hover { color: #0B3D8C; }
+  .ax-toggle:focus-visible { outline: 2px solid #1257B8; outline-offset: 2px; border-radius: 4px; }
+  .ax-toggle i { display: inline-block; font-size: 10.5px; transition: transform .15s; }
   .alert.is-open .ax-toggle i { transform: rotate(180deg); }
   .ax-need { flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: #B54708; white-space: nowrap; }
   .ax-n { font-size: 12px; color: #5B6B7E; }
   .alert-body > .alert-sub { margin-top: 0; }
+  .side-csv .sc-t { font-size: 14px; font-weight: 700; color: #1B2B3E; }
+  .side-csv .sc-s { font-size: 12.5px; color: #5B6B7E; margin-top: 3px; line-height: 1.45; }
+  .modal.csv-modal { width: 1040px; }
+  .cv-wrap { overflow: auto; max-height: 64vh; }
+  .cv { border-collapse: collapse; font-family: var(--mono); font-size: 12px; min-width: 100%; }
+  .cv th, .cv td { border: 1px solid #E1E7EE; padding: 5px 9px; white-space: nowrap; text-align: left; color: #1B2B3E; }
+  .cv thead th { position: sticky; top: 0; z-index: 1; background: #F2F5F8; color: #8CA0B4; font-weight: 600; text-align: center; font-size: 11px; }
+  .cv .cv-n { background: #F2F5F8; color: #8CA0B4; font-weight: 600; text-align: right; font-size: 11px; width: 34px; }
+  .cv .cv-h { font-weight: 700; color: #3D4F63; background: #F8FAFC; }
+  .cv .cv-g { font-weight: 700; font-family: var(--font, inherit); white-space: normal; }
   .full-list { display: flex; align-items: center; gap: 12px; background: #F8FAFC; border: 1px dashed #C6D3E1; border-radius: 10px; padding: 14px 16px; }
   .full-list.is-ready { background: #fff; border: 1px solid #C6D9F0; }
   .full-list .fl-ico { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 8px; background: #EDF1F6; color: #8CA0B4;
@@ -1002,13 +1014,18 @@
   // Last name only (AC-1.4); Email is optional. Building/position CODES are
   // deliberately absent (AC-1.5). Title / Begin date / End date are extra standard
   // targets (AC-1.3).
+  // 2026-09-30: External Unique ID + Building code added (designer call, supersedes the
+  // AC-1.5 "no codes" note), sitting just above Position and Location at the bottom.
   var FIELDS = [
     { field: 'First name', req: true },  { field: 'Last name', req: true },
     { field: 'Email', req: false },      { field: 'Username', req: true },
-    { field: 'Location', req: false },   { field: 'Position', req: false },
     { field: 'Title', req: false },      { field: 'Begin date', req: false },
-    { field: 'End date', req: false }
+    { field: 'End date', req: false },
+    { field: 'External Unique ID', req: false }, { field: 'Building code', req: false },
+    { field: 'Position', req: false },   { field: 'Location', req: false }
   ];
+  // Auto-match order for the sample files' columns (kept separate from the dropdown order).
+  var AUTO_ORDER = ['First name', 'Last name', 'Email', 'Username', 'Location', 'Position', 'Title', 'Begin date', 'End date'];
 
   // The site's own configured attributes — these vary per customer (AC-1.3), shown
   // as a separate group of targets in the mapping dropdown.
@@ -1071,6 +1088,7 @@
     attnSent: false,     // escalate handed to Vector's team
     variantsCollapsed: false,
     logDetail: null,     // index of the upload shown on its own page
+    csvOpen: false,      // CSV preview of the complete list (Review side panel)
     autoReview: null     // index of the automated log run being reviewed / approved
   };
   var _validateTimer = null;
@@ -1090,7 +1108,7 @@
     // Positional auto-match: the i-th file column pre-fills the i-th core field.
     // Extra targets (Title / Begin date / End date / attributes) start unmapped.
     var cols = COLS[fileId], m = {};
-    FIELDS.forEach(function (f, i) { if (cols[i]) m[f.field] = cols[i][0]; });
+    AUTO_ORDER.forEach(function (f, i) { if (cols[i]) m[f] = cols[i][0]; });
     return m;
   }
 
@@ -1952,8 +1970,7 @@
   /* Review alerts are short banners (2026-09-30): chip + title only, so the page reads as
      a list of titles. "View details" opens the rest — the sub-line, the full list (scrolls
      when long), "What to do", and for a Warning the checkbox (so it's confirmed after it's
-     seen). Warnings and Blocked with more than 20 people/rows also get "Download CSV". */
-  var CSV_OVER = 20;
+     seen). No per-alert downloads: one "Download CSV" at the top of the side panel holds every list. */
   function alertHTML(a) {
     var acked = !!state.acks[ackKey(a.id)];
     var t = (a.tier === 'confirm' && acked) ? REVIEWED : TIER[a.tier];
@@ -1976,12 +1993,9 @@
             + (o.lock ? '<i class="fa-solid fa-lock" aria-hidden="true" title="Can’t be changed by an upload"></i>' : '') + esc(o.v) + '</td>';
         }).join('') + '</tr>';
       }).join('');
-      var csv = (hard || a.tier === 'confirm') && (a.count || a.list.rows.length) > CSV_OVER;
       body += '<div class="ax-list">'
         + (a.list.note ? '<div class="ax-note">' + esc(a.list.note) + '</div>' : '')
         + '<div class="axt-wrap' + (a.list.rows.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
-        + (csv ? '<div class="ax-list-foot"><span class="ax-n">' + (a.count || a.list.rows.length) + ' in this list</span>'
-            + '<button class="btn sm btn--outline-blue" data-act="noop"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV</button></div>' : '')
         + '</div>';
     }
     if (a.fix) body += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>';
@@ -2050,25 +2064,12 @@
     var canSubmit = !state.validating && blocked.length === 0 && acked.length === confirms.length;
     var sum = summary();
 
-    /* Complete list of changes (2026-09-29) — replaces the per-alert "Download list"
-       buttons. Only for a file that can run (no Blocking); unlocks once every
-       warning is reviewed, so it's the list they're about to approve. */
-    var fullList = '';
-    if (!state.validating && blocked.length === 0) {
-      var ready = acked.length === confirms.length, parts = [sum.add + ' added', sum.mod + ' updated'];
-      if (sum.deact) parts.push(sum.deact + ' deactivated');
-      if (sum.jobsRemoved) parts.push(sum.jobsRemoved + ' positions ended');
-      fullList = '<div class="full-list' + (ready ? ' is-ready' : '') + '">'
-        + '<span class="fl-ico"><i class="fa-solid ' + (ready ? 'fa-list-check' : 'fa-lock') + '" aria-hidden="true"></i></span>'
-        + '<div style="flex:1;min-width:0;"><div class="fl-t">Complete list of changes</div>'
-        + '<div class="fl-s">Every change this import makes, one row per person — ' + parts.join(' · ') + '.</div>'
-        + (ready ? '' : '<div class="fl-lock">Review ' + (confirms.length - acked.length === 1 ? 'the last warning' : 'the ' + (confirms.length - acked.length) + ' warnings') + ' above to see it.</div>')
-        + '</div>'
-        + '<button class="btn sm ' + (ready ? 'btn--outline-blue' : 'btn--disabled') + '" data-act="noop"' + (ready ? '' : ' disabled') + '><i class="fa-solid fa-download" aria-hidden="true"></i> Download (.csv)</button>'
-        + '</div>';
-    }
-
     var side = '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:18px 20px;">'
+      // One CSV for everything (2026-09-30) — replaces per-alert downloads; opens a preview.
+      + '<div class="side-csv"><div class="sc-t">Complete list of changes</div>'
+      + '<div class="sc-s">Everyone in every list below, in one spreadsheet.</div>'
+      + '<button class="btn sm btn--outline-blue" data-act="openCsv" style="width:100%;margin-top:10px;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV</button></div>'
+      + '<div class="divider" style="margin:16px 0;"></div>'
       + '<div class="kpi-eyebrow">Change summary</div>'
       + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">'
       + '<div class="kpi-row"><span class="k">New users added</span><span class="v" style="color:#067647;">' + sum.add + '</span></div>'
@@ -2108,9 +2109,48 @@
 
     return '<div class="fadeup"><div style="display:flex;gap:20px;align-items:flex-start;">'
       + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">'
-      + '<div class="rev-h" style="margin:0 0 -2px;">What we found in your file</div>' + alertsHtml + fullList + '</div>'
+      + '<div class="rev-h" style="margin:0 0 -2px;">What we found in your file</div>' + alertsHtml + '</div>'
       // margin-top = the findings heading, so the summary card's top lines up with the first alert.
       + '<div style="width:290px;flex:0 0 290px;position:sticky;top:0;margin-top:24px;">' + side + '</div>'
+      + '</div></div>';
+  }
+
+  /* CSV preview (2026-09-30): the complete list as it opens in a spreadsheet. Each alert
+     is a block — a title row, its column headers, one row per person/item, a blank row. */
+  function csvHTML() {
+    var f = currentFile(), groups = buildAlerts().filter(function (a) { return a.list && a.list.rows.length; });
+    var width = 1 + groups.reduce(function (w, a) { return Math.max(w, a.list.head.length); }, 1);
+    var TINT = { blocked: '#FEF3F2', escalate: '#FEF3F2', confirm: '#FFFAEB', info: '#EEF4FC' };
+    var LABEL = { blocked: 'Blocked', escalate: 'Blocked', confirm: 'Warning', info: 'Info' };
+    var n = 0, body = '', count = 0;
+    function cells(list, cls) {
+      var out = '';
+      for (var i = 0; i < width; i++) out += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + (list[i] != null ? esc(list[i]) : '') + '</td>';
+      return out;
+    }
+    function row(list, cls, bg) { n++; body += '<tr' + (bg ? ' style="background:' + bg + ';"' : '') + '><th class="cv-n">' + n + '</th>' + cells(list, cls) + '</tr>'; }
+    // Group title: one cell spanning the row, so a long title doesn't widen column A.
+    function title(text, bg) { n++; body += '<tr style="background:' + bg + ';"><th class="cv-n">' + n + '</th><td class="cv-g" colspan="' + width + '">' + esc(text) + '</td></tr>'; }
+    groups.forEach(function (a) {
+      title(LABEL[a.tier] + ' — ' + a.title, TINT[a.tier]);
+      row([''].concat(a.list.head), 'cv-h');
+      a.list.rows.forEach(function (r) {
+        count++;
+        row([LABEL[a.tier]].concat(r.map(function (c) { return (c && typeof c === 'object') ? c.v : c; })));
+      });
+      row([]);
+    });
+    var letters = '';
+    for (var i = 0; i < width; i++) letters += '<th>' + String.fromCharCode(65 + i) + '</th>';
+    return '<div class="modal-overlay" data-act="closeCsv">'
+      + '<div class="modal csv-modal" data-act="noop" role="dialog" aria-modal="true" aria-labelledby="cv-title">'
+      + '<div class="modal-head"><div><div class="modal-title" id="cv-title"><i class="fa-solid fa-file-csv" aria-hidden="true" style="color:#067647;margin-right:8px;"></i>complete_list_of_changes.csv</div>'
+      + '<div class="modal-sub">' + (f ? esc(f.name) + ' · ' : '') + groups.length + ' groups · ' + count + ' rows. Prototype preview of the file.</div></div>'
+      + '<button class="modal-x" data-act="closeCsv" aria-label="Close">✕</button></div>'
+      + '<div class="modal-body" style="padding:0;"><div class="cv-wrap"><table class="cv"><thead><tr><th class="cv-n"></th>' + letters + '</tr></thead><tbody>' + body + '</tbody></table></div></div>'
+      + '<div class="modal-foot"><span style="font-size:12.5px;color:#5B6B7E;">Opens in Excel, Google Sheets or Numbers.</span>'
+      + '<div style="display:flex;gap:10px;"><button class="btn btn--ghost" data-act="closeCsv">Close</button>'
+      + '<button class="btn btn--primary" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV</button></div></div>'
       + '</div></div>';
   }
 
@@ -2137,7 +2177,6 @@
       + '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-top:16px;line-height:1.5;"><b>This can’t be undone.</b> '
       + (destructive ? 'Once you run the import, deactivations and ended positions are permanent.' : 'Once the import runs, it can’t be paused or reversed.')
       + '</div>'
-      + '<button class="axt-dl" data-act="noop" style="margin-top:12px;"><i class="fa-solid fa-download" aria-hidden="true"></i> Download the complete list of changes (.csv)</button>'
       + '</div>'
       + '<div class="modal-foot" style="display:flex;justify-content:flex-end;gap:10px;">'
       + '<button class="btn btn--ghost" data-act="confirmRunNo">Go back</button>'
@@ -2497,7 +2536,8 @@
       + overlay
       + (state.fileModal ? fileModalHTML() : '')
       + (state.addEmp ? addEmployeeModal(false) : '')
-      + (state.confirmRun ? confirmRunHTML() : '');
+      + (state.confirmRun ? confirmRunHTML() : '')
+      + (state.csvOpen ? csvHTML() : '');
 
     // Restore the captured scroll positions onto the freshly-built containers.
     var _ov = $app.querySelector('.import-full'); if (_ov && _overlayWasOpen) _ov.classList.add('is-static');
@@ -2570,6 +2610,8 @@
       case 'changeSettings': go('settings'); scrollTop(); break;
       case 'runImport': if (el.disabled) break; setState({ confirmRun: true }); break;   // 1st click -> confirmation modal
       case 'confirmRunNo': setState({ confirmRun: false }); break;
+      case 'openCsv': setState({ csvOpen: true }); break;
+      case 'closeCsv': setState({ csvOpen: false }); break;
       case 'confirmRunYes':
         if (state.autoReview != null) {   // approving an automated run updates ITS log row
           var sa = summary(), lg = state.log.slice(), ar = {};
@@ -2653,7 +2695,7 @@
   }
 
   function applyFlowState(id) {
-    state.confirmRun = false; state.autoReview = null;   // a flow-map jump never lands inside the Run pop-up
+    state.confirmRun = false; state.autoReview = null; state.csvOpen = false;   // a flow-map jump never lands inside the Run pop-up
     switch (id) {
       case 'email': setState({ view: 'email', addEmp: false, importFull: false }); break;
       case 'employees': setState({ view: 'employees', addEmp: false, importFull: false }); break;

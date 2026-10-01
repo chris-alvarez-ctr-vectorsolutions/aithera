@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scenario Editor — Wave 3 · V2</title>
+
+<!-- Vector Web Components: Core -->
+<script type="module"
+  src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+<!-- Vector Web Components: Themes (must be a plain script) -->
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+<!-- Open Sans -->
+<link rel="stylesheet"
+  href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<!-- Font Awesome 6 Pro — self-hosted. Five levels up: this mock sits one folder
+     deeper than the usual products/<Product>/<feature>/verN/ because it lives
+     under the Studio-AI-Platform group. -->
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+
+<style>
+/* ============================================================================
+   Scenario Editor — Wave 3 design prototype
+   ----------------------------------------------------------------------------
+   WHAT THIS IS
+   A design iteration on the scenario authoring experience, exploring the
+   structural changes in docs/scenario-editor-iteration/ACTION-ITEMS.md. It is
+   NOT a copy of the reference tool: no prompt compilation, no model calls, no
+   schema validation, no export. One hardcoded scenario (scenario-data.js) is
+   the sample content, so layout decisions are made against real density.
+
+   V2 — the collection panel
+   V1 renders each phase as one long form, every list member expanded inline.
+   That is the reference tool's own treatment, kept deliberately so the density
+   AI-05 describes is visible rather than asserted. V2 splits it: the phase's
+   COLLECTIONS live in a panel beside the rail, and the content area holds the
+   one member you picked. Compare the two with the version switcher.
+
+   The pattern is borrowed from LearningStudio/Phase2/EditorUI/objectManager
+   (panel-scenes -> canvas), which is the house answer to "a list of substantial
+   things, one edited at a time". Its panel runs 515px because scene cards carry
+   thumbnails; ours are text, so it starts narrower and is resizable.
+
+   WAVE 3 SCOPE — structure and flow
+     AI-04  the Start phase dissolves; four phases, not six
+     AI-10  coach voice authored with the world, not three phases later
+     AI-01  prior context is a SETTING, not three prose fields to write
+     AI-02  the scenario title is document-level, editable from anywhere
+     AI-03  the landing-button label is standardized away
+     AI-13  validation is chrome-level and always visible, never inside a panel
+
+   CHROME MODEL
+   Borrowed from LearningStudio/Phase2/EditorUI (courseOverview.html), which is
+   the house pattern for authoring: a 56px header carrying document identity and
+   document-level actions, over a 64px icon rail. One deliberate divergence —
+   Learning Studio's rail switches 280px panels because a course expands into a
+   deep tree; four scenario phases do not need that second level, so here the
+   RAIL IS the phase navigation and the authoring surface sits directly beside it.
+
+   STYLING
+   Vector theme tokens throughout (--lumo-*), with local values only where the
+   design needs something the token set does not name. Token values quoted from
+   context/themes/v1.9.3/CONTEXT.md.
+   ========================================================================== */
+
+:root {
+  /* Vector semantic tokens, aliased so intent is readable at the use site. */
+  --ink:        var(--lumo-body-text-color, #000000de);
+  --ink-soft:   var(--lumo-secondary-text-color, #00000099);
+  --ink-faint:  #00000073;
+  --accent:     var(--lumo-primary-color, #0271ce);
+  --accent-10:  var(--lumo-primary-color-10pct, #0271ce1a);
+  --err:        var(--lumo-error-color, #d83e38);
+  --err-10:     var(--lumo-error-color-10pct, #e71d131a);
+  --ok:         var(--lumo-success-color, #158444);
+  --ok-10:      var(--lumo-success-color-10pct, #1688461a);
+  --warn:       #b7791f;
+  --warn-10:    #f6e05e33;
+
+  /* Surfaces. Solid values on purpose: the Lumo --lumo-contrast-Npct tokens are
+     translucent overlays, so they stack unpredictably once containers nest —
+     which is exactly what the depth system in Wave 1 will do. */
+  --surface:    #ffffff;
+  --surface-2:  #f7f9fb;
+  --surface-3:  #eef2f6;
+  --line:       #e3e8ee;
+  --line-soft:  #eef1f5;
+
+  --radius:     10px;
+  --radius-sm:  8px;
+  --shadow-sm:  0 1px 2px rgba(16,24,40,.06);
+  --shadow-md:  0 4px 14px rgba(16,24,40,.08);
+
+  --header-h:   56px;
+  --rail-w:     64px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%; margin: 0;
+  font-family: 'Open Sans', system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+#app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ===========================================================================
+   HEADER — document identity + document-level actions
+   The reference editor's header names only the TOOL and the scenario type, so
+   the document being edited is never named on screen (AI-02). This one leads
+   with the scenario's own title, editable in place from any phase.
+   =========================================================================== */
+#page-header {
+  height: var(--header-h); flex: 0 0 auto;
+  display: flex; align-items: center; gap: 0;
+  padding: 0 14px 0 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  position: relative; z-index: 40;
+}
+.ph-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
+.ph-logo {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex: 0 0 auto;
+}
+.ph-divider { width: 1px; height: 26px; background: var(--line); flex: 0 0 auto; }
+
+.ph-title-group { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.ph-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  color: var(--ink-faint); text-transform: uppercase;
+  display: flex; align-items: center; gap: 7px;
+}
+/* AI-02 — the title is a document-level identifier, edited in place. It is a
+   button until clicked, so the header reads as a heading rather than a form. */
+.ph-title {
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  padding: 1px 6px; margin-left: -6px; cursor: text; text-align: left;
+  font-family: inherit; max-width: 62ch;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ph-title:hover { background: var(--surface-2); border-color: var(--line); }
+.ph-title:focus { outline: none; background: #fff; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-10); }
+.ph-title.is-empty { color: var(--ink-faint); font-weight: 600; font-style: italic; }
+.ph-gen {
+  background: none; border: none; cursor: pointer; color: var(--accent);
+  font-size: 11px; font-weight: 600; font-family: inherit;
+  padding: 2px 6px; border-radius: 5px; display: inline-flex; align-items: center; gap: 5px;
+}
+.ph-gen:hover { background: var(--accent-10); }
+
+.ph-right { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.save-status {
+  font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px;
+  margin-right: 8px; white-space: nowrap;
+}
+.save-status i { color: var(--ok); font-size: 12px; }
+
+.ph-icon-btn {
+  width: 34px; height: 34px; border: none; background: none; cursor: pointer;
+  border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 15px;
+  display: flex; align-items: center; justify-content: center; position: relative;
+}
+.ph-icon-btn:hover { background: var(--surface-3); color: var(--ink); }
+.ph-icon-btn.is-open { background: var(--accent-10); color: var(--accent); }
+
+/* AI-13 — validation lives in the chrome beside Comments, so it is visible at
+   all times rather than inside a collapsible inspector tab an author can hide
+   for a whole session. The count IS the affordance. */
+.ph-validity {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; padding: 0 11px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line); background: var(--surface);
+  font: 600 12px 'Open Sans', sans-serif; color: var(--ink-soft);
+  cursor: pointer; margin-right: 4px; white-space: nowrap;
+}
+.ph-validity:hover { background: var(--surface-2); }
+.ph-validity .vdot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex: 0 0 auto; }
+.ph-validity.has-err { border-color: #f3c9c7; background: var(--err-10); color: #9b2c26; }
+.ph-validity.has-err .vdot { background: var(--err); }
+.ph-validity.has-warn { border-color: #f0dfa8; background: var(--warn-10); color: #8a5a11; }
+.ph-validity.has-warn .vdot { background: var(--warn); }
+.ph-validity.is-clean { border-color: #bfe3cd; background: var(--ok-10); color: #106b37; }
+.ph-validity.is-clean .vdot { background: var(--ok); }
+.ph-validity.is-open { box-shadow: 0 0 0 3px var(--accent-10); border-color: var(--accent); }
+
+.ph-publish {
+  height: 34px; padding: 0 16px; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff; border: none; cursor: pointer;
+  font: 600 13px 'Open Sans', sans-serif; margin-left: 6px;
+}
+.ph-publish:hover { filter: brightness(1.06); }
+
+/* ===========================================================================
+   BODY — icon rail + authoring surface
+   =========================================================================== */
+#main { flex: 1 1 auto; display: flex; min-height: 0; }
+
+/* ---- the rail IS the phase navigation (AI-04) ----------------------------
+   Four phases, numbered, in the learner's order. The reference tool spends a
+   250px column on this; at 64px the sequence has to be carried by the numeral
+   rather than by subtitle prose, with the name on hover. */
+#rail {
+  width: var(--rail-w); flex: 0 0 auto;
+  background: var(--surface); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0; gap: 2px; z-index: 20;
+}
+.rail-btn {
+  width: 48px; height: 48px; border: none; background: none; cursor: pointer;
+  border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 17px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; flex: 0 0 auto;
+}
+.rail-btn:hover { background: var(--surface-3); color: var(--ink); }
+.rail-btn.is-active { background: var(--accent-10); color: var(--accent); }
+/* The active phase also gets a left stripe, so the current position is legible
+   without relying on the fill alone. */
+.rail-btn.is-active::before {
+  content: ''; position: absolute; left: -8px; top: 9px; bottom: 9px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--accent);
+}
+/* The active phase with its panel collapsed. Still clearly the current phase —
+   the stripe stays — but the fill drops, so "where I am" and "the panel is
+   showing" read as two different facts rather than one. */
+.rail-btn.is-active.is-collapsed {
+  background: none; color: var(--accent);
+}
+/* A real element rather than a ::after glyph — a codepoint that is not in the
+   loaded set renders as a zero-width invisible character with no error, which
+   is exactly the failure this repo has been bitten by before. */
+.rail-btn .rail-chev {
+  position: absolute; bottom: 3px; left: 5px;
+  font-size: 7px; color: var(--ink-faint);
+}
+/* Positional numeral — the sequence signal the 64px rail cannot spell out. */
+.rail-num {
+  position: absolute; top: 4px; right: 5px;
+  font-size: 9.5px; font-weight: 700; line-height: 1;
+  color: var(--ink-faint);
+}
+.rail-btn.is-active .rail-num { color: var(--accent); }
+/* Per-phase lint dot, carried over from the reference tool's rail. */
+.rail-dot {
+  position: absolute; bottom: 5px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+}
+.rail-dot.err { background: var(--err); }
+.rail-dot.warn { background: var(--warn); }
+.rail-dot.ok { background: var(--ok); opacity: .55; }
+
+.rail-sep { width: 32px; height: 1px; background: var(--line); margin: 8px 0; flex: 0 0 auto; }
+.rail-spacer { flex: 1 1 auto; }
+
+/* Tooltip — the rail is icon-only, so every button names itself on hover. */
+.rail-tip {
+  position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+  background: #1f2933; color: #fff; font-size: 12px; font-weight: 600;
+  padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 60;
+}
+.rail-tip::before {
+  content: ''; position: absolute; right: 100%; top: 50%; transform: translateY(-50%);
+  border: 5px solid transparent; border-right-color: #1f2933;
+}
+.rail-btn:hover .rail-tip { opacity: 1; }
+
+/* ---- the authoring surface ---------------------------------------------- */
+#surface { flex: 1 1 auto; min-width: 0; overflow-y: auto; position: relative; }
+/* The authoring column keeps its measure but sits CENTRED in whatever width is
+   left — auto inline margins centre the block itself, so everything inside it
+   stays left-aligned. Nothing here centres text or individual cards; the column
+   is one object that moves as a whole.
+
+   It matters most at the extremes: with the panel collapsed on a wide display
+   the column would otherwise sit hard against the rail with a large empty gap
+   to its right, which reads as a layout that failed rather than one that fits. */
+.surface-inner {
+  max-width: 880px; margin-inline: auto;
+  padding: 26px 32px 90px;
+}
+
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  padding: 18px 20px 20px; margin: 0 0 16px;
+}
+.card > h2 {
+  font-size: 15px; font-weight: 700; margin: 0 0 5px;
+  display: flex; align-items: center; gap: 9px;
+}
+.card > h2 i { color: var(--accent); font-size: 14px; }
+.card > .lead { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); max-width: 68ch; }
+.fields { display: grid; gap: 14px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line-soft); }
+.fields.no-rule { border-top: none; padding-top: 0; }
+
+/* An inline note attached to a setting — product guidance, not commentary. */
+.setting-note {
+  display: flex; gap: 9px; align-items: flex-start; margin: 0;
+  font-size: 12px; line-height: 1.55; color: var(--ink-soft);
+}
+.setting-note i { color: var(--ink-faint); font-size: 12px; margin-top: 2px; flex: 0 0 auto; }
+
+/* Footer stepper — the phases still have a narrative order even though the rail
+   presents them as icons, so forward motion stays available. */
+/* ===========================================================================
+   V2 — COLLECTION PANEL
+   Between the 64px phase rail and the authoring surface. Holds the phase's
+   collections as cards, grouped under inline labels; picking one puts it in the
+   content area alone.
+
+   WIDTH IS THE REAL CONSTRAINT. objectManager spends 64 + 515 = 579px of chrome
+   before content, which a video canvas tolerates and a FORM does not: at 1280px
+   that leaves ~700px, and the three-column quality-levels comparison AI-07 wants
+   stops fitting. So this panel starts at 340px rather than 515 (our rows are
+   text, not thumbnails), is drag-resizable, and collapses outright.
+   =========================================================================== */
+#panel {
+  width: var(--panel-w, 340px); flex: 0 0 auto; min-width: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface-2); border-right: 1px solid var(--line);
+  position: relative; z-index: 10;
+}
+#panel.is-collapsed { display: none; }
+
+.panel-head {
+  flex: 0 0 auto; padding: 11px 12px 11px 16px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.panel-head .pt { font-size: 13px; font-weight: 700; flex: 1 1 auto; }
+.panel-head .pcount {
+  font-size: 11px; font-weight: 600; color: var(--ink-faint);
+  background: var(--surface-3); padding: 2px 8px; border-radius: 20px;
+}
+.panel-body { flex: 1 1 auto; overflow-y: auto; padding: 0 12px 26px; }
+
+/* Drag handle on the panel's right edge — inherited from the reference, because
+   the width tradeoff above is one an author should be able to settle themselves. */
+.panel-grip {
+  position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 12;
+}
+.panel-grip:hover::after, .panel-grip.is-dragging::after {
+  content: ''; position: absolute; inset: 0 2px; background: var(--accent); opacity: .5;
+}
+
+/* Inline group label. Every entry under one is a NAMED thing — never a bucket:
+   a panel that reads "Canon · Cast · The coach · Details" files the scenario's
+   central prose under the least specific label in the list.
+
+   STICKY, and bounded by its own <section>. A long list of topics scrolls under
+   its label, which stays put until the NEXT group's label reaches it and pushes
+   it off — so the label above the cards on screen is always the right one. The
+   section wrapper is what bounds it: a sticky element is confined to its parent,
+   so without one the first label would pin for the entire panel.
+
+   It needs an opaque ground, not a translucent one — cards scroll beneath it,
+   and a Lumo --lumo-contrast-Npct token is an rgba overlay that would show them
+   through. */
+.pgroup-sec { position: relative; }
+.pgroup {
+  position: sticky; top: 0; z-index: 3;
+  display: flex; align-items: center; gap: 7px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-faint);
+  background: var(--surface-2);
+  margin: 0 -12px 7px; padding: 14px 14px 7px;
+  box-shadow: 0 1px 0 var(--line);
+}
+.pgroup-sec:first-child .pgroup { padding-top: 4px; }
+.pgroup-n {
+  font-weight: 700; letter-spacing: 0; font-size: 10px;
+  color: var(--ink-faint); background: var(--surface-3);
+  padding: 1px 6px; border-radius: 20px;
+}
+/* Last group needs room to scroll its label clear of the panel floor. */
+.pgroup-sec:last-child { padding-bottom: 8px; }
+
+.pcard {
+  width: 100%; text-align: left; cursor: pointer; display: block;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 7px;
+  font-family: inherit; position: relative;
+}
+.pcard:hover { border-color: #cfd8e3; box-shadow: var(--shadow-sm); }
+.pcard.is-active {
+  border-color: var(--accent); background: var(--accent-10);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.pcard-top { display: flex; align-items: center; gap: 8px; }
+.pcard-ico {
+  width: 26px; height: 26px; border-radius: 6px; flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-3); color: var(--ink-soft); font-size: 11.5px;
+}
+.pcard.is-active .pcard-ico { background: #fff; color: var(--accent); }
+.pcard-name {
+  font-size: 12.5px; font-weight: 700; color: var(--ink);
+  flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pcard-num {
+  font-size: 10.5px; font-weight: 700; color: var(--ink-faint);
+  width: 15px; flex: 0 0 auto;
+}
+/* A lint dot per member — the thing V1's 64px rail had nowhere to put. */
+.pcard-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.pcard-dot.err { background: var(--err); }
+.pcard-dot.warn { background: var(--warn); }
+.pcard-dot.ok { background: var(--ok); opacity: .45; }
+.pcard-sub {
+  font-size: 11.5px; line-height: 1.45; color: var(--ink-soft);
+  margin: 5px 0 0 34px; overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.pcard-meta {
+  font-size: 10.5px; color: var(--ink-faint); margin: 5px 0 0 34px;
+  display: flex; gap: 9px; flex-wrap: wrap;
+}
+.pcard-meta span { display: inline-flex; align-items: center; gap: 4px; }
+
+.padd {
+  width: 100%; display: flex; align-items: center; gap: 7px; justify-content: center;
+  background: none; border: 1px dashed var(--line); border-radius: var(--radius-sm);
+  padding: 9px; cursor: pointer; color: var(--accent);
+  font: 600 12px 'Open Sans', sans-serif; margin-top: 2px;
+}
+.padd:hover { background: var(--accent-10); border-color: var(--accent); }
+
+/* Panel toggle, in the phase header. */
+.panel-toggle {
+  width: 30px; height: 30px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 7px; cursor: pointer; color: var(--ink-soft); font-size: 12px;
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+}
+.panel-toggle:hover { background: var(--surface-2); color: var(--ink); }
+
+/* The phase's framing, carried above whichever member is open.
+   A phase no longer has a landing screen — it opens on a member, because the
+   overview was a list and the panel beside it is the same list. The cost is
+   that this repeats on every member of the phase, so it folds, and the choice
+   is remembered. */
+/* Two rows: the phase, then the group. No number — the rail already carries
+   position — and no standing description: the phase's own text is behind the
+   help icon, where it is available without occupying a line forever. */
+.phase-lede { margin: 0 0 20px; }
+
+.pl-row { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+.pl-row-phase { align-items: center; }
+.phase-lede h1 {
+  font-size: 21px; font-weight: 700; margin: 0; letter-spacing: -.01em;
+}
+/* Phase navigation, right-aligned in the heading rather than at the foot of
+   the content — on a step that foot is ~35 fields down. */
+.pl-nav { margin-left: auto; display: flex; gap: 7px; flex: 0 0 auto; }
+.pl-navbtn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: var(--radius-sm);
+  padding: 7px 13px; font: 600 12.5px 'Open Sans', sans-serif; color: var(--ink);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+.pl-navbtn:hover:not(:disabled) { background: var(--surface-2); border-color: #cfd8e3; }
+.pl-navbtn:disabled { opacity: .4; cursor: default; }
+.pl-navbtn.next { border-color: var(--accent); color: var(--accent); }
+.pl-navbtn.next:hover { background: var(--accent-10); }
+@media (max-width: 900px) {
+  .pl-navbtn .lbl { display: none; }
+}
+
+.pl-help {
+  width: 24px; height: 24px; flex: 0 0 auto;
+  border: none; background: none; border-radius: 50%; cursor: pointer;
+  color: var(--ink-faint); font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pl-help:hover { background: var(--surface-3); color: var(--accent); }
+
+/* The group row. The label is the heading here; its description sits inline
+   beside it, separated by an em-dash rule rather than a line break, so the two
+   read as one statement instead of a title with a caption under it. */
+.pl-row-group { margin-top: 5px; }
+.pl-group {
+  font-size: 13px; font-weight: 700; color: var(--ink); flex: 0 0 auto;
+}
+.pl-groupdesc {
+  font-size: 12.5px; line-height: 1.55; color: var(--ink-soft);
+  max-width: 72ch; position: relative; padding-left: 12px;
+}
+.pl-groupdesc::before {
+  content: '—'; position: absolute; left: 0; color: var(--ink-faint);
+}
+/* The only remaining overview: a phase with nothing to select. Real rather
+   than hypothetical — this sample document ships with no source references. */
+/* No measure of its own — it fills the column like every other card, so the
+   centred column has one consistent edge rather than one block that sits
+   narrower than its neighbours. */
+.empty-phase {
+  border: 1px dashed var(--line); border-radius: var(--radius);
+  background: var(--surface-2); padding: 42px 24px; text-align: center;
+}
+.empty-phase i { font-size: 26px; color: var(--ink-faint); opacity: .6; }
+.empty-phase h3 { margin: 12px 0 5px; font-size: 14.5px; font-weight: 700; }
+.empty-phase p { margin: 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+
+@media (max-width: 1100px) {
+  /* Below this the panel and a usable form cannot both fit. */
+  #panel { position: absolute; left: var(--rail-w); top: 0; bottom: 0; box-shadow: var(--shadow-md); }
+}
+
+/* ===========================================================================
+   THE THREE SIGNALS — register, container kind, depth
+   ---------------------------------------------------------------------------
+   Three different things need to be legible in the same small area, so each
+   takes a DIFFERENT channel and they never compete:
+
+     REGISTER   a coloured left edge + a tag beside the label
+     CONTAINER  header treatment — whether an add/remove affordance exists
+     DEPTH      ground tone, not borders
+
+   Register uses colour on a thin edge; depth uses background tone; containment
+   uses header style. Mixing any two onto one channel is what makes a form like
+   this read as noise.
+   =========================================================================== */
+
+/* ---- REGISTER ----------------------------------------------------------
+   Matched to the rehearsal panel deliberately: a turn marked verbatim there
+   comes from a field marked verbatim here. Green = ships as typed, amber =
+   the model reads it, grey = a value, not prose. */
+/* The wrapper became the grid child, so the field inside it no longer
+   stretches on its own — a Vaadin field sizes to content unless told to fill.
+   Both of these are needed: the wrapper fills its grid track, and the field
+   fills the wrapper. Without them every input collapsed to a narrow column and
+   grew tall instead of wide. */
+.fw { position: relative; padding-left: 11px; display: block; width: 100%; min-width: 0; }
+.fw > vaadin-text-field,
+.fw > vaadin-text-area { width: 100%; }
+.fw::before {
+  content: ''; position: absolute; left: 0; top: 3px; bottom: 3px;
+  width: 3px; border-radius: 2px;
+}
+.fw-tag {
+  display: inline-block; margin-bottom: 4px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 3px; cursor: help;
+}
+.fw.reg-verbatim::before { background: var(--ok); }
+.fw.reg-verbatim .fw-tag { background: var(--ok-10); color: #106b37; }
+.fw.reg-guidance::before { background: var(--warn); }
+.fw.reg-guidance .fw-tag { background: var(--warn-10); color: #8a5a11; }
+.fw.reg-setting::before  { background: var(--line); }
+.fw.reg-setting .fw-tag  { background: var(--surface-3); color: var(--ink-faint); }
+
+/* A settings field holds a value, not prose, so it does not need prose width.
+   Capped on the wrapper, not the field, so the field still fills what it is
+   given rather than shrinking to its content inside a wide wrapper. */
+.fw.reg-setting { max-width: 340px; }
+
+/* ---- DEPTH -------------------------------------------------------------
+   Ground tone rather than repeated borders. Indentation compounds and eats
+   width by level four (a character reaches exactly that); tone does not. */
+.card { --depth: 0; }
+.rowcard { --depth: 1; }
+.rowcard .rowcard { --depth: 2; }
+
+/* ---- CONTAINER KIND ----------------------------------------------------
+   A FIXED set the engine owns and a list the author extends are the same
+   component today, which is why nothing on screen says "these three are all
+   there will ever be". The honest difference is the add affordance, so the
+   header says which kind it is. */
+.rows-fixed .rows-head { display: flex; flex-direction: row; align-items: center; gap: 9px; flex-wrap: wrap; }
+.rows-fixed .rows-title { flex: 0 0 auto; }
+.rows-lock {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-faint); background: var(--surface-3);
+  padding: 2px 7px; border-radius: 3px; display: inline-flex; align-items: center; gap: 5px;
+}
+.rows-compare {
+  margin-left: auto; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 6px; padding: 4px 11px; cursor: pointer;
+  font: 600 11.5px 'Open Sans', sans-serif; color: var(--accent);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.rows-compare:hover { background: var(--accent-10); border-color: var(--accent); }
+
+/* ---- QUALITY LEVELS AS TABS -------------------------------------------
+   The three share one space instead of stacking, which takes roughly a third
+   off the step's length. What makes that safe is that the tabs carry
+   COMPLETION: all three levels are required, so a hidden one that is empty has
+   to say so before it is opened — otherwise an author fills Strong, sees a
+   finished-looking panel, and ships a step with two-thirds of its calibration
+   missing. Hiding is only honest when what is hidden announces itself. */
+.lvl-tabs {
+  display: flex; gap: 4px; padding: 3px;
+  background: var(--surface-3); border-radius: 9px; margin-top: 2px;
+}
+.lvl-tab {
+  flex: 1 1 0; min-width: 0;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  border: 1px solid transparent; background: none; border-radius: 7px; cursor: pointer;
+  padding: 8px 10px; font: 600 12.5px 'Open Sans', sans-serif; color: var(--ink-soft);
+}
+.lvl-tab:hover { color: var(--ink); background: rgba(255,255,255,.6); }
+.lvl-tab.is-on {
+  background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow-sm); border-color: var(--line);
+}
+.lvl-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* The level's own colour, so the tab says which calibration it is even when
+   it is not the open one. */
+.lvl-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.lvl-tab.unthoughtful .lvl-dot { background: var(--err); }
+.lvl-tab.neutral .lvl-dot { background: var(--ink-faint); }
+.lvl-tab.strong .lvl-dot { background: var(--ok); }
+
+/* Completion, on the tab. A count of what is still empty beats a generic
+   warning icon: it tells the author how much work is behind the tab. */
+.lvl-check { font-size: 9.5px; color: var(--ok); flex: 0 0 auto; }
+.lvl-miss {
+  flex: 0 0 auto; min-width: 16px; height: 16px; border-radius: 8px;
+  background: var(--warn); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; padding: 0 4px;
+}
+.lvl-tab.is-missing { color: #8a5a11; }
+.lvl-tab.is-missing.is-on { border-color: #f0dfa8; background: var(--warn-10); }
+
+.lvl-hint {
+  margin: 10px 0 0; font-size: 12px; line-height: 1.5; color: var(--ink-faint);
+}
+.lvl-panel { display: grid; gap: 10px; margin-top: 12px; }
+
+/* Container-level completion, beside the locked-vocabulary marker. */
+.lvl-warn, .lvl-ok {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .03em;
+  padding: 2px 8px; border-radius: 3px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.lvl-warn { background: var(--warn-10); color: #8a5a11; }
+.lvl-ok { background: var(--ok-10); color: #106b37; }
+
+/* ---- THE COMPARISON MODAL ---------------------------------------------
+   The three levels stack in the form, because side-by-side does not fit a
+   column that also has a panel on each side. When the comparison IS the
+   question — calibrating strong against unthoughtful — it gets its own full
+   width instead of forcing the form to carry a layout it cannot hold. */
+.cmp-scrim {
+  position: fixed; inset: 0; background: rgba(16,24,40,.42);
+  z-index: 60; display: flex; align-items: center; justify-content: center; padding: 28px;
+}
+.cmp-modal {
+  background: var(--surface); border-radius: var(--radius);
+  box-shadow: 0 20px 50px rgba(16,24,40,.22);
+  width: min(1180px, 96vw); max-height: 88vh; display: flex; flex-direction: column;
+}
+.cmp-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 15px 20px; border-bottom: 1px solid var(--line); flex: 0 0 auto;
+}
+.cmp-head h2 { margin: 0; font-size: 15px; font-weight: 700; flex: 1 1 auto; }
+.cmp-head .cmp-sub { font-size: 12px; color: var(--ink-faint); }
+.cmp-close {
+  width: 30px; height: 30px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 7px; cursor: pointer; color: var(--ink-soft);
+}
+.cmp-close:hover { background: var(--surface-2); color: var(--ink); }
+.cmp-body { flex: 1 1 auto; overflow: auto; padding: 18px 20px 22px; }
+.cmp-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+@media (max-width: 900px) { .cmp-grid { grid-template-columns: 1fr; } }
+.cmp-col {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); overflow: hidden;
+}
+.cmp-col-head {
+  padding: 10px 13px; font-size: 12px; font-weight: 700;
+  border-bottom: 1px solid var(--line);
+}
+.cmp-col.unthoughtful .cmp-col-head { background: var(--err-10); color: #9b2c26; }
+.cmp-col.neutral .cmp-col-head { background: var(--surface-3); color: var(--ink-soft); }
+.cmp-col.strong .cmp-col-head { background: var(--ok-10); color: #106b37; }
+.cmp-field { padding: 11px 13px; border-bottom: 1px solid var(--line-soft); }
+.cmp-field:last-child { border-bottom: none; }
+.cmp-k {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 4px; display: block;
+}
+.cmp-v { font-size: 12.5px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; }
+.cmp-v.is-empty { color: var(--ink-faint); font-style: italic; }
+
+/* ===========================================================================
+   LISTS, ROWS AND CONTAINERS
+   Rendered the way the reference tool renders them — every member of every list
+   fully expanded, always — because that density IS what Waves 1-2 redesign, and
+   a redesign cannot be judged against a version that never had the problem.
+   The known defects are deliberate and documented:
+     - .rowcard is one component doing three different jobs (AI-07)
+     - it is full width, same fill and border as its parent .card (AI-09)
+     - nothing collapses, so form length scales with content (AI-05)
+   =========================================================================== */
+.rows { display: grid; gap: 10px; margin-top: 4px; }
+.rows-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 2px; }
+.rows-title { font-size: 12.5px; font-weight: 700; }
+.rows-lead { font-size: 11.5px; color: var(--ink-faint); }
+
+.rowcard {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 12px 14px 14px; background: var(--surface);
+  display: grid; gap: 10px; position: relative;
+}
+.rowhead {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.rowbadge {
+  text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 11px;
+  color: var(--accent); background: var(--accent-10); padding: 2px 7px; border-radius: 4px;
+}
+.rowdel {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--ink-faint); font-size: 12px; padding: 3px 5px; border-radius: 4px;
+}
+.rowdel:hover { color: var(--err); background: var(--err-10); }
+
+/* The fixed, engine-owned set of three. Same component as a user-added row,
+   which is exactly the problem AI-07 names: nothing says "these three are the
+   complete set and always will be". */
+.rowcard.level .rowhead { color: var(--accent); }
+
+.addrow {
+  justify-self: start; display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: 1px dashed var(--line); cursor: pointer;
+  color: var(--accent); font: 600 12.5px 'Open Sans', sans-serif;
+  padding: 8px 14px; border-radius: var(--radius-sm);
+}
+.addrow:hover { background: var(--accent-10); border-color: var(--accent); }
+.addrow.sm { font-size: 11.5px; padding: 6px 11px; }
+.addrow.big { margin: 0 0 16px; padding: 11px 18px; font-size: 13px; }
+
+/* A nested list of plain strings. Deliberately borderless: a card inside a card
+   reads as a peer of its parent, which is the opposite of what nesting means. */
+.subrows { display: grid; gap: 8px; }
+.subrows-help { margin: 2px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-faint); }
+.subrow { display: flex; gap: 6px; align-items: flex-start; }
+/* The first child may be a bare field or a register wrapper around one; both
+   must take the row's spare width rather than sizing to their content. */
+.subrow > *:first-child { flex: 1 1 auto; min-width: 0; }
+.subdel {
+  background: none; border: none; cursor: pointer; color: var(--ink-faint);
+  font-size: 12px; padding: 6px; border-radius: 4px; margin-top: 22px; flex: 0 0 auto;
+}
+.subdel:hover { color: var(--err); background: var(--err-10); }
+
+/* Collapsed guidance — the craft notes an author reads once and then folds. */
+.guide {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); margin: 12px 0 0; overflow: hidden;
+}
+.guide > summary {
+  cursor: pointer; padding: 10px 13px; font-size: 12.5px; font-weight: 600;
+  color: var(--ink-soft); display: flex; align-items: center; gap: 8px; list-style: none;
+}
+.guide > summary::-webkit-details-marker { display: none; }
+.guide > summary i { color: var(--accent); font-size: 12px; }
+.guide > summary:hover { background: var(--surface-3); }
+.guide-body { padding: 2px 14px 12px; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+.guide-body p { margin: 6px 0; }
+.guide-body ul { margin: 6px 0; padding-left: 18px; }
+.guide-body li { margin: 3px 0; }
+
+/* ---- FIELD SECTIONS ----------------------------------------------------
+   A real compartment. The previous treatment was a small caption with a hair
+   rule above it — enough to NAME a group, not enough to BOUND one, so a step
+   with 35 fields read as a single undifferentiated scroll with no way to tell
+   where one concern ended and the next began.
+
+   A section opens with a header on its own ground and encloses its fields, so
+   the edges are findable while scrolling rather than inferred from spacing. */
+.fsec {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); overflow: hidden; margin: 4px 0;
+}
+.fsec-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+}
+.fsec-head > i { color: var(--accent); font-size: 12px; flex: 0 0 auto; }
+.fsec-title { font-size: 12.5px; font-weight: 700; color: var(--ink); }
+.fsec-note { font-size: 11.5px; color: var(--ink-faint); }
+.fsec-body { padding: 14px; display: grid; gap: 12px; }
+
+/* A lighter sub-label INSIDE a section, for a run of fields that belong
+   together but do not warrant a compartment of their own. */
+.fsub {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-faint); padding-top: 8px; margin-top: 2px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.card > h2 .stage {
+  margin-left: auto; font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+  color: var(--ink-faint); background: var(--surface-3);
+  padding: 3px 8px; border-radius: 4px; text-transform: uppercase;
+}
+.card.step > h2 { align-items: center; }
+
+/* ===========================================================================
+   REHEARSAL PANEL — the right column
+   Mirrors objectManager's Template Properties panel: a flex sibling of the
+   content area with a left border, shown only when the open member has
+   something to rehearse.
+
+   Wider than that panel's 260px, though — that width suits property controls,
+   and this holds a conversation. 380px is the floor at which a two-sided
+   transcript still reads; it is resizable because the budget is genuinely
+   tight once the left panel is also open.
+   =========================================================================== */
+#rehPanel {
+  width: var(--rehp-w, 400px); flex: 0 0 auto; min-width: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface-2); border-left: 1px solid var(--line);
+  box-shadow: -2px 0 12px rgba(16,24,40,.05);
+  position: relative; z-index: 15;
+}
+#rehPanel[hidden] { display: none; }
+.rehp-body { flex: 1 1 auto; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; }
+.rehp-grip {
+  position: absolute; top: 0; left: -3px; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 16;
+}
+.rehp-grip:hover::after, .rehp-grip.is-dragging::after {
+  content: ''; position: absolute; inset: 0 2px; background: var(--accent); opacity: .5;
+}
+
+/* Below this the three columns cannot coexist; the rehearsal overlays instead
+   of squeezing the form into an unusable width. */
+@media (max-width: 1400px) {
+  #rehPanel { position: absolute; right: 0; top: 0; bottom: 0; box-shadow: var(--shadow-md); }
+}
+
+/* ===========================================================================
+   REHEARSAL — the step preview
+   Two kinds of turn on one surface, marked apart, because they carry different
+   warranties: a VERBATIM turn is exactly what ships, a GENERATED one is
+   simulated from the authored guidance. Conflating them would be the whole
+   failure mode of a preview like this.
+   =========================================================================== */
+/* Fills its column: no card border or radius of its own, because the panel it
+   sits in already provides the edge. */
+.reh {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--surface);
+}
+.reh-bar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2);
+}
+.reh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+/* A live dot rather than an icon — this is the one surface here that RUNS. */
+.reh-title::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ok); box-shadow: 0 0 0 3px var(--ok-10);
+}
+.reh-modes { margin-left: auto; display: flex; gap: 2px; background: var(--surface-3); padding: 2px; border-radius: 7px; }
+.reh-mode {
+  border: none; background: none; cursor: pointer; border-radius: 5px;
+  padding: 5px 11px; font: 600 12px 'Open Sans', sans-serif; color: var(--ink-soft);
+}
+.reh-mode:hover { color: var(--ink); }
+.reh-mode.is-on { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
+.reh-reset {
+  width: 28px; height: 28px; border: 1px solid var(--line); background: var(--surface);
+  border-radius: 6px; cursor: pointer; color: var(--ink-soft); font-size: 11px;
+}
+.reh-reset:hover { background: var(--surface-3); color: var(--ink); }
+
+.reh-hint { flex: 0 0 auto; margin: 0; padding: 11px 16px 0; font-size: 12px; line-height: 1.55; color: var(--ink-soft); }
+/* The honesty line. A chat that answers when you type WILL be read as a live
+   test unless the surface says otherwise, so it says otherwise. */
+.reh-sim {
+  flex: 0 0 auto; margin: 9px 16px 0; padding: 9px 12px; border-radius: var(--radius-sm);
+  background: var(--warn-10); border: 1px solid #f0dfa8;
+  font-size: 11.5px; line-height: 1.5; color: #7a5312;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.reh-sim i { margin-top: 2px; flex: 0 0 auto; }
+
+.reh-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding: 14px 16px; display: grid; gap: 12px; align-content: start;
+}
+
+.rt { display: flex; }
+.rt.learner { justify-content: flex-end; }
+.rt-inner { max-width: 90%; min-width: 0; }
+.rt.learner .rt-inner { text-align: right; }
+.rt-who {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 4px;
+}
+.rt-bubble {
+  display: inline-block; text-align: left;
+  padding: 10px 13px; border-radius: 12px;
+  font-size: 13px; line-height: 1.55;
+  background: var(--surface-3); color: var(--ink);
+}
+.rt.learner .rt-bubble { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.rt.coach .rt-bubble { border-bottom-left-radius: 4px; }
+/* Verbatim gets a solid left edge; generated gets a dashed one. The distinction
+   is carried by the bubble itself, not only by a label under it. */
+.rt-bubble.verbatim { border-left: 3px solid var(--ok); }
+.rt-bubble.generated { border-left: 3px dashed var(--warn); }
+
+.rt-foot { display: flex; align-items: center; gap: 7px; margin-top: 6px; flex-wrap: wrap; }
+.rt.learner .rt-foot { justify-content: flex-end; }
+.rt-kind {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px;
+}
+.rt-kind.verbatim { background: var(--ok-10); color: #106b37; }
+.rt-kind.generated { background: var(--warn-10); color: #8a5a11; }
+/* A button, not a label — it opens the calibration that produced the reply,
+   which with the levels behind tabs may not be the one on screen. */
+.rt-lvl {
+  font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 4px; background: var(--surface-3); color: var(--ink-soft);
+  border: 1px solid transparent; cursor: pointer; font-family: inherit;
+}
+.rt-lvl:hover { border-color: currentColor; filter: brightness(.96); }
+.rt-lvl.unthoughtful { background: var(--err-10); color: #9b2c26; }
+.rt-lvl.neutral { background: var(--surface-3); color: var(--ink-soft); }
+.rt-lvl.strong { background: var(--ok-10); color: #106b37; }
+.rt-act {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 5px;
+  padding: 3px 9px; cursor: pointer; font: 600 11px 'Open Sans', sans-serif;
+  color: var(--ink-soft); display: inline-flex; align-items: center; gap: 5px;
+}
+.rt-act:hover { background: var(--surface-2); color: var(--ink); border-color: #cfd8e3; }
+.rt-act.is-kept { background: var(--accent-10); color: var(--accent); border-color: var(--accent); }
+.rt-draw { font-size: 10.5px; color: var(--ink-faint); font-weight: 600; }
+
+.reh-foot { flex: 0 0 auto; padding: 12px 16px; border-top: 1px solid var(--line); background: var(--surface-2); }
+.reh-input { display: flex; gap: 8px; }
+.reh-box {
+  flex: 1 1 auto; min-width: 0; font: 400 13px 'Open Sans', sans-serif;
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink);
+}
+.reh-box:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-10); }
+.reh-send {
+  flex: 0 0 auto; border: none; background: var(--accent); color: #fff;
+  border-radius: var(--radius-sm); padding: 0 14px; cursor: pointer;
+  font: 600 12.5px 'Open Sans', sans-serif; display: inline-flex; align-items: center; gap: 7px;
+}
+.reh-send:hover { filter: brightness(1.06); }
+
+.reh-try { display: flex; align-items: center; gap: 7px; margin-top: 10px; flex-wrap: wrap; }
+.reh-try-lbl { font-size: 11.5px; color: var(--ink-faint); font-weight: 600; }
+.reh-try-btn {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 20px;
+  padding: 4px 12px; cursor: pointer; font: 600 11.5px 'Open Sans', sans-serif; color: var(--ink-soft);
+}
+.reh-try-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-10); }
+.reh-try-btn.unthoughtful:hover { border-color: var(--err); color: #9b2c26; background: var(--err-10); }
+.reh-try-btn.strong:hover { border-color: var(--ok); color: #106b37; background: var(--ok-10); }
+
+.reh-exits {
+  flex: 0 0 auto; margin: 0; padding: 9px 16px; border-top: 1px solid var(--line-soft);
+  font-size: 11.5px; color: var(--ink-faint);
+}
+
+/* Mode selector — retyping a step swaps which interaction shape is authored. */
+.moderow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.modebtn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: 8px; cursor: pointer;
+  font: 600 12.5px 'Open Sans', sans-serif;
+  background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--line);
+}
+.modebtn:hover { border-color: #cfd8e3; color: var(--ink); }
+.modebtn.is-on { background: var(--accent); color: #fff; border-color: var(--accent); cursor: default; }
+
+/* ===========================================================================
+   SETTINGS DRAWER — the document-level surface that replaces the Start phase
+   (AI-04 Q1). It is not a phase because none of it is a step in the work; it
+   is what the document IS, reachable at any time from the rail's foot.
+   =========================================================================== */
+.drawer-scrim {
+  position: fixed; inset: 0; background: rgba(16,24,40,.32);
+  opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 50;
+}
+.drawer-scrim.is-open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 92vw);
+  background: var(--surface); border-left: 1px solid var(--line);
+  box-shadow: -8px 0 28px rgba(16,24,40,.12);
+  transform: translateX(100%); transition: transform .2s ease;
+  z-index: 51; display: flex; flex-direction: column;
+}
+.drawer.is-open { transform: translateX(0); }
+.drawer-head {
+  height: var(--header-h); flex: 0 0 auto; padding: 0 12px 0 18px;
+  display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line);
+}
+.drawer-head h2 { font-size: 14.5px; font-weight: 700; margin: 0; flex: 1 1 auto; }
+.drawer-head i.lead-ico { color: var(--accent); }
+.drawer-body { flex: 1 1 auto; overflow-y: auto; padding: 18px; }
+.drawer-body .card:last-child { margin-bottom: 0; }
+
+/* AI-01 — prior context is a choice, not three prose fields. The options are
+   presented as cards because the difference between them is a behavior, and a
+   bare radio label cannot say what the behavior is. */
+.opt-set { display: grid; gap: 9px; }
+.opt {
+  display: flex; gap: 11px; align-items: flex-start; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 12px 14px; background: var(--surface);
+}
+.opt:hover { border-color: #cfd8e3; background: var(--surface-2); }
+.opt.is-on { border-color: var(--accent); background: var(--accent-10); }
+.opt input { margin: 2px 0 0; accent-color: var(--accent); flex: 0 0 auto; }
+.opt-txt { min-width: 0; }
+.opt-name { font-size: 13px; font-weight: 700; display: block; margin-bottom: 2px; }
+.opt-desc { font-size: 12px; line-height: 1.55; color: var(--ink-soft); display: block; }
+
+/* The resolved upstream content, shown read-only. The reference tool asks the
+   author to TYPE this; here the tool owns it and the author only decides
+   whether the coach reads it. */
+.resolved {
+  margin-top: 11px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); overflow: hidden;
+}
+.resolved-head {
+  padding: 9px 13px; border-bottom: 1px solid var(--line);
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-faint); display: flex; align-items: center; gap: 7px;
+}
+.resolved-head .auto {
+  margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600;
+  color: var(--accent); background: var(--accent-10); padding: 2px 7px; border-radius: 4px;
+}
+.resolved-body { padding: 12px 13px; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+.resolved-body .rl { display: block; font-weight: 700; color: var(--ink); font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 3px; }
+.resolved-body .rl:first-child { margin-top: 0; }
+.resolved.is-off { opacity: .45; }
+
+/* Read-out for a value the tool derives and the author does not set. */
+.readout {
+  display: flex; align-items: baseline; gap: 9px; font-size: 12px;
+  padding: 9px 12px; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.readout .rk { color: var(--ink-faint); font-weight: 600; flex: 0 0 auto; }
+.readout .rv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); word-break: break-all; }
+.readout .rnote { margin-left: auto; font-size: 11px; color: var(--ink-faint); flex: 0 0 auto; }
+
+/* ===========================================================================
+   VALIDATION POPOVER — anchored to the header affordance
+   =========================================================================== */
+.vpop {
+  position: absolute; top: calc(var(--header-h) - 6px); right: 14px;
+  width: min(430px, 94vw); max-height: 64vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-md);
+  z-index: 45; padding: 6px; display: none;
+}
+.vpop.is-open { display: block; }
+.vpop-head {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px 11px;
+  border-bottom: 1px solid var(--line-soft); margin-bottom: 4px;
+}
+.vpop-head h3 { font-size: 13px; font-weight: 700; margin: 0; flex: 1 1 auto; }
+.vpill {
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.vpill.err { background: var(--err-10); color: #9b2c26; }
+.vpill.warn { background: var(--warn-10); color: #8a5a11; }
+.vpill.ok { background: var(--ok-10); color: #106b37; }
+
+.lint {
+  display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; align-items: flex-start; border: 1px solid transparent;
+}
+.lint:hover { background: var(--surface-2); border-color: var(--line); }
+.lint > i { font-size: 13px; margin-top: 1px; flex: 0 0 auto; }
+.lint.err > i { color: var(--err); }
+.lint.warn > i { color: var(--warn); }
+.lint .msg { font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.lint .where { font-size: 11.5px; color: var(--ink-faint); margin-top: 3px; }
+
+/* The all-clear state. */
+.vclean { text-align: center; padding: 26px 18px 30px; }
+.vclean .big { font-size: 30px; color: var(--ok); margin-bottom: 10px; }
+.vclean h4 { margin: 0 0 5px; font-size: 14px; font-weight: 700; }
+.vclean p { margin: 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(14px);
+  background: #1f2933; color: #fff; font-size: 12.5px; font-weight: 600;
+  padding: 10px 16px; border-radius: 8px; box-shadow: var(--shadow-md);
+  opacity: 0; pointer-events: none; transition: all .18s; z-index: 70;
+}
+.toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 720px) {
+  .surface-inner { padding: 20px 18px 80px; }
+  .save-status { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- =====================================================================
+       HEADER — document identity, then document-level actions.
+       Mirrors LearningStudio/Phase2/EditorUI's 56px header: logo, divider,
+       title group, then the right-hand action cluster.
+       ===================================================================== -->
+  <header id="page-header">
+    <div class="ph-left">
+      <div class="ph-logo"><i class="fa-solid fa-comments"></i></div>
+      <div class="ph-divider"></div>
+      <div class="ph-title-group">
+        <span class="ph-eyebrow">
+          <span>Scenario</span>
+          <span style="color:var(--line)">|</span>
+          <span id="scenarioMeta">AI Conversational · v4</span>
+        </span>
+        <!-- AI-02 — editable from any phase, never a field inside a step -->
+        <button class="ph-title" id="docTitle" title="Click to rename"></button>
+      </div>
+      <button class="ph-gen" id="genTitle" title="Suggest a title from the situation">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest
+      </button>
+    </div>
+
+    <div class="ph-right">
+      <span class="save-status"><i class="fa-solid fa-circle-check"></i> Saved just now</span>
+
+      <!-- AI-13 — always visible, peer to Comments, never inside a panel -->
+      <button class="ph-validity" id="validityBtn">
+        <span class="vdot"></span><span id="validityTxt">—</span>
+      </button>
+
+      <button class="ph-icon-btn" id="btnComments" title="Comments"><i class="fa-regular fa-comment"></i></button>
+      <button class="ph-icon-btn" id="btnHelp" title="Support Center"><i class="fa-regular fa-circle-question"></i></button>
+      <!-- AI-12 — the compiled prompt is a niche debugging view, so it lives in
+           an overflow menu rather than holding the default inspector tab. -->
+      <button class="ph-icon-btn" id="btnMore" title="More"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+      <button class="ph-publish" id="btnPreview">Preview</button>
+    </div>
+
+    <!-- Validation popover, anchored under its header affordance -->
+    <div class="vpop" id="vpop"></div>
+  </header>
+
+  <div id="main">
+    <!-- ===================================================================
+         RAIL — the phase navigation itself (AI-04). Numbered because at 64px
+         the sequence cannot be carried by subtitle text the way a 250px rail
+         carries it.
+         =================================================================== -->
+    <nav id="rail" aria-label="Scenario phases"></nav>
+
+    <!-- ===================================================================
+         V2 — the collection panel. Holds the phase's collections as cards,
+         grouped under inline labels; the content area holds whichever one is
+         picked. Resizable and collapsible, because a panel plus a form is a
+         tighter width budget than a panel plus a video canvas.
+         =================================================================== -->
+    <div id="panel" aria-label="Phase contents">
+      <div class="panel-head">
+        <span class="pt" id="panelTitle"></span>
+        <span class="pcount" id="panelCount"></span>
+      </div>
+      <div class="panel-body" id="panelBody"></div>
+      <div class="panel-grip" id="panelGrip" title="Drag to resize"></div>
+    </div>
+
+    <main id="surface"><div class="surface-inner" id="surfaceInner"></div></main>
+
+    <!-- ===================================================================
+         REHEARSAL PANEL — the right side of the editor, mirroring how
+         objectManager hangs its Template Properties panel beside the canvas:
+         a sibling of the content area, not a section inside it.
+
+         It belongs on the right rather than under the fields because it is not
+         part of the document — it is what the document PRODUCES. Keeping it
+         beside the form also means an author can change a level's guidance and
+         watch the next draw against it without scrolling between the two.
+
+         Only the Interaction phase's steps fill it; every other member hides
+         it, because there is nothing to rehearse.
+         =================================================================== -->
+    <aside id="rehPanel" hidden aria-label="Rehearsal">
+      <div class="rehp-grip" id="rehGrip" title="Drag to resize"></div>
+      <div class="rehp-body" id="rehPanelBody"></div>
+    </aside>
+  </div>
+</div>
+
+<!-- Document settings — replaces the Start phase rather than relocating it -->
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="drawer" id="drawer" aria-label="Scenario settings">
+  <div class="drawer-head">
+    <i class="fa-solid fa-sliders lead-ico"></i>
+    <h2>Scenario settings</h2>
+    <button class="ph-icon-btn" id="drawerClose" title="Close"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<div class="toast" id="toast" role="status"></div>
+
+<!-- Design Toolbox — comments + flow map for review. Five levels up, matching
+     the Font Awesome path: this mock sits one folder deeper than the usual
+     products/<Product>/<feature>/verN/ because of the Studio-AI-Platform group. -->
+<script src="../../../../../designtoolbox/toolbox.js"></script>
+
+<!-- Static sample content. Data only — nothing here is compiled or validated. -->
+<script src="scenario-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

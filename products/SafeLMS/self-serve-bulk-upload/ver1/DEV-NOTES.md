@@ -6,6 +6,20 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-30) One CSV in the side panel; Map dropdown adds codes
+
+- **[DONE]** Map columns dropdown adds **External Unique ID** and **Building code**, just above
+  **Position** and **Location**, which now sit at the bottom of Standard fields (supersedes the
+  AC-1.5 "no codes" note — designer call). Sample-file auto-match is unchanged (`AUTO_ORDER`).
+- **[DONE]** One **Download CSV** at the top of the Review side panel (sticky, so it stays in view
+  while scrolling alerts). Replaces the per-alert "Download CSV" (over 20), the end-of-list
+  "Complete list of changes" card and the Run-confirmation link. It's available the whole time (no
+  lock) so admins can check big lists while reviewing.
+- **[DONE]** Download CSV opens a **spreadsheet preview** of the file: one block per alert — a title
+  row ("Warning — 6 people…"), that list's column headers, one row per person/item (column A =
+  Blocked / Warning / Info), then a blank row.
+- **[DONE]** View / Hide details: no underline or hover box (the rotated chevron picked up the underline).
+
 ## (2026-09-30) Collapsed Review; "Blocked"; CSV over 20; log Care banner
 
 - **[DONE]** Review alerts are **short banners**: chip + title only, with **View details ▾** on the
@@ -15,8 +29,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 - **[DONE]** Tier label **"Blocking" → "Blocked"** (chip, sample-file tags, log notes, flow map).
 - **[DONE]** "Submit a ticket to get this solved" button removed. Blocked alerts keep "Have a
   question about this? Raise an issue ticket."
-- **[DONE]** Warnings and Blocked with **more than 20** people/rows get **Download CSV** under the
-  list (uses the alert's real count, not just the rows shown). Info never does.
+- **[SUPERSEDED same day]** Per-alert Download CSV over 20 → one Download CSV in the side panel (above).
 - **[DONE]** Upload log: pencil banner — "**Made a mistake in an upload?** Reach out to Vector Care
   and we'll help you sort out the changes." + Contact Vector Care (Support Center). Uploads can't be
   undone (PRD), so Care is the path.

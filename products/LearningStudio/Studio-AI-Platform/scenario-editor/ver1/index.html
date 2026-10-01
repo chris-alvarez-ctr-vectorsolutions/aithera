@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scenario Editor — Wave 3</title>
+
+<!-- Vector Web Components: Core -->
+<script type="module"
+  src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+<!-- Vector Web Components: Themes (must be a plain script) -->
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+<!-- Open Sans -->
+<link rel="stylesheet"
+  href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<!-- Font Awesome 6 Pro — self-hosted. Five levels up: this mock sits one folder
+     deeper than the usual products/<Product>/<feature>/verN/ because it lives
+     under the Studio-AI-Platform group. -->
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+
+<style>
+/* ============================================================================
+   Scenario Editor — Wave 3 design prototype
+   ----------------------------------------------------------------------------
+   WHAT THIS IS
+   A design iteration on the scenario authoring experience, exploring the
+   structural changes in docs/scenario-editor-iteration/ACTION-ITEMS.md. It is
+   NOT a copy of the reference tool: no prompt compilation, no model calls, no
+   schema validation, no export. One hardcoded scenario (scenario-data.js) is
+   the sample content, so layout decisions are made against real density.
+
+   WAVE 3 SCOPE — structure and flow
+     AI-04  the Start phase dissolves; four phases, not six
+     AI-10  coach voice authored with the world, not three phases later
+     AI-01  prior context is a SETTING, not three prose fields to write
+     AI-02  the scenario title is document-level, editable from anywhere
+     AI-03  the landing-button label is standardized away
+     AI-13  validation is chrome-level and always visible, never inside a panel
+
+   CHROME MODEL
+   Borrowed from LearningStudio/Phase2/EditorUI (courseOverview.html), which is
+   the house pattern for authoring: a 56px header carrying document identity and
+   document-level actions, over a 64px icon rail. One deliberate divergence —
+   Learning Studio's rail switches 280px panels because a course expands into a
+   deep tree; four scenario phases do not need that second level, so here the
+   RAIL IS the phase navigation and the authoring surface sits directly beside it.
+
+   STYLING
+   Vector theme tokens throughout (--lumo-*), with local values only where the
+   design needs something the token set does not name. Token values quoted from
+   context/themes/v1.9.3/CONTEXT.md.
+   ========================================================================== */
+
+:root {
+  /* Vector semantic tokens, aliased so intent is readable at the use site. */
+  --ink:        var(--lumo-body-text-color, #000000de);
+  --ink-soft:   var(--lumo-secondary-text-color, #00000099);
+  --ink-faint:  #00000073;
+  --accent:     var(--lumo-primary-color, #0271ce);
+  --accent-10:  var(--lumo-primary-color-10pct, #0271ce1a);
+  --err:        var(--lumo-error-color, #d83e38);
+  --err-10:     var(--lumo-error-color-10pct, #e71d131a);
+  --ok:         var(--lumo-success-color, #158444);
+  --ok-10:      var(--lumo-success-color-10pct, #1688461a);
+  --warn:       #b7791f;
+  --warn-10:    #f6e05e33;
+
+  /* Surfaces. Solid values on purpose: the Lumo --lumo-contrast-Npct tokens are
+     translucent overlays, so they stack unpredictably once containers nest —
+     which is exactly what the depth system in Wave 1 will do. */
+  --surface:    #ffffff;
+  --surface-2:  #f7f9fb;
+  --surface-3:  #eef2f6;
+  --line:       #e3e8ee;
+  --line-soft:  #eef1f5;
+
+  --radius:     10px;
+  --radius-sm:  8px;
+  --shadow-sm:  0 1px 2px rgba(16,24,40,.06);
+  --shadow-md:  0 4px 14px rgba(16,24,40,.08);
+
+  --header-h:   56px;
+  --rail-w:     64px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%; margin: 0;
+  font-family: 'Open Sans', system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  background: var(--surface-2);
+}
+
+#app { height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ===========================================================================
+   HEADER — document identity + document-level actions
+   The reference editor's header names only the TOOL and the scenario type, so
+   the document being edited is never named on screen (AI-02). This one leads
+   with the scenario's own title, editable in place from any phase.
+   =========================================================================== */
+#page-header {
+  height: var(--header-h); flex: 0 0 auto;
+  display: flex; align-items: center; gap: 0;
+  padding: 0 14px 0 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(16,24,40,.06);
+  position: relative; z-index: 40;
+}
+.ph-left { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1 1 auto; }
+.ph-logo {
+  width: 32px; height: 32px; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; flex: 0 0 auto;
+}
+.ph-divider { width: 1px; height: 26px; background: var(--line); flex: 0 0 auto; }
+
+.ph-title-group { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.ph-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  color: var(--ink-faint); text-transform: uppercase;
+  display: flex; align-items: center; gap: 7px;
+}
+/* AI-02 — the title is a document-level identifier, edited in place. It is a
+   button until clicked, so the header reads as a heading rather than a form. */
+.ph-title {
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  padding: 1px 6px; margin-left: -6px; cursor: text; text-align: left;
+  font-family: inherit; max-width: 62ch;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ph-title:hover { background: var(--surface-2); border-color: var(--line); }
+.ph-title:focus { outline: none; background: #fff; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-10); }
+.ph-title.is-empty { color: var(--ink-faint); font-weight: 600; font-style: italic; }
+.ph-gen {
+  background: none; border: none; cursor: pointer; color: var(--accent);
+  font-size: 11px; font-weight: 600; font-family: inherit;
+  padding: 2px 6px; border-radius: 5px; display: inline-flex; align-items: center; gap: 5px;
+}
+.ph-gen:hover { background: var(--accent-10); }
+
+.ph-right { display: flex; align-items: center; gap: 4px; flex: 0 0 auto; }
+.save-status {
+  font-size: 12px; color: var(--ink-soft); display: flex; align-items: center; gap: 6px;
+  margin-right: 8px; white-space: nowrap;
+}
+.save-status i { color: var(--ok); font-size: 12px; }
+
+.ph-icon-btn {
+  width: 34px; height: 34px; border: none; background: none; cursor: pointer;
+  border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 15px;
+  display: flex; align-items: center; justify-content: center; position: relative;
+}
+.ph-icon-btn:hover { background: var(--surface-3); color: var(--ink); }
+.ph-icon-btn.is-open { background: var(--accent-10); color: var(--accent); }
+
+/* AI-13 — validation lives in the chrome beside Comments, so it is visible at
+   all times rather than inside a collapsible inspector tab an author can hide
+   for a whole session. The count IS the affordance. */
+.ph-validity {
+  display: inline-flex; align-items: center; gap: 7px;
+  height: 34px; padding: 0 11px; border-radius: var(--radius-sm);
+  border: 1px solid var(--line); background: var(--surface);
+  font: 600 12px 'Open Sans', sans-serif; color: var(--ink-soft);
+  cursor: pointer; margin-right: 4px; white-space: nowrap;
+}
+.ph-validity:hover { background: var(--surface-2); }
+.ph-validity .vdot { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-faint); flex: 0 0 auto; }
+.ph-validity.has-err { border-color: #f3c9c7; background: var(--err-10); color: #9b2c26; }
+.ph-validity.has-err .vdot { background: var(--err); }
+.ph-validity.has-warn { border-color: #f0dfa8; background: var(--warn-10); color: #8a5a11; }
+.ph-validity.has-warn .vdot { background: var(--warn); }
+.ph-validity.is-clean { border-color: #bfe3cd; background: var(--ok-10); color: #106b37; }
+.ph-validity.is-clean .vdot { background: var(--ok); }
+.ph-validity.is-open { box-shadow: 0 0 0 3px var(--accent-10); border-color: var(--accent); }
+
+.ph-publish {
+  height: 34px; padding: 0 16px; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff; border: none; cursor: pointer;
+  font: 600 13px 'Open Sans', sans-serif; margin-left: 6px;
+}
+.ph-publish:hover { filter: brightness(1.06); }
+
+/* ===========================================================================
+   BODY — icon rail + authoring surface
+   =========================================================================== */
+#main { flex: 1 1 auto; display: flex; min-height: 0; }
+
+/* ---- the rail IS the phase navigation (AI-04) ----------------------------
+   Four phases, numbered, in the learner's order. The reference tool spends a
+   250px column on this; at 64px the sequence has to be carried by the numeral
+   rather than by subtitle prose, with the name on hover. */
+#rail {
+  width: var(--rail-w); flex: 0 0 auto;
+  background: var(--surface); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 0; gap: 2px; z-index: 20;
+}
+.rail-btn {
+  width: 48px; height: 48px; border: none; background: none; cursor: pointer;
+  border-radius: var(--radius-sm); color: var(--ink-soft); font-size: 17px;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; flex: 0 0 auto;
+}
+.rail-btn:hover { background: var(--surface-3); color: var(--ink); }
+.rail-btn.is-active { background: var(--accent-10); color: var(--accent); }
+/* The active phase also gets a left stripe, so the current position is legible
+   without relying on the fill alone. */
+.rail-btn.is-active::before {
+  content: ''; position: absolute; left: -8px; top: 9px; bottom: 9px;
+  width: 3px; border-radius: 0 3px 3px 0; background: var(--accent);
+}
+/* Positional numeral — the sequence signal the 64px rail cannot spell out. */
+.rail-num {
+  position: absolute; top: 4px; right: 5px;
+  font-size: 9.5px; font-weight: 700; line-height: 1;
+  color: var(--ink-faint);
+}
+.rail-btn.is-active .rail-num { color: var(--accent); }
+/* Per-phase lint dot, carried over from the reference tool's rail. */
+.rail-dot {
+  position: absolute; bottom: 5px; right: 6px;
+  width: 7px; height: 7px; border-radius: 50%;
+}
+.rail-dot.err { background: var(--err); }
+.rail-dot.warn { background: var(--warn); }
+.rail-dot.ok { background: var(--ok); opacity: .55; }
+
+.rail-sep { width: 32px; height: 1px; background: var(--line); margin: 8px 0; flex: 0 0 auto; }
+.rail-spacer { flex: 1 1 auto; }
+
+/* Tooltip — the rail is icon-only, so every button names itself on hover. */
+.rail-tip {
+  position: absolute; left: calc(100% + 10px); top: 50%; transform: translateY(-50%);
+  background: #1f2933; color: #fff; font-size: 12px; font-weight: 600;
+  padding: 6px 10px; border-radius: 6px; white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 60;
+}
+.rail-tip::before {
+  content: ''; position: absolute; right: 100%; top: 50%; transform: translateY(-50%);
+  border: 5px solid transparent; border-right-color: #1f2933;
+}
+.rail-btn:hover .rail-tip { opacity: 1; }
+
+/* ---- the authoring surface ---------------------------------------------- */
+#surface { flex: 1 1 auto; min-width: 0; overflow-y: auto; position: relative; }
+.surface-inner { max-width: 880px; padding: 26px 32px 90px; }
+
+.phase-head { margin: 0 0 22px; }
+.phase-eyebrow {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--accent); margin: 0 0 6px;
+}
+.phase-head h1 {
+  font-size: 23px; font-weight: 700; margin: 0 0 8px; letter-spacing: -.01em;
+  display: flex; align-items: center; gap: 11px;
+}
+.phase-head h1 .pbadge {
+  width: 30px; height: 30px; border-radius: 8px; flex: 0 0 auto;
+  background: var(--accent-10); color: var(--accent);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700;
+}
+.phase-head p { margin: 0; font-size: 13.5px; line-height: 1.6; color: var(--ink-soft); max-width: 68ch; }
+
+.card {
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+  padding: 18px 20px 20px; margin: 0 0 16px;
+}
+.card > h2 {
+  font-size: 15px; font-weight: 700; margin: 0 0 5px;
+  display: flex; align-items: center; gap: 9px;
+}
+.card > h2 i { color: var(--accent); font-size: 14px; }
+.card > .lead { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); max-width: 68ch; }
+.fields { display: grid; gap: 14px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--line-soft); }
+.fields.no-rule { border-top: none; padding-top: 0; }
+
+/* A placeholder for content this wave deliberately does not rebuild. Wave 3 is
+   structure; the list and container work is Waves 1-2, so those sections say so
+   rather than pretending to be finished. */
+.stub {
+  border: 1px dashed var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); padding: 14px 16px;
+  font-size: 12.5px; line-height: 1.6; color: var(--ink-soft);
+  display: flex; gap: 11px; align-items: flex-start;
+}
+.stub i { color: var(--ink-faint); font-size: 13px; margin-top: 2px; flex: 0 0 auto; }
+.stub b { color: var(--ink); font-weight: 700; }
+.stub .tag {
+  display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--accent); background: var(--accent-10);
+  padding: 2px 7px; border-radius: 4px; margin-right: 7px; vertical-align: 1px;
+}
+.stub-list { margin: 7px 0 0; padding-left: 17px; }
+.stub-list li { margin: 3px 0; }
+
+/* Footer stepper — the phases still have a narrative order even though the rail
+   presents them as icons, so forward motion stays available. */
+.phase-foot {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line);
+}
+.pf-btn {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 9px 15px; font: 600 13px 'Open Sans', sans-serif; color: var(--ink);
+  cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.pf-btn:hover:not(:disabled) { background: var(--surface-2); border-color: #cfd8e3; }
+.pf-btn:disabled { opacity: .4; cursor: default; }
+.pf-btn.next { margin-left: auto; border-color: var(--accent); color: var(--accent); }
+.pf-btn.next:hover { background: var(--accent-10); }
+
+/* ===========================================================================
+   LISTS, ROWS AND CONTAINERS
+   Rendered the way the reference tool renders them — every member of every list
+   fully expanded, always — because that density IS what Waves 1-2 redesign, and
+   a redesign cannot be judged against a version that never had the problem.
+   The known defects are deliberate and documented:
+     - .rowcard is one component doing three different jobs (AI-07)
+     - it is full width, same fill and border as its parent .card (AI-09)
+     - nothing collapses, so form length scales with content (AI-05)
+   =========================================================================== */
+.rows { display: grid; gap: 10px; margin-top: 4px; }
+.rows-head { display: flex; flex-direction: column; gap: 2px; margin-bottom: 2px; }
+.rows-title { font-size: 12.5px; font-weight: 700; }
+.rows-lead { font-size: 11.5px; color: var(--ink-faint); }
+
+.rowcard {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 12px 14px 14px; background: var(--surface);
+  display: grid; gap: 10px; position: relative;
+}
+.rowhead {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.rowbadge {
+  text-transform: none; letter-spacing: 0; font-weight: 600; font-size: 11px;
+  color: var(--accent); background: var(--accent-10); padding: 2px 7px; border-radius: 4px;
+}
+.rowdel {
+  margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--ink-faint); font-size: 12px; padding: 3px 5px; border-radius: 4px;
+}
+.rowdel:hover { color: var(--err); background: var(--err-10); }
+
+/* The fixed, engine-owned set of three. Same component as a user-added row,
+   which is exactly the problem AI-07 names: nothing says "these three are the
+   complete set and always will be". */
+.rowcard.level .rowhead { color: var(--accent); }
+
+.addrow {
+  justify-self: start; display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: 1px dashed var(--line); cursor: pointer;
+  color: var(--accent); font: 600 12.5px 'Open Sans', sans-serif;
+  padding: 8px 14px; border-radius: var(--radius-sm);
+}
+.addrow:hover { background: var(--accent-10); border-color: var(--accent); }
+.addrow.sm { font-size: 11.5px; padding: 6px 11px; }
+.addrow.big { margin: 0 0 16px; padding: 11px 18px; font-size: 13px; }
+
+/* A nested list of plain strings. Deliberately borderless: a card inside a card
+   reads as a peer of its parent, which is the opposite of what nesting means. */
+.subrows { display: grid; gap: 8px; }
+.subrows-help { margin: 2px 0 0; font-size: 11.5px; line-height: 1.5; color: var(--ink-faint); }
+.subrow { display: flex; gap: 6px; align-items: flex-start; }
+.subrow > *:first-child { flex: 1 1 auto; min-width: 0; }
+.subdel {
+  background: none; border: none; cursor: pointer; color: var(--ink-faint);
+  font-size: 12px; padding: 6px; border-radius: 4px; margin-top: 22px; flex: 0 0 auto;
+}
+.subdel:hover { color: var(--err); background: var(--err-10); }
+
+/* Collapsed guidance — the craft notes an author reads once and then folds. */
+.guide {
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); margin: 12px 0 0; overflow: hidden;
+}
+.guide > summary {
+  cursor: pointer; padding: 10px 13px; font-size: 12.5px; font-weight: 600;
+  color: var(--ink-soft); display: flex; align-items: center; gap: 8px; list-style: none;
+}
+.guide > summary::-webkit-details-marker { display: none; }
+.guide > summary i { color: var(--accent); font-size: 12px; }
+.guide > summary:hover { background: var(--surface-3); }
+.guide-body { padding: 2px 14px 12px; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+.guide-body p { margin: 6px 0; }
+.guide-body ul { margin: 6px 0; padding-left: 18px; }
+.guide-body li { margin: 3px 0; }
+
+/* A labelled band inside a card, for a group of fields that belong together but
+   do not warrant their own container. */
+.subband {
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-faint); padding-top: 6px; margin-top: 2px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.card > h2 .stage {
+  margin-left: auto; font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+  color: var(--ink-faint); background: var(--surface-3);
+  padding: 3px 8px; border-radius: 4px; text-transform: uppercase;
+}
+.card.step > h2 { align-items: center; }
+
+/* A note about what a wave changes, or what a later wave owns. */
+.wavenote {
+  display: flex; gap: 11px; align-items: flex-start;
+  border: 1px solid #cfe2f5; background: #f4f9ff; border-radius: var(--radius-sm);
+  padding: 14px 16px; margin: 0 0 16px; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft);
+}
+.wavenote > i { color: var(--accent); font-size: 13px; margin-top: 2px; flex: 0 0 auto; }
+.wavenote b { color: var(--ink); font-weight: 700; }
+.wavenote .tag {
+  display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--accent); background: var(--accent-10);
+  padding: 2px 7px; border-radius: 4px; margin-right: 7px; vertical-align: 1px;
+}
+.wavenote ul { margin: 7px 0 0; padding-left: 17px; }
+.wavenote li { margin: 3px 0; }
+
+/* Mode selector — retyping a step swaps which interaction shape is authored. */
+.moderow { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.modebtn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: 8px; cursor: pointer;
+  font: 600 12.5px 'Open Sans', sans-serif;
+  background: var(--surface-2); color: var(--ink-soft); border: 1px solid var(--line);
+}
+.modebtn:hover { border-color: #cfd8e3; color: var(--ink); }
+.modebtn.is-on { background: var(--accent); color: #fff; border-color: var(--accent); cursor: default; }
+
+/* ===========================================================================
+   SETTINGS DRAWER — the document-level surface that replaces the Start phase
+   (AI-04 Q1). It is not a phase because none of it is a step in the work; it
+   is what the document IS, reachable at any time from the rail's foot.
+   =========================================================================== */
+.drawer-scrim {
+  position: fixed; inset: 0; background: rgba(16,24,40,.32);
+  opacity: 0; pointer-events: none; transition: opacity .18s; z-index: 50;
+}
+.drawer-scrim.is-open { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(460px, 92vw);
+  background: var(--surface); border-left: 1px solid var(--line);
+  box-shadow: -8px 0 28px rgba(16,24,40,.12);
+  transform: translateX(100%); transition: transform .2s ease;
+  z-index: 51; display: flex; flex-direction: column;
+}
+.drawer.is-open { transform: translateX(0); }
+.drawer-head {
+  height: var(--header-h); flex: 0 0 auto; padding: 0 12px 0 18px;
+  display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--line);
+}
+.drawer-head h2 { font-size: 14.5px; font-weight: 700; margin: 0; flex: 1 1 auto; }
+.drawer-head i.lead-ico { color: var(--accent); }
+.drawer-body { flex: 1 1 auto; overflow-y: auto; padding: 18px; }
+.drawer-body .card:last-child { margin-bottom: 0; }
+
+/* AI-01 — prior context is a choice, not three prose fields. The options are
+   presented as cards because the difference between them is a behavior, and a
+   bare radio label cannot say what the behavior is. */
+.opt-set { display: grid; gap: 9px; }
+.opt {
+  display: flex; gap: 11px; align-items: flex-start; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  padding: 12px 14px; background: var(--surface);
+}
+.opt:hover { border-color: #cfd8e3; background: var(--surface-2); }
+.opt.is-on { border-color: var(--accent); background: var(--accent-10); }
+.opt input { margin: 2px 0 0; accent-color: var(--accent); flex: 0 0 auto; }
+.opt-txt { min-width: 0; }
+.opt-name { font-size: 13px; font-weight: 700; display: block; margin-bottom: 2px; }
+.opt-desc { font-size: 12px; line-height: 1.55; color: var(--ink-soft); display: block; }
+
+/* The resolved upstream content, shown read-only. The reference tool asks the
+   author to TYPE this; here the tool owns it and the author only decides
+   whether the coach reads it. */
+.resolved {
+  margin-top: 11px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface-2); overflow: hidden;
+}
+.resolved-head {
+  padding: 9px 13px; border-bottom: 1px solid var(--line);
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--ink-faint); display: flex; align-items: center; gap: 7px;
+}
+.resolved-head .auto {
+  margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 600;
+  color: var(--accent); background: var(--accent-10); padding: 2px 7px; border-radius: 4px;
+}
+.resolved-body { padding: 12px 13px; font-size: 12.5px; line-height: 1.6; color: var(--ink-soft); }
+.resolved-body .rl { display: block; font-weight: 700; color: var(--ink); font-size: 11.5px;
+  text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 3px; }
+.resolved-body .rl:first-child { margin-top: 0; }
+.resolved.is-off { opacity: .45; }
+
+/* Read-out for a value the tool derives and the author does not set. */
+.readout {
+  display: flex; align-items: baseline; gap: 9px; font-size: 12px;
+  padding: 9px 12px; background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+.readout .rk { color: var(--ink-faint); font-weight: 600; flex: 0 0 auto; }
+.readout .rv { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); word-break: break-all; }
+.readout .rnote { margin-left: auto; font-size: 11px; color: var(--ink-faint); flex: 0 0 auto; }
+
+/* ===========================================================================
+   VALIDATION POPOVER — anchored to the header affordance
+   =========================================================================== */
+.vpop {
+  position: absolute; top: calc(var(--header-h) - 6px); right: 14px;
+  width: min(430px, 94vw); max-height: 64vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow-md);
+  z-index: 45; padding: 6px; display: none;
+}
+.vpop.is-open { display: block; }
+.vpop-head {
+  display: flex; align-items: center; gap: 8px; padding: 10px 12px 11px;
+  border-bottom: 1px solid var(--line-soft); margin-bottom: 4px;
+}
+.vpop-head h3 { font-size: 13px; font-weight: 700; margin: 0; flex: 1 1 auto; }
+.vpill {
+  font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.vpill.err { background: var(--err-10); color: #9b2c26; }
+.vpill.warn { background: var(--warn-10); color: #8a5a11; }
+.vpill.ok { background: var(--ok-10); color: #106b37; }
+
+.lint {
+  display: flex; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; align-items: flex-start; border: 1px solid transparent;
+}
+.lint:hover { background: var(--surface-2); border-color: var(--line); }
+.lint > i { font-size: 13px; margin-top: 1px; flex: 0 0 auto; }
+.lint.err > i { color: var(--err); }
+.lint.warn > i { color: var(--warn); }
+.lint .msg { font-size: 12.5px; font-weight: 600; line-height: 1.5; }
+.lint .where { font-size: 11.5px; color: var(--ink-faint); margin-top: 3px; }
+
+/* AI-14 lives in Wave 4, but the clean state needs SOMETHING to be, or the
+   prototype would imply reaching valid is unremarkable. */
+.vclean { text-align: center; padding: 26px 18px 30px; }
+.vclean .big { font-size: 30px; color: var(--ok); margin-bottom: 10px; }
+.vclean h4 { margin: 0 0 5px; font-size: 14px; font-weight: 700; }
+.vclean p { margin: 0; font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+.vclean .w4 {
+  margin-top: 14px; font-size: 11.5px; color: var(--ink-faint);
+  border-top: 1px dashed var(--line); padding-top: 12px;
+}
+
+/* ===========================================================================
+   NOTE STRIP — what this wave changed, readable in the prototype itself
+   =========================================================================== */
+#wavebar {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; background: #eef5fc; border-bottom: 1px solid #cfe2f5;
+  font-size: 12px; color: #14538f;
+}
+#wavebar i { color: var(--accent); }
+#wavebar b { font-weight: 700; }
+#wavebar .spacer { flex: 1 1 auto; }
+#wavebar button {
+  background: none; border: 1px solid #b9d6f2; color: #14538f; cursor: pointer;
+  font: 600 11.5px 'Open Sans', sans-serif; padding: 4px 10px; border-radius: 5px;
+}
+#wavebar button:hover { background: #dcecfa; }
+
+.toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(14px);
+  background: #1f2933; color: #fff; font-size: 12.5px; font-weight: 600;
+  padding: 10px 16px; border-radius: 8px; box-shadow: var(--shadow-md);
+  opacity: 0; pointer-events: none; transition: all .18s; z-index: 70;
+}
+.toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 720px) {
+  .surface-inner { padding: 20px 18px 80px; }
+  .save-status { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- =====================================================================
+       HEADER — document identity, then document-level actions.
+       Mirrors LearningStudio/Phase2/EditorUI's 56px header: logo, divider,
+       title group, then the right-hand action cluster.
+       ===================================================================== -->
+  <header id="page-header">
+    <div class="ph-left">
+      <div class="ph-logo"><i class="fa-solid fa-comments"></i></div>
+      <div class="ph-divider"></div>
+      <div class="ph-title-group">
+        <span class="ph-eyebrow">
+          <span>Scenario</span>
+          <span style="color:var(--line)">|</span>
+          <span id="scenarioMeta">AI Conversational · v4</span>
+        </span>
+        <!-- AI-02 — editable from any phase, never a field inside a step -->
+        <button class="ph-title" id="docTitle" title="Click to rename"></button>
+      </div>
+      <button class="ph-gen" id="genTitle" title="Suggest a title from the situation">
+        <i class="fa-solid fa-wand-magic-sparkles"></i> Suggest
+      </button>
+    </div>
+
+    <div class="ph-right">
+      <span class="save-status"><i class="fa-solid fa-circle-check"></i> Saved just now</span>
+
+      <!-- AI-13 — always visible, peer to Comments, never inside a panel -->
+      <button class="ph-validity" id="validityBtn">
+        <span class="vdot"></span><span id="validityTxt">—</span>
+      </button>
+
+      <button class="ph-icon-btn" id="btnComments" title="Comments"><i class="fa-regular fa-comment"></i></button>
+      <button class="ph-icon-btn" id="btnHelp" title="Support Center"><i class="fa-regular fa-circle-question"></i></button>
+      <!-- AI-12 — the compiled prompt is a niche debugging view, so it lives in
+           an overflow menu rather than holding the default inspector tab. -->
+      <button class="ph-icon-btn" id="btnMore" title="More"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+      <button class="ph-publish" id="btnPreview">Preview</button>
+    </div>
+
+    <!-- Validation popover, anchored under its header affordance -->
+    <div class="vpop" id="vpop"></div>
+  </header>
+
+  <!-- What this wave changed — kept in the page so the prototype explains
+       itself when someone opens it cold. -->
+  <div id="wavebar">
+    <i class="fa-solid fa-flask"></i>
+    <span><b>Wave 3 — structure &amp; flow.</b> Six phases became four; Start dissolved into
+      document settings; coach voice moved beside the world; validation moved into the chrome.</span>
+    <span class="spacer"></span>
+    <button id="wavebarBtn">What changed</button>
+  </div>
+
+  <div id="main">
+    <!-- ===================================================================
+         RAIL — the phase navigation itself (AI-04). Numbered because at 64px
+         the sequence cannot be carried by subtitle text the way a 250px rail
+         carries it.
+         =================================================================== -->
+    <nav id="rail" aria-label="Scenario phases"></nav>
+
+    <main id="surface"><div class="surface-inner" id="surfaceInner"></div></main>
+  </div>
+</div>
+
+<!-- Document settings — replaces the Start phase rather than relocating it -->
+<div class="drawer-scrim" id="drawerScrim"></div>
+<aside class="drawer" id="drawer" aria-label="Scenario settings">
+  <div class="drawer-head">
+    <i class="fa-solid fa-sliders lead-ico"></i>
+    <h2>Scenario settings</h2>
+    <button class="ph-icon-btn" id="drawerClose" title="Close"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</aside>
+
+<div class="toast" id="toast" role="status"></div>
+
+<!-- Design Toolbox — comments + flow map for review. Five levels up, matching
+     the Font Awesome path: this mock sits one folder deeper than the usual
+     products/<Product>/<feature>/verN/ because of the Studio-AI-Platform group. -->
+<script src="../../../../../designtoolbox/toolbox.js"></script>
+
+<!-- Static sample content. Data only — nothing here is compiled or validated. -->
+<script src="scenario-data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
