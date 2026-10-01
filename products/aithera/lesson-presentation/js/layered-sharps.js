@@ -2641,12 +2641,18 @@
     });
   }
   // The plan as playback pieces on one timeline. A gap (the sting's
-  // placeholder) goes BETWEEN topics, never inside a spliced one.
+  // placeholder) goes BETWEEN topics, never inside a spliced one; a topic's
+  // own gapBeforeSec overrides it for the join into that topic (the
+  // hand-back clip follows the close with none).
+  function gapBefore(topic, data) {
+    var d = data.manifest.topics[topic];
+    return d && d.gapBeforeSec != null ? d.gapBeforeSec : (data.manifest.gapBetweenPartsSec || 0);
+  }
   function listenPieces(plan, data) {
-    var m = data.manifest, gap = m.gapBetweenPartsSec || 0, t = 0, out = [];
+    var m = data.manifest, t = 0, out = [];
     plan.forEach(function (p, i) {
       var def = m.topics[p.topic];
-      if (i) t += gap;
+      if (i) t += gapBefore(p.topic, data);
       function piece(file, offset, dur) {
         var full = fileDur(file, data);
         if (dur == null) dur = (full == null ? null : full - offset);
@@ -2842,9 +2848,9 @@
     })).then(function () {
       // Durations from the DECODED audio, not the timing file: they are
       // what the clock actually schedules.
-      var gap = data.manifest.gapBetweenPartsSec || 0, t = 0, lastTopic = null;
+      var t = 0, lastTopic = null;
       pieces.forEach(function (p) {
-        if (lastTopic !== null && p.topic !== lastTopic) t += gap;
+        if (lastTopic !== null && p.topic !== lastTopic) t += gapBefore(p.topic, data);
         var b = bufs[p.file];
         p.dur = Math.max(0, Math.min(p.dur == null ? Infinity : p.dur, b.duration - p.offset));
         p.at = t; t += p.dur; lastTopic = p.topic;

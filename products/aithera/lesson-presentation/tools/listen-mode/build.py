@@ -22,9 +22,7 @@ Transcript conventions: "SPEAKER: text"; [stage directions] are dropped;
 an ALL-CAPS word is spoken emphasis — shown in lower case and flagged in `em`
 so the caption can set it in italics (hyphenated spellings like H-I-V stay).
 
-Also (re)creates the placeholder hand-back clip the manifest's `continue`
-topic names — a synthesised ding, then "You may now continue the lesson."
-in a placeholder voice — when it is missing or --continue is passed.
+A transcript line may omit its speaker ("You may now continue the lesson.").
 """
 import json, math, os, re, struct, subprocess, sys
 
@@ -67,10 +65,10 @@ SPLIT = re.compile(r'(?<=[.?!”"])\s+(?=[A-Z“"\[])')
 def sentences(path):
     out = []
     for line in open(path, encoding='utf-8').read().splitlines():
-        m = re.match(r'\s*([A-Z][A-Z ]+):\s*(.*)', line)
-        if not m:
+        if not line.strip():
             continue
-        who, text = m.group(1).strip(), m.group(2)
+        m = re.match(r'\s*([A-Z][A-Z ]+):\s*(.*)', line)
+        who, text = (m.group(1).strip(), m.group(2)) if m else ('', line)
         text = re.sub(r'\[[^\]]*\]\s*', '', text).strip()
         for t in SPLIT.split(text):
             t = t.strip()
@@ -219,32 +217,6 @@ def align(sents, dur, ps):
         x['e'] = round(gap[-1] if gap else nxt, 3)
     return sents
 
-def make_continue(entry):
-    mp3 = os.path.join(PKG, entry['file'])
-    txt = os.path.join(PKG, entry['transcript'])
-    work = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'listen-continue')
-    os.makedirs(work, exist_ok=True)
-    R = 44100
-    # the ding: one soft bell (B5 + its octave), 1.4 s, then 0.35 s of room
-    n = int(R * 1.75); smp = []
-    for i in range(n):
-        t = i / R
-        a = min(1, t / 0.006) * math.exp(-t * 3.4) if t < 1.4 else 0
-        v = a * (math.sin(2 * math.pi * 987.77 * t) + 0.3 * math.sin(2 * math.pi * 1975.5 * t))
-        smp.append(int(max(-1, min(1, v * 0.28)) * 32767))
-    import wave
-    ding = os.path.join(work, 'ding.wav')
-    w = wave.open(ding, 'wb'); w.setnchannels(1); w.setsampwidth(2); w.setframerate(R)
-    w.writeframes(struct.pack('<%dh' % n, *smp)); w.close()
-    voice = os.path.join(work, 'voice.aiff')
-    line = 'You may now continue the lesson.'
-    run(['say', '-v', 'Samantha', '-o', voice, line])
-    run(['ffmpeg', '-y', '-v', 'error', '-i', ding, '-i', voice, '-filter_complex',
-         '[1:a]aresample=44100,aformat=channel_layouts=mono[v];[0:a][v]concat=n=2:v=0:a=1,apad=pad_dur=0.4',
-         '-ac', '1', '-ar', '44100', '-c:a', 'libmp3lame', '-b:a', '192k', mp3])
-    open(txt, 'w', encoding='utf-8').write('DANA: ' + line + '\n')
-    print('made', entry['file'])
-
 def main():
     man = json.load(open(os.path.join(PKG, 'manifest.json')))
     entries = []
@@ -254,9 +226,6 @@ def main():
                 entries.append((key, topic[kind]))
     for key, q in man.get('quickTakes', {}).items():
         entries.append(('qt-' + key, q))
-    cont = man['topics'].get('continue', {}).get('normal')
-    if cont and ('--continue' in sys.argv or not os.path.exists(os.path.join(PKG, cont['file']))):
-        make_continue(cont)
     out, fits, pending = {}, [], []
     for key, e in entries:
         path = os.path.join(PKG, e['file'])
