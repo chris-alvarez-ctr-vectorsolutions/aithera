@@ -146,6 +146,11 @@ def fit_vtt(sents, ps):
         return sum(1 for t in starts if min(abs(p - (t * k + off)) for p in ends) < 0.15)
     best = max((hits(1 + i / 1000.0, o / 100.0), 1 + i / 1000.0, o / 100.0)
                for i in range(-10, 61) for o in range(-50, 51, 5))
+    # No correction unless one is clearly better: on a short file a few
+    # chance matches can 'fit' a stretch that isn't there.
+    raw = hits(1.0, 0.0)
+    if best[0] - raw <= max(1, len(starts) // 8):
+        return 1.0, 0.0, raw, len(starts)
     return best[1], best[2], best[0], len(starts)
 
 def apply_fit(sents, k, off, dur):

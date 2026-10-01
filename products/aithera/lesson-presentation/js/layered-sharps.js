@@ -2606,6 +2606,12 @@
     try { var o = sessionStorage.getItem('sh-seam-' + t); if (o != null && o !== '') return +o; } catch (e) {}
     return data.manifest.topics[t].seamAt;
   }
+  // Every audio request carries the manifest's version, so replacing audio
+  // under the same names reaches browsers that cached the old take.
+  function audioUrl(file, data) {
+    var v = data.manifest.version;
+    return data.base + file + (v ? '?v=' + encodeURIComponent(v) : '');
+  }
   function fileDur(file, data) {
     var t = data.timing[file];
     return t ? t.dur : null;
@@ -2835,7 +2841,7 @@
     pieces.forEach(function (p) { if (files.indexOf(p.file) < 0) files.push(p.file); });
     var probe = new OfflineAudioContext(1, rate, rate), done = 0, bufs = {};
     return Promise.all(files.map(function (f) {
-      return fetch(data.base + f).then(function (r) {
+      return fetch(audioUrl(f, data)).then(function (r) {
         if (!r.ok) throw new Error('missing ' + f + ' (' + r.status + ')');
         return r.arrayBuffer();
       }).then(function (ab) {
@@ -3475,7 +3481,7 @@
       if (rb) rb.addEventListener('click', function () {
         if (recapAudio && !recapAudio.paused) { recapAudio.pause(); return; }
         if (!recapAudio) {
-          recapAudio = new Audio(listenData.base + qt.file);
+          recapAudio = new Audio(audioUrl(qt.file, listenData));
           recapAudio.addEventListener('play', function () { rb.querySelector('span').textContent = 'Pause the recap'; rb.querySelector('i').className = 'fa-solid fa-pause'; });
           recapAudio.addEventListener('pause', function () { rb.querySelector('span').textContent = 'Hear a quick recap'; rb.querySelector('i').className = 'fa-solid fa-volume-high'; });
           recapAudio.addEventListener('error', function () { rb.querySelector('span').textContent = 'Recap unavailable'; rb.disabled = true; });
@@ -3623,7 +3629,7 @@
       }
       function load(f) {
         if (bufs[f]) return Promise.resolve(bufs[f]);
-        return fetch(data.base + f).then(function (r) { return r.arrayBuffer(); })
+        return fetch(audioUrl(f, data)).then(function (r) { return r.arrayBuffer(); })
           .then(function (ab) { return ac.decodeAudioData(ab); }).then(function (b) { bufs[f] = b; return b; });
       }
       function stop() { playing.forEach(function (s) { try { s.stop(); } catch (e) {} }); playing = []; }
