@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preview Activity | Convergence LMS</title>
+
+  <!-- Read-only preview of an activity version, opened in a NEW TAB from the editor (Preview button,
+       Versions tab) and from the grids (More > Preview). Renders the quiz the way a learner sees it;
+       answers are not recorded. Other activity types show a launch placeholder.
+       Params: ?id=<activity id>  &version=<n.n> (a past version)  &draft=1 (the editor's unsaved state) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+  <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+  <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+  <script src="activity-types.js"></script>
+  <script src="activities-data.js"></script>
+
+  <style>
+    :root { --vblue:#0271ce; --vblue-hover:#015ba6; --vblue-10:#0271ce1a; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Open Sans","Segoe UI",Arial,sans-serif; color:#1a1a2e; background:#f5f9fd; }
+    .hidden { display:none !important; }
+
+    /* Preview bar */
+    .pv-bar { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:14px; padding:12px 24px; background:#1f2937; color:#fff; }
+    .pv-tag { font-size:11px; font-weight:700; letter-spacing:.02em; background:#f59e0b; color:#1f2937; border-radius:4px; padding:3px 7px; }
+    .pv-title { display:flex; align-items:center; gap:10px; flex:1; min-width:0; font-size:14px; }
+    .pv-title strong { font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .pv-chip { font-size:11.5px; font-weight:600; color:#d1d5db; background:rgba(255,255,255,.12); border-radius:999px; padding:3px 9px; white-space:nowrap; }
+    .pv-chip.ok { color:#bbf7d0; background:rgba(22,132,70,.35); }
+    .pv-actions { display:flex; align-items:center; gap:12px; }
+    .pv-note { font-size:12px; color:#cbd5e1; }
+    .pv-close { border:1px solid rgba(255,255,255,.35); background:transparent; color:#fff; font-family:inherit; font-size:12.5px; font-weight:600; border-radius:7px; padding:7px 12px; cursor:pointer; }
+    .pv-close:hover { background:rgba(255,255,255,.12); }
+
+    .pv-banner { display:flex; align-items:center; gap:10px; margin:16px auto 0; max-width:860px; padding:11px 14px; border:1px solid #f1d8c0; background:#fff8f3; border-radius:8px; font-size:12.5px; color:#374151; }
+    .pv-banner i { color:#c2520e; }
+    .pv-banner.info { border-color:#dbe6f5; background:#f2f7fd; }
+    .pv-banner.info i { color:var(--vblue); }
+
+    .pv-main { max-width:860px; margin:20px auto 60px; padding:0 20px; }
+    .pv-head { background:#fff; border:1px solid #e5e9ef; border-radius:12px; padding:22px 24px; box-shadow:0 1px 3px rgba(16,24,40,.04); margin-bottom:16px; display:flex; gap:18px; align-items:center; }
+    .pv-thumb { width:72px; height:72px; border-radius:10px; background:linear-gradient(135deg,#3c4148,#23272c); color:#fff; display:flex; align-items:center; justify-content:center; font-size:28px; flex-shrink:0; }
+    .pv-head h1 { font-size:20px; font-weight:700; margin:0 0 4px; }
+    .pv-head .meta { font-size:12.5px; color:#6b7280; display:flex; gap:14px; flex-wrap:wrap; }
+    .pv-head .desc { font-size:13px; color:#374151; margin-top:6px; }
+
+    .pv-section { background:#fff; border:1px solid #e5e9ef; border-radius:12px; box-shadow:0 1px 3px rgba(16,24,40,.04); margin-bottom:16px; overflow:hidden; }
+    .pv-section-head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid #eef1f5; background:#f8fafc; }
+    .pv-section-head h2 { font-size:14px; font-weight:700; margin:0; color:#1a1a2e; }
+    .pv-section-head span { font-size:12px; color:#6b7280; }
+    .pv-q { padding:18px 20px; border-bottom:1px solid #f0f2f5; }
+    .pv-q:last-child { border-bottom:none; }
+    .pv-q-top { display:flex; align-items:flex-start; gap:10px; margin-bottom:10px; }
+    .pv-q-num { width:24px; height:24px; border-radius:50%; background:var(--vblue-10); color:var(--vblue); font-size:11.5px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .pv-q-prompt { font-size:14px; font-weight:600; color:#1a1a2e; line-height:1.5; }
+    .pv-q-hint { font-size:11.5px; color:#9ca3af; font-weight:400; margin-left:6px; }
+    .pv-opt { display:flex; align-items:center; gap:10px; padding:8px 10px 8px 34px; font-size:13.5px; color:#374151; border-radius:8px; cursor:pointer; }
+    .pv-opt:hover { background:#f8fafc; }
+    .pv-opt input { accent-color:var(--vblue); width:16px; height:16px; margin:0; }
+    .pv-info { padding:18px 20px; }
+    .pv-info h3 { font-size:15px; font-weight:700; margin:0 0 8px; }
+    .pv-info p { font-size:13.5px; color:#374151; line-height:1.6; margin:0 0 12px; }
+    .pv-media { display:flex; align-items:center; justify-content:center; gap:10px; height:180px; border-radius:10px; background:#f1f5f9; color:#64748b; border:1px dashed #cbd5e1; font-size:13px; }
+    .pv-media i { font-size:26px; color:#94a3b8; }
+    .pv-link { display:inline-flex; align-items:center; gap:8px; margin-left:34px; font-size:13.5px; color:var(--vblue); font-weight:600; text-decoration:none; }
+    .pv-link:hover { text-decoration:underline; }
+    .pv-link small { color:#9ca3af; font-weight:400; }
+    .pv-foot { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 20px; background:#fff; border:1px solid #e5e9ef; border-radius:12px; }
+    .pv-foot span { font-size:12.5px; color:#6b7280; }
+    .pv-btn { font-family:inherit; font-size:13px; font-weight:600; border-radius:7px; padding:9px 16px; border:1px solid transparent; background:var(--vblue); color:#fff; cursor:not-allowed; opacity:.55; }
+    .pv-empty { padding:40px 20px; text-align:center; color:#9aa3af; font-size:13px; }
+    .pv-empty i { display:block; font-size:26px; color:#c4cad3; margin-bottom:8px; }
+    .pv-launch { padding:48px 24px; text-align:center; }
+    .pv-launch i { font-size:40px; color:#c4cad3; }
+    .pv-launch h3 { font-size:15px; margin:14px 0 6px; }
+    .pv-launch p { font-size:13px; color:#6b7280; margin:0; line-height:1.6; }
+  </style>
+</head>
+<body>
+
+<div class="pv-bar">
+  <span class="pv-tag">Preview</span>
+  <div class="pv-title">
+    <strong id="pv-name">Activity</strong>
+    <span class="pv-chip" id="pv-type"></span>
+    <span class="pv-chip" id="pv-version"></span>
+    <span class="pv-chip" id="pv-publish"></span>
+  </div>
+  <div class="pv-actions">
+    <span class="pv-note">Preview only. Answers are not recorded.</span>
+    <button class="pv-close" onclick="closePreview()"><i class="fa-solid fa-xmark"></i> Close preview</button>
+  </div>
+</div>
+
+<div class="pv-banner hidden" id="pv-banner"></div>
+<main class="pv-main" id="pv-main"></main>
+
+<script>
+  const params  = new URLSearchParams(location.search);
+  const id      = params.get('id') || '';
+  const wantVer = params.get('version') || '';
+  const isDraft = params.get('draft') === '1';
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const fmt = iso => { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' }); };
+
+  /* The editor's Preview button stores its unsaved state so the new tab shows exactly what is on screen. */
+  let a = null;
+  if (isDraft) { try { a = JSON.parse(sessionStorage.getItem('cv-preview-' + id) || 'null'); } catch (e) { a = null; } }
+  if (!a) a = findActivity(id);
+
+  function closePreview(){ window.close(); setTimeout(() => { if (!window.closed) history.back(); }, 150); }
+
+  function render(){
+    const main = document.getElementById('pv-main');
+    if (!a) {
+      main.innerHTML = '<div class="pv-section"><div class="pv-empty"><i class="fa-regular fa-circle-question"></i>No activity found for this link.</div></div>';
+      return;
+    }
+    const t = ACTIVITY_TYPE(a.type);
+    const curVer = String(a.version || 'v1.0').replace(/^v/, '');
+    const showVer = wantVer || curVer;
+    document.title = 'Preview: ' + a.name + ' | Convergence LMS';
+    document.getElementById('pv-name').textContent = a.name;
+    document.getElementById('pv-type').innerHTML = '<i class="fa-solid ' + t.icon + '"></i> ' + esc(t.longLabel);
+    document.getElementById('pv-version').textContent = 'Version ' + showVer;
+    const pub = document.getElementById('pv-publish');
+    const publishedNow = a.publishStatus === 'Published' && !isDraft && showVer === curVer;
+    pub.textContent = isDraft ? 'Unsaved changes' : (publishedNow ? 'Published' : 'Draft');
+    pub.classList.toggle('ok', publishedNow);
+
+    // Banner: past version, or the editor's unsaved state
+    const banner = document.getElementById('pv-banner');
+    if (isDraft) {
+      banner.className = 'pv-banner info';
+      banner.innerHTML = '<i class="fa-solid fa-circle-info"></i> You are previewing the editor\'s unsaved changes. Save or publish in the editor to keep them.';
+    } else if (wantVer && wantVer !== curVer) {
+      const v = (a.versions || []).find(x => x.version === wantVer);
+      banner.className = 'pv-banner';
+      banner.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i> You are viewing version ' + esc(wantVer) +
+        (v ? ', published ' + esc(fmt(v.createdOn)) + ' by ' + esc(v.author) : '') + '. The current version is ' + esc(curVer) + '.';
+    } else {
+      banner.className = 'pv-banner hidden';
+    }
+
+    let html = `<div class="pv-head">
+      <div class="pv-thumb"><i class="fa-solid ${t.icon}"></i></div>
+      <div style="min-width:0">
+        <h1>${esc(a.name)}</h1>
+        <div class="meta"><span><i class="fa-regular fa-clock"></i> ${esc(a.duration || 0)} min</span><span><i class="fa-solid fa-location-dot"></i> ${esc(a.location || '')}</span>${a.mobile ? '<span><i class="fa-solid fa-mobile-screen"></i> Mobile compatible</span>' : ''}</div>
+        ${a.desc ? '<div class="desc">' + esc(a.desc) + '</div>' : ''}
+      </div>
+    </div>`;
+
+    if (t.content === 'quiz') html += renderQuiz(a);
+    else html += `<div class="pv-section"><div class="pv-launch"><i class="fa-solid ${t.icon}"></i><h3>${esc(t.longLabel)} content launches here</h3><p>${esc(t.contentNote)}${a.file ? '<br>File: ' + esc(a.file) : ''}</p></div></div>`;
+
+    main.innerHTML = html;
+  }
+
+  function renderQuiz(a){
+    const comps = (a.content && a.content.competencies) || [];
+    let n = 0, html = '';
+    if (!comps.length || comps.every(c => !c.questions.length)) {
+      return '<div class="pv-section"><div class="pv-empty"><i class="fa-regular fa-circle-question"></i>This quiz has no questions yet.</div></div>';
+    }
+    comps.forEach(c => {
+      const qs = c.questions.filter(q => q.type !== 'info' && q.type !== 'link').length;
+      html += `<div class="pv-section"><div class="pv-section-head"><h2>${esc(c.name)}</h2><span>${qs} question${qs !== 1 ? 's' : ''}</span></div>`;
+      if (!c.questions.length) html += '<div class="pv-empty">No questions in this competency.</div>';
+      c.questions.forEach(q => {
+        if (q.type === 'info') {
+          html += `<div class="pv-info"><h3>${esc(q.title || 'Information')}</h3><p>${esc(q.text || '')}</p>` +
+            (q.media && q.media.kind ? `<div class="pv-media"><i class="fa-regular ${q.media.kind === 'video' ? 'fa-circle-play' : 'fa-image'}"></i> ${esc(q.media.url || (q.media.kind + ' placeholder'))}</div>` : '') + '</div>';
+          return;
+        }
+        if (q.type === 'link') {
+          html += `<div class="pv-q"><div class="pv-q-top"><div class="pv-q-num"><i class="fa-solid fa-link" style="font-size:10px"></i></div><div class="pv-q-prompt">${esc(q.prompt || 'Open link')}</div></div>` +
+            `<a class="pv-link" href="${esc(q.url || '#')}" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> ${esc(q.url || '')} <small>opens in a new tab</small></a></div>`;
+          return;
+        }
+        n++;
+        const name = 'q' + n;
+        let opts = '';
+        if (q.type === 'tf') {
+          opts = ['True', 'False'].map(o => `<label class="pv-opt"><input type="radio" name="${name}"> ${o}</label>`).join('');
+        } else {
+          const kind = q.type === 'multi' ? 'checkbox' : 'radio';
+          opts = (q.choices || []).map(o => `<label class="pv-opt"><input type="${kind}" name="${name}"> ${esc(o.text)}</label>`).join('');
+        }
+        const hint = q.type === 'multi' ? '<span class="pv-q-hint">Select all that apply</span>' : (q.type === 'tf' ? '<span class="pv-q-hint">True or false</span>' : '');
+        html += `<div class="pv-q"><div class="pv-q-top"><div class="pv-q-num">${n}</div><div class="pv-q-prompt">${esc(q.prompt)}${hint}</div></div>${opts}</div>`;
+      });
+      html += '</div>';
+    });
+    html += `<div class="pv-foot"><span>${n} scored question${n !== 1 ? 's' : ''}. Submitting is disabled in preview.</span><button class="pv-btn" disabled>Submit quiz</button></div>`;
+    return html;
+  }
+
+  render();
+</script>
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

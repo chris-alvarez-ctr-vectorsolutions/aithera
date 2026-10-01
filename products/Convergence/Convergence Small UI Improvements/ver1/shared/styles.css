@@ -34,8 +34,13 @@
   --tier-head-hover:  #f3f6f9;   /* hover fill on the white header rows */
   /* Canvas: the gray ground the other Convergence prototypes use
      (location-nav, assigned-training wizard), chosen over the lighter
-     #f5f9fd so white panels and tables clearly separate from the page. */
-  --c-canvas:         #f5f9fd;
+     #f5f9fd so white panels and tables clearly separate from the page.
+     Round 15: darker again, from the design system this time - the Vector
+     neutral --lumo-contrast-10pct (#1a3860 at 10%) composited on the base
+     white = #e8ebef, so the white plan panel reads at 1.20:1 against the
+     page instead of 1.06:1. Opaque hex on purpose: the loading layer paints
+     the canvas over content and must not let it show through. */
+  --c-canvas:         #e8ebef;
   --c-hover:          #f4f7fb;
 
   /* Status semantics - used identically by pills, dots and badges */
@@ -92,6 +97,10 @@
    2. BASE
    ------------------------------------------------------------------------ */
 *, *::before, *::after { box-sizing: border-box; }
+/* The hidden attribute must win over any display the element's own class sets
+   (#catCards is display:flex via .cat-cats, which otherwise kept the card rows
+   on screen after View all swapped to the table). */
+[hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
   font-family: 'Open Sans', 'Segoe UI', system-ui, sans-serif;
@@ -372,7 +381,8 @@ vwc-tree-list { display: block; }
 .searchbox { position: relative; }
 .searchbox i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--c-faint); pointer-events: none; }
 .searchbox input {
-  width: 220px; height: 36px; padding: 0 var(--s-3) 0 32px;
+  /* Scales with the window: never under 280px, a quarter of the viewport in between, capped at 440px on wide screens */
+  width: clamp(280px, 24vw, 440px); height: 36px; padding: 0 var(--s-3) 0 32px;
   border: 1px solid var(--c-line); border-radius: var(--r-sm);
   background: var(--c-surface); font: inherit; font-size: var(--t-meta); color: var(--c-ink); outline: none;
   transition: border-color .12s, box-shadow .12s;
@@ -442,6 +452,9 @@ vwc-tree-list { display: block; }
 .view.active { display: flex; }
 .view-scroll { flex: 1; min-width: 0; overflow: auto; padding: var(--s-6); }
 .view-scroll.flush { padding: 0; }
+/* The training plan does not keep expanding on wide screens: banners, the plan and the spec strip
+   are capped at the same 1360px as the home grid and the catalog, and centred. */
+#trainingScroll > * { max-width: 1360px; margin-left: auto; margin-right: auto; }
 
 /* ---------------------------------------------------------------------------
    6. SHARED PRIMITIVES  (defined once, inherited by Areas 3-6)
@@ -738,7 +751,8 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
   display: inline-flex; align-items: center; gap: var(--s-2);
   height: 32px; padding: 0 14px; border: 0; border-radius: var(--r-pill);
   background: var(--c-surface); color: var(--c-ink); box-shadow: var(--e-2);
-  font: 600 var(--t-meta) inherit; font-family: inherit; cursor: pointer;
+  font-family: inherit; font-size: var(--t-meta); font-weight: 600; line-height: 1; white-space: nowrap;
+  cursor: pointer;
   opacity: 0; pointer-events: none; transition: opacity .16s, background .12s;
 }
 .tcard-view i { font-size: 13px; color: var(--c-primary); }
@@ -780,6 +794,9 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
    title's edge and the footer reads as evenly padded on both sides. */
 .tcard-foot .row-acts { margin-left: -10px; gap: 2px; }
 .tcard-foot .row-acts:empty { display: none; }
+/* The CTA always sits bottom-right. With no icon buttons the footer has one child, which space-between
+   would place at the left, so the button is pushed to the end regardless. */
+.tcard-foot > vaadin-button { margin-left: auto; }
 .tp-cards.dense .tcard-title { font-size: var(--t-meta); }
 .tp-cards.dense .tcard-body { padding: var(--s-3) var(--s-3) var(--s-2); }
 .tp-cards.dense .tcard-foot { padding: 0 var(--s-3) var(--s-3); gap: var(--s-1); }
@@ -944,7 +961,7 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 @media (max-width: 1400px) {
   .brand-text { display: none; }
   .tab { padding: 0 var(--s-3); font-size: var(--t-row); }
-  .searchbox input { width: 150px; }
+  .searchbox input { width: clamp(180px, 18vw, 260px); }
   /* Dropping a column must hide that cell at EVERY depth, or the deeper rows
      spill onto a second grid line. */
   .tp { --grid: minmax(0, 1fr) 152px 92px 100px 112px; }
@@ -1281,10 +1298,12 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 /* Back control above every detail panel: one level up the hierarchy
    (requirement -> its qualification, activity -> its requirement,
    qualification -> the My training list). */
+/* A white chip rather than bare text: on the darker canvas, primary text
+   alone measures 4.13:1; on the chip's base surface it is 4.72:1 (AA). */
 .d-back {
   display: inline-flex; align-items: center; gap: var(--s-2);
   margin: 0 0 var(--s-3); padding: 6px 12px 6px 10px;
-  background: none; border: 0; border-radius: var(--r-sm);
+  background: var(--c-surface); border: 1px solid var(--c-line); border-radius: var(--r-sm);
   color: var(--c-primary); font-size: var(--t-row); font-weight: 500;
   cursor: pointer; transition: background .12s;
 }
@@ -1304,20 +1323,17 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
    View all action that opens the existing table filtered to that category.
    Cards reuse the shared card surface (XS shadow, no outline) and badges.
    ------------------------------------------------------------------------ */
-.cat-cats { display: flex; flex-direction: column; gap: var(--s-6); max-width: 1360px; margin: 0 auto; }
-/* Each category is its own grouped module (bordered, rounded, own surface),
-   per the Top picks container reference. */
-.cat-cat {
-  background: var(--c-surface); border: 1px solid var(--c-line);
-  border-radius: var(--r-lg); box-shadow: var(--e-1);
-  padding: var(--s-5);
-}
+.cat-cats { display: flex; flex-direction: column; gap: var(--s-8); max-width: 1360px; margin: 0 auto; }
+/* Each category is a plain row on the canvas (header + strip), not a bordered
+   module: the cards already carry their own surface, so a container around them
+   was a box inside a box. Rows are separated by the stack gap alone. */
+.cat-cat { padding: 0; }
 .cat-head-actions { display: flex; align-items: center; gap: var(--s-2); }
 .cat-row-head {
   display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-4);
   margin-bottom: var(--s-3);
 }
-.cat-row-title { margin: 0; font-size: var(--t-section); font-weight: 600; color: var(--c-ink); }
+.cat-row-title { margin: 0; font-size: var(--t-section); font-weight: 600; color: #000; }
 .link-btn {
   display: inline-flex; align-items: center; gap: 6px;
   background: none; border: 0; padding: 4px 8px; border-radius: var(--r-sm);
@@ -1350,6 +1366,8 @@ vaadin-button[theme~="tertiary"] { text-decoration: none !important; }
 /* Carousel-specific card behaviour; the card itself is .tcard (the small
    Training Plan card: same sizing, thumbnail ratio, badges, XS shadow). */
 .ccard { flex: 0 0 208px; scroll-snap-align: start; cursor: default; }
+/* Catalog titles read black (category headers and card titles); the Training Plan cards keep the ink neutral */
+.ccard .tcard-title { color: #000; }
 .ccard:focus { outline: none; box-shadow: var(--focus-ring), var(--e-2); }
 
 /* Elective corner tag. The legacy maroon square is off-system; the marker

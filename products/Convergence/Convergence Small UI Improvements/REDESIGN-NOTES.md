@@ -422,7 +422,9 @@ Hazards) demonstrates the reflow. Measured columns, from the auto-fill grid on t
 Auto-fill tracks between a min and max mean the count falls out of the available width at
 every size, gutters stay 16px, and partial rows keep card size instead of stretching.
 
-**Catalog card view adjustments.** Each category now sits in its own grouped module, per
+**Catalog card view adjustments.** (Superseded 2026-09-30: the grouped module was removed
+again. Rows sit directly on the canvas, separated by 32px of white space; the cards are the
+only surface.) Each category previously sat in its own grouped module, per
 the Top picks container reference supplied in review: white surface, hairline border, 12px
 radius, `--e-1`, 20px padding, with the circular prev/next arrows top-right in the header
 beside View all. Catalog cards ARE the small Training Plan card component now: same
@@ -558,6 +560,7 @@ for the final treatment.
   Convergence CLAUDE.md value) at designer direction, replacing the Round 8 gray
   `#f0f2f5`. The Round 8 table retune (bands, borders, hairlines, darkened `--c-meta`)
   stays. AA re-checked on the lighter ground: meta text 5.42, links 4.66, ink 16.1.
+  *Superseded in round 15: the canvas moved to the design-system neutral `#e8ebef`.*
 - **Card type moved out of the title.** Cards no longer carry an icon beside the title;
   the activity type is its own meta line styled exactly like the due date: `icon Tasklist`
   over `icon Due 08-21-2026`, both 12px `--c-meta`, icons on a fixed 14px column so the
@@ -633,6 +636,21 @@ info (list rows only, and info last so it is always in the same place).
   on one line. The separate assignment-name and assigned-on rows are gone.
 - **Catalog cards catch up with round 13.** Their footer and info button are removed and
   the same View details hover pill is used, so every card in the prototype behaves alike.
+
+## Round 15: a darker canvas, from the design system
+
+The white Training Plan panel still blended into the page: on the product default
+`#f5f9fd` the panel-to-page contrast was only 1.06:1. The canvas is now `#e8ebef`, which
+is not an invented gray but the Vector neutral `--lumo-contrast-10pct` (#1a3860 at 10%)
+composited on the base white; the 5% step (`#f3f5f7`) was tried and is indistinguishable
+from today. Panel-to-page contrast is 1.20:1, and every white surface (plan panel, detail
+panel, Home cards, catalog modules) gains the same separation.
+
+Nothing inside the panels changes. The one knock-on: primary-coloured text straight on
+the darker canvas would measure 4.13:1, below AA, and the detail pages' "Back to" control
+was exactly that. It is now a white chip with the shared border, so its label sits on the
+base surface at 4.72:1. Secondary text on the canvas (spec-strip summaries, the loading
+label) measures 4.80.
 
 ## OUT OF SCOPE - needs functionality or logic
 

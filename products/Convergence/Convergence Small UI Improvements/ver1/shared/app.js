@@ -307,6 +307,8 @@ function setCatalogView(v) {
   $('#catTableWrap').hidden = v !== 'table';
   if (v === 'table') renderCatalog(); else renderCatalogCards();
   renderCrumbs();
+  // View all is usually clicked part-way down the category rows: start the swapped view at the top
+  const sc = $('#view-catalog .view-scroll'); if (sc) sc.scrollTop = 0;
 }
 
 /* The filter panel is always in the layout; this opens and closes it. */

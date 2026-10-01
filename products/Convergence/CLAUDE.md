@@ -56,6 +56,18 @@ The current Qualification-Builder suite (all in `products/Convergence/Qualificat
 (or `?req=<name>`) to open an existing item for editing; the AG Grid lists are the single entry
 point and link names to the builders. `_shell/index.html` (the old iframe shell) is **legacy/deprecated**.
 
+Activities have their own small suite in the same folder: `Manage-Activities.html` (library),
+`Manage-Quizzes.html` and `Manage-CBTs.html` (Training Import And Creation > Quizzes / Computer Based
+Trainings; the CBT grid carries the Publish Status, Configurability and Learning Studio columns, which
+Manage Activities hides in its MVP default and shows only in V2, `?v=2`) all open the unified editor
+`Edit-Activity.html?id=<id>&tab=content|details` (`&layout=legacy|modern` picks the MVP or Modern
+layout, `?new=quiz` starts a draft; the legacy layout has a Content | Details tab bar on every entry and the
+version history lives inside Details), and `Preview-Activity.html`
+shows a version read-only in a new tab. Three shared includes back them: `activity-types.js` (the one list of activity types),
+`activities-data.js` (records, publish status, versions, quiz content; editor saves persist for the tab
+session via sessionStorage) and `qb-attributes.js` (the builders' Advanced Properties + Attributes
+accordion, lifted verbatim so it renders identically). Add a type or a field there, not in the pages.
+
 When a prototype has heavy AG Grid tables, load AG Grid Community from the CDN (this is an explicit
 exception to the "no JS libraries" rule, used because the user asked for AG Grid):
 `https://cdn.jsdelivr.net/npm/ag-grid-community@31.3.4/...` (see `Manage-Qualifications.html`).

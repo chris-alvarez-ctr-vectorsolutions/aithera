@@ -6,6 +6,91 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-09-30) One CSV in the side panel; Map dropdown adds codes
+
+- **[DONE]** Map columns dropdown adds **External Unique ID** and **Building code**, just above
+  **Position** and **Location**, which now sit at the bottom of Standard fields (supersedes the
+  AC-1.5 "no codes" note — designer call). Sample-file auto-match is unchanged (`AUTO_ORDER`).
+- **[DONE]** One **Download CSV** at the top of the Review side panel (sticky, so it stays in view
+  while scrolling alerts). Replaces the per-alert "Download CSV" (over 20), the end-of-list
+  "Complete list of changes" card and the Run-confirmation link. It's available the whole time (no
+  lock) so admins can check big lists while reviewing.
+- **[DONE]** Download CSV opens a **spreadsheet preview** of the file: one block per alert — a title
+  row ("Warning — 6 people…"), that list's column headers, one row per person/item (column A =
+  Blocked / Warning / Info), then a blank row.
+- **[DONE]** View / Hide details: no underline or hover box (the rotated chevron picked up the underline).
+
+## (2026-09-30) Collapsed Review; "Blocked"; CSV over 20; log Care banner
+
+- **[DONE]** Review alerts are **short banners**: chip + title only, with **View details ▾** on the
+  right (warnings also show "Needs review"). Opening shows the sub-line, the full list (scrolls when
+  long), "What to do", and — for a Warning — the checkbox, so it's confirmed after it's seen.
+  The first-row preview and "Show N more rows" are gone.
+- **[DONE]** Tier label **"Blocking" → "Blocked"** (chip, sample-file tags, log notes, flow map).
+- **[DONE]** "Submit a ticket to get this solved" button removed. Blocked alerts keep "Have a
+  question about this? Raise an issue ticket."
+- **[SUPERSEDED same day]** Per-alert Download CSV over 20 → one Download CSV in the side panel (above).
+- **[DONE]** Upload log: pencil banner — "**Made a mistake in an upload?** Reach out to Vector Care
+  and we'll help you sort out the changes." + Contact Vector Care (Support Center). Uploads can't be
+  undone (PRD), so Care is the path.
+
+## (2026-09-30) Only the newest automated run can be approved
+
+- **[DONE]** Only the **newest** automated upload can be reviewed & approved; an older stopped run
+  would overwrite newer data. V2's seed now matches: the newest run (Sep 25, the one the failure
+  email is about) stopped on warnings → **Review & approve**; the older Sep 24 run is Blocked
+  (Blocking issues, can't be approved). **PENDING:** what an older stopped run shows once a newer
+  one exists (e.g. "A newer automated upload replaced this one").
+
+## (2026-09-29) Rows on every alert; complete list of changes
+
+- **[DONE]** Every **Blocking** alert ends with **"Submit a ticket to get this solved"** + "Have a
+  question about this? **Raise an issue ticket**." (both → Support Center; replaces "Contact Vector
+  support"). **PENDING:** real ticket URLs / whether they're two different ticket types.
+- **[DONE]** Approving an automated run: no "Back to upload log" button — the header ✕ goes back to the log.
+- **[DONE]** Completed log page: **Change report (.csv)** and **Data before this upload (.csv)**
+  removed — neither is in the PRD (it asks for upload history: what each import changed + who ran
+  it). "Original file" stays (designer call, 2026-09-30); "Error report (.csv)" removed.
+- **[DONE]** Upload log: runs that didn't go leave the change columns empty — no "No changes" /
+  "See what stopped it" text, just the row's arrow. A run waiting for approval keeps "Review & approve" (no arrow — the row chevron moves forward).
+- **[DONE]** **Blocked is automated-only.** A manual upload with Blocking issues can only be cancelled,
+  so it's logged as **Cancelled** (its note lists the Blocking issues).
+- **[DONE]** Every row-level alert (Blocking, Warning and Info) lists the **row** it's on: a "Row"
+  column for people, a "Rows" column for positions / locations / codes. Lists of people who
+  *aren't* in the file (deactivations, positions ended) say there's no row to point to.
+- **[DONE]** The dashed **"Where:"** box is gone. The column now sits in the table, under the
+  header it applies to (red mono tag, e.g. "Column H · BEGIN_DATE"), only when the file has it.
+  Same on V2's blocked-run log page.
+- **[DONE]** Per-alert **"Download list (.csv)"** removed (it was a 2026-09-25 addition, not from
+  the catalog). Replaced by one **Complete list of changes** card at the end of Review: shown
+  only when nothing is Blocking, locked until every warning is reviewed, then Download (.csv).
+  Also linked in the Run import confirmation.
+- **[DONE]** "Not sure? Send to my Vector rep" removed from the Review alerts (manual and the
+  automated-run approval page).
+- **[DONE]** Log → Review & approve (V2) uses the same Review as the manual flow: most severe
+  first, rows + column tags, checkbox boxes, complete list, pre-import download.
+
+## (2026-09-29) Import settings copy; switch inside the box; Upload log one line per upload
+
+- **[DONE]** "Jobs" → **"positions"** in everything users read: switch label ("Deactivate all people
+  and positions not in this file"), the On/Off copy, the Vector Care line, the Review alert
+  ("N positions aren't in this file and will be ended"), Change summary / run confirmation / log
+  ("Positions ended"). The Add employee pop-up keeps its "Job" section — it copies the live product.
+- **[DONE]** Import settings copy: subheading "By default this file only adds and updates people
+  and jobs. Turn this on only if the file is your complete list of staff and the jobs they hold."
+  Switch label → **"Deactivate all people and jobs not in this file"** (was "Deactivate all users
+  and jobs not in this file"; also renamed on the Review recap and the log page). **Off:** "Adds and
+  updates only. People and jobs already on your site are left as they are." **On:** "Your site will
+  match this file." + 3 bullets (people deactivated · jobs ended for the people who hold them ·
+  training history kept). Vector Care line: "This applies to both people and jobs. To deactivate
+  only one, contact Vector Care in the Support Center."
+- **[DONE]** No "This file will deactivate N people and end N jobs" line under On — those counts
+  can't be calculated at this step (same reason the totals panel came out). Review shows them.
+- **[DONE]** The switch sits inside the Off/On box and the whole box toggles it (bigger touch target).
+- **[DONE]** Upload log: one "didn't run" result — **Blocked** (Failed retired). Method is plain
+  text + gray icon, not a colored tag. One line per upload: When · File · Rows · Uploaded by · Role ·
+  Method · Result · Added · Updated · Deactivated · Jobs ended.
+
 ## (2026-09-29) Severity order, older-data download, switch label
 
 - **[DONE]** Review is ordered most severe first: Blocking → warnings that cause permanent loss
@@ -16,7 +101,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 - **[DONE]** "Download current data (.csv)" on the Review side panel (a snapshot of the site
   before the import), "Data before this import" on Import complete, and "Data before this
   upload" on a completed run's log page.
-- **[DONE]** Switch label → **"Deactivate all users and jobs not in this file"**.
+- **[DONE]** Switch label → **"Deactivate all users and jobs not in this file"** (superseded same day — see above).
 - **PENDING:** how long before-import snapshots are kept, and whether it's the full employee export
   or only the rows the import touches.
 
