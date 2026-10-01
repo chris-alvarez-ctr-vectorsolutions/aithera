@@ -1,5 +1,35 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-10-01 (V4: the design system shell EHS already ships)
+
+- **New version, V4 (`v4-design-system.html`).** The interim shell. EHS has already moved to
+  the design system's navigation and should not have to switch again soon, so V4 puts
+  Vector LMS inside exactly that chrome: the real `vwc-topnav` with `vwc-app-switcher-menu`
+  and `vwc-user-menu` in its slots (the same core v1.19.0 / themes v1.5.0 / Open Sans builds
+  the EHS homepage loads), and EHS's own sidebar: 250px, Open Sans 13px, items at weight 500
+  going to 600 with a 3px left bar when active, children at 44px indent and weight 400, the
+  80px customer-logo area, and the round chevron button on the sidebar's right edge that
+  collapses it to 56px and rotates when collapsed. The identity lockup sits in the topnav's
+  `leftSide` slot with the mode tabs after a divider; the location picker sits in
+  `rightSide`. Content is Convergence's five tabs with the V3b side navs. What V4 does NOT
+  have, because the EHS shell does not: a top-bar toggle, hover-to-open, an accent bar, a
+  scoped search field, or the side-nav text-size setting (the user menu is the component's).
+  Component tag names, slots and props are quoted from core `v1.22.3`'s CONTEXT.md, the
+  first release that ships one; EHS loads `v1.19.0`, and the slots used here are the ones
+  EHS's own page proves exist there.
+  One version difference matters: `v1.19.0`'s user menu takes `{firstName, lastName, email}`
+  and derives the avatar initials from the two names (read from the bundle); the `v1.22.3`
+  docs' `{name, email}` shape paints a blank avatar in this build. The sidebar's list is
+  its own scroller (EHS's `.sidebar-nav`), so the column never clips the chevron overhang.
+- **V3: the Convergence view's location picker moves to the top bar's right end**, next to
+  the universal actions. The EHS and Dashboard views keep theirs at the top of the side nav,
+  since that was asked for the Convergence view and the real EHS top nav has no location
+  control.
+- **A divider between the identity and the tabs** (V1, V3, V4). It is the same `.tb-sep` rule
+  as the divider before the notification bell, so the padding either side is identical by
+  construction; in V1 and V3 it lives inside the left group's width budget so the tabs still
+  land exactly on the nav's edge.
+
 ## Changelog · 2026-09-14, second pass (V3a / V3b in the switcher, admin IA, motion)
 
 - **V3a and V3b are first-class versions in the review pill**: `V1 · V3a · V3b`. In V3 the
@@ -363,6 +393,7 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 | # | File | Differs from V1 by |
 |---|---|---|
 | V1 | `v1-launcher-tabs.html` | The reference shell: full-width top bar with the waffle launcher, location picker top-right |
+| V4 | `v4-design-system.html` | The design system shell as EHS ships it: real `vwc-topnav` + `vwc-app-switcher-menu` + `vwc-user-menu`, EHS's sidebar (250px, Open Sans, 3px active bar, round edge chevron to collapse); Convergence's five tabs with the V3b side navs; location top-right; no peek, no search, no accent bar |
 | V3 | `v3-app-rail.html` | The product switcher is a persistent FULL-HEIGHT app rail beside the side nav (Dashboard on top, launcher at the bottom split into your vs other platforms); the location picker sits in the side nav. Two toggleable variants: **a** = Learner + Admin tabs (learner list, filter side panels on My Training and Catalog, Reports section in Admin); **b** = Convergence's five tabs with Convergence's side navs. `?variant=a\|b`, `?view=<learner page>`, `?state=bothclosed` |
 
 ## Archived explorations
@@ -503,7 +534,7 @@ collapsed column's own left edge: x=0 in V1, x=56 in V3 beside the rail.
 ## Version switcher (review tooling, not part of the design)
 
 Every version file carries a small dark pill at the **bottom center**, stacked just above the
-Design Toolbox comment dock: `All` (back to the gallery) followed by V1, V3a and V3b, with the
+Design Toolbox comment dock: `All` (back to the gallery) followed by V1, V3a, V3b and V4, with the
 current version highlighted and each button titled with its pattern. Its toggles are **Logo**
 (customer logo on/off), **Loc** (location picker), **Bar** (the tenant accent bar), **Logo:
 top / bottom** (where the customer logo sits) and **Tabs** where tabs exist. It exists so reviewers can flip between explorations in place instead of returning
