@@ -424,7 +424,9 @@
   .ax-toggle:focus-visible { outline: 2px solid #1257B8; outline-offset: 2px; border-radius: 4px; }
   .ax-toggle i { display: inline-block; font-size: 10.5px; transition: transform .15s; }
   .alert.is-open .ax-toggle i { transform: rotate(180deg); }
-  .ax-line2 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .ax-line2 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
+  .ax-line2 .ax-toggle { margin-left: 0; padding-left: 0; }
+  .alert-head > .ack-inline { flex: 0 0 auto; margin-left: 4px; }
   .ack-row.ack-inline { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; border-radius: 7px; }
   .ack-row.ack-inline input { margin-top: 0; }
   .ax-need { flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: #B54708; white-space: nowrap; }
@@ -2048,8 +2050,8 @@
     // Blocked: questions go to an issue ticket in the Support Center (the "Submit a ticket" button was removed 2026-09-30).
     if (hard) body += '<div class="ax-ask">Have a question about this? <a href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Raise an issue ticket</a>.</div>';
 
-    /* Line under the title (2026-10-01): a Warning's "I've reviewed this" checkbox, so it can be
-       confirmed without opening it, then View details. */
+    /* A Warning's "I've reviewed this" sits top right so it can be confirmed without opening
+       it; View details is the second row, under the title (2026-10-01). */
     var ack = a.tier === 'confirm'
       ? '<label class="ack-row ack-inline' + (acked ? ' is-acked' : '') + '">'
         + '<input type="checkbox" data-act="ack" data-arg="' + a.id + '"' + (acked ? ' checked' : '') + '>'
@@ -2062,8 +2064,9 @@
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
       + '<div style="flex:1;min-width:0;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
       + (copyReview ? '<div class="alert-key">' + esc(a.key) + '</div>' : '')
-      + (ack || toggle ? '<div class="ax-line2">' + ack + toggle + '</div>' : '')
+      + (toggle ? '<div class="ax-line2">' + toggle + '</div>' : '')
       + '</div>'
+      + ack   // top right (2026-10-01)
       + '</div>'
       + (open && body ? '<div class="alert-body">' + body + '</div>' : '')
       + '</div>';
@@ -2113,8 +2116,8 @@
 
     var side = '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:18px 20px;">'
       // One CSV for everything (2026-09-30) — replaces per-alert downloads; opens a preview.
-      + '<div class="side-csv"><div class="sc-t">Complete list of changes</div>'
-      + '<div class="sc-s">Everyone in every list below, in one spreadsheet.</div>'
+      + '<div class="side-csv"><div class="sc-t">Everything we found, in one file</div>'
+      + '<div class="sc-s">Every ' + csvParts(raw) + ' from this review, with each person and row they affect — one spreadsheet you can sort, filter or share.</div>'
       + '<button class="btn sm btn--outline-blue" data-act="openCsv" style="width:100%;margin-top:10px;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV</button></div>'
       + '<div class="divider" style="margin:16px 0;"></div>'
       + '<div class="kpi-eyebrow">Change summary</div>'
@@ -2158,6 +2161,16 @@
       + '</div></div>';
   }
 
+  // "blocked issue, warning and info item" — only the kinds this review actually has.
+  function csvParts(alerts) {
+    var has = function (fn) { return alerts.some(fn); }, parts = [];
+    if (has(function (a) { return a.tier === 'blocked' || a.tier === 'escalate'; })) parts.push('blocked issue');
+    if (has(function (a) { return a.tier === 'confirm'; })) parts.push('warning');
+    if (has(function (a) { return a.tier === 'info'; })) parts.push('info item');
+    if (!parts.length) return 'item';
+    return parts.length === 1 ? parts[0] : parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+  }
+
   /* CSV preview (2026-09-30): the complete list as it opens in a spreadsheet. Each alert
      is a block — a title row, its column headers, one row per person/item, a blank row. */
   function csvHTML() {
@@ -2187,7 +2200,7 @@
     for (var i = 0; i < width; i++) letters += '<th>' + String.fromCharCode(65 + i) + '</th>';
     return '<div class="modal-overlay" data-act="closeCsv">'
       + '<div class="modal csv-modal" data-act="noop" role="dialog" aria-modal="true" aria-labelledby="cv-title">'
-      + '<div class="modal-head"><div><div class="modal-title" id="cv-title"><i class="fa-solid fa-file-csv" aria-hidden="true" style="color:#067647;margin-right:8px;"></i>complete_list_of_changes.csv</div>'
+      + '<div class="modal-head"><div><div class="modal-title" id="cv-title"><i class="fa-solid fa-file-csv" aria-hidden="true" style="color:#067647;margin-right:8px;"></i>what_we_found.csv</div>'
       + '<div class="modal-sub">' + (f ? esc(f.name) + ' · ' : '') + groups.length + ' groups · ' + count + ' rows. Prototype preview of the file.</div></div>'
       + '<button class="modal-x" data-act="closeCsv" aria-label="Close">✕</button></div>'
       + '<div class="modal-body" style="padding:0;"><div class="cv-wrap"><table class="cv"><thead><tr><th class="cv-n"></th>' + letters + '</tr></thead><tbody>' + body + '</tbody></table></div></div>'
