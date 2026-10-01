@@ -3235,7 +3235,10 @@
   // the next step. The stack mechanics mirror batteryInit's (same markup,
   // same depth classes), trimmed to the two formats the deck's checks use.
   function PODCHECK_CONTENT() {
-    return BATTERY_CONTENT.replace(
+    // .sh-podcheck: these are the deck's long scenario stems, not the
+    // pre-check's one-liners, so they take the deck question card's type
+    // size (clara/sharps.html) rather than the pre-check's headline size.
+    return BATTERY_CONTENT.replace('<main class="ll-object">', '<main class="ll-object sh-podcheck">').replace(
       '<button class="bl-check" id="blCheck"',
       '<p class="dk-fb bl-fb" id="blFb" role="status" hidden></p><button class="bl-check" id="blCheck"');
   }
@@ -3343,6 +3346,9 @@
       arm(checkEl);
       checkEl.hidden = false;
       checkEl.textContent = q.kind === 'mcq' ? 'Check answer' : 'Submit answer';
+      // A long stem plus four options can run past the footer on a short
+      // window; once an answer is picked, bring Check answer up into view.
+      optsEl.onclick = function () { if (!checkEl.disabled) clearFooter(checkEl); };
       wireChoice(optsEl.firstChild, checkEl, function (v, picked) {
         if (q.kind === 'mcq') {
           // The deck screen's own verdict: in words both ways, the right
@@ -3356,6 +3362,9 @@
             (body ? '<span class="dk-fb-b">' + esc(body) + '</span>' : '');
           fbEl.className = 'dk-fb bl-fb ' + (ok ? 'is-ok' : 'is-bad');
           fbEl.hidden = false;
+          // On a short window the verdict (and Next question under it) can
+          // land under the fixed footer — bring them up into view.
+          clearFooter(checkEl);
           saveResult(q.key, { variant: q.variant, passed: ok, picked: v, carrier: 'podcast' });
           checkEl.textContent = i + 1 < n ? 'Next question' : 'Continue';
           checkEl.disabled = false;
@@ -3386,6 +3395,10 @@
       setTimeout(function () {
         if (!askEl.isConnected) return;
         render(i);
+        // The last answer may have scrolled the page to show its verdict —
+        // the next question starts from the top, not halfway down.
+        var host = document.querySelector('.ll-object.sh-podcheck');
+        if (host) host.scrollTop = 0;
         askEl.classList.add('no-anim');
         askEl.classList.remove('is-leaving');
         void askEl.offsetWidth;
