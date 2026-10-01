@@ -16,6 +16,9 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-10-01) Map columns: * in the selector; Username note under it
 
+- **[DONE]** The skip option is **"Don't import"** (was "— Not imported —"): it's a choice, like the
+  other options. It shows gray in the selector, so the **Mapped / Not imported status column is
+  removed** — three columns: Column in your file · Sample · Import as.
 - **[DONE]** "Import as" is a custom dropdown styled like the live SafeLMS filter selector: bordered
   button (#7893B5, 6px), blue ring while open, menu of radio rows; the selected row has a filled blue
   check + light-blue highlight. Groups "Standard fields" / "Your site's attributes". Required fields
