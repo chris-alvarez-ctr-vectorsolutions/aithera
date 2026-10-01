@@ -6,6 +6,14 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-01) Map columns: * in the selector; Username note under it
+
+- **[DONE]** Required fields are marked **inside the "Import as" selector** ("First name *", "Last
+  name *", "Username *") instead of a red * on the file column.
+- **[DONE]** The lock note ("An upload can add new usernames but can't change an existing one.")
+  sits **under the selector** of whichever column is currently imported as Username — it moves if
+  Username is set on a different column.
+
 ## (2026-10-01) Review without opening; keep-a-copy on Run; toast instead of Import complete
 
 - **[DONE]** Each Warning has **"I've reviewed this"** right under its title (tinted yellow → blue

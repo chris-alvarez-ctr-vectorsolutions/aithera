@@ -308,7 +308,7 @@
   .map-row { align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--line-3); }
   /* Lock sits in the left gutter so column names stay aligned; the hint lines up under the name. */
   .map-lock { color: #8CA0B4; font-size: 10px; margin-right: 5px; }
-  .map-hint { grid-column: 1 / 3; font-size: 12px; color: #5B6B7E; line-height: 1.4; margin-top: 4px; white-space: nowrap; }
+  .map-hint { font-size: 12px; color: #5B6B7E; line-height: 1.4; margin-top: 6px; }
   .map-select { width: 100%; padding: 7px 10px; border: 1px solid var(--btn-border); border-radius: 7px;
     font-size: 13px; background: #fff; color: var(--ink); }
 
@@ -1781,15 +1781,12 @@
   function mapHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     var cols = COLS[state.fileId];
-    // The column's natural (auto-detected) target, so the required-field asterisk
-    // is a fixed property of the column and doesn't depend on the current mapping.
-    var defMap = defaultMapping(state.fileId);
     // AC-1.2: one row per COLUMN IN THE CUSTOMER'S FILE; each column picks a target.
     function targetOpts(sel) {
       var out = '<option value="' + esc(NOT_IMPORTED) + '"' + (sel === NOT_IMPORTED ? ' selected' : '') + '>' + esc(NOT_IMPORTED) + '</option>';
       out += '<optgroup label="Standard fields">';
       FIELDS.forEach(function (f) {
-        out += '<option value="' + esc(f.field) + '"' + (sel === f.field ? ' selected' : '') + '>' + esc(f.field) + '</option>';
+        out += '<option value="' + esc(f.field) + '"' + (sel === f.field ? ' selected' : '') + '>' + esc(f.field) + (f.req ? ' *' : '') + '</option>';
       });
       out += '</optgroup><optgroup label="Your site’s attributes">';
       ATTRIBUTES.forEach(function (a) {
@@ -1803,24 +1800,20 @@
       var target = fieldForCol(colName);
       var samlBad = false;   // SAML check removed — not in the error catalog (2026-09-25)
       var mapped = target !== NOT_IMPORTED;
-      // Red asterisk on the file column when its NATURAL target is a required field
-      // (First/Last/Username). Based on the auto-detected mapping, not the current
-      // "Import as" selection, so re-mapping a required column keeps its asterisk.
-      var reqStar = FIELDS.some(function (f) { return f.req && defMap[f.field] === colName; })
-        ? '<span style="color:#D92D20;" title="Required field"> *</span>' : '';
       var badge = samlBad ? '⚠ check' : (mapped ? 'Mapped' : 'Not imported');
       var badgeColor = samlBad ? '#B54708' : (mapped ? '#12B76A' : '#8CA0B4');
       var isUser = target === 'Username';
       return '<div class="map-grid map-row">'
-        // Usernames are the match key — lock + note ride on whichever column is imported as Username.
+        // Required fields show * inside the selector; the Username lock note sits under the selector and
+        // follows whichever column is currently imported as Username (2026-10-01).
         + '<div><div class="mono" style="font-size:13px;font-weight:600;color:#1B2B3E;">'
-        + esc(colName) + reqStar + '</div>'
+        + esc(colName) + '</div>'
         + '</div>'
         + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(sample) + '</div>'
-        + '<div style="padding-right:20px;"><select class="map-select" data-act="mapColTarget" data-arg="' + esc(colName) + '">' + targetOpts(target) + '</select></div>'
-        + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
-        // Username note gets its own second row, spanning the name + sample columns so it stays on one line.
+        + '<div style="padding-right:20px;"><select class="map-select" data-act="mapColTarget" data-arg="' + esc(colName) + '">' + targetOpts(target) + '</select>'
         + (isUser ? '<div class="map-hint"><i class="fa-solid fa-lock map-lock" aria-hidden="true"></i>An upload can add new usernames but can’t change an existing one.</div>' : '')
+        + '</div>'
+        + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
         + '</div>';
     }).join('');
     // Required targets (Username, First, Last) must each be claimed by some column.
