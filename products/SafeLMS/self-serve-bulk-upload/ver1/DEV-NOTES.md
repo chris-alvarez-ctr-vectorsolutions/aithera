@@ -8,6 +8,11 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-10-01) Map columns: * in the selector; Username note under it
 
+- **[DONE]** "Import as" is a custom dropdown styled like the live SafeLMS filter selector: bordered
+  button (#7893B5, 6px), blue ring while open, menu of radio rows; the selected row has a filled blue
+  check + light-blue highlight. Groups "Standard fields" / "Your site's attributes". Required fields
+  show a **red** * (a native select couldn't). Closes on pick, outside click or Escape. Dev: build
+  with the Vector select/combo component in that style; keep the listbox / option roles.
 - **[DONE]** Required fields are marked **inside the "Import as" selector** ("First name *", "Last
   name *", "Username *") instead of a red * on the file column.
 - **[DONE]** The lock note ("An upload can add new usernames but can't change an existing one.")

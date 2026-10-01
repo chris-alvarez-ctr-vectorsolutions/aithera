@@ -309,6 +309,28 @@
   /* Lock sits in the left gutter so column names stay aligned; the hint lines up under the name. */
   .map-lock { color: #8CA0B4; font-size: 10px; margin-right: 5px; }
   .map-hint { font-size: 12px; color: #5B6B7E; line-height: 1.4; margin-top: 6px; }
+  /* "Import as" dropdown — the live SafeLMS filter selector style */
+  .dd { position: relative; }
+  .dd-trigger { width: 100%; height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 0 12px; background: #fff; border: 1px solid #7893B5; border-radius: 6px; cursor: pointer; font-family: inherit;
+    font-size: 13.5px; font-weight: 600; color: #1B2B3E; text-align: left; }
+  .dd-trigger.is-empty .dd-val { color: #8CA0B4; font-weight: 500; }
+  .dd-trigger:hover { border-color: #4E6E96; }
+  .dd-trigger.is-open, .dd-trigger:focus-visible { outline: none; box-shadow: 0 0 0 1px #fff, 0 0 0 4px #2F7BF5; }
+  .dd-val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dd-req { color: #D92D20; }
+  .dd-chev { color: #8CA0B4; font-size: 12px; transition: transform .15s; }
+  .dd-trigger.is-open .dd-chev { transform: rotate(180deg); }
+  .dd-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 50; width: max(100%, 260px); max-height: 320px; overflow-y: auto;
+    background: #fff; border-radius: 8px; padding: 8px; box-shadow: 0 6px 24px rgba(16,24,40,.16), 0 1px 3px rgba(16,24,40,.08); }
+  .dd-group { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8CA0B4; padding: 10px 12px 4px; }
+  .dd-opt { width: 100%; display: flex; align-items: center; gap: 12px; padding: 9px 12px; border: none; background: none; border-radius: 6px;
+    cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 600; color: #3D4F63; text-align: left; }
+  .dd-opt:hover { background: #F5F8FB; }
+  .dd-opt.is-sel { background: #EEF4FC; color: #1B2B3E; }
+  .dd-radio { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #D0D9E3; background: #fff;
+    display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 9.5px; }
+  .dd-opt.is-sel .dd-radio { background: #2F7BF5; border-color: #2F7BF5; }
   .map-select { width: 100%; padding: 7px 10px; border: 1px solid var(--btn-border); border-radius: 7px;
     font-size: 13px; background: #fff; color: var(--ink); }
 
@@ -1107,6 +1129,7 @@
     csvOpen: false,      // CSV preview of the complete list (Review side panel)
     keepCopy: false,     // Run confirmation: also download the current employee data
     toast: null,         // { counts, keep, onLog } — shown after Run import
+    mapOpen: null,       // Map columns: the file column whose "Import as" menu is open
     autoReview: null     // index of the automated log run being reviewed / approved
   };
   var _validateTimer = null;
@@ -1782,18 +1805,30 @@
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     var cols = COLS[state.fileId];
     // AC-1.2: one row per COLUMN IN THE CUSTOMER'S FILE; each column picks a target.
-    function targetOpts(sel) {
-      var out = '<option value="' + esc(NOT_IMPORTED) + '"' + (sel === NOT_IMPORTED ? ' selected' : '') + '>' + esc(NOT_IMPORTED) + '</option>';
-      out += '<optgroup label="Standard fields">';
-      FIELDS.forEach(function (f) {
-        out += '<option value="' + esc(f.field) + '"' + (sel === f.field ? ' selected' : '') + '>' + esc(f.field) + (f.req ? ' *' : '') + '</option>';
-      });
-      out += '</optgroup><optgroup label="Your site’s attributes">';
-      ATTRIBUTES.forEach(function (a) {
-        out += '<option value="' + esc(a) + '"' + (sel === a ? ' selected' : '') + '>' + esc(a) + '</option>';
-      });
-      out += '</optgroup>';
-      return out;
+    /* "Import as" dropdown (2026-10-01): matches the live SafeLMS filter selector — a bordered
+       button (blue ring while open) and a menu of radio rows; the selected row gets a filled
+       blue check + light-blue highlight. Required fields carry a red * (now possible, unlike
+       a native <select>). One menu open at a time: state.mapOpen = the file column. */
+    function ddLabel(v) {
+      var f = FIELDS.find(function (x) { return x.field === v; });
+      return esc(v) + (f && f.req ? '<span class="dd-req" aria-hidden="true"> *</span>' : '');
+    }
+    function targetDD(colName, sel) {
+      var open = state.mapOpen === colName;
+      function opt(v) {
+        var on = sel === v;
+        return '<button type="button" class="dd-opt' + (on ? ' is-sel' : '') + '" role="option" aria-selected="' + on + '" data-act="ddPick" data-arg="' + esc(colName) + '" data-val="' + esc(v) + '">'
+          + '<span class="dd-radio" aria-hidden="true">' + (on ? '<i class="fa-solid fa-check"></i>' : '') + '</span><span>' + ddLabel(v) + '</span></button>';
+      }
+      var menu = !open ? '' : '<div class="dd-menu" role="listbox" aria-label="Import ' + esc(colName) + ' as">'
+        + opt(NOT_IMPORTED)
+        + '<div class="dd-group">Standard fields</div>' + FIELDS.map(function (f) { return opt(f.field); }).join('')
+        + '<div class="dd-group">Your site’s attributes</div>' + ATTRIBUTES.map(opt).join('')
+        + '</div>';
+      return '<div class="dd">'
+        + '<button type="button" class="dd-trigger' + (open ? ' is-open' : '') + (sel === NOT_IMPORTED ? ' is-empty' : '') + '" data-act="ddToggle" data-arg="' + esc(colName) + '" aria-haspopup="listbox" aria-expanded="' + open + '">'
+        + '<span class="dd-val">' + ddLabel(sel) + '</span><i class="fa-regular fa-chevron-down dd-chev" aria-hidden="true"></i></button>'
+        + menu + '</div>';
     }
     var rows = cols.map(function (c) {
       var colName = c[0], sample = c[1];
@@ -1810,7 +1845,7 @@
         + esc(colName) + '</div>'
         + '</div>'
         + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(sample) + '</div>'
-        + '<div style="padding-right:20px;"><select class="map-select" data-act="mapColTarget" data-arg="' + esc(colName) + '">' + targetOpts(target) + '</select>'
+        + '<div style="padding-right:20px;">' + targetDD(colName, target)
         + (isUser ? '<div class="map-hint"><i class="fa-solid fa-lock map-lock" aria-hidden="true"></i>An upload can add new usernames but can’t change an existing one.</div>' : '')
         + '</div>'
         + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
@@ -1823,7 +1858,7 @@
     var complete = reqMissing.length === 0;
     var missHint = complete ? ''
       : '<div style="font-size:12.5px;color:#B54708;background:#FFFAEB;border:1px solid #F2D69B;border-radius:8px;padding:9px 12px;margin-top:14px;"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Still needed: point a column at ' + reqMissing.map(function (f) { return '<b>' + esc(f.field) + '</b>'; }).join(', ') + '. Username, first name and last name are required.</div>';
-    return '<div class="fadeup"><div class="card" style="overflow:hidden;">'
+    return '<div class="fadeup"><div class="card" style="overflow:visible;">'   // visible so the dropdown menu isn't clipped
       + '<div style="padding:16px 20px;border-bottom:1px solid #EDF1F6;display:flex;justify-content:space-between;align-items:center;gap:16px;">'
       + '<div><div style="font-size:15px;font-weight:600;">Match your columns to SafeLMS fields</div>'
       + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">We matched what we could. Change any that are wrong, or set them to “' + esc(NOT_IMPORTED) + '.”</div></div>'
@@ -2409,6 +2444,14 @@
       + '<button class="toast-x" data-act="closeToast" aria-label="Dismiss">✕</button></div>';
   }
 
+  // Column-oriented mapping: unmap this file column from any field, then assign the new target.
+  function setColTarget(col, tgt) {
+    var m = {}; for (var k in state.mapping) m[k] = state.mapping[k];
+    for (var ff in m) { if (m[ff] === col) m[ff] = NOT_IMPORTED; }
+    if (tgt !== NOT_IMPORTED) m[tgt] = col;
+    setState({ mapping: m, mapOpen: null });
+  }
+
   // Adds the current file's attempt to the top of the upload log.
   function logAttempt(status, notes) {
     var f = currentFile(); if (!f) return state.log;
@@ -2594,6 +2637,8 @@
   }
 
   $app.addEventListener('click', function (e) {
+    // Any click outside an open "Import as" menu closes it.
+    if (state.mapOpen != null && !e.target.closest('.dd')) setState({ mapOpen: null });
     var el = e.target.closest('[data-act]');
     if (!el) return;
     // In-app action links use href="#"; stop the browser from jumping to the top.
@@ -2663,6 +2708,8 @@
         state.log = logAttempt('completed', buildAlerts().filter(function (x) { return x.tier === 'confirm'; })
           .map(function (x) { return 'Confirmed: ' + x.title; }));
         finishRun(summary(), 'employees', 0); break;
+      case 'ddToggle': setState({ mapOpen: state.mapOpen === arg ? null : arg }); break;
+      case 'ddPick': setColTarget(arg, el.getAttribute('data-val')); break;
       case 'closeToast': clearTimeout(toastTimer); setState({ toast: null }); break;
       case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
       case 'bless': setState({ blessed: true }); break;
@@ -2704,6 +2751,10 @@
   });
 
   // Keyboard access for non-button clickables (e.g. completed stepper steps).
+  // Escape closes an open "Import as" menu (on document: re-renders can drop focus to <body>).
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && state.mapOpen != null) setState({ mapOpen: null });
+  });
   $app.addEventListener('keydown', function (e) {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-act], [role="switch"][data-act]')) { e.preventDefault(); e.target.click(); }
   });
@@ -2712,15 +2763,7 @@
     var el = e.target.closest('[data-act]');
     if (!el) return;
     var act = el.getAttribute('data-act');
-    if (act === 'mapColTarget') {
-      // Column-oriented: data-arg is the file column, el.value is the chosen target.
-      // Keep the field->column model: unmap this column from any field, then assign.
-      var col = el.getAttribute('data-arg'), tgt = el.value;
-      var m = {}; for (var k in state.mapping) m[k] = state.mapping[k];
-      for (var ff in m) { if (m[ff] === col) m[ff] = NOT_IMPORTED; }
-      if (tgt !== NOT_IMPORTED) m[tgt] = col;
-      setState({ mapping: m });
-    } else if (act === 'keepCopy') {
+    if (act === 'keepCopy') {
       setState({ keepCopy: el.checked });
     } else if (act === 'ack') {
       var id = el.getAttribute('data-arg');
