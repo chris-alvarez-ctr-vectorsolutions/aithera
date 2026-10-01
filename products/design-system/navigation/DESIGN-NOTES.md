@@ -18,8 +18,9 @@
   first release that ships one; EHS loads `v1.19.0`, and the slots used here are the ones
   EHS's own page proves exist there.
   One version difference matters: `v1.19.0`'s user menu takes `{firstName, lastName, email}`
-  and derives the avatar initials from the two names (read from the bundle); the `v1.22.3`
-  docs' `{name, email}` shape paints a blank avatar in this build. The sidebar's list is
+  and derives the avatar initials from the two names, and its product rows and custom menu
+  items render a `text` field (products also take `href` and `imageSrc`); all read from the
+  bundle. The `v1.22.3` docs' `{name, email}` and `label` shapes paint blank in this build. The sidebar's list is
   its own scroller (EHS's `.sidebar-nav`), so the column never clips the chevron overhang.
 - **V3: the Convergence view's location picker moves to the top bar's right end**, next to
   the universal actions. The EHS and Dashboard views keep theirs at the top of the side nav,
