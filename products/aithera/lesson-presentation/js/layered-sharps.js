@@ -2478,13 +2478,13 @@
   }
 
   // `extra.deck` serves a DECK entry under a different step id — the podcast
-  // path runs the remedial screens again after its questions (c1rem-pod),
+  // step id (Listen mode once ran the remedial screens again this way),
   // and two steps can't share an id.
   //
   // `served` is the step's own routing rule (base vs harder vs reinforced),
   // kept apart from `when` because the podcast path skips every non-remedial
   // screen yet still needs to know which version this learner is served —
-  // that's how the episode picks its chapters (podcastCutLive).
+  // the Listen mode post-check asks the question of whichever version played.
   function deckStep(id, extra) {
     var deck = (extra && extra.deck) || id;
     var s = { id: id, icon: 'fa-circle-play', mins: 2, stage: 'Learn',
@@ -2502,82 +2502,185 @@
   }
 
   // ==========================================================================
-  //  LISTEN MODE (2026-09-25; renamed from "the podcast path" 2026-09-29 —
-  //  "podcast" carried baggage, so no learner surface says it. Internal names
-  //  — podcastPath(), PODCAST, the podpath/podpos keys — keep the old word). The podcast script's own shape
-  //  (Contain_the_Sharp_<sector>_Podcast.pdf, "One continuous listen. Every
-  //  check at the end."), parked 2026-09-23 and now built:
+  //  LISTEN MODE (2026-09-25; renamed from "the podcast path" 2026-09-29;
+  //  rebuilt on the recorded audio package 2026-10-01). No learner surface
+  //  says "podcast"; internal names — podcastPath(), the podpath/podpos
+  //  keys — keep the old word.
   //
-  //    pre-check → the offer → ONE continuous episode → the questions →
-  //    remedial content (Watch / Read) → the simulation → the record
+  //    pre-check → the offer → ONE continuous listen → the questions →
+  //    review set (missed knowledge questions only) → completion → simulation
   //
-  //  The pre-check decides which chapters are in the episode (the same
-  //  when() rules that decide which screens a screen-by-screen learner
-  //  sees), and the cut is FROZEN when the learner says yes — a resume
-  //  never rebuilds it. Chapters join on a sting; the script's ident opens
-  //  the episode, and our one-line close ("You may now continue the lesson")
-  //  ends it. No CLARA anywhere on this path, and no switching formats
-  //  partway through: the choice is made once, here.
+  //  NOTHING content-specific lives here. Three data files drive it:
+  //    data/sharps-listen/config.json — trigger rules, which question goes
+  //        with each topic, speed options, the review set's retry rule;
+  //    assets/audio/sharps/listenModeAudio/manifest.json — every file name,
+  //        the fixed topic order, splice points, chapter titles (filenames
+  //        are never parsed — their numeric prefixes are export order);
+  //    …/timing.json — caption timing, generated from the transcripts by
+  //        tools/listen-mode/build.py.
+  //  Swapping in a new exported package (whole reinforced files, no seams)
+  //  means replacing the manifest + audio folder and nothing else.
   //
-  //  Every chapter's question comes back after the episode in one stack
-  //  (podcheck, below); the chapters' own deck screens never load on this
-  //  path. Remedial screens follow the stack (c1rem-pod / c2rem-pod), on
-  //  screen, since the episode is base content only.
+  //  The pre-check answers are SNAPSHOTTED when the learner chooses Listen
+  //  mode (podpath.results), and the listen is always resolved from that
+  //  snapshot — a resume or replay rebuilds the same listen even if the
+  //  answers changed since.
   //
-  //  PROTOTYPE LIMITS: the episode is a playlist on ONE <audio> element,
-  //  advanced on 'ended'. With the screen locked, mobile Safari usually lets
-  //  that hand-off through, but doesn't promise to; a production build
-  //  should serve the frozen cut as one stream (joined file or HLS). Resume
-  //  lives in sessionStorage like the rest of this module's progress.
+  //  Playback: every file this learner needs is fetched and decoded, then
+  //  the listen is assembled on an OfflineAudioContext — each piece
+  //  scheduled back to back on its clock (sample-accurate joins, a short
+  //  gain ramp at every edge) — and the rendered result plays through ONE
+  //  <audio> element. Web Audio does the joining; the media element is what
+  //  keeps playing on a locked phone, shows lock-screen controls, does
+  //  speed, and resumes by time. Needs the page served over http(s): fetch
+  //  and decode don't work from a double-clicked file.
   // ==========================================================================
-  var POD_CHAPTERS = ['c1base', 'c1up', 'c2base', 'c2up', 'controls', 'case3', 'case3rf', 'debrief', 'debriefrf'];
+  var LISTEN_CONFIG_URL = '../data/sharps-listen/config.json';
   function podcastPath() { return !!(readCourse().podpath || {}).podcast; }
-  // The chapters this learner's pre-check answers put in the episode, live.
-  function podcastCutLive() {
-    return POD_CHAPTERS.filter(function (id) {
-      var st = LE.stepById(id);
-      return st && st.served();
-    });
-  }
-  // …and the one they were actually given, once they chose it.
-  function podcastCut() {
-    var p = readCourse().podpath;
-    return (p && p.cut) || podcastCutLive();
-  }
-  // The episode as one timeline: every item's clip, where it starts, and the
-  // whole thing's loudness and sentences on the same clock, so the waveform
-  // and captions run straight across the joins.
-  function episodeBuild(cut) {
-    var items = [];
-    function add(key, ch, title) {
-      var nar = narrationFor(key);
-      if (nar) items.push({ key: key, ch: ch, title: title, nar: nar });
-    }
-    add('ident', 0, 'Contain the Sharp');
-    cut.forEach(function (id, i) {
-      // The sting belongs to the chapter it leads into, so the lock screen
-      // already names what's coming.
-      if (i) add('sting', i + 1, deckFor(id).title);
-      add(id, i + 1, deckFor(id).title);
-    });
-    add('sting', cut.length, deckFor(cut[cut.length - 1]).title);
-    add('outro', cut.length, deckFor(cut[cut.length - 1]).title);
-    var t = 0, env = '', sents = [];
-    items.forEach(function (it, n) {
-      it.at = t;
-      // Pad or trim each envelope to its clip's exact length, so the
-      // waveform never drifts off the audio after a join.
-      var len = Math.round(it.nar.dur * WAVE_HZ), e = it.nar.env.slice(0, len);
-      while (e.length < len) e += '0';
-      env += e;
-      it.nar.sents.forEach(function (st) {
-        sents.push({ w: st.w, t: st.t, s: t + st.s, e: t + st.e, item: n });
+
+  // ---- The data ------------------------------------------------------------
+  // Fetched once per page, at script load (all three are small), so the
+  // offer screen can usually show the real runtime on first paint.
+  var listenData = null, listenDataP = null;
+  function loadListenData() {
+    if (listenDataP) return listenDataP;
+    function get(url) {
+      return fetch(url, { cache: 'no-cache' }).then(function (r) {
+        if (!r.ok) throw new Error('Couldn’t load ' + url + ' (' + r.status + ')');
+        return r.json();
       });
-      t += it.nar.dur;
+    }
+    listenDataP = get(LISTEN_CONFIG_URL).then(function (config) {
+      var base = config.manifest.replace(/[^\/]*$/, '');
+      return Promise.all([get(config.manifest), get(config.timing).catch(function () { return {}; })])
+        .then(function (r) {
+          var reviews = config.review && config.review.topics || {}, cardsBase = LISTEN_CONFIG_URL.replace(/[^\/]*$/, '');
+          return Promise.all(Object.keys(reviews).map(function (k) {
+            return get(cardsBase + reviews[k].cards).then(function (c) { return [k, c]; });
+          })).then(function (cards) {
+            var byTopic = {};
+            cards.forEach(function (p) { byTopic[p[0]] = p[1]; });
+            listenData = { config: config, manifest: r[0], timing: r[1], base: base, cards: byTopic };
+            return listenData;
+          });
+        });
     });
-    return { items: items, chapters: cut, dur: t, env: env, sents: sents };
+    listenDataP.catch(function () { listenDataP = null; });   // let a retry try again
+    return listenDataP;
   }
-  function episodeMinutes() { return Math.max(1, Math.round(episodeBuild(podcastCut()).dur / 60)); }
+  if (location.protocol !== 'file:') loadListenData().catch(function () {});
+
+  // ---- The learner's answers, as the rules read them -------------------------
+  // The Demo menu's Battery/Feel overrides count, as everywhere else.
+  function feelScore(key) {
+    try { var o = sessionStorage.getItem('sh-feel'); if (o === 'low') return 2; if (o === 'high') return 5; } catch (e) {}
+    var v = (readCourse().battery || {})[key];
+    return v == null ? null : v;
+  }
+  function listenResultsLive() {
+    return { k1: { correct: k1TestUp() }, k2: { correct: k2TestUp() },
+             f1: { score: feelScore('f1') }, f3: { score: feelScore('f3') } };
+  }
+  // The snapshot taken when Listen mode was chosen (older runs, saved before
+  // there was one, fall back to the live answers).
+  function listenResults() {
+    var p = readCourse().podpath;
+    return (p && p.results) || listenResultsLive();
+  }
+  function ruleHolds(rule, results) {
+    if (!rule) return false;
+    var r = results[rule.item] || {};
+    if (rule.rule === 'correct') return r.correct === true && r.confident !== false;
+    if (rule.rule === 'scoreAtMost') return r.score != null && r.score <= rule.value;
+    return false;
+  }
+  function ruleWhy(rule, results) {
+    var r = results[rule.item] || {}, item = rule.item.toUpperCase();
+    if (rule.rule === 'correct') return item + ' pre-check answered correctly';
+    return item + ' agreement ' + r.score + ' (at or below ' + rule.value + ')';
+  }
+
+  // Splice point for a topic — the manifest's, unless a reviewer has nudged
+  // it in the splice test this session.
+  function seamFor(t, data) {
+    try { var o = sessionStorage.getItem('sh-seam-' + t); if (o != null && o !== '') return +o; } catch (e) {}
+    return data.manifest.topics[t].seamAt;
+  }
+  function fileDur(file, data) {
+    var t = data.timing[file];
+    return t ? t.dur : null;
+  }
+
+  // ---- The resolver ----------------------------------------------------------
+  // One way to play each topic, in the manifest's fixed order:
+  //   1. a `reinforced` whole file, if the topic has one and the learner
+  //      needs reinforcement (no topic has one yet; the check is live);
+  //   2. else, needing reinforcement with an `addon` and a valid seamAt:
+  //      normal[0 → seam], the add-on, normal[seam → end], no gap;
+  //   3. else `harder` instead of `normal` when the learner qualifies;
+  //   4. else `normal`.
+  // Each entry carries `why`, the plain-language trace a reviewer sees.
+  function resolveListen(results, data) {
+    var m = data.manifest, trig = data.config.triggers || {};
+    return m.order.map(function (t) {
+      var def = m.topics[t];
+      if (!def) throw new Error('The manifest’s order names “' + t + '”, which it doesn’t define.');
+      var reinforce = (trig.reinforce || {})[t], harder = (trig.harder || {})[t];
+      var needs = ruleHolds(reinforce, results), up = ruleHolds(harder, results);
+      if (needs && def.reinforced) return { topic: t, how: 'reinforced', why: ruleWhy(reinforce, results) + ' → reinforced version' };
+      if (needs && def.addon) {
+        var seam = seamFor(t, data), d = fileDur(def.normal.file, data);
+        if (seam > 0 && (d == null || seam < d))
+          return { topic: t, how: 'addon', seam: seam, why: ruleWhy(reinforce, results) + ' → add-on spliced in at ' + seam + 's' };
+      }
+      if (up && def.harder) return { topic: t, how: 'harder', why: ruleWhy(harder, results) + ' → harder version' };
+      var why = harder && !up ? 'normal (' + harder.item.toUpperCase() + ' pre-check not answered correctly)'
+        : reinforce && !needs ? 'normal (no reinforcement needed)'
+        : 'normal (single version)';
+      return { topic: t, how: 'normal', why: why };
+    });
+  }
+  // The plan as playback pieces on one timeline. A gap (the sting's
+  // placeholder) goes BETWEEN topics, never inside a spliced one.
+  function listenPieces(plan, data) {
+    var m = data.manifest, gap = m.gapBetweenPartsSec || 0, t = 0, out = [];
+    plan.forEach(function (p, i) {
+      var def = m.topics[p.topic];
+      if (i) t += gap;
+      function piece(file, offset, dur) {
+        var full = fileDur(file, data);
+        if (dur == null) dur = (full == null ? null : full - offset);
+        out.push({ topic: p.topic, file: file, offset: offset, dur: dur, at: t });
+        t += dur || 0;
+      }
+      if (p.how === 'reinforced') piece(def.reinforced.file, 0, null);
+      else if (p.how === 'addon') {
+        piece(def.normal.file, 0, p.seam);
+        piece(def.addon.file, 0, null);
+        piece(def.normal.file, p.seam, null);
+      } else piece((p.how === 'harder' ? def.harder : def.normal).file, 0, null);
+    });
+    return { pieces: out, dur: t };
+  }
+  function listenMinutes() {
+    if (!listenData) return null;
+    try { return Math.max(1, Math.round(listenPieces(resolveListen(listenResults(), listenData), listenData).dur / 60)); }
+    catch (e) { return null; }
+  }
+  // Same rule, run on the live answers — the offer screen's runtime is the
+  // listen this learner WOULD get if they chose it now.
+  function listenMinutesLive() {
+    if (!listenData) return null;
+    try { return Math.max(1, Math.round(listenPieces(resolveListen(listenResultsLive(), listenData), listenData).dur / 60)); }
+    catch (e) { return null; }
+  }
+  // Reviewer trace for the captions: which answer put each part here.
+  function listenTrace() {
+    if (!listenData) return 'Loading the audio manifest…';
+    try {
+      return resolveListen(listenResults(), listenData).map(function (p) { return p.topic + ': ' + p.why; }).join(' · ');
+    } catch (e) { return String(e.message || e); }
+  }
 
   // ---- The offer -------------------------------------------------------------
   // After the pre-check, because the pre-check is what builds the listen.
@@ -2606,7 +2709,10 @@
   }
   var MODES = {
     listen:   { icon: 'fa-headphones', name: 'Listen mode',
-                sub: function () { return 'About ' + episodeMinutes() + ' min · Questions at the end'; } },
+                sub: function () {
+                  var n = listenMinutesLive();
+                  return (n ? 'About ' + n + ' min' : 'Continuous listen') + ' \u00b7 Questions at the end';
+                } },
     standard: { icon: 'fa-display', name: 'Standard mode',
                 sub: function () { return 'Watch or read, one section at a time'; } }
   };
@@ -2666,7 +2772,8 @@
       var was = readCourse().podpath;
       // A fresh choice (or a changed one) starts the listen from the top.
       if (!was || !!was.podcast !== pod) { saveResult('podpos', null); saveResult('podcast', null); }
-      saveResult('podpath', { podcast: pod, cut: pod ? podcastCutLive() : null });
+      // Listen mode freezes the pre-check answers it was built from.
+      saveResult('podpath', { podcast: pod, results: pod ? listenResultsLive() : null });
       LE.refreshNav();
     }
     function pick(k) {
@@ -2699,24 +2806,127 @@
       tip.hidden = !open;
       how.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
+    // The runtime, once the manifest is in (usually already is).
+    if (!listenData && location.protocol !== 'file:') loadListenData().then(function () {
+      var sub = document.querySelector('.po-opt[data-pick="listen"] small');
+      if (sub && sub.isConnected) sub.textContent = MODES.listen.sub();
+    }).catch(function () {});
   }
 
-  // ---- The episode -----------------------------------------------------------
-  // The per-screen Listen player's look (the same stage, waveform and word-
-  // by-word captions), run over the whole cut. The page never scrolls: the
-  // chapter list opens over the stage from "Chapters" in the header
-  // (2026-09-25 review), and reads as a list, not a menu — chapters can't
-  // be picked. Play/pause and back 15 seconds; no scrubbing ahead, no speed control
-  // (some courses carry a required duration). The lock screen shows the
-  // chapter playing and offers play/pause only.
+  // ---- The player --------------------------------------------------------------
+  // The Read to me player's look (stage, waveform, word-by-word captions)
+  // over the whole assembled listen. Chapters are TOPICS, not files — an
+  // add-on belongs to its topic's chapter. The page never scrolls; the
+  // chapter list opens over the stage. Play/pause, back 15 s, and (config)
+  // speed on screen; play/pause on the lock screen; no scrubbing ahead.
+
+  // Fetch + decode every file the pieces need (once each), then schedule the
+  // pieces back to back on an OfflineAudioContext and render. A failed fetch
+  // or decode rejects naming the file — a part is never skipped silently.
+  function renderListen(data, pieces, onProgress) {
+    var rate = data.config.renderSampleRate || 24000;
+    var files = [];
+    pieces.forEach(function (p) { if (files.indexOf(p.file) < 0) files.push(p.file); });
+    var probe = new OfflineAudioContext(1, rate, rate), done = 0, bufs = {};
+    return Promise.all(files.map(function (f) {
+      return fetch(data.base + f).then(function (r) {
+        if (!r.ok) throw new Error('missing ' + f + ' (' + r.status + ')');
+        return r.arrayBuffer();
+      }).then(function (ab) {
+        return new Promise(function (res, rej) {
+          probe.decodeAudioData(ab, res, function () { rej(new Error('could not decode ' + f)); });
+        });
+      }).then(function (b) {
+        bufs[f] = b; done++; onProgress(done / files.length);
+      }).catch(function (e) { e.file = f; throw e; });
+    })).then(function () {
+      // Durations from the DECODED audio, not the timing file: they are
+      // what the clock actually schedules.
+      var gap = data.manifest.gapBetweenPartsSec || 0, t = 0, lastTopic = null;
+      pieces.forEach(function (p) {
+        if (lastTopic !== null && p.topic !== lastTopic) t += gap;
+        var b = bufs[p.file];
+        p.dur = Math.max(0, Math.min(p.dur == null ? Infinity : p.dur, b.duration - p.offset));
+        p.at = t; t += p.dur; lastTopic = p.topic;
+      });
+      var total = t, ctx = new OfflineAudioContext(1, Math.ceil(total * rate) + rate, rate);
+      var fade = (data.manifest.spliceFadeMs || 25) / 1000;
+      pieces.forEach(function (p) {
+        var src = ctx.createBufferSource(), g = ctx.createGain(), f = Math.min(fade, p.dur / 4);
+        src.buffer = bufs[p.file];
+        g.gain.setValueAtTime(0, p.at);
+        g.gain.linearRampToValueAtTime(1, p.at + f);
+        g.gain.setValueAtTime(1, p.at + p.dur - f);
+        g.gain.linearRampToValueAtTime(0, p.at + p.dur);
+        src.connect(g); g.connect(ctx.destination);
+        src.start(p.at, p.offset, p.dur);
+      });
+      return ctx.startRendering().then(function (out) { return { buffer: out, dur: total }; });
+    });
+  }
+  // 16-bit mono WAV from the rendered buffer, so one <audio> element plays it.
+  function wavBlob(buf, dur) {
+    var rate = buf.sampleRate, n = Math.min(buf.length, Math.ceil(dur * rate)), ch = buf.getChannelData(0);
+    var ab = new ArrayBuffer(44 + n * 2), v = new DataView(ab);
+    function str(o, s) { for (var i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); }
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    str(36, 'data'); v.setUint32(40, n * 2, true);
+    for (var i = 0, o = 44; i < n; i++, o += 2) {
+      var x = Math.max(-1, Math.min(1, ch[i]));
+      v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+    }
+    return new Blob([ab], { type: 'audio/wav' });
+  }
+  // The waveform's loudness, measured from the rendered listen itself.
+  function envFromBuffer(buf, dur) {
+    var ch = buf.getChannelData(0), step = Math.round(buf.sampleRate / WAVE_HZ), n = Math.ceil(dur * WAVE_HZ), raw = [];
+    for (var k = 0; k < n; k++) {
+      var s = 0, a = k * step, b = Math.min(ch.length, a + step);
+      for (var i = a; i < b; i++) s += ch[i] * ch[i];
+      raw.push(Math.sqrt(s / Math.max(1, b - a)));
+    }
+    var peak = Math.max.apply(null, raw.concat([1e-6]));
+    return raw.map(function (x) { return '0123456789abcdefghijklmnopqrstuvwxyz'.charAt(Math.min(35, Math.floor(35 * Math.pow(x / peak, .7)))); }).join('');
+  }
+  // Captions on the listen's own clock: each piece contributes the sentences
+  // that fall inside its slice of its file, shifted to where it plays.
+  function listenSentences(pieces, data) {
+    var out = [];
+    pieces.forEach(function (p) {
+      var tm = data.timing[p.file];
+      if (!tm) return;
+      tm.sents.forEach(function (st) {
+        if (st.s < p.offset - .05 || st.s >= p.offset + p.dur) return;
+        out.push({ w: st.w, t: st.t, em: st.em || [], s: p.at + (st.s - p.offset),
+                   e: p.at + Math.min(st.e, p.offset + p.dur) - p.offset });
+      });
+    });
+    return out;
+  }
+  // Chapters by topic: numbered in order, spanning all of a topic's pieces.
+  function listenChapters(pieces, data) {
+    var out = [];
+    pieces.forEach(function (p) {
+      var def = data.manifest.topics[p.topic];
+      var last = out[out.length - 1];
+      if (last && last.topic === p.topic) { last.end = p.at + p.dur; return; }
+      out.push({ topic: p.topic, title: def.title || p.topic, chapter: def.chapter !== false, start: p.at, end: p.at + p.dur });
+    });
+    var n = 0;
+    out.forEach(function (c) { if (c.chapter) c.n = ++n; });
+    out.total = n;
+    return out;
+  }
+
   function EPISODE_CONTENT() {
-    var ep = episodeBuild(podcastCut());
     return '<main class="ll-object dk-object ep-object"><div class="dk-theater">' +
       '<header class="dk-head"><div class="dk-head-t">' +
         '<p class="ll-eyebrow" id="epEyebrow">Listen mode</p>' +
         '<h1 class="dk-title" id="epTitle">Contain the Sharp</h1>' +
       '</div>' +
-        '<button class="ep-ch-btn" type="button" id="epChBtn" aria-label="Chapters" aria-expanded="false" aria-controls="epChPanel">' +
+        '<button class="ep-ch-btn" type="button" id="epChBtn" aria-label="Chapters" aria-expanded="false" aria-controls="epChPanel" disabled>' +
           '<i class="fa-solid fa-list-ul" aria-hidden="true"></i><span>Chapters</span></button>' +
       '</header>' +
       '<div class="dk-stagewrap"><div class="dk-stage" id="epStage" data-mode="podcast">' +
@@ -2730,30 +2940,28 @@
           '</div>' +
           '<div class="dk-player">' +
             '<span class="ep-player-start">' +
-              '<button class="ep-back" type="button" id="epBack" aria-label="Back 15 seconds">' +
+              '<button class="ep-back" type="button" id="epBack" aria-label="Back 15 seconds" disabled>' +
                 '<i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span>15</span></button>' +
-              '<span class="dk-voice-note">Placeholder voice</span>' +
+              '<button class="ep-back ep-speed" type="button" id="epSpeed" aria-label="Playback speed" hidden disabled>1×</button>' +
             '</span>' +
-            '<button class="dk-play" type="button" id="epPlay" aria-label="Play"><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
+            '<button class="dk-play" type="button" id="epPlay" aria-label="Play" disabled><i class="fa-solid fa-play" aria-hidden="true"></i></button>' +
             '<span class="dk-player-end">' +
               '<button class="dk-skip" id="epSkip" type="button" hidden aria-label="Skip to the end">Skip <i class="fa-solid fa-forward" aria-hidden="true"></i></button>' +
-              '<span class="dk-time" id="epTime">0:00 / ' + mmss(ep.dur) + '</span>' +
+              '<span class="dk-time" id="epTime">0:00 / –:––</span>' +
             '</span>' +
           '</div>' +
         '</section>' +
+        // Preparing (fetch + decode + assemble), and any failure, over the stage.
+        '<div class="ep-prep" id="epPrep" role="status">' +
+          '<p class="ep-prep-t" id="epPrepT">Preparing your listen…</p>' +
+          '<div class="pu-track ep-prep-track"><div class="pu-fill" id="epPrepFill"></div></div>' +
+          '<button class="bl-check ep-prep-retry" type="button" id="epRetry" hidden>Try again</button>' +
+        '</div>' +
         '<div class="ep-ch-panel" id="epChPanel" hidden>' +
           '<div class="ep-ch-head"><h2>Chapters</h2>' +
             '<button class="ep-ch-close" type="button" id="epChClose" aria-label="Close chapters">' +
               '<i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>' +
-          '<ol class="ep-chapters" id="epChapters">' +
-            ep.chapters.map(function (id, i) {
-              return '<li class="ep-ch" data-ch="' + (i + 1) + '">' +
-                '<span class="ep-ch-n" aria-hidden="true">' + (i + 1) + '</span>' +
-                '<span class="ep-ch-t">' + esc(deckFor(id).title) + '</span>' +
-                '<span class="ep-ch-d">' + mmss(narrationFor(id).dur) + '</span>' +
-              '</li>';
-            }).join('') +
-          '</ol>' +
+          '<ol class="ep-chapters" id="epChapters"></ol>' +
         '</div>' +
         '<div class="dk-rail" aria-hidden="true"><span class="dk-rail-fill" id="epRail"></span></div>' +
       '</div></div>' +
@@ -2762,39 +2970,72 @@
   function episodeInit(ctx) {
     ctx.setCoachSay('');
     ctx.floatClose();
-    var ep = episodeBuild(podcastCut());
-    var audio = document.getElementById('epAudio');
-    var stage = document.getElementById('epStage');
-    var canvas = document.getElementById('epWave'), g = canvas.getContext('2d');
-    var play = document.getElementById('epPlay');
-    var timeEl = document.getElementById('epTime');
-    var rail = document.getElementById('epRail');
-    var capNow = document.getElementById('epCapNow'), capWho = document.getElementById('epCapWho');
-    var eyebrow = document.getElementById('epEyebrow'), titleEl = document.getElementById('epTitle');
-    var chEls = [].slice.call(document.querySelectorAll('.ep-ch'));
-    var last = ep.items.length - 1;
-    var cur = -1, raf = 0, lastSent = -1, spans = [], lastCh = -1, finishedOnce = false, lastSave = 0;
-    var done = !!(readCourse().podcast || {}).done;
-    var art = new URL('../../assets/images/sharps-header.jpg', location.href).href;
+    ctx.disableNext();
+    var $ = function (id) { return document.getElementById(id); };
+    var audio = $('epAudio'), stage = $('epStage'), canvas = $('epWave'), g = canvas.getContext('2d');
+    var play = $('epPlay'), back = $('epBack'), speed = $('epSpeed'), timeEl = $('epTime'), rail = $('epRail');
+    var capNow = $('epCapNow'), capWho = $('epCapWho'), eyebrow = $('epEyebrow'), titleEl = $('epTitle');
+    var prep = $('epPrep'), prepT = $('epPrepT'), prepFill = $('epPrepFill'), retry = $('epRetry');
+    var chBtn = $('epChBtn'), chPanel = $('epChPanel'), chList = $('epChapters');
     var ms = 'mediaSession' in navigator ? navigator.mediaSession : null;
+    var art = new URL('../../assets/images/sharps-header.jpg', location.href).href;
+    var L = null, url = null, raf = 0, lastSent = -1, spans = [], lastCh = -1, lastSave = 0;
+    var done = !!(readCourse().podcast || {}).done, finishedOnce = done;
+    var torn = false;
 
-    function gt() { return cur < 0 ? 0 : ep.items[cur].at + (audio.currentTime || 0); }
+    function fail(e) {
+      if (torn) return;
+      var msg = location.protocol === 'file:'
+        ? 'Listen mode needs this page served from a web server (localhost or GitHub Pages). It can’t load audio from a double-clicked file.'
+        : 'Part of this listen couldn’t be loaded' + (e && e.file ? ' (' + e.file + ')' : '') + '. Check your connection and try again.';
+      prepT.textContent = msg;
+      prep.classList.add('is-error');
+      retry.hidden = location.protocol === 'file:';
+      if (window.console) console.error('[listen mode]', e);
+    }
+    function build() {
+      prep.hidden = false; prep.classList.remove('is-error'); retry.hidden = true;
+      prepT.textContent = 'Preparing your listen…'; prepFill.style.width = '0%';
+      if (location.protocol === 'file:') { fail(); return; }
+      loadListenData().then(function (data) {
+        var plan = resolveListen(listenResults(), data);
+        var lp = listenPieces(plan, data);
+        return renderListen(data, lp.pieces, function (f) { prepFill.style.width = Math.round(f * 100) + '%'; })
+          .then(function (r) {
+            if (torn) return;
+            L = { data: data, plan: plan, pieces: lp.pieces, dur: r.dur,
+                  env: envFromBuffer(r.buffer, r.dur), sents: listenSentences(lp.pieces, data),
+                  chapters: listenChapters(lp.pieces, data) };
+            url = URL.createObjectURL(wavBlob(r.buffer, r.dur));
+            ready();
+          });
+      }).catch(fail);
+    }
+    retry.addEventListener('click', build);
+
+    function chapterAt(t) {
+      var c = L.chapters[0];
+      L.chapters.forEach(function (x) { if (t >= x.start - .01) c = x; });
+      return c;
+    }
     function sentenceAt(t) {
-      for (var i = ep.sents.length - 1; i >= 0; i--) if (t >= ep.sents[i].s) return i;
+      for (var i = L.sents.length - 1; i >= 0; i--) if (t >= L.sents[i].s) return i;
       return -1;
     }
     function setSentence(i) {
       if (i === lastSent) return;
       lastSent = i;
-      var st = ep.sents[i];
-      capWho.textContent = st && st.w ? (PODCAST_WHO[st.w] || st.w) : '';
+      var st = L.sents[i];
+      capWho.textContent = st && st.w ? (PODCAST_WHO[st.w] || (st.w.charAt(0) + st.w.slice(1).toLowerCase())) : '';
       capWho.dataset.who = st && st.w ? st.w.toLowerCase() : '';
-      capNow.innerHTML = st ? st.t.split(' ').map(function (w) { return '<span>' + esc(w) + '</span>'; }).join(' ') : '';
+      capNow.innerHTML = st ? st.t.split(' ').map(function (w, k) {
+        return '<span' + (st.em.indexOf(k) > -1 ? ' class="is-em"' : '') + '>' + esc(w) + '</span>';
+      }).join(' ') : '';
       spans = [].slice.call(capNow.children);
       capNow.classList.remove('is-in'); void capNow.offsetWidth; capNow.classList.add('is-in');
     }
     function words(t) {
-      var st = ep.sents[lastSent];
+      var st = L.sents[lastSent];
       if (!st) return;
       var f = (t - st.s) / Math.max(.01, st.e - st.s), total = st.t.length, acc = 0;
       spans.forEach(function (sp) {
@@ -2803,25 +3044,22 @@
         sp.classList.toggle('is-said', mid <= f);
       });
     }
-    // The header, the chapter list and the lock screen all follow the item
-    // that is playing.
-    function setChapter(it) {
-      if (it.ch === lastCh) return;
-      lastCh = it.ch;
-      var n = ep.chapters.length;
-      eyebrow.textContent = it.ch ? 'Listen mode · Chapter ' + it.ch + ' of ' + n : 'Listen mode';
-      titleEl.textContent = it.title;
-      chEls.forEach(function (li) {
-        var c = +li.dataset.ch;
-        li.classList.toggle('is-now', c === it.ch && !done);
-        li.classList.toggle('is-done', done || c < it.ch);
-        if (c === it.ch) li.setAttribute('aria-current', 'true'); else li.removeAttribute('aria-current');
+    function setChapter(c) {
+      if (!c || c === lastCh) return;
+      lastCh = c;
+      eyebrow.textContent = c.chapter ? 'Listen mode · Chapter ' + c.n + ' of ' + L.chapters.total : 'Listen mode';
+      titleEl.textContent = c.title;
+      [].forEach.call(chList.children, function (li) {
+        var n = +li.dataset.n;
+        li.classList.toggle('is-now', c.chapter && n === c.n && !done);
+        li.classList.toggle('is-done', done || (c.chapter ? n < c.n : n <= (c.start > 0 ? L.chapters.total : 0)));
+        if (c.chapter && n === c.n) li.setAttribute('aria-current', 'true'); else li.removeAttribute('aria-current');
       });
       if (ms && window.MediaMetadata) {
         try {
           ms.metadata = new MediaMetadata({
-            title: it.title,
-            artist: it.ch ? 'Chapter ' + it.ch + ' of ' + n : 'Contain the Sharp',
+            title: c.title,
+            artist: c.chapter ? 'Chapter ' + c.n + ' of ' + L.chapters.total : 'Contain the Sharp',
             album: 'Bloodborne Pathogens · Module 4',
             artwork: [{ src: art, sizes: '1200x675', type: 'image/jpeg' }]
           });
@@ -2829,12 +3067,14 @@
       }
     }
     function tick() {
-      var t = gt();
-      drawEnvelope(canvas, g, ep.env, t);
+      if (!L) return;
+      var t = audio.currentTime || 0;
+      drawEnvelope(canvas, g, L.env, t);
       setSentence(sentenceAt(t));
       words(t);
-      timeEl.textContent = mmss(t) + ' / ' + mmss(ep.dur);
-      rail.style.transform = 'scaleX(' + Math.max(0, Math.min(1, t / ep.dur)) + ')';
+      setChapter(chapterAt(t));
+      timeEl.textContent = mmss(t) + ' / ' + mmss(L.dur);
+      rail.style.transform = 'scaleX(' + Math.max(0, Math.min(1, t / L.dur)) + ')';
       if (!audio.paused) raf = requestAnimationFrame(tick);
     }
     function setPlaying(on) {
@@ -2843,81 +3083,105 @@
       stage.classList.toggle('is-playing', on);
       if (ms) try { ms.playbackState = on ? 'playing' : 'paused'; } catch (e) {}
     }
-    // Where to pick up: the start of the sentence that was playing, so a
-    // resume never lands mid-word.
     function save(force) {
-      if (cur < 0 || done) return;
+      if (!L || done) return;
       var now = Date.now();
       if (!force && now - lastSave < 2000) return;
       lastSave = now;
-      saveResult('podpos', { i: cur, t: Math.round(audio.currentTime * 10) / 10 });
-    }
-    function load(i, t, autoplay) {
-      cur = Math.max(0, Math.min(last, i));
-      var it = ep.items[cur];
-      setChapter(it);
-      audio.src = NARRATION_DIR + it.nar.src + '?v=' + NARRATION_V;
-      var seek = function () {
-        audio.removeEventListener('loadedmetadata', seek);
-        if (t > 0) try { audio.currentTime = t; } catch (e) {}
-        tick();
-      };
-      audio.addEventListener('loadedmetadata', seek);
-      if (autoplay) audio.play().catch(function () { setPlaying(false); });
-    }
-    function back(sec) {
-      var t = Math.max(0, gt() - sec), i = last;
-      while (i > 0 && ep.items[i].at > t) i--;
-      var wasPlaying = !audio.paused;
-      if (i === cur) { audio.currentTime = t - ep.items[i].at; tick(); }
-      else load(i, t - ep.items[i].at, wasPlaying);
+      saveResult('podpos', { t: Math.round(audio.currentTime * 10) / 10 });
     }
     function finish() {
-      if (finishedOnce) return;
-      finishedOnce = true;
+      if (!finishedOnce) {
+        finishedOnce = true;
+        saveResult('podcast', { done: true, plan: L.plan.map(function (p) { return p.topic + ':' + p.how; }) });
+        saveResult('podpos', null);
+      }
       done = true;
-      saveResult('podcast', { done: true, cut: ep.chapters });
-      saveResult('podpos', null);
-      lastCh = -1; setChapter(ep.items[last]);
+      lastCh = -1; setChapter(chapterAt(L.dur));
       setPlaying(false);
       ctx.enableNext();
     }
 
+    function ready() {
+      prep.hidden = true;
+      LE.refreshNav();   // the caption's "why each part" trace, now the manifest is in
+      [play, back, speed, chBtn].forEach(function (b) { b.disabled = false; });
+      chList.innerHTML = L.chapters.filter(function (c) { return c.chapter; }).map(function (c) {
+        return '<li class="ep-ch" data-n="' + c.n + '">' +
+          '<span class="ep-ch-n" aria-hidden="true">' + c.n + '</span>' +
+          '<span class="ep-ch-t">' + esc(c.title) + '</span>' +
+          '<span class="ep-ch-d">' + mmss(c.end - c.start) + '</span>' +
+        '</li>';
+      }).join('');
+      // Speed (config). Kept for the session.
+      var sp = L.data.config.speed || {};
+      if (sp.enabled && sp.options && sp.options.length) {
+        speed.hidden = false;
+        var rate = 1;
+        try { rate = +sessionStorage.getItem('sh-listen-rate') || 1; } catch (e) {}
+        if (sp.options.indexOf(rate) < 0) rate = 1;
+        var setRate = function (r) {
+          rate = r; audio.playbackRate = r; audio.defaultPlaybackRate = r;
+          speed.textContent = (r === 1 ? '1' : String(r)) + '×';
+          speed.setAttribute('aria-label', 'Playback speed, ' + r + ' times');
+          try { sessionStorage.setItem('sh-listen-rate', r); } catch (e) {}
+        };
+        speed.addEventListener('click', function () {
+          var i = sp.options.indexOf(rate);
+          setRate(sp.options[(i + 1) % sp.options.length]);
+        });
+        audio.addEventListener('loadedmetadata', function () { audio.playbackRate = rate; }, { once: true });
+        setRate(rate);
+      }
+      audio.src = url;
+      var startAt = 0, pos = readCourse().podpos;
+      if (done) startAt = L.dur;
+      else if (pos && pos.t != null) {
+        // Pick up at the start of the sentence that was playing.
+        startAt = pos.t;
+        L.sents.forEach(function (st) { if (st.s <= pos.t) startAt = st.s; });
+      }
+      audio.addEventListener('loadedmetadata', function () {
+        try { audio.currentTime = Math.min(startAt, L.dur); } catch (e) {}
+        tick();
+        if (!done) audio.play().catch(function () { setPlaying(false); });
+      }, { once: true });
+      if (done) ctx.enableNext();
+    }
+
     play.addEventListener('click', function () {
-      if (audio.paused) audio.play().catch(function () {}); else audio.pause();
+      if (!L) return;
+      if (audio.paused) {
+        if (audio.ended || audio.currentTime >= L.dur - .05) audio.currentTime = 0;   // replay the same listen
+        audio.play().catch(function () {});
+      } else audio.pause();
     });
-    document.getElementById('epBack').addEventListener('click', function () { back(15); });
+    back.addEventListener('click', function () { audio.currentTime = Math.max(0, audio.currentTime - 15); tick(); });
     audio.addEventListener('play', function () { setPlaying(true); cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); });
     audio.addEventListener('pause', function () { setPlaying(false); save(true); tick(); });
     audio.addEventListener('timeupdate', function () { save(false); });
-    audio.addEventListener('ended', function () {
-      if (cur < last) load(cur + 1, 0, true);
-      else finish();
-    });
-    audio.addEventListener('error', function () {
-      document.querySelector('.ep-object .dk-voice-note').textContent = 'Audio unavailable';
-      ctx.setNextAction('Done listening', finish);
-    });
+    audio.addEventListener('ended', finish);
     window.addEventListener('pagehide', function () { save(true); });
     window.addEventListener('resize', function () { if (canvas.isConnected) tick(); });
 
-    // Review-mode skip, same rule as the clips': straight to the close, so a
-    // reviewer can see the hand-back without sitting through the episode.
     // Chapters: over the stage, closed by the same button, its own ×, or Esc.
-    var chBtn = document.getElementById('epChBtn'), chPanel = document.getElementById('epChPanel');
     function chapters(open) {
       chPanel.hidden = !open;
       chBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
       stage.classList.toggle('is-ch-open', open);
-      (open ? document.getElementById('epChClose') : chBtn).focus({ preventScroll: true });
+      (open ? $('epChClose') : chBtn).focus({ preventScroll: true });
     }
     chBtn.addEventListener('click', function () { chapters(chPanel.hidden); });
-    document.getElementById('epChClose').addEventListener('click', function () { chapters(false); });
+    $('epChClose').addEventListener('click', function () { chapters(false); });
     chPanel.addEventListener('keydown', function (e) { if (e.key === 'Escape') chapters(false); });
 
-    var skip = document.getElementById('epSkip');
+    // Review-mode skip: to the last 5 seconds.
+    var skip = $('epSkip');
     skip.hidden = !LE.reviewMode();
-    skip.addEventListener('click', function () { load(last - 1, 0, true); });
+    skip.addEventListener('click', function () {
+      if (!L) return;
+      audio.currentTime = Math.max(0, L.dur - 5); audio.play().catch(function () {});
+    });
 
     // The lock screen: play and pause, nothing that moves the playhead
     // forward.
@@ -2931,31 +3195,19 @@
       } catch (e) {}
     }
 
-    // Stop, and let go of the lock screen, when the step is torn down.
+    // Stop, let go of the lock screen and free the rendered file when the
+    // step is torn down.
     var stageRoot = document.querySelector('.ll-stage');
     if (stageRoot && window.MutationObserver) {
       var mo = new MutationObserver(function () {
         if (document.body.contains(audio)) return;
-        mo.disconnect(); save(true); audio.pause(); cancelAnimationFrame(raf);
+        mo.disconnect(); torn = true; save(true); audio.pause(); cancelAnimationFrame(raf);
+        if (url) { audio.removeAttribute('src'); URL.revokeObjectURL(url); }
         if (ms) try { ms.metadata = null; ms.setActionHandler('play', null); ms.setActionHandler('pause', null); } catch (e) {}
       });
       mo.observe(stageRoot, { childList: true });
     }
-
-    if (done) {
-      // Heard already (Back from the questions): parked at the close.
-      finishedOnce = true;
-      load(last, ep.items[last].nar.dur, false);
-      ctx.enableNext();
-      return;
-    }
-    ctx.disableNext();
-    var pos = readCourse().podpos;
-    if (pos && ep.items[pos.i]) {
-      var t0 = 0;
-      ep.items[pos.i].nar.sents.forEach(function (st) { if (st.s <= (pos.t || 0)) t0 = st.s; });
-      load(pos.i, t0, true);
-    } else load(0, 0, true);
+    build();
   }
 
   // ---- The questions ---------------------------------------------------------
@@ -2976,15 +3228,30 @@
       '<button class="bl-check" id="blCheck"',
       '<p class="dk-fb bl-fb" id="blFb" role="status" hidden></p><button class="bl-check" id="blCheck"');
   }
+  // One question per topic that has one (config.checks), in the order the
+  // topics played, using the deck screen that matches the version that
+  // played (k2 harder → the harder case's question). Titles are the
+  // manifest's chapter titles, so the stack names what the learner heard.
   function podcheckItems() {
-    return podcastCut().map(function (id) {
-      return { id: id, title: deckFor(id).title, q: deckCheck(deckFor(id)) };
-    }).filter(function (it) { return it.q; });
+    if (!listenData) return [];
+    var checks = listenData.config.checks || {}, topics = listenData.manifest.topics;
+    return resolveListen(listenResults(), listenData).map(function (p) {
+      var c = checks[p.topic];
+      if (!c) return null;
+      var deckId = c[p.how] || c.normal;
+      return { id: deckId, topic: p.topic, role: c.role, title: topics[p.topic].title || p.topic,
+               q: DECK[deckId] ? deckCheck(deckFor(deckId)) : null };
+    }).filter(function (it) { return it && it.q; });
   }
   function podcheckInit(ctx) {
     ctx.setCoachSay('');
     ctx.floatClose();
     ctx.disableNext();
+    if (!listenData) {
+      loadListenData().then(function () { if (document.getElementById('blAsk')) podcheckInit(ctx); })
+        .catch(function () { document.getElementById('blQ').textContent = 'The questions couldn\u2019t be loaded. Reload the page to try again.'; });
+      return;
+    }
     var items = podcheckItems(), n = items.length;
     var askEl = document.getElementById('blAsk');
     var stepEl = document.getElementById('blStep');
@@ -3130,6 +3397,267 @@
     setPeekContent(near, 1); near.className = 'bl-peek sh-battery depth1';
     setPeekContent(far, 2); far.className = 'bl-peek sh-battery depth2';
     pinStageHeight();
+  }
+
+  // ---- The review set ----------------------------------------------------------
+  // After the questions, for each KNOWLEDGE question missed (config.checks
+  // role "knowledge"): that topic's fact cards (data/sharps-listen/review/),
+  // an optional recap (the manifest's quickTakes — the only audio on this
+  // screen, and only when pressed), then a retry of the same question.
+  // Exit rule from config.review.retries: one retry, then on either way. The
+  // retry is recorded under the topic's retryKey; the original miss stays.
+  //
+  // LISTEN_FEEL_HOOK: belief/norm misses (f1, f3 — role "belief") get no
+  // review yet. When they do, add their topics to config.review.topics and
+  // widen listenMissed() below past role "knowledge".
+  function listenMissed() {
+    if (!listenData) {
+      // Before the manifest is in (a reload straight onto this step): any
+      // saved check marked failed.
+      var c = readCourse();
+      return Object.keys(c).filter(function (k) { return /check$/.test(k) && c[k] && c[k].passed === false; });
+    }
+    var topics = (listenData.config.review || {}).topics || {};
+    return podcheckItems().filter(function (it) {
+      var r = readCourse()[it.q.key];
+      return it.role === 'knowledge' && topics[it.topic] && r && r.passed === false;
+    });
+  }
+  function REVIEW_CONTENT() {
+    return '<main class="ll-object po-object rv-object"><div class="po rv" id="rv" aria-live="polite"></div></main>';
+  }
+  function reviewInit(ctx) {
+    ctx.setCoachSay('');
+    ctx.floatClose();
+    ctx.disableNext();
+    var root = document.getElementById('rv');
+    if (!listenData) {
+      root.innerHTML = '<p class="rv-note">Loading…</p>';
+      loadListenData().then(function () { if (root.isConnected) reviewInit(ctx); })
+        .catch(function () { root.innerHTML = '<p class="rv-note">The review couldn’t be loaded. Reload the page to try again.</p>'; });
+      return;
+    }
+    LE.refreshNav(); ctx.disableNext();   // the caption's trace, now the data is in
+    var cfg = listenData.config.review || {}, queue = listenMissed(), qi = 0;
+    var recapAudio = null;
+    function stopRecap() { if (recapAudio) { recapAudio.pause(); recapAudio = null; } }
+    function next() {
+      stopRecap();
+      qi++;
+      if (qi < queue.length) cards(); else { ctx.enableNext(); ctx.els.next.click(); }
+    }
+    function head(it) {
+      return '<p class="ll-eyebrow">Review' + (queue.length > 1 ? ' · ' + (qi + 1) + ' of ' + queue.length : '') + '</p>' +
+        '<h1 class="po-head">' + esc(it.title) + '</h1>';
+    }
+    // The fact cards, and the way to the retry.
+    function cards() {
+      var it = queue[qi], set = listenData.cards[it.topic] || { cards: [] };
+      var qt = (listenData.manifest.quickTakes || {})[it.topic];
+      root.innerHTML = head(it) +
+        '<ol class="rv-cards">' + set.cards.map(function (c, i) {
+          return '<li class="rv-card"><span class="rv-n" aria-hidden="true">' + (i + 1) + '</span><div>' +
+            (c.head ? '<h2 class="rv-card-h">' + esc(c.head) + '</h2>' : '') +
+            '<p>' + esc(c.body) + '</p></div></li>';
+        }).join('') + '</ol>' +
+        '<div class="rv-actions">' +
+          (set.recap && qt ? '<button class="ep-back rv-recap" type="button" id="rvRecap">' +
+            '<i class="fa-solid fa-volume-high" aria-hidden="true"></i><span>Hear a quick recap</span></button>' : '') +
+          '<button class="bl-check rv-go" type="button" id="rvGo">Try the question again</button>' +
+        '</div>';
+      var rb = document.getElementById('rvRecap');
+      if (rb) rb.addEventListener('click', function () {
+        if (recapAudio && !recapAudio.paused) { recapAudio.pause(); return; }
+        if (!recapAudio) {
+          recapAudio = new Audio(listenData.base + qt.file);
+          recapAudio.addEventListener('play', function () { rb.querySelector('span').textContent = 'Pause the recap'; rb.querySelector('i').className = 'fa-solid fa-pause'; });
+          recapAudio.addEventListener('pause', function () { rb.querySelector('span').textContent = 'Hear a quick recap'; rb.querySelector('i').className = 'fa-solid fa-volume-high'; });
+          recapAudio.addEventListener('error', function () { rb.querySelector('span').textContent = 'Recap unavailable'; rb.disabled = true; });
+        }
+        recapAudio.play().catch(function () {});
+      });
+      document.getElementById('rvGo').addEventListener('click', function () { stopRecap(); ask(0); });
+      try { root.querySelector('.po-head').focus({ preventScroll: true }); } catch (e) {}
+    }
+    // The retry: the same question, saved under the topic's retryKey.
+    function ask(attempt) {
+      var it = queue[qi], q = it.q, key = ((cfg.topics || {})[it.topic] || {}).retryKey || (q.key + '-retry');
+      var allowed = cfg.retries == null ? 1 : cfg.retries;
+      root.innerHTML = head(it) +
+        '<div class="rv-q">' +
+          '<h2 class="cs-q cs-q--lead">' + esc(q.stem) + '</h2>' +
+          mcqHtml(q.options, true) +
+          '<p class="dk-fb rv-fb" id="rvFb" role="status" hidden></p>' +
+          '<button class="bl-check" type="button" id="rvCheck" disabled>Check answer</button>' +
+        '</div>';
+      var host = root.querySelector('.dk-opts'), btn = document.getElementById('rvCheck'), fb = document.getElementById('rvFb');
+      wireChoice(host, btn, function (v, picked) {
+        var ok = v === q.correct, last = ok || attempt + 1 >= allowed;
+        csMark(picked, ok ? 'ok' : 'bad');
+        if (!ok) csTag(picked, 'Your answer');
+        if (!ok && last) {
+          var right = host.querySelectorAll('.cs-opt')[q.correct];
+          csMark(right, 'ok'); csTag(right, 'Correct answer');
+        }
+        var body = ok ? q.okFb : last ? '' : (q.noFb || 'Let’s dig into this again from a slightly different lens.');
+        fb.innerHTML = '<strong class="dk-fb-h"><i class="fa-solid ' + (ok ? 'fa-circle-check' : 'fa-circle-xmark') +
+            '" aria-hidden="true"></i> ' + (ok ? 'Correct' : 'Not quite') + '</strong>' +
+          (body ? '<span class="dk-fb-b">' + esc(body) + '</span>' : '');
+        fb.className = 'dk-fb rv-fb ' + (ok ? 'is-ok' : 'is-bad');
+        fb.hidden = false;
+        saveResult(key, { variant: q.variant, passed: ok, picked: v, attempt: attempt + 1, carrier: 'listen-review' });
+        btn.textContent = last ? (qi + 1 < queue.length ? 'Next review' : 'Continue') : 'Try again';
+        btn.disabled = false;
+        btn.onclick = function () { if (last) next(); else ask(attempt + 1); };
+        btn.focus({ preventScroll: true });
+      });
+    }
+    if (!queue.length) { ctx.enableNext(); root.innerHTML = '<p class="rv-note">Nothing to review.</p>'; return; }
+    cards();
+    var stageRoot = document.querySelector('.ll-stage');
+    if (stageRoot && window.MutationObserver) {
+      var mo = new MutationObserver(function () { if (!root.isConnected) { mo.disconnect(); stopRecap(); } });
+      mo.observe(stageRoot, { childList: true });
+    }
+  }
+
+  // ---- Completion ---------------------------------------------------------------
+  // The listen never hands off to the simulation itself; this screen does.
+  function LISTENDONE_CONTENT() {
+    return '<main class="ll-object po-object"><div class="po">' +
+      '<div class="po-top">' +
+        '<h1 class="po-head">Next, try it in a scenario</h1>' +
+        '<p class="po-sub">A short scenario on screen, about 5 min.</p>' +
+      '</div>' +
+    '</div></main>';
+  }
+  function listendoneInit(ctx) { ctx.setCoachSay(''); ctx.floatClose(); ctx.enableNext(); }
+
+  // ---- Reviewer tools ------------------------------------------------------------
+  // Scenario switcher: the 8 listens (k2 normal/harder × f1 add-on × f3
+  // add-on) as Demo-menu values, and 0–2 missed knowledge checks.
+  var LISTEN_COMBOS = (function () {
+    var out = [];
+    [false, true].forEach(function (h) { [false, true].forEach(function (a) { [false, true].forEach(function (b) {
+      out.push({ value: (h ? 'H' : 'n') + (a ? 'A' : '-') + (b ? 'B' : '-'),
+        label: 'k2 ' + (h ? 'harder' : 'normal') + ' · f1 ' + (a ? '+ add-on' : 'normal') + ' · f3 ' + (b ? '+ add-on' : 'normal'),
+        results: { k1: { correct: false }, k2: { correct: h }, f1: { score: a ? 2 : 5 }, f3: { score: b ? 2 : 5 } } });
+    }); }); });
+    return out;
+  })();
+  function listenComboNow() {
+    var r = listenResults(), cfg = listenData && listenData.config.triggers || {};
+    var h = ruleHolds((cfg.harder || {}).k2, r), a = ruleHolds((cfg.reinforce || {}).f1, r), b = ruleHolds((cfg.reinforce || {}).f3, r);
+    return (h ? 'H' : 'n') + (a ? 'A' : '-') + (b ? 'B' : '-');
+  }
+  var LISTEN_RESULT_KEYS = ['k1check', 'k2check', 'insight', 'f1post', 'f3post', 'k1recheck', 'k2recheck', 'podcheck', 'podcast', 'podpos'];
+  function setListenCombo(v) {
+    var c = LISTEN_COMBOS.filter(function (x) { return x.value === v; })[0];
+    if (!c) return;
+    LISTEN_RESULT_KEYS.forEach(function (k) { saveResult(k, null); });
+    saveResult('podpath', { podcast: true, results: c.results });
+    LE.goTo('podcast');
+  }
+  function setListenMisses(v) {
+    if (!listenData) return;
+    var miss = v === 'k1' ? ['k1'] : v === 'k1k2' ? ['k1', 'k2'] : [];
+    ['k1recheck', 'k2recheck'].forEach(function (k) { saveResult(k, null); });
+    podcheckItems().forEach(function (it) {
+      var q = it.q;
+      if (q.kind === 'mcq') saveResult(q.key, { variant: q.variant, passed: miss.indexOf(it.topic) < 0,
+        picked: miss.indexOf(it.topic) < 0 ? q.correct : (q.correct + 1) % q.options.length, carrier: 'podcast' });
+      else if (q.kind === 'insight') saveResult(q.key, { picked: 0, answer: q.options[0].t, carrier: 'podcast' });
+      else saveResult(q.key, { score: 4, carrier: 'podcast' });
+    });
+    saveResult('podcast', { done: true });
+    saveResult('podcheck', { done: true });
+    if (!LE.goTo(miss.length ? 'listenreview' : 'listendone')) LE.goTo('scene');
+  }
+
+  // Splice test: about 8 s either side of each join of a spliced topic, with
+  // seamAt nudgeable and shown in manifest form to copy back. "Use for this
+  // listen" applies the value for this session only (sh-seam-<topic>).
+  function spliceTest(api) {
+    var old = document.getElementById('spPanel');
+    if (old) { old.remove(); return; }
+    loadListenData().then(function (data) {
+      var topics = Object.keys(data.manifest.topics).filter(function (t) {
+        var d = data.manifest.topics[t]; return d.addon && d.seamAt != null;
+      });
+      if (!topics.length) return;
+      var ac = null, bufs = {}, playing = [];
+      var el = document.createElement('div');
+      el.id = 'spPanel'; el.className = 'sp-panel';
+      el.innerHTML =
+        '<div class="sp-head"><b>Splice test</b><span>Review only</span>' +
+          '<button type="button" class="ep-ch-close" id="spClose" aria-label="Close splice test"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>' +
+        '<label class="sp-row">Topic <select id="spTopic">' + topics.map(function (t) {
+          return '<option value="' + t + '">' + esc(t + ' — ' + (data.manifest.topics[t].title || '')) + '</option>';
+        }).join('') + '</select></label>' +
+        '<label class="sp-row">seamAt <input id="spSeam" type="number" step="0.05" min="0" />' +
+          '<button type="button" class="ep-back" data-n="-0.1">−0.1</button><button type="button" class="ep-back" data-n="0.1">+0.1</button></label>' +
+        '<div class="sp-row sp-btns">' +
+          '<button type="button" class="ep-back" id="spIn"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> Into the add-on</button>' +
+          '<button type="button" class="ep-back" id="spOut"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Out of the add-on</button>' +
+          '<button type="button" class="ep-back" id="spStop">Stop</button></div>' +
+        '<code class="sp-code" id="spCode"></code>' +
+        '<div class="sp-row sp-btns">' +
+          '<button type="button" class="ep-back" id="spUse">Use for this listen</button>' +
+          '<button type="button" class="ep-back" id="spReset">Back to the manifest</button></div>' +
+        '<p class="sp-note" id="spNote"></p>';
+      document.body.appendChild(el);
+      var topicEl = el.querySelector('#spTopic'), seamEl = el.querySelector('#spSeam');
+      var code = el.querySelector('#spCode'), note = el.querySelector('#spNote');
+      function show() {
+        var t = topicEl.value, man = data.manifest.topics[t].seamAt;
+        if (seamEl.dataset.t !== t) { seamEl.value = seamFor(t, data); seamEl.dataset.t = t; }
+        code.textContent = '"seamAt": ' + (+seamEl.value).toFixed(2);
+        var o = null; try { o = sessionStorage.getItem('sh-seam-' + t); } catch (e) {}
+        note.textContent = 'Manifest: ' + man + 's' + (o != null ? ' · this session uses ' + o + 's' : '');
+      }
+      function load(f) {
+        if (bufs[f]) return Promise.resolve(bufs[f]);
+        return fetch(data.base + f).then(function (r) { return r.arrayBuffer(); })
+          .then(function (ab) { return ac.decodeAudioData(ab); }).then(function (b) { bufs[f] = b; return b; });
+      }
+      function stop() { playing.forEach(function (s) { try { s.stop(); } catch (e) {} }); playing = []; }
+      function hear(into) {
+        ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+        stop();
+        var d = data.manifest.topics[topicEl.value], seam = +seamEl.value, fade = (data.manifest.spliceFadeMs || 25) / 1000;
+        Promise.all([load(d.normal.file), load(d.addon.file)]).then(function (b) {
+          var n = b[0], a = b[1], t0 = ac.currentTime + .1, parts;
+          parts = into ? [[n, Math.max(0, seam - 8), Math.min(8, seam)], [a, 0, Math.min(6, a.duration)]]
+                       : [[a, Math.max(0, a.duration - 6), Math.min(6, a.duration)], [n, seam, Math.min(8, n.duration - seam)]];
+          parts.forEach(function (p) {
+            var s = ac.createBufferSource(), g = ac.createGain();
+            s.buffer = p[0];
+            g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(1, t0 + fade);
+            g.gain.setValueAtTime(1, t0 + p[2] - fade); g.gain.linearRampToValueAtTime(0, t0 + p[2]);
+            s.connect(g); g.connect(ac.destination); s.start(t0, p[1], p[2]);
+            playing.push(s); t0 += p[2];
+          });
+        });
+      }
+      topicEl.addEventListener('change', show);
+      seamEl.addEventListener('input', show);
+      [].forEach.call(el.querySelectorAll('[data-n]'), function (b) {
+        b.addEventListener('click', function () { seamEl.value = Math.max(0, +seamEl.value + +b.dataset.n).toFixed(2); show(); });
+      });
+      el.querySelector('#spIn').addEventListener('click', function () { hear(true); });
+      el.querySelector('#spOut').addEventListener('click', function () { hear(false); });
+      el.querySelector('#spStop').addEventListener('click', stop);
+      el.querySelector('#spUse').addEventListener('click', function () {
+        try { sessionStorage.setItem('sh-seam-' + topicEl.value, (+seamEl.value).toFixed(2)); } catch (e) {}
+        show(); stop(); if (api) api.replay();
+      });
+      el.querySelector('#spReset').addEventListener('click', function () {
+        try { sessionStorage.removeItem('sh-seam-' + topicEl.value); } catch (e) {}
+        seamEl.dataset.t = ''; show(); stop(); if (api) api.replay();
+      });
+      el.querySelector('#spClose').addEventListener('click', function () { stop(); el.remove(); });
+      show();
+    }).catch(function () {});
   }
 
   // ==========================================================================
@@ -7222,16 +7750,26 @@
       content: PODOFFER_CONTENT, init: podofferInit },
     { id: 'podcast', icon: 'fa-headphones', stage: 'Learn', lesson: 'Contain the Sharp', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
-      get mins() { return episodeMinutes(); },
+      get mins() { return listenMinutes() || 8; },
       when: function () { return podcastPath(); },
-      caption: { title: 'LEARN · The listen (Listen mode)', note: 'The whole cut as one listen: the script\u2019s ident, each chapter the pre-check put in (joined on a sting), and one closing line, “You may now continue the lesson.” Continue opens only when it ends. Resumes at the start of the sentence it was paused on. Play/pause and back 15s on screen; play/pause only on the lock screen; no scrubbing ahead and no speed control. Review mode shows Skip. Prototype: a playlist on one audio element, not a single stream — see LISTEN MODE in layered-sharps.js.' },
+      get caption() { return { title: 'LEARN · The listen (Listen mode, recorded audio 2026-10-01)', note: 'Assembled from the audio manifest (assets/audio/sharps/listenModeAudio/manifest.json) by the rules in data/sharps-listen/config.json, from the pre-check answers as they stood when Listen mode was chosen. Rendered on an OfflineAudioContext (sample-accurate joins, ' + ((listenData && listenData.manifest.spliceFadeMs) || 25) + ' ms ramps), played through one audio element. Captions are aligned from the transcripts to the files\u2019 pauses (tools/listen-mode/build.py) — close, not word-perfect. Why each part is here: ' + listenTrace() + '. Demo → Listen combination / Missed checks / Splice test.' }; },
       content: EPISODE_CONTENT, init: episodeInit },
     { id: 'podcheck', icon: 'fa-list-check', stage: 'Check', lesson: 'Questions', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
-      get mins() { return Math.max(1, Math.round(podcheckItems().length / 2)); },
+      get mins() { return Math.max(1, Math.round((podcheckItems().length || 5) / 2)); },
       when: function () { return podcastPath(); },
-      caption: { title: 'CHECK · The listen’s questions (Listen mode)', note: 'Every chapter’s question from the deck, in the order the chapters played, as one stack in the pre-check’s look. Saved under the same keys as the screen-by-screen path (k1check, k2check, insight, f1post, f3post), so remediation routes off them unchanged. Knowledge questions show the deck’s verdict and wait for Next question; agreement and insight items move on by themselves. The last card hands straight on to remedial content (if any) or the simulation.' },
+      caption: { title: 'CHECK · The listen\u2019s questions (Listen mode)', note: 'One question per topic that played (config.checks), from the deck screen matching the version that played — k2 harder asks the harder case\u2019s question. One stack in the pre-check\u2019s look. Saved under the same keys as the screen-by-screen path (k1check, k2check, insight, f1post, f3post). Knowledge questions show the deck\u2019s verdict and wait for Next question; agreement and insight items move on by themselves.' },
       content: PODCHECK_CONTENT, init: podcheckInit },
+    { id: 'listenreview', icon: 'fa-rotate', stage: 'Check', lesson: 'Review', mode: 'floating', gate: true,
+      noCoach: true, coach: { say: '' }, mins: 2, adaptive: true, variant: 'Review set',
+      when: function () { return podcastPath() && listenMissed().length > 0; },
+      get caption() { return { title: 'CHECK · Review set (Listen mode)', note: 'Only for missed KNOWLEDGE questions (config.checks role "knowledge"; belief misses get no review yet — LISTEN_FEEL_HOOK). Per topic: fact cards from data/sharps-listen/review/<topic>.json (placeholder: the deck\u2019s own remedial narration, verbatim), an optional recap (the manifest\u2019s quickTakes, plays only when pressed), then one retry of the same question (config.review.retries), saved under the topic\u2019s retryKey. Here because: ' + (listenData ? listenMissed().map(function (it) { return it.topic + ' question missed'; }).join(', ') : '\u2026') + '.' }; },
+      content: REVIEW_CONTENT, init: reviewInit },
+    { id: 'listendone', icon: 'fa-flag-checkered', stage: 'Check', lesson: 'Listen mode complete', mode: 'floating',
+      noCoach: true, coach: { say: '' }, mins: 0, nextLabel: 'Start the scenario',
+      when: function () { return podcastPath() && !sceneSimulatorOn(); },
+      caption: { title: 'CHECK · Completion (Listen mode)', note: 'The audio never hands off to the simulation, so this screen does. With Demo → Full scenario simulator on, the existing hand-off screen does this job instead, so this one steps aside.' },
+      content: LISTENDONE_CONTENT, init: listendoneInit },
 
     // ---- Deck slides 5–22 ----------------------------------------------------
     // Each case serves ONE of its versions: base, or the harder test-up version
@@ -7267,16 +7805,6 @@
       caption: { title: 'LEARN · Debrief, base (F3) — deck slides 20 + 22', note: 'Served when the pre-check F3 statement was answered 4–5. Cites Gershon et al. (2000), 92.7%. The F3 statement is asked again over it (slide 22).' } }),
     deckStep('debriefrf', { adaptive: true, variant: 'Reinforced version', when: function () { return feelLow('f3'); },
       caption: { title: 'LEARN · Debrief, reinforced (F3) — deck slides 21 + 22', note: 'Served INSTEAD of the base debrief when the pre-check F3 statement was answered 1–3. The norm correction given more room. Same F3 re-ask over it (slide 22).' } }),
-
-    // The podcast path's remedial screens: the same two, after ALL of the
-    // episode's questions rather than straight after their own, and on screen
-    // (Watch / Read) — never Listen.
-    deckStep('c1rem-pod', { deck: 'c1rem', adaptive: true, variant: 'Remedial version',
-      when: function () { return checkMissed('k1check') && podcastPath(); },
-      caption: { title: 'LEARN · Case 1, remedial (K1), Listen mode — deck slide 7', note: 'Listen mode\u2019s copy of c1rem: after every question from the listen, not straight after case 1\u2019s. Watch or Read only. Then re-asks the question that was missed.' } }),
-    deckStep('c2rem-pod', { deck: 'c2rem', adaptive: true, variant: 'Remedial version',
-      when: function () { return checkMissed('k2check') && podcastPath(); },
-      caption: { title: 'LEARN · Case 2, remedial (K2), Listen mode — deck slide 12', note: 'Listen mode\u2019s copy of c2rem, after every question from the listen. Watch or Read only. Then re-asks the question that was missed.' } }),
 
     { id: 'scene', icon: 'fa-binoculars', mins: 5, stage: 'Perform', lesson: 'A sharp decision', mode: 'floating', gate: true,
       when: function () { return !sceneSimulatorOn(); },
@@ -7514,6 +8042,27 @@
         try { sessionStorage.setItem('sh-name', next.trim().slice(0, 40)); } catch (e) {}
         api.replay();
       }
+    }, {
+      // Listen mode reviewer tools (see Reviewer tools, LISTEN MODE).
+      id: 'shListenComboBtn', icon: 'fa-shuffle', name: 'Listen combination',
+      note: 'Any of the 8 listens (k2 normal or harder, f1 and f3 with or without their add-on). Restarts the listen from the top',
+      visibleOn: function (step) { return ['podcast', 'podcheck', 'listenreview', 'listendone'].indexOf(step.id) > -1; },
+      type: 'select', value: function () { return listenData ? listenComboNow() : 'n--'; },
+      options: LISTEN_COMBOS.map(function (c) { return { value: c.value, label: c.label }; }),
+      onChange: function (v) { setListenCombo(v); }
+    }, {
+      id: 'shListenMissBtn', icon: 'fa-circle-xmark', name: 'Missed checks',
+      note: 'Answer the listen\u2019s questions for you, missing 0, 1 or 2 knowledge questions, then go to the review set (or past it)',
+      visibleOn: function (step) { return ['podcast', 'podcheck', 'listenreview', 'listendone'].indexOf(step.id) > -1; },
+      type: 'select', value: function () { return 'pick'; },
+      options: [ { value: 'pick', label: 'Choose\u2026' }, { value: 'none', label: 'None missed' },
+                 { value: 'k1', label: 'k1 missed' }, { value: 'k1k2', label: 'k1 and k2 missed' } ],
+      onChange: function (v) { if (v !== 'pick') setListenMisses(v); }
+    }, {
+      id: 'shSpliceBtn', icon: 'fa-scissors', name: 'Splice test',
+      note: 'Hear about 8 s either side of each add-on join (f1, f3), nudge seamAt, and copy the value back into the manifest',
+      visibleOn: function (step) { return step.id === 'podcast'; },
+      onClick: function (api) { spliceTest(api); }
     }, {
       // The learner's saved mode preference (see THE OFFER) — a profile
       // setting, so it survives Start over. Clear it to see the first-time
