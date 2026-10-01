@@ -10,11 +10,13 @@ file it names (topics + quickTakes), writes timing.json beside it:
                 "env": 30 Hz loudness, one base-36 char per sample,
                 "sents": [{ "w": speaker, "t": text, "em": [word idx], "s": start, "e": end }] } }
 
-There is no speech recogniser on this machine, so sentences are placed by
-ALIGNING the transcript to the file's own pauses: every sentence boundary is
-matched (in order, by dynamic programming) to the measured pause nearest its
-character-proportional estimate. Close, not word-perfect — the player times
-words inside a sentence by character share, as the Read to me player does.
+Timing comes from the file's `captions` (its WebVTT export) when it has one:
+each cue's words are spread across the cue by character share, then the
+words are regrouped into whole SENTENCES (cues break mid-sentence; the
+player shows one sentence at a time). A file with no captions falls back to
+ALIGNING its `transcript` to the file's own pauses: every sentence boundary
+is matched (in order, by dynamic programming) to the measured pause nearest
+its character-proportional estimate — close, not word-perfect.
 
 Transcript conventions: "SPEAKER: text"; [stage directions] are dropped;
 an ALL-CAPS word is spoken emphasis — shown in lower case and flagged in `em`
@@ -83,6 +85,76 @@ def sentences(path):
                 words.append(w)
             out.append({'w': who, 't': ' '.join(words), 'em': em})
     return out
+
+def clean_words(text):
+    """Words with stage directions dropped and ALL-CAPS emphasis flagged."""
+    text = re.sub(r'\[[^\]]*\]\s*', '', text).strip()
+    out = []
+    for w in text.split():
+        core = re.sub(r'[^A-Za-z]', '', w)
+        em = len(core) >= 2 and core.isupper() and '-' not in w
+        out.append((w.lower() if em else w, em))
+    return out
+
+def ts(x):
+    h, m, rest = ([0] + x.split(':'))[-3:]
+    return int(h) * 3600 + int(m) * 60 + float(rest.replace(',', '.'))
+
+def from_vtt(path):
+    """Sentences, timed from a WebVTT file's cues."""
+    words = []   # (word, em, who, start, end)
+    blocks = re.split(r'\n\s*\n', open(path, encoding='utf-8').read().replace('\r', ''))
+    for b in blocks:
+        m = re.search(r'([0-9:.,]+)\s*-->\s*([0-9:.,]+)', b)
+        if not m:
+            continue
+        s, e = ts(m.group(1)), ts(m.group(2))
+        body = b[m.end():].strip()
+        v = re.match(r'<v\s+([^>]+)>', body)
+        who = v.group(1).strip().upper() if v else ''
+        body = re.sub(r'<[^>]+>', '', body).replace('\n', ' ')
+        ws = clean_words(body)
+        total = sum(len(w) + 1 for w, _ in ws) or 1
+        acc = 0
+        for w, em in ws:
+            a = s + (e - s) * acc / total
+            acc += len(w) + 1
+            words.append((w, em, who, a, s + (e - s) * acc / total))
+    sents, cur = [], []
+    def flush():
+        if cur:
+            sents.append({'w': cur[0][2], 't': ' '.join(x[0] for x in cur),
+                          'em': [i for i, x in enumerate(cur) if x[1]],
+                          's': round(cur[0][3], 3), 'e': round(cur[-1][4], 3)})
+    for i, x in enumerate(words):
+        if cur and x[2] != cur[0][2]:
+            flush(); cur = []
+        cur.append(x)
+        if re.search(r'[.?!]["”’)]*$', x[0]):
+            flush(); cur = []
+    flush()
+    return sents
+
+def fit_vtt(sents, ps):
+    """The VTT exports run a few percent fast against the mp3s (2026-10-01:
+    every file, ~2-4%, i.e. different renders or a speed setting applied to
+    the audio only). Fit the stretch + shift that puts the most sentence
+    starts on a measured pause end. Returns (stretch, shift, matched, of)."""
+    ends = [e for s, e in ps if e]
+    starts = [x['s'] for x in sents[1:]]
+    if not ends or not starts:
+        return 1.0, 0.0, 0, len(starts)
+    def hits(k, off):
+        return sum(1 for t in starts if min(abs(p - (t * k + off)) for p in ends) < 0.15)
+    best = max((hits(1 + i / 1000.0, o / 100.0), 1 + i / 1000.0, o / 100.0)
+               for i in range(-10, 61) for o in range(-50, 51, 5))
+    return best[1], best[2], best[0], len(starts)
+
+def apply_fit(sents, k, off, dur):
+    for x in sents:
+        x['s'] = round(max(0.0, min(dur, x['s'] * k + off)), 3)
+        x['e'] = round(max(0.0, min(dur, x['e'] * k + off)), 3)
+    return sents
 
 def align(sents, dur, ps):
     """Start time for every sentence. Boundaries snap to pause ENDS (speech
@@ -185,14 +257,35 @@ def main():
     cont = man['topics'].get('continue', {}).get('normal')
     if cont and ('--continue' in sys.argv or not os.path.exists(os.path.join(PKG, cont['file']))):
         make_continue(cont)
-    out = {}
+    out, fits, pending = {}, [], []
     for key, e in entries:
         path = os.path.join(PKG, e['file'])
         d = duration(path)
         ps = pauses(path)
-        s = sentences(os.path.join(PKG, e['transcript'])) if e.get('transcript') else []
-        out[e['file']] = {'dur': round(d, 3), 'env': envelope(path), 'sents': align(s, d, ps) if s else []}
-        print('%-28s %6.1fs  %2d sentences  %2d pauses' % (e['file'], d, len(s), len(ps)))
+        if e.get('captions'):
+            s = from_vtt(os.path.join(PKG, e['captions']))
+            k, off, hit, of = fit_vtt(s, ps)
+            # Trust a file's own fit only when it is convincing; otherwise
+            # (music beds, very short files) use the package's typical one.
+            if of >= 4 and hit >= of * 0.5:
+                fits.append(k)
+                s, how = apply_fit(s, k, off, d), 'captions x%.3f %+.2fs (%d/%d on pauses)' % (k, off, hit, of)
+            elif s and 1.0 <= d / max(.01, s[-1]['e']) <= 1.06:
+                # Speech runs to the end of the file: anchor the last cue to it.
+                k = d / s[-1]['e']
+                s, how = apply_fit(s, k, 0.0, d), 'captions x%.3f, end-anchored (own fit only %d/%d)' % (k, hit, of)
+            else:
+                pending.append((e['file'], s, d)); how = 'captions (package stretch)'
+        else:
+            s = sentences(os.path.join(PKG, e['transcript'])) if e.get('transcript') else []
+            s, how = (align(s, d, ps) if s else []), 'aligned'
+        out[e['file']] = {'dur': round(d, 3), 'env': envelope(path), 'sents': s}
+        print('%-28s %6.1fs  %2d sentences  %s' % (e['file'], d, len(s), how))
+    if pending:
+        fits.sort(); k = fits[len(fits) // 2] if fits else 1.0
+        for f, s, d in pending:
+            out[f]['sents'] = apply_fit(s, k, 0.0, d)
+            print('%-28s package stretch x%.3f' % (f, k))
     json.dump(out, open(os.path.join(PKG, 'timing.json'), 'w'), ensure_ascii=False, separators=(',', ':'))
     print('wrote timing.json')
 
