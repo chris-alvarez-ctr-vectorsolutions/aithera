@@ -8,6 +8,8 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-10-01) Review alert head + clearer CSV copy
 
+- **[DONE]** The tier tag (Blocked / Warning / Info / Reviewed) is an **eyebrow above the title**, so
+  the sentence gets the full width. "I've reviewed this" stays top right; View details under the title.
 - **[DONE]** Review page header **"Review changes"** (same shape as Map columns / Import settings) with
   a line that says what's needed: warnings → "Review each warning and check 'I've reviewed this' — once
   they're all reviewed, you can run the import."; blocked → fix or delete the rows in the file and
@@ -47,7 +49,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   once checked), so it can be confirmed without opening it. **View details** sits on the same line.
   The checkbox no longer lives inside the details.
 - **[DONE]** **Download current data** moved off the Review side panel into the **Run import**
-  confirmation as a checkbox (off by default): "Also download your current employee data — a copy of
+  confirmation as a checkbox (**on by default** since 2026-10-01): "Also download your current employee data — a copy of
   your site as it is now, for your records."
 - **[DONE]** No **Import complete** page. Run import lands back on **Employees** with a toast: "Your
   upload ran. N added · N updated · …" + "You can see it in the upload log now." (+ "A copy of your
