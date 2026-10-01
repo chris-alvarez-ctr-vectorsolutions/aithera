@@ -144,8 +144,12 @@
   }
 
   // ==========================================================================
-  //  SECTORS — capability 2. Four, from the plan, and the reason there are
-  //  four rather than one with swapped nouns: `premise` says whether the
+  //  SECTORS — capability 2. Two since 2026-10-01: Manufacturing and Public
+  //  Sector (law enforcement), the two the decks, podcast scripts and videos
+  //  were produced for. Education and AEC were dropped from the prototype's
+  //  scope; their sector lenses and scenario keys came out with them (their
+  //  scenarios still exist in scenario-simulator's mix-arc.js). And the
+  //  reason there is more than one with swapped nouns: `premise` says whether the
   //  learner USES a sharp themselves or FINDS one somebody else left, and the
   //  procedure reads it — step 2 is "use a needle alternative", which is a
   //  live decision only for someone holding the syringe. On a find-premise it
@@ -159,150 +163,6 @@
   //  than merely declared.
   // ==========================================================================
   var LENSES = {
-    education: {
-      label: 'Education', premise: 'use',
-      // What counts as a sharp HERE. The re-composed course's own list —
-      // needles, broken glass, scalpels, dental wires, capillary tubes —
-      // is what makes a non-clinical sector legitimate rather than decorative.
-      sharps: 'Lancets and insulin needles from the health office. Broken glass from a science room. Craft and utility blades.',
-      // The controls decision, lensed to something the district would argue about.
-      facility: {
-        gloves: 'Buy cut-resistant gloves for every custodian on the night shift',
-        boxes: 'Put a wall container in every classroom that has a diabetic student'
-      },
-      sustain: {
-        conds: ['A class is waiting and the container is in the prep room',
-                'A student needs me right now',
-                'Clearing up in a hurry at the end of the day'],
-        hint: 'in the prep room, next to the sink'
-      },
-      roles: 'teacher · administrator', org: 'Riverbend Unified School District', orgShort: 'Riverbend Unified',
-      coord: { name: 'Dana Whitfield', title: 'Health Services Coordinator', email: 'safety@riverbendusd.org' },
-      role: 'Classroom teacher', where: 'A middle-school classroom', when: 'End of the day',
-      case1: 'You finish a diabetic student’s finger-stick in the health office and set the lancet on the counter — the phone is ringing and the container is across the room.',
-      case2: 'The sharps container in the health office is packed two inches past the line marked FILL TO HERE — three-quarters up the container. Someone has been pressing things down to make room.',
-      case3: 'Clearing a classroom bin at the end of the day, you spot a used lancet sitting on top of the paper.',
-      case4: 'A custodian emptying that same classroom bin at nine that night is stuck through the bag. He finds out whose lancet it was three weeks later, from a lab result.',
-      story: {
-        by: 'Health-office aide, elementary. Told at a district safety in-service.',
-        paras: [
-          'We do finger-sticks for two of our students. That afternoon the office phone went while I still had the lancet in my hand, so I set it on the counter and took the call. It was a parent. It ran long.',
-          'The counter gets wiped down at the end of the day. The lancet went into the classroom bin with everything else on it.',
-          'Gerald empties those bins at nine. He has done it for eleven years. He pushed the bag down to get the liner off — the way you do when it will not close — and it went through the bag and through his glove.',
-          'He spent five months on testing. He kept working the whole time. He told me himself, months later, in the parking lot, and what he said was “I know it wasn’t on purpose.”',
-          'That was worse than if he had been angry.'
-        ]
-      },
-      // Its own incident, and deliberately NOT the lancet the cases and the
-      // account use: glass off a science bench, from this sector's own list of
-      // what counts as a sharp.
-      // What counts as a sharp HERE, in prose, for the hazard article.
-      jobPara: 'A lancet from a finger-stick in the health office has been in a student within the last hour. A craft or utility blade used all morning can pick up blood from a nick nobody reported. A science room produces ordinary broken glass: a cracked beaker, a snapped slide, a shard swept off a bench. None of these look dramatic. That is the hazard. Something that looks like trash is easier to pick up than something that looks like a syringe.',
-      // The account's own photograph — this sector's sharp, at rest, where
-      // its story leaves it. Real alt text: the image IS the argument of the
-      // screen (a sharp nobody is watching), not decoration beside it.
-      photo: {
-        src: '../../assets/images/sharps-account-education.jpg',
-        alt: 'A used lancet left on the counter of a school health office, its point exposed. A desk phone and a wall clock sit behind it, and the sharps container is at the far end of the counter.'
-      },
-      chain: {
-        end: 'Remember, you may never meet the person who empties your classroom bins.',
-        avoided: 'Marisol never has to find out whether that glass mattered.',
-        setup: { time: '3:15 PM', body: 'You sweep up a broken beaker from the back bench of your classroom. The red sharps disposal container is through in the prep room. There is also a classroom bin under the sink, right here.' },
-        pick: {
-          safe:  { t: 'The red sharps container in the prep room', icon: 'fa-shield-halved' },
-          short: { t: 'The classroom bin under the sink', icon: 'fa-trash-can' }
-        },
-        act: {
-          safe:  { time: '3:16 PM', gap: 'a minute later', gapSize: 's',
-                   body: 'You carry it through to the prep room and drop it in the sharps bin. It costs you about thirty seconds and the walk back.' },
-          short: { time: '3:16 PM', gap: 'a minute later', gapSize: 's',
-                   body: 'You fold it into a paper towel and put it in the classroom bin. It is glass, not a needle. Nobody would think twice.' }
-        },
-        safeAfter: [
-          { time: '9:40 PM', gap: 'six hours later', gapSize: 'l',
-            body: 'Marisol works the evening round, emptying bins one classroom at a time. She gathers the liner against her forearm to knot it, the way she always does. There is nothing in it that can cut her, and she will never know that was ever in question.' }
-        ],
-        after: [
-          { time: '9:40 PM', gap: 'six hours later', gapSize: 'l',
-            body: 'Marisol works the evening round, emptying bins one classroom at a time. She has never met you — she starts after the building empties, and nobody tells her what went in.' },
-          { time: '9:41 PM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
-            body: 'She lifts the liner out and gathers it against her forearm to knot it. The bag sags under its own weight, and the edge finds her through the plastic.' },
-          { time: 'Over the next four months', gap: 'and then', gapSize: 'm',
-            body: 'Marisol now has to be tested at six weeks, twelve weeks and four months to find out whether she caught anything. Nobody can tell her what was on that glass. She has done nothing wrong at any point in this chain.' }
-        ]
-      }
-    },
-    aec: {
-      label: 'AEC', premise: 'find',
-      sharps: 'Syringes left in wall cavities and voids. Broken glass and glazing offcuts. Utility blades.',
-      facility: {
-        gloves: 'Issue cut-resistant gloves to every labourer on demolition and clear-out',
-        boxes: 'Mount a sharps container on every floor of an occupied renovation'
-      },
-      sustain: {
-        conds: ['The container is on another floor',
-                'My hands are full of tools',
-                'A trade is waiting on me to clear the area'],
-        hint: 'in the first-aid station on this floor'
-      },
-      roles: 'architect · engineer · construction', org: 'Halstead Build Group', orgShort: 'Halstead',
-      coord: { name: 'Marcus Oyelaran', title: 'Site Safety Manager', email: 'safety@halsteadbuild.com' },
-      role: 'Site supervisor', where: 'An occupied renovation', when: 'Punch-list walkthrough',
-      case1: 'Mid-walkthrough you pull a syringe out of a wall cavity with your gloved hand and set it on a ledge — you will bag it on the way back.',
-      case2: 'The first-aid kit’s small sharps container on this floor is packed past the fill line stamped on its label, lid domed where the last few went in sideways, and the spare is in the trailer two levels down.',
-      case3: 'A needle is sitting in the demo debris pile the framing crew will clear at seven tomorrow morning.',
-      case4: 'A labourer clearing that pile is stuck through his glove. The needle came out of a wall in an occupied building — nobody can say whose it was.',
-      story: {
-        by: 'Site supervisor, commercial fit-out. Told at a Monday toolbox talk.',
-        paras: [
-          'We were on punch list in an occupied building. I pulled a syringe out of a wall cavity — you find things — and set it on the ledge, because my hands were full and I would be back through in twenty minutes.',
-          'I was not back through. The framing crew cleared that floor at seven the next morning.',
-          'Danny picked the debris up by the armful, the way everybody does. It went through his glove and into the web of his hand.',
-          'We never found out whose it was, or how long it had been in that wall. None of that mattered to the eleven weeks he spent waiting on bloodwork.',
-          'He came back on the job. He wore double gloves for a year afterwards and nobody said a word about it.'
-        ]
-      },
-      // Its own incident, and deliberately NOT the wall-cavity syringe the
-      // cases and the account use: a blade left on a ledge by the glazers.
-      // A FIND, because this sector's premise flag says find and the flag is
-      // read rather than decorative — a scene where the learner uses their own
-      // sharp would make it lie. It is also the harder decision of the two:
-      // the sharp is not yours, and doing nothing looks free.
-      // What counts as a sharp HERE, in prose, for the hazard article.
-      jobPara: 'A utility blade used all morning can pick up blood from a nick nobody reported. An occupied renovation turns up syringes in wall cavities and voids, left by people you will never identify. Glazing work produces ordinary broken glass: offcuts, snapped panes, a shard already in the debris sack. None of these look dramatic. That is the hazard. Something that looks like trash is easier to pick up than something that looks like a syringe.',
-      photo: {
-        src: '../../assets/images/sharps-account-aec.jpg',
-        alt: 'A used syringe left on a dusty concrete ledge in a stripped, mid-renovation corridor, with debris and bare studs behind it.'
-      },
-      chain: {
-        end: 'Remember, you may never meet the person who clears your debris bags.',
-        avoided: 'Teodoro never has to find out whether that blade mattered.',
-        setup: { time: '2:40 PM', body: 'You find a used blade on a window ledge on the second floor, left by whoever glazed it. The red sharps disposal container is in the trailer, two levels down. There is also a debris bag at your feet.' },
-        pick: {
-          safe:  { t: 'The red sharps container in the trailer', icon: 'fa-shield-halved' },
-          short: { t: 'The debris bag at your feet', icon: 'fa-trash-can' }
-        },
-        act: {
-          safe:  { time: '2:41 PM', gap: 'a minute later', gapSize: 's',
-                   body: 'You take it down two levels to the container in the trailer. It costs you the stairs and about a minute, for a blade that was never yours.' },
-          short: { time: '2:41 PM', gap: 'a minute later', gapSize: 's',
-                   body: 'You drop it in with the offcuts. It was not yours to begin with, and the whole bag is in a skip by six.' }
-        },
-        safeAfter: [
-          { time: '6:15 PM', gap: 'three and a half hours later', gapSize: 'l',
-            body: 'Teodoro clears the floors once the trades go home. He carries the bags against his chest, two at a time, the way everybody does. There is nothing in them that can cut him, and he will never know that was ever in question.' }
-        ],
-        after: [
-          { time: '6:15 PM', gap: 'three and a half hours later', gapSize: 'l',
-            body: 'Teodoro clears the floors once the trades go home. You have never met him — he works the levels you have already left, and the bags reach him closed.' },
-          { time: '6:16 PM', gap: 'a minute later', gapSize: 's', injury: 'Possible exposure',
-            body: 'He carries them against his chest, two at a time, the way everybody does. The blade comes through the sack and into his forearm.' },
-          { time: 'Over the next eleven weeks', gap: 'and then', gapSize: 'm',
-            body: 'Teodoro now has to be tested at six weeks and again at eleven to find out whether he caught anything. Nobody can tell him whose blade it was, or how long it sat on that ledge. He has done nothing wrong at any point in this chain.' }
-        ]
-      }
-    },
     manufacturing: {
       label: 'Manufacturing', premise: 'use',
       sharps: 'Box-cutter and trimming blades. Insulin needles from workers who inject on shift. Contaminated glass from the plant clinic.',
@@ -437,8 +297,8 @@
         setup: { time: '9:40 PM', body: 'You recover a used needle from a subject’s property during a search at the booking counter. Intake is backed up behind you, and both hands are already on the next subject. The designated sharps container is across the intake area. There is also the general trash bin right at the counter.' },
         // No hero image this round — no image-generation tool available
         // this session (see chat summary 2026-09-21). Omitted rather than
-        // pointed at a nonexistent file, same as Manufacturing, Education
-        // and AEC, which also render without one.
+        // pointed at a nonexistent file, same as Manufacturing, which also
+        // renders without one.
         pick: {
           safe:  { t: 'The sharps container across the intake area', icon: 'fa-shield-halved' },
           short: { t: 'The general trash bin at the counter', icon: 'fa-trash-can' }
@@ -465,9 +325,9 @@
     }
   };
   // Named once so the engine's registration and the intro screen's own
-  // "Your role" picker (D11) walk the same four sectors in the same order,
+  // "Your role" picker (D11) walk the same sectors in the same order,
   // rather than a second literal that can drift from the first.
-  var LENS_ORDER = ['manufacturing', 'education', 'aec', 'public'];
+  var LENS_ORDER = ['manufacturing', 'public'];
   // Alignment brief §6.3 (sector parity, 2026-09-17): D6 rebuilt Manufacturing
   // only; the other three sectors ran EXAMPLE_SHARPS (Manufacturing's own
   // plant-floor framing) regardless of the learner's actual sector. Each
@@ -478,8 +338,6 @@
   // can never drift apart.
   var SCENARIO_KEY = {
     manufacturing: 'unclaimed-blade-sharps',
-    education: 'unclaimed-blade-education-sharps',
-    aec: 'unclaimed-blade-aec-sharps',
     public: 'unclaimed-blade-public-sharps'
   };
   function scenarioKey() { return SCENARIO_KEY[LE.lensId()] || SCENARIO_KEY.manufacturing; }
@@ -548,11 +406,17 @@
   function doBaselineOn() {
     try { return sessionStorage.getItem('sh-doobject-mode') === 'baseline'; } catch (e) { return false; }
   }
-  // D11: the learner's own self-assigned name, set on the title page or
-  // seeded from a launch link's ?name=. Never required — every reader of
-  // this falls back to an unnamed line when it comes back empty.
+  // D11: the learner's name — in production it comes from SSO. Here it's a
+  // stand-in, seeded from a launch link's ?name= or set from the Demo menu,
+  // and "Chris" until either says otherwise. Cleared to empty, every reader
+  // falls back to an unnamed line. Read by the path-ready line ("You're all
+  // set, Chris").
+  var DEFAULT_LEARNER_NAME = 'Chris';
   function savedName() {
-    try { return (sessionStorage.getItem('sh-name') || '').trim().slice(0, 40); } catch (e) { return ''; }
+    try {
+      var v = sessionStorage.getItem('sh-name');
+      return (v === null ? DEFAULT_LEARNER_NAME : v).trim().slice(0, 40);
+    } catch (e) { return DEFAULT_LEARNER_NAME; }
   }
   // ==========================================================================
   //  REINFORCEMENT — one extra question laid OVER the content that motivates
@@ -745,9 +609,9 @@
   // asked once for the whole course, in Module 2, and not repeated here.
   // The final Law Enforcement script (2026-09-21) carries the identical
   // instruction word-for-word, so Public Sector is sampled out on the same
-  // basis — no source script confirms this either way for Education/AEC.
+  // basis.
   var SAMPLE_MAP = {
-    F2: { manufacturing: false, education: true, aec: false, public: false }
+    F2: { manufacturing: false, public: false }
   };
   function sampled(objId) {
     var m = SAMPLE_MAP[objId];
@@ -1020,6 +884,147 @@
   // One placeholder clip for every screen until the produced videos exist.
   // Short on purpose, so the video → question hand-off is quick to review.
   var DECK_VIDEO = '../../assets/videos/sharps-doobject-baseline.mp4';
+  // The Watch videos (2026-10-01): the pipeline's generated renders from
+  // https://d3kztbm322cbfq.cloudfront.net/learning-layer-poc/reports/bbp-module4-example-videos.html
+  // — every screen, both sectors, in two art styles. Each one narrates the
+  // LED transcript for its objective / sector / version word for word. Used
+  // as delivered: the generator's own checks flagged issues in most of them
+  // (listed on that page) and none were fixed. Hot-linked from CloudFront
+  // (CORS open, a year's cache) rather than copied into the repo — the set is
+  // ~400 MB. Page → screen: K1/K2 Base / Test-up / Remediation → c1/c2 base /
+  // up / rem; F2 → controls; F1 → case3 / case3rf; F3 → debrief / debriefrf.
+  // The two "our own authoring" K1 remediation cuts on that page are not used.
+  // Demo → "Video style" switches photoreal (default; fewer flagged issues) / 2D.
+  var VIDEO_BASE = 'https://d3kztbm322cbfq.cloudfront.net/learning-layer-poc/';
+  var DECK_VIDEOS = {
+    manufacturing: {
+      c1base: {
+        photo: '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/3ce15d61-3eb2-5f30-8596-519241f42322/344642d0-ade6-4df7-bea2-2f628f16d926/final.mp4',
+        '2d': '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/a6e195be-9744-5201-b9ff-905e1eba8b3b/413d1239-825d-4b75-a444-d5539ce3c7f5/final.mp4'
+      },
+      c1up: {
+        photo: '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/70f3ac7c-85a7-5965-8875-388d253d5127/82f86490-fe82-47e3-b330-b957c9652682/final.mp4',
+        '2d': '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/07c50edd-b566-5d9f-97a0-780e09d15ee3/3ab0b39a-f832-4603-8435-2023b2889a94/final.mp4'
+      },
+      c1rem: {
+        photo: '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/b59b005f-be46-5a9f-b84f-c5ab484f4897/b1c18168-6011-4af4-9b14-5be67c6692e7/final.mp4',
+        '2d': '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/f9512dd1-984d-5f11-89cb-a92dbe9eb307/299fcd7f-a9d8-406f-9d3d-25baad37b45f/final.mp4'
+      },
+      c2base: {
+        photo: 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/c7e8a8ad-7ef9-50f4-8d72-07c6243b613f/12c4b164-2744-46c5-90ef-58dbbd22b958/final.mp4',
+        '2d': 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/93a1abf8-c3fd-53c1-b624-8490ddfd4303/b4c53aad-4721-46d6-8e1c-def6bff3847a/final.mp4'
+      },
+      c2up: {
+        photo: 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/60d878d7-93dc-5c20-a039-c04622cda883/0552fa6f-3fab-4c40-b6b2-c4b7ef0d8ff7/final.mp4',
+        '2d': 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/10c1ea17-9a96-5397-895f-deef61cab14e/aec4edd4-5c06-4670-b464-f50667ea7309/final.mp4'
+      },
+      c2rem: {
+        photo: 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/69483584-64a0-507f-a4a8-1738caff497b/423b9f5e-9831-4d04-9a71-3c005f220d74/final.mp4',
+        '2d': 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/5218956c-4302-5d51-8c9b-efb8a5c6546a/4e3925b1-8db1-477c-b6da-254179a20856/final.mp4'
+      },
+      controls: {
+        photo: '7b8e4ee3-cbed-51fd-b8af-a7ec2aef8b1f/video/fedeab61-bda5-5e25-9492-1a024481a93b/d525b4ae-72d4-4ba8-83f2-717b23750d09/final.mp4',
+        '2d': '7b8e4ee3-cbed-51fd-b8af-a7ec2aef8b1f/video/365b5a0a-e089-5e8c-98fd-8b061b5523ed/ef9e1b32-0032-4b5a-a774-a32f42eb72b5/final.mp4'
+      },
+      case3: {
+        photo: '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/d701591d-ed75-5574-943c-323a40a9ca00/0ad62db9-46da-4a30-bad7-4b10adc1139c/final.mp4',
+        '2d': '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/c8a3eb19-99f4-5fcd-9c65-7eb276be9987/ac5cf2b9-3700-4fb3-bb1c-e67edc0d5a77/final.mp4'
+      },
+      case3rf: {
+        photo: '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/795cd3d3-0e75-533e-8887-fd488efc4cda/62a167af-0197-4bbc-8658-0538d0077a99/final.mp4',
+        '2d': '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/3e5a8838-3aa2-547d-96f2-c1cf75ee3b54/d0f76416-4b41-4d2e-8643-aae1f8bf2603/final.mp4'
+      },
+      debrief: {
+        photo: '83c5c679-76ba-59ff-81db-dd810847bf46/video/c8086b94-140e-5f60-a38d-35f8e1548800/5945f93f-7989-41aa-97cc-bfc392203a38/final.mp4',
+        '2d': '83c5c679-76ba-59ff-81db-dd810847bf46/video/ff4622d6-4b65-530d-bcc4-a560967385ab/28c40aba-5eb7-4f81-9476-5dd6d5b83b7d/final.mp4'
+      },
+      debriefrf: {
+        photo: '83c5c679-76ba-59ff-81db-dd810847bf46/video/0704a45c-a338-5116-af63-47331c012787/a1f38a78-61be-4638-bf53-81b3783c49c5/final.mp4',
+        '2d': '83c5c679-76ba-59ff-81db-dd810847bf46/video/274c20a3-338b-51b7-b446-071ab9958fbb/a2fb6da4-b125-4c4e-8409-7de9cfe59a75/final.mp4'
+      }
+    },
+    public: {
+      c1base: {
+        photo: '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/905d14fa-fdb3-58ee-a293-36e2dcc1a741/f26e8a64-918d-4f81-a06e-e08d8d44b74d/final.mp4',
+        '2d': '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/52d1e36c-cb28-53de-9158-33f7fa0bcece/a0ce19dd-8428-4387-90b9-31db01ef6078/final.mp4'
+      },
+      c1up: {
+        photo: '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/ad3b2279-1cea-50ab-9cd6-a07eb1f4cb12/eb1da384-ca05-4641-ba53-76d6c2c46239/final.mp4',
+        '2d': '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/a687ed27-a07d-5cc7-828d-7c392b327e7f/31a31fb7-4729-40e3-9ead-9fe44766a0f4/final.mp4'
+      },
+      c1rem: {
+        photo: '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/d5420273-9f20-55ea-9324-6cd7a7854bea/a28e33bc-6f6e-4653-9c0d-bffa80b657e4/final.mp4',
+        '2d': '47a3bd19-4b28-5368-957a-0ee8a540b3b6/video/9045eb88-5418-5ed8-af5b-aa06f0715982/a5166fb4-7519-46f3-9383-4c64f58c1def/final.mp4'
+      },
+      c2base: {
+        photo: 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/25e5d2b5-842d-50c9-ae09-38efcbef4f0e/345d1d47-5c40-4137-aa99-306711603f28/final.mp4',
+        '2d': 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/2fdede5c-eb98-534a-b55d-67cb6f12df7e/ce294485-733c-4c06-95a7-8a3fa0b61246/final.mp4'
+      },
+      c2up: {
+        photo: 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/bf32aa09-c3b9-58c8-a94b-61e30880ebf2/3874735c-945c-41d2-860a-a3b4f8586f7e/final.mp4',
+        '2d': 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/bb751edf-7e98-515b-9aa5-35ce53e5998a/1b8ba614-d569-4d4d-84bf-88d0cc2bb308/final.mp4'
+      },
+      c2rem: {
+        photo: 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/3c3a52e7-153c-505d-8225-41833af50505/36f74b38-2dbd-488c-b8a8-f02dd0715055/final.mp4',
+        '2d': 'd54f4602-895c-5c04-86f0-0664acddb0e9/video/ec9603c0-1e25-519c-b190-a7cceb50f743/5f58eb4e-29ba-4702-ba81-c61340c15047/final.mp4'
+      },
+      controls: {
+        photo: '7b8e4ee3-cbed-51fd-b8af-a7ec2aef8b1f/video/33371f4e-30af-536c-9654-45fecf8a5555/af6caa95-75ea-4aa9-82bc-379b159962ed/final.mp4',
+        '2d': '7b8e4ee3-cbed-51fd-b8af-a7ec2aef8b1f/video/2b5abf5a-6bd1-50ef-bca7-416fca4c4cde/bbe0aa23-ee4f-42b0-81b3-0c179ee23cf9/final.mp4'
+      },
+      case3: {
+        photo: '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/cfa91e3a-2783-5814-ad6b-4d9c09bd4e07/9344f44f-6414-4d18-82db-db2683cacd0b/final.mp4',
+        '2d': '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/0bb597d1-db11-5738-b87f-ae02f92bf911/3a6223a4-4478-48af-9e94-a23a75cf2a87/final.mp4'
+      },
+      case3rf: {
+        photo: '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/18934b17-e1b1-563c-aa84-502f1a18f751/072a8a73-96db-4463-b303-52c0d4dd905e/final.mp4',
+        '2d': '4e514fec-8d29-5db5-a15d-cf43a3b6ecb7/video/a8c9cba8-16de-5dfb-a89d-4458b7d70a4d/d56259ca-72f6-4ecb-988b-43feb364527c/final.mp4'
+      },
+      debrief: {
+        photo: '83c5c679-76ba-59ff-81db-dd810847bf46/video/7fd5d3bc-cb04-5748-aad5-8a9e62e66b0b/327abac0-b7e5-4225-bdf5-ba2d34d075f9/final.mp4',
+        '2d': '83c5c679-76ba-59ff-81db-dd810847bf46/video/2c074218-05d0-513f-8457-4ff66cd33871/5a4c7de1-d8fd-4574-9eb2-e4dc6d446cc7/final.mp4'
+      },
+      debriefrf: {
+        photo: '83c5c679-76ba-59ff-81db-dd810847bf46/video/7f8d1684-bcf5-5797-99b8-fbecfb9b5b5e/4af28e23-0bf1-4507-be6f-bb65c787a718/final.mp4',
+        '2d': '83c5c679-76ba-59ff-81db-dd810847bf46/video/df7fc3c6-1e19-5f29-91df-a73413d42cf4/51e40195-4064-480d-bd23-11ea6aa839d6/final.mp4'
+      }
+    }
+  };
+  function videoStyle() {
+    try { return sessionStorage.getItem('sh-video-style') === '2d' ? '2d' : 'photo'; } catch (e) { return 'photo'; }
+  }
+  // This screen's video in the current sector and style; the placeholder only
+  // if a screen has none.
+  function deckVideo(id) {
+    var v = (DECK_VIDEOS[LE.lensId()] || DECK_VIDEOS.manufacturing)[id];
+    return v ? VIDEO_BASE + v[videoStyle()] : DECK_VIDEO;
+  }
+  // Buffering ahead (2026-10-01): while one screen plays, quietly download
+  // the NEXT Watch video on the learner's path into the browser cache
+  // (CloudFront sends a year's cache-control), so it starts at once instead
+  // of streaming in from cold. One clip ahead, low priority, never twice.
+  // "Next" is judged on the path as it stands now — a remedial screen that
+  // a later miss adds isn't warmed, which only costs it the head start.
+  // Skipped on the Listen-mode path, which has no Watch screens.
+  var warmed = {};
+  function warmNextVideo(afterId) {
+    if (podcastPath()) return;
+    var i = STEPS.findIndex(function (s) { return s.id === afterId; });
+    for (var k = i + 1; k > 0 && k < STEPS.length; k++) {
+      var st = STEPS[k];
+      if (st.when && !st.when()) continue;
+      if (!DECK_VIDEOS.manufacturing[st.id]) continue;
+      var url = deckVideo(st.id);
+      if (warmed[url]) return;
+      warmed[url] = true;
+      try {
+        fetch(url, { mode: 'cors', priority: 'low' })
+          .then(function (r) { return r.ok ? r.arrayBuffer() : null; })
+          .catch(function () { delete warmed[url]; });
+      } catch (e) {}
+      return;
+    }
+  }
   var LIKERT_ENDS = ['Strongly Disagree', 'Strongly Agree'];
   var LETTERS = 'ABCDEFGH';
 
@@ -1294,7 +1299,6 @@
   // listed here and laid over the Manufacturing screen (deckFor). Identical
   // in both decks, so not repeated: the pre-check, the case 1 / case 2 base
   // questions and feedback, the case 2 remedial (slide 12) and both debriefs.
-  // Education and AEC have no deck yet and show Manufacturing's.
   var DECK_LENS = {
     public: {
       c1base: { title: 'The needle at the counter', narration: [
@@ -1373,7 +1377,6 @@
   // Each line is [speaker, text]; ['PAUSE'] is the script's own "(pause)".
   // The ident ("This is Contain the Sharp…") is left out: it heads a
   // continuous listen, and here each chapter plays on its own screen.
-  // Education and AEC fall back to Manufacturing, like the deck screens.
   var PODCAST = {
     manufacturing: {
       // The spine of the continuous listen (the podcast path, PODCAST_EP
@@ -1715,7 +1718,7 @@
   // short feature, Jacob's own lines kept as quotes. Demo → "Read view"
   // switches back to the podcast transcript. Public Sector's case 2 remedial
   // and both debriefs are identical to Manufacturing in the podcast, so they
-  // fall back to it, as do Education and AEC.
+  // fall back to it.
   var ARTICLE = {
     manufacturing: {
       c1base: [
@@ -2025,7 +2028,7 @@
 
             // Watch
             '<section class="dk-layer dk-layer--video" id="dkVideoWrap" aria-label="Video">' +
-              videoFrame({ ids: DK_IDS, src: DECK_VIDEO, poster: videoPoster('PLACEHOLDER VIDEO', d.title, '') }) +
+              videoFrame({ ids: DK_IDS, src: deckVideo(id), poster: videoPoster('', d.title, '') }) +
             '</section>' +
 
             // Read
@@ -2138,7 +2141,7 @@
             videoMounted = true;
             // mountVideo unlocks Continue on 'ended' by itself; finished()
             // shuts it again on a screen whose question is still to come.
-            mountVideo(ctx, { ids: DK_IDS, src: DECK_VIDEO, onFallback: finished, onEnded: finished });
+            mountVideo(ctx, { ids: DK_IDS, src: deckVideo(id), onFallback: finished, onEnded: finished });
             video.addEventListener('timeupdate', function () {
               if (showing === 'video' && video.duration) setRail(video.currentTime / video.duration);
             });
@@ -2474,6 +2477,13 @@
       var demo = null;
       try { demo = sessionStorage.getItem('sh-demo-carrier'); sessionStorage.removeItem('sh-demo-carrier'); } catch (e) {}
       show(offered.indexOf(demo) > -1 ? demo : 'video');
+      // Warm the next screen's video, but not while this one is still
+      // loading — they'd split the bandwidth.
+      if (video && showing === 'video') {
+        video.addEventListener('canplaythrough', function () { warmNextVideo(id); }, { once: true });
+      } else {
+        warmNextVideo(id);
+      }
     };
   }
 
@@ -4116,6 +4126,8 @@
       // was easy to miss once the last Submit had been pressed.
       askEl.classList.add('is-dropping');
       if (dotsEl) dotsEl.classList.add('is-gone');
+      // The answers now decide the first Watch screen — start loading it.
+      warmNextVideo('battery');
       ctx.enableNext();
       setTimeout(function () {
         if (askEl.isConnected) ctx.els.next.click();
@@ -4132,7 +4144,8 @@
   //  Demo menu ("Path update style"):
   //
   //   calibrate (default) — "Calibrating your path…" over a progress bar,
-  //                          then "You're all set." Says nothing about what moved.
+  //                          then "You're all set, <name>" / "Let's continue…".
+  //                          Says nothing about what moved.
   //   celebrate           — the same bar, then a playful reward: a flash,
   //                          one short confetti burst, a "Nice work" chip.
   //
@@ -4162,10 +4175,13 @@
     '</main>';
   // One lookup per treatment: what lands once the bar fills.
   var PU_RESULT = {
-    calibrate:
-      '<p class="ll-eyebrow pu-eyebrow">Path ready</p>' +
-      '<h2 class="pu-head">You’re all set.</h2>' +
-      '<p class="pu-sub">This module has adapted to your answers.</p>',
+    // A function, so it reads the learner's name at reveal time.
+    calibrate: function () {
+      var name = savedName();
+      return '<p class="ll-eyebrow pu-eyebrow">You\u2019re all set' + (name ? ', ' + esc(name) : '') + '</p>' +
+        '<h2 class="pu-head">Let\u2019s continue\u2026</h2>' +
+        '<p class="pu-sub">This module has adapted to your answers.</p>';
+    },
     celebrate:
       '<p class="pu-chip"><i class="fa-solid fa-trophy" aria-hidden="true"></i> Nice work</p>' +
       '<h2 class="pu-head">You already know the basics.</h2>' +
@@ -4230,7 +4246,7 @@
     function reveal() {
       if (!result.isConnected) return;
       load.classList.add('is-done');
-      result.innerHTML = PU_RESULT[style];
+      result.innerHTML = typeof PU_RESULT[style] === 'function' ? PU_RESULT[style]() : PU_RESULT[style];
       result.classList.add('in');
       if (style === 'celebrate' && !still) {
         document.getElementById('puFlash').classList.add('pop');
@@ -4366,11 +4382,15 @@
     // server; that no longer reproduces, and the blob path is still the
     // fallback if a stream errors, so the small-clip behaviour is unchanged.
     var STREAM_OVER = 25 * 1024 * 1024;
+    // A clip on another origin (the CloudFront-hosted deck videos) always
+    // streams: a CDN serves range requests properly, and downloading ~12 MB
+    // whole before the first frame was a 10–15 second wait.
+    var remote = /^https?:\/\//.test(url) && url.indexOf(location.origin) !== 0;
     fetch(url, { method: 'HEAD' }).then(function (h) {
       if (h.status === 404) { var e = new Error('missing'); e.missing = true; throw e; }
       return +h.headers.get('Content-Length') || 0;
     }).then(function (size) {
-      if (size > STREAM_OVER) { stream(size); return; }
+      if (remote || size > STREAM_OVER) { stream(size); return; }
       blobLoad();
     }).catch(function (err) {
       if (err && err.missing) { toText('No clip at <code>' + esc(o.src) + '</code> yet — showing the written version instead.'); return; }
@@ -4384,7 +4404,10 @@
         if (fellBack) return; fellBack = true;
         blobLoad();
       });
-      v.preload = 'metadata';
+      // 'auto', not 'metadata': buffer ahead of the playhead from the start
+      // instead of fetching only as playback reaches each part (a remote clip
+      // streams; see `remote` above).
+      v.preload = 'auto';
       v.src = url;
       ready();
       if (pct) pct.textContent = Math.round(size / 1048576) + ' MB';
@@ -6868,8 +6891,6 @@
   // each scenario's own opening beat in mix-arc.js.
   var HANDOFF_HOOK = {
     manufacturing: 'You spot a used blade on the next bench over. It is not yours.',
-    education: 'You spot a craft blade left on the back table. It is not yours.',
-    aec: 'You spot a utility blade left on a windowsill. It is not yours.',
     public: 'You spot a needle wedged into the back seat of your patrol vehicle. It is not yours.'
   };
   function handoffHook() { return HANDOFF_HOOK[LE.lensId()] || HANDOFF_HOOK.manufacturing; }
@@ -6885,10 +6906,8 @@
   //  would frame the same moment twice in a row.
   // ==========================================================================
   // The hero still that sets the scene on this screen — and rides into the
-  // player as its backdrop (?hero=). Only sectors with their OWN produced
-  // still get one: Manufacturing's factory floor behind a classroom
-  // teacher's "craft blade on the back table" would be a continuity error,
-  // so Education and AEC keep the icon-mark version until their stills land.
+  // player as its backdrop (?hero=). Only a sector with its OWN produced
+  // still gets one (both current sectors do); any other keeps the icon mark.
   // Same files as the in-module scene (SCENE_ART).
   function handoffHero() {
     var a = SCENE_ART[LE.lensId()];
@@ -7888,7 +7907,7 @@
       },
       gate: true,
       content: DOBASELINE_CONTENT, init: doBaselineInit,
-      caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now. §6.3: Education, AEC and Public sector each run their own sector-authored scenario now (scenarioKey()), not Manufacturing’s. D10: the Demo menu’s "Do-object baseline" toggle swaps this for an in-page video plus one stand-in question — the PRD’s literal Do-object ask, reviewer-only and never on a learner’s path.' },
+      caption: { title: 'PERFORM · The culminating activity, four beats (D1/D2)', note: 'Alignment brief D6: rebuilt from a version keyed end-of-shift-sharps that re-staged chain’s own Chris/Jacob incident as the final exam — a redundancy, since the learner had already resolved that exact dilemma once. This version matches K&A’s script: an unclaimed blade, no character to negotiate with. Four coach-led beats, not roleplay — nobody is in the scene to react, only a decision (D1), a step-by-step description (D2), a complication testing Recovery (D2), and a closing sentiment question that is explicitly not a KFD objective and carries no Record row. Runs on its OWN page, so its rubric evidence lives in its debrief rather than on the record screen below; this beat is where both Do objectives are evidenced now. §6.3: Public Sector runs its own sector-authored scenario (scenarioKey()), not Manufacturing’s. D10: the Demo menu’s "Do-object baseline" toggle swaps this for an in-page video plus one stand-in question — the PRD’s literal Do-object ask, reviewer-only and never on a learner’s path.' },
       coach: { say: '' } },
     { id: 'record', icon: 'fa-chart-simple', mins: 1, stage: 'Record', lesson: 'Your Record', mode: 'sidebar',
       caption: { title: 'RECORD · Objective-level record', note: 'Eight objectives, each with the policy that governed it and where its evidence came from. Seven closed, one deliberately open — objective-level performance data from day one, which is what turns provenance into evidence without re-authoring anything. The learner’s view of this screen carries none of that vocabulary: Know / Feel / Do survives as three plain headings and the row icon, and the sub-level, theoretical construct and assessment policy live here and in the Learning Layer view.' },
@@ -7965,7 +7984,7 @@
     // Every screen with a scene in it moves with the sector. The chain walks
     // its own incident per sector; the rating screen borrows that chain's clock.
     // The deck screens move with the sector: Public Sector has its own deck
-    // (DECK_LENS); Education and AEC show Manufacturing's until theirs exist.
+    // (DECK_LENS).
     lensedSteps: { intro: 1, scene: 1, c1base: 1, c1up: 1, c1rem: 1, c2base: 1, c2up: 1, c2rem: 1,
                    controls: 1, case3: 1, case3rf: 1, debrief: 1, debriefrf: 1 },
     replies: [
@@ -8055,10 +8074,10 @@
     }, {
       // D11, relocated: a real learner's name comes from SSO, not a text
       // field on the cover screen — self-assignment is a demo convenience.
-      // Still only read by the "welcome back" banner on a return visit.
+      // Read by the path-ready line ("You're all set, Chris").
       id: 'shNameBtn', icon: 'fa-signature', name: 'Learner name',
-      note: 'Self-assigned stand-in for SSO — only the welcome-back banner reads it',
-      visibleOn: function (step) { return step.id === 'intro'; },
+      note: 'Stand-in for the SSO name — shown on the path-ready screen. Clear it for the unnamed version',
+      visibleOn: function (step) { return step.id === 'intro' || step.id === 'adjust'; },
       state: function () { return savedName() || 'Not set'; },
       onClick: function (api) {
         var next = window.prompt('Learner name (optional):', savedName());
@@ -8103,6 +8122,20 @@
       onChange: function (v, api) {
         setModePref(v === 'none' ? null : v);
         saveResult('podpath', null);
+        api.replay();
+      }
+    }, {
+      // Which render of the Watch video plays — see DECK_VIDEOS.
+      id: 'shVideoStyleBtn', icon: 'fa-film', name: 'Video style',
+      note: 'The generated videos come in two art styles',
+      visibleOn: function (step) { return !!DECK_VIDEOS.manufacturing[step.id]; },
+      type: 'select', value: videoStyle,
+      options: [
+        { value: 'photo', label: 'Photoreal' },
+        { value: '2d', label: '2D' }
+      ],
+      onChange: function (v, api) {
+        try { sessionStorage.setItem('sh-video-style', v); sessionStorage.setItem('sh-modality', 'video'); } catch (e) {}
         api.replay();
       }
     }, {
