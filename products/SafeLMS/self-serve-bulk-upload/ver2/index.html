@@ -308,7 +308,29 @@
   .map-row { align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--line-3); }
   /* Lock sits in the left gutter so column names stay aligned; the hint lines up under the name. */
   .map-lock { color: #8CA0B4; font-size: 10px; margin-right: 5px; }
-  .map-hint { grid-column: 1 / 3; font-size: 12px; color: #5B6B7E; line-height: 1.4; margin-top: 4px; white-space: nowrap; }
+  .map-hint { font-size: 12px; color: #5B6B7E; line-height: 1.4; margin-top: 6px; }
+  /* "Import as" dropdown — the live SafeLMS filter selector style */
+  .dd { position: relative; }
+  .dd-trigger { width: 100%; height: 38px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 0 12px; background: #fff; border: 1px solid #7893B5; border-radius: 6px; cursor: pointer; font-family: inherit;
+    font-size: 13.5px; font-weight: 600; color: #1B2B3E; text-align: left; }
+  .dd-trigger.is-empty .dd-val { color: #8CA0B4; font-weight: 500; }
+  .dd-trigger:hover { border-color: #4E6E96; }
+  .dd-trigger.is-open, .dd-trigger:focus-visible { outline: none; box-shadow: 0 0 0 1px #fff, 0 0 0 4px #2F7BF5; }
+  .dd-val { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dd-req { color: #D92D20; }
+  .dd-chev { color: #8CA0B4; font-size: 12px; transition: transform .15s; }
+  .dd-trigger.is-open .dd-chev { transform: rotate(180deg); }
+  .dd-menu { position: absolute; top: calc(100% + 8px); left: 0; z-index: 50; width: max(100%, 260px); max-height: 320px; overflow-y: auto;
+    background: #fff; border-radius: 8px; padding: 8px; box-shadow: 0 6px 24px rgba(16,24,40,.16), 0 1px 3px rgba(16,24,40,.08); }
+  .dd-group { font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8CA0B4; padding: 10px 12px 4px; }
+  .dd-opt { width: 100%; display: flex; align-items: center; gap: 12px; padding: 9px 12px; border: none; background: none; border-radius: 6px;
+    cursor: pointer; font-family: inherit; font-size: 13.5px; font-weight: 600; color: #3D4F63; text-align: left; }
+  .dd-opt:hover { background: #F5F8FB; }
+  .dd-opt.is-sel { background: #EEF4FC; color: #1B2B3E; }
+  .dd-radio { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid #D0D9E3; background: #fff;
+    display: inline-flex; align-items: center; justify-content: center; color: #fff; font-size: 9.5px; }
+  .dd-opt.is-sel .dd-radio { background: #2F7BF5; border-color: #2F7BF5; }
   .map-select { width: 100%; padding: 7px 10px; border: 1px solid var(--btn-border); border-radius: 7px;
     font-size: 13px; background: #fff; color: var(--ink); }
 
@@ -402,7 +424,9 @@
   .ax-toggle:focus-visible { outline: 2px solid #1257B8; outline-offset: 2px; border-radius: 4px; }
   .ax-toggle i { display: inline-block; font-size: 10.5px; transition: transform .15s; }
   .alert.is-open .ax-toggle i { transform: rotate(180deg); }
-  .ax-line2 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .ax-line2 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
+  .ax-line2 .ax-toggle { margin-left: 0; padding-left: 0; }
+  .alert-head > .ack-inline { flex: 0 0 auto; margin-left: 4px; }
   .ack-row.ack-inline { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; border-radius: 7px; }
   .ack-row.ack-inline input { margin-top: 0; }
   .ax-need { flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: #B54708; white-space: nowrap; }
@@ -1107,6 +1131,7 @@
     csvOpen: false,      // CSV preview of the complete list (Review side panel)
     keepCopy: false,     // Run confirmation: also download the current employee data
     toast: null,         // { counts, keep, onLog } — shown after Run import
+    mapOpen: null,       // Map columns: the file column whose "Import as" menu is open
     autoReview: null     // index of the automated log run being reviewed / approved
   };
   var _validateTimer = null;
@@ -1781,46 +1806,51 @@
   function mapHTML() {
     var file = FILES.find(function (f) { return f.id === state.fileId; });
     var cols = COLS[state.fileId];
-    // The column's natural (auto-detected) target, so the required-field asterisk
-    // is a fixed property of the column and doesn't depend on the current mapping.
-    var defMap = defaultMapping(state.fileId);
     // AC-1.2: one row per COLUMN IN THE CUSTOMER'S FILE; each column picks a target.
-    function targetOpts(sel) {
-      var out = '<option value="' + esc(NOT_IMPORTED) + '"' + (sel === NOT_IMPORTED ? ' selected' : '') + '>' + esc(NOT_IMPORTED) + '</option>';
-      out += '<optgroup label="Standard fields">';
-      FIELDS.forEach(function (f) {
-        out += '<option value="' + esc(f.field) + '"' + (sel === f.field ? ' selected' : '') + '>' + esc(f.field) + '</option>';
-      });
-      out += '</optgroup><optgroup label="Your site’s attributes">';
-      ATTRIBUTES.forEach(function (a) {
-        out += '<option value="' + esc(a) + '"' + (sel === a ? ' selected' : '') + '>' + esc(a) + '</option>';
-      });
-      out += '</optgroup>';
-      return out;
+    /* "Import as" dropdown (2026-10-01): matches the live SafeLMS filter selector — a bordered
+       button (blue ring while open) and a menu of radio rows; the selected row gets a filled
+       blue check + light-blue highlight. Required fields carry a red * (now possible, unlike
+       a native <select>). One menu open at a time: state.mapOpen = the file column. */
+    function ddLabel(v) {
+      var f = FIELDS.find(function (x) { return x.field === v; });
+      return esc(v) + (f && f.req ? '<span class="dd-req" aria-hidden="true"> *</span>' : '');
+    }
+    function targetDD(colName, sel) {
+      var open = state.mapOpen === colName;
+      function opt(v) {
+        var on = sel === v;
+        return '<button type="button" class="dd-opt' + (on ? ' is-sel' : '') + '" role="option" aria-selected="' + on + '" data-act="ddPick" data-arg="' + esc(colName) + '" data-val="' + esc(v) + '">'
+          + '<span class="dd-radio" aria-hidden="true">' + (on ? '<i class="fa-solid fa-check"></i>' : '') + '</span><span>' + ddLabel(v) + '</span></button>';
+      }
+      var menu = !open ? '' : '<div class="dd-menu" role="listbox" aria-label="Import ' + esc(colName) + ' as">'
+        + opt(NOT_IMPORTED)
+        + '<div class="dd-group">Standard fields</div>' + FIELDS.map(function (f) { return opt(f.field); }).join('')
+        + '<div class="dd-group">Your site’s attributes</div>' + ATTRIBUTES.map(opt).join('')
+        + '</div>';
+      return '<div class="dd">'
+        + '<button type="button" class="dd-trigger' + (open ? ' is-open' : '') + (sel === NOT_IMPORTED ? ' is-empty' : '') + '" data-act="ddToggle" data-arg="' + esc(colName) + '" aria-haspopup="listbox" aria-expanded="' + open + '">'
+        + '<span class="dd-val">' + ddLabel(sel) + '</span><i class="fa-regular fa-chevron-down dd-chev" aria-hidden="true"></i></button>'
+        + menu + '</div>';
     }
     var rows = cols.map(function (c) {
       var colName = c[0], sample = c[1];
       var target = fieldForCol(colName);
       var samlBad = false;   // SAML check removed — not in the error catalog (2026-09-25)
       var mapped = target !== NOT_IMPORTED;
-      // Red asterisk on the file column when its NATURAL target is a required field
-      // (First/Last/Username). Based on the auto-detected mapping, not the current
-      // "Import as" selection, so re-mapping a required column keeps its asterisk.
-      var reqStar = FIELDS.some(function (f) { return f.req && defMap[f.field] === colName; })
-        ? '<span style="color:#D92D20;" title="Required field"> *</span>' : '';
       var badge = samlBad ? '⚠ check' : (mapped ? 'Mapped' : 'Not imported');
       var badgeColor = samlBad ? '#B54708' : (mapped ? '#12B76A' : '#8CA0B4');
       var isUser = target === 'Username';
       return '<div class="map-grid map-row">'
-        // Usernames are the match key — lock + note ride on whichever column is imported as Username.
+        // Required fields show * inside the selector; the Username lock note sits under the selector and
+        // follows whichever column is currently imported as Username (2026-10-01).
         + '<div><div class="mono" style="font-size:13px;font-weight:600;color:#1B2B3E;">'
-        + esc(colName) + reqStar + '</div>'
+        + esc(colName) + '</div>'
         + '</div>'
         + '<div class="mono" style="font-size:12.5px;color:#5B6B7E;">' + esc(sample) + '</div>'
-        + '<div style="padding-right:20px;"><select class="map-select" data-act="mapColTarget" data-arg="' + esc(colName) + '">' + targetOpts(target) + '</select></div>'
-        + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
-        // Username note gets its own second row, spanning the name + sample columns so it stays on one line.
+        + '<div style="padding-right:20px;">' + targetDD(colName, target)
         + (isUser ? '<div class="map-hint"><i class="fa-solid fa-lock map-lock" aria-hidden="true"></i>An upload can add new usernames but can’t change an existing one.</div>' : '')
+        + '</div>'
+        + '<div style="font-size:12px;color:' + badgeColor + ';font-weight:600;text-align:right;">' + esc(badge) + '</div>'
         + '</div>';
     }).join('');
     // Required targets (Username, First, Last) must each be claimed by some column.
@@ -1830,7 +1860,7 @@
     var complete = reqMissing.length === 0;
     var missHint = complete ? ''
       : '<div style="font-size:12.5px;color:#B54708;background:#FFFAEB;border:1px solid #F2D69B;border-radius:8px;padding:9px 12px;margin-top:14px;"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> Still needed: point a column at ' + reqMissing.map(function (f) { return '<b>' + esc(f.field) + '</b>'; }).join(', ') + '. Username, first name and last name are required.</div>';
-    return '<div class="fadeup"><div class="card" style="overflow:hidden;">'
+    return '<div class="fadeup"><div class="card" style="overflow:visible;">'   // visible so the dropdown menu isn't clipped
       + '<div style="padding:16px 20px;border-bottom:1px solid #EDF1F6;display:flex;justify-content:space-between;align-items:center;gap:16px;">'
       + '<div><div style="font-size:15px;font-weight:600;">Match your columns to SafeLMS fields</div>'
       + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">We matched what we could. Change any that are wrong, or set them to “' + esc(NOT_IMPORTED) + '.”</div></div>'
@@ -2020,8 +2050,8 @@
     // Blocked: questions go to an issue ticket in the Support Center (the "Submit a ticket" button was removed 2026-09-30).
     if (hard) body += '<div class="ax-ask">Have a question about this? <a href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Raise an issue ticket</a>.</div>';
 
-    /* Line under the title (2026-10-01): a Warning's "I've reviewed this" checkbox, so it can be
-       confirmed without opening it, then View details. */
+    /* A Warning's "I've reviewed this" sits top right so it can be confirmed without opening
+       it; View details is the second row, under the title (2026-10-01). */
     var ack = a.tier === 'confirm'
       ? '<label class="ack-row ack-inline' + (acked ? ' is-acked' : '') + '">'
         + '<input type="checkbox" data-act="ack" data-arg="' + a.id + '"' + (acked ? ' checked' : '') + '>'
@@ -2034,8 +2064,9 @@
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
       + '<div style="flex:1;min-width:0;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
       + (copyReview ? '<div class="alert-key">' + esc(a.key) + '</div>' : '')
-      + (ack || toggle ? '<div class="ax-line2">' + ack + toggle + '</div>' : '')
+      + (toggle ? '<div class="ax-line2">' + toggle + '</div>' : '')
       + '</div>'
+      + ack   // top right (2026-10-01)
       + '</div>'
       + (open && body ? '<div class="alert-body">' + body + '</div>' : '')
       + '</div>';
@@ -2085,8 +2116,8 @@
 
     var side = '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:18px 20px;">'
       // One CSV for everything (2026-09-30) — replaces per-alert downloads; opens a preview.
-      + '<div class="side-csv"><div class="sc-t">Complete list of changes</div>'
-      + '<div class="sc-s">Everyone in every list below, in one spreadsheet.</div>'
+      + '<div class="side-csv"><div class="sc-t">Everything we found, in one file</div>'
+      + '<div class="sc-s">Every ' + csvParts(raw) + ' from this review, with each person and row they affect — one spreadsheet you can sort, filter or share.</div>'
       + '<button class="btn sm btn--outline-blue" data-act="openCsv" style="width:100%;margin-top:10px;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV</button></div>'
       + '<div class="divider" style="margin:16px 0;"></div>'
       + '<div class="kpi-eyebrow">Change summary</div>'
@@ -2130,6 +2161,16 @@
       + '</div></div>';
   }
 
+  // "blocked issue, warning and info item" — only the kinds this review actually has.
+  function csvParts(alerts) {
+    var has = function (fn) { return alerts.some(fn); }, parts = [];
+    if (has(function (a) { return a.tier === 'blocked' || a.tier === 'escalate'; })) parts.push('blocked issue');
+    if (has(function (a) { return a.tier === 'confirm'; })) parts.push('warning');
+    if (has(function (a) { return a.tier === 'info'; })) parts.push('info item');
+    if (!parts.length) return 'item';
+    return parts.length === 1 ? parts[0] : parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
+  }
+
   /* CSV preview (2026-09-30): the complete list as it opens in a spreadsheet. Each alert
      is a block — a title row, its column headers, one row per person/item, a blank row. */
   function csvHTML() {
@@ -2159,7 +2200,7 @@
     for (var i = 0; i < width; i++) letters += '<th>' + String.fromCharCode(65 + i) + '</th>';
     return '<div class="modal-overlay" data-act="closeCsv">'
       + '<div class="modal csv-modal" data-act="noop" role="dialog" aria-modal="true" aria-labelledby="cv-title">'
-      + '<div class="modal-head"><div><div class="modal-title" id="cv-title"><i class="fa-solid fa-file-csv" aria-hidden="true" style="color:#067647;margin-right:8px;"></i>complete_list_of_changes.csv</div>'
+      + '<div class="modal-head"><div><div class="modal-title" id="cv-title"><i class="fa-solid fa-file-csv" aria-hidden="true" style="color:#067647;margin-right:8px;"></i>what_we_found.csv</div>'
       + '<div class="modal-sub">' + (f ? esc(f.name) + ' · ' : '') + groups.length + ' groups · ' + count + ' rows. Prototype preview of the file.</div></div>'
       + '<button class="modal-x" data-act="closeCsv" aria-label="Close">✕</button></div>'
       + '<div class="modal-body" style="padding:0;"><div class="cv-wrap"><table class="cv"><thead><tr><th class="cv-n"></th>' + letters + '</tr></thead><tbody>' + body + '</tbody></table></div></div>'
@@ -2416,6 +2457,14 @@
       + '<button class="toast-x" data-act="closeToast" aria-label="Dismiss">✕</button></div>';
   }
 
+  // Column-oriented mapping: unmap this file column from any field, then assign the new target.
+  function setColTarget(col, tgt) {
+    var m = {}; for (var k in state.mapping) m[k] = state.mapping[k];
+    for (var ff in m) { if (m[ff] === col) m[ff] = NOT_IMPORTED; }
+    if (tgt !== NOT_IMPORTED) m[tgt] = col;
+    setState({ mapping: m, mapOpen: null });
+  }
+
   // Adds the current file's attempt to the top of the upload log.
   function logAttempt(status, notes) {
     var f = currentFile(); if (!f) return state.log;
@@ -2601,6 +2650,8 @@
   }
 
   $app.addEventListener('click', function (e) {
+    // Any click outside an open "Import as" menu closes it.
+    if (state.mapOpen != null && !e.target.closest('.dd')) setState({ mapOpen: null });
     var el = e.target.closest('[data-act]');
     if (!el) return;
     // In-app action links use href="#"; stop the browser from jumping to the top.
@@ -2670,6 +2721,8 @@
         state.log = logAttempt('completed', buildAlerts().filter(function (x) { return x.tier === 'confirm'; })
           .map(function (x) { return 'Confirmed: ' + x.title; }));
         finishRun(summary(), 'employees', 0); break;
+      case 'ddToggle': setState({ mapOpen: state.mapOpen === arg ? null : arg }); break;
+      case 'ddPick': setColTarget(arg, el.getAttribute('data-val')); break;
       case 'closeToast': clearTimeout(toastTimer); setState({ toast: null }); break;
       case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
       case 'bless': setState({ blessed: true }); break;
@@ -2711,6 +2764,10 @@
   });
 
   // Keyboard access for non-button clickables (e.g. completed stepper steps).
+  // Escape closes an open "Import as" menu (on document: re-renders can drop focus to <body>).
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && state.mapOpen != null) setState({ mapOpen: null });
+  });
   $app.addEventListener('keydown', function (e) {
     if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-act], [role="switch"][data-act]')) { e.preventDefault(); e.target.click(); }
   });
@@ -2719,15 +2776,7 @@
     var el = e.target.closest('[data-act]');
     if (!el) return;
     var act = el.getAttribute('data-act');
-    if (act === 'mapColTarget') {
-      // Column-oriented: data-arg is the file column, el.value is the chosen target.
-      // Keep the field->column model: unmap this column from any field, then assign.
-      var col = el.getAttribute('data-arg'), tgt = el.value;
-      var m = {}; for (var k in state.mapping) m[k] = state.mapping[k];
-      for (var ff in m) { if (m[ff] === col) m[ff] = NOT_IMPORTED; }
-      if (tgt !== NOT_IMPORTED) m[tgt] = col;
-      setState({ mapping: m });
-    } else if (act === 'keepCopy') {
+    if (act === 'keepCopy') {
       setState({ keepCopy: el.checked });
     } else if (act === 'ack') {
       var id = el.getAttribute('data-arg');

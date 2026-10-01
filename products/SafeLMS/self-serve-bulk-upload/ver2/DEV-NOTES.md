@@ -6,6 +6,27 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-01) Review alert head + clearer CSV copy
+
+- **[DONE]** Warning banners: **"I've reviewed this" top right**; **View details** is the second row,
+  under the title (Info / Blocked show just View details there).
+- **[DONE]** Side panel CSV copy: "**Everything we found, in one file** — Every blocked issue, warning
+  and info item from this review, with each person and row they affect — one spreadsheet you can sort,
+  filter or share." The list of kinds only names what the review has. File: `what_we_found.csv`.
+
+## (2026-10-01) Map columns: * in the selector; Username note under it
+
+- **[DONE]** "Import as" is a custom dropdown styled like the live SafeLMS filter selector: bordered
+  button (#7893B5, 6px), blue ring while open, menu of radio rows; the selected row has a filled blue
+  check + light-blue highlight. Groups "Standard fields" / "Your site's attributes". Required fields
+  show a **red** * (a native select couldn't). Closes on pick, outside click or Escape. Dev: build
+  with the Vector select/combo component in that style; keep the listbox / option roles.
+- **[DONE]** Required fields are marked **inside the "Import as" selector** ("First name *", "Last
+  name *", "Username *") instead of a red * on the file column.
+- **[DONE]** The lock note ("An upload can add new usernames but can't change an existing one.")
+  sits **under the selector** of whichever column is currently imported as Username — it moves if
+  Username is set on a different column.
+
 ## (2026-10-01) Review without opening; keep-a-copy on Run; toast instead of Import complete
 
 - **[DONE]** Each Warning has **"I've reviewed this"** right under its title (tinted yellow → blue
