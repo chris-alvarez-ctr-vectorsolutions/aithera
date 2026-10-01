@@ -1852,7 +1852,23 @@
                (.tb-label is kept in the markup as the seam for shortening
                them again if a narrower case ever needs it.) */
             .rec-drawer-toolbar { gap: 8px; padding-top: 8px; padding-bottom: 8px; }
-            .rec-configure-btn { margin-left: 0; padding: 8px 12px; }
+            /* Split the two buttons to opposite ends at phone widths: Select
+               All on the left, Configure Assignment on the right. The leading
+               .rec-drawer-toolbar-spacer is what clusters them both to the
+               right on desktop, so it is collapsed here and the push is moved
+               onto Configure instead. Order matters: `order` keeps Select All
+               first without touching the markup, so the DOM (and therefore the
+               tab order) is unchanged. */
+            .rec-drawer-toolbar-spacer { display: none; }
+            .rec-selectall-btn { order: 1; }
+            .rec-configure-btn {
+                order: 2;
+                /* This auto margin — not the spacer — is what pushes Configure
+                   to the right edge here. The base rule's `margin-left: 8px`
+                   must not be reinstated below it. */
+                margin-left: auto;
+                padding: 8px 12px;
+            }
             .rec-selectall-btn,
             .rec-configure-btn { white-space: nowrap; }
         }
@@ -4587,6 +4603,14 @@
             flex: 0 0 auto;
         }
         .assign-help:hover { color: var(--brand); }
+        /* On touch the icon is TAPPED, not hovered (see wireAssignHelpTooltips).
+           `cursor: help` is a hover affordance and the hover tint never fires,
+           so give it the pressable cursor and show the active colour while the
+           tooltip is open. */
+        @media (hover: none), (pointer: coarse) {
+            .assign-help { cursor: pointer; }
+            .assign-help[aria-expanded="true"] { color: var(--brand); }
+        }
         .assign-help:focus-visible {
             outline: 2px solid var(--brand);
             outline-offset: 2px;
@@ -8812,6 +8836,76 @@ function wireAssignModal() {
             renderAssignModal();
         });
     });
+
+    wireAssignHelpTooltips();
+}
+
+/* ── Help tooltips: tap on touch, hover on pointer ──
+   vaadin-tooltip opens on hover/focus, which a touch device cannot do — a tap
+   fires focus and the tooltip flashes open then closes on the next tap
+   anywhere, so the help text is effectively unreachable on a phone.
+
+   `manual` + `opened` are documented properties (verified in the core v1.19.0
+   bundle: with `manual` set, every hover/focus listener short-circuits and the
+   overlay's opened state comes from `opened` alone), so this drives them
+   directly rather than faking a tooltip.
+
+   Coarse pointers only. On a mouse the default hover behaviour is better and
+   is left completely alone. */
+function wireAssignHelpTooltips() {
+    const coarse = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    if (!coarse) return;
+
+    const pairs = [...document.querySelectorAll('.assign-defaults .assign-help')]
+        .map(trigger => ({
+            trigger,
+            tip: document.querySelector(`vaadin-tooltip[for="${trigger.id}"]`)
+        }))
+        .filter(p => p.tip);
+
+    const closeAll = except => pairs.forEach(({ tip }) => {
+        if (tip !== except) tip.opened = false;
+    });
+    /* The trigger carries role="button", so its open state belongs on
+       aria-expanded — it also drives the active tint above. Declared BEFORE
+       its first call: as a const arrow it is in the temporal dead zone until
+       this line, so calling it earlier throws. */
+    const syncExpanded = () => pairs.forEach(({ trigger, tip }) => {
+        trigger.setAttribute('aria-expanded', tip.opened ? 'true' : 'false');
+    });
+
+    pairs.forEach(({ tip }) => { tip.manual = true; tip.opened = false; });
+    syncExpanded();
+
+    pairs.forEach(({ trigger, tip }) => {
+        trigger.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();          // or the document handler closes it again
+            const next = !tip.opened;
+            closeAll(tip);
+            tip.opened = next;            // tapping the same icon dismisses it
+            syncExpanded();
+        });
+        // Enter/Space already reach this as a click (role="button" + tabindex),
+        // so keyboard gets the same toggle for free. Esc dismisses.
+        trigger.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && tip.opened) { tip.opened = false; syncExpanded(); }
+        });
+    });
+
+    /* A tap anywhere else dismisses — matching how a hover tooltip would
+       leave. Registered ONCE: the dialog's renderer re-runs wireAssignModal()
+       on every date change (via requestContentUpdate), so an unguarded
+       listener here would stack a new copy on each edit. It closes whatever
+       tooltips are live at the time rather than closing over this call's
+       `pairs`, so it keeps working after a re-render. */
+    if (!wireAssignHelpTooltips._docBound) {
+        wireAssignHelpTooltips._docBound = true;
+        document.addEventListener('click', () => {
+            document.querySelectorAll('vaadin-tooltip[for^="assignHelp"]')
+                .forEach(t => { if (t.manual) t.opened = false; });
+        });
+    }
 }
 
 function commitAssignment() {

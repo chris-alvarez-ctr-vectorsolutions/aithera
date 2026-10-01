@@ -6,6 +6,20 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-01) Review without opening; keep-a-copy on Run; toast instead of Import complete
+
+- **[DONE]** Each Warning has **"I've reviewed this"** right under its title (tinted yellow → blue
+  once checked), so it can be confirmed without opening it. **View details** sits on the same line.
+  The checkbox no longer lives inside the details.
+- **[DONE]** **Download current data** moved off the Review side panel into the **Run import**
+  confirmation as a checkbox (off by default): "Also download your current employee data — a copy of
+  your site as it is now, for your records."
+- **[DONE]** No **Import complete** page. Run import lands back on **Employees** with a toast: "Your
+  upload ran. N added · N updated · …" + "You can see it in the upload log now." (+ "A copy of your
+  data from before it ran was downloaded." when that box was checked). Clears after ~8s, or ✕.
+  Approving an automated run lands back on the **log** (row shows Completed) with the same toast.
+  No person's name/email in it (the old page named "vpollock@…").
+
 ## (2026-09-30) One CSV in the side panel; Map dropdown adds codes
 
 - **[DONE]** Map columns dropdown adds **External Unique ID** and **Building code**, just above

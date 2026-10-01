@@ -196,6 +196,13 @@ One schedule for the whole assignment — no per-course overrides. Three
 carrying the SafeLMS help text via `vaadin-tooltip`. Field names match SafeLMS
 exactly, including **"Expire Date"**.
 
+On touch devices the `?` help icons open **on tap**, not hover: `vaadin-tooltip`
+is driven through its documented `manual` + `opened` properties (with `manual`
+set, its hover/focus listeners short-circuit), so a tap toggles the tooltip, a
+second tap or a tap elsewhere dismisses it, and `aria-expanded` tracks the
+state. Pointer devices keep the component's default hover behaviour untouched —
+both the CSS and the JS gate on `(hover: none), (pointer: coarse)`.
+
 The three fields share the row evenly. Note that `width: 100%` alone does **not**
 stretch a `vaadin-date-picker`: it carries `--vaadin-field-default-width: 12em`
 (~168px), which acts as a min-content floor and makes a bare `1fr` grid track

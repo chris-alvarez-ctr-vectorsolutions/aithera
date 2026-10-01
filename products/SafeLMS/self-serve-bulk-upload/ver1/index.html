@@ -394,7 +394,7 @@
   .ax-ask { font-size: 12.5px; color: #5B6B7E; margin-top: -2px; }
   .ax-ask a { color: #1257B8; font-weight: 600; }
   /* collapsed alert banner (2026-09-30) */
-  .alert-head { align-items: center; }
+  .alert-head { align-items: flex-start; }
   .ax-toggle { flex: 0 0 auto; border: none; background: none; color: #1257B8; font-size: 12.5px; font-weight: 600; cursor: pointer;
     display: inline-flex; align-items: center; gap: 6px; padding: 4px 2px; white-space: nowrap; font-family: inherit; }
   .ax-toggle, .ax-toggle:hover, .ax-toggle:focus { text-decoration: none; background: none; box-shadow: none; }
@@ -402,9 +402,25 @@
   .ax-toggle:focus-visible { outline: 2px solid #1257B8; outline-offset: 2px; border-radius: 4px; }
   .ax-toggle i { display: inline-block; font-size: 10.5px; transition: transform .15s; }
   .alert.is-open .ax-toggle i { transform: rotate(180deg); }
+  .ax-line2 { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+  .ack-row.ack-inline { display: inline-flex; align-items: center; gap: 8px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; border-radius: 7px; }
+  .ack-row.ack-inline input { margin-top: 0; }
   .ax-need { flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: #B54708; white-space: nowrap; }
   .ax-n { font-size: 12px; color: #5B6B7E; }
   .alert-body > .alert-sub { margin-top: 0; }
+  .toast { position: fixed; top: 76px; right: 24px; z-index: 1200; width: 400px; max-width: calc(100vw - 32px);
+    display: flex; gap: 12px; align-items: flex-start; background: #fff; border: 1px solid #A6E5C3; border-left: 5px solid #12B76A;
+    border-radius: 8px; padding: 13px 14px; box-shadow: 0 12px 32px rgba(16,24,40,.18); animation: fadeup .2s ease; }
+  .toast-ico { color: #067647; font-size: 18px; margin-top: 1px; }
+  .toast-tx { flex: 1; min-width: 0; font-size: 13.5px; color: #3D4F63; line-height: 1.45; }
+  .toast-tx b { color: #1B2B3E; }
+  .toast-s { font-size: 12.5px; color: #5B6B7E; margin-top: 3px; }
+  .toast-s a { color: #1257B8; font-weight: 600; }
+  .toast-x { border: none; background: none; color: #8CA0B4; font-size: 14px; cursor: pointer; padding: 2px 4px; }
+  .keep-copy { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: 13px; color: #3D4F63; line-height: 1.5; cursor: pointer;
+    background: #F8FAFC; border: 1px solid #E1E7EE; border-radius: 8px; padding: 10px 12px; }
+  .keep-copy input { margin-top: 3px; width: 15px; height: 15px; accent-color: #1257B8; flex: 0 0 auto; }
+  .keep-copy b { color: #1B2B3E; }
   .side-csv .sc-t { font-size: 14px; font-weight: 700; color: #1B2B3E; }
   .side-csv .sc-s { font-size: 12.5px; color: #5B6B7E; margin-top: 3px; line-height: 1.45; }
   .modal.csv-modal { width: 1040px; }
@@ -1027,6 +1043,8 @@
     variantsCollapsed: false,
     logDetail: null,     // index of the upload shown on its own page
     csvOpen: false,      // CSV preview of the complete list (Review side panel)
+    keepCopy: false,     // Run confirmation: also download the current employee data
+    toast: null,         // { counts, keep, onLog } — shown after Run import
     autoReview: null     // index of the automated log run being reviewed / approved
   };
   var _validateTimer = null;
@@ -1937,15 +1955,15 @@
         + '</div>';
     }
     if (a.fix) body += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>';
-    if (a.tier === 'confirm') {
-      body += '<label class="ack-row' + (acked ? ' is-acked' : '') + '">'
-        + '<input type="checkbox" data-act="ack" data-arg="' + a.id + '"' + (acked ? ' checked' : '') + '>'
-        + '<span>' + esc(a.ackLabel) + '</span></label>';
-    }
     // Blocked: questions go to an issue ticket in the Support Center (the "Submit a ticket" button was removed 2026-09-30).
     if (hard) body += '<div class="ax-ask">Have a question about this? <a href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Raise an issue ticket</a>.</div>';
 
-    var status = a.tier === 'confirm' && !acked ? '<span class="ax-need">Needs review</span>' : '';
+    /* Line under the title (2026-10-01): a Warning's "I've reviewed this" checkbox, so it can be
+       confirmed without opening it, then View details. */
+    var ack = a.tier === 'confirm'
+      ? '<label class="ack-row ack-inline' + (acked ? ' is-acked' : '') + '">'
+        + '<input type="checkbox" data-act="ack" data-arg="' + a.id + '"' + (acked ? ' checked' : '') + '>'
+        + '<span>I’ve reviewed this</span></label>' : '';
     var toggle = body
       ? '<button class="ax-toggle" data-act="toggleDisc" data-arg="ax:' + a.id + '" aria-expanded="' + open + '">'
         + (open ? 'Hide details' : 'View details') + ' <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' : '';
@@ -1954,7 +1972,8 @@
       + '<div class="chip" style="background:' + t.chipBg + ';margin-top:1px;"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'
       + '<div style="flex:1;min-width:0;"><div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
       + (copyReview ? '<div class="alert-key">' + esc(a.key) + '</div>' : '')
-      + '</div>' + status + toggle
+      + (ack || toggle ? '<div class="ax-line2">' + ack + toggle + '</div>' : '')
+      + '</div>'
       + '</div>'
       + (open && body ? '<div class="alert-body">' + body + '</div>' : '')
       + '</div>';
@@ -2031,10 +2050,6 @@
         ? '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you approve it. Tonight’s automated upload still runs as usual.</div>'
         : '<button class="btn btn--outline-red" data-act="cancelImport" style="width:100%;margin-top:8px;">Cancel import</button>'
           + '<div style="font-size:12px;color:#8CA0B4;margin-top:10px;line-height:1.5;">Nothing changes until you run it.</div>')
-      // Older data (2026-09-29): a snapshot of the site before anything changes.
-      + '<div class="divider" style="margin:14px 0;"></div>'
-      + '<button class="btn sm btn--ghost" data-act="noop" style="width:100%;"><i class="fa-solid fa-download" aria-hidden="true"></i> Download current data (.csv)</button>'
-          + '<div style="font-size:12px;color:#8CA0B4;margin-top:6px;line-height:1.5;">Your employees as they are now, before this import — keep a copy in case you need to put anything back.</div>'
       // Support articles (2026-09-25 — replaces the Edit mapping / Change settings
       // links; the stepper already jumps back to earlier steps).
       + '<div class="divider" style="margin:14px 0;"></div>'
@@ -2115,6 +2130,10 @@
       + '<div style="background:#FEF7F6;border:1px solid #F1C0BB;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#B42318;margin-top:16px;line-height:1.5;"><b>This can’t be undone.</b> '
       + (destructive ? 'Once you run the import, deactivations and ended positions are permanent.' : 'Once the import runs, it can’t be paused or reversed.')
       + '</div>'
+      // Keep a copy (2026-10-01 — moved here from the Review side panel): the site's
+      // employee data as it is right now, downloaded when they run the import.
+      + '<label class="keep-copy"><input type="checkbox" data-act="keepCopy"' + (state.keepCopy ? ' checked' : '') + '>'
+      + '<span><b>Also download your current employee data</b> — a copy of your site as it is now, for your records.</span></label>'
       + '</div>'
       + '<div class="modal-foot" style="display:flex;justify-content:flex-end;gap:10px;">'
       + '<button class="btn btn--ghost" data-act="confirmRunNo">Go back</button>'
@@ -2128,6 +2147,7 @@
       + '<div style="width:52px;height:52px;border-radius:50%;background:#ECFDF3;border:1.5px solid #A6E5C3;color:#067647;font-size:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">✓</div>'
       + '<div style="font-size:19px;font-weight:700;">Import complete</div>'
       + '<div style="font-size:13.5px;color:#5B6B7E;margin-top:6px;">' + dc.add + ' users added, ' + dc.mod + ' updated, ' + dc.deact + ' deactivated on Ridgewood Public Schools — Staff.</div>'
+      + (state.keepCopy ? '<div style="font-size:13px;color:#5B6B7E;margin-top:10px;"><i class="fa-solid fa-circle-check" aria-hidden="true" style="color:#067647;margin-right:6px;"></i>A copy of your employee data from before this import was downloaded.</div>' : '')
       + '<div style="background:#fff;border:1px solid #E1E7EE;border-radius:10px;padding:14px 18px;margin:18px 0;font-size:13px;color:#5B6B7E;text-align:left;">A confirmation was emailed to <span style="font-weight:600;color:#1B2B3E;">vpollock@ridgewood.k12.us</span>. This import is recorded in your <a href="#" data-act="goLog">upload log</a>, where you can see who ran it, when, and the alerts it raised.</div>'
       + '<div style="display:flex;gap:10px;justify-content:center;">'
       + '<button class="btn btn--ghost" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Data before this import (.csv)</button>'
@@ -2254,6 +2274,31 @@
       + (blocked ? 'It’s blocked, so it can’t be approved — fix these rows in your export and the next automated upload picks it up.'
                  : 'Automated uploads can’t approve warnings on their own. Review each one, then approve to run this file now.')
       + ' Nothing has changed yet.</div></div></div>';
+  }
+
+  /* After Run import (2026-10-01): no "Import complete" page — they land back on Employees
+     (or on the log, for an automated run they approved there) with a toast that the upload
+     ran and is in the upload log. The toast clears itself after a few seconds. */
+  var toastTimer = null;
+  function finishRun(counts, view, logIdx) {
+    var keep = !!state.keepCopy;
+    setState({ confirmRun: false, importFull: false, view: view, addEmp: false, autoReview: null,
+      fileId: null, step: 'upload', acks: {}, disc: {}, purgeUsers: false, purgeJobs: false, repSent: false, keepCopy: false,
+      logHl: view === 'log' ? logIdx : null, toast: { counts: counts, keep: keep, onLog: view === 'log' } });
+    scrollTop();
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { setState({ toast: null }); }, 8000);
+  }
+  function toastHTML() {
+    var c = state.toast.counts, parts = [c.add + ' added', c.mod + ' updated'];
+    if (c.deact) parts.push(c.deact + ' deactivated');
+    if (c.jobsRemoved) parts.push(c.jobsRemoved + ' positions ended');
+    return '<div class="toast" role="status" aria-live="polite">'
+      + '<span class="toast-ico"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>'
+      + '<div class="toast-tx"><b>Your upload ran.</b> ' + parts.join(' · ') + '.'
+      + '<div class="toast-s">' + (state.toast.onLog ? 'It’s marked Completed in the upload log below.' : 'You can see it in the <a href="#" data-act="goLog">upload log</a> now.')
+      + (state.toast.keep ? ' A copy of your data from before it ran was downloaded.' : '') + '</div></div>'
+      + '<button class="toast-x" data-act="closeToast" aria-label="Dismiss">✕</button></div>';
   }
 
   // Adds the current file's attempt to the top of the upload log.
@@ -2418,7 +2463,8 @@
       + (state.fileModal ? fileModalHTML() : '')
       + (state.addEmp ? addEmployeeModal(false) : '')
       + (state.confirmRun ? confirmRunHTML() : '')
-      + (state.csvOpen ? csvHTML() : '');
+      + (state.csvOpen ? csvHTML() : '')
+      + (state.toast ? toastHTML() : '');
 
     // Restore the captured scroll positions onto the freshly-built containers.
     var _ov = $app.querySelector('.import-full'); if (_ov && _overlayWasOpen) _ov.classList.add('is-static');
@@ -2444,7 +2490,7 @@
     var arg = el.getAttribute('data-arg');
 
     switch (act) {
-      case 'noop': e.preventDefault(); break;
+      case 'noop': if (!e.target.closest('label')) e.preventDefault(); break;   // let checkbox labels inside modals toggle
       /* Employees-tab entry points */
       case 'goEmployees': e.preventDefault(); setState({ view: 'employees', addEmp: false, importFull: false, autoReview: null }); scrollTop(); break;
       case 'goLog': e.preventDefault(); setState({ view: 'log', importFull: false, addEmp: false, logOpen: null }); scrollTop(); break;
@@ -2498,11 +2544,12 @@
           ar.status = 'completed'; ar.add = sa.add; ar.mod = sa.mod; ar.deact = sa.deact; ar.jobsEnd = sa.jobsRemoved; delete ar.reviewId;
           ar.notes = ['Approved and run by Deborah Kim · Today'].concat(buildAlerts().filter(function (x) { return x.tier === 'confirm'; }).map(function (x) { return 'Approved: ' + x.title; }));
           lg[state.autoReview] = ar; state.log = lg;
-          setState({ confirmRun: false, doneCounts: sa, step: 'done', autoReview: null }); scrollTop(); break;
+          finishRun(sa, 'log', state.autoReview); break;
         }
         state.log = logAttempt('completed', buildAlerts().filter(function (x) { return x.tier === 'confirm'; })
           .map(function (x) { return 'Confirmed: ' + x.title; }));
-        setState({ confirmRun: false, doneCounts: summary(), step: 'done' }); scrollTop(); break;
+        finishRun(summary(), 'employees', 0); break;
+      case 'closeToast': clearTimeout(toastTimer); setState({ toast: null }); break;
       case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
       case 'bless': setState({ blessed: true }); break;
       case 'goStep':
@@ -2559,6 +2606,8 @@
       for (var ff in m) { if (m[ff] === col) m[ff] = NOT_IMPORTED; }
       if (tgt !== NOT_IMPORTED) m[tgt] = col;
       setState({ mapping: m });
+    } else if (act === 'keepCopy') {
+      setState({ keepCopy: el.checked });
     } else if (act === 'ack') {
       var id = el.getAttribute('data-arg');
       var a = {}; for (var kk in state.acks) a[kk] = state.acks[kk];
@@ -2574,7 +2623,7 @@
   }
 
   function applyFlowState(id) {
-    state.confirmRun = false; state.autoReview = null; state.csvOpen = false;   // a flow-map jump never lands inside the Run pop-up
+    state.confirmRun = false; state.autoReview = null; state.csvOpen = false; state.toast = null;   // a flow-map jump never lands inside the Run pop-up
     switch (id) {
       case 'employees': setState({ view: 'employees', addEmp: false, importFull: false }); break;
       case 'auto-review': {
@@ -2593,7 +2642,8 @@
       case 'review-blocked':  reviewFor('blast', false, false); break;  // BLOCKED — blast radius
       case 'review-saml':     reviewFor('saml', false, false); break;   // BLOCKED — SAML mismatch
       case 'review-escalate': reviewFor('dupes', false, false); break;  // BLOCKED ×2 + CONTACT VECTOR
-      case 'done': setState({ tab: 'import', view: 'import', importFull: true, fileId: 'confirm', doneCounts: summaryFor('confirm', false, false), step: 'done', validating: false }); break;
+      case 'done': setState({ view: 'employees', importFull: false, addEmp: false, fileId: null, step: 'upload',
+        toast: { counts: summaryFor('confirm', true, true), keep: true, onLog: false } }); break;   // no auto-dismiss in the flow map
       /* Attention-needed step (V1 treatment = inline alert mode) */
       case 'attn-fixable':  setState({ tab: 'import', view: 'import', importFull: true, step: 'attn', attnSev: 'fixable', attnSent: false }); break;   // AMBER — you fix it
       case 'attn-escalate': setState({ tab: 'import', view: 'import', importFull: true, step: 'attn', attnSev: 'escalate', attnSent: false }); break; // RED — Vector's team
@@ -2638,8 +2688,8 @@
           desc: 'Clicking an automated upload that stopped in the log opens the Review changes design for that run (a banner replaces the stepper). Warnings only → the admin acknowledges each and clicks “Approve & run import” (the manual permission the automated run can’t give itself); the log row flips to Completed · Approved by …. Blocked → can’t be approved; fix the export.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',
           desc: 'Every upload on the site: when, file, who ran it, Manual vs Automated, result (Completed / Blocked — automated only / Cancelled) and what changed; runs that didn’t go show just the arrow. Filter by method; each row opens its own page. Reached from Employees → Upload log and the Import complete screen.' },
-        { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Import complete', state: 'done',
-          desc: 'Reached from the Info and Confirm paths. Irreversible once run — the design leans on prevention, not undo.' },
+        { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Back on Employees + toast', state: 'done',
+          desc: 'No “Import complete” page (2026-10-01): Run import lands back on Employees with a toast — “Your upload ran. N added · N updated…” + “You can see it in the upload log now.” (+ “A copy of your data from before it ran was downloaded.” when that box was checked on the Run confirmation). Clears after ~8s. Approving an automated run lands back on the log instead.' },
 
         { id: 'review-blocked', flow: 'import', x: 700, y: 420, step: 'Review · Copy review', name: 'Every catalog message', state: 'review-blocked',
           desc: 'Copy review: the last sample file raises all 44 messages from the Error & Notification Message Catalog (PMC 29424549907) most severe first, each tagged with its key, so the copy and tiers can be checked against Confluence.' },

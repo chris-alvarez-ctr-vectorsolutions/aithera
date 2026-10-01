@@ -1057,16 +1057,71 @@
 
   /* Coverage rows on the Coverage phase — the platform's central difference
      from the reference, which has no concept of a point at all. */
+  /* ═══ SUMMARY CARDS — LAYOUT-STUDY option B, trialled on Coverage ═══════
+     The problem measured: the Coverage stage ran 1165px as a single scroll
+     with every point's card fully expanded, when the question an author
+     usually has is "which points are short?" — which a list of summaries
+     answers at a glance and a long scroll does not.
+
+     So a card collapses to TITLE + METADATA + STATUS and expands on click,
+     one at a time. No new column, no per-stage exception, and the same
+     accordion the video surface already uses for scene cards.
+
+     Deliberately NOT a new visual language: the collapsed card is the same
+     `.sai-cvr` surface with its body hidden. Nothing here changes colour,
+     type or spacing tokens — the study was explicit that styling and theming
+     are out of scope.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* The summary row is a button so it is keyboard-reachable and announces as
+     a control. `text-align:left` because a button centres by default and the
+     row is prose, not a label. */
+  .sai-sum {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    padding: 9px 11px; cursor: pointer; text-align: left;
+    background: none; border: none; font-family: inherit; color: inherit;
+    border-radius: 6px;
+  }
+  .sai-sum:hover { background: var(--sai-surface-3); }
+  .sai-sum:focus-visible { outline: 2px solid var(--sai-accent); outline-offset: -2px; }
+  .sai-sum-body { flex: 1 1 auto; min-width: 0; }
+  .sai-sum-title { font-size: 12px; color: var(--sai-ink); font-weight: 500; }
+  /* The metadata line — counts and state, the whole reason the card is worth
+     collapsing. Reads as one line of chips at 10px, matching `.sai-cvr-meta`. */
+  .sai-sum-meta {
+    display: flex; align-items: center; gap: 7px; margin-top: 3px;
+    flex-wrap: wrap; font-size: 10px; color: var(--sai-ink-3);
+  }
+  .sai-sum-meta .sep { opacity: .45; }
+  .sai-sum-meta .short { color: var(--sai-warn); }
+  /* Status dot. `scnPhaseBlockers()` already names the specific item, so this
+     is attribution of an existing signal rather than new logic — the same move
+     the stage rail's own warning dot makes one level up. */
+  .sai-sum-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto;
+    background: var(--sai-output);
+  }
+  .sai-sum-dot.warn { background: var(--sai-warn); }
+  .sai-sum-chev {
+    flex: 0 0 auto; font-size: 9px; color: var(--sai-ink-3);
+    transition: transform .15s;
+  }
+  .sai-cvr.open .sai-sum-chev { transform: rotate(90deg); }
+  /* Collapsed is the default: the body is hidden until the card is open. */
+  .sai-cvr-body { display: none; padding: 0 11px 11px; }
+  .sai-cvr.open .sai-cvr-body { display: block; }
+  .sai-cvr.open { background: var(--sai-surface-2); border-color: var(--sai-line-2); }
+  .sai-cvr.open > .sai-sum { border-bottom: 1px solid var(--sai-line); border-radius: 6px 6px 0 0; }
+  .sai-cvr.open > .sai-sum:hover { background: none; }
+
   .sai-cvr {
-    display: flex; align-items: flex-start; gap: 10px; padding: 10px 11px;
     border-radius: 6px; background: var(--sai-surface-2);
-    border: 1px solid var(--sai-line-2); margin-bottom: 7px;
+    border: 1px solid var(--sai-line-2); margin-bottom: 6px;
   }
   .sai-cvr-ref {
     font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 3px; flex: 0 0 auto;
     background: var(--sai-info-soft); color: var(--sai-info); margin-top: 1px;
   }
-  .sai-cvr-body { flex: 1 1 auto; min-width: 0; }
   .sai-cvr-title { font-size: 12px; color: var(--sai-ink); font-weight: 500; }
   .sai-cvr-meta { display: flex; align-items: center; gap: 7px; margin-top: 5px; flex-wrap: wrap; }
   .sai-cvr-depth {
@@ -4773,6 +4828,9 @@ function renderActivityDoc(id) {
     // artifact, not authored content (the pinned examples are the keepers).
     scnStep = 0; scnTurns = []; scnRolls = 0;
     scnPhase = 'interaction'; scnRailed = null;
+    // Re-entering should start from the scannable list, not a card someone
+    // left open — the summary state is navigation, not authored content.
+    scnOpenItem = null;
     switchLayer('activities');
   });
   wireActivityDoc(a);
@@ -5153,6 +5211,19 @@ const SCN_PHASES = [
     lede: 'What every learner leaves with, whatever path they took through the steps. Shipped '
         + 'verbatim — this is the one part of the scenario that does not vary.' }
 ];
+
+/* ── Summary cards on a stage — the LAYOUT-STUDY option B trial ──────────
+   Which item on the Coverage stage is expanded. `null` means all collapsed.
+
+   One open at a time, accordion-style, which is the pattern the VIDEO surface
+   already established (`.sai-scene.active .sai-scene-body`) — the open card is
+   the one whose detail you are working on. Reusing it here rather than
+   inventing a second expand model.
+
+   Keyed by the item's own id (a point id, or 'misconceptions' for the group),
+   NOT by index — the same addressing rule the rest of the platform follows, so
+   adding or removing a point cannot silently move which card is open. */
+let scnOpenItem = null;
 
 let scnPhase = 'interaction';   // the stage currently open
 /* The stage rail collapses to a strip of numbered chips. The CONTROL is
@@ -6133,18 +6204,37 @@ function renderPhasePage(a, ph) {
         if (!pt) return '';
         const req = pt.requires || goal.defaultDepth;
         const short = depthRank(c.depth) < depthRank(req);
+        const open = scnOpenItem === pid;
+        // Everything this card would say when collapsed, computed once. The
+        // beat and the stale approval are the two states worth surfacing on
+        // the summary, because they are the reasons a card needs opening.
+        const noBeat = !c.beat;
+        const stale  = approvalStale(a, pid);
+        const flag   = short || noBeat || stale;
         return `
-          <div class="sai-cvr">
-            <span class="sai-cvr-ref">${pid}</span>
-            <div class="sai-cvr-body">
-              <div style="display:flex;align-items:flex-start;gap:8px">
-                <div class="sai-cvr-title" style="flex:1 1 auto">${pt.title}</div>
-                <span class="sai-rowact">
-                  <button class="sai-iconsm danger" data-cvrdel="${pid}"
-                    title="Stop covering this point"><i class="fa-solid fa-xmark"></i></button>
+          <div class="sai-cvr ${open ? 'open' : ''}">
+            <button class="sai-sum" data-cvropen="${pid}"
+              aria-expanded="${open}" title="${open ? 'Collapse' : 'Open'} ${pt.title}">
+              <i class="fa-solid fa-chevron-right sai-sum-chev"></i>
+              <span class="sai-cvr-ref">${pid}</span>
+              <span class="sai-sum-body">
+                <span class="sai-sum-title">${pt.title}</span>
+                <span class="sai-sum-meta">
+                  <span class="${short ? 'short' : ''}">${c.depth}${
+                    short ? ` · below ${req}` : ''}</span>
+                  <span class="sep">·</span>
+                  <span>${c.state}</span>
+                  ${noBeat ? '<span class="sep">·</span><span class="short">no beat</span>' : ''}
+                  ${stale ? '<span class="sep">·</span><span class="short">approval out of date</span>' : ''}
                 </span>
-              </div>
-              <div class="sai-cvr-meta">
+              </span>
+              <span class="sai-sum-dot ${flag ? 'warn' : ''}"
+                title="${flag ? 'Something outstanding on this point' : 'Nothing outstanding'}"></span>
+            </button>
+            <div class="sai-cvr-body">
+              <!-- The title is in the summary row above, so the body opens
+                   straight into the controls rather than repeating it. -->
+              <div class="sai-cvr-meta" style="margin-top:9px">
                 <!-- Depth is a JUDGMENT the LED sets, so it is a control, not
                      a readout. Cycling it re-marks provenance as adjusted. -->
                 <button class="sai-cvr-depth ${short ? 'short' : ''}" data-cvrdepth="${pid}"
@@ -6157,6 +6247,10 @@ function renderPhasePage(a, ph) {
                 <span style="font-size:10px;color:var(--sai-ink-3)">
                   judged against v${c.at}${pt.version && pt.version > c.at
                     ? ` · point is now v${pt.version}` : ''}
+                </span>
+                <span class="sai-rowact" style="margin-left:auto">
+                  <button class="sai-iconsm danger" data-cvrdel="${pid}"
+                    title="Stop covering this point"><i class="fa-solid fa-xmark"></i></button>
                 </span>
               </div>
 
@@ -6196,12 +6290,26 @@ function renderPhasePage(a, ph) {
           This activity covers every point in the set.
         </div>`}
 
-      <div class="sai-card" style="margin-top:14px">
-        <div class="sai-card-head"><span class="sai-card-title">Misconceptions</span>
-          <span class="sai-fld-kind guidance">guidance</span>
-          <span style="margin-left:auto;font-size:10px;color:var(--sai-ink-3)">
-            ${(a.misconceptions || []).length}</span></div>
-        <div class="sai-card-note">
+      <!-- Misconceptions collapses the same way, so the stage is one uniform
+           list rather than summary cards with a full-height card beneath them.
+           It is a GROUP rather than a point, so its key is the literal
+           'misconceptions' — the open-item state holds ids, not just point ids. -->
+      <div class="sai-cvr ${scnOpenItem === 'misconceptions' ? 'open' : ''}" style="margin-top:14px">
+        <button class="sai-sum" data-cvropen="misconceptions"
+          aria-expanded="${scnOpenItem === 'misconceptions'}"
+          title="${scnOpenItem === 'misconceptions' ? 'Collapse' : 'Open'} misconceptions">
+          <i class="fa-solid fa-chevron-right sai-sum-chev"></i>
+          <span class="sai-sum-body">
+            <span class="sai-sum-title">Misconceptions
+              <span class="sai-fld-kind guidance" style="margin-left:6px">guidance</span></span>
+            <span class="sai-sum-meta">
+              <span>${(a.misconceptions || []).length || 'none'} recorded</span>
+            </span>
+          </span>
+          <span class="sai-sum-dot" title="Optional — nothing outstanding"></span>
+        </button>
+        <div class="sai-cvr-body">
+        <div class="sai-card-note" style="margin-top:9px">
           Wrong beliefs worth correcting wherever they surface — distinct from a
           calibration, which judges one answer in one step.
         </div>
@@ -6226,6 +6334,7 @@ function renderPhasePage(a, ph) {
         <button class="sai-add inline" data-misadd="1">
           <i class="fa-solid fa-plus"></i>Add misconception
         </button>
+        </div>
       </div>`;
   }
 
@@ -7561,8 +7670,19 @@ function wireScenario(a, root) {
     });
   }));
 
-  $$('[data-cvrdel]', root).forEach(el => el.addEventListener('click', () => {
-    delete a.covers[el.dataset.cvrdel];
+  /* Summary-card expand (LAYOUT-STUDY option B). One open at a time, keyed by
+     the point id rather than an index, so add/remove cannot move which card is
+     open. Clicking the open card closes it. */
+  $$('[data-cvropen]', root).forEach(el => el.addEventListener('click', () => {
+    const id = el.dataset.cvropen;
+    scnOpenItem = (scnOpenItem === id) ? null : id;
+    repaint();
+  }));
+  $$('[data-cvrdel]', root).forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();                       // do not toggle the card open
+    const pid = el.dataset.cvrdel;
+    delete a.covers[pid];
+    if (scnOpenItem === pid) scnOpenItem = null;   // the open card just left
     repaint(); toast('No longer covering that point');
   }));
   $$('[data-cvrdepth]', root).forEach(el => el.addEventListener('click', () => {
@@ -7644,7 +7764,7 @@ function wireScenario(a, root) {
   // reach where a value is actually authored rather than guessing.
   $$('[data-gotolayer]', root).forEach(el => el.addEventListener('click', () => {
     openActivity = null; activeScene = null;
-    scnStep = 0; scnTurns = []; scnRolls = 0;
+    scnStep = 0; scnTurns = []; scnRolls = 0; scnOpenItem = null;
     switchLayer(el.dataset.gotolayer);
   }));
 
