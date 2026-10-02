@@ -8,6 +8,9 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-10-02) Going back never starts over
 
+- **[DONE]** The automated run waiting for approval (log → Review & approve): its deactivate setting is
+  Off, so no "1 person deactivated / 2 positions ended". Warnings are the name change (kept) + shared
+  email, begin dates before 1940 and a location not on the site — all from its own columns.
 - **[DONE]** Leaving with Back / ✕ keeps the unfinished import; **Bulk Upload** reopens it on Upload
   file with everything intact (incl. each "I've reviewed this"). Only **Cancel import** or finishing a
   run clears it.
