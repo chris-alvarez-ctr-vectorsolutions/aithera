@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Course &amp; Exam Tracking · V3</title>
+
+    <!--
+    ══════════════════════════════════════════════════════════════════════════
+    PathwayOS · Course & Exam Tracking · V3 (VPATH-15545)
+    Branched from V2 (platform-native). Applies the 10/01 review feedback.
+
+    WHAT CHANGED FROM V2:
+    Student Courses
+    - Expandable sections sub-table removed. Pathways' AG Grid license does
+      not include expandable rows (master/detail is Enterprise only).
+    - Drill-in instead: clicking a course name reloads the same table scoped
+      to that course. By default it lists every student enrolled in the
+      course across all sections (within the user's existing data access).
+      "All courses" and the breadcrumb step back up.
+    - Badge row above the table removed (Read-only, Last upload, counts).
+      Not an existing Pathways pattern, and dev builds mocks literally.
+    - Section / Teacher pre-filters added as filter chips. The course list
+      has a Teacher chip; the course roster has Section + Teacher chips.
+      A Teacher chosen on the list carries into the course you open.
+    - All tables use the Power Table layout (as on Organizations, Contacts,
+      Experiences, Student Experience Dashboard): toolbar with Search,
+      Columns picker and Export, a filter-chip row, column-header filters,
+      and a Rows per page footer.
+    Student Exams
+    - "Last upload" removed from the exams list page and the exam view. The
+      Upload Date column inside the exam view stays.
+    - Info text on the exams page: these are school / district / state
+      exams synced from the SIS, not tests given inside a course.
+    - Non-numeric scores shown: pass/fail, rubric (0-5 and 0-6) and letter
+      grades, alongside numeric.
+    Student Details
+    - Courses tab: "Score" renamed "Final Grade" (also on the course roster).
+      Exams tab keeps "Score".
+    - Course / exam names on both tabs open the full course / exam view.
+    - Breadcrumbs follow the Pathways hierarchy only (where the page sits,
+      not how you got there). No "Back to <student>" behavior.
+    - The "Last upload" line on the Courses / Exams tabs was also removed,
+      for the same reason as the exams list.
+    - The on-page implementation notes panel is gone: dev builds literally.
+
+    ASSUMPTIONS / TO CONFIRM:
+    - Manage landing is a demo hub so the flow is navigable.
+    - Rubric scores render as "4 / 6"; confirm the SIS sends the max.
+    - Export is shown inert, matching the other Power Tables.
+    - Bulk-select checkboxes are omitted: these records are read-only so
+      there is no bulk action to run.
+    ══════════════════════════════════════════════════════════════════════════
+    -->
+
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Roboto: PathwayOS's existing type family -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+
+<style>
+/* ─── Tokens (sampled from the live platform screenshots) ────────────── */
+:root {
+    --border: #e0e0e0;
+    --border-strong: #c9d1d9;
+    --text: #333333;
+    --heading: #222222;
+    --muted: #6b7280;
+    --link: #1976d2;
+    --link-strong: #0b66c2;
+    --sidenav-bg: #efefef;
+    --sidenav-active: #dcdcdc;
+    --tab-active-bg: #e7f1fb;
+    --grid-header-bg: #fafafa;
+    --grid-line: #e8e8e8;
+    --teal: #4da1c7;
+    --green: #2e7d32;
+    --green-soft: #e8f5e9;
+    --green-line: #c8e6c9;
+    --red: #c62828;
+    --blue-soft: #eef5fc;
+    --blue-line: #b9d8f4;
+    --gray-soft: #f0f2f5;
+    --gray-line: #dde0e5;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body { font-family: 'Roboto', 'Open Sans', system-ui, sans-serif; background: #fff; color: var(--text); font-size: 14px; }
+.view[hidden], [hidden] { display: none !important; }
+a { color: var(--link); }
+
+/* ─── App shell ──────────────────────────────────────────────────────── */
+.app { display: flex; min-height: 100vh; flex-direction: column; }
+.topnav { background: #fff; border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; align-items: center; gap: 14px; position: sticky; top: 0; z-index: 40; }
+.logo { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.logo .vmark { font-size: 24px; font-weight: 800; font-style: italic; background: linear-gradient(135deg, #e63946 20%, #f77f00 50%, #1976d2 80%); -webkit-background-clip: text; background-clip: text; color: transparent; line-height: 1; }
+.logo .wordmark .l1 { font-size: 15px; color: #4a4a4a; line-height: 1.1; }
+.logo .wordmark .l1 b { color: #333; }
+.logo .wordmark .l2 { font-size: 9.5px; color: #9aa0a6; letter-spacing: .3px; }
+.crumbs { color: #555; font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.crumbs .sl { color: #b7bcc2; }
+.crumbs a { color: #555; text-decoration: none; cursor: pointer; }
+.crumbs a:hover { color: var(--link); text-decoration: underline; }
+.crumbs .here { color: #333; }
+.topnav .spacer { flex: 1; }
+.pill-search { border: 1px solid var(--border); background: #f4f5f6; border-radius: 6px; padding: 6px 10px; font-size: 12.5px; color: #555; display: flex; align-items: center; gap: 8px; white-space: nowrap; cursor: default; }
+.pill-search kbd { background: #fff; border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 5px; font-size: 11px; color: var(--muted); font-family: inherit; }
+.topnav .icon-link { color: #555; font-size: 13px; white-space: nowrap; cursor: default; }
+.topnav .avatar-sm { width: 26px; height: 26px; border-radius: 50%; background: #e3e6ea; color: #8a939e; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+
+.body-row { display: flex; flex: 1; min-height: 0; }
+.sidenav { width: 202px; background: var(--sidenav-bg); flex-shrink: 0; padding: 16px 0 48px; position: relative; }
+.org { text-align: center; padding: 4px 14px 18px; }
+.org .org-logo { width: 74px; height: 46px; margin: 0 auto 8px; border-radius: 4px; background: linear-gradient(135deg, #f6d8a8, #d9e7f5 60%, #f3c6c6); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #b0653a; letter-spacing: 1px; border: 1px solid #e6d9c4; }
+.org .org-name { font-size: 13px; color: #333; }
+.org .org-sub { font-size: 11.5px; color: #777; margin-top: 2px; }
+.sidenav .nav-gap { height: 18px; }
+.sidenav a.nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 18px; font-size: 13.5px; color: #333; text-decoration: none; cursor: pointer; }
+.sidenav a.nav-item i { width: 18px; text-align: center; color: #4a4a4a; font-size: 14px; }
+.sidenav a.nav-item:hover { background: #e6e6e6; }
+.sidenav a.nav-item.active { background: var(--sidenav-active); }
+.collapse-btn { position: absolute; bottom: 12px; left: 12px; width: 22px; height: 22px; border: 1px solid var(--border-strong); border-radius: 4px; background: #fff; color: var(--muted); font-size: 10px; display: flex; align-items: center; justify-content: center; cursor: default; }
+
+.main { flex: 1; min-width: 0; }
+.page { max-width: 1480px; margin: 0 auto; width: 100%; padding: 22px 26px 72px; }
+.page-title { font-size: 20px; font-weight: 500; color: var(--heading); margin: 0 0 14px; }
+.page-sub { font-size: 13px; color: var(--muted); margin: -6px 0 14px; }
+.backlink { display: inline-flex; align-items: center; gap: 8px; color: var(--link); font-size: 13px; font-weight: 500; background: none; border: none; font-family: inherit; padding: 2px 4px 2px 0; margin-bottom: 10px; cursor: pointer; }
+.backlink:hover { text-decoration: underline; }
+
+/* Info text (Student Exams): what these records are and where they come from */
+.info-note { background: var(--blue-soft); border: 1px solid var(--blue-line); color: #0b5cab; border-radius: 6px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; display: flex; gap: 10px; align-items: flex-start; line-height: 1.5; }
+.info-note i { margin-top: 3px; flex-shrink: 0; }
+
+/* ─── Manage landing (demo hub, placement TBC) ───────────────────────── */
+.hub { border: 1px solid var(--border); border-radius: 6px; max-width: 560px; overflow: hidden; }
+.hub a { display: flex; align-items: center; gap: 12px; padding: 13px 16px; font-size: 14px; color: var(--text); text-decoration: none; cursor: pointer; border-bottom: 1px solid var(--grid-line); }
+.hub a:last-child { border-bottom: none; }
+.hub a:hover { background: #f7f9fb; }
+.hub a i.lead { width: 18px; text-align: center; color: var(--muted); }
+.hub a .chev { margin-left: auto; color: #b7bcc2; font-size: 12px; }
+.hub a.inert { color: var(--muted); cursor: default; }
+.hub a.inert:hover { background: none; }
+
+/* ─── Student Details header + tab row ───────────────────────────────── */
+.sd-card { border: 1px solid var(--border); border-radius: 6px; padding: 18px 20px; display: flex; align-items: flex-start; gap: 16px; margin-bottom: 14px; }
+.sd-avatar { width: 56px; height: 56px; border-radius: 50%; background: #e9ebee; color: #aab2bb; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+.sd-name { font-size: 15px; font-weight: 700; color: #222; }
+.sd-meta { font-size: 13px; color: #555; margin-top: 3px; line-height: 1.5; }
+.sd-card .spacer { flex: 1; }
+.btn-impersonate { display: inline-flex; align-items: stretch; border-radius: 4px; overflow: hidden; }
+.btn-impersonate .b-main { background: var(--teal); color: #fff; border: none; font-family: inherit; font-size: 13px; padding: 8px 16px; cursor: default; }
+.btn-impersonate .b-caret { background: var(--teal); color: #fff; border: none; border-left: 1px solid rgba(255,255,255,.45); font-size: 11px; padding: 0 9px; cursor: default; }
+
+.sd-tabs { display: inline-flex; flex-wrap: nowrap; overflow-x: auto; max-width: 100%; border: 1px solid var(--border); border-radius: 4px; margin-bottom: 16px; }
+.sd-tab { padding: 8px 12px; font-size: 13px; color: #555; background: #fff; border: none; border-right: 1px solid var(--grid-line); font-family: inherit; cursor: pointer; white-space: nowrap; }
+.sd-tab:last-child { border-right: none; }
+.sd-tab:hover { color: #222; }
+.sd-tab.active { background: var(--tab-active-bg); color: var(--link); font-weight: 500; }
+.sd-tab.inert { cursor: default; }
+.sd-tab.inert:hover { color: #555; }
+.tab-total { font-size: 14px; font-weight: 700; color: #222; margin: 2px 0 12px; }
+
+/* ─── Power Table ────────────────────────────────────────────────────────
+   Layout of Pathways' newer tables (Organizations, Contacts, Experiences,
+   Student Experience Dashboard): toolbar (Search, Columns, Export), a
+   filter-chip row, the AG Grid body with header filters, and a footer
+   with Rows per page + paging. One bordered container holds all of it. */
+.ptable { border: 1px solid var(--border); border-radius: 6px; background: #fff; overflow: hidden; }
+.pt-toolbar { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.pt-toolbar .spacer { flex: 1; }
+.pt-search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--border-strong); border-radius: 4px; padding: 0 10px; height: 34px; width: 280px; max-width: 100%; color: var(--muted); background: #fff; }
+.pt-search:focus-within { border-color: var(--link); box-shadow: 0 0 0 2px rgba(25,118,210,.15); }
+.pt-search input { border: none; outline: none; font-family: inherit; font-size: 13px; color: var(--text); flex: 1; min-width: 0; background: transparent; }
+.pt-btn { height: 34px; border: 1px solid var(--border-strong); background: #fff; border-radius: 4px; padding: 0 12px; font-family: inherit; font-size: 13px; color: #333; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; white-space: nowrap; }
+.pt-btn:hover { background: #f5f7fa; }
+.pt-btn .caret { font-size: 10px; color: var(--muted); }
+.pt-extra { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.pt-extra select { height: 34px; font-family: inherit; font-size: 13px; color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; background: #fff; padding: 0 8px; }
+
+/* Filter-chip row: section / teacher pre-filters */
+.pt-chips { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; background: #fcfcfd; }
+.pt-chips .lab { font-size: 12.5px; color: var(--muted); margin-right: 2px; display: inline-flex; align-items: center; gap: 6px; }
+.fchip { display: inline-flex; align-items: center; height: 28px; border: 1px solid var(--border-strong); border-radius: 999px; background: #fff; font-family: inherit; font-size: 12.5px; color: #333; overflow: hidden; }
+.fchip button { height: 100%; border: none; background: none; font: inherit; color: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; }
+.fchip button:hover { background: #f3f5f8; }
+.fchip .caret { font-size: 9.5px; color: var(--muted); }
+.fchip.on { background: var(--tab-active-bg); border-color: var(--blue-line); color: var(--link-strong); }
+.fchip.on button:hover { background: #d9e9f8; }
+.fchip.on .val { font-weight: 500; }
+.fchip .x { padding: 0 10px 0 4px; font-size: 11px; }
+.chip-clear { background: none; border: none; color: var(--link); font-family: inherit; font-size: 12.5px; cursor: pointer; padding: 0 4px; }
+.chip-clear:hover { text-decoration: underline; }
+
+.grid-scroll { overflow-x: auto; }
+table.grid { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.grid th { text-align: left; font-size: 12.5px; font-weight: 500; color: #333; background: var(--grid-header-bg); border-bottom: 1px solid var(--border); border-right: 1px solid #ececec; padding: 0; white-space: nowrap; }
+table.grid th:last-child { border-right: none; }
+.th-inner { display: flex; align-items: center; gap: 6px; padding: 10px 12px; }
+.th-lab { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; user-select: none; }
+.th-lab:hover { color: #000; }
+.th-lab .sort-ico { font-size: 11px; color: #555; }
+.funnel { margin-left: auto; background: none; border: none; color: #9aa0a6; font-size: 11px; cursor: pointer; padding: 3px 4px; border-radius: 3px; }
+.funnel:hover { color: #555; background: #ededed; }
+.funnel.on { color: var(--link); }
+table.grid td { padding: 11px 12px; border-bottom: 1px solid var(--grid-line); vertical-align: middle; }
+table.grid tbody tr:last-child td { border-bottom: none; }
+table.grid tbody tr:hover td { background: #fafbfd; }
+table.grid a.cell-link { color: var(--link); text-decoration: none; cursor: pointer; }
+table.grid a.cell-link:hover { text-decoration: underline; color: var(--link-strong); }
+.cell-muted { color: var(--muted); }
+.score-fail { color: var(--red); }
+.no-rows { text-align: center; color: #888; font-size: 13px; padding: 80px 16px; }
+.tag-archived { display: inline-block; font-size: 10.5px; font-weight: 500; color: var(--muted); background: var(--gray-soft); border: 1px solid var(--gray-line); border-radius: 3px; padding: 0 6px; margin-left: 8px; vertical-align: 1px; }
+
+/* Status pills inside cells (Complete / In Progress / Withdrawn) */
+.status { display: inline-block; font-size: 11.5px; font-weight: 500; border-radius: 999px; padding: 1px 10px; white-space: nowrap; }
+.status.complete { color: var(--green); background: var(--green-soft); border: 1px solid var(--green-line); }
+.status.inprogress { color: var(--link-strong); background: var(--blue-soft); border: 1px solid var(--blue-line); }
+.status.withdrawn { color: var(--muted); background: var(--gray-soft); border: 1px solid var(--gray-line); }
+
+.pt-foot { display: flex; align-items: center; justify-content: flex-end; gap: 18px; padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.pt-foot select { font-family: inherit; font-size: 12.5px; color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; background: #fff; padding: 3px 6px; margin-left: 6px; }
+.pt-foot .pager { display: inline-flex; align-items: center; gap: 6px; }
+.pager-btn { width: 28px; height: 28px; border: 1px solid var(--border-strong); background: #fff; border-radius: 4px; color: var(--text); cursor: pointer; font-size: 11px; }
+.pager-btn:hover:not(:disabled) { background: #f3f5f8; }
+.pager-btn:disabled { opacity: .4; cursor: default; }
+
+/* Popups: header filter (funnel), chip option list, Columns picker */
+.filter-pop, .menu-pop { position: fixed; background: #fff; border: 1px solid var(--border-strong); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.14); z-index: 300; display: none; }
+.filter-pop { padding: 10px; width: 210px; }
+.filter-pop select, .filter-pop input { width: 100%; font-family: inherit; font-size: 12.5px; color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; background: #fff; padding: 6px 8px; }
+.filter-pop select { margin-bottom: 8px; }
+.pop-foot { display: flex; justify-content: flex-end; margin-top: 8px; }
+.pop-clear { background: none; border: none; color: var(--link); font-size: 12px; font-family: inherit; cursor: pointer; padding: 0; }
+.pop-clear:hover { text-decoration: underline; }
+.menu-pop { min-width: 230px; max-height: 340px; overflow-y: auto; padding: 6px 0; }
+.menu-pop .m-title { font-size: 12px; font-weight: 500; color: var(--muted); padding: 6px 14px 4px; }
+.menu-pop label { display: flex; align-items: center; gap: 10px; padding: 7px 14px; font-size: 13px; color: var(--text); cursor: pointer; }
+.menu-pop label:hover { background: #f5f7fa; }
+.menu-pop label.locked { color: var(--muted); cursor: default; }
+.menu-pop label.locked:hover { background: none; }
+.menu-pop label .ct { margin-left: auto; color: var(--muted); font-size: 12px; }
+.menu-pop .m-foot { border-top: 1px solid var(--grid-line); margin-top: 6px; padding: 8px 14px 4px; display: flex; justify-content: flex-end; }
+
+@media (max-width: 900px) {
+    .sidenav { display: none; }
+    .pt-search { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+    <!-- ============ Top bar (matches live platform) ============ -->
+    <div class="topnav">
+        <div class="logo">
+            <span class="vmark">V</span>
+            <span class="wordmark">
+                <div class="l1">Vector<b>Solutions</b></div>
+                <div class="l2">Vector Pathways</div>
+            </span>
+        </div>
+        <div class="crumbs" id="crumbs"></div>
+        <div class="spacer"></div>
+        <div class="pill-search"><i class="fa-solid fa-table-cells-large"></i> Navigation/Search <kbd>&#8984;K</kbd></div>
+        <span class="icon-link"><i class="fa-solid fa-filter"></i></span>
+        <span class="icon-link">Go to Resources</span>
+        <span class="icon-link"><i class="fa-regular fa-circle-question"></i></span>
+        <span class="avatar-sm"><i class="fa-solid fa-user"></i></span>
+    </div>
+
+    <div class="body-row">
+        <!-- ============ Sidenav (matches live platform) ============ -->
+        <nav class="sidenav">
+            <div class="org">
+                <div class="org-logo">CTE</div>
+                <div class="org-name">CTE District</div>
+                <div class="org-sub">District Administrator</div>
+                <div class="org-sub">Andy Xia</div>
+            </div>
+            <a class="nav-item" data-nav="dashboard"><i class="fa-solid fa-house"></i> Admin Dashboard</a>
+            <a class="nav-item" data-nav="experiences"><i class="fa-regular fa-compass"></i> Experiences</a>
+            <div class="nav-gap"></div>
+            <a class="nav-item" data-nav="create"><i class="fa-solid fa-circle-plus"></i> Create</a>
+            <a class="nav-item" data-nav="manage" onclick="showView('manage-home')"><i class="fa-solid fa-play"></i> Manage</a>
+            <div class="nav-gap"></div>
+            <a class="nav-item" data-nav="data"><i class="fa-solid fa-database"></i> Data Center</a>
+            <a class="nav-item" data-nav="edu"><i class="fa-solid fa-book-open"></i> Edu &amp; Career Planning</a>
+            <div class="nav-gap"></div>
+            <a class="nav-item" data-nav="settings"><i class="fa-solid fa-gear"></i> Settings</a>
+            <div class="collapse-btn"><i class="fa-solid fa-arrow-left"></i></div>
+        </nav>
+
+        <div class="main">
+        <div class="page">
+
+            <!-- ════════ Manage landing: demo hub so the flow is navigable ════════ -->
+            <div class="view" id="view-manage-home" hidden>
+                <h1 class="page-title">Manage</h1>
+                <div class="hub">
+                    <a onclick="openStudent('Emily','Growler')"><i class="fa-solid fa-user-group lead"></i> Stakeholders <span class="chev"><i class="fa-solid fa-chevron-right"></i></span></a>
+                    <a onclick="openCourseList()"><i class="fa-solid fa-book-open lead"></i> Student Courses <span class="chev"><i class="fa-solid fa-chevron-right"></i></span></a>
+                    <a onclick="showView('manage-exams')"><i class="fa-solid fa-file-pen lead"></i> Student Exams <span class="chev"><i class="fa-solid fa-chevron-right"></i></span></a>
+                    <a class="inert"><i class="fa-solid fa-file-lines lead"></i> Forms</a>
+                    <a class="inert"><i class="fa-solid fa-layer-group lead"></i> Experience Templates</a>
+                </div>
+            </div>
+
+            <!-- ════════ Student Details (profile) with Courses / Exams tabs ════════ -->
+            <div class="view" id="view-profile" hidden>
+                <h1 class="page-title">Student Details</h1>
+                <div class="sd-card">
+                    <div class="sd-avatar"><i class="fa-solid fa-user"></i></div>
+                    <div>
+                        <div class="sd-name" id="sd-name"></div>
+                        <div class="sd-meta" id="sd-meta"></div>
+                    </div>
+                    <div class="spacer"></div>
+                    <span class="btn-impersonate">
+                        <button class="b-main">Impersonate</button>
+                        <button class="b-caret"><i class="fa-solid fa-caret-down"></i></button>
+                    </span>
+                </div>
+
+                <!-- Existing Student Details tab row with Courses and Exams added.
+                     Test Scores remains: separate existing feature. -->
+                <div class="sd-tabs" id="sd-tabs"></div>
+
+                <div class="tabpanel" id="panel-courses">
+                    <div class="tab-total" id="pc-total"></div>
+                    <div data-grid="pc"></div>
+                </div>
+                <div class="tabpanel" id="panel-exams" hidden>
+                    <div class="tab-total" id="pe-total"></div>
+                    <div data-grid="pe"></div>
+                </div>
+            </div>
+
+            <!-- ════════ Manage > Student Courses
+                 One page, one table. Clicking a course reloads the table scoped
+                 to that course (all enrolled students, all sections). ════════ -->
+            <div class="view" id="view-manage-courses" hidden>
+                <button class="backlink" id="mc-back" onclick="openCourseList()" hidden><i class="fa-solid fa-arrow-left"></i> All courses</button>
+                <h1 class="page-title" id="mc-title">Student Courses</h1>
+                <div class="page-sub" id="mc-sub"></div>
+                <div id="mc-list-wrap"><div data-grid="mc"></div></div>
+                <div id="mc-scope-wrap" hidden><div data-grid="cd"></div></div>
+            </div>
+
+            <!-- ════════ Manage > Student Exams ════════ -->
+            <div class="view" id="view-manage-exams" hidden>
+                <h1 class="page-title">Student Exams</h1>
+                <div class="info-note">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Student exams are school, district, and state-level exams synced from your student information system (SIS). They are not tests given inside a course. Only completed exam records are shown.</span>
+                </div>
+                <div data-grid="me"></div>
+            </div>
+
+            <!-- ════════ Exam view: students with a completed record ════════ -->
+            <div class="view" id="view-exam-detail" hidden>
+                <button class="backlink" onclick="showView('manage-exams')"><i class="fa-solid fa-arrow-left"></i> All exams</button>
+                <h1 class="page-title" id="ed-title"></h1>
+                <div class="page-sub" id="ed-sub"></div>
+                <div data-grid="ed"></div>
+            </div>
+
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- Header filter popup (one instance, anchored to the active funnel) -->
+<div class="filter-pop" id="filter-pop">
+    <select id="fp-op" onchange="fpChanged()">
+        <option value="contains">Contains</option>
+        <option value="equals">Equals</option>
+        <option value="gte">Greater than or equal</option>
+        <option value="lte">Less than or equal</option>
+    </select>
+    <input id="fp-val" type="text" placeholder="Filter..." oninput="fpChanged()">
+    <div class="pop-foot"><button class="pop-clear" onclick="fpClear()">Clear</button></div>
+</div>
+
+<!-- Shared menu popup: filter-chip options and the Columns picker -->
+<div class="menu-pop" id="menu-pop"></div>
+
+<script>
+// ═════════════════════════════════════════════════════════════════════════
+// Demo data. Rosters generate deterministically from the record id so the
+// mock stays stable between loads (no randomness).
+// ═════════════════════════════════════════════════════════════════════════
+
+const SCHOOL = 'Acero-Garcia High School';
+const UPLOAD_BATCHES = ['07/22/2026', '07/25/2026', '07/28/2026'];
+
+// Courses split into sections; sections drive rosters.
+const COURSES = [
+    { id: 'alg2h', name: 'Algebra II (Honors)',                     students: 28,  classification: 'Honors',             gradeBase: 10, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Ms. Jones' }, { period: 'Period 4', teacher: 'Ms. Jones' } ] },
+    { id: 'alg2',  name: 'Algebra II',                              students: 63,  classification: 'General Education',  gradeBase: 10, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 2', teacher: 'Mr. Delgado' }, { period: 'Period 5', teacher: 'Ms. Whitfield' }, { period: 'Period 7', teacher: 'Mr. Delgado' } ] },
+    { id: 'apush', name: 'AP US History',                           students: 24,  classification: 'Advanced Placement', gradeBase: 11, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 3', teacher: 'Ms. Chen' } ] },
+    { id: 'chemh', name: 'Chemistry (Honors)',                      students: 31,  classification: 'Honors',             gradeBase: 10, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Mr. Novak' }, { period: 'Period 6', teacher: 'Mr. Novak' } ] },
+    { id: 'chem',  name: 'Chemistry',                               students: 84,  classification: 'General Education',  gradeBase: 10, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 2', teacher: 'Mr. Novak' }, { period: 'Period 5', teacher: 'Ms. Foster' } ] },
+    { id: 'health',name: 'Health',                                  students: 156, classification: 'General Education',  gradeBase: 9,  gradeSpan: 2, scoreType: 'passfail',
+      sections: [ { period: 'Period 3', teacher: 'Ms. Barnes' }, { period: 'Period 7', teacher: 'Mr. Vaughn' } ] },
+    { id: 'eng11', name: 'English 11',                              students: 118, classification: 'General Education',  gradeBase: 11, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Ms. Brooks' }, { period: 'Period 2', teacher: 'Ms. Brooks' }, { period: 'Period 4', teacher: 'Mr. Reyes' }, { period: 'Period 6', teacher: 'Ms. Sullivan' }, { period: 'Period 8', teacher: 'Mr. Reyes' } ] },
+    { id: 'ghg1',  name: 'Global History & Geography I',            students: 108, classification: 'General Education',  gradeBase: 9,  gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Mr. Foster' }, { period: 'Period 3', teacher: 'Ms. Kim' }, { period: 'Period 5', teacher: 'Mr. Foster' }, { period: 'Period 7', teacher: 'Ms. Kim' } ] },
+    { id: 'ghg2',  name: 'Global History & Geography II',           students: 104, classification: 'General Education',  gradeBase: 10, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 2', teacher: 'Ms. Torres' }, { period: 'Period 4', teacher: 'Mr. Price' }, { period: 'Period 6', teacher: 'Ms. Torres' }, { period: 'Period 8', teacher: 'Mr. Price' } ] },
+    { id: 'pig',   name: 'Participation in Government & Economics', students: 96,  classification: 'General Education',  gradeBase: 11, gradeSpan: 2, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Mr. Quinn' }, { period: 'Period 3', teacher: 'Mr. Quinn' }, { period: 'Period 5', teacher: 'Ms. Haddad' }, { period: 'Period 7', teacher: 'Ms. Haddad' } ] },
+    { id: 'pe',    name: 'Physical Education',                      students: 210, classification: 'General Education',  gradeBase: 9,  gradeSpan: 4, scoreType: 'passfail',
+      sections: [ { period: 'Period 1', teacher: 'Coach Ivanov' }, { period: 'Period 2', teacher: 'Coach Ivanov' }, { period: 'Period 3', teacher: 'Coach Mercado' }, { period: 'Period 5', teacher: 'Coach Mercado' }, { period: 'Period 6', teacher: 'Coach Yang' }, { period: 'Period 8', teacher: 'Coach Yang' } ] },
+    { id: 'ush',   name: 'US History & Government',                 students: 112, classification: 'General Education',  gradeBase: 11, gradeSpan: 1, scoreType: 'numeric',
+      sections: [ { period: 'Period 1', teacher: 'Ms. Alvarez' }, { period: 'Period 2', teacher: 'Ms. Alvarez' }, { period: 'Period 4', teacher: 'Mr. Okafor' }, { period: 'Period 6', teacher: 'Mr. Okafor' } ] },
+];
+
+// Exams are school / district / state-level, synced from the SIS. Score
+// type comes from the exam definition: numeric, passfail, rubric (0 to
+// rubricMax) or letter.
+const EXAMS = [
+    { id: 'x-alg1',  name: 'NY Regents: Algebra I',                          category: 'Regents_Math',       students: 122, classification: 'General Education', gradeBase: 9,  gradeSpan: 2, scoreType: 'numeric'  },
+    { id: 'x-alg2h', name: 'NY Regents: Algebra II',                         category: 'Regents_Math',       students: 54,  classification: 'Honors',            gradeBase: 10, gradeSpan: 2, scoreType: 'numeric'  },
+    { id: 'x-cte',   name: 'CTE Technical Assessment: Hospitality',          category: 'CTE_Assessment',     students: 36,  classification: 'General Education', gradeBase: 10, gradeSpan: 3, scoreType: 'passfail' },
+    { id: 'x-wri',   name: 'District Writing Benchmark: Argumentative Essay', category: 'District_Writing',   students: 140, classification: 'General Education', gradeBase: 9,  gradeSpan: 4, scoreType: 'rubric', rubricMax: 6 },
+    { id: 'x-bil',   name: 'Seal of Biliteracy: Oral Proficiency',           category: 'Seal_Biliteracy',    students: 42,  classification: 'General Education', gradeBase: 11, gradeSpan: 2, scoreType: 'rubric', rubricMax: 5 },
+    { id: 'x-spa',   name: 'World Language Checkpoint: Spanish II',          category: 'District_WorldLang', students: 88,  classification: 'General Education', gradeBase: 9,  gradeSpan: 3, scoreType: 'letter'   },
+    { id: 'x-ela',   name: 'NY Regents: English Language Arts',              category: 'Regents_ELA',        students: 118, classification: 'General Education', gradeBase: 11, gradeSpan: 1, scoreType: 'numeric'  },
+    { id: 'x-ghg2',  name: 'NY Regents: Global History & Geography II',      category: 'Regents_SS',         students: 104, classification: 'General Education', gradeBase: 10, gradeSpan: 1, scoreType: 'numeric'  },
+    { id: 'x-liv',   name: 'NY Regents: Living Environment',                 category: 'Regents_Science',    students: 101, classification: 'General Education', gradeBase: 9,  gradeSpan: 2, scoreType: 'numeric'  },
+    { id: 'x-ush',   name: 'NY Regents: US History & Government',            category: 'Regents_SS',         students: 96,  classification: 'General Education', gradeBase: 11, gradeSpan: 1, scoreType: 'numeric'  },
+];
+
+const FIRST = ['Emily','Noah','Olivia','Liam','Ava','Mateo','Sophia','Jackson','Isabella','Ethan','Mia','Lucas','Amelia','Aiden','Harper','Caleb','Zoe','Daniel','Layla','Owen','Priya','Marcus','Nina','Diego','Grace','Tyler','Jasmine','Cole'];
+const LAST  = ['Growler','Acosta','Chen','Patel','Robinson','Nguyen','Kowalski','Barnes','Delgado','Foster','Haddad','Ivanov','Jefferson','Kim','Lombardi','Mercado','Novak','Okafor','Price','Quinn','Reyes','Sullivan','Torres','Underwood','Vaughn','Whitfield','Yang','Zimmerman'];
+const STATUS_PATTERN = ['complete','complete','complete','inprogress','complete','complete','withdrawn','complete','inprogress','complete','complete','complete'];
+const STATUS_LABEL = { complete: 'Complete', inprogress: 'In Progress', withdrawn: 'Withdrawn' };
+const RUBRIC_PATTERN = [4, 3, 5, 4, 2, 6, 3, 4, 5, 1, 4, 3];
+const LETTER_PATTERN = ['A', 'B+', 'B', 'A-', 'C+', 'B', 'B-', 'C', 'A', 'D', 'B+', 'F'];
+
+// Emily pinned into her profile-relevant rosters so the story is consistent.
+const PINNED = {
+    'ush': { first: 'Emily', last: 'Growler', status: 'complete',   grade: 11, score: '87', archived: false, secIdx: 0, uploadDate: '07/22/2026' },
+    'pig': { first: 'Emily', last: 'Growler', status: 'inprogress', grade: 11, score: '–',  archived: false, secIdx: 0, uploadDate: '07/28/2026' },
+};
+
+function hashId(s) {
+    let h = 7;
+    for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 997;
+    return h;
+}
+
+// Score for one completed record, by the item's score type.
+function scoreFor(item, h, i) {
+    if (item.scoreType === 'passfail') return ((h + i * 3) % 11) === 7 ? 'Fail' : 'Pass';
+    if (item.scoreType === 'rubric')   return Math.min(item.rubricMax, RUBRIC_PATTERN[(h + i * 7) % RUBRIC_PATTERN.length]) + ' / ' + item.rubricMax;
+    if (item.scoreType === 'letter')   return LETTER_PATTERN[(h + i * 5) % LETTER_PATTERN.length];
+    return String(66 + ((h + i * 17) % 33));
+}
+
+// Deterministic roster for a course or exam record.
+const rosterCache = {};
+function rosterFor(item) {
+    if (rosterCache[item.id]) return rosterCache[item.id];
+    const h = hashId(item.id);
+    const rows = [];
+    for (let i = 0; i < item.students; i++) {
+        const status = STATUS_PATTERN[(h + i) % STATUS_PATTERN.length];
+        rows.push({
+            first: FIRST[(h + i * 9) % FIRST.length],
+            last: LAST[(h * 3 + i * 11) % LAST.length],
+            status: status,
+            grade: item.gradeBase + ((h + i * 5) % item.gradeSpan),
+            score: status === 'complete' ? scoreFor(item, h, i) : '–',
+            archived: ((h + i * 13) % 17) === 4,          // roughly 6% archived
+            secIdx: item.sections ? i % item.sections.length : 0,
+            uploadDate: UPLOAD_BATCHES[(h + i * 7) % UPLOAD_BATCHES.length],
+        });
+    }
+    if (PINNED[item.id]) rows[0] = PINNED[item.id];
+    rosterCache[item.id] = rows;
+    return rows;
+}
+
+// Exams render completed records only.
+function examRoster(item) { return rosterFor(item).filter(r => r.status === 'complete'); }
+
+const esc = s => String(s).replace(/'/g, "\\'");
+const displayName = r => r.last + ', ' + r.first;
+const studentLink = r => '<a class="cell-link" onclick="openStudent(\'' + r.first + '\',\'' + r.last + '\')">' + displayName(r) + '</a>';
+const statusCell = s => '<span class="status ' + s + '">' + STATUS_LABEL[s] + '</span>';
+// Scores: dash when empty, red for a Fail / F so non-numeric results still scan.
+const scoreCell = s => s === '–' ? '<span class="cell-muted">–</span>'
+    : (s === 'Fail' || s === 'F') ? '<span class="score-fail">' + s + '</span>' : s;
+const archTag = (r, selId) => (document.getElementById(selId).value !== 'unarchived' && r.archived) ? '<span class="tag-archived">Archived</span>' : '';
+
+// ═════════════════════════════════════════════════════════════════════════
+// Power Table engine: search, filter chips, column-header filters, sort,
+// column visibility, paging. One config per table; the shell is mounted
+// once into <div data-grid="id">, then renderGrid() redraws chips, body
+// and footer (the search box keeps focus while typing).
+// ═════════════════════════════════════════════════════════════════════════
+const GRIDS = {};
+function defineGrid(id, cfg) {
+    GRIDS[id] = { id, cfg, sort: null, filters: {}, chips: {}, search: '', page: 0, pageSize: 25,
+                  hidden: new Set(cfg.columns.filter(c => c.hidden).map(c => c.key)) };
+    const host = document.querySelector('[data-grid="' + id + '"]');
+    host.innerHTML =
+        '<div class="ptable">' +
+            '<div class="pt-toolbar">' +
+                '<label class="pt-search"><i class="fa-solid fa-magnifying-glass"></i>' +
+                    '<input id="' + id + '-search" type="search" placeholder="' + (cfg.searchPlaceholder || 'Search') + '" oninput="searchGrid(\'' + id + '\', this.value)"></label>' +
+                (cfg.toolbarExtra || '') +
+                '<span class="spacer"></span>' +
+                '<button class="pt-btn" onclick="openColumns(this,\'' + id + '\')"><i class="fa-solid fa-table-columns"></i> Columns <i class="fa-solid fa-chevron-down caret"></i></button>' +
+                '<button class="pt-btn"><i class="fa-solid fa-download"></i> Export</button>' +
+            '</div>' +
+            (cfg.chips ? '<div class="pt-chips" id="' + id + '-chips"></div>' : '') +
+            '<div class="grid-scroll"><table class="grid" id="' + id + '-table"></table></div>' +
+            '<div class="pt-foot" id="' + id + '-foot"></div>' +
+        '</div>';
+}
+
+function fmatch(op, val, cell) {
+    const s = String(cell).toLowerCase(), v = String(val).toLowerCase();
+    if (op === 'contains') return s.includes(v);
+    if (op === 'equals') return s === v;
+    const n = parseFloat(cell), m = parseFloat(val);
+    if (isNaN(n) || isNaN(m)) return false;
+    return op === 'gte' ? n >= m : n <= m;
+}
+
+const visibleCols = g => g.cfg.columns.filter(c => !g.hidden.has(c.key));
+const chipSet = (g, key) => g.chips[key] || (g.chips[key] = new Set());
+
+// Rows after chips + search + header filters, before sort / paging.
+function filteredRows(g, skipChip) {
+    let rows = g.cfg.rows();
+    (g.cfg.chips || []).forEach(ch => {
+        const set = chipSet(g, ch.key);
+        if (ch.key !== skipChip && set.size) rows = rows.filter(r => ch.match(r, set));
+    });
+    if (g.search) {
+        const q = g.search.toLowerCase();
+        rows = rows.filter(r => visibleCols(g).some(c => String(c.val(r)).toLowerCase().includes(q)));
+    }
+    for (const key in g.filters) {
+        const f = g.filters[key];
+        if (!f || f.val === '') continue;
+        const col = g.cfg.columns.find(c => c.key === key);
+        rows = rows.filter(r => fmatch(f.op, f.val, col.val(r)));
+    }
+    return rows;
+}
+
+function gridRows(g) {
+    let rows = filteredRows(g);
+    if (g.sort) {
+        const col = g.cfg.columns.find(c => c.key === g.sort.key);
+        const dir = g.sort.dir;
+        rows = [...rows].sort((a, b) => {
+            const av = col.val(a), bv = col.val(b);
+            const an = parseFloat(av), bn = parseFloat(bv);
+            const cmp = (!isNaN(an) && !isNaN(bn)) ? an - bn : String(av).localeCompare(String(bv));
+            return dir === 'asc' ? cmp : -cmp;
+        });
+    }
+    return rows;
+}
+
+function renderChips(g) {
+    const el = document.getElementById(g.id + '-chips');
+    if (!el) return;
+    let any = false;
+    const html = g.cfg.chips.map(ch => {
+        const set = chipSet(g, ch.key);
+        if (!set.size) return '<span class="fchip"><button onclick="openChip(this,\'' + g.id + '\',\'' + ch.key + '\')">' + ch.label + ' <i class="fa-solid fa-chevron-down caret"></i></button></span>';
+        any = true;
+        const opts = ch.options();
+        const picked = opts.filter(o => set.has(o.value));
+        const val = picked.length === 1 ? picked[0].label : picked.length + ' selected';
+        return '<span class="fchip on"><button onclick="openChip(this,\'' + g.id + '\',\'' + ch.key + '\')">' + ch.label + ': <span class="val">' + val + '</span> <i class="fa-solid fa-chevron-down caret"></i></button>' +
+               '<button class="x" title="Remove filter" onclick="clearChip(\'' + g.id + '\',\'' + ch.key + '\')"><i class="fa-solid fa-xmark"></i></button></span>';
+    }).join('');
+    el.innerHTML = '<span class="lab"><i class="fa-solid fa-filter"></i> Filter by</span>' + html +
+        (any ? '<button class="chip-clear" onclick="clearAllChips(\'' + g.id + '\')">Clear all</button>' : '');
+}
+
+function renderGrid(id) {
+    const g = GRIDS[id];
+    const rows = gridRows(g);
+    const cols = visibleCols(g);
+    renderChips(g);
+
+    // Header: label (click to sort), sort arrow, funnel (opens filter popup)
+    let html = '<thead><tr>' + cols.map(c => {
+        const sorted = g.sort && g.sort.key === c.key;
+        const arrow = sorted ? '<i class="fa-solid fa-arrow-' + (g.sort.dir === 'asc' ? 'up' : 'down') + '-long sort-ico"></i>' : '';
+        const active = g.filters[c.key] && g.filters[c.key].val !== '';
+        const funnel = c.noFilter ? '' :
+            '<button class="funnel' + (active ? ' on' : '') + '" onclick="openFilter(this,\'' + id + '\',\'' + c.key + '\')" title="Filter"><i class="fa-solid fa-filter"></i></button>';
+        const lab = c.noSort ? '<span>' + c.label + '</span>' :
+            '<span class="th-lab" onclick="sortGrid(\'' + id + '\',\'' + c.key + '\')">' + c.label + ' ' + arrow + '</span>';
+        return '<th' + (c.width ? ' style="width:' + c.width + '"' : '') + '><span class="th-inner">' + lab + funnel + '</span></th>';
+    }).join('') + '</tr></thead>';
+
+    const maxPage = Math.max(0, Math.ceil(rows.length / g.pageSize) - 1);
+    g.page = Math.min(g.page, maxPage);
+    const start = g.page * g.pageSize;
+    const slice = rows.slice(start, start + g.pageSize);
+    html += '<tbody>' + (slice.length
+        ? slice.map(r => '<tr>' + cols.map(c => '<td>' + c.cell(r) + '</td>').join('') + '</tr>').join('')
+        : '<tr><td colspan="' + cols.length + '"><div class="no-rows">No Rows To Show</div></td></tr>') + '</tbody>';
+    document.getElementById(id + '-table').innerHTML = html;
+
+    // Footer: Rows per page + range + pager
+    document.getElementById(id + '-foot').innerHTML =
+        '<label>Rows per page<select onchange="setPageSize(\'' + id + '\', this.value)">' +
+            [10, 25, 50, 100].map(n => '<option' + (n === g.pageSize ? ' selected' : '') + '>' + n + '</option>').join('') +
+        '</select></label>' +
+        '<span>' + (rows.length ? (start + 1) + '–' + (start + slice.length) : 0) + ' of ' + rows.length + '</span>' +
+        '<span class="pager">' +
+            '<button class="pager-btn" title="Previous page" ' + (g.page === 0 ? 'disabled' : '') + ' onclick="pageGrid(\'' + id + '\',-1)"><i class="fa-solid fa-chevron-left"></i></button>' +
+            '<button class="pager-btn" title="Next page" ' + (start + slice.length >= rows.length ? 'disabled' : '') + ' onclick="pageGrid(\'' + id + '\',1)"><i class="fa-solid fa-chevron-right"></i></button>' +
+        '</span>';
+
+    if (g.cfg.afterRender) g.cfg.afterRender();
+}
+
+function sortGrid(id, key) {
+    const g = GRIDS[id];
+    if (!g.sort || g.sort.key !== key) g.sort = { key, dir: 'asc' };
+    else if (g.sort.dir === 'asc') g.sort.dir = 'desc';
+    else g.sort = null;
+    renderGrid(id);
+}
+function pageGrid(id, dir) { GRIDS[id].page += dir; renderGrid(id); }
+function setPageSize(id, n) { GRIDS[id].pageSize = +n; GRIDS[id].page = 0; renderGrid(id); }
+function searchGrid(id, q) { GRIDS[id].search = q.trim(); GRIDS[id].page = 0; renderGrid(id); }
+function resetGrid(id) {
+    const g = GRIDS[id];
+    g.sort = null; g.filters = {}; g.chips = {}; g.search = ''; g.page = 0;
+    document.getElementById(id + '-search').value = '';
+}
+
+// ── Header filter popup ──
+const pop = document.getElementById('filter-pop');
+let popTarget = null;   // { gridId, key }
+function placePop(el, btn, w) {
+    const r = btn.getBoundingClientRect();
+    let left = r.left;
+    if (left + w > window.innerWidth - 10) left = window.innerWidth - w - 10;
+    el.style.top = (r.bottom + 6) + 'px';
+    el.style.left = Math.max(10, left) + 'px';
+}
+function openFilter(btn, gridId, key) {
+    closeMenu();
+    const cur = GRIDS[gridId].filters[key] || { op: 'contains', val: '' };
+    popTarget = { gridId, key };
+    document.getElementById('fp-op').value = cur.op;
+    document.getElementById('fp-val').value = cur.val;
+    pop.style.display = 'block';
+    placePop(pop, btn, 210);
+    document.getElementById('fp-val').focus();
+}
+function fpChanged() {
+    if (!popTarget) return;
+    GRIDS[popTarget.gridId].filters[popTarget.key] = {
+        op: document.getElementById('fp-op').value,
+        val: document.getElementById('fp-val').value.trim(),
+    };
+    GRIDS[popTarget.gridId].page = 0;
+    renderGrid(popTarget.gridId);
+}
+function fpClear() {
+    if (!popTarget) return;
+    delete GRIDS[popTarget.gridId].filters[popTarget.key];
+    renderGrid(popTarget.gridId);
+    closePop();
+}
+function closePop() { pop.style.display = 'none'; popTarget = null; }
+
+// ── Menu popup: filter-chip options (multi-select) and Columns picker ──
+const menu = document.getElementById('menu-pop');
+let menuTarget = null;  // { gridId, kind: 'chip'|'cols', key, btn }
+function closeMenu() { menu.style.display = 'none'; menuTarget = null; }
+
+function openChip(btn, gridId, key) {
+    closePop();
+    menuTarget = { gridId, kind: 'chip', key };
+    drawChipMenu();
+    menu.style.display = 'block';
+    placePop(menu, btn, 240);
+}
+function drawChipMenu() {
+    const g = GRIDS[menuTarget.gridId];
+    const ch = g.cfg.chips.find(c => c.key === menuTarget.key);
+    const set = chipSet(g, ch.key);
+    // Counts reflect every other active filter, so options show what you'd get.
+    const base = filteredRows(g, ch.key);
+    menu.innerHTML = '<div class="m-title">' + ch.label + '</div>' +
+        ch.options().map(o =>
+            '<label><input type="checkbox" ' + (set.has(o.value) ? 'checked' : '') + ' onchange="toggleChip(\'' + esc(o.value) + '\', this.checked)"> ' + o.label +
+            '<span class="ct">' + base.filter(r => ch.match(r, new Set([o.value]))).length + '</span></label>'
+        ).join('') +
+        '<div class="m-foot"><button class="pop-clear" onclick="clearChip(\'' + g.id + '\',\'' + ch.key + '\')">Clear</button></div>';
+}
+function toggleChip(value, on) {
+    const g = GRIDS[menuTarget.gridId];
+    const set = chipSet(g, menuTarget.key);
+    on ? set.add(value) : set.delete(value);
+    g.page = 0;
+    renderGrid(g.id);
+    drawChipMenu();
+}
+function clearChip(gridId, key) { GRIDS[gridId].chips[key] = new Set(); GRIDS[gridId].page = 0; closeMenu(); renderGrid(gridId); }
+function clearAllChips(gridId) { GRIDS[gridId].chips = {}; GRIDS[gridId].page = 0; closeMenu(); renderGrid(gridId); }
+
+function openColumns(btn, gridId) {
+    closePop();
+    menuTarget = { gridId, kind: 'cols' };
+    drawColumnsMenu();
+    menu.style.display = 'block';
+    const r = btn.getBoundingClientRect();
+    menu.style.top = (r.bottom + 6) + 'px';
+    menu.style.left = Math.max(10, r.right - 240) + 'px';
+}
+function drawColumnsMenu() {
+    const g = GRIDS[menuTarget.gridId];
+    menu.innerHTML = '<div class="m-title">Show columns</div>' +
+        g.cfg.columns.map(c => c.lockVisible
+            ? '<label class="locked"><input type="checkbox" checked disabled> ' + c.label + '</label>'
+            : '<label><input type="checkbox" ' + (g.hidden.has(c.key) ? '' : 'checked') + ' onchange="toggleCol(\'' + c.key + '\', this.checked)"> ' + c.label + '</label>'
+        ).join('');
+}
+function toggleCol(key, on) {
+    const g = GRIDS[menuTarget.gridId];
+    on ? g.hidden.delete(key) : g.hidden.add(key);
+    renderGrid(g.id);
+}
+
+document.addEventListener('mousedown', e => {
+    if (pop.style.display === 'block' && !e.target.closest('.filter-pop') && !e.target.closest('.funnel')) closePop();
+    if (menu.style.display === 'block' && !e.target.closest('.menu-pop') && !e.target.closest('.fchip') && !e.target.closest('.pt-btn')) closeMenu();
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Views + breadcrumb. Breadcrumbs show where a page sits in the Pathways
+// hierarchy, never the path taken to reach it.
+// ═════════════════════════════════════════════════════════════════════════
+const crumbsEl = document.getElementById('crumbs');
+function setCrumbs(parts) {
+    let html = '<i class="fa-solid fa-house"></i>';
+    parts.forEach((p, i) => {
+        html += '<span class="sl">/</span>';
+        html += (i === parts.length - 1)
+            ? '<span class="here">' + p.label + '</span>'
+            : (p.go ? '<a onclick="' + p.go + '">' + p.label + '</a>' : '<span>' + p.label + '</span>');
+    });
+    crumbsEl.innerHTML = html;
+}
+const MANAGE = { label: 'Manage', go: "showView('manage-home')" };
+
+function showView(id) {
+    document.querySelectorAll('.view').forEach(v => v.hidden = (v.id !== 'view-' + id));
+    document.querySelectorAll('.sidenav a.nav-item').forEach(a => a.classList.toggle('active', a.dataset.nav === 'manage'));
+    closePop(); closeMenu();
+    if (id === 'manage-home')  setCrumbs([{ label: 'Manage' }]);
+    if (id === 'profile')      setCrumbs([MANAGE, { label: 'Stakeholders' }, { label: 'Students' }, { label: 'Details' }]);
+    if (id === 'manage-exams') setCrumbs([MANAGE, { label: 'Student Exams' }]);
+    if (id === 'exam-detail')  setCrumbs([MANAGE, { label: 'Student Exams', go: "showView('manage-exams')" }, { label: currentExam.name }]);
+    window.scrollTo(0, 0);
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Student Details (Student View): header, tab row, per-student records
+// ═════════════════════════════════════════════════════════════════════════
+const SD_TABS = ['Information','Parents','Time Logs','Experiences','Activities','Service','Tasks','Notes','Emails','Forms','Files','Courses','Exams','Test Scores','Career Surveys','Credentials','Badges'];
+let currentStudent = { first: 'Emily', last: 'Growler' };
+let profileTab = 'courses';
+
+// Emily keeps a hand-curated record set; every other student derives from
+// the rosters they appear in.
+const EMILY_COURSES = [
+    { name: 'Participation in Government & Economics', status: 'inprogress', grade: 11, score: '–',    uploadDate: '07/28/2026' },
+    { name: 'English 11',                              status: 'inprogress', grade: 11, score: '–',    uploadDate: '07/28/2026' },
+    { name: 'US History & Government',                 status: 'complete',   grade: 11, score: '87',   uploadDate: '07/22/2026' },
+    { name: 'Algebra II (Honors)',                     status: 'complete',   grade: 10, score: '84',   uploadDate: '07/22/2026' },
+    { name: 'Global History & Geography II',           status: 'complete',   grade: 10, score: '91',   uploadDate: '07/22/2026' },
+    { name: 'Chemistry',                               status: 'withdrawn',  grade: 10, score: '–',    uploadDate: '07/22/2026' },
+    { name: 'Health',                                  status: 'complete',   grade: 10, score: 'Pass', uploadDate: '07/22/2026' },
+    { name: 'Global History & Geography I',            status: 'complete',   grade: 9,  score: '88',   uploadDate: '07/22/2026' },
+    { name: 'Physical Education',                      status: 'complete',   grade: 9,  score: 'Pass', uploadDate: '07/22/2026' },
+];
+// One of each score type: numeric, rubric 0-6, rubric 0-5, letter, pass/fail.
+// In-progress and withdrawn rows are filtered out (exams show completed only).
+const EMILY_EXAMS = [
+    { name: 'NY Regents: US History & Government',            category: 'Regents_SS',         status: 'inprogress', grade: 11, score: '–',     uploadDate: '07/28/2026' },
+    { name: 'NY Regents: English Language Arts',              category: 'Regents_ELA',        status: 'complete',   grade: 11, score: '88',    uploadDate: '07/25/2026' },
+    { name: 'District Writing Benchmark: Argumentative Essay', category: 'District_Writing',   status: 'complete',   grade: 11, score: '5 / 6', uploadDate: '07/25/2026' },
+    { name: 'Seal of Biliteracy: Oral Proficiency',           category: 'Seal_Biliteracy',    status: 'complete',   grade: 11, score: '4 / 5', uploadDate: '07/25/2026' },
+    { name: 'NY Regents: Global History & Geography II',      category: 'Regents_SS',         status: 'complete',   grade: 10, score: '82',    uploadDate: '07/22/2026' },
+    { name: 'World Language Checkpoint: Spanish II',          category: 'District_WorldLang', status: 'complete',   grade: 10, score: 'B+',    uploadDate: '07/22/2026' },
+    { name: 'NY Regents: Living Environment',                 category: 'Regents_Science',    status: 'withdrawn',  grade: 10, score: '–',     uploadDate: '07/22/2026' },
+    { name: 'CTE Technical Assessment: Hospitality',          category: 'CTE_Assessment',     status: 'complete',   grade: 10, score: 'Pass',  uploadDate: '07/22/2026' },
+    { name: 'NY Regents: Algebra I',                          category: 'Regents_Math',       status: 'complete',   grade: 9,  score: '79',    uploadDate: '07/22/2026' },
+];
+
+function isEmily(s) { return s.first === 'Emily' && s.last === 'Growler'; }
+
+function studentCourseRecords(s) {
+    if (isEmily(s)) return EMILY_COURSES;
+    const recs = [];
+    COURSES.forEach(c => {
+        const row = rosterFor(c).find(r => r.first === s.first && r.last === s.last);
+        if (row) recs.push({ name: c.name, status: row.status, grade: row.grade, score: row.score, uploadDate: row.uploadDate });
+    });
+    return recs.sort((a, b) => b.grade - a.grade);
+}
+function studentExamRecords(s) {
+    const all = isEmily(s) ? EMILY_EXAMS : (() => {
+        const recs = [];
+        EXAMS.forEach(x => {
+            const row = rosterFor(x).find(r => r.first === s.first && r.last === s.last);
+            if (row) recs.push({ name: x.name, category: x.category, status: row.status, grade: row.grade, score: row.score, uploadDate: row.uploadDate });
+        });
+        return recs.sort((a, b) => b.grade - a.grade);
+    })();
+    return all.filter(r => r.status === 'complete');
+}
+
+function openStudent(first, last) {
+    currentStudent = { first, last };
+    document.getElementById('sd-name').textContent = first + ' ' + last;
+    const courses = studentCourseRecords(currentStudent);
+    const grade = isEmily(currentStudent) ? 11 : (courses.length ? Math.max(...courses.map(r => r.grade)) : 11);
+    document.getElementById('sd-meta').innerHTML = SCHOOL + '<br>Grade: ' + grade;
+    resetGrid('pc'); resetGrid('pe');
+    showView('profile');
+    showProfileTab(profileTab === 'exams' ? 'exams' : 'courses');
+}
+
+function renderProfileTabs() {
+    document.getElementById('sd-tabs').innerHTML = SD_TABS.map(t => {
+        if (t === 'Courses') return '<button class="sd-tab' + (profileTab === 'courses' ? ' active' : '') + '" onclick="showProfileTab(\'courses\')">Courses</button>';
+        if (t === 'Exams') return '<button class="sd-tab' + (profileTab === 'exams' ? ' active' : '') + '" onclick="showProfileTab(\'exams\')">Exams</button>';
+        return '<button class="sd-tab inert">' + t + '</button>';
+    }).join('');
+}
+
+function showProfileTab(tab) {
+    profileTab = tab;
+    document.getElementById('panel-courses').hidden = (tab !== 'courses');
+    document.getElementById('panel-exams').hidden = (tab !== 'exams');
+    renderProfileTabs();
+    if (tab === 'courses') {
+        document.getElementById('pc-total').textContent = 'Total Course Records: ' + studentCourseRecords(currentStudent).length;
+        renderGrid('pc');
+    } else {
+        document.getElementById('pe-total').textContent = 'Total Exam Records: ' + studentExamRecords(currentStudent).length;
+        renderGrid('pe');
+    }
+}
+
+// Course / exam names open the full course / exam view. The breadcrumb there
+// is the standard Manage hierarchy, not a trail back to this student.
+const courseByName = name => COURSES.find(c => c.name === name);
+const examByName   = name => EXAMS.find(x => x.name === name);
+const courseNameCell = r => { const c = courseByName(r.name); return c ? '<a class="cell-link" onclick="openCourse(\'' + c.id + '\')">' + r.name + '</a>' : r.name; };
+const examNameCell   = r => { const x = examByName(r.name);   return x ? '<a class="cell-link" onclick="openExam(\'' + x.id + '\')">' + r.name + '</a>' : r.name; };
+
+defineGrid('pc', {
+    searchPlaceholder: 'Search courses',
+    rows: () => studentCourseRecords(currentStudent),
+    columns: [
+        { key: 'name',   label: 'Course', width: '36%', lockVisible: true, val: r => r.name, cell: r => courseNameCell(r) },
+        { key: 'status', label: 'Status',      val: r => STATUS_LABEL[r.status], cell: r => statusCell(r.status) },
+        { key: 'grade',  label: 'Grade Level', val: r => r.grade,                cell: r => r.grade },
+        { key: 'score',  label: 'Final Grade', val: r => r.score,                cell: r => scoreCell(r.score) },
+        { key: 'upload', label: 'Upload Date', val: r => r.uploadDate,           cell: r => r.uploadDate },
+    ],
+});
+defineGrid('pe', {
+    searchPlaceholder: 'Search exams',
+    rows: () => studentExamRecords(currentStudent),
+    columns: [
+        { key: 'name',     label: 'Exam', width: '34%', lockVisible: true, val: r => r.name, cell: r => examNameCell(r) },
+        { key: 'category', label: 'Category',    val: r => r.category,   cell: r => r.category },
+        { key: 'grade',    label: 'Grade Level', val: r => r.grade,      cell: r => r.grade },
+        { key: 'score',    label: 'Score',       val: r => r.score,      cell: r => scoreCell(r.score) },
+        { key: 'upload',   label: 'Upload Date', val: r => r.uploadDate, cell: r => r.uploadDate },
+    ],
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// Manage > Student Courses. One page, two states of the same table:
+//   list  → every course (Teacher chip pre-filters)
+//   scope → one course's students across all sections (Section + Teacher chips)
+// ═════════════════════════════════════════════════════════════════════════
+let currentCourse = COURSES[0];
+const ALL_TEACHERS = [...new Set(COURSES.flatMap(c => c.sections.map(s => s.teacher)))].sort();
+const listTeachers = () => chipSet(GRIDS.mc, 'teacher');
+// Course-list student count follows the Teacher chip (that teacher's sections only).
+const courseCount = c => { const t = listTeachers(); return rosterFor(c).filter(r => !t.size || t.has(c.sections[r.secIdx].teacher)).length; };
+const sectionCount = c => { const t = listTeachers(); return c.sections.filter(s => !t.size || t.has(s.teacher)).length; };
+
+defineGrid('mc', {
+    searchPlaceholder: 'Search courses',
+    rows: () => COURSES,
+    chips: [
+        { key: 'teacher', label: 'Teacher',
+          options: () => ALL_TEACHERS.map(t => ({ value: t, label: t })),
+          match: (c, set) => c.sections.some(s => set.has(s.teacher)) },
+    ],
+    columns: [
+        { key: 'name',     label: 'Course', width: '40%', lockVisible: true, val: c => c.name, cell: c => '<a class="cell-link" onclick="openCourse(\'' + c.id + '\', true)">' + c.name + '</a>' },
+        { key: 'sections', label: 'Sections',           val: c => sectionCount(c),  cell: c => sectionCount(c) },
+        { key: 'count',    label: 'Number of Students', val: c => courseCount(c),   cell: c => courseCount(c) },
+        { key: 'class',    label: 'Classification',     val: c => c.classification, cell: c => c.classification },
+    ],
+});
+
+const secOf = r => currentCourse.sections[r.secIdx];
+defineGrid('cd', {
+    searchPlaceholder: 'Search students',
+    toolbarExtra: '<label class="pt-extra">Show <select id="cd-arch" onchange="GRIDS.cd.page=0;renderGrid(\'cd\')">' +
+                  '<option value="unarchived">Unarchived</option><option value="archived">Archived</option><option value="all">All</option></select></label>',
+    rows: () => rosterFor(currentCourse).filter(archFilter('cd-arch')),
+    chips: [
+        { key: 'section', label: 'Section',
+          options: () => currentCourse.sections.map(s => ({ value: s.period, label: s.period })),
+          match: (r, set) => set.has(secOf(r).period) },
+        { key: 'teacher', label: 'Teacher',
+          options: () => [...new Set(currentCourse.sections.map(s => s.teacher))].map(t => ({ value: t, label: t })),
+          match: (r, set) => set.has(secOf(r).teacher) },
+    ],
+    columns: [
+        { key: 'name',    label: 'Student Name', width: '24%', lockVisible: true, val: r => displayName(r), cell: r => studentLink(r) + archTag(r, 'cd-arch') },
+        { key: 'section', label: 'Section',     val: r => secOf(r).period,        cell: r => secOf(r).period },
+        { key: 'teacher', label: 'Teacher',     val: r => secOf(r).teacher,       cell: r => secOf(r).teacher },
+        { key: 'status',  label: 'Status',      val: r => STATUS_LABEL[r.status], cell: r => statusCell(r.status) },
+        { key: 'grade',   label: 'Grade Level', val: r => r.grade,                cell: r => r.grade },
+        { key: 'score',   label: 'Final Grade', val: r => r.score,                cell: r => scoreCell(r.score) },
+        { key: 'upload',  label: 'Upload Date', val: r => r.uploadDate,           cell: r => r.uploadDate },
+    ],
+});
+
+function archFilter(selectId) {
+    const mode = document.getElementById(selectId).value;
+    return r => mode === 'all' || (mode === 'archived' ? r.archived : !r.archived);
+}
+
+function openCourseList() {
+    showView('manage-courses');
+    document.getElementById('mc-back').hidden = true;
+    document.getElementById('mc-title').textContent = 'Student Courses';
+    document.getElementById('mc-sub').textContent = 'Courses synced from your student information system (SIS). Select a course to see its enrolled students.';
+    document.getElementById('mc-list-wrap').hidden = false;
+    document.getElementById('mc-scope-wrap').hidden = true;
+    setCrumbs([MANAGE, { label: 'Student Courses' }]);
+    renderGrid('mc');
+}
+
+// Drill-in: reload the table scoped to one course. Default = all enrolled
+// students across all sections. fromList carries a Teacher chosen on the
+// course list into this course's Teacher chip.
+function openCourse(id, fromList) {
+    currentCourse = COURSES.find(c => c.id === id);
+    const carried = fromList ? [...listTeachers()].filter(t => currentCourse.sections.some(s => s.teacher === t)) : [];
+    resetGrid('cd');
+    document.getElementById('cd-arch').value = 'unarchived';
+    if (carried.length) GRIDS.cd.chips.teacher = new Set(carried);
+
+    showView('manage-courses');
+    document.getElementById('mc-back').hidden = false;
+    document.getElementById('mc-title').textContent = currentCourse.name;
+    const n = currentCourse.sections.length;
+    document.getElementById('mc-sub').textContent = 'All students enrolled in this course across ' + (n === 1 ? 'its 1 section' : 'all ' + n + ' sections') + '. Filter by section or teacher to narrow the list.';
+    document.getElementById('mc-list-wrap').hidden = true;
+    document.getElementById('mc-scope-wrap').hidden = false;
+    setCrumbs([MANAGE, { label: 'Student Courses', go: 'openCourseList()' }, { label: currentCourse.name }]);
+    renderGrid('cd');
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Manage > Student Exams and the exam view
+// ═════════════════════════════════════════════════════════════════════════
+let currentExam = EXAMS[0];
+
+defineGrid('me', {
+    searchPlaceholder: 'Search exams',
+    rows: () => EXAMS,
+    columns: [
+        { key: 'name',     label: 'Exam', width: '40%', lockVisible: true, val: x => x.name, cell: x => '<a class="cell-link" onclick="openExam(\'' + x.id + '\')">' + x.name + '</a>' },
+        { key: 'category', label: 'Category',           val: x => x.category,           cell: x => x.category },
+        { key: 'count',    label: 'Number of Students', val: x => examRoster(x).length, cell: x => examRoster(x).length },
+        { key: 'class',    label: 'Classification',     val: x => x.classification,     cell: x => x.classification },
+    ],
+});
+
+defineGrid('ed', {
+    searchPlaceholder: 'Search students',
+    toolbarExtra: '<label class="pt-extra">Show <select id="ed-arch" onchange="GRIDS.ed.page=0;renderGrid(\'ed\')">' +
+                  '<option value="unarchived">Unarchived</option><option value="archived">Archived</option><option value="all">All</option></select></label>',
+    rows: () => examRoster(currentExam).filter(archFilter('ed-arch')),
+    columns: [
+        { key: 'name',   label: 'Student Name', width: '30%', lockVisible: true, val: r => displayName(r), cell: r => studentLink(r) + archTag(r, 'ed-arch') },
+        { key: 'grade',  label: 'Grade Level', val: r => r.grade,      cell: r => r.grade },
+        { key: 'score',  label: 'Score',       val: r => r.score,      cell: r => scoreCell(r.score) },
+        { key: 'upload', label: 'Upload Date', val: r => r.uploadDate, cell: r => r.uploadDate },
+    ],
+});
+
+function openExam(id) {
+    currentExam = EXAMS.find(x => x.id === id);
+    resetGrid('ed');
+    document.getElementById('ed-arch').value = 'unarchived';
+    document.getElementById('ed-title').textContent = currentExam.name;
+    document.getElementById('ed-sub').textContent = 'Students with a completed record for this exam.';
+    showView('exam-detail');
+    renderGrid('ed');
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// Boot. Deep links: #manage, #manage-courses, #course-detail, #section-detail,
+// #manage-exams, #exam-detail, #exam-rubric, #profile, #profile-exams
+// ═════════════════════════════════════════════════════════════════════════
+renderGrid('me');
+
+const hash = (location.hash || '').replace('#', '');
+if (hash === 'profile-exams') { profileTab = 'exams'; openStudent('Emily', 'Growler'); }
+else if (hash === 'profile') { openStudent('Emily', 'Growler'); }
+else if (hash === 'manage') { showView('manage-home'); }
+else if (hash === 'manage-courses') { openCourseList(); }
+else if (hash === 'course-detail') { openCourse('ush'); }
+else if (hash === 'section-detail') { openCourse('alg2h'); GRIDS.cd.chips.section = new Set(['Period 1']); renderGrid('cd'); }
+else if (hash === 'manage-exams') { showView('manage-exams'); }
+else if (hash === 'exam-detail') { openExam('x-ush'); }
+else if (hash === 'exam-rubric') { openExam('x-wri'); }
+else { openStudent('Emily', 'Growler'); }
+</script>
+
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>
