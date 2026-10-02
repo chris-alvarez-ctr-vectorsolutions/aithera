@@ -6,6 +6,57 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-01) Review alert head + clearer CSV copy
+
+- **[DONE]** The tier tag (Blocked / Warning / Info / Reviewed) is an **eyebrow above the title**, so
+  the sentence gets the full width. "I've reviewed this" stays top right; View details under the title.
+- **[DONE]** Review page header **"Review changes"** (same shape as Map columns / Import settings) with
+  a line that says what's needed: warnings → "Review each warning and check 'I've reviewed this' — once
+  they're all reviewed, you can run the import."; blocked → fix or delete the rows in the file and
+  re-upload; info only → nothing to review. Replaces the "What we found in your file" eyebrow.
+- **[DONE]** Above Run import: a **yellow** note while warnings are open ("3 warnings need your review.
+  Check 'I've reviewed this' on each one to run the import. 2 of 5 done."), **blue** when all are
+  reviewed, **red** when blocked. Replaces "2 of 5 confirmations acknowledged".
+- **[DONE]** **Blocked** alerts: "What to do" always sends them back to the file — "Open your file and
+  fix … in these rows — or delete the rows — then upload the file again." (sync_error stays "try again"
+  — it isn't a file problem.) Blocked tables show **rows only** (no column tag — it's obvious once
+  they're in the file); duplicate_person now has a Row column (Row 48). Warnings keep their column tags.
+- **[DONE]** Warning banners: **"I've reviewed this" top right**; **View details** is the second row,
+  under the title (Info / Blocked show just View details there).
+- **[DONE]** Side panel CSV copy (superseded 2026-10-01 → "**The full list of what we found** — Download the file to see every issue, the row and person it affects, and what to fix before you import."; the CSV now carries each blocked issue's "What to do" line). Earlier: "Everything we found, in one file" — Every blocked issue, warning
+  and info item from this review, with each person and row they affect — one spreadsheet you can sort,
+  filter or share." The list of kinds only names what the review has. File: `what_we_found.csv`.
+
+## (2026-10-01) Map columns: * in the selector; Username note under it
+
+- **[DONE]** The skip option is **"Don't import"** (was "— Not imported —"): it's a choice, like the
+  other options. It shows gray in the selector, so the **Mapped / Not imported status column is
+  removed** — three columns: Column in your file · Sample · Import as.
+- **[DONE]** "Import as" is a custom dropdown styled like the live SafeLMS filter selector: bordered
+  button (#7893B5, 6px), blue ring while open, menu of radio rows; the selected row has a filled blue
+  check + light-blue highlight. Groups "Standard fields" / "Your site's attributes". Required fields
+  show a **red** * (a native select couldn't). Closes on pick, outside click or Escape. Dev: build
+  with the Vector select/combo component in that style; keep the listbox / option roles.
+- **[DONE]** Required fields are marked **inside the "Import as" selector** ("First name *", "Last
+  name *", "Username *") instead of a red * on the file column.
+- **[DONE]** The lock note ("An upload can add new usernames but can't change an existing one.")
+  sits **under the selector** of whichever column is currently imported as Username — it moves if
+  Username is set on a different column.
+
+## (2026-10-01) Review without opening; keep-a-copy on Run; toast instead of Import complete
+
+- **[DONE]** Each Warning has **"I've reviewed this"** right under its title (tinted yellow → blue
+  once checked), so it can be confirmed without opening it. **View details** sits on the same line.
+  The checkbox no longer lives inside the details.
+- **[DONE]** **Download current data** moved off the Review side panel into the **Run import**
+  confirmation as a checkbox (**on by default** since 2026-10-01): "Also download your current employee data — a copy of
+  your site as it is now, for your records."
+- **[DONE]** No **Import complete** page. Run import lands back on **Employees** with a toast: "Your
+  upload ran. N added · N updated · …" + "You can see it in the upload log now." (+ "A copy of your
+  data from before it ran was downloaded." when that box was checked). Clears after ~8s, or ✕.
+  Approving an automated run lands back on the **log** (row shows Completed) with the same toast.
+  No person's name/email in it (the old page named "vpollock@…").
+
 ## (2026-09-30) One CSV in the side panel; Map dropdown adds codes
 
 - **[DONE]** Map columns dropdown adds **External Unique ID** and **Building code**, just above

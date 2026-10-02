@@ -30,11 +30,11 @@
 
 <style>
   /* ════════════════════════════════════════════════════════════════
-     Assignment Progress Reporting (SAFELMS-25167) — V1 · MINIMUM
+     Assignment Progress Reporting (SAFELMS-25167) — V1
      Training Compliance: add # Not Started and # In Progress next to # Completed (Liz, eng
-     review 2026-09-29, 19:51 / 37:21). Training Plans: the page stays as it is today, plus
-     "View progress details" in each assignment's ⋯ menu — the minimum Liz set at kickoff
-     (22:16 "at the very least, some ability to see the details"). V2 is the ideal version.
+     review 2026-09-29, 19:51 / 37:21). Training Plans: matched to the production page, with a
+     Status column — pie chart with the total in its hole, counts stacked under it — and the
+     course picture above the course title.
      Two report screens, matched to the current production Reports UI:
        1. Training Compliance  — per-assignment progress breakout
        2. Compliance by Employee — Status filter: Outstanding (Not started,
@@ -458,15 +458,19 @@
   .tp-list { padding: 29px 29px 0; }
   .tp-grid { display: grid; grid-template-columns: var(--tp-first, 38px) minmax(200px, 1fr) minmax(230px, 1.2fr) minmax(270px, 1.3fr) 78px 30px;
     column-gap: 16px; align-items: center; min-width: 940px; }
-  .tp-head { background: #EEF2F8; border-radius: 6px; height: 37px; font-size: 12px; font-weight: 600; letter-spacing: .3px;
+  /* Header bar: its background reaches 16px past the columns on each side, so the first label
+     isn't against the edge (2026-10-01); the labels stay aligned with the rows. */
+  .tp-head { position: relative; height: 37px; font-size: 12px; font-weight: 600; letter-spacing: .3px;
     text-transform: uppercase; color: #2B3A55; }
   .tp-list.fit .tp-head { position: sticky; top: 0; z-index: 2; }
+  .tp-head::before { content: ""; position: absolute; inset: 0 -16px; z-index: -1; background: #EEF2F8; border-radius: 6px; }
   .tp-head > div:nth-child(2) { margin-left: -10px; }   /* "COURSE" sits just left of the course names, as in production */
   .tp-row { padding: 22px 0; border-bottom: 1px solid var(--hair); }
   .tp-row:last-child { border-bottom: 0; }
   .tp-img { width: 38px; height: 38px; border-radius: 6px; display: grid; place-items: center; font-size: 16px;
     box-shadow: 0 2px 6px rgba(16,24,40,.22); }
   .tp-course { min-width: 0; font-size: 15px; line-height: 1.45; }
+  .tp-course .tp-img { margin-bottom: 10px; }
   .tp-course .nm { font-weight: 500; color: var(--ink); }
   .tp-course .ty { color: #344055; }
   .tp-course .cat { display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; padding: 2px 10px; border: 1px solid #1B3A8C;
@@ -492,13 +496,12 @@
   /* V2: a pie chart takes the course picture's place (PRD: "course imagery is low-value real
      estate"; Liz, eng review 45:26 "a pie chart with three possible statuses"). Each slice
      opens those learners; the counts sit under the category. */
-  /* Status column (2026-09-30): the total in the middle of the pie, the three counts stacked under it */
+  /* Status column (2026-10-01): the pie has a hole in the middle with the total in it; the three counts stacked under it */
   #screen-tp .tp-grid { grid-template-columns: 158px minmax(160px, 1fr) minmax(170px, 1fr) minmax(290px, 1.2fr) 78px 30px;
     column-gap: 14px; min-width: 950px; }
   .tp-stat { display: flex; flex-direction: column; align-items: flex-start; }
-  /* Total in the middle: dark text with a white halo so it reads over any slice color */
-  .pie .tot { font-size: 14px; font-weight: 700; fill: var(--ink); stroke: #fff; stroke-width: 4px; paint-order: stroke;
-    stroke-linejoin: round; pointer-events: none; }
+  .pie .hole { fill: #fff; }   /* catches clicks in the hole so they don't fall through to a slice */
+  .pie .tot { font-size: 14px; font-weight: 700; fill: var(--ink); pointer-events: none; }
   .pie .tot.sm { font-size: 12px; }
   .ring-legend.stacked { flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 0; margin-top: 8px; }
   .pie { display: block; overflow: visible; }
@@ -824,12 +827,6 @@ Engagement</button>
         <button class="tp-dup"><i class="fa-regular fa-copy"></i> Duplicate</button>
         <div class="ff"><button class="ff-trigger"><span class="k">Category</span><span class="v">All</span><i class="fa-solid fa-chevron-down caret"></i></button></div>
         <div class="ff"><button class="ff-trigger"><span class="k">Published</span><span class="v">All</span><i class="fa-solid fa-chevron-down caret"></i></button></div>
-        <!-- Legend: names the pie slices and count swatches once for the whole list -->
-        <div class="legend" aria-hidden="true">
-          <span><i class="sw" style="background:var(--st-c)"></i><span data-label="c">Completed</span></span>
-          <span><i class="sw" style="background:repeating-linear-gradient(45deg,#0271ce 0 3px,#4d9be0 3px 5px)"></i><span data-label="ip">In Progress</span></span>
-          <span><i class="sw" style="background:#C3CBD6"></i><span data-label="ns">Not Started</span></span>
-        </div>
         <span class="spacer"></span>
         <span class="tp-sort">Sort By <button><u>Course</u><i class="fa-solid fa-chevron-down"></i></button></span>
         <span class="tp-sort">Group By <button><u>None</u><i class="fa-solid fa-chevron-down"></i></button></span>
@@ -1251,6 +1248,7 @@ Engagement</button>
           data-drill="${a.id}" data-state="${s}" tabindex="0" role="button" aria-label="${lbl}, view these learners"><title>${lbl} — view these learners</title></path>`;
     }).join('');
     return `<svg class="pie" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" role="group" aria-label="${a.course}: ${fmt(t)} assigned, ${compliance(a)}% completed">${slices}
+      <circle class="hole" cx="${c}" cy="${c}" r="${(r * 0.6).toFixed(1)}"></circle>
       <text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle" class="tot${fmt(t).length > 5 ? ' sm' : ''}" aria-hidden="true">${fmt(t)}</text></svg>`;
   }
   function legendBtns(a, src) {
@@ -1266,7 +1264,9 @@ Engagement</button>
     kitchen: ['Custom', true], osha10c: ['Full Course', false], osha10g: ['Full Course', false], osha30: ['Full Course', true],
     cpn1: ['Custom', true], cpn2: ['Custom', false], alcohol: ['Full Course', true], clicksafety: ['Full Course', false], winter: ['Full Course', true]
   };
-  const tpCourse = (a, extra) => `<div class="tp-course"><div class="nm">${a.course}</div><div class="ty">${TP_META[a.id][0]}</div>
+  // The course picture sits on top of the title (2026-10-01) — the Status chart makes the row tall anyway
+  const tpCourse = (a, extra) => `<div class="tp-course"><div class="tp-img" style="background:${a.bg};color:${a.fg}"><i class="fa-solid ${a.icon}"></i></div>
+      <div class="nm">${a.course}</div><div class="ty">${TP_META[a.id][0]}</div>
       <button class="cat">${a.plan} <i class="fa-solid fa-chevron-down"></i></button>${extra || ''}</div>`;
   const tpJobDates = a => `
         <div class="tp-cell"><span class="ico"><i class="fa-regular fa-users"></i></span>
@@ -1450,7 +1450,7 @@ Engagement</button>
         { id: 'tp-loading', flow: 'plans', entry: true, x: 60, y: 720, step: 'Entry', name: 'Loading progress', state: 'tp-loading',
           desc: 'The list shows right away; progress fills in a moment later, so the page never waits on it. "Progress as of" says how fresh it is (updated about daily).' },
         { id: 'tp', flow: 'plans', x: 340, y: 720, step: 'Loaded', name: 'Training Plans', state: 'tp',
-          desc: 'Phase 2 (FR-4), V1: matched to the production page. A Status column replaces the course picture: pie chart with the total in the middle, the three counts stacked under it. Slices and counts open those learners.' },
+          desc: 'Phase 2 (FR-4), V1: matched to the production page. A Status column replaces the course picture: pie chart with a hole in the middle holding the total, the three counts stacked under it. Slices and counts open those learners.' },
         { id: 'tp-drill', flow: 'plans', x: 620, y: 720, step: 'Click a count', name: 'Learners from a plan', state: 'tp-drill',
           desc: 'Clicking "8 Not started" on OSHA 30-Hour opens the learner report already run, with position, location, course and status set and highlighted (AC-4.3).' }
       ],
