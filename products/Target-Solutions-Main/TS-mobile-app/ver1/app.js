@@ -41,7 +41,7 @@
         { name: 'Hydrant Training',        color: '#2F3A9E', ink: 'light', icon: 'fa-fire-hydrant',       launch: 'rca' },
         { name: 'Sprinkler System Basics', color: '#1668D6', ink: 'light', icon: 'fa-sprinkler-ceiling',  launch: 'rca' },
         { name: 'Vehicle Stabilization',   color: '#0F7B9C', ink: 'light', icon: 'fa-car-burst',          launch: 'rca' },
-        { name: 'SCBA Refresher',          color: '#C3D934', ink: 'dark',  icon: 'fa-helmet-safety',      launch: 'selfAssign' }
+        { name: 'Physical Fitness',        color: '#C3D934', ink: 'dark',  icon: 'fa-dumbbell',           launch: 'selfAssign' }
       ]},
       { title: 'Field-based Trainings', tiles: [
         { name: 'Facilities Training',     color: '#C5DDF5', ink: 'dark',  icon: 'fa-building',           launch: 'rca' },
@@ -108,13 +108,33 @@
   /* The signed-in user — shown on the account row in More and on Profile. */
   var USER = { initials: 'JL', name: 'Jordan Lee', role: 'Company Officer', department: 'Springfield Fire Department' };
 
+  /* Shared-device mode (station tablets, rig iPads). Chosen once on first launch,
+     right after the country, and remembered on the device the same way. It is a
+     property of the DEVICE, set by whoever configures it — not a question every
+     person answers at every login. Everything shared mode changes hangs off the
+     one `deviceId` flag:
+       • no Face ID opt-in and no prefilled username on the login form
+       • the push pre-prompt is skipped (alerts are personal; the device is not)
+       • an identity strip above every in-app screen, with a Switch action
+       • an inactivity sign-out, with a "Still there?" warning first
+       • any Record Completions draft is thrown away on sign-out */
+  var DEVICES = { personal: { name: 'Just me',               icon: 'fa-mobile-screen-button' },
+                  shared:   { name: 'Shared station device', icon: 'fa-users' } };
+  var deviceId = null;
+  /* Inactivity rule for shared devices. The real numbers are a product/security
+     decision — the on-screen copy says 15 minutes — but the prototype fires
+     after 45 s so reviewers can see the warning without waiting. */
+  var IDLE = { afterMs: 45000, warnMs: 15000, label: '15 minutes' };
+
   /* ===========================================================================
      ELEMENTS
      ======================================================================== */
   var $  = function (sel) { return document.querySelector(sel); };
   var app        = $('#app');
   var region     = $('#screen-region');
+  var device     = $('#screen-device');
   var login      = $('#screen-login');
+  var who        = $('#who');            // shared-device identity strip
   var prompt     = $('#screen-prompt');
   var header     = $('#app-header');
   var statusBar  = $('#status-bar');
@@ -184,12 +204,16 @@
   function renderHeader(id) {
     var meta = SCREENS[id] || {};
     if (meta.noHeader) { header.innerHTML = ''; return; }   // the screen draws its own title row / brand bar
+    // A screen may override its bar title via data-title (record.js does for the
+    // confirmation: "Record Completion" after a self-assign, plural after a group).
+    var screenEl = $('#screen-' + id);
+    var title = (screenEl && screenEl.dataset.title) || meta.title || '';
     header.innerHTML =
       (meta.back
         ? '<button class="app-header__btn" data-goto="' + meta.back + '" type="button" ' +
           'aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>'
         : '') +
-      '<span class="app-header__title">' + (meta.title || '') + '</span>';
+      '<span class="app-header__title">' + title + '</span>';
   }
 
   /* Account row at the top of More — the route to Profile / Log Out now that the
@@ -217,18 +241,29 @@
     opts = opts || {};
 
     // Screens that live outside the tabbed shell
-    var outside = id === 'region' || id === 'login' || id === 'prompt';
+    var outside = id === 'region' || id === 'device' || id === 'login' || id === 'prompt';
     region.classList.toggle('is-active', id === 'region');
+    device.classList.toggle('is-active', id === 'device');
     login.classList.toggle('is-active', id === 'login');
     prompt.classList.toggle('is-active', id === 'prompt');
     statusBar.classList.toggle('status-bar--light', id === 'prompt');
-    statusBar.classList.toggle('status-bar--brand', !outside);
+    // On a shared device the status bar stays navy so it and the identity strip
+    // read as one block of system chrome above the (brand-colored) app.
+    statusBar.classList.toggle('status-bar--brand', !outside && !isShared());
 
-    if (id === 'login') { if (!regionId) regionId = 'us'; showLoginPane(); }   // deep links land here with a default
-    if (id === 'home') pushPromptSeen = true;   // the pre-prompt has been answered
+    if (id === 'login') {   // deep links land here with defaults
+      if (!regionId) regionId = 'us';
+      if (!deviceId) setDevice('personal');
+      showLoginPane();
+    }
+    // The pre-prompt has been answered. Shared devices skip it entirely, so a
+    // tablet later switched to "Just me" still gets to see it.
+    if (id === 'home' && !isShared()) pushPromptSeen = true;
 
     var inApp = !outside;
     app.hidden = !inApp;
+    who.hidden = !(inApp && isShared());
+    if (inApp && isShared()) idleStart(); else idleStop();
     if (!inApp) {
       // Clear the in-app screens on the way out so logging back in never
       // resumes on a stale one.
@@ -266,13 +301,135 @@
      The scan is simulated on a timer — there is no real biometric API here.
      ------------------------------------------------------------------------ */
   function showLoginPane() {
-    var r = REGIONS[regionId];
+    var r = REGIONS[regionId], d = DEVICES[deviceId], shared = isShared();
     $('#region-current-flag').textContent = r.flag;
     $('#region-current-name').textContent = r.name;
-    $('#login-password').hidden = faceIdEnabled;
-    $('#login-faceid').hidden   = !faceIdEnabled;
+    $('#device-current-icon').className = 'fa-solid ' + d.icon + ' region-current__icon';
+    $('#device-current-name').textContent = d.name;
+    // Shared devices never get the Face ID pane, the opt-in, or a remembered username.
+    var faceId = faceIdEnabled && !shared;
+    $('#login-password').hidden = faceId;
+    $('#login-faceid').hidden   = !faceId;
+    $('.faceid-optin').hidden   = shared;
+    $('#login-shared-note').hidden = !shared;
+    $('#username').value = shared ? '' : 'j.lee';
+    $('#password').value = shared ? '' : 'password';
+    clearLoginError();
     resetFaceScan();
   }
+
+  /* ---------------------------------------------------------------------------
+     Failed sign-in
+     ---------------------------------------------------------------------------
+     The credentials error plus a country nudge. US and Canada accounts are two
+     databases, so the first thing to check after a failure is the country —
+     the nudge names the one in use and switches to the other in one tap.
+     Prototype rule: a blank username or password fails; anything else works.
+     ------------------------------------------------------------------------ */
+  var OTHER_REGION = { us: 'ca', ca: 'us' };
+  function showLoginError() {
+    var r = REGIONS[regionId], o = REGIONS[OTHER_REGION[regionId]];
+    $('#login-hint-flag').textContent  = r.flag;
+    $('#login-hint-name').textContent  = r.name;
+    $('#login-hint-other').textContent = o.name;
+    $('#login-error').hidden = false;
+    $('#username').classList.add('is-invalid');
+    $('#password').classList.add('is-invalid');
+  }
+  function clearLoginError() {
+    $('#login-error').hidden = true;
+    $('#username').classList.remove('is-invalid');
+    $('#password').classList.remove('is-invalid');
+  }
+  $('#username').addEventListener('input', clearLoginError);
+  $('#password').addEventListener('input', clearLoginError);
+  // "Switch" flips the country in place (no trip back to the picker) and
+  // leaves whatever was typed so the user can just tap Log In again.
+  $('#btn-wrong-country').addEventListener('click', function () {
+    var u = $('#username').value, p = $('#password').value;
+    regionId = OTHER_REGION[regionId];
+    showLoginPane();
+    $('#username').value = u; $('#password').value = p;
+    $('#username').focus();
+  });
+
+  function isShared() { return deviceId === 'shared'; }
+  function setDevice(id) {
+    if (id === deviceId) return;
+    deviceId = id;
+    $('#profile-shared').hidden = !isShared();   // the rules card on Profile
+    // Changing the device type is a setup event; a draft from the other mode
+    // (and its rendered "Recording as" line) should not carry across.
+    if (window.RC && window.RC.reset) window.RC.reset();
+  }
+
+  /* Identity strip + the shared-device notes. The user is static mock data, so
+     this only needs to run once. */
+  function renderWho() {
+    $('#who-avatar').textContent = USER.initials;
+    $('#who-name').textContent   = USER.name;
+    $('#login-idle-label').textContent = IDLE.label;
+    document.querySelectorAll('.idle-label').forEach(function (el) { el.textContent = IDLE.label; });
+  }
+
+  /* Sign out from anywhere: Profile → Log Out, the strip's Switch, "Not you?"
+     in Record Completions, or the inactivity timer. On a shared device the
+     Record Completions draft is discarded too — it must never carry over to the
+     next person who picks up the tablet. */
+  function signOut() {
+    idleStop();
+    closeIdleWarning();
+    if (isShared() && window.RC && window.RC.reset) window.RC.reset();
+    goTo('login');
+  }
+
+  /* ---------------------------------------------------------------------------
+     Inactivity sign-out (shared devices only)
+     ---------------------------------------------------------------------------
+     Any touch or key press inside the phone resets the clock. When it runs out
+     a "Still there?" warning counts down; "I'm still here" restarts the clock,
+     anything else signs out.
+     ------------------------------------------------------------------------ */
+  var idleTimer = null, idleTick = null;
+  function idleStart() { idleStop(); idleTimer = setTimeout(showIdleWarning, IDLE.afterMs); }
+  function idleStop()  { clearTimeout(idleTimer); idleTimer = null; }
+
+  function showIdleWarning() {
+    idleStop();
+    var left = Math.round(IDLE.warnMs / 1000);
+    var dlg = $('#idle-dialog');
+    dlg.innerHTML =
+      '<div class="rc-dialog">' +
+      '<h3 class="t-H3" id="idle-title">Still there, ' + USER.name.split(' ')[0] + '?</h3>' +
+      '<p class="t-Paragraph">This is a shared device. To keep your account private you will be signed out in ' +
+      '<strong id="idle-count">' + left + '</strong> seconds.</p>' +
+      '<div class="rc-dialog__actions">' +
+      '<button class="t-Button t-Button--ghost" data-idle="out" type="button">Sign out now</button>' +
+      '<button class="t-Button t-Button--primary" data-idle="stay" type="button">I’m still here</button>' +
+      '</div></div>';
+    dlg.classList.add('is-open');
+    clearInterval(idleTick);
+    idleTick = setInterval(function () {
+      left -= 1;
+      $('#idle-count').textContent = left;
+      if (left <= 0) signOut();
+    }, 1000);
+  }
+  function closeIdleWarning() {
+    clearInterval(idleTick); idleTick = null;
+    $('#idle-dialog').classList.remove('is-open');
+  }
+  $('#idle-dialog').addEventListener('click', function (e) {
+    var btn = e.target.closest('[data-idle]');
+    if (!btn) return;
+    closeIdleWarning();
+    if (btn.dataset.idle === 'out') signOut(); else idleStart();
+  });
+  // Activity resets the clock — but only while it is running. Once the warning
+  // is up, only its two buttons count.
+  ['pointerdown', 'keydown'].forEach(function (ev) {
+    $('.device-screen').addEventListener(ev, function () { if (idleTimer) idleStart(); }, true);
+  });
 
   function resetFaceScan() {
     var scan = $('#btn-faceid');
@@ -281,7 +438,9 @@
     $('#faceid-status').textContent = 'Tap to sign in with Face ID';
   }
 
-  function signIn() { goTo(pushPromptSeen ? 'home' : 'prompt'); }
+  // Shared devices skip the push pre-prompt: alerts are personal to an account,
+  // and a station tablet is not — so there is nothing to opt in to.
+  function signIn() { goTo(pushPromptSeen || isShared() ? 'home' : 'prompt'); }
 
   function openSheet(title, body) {
     $('#sheet-title').textContent = title;
@@ -303,10 +462,12 @@
     if (e.target.closest('[data-task-leave]')) { if (window.RC) window.RC.leave(false); return; }
 
     // Quick Link tile. RCA tiles open Record Completions with that activity
-    // already added; the other launch types still explain themselves in a sheet.
+    // already added; Self Assign tiles open the single-activity self-assign form
+    // for the signed-in user; the other launch types still explain themselves in a sheet.
     var tile = e.target.closest('.ql-tile');
     if (tile) {
       if (tile.dataset.launch === 'rca' && window.RC) { window.RC.openWith(tile.dataset.name); return; }
+      if (tile.dataset.launch === 'selfAssign' && window.RC) { window.RC.openSelf(tile.dataset.name); return; }
       var spec = LAUNCH[tile.dataset.launch];
       openSheet(spec.title, spec.body.replace('{name}', tile.dataset.name));
       return;
@@ -342,16 +503,27 @@
     if (tab) { goTo(tab.dataset.tab); return; }
   });
 
-  // Country picker → login form. Either tap is a full choice; nothing to confirm.
-  document.querySelectorAll('.region-btn').forEach(function (btn) {
+  // Country picker → device picker (first launch) or straight to the login form.
+  // Either tap is a full choice; nothing to confirm.
+  document.querySelectorAll('.region-btn[data-region]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       regionId = btn.dataset.region;
+      goTo(deviceId ? 'login' : 'device');
+    });
+  });
+  // Device picker → login form. Same one-tap pattern.
+  document.querySelectorAll('.region-btn[data-device]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setDevice(btn.dataset.device);
       goTo('login');
     });
   });
   $('#btn-change-region').addEventListener('click', function () { goTo('region'); });
+  $('#btn-change-device').addEventListener('click', function () { goTo('device'); });
+  $('#btn-switch-user').addEventListener('click', signOut);
 
   $('#btn-login').addEventListener('click', function () {
+    if (!$('#username').value.trim() || !$('#password').value) { showLoginError(); return; }
     faceIdEnabled = $('#faceid-toggle').getAttribute('aria-checked') === 'true';
     signIn();
   });
@@ -376,14 +548,15 @@
     $('#faceid-toggle').setAttribute('aria-checked', 'false');
     showLoginPane();
   });
-  // Log out keeps the remembered country — only "Change" on the login form clears it.
-  $('#btn-logout').addEventListener('click', function () { goTo('login'); });
+  // Log out keeps the remembered country and device type — only the "Change"
+  // links on the login form lead back to the pickers.
+  $('#btn-logout').addEventListener('click', signOut);
 
+  // The simulated scan stands in for the printed QR code outside the workout
+  // room: it resolves straight to the Physical Fitness self-assign. (A real code
+  // could point at any activity, course, or Record Completions entry.)
   $('#btn-scan').addEventListener('click', function () {
-    openSheet('Scanned',
-      'This is where the scanned QR or barcode would launch whatever it points to — ' +
-      'an activity, a course, or a Record Completions entry. Resolving real codes ' +
-      'comes in a later iteration.');
+    if (window.RC) window.RC.openSelf('Physical Fitness', { scanned: true });
   });
 
   $('#sheet-close').addEventListener('click', closeSheet);
@@ -425,7 +598,20 @@
   renderQuickLinks();
   renderMore();
   renderAccount();
+  renderWho();
   unreadCount = renderNotifications();
   renderTabBadge();
-  goTo(regionId ? 'login' : 'region');   // first launch asks for the country; later launches remember it
+
+  /* Shared-device hooks for record.js (the "Recording as" line, draft reset on
+     sign-out) and the Design Toolbox flow map (shared-state thumbnails). */
+  window.APP = {
+    user: USER,
+    isShared: isShared,
+    signOut: signOut,
+    showIdleWarning: showIdleWarning,
+    setDevice: setDevice
+  };
+
+  // First launch asks for the country, then the device type; later launches remember both.
+  goTo(regionId ? (deviceId ? 'login' : 'device') : 'region');
 })();

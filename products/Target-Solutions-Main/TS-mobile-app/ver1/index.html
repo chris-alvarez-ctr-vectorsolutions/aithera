@@ -86,6 +86,48 @@
     </section>
 
     <!-- ================================================================
+         DEVICE TYPE — second one-tap setup step, right after the country.
+         Station tablets and rig iPads are shared by a whole crew, so the
+         device (not the person logging in) declares itself shared, once,
+         by whoever sets it up. Remembered like the country; the login form
+         shows the choice with a "Change" link. Shared mode drives: no Face
+         ID / prefilled username, no push pre-prompt, the identity strip
+         above every screen, and the inactivity sign-out.
+         ================================================================ -->
+    <section class="login region" id="screen-device">
+      <div class="login__brand">
+        <div class="login__brand-mark">Target<em>Solutions</em></div>
+        <div class="login__brand-sub">Vector Solutions</div>
+      </div>
+
+      <div class="t-YStack region__body">
+        <div>
+          <h1 class="region__title">Who uses this device?</h1>
+          <p class="region__hint">Shared station devices sign out sooner and always show who is signed in.</p>
+        </div>
+
+        <div class="t-YStack" style="gap:var(--space-3)">
+          <button class="region-btn" type="button" data-device="personal">
+            <span class="region-btn__icon" aria-hidden="true"><i class="fa-solid fa-mobile-screen-button"></i></span>
+            <span class="region-btn__text">
+              <span class="region-btn__label">Just me</span>
+              <span class="region-btn__sub">My own phone or tablet</span>
+            </span>
+            <i class="fa-solid fa-chevron-right region-btn__chev" aria-hidden="true"></i>
+          </button>
+          <button class="region-btn" type="button" data-device="shared">
+            <span class="region-btn__icon" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
+            <span class="region-btn__text">
+              <span class="region-btn__label">My station or crew</span>
+              <span class="region-btn__sub">A tablet the whole crew signs in to</span>
+            </span>
+            <i class="fa-solid fa-chevron-right region-btn__chev" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
          LOGIN — Initial App Foundation. Happy path only, per direction:
          no SSO, merged-auth toggle or error states in this iteration.
          ================================================================ -->
@@ -93,13 +135,21 @@
       <div class="login__brand">
         <div class="login__brand-mark">Target<em>Solutions</em></div>
         <div class="login__brand-sub">Vector Solutions</div>
-        <!-- Remembered country. "Change" is the only way back to the picker
-             after the first launch, so switching never costs more than a tap. -->
-        <button class="region-current" id="btn-change-region" type="button">
-          <span class="region-current__flag" id="region-current-flag" aria-hidden="true"></span>
-          <span>Signing in to <strong id="region-current-name"></strong></span>
-          <span class="region-current__change">Change</span>
-        </button>
+        <!-- Remembered country and device type. "Change" is the only way back
+             to either picker after the first launch, so switching never costs
+             more than a tap. -->
+        <div class="login__pills">
+          <button class="region-current" id="btn-change-region" type="button">
+            <span class="region-current__flag" id="region-current-flag" aria-hidden="true"></span>
+            <span>Signing in to <strong id="region-current-name"></strong></span>
+            <span class="region-current__change">Change</span>
+          </button>
+          <button class="region-current" id="btn-change-device" type="button">
+            <i class="fa-solid region-current__icon" id="device-current-icon" aria-hidden="true"></i>
+            <span><strong id="device-current-name"></strong></span>
+            <span class="region-current__change">Change</span>
+          </button>
+        </div>
       </div>
 
       <!-- Pane A — username / password, with the Face ID opt-in -->
@@ -111,6 +161,21 @@
         <div class="t-Fieldset">
           <label class="t-Label" for="password" style="color:#fff">Password</label>
           <input class="t-Input" id="password" type="password" value="password" autocomplete="current-password">
+        </div>
+
+        <!-- Failed sign-in: the error, plus a nudge to check the country. US and
+             Canada accounts live in separate databases, so a "wrong password"
+             at a border department is quite often really the wrong country.
+             Prototype rule: a blank username or password fails. -->
+        <div class="login__error" id="login-error" role="alert" hidden>
+          <p class="login__error-text"><i class="fa-solid fa-circle-exclamation"></i>
+            <span>That username and password didn’t work. Try again, or reset your password below.</span></p>
+          <button class="login__hint" id="btn-wrong-country" type="button">
+            <span class="login__hint-flag" id="login-hint-flag" aria-hidden="true"></span>
+            <span class="login__hint-main"><strong>Signing in to <span id="login-hint-name"></span>.</strong>
+              If your department is in <span id="login-hint-other"></span>, switch country and try again.</span>
+            <span class="login__hint-cta">Switch</span>
+          </button>
         </div>
 
         <!-- Turning this on swaps the next sign-in to the Face ID pane below. -->
@@ -126,6 +191,12 @@
 
         <button class="t-Button t-Button--primary" id="btn-login" type="button">Log In</button>
         <button class="t-Button t-Button--ghost" type="button" style="color:#a8b6c8">Forgot your password?</button>
+        <!-- Shared devices only: say up front what is different about this sign-in. -->
+        <p class="login__note" id="login-shared-note" hidden>
+          <i class="fa-solid fa-users"></i>
+          <span>Shared device: signed out after <strong id="login-idle-label"></strong> of inactivity.
+          No Face ID or saved passwords.</span>
+        </p>
       </div>
 
       <!-- Pane B — Face ID sign-in, shown once the user has opted in -->
@@ -143,8 +214,10 @@
     <!-- ================================================================
          PUSH OPT-IN PRE-PROMPT — feature #2.
          The PRD requires custom introductory language BEFORE the OS
-         dialog, including shared-device guidance. The OS dialog itself is
-         native and deliberately not simulated here.
+         dialog. The OS dialog itself is native and deliberately not
+         simulated here. Shown on personal devices only: shared devices
+         declared themselves in setup and skip straight to Home, so there
+         is no shared-device caveat in this copy.
          ================================================================ -->
     <section class="prompt" id="screen-prompt">
       <div class="prompt__icon"><i class="fa-solid fa-bell"></i></div>
@@ -153,16 +226,28 @@
         Get notified when assignments are due, credentials are expiring, and
         events are coming up — so nothing slips during a busy shift.
       </p>
-      <div class="prompt__note">
-        <i class="fa-solid fa-users"></i>
-        <span><strong>Using a shared device?</strong> Leave notifications off. Alerts are
-        personal to your account and would be visible to anyone using this device.</span>
-      </div>
       <div class="t-YStack" style="gap:var(--space-2)">
         <button class="t-Button t-Button--primary" data-goto="home" type="button">Turn On Notifications</button>
         <button class="t-Button t-Button--ghost" data-goto="home" type="button">Not now</button>
       </div>
     </section>
+
+    <!-- ================================================================
+         SHARED-DEVICE IDENTITY STRIP — shared mode only. Sits between the
+         status bar and the app shell so it is above EVERY in-app screen,
+         including the full-screen Record task, and is never scrolled away.
+         Navy (system chrome), not --brand, so it reads as "the device
+         telling you who you are" rather than part of the app. "Switch"
+         signs out straight to a cleared login form.
+         ================================================================ -->
+    <div class="who" id="who" hidden>
+      <span class="t-Avatar" id="who-avatar" aria-hidden="true"></span>
+      <span class="who__main">
+        <span class="who__label">Signed in as</span>
+        <span class="who__name" id="who-name"></span>
+      </span>
+      <button class="who__switch" id="btn-switch-user" type="button">Not you? <strong>Switch</strong></button>
+    </div>
 
     <!-- ================================================================
          MAIN APP SHELL — header + screens + bottom tab bar
@@ -258,6 +343,16 @@
               <p class="t-H4" style="margin-top:var(--space-1)">Springfield Fire Department</p>
             </div>
           </div></div>
+          <!-- Shared devices only: the rules that apply to this sign-in -->
+          <div class="t-Card" id="profile-shared" hidden><div class="t-Card__body shared-note">
+            <i class="fa-solid fa-users"></i>
+            <div>
+              <p class="shared-note__title">Shared station device</p>
+              <p class="shared-note__body">Anyone at the station can sign in here. You are signed out
+              automatically after <strong class="idle-label"></strong> without activity, and whenever the
+              app is closed. Face ID and saved passwords are off.</p>
+            </div>
+          </div></div>
           <button class="t-Button t-Button--danger" id="btn-logout" type="button">
             <i class="fa-solid fa-right-from-bracket"></i> Log Out
           </button>
@@ -288,6 +383,10 @@
       </div>
     </div>
 
+    <!-- Shared-device inactivity warning ("Still there?"), rendered by app.js.
+         Reuses the Record Completions dialog styling. -->
+    <div class="rc-dialog__overlay" id="idle-dialog" role="alertdialog" aria-labelledby="idle-title"></div>
+
     <!-- ---- Record Completions overlays (rendered by record.js) ---- -->
     <!-- Activity / participant picker: a full-screen sheet, the mobile take on
          the web's User Selection Tool -->
@@ -312,10 +411,19 @@
   // 1) State driver — app.js owns navigation; this just delegates to it.
   function applyFlowState(id, opts) {
     opts = opts || {};
-    // Record Completions states carry their own draft data — record.js sets
-    // them up so the thumbnails show real, filled-in screens.
-    if (id.indexOf('record') === 0 && window.RC) window.RC.applyState(id);
+    // Shared-device states flip the device flag first, then land on the
+    // ordinary screen; every other state renders as a personal device.
+    var SHARED = { 'login-shared': 'login', 'home-shared': 'home', 'record-shared': 'record-participants', 'idle': 'home' };
+    var requested = id;
+    if (window.APP) window.APP.setDevice(SHARED[id] ? 'shared' : 'personal');
+    if (SHARED[id]) id = SHARED[id];
+    // Every state goes through record.js when it is loaded: Record Completions
+    // and self-assign states set up their own draft data so the thumbnails show
+    // real, filled-in screens, and any other state first drops a self-assign
+    // that may be open. Plain navigation otherwise.
+    if (window.RC) window.RC.applyState(id);
     else if (window.goTo) window.goTo(id, { instant: true });
+    if (requested === 'idle' && window.APP) window.APP.showIdleWarning();
     if (!opts.instant) window.scrollTo(0, 0);
   }
   window.applyFlowState = applyFlowState;
@@ -334,62 +442,89 @@
       title: 'TS Mobile App — Flow Map',
       applyState: 'applyFlowState',
       devNotes: '../DEV-NOTES.md',   // one copy at the feature root, shared with dev_handoff.html
-      canvas: { w: 1870, h: 560 },
+      canvas: { w: 2040, h: 780 },
       flows: [
         { id: 'onboarding', name: 'Getting In', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 570, h: 520 }, labelXY: { x: 40, y: 40 } },
+          lane: { x: 20, y: 20, w: 740, h: 520 }, labelXY: { x: 40, y: 40 } },
         { id: 'main', name: 'In the App', pill: 'B', color: '#a8d5ba',
-          lane: { x: 610, y: 20, w: 1240, h: 520 }, labelXY: { x: 630, y: 40 } }
+          lane: { x: 780, y: 20, w: 1240, h: 520 }, labelXY: { x: 800, y: 40 } },
+        { id: 'shared', name: 'Shared Station Device', pill: 'C', color: '#f5d59a',
+          lane: { x: 20, y: 560, w: 2000, h: 200 }, labelXY: { x: 40, y: 580 } }
       ],
       nodes: [
         { id: 'region', flow: 'onboarding', entry: true, x: 60, y: 180,
           step: 'Entry', name: 'Choose Country', state: 'region',
           desc: 'US and Canada accounts live in separate databases and usernames are not unique across them, so the app asks once, before credentials. Two equal buttons, no default. Remembered after the first pick.' },
-        { id: 'login', flow: 'onboarding', x: 230, y: 180,
+        { id: 'device', flow: 'onboarding', x: 230, y: 180,
+          step: 'Entry', name: 'Who Uses This Device?', state: 'device',
+          desc: 'Second one-tap setup step: "Just me" or "My station or crew". A station tablet declares itself shared once, by whoever sets it up — not every person at every login. Remembered like the country; the login form shows the choice with a Change link.' },
+        { id: 'login', flow: 'onboarding', x: 400, y: 180,
           step: 'Sign in', name: 'Log In', state: 'login',
-          desc: 'Happy-path login only. SSO, merged auth and error states are deferred. Shows the remembered country with a Change link back to the picker.' },
-        { id: 'prompt', flow: 'onboarding', x: 400, y: 180,
+          desc: 'Username/password login (SSO and merged auth deferred). Shows the remembered country and device type, each with a Change link. A failed attempt (blank field in the prototype) shows the error plus a "Signing in to United States — if your department is in Canada, switch" nudge, since the two countries are separate databases.' },
+        { id: 'prompt', flow: 'onboarding', x: 570, y: 180,
           step: 'First launch', name: 'Notification Opt-In', state: 'prompt',
-          desc: 'The custom pre-prompt the PRD requires before the native OS dialog, including shared-device guidance.' },
-        { id: 'home', flow: 'main', x: 650, y: 180,
+          desc: 'The custom pre-prompt the PRD requires before the native OS dialog. Personal devices only — a shared device declared itself in setup and skips straight to Home.' },
+        { id: 'home', flow: 'main', x: 820, y: 180,
           step: 'Home', name: 'Quick Links', state: 'home',
           desc: 'Home shows Quick Links only, under a brand bar (department name, --brand colour) that scrolls away with the page. One customer-named card with customer-named group sub-headers and admin-ordered, admin-colored tiles.' },
-        { id: 'record', flow: 'main', x: 830, y: 60,
+        { id: 'record', flow: 'main', x: 1000, y: 60,
           step: 'Tab', name: 'Record: Activities', state: 'record',
-          desc: 'Step 1 of the full-screen task. No app bar: the screen draws its own title row (X keeps the draft, Vector AI badge) and the tab bar hides while the flow is open. Empty state offers Add Activities; RCA Quick Links land here with their activity already added. Both stepper steps are always tappable.' },
-        { id: 'record-picker', flow: 'main', x: 1030, y: 40,
+          desc: 'The Activities view of the full-screen task. No app bar: the screen draws its own title row (X keeps the draft, Vector AI badge) and the tab bar hides while the flow is open. An Activities | Participants segmented control (with counts) replaces the old stepper: two views of one record, in any order; Cancel and Submit sit under both. Empty state offers Add Activities; RCA Quick Links land here with their activity already added.' },
+        { id: 'record-picker', flow: 'main', x: 1200, y: 40,
           step: 'Sheet', name: 'Select Activities', state: 'record-picker',
-          desc: 'Mobile take on the User Selection Tool, shared by both steps: search, Filters, Recent + A–Z rows, View Selected, Save Selection. Every filter field is a working multi-select (select-shaped header that opens chips).' },
-        { id: 'record-form', flow: 'main', x: 1230, y: 40,
+          desc: 'Mobile take on the User Selection Tool, shared by both steps and the Techniques field: search, Filters, Recent + A–Z rows, View Selected, Save Selection. Participants open pre-filtered to active users (a removable chip); techniques get the search-only variant. Every filter field is a working multi-select (select-shaped header that opens chips).' },
+        { id: 'record-form', flow: 'main', x: 1400, y: 40,
           step: 'Form', name: 'Activity Form', state: 'record-form',
           desc: 'One accordion panel per activity, one open at a time. Date, time and instructor default to today / now / you, with apply-to-all checked. Below that: the admin-configured components (objectives, techniques, areas, notes). Kebab holds Clear form and Delete activity.' },
-        { id: 'record-voice', flow: 'main', x: 1430, y: 40,
+        { id: 'record-voice', flow: 'main', x: 1600, y: 40,
           step: 'Voice', name: 'VoiceComplete', state: 'record-voice',
           desc: 'Live transcript with Pause and Analyze. When the form scrolls past it, the transcript sticks under the panel header so the user can read the form while speaking.' },
-        { id: 'record-filled', flow: 'main', x: 1630, y: 40,
+        { id: 'record-filled', flow: 'main', x: 1800, y: 40,
           step: 'AI fill', name: 'Form Filled', state: 'record-filled',
           desc: 'Analyze fills the fields from the transcript and collapses the capture to a strip with Re-record and Edit transcript. Fields stay directly editable — that is the correction path.' },
-        { id: 'record-participants', flow: 'main', x: 1030, y: 160,
-          step: 'Step 2', name: 'Participants', state: 'record-participants',
+        { id: 'record-participants', flow: 'main', x: 1200, y: 160,
+          step: 'View', name: 'Participants', state: 'record-participants',
           desc: 'One list, not one card per activity: each person shows “All 3 activities” and expands for per-activity exceptions. The officer must add themselves explicitly. Submit is the only validation point.' },
-        { id: 'record-done', flow: 'main', x: 1230, y: 160,
+        { id: 'record-done', flow: 'main', x: 1400, y: 160,
           step: 'Done', name: 'Completions Recorded', state: 'record-done',
-          desc: 'Confirmation with the tab bar back. Record more, Same participants + new activities (a mobile-only shortcut for back-to-back drills), or Home.' },
-        { id: 'scan', flow: 'main', x: 830, y: 175,
+          desc: 'Confirmation with the tab bar back. Record more, or Home. (The roster just submitted becomes the picker’s pre-checked "Last used" group, which covers the back-to-back-drill case.)' },
+        { id: 'self-assign', flow: 'main', x: 1600, y: 160,
+          step: 'Self-assign', name: 'Physical Fitness', state: 'self-assign',
+          desc: 'Single-activity completion for the signed-in user, opened by the Physical Fitness Quick Link or a scanned QR code. No stepper, no Participants, no adding activities, no VoiceComplete; the Notes mic is plain dictation. X and Cancel discard (no draft kept).' },
+        { id: 'self-assign-done', flow: 'main', x: 1800, y: 160,
+          step: 'Done', name: 'Completion Recorded', state: 'self-assign-done',
+          desc: 'Confirmation for one person: activity, date and duration, "Recorded for you". Record another, or Home.' },
+        { id: 'scan', flow: 'main', x: 1000, y: 175,
           step: 'Tab', name: 'Scan', state: 'scan',
-          desc: 'QR/barcode viewfinder. A scan resolves to a placeholder sheet rather than a real activity launch.' },
-        { id: 'more', flow: 'main', x: 830, y: 290,
+          desc: 'QR/barcode viewfinder. The simulated scan resolves to the Physical Fitness self-assign — the printed code outside the workout room. A real code could point at any activity.' },
+        { id: 'more', flow: 'main', x: 1000, y: 290,
           step: 'Tab', name: 'More', state: 'more',
           desc: 'Account row (→ Profile) and the web platform shortcut.' },
-        { id: 'notifications', flow: 'main', x: 830, y: 405,
+        { id: 'notifications', flow: 'main', x: 1000, y: 405,
           step: 'Tab', name: 'Alerts', state: 'notifications',
           desc: 'Its own tab, with the unread count as a badge, so alerts are reachable from every screen. Read-only feed across the four in-scope types; preferences stay in the web platform. Tapping one deep-links out to the browser.' },
-        { id: 'profile', flow: 'main', x: 1030, y: 300,
+        { id: 'profile', flow: 'main', x: 1200, y: 300,
           step: 'Detail', name: 'Profile', state: 'profile',
-          desc: 'Reached from the account row at the top of More (the header no longer carries an avatar). Name, role, department and log out — the barebones Phase 1 profile the PRD calls for.' }
+          desc: 'Reached from the account row at the top of More (the header no longer carries an avatar). Name, role, department and log out — the barebones Phase 1 profile the PRD calls for. On a shared device it also states the sign-out rules.' },
+        { id: 'login-shared', flow: 'shared', x: 60, y: 620,
+          step: 'Sign in', name: 'Log In (shared)', state: 'login-shared',
+          desc: 'Same form, stricter: no Face ID opt-in, username never prefilled, and a note stating the inactivity sign-out. The device pill reads "Shared station device".' },
+        { id: 'home-shared', flow: 'shared', x: 260, y: 620,
+          step: 'In the app', name: 'Identity Strip', state: 'home-shared',
+          desc: 'A navy "Signed in as Jordan Lee · Not you? Switch" strip pinned between the status bar and the app, above every screen including the Record task. Switch signs out to a cleared login form. The push pre-prompt is skipped on shared devices.' },
+        { id: 'record-shared', flow: 'shared', x: 460, y: 620,
+          step: 'Harm moment', name: 'Recording as…', state: 'record-shared',
+          desc: 'The Participants step repeats the identity ("Recording as Jordan Lee · Not you?") right where a completion is about to be filed under the wrong person. Signing out from here discards the draft so it never carries over to the next user.' },
+        { id: 'idle', flow: 'shared', x: 660, y: 620,
+          step: 'Timeout', name: 'Still There?', state: 'idle',
+          desc: 'After the inactivity limit a warning counts down, then signs out. The real limit is a product/security decision (copy says 15 minutes); the prototype fires after 45 s so it can be seen.' }
       ],
       edges: [
-        ['region', 'login'],
+        ['region', 'device'],
+        ['device', 'login'],
+        ['login-shared', 'home-shared'],
+        ['home-shared', 'record-shared'],
+        ['home-shared', 'idle'],
         ['login', 'prompt'],
         ['prompt', 'home'],
         ['home', 'record'],
@@ -399,6 +534,9 @@
         ['record-voice', 'record-filled'],
         ['record', 'record-participants'],
         ['record-participants', 'record-done'],
+        ['home', 'self-assign'],
+        ['scan', 'self-assign'],
+        ['self-assign', 'self-assign-done'],
         ['home', 'scan'],
         ['home', 'more'],
         ['home', 'notifications'],

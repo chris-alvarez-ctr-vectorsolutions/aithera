@@ -19,7 +19,7 @@
        can't seed it from the logged-in user) — VoiceComplete or a manual pick
        fills it
      • the draft survives leaving the flow; only Cancel discards it
-     • the confirmation screen offers "Same participants, new activities"
+     • the roster just submitted becomes the picker's pre-checked "Last used" group
 
    Everything a designer is likely to change lives in the DATA block.
    Exposes window.RC = { openWith(activityName), applyState(id) } for the Quick
@@ -51,6 +51,11 @@
     { id: 'extinguisher', name: 'Extinguisher Training',   category: 'Hazardous Materials', recent: true,
       components: { objectives: ['Identify extinguisher classes', 'Use the PASS technique', 'Check pressure and tags'],
                     techniques: true, areas: false, notes: true } },
+    /* Self-assign target: the "Physical Fitness" Quick Link and the workout-room
+       QR code both open this one for the signed-in user alone. */
+    { id: 'fitness',    name: 'Physical Fitness',          category: 'Firefighter Physical Fitness',
+      components: { objectives: ['Cardiovascular conditioning', 'Strength training', 'Flexibility & mobility', 'Job-specific functional work'],
+                    techniques: false, areas: false, notes: true } },
     { id: 'firebasics', name: 'Fire Basics',               category: 'Fire Equipment Maintenance',
       components: { objectives: ['Fire behavior and stages', 'PPE donning and doffing', 'Radio procedures'],
                     techniques: true, areas: false, notes: true } },
@@ -85,8 +90,9 @@
                     techniques: true, areas: true, notes: true } }
   ];
 
-  /* Techniques are admin-configured and can run long, so the form shows them
-     in a searchable bottom sheet rather than inline chips. */
+  /* Techniques are admin-configured and can run long, so the form shows them as
+     chips on a select-shaped trigger that opens the same full-screen picker as
+     activities and participants (search + A–Z list, no filters). */
   var TECHNIQUES = ['Hands-on practice', 'Classroom instruction', 'Live drill',
                     'Simulation exercise', 'Equipment familiarization', 'Team coordination',
                     'Demonstration', 'Tabletop exercise', 'Case study review', 'Video / e-learning',
@@ -198,9 +204,16 @@
      STATE
      ======================================================================== */
   var draft = freshDraft();
-  var lastSubmission = null;    // powers "Same participants, new activities"
+  var lastSubmission = null;    // powers the confirmation screen and the picker's "Last used" roster
   var voiceTimer = null;
-  var picker = null;            // { kind:'activities'|'people', selected:{}, query, filters:{...}, view:'list'|'filters'|'selected', sort:'asc'|'desc', lastUsedOpen }
+  var picker = null;            // { kind:'activities'|'people'|'techniques', selected:{}, query, filters:{...}, view:'list'|'filters'|'selected', sort:'asc'|'desc', lastUsedOpen }
+  /* Self-assign runs in the same `draft` shape (mode:'self', one activity, no
+     people) so the form, field handlers and pickers work unchanged. The group
+     draft is parked in `stash` meanwhile and restored when self-assign closes —
+     a self-assign never leaves a draft of its own behind. */
+  var stash = null;
+  var lastSelf = null;          // powers the self-assign confirmation + "Record another"
+  var dict = null;              // plain dictation in progress: { idx, field, words, i, timer }
 
   function freshDraft() {
     return { step: 'activities', activities: [], people: [], expandedPerson: null, dirty: false };
@@ -252,13 +265,20 @@
      RENDER — the flow
      ======================================================================== */
   function render() {
-    body.innerHTML = renderTitle() + renderStepper() + (draft.step === 'activities' ? renderActivities() : renderParticipants());
-    footer.innerHTML = draft.step === 'activities'
-      ? '<button class="t-Button t-Button--secondary rc-footer__btn" data-rc="cancel" type="button">Cancel</button>' +
-        '<button class="t-Button t-Button--primary rc-footer__btn" data-rc="next" type="button">Next <i class="fa-solid fa-chevron-right"></i></button>'
-      : '<button class="t-Button t-Button--secondary rc-footer__btn" data-rc="back" type="button">Back</button>' +
-        '<button class="t-Button t-Button--primary rc-footer__btn" data-rc="submit" type="button">Submit</button>';
-    tabDot.hidden = !(draft.activities.length || draft.people.length);
+    stopDictation();
+    var cancelBtn = '<button class="t-Button t-Button--secondary rc-footer__btn" data-rc="cancel" type="button">Cancel</button>';
+    var submitBtn = '<button class="t-Button t-Button--primary rc-footer__btn" data-rc="submit" type="button">Submit</button>';
+    if (draft.mode === 'self') {
+      body.innerHTML = renderSelf();
+      footer.innerHTML = cancelBtn + submitBtn;
+    } else {
+      body.innerHTML = renderTitle() + renderSegments() + (draft.step === 'activities' ? renderActivities() : renderParticipants());
+      // Same footer on both views: there is no "next", only submit when both parts are done.
+      footer.innerHTML = cancelBtn + submitBtn;
+    }
+    // The Record tab's dot belongs to the GROUP draft, parked or not.
+    var group = draft.mode === 'self' ? stash : draft;
+    tabDot.hidden = !(group && (group.activities.length || group.people.length));
   }
 
   /* No app bar on this screen — the title row carries the X (leave, keep the
@@ -270,21 +290,20 @@
            '<span class="ai-badge ai-badge--tint"><i class="fa-solid fa-sparkles"></i> Vector AI</span></div>';
   }
 
-  function renderStepper() {
+  /* Segmented control (Tamagui ToggleGroup-shaped), not a stepper. Two equal
+     views of one record — Activities and Participants — switchable in any order
+     with nothing lost. The count shows progress; an empty view gets a small
+     dot rather than a required asterisk. The numbered-dots stepper this
+     replaces read as a wizard and made people think step 2 was locked. */
+  function renderSegments() {
     var nA = draft.activities.length, nP = draft.people.length;
-    var subA = nA ? nA + (nA === 1 ? ' activity' : ' activities') : 'None added yet';
-    var subP = nP ? nP + (nP === 1 ? ' participant' : ' participants') : 'None added yet';
-    return '<div class="rc-stepper">' +
-      step('activities', 1, 'Activities', subA, nA > 0) +
-      '<span class="rc-stepper__line"></span>' +
-      step('participants', 2, 'Participants', subP, nP > 0) +
-      '</div>';
-    function step(id, n, label, sub, done) {
-      var cls = 'rc-step' + (draft.step === id ? ' is-current' : '') + (done ? ' is-done' : '');
-      return '<button class="' + cls + '" data-rc="step" data-step="' + id + '" type="button">' +
-             '<span class="rc-step__dot">' + (done ? '<i class="fa-solid fa-check"></i>' : n) + '</span>' +
-             '<span class="rc-step__label">' + label + ' <em>*</em></span>' +
-             '<span class="rc-step__sub">' + sub + '</span></button>';
+    return '<div class="rc-seg" role="tablist" aria-label="Record completions views">' +
+      seg('activities', 'Activities', nA) + seg('participants', 'Participants', nP) + '</div>';
+    function seg(id, label, n) {
+      var on = draft.step === id;
+      return '<button class="rc-seg__btn' + (on ? ' is-on' : '') + '" role="tab" aria-selected="' + on + '" data-rc="step" data-step="' + id + '" type="button">' +
+             label + (n ? '<span class="rc-seg__count">' + n + '</span>'
+                        : '<span class="rc-seg__dot" aria-label="None added yet"></span>') + '</button>';
     }
   }
 
@@ -307,7 +326,8 @@
                '<i class="fa-solid ' + (a.open ? 'fa-chevron-down' : 'fa-chevron-right') + '"></i>' +
                '<span class="rc-panel__name">' + esc(def.name) + '</span>' +
                (filled ? '<i class="fa-solid fa-check rc-panel__check" aria-label="Filled in"></i>' : '') +
-               '<span class="rc-panel__count">' + (idx + 1) + '/' + n + '</span></button>';
+               // "2/3" only means something once there are several panels to count through
+               (n > 1 ? '<span class="rc-panel__count">' + (idx + 1) + '/' + n + '</span>' : '') + '</button>';
     if (!a.open) {
       var summary = filled
         ? '<div class="rc-panel__summary"><span>' + prettyDate(a.date) + '</span>' +
@@ -327,11 +347,12 @@
   }
 
   function renderForm(a, def, idx) {
-    var c = def.components, many = draft.activities.length > 1;
+    var c = def.components, many = draft.activities.length > 1, selfMode = draft.mode === 'self';
     var h = '';
 
-    /* Voice capture — button, live box, or the "filled" strip */
-    h += renderVoice(a, idx);
+    /* Voice capture — button, live box, or the "filled" strip. Self-assign has
+       no VoiceComplete; its mics are plain dictation on the text fields. */
+    if (!selfMode) h += renderVoice(a, idx);
 
     /* Fixed fields — one per row (the earlier two-up rows tested poorly).
        Each "apply to all" checkbox sits directly under the field it copies. */
@@ -341,7 +362,7 @@
          (many ? '<div class="rc-applyrow">' + check('applyDate', a.applyDate, 'Apply date &amp; time to all activities', idx) + '</div>' : '') +
          field('Duration (hrs)', '<input class="t-Input" type="number" inputmode="decimal" step="0.25" min="0" placeholder="e.g. 1.5" data-field="duration" data-idx="' + idx + '" value="' + esc(a.duration) + '">') +
          // Instructor starts empty: the placeholder option is the only "unset" state
-         field('Instructor', '<select class="t-Input' + (a.instructor ? '' : ' is-placeholder') + '" data-field="instructor" data-idx="' + idx + '">' +
+         field(selfMode ? 'Instructor (optional)' : 'Instructor', '<select class="t-Input' + (a.instructor ? '' : ' is-placeholder') + '" data-field="instructor" data-idx="' + idx + '">' +
                '<option value="" disabled' + (a.instructor ? '' : ' selected') + '>Select instructor…</option>' +
                INSTRUCTORS.map(function (i) { return '<option' + (i === a.instructor ? ' selected' : '') + '>' + i + '</option>'; }).join('') + '</select>') +
          (many ? '<div class="rc-applyrow">' + check('applyInstructor', a.applyInstructor, 'Apply instructor to all activities', idx) + '</div>' : '') +
@@ -426,15 +447,138 @@
            '</div></div>';
   }
 
+  /* ===========================================================================
+     SELF-ASSIGN — one activity, for the signed-in user only
+     ---------------------------------------------------------------------------
+     Opened by a self-assign Quick Link or a scanned QR code (the printed code
+     outside the workout room). Same screen as Record Completions, but: no
+     stepper, no Participants step, no adding activities, no VoiceComplete.
+     The mic on the text fields is plain dictation (no AI parsing).
+     ======================================================================== */
+  function openSelf(name, opts) {
+    opts = opts || {};
+    var def = ACTIVITIES.filter(function (a) { return a.name.toLowerCase() === name.toLowerCase(); })[0];
+    if (!def) {
+      def = { id: 'sa-' + name.toLowerCase().replace(/\W+/g, '-'), name: name, category: 'Self-assign',
+              components: { objectives: [], techniques: false, areas: false, notes: true } };
+      ACTIVITIES.push(def);
+    }
+    if (draft.mode !== 'self') stash = draft;   // park the group draft; a second self-assign keeps the same stash
+    var entry = newActivityEntry(def); entry.open = true;
+    draft = { mode: 'self', step: 'activities', activities: [entry], people: [], expandedPerson: null, dirty: false };
+    stopStream();
+    render();
+    window.goTo('record');
+    scroller.scrollTop = 0;
+    if (opts.scanned) toast('Scanned: ' + def.name + ' — recording for you.');
+  }
+
+  /* Drop the self-assign and bring the group draft back (without navigating). */
+  function closeSelf() {
+    stopDictation();
+    draft = stash || freshDraft();
+    stash = null;
+    render();
+  }
+
+  function renderSelf() {
+    var a = draft.activities[0], def = defOf(a.id);
+    return '<div class="rc-title">' +
+           '<button class="rc-iconbtn" data-task-leave type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
+           '<h1 class="rc-title__text">Record Completion</h1></div>' +
+           renderRecorder() +
+           '<div class="rc-self">' +
+           '<span class="rc-self__kicker"><i class="fa-solid fa-user-check"></i> Self-assign · recorded for you</span>' +
+           '<h2 class="rc-self__name">' + esc(def.name) + '</h2>' +
+           '<span class="rc-self__cat">' + esc(def.category) + '</span></div>' +
+           '<div class="rc-panel is-open rc-panel--self"><div class="rc-panel__body">' +
+           (def.components ? renderForm(a, def, 0)
+                           : '<div class="rc-unconfigured"><p>This activity hasn’t been configured.<br>Please contact your administrator for assistance.</p></div>') +
+           '</div></div>';
+  }
+
+  function renderDoneSelf() {
+    var s = lastSelf, shared = window.APP && window.APP.isShared();
+    doneEl.closest('.screen').dataset.title = 'Record Completion';   // singular in the app bar
+    doneEl.innerHTML =
+      '<div class="rc-done__icon"><i class="fa-solid fa-check"></i></div>' +
+      '<h1 class="t-H1">Completion recorded</h1>' +
+      '<ul class="rc-done__list"><li>' + esc(s.name) + '</li></ul>' +
+      '<p class="t-Paragraph">' + prettyDate(s.date) + (s.duration ? ' · ' + esc(s.duration) + ' hrs' : '') + '</p>' +
+      '<p class="t-SizableText rc-done__by"><i class="fa-solid fa-user-check"></i> Recorded for ' +
+      (window.APP ? esc(window.APP.user.name) : 'you') + (shared ? ' on this shared device' : '') + '.</p>' +
+      '<div class="t-YStack" style="gap:var(--space-2);width:100%">' +
+      '<button class="t-Button t-Button--primary" data-rc="self-again" type="button">Record another</button>' +
+      '<button class="t-Button t-Button--ghost" data-goto="home" type="button">Go to Home</button></div>';
+  }
+
+  /* --- Plain dictation ---------------------------------------------------
+     The mic in the corner of a text field streams spoken words straight into
+     that field — speech-to-text only, nothing is interpreted. Tap to start,
+     tap again (or let it finish) to stop. Works in both flows. */
+  var DICTATION = {
+    notes: 'Forty five minutes total. Twenty on the treadmill at a steady pace, then three rounds of squats, lunges and kettlebell swings. Finished with ten minutes of stretching.',
+    areas: 'Station apparatus bay and the drill yard behind the station.'
+  };
+  function toggleDictation(idx, field) {
+    if (dict && dict.idx === idx && dict.field === field) { stopDictation(); return; }
+    stopDictation();
+    var words = (DICTATION[field] || DICTATION.notes).split(' ');
+    dict = { idx: idx, field: field, words: words, i: 0, timer: null };
+    var a = draft.activities[idx];
+    if (a[field] && !/\s$/.test(a[field])) a[field] += ' ';   // append after what is already typed
+    paintDictation(true);
+    dict.timer = setInterval(function () {
+      var el = dictField();
+      if (!el || dict.i >= dict.words.length) { stopDictation(); return; }
+      a[field] += (dict.i ? ' ' : '') + dict.words[dict.i++];
+      draft.dirty = true;
+      el.value = a[field];
+      el.scrollTop = el.scrollHeight;
+    }, 140);
+  }
+  function stopDictation() {
+    if (!dict) return;
+    clearInterval(dict.timer);
+    paintDictation(false);
+    dict = null;
+  }
+  function dictField() {
+    return body.querySelector('textarea[data-field="' + dict.field + '"][data-idx="' + dict.idx + '"]');
+  }
+  function paintDictation(on) {
+    var el = dictField(); if (!el) return;
+    var btn = el.parentNode.querySelector('.rc-mic');
+    el.classList.toggle('is-dictating', on);
+    if (btn) {
+      btn.classList.toggle('is-live', on);
+      btn.setAttribute('aria-pressed', on);
+      btn.innerHTML = on ? '<i class="fa-solid fa-stop"></i>' : '<i class="fa-solid fa-microphone"></i>';
+    }
+  }
+
   /* --- Step 2: Participants --------------------------------------------- */
+  /* Shared devices only: repeat the identity right where a completion is about
+     to be filed. The strip above the app already says who is signed in; this
+     line is the second check at the moment a mistake would actually cost
+     something. "Not you?" signs out and discards the draft. */
+  function renderRecorder() {
+    if (!(window.APP && window.APP.isShared())) return '';
+    var u = window.APP.user;
+    return '<div class="rc-who">' +
+           '<span class="t-Avatar" aria-hidden="true">' + esc(u.initials) + '</span>' +
+           '<span class="rc-who__text">Recording as <strong>' + esc(u.name) + '</strong></span>' +
+           '<button class="rc-who__switch" data-rc="switch-user" type="button">Not you?</button></div>';
+  }
+
   function renderParticipants() {
     if (!draft.people.length) {
-      return '<div class="rc-hero"><h2 class="rc-hero__title">Participants</h2>' +
+      return renderRecorder() + '<div class="rc-hero"><h2 class="rc-hero__title">Participants</h2>' +
              '<button class="rc-pill" data-rc="add-people" type="button"><i class="fa-solid fa-plus"></i> Add Participants</button>' +
              '<p class="rc-hero__hint">Everyone you add gets a completion for every activity unless you say otherwise. Add yourself if you took part.</p></div>';
     }
     var nA = draft.activities.length;
-    return '<div class="rc-hero rc-hero--list">' +
+    return renderRecorder() + '<div class="rc-hero rc-hero--list">' +
       '<div class="rc-hero__bar"><h2 class="rc-hero__title">Participants</h2>' +
       '<button class="rc-pill rc-pill--sm" data-rc="add-people" type="button"><i class="fa-solid fa-plus"></i> Add</button>' +
       '<button class="rc-iconbtn rc-iconbtn--light" data-rc="people-menu" type="button" aria-label="More options"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>' +
@@ -469,13 +613,24 @@
   /* ===========================================================================
      RENDER — the picker (mobile User Selection Tool)
      ======================================================================== */
-  function openPicker(kind) {
-    picker = { kind: kind, query: '', view: 'list', selected: {}, filters: {}, pendingFilters: {}, sort: 'asc', lastUsedOpen: true };
-    (kind === 'activities' ? draft.activities : draft.people).forEach(function (x) { picker.selected[x.id] = true; });
+  /* One picker, three data sets. kind = 'activities' | 'people' | 'techniques';
+     for techniques, idx says which activity's form the picks belong to. */
+  var TECH_ITEMS = TECHNIQUES.map(function (t) { return { id: t, name: t }; });
+  function pickerSource() {
+    return picker.kind === 'activities' ? ACTIVITIES : picker.kind === 'people' ? PEOPLE : TECH_ITEMS;
+  }
+
+  function openPicker(kind, idx) {
+    picker = { kind: kind, idx: idx, query: '', view: 'list', selected: {}, filters: {}, pendingFilters: {}, sort: 'asc', lastUsedOpen: true };
+    if (kind === 'techniques') draft.activities[idx].techniques.forEach(function (t) { picker.selected[t] = true; });
+    else (kind === 'activities' ? draft.activities : draft.people).forEach(function (x) { picker.selected[x.id] = true; });
     // Participants: an empty step opens with the whole Last used roster pre-checked —
     // the common case is recording the same crew again. Once the draft has people,
     // their choices win (reopening never re-checks someone they removed).
     if (kind === 'people' && !draft.people.length) PEOPLE.forEach(function (p) { if (p.recent) picker.selected[p.id] = true; });
+    // Participants also open filtered to active users. Inactive accounts are the
+    // exception, so the preset is a normal filter chip: visible, and one tap to remove.
+    if (kind === 'people') picker.filters = { status: ['Active'] };
     renderPicker();
     pickerEl.classList.add('is-open');
     setTimeout(function () { var s = pickerEl.querySelector('.rc-picker__search input'); if (s) s.focus(); }, 260);
@@ -483,8 +638,7 @@
   function closePicker() { picker = null; pickerEl.classList.remove('is-open'); }
 
   function pickerItems() {
-    var isAct = picker.kind === 'activities';
-    var src = isAct ? ACTIVITIES : PEOPLE;
+    var src = pickerSource();
     var q = picker.query.trim().toLowerCase();
     var f = picker.filters;
     return src.filter(function (x) {
@@ -497,8 +651,8 @@
   }
 
   function renderPicker() {
-    var isAct = picker.kind === 'activities';
-    var title = isAct ? 'Select Activities' : 'Select Participants';
+    var isAct = picker.kind === 'activities', isTech = picker.kind === 'techniques';
+    var title = isAct ? 'Select Activities' : isTech ? 'Select Techniques' : 'Select Participants';
     var selectedIds = Object.keys(picker.selected).filter(function (k) { return picker.selected[k]; });
     var n = selectedIds.length;
     var h = '<div class="rc-picker__head"><h2 class="t-H3">' + title + '</h2>' +
@@ -507,11 +661,12 @@
     if (picker.view === 'filters') { pickerEl.innerHTML = h + renderPickerFilters(isAct); return; }
     if (picker.view === 'selected') { pickerEl.innerHTML = h + renderPickerSelected(isAct, selectedIds); return; }
 
-    var chips = activeFilterChips(isAct);
+    // Techniques have no filterable attributes, so that picker is search-only.
+    var chips = isTech ? [] : activeFilterChips(isAct);
     h += '<div class="rc-picker__tools">' +
          '<label class="rc-picker__search"><i class="fa-solid fa-magnifying-glass"></i>' +
-         '<input class="t-Input" type="search" placeholder="' + (isAct ? 'Search activities…' : 'Search individuals…') + '" value="' + esc(picker.query) + '" data-pk="query"></label>' +
-         '<button class="rc-picker__filter' + (chips.length ? ' is-on' : '') + '" data-pk="filters" type="button"><i class="fa-solid fa-filter"></i> Filters' + (chips.length ? ' (' + chips.length + ')' : '') + '</button></div>' +
+         '<input class="t-Input" type="search" placeholder="' + (isAct ? 'Search activities…' : isTech ? 'Search techniques…' : 'Search individuals…') + '" value="' + esc(picker.query) + '" data-pk="query"></label>' +
+         (isTech ? '' : '<button class="rc-picker__filter' + (chips.length ? ' is-on' : '') + '" data-pk="filters" type="button"><i class="fa-solid fa-filter"></i> Filters' + (chips.length ? ' (' + chips.length + ')' : '') + '</button>') + '</div>' +
          (chips.length ? '<div class="rc-picker__chips">' + chips.map(function (c) {
            return '<span class="rc-filterchip">' + esc(c.label) + '<button data-pk="chip-x" data-f="' + c.field + '" data-v="' + esc(c.value) + '" type="button" aria-label="Remove filter"><i class="fa-solid fa-xmark"></i></button></span>';
          }).join('') + '</div>' : '');
@@ -521,7 +676,7 @@
     // The A–Z / Z–A toggle in the "All" header sorts every group.
     var asc = picker.sort !== 'desc';
     var byName = function (a, b) { return (asc ? 1 : -1) * a.name.localeCompare(b.name); };
-    var grouped = !picker.query;
+    var grouped = !picker.query && !isTech;   // techniques are one flat A–Z list
     var recent = grouped ? items.filter(function (x) { return x.recent; }).sort(byName) : [];
     var rest = items.filter(function (x) { return !grouped || !x.recent; }).sort(byName);
     var sortBtn = '<button class="rc-picker__groupbtn rc-picker__sort" data-pk="sort" type="button" aria-label="Sort ' + (asc ? 'Z to A' : 'A to Z') + '">' +
@@ -542,7 +697,7 @@
       }
     }
     if (rest.length) {
-      h += '<div class="rc-picker__group rc-picker__group--bar"><span>' + (grouped ? 'All' : 'Results') + ' (' + rest.length + ')</span>' + sortBtn + '</div>' + rest.map(row).join('');
+      h += '<div class="rc-picker__group rc-picker__group--bar"><span>' + (picker.query ? 'Results' : 'All') + ' (' + rest.length + ')</span>' + sortBtn + '</div>' + rest.map(row).join('');
     }
     h += '</div>';
     h += '<div class="rc-picker__foot">' +
@@ -552,9 +707,10 @@
 
     function row(x) {
       var on = !!picker.selected[x.id];
-      return '<label class="rc-pickrow' + (on ? ' is-on' : '') + '"><input type="checkbox" data-pk="check" data-id="' + x.id + '"' + (on ? ' checked' : '') + '>' +
+      var sub = isAct ? x.category : isTech ? '' : x.uid;   // techniques have no second line
+      return '<label class="rc-pickrow' + (on ? ' is-on' : '') + '"><input type="checkbox" data-pk="check" data-id="' + esc(x.id) + '"' + (on ? ' checked' : '') + '>' +
              '<span class="rc-check__box"></span><span class="rc-pickrow__main"><span class="rc-pickrow__name">' + esc(x.name) + '</span>' +
-             '<span class="rc-pickrow__sub">' + esc(isAct ? x.category : x.uid) + '</span></span></label>';
+             (sub ? '<span class="rc-pickrow__sub">' + esc(sub) + '</span>' : '') + '</span></label>';
     }
   }
   /* "Deselect all" while any of the Last used roster is checked, else "Select all". */
@@ -604,8 +760,7 @@
   function uniq(arr) { return arr.filter(function (v, i) { return arr.indexOf(v) === i; }).sort(); }
 
   function renderPickerSelected(isAct, ids) {
-    var src = isAct ? ACTIVITIES : PEOPLE;
-    var items = src.filter(function (x) { return ids.indexOf(x.id) > -1; });
+    var items = pickerSource().filter(function (x) { return ids.indexOf(x.id) > -1; });
     return '<div class="rc-picker__subhead"><span class="t-H4">Selected (' + items.length + ')</span>' +
            '<button class="t-Button t-Button--ghost rc-picker__clear" data-pk="clear-all" type="button">Clear All</button></div>' +
            '<div class="rc-picker__list js-scroll">' +
@@ -620,7 +775,10 @@
 
   function savePicker() {
     var ids = Object.keys(picker.selected).filter(function (k) { return picker.selected[k]; });
-    if (picker.kind === 'activities') {
+    if (picker.kind === 'techniques') {
+      // keep the admin's list order on the form, not tap order
+      draft.activities[picker.idx].techniques = TECHNIQUES.filter(function (t) { return ids.indexOf(t) > -1; });
+    } else if (picker.kind === 'activities') {
       var kept = draft.activities.filter(function (a) { return ids.indexOf(a.id) > -1; });
       var added = ids.filter(function (id) { return !kept.some(function (a) { return a.id === id; }); });
       added.forEach(function (id) { kept.push(newActivityEntry(defOf(id))); });
@@ -725,64 +883,6 @@
   }
 
   /* ===========================================================================
-     TECHNIQUES SHEET — searchable multi-select checklist in a bottom sheet.
-     Picks apply immediately (like the objectives checklist); Done just closes.
-     ======================================================================== */
-  var tsheet = null;   // { idx, query }
-  function openTechniques(idx) {
-    tsheet = { idx: idx, query: '' };
-    renderTechniques();
-    menuEl.classList.add('is-open');
-  }
-  function closeTechniques() {
-    menuEl.classList.remove('is-open');
-    menuEl.onchange = menuEl.oninput = null;
-    tsheet = null;
-    render();
-  }
-  function techniqueRows() {
-    var a = draft.activities[tsheet.idx], q = tsheet.query.trim().toLowerCase();
-    var list = TECHNIQUES.slice().sort(function (x, y) { return x.localeCompare(y); })
-                         .filter(function (t) { return !q || t.toLowerCase().indexOf(q) > -1; });
-    if (!list.length) return '<p class="rc-picker__empty">No matches.</p>';
-    return list.map(function (t) {
-      var on = a.techniques.indexOf(t) > -1;
-      return '<label class="rc-check rc-tsheet__row"><input type="checkbox" data-ts="t" data-t="' + esc(t) + '"' + (on ? ' checked' : '') +
-             '><span class="rc-check__box"></span><span>' + esc(t) + '</span></label>';
-    }).join('');
-  }
-  function renderTechniques() {
-    var a = draft.activities[tsheet.idx], n = a.techniques.length;
-    menuEl.innerHTML = '<div class="t-Sheet__frame rc-menu rc-tsheet"><div class="t-Sheet__handle"></div>' +
-      '<div class="rc-tsheet__head"><span class="t-H4">Techniques used</span>' +
-      '<button class="rc-picker__groupbtn" data-ts="clear" type="button"' + (n ? '' : ' disabled') + '>Clear</button></div>' +
-      '<label class="rc-picker__search rc-tsheet__search"><i class="fa-solid fa-magnifying-glass"></i>' +
-      '<input class="t-Input" type="search" placeholder="Search techniques…" value="' + esc(tsheet.query) + '" data-ts="q"></label>' +
-      '<div class="rc-tsheet__list js-scroll">' + techniqueRows() + '</div>' +
-      '<button class="t-Button t-Button--primary rc-tsheet__done" data-ts="done" type="button">Done' + (n ? ' (' + n + ')' : '') + '</button></div>';
-    menuEl.onclick = function (e) {
-      var btn = e.target.closest('[data-ts]');
-      if (e.target === menuEl || (btn && btn.dataset.ts === 'done')) { closeTechniques(); return; }
-      if (btn && btn.dataset.ts === 'clear') { a.techniques = []; draft.dirty = true; renderTechniques(); }
-    };
-    menuEl.onchange = function (e) {
-      if (e.target.dataset.ts !== 't') return;
-      var t = e.target.dataset.t, pos = a.techniques.indexOf(t);
-      if (e.target.checked && pos === -1) a.techniques.push(t);
-      if (!e.target.checked && pos > -1) a.techniques.splice(pos, 1);
-      draft.dirty = true;
-      var k = a.techniques.length;
-      menuEl.querySelector('[data-ts="done"]').textContent = 'Done' + (k ? ' (' + k + ')' : '');
-      menuEl.querySelector('[data-ts="clear"]').disabled = !k;
-    };
-    menuEl.oninput = function (e) {
-      if (e.target.dataset.ts !== 'q') return;
-      tsheet.query = e.target.value;
-      menuEl.querySelector('.rc-tsheet__list').innerHTML = techniqueRows();   // list only, so the search keeps focus
-    };
-  }
-
-  /* ===========================================================================
      DIALOGS, MENUS, TOAST
      ======================================================================== */
   function dialog(title, text, buttons) {
@@ -829,15 +929,32 @@
   function go(step) { draft.step = step; draft.expandedPerson = null; render(); scroller.scrollTop = 0; }
 
   function submit() {
+    if (draft.mode === 'self') {
+      var sa = draft.activities[0], sdef = defOf(sa.id);
+      if (!sdef.components) {
+        dialog('Unconfigured activity', '“' + esc(sdef.name) + '” hasn’t been configured and can’t be recorded. Contact your administrator.',
+               [{ label: 'OK', primary: true }]);
+        return;
+      }
+      lastSelf = { id: sdef.id, name: sdef.name, date: sa.date, duration: sa.duration };
+      closeSelf();
+      renderDoneSelf();
+      window.goTo('record-done');
+      return;
+    }
     var nA = draft.activities.length;
     var counted = draft.people.filter(function (p) { return p.except.length < nA; });
     var missing = [];
     if (!nA) missing.push('activity');
     if (!counted.length) missing.push('participant');
     if (missing.length) {
-      dialog('Missing required fields',
-             'Please select at least one ' + missing.join(' and one ') + ' before submitting.',
-             [{ label: 'OK', primary: true }]);
+      // Offer the jump to whichever view is empty (the first one, if both are).
+      var target = missing[0] === 'activity' ? 'activities' : 'participants';
+      dialog('Almost there',
+             'Add at least one ' + missing.join(' and one ') + ' before submitting.',
+             [{ label: 'OK' },
+              { label: 'Go to ' + (target === 'activities' ? 'Activities' : 'Participants'), primary: true,
+                onPick: function () { go(target); } }]);
       return;
     }
     var unconfigured = draft.activities.filter(function (a) { return !defOf(a.id).components; });
@@ -861,6 +978,7 @@
 
   function renderDone() {
     var s = lastSubmission;
+    doneEl.closest('.screen').dataset.title = 'Record Completions';
     var actList = s.activities.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('');
     doneEl.innerHTML =
       '<div class="rc-done__icon"><i class="fa-solid fa-check"></i></div>' +
@@ -869,9 +987,11 @@
       s.participants + ' participant' + (s.participants === 1 ? '' : 's') + ' across ' + s.activities.length +
       (s.activities.length === 1 ? ' activity' : ' activities') + '.</p>' +
       '<ul class="rc-done__list">' + actList + '</ul>' +
+      (window.APP && window.APP.isShared()
+        ? '<p class="t-SizableText rc-done__by"><i class="fa-solid fa-user-check"></i> Recorded by ' + esc(window.APP.user.name) + ' on this shared device.</p>'
+        : '') +
       '<div class="t-YStack" style="gap:var(--space-2);width:100%">' +
       '<button class="t-Button t-Button--primary" data-rc="done-more" type="button">Record more</button>' +
-      '<button class="t-Button t-Button--secondary" data-rc="done-same" type="button"><i class="fa-solid fa-users"></i> Same participants, new activities</button>' +
       '<button class="t-Button t-Button--ghost" data-goto="home" type="button">Go to Home</button></div>';
   }
 
@@ -880,9 +1000,27 @@
     dialog('Unsaved changes', 'Are you sure you want to cancel? Your changes will be lost.',
       [{ label: 'Go Back' }, { label: 'Yes, Cancel', danger: true, onPick: function () { leave(true); } }]);
   }
-  /* Leave the flow. discard=false keeps the draft (header X); true throws it away (Cancel). */
+  /* Throw the draft away without navigating — app.js calls this on sign-out from
+     a shared device, so one person's half-finished record never reaches the next. */
+  function reset() {
+    stopStream();
+    stopDictation();
+    draft = freshDraft();
+    stash = null;
+    render();
+  }
+
+  /* Leave the flow. discard=false keeps the draft (header X); true throws it away (Cancel).
+     Self-assign never keeps a draft: X behaves like Cancel (confirm if anything was entered). */
   function leave(discard) {
     stopStream();
+    stopDictation();
+    if (draft.mode === 'self') {
+      if (draft.dirty && !discard) { cancel(); return; }
+      closeSelf();
+      window.goTo('home');
+      return;
+    }
     if (discard) { draft = freshDraft(); render(); }
     else if (draft.activities.length || draft.people.length) toast('Draft saved — pick up where you left off from the Record tab.');
     window.goTo('home');
@@ -924,6 +1062,7 @@
       case 'back': go('activities'); break;
       case 'cancel': cancel(); break;
       case 'submit': submit(); break;
+      case 'switch-user': window.APP.signOut(); break;   // shared device: "Not you?"
       case 'add-activities': openPicker('activities'); break;
       case 'add-people': openPicker('people'); break;
       case 'toggle':
@@ -939,10 +1078,9 @@
           { icon: 'fa-trash-can', label: 'Delete activity', danger: true, onPick: function () { deleteActivity(idx); } }
         ]);
         break;
-      case 'techniques': openTechniques(idx); break;
-      case 'mic':
-        toast('Dictation would fill this field. Use VoiceComplete to fill the whole form.');
-        break;
+      case 'techniques': openPicker('techniques', idx); break;
+      case 'mic': toggleDictation(idx, el.dataset.field); break;   // plain speech-to-text into that field
+      case 'self-again': openSelf(lastSelf.name); break;
       case 'voice-start': voiceStart(idx); break;
       case 'voice-pause': voicePause(idx); break;
       case 'voice-analyze': voiceAnalyze(idx); break;
@@ -965,13 +1103,6 @@
         ]);
         break;
       case 'done-more':
-        window.goTo('record');
-        break;
-      case 'done-same':
-        draft = freshDraft();
-        draft.people = lastSubmission.people.map(function (id) { return { id: id, except: [] }; });
-        draft.dirty = true;
-        render();
         window.goTo('record');
         break;
     }
@@ -1097,6 +1228,11 @@
   /* Flow-map states drive real screen states so the thumbnails are live. */
   function applyState(id) {
     stopStream();
+    stopDictation();
+    // A self-assign open from a previous state is dropped, never carried into
+    // the next thumbnail; the parked group draft is dropped with it.
+    if (draft.mode === 'self') { draft = freshDraft(); render(); }
+    stash = null;
     var d = function () { draft = freshDraft(); draft.activities = ['district', 'ladders', 'hydrant'].map(function (k) { return newActivityEntry(defOf(k)); }); draft.dirty = true; };
     switch (id) {
       case 'record':               draft = freshDraft(); render(); window.goTo('record'); break;
@@ -1106,6 +1242,8 @@
       case 'record-picker':        d(); render(); window.goTo('record'); openPicker('activities'); break;
       case 'record-participants':  d(); draft.step = 'participants'; draft.people = ['p01', 'p02', 'p03', 'p28'].map(function (id) { return { id: id, except: [] }; }); draft.people[1].except = ['hydrant']; render(); window.goTo('record'); break;
       case 'record-done':          lastSubmission = { activities: ['District Familiarization', 'Throwing Ladders', 'Hydrant Training'], people: ['p01', 'p02', 'p03', 'p28'], completions: 11, participants: 4 }; syncLastUsed(); renderDone(); window.goTo('record-done'); break;
+      case 'self-assign':          draft = freshDraft(); openSelf('Physical Fitness'); break;
+      case 'self-assign-done':     draft = freshDraft(); lastSelf = { id: 'fitness', name: 'Physical Fitness', date: isoDate(new Date()), duration: '0.75' }; renderDoneSelf(); window.goTo('record-done'); break;
       default: window.goTo(id);
     }
     function a0fill() {
@@ -1116,7 +1254,7 @@
     }
   }
 
-  window.RC = { openWith: openWith, applyState: applyState, leave: leave, cancel: cancel };
+  window.RC = { openWith: openWith, openSelf: openSelf, applyState: applyState, leave: leave, cancel: cancel, reset: reset };
 
   /* ===========================================================================
      INIT
