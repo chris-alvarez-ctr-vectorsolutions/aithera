@@ -1350,11 +1350,11 @@
     // duplicate people, a location not on the site; staff_update_october = its blocked dates +
     // passwords, custom-field values, early end date, skipped rows. No warning appears in both.
     clean:   [['new_person', 42], ['all_rows', 45], ['duplicate_user_in_system'], ['potential_duplicate_user'], ['missing_bldg']],
-    confirm: [['duplicate_user_in_system'], ['removed_rows'], ['early_begin_date'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
-    saml:    [['broken_begin_date'], ['unknown_attribute'], ['password_changed', 2], ['early_end_date'], ['removed_rows'], ['new_person', 9], ['all_rows', 156]],
+    confirm: [['duplicate_user_in_system'], ['removed_rows'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
+    saml:    [['broken_begin_date'], ['early_begin_date'], ['duplicate_email_in_upload'], ['removed_rows'], ['new_person', 9], ['all_rows', 156]],
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
     blast:   null,  // copy review: EVERY catalog message, in catalog order
-    auto:    [['duplicate_user_in_system'], ['password_changed', 2], ['new_person', 3], ['all_rows', 171]],
+    auto:    [['duplicate_user_in_system'], ['early_begin_date'], ['new_person', 3], ['all_rows', 171]],
     autob:   [['broken_begin_date'], ['duplicate_person'], ['new_person', 3], ['all_rows', 171]]
   };
   // Totals for the copy-review file. Sampled messages show a subset of rows but say the real total.
@@ -1389,13 +1389,35 @@
     return 4;
   }
 
+  /* An alert only shows when the file has a column for the data it's about (2026-10-02) —
+     e.g. no password column → no password warning; no End date column → no end-date checks.
+     Fields come from the file's own columns (its default match), not the current mapping. */
+  var NEEDS = {
+    password_changed: 'Password', unknown_attribute: 'attribute',
+    broken_begin_date: 'Begin date', early_begin_date: 'Begin date', broken_end_date: 'End date', early_end_date: 'End date',
+    duplicate_email_in_upload: 'Email', inconsistent_person_data: 'Email',
+    duplicate_external_unique_id_in_upload: 'External Unique ID', duplicate_external_unique_id_in_system: 'External Unique ID',
+    non_identical_external_unique_id: 'External Unique ID', potential_duplicate_user_external_unique_id: 'External Unique ID',
+    missing_bldg_codes: 'Building code', all_bldg_codes: 'Building code', bldg_same_codes_diff_name: 'Building code',
+    bldg_same_name_diff_codes: 'Building code', bldg_code_difference: 'Building code',
+    missing_pos_codes: 'Position code', all_pos_codes: 'Position code', pos_same_codes_diff_name: 'Position code',
+    pos_same_name_diff_codes: 'Position code', pos_code_difference: 'Position code',
+    total_bldg_change: 'Location', large_bldg_change: 'Location', new_bldg: 'Location', missing_bldg: 'Location',
+    total_pos_change: 'Position', large_pos_change: 'Position', new_pos: 'Position', missing_pos: 'Position'
+  };
+  function fileHasDataFor(fileId, key) {
+    var need = NEEDS[key]; if (!need) return true;
+    var cols = COLS[fileId] || [];
+    return AUTO_ORDER.slice(0, cols.length).indexOf(need) >= 0;
+  }
+
   function buildAlerts() {
     var fileId = state.fileId, pu = state.purgeUsers, pj = state.purgeJobs;
     var sm = summaryFor(fileId, pu, pj), A;
     if (!FILE_MSGS.hasOwnProperty(fileId)) return [];
-    A = FILE_MSGS[fileId]
-      ? FILE_MSGS[fileId].map(function (m) { return catalogAlert(m[0], m[1]); })
-      : CATALOG_KEYS.map(function (k) { return catalogAlert(k); });
+    A = (FILE_MSGS[fileId] ? FILE_MSGS[fileId].map(function (m) { return m; }) : CATALOG_KEYS.map(function (k) { return [k]; }))
+      .filter(function (m) { return fileHasDataFor(fileId, m[0]); })
+      .map(function (m) { return catalogAlert(m[0], m[1]); });
 
     /* From the Import settings switch — NOT in the catalog yet (flagged 2026-09-25:
        propose keys like deactivated_person / ended_job). */
@@ -2574,11 +2596,8 @@
       case 'noop': if (!e.target.closest('label')) e.preventDefault(); break;   // let checkbox labels inside modals toggle
       /* Employees-tab entry points */
       case 'goEmployees': e.preventDefault();
-        // Test copy: closing the import (✕) after a file is loaded is a cancelled attempt too.
-        if (state.importFull && state.fileId && state.autoReview == null) {
-          state.log = logAttempt('cancelled', ['Closed during ' + ({ map: 'Map columns', settings: 'Import settings', review: 'Review changes' }[state.step] || 'the import') + ' — nothing was changed']);
-          setState({ fileId: null, step: 'upload', acks: {}, disc: {}, purgeUsers: false, purgeJobs: false });
-        }
+        if (state.autoReview != null) state.fileId = null;
+        // Leaving with Back / ✕ keeps the unfinished import (2026-10-02) — only Cancel import logs a cancel.
         setState({ view: 'employees', addEmp: false, importFull: false, autoReview: null }); scrollTop(); break;
       case 'goLog': e.preventDefault(); setState({ view: 'log', importFull: false, addEmp: false, logOpen: null }); scrollTop(); break;
       case 'reviewAuto': {
@@ -2587,7 +2606,7 @@
           purgeJobs: !!rr.roster, acks: {}, disc: {}, step: 'review', validating: false, autoReview: +arg, confirmRun: false });
         scrollTop(); break;
       }
-      case 'autoBack': e.preventDefault(); setState({ view: 'log', importFull: false, logHl: state.autoReview, autoReview: null }); scrollTop(); break;
+      case 'autoBack': e.preventDefault(); setState({ view: 'log', importFull: false, logHl: state.autoReview, autoReview: null, fileId: null }); scrollTop(); break;
       case 'logDetail': setState({ view: 'logDetail', logDetail: +arg }); scrollTop(); break;
       case 'logFilter': setState({ logFilter: arg, logOpen: null }); break;
       case 'logOpen': setState({ logOpen: state.logOpen === +arg ? null : +arg }); break;
@@ -2597,7 +2616,12 @@
       /* ver1 Bulk Upload — land on the full-screen "Upload file" step (Manual-import
          banner + stepper + template card + drop zone). The drop zone / "browse"
          then opens the file picker to actually choose a file (see pickFile). */
-      case 'goBulk': e.preventDefault(); setState({ autoReview: null, tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'upload' }); scrollTop(); break;
+      case 'goBulk': e.preventDefault();
+        // An unfinished import is kept (they left with Back / ✕): reopen it on Upload file with the
+        // file, column matches, setting and reviewed warnings intact. Cancel import / Run clear it.
+        setState({ autoReview: null, tab: 'import', view: 'import', addEmp: false, importFull: true, validating: false, fileModal: false, step: 'upload',
+          fileId: (state.fileId && state.autoReview == null) ? state.fileId : null });
+        scrollTop(); break;
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':

@@ -8,6 +8,14 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 ## (2026-10-02) Going back never starts over
 
+- **[DONE]** Leaving with Back / ✕ keeps the unfinished import; **Bulk Upload** reopens it on Upload
+  file with everything intact (incl. each "I've reviewed this"). Only **Cancel import** or finishing a
+  run clears it.
+- **[DONE]** Alerts only appear for data the file has a column for (`NEEDS` / `fileHasDataFor`): no
+  password column → no password warning; same for custom fields (attributes), End date, External
+  Unique ID, building / position codes. Sample files updated (e.g. blocked-dates file: early begin
+  dates + shared email instead of passwords / attributes / early end dates). The copy-review file still
+  shows every catalog message on purpose.
 - **[DONE]** Back buttons and the stepper keep everything: file, column matches, the setting and
   reviewed warnings. Coming back to **Upload file** shows the loaded file ("Your column matches and
   settings are kept") with **Replace file** and **Continue**, instead of an empty drop zone.
