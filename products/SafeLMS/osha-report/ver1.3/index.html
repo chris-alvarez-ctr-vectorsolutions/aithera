@@ -7,7 +7,7 @@
      blue=In Progress, amber=Behind, red=Failed).
        OPTION A — the pie always shows the card's whole "of" group, with the card's group highlighted,
        so the pie total = the number after "of" on the card:
-       • Not Started (of all learners) → Not Started vs. Everyone else (violet). 0 of 48 in V1.2 → a
+       • Not Started (of all learners) → Not Started inside Total (teal, "Total: 57"). 0 of 48 in V1.2 → a
          dashed empty ring + the normal key ("Not Started: 0 of 48").
        • Behind the Expected Pace (of 23 in progress) → Behind 6 vs. Rest of In Progress 17.
        • At least 2 quiz failures (of 27 in progress or failed) → In Progress 2+ failures 3 · Failed
@@ -2664,7 +2664,9 @@
     pie.style.background = `conic-gradient(${stops})`;
     document.getElementById('pieLabels').classList.toggle('stacked', !!stacked);
     const legend = segs.map(s =>
-      `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.n} <span class="pie-pct">(${Math.round(s.n / total * 100)}%)</span></span>`).join('');
+      s.legendTotal != null
+        ? `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.legendTotal}</span>`   // e.g. "Total: 57" (the whole circle)
+        : `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.n} <span class="pie-pct">(${Math.round(s.n / total * 100)}%)</span></span>`).join('');
     document.getElementById('pieLabels').innerHTML = legend + (caption ? `<span class="pie-caption">${caption}</span>` : '');
   }
 
@@ -2689,13 +2691,15 @@
 
     // OPTION A — every drill shows the card's whole "of" group, with the card's own group highlighted
     // inside it, so the pie always adds up to the number after "of" on the card:
-    //   • Not Started  → of ALL learners:            Not Started (gray) + Everyone else (violet)
-    //   • Behind       → of IN PROGRESS:              Behind (amber) + Rest of In Progress (light blue)
-    //   • 2+ failures  → of IN PROGRESS + FAILED:     In Progress 2+ (blue) + Failed 2+ (red)
-    //                                                 + Rest of In Progress (light blue) + Rest of Failed
+    //   • Not Started  → of ALL learners:            Not Started (gray) inside Total (teal; legend reads the full total)
+    //   • Behind       → of IN PROGRESS:              Behind (amber) + Rest of In Progress (blue)
+    //   • 2+ failures  → of IN PROGRESS + FAILED:     In Progress 2+ (purple) + Failed 2+ (red)
+    //                                                 + Rest of In Progress (blue) + Rest of Failed
     // Zero slices are dropped from the pie + legend ("Rest of Failed" is always 0 today, because a
     // learner only becomes Failed after all 3 attempts). An empty group keeps the dashed empty ring.
-    const OTHERS = '#a78bfa', IP_REST = '#bcd4fb';
+    // Colors match the "How the dynamic pie works" chart: teal = Total, purple = In Progress with
+    // 2+ failures, and the rest of In Progress keeps the regular In Progress blue.
+    const TOTAL = '#14b8a6', IP_REST = '#3b82f6', IP_FAIL = '#7c3aed';
     const nonZero = segs => segs.filter(x => x.n > 0);
 
     if (action === 'intervene') {                       // Not Started — out of all learners
@@ -2704,7 +2708,7 @@
       if (!n) { paintEmptyPie(data.length, 'Not Started', '#d1d5db'); return; }
       paintPie(nonZero([
         { label: 'Not Started',   color: '#d1d5db', n },
-        { label: 'Everyone else', color: OTHERS,    n: data.length - n },
+        { label: 'Total',         color: TOTAL,     n: data.length - n, legendTotal: data.length },   // teal = the whole circle
       ]), null, true);
       return;
     }
@@ -2729,7 +2733,7 @@
       const failed = failedAll.filter(r => (r.attempts || 0) >= 2).length;
       if (!(ip + failed)) { paintEmptyPie(inProg.length + failedAll.length, '2+ quiz failures', '#3b82f6'); return; }
       paintPie(nonZero([
-        { label: 'In Progress — 2+ failures', color: '#3b82f6', n: ip },
+        { label: 'In Progress — 2+ failures', color: IP_FAIL,   n: ip },
         { label: 'Failed — 2+ failures',      color: '#dc2626', n: failed },
         { label: 'Rest of In Progress',       color: IP_REST,   n: inProg.length - ip },
         { label: 'Rest of Failed',            color: '#f4a5a5', n: failedAll.length - failed },
