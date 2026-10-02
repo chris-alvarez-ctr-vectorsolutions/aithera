@@ -1535,10 +1535,18 @@
     for (let i = 0; i < mods.length; i++) if (mods[i].status === 'complete' || mods[i].status === 'failed') idx = i;
     if (idx < 0) return null;                                          // not-started — no module data yet
     const m = mods[idx];
-    const fails = m.status === 'complete' ? Math.max(0, (m.attempts || 1) - 1) : (m.attempts || 0);
+    let fails = m.status === 'complete' ? Math.max(0, (m.attempts || 1) - 1) : (m.attempts || 0);
     // Surface the score for a failed latest module too, so the Quiz Score column can flag it
     // red-with-an-X; a passed module keeps its passing score; in-progress = no score yet (—).
-    const score = (m.status === 'complete' || m.status === 'failed') ? m.score : null;
+    let score = (m.status === 'complete' || m.status === 'failed') ? m.score : null;
+    // The learner's own `attempts` (failed quiz attempts on their latest module) is the SAME number
+    // the "At least 2 failures" card counts — so the table's Failed Attempts column must show it,
+    // never a synthesized value that could disagree with the card. An in-progress learner with
+    // failures is still retrying that module, so its latest quiz score is a failing one.
+    if (r.attempts) {
+      fails = r.attempts;
+      if (r.status === 'in-progress') score = failScoreFor(r.ext, idx);
+    }
     return { index: idx + 1, name: m.name, status: m.status, fails, score };
   }
 
@@ -2679,7 +2687,7 @@
       if (!inProg.length) { paintEmptyPie(data.length, 'In Progress', '#3b82f6'); return; }
       paintPie([
         { label, color, n },
-        { label: 'Other In Progress', color: '#3b82f6', n: inProg.length - n },
+        { label: 'In Progress — not behind', color: '#3b82f6', n: inProg.length - n },
       ], null, true);   // one status per row
     };
 
