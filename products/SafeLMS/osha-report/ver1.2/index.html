@@ -150,6 +150,8 @@
      note on the left and the Filters + Export buttons on the right. */
   .report-meta { display: flex; flex-direction: column; gap: 10px; }
   .meta-actions-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .meta-actions-row .filter-scope-row { flex: 1 1 0; min-width: 0; align-items: center; }
+  .meta-actions-row .actions-right { flex-shrink: 0; align-self: flex-start; }
   .data-note { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
   .data-note i { color: var(--blue-primary); }
   .data-note b { color: var(--ink-2); font-weight: 700; }
@@ -269,11 +271,21 @@
   /* ── Report toolbar (V1) ── */
   .report-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--hair-2); gap: 12px; flex-wrap: wrap; }
   .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Sub-bar under the report header line: last-updated + Refresh (left), pagination (right) */
+  .report-subbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--hair-2); }
+  .report-updated { display: flex; align-items: center; gap: 4px; }
+  .ru-text { display: flex; flex-direction: column; line-height: 1.25; }
+  .ru-text b { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .ru-text span { font-size: 13px; color: var(--muted); }
+  /* vwc-paginator right-aligns its controls, but a container query switches it to a CENTERED,
+     reordered layout below 768px of its own width — so give it 770px (shrinks on narrow screens). */
+  #reportPager { flex: 0 1 770px; min-width: 0; margin-left: auto; }
+  .report-updated { flex: 0 0 auto; }
   /* Filter scope row spans the full width so chips can stretch across and wrap to
      additional rows when the filter set gets long. */
   .filter-scope-row { display: flex; width: 100%; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap; }
   /* Lead-in sentence: "Showing all courses" by default, "Filtered to:" once chips appear */
-  .filter-lead { font-size: 15px; color: var(--muted); flex-shrink: 0; padding-top: 3px; }
+  .filter-lead { font-size: 15px; color: var(--muted); flex-shrink: 0; }
   /* Active filters as individual removable chips — take the remaining width and wrap. */
   .applied-filters { display: flex; flex: 1 1 auto; align-items: center; flex-wrap: wrap; gap: 6px; }
   .applied-filters:empty { display: none; }
@@ -970,16 +982,14 @@
                becomes "Filtered to:" followed by a removable chip per active filter,
                with a tertiary Clear button to clear them all. This row spans the full
                width and wraps its chips to additional rows when there are many. -->
-          <div class="filter-scope-row">
-            <span class="filter-lead" id="filterLead">Showing all courses</span>
-            <span class="applied-filters" id="appliedFilters"></span>
-            <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i aria-hidden="true" class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
-          </div>
-          <!-- Last updated on the left, Filters + Export on the right -->
+          <!-- One row: filter scope ("Showing all courses" / chips) on the left, Filters + Export on
+               the right. The "Last updated" date + Refresh moved down into the report card, beside
+               the pagination (matches the Reports page placement). -->
           <div class="meta-actions-row">
-            <div class="data-note">
-              <i aria-hidden="true" class="fa-solid fa-rotate"></i>
-              <span>Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
+            <div class="filter-scope-row">
+              <span class="filter-lead" id="filterLead">Showing all courses</span>
+              <span class="applied-filters" id="appliedFilters"></span>
+              <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i aria-hidden="true" class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
             </div>
             <div class="actions-right">
               <vaadin-button theme="secondary small" id="filterInlineToggle"><i aria-hidden="true" class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
@@ -1056,6 +1066,19 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Below the header line (Reports-page placement): when the data was last updated +
+               Refresh on the left, pagination on the right. -->
+          <div class="report-subbar">
+            <div class="report-updated">
+              <div class="ru-text">
+                <b>Jun 22, 2026 6:00 AM EDT</b>
+                <span>Last updated</span>
+              </div>
+              <vaadin-button theme="tertiary" id="refreshBtn"><i aria-hidden="true" class="fa-solid fa-rotate" slot="prefix"></i> Refresh</vaadin-button>
+            </div>
+            <vwc-paginator id="reportPager" total="0" page="0" page-size="25"></vwc-paginator>
           </div>
 
           <!-- DEV NOTE — email + table multi-select were removed from this phase per client
@@ -2011,7 +2034,27 @@
   }
   // Table row visibility = applied filters + the temporary search box.
   function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
+  // Pagination (vwc-paginator, 25 per page). Only rows that pass the filters + search are paged;
+  // any filter / search / sort change sends the table back to page 1.
+  const pager = document.getElementById('reportPager');
+  let pageIdx = 0, pageSize = 25;
+  function applyPaging() {
+    const matched = [...tbody.querySelectorAll('.data-row')].filter(tr => tr.dataset.match === '1');
+    const pages = Math.max(1, Math.ceil(matched.length / pageSize));
+    if (pageIdx >= pages) pageIdx = pages - 1;
+    const start = pageIdx * pageSize, end = start + pageSize;
+    tbody.querySelectorAll('.data-row').forEach(tr => { if (tr.dataset.match !== '1') tr.style.display = 'none'; });
+    matched.forEach((tr, i) => { tr.style.display = (i >= start && i < end) ? '' : 'none'; });
+    if (pager) { pager.total = matched.length; pager.pageSize = pageSize; pager.page = pageIdx; }
+  }
+  if (pager) pager.addEventListener('page-change', e => {
+    const d = e.detail || {};
+    if (d.page === pageIdx && d.pageSize === pageSize) return;   // fires on our own updates too
+    if (d.pageSize !== pageSize) { pageSize = d.pageSize; pageIdx = 0; } else pageIdx = d.page;
+    applyPaging();
+  });
   function applyFilters() {
+    pageIdx = 0;
     // The applied action bucket (from a card click OR the panel's single-select) IS the active card:
     // it highlights + drives the pie drill. Removing the chip / picking "All learners" clears it.
     cardAction = filters.actions.size === 1 ? [...filters.actions][0] : null;
@@ -2019,8 +2062,9 @@
       const key = rowKey(x.gid, x.r.ext);
       const vis = rowVisible(x);
       const tr = tbody.querySelector(`.data-row[data-key="${key}"]`);
-      if (tr) tr.style.display = vis ? '' : 'none';
+      if (tr) tr.dataset.match = vis ? '1' : '0';
     });
+    applyPaging();
     updateFilterBadge();
     // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
     if (typeof renderActionCards === 'function') renderActionCards();
@@ -2498,6 +2542,13 @@
     commitDraft();
     applyFilters();
     closePanel();
+  });
+
+  /* Refresh (prototype) — brief spin; the data is static in the mock */
+  document.getElementById('refreshBtn').addEventListener('click', e => {
+    const b = e.currentTarget, i = b.querySelector('i');
+    i.classList.add('fa-spin'); b.setAttribute('disabled', '');
+    setTimeout(() => { i.classList.remove('fa-spin'); b.removeAttribute('disabled'); }, 900);
   });
 
   /* Top-of-report actions (prototype) */
