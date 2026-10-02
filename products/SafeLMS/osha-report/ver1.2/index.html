@@ -6,9 +6,8 @@
          ring + the normal key ("Not Started: 0 of 48") — no extra explanation text.
        • Behind the Expected Pace → the pie is the In Progress group (out of 23): Behind 6 vs.
          Other In Progress 17. The card reads "6 of 23" for the same reason.
-       • At least 2 quiz failures → also INSIDE In Progress, card reads "5 of 23" (failing a quiz ≠ failing the course):
-         2+ quiz failures vs. the rest of In Progress. Course-failed learners (3 attempts) are not
-         in this bucket.
+       • At least 2 quiz failures → everyone with 2+ quiz failures, split into still In Progress (5)
+         vs. Failed the course (5). Card reads "10 of 28 in progress or failed".
      Demo data is 48 learners (Not Started 0, In Progress 23 = 6 behind + 5 with 2+ quiz failures
      + 12 on track, Failed 5, Passed 20). V1.1 is untouched at ../ver1.1/index.html. -->
 <!doctype html>
@@ -2561,7 +2560,7 @@
   const GROUP_MATCH = {
     intervene: r => r.status === 'not-started',
     nudge:     r => r.status === 'in-progress' && r.behind,
-    retry:     r => r.status === 'in-progress' && (r.attempts || 0) >= 2,   // 2+ quiz failures, still in progress (a course fail at 3 attempts is a status, not this bucket)
+    retry:     r => (r.status === 'in-progress' || r.status === 'failed') && (r.attempts || 0) >= 2,   // 2+ quiz failures — still in progress, OR failed the course
   };
   function renderActionCards() {
     // Each card is BOTH a read-out and a toggle quick filter (V1). Counts always reflect the
@@ -2572,10 +2571,12 @@
     // Behind + 2+ quiz failures are subsets of In Progress, so they count out of In Progress;
     // Not Started is a status of its own, so it counts out of everyone.
     const inProgTotal = data.filter(r => r.status === 'in-progress').length;
+    // 2+ quiz failures spans In Progress AND Failed learners, so it counts out of those two together.
+    const ipOrFailedTotal = data.filter(r => r.status === 'in-progress' || r.status === 'failed').length;
     const cards = [
       { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
       { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: inProgTotal, ofLabel: 'in progress', label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: inProgTotal, ofLabel: 'in progress', label: 'At least 2 failures within a module — connect for remediation' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: ipOrFailedTotal, ofLabel: 'in progress or failed', label: 'At least 2 failures within a module — connect for remediation' },
     ];
     const wrap = document.getElementById('actionCards');
     // A card is the active table filter when its bucket is in filters.actions. Clicking the card
@@ -2623,7 +2624,7 @@
   //   • no card          → overall status distribution (Passed / In Progress / Not Started / Failed)
   //   • Not Started card → the whole pie is Not Started (gray at 100%); 0 → dashed empty ring + key
   //   • Behind Pace card → the In Progress group: Behind (amber) vs. the rest of In Progress (blue)
-  //   • 2+ quiz failures → the In Progress group: 2+ quiz failures (orange) vs. the rest (blue)
+  //   • 2+ quiz failures → everyone with 2+ quiz failures: still In Progress (orange) vs. Failed the course (red)
   // A drill with 0 learners shows the empty ring with its normal key line, so it reads as "empty".
   function cardScopeWrappers() { return rows.filter(passesBase); }   // every applied filter EXCEPT the action drill
   function activeAction() { return cardAction; }   // pie drills only for a clicked card, never for panel multi-select
@@ -2689,9 +2690,15 @@
       return;
     }
 
-    if (action === 'retry') {                            // 2+ quiz failures — inside In Progress
+    if (action === 'retry') {                            // 2+ quiz failures — still in progress vs. failed the course
       setPieTitle('2+ Quiz Failures');
-      drillInProgress(GROUP_MATCH.retry, '2+ quiz failures', '#f97316');   // orange
+      const ip     = data.filter(r => r.status === 'in-progress' && (r.attempts || 0) >= 2).length;
+      const failed = data.filter(r => r.status === 'failed' && (r.attempts || 0) >= 2).length;
+      if (!(ip + failed)) { paintEmptyPie(data.length, '2+ quiz failures', '#f97316'); return; }
+      paintPie([
+        { label: 'In Progress — 2+ quiz failures', color: '#f97316', n: ip },       // orange
+        { label: 'Failed the course',              color: '#dc2626', n: failed },   // red (Failed key)
+      ], null, true);   // one status per row
       return;
     }
 
