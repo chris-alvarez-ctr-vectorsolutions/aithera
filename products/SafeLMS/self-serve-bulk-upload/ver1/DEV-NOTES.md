@@ -6,6 +6,14 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-02) Going back never starts over
+
+- **[DONE]** Back buttons and the stepper keep everything: file, column matches, the setting and
+  reviewed warnings. Coming back to **Upload file** shows the loaded file ("Your column matches and
+  settings are kept") with **Replace file** and **Continue**, instead of an empty drop zone.
+- **[DONE]** Picking the **same** file again keeps what they did; a **different** file starts fresh
+  (its columns differ).
+
 ## (2026-10-01) Review alert head + clearer CSV copy
 
 - **[DONE]** The tier tag (Blocked / Warning / Info / Reviewed) is an **eyebrow above the title**, so

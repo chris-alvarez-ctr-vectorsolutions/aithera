@@ -446,6 +446,11 @@
   .toast-s a { color: #1257B8; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }   /* reads as a link (2026-10-02) */
   .toast-s a:hover { color: #0B3D8C; }
   .toast-x { border: none; background: none; color: #8CA0B4; font-size: 14px; cursor: pointer; padding: 2px 4px; }
+  .loaded-file { display: flex; align-items: center; gap: 14px; background: #F5F9FE; border: 1px solid #C6D9F0; border-radius: 10px; padding: 14px 16px; }
+  .loaded-file .lf-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 8px; background: #fff; color: #067647;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .loaded-file .lf-n { font-family: var(--mono); font-size: 14px; font-weight: 600; color: #1B2B3E; }
+  .loaded-file .lf-m { font-size: 12.5px; color: #5B6B7E; margin-top: 2px; }
   .keep-copy { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: 13px; color: #3D4F63; line-height: 1.5; cursor: pointer;
     background: #F8FAFC; border: 1px solid #E1E7EE; border-radius: 8px; padding: 10px 12px; }
   .keep-copy input { margin-top: 3px; width: 15px; height: 15px; accent-color: #1257B8; flex: 0 0 auto; }
@@ -1110,6 +1115,9 @@
   }
 
   function pickFile(id) {
+    if (id === state.fileId) {   // same file again (e.g. after going Back): keep mapping, setting, reviewed warnings
+      setState({ fileModal: false, view: 'import', importFull: true, cancelled: false }); go(isMap() ? 'map' : 'settings'); return;
+    }
     // Picking a file drops the picker and takes the import full-screen at the
     // next step (Map columns / Import settings) — the upload step is done.
     setState({ fileId: id, mapping: defaultMapping(id), acks: {}, view: 'import', importFull: true, cancelled: false,
@@ -1686,13 +1694,19 @@
     var cancelled = state.cancelled
       ? '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#3D4F63;margin-bottom:12px;"><b>Import cancelled.</b> Nothing was changed. Upload a new file to start again.</div>'
       : '';
+    var lf = currentFile();   // a file is already loaded when they come Back to this step
     return '<div class="fadeup">' + cancelled + resources
-      + '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
-      + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
-      + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
-      + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
+      + (lf
+        ? '<div class="loaded-file"><div class="lf-ico"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>'
+          + '<div style="flex:1;min-width:0;"><div class="lf-n">' + esc(lf.name) + '</div><div class="lf-m">CSV · ' + lf.rows + ' rows · Your column matches and settings are kept</div></div>'
+          + '<button class="btn sm btn--ghost" data-act="openFiles">Replace file</button></div>'
+        : '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
+          + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
+          + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
+          + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>')
       + helpLine
-      + '<div style="margin-top:18px;"><button class="btn btn--ghost" data-act="goEmployees">← Back</button></div>'
+      + '<div style="margin-top:18px;display:flex;justify-content:space-between;"><button class="btn btn--ghost" data-act="goEmployees">← Back</button>'
+      + (lf ? '<button class="btn btn--primary" data-act="next">Continue →</button>' : '') + '</div>'
       + '</div>';
   }
 
@@ -2629,10 +2643,9 @@
       case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
       case 'bless': setState({ blessed: true }); break;
       case 'goStep':
-        if (arg === 'upload') setState({ fileId: null, step: 'upload', acks: {}, validating: false });
-        else go(arg);
+        go(arg);   // going back keeps the file, mapping, setting and reviewed warnings (2026-10-02)
         scrollTop(); break;
-      case 'linkUpload': e.preventDefault(); setState({ fileId: null, step: 'upload' }); scrollTop(); break;
+      case 'linkUpload': e.preventDefault(); go('upload'); scrollTop(); break;
       case 'linkMap': e.preventDefault(); go('map'); scrollTop(); break;
       case 'linkSettings': e.preventDefault(); go('settings'); scrollTop(); break;
       case 'removeRecip': setState({ recipients: state.recipients.filter(function (_, j) { return j !== +arg; }) }); break;
