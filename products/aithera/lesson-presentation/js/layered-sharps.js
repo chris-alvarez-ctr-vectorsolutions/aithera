@@ -719,14 +719,7 @@
             // (Standard / Listen mode, the one the Listen mode offer screen
             // reads), not a per-screen format. Watch / Read / Read to me is
             // chosen on each screen and no longer carries between screens.
-            '<div class="cp-card cp-format"><h3>Preferred mode' +
-              // Same explainer the Listen mode offer screen carries, one tap away here.
-              '<button class="cp-help" type="button" id="introModHelpBtn" aria-expanded="false" ' +
-                'aria-controls="introModHelp" aria-label="What is Listen mode?">' +
-                '<i class="fa-regular fa-circle-question" aria-hidden="true"></i></button></h3>' +
-              '<div class="cp-help-tip" id="introModHelp" role="tooltip" hidden>' +
-                'Listen mode is one continuous listen with content presented as a host-led conversation. ' +
-                'Once complete, you\u2019ll answer the questions on screen.</div>' +
+            '<div class="cp-card cp-format"><h3>Preferred mode</h3>' +
               // Collapsed to the current choice by default — a full four-way
               // picker on a page the learner has not started anything on yet
               // reads as a decision being demanded rather than a setting
@@ -739,7 +732,16 @@
               modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
                 icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
                 ['standard', 'listen'], null, MODE_CARD) +
-              '<p class="cp-format-note">Listen mode applies to modules that offer it.</p>' +
+              // Only shown while Listen mode is the selected preference.
+              '<div class="cp-format-note cp-listen-note" id="introModNote" hidden>' +
+                '<span>Listen mode applies to modules that offer it.</span>' +
+                '<button class="cp-help" type="button" id="introModHelpBtn" aria-expanded="false" ' +
+                  'aria-controls="introModHelp" aria-label="What is Listen mode?">' +
+                  '<i class="fa-regular fa-circle-question" aria-hidden="true"></i></button>' +
+                '<div class="cp-help-tip" id="introModHelp" role="tooltip" hidden>' +
+                  'Listen mode is one continuous listen with content presented as a host-led conversation. ' +
+                  'Once complete, you\u2019ll answer the questions on screen.</div>' +
+              '</div>' +
             '</div>' +
             // D11 → moved to the Demo menu: sector/role and the self-assigned
             // name are reviewer/demo-driver settings, not a choice a real
@@ -853,13 +855,21 @@
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
       };
+      var note = document.getElementById('introModNote');
+      var showNote = function (k) {
+        if (!note) return;
+        note.hidden = k !== 'listen';
+        if (k !== 'listen' && helpTip) { helpTip.hidden = true; helpBtn.setAttribute('aria-expanded', 'false'); }
+      };
       introDD.render(curMode());
       markFmt(curMode());
+      showNote(curMode());
       introPick.addEventListener('click', function (e) {
         var b = e.target.closest('.md-opt');
         if (!b) return;
         setModePref(b.dataset.m);
         markFmt(b.dataset.m);
+        showNote(b.dataset.m);
         introDD.render(b.dataset.m);
         introDD.collapse();
       });
