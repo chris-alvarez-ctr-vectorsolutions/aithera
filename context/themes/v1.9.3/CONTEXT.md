@@ -278,7 +278,7 @@ These are raw palette tokens - not semantic. Prefer semantic tokens (e.g. `--lum
 | Variable | Default | Description |
 |---|---|---|
 | `--vwc-topnav-height` | `72px` | Height of the topnav bar; also consumed by `vwc-sidenav` and `vwc-drawer` for offset positioning |
-| `--vwc-topnav-border-color` | `--vwc-brand-color` â†’ `--lumo-primary-color` | Color of the 8px accent stripe along the top edge |
+| `--vwc-topnav-border-color` | `--vwc-brand-color` → `--lumo-primary-color` | Color of the 8px accent stripe along the top edge |
 | `--vwc-topnav-user-initials-background-color` | _(none)_ | Background of the user-initials avatar in the user menu popover |
 | `--vwc-topnav-user-initials-text-color` | _(none)_ | Text color of the user-initials avatar |
 | `--vwc-topnav-unread-notifications-background-color` | `--lumo-error-color` | Background of the unread-count badge on the notifications button |

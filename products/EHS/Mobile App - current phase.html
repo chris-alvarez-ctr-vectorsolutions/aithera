@@ -2498,6 +2498,47 @@
         /* Toast */
         .toast { position:absolute; bottom:96px; left:16px; right:16px; background:#1c3a5c; color:white; border-radius:10px; padding:12px 14px; display:flex; align-items:center; gap:9px; font-size:13px; box-shadow:0 4px 16px rgba(0,0,0,0.3); z-index:200; transform:translateY(90px); opacity:0; transition:transform 0.25s, opacity 0.25s; pointer-events:none; }
         .toast.show { transform:translateY(0); opacity:1; }
+        .toast .toast-body { display:flex; flex-direction:column; gap:2px; min-width:0; }
+        .toast .toast-title { font-weight:700; }
+        .toast.is-error { background:#7a1f12; }
+        .toast.is-error > i { color:#ffd3cb; }
+        .toast.show.is-tappable { pointer-events:auto; cursor:pointer; }
+
+        /* ── Sync failures: Needs attention list, status chips, field errors ── */
+        .needs-attention .card-wrap { margin-top: 0; }
+        .na-row { display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:white; border:none; border-bottom:1px solid rgba(0,0,0,0.07); padding:12px 14px; font-family:inherit; cursor:pointer; }
+        .na-row:last-child { border-bottom:none; }
+        .na-row:active { background:#f5f9fd; }
+        .na-main { flex:1; min-width:0; }
+        .na-top { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+        .na-name { font-size:14px; font-weight:600; color:rgba(0,0,0,0.87); }
+        .na-reason { font-size:12.5px; color:rgba(0,0,0,0.6); margin-top:3px; line-height:1.35; }
+        .na-when { font-size:11.5px; color:rgba(0,0,0,0.45); margin-top:3px; }
+        .na-action { flex-shrink:0; font-size:13px; font-weight:700; color:#0271ce; display:flex; align-items:center; gap:5px; white-space:nowrap; }
+        .badge-syncfailed { background: rgba(224,83,61,0.14); color:#b23a26; font-weight:600; }
+        .badge-cantsync { background: rgba(99,114,130,0.16); color:#44505d; font-weight:600; }
+        .rc-strip.up-blocked   { background: rgba(99,114,130,0.14);  color: #44505d; }
+        .rc-up-pill.up-blocked { background: rgba(99,114,130,0.16);  color: #44505d; }
+        .rc-up-note.is-muted { color: rgba(0,0,0,0.55); }
+        /* Error tone for the existing read-only banner component */
+        .rv-readonly-banner.is-error { background:#fdecea; border-bottom-color:#f5c2bb; color:#8a2a1b; }
+        .rv-readonly-banner.is-error i { color:#c0392b; }
+        /* Sync-error edit session: banner + Resubmit replace Next; invalid fields highlighted */
+        .sync-error-banner { display:none; }
+        #app.sync-error-session .sync-error-banner { display:flex; }
+        .when-syncfix { display:none !important; }
+        #app.sync-error-session .when-syncfix { display:inline-flex !important; }
+        #app.sync-error-session .footer-btn-group .footer-btn-next:not(.when-syncfix) { display:none !important; }
+        .form-field.has-error .form-input, .form-field.has-error .form-select-btn { border-color:#e0533d; box-shadow:0 0 0 2px rgba(224,83,61,0.12); }
+        .form-error-msg { font-size:12px; color:#b23a26; display:flex; align-items:center; gap:6px; line-height:1.35; }
+        .attach-item.has-error { border:1.5px solid #e0533d; margin-bottom:4px; }
+        .attach-item.has-error .attach-meta { color:#b23a26; }
+        .attach-error-msg { font-size:12px; color:#b23a26; display:flex; align-items:center; gap:6px; margin:0 0 10px 2px; line-height:1.35; }
+        /* Can't-sync actions on the record page */
+        .rv-blocked-actions { display:none; flex-direction:column; gap:10px; }
+        .rv-blocked-actions.show { display:flex; }
+        .rv-blocked-help { font-size:12.5px; color:rgba(0,0,0,0.55); text-align:center; line-height:1.4; }
+        #blk-confirm-btn { background:#c0392b; }
     </style>
 </head>
 <body>
@@ -2541,6 +2582,17 @@
             <option value="offline-syncing">Offline: Reconnecting</option>
             <option value="offline-overview">Conflict: Resolve (all)</option>
             <option value="offline-done">Conflict: Complete</option>
+        </optgroup>
+        <optgroup label="Sync failures (showcase)">
+            <option value="demo:na-home">Home: Needs attention</option>
+            <option value="demo:toast-sync-failed">Toast: Sync failed (data rejected)</option>
+            <option value="demo:toast-upload-failed">Toast: Upload failed (attachment)</option>
+            <option value="demo:toast-cant-sync-deleted">Toast: Can't sync (deleted on server)</option>
+            <option value="demo:toast-cant-sync-permission">Toast: Can't sync (permission lost)</option>
+            <option value="demo:record-sync-failed">Record: Sync failed, fix fields</option>
+            <option value="demo:record-upload-failed">Record: Upload failed, replace attachment</option>
+            <option value="demo:record-cant-sync-deleted">Record: Can't sync (deleted)</option>
+            <option value="demo:record-cant-sync-permission">Record: Can't sync (permission lost)</option>
         </optgroup>
     </select>
 </div>
@@ -2593,6 +2645,15 @@
                         <span class="qa-label">JSA</span>
                     </button>
                 </div>
+
+                <!-- Needs attention: every record waiting on the user (conflicts, rejected
+                     uploads, records that can no longer sync). Rendered by renderNeedsAttention()
+                     from live card state; hidden entirely when nothing needs action. Placed above
+                     the record lists and below Quick Actions on purpose. -->
+                <section class="needs-attention" id="needs-attention" style="display:none;">
+                    <span class="section-label" id="na-title">Needs attention</span>
+                    <div class="card-wrap" id="na-list"></div>
+                </section>
 
                 <span class="section-label">Jump Back In</span>
                 <div class="jbi-card-container">
@@ -3315,9 +3376,25 @@
                  record" (read-only initiative). Submit appears only while the
                  record hasn't been submitted yet (item 2). -->
             <div class="rv-footer" id="rv-footer">
-                <div class="rv-footer-row">
+                <div class="rv-footer-row" id="rv-footer-row">
                     <button class="rv-footer-secondary" id="rv-secondary-btn" data-mode="view" onclick="rvSecondaryAction()">View full record</button>
                     <button class="rv-submit-btn" id="rv-submit-btn" onclick="rvSubmitRecord()">Upload</button>
+                </div>
+                <!-- Can't-sync records swap the normal footer for these (filled by openRecordView) -->
+                <div class="rv-blocked-actions" id="rv-blocked-actions"></div>
+            </div>
+
+            <!-- Discard confirmation for a can't-sync record (same sheet pattern as the conflict confirm) -->
+            <div class="overlay-bg" id="blk-confirm-overlay" onclick="closeBlockedConfirm()"></div>
+            <div class="bottom-drawer" id="blk-confirm-drawer">
+                <div class="drawer-handle"></div>
+                <div style="padding:18px 20px 6px;">
+                    <h3 style="font-size:17px;font-weight:700;color:rgba(0,0,0,0.87);margin-bottom:8px;line-height:1.35;">Discard this record?</h3>
+                    <p style="font-size:13.5px;color:rgba(0,0,0,0.6);line-height:1.5;">Your changes on this device will be removed. This can't be undone.</p>
+                </div>
+                <div class="filter-sheet-footer">
+                    <button class="filter-sheet-reset" onclick="closeBlockedConfirm()">Cancel</button>
+                    <button class="filter-sheet-apply" id="blk-confirm-btn" onclick="blockedDiscardConfirm()">Discard</button>
                 </div>
             </div>
         </div>
@@ -4037,6 +4114,11 @@
                 <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
+            <!-- Sync-error session only: the server rejected this record's last upload -->
+            <div class="rv-readonly-banner is-error sync-error-banner">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>This record didn't sync. Fix the highlighted fields and resubmit.</span>
+            </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
                     <div class="stepper-step-info" onclick="openStepNavDrawer('basic-info')">
@@ -4172,6 +4254,7 @@
                 <div class="footer-btn-group">
                     <button class="footer-btn-back when-create" onclick="showScreen('jsa-start')">Back</button>
                     <button class="footer-btn-next" onclick="afterBasicNext()">Next</button>
+                    <button class="footer-btn-next when-syncfix" onclick="resubmitSyncError()">Resubmit</button>
                 </div>
             </div>
 
@@ -4817,6 +4900,11 @@
                 <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
+            <!-- Sync-error session only: the server rejected this record's last upload -->
+            <div class="rv-readonly-banner is-error sync-error-banner">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>This record didn't sync. Fix the highlighted fields and resubmit.</span>
+            </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
                     <div class="stepper-step-info" onclick="openStepNavDrawer('additional')">
@@ -4887,6 +4975,7 @@
                 <div class="footer-btn-group">
                     <button class="footer-btn-back" onclick="showScreen('jsa-steps-filled')">Back</button>
                     <button class="footer-btn-next" onclick="showScreen('jsa-signature')">Next</button>
+                    <button class="footer-btn-next when-syncfix" onclick="resubmitSyncError()">Resubmit</button>
                 </div>
             </div>
 
@@ -5386,6 +5475,8 @@
                 <div class="footer-btn-group">
                     <button class="footer-btn-back" onclick="showScreen('jsa-additional')">Back</button>
                     <button class="footer-btn-next when-create" onclick="submitJSA()" style="background:#168846;border-color:#168846;">Upload JSA</button><!-- "Submit" renamed to "Upload" per the upload-status model; assumed to cover the JSA creation CTA too -->
+                    <!-- Editing: the last step keeps a forward action. Done = Save (same as the header Save). -->
+                    <button class="footer-btn-next when-edit" onclick="saveEditSession()">Done</button>
                 </div>
             </div>
 
@@ -5962,7 +6053,9 @@
         <!-- 10 · VERSION HISTORY (timeline)                      -->
         <!-- ══════════════════════════════════════════════════ -->
         <!-- Toast -->
-        <div class="toast" id="toast"><i class="fa-solid fa-circle-check"></i><span id="toastText">Resolved</span></div>
+        <!-- One toast component for every notice. showToast(msg, { title, error, onTap }) adds an
+             optional bold title line, an error tone, and makes the toast tappable (tap opens the record). -->
+        <div class="toast" id="toast"><i class="fa-solid fa-circle-check" id="toastIcon"></i><div class="toast-body"><div class="toast-title" id="toastTitle" style="display:none;"></div><span id="toastText">Resolved</span></div></div>
     </div><!-- /phone -->
 </div><!-- /phone-frame -->
 
@@ -5976,6 +6069,7 @@ function showScreen(id) {
         document.getElementById('app').classList.remove('edit-session');
         editingCard = null;
     }
+    if (id === 'home' && typeof renderNeedsAttention === 'function') renderNeedsAttention();
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     const el = document.getElementById('screen-' + id);
     if (el) {
@@ -6858,6 +6952,7 @@ let caReturnScreen = 'jsa-additional';
 
 /* Prototype screen-nav dropdown → navigate (handles non-showScreen entries) */
 function navTo(v) {
+    if (v.indexOf('demo:') === 0) { runSyncDemo(v.slice(5)); return; }
     if (v === 'jsa-ca') showCaScreen();
     else showScreen(v);
 }
@@ -7627,9 +7722,14 @@ function storageFullBlocked() {
 
 function autoUploadOnReconnect() {
     let uploaded = 0;
+    const blocked = [];
     document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row').forEach(row => {
         const st = row.dataset.upload;
         if (st !== 'pending-upload' && st !== 'pending-update') return;
+        /* The server says this upload can never be applied (record deleted / access lost):
+           keep the local changes, flag the record, and tell the user. Never discard silently. */
+        const kind = rcSyncBlocked(row);
+        if (kind) { markCantSync(row, kind); blocked.push(row); return; }
         if (rcMayStayPending(row)) return;                 /* created from scratch: user uploads it */
         const wrap = row.closest('.rec-card-wrap');
         row.classList.add('is-submitted');
@@ -7637,9 +7737,13 @@ function autoUploadOnReconnect() {
         rcSetUpload(row, 'uploaded', rcRecordId(row) || String(Math.floor(10000000 + Math.random() * 90000000)));
         uploaded++;
     });
-    if (uploaded) {
+    if (uploaded || blocked.length) {
         applyRecordFilters();
         applyEditMode();
+    }
+    if (blocked.length) {
+        showCantSyncToast(blocked[0]);                     /* the problem outranks the success notice */
+    } else if (uploaded) {
         showToast(uploaded === 1 ? 'Your offline change was uploaded' : uploaded + ' offline changes were uploaded');
     }
     return uploaded;
@@ -7820,7 +7924,52 @@ function openRecordView(row) {
     const sec = document.getElementById('rv-secondary-btn');
     sec.dataset.mode = editBlocked ? 'view' : 'edit';
     sec.textContent = editBlocked ? 'View Record' : 'Edit Record';
-    document.getElementById('rv-ro-banner').style.display = editBlocked ? 'flex' : 'none';
+    const roBanner = document.getElementById('rv-ro-banner');
+    const roMsg = roBanner.querySelector('span');
+    roBanner.style.display = editBlocked ? 'flex' : 'none';
+    roBanner.classList.remove('is-error');
+    if (roMsg) roMsg.textContent = "You're offline and this record isn't downloaded to this device, so it's read-only. Download it to edit.";
+
+    /* ── Sync failures on the record page ── */
+    const blockedKind = row.dataset.upload === 'cant-sync' ? rcSyncBlocked(row) : null;
+    const syncErr = row.dataset.upload === 'sync-failed' ? rcSyncError(row) : null;
+    const submitBtn = document.getElementById('rv-submit-btn');
+    const saveBtn = document.getElementById('rv-save-btn');
+    const footerRow = document.getElementById('rv-footer-row');
+    const blockedBox = document.getElementById('rv-blocked-actions');
+    submitBtn.textContent = 'Upload';
+    footerRow.style.display = '';
+    blockedBox.classList.remove('show');
+    blockedBox.innerHTML = '';
+    if (saveBtn) saveBtn.style.display = '';
+    if (syncErr) {
+        /* The server rejected the data: say so, and make the primary action the fix */
+        roBanner.style.display = 'flex';
+        roBanner.classList.add('is-error');
+        if (roMsg) roMsg.textContent = syncErr.kind === 'attachment'
+            ? "This record didn't sync. Replace the highlighted attachment and resubmit."
+            : "This record didn't sync. Fix the highlighted fields and resubmit.";
+        submitBtn.style.display = '';
+        submitBtn.textContent = 'Fix & resubmit';
+    } else if (blockedKind) {
+        /* The upload can never apply: read-only, plain-language banner, explicit choices */
+        roBanner.style.display = 'flex';
+        roBanner.classList.add('is-error');
+        if (roMsg) roMsg.textContent = blockedKind === 'permission'
+            ? "You no longer have access to this record, so your changes can't be applied."
+            : "This record was deleted on the server, so your changes can't be applied.";
+        sec.dataset.mode = 'view';
+        sec.textContent = 'View Record';
+        if (saveBtn) saveBtn.style.display = 'none';
+        footerRow.style.display = 'none';
+        blockedBox.classList.add('show');
+        blockedBox.innerHTML = blockedKind === 'permission'
+            ? '<button class="rv-submit-btn" onclick="blockedDiscardPrompt()">Discard</button>' +
+              '<div class="rv-blocked-help">If you think this is a mistake, contact your administrator.</div>'
+            /* No "Save as new" when access was revoked: that would route around the permission change */
+            : '<button class="rv-submit-btn" onclick="blockedSaveAsNew()">Save as new</button>' +
+              '<button class="rv-footer-secondary" onclick="blockedDiscardPrompt()">Discard</button>';
+    }
     showScreen('record-view');
 }
 
@@ -7843,6 +7992,8 @@ function rvEditSignatures() { showScreen('jsa-signature'); }
 
 /* Submit directly from the details page (item 2): reuse the card submit flow. */
 function rvSubmitRecord() {
+    /* A rejected upload routes into the form with the invalid fields highlighted */
+    if (rvSourceRow && rvSourceRow.dataset.upload === 'sync-failed' && rcSyncError(rvSourceRow)) { openSyncErrorRecord(rvSourceRow); return; }
     if (rvSourceRow) submitRecordCard(rvSourceRow);
     document.getElementById('rv-footer').classList.remove('show');
     showScreen('records');
@@ -8141,6 +8292,7 @@ function leaveEditSession() {
     const wasOffline = app.classList.contains('offline-editing');
     app.classList.remove('offline-editing');
     app.classList.remove('edit-session');
+    if (app.classList.contains('sync-error-session')) { app.classList.remove('sync-error-session'); clearSyncErrorHighlights(); syncErrorRow = null; }
     return wasOffline ? 'offline-records' : 'records';
 }
 function exitEditSession() {
@@ -8480,6 +8632,10 @@ document.getElementById('screen-records').addEventListener('click', (e) => {
         showToast('ID copied');
         return;
     }
+
+    /* Sync failures: a rejected upload opens the form with errors; a blocked upload opens the record */
+    if (e.target.closest('[data-action="fix-resubmit"]')) { e.stopPropagation(); openSyncErrorRecord(e.target.closest('.record-card-row')); return; }
+    if (e.target.closest('[data-action="review-blocked"]')) { e.stopPropagation(); openRecordView(e.target.closest('.record-card-row')); return; }
 
     /* Copy ID */
     if (e.target.closest('[data-action="copy-id"]')) {
@@ -8913,12 +9069,23 @@ showScreen = function(id) {
 /* ── Helpers ── */
 function capitalize(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 let offlineToastTimer;
-function showToast(msg) {
+/* showToast(msg, opts): opts.title = bold first line; opts.error = red tone + warning icon;
+   opts.onTap = tapping the toast runs it (used to open the affected record). */
+function showToast(msg, opts) {
+    opts = opts || {};
     const t = document.getElementById('toast');
+    const title = document.getElementById('toastTitle');
+    const icon = document.getElementById('toastIcon');
     document.getElementById('toastText').textContent = msg;
+    if (title) { title.textContent = opts.title || ''; title.style.display = opts.title ? '' : 'none'; }
+    if (icon) icon.className = opts.error ? 'fa-solid fa-triangle-exclamation' : 'fa-solid fa-circle-check';
+    t.classList.toggle('is-error', !!opts.error);
+    const tappable = typeof opts.onTap === 'function';
+    t.classList.toggle('is-tappable', tappable);
+    t.onclick = tappable ? () => { clearTimeout(offlineToastTimer); t.classList.remove('show'); opts.onTap(); } : null;
     t.classList.add('show');
     clearTimeout(offlineToastTimer);
-    offlineToastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+    offlineToastTimer = setTimeout(() => t.classList.remove('show'), opts.duration || (tappable || opts.title ? 5000 : 2600));
 }
 
 
@@ -8937,11 +9104,24 @@ const RC_UPLOAD = {
        presents one retry-able state (AC-3.4's three failure classes are a Solution
        Design detail); Retry re-runs the upload. */
     'sync-failed':    { cls: 'up-failed',    icon: 'fa-solid fa-cloud-xmark',          label: 'Sync Failed',    cta: 'Retry',  ctaIcon: 'fa-solid fa-arrows-rotate' },
+    /* The upload can never be applied: the record was deleted on the server, or the user lost
+       access to it. Local changes are kept; the user decides what happens to them (Review). */
+    'cant-sync':      { cls: 'up-blocked',   icon: 'fa-solid fa-ban',                  label: "Can't sync",     cta: 'Review', ctaIcon: 'fa-regular fa-eye', ctaAction: 'review-blocked' },
 };
 
 /* Pending = anything still waiting to go up (Pending Upload, Pending Update,
    or a failed sync that is waiting on a retry) */
 function rcIsPending(row) { return !!row && ['pending-upload', 'pending-update', 'sync-failed'].includes(row.dataset.upload); }
+
+/* Failure details live on the card wrap: data-sync-error (JSON: kind data|attachment, reason,
+   when, fields[{field,message}]) and data-sync-blocked (deleted|permission). */
+function rcHost(row) { return (row && row.closest('.rec-card-wrap')) || row; }
+function rcSyncError(row) {
+    const h = rcHost(row);
+    if (!h || !h.dataset.syncError) return null;
+    try { return JSON.parse(h.dataset.syncError); } catch (e) { return null; }
+}
+function rcSyncBlocked(row) { const h = rcHost(row); return (h && h.dataset.syncBlocked) || null; }
 
 function rcDeriveState(row) {
     if (row.dataset.upload) return row.dataset.upload;
@@ -8994,16 +9174,36 @@ function rcSetUpload(row, state, newId) {
         const cw = row.closest('.rec-card-wrap');
         if (cw && cw.dataset.conflict === 'true') pills.insertAdjacentHTML('beforeend',
             '<span class="badge badge-conflict"><i class="fa-solid fa-triangle-exclamation" style="font-size:10px;"></i> Conflict unresolved</span>');
-        if (state === 'sync-failed') pills.insertAdjacentHTML('beforeend',
-            '<span class="rc-up-note">The last sync attempt failed. Your changes are saved on this device.</span>');
+        if (state === 'sync-failed') {
+            const err = rcSyncError(row);
+            pills.insertAdjacentHTML('beforeend', '<span class="rc-up-note">' +
+                (err ? err.reason : 'The last sync attempt failed. Your changes are saved on this device.') + '</span>');
+        }
+        if (state === 'cant-sync') {
+            const kind = rcSyncBlocked(row);
+            pills.insertAdjacentHTML('beforeend', '<span class="rc-up-note is-muted">' +
+                (kind === 'permission' ? 'You no longer have access to this record. Your changes are kept on this device.'
+                                       : "Deleted on the server, so your changes can't be applied. They're kept on this device.") + '</span>');
+        }
     }
     const ar = row.querySelector('.rec-action-row');
     if (ar) {
         if (m.cta === 'cancel') ar.innerHTML = '<button class="rec-btn-cancel" data-action="cancel-submit"><i class="fa-solid fa-xmark" style="font-size:12px;"></i> Cancel</button>';
         else if (m.cta === 'copy') { const id = newId || rcRecordId(row); ar.innerHTML = '<button class="rec-btn-outline" data-action="copy-id" data-id="' + id + '"><i class="fa-regular fa-copy"></i> Copy ID</button>'; }
-        else if (m.cta) ar.innerHTML = '<button class="rec-btn-outline' + (rcUploadBlocked(row) ? ' is-offline-disabled' : '') + '" data-action="submit"><i class="' + m.ctaIcon + '"></i> ' + m.cta + '</button>';
+        else if (m.cta) {
+            /* A rejected upload (validation error attached) needs fixing, not retrying */
+            const fix = state === 'sync-failed' && !!rcSyncError(row);
+            const action = fix ? 'fix-resubmit' : (m.ctaAction || 'submit');
+            const label = fix ? 'Fix & resubmit' : m.cta;
+            const icon = fix ? 'fa-solid fa-pen-to-square' : m.ctaIcon;
+            ar.innerHTML = '<button class="rec-btn-outline' + (action === 'submit' && rcUploadBlocked(row) ? ' is-offline-disabled' : '') +
+                '" data-action="' + action + '"><i class="' + icon + '"></i> ' + label + '</button>';
+        }
         else ar.innerHTML = '';
     }
+    /* Leaving Sync Failed clears the attached validation error */
+    if (state !== 'sync-failed' && state !== 'uploading') { const h = rcHost(row); if (h) delete h.dataset.syncError; }
+    if (typeof renderNeedsAttention === 'function') renderNeedsAttention();
     rcSyncOrigBadges(row, state);
     rcEnsureViewEdit(row);
 }
@@ -9301,8 +9501,262 @@ function rcApplySort() {
     applyRecordFilters = function () { orig(); rcApplySort(); };
 })();
 
+/* ════════════ Sync failures (EHS-18531 FR-3 / AC-3.4, AC-5.2) ════════════
+   Three kinds of trouble a record can be in, all surfaced in "Needs attention" on Home:
+     • Conflict      - the server changed it before the offline edit uploaded (crQueue)
+     • Sync failed   - the server rejected the upload as invalid; the user fixes and resubmits
+     • Can't sync    - the upload can never apply (deleted on the server / access lost)
+   Toasts announce each one, but the list is the durable signal if a toast is missed. */
+
+/* ── Needs attention (Home) ── */
+let naOpeners = [];
+function naRowByTitle(title) {
+    return [...document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row')]
+        .find(r => (r.querySelector('.record-title') || {}).textContent?.trim() === title) || null;
+}
+/* crQueue is declared further down this script; during the card bootstrap at load it is
+   still in its temporal dead zone (typeof throws too), so read it defensively. */
+function crQueueSafe() { try { return crQueue; } catch (e) { return []; } }
+function naItems() {
+    const items = [];
+    crQueueSafe().forEach((rec, i) => {
+        if (rec.status === 'resolved') return;
+        const row = naRowByTitle(rec.title);
+        items.push({ title: rec.title, id: row ? rcRecordId(row) : '', chip: 'Conflict', chipCls: 'badge-conflict',
+            reason: 'Changed on the server while you were offline', when: rec.theirs.replace(/^Saved /, ''),
+            action: 'Resolve', open: () => { crOpenQueue(); crJumpTo(i); } });
+    });
+    document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row').forEach(row => {
+        const st = row.dataset.upload;
+        const title = row.querySelector('.record-title').textContent.trim();
+        if (st === 'sync-failed') {
+            const err = rcSyncError(row);
+            items.push({ title, id: rcRecordId(row), chip: 'Sync failed', chipCls: 'badge-syncfailed',
+                reason: err ? err.reason : 'The last sync attempt failed', when: (err && err.when) || 'Today, 9:28 PM',
+                action: 'Fix & resubmit', open: () => openSyncErrorRecord(row) });
+        } else if (st === 'cant-sync') {
+            const kind = rcSyncBlocked(row);
+            items.push({ title, id: rcRecordId(row), chip: "Can't sync", chipCls: 'badge-cantsync',
+                reason: kind === 'permission' ? 'You no longer have access to this record' : 'Deleted on the server by someone else',
+                when: rcHost(row).dataset.syncBlockedWhen || 'Today, 9:31 PM',
+                action: 'Review', open: () => openRecordView(row) });
+        }
+    });
+    return items;
+}
+function renderNeedsAttention() {
+    const sec = document.getElementById('needs-attention');
+    const list = document.getElementById('na-list');
+    if (!sec || !list) return;
+    const items = naItems();
+    sec.style.display = items.length ? '' : 'none';           /* hidden entirely when nothing needs action */
+    document.getElementById('na-title').textContent = 'Needs attention (' + items.length + ')';
+    naOpeners = items.map(it => it.open);
+    list.innerHTML = items.map((it, i) =>
+        '<button class="na-row" type="button" onclick="naOpeners[' + i + ']()">' +
+            '<div class="na-main">' +
+                '<div class="na-top"><span class="na-name">' + it.title + '</span><span class="badge ' + it.chipCls + '">' + it.chip + '</span></div>' +
+                '<div class="na-reason">' + it.reason + '</div>' +
+                '<div class="na-when">' + (it.id && it.id !== '–' ? 'ID ' + it.id + ' · ' : '') + it.when + '</div>' +
+            '</div>' +
+            '<span class="na-action">' + it.action + ' <i class="fa-solid fa-chevron-right"></i></span>' +
+        '</button>').join('');
+}
+
+/* ── Sync failed: server rejected the upload as invalid ── */
+let syncErrorRow = null;
+function showSyncFailedToast(row) {
+    const err = rcSyncError(row);
+    if (!err) return;
+    const attachment = err.kind === 'attachment';
+    showToast(err.reason + (attachment ? ' Tap to replace it.' : ' Tap to fix.'),
+        { title: attachment ? 'Upload failed' : 'Sync failed', error: true, onTap: () => openSyncErrorRecord(row) });
+}
+/* Opens the record's form with the invalid fields highlighted and Resubmit as the forward action */
+function openSyncErrorRecord(row) {
+    const err = rcSyncError(row) || { kind: 'data', fields: [] };
+    syncErrorRow = row;
+    openEditRecord(row);
+    document.getElementById('app').classList.add('sync-error-session');
+    applySyncErrorHighlights(err);
+    if (err.kind === 'attachment') showScreen('jsa-additional');
+}
+function applySyncErrorHighlights(err) {
+    clearSyncErrorHighlights();
+    document.querySelectorAll('.sync-error-banner span').forEach(s => {
+        s.textContent = err.kind === 'attachment'
+            ? "This record didn't sync. Replace the highlighted attachment and resubmit."
+            : "This record didn't sync. Fix the highlighted fields and resubmit.";
+    });
+    (err.fields || []).forEach(fe => {
+        const field = [...document.querySelectorAll('#screen-jsa-basic .form-field')]
+            .find(f => (f.querySelector('.form-label') || {}).textContent?.replace('*', '').trim() === fe.field);
+        if (!field) return;
+        field.classList.add('has-error');
+        const msg = document.createElement('div');
+        msg.className = 'form-error-msg';
+        msg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + fe.message;
+        field.appendChild(msg);
+    });
+    if (err.kind === 'attachment') {
+        const anchor = document.getElementById('attach-item-1');
+        if (anchor) anchor.insertAdjacentHTML('beforebegin',
+            '<div class="attach-item has-error" id="attach-item-err">' +
+                '<div class="attach-thumb"><img src="https://picsum.photos/seed/jsaBigPhoto/88/88" alt="" /></div>' +
+                '<div class="attach-info"><div class="attach-name">' + (err.file || 'IMG_4471.jpg') + '</div><div class="attach-meta">Photo · ' + (err.size || '12.4 MB') + '</div></div>' +
+                '<button class="attach-remove" onclick="document.getElementById(\'attach-item-err\').remove();document.getElementById(\'attach-item-err-msg\').remove();" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>' +
+            '</div>' +
+            '<div class="attach-error-msg" id="attach-item-err-msg"><i class="fa-solid fa-circle-exclamation"></i> ' + err.reason + ' Replace it with a smaller file.</div>');
+    }
+}
+function clearSyncErrorHighlights() {
+    document.querySelectorAll('#screen-jsa-basic .form-field.has-error').forEach(f => f.classList.remove('has-error'));
+    document.querySelectorAll('#screen-jsa-basic .form-error-msg').forEach(m => m.remove());
+    ['attach-item-err', 'attach-item-err-msg'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+}
+/* Resubmit: the fixed record goes straight up; status clears and a Synced toast confirms */
+function resubmitSyncError() {
+    const row = syncErrorRow;
+    const app = document.getElementById('app');
+    clearSyncErrorHighlights();
+    app.classList.remove('sync-error-session');
+    syncErrorRow = null;
+    editingCard = null;
+    const dest = leaveEditSession();
+    showScreen(dest);
+    if (!row) return;
+    const copies = [row, ...document.querySelectorAll('.offline-card-list .record-card-row')]
+        .filter((r, i, a) => a.indexOf(r) === i && r.querySelector('.record-title').textContent.trim() === row.querySelector('.record-title').textContent.trim());
+    copies.forEach(r => { delete rcHost(r).dataset.syncError; rcSetUpload(r, 'uploading'); });
+    setTimeout(() => {
+        const id = rcRecordId(row) !== '–' && rcRecordId(row) ? rcRecordId(row) : String(Math.floor(10000000 + Math.random() * 90000000));
+        copies.forEach(r => {
+            r.classList.add('is-submitted');
+            rcHost(r).dataset.cardState = 'submitted';
+            rcSetUpload(r, 'uploaded', id);
+        });
+        if (typeof refreshRecordsFab === 'function') refreshRecordsFab();
+        showToast('Synced');
+    }, 1500);
+}
+
+/* ── Can't sync: the upload can never be applied ── */
+function markCantSync(row, kind) {
+    const title = row.querySelector('.record-title').textContent.trim();
+    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
+        if ((wrap.querySelector('.record-title') || {}).textContent?.trim() !== title) return;
+        wrap.dataset.syncBlocked = kind;
+        wrap.dataset.syncBlockedWhen = wrap.dataset.syncBlockedWhen || 'Today, 9:31 PM';
+        const r = wrap.querySelector('.record-card-row');
+        if (r) rcSetUpload(r, 'cant-sync');
+    });
+}
+function showCantSyncToast(row) {
+    const title = row.querySelector('.record-title').textContent.trim();
+    const kind = rcSyncBlocked(row);
+    showToast("Can't sync " + title + '. ' + (kind === 'permission' ? 'You no longer have access to it.' : 'It was deleted by someone else.'),
+        { error: true, onTap: () => openRecordView(row) });
+}
+function blockedDiscardPrompt() {
+    document.getElementById('blk-confirm-overlay').classList.add('active');
+    document.getElementById('blk-confirm-drawer').classList.add('open');
+}
+function closeBlockedConfirm() {
+    document.getElementById('blk-confirm-overlay').classList.remove('active');
+    document.getElementById('blk-confirm-drawer').classList.remove('open');
+}
+/* Remove every copy of the record from the device (records list + offline lists) */
+function blockedDiscardConfirm() {
+    closeBlockedConfirm();
+    if (!rvSourceRow) return;
+    const title = rvSourceRow.querySelector('.record-title').textContent.trim();
+    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
+        if ((wrap.querySelector('.record-title') || {}).textContent?.trim() === title) wrap.remove();
+    });
+    rvSourceRow = null;
+    if (typeof refreshRecordsFab === 'function') refreshRecordsFab();
+    showScreen('home');
+    showToast('Removed from this device');
+}
+/* Deleted on the server: the user's version becomes a brand-new record and uploads */
+function blockedSaveAsNew() {
+    if (!rvSourceRow) return;
+    const row = rvSourceRow;
+    const title = row.querySelector('.record-title').textContent.trim();
+    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
+        if ((wrap.querySelector('.record-title') || {}).textContent?.trim() !== title) return;
+        delete wrap.dataset.syncBlocked;
+        delete wrap.dataset.syncBlockedWhen;
+        delete wrap.dataset.prevSubmitted;
+        wrap.dataset.createdNew = 'true';
+        wrap.dataset.cardState = 'pending';
+        const r = wrap.querySelector('.record-card-row');
+        if (r) { r.classList.remove('is-submitted'); rcSetUpload(r, 'pending-upload'); }
+    });
+    showScreen('records');
+    submitRecordCard(row);
+}
+
+/* ── Showcase entries in the page dropdown ── */
+function runSyncDemo(key) {
+    const chem = naRowByTitle('Chemical Storage Audit – Bay 4');
+    const fork = naRowByTitle('Forklift Operation – Loading Dock B');
+    const scaf = naRowByTitle('Scaffold Erection – East Wing Exterior');
+    const site = naRowByTitle('Site Safety Assessment – Building A, Floor 3');
+    const ensureAttachmentFailure = () => {
+        if (!site) return null;
+        if (site.dataset.upload !== 'sync-failed') {
+            rcHost(site).dataset.syncError = JSON.stringify({ kind: 'attachment', reason: 'Photo exceeds 10 MB.', when: 'Today, 9:29 PM', file: 'IMG_4471.jpg', size: '12.4 MB' });
+            rcSetUpload(site, 'sync-failed');
+        }
+        return site;
+    };
+    switch (key) {
+        case 'na-home':
+            showScreen('home');
+            { const s = document.getElementById('needs-attention'); if (s) s.scrollIntoView({ block: 'start' }); }
+            break;
+        case 'toast-sync-failed':           showScreen('records'); if (chem) showSyncFailedToast(chem); break;
+        case 'toast-upload-failed':         showScreen('records'); { const r = ensureAttachmentFailure(); if (r) showSyncFailedToast(r); } break;
+        case 'toast-cant-sync-deleted':     showScreen('records'); if (fork) { markCantSync(fork, 'deleted'); showCantSyncToast(fork); } break;
+        case 'toast-cant-sync-permission':  showScreen('records'); if (scaf) { markCantSync(scaf, 'permission'); showCantSyncToast(scaf); } break;
+        case 'record-sync-failed':          if (chem) openSyncErrorRecord(chem); break;
+        case 'record-upload-failed':        { const r = ensureAttachmentFailure(); if (r) openSyncErrorRecord(r); } break;
+        case 'record-cant-sync-deleted':    if (fork) { markCantSync(fork, 'deleted'); openRecordView(fork); } break;
+        case 'record-cant-sync-permission': if (scaf) { markCantSync(scaf, 'permission'); openRecordView(scaf); } break;
+    }
+}
+
+/* ── Mock data: one record of each kind at load ──
+   (kept in JS rather than markup so the online card and its offline-list copies stay in step) */
+const SYNC_FAILURE_SEED = {
+    /* Server rejected the data: two invalid fields on the Basic Information step */
+    'Chemical Storage Audit – Bay 4': { error: { kind: 'data', reason: "Start date can't be in the future.", when: 'Today, 9:28 PM',
+        fields: [ { field: 'Start Date', message: "Start date can't be in the future." },
+                  { field: "Supervisor's Name", message: "Supervisor's name is required." } ] } },
+    /* Edited offline, then deleted on the server by someone else */
+    'Forklift Operation – Loading Dock B': { blocked: 'deleted', when: 'Today, 9:31 PM' },
+    /* Edited offline; access was revoked meanwhile. Stays Pending until the device reconnects,
+       when the upload is refused and the card flips to Can't sync (see autoUploadOnReconnect). */
+    'Scaffold Erection – East Wing Exterior': { blockedOnReconnect: 'permission' },
+};
+function seedSyncFailures() {
+    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
+        const title = (wrap.querySelector('.record-title') || {}).textContent?.trim();
+        const seed = SYNC_FAILURE_SEED[title];
+        if (!seed) return;
+        const row = wrap.querySelector('.record-card-row');
+        if (!row) return;
+        if (seed.error) { wrap.dataset.syncError = JSON.stringify(seed.error); rcSetUpload(row, 'sync-failed'); }
+        if (seed.blocked) { wrap.dataset.syncBlocked = seed.blocked; wrap.dataset.syncBlockedWhen = seed.when; rcSetUpload(row, 'cant-sync'); }
+        if (seed.blockedOnReconnect) { wrap.dataset.syncBlocked = seed.blockedOnReconnect; }
+    });
+}
+
 rcUpgradeCards();
 rcEnsureAllViewEdit();
+seedSyncFailures();
+renderNeedsAttention();
 if (typeof refreshRecordsFab === 'function') refreshRecordsFab();
 
 /* ── Offline list actions ──
@@ -9315,6 +9769,8 @@ document.addEventListener('click', (e) => {
     if (!row) return;
     const sub = e.target.closest('[data-action="submit"]');
     if (sub) { e.stopPropagation(); if (!sub.disabled) submitRecordCard(row); return; }
+    if (e.target.closest('[data-action="fix-resubmit"]')) { e.stopPropagation(); openSyncErrorRecord(row); return; }
+    if (e.target.closest('[data-action="review-blocked"]')) { e.stopPropagation(); openRecordView(row); return; }
     const cid = e.target.closest('[data-action="copy-id"]');
     if (cid) {
         e.stopPropagation();
@@ -9340,6 +9796,8 @@ document.addEventListener('click', (e) => {
         return;
     }
     if (e.target.closest('[data-action="submit"]')) { e.stopPropagation(); submitRecordCard(row); return; }
+    if (e.target.closest('[data-action="fix-resubmit"]')) { e.stopPropagation(); openSyncErrorRecord(row); return; }
+    if (e.target.closest('[data-action="review-blocked"]')) { e.stopPropagation(); openRecordView(row); return; }
     if (e.target.closest('[data-action="cancel-submit"]')) { e.stopPropagation(); cancelSubmitCard(row); return; }
     /* Edit button and the "see more" ellipsis carry their own listeners */
     if (e.target.closest('[data-action="open-flow"]') || e.target.closest('.rec-btn-icon')) return;
@@ -9427,6 +9885,7 @@ function crMarkCardConflict(title, unresolved) {
             pills.appendChild(b);
         }
     });
+    if (typeof renderNeedsAttention === 'function') renderNeedsAttention();
 }
 
 function crAdvance() {
@@ -9556,6 +10015,10 @@ function confirmConflictResolution() {
     showToast(m.toast);
     crAdvance();
 }
+
+/* Conflicts join "Needs attention" only now: crQueue is initialized above this line but
+   after the card bootstrap, so the list is rendered once more at the very end. */
+renderNeedsAttention();
 
 </script>
 <!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).

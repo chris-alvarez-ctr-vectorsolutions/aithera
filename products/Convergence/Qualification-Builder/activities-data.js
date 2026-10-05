@@ -21,10 +21,10 @@
  *   location       org node the activity lives in (permissions)
  *   requirement    the requirement it belongs to (drives quals + delete impact)
  *   source         Custom | Vector Solutions | Learning Studio (derived)
- *   lsEditable     whether Learning Studio can customize it. Per the Learning Studio PRD:
- *                  Vector Solutions courses (except licensed third-party ones) and courses
- *                  already customized in Learning Studio, yes; uploaded SCORM packages, no
- *                  (Learning Studio customizes Vector's library, it does not author net-new).
+ *   fileType       VSP Content (Vector's own authoring format) or SCORM (a packaged course,
+ *                  either uploaded by the organization or a licensed third-party title)
+ *   lsEditable     whether Learning Studio can customize it: CBTs whose fileType is VSP Content.
+ *                  SCORM packages cannot be edited in Learning Studio at all.
  *   lsReason       why not, for the dash tooltip when lsEditable is false
  *   duration (min), mobile, displayWidth, displayHeight, file, license,
  *   createdOn, recompleteUsers, attachments[], attributes[{key,value}],
@@ -55,7 +55,7 @@
     { name:'Forklift Safety Course',              desc:'Operating fundamentals and stability for forklifts',           type:'CBT',       version:'v4.1', status:'Active',   location:'Operations > Forklift',           requirement:'Forklift Pre-Operation Inspection' },
     { name:'Forklift Operation Quiz',             desc:'Assessment on safe forklift operation',                        type:'Quiz',      version:'v1.0', status:'Inactive', location:'Operations > Forklift',           requirement:'Forklift Pre-Operation Inspection' },
     // Fire Watch Procedures (1)
-    { name:'Fire Watch Responsibilities',         desc:'Instructor-led walkthrough of fire-watch and permit steps',   type:'Classroom', version:'v1.1', status:'Inactive', location:'Safety > Hot Work',               requirement:'Fire Watch Procedures' },
+    { name:'Fire Watch Responsibilities',         desc:'Instructor-led walkthrough of fire-watch and permit steps',   type:'Class',     version:'v1.1', status:'Inactive', location:'Safety > Hot Work',               requirement:'Fire Watch Procedures' },
     // Respirator Fit Test (2)
     { name:'Respirator Fit Test Record',          desc:'Capture and acknowledge respirator fit test results',          type:'Signature', version:'v2.0', status:'Active',   location:'Safety > Respiratory Protection', requirement:'Respirator Fit Test' },
     { name:'Respirator Selection Guide',          desc:'Reference for selecting the appropriate respirator',           type:'Document',  version:'v1.3', status:'Active',   location:'Safety > Respiratory Protection', requirement:'Respirator Fit Test' },
@@ -96,7 +96,7 @@
   const LS_IDX       = new Set([8, 11, 16]);   // created/edited in Learning Studio (all CBT)
   const LS_DRAFT_IDX = new Set([8, 16]);       // Learning Studio content still being authored (not yet published)
   const VS_IDX       = new Set([0, 3, 6, 15]); // pre-built, accredited Vector Solutions content
-  const LS_EXCLUDED_IDX = new Set([6]);        // licensed third-party course: excluded from Learning Studio customization
+  const VS_SCORM_IDX = new Set([6]);           // a licensed third-party Vector title, delivered as SCORM
   /* Draft rows beyond the Learning Studio ones: a quiz with unpublished edits, a survey being
      rewritten, and the never-published Hot Work quiz. Everything else is Published. */
   const DRAFT_IDX    = new Set([12, 20, 22]);
@@ -126,13 +126,16 @@
     a.id     = slug(a.name);
     a.source = LS_IDX.has(i) ? 'Learning Studio' : (VS_IDX.has(i) ? 'Vector Solutions' : 'Custom');
     if (a.source === 'Vector Solutions') {
-      a.fileType    = isCbt(a) ? 'SCORM' : 'VSP Content';
+      // Vector authors its library as VSP Content, which Learning Studio can customize; a licensed
+      // third-party title ships as a SCORM package and cannot be.
+      a.fileType    = (isCbt(a) && VS_SCORM_IDX.has(i)) ? 'SCORM' : 'VSP Content';
       a.licenseType = 'Commercial';
     } else if (a.source === 'Learning Studio') {
       a.fileType    = 'VSP Content';
       a.licenseType = 'None';
     } else {
-      a.fileType    = 'VSP Content';
+      // The organization's own CBTs are uploaded SCORM packages
+      a.fileType    = isCbt(a) ? 'SCORM' : 'VSP Content';
       a.licenseType = 'None';
     }
     /* Publish status is its own field now. Learning Studio drafts used to be encoded as
@@ -140,13 +143,11 @@
     a.publishStatus = (LS_DRAFT_IDX.has(i) || DRAFT_IDX.has(i)) ? 'Draft' : 'Published';
     a.repository   = REPO_FOLDERS[i % REPO_FOLDERS.length];
     a.configurable = isCbt(a) && a.publishStatus === 'Published';   // CBT only (THE RULE); a Learning Studio draft not yet released to Convergence cannot be configured
-    /* Learning Studio eligibility (CBT only). Not every CBT qualifies: see the field notes above. */
-    if (!isCbt(a))                         { a.lsEditable = false; a.lsReason = 'Only CBT activities can be edited in Learning Studio'; }
-    else if (a.source === 'Learning Studio') { a.lsEditable = true;  a.lsReason = ''; }
-    else if (a.source === 'Vector Solutions') {
-      a.lsEditable = !LS_EXCLUDED_IDX.has(i);
-      a.lsReason   = a.lsEditable ? '' : 'Licensed third-party course: excluded from Learning Studio customization';
-    } else                                 { a.lsEditable = false; a.lsReason = 'Uploaded course package: Learning Studio customizes Vector courses only'; }
+    /* Learning Studio eligibility: only Vector (VSP) content can be customized there. A SCORM package,
+       whether uploaded by the organization or a licensed third-party title, cannot be. CBT only. */
+    if (!isCbt(a))                          { a.lsEditable = false; a.lsReason = 'Only CBT activities can be edited in Learning Studio'; }
+    else if (a.fileType !== 'VSP Content')  { a.lsEditable = false; a.lsReason = 'SCORM packages cannot be edited in Learning Studio: only Vector (VSP) content can'; }
+    else                                    { a.lsEditable = true;  a.lsReason = ''; }
     a.editable     = (a.source !== 'Vector Solutions');  // accredited content opens read-only
     a.updateStatus = (i % 6 === 1) ? 'New' : 'Current';
     a.size         = ACT_SIZES[i % ACT_SIZES.length];

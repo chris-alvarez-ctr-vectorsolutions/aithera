@@ -6,16 +6,51 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-02) Going back never starts over
+
+- **[DONE]** The automated run waiting for approval (log → Review & approve): its deactivate setting is
+  Off, so no "1 person deactivated / 2 positions ended". Warnings are the name change (kept) + shared
+  email, begin dates before 1940 and a location not on the site — all from its own columns.
+- **[DONE]** Leaving with Back / ✕ keeps the unfinished import; **Bulk Upload** reopens it on Upload
+  file with everything intact (incl. each "I've reviewed this"). Only **Cancel import** or finishing a
+  run clears it.
+- **[DONE]** Alerts only appear for data the file has a column for (`NEEDS` / `fileHasDataFor`): no
+  password column → no password warning; same for custom fields (attributes), End date, External
+  Unique ID, building / position codes. Sample files updated (e.g. blocked-dates file: early begin
+  dates + shared email instead of passwords / attributes / early end dates). The copy-review file still
+  shows every catalog message on purpose.
+- **[DONE]** Back buttons and the stepper keep everything: file, column matches, the setting and
+  reviewed warnings. Coming back to **Upload file** shows the loaded file ("Your column matches and
+  settings are kept") with **Replace file** and **Continue**, instead of an empty drop zone.
+- **[DONE]** Picking the **same** file again keeps what they did; a **different** file starts fresh
+  (its columns differ).
+
 ## (2026-10-01) Review alert head + clearer CSV copy
 
+- **[DONE]** The tier tag (Blocked / Warning / Info / Reviewed) is an **eyebrow above the title**, so
+  the sentence gets the full width. "I've reviewed this" stays top right; View details under the title.
+- **[DONE]** Review page header **"Review changes"** (same shape as Map columns / Import settings) with
+  a line that says what's needed: warnings → "Review each warning and check 'I've reviewed this' — once
+  they're all reviewed, you can run the import."; blocked → fix or delete the rows in the file and
+  re-upload; info only → nothing to review. Replaces the "What we found in your file" eyebrow.
+- **[DONE]** Above Run import: a **yellow** note while warnings are open ("3 warnings need your review.
+  Check 'I've reviewed this' on each one to run the import. 2 of 5 done."), **blue** when all are
+  reviewed, **red** when blocked. Replaces "2 of 5 confirmations acknowledged".
+- **[DONE]** **Blocked** alerts: "What to do" always sends them back to the file — "Open your file and
+  fix … in these rows — or delete the rows — then upload the file again." (sync_error stays "try again"
+  — it isn't a file problem.) Blocked tables show **rows only** (no column tag — it's obvious once
+  they're in the file); duplicate_person now has a Row column (Row 48). Warnings dropped their column tags too (2026-10-02) — no red "Column X · …" anywhere.
 - **[DONE]** Warning banners: **"I've reviewed this" top right**; **View details** is the second row,
   under the title (Info / Blocked show just View details there).
-- **[DONE]** Side panel CSV copy: "**Everything we found, in one file** — Every blocked issue, warning
+- **[DONE]** Side panel CSV copy (superseded 2026-10-01 → "**The full list of what we found** — Download the file to see every issue, the row and person it affects, and what to fix before you import."; the CSV now carries each blocked issue's "What to do" line). Earlier: "Everything we found, in one file" — Every blocked issue, warning
   and info item from this review, with each person and row they affect — one spreadsheet you can sort,
   filter or share." The list of kinds only names what the review has. File: `what_we_found.csv`.
 
 ## (2026-10-01) Map columns: * in the selector; Username note under it
 
+- **[DONE]** The skip option is **"Don't import"** (was "— Not imported —"): it's a choice, like the
+  other options. It shows gray in the selector, so the **Mapped / Not imported status column is
+  removed** — three columns: Column in your file · Sample · Import as.
 - **[DONE]** "Import as" is a custom dropdown styled like the live SafeLMS filter selector: bordered
   button (#7893B5, 6px), blue ring while open, menu of radio rows; the selected row has a filled blue
   check + light-blue highlight. Groups "Standard fields" / "Your site's attributes". Required fields
@@ -33,7 +68,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   once checked), so it can be confirmed without opening it. **View details** sits on the same line.
   The checkbox no longer lives inside the details.
 - **[DONE]** **Download current data** moved off the Review side panel into the **Run import**
-  confirmation as a checkbox (off by default): "Also download your current employee data — a copy of
+  confirmation as a checkbox (**on by default** since 2026-10-01): "Also download your current employee data — a copy of
   your site as it is now, for your records."
 - **[DONE]** No **Import complete** page. Run import lands back on **Employees** with a toast: "Your
   upload ran. N added · N updated · …" + "You can see it in the upload log now." (+ "A copy of your

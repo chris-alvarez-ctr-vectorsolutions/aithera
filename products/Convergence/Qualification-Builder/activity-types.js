@@ -24,7 +24,7 @@
       contentNote: 'Questions grouped into competencies.' },
     { key: 'Tasklist',  label: 'Tasklist',  longLabel: 'Tasklist',       icon: 'fa-list-check',       content: 'tasklist',
       contentNote: 'The tasks a learner checks off on the job. The Tasklist editor plugs in here.' },
-    { key: 'Classroom', label: 'Classroom', longLabel: 'Classroom',      icon: 'fa-chalkboard-user',  content: 'class',
+    { key: 'Class',     label: 'Class',     longLabel: 'Class',          icon: 'fa-chalkboard-user',  content: 'class',
       contentNote: 'Topics and sessions for instructor-led training. The Class editor plugs in here.' },
     { key: 'Signature', label: 'Signature', longLabel: 'Signature',      icon: 'fa-signature',        content: 'signature',
       contentNote: 'The statement a learner acknowledges and signs. The Signature editor plugs in here.' },
