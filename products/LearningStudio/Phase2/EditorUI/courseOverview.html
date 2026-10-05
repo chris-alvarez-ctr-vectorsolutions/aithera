@@ -223,6 +223,11 @@
     .cs-section.active { background: #eff6ff; border-color: #93c5fd; color: #0271ce; font-weight: 600; box-shadow: 0 2px 6px rgba(2,113,206,0.12); }
     .cs-section-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+    /* The Content panel swaps its number/grip via a JS .hovered class; the
+       Course Detail nav has no drag affordance, so it just uses :hover. */
+    #cd-nav-list .cs-section:hover { background: #f8fbff; border-color: #bfdbfe; box-shadow: 0 2px 6px rgba(2,113,206,0.08); }
+    #cd-nav-list .cs-section.active:hover { background: #eff6ff; border-color: #93c5fd; }
+
     /* Section number / drag handle — swap on hover via JS .hovered class */
     .cs-index {
       width: 18px; flex-shrink: 0;
@@ -556,6 +561,10 @@
       min-width: 160px; padding: 4px; display: none;
     }
     .dd-submenu-wrap:hover .dd-submenu { display: block; }
+    /* Flip modifiers: set by JS when the submenu would leave the viewport.
+       .flip-left opens toward the left of the parent; .flip-up bottom-aligns it. */
+    .dd-submenu.flip-left { left: auto; right: 100%; }
+    .dd-submenu.flip-up { top: auto; bottom: 0; }
     .dd-item.has-sub::after { content: '\f054'; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 9px; margin-left: auto; color: #9ca3af; }
 
     /* =====================================================================
@@ -587,6 +596,50 @@
     }
     .tab-view-body::-webkit-scrollbar { width: 5px; }
     .tab-view-body::-webkit-scrollbar-thumb { background: rgba(14,165,233,0.2); border-radius: 3px; }
+
+    /* Course Detail panes — swapped by the Course Detail panel's nav.
+       .tab-view-body sets display:flex, so .hidden needs the higher
+       specificity here to win (there is no global .hidden rule). */
+    .cd-pane.hidden { display: none; }
+
+    /* A badge is its own visual container -- drop the text-input chrome that
+       .cd-ro-value adds so it doesn't read as an indented input value. */
+    .cd-ro-value-badge {
+      background: none; border: none; padding: 2px 0;
+    }
+
+    /* =====================================================================
+       COURSE DETAIL — VERSION HISTORY LIST
+    ===================================================================== */
+    .cd-version-list { display: flex; flex-direction: column; }
+
+    .cd-version-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 12px 2px; position: relative;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .cd-version-row:last-child { border-bottom: none; }
+
+    /* Timeline marker + connecting line */
+    .cd-version-mark {
+      width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #f3f4f6; color: #9ca3af; font-size: 10px; margin-top: 1px;
+    }
+    .cd-version-row.current .cd-version-mark { background: #e0f2fe; color: #0284c7; }
+
+    .cd-version-body { flex: 1; min-width: 0; }
+    .cd-version-head { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
+    .cd-version-num { font-size: 13px; font-weight: 600; color: #0f2e3d; }
+    .cd-version-meta { font-size: 11.5px; color: #6b7280; margin-bottom: 3px; }
+    .cd-version-note { font-size: 12px; color: #374151; line-height: 1.45; }
+
+    .cd-version-btn {
+      background: none; border: none; cursor: pointer; color: #9ca3af;
+      padding: 4px 6px; border-radius: 5px; flex-shrink: 0;
+      font-size: 12px; transition: background 0.12s, color 0.12s;
+    }
+    .cd-version-btn:hover { background: #f3f4f6; color: #374151; }
 
     /* Mirrors .editor-card */
     .tab-card {
@@ -984,8 +1037,32 @@
       </div>
     </div>
 
-    <!-- no additional panels here — Course Detail / Assessment / Survey
-         swap the main content area instead -->
+    <!-- =================================================================
+         PANEL: Course Detail — in-tab section nav
+         Same .slide-panel component as the Content panel above. Tabs with
+         no internal navigation (Assessment, Survey) simply declare no
+         panel, and the panel column stays hidden for them.
+    ================================================================= -->
+    <div id="panel-course-detail" class="slide-panel hidden">
+      <div class="panel-resize-handle" aria-hidden="true"></div>
+      <div class="panel-header">
+        <div class="ph-panel-left">
+          <button class="ph-close" data-panel="panel-course-detail" title="Close"><i class="fa-solid fa-chevron-left"></i></button>
+          <span class="panel-title">Course Detail</span>
+        </div>
+      </div>
+      <div class="panel-body" id="cd-nav-list">
+        <div class="cs-section active" data-pane="cd-pane-info">
+          <span class="cs-section-name">Course Info</span>
+        </div>
+        <div class="cs-section" data-pane="cd-pane-publishing">
+          <span class="cs-section-name">Publishing Info</span>
+        </div>
+        <div class="cs-section" data-pane="cd-pane-versions">
+          <span class="cs-section-name">Version History</span>
+        </div>
+      </div>
+    </div>
 
     <!-- =================================================================
          MAIN CONTENT AREA — hosts all tab views
@@ -1027,8 +1104,8 @@
               <span class="section-name">Introduction</span>
               <span class="section-duration"><i class="fa-regular fa-clock"></i> 16:12</span>
               <div class="section-header-spacer"></div>
-              <button class="section-add-btn" title="Add Learning Object">
-                <i class="fa-solid fa-plus"></i> Add Learning Object
+              <button class="section-add-btn" data-menu="add-activity-menu" title="Add Activity">
+                <i class="fa-solid fa-plus"></i> Add Activity
               </button>
               <button class="section-kebab" id="unit-intro-menu-trigger" title="Section options">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -1072,8 +1149,8 @@
               <span class="section-name">01 Basics of Color Theory</span>
               <span class="section-duration"><i class="fa-regular fa-clock"></i> 38:15</span>
               <div class="section-header-spacer"></div>
-              <button class="section-add-btn" title="Add Learning Object">
-                <i class="fa-solid fa-plus"></i> Add Learning Object
+              <button class="section-add-btn" data-menu="add-activity-menu" title="Add Activity">
+                <i class="fa-solid fa-plus"></i> Add Activity
               </button>
               <button class="section-kebab" title="Section options">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -1164,8 +1241,8 @@
               <span class="section-name">02 The Science of Color</span>
               <span class="section-duration"><i class="fa-regular fa-clock"></i> 32:16</span>
               <div class="section-header-spacer"></div>
-              <button class="section-add-btn" title="Add Learning Object">
-                <i class="fa-solid fa-plus"></i> Add Learning Object
+              <button class="section-add-btn" data-menu="add-activity-menu" title="Add Activity">
+                <i class="fa-solid fa-plus"></i> Add Activity
               </button>
               <button class="section-kebab" title="Section options">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -1287,8 +1364,8 @@
               <span class="section-name">03 Advanced Concepts of Color Depth and Design Principles</span>
               <span class="section-duration"><i class="fa-regular fa-clock"></i> 75:00</span>
               <div class="section-header-spacer"></div>
-              <button class="section-add-btn" title="Add Learning Object">
-                <i class="fa-solid fa-plus"></i> Add Learning Object
+              <button class="section-add-btn" data-menu="add-activity-menu" title="Add Activity">
+                <i class="fa-solid fa-plus"></i> Add Activity
               </button>
               <button class="section-kebab" title="Section options">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -1410,8 +1487,8 @@
               <span class="section-name">Conclusion</span>
               <span class="section-duration"><i class="fa-regular fa-clock"></i> 5:05</span>
               <div class="section-header-spacer"></div>
-              <button class="section-add-btn" title="Add Learning Object">
-                <i class="fa-solid fa-plus"></i> Add Learning Object
+              <button class="section-add-btn" data-menu="add-activity-menu" title="Add Activity">
+                <i class="fa-solid fa-plus"></i> Add Activity
               </button>
               <button class="section-kebab" title="Section options">
                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -1464,7 +1541,8 @@
             <div class="ch-right"></div>
           </div>
         </div>
-        <div class="tab-view-body">
+        <!-- PANE: Course Info -->
+        <div class="tab-view-body cd-pane" id="cd-pane-info">
 
           <!-- Persistent notice: changes to locked fields will trigger live production updates on Publish -->
           <div id="cd-prod-notice" class="cd-prod-notice" role="status" aria-live="polite">
@@ -1574,7 +1652,147 @@
             </div>
           </div>
 
-        </div><!-- /tab-view-body -->
+        </div><!-- /cd-pane-info -->
+
+        <!-- PANE: Publishing Info -->
+        <div class="tab-view-body cd-pane hidden" id="cd-pane-publishing">
+
+          <div class="tab-card">
+            <div class="tab-card-body">
+              <div class="tab-section">
+                <span class="tab-label">Publishing Status</span>
+                <div class="tab-divider"></div>
+                <div class="cd-ro-field">
+                  <span class="cd-ro-label">Current Status</span>
+                  <div class="cd-ro-value cd-ro-value-badge">
+                    <span theme="badge success">Published</span>
+                  </div>
+                </div>
+                <div class="cd-ro-field">
+                  <span class="cd-ro-label">Last Published</span>
+                  <div class="cd-ro-value">Mar 14, 2026 at 9:42 AM by Dana Whitfield</div>
+                </div>
+                <div class="cd-ro-field">
+                  <span class="cd-ro-label">Environment</span>
+                  <div class="cd-ro-value">QA &amp; Live Production</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-card">
+            <div class="tab-card-body">
+              <div class="tab-section">
+                <span class="tab-label">Availability</span>
+                <div class="tab-divider"></div>
+                <div class="tab-field">
+                  <span class="tab-field-label">Publish Date</span>
+                  <vaadin-date-picker theme="outlined" value="2026-03-14" style="width:100%;"></vaadin-date-picker>
+                  <span class="tab-hint">Learners can enroll starting on this date.</span>
+                </div>
+                <div class="tab-field">
+                  <span class="tab-field-label">Retire Date</span>
+                  <vaadin-date-picker theme="outlined" placeholder="No retire date set" style="width:100%;"></vaadin-date-picker>
+                  <span class="tab-hint">Optional. The course is removed from the catalog after this date.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-card">
+            <div class="tab-card-body">
+              <div class="tab-section">
+                <span class="tab-label">Catalog Visibility</span>
+                <div class="tab-divider"></div>
+                <div class="tab-field">
+                  <span class="tab-field-label">Course Code</span>
+                  <vaadin-text-field theme="outlined" value="ACT-4102" style="width:100%;"></vaadin-text-field>
+                </div>
+                <div class="tab-field">
+                  <span class="tab-field-label">Catalog Category</span>
+                  <vaadin-select id="cd-catalog-category" theme="outlined" style="width:100%;"></vaadin-select>
+                  <span class="tab-hint">Determines where the course appears in the catalog browse tree.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /cd-pane-publishing -->
+
+        <!-- PANE: Version History -->
+        <div class="tab-view-body cd-pane hidden" id="cd-pane-versions">
+
+          <div class="tab-card">
+            <div class="tab-card-body">
+              <div class="tab-section">
+                <span class="tab-label">Version History</span>
+                <div class="tab-divider"></div>
+                <div class="cd-version-list">
+
+                  <div class="cd-version-row current">
+                    <div class="cd-version-mark"><i class="fa-solid fa-code-branch"></i></div>
+                    <div class="cd-version-body">
+                      <div class="cd-version-head">
+                        <span class="cd-version-num">Version 4</span>
+                        <span theme="badge success">Current</span>
+                      </div>
+                      <div class="cd-version-meta">Published Mar 14, 2026 · Dana Whitfield</div>
+                      <div class="cd-version-note">Added the Advanced Concepts section and refreshed the catalog description.</div>
+                    </div>
+                    <button class="cd-version-btn" data-menu="cd-version-menu" title="Version options">
+                      <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                  </div>
+
+                  <div class="cd-version-row">
+                    <div class="cd-version-mark"><i class="fa-solid fa-code-branch"></i></div>
+                    <div class="cd-version-body">
+                      <div class="cd-version-head">
+                        <span class="cd-version-num">Version 3</span>
+                      </div>
+                      <div class="cd-version-meta">Published Jan 8, 2026 · Marcus Reed</div>
+                      <div class="cd-version-note">Replaced the color-mixing simulation and updated the final assessment.</div>
+                    </div>
+                    <button class="cd-version-btn" data-menu="cd-version-menu" title="Version options">
+                      <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                  </div>
+
+                  <div class="cd-version-row">
+                    <div class="cd-version-mark"><i class="fa-solid fa-code-branch"></i></div>
+                    <div class="cd-version-body">
+                      <div class="cd-version-head">
+                        <span class="cd-version-num">Version 2</span>
+                      </div>
+                      <div class="cd-version-meta">Published Sep 22, 2025 · Dana Whitfield</div>
+                      <div class="cd-version-note">Accessibility pass on all learning objects; added captions.</div>
+                    </div>
+                    <button class="cd-version-btn" data-menu="cd-version-menu" title="Version options">
+                      <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                  </div>
+
+                  <div class="cd-version-row">
+                    <div class="cd-version-mark"><i class="fa-solid fa-code-branch"></i></div>
+                    <div class="cd-version-body">
+                      <div class="cd-version-head">
+                        <span class="cd-version-num">Version 1</span>
+                        <span theme="badge">Original</span>
+                      </div>
+                      <div class="cd-version-meta">Published Apr 3, 2025 · Marcus Reed</div>
+                      <div class="cd-version-note">Initial course release.</div>
+                    </div>
+                    <button class="cd-version-btn" data-menu="cd-version-menu" title="Version options">
+                      <i class="fa-solid fa-ellipsis-vertical"></i>
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /cd-pane-versions -->
       </div><!-- /view-course-detail -->
 
       <!-- ===============================================================
@@ -1887,6 +2105,21 @@
      DROPDOWN MENUS (shared, positioned by JS)
 ===================================================================== -->
 
+<!-- Version History row menu -->
+<div class="dropdown" id="cd-version-menu">
+  <button class="dd-item"><i class="fa-solid fa-eye fa-fw"></i> View This Version</button>
+  <button class="dd-item"><i class="fa-solid fa-code-compare fa-fw"></i> Compare to Current</button>
+  <div class="dd-sep"></div>
+  <button class="dd-item"><i class="fa-solid fa-rotate-left fa-fw"></i> Restore This Version</button>
+</div>
+
+<!-- Add Activity menu (shared by every section's "Add Activity" button) -->
+<div class="dropdown" id="add-activity-menu">
+  <button class="dd-item"><i class="fa-solid fa-cube fa-fw"></i> Learning Object</button>
+  <button class="dd-item"><i class="fa-solid fa-comments fa-fw"></i> Scenario Simulation</button>
+  <button class="dd-item"><i class="fa-solid fa-list-check fa-fw"></i> Assessment</button>
+</div>
+
 <!-- Export menu -->
 <div class="dropdown" id="dd-export">
   <button class="dd-item"><i class="fa-solid fa-clock fa-fw"></i> Timed Outline</button>
@@ -1950,50 +2183,94 @@
   // =====================================================================
   const sbBtns = document.querySelectorAll('#left-sidebar .sb-btn');
   const allViews = document.querySelectorAll('.main-view');
-  const contentPanel = document.getElementById('panel-content');
+  const allPanels = document.querySelectorAll('.slide-panel');
 
-  // Map each sb-btn id → which main view to show
-  const viewMap = {
-    'sb-content':       'view-content',
-    'sb-course-detail': 'view-course-detail',
-    'sb-assessment':    'view-assessment',
-    'sb-survey':        'view-survey',
+  // Each tab declares which main view it shows and, optionally, which
+  // slide panel provides its in-tab navigation. Tabs with no internal
+  // navigation (Assessment, Survey) declare no panel, and the panel column
+  // stays hidden for them — the panel is contextual to the active tab.
+  const tabConfig = {
+    'sb-content':       { view: 'view-content',       panel: 'panel-content' },
+    'sb-course-detail': { view: 'view-course-detail', panel: 'panel-course-detail' },
+    'sb-assessment':    { view: 'view-assessment',    panel: null },
+    'sb-survey':        { view: 'view-survey',        panel: null },
   };
 
-  function activateTab(btn) {
-    const btnId = btn.id;
+  // Remembers whether each tab's panel was left open, so returning to a tab
+  // restores the state the user left it in.
+  const panelOpen = { 'sb-content': true, 'sb-course-detail': true };
 
-    // Deactivate all buttons
+  function activateTab(btn) {
+    const cfg = tabConfig[btn.id];
+    if (!cfg) return;
+
+    // Re-clicking the active tab toggles its panel (when it has one).
+    const isReclick = btn.classList.contains('active');
+    if (isReclick && cfg.panel) panelOpen[btn.id] = !panelOpen[btn.id];
+
     sbBtns.forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    if (btnId === 'sb-content') {
-      // Toggle the slide panel; main view stays as Course Content
-      const isOpen = !contentPanel.classList.contains('hidden');
-      contentPanel.classList.toggle('hidden', isOpen);
-      if (isOpen) btn.classList.remove('active'); // deactivate if closing
-      // Always ensure Course Content view is shown
-      allViews.forEach(v => v.classList.add('hidden'));
-      document.getElementById('view-content').classList.remove('hidden');
-    } else {
-      // Close the content slide panel
-      contentPanel.classList.add('hidden');
-      document.querySelector('#sb-content').classList.remove('active');
+    // Show only this tab's view.
+    allViews.forEach(v => v.classList.add('hidden'));
+    const view = document.getElementById(cfg.view);
+    if (view) view.classList.remove('hidden');
 
-      // Swap to the right main view
-      allViews.forEach(v => v.classList.add('hidden'));
-      const viewId = viewMap[btnId];
-      if (viewId) document.getElementById(viewId).classList.remove('hidden');
+    // Show only this tab's panel, and only if it's meant to be open.
+    allPanels.forEach(pnl => pnl.classList.add('hidden'));
+    if (cfg.panel && panelOpen[btn.id]) {
+      const pnl = document.getElementById(cfg.panel);
+      if (pnl) pnl.classList.remove('hidden');
     }
   }
 
   sbBtns.forEach(btn => btn.addEventListener('click', () => activateTab(btn)));
 
-  // Close button inside the Content slide panel
+  // Close button inside any slide panel — hides that panel but keeps the
+  // tab active, and remembers the closed state for when the tab is revisited.
   document.querySelectorAll('.ph-close[data-panel]').forEach(closeBtn => {
     closeBtn.addEventListener('click', () => {
-      contentPanel.classList.add('hidden');
-      document.querySelector('#sb-content').classList.remove('active');
+      const panelId = closeBtn.dataset.panel;
+      const pnl = document.getElementById(panelId);
+      if (pnl) pnl.classList.add('hidden');
+      const owner = Object.keys(tabConfig).find(k => tabConfig[k].panel === panelId);
+      if (owner) panelOpen[owner] = false;
+    });
+  });
+
+  // =====================================================================
+  // COURSE DETAIL — Catalog Category options
+  //
+  // vaadin-select takes no static slot content (per the core CONTEXT.md it
+  // uses a renderer); in vanilla JS the equivalent is the .items property.
+  // Setting `value` alone on an empty select renders a blank field.
+  // =====================================================================
+  const cdCategory = document.getElementById('cd-catalog-category');
+  if (cdCategory) {
+    cdCategory.items = [
+      { label: 'Visual Arts & Design', value: 'visual-arts' },
+      { label: 'Business & Leadership', value: 'business' },
+      { label: 'Compliance & Safety',   value: 'compliance' },
+      { label: 'Technical Skills',      value: 'technical' },
+    ];
+    cdCategory.value = 'visual-arts';
+  }
+
+  // =====================================================================
+  // COURSE DETAIL PANEL — pane switching
+  // The panel's nav items swap which pane is visible inside the Course
+  // Detail view. Reuses .cs-section so it matches the Content panel's nav.
+  // =====================================================================
+  const cdNavItems = document.querySelectorAll('#cd-nav-list .cs-section');
+  const cdPanes = document.querySelectorAll('#view-course-detail .cd-pane');
+
+  cdNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+      cdNavItems.forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      cdPanes.forEach(pane => pane.classList.add('hidden'));
+      const pane = document.getElementById(item.dataset.pane);
+      if (pane) pane.classList.remove('hidden');
     });
   });
 
@@ -2174,9 +2451,23 @@
   function openDropdown(menu, trigger) {
     if (activeDropdown) closeDropdown();
     const rect = trigger.getBoundingClientRect();
-    menu.style.top = (rect.bottom + 4) + 'px';
     menu.style.left = rect.left + 'px';
+    // Show first so the menu has a measurable height.
     menu.classList.add('show');
+
+    // Vertical clamp: prefer below the trigger, flip above when that would
+    // run off the bottom, and finally clamp into the viewport so a menu taller
+    // than the space available is still fully reachable (its submenus are
+    // positioned relative to it, so an off-screen parent can't be recovered
+    // by the submenu flip logic alone).
+    const menuH = menu.offsetHeight;
+    let top = rect.bottom + 4;
+    if (top + menuH > window.innerHeight - 8) {
+      const above = rect.top - 4 - menuH;
+      top = above >= 8 ? above : Math.max(8, window.innerHeight - 8 - menuH);
+    }
+    menu.style.top = top + 'px';
+
     activeDropdown = menu;
   }
 
@@ -2205,6 +2496,58 @@
   });
 
   document.addEventListener('click', () => closeDropdown());
+
+  // ---------------------------------------------------------------------
+  // Submenu viewport clamping
+  //
+  // Submenus fly out at `left: 100%` by default. Because the parent menu is
+  // right-aligned to its trigger (and the kebabs sit near the right edge of
+  // the content area), that flyout would run off-screen. On hover we measure
+  // the real submenu box and flip it left / bottom-align it when there is not
+  // enough room, then confirm the flip actually fits before committing.
+  // ---------------------------------------------------------------------
+  const VIEWPORT_PAD = 8;
+
+  document.querySelectorAll('.dd-submenu-wrap').forEach(wrap => {
+    const submenu = wrap.querySelector('.dd-submenu');
+    if (!submenu) return;
+
+    wrap.addEventListener('mouseenter', () => {
+      // Reset so we always measure the natural (unflipped) position.
+      submenu.classList.remove('flip-left', 'flip-up');
+
+      // The CSS :hover rule may not have applied display:block yet when this
+      // handler runs, and a display:none box measures as all zeros -- which
+      // would read as "it fits" and skip the flip. Force it visible (but
+      // invisible to the eye) for one measurement pass.
+      const prevDisplay = submenu.style.display;
+      const prevVis = submenu.style.visibility;
+      submenu.style.display = 'block';
+      submenu.style.visibility = 'hidden';
+
+      const rect = submenu.getBoundingClientRect();
+      const parentRect = wrap.getBoundingClientRect();
+
+      submenu.style.display = prevDisplay;
+      submenu.style.visibility = prevVis;
+
+      // Horizontal: flip left if it overflows the right edge, but only when
+      // the left side genuinely has more usable room.
+      if (rect.right > window.innerWidth - VIEWPORT_PAD) {
+        if (parentRect.left >= rect.width + VIEWPORT_PAD) {
+          submenu.classList.add('flip-left');
+        }
+      }
+
+      // Vertical: bottom-align if it overflows the bottom edge and the
+      // flipped position would actually be on-screen.
+      if (rect.bottom > window.innerHeight - VIEWPORT_PAD) {
+        if (parentRect.bottom - rect.height >= VIEWPORT_PAD) {
+          submenu.classList.add('flip-up');
+        }
+      }
+    });
+  });
 
   // =====================================================================
   // COURSE DETAIL — Live-prod-linked field edit flow

@@ -109,14 +109,51 @@ href="../../../../assets/fontawesome/css/all.min.css"
     /* Content-window tokens. Solid hexes, not --lumo-contrast-Npct: those are
        translucent rgba overlays, so sticky bars built on them let scrolling
        content show through. These approximate 5pct/10pct opaquely. */
-    --cm-page-bg:    #f5f7f9;
+    /* Three surface levels, deliberately spaced far enough apart to be read
+       at a glance rather than inferred from a 1px border:
+
+         --cm-page-bg    the ground everything sits ON
+         --cm-card-bg    a container: white, so it lifts off the ground
+         --cm-zebra      a container's HEADER — tinted, but only just, so the
+                         header reads as part of its card, not as a separate
+                         recessed band
+
+       The old values had page #f5f7f9 against card #ffffff (a 2% step, so
+       cards blended into the page) while the header was #f8fafb — a tint
+       STRONGER than the gap between page and card, which inverted the
+       hierarchy: the header looked recessed and the content it contained
+       looked raised. The ground is now darker and the header tint lighter,
+       so the order reads page → header → content, outermost darkest. */
+    --cm-page-bg:    #eceff3;
     --cm-card-bg:    #ffffff;
-    --cm-line:       #e3e7ec;
+    --cm-line:       #dbe1e8;
     --cm-line-soft:  #eef1f4;
-    --cm-zebra:      #f8fafb;
+    --cm-zebra:      #fbfcfd;
+    /* One step deeper than --cm-zebra, for a card nested inside a card. */
+    --cm-zebra-deep: #f4f6f9;
+    /* Border for a container that is open or otherwise emphasised. */
+    --cm-line-strong: #c6cfda;
+
+    /* ---- Motion --------------------------------------------------------
+       One scale, so everything that opens, moves or lands feels like the
+       same system. Durations are short on purpose: this is a dense form and
+       motion here is for TRACKING a change, not for decoration. Anything
+       over ~200ms starts to feel like waiting.
+
+       --cm-ease is a gentle decelerate: quick to commit, soft to settle,
+       which reads as the UI responding rather than playing an animation. */
+    --cm-ease:      cubic-bezier(.2, .7, .3, 1);
+    --cm-dur-fast:  110ms;   /* chevrons, hovers, tint changes */
+    --cm-dur:       170ms;   /* expand / collapse, drop gaps  */
   }
 
   * { box-sizing: border-box; }
+  /* The `hidden` attribute is only `display: none` from the UA stylesheet, so
+     ANY author `display` rule outranks it and the element stays visible. Every
+     popover here is display:flex, so hiding one with el.hidden = true did
+     nothing — all of them rendered open at once. This restores the attribute's
+     meaning globally, ahead of every component rule below. */
+  [hidden] { display: none !important; }
   html, body {
     margin: 0; height: 100%;
     font-family: "Open Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -237,19 +274,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
 
   /* ---- Cards --------------------------------------------------------
      vwc-card carries the chrome; these classes only lay out its slots. */
-  /* Compact library stats — replaces a four-card metric row. One line of
-     text-scale figures, so orientation costs ~30px instead of ~130px and the
-     tables stay above the fold. (.cm-card-grid is still used by the Activity
-     tab's run-history tiles, where the numbers ARE the content.) */
-  .cm-stats {
-    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 20px;
-    margin: 0 0 16px; font-size: 13px; color: var(--ci-ink-700);
-  }
-  .cm-stat { display: flex; align-items: baseline; gap: 6px; }
-  .cm-stat-value { font-size: 15px; font-weight: 700; color: var(--ci-ink-900); }
-  .cm-stat-label { color: var(--ci-ink-500); }
-  .cm-stat-sep { color: var(--lumo-contrast-30pct, #1c345442); }
-
+  /* Metric tiles. Used only by the Activity tab's run-history, where the
+     numbers ARE the content. The library tables carry no summary counts. */
   .cm-card-grid {
     display: grid; gap: 14px; margin-bottom: 18px;
     grid-template-columns: repeat(auto-fit, minmax(232px, 1fr));
@@ -266,6 +292,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
     background: var(--cm-card-bg); border: 1px solid var(--cm-line);
     border-radius: var(--lumo-border-radius-m, .5em);
     margin-bottom: 18px; overflow: hidden;
+    box-shadow: 0 1px 2px #1c304a0f, 0 2px 8px -4px #1c304a1a;
   }
   .cm-panel-head {
     display: flex; align-items: center; gap: 12px;
@@ -294,8 +321,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
 
   .cm-panel-title { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
-  .cm-panel-sub { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 2px; }
-  .cm-panel-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   .cm-panel-body { padding: 16px; }
 
   /* ---- Filter bar ---------------------------------------------------
@@ -351,7 +376,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
      container removes the inline box entirely — nothing left to truncate.
      Scoped via :has() so only checkbox cells change; text cells keep their
      ellipsis truncation. The empty auto-generated label is collapsed too:
-     vaadin-checkbox emits one whenever it is given only aria-label. */
+     vaadin-checkbox emits one whenever it is given only aria-label.
+
      Handled in JS via the CELL_CONTROL inline style — page-level CSS cannot
      reach a grid cell's contents (see the comment on CELL_CONTROL). The rule
      below is the one exception that does work, because it targets the
@@ -483,12 +509,20 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
 
   /* One card per section. */
+  /* L1 — the section card. Sits ON the tinted page ground, so it is white
+     and carries a soft shadow: the lift is what separates it from the page,
+     with the border only defining the edge. A flat white card on a near-white
+     page reads as no card at all, which is what the old #f5f7f9 ground did. */
   .cm-section {
     background: var(--cm-card-bg);
     border: 1px solid var(--cm-line);
     border-radius: var(--lumo-border-radius-m, .5em);
-    box-shadow: var(--lumo-box-shadow-xs, 0 1px 4px -1px #1c304a85);
-    overflow: hidden;
+    box-shadow: 0 1px 2px #1c304a0f, 0 2px 8px -4px #1c304a1a;
+    /* NOT overflow:hidden. It was here to keep the header's tint inside the
+       rounded corners, but it also clipped any popover opened near the card
+       edge — a row menu on the last step vanished below the border. The
+       header rounds its own top corners instead (see .cm-section-head), so
+       nothing needs clipping and menus can escape the card. */
   }
   /* No between-section border: each section is its own card and the flex gap
      separates them. */
@@ -502,13 +536,25 @@ href="../../../../assets/fontawesome/css/all.min.css"
      steps two. Each level adds exactly --cm-indent, so depth is countable
      without reading. The head also gets a heavier ground and a top accent, so
      a section reads as a band rather than as another row. */
+  /* The card's header. Only a whisper of tint — enough to read as a header
+     band, not enough to look like a separate recessed surface sitting on top
+     of its own content. */
   .cm-section-head {
     display: flex; align-items: center; gap: 11px;
     padding: 11px var(--cm-gutter);
     background: var(--cm-zebra);
     border-bottom: 1px solid var(--cm-line);
+    /* Rounds itself rather than relying on the card to clip it — see the note
+       on .cm-section about overflow. */
+    border-radius: calc(var(--lumo-border-radius-m, .5em) - 1px)
+                   calc(var(--lumo-border-radius-m, .5em) - 1px) 0 0;
   }
-  .cm-section.is-collapsed .cm-section-head { border-bottom: 0; }
+  /* Collapsed, the header IS the whole card — so it rounds all four corners,
+     not just the top two. */
+  .cm-section.is-collapsed .cm-section-head {
+    border-bottom: 0;
+    border-radius: calc(var(--lumo-border-radius-m, .5em) - 1px);
+  }
   .cm-section.is-collapsed .cm-section-body { display: none; }
   .cm-grip { color: var(--lumo-contrast-40pct, #1c324f61); cursor: grab; font-size: 13px; }
   /* L2 — section. A grouping label: clearly below the panel title (16px), and
@@ -609,7 +655,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
     transition: background .12s ease;
   }
   .cm-disclose:hover { background: var(--lumo-contrast-5pct, #193b670d); color: var(--ci-ink-900); }
-  .cm-disclose i { transition: transform .15s ease; }
+  .cm-disclose i { transition: transform var(--cm-dur) var(--cm-ease); }
   .cm-disclose[aria-expanded="true"] i { transform: rotate(180deg); }
   @media (prefers-reduced-motion: reduce) {
     .cm-disclose i, .cm-disclose { transition: none; }
@@ -631,17 +677,23 @@ href="../../../../assets/fontawesome/css/all.min.css"
   /* A content block is a CARD; a section's own steps are plain rows. That is
      the whole visual distinction, and it does the work the group headings
      used to: bordered, on white, with an icon tile and a kind label. */
+  /* A block card is nested INSIDE a section card, so it cannot also be white
+     — two white cards with the same border read as one flat list. It takes
+     the tint instead, which puts it a step back from the section's content
+     while staying clearly a card of its own. */
   .cm-block {
-    background: var(--cm-card-bg);
+    background: var(--cm-zebra-deep);
     border: 1px solid var(--cm-line);
     border-radius: var(--lumo-border-radius-s, .25em);
     margin-bottom: 6px;
   }
   .cm-block:last-of-type { margin-bottom: 0; }
-  .cm-block.is-open { border-color: var(--lumo-contrast-30pct, #1c345442); }
   .cm-block:last-child { border-bottom: 0; }
-  .cm-block.is-open { background: var(--cm-zebra); }
-  /* Flush inside .cm-blockrun, which already supplies the indent — the row
+  /* An open block darkens its border rather than its fill — the fill is what
+     carries the nesting level, so changing it on open would make an expanded
+     block read as a different depth than a collapsed one. */
+  .cm-block.is-open { border-color: var(--cm-line-strong); }
+  /* Flush inside .cm-itemlane, which already supplies the indent — the row
      used to add its own 26px on top, so blocks sat two levels deep while
      reading as one. */
   .cm-block-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; }
@@ -667,11 +719,13 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
   .cm-block-meta { font-size: 11.5px; color: var(--ci-ink-500); margin-top: 1px; }
   .cm-block-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; }
-  /* The block's own steps, inset inside the card. */
+  /* The block's own steps, inset inside the card. White — the content level,
+     one step IN from the tinted card holding it, so opening a block reads as
+     going deeper rather than as another band of the same grey. */
   .cm-block-steps {
-    border-top: 1px solid var(--cm-line-soft); display: none;
+    border-top: 1px solid var(--cm-line); display: none;
     padding: 8px 10px 10px calc(10px + var(--cm-indent));
-    background: var(--cm-zebra);
+    background: var(--cm-card-bg);
     position: relative;
   }
   .cm-block.is-open .cm-block-steps::before {
@@ -696,47 +750,167 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cm-step-label { flex: 1; }
   .cm-step-sub { font-size: 11.5px; color: var(--ci-ink-500); }
 
-  /* ---- Section zones -------------------------------------------------
-     A section is three zones in fixed order: steps, the block run, steps.
+  /* ---- Section items -------------------------------------------------
+     A section is ONE ordered lane: steps and blocks interleave in whatever
+     order the author arranged.
 
      Content blocks are CARDS — bordered, on white, with an icon tile and a
      "Content block" label on the row. A section's own steps are plain rows.
-     That contrast is what distinguishes them; the zones carry no headings,
-     because each row already says what it is.
+     That contrast is what distinguishes them, and it is what lets the two
+     sit next to each other in one list without headings. */
 
-     There is no affordance to insert a step between two blocks. */
-
-  /* The block run — the section's default ground, no chrome of its own. */
-  .cm-blockrun {
+  /* The item lane — the section's default ground, no chrome of its own.
+     Replaced .cm-blockrun and the two .cm-stepzone bands, which between them
+     used to impose the fixed before/blocks/after order. */
+  .cm-itemlane {
+    display: flex; flex-direction: column;
     padding: 6px var(--cm-gutter) 8px calc(var(--cm-gutter) + var(--cm-indent));
     position: relative;
   }
-  /* No nesting rail here: the block cards are bordered, so a rail beside them
-     would be a second, weaker boundary saying the same thing. The step zones
-     above and below keep theirs implicitly via the indent. */
-  .cm-blockrun:empty { display: none; }
+  /* No nesting rail: the block cards are bordered, so a rail beside them
+     would be a second, weaker boundary saying the same thing. */
 
-  /* Step zones. Steps a section owns directly, above and below the blocks.
-     No tint and no heading — they are the section's plain content, and the
-     blocks are what needs to stand out from them. */
-  .cm-stepzone {
-    padding: 4px var(--cm-gutter) 6px calc(var(--cm-gutter) + var(--cm-indent));
-  }
-  /* A rule between the block run and the steps after it, so the run reads as
-     a closed group. The pre zone needs none — the section head is above it. */
-  .cm-stepzone--post { border-top: 1px solid var(--cm-line-soft); }
-  .cm-stepzone.is-empty { padding-top: 2px; padding-bottom: 4px; }
-  .cm-stepzone.is-empty .cm-zone-add { opacity: .7; }
-  .cm-stepzone.is-empty:hover .cm-zone-add { opacity: 1; }
   .cm-zone-add { margin-left: -4px; }
+
+  /* Drop target between two rows. A hairline at rest so it costs no layout,
+     opening up only once something is in the hand — .is-dragging-item is set
+     on the builder root at dragstart. Without that gate every section would
+     carry permanent gaps nobody asked for. */
+  .cm-itemgap {
+    height: 2px; border-radius: 3px; flex-shrink: 0;
+    transition: height var(--cm-dur) var(--cm-ease),
+                background var(--cm-dur-fast) var(--cm-ease),
+                box-shadow var(--cm-dur-fast) var(--cm-ease);
+  }
+  .is-dragging-item .cm-itemgap { height: 9px; }
+  /* The hovered gap opens to roughly a row's height, so the list physically
+     makes room where the drop will land — the layout previews the result
+     instead of only marking a target. */
+  .is-dragging-item .cm-itemgap.is-over {
+    height: 34px;
+    background: var(--lumo-primary-color-10pct, #0271ce1a);
+    box-shadow: inset 0 0 0 1px var(--lumo-primary-color, #0271ce);
+  }
+  /* Whatever is in the hand — step row or block card. Dimmed, not hidden, so
+     the move reads as a move rather than a delete-and-reinsert. */
+  .cm-lane-item.is-dragging { opacity: .4; }
+  /* The block row already carried a grip; it is functional now that blocks
+     are draggable peers, so it follows the same reveal-on-hover rule as the
+     step rows' grip rather than sitting there permanently. */
+  .cm-block-row .cm-grip { opacity: 0; transition: opacity .12s ease; }
+  .cm-block:hover .cm-grip, .cm-block:focus-within .cm-grip { opacity: 1; }
+  @media (hover: none) { .cm-block-row .cm-grip { opacity: 1; } }
+  /* The two add buttons sit side by side under the lane. */
+  .cm-lane-add { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 
   /* A step the section owns. A plain row: no card, no icon tile, no border
      box — everything a content block has and a step does not. */
-  .cm-sectionstep {
+  /* The step is a head plus an optional body now, so it stacks; the head
+     itself is the flex row it used to be. Collapsed it looks exactly as
+     before — a plain dashed-separated row. */
+  .cm-sectionstep { display: flex; flex-direction: column; }
+  .cm-sectionstep-head {
     display: flex; align-items: center; gap: 10px; padding: 5px 0;
     border-bottom: 1px dashed var(--cm-line-soft);
   }
-  .cm-sectionstep:last-of-type { border-bottom: none; }
+  /* Open, it becomes a card — the same tinted shell a block or a creator step
+     card wears, so an expanded step reads the same wherever you open one. */
+  .cm-sectionstep.is-open {
+    background: var(--cm-zebra-deep);
+    border: 1px solid var(--cm-line-strong);
+    border-radius: var(--lumo-border-radius-s, .25em);
+    margin: 6px 0;
+  }
+  .cm-sectionstep.is-open .cm-sectionstep-head {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--cm-line);
+  }
+  .cm-sectionstep-body {
+    padding: 10px 12px 12px;
+    background: var(--cm-card-bg);
+    border-radius: 0 0 calc(var(--lumo-border-radius-s, .25em) - 1px)
+                         calc(var(--lumo-border-radius-s, .25em) - 1px);
+  }
+  /* ---- Expand / collapse ---------------------------------------------
+     The bodies are CREATED on expand, not revealed — every toggle rebuilds
+     the list — so this is an entry animation, not a height transition. It
+     grows from 0 to its natural height via a grid track, which is the one
+     way to animate to `auto` without measuring in JS.
+
+     Paired with withScrollAnchor(), which holds the clicked row still while
+     this plays: the row stays put, the content below slides down. That
+     combination is what makes a change followable instead of a cut. */
+  @keyframes cm-expand {
+    from { grid-template-rows: 0fr; opacity: 0; }
+    to   { grid-template-rows: 1fr; opacity: 1; }
+  }
+  /* The bodies keep their own padding, so the animation runs on a wrapper
+     INSIDE them — animating a padded box to zero height leaves the padding
+     visible as a stripe at the start of the open. `overflow: hidden` on the
+     wrapper is what actually clips the growing content. */
+  .cm-anim-open {
+    display: grid; grid-template-rows: 1fr;
+    animation: cm-expand var(--cm-dur) var(--cm-ease);
+  }
+  .cm-anim-open > * { min-height: 0; overflow: hidden; }
+
+  /* A section's body has no wrapper to animate, so it fades its own contents
+     in — collapsing is instant either way, since the element goes away. */
+  .cm-section:not(.is-collapsed) .cm-section-body {
+    animation: cm-fade-in var(--cm-dur) var(--cm-ease);
+  }
+  @keyframes cm-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+  .cm-sectionstep-label { cursor: pointer; }
+  .cm-sectionstep-label:hover { color: var(--lumo-primary-text-color, #0271ce); }
+  /* Gaps are siblings now, so :last-of-type no longer finds the final row —
+     the divider is dropped on the row before the closing gap instead. */
+  .cm-sectionstep:nth-last-of-type(1) .cm-sectionstep-head { border-bottom: none; }
+  /* An open step is a card; its head's rule divides head from body, so the
+     row separator would be a second line saying nothing. */
+  .cm-sectionstep.is-open:nth-last-of-type(1) .cm-sectionstep-head {
+    border-bottom: 1px solid var(--cm-line);
+  }
+  /* Dimmed, not hidden: the slot stays legible so the drag reads as a move
+     rather than a delete-and-reinsert. */
+  .cm-sectionstep.is-dragging { opacity: .4; }
+  .cm-lane-item, .cm-stepcard {
+    transition: opacity var(--cm-dur-fast) var(--cm-ease),
+                border-color var(--cm-dur-fast) var(--cm-ease),
+                transform var(--cm-dur-fast) var(--cm-ease);
+  }
+  /* A row that just landed. One short pulse of the primary tint that fades
+     out — it answers "where did it go?" without the user having to re-read
+     the list to find it. */
+  @keyframes cm-land {
+    0%   { background: var(--lumo-primary-color-10pct, #0271ce1a);
+           box-shadow: inset 0 0 0 1px var(--lumo-primary-color, #0271ce); }
+    100% { background: transparent; box-shadow: inset 0 0 0 1px transparent; }
+  }
+  .cm-just-moved { animation: cm-land 620ms var(--cm-ease); border-radius: 4px; }
+  .cm-sectionstep .cm-grip { flex-shrink: 0; opacity: 0; transition: opacity .12s ease; }
+  .cm-sectionstep:hover .cm-grip,
+  .cm-sectionstep:focus-within .cm-grip { opacity: 1; }
+  /* Touch has no hover, so the grip must always be visible on a coarse
+     pointer or the affordance is unreachable there. */
+  @media (hover: none) { .cm-sectionstep .cm-grip { opacity: 1; } }
+
+  /* Move-to-section picker: one button per destination zone. */
+  .cm-movelist {
+    display: flex; flex-direction: column; gap: 6px;
+    max-height: 340px; overflow-y: auto;
+  }
+  .cm-moveopt {
+    display: flex; flex-direction: column; gap: 2px; width: 100%;
+    text-align: left; padding: 9px 11px; border-radius: 7px; cursor: pointer;
+    border: 1px solid var(--cm-line-soft); background: var(--cm-card-bg); font: inherit;
+  }
+  .cm-moveopt:hover:not(:disabled) {
+    border-color: var(--lumo-primary-color, #0271ce);
+    background: var(--lumo-primary-color-10pct, #0271ce1a);
+  }
+  .cm-moveopt:disabled { opacity: .5; cursor: default; }
+  .cm-moveopt-main { font-weight: 600; font-size: 13px; }
   .cm-sectionstep-num {
     display: inline-flex; align-items: center; justify-content: center;
     width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
@@ -748,6 +922,43 @@ href="../../../../assets/fontawesome/css/all.min.css"
     flex: 1; min-width: 0; font-size: 12.5px; display: flex; flex-direction: column;
   }
   .cm-sectionstep-acts { flex-shrink: 0; }
+
+  /* ---- Row overflow menu ---------------------------------------------
+     One "…" per lane row, step or block. The actions inside differ by kind;
+     the affordance does not, so there is one place to look. */
+  .cm-rowmenu { position: relative; flex-shrink: 0; }
+  .cm-rowmenu-list {
+    position: absolute; top: calc(100% + 4px); right: 0; z-index: 30;
+    min-width: 196px; padding: 5px;
+    background: var(--cm-card-bg);
+    border: 1px solid var(--lumo-contrast-20pct, #1c375a29);
+    border-radius: var(--lumo-border-radius-m, .5em);
+    box-shadow: var(--lumo-box-shadow-s, 0 4px 12px -2px #1c304a3d);
+    display: flex; flex-direction: column;
+  }
+  /* Flipped above its trigger when the row sits near the bottom of the
+     viewport — set in JS, which is the only place the room is measurable. */
+  .cm-rowmenu-list.is-up { top: auto; bottom: calc(100% + 4px); }
+  .cm-rowmenu-opt {
+    appearance: none; background: none; border: 0; text-align: left;
+    padding: 8px 10px; font: inherit; font-size: 13px; cursor: pointer;
+    color: var(--ci-ink-900); border-radius: var(--lumo-border-radius-s, .25em);
+    display: flex; align-items: center; gap: 10px; white-space: nowrap;
+  }
+  .cm-rowmenu-opt i { width: 15px; text-align: center; color: var(--ci-ink-500); font-size: 12.5px; }
+  .cm-rowmenu-opt:hover:not(:disabled) { background: var(--lumo-contrast-5pct, #1c375a0d); }
+  .cm-rowmenu-opt:focus-visible {
+    outline: 2px solid var(--lumo-primary-color, #0271ce); outline-offset: -2px;
+  }
+  /* Disabled at the ends of a list rather than removed, so the menu keeps a
+     stable shape and Move up is always in the same place. */
+  .cm-rowmenu-opt:disabled { opacity: .38; cursor: default; }
+  .cm-rowmenu-opt.is-danger { color: var(--lumo-error-text-color, #b81d1d); }
+  .cm-rowmenu-opt.is-danger i { color: inherit; }
+  .cm-rowmenu-sep {
+    height: 1px; margin: 4px 2px;
+    background: var(--lumo-contrast-10pct, #1c375a1a);
+  }
 
   /* Right-hand inspector column */
   /* Back link — replaces the breadcrumb on both editors. Styling comes from
@@ -777,8 +988,54 @@ href="../../../../assets/fontawesome/css/all.min.css"
      wide as its three dots need. */
   /* Setup now spans the full width — the link-state legend moved down to the
      structure panel head, next to the dots it decodes. */
-  .cm-setup-row { margin-bottom: 12px; }
-  .cm-setup-row .cm-setup { margin-bottom: 0; }
+  /* Setup is CONFIGURATION — what this thing is. Everything below it is
+     CONTENT — what it contains. That is the biggest break on the page, and a
+     12px gap between two identical-looking cards was not carrying it: the
+     eye read one continuous stack of panels.
+
+     Each half now opens with a subheading (.cm-subhead), which does most of
+     the separating: a named region beats an unexplained gap. The recessed
+     fill on Setup still marks it as the quieter surface. The divider rule
+     came off — with a heading introducing each half, a line as well was
+     belt-and-braces and made the page feel boxed in. */
+  .cm-setup-row {
+    margin: 0 0 24px;
+  }
+
+  /* ---- Region subheading ---------------------------------------------
+     Introduces a CONTENT region of an editor — "Sections", "Check steps".
+     Sits bare on the page ground, NOT in a card: it labels the cards below
+     it, so giving it its own chrome would make it a peer of the thing it
+     heads.
+
+     Setup has none. Its accordion summary is already a heading that says
+     "Setup" (or "Block info"), so a subheading over it was the same word
+     twice. These regions have no such label of their own, which is why they
+     get one.
+
+     This is not the titled container that used to wrap the section list. That
+     was a bordered bar with counts, actions and a legend, competing with the
+     cards inside it. This is a heading and a count, and nothing else. */
+  .cm-subhead {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    margin: 0 0 10px; padding: 0 2px;
+  }
+  .cm-subhead-title {
+    margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -.01em;
+    color: var(--ci-ink-900);
+  }
+  /* The count rides on the heading's baseline rather than below it — one
+     line of chrome instead of two, and the figure reads as part of the
+     label ("Sections · 2 sections, 3 blocks"). */
+  .cm-subhead-count { font-size: 12.5px; color: var(--ci-ink-500); }
+  /* The step list, no longer inside a .cm-panel. The cards carry their own
+     margin, so the list only needs to close the gap under the last one. */
+  .cm-steplist { margin-bottom: 18px; }
+  /* An action belonging to the whole region sits at the end of its heading
+     row — the same place .cm-panel-actions put it, minus the card. */
+  .cm-subhead-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  /* Space between the end of one region and the next region's heading. */
+  .cm-subhead--spaced { margin-top: 26px; }
 
   /* The link-state legend is gone — each block row now states its own link
      state beside the dot (.cm-link-state), so there is no key to place. */
@@ -791,9 +1048,16 @@ href="../../../../assets/fontawesome/css/all.min.css"
      describe the whole checklist, laid out horizontally above the sections so
      the structure below gets the full page width. (The block creator still
      uses .cm-builder-grid / .cm-inspector for its own inspector column.) */
+  /* L1 card, but a QUIETER one than the content cards below it. Setup is
+     the form you fill once and collapse; the sections and steps underneath
+     are the thing you actually work on. So it keeps the card edge but drops
+     the lift — a flat, faintly recessed panel against the raised white cards
+     that follow. The margin-bottom is gone: .cm-setup-row owns the spacing
+     to the divider now, so the two do not stack. */
   .cm-setup {
-    display: block; margin-bottom: 16px;
-    background: var(--cm-card-bg); border: 1px solid var(--cm-line);
+    display: block; margin-bottom: 0;
+    background: var(--cm-zebra-deep);
+    border: 1px solid var(--cm-line);
     border-radius: var(--lumo-border-radius-m, .5em);
   }
   /* vaadin-details exposes only a `content` part; the summary is slotted
@@ -815,12 +1079,17 @@ href="../../../../assets/fontawesome/css/all.min.css"
      "Setup" flush against the card border while the fields below sat inset.
      The two were visibly out of line. */
   .cm-setup-summary {
-    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    /* center, not baseline: the chevron leads the row now, and a baseline
+       would align it to the text's baseline rather than its optical middle.
+       Matches .cm-section-head and .cm-block-row, the other two headers that
+       lead with this control. */
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     padding: 10px 12px; cursor: pointer;
-    /* Same zebra ground and hairline as .cm-stepcard-head, so a collapsed
-       panel and a collapsed step read as the same component. */
-    background: var(--cm-zebra);
-    border-bottom: 1px solid var(--cm-line-soft);
+    /* Transparent, not tinted: the panel itself now carries the recessed
+       fill, so a separate header tint on top of it would be a third grey in
+       a 40px span and the header would stripe against its own card. */
+    background: transparent;
+    border-bottom: 1px solid var(--cm-line);
     border-radius: var(--lumo-border-radius-m, .5em) var(--lumo-border-radius-m, .5em) 0 0;
   }
   /* Closed, there is no content below — the hairline would float. */
@@ -836,13 +1105,45 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cm-setup[opened] .cm-setup-recap { display: none; }
   /* vaadin-details renders NO toggle indicator of its own in v1.22.3 — the
      summary row is clickable but gives no sign of it. Supply the chevron and
-     rotate it from the host's `opened` attribute. */
+     rotate it from the host's `opened` attribute.
+
+     LEADS the row, matching .cm-disclose on the section and block cards. It
+     used to sit far right on `margin-left: auto`, so the same control lived
+     at opposite ends of the two container types and the titles started at
+     different x. Sized to .cm-disclose's 22px box for the same reason —
+     these are one control with two implementations, forced apart only
+     because vaadin-details slots its summary. */
   .cm-setup-caret {
-    margin-left: auto; font-size: 12px; color: var(--ci-ink-500);
-    transition: transform .15s ease; flex-shrink: 0; align-self: center;
+    flex-shrink: 0; width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    align-self: center; margin-left: -4px;
+    font-size: 11px; color: var(--ci-ink-500);
+    border-radius: var(--lumo-border-radius-s, .25em);
+    transition: transform .15s ease;
   }
+  /* The whole summary row is the click target here — unlike .cm-disclose,
+     which is its own button — so the hover tint follows the row, not the
+     chevron. */
+  .cm-setup-summary:hover .cm-setup-caret { color: var(--ci-ink-900); }
   .cm-setup[opened] .cm-setup-caret { transform: rotate(180deg); }
   @media (prefers-reduced-motion: reduce) { .cm-setup-caret { transition: none; } }
+
+  /* ---- Reduced motion -------------------------------------------------
+     Everything above is an aid to TRACKING a change, never the only signal
+     that one happened: the expanded body is still there, the drop still
+     lands, the chevron still points the other way. So all of it can be
+     switched off wholesale for anyone who asks the OS for less motion.
+
+     withScrollAnchor() keeps working — holding your place is not motion, it
+     is the absence of an unwanted jump, and it matters more here, not less. */
+  @media (prefers-reduced-motion: reduce) {
+    .cm-anim-open,
+    .cm-section:not(.is-collapsed) .cm-section-body,
+    .cm-just-moved { animation: none !important; }
+    .cm-anim-open { grid-template-rows: 1fr; }
+    .cm-itemgap, .cm-lane-item, .cm-stepcard,
+    .cm-disclose i, .cm-grip { transition: none !important; }
+  }
   /* Setup field grids. The BASE deliberately declares no column template:
      every instance carries a modifier, and a base template here was actively
      harmful — it plus two stale base media queries (written for the old
@@ -999,18 +1300,56 @@ href="../../../../assets/fontawesome/css/all.min.css"
   /* ====================================================================
      BLOCK CREATOR
      ==================================================================== */
+  /* L1 card in the block creator — the step list's top level. */
+  /* A creator step card matches a BLOCK card in the checklist builder: same
+     tinted fill, same small radius, same 6px rhythm, collapsed by default and
+     opening in place. The two editors' lists now read the same — a checklist
+     is sections of steps, a block is steps, and both are a stack of compact
+     rows you expand one at a time.
+
+     No shadow: like .cm-block, this sits inside a region, not on the page
+     ground, so the lift belonged to the card wrapper that used to hold it. */
   .cm-stepcard {
-    border: 1px solid var(--cm-line); border-radius: var(--lumo-border-radius-m, .5em);
-    background: var(--cm-card-bg); margin-bottom: 11px;
+    border: 1px solid var(--cm-line);
+    border-radius: var(--lumo-border-radius-s, .25em);
+    background: var(--cm-zebra-deep);
+    margin-bottom: 6px;
   }
+  .cm-stepcard.is-open { border-color: var(--cm-line-strong); }
+  /* Collapsed: the head IS the card. Matches .cm-block exactly. */
+  .cm-stepcard .cm-stepcard-body { display: none; }
+  .cm-stepcard.is-open .cm-stepcard-body { display: block; }
+  /* The summary row. Transparent, like .cm-block-row — the card's own fill
+     carries the level, so a second tint on the head would stripe it. The
+     hairline only appears once there is a body below it to divide. */
   .cm-stepcard-head {
-    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-    border-bottom: 1px solid var(--cm-line-soft); background: var(--cm-zebra);
-    border-radius: var(--lumo-border-radius-m, .5em) var(--lumo-border-radius-m, .5em) 0 0;
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    background: transparent; border-bottom: 0;
   }
-  .cm-stepcard-title { font-weight: 700; font-size: 13.5px; }
-  .cm-stepcard-actions { margin-left: auto; display: flex; gap: 4px; }
-  .cm-stepcard-body { padding: 12px; }
+  .cm-stepcard.is-open .cm-stepcard-head { border-bottom: 1px solid var(--cm-line); }
+  /* Label over response type, the same two-line stack the builder's step rows
+     and block rows use. */
+  .cm-stepcard-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .cm-stepcard-unnamed { color: var(--ci-ink-500); font-weight: 400; font-style: italic; }
+  /* 13px/600, matching .cm-block-name — these are peers in the hierarchy. */
+  .cm-stepcard-title { font-weight: 600; font-size: 13px; cursor: pointer; }
+  .cm-stepcard-title:hover { color: var(--lumo-primary-text-color, #0271ce); }
+  .cm-stepcard-actions { margin-left: auto; display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+  /* Grip reveals on hover, as on the builder's step and block rows — always-on
+     grips on every row is a lot of visual noise for an affordance you only
+     need when you reach for it. */
+  .cm-stepcard .cm-grip { flex-shrink: 0; opacity: 0; transition: opacity .12s ease; }
+  .cm-stepcard:hover .cm-grip,
+  .cm-stepcard:focus-within .cm-grip { opacity: 1; }
+  @media (hover: none) { .cm-stepcard .cm-grip { opacity: 1; } }
+  /* Open, the body is white — the content level, one step in from the
+     tinted card that holds it. Same relationship .cm-block-steps has. */
+  .cm-stepcard-body {
+    padding: 10px 12px 12px;
+    background: var(--cm-card-bg);
+    border-radius: 0 0 calc(var(--lumo-border-radius-s, .25em) - 1px)
+                         calc(var(--lumo-border-radius-s, .25em) - 1px);
+  }
   .cm-stepcard.is-dragging { opacity: .45; }
   .cm-stepcard.is-drag-over { border-color: var(--lumo-primary-color, #0271ce); }
 
@@ -1248,10 +1587,13 @@ href="../../../../assets/fontawesome/css/all.min.css"
   /* Shared by the setup panel and a step card's config regions, so the two
      read identically. Tightened from 20/14 — that spacing was tuned when this
      only appeared in the roomier setup panel. */
+  /* Divider between field groups INSIDE the Setup panel. --cm-line, not
+     --cm-line-soft: the panel's fill is now the recessed tint, and the soft
+     hairline is so close to it that the rule vanished. */
   .cm-cfg-section {
     display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
     margin: 14px 0 9px; padding-top: 11px;
-    border-top: 1px solid var(--cm-line-soft);
+    border-top: 1px solid var(--cm-line);
   }
   .cm-cfg-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
   .cm-cfg-section-title {
@@ -1795,10 +2137,15 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
 
   /* Type icon on a deployment row — identifies the entity kind at a glance
-     where a mixed list would otherwise read as one undifferentiated column. */
+     where a mixed list would otherwise read as one undifferentiated column.
+
+     A leading mark in a .cm-cell-row, the same slot .cm-type-dot fills on the
+     Checklists grid and .cm-block-icon on Content blocks. Sized to that 24px
+     box so all three name columns start their text on the same x; the gap to
+     the text comes from .cm-cell-row, not a margin here. */
   .cm-ent-icon {
-    color: var(--ci-ink-500); font-size: 11.5px;
-    margin-right: 7px; width: 13px; text-align: center;
+    width: 24px; height: 24px; display: grid; place-items: center; flex-shrink: 0;
+    color: var(--ci-ink-500); font-size: 13px;
   }
 
   /* Facet rail when the active type has no facets to offer. */
@@ -1958,6 +2305,32 @@ href="../../../../assets/fontawesome/css/all.min.css"
     color: var(--lumo-primary-text-color, #0271ce) !important;
     background: var(--lumo-primary-color-10pct, #0271ce1a) !important;
   }
+  /* Name + inline tag on one line, inside a .cm-cell-stack. Without this the
+     tag is a direct child of the column flex: its own line, stretched to the
+     stack's full width. */
+  .cm-cell-name {
+    display: flex; align-items: baseline; gap: 6px; min-width: 0;
+  }
+  .cm-cell-name .cm-drill {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* A Lumo badge at grid-cell scale. The default badge is sized for standalone
+     use — --lumo-font-size-s plus its own min-height and margin — which next
+     to a 14px grid name reads as a block, not a tag. Brought down to the same
+     11.5px / 1px 7px scale as .cm-draft-pill so every pill in the library
+     grids matches. Colours stay the theme's.
+
+     Lumo injects these badge styles into the page at a specificity a plain
+     class does not beat, so the properties that actually fight it are forced —
+     the same approach .cm-peritem-pill above already takes. */
+  .cm-tag[theme~="badge"] {
+    font-size: 11.5px !important; line-height: 1.5 !important;
+    padding: 1px 7px !important; min-height: 0 !important; height: auto !important;
+    min-width: 0; margin: 0 !important;
+    flex: 0 0 auto; white-space: nowrap; cursor: help;
+  }
+
   /* Library-grid flag: an unpublished draft exists on a live checklist. */
   .cm-draft-pill {
     align-self: flex-start; margin-top: 3px; font-size: 11.5px; padding: 1px 7px;
@@ -2148,17 +2521,17 @@ href="../../../../assets/fontawesome/css/all.min.css"
                  the builder's Deployments tab. -->
           </div>
 
-          <!-- Library stats — one compact line, not a row of metric tiles.
-               These are orientation, not the point of the page: the tables
-               below are. Four cards cost ~130px of vertical space and pushed
-               the actual content under the fold.
+          <!-- No summary stats above the tables. Published / draft / deployment
+               counts used to sit here as a compact line; they were orientation
+               rather than the point of the page, and the tables below answer
+               the same questions with the detail attached. Removed so the
+               content starts at the top of the panel.
 
-               There is deliberately NO archived-block warning here. Blocks and
-               checklists are versioned and linked to their submitted instances,
-               but archived data is never left linked — that is detected and
-               corrected at the moment of archival, so an "archived block still in
-               use" state cannot exist to warn about. -->
-          <div class="cm-stats" id="libStats"></div>
+               There is deliberately NO archived-block warning here either.
+               Blocks and checklists are versioned and linked to their submitted
+               instances, but archived data is never left linked — that is
+               detected and corrected at the moment of archival, so an "archived
+               block still in use" state cannot exist to warn about. -->
 
           <div class="cm-tabbar">
             <vaadin-tabs id="libTabs">
@@ -2284,6 +2657,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
                  need once a block rollup is expanded. Open by default, but
                  collapsible via vaadin-details when the structure below needs
                  the vertical room. -->
+            <!-- No subheading over Setup: the accordion's own summary already
+                 says "Setup", so an outer heading was the same word twice in
+                 40px. The content regions below ("Sections", "Check steps")
+                 keep theirs — they have no other label. -->
             <div class="cm-setup-row">
               <!-- Open by default: on an existing checklist the setup fields are
                    the first thing to confirm, and a collapsed panel hid the name
@@ -2291,9 +2668,9 @@ href="../../../../assets/fontawesome/css/all.min.css"
                    structure below needs the vertical room. -->
               <vaadin-details id="bSetup" class="cm-setup" opened>
                 <div slot="summary" class="cm-setup-summary">
+                  <i class="fa-solid fa-chevron-down cm-setup-caret" aria-hidden="true"></i>
                   <span class="cm-setup-title">Setup</span>
                   <span class="cm-setup-recap" id="bSetupRecap"></span>
-                  <i class="fa-solid fa-chevron-down cm-setup-caret" aria-hidden="true"></i>
                 </div>
                 <!-- Two titled regions rather than one four-across row: what
                      this checklist IS, then when it runs. -->
@@ -2336,16 +2713,18 @@ href="../../../../assets/fontawesome/css/all.min.css"
               </vaadin-details>
             </div>
 
-            <!-- No wrapping "Checklist content" container. The Structure tab
-                 already says what this is, the cards carry their own ordinals,
-                 and the per-section counts live on the cards — so a titled bar
-                 restating all three was one container too many.
-                 The link legend went with it: each block row now spells out
-                 its own link state next to the dot, so nothing needs decoding
-                 from a key.
-                 Adding is positional too — an "Add section here" inserter sits
-                 in every gap (see .cm-insert), so there is no global Add button
-                 left to place. -->
+            <!-- A subheading, NOT the titled container this used to have. The
+                 old one was a bordered bar carrying counts, a link legend and
+                 a global Add button, which competed with the section cards
+                 inside it. This is a label and a count: it names the region so
+                 the break from Setup is explained rather than just spaced.
+                 The legend stays gone — each block row spells out its own link
+                 state — and adding is still positional, via the "Add section
+                 here" inserter in every gap (see .cm-insert). -->
+            <div class="cm-subhead cm-subhead--spaced">
+              <h2 class="cm-subhead-title">Sections</h2>
+              <span class="cm-subhead-count" id="bStructureCount"></span>
+            </div>
             <div class="cm-structure">
               <div id="sectionList"></div>
             </div>
@@ -2516,12 +2895,14 @@ href="../../../../assets/fontawesome/css/all.min.css"
                column gives the step list the full page width, which it needs
                once a step's config sections are open. Collapsible for when
                the steps need the vertical room. -->
+          <!-- No subheading here either; the accordion summary says
+               "Block info". See the note on the builder's setup row. -->
           <div class="cm-setup-row">
             <vaadin-details id="cSetup" class="cm-setup" opened>
               <div slot="summary" class="cm-setup-summary">
+                <i class="fa-solid fa-chevron-down cm-setup-caret" aria-hidden="true"></i>
                 <span class="cm-setup-title">Block info</span>
                 <span class="cm-setup-recap" id="cSetupRecap"></span>
-                <i class="fa-solid fa-chevron-down cm-setup-caret" aria-hidden="true"></i>
               </div>
 
               <div class="cm-cfg-section">
@@ -2562,20 +2943,21 @@ href="../../../../assets/fontawesome/css/all.min.css"
             </vaadin-details>
           </div>
 
-          <div class="cm-panel">
-            <div class="cm-panel-head">
-              <div>
-                <h2 class="cm-panel-title">Check steps</h2>
-                <div class="cm-panel-sub" id="cStepCount">4 steps</div>
-              </div>
-              <div class="cm-panel-actions">
-                <vaadin-button theme="secondary" id="btnAddStep">
-                  <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>Add check step
-                </vaadin-button>
-              </div>
+          <!-- Same subheading treatment as the builder's "Sections": both
+               editors are Setup, then the content region, introduced the same
+               way. The step list loses its card wrapper for the same reason
+               the section list has none — the steps are cards themselves, and
+               a card of cards was one container too many. -->
+          <div class="cm-subhead cm-subhead--spaced">
+            <h2 class="cm-subhead-title">Check steps</h2>
+            <span class="cm-subhead-count" id="cStepCount">4 steps</span>
+            <div class="cm-subhead-actions">
+              <vaadin-button theme="secondary" id="btnAddStep">
+                <i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:7px"></i>Add check step
+              </vaadin-button>
             </div>
-            <div class="cm-panel-body" id="stepList"></div>
           </div>
+          <div class="cm-steplist" id="stepList"></div>
 
           <div class="cm-editor-foot">
             <span class="cm-dirty" id="cDirty">
@@ -2626,6 +3008,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 <vaadin-dialog id="dlgImport" header-title="Import content block"></vaadin-dialog>
 <vaadin-dialog id="dlgPicker" header-title="Add deployment"></vaadin-dialog>
 <vaadin-dialog id="dlgBreak" header-title="Break template link"></vaadin-dialog>
+<vaadin-dialog id="dlgExplode" header-title="Break link — convert to steps"></vaadin-dialog>
 <vaadin-dialog id="dlgBlast" header-title="Publish content block"></vaadin-dialog>
 <vaadin-dialog id="dlgPublish" header-title="Publish checklist"></vaadin-dialog>
 <vaadin-dialog id="dlgDiscard" header-title="Unsaved changes"></vaadin-dialog>
@@ -2634,7 +3017,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 <vaadin-dialog id="dlgLibCadence" header-title="Set default cadence"></vaadin-dialog>
 <vaadin-dialog id="dlgSchedule" header-title="Deployment schedule"></vaadin-dialog>
 <vaadin-dialog id="dlgRepeatPreview" header-title="Nested check"></vaadin-dialog>
-<vaadin-dialog id="dlgStep" header-title="Check step"></vaadin-dialog>
+<vaadin-dialog id="dlgMoveStep" header-title="Move step"></vaadin-dialog>
 
 <div class="cm-toast-host" id="toastHost" aria-live="polite"></div>
 
@@ -2651,8 +3034,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
                  appliesToStatuses is a SET, not one value (Q3): one checklist
                  can cover both In Service and Out of Service. Values come from
                  ENTITY_STATUS_ORDER and nothing else (Q5).
-     section   { id, name, collapsed, preSteps[], blocks[], postSteps[],
-                 templateLocked }
+     section   { id, name, collapsed, items[], templateLocked }
 
        Sections have NO linkState. A section is an ordered grouping this
        checklist owns; it is never itself templated. Linked content lives in
@@ -2661,18 +3043,23 @@ href="../../../../assets/fontawesome/css/all.min.css"
        `templateLocked` survives only as a derived convenience: it is true
        while the section still holds a template-linked block.
 
-       A section is THREE FIXED ZONES, in this order:
-         preSteps[]   local steps that run before the blocks
-         blocks[]     content block instances — an uninterruptable run
-         postSteps[]  local steps that run after the blocks
+       A section is ONE ORDERED LIST, `items[]`, mixing two kinds of entry:
+         { kind: 'step',  step: <step> }       a question this checklist owns
+         { kind: 'block', inst: <instance> }   a content block instance
 
-       Content blocks are implemented whole. A local step can never be
-       inserted BETWEEN or INTO blocks, because a block is a unit somebody
-       else maintains and reuses — splicing a checklist-specific question into
-       the middle of one would make the block mean different things in
-       different checklists. So local steps go before or after the run, never
-       inside it, and the two zones are labelled in the UI so the rule is
-       visible rather than silently enforced.
+       Steps and blocks are PEERS and may interleave in any order the author
+       needs — question, block, question, block. This replaced the earlier
+       preSteps[] / blocks[] / postSteps[] zones, which forced every local
+       step to sit before or after an uninterruptable run of blocks.
+
+       The rule that survives is about a block's INSIDE, not its neighbours.
+       A block is a unit somebody else maintains and reuses, so its own
+       steps[] stay sealed: you cannot splice a checklist-specific question
+       between step 5 and step 6 OF a block. Placing a question between two
+       blocks was never the same act, and is now allowed.
+
+       `sectionSteps(sec)` / `sectionBlocks(sec)` read one kind back out in
+       order, for the places that only care about one of them.
 
        This replaces the old `blocks[]` + `appendBlocks[]` pair, where local
        steps and blocks shared one ordered list and `appendBlocks` existed
@@ -3212,10 +3599,10 @@ const isNested = st => st && st.type === 'nested';
 function nestedStepsIn(c) {
   const out = [];
   (c.sections || []).forEach(sec => {
-    (sec.preSteps || []).concat(sec.postSteps || []).forEach(st => {
+    sectionSteps(sec).forEach(st => {
       if (isNested(st)) out.push(st);
     });
-    (sec.blocks || []).forEach(inst => {
+    sectionBlocks(sec).forEach(inst => {
       const b = blockById(inst.blockId);
       (b && b.steps || []).forEach(st => { if (isNested(st)) out.push(st); });
     });
@@ -3617,6 +4004,43 @@ const CHECKLISTS = [
        produced them; only the forward link is removed. */
     deployments: [] }
 ];
+
+/* ---- Section items: one ordered list ---------------------------------
+   The seed above is still authored in the old three-zone shape (preSteps,
+   blocks, postSteps) because that reads well as literal data. The section a
+   section actually USES is `items[]` — one ordered list where steps and
+   blocks interleave — so the zones are folded into it once, at load.
+
+   Kept as a migration rather than rewritten by hand so the seed stays easy
+   to read and edit, and so any section built by older code still lands in
+   the right shape. */
+function sectionItems(sec) {
+  if (!sec.items) {
+    sec.items = []
+      .concat((sec.preSteps  || []).map(s => ({ kind: 'step',  step: s })))
+      .concat((sec.blocks    || []).map(i => ({ kind: 'block', inst: i })))
+      .concat((sec.postSteps || []).map(s => ({ kind: 'step',  step: s })));
+    /* The old fields are removed, not left alongside: two sources of truth
+       for the same content is how half the list silently stops updating. */
+    delete sec.preSteps; delete sec.blocks; delete sec.postSteps;
+  }
+  return sec.items;
+}
+
+/* Read one kind back out, in section order. */
+function sectionSteps(sec)  { return sectionItems(sec).filter(it => it.kind === 'step').map(it => it.step); }
+function sectionBlocks(sec) { return sectionItems(sec).filter(it => it.kind === 'block').map(it => it.inst); }
+
+/* Steps are numbered by their position among the STEPS of a section, not by
+   their index in items[] — a block sitting between two questions must not
+   make the second one "3". */
+function renumberSection(sec) {
+  let n = 0;
+  sectionItems(sec).forEach(it => { if (it.kind === 'step') it.step.id = ++n; });
+}
+
+// Fold every seeded section at load, so nothing downstream sees the old shape.
+CHECKLISTS.forEach(c => (c.sections || []).forEach(sectionItems));
 
 /* ---- Activity history -------------------------------------------------
    The audit log. Two kinds of event share one table, because "what happened to
@@ -4197,11 +4621,28 @@ const stepKey = (secId, instId, stepId) => secId + '/' + instId + '/' + stepId;
 function buildRunBlocks(c) {
   const out = [];
   (c.sections || []).forEach(sec => {
-    if ((sec.preSteps || []).length) {
-      out.push({ id: sec.id + '/pre', name: sec.name + ' — before',
-        secId: sec.id, instId: 'pre', steps: sec.preSteps, local: true });
-    }
-    (sec.blocks || []).forEach(inst => {
+    /* Walk items[] in order. Consecutive local steps collapse into ONE
+       pseudo-block so the crew answers them as a group — but a content block
+       between them closes that group and starts a new one, which is exactly
+       how the author arranged it. `run` holds the group being filled. */
+    let run = null;
+    let part = 0;
+    sectionItems(sec).forEach(it => {
+      if (it.kind === 'step') {
+        if (!run) {
+          part++;
+          run = { id: sec.id + '/local' + part,
+                  /* Numbered only when the section has more than one group,
+                     so the common single-group case stays a plain name. */
+                  name: sec.name, secId: sec.id, instId: 'local' + part,
+                  steps: [], local: true };
+          out.push(run);
+        }
+        run.steps.push(it.step);
+        return;
+      }
+      run = null;                       // a block ends the current step group
+      const inst = it.inst;
       const b = blockById(inst.blockId);
       if (!b) return;
       out.push({ id: sec.id + '/' + inst.instanceId, name: b.name,
@@ -4212,10 +4653,10 @@ function buildRunBlocks(c) {
         blockId: inst.blockId,
         contextLabel: inst.contextLabel, optional: inst.optional });
     });
-    if ((sec.postSteps || []).length) {
-      out.push({ id: sec.id + '/post', name: sec.name + ' — after',
-        secId: sec.id, instId: 'post', steps: sec.postSteps, local: true });
-    }
+    /* Disambiguate only where it is needed: several local groups in one
+       section would otherwise show the same name in the run's block nav. */
+    const locals = out.filter(o => o.secId === sec.id && o.local);
+    if (locals.length > 1) locals.forEach((o, i) => { o.name = sec.name + ' — part ' + (i + 1); });
   });
   return out;
 }
@@ -5821,16 +6262,50 @@ function openRunSubmit() {
 const clGrid = document.getElementById('clGrid');
 let clSelected = new Set();
 
+/* ---- Filter defaults -------------------------------------------------
+   Every filter opens on a REAL option that says what it is doing — "All
+   statuses", "Any cadence" — rather than sitting blank. A blank control
+   states nothing: it looks equally like "no filter" and "not loaded yet",
+   and the user has to infer the unfiltered case from an absence.
+
+   These sentinels are therefore selected values, not placeholder text, and
+   the predicates below treat them as "no constraint". They are defined here
+   so the special-casing lives in ONE place — the filter predicates, the
+   Clear buttons and the active-filter chips all test against these, and
+   `isAll()` is the only thing that knows what an unfiltered value looks
+   like. (`actRange` already worked this way with 'All time'; these follow
+   the precedent it set.) */
+const ALL_STATUSES = 'All statuses';
+const ALL_TYPES    = 'All types';
+const ALL_CADENCES = 'Any cadence';
+const ALL_DOMAINS  = 'All domains';
+const ALL_EVENTS   = 'All events';
+const ALL_OUTCOMES = 'All outcomes';
+const ALL_RIGS     = 'All apparatus';
+const ALL_TIME     = 'All time';
+
+const ALL_SENTINELS = [ALL_STATUSES, ALL_TYPES, ALL_CADENCES, ALL_DOMAINS,
+                       ALL_EVENTS, ALL_OUTCOMES, ALL_RIGS, ALL_TIME];
+
+/* True when a value means "no constraint" — the sentinel, or nothing set. */
+function isAll(v) { return !v || ALL_SENTINELS.indexOf(v) !== -1; }
+
+/* The same test for a multi-select: no selection, or only the "All" entry. */
+function isAllMulti(items) {
+  const sel = (items || []).filter(v => !isAll(v));
+  return sel.length === 0 ? null : sel;
+}
+
 function checklistRows() {
   const q = (document.getElementById('clSearch').value || '').toLowerCase();
-  const st = document.getElementById('clStatus').selectedItems || [];
-  const ty = document.getElementById('clType').selectedItems || [];
+  const st = isAllMulti(document.getElementById('clStatus').selectedItems);
+  const ty = isAllMulti(document.getElementById('clType').selectedItems);
   const cad = document.getElementById('clCadence').value;
   return CHECKLISTS.filter(c => {
     if (q && c.name.toLowerCase().indexOf(q) === -1) return false;
-    if (st.length && st.indexOf(cap(c.status)) === -1) return false;
-    if (ty.length && ty.indexOf(typeMeta(c.type).label) === -1) return false;
-    if (cad && cap(c.cadence) !== cad) return false;
+    if (st && st.indexOf(cap(c.status)) === -1) return false;
+    if (ty && ty.indexOf(typeMeta(c.type).label) === -1) return false;
+    if (!isAll(cad) && cap(c.cadence) !== cad) return false;
     return true;
   });
 }
@@ -5877,7 +6352,7 @@ function buildChecklistGrid() {
   nameCol.renderer = (root, col, model) => {
     const c = model.item, tm = typeMeta(c.type);
     const sectionCount = c.sections.length;
-    const blockCount = c.sections.reduce((n, s) => n + s.blocks.length, 0);
+    const blockCount = c.sections.reduce((n, s) => n + sectionBlocks(s).length, 0);
     root.innerHTML =
       '<div class="cm-cell-row">' +
         '<span class="cm-type-dot" style="background:' + tm.color + '"></span>' +
@@ -5999,34 +6474,20 @@ function buildChecklistGrid() {
   };
   clGrid.appendChild(depCol);
 
-  /* Version column — the point of pinning is that it is VISIBLE. A rig running
-     v4 while the checklist sits at v5 is a normal, temporary state; it just has
-     to be legible so nobody assumes a publish reached the fleet instantly. */
-  const verCol = document.createElement('vaadin-grid-column');
-  verCol.setAttribute('header', 'Running');
-  verCol.setAttribute('width', '148px');
-  verCol.setAttribute('flex-grow', '0');
-  verCol.renderer = (root, col, model) => {
-    const c = currentChecklist();
-    const d = model.item;
-    if (d.version == null) {
-      root.innerHTML = '<span class="cm-cell-sub">Awaiting first publish</span>';
-      return;
-    }
-    const behind = d.version < (c.liveVersion || 0);
-    root.innerHTML = '<span class="cm-dep-ver">v' + d.version + '</span>' +
-      (behind
-        ? '<span class="cm-dep-behind" title="Picks up v' + c.liveVersion +
-          ' on its next scheduled run">→ v' + c.liveVersion + '</span>'
-        : '');
-  };
-  dpGrid.appendChild(verCol);
-
   const runCol = document.createElement('vaadin-grid-column');
   runCol.setAttribute('header', 'Last run');
   runCol.setAttribute('width', '132px');
   runCol.setAttribute('flex-grow', '0');
-  runCol.renderer = (root, col, model) => { root.textContent = model.item.lastRun; };
+  /* "Never" reads as a state; a bare em-dash reads as a missing value, and
+     printing it via textContent left it in body type while every other empty
+     cell in the prototype is muted .cm-cell-sub. Matches the Deployments
+     grid's Last run cell exactly. */
+  runCol.renderer = (root, col, model) => {
+    const v = model.item.lastRun;
+    root.innerHTML = (v && v !== '—')
+      ? escHtml(v)
+      : '<span class="cm-cell-sub">Never</span>';
+  };
   clGrid.appendChild(runCol);
 
   /* Drill-in affordance, not a button. "Edit" opened exactly the same screen
@@ -6068,38 +6529,6 @@ function renderChecklistGrid() {
   clGrid.style.display = rows.length ? '' : 'none';
   document.getElementById('clEmpty').style.display = rows.length ? 'none' : 'block';
   syncChecklistBatch();
-  renderMetrics();
-}
-
-/* Library stats are DERIVED, never hardcoded — otherwise the deployment count
-   drifts from what the rows say the moment a deployment is added, paused or
-   removed. Counts the whole library, not the filtered view.
-
-   Rendered as one compact line. No "blocks needing review" figure: that tile
-   existed mainly to surface archived-blocks-still-in-use, which is not a state
-   this product allows — archival corrects the links at the time it happens. */
-function renderMetrics() {
-  const pub = CHECKLISTS.filter(c => c.status === 'published').length;
-  const drafts = CHECKLISTS.filter(c => c.status === 'draft').length;
-
-  const allDeps = CHECKLISTS.reduce((a, c) => a.concat(c.deployments), []);
-  const active = allDeps.filter(d => d.status === 'active');
-  const rigs = new Set(active.map(depShort));
-
-  const stat = (value, label) =>
-    '<span class="cm-stat"><span class="cm-stat-value">' + value + '</span>' +
-    '<span class="cm-stat-label">' + label + '</span></span>';
-  const sep = '<span class="cm-stat-sep" aria-hidden="true">·</span>';
-
-  const host = document.getElementById('libStats');
-  if (host) {
-    host.innerHTML = [
-      stat(pub, 'published'),
-      stat(drafts, drafts === 1 ? 'draft' : 'drafts'),
-      stat(active.length, 'active deployment' + (active.length === 1 ? '' : 's') +
-        (rigs.size ? ' across ' + rigs.size + ' apparatus' : ''))
-    ].join(sep);
-  }
 }
 
 function syncChecklistBatch() {
@@ -6116,12 +6545,12 @@ const blGrid = document.getElementById('blGrid');
 
 function blockRows() {
   const q = (document.getElementById('blSearch').value || '').toLowerCase();
-  const dm = document.getElementById('blDomain').selectedItems || [];
-  const st = document.getElementById('blStatus').selectedItems || [];
+  const dm = isAllMulti(document.getElementById('blDomain').selectedItems);
+  const st = isAllMulti(document.getElementById('blStatus').selectedItems);
   return BLOCKS.filter(b => {
     if (q && b.name.toLowerCase().indexOf(q) === -1) return false;
-    if (dm.length && dm.indexOf(domainMeta(b.domain).label) === -1) return false;
-    if (st.length && st.indexOf(cap(b.status)) === -1) return false;
+    if (dm && dm.indexOf(domainMeta(b.domain).label) === -1) return false;
+    if (st && st.indexOf(cap(b.status)) === -1) return false;
     return true;
   });
 }
@@ -6139,8 +6568,16 @@ function buildBlockGrid() {
       '<div class="cm-cell-row">' +
         '<span class="cm-block-icon"><i class="fa-solid ' + dm.icon + '" aria-hidden="true"></i></span>' +
         '<div class="cm-cell-stack">' +
-          '<a class="cm-drill" href="#" role="button">' + escHtml(b.name) + '</a>' +
-          (b.multiUse ? ' <span theme="badge contrast pill">Multi-use</span>' : '') +
+          /* Name and badge share a line. The badge was a direct child of the
+             stack, which is a COLUMN flex — so it took a line of its own and
+             stretched to the stack's full width. "Multi-use" qualifies the
+             name, so it belongs beside it, not under it. */
+          '<span class="cm-cell-name">' +
+            '<a class="cm-drill" href="#" role="button">' + escHtml(b.name) + '</a>' +
+            (b.multiUse ? '<span theme="badge contrast pill" class="cm-tag" ' +
+              'title="Used by more than one checklist — edits propagate to every one">' +
+              'Multi-use</span>' : '') +
+          '</span>' +
           '<span class="cm-cell-sub">' + escHtml(b.description) + '</span>' +
         '</div>' +
       '</div>';
@@ -6261,7 +6698,7 @@ function openBuilder(id) {
   st.setAttribute('theme', 'badge ' + (STATUS_BADGE[c.status] || '') + ' pill');
   st.textContent = cap(c.status);
 
-  const blocks = c.sections.reduce((n, s) => n + s.blocks.length, 0);
+  const blocks = c.sections.reduce((n, s) => n + sectionBlocks(s).length, 0);
   /* Header says which version you are LOOKING AT and, when they differ, which
      one crews are on — the single most load-bearing fact in the editor. */
   const verLabel = c.hasDraft && c.liveVersion
@@ -6454,68 +6891,520 @@ const STATUS_SET_HELP = {
   retired: 'Rarely used. Retired entities are normally left uncovered.'
 };
 
-/* Steps a section owns directly, across both zones. */
-const localStepCount = sec =>
-  (sec.preSteps || []).length + (sec.postSteps || []).length;
+/* Steps a section owns directly. */
+const localStepCount = sec => sectionSteps(sec).length;
 
-/* ---- Section zones ---------------------------------------------------
-   A section is preSteps → blocks → postSteps. */
+/* ---- Section items: one ordered, drag-reorderable list ----------------
+   Steps and blocks are peers here. Both drag, both drop into the same lane,
+   and a step may land between two blocks — what stays sealed is a block's
+   own steps[], which this surface never splices into. */
 
-/* One zone of steps. `key` is 'preSteps' or 'postSteps'. No heading: the rows
-   speak for themselves, and the add-button says which side it adds to. */
-function renderStepZone(sec, key) {
-  const list = sec[key] || (sec[key] = []);
-  const before = key === 'preSteps';
-  const zone = document.createElement('div');
-  zone.className = 'cm-stepzone cm-stepzone--' + (before ? 'pre' : 'post') +
-    (list.length ? '' : ' is-empty');
+/* What is in the hand: {secId, idx} into that section's items[], or null. */
+let dragItem = null;
+/* Where it would land: {secId, idx}, idx being a GAP index (0 = above the
+   first row, items.length = below the last). Separate from dragItem so the
+   marker can sit in a section the drag did not start in. */
+let dragItemOver = null;
 
-  list.forEach((st, i) => {
-    const row = document.createElement('div');
-    row.className = 'cm-sectionstep';
-    const rm = respMeta(st.type);
-    const bits = [rm.label];
-    if (st.unit) bits.push(st.min + '–' + st.max + ' ' + st.unit);
-    if (st.options) bits.push(st.options.length + ' options');
-    /* A nested step's whole meaning is WHICH checklist it runs, so the row
-       says so rather than just "Nested check". */
-    if (isNested(st)) {
-      const ref = perItemChecklist(st);
-      bits.push(ref ? escHtml(ref.name) + ' v' + ref.liveVersion : 'no checklist set');
-      const at = ASSET_TYPES.find(t => t.value === st.assetType);
-      if (at) bits.push('per ' + escHtml(at.label.toLowerCase()));
-      bits.push(st.lookBack === 'always'
-        ? 'always'
-        : 'skip < ' + (st.lookBackDays == null ? 30 : st.lookBackDays) + 'd');
+function sameSlot(a, b) {
+  return !!a && !!b && a.secId === b.secId && a.idx === b.idx;
+}
+
+function sectionById(id) {
+  const c = currentChecklist();
+  return c ? (c.sections || []).find(s => s.id === id) : null;
+}
+
+/* Move an entry within a section, or from one section into another. Returns
+   false for a no-op so the caller can skip the toast and the dirty flag. */
+function moveItem(from, to) {
+  const fromSec = sectionById(from.secId);
+  const toSec   = sectionById(to.secId);
+  if (!fromSec || !toSec) return false;
+  const src = sectionItems(fromSec);
+  const dst = sectionItems(toSec);
+
+  let idx = to.idx;
+  // Removing first shifts every later gap in the SAME list down by one.
+  if (src === dst && from.idx < idx) idx--;
+  if (src === dst && idx === from.idx) return false;
+
+  const [moved] = src.splice(from.idx, 1);
+  if (!moved) return false;
+  dst.splice(idx, 0, moved);
+
+  renumberSection(fromSec);
+  if (fromSec !== toSec) renumberSection(toSec);
+  // templateLocked is derived from the blocks a section still holds.
+  [fromSec, toSec].forEach(s => {
+    s.templateLocked = sectionBlocks(s).some(i => i.linkState === 'template');
+  });
+  return true;
+}
+
+/* The whole section body: gap, row, gap, row … then the add buttons. */
+function renderSectionItems(sec) {
+  const items = sectionItems(sec);
+  const lane = document.createElement('div');
+  lane.className = 'cm-itemlane' + (items.length ? '' : ' is-empty');
+  lane.dataset.sec = sec.id;
+
+  /* One drop target between two rows. A gap element rather than the row's
+     own top/bottom half, because it answers "above or below this row"
+     unambiguously — and it is the only way an empty section can be a
+     target at all. */
+  const gap = (idx) => {
+    const g = document.createElement('div');
+    g.className = 'cm-itemgap';
+    g.dataset.idx = idx;
+    const here = { secId: sec.id, idx: idx };
+    if (sameSlot(dragItemOver, here)) g.classList.add('is-over');
+
+    g.addEventListener('dragover', e => {
+      if (!dragItem) return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+      if (sameSlot(dragItemOver, here)) return;   // already marked
+      dragItemOver = here;
+      paintItemDrop();
+    });
+    g.addEventListener('drop', e => {
+      if (!dragItem) return;
+      e.preventDefault();
+      /* The section card is a drop target too; without this the same
+         gesture would also reorder sections. */
+      e.stopPropagation();
+      const from = dragItem;
+      dragItem = null; dragItemOver = null;
+      endItemDrag();
+      if (moveItem(from, here)) {
+        markBuilderDirty(); renderSections();
+        /* Where it landed: the gap index, less one when it moved down within
+           the same list (removing it first shifted every later gap). The
+           anchor attribute is index-based, so this addresses the row
+           directly rather than counting siblings — the gaps are siblings
+           too, which makes nth-of-type the wrong tool here. */
+        const landed = (from.secId === here.secId && from.idx < here.idx)
+          ? here.idx - 1 : here.idx;
+        flashMoved('[data-lane-pos="' + here.secId + ':' + landed + '"]');
+        toast(from.secId === here.secId ? 'Reordered' : 'Moved to ' + sec.name,
+          from.secId === here.secId ? 'fa-up-down' : 'fa-right-left');
+      } else {
+        renderSections();   // no-op drop: clear the markers
+      }
+    });
+    return g;
+  };
+
+  lane.appendChild(gap(0));
+
+  items.forEach((it, idx) => {
+    const row = it.kind === 'step'
+      ? renderSectionStep(sec, it.step, idx)
+      : renderBlockInstance(sec, it.inst, idx);
+
+    row.draggable = true;
+    row.classList.add('cm-lane-item');
+    /* Positional anchor for the whole lane, step or block alike — the drop
+       handler knows where a thing landed by index, not by id. */
+    row.dataset.lanePos = sec.id + ':' + idx;
+    if (dragItem && dragItem.secId === sec.id && dragItem.idx === idx) {
+      row.classList.add('is-dragging');
     }
-    if (st.optional) bits.push('Optional');
-    row.innerHTML =
-      '<span class="cm-sectionstep-num">' + (i + 1) + '</span>' +
-      '<span class="cm-sectionstep-text">' + escHtml(st.label) +
-        '<span class="cm-cell-sub">' + bits.join(' · ') + '</span></span>' +
-      failBadges(st);
 
-    const acts = document.createElement('div');
-    acts.className = 'cm-sectionstep-acts';
-    acts.appendChild(iconBtn('fa-trash-can', 'Delete step', () => {
-      list.splice(i, 1);
-      list.forEach((x, j) => { x.id = j + 1; });
-      markBuilderDirty(); renderSections();
-      toast('Step deleted', 'fa-trash-can');
-    }));
-    row.appendChild(acts);
-    zone.appendChild(row);
+    row.addEventListener('dragstart', e => {
+      /* The section card is draggable too. Without this the browser starts
+         BOTH drags and dragSectionId is left set while an item is in hand. */
+      e.stopPropagation();
+      dragItem = { secId: sec.id, idx: idx };
+      dragItemOver = null;
+      document.getElementById('sectionList').classList.add('is-dragging-item');
+      e.dataTransfer.effectAllowed = 'move';
+      /* Firefox will not start a drag without payload; the move itself is
+         driven by dragItem, so the text only satisfies that requirement. */
+      try {
+        e.dataTransfer.setData('text/plain',
+          it.kind === 'step' ? (it.step.label || 'step') : 'block');
+      } catch (_) {}
+      // Paint after the browser snapshots the drag image, or the row is
+      // captured already dimmed.
+      requestAnimationFrame(() => { if (dragItem) paintItemDrop(); });
+    });
+    row.addEventListener('dragend', () => {
+      const was = !!dragItem;
+      dragItem = null; dragItemOver = null;
+      endItemDrag();
+      // Fires after a successful drop too, when the tree is already rebuilt —
+      // only repaint for a drag abandoned outside any gap.
+      if (was) paintItemDrop();
+    });
+
+    lane.appendChild(row);
+    lane.appendChild(gap(idx + 1));
   });
 
-  const add = document.createElement('vaadin-button');
-  add.setAttribute('theme', 'tertiary');
-  add.className = 'cm-zone-add';
-  add.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:6px"></i>' +
-    'Add step ' + (before ? 'before' : 'after') + ' blocks';
-  add.addEventListener('click', () => openStepDialog(sec, key));
-  zone.appendChild(add);
+  // ---- Add actions, one per kind.
+  const acts = document.createElement('div');
+  acts.className = 'cm-lane-add';
 
-  return zone;
+  const addStep = document.createElement('vaadin-button');
+  addStep.setAttribute('theme', 'tertiary');
+  addStep.className = 'cm-zone-add';
+  addStep.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:6px"></i>Add step';
+  /* Adds the step inline and opens it, the same as the block creator's Add
+     check step — no dialog. The old dialog could only create; this path is
+     also how an existing step is edited, so there is one route in. */
+  addStep.addEventListener('click', () => {
+    const st = { id: 0, label: '', type: 'passfail',
+                 onFail: [], comment: 'off', documentation: 'off', _open: true };
+    sectionItems(sec).push({ kind: 'step', step: st });
+    renumberSection(sec);
+    sec.collapsed = false;
+    markBuilderDirty(); renderSections();
+    // Focus the label of the step just added.
+    requestAnimationFrame(() => {
+      const lane = document.querySelector('.cm-itemlane[data-sec="' + sec.id + '"]');
+      const open = lane && lane.querySelector('.cm-sectionstep.is-open');
+      const f = open && open.querySelector('vaadin-text-field');
+      if (f) f.focus();
+      scrollRowIntoView(open);
+    });
+  });
+  acts.appendChild(addStep);
+
+  if (!sec.templateLocked) {
+    const imp = document.createElement('vaadin-button');
+    imp.setAttribute('theme', 'tertiary');
+    imp.className = 'cm-zone-add';
+    imp.innerHTML = '<i class="fa-solid fa-cube" aria-hidden="true" style="margin-right:6px"></i>Import block';
+    imp.addEventListener('click', () => openImportDialog(sec));
+    acts.appendChild(imp);
+  }
+  lane.appendChild(acts);
+
+  return lane;
+}
+
+function endItemDrag() {
+  const listEl = document.getElementById('sectionList');
+  if (listEl) listEl.classList.remove('is-dragging-item');
+}
+
+/* Move the drop marker by toggling classes only. renderSections() rebuilds
+   every section, block and step — running that on each dragover would drop
+   frames and, worse, destroy the element being dragged over, which cancels
+   the drag in Chrome. */
+function paintItemDrop() {
+  document.querySelectorAll('.cm-itemgap.is-over')
+    .forEach(n => n.classList.remove('is-over'));
+  document.querySelectorAll('.cm-lane-item.is-dragging')
+    .forEach(n => n.classList.remove('is-dragging'));
+
+  if (dragItem) {
+    const lane = document.querySelector('.cm-itemlane[data-sec="' + dragItem.secId + '"]');
+    const rows = lane ? lane.querySelectorAll('.cm-lane-item') : [];
+    if (rows[dragItem.idx]) rows[dragItem.idx].classList.add('is-dragging');
+  }
+  if (dragItemOver) {
+    const lane = document.querySelector('.cm-itemlane[data-sec="' + dragItemOver.secId + '"]');
+    const g = lane && lane.querySelector('.cm-itemgap[data-idx="' + dragItemOver.idx + '"]');
+    if (g) g.classList.add('is-over');
+  }
+}
+
+/* ---- Row overflow menu ------------------------------------------------
+   Every lane row — step or block — carries the same "…" menu, so there is
+   one place to look for an action regardless of what the row holds. The
+   actions themselves differ by kind; the affordance does not.
+
+   Move up / Move down are here as the KEYBOARD-REACHABLE path to reordering.
+   HTML5 drag-and-drop is mouse-only — there is no keyboard equivalent — so a
+   drag-only list is unusable without a pointer. These two make every reorder
+   the drag can do reachable from the menu as well (WCAG 2.1.1). */
+function rowMenu(actions) {
+  const wrap = document.createElement('div');
+  wrap.className = 'cm-rowmenu';
+  /* The row around this is draggable, so a press inside the menu would start
+     a row drag instead of working the menu. draggable=false carves out an
+     island; the dragstart guard covers the open list, which is a child of
+     the row too. */
+  wrap.draggable = false;
+  wrap.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); });
+
+  const trigger = document.createElement('vaadin-button');
+  trigger.setAttribute('theme', 'icon tertiary');
+  trigger.setAttribute('aria-label', 'More actions');
+  trigger.setAttribute('aria-haspopup', 'menu');
+  trigger.setAttribute('aria-expanded', 'false');
+  trigger.innerHTML = '<i class="fa-solid fa-ellipsis" aria-hidden="true"></i>';
+
+  const menu = document.createElement('div');
+  menu.className = 'cm-rowmenu-list';
+  menu.hidden = true;
+  menu.setAttribute('role', 'menu');
+
+  const close = () => {
+    menu.hidden = true;
+    trigger.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', onDocClick, true);
+    document.removeEventListener('keydown', onKey, true);
+  };
+  const onDocClick = (e) => { if (!wrap.contains(e.target)) close(); };
+  const onKey = (e) => {
+    if (e.key === 'Escape') { close(); trigger.focus(); }
+  };
+
+  actions.forEach(a => {
+    if (a.separator) {
+      const hr = document.createElement('div');
+      hr.className = 'cm-rowmenu-sep';
+      menu.appendChild(hr);
+      return;
+    }
+    const opt = document.createElement('button');
+    opt.type = 'button';
+    opt.className = 'cm-rowmenu-opt' + (a.danger ? ' is-danger' : '');
+    opt.setAttribute('role', 'menuitem');
+    /* Disabled rather than hidden for Move up/down at the ends of a list:
+       the menu keeps a stable shape, so the same action is always in the
+       same place and its absence is never mistaken for a missing feature. */
+    if (a.disabled) opt.disabled = true;
+    opt.innerHTML = '<i class="fa-solid ' + a.icon + '" aria-hidden="true"></i>' +
+      '<span>' + escHtml(a.label) + '</span>';
+    opt.addEventListener('click', () => { close(); a.run(); });
+    menu.appendChild(opt);
+  });
+
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = menu.hidden;
+    if (!open) { close(); return; }
+    menu.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    /* Flip above the row when there is no room below — a menu on the last
+       row of a long section would otherwise open off-screen. */
+    menu.classList.remove('is-up');
+    const r = menu.getBoundingClientRect();
+    if (r.bottom > window.innerHeight - 8) menu.classList.add('is-up');
+    const first = menu.querySelector('.cm-rowmenu-opt:not([disabled])');
+    if (first) first.focus();
+    document.addEventListener('click', onDocClick, true);
+    document.addEventListener('keydown', onKey, true);
+  });
+
+  wrap.appendChild(trigger);
+  wrap.appendChild(menu);
+  return wrap;
+}
+
+/* Move one entry by one position. The keyboard path to what a drag does. */
+function nudgeItem(sec, idx, dir) {
+  const items = sectionItems(sec);
+  const to = idx + dir;
+  if (to < 0 || to >= items.length) return false;
+  const [m] = items.splice(idx, 1);
+  items.splice(to, 0, m);
+  renumberSection(sec);
+  markBuilderDirty(); renderSections();
+  flashMoved('[data-lane-pos="' + sec.id + ':' + to + '"]');
+  /* Focus follows the row that moved, so a repeated Move up from the keyboard
+     keeps working without hunting for the trigger again. renderSections()
+     rebuilt the DOM, so this has to run after it. */
+  requestAnimationFrame(() => {
+    const lane = document.querySelector('.cm-itemlane[data-sec="' + sec.id + '"]');
+    const rows = lane ? lane.querySelectorAll('.cm-lane-item') : [];
+    const btn = rows[to] && rows[to].querySelector('.cm-rowmenu vaadin-button');
+    if (btn) btn.focus();
+  });
+  return true;
+}
+
+/* The shared reorder + move actions every row gets. */
+function reorderActions(sec, idx) {
+  const n = sectionItems(sec).length;
+  const many = (currentChecklist().sections || []).length > 1;
+  const out = [
+    { label: 'Move up', icon: 'fa-arrow-up', disabled: idx === 0,
+      run: () => nudgeItem(sec, idx, -1) },
+    { label: 'Move down', icon: 'fa-arrow-down', disabled: idx === n - 1,
+      run: () => nudgeItem(sec, idx, 1) }
+  ];
+  if (many) {
+    out.push({ label: 'Move to section…', icon: 'fa-right-left',
+      run: () => openMoveItemDialog(sec, idx) });
+  }
+  return out;
+}
+/* One step row. `idx` is its position in items[]; the visible number comes
+   from step.id, which renumberSection() keeps as the step's rank among the
+   section's STEPS — a block between two questions must not make the second
+   one "3". */
+/* What a collapsed step says about itself: response type, then whatever
+   qualifies it. Shared by BOTH editors — a step reads identically whether you
+   are looking at it in a checklist section or in the block that owns it, which
+   is the whole point of the two surfaces matching. Returns plain strings; the
+   caller escapes. */
+function stepSummaryBits(st) {
+  const rm = respMeta(st.type);
+  const bits = [rm.label];
+  if (st.unit) bits.push(st.min + '–' + st.max + ' ' + st.unit);
+  if (st.options) bits.push(st.options.length + ' options');
+  /* A nested step's whole meaning is WHICH checklist it runs, so the row
+     says so rather than just "Nested check". */
+  if (isNested(st)) {
+    const ref = perItemChecklist(st);
+    bits.push(ref ? ref.name + ' v' + ref.liveVersion : 'no checklist set');
+    const at = ASSET_TYPES.find(t => t.value === st.assetType);
+    if (at) bits.push('per ' + at.label.toLowerCase());
+    bits.push(st.lookBack === 'always'
+      ? 'always'
+      : 'skip < ' + (st.lookBackDays == null ? 30 : st.lookBackDays) + 'd');
+  }
+  if (st.optional) bits.push('Optional');
+  return bits;
+}
+
+/* A step in a checklist section. Collapsed it is a summary row; expanded it
+   opens the SAME form the block creator uses (buildStepForm), in place.
+
+   It used to be a read-only row whose only editor was a dialog reachable from
+   "Add step" — so once a step existed there was no route back into it at all.
+   Editing meant deleting and retyping. Expanding in place fixes that and makes
+   the two editors behave identically. */
+function renderSectionStep(sec, st, idx) {
+  const row = document.createElement('div');
+  row.className = 'cm-sectionstep' + (st._open ? ' is-open' : '');
+  // Stable across a rebuild, so withScrollAnchor() can find this row again.
+  row.dataset.anchor = 'step:' + sec.id + ':' + idx;
+
+  const head = document.createElement('div');
+  head.className = 'cm-sectionstep-head';
+  const bits = stepSummaryBits(st);
+  head.innerHTML =
+    '<i class="fa-solid fa-grip-vertical cm-grip" aria-hidden="true" ' +
+      'title="Drag to reorder"></i>' +
+    '<button type="button" class="cm-disclose" aria-expanded="' + (!!st._open) + '" ' +
+      'aria-label="' + (st._open ? 'Collapse' : 'Edit') + ' step ' + st.id + '">' +
+      '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i>' +
+    '</button>' +
+    '<span class="cm-sectionstep-num">' + st.id + '</span>' +
+    '<span class="cm-sectionstep-text">' +
+      '<span class="cm-sectionstep-label">' +
+        (st.label ? escHtml(st.label)
+                  : '<em class="cm-stepcard-unnamed">Untitled step</em>') + '</span>' +
+      '<span class="cm-cell-sub">' + escHtml(bits.join(' · ')) + '</span></span>' +
+    failBadges(st);
+
+  const toggle = (e) => {
+    if (e) e.stopPropagation();
+    st._open = !st._open;
+    markBuilderDirty();
+    /* Anchored on this very row: expanding a step must not move the step you
+       expanded. Everything below it shifts, which is the honest result. */
+    withScrollAnchor(null, '.cm-sectionstep[data-anchor="step:' + sec.id + ':' + idx + '"]',
+      renderSections);
+  };
+  const disc = head.querySelector('.cm-disclose');
+  disc.addEventListener('click', toggle);
+  disc.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); });
+  head.querySelector('.cm-sectionstep-label').addEventListener('click', toggle);
+
+  /* One overflow menu, same as a block row carries. A step has no link to
+     break, so that entry is simply absent here. */
+  const acts = document.createElement('div');
+  acts.className = 'cm-sectionstep-acts';
+  acts.appendChild(rowMenu(reorderActions(sec, idx).concat([
+    { separator: true },
+    { label: st._open ? 'Close editor' : 'Edit step',
+      icon: st._open ? 'fa-chevron-up' : 'fa-pen', run: () => toggle() },
+    { separator: true },
+    { label: 'Delete step', icon: 'fa-trash-can', danger: true, run: () => {
+        sec.items = sectionItems(sec).filter((_, j) => j !== idx);
+        renumberSection(sec);
+        markBuilderDirty(); renderSections();
+        toast('Step deleted', 'fa-trash-can');
+      } }
+  ])));
+  head.appendChild(acts);
+  row.appendChild(head);
+
+  if (st._open) {
+    const body = document.createElement('div');
+    body.className = 'cm-sectionstep-body';
+    /* The same form the block creator opens — one editor, two surfaces. */
+    buildStepForm(st, body, (structural) => {
+      markBuilderDirty();
+      if (structural) renderSections();
+    }, head.querySelector('.cm-sectionstep-label'));
+    /* Fields inside must not drag the row. */
+    body.addEventListener('dragstart', e => { e.stopPropagation(); });
+    animateOpen(body);
+    row.appendChild(body);
+  }
+  return row;
+}
+
+/* Move an entry to another section. A dialog rather than a menu: the target
+   list can be long, each row needs a sub-line to be choosable, and this mock
+   has no menu component. Lands at the end, to be dragged into place. */
+function openMoveItemDialog(fromSec, fromIdx) {
+  const c = currentChecklist();
+  const it = sectionItems(fromSec)[fromIdx];
+  if (!it) return;
+  const what = it.kind === 'step'
+    ? (it.step.label || 'this step')
+    : ((blockById(it.inst.blockId) || {}).name || 'this block');
+
+  const dlg = document.getElementById('dlgMoveStep');
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
+    wrap.innerHTML = '<p class="cm-dialog-sub" style="margin:0 0 14px">' +
+      'Moves <strong>' + escHtml(what) + '</strong> to the end of the chosen ' +
+      'section. Drag it into position once it lands.</p>';
+
+    const listEl = document.createElement('div');
+    listEl.className = 'cm-movelist';
+
+    c.sections.forEach(sec => {
+      const isSource = sec.id === fromSec.id;
+      const n = sectionItems(sec).length;
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'cm-moveopt' + (isSource ? ' is-current' : '');
+      opt.disabled = isSource;
+      opt.innerHTML =
+        '<span class="cm-moveopt-main">' + escHtml(sec.name) + '</span>' +
+        '<span class="cm-cell-sub">' + n + ' item' + (n === 1 ? '' : 's') +
+          (isSource ? ' · current section' : '') + '</span>';
+      opt.addEventListener('click', () => {
+        const to = { secId: sec.id, idx: sectionItems(sec).length };
+        if (moveItem({ secId: fromSec.id, idx: fromIdx }, to)) {
+          // Landing in a collapsed section would hide what just moved.
+          sec.collapsed = false;
+          markBuilderDirty(); renderSections();
+          toast('Moved to ' + sec.name, 'fa-right-left');
+        }
+        dlg.opened = false;
+      });
+      listEl.appendChild(opt);
+    });
+
+    wrap.appendChild(listEl);
+
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Cancel', 'secondary', () => { dlg.opened = false; }));
+    foot.appendChild(right);
+    wrap.appendChild(foot);
+
+    root.appendChild(wrap);
+  };
+  dlg.opened = true;
 }
 
 /* ---- Sections + block instances -------------------------------------- */
@@ -6529,7 +7418,7 @@ function addSectionAt(index) {
   c.sections.splice(index, 0, {
     id: 's' + Date.now().toString(36),
     name: 'New section', collapsed: false,
-    templateLocked: false, preSteps: [], blocks: [], postSteps: []
+    templateLocked: false, items: []
   });
   markBuilderDirty(); renderSections();
   toast('Section added', 'fa-plus');
@@ -6569,8 +7458,103 @@ function previewSectionOrder(c, dragId, overId) {
   });
 }
 
+/* The Sections subheading counts what is directly below it. Deliberately NOT
+   a repeat of the editor header — that line places the checklist (version,
+   deployments); this one measures the region it introduces. Called from
+   renderSections() so it tracks adds, deletes and drags, not just open. */
+function renderStructureCount() {
+  const c = currentChecklist();
+  const el = document.getElementById('bStructureCount');
+  if (!c || !el) return;
+  const secs = c.sections.length;
+  const blocks = c.sections.reduce((n, s) => n + sectionBlocks(s).length, 0);
+  const steps = c.sections.reduce((n, s) => n + localStepCount(s), 0);
+  el.textContent = secs
+    ? secs + ' section' + (secs === 1 ? '' : 's') +
+      ' · ' + blocks + ' block' + (blocks === 1 ? '' : 's') +
+      ' · ' + steps + ' step' + (steps === 1 ? '' : 's')
+    : 'Nothing added yet';
+}
+
+/* ---- Keeping your place across a re-render ---------------------------
+   Every toggle — expanding a step, opening a section, a drag landing — calls
+   a render that does `host.innerHTML = ''` and rebuilds the list. The nodes
+   the viewport was anchored to stop existing, so the browser has nothing to
+   hold and the page jumps. On a form this dense that is disorienting: you
+   open a step halfway down and end up somewhere else entirely.
+
+   So: measure one stable element's position relative to the viewport before
+   the rebuild, and after it put that same element back where it was. The
+   anchor is the row the user just acted on when we know it, and otherwise
+   whatever row is nearest the top of the viewport.
+
+   This is the fix for the jumping. The animations below are the polish on
+   top — they explain a change that is already happening in place. */
+/* Wrap an element's children in the grid track that animates them open.
+   Called after the body is built, so callers keep appending normally. */
+/* Flag the row that just moved so it pulses once where it landed. Runs after
+   the re-render, since the node it marks did not exist before it. */
+/* Honour the OS setting for anything scripted — CSS media queries cannot
+   reach scrollIntoView's behavior option. */
+function prefersReducedMotion() {
+  return window.matchMedia &&
+         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+function scrollRowIntoView(el) {
+  if (!el) return;
+  el.scrollIntoView({ block: 'nearest',
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+}
+
+function flashMoved(selector) {
+  if (prefersReducedMotion()) return;
+  requestAnimationFrame(() => {
+    const el = document.querySelector(selector);
+    if (!el) return;
+    el.classList.add('cm-just-moved');
+    setTimeout(() => el.classList.remove('cm-just-moved'), 700);
+  });
+}
+
+function animateOpen(el) {
+  if (!el || !el.firstChild) return el;
+  const wrap = document.createElement('div');
+  wrap.className = 'cm-anim-open';
+  const inner = document.createElement('div');
+  while (el.firstChild) inner.appendChild(el.firstChild);
+  wrap.appendChild(inner);
+  el.appendChild(wrap);
+  return el;
+}
+
+function withScrollAnchor(scrollEl, anchorSel, render) {
+  const host = scrollEl || document.querySelector('.ci-content');
+  if (!host) { render(); return; }
+
+  // Find the anchor: the first matching row whose top is at or below the
+  // container's top edge.
+  const hostTop = host.getBoundingClientRect().top;
+  let key = null, before = 0;
+  const rows = host.querySelectorAll(anchorSel);
+  for (const r of rows) {
+    const t = r.getBoundingClientRect().top;
+    if (t >= hostTop - 4) { key = r.dataset.anchor; before = t; break; }
+  }
+
+  render();
+
+  if (key == null) return;
+  const again = host.querySelector(anchorSel + '[data-anchor="' +
+    (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]');
+  if (!again) return;
+  const after = again.getBoundingClientRect().top;
+  const delta = after - before;
+  if (delta) host.scrollTop += delta;
+}
+
 function renderSections() {
   const c = currentChecklist();
+  renderStructureCount();
   const host = document.getElementById('sectionList');
   host.innerHTML = '';
 
@@ -6598,8 +7582,9 @@ function renderSections() {
     el.className = 'cm-section' + (sec.collapsed ? ' is-collapsed' : '');
     el.draggable = true;
     el.dataset.sectionId = sec.id;
+    el.dataset.anchor = 'sec:' + sec.id;
 
-    const count = sec.blocks.length;
+    const count = sectionBlocks(sec).length;
     const locals = localStepCount(sec);
 
     /* No section-level link state. Sections are not templated — they are just
@@ -6642,7 +7627,12 @@ function renderSections() {
       '<div class="cm-section-body"></div>';
 
     // The caret and the section name both toggle — a standard accordion header.
-    const toggle = () => { sec.collapsed = !sec.collapsed; renderSections(); };
+    const toggle = () => {
+      sec.collapsed = !sec.collapsed;
+      /* Anchored on this section's own card. Collapsing one high up the page
+         otherwise yanks everything below it upward past the viewport. */
+      withScrollAnchor(null, '.cm-section[data-anchor="sec:' + sec.id + '"]', renderSections);
+    };
     el.querySelector('.cm-disclose').addEventListener('click', toggle);
     el.querySelector('.cm-section-name').addEventListener('click', toggle);
 
@@ -6654,30 +7644,13 @@ function renderSections() {
       toast('Section deleted', 'fa-trash-can');
     }));
 
-    /* Body: steps before → blocks → steps after. The zones carry no headings
-       now: each row states what it is (a content block says so on the row; a
-       step is just a step), so a heading over each group was labelling the
-       obvious and adding a third level of type to read. */
+    /* Body: ONE ordered list. Steps and blocks are peers and interleave in
+       whatever order the author arranged, so there is a single drop lane
+       through the whole section rather than three fixed zones. Each row
+       states what it is — a content block says so on its row, a step is just
+       a step — so no group headings are needed. */
     const body = el.querySelector('.cm-section-body');
-
-    body.appendChild(renderStepZone(sec, 'preSteps'));
-
-    /* Blocks are implemented whole — no affordance to insert a step between
-       two of them. */
-    const run = document.createElement('div');
-    run.className = 'cm-blockrun';
-    sec.blocks.forEach(inst => run.appendChild(renderBlockInstance(sec, inst)));
-    if (!sec.templateLocked) {
-      const imp = document.createElement('vaadin-button');
-      imp.setAttribute('theme', 'tertiary');
-      imp.className = 'cm-zone-add';
-      imp.innerHTML = '<i class="fa-solid fa-cube" aria-hidden="true" style="margin-right:6px"></i>Import block';
-      imp.addEventListener('click', () => openImportDialog(sec));
-      run.appendChild(imp);
-    }
-    body.appendChild(run);
-
-    body.appendChild(renderStepZone(sec, 'postSteps'));
+    body.appendChild(renderSectionItems(sec));
 
     // Section drag-reorder
     el.addEventListener('dragstart', e => {
@@ -6690,6 +7663,11 @@ function renderSections() {
       previewSectionOrder(c, null, null);
     });
     el.addEventListener('dragover', e => {
+      /* An item drag passes over this card on its way to a gap. Claiming it
+         here would make the whole card a valid drop surface, so a release
+         anywhere in the section would silently do nothing while showing a
+         "drop allowed" cursor. The gaps are the only item targets. */
+      if (dragItem) return;
       e.preventDefault();
       if (dragSectionId && dragSectionId !== sec.id) {
         el.classList.add('is-drag-over');
@@ -6722,9 +7700,10 @@ function renderSections() {
   host.appendChild(sectionInserter(c.sections.length));
 }
 
-function renderBlockInstance(sec, inst) {
+function renderBlockInstance(sec, inst, idx) {
   const el = document.createElement('div');
   el.className = 'cm-block' + (inst.expanded ? ' is-open' : '') + (inst.optional ? '' : '');
+  el.dataset.anchor = 'blk:' + inst.instanceId;
   /* Always a real content block now. The old 'freestanding' pseudo-block —
      a synthetic instance that carried inline steps so they could share the
      block list — is gone; local steps live in the section's own zones. */
@@ -6734,7 +7713,7 @@ function renderBlockInstance(sec, inst) {
   const dm = domainMeta(b.domain);
 
   // Duplicate detection — a multi-use block appearing twice needs a context label.
-  const dupes = sec.blocks.filter(i => i.blockId === inst.blockId).length > 1;
+  const dupes = sectionBlocks(sec).filter(i => i.blockId === inst.blockId).length > 1;
 
   const meta = ['v' + b.version];
   const nested = steps.reduce((n, x) =>
@@ -6782,12 +7761,14 @@ function renderBlockInstance(sec, inst) {
     '</div>' +
     '<div class="cm-block-steps"></div>';
 
-  el.querySelector('.cm-disclose').addEventListener('click', () => {
-    inst.expanded = !inst.expanded; renderSections();
-  });
-  el.querySelector('.cm-block-name').addEventListener('click', () => {
-    inst.expanded = !inst.expanded; renderSections();
-  });
+  // Keeps the block card you clicked fixed while its steps open below it.
+  const toggleBlock = () => {
+    inst.expanded = !inst.expanded;
+    withScrollAnchor(null,
+      '.cm-block[data-anchor="blk:' + inst.instanceId + '"]', renderSections);
+  };
+  el.querySelector('.cm-disclose').addEventListener('click', toggleBlock);
+  el.querySelector('.cm-block-name').addEventListener('click', toggleBlock);
 
   const acts = el.querySelector('.cm-block-actions');
 
@@ -6804,17 +7785,35 @@ function renderBlockInstance(sec, inst) {
   });
   acts.appendChild(optBtn);
 
-  /* Break-link lives on the block now — it is this instance's link that
-     breaks, not the section's. */
+  /* Everything else goes in the overflow menu the step rows also carry.
+
+     Break link is a LADDER, and which rung this instance is on decides what
+     breaking does:
+       template -> block   stop template updates; block edits still propagate
+       block    -> steps   detach entirely, exploding into editable steps
+     A 'unique' instance has nothing left to break, so it offers Detach as the
+     way to reach editable steps. */
+  const menuActs = reorderActions(sec, idx);
+  menuActs.push({ separator: true });
+
   if (inst.linkState === 'template') {
-    acts.appendChild(textBtn('Break link', 'tertiary', () => openBreakDialog(sec, inst)));
+    menuActs.push({ label: 'Break template link', icon: 'fa-link-slash',
+      run: () => openBreakDialog(sec, inst) });
+  } else {
+    menuActs.push({ label: 'Break link — convert to steps', icon: 'fa-link-slash',
+      run: () => openExplodeDialog(sec, inst, idx) });
   }
 
-  acts.appendChild(iconBtn('fa-trash-can', 'Remove block', () => {
-    sec.blocks = sec.blocks.filter(i => i.instanceId !== inst.instanceId);
+  menuActs.push({ separator: true });
+  menuActs.push({ label: 'Remove block', icon: 'fa-trash-can', danger: true, run: () => {
+    sec.items = sectionItems(sec).filter(it =>
+      !(it.kind === 'block' && it.inst.instanceId === inst.instanceId));
+    renumberSection(sec);
     markBuilderDirty(); renderSections();
     toast('Block removed', 'fa-trash-can');
-  }));
+  } });
+
+  acts.appendChild(rowMenu(menuActs));
 
   // Expanded step preview
   const stepHost = el.querySelector('.cm-block-steps');
@@ -6882,6 +7881,7 @@ function renderBlockInstance(sec, inst) {
       failBadges(s);
     stepHost.appendChild(row);
   });
+  if (inst.expanded) animateOpen(stepHost);
 
   return el;
 }
@@ -6897,6 +7897,13 @@ function renderBlockInstance(sec, inst) {
    does apply, and stretching it to fill the cell leaves nothing to ellipsize.
    Text columns keep their normal truncation. */
 const CELL_CONTROL = 'display:block;width:100%;';
+
+/* The same fix for a cell holding MORE THAN ONE control. CELL_CONTROL makes
+   each control a full-width block, so two of them stack vertically and blow
+   out the row height. The wrapper takes over the "fill the cell so there is
+   nothing left to ellipsize" job, and the controls inside it go back to
+   sizing themselves and sitting side by side. */
+const CELL_CONTROL_ROW = 'display:flex;align-items:center;justify-content:flex-end;gap:2px;width:100%;';
 
 /* ---- Config typography helpers --------------------------------------
    Built rather than hand-written at each site so the three levels stay
@@ -7049,14 +8056,14 @@ let dpSelected = new Set();
 function deployRows() {
   const c = currentChecklist();
   const q = (document.getElementById('dpSearch').value || '').toLowerCase();
-  const st = document.getElementById('dpStatus').selectedItems || [];
+  const st = isAllMulti(document.getElementById('dpStatus').selectedItems);
   return c.deployments.filter(d => {
     /* Search the resolved entity label, not a vehicle tag — a deployment can
        target any of the six Q21 types, and a station or pool has no tag. */
     const e = entityById(d.entityType || 'apparatus', d.entityId) || {};
     const hay = (d.entityId + ' ' + (e.label || '') + ' ' + (e.sub || '')).toLowerCase();
     if (q && hay.indexOf(q) === -1) return false;
-    if (st.length && st.indexOf(cap(d.status)) === -1) return false;
+    if (st && st.indexOf(cap(d.status)) === -1) return false;
     return true;
   });
 }
@@ -7114,13 +8121,19 @@ function buildDeployGrid() {
     const type = d.entityType || 'apparatus';
     const meta = entityTypeMeta(type);
     const e = entityById(type, d.entityId) || {};
-    root.innerHTML = '<div class="cm-cell-stack">' +
-      '<span class="cm-cell-strong">' +
-        '<i class="fa-solid ' + meta.icon + ' cm-ent-icon" aria-hidden="true" ' +
-          'title="' + escHtml(meta.label) + '"></i>' +
-        escHtml(e.label || d.entityId) + '</span>' +
-      '<span class="cm-cell-sub">' + escHtml(meta.label) +
-        (e.sub ? ' · ' + escHtml(e.sub) : '') + '</span></div>';
+    /* Same cell-row + cell-stack shape as the Checklists and Content blocks
+       grids: a fixed-width mark in the flex row, then the text stack beside
+       it. The icon used to sit INSIDE the strong line, which started the
+       label at a different x than the other two grids and tucked a wrapped
+       second line under the icon. */
+    root.innerHTML = '<div class="cm-cell-row">' +
+      '<span class="cm-ent-icon" title="' + escHtml(meta.label) + '">' +
+        '<i class="fa-solid ' + meta.icon + '" aria-hidden="true"></i></span>' +
+      '<div class="cm-cell-stack">' +
+        '<span class="cm-cell-strong">' + escHtml(e.label || d.entityId) + '</span>' +
+        '<span class="cm-cell-sub">' + escHtml(meta.label) +
+          (e.sub ? ' · ' + escHtml(e.sub) : '') + '</span>' +
+      '</div></div>';
   };
   dpGrid.appendChild(vehCol);
 
@@ -7211,26 +8224,41 @@ function buildDeployGrid() {
   runCol.setAttribute('width', '132px');
   runCol.setAttribute('flex-grow', '0');
   runCol.renderer = (root, col, model) => {
-    root.innerHTML = model.item.lastRunAt
-      ? model.item.lastRunAt
+    const v = model.item.lastRunAt;
+    root.innerHTML = (v && v !== '—')
+      ? escHtml(v)
       : '<span class="cm-cell-sub">Never</span>';
   };
   dpGrid.appendChild(runCol);
 
   const actCol = document.createElement('vaadin-grid-column');
-  actCol.setAttribute('width', '104px');
+  actCol.setAttribute('width', '136px');
   actCol.setAttribute('flex-grow', '0');
   actCol.setAttribute('text-align', 'end');
   actCol.renderer = (root, col, model) => {
     root.innerHTML = '';
+    /* Two controls in one cell, so they go in a flex row — CELL_CONTROL alone
+       would stack them (see CELL_CONTROL_ROW). */
+    const acts = document.createElement('div');
+    acts.style.cssText = CELL_CONTROL_ROW;
+
     /* Run the check as the crew would (S7). The entry point lives on the
        deployment because a run is always OF a checklist ON an entity — the
-       deployment is the only place both are known. */
-    const run = iconBtn('fa-play', 'Run this check', () => {
-      openRun(currentChecklist().id, model.item.id);
-    });
-    run.style.cssText = CELL_CONTROL;
-    root.appendChild(run);
+       deployment is the only place both are known.
+
+       Labelled rather than a bare glyph: a play triangle alone reads as
+       "preview the checklist" at least as easily as "start a real check on
+       this rig", and those are very different acts — a run writes a record
+       against the apparatus. The word carries the meaning; the icon is
+       decoration beside it. */
+    const run = document.createElement('vaadin-button');
+    run.setAttribute('theme', 'tertiary small');
+    run.innerHTML = '<i class="fa-solid fa-play" aria-hidden="true" style="margin-right:6px;font-size:11px;"></i>Run';
+    run.setAttribute('title', 'Start a check on ' + depShort(model.item) + ' now');
+    run.addEventListener('click', () => openRun(currentChecklist().id, model.item.id));
+    run.style.cssText = 'flex:0 0 auto;';
+    acts.appendChild(run);
+
     const rm = iconBtn('fa-trash-can', 'Remove deployment', () => {
       const cl = currentChecklist();
       cl.deployments = cl.deployments.filter(d => d.id !== model.item.id);
@@ -7240,8 +8268,11 @@ function buildDeployGrid() {
       applyDeploymentChange('Removed deployment on ' + depShort(model.item),
         'Stops scheduling new runs · past runs stay in history', 'fa-trash-can');
     });
-    rm.style.cssText = CELL_CONTROL + 'text-align:right;';
-    root.appendChild(rm);
+    rm.setAttribute('title', 'Remove this deployment');
+    rm.style.cssText = 'flex:0 0 auto;';
+    acts.appendChild(rm);
+
+    root.appendChild(acts);
   };
   dpGrid.appendChild(actCol);
 
@@ -7353,8 +8384,8 @@ function activityRows() {
   const rows = all.filter(e => {
     if (kind === 'Runs' && e.kind !== 'run') return false;
     if (kind === 'Edits' && e.kind !== 'edit') return false;
-    if (rig && e.rig !== rig) return false;
-    if (out && (e.kind !== 'run' || OUTCOME_META[e.outcome].label !== out)) return false;
+    if (!isAll(rig) && e.rig !== rig) return false;
+    if (!isAll(out) && (e.kind !== 'run' || OUTCOME_META[e.outcome].label !== out)) return false;
     if (cutoff && e.at < cutoff) return false;
     if (q) {
       // Free-text across the fields someone actually searches an audit log by:
@@ -7512,8 +8543,16 @@ function renderActivity() {
 
   // Filter options come from the events themselves, not the whole fleet.
   const rigSel = document.getElementById('actRig');
-  const rigs = Array.from(new Set(all.filter(e => e.rig).map(e => e.rig))).sort();
-  if ((rigSel.items || []).join() !== rigs.join()) rigSel.items = rigs;
+  const rigs = [ALL_RIGS].concat(
+    Array.from(new Set(all.filter(e => e.rig).map(e => e.rig))).sort());
+  if ((rigSel.items || []).join() !== rigs.join()) {
+    /* Reassigning .items clears the selection, so the current value is put
+       back afterwards — otherwise switching checklists silently resets the
+       filter to blank and the control loses its default. */
+    const keep = rigSel.value;
+    rigSel.items = rigs;
+    rigSel.value = (keep && rigs.indexOf(keep) !== -1) ? keep : ALL_RIGS;
+  }
 
   renderActivityMetrics(all);
 
@@ -7559,7 +8598,9 @@ function renderActivityBar(shown, total) {
   const active = [];
   const push = (id, label) => {
     const v = document.getElementById(id).value;
-    if (v && !(id === 'actRange' && v === 'All time')) active.push({ id: id, text: label + ': ' + v });
+    // isAll() covers every "no constraint" value, so a defaulted filter never
+    // shows up as an active one.
+    if (!isAll(v)) active.push({ id: id, text: label + ': ' + v });
   };
   push('actKind', 'Event');
   push('actRig', 'Apparatus');
@@ -7577,7 +8618,9 @@ function renderActivityBar(shown, total) {
     chip.title = 'Remove this filter';
     chip.addEventListener('click', () => {
       const el = document.getElementById(a.id);
-      el.value = a.id === 'actRange' ? 'All time' : '';
+      // Removing a chip returns that filter to its default, never to blank.
+      el.value = { actKind: ALL_EVENTS, actRig: ALL_RIGS,
+                   actOutcome: ALL_OUTCOMES, actRange: ALL_TIME }[a.id] || '';
       actPage = 0;
       renderActivity();
     });
@@ -8489,21 +9532,21 @@ function perItemSteps(step) {
   if (!c) return [];
   const out = [];
   (c.sections || []).forEach(sec => {
-    /* Zone order is the run order: local steps before, blocks, local after. */
-    (sec.preSteps || []).forEach(st => {
-      out.push(Object.assign({}, st, { uid: sec.id + ':pre:' + st.id, section: sec.name }));
-    });
-    sec.blocks.forEach(inst => {
-      const src = (blockById(inst.blockId) || {}).steps;
+    /* items[] order IS the run order — local steps and blocks interleave
+       exactly as the author arranged them. */
+    sectionItems(sec).forEach(it => {
+      if (it.kind === 'step') {
+        out.push(Object.assign({}, it.step,
+          { uid: sec.id + ':local:' + it.step.id, section: sec.name }));
+        return;
+      }
+      const src = (blockById(it.inst.blockId) || {}).steps;
       (src || []).forEach(st => {
         out.push(Object.assign({}, st, {
-          uid: sec.id + ':' + inst.instanceId + ':' + st.id,
+          uid: sec.id + ':' + it.inst.instanceId + ':' + st.id,
           section: sec.name
         }));
       });
-    });
-    (sec.postSteps || []).forEach(st => {
-      out.push(Object.assign({}, st, { uid: sec.id + ':post:' + st.id, section: sec.name }));
     });
   });
   return out;
@@ -8523,7 +9566,7 @@ function perItemCandidates(excludeId) {
 function checklistUsesBlock(checklist, blockId) {
   if (!blockId) return false;
   return (checklist.sections || []).some(sec =>
-    sec.blocks.some(i => i.blockId === blockId));
+    sectionBlocks(sec).some(i => i.blockId === blockId));
 }
 
 /* The one accessor every caller uses, so the noun can only ever come from the
@@ -8554,6 +9597,509 @@ function repeatRuleText(s) {
     ' must pass for this step to pass. The crew can check more, and extra failures do not block it.';
 }
 
+/* ---- The step form --------------------------------------------------
+   ONE editor for a step, used by both surfaces: the block creator's cards and
+   the checklist builder's section rows. Previously the creator built this
+   inline while the checklist had a separate 291-line dialog that could only
+   ADD — once a checklist step existed there was no way to open it again, so
+   changing a label meant deleting the step and retyping it.
+
+   `st`      the step being edited, mutated in place
+   `body`    the element to build into
+   `onChange(structural)` called after every edit. `structural` is true when
+             the change alters what the form itself shows (response type,
+             failure consequences), meaning the caller must re-render; false
+             for plain field edits, where re-rendering would destroy the field
+             being typed into.
+   `titleEl` optional; the collapsed summary's title node, updated live as the
+             label is typed so the row behind the open form stays truthful. */
+function buildStepForm(st, body, onChange, titleEl) {
+  const s = st;
+  body.innerHTML = '';
+
+  body.appendChild(cfgSection('The question', null, 1));
+  const grid = document.createElement('div');
+  grid.className = 'cm-form-grid';
+  body.appendChild(grid);
+
+  // Label — full width
+  const label = document.createElement('vaadin-text-field');
+  label.setAttribute('theme', 'outlined');
+  label.setAttribute('label', 'Step label');
+  label.classList.add('cm-form-grid--wide');
+  label.value = s.label || '';
+  label.addEventListener('value-changed', e => {
+    s.label = e.detail.value; onChange(false);
+    /* Update the collapsed summary in place rather than re-rendering: a
+       full render on every keystroke would rebuild the field being typed
+       into and lose the caret. */
+    const t = titleEl;
+    if (t) {
+      t.innerHTML = s.label
+        ? escHtml(s.label)
+        : '<em class="cm-stepcard-unnamed">Untitled step</em>';
+    }
+  });
+  grid.appendChild(label);
+
+  /* Context — optional authored guidance the PERFORMER reads (Q12:
+     "roomy enough for real instructions"). Not a runtime input and never
+     required: nothing in the six properties requires context, so it stays
+     collapsed behind a link until an author actually writes something, and
+     opens automatically when the step already carries text.
+
+     Distinct from Comment below, which the CREW writes at runtime. Authored
+     guidance in, crew answer out — two different things that both look like
+     "a box of text" if they are not kept apart. */
+  const ctxWrap = document.createElement('div');
+  ctxWrap.className = 'cm-form-grid--wide cm-ctx';
+  const hasCtx = !!(s.context && s.context.trim()) || s._ctxOpen;
+
+  if (!hasCtx) {
+    const addCtx = document.createElement('button');
+    addCtx.type = 'button';
+    addCtx.className = 'cm-ctx-add';
+    addCtx.innerHTML =
+      '<i class="fa-solid fa-plus" aria-hidden="true"></i>Add context for the crew';
+    addCtx.addEventListener('click', () => {
+      /* Transient open flag, not saved content — an author who opens the
+         field and types nothing has authored nothing. */
+      s._ctxOpen = true; onChange(true);
+    });
+    ctxWrap.appendChild(addCtx);
+  } else {
+    const ctx = document.createElement('vaadin-text-area');
+    ctx.setAttribute('theme', 'outlined');
+    ctx.setAttribute('label', 'Context for the crew');
+    ctx.setAttribute('helper-text', 'Shown above this step while the check is performed.');
+    ctx.classList.add('cm-form-grid--wide');
+    ctx.value = s.context || '';
+    ctx.addEventListener('value-changed', e => {
+      s.context = e.detail.value; onChange(false);
+    });
+    ctxWrap.appendChild(ctx);
+  }
+  grid.appendChild(ctxWrap);
+
+  /* Section 2 — how the crew answers. */
+  body.appendChild(cfgSection('The answer', null, 2));
+  const grid2 = document.createElement('div');
+  grid2.className = 'cm-form-grid';
+  body.appendChild(grid2);
+
+  // Response type
+  const type = document.createElement('vaadin-select');
+  type.setAttribute('theme', 'outlined');
+  type.setAttribute('label', 'Response');
+  /* The S4 eight plus Nested check (S8). `internal` types, if any are ever
+     added, stay out of the list. */
+  type.items = authorableTypes().map(r => ({ label: r.label, value: r.value }));
+  type.value = s.type;
+  type.addEventListener('value-changed', e => {
+    if (!e.detail.value || e.detail.value === s.type) return;
+    const prevType = s.type;
+    s.type = e.detail.value;
+    if (s.type === 'single') { if (!s.options) s.options = ['Option 1']; }
+    else { delete s.options; delete s.failOptions; }
+    if (s.type !== 'numeric') { delete s.unit; delete s.min; delete s.max; }
+    // Count keeps its own par level and unit noun.
+    if (s.type !== 'count') { delete s.par; delete s.countNoun; }
+    /* Response wording is per-type — the slot keys differ — so an override
+       cannot survive a type change. */
+    if (!canRelabel(s.type)) delete s.responseLabels;
+    /* A type with no response cannot carry capture properties or failure
+       actions — there is no answer to comment on, document, or fail. */
+    if (respMeta(s.type).input === false) {
+      delete s.comment; delete s.documentation; delete s.onFail;
+      delete s.multiResponse; s.optional = true;
+    }
+    if (s.type === 'nested') {
+      /* Q30 guard, one direction. A checklist deployed to something that
+         cannot nest must never gain a nested step — the crew would meet a
+         step with nothing to resolve against. Refused here so the broken
+         combination cannot be created from this end; the deployment picker
+         closes the other end. */
+      const blocked = nestConflictsForStep();
+      if (blocked.length) {
+        s.type = e.detail.value = prevType;
+        toast('Cannot nest here — ' + blocked.length + ' deployment' +
+          (blocked.length === 1 ? '' : 's') + ' cannot run a nested check',
+          'fa-circle-exclamation');
+        onChange(true);
+        return;
+      }
+      /* A nested step is already per-item, so multi-response on top of it
+         would mean "a checklist per item, per item". Drop the config rather
+         than leave it orphaned on the step. */
+      delete s.multiResponse;
+      if (s.lookBack === undefined) s.lookBack = NEST_DEFAULTS.lookBack;
+      if (s.lookBackDays === undefined) s.lookBackDays = NEST_DEFAULTS.lookBackDays;
+      // Seed a usable group rather than an empty one — a repeating group with
+      // no asset type or sub-steps cannot be run.
+      if (!s.assetType) s.assetType = REPEAT_DEFAULTS.assetType;
+      // Leave checklistId unset — the admin must name the Per-Item Checklist,
+      // and the editor warns until they do. Guessing one would be worse.
+      if (s.checklistId === undefined) s.checklistId = REPEAT_DEFAULTS.checklistId;
+      if (s.minPassing === undefined) s.minPassing = REPEAT_DEFAULTS.minPassing;
+    } else {
+      delete s.assetType; delete s.checklistId; delete s.minPassing;
+    }
+    onChange(true);
+  });
+  grid2.appendChild(type);
+
+  // Required / Optional
+  const req = document.createElement('vaadin-select');
+  req.setAttribute('theme', 'outlined');
+  req.setAttribute('label', 'Requirement');
+  req.items = [{ label: 'Required', value: 'req' }, { label: 'Optional', value: 'opt' }];
+  req.value = s.optional ? 'opt' : 'req';
+  req.addEventListener('value-changed', e => {
+    if (!e.detail.value) return;
+    s.optional = e.detail.value === 'opt'; onChange(false);
+  });
+  grid2.appendChild(req);
+
+  /* Multi-response (Q12b). Offered on every type EXCEPT `repeat`, which is
+     already per-item by construction — stacking the two would mean "run a
+     checklist per item, per item". */
+  if (s.type !== 'nested') {
+    const mWrap = cfgGroup('Multiple responses',
+      'One step, one answer per asset — each logged back to the asset it came from.');
+
+    const mToggle = document.createElement('label');
+    mToggle.className = 'cm-cfg-switch';
+    const mSw = document.createElement('vwc-switch');
+    mSw.checked = isMulti(s);
+    mSw.setAttribute('accessible-name', 'Multiple responses');
+    onSwitchChange(mSw, v => {
+      if (v) s.multiResponse = Object.assign({}, MULTI_DEFAULTS);
+      else delete s.multiResponse;
+      onChange(true);
+    });
+    const mTxt = document.createElement('span');
+    mTxt.textContent = 'Answer this step once per asset';
+    mToggle.appendChild(mSw); mToggle.appendChild(mTxt);
+    mWrap.appendChild(mToggle);
+
+    if (isMulti(s)) {
+      const cfg = multiCfg(s);
+      const row = document.createElement('div');
+      row.className = 'cm-cfg-row cm-cfg-row--2';
+      row.style.marginTop = '11px';
+
+      /* Which registry the crew picks identifiers from. Asset-based, never
+         free text (Rule 3). */
+      const at = document.createElement('vaadin-select');
+      at.setAttribute('theme', 'outlined');
+      at.setAttribute('label', 'Asset type');
+      at.items = [{ label: 'Select an asset type…', value: '' }]
+        .concat(ASSET_TYPES.map(t => ({ label: t.label, value: t.value })));
+      at.value = cfg.assetType || '';
+      at.addEventListener('value-changed', e => {
+        /* Compare against the STORED value, not just undefined. Vaadin fires
+           value-changed when a field is CREATED with a value, so a looser
+           guard lets the create-time event through to onChange(true),
+           which recreates this very select and fires it again — forever.
+           Same trap the repeat editor documents; this one hung the page. */
+        if (e.detail.value === undefined || e.detail.value === (cfg.assetType || '')) return;
+        cfg.assetType = e.detail.value; onChange(true);
+      });
+      row.appendChild(at);
+
+      /* A FLOOR, not a range. See MULTI-RESPONSE above for why there is no
+         maximum. */
+      const min = document.createElement('vaadin-number-field');
+      min.setAttribute('theme', 'outlined');
+      min.setAttribute('label', 'Minimum items');
+      min.setAttribute('helper-text', 'Fewer than this blocks submit. No maximum.');
+      min.setAttribute('min', '1');
+      min.value = cfg.minItems == null ? 1 : cfg.minItems;
+      min.addEventListener('value-changed', e => {
+        const n = parseInt(e.detail.value, 10);
+        cfg.minItems = isNaN(n) || n < 1 ? 1 : n;
+        onChange(false);
+      });
+      row.appendChild(min);
+      mWrap.appendChild(row);
+
+      /* Unconfigured asset type is the one state that cannot run, so it is
+         called out rather than left to fail at runtime. */
+      if (!cfg.assetType) {
+        const warn = document.createElement('div');
+        warn.className = 'cm-alert cm-alert--warn';
+        warn.style.marginTop = '10px';
+        warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+          '<span>Pick an asset type — the crew needs a list of identifiers to answer against.</span>';
+        mWrap.appendChild(warn);
+      } else {
+        const n = ASSETS.filter(a => a.type === cfg.assetType).length;
+        const hint = document.createElement('p');
+        hint.className = 'cm-cfg-group-help';
+        hint.style.margin = '9px 0 0';
+        hint.textContent = n + ' ' +
+          (ASSET_TYPES.find(t => t.value === cfg.assetType) || {}).label +
+          (n === 1 ? '' : 's') + ' tracked · the crew selects which ones they checked.';
+        mWrap.appendChild(hint);
+      }
+    }
+    body.appendChild(mWrap);
+  }
+
+  // Numeric threshold — grouped, because min/max/unit are one decision.
+  if (s.type === 'numeric') {
+    const g = cfgGroup('Accepted range', 'Outside this range fails the step.');
+    const row = document.createElement('div');
+    row.className = 'cm-cfg-row cm-cfg-row--3';
+    [['min', 'Min'], ['max', 'Max']].forEach(([key, lbl]) => {
+      const f = document.createElement('vaadin-number-field');
+      f.setAttribute('theme', 'outlined');
+      f.setAttribute('label', lbl);
+      f.value = s[key] || '';
+      f.addEventListener('value-changed', e => { s[key] = e.detail.value; onChange(false); });
+      row.appendChild(f);
+    });
+    const u = document.createElement('vaadin-text-field');
+    u.setAttribute('theme', 'outlined');
+    u.setAttribute('label', 'Unit');
+    u.value = s.unit || '';
+    u.addEventListener('value-changed', e => { s.unit = e.detail.value; onChange(false); });
+    row.appendChild(u);
+    g.appendChild(row);
+    body.appendChild(g);
+  }
+
+  /* Q41 — reword the response options. Display only: the type, its failure
+     semantics and every lookup that trends this question stay bound to the
+     underlying values, so "No" on a relabelled Pass/Fail still fails and
+     still rolls up with every other Pass/Fail failure. */
+  if (canRelabel(s.type)) {
+    const g = cfgGroup('Response wording',
+      'What the crew sees. The underlying type and its pass/fail behaviour do not change.');
+    const row = document.createElement('div');
+    row.className = 'cm-cfg-row cm-cfg-row--2';
+    RESPONSE_LABEL_SLOTS[s.type].forEach(slot => {
+      const f = document.createElement('vaadin-text-field');
+      f.setAttribute('theme', 'outlined');
+      f.setAttribute('label', slot.fallback);
+      f.setAttribute('placeholder', slot.fallback);
+      /* Helper names the semantic role, so an author relabelling "Fail" to
+         "No" can still see which one is the failing value. */
+      if (s.type === 'passfail') {
+        f.setAttribute('helper-text', slot.key === 'fail'
+          ? 'The failing value' : 'The passing value');
+      }
+      f.value = (s.responseLabels && s.responseLabels[slot.key]) || '';
+      f.addEventListener('value-changed', e => {
+        if (!s.responseLabels) s.responseLabels = {};
+        const v = e.detail.value;
+        if (v && v.trim()) s.responseLabels[slot.key] = v;
+        else delete s.responseLabels[slot.key];
+        onChange(false);
+      });
+      row.appendChild(f);
+    });
+    g.appendChild(row);
+    if (isRelabelled(s)) {
+      const note = document.createElement('p');
+      note.className = 'cm-cfg-group-help';
+      note.style.margin = '9px 0 0';
+      note.innerHTML = 'Still a <strong>' + escHtml(respMeta(s.type).label) +
+        '</strong> step — reporting and failure rules are unchanged.';
+      g.appendChild(note);
+    }
+    body.appendChild(g);
+  }
+
+  /* Count: par level is what gives the number meaning (S4 — "when compared
+     to a par level"). Optional: a count with no par records inventory
+     without judging it. */
+  if (s.type === 'count') {
+    const g = cfgGroup('Par level', 'The expected quantity. Below it fails the step; above it does not.');
+    const row = document.createElement('div');
+    row.className = 'cm-cfg-row cm-cfg-row--2';
+    const par = document.createElement('vaadin-number-field');
+    par.setAttribute('theme', 'outlined');
+    par.setAttribute('label', 'Par');
+    par.setAttribute('helper-text', 'Leave empty to record a count without a pass/fail.');
+    par.setAttribute('min', '0');
+    par.value = s.par == null ? '' : s.par;
+    par.addEventListener('value-changed', e => { s.par = e.detail.value; onChange(false); });
+    row.appendChild(par);
+    const noun = document.createElement('vaadin-text-field');
+    noun.setAttribute('theme', 'outlined');
+    noun.setAttribute('label', 'What is counted');
+    noun.setAttribute('helper-text', 'e.g. "4x4 gauze". Shown beside the count.');
+    noun.value = s.countNoun || '';
+    noun.addEventListener('value-changed', e => { s.countNoun = e.detail.value; onChange(false); });
+    row.appendChild(noun);
+    g.appendChild(row);
+    body.appendChild(g);
+  }
+
+  // Options editor
+  if (s.type === 'single') {
+    const wrap = cfgGroup('Answer options');
+    const list = document.createElement('div');
+    list.className = 'cm-options-list';
+    (s.options || []).forEach((opt, oi) => {
+      const row = document.createElement('div');
+      row.className = 'cm-option-row';
+      const f = document.createElement('vaadin-text-field');
+      f.setAttribute('theme', 'outlined');
+      f.value = opt;
+      f.addEventListener('value-changed', e => {
+        const was = s.options[oi];
+        s.options[oi] = e.detail.value;
+        /* Keep the fail marking attached to the option when it is renamed,
+           otherwise editing the wording silently un-marks it. */
+        const fi = (s.failOptions || []).indexOf(was);
+        if (fi !== -1) s.failOptions[fi] = e.detail.value;
+        onChange(false);
+      });
+      row.appendChild(f);
+
+      /* Marking an option as failing is what gives a Select its pass/fail
+         (S4: "only when options are marked"). A toggle per option rather
+         than a separate list, so the marking sits on the thing it marks. */
+      const failing = (s.failOptions || []).indexOf(opt) !== -1;
+      const fb = document.createElement('button');
+      fb.type = 'button';
+      fb.className = 'cm-optfail' + (failing ? ' active' : '');
+      fb.title = failing
+        ? 'Choosing this option fails the step. Click to unmark.'
+        : 'Mark this option as a failure.';
+      fb.setAttribute('aria-pressed', String(failing));
+      fb.innerHTML = '<i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>';
+      fb.addEventListener('click', () => {
+        if (!s.failOptions) s.failOptions = [];
+        const i = s.failOptions.indexOf(opt);
+        if (i === -1) s.failOptions.push(opt); else s.failOptions.splice(i, 1);
+        onChange(true);
+      });
+      row.appendChild(fb);
+
+      row.appendChild(iconBtn('fa-xmark', 'Remove option', () => {
+        const gone = s.options.splice(oi, 1)[0];
+        if (s.failOptions) s.failOptions = s.failOptions.filter(x => x !== gone);
+        onChange(true);
+      }));
+      list.appendChild(row);
+    });
+    wrap.appendChild(list);
+    const add = document.createElement('vaadin-button');
+    add.setAttribute('theme', 'tertiary');
+    add.style.marginTop = '6px';
+    add.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:6px"></i>Add option';
+    add.addEventListener('click', () => {
+      s.options.push('Option ' + (s.options.length + 1));
+      onChange(true);
+    });
+    wrap.appendChild(add);
+    grid.appendChild(wrap);
+  }
+
+  // Nested check: asset type, look-back window, pass threshold, checklist.
+  if (s.type === 'nested') {
+    /* Two callbacks, deliberately.
+
+       `touch` marks the block dirty and nothing else. `rebuild` re-renders
+       the step list.
+
+       Keeping them apart is not tidiness — a text field that re-renders on
+       `value-changed` is an infinite loop. Vaadin fires `value-changed` when
+       a field is CREATED with a value, so render → field fires → re-render →
+       field fires again, forever. That is what hung the SCBA block, whose
+       first step is a repeating group. So value edits use `touch`, and only
+       structural changes (add, remove, switch type, toggle threshold mode)
+       use `rebuild`. */
+    grid.appendChild(buildRepeatEditor(s,
+      () => { onChange(false); },
+      () => { onChange(true); }));
+  }
+
+  /* Section 3 — what a failure DOES, and what the crew can attach. These
+     were one block under a single "Failure severity" label, which made the
+     photo/note switches look like part of the severity decision. */
+  body.appendChild(cfgSection('On failure', null, 3));
+
+  /* Consequences, not a severity word. Switches rather than chips because
+     these are independent and combinable — a step can do both, or neither.
+     A chip group would have implied one-of. */
+  const failWrap = cfgGroup('When this step fails');
+  const failCol = document.createElement('div');
+  failCol.className = 'cm-cfg-switches cm-cfg-switches--stack';
+  FAILURE_ACTIONS.forEach(a => {
+    const cell = document.createElement('label');
+    cell.className = 'cm-cfg-switch cm-cfg-switch--help';
+    const sw = document.createElement('vwc-switch');
+    sw.checked = failActions(s).includes(a.value);
+    sw.setAttribute('accessible-name', a.label);
+    onSwitchChange(sw, v => {
+      const set = new Set(failActions(s));
+      if (v) set.add(a.value); else set.delete(a.value);
+      /* Keep canonical order so two steps with the same actions always
+         serialise identically. */
+      s.onFail = FAILURE_ACTIONS.map(x => x.value).filter(x => set.has(x));
+      onChange(true);
+    });
+    const txt = document.createElement('span');
+    txt.innerHTML = a.label + '<span class="cm-cfg-help">' + a.help + '</span>';
+    cell.appendChild(sw); cell.appendChild(txt);
+    failCol.appendChild(cell);
+  });
+  failWrap.appendChild(failCol);
+  body.appendChild(failWrap);
+
+  /* Capture properties. Three states rather than two switches each, so
+     "required but not allowed" cannot be authored. */
+  const capWrap = cfgGroup('What the crew can attach');
+  CAPTURE_KEYS.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'cm-cap-row';
+
+    const lockedHere = c.key === 'comment' && forcesComment(s);
+    const cur = lockedHere ? 'required' : captureState(s, c.key);
+
+    const lab = document.createElement('div');
+    lab.className = 'cm-cap-label';
+    lab.innerHTML =
+      '<i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
+      '<span>' + c.label +
+        '<span class="cm-cfg-help">' +
+          (lockedHere
+            ? 'A failed Pass / Fail answer always requires a comment, so this is fixed.'
+            : c.help) +
+        '</span>' +
+      '</span>';
+    row.appendChild(lab);
+
+    row.appendChild(segmented(CAPTURE_STATES, cur, v => {
+      s[c.key] = v; onChange(true);
+    }, { locked: lockedHere, ariaLabel: c.label }));
+
+    capWrap.appendChild(row);
+  });
+  body.appendChild(capWrap);
+}
+
+/* Move a creator step by one. The keyboard path to what a drag does — same
+   role nudgeItem() plays in the checklist builder, and focus follows the moved
+   row the same way so repeated presses keep working. */
+function nudgeCreatorStep(idx, dir) {
+  const to = idx + dir;
+  if (to < 0 || to >= creatorSteps.length) return;
+  const [m] = creatorSteps.splice(idx, 1);
+  creatorSteps.splice(to, 0, m);
+  renumber(); markCreatorDirty(); renderCreatorSteps();
+  flashMoved('[data-anchor="cstep:' + to + '"]');
+  requestAnimationFrame(() => {
+    const cards = document.querySelectorAll('#stepList .cm-stepcard');
+    const btn = cards[to] && cards[to].querySelector('.cm-rowmenu vaadin-button');
+    if (btn) btn.focus();
+  });
+}
+
 function renderCreatorSteps() {
   const host = document.getElementById('stepList');
   host.innerHTML = '';
@@ -8565,9 +10111,13 @@ function renderCreatorSteps() {
 
   if (!creatorSteps.length) {
     host.innerHTML =
-      '<div class="cm-empty"><i class="fa-solid fa-list-ol" aria-hidden="true"></i>' +
-      '<h3>No check steps yet</h3>' +
-      '<p>A block is an ordered list of steps. Add the first one to get started.</p></div>';
+      /* --card: the step list is no longer inside a .cm-panel, so the empty
+         state has to bring its own surface or it floats on the page ground. */
+      '<div class="cm-empty cm-empty--card">' +
+        '<i class="fa-solid fa-list-ol" aria-hidden="true"></i>' +
+        '<h3>No check steps yet</h3>' +
+        '<p>A block is an ordered list of steps. Add the first one to get started.</p>' +
+      '</div>';
     return;
   }
 
@@ -8576,28 +10126,76 @@ function renderCreatorSteps() {
     const card = document.createElement('div');
     card.className = 'cm-stepcard';
     card.draggable = true;
+    card.dataset.anchor = 'cstep:' + idx;
 
+    /* Collapsed by default, like a section or a block in the checklist
+       builder — the list is scannable first and editable second. The old
+       always-open form meant four steps filled a screen and the block could
+       not be read as a list at all.
+
+       The summary carries the same facts the builder's step rows carry:
+       ordinal, label, and the response type with its qualifiers. */
+    if (s._open) card.classList.add('is-open');
     card.innerHTML =
       '<div class="cm-stepcard-head">' +
         '<i class="fa-solid fa-grip-vertical cm-grip" aria-hidden="true"></i>' +
-        '<span class="cm-stepcard-title">Step ' + (idx + 1) + '</span>' +
-        '<span class="cm-cell-sub">' + rm.label + ' → <code>' + rm.kind + '</code></span>' +
+        '<button type="button" class="cm-disclose" aria-expanded="' + (!!s._open) + '" ' +
+          'aria-label="' + (s._open ? 'Collapse' : 'Expand') + ' step ' + (idx + 1) + '">' +
+          '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i>' +
+        '</button>' +
+        '<span class="cm-sectionstep-num">' + (idx + 1) + '</span>' +
+        '<span class="cm-stepcard-text">' +
+          '<span class="cm-stepcard-title">' +
+            (s.label ? escHtml(s.label) : '<em class="cm-stepcard-unnamed">Untitled step</em>') +
+          '</span>' +
+          '<span class="cm-cell-sub">' + escHtml(stepSummaryBits(s).join(' · ')) + '</span>' +
+        '</span>' +
         '<div class="cm-stepcard-actions"></div>' +
       '</div>' +
       '<div class="cm-stepcard-body"><div class="cm-form-grid"></div></div>';
 
+    const toggleStep = (e) => {
+      /* The card is draggable, so a press on the chevron would otherwise
+         start a drag as well as toggling. */
+      if (e) e.stopPropagation();
+      s._open = !s._open;
+      // Keep the card you clicked exactly where it is; the rest reflows.
+      withScrollAnchor(null, '.cm-stepcard[data-anchor="cstep:' + idx + '"]',
+        renderCreatorSteps);
+    };
+    const disc = card.querySelector('.cm-disclose');
+    disc.addEventListener('click', toggleStep);
+    disc.addEventListener('dragstart', e => { e.preventDefault(); e.stopPropagation(); });
+    card.querySelector('.cm-stepcard-title').addEventListener('click', toggleStep);
+    /* The open body holds form fields; dragging from inside one must not drag
+       the card. Matches the guard .cm-rowmenu carries. */
+    const bodyEl = card.querySelector('.cm-stepcard-body');
+    bodyEl.addEventListener('dragstart', e => { e.stopPropagation(); });
+
+    /* The same overflow menu the checklist builder's rows carry, including
+       the Move up / Move down pair that makes reordering reachable without a
+       pointer. Duplicate is creator-only — a block owns its steps, so copying
+       one is meaningful here in a way it is not in a checklist section. */
     const acts = card.querySelector('.cm-stepcard-actions');
-    acts.appendChild(iconBtn('fa-copy', 'Duplicate step', () => {
-      const copy = cleanStep(s);
-      creatorSteps.splice(idx + 1, 0, copy);
-      renumber(); markCreatorDirty(); renderCreatorSteps();
-      toast('Step duplicated', 'fa-copy');
-    }));
-    acts.appendChild(iconBtn('fa-trash-can', 'Delete step', () => {
-      creatorSteps.splice(idx, 1);
-      renumber(); markCreatorDirty(); renderCreatorSteps();
-      toast('Step deleted', 'fa-trash-can');
-    }));
+    acts.appendChild(rowMenu([
+      { label: 'Move up', icon: 'fa-arrow-up', disabled: idx === 0,
+        run: () => nudgeCreatorStep(idx, -1) },
+      { label: 'Move down', icon: 'fa-arrow-down', disabled: idx === creatorSteps.length - 1,
+        run: () => nudgeCreatorStep(idx, 1) },
+      { separator: true },
+      { label: 'Duplicate step', icon: 'fa-copy', run: () => {
+          const copy = cleanStep(s);
+          creatorSteps.splice(idx + 1, 0, copy);
+          renumber(); markCreatorDirty(); renderCreatorSteps();
+          toast('Step duplicated', 'fa-copy');
+        } },
+      { separator: true },
+      { label: 'Delete step', icon: 'fa-trash-can', danger: true, run: () => {
+          creatorSteps.splice(idx, 1);
+          renumber(); markCreatorDirty(); renderCreatorSteps();
+          toast('Step deleted', 'fa-trash-can');
+        } }
+    ]));
 
     /* The card body is now three titled regions instead of one flat grid.
        Reading order matches how a step is actually decided: what are we
@@ -8605,459 +10203,11 @@ function renderCreatorSteps() {
     const body = card.querySelector('.cm-stepcard-body');
     body.innerHTML = '';
 
-    body.appendChild(cfgSection('The question', null, 1));
-    const grid = document.createElement('div');
-    grid.className = 'cm-form-grid';
-    body.appendChild(grid);
-
-    // Label — full width
-    const label = document.createElement('vaadin-text-field');
-    label.setAttribute('theme', 'outlined');
-    label.setAttribute('label', 'Step label');
-    label.classList.add('cm-form-grid--wide');
-    label.value = s.label || '';
-    label.addEventListener('value-changed', e => { s.label = e.detail.value; markCreatorDirty(); });
-    grid.appendChild(label);
-
-    /* Context — optional authored guidance the PERFORMER reads (Q12:
-       "roomy enough for real instructions"). Not a runtime input and never
-       required: nothing in the six properties requires context, so it stays
-       collapsed behind a link until an author actually writes something, and
-       opens automatically when the step already carries text.
-
-       Distinct from Comment below, which the CREW writes at runtime. Authored
-       guidance in, crew answer out — two different things that both look like
-       "a box of text" if they are not kept apart. */
-    const ctxWrap = document.createElement('div');
-    ctxWrap.className = 'cm-form-grid--wide cm-ctx';
-    const hasCtx = !!(s.context && s.context.trim()) || s._ctxOpen;
-
-    if (!hasCtx) {
-      const addCtx = document.createElement('button');
-      addCtx.type = 'button';
-      addCtx.className = 'cm-ctx-add';
-      addCtx.innerHTML =
-        '<i class="fa-solid fa-plus" aria-hidden="true"></i>Add context for the crew';
-      addCtx.addEventListener('click', () => {
-        /* Transient open flag, not saved content — an author who opens the
-           field and types nothing has authored nothing. */
-        s._ctxOpen = true; renderCreatorSteps();
-      });
-      ctxWrap.appendChild(addCtx);
-    } else {
-      const ctx = document.createElement('vaadin-text-area');
-      ctx.setAttribute('theme', 'outlined');
-      ctx.setAttribute('label', 'Context for the crew');
-      ctx.setAttribute('helper-text', 'Shown above this step while the check is performed.');
-      ctx.classList.add('cm-form-grid--wide');
-      ctx.value = s.context || '';
-      ctx.addEventListener('value-changed', e => {
-        s.context = e.detail.value; markCreatorDirty();
-      });
-      ctxWrap.appendChild(ctx);
-    }
-    grid.appendChild(ctxWrap);
-
-    /* Section 2 — how the crew answers. */
-    body.appendChild(cfgSection('The answer', null, 2));
-    const grid2 = document.createElement('div');
-    grid2.className = 'cm-form-grid';
-    body.appendChild(grid2);
-
-    // Response type
-    const type = document.createElement('vaadin-select');
-    type.setAttribute('theme', 'outlined');
-    type.setAttribute('label', 'Response');
-    /* The S4 eight plus Nested check (S8). `internal` types, if any are ever
-       added, stay out of the list. */
-    type.items = authorableTypes().map(r => ({ label: r.label, value: r.value }));
-    type.value = s.type;
-    type.addEventListener('value-changed', e => {
-      if (!e.detail.value || e.detail.value === s.type) return;
-      const prevType = s.type;
-      s.type = e.detail.value;
-      if (s.type === 'single') { if (!s.options) s.options = ['Option 1']; }
-      else { delete s.options; delete s.failOptions; }
-      if (s.type !== 'numeric') { delete s.unit; delete s.min; delete s.max; }
-      // Count keeps its own par level and unit noun.
-      if (s.type !== 'count') { delete s.par; delete s.countNoun; }
-      /* Response wording is per-type — the slot keys differ — so an override
-         cannot survive a type change. */
-      if (!canRelabel(s.type)) delete s.responseLabels;
-      /* A type with no response cannot carry capture properties or failure
-         actions — there is no answer to comment on, document, or fail. */
-      if (respMeta(s.type).input === false) {
-        delete s.comment; delete s.documentation; delete s.onFail;
-        delete s.multiResponse; s.optional = true;
-      }
-      if (s.type === 'nested') {
-        /* Q30 guard, one direction. A checklist deployed to something that
-           cannot nest must never gain a nested step — the crew would meet a
-           step with nothing to resolve against. Refused here so the broken
-           combination cannot be created from this end; the deployment picker
-           closes the other end. */
-        const blocked = nestConflictsForStep();
-        if (blocked.length) {
-          s.type = e.detail.value = prevType;
-          toast('Cannot nest here — ' + blocked.length + ' deployment' +
-            (blocked.length === 1 ? '' : 's') + ' cannot run a nested check',
-            'fa-circle-exclamation');
-          renderCreatorSteps();
-          return;
-        }
-        /* A nested step is already per-item, so multi-response on top of it
-           would mean "a checklist per item, per item". Drop the config rather
-           than leave it orphaned on the step. */
-        delete s.multiResponse;
-        if (s.lookBack === undefined) s.lookBack = NEST_DEFAULTS.lookBack;
-        if (s.lookBackDays === undefined) s.lookBackDays = NEST_DEFAULTS.lookBackDays;
-        // Seed a usable group rather than an empty one — a repeating group with
-        // no asset type or sub-steps cannot be run.
-        if (!s.assetType) s.assetType = REPEAT_DEFAULTS.assetType;
-        // Leave checklistId unset — the admin must name the Per-Item Checklist,
-        // and the editor warns until they do. Guessing one would be worse.
-        if (s.checklistId === undefined) s.checklistId = REPEAT_DEFAULTS.checklistId;
-        if (s.minPassing === undefined) s.minPassing = REPEAT_DEFAULTS.minPassing;
-      } else {
-        delete s.assetType; delete s.checklistId; delete s.minPassing;
-      }
-      markCreatorDirty(); renderCreatorSteps();
-    });
-    grid2.appendChild(type);
-
-    // Required / Optional
-    const req = document.createElement('vaadin-select');
-    req.setAttribute('theme', 'outlined');
-    req.setAttribute('label', 'Requirement');
-    req.items = [{ label: 'Required', value: 'req' }, { label: 'Optional', value: 'opt' }];
-    req.value = s.optional ? 'opt' : 'req';
-    req.addEventListener('value-changed', e => {
-      if (!e.detail.value) return;
-      s.optional = e.detail.value === 'opt'; markCreatorDirty();
-    });
-    grid2.appendChild(req);
-
-    /* Multi-response (Q12b). Offered on every type EXCEPT `repeat`, which is
-       already per-item by construction — stacking the two would mean "run a
-       checklist per item, per item". */
-    if (s.type !== 'nested') {
-      const mWrap = cfgGroup('Multiple responses',
-        'One step, one answer per asset — each logged back to the asset it came from.');
-
-      const mToggle = document.createElement('label');
-      mToggle.className = 'cm-cfg-switch';
-      const mSw = document.createElement('vwc-switch');
-      mSw.checked = isMulti(s);
-      mSw.setAttribute('accessible-name', 'Multiple responses');
-      onSwitchChange(mSw, v => {
-        if (v) s.multiResponse = Object.assign({}, MULTI_DEFAULTS);
-        else delete s.multiResponse;
-        markCreatorDirty(); renderCreatorSteps();
-      });
-      const mTxt = document.createElement('span');
-      mTxt.textContent = 'Answer this step once per asset';
-      mToggle.appendChild(mSw); mToggle.appendChild(mTxt);
-      mWrap.appendChild(mToggle);
-
-      if (isMulti(s)) {
-        const cfg = multiCfg(s);
-        const row = document.createElement('div');
-        row.className = 'cm-cfg-row cm-cfg-row--2';
-        row.style.marginTop = '11px';
-
-        /* Which registry the crew picks identifiers from. Asset-based, never
-           free text (Rule 3). */
-        const at = document.createElement('vaadin-select');
-        at.setAttribute('theme', 'outlined');
-        at.setAttribute('label', 'Asset type');
-        at.items = [{ label: 'Select an asset type…', value: '' }]
-          .concat(ASSET_TYPES.map(t => ({ label: t.label, value: t.value })));
-        at.value = cfg.assetType || '';
-        at.addEventListener('value-changed', e => {
-          /* Compare against the STORED value, not just undefined. Vaadin fires
-             value-changed when a field is CREATED with a value, so a looser
-             guard lets the create-time event through to renderCreatorSteps(),
-             which recreates this very select and fires it again — forever.
-             Same trap the repeat editor documents; this one hung the page. */
-          if (e.detail.value === undefined || e.detail.value === (cfg.assetType || '')) return;
-          cfg.assetType = e.detail.value; markCreatorDirty(); renderCreatorSteps();
-        });
-        row.appendChild(at);
-
-        /* A FLOOR, not a range. See MULTI-RESPONSE above for why there is no
-           maximum. */
-        const min = document.createElement('vaadin-number-field');
-        min.setAttribute('theme', 'outlined');
-        min.setAttribute('label', 'Minimum items');
-        min.setAttribute('helper-text', 'Fewer than this blocks submit. No maximum.');
-        min.setAttribute('min', '1');
-        min.value = cfg.minItems == null ? 1 : cfg.minItems;
-        min.addEventListener('value-changed', e => {
-          const n = parseInt(e.detail.value, 10);
-          cfg.minItems = isNaN(n) || n < 1 ? 1 : n;
-          markCreatorDirty();
-        });
-        row.appendChild(min);
-        mWrap.appendChild(row);
-
-        /* Unconfigured asset type is the one state that cannot run, so it is
-           called out rather than left to fail at runtime. */
-        if (!cfg.assetType) {
-          const warn = document.createElement('div');
-          warn.className = 'cm-alert cm-alert--warn';
-          warn.style.marginTop = '10px';
-          warn.innerHTML = '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
-            '<span>Pick an asset type — the crew needs a list of identifiers to answer against.</span>';
-          mWrap.appendChild(warn);
-        } else {
-          const n = ASSETS.filter(a => a.type === cfg.assetType).length;
-          const hint = document.createElement('p');
-          hint.className = 'cm-cfg-group-help';
-          hint.style.margin = '9px 0 0';
-          hint.textContent = n + ' ' +
-            (ASSET_TYPES.find(t => t.value === cfg.assetType) || {}).label +
-            (n === 1 ? '' : 's') + ' tracked · the crew selects which ones they checked.';
-          mWrap.appendChild(hint);
-        }
-      }
-      body.appendChild(mWrap);
-    }
-
-    // Numeric threshold — grouped, because min/max/unit are one decision.
-    if (s.type === 'numeric') {
-      const g = cfgGroup('Accepted range', 'Outside this range fails the step.');
-      const row = document.createElement('div');
-      row.className = 'cm-cfg-row cm-cfg-row--3';
-      [['min', 'Min'], ['max', 'Max']].forEach(([key, lbl]) => {
-        const f = document.createElement('vaadin-number-field');
-        f.setAttribute('theme', 'outlined');
-        f.setAttribute('label', lbl);
-        f.value = s[key] || '';
-        f.addEventListener('value-changed', e => { s[key] = e.detail.value; markCreatorDirty(); });
-        row.appendChild(f);
-      });
-      const u = document.createElement('vaadin-text-field');
-      u.setAttribute('theme', 'outlined');
-      u.setAttribute('label', 'Unit');
-      u.value = s.unit || '';
-      u.addEventListener('value-changed', e => { s.unit = e.detail.value; markCreatorDirty(); });
-      row.appendChild(u);
-      g.appendChild(row);
-      body.appendChild(g);
-    }
-
-    /* Q41 — reword the response options. Display only: the type, its failure
-       semantics and every lookup that trends this question stay bound to the
-       underlying values, so "No" on a relabelled Pass/Fail still fails and
-       still rolls up with every other Pass/Fail failure. */
-    if (canRelabel(s.type)) {
-      const g = cfgGroup('Response wording',
-        'What the crew sees. The underlying type and its pass/fail behaviour do not change.');
-      const row = document.createElement('div');
-      row.className = 'cm-cfg-row cm-cfg-row--2';
-      RESPONSE_LABEL_SLOTS[s.type].forEach(slot => {
-        const f = document.createElement('vaadin-text-field');
-        f.setAttribute('theme', 'outlined');
-        f.setAttribute('label', slot.fallback);
-        f.setAttribute('placeholder', slot.fallback);
-        /* Helper names the semantic role, so an author relabelling "Fail" to
-           "No" can still see which one is the failing value. */
-        if (s.type === 'passfail') {
-          f.setAttribute('helper-text', slot.key === 'fail'
-            ? 'The failing value' : 'The passing value');
-        }
-        f.value = (s.responseLabels && s.responseLabels[slot.key]) || '';
-        f.addEventListener('value-changed', e => {
-          if (!s.responseLabels) s.responseLabels = {};
-          const v = e.detail.value;
-          if (v && v.trim()) s.responseLabels[slot.key] = v;
-          else delete s.responseLabels[slot.key];
-          markCreatorDirty();
-        });
-        row.appendChild(f);
-      });
-      g.appendChild(row);
-      if (isRelabelled(s)) {
-        const note = document.createElement('p');
-        note.className = 'cm-cfg-group-help';
-        note.style.margin = '9px 0 0';
-        note.innerHTML = 'Still a <strong>' + escHtml(respMeta(s.type).label) +
-          '</strong> step — reporting and failure rules are unchanged.';
-        g.appendChild(note);
-      }
-      body.appendChild(g);
-    }
-
-    /* Count: par level is what gives the number meaning (S4 — "when compared
-       to a par level"). Optional: a count with no par records inventory
-       without judging it. */
-    if (s.type === 'count') {
-      const g = cfgGroup('Par level', 'The expected quantity. Below it fails the step; above it does not.');
-      const row = document.createElement('div');
-      row.className = 'cm-cfg-row cm-cfg-row--2';
-      const par = document.createElement('vaadin-number-field');
-      par.setAttribute('theme', 'outlined');
-      par.setAttribute('label', 'Par');
-      par.setAttribute('helper-text', 'Leave empty to record a count without a pass/fail.');
-      par.setAttribute('min', '0');
-      par.value = s.par == null ? '' : s.par;
-      par.addEventListener('value-changed', e => { s.par = e.detail.value; markCreatorDirty(); });
-      row.appendChild(par);
-      const noun = document.createElement('vaadin-text-field');
-      noun.setAttribute('theme', 'outlined');
-      noun.setAttribute('label', 'What is counted');
-      noun.setAttribute('helper-text', 'e.g. "4x4 gauze". Shown beside the count.');
-      noun.value = s.countNoun || '';
-      noun.addEventListener('value-changed', e => { s.countNoun = e.detail.value; markCreatorDirty(); });
-      row.appendChild(noun);
-      g.appendChild(row);
-      body.appendChild(g);
-    }
-
-    // Options editor
-    if (s.type === 'single') {
-      const wrap = cfgGroup('Answer options');
-      const list = document.createElement('div');
-      list.className = 'cm-options-list';
-      (s.options || []).forEach((opt, oi) => {
-        const row = document.createElement('div');
-        row.className = 'cm-option-row';
-        const f = document.createElement('vaadin-text-field');
-        f.setAttribute('theme', 'outlined');
-        f.value = opt;
-        f.addEventListener('value-changed', e => {
-          const was = s.options[oi];
-          s.options[oi] = e.detail.value;
-          /* Keep the fail marking attached to the option when it is renamed,
-             otherwise editing the wording silently un-marks it. */
-          const fi = (s.failOptions || []).indexOf(was);
-          if (fi !== -1) s.failOptions[fi] = e.detail.value;
-          markCreatorDirty();
-        });
-        row.appendChild(f);
-
-        /* Marking an option as failing is what gives a Select its pass/fail
-           (S4: "only when options are marked"). A toggle per option rather
-           than a separate list, so the marking sits on the thing it marks. */
-        const failing = (s.failOptions || []).indexOf(opt) !== -1;
-        const fb = document.createElement('button');
-        fb.type = 'button';
-        fb.className = 'cm-optfail' + (failing ? ' active' : '');
-        fb.title = failing
-          ? 'Choosing this option fails the step. Click to unmark.'
-          : 'Mark this option as a failure.';
-        fb.setAttribute('aria-pressed', String(failing));
-        fb.innerHTML = '<i class="fa-solid fa-circle-xmark" aria-hidden="true"></i>';
-        fb.addEventListener('click', () => {
-          if (!s.failOptions) s.failOptions = [];
-          const i = s.failOptions.indexOf(opt);
-          if (i === -1) s.failOptions.push(opt); else s.failOptions.splice(i, 1);
-          markCreatorDirty(); renderCreatorSteps();
-        });
-        row.appendChild(fb);
-
-        row.appendChild(iconBtn('fa-xmark', 'Remove option', () => {
-          const gone = s.options.splice(oi, 1)[0];
-          if (s.failOptions) s.failOptions = s.failOptions.filter(x => x !== gone);
-          markCreatorDirty(); renderCreatorSteps();
-        }));
-        list.appendChild(row);
-      });
-      wrap.appendChild(list);
-      const add = document.createElement('vaadin-button');
-      add.setAttribute('theme', 'tertiary');
-      add.style.marginTop = '6px';
-      add.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true" style="margin-right:6px"></i>Add option';
-      add.addEventListener('click', () => {
-        s.options.push('Option ' + (s.options.length + 1));
-        markCreatorDirty(); renderCreatorSteps();
-      });
-      wrap.appendChild(add);
-      grid.appendChild(wrap);
-    }
-
-    // Nested check: asset type, look-back window, pass threshold, checklist.
-    if (s.type === 'nested') {
-      /* Two callbacks, deliberately.
-
-         `touch` marks the block dirty and nothing else. `rebuild` re-renders
-         the step list.
-
-         Keeping them apart is not tidiness — a text field that re-renders on
-         `value-changed` is an infinite loop. Vaadin fires `value-changed` when
-         a field is CREATED with a value, so render → field fires → re-render →
-         field fires again, forever. That is what hung the SCBA block, whose
-         first step is a repeating group. So value edits use `touch`, and only
-         structural changes (add, remove, switch type, toggle threshold mode)
-         use `rebuild`. */
-      grid.appendChild(buildRepeatEditor(s,
-        () => { markCreatorDirty(); },
-        () => { markCreatorDirty(); renderCreatorSteps(); }));
-    }
-
-    /* Section 3 — what a failure DOES, and what the crew can attach. These
-       were one block under a single "Failure severity" label, which made the
-       photo/note switches look like part of the severity decision. */
-    body.appendChild(cfgSection('On failure', null, 3));
-
-    /* Consequences, not a severity word. Switches rather than chips because
-       these are independent and combinable — a step can do both, or neither.
-       A chip group would have implied one-of. */
-    const failWrap = cfgGroup('When this step fails');
-    const failCol = document.createElement('div');
-    failCol.className = 'cm-cfg-switches cm-cfg-switches--stack';
-    FAILURE_ACTIONS.forEach(a => {
-      const cell = document.createElement('label');
-      cell.className = 'cm-cfg-switch cm-cfg-switch--help';
-      const sw = document.createElement('vwc-switch');
-      sw.checked = failActions(s).includes(a.value);
-      sw.setAttribute('accessible-name', a.label);
-      onSwitchChange(sw, v => {
-        const set = new Set(failActions(s));
-        if (v) set.add(a.value); else set.delete(a.value);
-        /* Keep canonical order so two steps with the same actions always
-           serialise identically. */
-        s.onFail = FAILURE_ACTIONS.map(x => x.value).filter(x => set.has(x));
-        markCreatorDirty(); renderCreatorSteps();
-      });
-      const txt = document.createElement('span');
-      txt.innerHTML = a.label + '<span class="cm-cfg-help">' + a.help + '</span>';
-      cell.appendChild(sw); cell.appendChild(txt);
-      failCol.appendChild(cell);
-    });
-    failWrap.appendChild(failCol);
-    body.appendChild(failWrap);
-
-    /* Capture properties. Three states rather than two switches each, so
-       "required but not allowed" cannot be authored. */
-    const capWrap = cfgGroup('What the crew can attach');
-    CAPTURE_KEYS.forEach(c => {
-      const row = document.createElement('div');
-      row.className = 'cm-cap-row';
-
-      const lockedHere = c.key === 'comment' && forcesComment(s);
-      const cur = lockedHere ? 'required' : captureState(s, c.key);
-
-      const lab = document.createElement('div');
-      lab.className = 'cm-cap-label';
-      lab.innerHTML =
-        '<i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
-        '<span>' + c.label +
-          '<span class="cm-cfg-help">' +
-            (lockedHere
-              ? 'A failed Pass / Fail answer always requires a comment, so this is fixed.'
-              : c.help) +
-          '</span>' +
-        '</span>';
-      row.appendChild(lab);
-
-      row.appendChild(segmented(CAPTURE_STATES, cur, v => {
-        s[c.key] = v; markCreatorDirty(); renderCreatorSteps();
-      }, { locked: lockedHere, ariaLabel: c.label }));
-
-      capWrap.appendChild(row);
-    });
-    body.appendChild(capWrap);
+    buildStepForm(s, body, (structural) => {
+      markCreatorDirty();
+      if (structural) renderCreatorSteps();
+    }, card.querySelector('.cm-stepcard-title'));
+    if (s._open) animateOpen(body);
 
     // Drag-to-reorder steps
     card.addEventListener('dragstart', e => {
@@ -9080,6 +10230,7 @@ function renderCreatorSteps() {
       const [moved] = creatorSteps.splice(dragStepIdx, 1);
       creatorSteps.splice(idx, 0, moved);
       renumber(); markCreatorDirty(); renderCreatorSteps();
+      flashMoved('[data-anchor="cstep:' + idx + '"]');
     });
 
     host.appendChild(card);
@@ -9138,7 +10289,7 @@ function openImportDialog(sec) {
           '<span class="cm-block-icon"><i class="fa-solid ' + dm.icon + '" aria-hidden="true"></i></span>' +
           '<div style="flex:1">' +
             '<div class="cm-import-name">' + b.name +
-              (b.multiUse ? ' <span theme="badge contrast pill">Multi-use</span>' : '') + '</div>' +
+              (b.multiUse ? ' <span theme="badge contrast pill" class="cm-tag">Multi-use</span>' : '') + '</div>' +
             '<div class="cm-import-meta">' + dm.label + ' · v' + b.version + ' · ' +
               stepCountLabel(b.steps) + ' steps · used by ' + b.usedBy + '</div>' +
           '</div>' +
@@ -9174,7 +10325,7 @@ function openImportDialog(sec) {
         linkState: importTarget.linkState === 'template' ? 'template' : 'block',
         expanded: false
       };
-      importTarget.blocks.push(inst);
+      sectionItems(importTarget).push({ kind: 'block', inst: inst });
       markBuilderDirty(); renderSections();
       dlg.opened = false;
       toast(b.name + ' imported', 'fa-cube');
@@ -9478,6 +10629,100 @@ function openPickerDialog() {
   dlg.opened = true;
 }
 
+/* ---- Detach a block into steps (destructive, explicit) ---------------
+   The second rung of the break-link ladder. A template-linked instance
+   breaks to `block` (openBreakDialog above); a block-linked one breaks all
+   the way, and "all the way" means it stops being a block reference at all.
+
+   What replaces it is its steps, copied into the section as ordinary local
+   steps — so every one of them can then be edited, reordered, moved to
+   another section or deleted individually, which is exactly what a block
+   instance does not allow. Nothing propagates in afterwards, because there
+   is no longer a link to propagate along.
+
+   The copy is DEEP. A step's onFail and options are arrays; sharing them
+   with the source block would let an edit here rewrite the shared block and
+   silently change every other checklist using it. */
+function explodeBlock(sec, inst, idx) {
+  const b = blockById(inst.blockId);
+  if (!b) return 0;
+  const steps = (b.steps || []).map(st => {
+    const copy = Object.assign({}, st);
+    if (Array.isArray(st.onFail))  copy.onFail  = st.onFail.slice();
+    if (Array.isArray(st.options)) copy.options = st.options.slice();
+    /* A block's own instructions (Q40) apply to every question in it. Once
+       the block is gone there is nothing to hang them on, so they ride down
+       onto each step as a note rather than being dropped. */
+    if (b.instructions && b.instructions.text && !copy.instructions) {
+      copy.instructions = { text: b.instructions.text };
+    }
+    /* An optional INSTANCE made all its steps optional at run time. With the
+       instance gone, that has to be carried per step or it is lost. */
+    if (inst.optional) copy.optional = true;
+    /* Transient UI state never rides along — `_`-prefixed keys are per-session
+       (open/collapsed), the same convention cleanStep() enforces on save. */
+    Object.keys(copy).forEach(k => { if (k.charAt(0) === '_') delete copy[k]; });
+    return copy;
+  });
+
+  const items = sectionItems(sec);
+  items.splice(idx, 1, ...steps.map(st => ({ kind: 'step', step: st })));
+  renumberSection(sec);
+  // templateLocked only ever existed to protect template-linked blocks.
+  sec.templateLocked = sectionBlocks(sec).some(i => i.linkState === 'template');
+  return steps.length;
+}
+
+function openExplodeDialog(sec, inst, idx) {
+  if (!sec || !inst) return;
+  const b = blockById(inst.blockId);
+  const label = (b ? b.name : 'this block') +
+    (inst.contextLabel ? ' — ' + inst.contextLabel : '');
+  const n = (b && b.steps || []).length;
+
+  const dlg = document.getElementById('dlgExplode');
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
+    wrap.innerHTML =
+      '<div class="cm-alert cm-alert--err" style="margin-bottom:0">' +
+        '<i class="fa-solid fa-link-slash" aria-hidden="true"></i>' +
+        '<div class="cm-alert-body">' +
+          '<strong>This cannot be undone.</strong>' +
+          'Breaking the link on <strong>' + escHtml(label) + '</strong> replaces it with ' +
+          'its ' + n + ' step' + (n === 1 ? '' : 's') + ', copied into this section. ' +
+          'They become this checklist\'s own steps: editable, reorderable and ' +
+          'removable one at a time. Edits to the source block stop reaching them.' +
+        '</div>' +
+      '</div>';
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Keep the block', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.setAttribute('theme', 'error primary');
+    ok.textContent = 'Convert to steps';
+    ok.addEventListener('click', () => {
+      const made = explodeBlock(sec, inst, idx);
+      markBuilderDirty(); renderSections();
+      dlg.opened = false;
+      logEdit(currentChecklist().id, 'Converted ' + label + ' to steps',
+        made + ' step' + (made === 1 ? '' : 's') + ' copied into ' + sec.name +
+        ' · no longer linked to the content block');
+      toast(made + ' step' + (made === 1 ? '' : 's') + ' created', 'fa-link-slash');
+    });
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  dlg.opened = true;
+}
 /* ---- Break template link (destructive, explicit) -------------------- */
 /* Breaks ONE block instance's template link. Sections have no link state, so
    there is nothing section-level to break — the link belongs to the instance
@@ -9499,7 +10744,8 @@ function openBreakDialog(sec, inst) {
           '<strong>This cannot be undone.</strong>' +
           'Breaking the template link on <strong>' + escHtml(label) + '</strong> stops template ' +
           'updates from reaching it. The block link stays intact, so edits to the block itself ' +
-          'still propagate — this instance moves from <em>Template</em> to <em>Block</em>.' +
+          'still propagate — this instance moves from <em>Template</em> to <em>Block</em>. ' +
+          'To detach it completely and get editable steps, break the link again afterwards.' +
         '</div>' +
       '</div>';
     root.appendChild(wrap);
@@ -9518,7 +10764,7 @@ function openBreakDialog(sec, inst) {
       inst.linkState = 'block';
       /* If no template-linked block remains, the section is no longer
          template-locked — the lock only ever existed to protect those. */
-      if (!sec.blocks.some(i => i.linkState === 'template')) sec.templateLocked = false;
+      if (!sectionBlocks(sec).some(i => i.linkState === 'template')) sec.templateLocked = false;
       markBuilderDirty(); renderSections();
       dlg.opened = false;
       logEdit(currentChecklist().id, 'Broke template link on ' + label,
@@ -10545,311 +11791,64 @@ function publishChecklist(c, next) {
   toast(c.name + ' published as v' + next, 'fa-circle-check');
 }
 
-/* ---- Local step dialog (steps in a section's pre/post zones) -------- */
-function openStepDialog(sec, zoneKey) {
-  const draft = { label: '', type: 'passfail', onFail: [], comment: 'off', documentation: 'off' };
-  const dlg = document.getElementById('dlgStep');
-  dlg.renderer = (root) => {
-    root.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
-    wrap.innerHTML = '<p class="cm-dialog-sub" style="margin:0 0 14px">' +
-      'Runs ' + (zoneKey === 'preSteps' ? 'before' : 'after') +
-      ' this section\'s content blocks.</p>';
-
-    const grid = document.createElement('div');
-    grid.className = 'cm-form-grid';
-
-    const label = document.createElement('vaadin-text-field');
-    label.setAttribute('theme', 'outlined');
-    label.setAttribute('label', 'Step label');
-    label.classList.add('cm-form-grid--wide');
-    /* Restore from the draft: the dialog re-paints when the response type
-       changes, and a field that did not read its value back would silently
-       discard whatever the author had already typed. */
-    label.value = draft.label || '';
-    label.addEventListener('value-changed', e => { draft.label = e.detail.value; });
-    grid.appendChild(label);
-
-    const type = document.createElement('vaadin-select');
-    type.setAttribute('theme', 'outlined');
-    type.setAttribute('label', 'Response');
-    /* Same list the block creator offers. Nesting is a STEP capability, not
-       block-only content — anywhere a step can be added it can pull in a
-       nested check, so this dialog offers and configures it too. The only
-       thing that constrains it is where the parent checklist is deployed
-       (Q30), which the deployment picker gates. */
-    type.items = authorableTypes().map(r => ({ label: r.label, value: r.value }));
-    type.value = draft.type;
-    type.addEventListener('value-changed', e => {
-      if (!e.detail.value || e.detail.value === draft.type) return;
-      const prevType = draft.type;
-      draft.type = e.detail.value;
-      if (draft.type === 'nested') {
-        /* Q30 guard. A section step belongs to exactly one checklist, so the
-           conflict is checked directly against that checklist's deployments
-           — simpler than the block creator's case, where a block may be used
-           by several. */
-        const bad = nonNestableDeployments(currentChecklist());
-        if (bad.length) {
-          draft.type = prevType;
-          toast('Cannot nest here — ' + bad.length + ' deployment' +
-            (bad.length === 1 ? '' : 's') + ' cannot run a nested check',
-            'fa-circle-exclamation');
-          dlg.requestContentUpdate();
-          return;
-        }
-        // A nested step is per-item already; multi-response on top is meaningless.
-        delete draft.multiResponse;
-        if (draft.checklistId === undefined) draft.checklistId = NEST_DEFAULTS.checklistId;
-        if (draft.assetType === undefined) draft.assetType = NEST_DEFAULTS.assetType;
-        if (draft.lookBack === undefined) draft.lookBack = NEST_DEFAULTS.lookBack;
-        if (draft.lookBackDays === undefined) draft.lookBackDays = NEST_DEFAULTS.lookBackDays;
-      }
-      /* Re-paint: whether the comment control is LOCKED depends on the type
-         (a Pass/Fail always requires a comment), so the control has to be
-         rebuilt when the type changes. Without this, switching to Pass/Fail
-         leaves an editable comment control contradicting the rule. */
-      dlg.requestContentUpdate();
-    });
-    grid.appendChild(type);
-
-    /* Failure actions, as toggle chips — the quick-add dialog is a compact
-       surface, so these are chips rather than the switch rows the full step
-       editor uses. Multi-select: a step can do both, or neither. */
-    const failWrap = document.createElement('div');
-    failWrap.className = 'cm-form-grid--wide';
-    failWrap.innerHTML = '<span class="cm-chip-label">When this step fails</span>';
-    const chips = document.createElement('div');
-    chips.className = 'cm-chips';
-    FAILURE_ACTIONS.forEach(a => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      const on0 = draft.onFail.includes(a.value);
-      btn.className = 'cm-chip' + (on0 ? ' active' : '');
-      btn.title = a.help;
-      btn.innerHTML = '<i class="fa-solid ' + a.icon + '" aria-hidden="true" ' +
-        'style="margin-right:6px"></i>' + a.label;
-      btn.setAttribute('aria-pressed', String(on0));
-      btn.addEventListener('click', () => {
-        const on = !btn.classList.contains('active');
-        btn.classList.toggle('active', on);
-        btn.setAttribute('aria-pressed', String(on));
-        const set = new Set(draft.onFail);
-        if (on) set.add(a.value); else set.delete(a.value);
-        draft.onFail = FAILURE_ACTIONS.map(x => x.value).filter(x => set.has(x));
-      });
-      chips.appendChild(btn);
-    });
-    failWrap.appendChild(chips);
-    grid.appendChild(failWrap);
-
-    /* Nested check (S8). The same four decisions the block creator asks for:
-       which checklist, which assets on the entity, the look-back window, and
-       the passing threshold. Nesting is a step capability, so a step added
-       here is as configurable as one added in a block. */
-    if (draft.type === 'nested') {
-      const nw = document.createElement('div');
-      nw.className = 'cm-form-grid--wide';
-      nw.innerHTML = '<span class="cm-chip-label">Nested check</span>';
-
-      const cand = perItemCandidates(currentChecklist() ? currentChecklist().id : null);
-      const pick = document.createElement('vaadin-select');
-      pick.setAttribute('theme', 'outlined');
-      pick.setAttribute('label', 'Checklist to perform');
-      pick.setAttribute('helper-text', 'Published checklists only');
-      pick.classList.add('cm-form-grid--wide');
-      pick.items = [{ label: 'Select a checklist…', value: '' }].concat(
-        cand.map(c => ({
-          label: c.name + '  ·  v' + c.liveVersion + (c.perItemOnly ? '' : '  ·  also deployable'),
-          value: c.id
-        })));
-      pick.value = draft.checklistId || '';
-      pick.addEventListener('value-changed', e => {
-        if (e.detail.value === undefined) return;
-        draft.checklistId = e.detail.value || null;
-      });
-      nw.appendChild(pick);
-
-      const row = document.createElement('div');
-      row.className = 'cm-cfg-row cm-cfg-row--2';
-      row.style.marginTop = '10px';
-
-      const at = document.createElement('vaadin-select');
-      at.setAttribute('theme', 'outlined');
-      at.setAttribute('label', 'Asset type on the entity');
-      at.items = ASSET_TYPES.map(t => ({ label: t.label, value: t.value }));
-      at.value = draft.assetType || NEST_DEFAULTS.assetType;
-      at.addEventListener('value-changed', e => {
-        if (!e.detail.value) return;
-        draft.assetType = e.detail.value;
-      });
-      row.appendChild(at);
-
-      const lb = document.createElement('vaadin-select');
-      lb.setAttribute('theme', 'outlined');
-      lb.setAttribute('label', 'Look-back');
-      lb.items = [
-        { label: 'Skip if checked recently', value: 'skip' },
-        { label: 'Always require a check', value: 'always' }
-      ];
-      lb.value = draft.lookBack === 'always' ? 'always' : 'skip';
-      lb.addEventListener('value-changed', e => {
-        const current = draft.lookBack === 'always' ? 'always' : 'skip';
-        if (!e.detail.value || e.detail.value === current) return;
-        draft.lookBack = e.detail.value;
-        dlg.requestContentUpdate();   // structural: the day field toggles
-      });
-      row.appendChild(lb);
-      nw.appendChild(row);
-
-      if (draft.lookBack !== 'always') {
-        const days = document.createElement('vaadin-number-field');
-        days.setAttribute('theme', 'outlined');
-        days.setAttribute('label', 'Window (days)');
-        days.setAttribute('min', '1');
-        days.style.marginTop = '10px';
-        days.value = draft.lookBackDays == null ? NEST_DEFAULTS.lookBackDays : draft.lookBackDays;
-        days.addEventListener('value-changed', e => {
-          const n = parseInt(e.detail.value, 10);
-          draft.lookBackDays = isNaN(n) || n < 1 ? 1 : n;
-        });
-        nw.appendChild(days);
-      }
-
-      /* Q30, stated where the step is authored — cheaper than discovering it
-         when a deployment is refused. */
-      const lim = document.createElement('p');
-      lim.className = 'cm-cfg-group-help';
-      lim.style.margin = '9px 0 0';
-      lim.textContent = 'Runs one level down, from apparatus and stations only.';
-      nw.appendChild(lim);
-
-      grid.appendChild(nw);
-    }
-
-    /* Multi-response (Q12b) — one switch plus its two fields, the same
-       property the full editor exposes. */
-    if (draft.type !== 'nested') {
-      const mWrap = document.createElement('div');
-      mWrap.className = 'cm-form-grid--wide';
-      mWrap.innerHTML = '<span class="cm-chip-label">Multiple responses</span>';
-
-      const mRow = document.createElement('label');
-      mRow.className = 'cm-cfg-switch';
-      const mSw = document.createElement('vwc-switch');
-      mSw.checked = !!draft.multiResponse;
-      mSw.setAttribute('accessible-name', 'Multiple responses');
-      onSwitchChange(mSw, v => {
-        if (v) draft.multiResponse = Object.assign({}, MULTI_DEFAULTS);
-        else delete draft.multiResponse;
-        dlg.requestContentUpdate();
-      });
-      const mTxt = document.createElement('span');
-      mTxt.textContent = 'Answer once per asset';
-      mRow.appendChild(mSw); mRow.appendChild(mTxt);
-      mWrap.appendChild(mRow);
-
-      if (draft.multiResponse) {
-        const mr = document.createElement('div');
-        mr.className = 'cm-cfg-row cm-cfg-row--2';
-        mr.style.marginTop = '10px';
-
-        const at = document.createElement('vaadin-select');
-        at.setAttribute('theme', 'outlined');
-        at.setAttribute('label', 'Asset type');
-        at.items = [{ label: 'Select an asset type…', value: '' }]
-          .concat(ASSET_TYPES.map(t => ({ label: t.label, value: t.value })));
-        at.value = draft.multiResponse.assetType || '';
-        at.addEventListener('value-changed', e => {
-          if (e.detail.value === undefined) return;
-          draft.multiResponse.assetType = e.detail.value;
-        });
-        mr.appendChild(at);
-
-        const mn = document.createElement('vaadin-number-field');
-        mn.setAttribute('theme', 'outlined');
-        mn.setAttribute('label', 'Minimum items');
-        mn.setAttribute('min', '1');
-        mn.value = draft.multiResponse.minItems == null ? 1 : draft.multiResponse.minItems;
-        mn.addEventListener('value-changed', e => {
-          const n = parseInt(e.detail.value, 10);
-          draft.multiResponse.minItems = isNaN(n) || n < 1 ? 1 : n;
-        });
-        mr.appendChild(mn);
-        mWrap.appendChild(mr);
-      }
-      grid.appendChild(mWrap);
-    }
-
-    /* Capture properties — the same three states as the full editor. A step
-       added here is a real step, so it must be authorable to the same spec;
-       the quick-add is a smaller surface, not a lesser one. */
-    CAPTURE_KEYS.forEach(c => {
-      const capWrap = document.createElement('div');
-      capWrap.className = 'cm-form-grid--wide';
-      capWrap.innerHTML = '<span class="cm-chip-label">' + c.label + '</span>';
-      const lockedHere = c.key === 'comment' && forcesComment(draft);
-      const seg = segmented(
-        CAPTURE_STATES,
-        lockedHere ? 'required' : (draft[c.key] || 'off'),
-        v => { draft[c.key] = v; },
-        { locked: lockedHere, ariaLabel: c.label });
-      capWrap.appendChild(seg);
-      grid.appendChild(capWrap);
-    });
-
-    wrap.appendChild(grid);
-    root.appendChild(wrap);
-  };
-  dlg.footerRenderer = (root) => {
-    root.innerHTML = '';
-    const foot = document.createElement('div');
-    foot.className = 'cm-dialog-foot';
-    const right = document.createElement('div');
-    right.className = 'cm-dialog-foot-right';
-    right.appendChild(textBtn('Cancel', 'secondary', () => { dlg.opened = false; }));
-    const ok = document.createElement('vaadin-button');
-    ok.setAttribute('theme', 'primary');
-    ok.textContent = 'Add step';
-    ok.addEventListener('click', () => {
-      if (!draft.label.trim()) { toast('Give the step a label', 'fa-circle-exclamation'); return; }
-      /* A nested step with no checklist named cannot run — the crew would
-         meet a step with nothing behind it. Caught here rather than at run
-         time, where it is far more expensive to discover. */
-      if (draft.type === 'nested' && !draft.checklistId) {
-        toast('Choose the checklist this step performs', 'fa-circle-exclamation');
-        return;
-      }
-      /* Straight into the zone array. The old code wrapped local steps in a
-         synthetic 'freestanding' block instance so they could live in the same
-         list as real blocks — unnecessary now that local steps have their own
-         zones, and it was what made them look like a block to the renderer. */
-      const list = sec[zoneKey] || (sec[zoneKey] = []);
-      list.push(Object.assign({ id: list.length + 1 }, draft));
-      markBuilderDirty(); renderSections();
-      dlg.opened = false;
-      toast('Step added ' + (zoneKey === 'preSteps' ? 'before' : 'after') + ' blocks', 'fa-plus');
-    });
-    right.appendChild(ok);
-    foot.appendChild(right);
-    root.appendChild(foot);
-  };
-  dlg.opened = true;
-}
 
 /* ======================================================================
    WIRING
    ====================================================================== */
 window.addEventListener('DOMContentLoaded', () => {
 
-  /* Filter option sets. Vaadin combo boxes take .items imperatively. */
-  document.getElementById('clStatus').items = ['Published', 'Draft', 'Archived'];
-  document.getElementById('clType').items = CHECKLIST_TYPES.map(t => t.label);
-  document.getElementById('clCadence').items = CADENCES.map(cap);
-  document.getElementById('blDomain').items = DOMAINS.map(d => d.label);
-  document.getElementById('blStatus').items = ['Published', 'Draft', 'Archived'];
-  document.getElementById('dpStatus').items = ['Active', 'Paused', 'Pending'];
+  /* Filter option sets. Vaadin combo boxes take .items imperatively.
+
+     Each list LEADS with its "All" sentinel and opens on it, so no filter
+     ever renders blank — see the ALL_* constants by checklistRows(). For the
+     multi-selects the sentinel is a real, selectable entry too: picking it
+     is how you get back to unfiltered without hunting for the clear button,
+     and choosing anything else drops it (see the guards below). */
+  const setFilter = (id, items, def) => {
+    const el = document.getElementById(id);
+    el.items = items;
+    if (def !== undefined) el.value = def;
+    return el;
+  };
+
+  setFilter('clStatus',  [ALL_STATUSES, 'Published', 'Draft', 'Archived']);
+  setFilter('clType',    [ALL_TYPES].concat(CHECKLIST_TYPES.map(t => t.label)));
+  setFilter('clCadence', [ALL_CADENCES].concat(CADENCES.map(cap)), ALL_CADENCES);
+  setFilter('blDomain',  [ALL_DOMAINS].concat(DOMAINS.map(d => d.label)));
+  setFilter('blStatus',  [ALL_STATUSES, 'Published', 'Draft', 'Archived']);
+  setFilter('dpStatus',  [ALL_STATUSES, 'Active', 'Paused', 'Pending']);
+
+  /* The multi-selects start with their sentinel chip showing. */
+  document.getElementById('clStatus').selectedItems = [ALL_STATUSES];
+  document.getElementById('clType').selectedItems   = [ALL_TYPES];
+  document.getElementById('blDomain').selectedItems = [ALL_DOMAINS];
+  document.getElementById('blStatus').selectedItems = [ALL_STATUSES];
+  document.getElementById('dpStatus').selectedItems = [ALL_STATUSES];
+
+  /* "All" and a real value are mutually exclusive: picking a status drops
+     the All chip, and picking All drops everything else. Without this the
+     control would show "All statuses, Draft", which reads as a contradiction.
+     Guarded against its own write — assigning selectedItems re-fires this
+     event, and an unguarded handler would recurse. */
+  [['clStatus', ALL_STATUSES], ['clType', ALL_TYPES], ['blDomain', ALL_DOMAINS],
+   ['blStatus', ALL_STATUSES], ['dpStatus', ALL_STATUSES]].forEach(([id, sentinel]) => {
+    const el = document.getElementById(id);
+    el.addEventListener('selected-items-changed', e => {
+      const sel = e.detail.value || [];
+      const hasAll = sel.indexOf(sentinel) !== -1;
+      let next = null;
+      if (hasAll && sel.length > 1) {
+        /* Both present. Which one the user just added decides the outcome:
+           if All was already there, they picked a value — keep the value. */
+        next = el._hadAll ? sel.filter(v => v !== sentinel) : [sentinel];
+      } else if (sel.length === 0) {
+        next = [sentinel];   // cleared to nothing → back to All, never blank
+      }
+      el._hadAll = next ? next.indexOf(sentinel) !== -1 : hasAll;
+      if (next && next.join() !== sel.join()) el.selectedItems = next;
+    });
+    el._hadAll = true;
+  });
 
   document.getElementById('bType').items = CHECKLIST_TYPES.map(t => ({ label: t.label, value: t.value }));
   document.getElementById('bDefaultSched').addEventListener('click', openDefaultScheduleDialog);
@@ -10869,9 +11868,11 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('clClear').addEventListener('click', () => {
     document.getElementById('clSearch').value = '';
-    document.getElementById('clStatus').selectedItems = [];
-    document.getElementById('clType').selectedItems = [];
-    document.getElementById('clCadence').value = '';
+    // Back to the defaults, not to blank — a cleared filter still states
+    // what it is doing.
+    document.getElementById('clStatus').selectedItems = [ALL_STATUSES];
+    document.getElementById('clType').selectedItems = [ALL_TYPES];
+    document.getElementById('clCadence').value = ALL_CADENCES;
     renderChecklistGrid();
   });
 
@@ -10882,8 +11883,8 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('blClear').addEventListener('click', () => {
     document.getElementById('blSearch').value = '';
-    document.getElementById('blDomain').selectedItems = [];
-    document.getElementById('blStatus').selectedItems = [];
+    document.getElementById('blDomain').selectedItems = [ALL_DOMAINS];
+    document.getElementById('blStatus').selectedItems = [ALL_STATUSES];
     renderBlockGrid();
   });
 
@@ -10895,10 +11896,13 @@ window.addEventListener('DOMContentLoaded', () => {
 
   /* Activity filters. Any change resets to page 1 — leaving the user on page 7
      of a set that just shrank to two pages is the classic paging bug. */
-  document.getElementById('actKind').items = ['Runs', 'Edits'];
-  document.getElementById('actOutcome').items = ['Passed', 'Deficiency', 'Out of service'];
-  document.getElementById('actRange').items = ACT_RANGES.map(r => r.label);
-  document.getElementById('actRange').value = 'All time';
+  setFilter('actKind', [ALL_EVENTS, 'Runs', 'Edits'], ALL_EVENTS);
+  setFilter('actOutcome',
+    [ALL_OUTCOMES, 'Passed', 'Deficiency', 'Out of service'], ALL_OUTCOMES);
+  setFilter('actRange', ACT_RANGES.map(r => r.label), ALL_TIME);
+  /* actRig's options come from the events themselves, so it is filled in
+     renderActivity(); it only needs its default here. */
+  document.getElementById('actRig').value = ALL_RIGS;
   ['actKind', 'actRig', 'actOutcome', 'actRange', 'actSearch'].forEach(id => {
     document.getElementById(id).addEventListener('value-changed', () => {
       actPage = 0;
@@ -10906,10 +11910,11 @@ window.addEventListener('DOMContentLoaded', () => {
     });
   });
   document.getElementById('actClear').addEventListener('click', () => {
-    ['actKind', 'actRig', 'actOutcome', 'actSearch'].forEach(id => {
-      document.getElementById(id).value = '';
-    });
-    document.getElementById('actRange').value = 'All time';
+    document.getElementById('actSearch').value = '';
+    document.getElementById('actKind').value = ALL_EVENTS;
+    document.getElementById('actRig').value = ALL_RIGS;
+    document.getElementById('actOutcome').value = ALL_OUTCOMES;
+    document.getElementById('actRange').value = ALL_TIME;
     actSort = { field: 'at', dir: 'desc' };
     actPage = 0;
     renderActivity();
@@ -11050,9 +12055,21 @@ window.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btnAddStep').addEventListener('click', () => {
     creatorSteps.push({
       id: creatorSteps.length + 1, label: '', type: 'passfail',
+      /* Opens expanded: a new step has no label yet, so collapsed it would
+         read as "Untitled step" with nothing to act on. Existing steps stay
+         as the author left them. */
+      _open: true,
       onFail: [], comment: 'off', documentation: 'off'
     });
     markCreatorDirty(); renderCreatorSteps();
+    // Focus the label of the step just added.
+    requestAnimationFrame(() => {
+      const cards = document.querySelectorAll('#stepList .cm-stepcard');
+      const last = cards[cards.length - 1];
+      const f = last && last.querySelector('vaadin-text-field');
+      if (f) f.focus();
+      scrollRowIntoView(last);
+    });
   });
   document.getElementById('cName').addEventListener('value-changed', e => {
     document.getElementById('cTitle').textContent = e.detail.value;
@@ -11104,7 +12121,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function applyFlowState(id, opts) {
   opts = opts || {};
   const closeAll = () => {
-    ['dlgImport', 'dlgPicker', 'dlgBreak', 'dlgBlast', 'dlgStep',
+    ['dlgImport', 'dlgPicker', 'dlgBreak', 'dlgBlast',
      'dlgPublish', 'dlgDiscard', 'dlgBatch', 'dlgRetire',
      'dlgLibCadence', 'dlgSchedule', 'dlgRepeatPreview'].forEach(x => {
       const d = document.getElementById(x);

@@ -4027,40 +4027,7 @@
             color: var(--text-strong);
         }
         .assign-field vaadin-date-picker { width: 100%; }
-        .assign-apply-row {
-            margin-top: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        /* Mandatory / Suggested — vaadin-radio-group theme="horizontal".
-           The component supplies the control styling; we only lay the two
-           options out inline and drop the empty group label (the visible
-           label is the sibling .assign-field-label). Uses ::part(group-field)
-           per the pattern in Evaluations/event-forms. */
-        vaadin-radio-group[data-default-field="type"]::part(group-field) {
-            display: flex;
-            flex-direction: row;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0 16px;
-        }
-        vaadin-radio-group[data-default-field="type"]::part(label) {
-            display: none;
-        }
-        /* Reserve the overridden-state padding at ALL times so toggling an
-           option never changes the group's footprint and reflows the modal.
-           The .overridden rule below only repaints inside this same box. */
-        vaadin-radio-group[data-default-field="type"] {
-            padding: 2px 8px;
-            border-radius: 6px;
-            box-sizing: border-box;
-        }
-
-        /* Course rows */
+                /* Course rows */
         .assign-courses-header {
             display: flex;
             align-items: baseline;
@@ -4105,26 +4072,7 @@
             margin: 2px 0 0;
             font-variant-numeric: tabular-nums;
         }
-        .assign-course-tags {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            flex-shrink: 0;
-        }
-        .assign-course-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 3px 8px;
-            border-radius: 999px;
-            letter-spacing: 0.4px;
-            text-transform: uppercase;
-        }
-        .assign-course-tag.mandatory { background: var(--lumo-error-color-10pct); color: var(--lumo-error-text-color); }
-        .assign-course-tag.suggested { background: #e0e7ff; color: #3730a3; }
-        .assign-modal-footer {
+                                        .assign-modal-footer {
             padding: 14px 24px;
             border-top: 1px solid var(--border-soft);
             background: #fafbfc;
@@ -7267,7 +7215,7 @@ function renderFloatingCart() {
 
 // ─── Assignment modal ───
 // MVP scope: a SINGLE schedule for every selected course — one set of
-// { effective, due, expire, type ('mandatory'|'suggested') } held in
+// { effective, due, expire } held in
 // assignBatchDefaults. There are no per-course overrides, so there's no
 // per-course settings map. "Assign" commits this one schedule and marks the
 // courses assigned. The course list's "Configure Assignments" CTA triggers
@@ -7281,8 +7229,7 @@ function getDefaultAssignDates() {
     return {
         effective: toIsoDate(today),
         due: toIsoDate(due),
-        expire: toIsoDate(expire),
-        type: 'mandatory'
+        expire: toIsoDate(expire)
     };
 }
 function toIsoDate(d) {
@@ -7314,7 +7261,7 @@ function ensureAssignDialog() {
         root.innerHTML = `
             <div class="assign-modal-header-body">
                 <h2 class="assign-modal-title" id="assignModalTitle">Configure assignment</h2>
-                <p class="assign-modal-sub">Set one schedule and training type for all ${courses.length} course${courses.length === 1 ? '' : 's'} assigned to <strong>Austin Smith</strong>.</p>
+                <p class="assign-modal-sub">Set one schedule for all ${courses.length} course${courses.length === 1 ? '' : 's'} assigned to <strong>Austin Smith</strong>.</p>
             </div>
             <button type="button" class="assign-modal-close" id="assignModalClose" aria-label="Close">
                 <i class="fa-solid fa-xmark"></i>
@@ -7395,15 +7342,6 @@ function renderAssignSettingsBlock() {
                     <vaadin-date-picker theme="outlined" value="${d.expire}" data-default-field="expire"></vaadin-date-picker>
                 </div>
             </div>
-            <div class="assign-apply-row">
-                <div class="assign-field" style="flex-direction:row; align-items:center; gap:10px;">
-                    <label class="assign-field-label" style="margin:0;">Training type</label>
-                    <vaadin-radio-group theme="horizontal" value="${d.type}" data-default-field="type">
-                        <vaadin-radio-button value="mandatory" label="Mandatory"></vaadin-radio-button>
-                        <vaadin-radio-button value="suggested" label="Suggested"></vaadin-radio-button>
-                    </vaadin-radio-group>
-                </div>
-            </div>
         </div>
     `;
 }
@@ -7412,7 +7350,6 @@ function renderAssignSettingsBlock() {
    the row confirms what's in the assignment and echoes the single schedule. */
 function renderAssignCourseRow(course) {
     const d = assignBatchDefaults;
-    const typeLabel = d.type === 'mandatory' ? 'Mandatory' : 'Suggested';
     return `
         <div class="assign-course" data-course-id="${course.id}">
             <div class="assign-course-head">
@@ -7422,59 +7359,19 @@ function renderAssignCourseRow(course) {
                         ${escapeHtml(course.id)} · Due ${formatDisplayDate(d.due)} · Expires ${formatDisplayDate(d.expire)}
                     </p>
                 </div>
-                <div class="assign-course-tags">
-                    <span class="assign-course-tag ${d.type}">${escapeHtml(typeLabel)}</span>
-                </div>
             </div>
         </div>
     `;
-}
-
-// A `value` ATTRIBUTE on vaadin-radio-group does not stick: the group resolves
-// its value against its child vaadin-radio-buttons, which have not registered
-// yet at upgrade time, so the initial selection is dropped and nothing renders
-// checked. Re-assert it as a PROPERTY after the components have upgraded.
-// Call this on every mount/re-render of a Training type group.
-function applyRadioGroupValues(scope) {
-    /* A `value` ATTRIBUTE on vaadin-radio-group does not stick: the group
-       resolves its value against its child vaadin-radio-buttons, which have
-       not registered yet at upgrade time, so the initial selection is dropped
-       and nothing paints checked. Two wrinkles make this worse here:
-         - the group renders inside the vaadin-dialog's OVERLAY, so a plain
-           document.querySelectorAll misses it entirely and this used to bail;
-         - round-tripping group.value ('' then back) still leaves
-           button.checked false in some upgrade orders.
-       So: search the overlay too, and set `checked` on the matching child
-       button directly, which is what actually paints. */
-    const SEL = 'vaadin-radio-group[data-default-field="type"]';
-    const roots = scope ? [scope] : [document, ...document.querySelectorAll('vaadin-dialog-overlay')];
-    const groups = roots.flatMap(r => [...r.querySelectorAll(SEL)]);
-    if (!groups.length) return;
-
-    const set = () => groups.forEach(g => {
-        const want = g.getAttribute('value');
-        if (!want) return;
-        g.value = want;
-        g.querySelectorAll('vaadin-radio-button').forEach(b => {
-            b.checked = (b.value === want);
-        });
-    });
-    Promise.all([
-        customElements.whenDefined('vaadin-radio-group'),
-        customElements.whenDefined('vaadin-radio-button')
-    ]).then(() => requestAnimationFrame(set));
 }
 
 function wireAssignModal() {
     // Close/cancel/confirm live in the dialog's header/footer renderers and are
     // wired there. This wires only the body's schedule controls.
 
-    applyRadioGroupValues();
-
     /* One schedule for the whole assignment: a change to any field updates
        assignBatchDefaults and re-renders so every course row echoes the new
-       dates. Both vaadin-date-picker and vaadin-radio-group (Training type)
-       emit `value-changed`, so one handler covers every field. */
+       dates. Every field is a vaadin-date-picker emitting `value-changed`,
+       so one handler covers them all. */
     document.querySelectorAll('.assign-defaults [data-default-field]').forEach(el => {
         const field = el.dataset.defaultField;
         el.addEventListener('value-changed', (e) => {
@@ -7483,9 +7380,6 @@ function wireAssignModal() {
             assignBatchDefaults[field] = v;
             // Rows display the shared schedule, so they need to re-render.
             renderAssignModal();
-            // The re-render rebuilds the radio group, whose `value` attribute
-            // alone won't stick (see applyRadioGroupValues).
-            applyRadioGroupValues();
         });
     });
 }

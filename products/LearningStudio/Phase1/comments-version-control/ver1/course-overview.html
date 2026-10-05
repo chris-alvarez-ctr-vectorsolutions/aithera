@@ -143,42 +143,43 @@
 </header>
 
 <!-- ===== Publish =====
-     Captures a PUBLISH NOTE, which is the point of the dialog. Version
-     history is only as useful as its notes: without them someone has to open
-     each published version and search it to find the one they want; with
-     them they read "DEI resolution for 2026" and go straight there.
+     NOT a production release. This button starts the PUBLISHING MANAGEMENT
+     workflow: it renders the course's final video files and hands off to
+     the QA-publish / production-release steps.
 
-     So the note field is the dialog's main content, with examples in the
-     placeholder, and it is optional — blocking a publish on it would get it
-     filled with "update" and teach people to ignore it. -->
+     So there is no publish note here — the note describes what learners are
+     getting and belongs on the production release CTA, which is the step
+     that actually reaches them. What this dialog owes the user instead is
+     the cost of pressing it: a render that runs for several minutes, and
+     any open comments they may not have seen. -->
 <div class="modal-overlay" id="publishModal" role="dialog" aria-modal="true"
      aria-labelledby="publishTitle" slot="content">
   <div class="modal pub-modal">
     <div class="modal-head">
-      <h3 id="publishTitle">Publish course</h3>
-      <p class="pub-sub">This version becomes what learners see.</p>
+      <h3 id="publishTitle">Ready to Publish?</h3>
+      <p class="pub-sub">Nothing reaches learners yet.</p>
     </div>
 
     <div class="modal-body">
-      <label class="pub-label" for="publishNote">
-        What changed in this version?
-        <span class="pub-optional">Optional</span>
-      </label>
-      <!-- `theme="outlined"` is REQUIRED on every Vaadin text-input field:
-           without it Vaadin's default "filled" style renders, which is not
-           the Vector standard. -->
-      <vaadin-text-area class="pub-note" id="publishNote" theme="outlined"
-                        rows="4"
-                        placeholder="e.g. Updated for Title IX — reworked the reporting-obligations language, or DEI resolution for 2026"></vaadin-text-area>
-      <p class="pub-hint">
-        <i class="fa-regular fa-lightbulb"></i>
-        Shown in this course's version history. A specific note is what lets
-        someone find the right version later without opening each one.
+      <!-- The render is the headline: it is what the button actually starts,
+           and the several-minutes cost is the thing worth knowing BEFORE
+           pressing rather than discovering afterwards. -->
+      <p class="pub-lead">
+        This generates the final video files for the course content.
+        Rendering may take several minutes.
       </p>
+      <!-- Open-comments callout. A WARNING, never a blocker: unresolved
+           feedback is worth seeing before you publish, but whether it has
+           to be dealt with first is the author's call, not the dialog's.
+           Populated by refreshPubComments() on open; hidden at zero. -->
+      <div class="pub-comments is-hidden" id="pubComments" role="status">
+        <i class="fa-regular fa-comment-dots" aria-hidden="true"></i>
+        <span id="pubCommentsText"></span>
+      </div>
     </div>
 
     <div class="modal-foot">
-      <vaadin-button theme="secondary" id="publishCancel">Cancel</vaadin-button>
+      <vaadin-button theme="secondary" id="publishCancel">Continue Editing</vaadin-button>
       <vaadin-button theme="primary" id="publishConfirm">Publish</vaadin-button>
     </div>
   </div>
@@ -1185,12 +1186,32 @@ document.getElementById('hdr-sku').textContent = COURSE.sku;
 const PUBLISH_SKU = COURSE.sku.startsWith('#') ? COURSE.sku : '#' + COURSE.sku;
 
 const publishModal = document.getElementById('publishModal');
-const publishNote = document.getElementById('publishNote');
+
+/* Counts the course's UNRESOLVED comment threads and states the number in
+   the dialog. Deliberately advisory: it never disables Publish. Threads come
+   from the same cmLoadThreads() store the comments panel reads, so resolving
+   a thread and reopening this dialog shows the lower count. */
+function refreshPubComments() {
+  const box = document.getElementById('pubComments');
+  const text = document.getElementById('pubCommentsText');
+  /* The panel's script owns the store; if it is not on the page there is
+     nothing to count, so the callout simply stays hidden. */
+  const threads = (typeof cmLoadThreads === 'function') ? cmLoadThreads() : [];
+  const open = threads.filter(t => !t.resolved).length;
+
+  box.classList.toggle('is-hidden', open === 0);
+  if (open === 0) return;
+  text.innerHTML = '<b>' + open + ' open ' + (open === 1 ? 'comment' : 'comments') +
+    '</b> on this course. Publishing does not resolve ' +
+    (open === 1 ? 'it' : 'them') + '.';
+}
 
 document.querySelector('.btn-publish').addEventListener('click', () => {
-  publishNote.value = '';
+  refreshPubComments();
   publishModal.classList.add('open');
-  publishNote.focus();
+  /* No field to focus now the note is gone, so focus the primary action —
+     keeping the keyboard entry point inside the dialog. */
+  document.getElementById('publishConfirm').focus();
 });
 
 function closePublish() { publishModal.classList.remove('open'); }
@@ -1204,48 +1225,24 @@ document.addEventListener('keydown', (e) => {
 });
 
 document.getElementById('publishConfirm').addEventListener('click', () => {
-  const ev = vhPublish(PUBLISH_SKU, publishNote.value, 'Dev Llama');
-  /* Confirm IN the dialog rather than with a toast: this page has no
-     notification component, and swapping the body for a short confirmation
-     also names the version that was created — which is what makes the link
-     between publishing here and the history in the lookup visible in a
-     walkthrough. */
-  showPublished(ev);
+  /* No note from this step — it is captured on the production release,
+     which is the publish learners actually see. */
+  vhPublish(PUBLISH_SKU, '', 'Dev Llama');
 
-  /* The edits just shipped, so the Details tab's publishing card drops its
-     "unpublished changes" callout and goes back to Live.
+  /* STUBBED HANDOFF. Pressing Publish kicks off the render and leaves this
+     page for the working-state screen, which carries its own in-progress
+     updates — so there is no second dialog state here. That screen is not
+     part of this prototype, so the dialog simply closes.
 
-     Declared further down the file than this handler, which is fine — the
-     handler only runs on a click, long after parse — but it means the
-     assignment must not be attempted before then. */
+     The visible result is the Details tab's publishing card dropping its
+     "unpublished changes" callout, which pubClearDirty() does below. */
+  closePublish();
+
+  /* pubClearDirty() is declared further down the file than this handler,
+     which is fine — the handler only runs on a click, long after parse —
+     but it means the assignment must not be attempted before then. */
   pubClearDirty();
 });
-
-function showPublished(ev) {
-  const body = publishModal.querySelector('.modal-body');
-  const foot = publishModal.querySelector('.modal-foot');
-  const head = publishModal.querySelector('.modal-head');
-  head.innerHTML = '<h3>Published ' + ev.id + '</h3>';
-  body.innerHTML =
-    '<p class="pub-done">' +
-      '<span class="pub-done-icon"><i class="fa-solid fa-check"></i></span>' +
-      'This course is now live at <b>' + ev.id + '</b>.' +
-    '</p>' +
-    (ev.note
-      ? '<blockquote class="pub-done-note">' + ev.note.replace(/[&<>]/g,
-          c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;' }[c])) + '</blockquote>'
-      : '<p class="pub-done-nonote">Published without a note — it will show as ' +
-        '“No publish note” in version history.</p>') +
-    '<p class="pub-done-where">Find it under <b>Version history</b> in this ' +
-      'course\'s row on the course lookup.</p>';
-  foot.innerHTML = '<vaadin-button theme="primary" id="publishDone">Done</vaadin-button>';
-  document.getElementById('publishDone').addEventListener('click', () => {
-    closePublish();
-    // Restore the form so a second publish in the same session works.
-    setTimeout(() => location.reload(), 120);
-  });
-  document.getElementById('publishDone').focus();
-}
 document.getElementById('hdr-title').textContent = COURSE.title;
 
 function renderCourseMeta() {
