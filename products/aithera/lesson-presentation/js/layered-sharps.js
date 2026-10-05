@@ -732,7 +732,16 @@
               modalityDropdown({ now: 'introModNow', btn: 'introModChange', wrap: 'introModPickWrap',
                 icon: 'introModNowIcon', label: 'introModNowLabel', pick: 'introModPick' },
                 ['standard', 'listen'], null, MODE_CARD) +
-              '<p class="cp-format-note">Listen mode applies to modules that offer it.</p>' +
+              // Only shown while Listen mode is the selected preference.
+              '<div class="cp-format-note cp-listen-note" id="introModNote" hidden>' +
+                '<span>Listen mode applies to modules that offer it.</span>' +
+                '<button class="cp-help" type="button" id="introModHelpBtn" aria-expanded="false" ' +
+                  'aria-controls="introModHelp" aria-label="What is Listen mode?">' +
+                  '<i class="fa-regular fa-circle-question" aria-hidden="true"></i></button>' +
+                '<div class="cp-help-tip" id="introModHelp" role="tooltip" hidden>' +
+                  'Listen mode is one continuous listen with content presented as a host-led conversation. ' +
+                  'Once complete, you\u2019ll answer the questions on screen.</div>' +
+              '</div>' +
             '</div>' +
             // D11 → moved to the Demo menu: sector/role and the self-assigned
             // name are reviewer/demo-driver settings, not a choice a real
@@ -826,6 +835,12 @@
     // preference here, since that write is this card's own job, not
     // something a shared helper should do on every caller's behalf).
     var introPick = document.getElementById('introModPick');
+    var helpBtn = document.getElementById('introModHelpBtn'), helpTip = document.getElementById('introModHelp');
+    if (helpBtn && helpTip) helpBtn.addEventListener('click', function () {
+      var open = helpTip.hidden;
+      helpTip.hidden = !open;
+      helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
     if (introPick) {
       var introDD = initModalityDropdown(
         { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' },
@@ -840,13 +855,21 @@
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
       };
+      var note = document.getElementById('introModNote');
+      var showNote = function (k) {
+        if (!note) return;
+        note.hidden = k !== 'listen';
+        if (k !== 'listen' && helpTip) { helpTip.hidden = true; helpBtn.setAttribute('aria-expanded', 'false'); }
+      };
       introDD.render(curMode());
       markFmt(curMode());
+      showNote(curMode());
       introPick.addEventListener('click', function (e) {
         var b = e.target.closest('.md-opt');
         if (!b) return;
         setModePref(b.dataset.m);
         markFmt(b.dataset.m);
+        showNote(b.dataset.m);
         introDD.render(b.dataset.m);
         introDD.collapse();
       });

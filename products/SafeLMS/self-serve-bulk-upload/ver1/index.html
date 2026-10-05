@@ -440,8 +440,14 @@
   .toast-tx { flex: 1; min-width: 0; font-size: 13.5px; color: #3D4F63; line-height: 1.45; }
   .toast-tx b { color: #1B2B3E; }
   .toast-s { font-size: 12.5px; color: #5B6B7E; margin-top: 3px; }
-  .toast-s a { color: #1257B8; font-weight: 600; }
+  .toast-s a { color: #1257B8; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }   /* reads as a link (2026-10-02) */
+  .toast-s a:hover { color: #0B3D8C; }
   .toast-x { border: none; background: none; color: #8CA0B4; font-size: 14px; cursor: pointer; padding: 2px 4px; }
+  .loaded-file { display: flex; align-items: center; gap: 14px; background: #F5F9FE; border: 1px solid #C6D9F0; border-radius: 10px; padding: 14px 16px; }
+  .loaded-file .lf-ico { flex: 0 0 38px; width: 38px; height: 38px; border-radius: 8px; background: #fff; color: #067647;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .loaded-file .lf-n { font-family: var(--mono); font-size: 14px; font-weight: 600; color: #1B2B3E; }
+  .loaded-file .lf-m { font-size: 12.5px; color: #5B6B7E; margin-top: 2px; }
   .keep-copy { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; font-size: 13px; color: #3D4F63; line-height: 1.5; cursor: pointer;
     background: #F8FAFC; border: 1px solid #E1E7EE; border-radius: 8px; padding: 10px 12px; }
   .keep-copy input { margin-top: 3px; width: 15px; height: 15px; accent-color: #1257B8; flex: 0 0 auto; }
@@ -952,7 +958,7 @@
       method: 'manual', status: 'completed', add: 12, mod: 118, deact: 6, jobsEnd: 31, roster: true,
       notes: ['2 first-name changes confirmed', '6 deactivations confirmed', '31 position removals confirmed'] },
     { at: 'Sep 24, 2026', time: '2:00 AM', file: 'safeschools_staff_2026-09-24.csv', rows: 171, by: 'Automated sync', role: 'SafeSchools · nightly (SFTP)',
-      method: 'auto', status: 'blocked', roster: true, reviewId: 'auto',
+      method: 'auto', status: 'blocked', roster: false, reviewId: 'auto',
       notes: ['Stopped: warnings need an admin’s approval — automated uploads can’t approve warnings on their own', 'Nothing was changed'] },
     { at: 'Sep 23, 2026', time: '3:41 PM', file: 'safeschools_export_full.csv', rows: 168, by: 'Mark Osei', role: 'Technology Director',
       method: 'manual', status: 'cancelled', roster: false,
@@ -979,9 +985,9 @@
     { id: 'clean',   name: 'clean_no_errors_new_hires.csv',              rows: 45,  tag: 'Clean · no errors',        kind: 'ok',
       note: 'September new-hire batch — imports straight through with nothing to fix.' },
     { id: 'confirm', name: 'needs_confirmation_fall_roster.csv',  rows: 164, tag: 'Warnings only · confirm to run',        kind: 'confirm',
-      note: 'Full fall roster — a name change, a skipped row and early dates to confirm; no blocks.' },
+      note: 'Full fall roster — a name change and skipped rows to confirm; no blocks.' },
     { id: 'saml',    name: 'blocked_unreadable_dates.csv',    rows: 156, tag: 'Blocked + warnings · bad dates',   kind: 'blocked',
-      note: 'Unreadable begin dates block it; unknown attribute values, passwords and early dates are warnings.' },
+      note: 'Unreadable begin dates block it; early begin dates and a shared email are warnings.' },
     { id: 'dupes',   name: 'blocked_duplicate_accounts.csv',      rows: 152, tag: 'Blocked + warnings · duplicates',    kind: 'escalate',
       note: 'A username matches two active accounts (blocks); possible duplicate people and shared emails are warnings.' },
     { id: 'blast',   name: 'copy_review_every_catalog_message.csv',     rows: 168, tag: 'Has all the errors · all 44 catalog messages',     kind: 'blocked',
@@ -1109,6 +1115,9 @@
   }
 
   function pickFile(id) {
+    if (id === state.fileId) {   // same file again (e.g. after going Back): keep mapping, setting, reviewed warnings
+      setState({ fileModal: false, view: 'import', importFull: true, cancelled: false }); go(isMap() ? 'map' : 'settings'); return;
+    }
     // Picking a file drops the picker and takes the import full-screen at the
     // next step (Map columns / Import settings) — the upload step is done.
     setState({ fileId: id, mapping: defaultMapping(id), acks: {}, view: 'import', importFull: true, cancelled: false,
@@ -1338,11 +1347,11 @@
   // Which catalog messages each sample file raises: [key, count].
   var FILE_MSGS = {
     clean:   [['new_person', 42], ['all_rows', 45]],
-    confirm: [['duplicate_user_in_system'], ['removed_rows'], ['early_begin_date'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
-    saml:    [['broken_begin_date'], ['unknown_attribute'], ['password_changed', 2], ['early_end_date'], ['new_person', 9], ['all_rows', 156]],
+    confirm: [['duplicate_user_in_system'], ['removed_rows'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
+    saml:    [['broken_begin_date'], ['early_begin_date'], ['duplicate_email_in_upload'], ['new_person', 9], ['all_rows', 156]],
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
     blast:   null,  // copy review: EVERY catalog message, in catalog order
-    auto:    [['duplicate_user_in_system'], ['password_changed', 2], ['new_person', 3], ['all_rows', 171]],
+    auto:    [['duplicate_user_in_system'], ['duplicate_email_in_upload'], ['early_begin_date'], ['missing_bldg'], ['new_person', 3], ['all_rows', 171]],   // name change kept; email, begin date, location from its columns
     autob:   [['broken_begin_date'], ['duplicate_person'], ['new_person', 3], ['all_rows', 171]]
   };
   // Totals for the copy-review file. Sampled messages show a subset of rows but say the real total.
@@ -1355,7 +1364,7 @@
     var count = n != null ? n : (SUMMARY_COUNTS[key] != null ? SUMMARY_COUNTS[key] : (rows ? rows.length : 0));
     var text = c.msg.replace('{count}', count), cut = text.indexOf('. ');
     var a = { id: key, key: key, tier: c.tier, title: cut > 0 ? text.slice(0, cut + 1) : text, sub: cut > 0 ? text.slice(cut + 2) : '',
-      list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '', col: c.col && c.tier !== 'blocked' ? { at: c.col[0], tag: colTag(state.fileId, c.col[1]) } : null } : null,   // Blocked: rows only — the column is obvious in the file
+      list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '', col: null } : null,   // no column tags (2026-10-02) — rows only; the column is obvious once they open the file
       fix: c.fix, supportBtn: !!c.support, count: count,
       ackLabel: 'I’ve reviewed this — continue with the upload.' };
     return a;
@@ -1377,13 +1386,36 @@
     return 4;
   }
 
+  /* An alert only shows when the file has a column for the data it's about (2026-10-02) —
+     e.g. no password column → no password warning; no End date column → no end-date checks.
+     Fields come from the file's own columns (its default match), not the current mapping. */
+  var NEEDS = {
+    password_changed: 'Password', unknown_attribute: 'attribute',
+    broken_begin_date: 'Begin date', early_begin_date: 'Begin date', broken_end_date: 'End date', early_end_date: 'End date',
+    duplicate_email_in_upload: 'Email', inconsistent_person_data: 'Email',
+    duplicate_external_unique_id_in_upload: 'External Unique ID', duplicate_external_unique_id_in_system: 'External Unique ID',
+    non_identical_external_unique_id: 'External Unique ID', potential_duplicate_user_external_unique_id: 'External Unique ID',
+    missing_bldg_codes: 'Building code', all_bldg_codes: 'Building code', bldg_same_codes_diff_name: 'Building code',
+    bldg_same_name_diff_codes: 'Building code', bldg_code_difference: 'Building code',
+    missing_pos_codes: 'Position code', all_pos_codes: 'Position code', pos_same_codes_diff_name: 'Position code',
+    pos_same_name_diff_codes: 'Position code', pos_code_difference: 'Position code',
+    total_bldg_change: 'Location', large_bldg_change: 'Location', new_bldg: 'Location', missing_bldg: 'Location',
+    total_pos_change: 'Position', large_pos_change: 'Position', new_pos: 'Position', missing_pos: 'Position'
+  };
+  function fileHasDataFor(fileId, key) {
+    if (fileId === 'blast') return true;   // copy-review file: every catalog message, on purpose
+    var need = NEEDS[key]; if (!need) return true;
+    var cols = COLS[fileId] || [];
+    return AUTO_ORDER.slice(0, cols.length).indexOf(need) >= 0;
+  }
+
   function buildAlerts() {
     var fileId = state.fileId, pu = state.purgeUsers, pj = state.purgeJobs;
     var sm = summaryFor(fileId, pu, pj), A;
     if (!FILE_MSGS.hasOwnProperty(fileId)) return [];
-    A = FILE_MSGS[fileId]
-      ? FILE_MSGS[fileId].map(function (m) { return catalogAlert(m[0], m[1]); })
-      : CATALOG_KEYS.map(function (k) { return catalogAlert(k); });
+    A = (FILE_MSGS[fileId] ? FILE_MSGS[fileId].map(function (m) { return m; }) : CATALOG_KEYS.map(function (k) { return [k]; }))
+      .filter(function (m) { return fileHasDataFor(fileId, m[0]); })
+      .map(function (m) { return catalogAlert(m[0], m[1]); });
 
     /* From the Import settings switch — NOT in the catalog yet (flagged 2026-09-25:
        propose keys like deactivated_person / ended_job). */
@@ -1681,13 +1713,19 @@
     var cancelled = state.cancelled
       ? '<div style="background:#F5F9FE;border:1px solid #E1E7EE;border-radius:8px;padding:9px 12px;font-size:12.5px;color:#3D4F63;margin-bottom:12px;"><b>Import cancelled.</b> Nothing was changed. Upload a new file to start again.</div>'
       : '';
+    var lf = currentFile();   // a file is already loaded when they come Back to this step
     return '<div class="fadeup">' + cancelled + resources
-      + '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
-      + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
-      + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
-      + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>'
+      + (lf
+        ? '<div class="loaded-file"><div class="lf-ico"><i class="fa-solid fa-file-csv" aria-hidden="true"></i></div>'
+          + '<div style="flex:1;min-width:0;"><div class="lf-n">' + esc(lf.name) + '</div><div class="lf-m">CSV · ' + lf.rows + ' rows · Your column matches and settings are kept</div></div>'
+          + '<button class="btn sm btn--ghost" data-act="openFiles">Replace file</button></div>'
+        : '<div class="dropzone" data-act="openFiles" style="cursor:pointer;">'
+          + '<div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>'
+          + '<div style="font-size:15px;font-weight:600;">Drag a file here, or <a href="#" data-act="openFiles">browse</a></div>'
+          + '<div style="font-size:12.5px;color:#8CA0B4;margin-top:4px;">.csv or .xlsx · Nothing is imported until you review and run it</div></div>')
       + helpLine
-      + '<div style="margin-top:18px;"><button class="btn btn--ghost" data-act="goEmployees">← Back</button></div>'
+      + '<div style="margin-top:18px;display:flex;justify-content:space-between;"><button class="btn btn--ghost" data-act="goEmployees">← Back</button>'
+      + (lf ? '<button class="btn btn--primary" data-act="next">Continue →</button>' : '') + '</div>'
       + '</div>';
   }
 
@@ -1861,7 +1899,7 @@
     var effectText = on
       ? '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span><b>On:</b> Your site will match this file.'
         + '<ul><li>People not in the file are deactivated</li>'
-        + '<li>Positions not in the file are ended for the people who hold them</li>'
+        + '<li>Positions and locations not in the file are ended for the people who hold them</li>'
         + '<li>Training history is kept</li></ul></span>'
       : '<i class="fa-solid fa-circle-info" aria-hidden="true"></i><span><b>Off:</b> '
         + 'Adds and updates only. People and positions already on your site are left as they are.</span>';
@@ -2551,7 +2589,8 @@
     switch (act) {
       case 'noop': if (!e.target.closest('label')) e.preventDefault(); break;   // let checkbox labels inside modals toggle
       /* Employees-tab entry points */
-      case 'goEmployees': e.preventDefault(); setState({ view: 'employees', addEmp: false, importFull: false, autoReview: null }); scrollTop(); break;
+      case 'goEmployees': e.preventDefault(); if (state.autoReview != null) state.fileId = null;   // Back / ✕ keep an unfinished import
+        setState({ view: 'employees', addEmp: false, importFull: false, autoReview: null }); scrollTop(); break;
       case 'goLog': e.preventDefault(); setState({ view: 'log', importFull: false, addEmp: false, logOpen: null }); scrollTop(); break;
       case 'reviewAuto': {
         var rr = state.log[+arg];
@@ -2559,7 +2598,7 @@
           purgeJobs: !!rr.roster, acks: {}, disc: {}, step: 'review', validating: false, autoReview: +arg, confirmRun: false });
         scrollTop(); break;
       }
-      case 'autoBack': e.preventDefault(); setState({ view: 'log', importFull: false, logHl: state.autoReview, autoReview: null }); scrollTop(); break;
+      case 'autoBack': e.preventDefault(); setState({ view: 'log', importFull: false, logHl: state.autoReview, autoReview: null, fileId: null }); scrollTop(); break;
       case 'logDetail': setState({ view: 'logDetail', logDetail: +arg }); scrollTop(); break;
       case 'logFilter': setState({ logFilter: arg, logOpen: null }); break;
       case 'logOpen': setState({ logOpen: state.logOpen === +arg ? null : +arg }); break;
@@ -2569,7 +2608,12 @@
       /* ver1 Bulk Upload — land on the full-screen "Upload file" step (Manual-import
          banner + stepper + template card + drop zone). The drop zone / "browse"
          then opens the file picker to actually choose a file (see pickFile). */
-      case 'goBulk': e.preventDefault(); setState({ autoReview: null, tab: 'import', view: 'import', addEmp: false, fileId: null, importFull: true, validating: false, fileModal: false, step: 'upload' }); scrollTop(); break;
+      case 'goBulk': e.preventDefault();
+        // An unfinished import is kept (they left with Back / ✕): reopen it on Upload file with the
+        // file, column matches, setting and reviewed warnings intact. Cancel import / Run clear it.
+        setState({ autoReview: null, tab: 'import', view: 'import', addEmp: false, importFull: true, validating: false, fileModal: false, step: 'upload',
+          fileId: (state.fileId && state.autoReview == null) ? state.fileId : null });
+        scrollTop(); break;
       case 'goImport':
         e.preventDefault(); setState({ view: 'import', step: 'upload', fileId: null, validating: false }); scrollTop(); break;
       case 'backToImport':
@@ -2614,10 +2658,9 @@
       case 'restart': setState({ fileId: null, step: 'upload', acks: {}, purgeUsers: false, purgeJobs: false, repSent: false }); scrollTop(); break;
       case 'bless': setState({ blessed: true }); break;
       case 'goStep':
-        if (arg === 'upload') setState({ fileId: null, step: 'upload', acks: {}, validating: false });
-        else go(arg);
+        go(arg);   // going back keeps the file, mapping, setting and reviewed warnings (2026-10-02)
         scrollTop(); break;
-      case 'linkUpload': e.preventDefault(); setState({ fileId: null, step: 'upload' }); scrollTop(); break;
+      case 'linkUpload': e.preventDefault(); go('upload'); scrollTop(); break;
       case 'linkMap': e.preventDefault(); go('map'); scrollTop(); break;
       case 'linkSettings': e.preventDefault(); go('settings'); scrollTop(); break;
       case 'removeRecip': setState({ recipients: state.recipients.filter(function (_, j) { return j !== +arg; }) }); break;

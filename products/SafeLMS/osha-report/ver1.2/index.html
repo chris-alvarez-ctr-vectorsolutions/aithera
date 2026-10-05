@@ -1,16 +1,19 @@
 <!-- Live URL: https://vectorlearning.github.io/ux-mockups/products/SafeLMS/osha-report/?v=ver1_2 -->
-<!-- V1.2 — same layout as V1.1, but the Status Distribution pie is DYNAMIC: clicking an Action
+<!-- V1.2 — NOW STATIC: the pie always shows Status Distribution (PIE_DRILLS = false in
+     renderDistribution). Notes below describe the drill views, which are kept but switched off.
+     Originally: same layout as V1.1, but the Status Distribution pie was DYNAMIC: clicking an Action
      Needed card drills the pie into that bucket, on a SHARED color key (gray=Not Started,
-     blue=In Progress, amber=Behind, orange=2+ quiz failures).
-       • Not Started → the whole pie is Not Started (it's a status). 0 of 48 here → a dashed empty
-         ring + the normal key ("Not Started: 0 of 48") — no extra explanation text.
-       • Behind the Expected Pace → the pie is the In Progress group (out of 23): Behind 6 vs.
-         Other In Progress 17. The card reads "6 of 23" for the same reason.
-       • At least 2 quiz failures → also INSIDE In Progress, card reads "5 of 23" (failing a quiz ≠ failing the course):
-         2+ quiz failures vs. the rest of In Progress. Course-failed learners (3 attempts) are not
-         in this bucket.
-     Demo data is 48 learners (Not Started 0, In Progress 23 = 6 behind + 5 with 2+ quiz failures
-     + 12 on track, Failed 5, Passed 20). V1.1 is untouched at ../ver1.1/index.html. -->
+     blue=In Progress, amber=Behind, red=Failed).
+       OPTION A — the pie always shows the card's whole "of" group, with the card's group highlighted,
+       so the pie total = the number after "of" on the card:
+       • Not Started (of all learners) → Not Started inside Total (teal, "Total: 57"). 0 of 48 in V1.2 → a
+         dashed empty ring + the normal key ("Not Started: 0 of 48").
+       • Behind the Expected Pace (of 23 in progress) → Behind 6 vs. Rest of In Progress 17.
+       • At least 2 quiz failures (of 27 in progress or failed) → In Progress 2+ failures 3 · Failed
+         2+ failures 4 · Rest of In Progress 20 (Rest of Failed is always 0, so it's hidden).
+     Demo data is 48 learners — numbers chosen so NO two on-screen counts repeat: Not Started 0,
+     In Progress 23 (6 behind + 3 with 2+ quiz failures + 14 on track), Failed 4, Passed 21.
+     2+ quiz failures card = 7 (3 in progress + 4 failed) of 27 (in progress or failed). V1.1 is untouched at ../ver1.1/index.html. -->
 <!doctype html>
 <html lang="en">
 <head>
@@ -150,6 +153,8 @@
      note on the left and the Filters + Export buttons on the right. */
   .report-meta { display: flex; flex-direction: column; gap: 10px; }
   .meta-actions-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .meta-actions-row .filter-scope-row { flex: 1 1 0; min-width: 0; align-items: center; }
+  .meta-actions-row .actions-right { flex-shrink: 0; align-self: flex-start; }
   .data-note { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
   .data-note i { color: var(--blue-primary); }
   .data-note b { color: var(--ink-2); font-weight: 700; }
@@ -269,11 +274,21 @@
   /* ── Report toolbar (V1) ── */
   .report-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--hair-2); gap: 12px; flex-wrap: wrap; }
   .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Sub-bar under the report header line: last-updated + Refresh (left), pagination (right) */
+  .report-subbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--hair-2); }
+  .report-updated { display: flex; align-items: center; gap: 4px; }
+  .ru-text { display: flex; flex-direction: column; line-height: 1.25; }
+  .ru-text b { font-size: 15px; font-weight: 700; color: var(--ink); }
+  .ru-text span { font-size: 13px; color: var(--muted); }
+  /* vwc-paginator right-aligns its controls, but a container query switches it to a CENTERED,
+     reordered layout below 768px of its own width — so give it 770px (shrinks on narrow screens). */
+  #reportPager { flex: 0 1 770px; min-width: 0; margin-left: auto; }
+  .report-updated { flex: 0 0 auto; }
   /* Filter scope row spans the full width so chips can stretch across and wrap to
      additional rows when the filter set gets long. */
   .filter-scope-row { display: flex; width: 100%; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap; }
   /* Lead-in sentence: "Showing all courses" by default, "Filtered to:" once chips appear */
-  .filter-lead { font-size: 15px; color: var(--muted); flex-shrink: 0; padding-top: 3px; }
+  .filter-lead { font-size: 15px; color: var(--muted); flex-shrink: 0; }
   /* Active filters as individual removable chips — take the remaining width and wrap. */
   .applied-filters { display: flex; flex: 1 1 auto; align-items: center; flex-wrap: wrap; gap: 6px; }
   .applied-filters:empty { display: none; }
@@ -970,16 +985,14 @@
                becomes "Filtered to:" followed by a removable chip per active filter,
                with a tertiary Clear button to clear them all. This row spans the full
                width and wraps its chips to additional rows when there are many. -->
-          <div class="filter-scope-row">
-            <span class="filter-lead" id="filterLead">Showing all courses</span>
-            <span class="applied-filters" id="appliedFilters"></span>
-            <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i aria-hidden="true" class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
-          </div>
-          <!-- Last updated on the left, Filters + Export on the right -->
+          <!-- One row: filter scope ("Showing all courses" / chips) on the left, Filters + Export on
+               the right. The "Last updated" date + Refresh moved down into the report card, beside
+               the pagination (matches the Reports page placement). -->
           <div class="meta-actions-row">
-            <div class="data-note">
-              <i aria-hidden="true" class="fa-solid fa-rotate"></i>
-              <span>Last updated <b>Jun 22, 2026 at 6:00 AM EDT</b></span>
+            <div class="filter-scope-row">
+              <span class="filter-lead" id="filterLead">Showing all courses</span>
+              <span class="applied-filters" id="appliedFilters"></span>
+              <vaadin-button theme="tertiary small" id="filtersClearBtn" hidden><i aria-hidden="true" class="fa-solid fa-xmark" slot="prefix"></i> Clear filters</vaadin-button>
             </div>
             <div class="actions-right">
               <vaadin-button theme="secondary small" id="filterInlineToggle"><i aria-hidden="true" class="fa-solid fa-sliders" slot="prefix"></i> Filters</vaadin-button>
@@ -1016,7 +1029,7 @@
                 </button>
               </div>
               <vaadin-tooltip for="actionNeededInfo" position="top"
-                text="Click a category to filter the report to those learners (click again to clear) — the chart at left drills into the selected category. Or use Email Learners to contact that group."></vaadin-tooltip>
+                text="Click a category to filter the report to those learners (click again to clear) Or use Email Learners to contact that group."></vaadin-tooltip>
               <div class="action-cards" id="actionCards"><!-- rendered by JS --></div>
             </div>
           </div>
@@ -1056,6 +1069,19 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Below the header line (Reports-page placement): when the data was last updated +
+               Refresh on the left, pagination on the right. -->
+          <div class="report-subbar">
+            <div class="report-updated">
+              <div class="ru-text">
+                <b>Jun 22, 2026 6:00 AM EDT</b>
+                <span>Last updated</span>
+              </div>
+              <vaadin-button theme="tertiary" id="refreshBtn"><i aria-hidden="true" class="fa-solid fa-rotate" slot="prefix"></i> Refresh</vaadin-button>
+            </div>
+            <vwc-paginator id="reportPager" total="0" page="0" page-size="25"></vwc-paginator>
           </div>
 
           <!-- DEV NOTE — email + table multi-select were removed from this phase per client
@@ -1353,10 +1379,9 @@
   // V1.2 demo scenario — 48 learners, tuned so the dynamic pie has something to say in each
   // Action-Needed drill-down:
   //   • Not Started = 0 of 48  → the pie shows an explicit EMPTY state (not a spinner).
-  //   • In Progress = 23       → splits On Track (17) vs Behind the Expected Pace (6).
-  //   • 2+ quiz failures = 5 — in-progress learners at attempts 2 (a slice of In Progress).
-  //   • Failed = 5 — used all 3 attempts (a course status, not part of the 2+ quiz-failures card).
-  //   • Passed = 20.
+  //   • In Progress = 23       → Behind 6 · 2+ quiz failures 3 · on track 14 (Behind drill: 6 vs 17).
+  //   • 2+ quiz failures = 7 — 3 still In Progress (attempts 2) + 4 Failed the course (attempts 3).
+  //   • Failed = 4. Passed = 21. (Counts picked so no two on-screen numbers repeat.)
   const GROUPS = [
     { id:'g1', course:'OSHA 10-Hour General Industry', expanded:true, rows:[
       /* passed (6) */
@@ -1374,9 +1399,9 @@
       /* behind the expected pace (2) */
       { name:'Nair, Priya',     ext:'pnair391',    status:'in-progress', mods:1,  pct:8,   time:'0h 20m', last:'41 days ago', exp:'05/14/2026', expSoon:true, behind:true },
       { name:'Hoffman, Dana',   ext:'dhoffman361', status:'in-progress', mods:2,  pct:16,  time:'0h 55m', last:'22 days ago', exp:'09/10/2026', behind:true },
-      /* failed twice — still in progress, one attempt left (2) */
+      /* failed twice — still in progress, one attempt left (1) + on track (1) */
       { name:'Farris, Quinn',   ext:'qfarris417',  status:'in-progress', mods:9,  pct:95,  time:'4h 20m', last:'3 days ago',  exp:'10/28/2026', attempts:2 },
-      { name:'Weeks, Tomás',    ext:'tweeks284',   status:'in-progress', mods:9,  pct:90,  time:'4h 05m', last:'Yesterday',   exp:'11/02/2026', attempts:2 },
+      { name:'Weeks, Tomás',    ext:'tweeks284',   status:'in-progress', mods:9,  pct:90,  time:'4h 05m', last:'Yesterday',   exp:'11/02/2026' },   // on track
       /* failed the course — 3 attempts used (2) */
       { name:'Sullivan, Brett', ext:'bsull099',    status:'failed',      mods:9,  pct:92,  time:'4h 10m', last:'04/29/2026',  exp:'—', failDate:'04/29/2026', attempts:3 },
       { name:'Delgado, Ruth',   ext:'rdelgado508', status:'failed',      mods:9,  pct:89,  time:'4h 25m', last:'05/07/2026',  exp:'—', failDate:'05/07/2026', attempts:3 },
@@ -1398,9 +1423,9 @@
       /* behind the expected pace (2) */
       { name:'Reyes, Tomás',    ext:'treyes824',   status:'in-progress', mods:2,  pct:15,  time:'1h 10m', last:'24 days ago', exp:'07/30/2026', behind:true },
       { name:'Osei, Janet',     ext:'josei330',    status:'in-progress', mods:4,  pct:38,  time:'2h 40m', last:'16 days ago', exp:'09/02/2026', behind:true },
-      /* failed twice — still in progress (2) */
+      /* failed twice — still in progress (1) + on track (1) */
       { name:'Jacobs, Nina',    ext:'njacobs503',  status:'in-progress', mods:9,  pct:94,  time:'5h 40m', last:'2 days ago',  exp:'10/30/2026', attempts:2 },
-      { name:'Eaton, Russ',     ext:'reaton408',   status:'in-progress', mods:9,  pct:88,  time:'5h 20m', last:'4 days ago',  exp:'09/28/2026', attempts:2 },
+      { name:'Eaton, Russ',     ext:'reaton408',   status:'in-progress', mods:9,  pct:88,  time:'5h 20m', last:'4 days ago',  exp:'09/28/2026' },   // on track
       /* failed the course (1) */
       { name:'Choi, Min',       ext:'mchoi735',    status:'failed',      mods:9,  pct:90,  time:'5h 50m', last:'05/01/2026',  exp:'—', failDate:'05/01/2026', attempts:3 },
     ]},
@@ -1423,9 +1448,9 @@
       { name:'Hahn, Iris',      ext:'ihahn703',    status:'in-progress', mods:2,  pct:19,  time:'0h 40m', last:'21 days ago', exp:'09/14/2026', behind:true },
       /* failed twice — still in progress (1) */
       { name:'Foster, Hannah',  ext:'hfoster915',  status:'in-progress', mods:9,  pct:88,  time:'2h 30m', last:'3 days ago',  exp:'11/05/2026', attempts:2 },
-      /* failed the course (2) */
+      /* failed the course (1) + passed (1) */
       { name:'Frost, Lena',     ext:'lfrost931',   status:'failed',      mods:9,  pct:91,  time:'1h 55m', last:'05/05/2026',  exp:'—', failDate:'05/05/2026', attempts:3 },
-      { name:'Mercer, Cole',    ext:'cmercer264',  status:'failed',      mods:9,  pct:87,  time:'2h 10m', last:'05/08/2026',  exp:'—', failDate:'05/08/2026', attempts:3 },
+      { name:'Mercer, Cole',    ext:'cmercer264',  status:'passed',      mods:10, pct:100, time:'2h 10m', last:'05/08/2026',  exp:'05/08/2027' },   // passed
     ]},
   ];
 
@@ -1513,10 +1538,18 @@
     for (let i = 0; i < mods.length; i++) if (mods[i].status === 'complete' || mods[i].status === 'failed') idx = i;
     if (idx < 0) return null;                                          // not-started — no module data yet
     const m = mods[idx];
-    const fails = m.status === 'complete' ? Math.max(0, (m.attempts || 1) - 1) : (m.attempts || 0);
+    let fails = m.status === 'complete' ? Math.max(0, (m.attempts || 1) - 1) : (m.attempts || 0);
     // Surface the score for a failed latest module too, so the Quiz Score column can flag it
     // red-with-an-X; a passed module keeps its passing score; in-progress = no score yet (—).
-    const score = (m.status === 'complete' || m.status === 'failed') ? m.score : null;
+    let score = (m.status === 'complete' || m.status === 'failed') ? m.score : null;
+    // The learner's own `attempts` (failed quiz attempts on their latest module) is the SAME number
+    // the "At least 2 failures" card counts — so the table's Failed Attempts column must show it,
+    // never a synthesized value that could disagree with the card. An in-progress learner with
+    // failures is still retrying that module, so its latest quiz score is a failing one.
+    if (r.attempts) {
+      fails = r.attempts;
+      if (r.status === 'in-progress') score = failScoreFor(r.ext, idx);
+    }
     return { index: idx + 1, name: m.name, status: m.status, fails, score };
   }
 
@@ -2011,7 +2044,27 @@
   }
   // Table row visibility = applied filters + the temporary search box.
   function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
+  // Pagination (vwc-paginator, 25 per page). Only rows that pass the filters + search are paged;
+  // any filter / search / sort change sends the table back to page 1.
+  const pager = document.getElementById('reportPager');
+  let pageIdx = 0, pageSize = 25;
+  function applyPaging() {
+    const matched = [...tbody.querySelectorAll('.data-row')].filter(tr => tr.dataset.match === '1');
+    const pages = Math.max(1, Math.ceil(matched.length / pageSize));
+    if (pageIdx >= pages) pageIdx = pages - 1;
+    const start = pageIdx * pageSize, end = start + pageSize;
+    tbody.querySelectorAll('.data-row').forEach(tr => { if (tr.dataset.match !== '1') tr.style.display = 'none'; });
+    matched.forEach((tr, i) => { tr.style.display = (i >= start && i < end) ? '' : 'none'; });
+    if (pager) { pager.total = matched.length; pager.pageSize = pageSize; pager.page = pageIdx; }
+  }
+  if (pager) pager.addEventListener('page-change', e => {
+    const d = e.detail || {};
+    if (d.page === pageIdx && d.pageSize === pageSize) return;   // fires on our own updates too
+    if (d.pageSize !== pageSize) { pageSize = d.pageSize; pageIdx = 0; } else pageIdx = d.page;
+    applyPaging();
+  });
   function applyFilters() {
+    pageIdx = 0;
     // The applied action bucket (from a card click OR the panel's single-select) IS the active card:
     // it highlights + drives the pie drill. Removing the chip / picking "All learners" clears it.
     cardAction = filters.actions.size === 1 ? [...filters.actions][0] : null;
@@ -2019,8 +2072,9 @@
       const key = rowKey(x.gid, x.r.ext);
       const vis = rowVisible(x);
       const tr = tbody.querySelector(`.data-row[data-key="${key}"]`);
-      if (tr) tr.style.display = vis ? '' : 'none';
+      if (tr) tr.dataset.match = vis ? '1' : '0';
     });
+    applyPaging();
     updateFilterBadge();
     // Course (and the other panel filters) scope the WHOLE page — refresh the charts too.
     if (typeof renderActionCards === 'function') renderActionCards();
@@ -2500,6 +2554,13 @@
     closePanel();
   });
 
+  /* Refresh (prototype) — brief spin; the data is static in the mock */
+  document.getElementById('refreshBtn').addEventListener('click', e => {
+    const b = e.currentTarget, i = b.querySelector('i');
+    i.classList.add('fa-spin'); b.setAttribute('disabled', '');
+    setTimeout(() => { i.classList.remove('fa-spin'); b.removeAttribute('disabled'); }, 900);
+  });
+
   /* Top-of-report actions (prototype) */
   document.getElementById('exportBtn').addEventListener('click', () => {
     const b = document.getElementById('exportBtn');
@@ -2510,7 +2571,7 @@
   const GROUP_MATCH = {
     intervene: r => r.status === 'not-started',
     nudge:     r => r.status === 'in-progress' && r.behind,
-    retry:     r => r.status === 'in-progress' && (r.attempts || 0) >= 2,   // 2+ quiz failures, still in progress (a course fail at 3 attempts is a status, not this bucket)
+    retry:     r => (r.status === 'in-progress' || r.status === 'failed') && (r.attempts || 0) >= 2,   // 2+ quiz failures — still in progress, OR failed the course
   };
   function renderActionCards() {
     // Each card is BOTH a read-out and a toggle quick filter (V1). Counts always reflect the
@@ -2518,13 +2579,11 @@
     // stay visible even while the table is scoped to one bucket.
     const data = cardScopeLearners();
     const total = data.length;
-    // Behind + 2+ quiz failures are subsets of In Progress, so they count out of In Progress;
-    // Not Started is a status of its own, so it counts out of everyone.
-    const inProgTotal = data.filter(r => r.status === 'in-progress').length;
+    // Every card counts out of the total number of people (2026-10-02) — one denominator for all three.
     const cards = [
-      { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, label: 'Not started — needs intervention' },
-      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: inProgTotal, ofLabel: 'in progress', label: 'Behind the expected pace — needs a nudge' },
-      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: inProgTotal, ofLabel: 'in progress', label: 'At least 2 failures within a module — connect for remediation' },
+      { type: 'intervene', cls: 'intervene', icon: 'fa-circle-exclamation', count: data.filter(GROUP_MATCH.intervene).length, of: total, ofLabel: 'people', label: 'Not started — needs intervention' },
+      { type: 'nudge',     cls: 'nudge',     icon: 'fa-bell',               count: data.filter(GROUP_MATCH.nudge).length,     of: total, ofLabel: 'people', label: 'Behind the expected pace — needs a nudge' },
+      { type: 'retry',     cls: 'retry',     icon: 'fa-rotate-right',       count: data.filter(GROUP_MATCH.retry).length,     of: total, ofLabel: 'people', label: 'At least 2 failures within a module — connect for remediation' },
     ];
     const wrap = document.getElementById('actionCards');
     // A card is the active table filter when its bucket is in filters.actions. Clicking the card
@@ -2567,12 +2626,10 @@
   // The pie honors every APPLIED panel filter (course, audience, due-soon, near-limit) — it
   // ignores only the Action-Needed quick filter, because the ACTIVE action card is what the pie
   // drills into. The color KEY is shared across every state (gray = Not Started, blue = In Progress,
-  // green = Passed, red = Failed; amber = Behind and orange = 2+ quiz failures are sub-slices of
-  // In Progress), so a color always means the same thing.
+  // green = Passed, red = Failed; amber = Behind is a sub-slice of In Progress), so a color always means the same thing.
   //   • no card          → overall status distribution (Passed / In Progress / Not Started / Failed)
-  //   • Not Started card → the whole pie is Not Started (gray at 100%); 0 → dashed empty ring + key
-  //   • Behind Pace card → the In Progress group: Behind (amber) vs. the rest of In Progress (blue)
-  //   • 2+ quiz failures → the In Progress group: 2+ quiz failures (orange) vs. the rest (blue)
+  //   • Option A (see renderDistribution): each drill shows the card's whole "of" group with the
+  //     card's group highlighted, so the pie total always equals the card's "of" number.
   // A drill with 0 learners shows the empty ring with its normal key line, so it reads as "empty".
   function cardScopeWrappers() { return rows.filter(passesBase); }   // every applied filter EXCEPT the action drill
   function activeAction() { return cardAction; }   // pie drills only for a clicked card, never for panel multi-select
@@ -2589,7 +2646,9 @@
     pie.style.background = `conic-gradient(${stops})`;
     document.getElementById('pieLabels').classList.toggle('stacked', !!stacked);
     const legend = segs.map(s =>
-      `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.n} <span class="pie-pct">(${Math.round(s.n / total * 100)}%)</span></span>`).join('');
+      s.legendTotal != null
+        ? `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.legendTotal}</span>`   // e.g. "Total: 57" (the whole circle)
+        : `<span class="pie-label"><span class="pd" style="background:${s.color}"></span> ${s.label}: ${s.n} <span class="pie-pct">(${Math.round(s.n / total * 100)}%)</span></span>`).join('');
     document.getElementById('pieLabels').innerHTML = legend + (caption ? `<span class="pie-caption">${caption}</span>` : '');
   }
 
@@ -2610,37 +2669,61 @@
   function renderDistribution() {
     const wraps = cardScopeWrappers();
     const data = wraps.map(x => x.r);
-    const action = activeAction();
+    // STATIC PIE: the pie always shows the overall Status Distribution, whatever card is clicked
+    // (cards still highlight + filter the table). The drill views below are kept for reference —
+    // flip PIE_DRILLS to true to bring the card-driven pie back.
+    const PIE_DRILLS = false;
+    const action = PIE_DRILLS ? activeAction() : null;
 
-    if (action === 'intervene') {                       // Not Started — key color (0 here → empty state)
+    // OPTION A — every drill shows the card's whole "of" group, with the card's own group highlighted
+    // inside it, so the pie always adds up to the number after "of" on the card:
+    //   • Not Started  → of ALL learners:            Not Started (gray) inside Total (teal; legend reads the full total)
+    //   • Behind       → of IN PROGRESS:              Behind (amber) + Rest of In Progress (blue)
+    //   • 2+ failures  → of IN PROGRESS + FAILED:     In Progress 2+ (purple) + Failed 2+ (red)
+    //                                                 + Rest of In Progress (blue) + Rest of Failed
+    // Zero slices are dropped from the pie + legend ("Rest of Failed" is always 0 today, because a
+    // learner only becomes Failed after all 3 attempts). An empty group keeps the dashed empty ring.
+    // Colors match the "How the dynamic pie works" chart: teal = Total, purple = In Progress with
+    // 2+ failures, and the rest of In Progress keeps the regular In Progress blue.
+    const TOTAL = '#14b8a6', IP_REST = '#3b82f6', IP_FAIL = '#7c3aed';
+    const nonZero = segs => segs.filter(x => x.n > 0);
+
+    if (action === 'intervene') {                       // Not Started — out of all learners
       setPieTitle('Not Started');
       const n = data.filter(GROUP_MATCH.intervene).length;
       if (!n) { paintEmptyPie(data.length, 'Not Started', '#d1d5db'); return; }
-      paintPie([{ label: 'Not Started', color: '#d1d5db', n }]);   // gray, 100%
+      paintPie(nonZero([
+        { label: 'Not Started',   color: '#d1d5db', n },
+        { label: 'Total',         color: TOTAL,     n: data.length - n, legendTotal: data.length },   // teal = the whole circle
+      ]), null, true);
       return;
     }
 
-    // Behind + 2+ quiz failures are both slices OF In Progress, so those drills show the In Progress
-    // group with that slice called out against the rest of In Progress.
     const inProg = data.filter(r => r.status === 'in-progress');
-    const drillInProgress = (match, label, color) => {
-      const n = inProg.filter(match).length;
-      if (!inProg.length) { paintEmptyPie(data.length, 'In Progress', '#3b82f6'); return; }
-      paintPie([
-        { label, color, n },
-        { label: 'Other In Progress', color: '#3b82f6', n: inProg.length - n },
-      ], null, true);   // one status per row
-    };
+    const failedAll = data.filter(r => r.status === 'failed');
 
-    if (action === 'nudge') {                            // Behind — inside In Progress (out of In Progress)
+    if (action === 'nudge') {                            // Behind — out of In Progress
       setPieTitle('Behind the Expected Pace');
-      drillInProgress(GROUP_MATCH.nudge, 'Behind the Expected Pace', '#f59e0b');   // amber
+      const n = inProg.filter(GROUP_MATCH.nudge).length;
+      if (!n) { paintEmptyPie(inProg.length, 'Behind the Expected Pace', '#f59e0b'); return; }
+      paintPie(nonZero([
+        { label: 'Behind the Expected Pace', color: '#f59e0b', n },
+        { label: 'Rest of In Progress',      color: IP_REST,   n: inProg.length - n },
+      ]), null, true);
       return;
     }
 
-    if (action === 'retry') {                            // 2+ quiz failures — inside In Progress
+    if (action === 'retry') {                            // 2+ quiz failures — out of In Progress + Failed
       setPieTitle('2+ Quiz Failures');
-      drillInProgress(GROUP_MATCH.retry, '2+ quiz failures', '#f97316');   // orange
+      const ip     = inProg.filter(r => (r.attempts || 0) >= 2).length;
+      const failed = failedAll.filter(r => (r.attempts || 0) >= 2).length;
+      if (!(ip + failed)) { paintEmptyPie(inProg.length + failedAll.length, '2+ quiz failures', '#3b82f6'); return; }
+      paintPie(nonZero([
+        { label: 'In Progress — 2+ failures', color: IP_FAIL,   n: ip },
+        { label: 'Failed — 2+ failures',      color: '#dc2626', n: failed },
+        { label: 'Rest of In Progress',       color: IP_REST,   n: inProg.length - ip },
+        { label: 'Rest of Failed',            color: '#f4a5a5', n: failedAll.length - failed },
+      ]), null, true);
       return;
     }
 
