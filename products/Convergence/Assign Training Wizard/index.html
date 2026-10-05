@@ -1,0 +1,2435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign Training Wizard — Convergence</title>
+
+    <!--
+      Assign Training Wizard — five-step flow (Select Training → Select
+      Assignees → Scheduling → Optional Settings → Review).
+
+      Sources, in order of precedence:
+        1. Figma "Assign-Training-Wizard" (WnHTsyCHnQK5ebaSOJDvFo) — visuals win.
+           Optional Settings built from node 3527-416634.
+        2. Production behavior (QA coverage guide + CT-19873 / CT-20346 /
+           CT-20004 / CT-20713): assignee types, sortable columns, full names,
+           recurring due-date wording, Next Recurrence Preview, future additions,
+           duplicate-detection delay on Review, success message.
+      The top nav + side nav are the mock's own chrome and intentionally do
+      NOT follow the Figma file.
+    -->
+
+    <script type="module"
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js">
+    </script>
+    <script
+        src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js">
+    </script>
+    <link rel="stylesheet"
+        href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+
+        /* ── Layout tokens ──
+           The Fin FAB (see ../ai-chat-widget/fin-widget.js) is a 32px button in the
+           built-in 48px side gutter, floating ABOVE the locked footer in the
+           bottom-right. When a Selected side panel opens, the FAB is pushed LEFT
+           of it (see body:has rule below) so it stays in the main content's
+           gutter rather than over the panel. */
+        :root {
+            --wiz-footer-h: 62px;   /* locked footer (Cancel / Previous / Go to…) */
+            --fin-fab-bottom: calc(var(--wiz-footer-h) + var(--fin-fab-margin, 8px));
+        }
+        /* Push the FAB left of the Selected panel (320px) when it's open. */
+        body:has(.sel-panel:not([hidden])) {
+            --fin-fab-right: calc(320px + var(--fin-fab-margin, 8px));
+        }
+
+        html, body { height: 100%; overflow: hidden; }
+        body {
+            margin: 0;
+            font-family: 'Open Sans', sans-serif;
+            background: #f4f5f7;
+            color: #1a1a1a;
+        }
+
+        /* ── Top nav ── */
+        .topnav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            border-bottom: 1px solid #e2e4e8;
+            padding: 0 24px;
+            height: 56px;
+        }
+        .topnav .brand {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0066cc;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .topnav .brand .vs-logo {
+            width: 22px; height: 22px;
+            background: #0066cc;
+            clip-path: polygon(50% 0, 100% 100%, 0 100%);
+        }
+        .topnav nav {
+            display: flex;
+            gap: 28px;
+            font-size: 14px;
+            color: #4a5060;
+        }
+        .topnav nav a {
+            text-decoration: none;
+            color: inherit;
+            padding: 18px 0;
+            border-bottom: 3px solid transparent;
+        }
+        .topnav nav a.active {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+            font-weight: 600;
+        }
+        .topnav .right-icons {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: #4a5060;
+            font-size: 16px;
+        }
+        .user-pill {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: #d0d3d9;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #1a1a1a;
+        }
+
+        /* ── App shell (locked: only designated regions scroll) ── */
+        .shell {
+            display: flex;
+            height: calc(100vh - 56px);
+        }
+
+        /* ── Sidenav (mock's own chrome — not from Figma) ── */
+        .sidenav {
+            width: 240px;
+            background: #fff;
+            border-right: 1px solid #e2e4e8;
+            padding: 14px 0;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+        .sidenav-search {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0 14px 12px;
+            padding: 7px 10px;
+            border: 1px solid #d0d3d9;
+            border-radius: 6px;
+            color: #9aa0ac;
+            font-size: 13px;
+        }
+        .sidenav-search i { font-size: 12px; }
+        .sidenav-search .sep { flex: 1; }
+        .sidenav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 9px 18px;
+            font-size: 14px;
+            color: #2c3142;
+            cursor: pointer;
+        }
+        .sidenav-item:hover { background: #f4f5f7; }
+        .sidenav-item.active {
+            background: #eef1f5;
+            font-weight: 600;
+        }
+        .sidenav-item i.fa-solid:first-child { width: 16px; color: #6b7280; }
+        .sidenav-item .caret { margin-left: auto; font-size: 11px; color: #9aa0ac; }
+        .sidenav-sub {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 18px 7px 46px;
+            font-size: 13px;
+            color: #4a5060;
+            cursor: pointer;
+        }
+        .sidenav-sub.current { color: #0066cc; }
+        .sidenav-sub.current::before {
+            content: '';
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: #0066cc;
+            margin-left: -14px;
+            margin-right: 9px;
+        }
+
+        /* ── Main area ── */
+        .main {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Page title strip ── */
+        .page-title-strip {
+            background: #353b48;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 28px;
+            font-size: 16px;
+        }
+        .location-pill {
+            background: #fff;
+            color: #0066cc;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 5px 11px;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .page-title-strip .crumbs { font-size: 15px; }
+        .page-title-strip .crumbs a { color: #fff; text-decoration: underline; }
+        .page-title-strip .help-btn {
+            margin-left: auto;
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.12);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+        }
+
+        /* ── Wizard header (stepper + kebab) ── */
+        .wizard-header {
+            background: #fff;
+            border-bottom: 1px solid #e2e4e8;
+            position: relative;
+            padding: 28px 28px 22px;
+        }
+        .wizard-header-inner {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .wizard-header[data-mode="right-aligned"] .wizard-header-inner {
+            max-width: none;
+            margin: 0;
+        }
+        /* Cap = 1194 px — matches the Figma wizard content-area width
+           (1449 frame − 255 sidenav). */
+        .wizard-header[data-mode="sticky"] .wizard-header-inner {
+            max-width: 1194px;
+            margin: 0 auto;
+        }
+        .audit-slot {
+            position: absolute;
+            right: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+        }
+
+        /* ── Stepper ── */
+        .stepper {
+            display: flex;
+            align-items: flex-start;
+            gap: 0;
+            max-width: 800px;
+            width: 100%;
+        }
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+            position: relative;
+        }
+        .step.clickable { cursor: pointer; }
+        .step-row {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+        .step-circle {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1.5px solid #d0d3d9;
+            background: #fff;
+            color: #6b7280;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+        .step.active .step-circle {
+            background: #0066cc;
+            border-color: #0066cc;
+            color: #fff;
+        }
+        .step.complete .step-circle {
+            background: #2bb673;
+            border-color: #2bb673;
+            color: #fff;
+        }
+        .step.complete .step-circle .num { display: none; }
+        .step:not(.complete) .step-circle .fa-check { display: none; }
+        .step-line {
+            flex: 1;
+            height: 1.5px;
+            background: #d0d3d9;
+            margin: 0 4px;
+        }
+        .step.complete .step-line { background: #2bb673; }
+        .step.active .step-line.left { background: #2bb673; }
+        .step:first-child .step-line.left,
+        .step:last-child .step-line.right {
+            visibility: hidden;
+        }
+        .step-label {
+            font-size: 13.5px;
+            color: #2c3142;
+            text-align: center;
+            white-space: nowrap;
+        }
+        .step.active .step-label { font-weight: 600; }
+        .step-label .req { color: #e53935; margin-left: 2px; }
+
+        /* Kebab "more options" (Figma: ⋮ at the stepper's right) → Audit History */
+        .kebab-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            color: #5a6068;
+            font-size: 18px;
+            cursor: pointer;
+        }
+        .kebab-btn:hover { background: #f0f1f3; color: #1a1a1a; }
+
+        @media (max-width: 720px) {
+            .step-label { display: none; }
+        }
+
+        /* ── Page content ──
+           .wiz-body is the flexible middle band: [step pane | Selected panel].
+           Each step lives in its own .step-pane; only one is visible. */
+        .wiz-body {
+            flex: 1;
+            display: flex;
+            min-height: 0;
+        }
+        .wiz-left {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .step-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+        .step-pane[hidden] { display: none; }
+
+        /* Picker steps (1 & 2): content-wrap hosts a fixed-height card whose
+           table scrolls internally. 48px side gutter keeps the FAB lane clear. */
+        .content-wrap {
+            padding: 22px var(--fin-gutter, 48px) 22px;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        /* Form steps (3, 4, 5): the whole pane scrolls, cards grow with content. */
+        .content-wrap.scroll {
+            display: block;
+            overflow: auto;
+            padding-bottom: 40px;
+        }
+        .content-wrap.scroll .card {
+            flex: none;
+            overflow: visible;
+            display: block;
+            padding: 32px;
+        }
+
+        /* Page heading above the card (Figma: "Optional Settings" sits on the
+           grey canvas, not inside the card). */
+        .page-h {
+            width: 100%;
+            max-width: 1194px;
+            margin: 0 auto 14px;
+            font-size: 28px;
+            font-weight: 600;
+            line-height: 36px;
+            color: #1a1a1a;
+        }
+
+        .table-scroll { flex: 1; min-height: 0; overflow: auto; }
+        .table-scroll table.qual-table { min-width: 720px; }
+
+        /* ── Pagination — lives INSIDE the picker card (Figma) ── */
+        .card-pager {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 24px;
+            padding: 10px 24px;
+            border-top: 1px solid #dde2eb;
+            font-size: 14px;
+            color: #00000099;
+        }
+        .pg-size { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
+        .pg-select { border: 1px solid #1c304a85; border-radius: 4px; padding: 5px 26px 5px 8px; font: 14px 'Open Sans'; color: #000000de; background: #fff; cursor: pointer;
+            appearance: none; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24'%3E%3Cpath fill='%23666' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+        .pg-range { white-space: nowrap; }
+        .pg-nav { display: flex; align-items: center; gap: 2px; }
+        .pg-page { color: #000000de; margin: 0 6px; white-space: nowrap; }
+        .pg-btn {
+            width: 30px; height: 30px;
+            border: none; background: transparent; border-radius: 4px;
+            color: #0066cc; cursor: pointer; font-size: 13px;
+            display: inline-flex; align-items: center; justify-content: center;
+        }
+        .pg-btn:hover:not(:disabled) { background: #eef5ff; }
+        .pg-btn:disabled { color: #00000042; cursor: default; }
+
+        /* ── Selected side panel (Selected Training / Selected Assignees) ──
+           Appears when rows are checked; scrolls independently of the table. */
+        .sel-panel {
+            width: 320px;
+            flex-shrink: 0;
+            background: #fff;
+            border-left: 1px solid #e2e4e8;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .sel-panel[hidden] { display: none; }
+        .sel-head {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            padding: 16px 18px 12px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #1a1a2e;
+            border-bottom: 1px solid #eef0f3;
+            flex-shrink: 0;
+        }
+        .sel-count {
+            background: #0066cc;
+            color: #fff;
+            font-size: 11.5px;
+            font-weight: 700;
+            min-width: 22px;
+            height: 22px;
+            border-radius: 20px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 7px;
+        }
+        .sel-clear {
+            margin-left: auto;
+            border: none; background: none;
+            color: #0066cc; font: 600 12.5px 'Open Sans'; cursor: pointer;
+        }
+        .sel-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 14px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .sel-item {
+            border: 1px solid #e2e4e8;
+            border-radius: 8px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            background: #fff;
+        }
+        .sel-item .si-icon { color: #0066cc; font-size: 13px; margin-top: 2px; width: 14px; text-align: center; }
+        .sel-item .si-name { flex: 1; font-size: 12.5px; font-weight: 600; color: #2c3142; line-height: 1.4; }
+        .sel-item .si-type { display: block; font-size: 11px; font-weight: 400; color: #9aa0ac; margin-top: 2px; }
+        .sel-item .si-remove { border: none; background: none; color: #9aa0ac; cursor: pointer; font-size: 12px; width: 24px; height: 24px; border-radius: 5px; flex-shrink: 0; }
+        .sel-item .si-remove:hover { background: #fde7e7; color: #b3261e; }
+
+        /* ── Card ── (Shadow S from the Figma tokens) */
+        .card {
+            background: #fff;
+            border: 1px solid #e2e4e8;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px -1px #1c375a29, 0 3px 12px -1px #1c375a29;
+            width: 100%;
+            max-width: 1194px;
+            margin: 0 auto;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .card-head-block { flex-shrink: 0; padding: 22px 24px 14px; }
+        .card h2 {
+            font-size: 24px;
+            font-weight: 600;
+            line-height: 28px;
+            color: rgba(0,0,0,0.87);
+            margin: 0 0 4px;
+        }
+        .card .sub {
+            color: rgba(0,0,0,0.6);
+            font-size: 14px;
+            line-height: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* Inline validation banner at the top of a step */
+        .step-alert {
+            display: flex; align-items: center; gap: 10px;
+            background: #fde7e7; border: 1px solid #f3b9b9; color: #8a1c1c;
+            border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .step-alert[hidden] { display: none; }
+        .step-alert i { color: #b3261e; }
+
+        .filter-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 16px;
+        }
+        .card.filters-collapsed .filter-row { display: none; }
+        .field-label {
+            font-size: 14px;
+            color: rgba(0,0,0,0.6);
+            margin-bottom: 4px;
+            font-weight: 400;
+        }
+        /* Control system — every field is 42px tall / 15px text, every button
+           40px, every select shares one 16px caret with 40px right padding. */
+        .input, .select {
+            width: 100%;
+            height: 42px;
+            border: 1px solid #1c304a85;
+            border-radius: 6px;
+            padding: 0 12px;
+            font: 15px 'Open Sans';
+            background: #fff;
+            color: #1a1a1a;
+        }
+        .input:focus, .select:focus, textarea.input:focus { outline: 2px solid #0066cc; outline-offset: 1px; border-color: #0066cc; }
+        .input.error { border-color: #e53935; background: #fff7f7; }
+        .select { appearance: none; background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23444' d='M7 10l5 5 5-5z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 40px; }
+
+        .view-row { display: flex; align-items: center; gap: 10px; }
+        .collapse-chevron {
+            width: 32px; height: 32px; flex-shrink: 0;
+            border: 1px solid #d0d3d9; border-radius: 6px;
+            background: #fff; color: #5a6068; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; transition: transform .15s;
+        }
+        .collapse-chevron:hover { background: #f4f5f7; }
+        .card.filters-collapsed .collapse-chevron { transform: rotate(-90deg); }
+        .view-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 6px 12px;
+            border: 1.5px solid #0066cc;
+            color: #0066cc;
+            border-radius: 999px;
+            font-size: 12.5px;
+            font-weight: 600;
+            background: #fff;
+        }
+        .view-pill i { font-size: 11px; }
+
+        /* Table — AG-grid styling from Figma tokens: 48px header (#f8f8f8),
+           42px rows, 18px cell padding, #dde2eb dividers, sticky header. */
+        table.qual-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        .qual-table th, .qual-table td {
+            padding: 11px 18px;
+            border-bottom: 1px solid #dde2eb;
+            text-align: left;
+        }
+        .qual-table thead th {
+            position: sticky;
+            top: 0;
+            background: #f8f8f8;
+            font-weight: 600;
+            color: #181d1f;
+            font-size: 13px;
+            height: 48px;
+            z-index: 1;
+            white-space: nowrap;
+        }
+        .qual-table th.sortable { cursor: pointer; user-select: none; }
+        .qual-table th.sortable:hover { color: #0066cc; }
+        .qual-table td { color: #181d1f; }
+        .qual-table th i { color: #9aa0ac; font-size: 10px; margin-left: 4px; }
+        .qual-table th[aria-sort="ascending"] i,
+        .qual-table th[aria-sort="descending"] i { color: #0066cc; }
+        .qual-table td .new-tag {
+            display: inline-block;
+            background: #d6ecff;
+            color: #0066cc;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 999px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .qual-table td .view-link {
+            color: #0066cc;
+            text-decoration: underline;
+            font-weight: 600;
+        }
+        .qual-table input[type="checkbox"] {
+            width: 16px; height: 16px;
+            accent-color: #0066cc;
+        }
+        .qual-table tbody tr:hover { background: #f8fafd; }
+        .qual-table td.muted { color: rgba(0,0,0,.6); }
+
+        /* ── Form sections (Scheduling / Optional Settings / Review) ──
+           From the Figma Optional Settings frame: 22px section titles, 15px
+           60%-black helper text, 1px #dde2eb dividers between sections. */
+        .sec + .sec { border-top: 1px solid #dde2eb; margin-top: 28px; padding-top: 28px; }
+        .sec h3 {
+            font-size: 22px;
+            font-weight: 600;
+            line-height: 30px;
+            color: rgba(0,0,0,0.87);
+            margin: 0 0 4px;
+        }
+        .sec .desc {
+            font-size: 15px;
+            line-height: 22px;
+            color: rgba(0,0,0,0.6);
+            margin: 0 0 20px;
+        }
+        .input.w-sm { width: 320px; max-width: 100%; height: 50px; padding: 0 14px; font-size: 16px; }   /* Figma: 320×50 */
+        .input.w-xs { width: 84px; padding: 0 10px; text-align: center; }
+        .select.w-sm { width: 150px; }
+        .select.w-md { width: 300px; }
+        textarea.input { width: 100%; height: auto; min-height: 110px; resize: vertical; padding: 12px 14px; line-height: 22px; font-size: 16px; }
+        .chk { width: 26px; height: 26px; accent-color: #0066cc; cursor: pointer; margin: 0; }
+        .btn.lg { height: 50px; font-size: 18px; font-weight: 400; padding: 0 18px; }   /* Figma: 50px outline button */
+        .btn.lg i { font-size: 15px; }
+
+        .radio-list { display: flex; flex-direction: column; gap: 6px; }
+        .radio-row {
+            display: flex; align-items: center; gap: 12px; min-height: 42px;
+            font-size: 16px; color: rgba(0,0,0,.87); cursor: pointer;
+        }
+        .radio-row input[type="radio"] { width: 20px; height: 20px; accent-color: #0066cc; margin: 0; cursor: pointer; }
+        .radio-row .inline { display: inline-flex; align-items: center; gap: 8px; }
+        .radio-row .input.w-xs, .radio-row .select.w-sm { font-size: 15px; }
+
+        .field-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; }
+        .field { display: flex; flex-direction: column; gap: 6px; }
+        .field .input { width: 200px; }
+        .field .input[type="time"] { width: 150px; }
+        .field-grid > .btn { height: 42px; }
+        .field-note { font-size: 13px; color: #b3261e; margin-top: 8px; display: none; }
+        .field-note.show { display: block; }
+        .check-row { display: flex; align-items: center; gap: 12px; font-size: 16px; margin-top: 20px; min-height: 42px; cursor: pointer; }
+        .check-row .chk { width: 20px; height: 20px; }
+        .sub-block {
+            margin: 12px 0 0 32px;
+            padding: 16px 20px;
+            border-left: 2px solid #dde2eb;
+        }
+        .sub-block[hidden] { display: none; }
+        .preview-box {
+            margin-top: 18px;
+            background: #f4f7fb;
+            border: 1px solid #dde2eb;
+            border-radius: 8px;
+            padding: 14px 16px;
+            font-size: 15px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .preview-box i { color: #0066cc; }
+        .preview-box strong { font-weight: 600; }
+        .preview-box .muted { color: rgba(0,0,0,.6); }
+
+        /* ── Review ── */
+        .review-sec .sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+        .edit-link {
+            border: none; background: none; color: #0066cc; cursor: pointer;
+            font: 600 14px 'Open Sans'; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .edit-link:hover { text-decoration: underline; }
+        .review-rows { display: grid; grid-template-columns: 240px 1fr; gap: 10px 24px; font-size: 15px; margin: 0; }
+        .review-rows dt { color: rgba(0,0,0,.6); }
+        .review-rows dd { margin: 0; color: rgba(0,0,0,.87); }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+        .chip {
+            display: inline-flex; align-items: center; gap: 8px;
+            border: 1px solid #dde2eb; border-radius: 8px; padding: 7px 12px;
+            font-size: 14px; background: #fff;
+        }
+        .chip i { color: #0066cc; font-size: 12px; }
+        .chip .chip-sub { color: rgba(0,0,0,.5); font-size: 12.5px; }
+        .type-tag {
+            display: inline-block;
+            background: #d6ecff; color: #0066cc;
+            font-size: 12px; font-weight: 700;
+            padding: 3px 10px; border-radius: 999px;
+            vertical-align: middle;
+        }
+        .type-tag.recurring { background: #efe7fb; color: #5b2ea6; }
+        .review-status {
+            display: flex; align-items: center; gap: 10px;
+            margin-top: 28px; padding-top: 24px; border-top: 1px solid #dde2eb;
+            font-size: 14px; color: rgba(0,0,0,.6);
+        }
+        .review-status .spin { color: #0066cc; }
+        .review-status.ok { color: #1b7a45; }
+        .review-status.ok i { color: #1b7a45; }
+        .review-status.dup { color: #8a6d09; }
+        .review-status.dup i { color: #c48f00; }
+
+        /* ── Success ── */
+        .success-card { text-align: center; padding: 64px 32px !important; }
+        .success-icon {
+            width: 76px; height: 76px; border-radius: 50%;
+            background: #e7f7ee; color: #1b7a45;
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 34px; margin-bottom: 20px;
+        }
+        .success-card h2 { font-size: 28px; margin-bottom: 8px; }
+        .success-card p { color: rgba(0,0,0,.6); font-size: 16px; margin: 0 auto 28px; max-width: 560px; line-height: 24px; }
+        .success-actions { display: flex; justify-content: center; gap: 12px; }
+
+        /* Footer — locked action bar. The Fin FAB floats ABOVE this bar. */
+        .wizard-footer {
+            background: #fff;
+            border-top: 1px solid #e2e4e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 28px;
+            height: var(--wiz-footer-h);
+            flex-shrink: 0;
+        }
+        .wizard-footer[hidden] { display: none; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            height: 40px;
+            font: 600 14px 'Open Sans';
+            padding: 0 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            border: 1.5px solid #0066cc;
+            background: #fff;
+            color: #0066cc;
+            white-space: nowrap;
+        }
+        .btn.primary {
+            background: #0066cc;
+            color: #fff;
+        }
+        .btn.primary:disabled { background: #9fc3e8; border-color: #9fc3e8; cursor: default; }
+        .btn.ghost { border-color: #d0d3d9; color: #4a5060; }
+
+        /* ── Audit modal ── */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(20,24,32,0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-backdrop.open { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: 12px;
+            width: min(640px, 92vw);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+            overflow: hidden;
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e4e8;
+        }
+        .modal-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 9px;
+        }
+        .modal-header h3 i { color: #0066cc; }
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: #6b7280;
+            font-size: 16px;
+            cursor: pointer;
+            width: 30px; height: 30px;
+            border-radius: 50%;
+        }
+        .modal-close:hover { background: #f4f5f7; }
+        .modal-body {
+            padding: 14px 20px 20px;
+            overflow: auto;
+        }
+        table.audit-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .audit-table th, .audit-table td {
+            padding: 9px 8px;
+            border-bottom: 1px solid #eaecf0;
+            text-align: left;
+        }
+        .audit-table th {
+            font-weight: 700;
+            font-size: 12px;
+            color: #4a5060;
+            background: #fafbfc;
+        }
+        .audit-table td .who {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+        }
+        .audit-avatar {
+            width: 22px; height: 22px;
+            border-radius: 50%;
+            background: #d6ecff;
+            color: #0066cc;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .audit-table td .change-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background: #eef1f5;
+            color: #2c3142;
+        }
+        .audit-table td .change-tag.added { background: #e7f7ee; color: #1b7a45; }
+        .audit-table td .change-tag.edited { background: #fff5d6; color: #8a6d09; }
+        .audit-table td .change-tag.removed { background: #fde7e7; color: #b3261e; }
+
+        /* EHS incident picker modal (Optional Settings) */
+        .incident-list { display: flex; flex-direction: column; gap: 8px; }
+        .incident-row {
+            display: flex; align-items: center; gap: 12px;
+            border: 1px solid #e2e4e8; border-radius: 8px; padding: 10px 14px; cursor: pointer;
+        }
+        .incident-row:hover { background: #f8fafd; }
+        .incident-row .chk { width: 18px; height: 18px; }
+        .incident-row .inc-id { font-weight: 600; color: #0066cc; min-width: 90px; }
+        .incident-row .inc-title { flex: 1; font-size: 14px; }
+        .incident-row .inc-date { color: rgba(0,0,0,.5); font-size: 13px; }
+        .modal-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px; border-top: 1px solid #e2e4e8; }
+        .incident-chips { margin-top: 14px; }
+
+        /* ── Filter collapse chevron: Figma shows ^ while filters are open ── */
+        .card.filters-collapsed .collapse-chevron { transform: rotate(180deg); }
+
+        /* ── Location dropdown (Figma: nested permission tree next to View All) ──
+           Trigger is the View All pill; the panel lists the location tree the
+           admin has permission to. Chevron convention follows the Figma frame
+           literally: a node whose children are SHOWN carries ›, a node whose
+           children are HIDDEN carries ˅. */
+        .loc-dd { position: relative; display: inline-block; }
+        .view-pill { cursor: pointer; }
+        .view-pill:hover { background: #eef5ff; }
+        .view-pill[aria-expanded="true"] { background: #e6eef8; }
+        .loc-panel {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: -42px;
+            width: 484px;
+            background: #fff;
+            border: 1px solid #dde2eb;
+            border-radius: 8px;
+            box-shadow: 0 6px 24px rgba(28,55,90,.18);
+            z-index: 50;
+            max-height: 560px;
+            overflow-y: auto;
+            padding-bottom: 6px;
+        }
+        .loc-panel[hidden] { display: none; }
+        .loc-all {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px 12px 14px;
+            background: #e6eef8;
+            border-bottom: 2px solid #c9d6ea;
+            font-size: 16px; color: #1a1a1a; text-decoration: underline;
+            cursor: pointer;
+        }
+        .loc-all i { color: #0066cc; font-size: 15px; visibility: hidden; }
+        .loc-all.selected i { visibility: visible; }
+        .loc-row {
+            display: flex; align-items: flex-start; gap: 8px;
+            padding: 12px 20px 10px 0;
+            border-bottom: 1px solid #eef0f3;
+            cursor: pointer;
+        }
+        .loc-row:last-child { border-bottom: none; }
+        .loc-row:hover { background: #f8fafd; }
+        .loc-row.selected { background: #eef5ff; }
+        .loc-row.selected .loc-name { color: #0066cc; font-weight: 600; }
+        .loc-chev {
+            width: 20px; flex-shrink: 0; margin-top: 4px;
+            border: none; background: none; color: #333; font-size: 13px; cursor: pointer; padding: 0;
+        }
+        .loc-chev.leaf { visibility: hidden; }
+        .loc-name { font-size: 16px; color: #1a1a1a; line-height: 22px; }
+        .loc-type { font-size: 14px; color: #333; line-height: 20px; }
+        .loc-check { margin-left: auto; color: #0066cc; font-size: 14px; margin-top: 4px; visibility: hidden; }
+        .loc-row.selected .loc-check { visibility: visible; }
+
+        /* ── Stepper: a visited-but-unfinished required step ── */
+        .step.incomplete .step-circle { background: #fff7e6; border-color: #e3a008; color: #b7791f; }
+        .step.incomplete .step-circle .num { display: none; }
+        .step:not(.incomplete) .step-circle .fa-exclamation { display: none; }
+        .step.incomplete .step-label { color: #8a5a00; }
+        .step.clickable .step-circle:hover { box-shadow: 0 0 0 4px #e6eef8; }
+
+        /* ── Review: unfinished step callouts ── */
+        .step-alert.warn { background: #fff7e6; border-color: #f1d595; color: #6b4a00; }
+        .step-alert.warn i { color: #c48f00; }
+        .step-alert .alert-link { margin-left: auto; border: none; background: none; color: #0066cc; font: 600 14px 'Open Sans'; cursor: pointer; white-space: nowrap; }
+        .rv-incomplete {
+            display: flex; align-items: center; gap: 10px;
+            padding: 12px 14px; border: 1px dashed #e3a008; border-radius: 8px;
+            background: #fffaf0; color: #6b4a00; font-size: 14px;
+        }
+        .rv-incomplete i { color: #c48f00; }
+        .rv-incomplete .edit-link { margin-left: auto; }
+
+        /* ── Scheduling: option rows with inline controls ── */
+        .opt-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 16px; color: rgba(0,0,0,.87); min-height: 42px; }
+        .opt-row input[type="radio"] { width: 20px; height: 20px; accent-color: #0066cc; margin: 0; cursor: pointer; }
+        .opt-row .input[type="date"] { width: 200px; }
+        .opt-row .input[type="time"] { width: 150px; }
+        .opt-row.disabled { color: rgba(0,0,0,.45); }
+        .opt-row.disabled .input, .opt-row.disabled .select { background: #f4f5f7; color: rgba(0,0,0,.45); }
+        .sched-note { font-size: 14px; color: rgba(0,0,0,.6); margin: 10px 0 0 32px; }
+        /* Sections wrapped in a show/hide div still get their divider. */
+        .card div > .sec:first-child, .card div + .sec { border-top: 1px solid #dde2eb; margin-top: 28px; padding-top: 28px; }
+        .card .step-alert + .sec { border-top: 0; margin-top: 0; padding-top: 0; }   /* alert banner is not a section */
+
+        /* ── Info tooltip (question title + ⓘ) ── */
+        .sec h3 .info, .q-title .info { position: relative; display: inline-flex; margin-left: 8px; color: #6b7280; font-size: 15px; vertical-align: middle; cursor: help; }
+        .info::after {
+            content: attr(data-tip);
+            position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%);
+            width: 320px; padding: 10px 12px; border-radius: 8px;
+            background: #1a1a2e; color: #fff; font: 400 13px/18px 'Open Sans';
+            box-shadow: 0 6px 20px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 60;
+        }
+        .info:hover::after, .info:focus::after { opacity: 1; }
+        .q-title { font-size: 16px; font-weight: 600; color: rgba(0,0,0,.87); margin: 26px 0 6px; display: flex; align-items: center; }
+        .q-help { font-size: 14px; line-height: 20px; color: rgba(0,0,0,.6); margin: 0 0 14px; }
+
+        /* ── Toggle switch (On/Off) ── */
+        .toggle { display: inline-flex; align-items: center; gap: 12px; cursor: pointer; font-size: 15px; color: rgba(0,0,0,.87); min-height: 42px; }
+        /* Prototype-only demo switch on the Review heading row */
+        .page-h-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; max-width: 1194px; margin: 0 auto 14px; }
+        .page-h-row .page-h { margin: 0; }
+        .toggle.demo { min-height: 0; white-space: nowrap; font-size: 13px; color: #6b7280; border: 1px dashed #c4c9d4; border-radius: 999px; padding: 6px 14px 6px 10px; background: #fff; }
+        .toggle.demo .track { width: 36px; height: 20px; }
+        .toggle.demo .track::after { width: 14px; height: 14px; }
+        .toggle.demo input:checked + .track::after { transform: translateX(16px); }
+        .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+        .toggle .track { width: 44px; height: 24px; border-radius: 12px; background: #c4c9d4; position: relative; transition: background .15s; flex-shrink: 0; }
+        .toggle .track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s; }
+        .toggle input:checked + .track { background: #0066cc; }
+        .toggle input:checked + .track::after { transform: translateX(20px); }
+        .toggle input:focus-visible + .track { outline: 2px solid #0066cc; outline-offset: 2px; }
+
+        /* ── Check-with-label row ── */
+        .chk-row { display: flex; align-items: flex-start; gap: 12px; font-size: 16px; color: rgba(0,0,0,.87); cursor: pointer; }
+        .chk-row .chk { width: 22px; height: 22px; margin-top: 1px; }
+
+        /* ── Wide modal + toolbar + live pager (Duplicate Assignments Found) ── */
+        .modal.wide { width: min(1180px, 94vw); max-height: 88vh; }
+        .modal-body.flush { padding: 0; display: flex; flex-direction: column; min-height: 0; }
+        .dup-banner { display: flex; gap: 12px; align-items: flex-start; margin: 16px 20px 0; padding: 12px 14px; border-radius: 8px; background: #fff7e6; border: 1px solid #f1d595; color: #6b4a00; font-size: 14px; line-height: 20px; }
+        .dup-banner i { color: #c48f00; margin-top: 2px; }
+        .dup-banner strong { font-weight: 700; }
+        .dup-sub { margin: 18px 20px 0; font-size: 15px; line-height: 22px; color: rgba(0,0,0,.7); }
+        .dup-sub strong { color: rgba(0,0,0,.87); font-weight: 700; }
+        .dup-rule a { color: #0066cc; font-weight: 600; }
+        .dup-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 14px 20px 10px; }
+        .dup-toolbar .input { width: 220px; }
+        .dup-toolbar .select { width: auto; min-width: 168px; }
+        .dup-toolbar .spacer { flex: 1; }
+        .dup-toolbar .link-btn { border: none; background: none; color: #0066cc; font: 600 13.5px 'Open Sans'; cursor: pointer; padding: 4px 6px; }
+        .dup-toolbar .sel-count { font-size: 12px; }
+        .dup-table-wrap { flex: 1; min-height: 160px; max-height: 44vh; overflow: auto; border-top: 1px solid #dde2eb; }
+        .dup-table-wrap .qual-table th, .dup-table-wrap .qual-table td { padding: 9px 14px; font-size: 13.5px; }
+        .dup-table-wrap .qual-table thead th { height: 42px; }
+        .status-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+        .status-pill.not-started { background: #eef1f5; color: #2c3142; }
+        .status-pill.in-progress { background: #d6ecff; color: #0066cc; }
+        .status-pill.completed { background: #e7f7ee; color: #1b7a45; }
+        .type-sub { color: rgba(0,0,0,.5); font-size: 12px; margin-left: 6px; }
+        .modal-footer.split { justify-content: space-between; align-items: center; }
+        .modal-footer .link-btn { border: none; background: none; color: #0066cc; font: 600 13.5px 'Open Sans'; cursor: pointer; }
+        .btn.destructive { background: #b3261e; border-color: #b3261e; color: #fff; }
+        .btn.destructive:hover { background: #961d17; }
+        .btn:disabled { opacity: .55; cursor: default; }
+        .confirm-copy { font-size: 15px; line-height: 24px; color: rgba(0,0,0,.87); margin: 0 0 8px; }
+        .confirm-copy strong { font-weight: 700; }
+        .expander { border: none; background: none; color: #0066cc; font: 600 14px 'Open Sans'; cursor: pointer; padding: 6px 0; display: inline-flex; align-items: center; gap: 8px; }
+        .expander i { transition: transform .15s; }
+        .expander[aria-expanded="true"] i { transform: rotate(180deg); }
+        .confirm-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 14px 0 6px; }
+        .stat { border: 1px solid #dde2eb; border-radius: 8px; padding: 12px 14px; }
+        .stat .n { font-size: 24px; font-weight: 700; color: rgba(0,0,0,.87); line-height: 30px; }
+        .stat .l { font-size: 13px; color: rgba(0,0,0,.6); }
+        .stat.ended .n { color: #b3261e; }
+        .stat.kept .n { color: #b7791f; }
+
+        /* ── Finishing page: conflict summary ── */
+        .summary-card { max-width: 620px; margin: 0 auto 28px; text-align: left; border: 1px solid #dde2eb; border-radius: 10px; padding: 16px 20px; }
+        .summary-card h4 { margin: 0 0 10px; font-size: 15px; font-weight: 700; color: rgba(0,0,0,.87); }
+        .summary-card .confirm-stats { margin: 0; }
+        .summary-card .link-btn { border: none; background: none; color: #0066cc; font: 600 13px 'Open Sans'; cursor: pointer; padding: 0; margin-top: 4px; }
+    </style>
+
+</head>
+<body>
+
+    <!-- Top nav -->
+    <header class="topnav">
+        <div class="brand">
+            <span class="vs-logo"></span>
+            VectorSolutions
+        </div>
+        <nav>
+            <a href="#">Home</a>
+            <a href="#">Training</a>
+            <a href="#">Catalog</a>
+            <a href="#" class="active">Administration</a>
+        </nav>
+        <div class="right-icons">
+            <i class="fa-solid fa-globe"></i>
+            <span class="user-pill">ZM</span>
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </div>
+    </header>
+
+    <div class="shell">
+        <!-- Sidenav (mock's own; deliberately not pulled from Figma) -->
+        <aside class="sidenav">
+            <div class="sidenav-search">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>Search</span>
+                <span class="sep"></span>
+                <i class="fa-solid fa-filter"></i>
+            </div>
+            <div class="sidenav-item"><i class="fa-solid fa-table-columns"></i> Dashboard</div>
+            <div class="sidenav-item"><i class="fa-solid fa-building"></i> Organization <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-square-plus"></i> Training Import &amp; Creation <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-file"></i> Files <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-book-open"></i> Activities <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-graduation-cap"></i> Training Programs <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item active"><i class="fa-solid fa-clipboard-list"></i> Assignments <i class="fa-solid fa-chevron-up caret"></i></div>
+            <div class="sidenav-sub current">Assign Training</div>
+            <div class="sidenav-sub">Assignments</div>
+            <div class="sidenav-item"><i class="fa-solid fa-star"></i> Electives <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-key"></i> Authorizations <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-list-check"></i> Tracking and Completions <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-shield-halved"></i> MSHA Compliance <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-chart-column"></i> Reports <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-shield"></i> Security <i class="fa-solid fa-chevron-down caret"></i></div>
+            <div class="sidenav-item"><i class="fa-solid fa-gear"></i> System <i class="fa-solid fa-chevron-down caret"></i></div>
+        </aside>
+
+        <!-- Main -->
+        <section class="main">
+            <!-- Page title strip -->
+            <div class="page-title-strip">
+                <span class="location-pill"><i class="fa-solid fa-location-dot"></i> Location</span>
+                <span class="crumbs"><a href="#">Demo Org (lms.convergencetraining.com)</a> &gt; Assign Training</span>
+                <span class="help-btn"><i class="fa-regular fa-circle-question"></i></span>
+            </div>
+
+            <!-- Wizard header w/ stepper + kebab -->
+            <div class="wizard-header" id="wizardHeader" data-mode="right-aligned">
+                <div class="wizard-header-inner">
+                    <div class="stepper" id="stepper">
+                        <div class="step active" data-step="1">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle"><span class="num">1</span><i class="fa-solid fa-check"></i><i class="fa-solid fa-exclamation"></i></div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Select Training<span class="req">*</span></div>
+                        </div>
+                        <div class="step" data-step="2">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle"><span class="num">2</span><i class="fa-solid fa-check"></i><i class="fa-solid fa-exclamation"></i></div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Select Assignees<span class="req">*</span></div>
+                        </div>
+                        <div class="step" data-step="3">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle"><span class="num">3</span><i class="fa-solid fa-check"></i><i class="fa-solid fa-exclamation"></i></div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Scheduling<span class="req">*</span></div>
+                        </div>
+                        <div class="step" data-step="4">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle"><span class="num">4</span><i class="fa-solid fa-check"></i><i class="fa-solid fa-exclamation"></i></div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Optional Settings</div>
+                        </div>
+                        <div class="step" data-step="5">
+                            <div class="step-row">
+                                <div class="step-line left"></div>
+                                <div class="step-circle"><span class="num">5</span><i class="fa-solid fa-check"></i><i class="fa-solid fa-exclamation"></i></div>
+                                <div class="step-line right"></div>
+                            </div>
+                            <div class="step-label">Review<span class="req">*</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Kebab "more options" (Figma) — opens Audit History -->
+                    <div class="audit-slot">
+                        <button class="kebab-btn" id="auditBtn" type="button" aria-label="More options" title="View Audit History">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Body band: [step pane | Selected panel] -->
+            <div class="wiz-body">
+                <div class="wiz-left">
+
+                    <!-- ═══════════ STEP 1 — Select Training ═══════════
+                         Picker: Qualifications | Activities, searchable, with the
+                         nested location dropdown next to View All. Rows are
+                         rendered from TRAINING below. -->
+                    <div class="step-pane" data-step="1">
+                    <div class="content-wrap">
+                        <div class="card">
+                        <div class="card-head-block">
+                            <h2>Select Training</h2>
+                            <p class="sub">Select what training you want to assign to your learners.</p>
+
+                            <div class="filter-row">
+                                <div>
+                                    <div class="field-label">Search</div>
+                                    <input class="input" type="text" id="trainingSearch" placeholder="" />
+                                </div>
+                                <div>
+                                    <div class="field-label">View by Training Type</div>
+                                    <select class="select" id="trainingType">
+                                        <option>Qualifications</option>
+                                        <option>Activities</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="view-row">
+                                <button class="collapse-chevron" type="button" aria-label="Collapse filters" title="Collapse filters"><i class="fa-solid fa-chevron-up"></i></button>
+                                <div class="loc-dd" id="trainingLoc"></div>
+                            </div>
+                        </div>
+
+                        <div class="table-scroll">
+                            <table class="qual-table" id="trainingTable">
+                                <thead><tr></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+
+                        <div class="card-pager">
+                            <label class="pg-size">Page Size:
+                                <select class="pg-select">
+                                    <option>20</option>
+                                    <option>50</option>
+                                    <option>100</option>
+                                </select>
+                            </label>
+                            <span class="pg-range" id="trainingRange">1 to 20 of 20</span>
+                            <div class="pg-nav">
+                                <button class="pg-btn" type="button" aria-label="First page" disabled><i class="fa-solid fa-angles-left"></i></button>
+                                <button class="pg-btn" type="button" aria-label="Previous page" disabled><i class="fa-solid fa-angle-left"></i></button>
+                                <span class="pg-page" id="trainingPage">Page 1 of 1</span>
+                                <button class="pg-btn" type="button" aria-label="Next page" disabled><i class="fa-solid fa-angle-right"></i></button>
+                                <button class="pg-btn" type="button" aria-label="Last page" disabled><i class="fa-solid fa-angles-right"></i></button>
+                            </div>
+                        </div>
+                        </div><!-- /.card -->
+                    </div><!-- /.content-wrap -->
+                    </div><!-- /step 1 -->
+
+                    <!-- ═══════════ STEP 2 — Select Assignees ═══════════
+                         Same picker chrome. Production: seven assignee types;
+                         User grid sorts First Name / Last Name independently and
+                         every grid has a sortable Location column (CT-19906); sort
+                         state resets when the type changes (CT-20276). -->
+                    <div class="step-pane" data-step="2" hidden>
+                    <div class="content-wrap">
+                        <div class="card">
+                        <div class="card-head-block">
+                            <h2>Select Assignees</h2>
+                            <p class="sub">Select who should receive this training. You can mix users with teams, departments, sites, and groups.</p>
+
+                            <div class="filter-row">
+                                <div>
+                                    <div class="field-label">Search</div>
+                                    <input class="input" type="text" id="assigneeSearch" placeholder="" />
+                                </div>
+                                <div>
+                                    <div class="field-label">View by Assignee Type</div>
+                                    <select class="select" id="assigneeType">
+                                        <option>User</option>
+                                        <option>Team</option>
+                                        <option>Department</option>
+                                        <option>Site</option>
+                                        <option>Division/Region</option>
+                                        <option>Organization</option>
+                                        <option>Group</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="view-row">
+                                <button class="collapse-chevron" type="button" aria-label="Collapse filters" title="Collapse filters"><i class="fa-solid fa-chevron-up"></i></button>
+                                <div class="loc-dd" id="assigneeLoc"></div>
+                            </div>
+                        </div>
+
+                        <div class="table-scroll">
+                            <table class="qual-table" id="assigneeTable">
+                                <thead><tr></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+
+                        <div class="card-pager">
+                            <label class="pg-size">Page Size:
+                                <select class="pg-select">
+                                    <option>20</option>
+                                    <option>50</option>
+                                    <option>100</option>
+                                </select>
+                            </label>
+                            <span class="pg-range" id="assigneeRange">1 to 20 of 20</span>
+                            <div class="pg-nav">
+                                <button class="pg-btn" type="button" aria-label="First page" disabled><i class="fa-solid fa-angles-left"></i></button>
+                                <button class="pg-btn" type="button" aria-label="Previous page" disabled><i class="fa-solid fa-angle-left"></i></button>
+                                <span class="pg-page" id="assigneePage">Page 1 of 1</span>
+                                <button class="pg-btn" type="button" aria-label="Next page" disabled><i class="fa-solid fa-angle-right"></i></button>
+                                <button class="pg-btn" type="button" aria-label="Last page" disabled><i class="fa-solid fa-angles-right"></i></button>
+                            </div>
+                        </div>
+                        </div><!-- /.card -->
+                    </div>
+                    </div><!-- /step 2 -->
+
+                    <!-- ═══════════ STEP 3 — Scheduling ═══════════
+                         UNVERIFIED AGAINST FIGMA (connector unavailable when
+                         built). Confirmed from production: Single vs Recurring;
+                         Start Date + Start Time required with Set to Now
+                         (CT-15055); optional due date; recurring due date =
+                         Never | "[N] [unit] after it recurs" with a recur-
+                         relative Next Recurrence Preview (CT-19873 follow-ups);
+                         Future Additions only for org-unit assignees, default
+                         "Apply original" (CT-20346). The due-date options,
+                         recurrence basis, early availability window and prior-
+                         completion handling are best-effort placeholders to be
+                         reconciled against the Figma Scheduling review frames. -->
+                    <div class="step-pane" data-step="3" hidden>
+                    <div class="content-wrap scroll">
+                        <h1 class="page-h">Scheduling</h1>
+                        <div class="card">
+
+                            <section class="sec">
+                                <h3>What kind of assignment is this?</h3>
+                                <p class="desc">A single assignment is due once. A recurring assignment comes back on a schedule, for example annual refresher training.</p>
+                                <div class="radio-list">
+                                    <label class="radio-row"><input type="radio" name="schedKind" value="single" checked> Single assignment</label>
+                                    <label class="radio-row"><input type="radio" name="schedKind" value="recurring"> Recurring assignment</label>
+                                </div>
+                            </section>
+
+                            <!-- ── Single ── -->
+                            <div id="singleBlock">
+                            <section class="sec">
+                                <h3>When should this assignment start?</h3>
+                                <p class="desc">Start date and start time are both required. Use Set to Now to make the training available immediately.</p>
+                                <div class="field-grid">
+                                    <div class="field">
+                                        <div class="field-label">Start Date<span style="color:#e53935"> *</span></div>
+                                        <input class="input" type="date" id="startDate">
+                                    </div>
+                                    <div class="field">
+                                        <div class="field-label">Start Time<span style="color:#e53935"> *</span></div>
+                                        <input class="input" type="time" id="startTime">
+                                    </div>
+                                    <button class="btn" type="button" id="setNowBtn">Set to Now</button>
+                                </div>
+                                <div class="field-note" id="startNote">Enter both a start date and a start time.</div>
+                            </section>
+
+                            <section class="sec">
+                                <h3>When is this assignment due?</h3>
+                                <p class="desc">Learners are marked overdue after the due date. Leave it open if the training has no deadline.</p>
+                                <div class="radio-list">
+                                    <label class="opt-row"><input type="radio" name="dueKind" value="none" checked> No due date</label>
+                                    <label class="opt-row"><input type="radio" name="dueKind" value="date"> On a specific date
+                                        <input class="input" type="date" id="dueDate" aria-label="Due date">
+                                        <input class="input" type="time" id="dueTime" aria-label="Due time">
+                                    </label>
+                                    <label class="opt-row"><input type="radio" name="dueKind" value="after">
+                                        <input class="input w-xs" type="number" min="1" value="30" id="dueAfterCount" aria-label="Due after count">
+                                        <select class="select w-sm" id="dueAfterUnit" aria-label="Due after unit"><option>Days</option><option>Weeks</option><option>Months</option></select>
+                                        after the start date
+                                    </label>
+                                </div>
+                                <div class="field-note" id="dueNote">Enter both a due date and a due time.</div>
+                            </section>
+                            </div><!-- /singleBlock -->
+
+                            <!-- ── Recurring ── -->
+                            <div id="recurBlock" hidden>
+                            <section class="sec">
+                                <h3>When is the recurring start date?</h3>
+                                <p class="desc">The first occurrence starts on this date (defaults to now). Each later occurrence starts after the recurrence interval.</p>
+                                <div class="field-grid">
+                                    <div class="field">
+                                        <div class="field-label">Recurring Start Date<span style="color:#e53935"> *</span></div>
+                                        <input class="input" type="date" id="recurStart">
+                                    </div>
+                                    <div class="field">
+                                        <div class="field-label">Recurs every</div>
+                                        <div class="field-grid" style="gap:8px">
+                                            <input class="input w-xs" type="number" min="1" value="1" id="recurEvery">
+                                            <select class="select w-sm" id="recurUnit">
+                                                <option>Days</option>
+                                                <option>Weeks</option>
+                                                <option>Months</option>
+                                                <option selected>Years</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <button class="btn" type="button" id="setNowRecurBtn">Set to Now</button>
+                                </div>
+                                <div class="field-note" id="recurNote">Enter a recurring start date.</div>
+
+                                <div class="radio-list" style="margin-top:22px">
+                                    <div class="field-label" style="font-size:15px;color:rgba(0,0,0,.87);margin-bottom:6px">Recurrence is based on</div>
+                                    <label class="opt-row"><input type="radio" name="recurBasis" value="fixed" checked> The recurring start date (everyone recurs together)</label>
+                                    <label class="opt-row"><input type="radio" name="recurBasis" value="rolling"> Each learner's completion date (rolling)</label>
+                                </div>
+                            </section>
+
+                            <section class="sec">
+                                <h3>When is the recurring due date?</h3>
+                                <p class="desc">Choose when each occurrence becomes overdue. The due date is measured from the date the assignment recurs.</p>
+                                <div class="radio-list">
+                                    <label class="opt-row"><input type="radio" name="recurDue" value="never" checked> Never</label>
+                                    <label class="opt-row"><input type="radio" name="recurDue" value="after">
+                                        <input class="input w-xs" type="number" min="1" value="2" id="recurDueCount" aria-label="Recurring due count">
+                                        <select class="select w-sm" id="recurDueUnit" aria-label="Recurring due unit">
+                                            <option>Days</option>
+                                            <option>Weeks</option>
+                                            <option selected>Months</option>
+                                            <option>Years</option>
+                                        </select>
+                                        after it recurs
+                                    </label>
+                                    <label class="opt-row"><input type="radio" name="recurDue" value="period"> At the end of each recurrence period</label>
+                                </div>
+                                <div class="preview-box" id="recurPreview">
+                                    <i class="fa-regular fa-calendar"></i>
+                                    <span><strong>Next Recurrence Preview:</strong> <span id="recurPreviewText" class="muted"></span></span>
+                                </div>
+                            </section>
+
+                            <section class="sec">
+                                <h3>When should the next occurrence become available?</h3>
+                                <p class="desc">Give learners a window to complete the training before it recurs so their status never lapses.</p>
+                                <div class="radio-list">
+                                    <label class="opt-row"><input type="radio" name="earlyKind" value="none" checked> When it recurs</label>
+                                    <label class="opt-row"><input type="radio" name="earlyKind" value="before">
+                                        <input class="input w-xs" type="number" min="1" value="30" id="earlyCount" aria-label="Available before count">
+                                        <select class="select w-sm" id="earlyUnit" aria-label="Available before unit"><option>Days</option><option>Weeks</option><option>Months</option></select>
+                                        before it recurs
+                                    </label>
+                                </div>
+                            </section>
+
+                            <section class="sec">
+                                <h3>Ignore previous individual assignments when this assignment recurs
+                                    <span class="info" tabindex="0" data-tip="By default, a training assigned directly to a user takes priority over assignments made through a Team, Group, Department, Site, or Region. Each recurrence re-checks for individual assignments."><i class="fa-regular fa-circle-question"></i></span>
+                                </h3>
+                                <p class="desc">Each time this assignment recurs, apply it to users even if they already have one of the selected trainings directly assigned. Their previous individual assignment will be ended.</p>
+                                <label class="toggle"><input type="checkbox" id="recurIgnorePrev"><span class="track"></span><span id="recurIgnorePrevLabel">Off</span></label>
+                            </section>
+                            </div><!-- /recurBlock -->
+
+                            <!-- ── Both ── -->
+                            <section class="sec">
+                                <h3>What if a learner has already completed this training?</h3>
+                                <p class="desc">Applies to learners who completed any of the selected training before this assignment was created.</p>
+                                <div class="radio-list">
+                                    <label class="opt-row"><input type="radio" name="priorKind" value="count" checked> Count the existing completion toward this assignment</label>
+                                    <label class="opt-row"><input type="radio" name="priorKind" value="window"> Count it only if completed within the last
+                                        <input class="input w-xs" type="number" min="1" value="12" id="priorCount" aria-label="Prior completion window count">
+                                        <select class="select w-sm" id="priorUnit" aria-label="Prior completion window unit"><option>Days</option><option selected>Months</option><option>Years</option></select>
+                                    </label>
+                                    <label class="opt-row"><input type="radio" name="priorKind" value="new"> Require a new completion</label>
+                                </div>
+                            </section>
+
+                            <!-- Future additions (org-unit assignees only) -->
+                            <section class="sec" id="futureBlock" hidden>
+                                <h3>How should future additions be handled?</h3>
+                                <p class="desc">People added later to the selected teams, departments, sites, divisions, organizations, or groups will receive this assignment automatically.</p>
+                                <div class="radio-list">
+                                    <label class="radio-row"><input type="radio" name="future" value="original" checked> Apply original scheduling settings to future additions</label>
+                                    <label class="radio-row"><input type="radio" name="future" value="new"> Set new scheduling settings for future additions</label>
+                                </div>
+                                <div class="sub-block" id="futureNewBlock" hidden>
+                                    <div class="field-grid">
+                                        <div class="field">
+                                            <div class="field-label">Future Additions Start</div>
+                                            <select class="select" id="futureStart" style="width:280px">
+                                                <option>When the learner is added</option>
+                                                <option>1 week after the learner is added</option>
+                                                <option>2 weeks after the learner is added</option>
+                                                <option>1 month after the learner is added</option>
+                                            </select>
+                                        </div>
+                                        <div class="field">
+                                            <div class="field-label">Future Additions Due</div>
+                                            <select class="select" id="futureDue" style="width:280px">
+                                                <option>No due date</option>
+                                                <option>2 weeks after start</option>
+                                                <option selected>30 days after start</option>
+                                                <option>60 days after start</option>
+                                                <option>90 days after start</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="q-title">Ignore previous individual assignments for future additions
+                                    <span class="info" tabindex="0" data-tip="By default, a training assigned directly to a user takes priority over assignments made through a Team, Group, Department, Site, or Region."><i class="fa-regular fa-circle-question"></i></span>
+                                </div>
+                                <p class="q-help">Apply this assignment to future additions even if they already have one of the selected trainings directly assigned. Their previous individual assignment will be ended.</p>
+                                <label class="toggle"><input type="checkbox" id="futureIgnorePrev"><span class="track"></span><span id="futureIgnorePrevLabel">Off</span></label>
+                            </section>
+                        </div>
+                    </div>
+                    </div><!-- /step 3 -->
+
+                    <!-- ═══════════ STEP 4 — Optional Settings ═══════════
+                         Figma node 3527-416634, built 1:1. -->
+                    <div class="step-pane" data-step="4" hidden>
+                    <div class="content-wrap scroll">
+                        <h1 class="page-h">Optional Settings</h1>
+                        <div class="card">
+                            <section class="sec">
+                                <h3>Assignment Identifier</h3>
+                                <p class="desc">An assignment identifier can be used to group related assignments together and can be used as a search filter in various reports.</p>
+                                <input class="input w-sm" type="text" id="assignId" aria-label="Assignment identifier">
+                            </section>
+
+                            <section class="sec">
+                                <h3>Suppress New Assignment Notifications?</h3>
+                                <p class="desc">Use this field to enter additional instructions which will be included in the notification sent to users.</p>
+                                <input class="chk" type="checkbox" id="suppressNotif" aria-label="Suppress new assignment notifications">
+                            </section>
+
+                            <section class="sec">
+                                <h3>Vector EHS Management Incident Identifier</h3>
+                                <p class="desc">The selected incident identifier(s) will be used to tie this assignment to a safety incident from Vector EHS Management. Used to track which trainings were assigned due to which safety incidents.</p>
+                                <button class="btn lg" type="button" id="addIncidentBtn"><i class="fa-solid fa-plus"></i>Add Vector EHS Management Incident</button>
+                                <ul class="chip-list incident-chips" id="incidentChips"></ul>
+                            </section>
+
+                            <section class="sec">
+                                <h3>Special Assignment Instructions</h3>
+                                <p class="desc">Use this field to enter additional instructions which will be included in the notification sent to users.</p>
+                                <textarea class="input" id="instructions" aria-label="Special assignment instructions"></textarea>
+                            </section>
+
+                            <section class="sec">
+                                <h3>Ignore Previous Individual Assignments
+                                    <span class="info" tabindex="0" data-tip="By default, a training assigned directly to a user takes priority over assignments made through a Team, Group, Department, Site, or Region."><i class="fa-regular fa-circle-question"></i></span>
+                                </h3>
+                                <p class="desc">Apply this assignment to users even if they already have one of the selected trainings directly assigned. Their previous individual assignment will be ended.</p>
+                                <label class="chk-row"><input class="chk" type="checkbox" id="ignorePrev"> Ignore previous individual (user-based) assignments</label>
+                            </section>
+                        </div>
+                    </div>
+                    </div><!-- /step 4 -->
+
+                    <!-- ═══════════ STEP 5 — Review ═══════════
+                         Steps may be skipped on the way here; any required step
+                         left unfinished is called out per section and blocks
+                         Finish until it is completed. Styling still to be
+                         reconciled against the Figma Review frame. -->
+                    <div class="step-pane" data-step="5" hidden>
+                    <div class="content-wrap scroll">
+                        <div class="page-h-row">
+                            <h1 class="page-h">Review</h1>
+                            <label class="toggle demo" title="Prototype only: switch the mock data between conflicts found and none"><input type="checkbox" id="demoConflicts" checked><span class="track"></span><span>Demo: duplicate individual assignments found</span></label>
+                        </div>
+                        <div class="card" id="reviewCard">
+                            <div class="step-alert warn" id="reviewAlert" hidden><i class="fa-solid fa-triangle-exclamation"></i><span></span></div>
+                            <section class="sec review-sec" data-rv="1">
+                                <div class="sec-head"><h3>Training <span class="sel-count" id="rvTrainingCount">0</span></h3><button class="edit-link" type="button" data-go="1"><i class="fa-solid fa-pen"></i> Edit</button></div>
+                                <div class="rv-body"><ul class="chip-list" id="rvTraining"></ul></div>
+                            </section>
+                            <section class="sec review-sec" data-rv="2">
+                                <div class="sec-head"><h3>Assignees <span class="sel-count" id="rvAssigneeCount">0</span></h3><button class="edit-link" type="button" data-go="2"><i class="fa-solid fa-pen"></i> Edit</button></div>
+                                <div class="rv-body"><ul class="chip-list" id="rvAssignees"></ul></div>
+                            </section>
+                            <section class="sec review-sec" data-rv="3">
+                                <div class="sec-head"><h3>Scheduling</h3><button class="edit-link" type="button" data-go="3"><i class="fa-solid fa-pen"></i> Edit</button></div>
+                                <div class="rv-body"><dl class="review-rows" id="rvSched"></dl></div>
+                            </section>
+                            <section class="sec review-sec" data-rv="4">
+                                <div class="sec-head"><h3>Optional Settings</h3><button class="edit-link" type="button" data-go="4"><i class="fa-solid fa-pen"></i> Edit</button></div>
+                                <div class="rv-body"><dl class="review-rows" id="rvSettings"></dl></div>
+                            </section>
+                        </div>
+                    </div>
+                    </div><!-- /step 5 -->
+
+                    <!-- ═══════════ Success ═══════════ -->
+                    <div class="step-pane" data-step="6" hidden>
+                    <div class="content-wrap scroll">
+                        <div class="card success-card">
+                            <div class="success-icon"><i class="fa-solid fa-check"></i></div>
+                            <h2>Assignment Successfully Created!</h2>
+                            <p id="successText">Your training has been assigned. Learners will see it on their Training Plan and, unless notifications were suppressed, receive a new assignment notification.</p>
+                            <div class="summary-card" id="successSummary" hidden>
+                                <h4>Duplicate individual assignments</h4>
+                                <div class="confirm-stats">
+                                    <div class="stat"><div class="n" id="sumAssigned">0</div><div class="l">users assigned</div></div>
+                                    <div class="stat ended"><div class="n" id="sumEnded">0</div><div class="l">moved from an individual assignment</div></div>
+                                    <div class="stat kept"><div class="n" id="sumKept">0</div><div class="l">users kept their individual assignment <button class="link-btn" type="button" id="sumViewKept">View users</button></div></div>
+                                </div>
+                            </div>
+                            <div class="success-actions">
+                                <button class="btn" type="button" id="newAssignBtn">Create Another Assignment</button>
+                                <button class="btn primary" type="button">Go to Manage Assignments</button>
+                            </div>
+                        </div>
+                    </div>
+                    </div><!-- /success -->
+
+                </div><!-- /.wiz-left -->
+
+                <!-- Selected side panel: Selected Training on step 1, Selected
+                     Assignees on step 2; hidden on the form steps. -->
+                <aside class="sel-panel" id="selPanel" hidden>
+                    <div class="sel-head">
+                        <span id="selTitle">Selected Training</span>
+                        <span class="sel-count" id="selCount">0</span>
+                        <button class="sel-clear" type="button" id="selClear">Clear all</button>
+                    </div>
+                    <div class="sel-list" id="selList"></div>
+                </aside>
+            </div>
+
+            <!-- Footer -->
+            <footer class="wizard-footer" id="footer">
+                <button class="btn ghost" type="button" id="btnCancel">Cancel</button>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn" type="button" id="btnPrev">Previous</button>
+                    <button class="btn primary" type="button" id="btnNext">Go to Select Assignees</button>
+                </div>
+            </footer>
+        </section>
+    </div>
+
+    <!-- Audit history modal -->
+    <div class="modal-backdrop" id="auditModal" role="dialog" aria-modal="true" aria-labelledby="auditModalTitle">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="auditModalTitle"><i class="fa-solid fa-clock-rotate-left"></i> Audit History</h3>
+                <button class="modal-close" data-close="auditModal" type="button" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Change</th>
+                            <th>User</th>
+                            <th>Date &amp; Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Updated scheduling start date <span class="change-tag edited">Edited</span></td>
+                            <td><span class="who"><span class="audit-avatar">ZM</span> Zoe Morris</span></td>
+                            <td>May 27, 2026 · 9:42 AM</td>
+                        </tr>
+                        <tr>
+                            <td>Added 3 qualifications <span class="change-tag added">Added</span></td>
+                            <td><span class="who"><span class="audit-avatar">DP</span> Dani Patel</span></td>
+                            <td>May 26, 2026 · 4:18 PM</td>
+                        </tr>
+                        <tr>
+                            <td>Removed assignee group "Plant B" <span class="change-tag removed">Removed</span></td>
+                            <td><span class="who"><span class="audit-avatar">KS</span> Ken Sato</span></td>
+                            <td>May 26, 2026 · 1:05 PM</td>
+                        </tr>
+                        <tr>
+                            <td>Changed completion order to "Specific Order" <span class="change-tag edited">Edited</span></td>
+                            <td><span class="who"><span class="audit-avatar">DP</span> Dani Patel</span></td>
+                            <td>May 25, 2026 · 11:22 AM</td>
+                        </tr>
+                        <tr>
+                            <td>Created assignment <span class="change-tag added">Added</span></td>
+                            <td><span class="who"><span class="audit-avatar">ZM</span> Zoe Morris</span></td>
+                            <td>May 24, 2026 · 8:47 AM</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicate Assignments Found (wide; body + footer rendered by JS) -->
+    <div class="modal-backdrop" id="dupModal" role="dialog" aria-modal="true" aria-labelledby="dupModalTitle">
+        <div class="modal wide">
+            <div class="modal-header">
+                <h3 id="dupModalTitle"><i class="fa-solid fa-triangle-exclamation" style="color:#c48f00"></i> <span>Duplicate Assignments Found</span></h3>
+                <button class="modal-close" data-close="dupModal" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body flush" id="dupBody"></div>
+            <div class="modal-footer split" id="dupFooter"></div>
+        </div>
+    </div>
+
+    <!-- EHS incident picker modal (Optional Settings → Add Vector EHS Management Incident) -->
+    <div class="modal-backdrop" id="incidentModal" role="dialog" aria-modal="true" aria-labelledby="incidentModalTitle">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="incidentModalTitle"><i class="fa-solid fa-triangle-exclamation"></i> Add Vector EHS Management Incident</h3>
+                <button class="modal-close" data-close="incidentModal" type="button" aria-label="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="field-label" style="margin-bottom:10px">Select one or more incidents to tie to this assignment.</div>
+                <div class="incident-list" id="incidentList"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn ghost" type="button" data-close="incidentModal">Cancel</button>
+                <button class="btn primary" type="button" id="incidentApply">Add Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════════
+        //  Modals (Audit History, EHS incident picker)
+        // ═══════════════════════════════════════════════════════════════════
+        const $ = (id) => document.getElementById(id);
+        const openModal  = (id) => $(id).classList.add('open');
+        const closeModal = (id) => $(id).classList.remove('open');
+        $('auditBtn').addEventListener('click', () => openModal('auditModal'));
+        document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.close)));
+        document.querySelectorAll('.modal-backdrop').forEach(m => m.addEventListener('click', (e) => {
+            if (e.target === m) m.classList.remove('open');
+        }));
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-backdrop.open').forEach(m => m.classList.remove('open'));
+                document.querySelectorAll('.loc-panel:not([hidden])').forEach(p => closeLocPanel(p));
+            }
+        });
+        document.querySelectorAll('.collapse-chevron').forEach(btn => {
+            btn.addEventListener('click', () => btn.closest('.card').classList.toggle('filters-collapsed'));
+        });
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Location tree (permissions scope) — Figma: nested list next to View All
+        // ═══════════════════════════════════════════════════════════════════
+        const LOCATIONS = [
+            { name: 'Amsterdam', type: 'Region', open: false, children: [
+                { name: 'Amsterdam Arena', type: 'Site', children: [ { name: 'Operations', type: 'Department', children: [ { name: 'Event Staff', type: 'Team' } ] } ] } ] },
+            { name: 'Arkansas', type: 'Region', open: false, children: [
+                { name: 'Little Rock Plant', type: 'Site', children: [ { name: 'Production', type: 'Department', children: [ { name: 'Line 3', type: 'Team' } ] } ] } ] },
+            { name: 'Bay Area', type: 'Region', open: true, children: [
+                { name: 'San Francisco', type: 'Site', open: true, children: [
+                    { name: 'Basketball Department', type: 'Department', open: true, children: [
+                        { name: 'Warriors', type: 'Team' },
+                        { name: 'Warriors Medical Staff', type: 'Group' }
+                    ] }
+                ] }
+            ] }
+        ];
+        // name → set of names in that subtree (for scoping rows to a location)
+        const LOC_SCOPE = {};
+        (function index(nodes) { nodes.forEach(n => { const s = new Set([n.name]); (function walk(c) { c.forEach(k => { s.add(k.name); walk(k.children || []); }); })(n.children || []); LOC_SCOPE[n.name] = s; index(n.children || []); }); })(LOCATIONS);
+
+        function closeLocPanel(panel) { panel.hidden = true; panel.previousElementSibling.setAttribute('aria-expanded', 'false'); }
+
+        // Builds the trigger pill + panel inside `host`; calls onChange(nameOrNull).
+        function makeLocDropdown(host, onChange) {
+            let selected = null;  // null = View All
+            host.innerHTML = '<button class="view-pill" type="button" aria-haspopup="listbox" aria-expanded="false"><i class="fa-solid fa-globe"></i> <span>View All</span></button><div class="loc-panel" role="listbox" hidden></div>';
+            const trigger = host.firstElementChild, panel = host.lastElementChild;
+
+            function render() {
+                let html = '<div class="loc-all' + (selected === null ? ' selected' : '') + '" data-name=""><span>View All</span><i class="fa-solid fa-check"></i></div>';
+                const row = (n, depth) => {
+                    const hasKids = !!(n.children && n.children.length);
+                    // Figma convention: children shown → ›, children hidden → ˅
+                    const chev = hasKids ? (n.open ? 'fa-chevron-right' : 'fa-chevron-down') : '';
+                    html += '<div class="loc-row' + (selected === n.name ? ' selected' : '') + '" data-name="' + n.name + '" style="padding-left:' + (10 + depth * 20) + 'px">' +
+                        '<button class="loc-chev' + (hasKids ? '' : ' leaf') + '" type="button" data-toggle="' + n.name + '" aria-label="Toggle"><i class="fa-solid ' + chev + '"></i></button>' +
+                        '<div><div class="loc-name">' + n.name + '</div><div class="loc-type">' + n.type + '</div></div>' +
+                        '<i class="fa-solid fa-check loc-check"></i></div>';
+                    if (hasKids && n.open) n.children.forEach(k => row(k, depth + 1));
+                };
+                LOCATIONS.forEach(n => row(n, 0));
+                panel.innerHTML = html;
+                panel.querySelectorAll('.loc-chev:not(.leaf)').forEach(b => b.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const n = findLoc(b.dataset.toggle); n.open = !n.open; render();
+                }));
+                panel.querySelectorAll('.loc-all, .loc-row').forEach(r => r.addEventListener('click', () => {
+                    selected = r.dataset.name || null;
+                    trigger.innerHTML = selected ? '<i class="fa-solid fa-location-dot"></i> <span>' + selected + '</span>' : '<i class="fa-solid fa-globe"></i> <span>View All</span>';
+                    closeLocPanel(panel); render(); onChange(selected);
+                }));
+            }
+            function findLoc(name, nodes = LOCATIONS) { for (const n of nodes) { if (n.name === name) return n; const f = findLoc(name, n.children || []); if (f) return f; } return null; }
+            trigger.addEventListener('click', () => { const open = panel.hidden; document.querySelectorAll('.loc-panel:not([hidden])').forEach(p => closeLocPanel(p)); if (open) { panel.hidden = false; trigger.setAttribute('aria-expanded', 'true'); } });
+            document.addEventListener('click', (e) => { if (!host.contains(e.target) && !panel.hidden) closeLocPanel(panel); });
+            render();
+            return { get value() { return selected; } };
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Picker engine (shared by Select Training and Select Assignees)
+        // ═══════════════════════════════════════════════════════════════════
+        // Each dataset: { cols: [[key, label], …], rows: [{ id, location, … }], icon, label(r), sub(r), action? }
+        function makePicker(cfg) {
+            const table = $(cfg.table), typeSel = $(cfg.typeSelect), search = $(cfg.search);
+            const selected = new Map();           // "Type:id" → { type, name, sub, icon }
+            let sort = { col: null, dir: null }; // resets on type change (CT-20276)
+            let loc = null;
+            const scope = makeLocDropdown($(cfg.locHost), (name) => { loc = name; render(); });
+
+            function render() {
+                const type = typeSel.value, def = cfg.data[type], q = search.value.trim().toLowerCase();
+                const tr = table.querySelector('thead tr');
+                tr.innerHTML = '<th style="width:36px"><input type="checkbox" aria-label="Select all"></th>' +
+                    def.cols.map(([key, label]) => {
+                        const state = sort.col === key ? sort.dir : 'none';
+                        const icon  = state === 'ascending' ? 'fa-arrow-up' : state === 'descending' ? 'fa-arrow-down' : 'fa-arrow-right-arrow-left fa-rotate-90';
+                        return '<th class="sortable" data-col="' + key + '" aria-sort="' + state + '">' + label + ' <i class="fa-solid ' + icon + '"></i></th>';
+                    }).join('') + (def.action ? '<th>Action</th>' : '');
+                tr.querySelectorAll('th.sortable').forEach(th => th.addEventListener('click', () => {
+                    const col = th.dataset.col;
+                    if (sort.col === col) sort.dir = sort.dir === 'ascending' ? 'descending' : 'ascending';
+                    else sort = { col, dir: 'ascending' };
+                    render();
+                }));
+
+                let rows = def.rows.filter(r => (!q || def.cols.some(([k]) => String(r[k]).toLowerCase().includes(q))) && (!loc || LOC_SCOPE[loc].has(r.location)));
+                if (sort.col) {
+                    const k = sort.col, m = sort.dir === 'ascending' ? 1 : -1;
+                    rows = rows.slice().sort((a, b) => (typeof a[k] === 'number' ? a[k] - b[k] : String(a[k]).localeCompare(String(b[k]))) * m);
+                }
+                const tbody = table.querySelector('tbody');
+                tbody.innerHTML = rows.map(r => {
+                    const key = type + ':' + r.id;
+                    return '<tr data-key="' + key + '"><td><input type="checkbox"' + (selected.has(key) ? ' checked' : '') + '></td>' +
+                        def.cols.map(([k], i) => '<td class="' + (i === 0 ? '' : 'muted') + '">' + r[k] + (i === 0 && r.isNew ? ' <span class="new-tag">New</span>' : '') + '</td>').join('') +
+                        (def.action ? '<td><a class="view-link" href="#">' + def.action + '</a></td>' : '') + '</tr>';
+                }).join('') || '<tr><td colspan="' + (def.cols.length + 2) + '" class="muted" style="padding:28px 18px;text-align:center">No results in this location.</td></tr>';
+
+                const head = tr.querySelector('input');
+                const checks = Array.from(tbody.querySelectorAll('input[type="checkbox"]'));
+                const put = (r, on) => { const key = type + ':' + r.id; if (on) selected.set(key, { type, name: def.label(r), sub: def.sub(r), icon: def.icon }); else selected.delete(key); };
+                const syncHead = () => head.checked = checks.length > 0 && checks.every(c => c.checked);
+                checks.forEach((c, i) => c.addEventListener('change', () => { put(rows[i], c.checked); syncHead(); cfg.onChange(); }));
+                head.addEventListener('change', () => { checks.forEach((c, i) => { c.checked = head.checked; put(rows[i], head.checked); }); cfg.onChange(); });
+                syncHead();
+                $(cfg.range).textContent = rows.length ? '1 to ' + rows.length + ' of ' + rows.length : '0 of 0';
+                $(cfg.page).textContent = 'Page 1 of 1';
+            }
+            typeSel.addEventListener('change', () => { sort = { col: null, dir: null }; render(); });
+            search.addEventListener('input', render);
+            render();
+            return {
+                selected, render,
+                remove(key) { selected.delete(key); const c = table.querySelector('tr[data-key="' + key + '"] input'); if (c) c.checked = false; render(); },
+                clear() { selected.clear(); render(); },
+                reset() { selected.clear(); sort = { col: null, dir: null }; typeSel.selectedIndex = 0; search.value = ''; render(); },
+                seed(type, id) { const def = cfg.data[type], r = def.rows.find(x => x.id === id); selected.set(type + ':' + r.id, { type, name: def.label(r), sub: def.sub(r), icon: def.icon }); render(); }
+            };
+        }
+
+        // ── Step 1 data: Qualifications | Activities ──
+        const TRAINING = {
+            'Qualifications': {
+                icon: 'fa-award', action: 'View Details', label: r => r.name, sub: () => 'Qualification',
+                cols: [['name', 'Qualification Name'], ['comp', 'Completions Needed'], ['order', 'Completion Order'], ['reqs', 'Requirements']],
+                rows: [
+                    { id: 'q1',  name: 'Architectural Design Software Proficiency', comp: 'All Items', order: 'Any Order', reqs: 2,  location: 'Warriors', isNew: true },
+                    { id: 'q2',  name: 'Blueprint Reading and Interpretation', comp: 'All Items', order: 'Any Order', reqs: 12, location: 'San Francisco' },
+                    { id: 'q3',  name: 'Construction Safety Certification',    comp: '1 of 3',    order: 'Any Order', reqs: 3,  location: 'Bay Area' },
+                    { id: 'q4',  name: 'Factory Floor Management',             comp: 'All Items', order: 'Any Order', reqs: 4,  location: 'Little Rock Plant' },
+                    { id: 'q5',  name: 'Industrial Equipment Operation',       comp: '9 of 10',   order: 'Any Order', reqs: 10, location: 'Line 3' },
+                    { id: 'q6',  name: 'Industrial Hygiene Practices',         comp: 'All Items', order: 'Specific Order', reqs: 1, location: 'Basketball Department' },
+                    { id: 'q7',  name: 'Machine Guarding Awareness',           comp: 'All Items', order: 'Any Order', reqs: 5,  location: 'Arkansas' },
+                    { id: 'q8',  name: 'Overhead Crane and Rigging',           comp: '2 of 4',    order: 'Specific Order', reqs: 4, location: 'Little Rock Plant' },
+                    { id: 'q9',  name: 'Respiratory Protection Fit',           comp: 'All Items', order: 'Any Order', reqs: 3,  location: 'Warriors Medical Staff' },
+                    { id: 'q10', name: 'Hazardous Waste Handling (RCRA)',      comp: 'All Items', order: 'Specific Order', reqs: 6, location: 'Amsterdam Arena' },
+                    { id: 'q11', name: 'Hot Work and Fire Watch',              comp: 'All Items', order: 'Any Order', reqs: 2,  location: 'Event Staff' },
+                    { id: 'q12', name: 'Powered Industrial Trucks Refresher',  comp: '1 of 2',    order: 'Any Order', reqs: 2,  location: 'Amsterdam' },
+                    { id: 'q13', name: 'Electrical Safety (NFPA 70E)',         comp: 'All Items', order: 'Specific Order', reqs: 7, location: 'Bay Area' },
+                    { id: 'q14', name: 'Working at Heights',                   comp: 'All Items', order: 'Any Order', reqs: 4,  location: 'San Francisco' },
+                    { id: 'q15', name: 'Confined Space Attendant',             comp: 'All Items', order: 'Specific Order', reqs: 5, location: 'Warriors' },
+                    { id: 'q16', name: 'Emergency Response Team Basics',       comp: '3 of 6',    order: 'Any Order', reqs: 6,  location: 'Warriors Medical Staff' },
+                    { id: 'q17', name: 'Chemical Spill Response',              comp: 'All Items', order: 'Any Order', reqs: 3,  location: 'Operations' },
+                    { id: 'q18', name: 'First Aid, CPR, and AED',              comp: 'All Items', order: 'Any Order', reqs: 3,  location: 'Basketball Department' },
+                    { id: 'q19', name: 'Job Hazard Analysis Fundamentals',     comp: 'All Items', order: 'Any Order', reqs: 2,  location: 'Production' }
+                ]
+            },
+            'Activities': {
+                icon: 'fa-book-open', action: 'View Details', label: r => r.name, sub: r => r.atype + ' activity',
+                cols: [['name', 'Activity Name'], ['atype', 'Activity Type'], ['duration', 'Duration'], ['location', 'Location']],
+                rows: [
+                    { id: 'a1',  name: 'Advanced Shooting Mechanics',        atype: 'Online',         duration: '2h 30m', location: 'Warriors', isNew: true },
+                    { id: 'a2',  name: 'Annual Fire Extinguisher Training',  atype: 'Instructor-led', duration: '1h 00m', location: 'San Francisco' },
+                    { id: 'a3',  name: 'Bloodborne Pathogens Refresher',     atype: 'Online',         duration: '45m',    location: 'Warriors Medical Staff' },
+                    { id: 'a4',  name: 'Cardiopulmonary Resuscitation (CPR)',atype: 'Blended',        duration: '4h 00m', location: 'Warriors Medical Staff' },
+                    { id: 'a5',  name: 'Communication on Court',             atype: 'Online',         duration: '1h 00m', location: 'Basketball Department' },
+                    { id: 'a6',  name: 'Defensive Driving Course',           atype: 'Online',         duration: '2h 00m', location: 'Bay Area' },
+                    { id: 'a7',  name: 'Emergency Action Plan Briefing',     atype: 'Instructor-led', duration: '30m',    location: 'Amsterdam Arena' },
+                    { id: 'a8',  name: 'Endurance and Stamina Building',     atype: 'Instructor-led', duration: '4h 00m', location: 'Warriors' },
+                    { id: 'a9',  name: 'Forklift Operator Practical',        atype: 'Instructor-led', duration: '3h 00m', location: 'Little Rock Plant' },
+                    { id: 'a10', name: 'Hazardous Materials Handling',       atype: 'Blended',        duration: '4h 30m', location: 'Line 3' },
+                    { id: 'a11', name: 'Help Defense Rotations',             atype: 'Blended',        duration: '1h 30m', location: 'Basketball Department' },
+                    { id: 'a12', name: 'Lock-Out / Tag-Out (LOTO)',          atype: 'Instructor-led', duration: '2h 00m', location: 'Production' },
+                    { id: 'a13', name: 'Offensive Play Recognition',         atype: 'Blended',        duration: '2h 30m', location: 'Warriors' },
+                    { id: 'a14', name: 'Pressure Management',                atype: 'Online',         duration: '1h 00m', location: 'Event Staff' },
+                    { id: 'a15', name: 'Scaffolding Safety',                 atype: 'Instructor-led', duration: '3h 00m', location: 'Arkansas' },
+                    { id: 'a16', name: 'Zone Defense Tactics',               atype: 'Online',         duration: '1h 15m', location: 'San Francisco' }
+                ]
+            }
+        };
+
+        // ── Step 2 data: seven assignee types ──
+        const unit = (icon, nameLabel) => ({ icon, label: r => r.name, sub: r => r.type_, cols: [['name', nameLabel], ['location', 'Location'], ['members', 'Members']] });
+        const ASSIGNEES = {
+            'User': { icon: 'fa-user', label: r => r.first + ' ' + r.last, sub: r => r.username,
+                cols: [['first', 'First Name'], ['last', 'Last Name'], ['username', 'Username'], ['location', 'Location']],
+                rows: [
+                    { id: 'u1',  first: 'Anthony',  last: 'Davis',      username: 'AnthonyDavis',     location: 'Warriors' },
+                    { id: 'u2',  first: 'Stephen',  last: 'Curry',      username: 'StephenCurry',     location: 'Warriors' },
+                    { id: 'u3',  first: "D'Angelo", last: 'Russell',    username: 'DAngeloRussell',   location: 'Warriors' },
+                    { id: 'u4',  first: 'Priya',    last: 'Desai',      username: 'pdesai',           location: 'Warriors Medical Staff' },
+                    { id: 'u5',  first: 'Draymond', last: 'Green',      username: 'DraymondGreen',    location: 'Warriors' },
+                    { id: 'u6',  first: 'Hannah',   last: 'Okafor',     username: 'hokafor',          location: 'Warriors Medical Staff' },
+                    { id: 'u7',  first: 'Gary',     last: 'Payton II',  username: 'GaryPaytonII',     location: 'Warriors' },
+                    { id: 'u8',  first: 'Tomás',    last: 'Alvarez',    username: 'talvarez',         location: 'Line 3' },
+                    { id: 'u9',  first: 'Jarred',   last: 'Vanderbilt', username: 'JarredVanderbilt', location: 'Warriors' },
+                    { id: 'u10', first: 'Klay',     last: 'Thompson',   username: 'KlayThompson',     location: 'Basketball Department' },
+                    { id: 'u11', first: 'Elena',    last: 'Petrova',    username: 'epetrova',         location: 'Event Staff' },
+                    { id: 'u12', first: 'Quentin',  last: 'Post',       username: 'QuentinPost',      location: 'Warriors' },
+                    { id: 'u13', first: 'Omar',     last: 'Haddad',     username: 'ohaddad',          location: 'Production' },
+                    { id: 'u14', first: 'Grace',    last: 'Kim',        username: 'gkim',             location: 'Operations' }
+                ] },
+            'Team': Object.assign(unit('fa-people-group', 'Team Name'), { rows: [
+                { id: 't1', name: 'Warriors',            type_: 'Team', location: 'Basketball Department', members: 17 },
+                { id: 't2', name: 'Line 3',              type_: 'Team', location: 'Production', members: 18 },
+                { id: 't3', name: 'Event Staff',         type_: 'Team', location: 'Operations', members: 42 },
+                { id: 't4', name: 'Athletic Trainers',   type_: 'Team', location: 'Warriors Medical Staff', members: 6 } ] }),
+            'Department': Object.assign(unit('fa-sitemap', 'Department Name'), { rows: [
+                { id: 'd1', name: 'Basketball Department', type_: 'Department', location: 'San Francisco', members: 64 },
+                { id: 'd2', name: 'Production',            type_: 'Department', location: 'Little Rock Plant', members: 128 },
+                { id: 'd3', name: 'Operations',            type_: 'Department', location: 'Amsterdam Arena', members: 71 } ] }),
+            'Site': Object.assign(unit('fa-location-dot', 'Site Name'), { rows: [
+                { id: 's1', name: 'San Francisco',     type_: 'Site', location: 'Bay Area', members: 212 },
+                { id: 's2', name: 'Little Rock Plant', type_: 'Site', location: 'Arkansas', members: 318 },
+                { id: 's3', name: 'Amsterdam Arena',   type_: 'Site', location: 'Amsterdam', members: 97 } ] }),
+            'Division/Region': Object.assign(unit('fa-map', 'Division/Region Name'), { rows: [
+                { id: 'r1', name: 'Bay Area',  type_: 'Division/Region', location: 'Bay Area', members: 627 },
+                { id: 'r2', name: 'Arkansas',  type_: 'Division/Region', location: 'Arkansas', members: 318 },
+                { id: 'r3', name: 'Amsterdam', type_: 'Division/Region', location: 'Amsterdam', members: 97 } ] }),
+            'Organization': Object.assign(unit('fa-building', 'Organization Name'), { rows: [
+                { id: 'o1', name: 'Demo Org',               type_: 'Organization', location: 'Bay Area', members: 1042 },
+                { id: 'o2', name: 'Demo Org — Contractors', type_: 'Organization', location: 'Bay Area', members: 136 } ] }),
+            'Group': Object.assign(unit('fa-users', 'Group Name'), { rows: [
+                { id: 'g1', name: 'Warriors Medical Staff',     type_: 'Group', location: 'Basketball Department', members: 9 },
+                { id: 'g2', name: 'New Hires — Q4 2026',        type_: 'Group', location: 'Bay Area', members: 36 },
+                { id: 'g3', name: 'Authorized Lift Operators',  type_: 'Group', location: 'Little Rock Plant', members: 44 },
+                { id: 'g4', name: 'Hot Work Permit Holders',    type_: 'Group', location: 'Production', members: 23 } ] })
+        };
+
+        const training = makePicker({ table: 'trainingTable', typeSelect: 'trainingType', search: 'trainingSearch', locHost: 'trainingLoc', range: 'trainingRange', page: 'trainingPage', data: TRAINING, onChange: () => { renderSidePanel(); refreshStepper(); } });
+        const assignees = makePicker({ table: 'assigneeTable', typeSelect: 'assigneeType', search: 'assigneeSearch', locHost: 'assigneeLoc', range: 'assigneeRange', page: 'assigneePage', data: ASSIGNEES, onChange: () => { renderSidePanel(); refreshStepper(); } });
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Selected side panel (steps 1 and 2)
+        // ═══════════════════════════════════════════════════════════════════
+        const selPanel = $('selPanel'), selList = $('selList'), selCount = $('selCount'), selTitle = $('selTitle');
+        function selItem(icon, name, sub, onRemove) {
+            const item = document.createElement('div');
+            item.className = 'sel-item';
+            item.innerHTML = '<i class="si-icon fa-solid ' + icon + '"></i><span class="si-name">' + name + '<span class="si-type">' + sub + '</span></span>' +
+                '<button class="si-remove" type="button" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>';
+            item.querySelector('.si-remove').addEventListener('click', onRemove);
+            return item;
+        }
+        function renderSidePanel() {
+            selList.innerHTML = '';
+            const picker = current === 1 ? training : current === 2 ? assignees : null;
+            if (!picker) { selPanel.hidden = true; return; }
+            selTitle.textContent = current === 1 ? 'Selected Training' : 'Selected Assignees';
+            selCount.textContent = picker.selected.size;
+            selPanel.hidden = picker.selected.size === 0;
+            picker.selected.forEach((a, key) => selList.appendChild(selItem(a.icon, a.name, a.sub, () => { picker.remove(key); renderSidePanel(); refreshStepper(); })));
+        }
+        $('selClear').addEventListener('click', () => { (current === 1 ? training : assignees).clear(); renderSidePanel(); refreshStepper(); });
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Step 3 — Scheduling
+        // ═══════════════════════════════════════════════════════════════════
+        const kind = () => document.querySelector('input[name="schedKind"]:checked').value;
+        const radio = (name) => document.querySelector('input[name="' + name + '"]:checked').value;
+        const pad2 = (n) => String(n).padStart(2, '0');
+        const toDateVal = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        const toTimeVal = (d) => pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        const parseDate = (v) => { const [y, m, d] = v.split('-').map(Number); return new Date(y, m - 1, d); };
+        const fmt = (dt) => dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const fmtDate = (v) => v ? fmt(parseDate(v)) : '';
+        const fmtTime = (v) => { if (!v) return ''; const [h, m] = v.split(':').map(Number); return new Date(2000, 0, 1, h, m).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); };
+        const addUnits = (date, n, u) => { const d = new Date(date); if (u === 'Days') d.setDate(d.getDate() + n); if (u === 'Weeks') d.setDate(d.getDate() + 7 * n); if (u === 'Months') d.setMonth(d.getMonth() + n); if (u === 'Years') d.setFullYear(d.getFullYear() + n); return d; };
+
+        function syncKind() {
+            const recurring = kind() === 'recurring';
+            $('singleBlock').hidden = recurring;
+            $('recurBlock').hidden = !recurring;
+            updatePreview();
+        }
+        document.querySelectorAll('input[name="schedKind"]').forEach(r => r.addEventListener('change', () => { syncKind(); refreshStepper(); }));
+        $('setNowBtn').addEventListener('click', () => {
+            const now = new Date(); $('startDate').value = toDateVal(now); $('startTime').value = toTimeVal(now);
+            ['startDate', 'startTime'].forEach(id => $(id).classList.remove('error')); $('startNote').classList.remove('show'); refreshStepper();
+        });
+        $('setNowRecurBtn').addEventListener('click', () => { $('recurStart').value = toDateVal(new Date()); $('recurStart').classList.remove('error'); $('recurNote').classList.remove('show'); updatePreview(); refreshStepper(); });
+        ['startDate', 'startTime', 'dueDate', 'dueTime', 'recurStart'].forEach(id => $(id).addEventListener('input', refreshStepper));
+        // Typing into an option's inline controls selects that option.
+        const bindInline = (ids, name, value) => ids.forEach(id => $(id).addEventListener('focus', () => { document.querySelector('input[name="' + name + '"][value="' + value + '"]').checked = true; updatePreview(); }));
+        bindInline(['dueDate', 'dueTime'], 'dueKind', 'date');
+        bindInline(['dueAfterCount', 'dueAfterUnit'], 'dueKind', 'after');
+        bindInline(['recurDueCount', 'recurDueUnit'], 'recurDue', 'after');
+        bindInline(['earlyCount', 'earlyUnit'], 'earlyKind', 'before');
+        bindInline(['priorCount', 'priorUnit'], 'priorKind', 'window');
+        document.querySelectorAll('input[name="recurDue"], input[name="recurBasis"]').forEach(r => r.addEventListener('change', updatePreview));
+        ['recurStart', 'recurEvery', 'recurUnit', 'recurDueCount', 'recurDueUnit'].forEach(id => $(id).addEventListener('input', updatePreview));
+        document.querySelectorAll('input[name="future"]').forEach(r => r.addEventListener('change', () => { $('futureNewBlock').hidden = radio('future') !== 'new'; }));
+
+        function recurDueText() {
+            const v = radio('recurDue');
+            return v === 'never' ? 'Never' : v === 'period' ? 'At the end of each recurrence period' : $('recurDueCount').value + ' ' + $('recurDueUnit').value + ' after it recurs';
+        }
+        function dueText() {
+            const v = radio('dueKind');
+            if (v === 'none') return 'No due date';
+            if (v === 'date') return $('dueDate').value ? fmtDate($('dueDate').value) + ($('dueTime').value ? ' at ' + fmtTime($('dueTime').value) : '') : 'Specific date (not set)';
+            return $('dueAfterCount').value + ' ' + $('dueAfterUnit').value.toLowerCase() + ' after the start date';
+        }
+        function updatePreview() {
+            const out = $('recurPreviewText'), v = $('recurStart').value;
+            if (!v) { out.className = 'muted'; out.textContent = 'Enter a recurring start date to see the first occurrence.'; return; }
+            const start = parseDate(v), every = Number($('recurEvery').value || 1), unitV = $('recurUnit').value;
+            const dueV = radio('recurDue');
+            // Due is measured from the recurring start (recur-relative), never from end-of-year (CT-20423).
+            const due = dueV === 'never' ? null : dueV === 'period' ? addUnits(start, every, unitV) : addUnits(start, Number($('recurDueCount').value || 0), $('recurDueUnit').value);
+            out.className = '';
+            out.textContent = fmt(start) + (due ? ' to ' + fmt(due) : ' (no due date)') + ' · recurs every ' + every + ' ' + unitV.toLowerCase() + (radio('recurBasis') === 'rolling' ? ' from each completion' : '');
+        }
+        const hasUnitAssignee = () => Array.from(assignees.selected.values()).some(a => a.type !== 'User');
+        function syncFutureAdditions() { $('futureBlock').hidden = !hasUnitAssignee(); }
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Step 4 — Optional Settings (EHS incident picker)
+        // ═══════════════════════════════════════════════════════════════════
+        const INCIDENTS = [
+            { id: 'INC-24118', title: 'Forklift near-miss, Dock 3',            date: 'Sep 18, 2026' },
+            { id: 'INC-24097', title: 'Chemical splash, Line 3 mixing station', date: 'Sep 9, 2026' },
+            { id: 'INC-24052', title: 'Slip on wet floor, Warehouse B aisle 7', date: 'Aug 27, 2026' },
+            { id: 'INC-23990', title: 'Arc flash during panel maintenance',     date: 'Aug 12, 2026' },
+            { id: 'INC-23941', title: 'Fall from ladder, roof access',          date: 'Jul 30, 2026' }
+        ];
+        const selectedIncidents = new Set();
+        $('addIncidentBtn').addEventListener('click', () => {
+            $('incidentList').innerHTML = INCIDENTS.map(i =>
+                '<label class="incident-row"><input class="chk" type="checkbox" value="' + i.id + '"' + (selectedIncidents.has(i.id) ? ' checked' : '') + '>' +
+                '<span class="inc-id">' + i.id + '</span><span class="inc-title">' + i.title + '</span><span class="inc-date">' + i.date + '</span></label>').join('');
+            openModal('incidentModal');
+        });
+        $('incidentApply').addEventListener('click', () => {
+            selectedIncidents.clear();
+            $('incidentList').querySelectorAll('input:checked').forEach(c => selectedIncidents.add(c.value));
+            renderIncidentChips(); closeModal('incidentModal');
+        });
+        function renderIncidentChips() {
+            $('incidentChips').innerHTML = Array.from(selectedIncidents).map(id => {
+                const i = INCIDENTS.find(x => x.id === id);
+                return '<li class="chip"><i class="fa-solid fa-triangle-exclamation"></i>' + i.id + ' <span class="chip-sub">' + i.title + '</span>' +
+                    '<button class="si-remove" type="button" aria-label="Remove" data-id="' + id + '"><i class="fa-solid fa-xmark"></i></button></li>';
+            }).join('');
+            $('incidentChips').querySelectorAll('.si-remove').forEach(b => b.addEventListener('click', () => { selectedIncidents.delete(b.dataset.id); renderIncidentChips(); }));
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Duplicate individual assignments (CT-22164)
+        //  Rule: a training assigned directly to a user beats one made through a
+        //  Team/Group/Department/Site/Region. Mock dataset of ACTIVE individual
+        //  assignments; a conflict = selected training × user reached by a
+        //  selected org-unit assignee. `?conflicts=none` demos the clean path.
+        // ═══════════════════════════════════════════════════════════════════
+        $('futureIgnorePrev').addEventListener('change', () => { $('futureIgnorePrevLabel').textContent = $('futureIgnorePrev').checked ? 'On' : 'Off'; });
+        $('recurIgnorePrev').addEventListener('change', () => { $('recurIgnorePrevLabel').textContent = $('recurIgnorePrev').checked ? 'On' : 'Off'; });
+        // Demo switch (prototype only): `?conflicts=none` starts it Off; flipping it re-runs the Review check.
+        $('demoConflicts').checked = new URLSearchParams(location.search).get('conflicts') !== 'none';
+        $('demoConflicts').addEventListener('change', () => { if (current === 5) renderReview(); });
+        const conflictsEnabled = () => $('demoConflicts').checked;
+        const ROSTER = {   // org unit → users reached through it (name, username)
+            'Warriors': [['Anthony Davis', 'AnthonyDavis'], ['Stephen Curry', 'StephenCurry'], ["D'Angelo Russell", 'DAngeloRussell'], ['Draymond Green', 'DraymondGreen'], ['Gary Payton II', 'GaryPaytonII'], ['Jarred Vanderbilt', 'JarredVanderbilt'], ['Quentin Post', 'QuentinPost'], ['Jonathan Kuminga', 'JonathanKuminga'], ['Brandin Podziemski', 'BrandinPodziemski'], ['Moses Moody', 'MosesMoody'], ['Trayce Jackson-Davis', 'TrayceJacksonDavis'], ['Buddy Hield', 'BuddyHield'], ['Kevon Looney', 'KevonLooney'], ['Gui Santos', 'GuiSantos']],
+            'Warriors Medical Staff': [['Priya Desai', 'pdesai'], ['Hannah Okafor', 'hokafor'], ['Rick Celebrini', 'RCelebrini'], ['Drew Yoder', 'DYoder']],
+            'Line 3': [['Tomás Alvarez', 'talvarez'], ['Marcus Reed', 'mreed'], ['Alicia Nguyen', 'anguyen'], ['Derek Lindqvist', 'dlindqvist'], ['Sofia Marchetti', 'smarchetti'], ['Jamal Carter', 'jcarter']],
+            'Event Staff': [['Elena Petrova', 'epetrova'], ['Wes Brennan', 'wbrennan'], ['Grace Kim', 'gkim'], ['Omar Haddad', 'ohaddad']],
+            'Athletic Trainers': [['Priya Desai', 'pdesai'], ['Hannah Okafor', 'hokafor']],
+            'Basketball Department': [], 'Production': [], 'Operations': [], 'San Francisco': [], 'Little Rock Plant': [], 'Amsterdam Arena': [], 'Bay Area': [], 'Arkansas': [], 'Amsterdam': [], 'Demo Org': [], 'Demo Org — Contractors': [], 'New Hires — Q4 2026': [], 'Authorized Lift Operators': [], 'Hot Work Permit Holders': []
+        };
+        // Parent units reach everything below them.
+        ['Basketball Department', 'San Francisco', 'Bay Area', 'Demo Org'].forEach(u => ROSTER[u] = [...ROSTER['Warriors'], ...ROSTER['Warriors Medical Staff']]);
+        ['Production', 'Little Rock Plant', 'Arkansas'].forEach(u => ROSTER[u] = ROSTER['Line 3']);
+        ['Operations', 'Amsterdam Arena', 'Amsterdam'].forEach(u => ROSTER[u] = ROSTER['Event Staff']);
+        const STATUSES = ['Not started', 'In progress', 'Completed'];
+        const ADMINS = ['Zoe Morris', 'Dani Patel', 'Ken Sato', 'Misa Escalera'];
+        // Build ~60 active individual assignments: Warriors × (q3, q8, q1, a1), Line 3 × q5 (+ q3), Event Staff × q11.
+        const EXISTING = [];
+        (function build() {
+            let i = 0;
+            const add = (unit, keys) => ROSTER[unit].forEach(([name, username], ui) => keys.forEach((key, ki) => {
+                if ((ui + ki) % 3 === 2 && ki > 0) return;   // thin it out so not every user conflicts on everything
+                const [type, id] = key.split(':'); const t = TRAINING[type].rows.find(r => r.id === id);
+                const start = new Date(2026, (i * 5) % 9, 1 + (i * 7) % 27);
+                EXISTING.push({ id: 'ex' + (++i), user: name, username, key, training: t.name, type: type === 'Qualifications' ? 'Qualification' : 'Activity', via: unit,
+                    start: fmt(start), due: (i % 4 === 0) ? 'No due date' : fmt(addUnits(start, 6 + (i % 3) * 3, 'Months')), status: STATUSES[(ui + ki * 2 + i) % 3], by: ADMINS[i % 4] });
+            }));
+            add('Warriors', ['Qualifications:q3', 'Qualifications:q8', 'Qualifications:q1', 'Activities:a1']);
+            add('Line 3', ['Qualifications:q5', 'Qualifications:q3']);
+            add('Event Staff', ['Qualifications:q11', 'Qualifications:q8']);
+            add('Warriors Medical Staff', ['Qualifications:q9', 'Qualifications:q3']);
+        })();
+        function reachedUsers() {
+            const set = new Map();
+            assignees.selected.forEach(a => { if (a.type === 'User') set.set(a.sub, a.name); else (ROSTER[a.name] || []).forEach(([n, u]) => set.set(u, n)); });
+            return set;
+        }
+        function findConflicts() {
+            if (!conflictsEnabled()) return [];
+            const units = new Set(Array.from(assignees.selected.values()).filter(a => a.type !== 'User').map(a => a.name));
+            const reachedByUnit = new Set(); units.forEach(u => (ROSTER[u] || []).forEach(([, un]) => reachedByUnit.add(un)));
+            return EXISTING.filter(e => training.selected.has(e.key) && reachedByUnit.has(e.username))
+                .map(e => Object.assign({}, e, { via: Array.from(units).find(u => (ROSTER[u] || []).some(([, un]) => un === e.username)) || e.via }));
+        }
+        const dupSel = new Set();        // selected conflict row ids (to end)
+        let dupRows = [], dupOutcome = null;   // { assigned, ended, kept, keptRows }
+        const esc = (v) => String(v).replace(/</g, '&lt;');
+
+        // Conflict table: search + filters + select all/none + live pager. readOnly hides checkboxes.
+        function renderConflictTable(host, rows, opts) {
+            const st = Object.assign({ q: '', training: '', type: '', status: '', page: 1, size: 10, readOnly: false }, opts.state || {});
+            opts.state = st;
+            const filtered = rows.filter(r => (!st.q || (r.user + ' ' + r.username + ' ' + r.training).toLowerCase().includes(st.q.toLowerCase())) && (!st.training || r.training === st.training) && (!st.type || r.type === st.type) && (!st.status || r.status === st.status));
+            const pages = Math.max(1, Math.ceil(filtered.length / st.size)); st.page = Math.min(st.page, pages);
+            const slice = filtered.slice((st.page - 1) * st.size, st.page * st.size);
+            const uniq = (k) => Array.from(new Set(rows.map(r => r[k]))).sort();
+            const opt = (list, cur, all) => '<option value="">' + all + '</option>' + list.map(v => '<option' + (v === cur ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
+            host.innerHTML =
+                '<div class="dup-toolbar">' +
+                    '<input class="input" type="search" placeholder="Search users or trainings" value="' + esc(st.q) + '" data-f="q">' +
+                    '<select class="select" data-f="training">' + opt(uniq('training'), st.training, 'All trainings') + '</select>' +
+                    '<select class="select" data-f="type">' + opt(uniq('type'), st.type, 'All training types') + '</select>' +
+                    '<select class="select" data-f="status">' + opt(STATUSES, st.status, 'All statuses') + '</select>' +
+                    '<span class="spacer"></span>' +
+                    (st.readOnly ? '' : '<span class="sel-count">' + dupSel.size + ' selected</span>') +
+                '</div>' +
+                '<div class="dup-table-wrap"><table class="qual-table"><thead><tr>' + (st.readOnly ? '' : '<th style="width:36px"><input type="checkbox" aria-label="Select page" data-act="page"></th>') +
+                    '<th>User</th><th>Training</th><th>Assigned Via</th><th>Existing Start / Due Date</th><th>Status</th><th>Assigned By</th></tr></thead><tbody>' +
+                    (slice.map(r => '<tr>' + (st.readOnly ? '' : '<td><input type="checkbox" data-id="' + r.id + '"' + (dupSel.has(r.id) ? ' checked' : '') + '></td>') +
+                        '<td>' + esc(r.user) + '<div class="type-sub" style="margin:0">' + esc(r.username) + '</div></td>' +
+                        '<td>' + esc(r.training) + '<span class="type-sub">' + r.type + '</span></td>' +
+                        '<td class="muted">' + esc(r.via) + '</td><td class="muted">' + r.start + ' / ' + r.due + '</td>' +
+                        '<td><span class="status-pill ' + r.status.toLowerCase().replace(' ', '-') + '">' + r.status + '</span></td><td class="muted">' + r.by + '</td></tr>').join('') ||
+                     '<tr><td colspan="7" class="muted" style="text-align:center;padding:24px">No matching rows.</td></tr>') +
+                '</tbody></table></div>' +
+                '<div class="card-pager"><label class="pg-size">Page Size: <select class="pg-select" data-f="size">' + [10, 20, 50].map(n => '<option' + (n === st.size ? ' selected' : '') + '>' + n + '</option>').join('') + '</select></label>' +
+                    '<span class="pg-range">' + (filtered.length ? ((st.page - 1) * st.size + 1) + ' to ' + Math.min(st.page * st.size, filtered.length) + ' of ' + filtered.length : '0 of 0') + '</span>' +
+                    '<div class="pg-nav"><button class="pg-btn" type="button" data-pg="1"' + (st.page === 1 ? ' disabled' : '') + ' aria-label="First page"><i class="fa-solid fa-angles-left"></i></button>' +
+                    '<button class="pg-btn" type="button" data-pg="' + (st.page - 1) + '"' + (st.page === 1 ? ' disabled' : '') + ' aria-label="Previous page"><i class="fa-solid fa-angle-left"></i></button>' +
+                    '<span class="pg-page">Page ' + st.page + ' of ' + pages + '</span>' +
+                    '<button class="pg-btn" type="button" data-pg="' + (st.page + 1) + '"' + (st.page === pages ? ' disabled' : '') + ' aria-label="Next page"><i class="fa-solid fa-angle-right"></i></button>' +
+                    '<button class="pg-btn" type="button" data-pg="' + pages + '"' + (st.page === pages ? ' disabled' : '') + ' aria-label="Last page"><i class="fa-solid fa-angles-right"></i></button></div></div>';
+            const rerender = () => { renderConflictTable(host, rows, opts); if (opts.onSelect) opts.onSelect(); };
+            host.querySelectorAll('[data-f]').forEach(el => el.addEventListener(el.tagName === 'INPUT' ? 'input' : 'change', () => { st[el.dataset.f] = el.dataset.f === 'size' ? Number(el.value) : el.value; if (el.dataset.f !== 'size') st.page = 1; rerender(); }));
+            host.querySelectorAll('[data-pg]').forEach(b => b.addEventListener('click', () => { st.page = Number(b.dataset.pg); rerender(); }));
+            host.querySelectorAll('input[data-id]').forEach(c => c.addEventListener('change', () => { c.checked ? dupSel.add(c.dataset.id) : dupSel.delete(c.dataset.id); rerender(); }));
+            const pageAll = host.querySelector('[data-act="page"]');
+            if (pageAll) { pageAll.checked = slice.length > 0 && slice.every(r => dupSel.has(r.id)); pageAll.addEventListener('change', () => { slice.forEach(r => pageAll.checked ? dupSel.add(r.id) : dupSel.delete(r.id)); rerender(); }); }
+            host.querySelectorAll('[data-act="all"]').forEach(b => b.addEventListener('click', () => { filtered.forEach(r => dupSel.add(r.id)); rerender(); }));
+            host.querySelectorAll('[data-act="none"]').forEach(b => b.addEventListener('click', () => { dupSel.clear(); rerender(); }));
+        }
+        function exportCsv(rows) {
+            const head = ['User', 'Username', 'Training', 'Training Type', 'Assigned Via', 'Existing Start', 'Existing Due', 'Status', 'Assigned By'];
+            const q = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+            const csv = [head, ...rows.map(r => [r.user, r.username, r.training, r.type, r.via, r.start, r.due, r.status, r.by])].map(l => l.map(q).join(',')).join('\r\n');
+            const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'duplicate-individual-assignments.csv'; a.click(); URL.revokeObjectURL(a.href);
+        }
+        const usersOf = (rows) => new Set(rows.map(r => r.username)).size;
+        const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
+
+        // Path A — checkbox unchecked: review conflicts, choose which to end.
+        function openDupModal() {
+            const body = $('dupBody'), foot = $('dupFooter'), total = reachedUsers().size, users = usersOf(dupRows);
+            $('dupModalTitle').querySelector('span').textContent = 'Duplicate Assignments Found';
+            body.innerHTML =
+                '<p class="dup-sub"><strong>' + plural(users, 'user') + '</strong> already ' + (users === 1 ? 'has' : 'have') + ' one or more of the selected trainings directly assigned. Select the users to move onto this group assignment; their individual assignment will be ended. Unselected users keep their individual assignment and will <strong>NOT</strong> receive this assignment for those trainings.</p>' +
+                '<div id="dupTable"></div>';
+            const tableOpts = { state: { size: 10 }, onSelect: renderFooter };
+            function renderFooter() {
+                foot.innerHTML =
+                    '<button class="link-btn" type="button" data-act="csv"><i class="fa-solid fa-download"></i> Export list (CSV)</button>' +
+                    '<div style="display:flex;gap:10px"><button class="btn ghost" type="button" data-act="back">Back to Review</button>' +
+                    '<button class="btn" type="button" data-act="nochange">Assign Without Changes</button>' +
+                    '<button class="btn primary" type="button" data-act="end"' + (dupSel.size ? '' : ' disabled') + '>Move Selected to Group Assignment (' + dupSel.size + ')</button></div>';
+                foot.querySelector('[data-act="csv"]').addEventListener('click', () => exportCsv(dupRows));
+                foot.querySelector('[data-act="back"]').addEventListener('click', () => closeModal('dupModal'));
+                foot.querySelector('[data-act="nochange"]').addEventListener('click', () => completeWithConflicts([]));
+                foot.querySelector('[data-act="end"]').addEventListener('click', openEndConfirm);
+            }
+            renderConflictTable($('dupTable'), dupRows, tableOpts);
+            renderFooter();
+            openModal('dupModal');
+        }
+        function openEndConfirm() {
+            const body = $('dupBody'), foot = $('dupFooter');
+            const endRows = dupRows.filter(r => dupSel.has(r.id)), keptRows = dupRows.filter(r => !dupSel.has(r.id));
+            const total = reachedUsers().size, kept = usersOf(keptRows);
+            $('dupModalTitle').querySelector('span').textContent = 'Move to group assignment?';
+            body.innerHTML = '<div style="padding:20px">' +
+                '<p class="confirm-copy"><strong>' + plural(endRows.length, 'previous individual assignment') + '</strong> will be ended and moved onto this group assignment. <strong>' + plural(total, 'user') + '</strong> will receive this assignment. <strong>' + plural(kept, 'user') + '</strong> will keep their individual assignment.</p>' +
+                '<div class="confirm-stats"><div class="stat"><div class="n">' + total + '</div><div class="l">users will receive this assignment</div></div><div class="stat ended"><div class="n">' + endRows.length + '</div><div class="l">individual assignments moved (ended)</div></div><div class="stat kept"><div class="n">' + kept + '</div><div class="l">users keep their individual assignment</div></div></div></div>';
+            foot.innerHTML = '<span></span><div style="display:flex;gap:10px"><button class="btn ghost" type="button" data-act="back">Back</button><button class="btn destructive" type="button" data-act="confirm">Move ' + plural(endRows.length, 'Assignment') + ' &amp; Assign</button></div>';
+            foot.querySelector('[data-act="back"]').addEventListener('click', openDupModal);
+            foot.querySelector('[data-act="confirm"]').addEventListener('click', () => completeWithConflicts(endRows));
+        }
+        // Path B — checkbox checked: confirm, with a read-only expander.
+        function openIgnoreConfirm() {
+            const body = $('dupBody'), foot = $('dupFooter'), users = usersOf(dupRows);
+            $('dupModalTitle').querySelector('span').textContent = 'Confirm previous individual assignments will be ended';
+            body.innerHTML = '<div style="padding:20px 20px 8px">' +
+                '<p class="confirm-copy">This assignment will apply to <strong>' + plural(users, 'user') + '</strong> who already have one of the selected trainings directly assigned. Their previous individual assignments will be ended.</p>' +
+                '<button class="expander" type="button" aria-expanded="false" id="dupExpand">View affected users <i class="fa-solid fa-chevron-down"></i></button></div><div id="dupTable" hidden></div>';
+            $('dupExpand').addEventListener('click', () => { const open = $('dupTable').hidden; $('dupTable').hidden = !open; $('dupExpand').setAttribute('aria-expanded', open); if (open) renderConflictTable($('dupTable'), dupRows, { state: { readOnly: true, size: 10 } }); });
+            foot.innerHTML = '<span></span><div style="display:flex;gap:10px"><button class="btn ghost" type="button" data-act="back">Back to Review</button><button class="btn primary" type="button" data-act="confirm">Confirm &amp; Assign</button></div>';
+            foot.querySelector('[data-act="back"]').addEventListener('click', () => closeModal('dupModal'));
+            foot.querySelector('[data-act="confirm"]').addEventListener('click', () => completeWithConflicts(dupRows));
+            openModal('dupModal');
+        }
+        // Read-only view of users who kept their previous assignment (Finishing page).
+        function openKeptModal() {
+            $('dupModalTitle').querySelector('span').textContent = 'Users who kept their previous individual assignment';
+            $('dupBody').innerHTML = '<div id="dupTable"></div>';
+            renderConflictTable($('dupTable'), dupOutcome.keptRows, { state: { readOnly: true, size: 10 } });
+            $('dupFooter').innerHTML = '<span></span><button class="btn primary" type="button" data-close="dupModal">Close</button>';
+            $('dupFooter').querySelector('[data-close]').addEventListener('click', () => closeModal('dupModal'));
+            openModal('dupModal');
+        }
+        function completeWithConflicts(endRows) {
+            const keptRows = dupRows.filter(r => !endRows.includes(r));
+            dupOutcome = { assigned: reachedUsers().size, ended: endRows.length, kept: usersOf(keptRows), keptRows };
+            closeModal('dupModal');
+            showSuccess();
+        }
+        $('sumViewKept').addEventListener('click', openKeptModal);
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Step completeness (pure) + validation UI
+        // ═══════════════════════════════════════════════════════════════════
+        const STEP_NAMES = ['Select Training', 'Select Assignees', 'Scheduling', 'Optional Settings', 'Review'];
+        const visited = new Set([1]);
+        function check(n) {
+            if (n === 1 && training.selected.size === 0) return 'Select at least one training item.';
+            if (n === 2 && assignees.selected.size === 0) return 'Select at least one assignee.';
+            if (n === 3) {
+                if (kind() === 'single') {
+                    if (!$('startDate').value || !$('startTime').value) return 'A start date and a start time are both required.';
+                    if (radio('dueKind') === 'date' && (!$('dueDate').value || !$('dueTime').value)) return 'Enter both a due date and a due time.';
+                } else if (!$('recurStart').value) return 'A recurring start date is required.';
+            }
+            return '';
+        }
+        function markScheduling() {
+            const single = kind() === 'single';
+            const badStart = single && (!$('startDate').value || !$('startTime').value);
+            $('startDate').classList.toggle('error', single && !$('startDate').value);
+            $('startTime').classList.toggle('error', single && !$('startTime').value);
+            $('startNote').classList.toggle('show', badStart);
+            const badDue = single && radio('dueKind') === 'date' && (!$('dueDate').value || !$('dueTime').value);
+            $('dueDate').classList.toggle('error', badDue && !$('dueDate').value);
+            $('dueTime').classList.toggle('error', badDue && !$('dueTime').value);
+            $('dueNote').classList.toggle('show', badDue);
+            const badRecur = !single && !$('recurStart').value;
+            $('recurStart').classList.toggle('error', badRecur); $('recurNote').classList.toggle('show', badRecur);
+        }
+        // Stepper state: complete (green ✓), incomplete (amber !) for a visited
+        // required step left unfinished, or plain. Optional Settings completes on visit.
+        function refreshStepper() {
+            stepEls.forEach((s, i) => {
+                const n = i + 1;
+                const done = n === 4 ? visited.has(4) : n === 5 ? false : check(n) === '';
+                const incomplete = n <= 3 && !done && visited.has(n) && n !== current;
+                s.classList.toggle('active', n === current);
+                s.classList.toggle('complete', (done && n !== current) || current === 6);
+                s.classList.toggle('incomplete', incomplete && current !== 6);
+                s.classList.toggle('clickable', current !== 6);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Step 5 — Review
+        // ═══════════════════════════════════════════════════════════════════
+        function renderReview() {
+            const missing = [1, 2, 3].filter(n => check(n) !== '');
+            const alert = $('reviewAlert');
+            alert.hidden = missing.length === 0;
+            alert.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>Finish the required step' + (missing.length > 1 ? 's' : '') + ' before assigning: ' + missing.map(n => STEP_NAMES[n - 1]).join(', ') + '.</span>' +
+                '<button class="alert-link" type="button" data-go="' + missing[0] + '">Go to ' + (missing.length ? STEP_NAMES[missing[0] - 1] : '') + ' <i class="fa-solid fa-arrow-right"></i></button>';
+            alert.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => goTo(Number(b.dataset.go))));
+
+            document.querySelectorAll('.review-sec').forEach(sec => {
+                const n = Number(sec.dataset.rv), body = sec.querySelector('.rv-body');
+                const old = sec.querySelector('.rv-incomplete'); if (old) old.remove();
+                const bad = n <= 3 && check(n) !== '';
+                body.hidden = bad;
+                if (bad) {
+                    const d = document.createElement('div');
+                    d.className = 'rv-incomplete';
+                    d.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i><span>' + check(n) + ' This step must be completed before the assignment can be created.</span>' +
+                        '<button class="edit-link" type="button" data-go="' + n + '">Complete this step <i class="fa-solid fa-arrow-right"></i></button>';
+                    d.querySelector('[data-go]').addEventListener('click', () => goTo(n));
+                    sec.appendChild(d);
+                }
+            });
+
+            $('rvTrainingCount').textContent = training.selected.size;
+            $('rvTraining').innerHTML = Array.from(training.selected.values()).map(t => '<li class="chip"><i class="fa-solid ' + t.icon + '"></i>' + t.name + ' <span class="chip-sub">' + t.sub + '</span></li>').join('');
+            $('rvAssigneeCount').textContent = assignees.selected.size;
+            $('rvAssignees').innerHTML = Array.from(assignees.selected.values()).map(a => '<li class="chip"><i class="fa-solid ' + a.icon + '"></i>' + a.name + ' <span class="chip-sub">' + a.sub + '</span></li>').join('');
+
+            const rows = [], row = (k, v) => rows.push('<dt>' + k + '</dt><dd>' + v + '</dd>');
+            if (kind() === 'single') {
+                row('Assignment type', '<span class="type-tag">Single assignment</span>');
+                row('Start', fmtDate($('startDate').value) + ($('startTime').value ? ' at ' + fmtTime($('startTime').value) : ''));
+                row('Due', dueText());
+            } else {
+                row('Assignment type', '<span class="type-tag recurring">Recurring assignment</span>');
+                row('Recurring start date', fmtDate($('recurStart').value));
+                row('Recurs every', $('recurEvery').value + ' ' + $('recurUnit').value + (radio('recurBasis') === 'rolling' ? ', based on each learner\'s completion date' : ', based on the recurring start date'));
+                row('Recurring due date', recurDueText());
+                row('Available', radio('earlyKind') === 'none' ? 'When it recurs' : $('earlyCount').value + ' ' + $('earlyUnit').value.toLowerCase() + ' before it recurs');
+                row('Next Recurrence Preview', $('recurPreviewText').textContent);
+                row('Ignore Previous Individual Assignments on Recurrence', $('recurIgnorePrev').checked ? 'On' : 'Off');
+            }
+            const p = radio('priorKind');
+            row('Existing completions', p === 'count' ? 'Count toward this assignment' : p === 'new' ? 'Require a new completion' : 'Count if completed within the last ' + $('priorCount').value + ' ' + $('priorUnit').value.toLowerCase());
+            if (hasUnitAssignee()) {
+                row('Future additions', radio('future') === 'original' ? 'Apply original scheduling settings' : 'New settings: start ' + $('futureStart').value.toLowerCase() + ', due ' + $('futureDue').value.toLowerCase());
+                row('Ignore Previous Individual Assignments for Future Additions', $('futureIgnorePrev').checked ? 'On' : 'Off');
+            }
+            $('rvSched').innerHTML = rows.join('');
+
+            const s = [], srow = (k, v) => s.push('<dt>' + k + '</dt><dd>' + v + '</dd>');
+            srow('Assignment identifier', $('assignId').value.trim() || '<span class="chip-sub">None</span>');
+            srow('Suppress new assignment notifications', $('suppressNotif').checked ? 'Yes' : 'No');
+            srow('Vector EHS Management incidents', selectedIncidents.size ? Array.from(selectedIncidents).join(', ') : '<span class="chip-sub">None</span>');
+            srow('Special assignment instructions', $('instructions').value.trim() ? $('instructions').value.trim().replace(/</g, '&lt;') : '<span class="chip-sub">None</span>');
+            srow('Ignore Previous Individual Assignments', $('ignorePrev').checked ? 'Yes' : 'No');
+            $('rvSettings').innerHTML = s.join('');
+
+            btnNext.disabled = missing.length > 0;
+        }
+        document.querySelectorAll('.review-sec .edit-link').forEach(b => b.addEventListener('click', () => goTo(Number(b.dataset.go))));
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  Navigation — steps can be skipped; Review gates Finish
+        // ═══════════════════════════════════════════════════════════════════
+        const stepEls = Array.from(document.querySelectorAll('.stepper .step'));
+        const panes   = Array.from(document.querySelectorAll('.step-pane'));
+        const footer  = $('footer'), btnPrev = $('btnPrev'), btnNext = $('btnNext');
+        let current = 1;
+
+        function goTo(n) {
+            if (current === 3) markScheduling();
+            current = n;
+            if (n <= 5) visited.add(n);
+            panes.forEach(p => { p.hidden = Number(p.dataset.step) !== n; });
+            footer.hidden = n === 6;
+            btnPrev.style.visibility = n === 1 ? 'hidden' : 'visible';
+            btnNext.disabled = false;
+            btnNext.textContent = n === 5 ? 'Finish and Assign Trainings' : 'Go to ' + STEP_NAMES[n];
+            if (n === 3) { syncKind(); syncFutureAdditions(); }
+            if (n === 5) renderReview();
+            refreshStepper();
+            renderSidePanel();
+            document.querySelectorAll('.content-wrap').forEach(c => c.scrollTop = 0);
+            if (n <= 5) history.replaceState(null, '', '#step-' + n);
+        }
+        btnNext.addEventListener('click', () => { if (current === 5) finish(); else goTo(current + 1); });
+        btnPrev.addEventListener('click', () => { if (current > 1) goTo(current - 1); });
+        stepEls.forEach(s => s.addEventListener('click', () => { if (s.classList.contains('clickable')) goTo(Number(s.dataset.step)); }));
+        $('btnCancel').addEventListener('click', () => { if (confirm('Cancel this assignment? Your selections will be lost.')) resetWizard(); });
+        $('newAssignBtn').addEventListener('click', resetWizard);
+
+        // The existing-assignment check runs ONLY when Finish is pressed. The button
+        // shows a busy state while it runs (production: #btnSubmit disabled), then
+        // either completes (no conflicts) or opens the duplicate modal.
+        function finish() {
+            if ([1, 2, 3].some(n => check(n) !== '')) { renderReview(); $('reviewCard').closest('.content-wrap').scrollTop = 0; return; }
+            btnNext.disabled = true;
+            btnNext.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Checking for existing assignments…';
+            setTimeout(() => {
+                btnNext.disabled = false; btnNext.textContent = 'Finish and Assign Trainings';
+                dupRows = findConflicts(); dupSel.clear(); dupOutcome = null;
+                if (dupRows.length === 0) { showSuccess(); return; }                   // C
+                if ($('ignorePrev').checked) openIgnoreConfirm(); else openDupModal();   // B / A
+            }, 1200);
+        }
+        function showSuccess() {
+            const n = training.selected.size, a = assignees.selected.size;
+            $('successText').textContent = n + ' training item' + (n === 1 ? '' : 's') + ' assigned to ' + a + ' assignee' + (a === 1 ? '' : 's') +
+                '. Learners will see it on their Training Plan' + ($('suppressNotif').checked ? '.' : ' and receive a new assignment notification.');
+            $('successSummary').hidden = !dupOutcome;
+            if (dupOutcome) { $('sumAssigned').textContent = dupOutcome.assigned; $('sumEnded').textContent = dupOutcome.ended; $('sumKept').textContent = dupOutcome.kept; $('sumViewKept').hidden = dupOutcome.kept === 0; }
+            goTo(6);
+        }
+        function resetWizard() {
+            training.reset(); assignees.reset(); visited.clear(); visited.add(1);
+            document.querySelector('input[name="schedKind"][value="single"]').checked = true;
+            ['startDate', 'startTime', 'dueDate', 'dueTime', 'assignId', 'instructions'].forEach(id => $(id).value = '');
+            $('recurStart').value = toDateVal(new Date());   // recurring start defaults to now
+            ['dueKind:none', 'recurDue:never', 'recurBasis:fixed', 'earlyKind:none', 'priorKind:count', 'future:original'].forEach(p => { const [n, v] = p.split(':'); document.querySelector('input[name="' + n + '"][value="' + v + '"]').checked = true; });
+            $('futureNewBlock').hidden = true; $('suppressNotif').checked = false;
+            $('ignorePrev').checked = false; $('futureIgnorePrev').checked = false; $('futureIgnorePrevLabel').textContent = 'Off'; $('recurIgnorePrev').checked = false; $('recurIgnorePrevLabel').textContent = 'Off'; dupOutcome = null;
+            document.querySelectorAll('.input.error').forEach(e => e.classList.remove('error'));
+            document.querySelectorAll('.field-note.show').forEach(e => e.classList.remove('show'));
+            selectedIncidents.clear(); renderIncidentChips();
+            goTo(1);
+        }
+
+        // Boot: recurring start defaults to now; #step-N deep links open that
+        // step with earlier steps seeded so reviewers see a populated screen.
+        (function boot() {
+            $('recurStart').value = toDateVal(new Date());
+            const m = location.hash.match(/^#step-([1-5])$/);
+            const n = m ? Number(m[1]) : 1;
+            if (n > 1) { training.seed('Qualifications', 'q3'); training.seed('Qualifications', 'q8'); }
+            if (n > 2) { assignees.seed('User', 'u1'); assignees.seed('Team', 't1'); }
+            if (n > 3) { const now = new Date(); $('startDate').value = toDateVal(now); $('startTime').value = toTimeVal(now); }
+            for (let i = 1; i < n; i++) visited.add(i);
+            goTo(n);
+        })();
+    </script>
+
+    <!-- Vectoria / Intercom Fin FAB (shared rollout include). -->
+    <script>window.FIN_WIDGET = { qualListHref: '../Qualification-Builder/Manage-Qualifications.html' };</script>
+    <script src="../ai-chat-widget/fin-widget.js"></script>
+<!-- Review tooling: pin-and-comment widget + flow map (Design Toolbox).
+     NOT part of the product - do not ship this script in production. -->
+<script src="../../../designtoolbox/toolbox.js"></script>
+</body>
+</html>

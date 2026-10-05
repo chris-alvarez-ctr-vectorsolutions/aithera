@@ -461,7 +461,16 @@
         .rs-switch.on::after { left: 22px; }
         /* Facility scoping belongs to Automatic Downloads: the row only shows
            while that toggle is on (EHS-18527 follow-up). */
-        #records-settings.autodl-off #rs-fac-row-btn { display: none; }
+        #records-settings.autodl-off #rs-autodl-sub { display: none; }
+        /* Nested download filters: indented under Automatic Downloads with a vertical rule */
+        .rs-card > .rs-row:has(+ .rs-subgroup) { border-bottom: none; padding-bottom: 6px; }
+        #records-settings.autodl-off .rs-card > .rs-row:has(+ .rs-subgroup) { border-bottom: 1px solid #f3f4f6; padding-bottom: 14px; }
+        .rs-subgroup { border-bottom: 1px solid #f3f4f6; padding: 0 0 10px; }
+        .rs-subgroup-inner { margin-left: 4px; padding-left: 14px; border-left: 2px solid rgba(2,113,206,0.25); }
+        .rs-subgroup .rs-row { padding: 11px 0; }
+        .rs-subgroup .rs-row:last-child { border-bottom: none; }
+        #rsDateDrawer .drawer-item.selected { color: #0271ce; font-weight: 600; }
+        #rsDateDrawer .drawer-item.selected::after { content: "\f00c"; font-family: "Font Awesome 6 Pro", "Font Awesome 6 Free"; font-weight: 900; float: right; font-size: 12px; }
 
         /* ── Facility multi-select picker: full page, same pattern as the JSA
            "Select Facility" page, plus checkboxes and an Apply footer ── */
@@ -2516,29 +2525,10 @@
         .na-when { font-size:11.5px; color:rgba(0,0,0,0.45); margin-top:3px; }
         .na-action { flex-shrink:0; font-size:13px; font-weight:700; color:#0271ce; display:flex; align-items:center; gap:5px; white-space:nowrap; }
         .badge-syncfailed { background: rgba(224,83,61,0.14); color:#b23a26; font-weight:600; }
-        .badge-cantsync { background: rgba(99,114,130,0.16); color:#44505d; font-weight:600; }
-        .rc-strip.up-blocked   { background: rgba(99,114,130,0.14);  color: #44505d; }
-        .rc-up-pill.up-blocked { background: rgba(99,114,130,0.16);  color: #44505d; }
-        .rc-up-note.is-muted { color: rgba(0,0,0,0.55); }
         /* Error tone for the existing read-only banner component */
         .rv-readonly-banner.is-error { background:#fdecea; border-bottom-color:#f5c2bb; color:#8a2a1b; }
         .rv-readonly-banner.is-error i { color:#c0392b; }
-        /* Sync-error edit session: banner + Resubmit replace Next; invalid fields highlighted */
-        .sync-error-banner { display:none; }
-        #app.sync-error-session .sync-error-banner { display:flex; }
-        .when-syncfix { display:none !important; }
-        #app.sync-error-session .when-syncfix { display:inline-flex !important; }
-        #app.sync-error-session .footer-btn-group .footer-btn-next:not(.when-syncfix) { display:none !important; }
-        .form-field.has-error .form-input, .form-field.has-error .form-select-btn { border-color:#e0533d; box-shadow:0 0 0 2px rgba(224,83,61,0.12); }
-        .form-error-msg { font-size:12px; color:#b23a26; display:flex; align-items:center; gap:6px; line-height:1.35; }
-        .attach-item.has-error { border:1.5px solid #e0533d; margin-bottom:4px; }
-        .attach-item.has-error .attach-meta { color:#b23a26; }
-        .attach-error-msg { font-size:12px; color:#b23a26; display:flex; align-items:center; gap:6px; margin:0 0 10px 2px; line-height:1.35; }
-        /* Can't-sync actions on the record page */
-        .rv-blocked-actions { display:none; flex-direction:column; gap:10px; }
-        .rv-blocked-actions.show { display:flex; }
-        .rv-blocked-help { font-size:12.5px; color:rgba(0,0,0,0.55); text-align:center; line-height:1.4; }
-        #blk-confirm-btn { background:#c0392b; }
+
     </style>
 </head>
 <body>
@@ -2585,14 +2575,11 @@
         </optgroup>
         <optgroup label="Sync failures (showcase)">
             <option value="demo:na-home">Home: Needs attention</option>
-            <option value="demo:toast-sync-failed">Toast: Sync failed (data rejected)</option>
-            <option value="demo:toast-upload-failed">Toast: Upload failed (attachment)</option>
+            <option value="demo:toast-sync-failed">Toast: Sync failed (server didn't respond)</option>
+            <option value="demo:toast-sync-failed-2">Toast: Sync failed (connection dropped)</option>
             <option value="demo:toast-cant-sync-deleted">Toast: Can't sync (deleted on server)</option>
             <option value="demo:toast-cant-sync-permission">Toast: Can't sync (permission lost)</option>
-            <option value="demo:record-sync-failed">Record: Sync failed, fix fields</option>
-            <option value="demo:record-upload-failed">Record: Upload failed, replace attachment</option>
-            <option value="demo:record-cant-sync-deleted">Record: Can't sync (deleted)</option>
-            <option value="demo:record-cant-sync-permission">Record: Can't sync (permission lost)</option>
+            <option value="demo:record-sync-failed">Record: Sync failed (Retry upload)</option>
         </optgroup>
     </select>
 </div>
@@ -2646,8 +2633,8 @@
                     </button>
                 </div>
 
-                <!-- Needs attention: every record waiting on the user (conflicts, rejected
-                     uploads, records that can no longer sync). Rendered by renderNeedsAttention()
+                <!-- Needs attention: every record waiting on the user (conflicts and failed
+                     syncs). Rendered by renderNeedsAttention()
                      from live card state; hidden entirely when nothing needs action. Placed above
                      the record lists and below Quick Actions on purpose. -->
                 <section class="needs-attention" id="needs-attention" style="display:none;">
@@ -3085,9 +3072,11 @@
                     <div style="height:1px;background:#e5e7eb;margin:0 16px;"></div>
                     <div class="filter-field-section" style="padding-bottom:16px;">
                         <span class="filter-field-label">Upload status</span>
-                        <!-- Filter values unchanged: "pending" covers both Pending Upload and Pending Update; whether Pending Update gets its own filter value is an open decision -->
+                        <!-- "pending" covers Pending Upload and Pending Update (own filter value = open decision);
+                             "sync-failed" is its own value and is excluded from "pending" -->
                         <div class="filter-status-pills">
                             <button class="filter-status-pill" data-fdim="submission" data-fval="pending">Pending Upload</button>
+                            <button class="filter-status-pill" data-fdim="submission" data-fval="sync-failed">Sync failed</button>
                             <button class="filter-status-pill" data-fdim="submission" data-fval="submitted">Uploaded</button>
                         </div>
                     </div>
@@ -3148,6 +3137,11 @@
                             </div>
                             <button class="rs-switch on" id="rs-autodl-switch" role="switch" aria-checked="true" aria-label="Automatic Downloads" onclick="toggleAutoDownloads(this)"></button>
                         </div>
+                        <!-- Download filters only apply while Automatic Downloads is on, so they are
+                             nested under it (indent + vertical rule, like a nested side-menu item)
+                             and the whole group hides when the switch is off. -->
+                        <div class="rs-subgroup" id="rs-autodl-sub">
+                        <div class="rs-subgroup-inner">
                         <!-- Facility scoping is part of Automatic Downloads: the row only
                              shows while the toggle above is on. Selecting opens a full-page
                              MULTI-select picker (same pattern as the JSA facility selector)
@@ -3159,6 +3153,25 @@
                             </div>
                             <i class="fa-solid fa-chevron-right rs-row-chevron"></i>
                         </button>
+                        <!-- Date scoping for Automatic Downloads: only records edited inside this
+                             window are downloaded. Short fixed list, so a single-choice drawer. -->
+                        <button class="rs-row rs-row-btn" id="rs-date-row-btn" onclick="openRsDateDrawer()">
+                            <div class="rs-row-text">
+                                <span class="rs-row-label">Filter by Date</span>
+                                <span class="rs-row-desc" id="rs-date-summary">Last 30 days</span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right rs-row-chevron"></i>
+                        </button>
+                        <!-- Record-type scoping: same full-page multi-select pattern as facilities -->
+                        <button class="rs-row rs-row-btn" id="rs-type-row-btn" onclick="openRsTypePicker()">
+                            <div class="rs-row-text">
+                                <span class="rs-row-label">Filter by Record Type</span>
+                                <span class="rs-row-desc rs-fac-chips" id="rs-type-summary"><span class="rs-fac-chip">All types</span></span>
+                            </div>
+                            <i class="fa-solid fa-chevron-right rs-row-chevron"></i>
+                        </button>
+                        </div>
+                        </div>
                         <div class="rs-row">
                             <div class="rs-row-text">
                                 <span class="rs-row-label">Wi-Fi Only</span>
@@ -3225,6 +3238,48 @@
                 </div>
                 <div class="fs-apply-footer">
                     <button class="fs-apply-btn" id="rsFacApplyBtn" onclick="applyRsFacilities()">Apply (1)</button>
+                </div>
+            </div>
+
+            <!-- Date window for Automatic Downloads (single choice) -->
+            <div class="overlay-bg" id="rsDateOverlay" style="z-index:90;" onclick="closeRsDateDrawer()"></div>
+            <div class="bottom-drawer" id="rsDateDrawer" style="z-index:91;">
+                <div class="drawer-handle"></div>
+                <div class="drawer-header">
+                    <span class="drawer-title">Download records from</span>
+                    <button class="drawer-close" onclick="closeRsDateDrawer()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="drawer-list" id="rsDateList">
+                    <div class="drawer-item" onclick="selectRsDate(this)">Last 7 days</div>
+                    <div class="drawer-item selected" onclick="selectRsDate(this)">Last 30 days</div>
+                    <div class="drawer-item" onclick="selectRsDate(this)">Last 90 days</div>
+                    <div class="drawer-item" onclick="selectRsDate(this)">This year</div>
+                    <div class="drawer-item" onclick="selectRsDate(this)">All dates</div>
+                </div>
+            </div>
+
+            <!-- Record-type multi-select picker for Automatic Downloads (same pattern as facilities) -->
+            <div class="fullscreen-select" id="rsTypePicker" style="z-index:75;">
+                <div class="fs-header">
+                    <div class="fs-header-inner">
+                        <button class="hdr-btn" onclick="closeRsTypePicker()"><i class="fa-solid fa-arrow-left"></i></button>
+                        <span class="fs-title">Select Record Types</span>
+                    </div>
+                </div>
+                <div class="rs-fac-master checked" id="rsTypeMaster" onclick="rsToggleAllTypes()">
+                    <span class="rs-fac-check"><i class="fa-solid fa-check"></i></span>
+                    <span class="fs-item-label">Select all record types</span>
+                </div>
+                <div class="fs-list" id="rsTypeList">
+                    <div class="fs-item checked" data-type="JSA" onclick="toggleRsType(this)"><span class="rs-fac-check"><i class="fa-solid fa-check"></i></span><span class="fs-item-label">JSA</span></div>
+                    <div class="fs-item checked" data-type="Incident" onclick="toggleRsType(this)"><span class="rs-fac-check"><i class="fa-solid fa-check"></i></span><span class="fs-item-label">Incident</span></div>
+                    <div class="fs-item checked" data-type="Inspection" onclick="toggleRsType(this)"><span class="rs-fac-check"><i class="fa-solid fa-check"></i></span><span class="fs-item-label">Inspection</span></div>
+                    <div class="fs-item checked" data-type="Hazard" onclick="toggleRsType(this)"><span class="rs-fac-check"><i class="fa-solid fa-check"></i></span><span class="fs-item-label">Hazard</span></div>
+                    <div class="fs-item checked" data-type="Observation" onclick="toggleRsType(this)"><span class="rs-fac-check"><i class="fa-solid fa-check"></i></span><span class="fs-item-label">Observation</span></div>
+                    <div class="fs-item checked" data-type="Corrective Action" onclick="toggleRsType(this)"><span class="rs-fac-check"><i class="fa-solid fa-check"></i></span><span class="fs-item-label">Corrective Action</span></div>
+                </div>
+                <div class="fs-apply-footer">
+                    <button class="fs-apply-btn" id="rsTypeApplyBtn" onclick="applyRsTypes()">Apply (6)</button>
                 </div>
             </div>
 
@@ -3380,23 +3435,8 @@
                     <button class="rv-footer-secondary" id="rv-secondary-btn" data-mode="view" onclick="rvSecondaryAction()">View full record</button>
                     <button class="rv-submit-btn" id="rv-submit-btn" onclick="rvSubmitRecord()">Upload</button>
                 </div>
-                <!-- Can't-sync records swap the normal footer for these (filled by openRecordView) -->
-                <div class="rv-blocked-actions" id="rv-blocked-actions"></div>
             </div>
 
-            <!-- Discard confirmation for a can't-sync record (same sheet pattern as the conflict confirm) -->
-            <div class="overlay-bg" id="blk-confirm-overlay" onclick="closeBlockedConfirm()"></div>
-            <div class="bottom-drawer" id="blk-confirm-drawer">
-                <div class="drawer-handle"></div>
-                <div style="padding:18px 20px 6px;">
-                    <h3 style="font-size:17px;font-weight:700;color:rgba(0,0,0,0.87);margin-bottom:8px;line-height:1.35;">Discard this record?</h3>
-                    <p style="font-size:13.5px;color:rgba(0,0,0,0.6);line-height:1.5;">Your changes on this device will be removed. This can't be undone.</p>
-                </div>
-                <div class="filter-sheet-footer">
-                    <button class="filter-sheet-reset" onclick="closeBlockedConfirm()">Cancel</button>
-                    <button class="filter-sheet-apply" id="blk-confirm-btn" onclick="blockedDiscardConfirm()">Discard</button>
-                </div>
-            </div>
         </div>
 
         <!-- ══════════════════════════════════════ -->
@@ -4114,11 +4154,6 @@
                 <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
-            <!-- Sync-error session only: the server rejected this record's last upload -->
-            <div class="rv-readonly-banner is-error sync-error-banner">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <span>This record didn't sync. Fix the highlighted fields and resubmit.</span>
-            </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
                     <div class="stepper-step-info" onclick="openStepNavDrawer('basic-info')">
@@ -4254,7 +4289,6 @@
                 <div class="footer-btn-group">
                     <button class="footer-btn-back when-create" onclick="showScreen('jsa-start')">Back</button>
                     <button class="footer-btn-next" onclick="afterBasicNext()">Next</button>
-                    <button class="footer-btn-next when-syncfix" onclick="resubmitSyncError()">Resubmit</button>
                 </div>
             </div>
 
@@ -4900,11 +4934,6 @@
                 <span>No connection. You can keep working on downloaded records. Changes save to this device.</span>
             </div>
 
-            <!-- Sync-error session only: the server rejected this record's last upload -->
-            <div class="rv-readonly-banner is-error sync-error-banner">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <span>This record didn't sync. Fix the highlighted fields and resubmit.</span>
-            </div>
             <div class="jsa-stepper">
                 <div class="stepper-row">
                     <div class="stepper-step-info" onclick="openStepNavDrawer('additional')">
@@ -4975,7 +5004,6 @@
                 <div class="footer-btn-group">
                     <button class="footer-btn-back" onclick="showScreen('jsa-steps-filled')">Back</button>
                     <button class="footer-btn-next" onclick="showScreen('jsa-signature')">Next</button>
-                    <button class="footer-btn-next when-syncfix" onclick="resubmitSyncError()">Resubmit</button>
                 </div>
             </div>
 
@@ -5951,7 +5979,7 @@
             <div class="screen-body no-nav">
                 <div class="merge-intro">
                     <h3 id="cr-record-title">Roof Access – Maintenance Crew</h3>
-                    <p id="cr-intro-text">Select <b>which version</b> of <b>those conflicting fields only</b> to commit. You may also save your version as a new record.</p>
+                    <p id="cr-intro-text">Someone else updated this record while you were offline. Choose whose version to keep for the fields that conflict. Your other changes will still be saved either way. You may save your changes as a new copy.</p>
                 </div>
                 <span class="section-label" style="margin-top:14px;">Conflicting versions</span>
                 <div class="cr-vcards">
@@ -7615,6 +7643,9 @@ function submitRecordCard(cardRow) {
         showToast("You're offline, so this can't upload right now. Your changes are saved and can be uploaded once you're back online.");
         return;
     }
+    /* The server refuses the upload (record deleted / access lost): nothing uploads, the record
+       is removed from the app, and a toast names it and says why. */
+    if (rcSyncBlocked(cardRow)) { refuseSync(cardRow); return; }
     /* Remember what to restore on cancel: Pending Upload or Pending Update */
     cardRow._prevUpload = cardRow.dataset.upload || 'pending-upload';
     rcSetUpload(cardRow, 'uploading');
@@ -7726,10 +7757,9 @@ function autoUploadOnReconnect() {
     document.querySelectorAll('#screen-records .rec-card-wrap .record-card-row').forEach(row => {
         const st = row.dataset.upload;
         if (st !== 'pending-upload' && st !== 'pending-update') return;
-        /* The server says this upload can never be applied (record deleted / access lost):
-           keep the local changes, flag the record, and tell the user. Never discard silently. */
-        const kind = rcSyncBlocked(row);
-        if (kind) { markCantSync(row, kind); blocked.push(row); return; }
+        /* The server says this upload can't be applied (record deleted / access lost): the
+           record is removed from the app and a toast naming it is the only notification. */
+        if (rcSyncBlocked(row)) { blocked.push(row); return; }
         if (rcMayStayPending(row)) return;                 /* created from scratch: user uploads it */
         const wrap = row.closest('.rec-card-wrap');
         row.classList.add('is-submitted');
@@ -7741,11 +7771,9 @@ function autoUploadOnReconnect() {
         applyRecordFilters();
         applyEditMode();
     }
-    if (blocked.length) {
-        showCantSyncToast(blocked[0]);                     /* the problem outranks the success notice */
-    } else if (uploaded) {
-        showToast(uploaded === 1 ? 'Your offline change was uploaded' : uploaded + ' offline changes were uploaded');
-    }
+    /* Each blocked record gets its own toast (queued, one after another), then the upload notice */
+    blocked.forEach(row => refuseSync(row));
+    if (uploaded) queueToast(() => showToast(uploaded === 1 ? 'Your offline change was uploaded' : uploaded + ' offline changes were uploaded'));
     return uploaded;
 }
 
@@ -7930,45 +7958,16 @@ function openRecordView(row) {
     roBanner.classList.remove('is-error');
     if (roMsg) roMsg.textContent = "You're offline and this record isn't downloaded to this device, so it's read-only. Download it to edit.";
 
-    /* ── Sync failures on the record page ── */
-    const blockedKind = row.dataset.upload === 'cant-sync' ? rcSyncBlocked(row) : null;
+    /* ── Sync failed on the record page: say why; the primary action is Retry ── */
     const syncErr = row.dataset.upload === 'sync-failed' ? rcSyncError(row) : null;
     const submitBtn = document.getElementById('rv-submit-btn');
-    const saveBtn = document.getElementById('rv-save-btn');
-    const footerRow = document.getElementById('rv-footer-row');
-    const blockedBox = document.getElementById('rv-blocked-actions');
     submitBtn.textContent = 'Upload';
-    footerRow.style.display = '';
-    blockedBox.classList.remove('show');
-    blockedBox.innerHTML = '';
-    if (saveBtn) saveBtn.style.display = '';
     if (syncErr) {
-        /* The server rejected the data: say so, and make the primary action the fix */
         roBanner.style.display = 'flex';
         roBanner.classList.add('is-error');
-        if (roMsg) roMsg.textContent = syncErr.kind === 'attachment'
-            ? "This record didn't sync. Replace the highlighted attachment and resubmit."
-            : "This record didn't sync. Fix the highlighted fields and resubmit.";
+        if (roMsg) roMsg.textContent = "This record didn't sync. " + syncErr.reason + ' Try again later.';
         submitBtn.style.display = '';
-        submitBtn.textContent = 'Fix & resubmit';
-    } else if (blockedKind) {
-        /* The upload can never apply: read-only, plain-language banner, explicit choices */
-        roBanner.style.display = 'flex';
-        roBanner.classList.add('is-error');
-        if (roMsg) roMsg.textContent = blockedKind === 'permission'
-            ? "You no longer have access to this record, so your changes can't be applied."
-            : "This record was deleted on the server, so your changes can't be applied.";
-        sec.dataset.mode = 'view';
-        sec.textContent = 'View Record';
-        if (saveBtn) saveBtn.style.display = 'none';
-        footerRow.style.display = 'none';
-        blockedBox.classList.add('show');
-        blockedBox.innerHTML = blockedKind === 'permission'
-            ? '<button class="rv-submit-btn" onclick="blockedDiscardPrompt()">Discard</button>' +
-              '<div class="rv-blocked-help">If you think this is a mistake, contact your administrator.</div>'
-            /* No "Save as new" when access was revoked: that would route around the permission change */
-            : '<button class="rv-submit-btn" onclick="blockedSaveAsNew()">Save as new</button>' +
-              '<button class="rv-footer-secondary" onclick="blockedDiscardPrompt()">Discard</button>';
+        submitBtn.textContent = rcRetryLabel(row);
     }
     showScreen('record-view');
 }
@@ -7992,8 +7991,6 @@ function rvEditSignatures() { showScreen('jsa-signature'); }
 
 /* Submit directly from the details page (item 2): reuse the card submit flow. */
 function rvSubmitRecord() {
-    /* A rejected upload routes into the form with the invalid fields highlighted */
-    if (rvSourceRow && rvSourceRow.dataset.upload === 'sync-failed' && rcSyncError(rvSourceRow)) { openSyncErrorRecord(rvSourceRow); return; }
     if (rvSourceRow) submitRecordCard(rvSourceRow);
     document.getElementById('rv-footer').classList.remove('show');
     showScreen('records');
@@ -8212,6 +8209,7 @@ function applyRsFacilities() {
     const sum = document.getElementById('rs-fac-summary');
     if (sum) {
         if (names.length === 0) sum.textContent = 'No facilities selected. Nothing downloads automatically.';
+        else if (names.length === document.querySelectorAll('#rsFacilityList .fs-item').length) sum.innerHTML = '<span class="rs-fac-chip">All facilities</span>';
         else {
             /* Show up to 5 facility chips before collapsing the rest into a +N count */
             let html = names.slice(0, 5).map(n => '<span class="rs-fac-chip">' + n + '</span>').join('');
@@ -8220,6 +8218,48 @@ function applyRsFacilities() {
         }
     }
     closeRsFacilityPicker();
+}
+
+/* ── Automatic Downloads: date window (single choice) + record types (multi-select) ── */
+function openRsDateDrawer()  { document.getElementById('rsDateOverlay').classList.add('active'); document.getElementById('rsDateDrawer').classList.add('open'); }
+function closeRsDateDrawer() { document.getElementById('rsDateOverlay').classList.remove('active'); document.getElementById('rsDateDrawer').classList.remove('open'); }
+function selectRsDate(item) {
+    document.querySelectorAll('#rsDateList .drawer-item').forEach(i => i.classList.toggle('selected', i === item));
+    const sum = document.getElementById('rs-date-summary');
+    if (sum) sum.textContent = item.textContent.trim();
+    closeRsDateDrawer();
+}
+function openRsTypePicker()  { rsSyncTypeMaster(); document.getElementById('rsTypePicker').classList.add('active'); }
+function closeRsTypePicker() { document.getElementById('rsTypePicker').classList.remove('active'); }
+function rsTypeItems() { return [...document.querySelectorAll('#rsTypeList .fs-item')]; }
+function rsSyncTypeMaster() {
+    const items = rsTypeItems();
+    const checked = items.filter(i => i.classList.contains('checked')).length;
+    document.getElementById('rsTypeMaster').classList.toggle('checked', checked === items.length);
+    document.getElementById('rsTypeApplyBtn').textContent = 'Apply (' + checked + ')';
+}
+function toggleRsType(item) { item.classList.toggle('checked'); rsSyncTypeMaster(); }
+function rsToggleAllTypes() {
+    const items = rsTypeItems();
+    const all = items.every(i => i.classList.contains('checked'));
+    items.forEach(i => i.classList.toggle('checked', !all));
+    rsSyncTypeMaster();
+}
+function applyRsTypes() {
+    const items = rsTypeItems();
+    const names = items.filter(i => i.classList.contains('checked')).map(i => i.dataset.type);
+    const sum = document.getElementById('rs-type-summary');
+    if (sum) {
+        if (names.length === 0) sum.textContent = 'No record types selected. Nothing downloads automatically.';
+        else if (names.length === items.length) sum.innerHTML = '<span class="rs-fac-chip">All types</span>';
+        else {
+            /* Same chip summary as facilities: up to 5 chips, then +N */
+            let html = names.slice(0, 5).map(t => '<span class="rs-fac-chip">' + t + '</span>').join('');
+            if (names.length > 5) html += '<span class="rs-fac-chip more">+' + (names.length - 5) + '</span>';
+            sum.innerHTML = html;
+        }
+    }
+    closeRsTypePicker();
 }
 
 /* ══════════ Per-record action sheet (ellipsis / see more) ══════════ */
@@ -8292,7 +8332,6 @@ function leaveEditSession() {
     const wasOffline = app.classList.contains('offline-editing');
     app.classList.remove('offline-editing');
     app.classList.remove('edit-session');
-    if (app.classList.contains('sync-error-session')) { app.classList.remove('sync-error-session'); clearSyncErrorHighlights(); syncErrorRow = null; }
     return wasOffline ? 'offline-records' : 'records';
 }
 function exitEditSession() {
@@ -8326,7 +8365,12 @@ function saveEditSession() {
 const filterDims = {
     type:       { match: (w, v) => w.dataset.cardType === v, labels: { jsa: 'JSA' } },
     jsastatus:  { match: (w, v) => w.dataset.formStatus === v, labels: { 'in-progress': 'In Progress', completed: 'Completed', draft: 'Draft', incomplete: 'Incomplete', overdue: 'Overdue' } },
-    submission: { match: (w, v) => w.dataset.cardState === v, labels: { pending: 'Pending', submitted: 'Submitted' } },
+    submission: { match: (w, v) => {
+                    const up = ((w.querySelector('.record-card-row') || {}).dataset || {}).upload;
+                    if (v === 'sync-failed') return up === 'sync-failed';
+                    if (v === 'pending') return w.dataset.cardState === 'pending' && up !== 'sync-failed';
+                    return w.dataset.cardState === v;
+                  }, labels: { pending: 'Pending', 'sync-failed': 'Sync failed', submitted: 'Submitted' } },
     avail:      { match: (w, v) => !!w.querySelector('.badge-downloaded'), labels: { downloaded: 'Downloaded' } },
     owner:      { match: (w, v) => w.dataset[OWNER_ATTR[v]] === 'true', labels: { created: 'Created by me', 'submitted-by-me': 'Uploaded by me', 'updated-by-me': 'Updated by me', assigned: 'Assigned to me' } },
 };
@@ -8632,10 +8676,6 @@ document.getElementById('screen-records').addEventListener('click', (e) => {
         showToast('ID copied');
         return;
     }
-
-    /* Sync failures: a rejected upload opens the form with errors; a blocked upload opens the record */
-    if (e.target.closest('[data-action="fix-resubmit"]')) { e.stopPropagation(); openSyncErrorRecord(e.target.closest('.record-card-row')); return; }
-    if (e.target.closest('[data-action="review-blocked"]')) { e.stopPropagation(); openRecordView(e.target.closest('.record-card-row')); return; }
 
     /* Copy ID */
     if (e.target.closest('[data-action="copy-id"]')) {
@@ -9104,17 +9144,15 @@ const RC_UPLOAD = {
        presents one retry-able state (AC-3.4's three failure classes are a Solution
        Design detail); Retry re-runs the upload. */
     'sync-failed':    { cls: 'up-failed',    icon: 'fa-solid fa-cloud-xmark',          label: 'Sync Failed',    cta: 'Retry',  ctaIcon: 'fa-solid fa-arrows-rotate' },
-    /* The upload can never be applied: the record was deleted on the server, or the user lost
-       access to it. Local changes are kept; the user decides what happens to them (Review). */
-    'cant-sync':      { cls: 'up-blocked',   icon: 'fa-solid fa-ban',                  label: "Can't sync",     cta: 'Review', ctaIcon: 'fa-regular fa-eye', ctaAction: 'review-blocked' },
 };
 
 /* Pending = anything still waiting to go up (Pending Upload, Pending Update,
    or a failed sync that is waiting on a retry) */
 function rcIsPending(row) { return !!row && ['pending-upload', 'pending-update', 'sync-failed'].includes(row.dataset.upload); }
 
-/* Failure details live on the card wrap: data-sync-error (JSON: kind data|attachment, reason,
-   when, fields[{field,message}]) and data-sync-blocked (deleted|permission). */
+/* Failure details live on the card wrap: data-sync-error (JSON: reason, when) and
+   data-sync-blocked (deleted|permission) — the latter is the mock's stand-in for what the
+   server would answer; it never changes the card's status, it only drives a toast. */
 function rcHost(row) { return (row && row.closest('.rec-card-wrap')) || row; }
 function rcSyncError(row) {
     const h = rcHost(row);
@@ -9122,6 +9160,12 @@ function rcSyncError(row) {
     try { return JSON.parse(h.dataset.syncError); } catch (e) { return null; }
 }
 function rcSyncBlocked(row) { const h = rcHost(row); return (h && h.dataset.syncBlocked) || null; }
+/* A failed sync is retried as an UPDATE when the record has been uploaded before, otherwise as an UPLOAD */
+function rcRetryLabel(row) {
+    const h = rcHost(row);
+    const wasUploaded = !!(h && h.dataset.prevSubmitted === 'true') || (row && row.classList.contains('is-submitted'));
+    return wasUploaded ? 'Retry update' : 'Retry upload';
+}
 
 function rcDeriveState(row) {
     if (row.dataset.upload) return row.dataset.upload;
@@ -9179,25 +9223,16 @@ function rcSetUpload(row, state, newId) {
             pills.insertAdjacentHTML('beforeend', '<span class="rc-up-note">' +
                 (err ? err.reason : 'The last sync attempt failed. Your changes are saved on this device.') + '</span>');
         }
-        if (state === 'cant-sync') {
-            const kind = rcSyncBlocked(row);
-            pills.insertAdjacentHTML('beforeend', '<span class="rc-up-note is-muted">' +
-                (kind === 'permission' ? 'You no longer have access to this record. Your changes are kept on this device.'
-                                       : "Deleted on the server, so your changes can't be applied. They're kept on this device.") + '</span>');
-        }
     }
     const ar = row.querySelector('.rec-action-row');
     if (ar) {
         if (m.cta === 'cancel') ar.innerHTML = '<button class="rec-btn-cancel" data-action="cancel-submit"><i class="fa-solid fa-xmark" style="font-size:12px;"></i> Cancel</button>';
         else if (m.cta === 'copy') { const id = newId || rcRecordId(row); ar.innerHTML = '<button class="rec-btn-outline" data-action="copy-id" data-id="' + id + '"><i class="fa-regular fa-copy"></i> Copy ID</button>'; }
         else if (m.cta) {
-            /* A rejected upload (validation error attached) needs fixing, not retrying */
-            const fix = state === 'sync-failed' && !!rcSyncError(row);
-            const action = fix ? 'fix-resubmit' : (m.ctaAction || 'submit');
-            const label = fix ? 'Fix & resubmit' : m.cta;
-            const icon = fix ? 'fa-solid fa-pen-to-square' : m.ctaIcon;
+            const action = m.ctaAction || 'submit';
+            const label = state === 'sync-failed' ? rcRetryLabel(row) : m.cta;   /* "Retry upload" / "Retry update" */
             ar.innerHTML = '<button class="rec-btn-outline' + (action === 'submit' && rcUploadBlocked(row) ? ' is-offline-disabled' : '') +
-                '" data-action="' + action + '"><i class="' + icon + '"></i> ' + label + '</button>';
+                '" data-action="' + action + '"><i class="' + m.ctaIcon + '"></i> ' + label + '</button>';
         }
         else ar.innerHTML = '';
     }
@@ -9502,11 +9537,12 @@ function rcApplySort() {
 })();
 
 /* ════════════ Sync failures (EHS-18531 FR-3 / AC-3.4, AC-5.2) ════════════
-   Three kinds of trouble a record can be in, all surfaced in "Needs attention" on Home:
+   Two kinds of trouble a record can be in are surfaced in "Needs attention" on Home:
      • Conflict      - the server changed it before the offline edit uploaded (crQueue)
-     • Sync failed   - the server rejected the upload as invalid; the user fixes and resubmits
-     • Can't sync    - the upload can never apply (deleted on the server / access lost)
-   Toasts announce each one, but the list is the durable signal if a toast is missed. */
+     • Sync failed   - the upload didn't go through (a technical failure); the user retries
+   A third is TOAST-ONLY by design (designer, 2026-10-02): when an upload is refused because
+   the record was deleted on the server or access was lost, the record is removed from the
+   app and a toast naming it is the only notification. */
 
 /* ── Needs attention (Home) ── */
 let naOpeners = [];
@@ -9533,13 +9569,7 @@ function naItems() {
             const err = rcSyncError(row);
             items.push({ title, id: rcRecordId(row), chip: 'Sync failed', chipCls: 'badge-syncfailed',
                 reason: err ? err.reason : 'The last sync attempt failed', when: (err && err.when) || 'Today, 9:28 PM',
-                action: 'Fix & resubmit', open: () => openSyncErrorRecord(row) });
-        } else if (st === 'cant-sync') {
-            const kind = rcSyncBlocked(row);
-            items.push({ title, id: rcRecordId(row), chip: "Can't sync", chipCls: 'badge-cantsync',
-                reason: kind === 'permission' ? 'You no longer have access to this record' : 'Deleted on the server by someone else',
-                when: rcHost(row).dataset.syncBlockedWhen || 'Today, 9:31 PM',
-                action: 'Review', open: () => openRecordView(row) });
+                action: rcRetryLabel(row), open: () => { showScreen('records'); submitRecordCard(row); } });
         }
     });
     return items;
@@ -9563,138 +9593,44 @@ function renderNeedsAttention() {
         '</button>').join('');
 }
 
-/* ── Sync failed: server rejected the upload as invalid ── */
-let syncErrorRow = null;
+/* ── Sync failed: the upload didn't go through for a technical reason ──
+   Nothing for the user to fix: the toast says what happened and to try again
+   later; the card and the record page offer Retry. */
 function showSyncFailedToast(row) {
     const err = rcSyncError(row);
     if (!err) return;
-    const attachment = err.kind === 'attachment';
-    showToast(err.reason + (attachment ? ' Tap to replace it.' : ' Tap to fix.'),
-        { title: attachment ? 'Upload failed' : 'Sync failed', error: true, onTap: () => openSyncErrorRecord(row) });
-}
-/* Opens the record's form with the invalid fields highlighted and Resubmit as the forward action */
-function openSyncErrorRecord(row) {
-    const err = rcSyncError(row) || { kind: 'data', fields: [] };
-    syncErrorRow = row;
-    openEditRecord(row);
-    document.getElementById('app').classList.add('sync-error-session');
-    applySyncErrorHighlights(err);
-    if (err.kind === 'attachment') showScreen('jsa-additional');
-}
-function applySyncErrorHighlights(err) {
-    clearSyncErrorHighlights();
-    document.querySelectorAll('.sync-error-banner span').forEach(s => {
-        s.textContent = err.kind === 'attachment'
-            ? "This record didn't sync. Replace the highlighted attachment and resubmit."
-            : "This record didn't sync. Fix the highlighted fields and resubmit.";
-    });
-    (err.fields || []).forEach(fe => {
-        const field = [...document.querySelectorAll('#screen-jsa-basic .form-field')]
-            .find(f => (f.querySelector('.form-label') || {}).textContent?.replace('*', '').trim() === fe.field);
-        if (!field) return;
-        field.classList.add('has-error');
-        const msg = document.createElement('div');
-        msg.className = 'form-error-msg';
-        msg.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> ' + fe.message;
-        field.appendChild(msg);
-    });
-    if (err.kind === 'attachment') {
-        const anchor = document.getElementById('attach-item-1');
-        if (anchor) anchor.insertAdjacentHTML('beforebegin',
-            '<div class="attach-item has-error" id="attach-item-err">' +
-                '<div class="attach-thumb"><img src="https://picsum.photos/seed/jsaBigPhoto/88/88" alt="" /></div>' +
-                '<div class="attach-info"><div class="attach-name">' + (err.file || 'IMG_4471.jpg') + '</div><div class="attach-meta">Photo · ' + (err.size || '12.4 MB') + '</div></div>' +
-                '<button class="attach-remove" onclick="document.getElementById(\'attach-item-err\').remove();document.getElementById(\'attach-item-err-msg\').remove();" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button>' +
-            '</div>' +
-            '<div class="attach-error-msg" id="attach-item-err-msg"><i class="fa-solid fa-circle-exclamation"></i> ' + err.reason + ' Replace it with a smaller file.</div>');
-    }
-}
-function clearSyncErrorHighlights() {
-    document.querySelectorAll('#screen-jsa-basic .form-field.has-error').forEach(f => f.classList.remove('has-error'));
-    document.querySelectorAll('#screen-jsa-basic .form-error-msg').forEach(m => m.remove());
-    ['attach-item-err', 'attach-item-err-msg'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
-}
-/* Resubmit: the fixed record goes straight up; status clears and a Synced toast confirms */
-function resubmitSyncError() {
-    const row = syncErrorRow;
-    const app = document.getElementById('app');
-    clearSyncErrorHighlights();
-    app.classList.remove('sync-error-session');
-    syncErrorRow = null;
-    editingCard = null;
-    const dest = leaveEditSession();
-    showScreen(dest);
-    if (!row) return;
-    const copies = [row, ...document.querySelectorAll('.offline-card-list .record-card-row')]
-        .filter((r, i, a) => a.indexOf(r) === i && r.querySelector('.record-title').textContent.trim() === row.querySelector('.record-title').textContent.trim());
-    copies.forEach(r => { delete rcHost(r).dataset.syncError; rcSetUpload(r, 'uploading'); });
-    setTimeout(() => {
-        const id = rcRecordId(row) !== '–' && rcRecordId(row) ? rcRecordId(row) : String(Math.floor(10000000 + Math.random() * 90000000));
-        copies.forEach(r => {
-            r.classList.add('is-submitted');
-            rcHost(r).dataset.cardState = 'submitted';
-            rcSetUpload(r, 'uploaded', id);
-        });
-        if (typeof refreshRecordsFab === 'function') refreshRecordsFab();
-        showToast('Synced');
-    }, 1500);
+    showToast(err.reason + ' Try again later.', { title: 'Sync failed', error: true, onTap: () => openRecordView(row) });
 }
 
-/* ── Can't sync: the upload can never be applied ── */
-function markCantSync(row, kind) {
-    const title = row.querySelector('.record-title').textContent.trim();
-    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
-        if ((wrap.querySelector('.record-title') || {}).textContent?.trim() !== title) return;
-        wrap.dataset.syncBlocked = kind;
-        wrap.dataset.syncBlockedWhen = wrap.dataset.syncBlockedWhen || 'Today, 9:31 PM';
-        const r = wrap.querySelector('.record-card-row');
-        if (r) rcSetUpload(r, 'cant-sync');
-    });
+/* ── Toast queue: several notices fired together show one after another ── */
+let toastSlot = 0;
+function queueToast(fn) {
+    const now = Date.now();
+    const at = Math.max(now, toastSlot);
+    toastSlot = at + 5200;
+    setTimeout(fn, at - now);
 }
-function showCantSyncToast(row) {
+/* ── Upload refused (deleted on the server / access lost) ──
+   The record is removed from the app (every copy: records list, offline lists, Jump
+   back in) and a toast naming it is the only notification. */
+function cantSyncMessage(title, kind) {
+    return "Can't sync " + title + '. ' + (kind === 'permission' ? 'You no longer have access to it.' : 'It was deleted by someone else.') +
+        ' This record has been removed from your app.';
+}
+function refuseSync(row) {
     const title = row.querySelector('.record-title').textContent.trim();
     const kind = rcSyncBlocked(row);
-    showToast("Can't sync " + title + '. ' + (kind === 'permission' ? 'You no longer have access to it.' : 'It was deleted by someone else.'),
-        { error: true, onTap: () => openRecordView(row) });
-}
-function blockedDiscardPrompt() {
-    document.getElementById('blk-confirm-overlay').classList.add('active');
-    document.getElementById('blk-confirm-drawer').classList.add('open');
-}
-function closeBlockedConfirm() {
-    document.getElementById('blk-confirm-overlay').classList.remove('active');
-    document.getElementById('blk-confirm-drawer').classList.remove('open');
-}
-/* Remove every copy of the record from the device (records list + offline lists) */
-function blockedDiscardConfirm() {
-    closeBlockedConfirm();
-    if (!rvSourceRow) return;
-    const title = rvSourceRow.querySelector('.record-title').textContent.trim();
-    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
-        if ((wrap.querySelector('.record-title') || {}).textContent?.trim() === title) wrap.remove();
+    document.querySelectorAll('.rec-card-wrap, .jbi-card-container .record-card-row').forEach(el => {
+        if ((el.querySelector('.record-title') || {}).textContent?.trim() === title) el.remove();
     });
-    rvSourceRow = null;
     if (typeof refreshRecordsFab === 'function') refreshRecordsFab();
-    showScreen('home');
-    showToast('Removed from this device');
+    renderNeedsAttention();
+    queueToast(() => showToast(cantSyncMessage(title, kind), { error: true }));
 }
-/* Deleted on the server: the user's version becomes a brand-new record and uploads */
-function blockedSaveAsNew() {
-    if (!rvSourceRow) return;
-    const row = rvSourceRow;
-    const title = row.querySelector('.record-title').textContent.trim();
-    document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
-        if ((wrap.querySelector('.record-title') || {}).textContent?.trim() !== title) return;
-        delete wrap.dataset.syncBlocked;
-        delete wrap.dataset.syncBlockedWhen;
-        delete wrap.dataset.prevSubmitted;
-        wrap.dataset.createdNew = 'true';
-        wrap.dataset.cardState = 'pending';
-        const r = wrap.querySelector('.record-card-row');
-        if (r) { r.classList.remove('is-submitted'); rcSetUpload(r, 'pending-upload'); }
-    });
-    showScreen('records');
-    submitRecordCard(row);
+/* Showcase: refuse the real record if it is still on the device, otherwise just replay the toast */
+function demoCantSync(title, kind) {
+    const row = naRowByTitle(title);
+    if (row) refuseSync(row); else queueToast(() => showToast(cantSyncMessage(title, kind), { error: true }));
 }
 
 /* ── Showcase entries in the page dropdown ── */
@@ -9703,10 +9639,9 @@ function runSyncDemo(key) {
     const fork = naRowByTitle('Forklift Operation – Loading Dock B');
     const scaf = naRowByTitle('Scaffold Erection – East Wing Exterior');
     const site = naRowByTitle('Site Safety Assessment – Building A, Floor 3');
-    const ensureAttachmentFailure = () => {
-        if (!site) return null;
-        if (site.dataset.upload !== 'sync-failed') {
-            rcHost(site).dataset.syncError = JSON.stringify({ kind: 'attachment', reason: 'Photo exceeds 10 MB.', when: 'Today, 9:29 PM', file: 'IMG_4471.jpg', size: '12.4 MB' });
+    const failSite = () => {
+        if (site && site.dataset.upload !== 'sync-failed') {
+            rcHost(site).dataset.syncError = JSON.stringify({ reason: 'The connection dropped during upload.', when: 'Today, 9:29 PM' });
             rcSetUpload(site, 'sync-failed');
         }
         return site;
@@ -9717,28 +9652,23 @@ function runSyncDemo(key) {
             { const s = document.getElementById('needs-attention'); if (s) s.scrollIntoView({ block: 'start' }); }
             break;
         case 'toast-sync-failed':           showScreen('records'); if (chem) showSyncFailedToast(chem); break;
-        case 'toast-upload-failed':         showScreen('records'); { const r = ensureAttachmentFailure(); if (r) showSyncFailedToast(r); } break;
-        case 'toast-cant-sync-deleted':     showScreen('records'); if (fork) { markCantSync(fork, 'deleted'); showCantSyncToast(fork); } break;
-        case 'toast-cant-sync-permission':  showScreen('records'); if (scaf) { markCantSync(scaf, 'permission'); showCantSyncToast(scaf); } break;
-        case 'record-sync-failed':          if (chem) openSyncErrorRecord(chem); break;
-        case 'record-upload-failed':        { const r = ensureAttachmentFailure(); if (r) openSyncErrorRecord(r); } break;
-        case 'record-cant-sync-deleted':    if (fork) { markCantSync(fork, 'deleted'); openRecordView(fork); } break;
-        case 'record-cant-sync-permission': if (scaf) { markCantSync(scaf, 'permission'); openRecordView(scaf); } break;
+        case 'toast-sync-failed-2':         showScreen('records'); { const r = failSite(); if (r) showSyncFailedToast(r); } break;
+        case 'toast-cant-sync-deleted':     showScreen('records'); demoCantSync('Forklift Operation – Loading Dock B', 'deleted'); break;
+        case 'toast-cant-sync-permission':  showScreen('records'); demoCantSync('Scaffold Erection – East Wing Exterior', 'permission'); break;
+        case 'record-sync-failed':          if (chem) openRecordView(chem); break;
     }
 }
 
-/* ── Mock data: one record of each kind at load ──
+/* ── Mock data at load ──
    (kept in JS rather than markup so the online card and its offline-list copies stay in step) */
 const SYNC_FAILURE_SEED = {
-    /* Server rejected the data: two invalid fields on the Basic Information step */
-    'Chemical Storage Audit – Bay 4': { error: { kind: 'data', reason: "Start date can't be in the future.", when: 'Today, 9:28 PM',
-        fields: [ { field: 'Start Date', message: "Start date can't be in the future." },
-                  { field: "Supervisor's Name", message: "Supervisor's name is required." } ] } },
-    /* Edited offline, then deleted on the server by someone else */
-    'Forklift Operation – Loading Dock B': { blocked: 'deleted', when: 'Today, 9:31 PM' },
-    /* Edited offline; access was revoked meanwhile. Stays Pending until the device reconnects,
-       when the upload is refused and the card flips to Can't sync (see autoUploadOnReconnect). */
-    'Scaffold Erection – East Wing Exterior': { blockedOnReconnect: 'permission' },
+    /* The upload failed for a technical reason; Retry is the only action */
+    'Chemical Storage Audit – Bay 4': { error: { reason: "The server didn't respond.", when: 'Today, 9:28 PM' } },
+    /* Uploaded once, edited offline (Pending Update), then deleted on the server by someone
+       else: any sync attempt is refused and a toast names the record. Status never changes. */
+    'Forklift Operation – Loading Dock B': { blockedOnSync: 'deleted', pendingUpdate: true },
+    /* Edited offline; access was revoked meanwhile. Same toast-only behaviour. */
+    'Scaffold Erection – East Wing Exterior': { blockedOnSync: 'permission' },
 };
 function seedSyncFailures() {
     document.querySelectorAll('.rec-card-wrap').forEach(wrap => {
@@ -9748,8 +9678,15 @@ function seedSyncFailures() {
         const row = wrap.querySelector('.record-card-row');
         if (!row) return;
         if (seed.error) { wrap.dataset.syncError = JSON.stringify(seed.error); rcSetUpload(row, 'sync-failed'); }
-        if (seed.blocked) { wrap.dataset.syncBlocked = seed.blocked; wrap.dataset.syncBlockedWhen = seed.when; rcSetUpload(row, 'cant-sync'); }
-        if (seed.blockedOnReconnect) { wrap.dataset.syncBlocked = seed.blockedOnReconnect; }
+        if (seed.blockedOnSync) wrap.dataset.syncBlocked = seed.blockedOnSync;
+        if (seed.pendingUpdate) {
+            wrap.dataset.prevSubmitted = 'true';
+            wrap.dataset.updatedByMe = 'true';
+            wrap.dataset.editedOffline = 'true';
+            wrap.dataset.cardState = 'pending';
+            row.classList.remove('is-submitted');
+            rcSetUpload(row, 'pending-update');
+        }
     });
 }
 
@@ -9769,8 +9706,6 @@ document.addEventListener('click', (e) => {
     if (!row) return;
     const sub = e.target.closest('[data-action="submit"]');
     if (sub) { e.stopPropagation(); if (!sub.disabled) submitRecordCard(row); return; }
-    if (e.target.closest('[data-action="fix-resubmit"]')) { e.stopPropagation(); openSyncErrorRecord(row); return; }
-    if (e.target.closest('[data-action="review-blocked"]')) { e.stopPropagation(); openRecordView(row); return; }
     const cid = e.target.closest('[data-action="copy-id"]');
     if (cid) {
         e.stopPropagation();
@@ -9796,8 +9731,6 @@ document.addEventListener('click', (e) => {
         return;
     }
     if (e.target.closest('[data-action="submit"]')) { e.stopPropagation(); submitRecordCard(row); return; }
-    if (e.target.closest('[data-action="fix-resubmit"]')) { e.stopPropagation(); openSyncErrorRecord(row); return; }
-    if (e.target.closest('[data-action="review-blocked"]')) { e.stopPropagation(); openRecordView(row); return; }
     if (e.target.closest('[data-action="cancel-submit"]')) { e.stopPropagation(); cancelSubmitCard(row); return; }
     /* Edit button and the "see more" ellipsis carry their own listeners */
     if (e.target.closest('[data-action="open-flow"]') || e.target.closest('.rec-btn-icon')) return;
