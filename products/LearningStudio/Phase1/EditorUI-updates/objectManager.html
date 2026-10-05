@@ -1262,6 +1262,40 @@
     #canvas-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; position: relative; }
 
     /* =====================================================================
+       PROTOTYPE CALLOUT  —  NOT PRODUCT UI
+       ---------------------------------------------------------------------
+       Explains which link/lock scenario the current demo LO represents, so a
+       reviewer stepping through with < > knows what they are looking at.
+       Styled deliberately UNLIKE the product: dark slab, dashed magenta
+       border, mono label. Nobody should mistake it for something to build.
+    ===================================================================== */
+    #proto-callout {
+      position: fixed; top: 14px; right: 14px; z-index: 600;
+      width: 290px; padding: 12px 14px;
+      background: #1e1b2e; color: #f4f1ff;
+      border: 1.5px dashed #e879f9; border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      font-size: 12px; line-height: 1.5;
+      display: none;
+    }
+    #proto-callout.visible { display: block; }
+    .pc-tag {
+      font-family: ui-monospace, "SF Mono", Menlo, monospace;
+      font-size: 9.5px; font-weight: 700; letter-spacing: 0.14em;
+      text-transform: uppercase; color: #e879f9;
+      display: block; margin-bottom: 6px;
+    }
+    .pc-title { font-size: 12.5px; font-weight: 700; margin-bottom: 3px; }
+    .pc-body  { color: rgba(244,241,255,0.82); }
+    .pc-close {
+      position: absolute; top: 8px; right: 8px;
+      width: 20px; height: 20px; border-radius: 4px; cursor: pointer;
+      border: none; background: transparent; color: rgba(244,241,255,0.6);
+      font-size: 12px; line-height: 1;
+    }
+    .pc-close:hover { background: rgba(255,255,255,0.12); color: #fff; }
+
+    /* =====================================================================
        SHARED LEARNING OBJECT BANNER
     ===================================================================== */
     #shared-lo-banner { display: none; }
@@ -4811,11 +4845,17 @@
 
       <!-- LO actions dropdown -->
       <div id="dd-lo" class="dropdown" data-file="products/LearningStudio/Phase2/index.html" data-line="1077">
-        <!-- Dual-purpose: restores the link on an unlinked LO, or severs it on
-             a shared one. syncLinkPill sets the label to match. Shown only
-             when the LO has a source to restore or sever. -->
+        <!-- Two INDEPENDENT provenance actions — an LO can need both at once.
+             A customer copy that broke from Vector and was then shared is a
+             source for its own instances (Un-Link) while still being able to
+             reconnect upstream (Re-link). syncLinkPill shows each only when
+             it applies and sets the Re-link label to name the real target. -->
+        <button class="dd-item" id="dd-unlink-content" style="display:none;"
+                onclick="closeAllDropdowns(); openMakeUniqueModal();">
+          <i class="fa-solid fa-link-slash"></i> Un-Link Content
+        </button>
         <button class="dd-item" id="dd-restore-link" style="display:none;"
-                onclick="closeAllDropdowns(); onProvenanceAction();">
+                onclick="closeAllDropdowns(); openRestoreLinkModal();">
           <i class="fa-solid fa-link"></i> Restore link to source
         </button>
         <!-- Divides provenance from Delete; with Flow Map gone this is the
@@ -5541,6 +5581,17 @@
         Finalize
       </vaadin-button>
     </div>
+  </div>
+
+  <!-- Prototype callout — explains the current demo LO's scenario.
+       NOT product UI; see the CSS block for why it looks the way it does. -->
+  <div id="proto-callout" role="note">
+    <button class="pc-close" onclick="dismissProtoCallout()" aria-label="Dismiss prototype note">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <span class="pc-tag">Prototype note</span>
+    <div class="pc-title" id="pc-title"></div>
+    <div class="pc-body" id="pc-body"></div>
   </div>
 
   <!-- ===================================================================
@@ -6491,12 +6542,70 @@ let assessmentQuestions = [
   },
 ];
 
+/* =====================================================================
+   LO LINK / PROVENANCE MODEL
+   ---------------------------------------------------------------------
+   `shared` and `locked` are NOT two different provenances — they are the
+   SAME linked content seen from two sides:
+
+     - An INTERNAL (Vector) author owns the source, so linked content reads
+       as "Shared": they can edit all instances in place.
+     - A CUSTOMER does not own Vector's source, so that same link reads as
+       "Vector-provided": read-only, and the only way in is a clone. A
+       customer's OWN authored content still reads as "Shared".
+
+   So `locked: true` means "linked to a source this viewer cannot edit",
+   which in practice means Vector content viewed by a customer.
+
+   `linkBroken` + `sourceExists` separate the two un-linked cases:
+     - sourceExists: true  → the source is still on record, so the link can
+       be restored.
+     - sourceExists: false → the source id is gone. Nothing to re-link to,
+       so the LO presents as an ordinary standalone LO with no provenance
+       marker at all.
+
+   TWO INDEPENDENT FACTS, not one. `shared` and `linkBroken` describe
+   opposite directions and can BOTH be true:
+
+     - shared     → "other LOs link to ME." Edits here push downstream.
+     - linkBroken → "I broke from the source above me." Re-link restores it.
+
+   A customer who un-links from Vector and then shares the resulting copy
+   has exactly that: un-linked from Vector, and now a shared source for its
+   own instances. The pill reports `shared`, because the live consequence
+   (edits reach other courses) outranks the historical un-link — but the ⋮
+   menu offers BOTH actions, so the Vector link is still restorable.
+
+   Re-link always targets the NEAREST source — the link this LO actually
+   broke, named by `brokenFrom`. Lineage beyond that is history, not a
+   re-link target.
+===================================================================== */
 const ALL_LOS = [
   // renderState: 'idle' | 'rendering' | 'complete' | 'error'
   // lastRenderedAt: ISO timestamp of the last successful render (null if never)
-  { id:1, title:'Introduction to Video Creation',        section:'Getting Started',     shared: false, locked: false, renderState:'idle', lastRenderedAt:null },
-  { id:2, title:'Advanced Template Customization',       section:'Advanced Techniques', shared: true,  locked: false, renderState:'complete', lastRenderedAt:'2026-06-03T14:22:00Z' },
-  { id:3, title:'AI-Powered Media Generation',           section:'Advanced Techniques', shared: false, locked: true,  renderState:'complete', lastRenderedAt:'2026-05-19T09:40:00Z' },
+  // demoNote: prototype-only callout explaining which scenario this LO shows
+  { id:1, title:'Introduction to Video Creation',        section:'Getting Started',     shared: false, locked: false, renderState:'idle', lastRenderedAt:null,
+    demoNote: { title: 'Standalone LO', body: 'Not linked to any source. No provenance marker, no link actions — the baseline authoring experience.' } },
+
+  { id:2, title:'Advanced Template Customization',       section:'Advanced Techniques', shared: true,  locked: false, renderState:'complete', lastRenderedAt:'2026-06-03T14:22:00Z',
+    demoNote: { title: 'Linked · finalized', body: 'Your own shared content, finalized. Edit opens the scope choice: edit all instances, or split a unique copy. Either way the render is discarded.' } },
+
+  { id:3, title:'AI-Powered Media Generation',           section:'Advanced Techniques', shared: false, locked: true,  renderState:'complete', lastRenderedAt:'2026-05-19T09:40:00Z',
+    demoNote: { title: 'Linked · Vector-authored (customer view)', body: 'The same link an internal author would see as "Shared". A customer does not own the source, so it is read-only and Customize clones it — editing all instances is never offered.' } },
+
+  { id:4, title:'Scripting for Short-Form Video',        section:'Advanced Techniques', shared: true,  locked: false, renderState:'idle', lastRenderedAt:null,
+    demoNote: { title: 'Linked · still editable', body: 'Linked and unfinalized, so there is no bottom bar at all — the pill carries the link and the ⋮ menu carries Un-Link Content.' } },
+
+  { id:5, title:'Lighting on a Budget',                  section:'Getting Started',     shared: false, locked: false, linkBroken: true, brokenFrom: 'shared', sourceExists: true, renderState:'idle', lastRenderedAt:null,
+    demoNote: { title: 'Un-linked · source recoverable', body: 'The source is still on record, so the ⋮ menu offers Re-link. Re-linking discards local edits and returns the LO to a locked, linked state.' } },
+
+  { id:6, title:'Audio Cleanup Basics',                  section:'Getting Started',     shared: false, locked: false, linkBroken: true, brokenFrom: 'shared', sourceExists: false, renderState:'idle', lastRenderedAt:null,
+    demoNote: { title: 'Un-linked · source gone', body: 'The source id is no longer on record. There is nothing to re-link to, so this presents exactly like an ordinary standalone LO — no pill, no link actions.' } },
+
+  /* The dual case: a customer un-linked this from Vector, then shared the
+     resulting copy with their own courses. Both facts are true at once. */
+  { id:7, title:'Brand Voice & Tone',                    section:'Advanced Techniques', shared: true,  locked: false, linkBroken: true, brokenFrom: 'vector', sourceExists: true, renderState:'idle', lastRenderedAt:null,
+    demoNote: { title: 'Shared · and un-linked from Vector', body: 'A customer broke this from Vector content, then shared the copy with their own courses. It is a source for its instances AND still re-linkable upstream. The pill shows Shared because edits propagate now; the ⋮ menu carries both Un-Link Content and Re-link to Vector content.' } },
 ];
 
 /* -----------------------------------------------------------------------
@@ -6649,6 +6758,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initCanvasSelection();
   initUploadDropzone();
   initStockTypeRadios();
+  syncProtoCallout();
   initPanelResize();
   updateNavBtns();
   updateSharedBanner();
@@ -8692,6 +8802,7 @@ function navigateLO(dir) {
   updateNavBtns();
   updateSharedBanner();
   updateRenderUI();
+  syncProtoCallout();
   hideFinalizePrompt();
 
   // Stepping to a different LO leaves the row we arrived on, so the back link
@@ -8787,7 +8898,7 @@ function updateSharedBanner() {
     btn.setAttribute('theme', 'contrast small');
     btn.style.cssText = 'background:white; color:var(--lumo-success-text-color); border-color:white;';
     btn.style.display = '';
-    btn.innerHTML = '<i class="fa-solid fa-lock-open" slot="prefix"></i> Unlock to Edit';
+    btn.innerHTML = '<i class="fa-solid fa-pen-to-square" slot="prefix"></i> Edit';
     btn.onclick = requestRenderedUnlock;
 
   } else {
@@ -8819,93 +8930,122 @@ function updateSharedBanner() {
   updateBottomBar();
 }
 
-/* The provenance menu item answers whichever state the pill is reporting:
-   an unlinked LO can be reconnected, a shared one can be split off. */
-function onProvenanceAction() {
+/* =====================================================================
+   PROTOTYPE CALLOUT  —  NOT PRODUCT UI
+   ---------------------------------------------------------------------
+   Each demo LO carries a `demoNote` describing the link/lock scenario it
+   exists to show. Dismissal is tracked PER LO, so closing the note on one
+   scenario doesn't hide the explanation for the next one you step to.
+===================================================================== */
+let _protoDismissed = {};
+
+function syncProtoCallout() {
+  const el = document.getElementById('proto-callout');
+  if (!el) return;
   const lo = getCurrentLO();
-  if (!lo) return;
-  if (lo.linkBroken) openRestoreLinkModal();
-  else if (lo.shared) openMakeUniqueModal();
+  const note = lo && lo.demoNote;
+  if (!note || _protoDismissed[lo.id]) {
+    el.classList.remove('visible');
+    return;
+  }
+  document.getElementById('pc-title').textContent = note.title;
+  document.getElementById('pc-body').textContent  = note.body;
+  el.classList.add('visible');
+}
+
+function dismissProtoCallout() {
+  const lo = getCurrentLO();
+  if (lo) _protoDismissed[lo.id] = true;
+  const el = document.getElementById('proto-callout');
+  if (el) el.classList.remove('visible');
 }
 
 /* --- LO provenance pill (header) ---
-   Answers one question, persistently: where does this LO come from?
-     - Shared   → still linked to a shared source; edits reach other courses.
-     - Unlinked → was sourced, now a local copy that takes no more updates.
-     - neither  → a standalone LO, nothing to report, no pill.
-   Deliberately NOT about locking: a shared LO shows this pill whether it is
-   locked, unlocked, or rendered. The bottom banner owns lock state. */
+   Reports where this LO sits in the link graph:
+     - Shared   → other LOs link to it; edits reach other courses.
+     - Unlinked → it broke from its own source, which can be restored.
+     - neither  → standalone (or a source that no longer exists) — no pill.
+   Deliberately NOT about locking: the pill shows regardless of whether the
+   LO is locked, unlocked, or rendered. The bottom banner owns lock state. */
 function syncLinkPill() {
   const lo   = ALL_LOS.find(l => l.id === currentLOId);
   const pill = document.getElementById('lo-link-pill');
   if (!pill) return;
 
-  const broken = !!(lo && lo.linkBroken);
+  const tip      = document.getElementById('lo-link-tooltip');
+  const unlinkEl = document.getElementById('dd-unlink-content');
+  const relinkEl = document.getElementById('dd-restore-link');
+  const sep      = document.getElementById('dd-restore-sep');
+
+  /* TWO INDEPENDENT FACTS — see the LO LINK / PROVENANCE MODEL note above.
+       shared → other LOs link to ME; edits push downstream.
+       broken → I broke from the source above me; it can be restored.
+     Both can be true at once: a customer copy that un-linked from Vector and
+     was then shared with its own instances.
+
+     An un-link only counts while the source is still on record — once the
+     source id is gone there is nothing to re-link to, so it stops being
+     reportable at all. `sourceExists` defaults to true. */
+  const broken = !!(lo && lo.linkBroken && lo.sourceExists !== false);
   const shared = !!(lo && lo.shared);
-  const tip    = document.getElementById('lo-link-tooltip');
 
-  /* The Restore action lives in the LO context menu, shown only when relevant.
-     Unlinked offers a way back to the source; shared offers the way out of it. */
-  const item = document.getElementById('dd-restore-link');
-  const sep  = document.getElementById('dd-restore-sep');
-  const showMenuItem = broken || shared;
-  if (item) item.style.display = showMenuItem ? '' : 'none';
-  if (sep)  sep.style.display  = showMenuItem ? '' : 'none';
+  /* Vector-provided content offers neither menu action: its only route in is
+     Customize, which the bottom bar carries. */
+  const isVector = !!(lo && lo.locked);
+  if (unlinkEl) unlinkEl.style.display = (shared && !isVector) ? '' : 'none';
+  if (relinkEl) relinkEl.style.display = (broken && !isVector) ? '' : 'none';
+  if (sep)      sep.style.display      = ((shared || broken) && !isVector) ? '' : 'none';
 
-  // Standalone LO — no provenance to report.
-  if (!broken && !shared) {
+  // Nothing to report — standalone, Vector-provided, or a source that is gone.
+  if ((!broken && !shared) || isVector) {
     pill.style.display = 'none';
+    pill.classList.remove('shared', 'editing');
     return;
   }
 
   pill.style.display = '';
 
-  if (broken) {
-    // Unlinked outranks shared: severing the link clears `shared` anyway, but
-    // if both were ever true the local-copy fact is the operative one.
-    const fromVector = lo.brokenFrom === 'vector';
-    pill.classList.remove('shared', 'editing');
-    pill.innerHTML = '<i class="fa-solid fa-link-slash"></i> Unlinked';
+  /* Name the re-link target by what this LO actually broke from, so the
+     action says where it goes back to. */
+  if (relinkEl && broken) {
+    relinkEl.innerHTML = lo.brokenFrom === 'vector'
+      ? '<i class="fa-solid fa-link"></i> Re-link to Vector content'
+      : '<i class="fa-solid fa-link"></i> Re-link to source';
+  }
+
+  /* SHARED WINS when both are true. Being a source is the live, ongoing
+     consequence — edits reach other courses right now — whereas the un-link
+     is history. The pill reports the blast radius; the ⋮ menu still carries
+     the way back upstream. */
+  if (shared) {
+    const editing = !isLOReadOnly(lo);
+    pill.classList.add('shared');
+    pill.classList.toggle('editing', editing);
+    pill.innerHTML = editing
+      ? '<i class="fa-solid fa-link"></i> Editing Shared'
+      : '<i class="fa-solid fa-link"></i> Shared';
     if (tip) {
-      tip.setAttribute('text', fromVector
-        ? 'Disconnected from Vector content. This local copy no longer receives Vector updates.'
-        : 'Unlinked from the shared source. This local copy no longer receives updates, and edits stay here.');
-    }
-    if (item) {
-      item.innerHTML = fromVector
-        ? '<i class="fa-solid fa-link"></i> Reconnect to Vector content'
-        : '<i class="fa-solid fa-link"></i> Restore link to source';
+      const alsoUnlinked = broken
+        ? ' This copy is also un-linked from its own source, which can be restored from the LO menu.'
+        : '';
+      tip.setAttribute('text', (editing
+        ? 'You are editing all instances. Changes are pushed to the 4 other courses using this learning object. Create a unique copy to edit it for this course only.'
+        : 'Used in 4 other courses. Edits made here are pushed to all instances.') + alsoUnlinked);
     }
     return;
   }
 
-  /* SHARED — persistent for as long as the link holds. The label tracks the
-     author's decision, because those are materially different situations:
-
-       "Shared"         — still read-only; they haven't chosen how to edit yet.
-                          The bottom banner is carrying that choice right now.
-       "Editing Shared" — they chose to edit ALL instances. The lock is gone
-                          and every keystroke now propagates, so the pill stops
-                          being a neutral label and becomes a live warning —
-                          and it offers the way back out: disconnect into a
-                          unique copy. */
-  const editing = !isLOReadOnly(lo);
-  pill.classList.add('shared');
-  pill.classList.toggle('editing', editing);
-  pill.innerHTML = editing
-    ? '<i class="fa-solid fa-link"></i> Editing Shared'
-    : '<i class="fa-solid fa-link"></i> Shared';
+  // UN-LINKED ONLY — a local copy that nothing links to.
+  const fromVector = lo.brokenFrom === 'vector';
+  pill.classList.remove('shared', 'editing');
+  pill.innerHTML = '<i class="fa-solid fa-link-slash"></i> Unlinked';
   if (tip) {
-    tip.setAttribute('text', editing
-      ? 'You are editing all instances. Changes are pushed to the 4 other courses using this learning object. Create a unique copy to edit it for this course only.'
-      : 'Used in 4 other courses. Edits made here are pushed to all instances.');
-  }
-  if (item) {
-    item.innerHTML = '<i class="fa-solid fa-link-slash"></i> Create Unique Copy';
+    tip.setAttribute('text', fromVector
+      ? 'Disconnected from Vector content. This local copy no longer receives Vector updates.'
+      : 'Unlinked from the shared source. This local copy no longer receives updates, and edits stay here.');
   }
 }
 
-/* --- Restore a severed link back to its source --- */
 function openRestoreLinkModal() {
   const lo = ALL_LOS.find(l => l.id === currentLOId);
   if (!lo) return;
@@ -8929,10 +9069,15 @@ function confirmRestoreLink() {
   closeModal('modal-restore-link');
   const lo = ALL_LOS.find(l => l.id === currentLOId);
   if (!lo) return;
+  /* Restore the link this LO actually broke — the NEAREST source, named by
+     brokenFrom. Re-linking to Vector makes it customer-read-only again;
+     re-linking to a shared source makes it an instance of that source again,
+     which is what `shared` represents at this end of the relationship. */
   lo.linkBroken = false;
   if (lo.brokenFrom === 'vector') lo.locked = true;
   else lo.shared = true;
   delete lo.brokenFrom;
+  delete lo.sourceExists;
   delete _sourceEditAcked[lo.id];   // land locked — re-ask before editing
   lo.renderState = 'idle';
   lo.lastRenderedAt = null;
@@ -8964,6 +9109,7 @@ function makeUniqueInstance() {
     lo.shared = false;
     lo.linkBroken = true;
     lo.brokenFrom = 'shared';
+    lo.sourceExists = true;   // severed here, so the source is still on record
     /* ONE rule, every path: unlocking for editing loses the render. Splitting
        a unique copy is an edit unlock — the author is taking the content
        somewhere the old render no longer describes — so it clears here exactly
@@ -9493,6 +9639,7 @@ function confirmSourceEdit() {
       lo.locked = false;
       lo.linkBroken = true;
       lo.brokenFrom = 'vector';
+      lo.sourceExists = true;        // the Vector source is still on record
     }
     discardRenderOnUnlock(lo);
     // Shared stays shared — the ack alone lifts the lock, so the banner and
@@ -9512,6 +9659,7 @@ function branchSourceEdit() {
     lo.shared = false;
     lo.linkBroken = true;
     lo.brokenFrom = 'shared';
+    lo.sourceExists = true;          // severed here, so the source remains
     discardRenderOnUnlock(lo);
     updateSharedBanner();
     updateRenderUI();
@@ -9602,6 +9750,7 @@ function confirmCustomizeContent() {
     lo.locked = false;
     lo.linkBroken = true;
     lo.brokenFrom = 'vector';
+    lo.sourceExists = true;           // the Vector source is still on record
     _sourceEditAcked[lo.id] = true;   // decided — don't re-prompt on first edit
     /* The Vector render belonged to the Vector original. This is now a new,
        unique LO, and a new LO has no render — so customizing lands the author
