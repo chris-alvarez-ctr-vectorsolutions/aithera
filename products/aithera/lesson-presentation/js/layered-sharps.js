@@ -719,7 +719,14 @@
             // (Standard / Listen mode, the one the Listen mode offer screen
             // reads), not a per-screen format. Watch / Read / Read to me is
             // chosen on each screen and no longer carries between screens.
-            '<div class="cp-card cp-format"><h3>Preferred mode</h3>' +
+            '<div class="cp-card cp-format"><h3>Preferred mode' +
+              // Same explainer the Listen mode offer screen carries, one tap away here.
+              '<button class="cp-help" type="button" id="introModHelpBtn" aria-expanded="false" ' +
+                'aria-controls="introModHelp" aria-label="What is Listen mode?">' +
+                '<i class="fa-regular fa-circle-question" aria-hidden="true"></i></button></h3>' +
+              '<div class="cp-help-tip" id="introModHelp" role="tooltip" hidden>' +
+                'Listen mode is one continuous listen with content presented as a host-led conversation. ' +
+                'Once complete, you\u2019ll answer the questions on screen.</div>' +
               // Collapsed to the current choice by default — a full four-way
               // picker on a page the learner has not started anything on yet
               // reads as a decision being demanded rather than a setting
@@ -826,6 +833,12 @@
     // preference here, since that write is this card's own job, not
     // something a shared helper should do on every caller's behalf).
     var introPick = document.getElementById('introModPick');
+    var helpBtn = document.getElementById('introModHelpBtn'), helpTip = document.getElementById('introModHelp');
+    if (helpBtn && helpTip) helpBtn.addEventListener('click', function () {
+      var open = helpTip.hidden;
+      helpTip.hidden = !open;
+      helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
     if (introPick) {
       var introDD = initModalityDropdown(
         { btn: 'introModChange', wrap: 'introModPickWrap', icon: 'introModNowIcon', label: 'introModNowLabel' },
