@@ -197,6 +197,14 @@
   .qp-opt-end { display: inline-flex; align-items: center; gap: 8px; flex: none; }
   .qp-deftag { padding: 1px 7px; border-radius: 9px; background: #eaf3f8; border: 1px solid #b8d6e6; color: #2c5f80; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
   .qp-reset { font-size: 11px; color: #2e6da4; cursor: pointer; text-decoration: underline; }   /* always underlined so it reads as a link */
+  /* Tiebreaker on/off switch — right end of the picker row. Only shown for
+     rules that can tie (Hours Based, Turns Based). */
+  .qp-switch { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: none; font-family: inherit; font-size: 12px; color: #555; cursor: pointer; }
+  .qp-switch .track { position: relative; width: 28px; height: 16px; flex: none; border-radius: 8px; background: #c8c8c8; transition: background .15s; }
+  .qp-switch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
+  .qp-switch[aria-checked="true"] .track { background: #3f8dbf; }
+  .qp-switch[aria-checked="true"] .knob { transform: translateX(12px); }
+  .qp-switch:focus-visible { outline: 2px solid #66afe9; outline-offset: 3px; border-radius: 3px; }
 
   /* Inline option menus (approach / rule) */
   .qp-menu { padding: 11px 18px; background: #fff; border-bottom: 1px solid #e4e4e4; animation: rowIn .15s ease; flex: none; }
@@ -537,7 +545,7 @@
   };
 
   /* ── State ─────────────────────────────────────────────────── */
-  const DEFAULT_STATE = { panelOpen: true, approachMenuOpen: false, ruleMenuOpen: false, approach: 'a1', rule: 'r1', filled: null, excludedOpen: true };
+  const DEFAULT_STATE = { panelOpen: true, approachMenuOpen: false, ruleMenuOpen: false, approach: 'a1', rule: 'r1', filled: null, excludedOpen: true, showTie: true };
   let state = Object.assign({}, DEFAULT_STATE);
   function setState(patch) { Object.assign(state, patch); render(); }
 
@@ -605,7 +613,7 @@
     const filled = state.filled === p.name;
     const rule = RULES.find(r => r.id === state.rule);
     const m = rule.metric;
-    const tied = rule.key && [list[i - 1], list[i + 1]].some(q => q && rule.key(q) === rule.key(p));
+    const tied = state.showTie && rule.key && [list[i - 1], list[i + 1]].some(q => q && rule.key(q) === rule.key(p));
     return `
       <div class="qp-card${i === 0 ? ' top' : ''}${filled ? ' filled' : ''}">
         <div class="qp-rank">${i + 1}</div>
@@ -679,6 +687,10 @@
             ${isDefault
               ? ''
               : '<span class="qp-reset" data-action="reset">Reset to default</span>'}
+            ${rule.key ? `
+              <button type="button" class="qp-switch" role="switch" aria-checked="${state.showTie}" data-action="toggleTie" title="Show the seniority date that breaks ties">
+                <span class="track"><span class="knob"></span></span>Show tiebreaker
+              </button>` : ''}
           </div>
         </div>
 
@@ -713,6 +725,7 @@
       // On tablet/mobile the pop-up closes after Fill so the person shows in the form
       case 'fill':               setState({ filled: t.dataset.name, panelOpen: isSheet() ? false : state.panelOpen }); break;
       case 'clearFill':          setState({ filled: null }); break;
+      case 'toggleTie':          setState({ showTie: !state.showTie }); break;
       case 'toggleExcluded':     setState({ excludedOpen: !state.excludedOpen }); break;
       case 'showExcluded':       setState({ excludedOpen: true }); scrollToExcluded(); break;
     }

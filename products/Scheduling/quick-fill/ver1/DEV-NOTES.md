@@ -21,7 +21,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 - **Position removed:** the old "Position N" line was carried over from an earlier mock and isn't needed.
 - **Compact rows:** one short row per person (rank, name + phone, rule data, Fill). The rule's data point sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
 - **Rule-specific data:** each card shows only the data point the current rule ranks on, not every factor for every rule type.
-- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · 3/14/2011"). Only tied rows show it. Michael: "the tiebreaker has value". Production's callback list shows it the same way.
+- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · 3/14/2011"). Only tied rows show it. A **Show tiebreaker** switch on the Approach/Rule row turns it on or off (on by default). The switch only appears for rules that can tie (Hours Based, Turns Based); Rolodex rules have no ties, so they hide it. Michael: "the tiebreaker has value". Production's callback list shows it the same way.
 
 ## rule
 
