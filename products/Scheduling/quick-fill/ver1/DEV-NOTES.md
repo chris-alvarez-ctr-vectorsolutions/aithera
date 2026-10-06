@@ -10,9 +10,9 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 - **Desktop vs mobile:** desktop opens the Qualified Personnel **side panel** beside the modal; mobile opens it as a **pop-up** instead. A physical button makes it easy to give the two their own experiences.
 - **Responsive breakpoints (built into the mock; resize the browser to see them):**
   - **≥1141px:** the panel docks beside the modal and narrows fluidly from 560px to 400px.
-  - **761–1140px:** not enough room beside the modal, so the panel becomes a right-side drawer over a dimmed page.
-  - **≤760px:** the modal goes full screen in one column, and Quick Fill opens a bottom-sheet pop-up (92% of the screen height, with a grab handle). Tapping Fill closes the sheet so the chosen person shows in the form.
-  - **Closing the overlay:** in drawer and sheet modes, tapping the dimmed background or pressing Esc closes it.
+  - **761–1140px (tablet):** works like mobile, just wider. The form goes full screen (it keeps its two columns), and Quick Fill opens a bottom-sheet pop-up that's centered, up to 820px wide and 85% of the screen height. Tapping Fill closes the sheet.
+  - **≤760px (mobile):** the form goes full screen in one column, and the bottom sheet spans the full width at 92% of the screen height, with a grab handle. Tapping Fill closes the sheet so the chosen person shows in the form.
+  - **Closing the overlay:** on tablet and mobile, tapping the dimmed background or pressing Esc closes it.
 
 ## panel
 
