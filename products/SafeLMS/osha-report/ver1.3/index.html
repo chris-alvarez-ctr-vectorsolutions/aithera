@@ -277,16 +277,35 @@
   /* ── Report toolbar (V1) ── */
   .report-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--hair-2); gap: 12px; flex-wrap: wrap; }
   .toolbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  /* Sub-bar under the report header line: last-updated + Refresh (left), pagination (right) */
-  .report-subbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--hair-2); }
-  .report-updated { display: flex; align-items: center; gap: 4px; }
-  .ru-text { display: flex; flex-direction: column; line-height: 1.25; }
-  .ru-text b { font-size: 15px; font-weight: 700; color: var(--ink); }
-  .ru-text span { font-size: 13px; color: var(--muted); }
-  /* vwc-paginator right-aligns its controls, but a container query switches it to a CENTERED,
-     reordered layout below 768px of its own width — so give it 770px (shrinks on narrow screens). */
-  #reportPager { flex: 0 1 770px; min-width: 0; margin-left: auto; }
-  .report-updated { flex: 0 0 auto; }
+  /* Sub-bar under the report header line: date + Refresh (left), results + pagination (right).
+     Matched to the production SafeLMS Reports page (sizes/colors measured from its screenshot
+     at 2x with Playwright): 28px padding, no rule below. */
+  .report-subbar { display: flex; align-items: center; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; padding: 28px; }
+  .report-updated { display: flex; align-items: center; gap: 24px; flex: 0 0 auto; }
+  .ru-text { display: flex; flex-direction: column; }
+  .ru-text b { font-size: 13.5px; font-weight: 700; line-height: 19px; color: #364C61; }
+  .ru-text span { font-size: 10.5px; font-weight: 600; line-height: 16px; color: #364C61; }
+  /* Refresh: plain text button (no underline), light-blue icon + navy label */
+  .ru-refresh { display: inline-flex; align-items: center; gap: 10px; background: none; border: 0; padding: 4px 0; cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 600; color: #0747A6; }
+  .ru-refresh i { font-size: 14px; color: #7D96CB; }
+  .ru-refresh:hover span { text-decoration: underline; }
+  .ru-refresh:focus-visible { outline: 2px solid #0747A6; outline-offset: 3px; border-radius: 4px; }
+  .ru-refresh[disabled] { cursor: default; }
+  /* Results count + pill pager (First | ‹ 1 › | Last) */
+  .report-pager { display: flex; align-items: center; gap: 22px; margin-left: auto; }
+  .rp-results { font-size: 11px; font-weight: 600; letter-spacing: .2px; text-transform: uppercase; color: #0747A6; font-variant-numeric: tabular-nums; }
+  .rp-pill { display: flex; align-items: stretch; height: 40px; box-sizing: border-box; border: 2px solid #F2F5F8; border-radius: 20px; background: #fff; }
+  .rp-pill button { background: none; border: 0; padding: 0; margin: 0; font-family: inherit; color: #005DBD; cursor: pointer; display: grid; place-items: center; }
+  .rp-pill button:disabled { cursor: default; }
+  .rp-pill button:focus-visible { outline: 2px solid #005DBD; outline-offset: -4px; border-radius: 16px; }
+  .rp-end { font-size: 11px; font-weight: 600; }
+  .rp-end.first { width: 55px; }
+  .rp-end.last { width: 53.5px; }
+  .rp-div { width: 2px; height: 19.5px; align-self: center; background: #F2F5F8; }
+  .rp-mid { width: 76.5px; display: flex; align-items: center; justify-content: center; }
+  .rp-mid button { width: 21px; height: 36px; font-size: 15px; }
+  .rp-page { width: 21px; text-align: center; font-size: 14.5px; font-weight: 600; color: #364C61; font-variant-numeric: tabular-nums; }
   /* Filter scope row spans the full width so chips can stretch across and wrap to
      additional rows when the filter set gets long. */
   .filter-scope-row { display: flex; width: 100%; align-items: flex-start; gap: 8px 10px; flex-wrap: wrap; }
@@ -1079,12 +1098,27 @@
           <div class="report-subbar">
             <div class="report-updated">
               <div class="ru-text">
-                <b>Jun 22, 2026 6:00 AM EDT</b>
+                <b>Jun 22, 2026 6:00 AM</b>
                 <span>Last updated</span>
               </div>
-              <vaadin-button theme="tertiary" id="refreshBtn"><i aria-hidden="true" class="fa-solid fa-rotate" slot="prefix"></i> Refresh</vaadin-button>
+              <button type="button" class="ru-refresh" id="refreshBtn"><i aria-hidden="true" class="fa-regular fa-arrows-rotate"></i><span>Refresh</span></button>
             </div>
-            <vwc-paginator id="reportPager" total="0" page="0" page-size="25"></vwc-paginator>
+            <!-- Results count + pill pager, styled like the production SafeLMS Reports page (custom
+                 markup: vwc-paginator's shadow DOM can't be restyled to this design). 25 rows/page. -->
+            <nav class="report-pager" aria-label="Report pages">
+              <span class="rp-results" id="rpResults" aria-live="polite">0 results</span>
+              <div class="rp-pill">
+                <button type="button" class="rp-end first" id="rpFirst">First</button>
+                <span class="rp-div" aria-hidden="true"></span>
+                <div class="rp-mid">
+                  <button type="button" id="rpPrev" aria-label="Previous page"><i aria-hidden="true" class="fa-regular fa-chevron-left"></i></button>
+                  <span class="rp-page" id="rpPage" aria-current="page">1</span>
+                  <button type="button" id="rpNext" aria-label="Next page"><i aria-hidden="true" class="fa-regular fa-chevron-right"></i></button>
+                </div>
+                <span class="rp-div" aria-hidden="true"></span>
+                <button type="button" class="rp-end last" id="rpLast">Last</button>
+              </div>
+            </nav>
           </div>
 
           <!-- DEV NOTE — email + table multi-select were removed from this phase per client
@@ -2060,10 +2094,9 @@
   }
   // Table row visibility = applied filters + the temporary search box.
   function rowVisible(x) { return passesFilters(x) && matchesSearch(x); }
-  // Pagination (vwc-paginator, 25 per page). Only rows that pass the filters + search are paged;
+  // Pagination (pill pager, 25 per page). Only rows that pass the filters + search are paged;
   // any filter / search / sort change sends the table back to page 1.
-  const pager = document.getElementById('reportPager');
-  let pageIdx = 0, pageSize = 25;
+  let pageIdx = 0, pageSize = 25, pageCount = 1;
   function applyPaging() {
     const matched = [...tbody.querySelectorAll('.data-row')].filter(tr => tr.dataset.match === '1');
     const pages = Math.max(1, Math.ceil(matched.length / pageSize));
@@ -2071,14 +2104,18 @@
     const start = pageIdx * pageSize, end = start + pageSize;
     tbody.querySelectorAll('.data-row').forEach(tr => { if (tr.dataset.match !== '1') tr.style.display = 'none'; });
     matched.forEach((tr, i) => { tr.style.display = (i >= start && i < end) ? '' : 'none'; });
-    if (pager) { pager.total = matched.length; pager.pageSize = pageSize; pager.page = pageIdx; }
+    pageCount = pages;
+    const n = matched.length;
+    document.getElementById('rpResults').textContent = `${n} ${n === 1 ? 'result' : 'results'}`;
+    document.getElementById('rpPage').textContent = pageIdx + 1;
+    document.getElementById('rpFirst').disabled = document.getElementById('rpPrev').disabled = pageIdx === 0;
+    document.getElementById('rpLast').disabled = document.getElementById('rpNext').disabled = pageIdx >= pages - 1;
   }
-  if (pager) pager.addEventListener('page-change', e => {
-    const d = e.detail || {};
-    if (d.page === pageIdx && d.pageSize === pageSize) return;   // fires on our own updates too
-    if (d.pageSize !== pageSize) { pageSize = d.pageSize; pageIdx = 0; } else pageIdx = d.page;
-    applyPaging();
-  });
+  const goToPage = i => { pageIdx = Math.max(0, Math.min(pageCount - 1, i)); applyPaging(); };
+  document.getElementById('rpFirst').addEventListener('click', () => goToPage(0));
+  document.getElementById('rpPrev').addEventListener('click', () => goToPage(pageIdx - 1));
+  document.getElementById('rpNext').addEventListener('click', () => goToPage(pageIdx + 1));
+  document.getElementById('rpLast').addEventListener('click', () => goToPage(pageCount - 1));
   function applyFilters() {
     pageIdx = 0;
     // The applied action bucket (from a card click OR the panel's single-select) IS the active card:

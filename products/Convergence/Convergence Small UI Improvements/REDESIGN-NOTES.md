@@ -652,6 +652,43 @@ was exactly that. It is now a white chip with the shared border, so its label si
 base surface at 4.72:1. Secondary text on the canvas (spec-strip summaries, the loading
 label) measures 4.80.
 
+## Round 16: colour and padding audit
+
+A measured pass, not an eyeballed one: every visible text element on all ten screens had
+its real background composited up the ancestor chain and its WCAG ratio computed. 21
+failures, two root causes, now 0:
+
+- **Primary text on tinted grounds.** `--c-primary` #0271ce reads 4.36:1 on the soft blue
+  fill and 4.13:1 on the canvas, both under AA. A new text-only token `--c-primary-ink`
+  #0266bb (5.12 / 4.85) now carries primary text wherever it sits on a tint: the Beta tag,
+  kind chips, guide numbers, selected nav rows, selected View-by items, catalog View all.
+  Buttons, icons and links on white keep `--c-primary` (4.93).
+- **Faint gray used as text.** `--c-faint` #98a2b3 is 2.6:1 on white and was text in six
+  places: empty-cell dashes, inert nav children, token-sheet captions, the empty description
+  line, the attachment paperclip. All moved to `--c-meta`; faint is now reserved for
+  decorative glyphs and input placeholders.
+- **Padding.** Every padding now sits on the 4px grid with equal left and right. The
+  fixed-size icon buttons were carrying the browser's default `1px 6px` under their explicit
+  size; the side-nav rows and the detail Back chip had odd, uneven values. The only
+  asymmetry kept is the 24px indent of nested nav children.
+
+## Round 17: non-text contrast (badges and controls), dots restored
+
+Text everywhere already met AA (round 16); what did not was the *boundary* of things. Status
+pills bordered with the pale `-line` tints measured 1.1 to 1.4:1 against their grounds, so
+a badge had no perceptible edge - and Incomplete was the extreme case: its gray fill is
+numerically the same as the activity-row tint (1.01:1), so the badge dissolved into the row.
+
+- **Every pill gets a 1px edge at >= 3:1** on white, the row tint and the canvas (WCAG
+  1.4.11): `--c-idle-edge` #7d8798, `--c-info-edge` #3b82f6, `--c-warn-edge` #c4320a,
+  `--c-err-edge` #f04438, `--c-ok-edge` #079455. Incomplete moves onto a white fill so it
+  reads as a badge on the tinted rows. Text on every fill stays at 5.2 or better.
+- **Dots are back on the list-view pills.** With a real edge the dot is a second cue, not
+  the only one, and keeping it makes list and card badges identical again.
+- **Custom controls** whose only boundary is a border (search fields, the segmented
+  toggles, bordered icon buttons) use `--c-control-line` #7d8798, 3:1 on every ground.
+  Table hairlines keep the soft `--c-line`; they separate rows, they are not components.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest

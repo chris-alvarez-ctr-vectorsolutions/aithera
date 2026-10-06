@@ -16,6 +16,8 @@ function specHTML(rows) {
 const SPECS = {
   guide: specHTML([
     ['Canvas', '#e8ebef = --lumo-contrast-10pct on white · panel vs page 1.20:1'],
+    ['Primary text on tints', '--c-primary-ink #0266bb (5.1 on soft, 4.9 on canvas); --c-primary stays for buttons/links on white'],
+    ['--c-faint', 'decorative glyphs + placeholders only, never text'],
     ['Top nav height', '60px (--h-topnav)'],
     ['Page header', 'min 72px · title 22/600 · crumb 14'],
     ['Side nav width', '268px open · 58px rail'],
@@ -45,7 +47,8 @@ const SPECS = {
     ['Spacing grid', 'all padding on the 4px grid'],
     ['Tier interaction', 'whole header row toggles · hover fill · caret rotates'],
     ['Activity rows', 'min 52px · tint #f2f5f9 · border --c-line'],
-    ['Status pills', 'h 24 · text 12/600 · status tokens'],
+    ['Status pills', 'h 24 · text 12/600 · dot + 1px -edge border >= 3:1 on any ground · Incomplete on white'],
+    ['Control outlines', '--c-control-line #7d8798 (3:1) on search, segmented, bordered icon buttons, carousel arrows'],
     ['Progress meter', 'bar 72x6 · label 14'],
     ['Banners', 'pad 8 8 8 16 · radius 8 · stack gap 12 · max 3'],
     ['Cards (small)', 'tracks 200-236 · title 14/600'],
