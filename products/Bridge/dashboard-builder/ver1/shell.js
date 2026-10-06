@@ -122,7 +122,8 @@
     var a = e.target.closest && e.target.closest('.sidenav .nitem');
     if (!a) return;
     e.preventDefault();
-    if (a.dataset.nav === 'home') { var m = $('#main'); if (m) m.scrollTop = 0; return; }
+    if (a.dataset.nav === 'home') { if (window.Dash) Dash.show('home'); var m = $('#main'); if (m) m.scrollTop = 0; return; }
+    if (a.dataset.nav === 'dashboards') { if (window.Dash) Dash.show('list'); return; }
     notYet('The ' + a.querySelector('.nlabel').textContent.trim() + ' page');
   });
 

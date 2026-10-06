@@ -563,6 +563,7 @@ function renderLocTree() {
 
   function renderAll() {
     renderHeader(); renderKpis(); renderRecs(); renderCompare(); renderMine(); renderCalendar(); renderAudit();
+    if (window.Dash) Dash.renderHome();
     ui.main.classList.toggle('is-loading', !!S.loading);
   }
 
@@ -897,7 +898,7 @@ function renderLocTree() {
   /* ── Flow-map states ───────────────────────────────────────────────────── */
   function reset() {
     S = Object.assign({}, DEFAULT); recStatus = {}; removedTasks = {}; extraEvents = []; overrides = {}; sort = { key: 'trir', dir: 'desc' }; expandedRec = null;
-    closeDialogs(); if (window.Shell) Shell.closeAll();
+    closeDialogs(); if (window.Shell) Shell.closeAll(); if (window.Dash) Dash.reset();
     if (ui.mineTabs) ui.mineTabs.selected = 0;
   }
   function applyState(id, opts) {
@@ -917,9 +918,10 @@ function renderLocTree() {
       case 'loading': S.loading = true; break;
       case 'error': S.sync = 'error'; break;
       case 'empty': D.recommendations.forEach(function (r) { recStatus[r.id] = { status: 'dismissed' }; }); break;
-      default: break;
+      default: renderAll(); if (window.Dash && Dash.applyState(id)) return; break;
     }
     renderAll();
+    if (window.Dash) Dash.show('home');
   }
 
   /* ── Init ──────────────────────────────────────────────────────────────── */

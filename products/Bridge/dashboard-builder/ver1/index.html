@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vector Bridge · Home</title>
+    <title>Vector Bridge · Home + Dashboards</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
@@ -30,6 +30,7 @@
     <!-- Page styles: everything is a Vector theme token, see styles.css -->
     <link rel="stylesheet" href="shell.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dash.css">
 </head>
 <body>
 
@@ -180,6 +181,7 @@
     <a class="nitem ct-only" href="#" data-nav="training"><svg class="ic"><use href="#i-cap"/></svg><span class="nlabel">Training</span></a>
     <a class="nitem ct-only" href="#" data-nav="quals"><svg class="ic"><use href="#i-star"/></svg><span class="nlabel">Qualifications</span></a>
     <div class="nav-h">Insights</div>
+    <a class="nitem" href="#" data-nav="dashboards"><svg class="ic"><use href="#i-dash"/></svg><span class="nlabel">Dashboards</span></a>
     <a class="nitem" href="#" data-nav="reports"><svg class="ic"><use href="#i-chart"/></svg><span class="nlabel">Reports</span></a>
     <div class="nav-h">Organization</div>
     <a class="nitem" href="#" data-nav="people"><svg class="ic"><use href="#i-users"/></svg><span class="nlabel">People</span></a>
@@ -234,6 +236,9 @@
 
       <!-- ── Row 1: KPI tiles (both products) ── -->
       <section class="kpis" id="kpis" aria-label="Key metrics"></section>
+
+      <!-- ── Row 1b: My dashboards (Keystone-style published dashboard container) ── -->
+      <section class="module card" id="myDash" aria-label="My dashboards"></section>
 
       <!-- ── Row 2: Recommended actions (the hero) ── -->
       <section class="module card" id="recs" aria-labelledby="recsTitle">
@@ -351,6 +356,8 @@
       </section>
 
     </div>
+    <!-- Dashboards list + build view live here; the home .page-inner hides while they show -->
+    <div id="dashViews" hidden></div>
   </main>
 </div>
 </div>
@@ -364,6 +371,8 @@
      ============================================================ -->
 <!-- V2 (panel mode): the details slide in as a right-hand side panel -->
 <aside class="rec-panel" id="recPanel" aria-label="Recommendation details" hidden></aside>
+<vaadin-dialog id="dashAddDlg" theme="dash-wide" aria-label="Add a widget"></vaadin-dialog>
+<vaadin-dialog id="dashPubDlg" theme="dash" aria-label="Publish dashboard"></vaadin-dialog>
 <vaadin-dialog id="assignDlg" theme="wizard" no-close-on-outside-click aria-label="Review and assign"></vaadin-dialog>
 <vaadin-dialog id="snoozeDlg" theme="compact" aria-label="Snooze recommendation"></vaadin-dialog>
 <vaadin-dialog id="ruleDlg" theme="compact" aria-label="Edit retraining rule"></vaadin-dialog>
@@ -532,6 +541,7 @@
 </script>
 <script src="data.js"></script>
 <script src="app.js"></script>
+<script src="dashboards.js"></script>
 <script src="shell.js"></script>
 
 <!-- ── Design Toolbox: Flow Map scaffold ──────────────────────────────────────
@@ -557,17 +567,19 @@
   // 3) Flow-map config: one node per screen, wired with edges.
   window.TOOLBOX_CONFIG = {
     flowMap: {
-      title: 'Unified Home Dashboard — Flow Map',
+      title: 'Build your own dashboards — Flow Map',
       applyState: 'applyFlowState',
       devNotes: '../DEV-NOTES.md',
-      canvas: { w: 1720, h: 760 },
+      canvas: { w: 2080, h: 1000 },
       flows: [
         { id: 'home', name: 'Home and drill-down', pill: 'A', color: '#c9b8f0',
           lane: { x: 20, y: 20, w: 1680, h: 220 }, labelXY: { x: 40, y: 40 } },
         { id: 'assign', name: 'Review and assign', pill: 'B', color: '#b8e0c9',
           lane: { x: 20, y: 260, w: 1680, h: 220 }, labelXY: { x: 40, y: 280 } },
         { id: 'states', name: 'Permissions and states', pill: 'C', color: '#f0d9b8',
-          lane: { x: 20, y: 500, w: 1680, h: 220 }, labelXY: { x: 40, y: 520 } }
+          lane: { x: 20, y: 500, w: 1680, h: 220 }, labelXY: { x: 40, y: 520 } },
+        { id: 'dash', name: 'Build your own dashboards', pill: 'D', color: '#b8d6f0',
+          lane: { x: 20, y: 740, w: 2040, h: 240 }, labelXY: { x: 40, y: 760 } }
       ],
       nodes: [
         { id: 'home', flow: 'home', entry: true, x: 60, y: 90, step: 'Entry', name: 'Home, all facilities', state: 'home',
@@ -595,7 +607,21 @@
         { id: 'error', flow: 'states', x: 740, y: 570, step: 'State', name: 'Training sync error', state: 'error',
           desc: 'One product fails to sync: banner with retry, affected tiles and evidence marked, EHS data stays usable.' },
         { id: 'empty', flow: 'states', x: 1080, y: 570, step: 'State', name: 'No recommendations', state: 'empty',
-          desc: 'Everything handled: an explicit all-caught-up state instead of an empty box.' }
+          desc: 'Everything handled: an explicit all-caught-up state instead of an empty box.' },
+        { id: 'my-dash', flow: 'dash', x: 60, y: 810, step: 'Home', name: 'My dashboards + Ask', state: 'my-dash',
+          desc: 'The published-dashboard container on the home page: pick between your dashboards, ask a question about the data, add the answer as a widget.' },
+        { id: 'dash-list', flow: 'dash', x: 400, y: 810, step: 'List', name: 'Dashboards', state: 'dash-list',
+          desc: 'Every dashboard you own or that was published to you: search, Draft / Published, sources, widgets, audience.' },
+        { id: 'build', flow: 'dash', x: 740, y: 810, step: 'Build', name: 'Build canvas (Edit)', state: 'build',
+          desc: 'Two panes: the Ask panel and a 12-column widget canvas. Rename, date range, auto-save, Export, Publish, widget menus (width, remove).' },
+        { id: 'add-widget', flow: 'dash', x: 1080, y: 810, step: 'Modal', name: 'Add a widget', state: 'add-widget',
+          desc: 'Metric catalog from Vector EHS and Convergence plus cross-product pairs; pick a viz; live preview; add.' },
+        { id: 'build-ask', flow: 'dash', x: 1420, y: 810, step: 'Ask', name: 'Ask, then add as widget', state: 'build-ask',
+          desc: 'A question answered as text, with the answer added to the canvas as a widget.' },
+        { id: 'publish', flow: 'dash', x: 1760, y: 810, step: 'Modal', name: 'Publish to an audience', state: 'publish',
+          desc: 'Job titles and named people; summary of reach; Unpublish from the same dialog.' },
+        { id: 'build-preview', flow: 'dash', x: 1760, y: 920, step: 'Preview', name: 'Preview as audience', state: 'build-preview',
+          desc: 'The dashboard as its audience sees it; no editing chrome.' }
       ],
       edges: [
         ['home', 'rec-detail'],
@@ -604,7 +630,8 @@
         ['plant4', 'assign1'],
         ['home', 'assign1', 'branch'],
         ['assign1', 'assign2'], ['assign2', 'assign3'], ['assign3', 'assign4'], ['assign4', 'assigned'],
-        ['home', 'ehs-only', 'branch'], ['home', 'loading', 'branch'], ['home', 'error', 'branch'], ['home', 'empty', 'branch']
+        ['home', 'ehs-only', 'branch'], ['home', 'loading', 'branch'], ['home', 'error', 'branch'], ['home', 'empty', 'branch'],
+        ['home', 'my-dash'], ['my-dash', 'dash-list'], ['dash-list', 'build'], ['build', 'add-widget'], ['build', 'build-ask', 'branch'], ['build', 'publish'], ['build', 'build-preview', 'branch']
       ]
     }
   };
