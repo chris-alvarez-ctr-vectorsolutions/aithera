@@ -30,6 +30,7 @@
     <!-- Page styles: everything is a Vector theme token, see styles.css -->
     <link rel="stylesheet" href="shell.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="build.css">
 </head>
 <body>
 
@@ -139,6 +140,16 @@
     </div>
   </div>
   <span class="tb-sep" aria-hidden="true"></span>
+  <div class="loc loc-in-bar" id="locNav">
+    <button class="loc-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
+      <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span>All locations</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
+    </button>
+    <div class="loc-menu" role="dialog" aria-label="Select location" hidden>
+      <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
+      <div class="loc-tree" id="locTree"></div>
+    </div>
+  </div>
+  <span class="tb-sep" aria-hidden="true"></span>
   <button class="icon-btn" aria-label="Notifications, 2 unread" data-shell="Notifications"><svg class="ic"><use href="#i-bell"/></svg><span class="ndot"></span></button>
   <button class="icon-btn" aria-label="Help" data-shell="Help"><svg class="ic"><use href="#i-help"/></svg></button>
   <div class="umenu">
@@ -158,19 +169,10 @@
 </header>
 
 <div class="shell">
-  <!-- Side nav: the location picker sits IN the nav (context and navigation
-       together); tenant logo; one unified IA. Training and Qualifications carry
+  <!-- Side nav: tenant logo; one unified IA (the location picker lives in the
+       top bar, right of search, beside notifications). Training and Qualifications carry
        ct-only so the EHS-only persona simply loses them. -->
   <nav class="sidenav" aria-label="Bridge navigation">
-    <div class="loc loc-in-nav" id="locNav">
-      <button class="loc-btn" type="button" aria-haspopup="dialog" aria-expanded="false">
-        <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span>All locations</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
-      </button>
-      <div class="loc-menu" role="dialog" aria-label="Select location" hidden>
-        <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
-        <div class="loc-tree" id="locTree"></div>
-      </div>
-    </div>
     <div class="cust-logo"><svg width="206" height="40" viewBox="0 0 206 40" role="img" aria-label="Northwind Manufacturing logo"><rect x="1" y="1" width="38" height="38" rx="9" fill="#1c3f6e"/><path d="M11 28V12l7 9 7-9v16" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M29 15c-4 0-4 4-8 4" fill="none" stroke="#8fd3f4" stroke-width="2" stroke-linecap="round"/><text x="48" y="19" font-family="'Open Sans', sans-serif" font-size="15" font-weight="700" fill="#1c3f6e">Northwind</text><text x="48" y="32" font-family="'Open Sans', sans-serif" font-size="10" font-weight="600" fill="#5c6f7f">Manufacturing</text></svg></div>
     <a class="nitem" href="#" data-nav="home" aria-current="page"><svg class="ic"><use href="#i-home"/></svg><span class="nlabel">Home</span></a>
     <div class="nav-h">Work</div>
@@ -189,6 +191,8 @@
 
   <main id="main" class="content">
     <div class="page-inner">
+      <!-- Build your dashboard: edit chrome for the home page (hidden unless building) -->
+      <div class="build-bar" id="buildBar" hidden><span class="bb-ic"><i class="fa-regular fa-pen-ruler" aria-hidden="true"></i></span><div><h2>Build your dashboard</h2><p>This is your home page. Turn modules on or off, move them, and add your own comparisons.</p></div><div class="bb-tools"><vaadin-button theme="tertiary" data-act="bld-reset">Reset to default</vaadin-button><vaadin-button theme="secondary" data-act="bld-settings">Back to settings</vaadin-button><vaadin-button theme="primary" data-act="bld-done">Done</vaadin-button></div></div>
 
       <!-- ── Page header: title, sync status, audit shortcut, global filters ── -->
       <header class="page-head">
@@ -234,6 +238,9 @@
 
       <!-- ── Row 1: KPI tiles (both products) ── -->
       <section class="kpis" id="kpis" aria-label="Key metrics"></section>
+
+      <!-- ── Your modules: comparisons the user builds (rendered by builder.js) ── -->
+      <section class="module card" id="custom" aria-label="Your modules"></section>
 
       <!-- ── Row 2: Recommended actions (the hero) ── -->
       <section class="module card" id="recs" aria-labelledby="recsTitle">
@@ -351,6 +358,8 @@
       </section>
 
     </div>
+    <!-- Settings page (builder.js) -->
+    <div id="settingsView" hidden></div>
   </main>
 </div>
 </div>
@@ -364,6 +373,7 @@
      ============================================================ -->
 <!-- V2 (panel mode): the details slide in as a right-hand side panel -->
 <aside class="rec-panel" id="recPanel" aria-label="Recommendation details" hidden></aside>
+<vaadin-dialog id="bldAddDlg" theme="dash-wide" aria-label="Add a module"></vaadin-dialog>
 <vaadin-dialog id="assignDlg" theme="wizard" no-close-on-outside-click aria-label="Review and assign"></vaadin-dialog>
 <vaadin-dialog id="snoozeDlg" theme="compact" aria-label="Snooze recommendation"></vaadin-dialog>
 <vaadin-dialog id="ruleDlg" theme="compact" aria-label="Edit retraining rule"></vaadin-dialog>
@@ -526,12 +536,12 @@
 </template>
 
 <script>
-  // Where a recommendation's details open. This is the ONLY difference between
-  // the versions: 'below' (V1), 'panel' (V2 side panel), 'column' (V3 push column).
-  window.REC_DETAIL_MODE = 'below';
+  // A recommendation's details open in a right-hand side panel.
+  window.REC_DETAIL_MODE = 'panel';
 </script>
 <script src="data.js"></script>
 <script src="app.js"></script>
+<script src="builder.js"></script>
 <script src="shell.js"></script>
 
 <!-- ── Design Toolbox: Flow Map scaffold ──────────────────────────────────────
@@ -560,20 +570,22 @@
       title: 'Unified Home Dashboard — Flow Map',
       applyState: 'applyFlowState',
       devNotes: '../DEV-NOTES.md',
-      canvas: { w: 1720, h: 760 },
+      canvas: { w: 1720, h: 1000 },
       flows: [
         { id: 'home', name: 'Home and drill-down', pill: 'A', color: '#c9b8f0',
           lane: { x: 20, y: 20, w: 1680, h: 220 }, labelXY: { x: 40, y: 40 } },
         { id: 'assign', name: 'Review and assign', pill: 'B', color: '#b8e0c9',
           lane: { x: 20, y: 260, w: 1680, h: 220 }, labelXY: { x: 40, y: 280 } },
         { id: 'states', name: 'Permissions and states', pill: 'C', color: '#f0d9b8',
-          lane: { x: 20, y: 500, w: 1680, h: 220 }, labelXY: { x: 40, y: 520 } }
+          lane: { x: 20, y: 500, w: 1680, h: 220 }, labelXY: { x: 40, y: 520 } },
+        { id: 'bld', name: 'Build your dashboard', pill: 'D', color: '#b8d6f0',
+          lane: { x: 20, y: 740, w: 1680, h: 240 }, labelXY: { x: 40, y: 760 } }
       ],
       nodes: [
         { id: 'home', flow: 'home', entry: true, x: 60, y: 90, step: 'Entry', name: 'Home, all facilities', state: 'home',
           desc: 'Default dashboard in the V3 app-rail shell: KPI tiles from both products, ranked recommended actions, facility comparison, Assigned to me, compliance calendar, OSHA audit readiness.' },
-        { id: 'rec-detail', flow: 'home', x: 400, y: 90, step: 'Expand', name: 'Recommendation details', state: 'rec-detail',
-          desc: 'Hovering a card previews its details in a panel under that row; Pin (shown on hover) keeps the panel open until unpinned. The panel holds the full story, the evidence from each product, and the secondary actions.' },
+        { id: 'rec-detail', flow: 'home', x: 400, y: 90, step: 'Open', name: 'Recommendation details', state: 'rec-detail',
+          desc: 'Click a card and its details slide in as a right-hand side panel: the full story, the evidence from each product, and the actions. Cards keep three per row.' },
         { id: 'plant4', flow: 'home', x: 740, y: 90, step: 'Drill-down', name: 'Plant 4 – Riverside', state: 'plant4',
           desc: 'Location set to one facility from the nav picker. KPIs, recommendations, comparison (departments), tasks, calendar and audit readiness all rescope; the filter chip clears it.' },
         { id: 'dismissed', flow: 'home', x: 1080, y: 90, step: 'Secondary action', name: 'Dismissed, with undo', state: 'dismissed',
@@ -595,7 +607,15 @@
         { id: 'error', flow: 'states', x: 740, y: 570, step: 'State', name: 'Training sync error', state: 'error',
           desc: 'One product fails to sync: banner with retry, affected tiles and evidence marked, EHS data stays usable.' },
         { id: 'empty', flow: 'states', x: 1080, y: 570, step: 'State', name: 'No recommendations', state: 'empty',
-          desc: 'Everything handled: an explicit all-caught-up state instead of an empty box.' }
+          desc: 'Everything handled: an explicit all-caught-up state instead of an empty box.' },
+        { id: 'custom', flow: 'bld', x: 60, y: 810, step: 'Home', name: 'Your modules', state: 'custom',
+          desc: 'The comparisons you built, rendered on the home page like any other module: safety trend vs training completions at Plant 4, incident rate vs compliance.' },
+        { id: 'settings', flow: 'bld', x: 400, y: 810, step: 'Settings', name: 'Settings', state: 'settings',
+          desc: 'The Settings page; Home dashboard is the first row, with Build your dashboard and Reset to default.' },
+        { id: 'build', flow: 'bld', x: 740, y: 810, step: 'Build', name: 'Home in edit mode', state: 'build',
+          desc: 'What you build is the home page itself: every module gets a chrome bar (move up / down, Shown / Hidden switch) and Your modules gains an Add module slot and per-module menus.' },
+        { id: 'add-module', flow: 'bld', x: 1080, y: 810, step: 'Modal', name: 'Add a module', state: 'add-module',
+          desc: 'Where (all facilities or one), a metric from either product, an optional metric to compare with, how to show it (trend, bars, scatter, big numbers, table), live preview.' }
       ],
       edges: [
         ['home', 'rec-detail'],
@@ -604,7 +624,8 @@
         ['plant4', 'assign1'],
         ['home', 'assign1', 'branch'],
         ['assign1', 'assign2'], ['assign2', 'assign3'], ['assign3', 'assign4'], ['assign4', 'assigned'],
-        ['home', 'ehs-only', 'branch'], ['home', 'loading', 'branch'], ['home', 'error', 'branch'], ['home', 'empty', 'branch']
+        ['home', 'ehs-only', 'branch'], ['home', 'loading', 'branch'], ['home', 'error', 'branch'], ['home', 'empty', 'branch'],
+        ['home', 'custom'], ['custom', 'settings'], ['settings', 'build'], ['build', 'add-module']
       ]
     }
   };

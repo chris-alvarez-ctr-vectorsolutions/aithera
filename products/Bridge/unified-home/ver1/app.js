@@ -550,7 +550,7 @@ function renderLocTree() {
     ui.auditSub.textContent = 'Injury logs from Vector EHS and the related training records from Convergence, checked together so an inspector gets one packet.' + scopeNote;
     var gaps = items.filter(function (it) { return it.state === 'warn'; }).length;
     var locked = items.filter(function (it) { return it.state === 'locked'; }).length;
-    var score = S.role === 'ehs' ? Math.round(a.score * (items.length - locked) / items.length) : a.score;
+    var score = S.role === 'ehs' ? a.score - 4 : a.score;
     ui.auditChipScore.textContent = score + '%';
     ui.auditBody.innerHTML =
       '<div class="audit-score"><div class="score">' + score + '<small>%</small></div><div class="score-label">' + (S.role === 'ehs' ? 'EHS records ready. Training records are held by your Training administrator.' : (gaps ? gaps + ' items need attention before an inspector asks.' : 'Everything an inspector asks for is in one packet.')) + '</div>' +
@@ -563,6 +563,7 @@ function renderLocTree() {
 
   function renderAll() {
     renderHeader(); renderKpis(); renderRecs(); renderCompare(); renderMine(); renderCalendar(); renderAudit();
+    if (window.Builder) { Builder.renderCustom(); Builder.applyLayout(); }
     ui.main.classList.toggle('is-loading', !!S.loading);
   }
 
@@ -849,7 +850,7 @@ function renderLocTree() {
       if (card) { onRecAction(act, recById(card.dataset.id), actEl); return; }
       switch (act) {
         case 'clear-scope': setScope('all'); break;
-        case 'open-loc': if (window.Shell) { Shell.setNav(true); Shell.setLoc(true, document.querySelector('.sidenav:not(.peek-clone) .loc')); } break;
+        case 'open-loc': if (window.Shell) Shell.setLoc(true, document.querySelector('.topbar .loc')); break;
         case 'audit-jump': document.getElementById('audit').scrollIntoView({ behavior: 'smooth', block: 'start' }); break;
         case 'retry-sync': setSync('ok'); toast('Training data synced', 'Convergence responded. All training figures are current.'); break;
         case 'sync-log': notYet('The sync log'); break;
@@ -897,7 +898,7 @@ function renderLocTree() {
   /* ── Flow-map states ───────────────────────────────────────────────────── */
   function reset() {
     S = Object.assign({}, DEFAULT); recStatus = {}; removedTasks = {}; extraEvents = []; overrides = {}; sort = { key: 'trir', dir: 'desc' }; expandedRec = null;
-    closeDialogs(); if (window.Shell) Shell.closeAll();
+    closeDialogs(); if (window.Shell) Shell.closeAll(); if (window.Builder) Builder.reset();
     if (ui.mineTabs) ui.mineTabs.selected = 0;
   }
   function applyState(id, opts) {
@@ -917,9 +918,10 @@ function renderLocTree() {
       case 'loading': S.loading = true; break;
       case 'error': S.sync = 'error'; break;
       case 'empty': D.recommendations.forEach(function (r) { recStatus[r.id] = { status: 'dismissed' }; }); break;
-      default: break;
+      default: renderAll(); if (window.Builder && Builder.applyState(id)) return; break;
     }
     renderAll();
+    if (window.Builder) Builder.show('home');
   }
 
   /* ── Init ──────────────────────────────────────────────────────────────── */

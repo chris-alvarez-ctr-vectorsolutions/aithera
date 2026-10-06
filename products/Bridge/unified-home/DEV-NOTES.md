@@ -3,13 +3,13 @@
 > author: Design handoff
 > date: 2026-09-25
 
-Three versions share these notes and differ only in where a recommendation's details open (`window.REC_DETAIL_MODE` in each version's index.html): **V1** below the row (hover previews, Pin keeps it open), **V2** a right-hand side panel on click, **V3** a details column on click that shrinks the cards to two per row. Everything else is identical.
+One version. A recommendation's details open in a right-hand side panel on click (`window.REC_DETAIL_MODE = 'panel'`). The home page is also what the user builds: Settings › Build your dashboard puts this same page into edit mode (see `build` below).
 
 Notes are grouped by flow-map node. They render in the dev_handoff build only; while the mock is in progress the commit history is the change log.
 
 ## home Home, all facilities
 - **App shell:** the V3 app-rail shell from design-system/navigation/v3-app-rail.html (markup in ver1/index.html, styles in shell.css, behaviour in shell.js). Full-height 56px product rail on the left (Bridge pinned on top, then licensed platforms, waffle launcher at the bottom), 56px top bar inset to its right (nav toggle, Vector | Bridge lockup, centred scoped search, notifications, help, avatar menu), 280px side nav that collapses to a 56px icon column from the top-bar toggle only, with a hover peek overlay (clone of the nav, 16px halo, 100ms in / 500ms out; clicking the toggle while peeking docks it). V3's placeholder colours resolve to Vector theme tokens. Nav items are one unified IA (Home; Work: Incidents, Corrective actions, Inspections and observations, Training, Qualifications; Insights: Reports; Organization: People, Locations; Settings pinned at the foot). Never group items by product.
-- **Location picker lives in the side nav** (V3 placement: context and navigation together). The button shows only the current location name; the menu is a fixed-position tree-list (Company › Region › Facility › Department, names only, hierarchy by indentation, find-as-you-type) positioned from the button so the scrolling nav never crops it. The filter row shows the current scope with a Change link that expands the nav and opens the picker. The page scrolls inside the content column, not the window.
+- **Location picker lives in the top bar,** right of search and left of the notification bell, with a divider on each side. The button shows only the current location name; the menu is a fixed-position tree-list (Company › Region › Facility › Department, names only, hierarchy by indentation, find-as-you-type) hung from the button's right edge so it never runs past the window. The filter row shows the current scope with a Change link that opens the same picker. The page scrolls inside the content column, not the window.
 - **Shared hierarchy:** the location picker is Company › Region › Facility › Department and must resolve to the same IDs in both products. Mismatched hierarchies are a known customer pain; the picker never shows two trees.
 - **Filter row scopes everything:** location, date range and search sit in one row above the modules. Every module re-renders against the same slice; the comparison note says which prior period the deltas use.
 - **KPI tiles:** stat-card pattern (outline icon + label, 34px value, delta pill with a diagonal arrow, "vs. prior period" line, 12-point sparkline). Each tile carries a subtle source chip (EHS or Training). Up is always shown as bad for these four metrics.
@@ -18,11 +18,23 @@ Notes are grouped by flow-map node. They render in the dev_handoff build only; w
 - **Facility comparison:** heat cells use one sequential red ramp for TRIR and overdue training so a risky row reads dark-dark at a glance. Values are always printed. Rows drill into the facility (sets the global scope).
 - **Assigned to me:** one list for both products, source chip per row, due state by colour and icon (overdue, soon, later).
 - **Compliance calendar:** month grid with EHS colour buckets (blue = training / inspections / qualifications, orange = corrective actions, red = regulatory deadlines). Icons carry the category so colour is never the only cue. Regulatory deadlines (300 Log review, 300A posting, 300A ITA submission) are listed under the grid because they fall outside the visible month.
-- **OSHA audit readiness:** a score plus a checklist that mixes EHS records (300 Log, 301s, 300A) and Convergence records (training and PIT operator records for injured employees). Export builds one packet (PDF + XLSX).
+- **OSHA audit readiness:** a score (86% company-wide, 83% at Plant 4) plus a checklist that mixes EHS records (300 Log, 301s, 300A) and Convergence records (training and PIT operator records for injured employees). Export builds one packet (PDF + XLSX).
+
+## custom Your modules
+- **A home module the user fills.** Shows the comparisons built in Settings as widgets on the same 12-column grid the builder uses, so what you build is exactly what the home shows. Seeded with two: Incidents vs Training completions at Plant 4 (indexed trend) and Incident rate vs Training compliance, all facilities (big numbers). Empty state points to Build your dashboard.
+
+## settings Settings
+- **Home dashboard is the first row:** module count, custom module count, Build your dashboard (primary), Reset to default. Other rows (Notifications, Data sync, Recommendation rules, Profile) are placeholders.
+
+## build Home in edit mode
+- **What you build is the home page itself.** The page header and banners hide; a sticky build bar (Reset, Back to settings, Done) sits on top; every module gets a chrome bar with its name, sources, description, Move up / Move down and a Shown / Hidden switch. Hidden modules stay in place at 35% so they can be turned back on. Your modules gains an Add module slot and a per-module menu (Edit, width Third / Half / Two thirds / Full, Remove with Undo). Order and hidden set are the user's saved layout.
+
+## add-module Add a module
+- **Construct a comparison:** Where (all facilities, or one facility which breaks down by department), a metric from either product, an optional metric to compare with, and Show as (trend over 12 weeks with both series indexed to 100 so they share one axis, bars by location, scatter by location, big numbers, table). Four starting comparisons are offered first, e.g. safety trend vs training at Plant 4. Live preview at canvas scale; Add puts it in Your modules.
 
 ## rec-detail Recommendation details
 - **Chunked content, same in every version:** source pair › title › severity / location / updated › "What changed" › "Rule" (when a rule fired) › "Suggested action" (tinted) › status strip › "Why you are seeing this" (evidence panels, each labelled with its product) › actions (primary, secondary, dismiss). Section labels are 12px/600 secondary text; the title is 18px.
-- **V1 below:** the panel spans the row under the card; hover previews it, Pin keeps it open. **V2 panel:** a 540px fixed side panel over the content column, closed with × or Escape. **V3 column:** a 440px sticky column inside the module; the grid drops to two cards per row while it is open.
+- **Side panel:** a 540px fixed panel over the content column, closed with × or Escape.
 
 ## plant4 Plant 4 – Riverside
 - **Drill-down keeps the page:** selecting a facility in the nav picker rescopes every module in place; the location chip in the filter row shows the path and clears it with its ×.
