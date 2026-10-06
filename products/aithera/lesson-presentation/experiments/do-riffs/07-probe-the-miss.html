@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Probe the miss — Do riff</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<style>
+  /* Light Vector-ish look: accent #0271ce, 4px control radius. */
+  :root{
+    --bg:#f5f7fa; --surface:#fff; --ink:#1b2430; --ink-soft:#4a5668; --ink-faint:#6b7789;
+    --line:#d5dbe4; --accent:#0271ce; --accent-dark:#015aa5; --accent-soft:#e6f1fb;
+    --ok:#1a7f43; --ok-soft:#e5f5ec; --warn:#8a5a00; --warn-soft:#fff4dc; --bad:#b3261e; --bad-soft:#fdeceb;
+    --r:4px;
+  }
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.55; }
+  main{ max-width:720px; margin:0 auto; padding:28px 16px 24px; }
+  h1{ font-size:clamp(22px,4vw,28px); margin:0 0 6px; }
+  h2{ font-size:18px; margin:0 0 8px; }
+  p{ margin:0 0 12px; max-width:62ch; }
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-dark); margin:0 0 6px; }
+  .sub{ color:var(--ink-soft); }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:18px; margin:16px 0; }
+
+  /* ---- Pick cards: real toggle buttons; a check icon + "Chosen" word, not colour alone ---- */
+  .picks{ list-style:none; margin:14px 0; padding:0; display:grid; gap:8px; }
+  .pick{
+    width:100%; display:flex; align-items:center; gap:12px; text-align:left; font:inherit; font-size:15px; color:var(--ink);
+    background:var(--surface); border:2px solid var(--line); border-radius:var(--r); padding:12px 14px; cursor:pointer; min-height:48px;
+  }
+  .pick:hover{ border-color:var(--accent); }
+  .pick .box{ flex:0 0 22px; height:22px; border:2px solid var(--ink-faint); border-radius:var(--r); display:grid; place-items:center; color:#fff; font-size:12px; }
+  .pick[aria-pressed="true"]{ border-color:var(--accent); background:var(--accent-soft); }
+  .pick[aria-pressed="true"] .box{ background:var(--accent); border-color:var(--accent); }
+  .pick .box i{ visibility:hidden; }
+  .pick[aria-pressed="true"] .box i{ visibility:visible; }
+  .pick:disabled:not([aria-pressed="true"]){ opacity:.55; cursor:not-allowed; }
+  :focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
+
+  .row{ display:flex; flex-wrap:wrap; align-items:center; gap:12px; }
+  .btn{ display:inline-flex; align-items:center; gap:8px; font:inherit; font-weight:700; font-size:15px; padding:11px 20px; border-radius:var(--r); border:2px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; }
+  .btn:hover:not(:disabled){ background:var(--accent-dark); border-color:var(--accent-dark); }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+  .btn.ghost{ background:transparent; color:var(--accent-dark); }
+  .btn.ghost:hover:not(:disabled){ background:var(--accent-soft); color:var(--accent-dark); }
+  .count{ font-size:13.5px; color:var(--ink-soft); }
+
+  /* ---- Result list ---- */
+  .review{ list-style:none; margin:10px 0 0; padding:0; display:grid; gap:6px; }
+  .review li{ display:flex; gap:10px; align-items:flex-start; font-size:14.5px; padding:8px 10px; border-radius:var(--r); background:var(--bg); }
+  .review .tag{ font-weight:700; white-space:nowrap; }
+  .review .good .tag{ color:var(--ok); } .review .bad .tag{ color:var(--bad); } .review .gap .tag{ color:var(--warn); }
+
+  textarea{ width:100%; font:inherit; font-size:15px; padding:10px 12px; border:2px solid var(--line); border-radius:var(--r); min-height:84px; resize:vertical; color:var(--ink); background:#fff; }
+  textarea:focus{ border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-soft); }
+  label.q{ display:block; font-weight:700; font-size:16.5px; max-width:62ch; margin:0 0 10px; }
+  .status{ font-size:13.5px; color:var(--ink-soft); min-height:20px; margin:6px 0 0; }
+
+  /* ---- Final summary ---- */
+  dl.sum{ margin:0; display:grid; gap:12px; }
+  dl.sum dt{ font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-faint); }
+  dl.sum dd{ margin:2px 0 0; max-width:62ch; }
+  .verdict{ display:inline-flex; align-items:center; gap:8px; font-weight:700; padding:4px 12px; border-radius:999px; }
+  .verdict.yes{ background:var(--ok-soft); color:var(--ok); } .verdict.partly{ background:var(--warn-soft); color:var(--warn); } .verdict.no{ background:var(--bad-soft); color:var(--bad); }
+  .fact{ border-left:4px solid var(--accent); background:var(--accent-soft); padding:10px 14px; border-radius:0 var(--r) var(--r) 0; max-width:62ch; }
+  .kind{ background:var(--accent-soft); padding:12px 14px; border-radius:var(--r); max-width:62ch; }
+
+  /* ---- Cost footer + designer caption ---- */
+  .cost{ position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--line); padding:8px 16px; font-size:13px; color:var(--ink-soft); }
+  .cost-inner{ max-width:720px; margin:0 auto; display:flex; flex-wrap:wrap; gap:6px 18px; }
+  .designer{ margin-top:28px; padding-top:14px; border-top:1px dashed var(--line); font-size:12.5px; color:var(--ink-faint); max-width:70ch; }
+  .designer h2{ font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); }
+  .designer p{ max-width:none; margin-bottom:6px; }
+  .spin{ animation:spin 1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce){ .spin{ animation:none; } }
+</style>
+</head>
+<body>
+<main>
+  <!-- ===== Stand-in host activity: pick 3 from 7 ===== -->
+  <section id="screenPick" aria-labelledby="pickTitle">
+    <p class="eyebrow">Quick check · about 2 minutes</p>
+    <h1 id="pickTitle">After a needlestick</h1>
+    <p class="sub">You've just been stuck by a used needle. Pick the 3 things you'd do right now.</p>
+    <ul class="picks" id="picks"></ul>
+    <div class="row">
+      <button class="btn" id="checkBtn" type="button" disabled>Check my picks <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+      <span class="count" id="pickCount" aria-live="polite">0 of 3 chosen</span>
+    </div>
+  </section>
+
+  <!-- ===== Result of the picks (+ the follow-up question when there's a slip) ===== -->
+  <section id="screenResult" hidden aria-labelledby="resTitle">
+    <p class="eyebrow">Your picks</p>
+    <h1 id="resTitle" tabindex="-1"></h1>
+    <ul class="review" id="review"></ul>
+
+    <div id="perfect" class="card" hidden>
+      <p style="margin:0 0 12px">Nothing to follow up on. All three picks match standard practice.</p>
+      <div class="row">
+        <button class="btn ghost" id="demoBtn" type="button">Show me a follow-up question anyway</button>
+        <button class="btn ghost" id="again1" type="button">Try again</button>
+      </div>
+    </div>
+
+    <div id="probeCard" class="card" hidden>
+      <p class="eyebrow" id="probeEyebrow">One follow-up question</p>
+      <div id="probeLoading" class="status" role="status"><i class="fa-solid fa-circle-notch spin" aria-hidden="true"></i> Preparing a question…</div>
+      <div id="probeForm" hidden>
+        <label class="q" for="answer" id="probeQ"></label>
+        <textarea id="answer" rows="3" placeholder="A sentence or two is plenty."></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="sendBtn" type="button">Send answer <i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
+          <button class="btn ghost" id="unsureBtn" type="button">I'm not sure</button>
+        </div>
+        <p class="status" id="gradeStatus" role="status"></p>
+      </div>
+    </div>
+
+    <div id="final" class="card" hidden aria-live="polite">
+      <h2>What we found</h2>
+      <dl class="sum" id="sum"></dl>
+      <div class="row" style="margin-top:16px"><button class="btn" id="again2" type="button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Start over</button></div>
+    </div>
+  </section>
+
+  <!-- ===== Designer-facing caption ===== -->
+  <section class="designer" aria-label="Notes for designers">
+    <h2>Designer notes</h2>
+    <p><b>Tests:</b> whether a learner can repair their own specific slip when it is pointed at, not just re-read the right answer. The pick-3 activity is a stand-in host; the add-on is the part being tried.</p>
+    <p><b>Cost:</b> one small call per run with a slip (grading the answer, capped at 150 output tokens on the fast model), and zero for a perfect run. A blank, "idk", or question-shaped answer is handled with no call. Add <code>?live-question=1</code> to also have the model write the question (a second call): in testing, 9 of 9 live questions named the answer or implied a step order, so the code rejects those and falls back to the authored question.</p>
+    <p><b>Scripted vs live:</b> picks, the right set, the slip priority, the facts and the questions are all authored in code. Live: only the yes/partly/no verdict plus note (given just the authored fact). Any failure falls back to keyword grading. Add <code>?offline=1</code> to force that.</p>
+    <p><b>Content:</b> stand-in practice for this riff, not official course copy. <b>A real build would still need:</b> content-owner sign-off on the right set and facts, a check that generated questions never leak the answer, more than one slip handled per run, logging of verdicts, and review of the live grader against real learner answers.</p>
+  </section>
+</main>
+
+<div class="cost" role="contentinfo"><div class="cost-inner">
+  <span id="costCalls">Model calls this run: 0</span>
+  <span id="costSrc">Last result: none yet</span>
+</div></div>
+
+<script src="../../../scenario-simulator/js/sim-core.js?v=12"></script>
+<script>
+(() => {
+  const OFFLINE = new URLSearchParams(location.search).get('offline') === '1';
+  // Live question writing is opt-in (?live-question=1). In testing, 9 of 9 live questions either named the answer
+  // or were thrown out by the guard below, so by default the authored question is shown and only grading is live.
+  const LIVE_Q = new URLSearchParams(location.search).get('live-question') === '1';
+
+  /* ---------------------------------------------------------------------
+     AUTHORED CONTENT. `right` = the conservative standard-practice set.
+     Every card that is wrong to pick, or right to omit, has a "miss" entry:
+       fact    one line of right practice + why (the ONLY thing the model sees)
+       probe   offline question
+       groups  offline grading: each group is a list of phrases; 2 groups hit
+               = yes, 1 = partly, 0 = no.
+     --------------------------------------------------------------------- */
+  const CARDS = [
+    { id:'squeeze', text:'Squeeze the site hard to make it bleed', right:false },
+    { id:'wash',    text:'Wash the area with soap and water', right:true },
+    { id:'wait',    text:'Keep working and mention it at the end of the shift', right:false },
+    { id:'cover',   text:'After washing, cover it with a bandage', right:true },
+    { id:'device',  text:'Take the needle with you and keep it for follow-up identification', right:false },
+    { id:'report',  text:'Report it immediately', right:true },
+    { id:'scrub',   text:'Scrub the area with a stiff brush', right:false },
+  ];
+  const byId = Object.fromEntries(CARDS.map(c => [c.id, c]));
+
+  // Order = importance. First match for this learner's picks becomes the probe.
+  const MISSES = [
+    { id:'wait', kind:'picked', short:'waiting to report',
+      fact:'Report the needlestick immediately, because follow-up care can only start once the right people know, so waiting until the end of the shift delays it.',
+      probe:"You chose to finish the shift before saying anything. What could change about the follow-up if the report only comes hours later?",
+      groups:[['immediate','right away','straight away','as soon','at once','right now','report','tell','supervisor','manager','not wait',"don't wait","shouldn't wait"],
+              ['follow-up','follow up','treatment','care','medical','assess','delay','sooner','earlier','prompt','quick','start','testing','time']] },
+    { id:'report', kind:'omitted', short:'not reporting',
+      fact:'Report the needlestick immediately, because follow-up care can only start once the right people know.',
+      probe:"Reporting wasn't on your list. Who needs to know about a stick, when, and what does that make possible?",
+      groups:[['immediate','right away','straight away','as soon','at once','right now','report','tell','supervisor','manager','employer'],
+              ['follow-up','follow up','treatment','care','medical','assess','delay','sooner','earlier','prompt','quick','start','testing','time']] },
+    { id:'squeeze', kind:'picked', short:'squeezing the site',
+      fact:'Do not squeeze the site to make it bleed; wash it with soap and water instead, because squeezing can damage the tissue and is not a substitute for washing.',
+      probe:"You chose to squeeze the site. What could that do to the skin, and what is the better step?",
+      groups:[['wash','soap','water','not squeeze',"don't squeeze",'no squeez','leave it','gentl'],
+              ['damage','harm','bruis','tissue','irritat','hurt','worse','injur','not help',"doesn't help",'no benefit','not effective']] },
+    { id:'scrub', kind:'picked', short:'scrubbing the site',
+      fact:'Wash the site gently with soap and water; do not scrub with a stiff brush, because scrubbing can damage the skin and does not make it any cleaner.',
+      probe:"You chose to scrub with a stiff brush. What might scrubbing do to the skin, and how should the wash go instead?",
+      groups:[['gentl','soap','water','wash','not scrub',"don't scrub",'no scrub'],
+              ['damage','harm','break','skin','irritat','raw','hurt','worse','injur','abras']] },
+    { id:'wash', kind:'omitted', short:'not washing the site',
+      fact:'Wash the site right away with soap and water, because it removes blood and other material from the skin.',
+      probe:"Washing wasn't on your list. What can you do to the site itself using what's at any sink, and what is it for?",
+      groups:[['soap','water','wash'],
+              ['right away','immediately','first','quick','blood','contamin','germ','clean','remove','rinse','material']] },
+    { id:'device', kind:'picked', short:'carrying the needle away',
+      fact:'Do not carry or recap the needle; leave it in the sharps container and tell whoever you report to which device it was, because carrying it risks another injury and the report is what lets the right follow-up start.',
+      probe:"You chose to take the needle with you. What is safer to do with it, and how does the follow-up still get what it needs?",
+      groups:[['container','leave','report','tell','describe','say which','identify','not carry',"don't carry",'sharps'],
+              ['another','again','second','injur','stick','risk','safe','follow-up','follow up']] },
+    { id:'cover', kind:'omitted', short:'not covering the site',
+      fact:'After washing, cover the site with a clean bandage, because it keeps the area clean and protected.',
+      probe:"Once the site is washed, what's one more thing to do for it, and what is that for?",
+      groups:[['cover','bandage','dressing','plaster','band-aid'],
+              ['clean','protect','dirt','infection','keep','after']] },
+  ];
+
+  // Phrases a generated question must not contain, per slip: the action or timing the learner is supposed to supply.
+  const LEAKS = {
+    wait:    /\b(report|tell|let .* know|right away|immediate|straight away|as soon as)/i,
+    report:  /\b(report|tell|let .* know|notify|inform|right away|immediate|straight away|as soon as|supervisor|manager)/i,
+    squeeze: /\b(wash|soap|water|rinse|don'?t squeeze|not squeeze|instead|better|rather than|compared)/i,
+    scrub:   /\b(gentl|soap|water|wash|don'?t scrub|not scrub|instead|better|rather than|compared)/i,
+    wash:    /\b(soap|water|wash|rinse)/i,
+    device:  /\b(sharps container|leave it|put it back|don'?t carry|not carry|describe which|tell)/i,
+    cover:   /\b(bandage|dressing|plaster|cover)/i,
+  };
+  // No question may imply a sequence like "before anything else" (washing comes first).
+  const ORDER_WORDS = /\b(before (doing )?anything|first thing|before you do anything|before all)\b/i;
+
+  /* ---------------------------------------------------------------------
+     State + tiny helpers
+     --------------------------------------------------------------------- */
+  const $ = id => document.getElementById(id);
+  const state = { picked:new Set(), calls:0, miss:null, question:'', demo:false, lastSrc:null };
+  function setCost(src) {
+    if (src) state.lastSrc = src;
+    $('costCalls').textContent = 'Model calls this run: ' + state.calls + (state.calls === 2 ? ' ' : '');
+    $('costSrc').textContent = 'Last result: ' + (state.lastSrc === 'live' ? 'live model' : state.lastSrc === 'offline' ? 'offline stand-in' : state.lastSrc === 'scripted' ? 'no model needed' : 'none yet')
+      + (OFFLINE ? ' · offline mode forced' : '');
+  }
+  function show(id, on) { $(id).hidden = !on; }
+
+  /* ---------------------------------------------------------------------
+     Model plumbing — every call degrades to the offline path.
+     --------------------------------------------------------------------- */
+  async function askModel(system, userText) {
+    if (OFFLINE || typeof SimCore === 'undefined' || !SimCore.callModel) throw new Error('offline');
+    state.calls++; setCost();
+    const raw = await SimCore.callModel({
+      system, messages:[{ role:'user', content:userText }], maxTokens:150, model:SimCore.MODELS.FAST,
+    });
+    return SimCore.parseJson(raw);
+  }
+
+  /* ---------------------------------------------------------------------
+     Step 1: pick cards
+     --------------------------------------------------------------------- */
+  function buildPicks() {
+    const ul = $('picks'); ul.innerHTML = '';
+    CARDS.forEach(c => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pick'; b.dataset.id = c.id; b.setAttribute('aria-pressed','false');
+      b.innerHTML = '<span class="box"><i class="fa-solid fa-check" aria-hidden="true"></i></span><span></span>';
+      b.lastChild.textContent = c.text;
+      b.addEventListener('click', () => {
+        if (state.picked.has(c.id)) state.picked.delete(c.id); else if (state.picked.size < 3) state.picked.add(c.id);
+        syncPicks();
+      });
+      li.appendChild(b); ul.appendChild(li);
+    });
+    syncPicks();
+  }
+  function syncPicks() {
+    const full = state.picked.size >= 3;
+    document.querySelectorAll('.pick').forEach(b => {
+      const on = state.picked.has(b.dataset.id);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      b.disabled = full && !on;
+    });
+    $('pickCount').textContent = state.picked.size + ' of 3 chosen';
+    $('checkBtn').disabled = !full;
+  }
+
+  /* ---------------------------------------------------------------------
+     Step 2: rule-grade the picks, find the most important slip
+     --------------------------------------------------------------------- */
+  function findMiss() {
+    return MISSES.find(m => byId[m.id].right ? !state.picked.has(m.id) : state.picked.has(m.id)) || null;
+  }
+  function renderReview() {
+    const ul = $('review'); ul.innerHTML = '';
+    const add = (cls, tag, icon, text) => {
+      const li = document.createElement('li'); li.className = cls;
+      li.innerHTML = '<i class="fa-solid ' + icon + '" aria-hidden="true"></i><span class="tag"></span><span></span>';
+      li.children[1].textContent = tag; li.children[2].textContent = text; ul.appendChild(li);
+    };
+    CARDS.forEach(c => {
+      const p = state.picked.has(c.id);
+      if (p && c.right) add('good', 'Right pick:', 'fa-circle-check', c.text);
+      else if (p && !c.right) add('bad', 'Not advised:', 'fa-circle-xmark', c.text);
+      else if (!p && c.right) add('gap', 'Left out:', 'fa-circle-exclamation', c.text);
+    });
+  }
+
+  function runResult(demo) {
+    state.demo = !!demo;
+    state.miss = demo ? MISSES.find(m => m.id === 'report') : findMiss();
+    show('screenPick', false); show('screenResult', true);
+    show('perfect', false); show('probeCard', false); show('final', false);
+    renderReview();
+    const h = $('resTitle');
+    if (!state.miss) {
+      h.textContent = 'All three match standard practice.';
+      show('perfect', true); setCost('scripted'); h.focus(); return;
+    }
+    h.textContent = demo ? 'Here is how a follow-up works.' : 'One pick is worth a second look.';
+    h.focus();
+    startProbe();
+  }
+
+  /* ---------------------------------------------------------------------
+     CALL 1 — one probing question from the authored fact only
+     --------------------------------------------------------------------- */
+  async function startProbe() {
+    const m = state.miss;
+    show('probeCard', true); show('probeForm', false); show('probeLoading', true);
+    $('probeEyebrow').textContent = state.demo ? 'One follow-up question (demo: as if reporting had been left out)' : 'One follow-up question';
+    let q = null, src = LIVE_Q && m.kind === 'picked' ? 'offline' : 'scripted'; // 'scripted' = authored question, no call made
+    const chose = state.demo ? 'the learner did not choose "Report it immediately"' :
+      'the learner chose: ' + [...state.picked].map(id => '"' + byId[id].text + '"').join('; ');
+    // Omissions skip call 1: a question about what the learner LEFT OUT can't avoid naming it (5 of 5 live
+    // questions for the omitted report step gave the answer away), so the authored question is used.
+    if (LIVE_Q && m.kind === 'picked') try {
+      const sys = 'You write ONE short follow-up question for a workplace safety refresher. '
+        + 'You are given a FACT (the right practice and why) and what the learner chose. Write one question, under 30 words, that points at their specific gap '
+        + 'without stating the practice or any key phrase from the FACT (do not name the action or the timing), and that can be answered using only the FACT. '
+        + 'Never bring in any rule, fact, number or term that is not in the FACT. Be neutral and kind; no scolding. '
+        + 'Reply with JSON only: {"question":"..."}';
+      const out = await askModel(sys, 'FACT: ' + m.fact + '\nWHAT THE LEARNER DID: ' + chose + '\nTHE SLIP: ' + m.short);
+      // Code-side guard: a prompt alone didn't stop the model naming the answer (a live question once read
+      // "why let the right people know ... before doing anything else?"). Discard any question that
+      // contains a LEAK phrase for this slip, or that implies a step order, and use the authored one.
+      if (out && typeof out.question === 'string' && out.question.trim().length > 8 && out.question.length < 260
+          && !LEAKS[m.id].test(out.question) && !ORDER_WORDS.test(out.question)) { q = out.question.trim(); src = 'live'; }
+      else if (out) console.info('Probe the miss: live question rejected (gave the answer away); using the authored one.', out.question);
+    } catch (e) { /* fall through to authored question */ }
+    if (!q) q = m.probe;
+    state.question = q; setCost(src);
+    $('probeQ').textContent = q; $('answer').value = ''; $('gradeStatus').textContent = '';
+    show('probeLoading', false); show('probeForm', true); $('answer').focus();
+  }
+
+  /* ---------------------------------------------------------------------
+     CALL 2 — grade the answer against the fact only
+     --------------------------------------------------------------------- */
+  // A blank, "idk", or a question back is not an attempt: no model call, no penalty.
+  function isNonAnswer(t) {
+    const s = t.trim().toLowerCase().replace(/[’]/g, "'");
+    if (!s) return true;
+    if (/^(i\s*(do not|don't|dont)\s*know|idk|dunno|no idea|not sure|i'm not sure|im not sure|skip|pass|\?+|n\/a|-+)\W*$/.test(s)) return true;
+    return s.endsWith('?') && s.split(/\s+/).length < 12;
+  }
+  function offlineGrade(m, text) {
+    const s = text.toLowerCase().replace(/[’]/g, "'");
+    const hits = m.groups.filter(g => g.some(k => s.includes(k))).length;
+    const understood = hits >= 2 ? 'yes' : hits === 1 ? 'partly' : 'no';
+    const note = { yes:'You named both the practice and the reason.', partly:'You have part of it; the full practice is below.', no:"That doesn't match the practice yet; it's spelled out below." }[understood];
+    return { understood, note };
+  }
+  async function grade() {
+    const text = $('answer').value;
+    if (isNonAnswer(text)) return finish(null);
+    $('sendBtn').disabled = true; $('unsureBtn').disabled = true;
+    $('gradeStatus').innerHTML = '<i class="fa-solid fa-circle-notch spin" aria-hidden="true"></i> Checking your answer…';
+    const m = state.miss; let res = null, src = 'offline';
+    try {
+      const sys = 'You check a learner\'s short answer in a workplace safety refresher. Judge it ONLY against the FACT supplied. '
+        + 'Never use any rule or fact that is not in the FACT, and never credit something that is only implied. '
+        + '"yes" = the answer clearly states the practice and the reason; "partly" = it states one of them or is vague; "no" = it contradicts the FACT or misses it. '
+        + 'The note is ONE short, kind sentence addressed to "you". Reply with JSON only: {"understood":"yes|partly|no","note":"..."}';
+      const out = await askModel(sys, 'FACT: ' + m.fact + '\nQUESTION: ' + state.question + '\nLEARNER ANSWER: ' + text.slice(0, 500));
+      if (out && ['yes','partly','no'].includes(out.understood) && typeof out.note === 'string' && out.note.trim()) {
+        res = { understood: out.understood, note: out.note.trim().slice(0, 240) }; src = 'live';
+      }
+    } catch (e) { /* fall back */ }
+    if (!res) res = offlineGrade(m, text);
+    setCost(src); finish({ text: text.trim(), ...res });
+  }
+
+  /* ---------------------------------------------------------------------
+     Final summary
+     --------------------------------------------------------------------- */
+  function finish(r) {
+    const m = state.miss;
+    show('probeCard', false); show('final', true);
+    const sum = $('sum'); sum.innerHTML = '';
+    const row = (dt, node) => {
+      const d1 = document.createElement('dt'); d1.textContent = dt;
+      const d2 = document.createElement('dd');
+      if (typeof node === 'string') d2.textContent = node; else d2.appendChild(node);
+      sum.append(d1, d2);
+    };
+    row('The slip', state.demo ? 'Demo: reporting left out' : m.short.charAt(0).toUpperCase() + m.short.slice(1));
+    row('The question', state.question);
+    if (!r) {
+      row('Your answer', 'Not sure, and that is a fine place to start.');
+      const k = document.createElement('div'); k.className = 'kind';
+      k.textContent = "No problem. Here's the practice, and then you can try the picks again.";
+      row('Where that leaves things', k);
+      setCost('scripted');
+    } else {
+      row('Your answer', r.text);
+      const v = document.createElement('span'); v.className = 'verdict ' + r.understood;
+      const lab = { yes:['fa-circle-check','Got it'], partly:['fa-circle-half-stroke','Partly there'], no:['fa-circle-exclamation','Not yet'] }[r.understood];
+      v.innerHTML = '<i class="fa-solid ' + lab[0] + '" aria-hidden="true"></i><span></span>'; v.lastChild.textContent = lab[1];
+      row('Verdict', v);
+      row('Note', r.note);
+    }
+    const f = document.createElement('div'); f.className = 'fact'; f.textContent = m.fact;
+    row('The right practice', f);
+    $('again2').focus();
+  }
+
+  function reset() {
+    state.picked.clear(); state.miss = null; state.demo = false;
+    show('screenResult', false); show('screenPick', true);
+    $('sendBtn').disabled = false; $('unsureBtn').disabled = false;
+    syncPicks(); document.querySelector('.pick').focus();
+  }
+
+  $('checkBtn').addEventListener('click', () => runResult(false));
+  $('demoBtn').addEventListener('click', () => runResult(true));
+  $('sendBtn').addEventListener('click', grade);
+  $('unsureBtn').addEventListener('click', () => { $('answer').value = ''; finish(null); });
+  $('again1').addEventListener('click', reset);
+  $('again2').addEventListener('click', reset);
+
+  buildPicks(); setCost();
+  // Test hook for designers/QA: window.__probe lets you inspect state.
+  window.__probe = state;
+})();
+</script>
+</body>
+</html>

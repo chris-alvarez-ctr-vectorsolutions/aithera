@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Write it up — Do riff</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<style>
+  /* Light Vector look: accent #0271ce, 4px controls. Everything is plain CSS
+     so a designer can retheme by editing the :root tokens. */
+  :root{
+    --c-bg:#f5f7fa; --c-surface:#ffffff; --c-ink:#1c2430; --c-ink-soft:#44505f; --c-ink-faint:#5f6b7a;
+    --c-line:#d5dbe3; --c-accent:#0271ce; --c-accent-soft:#e6f1fb;
+    --c-ok:#12703a; --c-ok-soft:#e5f4ea; --c-flag:#8a3b00; --c-flag-soft:#fff1de; --c-flag-line:#c25a00;
+    --radius:4px;
+  }
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{ margin:0; background:var(--c-bg); color:var(--c-ink);
+    font-family:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.55; }
+  .page{ max-width:1080px; margin:0 auto; padding:24px 16px 48px; }
+  h1{ font-size:clamp(22px,3.5vw,28px); margin:0 0 6px; }
+  h2{ font-size:16px; margin:0 0 10px; }
+  .lede{ max-width:62ch; margin:0 0 20px; color:var(--c-ink-soft); text-align:left; }
+  :focus-visible{ outline:3px solid var(--c-accent); outline-offset:2px; }
+
+  /* Two columns on wide screens (sheet | writing), stacked on phones. */
+  .grid{ display:grid; grid-template-columns:1fr; gap:20px; align-items:start; }
+  @media (min-width:900px){
+    .grid{ grid-template-columns:minmax(0,5fr) minmax(0,6fr); }
+    .sheet{ position:sticky; top:16px; }
+  }
+  .card{ background:var(--c-surface); border:1px solid var(--c-line); border-radius:var(--radius); padding:18px; }
+
+  /* ---- The reference sheet ---- */
+  .sheet .meta{ font-size:13px; color:var(--c-ink-faint); margin:0 0 12px; }
+  .timeline{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+  .timeline li{ display:grid; grid-template-columns:64px 1fr; gap:10px; font-size:14.5px; }
+  .timeline .t{ font-weight:700; font-variant-numeric:tabular-nums; color:var(--c-accent); }
+  .timeline .who{ font-weight:600; }
+  .timeline .says{ font-style:normal; }
+  .note-unknown{ margin:14px 0 0; padding:10px 12px; background:var(--c-accent-soft); border-radius:var(--radius); font-size:13.5px; max-width:62ch; }
+
+  /* ---- Writing area ---- */
+  label{ display:block; font-weight:600; font-size:14px; margin:0 0 6px; }
+  .hint{ font-weight:400; color:var(--c-ink-faint); }
+  textarea{ width:100%; font:inherit; font-size:15px; line-height:1.6; color:var(--c-ink); background:#fff;
+    border:1px solid #8a95a3; border-radius:var(--radius); padding:10px 12px; resize:vertical; }
+  #reportText{ min-height:180px; }
+  #actionText{ min-height:70px; }
+  .field{ margin-bottom:16px; }
+  .row{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  button{ font:inherit; font-weight:600; font-size:14.5px; border-radius:var(--radius); padding:10px 18px; cursor:pointer;
+    border:1px solid var(--c-accent); background:var(--c-accent); color:#fff; display:inline-flex; gap:8px; align-items:center; }
+  button.secondary{ background:#fff; color:var(--c-accent); }
+  button:disabled{ opacity:.55; cursor:not-allowed; }
+  .kind-msg{ margin:14px 0 0; padding:10px 12px; border-left:4px solid var(--c-accent); background:var(--c-accent-soft);
+    border-radius:var(--radius); max-width:62ch; font-size:14.5px; }
+
+  /* ---- Result view ---- */
+  .own-text{ white-space:pre-wrap; max-width:62ch; font-size:15px; line-height:1.9; margin:0 0 14px; padding:12px; background:#fbfcfd; border:1px solid var(--c-line); border-radius:var(--radius); }
+  .own-label{ font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--c-ink-faint); margin:0 0 4px; }
+  /* Flagged spans: wavy underline + icon + number, so colour is never the only signal. */
+  mark.flag{ background:var(--c-flag-soft); color:inherit; padding:1px 2px; border-radius:3px;
+    text-decoration:underline wavy var(--c-flag-line); text-decoration-thickness:2px; text-underline-offset:4px; }
+  mark.flag .num{ display:inline-flex; align-items:center; gap:3px; font-size:11px; font-weight:700; color:var(--c-flag);
+    background:#fff; border:1px solid var(--c-flag-line); border-radius:10px; padding:0 6px; margin-right:4px; vertical-align:1px; text-decoration:none; }
+  .flag-list{ list-style:none; margin:0 0 18px; padding:0; display:flex; flex-direction:column; gap:8px; max-width:62ch; }
+  .flag-list li{ font-size:14px; padding:8px 10px; border:1px solid var(--c-flag-line); border-radius:var(--radius); background:var(--c-flag-soft); }
+  .flag-list .q{ font-weight:600; }
+  .flag-list .num{ font-weight:700; color:var(--c-flag); }
+  .no-flags{ font-size:14px; color:var(--c-ok); font-weight:600; margin:0 0 16px; }
+  .checklist{ list-style:none; padding:0; margin:0 0 16px; display:flex; flex-direction:column; gap:8px; max-width:62ch; }
+  .checklist li{ display:flex; gap:10px; align-items:flex-start; font-size:14.5px; padding:8px 10px; border-radius:var(--radius); border:1px solid var(--c-line); }
+  .checklist li.ok{ background:var(--c-ok-soft); border-color:#9ccfae; }
+  .checklist li i{ margin-top:4px; }
+  .checklist li.ok i{ color:var(--c-ok); }
+  .checklist li.miss i{ color:var(--c-ink-faint); }
+  .checklist .state{ margin-left:auto; font-size:12.5px; font-weight:700; white-space:nowrap; color:var(--c-ink-soft); }
+  .suggest{ max-width:62ch; margin:0 0 16px; padding:10px 12px; background:var(--c-accent-soft); border-radius:var(--radius); font-size:14.5px; }
+  .suggest strong{ display:block; font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--c-accent); }
+
+  /* ---- Footers ---- */
+  .cost{ margin:16px 0 0; font-size:12.5px; color:var(--c-ink-faint); }
+  .designer{ margin-top:28px; padding-top:14px; border-top:1px solid var(--c-line); font-size:12.5px; color:var(--c-ink-faint); max-width:90ch; text-align:left; }
+  .designer h2{ font-size:12.5px; text-transform:uppercase; letter-spacing:.06em; margin:0 0 6px; color:var(--c-ink-faint); }
+  .designer ul{ margin:0; padding-left:18px; }
+  .designer li{ margin-bottom:3px; }
+  @media (prefers-reduced-motion: reduce){ *{ animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Write it up</h1>
+  <p class="lede">A coworker has had a needlestick and you have been told about it. Use the notes on the left to write the incident report in your own words. Write what was reported, and keep it to what the notes actually say.</p>
+
+  <div class="grid">
+    <!-- ================= Reference sheet (always visible) ================= -->
+    <section class="card sheet" aria-labelledby="sheetH">
+      <h2 id="sheetH">What was reported to you</h2>
+      <p class="meta">Thursday. Notes collected by you as the supervisor on duty.</p>
+      <ol class="timeline" id="timeline"></ol>
+      <p class="note-unknown"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Nobody has said who left the needle on the tray, and nobody saw it being left there.</p>
+    </section>
+
+    <!-- ================= Writing area / result ================= -->
+    <section class="card" aria-labelledby="writeH">
+      <h2 id="writeH">Your incident report</h2>
+
+      <!-- Edit view -->
+      <form id="editView" novalidate>
+        <div class="field">
+          <label for="reportText">Report <span class="hint">— what happened, where and when, and who was told</span></label>
+          <textarea id="reportText" placeholder="Write the report as you would file it…"></textarea>
+        </div>
+        <div class="field">
+          <label for="actionText">Done right away <span class="hint">— optional, short</span></label>
+          <textarea id="actionText" placeholder="What was done in the first minutes…"></textarea>
+        </div>
+        <div class="row">
+          <button type="submit" id="submitBtn"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit report</button>
+          <span id="busy" role="status" aria-live="polite"></span>
+        </div>
+        <p class="kind-msg" id="kindMsg" role="status" hidden></p>
+      </form>
+
+      <!-- Result view -->
+      <div id="resultView" hidden aria-live="polite">
+        <p class="own-label">Your report, with lines to look at</p>
+        <div id="annotated"></div>
+        <div id="flagsArea"></div>
+        <p class="own-label">What the report covers</p>
+        <ul class="checklist" id="checklist"></ul>
+        <div class="suggest" id="suggest"></div>
+        <div class="row">
+          <button type="button" class="secondary" id="editBtn"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit my report</button>
+          <button type="button" class="secondary" id="clearBtn"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Start over</button>
+        </div>
+      </div>
+
+      <p class="cost" id="costLine" role="status">Model calls this run: 0 · Last result: none yet</p>
+    </section>
+  </div>
+
+  <!-- Designer-facing caption: not learner copy. -->
+  <aside class="designer" aria-label="Notes for designers">
+    <h2>Designer notes</h2>
+    <ul>
+      <li><strong>Tests:</strong> whether the learner can turn a messy set of reports into a clean document, separating what was seen from what was assumed, and leaving nothing important out. Evidence is their own prose, quoted back line by line.</li>
+      <li><strong>Cost:</strong> one Haiku call per submit (max 400 output tokens, roughly 700 input tokens). Empty, very short or question-only submissions make no call. Each re-submit after editing is another call. Add <code>?offline=1</code> to force the stand-in checker.</li>
+      <li><strong>Scripted vs live:</strong> the sheet, the five checklist points and the layout are scripted. The model decides which points are clearly covered and quotes lines to flag; code then drops any quote that is not an exact substring of the learner's text and keeps the checklist consistent with the surviving flags. The offline stand-in uses keyword patterns and a short word list, so it is cruder (it cannot judge invented detail beyond a small list).</li>
+      <li><strong>Stand-in content:</strong> the scenario and the facts are written for this riff from general sharps practice. They are not official course copy.</li>
+      <li><strong>A real build still needs:</strong> an authored fact set per scenario (with synonyms for each fact), review of how often the model misses or over-flags, a tone check, accessibility testing with a screen reader on the highlighted spans, and a decision on how many re-submits to allow.</li>
+    </ul>
+  </aside>
+</div>
+
+<script src="../../../scenario-simulator/js/sim-core.js?v=12"></script>
+<script>
+(() => {
+  'use strict';
+
+  // ------------------------------------------------------------------
+  // 1. THE SHEET — single source for both the on-screen timeline and the
+  //    facts handed to the model. Edit here to change the scenario.
+  // ------------------------------------------------------------------
+  const SHEET = [
+    { t:'2:15 pm', who:'The coworker', says:'said they were clearing a procedure tray in Room 4 when a used needle left on the tray pricked their left index finger through the glove.' },
+    { t:'2:16 pm', who:'The coworker', says:'said they went straight to the sink in Room 4 and washed the finger with soap and water for several minutes.' },
+    { t:'2:18 pm', who:'The coworker', says:'said they dropped the needle, without recapping it, into the yellow sharps container in the corridor outside Room 4.' },
+    { t:'2:25 pm', who:'A second coworker', says:'said, "They were obviously careless, they must have left it there themselves." This person did not see what happened.' },
+    { t:'2:30 pm', who:'The coworker', says:'came to tell you what had happened. You are the supervisor on duty.' },
+    { t:'2:40 pm', who:'You', says:'phoned occupational health, who asked the coworker to come over for an assessment.' }
+  ];
+  const ALLOWED_TIMES = ['2:15','2:16','2:18','2:25','2:30','2:40'];
+
+  // The five checklist points. `label` is learner-facing; `detail` is what the
+  // grader (live or offline) judges against; `hint` feeds the suggestion.
+  const POINTS = [
+    { id:1, label:'When, where and what happened',
+      detail:'States about 2:15 pm, Room 4, and that a used needle pricked the coworker\'s finger through the glove (all three: time, place, event).',
+      hint:'Add the time, the room and exactly what happened (a used needle pricked a finger through the glove).' },
+    { id:2, label:'What was done right away',
+      detail:'Says the finger was washed with soap and water AND the needle went into the sharps container (corridor outside Room 4).',
+      hint:'Say what was done right away: the soap-and-water wash, and which container the needle went into.' },
+    { id:3, label:'Who it was reported to',
+      detail:'Says it was reported to the supervisor at about 2:30 pm and/or that occupational health was contacted at about 2:40 pm.',
+      hint:'Say who was told, and when (you at 2:30 pm; occupational health at 2:40 pm).' },
+    { id:4, label:'Facts, not conclusions',
+      detail:'Contains no blame, speculation or guesses stated as fact (for example that the coworker was careless, or who left the needle).',
+      hint:'Report that someone said it, or leave it out. The sheet does not show who left the needle or why.' },
+    { id:5, label:'Only what is on the sheet',
+      detail:'Contains no details that are not on the sheet (extra people, times, injuries, causes, patient information, outcomes).',
+      hint:'Take out anything the sheet does not say.' }
+  ];
+
+  // ------------------------------------------------------------------
+  // 2. Small helpers
+  // ------------------------------------------------------------------
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const FORCE_OFFLINE = new URLSearchParams(location.search).get('offline') === '1';
+  let modelCalls = 0;
+  let lastSource = 'none yet';
+
+  function updateCost() {
+    $('costLine').textContent = 'Model calls this run: ' + modelCalls + ' · Last result: ' + lastSource;
+  }
+
+  // Render the sheet timeline
+  $('timeline').innerHTML = SHEET.map(r =>
+    `<li><span class="t">${esc(r.t)}</span><span><span class="who">${esc(r.who)}</span> <span class="says">${esc(r.says)}</span></span></li>`
+  ).join('');
+
+  // ------------------------------------------------------------------
+  // 3. OFFLINE STAND-IN CHECKER — patterns only, no model.
+  // ------------------------------------------------------------------
+  const BLAME_RE = /\b(obviously|careless|carelessly|clearly|must have|probably|should have|shouldn't have|obvious|negligent|reckless|not paying attention|their own fault|their fault|stupid|lazy|clumsy|surely)\b/ig;
+  const INVENTED_RE = /\b(hiv|hepatitis|hep b|hep c|vaccin\w*|ambulance|hospital|stitches|bleeding heavily|source patient|the patient|a patient|infected|diagnos\w*)\b/ig;
+
+  // Whole sentence (or line) around index i inside text.
+  function sentenceAround(text, i, len) {
+    let s = i, e = i + len;
+    while (s > 0 && !/[.!?\n]/.test(text[s - 1])) s--;
+    while (e < text.length && !/[.!?\n]/.test(text[e])) e++;
+    if (e < text.length && text[e] !== '\n') e++;       // include the full stop
+    return { start: s, end: e };
+  }
+
+  function offlineCheck(fields) {
+    const flags = [];
+    const joined = fields.report + '\n' + fields.action;
+    const low = joined.toLowerCase();
+
+    // line-level flags, per field so quotes stay exact substrings
+    ['report', 'action'].forEach(key => {
+      const text = fields[key];
+      let m;
+      BLAME_RE.lastIndex = 0;
+      while ((m = BLAME_RE.exec(text))) {
+        const r = sentenceAround(text, m.index, m[0].length);
+        flags.push({ quote: text.slice(r.start, r.end).trim(), kind:'assumption',
+          reason: '"' + m[0] + '" is a conclusion or guess. The sheet only says someone assumed it.' });
+      }
+      INVENTED_RE.lastIndex = 0;
+      while ((m = INVENTED_RE.exec(text))) {
+        const r = sentenceAround(text, m.index, m[0].length);
+        flags.push({ quote: text.slice(r.start, r.end).trim(), kind:'invented', reason: 'Not on the sheet.' });
+      }
+      const timeRe = /\b(\d{1,2})[:.](\d{2})\b/g;
+      while ((m = timeRe.exec(text))) {
+        const norm = (+m[1]) + ':' + m[2];
+        if (!ALLOWED_TIMES.includes(norm)) flags.push({ quote: m[0], kind:'invented', reason: 'This time is not on the sheet.' });
+      }
+    });
+
+    const has = re => re.test(low);
+    const hasTime = has(/2[:.]?15|quarter (past|after) (two|2)/);
+    const hasPlace = has(/room\s*(4|four)/);
+    const hasEvent = has(/needle|prick|stuck|stick|punctur/);
+    const hasWash = has(/soap|wash|rins|scrub|flush/);
+    const hasContainer = has(/sharps container|container|sharps box|corridor/);
+    const hasTold = has(/2[:.]?30|2[:.]?40|occupational|supervisor|reported (it )?to|told me|informed|notified|phoned|called/);
+
+    const covered = [];
+    if (hasTime && hasPlace && hasEvent) covered.push(1);
+    if (hasWash && hasContainer) covered.push(2);
+    if (hasTold) covered.push(3);
+    const longEnough = joined.trim().split(/\s+/).length >= 15;
+    if (longEnough && !flags.some(f => f.kind === 'assumption')) covered.push(4);
+    if (longEnough && !flags.some(f => f.kind === 'invented')) covered.push(5);
+
+    return { attempt:true, covered, flags, suggestion: null };
+  }
+
+  // ------------------------------------------------------------------
+  // 4. LIVE CHECK — exactly ONE model call per submit.
+  // ------------------------------------------------------------------
+  function systemPrompt() {
+    const sheet = SHEET.map(r => `${r.t} — ${r.who} ${r.says}`).join('\n');
+    const pts = POINTS.map(p => `${p.id}. ${p.detail}`).join('\n');
+    return 'You check a learner\'s written incident report for a safety training exercise. '
+      + 'The learner was shown ONLY this sheet:\n' + sheet
+      + '\nAlso on the sheet: nobody has said who left the needle on the tray and nobody saw it being left.\n\n'
+      + 'Check the report against these five points and nothing else:\n' + pts + '\n\n'
+      + 'Rules: use only the sheet and these points. Never invent a rule, and never credit something merely implied. '
+      + 'List a point as covered only if the learner\'s own words clearly cover it. '
+      + 'A learner who asks a question, says they do not know, or writes something that is not a report is NOT failing: '
+      + 'set "attempt" to false, leave covered and flags empty, and put one kind, plain sentence in "suggestion" (answer a question briefly from the sheet only). '
+      + 'Reporting that someone said or assumed something is fine; stating it as fact is not.\n\n'
+      + 'Flags: each flag quotes an exact span copied character for character from the learner\'s text (a short phrase or one sentence). '
+      + '"kind" is "assumption" (blame, guess or conclusion stated as fact) or "invented" (a detail not on the sheet). '
+      + '"reason" is under 14 words, plain and neutral. At most 4 flags. If nothing needs flagging, use an empty list.\n\n'
+      + 'Return ONLY this JSON, no other text:\n'
+      + '{"attempt":true,"covered":[numbers 1-5],"flags":[{"quote":"exact span","kind":"assumption","reason":"short"}],"suggestion":"one short sentence, kind and specific"}';
+  }
+
+  async function liveCheck(fields) {
+    if (FORCE_OFFLINE || !window.SimCore || !SimCore.WORKER_URL) return null;
+    modelCalls++; updateCost();
+    try {
+      const raw = await SimCore.callModel({
+        system: systemPrompt(),
+        messages: [{ role:'user', content:'REPORT:\n' + fields.report + '\n\nDONE RIGHT AWAY:\n' + (fields.action || '(left blank)') }],
+        maxTokens: 400,
+        model: SimCore.MODELS.FAST
+      });
+      const p = SimCore.parseJson(raw);
+      if (!p || typeof p !== 'object') return null;
+      return {
+        attempt: p.attempt !== false,
+        covered: (Array.isArray(p.covered) ? p.covered : []).map(Number).filter(n => n >= 1 && n <= POINTS.length),
+        flags: (Array.isArray(p.flags) ? p.flags : []).filter(f => f && typeof f.quote === 'string')
+          .map(f => ({ quote: f.quote.trim(), kind: f.kind === 'invented' ? 'invented' : 'assumption',
+                       reason: String(f.reason || '').slice(0, 140) })),
+        suggestion: typeof p.suggestion === 'string' ? p.suggestion.trim() : null
+      };
+    } catch (e) { return null; }       // any failure -> caller uses the stand-in
+  }
+
+  // ------------------------------------------------------------------
+  // 5. Validation + consistency, applied to BOTH sources
+  // ------------------------------------------------------------------
+  // Keep only flags whose quote is an exact substring of one field; locate
+  // each, drop overlaps, and number them in reading order per field.
+  function locateFlags(fields, flags) {
+    const found = [];
+    flags.forEach(f => {
+      if (!f.quote || f.quote.length < 3) return;
+      for (const key of ['report', 'action']) {
+        const i = fields[key].indexOf(f.quote);
+        if (i >= 0) { found.push({ field:key, start:i, end:i + f.quote.length, kind:f.kind, reason:f.reason }); return; }
+      }
+      // not an exact substring -> dropped on purpose
+    });
+    const out = [];
+    ['report', 'action'].forEach(key => {
+      const list = found.filter(x => x.field === key).sort((a, b) => a.start - b.start);
+      let lastEnd = -1;
+      list.forEach(x => { if (x.start >= lastEnd) { out.push(x); lastEnd = x.end; } });
+    });
+    return out;
+  }
+
+  // A surviving flag means that point cannot be called covered.
+  function reconcile(res, located) {
+    const covered = new Set(res.covered);
+    if (located.some(f => f.kind === 'assumption')) covered.delete(4);
+    if (located.some(f => f.kind === 'invented')) covered.delete(5);
+    return covered;
+  }
+
+  // ------------------------------------------------------------------
+  // 6. Rendering
+  // ------------------------------------------------------------------
+  function annotate(text, located, startNum) {
+    let html = '', pos = 0, n = startNum;
+    located.forEach(f => {
+      html += esc(text.slice(pos, f.start));
+      html += `<mark class="flag"><span class="num"><i class="fa-solid fa-flag" aria-hidden="true"></i>${n}</span>${esc(text.slice(f.start, f.end))}</mark>`;
+      pos = f.end; n++;
+    });
+    return html + esc(text.slice(pos));
+  }
+
+  function showResult(fields, res, source) {
+    const located = locateFlags(fields, res.flags);
+    const covered = reconcile(res, located);
+    const rep = located.filter(f => f.field === 'report');
+    const act = located.filter(f => f.field === 'action');
+
+    let html = `<p class="own-text">${annotate(fields.report, rep, 1)}</p>`;
+    if (fields.action) {
+      html += `<p class="own-label">Done right away</p><p class="own-text">${annotate(fields.action, act, rep.length + 1)}</p>`;
+    }
+    $('annotated').innerHTML = html;
+
+    const ordered = rep.concat(act);
+    $('flagsArea').innerHTML = ordered.length
+      ? '<p class="own-label">Lines to look at</p><ul class="flag-list">' + ordered.map((f, i) =>
+          `<li><span class="num"><i class="fa-solid fa-flag" aria-hidden="true"></i> ${i + 1}</span> `
+          + `<span class="q">"${esc(fields[f.field].slice(f.start, f.end))}"</span><br>${esc(f.reason || (f.kind === 'invented' ? 'Not on the sheet.' : 'Stated as fact, but the sheet does not say this.'))}</li>`).join('') + '</ul>'
+      : '<p class="no-flags"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> No lines flagged.</p>';
+
+    $('checklist').innerHTML = POINTS.map(p => {
+      const ok = covered.has(p.id);
+      return `<li class="${ok ? 'ok' : 'miss'}"><i class="fa-solid ${ok ? 'fa-circle-check' : 'fa-circle-minus'}" aria-hidden="true"></i>`
+        + `<span>${esc(p.label)}</span><span class="state">${ok ? 'Covered' : 'Not yet clear'}</span></li>`;
+    }).join('');
+
+    // One short suggestion: the model's if sensible, else the first gap's hint.
+    const firstGap = POINTS.find(p => !covered.has(p.id));
+    let tip = res.suggestion && res.suggestion.length < 260 ? res.suggestion : null;
+    if (!tip) tip = firstGap ? firstGap.hint : 'This report is complete and sticks to the sheet.';
+    if (!firstGap && !located.length) tip = res.suggestion && res.suggestion.length < 260 ? res.suggestion : 'This report is complete and sticks to the sheet.';
+    $('suggest').innerHTML = '<strong>One suggestion</strong>' + esc(tip);
+
+    $('editView').hidden = true;
+    $('resultView').hidden = false;
+    lastSource = source;
+    updateCost();
+    $('resultView').scrollIntoView({ block:'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+
+  // ------------------------------------------------------------------
+  // 7. Submit flow
+  // ------------------------------------------------------------------
+  function kind(msg) { const el = $('kindMsg'); el.textContent = msg; el.hidden = !msg; }
+
+  $('editView').addEventListener('submit', async e => {
+    e.preventDefault();
+    kind('');
+    const fields = { report: $('reportText').value.trim(), action: $('actionText').value.trim() };
+    const words = (fields.report + ' ' + fields.action).trim().split(/\s+/).filter(Boolean).length;
+
+    // Empty / very short: no model call, just a kind nudge.
+    if (words < 8) {
+      lastSource = 'no check run (too short)'; updateCost();
+      kind('There is not quite enough here to check yet. Try a few sentences: when and where it happened, what happened, what was done, and who was told. The notes on the left have all of it.');
+      $('reportText').focus();
+      return;
+    }
+    // A short question or "I don't know" is not a failed attempt: no call, kind reply.
+    if (words < 20 && (/\?\s*$/.test(fields.report) || /^\s*(i don'?t know|idk|not sure|no idea)\b/i.test(fields.report))) {
+      lastSource = 'no check run (question)'; updateCost();
+      kind('That is a fair question to have. You are not expected to know more than the notes say: write what was reported, as plainly as you can, and say "not known" where the notes are silent. Then submit again.');
+      return;
+    }
+
+    $('submitBtn').disabled = true;
+    $('busy').textContent = 'Checking…';
+    let res = await liveCheck(fields);
+    let source = 'live model';
+    if (!res) { res = offlineCheck(fields); source = 'offline stand-in'; }
+    $('submitBtn').disabled = false;
+    $('busy').textContent = '';
+
+    // The model may judge the text as a question / not a report.
+    if (res.attempt === false) {
+      lastSource = source + ' (no report to check)'; updateCost();
+      kind(res.suggestion || 'That does not read as a report yet. Write what was reported, then submit again.');
+      return;
+    }
+    showResult(fields, res, source);
+  });
+
+  $('editBtn').addEventListener('click', () => {
+    $('resultView').hidden = true; $('editView').hidden = false; $('reportText').focus();
+  });
+  $('clearBtn').addEventListener('click', () => {
+    $('reportText').value = ''; $('actionText').value = ''; kind('');
+    $('resultView').hidden = true; $('editView').hidden = false; $('reportText').focus();
+  });
+
+  updateCost();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spot the flaw — Do riff</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<link rel="stylesheet" href="../../../../../assets/fontawesome/css/all.min.css" />
+<style>
+  /* Light Vector-style tokens: accent #0271ce, 4px control radius. */
+  :root{
+    --bg:#f5f7fa; --surface:#fff; --ink:#1d2733; --ink-soft:#4a5766; --ink-faint:#6b7785;
+    --line:#d5dbe3; --accent:#0271ce; --accent-dark:#015aa5; --accent-soft:#e6f1fb;
+    --ok:#1a7f45; --ok-soft:#e7f5ec; --warn:#8a5a00; --warn-soft:#fdf3dc; --bad:#b3261e; --bad-soft:#fbe9e7;
+    --r:4px;
+  }
+  *{ box-sizing:border-box; }
+  [hidden]{ display:none !important; }
+  html,body{ margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; line-height:1.55; }
+  main{ max-width:720px; margin:0 auto; padding:28px 16px 48px; }
+  h1{ font-size:clamp(22px,4vw,28px); margin:0 0 6px; }
+  h2{ font-size:17px; margin:0 0 8px; }
+  p{ margin:0 0 12px; max-width:62ch; }
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-dark); margin:0 0 6px; }
+  .lede{ color:var(--ink-soft); }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r); padding:18px; margin:18px 0; }
+  .step-label{ font-size:13px; color:var(--ink-faint); margin:0 0 6px; }
+
+  /* The written explanation: each sentence is a real button. */
+  .doc{ list-style:none; margin:12px 0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .sent{ width:100%; text-align:left; font:inherit; color:var(--ink); background:var(--bg);
+    border:1px solid var(--line); border-radius:var(--r); padding:10px 12px; cursor:pointer;
+    display:flex; gap:10px; align-items:flex-start; max-width:62ch; }
+  .sent:hover:not(:disabled){ border-color:var(--accent); background:var(--accent-soft); }
+  .sent .n{ flex:0 0 auto; color:var(--ink-faint); font-weight:700; min-width:1.2em; }
+  .sent .tag{ margin-left:auto; flex:0 0 auto; font-size:12.5px; font-weight:700; white-space:nowrap; }
+  .sent.is-miss{ background:var(--bad-soft); border-color:var(--bad); }
+  .sent.is-miss .tag{ color:var(--bad); }
+  .sent.is-hit{ background:var(--ok-soft); border-color:var(--ok); }
+  .sent.is-hit .tag{ color:var(--ok); }
+  .sent.is-reveal{ background:var(--warn-soft); border-color:var(--warn); }
+  .sent.is-reveal .tag{ color:var(--warn); }
+  .sent:disabled{ cursor:default; }
+  :focus-visible{ outline:3px solid var(--accent); outline-offset:2px; }
+  .taps{ font-size:13.5px; color:var(--ink-soft); margin:6px 0 0; }
+  .msg{ font-size:14px; margin:8px 0 0; padding:8px 12px; border-radius:var(--r); max-width:62ch; }
+  .msg.info{ background:var(--accent-soft); }
+  .msg.warn{ background:var(--warn-soft); }
+
+  label{ display:block; font-weight:700; margin-bottom:6px; }
+  input[type=text]{ width:100%; font:inherit; padding:10px 12px; border:1px solid var(--ink-faint); border-radius:var(--r); background:#fff; color:var(--ink); }
+  .row{ display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+  button.btn{ font:inherit; font-weight:700; padding:10px 18px; border-radius:var(--r); cursor:pointer;
+    border:1px solid var(--accent); background:var(--accent); color:#fff; display:inline-flex; gap:8px; align-items:center; }
+  button.btn:hover:not(:disabled){ background:var(--accent-dark); }
+  button.btn.secondary{ background:#fff; color:var(--accent-dark); }
+  button.btn.secondary:hover:not(:disabled){ background:var(--accent-soft); }
+  button.btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* Result */
+  .res-row{ border-top:1px solid var(--line); padding:12px 0; }
+  .res-row:first-of-type{ border-top:0; }
+  .res-k{ font-size:12.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); margin:0 0 4px; }
+  .res-v{ margin:0; max-width:62ch; }
+  .verdict{ display:inline-flex; gap:8px; align-items:center; font-weight:700; padding:4px 10px; border-radius:var(--r); }
+  .verdict.yes{ background:var(--ok-soft); color:var(--ok); }
+  .verdict.partly{ background:var(--warn-soft); color:var(--warn); }
+  .verdict.no{ background:var(--bad-soft); color:var(--bad); }
+  .verdict.none{ background:var(--accent-soft); color:var(--accent-dark); }
+  .fixed{ border-left:4px solid var(--ok); padding:6px 12px; background:var(--ok-soft); border-radius:0 var(--r) var(--r) 0; }
+  .wrong{ border-left:4px solid var(--bad); padding:6px 12px; background:var(--bad-soft); border-radius:0 var(--r) var(--r) 0; }
+
+  .cost{ font-size:13px; color:var(--ink-soft); margin:10px 0 0; }
+  .designer{ margin-top:28px; padding-top:14px; border-top:1px dashed var(--line); font-size:12.5px; color:var(--ink-faint); }
+  .designer p{ max-width:70ch; margin:0 0 6px; }
+  .designer strong{ color:var(--ink-soft); }
+  @media (max-width:480px){ .sent{ flex-wrap:wrap; } .sent .tag{ margin-left:calc(1.2em + 10px); } }
+  @media (prefers-reduced-motion:no-preference){ .card{ animation:fade .25s ease both; } @keyframes fade{ from{opacity:0;transform:translateY(4px);} to{opacity:1;transform:none;} } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> Spot the flaw &middot; about 2 minutes</p>
+  <h1>A colleague wrote this for a new starter.</h1>
+  <p class="lede">Most of it is right. One sentence has a mistake that could get someone hurt. Find it, then say what is wrong and how it should read.</p>
+
+  <section class="card" id="stage1" aria-labelledby="s1h">
+    <p class="step-label">Step 1 of 2 &middot; Tap the sentence you think is wrong</p>
+    <h2 id="s1h"></h2>
+    <ol class="doc" id="doc"></ol>
+    <p class="taps" id="taps" aria-live="polite"></p>
+    <div id="s1msg" aria-live="polite"></div>
+  </section>
+
+  <section class="card" id="stage2" aria-labelledby="s2h" hidden>
+    <p class="step-label">Step 2 of 2 &middot; In your own words</p>
+    <h2 id="s2h">What's wrong with it, and what should it say?</h2>
+    <form id="form" novalidate>
+      <label for="ans">Your answer (one line is fine)</label>
+      <input type="text" id="ans" autocomplete="off" maxlength="300" />
+      <div class="row">
+        <button class="btn" type="submit" id="submit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit</button>
+      </div>
+    </form>
+    <div id="s2msg" aria-live="polite"></div>
+  </section>
+
+  <section class="card" id="result" aria-labelledby="rh" hidden>
+    <h2 id="rh">Result</h2>
+    <div id="resBody"></div>
+  </section>
+
+  <div class="row" style="margin-top:0">
+    <button class="btn secondary" type="button" id="another"><i class="fa-solid fa-shuffle" aria-hidden="true"></i> Try another</button>
+  </div>
+  <p class="cost" id="cost" aria-live="polite"></p>
+
+  <aside class="designer" aria-label="Designer notes">
+    <p><strong>Designer notes (not learner copy).</strong></p>
+    <p><strong>Tests:</strong> whether the learner can tell nearly-right practice from right practice, and can name the hazard and a correct replacement in their own words. Step 1 is rule-graded (2 taps allowed); step 2 carries the real evidence.</p>
+    <p><strong>Cost:</strong> exactly 1 Haiku call per attempt, on Submit only (~150 input and under 250 output tokens). Blank or unsure answers make no call. Use <code>?offline=1</code> to force the keyword stand-in.</p>
+    <p><strong>Scripted vs live:</strong> the three explanations, the tap grading, the corrected sentences and the hazard notes are all authored. Only the judgement of the typed answer is live.</p>
+    <p><strong>A real build would still need:</strong> reviewed content from the subject-matter owner (this wording is stand-in, based on standard practice, not course copy), more than three flaws per topic so retries stay fresh, a stronger fallback than keyword overlap, and result logging.</p>
+  </aside>
+</main>
+
+<script src="../../../scenario-simulator/js/sim-core.js?v=12"></script>
+<script>
+(() => {
+  // ---------- Authored pool. Each item = one explanation with exactly one flawed sentence. ----------
+  // hazardWords / fixWords feed ONLY the offline fallback (keyword overlap).
+  // `rule` is the correct practice handed to the model so it never has to invent one.
+  const POOL = [
+    {
+      id: 'press-down',
+      title: 'Using a sharps container: a note for a new starter',
+      sentences: [
+        "Put the sharps container where you will use it, so you can reach it without walking across the room.",
+        "Keep it at a height where you can see the opening clearly.",
+        "Drop each needle in straight after use, sharp end first.",
+        "If the container is getting full, gently press the contents down to make room for a few more.",
+        "Never reach into the container, and keep your fingers away from the opening.",
+        "Once the contents reach the fill line, close and lock the lid and swap in a new container.",
+        "Report any container that is cracked or damaged to your supervisor."
+      ],
+      flaw: 3,
+      hazard: "Pressing the contents down can push sharps through the opening or the container wall, or make them spring back, so hands get stuck. Sharps containers must never be pressed or compacted.",
+      rule: "Never press or push down the contents. When the contents reach the fill line, close and lock the container and replace it.",
+      fixed: "If the container is getting full, do not press the contents down. Close and lock it at the fill line and replace it.",
+      hazardWords: ['press','push','force','compress','compact','squash','jam','cram','pack','poke','protrud','puncture','prick','injur','pierce','spring'],
+      fixWords: ['fill line','replace','new container','swap','change the container','seal','close','lock']
+    },
+    {
+      id: 'empty-it',
+      title: 'When a sharps container fills up: a note for a new starter',
+      sentences: [
+        "A sharps container only protects you if it is replaced before it overfills.",
+        "Look for the fill line printed on the side of the container.",
+        "Once the contents reach the fill line, stop adding to it.",
+        "Close and lock the lid, then empty it into a larger bin so the container can be reused.",
+        "Put a new container in the same spot straight away so there is no gap in coverage.",
+        "Send the closed container for disposal the way your workplace procedure says.",
+        "If you find an overfull container, tell someone rather than leaving it for the next person."
+      ],
+      flaw: 3,
+      hazard: "Emptying a sharps container means handling loose sharps, which is exactly the exposure the container exists to prevent. A full container is closed and disposed of as it is, never emptied or reused.",
+      rule: "Never empty or reuse a sharps container. Close and lock it when it reaches the fill line and send the whole closed container for disposal.",
+      fixed: "Close and lock the lid, then send the whole container for disposal. Never empty it.",
+      hazardWords: ['empty','larger bin','bigger bin','decant','tip','pour','reach in','spill','loose','exposed','prick','injur','stick','reuse','reused','re-use','handle the sharps','handling'],
+      fixWords: ['whole','sealed','closed','intact','dispose','disposal','collection','collect','as it is','as is','replace']
+    },
+    {
+      id: 'recap',
+      title: 'Handling a used needle: a note for a new starter',
+      sentences: [
+        "Before you start the task, decide where the needle will go and have the container within reach.",
+        "Keep your free hand well away from the needle while you work.",
+        "If you need to carry a used needle even a short way, you can recap it one-handed so it is safe.",
+        "Never bend or break a needle.",
+        "Put the whole device in the sharps container straight after use, at the point of use.",
+        "Never leave a used needle on a bench, a tray or in a pocket to deal with later.",
+        "If you get a needlestick, wash the area with soap and water and report it immediately."
+      ],
+      flaw: 2,
+      hazard: "Recapping puts a hand close to the needle point, and even one-handed it risks a stab. Used needles are not recapped; they go straight into the container at the point of use, so nothing needs carrying.",
+      rule: "Never recap a used needle, one-handed or otherwise. Dispose of it at the point of use, straight after use.",
+      fixed: "Do not recap a used needle. Put it straight into the sharps container at the point of use.",
+      hazardWords: ['recap','cap','one-handed','one handed','needlestick','needle stick','stab','stick','prick','injur','pierce','slip','miss'],
+      fixWords: ['container','straight away','straight after','immediately','dispose','do not recap',"don't recap",'never recap','not recap','no recap','point of use','sharps bin','as soon as']
+    }
+  ];
+
+  // ---------- Config ----------
+  // MAX_TAPS = 2. With 7 sentences, unlimited taps would turn step 1 into
+  // elimination guessing, so it would prove nothing. Two lets a learner recover
+  // from one slip. A blind guess still succeeds about 2 in 7 times, which is why
+  // step 2 (their own words) is where the real evidence comes from.
+  const MAX_TAPS = 2;
+  const OFFLINE = /[?&]offline=1/.test(location.search);
+
+  // ---------- State ----------
+  const $ = id => document.getElementById(id);
+  let item = null, lastId = null;
+  let taps = [];          // sentence indexes tapped, in order
+  let stage1 = null;      // 'first' | 'second' | 'missed'
+  let calls = 0;
+  let lastSource = '';
+  let submitted = false;
+
+  function pickItem() {
+    const choices = POOL.filter(p => p.id !== lastId);
+    return choices[Math.floor(Math.random() * choices.length)];
+  }
+
+  // ---------- Step 1 ----------
+  function startAttempt() {
+    item = pickItem(); lastId = item.id;
+    taps = []; stage1 = null; submitted = false;
+    $('s1h').textContent = item.title;
+    $('stage2').hidden = true; $('result').hidden = true;
+    $('s1msg').innerHTML = ''; $('s2msg').innerHTML = '';
+    $('ans').value = ''; $('ans').disabled = false; $('submit').disabled = false;
+    const doc = $('doc'); doc.innerHTML = '';
+    item.sentences.forEach((s, i) => {
+      const li = document.createElement('li');
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'sent'; b.dataset.i = i;
+      b.innerHTML = '<span class="n"></span><span class="txt"></span><span class="tag"></span>';
+      b.querySelector('.n').textContent = (i + 1) + '.';
+      b.querySelector('.txt').textContent = s;
+      b.addEventListener('click', () => tap(i));
+      li.appendChild(b); doc.appendChild(li);
+    });
+    updateTaps(); updateCost(false);
+  }
+
+  function btn(i) { return $('doc').querySelector('button[data-i="' + i + '"]'); }
+  function mark(i, cls, label, icon) {
+    const b = btn(i); b.classList.add(cls); b.disabled = true;
+    b.querySelector('.tag').innerHTML = '<i class="fa-solid ' + icon + '" aria-hidden="true"></i> ' + label;
+  }
+  function lockAll() { $('doc').querySelectorAll('button').forEach(b => b.disabled = true); }
+  function updateTaps() {
+    const left = MAX_TAPS - taps.length;
+    $('taps').textContent = stage1 ? '' : 'Taps left: ' + left + ' of ' + MAX_TAPS + '.';
+  }
+
+  function tap(i) {
+    if (stage1) return;
+    taps.push(i);
+    if (i === item.flaw) {
+      stage1 = taps.length === 1 ? 'first' : 'second';
+      mark(i, 'is-hit', 'Found it', 'fa-circle-check');
+      lockAll(); updateTaps();
+      $('s1msg').innerHTML = '<p class="msg info"></p>';
+      $('s1msg').firstChild.textContent = 'That is the sentence. Now say what is wrong with it.';
+      openStage2();
+    } else {
+      mark(i, 'is-miss', 'Not this one', 'fa-circle-xmark');
+      if (taps.length >= MAX_TAPS) {
+        stage1 = 'missed';
+        mark(item.flaw, 'is-reveal', 'The flawed sentence', 'fa-flag');
+        lockAll(); updateTaps();
+        $('s1msg').innerHTML = '<p class="msg warn"></p>';
+        $('s1msg').firstChild.textContent = 'Out of taps, so the flawed sentence is marked for you. This step will show as missed. You can still explain it below.';
+        openStage2();
+      } else {
+        updateTaps();
+        $('s1msg').innerHTML = '<p class="msg warn"></p>';
+        $('s1msg').firstChild.textContent = 'Not that one. You have ' + (MAX_TAPS - taps.length) + ' tap left, so read carefully.';
+      }
+    }
+  }
+
+  function openStage2() { $('stage2').hidden = false; $('ans').focus({ preventScroll: false }); }
+
+  // ---------- Answer classification (no model call) ----------
+  // Blank / "idk" / a bare question is not a failed attempt: respond kindly,
+  // spend nothing. Blank or "idk" reveals the answer; a question just waits.
+  function classify(t) {
+    const s = t.trim().toLowerCase().replace(/[.!]+$/g, '');
+    if (!s) return 'blank';
+    if (/^(idk|i don'?t know( why| what)?|dunno|no idea|not sure|i'?m not sure|\?+|pass|skip)$/.test(s)) return 'unsure';
+    if (s.endsWith('?') && s.split(/\s+/).length < 9) return 'question';
+    return 'attempt';
+  }
+
+  // ---------- Offline stand-in grader: keyword overlap ----------
+  function hasWord(t, w) { return w.length <= 3 ? new RegExp('\\b' + w + '\\b').test(t) : t.includes(w); }
+  function localGrade(text) {
+    const t = text.toLowerCase();
+    const h = item.hazardWords.some(w => hasWord(t, w));
+    const f = item.fixWords.some(w => hasWord(t, w));
+    if (h && f) return { named: 'yes', note: 'You named the hazard and gave a sound replacement.' };
+    if (h) return { named: 'partly', note: 'You spotted the hazard, but the replacement was not spelled out.' };
+    if (f) return { named: 'partly', note: 'Your replacement points the right way, but the hazard itself was not named.' };
+    return { named: 'no', note: 'That does not match the hazard here. Compare it with the explanation below.' };
+  }
+
+  // ---------- The ONE live model call ----------
+  function systemPrompt() {
+    return 'You check one short learner answer in a workplace safety exercise. The learner was shown one flawed sentence from a note for a new starter and asked what is wrong with it and what it should say. '
+      + 'Judge ONLY against the facts below. Never invent a rule, and never credit something that is merely implied but not written.\n\n'
+      + 'FLAWED SENTENCE: ' + item.sentences[item.flaw] + '\n'
+      + 'THE REAL FLAW: ' + item.hazard + '\n'
+      + 'CORRECT PRACTICE: ' + item.rule + '\n\n'
+      + 'Decide: did the learner name the actual hazard (not just say it is wrong, unsafe or incorrect)? Did they give a correct replacement? '
+      + '"yes" = hazard named AND a correct replacement given. "partly" = only one of the two. "no" = neither. '
+      + 'Write ONE short, kind sentence (under 25 words) for the learner, in plain language, saying what they got and, if something is missing, the single thing to add. Do not scold. '
+      + 'Return ONLY this JSON, nothing else: {"named":"yes|partly|no","note":"one short sentence"}';
+  }
+
+  async function grade(text) {
+    if (!OFFLINE && window.SimCore && SimCore.WORKER_URL && typeof SimCore.callModel === 'function') {
+      try {
+        calls++; updateCost(false);
+        const raw = await SimCore.callModel({
+          system: systemPrompt(),
+          messages: [{ role: 'user', content: 'Learner answer:\n' + text }],
+          maxTokens: 200,
+          model: SimCore.MODELS.FAST
+        });
+        const p = SimCore.parseJson(raw);
+        const named = String(p.named || '').toLowerCase();
+        const note = typeof p.note === 'string' ? p.note.trim() : '';
+        if (['yes', 'partly', 'no'].includes(named) && note) return { named, note, source: 'live' };
+      } catch (e) { /* fall through to the offline stand-in */ }
+    }
+    return Object.assign(localGrade(text), { source: 'offline' });
+  }
+
+  // ---------- Submit ----------
+  $('form').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (submitted) return;
+    const text = $('ans').value;
+    const kind = classify(text);
+    const m = $('s2msg');
+    if (kind === 'question') {
+      m.innerHTML = '<p class="msg info"></p>';
+      m.firstChild.textContent = 'Good question. Re-read the flagged sentence and ask what could go wrong if a new starter followed it exactly. Then write what you would change.';
+      return;
+    }
+    submitted = true; $('submit').disabled = true; $('ans').disabled = true;
+    m.innerHTML = '';
+    if (kind === 'blank' || kind === 'unsure') {
+      lastSource = 'No model call (answer left blank or unsure)';
+      showResult(text.trim(), { named: 'none', note: 'No problem. Not knowing is fine here. The explanation below shows what to look for, and Try another gives you a fresh one.' });
+      return;
+    }
+    $('submit').innerHTML = '<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Checking';
+    const g = await grade(text.trim());
+    $('submit').innerHTML = '<i class="fa-solid fa-paper-plane" aria-hidden="true"></i> Submit';
+    lastSource = g.source === 'live' ? 'Last result: live model (Haiku)' : (OFFLINE ? 'Last result: offline stand-in (forced by ?offline=1)' : 'Last result: offline stand-in (live model unavailable)');
+    showResult(text.trim(), g);
+  });
+
+  // ---------- Result ----------
+  const VERDICT = {
+    yes:    { cls: 'yes',    icon: 'fa-circle-check',   label: 'Hazard named and fixed' },
+    partly: { cls: 'partly', icon: 'fa-circle-half-stroke', label: 'Partly there' },
+    no:     { cls: 'no',     icon: 'fa-circle-xmark',   label: 'Not yet' },
+    none:   { cls: 'none',   icon: 'fa-circle-info',    label: 'No answer given' }
+  };
+  function row(k, v, cls) {
+    const d = document.createElement('div'); d.className = 'res-row';
+    const kk = document.createElement('p'); kk.className = 'res-k'; kk.textContent = k;
+    const vv = document.createElement('p'); vv.className = 'res-v' + (cls ? ' ' + cls : ''); vv.textContent = v;
+    d.appendChild(kk); d.appendChild(vv); return d;
+  }
+  function showResult(userText, g) {
+    const body = $('resBody'); body.innerHTML = '';
+    const v = VERDICT[g.named];
+
+    // Step 1 status, stated honestly.
+    const s1 = stage1 === 'first' ? 'Found on the first tap.'
+      : stage1 === 'second' ? 'Found on the second tap, after one miss.'
+      : 'Missed. Both taps landed elsewhere, so the flawed sentence was marked for you.';
+    body.appendChild(row('Step 1 · Finding the sentence', s1));
+
+    // Sentence(s) they flagged.
+    const flagged = taps.length ? taps.map(i => (i + 1) + '. ' + item.sentences[i]) : [];
+    const flagTxt = stage1 === 'missed'
+      ? 'You tapped: ' + flagged.join('  |  ')
+      : (stage1 === 'second' ? 'You tapped ' + flagged.join('  then  ') : flagged[0]);
+    body.appendChild(row('Sentence you flagged', flagTxt, stage1 === 'missed' ? '' : 'wrong'));
+
+    body.appendChild(row('The flawed sentence was', (item.flaw + 1) + '. ' + item.sentences[item.flaw], 'wrong'));
+    body.appendChild(row('What is actually wrong', item.hazard));
+    body.appendChild(row('How it should read', item.fixed, 'fixed'));
+    if (userText) body.appendChild(row('Your answer', userText));
+
+    const d = document.createElement('div'); d.className = 'res-row';
+    const k = document.createElement('p'); k.className = 'res-k'; k.textContent = 'Step 2 · Your explanation';
+    const vd = document.createElement('p'); vd.className = 'res-v';
+    vd.innerHTML = '<span class="verdict ' + v.cls + '"><i class="fa-solid ' + v.icon + '" aria-hidden="true"></i> ' + v.label + '</span>';
+    const note = document.createElement('p'); note.className = 'res-v'; note.style.marginTop = '8px'; note.textContent = g.note;
+    d.appendChild(k); d.appendChild(vd); d.appendChild(note); body.appendChild(d);
+
+    $('result').hidden = false;
+    $('result').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+    updateCost(true);
+  }
+
+  // ---------- Cost footer ----------
+  function updateCost(show) {
+    $('cost').textContent = 'Model calls this run: ' + calls + (show && lastSource ? '. ' + lastSource + '.' : (lastSource ? '. ' + lastSource + '.' : '.'));
+  }
+
+  $('another').addEventListener('click', () => { startAttempt(); window.scrollTo({ top: 0 }); });
+  startAttempt();
+})();
+</script>
+</body>
+</html>
