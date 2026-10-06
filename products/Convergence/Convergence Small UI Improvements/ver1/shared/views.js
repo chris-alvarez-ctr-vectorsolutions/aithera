@@ -285,7 +285,7 @@ function renderCatalog() {
         <span class="cat-name">${esc(c.name)}</span>
         <span class="cat-name-sub">${esc(c.code)}</span>
       </td>
-      <td>${c.isNew ? '<span class="pill pill-new no-dot">New</span>' : '<span style="color:var(--c-faint)">-</span>'}</td>
+      <td>${c.isNew ? '<span class="pill pill-new no-dot">New</span>' : '<span class="col-empty" style="color:var(--c-meta)">-</span>'}</td>
       <td class="c-nowrap">${esc(c.author)}</td>
       <td class="c-mid">${c.mobile
         ? '<span class="glyph glyph-yes" title="Available on mobile"><i class="fa-solid fa-check"></i></span>'
