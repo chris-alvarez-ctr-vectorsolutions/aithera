@@ -8,6 +8,11 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 
 - **Entry point:** a dedicated **Quick Fill** button on the "Choose employee(s)" label row, right-aligned to where the input box ends. It's a real button, not a dropdown option, so it's obvious.
 - **Desktop vs mobile:** desktop opens the Qualified Personnel **side panel** beside the modal; mobile opens it as a **pop-up** instead. A physical button makes it easy to give the two their own experiences.
+- **Responsive breakpoints (built into the mock; resize the browser to see them):**
+  - **≥1141px:** the panel docks beside the modal and narrows fluidly from 560px to 400px.
+  - **761–1140px:** not enough room beside the modal, so the panel becomes a right-side drawer over a dimmed page.
+  - **≤760px:** the modal goes full screen in one column, and Quick Fill opens a bottom-sheet pop-up (92% of the screen height, with a grab handle). Tapping Fill closes the sheet so the chosen person shows in the form.
+  - **Closing the overlay:** in drawer and sheet modes, tapping the dimmed background or pressing Esc closes it.
 
 ## panel
 
@@ -16,6 +21,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 - **Position removed:** the old "Position N" line was carried over from an earlier mock and isn't needed.
 - **Compact rows:** one short row per person (rank, name + phone, rule data, Fill). The rule's data point sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
 - **Rule-specific data:** each card shows only the data point the current rule ranks on, not every factor for every rule type.
+- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · 3/14/2011"). Only tied rows show it. Michael: "the tiebreaker has value". Production's callback list shows it the same way.
 
 ## rule
 
