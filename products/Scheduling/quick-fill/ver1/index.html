@@ -234,7 +234,13 @@
   .qp-name { font-size: 15px; line-height: 19px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .qp-auto { flex: none; padding: 1px 7px; border-radius: 9px; background: #dff0d8; color: #3c763d; font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
   /* Phone + auto-accept tag share line 2 so the full name always gets its own line */
-  .qp-line2 { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 8px; margin-top: 1px; }
+  /* Line 1: name + auto-accept tag (tag wraps under the name when narrow, so names never truncate) */
+  .qp-line1 { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; }
+  .qp-line1 .qp-name { max-width: 100%; }
+  /* Line 2: phone + hire date — hire date shows on every card, for every rule */
+  .qp-line2 { display: flex; align-items: center; flex-wrap: wrap; gap: 1px 8px; margin-top: 1px; }
+  .qp-hired { font-size: 12px; color: #777; white-space: nowrap; }
+  .qp-hired b { font-weight: 600; color: #555; }
   .qp-phone { font-size: 12px; color: #777; font-family: ui-monospace, Menlo, monospace; }
   /* Rule metric — ONLY the data point the current rule ranks on, so the card
      changes with the rule type instead of showing every factor every time. */
@@ -328,6 +334,7 @@
     .qp-list { padding: 8px 10px 12px; }
     .qp-card { gap: 10px; padding: 9px 9px 9px 10px; }
     .qp-metric { width: 88px; padding-left: 10px; }
+    .qp-metric .tie { white-space: normal; }   /* "tie · sen. 3/14/2011" wraps instead of running into Fill */
     .qp-fill { min-width: 56px; padding: 9px 10px; }
     .qp-excl-h .sum { display: none; }
     .qp-excl-row { flex-wrap: wrap; row-gap: 3px; }
@@ -501,16 +508,17 @@
   // '2011-03-14' → '3/14/2011' (production list format)
   const fmtDate = d => { const [y, m, dd] = d.split('-'); return +m + '/' + +dd + '/' + y; };
   // Full names — rank numbers sometimes live in the first OR last name, so
-  // schedulers need to see both.
+  // schedulers need to see both. `hired` shows on every card; `sen` (seniority
+  // date) is the tiebreaker — usually the hire date, but not always (rehires).
   const PEOPLE = [
-    { name: 'Dominic Ferraro', phone: '(408) 555-0142', auto: true,  ot: 12.5, sen: '2011-03-14', rot: 4, turns: 2, acc: 14 },
-    { name: 'Marcus Okonjo',   phone: '(408) 555-0198', auto: false, ot: 12.5, sen: '2016-07-02', rot: 1, turns: 3, acc: 6 },
-    { name: 'Sarah Whitaker',  phone: '(408) 555-0177', auto: true,  ot: 18.0, sen: '2009-01-20', rot: 7, turns: 1, acc: 24 },
-    { name: 'Jens Halvorsen',  phone: '(408) 555-0106', auto: false, ot: 22.5, sen: '2019-05-11', rot: 9, turns: 4, acc: 0 },
-    { name: 'Paulina Nowak',   phone: '(408) 555-0231', auto: true,  ot: 22.5, sen: '2013-09-30', rot: 2, turns: 2, acc: 12 },
-    { name: 'Tyler Arceneaux', phone: '(408) 555-0165', auto: false, ot: 31.5, sen: '2021-02-08', rot: 6, turns: 5, acc: 18 },
-    { name: 'Vera Lindqvist',  phone: '(408) 555-0119', auto: false, ot: 34.0, sen: '2007-11-05', rot: 3, turns: 1, acc: 8 },
-    { name: 'Henry Bramble',   phone: '(408) 555-0288', auto: true,  ot: 40.0, sen: '2018-04-17', rot: 8, turns: 3, acc: 20 }
+    { name: 'Dominic Ferraro', phone: '(408) 555-0142', auto: true,  ot: 12.5, hired: '2011-03-14', sen: '2011-03-14', rot: 4, turns: 2, acc: 14 },
+    { name: 'Marcus Okonjo',   phone: '(408) 555-0198', auto: false, ot: 12.5, hired: '2014-02-10', sen: '2016-07-02', rot: 1, turns: 3, acc: 6 },
+    { name: 'Sarah Whitaker',  phone: '(408) 555-0177', auto: true,  ot: 18.0, hired: '2009-01-20', sen: '2009-01-20', rot: 7, turns: 1, acc: 24 },
+    { name: 'Jens Halvorsen',  phone: '(408) 555-0106', auto: false, ot: 22.5, hired: '2017-08-21', sen: '2019-05-11', rot: 9, turns: 4, acc: 0 },
+    { name: 'Paulina Nowak',   phone: '(408) 555-0231', auto: true,  ot: 22.5, hired: '2013-09-30', sen: '2013-09-30', rot: 2, turns: 2, acc: 12 },
+    { name: 'Tyler Arceneaux', phone: '(408) 555-0165', auto: false, ot: 31.5, hired: '2021-02-08', sen: '2021-02-08', rot: 6, turns: 5, acc: 18 },
+    { name: 'Vera Lindqvist',  phone: '(408) 555-0119', auto: false, ot: 34.0, hired: '2007-11-05', sen: '2007-11-05', rot: 3, turns: 1, acc: 8 },
+    { name: 'Henry Bramble',   phone: '(408) 555-0288', auto: true,  ot: 40.0, hired: '2018-04-17', sen: '2018-04-17', rot: 8, turns: 3, acc: 20 }
   ];
   // How many of PEOPLE each approach admits.
   const POOL_SIZE = { a1: 8, a2: 6, a3: 5, a4: 8 };
@@ -618,15 +626,18 @@
       <div class="qp-card${i === 0 ? ' top' : ''}${filled ? ' filled' : ''}">
         <div class="qp-rank">${i + 1}</div>
         <div class="qp-body">
-          <div class="qp-name" title="${p.name}">${p.name}</div>
+          <div class="qp-line1">
+            <span class="qp-name" title="${p.name}">${p.name}</span>
+            ${p.auto ? '<span class="qp-auto">AUTO-ACCEPT</span>' : ''}
+          </div>
           <div class="qp-line2">
             <span class="qp-phone">${p.phone}</span>
-            ${p.auto ? '<span class="qp-auto">AUTO-ACCEPT</span>' : ''}
+            <span class="qp-hired">Hired <b>${fmtDate(p.hired)}</b></span>
           </div>
         </div>
         <div class="qp-metric">
           <span class="l">${m.label}</span><span class="v">${m.value(p)}</span>
-          ${tied ? `<span class="tie" title="Tied — broken by seniority date">tie · ${fmtDate(p.sen)}</span>` : ''}
+          ${tied ? `<span class="tie" title="Tied — broken by seniority date">tie · sen. ${fmtDate(p.sen)}</span>` : ''}
         </div>
         <button class="qp-fill" data-action="fill" data-name="${p.name}">${filled ? '✓ Filled' : 'Fill'}</button>
       </div>`;
