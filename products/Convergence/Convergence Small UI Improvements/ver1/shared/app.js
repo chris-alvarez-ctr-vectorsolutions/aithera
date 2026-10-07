@@ -13,6 +13,7 @@ const PAGE_FILES = {
   training: 'training-plan.html',
   catalog:  'catalog.html',
   wizard:   'content-wizard.html',
+  insights: 'dashboard.html?view=insights',
 };
 
 const state = {
@@ -25,7 +26,7 @@ const state = {
   allCollapsed: false,           // filter-panel toggle: collapse/expand all
   filterOpen: false,
   navOpen: new Set(['training']),
-  navActive: 'dashboard',
+  navActive: 'dashboard',   // set per route by NAV_FOR_ROUTE in go()
   viewBy: 'qual',
   location: HOME_LOC,
   wizard: { step: 1, method: null, type: null, repo: null, displayName: '' },
@@ -44,16 +45,8 @@ function renderNav(filter = '') {
   const q = filter.trim().toLowerCase();
   list.innerHTML = '';
 
-  NAV.forEach(node => {
-    if (node.section) {
-      if (q) return;
-      const h = document.createElement('div');
-      h.className = 'sn-section';
-      h.textContent = node.section;
-      list.appendChild(h);
-      return;
-    }
-
+  const nav = NAV_SETS[ROUTES[state.route].mode] || NAV_ADMIN;
+  nav.forEach(node => {
     const kids = (node.children || []).map(c => typeof c === 'string' ? { label: c } : c);
     const hits = q ? kids.filter(c => c.label.toLowerCase().includes(q)) : kids;
     const selfHit = !q || node.label.toLowerCase().includes(q);
@@ -200,16 +193,23 @@ function applyLocation(id) {
 /* ===========================================================================
    ROUTING + CHROME
    ======================================================================== */
+/* Every route belongs to one top-nav tab and shows that tab's side nav (mode).
+   Learner pages open with the nav as the 58px icon rail (dense content);
+   Insights and admin pages open it expanded. A manual toggle sticks until the
+   next navigation. */
 const ROUTES = {
-  home:     { tab:'home',       title:'Dashboard',                crumbs:['Home'],                               sidenav:true,  actions:'home', navCollapsed:true },
-  guide:    { tab:'admin',      title:'Administration dashboard', crumbs:['Administration'],                     sidenav:true,  actions:'guide' },
-  training: { tab:'training',   title:'My training',              crumbs:['Training'],                           sidenav:false, actions:'training' },
-  catalog:  { tab:'catalog',    title:'Catalog',                  crumbs:['Catalog'],                            sidenav:false, actions:'catalog' },
-  wizard:   { tab:'admin',      title:'Content Wizard',           crumbs:['Administration','Training Import And Creation'], sidenav:true, actions:'wizard' },
+  home:     { tab:'home',     mode:'learner',  title:'Dashboard',                crumbs:['Home'],           sidenav:true, actions:'home',     navCollapsed:true },
+  training: { tab:'training', mode:'learner',  title:'My training',              crumbs:['Training'],       sidenav:true, actions:'training', navCollapsed:true },
+  catalog:  { tab:'catalog',  mode:'learner',  title:'Catalog',                  crumbs:['Catalog'],        sidenav:true, actions:'catalog',  navCollapsed:true },
   /* Drill-in from My training. virtual: it is a sub-page of the training
      route, so on a standalone page it never navigates to a sibling file. */
-  details:  { tab:'training',   title:'Details',                  crumbs:['Training'],                           sidenav:false, actions:'details', virtual:true },
+  details:  { tab:'training', mode:'learner',  title:'Details',                  crumbs:['Training'],       sidenav:true, actions:'details',  navCollapsed:true, virtual:true },
+  insights: { tab:'insights', mode:'insights', title:'Insights',                 crumbs:['Insights'],       sidenav:true, actions:'guide' },
+  guide:    { tab:'admin',    mode:'admin',    title:'Administration dashboard', crumbs:['Administration'], sidenav:true, actions:'guide' },
+  wizard:   { tab:'admin',    mode:'admin',    title:'Content wizard',           crumbs:['Administration','Training import and creation'], sidenav:true, actions:'wizard' },
 };
+/* Which side-nav item each route lights up. */
+const NAV_FOR_ROUTE = { home:'l-dashboard', training:'l-training', details:'l-training', catalog:'l-catalog', insights:'', guide:'dashboard', wizard:'ti-content' };
 
 function renderCrumbs() {
   const r = ROUTES[state.route];
@@ -257,8 +257,7 @@ function closeDetails() {
 }
 
 function go(route, arg) {
-  if (route === 'insights') route = 'guide';
-  if (route === 'admin') route = 'wizard';
+  if (route === 'admin') route = 'guide';   // the Administration tab lands on its dashboard
 
   // On a standalone page, leaving this route means opening the sibling file.
   if (PAGE.standalone && route !== PAGE.route && !(ROUTES[route] && ROUTES[route].virtual)) {
@@ -274,11 +273,12 @@ function go(route, arg) {
   flashLoading(route === 'details' ? 'details' : r.title);
 
   $$('.tab').forEach(t => {
-    const active = t.dataset.route === r.tab || (r.tab === 'admin' && t.dataset.route === 'admin');
+    const active = t.dataset.route === r.tab;
     t.classList.toggle('active', active);
     if (active) t.setAttribute('aria-current', 'page'); else t.removeAttribute('aria-current');
   });
   $('#sidenav').hidden = !r.sidenav;
+  $('#sidenav').setAttribute('aria-label', { learner: 'Learner', insights: 'Insights', admin: 'Administration' }[r.mode]);
   /* Each route sets how wide the nav starts. Home shows the icon rail (the
      legacy page shows only the menu affordance); admin pages show it open.
      A manual toggle sticks until the next navigation. */
@@ -286,9 +286,8 @@ function go(route, arg) {
   $$('.action-group').forEach(g => g.classList.toggle('active', g.dataset.for === r.actions));
   $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + (route === 'wizard' ? 'wizard' : route)));
 
-  if (route === 'home')   state.navActive = 'dashboard';
-  if (route === 'guide')  state.navActive = '';   // the review guide is not a product page
-  if (route === 'wizard') { state.navActive = 'ti-content'; state.navOpen.add('training'); }
+  state.navActive = NAV_FOR_ROUTE[route] || '';
+  if (route === 'wizard') state.navOpen.add('training');
   renderNav($('#navSearch').value);
   renderCrumbs();
 
@@ -446,7 +445,9 @@ function boot() {
   $('#detailsClose').addEventListener('click', closeDetails);
 
   const params = new URLSearchParams(location.search);
-  go(state.route, params.get('view') || undefined);
+  // The Insights tab shares the admin page file: ?view=insights opens it there.
+  if (params.get('view') === 'insights' && PAGE.route === 'guide') { state.route = 'insights'; PAGE.route = 'insights'; }
+  go(state.route, state.route === 'insights' ? undefined : (params.get('view') || undefined));
 
   // Deep link straight into a detail page: ?details=qual:q-nhs / req:r-loto / act:a4
   const dl = params.get('details');

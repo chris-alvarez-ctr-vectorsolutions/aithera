@@ -22,7 +22,8 @@ const SPECS = {
     ['Page header', 'min 72px · title 22/600 · crumb 14'],
     ['Side nav width', '250px open · 56px rail (V4 shell)'],
     ['Nav logo area', '80px · tenant mark 32 · round chevron 24 on the right edge'],
-    ['Nav rows', '13/500 · pad 8 16 · child 13/400 at 44px · section 11/600 + hairline'],
+    ['Side nav per tab', 'names as design-system nav V4: Home/Training/Catalog = learner nav (10 items) · Insights = 3 report groups · Administration = admin tree'],
+    ['Nav rows', '13/500 · pad 8 16 · child 13/400 at 44px · no section headers'],
     ['Nav selected', '3px left border --c-primary + --c-primary-soft · weight 600'],
     ['Nav icon column', '18px · 15px glyph · label clamp 2'],
     ['Location panel', '380px · radius 12 · --e-3'],
@@ -258,6 +259,17 @@ const SPECS = {
         </div>
 
         <!-- ===================== REVIEW GUIDE ===================== -->
+        <!-- Insights: no screens in scope; the tab exists so its side nav can be reviewed -->
+        <section class="view" id="view-insights">
+          <div class="view-scroll">
+            <div class="empty">
+              <span class="empty-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
+              <p class="empty-title">Insights is outside this prototype</p>
+              <p class="empty-text">The side nav lists the report groups the product has; the reports themselves are not part of the seven areas.</p>
+            </div>
+          </div>
+        </section>
+
         <section class="view" id="view-guide">
           <div class="view-scroll">
             <div class="guide">
@@ -271,7 +283,7 @@ const SPECS = {
               <div class="guide-grid">
                 <div class="panel guide-card">
                   <div class="guide-top"><span class="guide-num">1</span><h3>Side navigation</h3></div>
-                  <p>The design system sidebar EHS already ships, as in the navigation exploration's V4: an 80px tenant-logo area with the round collapse chevron on the sidebar's edge, 13px rows at weight 500 that go to 600 with a 3px left bar when selected, children at a 44px indent, hairline section headers, and a 56px icon-only collapsed state that keeps the current section lit.</p>
+                  <p>The design system sidebar EHS already ships, as in the navigation exploration's V4: an 80px tenant-logo area with the round collapse chevron on the sidebar's edge, 13px rows at weight 500 that go to 600 with a 3px left bar when selected, children at a 44px indent, one side nav per top-nav tab with the item names of the design-system nav V4, and a 56px icon-only collapsed state that keeps the current section lit.</p>
                   <div><vaadin-button theme="tertiary" class="btn-compact" onclick="collapseDemo()">Toggle collapsed state</vaadin-button></div>
                 </div>
                 <div class="panel guide-card">
