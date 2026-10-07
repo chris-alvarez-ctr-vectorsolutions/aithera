@@ -20,10 +20,11 @@ const SPECS = {
     ['--c-faint', 'decorative glyphs + placeholders only, never text'],
     ['Top nav height', '60px (--h-topnav)'],
     ['Page header', 'min 72px · title 22/600 · crumb 14'],
-    ['Side nav width', '268px open · 58px rail'],
-    ['Nav rows', 'min 44px parent · 38px child · radius 6'],
-    ['Nav selected', '3px left rail + --c-primary-soft'],
-    ['Nav icon column', '20px · 15px glyph · label clamp 2'],
+    ['Side nav width', '250px open · 56px rail (V4 shell)'],
+    ['Nav logo area', '80px · tenant mark 32 · round chevron 24 on the right edge'],
+    ['Nav rows', '13/500 · pad 8 16 · child 13/400 at 44px · section 11/600 + hairline'],
+    ['Nav selected', '3px left border --c-primary + --c-primary-soft · weight 600'],
+    ['Nav icon column', '18px · 15px glyph · label clamp 2'],
     ['Location panel', '380px · radius 12 · --e-3'],
     ['Fin launcher', '30x30 · radius 15 0 0 15 · gutter 40px'],
     ['Search box', 'clamp(280px, 24vw, 440px) · 36px tall · clamp(180px, 18vw, 260px) under 1400px'],
@@ -159,12 +160,20 @@ const SPECS = {
 
     <!-- ======================= AREA 1 - SIDE NAV ======================= -->
     <aside class="sidenav" id="sidenav" aria-label="Administration">
-      <div class="sn-head">
-        <button class="icon-btn" id="navCollapse" title="Collapse navigation" aria-label="Collapse navigation" aria-expanded="true"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
-        <div class="sn-search">
-          <i class="fa-solid fa-magnifying-glass"></i>
-          <input type="text" id="navSearch" placeholder="Search navigation" aria-label="Search navigation">
+      <!-- V4 shell (the design system sidebar EHS ships): an 80px tenant-logo
+           area with the round collapse chevron on the sidebar's right edge. The
+           chevron is the only open/close control; it rotates when collapsed. -->
+      <div class="sn-top">
+        <div class="sn-logo">
+          <span class="tenant-logo"><span class="tenant-mark" aria-hidden="true">U</span><span class="tenant-logo-text">UAT Environment</span></span>
         </div>
+        <button class="sn-collapse" id="navCollapse" title="Collapse navigation" aria-label="Collapse navigation" aria-expanded="true"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+      </div>
+      <!-- The nav search keeps its job (it filters the list) under the logo area;
+           it hides with the labels when the sidebar collapses. -->
+      <div class="sn-search">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input type="text" id="navSearch" placeholder="Search navigation" aria-label="Search navigation">
       </div>
       <div class="sn-list" id="navList"></div>
     </aside>
@@ -262,7 +271,7 @@ const SPECS = {
               <div class="guide-grid">
                 <div class="panel guide-card">
                   <div class="guide-top"><span class="guide-num">1</span><h3>Side navigation</h3></div>
-                  <p>Heavy row dividers removed, 40px rows, one selection language at every depth, carets tied to their labels, normalised icons and light section headers. The collapsed icon-only state is preserved.</p>
+                  <p>The design system sidebar EHS already ships, as in the navigation exploration's V4: an 80px tenant-logo area with the round collapse chevron on the sidebar's edge, 13px rows at weight 500 that go to 600 with a 3px left bar when selected, children at a 44px indent, hairline section headers, and a 56px icon-only collapsed state that keeps the current section lit.</p>
                   <div><vaadin-button theme="tertiary" class="btn-compact" onclick="collapseDemo()">Toggle collapsed state</vaadin-button></div>
                 </div>
                 <div class="panel guide-card">

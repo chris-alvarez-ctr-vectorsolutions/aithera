@@ -1,6 +1,15 @@
 > author: Design
 
 ## nav - Chrome and side nav (Areas 1 + 2)
+> date: 2026-10-07
+- **V4 shell applied to the side nav:** the side nav now follows the design system sidebar EHS already ships (the navigation exploration's V4, `products/design-system/navigation/v4-design-system.html`). This supersedes the earlier Area 1 bullets below on row height, width, the collapse button and the children's guide line.
+- **Width:** 250px open, 56px collapsed (`--w-sidenav`, `--w-sidenav-min`).
+- **Logo area:** 80px tenant-logo area at the top (32px mark + name, EHS's `.tenant-logo` pattern); only the mark shows when collapsed. Tenant branding source is a logic item.
+- **Collapse control:** a 24px round chevron on the sidebar's right edge, vertically centred on the logo area (`.sn-collapse`, `right: -12px`), the only open/close control; it rotates 180 degrees when collapsed. The sidebar itself must not clip (`overflow: visible`); the list and the logo area clip their own contents.
+- **Rows:** 13px / 500, padding 8 16, 10px gap, 18px icon column, no radius; selected = 3px left border `--c-primary` + `--c-primary-soft` fill + 600. Children: 13px / 400 at a 44px indent, no guide line, selected at 500. Section headers 11 / 600 with a hairline and 20px lead above (first one without).
+- **Collapsed:** icons centred in 56px; the parent of the current page keeps the fill and the bar lit.
+- **Kept from the Small UI rounds:** the nav search (now under the logo area, hidden when collapsed), two-line label wrap, right-aligned carets, the trail state, the off-canvas behaviour below 900px.
+> date: 2026-07-30
 - Area 1: no row dividers. Separation is 40px rows + 2px gaps + 6px radius + hover fill, not borders.
 - Area 1: ONE selection language at every depth: 3px blue left rail + `--c-primary-soft` fill + blue label + blue icon. Replaces the two unrelated treatments (bright blue Dashboard vs dark navy expanded parent).
 - Area 1: expansion is communicated by the caret and the child group only. A parent holding the selected child gets the quieter "trail" state (darker label, blue icon, no fill).
