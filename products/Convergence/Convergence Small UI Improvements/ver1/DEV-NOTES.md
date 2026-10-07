@@ -215,6 +215,9 @@
 - View all sets the category and opens the table view; deep link the views with ?view=cards or ?view=table on catalog.html.
 - Category data is illustrative (the reference's Driver Safety / Emergency Procedures / First Aid / Qualifications rows); the existing seven Safety items are unchanged and remain the Safety category.
 
+## Colour reference for developers
+- `ver1/COLOR-CHANGES.md` is the consolidated list of every colour value and what changed from legacy, grouped by surface, text, badges, controls, banners, thumbnails and elevation, each with its measured WCAG ratio and the Vector token to prefer. Hand that file to the developer; this section holds the audit history behind it.
+
 ## Accessibility (round 4 audit, re-run round 16)
 - Round 16 full re-audit (every visible text node on all ten screens, backgrounds composited up the ancestor chain): 21 failures found and fixed, now 0. Two root causes: (1) `--c-primary` #0271ce on the soft fill `#e8f2fc` is 4.36 and on the canvas 4.13, so a new `--c-primary-ink` #0266bb (5.12 / 4.85) is used for primary TEXT on tinted grounds: Beta tag, kind chips, guide numbers, selected nav rows and children, selected View-by items, catalog View all. `--c-primary` is unchanged for buttons, icons and links on white (4.93). (2) `--c-faint` #98a2b3 was used for text in six places (empty-cell dashes, inert nav children, token-sheet captions, "No description provided", the attachment paperclip); all moved to `--c-meta`. `--c-faint` is now reserved for decorative glyphs and input placeholders.
 - Round 17 non-text contrast: custom controls whose only boundary is a border (search fields, segmented toggles, bordered icon buttons, carousel arrows) use `--c-control-line` #7d8798, 3:1 on every ground. Table hairlines keep `--c-line`; they are separators, not component boundaries.

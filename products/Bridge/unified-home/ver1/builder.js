@@ -31,13 +31,12 @@
   var MODULES = [
     { id: 'kpis', name: 'Key metrics', desc: 'Incident rate, open corrective actions, overdue training, expiring qualifications.', src: ['ehs', 'ct'] },
     { id: 'recs', name: 'Recommended actions', desc: 'Cross-product recommendations ranked by severity.', src: ['ehs', 'ct'] },
-    { id: 'custom', name: 'Your modules', desc: 'Comparisons you construct from either product’s data.', src: ['ehs', 'ct'] },
     { id: 'compare', name: 'Facility comparison', desc: 'Incident rate next to training compliance, one row per facility.', src: ['ehs', 'ct'] },
     { id: 'row4', name: 'Assigned to me and Compliance calendar', desc: 'Your tasks from both products and the shared calendar.', src: ['ehs', 'ct'] },
     { id: 'audit', name: 'OSHA audit readiness', desc: 'Injury logs and the related training records in one packet.', src: ['ehs', 'ct'] }
   ];
   function mod(id) { for (var i = 0; i < MODULES.length; i++) if (MODULES[i].id === id) return MODULES[i]; return null; }
-  var DEFAULT_ORDER = ['kpis', 'recs', 'custom', 'compare', 'row4', 'audit'];
+  var DEFAULT_ORDER = ['kpis', 'recs', 'compare', 'row4', 'audit'];
 
   /* ── Metric catalog ────────────────────────────────────────────────────── */
   var METRICS = [
@@ -142,91 +141,163 @@
   function body(spec) { switch (spec.viz) { case 'trend': return vizTrend(spec); case 'scatter': return spec.b ? vizScatter(spec) : vizBars(spec); case 'kpi': return vizKpi(spec); case 'table': return vizTable(spec); default: return vizBars(spec); } }
   function title(spec) { return spec.title || (metric(spec.a).label + (spec.b ? ' vs ' + metric(spec.b).label : '') + ', ' + scopeLabel(spec.scope)); }
   function sources(spec) { var s = [metric(spec.a).src]; if (spec.b && s.indexOf(metric(spec.b).src) < 0) s.push(metric(spec.b).src); return s; }
-  function rowsFor(spec) { return spec.viz === 'kpi' ? 3 : spec.viz === 'trend' ? 5 : 6; }
   function vizAllowed(spec) { return spec.b ? ['trend', 'bars', 'scatter', 'kpi', 'table'] : ['trend', 'bars', 'kpi', 'table']; }
 
-  /* ── State ─────────────────────────────────────────────────────────────── */
-  var seq = 10;
-  function W(spec) { spec.id = 'c' + (seq++); spec.w = spec.w || 6; return spec; }
-  var S, ui = {}, dlgKey = 0, A = null;
-  function fresh() { return { view: 'home', order: DEFAULT_ORDER.slice(), hidden: {}, menu: null, widgets: [W({ scope: 'plant4', a: 'incidents', b: 'completions', viz: 'trend', w: 8 }), W({ scope: 'all', a: 'trir', b: 'compliance', viz: 'kpi', w: 4 })] }; }
-  S = fresh();
+  /* ── Build a module from a description ─────────────────────────────────
+     Ported from the Readiness Hub's Agency Intelligence panel: the typed
+     sentence is matched against the example comparisons first (keyword
+     overlap >= 2, Keystone's intent match), otherwise a keyword parser reads
+     the location, one or two metrics and the chart type. The interpretation
+     is read back in the thread so the user can adjust before adding. */
+  var STOP = ['the', 'and', 'a', 'in', 'on', 'to', 'is', 'of', 'how', 'what', 'where', 'when', 'do', 'does', 'with', 'for', 'are', 'by', 'an', 'at', 'its', 'my', 'me', 'show', 'compare', 'vs', 'versus'];
+  function norm(s) { return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(function (w) { return w && STOP.indexOf(w) === -1; }); }
+  function keywordOverlap(a, b) { var sb = norm(b); return norm(a).filter(function (w) { return sb.indexOf(w) !== -1; }).length; }
+  var FAC_WORDS = { plant4: ['plant 4', 'riverside'], plant2: ['plant 2', 'columbus'], dceast: ['dc east', 'allentown'], plant1: ['plant 1', 'tulsa'], plant7: ['plant 7', 'greenville'], dcwest: ['dc west', 'reno'] };
+  var METRIC_WORDS = [
+    ['near_miss', ['near miss', 'near-miss', 'close call']], ['trir', ['incident rate', 'trir', 'rate of incident']], ['incidents', ['incident', 'injur', 'safety trend', 'safety']],
+    ['observations', ['observation']], ['open_ca', ['corrective', 'action']], ['inspections', ['inspection', 'audit']],
+    ['overdue', ['overdue', 'past due', 'late training', 'lapsed']], ['compliance', ['compliance', 'compliant']], ['completions', ['completion', 'completed', 'training data', 'training']], ['quals', ['qualification', 'certif', 'expir']]
+  ];
+  function describeToSpec(text) {
+    var hit = SUGGESTIONS.filter(function (s) { return keywordOverlap(text, s.label + ' ' + s.hint) >= 2; })[0];
+    if (hit) return Object.assign({ via: 'example' }, hit.spec);
+    var t = text.toLowerCase(), scope = 'all';
+    Object.keys(FAC_WORDS).forEach(function (id) { FAC_WORDS[id].forEach(function (w) { if (t.indexOf(w) > -1) scope = id; }); });
+    var found = [];
+    METRIC_WORDS.forEach(function (pair) { if (pair[1].some(function (w) { return t.indexOf(w) > -1; }) && found.indexOf(pair[0]) < 0) found.push(pair[0]); });
+    if (found.indexOf('incidents') > -1 && found.indexOf('trir') > -1) found.splice(found.indexOf('incidents'), 1);
+    var a = found[0] || (t.indexOf('training') > -1 ? 'completions' : 'incidents'), b = found[1] || null;
+    if (!b && /\b(compare|vs|versus|against|with|and)\b/.test(t)) b = metric(a).src === 'ehs' ? 'completions' : 'incidents';
+    var viz = /trend|over time|week|month|history/.test(t) ? 'trend' : /scatter|correlat|relationship/.test(t) ? (b ? 'scatter' : 'bars') : /table|list|rows/.test(t) ? 'table' : /number|total|how many|kpi/.test(t) ? 'kpi' : (b && scope !== 'all' ? 'trend' : 'bars');
+    return { via: 'parsed', scope: scope, a: a, b: b, viz: viz, w: viz === 'kpi' ? 4 : viz === 'trend' ? 8 : 6 };
+  }
+  function readBack(spec) { return '**' + metric(spec.a).label + '**' + (spec.b ? ' compared with **' + metric(spec.b).label + '**' : '') + ' for **' + scopeLabel(spec.scope) + '**, shown as ' + VIZ[spec.viz][0].toLowerCase() + '.'; }
+  function bold(text) { return String(text).split('**').map(function (p, i) { return i % 2 ? '<strong>' + esc(p) + '</strong>' : esc(p); }).join(''); }
+  function thinkingHtml(label) { return '<div class="ai-turn"><div class="ai-bubble ai-thinking"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><em>' + esc(label || 'Reading your data…') + '</em></div></div>'; }
 
-  /* ── Custom modules section ────────────────────────────────────────────── */
-  function cardHtml(spec, editable) {
-    var menu = S.menu === spec.id ? '<div class="dw-menu"><button type="button" data-cedit="' + spec.id + '">Edit module</button><div class="dw-menu-l">Width</div>' + [[4, 'Third'], [6, 'Half'], [8, 'Two thirds'], [12, 'Full width']].map(function (s) { return '<button type="button" data-csize="' + s[0] + '" data-cid="' + spec.id + '">' + s[1] + ((spec.w || 6) === s[0] ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : '') + '</button>'; }).join('') + '<div class="dw-menu-d"></div><button type="button" class="danger" data-cremove="' + spec.id + '">Remove module</button></div>' : '';
-    return '<article class="dw-card' + (editable ? ' is-editable' : '') + '" data-cid="' + spec.id + '" style="grid-column:span ' + (spec.w || 6) + ';grid-row:span ' + rowsFor(spec) + '" tabindex="0"><div class="dw-head">' + (editable ? '<span class="dw-grip" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span>' : '') + '<span class="dw-ic"><i class="fa-regular ' + (spec.b ? 'fa-arrow-right-arrow-left' : metric(spec.a).icon) + '" aria-hidden="true"></i></span><span class="dw-title" title="' + esc(title(spec)) + '">' + esc(title(spec)) + '</span><span class="dw-srcs">' + sources(spec).map(function (s) { return srcChip(s); }).join('') + '</span>' + (editable ? '<span class="dw-kebab-wrap"><button type="button" class="dw-kebab" data-cmenu="' + spec.id + '" aria-label="Module options"><i class="fa-regular fa-ellipsis-vertical" aria-hidden="true"></i></button>' + menu + '</span>' : '') + '</div><div class="dw-body">' + body(spec) + '</div></article>';
+  /* ── State ─────────────────────────────────────────────────────────────── */
+  /* The dashboard IS the user's modules: standard modules (kpis, recs, …) and
+     reporting modules they built ('w:<id>') share one order. */
+  var seq = 10;
+  function W(spec) { spec.id = 'c' + (seq++); return spec; }
+  var S, ui = {}, dlgKey = 0, A = null;
+  function fresh() {
+    var w = [W({ scope: 'plant4', a: 'incidents', b: 'completions', viz: 'trend' }), W({ scope: 'all', a: 'trir', b: 'compliance', viz: 'kpi' })];
+    return { view: 'home', order: ['kpis', 'recs', 'w:' + w[0].id, 'compare', 'w:' + w[1].id, 'row4', 'audit'], hidden: {}, menu: null, widgets: w };
+  }
+  S = fresh();
+  function widget(id) { return S.widgets.filter(function (x) { return x.id === id; })[0]; }
+  function modMeta(id) {
+    if (id.indexOf('w:') === 0) { var w = widget(id.slice(2)); return w ? { id: id, name: title(w), desc: (w.b ? 'Comparison' : 'Report') + ' you built, ' + VIZ[w.viz][0].toLowerCase() + '.', src: sources(w), custom: true } : null; }
+    return mod(id);
+  }
+
+  /* ── Reporting modules the user built: each is a page-level module ─────── */
+  function customHtml(w) {
+    var menu = S.menu === w.id ? '<div class="dw-menu"><button type="button" data-cedit="' + w.id + '">Edit module</button><button type="button" data-cmove="up" data-cid="' + w.id + '">Move up</button><button type="button" data-cmove="down" data-cid="' + w.id + '">Move down</button><div class="dw-menu-d"></div><button type="button" class="danger" data-cremove="' + w.id + '">Remove from dashboard</button></div>' : '';
+    return '<div class="module-head"><div><h2><span class="dw-ic"><i class="fa-regular ' + (w.b ? 'fa-arrow-right-arrow-left' : metric(w.a).icon) + '" aria-hidden="true"></i></span>' + esc(title(w)) + '</h2><p class="sub">' + (w.b ? 'Comparison you built' : 'Report you built') + ', ' + VIZ[w.viz][0].toLowerCase() + '. Follows the date range and location above.</p></div>' +
+      '<div class="head-tools"><span class="dw-srcs">' + sources(w).map(function (s) { return srcChip(s, PRODUCT[s].label); }).join('') + '</span><span class="dw-kebab-wrap"><button type="button" class="dw-kebab" data-cmenu="' + w.id + '" aria-label="Module options"><i class="fa-regular fa-ellipsis-vertical" aria-hidden="true"></i></button>' + menu + '</span></div></div>' +
+      '<div class="module-body cm-body cm-' + w.viz + '">' + body(w) + '</div>';
   }
   function renderCustom() {
-    var host = ui.custom; if (!host) return;
-    var editing = S.view === 'build';
-    host.innerHTML = '<div class="module-head"><div><h2>Your modules <span class="count">' + S.widgets.length + '</span></h2><p class="sub">Comparisons you built from Convergence and Vector EHS data.' + (editing ? '' : ' Change them in Settings, Build your dashboard.') + '</p></div>' + (editing ? '<div class="head-tools"><vaadin-button theme="secondary small" data-act="bld-add">Add module</vaadin-button></div>' : '') + '</div>' +
-      '<div class="dw-grid cw-grid">' + S.widgets.map(function (w) { return cardHtml(w, editing); }).join('') + (editing ? '<button type="button" class="dw-add" data-act="bld-add"><span class="dw-add-mark"><i class="fa-regular fa-plus" aria-hidden="true"></i></span><span class="dw-add-t">Add module</span><span class="dw-add-s">Pick a metric from either product, compare it with another, and choose how to show it.</span></button>' : '') + '</div>' +
-      (!S.widgets.length && !editing ? '<div class="empty" style="margin:0 20px 20px"><i class="fa-regular fa-table-cells-large" aria-hidden="true" style="color:var(--lumo-primary-color)"></i><h3>No modules yet</h3><p>Build comparisons like safety trends against training data for one facility.</p><vaadin-button theme="secondary small" data-act="bld-open">Build your dashboard</vaadin-button></div>' : '');
-    host.hidden = !!S.hidden.custom && !editing;
+    var page = ui.page; if (!page) return;
+    S.widgets.forEach(function (w) {
+      var el = document.getElementById('cm-' + w.id);
+      if (!el) { el = document.createElement('section'); el.className = 'module card cm'; el.id = 'cm-' + w.id; el.setAttribute('aria-label', title(w)); page.appendChild(el); }
+      el.innerHTML = customHtml(w);
+    });
+    $$('.module.cm', page).forEach(function (el) { if (!widget(el.id.slice(3))) el.remove(); });
+  }
+  function previewCard(spec) {
+    return '<article class="dw-card" style="min-height:240px"><div class="dw-head"><span class="dw-ic"><i class="fa-regular ' + (spec.b ? 'fa-arrow-right-arrow-left' : metric(spec.a).icon) + '" aria-hidden="true"></i></span><span class="dw-title">' + esc(title(spec)) + '</span><span class="dw-srcs">' + sources(spec).map(function (s) { return srcChip(s); }).join('') + '</span></div><div class="dw-body">' + body(spec) + '</div></article>';
   }
 
   /* ── Layout: order + hidden, plus the edit chrome ──────────────────────── */
-  function moduleEl(id) { return id === 'row4' ? $('#main .page-inner .row4') : $('#' + id); }
+  function moduleEl(id) { return id === 'row4' ? $('#main .page-inner .row4') : id.indexOf('w:') === 0 ? document.getElementById('cm-' + id.slice(2)) : document.getElementById(id); }
   function applyLayout() {
     var page = ui.page; if (!page) return;
     var editing = S.view === 'build';
-    S.order.forEach(function (id) { var el = moduleEl(id); if (!el) return; page.appendChild(el); el.hidden = !!S.hidden[id] && !editing; if (editing) el.classList.add('is-editing'); else el.classList.remove('is-editing'); el.classList.toggle('is-hidden-mod', !!S.hidden[id]); });
+    S.order = S.order.filter(function (id) { return !!modMeta(id); });
+    S.widgets.forEach(function (w) { if (S.order.indexOf('w:' + w.id) < 0) S.order.push('w:' + w.id); });
+    S.order.forEach(function (id) { var el = moduleEl(id); if (!el) return; page.appendChild(el); el.hidden = !!S.hidden[id] && !editing; el.classList.toggle('is-editing', editing); el.classList.toggle('is-hidden-mod', !!S.hidden[id]); });
     $$('.mod-chrome', page).forEach(function (c) { c.remove(); });
     if (editing) {
       S.order.forEach(function (id, i) {
-        var el = moduleEl(id), m = mod(id); if (!el) return;
+        var el = moduleEl(id), m = modMeta(id); if (!el || !m) return;
         var c = document.createElement('div'); c.className = 'mod-chrome';
         c.innerHTML = '<span class="dw-grip" aria-hidden="true"><i class="fa-solid fa-grip-vertical"></i></span><span class="mod-name">' + esc(m.name) + '</span><span class="dw-srcs">' + m.src.map(function (s) { return srcChip(s); }).join('') + '</span><span class="mod-desc">' + esc(m.desc) + '</span><span class="mod-tools"><vaadin-button theme="icon small" aria-label="Move up" data-act="bld-up" data-id="' + id + '"' + (i === 0 ? ' disabled' : '') + '><i class="fa-regular fa-arrow-up" aria-hidden="true"></i></vaadin-button><vaadin-button theme="icon small" aria-label="Move down" data-act="bld-down" data-id="' + id + '"' + (i === S.order.length - 1 ? ' disabled' : '') + '><i class="fa-regular fa-arrow-down" aria-hidden="true"></i></vaadin-button><label class="mod-switch"><span>' + (S.hidden[id] ? 'Hidden' : 'Shown') + '</span><vwc-switch data-act="bld-toggle" data-id="' + id + '" accessible-name="Show ' + esc(m.name) + '"' + (S.hidden[id] ? '' : ' checked') + '></vwc-switch></label></span>';
         el.insertBefore(c, el.firstChild);
       });
     }
-    var bar = ui.buildBar; if (bar) bar.hidden = !editing;
+    if (ui.buildBar) ui.buildBar.hidden = !editing;
     document.body.classList.toggle('is-building', editing);
   }
+  function move(id, dir) { var i = S.order.indexOf(id), j = dir === 'up' ? i - 1 : i + 1; if (i < 0 || j < 0 || j >= S.order.length) return; var t = S.order[i]; S.order[i] = S.order[j]; S.order[j] = t; applyLayout(); var el = moduleEl(id); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
 
   /* ── Settings page ─────────────────────────────────────────────────────── */
   function renderSettings() {
     var shown = S.order.filter(function (id) { return !S.hidden[id]; }).length;
     ui.settings.innerHTML = '<div class="dw-page"><div class="dw-page-head"><div><h1>Settings</h1><p>Your preferences for Vector Bridge. Product-level settings stay in each product.</p></div></div>' +
-      '<div class="st-grid"><section class="card st-card st-hero"><div class="st-ic"><i class="fa-regular fa-table-cells-large" aria-hidden="true"></i></div><div class="st-body"><h2>Home dashboard</h2><p>Your home page is a dashboard you can build: turn the standard modules on or off, put them in the order you work in, and add your own comparisons from either product’s data.</p><p class="st-meta"><span>' + shown + ' of ' + S.order.length + ' modules shown</span><span class="dot"></span><span>' + S.widgets.length + ' of your own</span><span class="dot"></span><span>Last changed today</span></p></div><div class="st-actions"><vaadin-button theme="primary" data-act="bld-open"><i class="fa-regular fa-pen-ruler" aria-hidden="true" style="margin-right:8px"></i>Build your dashboard</vaadin-button><vaadin-button theme="tertiary" data-act="bld-reset">Reset to default</vaadin-button></div></section>' +
+      '<div class="st-grid"><section class="card st-card st-hero"><div class="st-ic"><i class="fa-regular fa-table-cells-large" aria-hidden="true"></i></div><div class="st-body"><h2>Home dashboard</h2><p>Your home page is made of modules: the standard ones and the reports you build. Arrange them here, or add modules from the home page.</p><p class="st-meta"><span>' + shown + ' of ' + S.order.length + ' modules shown</span><span class="dot"></span><span>' + S.widgets.length + ' you built</span><span class="dot"></span><span>Last changed today</span></p></div><div class="st-actions"><vaadin-button theme="primary" data-act="bld-open"><i class="fa-regular fa-pen-ruler" aria-hidden="true" style="margin-right:8px"></i>Arrange your dashboard</vaadin-button><vaadin-button theme="tertiary" data-act="bld-reset">Reset to default</vaadin-button></div></section>' +
       [['fa-bell', 'Notifications', 'Which recommendations, tasks and deadlines reach you by email and in the app.'], ['fa-arrows-rotate', 'Data sync', 'When Convergence and Vector EHS data refresh, and who gets sync failure alerts.'], ['fa-sliders', 'Recommendation rules', 'Thresholds that create recommendations, like the near-miss cluster rule.'], ['fa-user', 'Profile', 'Name, email, job title and side nav text size.']].map(function (r) { return '<button type="button" class="card st-card st-row" data-act="bld-setting" data-name="' + esc(r[1]) + '"><span class="st-ic small"><i class="fa-regular ' + r[0] + '" aria-hidden="true"></i></span><span class="st-body"><h2>' + esc(r[1]) + '</h2><p>' + esc(r[2]) + '</p></span><i class="fa-regular fa-chevron-right st-chev" aria-hidden="true"></i></button>'; }).join('') + '</div></div>';
   }
 
-  /* ── Add / edit module dialog ──────────────────────────────────────────── */
-  function openAdd(existing) {
-    A = existing ? { id: existing.id, scope: existing.scope, a: existing.a, b: existing.b, viz: existing.viz, w: existing.w } : { id: null, scope: 'all', a: null, b: null, viz: 'bars', w: 6 };
+  /* ── Add module dialog: Existing modules | Create a new module ─────────── */
+  var TRY = ['Compare safety trends at Plant 4 with its training data', 'Near misses against overdue training at DC East, by department', 'Incident rate vs training compliance across all facilities', 'Open corrective actions by facility as a table'];
+  function openAdd(opts) {
+    opts = opts || {};
+    var existing = opts.edit ? widget(opts.edit) : null;
+    A = existing ? { id: existing.id, scope: existing.scope, a: existing.a, b: existing.b, viz: existing.viz, tab: 'create', thread: [] }
+                 : { id: null, scope: 'all', a: null, b: null, viz: 'bars', tab: opts.tab || 'existing', q: opts.q || '', thread: [], thinking: false };
     openDialog(ui.addDlg, function (root) {
-      root.innerHTML = '<div class="dw-dlg wide"><div class="dw-dlg-head"><span class="dw-dlg-ic"><i class="fa-regular fa-chart-mixed" aria-hidden="true"></i></span><div><h2>' + (A.id ? 'Edit module' : 'Add a module') + '</h2><p>Choose where, pick a metric from either product, compare it with another if you like, then choose how to show it.</p></div><vaadin-button theme="icon" aria-label="Close" data-act="dlg-close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></vaadin-button></div><div class="dw-dlg-body" id="bldAddBody"></div></div>';
+      root.innerHTML = '<div class="dw-dlg wide"><div class="dw-dlg-head"><span class="dw-dlg-ic"><i class="fa-regular fa-table-cells-large" aria-hidden="true"></i></span><div><h2>' + (A.id ? 'Edit module' : 'Add a module') + '</h2><p>' + (A.id ? 'Change what this module shows.' : 'Bring back a module you hid, or create a new reporting module from either product’s data.') + '</p></div><vaadin-button theme="icon" aria-label="Close" data-act="dlg-close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></vaadin-button></div>' +
+        (A.id ? '' : '<div class="dw-tabs" role="tablist"><button type="button" role="tab" data-act="tab" data-tab="existing" aria-selected="' + (A.tab === 'existing') + '"><i class="fa-regular fa-layer-group" aria-hidden="true"></i>Existing modules</button><button type="button" role="tab" data-act="tab" data-tab="create" aria-selected="' + (A.tab === 'create') + '"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>Create a new module</button></div>') +
+        '<div class="dw-dlg-body-host" id="bldAddBody"></div></div>';
       draw(root);
+      root.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.closest && e.target.closest('#bldDescribe')) { e.preventDefault(); var go = $('[data-act="describe-go"]', root); if (go) go.click(); } });
       root.addEventListener('click', function (e) {
         var b = e.target.closest('[data-act]'); if (!b) return;
         var act = b.dataset.act;
         if (act === 'dlg-close') ui.addDlg.opened = false;
+        if (act === 'tab') { A.tab = b.dataset.tab; draw(root); }
+        if (act === 'ex-toggle') { var id = b.dataset.id; S.hidden[id] = !S.hidden[id]; applyLayout(); draw(root); App.toast(S.hidden[id] ? 'Module hidden' : 'Module added back', modMeta(id).name + (S.hidden[id] ? ' is off your dashboard.' : ' is on your dashboard.')); }
+        if (act === 'ex-remove') { var wid = b.dataset.id; var idx = S.widgets.map(function (x) { return x.id; }).indexOf(wid), gone = S.widgets.splice(idx, 1)[0]; S.order = S.order.filter(function (x) { return x !== 'w:' + wid; }); renderCustom(); applyLayout(); draw(root); App.toast('Module removed', title(gone), { label: 'Undo', run: function () { S.widgets.splice(idx, 0, gone); renderCustom(); applyLayout(); } }); }
+        if (act === 'try') { A.q = b.dataset.q; $('[data-act="describe-go"]', root).click(); }
+        if (act === 'describe-go') { var q = ($('#bldDescribe', root) || {}).value || A.q; q = (q || '').trim(); if (!q) { $('#bldDescribe', root).focus(); return; } A.q = q; A.thread = [{ role: 'user', text: q }]; A.thinking = true; draw(root); setTimeout(function () { var sp = describeToSpec(q); A.scope = sp.scope; A.a = sp.a; A.b = sp.b; A.viz = sp.viz; A.thinking = false; A.thread.push({ role: 'assistant', text: 'Read as ' + readBack(sp) + (sp.via === 'example' ? ' That matches one of the examples.' : '') + ' It is built below; adjust anything, or add it to your dashboard.' }); draw(root); }, 620); }
         if (act === 'pick-a') { A.a = b.dataset.id; if (A.b === A.a) A.b = null; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; draw(root); }
         if (act === 'pick-b') { A.b = b.dataset.id === 'none' ? null : b.dataset.id; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; draw(root); }
         if (act === 'pick-viz') { A.viz = b.dataset.v; draw(root); }
-        if (act === 'pick-sugg') { var sg = SUGGESTIONS[Number(b.dataset.i)].spec; A.scope = sg.scope; A.a = sg.a; A.b = sg.b; A.viz = sg.viz; A.w = sg.w; draw(root); }
         if (act === 'add-confirm') {
-          var spec = { scope: A.scope, a: A.a, b: A.b, viz: A.viz, w: A.w || (A.viz === 'kpi' ? 4 : A.viz === 'trend' ? 8 : 6) };
-          if (A.id) { var i = S.widgets.map(function (x) { return x.id; }).indexOf(A.id); spec.id = A.id; S.widgets[i] = spec; } else { S.widgets.push(W(spec)); }
-          ui.addDlg.opened = false; renderCustom(); App.toast(A.id ? 'Module updated' : 'Module added', title(spec) + (A.id ? '' : ' is on your home page.'));
+          var spec = { scope: A.scope, a: A.a, b: A.b, viz: A.viz };
+          if (A.id) { var i = S.widgets.map(function (x) { return x.id; }).indexOf(A.id); spec.id = A.id; S.widgets[i] = spec; } else { S.widgets.push(W(spec)); var kpiAt = S.order.indexOf('kpis'); S.order.splice(kpiAt + 1, 0, 'w:' + spec.id); }
+          ui.addDlg.opened = false; renderCustom(); applyLayout();
+          var el = document.getElementById('cm-' + spec.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          App.toast(A.id ? 'Module updated' : 'Module added to your dashboard', title(spec) + (A.id ? '' : ' sits under Key metrics. Move it from Settings or its menu.'));
         }
       });
     });
   }
   function draw(root) {
     var bodyEl = $('#bldAddBody', root);
-    var scopeSel = '<vaadin-select theme="outlined" id="bldScope" label="Where" style="width:100%"></vaadin-select>';
+    if (A.tab === 'existing' && !A.id) {
+      var hiddenIds = S.order.filter(function (id) { return S.hidden[id]; });
+      bodyEl.innerHTML = '<div class="dw-dlg-body col"><p class="field-hint" style="margin:0">' + (hiddenIds.length ? hiddenIds.length + ' module' + (hiddenIds.length === 1 ? ' is' : 's are') + ' off your dashboard. Switch one on to add it back.' : 'Every module is on your dashboard. Switch one off to hide it, or create a new one.') + '</p><ul class="ex-list">' +
+        S.order.map(function (id) { var m = modMeta(id); if (!m) return ''; var on = !S.hidden[id]; return '<li class="ex-row' + (on ? '' : ' is-off') + '"><span class="st-ic small"><i class="fa-regular ' + (m.custom ? 'fa-chart-mixed' : { kpis: 'fa-hashtag', recs: 'fa-lightbulb', compare: 'fa-table', row4: 'fa-calendar-check', audit: 'fa-file-shield' }[id]) + '" aria-hidden="true"></i></span><span class="ex-main"><b>' + esc(m.name) + '</b><small>' + esc(m.desc) + '</small></span><span class="dw-srcs">' + m.src.map(function (s) { return srcChip(s); }).join('') + '</span>' + (m.custom ? '<vaadin-button theme="tertiary small" data-act="ex-remove" data-id="' + id.slice(2) + '">Remove</vaadin-button>' : '') + '<label class="mod-switch"><span>' + (on ? 'On' : 'Off') + '</span><vwc-switch data-act="ex-toggle-sw" data-id="' + id + '" accessible-name="Show ' + esc(m.name) + '"' + (on ? ' checked' : '') + '></vwc-switch></label></li>'; }).join('') + '</ul>' +
+        '<div class="dw-dlg-foot"><vaadin-button theme="tertiary" data-act="dlg-close">Done</vaadin-button><vaadin-button theme="primary" data-act="tab" data-tab="create"><i class="fa-regular fa-plus" aria-hidden="true" style="margin-right:8px"></i>Create a new module</vaadin-button></div></div>';
+      return;
+    }
     function list(act, cur, allowNone, excl) {
       var out = allowNone ? '<button type="button" class="dw-mrow' + (cur == null ? ' is-on' : '') + '" data-act="' + act + '" data-id="none"><span class="dw-ic"><i class="fa-regular fa-ban" aria-hidden="true"></i></span><span>Nothing<small>Show one metric on its own</small></span></button>' : '';
       [['ehs', 'Vector EHS'], ['ct', 'Convergence']].forEach(function (g) { out += '<div class="dw-cat">' + srcChip(g[0], g[1]) + '</div>' + METRICS.filter(function (m) { return m.src === g[0] && m.id !== excl; }).map(function (m) { return '<button type="button" class="dw-mrow' + (cur === m.id ? ' is-on' : '') + '" data-act="' + act + '" data-id="' + m.id + '"><span class="dw-ic"><i class="fa-regular ' + m.icon + '" aria-hidden="true"></i></span><span>' + esc(m.label) + '</span></button>'; }).join(''); });
       return out;
     }
-    var left = '<div class="dw-step"><span class="n">1</span>Where</div>' + scopeSel + '<div class="dw-step"><span class="n">2</span>Metric</div>' + list('pick-a', A.a, false, null) + (A.a ? '<div class="dw-step"><span class="n">3</span>Compare with</div>' + list('pick-b', A.b, true, A.a) : '');
-    var right = !A.a ? '<div class="dw-step"><span class="n">0</span>Start from a comparison</div><div class="bld-sugg">' + SUGGESTIONS.map(function (s, i) { return '<button type="button" class="dw-mrow pair" data-act="pick-sugg" data-i="' + i + '"><span class="dw-ic"><i class="fa-regular fa-arrow-right-arrow-left" aria-hidden="true"></i></span><span>' + esc(s.label) + '<small>' + esc(s.hint) + '</small></span></button>'; }).join('') + '</div><div class="dw-prev-empty"><i class="fa-regular fa-chart-bar" aria-hidden="true"></i><b>Or build it yourself</b><span>Pick where, then a metric on the left.</span></div>'
-      : '<div class="dw-step"><span class="n">4</span>Show as</div><div class="dw-vizchips">' + vizAllowed(A).map(function (v) { return '<button type="button" class="dw-chip' + (A.viz === v ? ' is-on' : '') + '" data-act="pick-viz" data-v="' + v + '"><i class="fa-regular ' + VIZ[v][1] + '" aria-hidden="true"></i>' + VIZ[v][0] + '</button>'; }).join('') + '</div><div class="dw-step"><span class="n">5</span>Preview</div><div class="dw-grid preview cw-grid">' + cardHtml({ id: 'prev', scope: A.scope, a: A.a, b: A.b, viz: A.viz, w: 12 }, false) + '</div><p class="field-hint">' + (A.scope === 'all' ? 'Breaks down by facility.' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '.') + ' Follows the home page’s date range.</p><div class="dw-dlg-foot"><vaadin-button theme="tertiary" data-act="dlg-close">Cancel</vaadin-button><vaadin-button theme="primary" data-act="add-confirm">' + (A.id ? 'Save module' : 'Add to my home') + '</vaadin-button></div>';
-    bodyEl.innerHTML = '<div class="dw-add-l">' + left + '</div><div class="dw-add-r">' + right + '</div>';
+    var left = '<div class="dw-step"><span class="n">1</span>Where</div><vaadin-select theme="outlined" id="bldScope" label="Where" style="width:100%"></vaadin-select><div class="dw-step"><span class="n">2</span>Metric</div>' + list('pick-a', A.a, false, null) + (A.a ? '<div class="dw-step"><span class="n">3</span>Compare with</div>' + list('pick-b', A.b, true, A.a) : '');
+    var describe = A.id ? '' : '<div class="bld-desc"><div class="dw-step" style="margin-top:0"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>Describe the report you want</div>' +
+      (A.thread.length ? '<div class="ai-log">' + A.thread.map(function (m) { return m.role === 'user' ? '<div class="ai-turn me"><div class="ai-bubble">' + esc(m.text) + '</div></div>' : '<div class="ai-turn"><div class="ai-bubble">' + bold(m.text) + '</div></div>'; }).join('') + (A.thinking ? thinkingHtml('Reading both products…') : '') + '</div>' : '<div class="dw-try">Try asking</div><div class="ai-try">' + TRY.map(function (q) { return '<button type="button" data-act="try" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>') +
+      '<div class="bld-desc-row"><vaadin-text-field theme="outlined" id="bldDescribe" placeholder="Name a location, what to compare, and how to show it" clear-button-visible value="' + esc(A.q || '') + '" style="flex:1"></vaadin-text-field><vaadin-button theme="primary" data-act="describe-go"' + (A.thinking ? ' disabled' : '') + '>Build it</vaadin-button></div><p class="field-hint" style="margin:6px 0 0">Charts land on your dashboard, never in the thread. You can adjust the result before adding it.</p></div>';
+    var right = describe + (!A.a ? '<div class="dw-prev-empty"><i class="fa-regular fa-chart-bar" aria-hidden="true"></i><b>Or build it by hand</b><span>Pick where, then a metric on the left.</span></div>'
+      : '<div class="dw-step"><span class="n">4</span>Show as</div><div class="dw-vizchips">' + vizAllowed(A).map(function (v) { return '<button type="button" class="dw-chip' + (A.viz === v ? ' is-on' : '') + '" data-act="pick-viz" data-v="' + v + '"><i class="fa-regular ' + VIZ[v][1] + '" aria-hidden="true"></i>' + VIZ[v][0] + '</button>'; }).join('') + '</div><div class="dw-step"><span class="n">5</span>Preview</div>' + previewCard({ scope: A.scope, a: A.a, b: A.b, viz: A.viz }) + '<p class="field-hint">' + (A.scope === 'all' ? 'Breaks down by facility.' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '.') + ' Follows the dashboard’s date range.</p><div class="dw-dlg-foot"><vaadin-button theme="tertiary" data-act="dlg-close">Cancel</vaadin-button><vaadin-button theme="primary" data-act="add-confirm">' + (A.id ? 'Save module' : 'Add to my dashboard') + '</vaadin-button></div>');
+    bodyEl.innerHTML = '<div class="dw-dlg-body"><div class="dw-add-l">' + left + '</div><div class="dw-add-r">' + right + '</div></div>';
     var sel = $('#bldScope', bodyEl); sel.items = [{ label: 'All facilities', value: 'all' }].concat(D.facilities.map(function (f) { return { label: f.name, value: f.id }; })); sel.value = A.scope;
     sel.addEventListener('value-changed', function (e) { if (e.detail.value && e.detail.value !== A.scope) { A.scope = e.detail.value; draw(root); } });
   }
@@ -248,45 +319,48 @@
       var t = e.target;
       if (S.menu && !(t.closest && t.closest('.dw-kebab-wrap'))) { S.menu = null; renderCustom(); }
       var cm = t.closest && t.closest('[data-cmenu]'); if (cm) { e.stopPropagation(); S.menu = S.menu === cm.dataset.cmenu ? null : cm.dataset.cmenu; renderCustom(); return; }
-      var cs = t.closest && t.closest('[data-csize]'); if (cs) { var w = S.widgets.filter(function (x) { return x.id === cs.dataset.cid; })[0]; if (w) w.w = Number(cs.dataset.csize); S.menu = null; renderCustom(); return; }
-      var ce = t.closest && t.closest('[data-cedit]'); if (ce) { var w2 = S.widgets.filter(function (x) { return x.id === ce.dataset.cedit; })[0]; S.menu = null; renderCustom(); if (w2) openAdd(w2); return; }
-      var cr = t.closest && t.closest('[data-cremove]'); if (cr) { var idx = S.widgets.map(function (x) { return x.id; }).indexOf(cr.dataset.cremove), gone = S.widgets.splice(idx, 1)[0]; S.menu = null; renderCustom(); App.toast('Module removed', title(gone), { label: 'Undo', run: function () { S.widgets.splice(idx, 0, gone); renderCustom(); } }); return; }
+      var mv = t.closest && t.closest('[data-cmove]'); if (mv) { S.menu = null; renderCustom(); move('w:' + mv.dataset.cid, mv.dataset.cmove); return; }
+      var ce = t.closest && t.closest('[data-cedit]'); if (ce) { S.menu = null; renderCustom(); openAdd({ edit: ce.dataset.cedit }); return; }
+      var cr = t.closest && t.closest('[data-cremove]'); if (cr) { var idx = S.widgets.map(function (x) { return x.id; }).indexOf(cr.dataset.cremove), gone = S.widgets.splice(idx, 1)[0], pos = S.order.indexOf('w:' + gone.id); S.order.splice(pos, 1); S.menu = null; renderCustom(); applyLayout(); App.toast('Module removed', title(gone), { label: 'Undo', run: function () { S.widgets.splice(idx, 0, gone); S.order.splice(pos, 0, 'w:' + gone.id); renderCustom(); applyLayout(); } }); return; }
       var b = t.closest && t.closest('[data-act^="bld-"]'); if (!b) return;
       if (b.tagName === 'A') e.preventDefault();
       switch (b.dataset.act) {
         case 'bld-open': show('build'); break;
-        case 'bld-done': show('home'); App.toast('Home page saved', 'Your layout and modules are kept for you on every device.'); break;
+        case 'bld-done': show('home'); App.toast('Dashboard saved', 'Your layout and modules are kept for you on every device.'); break;
         case 'bld-settings': show('settings'); break;
-        case 'bld-reset': { var keep = S.widgets; S = fresh(); S.widgets = keep; S.view = 'settings'; render(); App.toast('Layout reset', 'Standard modules are back in their default order. Your own modules are kept.'); break; }
-        case 'bld-add': openAdd(null); break;
-        case 'bld-up': case 'bld-down': { var i = S.order.indexOf(b.dataset.id), j = b.dataset.act === 'bld-up' ? i - 1 : i + 1; if (j < 0 || j >= S.order.length) break; var tmp = S.order[i]; S.order[i] = S.order[j]; S.order[j] = tmp; applyLayout(); var el = moduleEl(b.dataset.id); if (el) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); break; }
+        case 'bld-reset': { var keep = S.widgets, v = fresh(); S.order = ['kpis', 'recs', 'compare', 'row4', 'audit'].concat(keep.map(function (w) { return 'w:' + w.id; })); S.hidden = {}; S.widgets = keep; S.view = 'settings'; render(); App.toast('Layout reset', 'Standard modules are back in their default order. The modules you built are kept.'); break; }
+        case 'bld-add': openAdd({ tab: 'existing' }); break;
+        case 'bld-create': openAdd({ tab: 'create' }); break;
+        case 'bld-up': case 'bld-down': move(b.dataset.id, b.dataset.act === 'bld-up' ? 'up' : 'down'); break;
         case 'bld-setting': App.notYet(b.dataset.name + ' settings'); break;
         default: break;
       }
     });
     document.addEventListener('checked-change', function (e) {
-      var sw = e.target.closest && e.target.closest('vwc-switch[data-act="bld-toggle"]'); if (!sw) return;
+      var sw = e.target.closest && e.target.closest('vwc-switch[data-act="bld-toggle"], vwc-switch[data-act="ex-toggle-sw"]'); if (!sw) return;
       S.hidden[sw.dataset.id] = !e.detail; applyLayout();
+      if (sw.dataset.act === 'ex-toggle-sw') { var lbl = sw.closest('label').querySelector('span'); if (lbl) lbl.textContent = e.detail ? 'On' : 'Off'; sw.closest('.ex-row').classList.toggle('is-off', !e.detail); }
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.menu) { S.menu = null; renderCustom(); } });
   }
 
   /* ── Flow-map states ───────────────────────────────────────────────────── */
-  var KNOWN = ['custom', 'settings', 'build', 'add-module'], pendingState = null, ready = false;
+  var KNOWN = ['settings', 'build', 'add-module', 'create-module', 'describe'], pendingState = null, ready = false;
   function reset() { var v = fresh(); S.view = v.view; S.order = v.order; S.hidden = {}; S.menu = null; S.widgets = v.widgets; if (ui.addDlg) ui.addDlg.opened = false; }
   function applyState(id) {
     if (!ready) { if (KNOWN.indexOf(id) < 0) return false; pendingState = id; return true; }
     switch (id) {
-      case 'custom': show('home'); setTimeout(function () { var m = $('#custom'); if (m) m.scrollIntoView({ block: 'start' }); }, 50); return true;
       case 'settings': show('settings'); return true;
       case 'build': show('build'); return true;
-      case 'add-module': show('build'); openAdd(null); return true;
+      case 'add-module': show('home'); openAdd({ tab: 'existing' }); return true;
+      case 'create-module': show('home'); openAdd({ tab: 'create' }); return true;
+      case 'describe': show('home'); openAdd({ tab: 'create', q: 'Compare safety trends at Plant 4 with its training data' }); setTimeout(function () { var go = document.querySelector('vaadin-dialog-overlay [data-act="describe-go"]'); if (go) go.click(); }, 400); return true;
       default: return false;
     }
   }
   function init() {
     if (ready) return;
-    ui.page = $('#main .page-inner'); ui.settings = $('#settingsView'); ui.custom = $('#custom'); ui.buildBar = $('#buildBar'); ui.addDlg = $('#bldAddDlg');
+    ui.page = $('#main .page-inner'); ui.settings = $('#settingsView'); ui.buildBar = $('#buildBar'); ui.addDlg = $('#bldAddDlg');
     if (!ui.settings || !ui.page) return;
     bind(); ready = true; render();
     if (pendingState) { var p = pendingState; pendingState = null; applyState(p); }

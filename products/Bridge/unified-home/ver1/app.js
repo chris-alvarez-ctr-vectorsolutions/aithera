@@ -126,7 +126,7 @@
     };
     dlg.opened = true;
   }
-  function closeDialogs() { [ui.assignDlg, ui.snoozeDlg, ui.ruleDlg].forEach(function (d) { if (d) d.opened = false; }); if (ui.toast) ui.toast.opened = false; }
+  function closeDialogs() { [ui.assignDlg, ui.snoozeDlg, ui.ruleDlg, ui.askRecDlg].forEach(function (d) { if (d) d.opened = false; }); if (ui.toast) ui.toast.opened = false; }
 
   /* ── Header: greeting, sync, scope chip, location picker, range ────────── */
   function renderHeader() {
@@ -334,7 +334,7 @@ function renderLocTree() {
       ? '<button type="button" class="rec-more' + (open ? ' is-pinned' : '') + '" data-act="toggle-details" aria-expanded="' + open + '" aria-controls="rd-' + r.id + '" title="' + (open ? 'Unpin the details' : 'Pin the details open') + '">' + (open ? '<i class="fa-solid fa-thumbtack" aria-hidden="true"></i>Pinned' : '<i class="fa-regular fa-thumbtack" aria-hidden="true"></i>Pin') + '</button>'
       : '<button type="button" class="rec-more' + (open ? ' is-pinned' : '') + '" data-act="toggle-details" aria-expanded="' + open + '" aria-controls="rd-' + r.id + '">' + (open ? 'Close details' : 'Details') + '<i class="fa-regular ' + (open ? 'fa-xmark' : 'fa-chevron-right') + '" aria-hidden="true"></i></button>';
     return '<article class="rec sev-' + r.severity + (open ? ' is-expanded' : '') + '" data-id="' + r.id + '" aria-labelledby="rh-' + r.id + '"' + (below ? '' : ' tabindex="0" role="button" aria-expanded="' + open + '"') + '>' +
-      '<div class="rec-top"><span class="sev sev-' + r.severity + '"><i class="fa-solid ' + SEV_ICON[r.severity] + '" aria-hidden="true"></i>' + SEV_LABEL[r.severity] + '</span><span class="rec-loc"><i class="fa-regular fa-location-dot" aria-hidden="true"></i>' + esc(f ? f.name : 'All locations') + '</span></div>' +
+      '<div class="rec-top"><span class="sev sev-' + r.severity + '"><i class="fa-solid ' + SEV_ICON[r.severity] + '" aria-hidden="true"></i>' + SEV_LABEL[r.severity] + '</span>' + (r.requested ? '<span class="rec-req" title="' + esc(r.question) + '"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>From your question</span>' : '') + '<span class="rec-loc"><i class="fa-regular fa-location-dot" aria-hidden="true"></i>' + esc(f ? f.name : 'All locations') + '</span></div>' +
       '<h3 class="rec-headline" id="rh-' + r.id + '">' + esc(r.headline) + '</h3>' +
       statLine(r) +
       '<div class="rec-cta">' + more + primaryCta(r) + '</div>' +
@@ -756,6 +756,90 @@ function renderLocTree() {
     if (!silent) toast('Assigned ' + c.label + ' to ' + count + ' employees', 'Due ' + fmtDate(wiz.due, true) + '. Learners are being notified now.', { label: 'View assignment', run: function () { notYet('The assignment page'); } });
   }
 
+  /* ── Ask for a recommendation ──────────────────────────────────────────
+     Ported from the Readiness Hub's Agency Intelligence thread (respondTo /
+     send in hub-agency-intel.js): the question is a user bubble, a 620ms beat
+     shows "thinking" dots, the answer is a headline + body in bold markup with
+     action buttons, and an epoch guard drops a stale answer. Keystone's
+     "Discover actionable opportunities" supplies the shape of the answer:
+     the metric moving the wrong way, where it concentrates, one action. */
+  var TOPICS = [
+    { key: 'forklift', words: ['forklift', 'pit', 'powered industrial', 'truck'], course: 'Forklift Safety Refresher', type: 'Forklift / PIT', ehs: 'Incidents', action: 'assign' },
+    { key: 'loto', words: ['loto', 'lockout', 'tagout', 'energy'], course: 'Lockout/Tagout', type: 'LOTO', ehs: 'Observations', action: 'schedule-inspection' },
+    { key: 'slips', words: ['slip', 'trip', 'fall', 'wet floor', 'near miss', 'near-miss'], course: 'Walking-Working Surfaces', type: 'Slips and trips', ehs: 'Near-misses', action: 'assign' },
+    { key: 'hazcom', words: ['chemical', 'sds', 'hazcom', 'hazard comm', 'adhesive', 'solvent'], course: 'Hazard Communication', type: 'Chemical exposure', ehs: 'Chemicals', action: 'assign' },
+    { key: 'ergo', words: ['lift', 'ergonomic', 'strain', 'back', 'sprain'], course: 'Safe Lifting & Ergonomics', type: 'Ergonomic strain', ehs: 'Incidents', action: 'assign' }
+  ];
+  var FAC_WORDS = { plant4: ['plant 4', 'riverside'], plant2: ['plant 2', 'columbus'], dceast: ['dc east', 'allentown'], plant1: ['plant 1', 'tulsa'], plant7: ['plant 7', 'greenville'], dcwest: ['dc west', 'reno'] };
+  var askSeq = 0, askEpoch = 0;
+  function composeRecommendation(text, facilityId) {
+    var t = text.toLowerCase();
+    if (!facilityId || facilityId === 'auto') { facilityId = null; Object.keys(FAC_WORDS).forEach(function (id) { FAC_WORDS[id].forEach(function (w) { if (t.indexOf(w) > -1) facilityId = id; }); }); }
+    var f = facilityById(facilityId) || D.facilities.slice().sort(function (a, b) { return b.trir - a.trir; })[0];
+    var topic = TOPICS.filter(function (tp) { return tp.words.some(function (w) { return t.indexOf(w) > -1; }); })[0] || { key: 'general', course: f.topOverdue, type: 'Recordable incidents', ehs: 'Incidents', action: 'assign' };
+    var sev = f.signal === 'elevated' ? 'high' : f.signal === 'watch' ? 'medium' : 'low';
+    var overdueCount = Math.max(6, Math.round(f.employees * f.overdue / 100 * 0.35));
+    var dept = f.departments.slice().sort(function (a, b) { return b.trir - a.trir; })[0];
+    var inspection = topic.action === 'schedule-inspection';
+    var suggestion = inspection ? 'Schedule a ' + topic.type + ' inspection in ' + dept.name + ' and assign ' + topic.course + ' to the ' + overdueCount + ' employees who are overdue.' : 'Assign ' + topic.course + ' to the ' + overdueCount + ' employees at ' + f.name + ' who are overdue, starting with ' + dept.name + '.';
+    return {
+      id: 'rq' + (++askSeq), rank: 0, severity: sev, pattern: 'requested', facility: f.id, requested: true,
+      from: { src: 'ehs', label: topic.ehs + ' · Vector EHS' }, to: inspection ? { src: 'ehs', label: 'Inspections · Vector EHS' } : { src: 'ct', label: 'Training · Convergence' },
+      updated: 'just now', question: text,
+      headline: (inspection ? topic.type + ' observations' : topic.type + ' risk') + ' at ' + f.name,
+      stat: inspection ? f.overdue + '% overdue on ' + topic.course + ', ' + f.nearMisses + ' near misses in 90 days' : overdueCount + ' employees overdue on ' + topic.course + ', TRIR ' + f.trir,
+      title: 'What you described at ' + f.name + ' lines up with ' + (f.signal === 'elevated' ? 'an elevated' : f.signal === 'watch' ? 'a rising' : 'a stable') + ' incident picture and a ' + topic.course + ' gap',
+      body: f.name + ' has ' + f.incidents + ' incidents and ' + f.nearMisses + ' near misses in the last 90 days (TRIR ' + f.trir + ', ' + (f.trir > f.trirPrev ? 'up' : 'down') + ' from ' + f.trirPrev + '). ' + dept.name + ' carries most of it (TRIR ' + dept.trir + ', ' + dept.compliance + '% compliance). Training compliance at the site is ' + f.compliance + '% with ' + f.overdue + '% overdue, mostly ' + f.topOverdue + '.',
+      /* the chat answer, Keystone-style bold markup */
+      reply: 'At **' + f.name + '**, ' + topic.type.toLowerCase() + ' lines up with the data: **' + f.incidents + ' incidents** and **' + f.nearMisses + ' near misses** in 90 days (TRIR ' + f.trir + '), concentrated in **' + dept.name + '**. On the training side, **' + overdueCount + ' employees** are overdue on ' + topic.course + '. Recommended: ' + suggestion,
+      suggestion: suggestion,
+      primary: inspection ? { label: 'Schedule inspection', action: 'schedule-inspection' } : { label: 'Review & assign', action: 'assign' },
+      secondary: { label: 'Snooze', action: 'snooze' }, expanded: false,
+      evidence: [
+        { type: 'list', src: 'ehs', title: 'Safety picture, last 90 days', items: [['Incidents', String(f.incidents)], ['Near misses', String(f.nearMisses)], ['Open corrective actions', String(f.openCA)], ['Highest-risk department', dept.name]], caption: 'TRIR <strong>' + f.trir + '</strong> vs. ' + f.trirPrev + ' prior period' },
+        { type: 'meter', src: 'ct', title: topic.course + ', ' + f.name, pct: Math.max(0, 100 - f.overdue), tone: f.overdue > 20 ? 'err' : f.overdue > 10 ? 'warn' : 'ok', big: (100 - f.overdue) + '%', bigSmall: 'current', left: num(f.employees - overdueCount) + ' current', right: overdueCount + ' overdue', caption: 'Company average is <strong>84%</strong>' },
+        { type: 'list', src: 'ehs', title: 'What you told us', items: [['Your note', text.length > 60 ? text.slice(0, 60) + '…' : text], ['Matched topic', topic.type], ['Location', f.name]], caption: 'Ask again with more detail for a different recommendation' }
+      ]
+    };
+  }
+  function boldText(text) { return String(text).split('**').map(function (p, i) { return i % 2 ? '<strong>' + esc(p) + '</strong>' : esc(p); }).join(''); }
+  function openAskRec(prefill) {
+    var thread = [], thinking = false, pending = null;
+    openDialog(ui.askRecDlg, '#tplAskRec', function (root) {
+      var sel = $('#askFac', root), ta = $('#askText', root), log = $('#askThread', root);
+      sel.items = [{ label: 'Pick from what I describe', value: 'auto' }].concat(D.facilities.map(function (f) { return { label: f.name, value: f.id }; }));
+      sel.value = 'auto';
+      if (prefill) ta.value = prefill;
+      function paint() {
+        log.innerHTML = thread.map(function (m) {
+          if (m.role === 'user') return '<div class="ai-turn me"><div class="ai-bubble">' + esc(m.text) + '</div></div>';
+          return '<div class="ai-turn"><div class="ai-bubble"><div class="ai-head"><span class="sev sev-' + m.rec.severity + '"><i class="fa-solid ' + SEV_ICON[m.rec.severity] + '" aria-hidden="true"></i>' + SEV_LABEL[m.rec.severity] + '</span><b>' + esc(m.rec.headline) + '</b></div><p>' + boldText(m.rec.reply) + '</p><div class="ai-src">' + srcChip('ehs') + srcChip('ct') + '<span>Vector EHS incidents and observations, Convergence training records</span></div><div class="ai-actions"><vaadin-button theme="primary small" data-act="ask-rec-add">Add to Recommended actions</vaadin-button><vaadin-button theme="tertiary small" data-act="ask-rec-refine">Ask differently</vaadin-button></div></div></div>';
+        }).join('') + (thinking ? '<div class="ai-turn"><div class="ai-bubble ai-thinking"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><em>Checking both products…</em></div></div>' : '');
+        log.hidden = !thread.length && !thinking;
+        $('.ask-form', root).hidden = !!thread.length || thinking;
+        log.scrollTop = log.scrollHeight;
+      }
+      root.addEventListener('click', function (e) {
+        var chip = e.target.closest('[data-chip]'); if (chip) { ta.value = (ta.value ? ta.value.replace(/\s*$/, ' ') : '') + chip.dataset.chip; return; }
+        var b = e.target.closest('[data-act]'); if (!b) return;
+        if (b.dataset.act === 'ask-rec-go') {
+          var q = ta.value.trim(); if (!q) { ta.focus(); return; }
+          askEpoch += 1; var epoch = askEpoch;
+          thread.push({ role: 'user', text: q }); thinking = true; paint();
+          setTimeout(function () { if (epoch !== askEpoch) return; pending = composeRecommendation(q, sel.value); thinking = false; thread.push({ role: 'assistant', rec: pending }); paint(); }, 620);
+        }
+        if (b.dataset.act === 'ask-rec-refine') { thread = []; pending = null; paint(); ta.focus(); }
+        if (b.dataset.act === 'ask-rec-add' && pending) {
+          var rec = pending; D.recommendations.unshift(rec); ui.askRecDlg.opened = false;
+          expandedRec = rec.id; renderRecs();
+          var card = document.querySelector('#recList .rec[data-id="' + rec.id + '"]'); if (card) card.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          toast('Recommendation added', rec.headline + '. It is marked as coming from your question.', { label: 'Remove', run: function () { D.recommendations = D.recommendations.filter(function (r) { return r.id !== rec.id; }); expandedRec = null; renderRecs(); } });
+        }
+      });
+      paint();
+    });
+  }
+
   /* ── Dismiss / snooze / rule dialogs ───────────────────────────────────── */
   function openSnooze(rec) {
     openDialog(ui.snoozeDlg, '#tplSnooze', function (root) {
@@ -856,6 +940,7 @@ function renderLocTree() {
         case 'sync-log': notYet('The sync log'); break;
         case 'request-access': toast('Request sent to your administrator', 'You will get an email when a Convergence role is added.'); break;
         case 'manage-rules': notYet('Rule management'); break;
+        case 'ask-rec': openAskRec(''); break;
         case 'show-snoozed': {
           var sn = D.recommendations.filter(function (r) { return recStatus[r.id] && recStatus[r.id].status === 'snoozed'; });
           if (!sn.length) toast('Nothing snoozed', 'Snoozed recommendations show here until they come back.');
@@ -898,6 +983,7 @@ function renderLocTree() {
   /* ── Flow-map states ───────────────────────────────────────────────────── */
   function reset() {
     S = Object.assign({}, DEFAULT); recStatus = {}; removedTasks = {}; extraEvents = []; overrides = {}; sort = { key: 'trir', dir: 'desc' }; expandedRec = null;
+    D.recommendations = D.recommendations.filter(function (r) { return !r.requested; });
     closeDialogs(); if (window.Shell) Shell.closeAll(); if (window.Builder) Builder.reset();
     if (ui.mineTabs) ui.mineTabs.selected = 0;
   }
@@ -913,6 +999,8 @@ function renderLocTree() {
         S.scope = 'plant4'; renderAll();
         wiz = null; openAssign(recById('r1'), 4); ui.assignDlg.opened = false;
         finishAssign(false); return;
+      case 'ask-rec': renderAll(); openAskRec('Forklift near misses at Plant 4 have picked up this month, and two new operators started in Shipping'); setTimeout(function () { var go = document.querySelector('vaadin-dialog-overlay [data-act="ask-rec-go"]'); if (go) go.click(); }, 400); return;
+      case 'asked': renderAll(); D.recommendations.unshift(composeRecommendation('Forklift near misses at Plant 4 have picked up this month, and two new operators started in Shipping', 'auto')); expandedRec = D.recommendations[0].id; renderRecs(); return;
       case 'dismissed': recStatus.r1 = { status: 'dismissed' }; renderAll(); toast('Recommendation dismissed', 'It stays in the recommendation log.', { label: 'Undo', run: function () { delete recStatus.r1; renderRecs(); } }); return;
       case 'ehs-only': S.role = 'ehs'; break;
       case 'loading': S.loading = true; break;
@@ -929,7 +1017,7 @@ function renderLocTree() {
     if (ready) return;
     ['main', 'greeting', 'syncStatus', 'auditChipScore', 'locTree', 'filterLocText', 'filterLocClear', 'rangeSel', 'roleBanner', 'syncBanner',
      'kpis', 'recList', 'recBody', 'recCol', 'recPanel', 'recEmpty', 'recEmptyText', 'recCount', 'snoozedBtn', 'cmpTitle', 'cmpSub', 'cmpTable', 'cmpBody', 'mineCount', 'mineTabs', 'taskList',
-     'calMonth', 'calGrid', 'calDeadlines', 'auditSub', 'auditBody', 'assignDlg', 'snoozeDlg', 'ruleDlg', 'toast']
+     'calMonth', 'calGrid', 'calDeadlines', 'auditSub', 'auditBody', 'assignDlg', 'snoozeDlg', 'ruleDlg', 'askRecDlg', 'toast']
       .forEach(function (id) { ui[id] = document.getElementById(id); });
 
     S = Object.assign({}, DEFAULT);
