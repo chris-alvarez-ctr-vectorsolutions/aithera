@@ -1389,19 +1389,40 @@
     orderNodes([...tree.children.values()]).forEach(n => renderNode(n, 0));
   }
 
+  // One status section: header + a body to fill. The ARCHIVED section is a
+  // collapsible <details> that starts CLOSED on every dashboard load (archived
+  // work stays out of the way); clicking its header opens it, and that choice
+  // is kept while you stay on the page. It opens on its own while searching or
+  // when the status filter is Archived-only, so matches never hide behind it.
+  let archiveOpen = false;
+  function statusSection(status, count, sub) {
+    const wrap = document.createElement('section');
+    wrap.className = 'section' + (sub ? ' section--sub' : '');
+    const header = statusSectionHeader(status, count);
+    if (status !== 'archived') { wrap.appendChild(header); return { wrap, body: wrap }; }
+    const det = document.createElement('details');
+    det.className = 'archive-details';
+    det.open = archiveOpen || !!state.search || (state.statuses.size === 1 && state.statuses.has('archived'));
+    const sum = document.createElement('summary');
+    header.insertAdjacentHTML('afterbegin', '<i class="fa-solid fa-chevron-right archive-chevron" aria-hidden="true"></i>');
+    sum.appendChild(header);
+    sum.addEventListener('click', () => { archiveOpen = !det.open; });
+    det.appendChild(sum);
+    wrap.appendChild(det);
+    return { wrap, body: det };
+  }
+
   // Status-grouped sections of FULL cards — used for the main (loose) area and,
   // via renderFolders, inside each opened folder. `sub` shrinks the headers a
   // notch when nested in a folder.
   function statusGroupedCards(mocks, container, sub) {
     let cardIdx = 0;
     groupByStatus(mocks).forEach(({ status, mocks: group }) => {
-      const wrap = document.createElement('section');
-      wrap.className = 'section' + (sub ? ' section--sub' : '');
-      wrap.appendChild(statusSectionHeader(status, group.length));
+      const { wrap, body } = statusSection(status, group.length, sub);
       const grid = document.createElement('div');
       grid.className = 'card-grid';
       group.forEach(m => grid.appendChild(buildCard(m, cardIdx++)));
-      wrap.appendChild(grid);
+      body.appendChild(grid);
       container.appendChild(wrap);
     });
   }
@@ -1409,9 +1430,7 @@
   // Status-grouped tables — same shape for the list view.
   function statusGroupedTables(mocks, container, sub) {
     groupByStatus(mocks).forEach(({ status, mocks: group }) => {
-      const wrap = document.createElement('section');
-      wrap.className = 'section' + (sub ? ' section--sub' : '');
-      wrap.appendChild(statusSectionHeader(status, group.length));
+      const { wrap, body } = statusSection(status, group.length, sub);
       const tableWrap = document.createElement('div');
       tableWrap.className = 'proto-table-wrap';
       tableWrap.innerHTML = `
@@ -1426,7 +1445,7 @@
           </thead>
           <tbody>${group.map(listRow).join('')}</tbody>
         </table>`;
-      wrap.appendChild(tableWrap);
+      body.appendChild(tableWrap);
       container.appendChild(wrap);
     });
   }
@@ -2574,6 +2593,15 @@
         transition: transform 0.15s ease;
       }
       .fav-details[open] .fav-chevron { transform: rotate(90deg); }
+
+      /* Archived section — collapsed by default (see statusSection) */
+      .archive-details > summary { cursor: pointer; list-style: none; user-select: none; }
+      .archive-details > summary::-webkit-details-marker { display: none; }
+      .archive-details > summary .section-header { align-items: center; }
+      .archive-details:not([open]) > summary .section-header { margin-bottom: 0; }
+      .archive-chevron { font-size: 13px; color: var(--text-muted); transition: transform 0.15s ease; }
+      .archive-details[open] .archive-chevron { transform: rotate(90deg); }
+      .archive-details > summary:hover .section-title { color: var(--accent-deep); }
       .fav-title-star { color: #f59e0b; font-size: 17px; margin-right: 4px; }
 
       /* kept for potential nested sections; unused by the tab layout */

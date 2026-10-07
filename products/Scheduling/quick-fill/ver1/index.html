@@ -52,9 +52,11 @@
      Imported from Claude Design ("Quick-Fill Rules Builder.dc.html").
 
      Layout: the production "fill shift" modal (left, 720px) with the new
-     QUALIFIED PERSONNEL panel docked to its right (560px). The panel ranks
+     QUALIFIED PERSONNEL panel docked to its right (560px), opened by the
+     Quick Fill button on the "Choose employee(s)" row. The panel ranks
      eligible people live using an Approach (WHO is eligible) + Rule (HOW they
-     rank), both defaulted from the shift's qualifier and overridable inline.
+     rank), both defaulted from the shift's qualifier and overridable inline,
+     then lists the excluded users and why at the bottom.
 
      NOTE: like Event Indicator's current-ui.html, the host modal deliberately
      reproduces the CURRENT production (Bootstrap-era) look rather than Vector
@@ -92,6 +94,16 @@
   .qf-col { display: flex; flex-direction: column; gap: 16px; }
   .qf-label { display: flex; align-items: center; gap: 10px; margin-bottom: 3px; font-size: 13px; line-height: 20px; font-weight: 400; color: #333; text-transform: uppercase; }
   .qf-label small { font-size: 11px; color: #777; margin-left: 4px; }
+
+  /* Quick Fill entry button — sits on the "Choose employee(s)" label row,
+     right-aligned to where the input box ends (review 2026-10-06: a physical,
+     obvious button rather than a hidden dropdown option). */
+  .qf-label-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+  .qf-label-row .qf-label { margin-bottom: 0; }
+  .qf-qfbtn { display: inline-flex; align-items: center; gap: 6px; height: 25px; padding: 0 10px; border: 1px solid #146a84; border-radius: 3px; background: #177592; color: #fff; font-family: inherit; font-size: 12.5px; font-weight: 400; cursor: pointer; white-space: nowrap; }
+  .qf-qfbtn i { font-size: 11px; }
+  .qf-qfbtn:hover { filter: brightness(.94); }
+  .qf-qfbtn[aria-pressed="true"] { background: #0f5568; border-color: #0b4655; box-shadow: inset 0 1px 3px rgba(0,0,0,.3); }
   .qf-help { color: #687b8d; font-size: 12px; margin-left: 4px; }
 
   .qf-input, .qf-textarea {
@@ -165,7 +177,7 @@
 
   /* ── QUALIFIED PERSONNEL panel (the new design) ── */
   .qp {
-    width: 560px; flex: none; align-self: stretch; background: #fbfbfb; border-left: 1px solid #d8d8d8;
+    flex: none;   /* width is fluid — see RESPONSIVE below */ align-self: stretch; background: #fbfbfb; border-left: 1px solid #d8d8d8;
     border-radius: 0 5px 5px 0; box-shadow: 0 6px 30px rgba(0,0,0,.5);
     display: flex; flex-direction: column; animation: qfIn .22s cubic-bezier(.2,.7,.3,1);
     /* Never taller than the host modal: contain:size removes the panel's own
@@ -185,6 +197,14 @@
   .qp-opt-end { display: inline-flex; align-items: center; gap: 8px; flex: none; }
   .qp-deftag { padding: 1px 7px; border-radius: 9px; background: #eaf3f8; border: 1px solid #b8d6e6; color: #2c5f80; font-size: 10px; font-weight: 700; letter-spacing: .02em; }
   .qp-reset { font-size: 11px; color: #2e6da4; cursor: pointer; text-decoration: underline; }   /* always underlined so it reads as a link */
+  /* Tiebreaker on/off switch — right end of the picker row. Only shown for
+     rules that can tie (Hours Based, Turns Based). */
+  .qp-switch { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; padding: 0; border: 0; background: none; font-family: inherit; font-size: 12px; color: #555; cursor: pointer; }
+  .qp-switch .track { position: relative; width: 28px; height: 16px; flex: none; border-radius: 8px; background: #c8c8c8; transition: background .15s; }
+  .qp-switch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
+  .qp-switch[aria-checked="true"] .track { background: #3f8dbf; }
+  .qp-switch[aria-checked="true"] .knob { transform: translateX(12px); }
+  .qp-switch:focus-visible { outline: 2px solid #66afe9; outline-offset: 3px; border-radius: 3px; }
 
   /* Inline option menus (approach / rule) */
   .qp-menu { padding: 11px 18px; background: #fff; border-bottom: 1px solid #e4e4e4; animation: rowIn .15s ease; flex: none; }
@@ -199,30 +219,130 @@
   .qp-count { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 18px; background: #f4f7f8; border-bottom: 1px solid #cfdadd; flex: none; font-size: 11px; color: #777; }
   .qp-count .ex { color: #999; }
 
-  /* Ranked candidate cards */
+  /* Ranked candidate cards — ONE compact row each (review 2026-10-06):
+     full name, bigger; position line removed; the rule's data point moved to
+     the right so cards are short — same lesson as the crew scheduler UI,
+     people don't want to scroll up and down a lot. */
   /* Light teal-blue tint behind the candidates (carried over from V2) so the white cards stand out */
-  .qp-list { flex: 1 1 0; min-height: 0; overflow: auto; padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 7px; background: #e3eff3; }
-  .qp-card { border: 1px solid #cfdadd; border-radius: 4px; background: #fff; padding: 9px 11px; display: flex; align-items: flex-start; gap: 10px; }
+  .qp-list { position: relative; flex: 1 1 0; min-height: 0; overflow: auto; padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 7px; background: #e3eff3; }
+  .qp-card { flex: none; border: 1px solid #cfdadd; border-radius: 4px; background: #fff; padding: 8px 10px 8px 11px; display: flex; align-items: center; gap: 12px; }
   .qp-card:hover { border-color: #66afe9; }
   .qp-card.filled { background: #f3f9f3; border-color: #a3d3a3; }
   .qp-rank { width: 26px; height: 26px; flex: none; border-radius: 3px; background: #eee; color: #777; font-size: 12px; font-weight: 700; display: grid; place-items: center; }
   .qp-card.top .qp-rank { background: #34638c; color: #fff; }
   .qp-body { flex: 1; min-width: 0; }
-  .qp-line1 { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-  .qp-name { font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .qp-rankmeta { font-size: 11px; color: #999; white-space: nowrap; }
-  .qp-auto { padding: 1px 7px; border-radius: 9px; background: #dff0d8; color: #3c763d; font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
-  .qp-line2 { display: flex; align-items: center; gap: 9px; margin-top: 3px; font-size: 11px; color: #777; white-space: nowrap; }
-  .qp-line2 .ph { font-family: ui-monospace, Menlo, monospace; }
-  .qp-line2 .sep { color: #ccc; }
-  .qp-factors { display: flex; align-items: center; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
-  /* Factor chips — the one driving the current rule is highlighted blue */
-  .qp-factor { display: inline-flex; align-items: baseline; gap: 4px; padding: 2px 7px; border-radius: 3px; background: #f4f4f4; border: 1px solid #e4e4e4; font-size: 11px; white-space: nowrap; }
-  .qp-factor .l { color: #8a8a8a; } .qp-factor .v { font-weight: 600; color: #666; }
-  .qp-factor.decisive { background: #eaf3f8; border-color: #b8d6e6; } .qp-factor.decisive .v { color: #2c5f80; }
-  .qp-fill { flex: none; padding: 6px 14px; border-radius: 3px; background: #3f8dbf; color: #fff; border: 1px solid #337ab7; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+  .qp-name { font-size: 15px; line-height: 19px; font-weight: 600; color: #333; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qp-auto { flex: none; padding: 1px 7px; border-radius: 9px; background: #dff0d8; color: #3c763d; font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  /* Phone + auto-accept tag share line 2 so the full name always gets its own line */
+  /* Line 1: name + auto-accept tag (tag wraps under the name when narrow, so names never truncate) */
+  .qp-line1 { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 8px; }
+  .qp-line1 .qp-name { max-width: 100%; }
+  /* Line 2: phone + hire date — hire date shows on every card, for every rule */
+  .qp-line2 { display: flex; align-items: center; flex-wrap: wrap; gap: 1px 8px; margin-top: 1px; }
+  .qp-hired { font-size: 12px; color: #777; white-space: nowrap; }
+  .qp-hired b { font-weight: 600; color: #555; }
+  .qp-phone { font-size: 12px; color: #777; font-family: ui-monospace, Menlo, monospace; }
+  /* Rule metric — ONLY the data point the current rule ranks on, so the card
+     changes with the rule type instead of showing every factor every time. */
+  .qp-metric { flex: none; width: 112px; padding-left: 12px; border-left: 1px solid #e4e4e4; }
+  .qp-metric .l { display: block; font-size: 10px; font-weight: 700; letter-spacing: .03em; color: #8a8a8a; text-transform: uppercase; }
+  .qp-metric .v { display: block; font-size: 14px; line-height: 18px; font-weight: 600; color: #2c5f80; white-space: nowrap; }
+  .qp-metric .s { font-size: 11px; font-weight: 400; color: #8a8a8a; }
+  .qp-fill { flex: none; min-width: 66px; padding: 6px 14px; border-radius: 3px; background: #3f8dbf; color: #fff; border: 1px solid #337ab7; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .qp-fill:hover { opacity: .88; }
   .qp-card.filled .qp-fill { background: #5cb85c; border-color: #4cae4c; }
+
+  /* Excluded users — who was left out of the ranking and why, at the bottom of
+     the list (mirrors the callback preview's excluded list). */
+  .qp-count .ex { color: #2e6da4; cursor: pointer; text-decoration: underline; }
+  .qp-excl { flex: none; margin-top: 6px; border: 1px solid #cfdadd; border-radius: 4px; background: #fff; }
+  .qp-excl-h { display: flex; align-items: center; gap: 8px; padding: 8px 11px; font-size: 12px; font-weight: 700; color: #555; cursor: pointer; user-select: none; }
+  .qp-excl-h .car { width: 10px; color: #888; font-size: 11px; }
+  .qp-excl-h .sum { margin-left: auto; font-size: 11px; font-weight: 400; color: #999; }
+  .qp-excl-row { display: flex; align-items: center; gap: 10px; padding: 7px 11px; border-top: 1px solid #eee; font-size: 12px; }
+  .qp-excl-row .nm { width: 140px; flex: none; color: #666; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qp-excl-row .why { min-width: 0; color: #888; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qp-reason { flex: none; width: 70px; text-align: center; padding: 1px 0; border-radius: 9px; font-size: 10px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+  .qp-reason.timeoff { background: #fcf8e3; color: #8a6d3b; }
+  .qp-reason.working { background: #eaf3f8; color: #2c5f80; }
+  .qp-reason.optout  { background: #f0f0f0; color: #777; }
+
+  /* Tiebreaker — shown under the metric only on rows that tie with a
+     neighbour, so it's clear why one person ranks above the other. */
+  .qp-metric .tie { display: block; font-size: 11px; line-height: 14px; color: #999; white-space: nowrap; }
+
+  /* Scrim behind the panel — only used when the panel becomes an overlay */
+  .qp-scrim { display: none; }
+  @keyframes qpFade    { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes qpSlideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+  @keyframes qpSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  /* ══ RESPONSIVE ══════════════════════════════════════════════════════
+     ≥1141px  Desktop — panel docked beside the modal; it narrows fluidly
+              (560 → 400px) as the window shrinks.
+     761–1140 Tablet — same pattern as mobile, just wider: full-screen form
+              (keeps its two columns) and Quick Fill opens a bottom-sheet
+              pop-up, centred and capped at 820px wide.
+     ≤760px   Mobile — full-screen single-column form; the bottom sheet
+              spans the full width.
+     ════════════════════════════════════════════════════════════════════ */
+  .qp { width: clamp(400px, calc(100vw - 780px), 560px); }
+  .qf-modal { max-width: 100%; }
+
+  /* Tablet + mobile: full-screen form, Quick Fill = bottom-sheet pop-up */
+  @media (max-width: 1140px) {
+    /* Host modal → full screen */
+    .qf-backdrop { padding: 0; }
+    .qf-modal { width: 100%; min-height: 100vh; border-radius: 0; box-shadow: none; }
+    .qf-stage.panel-open .qf-modal { border-radius: 0; }
+    .qf-head { padding: 18px 56px 0 32px; }
+    .qf-grid { grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); column-gap: 32px; padding: 10px 32px 0; }
+    .qf-select > span { overflow: hidden; text-overflow: ellipsis; }
+    .qf-row .qf-select.date { flex: 1; width: auto; }
+    .qf-foot { flex-wrap: wrap; padding: 32px 32px 96px; }   /* bottom room clears the review dock */
+
+    /* Panel → bottom sheet over a scrim, centred */
+    body:has(.qp) { overflow: hidden; }   /* lock the page behind the sheet */
+    .qp-scrim { display: block; position: fixed; inset: 0; z-index: 50; background: rgba(20,22,28,.5); animation: qpFade .2s ease; }
+    .qp {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 51; margin: 0 auto;
+      width: min(100%, 820px); height: 85vh; height: 85dvh;
+      contain: none; border-left: 0; border-radius: 14px 14px 0 0;
+      animation: qpSlideUp .28s cubic-bezier(.2,.7,.3,1);
+    }
+    .qp-head { position: relative; padding: 24px 22px 14px; border-radius: 14px 14px 0 0; }
+    .qp-head::before { content: ''; position: absolute; top: 8px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: #d0d0d0; }   /* grab handle */
+    .qp-foot { border-radius: 0; padding: 10px 22px calc(10px + env(safe-area-inset-bottom)); }
+    .qp-fill { padding: 9px 16px; }   /* touch-friendly */
+  }
+
+  /* Mobile: single-column form, full-width sheet, compact cards */
+  @media (max-width: 760px) {
+    .qf-head { padding: 14px 48px 0 16px; }
+    .qf-title { font-size: 17px; line-height: 22px; }
+    .qf-position { margin-top: 14px; font-size: 22px; line-height: 27px; }
+    .qf-grid { grid-template-columns: minmax(0, 1fr); row-gap: 16px; padding: 10px 16px 0; }
+    .qf-select.lg { font-size: 16px; padding-left: 14px; }
+    .qf-select.md { font-size: 14px; padding-left: 14px; }
+    .qf-foot { padding: 24px 16px 96px; }
+    .qf-foot > * { flex: 1 1 auto; justify-content: center; }
+
+    .qp { width: auto; height: 92vh; height: 92dvh; }
+    .qp-head { padding: 22px 14px 12px; }
+    .qp-menu { padding: 10px 14px; }
+    .qp-count { flex-wrap: wrap; row-gap: 3px; padding: 7px 14px; }
+    .qp-list { padding: 8px 10px 12px; }
+    .qp-card { gap: 10px; padding: 9px 9px 9px 10px; }
+    .qp-metric { width: 88px; padding-left: 10px; }
+    .qp-metric .tie { white-space: normal; }
+    .qp-switch { flex-basis: 100%; justify-content: flex-start; margin-left: 0; }   /* own row under the pickers, left-aligned */   /* "tie · sen. 3/14/2011" wraps instead of running into Fill */
+    .qp-fill { min-width: 56px; padding: 9px 10px; }
+    .qp-excl-h .sum { display: none; }
+    .qp-excl-row { flex-wrap: wrap; row-gap: 3px; }
+    .qp-excl-row .nm { width: auto; flex: 1; }
+    .qp-excl-row .why { flex-basis: 100%; white-space: normal; }
+    .qp-foot { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); }
+  }
   .qp-foot { padding: 10px 18px; border-top: 1px solid #cfdadd; background: #f4f7f8; border-radius: 0 0 5px 0; font-size: 11px; color: #999; flex: none; }
 </style>
 
@@ -242,12 +362,18 @@
         <!-- Left column -->
         <div class="qf-col">
           <div>
-            <div class="qf-label">Choose employee(s) <small>(TYPE NAME)</small></div>
+            <!-- Label row + Quick Fill entry button (right edge lines up with the input box).
+                 Desktop opens the side panel; on mobile this should open a pop-up instead. -->
+            <div class="qf-label-row">
+              <div class="qf-label">Choose employee(s) <small>(TYPE NAME)</small></div>
+              <button type="button" class="qf-qfbtn" id="qfOpenBtn" data-action="togglePanel" aria-pressed="true" aria-controls="panelSlot">
+                <i class="fa-solid fa-bolt"></i>Quick Fill
+              </button>
+            </div>
             <div class="qf-stack">
               <!-- Rendered by JS: empty text input, or the filled-person token -->
               <div id="employeeField"></div>
-              <!-- Quick Fill entry point: the "qualified employees" picker opens the ranked panel -->
-              <div class="qf-select lg" data-action="togglePanel">
+              <div class="qf-select lg">
                 <span>... or choose from qualified employees...</span><i class="car fa-regular fa-chevron-down"></i>
               </div>
               <div class="qf-select md">
@@ -365,51 +491,93 @@
     { id: 'a4', name: 'All Paramedics (District)', meta: '96 qualified · broadest' }
   ];
   // Rule = HOW they rank. r1 is the default for this shift's qualifier.
+  // Named by sorter type (Hours Based, Rolodex, …) so the type is obvious at a
+  // glance (review 2026-10-06). `metric` is the ONE data point each card shows
+  // on its right for this rule — cards only show what the rule ranks on.
+  // `key` = the value ranked on; rows with an equal key are tied and show the
+  // seniority-date tiebreaker under the metric (only rules that can tie).
   const RULES = [
-    { id: 'r1', name: 'Lowest OT Hours',               meta: 'ascending OT' },
-    { id: 'r2', name: 'Seniority (Most Senior First)', meta: 'by hire date' },
-    { id: 'r3', name: 'Position Order',                meta: 'next position in order' },
-    { id: 'r4', name: 'Least Recently Called',         meta: 'longest since last callback' }
+    { id: 'r1', name: 'Overtime - Hours Based', meta: 'Hours Based · fewest OT hours first', key: p => p.ot,
+      metric: { label: 'OT hours',    value: p => p.ot.toFixed(2) + ' hrs' } },
+    { id: 'r2', name: 'Rolodex',                meta: 'Rolodex · next in rotation order',
+      metric: { label: 'Rolodex',     value: p => '#' + p.rot } },
+    { id: 'r3', name: 'Turns Based',            meta: 'Turns Based · fewest turns this period', key: p => p.turns,
+      metric: { label: 'Turns',       value: p => p.turns + (p.turns === 1 ? ' turn' : ' turns') } },
+    { id: 'r4', name: 'Accumulating Rolodex',   meta: 'Accumulating Rolodex · rotation, 24 h limit',
+      metric: { label: 'Rolodex · hrs', value: p => '#' + p.rot + ' <span class="s">· ' + p.acc + '/24 h</span>' } }
   ];
+  // '2011-03-14' → '3/14/2011' (production list format)
+  const fmtDate = d => { const [y, m, dd] = d.split('-'); return +m + '/' + +dd + '/' + y; };
+  // Full names — rank numbers sometimes live in the first OR last name, so
+  // schedulers need to see both. `hired` shows on every card; `sen` (seniority
+  // date) is the tiebreaker — usually the hire date, but not always (rehires).
   const PEOPLE = [
-    { name: 'D. Ferraro',   phone: '(408) 555-0142', auto: true,  position: 'Position 4', ot: 12.5, sen: '2011-03-14', senY: 15, last: 26, rot: 4 },
-    { name: 'M. Okonjo',    phone: '(408) 555-0198', auto: false, position: 'Position 1', ot: 14.0, sen: '2016-07-02', senY: 10, last: 12, rot: 1 },
-    { name: 'S. Whitaker',  phone: '(408) 555-0177', auto: true,  position: 'Position 7', ot: 18.0, sen: '2009-01-20', senY: 17, last: 41, rot: 7 },
-    { name: 'J. Halvorsen', phone: '(408) 555-0106', auto: false, position: 'Position 9', ot: 22.5, sen: '2019-05-11', senY: 7,  last: 5,  rot: 9 },
-    { name: 'P. Nowak',     phone: '(408) 555-0231', auto: true,  position: 'Position 2', ot: 26.0, sen: '2013-09-30', senY: 12, last: 33, rot: 2 },
-    { name: 'T. Arceneaux', phone: '(408) 555-0165', auto: false, position: 'Position 6', ot: 31.5, sen: '2021-02-08', senY: 5,  last: 19, rot: 6 },
-    { name: 'V. Lindqvist', phone: '(408) 555-0119', auto: false, position: 'Position 3', ot: 34.0, sen: '2007-11-05', senY: 18, last: 58, rot: 3 },
-    { name: 'H. Bramble',   phone: '(408) 555-0288', auto: true,  position: 'Position 8', ot: 40.0, sen: '2018-04-17', senY: 8,  last: 9,  rot: 8 }
+    { name: 'Dominic Ferraro', phone: '(408) 555-0142', auto: true,  ot: 12.5, hired: '2011-03-14', sen: '2011-03-14', rot: 4, turns: 2, acc: 14 },
+    { name: 'Marcus Okonjo',   phone: '(408) 555-0198', auto: false, ot: 12.5, hired: '2014-02-10', sen: '2016-07-02', rot: 1, turns: 3, acc: 6 },
+    { name: 'Sarah Whitaker',  phone: '(408) 555-0177', auto: true,  ot: 18.0, hired: '2009-01-20', sen: '2009-01-20', rot: 7, turns: 1, acc: 24 },
+    { name: 'Jens Halvorsen',  phone: '(408) 555-0106', auto: false, ot: 22.5, hired: '2017-08-21', sen: '2019-05-11', rot: 9, turns: 4, acc: 0 },
+    { name: 'Paulina Nowak',   phone: '(408) 555-0231', auto: true,  ot: 22.5, hired: '2013-09-30', sen: '2013-09-30', rot: 2, turns: 2, acc: 12 },
+    { name: 'Tyler Arceneaux', phone: '(408) 555-0165', auto: false, ot: 31.5, hired: '2021-02-08', sen: '2021-02-08', rot: 6, turns: 5, acc: 18 },
+    { name: 'Vera Lindqvist',  phone: '(408) 555-0119', auto: false, ot: 34.0, hired: '2007-11-05', sen: '2007-11-05', rot: 3, turns: 1, acc: 8 },
+    { name: 'Henry Bramble',   phone: '(408) 555-0288', auto: true,  ot: 40.0, hired: '2018-04-17', sen: '2018-04-17', rot: 8, turns: 3, acc: 20 }
   ];
-  // How many of PEOPLE each approach admits, and who it filtered out.
+  // How many of PEOPLE each approach admits.
   const POOL_SIZE = { a1: 8, a2: 6, a3: 5, a4: 8 };
+
+  // Who each approach filtered out, and why — listed at the bottom of the panel.
+  const OUT = {
+    moreno:    { name: 'Rachel Moreno',   type: 'timeoff', why: 'Vacation · Sep 24 – Sep 27' },
+    whitfield: { name: 'Andre Whitfield', type: 'timeoff', why: 'Sick leave · Sep 25' },
+    liu:       { name: 'Grace Liu',       type: 'timeoff', why: 'Kelly day · Sep 25' },
+    watanabe:  { name: 'Kenji Watanabe',  type: 'working', why: 'Engine 12 · 07:00 – 19:00 (overlaps)' },
+    ortiz:     { name: 'Samuel Ortiz',    type: 'working', why: 'Medic 4 · 08:00 – 08:00' },
+    cole:      { name: 'Brianna Cole',    type: 'working', why: 'Station 9 · 20:00 – 08:00' },
+    rivera:    { name: 'Tomas Rivera',    type: 'working', why: 'Engine 3 · 06:00 – 18:00' },
+    marsh:     { name: 'Devon Marsh',     type: 'working', why: 'Truck 27 · 08:00 – 17:00' },
+    pettigrew: { name: 'Laura Pettigrew', type: 'optout',  why: 'Not accepting callbacks this pay period' }
+  };
   const EXCLUDED = {
-    a1: '4 excluded — 2 time off, 1 working, 1 opted out',
-    a2: '3 excluded — 2 working, 1 time off',
-    a3: '1 excluded — opted out',
-    a4: '9 excluded — 5 working, 3 time off, 1 opted out'
+    a1: ['moreno', 'whitfield', 'watanabe', 'pettigrew'],
+    a2: ['watanabe', 'ortiz', 'moreno'],
+    a3: ['pettigrew'],
+    a4: ['moreno', 'whitfield', 'liu', 'watanabe', 'ortiz', 'cole', 'rivera', 'marsh', 'pettigrew']
   };
+  const REASONS = { timeoff: 'Time off', working: 'Working', optout: 'Opted out' };   // display order too
+
+  // Ties are broken by seniority date (oldest first).
+  const bySen = (a, b) => a.sen.localeCompare(b.sen);
   const SORTS = {
-    r1: (a, b) => a.ot - b.ot,
-    r2: (a, b) => a.sen.localeCompare(b.sen),
-    r3: (a, b) => a.rot - b.rot,
-    r4: (a, b) => b.last - a.last
+    r1: (a, b) => a.ot - b.ot || bySen(a, b),
+    r2: (a, b) => a.rot - b.rot,
+    r3: (a, b) => a.turns - b.turns || bySen(a, b),
+    r4: (a, b) => (a.acc >= 24) - (b.acc >= 24) || a.rot - b.rot   // at the hour limit → bottom
   };
-  const RANK_META = {
-    r1: p => p.ot.toFixed(1) + ' OT hrs',
-    r2: p => p.senY + ' yrs service',
-    r3: p => 'position ' + p.rot,
-    r4: p => p.last + ' days since callback'
-  };
-  const DECISIVE = { r1: 'ot', r2: 'sen', r3: 'rot', r4: 'last' };
 
   /* ── State ─────────────────────────────────────────────────── */
-  const DEFAULT_STATE = { panelOpen: true, approachMenuOpen: false, ruleMenuOpen: false, approach: 'a1', rule: 'r1', filled: null };
+  const DEFAULT_STATE = { panelOpen: true, approachMenuOpen: false, ruleMenuOpen: false, approach: 'a1', rule: 'r1', filled: null, excludedOpen: true, showTie: true };
   let state = Object.assign({}, DEFAULT_STATE);
   function setState(patch) { Object.assign(state, patch); render(); }
 
   function ranked() {
     return PEOPLE.slice(0, POOL_SIZE[state.approach] || PEOPLE.length).sort(SORTS[state.rule]);
+  }
+  function excluded() {
+    const order = Object.keys(REASONS);
+    return EXCLUDED[state.approach].map(k => OUT[k]).sort((a, b) => order.indexOf(a.type) - order.indexOf(b.type));
+  }
+  // "4 excluded — 2 time off, 1 working, 1 opted out"
+  function excludedSummary(out) {
+    const parts = Object.keys(REASONS)
+      .map(t => [t, out.filter(x => x.type === t).length])
+      .filter(([, n]) => n)
+      .map(([t, n]) => n + ' ' + REASONS[t].toLowerCase());
+    return out.length + ' excluded — ' + parts.join(', ');
+  }
+  // Scroll the candidate list down to the excluded section.
+  function scrollToExcluded() {
+    const list = document.querySelector('.qp-list');
+    const sec = document.getElementById('qpExcluded');
+    if (list && sec) list.scrollTop = sec.offsetTop - 10;
   }
 
   /* ── Render ────────────────────────────────────────────────── */
@@ -449,48 +617,69 @@
       </div>`;
   }
 
-  function factor(label, value, key) {
-    const cls = DECISIVE[state.rule] === key ? ' decisive' : '';
-    return `<span class="qp-factor${cls}"><span class="l">${label}</span><span class="v">${value}</span></span>`;
-  }
-
-  function cardHtml(p, i) {
+  // One compact row: rank | full name + phone | the current rule's data point | Fill
+  function cardHtml(p, i, list) {
     const filled = state.filled === p.name;
+    const rule = RULES.find(r => r.id === state.rule);
+    const m = rule.metric;
+    const tied = state.showTie && rule.key && [list[i - 1], list[i + 1]].some(q => q && rule.key(q) === rule.key(p));
     return `
       <div class="qp-card${i === 0 ? ' top' : ''}${filled ? ' filled' : ''}">
         <div class="qp-rank">${i + 1}</div>
         <div class="qp-body">
           <div class="qp-line1">
-            <span class="qp-name">${p.name}</span>
-            <span class="qp-rankmeta">${RANK_META[state.rule](p)}</span>
+            <span class="qp-name" title="${p.name}">${p.name}</span>
             ${p.auto ? '<span class="qp-auto">AUTO-ACCEPT</span>' : ''}
           </div>
           <div class="qp-line2">
-            <span class="ph">${p.phone}</span><span class="sep">|</span><span>${p.position}</span>
-          </div>
-          <div class="qp-factors">
-            ${factor('OT', p.ot.toFixed(1) + ' h', 'ot')}
-            ${factor('Seniority', p.senY + ' yr', 'sen')}
-            ${factor('Last CB', p.last + ' d', 'last')}
-            ${factor('Position', '#' + p.rot, 'rot')}
+            <span class="qp-phone">${p.phone}</span>
+            <span class="qp-hired">Hired <b>${fmtDate(p.hired)}</b></span>
           </div>
         </div>
+        <div class="qp-metric">
+          <span class="l">${m.label}</span><span class="v">${m.value(p)}</span>
+          ${tied ? `<span class="tie" title="Tied — broken by seniority date">tie · sen. ${fmtDate(p.sen)}</span>` : ''}
+        </div>
         <button class="qp-fill" data-action="fill" data-name="${p.name}">${filled ? '✓ Filled' : 'Fill'}</button>
+      </div>`;
+  }
+
+  // Excluded users + reason, collapsible, below the ranked cards.
+  function excludedHtml(out) {
+    if (!out.length) return '';
+    return `
+      <div class="qp-excl" id="qpExcluded">
+        <div class="qp-excl-h" data-action="toggleExcluded" role="button" aria-expanded="${state.excludedOpen}">
+          <i class="car fa-solid fa-caret-${state.excludedOpen ? 'down' : 'right'}"></i>
+          Excluded users (${out.length})
+          <span class="sum">Not in the ranking</span>
+        </div>
+        ${state.excludedOpen ? out.map(x => `
+          <div class="qp-excl-row">
+            <span class="nm" title="${x.name}">${x.name}</span>
+            <span class="qp-reason ${x.type}">${REASONS[x.type]}</span>
+            <span class="why" title="${x.why}">${x.why}</span>
+          </div>`).join('') : ''}
       </div>`;
   }
 
   function renderPanel() {
     const slot = document.getElementById('panelSlot');
     document.getElementById('stage').classList.toggle('panel-open', state.panelOpen);
+    document.getElementById('qfOpenBtn').setAttribute('aria-pressed', String(state.panelOpen));
     if (!state.panelOpen) { slot.innerHTML = ''; return; }
 
     const list = ranked();
+    const out = excluded();
+    const prevList = slot.querySelector('.qp-list');   // keep scroll position across re-renders
+    const prevScroll = prevList ? prevList.scrollTop : 0;
     const isDefault = state.approach === 'a1' && state.rule === 'r1';
     const approach = APPROACHES.find(a => a.id === state.approach);
     const rule = RULES.find(r => r.id === state.rule);
     const wasOpen = !!slot.querySelector('.qp');   // only animate the slide-in on first open
 
     slot.innerHTML = `
+      <div class="qp-scrim" data-action="togglePanel"${wasOpen ? ' style="animation:none"' : ''}></div>
       <aside class="qp" aria-label="Qualified personnel"${wasOpen ? ' style="animation:none"' : ''}>
         <div class="qp-head">
           <div class="qp-head-top">
@@ -510,6 +699,10 @@
             ${isDefault
               ? ''
               : '<span class="qp-reset" data-action="reset">Reset to default</span>'}
+            ${rule.key ? `
+              <button type="button" class="qp-switch" role="switch" aria-checked="${state.showTie}" data-action="toggleTie" title="Show the seniority date that breaks ties">
+                <span class="track"><span class="knob"></span></span>Show tiebreaker
+              </button>` : ''}
           </div>
         </div>
 
@@ -518,13 +711,14 @@
 
         <div class="qp-count">
           <span>${list.length} available, ranked</span>
-          <span class="ex">${EXCLUDED[state.approach]}</span>
+          ${out.length ? `<span class="ex" data-action="showExcluded" role="button">${excludedSummary(out)}</span>` : ''}
         </div>
 
-        <div class="qp-list">${list.map(cardHtml).join('')}</div>
+        <div class="qp-list">${list.map((p, i) => cardHtml(p, i, list)).join('')}${excludedHtml(out)}</div>
 
         <div class="qp-foot">Ranking computed live by the rules engine. Ties broken by seniority date.</div>
       </aside>`;
+    slot.querySelector('.qp-list').scrollTop = prevScroll;
   }
 
   function render() { renderEmployeeField(); renderPanel(); }
@@ -540,9 +734,18 @@
       case 'pickApproach':       setState({ approach: t.dataset.id, approachMenuOpen: false }); break;
       case 'pickRule':           setState({ rule: t.dataset.id, ruleMenuOpen: false }); break;
       case 'reset':              setState({ approach: 'a1', rule: 'r1' }); break;
-      case 'fill':               setState({ filled: t.dataset.name }); break;
+      // On tablet/mobile the pop-up closes after Fill so the person shows in the form
+      case 'fill':               setState({ filled: t.dataset.name, panelOpen: isSheet() ? false : state.panelOpen }); break;
       case 'clearFill':          setState({ filled: null }); break;
+      case 'toggleTie':          setState({ showTie: !state.showTie }); break;
+      case 'toggleExcluded':     setState({ excludedOpen: !state.excludedOpen }); break;
+      case 'showExcluded':       setState({ excludedOpen: true }); scrollToExcluded(); break;
     }
+  });
+
+  const isSheet = () => window.matchMedia('(max-width: 1140px)').matches;   // tablet + mobile
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && state.panelOpen && isSheet()) setState({ panelOpen: false });
   });
 
   render();
@@ -575,11 +778,12 @@
       case 'approach':  setState(Object.assign(base, { approachMenuOpen: true })); break;
       case 'rule':      setState(Object.assign(base, { ruleMenuOpen: true })); break;
       case 'override':  setState(Object.assign(base, { approach: 'a2', rule: 'r2' })); break;
-      case 'filled':    setState(Object.assign(base, { filled: 'D. Ferraro' })); break;
+      case 'filled':    setState(Object.assign(base, { filled: 'Dominic Ferraro' })); break;
+      case 'excluded':  setState(base); scrollToExcluded(); break;
       case 'panel':
       default:          setState(base); break;   // unknown state → the entry screen
     }
-    if (!opts.instant) window.scrollTo(0, 0);
+    if (!opts.instant && id !== 'excluded') window.scrollTo(0, 0);
   }
   window.applyFlowState = applyFlowState;
 
@@ -596,24 +800,28 @@
     flowMap: {
       title: 'Quick Fill — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 1240, h: 520 },
+      thumbViewportWidth: 1360,   // desktop layout in thumbnails (sheet layout kicks in ≤1140px)
+      canvas: { w: 1240, h: 640 },
       flows: [
         { id: 'main', name: 'Quick Fill', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 1200, h: 480 }, labelXY: { x: 40, y: 40 } }
+          lane: { x: 20, y: 20, w: 1200, h: 600 }, labelXY: { x: 40, y: 40 } }
       ],
       nodes: [
         { id: 'modal', flow: 'main', x: 60, y: 200,
           step: 'Step 1', name: 'Fill shift modal', state: 'modal',
-          desc: 'Production fill-shift dialog. "... or choose from qualified employees..." or "Fill w/ CallBack™" opens the panel.' },
+          desc: 'Production fill-shift dialog. The Quick Fill button on the "Choose employee(s)" row (right edge of the input) opens the panel. Desktop = side panel; tablet ≤1140px and mobile ≤760px = full-screen form + bottom-sheet pop-up (tablet sheet is wider, centred).' },
         { id: 'panel', flow: 'main', entry: true, x: 340, y: 200,
           step: 'Step 2', name: 'Qualified personnel', state: 'panel',
-          desc: 'Ranked candidates using the approach + rule defaulted from the shift qualifier.' },
+          desc: 'Ranked candidates using the approach + rule defaulted from the shift qualifier. One compact row per person: full name, phone, and only the data point the rule ranks on.' },
+        { id: 'excluded', flow: 'main', x: 340, y: 420,
+          step: 'Step 2', name: 'Excluded users', state: 'excluded',
+          desc: 'Bottom of the list: who the approach left out and why (time off, working, opted out) — like the callback preview.' },
         { id: 'approach', flow: 'main', x: 620, y: 70,
           step: 'Override', name: 'Pick approach', state: 'approach',
           desc: 'Approach = WHO is eligible. Changing it re-filters the pool and the excluded summary.' },
         { id: 'rule', flow: 'main', x: 620, y: 330,
           step: 'Override', name: 'Pick rule', state: 'rule',
-          desc: 'Rule = HOW they rank. The deciding factor chip is highlighted on every card.' },
+          desc: 'Rule = HOW they rank, named by sorter type (Hours Based, Rolodex, Turns Based, Accumulating Rolodex). Cards swap their data point to match the rule.' },
         { id: 'override', flow: 'main', x: 900, y: 200,
           step: 'Override', name: 'Changed', state: 'override',
           desc: 'Non-default approach/rule shows a one-click Reset to default; the Default tag stays on the original option in each menu.' },
@@ -627,7 +835,8 @@
         ['panel', 'rule'],
         ['approach', 'override'],
         ['rule', 'override'],
-        ['panel', 'filled']
+        ['panel', 'filled'],
+        ['panel', 'excluded']
       ]
     }
   };

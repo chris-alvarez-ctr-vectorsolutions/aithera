@@ -201,6 +201,10 @@ function buildProduct(product, jiraBase) {
     // Optional annotation shown in the card's Designer Versions drawer
     // (e.g. "Blue sky UI design") — what the working file represents.
     if (it.designerNote) entry.designerNote = it.designerNote;
+    // Optional extra links shown as their own rows on the card (e.g. a later phase's
+    // version: [{ "label": "Phase 2 (TBD)", "file": "ver2/index.html" }]), paths
+    // relative to the mock's folder.
+    if (Array.isArray(it.extraLinks) && it.extraLinks.length) entry.extraLinks = it.extraLinks;
     // Curated last-modified date — the dashboard's fallback when no commit in
     // recentChanges can be attributed to this mock.
     if (it.modified) entry.modified = it.modified;
