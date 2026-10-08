@@ -1162,6 +1162,173 @@
     .pcfg-check-row { display: flex; align-items: center; gap: 9px; }
     .pcfg-check-row label { font-size: 13.5px; color: #1f2937; cursor: pointer; }
 
+
+    /* =====================================================================
+       TRANSLATIONS (post Publish-to-QA)
+       Appears once the course is published to QA. Two parts: a readiness
+       score for the source English transcript, and the language packs
+       selected for translation.
+    ===================================================================== */
+    #pcfg-translations { display: none; }
+    #pcfg-translations.active { display: block; }
+
+    /* ---- Source readiness score ---- */
+    .tr-score-row { display: flex; gap: 22px; align-items: flex-start; margin-bottom: 20px; }
+    .tr-score-dial {
+      width: 104px; height: 104px; border-radius: 50%;
+      flex-shrink: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      /* conic gradient set inline from the score */
+      position: relative;
+    }
+    .tr-score-dial::after {
+      content: ''; position: absolute; inset: 9px;
+      background: #fff; border-radius: 50%;
+    }
+    .tr-score-num {
+      position: relative; z-index: 1;
+      font-size: 27px; font-weight: 600; line-height: 1;
+    }
+    .tr-score-outof { position: relative; z-index: 1; font-size: 10.5px; color: #6b7280; margin-top: 2px; }
+
+    .tr-score-body { flex: 1; min-width: 0; }
+    .tr-score-head { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+    .tr-score-verdict { font-size: 15.5px; font-weight: 600; }
+    .tr-score-desc { font-size: 13px; color: #4b5563; line-height: 1.55; margin-bottom: 12px; }
+
+    /* Flagged issues that hurt translation fidelity */
+    .tr-issues { border: 1px solid #e5e7eb; border-radius: 7px; overflow: hidden; }
+    .tr-issue {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 9px 12px; border-bottom: 1px solid #f1f3f5;
+      font-size: 12.5px; line-height: 1.45;
+    }
+    .tr-issue:last-child { border-bottom: none; }
+    .tr-issue-icon { width: 15px; text-align: center; flex-shrink: 0; margin-top: 1px; font-size: 12px; }
+    .tr-issue-icon.warn { color: #b45309; }
+    .tr-issue-icon.info { color: #6b7280; }
+    .tr-issue-loc { color: #6b7280; font-size: 11.5px; margin-top: 1px; }
+    /* ---- Language packs ---- */
+    .tr-pack {
+      border: 1px solid #e3e6e9; border-radius: 8px;
+      padding: 13px 15px; margin-bottom: 11px;
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .tr-pack.selected { border-color: #9ec4e8; background: #fbfdff; }
+    .tr-pack-main { flex: 1; min-width: 0; }
+    .tr-pack-name { font-size: 13.5px; font-weight: 600; color: #111827; }
+    .tr-pack-langs { font-size: 12px; color: #6b7280; margin-top: 2px; line-height: 1.45; }
+
+    .tr-pack-right {
+      display: flex; align-items: center; gap: 12px;
+      flex-shrink: 0; align-self: center;
+      /* Wide enough that the longest status ("Translating 1 of 6…") never
+         truncates as packs swap between states. */
+      min-width: 232px; justify-content: flex-end;
+    }
+    .tr-pack-status { font-size: 12px; color: #4b5563; white-space: nowrap; }
+
+    /* Thin determinate progress rail for an in-flight pack */
+    .tr-pack-bar {
+      width: 112px; height: 5px; border-radius: 3px;
+      background: #e9edf1; overflow: hidden;
+    }
+    .tr-pack-bar-fill {
+      height: 100%; background: #1565c0; width: 0;
+      transition: width 0.4s ease;
+    }
+
+    /* ---- Release gate notice ---- */
+    .tr-gate {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 12.5px; color: #6b7280;
+      margin-top: 4px;
+    }
+
+    /* ---- Per-language review dialog ---- */
+    .trd-wrap { width: min(620px, 86vw); }
+    .trd-sub { font-size: 12.5px; color: #6b7280; margin-bottom: 14px; }
+    .trd-lang {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 2px; border-bottom: 1px solid #f1f3f5;
+    }
+    .trd-lang:last-child { border-bottom: none; }
+    .trd-lang-name { font-size: 13.5px; color: #111827; flex: 1; min-width: 0; }
+    .trd-lang-note { font-size: 11.5px; color: #6b7280; margin-top: 1px; }
+    .trd-lang-score { font-size: 13.5px; font-weight: 600; width: 38px; text-align: right; }
+    .trd-rtl {
+      font-size: 10.5px; color: #6b7280; border: 1px solid #e5e7eb;
+      border-radius: 3px; padding: 1px 5px; margin-left: 6px;
+    }
+
+    /* Shared score coloring */
+    .score-good { color: #0a7637; }
+    .score-warn { color: #b45309; }
+    .score-poor { color: #ca150c; }
+
+
+    /* =====================================================================
+       PUBLISH-TO-QA PHASES
+       Three phases: editable form → read-only + publishing → published.
+       Read-only is a genuinely different layout (values, not fields), so
+       it is generated from the live field values rather than duplicated.
+    ===================================================================== */
+
+    /* Chrome dims while publishing is in flight. */
+    #publish-config.publishing .pcfg-topbar-title { color: #6b7280; }
+    #publish-config.publishing .pcfg-back { color: #9ca3af; cursor: default; }
+
+    /* Read-only value rows, replacing the field grid. */
+    .pcfg-ro-line { font-size: 13.5px; color: #1f2937; line-height: 1.75; }
+    .pcfg-ro-line strong { font-weight: 600; color: #111827; }
+    .pcfg-ro-block { margin-top: 14px; }
+
+    /* Indeterminate publishing rail beside the "Publishing to QA…" label. */
+    .pcfg-publishing {
+      display: flex; flex-direction: column; gap: 7px;
+      min-width: 172px;
+    }
+    .pcfg-publishing-label { font-size: 13.5px; color: #1565c0; }
+    .pcfg-publishing-rail {
+      height: 4px; border-radius: 2px; background: #dbe3ea; overflow: hidden;
+    }
+    .pcfg-publishing-rail span {
+      display: block; height: 100%; width: 38%; border-radius: 2px;
+      background: #1565c0;
+      animation: pcfgRail 1.25s ease-in-out infinite;
+    }
+    @keyframes pcfgRail {
+      0%   { transform: translateX(-100%); }
+      100% { transform: translateX(300%); }
+    }
+
+    /* ---- Translations loading state ---- */
+    .tr-loading {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 13px;
+      padding: 44px 20px; text-align: center;
+    }
+    .tr-loading-label { font-size: 13.5px; color: #4b5563; }
+    .tr-loading-rail {
+      width: 240px; height: 4px; border-radius: 2px;
+      background: #e9edf1; overflow: hidden;
+    }
+    .tr-loading-rail span {
+      display: block; height: 100%; width: 38%; border-radius: 2px;
+      background: #1565c0;
+      animation: pcfgRail 1.25s ease-in-out infinite;
+    }
+
+    /* Results animate in once scoring completes. */
+    .tr-results { opacity: 0; transform: translateY(6px); }
+    .tr-results.shown {
+      opacity: 1; transform: none;
+      transition: opacity 0.45s ease, transform 0.45s ease;
+    }
+
+    /* The dial sweeps from 0 to its score. */
+    .tr-score-dial { transition: background 0.1s linear; }
+
     /* =====================================================================
        ASSESSMENT — section/question list reuses Course Content section-block
        pattern. .aq-unit wrapper just constrains width.
@@ -2501,6 +2668,8 @@
 ===================================================================== -->
 <vaadin-dialog id="cd-image-dialog"></vaadin-dialog>
 <vaadin-dialog id="publish-dialog"></vaadin-dialog>
+<vaadin-dialog id="tr-review-dialog"></vaadin-dialog>
+<vaadin-dialog id="tr-release-dialog"></vaadin-dialog>
 
 
 <!-- ===================================================================
@@ -2526,9 +2695,31 @@
           <i class="fa-solid fa-chevron-left"></i> Manage Course
         </button>
         <div class="pcfg-actionbar-right">
-          <span class="pcfg-draft-pill">Saved as Draft</span>
-          <!-- Stub: destination after QA publish not yet defined. -->
+          <!-- Status pill: Saved as Draft → Pending (publishing) → Published to QA -->
+          <span class="pcfg-draft-pill" id="pcfg-state-draft">Saved as Draft</span>
+          <span class="pcfg-draft-pill" id="pcfg-state-pending" style="display:none;">Pending</span>
+          <span id="pcfg-state-qa" theme="badge" style="display:none; background:#e3f0fb; color:#1565c0;">Published to QA</span>
+
           <vaadin-button id="pcfg-publish-qa" theme="primary">Publish to QA</vaadin-button>
+
+          <!-- Read-only phases swap the form for these. -->
+          <vaadin-button id="pcfg-edit-settings" theme="secondary" style="display:none;">
+            Edit Settings
+          </vaadin-button>
+          <vaadin-button id="pcfg-preview" theme="secondary" style="display:none;">
+            Preview
+          </vaadin-button>
+
+          <!-- Indeterminate rail while the QA publish runs. -->
+          <div class="pcfg-publishing" id="pcfg-publishing" style="display:none;">
+            <span class="pcfg-publishing-label">Publishing to QA…</span>
+            <span class="pcfg-publishing-rail"><span></span></span>
+          </div>
+
+          <!-- Post-QA CTA. Blocked only while a pack is mid-translation. -->
+          <vaadin-button id="pcfg-release" theme="success primary" style="display:none;">
+            Release Course
+          </vaadin-button>
         </div>
       </div>
 
@@ -2568,6 +2759,10 @@
         <div class="pcfg-sub-label">Variant Title:</div>
         <div class="pcfg-sub-value">Full Course</div>
 
+        <!-- Read-only summary, generated from the fields below on publish. -->
+        <div id="pcfg-variant-ro" style="display:none;"></div>
+
+        <div id="pcfg-variant-edit">
         <div class="pcfg-section-label">Variant Description:</div>
 
         <div class="pcfg-grid">
@@ -2619,12 +2814,17 @@
             <label for="pcfg-link-qse">Quick Safety Exit</label>
           </div>
         </div>
+        </div><!-- /#pcfg-variant-edit -->
       </div>
 
       <!-- ===== SafeLMS Settings ===== -->
       <div class="pcfg-card">
         <div class="pcfg-card-h2" style="margin-bottom:18px;">SafeLMS Settings</div>
 
+        <!-- Read-only summary, generated from the fields below on publish. -->
+        <div id="pcfg-safelms-ro" style="display:none;"></div>
+
+        <div id="pcfg-safelms-edit">
         <div class="pcfg-grid">
           <div class="pcfg-field">
             <vaadin-select id="pcfg-library" theme="outlined" label="Library (Publisher)"
@@ -2651,7 +2851,56 @@
             <vaadin-checkbox id="pcfg-customization" checked></vaadin-checkbox>
             <label for="pcfg-customization">Allow customization by customers</label>
           </div>
+          <div class="pcfg-check-row">
+            <vaadin-checkbox id="pcfg-gatekeeper"></vaadin-checkbox>
+            <label for="pcfg-gatekeeper">Enable gatekeeper</label>
+          </div>
         </div>
+        </div><!-- /#pcfg-safelms-edit -->
+      </div>
+
+      <!-- ===== Translations — only after Publish to QA ===== -->
+      <div class="pcfg-card" id="pcfg-translations">
+        <div class="pcfg-card-h2" style="margin-bottom:4px;">Translations</div>
+        <div class="pcfg-desc-body" style="color:#6b7280; margin-bottom:20px;">
+          The source English transcript is scored for translation readiness. Resolve flagged
+          issues before translating to avoid propagating them into every language.
+        </div>
+
+        <!-- Scoring runs only after the QA publish completes. -->
+        <div class="tr-loading" id="tr-loading">
+          <div class="tr-loading-rail"><span></span></div>
+          <div class="tr-loading-label">Scoring the source English transcript…</div>
+        </div>
+
+        <div class="tr-results" id="tr-results" style="display:none;">
+        <!-- Source readiness score -->
+        <div class="pcfg-section-label">Source Transcript Readiness</div>
+        <div class="tr-score-row">
+          <div class="tr-score-dial" id="tr-dial">
+            <span class="tr-score-num" id="tr-score-num">--</span>
+            <span class="tr-score-outof">out of 100</span>
+          </div>
+          <div class="tr-score-body">
+            <div class="tr-score-head">
+              <span class="tr-score-verdict" id="tr-verdict"></span>
+              <span id="tr-verdict-badge" theme="badge"></span>
+            </div>
+            <div class="tr-score-desc" id="tr-score-desc"></div>
+            <div class="tr-issues" id="tr-issues"></div>
+          </div>
+        </div>
+
+        <!-- Language packs -->
+        <div class="pcfg-section-label" style="margin-top:24px;">Language Packs</div>
+        <div class="pcfg-desc-body" style="color:#6b7280; margin-bottom:14px; font-size:12.5px;">
+          Each pack is translated as its own process. The course stays in QA until every selected
+          pack finishes.
+        </div>
+        <div id="tr-packs"></div>
+
+        <div class="tr-gate" id="tr-gate"></div>
+        </div><!-- /#tr-results -->
       </div>
 
     </div>
@@ -3775,6 +4024,549 @@ function coClearSearch() {
     });
   }
 })();
+
+/* =====================================================================
+   TRANSLATIONS
+   Shown after Publish to QA. Scores the source English transcript, then
+   runs each selected language pack as its own simulated async process.
+   The course sits in QA until every selected pack finishes.
+===================================================================== */
+(function () {
+
+  // ---- Source transcript readiness -----------------------------------
+  // Demo data. A low score warns but never blocks — the author decides
+  // whether to fix the source first or translate anyway.
+  const sourceScore = {
+    score: 72,
+    issues: [
+      { level: 'warn', text: 'Idiomatic phrase "hit the ground running" has no direct equivalent in 6 target languages.',
+        loc: 'Introduction · Course Overview · Scene 3' },
+      { level: 'warn', text: 'Ambiguous pronoun reference — "it" could resolve to either the seed tray or the soil.',
+        loc: '01 Basics of Color Theory · Scene 2' },
+      { level: 'warn', text: 'Acronym "RGB" is never expanded on first use.',
+        loc: '02 The Science of Color · Scene 1' },
+      { level: 'info', text: 'Measurement units are imperial only; consider adding metric for non-US markets.',
+        loc: '3 scenes affected' },
+    ]
+  };
+
+  // Anything below this needs explicit approval to release. Shared by the
+  // score bands and the release confirmation so they can never disagree.
+  const REVIEW_THRESHOLD = 85;
+
+  // Score → color band. Shared by the dial, the number, and language rows.
+  function scoreBand(n) {
+    if (n >= REVIEW_THRESHOLD) return { cls: 'score-good', hex: '#158444', label: 'Ready',          badge: 'success' };
+    if (n >= 70)                return { cls: 'score-warn', hex: '#b45309', label: 'Review Advised', badge: '' };
+    return         { cls: 'score-poor', hex: '#ca150c', label: 'Issues Found',  badge: 'error' };
+  }
+
+  // Sweeps the dial and counts the number up from 0 so the result reads as
+  // a measurement landing, not a value that was always there.
+  function animateScore(target, band) {
+    const dial = document.getElementById('tr-dial');
+    const numEl = document.getElementById('tr-score-num');
+    const DURATION = 900;
+    const start = performance.now();
+
+    function frame(now) {
+      const t = Math.min(1, (now - start) / DURATION);
+      // Ease-out so it decelerates into the final value.
+      const eased = 1 - Math.pow(1 - t, 3);
+      const v = target * eased;
+      dial.style.background =
+        'conic-gradient(' + band.hex + ' 0turn ' + (v / 100) + 'turn, #e9edf1 ' + (v / 100) + 'turn 1turn)';
+      numEl.textContent = Math.round(v);
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function renderSourceScore(animate) {
+    const n = sourceScore.score;
+    const band = scoreBand(n);
+
+    const dial = document.getElementById('tr-dial');
+    const numEl = document.getElementById('tr-score-num');
+
+    if (animate) {
+      animateScore(n, band);
+    } else {
+      dial.style.background =
+        'conic-gradient(' + band.hex + ' 0turn ' + (n / 100) + 'turn, #e9edf1 ' + (n / 100) + 'turn 1turn)';
+      numEl.textContent = n;
+    }
+    numEl.className = 'tr-score-num ' + band.cls;
+
+    document.getElementById('tr-verdict').textContent = band.label;
+    const vb = document.getElementById('tr-verdict-badge');
+    vb.textContent = n >= 85 ? 'Good to translate' : 'Will affect translations';
+    vb.setAttribute('theme', 'badge ' + (band.badge || ''));
+
+    document.getElementById('tr-score-desc').textContent =
+      n >= 85
+        ? 'The source transcript translates cleanly. No blocking issues detected.'
+        : 'These issues will carry into every translated language. Resolving them now is cheaper than correcting each translation later.';
+
+    const wrap = document.getElementById('tr-issues');
+    wrap.innerHTML = '';
+    sourceScore.issues.forEach(iss => {
+      const row = document.createElement('div');
+      row.className = 'tr-issue';
+      row.innerHTML =
+        '<span class="tr-issue-icon ' + iss.level + '">' +
+          '<i class="fa-solid ' + (iss.level === 'warn' ? 'fa-triangle-exclamation' : 'fa-circle-info') + '"></i>' +
+        '</span>' +
+        '<span><span>' + iss.text + '</span>' +
+        '<div class="tr-issue-loc">' + iss.loc + '</div></span>';
+      wrap.appendChild(row);
+    });
+  }
+
+  // ---- Language packs -------------------------------------------------
+  // Tiered by demand. Each pack is its own process with its own status.
+  // status: 'idle' | 'queued' | 'running' | 'complete'
+  const packs = [
+    { id: 'tier1', name: 'Tier 1 — Core', status: 'idle', selected: false,
+      langs: [ { name: 'Spanish', code: 'es' }, { name: 'French', code: 'fr' } ] },
+    { id: 'tier2', name: 'Tier 2 — Expanded', status: 'idle', selected: false,
+      langs: [ { name: 'German', code: 'de' }, { name: 'Italian', code: 'it' },
+               { name: 'Portuguese', code: 'pt' }, { name: 'Chinese (Simplified)', code: 'zh' } ] },
+    { id: 'tier3', name: 'Tier 3 — Emerging', status: 'idle', selected: false,
+      langs: [ { name: 'Japanese', code: 'ja' }, { name: 'Korean', code: 'ko' },
+               { name: 'Vietnamese', code: 'vi' }, { name: 'Arabic', code: 'ar', rtl: true } ] },
+    { id: 'tier4', name: 'Tier 4 — Full Catalog', status: 'idle', selected: false,
+      langs: [ { name: 'Dutch', code: 'nl' }, { name: 'Polish', code: 'pl' },
+               { name: 'Swedish', code: 'sv' }, { name: 'Turkish', code: 'tr' },
+               { name: 'Hebrew', code: 'he', rtl: true }, { name: 'Thai', code: 'th' } ] },
+  ];
+
+  // Per-language scores are generated once a pack completes, seeded so a
+  // demo is repeatable. Languages further from English score lower.
+  const HARDER = { zh: 12, ja: 14, ko: 13, ar: 16, he: 15, th: 14, vi: 10 };
+  function scoreFor(lang) {
+    const base = 94 - (HARDER[lang.code] || 0);
+    // Deterministic jitter from the code so repeat runs match.
+    const j = (lang.code.charCodeAt(0) + lang.code.charCodeAt(1)) % 7;
+    return Math.max(52, Math.min(98, base - j));
+  }
+
+  const packsWrap = document.getElementById('tr-packs');
+
+  function renderPacks() {
+    packsWrap.innerHTML = '';
+    packs.forEach(pack => {
+      const row = document.createElement('div');
+      row.className = 'tr-pack' + (pack.selected ? ' selected' : '');
+
+      const cb = document.createElement('vaadin-checkbox');
+      cb.checked = pack.selected;
+      // Once kicked off, a pack can't be unselected mid-flight.
+      cb.disabled = pack.status === 'running' || pack.status === 'complete';
+      cb.addEventListener('change', () => {
+        pack.selected = cb.checked;
+        renderPacks();
+        renderGate();
+      });
+
+      const main = document.createElement('div');
+      main.className = 'tr-pack-main';
+      main.innerHTML =
+        '<div class="tr-pack-name">' + pack.name + '</div>' +
+        '<div class="tr-pack-langs">' + pack.langs.length + ' languages · ' +
+        pack.langs.map(l => l.name).join(', ') + '</div>';
+
+      const right = document.createElement('div');
+      right.className = 'tr-pack-right';
+
+      if (pack.status === 'running') {
+        const bar = document.createElement('div');
+        bar.className = 'tr-pack-bar';
+        const fill = document.createElement('div');
+        fill.className = 'tr-pack-bar-fill';
+        fill.style.width = Math.round((pack.done / pack.langs.length) * 100) + '%';
+        bar.appendChild(fill);
+        right.appendChild(bar);
+
+        const st = document.createElement('span');
+        st.className = 'tr-pack-status';
+        st.textContent = 'Translating ' + pack.done + ' of ' + pack.langs.length + '…';
+        right.appendChild(st);
+
+      } else if (pack.status === 'queued') {
+        const st = document.createElement('span');
+        st.className = 'tr-pack-status';
+        st.innerHTML = '<i class="fa-regular fa-clock" style="margin-right:5px;"></i>Queued';
+        right.appendChild(st);
+
+      } else if (pack.status === 'complete') {
+        const low = pack.langs.filter(l => scoreFor(l) < REVIEW_THRESHOLD).length;
+        const badge = document.createElement('span');
+        badge.setAttribute('theme', 'badge ' + (low ? '' : 'success'));
+        badge.textContent = low ? low + ' need review' : 'Complete';
+        right.appendChild(badge);
+
+        const btn = document.createElement('vaadin-button');
+        btn.setAttribute('theme', 'tertiary');
+        btn.textContent = 'Review';
+        btn.addEventListener('click', () => openReview(pack));
+        right.appendChild(btn);
+      }
+
+      row.appendChild(cb);
+      row.appendChild(main);
+      row.appendChild(right);
+      packsWrap.appendChild(row);
+    });
+  }
+
+  // ---- Simulated translation processes --------------------------------
+  // Each pack runs independently: a short queue wait, then languages
+  // complete one at a time.
+  const QUEUE_MS = 1200;
+  const LANG_MS = 900;
+
+  function startPack(pack) {
+    if (pack.status !== 'idle') return;
+    pack.status = 'queued';
+    pack.done = 0;
+    renderPacks(); renderGate();
+
+    setTimeout(() => {
+      pack.status = 'running';
+      renderPacks(); renderGate();
+
+      const tick = setInterval(() => {
+        pack.done += 1;
+        if (pack.done >= pack.langs.length) {
+          clearInterval(tick);
+          pack.status = 'complete';
+        }
+        renderPacks(); renderGate();
+      }, LANG_MS);
+      // Stagger each pack's queue wait so they don't finish in lockstep.
+    }, QUEUE_MS + Math.random() * 900);
+  }
+
+  // ---- Release gate ---------------------------------------------------
+  // Release is enabled by default — a course may ship with no translations.
+  // It is blocked ONLY while a pack is mid-flight.
+  function inFlight() {
+    return packs.filter(p => p.status === 'queued' || p.status === 'running');
+  }
+
+  function renderGate() {
+    const releaseBtn = document.getElementById('pcfg-release');
+    const gate = document.getElementById('tr-gate');
+    if (!releaseBtn || !gate) return;
+
+    const busy = inFlight();
+    releaseBtn.disabled = busy.length > 0;
+
+    if (busy.length) {
+      gate.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin" style="color:#1565c0;"></i>' +
+        '<span>Course stays in QA until ' + busy.length +
+        ' in-progress pack' + (busy.length === 1 ? '' : 's') + ' finish' + (busy.length === 1 ? 'es' : '') + '.</span>';
+    } else {
+      const done = packs.filter(p => p.status === 'complete');
+      gate.innerHTML = done.length
+        ? '<i class="fa-solid fa-circle-check" style="color:#158444;"></i><span>' +
+          done.length + ' pack' + (done.length === 1 ? '' : 's') + ' translated. Ready to release.</span>'
+        : '<i class="fa-regular fa-circle-info" style="color:#6b7280;"></i>' +
+          '<span>No translation packs selected. The course can be released in English only.</span>';
+    }
+  }
+
+  // ---- Per-language review dialog -------------------------------------
+  const reviewDialog = document.getElementById('tr-review-dialog');
+  let reviewPack = null;
+
+  if (reviewDialog) {
+    reviewDialog.noCloseOnOutsideClick = true;
+    reviewDialog.renderer = function (root) {
+      root.innerHTML = '';
+      if (!reviewPack) return;
+
+      const wrap = document.createElement('div');
+      wrap.className = 'trd-wrap';
+
+      let html = '<div class="pcfg-card-h2" style="margin-bottom:2px;">' + reviewPack.name + '</div>' +
+        '<div class="trd-sub">Translation quality per language. Review anything flagged before releasing.</div>';
+
+      reviewPack.langs.forEach(l => {
+        const sc = scoreFor(l);
+        const band = scoreBand(sc);
+        const note = sc >= 85 ? 'No issues detected'
+          : sc >= 70 ? 'Minor phrasing differences from source'
+          : 'Source issues carried through — review recommended';
+        html += '<div class="trd-lang">' +
+          '<span class="trd-lang-name">' + l.name +
+            (l.rtl ? '<span class="trd-rtl">RTL</span>' : '') +
+            '<div class="trd-lang-note">' + note + '</div></span>' +
+          '<span class="trd-lang-score ' + band.cls + '">' + sc + '</span>' +
+          '</div>';
+      });
+
+      wrap.innerHTML = html;
+      root.appendChild(wrap);
+    };
+
+    reviewDialog.footerRenderer = function (root, dialog) {
+      root.innerHTML = '';
+      const close = document.createElement('vaadin-button');
+      close.setAttribute('theme', 'secondary');
+      close.textContent = 'Close';
+      close.addEventListener('click', () => { dialog.opened = false; });
+      root.appendChild(close);
+    };
+  }
+
+  function openReview(pack) {
+    reviewPack = pack;
+    reviewDialog.requestContentUpdate && reviewDialog.requestContentUpdate();
+    reviewDialog.opened = true;
+  }
+
+  // ---- Release confirmation -------------------------------------------
+  // Releasing with poor scores (source or any translated language) asks
+  // for explicit approval rather than blocking.
+  const releaseDialog = document.getElementById('tr-release-dialog');
+
+  function poorItems() {
+    const out = [];
+    if (sourceScore.score < REVIEW_THRESHOLD) {
+      out.push({ label: 'Source English transcript', score: sourceScore.score });
+    }
+    packs.filter(p => p.status === 'complete').forEach(p => {
+      p.langs.forEach(l => {
+        const sc = scoreFor(l);
+        if (sc < REVIEW_THRESHOLD) out.push({ label: l.name + ' (' + p.name + ')', score: sc });
+      });
+    });
+    return out;
+  }
+
+  if (releaseDialog) {
+    releaseDialog.noCloseOnOutsideClick = true;
+    releaseDialog.renderer = function (root) {
+      root.innerHTML = '';
+      const poor = poorItems();
+
+      const wrap = document.createElement('div');
+      wrap.style.width = 'min(560px, 86vw)';
+
+      let html = '<div class="pub-modal-title">Release this course?</div>' +
+        '<div class="pub-modal-subtitle">This makes the course available to learners.</div>';
+
+      if (poor.length) {
+        html += '<div class="pub-modal-body">The following scored below the review threshold and ' +
+          'will be released as-is:</div><div class="tr-issues" style="margin-top:14px;">';
+        poor.forEach(i => {
+          html += '<div class="tr-issue">' +
+            '<span class="tr-issue-icon warn"><i class="fa-solid fa-triangle-exclamation"></i></span>' +
+            '<span>' + i.label + '</span>' +
+            '<span class="trd-lang-score score-poor" style="margin-left:auto;">' + i.score + '</span>' +
+            '</div>';
+        });
+        html += '</div>';
+      } else {
+        html += '<div class="pub-modal-body">All scored content meets the review threshold.</div>';
+      }
+
+      wrap.innerHTML = html;
+      root.appendChild(wrap);
+    };
+
+    releaseDialog.footerRenderer = function (root, dialog) {
+      root.innerHTML = '';
+      const cancel = document.createElement('vaadin-button');
+      cancel.setAttribute('theme', 'secondary');
+      cancel.textContent = 'Cancel';
+      cancel.addEventListener('click', () => { dialog.opened = false; });
+
+      const go = document.createElement('vaadin-button');
+      go.setAttribute('theme', 'success primary');
+      go.textContent = poorItems().length ? 'Release Anyway' : 'Release Course';
+      go.addEventListener('click', () => {
+        dialog.opened = false;
+        // Stub: the post-release state isn't designed yet.
+      });
+
+      root.appendChild(cancel);
+      root.appendChild(go);
+    };
+  }
+
+  // ---- Publish to QA: three phases ------------------------------------
+  //   1. publishing — form goes read-only, CTA becomes an indeterminate rail
+  //   2. published  — CTAs become Edit Settings / Preview / Release Course
+  //   3. scoring    — translations section loads, then animates in results
+  const publishQaBtn = document.getElementById('pcfg-publish-qa');
+  const trSection = document.getElementById('pcfg-translations');
+  const configRoot = document.getElementById('publish-config');
+
+  const PUBLISH_MS = 3800;   // QA publish duration
+  const SCORING_MS = 2600;   // transcript scoring duration
+
+  function el(id) { return document.getElementById(id); }
+  function show(id, on, how) { const e = el(id); if (e) e.style.display = on ? (how || '') : 'none'; }
+
+  // Build the read-only summaries from the live field values, so the
+  // read-only view can never drift from what was actually entered.
+  function buildReadOnly() {
+    const sector = el('pcfg-sector');
+    const sectorLabel = (sector && sector.items || [])
+      .filter(i => i.value === sector.value).map(i => i.label)[0] || '—';
+    const sku = document.querySelector('#pcfg-variant-edit vaadin-text-field[label="SKU"]');
+
+    el('pcfg-variant-ro').innerHTML =
+      '<div class="pcfg-ro-line">Variant ID: #ad3a09df-2dbb-4362-aaca-e10fb15080ae</div>' +
+      '<div class="pcfg-ro-line">SKU: ' + ((sku && sku.value) || '—') + '</div>' +
+      '<div class="pcfg-ro-line pcfg-ro-block"><strong>Sector:</strong> ' + sectorLabel + '</div>';
+
+    function selLabel(id, fallback) {
+      const e = el(id);
+      const m = (e && e.items || []).filter(i => i.value === e.value).map(i => i.label)[0];
+      return m || fallback;
+    }
+    const yn = id => el(id) && el(id).checked ? 'Yes' : 'No';
+
+    el('pcfg-safelms-ro').innerHTML =
+      '<div class="pcfg-ro-line"><strong>Library (Publisher):</strong> ' + selLabel('pcfg-library', 'Vector Solutions') + '</div>' +
+      '<div class="pcfg-ro-line"><strong>Course Category:</strong> ' + selLabel('pcfg-category', 'All') + '</div>' +
+      '<div class="pcfg-ro-line"><strong>Enable Media Player Scrubbing:</strong> ' + yn('pcfg-scrubbing') + '</div>' +
+      '<div class="pcfg-ro-line"><strong>Allow customization by customers:</strong> ' + yn('pcfg-customization') + '</div>' +
+      '<div class="pcfg-ro-line"><strong>Enable gatekeeper:</strong> ' + yn('pcfg-gatekeeper') + '</div>';
+  }
+
+  function setReadOnly(on) {
+    buildReadOnly();
+    show('pcfg-variant-edit', !on);
+    show('pcfg-safelms-edit', !on);
+    show('pcfg-variant-ro', on);
+    show('pcfg-safelms-ro', on);
+    // The header's Variant ID would otherwise duplicate the one the
+    // read-only block restates under the Variant Title.
+    const headerId = document.querySelector('.pcfg-variant-id');
+    if (headerId) headerId.style.display = on ? 'none' : '';
+  }
+
+  // Phase 1 — publishing in flight. Everything read-only, nothing actionable.
+  function startQaPublish() {
+    setReadOnly(true);
+    configRoot.classList.add('publishing');
+
+    show('pcfg-state-draft', false);
+    show('pcfg-state-pending', true);
+    show('pcfg-publish-qa', false);
+    show('pcfg-publishing', true, 'flex');
+
+    // Save is unavailable while publishing.
+    const save = el('pcfg-save');
+    if (save) save.disabled = true;
+
+    // Edit Settings is present but inert until the publish lands.
+    show('pcfg-edit-settings', true);
+    el('pcfg-edit-settings').disabled = true;
+
+    setTimeout(finishQaPublish, PUBLISH_MS);
+  }
+
+  // Phase 2 — published to QA. CTAs settle into their post-publish set.
+  function finishQaPublish() {
+    configRoot.classList.remove('publishing');
+
+    show('pcfg-state-pending', false);
+    show('pcfg-state-qa', true);
+    show('pcfg-publishing', false);
+
+    el('pcfg-edit-settings').disabled = false;
+    show('pcfg-preview', true);
+    show('pcfg-release', true);
+
+    const save = el('pcfg-save');
+    if (save) save.disabled = false;
+
+    startScoring();
+  }
+
+  // Phase 3 — scoring. Only now does the translations section appear.
+  function startScoring() {
+    trSection.classList.add('active');
+    show('tr-loading', true, 'flex');
+    show('tr-results', false);
+
+    setTimeout(() => {
+      show('tr-loading', false);
+      show('tr-results', true);
+
+      renderSourceScore(true);
+      renderPacks();
+      renderGate();
+
+      // Let the block paint at opacity 0 before transitioning in.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => el('tr-results').classList.add('shown'));
+      });
+    }, SCORING_MS);
+  }
+
+  // Jump straight to the finished state — used by the flow map so a
+  // thumbnail or deep link never lands on a transient loading frame.
+  function enterQaState() {
+    setReadOnly(true);
+    configRoot.classList.remove('publishing');
+    show('pcfg-state-draft', false);
+    show('pcfg-state-pending', false);
+    show('pcfg-state-qa', true);
+    show('pcfg-publish-qa', false);
+    show('pcfg-publishing', false);
+    show('pcfg-edit-settings', true);
+    el('pcfg-edit-settings').disabled = false;
+    show('pcfg-preview', true);
+    show('pcfg-release', true);
+
+    trSection.classList.add('active');
+    show('tr-loading', false);
+    show('tr-results', true);
+    el('tr-results').classList.add('shown');
+
+    renderSourceScore();
+    renderPacks();
+    renderGate();
+  }
+
+  if (publishQaBtn) {
+    publishQaBtn.addEventListener('click', startQaPublish);
+  }
+
+  // Edit Settings returns the form to its editable state.
+  const editBtn = el('pcfg-edit-settings');
+  if (editBtn) {
+    editBtn.addEventListener('click', () => {
+      if (editBtn.disabled) return;
+      setReadOnly(false);
+    });
+  }
+
+  const releaseBtn = document.getElementById('pcfg-release');
+  if (releaseBtn) {
+    releaseBtn.addEventListener('click', () => {
+      releaseDialog.requestContentUpdate && releaseDialog.requestContentUpdate();
+      releaseDialog.opened = true;
+    });
+  }
+
+  // Selecting a pack kicks off its process. Watched here rather than in
+  // the checkbox handler so re-renders don't double-start a pack.
+  packsWrap && packsWrap.addEventListener('change', () => {
+    packs.forEach(p => { if (p.selected && p.status === 'idle') startPack(p); });
+  });
+
+  // Exposed so the flow map can land directly on the QA state.
+  window.enterQaState = enterQaState;
+})();
+
 </script>
 
 <!-- ── Design Toolbox: Flow Map ───────────────────────────────────────────────
@@ -3807,6 +4599,15 @@ function coClearSearch() {
           var pc2 = document.getElementById('publish-converting');
           if (pc2) pc2.classList.remove('active');
           if (window.showPublishConfig) window.showPublishConfig();
+        }
+        break;
+      case 'published-qa':
+        /* Published to QA — translations section revealed. */
+        {
+          var pc3 = document.getElementById('publish-converting');
+          if (pc3) pc3.classList.remove('active');
+          if (window.showPublishConfig) window.showPublishConfig();
+          if (window.enterQaState) window.enterQaState();
         }
         break;
       default:
@@ -3843,11 +4644,15 @@ function coClearSearch() {
           desc: 'Full-window working state after confirming Publish. Resolves to the publish configuration form.' },
         { id: 'publish-config', flow: 'main', x: 620, y: 170,
           step: 'Step 3', name: 'Manage Publishing', state: 'publish-config',
-          desc: 'Publish configuration form: course summary, variant information, and SafeLMS settings.' }
+          desc: 'Publish configuration form: course summary, variant information, and SafeLMS settings.' },
+        { id: 'published-qa', flow: 'main', x: 900, y: 170,
+          step: 'Step 4', name: 'Published to QA', state: 'published-qa',
+          desc: 'Post-QA state: source transcript readiness score, language packs, and the Release Course gate.' }
       ],
       edges: [
         ['overview', 'converting'],
-        ['converting', 'publish-config']
+        ['converting', 'publish-config'],
+        ['publish-config', 'published-qa']
       ]
     }
   };
