@@ -87,8 +87,8 @@
   /* Chrome metrics */
   --h-topnav: 60px;
   --h-pagebar: 72px;
-  --w-sidenav: 268px;
-  --w-sidenav-min: 58px;
+  --w-sidenav: 250px;      /* V4 shell: EHS's sidebar width */
+  --w-sidenav-min: 56px;   /* collapsed, icons only */
   --w-filter: 256px;
   --w-filter-min: 58px;
 
@@ -253,70 +253,89 @@ vwc-tree-list { display: block; }
 .dot-ok { width: 8px; height: 8px; border-radius: 50%; background: var(--c-ok-dot); flex-shrink: 0; }
 
 /* ---------------------------------------------------------------------------
-   4. AREA 1 - SIDE NAVIGATION
-   Before: every row separated by a heavy full-width divider, ~54px rows, two
-   unrelated active treatments, right-pinned carets, heavy icons.
-   After:  one selection language (blue rail + soft fill) used at every depth,
-   40px rows with no dividers, carets tied to the label, normalised 18px icons,
-   light section headers, and a preserved collapsed (icon-only) state.
+   4. AREA 1 - SIDE NAVIGATION  (the V4 shell: EHS's shipped sidebar)
+   Structure, metrics and weights follow the design system sidebar EHS has
+   already adopted (see products/design-system/navigation/v4-design-system.html):
+   250px, an 80px tenant-logo area with the round collapse chevron on the
+   sidebar's right edge, 13px rows at weight 500 going to 600 with a 3px left
+   bar when selected, children at a 44px indent at weight 400, hairline
+   section headers, and a 56px icon-only collapsed state. Colours stay on this
+   folder's WCAG-tuned tokens; the nav search and the two-line labels stay.
    ------------------------------------------------------------------------ */
-/* Width drives the collapse (flex-basis stays auto), so there is one animated
-   property instead of two saying the same thing. overflow:hidden keeps the
-   labels from spilling past the rail while it animates. */
+/* The sidebar itself never clips (the chevron hangs 12px past its edge); the
+   logo area and the list clip their own contents while the width animates. */
 .sidenav {
   flex: 0 0 auto; width: var(--w-sidenav); min-width: 0;
   background: var(--c-surface);
-  border-right: 1px solid var(--c-line);
+  border-right: 1px solid var(--c-line-soft);
   display: flex; flex-direction: column; min-height: 0;
-  overflow: hidden;
+  position: relative; z-index: 30;
   transition: width .2s cubic-bezier(.4,0,.2,1);
 }
 .sidenav[hidden] { display: none; }
 .app.nav-collapsed .sidenav { width: var(--w-sidenav-min); }
 
-.sn-head { display: flex; align-items: center; gap: var(--s-2); padding: var(--s-3); border-bottom: 1px solid var(--c-line-soft); }
-.sn-search { position: relative; flex: 1; min-width: 0; }
+/* Logo area + the edge chevron */
+.sn-top { flex-shrink: 0; position: relative; border-bottom: 1px solid var(--c-line-soft); }
+.sn-logo {
+  height: 80px; padding: 12px 16px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.app.nav-collapsed .sn-logo { padding: 12px 10px; }
+.tenant-logo { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--c-ink); white-space: nowrap; }
+.tenant-logo .tenant-mark {
+  width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--c-primary-press) 0%, var(--c-primary) 100%);
+  color: #fff; display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800;
+}
+.app.nav-collapsed .tenant-logo-text { display: none; }
+.sn-collapse {
+  position: absolute; top: 50%; right: -12px; transform: translateY(-50%);
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--c-surface); border: 1px solid var(--c-control-line); color: var(--c-body);
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-size: 10px; z-index: 5; box-shadow: 0 1px 2px rgba(0,0,0,.06); padding: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.sn-collapse:hover { background: var(--c-hover); color: var(--c-ink); }
+.sn-collapse i { pointer-events: none; transition: transform .2s; }
+.app.nav-collapsed .sn-collapse i { transform: rotate(180deg); }
+
+/* Nav search: under the logo area, hidden with the labels when collapsed */
+.sn-search { position: relative; flex-shrink: 0; margin: 10px 12px 2px; }
 .sn-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--c-faint); pointer-events: none; }
 .sn-search input {
   width: 100%; height: 34px; padding: 0 var(--s-3) 0 30px;
   border: 1px solid var(--c-control-line); border-radius: var(--r-sm);
   background: var(--c-surface-alt); color: var(--c-ink);
-  font: inherit; font-size: var(--t-meta); outline: none;
+  font: inherit; font-size: 13px; outline: none;
   transition: border-color .12s, background .12s, box-shadow .12s;
 }
 .sn-search input::placeholder { color: var(--c-faint); }
 .sn-search input:focus { background: var(--c-surface); border-color: var(--c-primary); box-shadow: var(--focus-ring); }
 .app.nav-collapsed .sn-search { display: none; }
-/* The collapse button is the first child of .sn-head and keeps the same 12px
-   left padding in both states, so it never moves when the nav opens or closes.
-   --w-sidenav-min is sized so it also lines up with the collapsed row icons. */
 
-.sn-list { flex: 1; overflow-y: auto; overflow-x: hidden; padding: var(--s-2) var(--s-2) var(--s-6); }
+/* The list is what scrolls (EHS's .sidebar-nav) */
+.sn-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 6px 0 14px; }
 .sn-list::-webkit-scrollbar { width: 8px; }
 .sn-list::-webkit-scrollbar-thumb { background: #d6dbe2; border-radius: 4px; }
 
-/* Level 0: section header - the quietest level */
-.sn-section {
-  font-size: var(--t-micro); font-weight: 600; color: var(--c-meta);
-  padding: var(--s-4) var(--s-3) var(--s-2);
-}
-.app.nav-collapsed .sn-section { display: none; }
-.app.nav-collapsed .sn-list { padding-top: var(--s-3); }
+/* No section level: the nav lists exactly the items Convergence has today. */
 
-/* Level 1: parent / solo row */
+/* Level 1: parent / solo row - EHS's .sb-item */
 .sn-row {
   position: relative;
-  display: flex; align-items: center; gap: var(--s-2);
-  width: 100%; min-height: 44px; padding: var(--s-2) var(--s-3);
-  margin-bottom: 2px;
-  background: none; border: 0; border-radius: var(--r-sm);
-  font-size: var(--t-row); font-weight: 500; color: var(--c-body);
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; min-height: 0; padding: 8px 16px; margin: 0;
+  background: none; border: 0; border-left: 3px solid transparent; border-radius: 0;
+  font-size: 13px; font-weight: 500; line-height: 1.3; color: var(--c-body);
   cursor: pointer; text-align: left;
-  transition: background .12s, color .12s;
+  transition: background .1s, color .1s;
 }
 .sn-row:hover { background: var(--c-hover); color: var(--c-ink); }
 .sn-row .sn-icon {
-  width: 20px; flex-shrink: 0; text-align: center;
+  width: 18px; flex-shrink: 0; text-align: center;
   font-size: 15px; color: var(--c-meta);
   transition: color .12s;
 }
@@ -325,46 +344,44 @@ vwc-tree-list { display: block; }
   flex: 1; min-width: 0; line-height: 1.3;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-/* Caret sits immediately after the label, not pinned to the far right */
+/* Caret right-aligned in the row (round 3), rotates when open */
 .sn-row .sn-caret { margin-left: auto; font-size: 9px; color: var(--c-faint); transition: transform .18s, color .12s; flex-shrink: 0; }
 .sn-row[aria-expanded="true"] .sn-caret { transform: rotate(180deg); }
 
-/* ONE selection language, used at every depth: blue rail + soft fill */
+/* ONE selection language at every depth: 3px left border + soft fill + weight */
 .sn-row.selected, .sn-child.selected {
-  background: var(--c-primary-soft); color: var(--c-primary-ink); font-weight: 600;
+  background: var(--c-primary-soft); color: var(--c-primary-ink); border-left-color: var(--c-primary);
 }
+.sn-row.selected { font-weight: 600; }
+.sn-child.selected { font-weight: 500; }
 .sn-row.selected .sn-icon, .sn-row.selected .sn-caret { color: var(--c-primary); }
-.sn-row.selected::before, .sn-child.selected::before {
-  content: ''; position: absolute; left: 0; top: 10px; bottom: 10px;
-  width: 3px; border-radius: 0 3px 3px 0; background: var(--c-primary);
-}
 /* Trail state: a parent whose child is selected reads bolder, but is never
    confused with the selected item itself. */
 .sn-row.trail { color: var(--c-ink); font-weight: 600; }
 .sn-row.trail .sn-icon { color: var(--c-primary); }
 
-/* Level 2: children - indentation + a guide line, no dividers */
-.sn-children { position: relative; margin: 2px 0 var(--s-2) 0; padding-left: var(--s-6); }
-.sn-children::before {
-  content: ''; position: absolute; left: 21px; top: 2px; bottom: 2px;
-  width: 1px; background: var(--c-line);
-}
+/* Level 2: children - EHS's .sb-child: 44px indent, weight 400, no guide line */
+.sn-children { position: relative; margin: 0; padding: 0 0 4px; }
 .sn-child {
   position: relative;
-  display: flex; align-items: center; width: 100%; min-height: 38px; padding-top: 6px; padding-bottom: 6px;
-  padding: 0 var(--s-2) 0 var(--s-3); margin-bottom: 1px;
-  background: none; border: 0; border-radius: var(--r-sm);
-  font-size: var(--t-meta); font-weight: 400; color: var(--c-meta);
+  display: flex; align-items: center; width: 100%; min-height: 0;
+  padding: 7px 16px 7px 44px; margin: 0;
+  background: none; border: 0; border-left: 3px solid transparent; border-radius: 0;
+  font-size: 13px; font-weight: 400; line-height: 1.3; color: var(--c-meta);
   cursor: pointer; text-align: left;
-  transition: background .12s, color .12s;
+  transition: background .1s, color .1s;
 }
 .sn-child:hover { background: var(--c-hover); color: var(--c-ink); }
 .sn-child.inert { color: var(--c-meta); }
 .sn-child.inert:hover { background: var(--c-hover); color: var(--c-meta); }
 
-.app.nav-collapsed .sn-row { justify-content: center; padding: 0; }
+/* Collapsed (56px): centred icons; the row holding the current page keeps its
+   bar lit even when the active page is a child inside it */
+.app.nav-collapsed .sn-list { padding-top: 8px; }
+.app.nav-collapsed .sn-row { justify-content: center; padding: 10px; gap: 0; }
 .app.nav-collapsed .sn-row .sn-label, .app.nav-collapsed .sn-row .sn-caret { display: none; }
 .app.nav-collapsed .sn-children { display: none; }
+.app.nav-collapsed .sn-row.trail { background: var(--c-primary-soft); border-left-color: var(--c-primary); }
 
 /* ---------------------------------------------------------------------------
    5. PAGE HEADER BAR  (Area 2 - reconciling the two stacked bars)

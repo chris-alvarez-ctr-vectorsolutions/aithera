@@ -249,6 +249,16 @@ href="../../../../assets/fontawesome/css/all.min.css"
     background: var(--cm-page-bg);
     padding: 22px 26px 60px;
   }
+  /* The editors are a READING column, not a dashboard. Full-bleed on a wide
+     monitor stretched every row to 1600px+, which is why the form felt spread
+     out and hard to scan — the eye had to travel the whole width to pair a
+     label with its field. Capped and centred, so a step reads top-to-bottom
+     in one column. The library grids keep the full width; they are tables and
+     genuinely want it. */
+  .cm-main[data-view="builder"] .cm-view--builder,
+  .cm-main[data-view="creator"] .cm-view--creator {
+    max-width: 1080px; margin-inline: auto; width: 100%;
+  }
   /* The builder and creator carry a fixed action bar at the bottom of the
      viewport, so their content needs clearance or the last section scrolls
      underneath it. Scoped to those two views — the library tables have no bar.
@@ -630,10 +640,39 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cm-section.is-dragging .cm-section-ord {
     color: var(--lumo-primary-color, #0271ce); font-weight: 700;
   }
+  /* The name and its rename button share a line, so the pencil reads as
+     acting on the NAME rather than on the section. */
+  .cm-section-nameline { display: flex; align-items: center; gap: 4px; min-width: 0; }
   .cm-section-name {
     font-size: 14px; font-weight: 650; color: var(--ci-ink-900);
     letter-spacing: -.005em;
+    /* A long name wraps rather than stretching the header. */
+    min-width: 0; overflow-wrap: anywhere;
   }
+  /* Hidden until the header is hovered or the button is focused — a column of
+     cards should not read as a column of pencils. Focus-visible keeps it
+     reachable by keyboard, where there is no hover to trigger. */
+  .cm-section-rename {
+    appearance: none; background: none; border: 0; padding: 3px;
+    width: 22px; height: 22px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--lumo-border-radius-s, .25em);
+    color: var(--ci-ink-500); font-size: 11px; cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--cm-dur-fast) var(--cm-ease),
+                background var(--cm-dur-fast) var(--cm-ease);
+  }
+  .cm-section-head:hover .cm-section-rename,
+  .cm-section-rename:focus-visible { opacity: 1; }
+  .cm-section-rename:hover {
+    background: var(--lumo-contrast-5pct, #193b670d); color: var(--ci-ink-900);
+  }
+  .cm-section-rename:focus-visible {
+    outline: 2px solid var(--lumo-primary-color, #0271ce); outline-offset: -2px;
+  }
+  @media (hover: none) { .cm-section-rename { opacity: 1; } }
+  .cm-section-head { cursor: pointer; }
+  .cm-section-id { min-width: 0; flex: 1; }
   .cm-section-meta {
     font-size: 11.5px; color: var(--ci-ink-500); margin-top: 1px;
     font-variant-numeric: tabular-nums;
@@ -661,8 +700,10 @@ href="../../../../assets/fontawesome/css/all.min.css"
     .cm-disclose i, .cm-disclose { transition: none; }
   }
   /* The name is part of the accordion header, so it reads as clickable. */
-  .cm-section-name, .cm-block-name { cursor: pointer; }
-  .cm-section-name:hover, .cm-block-name:hover { color: var(--lumo-primary-text-color, #0271ce); }
+  /* The block name still toggles its card; the section name does not — it is
+     an editable field (see .cm-section-name above). */
+  .cm-block-name { cursor: pointer; }
+  .cm-block-name:hover { color: var(--lumo-primary-text-color, #0271ce); }
   /* Zones supply their own padding; the body only needs to close the card's
      bottom edge so the last zone's add-button is not flush to the border. */
   .cm-section-body { padding: 0 0 4px; }
@@ -776,12 +817,24 @@ href="../../../../assets/fontawesome/css/all.min.css"
      opening up only once something is in the hand — .is-dragging-item is set
      on the builder root at dragstart. Without that gate every section would
      carry permanent gaps nobody asked for. */
+  /* The gap does double duty: an "Add step here" inserter at rest, a drop
+     target during a drag. It is never both at once — the inserter is hidden
+     the moment something is in the hand, and the strip collapses back when
+     nothing is. */
   .cm-itemgap {
-    height: 2px; border-radius: 3px; flex-shrink: 0;
+    flex-shrink: 0; border-radius: 3px;
     transition: height var(--cm-dur) var(--cm-ease),
                 background var(--cm-dur-fast) var(--cm-ease),
                 box-shadow var(--cm-dur-fast) var(--cm-ease);
   }
+  /* At rest the inserter sets the height; dimmer than the section-level one
+     so a lane of them does not out-shout the rows between. */
+  .cm-itemgap .cm-insert { opacity: 0; }
+  .cm-itemlane:hover .cm-itemgap .cm-insert { opacity: .5; }
+  .cm-itemgap .cm-insert:hover,
+  .cm-itemgap .cm-insert:focus-within { opacity: 1; }
+  /* During a drag the gap becomes a pure drop strip. */
+  .is-dragging-item .cm-itemgap .cm-insert { display: none; }
   .is-dragging-item .cm-itemgap { height: 9px; }
   /* The hovered gap opens to roughly a row's height, so the list physically
      makes room where the drop will land — the layout previews the result
@@ -852,6 +905,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
     display: grid; grid-template-rows: 1fr;
     animation: cm-expand var(--cm-dur) var(--cm-ease);
   }
+  /* An in-place rebuild of an already-open body: no entry animation. */
+  .cm-anim-open.is-instant { animation: none; }
   .cm-anim-open > * { min-height: 0; overflow: hidden; }
 
   /* A section's body has no wrapper to animate, so it fades its own contents
@@ -1353,8 +1408,41 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cm-stepcard.is-dragging { opacity: .45; }
   .cm-stepcard.is-drag-over { border-color: var(--lumo-primary-color, #0271ce); }
 
-  .cm-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(184px, 1fr)); gap: 11px; }
-  .cm-form-grid > * { width: 100%; }
+  /* ---- Step form layout ----------------------------------------------
+     The old grid was `auto-fit, minmax(184px, 1fr)`: every field stretched to
+     fill its track, so a two-character Unit box was as wide as a sentence-long
+     Step label. Field width carries meaning — it tells you roughly how much
+     input is expected — and forcing them all equal threw that away.
+
+     Now the track is a fixed 13rem rhythm and each field declares its own
+     span. Nothing stretches; a short field looks short. */
+  .cm-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+    gap: 10px 12px;
+    align-items: start;
+  }
+  /* Lumo's default field height is --lumo-size-m (2.75rem / 44px), which is a
+     touch target. In a dense authoring form that is a lot of chrome per
+     answer, and a dozen of them is what makes the step editor feel like it is
+     shouting. --lumo-size-s (1.875rem / 30px) is the documented step down.
+     Scoped to the step form so the dialogs and the run view — where fields
+     ARE the task, often on a tablet — keep full size. */
+  .cm-cfg-stage {
+    --lumo-size-m: var(--lumo-size-s, 1.875rem);
+    --lumo-font-size-m: 13px;
+  }
+  .cm-form-grid > * { min-width: 0; }
+  /* Spans, by how much text the field actually takes. */
+  .cm-form-grid--wide { grid-column: 1 / -1; }
+  .cm-form-grid > .cm-f-sm  { grid-column: span 1; max-width: 9rem; }
+  .cm-form-grid > .cm-f-med { grid-column: span 1; }
+  .cm-form-grid > .cm-f-lg  { grid-column: span 2; }
+  @media (max-width: 720px) {
+    .cm-form-grid { grid-template-columns: 1fr; }
+    .cm-form-grid > .cm-f-lg,
+    .cm-form-grid > .cm-f-sm { grid-column: 1 / -1; max-width: none; }
+  }
   .cm-form-grid--wide { grid-column: 1 / -1; }
 
   /* ---- Nested check (S8) --------------------------------------------
@@ -1590,10 +1678,33 @@ href="../../../../assets/fontawesome/css/all.min.css"
   /* Divider between field groups INSIDE the Setup panel. --cm-line, not
      --cm-line-soft: the panel's fill is now the recessed tint, and the soft
      hairline is so close to it that the rule vanished. */
+  /* A numbered stage of the form. Previously a hairline with a label above
+     it, which read as a rule between two undifferentiated runs of fields —
+     nothing said where one stage ended and the next began, or which fields
+     belonged to which. Each stage is now its own panel on the card's ground,
+     so "what is connected to what" is answered by the box it sits in. */
+  .cm-cfg-stage {
+    border: 1px solid var(--cm-line);
+    border-radius: var(--lumo-border-radius-s, .25em);
+    background: var(--cm-card-bg);
+    padding: 12px 14px 14px;
+    margin-bottom: 10px;
+  }
+  .cm-cfg-stage:last-child { margin-bottom: 0; }
+
+  /* Required vs optional: Vaadin marks a required field with an asterisk in
+     its own shadow DOM, and the two fields where "optional" is load-bearing
+     say so in their helper text. Only the step label and the response type
+     are actually required — a form where most fields wear an asterisk
+     teaches you to stop reading them. */
+  /* Stage panels sit on the step card's white body, so they take their own
+     faint ground to read as panels rather than dissolving into it. */
+  .cm-sectionstep-body .cm-cfg-stage,
+  .cm-stepcard-body .cm-cfg-stage { background: var(--cm-zebra); }
   .cm-cfg-section {
-    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
-    margin: 14px 0 9px; padding-top: 11px;
-    border-top: 1px solid var(--cm-line);
+    display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+    margin: 0 0 11px; padding: 0 0 9px;
+    border-bottom: 1px solid var(--cm-line-soft);
   }
   .cm-cfg-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
   .cm-cfg-section-title {
@@ -1610,13 +1721,43 @@ href="../../../../assets/fontawesome/css/all.min.css"
     font-size: 10.5px; font-weight: 800; font-variant-numeric: tabular-nums;
   }
   .cm-cfg-section-note {
-    font-size: 12px; color: var(--ci-ink-500); font-weight: 400;
-    flex: 1; min-width: 0;
+    flex: 1 0 100%; font-size: 12px; color: var(--ci-ink-500);
+    font-weight: 400; margin-top: -4px; max-width: 64ch;
+  }
+
+  /* Attachments: one line per type — name on the left, its three-state
+     control on the right. The name column is fixed so the two controls line
+     up with each other rather than drifting with label length. */
+  .cm-cap-wrap { margin-top: 12px; }
+  .cm-cap-line {
+    display: flex; align-items: center; gap: 12px;
+    padding: 5px 0; flex-wrap: wrap;
+  }
+  .cm-cap-name {
+    display: inline-flex; align-items: center;
+    flex: 0 0 auto; min-width: 9.5rem;
+    font-size: 13px; color: var(--ci-ink-900);
+  }
+  .cm-cap-name i {
+    width: 14px; text-align: center; margin-right: 8px;
+    color: var(--ci-ink-500); font-size: 11.5px;
+  }
+  .cm-cap-line .cm-seg { margin-left: auto; }
+  @media (max-width: 560px) {
+    .cm-cap-line .cm-seg { margin-left: 0; }
   }
 
   /* L2 — a labelled cluster of inputs. Sentence case and bold, so it reads as
      a heading rather than as another uppercase micro-label competing with L1. */
-  .cm-cfg-group { margin-top: 14px; }
+  /* A labelled cluster inside a stage — "Accepted range", "Answer options".
+     Indented against a rail so the fields in it read as belonging to the
+     label, which is the "what is connected to what" question at the level
+     below the stage panel. */
+  .cm-cfg-group {
+    margin-top: 14px; padding-left: 11px;
+    border-left: 2px solid var(--cm-line);
+  }
+  .cm-cfg-group:first-child { margin-top: 0; }
   .cm-cfg-group:first-child { margin-top: 0; }
   .cm-cfg-group-label {
     display: block; font-size: 12.5px; font-weight: 700;
@@ -1652,6 +1793,51 @@ href="../../../../assets/fontawesome/css/all.min.css"
      line of help. The inline (default) variant packs short labels side by
      side; that falls apart once every row has a second line. */
   .cm-cfg-switches--stack { flex-direction: column; gap: 11px; }
+
+  /* Checkbox rows: the form's one vocabulary for "turn this on". Tighter
+     than the switch rows they replaced — a checkbox is 18px of control
+     against a switch's 36px track, so the label leads and the control
+     supports it rather than the other way round. */
+  .cm-cfg-checks { display: flex; flex-direction: column; gap: 2px; }
+  .cm-cfg-check {
+    display: flex; align-items: flex-start; gap: 8px;
+    font-size: 13px; cursor: pointer;
+    padding: 5px 6px; margin-left: -6px; border-radius: 5px;
+    transition: background var(--cm-dur-fast) var(--cm-ease);
+  }
+  .cm-cfg-check:hover { background: var(--lumo-contrast-5pct, #193b670d); }
+  .cm-cfg-check vaadin-checkbox { flex-shrink: 0; margin-top: -1px; }
+  /* vaadin-checkbox emits an empty <label> whenever it is given only an
+     aria-label, and that label still occupies space — it would push the real
+     text away from the box. Same fix the grid cells already carry. */
+  .cm-cfg-check vaadin-checkbox label:empty { display: none; }
+  .cm-cfg-check .cm-cfg-help { margin-top: 1px; }
+
+  /* Config that belongs to the checkbox above it — indented against a rail
+     so it reads as a consequence of that tick rather than a sibling setting.
+     Same device the .cm-cfg-group rail uses, one level in. */
+  .cm-subform-wrap {
+    margin: 2px 0 10px 11px; padding-left: 14px;
+    border-left: 2px solid var(--lumo-primary-color-10pct, #0271ce33);
+  }
+  .cm-subform { margin-top: 8px; }
+  .cm-subform:first-child { margin-top: 4px; }
+  .cm-subform-check { margin-top: 8px; }
+  .cm-subform-field { width: 100%; margin-top: 8px; }
+  .cm-subform-label {
+    display: block; font-size: 11.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--ci-ink-500); margin-bottom: 4px;
+  }
+  /* Channels sit on one line — three short options, not a stack. */
+  .cm-notify-channels { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+  .cm-notify-channels .cm-subform-label { flex: 1 0 100%; margin-bottom: 2px; }
+  /* The config half of a failure badge, quieter than the action name. */
+  .cm-badge-cfg { opacity: .72; font-weight: 400; }
+  .cm-cfg-check i {
+    width: 14px; text-align: center; margin-right: 7px;
+    color: var(--ci-ink-500); font-size: 11.5px;
+  }
   .cm-cfg-switch--help { align-items: flex-start; }
   /* Nudge the switch onto the label's optical centre, not the whole block's. */
   .cm-cfg-switch--help vwc-switch { margin-top: 1px; }
@@ -2180,12 +2366,12 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cm-seg {
     display: inline-flex; flex-shrink: 0;
     border: 1px solid var(--lumo-contrast-20pct, #1c375a29);
-    border-radius: var(--lumo-border-radius-m, .5em);
+    border-radius: var(--lumo-border-radius-s, .25em);
     overflow: hidden; background: var(--cm-card-bg);
   }
   .cm-seg-opt {
     appearance: none; border: 0; background: none;
-    padding: 5px 12px; font: inherit; font-size: 12.5px; line-height: 1.5;
+    padding: 4px 10px; font: inherit; font-size: 12px; line-height: 1.45;
     color: var(--ci-ink-700); cursor: pointer; white-space: nowrap;
     border-left: 1px solid var(--lumo-contrast-20pct, #1c375a29);
   }
@@ -2206,22 +2392,6 @@ href="../../../../assets/fontawesome/css/all.min.css"
   .cm-seg.is-locked { opacity: .72; }
   .cm-seg.is-locked .cm-seg-opt { cursor: not-allowed; }
 
-  /* One capture property: label + help on the left, control on the right. */
-  .cm-cap-row {
-    display: flex; align-items: flex-start; justify-content: space-between;
-    gap: 16px; padding: 9px 0;
-    border-top: 1px solid var(--lumo-contrast-10pct, #1c304a1a);
-  }
-  .cm-cap-row:first-of-type { border-top: 0; }
-  .cm-cap-label {
-    display: flex; align-items: flex-start; gap: 9px;
-    font-size: 13px; min-width: 0;
-  }
-  .cm-cap-label > i {
-    color: var(--ci-ink-500); font-size: 12.5px; margin-top: 2px; width: 14px;
-    text-align: center; flex-shrink: 0;
-  }
-
   /* Context: a quiet link until an author uses it. Optional guidance should
      not occupy a field's worth of space on every step that has none. */
   .cm-ctx-add {
@@ -2229,6 +2399,47 @@ href="../../../../assets/fontawesome/css/all.min.css"
     font: inherit; font-size: 12.5px; font-weight: 600;
     color: var(--lumo-primary-text-color, #005ca8); cursor: pointer;
     display: inline-flex; align-items: center; gap: 6px;
+  }
+
+  /* ---- Optional groups, collapsed --------------------------------------
+     An optional cluster shows only this link until the author asks for it.
+     Quieter than a field — it is an offer, not a question — and it carries
+     the default in a sub-line so declining it is an informed choice rather
+     than a guess about what happens if you skip it. */
+  .cm-opt-add {
+    appearance: none; background: none; cursor: pointer; font: inherit;
+    display: flex; align-items: baseline; gap: 7px; flex-wrap: wrap;
+    width: 100%; text-align: left; margin-top: 10px;
+    padding: 7px 9px; border-radius: 5px;
+    border: 1px dashed var(--cm-line-strong);
+    color: var(--lumo-primary-text-color, #005ca8);
+    font-size: 12.5px; font-weight: 600;
+    transition: background var(--cm-dur-fast) var(--cm-ease),
+                border-color var(--cm-dur-fast) var(--cm-ease);
+  }
+  .cm-opt-add:hover {
+    background: var(--lumo-primary-color-10pct, #0271ce1a);
+    border-color: var(--lumo-primary-color, #0271ce);
+  }
+  .cm-opt-add:focus-visible {
+    outline: 2px solid var(--lumo-primary-color, #0271ce); outline-offset: 1px;
+  }
+  .cm-opt-add i { font-size: 10px; }
+  .cm-opt-add-help {
+    flex: 1 1 100%; font-size: 11.5px; font-weight: 400;
+    color: var(--ci-ink-500); padding-left: 17px;
+  }
+  /* An opened group that holds nothing yet can be closed again. */
+  .cm-cfg-group--closable { position: relative; padding-right: 26px; }
+  .cm-opt-close {
+    position: absolute; top: 0; right: 0;
+    appearance: none; background: none; border: 0; cursor: pointer;
+    width: 20px; height: 20px; padding: 0; border-radius: 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--ci-ink-500); font-size: 11px;
+  }
+  .cm-opt-close:hover {
+    background: var(--lumo-contrast-5pct, #193b670d); color: var(--ci-ink-900);
   }
   .cm-ctx-add i { font-size: 10px; }
   .cm-ctx-add:hover { text-decoration: underline; }
@@ -3018,6 +3229,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
 <vaadin-dialog id="dlgSchedule" header-title="Deployment schedule"></vaadin-dialog>
 <vaadin-dialog id="dlgRepeatPreview" header-title="Nested check"></vaadin-dialog>
 <vaadin-dialog id="dlgMoveStep" header-title="Move step"></vaadin-dialog>
+<vaadin-dialog id="dlgRenameSection" header-title="Rename section"></vaadin-dialog>
 
 <div class="cm-toast-host" id="toastHost" aria-live="polite"></div>
 
@@ -4434,6 +4646,87 @@ const ENTITY_STATUS_ORDER = ['inservice', 'oos', 'retired'];
    Actions are independent and combinable: a step may create a ticket AND take
    the entity out of service, or do neither. `none` is not a value — an empty
    set IS "record the failure and move on". */
+/* ---- Failure action configuration -------------------------------------
+   Two of the three consequences need to say WHAT they do, not just that they
+   happen. "Create a ticket" without a priority or an assignee produces an
+   unrouted ticket somebody has to triage by hand; "Notify" without a
+   recipient notifies nobody in particular. Both configs hang off the step,
+   and only exist once the action is switched on. */
+
+const TICKET_PRIORITIES = [
+  { value: 'low',      label: 'Low' },
+  { value: 'normal',   label: 'Normal' },
+  { value: 'high',     label: 'High' },
+  { value: 'critical', label: 'Critical' }
+];
+
+/* Who the ticket lands on. "Responsible party" is the default because it is
+   the one target that resolves per entity — a ticket on Engine 12 goes to
+   whoever is responsible for Engine 12, with no per-checklist wiring. */
+const TICKET_ASSIGNEES = [
+  { value: 'responsible', label: "The entity's responsible party" },
+  { value: 'queue',       label: 'Service Tasks queue (unassigned)' },
+  { value: 'user',        label: 'A specific person…' }
+];
+
+const TICKET_DEFAULTS = {
+  priority: 'normal', assignTo: 'responsible', userId: '',
+  titleMode: 'step', title: '', includeAnswer: true
+};
+
+/* Notification targets. Several can be picked at once — a failed SCBA check
+   might wake the duty officer AND the equipment manager. */
+const NOTIFY_TARGETS = [
+  { value: 'responsible', label: "The entity's responsible party",
+    icon: 'fa-user-shield' },
+  { value: 'officer',     label: 'Officer on duty',       icon: 'fa-user-tie' },
+  { value: 'station',     label: 'Everyone at the station', icon: 'fa-building' },
+  { value: 'user',        label: 'Specific people…',       icon: 'fa-users' }
+];
+
+const NOTIFY_CHANNELS = [
+  { value: 'app',   label: 'In-app',  icon: 'fa-bell' },
+  { value: 'email', label: 'Email',   icon: 'fa-envelope' },
+  { value: 'sms',   label: 'Text',    icon: 'fa-comment-sms' }
+];
+
+const NOTIFY_DEFAULTS = { targets: ['responsible'], userIds: [], channels: ['app'] };
+
+/* Accessors: a step carries config only once its action is on, so these
+   return the defaults rather than making every reader null-check. */
+function ticketCfg(st) {
+  if (!st.ticketConfig) st.ticketConfig = Object.assign({}, TICKET_DEFAULTS);
+  return st.ticketConfig;
+}
+function notifyCfg(st) {
+  if (!st.notifyConfig) {
+    st.notifyConfig = Object.assign({}, NOTIFY_DEFAULTS,
+      { targets: NOTIFY_DEFAULTS.targets.slice(), channels: NOTIFY_DEFAULTS.channels.slice(), userIds: [] });
+  }
+  return st.notifyConfig;
+}
+
+/* One line summarising a configured action, for the collapsed step row. */
+function ticketSummary(st) {
+  const t = ticketCfg(st);
+  const who = t.assignTo === 'user'
+    ? ((USERS.find(u => u.id === t.userId) || {}).name || 'unassigned')
+    : (TICKET_ASSIGNEES.find(a => a.value === t.assignTo) || {}).label;
+  const pri = (TICKET_PRIORITIES.find(p => p.value === t.priority) || {}).label;
+  return pri + ' · ' + who;
+}
+function notifySummary(st) {
+  const n = notifyCfg(st);
+  const names = n.targets.map(v => {
+    if (v === 'user') {
+      const picked = (n.userIds || []).length;
+      return picked ? (picked === 1 ? '1 person' : picked + ' people') : 'nobody chosen';
+    }
+    return (NOTIFY_TARGETS.find(t => t.value === v) || {}).label;
+  });
+  return names.length ? names.join(', ') : 'nobody chosen';
+}
+
 const FAILURE_ACTIONS = [
   { value: 'oos',    label: 'Take entity out of service',
     icon: 'fa-ban',
@@ -4558,9 +4851,15 @@ const CAPTURE_KEYS = [
 const failBadges = s => failActions(s).map(v => {
   const a = FAILURE_ACTIONS.find(x => x.value === v);
   if (!a) return '';
-  return '<span theme="badge ' + (v === 'oos' ? 'error' : 'contrast') + ' pill">' +
+  /* A configured action says what it will do, so a collapsed step is still
+     answerable — "Create a ticket" alone does not tell you where it lands. */
+  const cfg = v === 'ticket' ? ticketSummary(s)
+            : v === 'notify' ? notifySummary(s) : '';
+  return '<span theme="badge ' + (v === 'oos' ? 'error' : 'contrast') + ' pill"' +
+    (cfg ? ' title="' + escHtml(a.label + ' — ' + cfg) + '"' : '') + '>' +
     '<i class="fa-solid ' + a.icon + '" aria-hidden="true" style="margin-right:5px"></i>' +
-    a.label + '</span>';
+    a.label + (cfg ? ' <span class="cm-badge-cfg">· ' + escHtml(cfg) + '</span>' : '') +
+    '</span>';
 }).join(' ');
 
 /* ---- Toast ------------------------------------------------------------ */
@@ -6969,6 +7268,12 @@ function renderSectionItems(sec) {
       dragItemOver = here;
       paintItemDrop();
     });
+    /* The same slot is also where a step gets ADDED at this position. The
+       inserter is hidden while a drag is in flight (see .is-dragging-item),
+       so the gap is purely a drop target then and purely an add affordance
+       otherwise — one place in the list, one meaning at a time. */
+    g.appendChild(inserterRow('Add step here', () => addSectionStepAt(sec, idx)));
+
     g.addEventListener('drop', e => {
       if (!dragItem) return;
       e.preventDefault();
@@ -7333,16 +7638,107 @@ function renderSectionStep(sec, st, idx) {
     const body = document.createElement('div');
     body.className = 'cm-sectionstep-body';
     /* The same form the block creator opens — one editor, two surfaces. */
-    buildStepForm(st, body, (structural) => {
+    /* A structural change — picking a response type, opening an optional
+       group — only ever alters THIS step's form. Rebuilding it in place keeps
+       the rest of the checklist untouched; calling renderSections() here tore
+       down every section, block and step in the whole builder to show one
+       field, which is what made the page flash.
+
+       The summary line above still has to follow, so it is refreshed too. */
+    const rebuild = () => {
+      const scroller = document.querySelector('.ci-content');
+      const keep = scroller ? scroller.scrollTop : 0;
+      buildStepForm(st, body, onStepChange, head.querySelector('.cm-sectionstep-label'));
+      animateOpen(body, true);
+      refreshStepSummary(row, st);
+      if (scroller) scroller.scrollTop = keep;
+    };
+    const onStepChange = (structural) => {
       markBuilderDirty();
-      if (structural) renderSections();
-    }, head.querySelector('.cm-sectionstep-label'));
+      if (structural) rebuild();
+    };
+    buildStepForm(st, body, onStepChange, head.querySelector('.cm-sectionstep-label'));
     /* Fields inside must not drag the row. */
     body.addEventListener('dragstart', e => { e.stopPropagation(); });
     animateOpen(body);
     row.appendChild(body);
   }
   return row;
+}
+
+/* Rename a section. A dialog rather than an inline field: the name is the one
+   thing distinguishing two otherwise identical cards, and a card you can also
+   drag, collapse and click into is a poor host for a text input that has to be
+   entered deliberately and committed explicitly.
+
+   The checklist is mutated in place, so there is no Save on the builder to
+   reconcile with — Rename commits, Cancel does nothing. */
+function openRenameSectionDialog(sec) {
+  if (!sec) return;
+  const c = currentChecklist();
+  const draft = { name: sec.name };
+
+  const dlg = document.getElementById('dlgRenameSection');
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
+
+    const field = document.createElement('vaadin-text-field');
+    field.setAttribute('theme', 'outlined');
+    field.setAttribute('label', 'Section name');
+    field.setAttribute('required', '');
+    field.classList.add('cm-form-grid--wide');
+    field.style.width = '100%';
+    field.value = draft.name;
+    field.addEventListener('value-changed', e => { draft.name = e.detail.value; });
+    /* Enter commits, so the dialog works without reaching for the mouse. */
+    field.addEventListener('keydown', ev => {
+      if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+    });
+    wrap.appendChild(field);
+    root.appendChild(wrap);
+
+    /* Autofocus with the name selected: renaming usually means replacing,
+       not appending. rAF because the field is not yet laid out. */
+    requestAnimationFrame(() => {
+      field.focus();
+      const input = field.querySelector('input');
+      if (input) input.select();
+    });
+  };
+
+  const save = () => {
+    const text = (draft.name || '').trim();
+    /* An unnamed card is unidentifiable, so blank is refused rather than
+       silently reverted — the dialog stays open with the message. */
+    if (!text) { toast('A section needs a name', 'fa-circle-exclamation'); return; }
+    dlg.opened = false;
+    if (text === sec.name) return;
+    const was = sec.name;
+    sec.name = text;
+    markBuilderDirty();
+    logEdit(c.id, 'Renamed section', '"' + was + '" → "' + text + '"');
+    renderSections();
+    toast('Section renamed', 'fa-pen');
+  };
+
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn('Cancel', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.setAttribute('theme', 'primary');
+    ok.textContent = 'Rename';
+    ok.addEventListener('click', save);
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  dlg.opened = true;
 }
 
 /* Move an entry to another section. A dialog rather than a menu: the target
@@ -7413,28 +7809,72 @@ let dragSectionId = null;
 /* Insert a new section AT a position. Adding is positional now — every gap
    between cards carries its own inserter — so the index is the argument;
    passing c.sections.length appends. */
+/* Add a step to a section AT a position, the lane's counterpart to
+   addCreatorStepAt(). Both open the new step expanded with its label focused,
+   so a step is named where it was placed. */
+function addSectionStepAt(sec, index) {
+  const st = { id: 0, label: '', type: 'passfail',
+               onFail: [], comment: 'off', documentation: 'off', _open: true };
+  sectionItems(sec).splice(index, 0, { kind: 'step', step: st });
+  renumberSection(sec);
+  sec.collapsed = false;
+  markBuilderDirty(); renderSections();
+  requestAnimationFrame(() => {
+    const row = document.querySelector('[data-lane-pos="' + sec.id + ':' + index + '"]');
+    const f = row && row.querySelector('vaadin-text-field');
+    if (f) f.focus();
+    scrollRowIntoView(row);
+  });
+}
+
 function addSectionAt(index) {
   const c = currentChecklist();
+  const id = 's' + Date.now().toString(36);
   c.sections.splice(index, 0, {
-    id: 's' + Date.now().toString(36),
+    id: id,
     name: 'New section', collapsed: false,
     templateLocked: false, items: []
   });
   markBuilderDirty(); renderSections();
-  toast('Section added', 'fa-plus');
+  /* Opens straight into the name, selected. "New section" is a placeholder,
+     not an answer — leaving it sitting there is how a checklist ends up with
+     three cards all called the same thing. */
+  requestAnimationFrame(() => {
+    const el = document.querySelector('.cm-section[data-anchor="sec:' + id + '"]');
+    /* Opens the rename dialog on the new card, so a section is named at the
+       moment it is created rather than left as "New section". */
+    const pen = el && el.querySelector('[data-act="rename"]');
+    if (pen) pen.click();
+    if (el) scrollRowIntoView(el);
+  });
+  toast('Section added — name it', 'fa-plus');
 }
 
 /* One inserter row: a dashed rule with an inline link riding on it. Returns a
    node so renderSections can drop one into every gap. */
-function sectionInserter(index) {
+/* A positional inserter: a dashed rule with an inline link riding on it,
+   sitting in a gap between two cards. Generic because every list in the two
+   editors needs the same affordance — adding is positional everywhere, so
+   nothing has to be added at the end and dragged into place afterwards. */
+function inserterRow(label, onClick) {
   const el = document.createElement('div');
   el.className = 'cm-insert';
   el.innerHTML =
     '<button type="button" class="cm-insert-link">' +
-      '<i class="fa-solid fa-plus" aria-hidden="true"></i>Add section here' +
+      '<i class="fa-solid fa-plus" aria-hidden="true"></i>' + escHtml(label) +
     '</button>';
-  el.querySelector('.cm-insert-link').addEventListener('click', () => addSectionAt(index));
+  el.querySelector('.cm-insert-link').addEventListener('click', (ev) => {
+    /* These sit inside draggable, clickable cards; the click belongs to the
+       inserter alone. */
+    ev.stopPropagation();
+    onClick();
+  });
+  el.addEventListener('dragstart', ev => { ev.preventDefault(); ev.stopPropagation(); });
   return el;
+}
+
+function sectionInserter(index) {
+  return inserterRow('Add section here', () => addSectionAt(index));
 }
 
 /* Repaint the section ordinals to show where a drag would land, without
@@ -7516,15 +7956,33 @@ function flashMoved(selector) {
   });
 }
 
-function animateOpen(el) {
+function animateOpen(el, skipAnimation) {
   if (!el || !el.firstChild) return el;
   const wrap = document.createElement('div');
-  wrap.className = 'cm-anim-open';
+  /* `skipAnimation` for an in-place rebuild: the body is already open and
+     only its contents changed, so replaying the open would be a flicker
+     rather than an explanation. The grow animation is for an open that the
+     user actually just triggered. */
+  wrap.className = 'cm-anim-open' + (skipAnimation ? ' is-instant' : '');
   const inner = document.createElement('div');
   while (el.firstChild) inner.appendChild(el.firstChild);
   wrap.appendChild(inner);
   el.appendChild(wrap);
   return el;
+}
+
+/* Repaint a step's collapsed summary after its form changed underneath it —
+   the response type and its qualifiers live in both places, so the row has to
+   follow the form. Text only: rebuilding the row would take the focused field
+   with it. */
+function refreshStepSummary(rowEl, st) {
+  if (!rowEl) return;
+  /* Scoped to the summary row specifically: the open form below is full of
+     .cm-cell-sub help text, and a bare querySelector would rewrite the first
+     of those instead. */
+  const sub = rowEl.querySelector(
+    '.cm-sectionstep-head .cm-cell-sub, .cm-stepcard-head .cm-cell-sub');
+  if (sub) sub.textContent = stepSummaryBits(st).join(' · ');
 }
 
 function withScrollAnchor(scrollEl, anchorSel, render) {
@@ -7615,8 +8073,19 @@ function renderSections() {
           '<span class="cm-section-ord">' + (secIndex + 1) + '</span>' +
           '<i class="fa-solid fa-grip-vertical cm-grip cm-section-gripswap"></i>' +
         '</span>' +
-        '<div>' +
-          '<div class="cm-section-name">' + escHtml(sec.name) + '</div>' +
+        '<div class="cm-section-id">' +
+          /* The pencil rides WITH the name rather than in the header's action
+             group: it acts on the name specifically, and at the far right it
+             sat among actions that operate on the whole section. It is hidden
+             until the header is hovered or focused, so a row of cards is not
+             a row of pencils. */
+          '<div class="cm-section-nameline">' +
+            '<span class="cm-section-name">' + escHtml(sec.name) + '</span>' +
+            '<button type="button" class="cm-section-rename" data-act="rename" ' +
+              'aria-label="Rename section" title="Rename section">' +
+              '<i class="fa-solid fa-pen" aria-hidden="true"></i>' +
+            '</button>' +
+          '</div>' +
           '<div class="cm-section-meta">' +
             count + ' block' + (count === 1 ? '' : 's') +
             (locals ? ' · ' + locals + ' step' + (locals === 1 ? '' : 's') : '') +
@@ -7634,7 +8103,24 @@ function renderSections() {
       withScrollAnchor(null, '.cm-section[data-anchor="sec:' + sec.id + '"]', renderSections);
     };
     el.querySelector('.cm-disclose').addEventListener('click', toggle);
-    el.querySelector('.cm-section-name').addEventListener('click', toggle);
+    /* The header bar still toggles, so losing the name as a target does not
+       shrink the accordion to a 22px chevron. Clicks that land on the name,
+       the actions or the grip are theirs. */
+    el.querySelector('.cm-section-head').addEventListener('click', ev => {
+      /* The name toggles with the rest of the header; the pencil beside it
+         does not — it opens the rename dialog. */
+      if (ev.target.closest('.cm-section-actions, .cm-disclose, .cm-section-rename')) return;
+      toggle();
+    });
+
+    /* Rename opens a dialog. The pencil beside the name is the only way in,
+       so the heading itself stays inert and the card keeps its click, drag
+       and collapse behaviour uncomplicated. */
+    const renameBtn = el.querySelector('[data-act="rename"]');
+    renameBtn.addEventListener('click', ev => {
+      ev.stopPropagation();          // not a header click; do not toggle
+      openRenameSectionDialog(sec);
+    });
 
     // Header actions — data actions only, now that disclosure has left.
     const acts = el.querySelector('.cm-section-actions');
@@ -7938,6 +8424,85 @@ function cfgSection(title, note, num) {
     '<span class="cm-cfg-section-title">' + escHtml(title) + '</span>' +
     (note ? '<span class="cm-cfg-section-note">' + escHtml(note) + '</span>' : '');
   return el;
+}
+
+/* A stage of the step form: one bordered panel, headed by cfgSection, with
+   its own fields inside. Append the stage to the body, then append controls
+   to what this returns — so a stage's contents are visibly ITS contents
+   rather than a run of fields trailing a rule. */
+/* An OPTIONAL cluster: collapsed to a single "Add …" link until the author
+   asks for it, or until the step already carries a value for it.
+
+   The form had every optional group open at once — par levels, custom
+   wording, accepted ranges — so authoring a plain Pass/Fail step meant
+   reading past four groups that did not apply. Most steps use none of them.
+   Showing them all states that every one is a decision to make; collapsing
+   them states the truth, which is that they are there if you want them.
+
+   `isSet(step)` decides whether the group is already in use — if it is, the
+   group opens, because hiding authored content behind a link is how an
+   author loses track of what they set. `key` is the transient open flag,
+   underscore-prefixed so cleanStep() strips it. */
+function cfgOptional(parent, opts) {
+  const s = opts.step;
+  const open = opts.isSet(s) || s[opts.key];
+
+  if (!open) {
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'cm-opt-add';
+    add.innerHTML = '<i class="fa-solid fa-plus" aria-hidden="true"></i>' +
+      escHtml(opts.addLabel);
+    if (opts.addHelp) {
+      add.innerHTML += '<span class="cm-opt-add-help">' + escHtml(opts.addHelp) + '</span>';
+    }
+    add.addEventListener('click', () => {
+      s[opts.key] = true;
+      opts.onChange(true);
+      /* The rebuild replaced this button with the group, so focus would
+         otherwise fall to the document body. Land on the first field of the
+         thing the author just asked for. */
+      requestAnimationFrame(() => {
+        const f = parent.querySelector('.cm-cfg-group input, .cm-cfg-group textarea');
+        if (f) f.focus();
+      });
+    });
+    parent.appendChild(add);
+    return null;
+  }
+
+  const g = cfgGroup(opts.label, opts.help);
+  /* Closing is only offered while nothing is set — once there is content, the
+     way to remove it is to clear the fields, not to hide them. */
+  if (!opts.isSet(s)) {
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'cm-opt-close';
+    close.setAttribute('aria-label', 'Remove ' + opts.label);
+    close.title = 'Remove ' + opts.label;
+    close.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+    close.addEventListener('click', () => {
+      delete s[opts.key];
+      opts.onChange(true);
+      // Focus returns to the add-link that replaces this group.
+      requestAnimationFrame(() => {
+        const a = parent.querySelector('.cm-opt-add');
+        if (a) a.focus();
+      });
+    });
+    g.classList.add('cm-cfg-group--closable');
+    g.appendChild(close);
+  }
+  parent.appendChild(g);
+  return g;
+}
+
+function cfgStage(body, title, note, num) {
+  const stage = document.createElement('div');
+  stage.className = 'cm-cfg-stage';
+  stage.appendChild(cfgSection(title, note, num));
+  body.appendChild(stage);
+  return stage;
 }
 
 /* L2: a labelled cluster. Returns the wrapper; append the controls to it. */
@@ -9613,19 +10178,197 @@ function repeatRuleText(s) {
              being typed into.
    `titleEl` optional; the collapsed summary's title node, updated live as the
              label is typed so the row behind the open form stays truthful. */
+/* The ticket this failure raises. Appears nested under the checkbox once
+   "Create a ticket" is on — an unconfigured ticket is one somebody has to
+   triage by hand, so the routing decision belongs here, with the rule that
+   creates it. */
+function buildTicketConfig(host, s, onChange) {
+  const t = ticketCfg(s);
+  const grid = document.createElement('div');
+  grid.className = 'cm-form-grid cm-subform';
+
+  const pri = document.createElement('vaadin-select');
+  pri.setAttribute('theme', 'outlined');
+  pri.setAttribute('label', 'Priority');
+  pri.classList.add('cm-f-med');
+  pri.items = TICKET_PRIORITIES.map(p => ({ label: p.label, value: p.value }));
+  pri.value = t.priority;
+  pri.addEventListener('value-changed', e => {
+    if (!e.detail.value || e.detail.value === t.priority) return;
+    t.priority = e.detail.value; onChange(false);
+  });
+  grid.appendChild(pri);
+
+  const asg = document.createElement('vaadin-select');
+  asg.setAttribute('theme', 'outlined');
+  asg.setAttribute('label', 'Assign to');
+  asg.classList.add('cm-f-lg');
+  asg.items = TICKET_ASSIGNEES.map(a => ({ label: a.label, value: a.value }));
+  asg.value = t.assignTo;
+  asg.addEventListener('value-changed', e => {
+    if (!e.detail.value || e.detail.value === t.assignTo) return;
+    t.assignTo = e.detail.value;
+    onChange(true);          // reveals or hides the person picker
+  });
+  grid.appendChild(asg);
+
+  if (t.assignTo === 'user') {
+    const who = document.createElement('vaadin-select');
+    who.setAttribute('theme', 'outlined');
+    who.setAttribute('label', 'Person');
+    who.classList.add('cm-f-lg');
+    who.items = USERS.map(u => ({ label: u.name + ' · ' + u.rank, value: u.id }));
+    who.value = t.userId || '';
+    who.addEventListener('value-changed', e => {
+      if (e.detail.value === undefined || e.detail.value === (t.userId || '')) return;
+      t.userId = e.detail.value; onChange(false);
+    });
+    grid.appendChild(who);
+  }
+
+  /* The ticket's title. Defaults to the step label, which is almost always
+     the right thing — the ticket is about the thing that failed. */
+  const titleMode = document.createElement('vaadin-select');
+  titleMode.setAttribute('theme', 'outlined');
+  titleMode.setAttribute('label', 'Ticket title');
+  titleMode.classList.add('cm-f-lg');
+  titleMode.items = [
+    { label: 'Use the step label', value: 'step' },
+    { label: 'Write a custom title…', value: 'custom' }
+  ];
+  titleMode.value = t.titleMode;
+  titleMode.addEventListener('value-changed', e => {
+    if (!e.detail.value || e.detail.value === t.titleMode) return;
+    t.titleMode = e.detail.value; onChange(true);
+  });
+  grid.appendChild(titleMode);
+
+  if (t.titleMode === 'custom') {
+    const title = document.createElement('vaadin-text-field');
+    title.setAttribute('theme', 'outlined');
+    title.setAttribute('label', 'Title');
+    title.classList.add('cm-form-grid--wide');
+    title.value = t.title || '';
+    title.addEventListener('value-changed', e => { t.title = e.detail.value; onChange(false); });
+    grid.appendChild(title);
+  }
+
+  host.appendChild(grid);
+
+  const inc = document.createElement('label');
+  inc.className = 'cm-cfg-check cm-subform-check';
+  const incBox = document.createElement('vaadin-checkbox');
+  incBox.checked = t.includeAnswer !== false;
+  incBox.setAttribute('aria-label', 'Attach the answer and any documentation');
+  incBox.addEventListener('checked-changed', e => {
+    const v = e.detail.value;
+    if (v === (t.includeAnswer !== false)) return;
+    t.includeAnswer = v; onChange(false);
+  });
+  const incTxt = document.createElement('span');
+  incTxt.textContent = 'Attach the answer and any documentation';
+  inc.appendChild(incBox); inc.appendChild(incTxt);
+  host.appendChild(inc);
+}
+
+/* Who a failure notifies, and how. Several targets can be on at once. */
+function buildNotifyConfig(host, s, onChange) {
+  const n = notifyCfg(s);
+
+  const who = document.createElement('div');
+  who.className = 'cm-subform cm-cfg-checks';
+  NOTIFY_TARGETS.forEach(t => {
+    const cell = document.createElement('label');
+    cell.className = 'cm-cfg-check';
+    const box = document.createElement('vaadin-checkbox');
+    box.checked = n.targets.includes(t.value);
+    box.setAttribute('aria-label', t.label);
+    box.addEventListener('checked-changed', e => {
+      const v = e.detail.value;
+      if (v === n.targets.includes(t.value)) return;
+      const set = new Set(n.targets);
+      if (v) set.add(t.value); else set.delete(t.value);
+      n.targets = NOTIFY_TARGETS.map(x => x.value).filter(x => set.has(x));
+      onChange(true);        // the person picker follows the "user" target
+    });
+    const txt = document.createElement('span');
+    txt.innerHTML = '<i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' +
+      escHtml(t.label);
+    cell.appendChild(box); cell.appendChild(txt);
+    who.appendChild(cell);
+  });
+  host.appendChild(who);
+
+  if (n.targets.includes('user')) {
+    const picker = document.createElement('vaadin-multi-select-combo-box');
+    picker.setAttribute('theme', 'outlined');
+    picker.setAttribute('label', 'People');
+    picker.className = 'cm-subform-field';
+    picker.items = USERS.map(u => u.name + ' · ' + u.rank);
+    picker.selectedItems = (n.userIds || [])
+      .map(id => { const u = USERS.find(x => x.id === id); return u ? u.name + ' · ' + u.rank : null; })
+      .filter(Boolean);
+    picker.addEventListener('selected-items-changed', e => {
+      const names = e.detail.value || [];
+      const ids = names.map(lbl => (USERS.find(u => lbl.indexOf(u.name) === 0) || {}).id)
+        .filter(Boolean);
+      if (ids.join() === (n.userIds || []).join()) return;
+      n.userIds = ids; onChange(false);
+    });
+    host.appendChild(picker);
+  }
+
+  const ch = document.createElement('div');
+  ch.className = 'cm-subform cm-notify-channels';
+  const chLabel = document.createElement('span');
+  chLabel.className = 'cm-subform-label';
+  chLabel.textContent = 'Send by';
+  ch.appendChild(chLabel);
+  NOTIFY_CHANNELS.forEach(c => {
+    const cell = document.createElement('label');
+    cell.className = 'cm-cfg-check';
+    const box = document.createElement('vaadin-checkbox');
+    box.checked = n.channels.includes(c.value);
+    box.setAttribute('aria-label', c.label);
+    box.addEventListener('checked-changed', e => {
+      const v = e.detail.value;
+      if (v === n.channels.includes(c.value)) return;
+      const set = new Set(n.channels);
+      if (v) set.add(c.value); else set.delete(c.value);
+      n.channels = NOTIFY_CHANNELS.map(x => x.value).filter(x => set.has(x));
+      onChange(false);
+    });
+    const txt = document.createElement('span');
+    txt.innerHTML = '<i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
+      escHtml(c.label);
+    cell.appendChild(box); cell.appendChild(txt);
+    ch.appendChild(cell);
+  });
+  host.appendChild(ch);
+}
+
 function buildStepForm(st, body, onChange, titleEl) {
   const s = st;
   body.innerHTML = '';
 
-  body.appendChild(cfgSection('The question', null, 1));
+  /* One stage: the question and how it is answered are one decision, and
+     splitting them across two numbered panels made a two-field step look
+     like a four-part process. Numbering is gone with them — these are not
+     steps in a wizard, they are the parts of a step. */
+  const stage1 = cfgStage(body, 'Question');
   const grid = document.createElement('div');
   grid.className = 'cm-form-grid';
-  body.appendChild(grid);
+  stage1.appendChild(grid);
 
   // Label — full width
   const label = document.createElement('vaadin-text-field');
   label.setAttribute('theme', 'outlined');
   label.setAttribute('label', 'Step label');
+  /* The only hard requirement in the form: a step with no label is
+     unanswerable. Everything else has a working default, which is why
+     nothing else is marked — a form where most fields wear an asterisk
+     teaches you to stop reading them. */
+  label.setAttribute('required', '');
   label.classList.add('cm-form-grid--wide');
   label.value = s.label || '';
   label.addEventListener('value-changed', e => {
@@ -9671,7 +10414,7 @@ function buildStepForm(st, body, onChange, titleEl) {
     const ctx = document.createElement('vaadin-text-area');
     ctx.setAttribute('theme', 'outlined');
     ctx.setAttribute('label', 'Context for the crew');
-    ctx.setAttribute('helper-text', 'Shown above this step while the check is performed.');
+
     ctx.classList.add('cm-form-grid--wide');
     ctx.value = s.context || '';
     ctx.addEventListener('value-changed', e => {
@@ -9682,15 +10425,19 @@ function buildStepForm(st, body, onChange, titleEl) {
   grid.appendChild(ctxWrap);
 
   /* Section 2 — how the crew answers. */
-  body.appendChild(cfgSection('The answer', null, 2));
+  /* Same stage as the question — the response type sits beside the label it
+     answers. */
+  const stage2 = stage1;
   const grid2 = document.createElement('div');
   grid2.className = 'cm-form-grid';
-  body.appendChild(grid2);
+  stage2.appendChild(grid2);
 
   // Response type
   const type = document.createElement('vaadin-select');
   type.setAttribute('theme', 'outlined');
   type.setAttribute('label', 'Response');
+  type.setAttribute('required', '');
+  type.classList.add('cm-f-med');
   /* The S4 eight plus Nested check (S8). `internal` types, if any are ever
      added, stay out of the list. */
   type.items = authorableTypes().map(r => ({ label: r.label, value: r.value }));
@@ -9752,6 +10499,7 @@ function buildStepForm(st, body, onChange, titleEl) {
   const req = document.createElement('vaadin-select');
   req.setAttribute('theme', 'outlined');
   req.setAttribute('label', 'Requirement');
+  req.classList.add('cm-f-med');
   req.items = [{ label: 'Required', value: 'req' }, { label: 'Optional', value: 'opt' }];
   req.value = s.optional ? 'opt' : 'req';
   req.addEventListener('value-changed', e => {
@@ -9764,15 +10512,21 @@ function buildStepForm(st, body, onChange, titleEl) {
      already per-item by construction — stacking the two would mean "run a
      checklist per item, per item". */
   if (s.type !== 'nested') {
-    const mWrap = cfgGroup('Multiple responses',
-      'One step, one answer per asset — each logged back to the asset it came from.');
+    const mWrap = cfgGroup('Multiple responses');
 
+    /* A checkbox, not a switch. A switch implies something takes effect the
+       moment you flip it; this is one setting among many on a form that is
+       saved as a whole, which is what a checkbox means. It is also the same
+       control as the failure actions above, so the form has one vocabulary
+       for "turn this on" instead of two. */
     const mToggle = document.createElement('label');
-    mToggle.className = 'cm-cfg-switch';
-    const mSw = document.createElement('vwc-switch');
+    mToggle.className = 'cm-cfg-check';
+    const mSw = document.createElement('vaadin-checkbox');
     mSw.checked = isMulti(s);
-    mSw.setAttribute('accessible-name', 'Multiple responses');
-    onSwitchChange(mSw, v => {
+    mSw.setAttribute('aria-label', 'Multiple responses');
+    mSw.addEventListener('checked-changed', e => {
+      const v = e.detail.value;
+      if (v === isMulti(s)) return;     // create-time event; see note above
       if (v) s.multiResponse = Object.assign({}, MULTI_DEFAULTS);
       else delete s.multiResponse;
       onChange(true);
@@ -9793,6 +10547,7 @@ function buildStepForm(st, body, onChange, titleEl) {
       const at = document.createElement('vaadin-select');
       at.setAttribute('theme', 'outlined');
       at.setAttribute('label', 'Asset type');
+  at.classList.add('cm-f-med');
       at.items = [{ label: 'Select an asset type…', value: '' }]
         .concat(ASSET_TYPES.map(t => ({ label: t.label, value: t.value })));
       at.value = cfg.assetType || '';
@@ -9812,7 +10567,8 @@ function buildStepForm(st, body, onChange, titleEl) {
       const min = document.createElement('vaadin-number-field');
       min.setAttribute('theme', 'outlined');
       min.setAttribute('label', 'Minimum items');
-      min.setAttribute('helper-text', 'Fewer than this blocks submit. No maximum.');
+  min.classList.add('cm-f-sm');
+  
       min.setAttribute('min', '1');
       min.value = cfg.minItems == null ? 1 : cfg.minItems;
       min.addEventListener('value-changed', e => {
@@ -9843,12 +10599,12 @@ function buildStepForm(st, body, onChange, titleEl) {
         mWrap.appendChild(hint);
       }
     }
-    body.appendChild(mWrap);
+    stage2.appendChild(mWrap);
   }
 
   // Numeric threshold — grouped, because min/max/unit are one decision.
   if (s.type === 'numeric') {
-    const g = cfgGroup('Accepted range', 'Outside this range fails the step.');
+    const g = cfgGroup('Accepted range');
     const row = document.createElement('div');
     row.className = 'cm-cfg-row cm-cfg-row--3';
     [['min', 'Min'], ['max', 'Max']].forEach(([key, lbl]) => {
@@ -9862,11 +10618,12 @@ function buildStepForm(st, body, onChange, titleEl) {
     const u = document.createElement('vaadin-text-field');
     u.setAttribute('theme', 'outlined');
     u.setAttribute('label', 'Unit');
+
     u.value = s.unit || '';
     u.addEventListener('value-changed', e => { s.unit = e.detail.value; onChange(false); });
     row.appendChild(u);
     g.appendChild(row);
-    body.appendChild(g);
+    stage2.appendChild(g);
   }
 
   /* Q41 — reword the response options. Display only: the type, its failure
@@ -9874,8 +10631,16 @@ function buildStepForm(st, body, onChange, titleEl) {
      underlying values, so "No" on a relabelled Pass/Fail still fails and
      still rolls up with every other Pass/Fail failure. */
   if (canRelabel(s.type)) {
-    const g = cfgGroup('Response wording',
-      'What the crew sees. The underlying type and its pass/fail behaviour do not change.');
+    const g = cfgOptional(stage2, {
+      step: s, key: '_wordingOpen', onChange: onChange,
+      isSet: isRelabelled,
+      addLabel: 'Customise the response wording',
+      /* The default is worth stating — it is what declining gives you. */
+      addHelp: 'Currently ' +
+        RESPONSE_LABEL_SLOTS[s.type].map(x => x.fallback).join(' / '),
+      label: 'Response wording'
+    });
+    if (g) {
     const row = document.createElement('div');
     row.className = 'cm-cfg-row cm-cfg-row--2';
     RESPONSE_LABEL_SLOTS[s.type].forEach(slot => {
@@ -9900,41 +10665,39 @@ function buildStepForm(st, body, onChange, titleEl) {
       row.appendChild(f);
     });
     g.appendChild(row);
-    if (isRelabelled(s)) {
-      const note = document.createElement('p');
-      note.className = 'cm-cfg-group-help';
-      note.style.margin = '9px 0 0';
-      note.innerHTML = 'Still a <strong>' + escHtml(respMeta(s.type).label) +
-        '</strong> step — reporting and failure rules are unchanged.';
-      g.appendChild(note);
     }
-    body.appendChild(g);
   }
 
   /* Count: par level is what gives the number meaning (S4 — "when compared
      to a par level"). Optional: a count with no par records inventory
      without judging it. */
   if (s.type === 'count') {
-    const g = cfgGroup('Par level', 'The expected quantity. Below it fails the step; above it does not.');
-    const row = document.createElement('div');
-    row.className = 'cm-cfg-row cm-cfg-row--2';
-    const par = document.createElement('vaadin-number-field');
-    par.setAttribute('theme', 'outlined');
-    par.setAttribute('label', 'Par');
-    par.setAttribute('helper-text', 'Leave empty to record a count without a pass/fail.');
-    par.setAttribute('min', '0');
-    par.value = s.par == null ? '' : s.par;
-    par.addEventListener('value-changed', e => { s.par = e.detail.value; onChange(false); });
-    row.appendChild(par);
-    const noun = document.createElement('vaadin-text-field');
-    noun.setAttribute('theme', 'outlined');
-    noun.setAttribute('label', 'What is counted');
-    noun.setAttribute('helper-text', 'e.g. "4x4 gauze". Shown beside the count.');
-    noun.value = s.countNoun || '';
-    noun.addEventListener('value-changed', e => { s.countNoun = e.detail.value; onChange(false); });
-    row.appendChild(noun);
-    g.appendChild(row);
-    body.appendChild(g);
+    const g = cfgOptional(stage2, {
+      step: s, key: '_parOpen', onChange: onChange,
+      isSet: x => x.par != null && x.par !== '' || !!x.countNoun,
+      addLabel: 'Set a par level',
+      label: 'Par level'
+    });
+    if (g) {
+      const row = document.createElement('div');
+      row.className = 'cm-cfg-row cm-cfg-row--2';
+      const par = document.createElement('vaadin-number-field');
+      par.setAttribute('theme', 'outlined');
+      par.setAttribute('label', 'Par');
+
+      par.setAttribute('min', '0');
+      par.value = s.par == null ? '' : s.par;
+      par.addEventListener('value-changed', e => { s.par = e.detail.value; onChange(false); });
+      row.appendChild(par);
+      const noun = document.createElement('vaadin-text-field');
+      noun.setAttribute('theme', 'outlined');
+      noun.setAttribute('label', 'What is counted');
+
+      noun.value = s.countNoun || '';
+      noun.addEventListener('value-changed', e => { s.countNoun = e.detail.value; onChange(false); });
+      row.appendChild(noun);
+      g.appendChild(row);
+    }
   }
 
   // Options editor
@@ -10018,74 +10781,112 @@ function buildStepForm(st, body, onChange, titleEl) {
       () => { onChange(true); }));
   }
 
-  /* Section 3 — what a failure DOES, and what the crew can attach. These
-     were one block under a single "Failure severity" label, which made the
-     photo/note switches look like part of the severity decision. */
-  body.appendChild(cfgSection('On failure', null, 3));
-
-  /* Consequences, not a severity word. Switches rather than chips because
-     these are independent and combinable — a step can do both, or neither.
-     A chip group would have implied one-of. */
-  const failWrap = cfgGroup('When this step fails');
-  const failCol = document.createElement('div');
-  failCol.className = 'cm-cfg-switches cm-cfg-switches--stack';
-  FAILURE_ACTIONS.forEach(a => {
-    const cell = document.createElement('label');
-    cell.className = 'cm-cfg-switch cm-cfg-switch--help';
-    const sw = document.createElement('vwc-switch');
-    sw.checked = failActions(s).includes(a.value);
-    sw.setAttribute('accessible-name', a.label);
-    onSwitchChange(sw, v => {
-      const set = new Set(failActions(s));
-      if (v) set.add(a.value); else set.delete(a.value);
-      /* Keep canonical order so two steps with the same actions always
-         serialise identically. */
-      s.onFail = FAILURE_ACTIONS.map(x => x.value).filter(x => set.has(x));
-      onChange(true);
-    });
-    const txt = document.createElement('span');
-    txt.innerHTML = a.label + '<span class="cm-cfg-help">' + a.help + '</span>';
-    cell.appendChild(sw); cell.appendChild(txt);
-    failCol.appendChild(cell);
+  /* Failure consequences are an opt-in. Most steps just pass or fail and are
+     recorded; taking an apparatus out of service or raising a ticket is a
+     deliberate escalation the author adds, so it stays behind a link until
+     they ask for it. */
+  const failG = cfgOptional(body, {
+    step: s, key: '_failOpen', onChange: onChange,
+    isSet: x => failActions(x).length > 0,
+    addLabel: 'Add a failure consequence',
+    label: 'When this step fails'
   });
-  failWrap.appendChild(failCol);
-  body.appendChild(failWrap);
+  if (failG) {
+    const failCol = document.createElement('div');
+    failCol.className = 'cm-cfg-checks';
+    FAILURE_ACTIONS.forEach(a => {
+      const cell = document.createElement('label');
+      cell.className = 'cm-cfg-check';
+      const sw = document.createElement('vaadin-checkbox');
+      sw.checked = failActions(s).includes(a.value);
+      sw.setAttribute('aria-label', a.label);
+      sw.addEventListener('checked-changed', e => {
+        // Guarded against the create-time event; see the note on cfgOptional.
+        const v = e.detail.value;
+        if (v === failActions(s).includes(a.value)) return;
+        const set = new Set(failActions(s));
+        if (v) set.add(a.value); else set.delete(a.value);
+        // Canonical order, so two steps with the same actions serialise alike.
+        s.onFail = FAILURE_ACTIONS.map(x => x.value).filter(x => set.has(x));
+        /* Switching an action off drops its config rather than leaving it
+           orphaned on the step — a ticketConfig with no ticket action would
+           serialise into the block and mean nothing. */
+        if (!v && a.value === 'ticket') delete s.ticketConfig;
+        if (!v && a.value === 'notify') delete s.notifyConfig;
+        onChange(true);
+      });
+      const txt = document.createElement('span');
+      txt.textContent = a.label;
+      cell.appendChild(sw); cell.appendChild(txt);
+      failCol.appendChild(cell);
 
-  /* Capture properties. Three states rather than two switches each, so
-     "required but not allowed" cannot be authored. */
-  const capWrap = cfgGroup('What the crew can attach');
+      /* Two of the three need configuring to be useful, and that config
+         belongs under the action that triggers it — not in a separate panel
+         where it would be a setting with no visible cause. It appears only
+         while the action is on. */
+      if (sw.checked && (a.value === 'ticket' || a.value === 'notify')) {
+        const sub = document.createElement('div');
+        sub.className = 'cm-subform-wrap';
+        if (a.value === 'ticket') buildTicketConfig(sub, s, onChange);
+        else buildNotifyConfig(sub, s, onChange);
+        failCol.appendChild(sub);
+      }
+    });
+    failG.appendChild(failCol);
+  }
+
+  /* Attachments — a condition on the question, not a stage of its own. One
+     line per type, each with the three-state control: off / allowed /
+     required. A segmented control rather than checkboxes because the three
+     states are mutually exclusive, and "required but not offered" must not be
+     expressible. */
+  const capWrap = cfgGroup('Attachments');
+  capWrap.classList.add('cm-cap-wrap');
   CAPTURE_KEYS.forEach(c => {
+    const locked = c.key === 'comment' && forcesComment(s);
+    const cur = locked ? 'required' : captureState(s, c.key);
+
     const row = document.createElement('div');
-    row.className = 'cm-cap-row';
+    row.className = 'cm-cap-line';
 
-    const lockedHere = c.key === 'comment' && forcesComment(s);
-    const cur = lockedHere ? 'required' : captureState(s, c.key);
-
-    const lab = document.createElement('div');
-    lab.className = 'cm-cap-label';
-    lab.innerHTML =
-      '<i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
-      '<span>' + c.label +
-        '<span class="cm-cfg-help">' +
-          (lockedHere
-            ? 'A failed Pass / Fail answer always requires a comment, so this is fixed.'
-            : c.help) +
-        '</span>' +
-      '</span>';
+    const lab = document.createElement('span');
+    lab.className = 'cm-cap-name';
+    lab.innerHTML = '<i class="fa-solid ' + c.icon + '" aria-hidden="true"></i>' +
+      escHtml(c.label);
     row.appendChild(lab);
 
     row.appendChild(segmented(CAPTURE_STATES, cur, v => {
       s[c.key] = v; onChange(true);
-    }, { locked: lockedHere, ariaLabel: c.label }));
+    }, { locked: locked, ariaLabel: c.label }));
 
     capWrap.appendChild(row);
   });
-  body.appendChild(capWrap);
+  stage1.appendChild(capWrap);
 }
 
 /* Move a creator step by one. The keyboard path to what a drag does — same
    role nudgeItem() plays in the checklist builder, and focus follows the moved
    row the same way so repeated presses keep working. */
+/* Add a step AT a position. Adding is positional here as it is in the
+   checklist builder — an inserter sits in every gap, so a step goes where it
+   belongs instead of being appended and dragged up. */
+function addCreatorStepAt(index) {
+  creatorSteps.splice(index, 0, {
+    id: 0, label: '', type: 'passfail',
+    /* Opens expanded: a new step has no label yet, so collapsed it would read
+       as "Untitled step" with nothing to act on. */
+    _open: true,
+    onFail: [], comment: 'off', documentation: 'off'
+  });
+  renumber(); markCreatorDirty(); renderCreatorSteps();
+  requestAnimationFrame(() => {
+    const card = document.querySelector('[data-anchor="cstep:' + index + '"]');
+    const f = card && card.querySelector('vaadin-text-field');
+    if (f) f.focus();
+    scrollRowIntoView(card);
+  });
+}
+
 function nudgeCreatorStep(idx, dir) {
   const to = idx + dir;
   if (to < 0 || to >= creatorSteps.length) return;
@@ -10110,18 +10911,29 @@ function renderCreatorSteps() {
     (nested ? ' · ' + nested + ' nested' : '');
 
   if (!creatorSteps.length) {
-    host.innerHTML =
-      /* --card: the step list is no longer inside a .cm-panel, so the empty
-         state has to bring its own surface or it floats on the page ground. */
-      '<div class="cm-empty cm-empty--card">' +
-        '<i class="fa-solid fa-list-ol" aria-hidden="true"></i>' +
-        '<h3>No check steps yet</h3>' +
-        '<p>A block is an ordered list of steps. Add the first one to get started.</p>' +
-      '</div>';
+    /* --card: the step list is no longer inside a .cm-panel, so the empty
+       state has to bring its own surface or it floats on the page ground.
+       A real button here rather than an inserter: with no cards there is no
+       gap for one to sit in, and the CTA is the whole point of the state. */
+    const empty = document.createElement('div');
+    empty.className = 'cm-empty cm-empty--card';
+    empty.innerHTML =
+      '<i class="fa-solid fa-list-ol" aria-hidden="true"></i>' +
+      '<h3>No check steps yet</h3>' +
+      '<p>A block is an ordered list of steps. Add the first one to get started.</p>';
+    const cta = document.createElement('vaadin-button');
+    cta.setAttribute('theme', 'primary');
+    cta.textContent = 'Add check step';
+    cta.addEventListener('click', () => addCreatorStepAt(0));
+    empty.appendChild(cta);
+    host.appendChild(empty);
     return;
   }
 
   creatorSteps.forEach((s, idx) => {
+    // Inserter above every card — so the first gap is the one before step 1.
+    host.appendChild(inserterRow('Add step here', () => addCreatorStepAt(idx)));
+
     const rm = respMeta(s.type);
     const card = document.createElement('div');
     card.className = 'cm-stepcard';
@@ -10203,10 +11015,21 @@ function renderCreatorSteps() {
     const body = card.querySelector('.cm-stepcard-body');
     body.innerHTML = '';
 
-    buildStepForm(s, body, (structural) => {
+    /* Same as the builder: a structural change rebuilds only this card's
+       form, not the whole block's step list. */
+    const rebuildCard = () => {
+      const scroller = document.querySelector('.ci-content');
+      const keep = scroller ? scroller.scrollTop : 0;
+      buildStepForm(s, body, onCardChange, card.querySelector('.cm-stepcard-title'));
+      animateOpen(body, true);
+      refreshStepSummary(card, s);
+      if (scroller) scroller.scrollTop = keep;
+    };
+    const onCardChange = (structural) => {
       markCreatorDirty();
-      if (structural) renderCreatorSteps();
-    }, card.querySelector('.cm-stepcard-title'));
+      if (structural) rebuildCard();
+    };
+    buildStepForm(s, body, onCardChange, card.querySelector('.cm-stepcard-title'));
     if (s._open) animateOpen(body);
 
     // Drag-to-reorder steps
@@ -10235,6 +11058,9 @@ function renderCreatorSteps() {
 
     host.appendChild(card);
   });
+
+  // ...and one closing the list, which appends.
+  host.appendChild(inserterRow('Add step here', () => addCreatorStepAt(creatorSteps.length)));
 }
 
 function renumber() { creatorSteps.forEach((s, i) => { s.id = i + 1; }); }
@@ -12052,25 +12878,11 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 
   /* Block creator actions */
-  document.getElementById('btnAddStep').addEventListener('click', () => {
-    creatorSteps.push({
-      id: creatorSteps.length + 1, label: '', type: 'passfail',
-      /* Opens expanded: a new step has no label yet, so collapsed it would
-         read as "Untitled step" with nothing to act on. Existing steps stay
-         as the author left them. */
-      _open: true,
-      onFail: [], comment: 'off', documentation: 'off'
-    });
-    markCreatorDirty(); renderCreatorSteps();
-    // Focus the label of the step just added.
-    requestAnimationFrame(() => {
-      const cards = document.querySelectorAll('#stepList .cm-stepcard');
-      const last = cards[cards.length - 1];
-      const f = last && last.querySelector('vaadin-text-field');
-      if (f) f.focus();
-      scrollRowIntoView(last);
-    });
-  });
+    /* The region's own Add button appends, which is what a header-level action
+     should do; the per-gap inserters are how a step goes anywhere else. Both
+     go through addCreatorStepAt() so there is one creation path. */
+  document.getElementById('btnAddStep').addEventListener('click',
+    () => addCreatorStepAt(creatorSteps.length));
   document.getElementById('cName').addEventListener('value-changed', e => {
     document.getElementById('cTitle').textContent = e.detail.value;
     markCreatorDirty();
@@ -12121,7 +12933,7 @@ window.addEventListener('DOMContentLoaded', () => {
 function applyFlowState(id, opts) {
   opts = opts || {};
   const closeAll = () => {
-    ['dlgImport', 'dlgPicker', 'dlgBreak', 'dlgBlast',
+    ['dlgImport', 'dlgPicker', 'dlgBreak', 'dlgBlast', 'dlgRenameSection',
      'dlgPublish', 'dlgDiscard', 'dlgBatch', 'dlgRetire',
      'dlgLibCadence', 'dlgSchedule', 'dlgRepeatPreview'].forEach(x => {
       const d = document.getElementById(x);

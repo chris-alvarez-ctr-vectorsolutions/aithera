@@ -1,6 +1,15 @@
 > author: Design
 
 ## nav - Chrome and side nav (Areas 1 + 2)
+> date: 2026-10-07
+- **V4 shell applied to the side nav:** the side nav now follows the design system sidebar EHS already ships (the navigation exploration's V4, `products/design-system/navigation/v4-design-system.html`). This supersedes the earlier Area 1 bullets below on row height, width, the collapse button and the children's guide line.
+- **Width:** 250px open, 56px collapsed (`--w-sidenav`, `--w-sidenav-min`).
+- **Logo area:** 80px tenant-logo area at the top (32px mark + name, EHS's `.tenant-logo` pattern); only the mark shows when collapsed. Tenant branding source is a logic item.
+- **Collapse control:** a 24px round chevron on the sidebar's right edge, vertically centred on the logo area (`.sn-collapse`, `right: -12px`), the only open/close control; it rotates 180 degrees when collapsed. The sidebar itself must not clip (`overflow: visible`); the list and the logo area clip their own contents.
+- **Rows:** 13px / 500, padding 8 16, 10px gap, 18px icon column, no radius; selected = 3px left border `--c-primary` + `--c-primary-soft` fill + 600. Children: 13px / 400 at a 44px indent, no guide line, selected at 500. Section headers 11 / 600 with a hairline and 20px lead above (first one without).
+- **Collapsed:** icons centred in 56px; the parent of the current page keeps the fill and the bar lit.
+- **Kept from the Small UI rounds:** the nav search (now under the logo area, hidden when collapsed), two-line label wrap, right-aligned carets, the trail state, the off-canvas behaviour below 900px.
+> date: 2026-07-30
 - Area 1: no row dividers. Separation is 40px rows + 2px gaps + 6px radius + hover fill, not borders.
 - Area 1: ONE selection language at every depth: 3px blue left rail + `--c-primary-soft` fill + blue label + blue icon. Replaces the two unrelated treatments (bright blue Dashboard vs dark navy expanded parent).
 - Area 1: expansion is communicated by the caret and the child group only. A parent holding the selected child gets the quieter "trail" state (darker label, blue icon, no fill).
@@ -8,7 +17,7 @@
 - Area 1: icons are one 15px Font Awesome glyph in a fixed 20px column. Children indent 24px behind a 1px guide line.
 - Area 1 round 3: labels wrap to TWO lines instead of truncating (2-line clamp, rows grow from a 44px minimum). Do not restore single-line ellipsis.
 - Round 10: the page header Refresh and Help actions are icon-only buttons (36x32, `.btn-iconic`) with `aria-label` + `title` carrying the name; the text labels are gone. Applies to every screen's action row.
-- Area 1: the four section headers (Overview / Manage / Insights / Configuration) are a PROPOSAL: the current nav model has no section level. OUT OF SCOPE as CSS; drop them if the IA is fixed.
+- Round 18: one side nav per top-nav tab, item names verbatim (casing included) from the design-system nav shell `products/design-system/navigation/v4-design-system.html`. Home / Training / Catalog -> `NAV_LEARNER` (10 flat items; the page's own item is selected); Insights -> `NAV_INSIGHTS` (Activity / User / Qualification report groups, with an empty-state view since Insights is out of scope); Administration -> `NAV_ADMIN` (Dashboard through System; V4 carries no Assignments / Electives / Authorizations / Tracking groups, so neither does this). `ROUTES[x].mode` picks the set; `NAV_FOR_ROUTE` lights the item. No section headers. LOGIC ITEM: the shell must know which tab a page belongs to.
 - Area 1: the collapse button is the FIRST child of .sn-head, before the search field, so it keeps exactly the same x and y whether the nav is open or collapsed (left 12px, centre 29px). Do not move it back to the right of the search field.
 - Area 1: collapsed 58px icon-only state is preserved (labels, carets and children hidden, `title` tooltips kept). 58px is chosen so the collapse button and the row icons share the same centre line. Below 900px the nav goes off-canvas behind the burger.
 - Area 1: the collapse animates `width` with `flex-basis: auto` (one property drives the size) and `overflow: hidden` stops labels spilling past the rail mid-animation.
@@ -205,6 +214,9 @@
 - Round 4: catalog cards ARE the small Training Plan card (.tcard): same structure, sizing, thumbnail ratio, badges and XS shadow, plus the E tag and Assigned badge. Round 14: like the training cards they have no footer and no info button; View details is the hover pill over the thumbnail (a placeholder here, since catalog items have no drill-in page in this prototype). There is no separate catalog card style.
 - View all sets the category and opens the table view; deep link the views with ?view=cards or ?view=table on catalog.html.
 - Category data is illustrative (the reference's Driver Safety / Emergency Procedures / First Aid / Qualifications rows); the existing seven Safety items are unchanged and remain the Safety category.
+
+## Colour reference for developers
+- `ver1/COLOR-CHANGES.md` is the consolidated list of every colour value and what changed from legacy, grouped by surface, text, badges, controls, banners, thumbnails and elevation, each with its measured WCAG ratio and the Vector token to prefer. Hand that file to the developer; this section holds the audit history behind it.
 
 ## Accessibility (round 4 audit, re-run round 16)
 - Round 16 full re-audit (every visible text node on all ten screens, backgrounds composited up the ancestor chain): 21 failures found and fixed, now 0. Two root causes: (1) `--c-primary` #0271ce on the soft fill `#e8f2fc` is 4.36 and on the canvas 4.13, so a new `--c-primary-ink` #0266bb (5.12 / 4.85) is used for primary TEXT on tinted grounds: Beta tag, kind chips, guide numbers, selected nav rows and children, selected View-by items, catalog View all. `--c-primary` is unchanged for buttons, icons and links on white (4.93). (2) `--c-faint` #98a2b3 was used for text in six places (empty-cell dashes, inert nav children, token-sheet captions, "No description provided", the attachment paperclip); all moved to `--c-meta`. `--c-faint` is now reserved for decorative glyphs and input placeholders.

@@ -114,7 +114,7 @@ modernisation the brief asks for. Two Vector components are also used structural
 | Two unrelated active treatments (bright blue Dashboard vs dark navy expanded parent) | **One selection language at every depth**: 3px blue left rail + `--c-primary-soft` fill + blue label. Expansion is communicated only by the caret and the child group; a parent holding the selected child gets a quieter "trail" state (darker label, blue icon, no fill) so it is never confused with the selection itself |
 | Heavy, inconsistently sized icons | One 15px Font Awesome icon in a fixed 20px column, aligned to the label baseline |
 | Carets pinned far right, disconnected from labels | Round 3 (designer direction): carets are right-aligned in the row, and labels wrap to two lines instead of truncating |
-| Levels told apart only by dividers | Section headers (11.5/600, `--c-faint`), parent rows, and children indented 22px behind a 1px guide line |
+| Levels told apart only by dividers | Parent rows and children indented 22px behind a 1px guide line. No section headers: the nav lists exactly the items Convergence has |
 | Dark gray search band | Bordered `--c-surface-alt` input with the shared focus ring |
 | Collapse button jumped from the right edge of the nav to the centre of the icon rail | The button is the first thing in the nav header, so it holds **exactly the same x and y in both states** (left 12px, centred on 29px). The collapsed rail is 58px so the button also lines up with the row icons below it |
 
@@ -123,9 +123,14 @@ collapsed 58px icon-only state (labels, carets and children hidden, `title` tool
 collapse is animated on `width` with `flex-basis: auto`, so one property drives the size, and
 `overflow: hidden` keeps the labels from spilling past the rail while it animates.
 
-**Proposal, not a like-for-like restyle:** the four section headers (Overview, Manage,
-Insights, Configuration) group the existing items; the current nav has no section level. Drop
-them if the IA is not up for discussion: everything else in this area works without them.
+**Each tab shows its own side nav, named as the design-system navigation (round 18).** The
+item names come verbatim from `products/design-system/navigation/v4-design-system.html`:
+Home, Training and Catalog share the learner nav (Dashboard, My Training, Catalog, News,
+Registered Facilities, My Attachments, My Reports, My Jobs, My Licenses, My Preferences);
+Insights has three report groups (Activity, User, Qualification reports); Administration has
+the admin tree (Dashboard, Organization, Training import and creation, Files, Activities,
+Qualifications, Reports, Assets, Security, System). Learner pages open with the nav as the
+icon rail. The earlier section headers were a proposal and are gone.
 
 ## Area 2: Location picker in the top nav
 
@@ -712,11 +717,10 @@ CSS-only alternative is given.
    CSS-only alternative: drop the glyph, keep the title.
 7. **Away-from-home chip on the location trigger** needs the user's home location. CSS-only
    alternative: omit the chip.
-8. **Section headers in the side nav** need the nav model to carry a section level (see Area 1).
-9. **Loading states** need to be driven by real fetch / content-ready events: the skeleton
+8. **Loading states** need to be driven by real fetch / content-ready events: the skeleton
    hides when the next screen's data lands, the Loading content modal closes when the
    training window opens (and Cancel must abort the launch). Both are timers here.
-10. **Printable flag per activity.** The prototype derives it from the activity type
+9. **Printable flag per activity.** The prototype derives it from the activity type
    (documents and tasklists); the real model needs the flag, since printability is a
    property of the content, not of its type.
 

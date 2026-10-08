@@ -3,40 +3,51 @@
    ======================================================================== */
 
 /* --- Area 1: admin navigation ------------------------------------------- */
-const NAV = [
-  { section: 'Overview' },
-  { id:'dashboard', label:'Dashboard', icon:'fa-gauge-high', route:'home' },
+/* Side navs, one per top-nav tab, with the item names taken verbatim (casing
+   included) from the design-system navigation shell at
+   products/design-system/navigation/v4-design-system.html:
+     Home, Training, Catalog -> NAV_LEARNER   (V4 shows one learner nav for all three)
+     Insights                -> NAV_INSIGHTS
+     Administration          -> NAV_ADMIN
+   Strings are inert placeholders; objects carry a route the prototype can open. */
+const NAV_LEARNER = [
+  { id:'l-dashboard',   label:'Dashboard',             icon:'fa-gauge-high', route:'home' },
+  { id:'l-training',    label:'My Training',           icon:'fa-book-open',  route:'training' },
+  { id:'l-catalog',     label:'Catalog',               icon:'fa-store',      route:'catalog' },
+  { id:'l-news',        label:'News',                  icon:'fa-newspaper' },
+  { id:'l-facilities',  label:'Registered Facilities', icon:'fa-building' },
+  { id:'l-attachments', label:'My Attachments',        icon:'fa-paperclip' },
+  { id:'l-reports',     label:'My Reports',            icon:'fa-chart-column' },
+  { id:'l-jobs',        label:'My Jobs',               icon:'fa-briefcase' },
+  { id:'l-licenses',    label:'My Licenses',           icon:'fa-id-card' },
+  { id:'l-prefs',       label:'My Preferences',        icon:'fa-sliders' },
+];
 
-  { section: 'Manage' },
+const NAV_INSIGHTS = [
+  { id:'i-activity', label:'Activity reports', icon:'fa-chart-line', children:[
+    'Activity exception report','Activity completion report','Activity status report','Tasklist report' ] },
+  { id:'i-user', label:'User reports', icon:'fa-users', children:[ 'User engagement','User completion' ] },
+  { id:'i-qual', label:'Qualification reports', icon:'fa-graduation-cap', children:[ 'Qualification status','Expiring qualifications' ] },
+];
+
+const NAV_ADMIN = [
+  { id:'dashboard', label:'Dashboard', icon:'fa-gauge-high', route:'guide' },
   { id:'organization', label:'Organization', icon:'fa-sitemap', children:[
-    'Users','Teams','Departments','Sites','Regions','Groups','Places','Contacts' ] },
-  { id:'training', label:'Training Import And Creation', icon:'fa-file-import', children:[
-    { id:'ti-content', label:'Content Wizard', route:'wizard' },
+    'Users','Teams','Departments','Sites','Regions','Groups' ] },
+  { id:'training', label:'Training import and creation', icon:'fa-file-import', children:[
+    { id:'ti-content', label:'Content wizard', route:'wizard' },
     'Quizzes','Surveys','Tasklists','Signatures','Classes' ] },
   { id:'files', label:'Files', icon:'fa-folder', children:['Repositories'] },
   { id:'activities', label:'Activities', icon:'fa-layer-group', children:['Activities'] },
-  { id:'qualifications', label:'Qualifications', icon:'fa-graduation-cap', children:[
-    'Requirements','Qualifications','Copy Qualifications' ] },
-  { id:'assignments', label:'Assignments', icon:'fa-user-plus', children:[
-    'Assign Training Wizard','Assignments' ] },
-  { id:'electives', label:'Electives', icon:'fa-star', children:[
-    'Elective Categories','Offer Electives','Approve Electives','Electives' ] },
-  { id:'authorizations', label:'Authorizations', icon:'fa-unlock', children:[
-    'Authorize Training','Authorizations' ] },
-  { id:'tracking', label:'Tracking And Completions', icon:'fa-clipboard-check', children:[
-    'Credit Wizard','Import Completions','Track Tasklist Completion','Take Class Attendance',
-    'Approve Signatures','Completion Records' ] },
-
-  { section: 'Insights' },
+  { id:'qualifications', label:'Qualifications', icon:'fa-graduation-cap', children:[ 'Qualifications','Requirements' ] },
   { id:'reports', label:'Reports', icon:'fa-chart-column', children:[
-    'My Recents','Frequently Used','All Reports','Scheduled Reports' ] },
-
-  { section: 'Configuration' },
-  { id:'security', label:'Security', icon:'fa-user-shield', children:[
-    'Roles','Copy Roles','Assign Roles','Role Assignments' ] },
-  { id:'system', label:'System', icon:'fa-gear', children:[
-    'Jobs','Configuration','Notifications','User Connections' ] },
+    'My recents','Frequently used','All reports','Activity reports','Qualification reports',
+    'User reports','Organizational reports','Scheduled reports' ] },
+  { id:'assets', label:'Assets', icon:'fa-boxes-stacked', children:['Asset groups','Assets'] },
+  { id:'security', label:'Security', icon:'fa-user-shield', children:[ 'Roles','Copy roles','Assign roles','Role assignments' ] },
+  { id:'system', label:'System', icon:'fa-gear', children:[ 'Jobs','Configuration','Notifications','User connections' ] },
 ];
+const NAV_SETS = { learner: NAV_LEARNER, insights: NAV_INSIGHTS, admin: NAV_ADMIN };
 
 /* --- Area 2: location tree (the existing nest view) --------------------- */
 const LOCATION_TREE = [

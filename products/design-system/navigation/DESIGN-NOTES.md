@@ -1,5 +1,20 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-10-07 (divider on the nav border; V4 location, rhythm, icons)
+
+- **All versions: the identity/tabs divider sits on the open side nav's right border**,
+  continuing that line up through the top bar, with the same 14px to the first tab that the
+  bell has from its divider. It is pinned to the open position, so it and the tabs stay put
+  when the nav collapses. In V4 the identity lockup is sized so EHS's own pipe lands there.
+- **V4: the location picker is in the top nav in every view** (it was only the Vector LMS
+  view; EHS and Dashboard kept it in the side nav). The side nav now starts with the logo
+  area and the list, as EHS ships it.
+- **V4: side nav section rhythm.** The list breathes under the logo area, each section
+  header gets a hairline and more lead above it, and open groups settle before the next row.
+- **V4: app switcher icons.** Each product row shows the glyph V3's launcher gives it on a
+  rounded tile (accent for licensed, grey for purchasable), generated from the icon sprite as
+  a data URI for the component's `imageSrc`.
+
 ## Changelog · 2026-10-01 (V4: the design system shell EHS already ships)
 
 - **New version, V4 (`v4-design-system.html`).** The interim shell. EHS has already moved to

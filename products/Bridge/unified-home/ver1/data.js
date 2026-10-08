@@ -302,7 +302,7 @@ window.SUITE_DATA = (function () {
   /* ── OSHA audit readiness ───────────────────────────────────────────────── */
   var audit = {
     all: {
-      score: 82, gaps: 3,
+      score: 86, gaps: 3,
       items: [
         { src: 'ehs', state: 'warn', title: 'OSHA 300 Log', sub: '14 recordable cases in 2026. 2 entries are missing days-away counts.', action: 'Fix 2 entries' },
         { src: 'ehs', state: 'ok',   title: '301 incident reports', sub: '14 of 14 complete within 7 days of the case.', action: 'Open' },
@@ -312,7 +312,7 @@ window.SUITE_DATA = (function () {
       ]
     },
     plant4: {
-      score: 68, gaps: 3,
+      score: 83, gaps: 3,
       items: [
         { src: 'ehs', state: 'warn', title: 'OSHA 300 Log', sub: '9 recordable cases in 2026 at Plant 4. 2 entries are missing days-away counts.', action: 'Fix 2 entries' },
         { src: 'ehs', state: 'warn', title: '301 incident reports', sub: '8 of 9 complete. INC-4482 investigation is still open.', action: 'Open INC-4482' },

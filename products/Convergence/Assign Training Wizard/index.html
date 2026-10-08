@@ -1429,14 +1429,6 @@
                                     </label>
                                 </div>
                             </section>
-
-                            <section class="sec">
-                                <h3>Ignore previous individual assignments when this assignment recurs
-                                    <span class="info" tabindex="0" data-tip="By default, a training assigned directly to a user takes priority over assignments made through a Team, Group, Department, Site, or Region. Each recurrence re-checks for individual assignments."><i class="fa-regular fa-circle-question"></i></span>
-                                </h3>
-                                <p class="desc">Each time this assignment recurs, apply it to users even if they already have one of the selected trainings directly assigned. Their previous individual assignment will be ended.</p>
-                                <label class="toggle"><input type="checkbox" id="recurIgnorePrev"><span class="track"></span><span id="recurIgnorePrevLabel">Off</span></label>
-                            </section>
                             </div><!-- /recurBlock -->
 
                             <!-- ── Both ── -->
@@ -1531,7 +1523,7 @@
                                     <span class="info" tabindex="0" data-tip="By default, a training assigned directly to a user takes priority over assignments made through a Team, Group, Department, Site, or Region."><i class="fa-regular fa-circle-question"></i></span>
                                 </h3>
                                 <p class="desc">Apply this assignment to users even if they already have one of the selected trainings directly assigned. Their previous individual assignment will be ended.</p>
-                                <label class="chk-row"><input class="chk" type="checkbox" id="ignorePrev"> Ignore previous individual (user-based) assignments</label>
+                                <label class="toggle"><input type="checkbox" id="ignorePrev"><span class="track"></span><span>Ignore previous individual (user-based) assignments: <strong id="ignorePrevLabel">Off</strong></span></label>
                             </section>
                         </div>
                     </div>
@@ -2069,7 +2061,7 @@
         //  selected org-unit assignee. `?conflicts=none` demos the clean path.
         // ═══════════════════════════════════════════════════════════════════
         $('futureIgnorePrev').addEventListener('change', () => { $('futureIgnorePrevLabel').textContent = $('futureIgnorePrev').checked ? 'On' : 'Off'; });
-        $('recurIgnorePrev').addEventListener('change', () => { $('recurIgnorePrevLabel').textContent = $('recurIgnorePrev').checked ? 'On' : 'Off'; });
+        $('ignorePrev').addEventListener('change', () => { $('ignorePrevLabel').textContent = $('ignorePrev').checked ? 'On' : 'Off'; });
         // Demo switch (prototype only): `?conflicts=none` starts it Off; flipping it re-runs the Review check.
         $('demoConflicts').checked = new URLSearchParams(location.search).get('conflicts') !== 'none';
         $('demoConflicts').addEventListener('change', () => { if (current === 5) renderReview(); });
@@ -2099,10 +2091,10 @@
                 EXISTING.push({ id: 'ex' + (++i), user: name, username, key, training: t.name, type: type === 'Qualifications' ? 'Qualification' : 'Activity', via: unit,
                     start: fmt(start), due: (i % 4 === 0) ? 'No due date' : fmt(addUnits(start, 6 + (i % 3) * 3, 'Months')), status: STATUSES[(ui + ki * 2 + i) % 3], by: ADMINS[i % 4] });
             }));
-            add('Warriors', ['Qualifications:q3', 'Qualifications:q8', 'Qualifications:q1', 'Activities:a1']);
-            add('Line 3', ['Qualifications:q5', 'Qualifications:q3']);
-            add('Event Staff', ['Qualifications:q11', 'Qualifications:q8']);
-            add('Warriors Medical Staff', ['Qualifications:q9', 'Qualifications:q3']);
+            add('Warriors', ['Qualifications:q3', 'Qualifications:q8', 'Qualifications:q1', 'Qualifications:q15', 'Qualifications:q13', 'Activities:a1', 'Activities:a8', 'Activities:a13']);
+            add('Line 3', ['Qualifications:q5', 'Qualifications:q3', 'Qualifications:q4', 'Qualifications:q8', 'Activities:a10', 'Activities:a12']);
+            add('Event Staff', ['Qualifications:q11', 'Qualifications:q8', 'Qualifications:q10', 'Qualifications:q3', 'Activities:a7', 'Activities:a14']);
+            add('Warriors Medical Staff', ['Qualifications:q9', 'Qualifications:q3', 'Qualifications:q16', 'Qualifications:q8', 'Activities:a3', 'Activities:a4']);
         })();
         function reachedUsers() {
             const set = new Map();
@@ -2207,17 +2199,25 @@
             foot.querySelector('[data-act="back"]').addEventListener('click', openDupModal);
             foot.querySelector('[data-act="confirm"]').addEventListener('click', () => completeWithConflicts(endRows));
         }
-        // Path B — checkbox checked: confirm, with a read-only expander.
+        // Path B — ignore toggle ON: every conflict is preselected to move; the table
+        // is always shown so the admin can uncheck anyone who should keep theirs.
         function openIgnoreConfirm() {
             const body = $('dupBody'), foot = $('dupFooter'), users = usersOf(dupRows);
+            dupRows.forEach(r => dupSel.add(r.id));
             $('dupModalTitle').querySelector('span').textContent = 'Confirm previous individual assignments will be ended';
-            body.innerHTML = '<div style="padding:20px 20px 8px">' +
-                '<p class="confirm-copy">This assignment will apply to <strong>' + plural(users, 'user') + '</strong> who already have one of the selected trainings directly assigned. Their previous individual assignments will be ended.</p>' +
-                '<button class="expander" type="button" aria-expanded="false" id="dupExpand">View affected users <i class="fa-solid fa-chevron-down"></i></button></div><div id="dupTable" hidden></div>';
-            $('dupExpand').addEventListener('click', () => { const open = $('dupTable').hidden; $('dupTable').hidden = !open; $('dupExpand').setAttribute('aria-expanded', open); if (open) renderConflictTable($('dupTable'), dupRows, { state: { readOnly: true, size: 10 } }); });
-            foot.innerHTML = '<span></span><div style="display:flex;gap:10px"><button class="btn ghost" type="button" data-act="back">Back to Review</button><button class="btn primary" type="button" data-act="confirm">Confirm &amp; Assign</button></div>';
-            foot.querySelector('[data-act="back"]').addEventListener('click', () => closeModal('dupModal'));
-            foot.querySelector('[data-act="confirm"]').addEventListener('click', () => completeWithConflicts(dupRows));
+            body.innerHTML =
+                '<p class="dup-sub">This assignment will apply to <strong>' + plural(users, 'user') + '</strong> who already have one of the selected trainings directly assigned. Their previous individual assignments will be ended. Uncheck anyone who should keep their individual assignment instead.</p>' +
+                '<div id="dupTable"></div>';
+            function renderFooter() {
+                foot.innerHTML = '<button class="link-btn" type="button" data-act="csv"><i class="fa-solid fa-download"></i> Export list (CSV)</button>' +
+                    '<div style="display:flex;gap:10px"><button class="btn ghost" type="button" data-act="back">Back to Review</button>' +
+                    '<button class="btn primary" type="button" data-act="confirm">Confirm &amp; Assign (' + dupSel.size + ')</button></div>';
+                foot.querySelector('[data-act="csv"]').addEventListener('click', () => exportCsv(dupRows));
+                foot.querySelector('[data-act="back"]').addEventListener('click', () => closeModal('dupModal'));
+                foot.querySelector('[data-act="confirm"]').addEventListener('click', () => completeWithConflicts(dupRows.filter(r => dupSel.has(r.id))));
+            }
+            renderConflictTable($('dupTable'), dupRows, { state: { size: 10 }, onSelect: renderFooter });
+            renderFooter();
             openModal('dupModal');
         }
         // Read-only view of users who kept their previous assignment (Finishing page).
@@ -2323,7 +2323,6 @@
                 row('Recurring due date', recurDueText());
                 row('Available', radio('earlyKind') === 'none' ? 'When it recurs' : $('earlyCount').value + ' ' + $('earlyUnit').value.toLowerCase() + ' before it recurs');
                 row('Next Recurrence Preview', $('recurPreviewText').textContent);
-                row('Ignore Previous Individual Assignments on Recurrence', $('recurIgnorePrev').checked ? 'On' : 'Off');
             }
             const p = radio('priorKind');
             row('Existing completions', p === 'count' ? 'Count toward this assignment' : p === 'new' ? 'Require a new completion' : 'Count if completed within the last ' + $('priorCount').value + ' ' + $('priorUnit').value.toLowerCase());
@@ -2404,7 +2403,7 @@
             $('recurStart').value = toDateVal(new Date());   // recurring start defaults to now
             ['dueKind:none', 'recurDue:never', 'recurBasis:fixed', 'earlyKind:none', 'priorKind:count', 'future:original'].forEach(p => { const [n, v] = p.split(':'); document.querySelector('input[name="' + n + '"][value="' + v + '"]').checked = true; });
             $('futureNewBlock').hidden = true; $('suppressNotif').checked = false;
-            $('ignorePrev').checked = false; $('futureIgnorePrev').checked = false; $('futureIgnorePrevLabel').textContent = 'Off'; $('recurIgnorePrev').checked = false; $('recurIgnorePrevLabel').textContent = 'Off'; dupOutcome = null;
+            $('ignorePrev').checked = false; $('ignorePrevLabel').textContent = 'Off'; $('futureIgnorePrev').checked = false; $('futureIgnorePrevLabel').textContent = 'Off'; dupOutcome = null;
             document.querySelectorAll('.input.error').forEach(e => e.classList.remove('error'));
             document.querySelectorAll('.field-note.show').forEach(e => e.classList.remove('show'));
             selectedIncidents.clear(); renderIncidentChips();
@@ -2417,8 +2416,14 @@
             $('recurStart').value = toDateVal(new Date());
             const m = location.hash.match(/^#step-([1-5])$/);
             const n = m ? Number(m[1]) : 1;
-            if (n > 1) { training.seed('Qualifications', 'q3'); training.seed('Qualifications', 'q8'); }
-            if (n > 2) { assignees.seed('User', 'u1'); assignees.seed('Team', 't1'); }
+            // Demo data: trainings + assignees are preselected on every load (`?fresh=1`
+            // starts empty) so the duplicate-assignment path has something to find.
+            if (!new URLSearchParams(location.search).has('fresh')) {
+                ['q3', 'q8', 'q1', 'q9', 'q15'].forEach(id => training.seed('Qualifications', id));
+                assignees.seed('Team', 't1'); assignees.seed('Group', 'g1'); assignees.seed('Team', 't2');
+                assignees.seed('User', 'u1'); assignees.seed('User', 'u4'); assignees.seed('User', 'u8');
+                visited.add(1); visited.add(2);
+            }
             if (n > 3) { const now = new Date(); $('startDate').value = toDateVal(now); $('startTime').value = toTimeVal(now); }
             for (let i = 1; i < n; i++) visited.add(i);
             goTo(n);

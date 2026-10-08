@@ -122,7 +122,8 @@
     var a = e.target.closest && e.target.closest('.sidenav .nitem');
     if (!a) return;
     e.preventDefault();
-    if (a.dataset.nav === 'home') { var m = $('#main'); if (m) m.scrollTop = 0; return; }
+    if (a.dataset.nav === 'home') { if (window.Builder) Builder.show('home'); var m = $('#main'); if (m) m.scrollTop = 0; return; }
+    if (a.dataset.nav === 'settings') { if (window.Builder) Builder.show('settings'); return; }
     notYet('The ' + a.querySelector('.nlabel').textContent.trim() + ' page');
   });
 
@@ -191,7 +192,9 @@
     });
     if (open && wrap) {
       var b = wrap.querySelector('.loc-btn').getBoundingClientRect(), m2 = wrap.querySelector('.loc-menu');
-      m2.style.top = Math.round(b.bottom + 6) + 'px'; m2.style.left = Math.round(b.left) + 'px';
+      m2.style.top = Math.round(b.bottom + 6) + 'px';
+      /* In the top bar the menu hangs from the button's RIGHT edge so it never runs past the window */
+      m2.style.left = Math.round(wrap.closest('.topbar') ? Math.max(8, b.right - 300) : b.left) + 'px';
       var f = wrap.querySelector('.loc-find input'); if (f) { f.value = ''; filterLoc(wrap, ''); }
     }
   }
@@ -229,7 +232,7 @@
   document.addEventListener('input', function (e) { if (e.target.matches && e.target.matches('.loc-find input')) filterLoc(e.target.closest('.loc'), e.target.value); });
   document.addEventListener('scroll', function (e) { if (e.target && e.target.closest && e.target.closest('.sidenav')) setLoc(false); }, true);
   window.addEventListener('resize', function () {
-    $$('.loc').forEach(function (w) { var m = w.querySelector('.loc-menu'); if (m && !m.hidden) { var b = w.querySelector('.loc-btn').getBoundingClientRect(); m.style.top = Math.round(b.bottom + 6) + 'px'; m.style.left = Math.round(b.left) + 'px'; } });
+    $$('.loc').forEach(function (w) { var m = w.querySelector('.loc-menu'); if (m && !m.hidden) { var b = w.querySelector('.loc-btn').getBoundingClientRect(); m.style.top = Math.round(b.bottom + 6) + 'px'; m.style.left = Math.round(w.closest('.topbar') ? Math.max(8, b.right - 300) : b.left) + 'px'; } });
   });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
@@ -247,7 +250,7 @@
   if (p.get('nav') === 'closed') setNav(false);
   if (p.get('state') === 'peek') { setNav(false); setTimeout(openPeek, 80); }
   if (p.has('launcher')) setLauncher(true);
-  if (p.has('location')) setTimeout(function () { setLoc(true, $('.sidenav:not(.peek-clone) .loc')); }, 400);
+  if (p.has('location')) setTimeout(function () { setLoc(true, $('.topbar .loc')); }, 400);
   if (p.has('search')) { gsInput.value = 'forklift'; gsOpen(true); }
   if (p.has('profile')) setUMenu(true);
   var dd = p.get('density'); if (dd === 'compact' || dd === 'comfortable') setDensity(dd);
