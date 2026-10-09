@@ -915,14 +915,10 @@
   /* Same fixed columns in both tables so the result row lines up under the rows above. */
   .ax-list .axt, .ax-after .axt { table-layout: fixed; }
   .ax-list .axt th:first-child, .ax-after .axt th:first-child { width: 128px; }
-  .ax-list .axt th:last-child, .ax-after .axt th:last-child { width: 124px; }
-  .axt td.axr-cta { text-align: right; white-space: nowrap; }
-  /* "See change" pill on rows that change (2026-10-09) — reads as clickable. */
-  .axr-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #1257B8;
-    background: #fff; border: 1px solid #B9CBE2; border-radius: 14px; padding: 3px 10px; }
-  .axr-btn i { font-size: 10.5px; }
-  .axt tr.axr:hover .axr-btn { background: #EEF4FC; border-color: #1257B8; }
-  .axr-btn.is-on, .axt tr.axr:hover .axr-btn.is-on { background: #1257B8; border-color: #1257B8; color: #fff; }
+  .ax-list .axt th:last-child, .ax-after .axt th:last-child { width: 16px; }
+  /* Clickable row's number reads as a link (2026-10-09). */
+  .axt td.axr-link { color: #1257B8; font-weight: 600; text-decoration: underline dotted; text-underline-offset: 3px; }
+  .axt tr.axr:hover td.axr-link { text-decoration-style: solid; }
   /* Tag beside "View details": this alert has rows whose change you can see. */
   .ax-chg-tag { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 11.5px; font-weight: 600;
     color: #1257B8; background: #EEF4FC; border: 1px solid #C6D9F0; border-radius: 12px; padding: 2px 9px; cursor: pointer; }
@@ -2284,28 +2280,21 @@
      new accounts, skipped / blocked rows, dates saved as-is — have no before and after, so they
      aren't. The selected row's change shows in its own section BELOW the "Rows from your file"
      box, styled like the rows above, columns lined up so the admin compares by eye:
-       "Now on your site" (only when the change is to a value already on the site)
-       "After import"     (the values the row ends up with). */
+       "After import" — just that row's line after the change (the box above is the before). */
   function plainV(c) { return (c && typeof c === 'object') ? c.v : c; }
   function hasChange(af) { for (var k in (af && af.set) || {}) { if (af.set[k].was) return true; } return false; }
   function afterSectionHTML(L, i) {
-    var r = L.rows[i], af = L.afters[i], site = false;
-    for (var k in af.set) { if (af.set[k].was && af.set[k].was !== plainV(r[k])) site = true; }
-    function line(label, pick) {
-      var cells = '<td class="axt-lbl">' + label + '</td>';
-      for (var j = 1; j < r.length; j++) {
-        var o = (r[j] && typeof r[j] === 'object') ? r[j] : { v: r[j] }, ch = af.set[j];
-        cells += '<td' + (o.c === 'row' ? ' class="axt-row"' : '') + '>' + esc(ch ? pick(ch) : o.v) + '</td>';
-      }
-      return '<tr>' + cells + '<td></td></tr>';
+    // "After import" box (2026-10-09): just the selected row's line after the change — same
+    // columns as "Rows from your file" (the before), no extra rows.
+    var r = L.rows[i], af = L.afters[i], cells = cellHTML(r[0], 0);
+    for (var j = 1; j < r.length; j++) {
+      var o = (r[j] && typeof r[j] === 'object') ? r[j] : { v: r[j] }, ch = af.set[j];
+      cells += '<td' + (o.c === 'row' ? ' class="axt-row"' : '') + '>' + esc(ch ? ch.v : o.v) + '</td>';
     }
     return '<div class="ax-after">'
-      + '<div class="ax-note"><b>Changes to</b> — ' + esc(plainV(r[0])) + '</div>'
-      + '<div class="axt-wrap"><table class="axt"><thead><tr><th></th>' + L.head.slice(1).map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('')
-      + '<th></th></tr></thead><tbody>'
-      + (site ? line('Now on your site', function (ch) { return ch.was; }) : '')
-      + line('After import', function (ch) { return ch.v; })
-      + '</tbody></table></div></div>';
+      + '<div class="ax-note"><b>After import</b></div>'
+      + '<div class="axt-wrap"><table class="axt"><thead><tr>' + L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('')
+      + '<th></th></tr></thead><tbody><tr>' + cells + '<td></td></tr></tbody></table></div></div>';
   }
 
   function alertHTML(a, logRun) {
@@ -2325,20 +2314,25 @@
       : a.sub;
     if (line) body += '<div class="alert-sub">' + esc(line) + '</div>';
     if (a.list) {
-      var L = a.list, sel = -1, anyClick = false;
+      var L = a.list, sel = -1, clickRows = [];
       var th = L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th>';
       var tb = L.rows.map(function (r, i) {
         var clickable = !logRun && !!L.afters && hasChange(L.afters[i]);
         var rid = a.id + '|' + i, isSel = clickable && state.axOpen === rid;
-        if (clickable) anyClick = true;
+        if (clickable) clickRows.push(plainV(r[0]));
         if (isSel) sel = i;
+        // Cue (2026-10-09): a clickable row's number is blue + underlined like a link — no button.
         return '<tr' + (clickable ? ' class="axr' + (isSel ? ' is-open' : '') + '" data-act="axRow" data-arg="' + rid + '" role="button" tabindex="0" aria-pressed="' + isSel + '"' : '') + '>'
-          + r.map(cellHTML).join('')
-          + '<td class="axr-cta">' + (clickable ? '<span class="axr-btn' + (isSel ? ' is-on' : '') + '"><i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>' + (isSel ? 'Hide change' : 'See change') + '</span>' : '') + '</td></tr>';
+          + r.map(function (c, j) { return j === 0 && clickable ? '<td class="axt-row axr-link">' + esc(plainV(c)) + '</td>' : cellHTML(c, j); }).join('')
+          + '<td></td></tr>';
       }).join('');
+      // The hint names the rows to click: "Click Row 23 or Row 118 to see the change."
+      var hint = !clickRows.length ? ''
+        : clickRows.length > 3 ? 'Click a blue row number to see the change.'
+        : 'Click ' + (clickRows.length === 1 ? clickRows[0] : clickRows.slice(0, -1).join(', ') + ' or ' + clickRows[clickRows.length - 1]) + ' to see the change.';
       body += '<div class="ax-list">'
         + '<div class="ax-note"><b>' + (L.rows.length === 1 ? 'The row' : 'Rows') + ' from your file.</b> '
-        + (L.note ? esc(L.note) + ' ' : '') + (anyClick ? 'Click “See change” on a row to see how it changes.' : '') + '</div>'
+        + (L.note ? esc(L.note) + ' ' : '') + esc(hint) + '</div>'
         + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
         + '</div>'
         + (sel >= 0 ? afterSectionHTML(L, sel) : '');

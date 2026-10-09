@@ -19,14 +19,12 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 - **[DONE]** **Review tables show only what was uploaded:** each row as it is in the file (Row,
   Username, names, and the value in question). Columns that showed site data ("On your site",
   "If you continue", "Why it was removed") are gone. **Only rows where a value actually
-  changes are clickable** (they show "See change"): name changes, location / position renames,
+  changes are clickable**: name changes, location / position renames,
   and the "last row wins" conflicts inside a file. Informational rows — new accounts, skipped
   or blocked rows, dates saved as-is, password changes, reactivations — have no before and
   after, so they aren't clickable. Clicking one selects it, and below the "Rows from your file"
-  box a separate **Changes to** section shows **Now on your site** (when the change is to a
-  value already on the site, e.g. Jessyca) over **After import** (e.g. Jesse), with columns
-  lined up and plain styling so the admin compares by eye. A within-file conflict shows only
-  After import (the before is the file row above). Clicking another row switches it.
+  box (the before) an **After import** box shows just that row's line after the change — same
+  columns, plain styling, no extra rows. Clicking another row switches it.
 - **[DONE]** **View details** opens with one plain line: what the warning is about, then how it
   changes things. It replaces the catalog's short second line (e.g. "Expand to see which.") and
   isn't a separate box. Blocked keeps **What to do**. `all_rows` stays count-only, so it has no
@@ -46,9 +44,10 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   gets the email when an automated upload fails, with **Edit list** to remove people, add an
   email (checks the format and duplicates) and **Save list** / **Cancel**. It's also reachable
   from a failed run's page ("Edit the list") and, in Flow 2, from the email footer.
-- **[DONE]** **Rows that change are marked:** each shows a "⇄ See change" pill (solid blue
-  "Hide change" once selected), and a closed alert with such rows shows a "⇄ N changes to
-  compare" tag beside View details (clicking it opens the details).
+- **[DONE]** **Rows that change are marked:** their row number is blue and underlined like a
+  link (no button), and the line above the table names them — "Click Row 23 or Row 118 to see the
+  change." (more than three: "Click a blue row number…"). A closed alert with such rows shows a
+  "⇄ N changes to compare" tag beside View details (clicking it opens the details).
 - **[DONE]** **No "What to do" box** in the alert details — the line above the rows covers it.
   The CSV still includes each Blocked issue's What to do.
 - **[DONE]** **Error copy rewritten and unified** using the Help Center article
@@ -65,7 +64,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   YYYY-MM-DD; building / position codes are optional ("Don't import" when mapping).
 - **[DONE]** Behavior aligned with the article: same External Unique ID + a different name →
   the name on the site changes; same name + a different External Unique ID → the ID on the site
-  changes. Both are now "See change" rows (Now on your site → After import).
+  changes. Both are now clickable rows.
 - **[DONE]** On the upload log, a Blocked alert's line ends with its "To fix it, …" sentence.
 - **[DONE]** **Singular copy:** when a count is 1, messages read "1 row has…", "1 person",
   "1 building code that isn't…" instead of the catalog's plural wording. Worth adding the
