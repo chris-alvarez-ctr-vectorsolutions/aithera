@@ -893,10 +893,7 @@
   .rev-h { font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #8CA0B4; margin: 6px 0 -4px; }
   @media (max-width: 760px) { .choices { grid-template-columns: 1fr; } }
 
-  /* ---- View details: what's happening / what will happen (2026-10-09) ---- */
-  .ax-explain { display: flex; flex-direction: column; gap: 8px; font-size: 13px; color: #3D4F63; line-height: 1.55;
-    background: #F8FAFC; border: 1px solid #E1E7EE; border-radius: 8px; padding: 11px 14px; }
-  .ax-explain .ax-lbl { display: block; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #5B6B7E; margin-bottom: 1px; }
+  /* ---- View details (2026-10-09) ---- */
   .ax-note b { color: #1B2B3E; }
   /* Rows as uploaded — click one to see it after the import (one at a time). */
   .axt tr.axr { cursor: pointer; }
@@ -906,21 +903,11 @@
   .axt .axr-chev { width: 28px; text-align: right; color: #8CA0B4; font-size: 10.5px; }
   .axt tr.axr.is-open .axr-chev i { transform: rotate(180deg); color: #1257B8; }
   .axt tr.axr:hover .axr-chev { color: #1257B8; }
-  .axt tr.axa-row td { background: #F4FBF7; border-bottom: 0; padding-top: 7px; padding-bottom: 4px; }
-  .axt tr.axa-note td { background: #F4FBF7; font-size: 12.5px; color: #1B2B3E; line-height: 1.5; padding: 2px 12px 11px 12px; }
-  .axt tr.axa-row.is-warn td, .axt tr.axa-note.is-warn td { background: #FFFBF0; }
-  .axt tr.axa-row.is-block td, .axt tr.axa-note.is-block td, .axt tr.axa-row.is-skip td, .axt tr.axa-note.is-skip td { background: #FEF6F5; }
-  .axt tr.axa-row.is-same td, .axt tr.axa-note.is-same td { background: #F5F7FA; }
-  .axa-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
-    white-space: nowrap; border-radius: 5px; padding: 2px 7px; color: #067647; background: #DCF5E7; }
-  .axa-chip i { font-size: 10px; }
-  .axa-chip.is-warn { color: #8A5A0B; background: #FCEFC7; }
-  .axa-chip.is-block, .axa-chip.is-skip { color: #B42318; background: #FBE1DE; }
-  .axa-chip.is-same { color: #5B6B7E; background: #E9EEF4; }
-  .axt td.axa-chg { font-weight: 700; color: #067647; }
-  .axt td.axa-bad { font-weight: 700; color: #B42318; }
-  .axt td.axa-mute { color: #8CA0B4; }
-  .axa-was { display: block; font-size: 11px; font-weight: 500; color: #8CA0B4; text-decoration: line-through; }
+  /* The after row: a normal-looking row, set apart by a gap and a light outline. */
+  .axt tr.axa-gap td { height: 8px; padding: 0; border: 0; background: #fff; }
+  .axt tr.axa-row td { background: #fff; border-top: 1px solid #B9CBE2; border-bottom: 1px solid #B9CBE2; }
+  .axt tr.axa-row td:first-child { border-left: 1px solid #B9CBE2; }
+  .axt tr.axa-row td:last-child { border-right: 1px solid #B9CBE2; }
 
   /* ---- Failed automated upload (log page) ---- */
   .ld-fail { display: flex; gap: 12px; align-items: flex-start; background: #FEF3F2; border: 1px solid #F1C0BB; border-radius: 10px; padding: 13px 16px; }
@@ -2253,26 +2240,25 @@
      and the warning's "How to fix it" (what to change in the file) instead. */
   // A WARNING that's been acknowledged turns blue "Reviewed" — done, but not a green "success".
   var REVIEWED = { chip: 'Reviewed', icon: 'fa-circle-check', chipBg: '#1257B8', border: '#C6D9F0', headBg: '#F5F9FE', titleColor: '#1B2B3E' };
-  var AFTER_LABEL = { ok: 'After import', warn: 'After import', same: 'No change', skip: 'Skipped', block: 'Blocked' };
-  var AFTER_ICON = { ok: 'fa-circle-check', warn: 'fa-arrow-turn-down-right', same: 'fa-equals', skip: 'fa-forward', block: 'fa-ban' };
-
   function cellHTML(c, j) {
     var o = (c && typeof c === 'object') ? c : { v: c };
     var cls = o.c ? 'axt-' + o.c : (j === 0 ? 'axt-k' : '');
     return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(o.v) + '</td>';
   }
-  // The "after the import" line: the same columns, changed cells in green with what they were.
+  /* The "after the import" row (2026-10-09, simplified): a plain row with the same columns,
+     styled like the rows above it — just the values the row ends up with, so the admin
+     compares the two by eye. No highlight, strikethrough or sentence. It sits apart from the
+     list (a gap above and below + an outline). A skipped or blocked row has no values. */
   function afterRowsHTML(r, af, width) {
-    var cells = '<td class="axa-lbl"><span class="axa-chip is-' + af.kind + '"><i class="fa-solid ' + AFTER_ICON[af.kind] + '" aria-hidden="true"></i>' + AFTER_LABEL[af.kind] + '</span></td>';
+    var out = af.kind === 'skip' || af.kind === 'block';
+    var cells = '<td class="axt-row">' + (af.kind === 'skip' ? 'Not loaded' : af.kind === 'block' ? 'Not imported' : 'After import') + '</td>';
     for (var j = 1; j < r.length; j++) {
       var o = (r[j] && typeof r[j] === 'object') ? r[j] : { v: r[j] }, ch = af.set && af.set[j];
-      if (af.kind === 'skip') cells += '<td class="axa-mute">—</td>';
-      else if (ch) cells += '<td class="' + (ch.bad ? 'axa-bad' : ch.was ? 'axa-chg' : 'axa-mute') + '">' + esc(ch.v)
-        + (ch.was ? '<span class="axa-was">was ' + esc(ch.was) + '</span>' : '') + '</td>';
-      else cells += '<td' + (o.c === 'row' ? ' class="axt-row"' : '') + '>' + esc(o.v) + '</td>';
+      var v = out ? '—' : (ch ? ch.v : o.v);
+      cells += '<td' + (o.c === 'row' ? ' class="axt-row"' : '') + '>' + esc(v) + '</td>';
     }
-    return '<tr class="axa-row is-' + af.kind + '">' + cells + '<td></td></tr>'
-      + '<tr class="axa-note is-' + af.kind + '"><td colspan="' + width + '">' + esc(af.note) + '</td></tr>';
+    var gap = '<tr class="axa-gap" aria-hidden="true"><td colspan="' + width + '"></td></tr>';
+    return gap + '<tr class="axa-row">' + cells + '<td></td></tr>' + gap;
   }
 
   function alertHTML(a, logRun) {
@@ -2282,17 +2268,15 @@
     var copyReview = !logRun && state.fileId === 'blast';
     var hard = a.tier === 'blocked' || a.tier === 'escalate';
 
+    /* The line under the title (2026-10-09): what the warning is about, then how it changes
+       things — plain sentences in place of the catalog's short second line ("Expand to see
+       which."), not a separate box. On the upload log, the second part is how to fix the file. */
     var body = '';
-    if (a.sub) body += '<div class="alert-sub">' + esc(a.sub) + '</div>';
-    if (a.why || a.will) {
-      body += '<div class="ax-explain">'
-        + (a.why ? '<div><span class="ax-lbl">What’s happening</span>' + esc(a.why) + '</div>' : '')
-        + (logRun && !hard
-          ? '<div><span class="ax-lbl">How to fix it</span>' + esc(a.clean || 'Fix these rows in your file.')
-            + ' Or upload the file yourself, where you can review and confirm this change.</div>'
-          : (a.will ? '<div><span class="ax-lbl">What will happen</span>' + esc(a.will) + '</div>' : ''))
-        + '</div>';
-    }
+    var line = (a.why || a.will)
+      ? [a.why, logRun && !hard ? (a.clean || 'Fix these rows in your file.') + ' Or upload the file yourself, where you can review and confirm this change.' : a.will]
+          .filter(Boolean).join(' ')
+      : a.sub;
+    if (line) body += '<div class="alert-sub">' + esc(line) + '</div>';
     if (a.list) {
       var L = a.list, width = L.head.length + 1, clickable = !logRun && !!L.afters;
       var th = L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th>';
@@ -3101,9 +3085,9 @@
         { id: 'review-info', flow: 'import', x: 700, y: 60, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
         { id: 'review-confirm', flow: 'import', x: 1030, y: 60, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
-          desc: 'duplicate_user_in_system (name change, Jessyca → Jesse) + removed_rows + info. View details = the catalog line, “What’s happening”, “What will happen”, then the rows exactly as uploaded. Click a row → one “After import” line under it (changed cells green, with what they were) + a sentence on what happens; clicking another row moves it there. Every WARNING is checked “I’ve reviewed this” before Run import unlocks. Run confirmation: Run stays blue; “Also download your current employee data” has a download icon on the left and the checkbox on the right.' },
+          desc: 'duplicate_user_in_system (name change, Jessyca → Jesse) + removed_rows + info. View details = one plain line on what the warning is about and how it changes things, then the rows exactly as uploaded. Click a row → a plain “After import” row pops out under it (same columns, just the values it ends up with — compare by eye); clicking another row moves it there. Every WARNING is checked “I’ve reviewed this” before Run import unlocks. Run confirmation: Run stays blue; “Also download your current employee data” has a download icon on the left and the checkbox on the right.' },
         { id: 'log-auto', flow: 'import', x: 1030, y: 250, step: 'Log → Failed run', name: 'Automated upload failed — how to fix it', state: 'log-auto',
-          desc: 'A failed automated upload can’t be reviewed or approved (2026-10-09) — they have to run it again. Its page says it didn’t run and nothing changed, then lists why: each Blocked / Warning alert opens to “What’s happening”, “How to fix it” (what to change in the file) and the rows from the file. Side panel: Upload a corrected file, Original file, and the failure email list with “Edit the list”.' },
+          desc: 'A failed automated upload can’t be reviewed or approved (2026-10-09) — they have to run it again. Its page says it didn’t run and nothing changed, then lists why: each Blocked / Warning alert opens to one line on what it’s about and how to fix the file, then the rows from the file. Side panel: Upload a corrected file, Original file, and the failure email list with “Edit the list”.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',
           desc: 'Every upload on the site: when, file, rows, who ran it, result (Completed / Blocked — automated only / Cancelled) and what changed; runs that didn’t go show just the arrow. Role + Method columns dropped (2026-10-09) — filter All / Manual / Automated instead; each row opens its own page. Right column: “Made a mistake?” → Contact Vector Care, and “Failed automated upload emails” — who gets the email when an automated upload fails, with Edit list (remove people, add an email, Save / Cancel).' },
         { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Back on Employees + toast', state: 'done',

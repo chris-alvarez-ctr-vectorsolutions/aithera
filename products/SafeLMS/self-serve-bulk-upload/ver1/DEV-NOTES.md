@@ -17,12 +17,16 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   **Bulk upload**. Clicking outside or pressing Esc closes the menu.
 - **[DONE]** **Review tables show only what was uploaded:** each row as it is in the file (Row,
   Username, names, and the value in question). Columns that showed site data ("On your site",
-  "If you continue", "Why it was removed") are gone. **Click a row** to open one "After import"
-  line under it: the same columns, changed values in green with what they were, and one
-  sentence on what happens. Clicking another row moves the line there; clicking the open row
-  closes it. Blocked rows show "Blocked · Not imported"; skipped rows show "Skipped".
-- **[DONE]** **View details** now starts with **What's happening** and **What will happen**
-  (Blocked also keeps **What to do**). `all_rows` stays count-only, so it has no details.
+  "If you continue", "Why it was removed") are gone. **Click a row** and a separate "After
+  import" row pops out under it — set apart by a gap and a light outline, but styled like the
+  rows above: the same columns with just the values the row ends up with, so the admin compares
+  the two by eye (no highlight, strikethrough or sentence). Clicking another row moves it
+  there; clicking the open row closes it. Skipped rows read "Not loaded" and blocked rows
+  "Not imported", with no values.
+- **[DONE]** **View details** opens with one plain line: what the warning is about, then how it
+  changes things. It replaces the catalog's short second line (e.g. "Expand to see which.") and
+  isn't a separate box. Blocked keeps **What to do**. `all_rows` stays count-only, so it has no
+  details.
 - **[DONE]** **Removed the two alerts that aren't in the Confluence catalog:** "N people …
   will be deactivated" and "N positions … will be ended". With the Import settings switch on,
   those counts still show in the Change summary and on the Run confirmation.
@@ -31,22 +35,23 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   left and the checkbox on the right.
 - **[DONE]** **Failed automated uploads can't be reviewed or approved.** "Review & approve"
   and "Approve & run import" are gone. The run's page in the upload log says it didn't run and
-  nothing changed, then lists why: each Blocked / Warning alert opens to "What's happening",
-  **How to fix it** (what to change in the file) and the rows from the file. Side panel:
+  nothing changed, then lists why: each Blocked / Warning alert opens to one line on what it's
+  about and how to fix the file, then the rows from the file. Side panel:
   Upload a corrected file, Original file, and who got the failure email.
 - **[DONE]** **Failure email list** on the upload log ("Failed automated upload emails"): who
   gets the email when an automated upload fails, with **Edit list** to remove people, add an
   email (checks the format and duplicates) and **Save list** / **Cancel**. It's also reachable
   from a failed run's page ("Edit the list") and, in Flow 2, from the email footer.
-- **[DONE]** The CSV preview adds a **What happens** column (each row's after-line).
+- **[DONE]** The CSV preview adds a **What happens** column (one sentence per row on what the
+  import does to it — kept in the CSV, not shown on the page).
 - **[DONE]** **Upload log layout:** the table is on the left; "Made a mistake in an upload?"
   (Contact Vector Care) and the failure email list share one white card in a 280px right-hand
   column, split by a divider. The table
   dropped its **Role** and **Method** columns so it fits beside that column without scrolling
   (the All / Manual / Automated filter still separates methods; a run's own page still shows
   both). Below 1080px wide, the right column moves above the table.
-- **PENDING — confirm with dev / PM:** the "What's happening / What will happen / How to fix
-  it" copy and every after-line are **UX drafts that aren't in the catalog yet**. They describe
+- **PENDING — confirm with dev / PM:** the View details line, the "how to fix" copy, every
+  after row and the CSV's What happens sentences are **UX drafts that aren't in the catalog yet**. They describe
   assumed behavior to confirm, notably: the last row wins when one code or username has two
   names; locations, positions and groups that aren't on the site are created; unrecognized
   custom-field values are skipped, not saved; site location and position names are renamed to
