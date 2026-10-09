@@ -14,7 +14,8 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   in the header (the file name was removed). The content card is wider (1240px).
 - **[DONE]** **Employees entry point:** one SafeLMS split button. The main action **Add
   Employee** opens the Add employee pop-up; the ▾ opens a menu with **Add single employee** and
-  **Bulk upload**. Clicking outside or pressing Esc closes the menu.
+  **Bulk upload**. The two halves are joined into one button (square inner corners, a thin
+  light divider). Clicking outside or pressing Esc closes the menu.
 - **[DONE]** **Review tables show only what was uploaded:** each row as it is in the file (Row,
   Username, names, and the value in question). Columns that showed site data ("On your site",
   "If you continue", "Why it was removed") are gone. **Only rows where a value actually
