@@ -10,8 +10,8 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 
 - **[DONE]** **Bulk Upload page:** no longer a full-screen takeover. The side nav stays, and a
   tall navy→blue header (same as the course editor's "New Custom Course" header) reads **Bulk
-  Upload** with a ← back arrow (back to Employees; an unfinished import is kept). The file
-  being imported shows on the right of the header. The content card is wider (1240px).
+  Upload** with a ← back arrow (back to Employees; an unfinished import is kept). Nothing else
+  in the header (the file name was removed). The content card is wider (1240px).
 - **[DONE]** **Employees entry point:** one SafeLMS split button. The main action **Add
   Employee** opens the Add employee pop-up; the ▾ opens a menu with **Add single employee** and
   **Bulk upload**. Clicking outside or pressing Esc closes the menu.
