@@ -32,6 +32,16 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   will be added." (same for positions and locations; {count} = the rows that don’t match, e.g.
   160 / 7 / 4 in the copy-review file). Reuses "new to your site" and "the right file" from
   sibling messages. Replaces the "That’s expected for new hires…" line.
+- **[DONE]** **No counts in alert copy.** Titles and details no longer carry a number, so the
+  copy reads the same whatever the file holds and nothing has to be counted to render it:
+  "Some rows will be skipped." / "Some people’s passwords will change." / "New people will be
+  added." / "Some rows have a begin date we can’t read." / "If you import, they’re all added as
+  new people." The catalog's `{count}` tokens are unused now. The line under a long table reads
+  "Showing the first 20 rows. To see all of them, download the CSV." (no total). Counts still
+  appear where they're about the review itself, not the file: the Change summary, "5 blocked
+  issues", "2 warnings need your review", "2 changes to compare".
+  `all_rows` (a count-only message in the catalog) reads "The rows in this file will be
+  imported." — PENDING: it may be better dropped from Review altogether.
 - **[DONE]** **No em dashes in alert copy** (titles, View details, the CSV's "What happens" notes,
   the "I’ve reviewed this" label, the failed-upload banner). Clauses were split into sentences
   or joined with a comma instead. Empty table cells still show "—" (that's data, not copy).
