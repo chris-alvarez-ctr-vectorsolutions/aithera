@@ -29,11 +29,12 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   clickable rows. The box under it is still titled "After import".
 - **[DONE]** **"None of the…" (total_person/pos/bldg_change):** title "None of the users in this
   file are on your site yet."; details "That’s expected for a file of new hires. Otherwise the
-  user details may not match the ones on your site. They’ll all be added as new users. Make
-  sure this is the right file." Positions / locations: "…a file of new positions. Otherwise the
-  position names or codes may not match the ones on your site…". "User details" on purpose
-  (2026-10-09): a user is matched on more than the username (names, IDs), so the copy doesn't
-  say "usernames". No "If you import," lead-in on these three.
+  user details may not match the ones on your site. All {count} will be added as new users.
+  Make sure this is the right file." Positions / locations: "…a file of new positions. Otherwise
+  the position names or codes may not match the ones on your site. All {count} will be added as
+  new positions…". These three are the one place a count stays in alert copy (designer's call,
+  2026-10-09); {count} = rows in the file. A count of 1 reads "It will be added as a new user."
+  "User details" on purpose: a user is matched on more than the username (names, IDs).
 - **[DONE]** **"Very few…" details (large_person/pos/bldg_change):** "Most people in this file
   are new to your site. Check that this is the right file. If you import, {count} new people
   will be added." (same for positions and locations; {count} = the rows that don’t match, e.g.
@@ -43,7 +44,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   copy reads the same whatever the file holds and nothing has to be counted to render it:
   "Some rows will be skipped." / "Some people’s passwords will change." / "New people will be
   added." / "Some rows have a begin date we can’t read." / "If you import, they’re all added as
-  new people." The catalog's `{count}` tokens are unused now. The line under a long table reads
+  new people." The catalog's `{count}` tokens are unused now, except in the three "None of the…" messages (below). The line under a long table reads
   "Showing the first 20 rows. To see all of them, download the CSV." (no total). Counts still
   appear where they're about the review itself, not the file: the Change summary, "5 blocked
   issues", "2 warnings need your review", "2 changes to compare".
