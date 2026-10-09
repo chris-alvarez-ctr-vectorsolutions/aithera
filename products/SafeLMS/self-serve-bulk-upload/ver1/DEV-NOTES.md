@@ -40,7 +40,8 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   from a failed run's page ("Edit the list") and, in Flow 2, from the email footer.
 - **[DONE]** The CSV preview adds a **What happens** column (each row's after-line).
 - **[DONE]** **Upload log layout:** the table is on the left; "Made a mistake in an upload?"
-  (Contact Vector Care) and the failure email list sit in a 280px right-hand column. The table
+  (Contact Vector Care) and the failure email list share one white card in a 280px right-hand
+  column, split by a divider. The table
   dropped its **Role** and **Method** columns so it fits beside that column without scrolling
   (the All / Manual / Automated filter still separates methods; a run's own page still shows
   both). Below 1080px wide, the right column moves above the table.
