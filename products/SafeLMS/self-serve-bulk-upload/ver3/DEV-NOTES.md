@@ -6,6 +6,31 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-09) Condensed alert copy; "From your file" captions
+
+- **[DONE]** **Every title and View details line condensed** (all 44 catalog messages). The
+  pattern is the same on every card: **Title** = the finding, one sentence ("3 rows will be
+  skipped." / "Some people’s names will change on your site."). **View details** = why it
+  matters (only when it adds to the title), then **"If you import, …"** on warnings or
+  **"To fix it, …, then upload again."** on blocked messages. Info messages get one sentence.
+  Generic tails like "Check these rows." / "Fix this before continuing." were dropped — the
+  tier chip, the "I’ve reviewed this" box and the blocked header already say that.
+- **[DONE]** **Shared phrases:** "your site" / "your file"; "If you import,"; "To fix it,";
+  "Training is assigned by position, so add new positions to your training plans." (one
+  sentence, used wherever positions or locations are new); name changes are "often a
+  last-name change or a preferred name".
+- **[DONE]** **Blocked cards show the fix in Review.** The details line on a Blocked card is
+  now why + "To fix it, …" (it used to repeat "Nothing in this file can be imported…", which
+  the page header and side panel already say).
+- **[DONE]** **Table caption is just "From your file"** on every alert. The old per-alert notes
+  ("First 10 of 168 rows", "8 of 168 people matched · 160 new…") are gone — they were written
+  for 10-row samples and read wrong next to a 20-row table. The click hint ("Click Row 23 or
+  Row 118 to see the change.") sits at the right of the same line, only on alerts with
+  clickable rows. The box under it is still titled "After import".
+- **PENDING** The condensed titles and details are UX drafts — the Confluence catalog (PMC
+  29424549907) still has the earlier Admin-facing messages. Update it once PM signs off.
+  `all_rows` reads "{count} rows will be imported." here (Confluence: "loaded").
+
 ## (2026-10-09) Tables stop at 20 rows; log page tidy-up
 
 - **[DONE]** **Up to 20 rows per table:** each alert's "Rows from your file" table shows at most
