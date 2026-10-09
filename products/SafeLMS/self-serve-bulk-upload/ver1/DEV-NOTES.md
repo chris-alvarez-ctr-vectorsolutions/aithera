@@ -17,14 +17,15 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   **Bulk upload**. Clicking outside or pressing Esc closes the menu.
 - **[DONE]** **Review tables show only what was uploaded:** each row as it is in the file (Row,
   Username, names, and the value in question). Columns that showed site data ("On your site",
-  "If you continue", "Why it was removed") are gone. **Click a row** to select it; below the
-  "Rows from your file" box, a separate section shows that row as it ends up — the same
-  columns with just the values, styled like the rows above, so the admin compares by eye (no
-  highlight, strikethrough or sentence). It's titled **Changes to** when an existing record is
-  updated, **Imports as** for everything else, **Stays as** for unchanged rows, and **Won't be
-  loaded** / **Won't be imported** (no values) for skipped / blocked rows. Clicking another row
-  switches it; clicking the selected row clears it. Both tables share fixed column widths so
-  the result lines up under the rows.
+  "If you continue", "Why it was removed") are gone. **Only rows where a value actually
+  changes are clickable** (they show "See change"): name changes, location / position renames,
+  and the "last row wins" conflicts inside a file. Informational rows — new accounts, skipped
+  or blocked rows, dates saved as-is, password changes, reactivations — have no before and
+  after, so they aren't clickable. Clicking one selects it, and below the "Rows from your file"
+  box a separate **Changes to** section shows **Now on your site** (when the change is to a
+  value already on the site, e.g. Jessyca) over **After import** (e.g. Jesse), with columns
+  lined up and plain styling so the admin compares by eye. A within-file conflict shows only
+  After import (the before is the file row above). Clicking another row switches it.
 - **[DONE]** **View details** opens with one plain line: what the warning is about, then how it
   changes things. It replaces the catalog's short second line (e.g. "Expand to see which.") and
   isn't a separate box. Blocked keeps **What to do**. `all_rows` stays count-only, so it has no
