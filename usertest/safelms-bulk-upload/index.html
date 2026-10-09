@@ -1277,7 +1277,7 @@
      under it (see `after` below), so the change is shown a row at a time. */
   function uRows(n, seed) {
     return people(n, seed).map(function (p, i) {
-      return [R(seed % 40 + 2 + i * 7), { v: p.user, c: 'row' }, p.first, p.last];
+      return [R(n > 20 ? 2 + i : seed % 40 + 2 + i * 7), { v: p.user, c: 'row' }, p.first, p.last];   // long lists: every row in order (the CSV has them all)
     });
   }
   function R(n) { if (state.fileId === 'clean') n = ((n - 2) % 44) + 2; return { v: 'Row ' + n, c: 'row' }; }   // test: rows fit a 45-row file
@@ -1651,14 +1651,15 @@
      for the rest — {count} keeps the real total. */
   var MAX_ROWS = 20;
   function catalogAlert(key, n) {
-    var c = CATALOG[key], rows = c.rows ? c.rows(Math.min(MAX_ROWS, n || SUMMARY_COUNTS[key] || 3)).slice(0, MAX_ROWS) : null;
+    var c = CATALOG[key], all = c.rows ? c.rows(n || SUMMARY_COUNTS[key] || 3) : null, rows = all ? all.slice(0, MAX_ROWS) : null;
     // Samples (first 10 of N) keep the real total in {count}; full lists count their rows.
     var count = n != null ? n : (SUMMARY_COUNTS[key] != null ? SUMMARY_COUNTS[key] : (rows ? rows.length : 0));
     function fill(t) { t = t ? t.replace('{count}', count) : ''; return count === 1 ? oneOf(t) : t; }
     var text = fill(c.msg), cut = text.indexOf('. ');
     var a = { id: key, key: key, tier: c.tier, title: cut > 0 ? text.slice(0, cut + 1) : text, sub: cut > 0 ? text.slice(cut + 2) : '',
       // Rows as uploaded + the "after the import" line for each (2026-10-09).
-      list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '',
+      list: rows ? { head: c.head, rows: rows, total: all.length, all: all, note: c.note ? c.note(count) : '',
+        allAfters: c.after ? all.map(function (r, i) { return c.after(r, i); }) : null,
         afters: c.after ? rows.map(function (r, i) { return c.after(r, i); }) : null } : null,
       why: fill(c.why), will: fill(c.will), clean: c.clean || '',
       fix: c.fix, supportBtn: !!c.support, count: count,
@@ -2340,8 +2341,8 @@
         + (L.note ? esc(L.note) + ' ' : '') + esc(hint) + '</div>'
         + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
         // Over 20: the table stops at 20 and the CSV has the rest (2026-10-09).
-        + (a.count > L.rows.length ? '<div class="ax-more"><i class="fa-solid fa-file-csv" aria-hidden="true"></i><span>Showing ' + L.rows.length + ' of ' + a.count + ' rows. '
-          + (logRun ? 'Download the file to see all of them.' : 'To see all of them, <button class="ax-more-link" data-act="openCsv">download the CSV</button>.') + '</span></div>' : '')
+        + (L.total > L.rows.length ? '<div class="ax-more"><i class="fa-solid fa-file-csv" aria-hidden="true"></i><span>Showing ' + L.rows.length + ' of ' + L.total + ' rows. '
+          + (logRun ? 'Download the file to see all of them.' : 'To see all of them, <button class="ax-more-link" data-act="dlCsv">download the CSV</button>.') + '</span></div>' : '')
         + '</div>'
         + (sel >= 0 ? afterSectionHTML(L, sel) : '');
     }
@@ -2424,7 +2425,7 @@
       // One CSV for everything (2026-09-30) — replaces per-alert downloads; opens a preview.
       + '<div class="side-csv"><div class="sc-t">The full list of what we found</div>'
       + '<div class="sc-s">Download the file to see every issue, the row and person it affects, and what to fix before you import.</div>'
-      + '<button class="btn sm btn--outline-blue" data-act="openCsv" style="width:100%;margin-top:10px;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV</button></div>'
+      + '<button class="btn sm btn--outline-blue" data-act="dlCsv" style="width:100%;margin-top:10px;"><i class="fa-solid fa-file-csv" aria-hidden="true"></i> Download CSV</button></div>'
       + '<div class="divider" style="margin:16px 0;"></div>'
       + '<div class="kpi-eyebrow">Change summary</div>'
       + '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">'
@@ -2474,12 +2475,43 @@
       + '<div style="font-size:13px;color:#5B6B7E;margin-top:3px;">' + revSub + '</div></div>'
       + '<div style="display:flex;gap:20px;align-items:flex-start;">'
       + '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px;">' + alertsHtml + '</div>'
-      + '<div style="width:310px;flex:0 0 310px;position:sticky;top:0;">' + side + '</div>'
+      + '<div style="width:310px;flex:0 0 310px;position:sticky;top:24px;">' + side + '</div>'   // 24px gap under the blue header while scrolling
       + '</div></div>';
   }
 
   /* CSV preview (2026-09-30): the complete list as it opens in a spreadsheet. Each alert
      is a block — a title row, its column headers, one row per person/item, a blank row. */
+  /* Download CSV (2026-10-09): a real what_we_found.csv download — every row of every
+     alert (the page tables stop at 20). Same layout as the old preview: a title line per
+     alert, "What to do" for blocked ones, a header row, the rows, then a blank line. */
+  function csvText() {
+    var groups = buildAlerts().filter(function (a) { return a.list && a.list.all && a.list.all.length; });
+    var LABEL = { blocked: 'Blocked', escalate: 'Blocked', confirm: 'Warning', info: 'Info' };
+    var lines = [];
+    function q(v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+    function line(list) { lines.push(list.map(q).join(',')); }
+    groups.forEach(function (a) {
+      var L = a.list;
+      line([LABEL[a.tier] + ' — ' + a.title]);
+      if (a.fix) line(['What to do: ' + a.fix]);
+      line(['Type'].concat(L.head).concat(L.allAfters ? ['What happens'] : []));
+      L.all.forEach(function (r, i) {
+        line([LABEL[a.tier]].concat(r.map(function (c) { return (c && typeof c === 'object') ? c.v : c; }))
+          .concat(L.allAfters ? [L.allAfters[i].note] : []));
+      });
+      line([]);
+    });
+    return lines.join('\r\n');
+  }
+  function downloadCsv() {
+    // \ufeff = byte-order mark, so Excel reads the curly quotes and dashes correctly.
+    var blob = new Blob(['\ufeff' + csvText()], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob), link = document.createElement('a');
+    link.href = url; link.download = 'what_we_found.csv';
+    document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
   function csvHTML() {
     var f = currentFile(), groups = buildAlerts().filter(function (a) { return a.list && a.list.rows.length; });
     var width = 2 + groups.reduce(function (w, a) { return Math.max(w, a.list.head.length); }, 1);   // + the What happens column
@@ -2517,7 +2549,7 @@
       + '<div class="modal-body" style="padding:0;"><div class="cv-wrap"><table class="cv"><thead><tr><th class="cv-n"></th>' + letters + '</tr></thead><tbody>' + body + '</tbody></table></div></div>'
       + '<div class="modal-foot"><span style="font-size:12.5px;color:#5B6B7E;">Opens in Excel, Google Sheets or Numbers.</span>'
       + '<div style="display:flex;gap:10px;"><button class="btn btn--ghost" data-act="closeCsv">Close</button>'
-      + '<button class="btn btn--primary" data-act="noop"><i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV</button></div></div>'
+      + '<button class="btn btn--primary" data-act="dlCsv"><i class="fa-solid fa-download" aria-hidden="true"></i> Download CSV</button></div></div>'
       + '</div></div>';
   }
 
@@ -2995,7 +3027,8 @@
       case 'changeSettings': go('settings'); scrollTop(); break;
       case 'runImport': if (el.disabled) break; setState({ confirmRun: true }); break;   // 1st click -> confirmation modal
       case 'confirmRunNo': setState({ confirmRun: false }); break;
-      case 'openCsv': setState({ csvOpen: true }); break;
+      case 'openCsv': setState({ csvOpen: true }); break;   // preview pop-up — no longer linked (2026-10-09)
+      case 'dlCsv': downloadCsv(); break;
       case 'closeCsv': setState({ csvOpen: false }); break;
       case 'confirmRunYes':
         state.log = logAttempt('completed', buildAlerts().filter(function (x) { return x.tier === 'confirm'; })

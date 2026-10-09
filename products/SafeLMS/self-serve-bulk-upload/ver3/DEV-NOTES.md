@@ -16,6 +16,13 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 - **[DONE]** **Upload log page:** the "Original file" button is now **Download file**, and the
   **Method** card was removed (Uploaded by already says "Automated sync" or who ran it).
 - **[DONE]** **Flow names:** Flow 1: Employees page · Flow 2: Email · Flow 3: All error review.
+- **[DONE]** **Download CSV downloads the file:** the side panel's **Download CSV** and the
+  "download the CSV" link under a long table now download a real `what_we_found.csv` (no
+  preview pop-up). It has **every** row of every alert (the page tables stop at 20): a title line
+  per alert, "What to do" for blocked ones, a header row (Type, the table's columns, What
+  happens), the rows, then a blank line. It's saved as UTF-8 so Excel shows the curly quotes.
+- **[DONE]** **Side panel gap:** the sticky Review side panel stops 24px below the blue Bulk
+  Upload header while scrolling, so it doesn't touch it.
 
 ## (2026-10-09) Flow 3: straight to the copy review
 
