@@ -56,6 +56,19 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   still appears in the Import settings switch ("Deactivate all people and positions not in
   this file"), its helper text, the failure-email card and the side panel's CSV note — PENDING
   a decision on whether those follow.
+- **[DONE]** **One details copy per message, fix included.** The View details line is the same
+  on Review, on a failed automated upload's page and in the CSV: why it matters, then
+  "If you import, …" (or how to fix it, on blocked), then "To fix it, …" on warnings. There's
+  no separate "What to do" / "Fix" line anywhere now; the CSV's second line per message is this
+  same copy, and its title line reads "Blocked: …" (no dash). The failed-upload page no longer
+  adds "Or upload the file yourself…" to each card (its banner says that once).
+- **[DONE]** **Info messages prompt a check.** Each Info line says what happens, then what to
+  check: "Each row becomes a new, active account. Check that these are the users you meant to
+  add." / "Nothing changes for these users. If you expected changes for them, check that this
+  is the latest file." / new positions and locations: "Check that they aren’t existing
+  positions under a different name, and add them to your training plans." / new codes: "Check
+  that it isn’t an existing location under a different code." / "Check that the codes match
+  the ones on your site." `all_rows` still has no details.
 - **[DONE]** **No em dashes in alert copy** (titles, View details, the CSV's "What happens" notes,
   the "I’ve reviewed this" label, the failed-upload banner). Clauses were split into sentences
   or joined with a comma instead. Empty table cells still show "—" (that's data, not copy).
