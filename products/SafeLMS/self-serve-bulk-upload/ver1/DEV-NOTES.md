@@ -51,6 +51,22 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   compare" tag beside View details (clicking it opens the details).
 - **[DONE]** **No "What to do" box** in the alert details — the line above the rows covers it.
   The CSV still includes each Blocked issue's What to do.
+- **[DONE]** **Error copy rewritten and unified** using the Help Center article
+  [User Data File Upload Errors](https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors)
+  (titles, the details line, fixes). Rules: the **title** is one plain sentence about the
+  problem; the **details line** says what we found and why it matters, then **"If you continue,
+  …"** (warnings), **"Nothing in this file can be imported until these rows are fixed."**
+  (blocked) or what happens (info); **fixes** start "To fix it, …" and blocked fixes end "…then
+  upload your file again." Same words throughout: "your site", "your file", "people",
+  "account", "imported" (not users / training site / system / loaded). From the article: new
+  positions and locations can affect training plans (training is assigned by position and
+  location); shared emails mean duplicate reminders and wrong-account sign-ins; name changes
+  usually come from a last-name change, preferred name or added middle name; dates use
+  YYYY-MM-DD; building / position codes are optional ("Don't import" when mapping).
+- **[DONE]** Behavior aligned with the article: same External Unique ID + a different name →
+  the name on the site changes; same name + a different External Unique ID → the ID on the site
+  changes. Both are now "See change" rows (Now on your site → After import).
+- **[DONE]** On the upload log, a Blocked alert's line ends with its "To fix it, …" sentence.
 - **[DONE]** **Singular copy:** when a count is 1, messages read "1 row has…", "1 person",
   "1 building code that isn't…" instead of the catalog's plural wording. Worth adding the
   singular forms to the Confluence catalog.
