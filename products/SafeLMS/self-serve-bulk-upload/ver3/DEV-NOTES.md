@@ -28,10 +28,11 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   Row 118 to see the change.") sits at the right of the same line, only on alerts with
   clickable rows. The box under it is still titled "After import".
 - **[DONE]** **"None of the…" (total_person/pos/bldg_change):** title "None of the users in this
-  file are on your site yet."; details = the Confluence Admin-facing message in full: "None of
-  the users in this file are already on your site. They’ll all be added as new users. Make sure
-  this is the right file." (positions / locations the same). Designer's call, 2026-10-09. No
-  "If you import," lead-in on these three.
+  file are on your site yet."; details "This usually means the file is for new hires, or its
+  usernames don’t match your site’s. They’ll all be added as new users. Make sure this is the
+  right file." (positions / locations: "…the file adds new positions, or the position names
+  don’t match your site’s…"). Designer's wording for sentences 2 and 3, 2026-10-09. No "If you
+  import," lead-in on these three.
 - **[DONE]** **"Very few…" details (large_person/pos/bldg_change):** "Most people in this file
   are new to your site. Check that this is the right file. If you import, {count} new people
   will be added." (same for positions and locations; {count} = the rows that don’t match, e.g.
