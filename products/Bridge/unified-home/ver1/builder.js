@@ -247,12 +247,13 @@
   function openAdd(opts) {
     opts = opts || {};
     var existing = opts.edit ? widget(opts.edit) : null;
-    A = existing ? { id: existing.id, scope: existing.scope, a: existing.a, b: existing.b, viz: existing.viz, tab: 'create', thread: [] }
-                 : { id: null, scope: 'all', a: null, b: null, viz: 'bars', tab: opts.tab || 'existing', q: opts.q || '', thread: [], thinking: false };
+    A = existing ? { id: existing.id, scope: existing.scope, a: existing.a, b: existing.b, cmp: !!existing.b, viz: existing.viz, tab: 'create', thread: [] }
+                 : { id: null, scope: 'all', a: null, b: null, cmp: false, viz: 'bars', tab: opts.tab || 'existing', q: opts.q || '', thread: [], thinking: false };
     openDialog(ui.addDlg, function (root) {
       root.innerHTML = '<div class="dw-dlg wide"><div class="dw-dlg-head"><span class="dw-dlg-ic"><i class="fa-regular fa-table-cells-large" aria-hidden="true"></i></span><div><h2>' + (A.id ? 'Edit module' : 'Add a module') + '</h2><p>' + (A.id ? 'Change what this module shows.' : 'Bring back a module you hid, or create a new reporting module from either product’s data.') + '</p></div><vaadin-button theme="icon" aria-label="Close" data-act="dlg-close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></vaadin-button></div>' +
         (A.id ? '' : '<div class="dw-tabs" role="tablist"><button type="button" role="tab" data-act="tab" data-tab="existing" aria-selected="' + (A.tab === 'existing') + '"><i class="fa-regular fa-layer-group" aria-hidden="true"></i>Existing modules</button><button type="button" role="tab" data-act="tab" data-tab="create" aria-selected="' + (A.tab === 'create') + '"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>Create a new module</button></div>') +
-        '<div class="dw-dlg-body-host" id="bldAddBody"></div></div>';
+        '<div class="dw-dlg-body-host" id="bldAddBody"></div><div class="dw-dlg-foot-host" id="bldAddFoot"></div></div>';
+      A.root = root;
       draw(root);
       root.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.closest && e.target.closest('#bldDescribe')) { e.preventDefault(); var go = $('[data-act="describe-go"]', root); if (go) go.click(); } });
       root.addEventListener('click', function (e) {
@@ -263,12 +264,12 @@
         if (act === 'ex-toggle') { var id = b.dataset.id; S.hidden[id] = !S.hidden[id]; applyLayout(); draw(root); App.toast(S.hidden[id] ? 'Module hidden' : 'Module added back', modMeta(id).name + (S.hidden[id] ? ' is off your dashboard.' : ' is on your dashboard.')); }
         if (act === 'ex-remove') { var wid = b.dataset.id; var idx = S.widgets.map(function (x) { return x.id; }).indexOf(wid), gone = S.widgets.splice(idx, 1)[0]; S.order = S.order.filter(function (x) { return x !== 'w:' + wid; }); renderCustom(); applyLayout(); draw(root); App.toast('Module removed', title(gone), { label: 'Undo', run: function () { S.widgets.splice(idx, 0, gone); renderCustom(); applyLayout(); } }); }
         if (act === 'try') { A.q = b.dataset.q; $('[data-act="describe-go"]', root).click(); }
-        if (act === 'describe-go') { var q = ($('#bldDescribe', root) || {}).value || A.q; q = (q || '').trim(); if (!q) { $('#bldDescribe', root).focus(); return; } A.q = q; A.thread = [{ role: 'user', text: q }]; A.thinking = true; draw(root); setTimeout(function () { var sp = describeToSpec(q); A.scope = sp.scope; A.a = sp.a; A.b = sp.b; A.viz = sp.viz; A.thinking = false; A.thread.push({ role: 'assistant', text: 'Read as ' + readBack(sp) + (sp.via === 'example' ? ' That matches one of the examples.' : '') + ' It is built below; adjust anything, or add it to your dashboard.' }); draw(root); }, 620); }
+        if (act === 'describe-go') { var q = ($('#bldDescribe', root) || {}).value || A.q; q = (q || '').trim(); if (!q) { $('#bldDescribe', root).focus(); return; } A.q = q; A.thread = [{ role: 'user', text: q }]; A.thinking = true; draw(root); setTimeout(function () { var sp = describeToSpec(q); A.scope = sp.scope; A.a = sp.a; A.b = sp.b; A.cmp = !!sp.b; A.viz = sp.viz; A.thinking = false; A.thread.push({ role: 'assistant', text: 'Read as ' + readBack(sp) + (sp.via === 'example' ? ' That matches one of the examples.' : '') + ' It is built below; adjust anything, or add it to your dashboard.' }); draw(root); }, 620); }
         if (act === 'pick-a') { A.a = b.dataset.id; if (A.b === A.a) A.b = null; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; draw(root); }
-        if (act === 'pick-b') { A.b = b.dataset.id === 'none' ? null : b.dataset.id; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; draw(root); }
+        if (act === 'pick-b') { A.b = b.dataset.id; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; draw(root); }
         if (act === 'pick-viz') { A.viz = b.dataset.v; draw(root); }
         if (act === 'add-confirm') {
-          var spec = { scope: A.scope, a: A.a, b: A.b, viz: A.viz };
+          var spec = { scope: A.scope, a: A.a, b: A.cmp ? A.b : null, viz: A.viz };
           if (A.id) { var i = S.widgets.map(function (x) { return x.id; }).indexOf(A.id); spec.id = A.id; S.widgets[i] = spec; } else { S.widgets.push(W(spec)); var kpiAt = S.order.indexOf('kpis'); S.order.splice(kpiAt + 1, 0, 'w:' + spec.id); }
           ui.addDlg.opened = false; renderCustom(); applyLayout();
           var el = document.getElementById('cm-' + spec.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
@@ -278,26 +279,37 @@
     });
   }
   function draw(root) {
-    var bodyEl = $('#bldAddBody', root);
+    var bodyEl = $('#bldAddBody', root), footEl = $('#bldAddFoot', root);
+    $$('.dw-tabs [role="tab"]', root).forEach(function (t) { t.setAttribute('aria-selected', String(t.dataset.tab === A.tab)); });
+    /* ── Existing modules: one column, CTAs in the dialog footer ── */
     if (A.tab === 'existing' && !A.id) {
       var hiddenIds = S.order.filter(function (id) { return S.hidden[id]; });
       bodyEl.innerHTML = '<div class="dw-dlg-body col"><p class="field-hint" style="margin:0">' + (hiddenIds.length ? hiddenIds.length + ' module' + (hiddenIds.length === 1 ? ' is' : 's are') + ' off your dashboard. Switch one on to add it back.' : 'Every module is on your dashboard. Switch one off to hide it, or create a new one.') + '</p><ul class="ex-list">' +
-        S.order.map(function (id) { var m = modMeta(id); if (!m) return ''; var on = !S.hidden[id]; return '<li class="ex-row' + (on ? '' : ' is-off') + '"><span class="st-ic small"><i class="fa-regular ' + (m.custom ? 'fa-chart-mixed' : { kpis: 'fa-hashtag', recs: 'fa-lightbulb', compare: 'fa-table', row4: 'fa-calendar-check', audit: 'fa-file-shield' }[id]) + '" aria-hidden="true"></i></span><span class="ex-main"><b>' + esc(m.name) + '</b><small>' + esc(m.desc) + '</small></span><span class="dw-srcs">' + m.src.map(function (s) { return srcChip(s); }).join('') + '</span>' + (m.custom ? '<vaadin-button theme="tertiary small" data-act="ex-remove" data-id="' + id.slice(2) + '">Remove</vaadin-button>' : '') + '<label class="mod-switch"><span>' + (on ? 'On' : 'Off') + '</span><vwc-switch data-act="ex-toggle-sw" data-id="' + id + '" accessible-name="Show ' + esc(m.name) + '"' + (on ? ' checked' : '') + '></vwc-switch></label></li>'; }).join('') + '</ul>' +
-        '<div class="dw-dlg-foot"><vaadin-button theme="tertiary" data-act="dlg-close">Done</vaadin-button><vaadin-button theme="primary" data-act="tab" data-tab="create"><i class="fa-regular fa-plus" aria-hidden="true" style="margin-right:8px"></i>Create a new module</vaadin-button></div></div>';
+        S.order.map(function (id) { var m = modMeta(id); if (!m) return ''; var on = !S.hidden[id]; return '<li class="ex-row' + (on ? '' : ' is-off') + '"><span class="st-ic small"><i class="fa-regular ' + (m.custom ? 'fa-chart-mixed' : { kpis: 'fa-hashtag', recs: 'fa-lightbulb', compare: 'fa-table', row4: 'fa-calendar-check', audit: 'fa-file-shield' }[id]) + '" aria-hidden="true"></i></span><span class="ex-main"><b>' + esc(m.name) + '</b><small>' + esc(m.desc) + '</small></span><span class="dw-srcs">' + m.src.map(function (s) { return srcChip(s); }).join('') + '</span>' + (m.custom ? '<vaadin-button theme="tertiary small" data-act="ex-remove" data-id="' + id.slice(2) + '">Remove</vaadin-button>' : '') + '<label class="mod-switch"><span>' + (on ? 'On' : 'Off') + '</span><vwc-switch data-act="ex-toggle-sw" data-id="' + id + '" accessible-name="Show ' + esc(m.name) + '"' + (on ? ' checked' : '') + '></vwc-switch></label></li>'; }).join('') + '</ul></div>';
+      footEl.innerHTML = '<vaadin-button theme="tertiary" data-act="dlg-close">Done</vaadin-button><vaadin-button theme="primary" data-act="tab" data-tab="create"><i class="fa-regular fa-plus" aria-hidden="true" style="margin-right:8px"></i>Create a new module</vaadin-button>';
       return;
     }
-    function list(act, cur, allowNone, excl) {
-      var out = allowNone ? '<button type="button" class="dw-mrow' + (cur == null ? ' is-on' : '') + '" data-act="' + act + '" data-id="none"><span class="dw-ic"><i class="fa-regular fa-ban" aria-hidden="true"></i></span><span>Nothing<small>Show one metric on its own</small></span></button>' : '';
-      [['ehs', 'Vector EHS'], ['ct', 'Convergence']].forEach(function (g) { out += '<div class="dw-cat">' + srcChip(g[0], g[1]) + '</div>' + METRICS.filter(function (m) { return m.src === g[0] && m.id !== excl; }).map(function (m) { return '<button type="button" class="dw-mrow' + (cur === m.id ? ' is-on' : '') + '" data-act="' + act + '" data-id="' + m.id + '"><span class="dw-ic"><i class="fa-regular ' + m.icon + '" aria-hidden="true"></i></span><span>' + esc(m.label) + '</span></button>'; }).join(''); });
-      return out;
+    /* ── Create a new module: steps get the room, preview always visible ── */
+    function grid(act, cur, excl) {
+      return [['ehs', 'Vector EHS'], ['ct', 'Convergence']].map(function (g) {
+        return '<div class="dw-cat">' + g[1] + '</div><div class="dw-mgrid">' + METRICS.filter(function (m) { return m.src === g[0] && m.id !== excl; }).map(function (m) { return '<button type="button" class="dw-mrow' + (cur === m.id ? ' is-on' : '') + '" data-act="' + act + '" data-id="' + m.id + '"><span class="dw-ic"><i class="fa-regular ' + m.icon + '" aria-hidden="true"></i></span><span>' + esc(m.label) + '</span>' + (cur === m.id ? '<i class="fa-solid fa-check dw-on" aria-hidden="true"></i>' : '') + '</button>'; }).join('') + '</div>';
+      }).join('');
     }
-    var left = '<div class="dw-step"><span class="n">1</span>Where</div><vaadin-select theme="outlined" id="bldScope" label="Where" style="width:100%"></vaadin-select><div class="dw-step"><span class="n">2</span>Metric</div>' + list('pick-a', A.a, false, null) + (A.a ? '<div class="dw-step"><span class="n">3</span>Compare with</div>' + list('pick-b', A.b, true, A.a) : '');
-    var describe = A.id ? '' : '<div class="bld-desc"><div class="dw-step" style="margin-top:0"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>Describe the report you want</div>' +
-      (A.thread.length ? '<div class="ai-log">' + A.thread.map(function (m) { return m.role === 'user' ? '<div class="ai-turn me"><div class="ai-bubble">' + esc(m.text) + '</div></div>' : '<div class="ai-turn"><div class="ai-bubble">' + bold(m.text) + '</div></div>'; }).join('') + (A.thinking ? thinkingHtml('Reading both products…') : '') + '</div>' : '<div class="dw-try">Try asking</div><div class="ai-try">' + TRY.map(function (q) { return '<button type="button" data-act="try" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>') +
-      '<div class="bld-desc-row"><vaadin-text-field theme="outlined" id="bldDescribe" placeholder="Name a location, what to compare, and how to show it" clear-button-visible value="' + esc(A.q || '') + '" style="flex:1"></vaadin-text-field><vaadin-button theme="primary" data-act="describe-go"' + (A.thinking ? ' disabled' : '') + '>Build it</vaadin-button></div><p class="field-hint" style="margin:6px 0 0">Charts land on your dashboard, never in the thread. You can adjust the result before adding it.</p></div>';
-    var right = describe + (!A.a ? '<div class="dw-prev-empty"><i class="fa-regular fa-chart-bar" aria-hidden="true"></i><b>Or build it by hand</b><span>Pick where, then a metric on the left.</span></div>'
-      : '<div class="dw-step"><span class="n">4</span>Show as</div><div class="dw-vizchips">' + vizAllowed(A).map(function (v) { return '<button type="button" class="dw-chip' + (A.viz === v ? ' is-on' : '') + '" data-act="pick-viz" data-v="' + v + '"><i class="fa-regular ' + VIZ[v][1] + '" aria-hidden="true"></i>' + VIZ[v][0] + '</button>'; }).join('') + '</div><div class="dw-step"><span class="n">5</span>Preview</div>' + previewCard({ scope: A.scope, a: A.a, b: A.b, viz: A.viz }) + '<p class="field-hint">' + (A.scope === 'all' ? 'Breaks down by facility.' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '.') + ' Follows the dashboard’s date range.</p><div class="dw-dlg-foot"><vaadin-button theme="tertiary" data-act="dlg-close">Cancel</vaadin-button><vaadin-button theme="primary" data-act="add-confirm">' + (A.id ? 'Save module' : 'Add to my dashboard') + '</vaadin-button></div>');
-    bodyEl.innerHTML = '<div class="dw-dlg-body"><div class="dw-add-l">' + left + '</div><div class="dw-add-r">' + right + '</div></div>';
+    var describe = A.id ? '' : '<section class="bld-desc"><div class="dw-step" style="margin:0 0 8px"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>Describe the report you want<small>Or build it by hand below</small></div>' +
+      (A.thread.length ? '<div class="ai-log">' + A.thread.map(function (m) { return m.role === 'user' ? '<div class="ai-turn me"><div class="ai-bubble">' + esc(m.text) + '</div></div>' : '<div class="ai-turn"><div class="ai-bubble">' + bold(m.text) + '</div></div>'; }).join('') + (A.thinking ? thinkingHtml('Reading both products…') : '') + '</div>' : '') +
+      '<div class="bld-desc-row"><vaadin-text-field theme="outlined" id="bldDescribe" placeholder="Name a location, what to compare, and how to show it" clear-button-visible value="' + esc(A.q || '') + '" style="flex:1"></vaadin-text-field><vaadin-button theme="primary" data-act="describe-go"' + (A.thinking ? ' disabled' : '') + '>Build it</vaadin-button></div>' +
+      (A.thread.length ? '' : '<div class="ai-try"><span class="dw-try">Try asking</span>' + TRY.map(function (q) { return '<button type="button" data-act="try" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>') + '</section>';
+    var steps =
+      '<section class="dw-sec"><div class="dw-step"><span class="n">1</span>Where<small>Who this module is about</small></div><vaadin-select theme="outlined" id="bldScope" aria-label="Where" style="width:360px;max-width:100%"></vaadin-select><p class="field-hint">' + (A.scope === 'all' ? 'All facilities, broken down by facility.' : esc(scopeLabel(A.scope)) + ', broken down by department.') + '</p></section>' +
+      '<section class="dw-sec"><div class="dw-step"><span class="n">2</span>Metric<small>Pick one metric from either product</small></div>' + grid('pick-a', A.a, null) + '</section>' +
+      '<section class="dw-sec"><div class="dw-step"><span class="n">3</span>Compare with another metric<small>Optional</small><label class="mod-switch cmp"><span>' + (A.cmp ? 'On' : 'Off') + '</span><vwc-switch data-act="cmp-toggle" accessible-name="Compare with another metric"' + (A.cmp ? ' checked' : '') + (A.a ? '' : ' disabled') + '></vwc-switch></label></div>' +
+        (A.cmp && A.a ? grid('pick-b', A.b, A.a) + (A.b ? '' : '<p class="field-hint">Pick the metric to compare against.</p>') : '<p class="field-hint" style="margin:0">' + (A.a ? 'Switch on to put a second metric next to ' + esc(metric(A.a).label) + '.' : 'Pick a metric first.') + '</p>') + '</section>' +
+      '<section class="dw-sec last"><div class="dw-step"><span class="n">4</span>Show as</div><div class="dw-vizchips">' + vizAllowed(A).map(function (v) { return '<button type="button" class="dw-chip' + (A.viz === v ? ' is-on' : '') + '" data-act="pick-viz" data-v="' + v + '"' + (A.a ? '' : ' disabled') + '><i class="fa-regular ' + VIZ[v][1] + '" aria-hidden="true"></i>' + VIZ[v][0] + '</button>'; }).join('') + '</div></section>';
+    var preview = '<div class="dw-prev"><div class="dw-step" style="margin:0 0 10px"><i class="fa-regular fa-eye" aria-hidden="true"></i>Preview</div>' +
+      (A.a ? previewCard({ scope: A.scope, a: A.a, b: A.cmp ? A.b : null, viz: A.viz }) + '<p class="field-hint">' + (A.scope === 'all' ? 'Breaks down by facility.' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '.') + ' Follows the dashboard’s date range.' + (A.cmp && !A.b ? ' Showing one metric until you pick a comparison.' : '') + '</p>'
+           : '<div class="dw-prev-empty"><i class="fa-regular fa-chart-bar" aria-hidden="true"></i><b>Your module appears here</b><span>Pick where and a metric to see it.</span></div>') + '</div>';
+    bodyEl.innerHTML = '<div class="dw-dlg-body create"><div class="dw-add-l">' + describe + steps + '</div><aside class="dw-add-r">' + preview + '</aside></div>';
+    footEl.innerHTML = '<vaadin-button theme="tertiary" data-act="dlg-close">Cancel</vaadin-button><vaadin-button theme="primary" data-act="add-confirm"' + (A.a ? '' : ' disabled') + '>' + (A.id ? 'Save module' : 'Add to my dashboard') + '</vaadin-button>';
     var sel = $('#bldScope', bodyEl); sel.items = [{ label: 'All facilities', value: 'all' }].concat(D.facilities.map(function (f) { return { label: f.name, value: f.id }; })); sel.value = A.scope;
     sel.addEventListener('value-changed', function (e) { if (e.detail.value && e.detail.value !== A.scope) { A.scope = e.detail.value; draw(root); } });
   }
@@ -337,6 +349,8 @@
       }
     });
     document.addEventListener('checked-change', function (e) {
+      var cs = e.target.closest && e.target.closest('vwc-switch[data-act="cmp-toggle"]');
+      if (cs) { if (!A || A.cmp === !!e.detail) return; A.cmp = !!e.detail; if (!A.cmp) { A.b = null; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; } draw(A.root); return; }
       var sw = e.target.closest && e.target.closest('vwc-switch[data-act="bld-toggle"], vwc-switch[data-act="ex-toggle-sw"]'); if (!sw) return;
       S.hidden[sw.dataset.id] = !e.detail; applyLayout();
       if (sw.dataset.act === 'ex-toggle-sw') { var lbl = sw.closest('label').querySelector('span'); if (lbl) lbl.textContent = e.detail ? 'On' : 'Off'; sw.closest('.ex-row').classList.toggle('is-off', !e.detail); }

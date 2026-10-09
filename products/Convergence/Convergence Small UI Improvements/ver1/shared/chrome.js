@@ -41,8 +41,9 @@ const SPECS = {
     ['Empty state', 'icon 44px circle · title 16/600 · body 14'],
   ]),
   training: specHTML([
-    ['List columns', 'minmax(0,1fr) 248 96 96 108 112 · gap 12'],
+    ['List columns', 'minmax(0,1fr) 224 96 96 108 112 · gap 12'],
     ['Depth indents', '16 / 32 / 44 / 60px'],
+    ['Inline notice', '12/600 (--t-micro) · pad 4 12 · stays beside the requirement name'],
     ['Type glyphs', 'accordion rows: plain --c-primary icons, no chip'],
     ['Card meta', 'type line + due line · 12px --c-meta · icons 14px col'],
     ['Tier surfaces', 'headers #fff · activities #f2f5f9 · header hover #f3f6f9'],
@@ -53,6 +54,7 @@ const SPECS = {
     ['Control outlines', '--c-control-line #7d8798 (3:1) on search, segmented, bordered icon buttons, carousel arrows'],
     ['Progress meter', 'bar 72x6 · label 14'],
     ['Banners', 'pad 8 8 8 16 · radius 8 · stack gap 12 · max 3'],
+    ['Empty state', 'in-panel under the group row · .empty · 48px icon disc on --c-primary-soft · one secondary action'],
     ['Cards (small)', 'tracks 200-236 · title 14/600'],
     ['Cards (large)', 'tracks 256-312 · title 16/600'],
     ['Card grid', 'gap 16 · thumb 16:9 · shadow --e-xs, no border'],

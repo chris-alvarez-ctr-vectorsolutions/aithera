@@ -53,6 +53,7 @@
 - Round 8: qualification rows use `fa-graduation-cap` (never the medal); requirements keep `fa-award`. Same cap in the side nav, View-by list, detail hero and catalog cards.
 - Canvas (round 15): `--c-canvas` is `#e8ebef`, the Vector neutral `--lumo-contrast-10pct` (#1a3860 at 10%) composited on the base white, so the white plan panel separates from the page at 1.20:1 (it was 1.06:1 on the product default `#f5f9fd`, which the designer found blended). History: round 8 tried `#f0f2f5`, round 10 went back to `#f5f9fd`, round 15 settled on the design-system value. Keep it an opaque hex: the loading layer paints the canvas over content. The round 8 table retune stays: bands `#f3f5f9` / `#edf1f7`, borders `#dbe0e8`, hairlines `#e9edf3`, `--c-meta` `#5b6779`. AA of text that sits directly on the canvas: meta 4.80 (spec-strip summary, loading label); primary text would be 4.13, so the only primary control on the canvas, the detail pages' Back chip, sits on a white surface (4.72).
 - The Actions column is 112px (was 84px) so it holds three 34px icon buttons; the 1400px breakpoint grid carries the same width. A third action would need another 34px.
+- Round 20: the requirement's inline completion-rule notice is 12px (`--t-micro`, was 14px) so it fits beside the requirement name instead of wrapping. The column grid is unchanged: header-row meters stay in the Completion column.
 - ONE column grid is declared once and reused by the header and every depth, so group, qualification, requirement and activity rows align their Completion / Duration / Time spent / Due / Actions values under the same headings.
 - Dropping a column at a breakpoint must hide that cell at EVERY depth, or the deeper rows spill onto a second grid line.
 - The empty completion capsule with the tiny caption is replaced by `.meter`: a 76px bar plus a single-line label, "**0 of 5** qualifications", vertically centred. Needs a completion ratio in the row model; if only the counts exist, derive the bar from them.
@@ -189,6 +190,13 @@
 - Attachments appear as a file row (icon, name, size, Download): this is where the paperclip in the list leads.
 - Past completions is a 4-column table (Completed / Version / Time spent / Score). Empty is the shared neutral empty state, NOT the legacy red "No records to display" row: red stays reserved for errors and overdue. The legacy Expire/Ignore date columns are dropped unless populated: confirm whether they carry data before build.
 - Deep link: ?details=act:a4.
+
+## t-empty - No results / nothing assigned
+- Replaces the legacy dark-red "No activities found. Try changing your search or filter options." alert. Red stays reserved for errors and overdue; an empty result is neither, so this is the shared neutral `.empty` component (48px icon disc on `--c-primary-soft`, 16/600 title, 14px text, one secondary action) inside the panel under the group row, where the legacy block sat.
+- Two causes, two messages. Search or filters active: "No activities match", the total assigned count, and a **Clear search and filters** action that resets the header search and both combos. Nothing assigned at all: "No training assigned yet" with a **Browse the catalog** action.
+- While a search or filter narrows the list, branches with no match drop out and the remaining ones open, so every hit is visible without expanding anything; the empty state appears only when the whole plan has no match. The same block renders in list and both card views.
+- Search matches activity names (case-insensitive substring); Type and Status match the row's type and status labels; an "All ..." pick clears that combo. LOGIC ITEM: real search scope (names only here) and whether qualification / requirement names should match too.
+- Flow map: `t-empty` stages a search with no hits; `t-unassigned` stages an empty plan. Both reset on leaving the state.
 
 ## loading - Loading screen between states
 - A skeleton layer (`#loading`) sits over the canvas; the topnav, side nav and page header stay put so the user keeps their bearings. Content: `vwc-spinner` (24px, `loading` set - it is invisible otherwise) + a "Loading <screen>" label, a banner-shaped block and a panel of six shimmering rows on `--c-surface-alt2`.

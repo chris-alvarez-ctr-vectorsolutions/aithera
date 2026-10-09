@@ -110,7 +110,7 @@
         }
         .sb-icon { width: 18px; text-align: center; flex-shrink: 0; font-size: 14px; }
         .sb-text { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-        .sb-chevron { font-size: 10px; color: var(--text-light); transition: transform 0.2s; flex-shrink: 0; margin-left: auto; }
+        .sb-chevron { font-size: 11px; color: var(--text-light); transition: transform 0.2s; flex-shrink: 0; margin-left: auto; }
         .sb-group-trigger.open .sb-chevron { transform: rotate(180deg); }
 
         .sidebar.collapsed .sb-text { display: none; }
@@ -252,25 +252,51 @@
         .module-tab:hover { color: var(--text); }
         .module-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 
-        /* ── Recent Activity ── */
-        .activity-body { padding: 16px 18px; }
-        .filter-row {
-            display: grid; grid-template-columns: 1fr 1fr auto; gap: 14px;
-            margin-bottom: 14px; align-items: end;
-        }
-        .filter-group label {
+        /* ── Form controls ──
+           Every filter control on the page shares one height, radius, border and
+           font. Selects drop the browser's native arrow for the same chevron the
+           rest of the page draws, so a dropdown no longer looks like it came from
+           a different control set. --ctl-h keeps selects, inputs and buttons on
+           one baseline. */
+        :root { --ctl-h: 34px; }
+        .filter-group label,
+        .cal-search-wrap label {
             font-size: 12px; color: var(--text-muted); font-weight: 500;
-            display: block; margin-bottom: 4px;
+            display: block; margin-bottom: 5px;
+        }
+        .filter-select,
+        .cal-search-input {
+            width: 100%; height: var(--ctl-h); padding: 0 10px;
+            border: 1px solid var(--border); border-radius: 6px;
+            background-color: var(--surface);
+            font-family: inherit; font-size: 13px; color: var(--text);
+            transition: border-color 0.12s, box-shadow 0.12s;
         }
         .filter-select {
-            width: 100%; padding: 7px 10px;
-            border: 1px solid var(--border); border-radius: 4px;
-            background: var(--surface); font-family: inherit; font-size: 13px;
-            color: var(--text); cursor: pointer;
+            appearance: none; -webkit-appearance: none;
+            padding-right: 30px; cursor: pointer;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Cpath fill='%2364748b' d='M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 11px center;
+            background-size: 11px 11px;
         }
-        .carousel-arrows { display: flex; gap: 6px; }
+        .filter-select:focus, .cal-search-input:focus {
+            outline: none; border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(29,78,216,0.10);
+        }
+
+        /* ── Recent Activity ── */
+        .activity-body { padding: 16px 18px; }
+        /* Filters size to their content instead of stretching across the module;
+           the carousel arrows take the free space on the right. */
+        .filter-row {
+            display: flex; flex-wrap: wrap; align-items: flex-end;
+            gap: 14px; margin-bottom: 14px;
+        }
+        .filter-group { width: 200px; }
+        .carousel-arrows { display: flex; gap: 6px; margin-left: auto; }
         .carousel-arrow {
-            width: 30px; height: 30px; border-radius: 50%;
+            width: var(--ctl-h); height: var(--ctl-h); border-radius: 50%;
             border: 1px solid var(--primary); background: var(--surface);
             color: var(--primary); cursor: pointer; font-size: 12px;
             display: inline-flex; align-items: center; justify-content: center;
@@ -290,16 +316,17 @@
         }
         .ac-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 2px; }
         .ac-badge {
-            font-size: 11px; font-weight: 600;
+            font-size: 11px; font-weight: 600; line-height: 1.4;
             padding: 2px 8px; border-radius: 4px;
         }
+        /* Icons sit on the text's line box so a badge with one is no taller. */
+        .ac-badge i, .ci-badge i { line-height: 1; }
         .badge-observation { background: #dbeafe; color: #1d4ed8; }
         .badge-hazard      { background: #fef3c7; color: #92400e; }
         .badge-incident    { background: #fee2e2; color: #b91c1c; }
-        .badge-osha        { background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }
-        .badge-investigating { background: #dbeafe; color: #1d4ed8; }
-        .badge-overdue     { background: #fee2e2; color: #b91c1c; }
-        .badge-awaiting    { background: #f1f5f9; color: #475569; }
+        /* OSHA Recordable reads as a severity marker on an incident, so it takes
+           the same red. Borderless like the others, so every badge is one height. */
+        .badge-osha        { background: #fee2e2; color: #b91c1c; }
         .ac-title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.3; }
         .ac-desc { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
         .ac-meta {
@@ -307,12 +334,19 @@
             font-size: 11.5px; color: var(--text-muted);
         }
         .ac-meta i { font-size: 11px; }
+        /* margin-top:auto pins the footer to the bottom of the card, so the date
+           and View More line up across a row whatever length the descriptions
+           above them run to. The grid already stretches cards to equal height. */
         .ac-footer {
             display: flex; align-items: center; justify-content: space-between;
-            border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: 4px;
+            border-top: 1px solid #f1f5f9; padding-top: 8px; margin-top: auto;
         }
         .ac-date { font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; gap: 5px; }
-        .ac-view-more { font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 500; }
+        .ac-view-more {
+            font-size: 12px; color: var(--primary); text-decoration: none; font-weight: 500;
+            display: inline-flex; align-items: center; gap: 5px;
+        }
+        .ac-view-more i, .cal-item-foot a i { font-size: 11px; }
         .ac-view-more:hover { text-decoration: underline; }
 
         .module-foot-link {
@@ -338,7 +372,7 @@
             font-size: 12.5px; font-weight: 500; cursor: pointer; font-family: inherit;
         }
         .rec-view-all:hover { background: var(--bg); border-color: var(--text-light); }
-        .rec-view-all i { font-size: 9px; color: var(--text-muted); }
+        .rec-view-all i { font-size: 11px; color: var(--text-muted); }
 
         .rec-module-body {
             display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
@@ -365,11 +399,11 @@
 
         .rec-trigger {
             display: inline-flex; align-items: center; gap: 5px;
-            font-size: 10.5px; font-weight: 700;
+            font-size: 11px; font-weight: 700;
             padding: 3px 9px; border-radius: 4px;
             align-self: flex-start; margin-bottom: 10px;
         }
-        .rec-trigger i { font-size: 10px; }
+        .rec-trigger i { font-size: 11px; }
         .trigger-incident { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
         .trigger-hazard   { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
         .trigger-cert     { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
@@ -443,9 +477,9 @@
             font-size: 15px; font-weight: 600; color: var(--text);
             display: inline-flex; align-items: center; gap: 5px;
         }
-        .cal-nav-month i { font-size: 9px; color: var(--text-muted); }
+        .cal-nav-month i { font-size: 11px; color: var(--text-muted); }
         .cal-today-btn {
-            margin-left: auto; padding: 5px 12px;
+            margin-left: auto; height: var(--ctl-h); padding: 0 14px;
             border: 1px solid var(--primary); border-radius: 4px;
             background: var(--surface); color: var(--primary);
             font-size: 12.5px; font-weight: 500; cursor: pointer; font-family: inherit;
@@ -489,22 +523,17 @@
 
         .cal-right { min-width: 0; }
         .cal-right-filters {
-            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
-            margin-bottom: 12px;
+            display: flex; flex-wrap: wrap; align-items: flex-end;
+            gap: 12px; margin-bottom: 12px;
         }
-        .cal-search-wrap { position: relative; }
-        .cal-search-wrap label {
-            font-size: 12px; color: var(--text-muted); font-weight: 500;
-            display: block; margin-bottom: 4px;
-        }
-        .cal-search-input {
-            width: 100%; padding: 7px 10px 7px 30px;
-            border: 1px solid var(--border); border-radius: 4px;
-            font-family: inherit; font-size: 13px; outline: none;
-        }
+        .cal-search-wrap { position: relative; width: 200px; }
+        .cal-search-input { padding-left: 32px; }
+        /* Pinned to the input's own box, so it stays centred whatever the label
+           above it does (it used to be a hard-coded top offset). */
         .cal-search-icon {
-            position: absolute; left: 9px; top: 28px; transform: none;
-            color: var(--text-light); font-size: 11px;
+            position: absolute; left: 11px; bottom: 0; height: var(--ctl-h);
+            display: flex; align-items: center; pointer-events: none;
+            color: var(--text-light); font-size: 12px;
         }
 
         .cal-items { max-height: 360px; overflow-y: auto; }
@@ -521,15 +550,15 @@
         .cal-item-title { font-size: 13.5px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
         .cal-item-badges { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px; }
         .ci-badge {
-            font-size: 10.5px; font-weight: 600;
-            padding: 2px 7px; border-radius: 3px;
+            font-size: 11px; font-weight: 600; line-height: 1.4;
+            padding: 2px 8px; border-radius: 4px;
             display: inline-flex; align-items: center; gap: 4px;
         }
-        .ci-badge i { font-size: 10px; }
+        .ci-badge i { font-size: 11px; }
         .ci-incident   { background: #fee2e2; color: #b91c1c; }
         .ci-incomplete { background: #fee2e2; color: #b91c1c; }
         .ci-progress   { background: #dbeafe; color: #1d4ed8; }
-        .ci-assigned   { background: #f1f5f9; color: var(--text-muted); border: 1px solid var(--border); }
+        .ci-assigned   { background: #f1f5f9; color: var(--text-muted); }
         .ci-observation{ background: #dbeafe; color: #1d4ed8; }
         .ci-overdue    { background: #fee2e2; color: #b91c1c; }
         .cal-item-desc { font-size: 13px; color: var(--text); line-height: 1.5; margin-bottom: 7px; }
@@ -549,7 +578,7 @@
         .cal-item-foot a:hover { text-decoration: underline; }
 
         /* ── Recent Reports ── */
-        .reports-body { padding: 4px 18px 14px; }
+        .reports-body { padding: 4px 18px; }   /* items add their own 12px, so 16px effective */
         .report-item {
             display: flex; align-items: center; gap: 14px;
             padding: 12px 0;
@@ -562,7 +591,7 @@
         .report-meta { font-size: 11.5px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 5px; }
         .report-meta i { font-size: 11px; }
         .run-report-btn {
-            padding: 7px 16px; border-radius: 4px;
+            height: var(--ctl-h); padding: 0 16px; border-radius: 6px;
             background: var(--surface); border: 1px solid var(--primary);
             color: var(--primary); font-size: 13px; font-weight: 600;
             cursor: pointer; font-family: inherit; flex-shrink: 0;
@@ -704,7 +733,7 @@
                             <div class="ac-meta"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
                             <div class="ac-footer">
                                 <span class="ac-date"><i class="fa-regular fa-calendar"></i> Date of Observation: 1/10/25</span>
-                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a>
+                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down"></i></a>
                             </div>
                         </div>
                         <div class="activity-card">
@@ -714,7 +743,7 @@
                             <div class="ac-meta"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
                             <div class="ac-footer">
                                 <span class="ac-date"><i class="fa-regular fa-calendar"></i> Date Identified: 1/10/25</span>
-                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a>
+                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down"></i></a>
                             </div>
                         </div>
                         <div class="activity-card">
@@ -727,7 +756,7 @@
                             <div class="ac-meta"><i class="fa-regular fa-user"></i> Reported by Andy Xia</div>
                             <div class="ac-footer">
                                 <span class="ac-date"><i class="fa-regular fa-calendar"></i> Date of Incident: 1/12/25</span>
-                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a>
+                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down"></i></a>
                             </div>
                         </div>
                     </div>
@@ -853,7 +882,7 @@
                                         <span class="cal-item-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta</span>
                                         <span class="cal-item-meta-row overdue"><i class="fa-regular fa-calendar"></i> Overdue: 12/25/25</span>
                                     </div>
-                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a></div>
+                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down"></i></a></div>
                                 </div>
                                 <div class="cal-item">
                                     <div class="cal-item-title">Terrible Incident - December</div>
@@ -865,7 +894,7 @@
                                         <span class="cal-item-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta</span>
                                         <span class="cal-item-meta-row overdue"><i class="fa-regular fa-calendar"></i> Overdue: 12/25/25</span>
                                     </div>
-                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a></div>
+                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down"></i></a></div>
                                 </div>
                                 <div class="cal-item">
                                     <div class="cal-item-title">Terrible Incident - December</div>
@@ -877,7 +906,7 @@
                                         <span class="cal-item-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta</span>
                                         <span class="cal-item-meta-row overdue"><i class="fa-regular fa-calendar"></i> Overdue: 12/25/25</span>
                                     </div>
-                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a></div>
+                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down"></i></a></div>
                                 </div>
                             </div>
                             <div class="cal-day-group">
@@ -894,7 +923,7 @@
                                         <span class="cal-item-meta-row"><i class="fa-solid fa-location-dot"></i> Warehouse 12, Atlanta</span>
                                         <span class="cal-item-meta-row"><i class="fa-regular fa-calendar"></i> Due: 12/25/25</span>
                                     </div>
-                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a></div>
+                                    <div class="cal-item-foot"><a href="#">View More <i class="fa-solid fa-chevron-down"></i></a></div>
                                 </div>
                             </div>
                         </div>
@@ -934,40 +963,37 @@
                             <div class="ac-badges">
                                 <span class="ac-badge badge-incident">Incident</span>
                                 <span class="ac-badge badge-osha">OSHA Recordable</span>
-                                <span class="ac-badge badge-overdue">Investigation overdue</span>
                             </div>
                             <div class="ac-title">Employee Injury - Warehouse 12, Atlanta</div>
                             <div class="ac-desc">Laceration to the left hand while clearing a jam on the packaging line. Employee treated on site and released.</div>
                             <div class="ac-meta"><i class="fa-regular fa-user"></i> Prepared by Andy Xia</div>
                             <div class="ac-footer">
                                 <span class="ac-date"><i class="fa-regular fa-calendar"></i> Date of Incident: 1/12/25</span>
-                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a>
+                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down"></i></a>
                             </div>
                         </div>
                         <div class="activity-card">
                             <div class="ac-badges">
                                 <span class="ac-badge badge-incident">Incident</span>
-                                <span class="ac-badge badge-investigating">Investigation</span>
                             </div>
                             <div class="ac-title">Forklift Collision - Distribution Center 4</div>
                             <div class="ac-desc">Forklift struck a racking upright while reversing out of aisle 7. No injuries; racking bay taken out of service pending inspection.</div>
                             <div class="ac-meta"><i class="fa-regular fa-user"></i> Prepared by Andy Xia</div>
                             <div class="ac-footer">
                                 <span class="ac-date"><i class="fa-regular fa-calendar"></i> Date of Incident: 1/09/25</span>
-                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a>
+                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down"></i></a>
                             </div>
                         </div>
                         <div class="activity-card">
                             <div class="ac-badges">
                                 <span class="ac-badge badge-incident">Incident</span>
-                                <span class="ac-badge badge-awaiting">Awaiting review</span>
                             </div>
                             <div class="ac-title">Chemical Splash - Plant 7</div>
                             <div class="ac-desc">Operator splashed with diluted cleaning solution during a line changeover. Eyewash used; no lost time reported.</div>
                             <div class="ac-meta"><i class="fa-regular fa-user"></i> Prepared by Andy Xia</div>
                             <div class="ac-footer">
                                 <span class="ac-date"><i class="fa-regular fa-calendar"></i> Date of Incident: 1/06/25</span>
-                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down" style="font-size:9px;"></i></a>
+                                <a class="ac-view-more" href="#">View More <i class="fa-solid fa-chevron-down"></i></a>
                             </div>
                         </div>
                     </div>

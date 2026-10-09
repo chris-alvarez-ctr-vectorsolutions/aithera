@@ -23,6 +23,9 @@ const state = {
   catalogCat: 'safety',      // category shown by the table view
   dismissedBanners: new Set(),   // banner ids dismissed this session
   showElectives: false,          // filter-panel toggle: elective activities
+  search: '',                    // page-header search, matched against activity names
+  fType: '', fStatus: '',        // filter-panel combos ('' = all)
+  demoUnassigned: false,         // flow-map only: show the plan with nothing assigned
   allCollapsed: false,           // filter-panel toggle: collapse/expand all
   filterOpen: false,
   navOpen: new Set(['training']),
@@ -319,6 +322,14 @@ function setFilters(open) {
   btn.title = open ? 'Hide filters' : 'Show filters';
 }
 
+/* Reset search + filters (the empty state's action). */
+function clearTrainingFilters() {
+  state.search = ''; state.fType = ''; state.fStatus = '';
+  $('[data-for="training"] .searchbox input').value = '';
+  $('#fType').value = ''; $('#fStatus').value = '';
+  renderTraining();
+}
+
 function setNavCollapsed(collapsed) {
   $('#app').classList.toggle('nav-collapsed', collapsed);
   const btn = $('#navCollapse');
@@ -437,8 +448,13 @@ function boot() {
   });
 
   const ft = $('#fType'), fs = $('#fStatus');
-  ft.items = ['All types', 'Tasklist', 'Video', 'Course', 'Quiz', 'Document'];
-  fs.items = ['All statuses', 'In progress', 'Incomplete', 'Overdue', 'Complete'];
+  ft.items = ['All types', 'Tasklist', 'Video', 'Course', 'Quiz', 'Document', 'Class'];
+  fs.items = ['All statuses', 'In progress', 'Incomplete', 'Overdue', 'Complete', 'Needs scheduling'];
+  // The combos and the header search narrow the plan live; an 'All ...' pick clears.
+  ft.addEventListener('value-changed', e => { state.fType = /^All /.test(e.detail.value || '') ? '' : (e.detail.value || ''); renderTraining(); });
+  fs.addEventListener('value-changed', e => { state.fStatus = /^All /.test(e.detail.value || '') ? '' : (e.detail.value || ''); renderTraining(); });
+  const search = $('[data-for="training"] .searchbox input');
+  search.addEventListener('input', () => { state.search = search.value; renderTraining(); });
 
   setFilters(false);
 
@@ -477,6 +493,12 @@ function applyFlowState(id, opts) {
       break;
     case 't-cards-s':  go('training', 'dense'); break;
     case 't-cards-l':  go('training', 'large'); break;
+    case 't-empty':
+      go('training', 'list');
+      state.search = 'Forklift inspection'; $('[data-for="training"] .searchbox input').value = state.search;
+      renderTraining();
+      break;
+    case 't-unassigned': state.demoUnassigned = true; go('training', 'list'); break;
     case 'd-qual':     go('training', 'list'); showDetails('qual', 'q-nhs'); break;
     case 'd-req':      go('training', 'list'); showDetails('req', 'r-loto'); break;
     case 'd-act':      go('training', 'list'); showDetails('act', 'a5'); break;  // LOTO Tasklist Affected Employees
@@ -494,6 +516,8 @@ function applyFlowState(id, opts) {
       break;
     default: go('guide');
   }
+  if (id !== 't-empty') clearTrainingFilters();
+  if (id !== 't-unassigned') { state.demoUnassigned = false; if (state.route === 'training') renderTraining(); }
   if (id !== 'loading') hideLoading();
   if (id !== 'load-modal') closeLoadingModal();
   if (instant) window.scrollTo(0, 0);

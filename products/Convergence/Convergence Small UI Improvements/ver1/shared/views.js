@@ -69,10 +69,40 @@ function disc(id, open) {
   return `<button class="disc" data-node="${id}" aria-expanded="${open}" aria-label="${open ? 'Collapse' : 'Expand'}"><i class="fa-solid fa-chevron-down"></i></button>`;
 }
 
+/* Search + filter predicate for one activity. Electives are a separate toggle. */
+function actMatches(a) {
+  const q = (state.search || '').trim().toLowerCase();
+  if (q && !a.name.toLowerCase().includes(q)) return false;
+  if (state.fType && TYPES[a.type].label !== state.fType) return false;
+  if (state.fStatus && STATUS[a.status].label !== state.fStatus) return false;
+  return true;
+}
+const filtersActive = () => !!((state.search || '').trim() || state.fType || state.fStatus);
+
+/* Empty state inside the plan panel, under the group row (where the legacy
+   red 'No activities found' block sat). Two causes, two messages:
+     filters active  -> nothing matched; offer to clear them
+     nothing assigned -> the plan is genuinely empty; point at the catalog */
+function emptyPlanHTML(total) {
+  if (filtersActive()) {
+    return `<div class="tp-empty">${emptyHTML('fa-magnifying-glass', 'No activities match',
+      `Nothing in your ${total} assigned activit${total === 1 ? 'y' : 'ies'} matches this search or these filters. Try another term, or clear them to see everything.`,
+      'Clear search and filters')}</div>`;
+  }
+  return `<div class="tp-empty">${emptyHTML('fa-graduation-cap', 'No training assigned yet',
+    'Training assigned to you will appear here. Until then, the catalog has electives you can start on your own.',
+    'Browse the catalog')}</div>`;
+}
+
 function renderTraining() {
   const cards = state.trainingView !== 'list';
   const root = $('#tp');
   const out = [];
+  const quals = state.demoUnassigned ? [] : TRAINING.quals;
+  const visibleActs = r => (state.showElectives ? r.acts : r.acts.filter(a => !a.elective)).filter(actMatches);
+  const totalActs = quals.reduce((n, q) => n + q.reqs.reduce((m, r) => m + r.acts.length, 0), 0);
+  const shownActs = quals.reduce((n, q) => n + q.reqs.reduce((m, r) => m + visibleActs(r).length, 0), 0);
+  const narrowed = filtersActive();
 
   if (!cards) {
     out.push(`<div class="tp-head">
@@ -96,8 +126,13 @@ function renderTraining() {
     <span class="tp-actions"></span>
   </div>`);
 
-  if (planOpen) TRAINING.quals.forEach(q => {
-    const qOpen = isOpen(q.id, q.open);
+  if (planOpen && shownActs === 0) out.push(emptyPlanHTML(totalActs));
+
+  if (planOpen && shownActs > 0) quals.forEach(q => {
+    // While a search or filter narrows the list, branches with no match drop out
+    // and the rest open, so every hit is visible without expanding anything.
+    if (narrowed && !q.reqs.some(r => visibleActs(r).length)) return;
+    const qOpen = narrowed || isOpen(q.id, q.open);
     out.push(`<div class="tp-qual">
       <span class="tp-name-cell">
         ${disc(q.id, qOpen)}
@@ -111,7 +146,8 @@ function renderTraining() {
     if (!qOpen) return;
 
     q.reqs.forEach(r => {
-      const rOpen = isOpen(r.id, r.open);
+      if (narrowed && !visibleActs(r).length) return;
+      const rOpen = narrowed || isOpen(r.id, r.open);
       out.push(`<div class="tp-req">
         <span class="tp-name-cell">
           ${disc(r.id, rOpen)}
@@ -125,7 +161,7 @@ function renderTraining() {
       </div>`);
       if (!rOpen) return;
 
-      const acts = state.showElectives ? r.acts : r.acts.filter(a => !a.elective);
+      const acts = visibleActs(r);
       if (cards) {
         out.push(`<div class="tp-cardwrap">
           <div class="card-grid">${acts.map(cardHTML).join('')}</div>
@@ -137,6 +173,8 @@ function renderTraining() {
   });
 
   root.innerHTML = out.join('');
+  const emptyBtn = root.querySelector('.tp-empty vaadin-button');
+  if (emptyBtn) emptyBtn.addEventListener('click', () => filtersActive() ? clearTrainingFilters() : go('catalog', 'cards'));
   root.querySelectorAll('.disc').forEach(b =>
     b.addEventListener('click', () => toggleNode(b.dataset.node)));
   // Modern accordion pattern: the whole header row toggles, not just the

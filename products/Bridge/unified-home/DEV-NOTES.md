@@ -26,7 +26,8 @@ Notes are grouped by flow-map node. They render in the dev_handoff build only; w
 - **Built modules are page-level modules:** a new one lands directly under Key metrics as a full-width module card with its own header (title, sources, ⋮ menu: Edit, Move up, Move down, Remove with Undo). They move and hide like any other module.
 
 ## create-module Add module: Create a new module
-- **Readiness Hub style instructions:** Try asking prompts, a sentence box ("Describe the report you want", Build it), and the note that charts land on the dashboard, never in the thread. Or build by hand: Where, Metric, Compare with, Show as, live preview, Add to my dashboard.
+- **Readiness Hub style instructions:** a compact "Describe the report you want" box at the top of the steps column (sentence field, Build it, Try asking chips in a row). Charts land on the dashboard, never in the thread.
+- **Build by hand gets the room (2026-10-08):** the steps column is the wide one. 1 Where (select, who the module is about), 2 Metric (two-column grid of metric buttons under plain-text headings Vector EHS / Convergence, not badges), 3 Compare with another metric (an On/Off switch, Off by default; switching On reveals the second metric grid), 4 Show as. The preview is a sticky right column that is always visible. Every dialog CTA sits in one footer at the bottom right (Cancel / Add to my dashboard; Existing tab: Done / Create a new module). Existing modules is a single-column list.
 
 ## settings Settings
 - **Home dashboard is the first row:** module count, built-module count, Arrange your dashboard (primary), Reset to default. Adding modules happens on the home, not here. Other rows (Notifications, Data sync, Recommendation rules, Profile) are placeholders.
