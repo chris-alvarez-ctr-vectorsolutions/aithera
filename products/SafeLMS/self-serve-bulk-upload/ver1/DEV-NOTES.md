@@ -21,6 +21,11 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   preview pop-up). It has **every** row of every alert (the page tables stop at 20): a title line
   per alert, "What to do" for blocked ones, a header row (Type, the table's columns, What
   happens), the rows, then a blank line. It's saved as UTF-8 so Excel shows the curly quotes.
+- **[DONE]** **Titles = the Confluence "Admin-facing message":** every alert title is now the
+  catalog's Admin-facing message, word for word (one or two sentences, e.g. "This will change
+  passwords for 2 people. Make sure you meant to include passwords."). Straight apostrophes
+  became curly, and a count of 1 still reads in the singular. The line inside View details is
+  unchanged. Source: PMC 29424549907, pulled 2026-10-09.
 - **[DONE]** **Side panel gap:** the sticky Review side panel stops 24px below the blue Bulk
   Upload header while scrolling, so it doesn't touch it.
 
