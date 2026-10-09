@@ -850,7 +850,12 @@
 
   /* ---- Condensed catalog alerts + "Your choices" on Review (2026-09-25) ---- */
   .alert-sub { font-size: 12.5px; color: #3D4F63; margin-top: 2px; line-height: 1.45; }
-  .alert-key { font-family: var(--mono); font-size: 11px; color: #8CA0B4; margin-top: 4px; }
+  /* PROTOTYPE ONLY — catalog key under each title on the copy-review sample file. */
+  .alert-key { display: inline-flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 6px; font-size: 11px; color: #8A5A0B;
+    border: 1px dashed #F2D69B; background: #FFFBF0; border-radius: 6px; padding: 2px 8px 2px 3px; }
+  .alert-key code { font-family: var(--mono); font-size: 11px; color: #5B6B7E; }
+  .ak-proto { display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase;
+    color: #8A5A0B; background: #FFF1D6; border-radius: 4px; padding: 1px 6px; }
   .alert-head + .alert-body { border-top: 1px solid rgba(16,24,40,.04); }
   /* Checkbox sits in a tinted box: yellow while it needs review, blue once reviewed. */
   .ack-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: #6B4A0A; cursor: pointer;
@@ -907,9 +912,20 @@
   /* Same fixed columns in both tables so the result row lines up under the rows above. */
   .ax-list .axt, .ax-after .axt { table-layout: fixed; }
   .ax-list .axt th:first-child, .ax-after .axt th:first-child { width: 128px; }
-  .ax-list .axt th:last-child, .ax-after .axt th:last-child { width: 96px; }
-  .axt td.axr-cta { text-align: right; font-size: 12px; font-weight: 600; color: #1257B8; white-space: nowrap; }
-  .axt tr.axr:hover td.axr-cta { text-decoration: underline; }
+  .ax-list .axt th:last-child, .ax-after .axt th:last-child { width: 124px; }
+  .axt td.axr-cta { text-align: right; white-space: nowrap; }
+  /* "See change" pill on rows that change (2026-10-09) — reads as clickable. */
+  .axr-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #1257B8;
+    background: #fff; border: 1px solid #B9CBE2; border-radius: 14px; padding: 3px 10px; }
+  .axr-btn i { font-size: 10.5px; }
+  .axt tr.axr:hover .axr-btn { background: #EEF4FC; border-color: #1257B8; }
+  .axr-btn.is-on, .axt tr.axr:hover .axr-btn.is-on { background: #1257B8; border-color: #1257B8; color: #fff; }
+  /* Tag beside "View details": this alert has rows whose change you can see. */
+  .ax-chg-tag { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 11.5px; font-weight: 600;
+    color: #1257B8; background: #EEF4FC; border: 1px solid #C6D9F0; border-radius: 12px; padding: 2px 9px; cursor: pointer; }
+  .ax-chg-tag i { font-size: 10px; }
+  .ax-chg-tag:hover { background: #E1EBF9; }
+  .ax-chg-tag:focus-visible { outline: 2px solid #1257B8; outline-offset: 2px; }
   .axt td.axt-lbl { font-size: 12px; font-weight: 600; color: #5B6B7E; }
   .ax-list .axt td, .ax-after .axt td { overflow-wrap: anywhere; }
 
@@ -2303,7 +2319,7 @@
         if (isSel) sel = i;
         return '<tr' + (clickable ? ' class="axr' + (isSel ? ' is-open' : '') + '" data-act="axRow" data-arg="' + rid + '" role="button" tabindex="0" aria-pressed="' + isSel + '"' : '') + '>'
           + r.map(cellHTML).join('')
-          + '<td class="axr-cta">' + (clickable ? (isSel ? 'Hide change' : 'See change') : '') + '</td></tr>';
+          + '<td class="axr-cta">' + (clickable ? '<span class="axr-btn' + (isSel ? ' is-on' : '') + '"><i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>' + (isSel ? 'Hide change' : 'See change') + '</span>' : '') + '</td></tr>';
       }).join('');
       body += '<div class="ax-list">'
         + '<div class="ax-note"><b>' + (L.rows.length === 1 ? 'The row' : 'Rows') + ' from your file.</b> '
@@ -2312,7 +2328,7 @@
         + '</div>'
         + (sel >= 0 ? afterSectionHTML(L, sel) : '');
     }
-    if (a.fix) body += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>';
+    // No "What to do" box (removed 2026-10-09) — the line above the rows covers it; the CSV still lists it.
     // Blocked: questions go to an issue ticket in the Support Center (the "Submit a ticket" button was removed 2026-09-30).
     if (hard) body += '<div class="ax-ask">Have a question about this? <a href="' + HELP_LINKS.support + '" target="_blank" rel="noopener">Raise an issue ticket</a>.</div>';
 
@@ -2325,12 +2341,18 @@
     var toggle = body
       ? '<button class="ax-toggle" data-act="toggleDisc" data-arg="ax:' + a.id + '" aria-expanded="' + open + '">'
         + (open ? 'Hide details' : 'View details') + ' <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' : '';
+    // Visual cue (2026-10-09): this alert has rows you can click to see how they change.
+    var nChg = (!logRun && a.list && a.list.afters) ? a.list.afters.filter(hasChange).length : 0;
+    if (nChg && !open) toggle += '<button class="ax-chg-tag" data-act="toggleDisc" data-arg="ax:' + a.id + '">'
+      + '<i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>' + nChg + (nChg === 1 ? ' change' : ' changes') + ' to compare</button>';
     return '<div class="alert' + (open ? ' is-open' : '') + '" style="border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
       + '<div style="flex:1;min-width:0;">'
       + '<div class="chip ax-eyebrow" style="background:' + t.chipBg + ';"><i class="fa-solid ' + t.icon + '" aria-hidden="true"></i>' + t.chip + '</div>'   // eyebrow (2026-10-01)
       + '<div class="alert-title" style="color:' + t.titleColor + ';">' + esc(a.title) + '</div>'
-      + (copyReview ? '<div class="alert-key">' + esc(a.key) + '</div>' : '')
+      // PROTOTYPE ONLY — the catalog key, shown only on the copy-review sample file so copy can be
+      // checked against Confluence. Not part of the product: don't build it.
+      + (copyReview ? '<div class="alert-key"><span class="ak-proto"><i class="fa-solid fa-flask" aria-hidden="true"></i>Prototype only</span>Catalog key: <code>' + esc(a.key) + '</code></div>' : '')
       + (toggle ? '<div class="ax-line2">' + toggle + '</div>' : '')
       + '</div>'
       + ack   // top right (2026-10-01)

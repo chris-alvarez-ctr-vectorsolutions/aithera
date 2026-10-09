@@ -46,6 +46,14 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   gets the email when an automated upload fails, with **Edit list** to remove people, add an
   email (checks the format and duplicates) and **Save list** / **Cancel**. It's also reachable
   from a failed run's page ("Edit the list") and, in Flow 2, from the email footer.
+- **[DONE]** **Rows that change are marked:** each shows a "⇄ See change" pill (solid blue
+  "Hide change" once selected), and a closed alert with such rows shows a "⇄ N changes to
+  compare" tag beside View details (clicking it opens the details).
+- **[DONE]** **No "What to do" box** in the alert details — the line above the rows covers it.
+  The CSV still includes each Blocked issue's What to do.
+- **PROTOTYPE ONLY — don't build:** the **Catalog key** label under each alert title (e.g.
+  `large_bldg_change`, tagged "Prototype only") shows only on the copy-review sample file, so the
+  copy can be checked against the Confluence catalog. The user test never shows it.
 - **[DONE]** The CSV preview adds a **What happens** column (one sentence per row on what the
   import does to it — kept in the CSV, not shown on the page).
 - **[DONE]** **Upload log layout:** the table is on the left; "Made a mistake in an upload?"
