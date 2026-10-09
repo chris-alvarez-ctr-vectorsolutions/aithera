@@ -48,6 +48,12 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   issues", "2 warnings need your review", "2 changes to compare".
   `all_rows` (a count-only message in the catalog) reads "The rows in this file will be
   imported." — PENDING: it may be better dropped from Review altogether.
+- **[DONE]** **"users", not "people", in alert copy** (titles, details, CSV row notes): "New users
+  will be added." / "Some users’ names will change on your site." / "one user with two
+  usernames". Matches the Change summary ("New users added"). Outside the alerts, "people"
+  still appears in the Import settings switch ("Deactivate all people and positions not in
+  this file"), its helper text, the failure-email card and the side panel's CSV note — PENDING
+  a decision on whether those follow.
 - **[DONE]** **No em dashes in alert copy** (titles, View details, the CSV's "What happens" notes,
   the "I’ve reviewed this" label, the failed-upload banner). Clauses were split into sentences
   or joined with a comma instead. Empty table cells still show "—" (that's data, not copy).
