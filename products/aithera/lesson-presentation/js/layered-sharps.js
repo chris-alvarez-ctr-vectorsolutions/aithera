@@ -2712,13 +2712,6 @@
     try { return Math.max(1, Math.round(listenPieces(resolveListen(listenResults(), listenData), listenData).dur / 60)); }
     catch (e) { return null; }
   }
-  // Same rule, run on the live answers — the offer screen's runtime is the
-  // listen this learner WOULD get if they chose it now.
-  function listenMinutesLive() {
-    if (!listenData) return null;
-    try { return Math.max(1, Math.round(listenPieces(resolveListen(listenResultsLive(), listenData), listenData).dur / 60)); }
-    catch (e) { return null; }
-  }
   // Reviewer trace for the captions: which answer put each part here.
   function listenTrace() {
     if (!listenData) return 'Loading the audio manifest…';
@@ -2754,10 +2747,9 @@
   }
   var MODES = {
     listen:   { icon: 'fa-headphones', name: 'Listen mode',
-                sub: function () {
-                  var n = listenMinutesLive();
-                  return (n ? 'About ' + n + ' min' : 'Continuous listen') + ' \u00b7 Questions at the end';
-                } },
+                // No runtime here on purpose: Standard mode shows none, and a time
+                // on one option only reads as a reason to pick it.
+                sub: function () { return 'One continuous listen \u00b7 Questions at the end'; } },
     standard: { icon: 'fa-display', name: 'Standard mode',
                 sub: function () { return 'Watch or read, one section at a time'; } }
   };
@@ -2850,11 +2842,6 @@
       tip.hidden = !open;
       how.setAttribute('aria-expanded', open ? 'true' : 'false');
     });
-    // The runtime, once the manifest is in (usually already is).
-    if (!listenData && location.protocol !== 'file:') loadListenData().then(function () {
-      var sub = document.querySelector('.po-opt[data-pick="listen"] small');
-      if (sub && sub.isConnected) sub.textContent = MODES.listen.sub();
-    }).catch(function () {});
   }
 
   // ---- The player --------------------------------------------------------------
@@ -7812,7 +7799,7 @@
     // ---- The podcast path (see THE PODCAST PATH above) ----------------------
     { id: 'podoffer', icon: 'fa-headphones', stage: 'Entry', lesson: 'Choose a format', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
-      caption: { title: 'ENTRY · The Listen mode offer (2026-09-25)', note: 'After the pre-check, because the pre-check is what builds the listen: its answers pick the chapters, and the runtime shown is that cut\u2019s real length. Yes freezes the cut; the module then stays in Listen mode (no switching partway). No keeps the screen-by-screen path in the learner\u2019s Watch or Read preference. How it works sits behind the info toggle. From the audio script (Contain_the_Sharp_<sector>_Podcast.pdf): one continuous listen, every check at the end. Called Listen mode, not podcast, on every learner surface (2026-09-29).' },
+      caption: { title: 'ENTRY · The Listen mode offer (2026-09-25)', note: 'After the pre-check, because the pre-check is what builds the listen: its answers pick the chapters, and no runtime is shown for either option, so time never tips the choice. Yes freezes the cut; the module then stays in Listen mode (no switching partway). No keeps the screen-by-screen path in the learner\u2019s Watch or Read preference. How it works sits behind the info toggle. From the audio script (Contain_the_Sharp_<sector>_Podcast.pdf): one continuous listen, every check at the end. Called Listen mode, not podcast, on every learner surface (2026-09-29).' },
       content: PODOFFER_CONTENT, init: podofferInit },
     { id: 'podcast', icon: 'fa-headphones', stage: 'Learn', lesson: 'Contain the Sharp', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },

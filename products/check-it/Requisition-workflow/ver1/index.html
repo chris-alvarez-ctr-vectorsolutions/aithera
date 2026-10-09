@@ -1,0 +1,2340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check It — Requisition Workflow</title>
+
+<!--
+  REQUISITION WORKFLOW — stakeholder buy-in POC.
+  ===========================================================================
+  WHAT THIS IS
+  A visual prototype for a personal-issue inventory requisition feature in
+  Check It. It exists to get stakeholder agreement on the SHAPE of the
+  workflow, not to specify it. There is no refined PRD behind this; granular
+  rules (approval thresholds, routing, entitlement periods, stock accounting)
+  are deliberately NOT decided here. Where the mock has to show a number or a
+  rule to be legible, it is placeholder and marked as such in BUILD-NOTES.md.
+
+  THE MODEL — this is personal-issue gear, NOT store-room consumables.
+  The subject of a requisition is an item ASSIGNED TO A PERSON: the turnout
+  pants I am wearing, the flashlight I want issued to me. That makes the
+  entry point "my stuff" rather than "the catalog", and it makes a requisition
+  a request to CHANGE AN ASSIGNMENT:
+
+      replace   an item already assigned to me is damaged/worn out
+      new       I want to be issued something I do not currently have
+      renewal   an assigned item is due (expiry / entitlement cycle)
+
+  Those three are the only request reasons here. Lost/stolen is intentionally
+  out of scope for the POC — it carries accountability rules nobody has
+  defined, and showing it half-built invites the wrong conversation.
+
+  THE SPLIT (same convention as Checklist-management and Controlled-substances)
+    * The chrome — navy top bar, white left rail — is a RECREATION of the
+      shipped product, copied verbatim from Checklist-management/ver1 so all
+      three mocks read as one product. Decorative; a developer is not
+      rebuilding it. Only the active nav item moved (Inventory).
+    * The content window is the new design, and that is where the design
+      system does the work:
+        vaadin-tabs / vaadin-tab ....... surface tabs
+        vaadin-grid + columns .......... queues and tables
+        vaadin-text-field theme=outlined  search
+        vaadin-select / -combo-box ..... pickers, filters
+        vaadin-text-area ............... justification / reason
+        vaadin-dialog .................. request + decision modals
+        vaadin-checkbox ................ row selection
+        vaadin-progress-bar ............ fulfillment meters
+        span theme="badge …" ........... every status pill
+        vaadin-button theme=… .......... all actions
+      Colors come from --lumo-* semantic tokens and the shared --ci-/--rq-
+      shell tokens. Light only: the shipped product is light.
+
+  ROLE SWITCHING is a DEMO AFFORDANCE, not proposed product UI. The
+  "Viewing as" control in the top bar swaps which role's surfaces are
+  reachable so the whole chain can be walked in one sitting. It is visually
+  marked as a demo control (dashed outline, "DEMO" tag) so no stakeholder
+  mistakes it for a shipping feature. In the real product a user simply has
+  the permissions they have.
+
+  NO DESIGN TOOLBOX. This mock is a demo artifact rather than a review
+  artifact, so the toolbox include is omitted entirely rather than included
+  and disabled — that leaves no dead override to clean up later. If review
+  comments are wanted later, add the standard include back:
+      <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+
+  Single page, JS view switching. `data-view` on .rq-main picks the surface.
+-->
+
+<script
+type="module"
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+</script>
+
+<!-- Vector Web Components JavaScript -->
+<!-- Important! This should always be imported as script -->
+<script
+src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+</script>
+
+<!-- Our Standard font face - Open Sans -->
+<link
+rel="stylesheet"
+href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+/>
+
+<!-- Font Awesome 6 PRO — self-hosted at the repo root, four levels up. -->
+<link
+rel="stylesheet"
+href="../../../../assets/fontawesome/css/all.min.css"
+/>
+
+<style>
+  /* ====================================================================
+     SHELL TOKENS — sampled from the shipped Vector Check It product.
+     Prefixed --ci- so they never collide with Vector's --lumo-/--vwc- tokens.
+     Copied verbatim from Checklist-management/ver1 so all the Check It mocks
+     share one chrome. Do not re-tune these here.
+     ==================================================================== */
+  :root {
+    --ci-topbar-bg:  #1b3b5f;
+    --ci-surface:    #ffffff;
+    --ci-hairline:   #dcdcdc;
+    --ci-ink-900:    #2f2f2f;
+    --ci-ink-700:    #444444;
+    --ci-ink-500:    #6b6b6b;
+    --ci-navy:       #16416b;
+    --ci-nav-active: #e4e4e4;
+    --ci-alert-bg:   #fdeaea;
+    --ci-alert-fg:   #d32f2f;
+    --ci-sidebar-w:  233px;
+    --ci-topbar-h:   70px;
+
+    /* Content-window tokens. Solid hexes, not --lumo-contrast-Npct: those are
+       translucent rgba overlays, so sticky bars built on them let scrolling
+       content show through. Carried over from Checklist-management, where the
+       three surface levels are spaced far enough apart to be read at a glance:
+         --rq-page-bg   the ground everything sits ON
+         --rq-card-bg   a container: white, so it lifts off the ground
+         --rq-zebra     a container's HEADER — tinted, but only just */
+    --rq-page-bg:     #eceff3;
+    --rq-card-bg:     #ffffff;
+    --rq-line:        #dbe1e8;
+    --rq-line-soft:   #eef1f4;
+    --rq-zebra:       #fbfcfd;
+    --rq-zebra-deep:  #f4f6f9;
+    --rq-line-strong: #c6cfda;
+
+    /* Motion — short on purpose: motion here is for TRACKING a change, not
+       decoration. Anything over ~200ms starts to feel like waiting. */
+    --rq-ease:     cubic-bezier(.2, .7, .3, 1);
+    --rq-dur-fast: 110ms;
+    --rq-dur:      170ms;
+
+    --rq-gutter: 14px;
+
+    /* Status accents. Each requisition status gets ONE hue used consistently
+       in the badge, the timeline dot and the queue row accent, so a status is
+       recognisable before the label is read. */
+    --rq-draft:     #6b6b6b;
+    --rq-submitted: #1565c0;
+    --rq-approved:  #2e7d32;
+    --rq-denied:    #c62828;
+    --rq-issued:    #00695c;
+  }
+
+  html, body {
+    margin: 0; padding: 0;
+    font-family: 'Open Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px;
+    color: var(--ci-ink-900);
+    background: var(--ci-surface);
+  }
+
+  * { box-sizing: border-box; }
+
+  /* The `hidden` attribute is only `display:none` from the UA stylesheet, so
+     ANY author `display` rule outranks it. Restore the attribute's authority
+     so el.hidden = true actually hides a display:flex element. */
+  [hidden] { display: none !important; }
+
+  /* Focus ring for the hand-built shell and the plain buttons/rows in the
+     content window.
+
+     Deliberately NOT a bare `:focus-visible`. Vector components render a real
+     <input> in light DOM, so an unscoped rule reaches inside them and draws a
+     second, square ring outside the component's own focus treatment — which
+     reads as a broken permanent blue outline on the search fields. Vector
+     components ship their own focus styling, so they are excluded here. */
+  a:focus-visible,
+  button:focus-visible,
+  [tabindex]:focus-visible,
+  input:not([slot]):focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid #4a90d9; outline-offset: 2px;
+  }
+
+  /* The `* { box-sizing: border-box }` above zeroes vaadin-tab's host padding
+     and collapses the tab bar. Re-grant it. */
+  vaadin-tab { padding: 8px 16px; }
+
+  /* vwc-switch needs content-box or the global border-box reset collapses the
+     track and leaves only the inner circle visible. */
+  vwc-switch { box-sizing: content-box; flex-shrink: 0; }
+
+  /* ====================================================================
+     APP FRAME — fixed viewport so only the content column scrolls.
+     ==================================================================== */
+  .ci-app { position: fixed; inset: 0; display: flex; flex-direction: column; }
+
+  /* ---------------------------- TOP BAR ---------------------------- */
+  .ci-topbar {
+    height: var(--ci-topbar-h); flex-shrink: 0;
+    background: var(--ci-topbar-bg); color: #fff;
+    display: flex; align-items: center; padding: 0 22px;
+  }
+  .ci-logo { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; }
+  .ci-logo-lockup { height: 30px; width: auto; display: block; }
+  .ci-logo-sub { margin-left: 34px; font-size: 9.5px; color: #b6c6d6; letter-spacing: .4px; }
+
+  .ci-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .ci-avatar {
+    width: 42px; height: 42px; border-radius: 50%; background: #22b14c;
+    display: grid; place-items: center; font-size: 18px; color: #0d5c25;
+    border: 2px solid #d6f0dd; flex-shrink: 0;
+  }
+  .ci-username { font-size: 16px; color: #fff; white-space: nowrap; }
+
+  /* ---- DEMO role switcher -------------------------------------------
+     Deliberately styled as NOT-product: dashed border and a literal DEMO
+     tag. A stakeholder walking the demo must never mistake this for a
+     shipping control — in the real product you simply have the permissions
+     you have, and you never "switch roles". */
+  .rq-roleswitch {
+    display: flex; align-items: center; gap: 8px;
+    margin-right: 6px; padding: 5px 8px 5px 10px;
+    border: 1px dashed rgba(255,255,255,.45); border-radius: 7px;
+  }
+  .rq-roleswitch-tag {
+    font-size: 9px; font-weight: 700; letter-spacing: .9px;
+    color: #b6c6d6; text-transform: uppercase;
+  }
+  .rq-roleswitch-label { font-size: 11px; color: #b6c6d6; white-space: nowrap; }
+  .rq-roles { display: flex; gap: 2px; }
+  .rq-role {
+    border: 0; background: transparent; font: inherit; font-size: 12.5px;
+    color: #cfdcea; padding: 5px 11px; border-radius: 5px; cursor: pointer;
+    white-space: nowrap; transition: background var(--rq-dur-fast) var(--rq-ease);
+  }
+  .rq-role:hover { background: rgba(255,255,255,.1); }
+  .rq-role[aria-pressed="true"] { background: #fff; color: var(--ci-topbar-bg); font-weight: 600; }
+
+  /* ---------------------------- SIDEBAR ---------------------------- */
+  .ci-body { flex: 1; display: flex; min-height: 0; }
+  .ci-sidebar {
+    width: var(--ci-sidebar-w); flex-shrink: 0;
+    background: var(--ci-surface); border-right: 1px solid var(--ci-hairline);
+    display: flex; flex-direction: column;
+    overflow-y: auto; scrollbar-width: none;
+  }
+  .ci-sidebar::-webkit-scrollbar { width: 0; height: 0; }
+
+  .ci-search { padding: 14px 12px 10px; }
+  .ci-search .box {
+    display: flex; align-items: center; gap: 8px;
+    border: 1px solid #b9b9b9; border-radius: 6px; padding: 8px 10px;
+    font-size: 13px; color: var(--ci-ink-700);
+  }
+  .ci-search .box span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ci-search .box i { color: var(--ci-ink-900); font-size: 14px; }
+
+  .ci-nav { display: flex; flex-direction: column; gap: 2px; padding: 0 8px 24px; }
+  .ci-nav-item {
+    width: 100%; border: 0; background: transparent; font: inherit; font-size: 14.5px;
+    color: var(--ci-ink-900); text-align: left;
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 12px; border-radius: 6px; cursor: default;
+  }
+  .ci-nav-item .ci-nav-icon { width: 22px; font-size: 17px; text-align: center; flex-shrink: 0; }
+  .ci-nav-item .ci-nav-label { flex: 1; line-height: 1.25; }
+  .ci-nav-item .ci-nav-caret { font-size: 12px; color: var(--ci-ink-500); flex-shrink: 0; }
+  .ci-nav-item[aria-current="page"] { background: var(--ci-nav-active); font-weight: 600; }
+  .ci-nav-item.is-alert { background: var(--ci-alert-bg); color: var(--ci-alert-fg); }
+  .ci-nav-item.is-alert .ci-nav-icon,
+  .ci-nav-item.is-alert .ci-nav-caret { color: var(--ci-alert-fg); }
+
+  /* Sub-items under an expanded nav parent. Decorative like the rest of the
+     rail, but the active child needs to read as nested under Inventory. */
+  .ci-nav-sub {
+    display: flex; flex-direction: column; gap: 2px;
+    margin: 2px 0 4px; padding-left: 30px;
+  }
+  .ci-nav-sub .ci-nav-item { font-size: 13.5px; padding: 8px 12px; }
+
+  /* ====================================================================
+     CONTENT WINDOW — everything below here is the NEW design.
+     ==================================================================== */
+  .ci-content {
+    flex: 1; min-width: 0; overflow-y: auto;
+    background: var(--rq-page-bg);
+    padding: 22px 26px 60px;
+  }
+  /* Views carrying a fixed bottom action bar need clearance, or the last
+     element scrolls underneath it. Set on .rq-main (INSIDE .ci-content). */
+  .rq-main[data-view="request"] { padding-bottom: 84px; }
+
+  /* One view visible at a time, picked by data-view on .rq-main. */
+  .rq-view { display: none; }
+  .rq-main[data-view="my-items"]    .rq-view--my-items    { display: block; }
+  .rq-main[data-view="catalog"]     .rq-view--catalog     { display: block; }
+  .rq-main[data-view="my-requests"] .rq-view--my-requests { display: block; }
+  .rq-main[data-view="request"]     .rq-view--request     { display: block; }
+  .rq-main[data-view="approvals"]   .rq-view--approvals   { display: block; }
+  .rq-main[data-view="fulfillment"] .rq-view--fulfillment { display: block; }
+
+  /* ---------------------------- PAGE HEAD ---------------------------- */
+  .rq-pagehead {
+    display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 16px;
+  }
+  .rq-pagehead-text { flex: 1; min-width: 0; }
+  .rq-title {
+    margin: 0 0 3px; font-size: 22px; font-weight: 600; color: var(--ci-ink-900);
+    line-height: 1.2;
+  }
+  .rq-subtitle { margin: 0; font-size: 13.5px; color: var(--ci-ink-500); line-height: 1.45; }
+  .rq-pagehead-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+  /* Breadcrumb back-link, used on the request builder. */
+  .rq-back {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 0; background: transparent; font: inherit; font-size: 13px;
+    color: var(--rq-submitted); cursor: pointer; padding: 4px 0;
+    margin-bottom: 8px;
+  }
+  .rq-back:hover { text-decoration: underline; }
+
+  /* ---------------------------- CARD ---------------------------- */
+  .rq-card {
+    background: var(--rq-card-bg); border: 1px solid var(--rq-line);
+    border-radius: 9px; overflow: hidden;
+    margin-bottom: 16px;
+  }
+  .rq-card-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px var(--rq-gutter);
+    background: var(--rq-zebra); border-bottom: 1px solid var(--rq-line-soft);
+  }
+  .rq-card-title { font-size: 14px; font-weight: 600; flex: 1; min-width: 0; }
+  .rq-card-body { padding: var(--rq-gutter); }
+  .rq-card-body--flush { padding: 0; }
+
+  /* ---------------------------- TOOLBAR ---------------------------- */
+  .rq-toolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .rq-toolbar vaadin-text-field { width: 290px; }
+  .rq-toolbar vaadin-select,
+  .rq-toolbar vaadin-combo-box { width: 180px; }
+  .rq-toolbar-spacer { flex: 1; min-width: 0; }
+  .rq-count { font-size: 13px; color: var(--ci-ink-500); white-space: nowrap; }
+
+  /* ====================================================================
+     MY ASSIGNED ITEMS — the requester's home. A card grid, not a table:
+     these are physical things the person is responsible for, and a card
+     carries the image + condition + the action in one glance.
+     ==================================================================== */
+  .rq-itemgrid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 14px;
+    align-items: stretch;   /* every card in a row is the tallest card's height */
+  }
+  .rq-item {
+    background: var(--rq-card-bg); border: 1px solid var(--rq-line);
+    border-radius: 9px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    transition: border-color var(--rq-dur-fast) var(--rq-ease),
+                box-shadow var(--rq-dur-fast) var(--rq-ease);
+  }
+  .rq-item:hover { border-color: var(--rq-line-strong); box-shadow: 0 2px 8px rgba(22,65,107,.07); }
+
+  .rq-item-top { display: flex; gap: 12px; align-items: flex-start; }
+  .rq-item-thumb {
+    width: 54px; height: 54px; border-radius: 8px; flex-shrink: 0;
+    background: var(--rq-zebra-deep); border: 1px solid var(--rq-line-soft);
+    display: grid; place-items: center; font-size: 22px; color: #8795a6;
+  }
+  .rq-item-id { flex: 1; min-width: 0; }
+  .rq-item-name {
+    font-size: 14.5px; font-weight: 600; line-height: 1.3; margin-bottom: 3px;
+  }
+  .rq-item-meta { font-size: 12px; color: var(--ci-ink-500); line-height: 1.5; }
+
+  .rq-item-facts {
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+  }
+  /* The condition strip is the element that varies in height between cards
+     (one line, two lines, or absent). Letting IT absorb the slack — rather
+     than the footer — keeps every card's action button on the same baseline
+     across a row, which is what makes the grid scannable. */
+  .rq-condition { margin-top: auto; }
+  .rq-item-foot {
+    display: flex; align-items: center; gap: 8px;
+    padding-top: 10px; border-top: 1px solid var(--rq-line-soft);
+    /* Matches the measured height of a footer containing a `small`
+       vaadin-button (58px), so a card showing the "already requested"
+       state keeps the same footer box as a card showing an action button
+       and every footer in a row sits on one baseline. */
+    min-height: 58px;
+  }
+  .rq-item-foot .rq-item-foot-spacer { flex: 1; }
+
+  /* "Already requested" state on a card. Reuses the status pill so the
+     answer to "where is it?" is the same visual language everywhere, and
+     stays a link to the request rather than dead text. */
+  .rq-requested {
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 0; background: transparent; font: inherit; padding: 0;
+    cursor: pointer; text-align: left;
+  }
+  .rq-requested:hover .rq-requested-id { text-decoration: underline; }
+  .rq-requested-id { font-size: 12.5px; color: var(--rq-submitted); font-weight: 600; }
+
+  /* A small inline fact: label over value, for size / issued date / due. */
+  .rq-fact { font-size: 12px; line-height: 1.4; }
+  .rq-fact-label { color: var(--ci-ink-500); }
+  .rq-fact-value { font-weight: 600; }
+
+  /* Condition strip — the item's own state, which is what makes "replace"
+     the obvious next action. Tinted by severity. */
+  .rq-condition {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 7px; font-size: 12.5px; line-height: 1.4;
+    background: var(--rq-zebra-deep); color: var(--ci-ink-700);
+  }
+  .rq-condition i { font-size: 13px; flex-shrink: 0; }
+  .rq-condition--due    { background: #fff6e5; color: #8a5a00; }
+  .rq-condition--overdue{ background: var(--ci-alert-bg); color: var(--ci-alert-fg); }
+
+  /* ====================================================================
+     CATALOG — browse what CAN be issued. Denser than My Items: the person
+     is scanning, not managing, so the card is smaller and leads with the
+     request action.
+     ==================================================================== */
+  .rq-catgrid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(214px, 1fr));
+    gap: 13px;
+  }
+  .rq-cat {
+    background: var(--rq-card-bg); border: 1px solid var(--rq-line);
+    border-radius: 9px; padding: 13px;
+    display: flex; flex-direction: column; gap: 9px;
+    transition: border-color var(--rq-dur-fast) var(--rq-ease),
+                box-shadow var(--rq-dur-fast) var(--rq-ease);
+  }
+  .rq-cat:hover { border-color: var(--rq-line-strong); box-shadow: 0 2px 8px rgba(22,65,107,.07); }
+  .rq-cat-thumb {
+    height: 76px; border-radius: 7px;
+    background: var(--rq-zebra-deep); border: 1px solid var(--rq-line-soft);
+    display: grid; place-items: center; font-size: 27px; color: #8795a6;
+  }
+  .rq-cat-name { font-size: 13.5px; font-weight: 600; line-height: 1.32; }
+  .rq-cat-meta { font-size: 11.5px; color: var(--ci-ink-500); line-height: 1.45; }
+  .rq-cat-foot { margin-top: auto; display: flex; align-items: center; gap: 8px; }
+  .rq-cat-foot .rq-cat-foot-spacer { flex: 1; }
+
+  /* "Already assigned" overlay state — you cannot request a second one
+     without a reason, so the card says so rather than offering the button. */
+  .rq-cat.is-held { background: var(--rq-zebra); }
+  .rq-cat.is-held .rq-cat-thumb { opacity: .55; }
+
+  /* ====================================================================
+     STATUS BADGES + TIMELINE
+     ==================================================================== */
+  .rq-status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11.5px; font-weight: 600; line-height: 1;
+    padding: 5px 10px; border-radius: 999px; white-space: nowrap;
+  }
+  .rq-status::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor; flex-shrink: 0;
+  }
+  .rq-status--draft     { background: #eceff1; color: var(--rq-draft); }
+  .rq-status--submitted { background: #e3f0fc; color: var(--rq-submitted); }
+  .rq-status--approved  { background: #e6f4e7; color: var(--rq-approved); }
+  .rq-status--denied    { background: #fdeaea; color: var(--rq-denied); }
+  .rq-status--issued    { background: #e0f2f0; color: var(--rq-issued); }
+
+  /* Reason chip — why a requisition exists. Distinct from status so the two
+     never read as the same axis. */
+  .rq-reason {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11.5px; line-height: 1;
+    padding: 4px 9px; border-radius: 5px; white-space: nowrap;
+    background: var(--rq-zebra-deep); color: var(--ci-ink-700);
+    border: 1px solid var(--rq-line-soft);
+  }
+  .rq-reason i { font-size: 11px; }
+
+  /* ---- Progress timeline on a request detail ------------------------- */
+  .rq-timeline { display: flex; flex-direction: column; gap: 0; }
+  .rq-tl-step { display: flex; gap: 12px; }
+  .rq-tl-rail { display: flex; flex-direction: column; align-items: center; width: 18px; flex-shrink: 0; }
+  .rq-tl-dot {
+    width: 11px; height: 11px; border-radius: 50%; margin-top: 4px; flex-shrink: 0;
+    background: #fff; border: 2px solid var(--rq-line-strong);
+  }
+  .rq-tl-step.is-done .rq-tl-dot    { background: var(--rq-approved); border-color: var(--rq-approved); }
+  .rq-tl-step.is-current .rq-tl-dot { background: var(--rq-submitted); border-color: var(--rq-submitted);
+                                      box-shadow: 0 0 0 3px rgba(21,101,192,.16); }
+  .rq-tl-step.is-denied .rq-tl-dot  { background: var(--rq-denied); border-color: var(--rq-denied); }
+  .rq-tl-line { flex: 1; width: 2px; background: var(--rq-line); margin: 3px 0; min-height: 16px; }
+  .rq-tl-step:last-child .rq-tl-line { display: none; }
+  .rq-tl-body { flex: 1; min-width: 0; padding-bottom: 16px; }
+  .rq-tl-step:last-child .rq-tl-body { padding-bottom: 0; }
+  .rq-tl-label { font-size: 13.5px; font-weight: 600; line-height: 1.3; }
+  .rq-tl-step:not(.is-done):not(.is-current):not(.is-denied) .rq-tl-label { color: var(--ci-ink-500); font-weight: 500; }
+  .rq-tl-meta { font-size: 12px; color: var(--ci-ink-500); line-height: 1.5; margin-top: 2px; }
+
+  /* ====================================================================
+     REQUEST BUILDER — the form. Two columns: the form itself, and a
+     summary rail that stays put so the person always sees what they are
+     about to submit.
+     ==================================================================== */
+  .rq-split { display: grid; grid-template-columns: 1fr 320px; gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .rq-split { grid-template-columns: 1fr; } }
+  .rq-rail { position: sticky; top: 0; }
+
+  .rq-field { margin-bottom: 16px; }
+  .rq-field:last-child { margin-bottom: 0; }
+  .rq-field-label {
+    display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px;
+  }
+  .rq-field-help {
+    font-size: 12px; color: var(--ci-ink-500); line-height: 1.5; margin-top: 5px;
+  }
+  .rq-field vaadin-text-field,
+  .rq-field vaadin-text-area,
+  .rq-field vaadin-select,
+  .rq-field vaadin-combo-box { width: 100%; }
+
+  /* Reason picker — three big targets, because the reason changes what the
+     rest of the form asks for. Hand-rolled rather than
+     vwc-toggle-button-group: that component behaves additively inside
+     dialog renderers, so segmented controls here are plain buttons. */
+  .rq-reasonpick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  @media (max-width: 760px) { .rq-reasonpick { grid-template-columns: 1fr; } }
+  .rq-reasonopt {
+    border: 1px solid var(--rq-line); border-radius: 8px; background: var(--rq-card-bg);
+    padding: 13px; text-align: left; font: inherit; cursor: pointer;
+    display: flex; flex-direction: column; gap: 5px;
+    transition: border-color var(--rq-dur-fast) var(--rq-ease),
+                background var(--rq-dur-fast) var(--rq-ease);
+  }
+  .rq-reasonopt:hover { border-color: var(--rq-line-strong); background: var(--rq-zebra); }
+  .rq-reasonopt[aria-pressed="true"] {
+    border-color: var(--rq-submitted); background: #f2f8fe;
+    box-shadow: inset 0 0 0 1px var(--rq-submitted);
+  }
+  .rq-reasonopt-top { display: flex; align-items: center; gap: 8px; }
+  .rq-reasonopt i { font-size: 15px; color: var(--rq-submitted); }
+  .rq-reasonopt-name { font-size: 13.5px; font-weight: 600; }
+  .rq-reasonopt-desc { font-size: 12px; color: var(--ci-ink-500); line-height: 1.45; }
+
+  /* The item this request is about, echoed at the top of the form so the
+     person can see they picked the right thing. */
+  .rq-subject {
+    display: flex; gap: 12px; align-items: center;
+    padding: 12px; border-radius: 8px;
+    background: var(--rq-zebra-deep); border: 1px solid var(--rq-line-soft);
+  }
+  .rq-subject-thumb {
+    width: 44px; height: 44px; border-radius: 7px; flex-shrink: 0;
+    background: #fff; border: 1px solid var(--rq-line-soft);
+    display: grid; place-items: center; font-size: 18px; color: #8795a6;
+  }
+  .rq-subject-text { flex: 1; min-width: 0; }
+  .rq-subject-name { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .rq-subject-meta { font-size: 12px; color: var(--ci-ink-500); margin-top: 2px; }
+
+  /* Photo drop — placeholder affordance, not a working uploader. */
+  .rq-photo {
+    border: 1px dashed var(--rq-line-strong); border-radius: 8px;
+    padding: 18px; text-align: center; color: var(--ci-ink-500);
+    font-size: 12.5px; line-height: 1.6; background: var(--rq-zebra);
+  }
+  .rq-photo i { font-size: 20px; display: block; margin-bottom: 7px; color: #8795a6; }
+
+  /* Summary rail rows */
+  .rq-sum-row {
+    display: flex; gap: 10px; justify-content: space-between;
+    padding: 9px 0; border-bottom: 1px solid var(--rq-line-soft);
+    font-size: 13px; line-height: 1.4;
+  }
+  .rq-sum-row:last-child { border-bottom: 0; }
+  .rq-sum-key { color: var(--ci-ink-500); flex-shrink: 0; }
+  .rq-sum-val { font-weight: 600; text-align: right; min-width: 0; word-break: break-word; }
+  .rq-sum-val.is-empty { color: #9aa6b4; font-weight: 400; font-style: italic; }
+
+  /* Routing note — tells the requester what happens on submit. Placeholder
+     rule; the real routing is undecided. */
+  .rq-routing {
+    display: flex; gap: 9px; align-items: flex-start;
+    padding: 11px; border-radius: 7px; margin-top: 12px;
+    background: #f2f8fe; border: 1px solid #cfe3f7;
+    font-size: 12.5px; line-height: 1.5; color: #1a4e82;
+  }
+  .rq-routing i { margin-top: 1px; flex-shrink: 0; }
+
+  /* Fixed bottom action bar for the request builder. Pinned to the viewport
+     rather than sticky, so it is visible before any scrolling happens. */
+  .rq-actionbar {
+    position: fixed; bottom: 0; left: var(--ci-sidebar-w); right: 0; z-index: 20;
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 26px;
+    background: #f4f6f8; border-top: 1px solid var(--rq-line);
+    box-shadow: 0 -2px 10px rgba(22,65,107,.06);
+  }
+  .rq-actionbar-note { flex: 1; font-size: 12.5px; color: var(--ci-ink-500); }
+
+  /* ====================================================================
+     QUEUES — approvals and fulfillment. Table-shaped: these roles are
+     processing a list, not browsing things.
+     ==================================================================== */
+  .rq-queue-tabs { margin-bottom: 14px; }
+
+  .rq-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .rq-table thead th {
+    text-align: left; font-size: 12px; font-weight: 600; color: var(--ci-ink-500);
+    text-transform: uppercase; letter-spacing: .4px;
+    padding: 10px var(--rq-gutter); background: var(--rq-zebra);
+    border-bottom: 1px solid var(--rq-line);
+    white-space: nowrap;
+  }
+  .rq-table tbody td {
+    padding: 12px var(--rq-gutter); border-bottom: 1px solid var(--rq-line-soft);
+    vertical-align: middle;
+  }
+  .rq-table tbody tr:last-child td { border-bottom: 0; }
+  .rq-table tbody tr { transition: background var(--rq-dur-fast) var(--rq-ease); }
+  .rq-table tbody tr:hover { background: var(--rq-zebra); }
+  .rq-table .rq-td-actions { text-align: right; white-space: nowrap; }
+  .rq-table .rq-td-actions vaadin-button { margin-left: 6px; }
+
+  /* Requester cell — avatar + name + unit, so an approver can see WHO at a
+     glance, which is most of the approval decision in practice. */
+  .rq-who { display: flex; align-items: center; gap: 9px; }
+  .rq-who-av {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+    background: #dde6f0; color: var(--ci-navy);
+    display: grid; place-items: center; font-size: 11.5px; font-weight: 700;
+  }
+  .rq-who-text { min-width: 0; }
+  .rq-who-name { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+  .rq-who-unit { font-size: 11.5px; color: var(--ci-ink-500); line-height: 1.3; }
+
+  /* Item cell in a queue row. */
+  .rq-rowitem { display: flex; align-items: center; gap: 9px; }
+  .rq-rowitem-ic {
+    width: 30px; height: 30px; border-radius: 6px; flex-shrink: 0;
+    background: var(--rq-zebra-deep); border: 1px solid var(--rq-line-soft);
+    display: grid; place-items: center; font-size: 13px; color: #8795a6;
+  }
+  .rq-rowitem-name { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+  .rq-rowitem-meta { font-size: 11.5px; color: var(--ci-ink-500); line-height: 1.3; }
+
+  /* Age cell — how long it has been waiting. The only number an approver
+     queue really needs to sort by. */
+  .rq-age { font-size: 13px; white-space: nowrap; }
+  .rq-age.is-stale { color: #8a5a00; font-weight: 600; }
+  .rq-age.is-old   { color: var(--ci-alert-fg); font-weight: 600; }
+
+  /* Stock readout for the fulfiller. */
+  .rq-stock { font-size: 12.5px; line-height: 1.45; white-space: nowrap; }
+  .rq-stock-n { font-weight: 700; }
+  .rq-stock.is-low .rq-stock-n { color: #8a5a00; }
+  .rq-stock.is-out .rq-stock-n { color: var(--ci-alert-fg); }
+  .rq-stock-loc { color: var(--ci-ink-500); }
+
+  /* Empty state for a queue with nothing in it. */
+  .rq-empty {
+    padding: 44px 20px; text-align: center; color: var(--ci-ink-500);
+  }
+  .rq-empty i { font-size: 30px; color: #b6c2cf; display: block; margin-bottom: 11px; }
+  .rq-empty-title { font-size: 14.5px; font-weight: 600; color: var(--ci-ink-700); margin-bottom: 4px; }
+  .rq-empty-text { font-size: 13px; line-height: 1.55; max-width: 390px; margin: 0 auto; }
+
+  /* ---- Stat strip above a queue ------------------------------------- */
+  .rq-stats { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .rq-stat {
+    flex: 1; min-width: 148px;
+    background: var(--rq-card-bg); border: 1px solid var(--rq-line);
+    border-radius: 9px; padding: 12px 14px;
+  }
+  .rq-stat-n { font-size: 24px; font-weight: 600; line-height: 1.1; }
+  .rq-stat-l { font-size: 12.5px; color: var(--ci-ink-500); margin-top: 3px; }
+  .rq-stat--warn .rq-stat-n { color: #8a5a00; }
+  .rq-stat--alert .rq-stat-n { color: var(--ci-alert-fg); }
+
+  /* ====================================================================
+     DIALOG CONTENT — approval decision + request detail.
+     ==================================================================== */
+  .rq-dlg { width: 520px; max-width: 86vw; }
+  .rq-dlg-wide { width: 620px; max-width: 90vw; }
+  .rq-dlg h3 { margin: 0 0 3px; font-size: 17px; font-weight: 600; }
+  .rq-dlg-sub { margin: 0 0 16px; font-size: 13px; color: var(--ci-ink-500); line-height: 1.5; }
+  .rq-dlg-foot {
+    display: flex; align-items: center; gap: 9px;
+    margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rq-line-soft);
+  }
+  .rq-dlg-foot-spacer { flex: 1; }
+
+  /* A read-only detail block inside a dialog. */
+  .rq-detail-grid {
+    display: grid; grid-template-columns: auto 1fr; gap: 9px 16px;
+    font-size: 13px; line-height: 1.5;
+  }
+  .rq-detail-k { color: var(--ci-ink-500); white-space: nowrap; }
+  .rq-detail-v { font-weight: 600; }
+
+  .rq-quote {
+    padding: 11px 13px; border-radius: 7px; margin-top: 4px;
+    background: var(--rq-zebra-deep); border-left: 3px solid var(--rq-line-strong);
+    font-size: 13px; line-height: 1.55; color: var(--ci-ink-700);
+  }
+
+  /* Section divider inside a dialog */
+  .rq-dlg-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rq-line-soft); }
+  .rq-dlg-section:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+  .rq-dlg-section-title { font-size: 12px; font-weight: 700; text-transform: uppercase;
+                          letter-spacing: .5px; color: var(--ci-ink-500); margin-bottom: 10px; }
+
+  /* ---- Toast ---------------------------------------------------------
+     Hand-rolled rather than vaadin-notification: this needs to persist
+     exactly as long as the demo narrator wants, and the component's
+     transient behaviour fights that. */
+  .rq-toast {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(12px);
+    z-index: 200; display: flex; align-items: center; gap: 10px;
+    background: #22333f; color: #fff; font-size: 13.5px;
+    padding: 12px 17px; border-radius: 8px; box-shadow: 0 6px 22px rgba(0,0,0,.26);
+    opacity: 0; pointer-events: none;
+    transition: opacity var(--rq-dur) var(--rq-ease), transform var(--rq-dur) var(--rq-ease);
+  }
+  .rq-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .rq-toast i { color: #6ee7a8; font-size: 15px; }
+
+  /* Role-gated surfaces: hidden entirely when the demo role cannot see them,
+     so each role's view of the product is honest. */
+  .rq-tab-hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="ci-app">
+
+  <!-- ============================ TOP BAR ============================
+       Recreated product chrome. Decorative throughout, EXCEPT the role
+       switcher, which is a demo control and is marked as such.
+       Copied from Checklist-management/ver1 — keep the Check It mocks in sync. -->
+  <header class="ci-topbar">
+    <div class="ci-logo">
+      <img class="ci-logo-lockup" src="../../../../assets/vector-solutions-logo-white.svg" alt="Vector Solutions">
+      <span class="ci-logo-sub">Vector Check It</span>
+    </div>
+
+    <div class="ci-topbar-right">
+
+      <!-- DEMO ONLY. Dashed + tagged so nobody reads this as product UI.
+           In the shipped product a person simply has their permissions. -->
+      <div class="rq-roleswitch">
+        <span class="rq-roleswitch-tag">Demo</span>
+        <span class="rq-roleswitch-label">Viewing as</span>
+        <div class="rq-roles" role="group" aria-label="Demo role">
+          <button class="rq-role" type="button" data-role="requester" aria-pressed="true">Requester</button>
+          <button class="rq-role" type="button" data-role="approver"  aria-pressed="false">Approver</button>
+          <button class="rq-role" type="button" data-role="fulfiller" aria-pressed="false">Store Room</button>
+        </div>
+      </div>
+
+      <div class="ci-avatar"><i class="fa-solid fa-user" aria-hidden="true"></i></div>
+      <span class="ci-username" id="rqUserName">Dana Whitfield</span>
+    </div>
+  </header>
+
+  <div class="ci-body">
+
+    <!-- ============================ SIDEBAR ============================
+         Matches the shipped product's rail. Decorative — Inventory is the
+         current page, expanded to show where this feature lives. Everything
+         else is copied from Checklist-management/ver1 unchanged. -->
+    <aside class="ci-sidebar">
+      <div class="ci-search">
+        <div class="box">
+          <span>Search equipment / Apparatus</span>
+          <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+        </div>
+      </div>
+
+      <nav class="ci-nav" aria-label="Main">
+        <span class="ci-nav-item"><i class="fa-solid fa-house ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Home</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-truck-front ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Fleet</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-warehouse ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Store Rooms</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-gear ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Equipment</span></span>
+
+        <!-- Inventory is the parent of this feature. Expanded, with the
+             requisition surfaces as children. -->
+        <span class="ci-nav-item" aria-current="page"><i class="fa-solid fa-box ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Inventory</span><i class="fa-solid fa-chevron-down ci-nav-caret" aria-hidden="true"></i></span>
+        <div class="ci-nav-sub">
+          <span class="ci-nav-item"><span class="ci-nav-label">My Assigned Items</span></span>
+          <span class="ci-nav-item"><span class="ci-nav-label">Browse Catalog</span></span>
+          <span class="ci-nav-item"><span class="ci-nav-label">Requisitions</span></span>
+        </div>
+
+        <span class="ci-nav-item"><i class="fa-solid fa-syringe ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Controlled Substances</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-table-columns ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Tickets</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-wrench ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Service Tasks</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-list-check ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Checklist Library</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-gauge ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Dashboards</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-chart-column ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Reports</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-users ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Users</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item is-alert"><i class="fa-solid fa-triangle-exclamation ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Department</span><i class="fa-solid fa-chevron-left ci-nav-caret" aria-hidden="true"></i></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-square-check ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Fleet Summary</span></span>
+        <span class="ci-nav-item"><i class="fa-solid fa-circle-question ci-nav-icon" aria-hidden="true"></i><span class="ci-nav-label">Support Center</span></span>
+      </nav>
+    </aside>
+
+    <!-- ============================ CONTENT ============================ -->
+    <main class="ci-content" id="main">
+
+      <!-- Surface tabs. Which tabs exist depends on the demo role: a
+           requester never sees the approval queue, and that is the point —
+           each role's view of the product should read as complete on its own. -->
+      <vaadin-tabs id="rqTabs" class="rq-queue-tabs" selected="0">
+        <vaadin-tab data-view="my-items"    data-roles="requester">My Assigned Items</vaadin-tab>
+        <vaadin-tab data-view="catalog"     data-roles="requester">Browse Catalog</vaadin-tab>
+        <vaadin-tab data-view="my-requests" data-roles="requester">My Requests</vaadin-tab>
+        <vaadin-tab data-view="approvals"   data-roles="approver">Approval Queue</vaadin-tab>
+        <vaadin-tab data-view="fulfillment" data-roles="fulfiller">Fulfillment Queue</vaadin-tab>
+      </vaadin-tabs>
+
+      <div class="rq-main" data-view="my-items" id="rqMain">
+
+        <!-- ================= MY ASSIGNED ITEMS ================= -->
+        <section class="rq-view rq-view--my-items" aria-label="My assigned items">
+          <div class="rq-pagehead">
+            <div class="rq-pagehead-text">
+              <h1 class="rq-title">My Assigned Items</h1>
+              <p class="rq-subtitle">
+                Gear and equipment issued to you. Flag anything damaged or worn to request a replacement.
+              </p>
+            </div>
+          </div>
+
+          <div class="rq-toolbar">
+            <vaadin-text-field theme="outlined" placeholder="Search my items" id="miSearch" clear-button-visible>
+              <vwc-icon slot="suffix" name="magnify"></vwc-icon>
+            </vaadin-text-field>
+            <vaadin-select id="miCategory" label=""></vaadin-select>
+            <vaadin-select id="miCondition" label=""></vaadin-select>
+            <div class="rq-toolbar-spacer"></div>
+            <span class="rq-count" id="miCount"></span>
+          </div>
+
+          <div class="rq-itemgrid" id="miGrid"></div>
+        </section>
+
+        <!-- ================= BROWSE CATALOG ================= -->
+        <section class="rq-view rq-view--catalog" aria-label="Browse catalog">
+          <div class="rq-pagehead">
+            <div class="rq-pagehead-text">
+              <h1 class="rq-title">Browse Catalog</h1>
+              <p class="rq-subtitle">
+                Equipment available to be issued. Request anything you need that isn't already assigned to you.
+              </p>
+            </div>
+          </div>
+
+          <div class="rq-toolbar">
+            <vaadin-text-field theme="outlined" placeholder="Search catalog" id="catSearch" clear-button-visible>
+              <vwc-icon slot="suffix" name="magnify"></vwc-icon>
+            </vaadin-text-field>
+            <vaadin-select id="catCategory" label=""></vaadin-select>
+            <div class="rq-toolbar-spacer"></div>
+            <span class="rq-count" id="catCount"></span>
+          </div>
+
+          <div class="rq-catgrid" id="catGrid"></div>
+        </section>
+
+        <!-- ================= MY REQUESTS ================= -->
+        <section class="rq-view rq-view--my-requests" aria-label="My requests">
+          <div class="rq-pagehead">
+            <div class="rq-pagehead-text">
+              <h1 class="rq-title">My Requests</h1>
+              <p class="rq-subtitle">
+                Everything you've requested, and where each one stands.
+              </p>
+            </div>
+          </div>
+
+          <div class="rq-card">
+            <div class="rq-card-body rq-card-body--flush" id="mrWrap"></div>
+          </div>
+        </section>
+
+        <!-- ================= REQUEST BUILDER ================= -->
+        <section class="rq-view rq-view--request" aria-label="New requisition">
+          <button class="rq-back" type="button" id="reqBack">
+            <i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back
+          </button>
+
+          <div class="rq-pagehead">
+            <div class="rq-pagehead-text">
+              <h1 class="rq-title" id="reqTitle">New Requisition</h1>
+              <p class="rq-subtitle" id="reqSubtitle">
+                Tell us what you need and why. Your supervisor reviews it before it's issued.
+              </p>
+            </div>
+          </div>
+
+          <div class="rq-split">
+            <div>
+              <!-- The item this is about -->
+              <div class="rq-card">
+                <div class="rq-card-head"><span class="rq-card-title">Item</span></div>
+                <div class="rq-card-body">
+                  <div class="rq-subject" id="reqSubject"></div>
+                </div>
+              </div>
+
+              <!-- Why -->
+              <div class="rq-card">
+                <div class="rq-card-head"><span class="rq-card-title">Reason for request</span></div>
+                <div class="rq-card-body">
+                  <div class="rq-reasonpick" id="reqReasons"></div>
+
+                  <div class="rq-field" style="margin-top:16px;" id="reqDetailWrap">
+                    <label class="rq-field-label" for="reqDetail" id="reqDetailLabel">What happened?</label>
+                    <vaadin-text-area id="reqDetail" placeholder="Describe the damage or why you need this item."></vaadin-text-area>
+                    <div class="rq-field-help" id="reqDetailHelp">
+                      Enough detail that your supervisor can approve it without asking a follow-up question.
+                    </div>
+                  </div>
+
+                  <div class="rq-field" id="reqPhotoWrap">
+                    <label class="rq-field-label">Photo</label>
+                    <div class="rq-photo">
+                      <i class="fa-solid fa-camera" aria-hidden="true"></i>
+                      Drag a photo here, or <strong>browse</strong><br>
+                      Optional, but it speeds up approval for damage claims.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- What exactly -->
+              <div class="rq-card">
+                <div class="rq-card-head"><span class="rq-card-title">Details</span></div>
+                <div class="rq-card-body">
+                  <div class="rq-field" id="reqSizeWrap">
+                    <label class="rq-field-label" for="reqSize">Size</label>
+                    <vaadin-select id="reqSize"></vaadin-select>
+                    <div class="rq-field-help" id="reqSizeHelp"></div>
+                  </div>
+
+                  <div class="rq-field">
+                    <label class="rq-field-label" for="reqQty">Quantity</label>
+                    <vaadin-select id="reqQty"></vaadin-select>
+                  </div>
+
+                  <div class="rq-field">
+                    <label class="rq-field-label" for="reqNeeded">Needed by</label>
+                    <vaadin-select id="reqNeeded"></vaadin-select>
+                    <div class="rq-field-help">
+                      Used to prioritise the queue. It isn't a guarantee.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Summary rail — always shows what is about to be submitted. -->
+            <div class="rq-rail">
+              <div class="rq-card">
+                <div class="rq-card-head"><span class="rq-card-title">Summary</span></div>
+                <div class="rq-card-body">
+                  <div id="reqSummary"></div>
+                  <div class="rq-routing">
+                    <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
+                    <span id="reqRouting"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="rq-actionbar">
+            <span class="rq-actionbar-note" id="reqBarNote"></span>
+            <vaadin-button theme="tertiary" id="reqCancel">Cancel</vaadin-button>
+            <vaadin-button theme="secondary" id="reqDraft">Save draft</vaadin-button>
+            <vaadin-button theme="primary" id="reqSubmit">Submit request</vaadin-button>
+          </div>
+        </section>
+
+        <!-- ================= APPROVAL QUEUE ================= -->
+        <section class="rq-view rq-view--approvals" aria-label="Approval queue">
+          <div class="rq-pagehead">
+            <div class="rq-pagehead-text">
+              <h1 class="rq-title">Approval Queue</h1>
+              <p class="rq-subtitle">
+                Requisitions from your crew waiting on a decision.
+              </p>
+            </div>
+          </div>
+
+          <div class="rq-stats" id="apStats"></div>
+
+          <div class="rq-toolbar">
+            <vaadin-text-field theme="outlined" placeholder="Search requests" id="apSearch" clear-button-visible>
+              <vwc-icon slot="suffix" name="magnify"></vwc-icon>
+            </vaadin-text-field>
+            <vaadin-select id="apReason" label=""></vaadin-select>
+            <div class="rq-toolbar-spacer"></div>
+            <span class="rq-count" id="apCount"></span>
+          </div>
+
+          <div class="rq-card">
+            <div class="rq-card-body rq-card-body--flush" id="apWrap"></div>
+          </div>
+        </section>
+
+        <!-- ================= FULFILLMENT QUEUE ================= -->
+        <section class="rq-view rq-view--fulfillment" aria-label="Fulfillment queue">
+          <div class="rq-pagehead">
+            <div class="rq-pagehead-text">
+              <h1 class="rq-title">Fulfillment Queue</h1>
+              <p class="rq-subtitle">
+                Approved requisitions ready to pick and issue from the store room.
+              </p>
+            </div>
+          </div>
+
+          <div class="rq-stats" id="fuStats"></div>
+
+          <div class="rq-toolbar">
+            <vaadin-text-field theme="outlined" placeholder="Search approved requests" id="fuSearch" clear-button-visible>
+              <vwc-icon slot="suffix" name="magnify"></vwc-icon>
+            </vaadin-text-field>
+            <vaadin-select id="fuStock" label=""></vaadin-select>
+            <div class="rq-toolbar-spacer"></div>
+            <span class="rq-count" id="fuCount"></span>
+          </div>
+
+          <div class="rq-card">
+            <div class="rq-card-body rq-card-body--flush" id="fuWrap"></div>
+          </div>
+        </section>
+
+      </div><!-- /.rq-main -->
+    </main>
+  </div><!-- /.ci-body -->
+</div><!-- /.ci-app -->
+
+<!-- Dialogs. Content is supplied by renderers in JS. -->
+<vaadin-dialog id="dlgDetail"  theme="no-padding"></vaadin-dialog>
+<vaadin-dialog id="dlgDecide"  theme="no-padding"></vaadin-dialog>
+<vaadin-dialog id="dlgIssue"   theme="no-padding"></vaadin-dialog>
+
+<div class="rq-toast" id="rqToast" role="status" aria-live="polite">
+  <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+  <span id="rqToastText"></span>
+</div>
+
+<script>
+/* ===========================================================================
+   REQUISITION WORKFLOW — demo script
+   ---------------------------------------------------------------------------
+   Everything is in-memory. No persistence, no backend. State lives in the
+   objects below and the UI re-renders from them, so a demo can be reset by
+   reloading the page.
+
+   The data shape is the one thing here worth a developer's attention — it is
+   the POC's actual proposal. A REQUISITION is a request to change an
+   ASSIGNMENT, so it points at a catalog item and, when replacing, at the
+   specific assigned instance being replaced:
+
+     requisition {
+       id, requester, unit,
+       catalogId,            // what is wanted
+       assignmentId | null,  // the instance being replaced (null for 'new')
+       reason: 'replace' | 'new' | 'renewal',
+       detail,               // free text from the requester
+       size, qty, neededBy,
+       status: 'draft' | 'submitted' | 'approved' | 'denied' | 'issued',
+       history: [ { at, by, action, note } ]
+     }
+
+   Deliberately NOT modelled, because nobody has decided them yet:
+     - approval thresholds / multi-step routing (one approver here)
+     - stock reservation and accounting (stock is a display number only)
+     - entitlement periods and renewal eligibility rules
+     - cost centres, budgets, charge-back
+   These are flagged in BUILD-NOTES.md so the gaps are explicit rather than
+   looking like oversights.
+   =========================================================================== */
+
+(function () {
+  'use strict';
+
+  /* ---------------------------------------------------------------------
+     SEED DATA
+     --------------------------------------------------------------------- */
+
+  var TODAY = new Date('2026-10-05T09:00:00');
+
+  /* Catalog — what can be issued. `sizes` null means the item is one-size,
+     which is what drives whether the request form asks for a size at all. */
+  var CATALOG = [
+    { id: 'c-pants',  name: 'Turnout Pants',           cat: 'PPE',        icon: 'fa-person-walking', sizes: ['S','M','L','XL','2XL'], stock: 12, loc: 'Main Store Room', note: 'NFPA 1971 certified' },
+    { id: 'c-coat',   name: 'Turnout Coat',            cat: 'PPE',        icon: 'fa-shirt',          sizes: ['S','M','L','XL','2XL'], stock: 8,  loc: 'Main Store Room', note: 'NFPA 1971 certified' },
+    { id: 'c-helmet', name: 'Structural Helmet',       cat: 'PPE',        icon: 'fa-helmet-safety',  sizes: null,                     stock: 5,  loc: 'Main Store Room', note: '10-year service life' },
+    { id: 'c-boots',  name: 'Structural Boots',        cat: 'PPE',        icon: 'fa-boot',           sizes: ['8','9','10','11','12','13'], stock: 3, loc: 'Main Store Room', note: '' },
+    { id: 'c-gloves', name: 'Extrication Gloves',      cat: 'PPE',        icon: 'fa-mitten',         sizes: ['S','M','L','XL'],       stock: 22, loc: 'Main Store Room', note: '' },
+    { id: 'c-hood',   name: 'Particulate Hood',        cat: 'PPE',        icon: 'fa-mask',           sizes: null,                     stock: 31, loc: 'Main Store Room', note: 'Replace every 2 years' },
+    { id: 'c-light',  name: 'Right-Angle Flashlight',  cat: 'Tools',      icon: 'fa-flashlight',     sizes: null,                     stock: 14, loc: 'Apparatus Bay',   note: 'Intrinsically safe' },
+    { id: 'c-halli',  name: 'Halligan Bar',            cat: 'Tools',      icon: 'fa-hammer',         sizes: null,                     stock: 2,  loc: 'Apparatus Bay',   note: '30 in.' },
+    { id: 'c-strap',  name: 'Webbing & Carabiner Set', cat: 'Tools',      icon: 'fa-link',           sizes: null,                     stock: 0,  loc: 'Apparatus Bay',   note: 'Backordered' },
+    { id: 'c-radio',  name: 'Portable Radio',          cat: 'Comms',      icon: 'fa-walkie-talkie',  sizes: null,                     stock: 6,  loc: 'Comms Locker',    note: 'Programmed to dept. talkgroups' },
+    { id: 'c-mic',    name: 'Remote Speaker Mic',      cat: 'Comms',      icon: 'fa-microphone',     sizes: null,                     stock: 9,  loc: 'Comms Locker',    note: '' },
+    { id: 'c-pager',  name: 'Alerting Pager',          cat: 'Comms',      icon: 'fa-pager',          sizes: null,                     stock: 17, loc: 'Comms Locker',    note: '' }
+  ];
+
+  /* Assignments — what Dana currently holds. `condition` is the hook that
+     makes "replace" the obvious action on a worn item. */
+  var ASSIGNMENTS = [
+    { id: 'a1', catalogId: 'c-pants',  size: 'L',  issued: '2023-04-12', serial: 'TP-44817', condition: 'damaged', conditionNote: 'Tear along the right knee seam',   due: null },
+    { id: 'a2', catalogId: 'c-coat',   size: 'L',  issued: '2023-04-12', serial: 'TC-44818', condition: 'good',    conditionNote: '',                                 due: null },
+    { id: 'a3', catalogId: 'c-helmet', size: null, issued: '2019-02-28', serial: 'HL-10294', condition: 'due',     conditionNote: 'Reaches 10-year service life Feb 2029', due: '2029-02-28' },
+    { id: 'a4', catalogId: 'c-hood',   size: null, issued: '2024-09-01', serial: 'PH-77310', condition: 'overdue', conditionNote: 'Replacement was due Sep 2026',      due: '2026-09-01' },
+    { id: 'a5', catalogId: 'c-boots',  size: '11', issued: '2024-11-20', serial: 'SB-55120', condition: 'good',    conditionNote: '',                                 due: null },
+    { id: 'a6', catalogId: 'c-radio',  size: null, issued: '2025-06-03', serial: 'RD-90233', condition: 'good',    conditionNote: '',                                 due: null },
+    { id: 'a7', catalogId: 'c-gloves', size: 'L',  issued: '2025-01-15', serial: 'EG-31887', condition: 'worn',    conditionNote: 'Palm reinforcement wearing through', due: null }
+  ];
+
+  /* Requisitions. Dana's own, plus crew requests that populate the approver
+     and fulfiller queues so those surfaces are never empty in a demo. */
+  var REQUISITIONS = [
+    { id: 'R-2041', requester: 'Dana Whitfield', unit: 'Engine 7 / A-Shift', catalogId: 'c-boots', assignmentId: 'a5',
+      reason: 'replace', detail: 'Sole separating from the upper on the left boot.', size: '11', qty: 1,
+      neededBy: 'This week', status: 'approved', submittedAt: '2026-10-01',
+      history: [ { at: '2026-10-01', by: 'Dana Whitfield', action: 'Submitted', note: '' },
+                 { at: '2026-10-02', by: 'Capt. Mira Hollis', action: 'Approved', note: 'Safety critical — expedite.' } ] },
+
+    { id: 'R-2038', requester: 'Dana Whitfield', unit: 'Engine 7 / A-Shift', catalogId: 'c-light', assignmentId: null,
+      reason: 'new', detail: 'Assigned to search team; need my own hand light rather than borrowing the rig spare.', size: null, qty: 1,
+      neededBy: 'No rush', status: 'submitted', submittedAt: '2026-10-03',
+      history: [ { at: '2026-10-03', by: 'Dana Whitfield', action: 'Submitted', note: '' } ] },
+
+    { id: 'R-2029', requester: 'Dana Whitfield', unit: 'Engine 7 / A-Shift', catalogId: 'c-mic', assignmentId: null,
+      reason: 'new', detail: 'Requesting a second remote mic for the spare radio.', size: null, qty: 1,
+      neededBy: 'No rush', status: 'denied', submittedAt: '2026-09-18',
+      history: [ { at: '2026-09-18', by: 'Dana Whitfield', action: 'Submitted', note: '' },
+                 { at: '2026-09-20', by: 'Capt. Mira Hollis', action: 'Denied', note: 'Spare radio already carries a mic. Check the Engine 7 locker.' } ] },
+
+    { id: 'R-2012', requester: 'Dana Whitfield', unit: 'Engine 7 / A-Shift', catalogId: 'c-gloves', assignmentId: 'a7',
+      reason: 'replace', detail: 'Palm wearing through on both gloves.', size: 'L', qty: 1,
+      neededBy: 'This week', status: 'issued', submittedAt: '2026-09-02',
+      history: [ { at: '2026-09-02', by: 'Dana Whitfield', action: 'Submitted', note: '' },
+                 { at: '2026-09-03', by: 'Capt. Mira Hollis', action: 'Approved', note: '' },
+                 { at: '2026-09-05', by: 'R. Alvarez (Store Room)', action: 'Issued', note: 'Picked up in person.' } ] },
+
+    /* Other crew — approver + fulfiller queue fodder. */
+    { id: 'R-2044', requester: 'Marcus Reyes', unit: 'Engine 7 / A-Shift', catalogId: 'c-pants', assignmentId: 'x1',
+      reason: 'replace', detail: 'Thermal liner delaminating after the warehouse fire last week.', size: 'XL', qty: 1,
+      neededBy: 'Urgent', status: 'submitted', submittedAt: '2026-10-04',
+      history: [ { at: '2026-10-04', by: 'Marcus Reyes', action: 'Submitted', note: '' } ] },
+
+    { id: 'R-2043', requester: 'Priya Raman', unit: 'Ladder 3 / A-Shift', catalogId: 'c-hood', assignmentId: 'x2',
+      reason: 'renewal', detail: 'Two-year replacement cycle reached.', size: null, qty: 1,
+      neededBy: 'This month', status: 'submitted', submittedAt: '2026-10-02',
+      history: [ { at: '2026-10-02', by: 'Priya Raman', action: 'Submitted', note: '' } ] },
+
+    { id: 'R-2042', requester: 'Tom Okafor', unit: 'Engine 7 / B-Shift', catalogId: 'c-halli', assignmentId: null,
+      reason: 'new', detail: 'Promoted to truck company; need my own set of irons.', size: null, qty: 1,
+      neededBy: 'This month', status: 'submitted', submittedAt: '2026-09-28',
+      history: [ { at: '2026-09-28', by: 'Tom Okafor', action: 'Submitted', note: '' } ] },
+
+    { id: 'R-2040', requester: 'Sofia Lindqvist', unit: 'Ladder 3 / C-Shift', catalogId: 'c-strap', assignmentId: null,
+      reason: 'new', detail: 'Rope rescue team assignment.', size: null, qty: 1,
+      neededBy: 'This month', status: 'approved', submittedAt: '2026-09-30',
+      history: [ { at: '2026-09-30', by: 'Sofia Lindqvist', action: 'Submitted', note: '' },
+                 { at: '2026-10-01', by: 'Capt. Mira Hollis', action: 'Approved', note: '' } ] },
+
+    { id: 'R-2039', requester: 'Marcus Reyes', unit: 'Engine 7 / A-Shift', catalogId: 'c-helmet', assignmentId: 'x3',
+      reason: 'renewal', detail: 'Helmet reaches service life this quarter.', size: null, qty: 1,
+      neededBy: 'This month', status: 'approved', submittedAt: '2026-09-29',
+      history: [ { at: '2026-09-29', by: 'Marcus Reyes', action: 'Submitted', note: '' },
+                 { at: '2026-09-30', by: 'Capt. Mira Hollis', action: 'Approved', note: '' } ] }
+  ];
+
+  /* --- Vocabulary --------------------------------------------------------
+     Declared once so a label, icon or colour is never re-derived at a call
+     site. Same discipline as RESPONSE_TYPES in Checklist-management. */
+
+  var REASONS = {
+    replace: { label: 'Replacement', icon: 'fa-arrows-rotate',
+               desc: 'Something issued to me is damaged or worn out.',
+               detailLabel: 'What happened?',
+               detailHelp: 'Enough detail that your supervisor can approve it without asking a follow-up question.',
+               photo: true },
+    new:     { label: 'New issue', icon: 'fa-circle-plus',
+               desc: "I need something I don't currently have.",
+               detailLabel: 'Why do you need this?',
+               detailHelp: 'A new issue is an addition to your assigned gear, so the justification matters.',
+               photo: false },
+    renewal: { label: 'Scheduled renewal', icon: 'fa-calendar-check',
+               desc: 'An assigned item is due or expired.',
+               detailLabel: 'Anything to add?',
+               detailHelp: 'Optional — the due date is already on record.',
+               photo: false }
+  };
+
+  var STATUSES = {
+    draft:     { label: 'Draft' },
+    submitted: { label: 'Pending approval' },
+    approved:  { label: 'Approved' },
+    denied:    { label: 'Denied' },
+    issued:    { label: 'Issued' }
+  };
+
+  var CONDITIONS = {
+    good:    { label: 'Good condition', icon: 'fa-circle-check', cls: '' },
+    worn:    { label: 'Worn',           icon: 'fa-circle-exclamation', cls: 'rq-condition--due' },
+    damaged: { label: 'Damaged',        icon: 'fa-triangle-exclamation', cls: 'rq-condition--overdue' },
+    due:     { label: 'Replacement due', icon: 'fa-calendar-day', cls: 'rq-condition--due' },
+    overdue: { label: 'Replacement overdue', icon: 'fa-calendar-xmark', cls: 'rq-condition--overdue' }
+  };
+
+  /* --- Small helpers ----------------------------------------------------- */
+
+  var $  = function (sel, root) { return (root || document).querySelector(sel); };
+  var $$ = function (sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); };
+
+  function esc(s) {
+    return String(s === null || s === undefined ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function catalogById(id) {
+    for (var i = 0; i < CATALOG.length; i++) if (CATALOG[i].id === id) return CATALOG[i];
+    return null;
+  }
+  function assignmentById(id) {
+    for (var i = 0; i < ASSIGNMENTS.length; i++) if (ASSIGNMENTS[i].id === id) return ASSIGNMENTS[i];
+    return null;
+  }
+  function reqById(id) {
+    for (var i = 0; i < REQUISITIONS.length; i++) if (REQUISITIONS[i].id === id) return REQUISITIONS[i];
+    return null;
+  }
+
+  /* Days between a yyyy-mm-dd string and the demo's "today". */
+  function daysAgo(iso) {
+    var d = new Date(iso + 'T09:00:00');
+    return Math.round((TODAY - d) / 86400000);
+  }
+  function ageText(iso) {
+    var n = daysAgo(iso);
+    if (n <= 0) return 'Today';
+    if (n === 1) return '1 day';
+    return n + ' days';
+  }
+  function ageClass(iso) {
+    var n = daysAgo(iso);
+    if (n >= 7) return 'is-old';
+    if (n >= 3) return 'is-stale';
+    return '';
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    var d = new Date(iso + 'T09:00:00');
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function initials(name) {
+    return name.split(/\s+/).map(function (p) { return p.charAt(0); }).join('').slice(0, 2).toUpperCase();
+  }
+
+  function statusPill(status) {
+    var s = STATUSES[status] || { label: status };
+    return '<span class="rq-status rq-status--' + status + '">' + esc(s.label) + '</span>';
+  }
+  function reasonChip(reason) {
+    var r = REASONS[reason];
+    if (!r) return '';
+    return '<span class="rq-reason"><i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>' + esc(r.label) + '</span>';
+  }
+
+  /* Populate a vaadin-select from a list of {label,value}. Done in JS because
+     the component takes `items` as a property, not markup. */
+  function fillSelect(el, items, value) {
+    if (!el) return;
+    el.items = items;
+    el.value = value !== undefined ? value : items[0].value;
+  }
+
+  /* Toast — hand-rolled so the demo narrator controls how long it sits. */
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('#rqToast');
+    $('#rqToastText').textContent = msg;
+    t.classList.add('is-on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('is-on'); }, 3400);
+  }
+
+  /* =====================================================================
+     ROLE + VIEW SWITCHING
+
+     Role is a DEMO construct. It controls which tabs exist and who the
+     top-bar identity claims to be. Each role's tab set is complete on its
+     own, so the demo never shows a requester a queue they could not open.
+     ===================================================================== */
+
+  var ROLE_IDENTITY = {
+    requester: { name: 'Dana Whitfield',    landing: 'my-items' },
+    approver:  { name: 'Capt. Mira Hollis', landing: 'approvals' },
+    fulfiller: { name: 'R. Alvarez',        landing: 'fulfillment' }
+  };
+
+  var state = {
+    role: 'requester',
+    view: 'my-items',
+    /* The in-progress request being built. Null when not on the builder. */
+    draft: null
+  };
+
+  var tabsEl = $('#rqTabs');
+  var mainEl = $('#rqMain');
+
+  /* Tabs whose data-roles doesn't include the current role are hidden
+     rather than disabled — a disabled tab still advertises a surface the
+     person will never reach, which muddies the demo. */
+  function applyRole(role) {
+    state.role = role;
+
+    $$('.rq-role').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.role === role));
+    });
+
+    $('#rqUserName').textContent = ROLE_IDENTITY[role].name;
+
+    $$('vaadin-tab', tabsEl).forEach(function (t) {
+      var ok = (t.dataset.roles || '').split(/\s+/).indexOf(role) !== -1;
+      t.classList.toggle('rq-tab-hidden', !ok);
+    });
+
+    setView(ROLE_IDENTITY[role].landing);
+  }
+
+  /* Select the tab matching a view, if that view has one. The request
+     builder has no tab — it is reached from an item, and its back button
+     returns to where it came from. */
+  function syncTab(view) {
+    var tabs = $$('vaadin-tab', tabsEl);
+    for (var i = 0; i < tabs.length; i++) {
+      if (tabs[i].dataset.view === view) { tabsEl.selected = i; return; }
+    }
+    /* No tab owns this view — the request builder is a sub-page reached from
+       an item, not a tab destination. Leaving a tab highlighted there would
+       claim you are still on it, so clear the selection and let the Back
+       link be the way out. -1 is vaadin-tabs' "nothing selected". */
+    tabsEl.selected = -1;
+  }
+
+  function setView(view) {
+    state.view = view;
+    mainEl.setAttribute('data-view', view);
+    syncTab(view);
+    $('.ci-content').scrollTop = 0;
+
+    if (view === 'my-items')    renderMyItems();
+    if (view === 'catalog')     renderCatalog();
+    if (view === 'my-requests') renderMyRequests();
+    if (view === 'approvals')   renderApprovals();
+    if (view === 'fulfillment') renderFulfillment();
+  }
+
+  $$('.rq-role').forEach(function (b) {
+    b.addEventListener('click', function () { applyRole(b.dataset.role); });
+  });
+
+  /* `selected-changed` fires once on upgrade too, so compare before acting
+     or this re-enters setView during the initial render. */
+  tabsEl.addEventListener('selected-changed', function (e) {
+    var tabs = $$('vaadin-tab', tabsEl);
+    var t = tabs[e.detail.value];
+    if (!t) return;
+    if (t.dataset.view === state.view) return;
+    setView(t.dataset.view);
+  });
+
+  /* =====================================================================
+     MY ASSIGNED ITEMS
+     ===================================================================== */
+
+  var miFilters = { q: '', cat: 'all', cond: 'all' };
+
+  function renderMyItems() {
+    var rows = ASSIGNMENTS.filter(function (a) {
+      var c = catalogById(a.catalogId);
+      if (!c) return false;
+      if (miFilters.cat !== 'all' && c.cat !== miFilters.cat) return false;
+      if (miFilters.cond === 'attention' && a.condition === 'good') return false;
+      if (miFilters.cond === 'good' && a.condition !== 'good') return false;
+      if (miFilters.q) {
+        var hay = (c.name + ' ' + (a.serial || '') + ' ' + c.cat).toLowerCase();
+        if (hay.indexOf(miFilters.q.toLowerCase()) === -1) return false;
+      }
+      return true;
+    });
+
+    $('#miCount').textContent = rows.length + (rows.length === 1 ? ' item' : ' items');
+
+    if (!rows.length) {
+      $('#miGrid').innerHTML =
+        '<div class="rq-card" style="grid-column:1/-1;"><div class="rq-empty">' +
+        '<i class="fa-solid fa-box-open" aria-hidden="true"></i>' +
+        '<div class="rq-empty-title">Nothing matches</div>' +
+        '<div class="rq-empty-text">Try a different search or filter.</div>' +
+        '</div></div>';
+      return;
+    }
+
+    $('#miGrid').innerHTML = rows.map(function (a) {
+      var c = catalogById(a.catalogId);
+      var cond = CONDITIONS[a.condition];
+      /* An item already under an open request should not offer a second
+         one — showing the live status is the more useful answer. */
+      var open = openRequestFor(a.id);
+
+      var action = open
+        ? '<button class="rq-requested" type="button" data-detail="' + esc(open.id) + '">' +
+            '<span class="rq-requested-id">' + esc(open.id) + '</span>' + statusPill(open.status) +
+          '</button>'
+        : '<vaadin-button theme="secondary small" data-replace="' + a.id + '">' +
+            (a.condition === 'due' || a.condition === 'overdue' ? 'Request renewal' : 'Request replacement') +
+          '</vaadin-button>';
+
+      return '' +
+        '<article class="rq-item">' +
+          '<div class="rq-item-top">' +
+            '<div class="rq-item-thumb"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></div>' +
+            '<div class="rq-item-id">' +
+              '<div class="rq-item-name">' + esc(c.name) + '</div>' +
+              '<div class="rq-item-meta">' + esc(c.cat) + ' · ' + esc(a.serial) + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="rq-item-facts">' +
+            (a.size ? '<span class="rq-fact"><span class="rq-fact-label">Size </span><span class="rq-fact-value">' + esc(a.size) + '</span></span>' : '') +
+            '<span class="rq-fact"><span class="rq-fact-label">Issued </span><span class="rq-fact-value">' + fmtDate(a.issued) + '</span></span>' +
+          '</div>' +
+
+          '<div class="rq-condition ' + cond.cls + '">' +
+            '<i class="fa-solid ' + cond.icon + '" aria-hidden="true"></i>' +
+            '<span>' + esc(cond.label) + (a.conditionNote ? ' — ' + esc(a.conditionNote) : '') + '</span>' +
+          '</div>' +
+
+          '<div class="rq-item-foot">' +
+            '<div class="rq-item-foot-spacer"></div>' + action +
+          '</div>' +
+        '</article>';
+    }).join('');
+
+    $$('[data-replace]', $('#miGrid')).forEach(function (b) {
+      b.addEventListener('click', function () { startRequestFromAssignment(b.dataset.replace); });
+    });
+    wireDetailButtons($('#miGrid'));
+  }
+
+  /* An "open" request is one not yet closed out — it blocks a duplicate. */
+  function openRequestFor(assignmentId) {
+    for (var i = 0; i < REQUISITIONS.length; i++) {
+      var r = REQUISITIONS[i];
+      if (r.assignmentId === assignmentId && r.requester === 'Dana Whitfield' &&
+          (r.status === 'submitted' || r.status === 'approved')) return r;
+    }
+    return null;
+  }
+  function openRequestForCatalog(catalogId) {
+    for (var i = 0; i < REQUISITIONS.length; i++) {
+      var r = REQUISITIONS[i];
+      if (r.catalogId === catalogId && r.requester === 'Dana Whitfield' &&
+          (r.status === 'submitted' || r.status === 'approved')) return r;
+    }
+    return null;
+  }
+  function heldCatalogIds() {
+    return ASSIGNMENTS.map(function (a) { return a.catalogId; });
+  }
+
+  /* =====================================================================
+     BROWSE CATALOG
+     ===================================================================== */
+
+  var catFilters = { q: '', cat: 'all' };
+
+  function renderCatalog() {
+    var held = heldCatalogIds();
+
+    var rows = CATALOG.filter(function (c) {
+      if (catFilters.cat !== 'all' && c.cat !== catFilters.cat) return false;
+      if (catFilters.q) {
+        var hay = (c.name + ' ' + c.cat + ' ' + c.note).toLowerCase();
+        if (hay.indexOf(catFilters.q.toLowerCase()) === -1) return false;
+      }
+      return true;
+    });
+
+    $('#catCount').textContent = rows.length + (rows.length === 1 ? ' item' : ' items');
+
+    $('#catGrid').innerHTML = rows.map(function (c) {
+      var isHeld = held.indexOf(c.id) !== -1;
+      var open   = openRequestForCatalog(c.id);
+
+      var stockCls = c.stock === 0 ? 'is-out' : (c.stock <= 3 ? 'is-low' : '');
+      var stockTxt = c.stock === 0 ? 'Out of stock' : c.stock + ' in stock';
+
+      var foot;
+      if (open) {
+        foot = '<button class="rq-requested" type="button" data-detail="' + esc(open.id) + '">' +
+                 '<span class="rq-requested-id">' + esc(open.id) + '</span>' + statusPill(open.status) +
+               '</button>';
+      } else if (isHeld) {
+        foot = '<span class="rq-count">Already assigned</span>';
+      } else {
+        foot = '<vaadin-button theme="primary small" data-request="' + c.id + '"' +
+               (c.stock === 0 ? '' : '') + '>Request</vaadin-button>';
+      }
+
+      return '' +
+        '<article class="rq-cat' + (isHeld ? ' is-held' : '') + '">' +
+          '<div class="rq-cat-thumb"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></div>' +
+          '<div class="rq-cat-name">' + esc(c.name) + '</div>' +
+          '<div class="rq-cat-meta">' + esc(c.cat) + (c.note ? ' · ' + esc(c.note) : '') + '</div>' +
+          '<div class="rq-cat-meta rq-stock ' + stockCls + '">' +
+            '<span class="rq-stock-n">' + esc(stockTxt) + '</span>' +
+            '<span class="rq-stock-loc"> · ' + esc(c.loc) + '</span>' +
+          '</div>' +
+          '<div class="rq-cat-foot"><div class="rq-cat-foot-spacer"></div>' + foot + '</div>' +
+        '</article>';
+    }).join('');
+
+    $$('[data-request]', $('#catGrid')).forEach(function (b) {
+      b.addEventListener('click', function () { startRequestFromCatalog(b.dataset.request); });
+    });
+    wireDetailButtons($('#catGrid'));
+  }
+
+  /* =====================================================================
+     MY REQUESTS
+     ===================================================================== */
+
+  function renderMyRequests() {
+    var rows = REQUISITIONS.filter(function (r) { return r.requester === 'Dana Whitfield'; })
+      .sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
+
+    if (!rows.length) {
+      $('#mrWrap').innerHTML =
+        '<div class="rq-empty">' +
+        '<i class="fa-solid fa-inbox" aria-hidden="true"></i>' +
+        '<div class="rq-empty-title">No requests yet</div>' +
+        '<div class="rq-empty-text">Request a replacement from My Assigned Items, or browse the catalog.</div>' +
+        '</div>';
+      return;
+    }
+
+    $('#mrWrap').innerHTML =
+      '<table class="rq-table"><thead><tr>' +
+        '<th>Request</th><th>Item</th><th>Reason</th><th>Submitted</th><th>Status</th><th></th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        var c = catalogById(r.catalogId);
+        return '<tr>' +
+          '<td><strong>' + esc(r.id) + '</strong></td>' +
+          '<td><div class="rq-rowitem">' +
+            '<div class="rq-rowitem-ic"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></div>' +
+            '<div><div class="rq-rowitem-name">' + esc(c.name) + '</div>' +
+            '<div class="rq-rowitem-meta">' + (r.size ? 'Size ' + esc(r.size) + ' · ' : '') + 'Qty ' + r.qty + '</div></div>' +
+          '</div></td>' +
+          '<td>' + reasonChip(r.reason) + '</td>' +
+          '<td>' + fmtDate(r.submittedAt) + '</td>' +
+          '<td>' + statusPill(r.status) + '</td>' +
+          '<td class="rq-td-actions">' +
+            '<vaadin-button theme="tertiary small" data-detail="' + esc(r.id) + '">View</vaadin-button>' +
+          '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+
+    wireDetailButtons($('#mrWrap'));
+  }
+
+  function wireDetailButtons(root) {
+    $$('[data-detail]', root).forEach(function (b) {
+      b.addEventListener('click', function () { openDetail(b.dataset.detail); });
+    });
+  }
+
+  /* =====================================================================
+     REQUEST BUILDER
+
+     One form serves all three reasons. The reason picker changes what the
+     form asks for rather than routing to a different screen — the person is
+     doing one thing (asking for an item), and the reason is a property of
+     that act, not a different act.
+     ===================================================================== */
+
+  var returnView = 'my-items';   /* where Back and Cancel go */
+
+  function startRequestFromAssignment(assignmentId) {
+    var a = assignmentById(assignmentId);
+    var c = catalogById(a.catalogId);
+    /* A due/overdue item defaults to renewal; anything else to replacement.
+       The person can still change it. */
+    var reason = (a.condition === 'due' || a.condition === 'overdue') ? 'renewal' : 'replace';
+
+    state.draft = {
+      catalogId: a.catalogId,
+      assignmentId: a.id,
+      reason: reason,
+      detail: a.conditionNote || '',
+      size: a.size,
+      qty: 1,
+      neededBy: 'This month'
+    };
+    returnView = 'my-items';
+    openBuilder();
+  }
+
+  function startRequestFromCatalog(catalogId) {
+    var c = catalogById(catalogId);
+    state.draft = {
+      catalogId: catalogId,
+      assignmentId: null,
+      reason: 'new',
+      detail: '',
+      size: c.sizes ? c.sizes[0] : null,
+      qty: 1,
+      neededBy: 'No rush'
+    };
+    returnView = 'catalog';
+    openBuilder();
+  }
+
+  function openBuilder() {
+    renderBuilder();
+    setView('request');
+  }
+
+  function renderBuilder() {
+    var d = state.draft;
+    if (!d) return;
+    var c = catalogById(d.catalogId);
+    var a = d.assignmentId ? assignmentById(d.assignmentId) : null;
+
+    $('#reqTitle').textContent = 'Request ' + c.name;
+    $('#reqSubtitle').textContent = a
+      ? 'Replacing the one issued to you on ' + fmtDate(a.issued) + '.'
+      : "Requesting an item you don't currently have assigned.";
+
+    /* --- subject ------------------------------------------------------ */
+    $('#reqSubject').innerHTML =
+      '<div class="rq-subject-thumb"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></div>' +
+      '<div class="rq-subject-text">' +
+        '<div class="rq-subject-name">' + esc(c.name) + '</div>' +
+        '<div class="rq-subject-meta">' + esc(c.cat) +
+          (a ? ' · Currently assigned · ' + esc(a.serial) : ' · Not currently assigned') +
+          (c.note ? ' · ' + esc(c.note) : '') +
+        '</div>' +
+      '</div>';
+
+    /* --- reason picker -------------------------------------------------
+       Only offer reasons that make sense for this subject: you cannot
+       "replace" something you were never issued. */
+    var allowed = a ? ['replace', 'renewal'] : ['new'];
+    $('#reqReasons').innerHTML = allowed.map(function (k) {
+      var r = REASONS[k];
+      return '<button class="rq-reasonopt" type="button" data-reason="' + k + '" ' +
+             'aria-pressed="' + (d.reason === k) + '">' +
+        '<span class="rq-reasonopt-top">' +
+          '<i class="fa-solid ' + r.icon + '" aria-hidden="true"></i>' +
+          '<span class="rq-reasonopt-name">' + esc(r.label) + '</span>' +
+        '</span>' +
+        '<span class="rq-reasonopt-desc">' + esc(r.desc) + '</span>' +
+      '</button>';
+    }).join('');
+
+    $$('[data-reason]', $('#reqReasons')).forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.draft.reason = b.dataset.reason;
+        renderBuilder();
+      });
+    });
+
+    /* --- reason-dependent fields -------------------------------------- */
+    var r = REASONS[d.reason];
+    $('#reqDetailLabel').textContent = r.detailLabel;
+    $('#reqDetailHelp').textContent  = r.detailHelp;
+    $('#reqPhotoWrap').hidden = !r.photo;
+
+    var ta = $('#reqDetail');
+    if (ta.value !== d.detail) ta.value = d.detail;
+
+    /* --- size ----------------------------------------------------------
+       Hidden entirely for a one-size item rather than shown disabled. */
+    var sizeWrap = $('#reqSizeWrap');
+    if (!c.sizes) {
+      sizeWrap.hidden = true;
+    } else {
+      sizeWrap.hidden = false;
+      fillSelect($('#reqSize'), c.sizes.map(function (s) { return { label: s, value: s }; }),
+                 d.size || c.sizes[0]);
+      $('#reqSizeHelp').textContent = a && a.size
+        ? 'Your current ' + c.name.toLowerCase() + ' is size ' + a.size + '.'
+        : '';
+    }
+
+    renderSummary();
+  }
+
+  function renderSummary() {
+    var d = state.draft;
+    var c = catalogById(d.catalogId);
+
+    function row(k, v, empty) {
+      return '<div class="rq-sum-row"><span class="rq-sum-key">' + esc(k) + '</span>' +
+             '<span class="rq-sum-val' + (empty ? ' is-empty' : '') + '">' + esc(v) + '</span></div>';
+    }
+
+    $('#reqSummary').innerHTML =
+      row('Item', c.name) +
+      row('Reason', REASONS[d.reason].label) +
+      (c.sizes ? row('Size', d.size || '—') : '') +
+      row('Quantity', String(d.qty)) +
+      row('Needed by', d.neededBy) +
+      row('Details', d.detail ? d.detail : 'Not provided yet', !d.detail);
+
+    /* Routing text is PLACEHOLDER — who approves what is undecided. Worded
+       so it reads as an example, not a specification. */
+    var routing = d.reason === 'new'
+      ? 'Goes to your company officer for approval. New issues are reviewed against your assigned gear list.'
+      : d.reason === 'renewal'
+        ? 'Goes to your company officer. Scheduled renewals are usually approved automatically once the due date passes.'
+        : 'Goes to your company officer for approval, then to the store room to be issued.';
+    $('#reqRouting').textContent = routing;
+
+    var ready = !!d.detail || d.reason === 'renewal';
+    $('#reqBarNote').textContent = ready
+      ? 'Ready to submit.'
+      : 'Add a short description before submitting.';
+    $('#reqSubmit').disabled = !ready;
+  }
+
+  $('#reqDetail').addEventListener('value-changed', function (e) {
+    if (!state.draft) return;
+    if (state.draft.detail === e.detail.value) return;   /* fires on upgrade */
+    state.draft.detail = e.detail.value;
+    renderSummary();
+  });
+  $('#reqSize').addEventListener('value-changed', function (e) {
+    if (!state.draft || !e.detail.value) return;
+    if (state.draft.size === e.detail.value) return;
+    state.draft.size = e.detail.value;
+    renderSummary();
+  });
+  $('#reqQty').addEventListener('value-changed', function (e) {
+    if (!state.draft || !e.detail.value) return;
+    if (String(state.draft.qty) === e.detail.value) return;
+    state.draft.qty = parseInt(e.detail.value, 10);
+    renderSummary();
+  });
+  $('#reqNeeded').addEventListener('value-changed', function (e) {
+    if (!state.draft || !e.detail.value) return;
+    if (state.draft.neededBy === e.detail.value) return;
+    state.draft.neededBy = e.detail.value;
+    renderSummary();
+  });
+
+  $('#reqBack').addEventListener('click',   function () { setView(returnView); });
+  $('#reqCancel').addEventListener('click', function () { setView(returnView); });
+
+  $('#reqDraft').addEventListener('click', function () {
+    toast('Saved as a draft.');
+    setView(returnView);
+  });
+
+  $('#reqSubmit').addEventListener('click', function () {
+    var d = state.draft;
+    var id = 'R-' + (2045 + REQUISITIONS.filter(function (r) { return r.requester === 'Dana Whitfield'; }).length);
+    REQUISITIONS.unshift({
+      id: id,
+      requester: 'Dana Whitfield',
+      unit: 'Engine 7 / A-Shift',
+      catalogId: d.catalogId,
+      assignmentId: d.assignmentId,
+      reason: d.reason,
+      detail: d.detail,
+      size: d.size,
+      qty: d.qty,
+      neededBy: d.neededBy,
+      status: 'submitted',
+      submittedAt: '2026-10-05',
+      history: [ { at: '2026-10-05', by: 'Dana Whitfield', action: 'Submitted', note: '' } ]
+    });
+    state.draft = null;
+    toast(id + ' submitted for approval.');
+    setView('my-requests');
+  });
+
+  /* =====================================================================
+     APPROVAL QUEUE
+     ===================================================================== */
+
+  var apFilters = { q: '', reason: 'all' };
+
+  function renderApprovals() {
+    var pending = REQUISITIONS.filter(function (r) { return r.status === 'submitted'; });
+
+    /* Stat strip — counts, and the one number an approver actually feels:
+       how long the oldest thing has been sitting. */
+    var oldest = pending.reduce(function (m, r) { return Math.max(m, daysAgo(r.submittedAt)); }, 0);
+    var urgent = pending.filter(function (r) { return r.neededBy === 'Urgent'; }).length;
+
+    $('#apStats').innerHTML =
+      '<div class="rq-stat"><div class="rq-stat-n">' + pending.length + '</div>' +
+        '<div class="rq-stat-l">Awaiting your decision</div></div>' +
+      '<div class="rq-stat' + (urgent ? ' rq-stat--alert' : '') + '"><div class="rq-stat-n">' + urgent + '</div>' +
+        '<div class="rq-stat-l">Marked urgent</div></div>' +
+      '<div class="rq-stat' + (oldest >= 7 ? ' rq-stat--warn' : '') + '"><div class="rq-stat-n">' + oldest + '</div>' +
+        '<div class="rq-stat-l">Days — oldest waiting</div></div>';
+
+    var rows = pending.filter(function (r) {
+      if (apFilters.reason !== 'all' && r.reason !== apFilters.reason) return false;
+      if (apFilters.q) {
+        var c = catalogById(r.catalogId);
+        var hay = (r.id + ' ' + r.requester + ' ' + c.name + ' ' + r.detail).toLowerCase();
+        if (hay.indexOf(apFilters.q.toLowerCase()) === -1) return false;
+      }
+      return true;
+    }).sort(function (a, b) { return a.submittedAt < b.submittedAt ? -1 : 1; });
+
+    $('#apCount').textContent = rows.length + (rows.length === 1 ? ' request' : ' requests');
+
+    if (!rows.length) {
+      $('#apWrap').innerHTML =
+        '<div class="rq-empty">' +
+        '<i class="fa-solid fa-circle-check" aria-hidden="true"></i>' +
+        '<div class="rq-empty-title">Nothing waiting</div>' +
+        '<div class="rq-empty-text">Every requisition from your crew has a decision.</div>' +
+        '</div>';
+      return;
+    }
+
+    $('#apWrap').innerHTML =
+      '<table class="rq-table"><thead><tr>' +
+        '<th>Request</th><th>Requester</th><th>Item</th><th>Reason</th><th>Needed</th><th>Waiting</th><th></th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        var c = catalogById(r.catalogId);
+        return '<tr>' +
+          '<td><strong>' + esc(r.id) + '</strong></td>' +
+          '<td><div class="rq-who">' +
+            '<div class="rq-who-av">' + esc(initials(r.requester)) + '</div>' +
+            '<div class="rq-who-text"><div class="rq-who-name">' + esc(r.requester) + '</div>' +
+            '<div class="rq-who-unit">' + esc(r.unit) + '</div></div>' +
+          '</div></td>' +
+          '<td><div class="rq-rowitem">' +
+            '<div class="rq-rowitem-ic"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></div>' +
+            '<div><div class="rq-rowitem-name">' + esc(c.name) + '</div>' +
+            '<div class="rq-rowitem-meta">' + (r.size ? 'Size ' + esc(r.size) + ' · ' : '') + 'Qty ' + r.qty + '</div></div>' +
+          '</div></td>' +
+          '<td>' + reasonChip(r.reason) + '</td>' +
+          '<td>' + esc(r.neededBy) + '</td>' +
+          '<td><span class="rq-age ' + ageClass(r.submittedAt) + '">' + esc(ageText(r.submittedAt)) + '</span></td>' +
+          '<td class="rq-td-actions">' +
+            '<vaadin-button theme="tertiary small" data-detail="' + esc(r.id) + '">View</vaadin-button>' +
+            '<vaadin-button theme="primary small" data-decide="' + esc(r.id) + '">Review</vaadin-button>' +
+          '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+
+    wireDetailButtons($('#apWrap'));
+    $$('[data-decide]', $('#apWrap')).forEach(function (b) {
+      b.addEventListener('click', function () { openDecide(b.dataset.decide); });
+    });
+  }
+
+  /* =====================================================================
+     FULFILLMENT QUEUE
+     ===================================================================== */
+
+  var fuFilters = { q: '', stock: 'all' };
+
+  function renderFulfillment() {
+    var approved = REQUISITIONS.filter(function (r) { return r.status === 'approved'; });
+
+    var noStock = approved.filter(function (r) { return catalogById(r.catalogId).stock === 0; }).length;
+
+    $('#fuStats').innerHTML =
+      '<div class="rq-stat"><div class="rq-stat-n">' + approved.length + '</div>' +
+        '<div class="rq-stat-l">Ready to pick</div></div>' +
+      '<div class="rq-stat' + (noStock ? ' rq-stat--alert' : '') + '"><div class="rq-stat-n">' + noStock + '</div>' +
+        '<div class="rq-stat-l">Blocked — no stock</div></div>' +
+      '<div class="rq-stat"><div class="rq-stat-n">' +
+        REQUISITIONS.filter(function (r) { return r.status === 'issued'; }).length + '</div>' +
+        '<div class="rq-stat-l">Issued this month</div></div>';
+
+    var rows = approved.filter(function (r) {
+      var c = catalogById(r.catalogId);
+      if (fuFilters.stock === 'ready' && c.stock === 0) return false;
+      if (fuFilters.stock === 'blocked' && c.stock !== 0) return false;
+      if (fuFilters.q) {
+        var hay = (r.id + ' ' + r.requester + ' ' + c.name + ' ' + c.loc).toLowerCase();
+        if (hay.indexOf(fuFilters.q.toLowerCase()) === -1) return false;
+      }
+      return true;
+    }).sort(function (a, b) { return a.submittedAt < b.submittedAt ? -1 : 1; });
+
+    $('#fuCount').textContent = rows.length + (rows.length === 1 ? ' request' : ' requests');
+
+    if (!rows.length) {
+      $('#fuWrap').innerHTML =
+        '<div class="rq-empty">' +
+        '<i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i>' +
+        '<div class="rq-empty-title">Nothing to pick</div>' +
+        '<div class="rq-empty-text">Approved requisitions land here ready to be issued.</div>' +
+        '</div>';
+      return;
+    }
+
+    $('#fuWrap').innerHTML =
+      '<table class="rq-table"><thead><tr>' +
+        '<th>Request</th><th>Requester</th><th>Item</th><th>Stock</th><th>Approved</th><th></th>' +
+      '</tr></thead><tbody>' +
+      rows.map(function (r) {
+        var c = catalogById(r.catalogId);
+        var out = c.stock === 0;
+        var low = c.stock > 0 && c.stock <= 3;
+        var approvedOn = (r.history.filter(function (h) { return h.action === 'Approved'; })[0] || {}).at;
+
+        return '<tr>' +
+          '<td><strong>' + esc(r.id) + '</strong></td>' +
+          '<td><div class="rq-who">' +
+            '<div class="rq-who-av">' + esc(initials(r.requester)) + '</div>' +
+            '<div class="rq-who-text"><div class="rq-who-name">' + esc(r.requester) + '</div>' +
+            '<div class="rq-who-unit">' + esc(r.unit) + '</div></div>' +
+          '</div></td>' +
+          '<td><div class="rq-rowitem">' +
+            '<div class="rq-rowitem-ic"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></div>' +
+            '<div><div class="rq-rowitem-name">' + esc(c.name) + '</div>' +
+            '<div class="rq-rowitem-meta">' + (r.size ? 'Size ' + esc(r.size) + ' · ' : '') + 'Qty ' + r.qty + '</div></div>' +
+          '</div></td>' +
+          '<td><div class="rq-stock ' + (out ? 'is-out' : (low ? 'is-low' : '')) + '">' +
+            '<span class="rq-stock-n">' + (out ? 'None' : c.stock) + '</span>' +
+            '<span class="rq-stock-loc"><br>' + esc(c.loc) + '</span>' +
+          '</div></td>' +
+          '<td>' + fmtDate(approvedOn) + '</td>' +
+          '<td class="rq-td-actions">' +
+            '<vaadin-button theme="tertiary small" data-detail="' + esc(r.id) + '">View</vaadin-button>' +
+            (out
+              ? '<vaadin-button theme="secondary small" disabled>Issue</vaadin-button>'
+              : '<vaadin-button theme="primary small" data-issue="' + esc(r.id) + '">Issue</vaadin-button>') +
+          '</td>' +
+        '</tr>';
+      }).join('') +
+      '</tbody></table>';
+
+    wireDetailButtons($('#fuWrap'));
+    $$('[data-issue]', $('#fuWrap')).forEach(function (b) {
+      b.addEventListener('click', function () { openIssue(b.dataset.issue); });
+    });
+  }
+
+  /* =====================================================================
+     DIALOGS
+
+     vaadin-dialog takes a `renderer` function rather than slotted markup.
+     Each renderer clears its root and rebuilds, so reopening is clean.
+     ===================================================================== */
+
+  /* The lifecycle a requisition walks. Rendered as a timeline on the
+     detail dialog so the requester can see both where it is and what is
+     still ahead of it. */
+  function timelineFor(r) {
+    var steps = [
+      { key: 'submitted', label: 'Submitted' },
+      { key: 'decision',  label: r.status === 'denied' ? 'Denied' : 'Approved' },
+      { key: 'issued',    label: 'Issued' }
+    ];
+
+    var reached = { submitted: 1, denied: 2, approved: 2, issued: 3 }[r.status] || 1;
+    var denied  = r.status === 'denied';
+
+    return '<div class="rq-timeline">' + steps.map(function (s, i) {
+      var n = i + 1;
+      var done    = n < reached || (n === reached && r.status === 'issued');
+      var current = n === reached && r.status !== 'issued';
+      var isDenied = denied && n === 2;
+
+      /* Find the history entry that produced this step, for the meta line. */
+      var h = r.history.filter(function (x) {
+        if (n === 1) return x.action === 'Submitted';
+        if (n === 2) return x.action === 'Approved' || x.action === 'Denied';
+        return x.action === 'Issued';
+      })[0];
+
+      var cls = isDenied ? 'is-denied' : (done ? 'is-done' : (current ? 'is-current' : ''));
+
+      var meta = h
+        ? fmtDate(h.at) + ' · ' + esc(h.by) + (h.note ? '<div class="rq-quote">' + esc(h.note) + '</div>' : '')
+        : (denied ? 'Not reached' : 'Pending');
+
+      return '<div class="rq-tl-step ' + cls + '">' +
+        '<div class="rq-tl-rail"><div class="rq-tl-dot"></div><div class="rq-tl-line"></div></div>' +
+        '<div class="rq-tl-body">' +
+          '<div class="rq-tl-label">' + esc(s.label) + '</div>' +
+          '<div class="rq-tl-meta">' + meta + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  /* ---- Request detail (read-only, all roles) --------------------------- */
+  var dlgDetail = $('#dlgDetail');
+
+  function openDetail(id) {
+    var r = reqById(id);
+    if (!r) return;
+    var c = catalogById(r.catalogId);
+
+    dlgDetail.renderer = function (root) {
+      root.innerHTML =
+        '<div class="rq-dlg rq-dlg-wide" style="padding:20px 22px;">' +
+          '<h3>' + esc(r.id) + ' · ' + esc(c.name) + '</h3>' +
+          '<p class="rq-dlg-sub">' + esc(r.requester) + ' · ' + esc(r.unit) + '</p>' +
+
+          '<div class="rq-dlg-section">' +
+            '<div class="rq-dlg-section-title">Request</div>' +
+            '<div class="rq-detail-grid">' +
+              '<span class="rq-detail-k">Status</span><span>' + statusPill(r.status) + '</span>' +
+              '<span class="rq-detail-k">Reason</span><span>' + reasonChip(r.reason) + '</span>' +
+              (r.size ? '<span class="rq-detail-k">Size</span><span class="rq-detail-v">' + esc(r.size) + '</span>' : '') +
+              '<span class="rq-detail-k">Quantity</span><span class="rq-detail-v">' + r.qty + '</span>' +
+              '<span class="rq-detail-k">Needed by</span><span class="rq-detail-v">' + esc(r.neededBy) + '</span>' +
+            '</div>' +
+            (r.detail ? '<div class="rq-quote">' + esc(r.detail) + '</div>' : '') +
+          '</div>' +
+
+          '<div class="rq-dlg-section">' +
+            '<div class="rq-dlg-section-title">Progress</div>' +
+            timelineFor(r) +
+          '</div>' +
+
+          '<div class="rq-dlg-foot">' +
+            '<div class="rq-dlg-foot-spacer"></div>' +
+            '<vaadin-button theme="primary" id="ddClose">Close</vaadin-button>' +
+          '</div>' +
+        '</div>';
+
+      root.querySelector('#ddClose').addEventListener('click', function () { dlgDetail.opened = false; });
+    };
+    dlgDetail.opened = true;
+  }
+
+  /* ---- Approval decision ---------------------------------------------
+     Approve / Deny on one surface rather than two, because an approver is
+     making ONE decision and the note field is shared. Deny requires a
+     reason; approve does not. */
+  var dlgDecide = $('#dlgDecide');
+
+  function openDecide(id) {
+    var r = reqById(id);
+    if (!r) return;
+    var c = catalogById(r.catalogId);
+
+    dlgDecide.renderer = function (root) {
+      root.innerHTML =
+        '<div class="rq-dlg" style="padding:20px 22px;">' +
+          '<h3>Review ' + esc(r.id) + '</h3>' +
+          '<p class="rq-dlg-sub">' + esc(r.requester) + ' · ' + esc(r.unit) + '</p>' +
+
+          '<div class="rq-subject" style="margin-bottom:16px;">' +
+            '<div class="rq-subject-thumb"><i class="fa-solid ' + c.icon + '" aria-hidden="true"></i></div>' +
+            '<div class="rq-subject-text">' +
+              '<div class="rq-subject-name">' + esc(c.name) + '</div>' +
+              '<div class="rq-subject-meta">' +
+                (r.size ? 'Size ' + esc(r.size) + ' · ' : '') + 'Qty ' + r.qty +
+                ' · Needed ' + esc(r.neededBy) +
+              '</div>' +
+            '</div>' +
+            reasonChip(r.reason) +
+          '</div>' +
+
+          (r.detail
+            ? '<div class="rq-dlg-section-title">Requester\'s note</div>' +
+              '<div class="rq-quote" style="margin-bottom:16px;">' + esc(r.detail) + '</div>'
+            : '') +
+
+          '<div class="rq-field">' +
+            '<label class="rq-field-label" for="dcNote">Note</label>' +
+            '<vaadin-text-area id="dcNote" placeholder="Optional for an approval. Required if you deny."></vaadin-text-area>' +
+            '<div class="rq-field-help" id="dcHelp">The requester sees this on their request.</div>' +
+          '</div>' +
+
+          '<div class="rq-dlg-foot">' +
+            '<vaadin-button theme="tertiary" id="dcCancel">Cancel</vaadin-button>' +
+            '<div class="rq-dlg-foot-spacer"></div>' +
+            '<vaadin-button theme="error secondary" id="dcDeny">Deny</vaadin-button>' +
+            '<vaadin-button theme="primary" id="dcApprove">Approve</vaadin-button>' +
+          '</div>' +
+        '</div>';
+
+      var noteEl = root.querySelector('#dcNote');
+
+      root.querySelector('#dcCancel').addEventListener('click', function () { dlgDecide.opened = false; });
+
+      root.querySelector('#dcApprove').addEventListener('click', function () {
+        r.status = 'approved';
+        r.history.push({ at: '2026-10-05', by: 'Capt. Mira Hollis', action: 'Approved',
+                         note: noteEl.value || '' });
+        dlgDecide.opened = false;
+        toast(r.id + ' approved — sent to the store room.');
+        renderApprovals();
+      });
+
+      root.querySelector('#dcDeny').addEventListener('click', function () {
+        if (!noteEl.value) {
+          root.querySelector('#dcHelp').textContent = 'A reason is required to deny a request.';
+          root.querySelector('#dcHelp').style.color = 'var(--ci-alert-fg)';
+          noteEl.focus();
+          return;
+        }
+        r.status = 'denied';
+        r.history.push({ at: '2026-10-05', by: 'Capt. Mira Hollis', action: 'Denied', note: noteEl.value });
+        dlgDecide.opened = false;
+        toast(r.id + ' denied.');
+        renderApprovals();
+      });
+    };
+    dlgDecide.opened = true;
+  }
+
+  /* ---- Issue (fulfillment) --------------------------------------------
+     Issuing is where an ASSIGNMENT changes hands, which is the whole point
+     of the model. The dialog states that explicitly so a stakeholder sees
+     the consequence, not just a status flip. */
+  var dlgIssue = $('#dlgIssue');
+
+  function openIssue(id) {
+    var r = reqById(id);
+    if (!r) return;
+    var c = catalogById(r.catalogId);
+    var old = r.assignmentId ? assignmentById(r.assignmentId) : null;
+
+    dlgIssue.renderer = function (root) {
+      root.innerHTML =
+        '<div class="rq-dlg" style="padding:20px 22px;">' +
+          '<h3>Issue ' + esc(c.name) + '</h3>' +
+          '<p class="rq-dlg-sub">' + esc(r.id) + ' · ' + esc(r.requester) + ' · ' + esc(r.unit) + '</p>' +
+
+          '<div class="rq-dlg-section">' +
+            '<div class="rq-dlg-section-title">Pick</div>' +
+            '<div class="rq-detail-grid">' +
+              '<span class="rq-detail-k">Item</span><span class="rq-detail-v">' + esc(c.name) + '</span>' +
+              (r.size ? '<span class="rq-detail-k">Size</span><span class="rq-detail-v">' + esc(r.size) + '</span>' : '') +
+              '<span class="rq-detail-k">Quantity</span><span class="rq-detail-v">' + r.qty + '</span>' +
+              '<span class="rq-detail-k">Location</span><span class="rq-detail-v">' + esc(c.loc) + '</span>' +
+              '<span class="rq-detail-k">On hand</span><span class="rq-detail-v">' + c.stock + '</span>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="rq-dlg-section">' +
+            '<div class="rq-dlg-section-title">Assignment change</div>' +
+            '<div class="rq-routing" style="margin-top:0;">' +
+              '<i class="fa-solid fa-right-left" aria-hidden="true"></i>' +
+              '<span>' +
+                'This ' + esc(c.name.toLowerCase()) + ' becomes assigned to <strong>' + esc(r.requester) + '</strong>.' +
+                (old ? ' Their existing unit (' + esc(old.serial) + ') is returned and taken out of service.' : '') +
+              '</span>' +
+            '</div>' +
+          '</div>' +
+
+          '<div class="rq-field" style="margin-top:16px;">' +
+            '<label class="rq-field-label" for="isSerial">Serial / asset tag</label>' +
+            '<vaadin-text-field id="isSerial" theme="outlined" placeholder="Scan or type the tag on the unit being issued"></vaadin-text-field>' +
+          '</div>' +
+
+          '<div class="rq-dlg-foot">' +
+            '<vaadin-button theme="tertiary" id="isCancel">Cancel</vaadin-button>' +
+            '<div class="rq-dlg-foot-spacer"></div>' +
+            '<vaadin-button theme="primary" id="isConfirm">Confirm issue</vaadin-button>' +
+          '</div>' +
+        '</div>';
+
+      root.querySelector('#isCancel').addEventListener('click', function () { dlgIssue.opened = false; });
+
+      root.querySelector('#isConfirm').addEventListener('click', function () {
+        r.status = 'issued';
+        r.history.push({ at: '2026-10-05', by: 'R. Alvarez (Store Room)', action: 'Issued', note: '' });
+
+        /* Stock is a DISPLAY number in this POC — decremented so the demo
+           stays coherent, but there is no reservation or accounting model
+           behind it. See BUILD-NOTES.md. */
+        if (c.stock > 0) c.stock -= 1;
+
+        /* The assignment actually changes — this is the point of the model. */
+        if (old) {
+          old.condition = 'good';
+          old.conditionNote = '';
+          old.issued = '2026-10-05';
+          if (r.size) old.size = r.size;
+        } else {
+          ASSIGNMENTS.push({
+            id: 'a' + (ASSIGNMENTS.length + 1),
+            catalogId: r.catalogId,
+            size: r.size,
+            issued: '2026-10-05',
+            serial: root.querySelector('#isSerial').value || 'NEW-00000',
+            condition: 'good',
+            conditionNote: '',
+            due: null
+          });
+        }
+
+        dlgIssue.opened = false;
+        toast(r.id + ' issued to ' + r.requester + '.');
+        renderFulfillment();
+      });
+    };
+    dlgIssue.opened = true;
+  }
+
+  /* =====================================================================
+     FILTER WIRING
+
+     Every `value-changed` handler compares before acting: the event fires
+     once on component upgrade, and a handler that re-renders unguarded
+     loops forever. (This hung a page once in Checklist-management.)
+     ===================================================================== */
+
+  function onValue(sel, fn) {
+    var el = $(sel);
+    if (!el) return;
+    el.addEventListener('value-changed', function (e) {
+      fn(e.detail.value === undefined || e.detail.value === null ? '' : e.detail.value);
+    });
+  }
+
+  onValue('#miSearch',    function (v) { if (miFilters.q === v) return; miFilters.q = v; renderMyItems(); });
+  onValue('#miCategory',  function (v) { if (!v || miFilters.cat === v) return; miFilters.cat = v; renderMyItems(); });
+  onValue('#miCondition', function (v) { if (!v || miFilters.cond === v) return; miFilters.cond = v; renderMyItems(); });
+
+  onValue('#catSearch',   function (v) { if (catFilters.q === v) return; catFilters.q = v; renderCatalog(); });
+  onValue('#catCategory', function (v) { if (!v || catFilters.cat === v) return; catFilters.cat = v; renderCatalog(); });
+
+  onValue('#apSearch',    function (v) { if (apFilters.q === v) return; apFilters.q = v; renderApprovals(); });
+  onValue('#apReason',    function (v) { if (!v || apFilters.reason === v) return; apFilters.reason = v; renderApprovals(); });
+
+  onValue('#fuSearch',    function (v) { if (fuFilters.q === v) return; fuFilters.q = v; renderFulfillment(); });
+  onValue('#fuStock',     function (v) { if (!v || fuFilters.stock === v) return; fuFilters.stock = v; renderFulfillment(); });
+
+  /* =====================================================================
+     INIT
+     ===================================================================== */
+
+  var CATEGORIES = ['PPE', 'Tools', 'Comms'];
+
+  function catItems(allLabel) {
+    return [{ label: allLabel, value: 'all' }].concat(
+      CATEGORIES.map(function (c) { return { label: c, value: c }; }));
+  }
+
+  fillSelect($('#miCategory'), catItems('All categories'), 'all');
+  fillSelect($('#miCondition'), [
+    { label: 'All conditions',   value: 'all' },
+    { label: 'Needs attention',  value: 'attention' },
+    { label: 'Good condition',   value: 'good' }
+  ], 'all');
+
+  fillSelect($('#catCategory'), catItems('All categories'), 'all');
+
+  fillSelect($('#apReason'), [
+    { label: 'All reasons',        value: 'all' },
+    { label: 'Replacement',        value: 'replace' },
+    { label: 'New issue',          value: 'new' },
+    { label: 'Scheduled renewal',  value: 'renewal' }
+  ], 'all');
+
+  fillSelect($('#fuStock'), [
+    { label: 'All requests',   value: 'all' },
+    { label: 'Ready to pick',  value: 'ready' },
+    { label: 'Blocked',        value: 'blocked' }
+  ], 'all');
+
+  fillSelect($('#reqQty'),
+    [1, 2, 3].map(function (n) { return { label: String(n), value: String(n) }; }), '1');
+
+  fillSelect($('#reqNeeded'), [
+    { label: 'Urgent',      value: 'Urgent' },
+    { label: 'This week',   value: 'This week' },
+    { label: 'This month',  value: 'This month' },
+    { label: 'No rush',     value: 'No rush' }
+  ], 'This month');
+
+  /* vaadin-text-area height cannot be set from CSS or a host `rows`
+     attribute in core v1.22.3 — only `rows` on the SLOTTED textarea works.
+     Applied after upgrade, and again when a dialog renders one. */
+  function compactTextAreas(root) {
+    $$('vaadin-text-area', root || document).forEach(function (ta) {
+      var inner = ta.querySelector('textarea');
+      if (inner) inner.setAttribute('rows', '3');
+    });
+  }
+
+  /* Vaadin components measure zero-width if their parent is display:none
+     during upgrade, so the first render waits until the components are
+     defined AND a frame has passed. */
+  function boot() {
+    applyRole('requester');
+    requestAnimationFrame(function () {
+      compactTextAreas();
+      /* Dialog-rendered text areas need the same treatment on open. */
+      [dlgDecide, dlgIssue].forEach(function (d) {
+        d.addEventListener('opened-changed', function (e) {
+          if (e.detail.value) requestAnimationFrame(function () { compactTextAreas(d.$ ? document : document); });
+        });
+      });
+    });
+  }
+
+  if (window.customElements && customElements.whenDefined) {
+    Promise.all([
+      customElements.whenDefined('vaadin-tabs'),
+      customElements.whenDefined('vaadin-select'),
+      customElements.whenDefined('vaadin-text-field')
+    ]).then(boot);
+  } else {
+    window.addEventListener('load', boot);
+  }
+
+})();
+</script>
+</body>
+</html>
