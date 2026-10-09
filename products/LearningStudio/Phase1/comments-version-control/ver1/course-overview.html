@@ -32,6 +32,7 @@
   <!-- Shared comment model + panel controller. Loaded by BOTH pages so the
        thread data and the panel behaviour cannot drift between them. -->
   <script src="version-data.js"></script>
+  <script src="watch-data.js"></script>
   <script src="history-data.js"></script>
 <script src="comments-data.js"></script>
   <script src="comments-panel.js"></script>
@@ -372,20 +373,20 @@
                   </select>
                 </div>
 
-                <div class="field required det-col-main">
+                <div class="field required det-col-full">
                   <label for="cdDesc">Course Description *</label>
                   <textarea id="cdDesc" rows="6" aria-describedby="cdDescCount"></textarea>
                   <div class="char-count" id="cdDescCount" data-max="2000"></div>
                 </div>
 
-                <div class="det-col-main">
+                <div class="det-col-full">
                   <label class="det-check">
                     <input type="checkbox" id="cdAccredited" />
                     <span>Check if this will be an Accredited course</span>
                   </label>
                 </div>
 
-                <div class="field det-col-main">
+                <div class="field det-col-full">
                   <!-- Not a <label for>: the only control here is a button,
                        and a label pointing at it would fire the file picker
                        on a stray click on the heading. -->
@@ -431,27 +432,92 @@
             <div class="det-card">
               <div class="det-grid">
 
-                <div class="field det-col-main">
+                <div class="field det-col-full">
                   <label for="cdVarTitle">Variant Title</label>
                   <input type="text" id="cdVarTitle" value="Full Course"
                          aria-describedby="cdVarTitleCount" />
                   <div class="char-count" id="cdVarTitleCount" data-max="253"></div>
                 </div>
 
-                <div class="field det-col-main">
+                <div class="field det-col-full">
                   <label for="cdVarDesc">Variant Description</label>
                   <textarea id="cdVarDesc" rows="3"
                             placeholder="Enter variant description"></textarea>
                 </div>
 
-                <div class="det-col-main">
+                <!-- ---- Notifications: owner + watchers ----
+                     Wrapped in .det-pair so the two split the card evenly:
+                     the grid's own second track is 210px (sized for Default
+                     Voice) and too narrow for a multi-select with chips. -->
+                <div class="det-pair">
+
+                <!-- ---- Owner ----
+                     Who hears about changes to this variant, from both
+                     sides. The OWNER is assigned to the variant; WATCHERS
+                     opt in or are added. Both receive the same
+                     notifications, so they sit side by side.
+
+                     `theme="outlined"` is REQUIRED on every Vaadin
+                     text-input field — without it Vaadin's "filled" style
+                     renders, which is not the Vector standard. -->
+                <div class="field">
+                  <label for="cdOwner">
+                    Variant Owner
+                    <!-- The help affordance is a BUTTON, not a bare icon: it
+                         has to be focusable for vaadin-tooltip to open on
+                         keyboard focus as well as hover. -->
+                    <button class="det-info" type="button" id="cdOwnerInfo"
+                            aria-label="About the variant owner">
+                      <!-- vwc-icon takes a raw MDI path string — there are no
+                           icon names. This is mdiHelpCircleOutline. -->
+                      <vwc-icon aria-hidden="true"
+                                path="M15.07,11.25L14.17,12.17C13.45,12.89 13,13.5 13,15H11V14.5C11,13.39 11.45,12.39 12.17,11.67L13.41,10.41C13.78,10.05 14,9.55 14,9C14,7.89 13.1,7 12,7A2,2 0 0,0 10,9H8A4,4 0 0,1 12,5A4,4 0 0,1 16,9C16,9.88 15.64,10.67 15.07,11.25M13,19H11V17H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></vwc-icon>
+                    </button>
+                  </label>
+                  <vaadin-tooltip for="cdOwnerInfo" position="top"
+                                  text="This user will receive notifications for this course variant"></vaadin-tooltip>
+                  <vaadin-combo-box id="cdOwner" theme="outlined"
+                                    item-label-path="name" item-value-path="id"
+                                    placeholder="Search people…"></vaadin-combo-box>
+                </div>
+
+                <div class="field">
+                  <label for="cdWatchers">
+                    Watchers
+                    <button class="det-info" type="button" id="cdWatchInfo"
+                            aria-label="About watchers">
+                      <vwc-icon aria-hidden="true"
+                                path="M15.07,11.25L14.17,12.17C13.45,12.89 13,13.5 13,15H11V14.5C11,13.39 11.45,12.39 12.17,11.67L13.41,10.41C13.78,10.05 14,9.55 14,9C14,7.89 13.1,7 12,7A2,2 0 0,0 10,9H8A4,4 0 0,1 12,5A4,4 0 0,1 16,9C16,9.88 15.64,10.67 15.07,11.25M13,19H11V17H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"></vwc-icon>
+                    </button>
+                  </label>
+                  <vaadin-tooltip for="cdWatchInfo" position="top"
+                                  text="Watchers receive the same notifications as the owner."></vaadin-tooltip>
+                  <!-- Multi-select, because this role can add other people.
+                       A role without that permission gets a self-only toggle
+                       instead — out of scope for this pass, which builds the
+                       manager view. -->
+                  <vaadin-multi-select-combo-box id="cdWatchers" theme="outlined"
+                                    item-label-path="name" item-value-path="id"
+                                    placeholder="Add watchers…"></vaadin-multi-select-combo-box>
+
+                  <!-- The watcher list, as chips. The component shows its own
+                       chips inside the field, but they are capped and
+                       overflow into a "+N" counter — this list is the one
+                       place every watcher is visible at once, which is the
+                       question the field is asked ("who is on this?"). -->
+                  <div class="watch-chips" id="cdWatchChips"></div>
+                </div>
+
+                </div><!-- /.det-pair -->
+
+                <div class="det-col-full">
                   <label class="det-check">
                     <input type="checkbox" id="cdCustomDur" />
                     <span>Use Custom Duration</span>
                   </label>
                 </div>
 
-                <div class="field det-col-main det-minutes">
+                <div class="field det-col-full det-minutes">
                   <label for="cdMinutes" class="det-minutes-label">minutes</label>
                   <input type="number" id="cdMinutes" min="0" step="1" disabled />
                   <!-- Names what the field falls back to when unchecked, so
@@ -1184,6 +1250,124 @@ document.getElementById('hdr-sku').textContent = COURSE.sku;
    normalising at this single boundary rather than letting the two pages
    disagree and silently write to a course that does not exist. */
 const PUBLISH_SKU = COURSE.sku.startsWith('#') ? COURSE.sku : '#' + COURSE.sku;
+
+/* ── Course owner ──────────────────────────────────────────
+   People in the system, for the Course Owner combo-box. The first few are
+   the same names that appear as comment authors elsewhere in the prototype,
+   so the person you assign is someone you have seen on the course.
+
+   `email` rides along as a second line in the dropdown: two people can share
+   a display name, and the address is what tells them apart. */
+const OWNERS = [
+  { id: 'u-llama',   name: 'Dev Llama' },
+  { id: 'u-raman',   name: 'Priya Raman' },
+  { id: 'u-webb',    name: 'Marcus Webb' },
+  { id: 'u-cole',    name: 'Dana Cole' },
+  { id: 'u-nunez',   name: 'Sofia Nunez' },
+  { id: 'u-okafor',  name: 'Ada Okafor' },
+  { id: 'u-brandt',  name: 'Henrik Brandt' },
+  { id: 'u-shah',    name: 'Rohan Shah' },
+  { id: 'u-martins', name: 'Elena Martins' },
+  { id: 'u-kim',     name: 'Grace Kim' }
+];
+
+/* Name only, so no renderer: `item-label-path="name"` on the element is
+   enough for combo-box to draw and filter the list itself. */
+const cdOwner = document.getElementById('cdOwner');
+cdOwner.items = OWNERS;
+
+/* Seeded so the field shows a real state rather than an empty one. */
+cdOwner.value = 'u-llama';
+
+/* ── Watchers ─────────────────────────────────────────────
+   The owner above is assigned to the variant; watchers opt in, or — for a
+   role with the permission, which is the view built here — are added by
+   someone else. Both get the same notifications.
+
+   Reads the same shared store the course lookup's kebab writes to, so
+   watching a variant there and opening it here shows you already on the
+   list. */
+const cdWatchers = document.getElementById('cdWatchers');
+cdWatchers.items = OWNERS;
+
+/* Guards the change handler while the field is being populated from the
+   store, so programmatic assignment doesn't write straight back. */
+let watchSyncing = false;
+
+function renderWatchers() {
+  const names = watchAll(PUBLISH_SKU);
+
+  watchSyncing = true;
+  cdWatchers.selectedItems = names
+    .map(n => OWNERS.find(u => u.name === n))
+    .filter(Boolean);
+  watchSyncing = false;
+
+  /* The chip list under the field. The component keeps its own chips inside
+     the input, but caps them behind a "+N" overflow — this is the one place
+     the whole list is visible, which is what the field is actually asked. */
+  const box = document.getElementById('cdWatchChips');
+  if (names.length === 0) {
+    box.innerHTML = '<p class="watch-empty">No one is watching this variant yet.</p>';
+    return;
+  }
+  box.innerHTML = names.map(n =>
+    '<span class="watch-chip' + (n === WATCH_ME ? ' is-me' : '') + '">' +
+      '<i class="fa-solid fa-user" aria-hidden="true"></i>' +
+      escapeHtml(n) + (n === WATCH_ME ? ' (you)' : '') +
+      '<button type="button" class="watch-chip-x" data-watch-remove="' +
+        escapeHtml(n) + '" aria-label="Remove ' + escapeHtml(n) + ' as a watcher">' +
+        '<i class="fa-solid fa-xmark" aria-hidden="true"></i>' +
+      '</button>' +
+    '</span>'
+  ).join('');
+}
+
+/* Adding or removing in the field writes the whole list back. */
+cdWatchers.addEventListener('selected-items-changed', () => {
+  if (watchSyncing) return;
+  watchSetAll(PUBLISH_SKU, (cdWatchers.selectedItems || []).map(u => u.name));
+});
+
+/* Chip removal. Delegated, since the chips are re-rendered on every change. */
+document.getElementById('cdWatchChips').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-watch-remove]');
+  if (!btn) return;
+  const name = btn.dataset.watchRemove;
+  watchSetAll(PUBLISH_SKU, watchAll(PUBLISH_SKU).filter(n => n !== name));
+});
+
+/* Re-render from the EVENT rather than inside each handler, so a change made
+   anywhere — here, or the lookup's kebab earlier in the walkthrough — lands
+   on this field the same way. */
+document.addEventListener('watch:changed', (e) => {
+  if (e.detail.sku === PUBLISH_SKU) renderWatchers();
+});
+
+renderWatchers();
+
+/* The Details tab starts hidden (.ov-pane is display:none), and a Vaadin
+   field that upgrades inside a display:none parent measures itself at zero
+   width — it then renders as an empty box you cannot type into. Nudging the
+   combo-box once the pane is first shown makes it re-measure.
+
+   Only the FIRST reveal needs it; after that the component has a real
+   measurement of its own. */
+let cdOwnerMeasured = false;
+function remeasureOwnerField() {
+  if (cdOwnerMeasured) return;
+  cdOwnerMeasured = true;
+  requestAnimationFrame(() => {
+    /* Toggling each host's display forces a fresh layout pass inside the
+       component without disturbing anything the user has typed. Both Vaadin
+       fields in this pane need it, not just the first. */
+    [cdOwner, cdWatchers].forEach(el => {
+      el.style.display = 'none';
+      void el.offsetHeight;             // flush
+      el.style.display = '';
+    });
+  });
+}
 
 const publishModal = document.getElementById('publishModal');
 
@@ -1943,6 +2127,10 @@ function setOvTab(name) {
   document.querySelectorAll('.ov-pane').forEach(p => {
     p.classList.toggle('is-active', p.id === tab.pane);
   });
+
+  /* The Details pane's Vaadin field upgraded while hidden, so it needs one
+     re-measure the first time it is actually shown. */
+  if (tab.pane === 'paneDetails') remeasureOwnerField();
 
   document.getElementById('ovPaneTitle').textContent = tab.title;
   document.getElementById('ovPaneSub').textContent = tab.sub;
