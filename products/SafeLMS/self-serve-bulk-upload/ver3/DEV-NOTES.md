@@ -6,6 +6,17 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-09) Tables stop at 20 rows; log page tidy-up
+
+- **[DONE]** **Up to 20 rows per table:** each alert's "Rows from your file" table shows at most
+  20 rows. Past 20, a line under the table reads "Showing 20 of 168 rows. To see all of them,
+  download the CSV." — the link opens the same CSV as the side panel. On a failed automated
+  run's page it reads "Download the file to see all of them." The sample notes ("First 10 of…",
+  "A sample to spot-check…") were removed.
+- **[DONE]** **Upload log page:** the "Original file" button is now **Download file**, and the
+  **Method** card was removed (Uploaded by already says "Automated sync" or who ran it).
+- **[DONE]** **Flow names:** Flow 1: Employees page · Flow 2: Email · Flow 3: All error review.
+
 ## (2026-10-09) Flow 3: straight to the copy review
 
 - **[DONE]** **Opens on Review:** Flow 3 is Flow 1, but it opens directly on the Review page for
