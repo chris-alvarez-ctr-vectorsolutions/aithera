@@ -897,15 +897,15 @@
   .axt tr.axr { cursor: pointer; }
   .axt tr.axr:hover td { background: #F5F9FE; }
   .axt tr.axr:focus-visible { outline: 2px solid #1257B8; outline-offset: -2px; }
-  .axt tr.axr.is-open td { background: #EEF4FC; border-bottom-color: transparent; }
-  .axt .axr-chev { width: 28px; text-align: right; color: #8CA0B4; font-size: 10.5px; }
-  .axt tr.axr.is-open .axr-chev i { transform: rotate(180deg); color: #1257B8; }
-  .axt tr.axr:hover .axr-chev { color: #1257B8; }
-  /* The after row: a normal-looking row, set apart by a gap and a light outline. */
-  .axt tr.axa-gap td { height: 8px; padding: 0; border: 0; background: #fff; }
-  .axt tr.axa-row td { background: #fff; border-top: 1px solid #B9CBE2; border-bottom: 1px solid #B9CBE2; }
-  .axt tr.axa-row td:first-child { border-left: 1px solid #B9CBE2; }
-  .axt tr.axa-row td:last-child { border-right: 1px solid #B9CBE2; }
+  .axt tr.axr.is-open td { background: #EEF4FC; }
+  .axt tr.axr.is-open td:first-child { box-shadow: inset 3px 0 0 #1257B8; }
+  /* The selected row's result — its own box under "Rows from your file". */
+  .ax-after { border: 1px solid #B9CBE2; border-radius: 9px; background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .ax-after .axt-wrap { border: 0; border-radius: 0; }
+  /* Same fixed columns in both tables so the result row lines up under the rows above. */
+  .ax-list .axt, .ax-after .axt { table-layout: fixed; }
+  .ax-list .axt th:first-child, .ax-after .axt th:first-child { width: 96px; }
+  .ax-list .axt td, .ax-after .axt td { overflow-wrap: anywhere; }
 
   /* ---- Failed automated upload (log page) ---- */
   .ld-fail { display: flex; gap: 12px; align-items: flex-start; background: #FEF3F2; border: 1px solid #F1C0BB; border-radius: 10px; padding: 13px 16px; }
@@ -2243,20 +2243,26 @@
     var cls = o.c ? 'axt-' + o.c : (j === 0 ? 'axt-k' : '');
     return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(o.v) + '</td>';
   }
-  /* The "after the import" row (2026-10-09, simplified): a plain row with the same columns,
-     styled like the rows above it — just the values the row ends up with, so the admin
-     compares the two by eye. No highlight, strikethrough or sentence. It sits apart from the
-     list (a gap above and below + an outline). A skipped or blocked row has no values. */
-  function afterRowsHTML(r, af, width) {
-    var out = af.kind === 'skip' || af.kind === 'block';
-    var cells = '<td class="axt-row">' + (af.kind === 'skip' ? 'Not loaded' : af.kind === 'block' ? 'Not imported' : 'After import') + '</td>';
+  /* The selected row's result (2026-10-09): its own section BELOW the "Rows from your file"
+     box — one row with the same columns, styled like the rows in the box, showing just the
+     values it ends up with (the admin compares by eye). Titled "Changes to" when an existing
+     record is updated, "Imports as" otherwise; a skipped / blocked row has no values. */
+  function afterTitle(af) {
+    var changed = false; for (var k in (af.set || {})) { if (af.set[k].was) changed = true; }
+    return af.kind === 'skip' ? 'Won’t be loaded' : af.kind === 'block' ? 'Won’t be imported'
+      : af.kind === 'same' ? 'Stays as' : changed ? 'Changes to' : 'Imports as';
+  }
+  function afterSectionHTML(L, i) {
+    var r = L.rows[i], af = L.afters[i], out = af.kind === 'skip' || af.kind === 'block';
+    var cells = cellHTML(r[0], 0);
     for (var j = 1; j < r.length; j++) {
       var o = (r[j] && typeof r[j] === 'object') ? r[j] : { v: r[j] }, ch = af.set && af.set[j];
-      var v = out ? '—' : (ch ? ch.v : o.v);
-      cells += '<td' + (o.c === 'row' ? ' class="axt-row"' : '') + '>' + esc(v) + '</td>';
+      cells += '<td' + (o.c === 'row' ? ' class="axt-row"' : '') + '>' + esc(out ? '—' : (ch ? ch.v : o.v)) + '</td>';
     }
-    var gap = '<tr class="axa-gap" aria-hidden="true"><td colspan="' + width + '"></td></tr>';
-    return gap + '<tr class="axa-row">' + cells + '<td></td></tr>' + gap;
+    return '<div class="ax-after">'
+      + '<div class="ax-note"><b>' + afterTitle(af) + '</b></div>'
+      + '<div class="axt-wrap"><table class="axt"><thead><tr>' + L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('')
+      + '</tr></thead><tbody><tr>' + cells + '</tr></tbody></table></div></div>';
   }
 
   function alertHTML(a, logRun) {
@@ -2276,20 +2282,20 @@
       : a.sub;
     if (line) body += '<div class="alert-sub">' + esc(line) + '</div>';
     if (a.list) {
-      var L = a.list, width = L.head.length + 1, clickable = !logRun && !!L.afters;
-      var th = L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th>';
+      var L = a.list, clickable = !logRun && !!L.afters, sel = -1;
+      var th = L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('');
       var tb = L.rows.map(function (r, i) {
-        var rid = a.id + '|' + i, isOpen = clickable && state.axOpen === rid;
-        var tr = '<tr' + (clickable ? ' class="axr' + (isOpen ? ' is-open' : '') + '" data-act="axRow" data-arg="' + rid + '" role="button" tabindex="0" aria-expanded="' + isOpen + '"' : '') + '>'
-          + r.map(cellHTML).join('')
-          + '<td class="axr-chev">' + (clickable ? '<i class="fa-solid fa-chevron-down" aria-hidden="true"></i>' : '') + '</td></tr>';
-        return tr + (isOpen ? afterRowsHTML(r, L.afters[i], width) : '');
+        var rid = a.id + '|' + i, isSel = clickable && state.axOpen === rid;
+        if (isSel) sel = i;
+        return '<tr' + (clickable ? ' class="axr' + (isSel ? ' is-open' : '') + '" data-act="axRow" data-arg="' + rid + '" role="button" tabindex="0" aria-pressed="' + isSel + '"' : '') + '>'
+          + r.map(cellHTML).join('') + '</tr>';
       }).join('');
       body += '<div class="ax-list">'
         + '<div class="ax-note"><b>' + (L.rows.length === 1 ? 'The row' : 'Rows') + ' from your file.</b> '
-        + (L.note ? esc(L.note) + ' ' : '') + (clickable ? 'Click a row to see how it looks after the import.' : '') + '</div>'
+        + (L.note ? esc(L.note) + ' ' : '') + (clickable ? 'Click a row to see how it imports.' : '') + '</div>'
         + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
-        + '</div>';
+        + '</div>'
+        + (sel >= 0 ? afterSectionHTML(L, sel) : '');
     }
     if (a.fix) body += '<div class="ax-todo"><span class="ax-lbl">What to do:</span> ' + esc(a.fix) + '</div>';
     // Blocked: questions go to an issue ticket in the Support Center (the "Submit a ticket" button was removed 2026-09-30).
@@ -3081,7 +3087,7 @@
         { id: 'review-info', flow: 'import', x: 700, y: 60, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
         { id: 'review-confirm', flow: 'import', x: 1030, y: 60, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
-          desc: 'duplicate_user_in_system (name change, Jessyca → Jesse) + removed_rows + info. View details = one plain line on what the warning is about and how it changes things, then the rows exactly as uploaded. Click a row → a plain “After import” row pops out under it (same columns, just the values it ends up with — compare by eye); clicking another row moves it there. Every WARNING is checked “I’ve reviewed this” before Run import unlocks. Run confirmation: Run stays blue; “Also download your current employee data” has a download icon on the left and the checkbox on the right.' },
+          desc: 'duplicate_user_in_system (name change, Jessyca → Jesse) + removed_rows + info. View details = one plain line on what the warning is about and how it changes things, then the rows exactly as uploaded. Click a row to select it → below the box, a separate “Imports as” / “Changes to” section shows that row as it ends up (same columns, just the values — compare by eye); clicking another row switches it. Every WARNING is checked “I’ve reviewed this” before Run import unlocks. Run confirmation: Run stays blue; “Also download your current employee data” has a download icon on the left and the checkbox on the right.' },
         { id: 'log-auto', flow: 'import', x: 1030, y: 250, step: 'Log → Failed run', name: 'Automated upload failed — how to fix it', state: 'log-auto',
           desc: 'A failed automated upload can’t be reviewed or approved (2026-10-09) — they have to run it again. Its page says it didn’t run and nothing changed, then lists why: each Blocked / Warning alert opens to one line on what it’s about and how to fix the file, then the rows from the file. Side panel: Upload a corrected file, Original file, and the failure email list with “Edit the list”.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',

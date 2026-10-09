@@ -17,12 +17,14 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   **Bulk upload**. Clicking outside or pressing Esc closes the menu.
 - **[DONE]** **Review tables show only what was uploaded:** each row as it is in the file (Row,
   Username, names, and the value in question). Columns that showed site data ("On your site",
-  "If you continue", "Why it was removed") are gone. **Click a row** and a separate "After
-  import" row pops out under it — set apart by a gap and a light outline, but styled like the
-  rows above: the same columns with just the values the row ends up with, so the admin compares
-  the two by eye (no highlight, strikethrough or sentence). Clicking another row moves it
-  there; clicking the open row closes it. Skipped rows read "Not loaded" and blocked rows
-  "Not imported", with no values.
+  "If you continue", "Why it was removed") are gone. **Click a row** to select it; below the
+  "Rows from your file" box, a separate section shows that row as it ends up — the same
+  columns with just the values, styled like the rows above, so the admin compares by eye (no
+  highlight, strikethrough or sentence). It's titled **Changes to** when an existing record is
+  updated, **Imports as** for everything else, **Stays as** for unchanged rows, and **Won't be
+  loaded** / **Won't be imported** (no values) for skipped / blocked rows. Clicking another row
+  switches it; clicking the selected row clears it. Both tables share fixed column widths so
+  the result lines up under the rows.
 - **[DONE]** **View details** opens with one plain line: what the warning is about, then how it
   changes things. It replaces the catalog's short second line (e.g. "Expand to see which.") and
   isn't a separate box. Blocked keeps **What to do**. `all_rows` stays count-only, so it has no
