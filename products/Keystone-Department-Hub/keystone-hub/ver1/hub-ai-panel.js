@@ -89,7 +89,10 @@
     thread: [],      // { role:'user', text } | { role:'assistant', text, metricId, denied }
     draft: '',
     thinking: false,
-    collapsed: false
+    // Phones start with the panel collapsed: open, it is ~300px of prompts
+    // above the first widget and the task list lands two screens down.
+    // Initial state only; resizing later does not toggle it.
+    collapsed: !!(window.matchMedia && window.matchMedia('(max-width: 860px)').matches)
   };
 
   // A collapsed panel reports as not expanded, so the container returns to
