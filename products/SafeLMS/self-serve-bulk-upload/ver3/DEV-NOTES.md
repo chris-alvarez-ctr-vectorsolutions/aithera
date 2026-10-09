@@ -26,6 +26,9 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   passwords for 2 people. Make sure you meant to include passwords."). Straight apostrophes
   became curly, and a count of 1 still reads in the singular. The line inside View details is
   unchanged. Source: PMC 29424549907, pulled 2026-10-09.
+  The three "None of the…" titles (people, positions, locations) use the designer's longer
+  wording: "…They’ll all be added as new users / positions / locations. Make sure this is the
+  right file." — PENDING: update Confluence to match.
 - **[DONE]** **Side panel gap:** the sticky Review side panel stops 24px below the blue Bulk
   Upload header while scrolling, so it doesn't touch it.
 
