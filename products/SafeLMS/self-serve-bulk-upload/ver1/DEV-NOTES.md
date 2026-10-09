@@ -51,6 +51,9 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   compare" tag beside View details (clicking it opens the details).
 - **[DONE]** **No "What to do" box** in the alert details — the line above the rows covers it.
   The CSV still includes each Blocked issue's What to do.
+- **[DONE]** **Singular copy:** when a count is 1, messages read "1 row has…", "1 person",
+  "1 building code that isn't…" instead of the catalog's plural wording. Worth adding the
+  singular forms to the Confluence catalog.
 - **PROTOTYPE ONLY — don't build:** the **Catalog key** label under each alert title (e.g.
   `large_bldg_change`, tagged "Prototype only") shows only on the copy-review sample file, so the
   copy can be checked against the Confluence catalog. The user test never shows it.

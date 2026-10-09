@@ -1636,12 +1636,24 @@
   var SUMMARY_COUNTS = { total_person_change: 168, large_person_change: 160, unchanged_rows: 32, all_rows: 168,
     all_bldg_codes: 151, all_pos_codes: 149, new_person: 6, reactivated_person: 2, password_changed: 2 };
 
+  /* Singular copy when {count} is 1 (2026-10-09): "1 rows have" → "1 row has", "1 people" →
+     "1 person", etc. The catalog strings are written for plurals. */
+  var ONE = [
+    [/\b1 (new |previously deactivated )?people\b/g, '1 $1person'],
+    [/\b1 rows have\b/g, '1 row has'], [/\b1 rows include\b/g, '1 row includes'],
+    [/\b1 rows were skipped\b/g, '1 row was skipped'], [/\b1 rows already match\b/g, '1 row already matches'],
+    [/no changes will be made to them/g, 'no changes will be made to it'],
+    [/\b1 (building|position) codes that aren’t\b/g, '1 $1 code that isn’t'],
+    [/\b1 new (position|location)s\b/g, '1 new $1'], [/\b1 rows\b/g, '1 row']
+  ];
+  function oneOf(t) { ONE.forEach(function (r) { t = t.replace(r[0], r[1]); }); return t; }
+
   function catalogAlert(key, n) {
     var c = CATALOG[key], rows = c.rows ? c.rows(n || SUMMARY_COUNTS[key] || 3) : null;
     // Samples (first 10 of N) keep the real total in {count}; full lists count their rows.
     var count = n != null ? n : (SUMMARY_COUNTS[key] != null ? SUMMARY_COUNTS[key] : (rows ? rows.length : 0));
-    var text = c.msg.replace('{count}', count), cut = text.indexOf('. ');
-    function fill(t) { return t ? t.replace('{count}', count) : ''; }
+    function fill(t) { t = t ? t.replace('{count}', count) : ''; return count === 1 ? oneOf(t) : t; }
+    var text = fill(c.msg), cut = text.indexOf('. ');
     var a = { id: key, key: key, tier: c.tier, title: cut > 0 ? text.slice(0, cut + 1) : text, sub: cut > 0 ? text.slice(cut + 2) : '',
       // Rows as uploaded + the "after the import" line for each (2026-10-09).
       list: rows ? { head: c.head, rows: rows, note: c.note ? c.note(count) : '',
