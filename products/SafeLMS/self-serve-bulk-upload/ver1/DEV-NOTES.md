@@ -27,6 +27,10 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   for 10-row samples and read wrong next to a 20-row table. The click hint ("Click Row 23 or
   Row 118 to see the change.") sits at the right of the same line, only on alerts with
   clickable rows. The box under it is still titled "After import".
+- **[DONE]** **"Very few…" details (large_person/pos/bldg_change):** "This file has a lot of new
+  people in it. Make sure that’s what you expect. If you import, {count} new people will be
+  added." (same for positions and locations; {count} = the rows that don’t match, e.g. 160 /
+  7 / 4 in the copy-review file). Replaces the "That’s expected for new hires…" line.
 - **[DONE]** **No em dashes in alert copy** (titles, View details, the CSV's "What happens" notes,
   the "I’ve reviewed this" label, the failed-upload banner). Clauses were split into sentences
   or joined with a comma instead. Empty table cells still show "—" (that's data, not copy).
