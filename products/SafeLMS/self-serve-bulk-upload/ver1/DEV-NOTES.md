@@ -27,6 +27,12 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   for 10-row samples and read wrong next to a 20-row table. The click hint ("Click Row 23 or
   Row 118 to see the change.") sits at the right of the same line, only on alerts with
   clickable rows. The box under it is still titled "After import".
+- **[DONE]** **"None of the…" details (total_person/pos/bldg_change):** "That’s expected for a
+  file of new hires. Otherwise it may be the wrong file, or its usernames don’t match your
+  site’s. They’ll all be added as new users. Make sure this is the right file." Positions and
+  locations follow the same four sentences ("…a file of new positions… its position names…
+  added as new positions…"). Designer's wording, 2026-10-09; no "If you import," lead-in on
+  these three.
 - **[DONE]** **"Very few…" details (large_person/pos/bldg_change):** "Most people in this file
   are new to your site. Check that this is the right file. If you import, {count} new people
   will be added." (same for positions and locations; {count} = the rows that don’t match, e.g.
