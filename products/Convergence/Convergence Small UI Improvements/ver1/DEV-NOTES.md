@@ -6,7 +6,7 @@
 - **Width:** 250px open, 56px collapsed (`--w-sidenav`, `--w-sidenav-min`).
 - **Logo area:** 80px tenant-logo area at the top (32px mark + name, EHS's `.tenant-logo` pattern); only the mark shows when collapsed. Tenant branding source is a logic item.
 - **Collapse control:** a 24px round chevron on the sidebar's right edge, vertically centred on the logo area (`.sn-collapse`, `right: -12px`), the only open/close control; it rotates 180 degrees when collapsed. The sidebar itself must not clip (`overflow: visible`); the list and the logo area clip their own contents.
-- **Rows:** 13px / 500, padding 8 16, 10px gap, 18px icon column, no radius; selected = 3px left border `--c-primary` + `--c-primary-soft` fill + 600. Children: 13px / 400 at a 44px indent, no guide line, selected at 500. Section headers 11 / 600 with a hairline and 20px lead above (first one without).
+- **Rows:** 13px / 500, padding 8 16, 10px gap, 18px icon column, no radius; selected = 3px left border `--c-primary` + `--c-primary-soft` fill + 600. Children: 13px / 400 at a 44px indent, selected at 500, with a 1px `--c-line` guide line down the icon column (x = 27.5px) from the first child to the last (added 2026-10-09, from V4). Section headers 11 / 600 with a hairline and 20px lead above (first one without).
 - **Collapsed:** icons centred in 56px; the parent of the current page keeps the fill and the bar lit.
 - **Kept from the Small UI rounds:** the nav search (now under the logo area, hidden when collapsed), two-line label wrap, right-aligned carets, the trail state, the off-canvas behaviour below 900px.
 > date: 2026-07-30
