@@ -69,6 +69,13 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   positions under a different name, and add them to your training plans." / new codes: "Check
   that it isn’t an existing location under a different code." / "Check that the codes match
   the ones on your site." `all_rows` still has no details.
+- **[DONE]** **`duplicate_user_in_upload` is BLOCKED** (designer's call, 2026-10-12; the Confluence
+  catalog still has it as WARNING, PENDING an update). "One username is used for more than one
+  name in this file." / "Usernames must be unique, and we can’t tell which name is right. If
+  it’s one user with two jobs, the names should match on every row. To fix it, give each user
+  their own username, or make the names match if it’s the same user, then upload again." Both
+  rows are marked not imported (no before / after, no "I’ve reviewed this"). The copy-review
+  file now has 6 blocked messages; no other sample file uses this message.
 - **[DONE]** **Before / after shows by itself; no "changes to compare" pill.** The "N changes to
   compare" pill next to View details is gone (2026-10-12). Instead, on an alert where an
   existing user's or record's values change (name changes, code renames, ID changes, the
