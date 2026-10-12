@@ -94,54 +94,64 @@
   function scopeLabel(scope) { return scope === 'all' ? 'All facilities' : fac(scope).name; }
 
   /* ── Viz renderers ─────────────────────────────────────────────────────── */
-  var COL_A = 'var(--lumo-error-color)', COL_B = 'var(--lumo-primary-color)';
-  function colorFor(mid, isB) { return isB ? COL_B : (metric(mid).src === 'ehs' ? COL_A : COL_B); }
+  /* A module holds a LIST of metrics (spec.m, any number), from either
+     product. Series take colors in selection order, never by value, so a
+     metric keeps its color when others are added or removed. Older specs
+     with a / b still render through mids(). */
+  /* No cap on selections: one distinct color per metric in the catalog. */
+  var SERIES = ['var(--lumo-error-color)', 'var(--lumo-primary-color)', 'var(--vwc-color-puerto-rico-600)', 'var(--vwc-color-ecstacy-600)', 'var(--vwc-color-vivid-violet-600)', 'var(--vwc-color-conifer-700)', 'var(--vwc-color-picton-blue-400)', 'var(--vwc-color-cinnabar-800)', 'var(--vwc-color-ecstacy-300)', 'var(--lumo-contrast-60pct)'];
+  var MAX_M = SERIES.length;
+  var COL_A = SERIES[0], COL_B = SERIES[1];
+  function mids(spec) { return (spec.m && spec.m.length) ? spec.m.slice(0, MAX_M) : [spec.a, spec.b].filter(Boolean); }
   function legend(spec) {
-    return '<div class="cw-legend"><span><i class="sw" style="background:' + colorFor(spec.a, false) + '"></i>' + esc(metric(spec.a).label) + srcChip(metric(spec.a).src) + '</span>' + (spec.b ? '<span><i class="sw" style="background:' + (metric(spec.a).src === 'ehs' && metric(spec.b).src === 'ehs' ? 'var(--lumo-contrast-40pct)' : COL_B) + '"></i>' + esc(metric(spec.b).label) + srcChip(metric(spec.b).src) + '</span>' : '') + '</div>';
+    return '<div class="cw-legend">' + mids(spec).map(function (id, i) { var m = metric(id); return '<span><i class="sw" style="background:' + SERIES[i] + '"></i>' + esc(m.label) + srcChip(m.src) + '</span>'; }).join('') + '</div>';
   }
   function vizTrend(spec) {
-    var A = series(spec.scope, spec.a), B = spec.b ? series(spec.scope, spec.b) : null, w = 360, h = 130, pl = 34, pb = 22;
-    var idx = !!B, a = idx ? A.map(function (v) { return A[0] ? v / A[0] * 100 : 100; }) : A, b = idx && B ? B.map(function (v) { return B[0] ? v / B[0] * 100 : 100; }) : null;
-    var all = b ? a.concat(b) : a, min = Math.min.apply(null, all), max = Math.max.apply(null, all), span = (max - min) || 1;
-    function pts(vals) { return vals.map(function (v, i) { return [pl + i * (w - pl - 10) / 11, 10 + (1 - (v - min) / span) * (h - pb - 16)]; }); }
+    var ids = mids(spec), raw = ids.map(function (id) { return series(spec.scope, id); }), w = 360, h = 130, pl = 34, pb = 22, idx = ids.length > 1;
+    var vals = idx ? raw.map(function (s) { return s.map(function (v) { return s[0] ? v / s[0] * 100 : 100; }); }) : raw;
+    var all = [].concat.apply([], vals), min = Math.min.apply(null, all), max = Math.max.apply(null, all), span = (max - min) || 1;
+    function pts(v) { return v.map(function (x, i) { return [pl + i * (w - pl - 10) / 11, 10 + (1 - (x - min) / span) * (h - pb - 16)]; }); }
     function path(p) { return p.map(function (q, i) { return (i ? 'L' : 'M') + q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' '); }
-    var pa = pts(a), pb2 = b ? pts(b) : null, colB = metric(spec.a).src === 'ehs' && spec.b && metric(spec.b).src === 'ehs' ? 'var(--lumo-contrast-40pct)' : COL_B;
+    var lines = vals.map(function (v, i) { var p = pts(v); return '<path d="' + path(p) + '" fill="none" stroke="' + SERIES[i] + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="' + p[11][0].toFixed(1) + '" cy="' + p[11][1].toFixed(1) + '" r="4" fill="' + SERIES[i] + '" stroke="#fff" stroke-width="2"/>'; }).reverse().join('');
     return legend(spec) + '<svg class="cw-svg" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(title(spec)) + '">' +
       '<line class="grid" x1="' + pl + '" y1="' + (h - pb) + '" x2="' + w + '" y2="' + (h - pb) + '"/><line class="grid" x1="' + pl + '" y1="10" x2="' + w + '" y2="10"/>' +
-      '<text x="' + (pl - 6) + '" y="14" text-anchor="end">' + (idx ? Math.round(max) : esc(num(max))) + '</text><text x="' + (pl - 6) + '" y="' + (h - pb + 4) + '" text-anchor="end">' + (idx ? Math.round(min) : esc(num(min))) + '</text>' +
-      (pb2 ? '<path d="' + path(pb2) + '" fill="none" stroke="' + colB + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="' + pb2[11][0].toFixed(1) + '" cy="' + pb2[11][1].toFixed(1) + '" r="4" fill="' + colB + '" stroke="#fff" stroke-width="2"/>' : '') +
-      '<path d="' + path(pa) + '" fill="none" stroke="' + colorFor(spec.a, false) + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="' + pa[11][0].toFixed(1) + '" cy="' + pa[11][1].toFixed(1) + '" r="4" fill="' + colorFor(spec.a, false) + '" stroke="#fff" stroke-width="2"/>' +
+      '<text x="' + (pl - 6) + '" y="14" text-anchor="end">' + (idx ? Math.round(max) : esc(num(max))) + '</text><text x="' + (pl - 6) + '" y="' + (h - pb + 4) + '" text-anchor="end">' + (idx ? Math.round(min) : esc(num(min))) + '</text>' + lines +
       '<text x="' + pl + '" y="' + (h - 5) + '">12 weeks ago</text><text x="' + w + '" y="' + (h - 5) + '" text-anchor="end">This week</text></svg>' +
-      '<p class="cw-cap">' + (idx ? 'Both series indexed to 100 at week 1 so they share one axis. Weekly values: ' : 'Weekly values: ') + esc(metric(spec.a).label) + ': <strong>' + esc(num(A[0])) + ' → ' + esc(num(A[11])) + metric(spec.a).unit + '</strong>' + (B ? '. ' + esc(metric(spec.b).label) + ': <strong>' + esc(num(B[0])) + ' → ' + esc(num(B[11])) + metric(spec.b).unit + '</strong>' : '') + '.</p>';
+      '<p class="cw-cap">' + (idx ? 'Series indexed to 100 at week 1 so they share one axis. ' : '') + 'Weekly values: ' + ids.map(function (id, i) { var m = metric(id); return esc(m.label) + ' <strong>' + esc(num(raw[i][0])) + ' → ' + esc(num(raw[i][11])) + m.unit + '</strong>'; }).join(', ') + '.</p>';
   }
   function vizBars(spec) {
-    var A = rows(spec.scope, spec.a), B = spec.b ? rows(spec.scope, spec.b) : null, maxA = Math.max.apply(null, A.map(function (r) { return r.value; })) || 1, maxB = B ? (Math.max.apply(null, B.map(function (r) { return r.value; })) || 1) : 1;
-    var order = A.map(function (r, i) { return i; }).sort(function (x, y) { return A[y].value - A[x].value; }), ua = metric(spec.a).unit, ub = spec.b ? metric(spec.b).unit : '';
-    var colB = spec.b && metric(spec.a).src === 'ehs' && metric(spec.b).src === 'ehs' ? 'var(--lumo-contrast-40pct)' : COL_B;
-    return (B ? legend(spec) : '') + '<div class="cw-bars">' + order.map(function (i) {
-      return '<div class="cw-row' + (B ? ' pair' : '') + '" title="' + esc(A[i].full) + '"><span class="cw-l">' + esc(A[i].label) + '</span><span class="cw-tracks"><span class="cw-t"><span class="cw-f" style="width:' + (A[i].value / maxA * 100).toFixed(0) + '%;background:' + (B ? colorFor(spec.a, false) : (A[i].hot ? colorFor(spec.a, false) : 'var(--lumo-contrast-30pct)')) + '"></span></span>' + (B ? '<span class="cw-t"><span class="cw-f" style="width:' + (B[i].value / maxB * 100).toFixed(0) + '%;background:' + colB + '"></span></span>' : '') + '</span><span class="cw-v"><b>' + esc(num(A[i].value)) + ua + '</b>' + (B ? '<b>' + esc(num(B[i].value)) + ub + '</b>' : '') + '</span></div>';
+    var ids = mids(spec), R = ids.map(function (id) { return rows(spec.scope, id); }), multi = ids.length > 1;
+    var maxes = R.map(function (r) { return Math.max.apply(null, r.map(function (x) { return x.value; })) || 1; });
+    var order = R[0].map(function (r, i) { return i; }).sort(function (x, y) { return R[0][y].value - R[0][x].value; });
+    return (multi ? legend(spec) : '') + '<div class="cw-bars">' + order.map(function (i) {
+      return '<div class="cw-row' + (multi ? ' pair' : '') + '" title="' + esc(R[0][i].full) + '"><span class="cw-l">' + esc(R[0][i].label) + '</span><span class="cw-tracks">' +
+        R.map(function (r, k) { return '<span class="cw-t"><span class="cw-f" style="width:' + (r[i].value / maxes[k] * 100).toFixed(0) + '%;background:' + (multi ? SERIES[k] : (r[i].hot ? SERIES[0] : 'var(--lumo-contrast-30pct)')) + '"></span></span>'; }).join('') +
+        '</span><span class="cw-v">' + R.map(function (r, k) { return '<b>' + esc(num(r[i].value)) + metric(ids[k]).unit + '</b>'; }).join('') + '</span></div>';
     }).join('') + '</div>';
   }
   function vizScatter(spec) {
-    var A = rows(spec.scope, spec.a), B = rows(spec.scope, spec.b), w = 360, h = 160, pl = 40, pb = 26;
+    var ids = mids(spec), A = rows(spec.scope, ids[0]), B = rows(spec.scope, ids[1]), w = 360, h = 160, pl = 40, pb = 26;
     var maxA = Math.max.apply(null, A.map(function (r) { return r.value; })) * 1.15 || 1, bs = B.map(function (r) { return r.value; }), maxB = Math.max.apply(null, bs) * 1.08 || 1, minB = Math.min.apply(null, bs) * 0.92;
     return '<svg class="cw-svg tall" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(title(spec)) + '"><line class="grid" x1="' + pl + '" y1="' + (h - pb) + '" x2="' + w + '" y2="' + (h - pb) + '"/><line class="grid" x1="' + pl + '" y1="6" x2="' + pl + '" y2="' + (h - pb) + '"/>' +
-      '<text x="' + pl + '" y="' + (h - 6) + '">' + esc(metric(spec.b).label) + ' →</text><text x="12" y="10" transform="rotate(-90 12 10)" text-anchor="end">' + esc(metric(spec.a).label) + ' →</text>' +
-      A.map(function (r, i) { var x = pl + (B[i].value - minB) / ((maxB - minB) || 1) * (w - pl - 12), y = 8 + (1 - r.value / maxA) * (h - pb - 10); return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r.hot ? 7 : 5) + '" fill="' + (r.hot ? COL_A : COL_B) + '" stroke="#fff" stroke-width="2"><title>' + esc(r.full + ': ' + r.value + metric(spec.a).unit + ' / ' + B[i].value + metric(spec.b).unit) + '</title></circle>' + (r.hot ? '<text x="' + (x + 10).toFixed(1) + '" y="' + (y + 4).toFixed(1) + '" class="lbl">' + esc(r.label) + '</text>' : ''); }).join('') + '</svg>' +
+      '<text x="' + pl + '" y="' + (h - 6) + '">' + esc(metric(ids[1]).label) + ' →</text><text x="12" y="10" transform="rotate(-90 12 10)" text-anchor="end">' + esc(metric(ids[0]).label) + ' →</text>' +
+      A.map(function (r, i) { var x = pl + (B[i].value - minB) / ((maxB - minB) || 1) * (w - pl - 12), y = 8 + (1 - r.value / maxA) * (h - pb - 10); return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r.hot ? 7 : 5) + '" fill="' + (r.hot ? COL_A : COL_B) + '" stroke="#fff" stroke-width="2"><title>' + esc(r.full + ': ' + r.value + metric(ids[0]).unit + ' / ' + B[i].value + metric(ids[1]).unit) + '</title></circle>' + (r.hot ? '<text x="' + (x + 10).toFixed(1) + '" y="' + (y + 4).toFixed(1) + '" class="lbl">' + esc(r.label) + '</text>' : ''); }).join('') + '</svg>' +
       '<p class="cw-cap">Each dot is a ' + (spec.scope === 'all' ? 'facility' : 'department') + '. Red dots are flagged <strong>Elevated</strong>; hover for values.</p>';
   }
   function vizKpi(spec) {
-    function one(mid, isB) { var m = metric(mid), s = series(spec.scope, mid), d = s[11] - s[0], bad = (d > 0) === (m.shape === 'up'); return '<div class="cw-kpi"><div class="cw-kpi-l">' + esc(m.label) + srcChip(m.src) + '</div><div class="cw-kpi-v" style="color:' + colorFor(mid, isB) + '">' + esc(num(total(spec.scope, mid))) + '<small>' + m.unit + '</small></div><div class="cw-kpi-d ' + (d === 0 ? '' : bad ? 'bad' : 'good') + '"><i class="fa-solid ' + (d > 0 ? 'fa-arrow-up-right' : d < 0 ? 'fa-arrow-down-right' : 'fa-arrow-right') + '" aria-hidden="true"></i>' + (d === 0 ? 'No change' : esc(num(Math.abs(Math.round(d * 10) / 10))) + m.unit + ' over 12 weeks') + '</div></div>'; }
-    return '<div class="cw-kpis">' + one(spec.a, false) + (spec.b ? one(spec.b, true) : '') + '</div>';
+    function one(mid, i) { var m = metric(mid), s = series(spec.scope, mid), d = s[11] - s[0], bad = (d > 0) === (m.shape === 'up'); return '<div class="cw-kpi"><div class="cw-kpi-l">' + esc(m.label) + srcChip(m.src) + '</div><div class="cw-kpi-v" style="color:' + SERIES[i] + '">' + esc(num(total(spec.scope, mid))) + '<small>' + m.unit + '</small></div><div class="cw-kpi-d ' + (d === 0 ? '' : bad ? 'bad' : 'good') + '"><i class="fa-solid ' + (d > 0 ? 'fa-arrow-up-right' : d < 0 ? 'fa-arrow-down-right' : 'fa-arrow-right') + '" aria-hidden="true"></i>' + (d === 0 ? 'No change' : esc(num(Math.abs(Math.round(d * 10) / 10))) + m.unit + ' over 12 weeks') + '</div></div>'; }
+    return '<div class="cw-kpis">' + mids(spec).map(one).join('') + '</div>';
   }
   function vizTable(spec) {
-    var A = rows(spec.scope, spec.a), B = spec.b ? rows(spec.scope, spec.b) : null;
-    return '<table class="cw-table"><thead><tr><th>' + (spec.scope === 'all' ? 'Facility' : 'Department') + '</th><th class="n">' + esc(metric(spec.a).label) + '</th>' + (B ? '<th class="n">' + esc(metric(spec.b).label) + '</th>' : '') + '</tr></thead><tbody>' + A.map(function (r, i) { return '<tr><td>' + esc(r.full) + '</td><td class="n">' + esc(num(r.value)) + metric(spec.a).unit + '</td>' + (B ? '<td class="n">' + esc(num(B[i].value)) + metric(spec.b).unit + '</td>' : '') + '</tr>'; }).join('') + '</tbody></table>';
+    var ids = mids(spec), R = ids.map(function (id) { return rows(spec.scope, id); });
+    return '<table class="cw-table"><thead><tr><th>' + (spec.scope === 'all' ? 'Facility' : 'Department') + '</th>' + ids.map(function (id) { return '<th class="n">' + esc(metric(id).label) + '</th>'; }).join('') + '</tr></thead><tbody>' + R[0].map(function (r, i) { return '<tr><td>' + esc(r.full) + '</td>' + R.map(function (x, k) { return '<td class="n">' + esc(num(x[i].value)) + metric(ids[k]).unit + '</td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
   }
-  function body(spec) { switch (spec.viz) { case 'trend': return vizTrend(spec); case 'scatter': return spec.b ? vizScatter(spec) : vizBars(spec); case 'kpi': return vizKpi(spec); case 'table': return vizTable(spec); default: return vizBars(spec); } }
-  function title(spec) { return spec.title || (metric(spec.a).label + (spec.b ? ' vs ' + metric(spec.b).label : '') + ', ' + scopeLabel(spec.scope)); }
-  function sources(spec) { var s = [metric(spec.a).src]; if (spec.b && s.indexOf(metric(spec.b).src) < 0) s.push(metric(spec.b).src); return s; }
-  function vizAllowed(spec) { return spec.b ? ['trend', 'bars', 'scatter', 'kpi', 'table'] : ['trend', 'bars', 'kpi', 'table']; }
+  function body(spec) { switch (spec.viz) { case 'trend': return vizTrend(spec); case 'scatter': return mids(spec).length === 2 ? vizScatter(spec) : vizBars(spec); case 'kpi': return vizKpi(spec); case 'table': return vizTable(spec); default: return vizBars(spec); } }
+  function labelList(ids) { var l = ids.map(function (id) { return metric(id).label; }); if (l.length < 3) return l.join(' vs '); if (l.length === 3) return l[0] + ', ' + l[1] + ' and ' + l[2]; return l[0] + ', ' + l[1] + ' and ' + (l.length - 2) + ' more'; }
+  function title(spec) { return (spec.title && spec.title.trim()) || (labelList(mids(spec)) + ', ' + scopeLabel(spec.scope)); }
+  function sources(spec) { var s = []; mids(spec).forEach(function (id) { var src = metric(id).src; if (s.indexOf(src) < 0) s.push(src); }); return s; }
+  function vizAllowed(spec) { return mids(spec).length === 2 ? ['trend', 'bars', 'scatter', 'kpi', 'table'] : ['trend', 'bars', 'kpi', 'table']; }
+  function iconFor(spec) { return mids(spec).length > 1 ? 'fa-arrow-right-arrow-left' : metric(mids(spec)[0]).icon; }
+  function kindFor(spec) { return mids(spec).length > 1 ? 'Comparison' : 'Report'; }
 
   /* ── Build a module from a description ─────────────────────────────────
      Ported from the Readiness Hub's Agency Intelligence panel: the typed
@@ -160,18 +170,19 @@
   ];
   function describeToSpec(text) {
     var hit = SUGGESTIONS.filter(function (s) { return keywordOverlap(text, s.label + ' ' + s.hint) >= 2; })[0];
-    if (hit) return Object.assign({ via: 'example' }, hit.spec);
+    if (hit) return { via: 'example', scope: hit.spec.scope, m: [hit.spec.a, hit.spec.b].filter(Boolean), viz: hit.spec.viz };
     var t = text.toLowerCase(), scope = 'all';
     Object.keys(FAC_WORDS).forEach(function (id) { FAC_WORDS[id].forEach(function (w) { if (t.indexOf(w) > -1) scope = id; }); });
     var found = [];
     METRIC_WORDS.forEach(function (pair) { if (pair[1].some(function (w) { return t.indexOf(w) > -1; }) && found.indexOf(pair[0]) < 0) found.push(pair[0]); });
     if (found.indexOf('incidents') > -1 && found.indexOf('trir') > -1) found.splice(found.indexOf('incidents'), 1);
-    var a = found[0] || (t.indexOf('training') > -1 ? 'completions' : 'incidents'), b = found[1] || null;
-    if (!b && /\b(compare|vs|versus|against|with|and)\b/.test(t)) b = metric(a).src === 'ehs' ? 'completions' : 'incidents';
-    var viz = /trend|over time|week|month|history/.test(t) ? 'trend' : /scatter|correlat|relationship/.test(t) ? (b ? 'scatter' : 'bars') : /table|list|rows/.test(t) ? 'table' : /number|total|how many|kpi/.test(t) ? 'kpi' : (b && scope !== 'all' ? 'trend' : 'bars');
-    return { via: 'parsed', scope: scope, a: a, b: b, viz: viz, w: viz === 'kpi' ? 4 : viz === 'trend' ? 8 : 6 };
+    var m = found.slice(0, MAX_M);
+    if (!m.length) m = [t.indexOf('training') > -1 ? 'completions' : 'incidents'];
+    if (m.length === 1 && /\b(compare|vs|versus|against|with|and)\b/.test(t)) m.push(metric(m[0]).src === 'ehs' ? 'completions' : 'incidents');
+    var viz = /trend|over time|week|month|history/.test(t) ? 'trend' : /scatter|correlat|relationship/.test(t) ? (m.length === 2 ? 'scatter' : 'bars') : /table|list|rows/.test(t) ? 'table' : /number|total|how many|kpi/.test(t) ? 'kpi' : (m.length > 1 && scope !== 'all' ? 'trend' : 'bars');
+    return { via: 'parsed', scope: scope, m: m, viz: viz };
   }
-  function readBack(spec) { return '**' + metric(spec.a).label + '**' + (spec.b ? ' compared with **' + metric(spec.b).label + '**' : '') + ' for **' + scopeLabel(spec.scope) + '**, shown as ' + VIZ[spec.viz][0].toLowerCase() + '.'; }
+  function readBack(spec) { var ids = mids(spec); return ids.map(function (id) { return '**' + metric(id).label + '**'; }).join(ids.length > 2 ? ', ' : ' compared with ') + ' for **' + scopeLabel(spec.scope) + '**, shown as ' + VIZ[spec.viz][0].toLowerCase() + '.'; }
   function bold(text) { return String(text).split('**').map(function (p, i) { return i % 2 ? '<strong>' + esc(p) + '</strong>' : esc(p); }).join(''); }
   function thinkingHtml(label) { return '<div class="ai-turn"><div class="ai-bubble ai-thinking"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><em>' + esc(label || 'Reading your data…') + '</em></div></div>'; }
 
@@ -182,20 +193,20 @@
   function W(spec) { spec.id = 'c' + (seq++); return spec; }
   var S, ui = {}, dlgKey = 0, A = null;
   function fresh() {
-    var w = [W({ scope: 'plant4', a: 'incidents', b: 'completions', viz: 'trend' }), W({ scope: 'all', a: 'trir', b: 'compliance', viz: 'kpi' })];
+    var w = [W({ scope: 'plant4', m: ['incidents', 'near_miss', 'completions'], viz: 'trend' }), W({ scope: 'all', m: ['trir', 'compliance'], viz: 'kpi' })];
     return { view: 'home', order: ['kpis', 'recs', 'w:' + w[0].id, 'compare', 'w:' + w[1].id, 'row4', 'audit'], hidden: {}, menu: null, widgets: w };
   }
   S = fresh();
   function widget(id) { return S.widgets.filter(function (x) { return x.id === id; })[0]; }
   function modMeta(id) {
-    if (id.indexOf('w:') === 0) { var w = widget(id.slice(2)); return w ? { id: id, name: title(w), desc: (w.b ? 'Comparison' : 'Report') + ' you built, ' + VIZ[w.viz][0].toLowerCase() + '.', src: sources(w), custom: true } : null; }
+    if (id.indexOf('w:') === 0) { var w = widget(id.slice(2)); return w ? { id: id, name: title(w), desc: kindFor(w) + ' you built, ' + VIZ[w.viz][0].toLowerCase() + '.', src: sources(w), custom: true } : null; }
     return mod(id);
   }
 
   /* ── Reporting modules the user built: each is a page-level module ─────── */
   function customHtml(w) {
     var menu = S.menu === w.id ? '<div class="dw-menu"><button type="button" data-cedit="' + w.id + '">Edit module</button><button type="button" data-cmove="up" data-cid="' + w.id + '">Move up</button><button type="button" data-cmove="down" data-cid="' + w.id + '">Move down</button><div class="dw-menu-d"></div><button type="button" class="danger" data-cremove="' + w.id + '">Remove from dashboard</button></div>' : '';
-    return '<div class="module-head"><div><h2><span class="dw-ic"><i class="fa-regular ' + (w.b ? 'fa-arrow-right-arrow-left' : metric(w.a).icon) + '" aria-hidden="true"></i></span>' + esc(title(w)) + '</h2><p class="sub">' + (w.b ? 'Comparison you built' : 'Report you built') + ', ' + VIZ[w.viz][0].toLowerCase() + '. Follows the date range and location above.</p></div>' +
+    return '<div class="module-head"><div><h2><span class="dw-ic"><i class="fa-regular ' + iconFor(w) + '" aria-hidden="true"></i></span>' + esc(title(w)) + '</h2><p class="sub">' + kindFor(w) + ' you built, ' + VIZ[w.viz][0].toLowerCase() + '. Follows the date range and location above.</p></div>' +
       '<div class="head-tools"><span class="dw-srcs">' + sources(w).map(function (s) { return srcChip(s, PRODUCT[s].label); }).join('') + '</span><span class="dw-kebab-wrap"><button type="button" class="dw-kebab" data-cmenu="' + w.id + '" aria-label="Module options"><i class="fa-regular fa-ellipsis-vertical" aria-hidden="true"></i></button>' + menu + '</span></div></div>' +
       '<div class="module-body cm-body cm-' + w.viz + '">' + body(w) + '</div>';
   }
@@ -209,7 +220,7 @@
     $$('.module.cm', page).forEach(function (el) { if (!widget(el.id.slice(3))) el.remove(); });
   }
   function previewCard(spec) {
-    return '<article class="dw-card" style="min-height:240px"><div class="dw-head"><span class="dw-ic"><i class="fa-regular ' + (spec.b ? 'fa-arrow-right-arrow-left' : metric(spec.a).icon) + '" aria-hidden="true"></i></span><span class="dw-title">' + esc(title(spec)) + '</span><span class="dw-srcs">' + sources(spec).map(function (s) { return srcChip(s); }).join('') + '</span></div><div class="dw-body">' + body(spec) + '</div></article>';
+    return '<article class="dw-card" style="min-height:240px"><div class="dw-head"><span class="dw-ic"><i class="fa-regular ' + iconFor(spec) + '" aria-hidden="true"></i></span><span class="dw-title">' + esc(title(spec)) + '</span><span class="dw-srcs">' + sources(spec).map(function (s) { return srcChip(s); }).join('') + '</span></div><div class="dw-body">' + body(spec) + '</div></article>';
   }
 
   /* ── Layout: order + hidden, plus the edit chrome ──────────────────────── */
@@ -242,78 +253,120 @@
       [['fa-bell', 'Notifications', 'Which recommendations, tasks and deadlines reach you by email and in the app.'], ['fa-arrows-rotate', 'Data sync', 'When Convergence and Vector EHS data refresh, and who gets sync failure alerts.'], ['fa-sliders', 'Recommendation rules', 'Thresholds that create recommendations, like the near-miss cluster rule.'], ['fa-user', 'Profile', 'Name, email, job title and side nav text size.']].map(function (r) { return '<button type="button" class="card st-card st-row" data-act="bld-setting" data-name="' + esc(r[1]) + '"><span class="st-ic small"><i class="fa-regular ' + r[0] + '" aria-hidden="true"></i></span><span class="st-body"><h2>' + esc(r[1]) + '</h2><p>' + esc(r[2]) + '</p></span><i class="fa-regular fa-chevron-right st-chev" aria-hidden="true"></i></button>'; }).join('') + '</div></div>';
   }
 
-  /* ── Add module dialog: Existing modules | Create a new module ─────────── */
+  /* ── Add module: full-screen takeover (Keystone build view) ────────────
+     Header bar: back, title, tabs (Create a new module | Existing modules),
+     Cancel + Add to dashboard. Create tab is three columns:
+       left    chat, Keystone's docked panel (thread, Try asking, input with
+               send, note); minimizes to a 56px rail and expands again
+       middle  parameters (name, where, metric, compare with, show as, size)
+       right   live preview at dashboard scale + where it will land
+     Chat and parameters are one model (A): an answer fills the parameters,
+     editing a parameter updates the preview. */
   var TRY = ['Compare safety trends at Plant 4 with its training data', 'Near misses against overdue training at DC East, by department', 'Incident rate vs training compliance across all facilities', 'Open corrective actions by facility as a table'];
   function openAdd(opts) {
     opts = opts || {};
     var existing = opts.edit ? widget(opts.edit) : null;
-    A = existing ? { id: existing.id, scope: existing.scope, a: existing.a, b: existing.b, cmp: !!existing.b, viz: existing.viz, tab: 'create', thread: [] }
-                 : { id: null, scope: 'all', a: null, b: null, cmp: false, viz: 'bars', tab: opts.tab || 'existing', q: opts.q || '', thread: [], thinking: false };
-    openDialog(ui.addDlg, function (root) {
-      root.innerHTML = '<div class="dw-dlg wide"><div class="dw-dlg-head"><span class="dw-dlg-ic"><i class="fa-regular fa-table-cells-large" aria-hidden="true"></i></span><div><h2>' + (A.id ? 'Edit module' : 'Add a module') + '</h2><p>' + (A.id ? 'Change what this module shows.' : 'Bring back a module you hid, or create a new reporting module from either product’s data.') + '</p></div><vaadin-button theme="icon" aria-label="Close" data-act="dlg-close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></vaadin-button></div>' +
-        (A.id ? '' : '<div class="dw-tabs" role="tablist"><button type="button" role="tab" data-act="tab" data-tab="existing" aria-selected="' + (A.tab === 'existing') + '"><i class="fa-regular fa-layer-group" aria-hidden="true"></i>Existing modules</button><button type="button" role="tab" data-act="tab" data-tab="create" aria-selected="' + (A.tab === 'create') + '"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>Create a new module</button></div>') +
-        '<div class="dw-dlg-body-host" id="bldAddBody"></div><div class="dw-dlg-foot-host" id="bldAddFoot"></div></div>';
-      A.root = root;
-      draw(root);
-      root.addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.closest && e.target.closest('#bldDescribe')) { e.preventDefault(); var go = $('[data-act="describe-go"]', root); if (go) go.click(); } });
-      root.addEventListener('click', function (e) {
-        var b = e.target.closest('[data-act]'); if (!b) return;
-        var act = b.dataset.act;
-        if (act === 'dlg-close') ui.addDlg.opened = false;
-        if (act === 'tab') { A.tab = b.dataset.tab; draw(root); }
-        if (act === 'ex-toggle') { var id = b.dataset.id; S.hidden[id] = !S.hidden[id]; applyLayout(); draw(root); App.toast(S.hidden[id] ? 'Module hidden' : 'Module added back', modMeta(id).name + (S.hidden[id] ? ' is off your dashboard.' : ' is on your dashboard.')); }
-        if (act === 'ex-remove') { var wid = b.dataset.id; var idx = S.widgets.map(function (x) { return x.id; }).indexOf(wid), gone = S.widgets.splice(idx, 1)[0]; S.order = S.order.filter(function (x) { return x !== 'w:' + wid; }); renderCustom(); applyLayout(); draw(root); App.toast('Module removed', title(gone), { label: 'Undo', run: function () { S.widgets.splice(idx, 0, gone); renderCustom(); applyLayout(); } }); }
-        if (act === 'try') { A.q = b.dataset.q; $('[data-act="describe-go"]', root).click(); }
-        if (act === 'describe-go') { var q = ($('#bldDescribe', root) || {}).value || A.q; q = (q || '').trim(); if (!q) { $('#bldDescribe', root).focus(); return; } A.q = q; A.thread = [{ role: 'user', text: q }]; A.thinking = true; draw(root); setTimeout(function () { var sp = describeToSpec(q); A.scope = sp.scope; A.a = sp.a; A.b = sp.b; A.cmp = !!sp.b; A.viz = sp.viz; A.thinking = false; A.thread.push({ role: 'assistant', text: 'Read as ' + readBack(sp) + (sp.via === 'example' ? ' That matches one of the examples.' : '') + ' It is built below; adjust anything, or add it to your dashboard.' }); draw(root); }, 620); }
-        if (act === 'pick-a') { A.a = b.dataset.id; if (A.b === A.a) A.b = null; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; draw(root); }
-        if (act === 'pick-b') { A.b = b.dataset.id; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; draw(root); }
-        if (act === 'pick-viz') { A.viz = b.dataset.v; draw(root); }
-        if (act === 'add-confirm') {
-          var spec = { scope: A.scope, a: A.a, b: A.cmp ? A.b : null, viz: A.viz };
-          if (A.id) { var i = S.widgets.map(function (x) { return x.id; }).indexOf(A.id); spec.id = A.id; S.widgets[i] = spec; } else { S.widgets.push(W(spec)); var kpiAt = S.order.indexOf('kpis'); S.order.splice(kpiAt + 1, 0, 'w:' + spec.id); }
-          ui.addDlg.opened = false; renderCustom(); applyLayout();
-          var el = document.getElementById('cm-' + spec.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          App.toast(A.id ? 'Module updated' : 'Module added to your dashboard', title(spec) + (A.id ? '' : ' sits under Key metrics. Move it from Settings or its menu.'));
-        }
-      });
+    A = existing ? { id: existing.id, scope: existing.scope, m: mids(existing), viz: existing.viz, name: existing.title || '', tab: 'create', thread: [], q: '' }
+                 : { id: null, scope: 'all', m: [], viz: 'bars', name: '', tab: opts.tab || 'existing', q: opts.q || '', thread: [], thinking: false };
+    S.chatMin = !!opts.chatMin;
+    S.studio = true; renderStudio();
+    if (opts.q) setTimeout(function () { ask(opts.q); }, 60);
+  }
+  function closeStudio() { S.studio = false; ui.studio.hidden = true; ui.studio.innerHTML = ''; document.body.classList.remove('is-studio'); }
+  function interpret(q) {
+    var t = q.toLowerCase(), refine = A.m.length && !METRIC_WORDS.some(function (p) { return p[1].some(function (w) { return t.indexOf(w) > -1; }); });
+    if (refine) {
+      var viz = /trend|over time|week/.test(t) ? 'trend' : /scatter|correlat/.test(t) ? 'scatter' : /table|list|rows/.test(t) ? 'table' : /number|total|kpi/.test(t) ? 'kpi' : /bar/.test(t) ? 'bars' : null;
+      var scope = null; Object.keys(FAC_WORDS).forEach(function (id) { FAC_WORDS[id].forEach(function (w) { if (t.indexOf(w) > -1) scope = id; }); }); if (/all facilit|every facilit|company/.test(t)) scope = 'all';
+      if (viz && vizAllowed(A).indexOf(viz) > -1) A.viz = viz; if (scope) A.scope = scope;
+      return (viz || scope) ? 'Updated: now ' + readBack(A) : 'I kept the module as it is. Try naming a location, a metric, or a chart type, like "show it as a table".';
+    }
+    var sp = describeToSpec(q); A.scope = sp.scope; A.m = sp.m; A.viz = sp.viz;
+    return 'Read as ' + readBack(sp) + (sp.via === 'example' ? ' That matches one of the examples.' : '') + ' The parameters are filled in; change anything, or ask me to adjust it.';
+  }
+  function ask(q) {
+    q = (q || '').trim(); if (!q || A.thinking) return;
+    A.thread.push({ role: 'user', text: q }); A.thinking = true; A.q = ''; renderStudio();
+    setTimeout(function () { var reply = interpret(q); A.thinking = false; A.thread.push({ role: 'assistant', text: reply }); renderStudio(); }, 620);
+  }
+  function chatHtml() {
+    if (S.chatMin) return '<button type="button" class="ms-rail" data-act="ms-chat-open" title="Open the chat"><span class="ms-mark"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><span class="vlabel">Describe it</span>' + (A.thread.length ? '<span class="ms-rail-count">' + A.thread.length + '</span>' : '') + '<i class="fa-solid fa-angles-right ms-rail-chev" aria-hidden="true"></i></button>';
+    var thread = A.thread.length
+      ? A.thread.map(function (m) { return m.role === 'user' ? '<div class="ms-user"><div class="bubble">' + esc(m.text) + '</div></div>' : '<div class="ms-ai"><span class="ms-mark sm"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><div class="bubble">' + bold(m.text) + '</div></div>'; }).join('')
+      : '<div class="ms-ai"><span class="ms-mark sm"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><div class="bubble">Tell me what you want to see: a location, one or two things to compare, and how to show it. I will fill in the parameters and you can adjust them.</div></div><div class="ms-try"><div class="ms-try-l">Try asking</div>' + TRY.map(function (q) { return '<button type="button" class="ms-choice" data-act="ms-try" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>';
+    return '<section class="ms-chat" aria-label="Describe the module"><div class="ms-chat-head"><div class="ms-chat-row"><span class="ms-mark"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><div class="ms-chat-title">Describe it</div><button type="button" class="ms-iconbtn" data-act="ms-chat-reset" title="New conversation" aria-label="New conversation"><i class="fa-regular fa-rotate-left" aria-hidden="true"></i></button><button type="button" class="ms-iconbtn" data-act="ms-chat-min" title="Minimize the chat" aria-label="Minimize the chat"><i class="fa-regular fa-angles-left" aria-hidden="true"></i></button></div><p class="ms-chat-note">Ask in plain language and refine as you go, like "make it a table" or "just Plant 2".</p></div>' +
+      '<div class="ms-thread" role="log" aria-live="polite">' + thread + (A.thinking ? '<div class="ms-ai"><span class="ms-mark sm"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><div class="bubble ms-thinking"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><em>Reading both products…</em></div></div>' : '') + '</div>' +
+      '<div class="ms-input-wrap"><div class="ms-input"><textarea id="msAsk" rows="2" placeholder="e.g. Compare safety trends at Plant 4 with its training data" aria-label="Describe the module">' + esc(A.q || '') + '</textarea><button type="button" class="ms-send" data-act="ms-send" aria-label="Send"' + (A.thinking ? ' disabled' : '') + '><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button></div><p class="ms-input-note">Charts land on the preview and your dashboard, never in the thread.</p></div></section>';
+  }
+function paramsHtml() {
+  var list = [['ehs', 'Vector EHS'], ['ct', 'Convergence']].map(function (g) {
+    return '<div class="dw-cat-t">' + g[1] + '</div>' + METRICS.filter(function (m) { return m.src === g[0]; }).map(function (m) {
+      var i = A.m.indexOf(m.id), on = i > -1;
+      return '<button type="button" class="dw-mrow ms-check' + (on ? ' is-on' : '') + '" role="checkbox" aria-checked="' + on + '" data-act="toggle-m" data-id="' + m.id + '"' + '><span class="ms-box" aria-hidden="true">' + (on ? '<i class="fa-solid fa-check"></i>' : '') + '</span><span class="dw-ic"><i class="fa-regular ' + m.icon + '" aria-hidden="true"></i></span><span class="ms-mlabel">' + esc(m.label) + '</span>' + (on ? '<i class="sw ms-sw" style="background:' + SERIES[i] + '" title="Series color"></i>' : '') + '</button>';
+    }).join('');
+  }).join('');
+  return '<section class="ms-params" aria-label="Parameters"><div class="ms-col-head"><h2>Parameters</h2><p>Filled in from the chat, or set them yourself.</p></div><div class="ms-params-body">' +
+    '<vaadin-text-field theme="outlined" id="msName" label="Module name" placeholder="' + esc(A.m.length ? title({ scope: A.scope, m: A.m }) : 'Named for what it shows') + '" value="' + esc(A.name || '') + '" style="width:100%"></vaadin-text-field>' +
+    '<div class="dw-step"><span class="n">1</span>Where</div><vaadin-select theme="outlined" id="msScope" aria-label="Where" style="width:100%"></vaadin-select>' +
+    '<div class="dw-step"><span class="n">2</span>Metrics<span class="ms-count">' + A.m.length + ' selected</span>' + (A.m.length ? '<button type="button" class="ms-clear" data-act="clear-m">Clear</button>' : '') + '</div>' +
+    '<p class="ms-hint">Pick as many as you like from either product to compare them.</p><div role="group" aria-label="Metrics">' + list + '</div>' +
+    (A.m.length ? '<div class="dw-step"><span class="n">3</span>Show as</div><div class="dw-vizchips">' + vizAllowed(A).map(function (v) { return '<button type="button" class="dw-chip' + (A.viz === v ? ' is-on' : '') + '" data-act="pick-viz" data-v="' + v + '"><i class="fa-regular ' + VIZ[v][1] + '" aria-hidden="true"></i>' + VIZ[v][0] + '</button>'; }).join('') + '</div>' + (A.m.length !== 2 ? '<p class="ms-hint">Scatter needs exactly two metrics.</p>' : '') : '') +
+    '</div></section>';
+}
+  function previewHtml() {
+    var spec = A.m.length ? { scope: A.scope, m: A.m.slice(), viz: A.viz, title: A.name || '' } : null;
+    return '<section class="ms-preview" aria-label="Preview"><div class="ms-col-head"><h2>Preview</h2><p>' + (spec ? 'How it will look on your dashboard. ' + (A.scope === 'all' ? 'Breaks down by facility.' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '.') + ' Follows the dashboard’s date range.' : 'Describe the module in the chat, or pick metrics in Parameters.') + '</p></div>' +
+      (spec ? '<div class="ms-canvas"><div class="ms-ghost">Key metrics</div><div class="module card cm ms-live">' + customHtml(Object.assign({ id: 'preview' }, spec)).replace(/<span class="dw-kebab-wrap">[\s\S]*?<\/span><\/div><\/div>/, '</div></div>') + '</div><div class="ms-ghost">Recommended actions</div><p class="ms-where"><i class="fa-regular fa-arrow-turn-down-right" aria-hidden="true"></i>' + (A.id ? 'Stays where it is on your dashboard.' : 'Lands directly under Key metrics. Move it any time from its menu.') + '</p></div>'
+        : '<div class="dw-prev-empty ms-empty"><i class="fa-regular fa-chart-mixed" aria-hidden="true"></i><b>Nothing to preview yet</b><span>Try "Compare safety trends at Plant 4 with its training data".</span></div>') + '</section>';
+  }
+  function existingHtml() {
+    var hiddenIds = S.order.filter(function (id) { return S.hidden[id]; });
+    return '<div class="ms-existing"><div class="ms-col-head"><h2>Existing modules</h2><p>' + (hiddenIds.length ? hiddenIds.length + ' module' + (hiddenIds.length === 1 ? ' is' : 's are') + ' off your dashboard. Switch one on to add it back.' : 'Every module is on your dashboard. Switch one off to hide it, or create a new one.') + '</p></div><ul class="ex-list">' +
+      S.order.map(function (id) { var m = modMeta(id); if (!m) return ''; var on = !S.hidden[id]; return '<li class="ex-row' + (on ? '' : ' is-off') + '"><span class="st-ic small"><i class="fa-regular ' + (m.custom ? 'fa-chart-mixed' : { kpis: 'fa-hashtag', recs: 'fa-lightbulb', compare: 'fa-table', row4: 'fa-calendar-check', audit: 'fa-file-shield' }[id]) + '" aria-hidden="true"></i></span><span class="ex-main"><b>' + esc(m.name) + '</b><small>' + esc(m.desc) + '</small></span><span class="dw-srcs">' + m.src.map(function (s) { return srcChip(s); }).join('') + '</span>' + (m.custom ? '<vaadin-button theme="tertiary small" data-act="ex-edit" data-id="' + id.slice(2) + '">Edit</vaadin-button><vaadin-button theme="tertiary small" data-act="ex-remove" data-id="' + id.slice(2) + '">Remove</vaadin-button>' : '') + '<label class="mod-switch"><span>' + (on ? 'On' : 'Off') + '</span><vwc-switch data-act="ex-toggle-sw" data-id="' + id + '" accessible-name="Show ' + esc(m.name) + '"' + (on ? ' checked' : '') + '></vwc-switch></label></li>'; }).join('') + '</ul></div>';
+  }
+  function renderStudio() {
+    var el = ui.studio, create = A.tab === 'create';
+    el.hidden = false; document.body.classList.add('is-studio');
+    var keepScroll = {}; $$('.ms-params-body, .ms-thread, .ms-existing', el).forEach(function (x) { keepScroll[x.className.split(' ')[0]] = x.scrollTop; });
+    el.innerHTML = '<header class="ms-bar"><vaadin-button theme="secondary small" data-act="ms-close"><i class="fa-regular fa-arrow-left" aria-hidden="true" style="margin-right:6px"></i>Dashboard</vaadin-button><span class="ms-bar-ic"><i class="fa-regular fa-table-cells-large" aria-hidden="true"></i></span><h1>' + (A.id ? 'Edit module' : 'Add a module') + '</h1>' +
+      (A.id ? '' : '<div class="ms-tabs" role="tablist"><button type="button" role="tab" data-act="ms-tab" data-tab="create" aria-selected="' + create + '"><i class="fa-regular fa-plus" aria-hidden="true"></i>Create a new module</button><button type="button" role="tab" data-act="ms-tab" data-tab="existing" aria-selected="' + !create + '"><i class="fa-regular fa-layer-group" aria-hidden="true"></i>Existing modules</button></div>') +
+      '<div class="ms-bar-tools">' + (create ? '<vaadin-button theme="tertiary" data-act="ms-close">Cancel</vaadin-button><vaadin-button theme="primary" data-act="add-confirm"' + (A.m.length ? '' : ' disabled') + '>' + (A.id ? 'Save module' : 'Add to dashboard') + '</vaadin-button>' : '<vaadin-button theme="primary" data-act="ms-close">Done</vaadin-button>') + '</div></header>' +
+      (create ? '<div class="ms-cols' + (S.chatMin ? ' chat-min' : '') + '">' + chatHtml() + paramsHtml() + previewHtml() + '</div>' : existingHtml());
+    $$('.ms-params-body, .ms-thread, .ms-existing', el).forEach(function (x) { var k = x.className.split(' ')[0]; if (keepScroll[k] != null) x.scrollTop = keepScroll[k]; });
+    var th = $('.ms-thread', el); if (th && A.thinking !== undefined && A.thread.length) th.scrollTop = th.scrollHeight;
+    var sel = $('#msScope', el); if (sel) { sel.items = [{ label: 'All facilities', value: 'all' }].concat(D.facilities.map(function (f) { return { label: f.name, value: f.id }; })); sel.value = A.scope; sel.addEventListener('value-changed', function (e) { if (e.detail.value && e.detail.value !== A.scope) { A.scope = e.detail.value; renderStudio(); } }); }
+    var nm = $('#msName', el); if (nm) nm.addEventListener('change', function () { A.name = nm.value.trim(); renderStudio(); });
+  }
+  function bindStudio() {
+    ui.studio.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-act]'); if (!b) return;
+      var act = b.dataset.act;
+      if (act === 'ms-close') { closeStudio(); return; }
+      if (act === 'ms-tab') { A.tab = b.dataset.tab; renderStudio(); return; }
+      if (act === 'ms-chat-min') { S.chatMin = true; renderStudio(); return; }
+      if (act === 'ms-chat-open') { S.chatMin = false; renderStudio(); var t = $('#msAsk', ui.studio); if (t) t.focus(); return; }
+      if (act === 'ms-chat-reset') { A.thread = []; A.q = ''; renderStudio(); return; }
+      if (act === 'ms-try') { ask(b.dataset.q); return; }
+      if (act === 'ms-send') { ask(($('#msAsk', ui.studio) || {}).value); return; }
+      if (act === 'toggle-m') { var id = b.dataset.id, i = A.m.indexOf(id); if (i > -1) A.m.splice(i, 1); else A.m.push(id); if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; renderStudio(); var again = ui.studio.querySelector('[data-act="toggle-m"][data-id="' + id + '"]'); if (again) again.focus(); return; }
+      if (act === 'clear-m') { A.m = []; renderStudio(); return; }
+      if (act === 'pick-viz') { A.viz = b.dataset.v; renderStudio(); return; }
+      if (act === 'ex-edit') { openAdd({ edit: b.dataset.id }); return; }
+      if (act === 'ex-remove') { var wid = b.dataset.id, idx = S.widgets.map(function (x) { return x.id; }).indexOf(wid), gone = S.widgets.splice(idx, 1)[0], pos = S.order.indexOf('w:' + wid); S.order.splice(pos, 1); renderCustom(); applyLayout(); renderStudio(); App.toast('Module removed', title(gone), { label: 'Undo', run: function () { S.widgets.splice(idx, 0, gone); S.order.splice(pos, 0, 'w:' + gone.id); renderCustom(); applyLayout(); if (S.studio) renderStudio(); } }); return; }
+      if (act === 'add-confirm' && A.m.length) {
+        var spec = { scope: A.scope, m: A.m.slice(), viz: A.viz }; if (A.name) spec.title = A.name;
+        if (A.id) { var i = S.widgets.map(function (x) { return x.id; }).indexOf(A.id); spec.id = A.id; S.widgets[i] = spec; } else { S.widgets.push(W(spec)); S.order.splice(S.order.indexOf('kpis') + 1, 0, 'w:' + spec.id); }
+        closeStudio(); renderCustom(); applyLayout();
+        var el = document.getElementById('cm-' + spec.id); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        App.toast(A.id ? 'Module updated' : 'Module added to your dashboard', title(spec) + (A.id ? '' : ' sits under Key metrics.'));
+      }
     });
+    ui.studio.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey && e.target.id === 'msAsk') { e.preventDefault(); ask(e.target.value); }
+    });
+    ui.studio.addEventListener('input', function (e) { if (e.target.id === 'msAsk') A.q = e.target.value; });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && S.studio && !document.querySelector('vaadin-select-overlay[opened]')) closeStudio(); });
   }
-  function draw(root) {
-    var bodyEl = $('#bldAddBody', root), footEl = $('#bldAddFoot', root);
-    $$('.dw-tabs [role="tab"]', root).forEach(function (t) { t.setAttribute('aria-selected', String(t.dataset.tab === A.tab)); });
-    /* ── Existing modules: one column, CTAs in the dialog footer ── */
-    if (A.tab === 'existing' && !A.id) {
-      var hiddenIds = S.order.filter(function (id) { return S.hidden[id]; });
-      bodyEl.innerHTML = '<div class="dw-dlg-body col"><p class="field-hint" style="margin:0">' + (hiddenIds.length ? hiddenIds.length + ' module' + (hiddenIds.length === 1 ? ' is' : 's are') + ' off your dashboard. Switch one on to add it back.' : 'Every module is on your dashboard. Switch one off to hide it, or create a new one.') + '</p><ul class="ex-list">' +
-        S.order.map(function (id) { var m = modMeta(id); if (!m) return ''; var on = !S.hidden[id]; return '<li class="ex-row' + (on ? '' : ' is-off') + '"><span class="st-ic small"><i class="fa-regular ' + (m.custom ? 'fa-chart-mixed' : { kpis: 'fa-hashtag', recs: 'fa-lightbulb', compare: 'fa-table', row4: 'fa-calendar-check', audit: 'fa-file-shield' }[id]) + '" aria-hidden="true"></i></span><span class="ex-main"><b>' + esc(m.name) + '</b><small>' + esc(m.desc) + '</small></span><span class="dw-srcs">' + m.src.map(function (s) { return srcChip(s); }).join('') + '</span>' + (m.custom ? '<vaadin-button theme="tertiary small" data-act="ex-remove" data-id="' + id.slice(2) + '">Remove</vaadin-button>' : '') + '<label class="mod-switch"><span>' + (on ? 'On' : 'Off') + '</span><vwc-switch data-act="ex-toggle-sw" data-id="' + id + '" accessible-name="Show ' + esc(m.name) + '"' + (on ? ' checked' : '') + '></vwc-switch></label></li>'; }).join('') + '</ul></div>';
-      footEl.innerHTML = '<vaadin-button theme="tertiary" data-act="dlg-close">Done</vaadin-button><vaadin-button theme="primary" data-act="tab" data-tab="create"><i class="fa-regular fa-plus" aria-hidden="true" style="margin-right:8px"></i>Create a new module</vaadin-button>';
-      return;
-    }
-    /* ── Create a new module: steps get the room, preview always visible ── */
-    function grid(act, cur, excl) {
-      return [['ehs', 'Vector EHS'], ['ct', 'Convergence']].map(function (g) {
-        return '<div class="dw-cat">' + g[1] + '</div><div class="dw-mgrid">' + METRICS.filter(function (m) { return m.src === g[0] && m.id !== excl; }).map(function (m) { return '<button type="button" class="dw-mrow' + (cur === m.id ? ' is-on' : '') + '" data-act="' + act + '" data-id="' + m.id + '"><span class="dw-ic"><i class="fa-regular ' + m.icon + '" aria-hidden="true"></i></span><span>' + esc(m.label) + '</span>' + (cur === m.id ? '<i class="fa-solid fa-check dw-on" aria-hidden="true"></i>' : '') + '</button>'; }).join('') + '</div>';
-      }).join('');
-    }
-    var describe = A.id ? '' : '<section class="bld-desc"><div class="dw-step" style="margin:0 0 8px"><i class="fa-regular fa-message-lines" aria-hidden="true"></i>Describe the report you want<small>Or build it by hand below</small></div>' +
-      (A.thread.length ? '<div class="ai-log">' + A.thread.map(function (m) { return m.role === 'user' ? '<div class="ai-turn me"><div class="ai-bubble">' + esc(m.text) + '</div></div>' : '<div class="ai-turn"><div class="ai-bubble">' + bold(m.text) + '</div></div>'; }).join('') + (A.thinking ? thinkingHtml('Reading both products…') : '') + '</div>' : '') +
-      '<div class="bld-desc-row"><vaadin-text-field theme="outlined" id="bldDescribe" placeholder="Name a location, what to compare, and how to show it" clear-button-visible value="' + esc(A.q || '') + '" style="flex:1"></vaadin-text-field><vaadin-button theme="primary" data-act="describe-go"' + (A.thinking ? ' disabled' : '') + '>Build it</vaadin-button></div>' +
-      (A.thread.length ? '' : '<div class="ai-try"><span class="dw-try">Try asking</span>' + TRY.map(function (q) { return '<button type="button" data-act="try" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>') + '</section>';
-    var steps =
-      '<section class="dw-sec"><div class="dw-step"><span class="n">1</span>Where<small>Who this module is about</small></div><vaadin-select theme="outlined" id="bldScope" aria-label="Where" style="width:360px;max-width:100%"></vaadin-select><p class="field-hint">' + (A.scope === 'all' ? 'All facilities, broken down by facility.' : esc(scopeLabel(A.scope)) + ', broken down by department.') + '</p></section>' +
-      '<section class="dw-sec"><div class="dw-step"><span class="n">2</span>Metric<small>Pick one metric from either product</small></div>' + grid('pick-a', A.a, null) + '</section>' +
-      '<section class="dw-sec"><div class="dw-step"><span class="n">3</span>Compare with another metric<small>Optional</small><label class="mod-switch cmp"><span>' + (A.cmp ? 'On' : 'Off') + '</span><vwc-switch data-act="cmp-toggle" accessible-name="Compare with another metric"' + (A.cmp ? ' checked' : '') + (A.a ? '' : ' disabled') + '></vwc-switch></label></div>' +
-        (A.cmp && A.a ? grid('pick-b', A.b, A.a) + (A.b ? '' : '<p class="field-hint">Pick the metric to compare against.</p>') : '<p class="field-hint" style="margin:0">' + (A.a ? 'Switch on to put a second metric next to ' + esc(metric(A.a).label) + '.' : 'Pick a metric first.') + '</p>') + '</section>' +
-      '<section class="dw-sec last"><div class="dw-step"><span class="n">4</span>Show as</div><div class="dw-vizchips">' + vizAllowed(A).map(function (v) { return '<button type="button" class="dw-chip' + (A.viz === v ? ' is-on' : '') + '" data-act="pick-viz" data-v="' + v + '"' + (A.a ? '' : ' disabled') + '><i class="fa-regular ' + VIZ[v][1] + '" aria-hidden="true"></i>' + VIZ[v][0] + '</button>'; }).join('') + '</div></section>';
-    var preview = '<div class="dw-prev"><div class="dw-step" style="margin:0 0 10px"><i class="fa-regular fa-eye" aria-hidden="true"></i>Preview</div>' +
-      (A.a ? previewCard({ scope: A.scope, a: A.a, b: A.cmp ? A.b : null, viz: A.viz }) + '<p class="field-hint">' + (A.scope === 'all' ? 'Breaks down by facility.' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '.') + ' Follows the dashboard’s date range.' + (A.cmp && !A.b ? ' Showing one metric until you pick a comparison.' : '') + '</p>'
-           : '<div class="dw-prev-empty"><i class="fa-regular fa-chart-bar" aria-hidden="true"></i><b>Your module appears here</b><span>Pick where and a metric to see it.</span></div>') + '</div>';
-    bodyEl.innerHTML = '<div class="dw-dlg-body create"><div class="dw-add-l">' + describe + steps + '</div><aside class="dw-add-r">' + preview + '</aside></div>';
-    footEl.innerHTML = '<vaadin-button theme="tertiary" data-act="dlg-close">Cancel</vaadin-button><vaadin-button theme="primary" data-act="add-confirm"' + (A.a ? '' : ' disabled') + '>' + (A.id ? 'Save module' : 'Add to my dashboard') + '</vaadin-button>';
-    var sel = $('#bldScope', bodyEl); sel.items = [{ label: 'All facilities', value: 'all' }].concat(D.facilities.map(function (f) { return { label: f.name, value: f.id }; })); sel.value = A.scope;
-    sel.addEventListener('value-changed', function (e) { if (e.detail.value && e.detail.value !== A.scope) { A.scope = e.detail.value; draw(root); } });
-  }
-  function openDialog(dlg, setup) { var key = ++dlgKey; dlg.renderer = function (root) { if (root.__k === key) return; root.__k = key; root.innerHTML = ''; setup(root); }; dlg.opened = true; }
 
   /* ── Views ─────────────────────────────────────────────────────────────── */
   function render() {
@@ -333,6 +386,7 @@
       var cm = t.closest && t.closest('[data-cmenu]'); if (cm) { e.stopPropagation(); S.menu = S.menu === cm.dataset.cmenu ? null : cm.dataset.cmenu; renderCustom(); return; }
       var mv = t.closest && t.closest('[data-cmove]'); if (mv) { S.menu = null; renderCustom(); move('w:' + mv.dataset.cid, mv.dataset.cmove); return; }
       var ce = t.closest && t.closest('[data-cedit]'); if (ce) { S.menu = null; renderCustom(); openAdd({ edit: ce.dataset.cedit }); return; }
+      if (t.closest && t.closest('#moduleStudio')) return;
       var cr = t.closest && t.closest('[data-cremove]'); if (cr) { var idx = S.widgets.map(function (x) { return x.id; }).indexOf(cr.dataset.cremove), gone = S.widgets.splice(idx, 1)[0], pos = S.order.indexOf('w:' + gone.id); S.order.splice(pos, 1); S.menu = null; renderCustom(); applyLayout(); App.toast('Module removed', title(gone), { label: 'Undo', run: function () { S.widgets.splice(idx, 0, gone); S.order.splice(pos, 0, 'w:' + gone.id); renderCustom(); applyLayout(); } }); return; }
       var b = t.closest && t.closest('[data-act^="bld-"]'); if (!b) return;
       if (b.tagName === 'A') e.preventDefault();
@@ -341,7 +395,8 @@
         case 'bld-done': show('home'); App.toast('Dashboard saved', 'Your layout and modules are kept for you on every device.'); break;
         case 'bld-settings': show('settings'); break;
         case 'bld-reset': { var keep = S.widgets, v = fresh(); S.order = ['kpis', 'recs', 'compare', 'row4', 'audit'].concat(keep.map(function (w) { return 'w:' + w.id; })); S.hidden = {}; S.widgets = keep; S.view = 'settings'; render(); App.toast('Layout reset', 'Standard modules are back in their default order. The modules you built are kept.'); break; }
-        case 'bld-add': openAdd({ tab: 'existing' }); break;
+        case 'bld-add': openAdd({ tab: 'create' }); break;
+        case 'bld-existing': openAdd({ tab: 'existing' }); break;
         case 'bld-create': openAdd({ tab: 'create' }); break;
         case 'bld-up': case 'bld-down': move(b.dataset.id, b.dataset.act === 'bld-up' ? 'up' : 'down'); break;
         case 'bld-setting': App.notYet(b.dataset.name + ' settings'); break;
@@ -349,8 +404,6 @@
       }
     });
     document.addEventListener('checked-change', function (e) {
-      var cs = e.target.closest && e.target.closest('vwc-switch[data-act="cmp-toggle"]');
-      if (cs) { if (!A || A.cmp === !!e.detail) return; A.cmp = !!e.detail; if (!A.cmp) { A.b = null; if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; } draw(A.root); return; }
       var sw = e.target.closest && e.target.closest('vwc-switch[data-act="bld-toggle"], vwc-switch[data-act="ex-toggle-sw"]'); if (!sw) return;
       S.hidden[sw.dataset.id] = !e.detail; applyLayout();
       if (sw.dataset.act === 'ex-toggle-sw') { var lbl = sw.closest('label').querySelector('span'); if (lbl) lbl.textContent = e.detail ? 'On' : 'Off'; sw.closest('.ex-row').classList.toggle('is-off', !e.detail); }
@@ -359,28 +412,29 @@
   }
 
   /* ── Flow-map states ───────────────────────────────────────────────────── */
-  var KNOWN = ['settings', 'build', 'add-module', 'create-module', 'describe'], pendingState = null, ready = false;
-  function reset() { var v = fresh(); S.view = v.view; S.order = v.order; S.hidden = {}; S.menu = null; S.widgets = v.widgets; if (ui.addDlg) ui.addDlg.opened = false; }
+  var KNOWN = ['settings', 'build', 'add-module', 'create-module', 'describe', 'create-min', 'existing-modules'], pendingState = null, ready = false;
+  function reset() { var v = fresh(); S.view = v.view; S.order = v.order; S.hidden = {}; S.menu = null; S.widgets = v.widgets; if (ui.studio) closeStudio(); }
   function applyState(id) {
     if (!ready) { if (KNOWN.indexOf(id) < 0) return false; pendingState = id; return true; }
     switch (id) {
       case 'settings': show('settings'); return true;
       case 'build': show('build'); return true;
-      case 'add-module': show('home'); openAdd({ tab: 'existing' }); return true;
-      case 'create-module': show('home'); openAdd({ tab: 'create' }); return true;
-      case 'describe': show('home'); openAdd({ tab: 'create', q: 'Compare safety trends at Plant 4 with its training data' }); setTimeout(function () { var go = document.querySelector('vaadin-dialog-overlay [data-act="describe-go"]'); if (go) go.click(); }, 400); return true;
+      case 'add-module': case 'create-module': show('home'); openAdd({ tab: 'create' }); return true;
+      case 'existing-modules': show('home'); openAdd({ tab: 'existing' }); return true;
+      case 'describe': show('home'); openAdd({ tab: 'create', q: 'Compare safety trends at Plant 4 with its training data' }); return true;
+      case 'create-min': show('home'); openAdd({ tab: 'create', q: 'Compare safety trends at Plant 4 with its training data', chatMin: true }); return true;
       default: return false;
     }
   }
   function init() {
     if (ready) return;
-    ui.page = $('#main .page-inner'); ui.settings = $('#settingsView'); ui.buildBar = $('#buildBar'); ui.addDlg = $('#bldAddDlg');
-    if (!ui.settings || !ui.page) return;
-    bind(); ready = true; render();
+    ui.page = $('#main .page-inner'); ui.settings = $('#settingsView'); ui.buildBar = $('#buildBar'); ui.studio = $('#moduleStudio');
+    if (!ui.settings || !ui.page || !ui.studio) return;
+    bind(); bindStudio(); ready = true; render();
     if (pendingState) { var p = pendingState; pendingState = null; applyState(p); }
   }
   window.Builder = { show: show, applyState: applyState, reset: reset, renderCustom: renderCustom, applyLayout: applyLayout, init: init };
-  var whenReady = Promise.all(['vaadin-dialog', 'vaadin-select', 'vwc-switch'].map(function (t) { return customElements.whenDefined(t); }));
+  var whenReady = Promise.all(['vaadin-select', 'vaadin-text-field', 'vwc-switch'].map(function (t) { return customElements.whenDefined(t); }));
   var domReady = new Promise(function (res) { if (document.readyState !== 'loading') res(); else document.addEventListener('DOMContentLoaded', res); });
   Promise.all([whenReady, domReady]).then(init);
   domReady.then(function () { setTimeout(init, 9000); });

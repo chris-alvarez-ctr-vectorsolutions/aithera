@@ -202,11 +202,11 @@ function applyLocation(id) {
    next navigation. */
 const ROUTES = {
   home:     { tab:'home',     mode:'learner',  title:'Dashboard',                crumbs:['Home'],           sidenav:true, actions:'home',     navCollapsed:true },
-  training: { tab:'training', mode:'learner',  title:'My training',              crumbs:['Training'],       sidenav:true, actions:'training', navCollapsed:true },
+  training: { tab:'training', mode:'learner',  title:'My training',              crumbs:['Training'],       sidenav:false, actions:'training', },
   catalog:  { tab:'catalog',  mode:'learner',  title:'Catalog',                  crumbs:['Catalog'],        sidenav:true, actions:'catalog',  navCollapsed:true },
   /* Drill-in from My training. virtual: it is a sub-page of the training
      route, so on a standalone page it never navigates to a sibling file. */
-  details:  { tab:'training', mode:'learner',  title:'Details',                  crumbs:['Training'],       sidenav:true, actions:'details',  navCollapsed:true, virtual:true },
+  details:  { tab:'training', mode:'learner',  title:'Details',                  crumbs:['Training'],       sidenav:false, actions:'details',  virtual:true },
   insights: { tab:'insights', mode:'insights', title:'Insights',                 crumbs:['Insights'],       sidenav:true, actions:'guide' },
   guide:    { tab:'admin',    mode:'admin',    title:'Administration dashboard', crumbs:['Administration'], sidenav:true, actions:'guide' },
   wizard:   { tab:'admin',    mode:'admin',    title:'Content wizard',           crumbs:['Administration','Training import and creation'], sidenav:true, actions:'wizard' },
@@ -220,13 +220,18 @@ function renderCrumbs() {
   const sep = '<i class="fa-solid fa-chevron-right"></i>';
   if (state.route === 'details' && state.details) {
     const hit = tpIndex()[state.details.kind][state.details.id];
-    const trail = [loc, 'Training'].map(p => `<a href="#" onclick="return false">${esc(p)}</a>`);
-    trail.push(`<a href="#" class="crumb-up" data-up="list">My training</a>`);
+    /* Trail: location > Training (back to the plan) > qualification > requirement >
+       the current item, named, as the last crumb. No separate "My training" crumb:
+       Training already is that page. */
+    const trail = [`<a href="#" onclick="return false">${esc(loc)}</a>`,
+                   `<a href="#" class="crumb-up" data-up="list">Training</a>`];
     if (hit) {
-      if (state.details.kind !== 'qual' && hit.qual)
+      const k = state.details.kind;
+      if (k !== 'qual' && hit.qual)
         trail.push(`<a href="#" class="crumb-up" data-up="qual:${hit.qual.id}" title="${esc(hit.qual.name)}">${esc(hit.qual.name)}</a>`);
-      if (state.details.kind === 'act' && hit.req)
+      if (k === 'act' && hit.req && hit.qual.id !== 'q-indiv')
         trail.push(`<a href="#" class="crumb-up" data-up="req:${hit.req.id}" title="${esc(hit.req.name)}">${esc(hit.req.name)}</a>`);
+      trail.push(`<span class="crumb-current" aria-current="page" title="${esc(hit.item.name)}">${esc(hit.item.name)}</span>`);
     }
     $('#crumbs').innerHTML = trail.join(sep);
     $('#pageTitle').textContent = detailsTitle();

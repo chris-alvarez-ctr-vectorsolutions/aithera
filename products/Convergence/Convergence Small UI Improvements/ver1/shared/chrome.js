@@ -22,7 +22,7 @@ const SPECS = {
     ['Page header', 'min 72px · title 22/600 · crumb 14'],
     ['Side nav width', '250px open · 56px rail (V4 shell)'],
     ['Nav logo area', '80px · tenant mark 32 · round chevron 24 on the right edge'],
-    ['Side nav per tab', 'names as design-system nav V4: Home/Training/Catalog = learner nav (10 items) · Insights = 3 report groups · Administration = admin tree'],
+    ['Side nav per tab', 'names as design-system nav V4: Home/Catalog = learner nav (10 items) · Training + its detail pages: no side nav, filter rail only · Insights = 3 report groups · Administration = admin tree'],
     ['Nav rows', '13/500 · pad 8 16 · child 13/400 at 44px · no section headers'],
     ['Nav selected', '3px left border --c-primary + --c-primary-soft · weight 600'],
     ['Nav icon column', '18px · 15px glyph · label clamp 2'],

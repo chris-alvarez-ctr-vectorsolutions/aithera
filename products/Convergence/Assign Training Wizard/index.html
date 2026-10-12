@@ -1027,6 +1027,15 @@
         .dup-table-wrap { flex: 1; min-height: 160px; max-height: 44vh; overflow: auto; border-top: 1px solid #dde2eb; }
         .dup-table-wrap .qual-table th, .dup-table-wrap .qual-table td { padding: 9px 14px; font-size: 13.5px; }
         .dup-table-wrap .qual-table thead th { height: 42px; }
+        /* Header checkbox with a Gmail-style selection menu */
+        .selall { position: relative; display: inline-flex; align-items: center; gap: 2px; }
+        .selall input[type="checkbox"] { width: 16px; height: 16px; accent-color: #0066cc; }
+        .selall-dd { border: none; background: none; color: #5a6068; font-size: 12px; cursor: pointer; padding: 2px 4px; border-radius: 4px; line-height: 1; }
+        .selall-dd:hover, .selall-dd[aria-expanded="true"] { background: #e6eef8; color: #1a1a1a; }
+        .selall-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; min-width: 170px; padding: 6px; background: #fff; border: 1px solid #dde2eb; border-radius: 8px; box-shadow: 0 6px 20px rgba(28,55,90,.18); font-weight: 400; font-size: 13.5px; }
+        .selall-menu[hidden] { display: none; }
+        .selall-menu button { display: block; width: 100%; text-align: left; padding: 8px 10px; border: none; background: none; border-radius: 5px; font: inherit; color: #1a1a1a; cursor: pointer; white-space: nowrap; }
+        .selall-menu button:hover { background: #f4f5f7; }
         .status-pill { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
         .status-pill.not-started { background: #eef1f5; color: #2c3142; }
         .status-pill.in-progress { background: #d6ecff; color: #0066cc; }
@@ -2128,9 +2137,9 @@
                     '<select class="select" data-f="type">' + opt(uniq('type'), st.type, 'All training types') + '</select>' +
                     '<select class="select" data-f="status">' + opt(STATUSES, st.status, 'All statuses') + '</select>' +
                     '<span class="spacer"></span>' +
-                    (st.readOnly ? '' : '<span class="sel-count">' + dupSel.size + ' selected</span>') +
+                    '' +
                 '</div>' +
-                '<div class="dup-table-wrap"><table class="qual-table"><thead><tr>' + (st.readOnly ? '' : '<th style="width:36px"><input type="checkbox" aria-label="Select page" data-act="page"></th>') +
+                '<div class="dup-table-wrap"><table class="qual-table"><thead><tr>' + (st.readOnly ? '' : '<th style="width:64px"><span class="selall"><input type="checkbox" aria-label="Select page" data-act="page"><button type="button" class="selall-dd" data-act="dd" aria-haspopup="menu" aria-expanded="false" aria-label="Selection options"><i class="fa-solid fa-caret-down"></i></button><div class="selall-menu" role="menu" hidden><button type="button" role="menuitem" data-act="all">All (' + filtered.length + ')</button><button type="button" role="menuitem" data-act="pageonly">This page (' + slice.length + ')</button></div></span></th>') +
                     '<th>User</th><th>Training</th><th>Assigned Via</th><th>Existing Start / Due Date</th><th>Status</th><th>Assigned By</th></tr></thead><tbody>' +
                     (slice.map(r => '<tr>' + (st.readOnly ? '' : '<td><input type="checkbox" data-id="' + r.id + '"' + (dupSel.has(r.id) ? ' checked' : '') + '></td>') +
                         '<td>' + esc(r.user) + '<div class="type-sub" style="margin:0">' + esc(r.username) + '</div></td>' +
@@ -2153,6 +2162,12 @@
             const pageAll = host.querySelector('[data-act="page"]');
             if (pageAll) { pageAll.checked = slice.length > 0 && slice.every(r => dupSel.has(r.id)); pageAll.addEventListener('change', () => { slice.forEach(r => pageAll.checked ? dupSel.add(r.id) : dupSel.delete(r.id)); rerender(); }); }
             host.querySelectorAll('[data-act="all"]').forEach(b => b.addEventListener('click', () => { filtered.forEach(r => dupSel.add(r.id)); rerender(); }));
+            host.querySelectorAll('[data-act="pageonly"]').forEach(b => b.addEventListener('click', () => { dupSel.clear(); slice.forEach(r => dupSel.add(r.id)); rerender(); }));
+            const dd = host.querySelector('[data-act="dd"]'), menu = host.querySelector('.selall-menu');
+            if (dd) {
+                dd.addEventListener('click', (e) => { e.stopPropagation(); const open = menu.hidden; menu.hidden = !open; dd.setAttribute('aria-expanded', open); });
+                document.addEventListener('click', (e) => { if (menu && !menu.hidden && !e.target.closest('.selall')) { menu.hidden = true; dd.setAttribute('aria-expanded', 'false'); } }, { once: true });
+            }
             host.querySelectorAll('[data-act="none"]').forEach(b => b.addEventListener('click', () => { dupSel.clear(); rerender(); }));
         }
         function exportCsv(rows) {
@@ -2176,11 +2191,9 @@
                 foot.innerHTML =
                     '<button class="link-btn" type="button" data-act="csv"><i class="fa-solid fa-download"></i> Export list (CSV)</button>' +
                     '<div style="display:flex;gap:10px"><button class="btn ghost" type="button" data-act="back">Back to Review</button>' +
-                    '<button class="btn" type="button" data-act="nochange">Assign Without Changes</button>' +
                     '<button class="btn primary" type="button" data-act="end"' + (dupSel.size ? '' : ' disabled') + '>Move Selected to Group Assignment (' + dupSel.size + ')</button></div>';
                 foot.querySelector('[data-act="csv"]').addEventListener('click', () => exportCsv(dupRows));
                 foot.querySelector('[data-act="back"]').addEventListener('click', () => closeModal('dupModal'));
-                foot.querySelector('[data-act="nochange"]').addEventListener('click', () => completeWithConflicts([]));
                 foot.querySelector('[data-act="end"]').addEventListener('click', openEndConfirm);
             }
             renderConflictTable($('dupTable'), dupRows, tableOpts);

@@ -125,7 +125,7 @@ collapse is animated on `width` with `flex-basis: auto`, so one property drives 
 
 **Each tab shows its own side nav, named as the design-system navigation (round 18).** The
 item names come verbatim from `products/design-system/navigation/v4-design-system.html`:
-Home, Training and Catalog share the learner nav (Dashboard, My Training, Catalog, News,
+Home and Catalog share the learner nav (the Training page and its detail pages have none, so the filter rail is the only left column there) (Dashboard, My Training, Catalog, News,
 Registered Facilities, My Attachments, My Reports, My Jobs, My Licenses, My Preferences);
 Insights has three report groups (Activity, User, Qualification reports); Administration has
 the admin tree (Dashboard, Organization, Training import and creation, Files, Activities,
