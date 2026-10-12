@@ -21,9 +21,9 @@
   chrome, so the two products can share one shell now and move together
   later:
   · TOP NAV is the real vwc-topnav. Its leftSide slot holds the identity
-    lockup; rightSide holds Convergence's five tabs, ahead of the real app
-    switcher and user menu components. There is no location control: the
-    EHS top nav has none.
+    lockup, a divider, then Convergence's five tabs; rightSide holds the
+    location picker, in every view; the app switcher and user menu are the
+    real components.
   · SIDE NAV is EHS's sidebar as shipped: 250px, Open Sans 13px, items at
     weight 500 going to 600 with a 3px left bar when active, children at a
     44px indent and weight 400, the 80px customer-logo area, and the round
@@ -33,7 +33,7 @@
     an accent bar, a search field, the side-nav text-size setting.
 
   Deep links: ?app=comply|dashboard · ?mode=home|trainplan|catalog|insights|admin
-  · ?view=<learner page> · ?nav=closed · ?logo=off · ?tabs=off
+  · ?view=<learner page> · ?location · ?nav=closed · ?logo=off · ?loc=off · ?tabs=off
   ============================================================================
 -->
 <style>
@@ -207,6 +207,40 @@ body[data-mode="comply-home"] .mode-pane[data-mode="comply-home"]{display:flex}
 body.logo-off .cust-logo{display:none}
 /* Nav children never compress on overflow; the column scrolls instead */
 .sidenav>*{flex:none}
+/* ---- Location selector (Convergence-style, top bar) ---- */
+.loc{position:relative}
+/* The location control reads as a distinct CONTEXT selector, not body text:
+   its own filled, bordered pill with an accent mark. */
+.loc-btn{display:flex;align-items:center;gap:8px;height:40px;padding:0 11px;border-radius:var(--r-2);border:1px solid var(--line-strong);background:var(--surface-2);box-shadow:var(--shadow-1);font-weight:600;font-size:12.5px;color:var(--ink);white-space:nowrap;cursor:pointer}
+.loc-btn:hover{background:var(--surface);border-color:var(--accent-line)}
+.loc-btn[aria-expanded="true"]{background:var(--accent-soft);border-color:var(--accent-line)}
+.loc-btn .ic{width:16px;height:16px;color:var(--accent)}
+.loc-cur{display:flex;flex-direction:column;align-items:flex-start;line-height:1.15;text-align:left}
+.loc-sub{font-size:10px;font-weight:600;color:var(--ink-3)}
+.loc-btn .chev{width:12px;height:12px;color:var(--ink-3)}
+.loc-menu{position:absolute;top:calc(100% + 6px);left:0;width:250px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-2);box-shadow:var(--shadow-3);padding:6px;z-index:70}
+/* ---- the location control as a side-nav element (V2b's treatment) ---- */
+.loc-find{display:flex;align-items:center;gap:7px;height:30px;padding:0 9px;border-radius:6px;background:var(--well);margin-bottom:5px}
+.loc-find .ic{width:13px;height:13px;color:var(--ink-3)}
+.loc-find input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:12.5px;color:var(--ink);outline:none}
+/* Nested tree-list hierarchy picker (matches the Vector LMS location
+   picker: chevron toggles, node name + level label, check on the selected
+   node, depth by indentation; a location can be selected at any level) */
+.loc-menu{width:320px;max-height:70vh;overflow-y:auto}
+.loc-row{display:flex;align-items:center;gap:2px;min-height:40px;padding-right:8px;padding-left:calc(4px + var(--d, 0)*18px);border-radius:6px}
+.loc-row:hover{background:var(--well)}
+.loc-row.selected{background:var(--accent-soft)}
+.loc-tgl{width:22px;height:22px;display:grid;place-items:center;border-radius:5px;color:var(--ink-3);flex:none;cursor:pointer}
+.loc-tgl:hover{background:var(--line)}
+.loc-tgl .ic{width:12px;height:12px;transition:transform .15s ease}
+.loc-node.expanded>.loc-row .loc-tgl .ic{transform:rotate(90deg)}
+.loc-spacer{width:22px;flex:none}
+.loc-pick{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2;padding:4px;text-align:left;cursor:pointer}
+.loc-pick strong{font-size:12.5px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-pick span{font-size:10.5px;color:var(--ink-3)}
+.loc-row.selected .loc-pick strong{color:var(--accent-strong)}
+.loc-ck{width:14px;height:14px;color:var(--accent);flex:none;margin-right:2px;visibility:hidden}
+.loc-row.selected .loc-ck{visibility:visible}
 /* ---- Scoped global search: field + explicit All products / This product scope ---- */
 /* Scoped global search, styled exactly as V1's */
 /* Search sits on the bar's centre line whenever the geometry allows. JS clamps
@@ -238,8 +272,10 @@ body[data-mode="dash"] .mode-pane[data-mode="dash"]{display:flex}
 .hb .track{height:8px;border-radius:99px;background:var(--well)}
 .hb .track i{display:block;height:100%;border-radius:99px;background:var(--accent)}
 .hb .v{font-variant-numeric:tabular-nums;font-weight:600;text-align:right}
-/* ---- Review toggles: hide/show the mode tabs ---- */
+/* ---- Review toggles: hide/show the location picker and the mode tabs ---- */
+body.loc-off .loc{display:none}
 body.tabs-off .tb-tabs[data-app]{display:none}
+body.tabs-off .topnav-pipe,body[data-app="dashboard"] .topnav-pipe{display:none}
 /* with the tabs gone, the alerts button takes over the flex push-right */
 /* L-shaped shell: BOTH left columns run the full height. The rail is a flex
    child of .frame; the side nav reaches y=0 because .shell fills .rcol
@@ -352,6 +388,10 @@ body.nav-hidden .sidenav details.grp:has([aria-current="page"])>summary .ic{colo
 details.grp:has([aria-current="page"])>summary{color:var(--ink);font-weight:650}
 details.grp:has([aria-current="page"])>summary .ic{color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.kids{transition:none}}
+/* the location control sits at the top nav's right end in every view */
+.loc-right{display:block;position:relative;flex:none}
+.loc-right .loc-menu{left:auto;right:0}
+body.loc-off .loc-right{display:none}
 
 /* ====================================================================
    V4 · the design system shell, measured off the EHS homepage
@@ -365,13 +405,13 @@ vwc-topnav{flex-shrink:0;z-index:100}
 /* leftSide slot: identity, EHS's pipe, then the tabs */
 .topnav-left{display:flex;align-items:center;gap:0;height:100%}
 .topnav-left .brand{padding:3px 0 3px 0;gap:10px}
-/* tabs at the right end, before the app switcher; the switcher's own 48px
-   button follows at the topnav's gap */
-.topnav-right .tb-tabs{margin:0 4px 0 0;gap:2px;align-self:center}
-.topnav-right .tb-tabs a{height:40px;padding:0 12px;font-size:13px;font-weight:500;color:#475569;border-top:0;border-bottom:2px solid transparent}
-.topnav-right .tb-tabs a:hover{color:var(--ds-text)}
-.topnav-right .tb-tabs a[aria-current="page"]{color:var(--accent);font-weight:600;border-bottom-color:var(--accent)}
-.topnav-right{display:flex;align-items:center;gap:8px;height:100%}
+.topnav-pipe{width:1px;height:20px;background:var(--ds-border);margin:0 12px;flex:none}
+body.tabs-off .topnav-pipe{display:none}
+.topnav-left .tb-tabs{margin-left:0;gap:2px;align-self:center}
+.topnav-left .tb-tabs a{height:40px;padding:0 12px;font-size:13px;font-weight:500;color:#475569;border-top:0;border-bottom:2px solid transparent}
+.topnav-left .tb-tabs a:hover{color:var(--ds-text)}
+.topnav-left .tb-tabs a[aria-current="page"]{color:var(--accent);font-weight:600;border-bottom-color:var(--accent)}
+.topnav-right{display:flex;align-items:center;gap:8px}
 /* ---- EHS's sidebar rules ---- */
 .sidenav{width:var(--nav-w);background:#fff;border-right:1px solid var(--ds-border-soft);padding:0 0 12px;gap:0}
 .sn-top{flex:none;position:relative;border-bottom:1px solid var(--ds-border-soft)}
@@ -429,6 +469,10 @@ body.nav-hidden .sidenav{overflow:visible}
 .kids{position:relative}
 .kids::before{content:"";position:absolute;left:27.5px;top:2px;bottom:6px;width:1px;background:var(--ds-border)}
 .kids .kids::before{left:47.5px}
+/* The identity lockup is sized so the pipe lands on the open sidebar's right
+   border: 18px is the topnav's leftSide inset, 12px the pipe's margin. It
+   stays there when the sidebar collapses, so the tabs never move. */
+.topnav-left .brand{min-width:calc(var(--nav-w) - 18px - 12px - 1px)}
 </style>
 </head>
 <body data-app="learn" data-mode="home" data-variant="b">
@@ -498,10 +542,8 @@ body.nav-hidden .sidenav{overflow:visible}
       <span class="vlock-mark"><svg class="ic"><use href="#i-dash"/></svg></span>
       <span class="vlock-txt"><i>Dashboard</i></span>
     </a>
-  </div>
-  <!-- The mode tabs sit at the top nav's right end, ahead of the app switcher
-       and the user menu. No location control in this shell. -->
-  <div slot="rightSide" class="topnav-right">
+    <!-- divider between the identity and the tabs: EHS's own pipe, 12px either side -->
+    <div class="topnav-pipe" aria-hidden="true"></div>
     <!-- Convergence's five tabs -->
     <nav class="tb-tabs" data-app="learn" aria-label="Vector LMS modes">
       <a href="#" data-mode="home">Home</a>
@@ -519,6 +561,87 @@ body.nav-hidden .sidenav{overflow:visible}
       <a href="#">Observations</a>
       <a href="#">Analytics</a>
     </nav>
+  </div>
+  <div slot="rightSide" class="topnav-right">
+    <div class="loc loc-right">
+    <button class="loc-btn" aria-haspopup="menu" aria-expanded="false">
+      <svg class="ic"><use href="#i-org"/></svg><span class="loc-cur"><span>North Campus</span><span class="loc-sub">Site</span></span><svg class="ic chev"><use href="#i-chev-d"/></svg>
+    </button>
+    <div class="loc-menu" role="dialog" aria-label="Select location" hidden>
+      <div class="loc-find"><svg class="ic"><use href="#i-search"/></svg><input placeholder="Find a location" aria-label="Find a location"></div>
+      <div class="loc-tree">
+        <div class="loc-node expanded">
+          <div class="loc-row" style="--d:0">
+            <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northline Utilities"><svg class="ic"><use href="#i-chev-r"/></svg></button>
+            <button class="loc-pick"><strong>Northline Utilities</strong><span>Organization</span></button>
+            <svg class="ic loc-ck"><use href="#i-check"/></svg>
+          </div>
+          <div class="loc-children">
+            <div class="loc-node">
+              <div class="loc-row" style="--d:1">
+                <span class="loc-spacer" aria-hidden="true"></span>
+                <button class="loc-pick"><strong>District Office</strong><span>Site</span></button>
+                <svg class="ic loc-ck"><use href="#i-check"/></svg>
+              </div>
+            </div>
+            <div class="loc-node expanded">
+              <div class="loc-row" style="--d:1">
+                <button class="loc-tgl" aria-expanded="true" aria-label="Toggle Northern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
+                <button class="loc-pick"><strong>Northern Region</strong><span>Region</span></button>
+                <svg class="ic loc-ck"><use href="#i-check"/></svg>
+              </div>
+              <div class="loc-children">
+                <div class="loc-node">
+                  <div class="loc-row selected" style="--d:2">
+                    <span class="loc-spacer" aria-hidden="true"></span>
+                    <button class="loc-pick"><strong>North Campus</strong><span>Site</span></button>
+                    <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                  </div>
+                </div>
+                <div class="loc-node">
+                  <div class="loc-row" style="--d:2">
+                    <span class="loc-spacer" aria-hidden="true"></span>
+                    <button class="loc-pick"><strong>Plant 12</strong><span>Site</span></button>
+                    <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                  </div>
+                </div>
+                <div class="loc-node">
+                  <div class="loc-row" style="--d:2">
+                    <span class="loc-spacer" aria-hidden="true"></span>
+                    <button class="loc-pick"><strong>DC North</strong><span>Site</span></button>
+                    <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="loc-node">
+              <div class="loc-row" style="--d:1">
+                <button class="loc-tgl" aria-expanded="false" aria-label="Toggle Southern Region"><svg class="ic"><use href="#i-chev-r"/></svg></button>
+                <button class="loc-pick"><strong>Southern Region</strong><span>Region</span></button>
+                <svg class="ic loc-ck"><use href="#i-check"/></svg>
+              </div>
+              <div class="loc-children" hidden>
+                <div class="loc-node">
+                  <div class="loc-row" style="--d:2">
+                    <span class="loc-spacer" aria-hidden="true"></span>
+                    <button class="loc-pick"><strong>South Campus</strong><span>Site</span></button>
+                    <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                  </div>
+                </div>
+                <div class="loc-node">
+                  <div class="loc-row" style="--d:2">
+                    <span class="loc-spacer" aria-hidden="true"></span>
+                    <button class="loc-pick"><strong>Station 12</strong><span>Site</span></button>
+                    <svg class="ic loc-ck"><use href="#i-check"/></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+      </div>
   </div>
   <vwc-app-switcher-menu slot="app-switcher" id="appSwitcher"></vwc-app-switcher-menu>
   <vwc-user-menu slot="user-menu" id="userMenu"></vwc-user-menu>
@@ -1297,9 +1420,58 @@ document.addEventListener('click',function(e){
     else{setMode('home');}
   }
 
+// 5) Location selector (?location pre-opens it)
+// The location control is duplicated into every mode pane's nav, and only the
+// visible pane's copy matters, so this drives them ALL by class rather than by
+// a single id that would land in whichever pane happens to be first.
+var locWraps = [].slice.call(document.querySelectorAll('.loc'));
+function setLoc(o, wrap) {
+  locWraps.forEach(function (w) {
+    var m = w.querySelector('.loc-menu'), b = w.querySelector('.loc-btn');
+    var on = o && (!wrap || w === wrap);
+    m.hidden = !on;
+    b.setAttribute('aria-expanded', String(on));
+  });
+}
+locWraps.forEach(function (wrap) {
+  var btn = wrap.querySelector('.loc-btn'), menu = wrap.querySelector('.loc-menu');
+  btn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    setLoc(menu.hidden, wrap);
+  });
+  menu.querySelectorAll('.loc-tgl').forEach(function (t) {
+    t.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var node = t.closest('.loc-node');
+      var open = !node.classList.contains('expanded');
+      node.classList.toggle('expanded', open);
+      t.setAttribute('aria-expanded', String(open));
+      var kids = node.querySelector('.loc-children');
+      if (kids) kids.hidden = !open;
+    });
+  });
+  menu.querySelectorAll('.loc-pick').forEach(function (pick) {
+    pick.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var name = pick.querySelector('strong').textContent;
+      var level = pick.querySelector('span').textContent;
+      // the picked location is the page's context, so every copy follows it
+      locWraps.forEach(function (w) {
+        w.querySelectorAll('.loc-row').forEach(function (r) { r.classList.remove('selected'); });
+        w.querySelector('.loc-cur > span:first-child').textContent = name;
+        w.querySelector('.loc-sub').textContent = level;
+      });
+      pick.closest('.loc-row').classList.add('selected');
+      setLoc(false);
+    });
+  });
+});
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.loc')) setLoc(false);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setLoc(false); });
 
-// 5) 6) 7) No location control and no search field in this shell: the EHS
-//          top nav has neither.
+// 6) 7) No search field in this shell: the EHS top nav has none.
 
 // 8) The user menu is the vwc-user-menu component, configured in 9) below.
 
@@ -1354,8 +1526,16 @@ document.addEventListener('click',function(e){
   var vw=params.get('view'); if(vw&&document.querySelector('.lview[data-view="'+vw+'"]'))setView(vw,false);
   if(params.get('app')==='comply')setApp('comply');
   if(params.get('app')==='dashboard')setApp('dashboard');
+  if(params.has('location')){
+    var vis=document.querySelector('.mode-pane:not([hidden]) .loc, .loc');
+    document.querySelectorAll('.mode-pane').forEach(function(mp){
+      if(mp.offsetParent!==null){var w=mp.querySelector('.loc'); if(w)vis=w;}
+    });
+    setLoc(true,vis);
+  }
   if(params.get('nav')==='closed')setNav(false);
   if(new URLSearchParams(location.search).get('logo')==='off')document.body.classList.add('logo-off');
+  if(new URLSearchParams(location.search).get('loc')==='off')document.body.classList.add('loc-off');
   if(new URLSearchParams(location.search).get('tabs')==='off')document.body.classList.add('tabs-off');
 })();
 </script>
@@ -1388,6 +1568,7 @@ document.addEventListener('click',function(e){
   <a href="v4-design-system.html" aria-current="page" title="V4 · The design system shell EHS already ships">V4</a>
   <span class="vs-div" aria-hidden="true"></span>
   <button class="vs-logo" aria-pressed="true" title="Toggle the customer logo in the side nav (platform customization)" onclick="var off=document.body.classList.toggle('logo-off');this.setAttribute('aria-pressed',off?'false':'true')">Logo</button>
+  <button class="vs-logo" aria-pressed="true" title="Toggle the location picker" onclick="var off=document.body.classList.toggle('loc-off');this.setAttribute('aria-pressed',off?'false':'true')">Loc</button>
   <button class="vs-logo" aria-pressed="true" title="Toggle the product mode tabs in the top nav" onclick="var off=document.body.classList.toggle('tabs-off');this.setAttribute('aria-pressed',off?'false':'true')">Tabs</button>
 </nav>
 
