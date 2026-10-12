@@ -1,5 +1,14 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-10-12 (V4: tabs at the right, no location picker)
+
+- **V4: the mode tabs move to the top nav's right end**, ahead of the app switcher and user
+  menu, so the left holds only the identity lockup as EHS's own top nav does. The pipe divider
+  after the identity goes with them.
+- **V4: the location picker is removed from the top nav** (and from the shell altogether; the
+  EHS top nav has no location control). The `Loc` review toggle and the `?location` deep link
+  are gone from V4; V1 and V3 keep theirs.
+
 ## Changelog · 2026-10-09 (V4: guide lines in nested groups)
 
 - **V4: a 1px guide line runs down the icon column of every open group**, from the first
