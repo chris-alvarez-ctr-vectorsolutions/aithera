@@ -925,11 +925,6 @@
   .axt td.axr-link { color: #1257B8; font-weight: 600; text-decoration: underline dotted; text-underline-offset: 3px; }
   .axt tr.axr:hover td.axr-link { text-decoration-style: solid; }
   /* Tag beside "View details": this alert has rows whose change you can see. */
-  .ax-chg-tag { display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-size: 11.5px; font-weight: 600;
-    color: #1257B8; background: #EEF4FC; border: 1px solid #C6D9F0; border-radius: 12px; padding: 2px 9px; cursor: pointer; }
-  .ax-chg-tag i { font-size: 10px; }
-  .ax-chg-tag:hover { background: #E1EBF9; }
-  .ax-chg-tag:focus-visible { outline: 2px solid #1257B8; outline-offset: 2px; }
   .axt td.axt-lbl { font-size: 12px; font-weight: 600; color: #5B6B7E; }
   .ax-list .axt td, .ax-after .axt td { overflow-wrap: anywhere; }
 
@@ -2332,10 +2327,15 @@
     if (line) body += '<div class="alert-sub">' + esc(line) + '</div>';
     if (a.list) {
       var L = a.list, sel = -1, clickRows = [];
+      // The first changing row is selected as soon as details open (2026-10-12), so the
+      // "From your file" / "After import" pair shows without a click; clicking another
+      // blue row number moves it. Only rows whose values change are clickable.
+      var firstChg = -1; if (!logRun && L.afters) L.afters.forEach(function (af, i) { if (firstChg < 0 && hasChange(af)) firstChg = i; });
+      var cur = (state.axOpen && state.axOpen.indexOf(a.id + '|') === 0) ? state.axOpen : (firstChg >= 0 ? a.id + '|' + firstChg : null);
       var th = L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th>';
       var tb = L.rows.map(function (r, i) {
         var clickable = !logRun && !!L.afters && hasChange(L.afters[i]);
-        var rid = a.id + '|' + i, isSel = clickable && state.axOpen === rid;
+        var rid = a.id + '|' + i, isSel = clickable && cur === rid;
         if (clickable) clickRows.push(plainV(r[0]));
         if (isSel) sel = i;
         // Cue (2026-10-09): a clickable row's number is blue + underlined like a link — no button.
@@ -2344,9 +2344,9 @@
           + '<td></td></tr>';
       }).join('');
       // The hint names the rows to click: "Click Row 23 or Row 118 to see the change."
-      var hint = !clickRows.length ? ''
-        : clickRows.length > 3 ? 'Click a blue row number to see the change.'
-        : 'Click ' + (clickRows.length === 1 ? clickRows[0] : clickRows.slice(0, -1).join(', ') + ' or ' + clickRows[clickRows.length - 1]) + ' to see the change.';
+      var hint = clickRows.length < 2 ? ''   // a single changing row is already shown below
+        : clickRows.length > 3 ? 'Click a blue row number to see its change.'
+        : 'Click ' + clickRows.slice(0, -1).join(', ') + ' or ' + clickRows[clickRows.length - 1] + ' to see its change.';
       body += '<div class="ax-list">'
         + '<div class="ax-note"><b>From your file</b>' + (hint ? '<span class="ax-hint">' + esc(hint) + '</span>' : '') + '</div>'
         + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
@@ -2370,9 +2370,6 @@
       ? '<button class="ax-toggle" data-act="toggleDisc" data-arg="ax:' + a.id + '" aria-expanded="' + open + '">'
         + (open ? 'Hide details' : 'View details') + ' <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>' : '';
     // Visual cue (2026-10-09): this alert has rows you can click to see how they change.
-    var nChg = (!logRun && a.list && a.list.afters) ? a.list.afters.filter(hasChange).length : 0;
-    if (nChg && !open) toggle += '<button class="ax-chg-tag" data-act="toggleDisc" data-arg="ax:' + a.id + '">'
-      + '<i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>' + nChg + (nChg === 1 ? ' change' : ' changes') + ' to compare</button>';
     return '<div class="alert' + (open ? ' is-open' : '') + '" style="border-color:' + t.border + ';">'
       + '<div class="alert-head" style="background:' + t.headBg + ';">'
       + '<div style="flex:1;min-width:0;">'
@@ -3065,7 +3062,7 @@
       case 'recipCancel': setState({ recipEdit: false, recipErr: '', recipVal: '' }); break;
       case 'recipSave': setState({ recipients: state.recipDraft.slice(), recipEdit: false, recipErr: '', recipVal: '', recipSaved: true }); break;
       /* Review: show one row after the import (clicking the open row closes it) */
-      case 'axRow': setState({ axOpen: state.axOpen === arg ? null : arg }); break;
+      case 'axRow': setState({ axOpen: arg }); break;   // one row is always shown; clicking another moves the After import line
       case 'toggleFail': setState({ notifyFail: !state.notifyFail }); break;
       case 'toggleSuccess': setState({ notifySuccess: !state.notifySuccess }); break;
       case 'toggleHelp': e.preventDefault(); setState({ openHelp: state.openHelp === arg ? null : arg }); break;
