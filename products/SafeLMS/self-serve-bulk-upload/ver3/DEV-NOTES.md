@@ -69,6 +69,12 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   positions under a different name, and add them to your training plans." / new codes: "Check
   that it isn’t an existing location under a different code." / "Check that the codes match
   the ones on your site." `all_rows` still has no details.
+- **[DONE]** **Names on user-level tables.** First name and Last name columns were added, after
+  Username, to every table where the row is about a specific user: unreadable / early begin
+  and end dates, custom field values, the building- and position-code samples, groups and
+  locations not on the site, and the conflicting-data block. Tables about a position, location
+  or code (new / unmatched positions and locations, shared or differing codes, code renames)
+  still show Row · Username · the position or code, since the user isn't the point there.
 - **[DONE]** **No em dashes in alert copy** (titles, View details, the CSV's "What happens" notes,
   the "I’ve reviewed this" label, the failed-upload banner). Clauses were split into sentences
   or joined with a comma instead. Empty table cells still show "—" (that's data, not copy).
