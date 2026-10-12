@@ -252,6 +252,16 @@
     }
     .kebab-menu button:hover { background: var(--lumo-contrast-5pct, #f2f5f8); }
     .kebab-menu button i { width: 15px; text-align: center; color: #6b7785; }
+
+    /* Watch indicator on a row. Quiet by design — it marks a state, it is
+       not an action, so it reads as part of the title rather than a control
+       next to it. */
+    .row-watch {
+      margin-left: 7px;
+      font-size: 12px;
+      color: var(--lumo-primary-color, #0271ce);
+      vertical-align: baseline;
+    }
   
 
 /* ============================================================
@@ -507,6 +517,12 @@
          edit icon — so it was a third path to the same place taking up the
          menu's most prominent slot. "Archive" was dropped as out of scope
          for this prototype. -->
+    <!-- Watch is a TOGGLE, so its label and icon are set on open from the
+         row's current state — a fixed "Watch this variant" would be a lie
+         on a row you are already watching. -->
+    <button type="button" data-act="watch" id="kebabWatch">
+      <i class="fa-regular fa-eye"></i> <span id="kebabWatchLabel">Watch this variant</span>
+    </button>
     <button type="button" data-act="duplicate"><i class="fa-regular fa-copy"></i> Clone Variant</button>
     <button type="button" data-act="variant"><i class="fa-regular fa-code-branch"></i> Create Variant</button>
     <button type="button" data-act="history"><i class="fa-regular fa-clock-rotate-left"></i> Version History</button>
@@ -519,6 +535,7 @@
        calls openVersionHistory(sku, title). -->
 
 <script src="version-data.js"></script>
+<script src="watch-data.js"></script>
 <script src="version-history.js"></script>
 <script>
 /* ============================================================
@@ -726,9 +743,17 @@ function render() {
           escapeHtml(c.title) + '</button>'
       : escapeHtml(c.title);
 
+    /* A watched row says so in the list rather than only inside the kebab:
+       whether you are notified about a variant is the kind of state you
+       check by scanning, not by opening fifty menus. */
+    const watchMark = watchLoad(c.sku).watching
+      ? ' <i class="fa-solid fa-eye row-watch" title="You are watching this variant" ' +
+        'aria-label="You are watching this variant"></i>'
+      : '';
+
     return '' +
       '<tr data-sku="' + escapeHtml(c.sku) + '">' +
-        '<td class="cell-title">' + titleCell + '</td>' +
+        '<td class="cell-title">' + titleCell + watchMark + '</td>' +
         '<td>' + escapeHtml(c.variant) + '</td>' +
         '<td class="cell-sku" title="' + escapeHtml(c.sku) + '">' + escapeHtml(c.sku) + '</td>' +
         '<td>' + fmtDate(c.modified) + '</td>' +
@@ -793,6 +818,14 @@ let kebabSku = null;
 
 function openKebab(button, sku) {
   kebabSku = sku;
+
+  /* Watch is a toggle, so the item describes what the click will DO, and
+     the icon fills in once you are watching. */
+  const watching = watchLoad(sku).watching;
+  document.getElementById('kebabWatchLabel').textContent =
+    watching ? 'Stop watching this variant' : 'Watch this variant';
+  document.getElementById('kebabWatch').querySelector('i').className =
+    watching ? 'fa-solid fa-eye-slash' : 'fa-regular fa-eye';
   // Unhide BEFORE measuring: a hidden element reports zero height, so the
   // flip test below would always think the menu fits.
   kebab.hidden = false;
@@ -848,6 +881,15 @@ kebab.addEventListener('click', (e) => {
   if (act === 'history') {
     const course = COURSES.find(c => c.sku === sku);
     openVersionHistory(sku, course && course.title);
+    return;
+  }
+
+  if (act === 'watch') {
+    const state = watchToggle(sku);
+    say(state.watching
+      ? 'Watching this variant — you will be notified of changes'
+      : 'Stopped watching this variant');
+    render();                // the row's watch indicator follows the state
     return;
   }
   // The remaining actions are presentational in this prototype.
@@ -1334,7 +1376,7 @@ customElements.whenDefined('vwc-user-menu').then(() => {
           desc: 'Scene-level editing for one learning object. Back returns to the Course Overview.' },
         { id: 'version-history', flow: 'main', x: 70, y: 320,
           step: 'Step 1a', name: 'Version History', state: 'version-history',
-          desc: 'Timeline of publish events for one course, opened from the row kebab. Each event leads with the publish note entered at publish time, so the right version can be identified without opening each one. Launch opens a read-only session (stubbed); Revert restores that version as the course's current state behind a confirmation, then hands off to Manage Publishing.' }
+          desc: 'Timeline of publish events for one course, opened from the row kebab. Each event leads with the publish note entered at publish time, so the right version can be identified without opening each one. Launch opens a read-only session (stubbed); Revert restores that version as the course\'s current state behind a confirmation, then hands off to Manage Publishing.' }
       ],
       edges: [
         ['search', 'overview'],

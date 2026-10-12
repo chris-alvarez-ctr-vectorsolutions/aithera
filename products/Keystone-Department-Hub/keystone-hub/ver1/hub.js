@@ -259,12 +259,19 @@
   function vitalLine(tiles) {
     var shown = tiles.filter(function (t) { return t.n > 0; });
     if (!shown.length) return '';
+    // Each stat is a link to the task list, drawn as a pill chip in the same
+    // white/outlined language as the page's other buttons so it reads as
+    // clickable on sight (the plain text + separator-dot version did not). A
+    // stat that maps onto exactly one status bucket (t.bucket) also applies
+    // it, so "8 late" shows the 8 — see the data-jump-tasks handler in wire().
     return '<span class="kx-vitalline">' + shown.map(function (t) {
       var c = VITAL_TONES[t.tone];
-      return '<span class="kx-vitalline__stat" title="' + KX.attr(t.label) + '">' +
+      return '<a class="kx-vitalline__stat" href="#kxTasks" data-jump-tasks' +
+        (t.bucket ? ' data-bucket="' + t.bucket + '"' : '') +
+        ' title="' + KX.attr(t.bucket ? 'Show ' + t.label.toLowerCase() + ' tasks' : 'Go to tasks') + '">' +
         '<span class="n" style="color:' + c.fg + '">' + t.n + '</span>' +
-        '<span class="lbl">' + esc(t.label.toLowerCase()) + '</span></span>';
-    }).join('<span class="kx-vitalline__sep">·</span>') + '</span>';
+        '<span class="lbl">' + esc(t.label.toLowerCase()) + '</span></a>';
+    }).join('') + '</span>';
   }
 
   function greetingHeader(tasks) {
@@ -284,29 +291,35 @@
     // retired, so it's the battalion's due-today count instead — the same third
     // beat the crew hero uses, and a number the Chief can act on this shift.
     var tiles = r.hero === 'coverage' ? [
-      { n: late, label: 'Late', tone: 'bad', icon: 'priority_high' },
-      { n: c.at_risk, label: 'At risk', tone: 'warn', icon: 'warning' },
+      { n: late, label: 'Late', tone: 'bad', icon: 'priority_high', bucket: 'late' },
+      { n: c.at_risk, label: 'At risk', tone: 'warn', icon: 'warning', bucket: 'risk' },
       { n: c.due_soon, label: 'Due today', tone: 'ink', icon: 'schedule' }
     ] : r.hero === 'compliance' ? [
-      { n: late, label: 'Mandatory late', tone: 'bad', icon: 'priority_high' },
-      { n: c.at_risk, label: 'Expiring < 30d', tone: 'warn', icon: 'event_busy' },
-      { n: c.total, label: 'In your queue', tone: 'ink', icon: 'inventory_2' }
+      { n: late, label: 'Mandatory late', tone: 'bad', icon: 'priority_high', bucket: 'late' },
+      { n: c.at_risk, label: 'Expiring < 30d', tone: 'warn', icon: 'event_busy', bucket: 'risk' },
+      { n: c.total, label: 'In your queue', tone: 'ink', icon: 'inventory_2', bucket: 'all' }
     ] : r.hero === 'personal' ? [
-      { n: late, label: 'Late', tone: 'bad', icon: 'priority_high' },
+      { n: late, label: 'Late', tone: 'bad', icon: 'priority_high', bucket: 'late' },
       { n: c.at_risk + c.due_soon, label: 'Due soon', tone: 'warn', icon: 'schedule' },
-      { n: c.total, label: 'My tasks', tone: 'ink', icon: 'assignment_ind' }
+      { n: c.total, label: 'My tasks', tone: 'ink', icon: 'assignment_ind', bucket: 'all' }
     ] : [
-      { n: late, label: 'Late on shift', tone: 'bad', icon: 'priority_high' },
-      { n: c.at_risk, label: 'Slipping', tone: 'warn', icon: 'warning' },
+      { n: late, label: 'Late on shift', tone: 'bad', icon: 'priority_high', bucket: 'late' },
+      { n: c.at_risk, label: 'Slipping', tone: 'warn', icon: 'warning', bucket: 'risk' },
       { n: c.due_soon, label: 'Due today', tone: 'ink', icon: 'schedule' }
     ];
 
     var pip = late > 0 ? 'var(--coral-400)' : c.at_risk > 0 ? 'var(--amber-400)' : 'var(--teal-400)';
     var glow = late > 0 ? 'rgba(232,90,79,0.7)' : c.at_risk > 0 ? 'rgba(245,158,11,0.7)' : 'rgba(127,192,179,0.7)';
 
+    // With items to act on, the headline is a link to the list (the greeting
+    // that replaces it when nothing needs attention is not a call to action).
     var headline = attention > 0
-      ? '<span class="num" style="color:' + (late > 0 ? 'var(--coral-500)' : 'var(--amber-500)') + '">' +
-        headlineN + '</span> items ' + esc(headlineWord) + ' <span class="muted">today.</span>'
+      ? '<a class="kx-headline-link" href="#kxTasks" data-jump-tasks title="Go to tasks">' +
+        '<span class="num" style="color:' + (late > 0 ? 'var(--coral-500)' : 'var(--amber-500)') + '">' +
+        headlineN + '</span> items ' + esc(headlineWord) + ' <span class="muted">today.</span>' +
+        // The affordance: a small round arrow after the sentence. The text keeps
+        // its headline styling; this is what says "this goes somewhere".
+        '<span class="kx-headline-go" aria-hidden="true"><i class="fa-solid fa-arrow-down"></i></span></a>'
       : esc(greetingFor(r, c));
 
     // Two columns, but not the old editorial rail: the LEFT column is the whole
@@ -708,7 +721,9 @@
        A hard-scoped role (the firefighter) has no second scope to offer, so it
        gets no control — and keeps "My tasks" as its title, because with the
        control gone the title is the only thing left that says whose list it is. */
-    var scopeTitle = '<h2 class="kx-count">' +
+    // id + tabindex: the jump links (headline, day counts, "tasks below" pill)
+    // scroll here and hand it focus; watchTasksHeading observes it.
+    var scopeTitle = '<h2 class="kx-count" id="kxTasksTitle" tabindex="-1">' +
       '<span class="kx-scope-name">' + esc(canSwitchScope ? 'Tasks' : 'My tasks') + '</span>' +
       '</h2>';
 
@@ -735,12 +750,18 @@
       '<div class="kx-filterbar-row">' +
       // Title, then scope, then status: heading first, then the two segmented
       // controls in order of how far each one narrows the list.
-      scopeTitle + scopeSeg + buckets +
+      // Each segmented control rides in a .kx-seg-strip: inert at desktop
+      // widths (display: contents), a full-width sideways-scrolling row in the
+      // compact bar (phones and the wide-screen rail), so the page never grows
+      // a horizontal scrollbar because of a control.
+      scopeTitle +
+      (scopeSeg ? '<div class="kx-seg-strip">' + scopeSeg + '</div>' : '') +
+      '<div class="kx-seg-strip">' + buckets + '</div>' +
       '<button class="kx-pill kx-btn-elev kx-desktop-only' + (state.filterOpen ? ' is-on' : '') + '" id="kxFilterToggle" ' +
       'aria-expanded="' + state.filterOpen + '">' + micon('tune', { size: 14 }) + 'Filter' +
       (chips.length ? '<span class="count">' + chips.length + '</span>' : '') +
       micon(state.filterOpen ? 'expand_less' : 'expand_more', { size: 14 }) + '</button>' +
-      '<div style="display:flex;align-items:center;gap:6px;margin-left:auto">' +
+      '<div class="kx-filterbar-end" style="display:flex;align-items:center;gap:6px;margin-left:auto">' +
       // Saved-view management on the table is a phase-2 surface.
       (flags.futureOn ? viewsKebab() : '') +
       (flags.futureOn
@@ -1141,6 +1162,13 @@
      RENDER
      --------------------------------------------------------------------- */
 
+  /* ---------------------------------------------------------------------
+     LAYOUT BREAKPOINT the render reads. The compact filter bar is decided in
+     JS rather than CSS because it changes the markup order, not just how it
+     is drawn. wire() re-renders when the query flips.
+     --------------------------------------------------------------------- */
+  var MQ_PHONE = window.matchMedia('(max-width: 860px)');
+
   function render() {
     var flags = KX.getFlags();
     var r = K.ROLES[state.role];
@@ -1163,15 +1191,25 @@
     }
 
     document.getElementById('root').innerHTML =
-      '<div class="kx-app" data-accent="' + DEFAULTS.accent + '"><div class="kx-shell"><div class="kx-main">' +
+      '<div class="kx-app" data-accent="' + DEFAULTS.accent + '">' +
+      '<div class="kx-shell"><div class="kx-main">' +
       '<main class="kx-content">' +
-      '<section class="kx-hero"><div class="kx-hero-inner">' +
-      greetingHeader(scoped) + hero +
-      '</div></section>' +
-      '<div style="height:6px"></div>' +
+      '<section class="kx-hero"><div class="kx-hero-inner">' + greetingHeader(scoped) + '</div></section>' +
+      // Under the greeting: the published dashboard, then the task list,
+      // always stacked in that order on every screen width. (A side-by-side
+      // split on wide monitors was tried and dropped — it cluttered the page.)
+      // The floating "tasks below" pill is what points a reader at the list
+      // when the dashboard pushes it off screen.
+      '<div class="kx-cols">' +
+      '<div class="kx-dashcol">' + hero + '</div>' +
+      '<section class="kx-taskcol' + (MQ_PHONE.matches ? ' is-compact' : '') + '" id="kxTasks" aria-labelledby="kxTasksTitle">' +
       filterBar() +
       taskTable(filtered) +
-      '</main></div></div></div>';
+      '</section>' +
+      '</div>' +
+      '</main></div></div>' +
+      tasksJumpPill(filtered.length) +
+      '</div>';
 
     // Every Vector component in the view was just re-created, and in Safari a
     // component built after page load never receives the theme stylesheet on its
@@ -1185,6 +1223,59 @@
     if (window.KXHero) KXHero.wire();
     syncBucketGroup();
     syncScopeGroup();
+    watchTasksHeading();
+  }
+
+  /* ---------------------------------------------------------------------
+     TASK-LIST DISCOVERABILITY
+     A chief can publish a dashboard of any height, so the list's top can land
+     anywhere relative to the reader's fold — including just below it, where
+     the page looks finished and nothing says there is more. Two cues, neither
+     of which moves the layout:
+       • the greeting headline and its day counts are links to the list (see
+         greetingHeader / vitalLine), so awareness never depends on scrolling;
+       • this pill, shown only while the list's heading is below the viewport.
+     Both scroll to the heading and hand it focus, so they double as a skip
+     link past however many widgets the dashboard carries.
+     --------------------------------------------------------------------- */
+  function tasksJumpPill(n) {
+    // No pill for an empty list: the "all clear" state says it better.
+    if (!n) return '';
+    return '<a class="kx-tasks-jump" id="kxTasksJump" href="#kxTasks" data-jump-tasks hidden>' +
+      '<span class="n">' + n + '</span>' + (n === 1 ? ' task below' : ' tasks below') +
+      '<i class="fa-solid fa-arrow-down" aria-hidden="true"></i></a>';
+  }
+
+  var headingWatcher = null;
+  function watchTasksHeading() {
+    if (headingWatcher) { headingWatcher.disconnect(); headingWatcher = null; }
+    var heading = document.getElementById('kxTasksTitle');
+    var pill = document.getElementById('kxTasksJump');
+    if (!heading || !pill || !('IntersectionObserver' in window)) return;
+    // rootMargin trims the bottom 40% off the viewport for this test, so the
+    // heading only counts as "in view" once it is in the top 60% of the screen.
+    // Without that, a heading peeking in at the very bottom edge — the exact
+    // "page looks finished" case this pill exists for — switched it off.
+    headingWatcher = new IntersectionObserver(function (entries) {
+      var e = entries[0];
+      // The design file carries the review toolbox, whose dock sits bottom-
+      // centre — lift the pill clear of it. Checked here, not at render: the
+      // first render runs before the parser reaches the toolbox <script>, which
+      // sits after hub.js. Production has no toolbox and no lift.
+      pill.classList.toggle('is-raised', !!document.querySelector('script[src*="designtoolbox/toolbox"]'));
+      // BELOW the viewport specifically, not merely off-screen: once the reader
+      // has scrolled past the heading the list is on screen or above it, and a
+      // "tasks below" cue would be lying.
+      pill.hidden = !(!e.isIntersecting && e.boundingClientRect.top > 0);
+    }, { rootMargin: '0px 0px -40% 0px' });
+    headingWatcher.observe(heading);
+  }
+
+  function jumpToTasks() {
+    var heading = document.getElementById('kxTasksTitle');
+    if (!heading) return;
+    heading.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    heading.focus({ preventScroll: true });
   }
 
   /* Same contract as syncBucketGroup: app state is the source of truth and the
@@ -1622,7 +1713,27 @@
   function wire() {
     var root = document.getElementById('root');
 
+    // The phone breakpoint changes the filter bar's markup (see render), so
+    // re-render when the viewport crosses it.
+    if (MQ_PHONE.addEventListener) MQ_PHONE.addEventListener('change', function () { render(); });
+
     root.addEventListener('click', function (e) {
+      /* -- jump to the task list (headline, day counts, "tasks below" pill) -- */
+      var jump = e.target.closest('[data-jump-tasks]');
+      if (jump) {
+        e.preventDefault();
+        var bucketId = jump.getAttribute('data-bucket');
+        if (bucketId) {
+          var bk = STATUS_BUCKETS.find(function (x) { return x.id === bucketId; });
+          // SET the status filter rather than toggling it: the count names one
+          // status and the reader asked to see exactly that. Every other filter
+          // (scope, person, app...) is left as it was.
+          setFilter({ statuses: bk && bk.statuses ? bk.statuses.slice() : undefined });
+        }
+        jumpToTasks();
+        return;
+      }
+
       /* -- expand / collapse -- */
       var toggle = e.target.closest('[data-toggle]');
       if (toggle) {
@@ -1924,7 +2035,8 @@
       id: 'load-failure',
       label: 'A widget can’t load',
       desc: 'One widget’s source product doesn’t answer on page load. The rest ' +
-        'of the dashboard is unaffected; Try again recovers it.',
+        'of the dashboard is unaffected. The widget shows a plain “Unable to ' +
+        'load data” message with no retry — a browser refresh is the way out.',
       icon: 'cloud_off',
       on: false,
       // Same reasoning as above: a source outage originates outside this page,

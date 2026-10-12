@@ -817,10 +817,12 @@
 
      So a failed widget keeps its frame, its icon, its title and its place in
      the grid — the reader can see exactly WHICH number is missing — and
-     replaces only the data with a stated failure, the name of the system that
-     didn't answer, and a retry. The name matters: "Check It didn't respond"
-     tells a battalion chief whether to chase it or wait; "something went
-     wrong" tells them nothing.
+     replaces only the data with a plain "Unable to load data" message.
+
+     Deliberately generic, and deliberately no control (PO feedback): the
+     widget does not name the source system and offers no retry. If the
+     reader wants another attempt they refresh the browser, which reloads the
+     whole dashboard the ordinary way.
      --------------------------------------------------------------------- */
 
   /* Which widget goes down is a property of the DASHBOARD (cfg.failWidget) —
@@ -836,39 +838,27 @@
          whichever dashboard you are looking at. This is how the state is
          reached on dashboards that are otherwise healthy. */
   var loadFailure = false;   // demo switch — see hub.js mountPrototypeFab
-  var pdRetrying = {};       // widget id -> true while a retry is in flight
-  var pdRecovered = {};      // widget id -> true once a retry has succeeded
 
   function setLoadFailure(on) {
     loadFailure = !!on;
-    pdRetrying = {};
-    pdRecovered = {};        // re-arm, so the scenario demos the same each time
   }
 
   function pdFailed(w, cfg) {
-    if (!cfg || cfg.failWidget !== w.id || pdRecovered[w.id]) return false;
+    if (!cfg || cfg.failWidget !== w.id) return false;
     return !!cfg.failAlways || loadFailure;
   }
 
+  // Static by design — a message and a mark, nothing to click. The only way
+  // out of this state is a browser refresh, so the state has no handler.
   function pdErrorBody(w, printing) {
-    var src = (w.source || [])[0];
-    var name = (src && KX.srcName(src)) || 'The source system';
-    var retrying = !!pdRetrying[w.id];
-
     return '<div class="kx-pubwidget-err" role="status">' +
-      '<span class="mark' + (retrying ? ' is-busy' : '') + '">' +
-      micon(retrying ? 'progress_activity' : 'cloud_off',
-            { size: 20, cls: retrying ? 'kx-spin' : '' }) + '</span>' +
-      '<div class="t">' + (retrying ? 'Retrying…' : 'Couldn’t load this data') + '</div>' +
-      '<div class="s">' + esc(name) + ' didn’t respond. Everything else on this ' +
-      'dashboard loaded normally.</div>' +
-      // On paper there is nothing to click, and the document has to say the
-      // figure was missing at the time it was generated — not offer a retry.
-      (printing
-        ? '<div class="s" style="margin-top:4px">No data available when this was exported.</div>'
-        : '<button class="kx-pubwidget-retry" data-pdw-retry="' + KX.attr(w.id) + '"' +
-          (retrying ? ' disabled' : '') + '>' + micon('refresh', { size: 14 }) +
-          (retrying ? 'Retrying' : 'Try again') + '</button>') +
+      '<span class="mark">' + micon('cloud_off', { size: 20 }) + '</span>' +
+      '<div class="t">Unable to load data</div>' +
+      // On paper the document has to say the figure was missing at the time
+      // it was generated; on screen it says what to do about it.
+      '<div class="s">' + (printing
+        ? 'No data available when this was exported.'
+        : 'Refresh the page to try loading it again.') + '</div>' +
       '</div>';
   }
 
@@ -1755,35 +1745,12 @@
 
       /* -- pick a dashboard from the title switcher --
          Swaps the card in place. Opening a dashboard runs its load, so a
-         widget that fails on load fails again on every visit: a retry that
-         succeeded a minute ago does not carry over to the next time you switch
-         back, any more than it would survive a page refresh. */
+         widget that fails on load fails again on every visit. */
       var dp = e.target.closest('[data-dash-pick]');
       if (dp) {
         if (pdCurrent) pdPicked[pdCurrent.variant] = dp.getAttribute('data-dash-pick');
         openDashMenu = false;
-        pdRetrying = {};
-        pdRecovered = {};
         window.KXHub.render();
-        return;
-      }
-
-      /* -- retry a widget that didn't load --
-         The prototype's retry always succeeds — the interesting question for
-         a design review is what recovery looks like, not what a second
-         failure looks like. It is deliberately NOT instant: a button that
-         swaps straight to a chart reads as if it was never really loading. */
-      var rt = e.target.closest('[data-pdw-retry]');
-      if (rt) {
-        var rid = rt.getAttribute('data-pdw-retry');
-        if (pdRetrying[rid]) return;
-        pdRetrying[rid] = true;
-        window.KXHub.render();
-        setTimeout(function () {
-          delete pdRetrying[rid];
-          pdRecovered[rid] = true;
-          window.KXHub.render();
-        }, 1100);
         return;
       }
 
