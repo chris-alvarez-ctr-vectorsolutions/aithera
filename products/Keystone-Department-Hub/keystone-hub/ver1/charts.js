@@ -947,8 +947,12 @@
       '</svg>' + legend + cost + stats + '</div>';
   }
 
-  function pdBar(data, color, tone) {
+  // suffix prints after each value ("84%"); labelW widens the 64px label
+  // column for a widget whose categories are longer than a station name.
+  function pdBar(data, color, tone, suffix, labelW) {
     var max = Math.max.apply(null, data.map(function (d) { return d.value; })) || 1;
+    suffix = suffix || '';
+    labelW = labelW || 64;
     // One series, one colour — the metric's. The peak bar darkens a step of
     // the same ramp instead of flipping to a different status hue.
     var barColor = color || 'var(--azure-500)';
@@ -957,13 +961,13 @@
       data.map(function (d) {
         var worst = d.value === max && max > 0;
         return '<div style="display:flex;align-items:center;gap:10px;font-size:12px">' +
-          '<span style="width:64px;color:var(--ink-600);font-weight:500;flex-shrink:0;white-space:nowrap;' +
+          '<span style="width:' + labelW + 'px;color:var(--ink-600);font-weight:500;flex-shrink:0;white-space:nowrap;' +
           'overflow:hidden;text-overflow:ellipsis">' + esc(d.label) + '</span>' +
           '<div style="flex:1;height:16px;background:var(--ink-100);border-radius:5px;overflow:hidden">' +
           '<div style="width:' + (d.value / max * 100) + '%;height:100%;background:' +
           (worst ? peakColor : barColor) + ';border-radius:5px;transition:width 0.6s"></div></div>' +
           '<span style="font-family:var(--font-numeric);font-weight:700;color:var(--ink-700);width:32px;' +
-          'text-align:right;font-variant-numeric:tabular-nums">' + esc(d.value) + '</span></div>';
+          'text-align:right;font-variant-numeric:tabular-nums">' + esc(d.value) + esc(suffix) + '</span></div>';
       }).join('') + '</div>';
   }
 
@@ -1278,6 +1282,120 @@
     });
   }
 
+  /* =====================================================================
+     TRAINING, CREDENTIALS & STAFFING — three renderers the TargetSolutions
+     default dashboard (hub-hero.js TS_DASH) needed that nothing on either
+     surface drew before:
+       · pdLines      — several series on one axis (completion rate by station)
+       · pdBarTarget  — horizontal bars, each measured against ONE target line
+       · pdGroupList  — short people lists bucketed by window (30 / 60 / 90)
+     Same conventions as the pd* renderers above: inline SVG at a fixed
+     viewBox scaled by width, theme tokens for every colour, esc() on every
+     string that came from data. Classed markup, not inline styles — see the
+     donut warning above for why index.html must never key off a literal
+     style string again.
+     ===================================================================== */
+
+  // Series colours for a categorical line set: four accents and a neutral,
+  // so five stations never need a sixth hue the theme doesn't have.
+  var SERIES_COLORS = ['var(--azure-500)', 'var(--teal-500)', 'var(--amber-500)',
+                       'var(--coral-400)', 'var(--ink-500)'];
+
+  // series: [{ label, data: [number…], color? }]; labels: one x label per
+  // point. opts.ySuffix ('%'); opts.yMin / opts.yMax pin the axis — a
+  // completion rate autoscaled into a 78–94 window turns a 3-point dip into
+  // a cliff, so the caller states the scale it wants read.
+  function pdLines(series, labels, opts) {
+    opts = opts || {};
+    var W = 380, H = 160, P = 26, PB = 22;
+    var all = [];
+    series.forEach(function (s) { s.data.forEach(function (v) { all.push(v); }); });
+    var minY = opts.yMin != null ? opts.yMin : Math.min.apply(null, all);
+    var maxY = opts.yMax != null ? opts.yMax : Math.max.apply(null, all);
+    if (maxY === minY) maxY = minY + 1;
+    var n = Math.max(1, labels.length - 1);
+    var xStep = (W - P * 2) / n;
+    var yPos = function (v) { return P + (H - P - PB) * (1 - (v - minY) / (maxY - minY)); };
+    var grid = [0, 0.5, 1].map(function (t) {
+      var y = P + (H - P - PB) * t;
+      var v = Math.round(maxY - (maxY - minY) * t);
+      return '<line x1="' + P + '" x2="' + (W - P) + '" y1="' + y + '" y2="' + y +
+        '" stroke="var(--ink-100)" stroke-width="1"/>' +
+        '<text x="' + (P - 4) + '" y="' + (y + 3) + '" font-size="9" fill="var(--ink-400)" text-anchor="end">' +
+        v + esc(opts.ySuffix || '') + '</text>';
+    }).join('');
+    // More than eight x labels overlap at 380 wide; thin them, keeping the last.
+    var every = Math.ceil(labels.length / 8);
+    var xlabels = labels.map(function (l, i) {
+      if (i % every !== 0 && i !== labels.length - 1) return '';
+      return '<text x="' + (P + xStep * i).toFixed(1) + '" y="' + (H - 6) +
+        '" font-size="9" fill="var(--ink-500)" text-anchor="middle">' + esc(l) + '</text>';
+    }).join('');
+    var paths = series.map(function (s, si) {
+      var color = s.color || SERIES_COLORS[si % SERIES_COLORS.length];
+      var pts = s.data.map(function (v, i) { return [(P + xStep * i).toFixed(1), yPos(v).toFixed(1)]; });
+      var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0] + ',' + p[1]; }).join(' ');
+      return '<path d="' + d + '" fill="none" stroke="' + color +
+        '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        pts.map(function (p) {
+          return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2.4" fill="' + color + '"/>';
+        }).join('');
+    }).join('');
+    var legend = '<div class="kx-lines-legend">' + series.map(function (s, si) {
+      var color = s.color || SERIES_COLORS[si % SERIES_COLORS.length];
+      return '<span class="item"><span class="sw" style="background:' + color + '"></span>' +
+        esc(s.label) + '</span>';
+    }).join('') + '</div>';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" style="display:block">' +
+      grid + paths + xlabels + '</svg>' + legend;
+  }
+
+  // data: [{ label, value }] on a 0–100 scale; target: the one line every bar
+  // is measured against. A bar at or over the target takes the "good"
+  // colour, under it the "warn" colour — the comparison IS the widget, so
+  // the colour carries it rather than asking for a second look at the tick.
+  function pdBarTarget(data, target, opts) {
+    opts = opts || {};
+    var suffix = opts.suffix != null ? opts.suffix : '%';
+    return '<div class="kx-bartarget">' +
+      data.map(function (d) {
+        var over = d.value >= target;
+        return '<div class="row">' +
+          '<span class="lbl">' + esc(d.label) + '</span>' +
+          '<div class="track">' +
+          '<div class="fill" style="width:' + Math.max(0, Math.min(100, d.value)) + '%;background:' +
+          (over ? 'var(--teal-500)' : 'var(--amber-500)') + '"></div>' +
+          '<div class="tick" style="left:' + Math.max(0, Math.min(100, target)) + '%"></div>' +
+          '</div>' +
+          '<span class="val" style="color:' + (over ? 'var(--teal-600)' : 'var(--amber-700)') + '">' +
+          esc(d.value) + esc(suffix) + '</span></div>';
+      }).join('') +
+      '<div class="foot"><span class="tickkey"></span>Target ' + esc(target) + esc(suffix) +
+      (opts.note ? ' · ' + esc(opts.note) : '') + '</div></div>';
+  }
+
+  // groups: [{ label, tone?, rows: [{ name, sub?, right? }] }]. Each group is a
+  // window ("Next 30 days") with its count beside it. An empty window stays
+  // on the card and says so: "nobody in the next 30 days" is the finding the
+  // reader came for, and a window that vanished would read as not checked.
+  function pdGroupList(groups, opts) {
+    opts = opts || {};
+    return '<div class="kx-grouplist">' + groups.map(function (g) {
+      var n = (g.rows || []).length;
+      return '<div class="grp">' +
+        '<div class="grp-h"><span class="n">' + esc(g.label) + '</span>' +
+        '<span class="cnt' + (n ? (g.tone ? ' is-' + esc(g.tone) : '') : ' is-zero') + '">' + n + '</span></div>' +
+        (n ? g.rows.map(function (r) {
+          return '<div class="row">' +
+            '<span class="who"><span class="name">' + esc(r.name) + '</span>' +
+            (r.sub ? '<span class="sub">' + esc(r.sub) + '</span>' : '') + '</span>' +
+            (r.right ? '<span class="right">' + esc(r.right) + '</span>' : '') +
+            '</div>';
+        }).join('') : '<div class="empty">' + esc(opts.empty || 'None') + '</div>') +
+        '</div>';
+    }).join('') + '</div>';
+  }
+
   window.KXCharts = {
     miniViz: miniViz, miniKpi: miniKpi, miniLine: miniLine, miniBar: miniBar,
     miniBarPair: miniBarPair, miniLineDual: miniLineDual, miniDonut: miniDonut,
@@ -1285,6 +1403,7 @@
     inlineLine: inlineLine, inlineBarPair: inlineBarPair, inlineStack: inlineStack, inlineHBar: inlineHBar,
     pdKpi: pdKpi, pdLine: pdLine, pdBar: pdBar, pdDonut: pdDonut, pdScatter: pdScatter,
     pdOutlierScatter: pdOutlierScatter, pdTable: pdTable, pdSpark: pdSpark,
+    pdLines: pdLines, pdBarTarget: pdBarTarget, pdGroupList: pdGroupList,
     downloadCSV: downloadCSV, TONE_FG: TONE_FG,
 
     /* ---- interactive table engine ------------------------------------

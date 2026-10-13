@@ -69,6 +69,28 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   positions under a different name, and add them to your training plans." / new codes: "Check
   that it isn’t an existing location under a different code." / "Check that the codes match
   the ones on your site." `all_rows` still has no details.
+- **[DONE]** **`duplicate_user_in_upload` is BLOCKED** (designer's call, 2026-10-12; the Confluence
+  catalog still has it as WARNING, PENDING an update). "One username is used for more than one
+  name in this file." / "Usernames must be unique, and we can’t tell which name is right. If
+  it’s one user with two jobs, the names should match on every row. To fix it, give each user
+  their own username, or make the names match if it’s the same user, then upload again." Both
+  rows are marked not imported (no before / after, no "I’ve reviewed this"). The copy-review
+  file now has 6 blocked messages; no other sample file uses this message.
+- **[DONE]** **Before / after shows by itself; no "changes to compare" pill.** The "N changes to
+  compare" pill next to View details is gone (2026-10-12). Instead, on an alert where an
+  existing user's or record's values change (name changes, code renames, ID changes, the
+  within-file conflicts), the first changing row is selected the moment details open: it's
+  highlighted in "From your file" and the "After import" box shows that row's line below.
+  Clicking another blue row number moves it; one row is always selected (clicking the selected
+  row doesn't deselect). The hint appears only when there's a second row to click ("Click Row
+  23 or Row 118 to see its change."). Alerts that only add, skip or block rows have no
+  clickable rows and no After import box.
+- **[DONE]** **Names on user-level tables.** First name and Last name columns were added, after
+  Username, to every table where the row is about a specific user: unreadable / early begin
+  and end dates, custom field values, the building- and position-code samples, groups and
+  locations not on the site, and the conflicting-data block. Tables about a position, location
+  or code (new / unmatched positions and locations, shared or differing codes, code renames)
+  still show Row · Username · the position or code, since the user isn't the point there.
 - **[DONE]** **No em dashes in alert copy** (titles, View details, the CSV's "What happens" notes,
   the "I’ve reviewed this" label, the failed-upload banner). Clauses were split into sentences
   or joined with a comma instead. Empty table cells still show "—" (that's data, not copy).

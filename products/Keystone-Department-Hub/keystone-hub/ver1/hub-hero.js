@@ -399,6 +399,9 @@
     { value: 'last_7', label: 'Last 7 days' },
     { value: 'last_30', label: 'Last 30 days' },
     { value: 'last_90', label: 'Last 90 days' },
+    // Added with the TargetSolutions default: its PRD reads the station
+    // comparison over six months, and nothing in the picker said that.
+    { value: 'last_6mo', label: 'Last 6 months' },
     { value: 'qtd', label: 'Quarter to date' },
     { value: 'ytd', label: 'Year to date' },
     { value: 'last_12mo', label: 'Last 12 months' }
@@ -409,7 +412,8 @@
   // print it as static text, sitting out the dashboard range.
   var PD_HORIZONS = {
     next_14: 'Next 14 days',
-    next_30: 'Next 30 days'
+    next_30: 'Next 30 days',
+    next_90: 'Next 90 days'
   };
   function rangeLabel(v) {
     if (PD_HORIZONS[v]) return PD_HORIZONS[v];
@@ -432,8 +436,9 @@
   // Abbreviated forms for narrow (w:4) widgets, where the full label would eat
   // the space the widget title needs. The menu still spells every option out.
   var PD_RANGES_SHORT = {
-    last_7: 'Last 7d', last_30: 'Last 30d', last_90: 'Last 90d', qtd: 'QTD',
-    ytd: 'YTD', last_12mo: 'Last 12mo', next_14: 'Next 14d', next_30: 'Next 30d'
+    last_7: 'Last 7d', last_30: 'Last 30d', last_90: 'Last 90d', last_6mo: 'Last 6mo',
+    qtd: 'QTD', ytd: 'YTD', last_12mo: 'Last 12mo',
+    next_14: 'Next 14d', next_30: 'Next 30d', next_90: 'Next 90d'
   };
   function rangeLabelShort(v) { return PD_RANGES_SHORT[v] || rangeLabel(v); }
 
@@ -777,17 +782,245 @@
     ]
   };
 
+  /* ---------------------------------------------------------------------
+     THE TARGETSOLUTIONS DEFAULT — "Training, Credentials & Staffing"
+     ---------------------------------------------------------------------
+     Every product ships a default admin dashboard, and an admin lands on the
+     one for the highest-ranked product they hold: TargetSolutions first, then
+     Scheduling, Check It, EV+, Guardian Tracking (Rion's Launch Dashboards
+     List in Confluence). This is TargetSolutions'. The embedded TS shell
+     deep-links to it with ?dashboard=<id> (see pdPickFromUrl); the standalone
+     hub keeps landing on the Chief's own B-1 Coverage Snapshot and lists this
+     one in the switcher.
+
+     Nobody at the department owns or published it — `vendor` marks it as
+     shipped with the product, and the badge, the picker row and the range
+     menu's footnote all read that field rather than an owner.
+
+     Widgets 1–4 are the four TS admin widgets from the list; 5–7 are the three
+     "TargetSolutions + Scheduling" ones, which only make sense for a department
+     holding both products (this one does), so each of those declares both
+     sources.
+
+     RANGE. The dashboard follows the header's date control like every other
+     one; the PRD's per-widget windows (90 days here, six months there) were
+     written before that one-window constraint was known, so the per-widget
+     numbers are a FUNCTION of the range where the figure should move with it.
+     Exploring the window then changes the numbers rather than relabelling the
+     same ones. The three forward-looking widgets (expirations, and the two
+     30/60/90 lists) sit out the range on a fixed next_90 horizon and say so in
+     their footer, exactly like the countdown widgets elsewhere.
+
+     DATA. Hand-authored and deterministic (no Math.random — a re-render must
+     never redraw different numbers). Stations are the department's own
+     (data.js STATIONS), minus Station 14 so five lines stay legible; names in
+     the lists are from data.js PEOPLE. "Today" is the prototype's anchor,
+     7 May 2026, so the 30/60/90 windows run to 6 Jun, 6 Jul and 5 Aug.
+     --------------------------------------------------------------------- */
+
+  // Month labels ending at the prototype's "today" (May 2026 — data.js NOW).
+  var TS_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'];
+
+  // The x-axis a range implies: a 7-day window is its days, a month its
+  // weeks, a quarter-to-date its weeks, anything longer its months.
+  function tsAxis(range) {
+    switch (range) {
+      case 'last_7':   return ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'];
+      case 'last_30':  return ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'];
+      case 'qtd':      return ['Apr 1', 'Apr 8', 'Apr 15', 'Apr 22', 'Apr 29', 'May 6'];
+      case 'last_90':  return TS_MONTHS.slice(-3);
+      case 'last_6mo': return TS_MONTHS.slice(-6);
+      case 'ytd':      return TS_MONTHS.slice(-5);
+      default:         return TS_MONTHS;            // last_12mo
+    }
+  }
+
+  // Deterministic jitter in [0, 1) from a seed and an index.
+  function tsNoise(seed, i) {
+    var x = Math.sin(seed * 9301 + i * 49297) * 233280;
+    return x - Math.floor(x);
+  }
+
+  // One completion-rate series per station: a base level the latest point
+  // lands on, a gentle drift back from it, and a little station-specific
+  // noise, clamped to 60–100. Station 9 is the one trending the wrong way.
+  var TS_STATIONS = [
+    { label: 'Station 1',  base: 91, drift: 0.4 },
+    { label: 'Station 4',  base: 88, drift: 0.6 },
+    { label: 'Station 7',  base: 83, drift: 0.9 },
+    { label: 'Station 9',  base: 79, drift: -0.5 },
+    { label: 'Station 12', base: 86, drift: 0.2 }
+  ];
+  function tsStationLines(range) {
+    var axis = tsAxis(range), n = axis.length;
+    return {
+      labels: axis,
+      series: TS_STATIONS.map(function (st, si) {
+        return { label: st.label, data: axis.map(function (_, i) {
+          var v = st.base + st.drift * (i - n + 1) + (tsNoise(si + 1, i) - 0.5) * 5;
+          return Math.round(Math.max(60, Math.min(100, v)));
+        }) };
+      })
+    };
+  }
+
+  // The department's on-time rate for each window, against the equal window
+  // before it. The sparkline is the station average over the same axis, so
+  // the KPI and the line chart beside it never disagree.
+  var TS_ONTIME = {
+    last_7:    { num: '94%', delta: '+2 pts vs prior 7 days',             tone: 'good' },
+    last_30:   { num: '91%', delta: '+3 pts vs prior 30 days',            tone: 'good' },
+    last_90:   { num: '88%', delta: '+4 pts vs prior 90 days',            tone: 'good' },
+    last_6mo:  { num: '86%', delta: '+1 pt vs prior 6 months',            tone: 'good' },
+    qtd:       { num: '89%', delta: '−1 pt vs same point last quarter', tone: 'warn' },
+    ytd:       { num: '85%', delta: '+2 pts vs same point last year',     tone: 'good' },
+    last_12mo: { num: '84%', delta: '−2 pts vs prior 12 months',        tone: 'warn' }
+  };
+  function tsOnTime(range) {
+    var k = TS_ONTIME[range] || TS_ONTIME.last_90;
+    var lines = tsStationLines(range);
+    var trend = lines.labels.map(function (l, i) {
+      var sum = 0;
+      lines.series.forEach(function (s) { sum += s.data[i]; });
+      return { x: l, y: Math.round(sum / lines.series.length) };
+    });
+    return { num: k.num, delta: k.delta, tone: k.tone, trend: trend };
+  }
+
+  // Completion rate by shift, against the department's 90% target. C Shift
+  // is under it in every window — the gap is the story, not the window.
+  function tsShiftBars(range) {
+    var k = { last_7: 3, last_30: 2, last_90: 0, last_6mo: -1, qtd: 1, ytd: -2, last_12mo: -3 }[range] || 0;
+    return [
+      { label: 'A Shift', value: 92 + k },
+      { label: 'B Shift', value: 90 + k },
+      { label: 'C Shift', value: 78 + k }
+    ];
+  }
+
+  var TS_DASH = {
+    id: 'training-credentials-staffing',
+    name: 'Training, Credentials & Staffing', scope: 'All stations · department-wide',
+    vendor: 'TargetSolutions', ownerShort: 'Vector',
+    range: 'last_90',
+    // Scenario-only: down when the prototype panel says so. The shift
+    // comparison is the Scheduling-backed widget, so "a source didn't
+    // answer" lands on the one card that reads from two systems.
+    failWidget: 'tc5',
+    widgets: [
+      // 1 · Department credential expirations — four counts, forward 90 days.
+      //     Expired is a count of status = Overdue; the three windows are
+      //     credentials whose expiry falls inside each band.
+      { id: 'tc1', kind: 'bar', w: 4, range: 'next_90', source: ['ts'], icon: 'badge',
+        title: 'Credential expirations', color: 'var(--amber-500)', tone: 'warn',
+        data: [
+          { label: 'Expired',    value: 14 },
+          { label: '0–30 days',  value: 23 },
+          { label: '31–60 days', value: 31 },
+          { label: '61–90 days', value: 27 }
+        ] },
+      // 2 · On-time completion rate — one number against the prior equal window.
+      { id: 'tc2', kind: 'kpi', w: 4, source: ['ts'], icon: 'task_alt',
+        title: 'On-time completion rate', kpi: tsOnTime },
+      // 3 · Personnel on pace by annual credential — % of enrolled personnel
+      //     on pace for each of the five highest-enrolment annual credentials,
+      //     measured against the credential year, not the dashboard range.
+      { id: 'tc3', kind: 'bar', w: 4, source: ['ts'], icon: 'speed',
+        title: 'On pace by annual credential',
+        subtitle: '% of enrolled personnel · 2026 credential year',
+        color: 'var(--teal-500)', tone: 'good', suffix: '%', labelW: 88,
+        data: [
+          { label: 'EMT recert',     value: 84 },
+          { label: 'Paramedic',      value: 71 },
+          { label: 'Hazmat Ops',     value: 92 },
+          { label: 'CPR / BLS',      value: 88 },
+          { label: 'Fire Officer I', value: 63 }
+        ] },
+      // 5 · Shift training comparison — bars against the department target.
+      //     Listed before the station chart on purpose: once index.html's
+      //     ≤1300px rule makes the grid two-across, the station chart takes a
+      //     whole row (like the scatter) and this card pairs with the on-pace
+      //     bars above it, two short bar widgets side by side. The other
+      //     order left this three-bar card stretched to the height of a
+      //     seven-person list.
+      { id: 'tc5', kind: 'bartarget', w: 5, source: ['ts', 'sched'], icon: 'groups',
+        title: 'Completion rate by shift', target: 90, suffix: '%',
+        note: 'department standard', data: tsShiftBars },
+      // 4 · Time-series completion comparison — one line per station.
+      { id: 'tc4', kind: 'lines', w: 7, source: ['ts'], icon: 'ssid_chart',
+        title: 'Completion rate by station',
+        ySuffix: '%', yMin: 60, yMax: 100, lines: tsStationLines },
+      // 6 · Credentials expiring against qualifiers — people staffed on an
+      //     assignment whose qualifier is the credential about to lapse.
+      { id: 'tc6', kind: 'grouplist', w: 6, range: 'next_90', source: ['ts', 'sched'], icon: 'event_busy',
+        title: 'Expiring credentials on staffed assignments',
+        subtitle: 'People whose assignment requires the credential that is about to lapse',
+        empty: 'Nobody in this window',
+        groups: [
+          { label: 'Next 30 days', tone: 'bad', rows: [
+            { name: 'Alex Tanaka',   sub: 'Paramedic recert · Medic 9, B Shift',       right: 'May 21' },
+            { name: 'Riley Brennan', sub: 'EMT recert · Engine 4, A Shift',            right: 'May 28' },
+            { name: 'Jamal Okafor',  sub: 'Driver / Operator · Engine 4, A Shift',     right: 'Jun 3' }
+          ] },
+          { label: '31–60 days', rows: [
+            { name: 'Marisol Vega',  sub: 'Hazmat Ops · Engine 9, A Shift',            right: 'Jun 14' },
+            { name: 'Theo Iverson',  sub: 'EMT recert · Rescue 12, C Shift',           right: 'Jun 30' }
+          ] },
+          { label: '61–90 days', rows: [
+            { name: 'Priya Shah',    sub: 'CPR / BLS · Engine 7, C Shift',             right: 'Jul 19' },
+            { name: 'Cassidy Park',  sub: 'Fire Officer I · Truck 14, B Shift',        right: 'Aug 2' }
+          ] }
+        ] },
+      // 7 · Training event conflicts with staffing assignments — a scheduled
+      //     training session that falls inside a shift the person is staffed on.
+      { id: 'tc7', kind: 'grouplist', w: 6, range: 'next_90', source: ['ts', 'sched'], icon: 'event_repeat',
+        title: 'Training conflicts with staffed shifts',
+        subtitle: 'Scheduled training that overlaps a shift the person is assigned to',
+        empty: 'No conflicts in this window',
+        groups: [
+          { label: 'Next 30 days', tone: 'bad', rows: [
+            { name: 'Owen Maguire',  sub: 'Officer development, May 19 · on Engine 7, A Shift', right: 'May 19' },
+            { name: 'Eli Rosenfeld', sub: 'Hazmat Ops refresher, May 26 · on Truck 14, A Shift', right: 'May 26' }
+          ] },
+          { label: '31–60 days', rows: [
+            { name: 'Sloane Kim',    sub: 'Fire Officer I, Jun 9 · on Engine 4, B Shift',        right: 'Jun 9' },
+            { name: 'Kai Brennan',   sub: 'Incident command, Jun 23 · on Rescue 12, B Shift',    right: 'Jun 23' },
+            { name: 'Devon Hartwell', sub: 'Incident command, Jun 23 · on Engine 4, A Shift',    right: 'Jun 23' }
+          ] },
+          { label: '61–90 days', rows: [
+            { name: 'Alex Tanaka',   sub: 'ACLS renewal, Jul 14 · on Medic 9, B Shift',          right: 'Jul 14' }
+          ] }
+        ] }
+    ]
+  };
+
   /* Which dashboards a role can move between, in menu order — the first is
-     what they land on. Only the Chief has more than one today: they own one
-     and have one published to them, which is the ordinary case the switcher
-     exists for. */
+     what they land on. The Chief holds three: one they own, one published to
+     them by Training, and the TargetSolutions default that ships with the
+     product. */
   var DASH_SET = {
-    chief: [CHIEF_DASH, DEPT_DASH],
+    chief: [CHIEF_DASH, DEPT_DASH, TS_DASH],
     lieutenant: [LT_DASH],
     firefighter: [FF_DASH]
   };
 
   var pdPicked = {};   // variant -> id of the dashboard currently being viewed
+
+  /* ?dashboard=<id> lands the reader on that dashboard instead of the first
+     in their set. This is how an embedding product shell (the Target
+     Solutions bake-out, embedded-target-solutions/) opens the hub on that
+     product's default: the shell knows which product it is, the hub doesn't.
+     Only ids in a role's own set apply, so a stale link can't surface a
+     dashboard the role never held. */
+  function pdPickFromUrl() {
+    var id;
+    try { id = new URLSearchParams(location.search).get('dashboard'); } catch (e) { id = null; }
+    if (!id) return;
+    Object.keys(DASH_SET).forEach(function (variant) {
+      if (DASH_SET[variant].some(function (d) { return d.id === id; })) pdPicked[variant] = id;
+    });
+  }
+  pdPickFromUrl();
 
   function pdDashesFor(variant) { return DASH_SET[variant] || [LT_DASH]; }
 
@@ -910,7 +1143,9 @@
           // dashboard is built.
           '<span>Exploring only — ' + (cfg.owned
             ? 'save the default in Agency Intelligence'
-            : owner + ' saves the default') +
+            : cfg.vendor
+              ? 'the saved range ships with ' + esc(cfg.vendor)
+              : owner + ' saves the default') +
           '. Countdown widgets report ahead and ignore this window.</span></div></div>'
         : '') +
       '</span>';
@@ -976,6 +1211,10 @@
     var CP = window.AGENCY_INTEL;
     var title = pdTitleOf(w);
     var kind = w.kind || w.viz;
+    // Range-driven data (TS_DASH) resolves against the window on screen, so
+    // the file holds the numbers the reader was looking at.
+    var range = pdCurrent ? pdCurrentRange(pdCurrent.cfg) : null;
+    var dataOf = function (v) { return typeof v === 'function' ? v(range) : v; };
 
     // A story-driven correlation carries its own points and never touches the
     // metric catalogue, so the Agency Intelligence flattener has nothing to
@@ -1011,16 +1250,42 @@
       return { title: title, columns: pcols, rows: [prow] };
     }
     if (kind === 'kpi') {
-      var cols = ['Metric', 'Value'], row = [title, String(w.num != null ? w.num : '') + (w.unit ? ' ' + w.unit : '')];
-      if (w.delta) { cols.push('Detail'); row.push(w.delta); }
+      var k = pdKpiFields(w, range);
+      var cols = ['Metric', 'Value'], row = [title, String(k.num != null ? k.num : '') + (k.unit ? ' ' + k.unit : '')];
+      if (k.delta) { cols.push('Detail'); row.push(k.delta); }
       var out = { title: title, columns: cols, rows: [row] };
       // A KPI's sparkline is the part worth having in a spreadsheet, so the
       // trend becomes its own block rather than being dropped on the floor.
-      if (w.trend && w.trend.length) {
+      if (k.trend && k.trend.length) {
         out.extra = { title: title + ' — trend', columns: ['Period', 'Value'],
-          rows: w.trend.map(function (p) { return [p.x, p.y]; }) };
+          rows: k.trend.map(function (p) { return [p.x, p.y]; }) };
       }
       return out;
+    }
+    // The hand-authored kinds on the TargetSolutions default. Each flattens
+    // from exactly what the card draws.
+    if (kind === 'bar' && w.data) {
+      return { title: title, columns: ['Category', 'Value' + (w.suffix ? ' (' + w.suffix + ')' : '')],
+        rows: dataOf(w.data).map(function (d) { return [d.label, d.value]; }) };
+    }
+    if (kind === 'bartarget') {
+      return { title: title, columns: ['Group', 'Value (%)', 'Target (%)'],
+        rows: dataOf(w.data).map(function (d) { return [d.label, d.value, w.target]; }) };
+    }
+    if (kind === 'lines') {
+      var lsp = dataOf(w.lines);
+      return { title: title,
+        columns: ['Period'].concat(lsp.series.map(function (s) { return s.label + (w.ySuffix ? ' (' + w.ySuffix + ')' : ''); })),
+        rows: lsp.labels.map(function (l, i) {
+          return [l].concat(lsp.series.map(function (s) { return s.data[i]; }));
+        }) };
+    }
+    if (kind === 'grouplist') {
+      var grows = [];
+      dataOf(w.groups).forEach(function (g) {
+        (g.rows || []).forEach(function (r) { grows.push([g.label, r.name, r.sub || '', r.right || '']); });
+      });
+      return { title: title, columns: ['Window', 'Person', 'Detail', 'Date'], rows: grows };
     }
     return { title: title, columns: [], rows: [], note: 'No exportable data.' };
   }
@@ -1065,7 +1330,8 @@
       widgets.map(function (w) {
         return pubWidget(w, ownerLabel, {
           print: true,
-          failed: !!(pdCurrent && pdFailed(w, pdCurrent.cfg))
+          failed: !!(pdCurrent && pdFailed(w, pdCurrent.cfg)),
+          range: pdCurrent ? pdCurrentRange(pdCurrent.cfg) : null
         });
       }).join('') +
       '</div>' +
@@ -1109,22 +1375,42 @@
       micon('table_view', { size: 16 }) + '<span class="label">Export as CSV</span></button>';
   }
 
+  // A hand-authored KPI's fields. `kpi` may be a function of the dashboard
+  // range (the TargetSolutions default's on-time rate moves with the window);
+  // literal num / delta / trend on the widget still win where set, so the
+  // Firefighter's widgets read exactly as before.
+  function pdKpiFields(w, range) {
+    var k = typeof w.kpi === 'function' ? (w.kpi(range) || {}) : (w.kpi || {});
+    return {
+      num:   w.num != null ? w.num : k.num,
+      unit:  w.unit || k.unit,
+      delta: w.delta != null ? w.delta : k.delta,
+      tone:  w.tone || k.tone,
+      trend: w.trend || k.trend
+    };
+  }
+
   function pubWidget(w, ownerLabel, opts) {
     var CC = window.KEYSTONE_CUSTOM;
     var kind = w.kind || w.viz;
     var title = w.title, icon = w.icon, body = '';
+    // The window the card is drawn for. Hand-authored data may be a function
+    // of it (see TS_DASH); everything metric-backed ignores it, as before.
+    var range = (opts && opts.range) || null;
+    var dataOf = function (v) { return typeof v === 'function' ? v(range) : v; };
 
     if (kind === 'kpi') {
       var spec = w.metricId ? CC.buildSpec(w.metricId, 'kpi') : null;
       var lineSpec = w.metricId ? CC.buildSpec(w.metricId, 'line') : null;
+      var kf = pdKpiFields(w, range);
       icon = icon || (spec ? spec.icon : 'pin');
       title = title || (spec ? spec.label : '');
       body = KXCharts.pdKpi({
-        num: w.num != null ? w.num : (spec ? spec.num : '—'),
-        unit: w.unit,
-        delta: w.delta != null ? w.delta : (spec ? spec.delta : ''),
-        tone: w.tone || (spec ? spec.tone : 'neutral'),
-        trend: w.trend || (lineSpec ? lineSpec.data : null)
+        num: kf.num != null ? kf.num : (spec ? spec.num : '—'),
+        unit: kf.unit,
+        delta: kf.delta != null ? kf.delta : (spec ? spec.delta : ''),
+        tone: kf.tone || (spec ? spec.tone : 'neutral'),
+        trend: kf.trend || (lineSpec ? lineSpec.data : null)
       });
     } else if (kind === 'line') {
       var ls = w.metricId ? CC.buildSpec(w.metricId, 'line') : null;
@@ -1138,8 +1424,25 @@
       var bs = w.metricId ? CC.buildSpec(w.metricId, 'bar') : null;
       icon = icon || (bs ? bs.icon : 'bar_chart');
       title = title || (bs ? bs.label : '');
-      body = KXCharts.pdBar(w.data || (bs ? bs.data : []),
-                            w.color || (bs ? bs.color : null), bs ? bs.tone : null);
+      // A hand-authored bar names its own tone so the peak bar darkens a step
+      // of ITS ramp (amber → deeper amber) instead of the neutral navy.
+      body = KXCharts.pdBar(dataOf(w.data) || (bs ? bs.data : []),
+                            w.color || (bs ? bs.color : null), w.tone || (bs ? bs.tone : null),
+                            w.suffix, w.labelW);
+    } else if (kind === 'lines') {
+      // Several series on one axis — the station comparison. The widget hands
+      // over { labels, series } (or a function of the range that returns it).
+      var lsp = dataOf(w.lines) || { labels: [], series: [] };
+      icon = icon || 'ssid_chart';
+      body = KXCharts.pdLines(lsp.series, lsp.labels, { ySuffix: w.ySuffix, yMin: w.yMin, yMax: w.yMax });
+    } else if (kind === 'bartarget') {
+      // Bars measured against one target line — the shift comparison.
+      icon = icon || 'flag';
+      body = KXCharts.pdBarTarget(dataOf(w.data) || [], w.target, { suffix: w.suffix, note: w.note });
+    } else if (kind === 'grouplist') {
+      // People bucketed by window — the two 30/60/90 lists.
+      icon = icon || 'list';
+      body = KXCharts.pdGroupList(dataOf(w.groups) || [], { empty: w.empty });
     } else if (kind === 'donut') {
       var ds = w.metricId ? CC.buildSpec(w.metricId, 'donut') : null;
       icon = icon || (ds ? ds.icon : 'donut_large');
@@ -1361,7 +1664,7 @@
             { size: 16, fill: on ? 1 : 0, color: on ? 'var(--amber-600)' : 'var(--ink-400)' }) +
       '<span class="label"><span class="n">' + esc(d.name) + '</span>' +
       '<span class="m">' + esc(d.scope) + ' · ' +
-      esc(d.owned ? 'yours' : d.ownerShort || d.publisher || 'published to you') +
+      esc(d.owned ? 'yours' : d.vendor ? 'ships with ' + d.vendor : d.ownerShort || d.publisher || 'published to you') +
       '</span></span></button>';
   }
 
@@ -1480,7 +1783,7 @@
     var sized = anySized(all);
     var cells = all
       .map(function (w) {
-        return pubWidget(w, cfg.ownerShort, { sized: sized, failed: pdFailed(w, cfg) });
+        return pubWidget(w, cfg.ownerShort, { sized: sized, failed: pdFailed(w, cfg), range: pdCurrentRange(cfg) });
       }).join('');
 
     // The modifier switches the grid onto the fixed row track. Without it the
@@ -1515,8 +1818,10 @@
 
   // Only a RECEIVED dashboard can be taken away. The Chief owns theirs, so
   // there is nobody who could revoke it and the scenario does not apply.
+  // A product default was never published by a person, so there is nobody
+  // who could revoke it either.
   function isUnshared(variant, cfg) {
-    return unshared && !cfg.owned;
+    return unshared && !cfg.owned && !cfg.vendor;
   }
 
   /* What you land on depends on what you lost, and there are three cases —
@@ -1591,12 +1896,21 @@
 
     // The Chief builds their own, so the badge and footer say so — which is what
     // earns them the "Agency Intelligence" affordance. Everyone else is a consumer.
+    // Three framings, each a fact about where the dashboard came from: the
+    // Chief built it, someone at the department published it, or it shipped
+    // with a product (the vendor default — see TS_DASH). The vendor badge is
+    // neutral like the owned one, for the same reason: the amber title pill
+    // beside it is the control and keeps the colour.
     var badge = cfg.owned
       ? '<span class="kx-pubbadge is-owned">' + micon('person', { size: 12, fill: 1 }) + ' Your dashboard</span>'
-      : '<span class="kx-pubbadge">' + micon('campaign', { size: 12, fill: 1 }) + ' Published to you</span>';
+      : cfg.vendor
+        ? '<span class="kx-pubbadge is-default">' + micon('verified', { size: 12, fill: 1 }) + ' Default dashboard</span>'
+        : '<span class="kx-pubbadge">' + micon('campaign', { size: 12, fill: 1 }) + ' Published to you</span>';
 
     var meta = esc(cfg.scope) +
-      (cfg.owned ? '' : ' · published by ' + esc(cfg.publisher)) +
+      (cfg.owned ? '' : cfg.vendor
+        ? ' · ships with ' + esc(cfg.vendor) + ', provided by Vector'
+        : ' · published by ' + esc(cfg.publisher)) +
       (cfg.template ? ' · ' + esc(cfg.template) : '');
 
     // Only an OWNED dashboard says anything down here. A received one used to

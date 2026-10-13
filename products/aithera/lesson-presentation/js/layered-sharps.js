@@ -2749,9 +2749,9 @@
     listen:   { icon: 'fa-headphones', name: 'Listen mode',
                 // No runtime here on purpose: Standard mode shows none, and a time
                 // on one option only reads as a reason to pick it.
-                sub: function () { return 'One continuous listen \u00b7 Questions at the end'; } },
-    standard: { icon: 'fa-display', name: 'Standard mode',
-                sub: function () { return 'Watch or read, one section at a time'; } }
+                sub: function () { return 'Hear a podcast-style chat, then answer questions.'; } },
+    standard: { icon: 'fa-display', name: 'Classic mode',
+                sub: function () { return 'Watch or read, with questions after each section.'; } }
   };
   // The title page's Preferred mode card, in the picker's own shape.
   var MODE_CARD = {
@@ -2759,31 +2759,34 @@
     listen:   { icon: MODES.listen.icon, label: MODES.listen.name }
   };
   function modeLabel(k, pref) {
-    if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Standard mode';
+    if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Classic mode';
     return (k === pref ? 'Continue in ' : 'Switch to ') + MODES[k].name;
   }
   function PODOFFER_CONTENT() {
     var pref = modePref();
     return '<main class="ll-object po-object"><div class="po">' +
       '<div class="po-top">' +
-        '<h1 class="po-head">This module is available in Listen mode</h1>' +
-        '<div class="po-how">' +
-          '<button class="po-how-btn" type="button" id="poHowBtn" aria-expanded="false" aria-controls="poHow">' +
-            '<i class="fa-solid fa-circle-info" aria-hidden="true"></i> How Listen mode works</button>' +
-          '<div class="po-how-tip" id="poHow" role="tooltip" hidden>' +
-            'One continuous listen with content presented as a host-led conversation. ' +
-            'Once complete, you\u2019ll answer the questions on screen.' +
-          '</div>' +
-        '</div>' +
+        '<h1 class="po-head">Which mode do you prefer?</h1>' +
+        '<button class="po-how-btn" type="button" id="poHelp" aria-expanded="false" aria-controls="poDesc-listen poDesc-standard">' +
+          '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>Help me choose</button>' +
       '</div>' +
       '<div class="po-opts" role="radiogroup" aria-label="How do you want to take this module?">' +
         ['listen', 'standard'].map(function (k) {
           var m = MODES[k];
-          return '<button class="po-opt" type="button" role="radio" aria-checked="false" data-pick="' + k + '">' +
-            '<span class="po-ico"><i class="fa-solid ' + m.icon + '" aria-hidden="true"></i></span>' +
-            '<span class="po-txt"><b>' + esc(modeLabel(k, pref)) + '</b><small>' + esc(m.sub()) + '</small></span>' +
-            (k === pref ? '<span class="po-tag">Your preference</span>' : '') +
-          '</button>';
+          // The visual is a quiet picture of the experience's shape: one long
+          // listen then a short quiz, versus four watch-then-answer pairs.
+          var vis = k === 'listen'
+            ? '<span class="po-wave" data-wave></span><span class="po-kz"></span>'
+            : '<span class="po-pair"><i class="w"></i><i class="k"></i></span>'.repeat(4);
+          // A div, not a button, so the cards can hold richer content. Each
+          // description stays hidden until "Help me choose" is pressed.
+          return '<div class="po-opt" tabindex="0" role="radio" aria-checked="false" data-pick="' + k + '">' +
+            '<span class="po-radio" aria-hidden="true"></span>' +
+            '<span class="po-txt"><b>' + esc(m.name) +
+              (k === pref ? '<span class="po-tag">Your preference</span>' : '') + '</b>' +
+              '<small id="poDesc-' + k + '" hidden>' + esc(m.sub()) + '</small></span>' +
+            '<span class="po-vis' + (k === 'listen' ? '' : ' po-vis--std') + '" aria-hidden="true">' + vis + '</span>' +
+          '</div>';
         }).join('') +
       '</div>' +
       '<label class="po-save" id="poSave" hidden>' +
@@ -2800,6 +2803,17 @@
     var save = document.getElementById('poSave'), box = document.getElementById('poSaveBox');
     var saveLabel = document.getElementById('poSaveLabel');
     var picked = null;
+
+    // Deterministic waveform that fills whatever width its box has.
+    var wave = document.querySelector('[data-wave]');
+    function drawWave() {
+      if (!wave || !wave.isConnected) return;
+      var n = Math.max(16, Math.floor(wave.clientWidth / 6)), h = [];
+      for (var i = 0; i < n; i++) h.push(18 + Math.round(60 * Math.abs(Math.sin(i * .55) * Math.cos(i * .21 + 1))));
+      wave.innerHTML = h.map(function (v) { return '<i style="height:' + v + '%"></i>'; }).join('');
+    }
+    drawWave();
+    window.addEventListener('resize', drawWave);
 
     // Commit the pick for this module: which path runs, and (for Listen
     // mode) the frozen cut.
@@ -2821,12 +2835,17 @@
       var offer = !pref || pref !== k;
       save.hidden = !offer;
       box.checked = false;
-      saveLabel.textContent = !pref ? 'Save as my preference for future modules'
-        : 'Make ' + MODES[k].name + ' my preference';
+      saveLabel.textContent = 'Save preference';
       setModePref(pref);          // an unchecked box never changes what was saved
       ctx.enableNext();
     }
     opts.forEach(function (b) { b.addEventListener('click', function () { pick(b.dataset.pick); }); });
+    opts.forEach(function (b) {
+      b.addEventListener('keydown', function (e) {
+        if (e.target !== b || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault(); pick(b.dataset.pick);
+      });
+    });
     box.addEventListener('change', function () { setModePref(box.checked ? picked : pref); });
 
     // Back from later in the module: this run's own pick wins. Otherwise the
@@ -2836,11 +2855,12 @@
     else if (pref) pick(pref);
     else ctx.disableNext();
 
-    var how = document.getElementById('poHowBtn'), tip = document.getElementById('poHow');
-    how.addEventListener('click', function () {
-      var open = tip.hidden;
-      tip.hidden = !open;
-      how.setAttribute('aria-expanded', open ? 'true' : 'false');
+    // "Help me choose" shows or hides the description on both cards at once.
+    var help = document.getElementById('poHelp');
+    help.addEventListener('click', function () {
+      var open = help.getAttribute('aria-expanded') !== 'true';
+      help.setAttribute('aria-expanded', open ? 'true' : 'false');
+      [].slice.call(document.querySelectorAll('.po-txt small')).forEach(function (d) { d.hidden = !open; });
     });
   }
 
@@ -8121,13 +8141,13 @@
       // setting, so it survives Start over. Clear it to see the first-time
       // version of the offer.
       id: 'shModePrefBtn', icon: 'fa-headphones', name: 'Mode preference',
-      note: 'The learner’s saved Listen / Standard mode preference, which the offer screen reflects',
+      note: 'The learner’s saved Listen / Classic mode preference, which the offer screen reflects',
       visibleOn: function (step) { return step.id === 'podoffer'; },
       type: 'select', value: function () { return modePref() || 'none'; },
       options: [
         { value: 'none', label: 'None saved' },
         { value: 'listen', label: 'Listen mode' },
-        { value: 'standard', label: 'Standard mode' }
+        { value: 'standard', label: 'Classic mode' }
       ],
       onChange: function (v, api) {
         setModePref(v === 'none' ? null : v);
