@@ -2749,9 +2749,9 @@
     listen:   { icon: 'fa-headphones', name: 'Listen mode',
                 // No runtime here on purpose: Standard mode shows none, and a time
                 // on one option only reads as a reason to pick it.
-                sub: function () { return 'Hear a podcast-style chat, then answer questions.'; } },
+                sub: function () { return 'An audio podcast with questions at the end.'; } },
     standard: { icon: 'fa-display', name: 'Classic mode',
-                sub: function () { return 'Watch or read, with questions after each section.'; } }
+                sub: function () { return 'Videos and articles with questions after each.'; } }
   };
   // The title page's Preferred mode card, in the picker's own shape.
   var MODE_CARD = {
