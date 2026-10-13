@@ -36,7 +36,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 
 > date: 2026-10-13
 
-- **Toolbar layout:** the panel header has one toolbar row: the **search bar** takes most of the width, followed by two compact buttons, **Sort** and **Filter**. All three stay on one row on mobile too.
+- **Toolbar layout:** the **search bar** sits on its own full-width row. The two compact buttons, **Sort** and **Filter**, sit together on the row below it, left-aligned. The layout is the same at every screen size.
 - **Name search:** the search bar filters the list by first or last name as you type, and highlights the matching text. It searches the excluded users too, so a scheduler can see why someone they're looking for isn't on the list. If nobody matches, an empty state says so and points to any excluded matches.
 - **Sort:** a compact **Sort** button opens a small menu. Picking an option closes the menu; clicking outside it or pressing Esc also closes it. The button is highlighted whenever the sort isn't Rank. The options change the order shown: Rank (call order, the default), Last name (A–Z), Hire date (oldest first), Hire date (newest first), Auto-accept first.
 - **Rank badge keeps call order:** whatever the sort, the # badge always shows the rule's call order, so re-sorting never hides who gets called first. The count bar reads "sorted by … · # = call order" whenever the sort isn't Rank.
