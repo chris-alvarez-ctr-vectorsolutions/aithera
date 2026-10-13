@@ -2,6 +2,9 @@
 
 ## Changelog · 2026-10-13 (V3 wears V4's skin)
 
+- **V3: no divider lines between side-nav sections** (the section headers keep their lead), and
+  **the EHS view carries no mode tabs** in the top bar: identity, search and the universal
+  actions only.
 - **V3 takes V4's styling and keeps its own behaviour.** A skin block at the end of V3's CSS
   applies the design system tokens and measures read off EHS (Open Sans 13px, blue `#1d4ed8` on
   `#eff6ff`, 250px sidebar with the 80px logo area, 13/500 rows to 600 with a 3px left bar,
