@@ -22,7 +22,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 - **Compact rows:** one short row per person (rank, name + phone, rule data, Fill). The rule's data point sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
 - **Rule-specific data:** each card shows only the data point the current rule ranks on, not every factor for every rule type.
 - **Hire date always shown:** every card shows the person's hire date next to the phone number ("Hired 3/14/2011"), for every rule type.
-- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · sen. 3/14/2011"). Seniority date is usually the hire date, but not always (rehires), so it is labelled separately. Only tied rows show it. A **Show tiebreaker** switch on the Approach/Rule row turns it on or off (on by default). The switch only appears for rules that can tie (Hours Based, Turns Based); Rolodex rules have no ties, so they hide it. Michael: "the tiebreaker has value". Production's callback list shows it the same way.
+- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · sen. 3/14/2011"). Seniority date is usually the hire date, but not always (rehires), so it is labelled separately. Only tied rows show it. The **Show tiebreaker** switch lives in **Advanced filters** (see below) and turns it on or off (on by default). Michael: "the tiebreaker has value". Production's callback list shows it the same way.
 
 ## rule
 
@@ -31,3 +31,19 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 ## excluded
 
 - **Excluded users list:** below the ranked list, show who the approach excluded and why (time off, working another shift, opted out), the same way the callback preview does. The "N excluded" summary in the count bar jumps to this list.
+
+## search
+
+> date: 2026-10-13
+
+- **Name search:** a search bar under the Approach/Rule pickers filters the list by first or last name as you type, and highlights the matching text. It searches the excluded users too, so a scheduler can see why someone they're looking for isn't on the list. If nobody matches, an empty state says so and points to any excluded matches.
+- **Sort:** the Sort menu changes the order shown: Rank (call order, the default), Last name (A–Z), Hire date (oldest first), Hire date (newest first), Auto-accept first.
+- **Rank badge keeps call order:** whatever the sort, the # badge always shows the rule's call order, so re-sorting never hides who gets called first. The count bar reads "sorted by … · # = call order" whenever the sort isn't Rank.
+- **Search and sort don't change the ranking:** they only filter and reorder the view. The rules engine order is untouched.
+
+## advanced
+
+- **Advanced filters:** the Advanced button (sliders icon) opens an inline panel under the toolbar, styled like the Approach/Rule menus. Only one of these three panels is open at a time.
+- **Show tiebreaker switch:** the switch now lives here instead of on the picker row. For Rolodex rules it stays visible but disabled, with a note saying those rules don't produce ties.
+- **Count badge:** a small badge on the Advanced button shows how many advanced options are on.
+
