@@ -222,6 +222,16 @@
   .qp-fchip:hover { border-color: #66afe9; }
   .qp-fchip[aria-pressed="true"] { border-color: #3f8dbf; background: #eaf3f8; color: #2c5f80; font-weight: 600; }
   .qp-fchip i { font-size: 10px; }
+  /* Show tiebreaker row + on/off switch */
+  .qp-filter-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 8px 9px; border: 1px solid #e2e2e2; border-radius: 3px; }
+  .qp-filter-row .n { display: block; font-size: 12px; font-weight: 600; color: #444; }
+  .qp-filter-row .m { font-size: 11px; color: #999; }
+  .qp-switch { flex: none; display: inline-flex; align-items: center; padding: 0; border: 0; background: none; cursor: pointer; }
+  .qp-switch .track { position: relative; width: 28px; height: 16px; flex: none; border-radius: 8px; background: #c8c8c8; transition: background .15s; }
+  .qp-switch .knob { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: transform .15s; }
+  .qp-switch[aria-checked="true"] .track { background: #3f8dbf; }
+  .qp-switch[aria-checked="true"] .knob { transform: translateX(12px); }
+  .qp-switch:focus-visible { outline: 2px solid #66afe9; outline-offset: 3px; border-radius: 3px; }
   .qp-filter-foot { display: flex; justify-content: flex-end; margin-top: 12px; }
   .qp-apply { padding: 6px 20px; border: 1px solid #337ab7; border-radius: 3px; background: #3f8dbf; color: #fff; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
   .qp-apply:hover { opacity: .88; }
@@ -547,7 +557,9 @@
   const fmtDate = d => { const [y, m, dd] = d.split('-'); return +m + '/' + +dd + '/' + y; };
   // "Hired 3/14/2011 (1)" — `tb` is the tiebreaker number for people who share a
   // hire date; the lower number ranks first.
-  const hiredHtml = p => `Hired <b>${fmtDate(p.hired)}</b>${p.tb ? ` <span class="tb">(${p.tb})</span>` : ''}`;
+  // The (n) only shows when it actually decided the order (see view()), and
+  // Filter › Show tiebreaker can hide it.
+  const hiredHtml = (p, tbUsed) => `Hired <b>${fmtDate(p.hired)}</b>${tbUsed && state.showTie ? ` <span class="tb">(${p.tb})</span>` : ''}`;
 
   // Full names — rank numbers sometimes live in the first OR last name, so
   // schedulers need to see both. Each tiebreak rule has a demo pair that ties
@@ -598,7 +610,7 @@
   };
 
   /* ── State ─────────────────────────────────────────────────── */
-  const DEFAULT_STATE = { panelOpen: true, approachMenuOpen: false, ruleMenuOpen: false, approach: 'a1', rule: 'r1', filled: null, excludedOpen: true, filterOpen: false, query: '', quals: [] };
+  const DEFAULT_STATE = { panelOpen: true, approachMenuOpen: false, ruleMenuOpen: false, approach: 'a1', rule: 'r1', filled: null, excludedOpen: true, filterOpen: false, query: '', quals: [], showTie: true };
   let state = Object.assign({}, DEFAULT_STATE);
   function setState(patch) { Object.assign(state, patch); render(); }
 
@@ -608,6 +620,13 @@
     const avail = PEOPLE.slice(0, POOL_SIZE[state.approach]).map(p => Object.assign({ out: false }, p));
     const out = EXCLUDED[state.approach].map(k => Object.assign({ out: true }, OUT[k]));
     const all = avail.concat(out).sort(SORTS[state.rule]).map((p, i) => ({ p, rank: i + 1 }));
+    // Tiebreaker used = a rank neighbour ties on the rule value AND shares the
+    // hire date, so only (1)/(2) decided who's first. Otherwise no (n) is shown.
+    const tiedOnTb = (a, b) => a.hired === b.hired &&
+      SORTS[state.rule](Object.assign({}, a, { tb: 0 }), Object.assign({}, b, { tb: 0 })) === 0;
+    all.forEach((r, i) => {
+      r.tbUsed = !!r.p.tb && [all[i - 1], all[i + 1]].some(n => n && tiedOnTb(r.p, n.p));
+    });
     const q = state.query.trim().toLowerCase();
     const keep = ({ p }) =>
       (!q || p.name.toLowerCase().includes(q)) &&
@@ -615,7 +634,8 @@
     const A = all.filter(r => !r.p.out), X = all.filter(r => r.p.out);
     return { avail: A, out: X, availShown: A.filter(keep), outShown: X.filter(keep) };
   }
-  const filterCount = () => state.quals.length;
+  // Badge = selected qualifiers + tiebreaker turned off (it's on by default)
+  const filterCount = () => state.quals.length + (state.showTie ? 0 : 1);
   const isDefaultRanking = () => state.approach === 'a1' && state.rule === 'r1';
 
   // Wrap the search match in <mark>
@@ -679,7 +699,7 @@
   }
 
   // One compact row: rank | full name + phone | rule value + hire date | Fill
-  function cardHtml({ p, rank }) {
+  function cardHtml({ p, rank, tbUsed }) {
     const filled = state.filled === p.name;
     const m = RULES.find(r => r.id === state.rule).metric;
     return `
@@ -696,7 +716,7 @@
         </div>
         <div class="qp-metric">
           <span class="l">${m.label}</span><span class="v">${m.value(p)}</span>
-          <span class="hired">${hiredHtml(p)}</span>
+          <span class="hired">${hiredHtml(p, tbUsed)}</span>
         </div>
         <button class="qp-fill" data-action="fill" data-name="${p.name}">${filled ? '✓ Filled' : 'Fill'}</button>
       </div>`;
@@ -764,6 +784,13 @@
       <div class="qp-menu qp-filter">
         <div class="qp-menu-h">FILTER</div>
         ${chipGroup('Qualifier', QUALIFIERS, state.quals, 'toggleQual')}
+        <div class="qp-filter-row">
+          <span><span class="n">Show tiebreaker</span>
+            <span class="m">When a tie comes down to the same hire date, show (1) / (2) — the lower number ranks first.</span></span>
+          <button type="button" class="qp-switch" role="switch" aria-label="Show tiebreaker" aria-checked="${state.showTie}" data-action="toggleTie">
+            <span class="track"><span class="knob"></span></span>
+          </button>
+        </div>
         <div class="qp-filter-foot">
           <button type="button" class="qp-apply" data-action="applyFilter">Apply</button>
         </div>
@@ -846,7 +873,8 @@
       case 'toggleFilter':       setState({ filterOpen: !state.filterOpen, approachMenuOpen: false, ruleMenuOpen: false }); break;
       case 'toggleQual':         setState({ quals: toggleIn(state.quals, t.dataset.val) }); break;
       case 'applyFilter':        setState({ filterOpen: false }); break;
-      case 'clearFilters':       setState({ quals: [] }); break;
+      case 'clearFilters':       setState({ quals: [], showTie: true }); break;
+      case 'toggleTie':          setState({ showTie: !state.showTie }); break;
       case 'clearSearch':        setState({ query: '' }); document.getElementById('qpSearch').focus(); break;
       case 'pickApproach':       setState({ approach: t.dataset.id, approachMenuOpen: false }); break;
       case 'pickRule':           setState({ rule: t.dataset.id, ruleMenuOpen: false }); break;
@@ -956,7 +984,7 @@
           desc: 'Fill drops the person into the employee field as a token; the card turns green.' },
         { id: 'filter', flow: 'main', x: 900, y: 420,
           step: 'Refine', name: 'Filter', state: 'filter',
-          desc: 'Search + Filter share one line. Filter opens Qualifier chips (any-of); Apply closes it. Badge counts selected chips; "Clear filters" sits in the count bar.' },
+          desc: 'Search + Filter share one line. Filter opens Qualifier chips (any-of) and the Show tiebreaker switch (the (1)/(2) after shared hire dates); Apply closes it. Badge counts selected chips; "Clear filters" sits in the count bar.' },
         { id: 'search', flow: 'main', x: 1180, y: 420,
           step: 'Refine', name: 'Search', state: 'search',
           desc: 'Search by first or last name — matches highlighted; excluded users are searched too. Rank numbers never change.' }

@@ -25,8 +25,9 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 
 > date: 2026-10-13
 
-- **Hire date replaces the tiebreaker:** the hire date and the tiebreaker are the same thing, so there is one line, under the rule value: "Hired 3/14/2011". The separate tiebreaker line and its on/off switch are gone.
-- **Same hire date → (1), (2):** when two people share a hire date, each gets a tiebreaker number after the date, "Hired 3/14/2011 (1)" and "Hired 3/14/2011 (2)", and the lower number ranks first.
+- **Hire date replaces the tiebreaker:** the hire date and the tiebreaker are the same thing, so there is one line, under the rule value: "Hired 3/14/2011". The separate tiebreaker line is gone. The (1)/(2) numbers can be hidden with Filter › Show tiebreaker.
+- **Same hire date → (1), (2):** when two people share a hire date, each has a tiebreaker number, and the lower number ranks first: "Hired 3/14/2011 (1)", "Hired 3/14/2011 (2)".
+- **When the number shows:** only when it actually decides the order, i.e. the two people sit next to each other in the ranking, are tied on the rule value AND share the hire date. Otherwise only the date shows. For example, Whitaker and Lindqvist share a hire date, but under Overtime - Hours Based they aren't tied (18.00 vs 34.00 hrs), so neither shows a number. Under Turns Based they tie at 1 turn, so both do.
 - **Tie order:** ties on the rule value break by earlier hire date first, then by the lower tiebreaker number.
 - **Demo pairs:** the mock has a pair for each rule that can tie. In Overtime - Hours Based, Ferraro (1) and Okonjo (2) are both at 12.50 hrs and hired 3/14/2011. In Turns Based, Whitaker (1) and Lindqvist (2) are both at 1 turn and hired 1/20/2009.
 - **Rank numbers include excluded users:** the ranking is computed over everyone the approach covers, including excluded users. The available list therefore skips their numbers (e.g. 1, 2, 3, 5 when #4 is on PTO). The footer explains that missing numbers are excluded users.
@@ -60,6 +61,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 
 - **Filter panel:** the Filter button (sliders icon) opens an inline panel with **Qualifier** toggle chips (Driver/Operator, Hazmat Tech, Rescue Tech). The earlier A/B/C Shift group filter was removed.
 - **Filter logic:** a person matches if they have ANY of the selected qualifiers.
+- **Show tiebreaker switch:** this switch in the Filter panel turns the (1)/(2) tiebreaker numbers after shared hire dates on or off. It's on by default. The hire date itself always shows; the ranking order doesn't change either way. Turning it off counts toward the Filter badge, and Clear filters turns it back on.
 - **Filtering doesn't change the ranking:** filters only hide rows, and they apply to the excluded list too. Rank numbers never change.
 - **Apply:** a right-aligned **Apply** button closes the panel. Changes preview live in the list while the panel is open.
 - **Badge and Clear filters:** the Filter button shows a count of selected chips. When any chips are selected, a **Clear filters** link appears in the count bar ("Showing 1 of 8 available · Clear filters"), outside the panel.
