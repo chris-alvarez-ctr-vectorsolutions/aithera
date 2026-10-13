@@ -2750,7 +2750,7 @@
                 // No runtime here on purpose: Standard mode shows none, and a time
                 // on one option only reads as a reason to pick it.
                 sub: function () { return 'One continuous listen \u00b7 Questions at the end'; } },
-    standard: { icon: 'fa-display', name: 'Standard mode',
+    standard: { icon: 'fa-display', name: 'Classic mode',
                 sub: function () { return 'Watch or read, one section at a time'; } }
   };
   // The title page's Preferred mode card, in the picker's own shape.
@@ -2759,7 +2759,7 @@
     listen:   { icon: MODES.listen.icon, label: MODES.listen.name }
   };
   function modeLabel(k, pref) {
-    if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Standard mode';
+    if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Classic mode';
     return (k === pref ? 'Continue in ' : 'Switch to ') + MODES[k].name;
   }
   function PODOFFER_CONTENT() {
@@ -8121,13 +8121,13 @@
       // setting, so it survives Start over. Clear it to see the first-time
       // version of the offer.
       id: 'shModePrefBtn', icon: 'fa-headphones', name: 'Mode preference',
-      note: 'The learner’s saved Listen / Standard mode preference, which the offer screen reflects',
+      note: 'The learner’s saved Listen / Classic mode preference, which the offer screen reflects',
       visibleOn: function (step) { return step.id === 'podoffer'; },
       type: 'select', value: function () { return modePref() || 'none'; },
       options: [
         { value: 'none', label: 'None saved' },
         { value: 'listen', label: 'Listen mode' },
-        { value: 'standard', label: 'Standard mode' }
+        { value: 'standard', label: 'Classic mode' }
       ],
       onChange: function (v, api) {
         setModePref(v === 'none' ? null : v);
