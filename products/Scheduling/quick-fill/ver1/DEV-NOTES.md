@@ -17,38 +17,50 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 ## panel
 
 - **Full name:** show both first and last name. Agencies sometimes put a rank number in the first or last name, so schedulers need to see both.
-- **Phone number is required** on every candidate row.
+- **Phone number is required** on every candidate row. The person's group (e.g. "B Shift") sits next to it.
 - **Position removed:** the old "Position N" line was carried over from an earlier mock and isn't needed.
-- **Compact rows:** one short row per person (rank, name + phone, rule data, Fill). The rule's data point sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
+- **Compact rows:** one short row per person: rank, name, phone + group, the rule's data, Fill. The rule's data sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
 - **Rule-specific data:** each card shows only the data point the current rule ranks on, not every factor for every rule type.
-- **Hire date always shown:** every card shows the person's hire date next to the phone number ("Hired 3/14/2011"), for every rule type.
-- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · sen. 3/14/2011"). Seniority date is usually the hire date, but not always (rehires), so it is labelled separately. Only tied rows show it. The **Show tiebreaker** switch lives in the **Filter** panel (see below) and turns it on or off (on by default). Michael: "the tiebreaker has value". Production's callback list shows it the same way.
+- **Approach and Rule on the header:** the two dropdowns sit on the panel header, sized up (14px bold values) so it's easy to see what the list is ranked by. A **Default** tag sits after them while both are on their defaults; when either changes, it becomes a **Reset to default** link.
+
+> date: 2026-10-13
+
+- **Hire date replaces the tiebreaker:** the hire date and the tiebreaker are the same thing, so there is one line, under the rule value: "Hired 3/14/2011". The separate tiebreaker line and its on/off switch are gone.
+- **Same hire date → (1), (2):** when two people share a hire date, each gets a tiebreaker number after the date, "Hired 3/14/2011 (1)" and "Hired 3/14/2011 (2)", and the lower number ranks first.
+- **Tie order:** ties on the rule value break by earlier hire date first, then by the lower tiebreaker number.
+- **Demo pairs:** the mock has a pair for each rule that can tie. In Overtime - Hours Based, Ferraro (1) and Okonjo (2) are both at 12.50 hrs and hired 3/14/2011. In Turns Based, Whitaker (1) and Lindqvist (2) are both at 1 turn and hired 1/20/2009.
+- **Rank numbers include excluded users:** the ranking is computed over everyone the approach covers, including excluded users. The available list therefore skips their numbers (e.g. 1, 2, 3, 5 when #4 is on PTO). The footer explains that missing numbers are excluded users.
 
 ## rule
 
-- **Rules named by sorter type:** Hours Based, Rolodex, Turns Based, Accumulating Rolodex, so the type is easy to tell apart. Card data per type: Hours Based shows OT hours; Rolodex shows rotation position; Turns Based shows turns; Accumulating Rolodex shows position plus hours accumulated toward the limit.
+- **Rules named by sorter type:** Hours Based, Rolodex, Turns Based, Accumulating Rolodex, so the type is easy to tell apart.
+- **Card data per type:**
+  - Hours Based shows OT hours.
+  - Rolodex shows "Rank #N" (rotation position).
+  - Turns Based shows turns.
+  - Accumulating Rolodex shows "Rank #N" plus hours accumulated toward the 24 h limit. People at the limit drop to the bottom.
 
 ## excluded
 
 - **Excluded users list:** below the ranked list, show who the approach excluded and why (time off, working another shift, opted out), the same way the callback preview does. The "N excluded" summary in the count bar jumps to this list.
+- **Excluded users keep their rank number:** each excluded row shows its number (dashed badge) so schedulers can read the actual full ranking. For example, #4 Rachel Moreno is on vacation, which is why the available list jumps from 3 to 5.
 
 ## search
 
 > date: 2026-10-13
 
-- **Toolbar layout:** the **search bar** sits on its own full-width row. The two compact buttons, **Sort** and **Filter**, sit together on the row below it, left-aligned. The layout is the same at every screen size.
-- **Name search:** the search bar filters the list by first or last name as you type, and highlights the matching text. It searches the excluded users too, so a scheduler can see why someone they're looking for isn't on the list. If nobody matches, an empty state says so and points to any excluded matches.
-- **Sort:** a compact **Sort** button opens a small menu. Picking an option closes the menu; clicking outside it or pressing Esc also closes it. The button is highlighted whenever the sort isn't Rank. The options change the order shown: Rank (call order, the default), Last name (A–Z), Hire date (oldest first), Hire date (newest first), Auto-accept first.
-- **Rank badge keeps call order:** whatever the sort, the # badge always shows the rule's call order, so re-sorting never hides who gets called first. The count bar reads "sorted by … · # = call order" whenever the sort isn't Rank.
-- **Search and sort don't change the ranking:** they only filter and reorder the view. The rules engine order is untouched.
+- **Search + Filter on one line:** the search bar takes the width, with the Filter button beside it. This is the same at every screen size.
+- **Name search:** the search bar filters the list by first or last name as you type, and highlights the matching text. It searches the excluded users too, so a scheduler can see why someone they're looking for isn't on the list. If nobody available matches, an empty state says so and points to any excluded matches.
+- **Search doesn't change the ranking:** rank numbers never change; search only hides rows.
+- **No Sort:** the Sort control was removed. The list always shows rank order.
 
 ## filter
 
 > date: 2026-10-13
 
-- **Filter panel:** the Filter button (sliders icon) opens an inline panel under the toolbar. It holds the **Approach** picker (who is eligible), the **Rule** picker (how they rank) and the **Show tiebreaker** switch. Each picker opens its option list inside the panel, with the Default tag and a ✓ on the current pick.
-- **Approach and Rule live only in Filter:** they're no longer on the panel header.
-- **Applied line:** under the toolbar, a one-line summary ("Approach Medic Callback Pool · Rule Overtime - Hours Based") keeps the active approach and rule visible while Filter is closed. It's set larger (14px bold values) so it's easy to see what the list is ranked by, and it shows a **Default** tag while both are on their defaults. This matters because the cards' data column depends on the rule. When anything differs from the default, a **Reset to default** link appears there. This is the only reset; it is not inside the Filter panel.
-- **Badge:** the Filter button shows a count of settings changed from the default (approach, rule, tiebreaker turned off). Reset restores all three.
-- **Apply button:** the panel's footer has one **Apply** button, right-aligned. Apply closes the Filter panel. Changes preview live in the list while the panel is open, so Apply only closes it; there's no separate commit step.
-- **Tiebreaker for Rolodex rules:** the switch stays visible but disabled, with a note that those rules don't produce ties.
+- **Filter panel:** the Filter button (sliders icon) opens an inline panel with two groups of toggle chips: **Qualifier** (Driver/Operator, Hazmat Tech, Rescue Tech) and **Group** (A Shift, B Shift, C Shift).
+- **Filter logic:** within a group, a person matches ANY selected chip. Qualifier and Group combine with AND.
+- **Filtering doesn't change the ranking:** filters only hide rows, and they apply to the excluded list too. Rank numbers never change.
+- **Apply:** a right-aligned **Apply** button closes the panel. Changes preview live in the list while the panel is open.
+- **Badge and Clear filters:** the Filter button shows a count of selected chips. When any chips are selected, a **Clear filters** link appears in the count bar ("Showing 1 of 8 available · Clear filters"), outside the panel.
+- **Approach and Rule are not in Filter:** they're the dropdowns on the panel header.
