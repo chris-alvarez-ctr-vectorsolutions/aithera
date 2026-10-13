@@ -22,7 +22,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 - **Compact rows:** one short row per person (rank, name + phone, rule data, Fill). The rule's data point sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
 - **Rule-specific data:** each card shows only the data point the current rule ranks on, not every factor for every rule type.
 - **Hire date always shown:** every card shows the person's hire date next to the phone number ("Hired 3/14/2011"), for every rule type.
-- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · sen. 3/14/2011"). Seniority date is usually the hire date, but not always (rehires), so it is labelled separately. Only tied rows show it. The **Show tiebreaker** switch lives in **Advanced filters** (see below) and turns it on or off (on by default). Michael: "the tiebreaker has value". Production's callback list shows it the same way.
+- **Tiebreaker shown:** when a row ties a neighbour on the rule's value (e.g. both at 12.50 OT hrs), the seniority date that broke the tie shows under the metric ("tie · sen. 3/14/2011"). Seniority date is usually the hire date, but not always (rehires), so it is labelled separately. Only tied rows show it. The **Show tiebreaker** switch lives in the **Filter** panel (see below) and turns it on or off (on by default). Michael: "the tiebreaker has value". Production's callback list shows it the same way.
 
 ## rule
 
@@ -36,14 +36,18 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 
 > date: 2026-10-13
 
-- **Name search:** a search bar under the Approach/Rule pickers filters the list by first or last name as you type, and highlights the matching text. It searches the excluded users too, so a scheduler can see why someone they're looking for isn't on the list. If nobody matches, an empty state says so and points to any excluded matches.
+- **Toolbar layout:** the panel header has one toolbar: the **search bar** (takes the remaining width), then **Sort**, then **Filter**. On mobile, search gets its own row and Sort + Filter share the next.
+- **Name search:** the search bar filters the list by first or last name as you type, and highlights the matching text. It searches the excluded users too, so a scheduler can see why someone they're looking for isn't on the list. If nobody matches, an empty state says so and points to any excluded matches.
 - **Sort:** the Sort menu changes the order shown: Rank (call order, the default), Last name (A–Z), Hire date (oldest first), Hire date (newest first), Auto-accept first.
 - **Rank badge keeps call order:** whatever the sort, the # badge always shows the rule's call order, so re-sorting never hides who gets called first. The count bar reads "sorted by … · # = call order" whenever the sort isn't Rank.
 - **Search and sort don't change the ranking:** they only filter and reorder the view. The rules engine order is untouched.
 
-## advanced
+## filter
 
-- **Advanced filters:** the Advanced button (sliders icon) opens an inline panel under the toolbar, styled like the Approach/Rule menus. Only one of these three panels is open at a time.
-- **Show tiebreaker switch:** the switch now lives here instead of on the picker row. For Rolodex rules it stays visible but disabled, with a note saying those rules don't produce ties.
-- **Count badge:** a small badge on the Advanced button shows how many advanced options are on.
+> date: 2026-10-13
 
+- **Filter panel:** the Filter button (sliders icon) opens an inline panel under the toolbar. It holds the **Approach** picker (who is eligible), the **Rule** picker (how they rank) and the **Show tiebreaker** switch. Each picker opens its option list inside the panel, with the Default tag and a ✓ on the current pick.
+- **Approach and Rule live only in Filter:** they're no longer on the panel header.
+- **Applied line:** under the toolbar, a one-line summary ("Approach Medic Callback Pool · Rule Overtime - Hours Based") keeps the active approach and rule visible while Filter is closed. This matters because the cards' data column depends on the rule. When anything differs from the default, a **Reset** link appears.
+- **Badge:** the Filter button shows a count of settings changed from the default (approach, rule, tiebreaker turned off). Reset restores all three.
+- **Tiebreaker for Rolodex rules:** the switch stays visible but disabled, with a note that those rules don't produce ties.
