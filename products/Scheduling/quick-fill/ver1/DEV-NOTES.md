@@ -7,6 +7,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 ## modal
 
 - **Entry point:** a dedicated **Quick Fill** button on the "Choose employee(s)" label row, right-aligned to where the input box ends. It's a real button, not a dropdown option, so it's obvious.
+- **Opening and closing:** the Quick Fill button only **opens** the panel. While the panel is open the button stays pressed, and clicking it again does nothing. The panel closes with the **✕** in its header. On tablet and mobile, tapping the dimmed background or pressing Esc also closes it.
 - **Desktop vs mobile:** desktop opens the Qualified Personnel **side panel** beside the modal; mobile opens it as a **pop-up** instead. A physical button makes it easy to give the two their own experiences.
 - **Responsive breakpoints (built into the mock; resize the browser to see them):**
   - **≥1141px:** the panel docks beside the modal and narrows fluidly from 560px to 400px.
