@@ -73,11 +73,11 @@ function disc(id, open) {
 function actMatches(a) {
   const q = (state.search || '').trim().toLowerCase();
   if (q && !a.name.toLowerCase().includes(q)) return false;
-  if (state.fType && TYPES[a.type].label !== state.fType) return false;
-  if (state.fStatus && STATUS[a.status].label !== state.fStatus) return false;
+  if (state.fTypes.length && !state.fTypes.includes(TYPES[a.type].label)) return false;
+  if (state.fStatuses.length && !state.fStatuses.includes(STATUS[a.status].label)) return false;
   return true;
 }
-const filtersActive = () => !!((state.search || '').trim() || state.fType || state.fStatus);
+const filtersActive = () => !!((state.search || '').trim() || state.fTypes.length || state.fStatuses.length);
 
 /* Empty state inside the plan panel, under the group row (where the legacy
    red 'No activities found' block sat). Two causes, two messages:

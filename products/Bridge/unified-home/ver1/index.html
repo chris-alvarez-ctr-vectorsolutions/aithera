@@ -192,7 +192,7 @@
   <main id="main" class="content">
     <div class="page-inner">
       <!-- Build your dashboard: edit chrome for the home page (hidden unless building) -->
-      <div class="build-bar" id="buildBar" hidden><span class="bb-ic"><i class="fa-regular fa-pen-ruler" aria-hidden="true"></i></span><div><h2>Build your dashboard</h2><p>This is your home page. Turn modules on or off and move them. Add new ones from the Add module button on the home.</p></div><div class="bb-tools"><vaadin-button theme="tertiary" data-act="bld-reset">Reset to default</vaadin-button><vaadin-button theme="secondary" data-act="bld-settings">Back to settings</vaadin-button><vaadin-button theme="primary" data-act="bld-done">Done</vaadin-button></div></div>
+      <div class="build-bar" id="buildBar" hidden><span class="bb-ic"><i class="fa-regular fa-pen-ruler" aria-hidden="true"></i></span><div><h2>Arrange your dashboard</h2><p>This is your home page. Turn widgets on or off and move them. Add new ones from the Add widget button on the home.</p></div><div class="bb-tools"><vaadin-button theme="tertiary" data-act="bld-reset">Reset to default</vaadin-button><vaadin-button theme="secondary" data-act="bld-settings">Back to settings</vaadin-button><vaadin-button theme="primary" data-act="bld-done">Done</vaadin-button></div></div>
 
       <!-- ── Page header: title, sync status, audit shortcut, global filters ── -->
       <header class="page-head">
@@ -208,7 +208,7 @@
               <span>Audit readiness</span>
               <span class="chip-score" id="auditChipScore">82%</span>
             </a>
-            <vaadin-button theme="primary" data-act="bld-add" id="addModuleBtn"><i class="fa-regular fa-plus" aria-hidden="true" style="margin-right:8px"></i>Add module</vaadin-button>
+            <vaadin-button theme="primary" data-act="bld-add" id="addModuleBtn"><i class="fa-regular fa-plus" aria-hidden="true" style="margin-right:8px"></i>Add widget</vaadin-button>
           </div>
         </div>
 
@@ -373,8 +373,13 @@
 <!-- V2 (panel mode): the details slide in as a right-hand side panel -->
 <aside class="rec-panel" id="recPanel" aria-label="Recommendation details" hidden></aside>
 <vaadin-dialog id="askRecDlg" theme="ask" aria-label="Ask for a recommendation"></vaadin-dialog>
-<!-- Add module: full-screen takeover (builder.js renderStudio) -->
-<div id="moduleStudio" class="module-studio" role="dialog" aria-modal="true" aria-label="Add a module" hidden></div>
+<!-- Add widget: full-screen takeover (builder.js renderStudio) -->
+<div id="moduleStudio" class="module-studio" role="dialog" aria-modal="true" aria-label="Add a widget" hidden></div>
+<!-- Drill-in drawer: the records behind a number (builder.js openDrill) -->
+<aside id="drillDrawer" class="drill" aria-label="Records behind this number" hidden></aside>
+<!-- Prototype pill: demo controls, bottom right (builder.js renderDemoPill) -->
+<div id="demoPill" class="demo-pill" aria-label="Prototype controls"></div>
+<vaadin-dialog id="bldConfirmDlg" theme="compact" aria-label="Remove widget"></vaadin-dialog>
 <vaadin-dialog id="assignDlg" theme="wizard" no-close-on-outside-click aria-label="Review and assign"></vaadin-dialog>
 <vaadin-dialog id="snoozeDlg" theme="compact" aria-label="Snooze recommendation"></vaadin-dialog>
 <vaadin-dialog id="ruleDlg" theme="compact" aria-label="Edit retraining rule"></vaadin-dialog>
@@ -593,7 +598,7 @@
       title: 'Unified Home Dashboard — Flow Map',
       applyState: 'applyFlowState',
       devNotes: '../DEV-NOTES.md',
-      canvas: { w: 1720, h: 1000 },
+      canvas: { w: 1720, h: 1100 },
       flows: [
         { id: 'home', name: 'Home and drill-down', pill: 'A', color: '#c9b8f0',
           lane: { x: 20, y: 20, w: 1680, h: 220 }, labelXY: { x: 40, y: 40 } },
@@ -602,7 +607,7 @@
         { id: 'states', name: 'Permissions and states', pill: 'C', color: '#f0d9b8',
           lane: { x: 20, y: 500, w: 1680, h: 220 }, labelXY: { x: 40, y: 520 } },
         { id: 'bld', name: 'Build your dashboard', pill: 'D', color: '#b8d6f0',
-          lane: { x: 20, y: 740, w: 1680, h: 240 }, labelXY: { x: 40, y: 760 } }
+          lane: { x: 20, y: 740, w: 1680, h: 340 }, labelXY: { x: 40, y: 760 } }
       ],
       nodes: [
         { id: 'home', flow: 'home', entry: true, x: 60, y: 90, step: 'Entry', name: 'Home, all facilities', state: 'home',
@@ -614,7 +619,7 @@
         { id: 'ask-rec', flow: 'home', x: 1420, y: 90, step: 'Ask', name: 'Ask for a recommendation', state: 'ask-rec',
           desc: 'A thread, as in the Readiness Hub: the user says what they noticed (chips help), the answer arrives after a beat as a headline, a bold summary from both products, and Add to Recommended actions.' },
         { id: 'asked', flow: 'home', x: 1420, y: 200, step: 'Result', name: 'Requested recommendation', state: 'asked',
-          desc: 'The card built from the question at the top of the module, tagged From your question, open in the side panel with its evidence.' },
+          desc: 'The card built from the question at the top of the widget, tagged From your question, open in the side panel with its evidence.' },
         { id: 'dismissed', flow: 'home', x: 1080, y: 90, step: 'Secondary action', name: 'Dismissed, with undo', state: 'dismissed',
           desc: 'Dismiss is one click: the card leaves and a toast offers Undo for a few seconds. No reason is asked. Snooze still asks how long.' },
         { id: 'assign1', flow: 'assign', x: 60, y: 330, step: 'Step 1', name: 'Employees (editable)', state: 'assign1',
@@ -635,14 +640,22 @@
           desc: 'One product fails to sync: banner with retry, affected tiles and evidence marked, EHS data stays usable.' },
         { id: 'empty', flow: 'states', x: 1080, y: 570, step: 'State', name: 'No recommendations', state: 'empty',
           desc: 'Everything handled: an explicit all-caught-up state instead of an empty box.' },
-        { id: 'existing-modules', flow: 'bld', x: 60, y: 810, step: 'Takeover', name: 'Add module: Existing', state: 'existing-modules',
-          desc: 'Existing modules tab of the full-screen takeover: every module, standard and built, with On / Off switches; built ones can be edited or removed.' },
+        { id: 'existing-modules', flow: 'bld', x: 60, y: 810, step: 'Takeover', name: 'Add widget: Existing', state: 'existing-modules',
+          desc: 'Existing widgets tab of the takeover: every widget, standard and built, with On / Off switches, Preview, and Edit / Remove (with a confirm) for built ones.' },
         { id: 'settings', flow: 'bld', x: 400, y: 810, step: 'Settings', name: 'Settings', state: 'settings',
           desc: 'The Settings page; Home dashboard is the first row, with Build your dashboard and Reset to default.' },
         { id: 'build', flow: 'bld', x: 740, y: 810, step: 'Build', name: 'Home in edit mode', state: 'build',
-          desc: 'What you build is the home page itself: every module gets a chrome bar (move up / down, Shown / Hidden switch) and Your modules gains an Add module slot and per-module menus.' },
-        { id: 'create-module', flow: 'bld', x: 400, y: 810, step: 'Takeover', name: 'Add module: Create', state: 'create-module',
-          desc: 'Opened from Add module, top right. Full-screen takeover in three columns: Keystone-style chat on the left, parameters in the middle, live preview on the right.' },
+          desc: 'What you build is the home page itself: every widget gets a chrome bar (move up / down, Shown / Hidden switch).' },
+        { id: 'create-module', flow: 'bld', x: 400, y: 810, step: 'Takeover', name: 'Add widget: Create', state: 'create-module',
+          desc: 'Opened from Add widget, top right. Full-screen takeover in three columns: Keystone-style chat on the left, parameters (name, where, date range, multi-select metrics, show as) in the middle, live preview on the right.' },
+        { id: 'specific', flow: 'bld', x: 1420, y: 920, step: 'Be specific', name: 'Specific parameters', state: 'specific',
+          desc: '"Who is overdue on Lockout/Tagout at Plant 2, as a table": each selected metric gets a dropdown to narrow it (course, incident type, qualification); the chat fills it too. Prototype pill toggles this.' },
+        { id: 'drill', flow: 'bld', x: 60, y: 920, step: 'Click into', name: 'Click into a metric', state: 'drill',
+          desc: 'Click any number on the dashboard or the preview and a drawer lists the records behind it: who is overdue, which course, due when, with filter, Assign training, Open in the product, Export. Prototype pill toggles this.' },
+        { id: 'existing-preview', flow: 'bld', x: 400, y: 920, step: 'Preview', name: 'Existing widgets, previewed', state: 'existing-preview',
+          desc: 'Preview on an existing widget expands a live render under its row, standard or built.' },
+        { id: 'confirm-remove', flow: 'bld', x: 740, y: 920, step: 'Confirm', name: 'Remove widget?', state: 'confirm-remove',
+          desc: 'Removing a built widget asks first; after removal the toast still offers Undo.' },
         { id: 'create-min', flow: 'bld', x: 1080, y: 810, step: 'Chat minimized', name: 'Chat minimized', state: 'create-min',
           desc: 'The chat folds to a 56px rail (with the message count); parameters and preview take the room. Click the rail to open it again.' },
         { id: 'describe', flow: 'bld', x: 740, y: 810, step: 'Describe', name: 'Built from a description', state: 'describe',
@@ -657,7 +670,7 @@
         ['assign1', 'assign2'], ['assign2', 'assign3'], ['assign3', 'assign4'], ['assign4', 'assigned'],
         ['home', 'ehs-only', 'branch'], ['home', 'loading', 'branch'], ['home', 'error', 'branch'], ['home', 'empty', 'branch'],
         ['home', 'ask-rec'], ['ask-rec', 'asked'],
-        ['home', 'create-module'], ['create-module', 'describe'], ['describe', 'create-min'], ['create-module', 'existing-modules', 'branch'], ['home', 'settings', 'branch'], ['settings', 'build']
+        ['home', 'create-module'], ['create-module', 'describe'], ['describe', 'create-min'], ['describe', 'specific', 'branch'], ['create-module', 'existing-modules', 'branch'], ['existing-modules', 'existing-preview'], ['existing-preview', 'confirm-remove'], ['home', 'drill', 'branch'], ['home', 'settings', 'branch'], ['settings', 'build']
       ]
     }
   };

@@ -706,6 +706,17 @@ yet** with *Browse the catalog* when the plan is genuinely empty. To make the st
 reachable, the header search and the Type / Status filters now narrow the plan live, with
 non-matching branches dropping out and matching ones opening.
 
+## Round 22: multi-select filters with quick select-all and clear
+
+- **Type and Status are multi-select** (`vaadin-multi-select-combo-box`): pick any number of
+  values; none picked means all. Values in one field widen the result (OR), the two fields
+  narrow it together (AND).
+- **Select all / Clear per field**, as a small text action beside each field label, toggling
+  with the selection.
+- **Quick clear in two places:** *Clear all* in the panel's Filter header (with the active
+  count), and *Clear filters (n)* in the page header beside search, shown only while a
+  search or filter is narrowing the plan, so it works with the panel closed.
+
 ## OUT OF SCOPE - needs functionality or logic
 
 Each of these is a real improvement that cannot be done as a styling pass. The closest

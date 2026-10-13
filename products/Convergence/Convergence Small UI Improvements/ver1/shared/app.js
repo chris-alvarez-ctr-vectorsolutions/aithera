@@ -24,7 +24,7 @@ const state = {
   dismissedBanners: new Set(),   // banner ids dismissed this session
   showElectives: false,          // filter-panel toggle: elective activities
   search: '',                    // page-header search, matched against activity names
-  fType: '', fStatus: '',        // filter-panel combos ('' = all)
+  fTypes: [], fStatuses: [],     // filter-panel multi-selects ([] = all)
   demoUnassigned: false,         // flow-map only: show the plan with nothing assigned
   allCollapsed: false,           // filter-panel toggle: collapse/expand all
   filterOpen: false,
@@ -329,10 +329,32 @@ function setFilters(open) {
 
 /* Reset search + filters (the empty state's action). */
 function clearTrainingFilters() {
-  state.search = ''; state.fType = ''; state.fStatus = '';
+  state.search = ''; state.fTypes = []; state.fStatuses = [];
   $('[data-for="training"] .searchbox input').value = '';
-  $('#fType').value = ''; $('#fStatus').value = '';
+  $('#fType').selectedItems = []; $('#fStatus').selectedItems = [];
+  syncFilterControls();
   renderTraining();
+}
+
+const FILTER_ITEMS = {
+  fType:   ['Tasklist', 'Video', 'Course', 'Quiz', 'Document', 'Class'],
+  fStatus: ['In progress', 'Incomplete', 'Overdue', 'Complete', 'Needs scheduling'],
+};
+const FILTER_STATE = { fType: 'fTypes', fStatus: 'fStatuses' };
+/* Keep the quick-clear controls and each field's Select all / Clear toggle in step
+   with the current filters. */
+function syncFilterControls() {
+  const n = state.fTypes.length + state.fStatuses.length;
+  const searching = !!(state.search || '').trim();
+  const count = $('#fpCount'); count.hidden = !n; count.textContent = n ? `(${n})` : '';
+  $('#fpClearAll').disabled = !n;
+  const quick = $('#tpClearFilters'); quick.hidden = !(n || searching);
+  $('#tpClearLabel').textContent = n ? `Clear filters (${n})` : 'Clear search';
+  $$('.fp-all').forEach(b => {
+    const all = state[FILTER_STATE[b.dataset.for]].length === FILTER_ITEMS[b.dataset.for].length;
+    b.textContent = all ? 'Clear' : 'Select all';
+    b.setAttribute('aria-label', (all ? 'Clear ' : 'Select all ') + b.dataset.for.replace('f', '').toLowerCase() + ' filters');
+  });
 }
 
 function setNavCollapsed(collapsed) {
@@ -452,14 +474,26 @@ function boot() {
     renderTraining();
   });
 
-  const ft = $('#fType'), fs = $('#fStatus');
-  ft.items = ['All types', 'Tasklist', 'Video', 'Course', 'Quiz', 'Document', 'Class'];
-  fs.items = ['All statuses', 'In progress', 'Incomplete', 'Overdue', 'Complete', 'Needs scheduling'];
-  // The combos and the header search narrow the plan live; an 'All ...' pick clears.
-  ft.addEventListener('value-changed', e => { state.fType = /^All /.test(e.detail.value || '') ? '' : (e.detail.value || ''); renderTraining(); });
-  fs.addEventListener('value-changed', e => { state.fStatus = /^All /.test(e.detail.value || '') ? '' : (e.detail.value || ''); renderTraining(); });
+  // Multi-select filters: any number of values per field, none = all. They and the
+  // header search narrow the plan live.
+  Object.keys(FILTER_ITEMS).forEach(id => {
+    const el = $('#' + id);
+    el.items = FILTER_ITEMS[id];
+    el.addEventListener('selected-items-changed', e => {
+      state[FILTER_STATE[id]] = [...(e.detail.value || [])];
+      syncFilterControls(); renderTraining();
+    });
+  });
+  $$('.fp-all').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.for, el = $('#' + id);
+    const all = state[FILTER_STATE[id]].length === FILTER_ITEMS[id].length;
+    el.selectedItems = all ? [] : [...FILTER_ITEMS[id]];
+  }));
+  $('#fpClearAll').addEventListener('click', clearTrainingFilters);
+  $('#tpClearFilters').addEventListener('click', clearTrainingFilters);
   const search = $('[data-for="training"] .searchbox input');
-  search.addEventListener('input', () => { state.search = search.value; renderTraining(); });
+  search.addEventListener('input', () => { state.search = search.value; syncFilterControls(); renderTraining(); });
+  syncFilterControls();
 
   setFilters(false);
 
@@ -500,7 +534,7 @@ function applyFlowState(id, opts) {
     case 't-cards-l':  go('training', 'large'); break;
     case 't-empty':
       go('training', 'list');
-      state.search = 'Forklift inspection'; $('[data-for="training"] .searchbox input').value = state.search;
+      state.search = 'Forklift inspection'; $('[data-for="training"] .searchbox input').value = state.search; syncFilterControls();
       renderTraining();
       break;
     case 't-unassigned': state.demoUnassigned = true; go('training', 'list'); break;
