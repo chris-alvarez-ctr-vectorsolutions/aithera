@@ -1,5 +1,12 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-10-09 (V4: guide lines in nested groups)
+
+- **V4: a 1px guide line runs down the icon column of every open group**, from the first
+  child to the last, so the children read as one block under their parent; a third level gets
+  its own line one indent further in. Mirrored into the Convergence Small UI Improvements side
+  nav, which carries the V4 shell.
+
 ## Changelog · 2026-10-07 (divider on the nav border; V4 location, rhythm, icons)
 
 - **All versions: the identity/tabs divider sits on the open side nav's right border**,

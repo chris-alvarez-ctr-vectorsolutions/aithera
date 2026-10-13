@@ -986,7 +986,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 .lo-play:hover { background: #eef4fb; color: var(--brand-2); }
 
-:focus-visible { outline: 2px solid #4d8bf0; outline-offset: 2px; }
+/* Catch-all keyboard focus ring for the page's own controls.
+
+   Vaadin components are EXCLUDED: each one draws its own focus treatment
+   inside its shadow root, and this rule outlines the host on top of it —
+   a second blue box around the whole component, offset 2px, which reads as
+   a broken focus state. The design system owns focus for its own fields, so
+   page CSS must not add a second one. */
+:focus-visible:not(:is(
+  vaadin-combo-box, vaadin-text-field, vaadin-text-area, vaadin-select,
+  vaadin-number-field, vaadin-password-field, vaadin-date-picker,
+  vaadin-time-picker, vaadin-date-time-picker, vaadin-multi-select-combo-box,
+  vaadin-button, vaadin-checkbox, vaadin-radio-button, vwc-switch,
+  [slot="input"], [slot="textarea"]
+)) { outline: 2px solid #4d8bf0; outline-offset: 2px; }
 
 /* ============================================================
    OVERFLOW MENUS
@@ -1187,8 +1200,17 @@ h1, h2, h3, h4, h5, h6 {
 /* A required field's label takes the brand colour, matching the
    focused-input treatment, with the asterisk carried alongside. */
 .field.required label { color: var(--brand-2); }
-.field input[type="text"],
-.field textarea {
+/* ...except on the Details tab, where every heading in the card reads in
+   the same dark ink. A blue label there singled out two fields among ten
+   for no reason the reader could act on — required is already carried by
+   the asterisk. The Add Learning Object modal keeps the blue treatment. */
+.det-card .field.required label { color: var(--ink); }
+/* `:not([slot])` keeps these off Vaadin's slotted inputs: a vaadin-combo-box
+   puts its real <input> in LIGHT DOM with slot="input", so without this
+   guard the page's border, padding and radius paint inside the component's
+   own field, doubling the box. */
+.field input[type="text"]:not([slot]),
+.field textarea:not([slot]) {
   width: 100%;
   font: inherit; font-size: var(--font-size-m);
   color: var(--ink);
@@ -1198,10 +1220,10 @@ h1, h2, h3, h4, h5, h6 {
   padding: 12px 14px;
 }
 .field textarea { min-height: 92px; resize: vertical; }
-.field input[type="text"]::placeholder,
-.field textarea::placeholder { color: #9aa4b2; }
-.field input[type="text"]:focus,
-.field textarea:focus {
+.field input[type="text"]:not([slot])::placeholder,
+.field textarea:not([slot])::placeholder { color: #9aa4b2; }
+.field input[type="text"]:not([slot]):focus,
+.field textarea:not([slot]):focus {
   outline: none;
   border-color: var(--lumo-primary-color);
   box-shadow: 0 0 0 3px var(--lumo-primary-color-10pct);
@@ -1461,10 +1483,37 @@ h1, h2, h3, h4, h5, h6 {
 }
 .det-col-main { grid-column: 1; }
 .det-col-side { grid-column: 2; }
+/* Spans BOTH columns. Only the first row of each card is split (Title +
+   Voice); everything below it runs the full width of the card, so long-form
+   fields are not squeezed into the narrow main column while the side column
+   sits empty beside them. */
+.det-col-full { grid-column: 1 / -1; }
+
+/* An EVEN two-up row — Variant Owner and Watchers. The card's own second
+   track is 210px, sized for Default Voice, which is too narrow for a
+   multi-select carrying chips. So the pair spans the full card width and
+   splits it in half rather than borrowing the card's uneven tracks.
+
+   `minmax(0, 1fr)` rather than `1fr`: a Vaadin field's intrinsic width
+   would otherwise stop the column shrinking and push the pair wider than
+   the card. */
+.det-pair {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 28px;
+  row-gap: 20px;
+  align-items: start;
+}
+.det-pair > .field { min-width: 0; }
+
+@media (max-width: 1100px) {
+  .det-pair { grid-template-columns: minmax(0, 1fr); }
+}
 
 @media (max-width: 1100px) {
   .det-grid { grid-template-columns: minmax(0, 1fr); }
-  .det-col-main, .det-col-side { grid-column: 1; }
+  .det-col-main, .det-col-side, .det-col-full { grid-column: 1; }
 }
 
 /* .field already styles text inputs and textareas; number, select and the
@@ -1571,6 +1620,68 @@ h1, h2, h3, h4, h5, h6 {
   vertical-align: baseline;
 }
 .det-info:hover { color: var(--brand-2); }
+/* The vwc-icon flavour of .det-info (the Variant Owner help button). The
+   component draws an SVG sized by its own custom property, so `font-size`
+   has no effect on it — set --vwc-icon-size instead. `line-height: 0` stops
+   the inline SVG adding descender space inside the label row. */
+.det-info vwc-icon {
+  --vwc-icon-size: 16px;
+  --vwc-icon-color: currentColor;
+  display: block;
+}
+.det-info:has(vwc-icon) { line-height: 0; vertical-align: -3px; }
+
+/* ── Course owner ───────────────────────────────────────────
+   vaadin-combo-box owns its border, padding and focus ring inside its
+   shadow root (via theme="outlined"), so only the outer box is sized here —
+   setting a border on the host would paint a second box around the field. */
+#cdOwner { width: 100%; }
+
+/* ── Watchers ───────────────────────────────────────────────
+   The multi-select sits beside the owner field, so it is sized the same. */
+#cdWatchers { width: 100%; }
+
+/* The full watcher list, under the field. The component shows chips inside
+   the input too, but caps them behind a "+N" overflow — this list is where
+   every watcher is visible at once. */
+.watch-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-top: 10px;
+}
+.watch-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 4px 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--lumo-base-color);
+  font-size: var(--font-size-s);
+  color: var(--ink);
+}
+.watch-chip i { color: var(--ink-mute); font-size: 11px; }
+
+/* The current user's own chip takes the brand tint, so "am I on this list?"
+   is answered by scanning rather than reading every name. */
+.watch-chip.is-me {
+  border-color: var(--lumo-primary-color);
+  background: var(--lumo-primary-color-10pct);
+  color: var(--lumo-primary-text-color, #0271ce);
+}
+.watch-chip.is-me i { color: var(--lumo-primary-text-color, #0271ce); }
+
+.watch-chip-x {
+  display: inline-grid; place-items: center;
+  width: 18px; height: 18px; padding: 0;
+  border: none; border-radius: 50%;
+  background: transparent; color: inherit;
+  cursor: pointer; opacity: .55;
+}
+.watch-chip-x:hover { opacity: 1; background: rgba(15, 25, 45, .09); }
+.watch-chip-x i { color: inherit; font-size: 10px; }
+
+.watch-empty {
+  margin: 0; font-size: var(--font-size-s);
+  color: var(--ink-mute); font-style: italic;
+}
 
 /* ── Course image ───────────────────────────────────────── */
 .det-drop { background: var(--lumo-base-color); }

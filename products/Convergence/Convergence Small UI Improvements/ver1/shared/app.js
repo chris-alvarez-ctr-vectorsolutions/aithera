@@ -23,6 +23,9 @@ const state = {
   catalogCat: 'safety',      // category shown by the table view
   dismissedBanners: new Set(),   // banner ids dismissed this session
   showElectives: false,          // filter-panel toggle: elective activities
+  search: '',                    // page-header search, matched against activity names
+  fType: '', fStatus: '',        // filter-panel combos ('' = all)
+  demoUnassigned: false,         // flow-map only: show the plan with nothing assigned
   allCollapsed: false,           // filter-panel toggle: collapse/expand all
   filterOpen: false,
   navOpen: new Set(['training']),
@@ -199,11 +202,11 @@ function applyLocation(id) {
    next navigation. */
 const ROUTES = {
   home:     { tab:'home',     mode:'learner',  title:'Dashboard',                crumbs:['Home'],           sidenav:true, actions:'home',     navCollapsed:true },
-  training: { tab:'training', mode:'learner',  title:'My training',              crumbs:['Training'],       sidenav:true, actions:'training', navCollapsed:true },
+  training: { tab:'training', mode:'learner',  title:'My training',              crumbs:['Training'],       sidenav:false, actions:'training', },
   catalog:  { tab:'catalog',  mode:'learner',  title:'Catalog',                  crumbs:['Catalog'],        sidenav:true, actions:'catalog',  navCollapsed:true },
   /* Drill-in from My training. virtual: it is a sub-page of the training
      route, so on a standalone page it never navigates to a sibling file. */
-  details:  { tab:'training', mode:'learner',  title:'Details',                  crumbs:['Training'],       sidenav:true, actions:'details',  navCollapsed:true, virtual:true },
+  details:  { tab:'training', mode:'learner',  title:'Details',                  crumbs:['Training'],       sidenav:false, actions:'details',  virtual:true },
   insights: { tab:'insights', mode:'insights', title:'Insights',                 crumbs:['Insights'],       sidenav:true, actions:'guide' },
   guide:    { tab:'admin',    mode:'admin',    title:'Administration dashboard', crumbs:['Administration'], sidenav:true, actions:'guide' },
   wizard:   { tab:'admin',    mode:'admin',    title:'Content wizard',           crumbs:['Administration','Training import and creation'], sidenav:true, actions:'wizard' },
@@ -217,13 +220,18 @@ function renderCrumbs() {
   const sep = '<i class="fa-solid fa-chevron-right"></i>';
   if (state.route === 'details' && state.details) {
     const hit = tpIndex()[state.details.kind][state.details.id];
-    const trail = [loc, 'Training'].map(p => `<a href="#" onclick="return false">${esc(p)}</a>`);
-    trail.push(`<a href="#" class="crumb-up" data-up="list">My training</a>`);
+    /* Trail: location > Training (back to the plan) > qualification > requirement >
+       the current item, named, as the last crumb. No separate "My training" crumb:
+       Training already is that page. */
+    const trail = [`<a href="#" onclick="return false">${esc(loc)}</a>`,
+                   `<a href="#" class="crumb-up" data-up="list">Training</a>`];
     if (hit) {
-      if (state.details.kind !== 'qual' && hit.qual)
+      const k = state.details.kind;
+      if (k !== 'qual' && hit.qual)
         trail.push(`<a href="#" class="crumb-up" data-up="qual:${hit.qual.id}" title="${esc(hit.qual.name)}">${esc(hit.qual.name)}</a>`);
-      if (state.details.kind === 'act' && hit.req)
+      if (k === 'act' && hit.req && hit.qual.id !== 'q-indiv')
         trail.push(`<a href="#" class="crumb-up" data-up="req:${hit.req.id}" title="${esc(hit.req.name)}">${esc(hit.req.name)}</a>`);
+      trail.push(`<span class="crumb-current" aria-current="page" title="${esc(hit.item.name)}">${esc(hit.item.name)}</span>`);
     }
     $('#crumbs').innerHTML = trail.join(sep);
     $('#pageTitle').textContent = detailsTitle();
@@ -317,6 +325,14 @@ function setFilters(open) {
   const btn = $('#filterToggle');
   btn.setAttribute('aria-pressed', String(open));
   btn.title = open ? 'Hide filters' : 'Show filters';
+}
+
+/* Reset search + filters (the empty state's action). */
+function clearTrainingFilters() {
+  state.search = ''; state.fType = ''; state.fStatus = '';
+  $('[data-for="training"] .searchbox input').value = '';
+  $('#fType').value = ''; $('#fStatus').value = '';
+  renderTraining();
 }
 
 function setNavCollapsed(collapsed) {
@@ -437,8 +453,13 @@ function boot() {
   });
 
   const ft = $('#fType'), fs = $('#fStatus');
-  ft.items = ['All types', 'Tasklist', 'Video', 'Course', 'Quiz', 'Document'];
-  fs.items = ['All statuses', 'In progress', 'Incomplete', 'Overdue', 'Complete'];
+  ft.items = ['All types', 'Tasklist', 'Video', 'Course', 'Quiz', 'Document', 'Class'];
+  fs.items = ['All statuses', 'In progress', 'Incomplete', 'Overdue', 'Complete', 'Needs scheduling'];
+  // The combos and the header search narrow the plan live; an 'All ...' pick clears.
+  ft.addEventListener('value-changed', e => { state.fType = /^All /.test(e.detail.value || '') ? '' : (e.detail.value || ''); renderTraining(); });
+  fs.addEventListener('value-changed', e => { state.fStatus = /^All /.test(e.detail.value || '') ? '' : (e.detail.value || ''); renderTraining(); });
+  const search = $('[data-for="training"] .searchbox input');
+  search.addEventListener('input', () => { state.search = search.value; renderTraining(); });
 
   setFilters(false);
 
@@ -477,6 +498,12 @@ function applyFlowState(id, opts) {
       break;
     case 't-cards-s':  go('training', 'dense'); break;
     case 't-cards-l':  go('training', 'large'); break;
+    case 't-empty':
+      go('training', 'list');
+      state.search = 'Forklift inspection'; $('[data-for="training"] .searchbox input').value = state.search;
+      renderTraining();
+      break;
+    case 't-unassigned': state.demoUnassigned = true; go('training', 'list'); break;
     case 'd-qual':     go('training', 'list'); showDetails('qual', 'q-nhs'); break;
     case 'd-req':      go('training', 'list'); showDetails('req', 'r-loto'); break;
     case 'd-act':      go('training', 'list'); showDetails('act', 'a5'); break;  // LOTO Tasklist Affected Employees
@@ -494,6 +521,8 @@ function applyFlowState(id, opts) {
       break;
     default: go('guide');
   }
+  if (id !== 't-empty') clearTrainingFilters();
+  if (id !== 't-unassigned') { state.demoUnassigned = false; if (state.route === 'training') renderTraining(); }
   if (id !== 'loading') hideLoading();
   if (id !== 'load-modal') closeLoadingModal();
   if (instant) window.scrollTo(0, 0);

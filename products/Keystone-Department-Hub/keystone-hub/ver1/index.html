@@ -69,8 +69,18 @@
      run to the same width as the task table, since the sheet's 24px side padding
      was the only thing insetting it. See .kx-greeting for how the greeting text
      keeps its old left edge anyway. */
-  .kx-hero { padding-bottom: 6px; }
-  .kx-hero-inner { padding: 16px 0 6px; }
+  .kx-hero { padding-bottom: 0; }
+  .kx-hero-inner { padding: 16px 0 0; }
+
+  /* ---- Dashboard + task list ------------------------------------------
+     Always stacked: dashboard, then the list, 18px apart — the sum of the
+     two 6px paddings and the 6px spacer this replaced, so the list sits
+     exactly where it did. A side-by-side layout for wide monitors was tried
+     and dropped: it cluttered the page. */
+  .kx-cols { min-width: 0; }
+  .kx-dashcol { min-width: 0; margin-bottom: 18px; }
+  .kx-dashcol:empty { display: none; }
+  .kx-taskcol { min-width: 0; }
   /* Greeting is a two-column row: headline block left, scope + day counts right.
      The counts used to sit on their own line under the headline, which cost ~26px
      of vertical space while the top right sat empty. Moving them into a right rail
@@ -158,7 +168,13 @@
   }
 
   @media (max-width: 860px) {
-    .kx-hero-inner { padding: 14px 0 6px; }
+    .kx-hero-inner { padding: 14px 0 0; }
+    /* Scope on its own line, the day counts on the next. The one-row version
+       wrapped mid-list at phone widths and left the separator dot orphaned
+       at the end of the first line. */
+    .kx-greeting-sub { flex-direction: column; align-items: flex-start; gap: 4px; margin-top: 6px; }
+    .kx-greeting-sub > .kx-vitalline__sep { display: none; }
+    .kx-headline-go { width: 26px; height: 26px; font-size: 12px; margin-left: 8px; top: -3px; }
     /* Match .kx-count's indent rather than the desktop 24px — the page's own
        side padding is down to 14px here, so 24px of text inset reads as a lot. */
     .kx-greeting { padding-left: 20px; padding-right: 20px; }
@@ -202,6 +218,9 @@
      badge — with .kx-scope-seg only for targeting. Single-select, so the group
      suppresses deselection and a scope is always chosen. */
   .kx-scope-seg { flex-shrink: 0; }
+  /* Wrapper around each segmented control — see the compact filter bar rules
+     below for what it does there. At desktop widths it is not a box at all. */
+  .kx-seg-strip { display: contents; }
 
   /* Status buckets — vwc-toggle-button-group standing in for the design's
      segmented control. Tones are applied per button via data-tone. */
@@ -858,6 +877,12 @@
        (0,3,0) as the rule above, so it wins on source order alone; keep it
        after that rule. */
     .kx-pubbody .kx-pubgrid > .kx-pubwidget--scatter { grid-column: 1 / -1 !important; }
+    /* The multi-series line (TS_DASH's station comparison) too, for the same
+       reason: five lines in a 380-wide viewBox at scale 0.72 are
+       indistinguishable. Full width here also pairs the two 30/60/90 lists
+       with each other instead of with a short bar widget — see the widget
+       order note in hub-hero.js TS_DASH. */
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget--lines { grid-column: 1 / -1 !important; }
     /* Columns are no longer the author's, so their row spans can't be either — a
        height chosen for a span-4 card is wrong once that card is span-6. Heights
        go back to content for the whole band. */
@@ -966,7 +991,8 @@
      pill, a second amber pill 8px to its right halves the contrast that makes
      the switcher findable. The badge is a fact about the dashboard; the pill
      is the only control, so the pill keeps the colour. */
-  .kx-pubbadge.is-owned {
+  .kx-pubbadge.is-owned,
+  .kx-pubbadge.is-default {
     background: var(--surface-3); color: var(--ink-600); border-color: var(--ink-200);
   }
 
@@ -1052,6 +1078,86 @@
     overflow: hidden; width: 100%;
   }
   .kx-pubprogress .fill { height: 100%; border-radius: 99px; transition: width 0.6s; }
+
+  /* ---- Training, Credentials & Staffing: three widget kinds ----
+     pdLines / pdBarTarget / pdGroupList in charts.js, drawn only by the
+     TargetSolutions default dashboard (hub-hero.js TS_DASH). Classed markup
+     throughout, so nothing here keys off a literal inline style (the donut
+     coupling below is the cautionary tale). */
+
+  /* Multi-series line: the legend sits under the plot, wrapping as the
+     widget narrows. A short bar swatch, not a dot, so it reads as "this
+     line" rather than "this point". */
+  .kx-lines-legend {
+    display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px;
+    font-size: 11px; color: var(--ink-600); font-weight: 500;
+  }
+  .kx-lines-legend .item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .kx-lines-legend .sw { width: 12px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Bars against one target: same row geometry as pdBar (64px label, 16px
+     track) so a bar-target widget beside a plain bar widget lines up. The
+     target is a dark tick that overhangs the track by 3px top and bottom —
+     tall enough to read as a line through the bar, not a notch in it. */
+  .kx-bartarget { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+  .kx-bartarget .row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .kx-bartarget .lbl {
+    width: 64px; color: var(--ink-600); font-weight: 500; flex-shrink: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .kx-bartarget .track {
+    flex: 1; height: 16px; background: var(--ink-100); border-radius: 5px; position: relative;
+  }
+  .kx-bartarget .fill { height: 100%; border-radius: 5px; transition: width 0.6s; }
+  .kx-bartarget .tick {
+    position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px;
+    background: var(--ink-800); border-radius: 1px;
+  }
+  .kx-bartarget .val {
+    font-family: var(--font-numeric); font-weight: 700; width: 40px; text-align: right;
+    font-variant-numeric: tabular-nums; flex-shrink: 0;
+  }
+  .kx-bartarget .foot {
+    display: flex; align-items: center; gap: 6px; margin-top: 2px;
+    font-size: 11px; color: var(--ink-500); font-weight: 500;
+  }
+  .kx-bartarget .tickkey { width: 2px; height: 12px; background: var(--ink-800); border-radius: 1px; }
+
+  /* Grouped people list: a window header with its count, then one line per
+     person. The count chip carries the urgency (coral for the nearest
+     window, amber otherwise, grey for zero); the rows stay neutral so a
+     list of seven names doesn't light up like seven alarms. */
+  .kx-grouplist { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .kx-grouplist .grp-h {
+    display: flex; align-items: center; gap: 6px; padding-bottom: 4px;
+    border-bottom: 1px solid var(--ink-100);
+    font-size: 10.5px; font-weight: 700; color: var(--ink-600);
+    text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .kx-grouplist .cnt {
+    font-family: var(--font-numeric); font-size: 10.5px; letter-spacing: 0;
+    padding: 1px 7px; border-radius: 999px; background: var(--amber-100); color: var(--amber-700);
+  }
+  .kx-grouplist .cnt.is-bad { background: var(--coral-100); color: var(--coral-600); }
+  .kx-grouplist .cnt.is-zero { background: var(--surface-3); color: var(--ink-400); }
+  .kx-grouplist .row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    padding: 4px 0; font-size: 12px; border-bottom: 1px solid var(--surface-3);
+  }
+  .kx-grouplist .row:last-child { border-bottom: none; }
+  .kx-grouplist .who { display: flex; flex-direction: column; min-width: 0; }
+  .kx-grouplist .name { font-weight: 600; color: var(--ink-900); }
+  .kx-grouplist .sub { font-size: 11px; color: var(--ink-500); line-height: 1.35; }
+  .kx-grouplist .right {
+    font-size: 11px; color: var(--ink-600); font-weight: 500; text-align: right;
+    flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  .kx-grouplist .empty { font-size: 11.5px; color: var(--ink-400); padding: 4px 0; }
+  /* A list starts at the top of its card, like the table widget does
+     (styles.css .kx-pubwidget--table); the body's inline centring is for
+     charts, which have a fixed height. */
+  .kx-pubwidget--grouplist .kx-pubwidget-body,
+  .kx-pubwidget--lines .kx-pubwidget-body { justify-content: flex-start !important; }
   /* Fixed row track (KX.GRID.ROW in keystone-shared.js) so a published dashboard
      reproduces the author's layout: same columns, same heights, borders level
      across a row. Every widget carries an explicit row span — see pubWidget().
@@ -1132,13 +1238,12 @@
   .kx-pubwidget-foot { display: flex; align-items: center; margin-top: 8px; min-width: 0; }
 
   /* ---- A widget whose source didn't answer ----
-     Amber, not red: one product being slow is not an emergency, and a red
-     panel on a dashboard that is otherwise entirely fine overstates it every
-     time. The widget keeps its frame and its size so the grid never reflows
-     around a failure — the reader's other numbers stay exactly where they
-     were — and the body says what is missing, which system is missing it, and
-     what to do. */
-  .kx-pubwidget.is-failed { border-color: var(--amber-200); background: var(--amber-50); }
+     Same frame, border and background as every other widget: one product
+     being slow is not an emergency, and a tinted panel on a dashboard that is
+     otherwise entirely fine draws the eye to it every time. The widget keeps
+     its frame and its size so the grid never reflows around a failure — the
+     reader's other numbers stay exactly where they were — and only the body
+     changes, to a plain "Unable to load data" and what to do about it. */
   .kx-pubwidget .icon-chip.is-failed { background: var(--ink-100); color: var(--ink-400); }
   .kx-pubwidget.is-failed .title { color: var(--ink-600); }
   .kx-pubwidget-err {
@@ -1154,16 +1259,6 @@
   .kx-pubwidget-err .s {
     font-size: 11.5px; color: var(--ink-500); line-height: 1.45; max-width: 260px;
   }
-  .kx-pubwidget-retry {
-    margin-top: 8px; display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 12px; border-radius: var(--radius-pill);
-    border: 1px solid var(--amber-300); background: var(--surface-1);
-    color: var(--amber-700); font-family: inherit; font-size: 11.5px; font-weight: 700;
-    cursor: pointer; transition: background 0.15s, border-color 0.15s;
-  }
-  .kx-pubwidget-retry:hover:not(:disabled) { background: var(--amber-100); border-color: var(--amber-400); }
-  .kx-pubwidget-retry:disabled { opacity: 0.65; cursor: default; }
-  .kx-spin { animation: spin 0.9s linear infinite; }
   .kx-pubwidget .icon-chip {
     width: 24px; height: 24px; border-radius: 6px; background: var(--amber-100); color: var(--amber-700);
     display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -1240,6 +1335,108 @@
     margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--ink-100);
     font-size: 11.5px; color: var(--ink-400);
   }
+  /* ====================================================================
+     TASK-LIST DISCOVERABILITY
+     The headline and the day counts are links to the list. They keep their
+     look — the colour and size ARE the design — and reveal themselves on
+     hover/focus, so the greeting still reads as a greeting first.
+     ==================================================================== */
+  .kx-headline-link { color: inherit; text-decoration: none; }
+  .kx-headline-link:hover, .kx-headline-link:focus-visible {
+    text-decoration: underline; text-decoration-color: var(--ink-300);
+    text-decoration-thickness: 2px; text-underline-offset: 6px;
+  }
+  .kx-headline-link:focus-visible { outline: none; }
+  /* The arrow badge after the headline: a round ink-100 chip that fills to
+     ink-900 on hover and dips 2px, the way a button presses. Sized to the
+     headline's x-height rather than its cap height so it sits in the line. */
+  .kx-headline-go {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; border-radius: 50%; margin-left: 12px;
+    background: var(--ink-100); color: var(--ink-700); font-size: 14px;
+    vertical-align: middle; position: relative; top: -5px;
+    transition: background .12s ease, color .12s ease, transform .12s ease;
+  }
+  .kx-headline-link:hover .kx-headline-go, .kx-headline-link:focus-visible .kx-headline-go {
+    background: var(--ink-900); color: #fff; transform: translateY(2px);
+  }
+  /* Day counts as pill chips: the page's white/outlined button language
+     (.kx-pill), so they read as controls. The number keeps its tone colour. */
+  .kx-vitalline { gap: 8px; }
+  a.kx-vitalline__stat {
+    color: inherit; text-decoration: none;
+    padding: 5px 13px 5px 11px; border-radius: var(--radius-pill);
+    background: var(--surface-1); border: 1px solid var(--ink-200); box-shadow: var(--elev-1);
+    transition: background .12s ease, border-color .12s ease;
+  }
+  a.kx-vitalline__stat:hover, a.kx-vitalline__stat:focus-visible {
+    background: var(--surface-3); border-color: var(--ink-300); outline: none;
+  }
+  a.kx-vitalline__stat .n { font-size: 20px; }
+  a.kx-vitalline__stat .lbl { font-size: 15px; }
+  /* The jump target. Focus lands here programmatically; only keyboard focus
+     shows a mark, and it is a rule under the title rather than a box round
+     the whole bar. */
+  .kx-count { scroll-margin-top: 16px; }
+  .kx-count:focus { outline: none; }
+  .kx-count:focus-visible .kx-scope-name {
+    text-decoration: underline; text-decoration-color: var(--amber-400);
+    text-decoration-thickness: 2px; text-underline-offset: 6px;
+  }
+
+  /* The "tasks below" pill. A dashboard can end anywhere relative to the
+     fold, so this fixed cue says the list exists while its heading is below
+     the viewport (hub.js watchTasksHeading toggles `hidden`). Bottom-centre,
+     in the primary blue so it pulls the eye.
+     Print needs no rule: the print path swaps the whole body for #kxPrint. */
+  .kx-tasks-jump {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+    z-index: 60; display: inline-flex; align-items: center; gap: 9px;
+    padding: 11px 16px 11px 18px; border-radius: var(--radius-pill);
+    /* Vector's primary blue — the design system's action colour — so the
+       cue is unmistakably a control and reads against the grey page. */
+    background: var(--lumo-primary-color, #0271ce); color: #fff; text-decoration: none;
+    font-size: 14px; font-weight: 600; line-height: 1; white-space: nowrap;
+    box-shadow: 0 6px 16px rgba(2, 113, 206, 0.35), var(--elev-2);
+  }
+  /* The class's display beats the UA's [hidden] rule, so hidden is restated. */
+  .kx-tasks-jump[hidden] { display: none; }
+  .kx-tasks-jump:hover { background: #0264b5; }
+  .kx-tasks-jump:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--lumo-primary-color, #0271ce); }
+  .kx-tasks-jump .n { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .kx-tasks-jump .fa-arrow-down { font-size: 12px; opacity: 0.85; }
+  /* The design file carries the review toolbox, whose dock is bottom-centre;
+     hub.js adds this class only when that include is present. */
+  .kx-tasks-jump.is-raised { bottom: 84px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .kx-tasks-jump { animation: kx-jump-in 180ms ease-out; }
+  }
+  @keyframes kx-jump-in {
+    from { opacity: 0; transform: translate(-50%, 8px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  /* ====================================================================
+     COMPACT FILTER BAR — .kx-taskcol.is-compact
+     hub.js sets is-compact on phones (<=860px), where the bar sits in a
+     narrow column. The heading keeps its row with the icon
+     controls (order 1 pulls them up beside it); each segmented control takes
+     a full row and scrolls sideways inside it if it must, so the page never
+     does.
+     ==================================================================== */
+  .kx-taskcol.is-compact .kx-filterbar-row { row-gap: 8px; }
+  .kx-taskcol.is-compact .kx-count { margin-right: 0; }
+  .kx-taskcol.is-compact #kxFilterToggle, .kx-taskcol.is-compact .kx-filterbar-end { order: 1; }
+  .kx-taskcol.is-compact .kx-seg-strip {
+    display: block; order: 2; flex: 0 0 100%; max-width: 100%;
+    overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+    /* Room for the control's shadow, which overflow would otherwise clip. */
+    padding: 2px 2px 4px; margin: -2px -2px -4px;
+  }
+  .kx-taskcol.is-compact .kx-seg-strip::-webkit-scrollbar { display: none; }
+  .kx-taskcol.is-compact .kx-buckets vwc-toggle-button { font-size: 14px; }
+  .kx-taskcol.is-compact .kx-buckets vwc-toggle-button .bn { font-size: 13px; }
+
   @media print {
     body.kx-printing > *:not(#kxPrint) { display: none !important; }
     body.kx-printing #kxPrint { display: block !important; }

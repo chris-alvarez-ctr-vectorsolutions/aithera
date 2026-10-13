@@ -6,6 +6,207 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-09) Condensed alert copy; "From your file" captions
+
+- **[DONE]** **Every title and View details line condensed** (all 44 catalog messages). The
+  pattern is the same on every card: **Title** = the finding, one sentence ("3 rows will be
+  skipped." / "Some people’s names will change on your site."). **View details** = why it
+  matters (only when it adds to the title), then **"If you import, …"** on warnings or
+  **"To fix it, …, then upload again."** on blocked messages. Info messages get one sentence.
+  Generic tails like "Check these rows." / "Fix this before continuing." were dropped — the
+  tier chip, the "I’ve reviewed this" box and the blocked header already say that.
+- **[DONE]** **Shared phrases:** "your site" / "your file"; "If you import,"; "To fix it,";
+  "Training is assigned by position, so add new positions to your training plans." (one
+  sentence, used wherever positions or locations are new); name changes are "often a
+  last-name change or a preferred name".
+- **[DONE]** **Blocked cards show the fix in Review.** The details line on a Blocked card is
+  now why + "To fix it, …" (it used to repeat "Nothing in this file can be imported…", which
+  the page header and side panel already say).
+- **[DONE]** **Table caption is just "From your file"** on every alert. The old per-alert notes
+  ("First 10 of 168 rows", "8 of 168 people matched · 160 new…") are gone — they were written
+  for 10-row samples and read wrong next to a 20-row table. The click hint ("Click Row 23 or
+  Row 118 to see the change.") sits at the right of the same line, only on alerts with
+  clickable rows. The box under it is still titled "After import".
+- **[DONE]** **"None of the…" (total_person/pos/bldg_change):** title "None of the users in this
+  file are on your site yet."; details "That’s expected for a file of new hires. Otherwise the
+  user details may not match the ones on your site. All {count} will be added as new users.
+  Make sure this is the right file." Positions / locations: "…a file of new positions. Otherwise
+  the position names or codes may not match the ones on your site. All {count} will be added as
+  new positions…". These three are the one place a count stays in alert copy (designer's call,
+  2026-10-09); {count} = rows in the file. A count of 1 reads "It will be added as a new user."
+  "User details" on purpose: a user is matched on more than the username (names, IDs).
+- **[DONE]** **"Very few…" details (large_person/pos/bldg_change):** "Most people in this file
+  are new to your site. Check that this is the right file. If you import, {count} new people
+  will be added." (same for positions and locations; {count} = the rows that don’t match, e.g.
+  160 / 7 / 4 in the copy-review file). Reuses "new to your site" and "the right file" from
+  sibling messages. Replaces the "That’s expected for new hires…" line.
+- **[DONE]** **No counts in alert copy.** Titles and details no longer carry a number, so the
+  copy reads the same whatever the file holds and nothing has to be counted to render it:
+  "Some rows will be skipped." / "Some people’s passwords will change." / "New people will be
+  added." / "Some rows have a begin date we can’t read." / "If you import, they’re all added as
+  new people." The catalog's `{count}` tokens are unused now, except in the three "None of the…" messages (below). The line under a long table reads
+  "Showing the first 20 rows. To see all of them, download the CSV." (no total). Counts still
+  appear where they're about the review itself, not the file: the Change summary, "5 blocked
+  issues", "2 warnings need your review", "2 changes to compare".
+  `all_rows` (a count-only message in the catalog) reads "The rows in this file will be
+  imported." — PENDING: it may be better dropped from Review altogether.
+- **[DONE]** **"users", not "people", in alert copy** (titles, details, CSV row notes): "New users
+  will be added." / "Some users’ names will change on your site." / "one user with two
+  usernames". Matches the Change summary ("New users added"). Outside the alerts, "people"
+  still appears in the Import settings switch ("Deactivate all people and positions not in
+  this file"), its helper text, the failure-email card and the side panel's CSV note — PENDING
+  a decision on whether those follow.
+- **[DONE]** **One details copy per message, fix included.** The View details line is the same
+  on Review, on a failed automated upload's page and in the CSV: why it matters, then
+  "If you import, …" (or how to fix it, on blocked), then "To fix it, …" on warnings. There's
+  no separate "What to do" / "Fix" line anywhere now; the CSV's second line per message is this
+  same copy, and its title line reads "Blocked: …" (no dash). The failed-upload page no longer
+  adds "Or upload the file yourself…" to each card (its banner says that once).
+- **[DONE]** **Info messages prompt a check.** Each Info line says what happens, then what to
+  check: "Each row becomes a new, active account. Check that these are the users you meant to
+  add." / "Nothing changes for these users. If you expected changes for them, check that this
+  is the latest file." / new positions and locations: "Check that they aren’t existing
+  positions under a different name, and add them to your training plans." / new codes: "Check
+  that it isn’t an existing location under a different code." / "Check that the codes match
+  the ones on your site." `all_rows` still has no details.
+- **[DONE]** **`duplicate_user_in_upload` is BLOCKED** (designer's call, 2026-10-12; the Confluence
+  catalog still has it as WARNING, PENDING an update). "One username is used for more than one
+  name in this file." / "Usernames must be unique, and we can’t tell which name is right. If
+  it’s one user with two jobs, the names should match on every row. To fix it, give each user
+  their own username, or make the names match if it’s the same user, then upload again." Both
+  rows are marked not imported (no before / after, no "I’ve reviewed this"). The copy-review
+  file now has 6 blocked messages; no other sample file uses this message.
+- **[DONE]** **Before / after shows by itself; no "changes to compare" pill.** The "N changes to
+  compare" pill next to View details is gone (2026-10-12). Instead, on an alert where an
+  existing user's or record's values change (name changes, code renames, ID changes, the
+  within-file conflicts), the first changing row is selected the moment details open: it's
+  highlighted in "From your file" and the "After import" box shows that row's line below.
+  Clicking another blue row number moves it; one row is always selected (clicking the selected
+  row doesn't deselect). The hint appears only when there's a second row to click ("Click Row
+  23 or Row 118 to see its change."). Alerts that only add, skip or block rows have no
+  clickable rows and no After import box.
+- **[DONE]** **Names on user-level tables.** First name and Last name columns were added, after
+  Username, to every table where the row is about a specific user: unreadable / early begin
+  and end dates, custom field values, the building- and position-code samples, groups and
+  locations not on the site, and the conflicting-data block. Tables about a position, location
+  or code (new / unmatched positions and locations, shared or differing codes, code renames)
+  still show Row · Username · the position or code, since the user isn't the point there.
+- **[DONE]** **No em dashes in alert copy** (titles, View details, the CSV's "What happens" notes,
+  the "I’ve reviewed this" label, the failed-upload banner). Clauses were split into sentences
+  or joined with a comma instead. Empty table cells still show "—" (that's data, not copy).
+- **PENDING** The condensed titles and details are UX drafts — the Confluence catalog (PMC
+  29424549907) still has the earlier Admin-facing messages. Update it once PM signs off.
+  `all_rows` reads "{count} rows will be imported." here (Confluence: "loaded").
+
+## (2026-10-09) Tables stop at 20 rows; log page tidy-up
+
+- **[DONE]** **Up to 20 rows per table:** each alert's "Rows from your file" table shows at most
+  20 rows. Past 20, a line under the table reads "Showing 20 of 168 rows. To see all of them,
+  download the CSV." — the link opens the same CSV as the side panel. On a failed automated
+  run's page it reads "Download the file to see all of them." The sample notes ("First 10 of…",
+  "A sample to spot-check…") were removed.
+- **[DONE]** **Upload log page:** the "Original file" button is now **Download file**, and the
+  **Method** card was removed (Uploaded by already says "Automated sync" or who ran it).
+- **[DONE]** **Flow names:** Flow 1: Employees page · Flow 2: Email · Flow 3: All error review.
+- **[DONE]** **Download CSV downloads the file:** the side panel's **Download CSV** and the
+  "download the CSV" link under a long table now download a real `what_we_found.csv` (no
+  preview pop-up). It has **every** row of every alert (the page tables stop at 20): a title line
+  per alert, "What to do" for blocked ones, a header row (Type, the table's columns, What
+  happens), the rows, then a blank line. It's saved as UTF-8 so Excel shows the curly quotes.
+- **[DONE]** **Titles = the Confluence "Admin-facing message":** every alert title is now the
+  catalog's Admin-facing message, word for word (one or two sentences, e.g. "This will change
+  passwords for 2 people. Make sure you meant to include passwords."). Straight apostrophes
+  became curly, and a count of 1 still reads in the singular. The line inside View details is
+  unchanged. Source: PMC 29424549907, pulled 2026-10-09.
+  The three "None of the…" titles (people, positions, locations) use the designer's longer
+  wording: "…They’ll all be added as new users / positions / locations. Make sure this is the
+  right file." The three "Very few…" titles follow the same pattern: "Very few of these positions
+  exist on your site yet. Most will be added as new positions. Make sure this is the right
+  file." — PENDING: update Confluence to match.
+- **[DONE]** **Side panel gap:** the sticky Review side panel stops 24px below the blue Bulk
+  Upload header while scrolling, so it doesn't touch it.
+
+## (2026-10-09) Bulk Upload page, Add Employee split button, row-by-row "after"
+
+- **[DONE]** **Bulk Upload page:** no longer a full-screen takeover. The side nav stays, and a
+  tall navy→blue header (same as the course editor's "New Custom Course" header) reads **Bulk
+  Upload** with a ← back arrow (back to Employees; an unfinished import is kept). Nothing else
+  in the header (the file name was removed). The content card is wider (1240px).
+- **[DONE]** **Employees entry point:** one SafeLMS split button. The main action **Add
+  Employee** opens the Add employee pop-up; the ▾ opens a menu with **Add single employee** and
+  **Bulk upload**. The two halves are joined into one button (square inner corners, a thin
+  light divider). Clicking outside or pressing Esc closes the menu.
+- **[DONE]** **Review tables show only what was uploaded:** each row as it is in the file (Row,
+  Username, names, and the value in question). Columns that showed site data ("On your site",
+  "If you continue", "Why it was removed") are gone. **Only rows where a value actually
+  changes are clickable**: name changes, location / position renames,
+  and the "last row wins" conflicts inside a file. Informational rows — new accounts, skipped
+  or blocked rows, dates saved as-is, password changes, reactivations — have no before and
+  after, so they aren't clickable. Clicking one selects it, and below the "Rows from your file"
+  box (the before) an **After import** box shows just that row's line after the change — same
+  columns, plain styling, no extra rows. Clicking another row switches it.
+- **[DONE]** **View details** opens with one plain line: what the warning is about, then how it
+  changes things. It replaces the catalog's short second line (e.g. "Expand to see which.") and
+  isn't a separate box. Blocked keeps **What to do**. `all_rows` stays count-only, so it has no
+  details.
+- **[DONE]** **Removed the two alerts that aren't in the Confluence catalog:** "N people …
+  will be deactivated" and "N positions … will be ended". With the Import settings switch on,
+  those counts still show in the Change summary and on the Run confirmation.
+- **[DONE]** **Run confirmation:** **Yes, run import** is always blue, including when the import
+  deactivates people. "Also download your current employee data" has a download icon on the
+  left and the checkbox on the right.
+- **[DONE]** **Failed automated uploads can't be reviewed or approved.** "Review & approve"
+  and "Approve & run import" are gone. The run's page in the upload log says it didn't run and
+  nothing changed, then lists why: each Blocked / Warning alert opens to one line on what it's
+  about and how to fix the file, then the rows from the file. Side panel:
+  Upload a corrected file, Original file, and who got the failure email.
+- **[DONE]** **Failure email list** on the upload log ("Failed automated upload emails"): who
+  gets the email when an automated upload fails, with **Edit list** to remove people, add an
+  email (checks the format and duplicates) and **Save list** / **Cancel**. It's also reachable
+  from a failed run's page ("Edit the list") and, in Flow 2, from the email footer.
+- **[DONE]** **Rows that change are marked:** their row number is blue and underlined like a
+  link (no button), and the line above the table names them — "Click Row 23 or Row 118 to see the
+  change." (more than three: "Click a blue row number…"). A closed alert with such rows shows a
+  "⇄ N changes to compare" tag beside View details (clicking it opens the details).
+- **[DONE]** **No "What to do" box** in the alert details — the line above the rows covers it.
+  The CSV still includes each Blocked issue's What to do.
+- **[DONE]** **Error copy rewritten and unified** using the Help Center article
+  [User Data File Upload Errors](https://support.vectortrainingeducation.com/s/article/User-Data-File-Upload-Errors)
+  (titles, the details line, fixes). Rules: the **title** is one plain sentence about the
+  problem; the **details line** says what we found and why it matters, then **"If you continue,
+  …"** (warnings), **"Nothing in this file can be imported until these rows are fixed."**
+  (blocked) or what happens (info); **fixes** start "To fix it, …" and blocked fixes end "…then
+  upload your file again." Same words throughout: "your site", "your file", "people",
+  "account", "imported" (not users / training site / system / loaded). From the article: new
+  positions and locations can affect training plans (training is assigned by position and
+  location); shared emails mean duplicate reminders and wrong-account sign-ins; name changes
+  usually come from a last-name change, preferred name or added middle name; dates use
+  YYYY-MM-DD; building / position codes are optional ("Don't import" when mapping).
+- **[DONE]** Behavior aligned with the article: same External Unique ID + a different name →
+  the name on the site changes; same name + a different External Unique ID → the ID on the site
+  changes. Both are now clickable rows.
+- **[DONE]** On the upload log, a Blocked alert's line ends with its "To fix it, …" sentence.
+- **[DONE]** **Singular copy:** when a count is 1, messages read "1 row has…", "1 person",
+  "1 building code that isn't…" instead of the catalog's plural wording. Worth adding the
+  singular forms to the Confluence catalog.
+- **PROTOTYPE ONLY — don't build:** the **Catalog key** label under each alert title (e.g.
+  `large_bldg_change`, tagged "Prototype only") shows only on the copy-review sample file, so the
+  copy can be checked against the Confluence catalog. The user test never shows it.
+- **[DONE]** The CSV preview adds a **What happens** column (one sentence per row on what the
+  import does to it — kept in the CSV, not shown on the page).
+- **[DONE]** **Upload log layout:** the table is on the left; "Made a mistake in an upload?"
+  (Contact Vector Care) and the failure email list share one white card in a 280px right-hand
+  column, split by a divider. The table
+  dropped its **Role** and **Method** columns so it fits beside that column without scrolling
+  (the All / Manual / Automated filter still separates methods; a run's own page still shows
+  both). Below 1080px wide, the right column moves above the table.
+- **PENDING — confirm with dev / PM:** the View details line, the "how to fix" copy, every
+  after row and the CSV's What happens sentences are **UX drafts that aren't in the catalog yet**. They describe
+  assumed behavior to confirm, notably: the last row wins when one code or username has two
+  names; locations, positions and groups that aren't on the site are created; unrecognized
+  custom-field values are skipped, not saved; site location and position names are renamed to
+  match the file.
+
 ## (2026-10-02) Going back never starts over
 
 - **[DONE]** The automated run waiting for approval (log → Review & approve): its deactivate setting is

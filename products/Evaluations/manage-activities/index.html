@@ -7,7 +7,8 @@
     <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.19.0/core.iife.js"></script>
     <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.5.0/styles.js"></script>
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"/>
+    <!-- Font Awesome 6 Pro, self-hosted (needed for fa-regular fa-thumbtack in the Switch User modal) -->
+    <link rel="stylesheet" href="../../../assets/fontawesome/css/all.min.css"/>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
 
@@ -76,10 +77,12 @@
         }
 
         /* ── Switch User bar ── */
+        /* Solid (opaque) grey — the --lumo-contrast-* tokens are translucent and
+           would let content show through this sticky bar while scrolling. */
         .switch-user-bar {
-            background: var(--lumo-contrast-5pct, #f4f6f8);
-            border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
-            padding: 8px 32px;
+            background: #e3e6ea;
+            border-bottom: 1px solid #d3d8de;
+            padding: 6px 32px;
             margin: 0 -32px;
             position: sticky;
             top: 0;
@@ -94,6 +97,195 @@
         .switch-user-bar i {
             font-size: 14px;
         }
+        /* Left cluster: icon + "Switch User" link / "Viewing: Name" + quick-switch search */
+        .switch-user-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .switch-user-bar [hidden] { display: none !important; }
+
+        /* Impersonating ("Viewing: Name") — light amber so the altered view is obvious.
+           Same amber tokens as the warning cards; the translucent 10pct tint is layered
+           over the opaque base color so the sticky bar stays fully opaque. */
+        .switch-user-bar.is-impersonating {
+            background:
+                linear-gradient(var(--vwc-notification-color-10pct, #ffc7001a), var(--vwc-notification-color-10pct, #ffc7001a)),
+                var(--lumo-base-color, #fff);
+            border-bottom-color: var(--vwc-notification-color-50pct, #ffc70080);
+        }
+        .switch-user-bar.is-impersonating > .switch-user-left > i {
+            color: var(--lumo-body-text-color, #000000de);
+        }
+        .switch-user-viewing { color: var(--lumo-body-text-color, #000000de); }
+        .switch-user-viewing strong { font-weight: 600; }
+
+        /* Link-styled buttons in the bar (dark grey/black design-system link color) */
+        .switch-user-link {
+            background: none;
+            border: none;
+            padding: 0;
+            font: inherit;
+            font-size: 13px;
+            color: var(--vwc-link-color, var(--lumo-body-text-color, #000000de));
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .switch-user-link:hover { text-decoration-thickness: 2px; }
+        .switch-user-link:focus-visible {
+            outline: 2px solid var(--lumo-primary-color, #0271ce);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+        .switch-user-back {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Quick-switch search + floating results */
+        .switch-user-search {
+            position: relative;
+            margin-left: 8px;
+        }
+        .switch-user-search vaadin-text-field {
+            width: 240px;
+            padding: 0;
+        }
+        /* White fill on the input box only (not the host, which includes Vaadin's
+           built-in padding and would show a white halo on the grey/amber bar).
+           Selector mirrors the theme's outlined rule (which sets background-color: unset)
+           plus a class, so it out-specifies it. */
+        .switch-user-search vaadin-text-field[theme~="outlined"]:not([readonly])::part(input-field) {
+            background-color: var(--lumo-base-color, #fff);
+        }
+        .switch-user-results,
+        .switch-dialog-results {
+            border: 1px solid var(--lumo-contrast-20pct, #e0e0e0);
+            border-radius: var(--lumo-border-radius-m, 4px);
+            background: var(--lumo-base-color, #fff);
+            overflow-y: auto;
+        }
+        .switch-user-results {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            width: 320px;
+            max-height: 280px;
+            box-shadow: var(--lumo-box-shadow-m, 0 4px 12px rgba(0,0,0,0.15));
+            z-index: 30;
+        }
+        .switch-dialog-results { max-height: 300px; margin-top: 8px; }
+        .user-result {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            width: 100%;
+            padding: 8px 12px;
+            background: none;
+            border: none;
+            border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
+        .user-result:last-child { border-bottom: none; }
+        .user-result:hover,
+        .user-result:focus-visible { background: #f4f6f8; outline: none; }
+        .user-result.selected { background: var(--lumo-primary-color-10pct, #e8f2fb); }
+        .user-result-name { font-size: 13px; font-weight: 600; color: var(--lumo-body-text-color, #000000de); }
+        .user-result-meta { font-size: 12px; color: var(--lumo-secondary-text-color, #00000099); }
+        .user-result-empty { padding: 12px; font-size: 13px; color: var(--lumo-secondary-text-color, #00000099); }
+
+        /* ── Switch User modal ── */
+        .su-modal { width: 640px; max-width: 100%; display: flex; flex-direction: column; }
+        .su-subtitle {
+            margin: 0 0 16px;
+            font-size: var(--lumo-font-size-m, 16px);
+            color: var(--lumo-body-text-color, #000000de);
+        }
+        .su-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .su-controls > * { width: 100%; }
+        /* Scrolling grouped list */
+        .su-list {
+            max-height: 420px;
+            overflow-y: auto;
+            border: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            border-radius: var(--lumo-border-radius-m, 4px);
+        }
+        /* Group header bar (collapsible) */
+        .su-group-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 14px 16px;
+            background: #ebebeb;               /* solid ≈ --lumo-contrast-10pct */
+            border: none;
+            border-bottom: 1px solid #d3d8de;
+            font: inherit;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--lumo-body-text-color, #000000de);
+            text-align: left;
+            cursor: pointer;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .su-group-header:focus-visible {
+            outline: 2px solid var(--lumo-primary-color, #0271ce);
+            outline-offset: -2px;
+        }
+        .su-group-header .su-group-label { display: inline-flex; align-items: center; gap: 8px; }
+        .su-group-header.pinned { background: #fff4cc; border-bottom-color: #ffe380; } /* solid ≈ notification amber tints */
+        .su-group-header i.su-caret { font-size: 16px; }
+        /* User row */
+        .su-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 16px;
+            border-bottom: 1px solid var(--lumo-contrast-10pct, #ebebeb);
+            cursor: pointer;
+            background: var(--lumo-base-color, #fff);
+        }
+        .su-row:hover { background: #f4f6f8; }
+        .su-row:focus-visible { outline: 2px solid var(--lumo-primary-color, #0271ce); outline-offset: -2px; }
+        .su-row.selected { background: var(--lumo-primary-color-10pct, #e8f2fb); }
+        .su-row-avatar { font-size: 34px; color: var(--lumo-body-text-color, #000000de); flex-shrink: 0; }
+        .su-row-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+        .su-row-name { font-size: 15px; font-weight: 600; color: var(--lumo-body-text-color, #000000de); }
+        .su-row-meta { font-size: 13px; color: var(--lumo-secondary-text-color, #00000099); }
+        .su-row-current {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--vwc-notification-text-color, #a66900);
+        }
+        /* Pin toggle */
+        .su-pin {
+            background: none;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            color: var(--lumo-secondary-text-color, #00000099);
+            font-size: 15px;
+            flex-shrink: 0;
+        }
+        .su-pin:hover { background: var(--lumo-contrast-10pct, #ebebeb); color: var(--lumo-body-text-color, #000000de); }
+        .su-pin:focus-visible { outline: 2px solid var(--lumo-primary-color, #0271ce); }
+        .su-pin.is-pinned { color: var(--lumo-primary-color, #0271ce); }
+        .su-empty { padding: 16px; font-size: 14px; color: var(--lumo-secondary-text-color, #00000099); }
+        /* Footer: Back to Me on the left, actions on the right */
+        .su-footer-back { margin-right: auto; font-size: 14px; }
 
 
         /* ── Filter Row ── */
@@ -658,9 +850,25 @@
     <main class="main-content">
 
         <!-- ── Switch User Bar ── -->
-        <div class="switch-user-bar">
-            <i class="fa-regular fa-user"></i>
-            Switch User
+        <!-- Default: "Switch User" link (opens modal) + quick-switch search.
+             Impersonating: "Viewing: Name" + search, and "Back to Me" on the right. -->
+        <div class="switch-user-bar" id="switch-user-bar">
+            <div class="switch-user-left">
+                <i class="fa-solid fa-user-group" aria-hidden="true"></i>
+                <button type="button" class="switch-user-link" id="switch-user-open">Switch User</button>
+                <span class="switch-user-viewing" id="switch-user-viewing" hidden>
+                    Viewing: <button type="button" class="switch-user-link" id="switch-user-viewing-name" style="font-weight:600;" title="Open Switch User"></button>
+                </span>
+                <div class="switch-user-search">
+                    <vaadin-text-field id="switch-user-search" theme="outlined" placeholder="Search users..." aria-label="Search users to switch to" clear-button-visible>
+                        <vwc-icon class="indicator" slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                    </vaadin-text-field>
+                    <div class="switch-user-results" id="switch-user-results" role="listbox" hidden></div>
+                </div>
+            </div>
+            <button type="button" class="switch-user-link switch-user-back" id="switch-user-back" hidden>
+                Back to Me
+            </button>
         </div>
 
         <!-- Content Header -->
@@ -1020,6 +1228,9 @@
 
 <!-- ── Quick Approve Dialog ── -->
 <vaadin-dialog id="approve-dialog" header-title="Approve Activity"></vaadin-dialog>
+
+<!-- Switch User Dialog -->
+<vaadin-dialog id="switch-user-dialog" header-title="Switch User"></vaadin-dialog>
 
 <script>
     // ── Sidenav data ──
@@ -1582,6 +1793,297 @@
     document.querySelectorAll('.quick-approve-btn').forEach(btn => {
         btn.addEventListener('click', () => { approveDialog.opened = true; });
     });
+
+    // ── Switch User banner ──
+    // Default state: "Switch User" link (opens modal) + quick-switch search.
+    // Impersonating: amber bar, "Viewing: Name" + search for quick switching,
+    // and "Back to Me" on the right resets to the default state.
+    const mockUsers = [
+        { id: 'u1',  name: 'Monica Carlton',      role: 'Teacher',                  school: 'Middle School' },
+        { id: 'u2',  name: 'Howard Harrison',     role: 'Teacher',                  school: 'Middle School' },
+        { id: 'u3',  name: 'Karmen Hendrickson',  role: 'Counselor',                school: 'Middle School' },
+        { id: 'u4',  name: 'Stephanie Jadeke',    role: 'Teacher',                  school: 'Middle School' },
+        { id: 'u5',  name: 'Julie Johanson',      role: 'Assistant Principal',      school: 'Middle School' },
+        { id: 'u6',  name: 'Carlos Ramirez',      role: 'Principal',                school: 'Middle School' },
+        { id: 'u21', name: 'George Anderson',     role: 'Teacher',                  school: 'High School' },
+        { id: 'u7',  name: 'James Okafor',        role: 'Teacher',                  school: 'High School' },
+        { id: 'u8',  name: 'Priya Desai',         role: 'Department Chair',         school: 'High School' },
+        { id: 'u9',  name: 'Tom Becker',          role: 'Coach',                    school: 'High School' },
+        { id: 'u10', name: 'Angela Morris',       role: 'Teacher',                  school: 'High School' },
+        { id: 'u11', name: 'Kevin Liu',           role: 'Principal',                school: 'High School' },
+        { id: 'u12', name: 'Emily Nguyen',        role: 'Teacher',                  school: 'Elementary School' },
+        { id: 'u13', name: 'Grace Whitfield',     role: 'Reading Specialist',       school: 'Elementary School' },
+        { id: 'u14', name: 'Marcus Bell',         role: 'Principal',                school: 'Elementary School' },
+        { id: 'u15', name: 'Sarah Johnson',       role: 'Assistant Superintendent', school: 'District Office' },
+        { id: 'u16', name: 'Michael Torres',      role: 'Curriculum Director',      school: 'District Office' },
+        { id: 'u17', name: 'Linda Park',          role: 'HR Director',              school: 'District Office' },
+        { id: 'u18', name: 'Rachel Williams',     role: 'Professional Dev Manager', school: 'District Office' },
+        { id: 'u19', name: 'Dana Fowler',         role: 'Substitute',               school: null },
+        { id: 'u20', name: 'Owen Price',          role: 'Contractor',               school: null },
+    ];
+    const userById = (id) => mockUsers.find(u => u.id === id);
+    const lastName = (u) => u.name.split(' ').slice(-1)[0];
+
+    // Pinned users — kept in browser storage so pins survive a reload (prototype only)
+    const PIN_KEY = 'evals-switch-user-pins';
+    let pinnedIds = [];
+    try { pinnedIds = JSON.parse(localStorage.getItem(PIN_KEY)) || []; } catch (e) { pinnedIds = []; }
+    function togglePin(id) {
+        pinnedIds = pinnedIds.includes(id) ? pinnedIds.filter(p => p !== id) : [...pinnedIds, id];
+        try { localStorage.setItem(PIN_KEY, JSON.stringify(pinnedIds)); } catch (e) { /* ignore */ }
+    }
+
+    const switchBar         = document.getElementById('switch-user-bar');
+    const switchOpenLink    = document.getElementById('switch-user-open');
+    const switchViewing     = document.getElementById('switch-user-viewing');
+    const switchViewingName = document.getElementById('switch-user-viewing-name');
+    const switchBackLink    = document.getElementById('switch-user-back');
+    const switchSearch      = document.getElementById('switch-user-search');
+    const switchResults     = document.getElementById('switch-user-results');
+    const switchUserDialog  = document.getElementById('switch-user-dialog');
+
+    let viewingUser = null;
+
+    const matchesTerm = (u, term) => {
+        const q = term.trim().toLowerCase();
+        return !q || [u.name, u.role, u.school || ''].some(v => v.toLowerCase().includes(q));
+    };
+
+    function setViewingUser(user) {
+        viewingUser = user;
+        switchBar.classList.toggle('is-impersonating', !!user);
+        switchOpenLink.hidden = !!user;
+        switchViewing.hidden  = !user;
+        switchBackLink.hidden = !user;
+        switchViewingName.textContent = user ? user.name : '';
+        switchSearch.value = '';
+        switchResults.hidden = true;
+    }
+
+    // ── Quick-switch search in the banner (pinned users listed first) ──
+    function updateQuickResults() {
+        const term = switchSearch.value || '';
+        if (!term.trim()) { switchResults.hidden = true; return; }
+        const users = mockUsers
+            .filter(u => u !== viewingUser && matchesTerm(u, term))
+            .sort((a, b) => pinnedIds.includes(b.id) - pinnedIds.includes(a.id));
+        switchResults.innerHTML = users.length
+            ? users.map(u => `
+                <button type="button" class="user-result" role="option" data-id="${u.id}">
+                    <span class="user-result-name">${pinnedIds.includes(u.id) ? '<i class="fa-solid fa-thumbtack" style="font-size:11px; margin-right:4px;" aria-label="Pinned"></i>' : ''}${u.name}</span>
+                    <span class="user-result-meta">${u.role} &middot; ${u.school || 'No school'}</span>
+                </button>`).join('')
+            : '<div class="user-result-empty">No users match your search.</div>';
+        switchResults.querySelectorAll('.user-result').forEach(btn => {
+            btn.addEventListener('click', () => setViewingUser(userById(btn.dataset.id)));
+        });
+        switchResults.hidden = false;
+    }
+    switchSearch.addEventListener('input', updateQuickResults);
+    switchSearch.addEventListener('focus', updateQuickResults);
+    switchSearch.addEventListener('clear', () => { switchResults.hidden = true; });
+    switchSearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') switchResults.hidden = true;
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.switch-user-search')) switchResults.hidden = true;
+    });
+
+    switchBackLink.addEventListener('click', () => setViewingUser(null));
+
+    // ── Switch User modal ──
+    // Search + Sort by; users grouped into collapsible sections. A "Pinned"
+    // group always sits at the top regardless of sort. Pinned users also stay
+    // in their normal group (with a filled pin) so the sort context is kept.
+    const sortOptions = [
+        { label: 'School', value: 'school' },
+        { label: 'Name',   value: 'name' },
+    ];
+    const modalState = {
+        term: '',
+        sort: 'school',
+        selectedId: null,
+        collapsed: new Set(),   // group keys the user has collapsed
+    };
+
+    function buildGroups() {
+        const users = mockUsers.filter(u => matchesTerm(u, modalState.term))
+            .sort((a, b) => lastName(a).localeCompare(lastName(b)));
+        const groups = [];
+
+        const pinned = users.filter(u => pinnedIds.includes(u.id));
+        groups.push({ key: '__pinned', label: 'Pinned', pinned: true, users: pinned });
+
+        if (modalState.sort === 'name') {
+            // Fixed last-name ranges (matches production): A-D, E-H, I-L, M-P, Q-T, U-Z
+            const ranges = ['A-D', 'E-H', 'I-L', 'M-P', 'Q-T', 'U-Z'];
+            ranges.forEach(r => {
+                const [from, to] = r.split('-');
+                const inRange = users.filter(u => {
+                    const l = lastName(u)[0].toUpperCase();
+                    return l >= from && l <= to;
+                });
+                groups.push({ key: 'name:' + r, label: r, users: inRange });
+            });
+        } else {
+            const field = 'school';
+            const buckets = {};
+            users.forEach(u => { (buckets[u[field] || 'None'] ||= []).push(u); });
+            // "None" first (matches production), then alphabetical
+            Object.keys(buckets)
+                .sort((a, b) => (a === 'None' ? -1 : b === 'None' ? 1 : a.localeCompare(b)))
+                .forEach(k => groups.push({ key: field + ':' + k, label: k, users: buckets[k] }));
+        }
+        return groups;
+    }
+
+    function renderModalList(root) {
+        const list = root.querySelector('#su-list');
+        const groups = buildGroups();
+        const searching = !!modalState.term.trim();
+        const metaField = modalState.sort === 'school' ? 'role' : 'school';  // avoid repeating the group name
+
+        const html = groups.map(g => {
+            // Hide empty groups, except Pinned when not searching (shows a hint instead)
+            if (!g.users.length && !(g.pinned && !searching)) return '';
+            // While searching, every matching group is expanded
+            const open = searching || !modalState.collapsed.has(g.key);
+            const rows = g.users.length
+                ? g.users.map(u => {
+                    const isPinned = pinnedIds.includes(u.id);
+                    const isCurrent = viewingUser && viewingUser.id === u.id;
+                    return `
+                    <div class="su-row${u.id === modalState.selectedId ? ' selected' : ''}" role="option" tabindex="0"
+                         aria-selected="${u.id === modalState.selectedId}" data-id="${u.id}">
+                        <i class="fa-solid fa-circle-user su-row-avatar" aria-hidden="true"></i>
+                        <div class="su-row-text">
+                            <span class="su-row-name">${u.name}</span>
+                            <span class="su-row-meta">${u[metaField] || 'No school'}</span>
+                            ${isCurrent ? '<span class="su-row-current">Currently viewing</span>' : ''}
+                        </div>
+                        <button type="button" class="su-pin${isPinned ? ' is-pinned' : ''}" data-pin="${u.id}"
+                                aria-pressed="${isPinned}" aria-label="${isPinned ? 'Unpin' : 'Pin'} ${u.name}"
+                                title="${isPinned ? 'Unpin' : 'Pin to top'}">
+                            <i class="${isPinned ? 'fa-solid' : 'fa-regular'} fa-thumbtack" aria-hidden="true"></i>
+                        </button>
+                    </div>`;
+                }).join('')
+                : '<div class="su-empty">Pin users you switch to often and they’ll stay here at the top.</div>';
+
+            return `
+                <button type="button" class="su-group-header${g.pinned ? ' pinned' : ''}" data-group="${g.key}" aria-expanded="${open}">
+                    <span class="su-group-label">
+                        ${g.pinned ? '<i class="fa-solid fa-thumbtack" aria-hidden="true"></i>' : ''}
+                        ${g.label} (${g.users.length})
+                    </span>
+                    <i class="fa-solid ${open ? 'fa-caret-up' : 'fa-caret-down'} su-caret" aria-hidden="true"></i>
+                </button>
+                <div role="group" ${open ? '' : 'hidden'}>${rows}</div>`;
+        }).join('');
+
+        list.innerHTML = html || '<div class="su-empty">No users match your search.</div>';
+
+        list.querySelectorAll('.su-group-header').forEach(h => {
+            h.addEventListener('click', () => {
+                const key = h.dataset.group;
+                modalState.collapsed.has(key) ? modalState.collapsed.delete(key) : modalState.collapsed.add(key);
+                renderModalList(root);
+            });
+        });
+        list.querySelectorAll('.su-row').forEach(row => {
+            const select = () => {
+                modalState.selectedId = row.dataset.id;
+                renderModalList(root);
+                syncFooter();
+            };
+            row.addEventListener('click', (e) => { if (!e.target.closest('.su-pin')) select(); });
+            row.addEventListener('keydown', (e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('.su-pin')) { e.preventDefault(); select(); }
+            });
+        });
+        list.querySelectorAll('.su-pin').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                togglePin(btn.dataset.pin);
+                renderModalList(root);
+            });
+        });
+    }
+
+    switchUserDialog.renderer = (root) => {
+        if (!root.firstChild) {
+            root.innerHTML = `
+                <div class="su-modal">
+                    <p class="su-subtitle">Select a user account to view</p>
+                    <div class="su-controls">
+                        <vaadin-text-field id="su-search" theme="outlined" label="Search" placeholder="Search by name" clear-button-visible>
+                            <vwc-icon class="indicator" slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
+                        </vaadin-text-field>
+                        <vaadin-select id="su-sort" theme="outlined" label="Sort by"></vaadin-select>
+                    </div>
+                    <div class="su-list" id="su-list" role="listbox" aria-label="Users"></div>
+                </div>
+            `;
+            const search = root.querySelector('#su-search');
+            const sort   = root.querySelector('#su-sort');
+            sort.items = sortOptions;
+            sort.value = modalState.sort;
+            search.addEventListener('input', () => { modalState.term = search.value || ''; renderModalList(root); });
+            search.addEventListener('clear', () => { modalState.term = ''; renderModalList(root); });
+            sort.addEventListener('change', () => { modalState.sort = sort.value; renderModalList(root); });
+        }
+        root.querySelector('#su-search').value = modalState.term;
+        root.querySelector('#su-sort').value = modalState.sort;
+        renderModalList(root);
+    };
+
+    let suUpdateBtn, suBackBtn;
+    function syncFooter() {
+        if (suUpdateBtn) suUpdateBtn.disabled = !modalState.selectedId ||
+            (viewingUser && viewingUser.id === modalState.selectedId);
+        if (suBackBtn) suBackBtn.hidden = !viewingUser;
+    }
+
+    switchUserDialog.footerRenderer = (root) => {
+        if (!root.firstChild) {
+            suBackBtn = document.createElement('button');
+            suBackBtn.type = 'button';
+            suBackBtn.className = 'switch-user-link su-footer-back';
+            suBackBtn.textContent = 'Back to Me';
+            suBackBtn.addEventListener('click', () => {
+                setViewingUser(null);
+                switchUserDialog.opened = false;
+            });
+
+            const cancelBtn = document.createElement('vaadin-button');
+            cancelBtn.setAttribute('theme', 'secondary');
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', () => { switchUserDialog.opened = false; });
+
+            suUpdateBtn = document.createElement('vaadin-button');
+            suUpdateBtn.setAttribute('theme', 'primary');
+            suUpdateBtn.textContent = 'Update';
+            suUpdateBtn.addEventListener('click', () => {
+                const user = userById(modalState.selectedId);
+                if (user) setViewingUser(user);
+                switchUserDialog.opened = false;
+            });
+
+            root.style.width = '100%';
+            root.append(suBackBtn, cancelBtn, suUpdateBtn);
+        }
+        syncFooter();
+    };
+
+    function openSwitchUserDialog() {
+        // Fresh search each open; keep the sort choice and collapsed groups
+        modalState.term = '';
+        modalState.selectedId = viewingUser ? viewingUser.id : null;
+        switchUserDialog.opened = true;
+        switchUserDialog.requestContentUpdate?.();
+    }
+    switchOpenLink.addEventListener('click', openSwitchUserDialog);
+    switchViewingName.addEventListener('click', openSwitchUserDialog);
 </script>
 </body>
 </html>

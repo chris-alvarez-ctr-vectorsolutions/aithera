@@ -125,7 +125,7 @@ collapse is animated on `width` with `flex-basis: auto`, so one property drives 
 
 **Each tab shows its own side nav, named as the design-system navigation (round 18).** The
 item names come verbatim from `products/design-system/navigation/v4-design-system.html`:
-Home, Training and Catalog share the learner nav (Dashboard, My Training, Catalog, News,
+Home and Catalog share the learner nav (the Training page and its detail pages have none, so the filter rail is the only left column there) (Dashboard, My Training, Catalog, News,
 Registered Facilities, My Attachments, My Reports, My Jobs, My Licenses, My Preferences);
 Insights has three report groups (Activity, User, Qualification reports); Administration has
 the admin tree (Dashboard, Organization, Training import and creation, Files, Activities,
@@ -693,6 +693,18 @@ numerically the same as the activity-row tint (1.01:1), so the badge dissolved i
 - **Custom controls** whose only boundary is a border (search fields, the segmented
   toggles, bordered icon buttons) use `--c-control-line` #7d8798, 3:1 on every ground.
   Table hairlines keep the soft `--c-line`; they separate rows, they are not components.
+
+## Round 19: the no-results state
+
+The legacy plan shows a dark-red alert bar ("No activities found. Try changing your search or
+filter options.") when nothing matches. Red is reserved for errors and overdue in this
+system, and an empty result is neither, so the block is now the shared neutral empty state,
+in the same place under the group row: a 48px icon disc, a one-line title, the assigned count
+in the body, and one secondary action. It has two voices: **No activities match** with
+*Clear search and filters* when a search or filter is active, and **No training assigned
+yet** with *Browse the catalog* when the plan is genuinely empty. To make the state
+reachable, the header search and the Type / Status filters now narrow the plan live, with
+non-matching branches dropping out and matching ones opening.
 
 ## OUT OF SCOPE - needs functionality or logic
 

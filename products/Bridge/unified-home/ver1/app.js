@@ -311,6 +311,12 @@ function renderLocTree() {
     var sec = hideSec ? '<vaadin-button theme="secondary" data-act="snooze">Snooze</vaadin-button>' : '<vaadin-button theme="secondary" data-act="' + r.secondary.action + '">' + esc(r.secondary.label) + '</vaadin-button>';
     return sec + '<vaadin-button theme="tertiary" data-act="dismiss">Dismiss</vaadin-button>';
   }
+  /* Panel footer: Vector button order, right-aligned with the primary furthest right
+     (tertiary, then secondary, then primary) so reading and tab order match. */
+  function panelActions(r) {
+    var rest = secondaryActions(r).match(/<vaadin-button[\s\S]*?<\/vaadin-button>/g) || [];
+    return rest.reverse().join('') + primaryCta(r);
+  }
   function statLine(r) {
     var st = recStatus[r.id];
     if (st && st.status === 'assigned') return '<p class="rec-stat is-status"><i class="fa-regular fa-circle-check" aria-hidden="true"></i>In progress: 0 of ' + st.count + ' complete, due ' + esc(fmtDate(st.due)) + '</p>';
@@ -363,7 +369,7 @@ function renderLocTree() {
     return '<div class="rd" id="rd-' + r.id + '" data-id="' + r.id + '">' +
       '<button type="button" class="rd-close" data-act="close-detail" aria-label="Close details"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button>' +
       recDetailChunks(r) +
-      '<div class="rd-actions">' + primaryCta(r) + secondaryActions(r) + '</div>' +
+      '<div class="rd-actions">' + panelActions(r) + '</div>' +
     '</div>';
   }
   function mountDetail(id, pinned) {
