@@ -48,6 +48,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 
 - **Filter panel:** the Filter button (sliders icon) opens an inline panel under the toolbar. It holds the **Approach** picker (who is eligible), the **Rule** picker (how they rank) and the **Show tiebreaker** switch. Each picker opens its option list inside the panel, with the Default tag and a ✓ on the current pick.
 - **Approach and Rule live only in Filter:** they're no longer on the panel header.
-- **Applied line:** under the toolbar, a one-line summary ("Approach Medic Callback Pool · Rule Overtime - Hours Based") keeps the active approach and rule visible while Filter is closed. This matters because the cards' data column depends on the rule. When anything differs from the default, a **Reset** link appears.
+- **Applied line:** under the toolbar, a one-line summary ("Approach Medic Callback Pool · Rule Overtime - Hours Based") keeps the active approach and rule visible while Filter is closed. This matters because the cards' data column depends on the rule. When anything differs from the default, a **Reset to default** link appears there. This is the only reset; it is not inside the Filter panel.
 - **Badge:** the Filter button shows a count of settings changed from the default (approach, rule, tiebreaker turned off). Reset restores all three.
+- **Apply button:** the panel's footer has one **Apply** button, right-aligned. Apply closes the Filter panel. Changes preview live in the list while the panel is open, so Apply only closes it; there's no separate commit step.
 - **Tiebreaker for Rolodex rules:** the switch stays visible but disabled, with a note that those rules don't produce ties.
