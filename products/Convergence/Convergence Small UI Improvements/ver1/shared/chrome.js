@@ -44,6 +44,7 @@ const SPECS = {
     ['List columns', 'minmax(0,1fr) 224 96 96 108 112 · gap 12'],
     ['Depth indents', '16 / 32 / 44 / 60px'],
     ['Inline notice', '12/600 (--t-micro) · pad 4 12 · stays beside the requirement name'],
+    ['Filters', 'vaadin-multi-select-combo-box (outlined) · Select all / Clear per field · Clear all in panel · Clear filters (n) in header while active'],
     ['Type glyphs', 'accordion rows: plain --c-primary icons, no chip'],
     ['Card meta', 'type line + due line · 12px --c-meta · icons 14px col'],
     ['Tier surfaces', 'headers #fff · activities #f2f5f9 · header hover #f3f6f9'],
@@ -210,6 +211,8 @@ const SPECS = {
           <!-- Training -->
           <div class="action-group" data-for="training">
             <div class="searchbox"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search my training" aria-label="Search my training"></div>
+            <!-- Quick clear: visible only while a search or filter narrows the plan, so it works with the filter panel closed -->
+            <vaadin-button theme="tertiary" class="btn-compact" id="tpClearFilters" hidden><i class="fa-solid fa-xmark" style="margin-right:6px" aria-hidden="true"></i><span id="tpClearLabel">Clear filters</span></vaadin-button>
             <div class="segmented" id="viewToggle" role="group" aria-label="View">
               <button data-view="list" aria-pressed="true" title="List view"><i class="fa-solid fa-list"></i></button>
               <button data-view="dense" aria-pressed="false" title="Compact cards"><i class="fa-solid fa-grip"></i></button>
@@ -435,9 +438,22 @@ const SPECS = {
             </div>
             <div class="fp-divider"></div>
             <div class="fp-group">
-              <p class="fp-title" style="margin:0">Filter</p>
-              <vaadin-combo-box theme="outlined" id="fType" label="Type" placeholder="All types"></vaadin-combo-box>
-              <vaadin-combo-box theme="outlined" id="fStatus" label="Status" placeholder="All statuses"></vaadin-combo-box>
+              <div class="fp-title-row">
+                <p class="fp-title" style="margin:0">Filter <span class="fp-count" id="fpCount" hidden></span></p>
+                <button class="link-btn fp-clear-all" id="fpClearAll" type="button" disabled>Clear all</button>
+              </div>
+              <!-- Multi-select: pick any number of values; none picked = all. Each field
+                   has its own Select all / Clear toggle beside its label. -->
+              <div class="fp-field">
+                <div class="fp-field-head"><span class="fp-field-label" id="fTypeLabel">Type</span>
+                  <button class="link-btn fp-all" type="button" data-for="fType">Select all</button></div>
+                <vaadin-multi-select-combo-box theme="outlined" id="fType" accessible-name="Type" placeholder="All types" clear-button-visible></vaadin-multi-select-combo-box>
+              </div>
+              <div class="fp-field">
+                <div class="fp-field-head"><span class="fp-field-label" id="fStatusLabel">Status</span>
+                  <button class="link-btn fp-all" type="button" data-for="fStatus">Select all</button></div>
+                <vaadin-multi-select-combo-box theme="outlined" id="fStatus" accessible-name="Status" placeholder="All statuses" clear-button-visible></vaadin-multi-select-combo-box>
+              </div>
             </div>
             <div class="fp-divider"></div>
             <div class="fp-group">

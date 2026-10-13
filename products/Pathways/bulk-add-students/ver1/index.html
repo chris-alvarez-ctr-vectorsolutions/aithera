@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathways: Bulk Add Students to Experience</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+
+    <!-- The Figma screens are captures of the live Pathways app, which renders in Roboto.
+         Matching those screens exactly is the brief, so this mock uses Roboto. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+
+<style>
+/* ============================================================
+   Tokens sampled from the Figma screens
+   (Pathways bulk add students, file 04CZozLUUvDN4Yw9oiOGXG)
+   ============================================================ */
+:root {
+  --text: #212121;
+  --text-2: #4f5153;          /* secondary body copy */
+  --text-3: #6b6b6b;          /* arrows, muted */
+  --border: #e3e6ea;
+  --panel: #fafafc;           /* filter bar, sidebar, table */
+  --header-bg: #f8fafc;
+  --blue: #0a7fcc;
+  --blue-btn-top: #1b90e2;
+  --blue-btn-bot: #0a74c6;
+  --blue-soft: #e0ecfd;       /* active step pill */
+  --teal: #20bbd4;            /* batch color */
+  --teal-soft: #e5f6f9;
+  --teal-text: #245d5d;
+  --teal-dark: #08505b;
+  --green: #6a9a4a;
+  --green-soft: #ecf4ea;
+  --active-bg: #d6f1d9;
+  --active-text: #408d50;
+  --seg-bg: #eef2f7;
+  --seg-on-bg: #d5e2ff;
+  --seg-on-text: #2f4fa8;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: 'Roboto', -apple-system, 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  background: #fff;
+}
+button { font-family: inherit; }
+
+.page { padding: 20px 24px 60px; }
+
+/* ── Experience header card ─────────────────────────────── */
+.exp-header {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--header-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,.12);
+  padding: 16px 24px 16px 24px;
+  min-height: 82px;
+}
+.exp-title { display: flex; align-items: center; gap: 8px; }
+.exp-title h1 { font-size: 19px; font-weight: 500; margin: 0; color: #15191a; }
+.pill-active {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--active-bg); color: var(--active-text);
+  font-size: 12px; font-weight: 500;
+  border-radius: 12px; padding: 2px 10px;
+}
+.pill-active::before { content: ''; width: 3px; height: 3px; border-radius: 50%; background: currentColor; }
+.exp-caret { color: #333; font-size: 15px; margin-left: 4px; line-height: 1; cursor: pointer; }
+.exp-sub { color: var(--text-2); font-size: 12px; margin-top: 6px; }
+
+.btn-split { display: inline-flex; border-radius: 4px; box-shadow: 0 2px 4px rgba(10,116,198,.35); }
+.btn-split button {
+  border: 0; color: #fff; cursor: pointer;
+  background: linear-gradient(var(--blue-btn-top), var(--blue-btn-bot));
+  height: 32px; font-size: 13px;
+}
+.btn-split .main { padding: 0 52px; border-radius: 4px 0 0 4px; display: inline-flex; align-items: center; gap: 7px; }
+.btn-split .caret { width: 30px; border-left: 1px solid rgba(255,255,255,.45); border-radius: 0 4px 4px 0; }
+
+.meta-row { display: flex; justify-content: flex-end; gap: 20px; margin: 8px 6px 0; font-size: 11px; color: #555; }
+.meta-row span { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+
+/* ── Page title row ─────────────────────────────────────── */
+.title-row {
+  display: flex; align-items: center;
+  margin-top: 30px; padding: 0 0 16px 32px;
+  border-bottom: 1px solid #e2e4e7;
+}
+.back-link { color: var(--blue); text-decoration: none; display: inline-flex; align-items: center; gap: 9px; font-size: 13px; }
+.title-sep { width: 1px; height: 11px; background: #888; margin: 0 16px 0 46px; }
+.title-row h2 { font-size: 20px; font-weight: 500; margin: 0; color: #1d1d1d; }
+
+/* ── Two-column top area ─────────────────────────────────── */
+.top-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.add-by { display: flex; align-items: center; gap: 14px; }
+.add-by label { font-weight: 500; color: #2a2a2a; }
+.seg { display: inline-flex; background: var(--seg-bg); border-radius: 6px; padding: 3px; }
+.seg button {
+  border: 0; background: transparent; color: #616771;
+  height: 30px; padding: 0 16px; border-radius: 4px; font-size: 13px; cursor: pointer;
+}
+.seg button.on { background: var(--seg-on-bg); color: var(--seg-on-text); }
+
+/* Stepper */
+.stepper { display: flex; align-items: center; gap: 8px; margin-top: 16px; }
+.step {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 9px 4px 7px; border-radius: 4px;
+  color: #555; font-size: 12px; border: 0; background: transparent;
+}
+.step .num {
+  width: 17px; height: 17px; border-radius: 50%;
+  display: inline-grid; place-items: center;
+  font-size: 10px; background: #f1f3f5; color: #333;
+}
+.step.active { background: var(--blue-soft); color: var(--blue); font-weight: 500; }
+.step.active .num { background: #0282d8; color: #fff; }
+.step.done { color: var(--green); cursor: pointer; }
+.step.done .num { background: var(--green-soft); color: var(--green); font-size: 9px; }
+.step-arrow { color: var(--text-3); font-size: 13px; }
+
+/* Batch reminder banner */
+.batch-banner {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 14px;
+  border: 1px solid #9fd8e2; border-left: 4px solid var(--teal-dark);
+  border-radius: 4px; background: #fff;
+  color: var(--teal-text); font-size: 13px;
+  padding: 9px 14px 9px 14px; cursor: pointer;
+}
+.batch-banner .chev { margin-left: auto; color: var(--teal-text); font-size: 11px; }
+
+/* Sidebar help card */
+.side-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+  padding: 12px 16px 14px;
+}
+.side-card h3 { font-size: 15px; font-weight: 500; margin: 0 0 10px; color: #232324; }
+.batch-count {
+  display: flex; align-items: center; gap: 8px;
+  background: #fff; border: 1px solid var(--border); border-radius: 4px;
+  padding: 6px 8px; margin-bottom: 12px; font-size: 12.5px; color: #333;
+}
+.count-pill { background: #6f767c; color: #fff; font-size: 10.5px; border-radius: 9px; padding: 1px 7px; }
+.side-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 9px; }
+.side-steps li { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 12.5px; }
+.side-steps b { color: #2d2d2d; font-weight: 500; }
+.side-steps .num {
+  flex: none; width: 19px; height: 19px; border-radius: 50%;
+  display: inline-grid; place-items: center; font-size: 10.5px;
+  background: #dcdfe3; color: #444;
+}
+.side-steps .num.on { background: #0282d8; color: #fff; }
+.side-steps .num.done { background: var(--green-soft); color: var(--green); font-size: 9px; }
+.side-bullets { margin: 0; padding-left: 16px; display: grid; gap: 8px; color: var(--text-2); font-size: 12.5px; }
+
+/* ── Filter bar ──────────────────────────────────────────── */
+.filter-bar {
+  margin-top: 16px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 4px;
+  padding: 0 14px;
+}
+.filter-row { display: flex; align-items: center; gap: 8px; min-height: 42px; flex-wrap: wrap; padding: 7px 0; }
+.filter-label { font-size: 11px; font-weight: 500; color: #333; letter-spacing: .02em; margin-right: 2px; }
+.chip-wrap { position: relative; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 26px; min-width: 80px; padding: 0 9px;
+  background: #fff; border: 1px solid #8f9398; border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.18);
+  color: #8b8b8c; font-size: 12px; cursor: pointer;
+}
+.chip.open { background: #e9eaec; }
+.chip.applied { border-color: var(--teal); background: var(--teal-soft); color: var(--teal); }
+.chip .badge { background: var(--teal); color: #fff; border-radius: 9px; font-size: 10px; padding: 0 6px; line-height: 16px; }
+.chip .x { color: #333; font-size: 11px; margin-left: 2px; }
+.clear-all { margin-left: auto; color: var(--blue); font-size: 12px; background: none; border: 0; cursor: pointer; }
+.showing { border-top: 1px solid var(--border); padding: 9px 0 10px; font-size: 12px; color: #333; }
+.showing b { font-weight: 500; color: #040406; }
+
+/* Filter dropdown */
+.dd {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 20;
+  width: 260px; background: #fff;
+  border: 1px solid #d9dce0; border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.14);
+  padding: 6px 0 4px;
+}
+.dd input[type=text] {
+  display: block; width: calc(100% - 12px); margin: 0 6px 6px;
+  height: 28px; border: 1px solid #c8cbd0; border-radius: 3px;
+  padding: 0 8px; font: inherit; font-size: 12px; color: var(--text);
+}
+.dd input[type=text]:focus { outline: none; border-color: #4aa3e6; box-shadow: 0 0 0 2px rgba(74,163,230,.35); }
+.dd-opt { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: 12px; color: #333; cursor: pointer; }
+.dd-opt:hover { background: #f4f6f9; }
+.dd-opt.all { font-weight: 500; border-top: 1px solid #eceef0; border-bottom: 1px solid #eceef0; margin-bottom: 2px; }
+.dd-opt input {
+  appearance: none; -webkit-appearance: none; margin: 0; flex: none;
+  width: 13px; height: 13px; border: 1px solid #d3d6da; border-radius: 2px; background: #fff;
+  display: inline-grid; place-items: center; cursor: pointer;
+}
+.dd-opt input:checked { background: #1a7fd0; border-color: #1a7fd0; }
+.dd-opt input:checked::after {
+  content: ""; width: 3px; height: 7px; margin-top: -2px;
+  border: solid #fff; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+}
+.dd-empty { padding: 8px 10px; color: #888; font-size: 12px; }
+.dd textarea {
+  display: block; width: calc(100% - 16px); margin: 2px 8px 8px; height: 90px; resize: vertical;
+  border: 1px solid #c8cbd0; border-radius: 3px; padding: 6px 8px; font: inherit; font-size: 12px;
+}
+.dd .dd-hint { padding: 0 8px 6px; font-size: 11.5px; color: #666; }
+.dd .dd-foot { display: flex; justify-content: flex-end; padding: 0 8px 4px; }
+
+/* ── Results ─────────────────────────────────────────────── */
+.empty-box {
+  margin-top: 10px; border: 1px solid var(--border); border-radius: 4px;
+  height: 110px; display: grid; place-items: center; color: #444; font-size: 13px;
+}
+.results-head { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; }
+.counts { font-size: 12px; color: #444; }
+.counts b { color: #141414; font-weight: 500; }
+.counts .in-batch { color: var(--teal); }
+.results-actions { display: flex; gap: 8px; align-items: center; }
+
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 28px; padding: 0 12px; border: 0; border-radius: 4px;
+  background: linear-gradient(var(--blue-btn-top), var(--blue-btn-bot));
+  color: #fff; font-size: 12px; cursor: pointer;
+  box-shadow: 0 2px 4px rgba(10,116,198,.35);
+}
+.btn-primary .fa-chevron-right { font-size: 9px; opacity: .85; }
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 28px; padding: 0 10px; border: 0; border-radius: 4px;
+  background: #fff; color: #6e6e6e; font-size: 12px; cursor: default;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.btn-ghost .fa-chevron-right { font-size: 9px; }
+.btn-outline-blue {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 10px; border-radius: 4px;
+  border: 1px solid #6991ae; background: #fff; color: var(--blue); font-size: 12px; cursor: pointer;
+}
+
+.tabs-row { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.tabs-row .fa-filter { color: #333; font-size: 14px; }
+.tabs { display: inline-flex; background: var(--seg-bg); border-radius: 6px; padding: 4px; }
+.tabs button {
+  border: 1px solid transparent; background: transparent; color: #555;
+  height: 28px; padding: 0 14px; border-radius: 4px; font-size: 12.5px; cursor: pointer;
+}
+.tabs button.on { background: #fff; border-color: #d4d8dd; color: #111; font-weight: 500; }
+
+.tbl { width: 100%; border-collapse: collapse; margin-top: 12px; background: var(--panel); border: 1px solid var(--border); }
+.tbl th { text-align: left; font-weight: 500; font-size: 12.5px; color: #020202; padding: 6px 4px; border-bottom: 2px solid #dcdfe3; }
+.tbl td { padding: 0 4px; height: 36px; font-size: 12.5px; color: #212122; border-top: 1px solid #e6e8eb; }
+.tbl th:first-child, .tbl td:first-child { padding-left: 4px; }
+.tbl .col-gr { width: 6%; }
+.tbl .col-status { width: 8%; }
+.tbl .col-action { width: 70px; text-align: right; padding-right: 6px; }
+.tbl .dash { color: #888; }
+.empty-row td { text-align: center; color: #666; height: 60px; }
+
+.status-badge {
+  display: inline-block; font-size: 10.5px; font-weight: 500; color: #fff;
+  background: var(--teal); border-radius: 9px; padding: 1px 7px;
+}
+.status-badge.in-exp { background: #e7ecf0; color: #4a5560; }
+
+.row-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 26px; padding: 0 8px; border-radius: 4px; background: #fff; cursor: pointer;
+  font-size: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.18);
+}
+.row-btn.remove { border: 1px solid #8f9398; color: #6b7178; }
+
+/* ── Confirm step ────────────────────────────────────────── */
+.confirm { margin-top: 24px; max-width: 520px; }
+.confirm h4 { font-size: 14px; font-weight: 500; margin: 0; color: #262626; }
+.confirm .lead { font-size: 12px; color: #545454; margin: 4px 0 14px; }
+.confirm h5 { font-size: 13px; font-weight: 500; margin: 0 0 8px; color: #262626; }
+.radio { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; cursor: pointer; font-size: 13px; color: #333; }
+.radio input { margin: 2px 0 0; width: 14px; height: 14px; accent-color: #0f81c7; }
+.radio .help { display: block; font-size: 11.5px; color: #565656; margin-top: 2px; line-height: 1.5; }
+.backdate { display: inline-flex; align-items: center; gap: 10px; }
+.backdate input[type=date] {
+  height: 28px; border: 1px solid #c8cbd0; border-radius: 3px; background: #f7f7f8;
+  padding: 0 8px; font: inherit; font-size: 12.5px; color: var(--text); width: 180px;
+}
+.confirm .note { font-size: 11.5px; color: #565656; line-height: 1.6; margin: 4px 0 0; }
+.confirm hr { border: 0; border-top: 1px solid #e2e4e7; margin: 14px 0 16px; }
+.confirm .btn-primary { height: 32px; padding: 0 14px; font-size: 12.5px; margin-top: 8px; }
+
+/* ── Success ─────────────────────────────────────────────── */
+.success { text-align: center; padding-top: 62px; }
+.success .check {
+  width: 46px; height: 46px; border-radius: 50%; margin: 0 auto 14px;
+  display: grid; place-items: center; background: #eef5ec; color: #6a9a4a; font-size: 18px;
+}
+.success h4 { font-size: 20px; font-weight: 500; margin: 0 0 8px; color: #232323; }
+.success p { margin: 0 0 18px; font-size: 12px; color: #545454; }
+.btn-white {
+  height: 30px; padding: 0 12px; border: 0; border-radius: 4px; background: #fff; color: #121212;
+  font-size: 12.5px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
+
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Experience header (existing Pathways chrome, unchanged) -->
+  <div class="exp-header">
+    <div>
+      <div class="exp-title">
+        <h1>Johnny - Welding Technician</h1>
+        <span class="pill-active">Active</span>
+        <span class="exp-caret" aria-hidden="true">&#9661;</span>
+      </div>
+      <div class="exp-sub">No Career Cluster Selected</div>
+    </div>
+    <div class="btn-split">
+      <button class="main" type="button"><i class="fa-regular fa-pen-to-square"></i> Edit</button>
+      <button class="caret" type="button" aria-label="More actions"><i class="fa-solid fa-caret-down"></i></button>
+    </div>
+  </div>
+  <div class="meta-row">
+    <span><i class="fa-regular fa-chevron-down" style="font-size:9px"></i> Show details</span>
+    <span><i class="fa-regular fa-lock" style="font-size:10px"></i> Lock</span>
+  </div>
+
+  <!-- Page title -->
+  <div class="title-row">
+    <a class="back-link" href="#"><i class="fa-solid fa-arrow-left"></i> Back</a>
+    <span class="title-sep"></span>
+    <h2>Add Students to Experience</h2>
+  </div>
+
+  <!-- Top area: add-by toggle + stepper (left), help card (right) -->
+  <div class="top-grid">
+    <div>
+      <div class="add-by">
+        <label>Add by:</label>
+        <div class="seg">
+          <button type="button">Single Student</button>
+          <button type="button" class="on">Group of Students</button>
+        </div>
+      </div>
+      <div class="stepper" id="stepper"></div>
+      <div class="batch-banner" id="batchBanner" hidden>
+        <i class="fa-regular fa-circle-exclamation"></i>
+        <span id="bannerText"></span>
+        <i class="fa-solid fa-chevron-right chev"></i>
+      </div>
+    </div>
+    <aside class="side-card" id="sideCard"></aside>
+  </div>
+
+  <!-- Find / Review: filters + results -->
+  <section id="findView">
+    <div class="filter-bar">
+      <div class="filter-row" id="filterRow"></div>
+      <div class="showing" id="showing" hidden></div>
+    </div>
+    <div class="empty-box" id="emptyBox">Apply a filter to see students</div>
+    <div id="results" hidden>
+      <div class="results-head">
+        <div class="counts" id="counts"></div>
+        <div class="results-actions" id="resultsActions"></div>
+      </div>
+      <div class="tabs-row">
+        <i class="fa-regular fa-filter"></i>
+        <div class="tabs" id="tabs">
+          <button type="button" data-tab="all" class="on">All</button>
+          <button type="button" data-tab="available">Available</button>
+          <button type="button" data-tab="inexp">In Experience</button>
+        </div>
+      </div>
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Student</th><th class="col-gr">Gr</th><th>School</th>
+            <th class="col-status">Status</th><th class="col-action">Action</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Confirm -->
+  <section id="confirmView" hidden>
+    <div class="confirm">
+      <h4>Confirm batch</h4>
+      <p class="lead" id="confirmLead"></p>
+
+      <h5>Add date</h5>
+      <label class="radio"><input type="radio" name="addDate" value="today" checked> <span id="todayLabel"></span></label>
+      <label class="radio" style="align-items:center">
+        <input type="radio" name="addDate" value="back" style="margin-top:0">
+        <span class="backdate">Back-date to: <input type="date" id="backDate"></span>
+      </label>
+      <p class="note">Submission schedules are not shown to the student before this date and automatic evaluations are not sent. You can change this later by editing the added date on the student table.</p>
+
+      <hr>
+
+      <h5>Approval</h5>
+      <label class="radio"><input type="radio" name="approval" value="auto" checked>
+        <span>Auto approve<span class="help">Students active immediately on the add date.</span></span></label>
+      <label class="radio"><input type="radio" name="approval" value="queue">
+        <span>Send to approval queue<span class="help">Students pending until an approver reviews. Actions start on the add date once approved.</span></span></label>
+
+      <button type="button" class="btn-primary" id="confirmBtn"></button>
+    </div>
+  </section>
+
+  <!-- Success -->
+  <section id="successView" hidden>
+    <div class="success">
+      <div class="check"><i class="fa-solid fa-check"></i></div>
+      <h4 id="successTitle"></h4>
+      <p id="successSub"></p>
+      <button type="button" class="btn-white" id="newBatchBtn">Start a new batch</button>
+    </div>
+  </section>
+
+</div>
+
+<script>
+/* ============================================================
+   Mock data
+   Filters use OR logic: every value picked (in any filter)
+   pulls more students into the list, so adding another filter
+   after students are in the batch includes more people.
+   ============================================================ */
+const STUDENTS = [
+  // Manufacturing segment (the 11 from the Figma flow)
+  { id: 'S1001', name: 'Biggs, Allison',       gr: 10, school: 'Acero-Garcia High School',         district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 2 Welding' },
+  { id: 'S1002', name: 'Browley, Nalaysia',    gr: 9,  school: 'Chicago Vocational High School',   district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 2 Welding' },
+  { id: 'S1003', name: 'Drehert, Frederick',   gr: 10, school: 'Hubbard High School',              district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 4 Fabrication' },
+  { id: 'S1004', name: 'Freeman, Anna',        gr: 12, school: 'Ombudsman West High School',       district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 4 Fabrication' },
+  { id: 'S1005', name: 'Kemee, Onna',          gr: 9,  school: 'Ombudsman West High School',       district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 2 Welding' },
+  { id: 'S1006', name: 'Patt, Cameron',        gr: 12, school: 'Chicago Vocational High School',   district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 4 Fabrication' },
+  { id: 'S1007', name: 'Sanderson, LaLanyah',  gr: 9,  school: 'Hubbard High School',              district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 2 Welding' },
+  { id: 'S1008', name: 'Smith, Karen',         gr: 9,  school: 'Acero-Garcia High School',         district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 4 Fabrication' },
+  { id: 'S1009', name: 'Torres, Miguel',       gr: 11, school: 'Hubbard High School',              district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 2 Welding' },
+  { id: 'S1010', name: 'Walker, Jasmine',      gr: 11, school: 'Chicago Vocational High School',   district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 4 Fabrication' },
+  { id: 'S1011', name: 'Young, Devin',         gr: 10, school: 'Acero-Garcia High School',         district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: 'Manufacturing', roster: 'Period 2 Welding' },
+  // Other segments
+  { id: 'S1012', name: 'Alvarez, Marco',       gr: 11, school: 'Chicago Vocational High School',   district: 'Chicago Public Schools', cluster: 'Transportation',         segment: 'Aviation',      roster: 'Period 6 Aviation Tech' },
+  { id: 'S1013', name: 'Chen, Lily',           gr: 12, school: 'Hubbard High School',              district: 'Chicago Public Schools', cluster: 'Transportation',         segment: 'Aviation',      roster: 'Period 6 Aviation Tech' },
+  { id: 'S1014', name: 'Okafor, Daniel',       gr: 10, school: 'Evanston Township High School',    district: 'Evanston District 202',  cluster: 'Transportation',         segment: 'Aviation',      roster: 'Period 6 Aviation Tech', inExp: true },
+  { id: 'S1015', name: 'Reyes, Sofia',         gr: 11, school: 'Evanston Township High School',    district: 'Evanston District 202',  cluster: 'Transportation',         segment: 'Aviation',      roster: 'Period 6 Aviation Tech' },
+  { id: 'S1016', name: 'Bell, Tamara',         gr: 10, school: 'Ombudsman West High School',       district: 'Chicago Public Schools', cluster: 'Human Services',         segment: 'Cosmetology',   roster: 'Period 1 Cosmetology' },
+  { id: 'S1017', name: 'Nguyen, Grace',        gr: 12, school: 'Acero-Garcia High School',         district: 'Chicago Public Schools', cluster: 'Human Services',         segment: 'Cosmetology',   roster: 'Period 1 Cosmetology' },
+  { id: 'S1018', name: 'Price, Jordan',        gr: 11, school: 'Hubbard High School',              district: 'Chicago Public Schools', cluster: 'Human Services',         segment: 'Cosmetology',   roster: 'Period 1 Cosmetology' },
+  { id: 'S1019', name: 'Diaz, Antonio',        gr: 11, school: 'Chicago Vocational High School',   district: 'Chicago Public Schools', cluster: 'Hospitality & Tourism',  segment: 'Culinary Arts', roster: 'Period 3 Culinary' },
+  { id: 'S1020', name: 'Harris, Monique',      gr: 9,  school: 'Evanston Township High School',    district: 'Evanston District 202',  cluster: 'Hospitality & Tourism',  segment: 'Culinary Arts', roster: 'Period 3 Culinary' },
+  { id: 'S1021', name: 'Kowalski, Peter',      gr: 12, school: 'Ombudsman West High School',       district: 'Chicago Public Schools', cluster: 'Hospitality & Tourism',  segment: 'Culinary Arts', roster: 'Period 3 Culinary', inExp: true },
+  { id: 'S1022', name: 'Lopez, Isabella',      gr: 10, school: 'Acero-Garcia High School',         district: 'Chicago Public Schools', cluster: 'Hospitality & Tourism',  segment: 'Culinary Arts', roster: 'Period 3 Culinary' },
+  { id: 'S1023', name: 'Mbeki, Thandiwe',      gr: 11, school: 'Hubbard High School',              district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: "Teacher Lucy's Segment", roster: 'Period 4 Fabrication' },
+  { id: 'S1024', name: 'Owens, Brandon',       gr: 12, school: 'Chicago Vocational High School',   district: 'Chicago Public Schools', cluster: 'Manufacturing',          segment: "Teacher Lucy's Segment", roster: 'Period 2 Welding' }
+];
+
+const FILTERS = [
+  { key: 'district', label: 'District' },
+  { key: 'school',   label: 'School' },
+  { key: 'gr',       label: 'Grade' },
+  { key: 'cluster',  label: 'Cluster' },
+  { key: 'segment',  label: 'Segment' },
+  { key: 'roster',   label: 'Roster' }
+];
+// Options per filter, derived from the data (Segment order matches the Figma list)
+const OPTIONS = {};
+FILTERS.forEach(f => {
+  OPTIONS[f.key] = [...new Set(STUDENTS.map(s => s[f.key]))]
+    .sort((a, b) => (typeof a === 'number' ? a - b : String(a).localeCompare(String(b))));
+});
+
+/* ── State ─────────────────────────────────────────────── */
+const state = {
+  step: 'find',            // find | review | confirm | success
+  sel: {},                 // filterKey -> Set of selected values
+  uploadIds: new Set(),    // students matched by Upload / Paste
+  batch: new Set(),        // student ids in the batch (derived from filters, minus removed)
+  removed: new Set(),      // students taken out of the batch with Remove
+  tab: 'all',
+  openDd: null,            // filter key whose dropdown is open
+  ddQuery: '',
+  added: null              // { count, dateText, approval } after confirm
+};
+FILTERS.forEach(f => state.sel[f.key] = new Set());
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const today = new Date();
+const fmtLong = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+const isoDate = d => d.toISOString().slice(0, 10);
+
+function hasFilters() {
+  return FILTERS.some(f => state.sel[f.key].size) || state.uploadIds.size > 0;
+}
+function matches() {
+  if (!hasFilters()) return [];
+  return STUDENTS.filter(s =>
+    FILTERS.some(f => state.sel[f.key].has(s[f.key])) || state.uploadIds.has(s.id)
+  );
+}
+const isAvailable = s => !s.inExp && !state.batch.has(s.id);
+
+/* ── Stepper + sidebar ─────────────────────────────────── */
+const STEPS = [
+  { id: 'find', label: 'Find students' },
+  { id: 'review', label: 'Review' },
+  { id: 'confirm', label: 'Confirm' }
+];
+function stepIndex() { return STEPS.findIndex(s => s.id === state.step); }
+
+function renderStepper() {
+  const cur = stepIndex();
+  $('#stepper').hidden = state.step === 'success';
+  $('#stepper').innerHTML = STEPS.map((s, i) => {
+    const cls = i < cur ? 'done' : i === cur ? 'active' : '';
+    const num = i < cur ? '<i class="fa-solid fa-check"></i>' : i + 1;
+    const arrow = i < STEPS.length - 1 ? '<span class="step-arrow">&rarr;</span>' : '';
+    return `<button type="button" class="step ${cls}" data-step="${s.id}"><span class="num">${num}</span>${s.label}</button>${arrow}`;
+  }).join('');
+}
+
+function renderSide() {
+  const card = $('#sideCard');
+  card.hidden = state.step === 'success';
+  const n = state.batch.size;
+  const countBox = n ? `<div class="batch-count"><span class="count-pill">${n}</span> students in batch, not yet added to the experience</div>` : '';
+  if (state.step === 'confirm') {
+    card.innerHTML = `<h3>Almost done</h3>${countBox}
+      <ul class="side-bullets">
+        <li>Choose when the student's experience begins. This affects submission schedules and evaluations.</li>
+        <li>Auto-approved students are active immediately. Pending students appear on the Pending tab for review.</li>
+        <li>You can change the add date later by editing individual students on the student table.</li>
+      </ul>`;
+    return;
+  }
+  const cur = stepIndex();
+  const numFor = i => i < cur ? '<span class="num done"><i class="fa-solid fa-check"></i></span>'
+                    : `<span class="num ${i === cur ? 'on' : ''}">${i + 1}</span>`;
+  card.innerHTML = `<h3>How batch add works</h3>${countBox}
+    <ul class="side-steps">
+      <li>${numFor(0)} Use filters or upload a list to find students, then add them to your batch.</li>
+      <li>${numFor(1)} <span><b>Review:</b> Check your batch before adding.</span></li>
+      <li>${numFor(2)} <span><b>Confirm:</b> Set the add date and approval status for everyone in the batch.</span></li>
+    </ul>`;
+}
+
+function renderBanner() {
+  const n = state.batch.size;
+  const show = n > 0 && (state.step === 'find' || state.step === 'review');
+  $('#batchBanner').hidden = !show;
+  if (show) $('#bannerText').textContent = `You have ${n} student${n === 1 ? '' : 's'} in your batch. Don't forget to review and confirm.`;
+}
+
+/* ── Filter bar ────────────────────────────────────────── */
+function renderFilters() {
+  const row = $('#filterRow');
+  let html = '<span class="filter-label">FILTER BY:</span>';
+  FILTERS.forEach(f => {
+    const n = state.sel[f.key].size;
+    const open = state.openDd === f.key;
+    const label = n ? `+ ${f.label}: <span class="badge">${n}</span><span class="x" data-clear="${f.key}" title="Clear">&times;</span>` : `+ ${f.label}`;
+    html += `<div class="chip-wrap"><button type="button" class="chip ${n ? 'applied' : ''} ${open ? 'open' : ''}" data-dd="${f.key}">${label}</button>${open ? ddHtml(f) : ''}</div>`;
+  });
+  const up = state.uploadIds.size;
+  const upOpen = state.openDd === 'upload';
+  html += `<div class="chip-wrap"><button type="button" class="chip ${up ? 'applied' : ''} ${upOpen ? 'open' : ''}" data-dd="upload">${up ? `Upload / Paste: <span class="badge">${up}</span><span class="x" data-clear="upload" title="Clear">&times;</span>` : 'Upload / Paste'}</button>${upOpen ? uploadDdHtml() : ''}</div>`;
+  if (hasFilters()) html += '<button type="button" class="clear-all" id="clearAll">Clear all</button>';
+  row.innerHTML = html;
+
+  // "Showing:" summary line
+  const vals = [];
+  FILTERS.forEach(f => state.sel[f.key].forEach(v => vals.push(f.key === 'gr' ? `Grade ${v}` : v)));
+  if (up) vals.push(`${up} uploaded`);
+  $('#showing').hidden = !vals.length;
+  $('#showing').innerHTML = `<b>Showing:</b> ${esc(vals.join(', '))}`;
+
+  const inp = row.querySelector('.dd input[type=text]');
+  if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
+}
+
+function ddHtml(f) {
+  const q = state.ddQuery.toLowerCase();
+  const opts = OPTIONS[f.key].filter(o => String(o).toLowerCase().includes(q));
+  const sel = state.sel[f.key];
+  const allOn = opts.length && opts.every(o => sel.has(o));
+  return `<div class="dd" data-ddpanel>
+    <input type="text" placeholder="Type to filter..." value="${esc(state.ddQuery)}" data-ddsearch>
+    <label class="dd-opt all"><input type="checkbox" data-selall ${allOn ? 'checked' : ''}> Select all</label>
+    ${opts.length ? opts.map(o => `<label class="dd-opt"><input type="checkbox" data-opt="${esc(o)}" ${sel.has(o) ? 'checked' : ''}> ${f.key === 'gr' ? 'Grade ' + o : esc(o)}</label>`).join('')
+                  : '<div class="dd-empty">No matches</div>'}
+  </div>`;
+}
+function uploadDdHtml() {
+  return `<div class="dd" data-ddpanel style="width:300px">
+    <div class="dd-hint">Paste student IDs or names (Last, First), one per line.</div>
+    <textarea id="pasteBox" placeholder="S1012&#10;Chen, Lily"></textarea>
+    <div class="dd-foot"><button type="button" class="btn-primary" id="pasteApply">Find students</button></div>
+  </div>`;
+}
+
+/* ── Results table ─────────────────────────────────────── */
+function renderResults() {
+  // Batch membership comes only from the filters. A removed student leaves the list;
+  // there is no per-student Add.
+  const list = matches().filter(s => !state.removed.has(s.id));
+  const any = hasFilters();
+  $('#emptyBox').hidden = any;
+  $('#results').hidden = !any;
+  if (!any) return;
+
+  const avail = list.filter(isAvailable);
+  const n = state.batch.size;
+  $('#counts').innerHTML = `<b>${list.length}</b> matches &middot; <b>${avail.length}</b> available to add` +
+    (n ? ` <span class="in-batch">&middot; ${n} in batch</span>` : '');
+
+  // Right-side action: filtered students are already in the batch, so it goes straight to Confirm.
+  $('#resultsActions').innerHTML = n
+    ? `<button type="button" class="btn-primary" data-act="toconfirm">Add ${n} <i class="fa-solid fa-chevron-right"></i></button>`
+    : `<span class="btn-ghost">Nothing to add <i class="fa-solid fa-chevron-right"></i></span>`;
+
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === state.tab));
+  const rows = list.filter(s =>
+    state.tab === 'available' ? isAvailable(s) :
+    state.tab === 'inexp' ? s.inExp : true);
+
+  $('#tbody').innerHTML = rows.length ? rows.map(s => {
+    let status = '<span class="dash">&ndash;</span>';
+    let action = '';
+    if (s.inExp) { status = '<span class="status-badge in-exp">In experience</span>'; action = ''; }
+    else if (state.batch.has(s.id)) {
+      status = '<span class="status-badge">In batch</span>';
+      action = `<button type="button" class="row-btn remove" data-remove="${s.id}">Remove</button>`;
+    }
+    return `<tr><td>${esc(s.name)}</td><td>${s.gr}</td><td>${esc(s.school)}</td><td>${status}</td><td class="col-action">${action}</td></tr>`;
+  }).join('') : '<tr class="empty-row"><td colspan="5">No students in this view</td></tr>';
+}
+
+/* ── Confirm + success ─────────────────────────────────── */
+function renderConfirm() {
+  const n = state.batch.size;
+  $('#confirmLead').textContent = `Set the add date and approval status for all ${n} student${n === 1 ? '' : 's'}.`;
+  $('#todayLabel').textContent = `Today — ${fmtLong(today)}`;
+  if (!$('#backDate').value) $('#backDate').value = isoDate(today);
+  $('#confirmBtn').textContent = `Add ${n} student${n === 1 ? '' : 's'}`;
+}
+function renderSuccess() {
+  const a = state.added || { count: 0, dateText: `today (${fmtLong(today)})`, approval: 'auto' };
+  $('#successTitle').textContent = `${a.count} student${a.count === 1 ? '' : 's'} added`;
+  $('#successSub').textContent = `Add date: ${a.dateText}. ` +
+    (a.approval === 'auto' ? 'All students are now active.' : 'All students are pending approval.');
+}
+
+/* ── Master render ─────────────────────────────────────── */
+function render() {
+  if (state.step === 'find' || state.step === 'review') syncBatch();
+  renderStepper();
+  renderSide();
+  renderBanner();
+  const findLike = state.step === 'find' || state.step === 'review';
+  $('#findView').hidden = !findLike;
+  $('#confirmView').hidden = state.step !== 'confirm';
+  $('#successView').hidden = state.step !== 'success';
+  if (findLike) { renderFilters(); renderResults(); }
+  if (state.step === 'confirm') renderConfirm();
+  if (state.step === 'success') renderSuccess();
+}
+
+/* ── Actions ───────────────────────────────────────────── */
+// Applying a filter puts every matching student straight into the batch and moves the
+// flow to Review. Later filters add more people; Remove keeps a student out even if a
+// filter still matches them. Clearing every filter drops back to Find.
+function syncBatch() {
+  state.batch = new Set(matches().filter(s => !s.inExp && !state.removed.has(s.id)).map(s => s.id));
+  state.step = hasFilters() ? 'review' : 'find';
+}
+function goConfirm() { if (state.batch.size) { state.step = 'confirm'; state.openDd = null; render(); window.scrollTo(0, 0); } }
+
+function confirmBatch() {
+  const n = state.batch.size;
+  const back = document.querySelector('input[name=addDate]:checked').value === 'back';
+  const bd = $('#backDate').value;
+  const dateText = back && bd && bd !== isoDate(today)
+    ? fmtLong(new Date(bd + 'T12:00:00')) : `today (${fmtLong(today)})`;
+  const approval = document.querySelector('input[name=approval]:checked').value;
+  STUDENTS.forEach(s => { if (state.batch.has(s.id)) s.inExp = true; });
+  state.added = { count: n, dateText, approval };
+  state.batch.clear();
+  state.step = 'success';
+  render();
+  window.scrollTo(0, 0);
+}
+
+function resetAll() {
+  FILTERS.forEach(f => state.sel[f.key].clear());
+  state.uploadIds.clear(); state.batch.clear(); state.removed.clear();
+  state.tab = 'all'; state.openDd = null; state.ddQuery = ''; state.step = 'find';
+  render();
+}
+
+document.addEventListener('click', e => {
+  const t = e.target;
+
+  // Clear one filter (× on an applied chip)
+  const clr = t.closest('[data-clear]');
+  if (clr) {
+    e.stopPropagation();
+    if (clr.dataset.clear === 'upload') state.uploadIds.clear(); else state.sel[clr.dataset.clear].clear();
+    state.openDd = null; render(); return;
+  }
+  // Open / close a filter dropdown
+  const chip = t.closest('[data-dd]');
+  if (chip) {
+    const k = chip.dataset.dd;
+    state.openDd = state.openDd === k ? null : k; state.ddQuery = '';
+    render(); return;
+  }
+  // Clicks inside an open dropdown are handled by the change listener
+  if (t.closest('[data-ddpanel]')) {
+    if (t.id === 'pasteApply') {
+      const lines = $('#pasteBox').value.split(/\n+/).map(l => l.trim().toLowerCase()).filter(Boolean);
+      STUDENTS.forEach(s => { if (lines.includes(s.id.toLowerCase()) || lines.includes(s.name.toLowerCase())) state.uploadIds.add(s.id); });
+      state.openDd = null; render();
+    }
+    return;
+  }
+  // Click outside closes any open dropdown
+  if (state.openDd) { state.openDd = null; render(); }
+
+  if (t.closest('#clearAll')) { FILTERS.forEach(f => state.sel[f.key].clear()); state.uploadIds.clear(); render(); return; }
+
+  const rem = t.closest('[data-remove]');
+  if (rem) { state.removed.add(rem.dataset.remove); render(); return; }
+
+  const act = t.closest('[data-act]');
+  if (act) {
+    if (act.dataset.act === 'toconfirm') goConfirm();
+    return;
+  }
+  const tab = t.closest('[data-tab]');
+  if (tab) { state.tab = tab.dataset.tab; render(); return; }
+
+  if (t.closest('#batchBanner')) { goConfirm(); return; }
+
+  // Completed steps are clickable to go back
+  const step = t.closest('.step.done');
+  if (step) {
+    state.step = 'review'; render(); return;
+  }
+
+  if (t.closest('#confirmBtn')) { confirmBatch(); return; }
+  if (t.closest('#newBatchBtn')) { resetAll(); return; }
+});
+
+// Dropdown checkboxes + search
+document.addEventListener('change', e => {
+  const panel = e.target.closest('[data-ddpanel]');
+  if (!panel || !state.openDd || state.openDd === 'upload') return;
+  const key = state.openDd;
+  const set = state.sel[key];
+  const coerce = v => key === 'gr' ? Number(v) : v;
+  if (e.target.matches('[data-opt]')) {
+    const v = coerce(e.target.dataset.opt);
+    e.target.checked ? set.add(v) : set.delete(v);
+  } else if (e.target.matches('[data-selall]')) {
+    const q = state.ddQuery.toLowerCase();
+    OPTIONS[key].filter(o => String(o).toLowerCase().includes(q)).forEach(o => e.target.checked ? set.add(o) : set.delete(o));
+  }
+  render();
+});
+document.addEventListener('input', e => {
+  if (e.target.matches('[data-ddsearch]')) { state.ddQuery = e.target.value; renderFilters(); }
+});
+
+render();
+</script>
+
+<!-- ── Design Toolbox: Flow Map ────────────────────────────────────────── -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    resetAll();
+    const pickManufacturing = () => state.sel.segment.add('Manufacturing');
+    switch (id) {
+      case 'find-empty': break;
+      case 'find-filter':
+        state.openDd = 'segment'; break;
+      case 'review':
+        pickManufacturing(); break;   // the first filter fills the batch and moves to Review
+      case 'confirm':
+        STUDENTS.filter(s => s.segment === 'Manufacturing').forEach(s => state.batch.add(s.id));
+        pickManufacturing(); state.step = 'confirm'; break;
+      case 'success':
+        state.added = { count: 11, dateText: `today (${fmtLong(today)})`, approval: 'auto' };
+        state.step = 'success'; break;
+      default: break;
+    }
+    render();
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Bulk Add Students — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1260, h: 440 },
+      flows: [
+        { id: 'main', name: 'Group of Students', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1220, h: 400 }, labelXY: { x: 40, y: 40 } }
+      ],
+      nodes: [
+        { id: 'find-empty', flow: 'main', entry: true, x: 60, y: 170, step: 'Find', name: 'No filters', state: 'find-empty',
+          desc: 'Group of Students selected; apply a filter to see students.' },
+        { id: 'find-filter', flow: 'main', x: 290, y: 170, step: 'Find', name: 'Filter dropdown', state: 'find-filter',
+          desc: 'Segment dropdown open with type-to-filter and Select all.' },
+        { id: 'review', flow: 'main', x: 520, y: 170, step: 'Review', name: 'Batch review', state: 'review',
+          desc: 'The first filter applied moves straight to Review: matches land in the batch (In batch + Remove). More filters add more students. Add 11 goes straight to Confirm.' },
+        { id: 'confirm', flow: 'main', x: 750, y: 170, step: 'Confirm', name: 'Confirm batch', state: 'confirm',
+          desc: 'Set add date and approval for the whole batch.' },
+        { id: 'success', flow: 'main', x: 980, y: 170, step: 'Done', name: 'Students added', state: 'success',
+          desc: 'Shows the real count added (e.g. 11 students added).' }
+      ],
+      edges: [
+        ['find-empty', 'find-filter'],
+        ['find-filter', 'review'],
+        ['review', 'confirm'],
+        ['confirm', 'success']
+      ]
+    }
+  };
+</script>
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
