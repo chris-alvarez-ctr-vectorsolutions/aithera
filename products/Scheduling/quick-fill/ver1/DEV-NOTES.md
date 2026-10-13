@@ -21,7 +21,7 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 - **Position removed:** the old "Position N" line was carried over from an earlier mock and isn't needed.
 - **Compact rows:** one short row per person: rank, name + phone, the rule's data, Fill. The rule's data sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
 - **Rule-specific data:** each card shows only the data point the current rule ranks on, not every factor for every rule type.
-- **Approach and Rule on the header:** the two dropdowns sit on the panel header, sized up (14px bold values) so it's easy to see what the list is ranked by. A **Default** tag sits after them while both are on their defaults; when either changes, it becomes a **Reset to default** link.
+- **Approach and Rule on the header:** the two dropdowns sit on the panel header, sized up (14px bold values) so it's easy to see what the list is ranked by. There's no Default pill beside them; when either one changes, a **Reset to default** link appears there. Inside each dropdown's option list, the Default tag still marks the default option.
 
 > date: 2026-10-13
 
