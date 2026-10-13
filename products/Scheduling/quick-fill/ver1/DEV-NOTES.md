@@ -17,9 +17,9 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 ## panel
 
 - **Full name:** show both first and last name. Agencies sometimes put a rank number in the first or last name, so schedulers need to see both.
-- **Phone number is required** on every candidate row. The person's group (e.g. "B Shift") sits next to it.
+- **Phone number is required** on every candidate row.
 - **Position removed:** the old "Position N" line was carried over from an earlier mock and isn't needed.
-- **Compact rows:** one short row per person: rank, name, phone + group, the rule's data, Fill. The rule's data sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
+- **Compact rows:** one short row per person: rank, name + phone, the rule's data, Fill. The rule's data sits on the right so cards stay short. This follows the crew scheduler feedback: people don't want to scroll up and down a lot.
 - **Rule-specific data:** each card shows only the data point the current rule ranks on, not every factor for every rule type.
 - **Approach and Rule on the header:** the two dropdowns sit on the panel header, sized up (14px bold values) so it's easy to see what the list is ranked by. A **Default** tag sits after them while both are on their defaults; when either changes, it becomes a **Reset to default** link.
 
@@ -58,8 +58,8 @@ Decisions from the 2026-10-06 review with Michael Fulton and Treva Aguinaga.
 
 > date: 2026-10-13
 
-- **Filter panel:** the Filter button (sliders icon) opens an inline panel with two groups of toggle chips: **Qualifier** (Driver/Operator, Hazmat Tech, Rescue Tech) and **Group** (A Shift, B Shift, C Shift).
-- **Filter logic:** within a group, a person matches ANY selected chip. Qualifier and Group combine with AND.
+- **Filter panel:** the Filter button (sliders icon) opens an inline panel with **Qualifier** toggle chips (Driver/Operator, Hazmat Tech, Rescue Tech). The earlier A/B/C Shift group filter was removed.
+- **Filter logic:** a person matches if they have ANY of the selected qualifiers.
 - **Filtering doesn't change the ranking:** filters only hide rows, and they apply to the excluded list too. Rank numbers never change.
 - **Apply:** a right-aligned **Apply** button closes the panel. Changes preview live in the list while the panel is open.
 - **Badge and Clear filters:** the Filter button shows a count of selected chips. When any chips are selected, a **Clear filters** link appears in the count bar ("Showing 1 of 8 available · Clear filters"), outside the panel.
