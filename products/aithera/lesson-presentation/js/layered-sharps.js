@@ -2543,16 +2543,19 @@
   //    pre-check → the offer → ONE continuous listen → the questions →
   //    review set (missed knowledge questions only) → completion → simulation
   //
-  //  NOTHING content-specific lives here. Three data files drive it:
-  //    data/sharps-listen/config.json — trigger rules, which question goes
-  //        with each topic, speed options, the review set's retry rule;
-  //    assets/audio/sharps/listenModeAudio/manifest.json — every file name,
-  //        the fixed topic order, splice points, chapter titles (filenames
-  //        are never parsed — their numeric prefixes are export order);
-  //    …/timing.json — caption timing, generated from the transcripts by
-  //        tools/listen-mode/build.py.
-  //  Swapping in a new exported package (whole reinforced files, no seams)
-  //  means replacing the manifest + audio folder and nothing else.
+  //  NOTHING content-specific lives here. Two kinds of data drive it:
+  //    data/sharps-listen/config.json — which package each sector plays,
+  //        trigger rules (testOut / harder / reinforce), chapter titles,
+  //        which question goes with each topic, speed options, the review
+  //        set's retry rule;
+  //    assets/audio/sharps/listenModeAudio-<sector>/ — the Listen Mode
+  //        Studio's "Prototype package", unzipped as is: manifest.json (the
+  //        fixed topic order, versions, bridges and closers) plus audio/ and
+  //        its WebVTT captions, which the page turns into timed sentences
+  //        itself (no build step; tools/listen-mode/build.py belongs to the
+  //        earlier hand-made package and is no longer needed).
+  //  A new export for a sector means replacing that sector's folder (and
+  //  bumping config.audioVersion) and nothing else.
   //
   //  The pre-check answers are SNAPSHOTTED when the learner chooses Listen
   //  mode (podpath.results), and the listen is always resolved from that
@@ -2572,34 +2575,123 @@
   function podcastPath() { return !!(readCourse().podpath || {}).podcast; }
 
   // ---- The data ------------------------------------------------------------
-  // Fetched once per page, at script load (all three are small), so the
-  // offer screen can usually show the real runtime on first paint.
-  var listenData = null, listenDataP = null;
-  function loadListenData() {
-    if (listenDataP) return listenDataP;
-    function get(url) {
-      return fetch(url, { cache: 'no-cache' }).then(function (r) {
-        if (!r.ok) throw new Error('Couldn’t load ' + url + ' (' + r.status + ')');
-        return r.json();
-      });
-    }
-    listenDataP = get(LISTEN_CONFIG_URL).then(function (config) {
-      var base = config.manifest.replace(/[^\/]*$/, '');
-      return Promise.all([get(config.manifest), get(config.timing).catch(function () { return {}; })])
-        .then(function (r) {
-          var reviews = config.review && config.review.topics || {}, cardsBase = LISTEN_CONFIG_URL.replace(/[^\/]*$/, '');
-          return Promise.all(Object.keys(reviews).map(function (k) {
-            return get(cardsBase + reviews[k].cards).then(function (c) { return [k, c]; });
-          })).then(function (cards) {
-            var byTopic = {};
-            cards.forEach(function (p) { byTopic[p[0]] = p[1]; });
-            listenData = { config: config, manifest: r[0], timing: r[1], base: base, cards: byTopic };
-            return listenData;
-          });
-        });
+  // One package per sector (config.sectors → that package's manifest.json),
+  // fetched at script load and again if the Demo menu's Context lens moves to
+  // the other sector. LD() is always the CURRENT sector's data, or null while
+  // it loads; nothing else holds on to a package.
+  var listenCache = {}, listenPending = {};
+  function listenSectorKey() { return LE.lensId() || 'manufacturing'; }
+  function LD() { return listenCache[listenSectorKey()] || null; }
+  function fetchListen(url, as) {
+    return fetch(url, { cache: 'no-cache' }).then(function (r) {
+      if (!r.ok) throw new Error('Couldn’t load ' + url + ' (' + r.status + ')');
+      return as === 'text' ? r.text() : r.json();
     });
-    listenDataP.catch(function () { listenDataP = null; });   // let a retry try again
-    return listenDataP;
+  }
+
+  // A package's captions are WebVTT files, one per audio file. Their cues are
+  // regrouped into whole sentences (the player shows one at a time): words
+  // spread across their cue by character share, a speaker change or sentence
+  // end closes a sentence, [stage directions] drop out, and an ALL-CAPS word
+  // is spoken emphasis (shown in lower case, flagged in `em`).
+  function vttSeconds(x) {
+    var p = x.replace(',', '.').split(':').map(Number);
+    while (p.length < 3) p.unshift(0);
+    return p[0] * 3600 + p[1] * 60 + p[2];
+  }
+  function parseVtt(text) {
+    var words = [];
+    text.replace(/\r/g, '').split(/\n\s*\n/).forEach(function (block) {
+      var m = block.match(/([0-9:.,]+)\s*-->\s*([0-9:.,]+)/);
+      if (!m) return;
+      var s = vttSeconds(m[1]), e = vttSeconds(m[2]), body = block.slice(m.index + m[0].length).trim();
+      var v = body.match(/^<v\s+([^>]+)>/), who = v ? v[1].trim().toUpperCase() : '';
+      var ws = body.replace(/<[^>]+>/g, '').replace(/\n/g, ' ').replace(/\[[^\]]*\]\s*/g, '').trim().split(/\s+/)
+        .filter(Boolean).map(function (w) {
+          var core = w.replace(/[^A-Za-z]/g, ''), em = core.length >= 2 && core === core.toUpperCase() && w.indexOf('-') < 0;
+          return { w: em ? w.toLowerCase() : w, em: em };
+        });
+      var total = ws.reduce(function (n, x) { return n + x.w.length + 1; }, 0) || 1, acc = 0;
+      ws.forEach(function (x) {
+        var a = s + (e - s) * acc / total;
+        acc += x.w.length + 1;
+        words.push({ w: x.w, em: x.em, who: who, s: a, e: s + (e - s) * acc / total });
+      });
+    });
+    var sents = [], cur = [];
+    function flush() {
+      if (!cur.length) return;
+      var em = [];
+      cur.forEach(function (x, i) { if (x.em) em.push(i); });
+      sents.push({ w: cur[0].who, t: cur.map(function (x) { return x.w; }).join(' '), em: em,
+                   s: +cur[0].s.toFixed(3), e: +cur[cur.length - 1].e.toFixed(3) });
+    }
+    words.forEach(function (x) {
+      if (cur.length && x.who !== cur[0].who) { flush(); cur = []; }
+      cur.push(x);
+      if (/[.?!]["”’)]*$/.test(x.w)) { flush(); cur = []; }
+    });
+    flush();
+    return sents;
+  }
+
+  // Every audio entry a manifest names: topic versions, bridges, closers.
+  function manifestEntries(m) {
+    var out = [];
+    Object.keys(m.topics || {}).forEach(function (t) {
+      Object.keys(m.topics[t]).forEach(function (k) { var e = m.topics[t][k]; if (e && typeof e === 'object' && e.file) out.push(e); });
+    });
+    ['bridges', 'closers'].forEach(function (g) {
+      var seams = (m.seams || {})[g] || {};
+      Object.keys(seams).forEach(function (k) { out.push(seams[k]); });
+    });
+    return out;
+  }
+  // The names the resolver plays by: a package from the studio says `base`
+  // (or `universal` for a one-version topic) and `testup`; the hand-made one
+  // before it said `normal` and `harder`. Both play.
+  function normalizeManifest(m) {
+    Object.keys(m.topics || {}).forEach(function (t) {
+      var d = m.topics[t];
+      if (!d.normal) d.normal = d.base || d.universal;
+      if (!d.harder && d.testup) d.harder = d.testup;
+    });
+    return m;
+  }
+
+  function loadListenData() {
+    var key = listenSectorKey();
+    if (listenCache[key]) return Promise.resolve(listenCache[key]);
+    if (listenPending[key]) return listenPending[key];
+    var p = fetchListen(LISTEN_CONFIG_URL).then(function (config) {
+      var url = (config.sectors || {})[key] || (config.sectors || {})[config.defaultSector] || config.manifest;
+      var base = url.replace(/[^\/]*$/, '');
+      var reviews = config.review && config.review.topics || {}, cardsBase = LISTEN_CONFIG_URL.replace(/[^\/]*$/, '');
+      return fetchListen(url).then(function (manifest) {
+        normalizeManifest(manifest);
+        var timing = {};
+        // Captions come with the package; no build step.
+        var captioned = Promise.all(manifestEntries(manifest).map(function (e) {
+          timing[e.file] = { dur: e.duration, sents: [] };
+          if (!e.captions) return null;
+          return fetchListen(base + e.captions, 'text').then(function (txt) { timing[e.file].sents = parseVtt(txt); })
+            .catch(function () {});   // a missing caption file leaves that part uncaptioned, not unplayable
+        }));
+        var hb = config.handBack;
+        if (hb) timing[hb.file] = { dur: hb.dur, sents: hb.sents || [] };
+        var cards = Promise.all(Object.keys(reviews).map(function (k) {
+          return fetchListen(cardsBase + reviews[k].cards).then(function (c) { return [k, c]; });
+        }));
+        return Promise.all([captioned, cards]).then(function (r) {
+          var byTopic = {};
+          r[1].forEach(function (c) { byTopic[c[0]] = c[1]; });
+          return (listenCache[key] = { sector: key, config: config, manifest: manifest, timing: timing, base: base, cards: byTopic });
+        });
+      });
+    });
+    listenPending[key] = p;
+    p.catch(function () { delete listenPending[key]; });   // let a retry try again
+    return p;
   }
   if (location.protocol !== 'file:') loadListenData().catch(function () {});
 
@@ -2639,10 +2731,11 @@
     try { var o = sessionStorage.getItem('sh-seam-' + t); if (o != null && o !== '') return +o; } catch (e) {}
     return data.manifest.topics[t].seamAt;
   }
-  // Every audio request carries the manifest's version, so replacing audio
-  // under the same names reaches browsers that cached the old take.
+  // Every audio request carries a version (the manifest's, else the config's
+  // `audioVersion`: the studio's manifests have none, and re-exports reuse the
+  // same names), so replacing audio reaches browsers that cached the old take.
   function audioUrl(file, data) {
-    var v = data.manifest.version;
+    var v = data.manifest.version || data.config.audioVersion || data.manifest.ledgerVersion;
     return data.base + file + (v ? '?v=' + encodeURIComponent(v) : '');
   }
   function fileDur(file, data) {
@@ -2652,19 +2745,23 @@
 
   // ---- The resolver ----------------------------------------------------------
   // One way to play each topic, in the manifest's fixed order:
+  //   0. skipped, if the pre-check tests the learner out of it
+  //      (config.triggers.testOut — the package's K1: routing "testOut");
   //   1. a `reinforced` whole file, if the topic has one and the learner
-  //      needs reinforcement (no topic has one yet; the check is live);
+  //      needs reinforcement;
   //   2. else, needing reinforcement with an `addon` and a valid seamAt:
-  //      normal[0 → seam], the add-on, normal[seam → end], no gap;
-  //   3. else `harder` instead of `normal` when the learner qualifies;
-  //   4. else `normal`.
+  //      normal[0 → seam], the add-on, normal[seam → end], no gap (the old
+  //      hand-made package; the studio's packages swap whole files instead);
+  //   3. else `harder` (the studio's `testup`) when the learner qualifies;
+  //   4. else `normal` (the studio's `base` or `universal`).
   // Each entry carries `why`, the plain-language trace a reviewer sees.
   function resolveListen(results, data) {
     var m = data.manifest, trig = data.config.triggers || {};
     return m.order.map(function (t) {
       var def = m.topics[t];
       if (!def) throw new Error('The manifest’s order names “' + t + '”, which it doesn’t define.');
-      var reinforce = (trig.reinforce || {})[t], harder = (trig.harder || {})[t];
+      var out = (trig.testOut || {})[t], reinforce = (trig.reinforce || {})[t], harder = (trig.harder || {})[t];
+      if (ruleHolds(out, results)) return { topic: t, how: 'skip', why: ruleWhy(out, results) + ' → tested out, part skipped' };
       var needs = ruleHolds(reinforce, results), up = ruleHolds(harder, results);
       if (needs && def.reinforced) return { topic: t, how: 'reinforced', why: ruleWhy(reinforce, results) + ' → reinforced version' };
       if (needs && def.addon) {
@@ -2673,50 +2770,77 @@
           return { topic: t, how: 'addon', seam: seam, why: ruleWhy(reinforce, results) + ' → add-on spliced in at ' + seam + 's' };
       }
       if (up && def.harder) return { topic: t, how: 'harder', why: ruleWhy(harder, results) + ' → harder version' };
-      var why = harder && !up ? 'normal (' + harder.item.toUpperCase() + ' pre-check not answered correctly)'
+      var why = out ? 'normal (' + out.item.toUpperCase() + ' pre-check not answered correctly)'
+        : harder && !up ? 'normal (' + harder.item.toUpperCase() + ' pre-check not answered correctly)'
         : reinforce && !needs ? 'normal (no reinforcement needed)'
         : 'normal (single version)';
       return { topic: t, how: 'normal', why: why };
     });
   }
-  // The plan as playback pieces on one timeline. A gap (the sting's
-  // placeholder) goes BETWEEN topics, never inside a spliced one; a topic's
-  // own gapBeforeSec overrides it for the join into that topic (the
-  // hand-back clip follows the close with none).
+  // The plan as playback pieces on one timeline. Each piece carries the
+  // silence before it (`gap`, the sting's placeholder): the manifest's
+  // gapBetweenPartsSec between every two parts, a topic's own gapBeforeSec
+  // overriding it for the join into that topic, none inside a spliced topic.
+  // Seams, when the package has them, are the studio's rules:
+  //   · a bridge plays between two topics that are both in the listen,
+  //     named for the pair (the topic just heard > the next one played, so a
+  //     skipped topic between them is already accounted for);
+  //   · the closer written for the last topic heard plays in place of the
+  //     close, when the package has one for it.
+  // A package without `seams` plays exactly the topics, as before.
   function gapBefore(topic, data) {
     var d = data.manifest.topics[topic];
     return d && d.gapBeforeSec != null ? d.gapBeforeSec : (data.manifest.gapBetweenPartsSec || 0);
   }
   function listenPieces(plan, data) {
-    var m = data.manifest, t = 0, out = [];
-    plan.forEach(function (p, i) {
+    var m = data.manifest, seams = m.seams || {}, t = 0, out = [], last = null;
+    function piece(topic, file, offset, dur, gap, kind) {
+      var full = fileDur(file, data);
+      if (dur == null) dur = (full == null ? null : full - offset);
+      if (out.length) t += gap; else gap = 0;
+      out.push({ topic: topic, file: file, offset: offset, dur: dur, at: t, gap: gap, kind: kind });
+      t += dur || 0;
+    }
+    plan.forEach(function (p) {
       var def = m.topics[p.topic];
-      if (i) t += gapBefore(p.topic, data);
-      function piece(file, offset, dur) {
-        var full = fileDur(file, data);
-        if (dur == null) dur = (full == null ? null : full - offset);
-        out.push({ topic: p.topic, file: file, offset: offset, dur: dur, at: t });
-        t += dur || 0;
+      if (p.how === 'skip') return;
+      var content = def.objective != null, gap = gapBefore(p.topic, data);
+      if (content && last) {
+        var bridge = (seams.bridges || {})[last + '>' + p.topic];
+        if (bridge) piece(last, bridge.file, 0, null, m.gapBetweenPartsSec || 0, 'bridge');
       }
-      if (p.how === 'reinforced') piece(def.reinforced.file, 0, null);
+      if (p.topic === 'close' && last && (seams.closers || {})[last]) {
+        piece(p.topic, seams.closers[last].file, 0, null, gap, 'closer');
+      } else if (p.how === 'reinforced') piece(p.topic, def.reinforced.file, 0, null, gap, 'topic');
       else if (p.how === 'addon') {
-        piece(def.normal.file, 0, p.seam);
-        piece(def.addon.file, 0, null);
-        piece(def.normal.file, p.seam, null);
-      } else piece((p.how === 'harder' ? def.harder : def.normal).file, 0, null);
+        piece(p.topic, def.normal.file, 0, p.seam, gap, 'topic');
+        piece(p.topic, def.addon.file, 0, null, 0, 'topic');
+        piece(p.topic, def.normal.file, p.seam, null, 0, 'topic');
+      } else piece(p.topic, (p.how === 'harder' ? def.harder : def.normal).file, 0, null, gap, 'topic');
+      if (content) last = p.topic;
     });
+    // The hand-back to the screen ("You may now continue the lesson."), for a
+    // package that doesn't carry its own `continue` topic.
+    var hb = data.config.handBack;
+    if (hb && out.length && m.order.indexOf('continue') < 0) piece('close', hb.file, 0, null, hb.gap || 0, 'handback');
     return { pieces: out, dur: t };
   }
+  // A chapter's name: the manifest's, or the config's (the studio's packages
+  // don't carry titles).
+  function topicTitle(t, data) {
+    var def = data.manifest.topics[t] || {};
+    return def.title || (data.config.titles || {})[t] || t;
+  }
   function listenMinutes() {
-    if (!listenData) return null;
-    try { return Math.max(1, Math.round(listenPieces(resolveListen(listenResults(), listenData), listenData).dur / 60)); }
+    if (!LD()) return null;
+    try { return Math.max(1, Math.round(listenPieces(resolveListen(listenResults(), LD()), LD()).dur / 60)); }
     catch (e) { return null; }
   }
   // Reviewer trace for the captions: which answer put each part here.
   function listenTrace() {
-    if (!listenData) return 'Loading the audio manifest…';
+    if (!LD()) return 'Loading the audio manifest…';
     try {
-      return resolveListen(listenResults(), listenData).map(function (p) { return p.topic + ': ' + p.why; }).join(' · ');
+      return resolveListen(listenResults(), LD()).map(function (p) { return p.topic + ': ' + p.why; }).join(' · ');
     } catch (e) { return String(e.message || e); }
   }
 
@@ -2893,12 +3017,12 @@
     })).then(function () {
       // Durations from the DECODED audio, not the timing file: they are
       // what the clock actually schedules.
-      var t = 0, lastTopic = null;
-      pieces.forEach(function (p) {
-        if (lastTopic !== null && p.topic !== lastTopic) t += gapBefore(p.topic, data);
+      var t = 0;
+      pieces.forEach(function (p, i) {
+        if (i) t += p.gap || 0;
         var b = bufs[p.file];
         p.dur = Math.max(0, Math.min(p.dur == null ? Infinity : p.dur, b.duration - p.offset));
-        p.at = t; t += p.dur; lastTopic = p.topic;
+        p.at = t; t += p.dur;
       });
       var total = t, ctx = new OfflineAudioContext(1, Math.ceil(total * rate) + rate, rate);
       var fade = (data.manifest.spliceFadeMs || 25) / 1000;
@@ -2963,7 +3087,7 @@
       var def = data.manifest.topics[p.topic];
       var last = out[out.length - 1];
       if (last && last.topic === p.topic) { last.end = p.at + p.dur; return; }
-      out.push({ topic: p.topic, title: def.title || p.topic, chapter: def.chapter !== false, start: p.at, end: p.at + p.dur });
+      out.push({ topic: p.topic, title: topicTitle(p.topic, data), chapter: def.chapter !== false, start: p.at, end: p.at + p.dur });
     });
     var n = 0;
     out.forEach(function (c) { if (c.chapter) c.n = ++n; });
@@ -3287,13 +3411,13 @@
   // played (k2 harder → the harder case's question). Titles are the
   // manifest's chapter titles, so the stack names what the learner heard.
   function podcheckItems() {
-    if (!listenData) return [];
-    var checks = listenData.config.checks || {}, topics = listenData.manifest.topics;
-    return resolveListen(listenResults(), listenData).map(function (p) {
+    if (!LD()) return [];
+    var checks = LD().config.checks || {}, topics = LD().manifest.topics;
+    return resolveListen(listenResults(), LD()).map(function (p) {
       var c = checks[p.topic];
-      if (!c) return null;
+      if (!c || p.how === 'skip') return null;   // a part the learner tested out of asks nothing
       var deckId = c[p.how] || c.normal;
-      return { id: deckId, topic: p.topic, role: c.role, title: topics[p.topic].title || p.topic,
+      return { id: deckId, topic: p.topic, role: c.role, title: topicTitle(p.topic, LD()),
                q: DECK[deckId] ? deckCheck(deckFor(deckId)) : null };
     }).filter(function (it) { return it && it.q; });
   }
@@ -3301,7 +3425,7 @@
     ctx.setCoachSay('');
     ctx.floatClose();
     ctx.disableNext();
-    if (!listenData) {
+    if (!LD()) {
       loadListenData().then(function () { if (document.getElementById('blAsk')) podcheckInit(ctx); })
         .catch(function () { document.getElementById('blQ').textContent = 'The questions couldn\u2019t be loaded. Reload the page to try again.'; });
       return;
@@ -3477,13 +3601,13 @@
   // review yet. When they do, add their topics to config.review.topics and
   // widen listenMissed() below past role "knowledge".
   function listenMissed() {
-    if (!listenData) {
+    if (!LD()) {
       // Before the manifest is in (a reload straight onto this step): any
       // saved check marked failed.
       var c = readCourse();
       return Object.keys(c).filter(function (k) { return /check$/.test(k) && c[k] && c[k].passed === false; });
     }
-    var topics = (listenData.config.review || {}).topics || {};
+    var topics = (LD().config.review || {}).topics || {};
     return podcheckItems().filter(function (it) {
       var r = readCourse()[it.q.key];
       return it.role === 'knowledge' && topics[it.topic] && r && r.passed === false;
@@ -3497,14 +3621,14 @@
     ctx.floatClose();
     ctx.disableNext();
     var root = document.getElementById('rv');
-    if (!listenData) {
+    if (!LD()) {
       root.innerHTML = '<p class="rv-note">Loading…</p>';
       loadListenData().then(function () { if (root.isConnected) reviewInit(ctx); })
         .catch(function () { root.innerHTML = '<p class="rv-note">The review couldn’t be loaded. Reload the page to try again.</p>'; });
       return;
     }
     LE.refreshNav(); ctx.disableNext();   // the caption's trace, now the data is in
-    var cfg = listenData.config.review || {}, queue = listenMissed(), qi = 0;
+    var cfg = LD().config.review || {}, queue = listenMissed(), qi = 0;
     var recapAudio = null;
     function stopRecap() { if (recapAudio) { recapAudio.pause(); recapAudio = null; } }
     function next() {
@@ -3518,8 +3642,8 @@
     }
     // The fact cards, and the way to the retry.
     function cards() {
-      var it = queue[qi], set = listenData.cards[it.topic] || { cards: [] };
-      var qt = (listenData.manifest.quickTakes || {})[it.topic];
+      var it = queue[qi], set = LD().cards[it.topic] || { cards: [] };
+      var qt = (LD().manifest.quickTakes || {})[it.topic];
       root.innerHTML = head(it) +
         '<ol class="rv-cards">' + set.cards.map(function (c, i) {
           return '<li class="rv-card"><span class="rv-n" aria-hidden="true">' + (i + 1) + '</span><div>' +
@@ -3535,7 +3659,7 @@
       if (rb) rb.addEventListener('click', function () {
         if (recapAudio && !recapAudio.paused) { recapAudio.pause(); return; }
         if (!recapAudio) {
-          recapAudio = new Audio(audioUrl(qt.file, listenData));
+          recapAudio = new Audio(audioUrl(qt.file, LD()));
           recapAudio.addEventListener('play', function () { rb.querySelector('span').textContent = 'Pause the recap'; rb.querySelector('i').className = 'fa-solid fa-pause'; });
           recapAudio.addEventListener('pause', function () { rb.querySelector('span').textContent = 'Hear a quick recap'; rb.querySelector('i').className = 'fa-solid fa-volume-high'; });
           recapAudio.addEventListener('error', function () { rb.querySelector('span').textContent = 'Recap unavailable'; rb.disabled = true; });
@@ -3600,21 +3724,15 @@
   function listendoneInit(ctx) { ctx.setCoachSay(''); ctx.floatClose(); ctx.enableNext(); }
 
   // ---- Reviewer tools ------------------------------------------------------------
-  // Scenario switcher: the 8 listens (k2 normal/harder × f1 add-on × f3
-  // add-on) as Demo-menu values, and 0–2 missed knowledge checks.
-  var LISTEN_COMBOS = (function () {
-    var out = [];
-    [false, true].forEach(function (h) { [false, true].forEach(function (a) { [false, true].forEach(function (b) {
-      out.push({ value: (h ? 'H' : 'n') + (a ? 'A' : '-') + (b ? 'B' : '-'),
-        label: 'k2 ' + (h ? 'harder' : 'normal') + ' · f1 ' + (a ? '+ add-on' : 'normal') + ' · f3 ' + (b ? '+ add-on' : 'normal'),
-        results: { k1: { correct: false }, k2: { correct: h }, f1: { score: a ? 2 : 5 }, f3: { score: b ? 2 : 5 } } });
-    }); }); });
-    return out;
-  })();
+  // Scenario switcher: the listens the pre-check can build, as Demo-menu
+  // values — K1 tested out or not — and 0–1 missed knowledge checks.
+  var LISTEN_COMBOS = [
+    { value: 'n', label: 'K1 not tested out · full listen', results: { k1: { correct: false }, f1: { score: 3 }, f2: { score: 3 } } },
+    { value: 'T', label: 'K1 tested out · K1 part skipped', results: { k1: { correct: true }, f1: { score: 3 }, f2: { score: 3 } } }
+  ];
   function listenComboNow() {
-    var r = listenResults(), cfg = listenData && listenData.config.triggers || {};
-    var h = ruleHolds((cfg.harder || {}).k2, r), a = ruleHolds((cfg.reinforce || {}).f1, r), b = ruleHolds((cfg.reinforce || {}).f3, r);
-    return (h ? 'H' : 'n') + (a ? 'A' : '-') + (b ? 'B' : '-');
+    var r = listenResults(), cfg = LD() && LD().config.triggers || {};
+    return ruleHolds((cfg.testOut || {}).k1, r) ? 'T' : 'n';
   }
   var LISTEN_RESULT_KEYS = ['k1check', 'k2check', 'insight', 'f1post', 'f3post', 'k1recheck', 'k2recheck', 'podcheck', 'podcast', 'podpos'];
   function setListenCombo(v) {
@@ -3625,8 +3743,8 @@
     LE.goTo('podcast');
   }
   function setListenMisses(v) {
-    if (!listenData) return;
-    var miss = v === 'k1' ? ['k1'] : v === 'k1k2' ? ['k1', 'k2'] : [];
+    if (!LD()) return;
+    var miss = v === 'k1' ? ['k1'] : [];
     ['k1recheck', 'k2recheck'].forEach(function (k) { saveResult(k, null); });
     podcheckItems().forEach(function (it) {
       var q = it.q;
@@ -7829,7 +7947,7 @@
       noCoach: true, coach: { say: '' },
       get mins() { return listenMinutes() || 8; },
       when: function () { return podcastPath(); },
-      get caption() { return { title: 'LEARN · The listen (Listen mode, recorded audio 2026-10-01)', note: 'Assembled from the audio manifest (assets/audio/sharps/listenModeAudio/manifest.json) by the rules in data/sharps-listen/config.json, from the pre-check answers as they stood when Listen mode was chosen. Rendered on an OfflineAudioContext (sample-accurate joins, ' + ((listenData && listenData.manifest.spliceFadeMs) || 25) + ' ms ramps), played through one audio element. Captions are aligned from the transcripts to the files\u2019 pauses (tools/listen-mode/build.py) — close, not word-perfect. Why each part is here: ' + listenTrace() + '. Demo → Listen combination / Missed checks / Splice test.' }; },
+      get caption() { return { title: 'LEARN · The listen (Listen mode, studio prototype packages 2026-10-14)', note: 'Assembled from the sector\u2019s audio package (config.sectors \u2192 assets/audio/sharps/listenModeAudio-<sector>/manifest.json) by the rules in data/sharps-listen/config.json, from the pre-check answers as they stood when Listen mode was chosen. Rendered on an OfflineAudioContext (sample-accurate joins, ' + ((LD() && LD().manifest.spliceFadeMs) || 25) + ' ms ramps), played through one audio element. Captions are aligned from the transcripts to the files\u2019 pauses (tools/listen-mode/build.py) — close, not word-perfect. Why each part is here: ' + listenTrace() + '. Demo → Listen combination / Missed checks / Splice test.' }; },
       content: EPISODE_CONTENT, init: episodeInit },
     { id: 'podcheck', icon: 'fa-list-check', stage: 'Check', lesson: 'Questions', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' },
@@ -7840,7 +7958,7 @@
     { id: 'listenreview', icon: 'fa-rotate', stage: 'Check', lesson: 'Review', mode: 'floating', gate: true,
       noCoach: true, coach: { say: '' }, mins: 2, adaptive: true, variant: 'Review set',
       when: function () { return podcastPath() && listenMissed().length > 0; },
-      get caption() { return { title: 'CHECK · Review set (Listen mode)', note: 'Only for missed KNOWLEDGE questions (config.checks role "knowledge"; belief misses get no review yet — LISTEN_FEEL_HOOK). Per topic: fact cards from data/sharps-listen/review/<topic>.json (placeholder: the deck\u2019s own remedial narration, verbatim), an optional recap (the manifest\u2019s quickTakes, plays only when pressed), then one retry of the same question (config.review.retries), saved under the topic\u2019s retryKey. Here because: ' + (listenData ? listenMissed().map(function (it) { return it.topic + ' question missed'; }).join(', ') : '\u2026') + '.' }; },
+      get caption() { return { title: 'CHECK · Review set (Listen mode)', note: 'Only for missed KNOWLEDGE questions (config.checks role "knowledge"; belief misses get no review yet — LISTEN_FEEL_HOOK). Per topic: fact cards from data/sharps-listen/review/<topic>.json (placeholder: the deck\u2019s own remedial narration, verbatim), an optional recap (the manifest\u2019s quickTakes, plays only when pressed), then one retry of the same question (config.review.retries), saved under the topic\u2019s retryKey. Here because: ' + (LD() ? listenMissed().map(function (it) { return it.topic + ' question missed'; }).join(', ') : '\u2026') + '.' }; },
       content: REVIEW_CONTENT, init: reviewInit },
     { id: 'listendone', icon: 'fa-flag-checkered', stage: 'Check', lesson: 'Listen mode complete', mode: 'floating',
       noCoach: true, coach: { say: '' }, mins: 0, nextLabel: 'Start the scenario',
@@ -8122,23 +8240,26 @@
     }, {
       // Listen mode reviewer tools (see Reviewer tools, LISTEN MODE).
       id: 'shListenComboBtn', icon: 'fa-shuffle', name: 'Listen combination',
-      note: 'Any of the 8 listens (k2 normal or harder, f1 and f3 with or without their add-on). Restarts the listen from the top',
+      note: 'The listens the pre-check can build (K1 tested out or not). Restarts the listen from the top',
       visibleOn: function (step) { return ['podcast', 'podcheck', 'listenreview', 'listendone'].indexOf(step.id) > -1; },
-      type: 'select', value: function () { return listenData ? listenComboNow() : 'n--'; },
+      type: 'select', value: function () { return LD() ? listenComboNow() : 'n'; },
       options: LISTEN_COMBOS.map(function (c) { return { value: c.value, label: c.label }; }),
       onChange: function (v) { setListenCombo(v); }
     }, {
       id: 'shListenMissBtn', icon: 'fa-circle-xmark', name: 'Missed checks',
-      note: 'Answer the listen\u2019s questions for you, missing 0, 1 or 2 knowledge questions, then go to the review set (or past it)',
+      note: 'Answer the listen\u2019s questions for you, missing 0 or 1 knowledge questions, then go to the review set (or past it)',
       visibleOn: function (step) { return ['podcast', 'podcheck', 'listenreview', 'listendone'].indexOf(step.id) > -1; },
       type: 'select', value: function () { return 'pick'; },
       options: [ { value: 'pick', label: 'Choose\u2026' }, { value: 'none', label: 'None missed' },
-                 { value: 'k1', label: 'k1 missed' }, { value: 'k1k2', label: 'k1 and k2 missed' } ],
+                 { value: 'k1', label: 'k1 missed' } ],
       onChange: function (v) { if (v !== 'pick') setListenMisses(v); }
     }, {
       id: 'shSpliceBtn', icon: 'fa-scissors', name: 'Splice test',
-      note: 'Hear about 8 s either side of each add-on join (f1, f3), nudge seamAt, and copy the value back into the manifest',
-      visibleOn: function (step) { return step.id === 'podcast'; },
+      note: 'Hear about 8 s either side of an add-on join, nudge seamAt, and copy the value back into the manifest (only for a package that has add-ons)',
+      visibleOn: function (step) {
+        var d = LD();
+        return step.id === 'podcast' && !!d && Object.keys(d.manifest.topics).some(function (t) { return d.manifest.topics[t].addon; });
+      },
       onClick: function (api) { spliceTest(api); }
     }, {
       // The learner's saved mode preference (see THE OFFER) — a profile
