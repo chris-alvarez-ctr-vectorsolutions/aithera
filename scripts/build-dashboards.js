@@ -14,7 +14,13 @@
                         also what the landing page renders, so cards and dashboards
                         always agree.
      • Dev handoffs   — set `devHandoff` automatically when a dev_handoff.html
-                        exists in a folder mock (cleared when removed).
+                        exists in a folder mock (cleared when removed), plus a
+                        `handoff` record: when it was handed off (the commit
+                        that added the file), when it was last re-synced, and
+                        which version (the file's DEV-HANDOFF marker). The card
+                        uses it for "Changed since handoff". Nothing locks.
+     • Review doc     — `reviewDoc` when a mock-definition.md sits at the
+                        feature root (In Review / Ready for Dev cards link it).
      • Recent activity — rebuilt from `git log` (date + path + commit subject).
 
    meta.json is fully derived — DO NOT hand-edit it. To add/rename/retitle a
@@ -81,6 +87,114 @@ function detectDevHandoff(productDir, rel) {
   const dir = rel === '.' ? productDir : path.join(productDir, rel);
   const candidate = 'dev_handoff.html';
   return fs.existsSync(path.join(dir, candidate)) ? true : null;
+}
+
+// Handoff record for a dev build. A handoff is a timestamped checkpoint, not a
+// lock: the date comes from git (the most recent commit that ADDED the file, so
+// a delete + re-add counts as a fresh handoff), `syncedAt` is the last commit
+// that touched it (a re-sync after a post-handoff fix), and the version comes
+// from the `<!-- DEV-HANDOFF version="ver1" label="V1" -->` marker the ux-wrapup
+// skill writes into the build. Older builds have no marker; the card then just
+// omits the version.
+function gitDate(args) {
+  try {
+    const out = execFileSync('git', args, { cwd: REPO_ROOT, encoding: 'utf8' }).trim();
+    return out.split('\n')[0] || null;
+  } catch { return null; }
+}
+function detectHandoff(productDir, rel) {
+  const file = path.join(productDir, rel === '.' ? '' : rel, 'dev_handoff.html');
+  const relPath = path.relative(REPO_ROOT, file);
+  const rec = {};
+  const at = gitDate(['log', '--diff-filter=A', '-n', '1', '--date=iso-strict', '--format=%ad', '--', relPath]);
+  const synced = gitDate(['log', '-n', '1', '--date=iso-strict', '--format=%ad', '--', relPath]);
+  if (at) rec.at = at;
+  if (synced && synced !== at) rec.syncedAt = synced;
+  try {
+    const head = fs.readFileSync(file, 'utf8').slice(0, 4000);
+    const m = head.match(/<!--\s*DEV-HANDOFF\b([^>]*)-->/i);
+    if (m) {
+      const v = m[1].match(/version\s*=\s*"([^"]+)"/i);
+      const l = m[1].match(/label\s*=\s*"([^"]+)"/i);
+      if (v) rec.version = v[1];
+      if (l) rec.label = l[1];
+    }
+  } catch { /* unreadable — leave the version off */ }
+
+  // Every commit to the mock after the handoff, read from the mock's OWN git
+  // history (the product-wide recentChanges window is capped and can end
+  // before an older handoff). Also flag when a design file moved past the dev
+  // build's last sync: docs and the dev build don't count, and when the marker
+  // names a version only that version's folder does — a new spun-off version
+  // doesn't make the handed-off build stale.
+  if (rec.at) {
+    const featureRel = path.relative(REPO_ROOT, path.dirname(file));
+    const atMs = Date.parse(rec.at);
+    const syncMs = Date.parse(rec.syncedAt || rec.at);
+    // No marker (builds from before it existed): infer the version from the
+    // verN/ folder committed alongside the dev build's latest sync. If that
+    // isn't unambiguous, skip the "behind" warning rather than risk a false one.
+    let ver = rec.version || null;
+    if (!ver) {
+      try {
+        const files = execFileSync('git', ['log', '-n', '1', '--format=', '--name-only', '--', relPath],
+          { cwd: REPO_ROOT, encoding: 'utf8' }).split('\n').map(f => f.trim()).filter(Boolean);
+        const vers = [...new Set(files
+          .filter(f => f.startsWith(featureRel + '/'))
+          .map(f => f.slice(featureRel.length + 1).split('/'))
+          .filter(parts => parts.length > 1 && /^ver[\w.-]*$/i.test(parts[0]))
+          .map(parts => parts[0]))];
+        if (vers.length === 1) ver = vers[0];
+      } catch { /* leave it unknown */ }
+    }
+    if (!ver) {
+      // A feature with exactly one version was necessarily handed off from it.
+      try {
+        const list = JSON.parse(fs.readFileSync(path.join(path.dirname(file), 'versions.json'), 'utf8'));
+        if (Array.isArray(list) && list.length === 1 && list[0].path) {
+          const seg = String(list[0].path).split('/')[0];
+          if (seg && seg !== list[0].path) ver = seg;
+        }
+      } catch { /* no versions.json */ }
+    }
+    const hasVersions = fs.existsSync(path.join(path.dirname(file), 'versions.json'));
+    const verPrefix = ver ? `${featureRel}/${ver}/` : null;
+    const isDoc = f => /(^|\/)(dev_handoff[^/]*\.html|[^/]*\.md|versions\.json)$/i.test(f);
+    let out = '';
+    try {
+      out = execFileSync('git', ['log', '--no-merges', '--date=iso-strict',
+        `--pretty=format:${SEP_REC}%ad${SEP_FLD}%s`, '--name-status', '-M', '--', featureRel],
+        { cwd: REPO_ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    } catch { /* no history — leave the list off */ }
+    const changes = [];
+    let behind = false;
+    for (const r of out.split(SEP_REC).map(x => x.trim()).filter(Boolean)) {
+      const nl = r.indexOf('\n');
+      const [date, subject] = (nl === -1 ? r : r.slice(0, nl)).split(SEP_FLD);
+      const ms = Date.parse(date);
+      if (!(ms > atMs)) continue;
+      const subj = (subject || '').trim();
+      if (/^chore\(dashboards\)/i.test(subj) || /\[skip ci\]/i.test(subj)) continue;
+      // --name-status lines: "M\tpath", "A\tpath", "R087\told\tnew". Only an
+      // EDIT to an existing design file means the dev build is behind: added
+      // files (a restructure copying the design into verN/) and pure moves
+      // (R100) don't change what devs are building.
+      const files = (nl === -1 ? '' : r.slice(nl + 1)).split('\n').map(f => f.trim()).filter(Boolean)
+        .map(l => l.split('\t'))
+        .filter(parts => parts.length > 1 && (parts[0] === 'M' || (/^R\d+$/.test(parts[0]) && parts[0] !== 'R100')))
+        .map(parts => parts[parts.length - 1]);
+      changes.push({ date, summary: subj });
+      // Versioned feature with an unknown handed-off version: can't tell which
+      // edits matter, so don't warn. Unversioned (single-file) features: any
+      // design edit counts.
+      if (ms > syncMs && (verPrefix || !hasVersions) &&
+          files.some(f => !isDoc(f) && (verPrefix ? f.startsWith(verPrefix) : true))) behind = true;
+    }
+    rec.changes = changes.slice(0, 50);
+    if (changes.length > rec.changes.length) rec.changesTotal = changes.length;
+    if (behind) rec.behind = true;
+  }
+  return Object.keys(rec).length ? rec : null;
 }
 
 // A card must NEVER point at the product's own dashboard. The dashboard app
@@ -211,7 +325,17 @@ function buildProduct(product, jiraBase) {
 
     // Auto-manage devHandoff from the file actually present on disk.
     const dev = detectDevHandoff(productDir, it.rel);
-    if (dev) entry.devHandoff = dev;
+    if (dev) {
+      entry.devHandoff = dev;
+      const handoff = detectHandoff(productDir, it.rel);
+      if (handoff) entry.handoff = handoff;
+    }
+
+    // Review/build brief written by the ux-wrapup skill at the feature root.
+    if (!it.rel.endsWith('.html') &&
+        fs.existsSync(path.join(productDir, it.rel === '.' ? '' : it.rel, 'mock-definition.md'))) {
+      entry.reviewDoc = 'mock-definition.md';
+    }
 
     mocks[it.rel] = entry;
   }

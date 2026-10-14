@@ -1,17 +1,20 @@
 ---
 name: ux-wrapup
 description: >
-  Use to WRAP UP a completed mock in this ux-mockups repo and hand it off to the
-  dev team. This is the single skill for the whole "the mock is done" phase — it
-  reconciles the mock against its PRD (finding requirements the mock missed,
-  things built that the PRD never specified, and edge cases missing from both),
-  conditionally confirms Vector Web Component usage, writes a mock-definition.md
-  build brief, refreshes the flow map's DEV-NOTES.md, and produces the
-  dev_handoff.html build. Trigger on "wrap up this mock", "the mockup is
-  complete", "this is ready for dev", "ready for handoff", "it's dev-handoff
-  time", "hand this off", "reconcile this against the PRD", "generate the mock
-  definition", or any request to finalize/hand off a finished prototype. It reads
-  and reports — it never rewrites the design. Do NOT use for building or editing a
+  Use to REVIEW, WRAP UP, or hand off a mock in this ux-mockups repo, and to make
+  a change to a mock that was already handed off. This is the single skill for
+  the whole "the mock is nearly done / done" phase: In Review (reconcile the mock
+  against its PRD — requirements the mock missed, things built that the PRD never
+  specified, claims the mock makes that the PRD doesn't support, and edge cases
+  missing from both — and write mock-definition.md, no dev build), Ready for Dev
+  (all of that plus DEV-NOTES.md and the dev_handoff.html build), and post-handoff
+  changes (nothing locks; changes are timestamped against the handoff). Trigger on
+  "put this in review", "move this to review", "review stage", "check this against
+  the PRD", "catch anything that doesn't match the PRD", "wrap up this mock", "the
+  mockup is complete", "this is ready for dev", "ready for handoff", "it's
+  dev-handoff time", "hand this off", "reconcile this against the PRD", "generate
+  the mock definition", or any request to change a mock whose card is Ready for
+  Dev. It reads and reports — it never rewrites the design. Do NOT use for building or editing a
   mock (that's normal design work) or for auditing components on their own (that's
   audit-mock-vwc).
 ---
@@ -51,6 +54,102 @@ confirmation section (Phase 3). It only writes a standalone
 `mock-definition.md` is the new entry point; `DEV-NOTES.md` is the per-screen
 detail layer the flow map needs (see Phase 5 — its filename and section format
 are a hard contract, don't rename it).
+
+## Three stages — nothing locks
+
+| Stage | Dashboard pill | What puts the card there | What this skill does |
+|---|---|---|---|
+| In progress | In Progress | the default — nothing set | nothing; this is normal design work |
+| In review | In Review | `"status": "in-review"` on the mock's item in `products.json` | **Review mode** — Phases 0–5, no dev build |
+| Ready for dev | Ready for Dev | a `dev_handoff.html` at the feature root (the file flips the card) | **Handoff mode** — every phase |
+
+**None of these stages locks the mock.** Designers keep iterating during review
+and after handoff. What changes from stage to stage is how carefully a change is
+written down. In review, findings land in `mock-definition.md`. After handoff,
+every change is timestamped against the handoff date, and the dashboard card
+lists them so developers can see what moved (see **After handoff** below).
+
+## Review mode — "put this in review", "check it against the PRD"
+
+The mock is close to done but not handed off. Review is the chance to catch
+mistakes before developers see them. That includes anything Claude wrote into
+the mock that sounds authoritative but the PRD never said: a threshold, a
+formula, a rule in a tooltip, a filter quietly dropped in an earlier iteration.
+
+Run Phases 0–5 below with these differences:
+
+1. **Phase 0 (version).** With more than one version, ask which is the review
+   candidate. If the versions differ only in demo data (a populated vs. empty
+   state, say), don't ask: review the first and note the others in the Summary.
+   Nothing is pruned at review; every version stays.
+2. **Phase 0.5 (legacy fold): skip.** Flat mocks are folded only at handoff. For a
+   flat mock, write the review doc beside the file as
+   `<file-stem>.mock-definition.md`.
+3. **Phase 2 (reconcile): run all four passes**, including **Claims to verify**.
+   That pass is the main reason review exists.
+4. **Phase 4 (`mock-definition.md`):** set `**Stage**: In review` and
+   `**Reviewed**: <date>`; leave `**Handed off**: not yet`.
+5. **Phase 5 (`DEV-NOTES.md`):** draft it at the feature root, where the dev
+   build will read it. It stays hidden on the design build, so a draft is
+   harmless and saves work at handoff.
+6. **Skip Phase 6.** No dev build at review.
+7. **Set the stage.** Add `"status": "in-review"` to the mock's item in
+   `products.json` and bump its `modified` date. Commit and push (see Phase 8).
+8. **Report in chat:** the count of findings per pass, the few that matter most
+   (missed requirements and claims that contradict the PRD first), and the
+   GitHub link to `mock-definition.md`. Say plainly that nothing is locked.
+
+Review mode still never edits the design. If the designer then asks to fix
+findings, that is normal design work. Afterwards, re-check the affected rows and
+update `mock-definition.md` so it stays true.
+
+## Handoff mode — "ready for dev"
+
+Run every phase. If the mock already went through review (a
+`mock-definition.md` with `**Stage**: In review` exists), don't start over:
+
+- Read it, then list what changed since the review date with
+  `git log --since=<Reviewed date> --oneline -- <feature folder>`. Re-verify the
+  rows those commits touch, plus every row still marked ❌ or ⚠️.
+- Set `**Stage**: Ready for dev` and `**Handed off**: <date> from <version label>`,
+  and add the first row of the **Handoff log**.
+- Remove `"status": "in-review"` from the item in `products.json`. The dev build
+  flips the card on its own. The dashboard also shows Ready for Dev when a dev
+  build exists and `in-review` was left behind, but clean it up anyway.
+
+## After handoff — changes are welcome, and they get timestamped
+
+A handoff is a **timestamped checkpoint, not a lock**. The dashboard reads the
+handoff date from git (the commit that added `dev_handoff.html`) and the version
+from the build's `DEV-HANDOFF` marker (Phase 6). It then lists every later
+commit to the mock under **Changed since handoff** on the card. When the
+handed-off version file changes after the dev build was last re-synced, the card
+also warns that the dev build is behind the design.
+
+When a designer asks to change a mock whose card is Ready for Dev (a
+`dev_handoff.html` sits at its feature root):
+
+1. **Say so first, in one line**: "This was handed off to dev on <date> from
+   <version>. I'll log this as a post-handoff change." Read the date from the
+   Handoff log, or from `git log --diff-filter=A -1 --format=%ad --date=short -- <feature>/dev_handoff.html`.
+2. **Pick the path.** Ask only when it's genuinely unclear.
+   - **Small fix or polish** (copy, spacing, a missed empty state, a bug): edit
+     the handed-off version, then **re-sync the dev build** by repeating Phase 6
+     (re-copy; keep the marker). Devs see the fix on the same link.
+   - **A real change in behavior or scope** (a requirement, a flow, a data rule):
+     **spin off a new version** (`cp -r verN verN+1`, add it to `versions.json`)
+     and change that. The handed-off version and its dev build stay as the
+     reference devs are building against. Hand the new version off later with
+     this skill.
+3. **Log it.** Add a dated row to the Handoff log in `mock-definition.md`: what
+   changed, which version, whether the dev build was re-synced, whether devs
+   were told. If the change resolves or reopens a reconciliation row, update
+   that row too.
+4. **Write the commit subject as a changelog line.** It shows up verbatim under
+   Changed since handoff on the card.
+5. **Tell the designer to tell dev.** The card records the change but notifies
+   nobody. End with a short ready-to-paste Slack/Jira note: what changed, the
+   date, and the dev build link.
 
 ## Run these phases in order
 
@@ -161,6 +260,19 @@ catches a different, real failure mode:
    destructive-action confirmation.** These are the states developers otherwise
    discover in QA. *(Always runs, PRD or not.)*
 
+4. **Claims to verify (mistakes and hallucinations).** A mock built with Claude
+   can state things that read as settled but were never in the PRD. List every
+   factual claim the mock makes and check each one against the PRD text. Look in
+   visible copy, tooltips, info callouts, empty states, code comments that
+   describe a rule (thresholds, formulas, "per the PRD"), flow-map node
+   descriptions, `DEV-NOTES.md`, and the item's `desc` in `products.json`.
+   Mark each ✅ Matches (quote the PRD line), ❌ Contradicts (quote both), or
+   ⚠️ Not in PRD. Then skim `git log --oneline -- <feature folder>` for anything
+   the PRD requires that was **built and later removed** (a filter dropped after a
+   review call, say) and list it under Requirements missed, naming the commit that
+   removed it. *(No PRD: still list the claims, all as ⚠️, so the PM can confirm
+   them.)*
+
 Be specific and honest — a deliberate visual departure is fine, just name it as
 intentional rather than forcing it into a "gap."
 
@@ -198,11 +310,12 @@ PRD for "Vector", "VWC", "design system", or named components.
 
 Write it at the **feature root** (next to the loader `index.html`). Follow the
 template in `references/mock-definition-template.md` exactly — read that file now
-for the full structure. In brief: Summary · Reconciliation (Phase 2 — the
-three-way analysis, or Potential-gaps-only when no PRD was provided) · Behavior
+for the full structure. In brief: header (Stage · Reviewed · Handed off) ·
+Summary · Reconciliation (Phase 2 — all four passes, or Potential gaps + Claims
+to verify when no PRD was provided) · Behavior
 & data not visible in the mock · Component confirmation (Phase 3 — paste the
 embedded audit body here, not a link to a separate file) · Open questions ·
-Handoff notes (including the "do not ship the toolbox" warning).
+Handoff notes (including the "do not ship the toolbox" warning) · Handoff log.
 
 Keep it the cross-cutting brief; push per-screen specifics into `DEV-NOTES.md`
 (Phase 5) and reference it, rather than duplicating every element twice.
@@ -250,7 +363,18 @@ toolbox include changes from `../../../../designtoolbox/toolbox.js` to
 <script>window.TOOLBOX = { comments: false };</script>
 ```
 
-This **hides the entire comment feature** (the pin-and-comment widget *and* the
+Also add this marker as the line right after `<!DOCTYPE html>`, using the
+chosen version's folder name and label from `versions.json`:
+
+```html
+<!-- DEV-HANDOFF version="ver1" label="V1" -->
+```
+
+The dashboard reads it to name the handed-off version on the card and to tell
+when that version's file has moved past the dev build. Keep the marker when you
+re-sync the dev build after handoff.
+
+The `comments: false` line **hides the entire comment feature** (the pin-and-comment widget *and* the
 flow map's 💬 comment-count chips) while **keeping the flow map on** so developers
 still get the screens, live thumbnails, and dev-note annotations. Keep the mock's
 `applyFlowState` / `bootFromHash` so the flow map and thumbnails work. **Do not
@@ -273,15 +397,24 @@ collapse into a "Designer file" drawer. For a non-default filename like
 `dev_handoff_alpha.html`, set `devHandoff: "dev_handoff_alpha.html"` in the
 mock's `meta.json` entry.
 
+The card also shows when it was handed off (the date `dev_handoff.html` was
+first committed), the version from the `DEV-HANDOFF` marker, a **Changed since
+handoff** list of every later commit to the mock, and a warning when the
+handed-off version changed after the dev build was last re-synced. A link to
+`mock-definition.md` appears on In Review and Ready for Dev cards whenever the
+file exists.
+
 The dev-handoff file **drives the "Ready for Dev" status pill** — so either leave
 the mock's `status` unset in `meta.json` (the file alone flips it) or set
-`"status": "ready-for-dev"` explicitly. Don't leave a stale `status` like
-`"in-progress"` pinned, or the pill won't update.
+`"status": "ready-for-dev"` explicitly. Remove an `"in-review"` pin at handoff.
+Only `"archived"` still overrides a dev build.
 
 ### Phase 8 — Commit and share
 
-Commit the new files, then give the designer the dev build's **GitHub Pages URL**
-(the "Dev Page" link).
+Commit and push the new files, then give the designer the links. At handoff
+that is the dev build's **GitHub Pages URL** (the "Dev Page" link). At review it
+is the mock's Pages URL and the GitHub link to `mock-definition.md`. The
+dashboard picks up a `products.json` status change on push.
 
 ## Common mistakes
 
@@ -297,4 +430,9 @@ Commit the new files, then give the designer the dev build's **GitHub Pages URL*
 | Skipping `audit-mock-vwc` because there are no VWC tags | "No tags yet" ≠ "deliberately bespoke" — skip only on true intent to be custom (Phase 3) |
 | Editing the mock to "fix" findings | This skill reports only; the team decides what to change |
 | Inventing requirements when no PRD exists | Say the PRD is missing; do mock-only definition + Potential gaps only |
+| Treating review or handoff as a lock, or refusing a post-handoff edit | Nothing locks. Make the change, log it in the Handoff log, re-sync or spin off a version |
+| Editing a handed-off mock without saying so | Name the handoff date first, then log the change and give the designer a note for dev |
+| Skipping Claims to verify because the mock "looks right" | Hallucinated rules look right by design; check each claim against the PRD text |
+| Building `dev_handoff.html` during review | Review stops at Phase 5; the dev build is the handoff |
+| Leaving `"status": "in-review"` pinned after handoff | Remove it in Handoff mode |
 | Putting `dev_handoff.html` inside `verN/` | It must sit at the feature root beside the loader, or the dashboard won't detect it |

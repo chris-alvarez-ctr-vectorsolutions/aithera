@@ -342,16 +342,23 @@
     return 'In-progress prototype mock.';
   }
 
+  // Stages a mock moves through. None of them locks the mock: In Review means
+  // the PRD reconciliation has been run (mock-definition.md), Ready for Dev
+  // means a dev_handoff.html exists, and design can keep changing in both.
+  // In Review is set by hand ("status": "in-review" in products.json); Ready
+  // for Dev is flipped by the dev build file itself.
   const STATUS_LABELS = {
     'in-progress': 'In Progress',
+    'in-review': 'In Review',
     'ready-for-dev': 'Ready for Dev',
     'archived': 'Archived',
   };
   const DEFAULT_STATUS = 'in-progress';
-  const STATUS_ORDER = ['ready-for-dev', 'in-progress', 'archived'];
+  const STATUS_ORDER = ['ready-for-dev', 'in-review', 'in-progress', 'archived'];
   // Font Awesome icon per status — shown in the status pill instead of a dot.
   const STATUS_ICONS = {
     'in-progress': 'fa-pencil',
+    'in-review': 'fa-magnifying-glass',
     'ready-for-dev': 'fa-code',
     'archived': 'fa-box-archive',
   };
@@ -566,13 +573,23 @@
         // separator and is what the folder tree/selection state keys on.
         group: groupSegs ? groupSegs.join(' / ') : null,
         groupKey: groupSegs ? groupSegs.join(FOLDER_SEP) : null,
-        status: m.status || (devHandoff ? 'ready-for-dev' : DEFAULT_STATUS),
+        // A dev build means Ready for Dev even if an earlier in-progress /
+        // in-review pin was left in products.json; only Archived outranks it.
+        status: (devHandoff && m.status !== 'archived')
+          ? 'ready-for-dev'
+          : (m.status || DEFAULT_STATUS),
         blobUrl,
         pagesUrl,
         historyUrl: `${HISTORY_BASE}/${base}`,
         devHandoff,
         devBlobUrl: devHandoff ? `${REPO_BASE}/${base}/${devFileEnc}` : null,
         devPagesUrl: devHandoff ? `${PAGES_BASE}/${base}/${devFileEnc}` : null,
+        // Handoff checkpoint from build-dashboards.js: { at, syncedAt?, version?,
+        // label? }. Drives the "Handed off … / Changed since handoff" strip.
+        handoff: (devHandoff && m.handoff && m.handoff.at) ? m.handoff : null,
+        // mock-definition.md (PRD reconciliation / build brief) on GitHub.
+        reviewDocUrl: (!isFile && typeof m.reviewDoc === 'string' && m.reviewDoc)
+          ? `${REPO_BASE}/${base}/${m.reviewDoc.split('/').map(encodeURIComponent).join('/')}` : null,
         // Optional curated annotation shown inside the Designer Versions drawer
         // (e.g. "Blue sky UI design") — context for what the working file is.
         designerNote: (typeof m.designerNote === 'string' && m.designerNote.trim()) ? m.designerNote.trim() : null,
@@ -1608,7 +1625,7 @@
   }
 
   function buildCard(mock, idx, showFolder) {
-    const { title, ticket, ticketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks } = mock;
+    const { title, ticket, ticketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks, reviewDocUrl } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
     let ticketHtml = '';
@@ -1662,6 +1679,14 @@
       // Pages preview only — the GitHub source link appears at the dev handoff.
       boxHtml = `<div class="url-list">${designPages}</div>`;
     }
+
+    // Review notes: the PRD reconciliation / build brief (mock-definition.md),
+    // shown once a mock is In Review or Ready for Dev and the file exists.
+    const reviewBox = (reviewDocUrl && (status === 'in-review' || status === 'ready-for-dev'))
+      ? `<div class="url-list url-list--review">${urlRow('fa-solid fa-clipboard-check', status === 'ready-for-dev' ? 'Build brief' : 'PRD check', reviewDocUrl, 'url-row--review')}</div>`
+      : '';
+
+    const handoffHtml = devHandoff ? handoffStrip(mock) : '';
 
     // Extra curated links (rare) — their own click-to-copy / Open rows.
     const extras = extraLinks || [];
@@ -1746,10 +1771,57 @@
       </div>
       <p class="card-description">${escapeHtml(description)}</p>
       ${boxHtml}
+      ${handoffHtml}
+      ${reviewBox}
       ${extraBox}
       ${logHtml}
     `;
     return card;
+  }
+
+  // ----------------------------------------------------------------------
+  // Handoff strip (Ready for Dev cards)
+  // ----------------------------------------------------------------------
+  // A handoff is a timestamped checkpoint, not a lock. The strip says when the
+  // mock was handed off and from which version, lists every commit to the mock
+  // since then, and warns when the handed-off version changed after the dev
+  // build was last re-synced (so devs know the build is behind the design).
+  function handoffStrip(mock) {
+    const h = mock.handoff;
+    if (!h) return '';
+    const ver = h.label || h.version;
+    // build-dashboards.js reads the mock's own git history for these, so the
+    // list is complete even when the handoff predates the product log window.
+    const since = Array.isArray(h.changes) ? h.changes : [];
+    const total = h.changesTotal || since.length;
+    const head = `
+        <div class="handoff-head">
+          <i class="fa-solid fa-flag-checkered"></i>
+          <span>Handed off <b>${escapeHtml(formatDate(h.at))}</b>${ver ? ` from <b>${escapeHtml(ver)}</b>` : ''}</span>
+          ${h.syncedAt ? `<span class="handoff-synced" title="Last time the dev build was re-copied from the design">· dev build synced ${escapeHtml(formatDate(h.syncedAt))}</span>` : ''}
+        </div>`;
+    const behind = h.behind
+      ? `
+        <div class="handoff-behind"><i class="fa-solid fa-triangle-exclamation"></i>
+          The design changed after the dev build was last synced (${escapeHtml(formatDate(h.syncedAt || h.at))}). Re-sync the dev build or spin off a new version, and tell dev.</div>`
+      : '';
+    let list;
+    if (!since.length) {
+      list = `<div class="handoff-none">No changes since handoff.</div>`;
+    } else {
+      list = `
+        <details class="handoff-changes">
+          <summary><i class="fa-solid fa-chevron-right drawer-chevron"></i> ${total} change${total === 1 ? '' : 's'} since handoff</summary>
+          <ul class="log-list">${since.map(e => `
+            <li class="log-item">
+              <span class="log-date">${escapeHtml(formatDate(e.date))}</span>
+              <span class="log-summary">${escapeHtml(e.summary || '')}</span>
+            </li>`).join('')}
+          </ul>${total > since.length ? `
+          <a class="log-full-btn" href="${escapeHtml(mock.historyUrl)}" target="_blank" rel="noopener">All ${total} on GitHub <i class="fa-brands fa-github"></i></a>` : ''}
+        </details>`;
+    }
+    return `<div class="handoff-strip${since.length ? ' handoff-strip--changed' : ''}">${head}${behind}${list}</div>`;
   }
 
   // ----------------------------------------------------------------------
@@ -1795,6 +1867,7 @@
       const oldest = m.changes.length ? parseDate(m.changes[m.changes.length - 1].date) : null;
       m.recentlyUpdated = !!newest && (now - newest.getTime()) <= WINDOW_MS;
       m.isNew = m.recentlyUpdated && !!oldest && (now - oldest.getTime()) <= WINDOW_MS;
+
     });
   }
 
@@ -2337,6 +2410,7 @@
       .status-badge[data-status="in-progress"]   { background: #fef3c7; color: #92400e; }
       .status-badge[data-status="archived"]      { background: #f4f4f5; color: #52525b; }
       .status-badge[data-status="ready-for-dev"] { background: #cffafe; color: #155e75; }
+      .status-badge[data-status="in-review"]     { background: #dbeafe; color: #1e40af; }
       /* ── Folder tabs ─────────────────────────────────────────────────────
          Curated folder groups render as file-folder-style tabs INSIDE the
          header, bottom-aligned on the description line: a "Main" tab
@@ -2785,6 +2859,40 @@
       .url-row--dev .url-open { background: #0891b2; }
       .url-row--dev .url-open:hover { background: #0e7490; }
 
+      /* Review notes box (mock-definition.md): blue tint matching In Review. */
+      .url-list--review { background: #eff6ff; border-color: #bfdbfe; }
+      .url-row--review .url-label { color: #1e40af; }
+      .url-row--review .url-copy { border-color: #bfdbfe; }
+      .url-row--review .url-copy:hover { border-color: #3b82f6; color: #1e40af; }
+      .url-row--review .url-open { background: #2563eb; }
+      .url-row--review .url-open:hover { background: #1e40af; }
+
+      /* Handoff strip: when it was handed off + what changed since. */
+      .handoff-strip {
+        margin-top: 10px; border: 1px solid var(--border); border-radius: 8px;
+        padding: 8px 10px; background: #fff; font-size: 12px; color: var(--text-soft);
+        display: flex; flex-direction: column; gap: 6px;
+      }
+      .handoff-strip--changed { border-color: #fcd34d; background: #fffbeb; }
+      .handoff-head { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+      .handoff-head .fa-flag-checkered { color: #0e7490; font-size: 11px; }
+      .handoff-head b { color: var(--text); font-weight: 600; }
+      .handoff-synced { color: var(--text-muted); }
+      .handoff-none { color: var(--text-muted); font-style: italic; }
+      .handoff-behind {
+        display: flex; gap: 7px; align-items: flex-start; line-height: 1.4;
+        color: #92400e; background: #fef3c7; border-radius: 6px; padding: 6px 8px;
+      }
+      .handoff-behind i { margin-top: 2px; font-size: 11px; }
+      .handoff-changes > summary {
+        list-style: none; cursor: pointer; display: flex; align-items: center; gap: 7px;
+        font-family: var(--display); font-weight: 700; font-size: 11px; text-transform: uppercase;
+        letter-spacing: 0.5px; color: #92400e; user-select: none;
+      }
+      .handoff-changes > summary::-webkit-details-marker { display: none; }
+      .handoff-changes[open] > summary .drawer-chevron { transform: rotate(90deg); }
+      .handoff-changes .log-list { margin-top: 6px; }
+
       /* Designer working-file box — its own separate container below the dev
          box. The drawer inside is borderless so the box provides the one frame.
          Tight vertical padding keeps the collapsed box short (it's a secondary
@@ -2919,11 +3027,13 @@
       .filter-chip[data-status="in-progress"][data-active="true"] { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
       .filter-chip[data-status="archived"][data-active="true"]    { border-color: #a1a1aa; background: #f4f4f5; color: #52525b; }
       .filter-chip[data-status="ready-for-dev"][data-active="true"] { border-color: #06b6d4; background: #cffafe; color: #155e75; }
+      .filter-chip[data-status="in-review"][data-active="true"]     { border-color: #3b82f6; background: #dbeafe; color: #1e40af; }
 
       .filter-chip .chip-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
       .filter-chip[data-status="in-progress"] .chip-dot { background: #f59e0b; }
       .filter-chip[data-status="archived"] .chip-dot    { background: #a1a1aa; }
       .filter-chip[data-status="ready-for-dev"] .chip-dot { background: #06b6d4; }
+      .filter-chip[data-status="in-review"] .chip-dot { background: #3b82f6; }
 
       /* View switcher — icon buttons that flip between the card and list layouts. */
       /* Sort dropdown — sits with the view switcher on the right of the toolbar. */

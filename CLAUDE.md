@@ -132,7 +132,7 @@ products/<Product>/<feature>/
      "jira": "TICKET-123", "status": "in-progress" }
    ```
 
-   `jira` and `status` are optional. Valid statuses: `ready-for-dev`, `in-progress` (the default), `archived`.
+   `jira` and `status` are optional. Valid statuses: `in-progress` (the default), `in-review` (set by the `ux-wrapup` skill's review mode), `ready-for-dev` (normally set by the dev build file itself, not by hand), `archived`.
 
    **Folder groups are a first-class dashboard experience — use them deliberately.** Wrapping items in `{ "folder": "Group Name", "items": [ … ] }` makes that group render as a real **folder in the product dashboard**: an entry in the left "Folders" rail with per-status pill counts, selectable as a scope, and **favoritable** (designers can star folders to pin them; saved per browser). **Folders nest to any depth** — a `folder` group's `items` may contain further `folder` groups, rendered as a collapsible tree in the rail; selecting a parent scopes to its whole subtree and the content column shows a breadcrumb of the active path. To put a mock in a nested folder, just nest the groups in `products.json` — nothing else to wire up:
 
@@ -171,9 +171,11 @@ So a card link never stays dead. Two things automation still cannot do, so handl
 
 ## Dev Handoff / Wrap-Up
 
-When a designer says the mock is done — *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill.
+When a designer says the mock is nearly done or done — *"put this in review,"* *"check it against the PRD,"* *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill. Use it too when a designer asks to **change a mock whose card is Ready for Dev**.
 
-**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the three-way reconciliation, the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
+**Three stages, nothing locks.** In Progress → **In Review** (PRD reconciliation written down in `mock-definition.md`, including a check for claims the mock makes that the PRD doesn't support; no dev build) → **Ready for Dev** (the dev build exists). Design keeps changing in every stage. After handoff, the dashboard card shows the handoff date, lists every later commit under "Changed since handoff," and warns when the dev build is behind the design. A post-handoff change is named as one, logged in `mock-definition.md`, and either re-synced into the dev build or spun off as a new version. The skill holds the steps.
+
+**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the reconciliation (including the claims check), the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
 
 Two consequences worth knowing before the handoff starts, because they change what you do *during* design:
 
