@@ -287,12 +287,7 @@
       ${col(160, 1, 'Thin glove')}${col(450, 2, 'Thick glove')}${col(740, 4, 'Heavy-duty glove')}</svg>`;
   };
 
-  /* ---- plan-card container (Q01) ---------------------------------------------------------------- */
-  const planIcon = () => `<svg viewBox="0 0 640 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><rect width="640" height="200" fill="#16233f"/><rect y="150" width="640" height="50" fill="#0f1830"/>
-      <use href="#bin" x="270" y="26" width="76" height="98"/><path d="M262 62h92" stroke="#fff" stroke-opacity=".7" stroke-width="2" stroke-dasharray="6 5"/><text x="366" y="66" font-family="Open Sans,sans-serif" font-size="12" font-weight="700" fill="#ffd0d5">marked fill line</text>
-      <text x="320" y="176" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="13" fill="#aab6cc">Your site’s container and its fill marking</text></svg>`;
-
-  window.ART = { defsHTML, room, figure, collection, workspace, instr, anatomy, fill, fillTall, decD1, decD3, hero, photo, syringe, sheathScene, sheathStill, glassStrip, planIcon, gloves };
+  window.ART = { defsHTML, room, figure, collection, workspace, instr, anatomy, fill, fillTall, decD1, decD3, hero, photo, syringe, sheathScene, sheathStill, glassStrip, gloves };
   const defs = document.querySelector('#artdefs defs');
   if (defs) defs.innerHTML = defsHTML;
 })();

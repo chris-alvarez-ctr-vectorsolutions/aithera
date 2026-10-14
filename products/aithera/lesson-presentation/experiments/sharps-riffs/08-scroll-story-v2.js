@@ -40,7 +40,6 @@
   $('#gloveFig').innerHTML = ART.gloves();
   $('#p5').innerHTML = '<span class="atag">P05 · generic diagram</span>' + ART.sheathStill(false, '', true);
   $('#p6').innerHTML = '<span class="atag">P06 · generic diagram</span>' + ART.sheathStill(true, '', true);
-  $('#q01').insertAdjacentHTML('beforeend', ART.planIcon());
   $('#stageI').insertAdjacentHTML('afterbegin', ART.instr());
   $('#stageK').insertAdjacentHTML('afterbegin', ART.anatomy());
 
@@ -217,6 +216,7 @@
   /* practice mode: one situation at a time. Back and Next are the only navigation; nothing about the
      answers is scored. The rest of the article opens once every situation has a response. */
   const decEls = $$('.dec'), answered = new Set();
+  let cur = 0, unlocked = false;
   /* the pane sits in the middle of the screen while it's pinned; the spacer below it gives the page enough
      length to keep it pinned until the learner is done (and collapses once they are) */
   const stage = $('#prStage'), runEl = $('#prRun');
@@ -234,13 +234,12 @@
     head.style.opacity = (1 - gone).toFixed(2);
   };
   addEventListener('scroll', fadeHead, { passive: true }); fadeHead();
-  let cur = 0, unlocked = false;
   const unlock = (scroll) => {
     if (unlocked) return; unlocked = true;
     const rest = $('#afterGate'); rest.hidden = false; rest.classList.add('opening');
+    $('#gate').hidden = true; $('#prHint').hidden = true;
     document.body.classList.remove('locked');
     pinLayout(true);
-    $('#gate').hidden = true; $('#prHint').hidden = true;
     watchRv(); centreCards();
     if (scroll) setTimeout(() => $('#s8').scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' }), 450);
   };
@@ -269,11 +268,6 @@
   })));
   $('#gateSkip').addEventListener('click', () => unlock(true));   // review shortcut, only visible with review marks on
   paintGate(); showDec(0); pinLayout();
-
-  /* ======================================================================
-     Return-visit card
-     ====================================================================== */
-  $('#printBtn').addEventListener('click', () => print());
 
   watchRv();
   frame();
