@@ -255,7 +255,10 @@
   .pr-sub{ font-size:clamp(17px,1.7vw,20px); line-height:1.6; color:var(--soft); margin-top:16px; max-width:60ch; }
   .practice .decs{ max-width:none; padding:0; margin-top:34px; }
   .practice .dec{ box-shadow:0 18px 50px rgba(12,22,51,.12); }
-  .practice .dec .vis{ border-bottom:0; }
+  .practice .dec .vis{ border-bottom:0; aspect-ratio:16/4; }
+  .practice .dec .body{ padding:18px 24px 22px; }
+  .practice .dec h3{ margin:4px 0 8px; } .practice .dec .ask{ margin-top:10px; font-size:19px; } .practice .opts{ margin-top:10px; gap:6px; } .practice .opt{ padding:11px 14px; }
+  .practice .gate p:not(.gate-count){ display:none; } .practice .gate-card{ padding:14px 18px; align-items:center; } .practice .gate .gate-count{ margin-top:6px; } .practice .gate h3{ font-size:clamp(18px,1.8vw,21px); }
   .practice .dec .part{ color:var(--teal); }
   .practice .opt{ background:#fff; color:var(--ink); border:1.5px solid rgba(12,22,51,.16); font-size:16.5px; padding:14px 16px; }
   .practice .opt:hover{ border-color:rgba(12,22,51,.45); }
@@ -265,7 +268,7 @@
   .practice .fb{ border-top:1px solid var(--line); color:var(--soft); } .practice .fb b.ok{ color:#0b7a6e; } .practice .fb b.no{ color:#a85f00; }
   .practice .dec .sit, .practice .dec .sit p{ color:var(--soft); } .practice .dec .ask{ color:var(--ink); }
   .practice .strip figcaption{ color:var(--soft); } .practice .strip figcaption b{ color:var(--ink); } .practice .gnote2{ color:var(--faint) !important; }
-  .pr-nav{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:22px; }
+  .pr-nav{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; position:sticky; bottom:0; z-index:2; padding:10px 0 4px; background:linear-gradient(180deg,rgba(236,242,250,0),#ecf2fa 38%); }
   .pr-nav #prCount{ font-size:14px; font-weight:700; color:var(--soft); letter-spacing:.04em; }
   .practice .btn{ border-color:rgba(12,22,51,.2); color:var(--ink); } .practice .btn.pri{ background:#0b8c80; border-color:#0b8c80; color:#fff; } .practice .btn:disabled{ opacity:.35; cursor:default; }
   .pr-done{ margin-top:18px; font-size:17px; color:var(--ink); background:#fff; border:1px solid var(--line); border-left:4px solid #0b8c80; border-radius:12px; padding:14px 18px; }
@@ -284,6 +287,22 @@
   html.rm #afterGate.opening{ animation:none; }
   .pr-hint{ margin-top:14px; font-size:15px; color:#a85f00; background:#fff4df; border:1px solid rgba(168,95,0,.3); border-radius:12px; padding:12px 16px; }
 
+  /* the question pane pins to the middle of the screen once the title has scrolled past */
+  .pr-wrap{ position:relative; }
+  .pr-head{ will-change:opacity; }
+  .pr-stage{ position:sticky; top:var(--prTop,72px); max-height:calc(100vh - var(--bar) - 52px); overflow:auto; overscroll-behavior:auto; scrollbar-width:thin; scrollbar-color:rgba(12,22,51,.3) transparent; padding:2px 2px 6px; margin:0 -2px; }
+  .pr-run{ height:var(--prRun,60px); }
+  /* while locked the page ends right under the pane, so the pin holds all the way to the end */
+  body.locked .foot{ display:none; }
+  body.locked .practice{ padding-bottom:28px; margin-bottom:0; }
+  .practice .decs{ margin-top:0; }
+  .practice .pr-head{ margin-bottom:34px; }
+  .practice .gate{ max-width:none; margin:12px 0 0; padding:0; }
+  .practice .gate-card{ background:#fff; border:1.5px dashed rgba(12,22,51,.3); padding:18px 20px; gap:16px; }
+  .practice .gate-ic{ width:44px; height:44px; background:rgba(11,140,128,.12); color:#0b8c80; border-color:rgba(11,140,128,.35); }
+  .practice .gate h3{ color:var(--ink); font-size:clamp(19px,2vw,24px); } .practice .gate p{ color:var(--soft); font-size:15px; margin-top:4px; }
+  .practice .gate .gate-count{ color:var(--ink); margin-top:10px; } .practice .gp i{ background:rgba(12,22,51,.18); } .practice .gp i.on{ background:#0b8c80; }
+  .practice .pr-done{ margin-top:18px; }
   /* shared scene art ------------------------------------------------------------------------------ */
   .tl{ font:700 13px var(--sans); letter-spacing:.1em; fill:#aab6cc; opacity:0; transition:opacity .5s; }
   .chipsvg rect{ fill:rgba(7,11,20,.82); } .chipsvg text{ font:700 13px var(--sans); letter-spacing:.04em; }
@@ -437,7 +456,7 @@
   }
 </style>
 </head>
-<body class="notags">
+<body class="notags locked">
 
 <!-- shared drawing parts are injected by 08-scroll-story-v2-art.js -->
 <svg id="artdefs" width="0" height="0" style="position:absolute" aria-hidden="true"><defs></defs></svg>
@@ -627,6 +646,7 @@
   <div class="fx fx-split rv">
     <div class="fx-copy">
       <h3>A container can have visible space and still be full <span class="rev">Researched addition · CDC</span></h3>
+    <div class="pr-stage" id="prStage">
       <div class="fx-text">
         <p>A sharps container can have visible space above its marked fill line and still be ready for closure and replacement.</p>
         <p>Use the marked line—not the amount of space that appears to remain—as the limit. Do not overfill it.</p>
@@ -642,7 +662,12 @@
      ========================================================================== -->
 <section class="practice" id="s7" aria-label="Your turn">
   <div class="pr-wrap">
-    <header class="pr-head">
+    </div>
+    <div class="pr-run" id="prRun" aria-hidden="true"></div>
+  </div>
+</section>
+
+    <header class="pr-head" id="prHead">
       <p class="pr-tag"><i></i>Your turn</p>
       <h2>Work through three situations</h2>
       <p class="pr-sub">A cap falls. A container is full. The cleanup is more complicated than expected. The safe response should still protect you—and the person who handles the waste after you. Choose a response in each situation. There is no timer, and you can change an answer at any time.</p>
@@ -651,10 +676,7 @@
     <div class="pr-nav"><button class="btn ghost" id="prBack">← Back</button><span id="prCount" aria-live="polite"></span><button class="btn pri" id="prNext">Next situation →</button></div>
     <p class="pr-hint" id="prHint" hidden>Finish the activity to continue. Use Back to find any you skipped.</p>
     <p class="pr-done" id="prDone" hidden>You’ve been through all three situations.</p>
-  </div>
-</section>
-
-<div class="gate" id="gate" role="status" aria-live="polite">
+    <div class="gate" id="gate" role="status" aria-live="polite">
   <div class="gate-card">
     <span class="gate-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></span>
     <div>

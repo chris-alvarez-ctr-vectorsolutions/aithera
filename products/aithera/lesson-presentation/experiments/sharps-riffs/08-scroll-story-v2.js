@@ -217,10 +217,29 @@
   /* practice mode: one situation at a time. Back and Next are the only navigation; nothing about the
      answers is scored. The rest of the article opens once every situation has a response. */
   const decEls = $$('.dec'), answered = new Set();
+  /* the pane sits in the middle of the screen while it's pinned; the spacer below it gives the page enough
+     length to keep it pinned until the learner is done (and collapses once they are) */
+  const stage = $('#prStage'), runEl = $('#prRun');
+  function pinLayout(release) {
+    const bar = 56, maxH = innerHeight - bar - 52, h = Math.min(stage.scrollHeight, maxH);
+    const top = Math.max(bar + 12, bar + (innerHeight - bar - h) / 2);
+    stage.style.setProperty('--prTop', top + 'px');
+    runEl.style.setProperty('--prRun', (release || unlocked) ? '0px' : Math.max(0, innerHeight - 28 - top - h) + 'px');
+  }
+  pinLayout();
+  new ResizeObserver(() => pinLayout()).observe(stage); addEventListener('resize', () => pinLayout());
+  const head = $('#prHead');
+  const fadeHead = () => {
+    const r = head.getBoundingClientRect(), gone = clamp(((56 + 30) - r.top) / (r.height * .55));
+    head.style.opacity = (1 - gone).toFixed(2);
+  };
+  addEventListener('scroll', fadeHead, { passive: true }); fadeHead();
   let cur = 0, unlocked = false;
   const unlock = (scroll) => {
     if (unlocked) return; unlocked = true;
     const rest = $('#afterGate'); rest.hidden = false; rest.classList.add('opening');
+    document.body.classList.remove('locked');
+    pinLayout(true);
     $('#gate').hidden = true; $('#prHint').hidden = true;
     watchRv(); centreCards();
     if (scroll) setTimeout(() => $('#s8').scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' }), 450);
@@ -249,7 +268,7 @@
     if (answered.size === decEls.length) { $('#prDone').hidden = false; $('#prHint').hidden = true; if (cur === decEls.length - 1) $('#prNext').textContent = 'Continue →'; }
   })));
   $('#gateSkip').addEventListener('click', () => unlock(true));   // review shortcut, only visible with review marks on
-  paintGate(); showDec(0);
+  paintGate(); showDec(0); pinLayout();
 
   /* ======================================================================
      Return-visit card
