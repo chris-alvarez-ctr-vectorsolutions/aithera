@@ -1,6 +1,6 @@
 # EHS: form builder needs
 
-> **How to read this.** The shared effort covers **authoring** only. EHS owns delivery: the mobile wizard, desktop single-page forms, offline sync, emails and record history. The runtime behaviour below is here to show **what an authored form definition must be able to express** (see 03 §6).
+> **How to read this.** The shared effort covers **authoring** only. EHS owns delivery: the mobile wizard, desktop single-page forms, offline sync, emails and record history. The runtime behaviour below is here to show **what an authored form definition must be able to express** (see 03 §9).
 
 **Source:** the Claude Doc *EHS Form Inventory for Universal Form Builder Analysis* by Andy Xia, 2026-10-13 ([link](https://claude.ai/artifact/38tfiVgJ12bmwkGXTi2YnN)).
 - The doc reads field types from screenshots; a red asterisk marks a required field.
@@ -53,7 +53,7 @@ Other form types are planned (Inspection, Hazard, Observation on mobile) but not
 - **Fixed system fields mixed with custom fields.**
   - Every form has a core of fixed fields (Division, Facility, dates, Status…).
   - Admins can insert custom fields among them.
-  - This confirms the locked-system-fields model (03, FB-S-09) is a real need, not a hypothetical one.
+  - This confirms the locked-system-fields model (03, FB-S-04) is a real need, not a hypothetical one.
 - **Shared header block:** Division, Facility, Section, Department, Location, Detailed Location, used across all four forms. The **org hierarchy** (Division → Facility → Section/Department/Location) filters the options in each field below it.
 - **Risk block:** Severity × Probability → calculated Risk, each with an info tooltip.
   - It appears on three forms.

@@ -1,6 +1,6 @@
 # Check It: form builder needs (Checklist Management)
 
-> **How to read this.** The shared effort covers **authoring** only. Check It owns delivery: runs, gating, sign-off, failure consequences, deployments and schedules. Its authoring patterns (§6) are the main UX input. Its runtime behaviour (§4, §7) is here to show **what the definition must express** (see 03 §6). Deployments and scheduling stay in Check It and would consume published definitions.
+> **How to read this.** The shared effort covers **authoring** only. Check It owns delivery: runs, gating, sign-off, failure consequences, deployments and schedules. Its authoring patterns (§6) are the main UX input. Its runtime behaviour (§4, §7) is here to show **what the definition must express** (see 03 §9). Deployments and scheduling stay in Check It and would consume published definitions.
 
 Sources and how line numbers are cited:
 

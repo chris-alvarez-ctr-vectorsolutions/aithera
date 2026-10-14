@@ -1,6 +1,6 @@
 # Evaluations: form builder needs
 
-> **How to read this.** The shared effort covers **authoring** only. Delivery (rendering, signing, sharing, approvals, records) stays with Evaluations. The runtime behaviour documented below is here to show **what an authored form definition must be able to express** (see 03 §6). It is not a list of things the shared workflow builds.
+> **How to read this.** The shared effort covers **authoring** only. Delivery (rendering, signing, sharing, approvals, records) stays with Evaluations. The runtime behaviour documented below is here to show **what an authored form definition must be able to express** (see 03 §9). It is not a list of things the shared workflow builds.
 
 Paths are relative to `products/Evaluations/`. Unless a file is named, line numbers refer to `evaluation-form/ver1/index.html`.
 
@@ -23,6 +23,49 @@ The admin navigation (`admin-ui/ver1/dashboard.html:405-426`, the frozen product
 - **Plans** and Plan Assignments
 - **Account Preferences › Color Scales**
 - **PD Tracking**, with Programs, Form Sections, Feedback and Certificates under it
+
+## 1a. EV+ admin authoring (seen in product)
+
+Production screenshots of the EV+ admin, shared on 2026-10-14, show how forms are authored today. **These override earlier inferences** in this document and on the journey maps.
+
+### Form setup screen
+| Setting | Control | Form Builder model (03) |
+|---|---|---|
+| Name | Text | Core setup |
+| Folder | Display ("All Forms"): forms are organised in folders | Core setup (library) |
+| Description | Rich text (bold, italic, paragraph style) | Core setup |
+| **Use For (Feature)** | Dropdown ("Evaluation") | **Kind** |
+| **Type** | Dropdown ("Normal") | **Kind** |
+| **Observation Form** | Checkbox | **Kind** (meaning to confirm) |
+| **Include Elapsed-Time Recording** | Checkbox | **Timer**, scope = whole form |
+| Allow Privacy Control | Checkbox | EV extension (form) |
+| Allow Form Name Editing | Checkbox | EV extension (form) |
+| Allow 'Pass All' option for Pass/Fail Questions | Checkbox | Core delivery hint |
+| Prevent use for self evaluation | Checkbox | EV extension (form) |
+| Sharing Behavior | Dropdown ("Author can share") + "Required for form completion" | EV extension (form) |
+| **Signature Behavior** | Dropdown ("Signature locks signer from further editing") | **Attest** locking. Locking applies to *the signer*, not the whole form |
+| Reimbursement Code, Subcode, Duration, Select Code | Text + code picker | EV extension (form) + code data source |
+| **Status** | Radio ("Unpublished") | A publish state exists; versioning unknown |
+| Save · **Preview** · Close | Buttons | Preview exists, as a separate step |
+
+### Add/Edit Question (modal, one question at a time)
+- **16 types:** Heading, Instructions, Text Entry, Rating Scale, Choose One, Choose Any, Date, Time, DateTime, Signature, Signature (Non-locking), Computed, Script, Video, Pass/Fail, Duration. There is **no Timer type** (timing is the form-level setting) and **no computed-value**. Both of those in the evaluation-form mock look like new design proposals.
+- **Subtype** varies by type. Text Entry has: Normal, **Reflection**, **Third Party**, **Read Only**, **Anyone**, **Any Evaluator**. These look like *who can answer or edit*, which feeds the "who answers" setting (03 §4). "Third-party Text Entry" in the legacy data map is very likely this subtype.
+- **Title** plus a **Details** rich-text body (underline, colour, highlight, lists, indent, alignment, link, image).
+- **Required**, **Allow Attachments**, **Allow Annotation** (all on/off).
+- **Pre-Defined Tags** and **Optional Tags** per question.
+- **Rating Scale → Choose scale:** blank sizes **2–8 Level**, plus named 4-level presets (e.g. "Unsatisfactory / Development Needed / Effective / Exemplary"; "Highly Effective / Effective / Improvement Necessary / Ineffective"). Levels then appear as rows with:
+  - **Value** (numeric, e.g. 4.0 → 1.0)
+  - **Title** (required, 128 characters)
+  - **Description** (optional, 4,000 characters)
+  - **Exclude from averages report**
+  - **Require Duration**
+
+  Whether a preset is copied into the question or linked is unknown.
+- **Question Appearance:** Background Color, Title Font, Title Alignment, divider line above, location of the rating scale selector ("Underneath the question title").
+- Add · Preview · Cancel.
+
+**Authoring pain visible in these screens:** questions are added one at a time in a modal with no view of the whole form; preview is a separate step; scale levels are typed per question; settings are a long flat list of checkboxes. See 03 §2.
 
 ## 2. Question types: evaluation forms
 
@@ -68,16 +111,17 @@ The admin navigation (`admin-ui/ver1/dashboard.html:405-426`, the frozen product
 > Text Entry, **Third-party Text Entry**, Single Select, Multiple Select, Rating Scale, Pass/Fail, Timer, Duration, Script, **Video Tag**, Date, Time, DateTime, Computed
 
 - Each answer can also carry **Annotations**, **Question Attachments** and **Tags**.
-- **Third-party Text Entry** and **Video Tag** are not in the mock showcase. Their behaviour needs defining.
+- **Third-party Text Entry** and **Video Tag** are not in the mock showcase. The EV+ admin (§1a) suggests Third-party is a Text Entry subtype and Video Tag is the Video type. To confirm.
 - The legacy stored answer row (`course-recs/_planning/form-change-log-value-map.md:35-66`) has these columns: `rating_id`, `value`, `text`, `text_duration`/`is_duration`, `date_value`, `int_value`, `range_start`/`range_end` (video), `is_annotation`, `is_comment` (Note vs Comment), `signature_userdata_id` (drawn signature), and `rdorder`.
 
-### What does *not* exist on any question
-- Per-question `required` (except in the course-recs copy)
+### What does *not* exist on any question (in the mock)
+*The EV+ admin (§1a) corrects two items: **Required** exists per question, and scale size is configurable (2–8 levels, with "Exclude from averages report" acting like N/A).*
+- Per-question `required` in the mock (except in the course-recs copy). **Exists in production.**
 - N/A
-- Points or weights
+- Points or weights. Production scale levels do carry numeric values.
 - Default values
 - Min/max or length limits
-- A configurable scale size: each rubric defines its own level count; reports show scales with 4 levels and with 2 (Observed / Not Observed) (`reports/index.html:1123-1180`)
+- A configurable scale size in the mock. **Production supports 2–8 levels.** Reports show scales with 4 levels and with 2 (Observed / Not Observed) (`reports/index.html:1123-1180`)
 - Help text separate from `detailsHtml`
 - A general comment field: only rating notes and the extras bar exist
 
@@ -223,10 +267,10 @@ The universal builder should replace these with a **single answer envelope per q
 From `evaluation-form/mock-definition.md:241-287` and the event-forms CSV:
 
 1. Should `computed` and `computed-value` be merged? Should `signature` and `signature-nonlocking` become one type with a mode?
-2. Should a locking signature actually lock the form? If so, what is locked: the whole form, or only content before the signature?
+2. ~~What does a locking signature lock?~~ **Answered by the EV+ admin:** "Signature locks signer from further editing", so it locks the signer, not the whole form.
 3. Do evaluation forms ever need a submit step, or are they always living documents?
 4. What are the 8 Program Group question types? How do Event Attributes and Custom Questions converge, if they do?
-5. What is the definition of Third-party Text Entry and Video Tag?
+5. Third-party Text Entry and Video Tag: likely a Text Entry subtype and the Video type (§1a). To confirm in the code dive ([05](05-code-dive-brief.md)).
 6. Is Paragraph Bank a reusable-text library that the builder should own?
 7. What is the scoring model: rating-scale roll-ups, the formula for `computed`, colour scales?
 8. How should offline/sync conflicts be handled? The legacy SYNC and MOBILE API sources imply they happen.
