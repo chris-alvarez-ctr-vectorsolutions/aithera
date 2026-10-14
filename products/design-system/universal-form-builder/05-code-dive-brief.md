@@ -1,6 +1,6 @@
 # Form Builder: code-dive brief
 
-**For:** engineering leads on Evaluations (EV+), Check It and EHS · **Status:** Draft v1 · **Updated:** 2026-10-14
+**For:** engineering leads on Evaluations (EV+), Check It and EHS · **Status:** Draft v1.1 · **Updated:** 2026-10-14
 
 Discovery so far comes from mocks, prototypes and screenshots. This brief lists what we need confirmed from each product's **actual code and configuration** before the Form Builder model ([03](03-synthesis-and-requirements.md)) can be refined.
 
@@ -29,42 +29,41 @@ A table per product is fine: *type → subtypes → settings → where stored �
 
 ## Evaluations (EV+)
 
-Screens reviewed: Form setup (Name, Folder, Description, Use For, Type, flags, Sharing, Signature, Reimbursement, Status) and Add/Edit Question (type list, subtypes, rating-scale editor, appearance).
+**First pass answered (2026-10-14)** by two code-reconciled product documents in [`product-documentation/`](product-documentation/): *Evaluation Form Redesign (Backend Preferences)* and *Question Subtype Definitions*. Findings are in [01 §1a](01-evaluations-analysis.md).
 
-**Question types and subtypes**
+**Answered**
+| # | Question | Answer |
+|---|---|---|
+| EV1 | Subtypes per type: what do they control? | **Who may answer**, relative to the record (author, evaluee, View / Record permission, no one, system). There's an allowed-subtype matrix per type |
+| EV2 | Is "Third-party Text Entry" a subtype? | Yes: the Third Party subtype (View permission). Video Tag is most likely the Video type |
+| EV3 | Timing features | A form-level Elapsed-Time bar (`rec_elapsed`, locks after publish) **and** a separate per-question Timer type |
+| EV4 | How are Computed values calculated? | A **Computed Expression Wizard** + validations; Computed Only answers update after lock *(wizard behaviour still to detail)* |
+| EV11 | Use For / Type values | Use For: Evaluation, Coaching, Activity Tracking (Both and PD Tracking exist in the model). Type: Normal, Read-Only, Computed |
+| EV12 | Observation Form flag | Classifies the instance for reporting and the mobile API. Doesn't change answering. Turned on automatically by elapsed time |
+| EV13 | Sharing Behavior | Author / any evaluator / disabled. "Required for form completion" (default true) blocks completion until the form is shared |
+| EV14 | Signature Behavior | Three modes: locks signer, first signature locks all, locks all prior |
+| EV15 | Reimbursement codes | **JAC codes**: California JAC (metadata) and CalFire JAC (0/1/many; several codes inject a required question) |
+| EV16 | Status values | Archived, Draft, Published, Superseded, Publish-Restricted, Deleted. Can't return to Draft |
+
+**Still open**
 | # | Question |
 |---|---|
-| EV1 | The full subtype list for every question type. Text Entry has Normal, Reflection, Third Party, Read Only, Anyone and Any Evaluator. What does each one control? |
-| EV2 | Is the legacy "Third-party Text Entry" the Text Entry › Third Party subtype? Is "Video Tag" the Video type? |
-| EV3 | Timer: is "Include Elapsed-Time Recording" the only timing feature? The evaluation-form mock's start/stop timer pair isn't in the admin type list. |
-| EV4 | Computed: how is the value calculated, and where is the formula configured? |
-| EV5 | What do Allow Annotation and Allow Attachments store, and how do Pre-Defined vs. Optional Tags differ at delivery? |
-
-**Scales**
-| # | Question |
-|---|---|
-| EV6 | Where are scale presets (2–8 Level, named 4-level frameworks) managed, and by whom? |
-| EV7 | When an author picks a preset, is it **copied** into the question or **linked**? Can values and titles be edited afterwards? |
-| EV8 | Do colour scales attach to a preset, or are they set separately? |
-| EV9 | Do reports group by preset, or only by question? What does "Exclude from averages report" do? |
-| EV10 | One preset name appears to be two names run together ("…Unsatisfactory4 Level - Distinguished…"). Is this a data issue? |
-
-**Form settings**
-| # | Question |
-|---|---|
-| EV11 | The full list of **Use For (Feature)** and **Type** values. Do event custom questions and feedback forms use this same admin? |
-| EV12 | What does the **Observation Form** flag change? |
-| EV13 | Sharing Behavior: what values exist, and what does "Required for form completion" enforce? |
-| EV14 | Signature Behavior: what values exist besides "locks signer from further editing"? |
-| EV15 | What do Reimbursement Code, Subcode and Duration feed, and where do codes come from? |
-| EV16 | Status: is there anything beyond Unpublished / Published? |
-
-**Assignment (product-owned, for the journey map)**
-| # | Question |
-|---|---|
-| EV17 | How do Plans and Plan Assignments reference forms (by ID, by version, or by copy)? |
-| EV18 | Do due dates, windows or reminders exist for plan forms? |
-| EV19 | Program Groups: what are the 8 legacy question types, and how do Event Attributes relate to them? |
+| EV5 | At delivery, how do Pre-Defined vs. Optional tags differ? What does Allow Annotation store? |
+| EV6 | Where are scale presets managed, and by whom? |
+| EV7 | Is a chosen preset **copied** or **linked**? Can values and titles be edited afterwards? |
+| EV8 | Do colour scales attach to presets? |
+| EV9 | Do reports group by preset, or only by question? |
+| EV10 | One preset name looks like two names run together. Is this a data issue? |
+| EV17 | How do Plans and Plan Assignments reference forms (ID, version or copy)? |
+| EV18 | Do plan forms have due dates, windows or reminders? |
+| EV19 | Program Groups: what are the 8 legacy question types, and how do Event Attributes relate? |
+| EV20 | **Pass/Fail "Critical"** special behaviour: what does it do (auto-fail the form? flag?) |
+| EV21 | **"Overall Duration"** special behaviour on Pass/Fail and Duration: what does it roll up into? |
+| EV22 | **Superseded**: how does a form become superseded, and what happens to in-progress instances? Is there any draft-of-published editing? |
+| EV23 | Why is the **Timer** question type missing from the admin dropdown screenshot? Hidden by feature or mode? |
+| EV24 | **Auto** subtype: what does the system fill, and when? |
+| EV25 | **Publish-Restricted** access lists: where are they managed, and are they per form? |
+| EV26 | Can Evaluation forms be started by the evaluee (initiator) for any Use For, or only some? |
 
 ---
 

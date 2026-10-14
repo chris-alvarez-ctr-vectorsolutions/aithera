@@ -565,11 +565,12 @@ const MECHS = [
 {
   id: 'choice', name: 'Choice', icon: 'fa-list-radio', kind: 'question',
   collects: 'One or more options from an unordered set of categories. What an option <i>means</i> (fails, scores, nothing) is set on each question, not on the mechanism.',
-  dims: ['Selection', 'Options', 'Meaning', '"Other"', 'Presentation', 'Rules', 'Triggers'],
+  dims: ['Selection', 'Options', 'Option values', 'Meaning', '"Other"', 'Presentation', 'Rules', 'Triggers'],
   open: [
     'Where is the line with Lookup? Lists the author types go here; data the product maintains (Division, Facility) goes in Lookup.',
     'Should binary choices default to a segmented control instead of a dropdown? EHS screening questions suggest yes.',
-    'Does "options that must be picked" (SB required options) stay in scope?'
+    'Does "options that must be picked" (SB required options) stay in scope?',
+    'Decided (D8): options can carry a numeric value and "exclude from averages", so Choice answers can be scored (EV averages Pass/Fail).'
   ],
   variants: [
     {
@@ -584,7 +585,7 @@ const MECHS = [
     {
       id: 'passfail', name: 'Pass / Fail', products: ['CI', 'EV'],
       source: 'Check It `passfail`; Evaluations `passfail`.',
-      config: { 'Selection': 'Single', 'Options': 'Pass, Fail (labels can be overridden)', 'Meaning': 'Fail = failure', 'Presentation': 'Segmented', 'Rules': 'Fail → comment required', 'Triggers': 'Fail → product actions (CI: out of service / ticket / notify)' },
+      config: { 'Selection': 'Single', 'Options': 'Pass, Fail (titles editable)', 'Option values': 'EV: numeric value per option, description, exclude from averages', 'Meaning': 'Fail = failure; EV adds a "Critical" special behaviour', 'Presentation': 'Segmented; selector under or next to the title', 'Rules': 'Fail → comment required', 'Triggers': 'Fail → product actions (CI: out of service / ticket / notify)' },
       render() {
         return Q({ label: 'Seat belts latch and retract', req: true,
           body: seg('Result', [{ v: 'pass', label: '<i class="fa-solid fa-check"></i> Pass', cls: 'pass' }, { v: 'fail', label: '<i class="fa-solid fa-xmark"></i> Fail', cls: 'fail' }]),
@@ -636,7 +637,7 @@ const MECHS = [
     {
       id: 'radio', name: 'Single: radio list', products: ['EV', 'EF'],
       source: 'Evaluations `choose-one`; event-form custom questions.',
-      config: { 'Selection': 'Single', 'Options': 'Typed by the author', 'Meaning': 'None', 'Presentation': 'Radio list' },
+      config: { 'Selection': 'Single', 'Options': 'Typed by the author; a tag can be attached per option (EV)', 'Option values': 'Optional', 'Meaning': 'None', '"Other"': 'EV: text input for selection', 'Presentation': 'Column list, 1–4 columns, or dropdown (EV)' },
       render() {
         return Q({ label: 'Primary lesson format', req: true,
           body: `<vaadin-radio-group accessible-name="Primary lesson format" theme="vertical">
@@ -709,7 +710,7 @@ const MECHS = [
     {
       id: 'short', name: 'Short answer', products: ['EV', 'EF', 'CI', 'EHS'],
       source: 'Every product.',
-      config: { 'Lines': 'Single line', 'Limits': '512 characters', 'Format': 'Free' },
+      config: { 'Lines': 'Single line', 'Limits': 'Max length (EV); 512 characters (EF)', 'Format': 'Free; watermark / placeholder (EV)' },
       render() { return Q({ label: 'Task name', req: true, body: `<vaadin-text-field theme="outlined" class="w-full" accessible-name="Task name" maxlength="512" placeholder="e.g. Replace hydraulic hose"></vaadin-text-field>` }); }
     },
     {
@@ -1183,7 +1184,7 @@ const MECHS = [
 {
   id: 'attest', name: 'Attest', icon: 'fa-signature', kind: 'question',
   collects: 'A person’s confirmation that they stand behind something. The form varies: a checkbox, a typed name, a drawn signature.',
-  dims: ['Form', 'Signer', 'Locking', 'Statement', 'Timestamp'],
+  dims: ['Form', 'Signer', 'Locking', 'Statement', 'Notifications', 'Timestamp'],
   open: [
     'Answered by the EV+ admin: "Signature locks signer from further editing" — locking applies to the signer, not the whole form.',
     'Is signer identity checked against the signer slot? It isn’t today in Evaluations.'
@@ -1210,7 +1211,7 @@ const MECHS = [
     {
       id: 'drawn', name: 'Drawn signature', products: ['EV', 'EHS'],
       source: 'Evaluations non-locking drawn signature; EHS JSA "Signing as".',
-      config: { 'Form': 'Drawn (pointer, touch, stylus)', 'Signer': 'Chosen role: "Signing as"', 'Locking': 'None', 'Timestamp': 'Yes' },
+      config: { 'Form': 'Drawn (pointer, touch, stylus); EV: "Hand Drawn" toggle', 'Signer': 'Chosen role: "Signing as"', 'Locking': 'None (non-locking signature)', 'Timestamp': 'Yes' },
       render() {
         return Q({ label: 'Signature', req: true,
           body: `<vaadin-select theme="outlined" class="w-m" label="Signing as" data-role></vaadin-select>
@@ -1233,8 +1234,8 @@ const MECHS = [
     },
     {
       id: 'slots', name: 'Signer slots + locking', products: ['EV'],
-      source: 'Evaluations: evaluator (locking), teacher and acknowledgement signatures.',
-      config: { 'Form': 'Typed or drawn', 'Signer': 'Named slots: Evaluator, Teacher, Acknowledgement', 'Locking': 'Evaluator signature locks the answers', 'Statement': 'Per slot', 'Timestamp': 'Yes' },
+      source: 'EV+ code: signature questions + the form’s Signature Behavior; the evaluation-form mock’s evaluator, teacher and acknowledgement slots.',
+      config: { 'Form': 'Typed or drawn', 'Signer': 'Who signs = the question’s subtype (Normal follows the initiator; Reflection = evaluee; Third Party; Any Evaluator; Anyone)', 'Locking': 'Form-level mode: locks signer (default) · first signature locks all · locks all prior. Signing requires the relevant required answers', 'Statement': 'Per signature question', 'Notifications': 'Notify when ready for signature; show on to-do list', 'Timestamp': 'Yes' },
       render() {
         const slot = (who, meta, lock) => `<div class="slot" data-slot><div><div class="who">${who} ${lock ? '<span class="ptag SB" style="margin-left:4px"><i class="fa-solid fa-lock"></i>&nbsp;Locking</span>' : ''}</div><div class="meta" data-meta>${meta}</div></div><vaadin-button theme="secondary" data-sign ${lock ? 'data-lock' : ''}>Sign</vaadin-button></div>`;
         return `<div class="status warn lock-banner" data-banner><i class="fa-solid fa-lock"></i> Locked: answers can no longer be edited.</div>` +
@@ -1302,7 +1303,7 @@ const MECHS = [
     {
       id: 'formula', name: 'Formula', products: ['EF', 'EV'],
       source: 'Event-form Budget Remaining; Evaluations `computed` (no formula model yet).',
-      config: { 'Source': 'Formula: Allocated − Actual', 'Inputs': 'Two Measure answers', 'Output format': 'Currency; negative values in red', 'Visible to respondent': 'Yes' },
+      config: { 'Source': 'Formula: Allocated − Actual (EV authors formulas in a Computed Expression Wizard, with validations)', 'Inputs': 'Two Measure answers', 'Output format': 'Currency; negative values in red', 'Visible to respondent': 'Yes (EV: can be hidden)' },
       render() {
         return `<div class="field-row">
           ${Q({ label: 'Allocated', body: `<vaadin-number-field theme="outlined" class="w-s" accessible-name="Allocated" value="500" data-a><div slot="prefix">$</div></vaadin-number-field>` })}
@@ -1332,7 +1333,8 @@ const MECHS = [
   open: [
     'Can several timers run at once (a form session plus a section)? If so, how does the pinned widget show them?',
     'At time-out, should the product flag the section or lock it?',
-    'Should the timer prefill a Measure answer, e.g. the duration required by a rating?'
+    'Should the timer prefill a Measure answer, e.g. the duration required by a rating?',
+    'EV has both a form-level elapsed-time bar (max value, manual edit, locks after publish) and a separate per-question Timer type. Keep both as Timer scopes?'
   ],
   variants: [
     {

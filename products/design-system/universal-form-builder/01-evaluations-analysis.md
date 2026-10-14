@@ -24,48 +24,97 @@ The admin navigation (`admin-ui/ver1/dashboard.html:405-426`, the frozen product
 - **Account Preferences › Color Scales**
 - **PD Tracking**, with Programs, Form Sections, Feedback and Certificates under it
 
-## 1a. EV+ admin authoring (seen in product)
+## 1a. EV+ form authoring today (code-confirmed)
 
-Production screenshots of the EV+ admin, shared on 2026-10-14, show how forms are authored today. **These override earlier inferences** in this document and on the journey maps.
+**Sources:** EV+ admin screenshots (2026-10-14), plus two product documents in [`product-documentation/`](product-documentation/):
+- *Evaluation Form Redesign (Backend Preferences)*
+- *Question Subtype Definitions*
 
-### Form setup screen
-| Setting | Control | Form Builder model (03) |
-|---|---|---|
-| Name | Text | Core setup |
-| Folder | Display ("All Forms"): forms are organised in folders | Core setup (library) |
-| Description | Rich text (bold, italic, paragraph style) | Core setup |
-| **Use For (Feature)** | Dropdown ("Evaluation") | **Kind** |
-| **Type** | Dropdown ("Normal") | **Kind** |
-| **Observation Form** | Checkbox | **Kind** (meaning to confirm) |
-| **Include Elapsed-Time Recording** | Checkbox | **Timer**, scope = whole form |
-| Allow Privacy Control | Checkbox | EV extension (form) |
-| Allow Form Name Editing | Checkbox | EV extension (form) |
-| Allow 'Pass All' option for Pass/Fail Questions | Checkbox | Core delivery hint |
-| Prevent use for self evaluation | Checkbox | EV extension (form) |
-| Sharing Behavior | Dropdown ("Author can share") + "Required for form completion" | EV extension (form) |
-| **Signature Behavior** | Dropdown ("Signature locks signer from further editing") | **Attest** locking. Locking applies to *the signer*, not the whole form |
-| Reimbursement Code, Subcode, Duration, Select Code | Text + code picker | EV extension (form) + code data source |
-| **Status** | Radio ("Unpublished") | A publish state exists; versioning unknown |
-| Save · **Preview** · Close | Buttons | Preview exists, as a separate step |
+Both are reconciled against the TeachPoint form engine. **This section overrides earlier inferences** in this document, and anything in the mock that conflicts with it.
 
-### Add/Edit Question (modal, one question at a time)
-- **16 types:** Heading, Instructions, Text Entry, Rating Scale, Choose One, Choose Any, Date, Time, DateTime, Signature, Signature (Non-locking), Computed, Script, Video, Pass/Fail, Duration. There is **no Timer type** (timing is the form-level setting) and **no computed-value**. Both of those in the evaluation-form mock look like new design proposals.
-- **Subtype** varies by type. Text Entry has: Normal, **Reflection**, **Third Party**, **Read Only**, **Anyone**, **Any Evaluator**. These look like *who can answer or edit*, which feeds the "who answers" setting (03 §4). "Third-party Text Entry" in the legacy data map is very likely this subtype.
-- **Title** plus a **Details** rich-text body (underline, colour, highlight, lists, indent, alignment, link, image).
-- **Required**, **Allow Attachments**, **Allow Annotation** (all on/off).
-- **Pre-Defined Tags** and **Optional Tags** per question.
-- **Rating Scale → Choose scale:** blank sizes **2–8 Level**, plus named 4-level presets (e.g. "Unsatisfactory / Development Needed / Effective / Exemplary"; "Highly Effective / Effective / Improvement Necessary / Ineffective"). Levels then appear as rows with:
-  - **Value** (numeric, e.g. 4.0 → 1.0)
-  - **Title** (required, 128 characters)
-  - **Description** (optional, 4,000 characters)
-  - **Exclude from averages report**
-  - **Require Duration**
+**Vocabulary:**
+- **Rubric:** a form definition (`core/Rubric.java`), edited in the admin "Rubric Editor" (`admin/rubricedit.xhtml`, `RubricEdit.java`).
+- **Userdata:** a filled-in instance.
+- **Owner / author:** the user who started the instance.
+- **Evaluee / subject:** the person being evaluated.
 
-  Whether a preset is copied into the question or linked is unknown.
-- **Question Appearance:** Background Color, Title Font, Title Alignment, divider line above, location of the rating scale selector ("Underneath the question title").
-- Add · Preview · Cancel.
+### Form settings
+| # | Setting | Values (stored field) | Notes | Form Builder model (03) |
+|---|---|---|---|---|
+| 1 | **Use For (Feature)** | Evaluation (0, default), Coaching (1), Activity Tracking (3). `Both` (2) and `PD Tracking` (4) exist in the model but can't be selected (`feature_type`) | Pickers filter by feature. Only Evaluation forms work on mobile | **Kind** |
+| 2 | **Type** | Normal (0), Read-Only (1), Computed (2) (`type`) | **Locked after publish.** Read-Only = fully view-only; leaving discards the instance. Computed = answers auto-calculated. Read-Only and Computed hide settings 3–7, 9 and 10. Only Normal works on mobile | **Form mode** (new) |
+| 3 | Include Elapsed-Time Recording | on/off (`rec_elapsed`) | A form-level Start/Stop bar; H:M:S editable; has a maximum; force-stopped when the form closes; never blocks completion. Turning it on also turns on #4. **Locked after publish.** **Separate from the per-question Timer type** | **Timer**, scope = form |
+| 4 | Observation Form | on/off (`observation`) | Classifies the instance for observation reporting and the mobile API. Doesn't change answering | EV extension (form metadata) |
+| 5 | Allow Privacy Control | on/off (`allow_private`) | Owner-only On/Off toggle in the header. Private hides the form from the evaluee and suppresses notifications. Stored value is inverted | EV extension (form) |
+| 6 | Allow Form Name Editing | on/off (`allow_rnameedit`) | Inline rename, subject to signature locks. Shows the original name when it's been renamed | EV extension (form) |
+| 7 | Allow "Pass All" | on/off (`pass_all_button`) | Owner-only Pass All / Clear All for Pass/Fail questions, with confirmation | Core delivery hint |
+| 8 | Prevent use for self-evaluation | boolean (`restrict_self_evaluation`); default comes from a district preference | Enforced in the **picker** (the form is hidden when user = subject), not at submit. Evaluation forms only | EV extension (form) |
+| 9 | Sharing Behavior | Author can share (0, default), Any evaluator can share (1), Sharing disabled (2); plus **Required for form completion** (default **true**) | **Locked after publish.** When required, the form can't complete until it's shared | EV extension (form) |
+| 10 | **Signature Behavior** | **Locks signer** (0, default) · **First signature locks all questions** (1) · **Locks all questions prior to the signature** (2) | Signing is gated on the required questions being answered (all of them, those before the signature, or the signer's own, depending on mode). Locks apply to questions, headings and attachments | **Attest** locking mode (form-level) |
+| 11 | **JAC codes** | **California JAC:** code + duration, admin metadata only. **CalFire JAC:** 0, 1 or many codes, plus required and duration | CalFire with **several codes injects a pick-a-code question at the top of the form** (required if configured). Each subsystem is behind a district feature flag | EV extension: metadata + **injected question** |
+| 12 | **Status** | Archived (0), Unpublished/Draft (1, default), Published (2), **Superseded** (3), **Publish-Restricted** (4), Deleted (−1, internal) | A form **can't return to Draft**. Publish-Restricted = fillable only by users on evaluator and evaluee access lists | Lifecycle (§7.6 of 03) |
+| 13 | **TargetSolutions Tags** | A list of TS tags (ID + name) **fetched live from the TargetSolutions API**, stored on the form definition | **Invisible during fill-in.** Sent to TargetSolutions on completion. Behind the district feature flag `TARGETSOLUTIONS_INTEGRATION` + the PUBLIC domain | EV extension: **metadata-only + integration** |
 
-**Authoring pain visible in these screens:** questions are added one at a time in a modal with no view of the whole form; preview is a separate step; scale levels are typed per question; settings are a long flat list of checkboxes. See 03 §2.
+**Completion is computed, not submitted by hand:** Created → Shared → Submitted → Completed. Three things drive it together:
+- all required questions answered
+- all required signatures signed (according to the Signature Behavior mode)
+- the form shared, if sharing is required
+
+**Owner-gated controls** (privacy, Pass All, sharing by role) are disabled in review, archived and imported states.
+
+### Question settings (Add/Edit Question)
+
+Every question type also carries: **Title** + rich-text **Details**, **Required**, **Allow Attachments**, **Allow Annotation**, **Pre-defined Tags**, **Optional Tags**. Appearance: background colour, title font, title alignment, divider line, and position of the answer control (underneath the title, the default, or next to it).
+
+| Type | Type-specific settings |
+|---|---|
+| Heading, Instructions | Always Read Only. Instructions have rich-text details |
+| Text Entry | **Max length**, **watermark** (placeholder) |
+| Rating Scale | Up to **8 ratings**: numeric **value**, **title** (required, 128 characters), **description** (4,000 characters), **Exclude from averages report**, **Require Duration**. **Choose scale** presets: 2–8 Level, plus named frameworks |
+| Choose One | **Text input for selection** ("Other"), **pre-defined tag on an option**, format **dropdown or column list**, **1–4 columns** |
+| Choose Any | 1–4 columns, text input for selection, pre-defined tag on an option |
+| Date, Time, Date/Time | Standard settings only |
+| Signature, Signature (non-locking) | Required, **Hand Drawn**, **Notify when ready for signature**, **Show on to-do list when ready**. Who signs = the subtype |
+| Computed | **Computed Expression Wizard**, **validations**, **Hidden**, description (not visible) |
+| Scripting | Rich text, attachments, tags (default subtype: Any Evaluator) |
+| Video | Rich text, tags (default subtype: Anyone) |
+| **Pass/Fail** | **Special behaviour: None / Critical / Overall Duration.** Each option has an editable **title**, **numeric value**, description and **Exclude from averages report**, so Pass/Fail answers are averaged like ratings |
+| Duration | Special behaviour: None / Overall Duration |
+| Timer | A per-question type. It's in the engine's subtype matrix but missing from the admin dropdown screenshot (to confirm) |
+
+**Rich text in the builder:** font size (small / normal / large / huge), bold, underline, text colour, text background colour, numbered and bulleted lists, indent, alignment, hyperlink, image. Rich text options during fill-in are configured separately.
+
+### Question subtypes = who can answer
+
+A subtype **never changes how a question looks.** It decides **who may answer**, relative to the record:
+
+| Subtype | Who can answer |
+|---|---|
+| Normal | The **author** (whoever started the form). **"Normal follows the initiator"**: on an evaluee-started form, the evaluee answers |
+| Reflection | The **evaluee** |
+| Third Party | Users with **View** permission, other than the author and evaluee (e.g. secondary evaluators, supervisors) |
+| Any Evaluator | Users with **Record** permission, except the evaluee |
+| Anyone | Users with **Record** permission, including the evaluee |
+| Read Only | No one (display text, instructions, examples) |
+| *Auto* (system) | The system fills it |
+| *Computed Only* (system) | A formula fills it, and it **can update even after the form is locked** |
+
+**Allowed per type (enforced by the engine):**
+- Headings and Instructions: Read Only only.
+- Signatures and Computed: never Read Only.
+- Script and Video: Normal, Any Evaluator and Anyone only.
+- Every other type: all six.
+
+**Signatures use the same logic:** "who signs" is chosen exactly like "who answers".
+
+### Authoring pain visible today
+- Questions are added **one at a time in a modal**, with no view of the whole form.
+- **Preview** is a separate step.
+- Scale levels are typed per question (presets help, but copy vs. link is unknown).
+- Settings are a **long flat list** whose availability depends on other settings (Type, Feature).
+- Several settings **lock after publish** without warning in the UI.
+
+See 03 §2.
 
 ## 2. Question types: evaluation forms
 
@@ -111,7 +160,7 @@ Production screenshots of the EV+ admin, shared on 2026-10-14, show how forms ar
 > Text Entry, **Third-party Text Entry**, Single Select, Multiple Select, Rating Scale, Pass/Fail, Timer, Duration, Script, **Video Tag**, Date, Time, DateTime, Computed
 
 - Each answer can also carry **Annotations**, **Question Attachments** and **Tags**.
-- **Third-party Text Entry** and **Video Tag** are not in the mock showcase. The EV+ admin (§1a) suggests Third-party is a Text Entry subtype and Video Tag is the Video type. To confirm.
+- **Third-party Text Entry** and **Video Tag** are not in the mock showcase. The code-confirmed docs (§1a) show Third Party is a subtype (who can answer). Video Tag is most likely the Video type (to confirm).
 - The legacy stored answer row (`course-recs/_planning/form-change-log-value-map.md:35-66`) has these columns: `rating_id`, `value`, `text`, `text_duration`/`is_duration`, `date_value`, `int_value`, `range_start`/`range_end` (video), `is_annotation`, `is_comment` (Note vs Comment), `signature_userdata_id` (drawn signature), and `rdorder`.
 
 ### What does *not* exist on any question (in the mock)
@@ -196,7 +245,7 @@ The scoring model has to come from legacy behaviour or the PRD. It has not been 
 ## 6. Runtime, workflow and record behaviour
 
 ### Evaluation forms
-- **There is no submit, by design**: "This is a living document" (4558-4560). Save always behaves as a draft save.
+- **There is no submit, by design** in the mock: "This is a living document" (4558-4560). Save always behaves as a draft save. *Production differs: completion is computed (Created → Shared → Submitted → Completed) from required answers, required signatures and sharing; see §1a.*
 - The form counts as **created on first edit**. Before that the user can Cancel; after that they can Delete, which is a soft delete with Restore (9706-9725, 9863).
 - **Multiple signers**: evaluator, teacher and acknowledgement slots. Each signature can also share the form (`shareOnSignHtml` 9900).
   - Signer identity is not checked.
@@ -267,10 +316,10 @@ The universal builder should replace these with a **single answer envelope per q
 From `evaluation-form/mock-definition.md:241-287` and the event-forms CSV:
 
 1. Should `computed` and `computed-value` be merged? Should `signature` and `signature-nonlocking` become one type with a mode?
-2. ~~What does a locking signature lock?~~ **Answered by the EV+ admin:** "Signature locks signer from further editing", so it locks the signer, not the whole form.
-3. Do evaluation forms ever need a submit step, or are they always living documents?
+2. ~~What does a locking signature lock?~~ **Answered (code):** a per-form Signature Behavior with three modes: locks the signer, first signature locks all, or locks everything before the signature. See §1a.
+3. ~~Submit step?~~ **Answered:** production computes completion (Created → Shared → Submitted → Completed); see §1a.
 4. What are the 8 Program Group question types? How do Event Attributes and Custom Questions converge, if they do?
-5. Third-party Text Entry and Video Tag: likely a Text Entry subtype and the Video type (§1a). To confirm in the code dive ([05](05-code-dive-brief.md)).
+5. ~~Third-party Text Entry~~ **Answered:** the Third Party subtype (View permission). Video Tag is most likely the Video type; to confirm ([05](05-code-dive-brief.md)).
 6. Is Paragraph Bank a reusable-text library that the builder should own?
 7. What is the scoring model: rating-scale roll-ups, the formula for `computed`, colour scales?
 8. How should offline/sync conflicts be handled? The legacy SYNC and MOBILE API sources imply they happen.
