@@ -872,6 +872,7 @@
       '</div>';
     document.body.appendChild(footer);
     backBtn = footer.querySelector('#llBack');
+    backBtn.setAttribute('aria-label', 'Back');   // the label hides on phones (css/layered-beats.css)
     nextBtn = footer.querySelector('#llNext');
     footCount = footer.querySelector('.ll-foot-count');
     footBar = footer.querySelector('.ll-foot-bar');

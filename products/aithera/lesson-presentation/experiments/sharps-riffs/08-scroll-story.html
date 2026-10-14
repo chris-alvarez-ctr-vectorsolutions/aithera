@@ -1,0 +1,826 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Contain the Sharp — Scroll Story (Riff 08)</title>
+<link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+<!-- Sector is picked before first paint so the wrong drawings never flash.
+     ?sector=manufacturing (default) | law-enforcement -->
+<script>
+  (function () {
+    var s = new URLSearchParams(location.search).get('sector');
+    document.documentElement.dataset.sector = (s === 'law-enforcement' || s === 'le') ? 'law-enforcement' : 'manufacturing';
+  })();
+</script>
+<style>
+  /* ==========================================================================
+     Riff 08 — Contain the Sharp, as a scroll story.
+
+     Module 4's content (the "Contain the Sharp · Manufacturing" and
+     "· Law Enforcement" scripts) written as one long-form interactive article
+     instead of a coached sequence: the READ counterpart to the video and
+     listen-mode versions. Every topic those carry is here, in the scripts' own
+     wording.
+
+     ONE PAGE, TWO SECTORS. Text that differs by sector lives in the SECTORS
+     object in 08-scroll-story.js and is poured into [data-k] elements;
+     sector-only drawings carry .only-m / .only-le. Everything else is shared.
+     Switch with the pill in the top bar or ?sector=law-enforcement.
+
+     Motion, each used where it earns its place:
+       SCRUBBED   — the hero video and the pull-quote follow scroll; in
+                    "Carry it yourself" scroll position IS the sharp.
+       STEPPED    — a sticky picture, text cards scroll past; the card in the
+                    middle of the screen sets the picture's state.
+       HANDS-ON   — quick checks, hot spots, a glove demo, a compare slider,
+                    guess-then-reveal, a simulation preview. NOTHING is scored
+                    or saved.
+     ========================================================================== */
+
+  :root{
+    --bg:#070b14; --bg-2:#0a1120; --panel:#111a2e; --panel-2:#16203a;
+    --ink:#eaf0fb; --soft:#aab6cc; --faint:#8793ab;
+    --line:rgba(255,255,255,.11);
+    --teal:#2ee6cf; --teal-deep:#14b8a6; --teal-soft:rgba(46,230,207,.14);
+    --amber:#ffb547; --red:#ff5d6c; --violet:#c4b5fd;
+    --on-accent:#04121a;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --sans:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --ease:cubic-bezier(.2,.7,.2,1);
+    --bar:56px;
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  html.rm{ scroll-behavior:auto; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  h1,h2,h3,h4,p,figure{ margin:0; }
+  button{ font:inherit; color:inherit; }
+  a{ color:var(--teal); }
+  :focus-visible{ outline:2px solid var(--teal); outline-offset:3px; border-radius:4px; }
+  [hidden]{ display:none !important; }
+
+  /* sector switching for drawings and anything that exists in one sector only */
+  html[data-sector="manufacturing"] .only-le{ display:none !important; }
+  html[data-sector="law-enforcement"] .only-m{ display:none !important; }
+
+  /* ---- top bar ------------------------------------------------------------ */
+  .bar{ position:fixed; inset:0 0 auto 0; height:var(--bar); z-index:50; display:flex; align-items:center; gap:14px; padding:0 20px;
+    background:linear-gradient(180deg,rgba(7,11,20,.92),rgba(7,11,20,.72)); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+  .bar .brand{ display:flex; align-items:center; gap:9px; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--soft); white-space:nowrap; }
+  .orb{ width:12px; height:12px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#8ff7ea,var(--teal) 45%,var(--teal-deep)); box-shadow:0 0 14px var(--teal); flex:none; }
+  .bar .chap{ font-size:13px; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  .bar .chap b{ color:var(--teal); font-weight:700; margin-right:6px; }
+  .bar .sp{ flex:1; }
+  .dots{ display:flex; gap:6px; }
+  .dots a{ width:9px; height:9px; border-radius:50%; background:rgba(255,255,255,.2); display:block; transition:background .2s, transform .2s; }
+  .dots a.on{ background:var(--teal); transform:scale(1.3); }
+  .dots a:hover{ background:var(--soft); }
+  .seg{ display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; flex:none; }
+  .seg button{ background:none; border:0; padding:4px 11px; font-size:12px; color:var(--soft); cursor:pointer; white-space:nowrap; }
+  .seg button[aria-pressed="true"]{ background:var(--teal); color:var(--on-accent); font-weight:700; }
+  .rm-btn{ background:none; border:1px solid var(--line); border-radius:999px; padding:4px 11px; font-size:12px; color:var(--soft); cursor:pointer; white-space:nowrap; }
+  .rm-btn[aria-pressed="true"]{ border-color:var(--teal); color:var(--teal); }
+  .prog{ position:absolute; left:0; bottom:-1px; height:2px; width:100%; background:var(--teal); transform-origin:0 50%; transform:scaleX(0); }
+  @media (max-width:980px){ .dots{ display:none; } }
+  @media (max-width:700px){ .bar .brand span.t{ display:none; } .bar .chap{ display:none; } .rm-btn{ display:none; } }
+
+  /* ---- hero: scroll-scrubbed video ------------------------------------------ */
+  .hero{ position:relative; height:260vh; background:#0a1426; }
+  .hero-sticky{ position:sticky; top:0; height:100vh; min-height:620px; overflow:hidden; }
+  .hero-vid{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:78% 50%; display:block; }
+  .hero-fade{ position:absolute; inset:auto 0 0 0; height:42%; background:linear-gradient(180deg,transparent,var(--bg)); z-index:3; }
+  .hero-vig{ position:absolute; inset:0; z-index:2; background:linear-gradient(90deg,rgba(7,11,20,.72),rgba(7,11,20,.25) 55%,rgba(7,11,20,0)), radial-gradient(ellipse at 30% 45%,rgba(7,11,20,0) 0%,rgba(7,11,20,.45) 80%); }
+  .hero-copy{ position:absolute; z-index:4; left:max(24px,6vw); bottom:16vh; max-width:min(780px,88vw); }
+  .kicker{ font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin-bottom:18px; }
+  .hero h1{ font-family:var(--serif); font-weight:700; font-size:clamp(44px,8vw,108px); line-height:.98; letter-spacing:-.02em; text-wrap:balance; }
+  .hero .dek{ font-family:var(--serif); font-size:clamp(18px,2.2vw,26px); line-height:1.4; color:var(--soft); margin-top:22px; max-width:34ch; }
+  .meta{ display:flex; flex-wrap:wrap; gap:6px 18px; margin-top:26px; font-size:13px; color:var(--faint); }
+  .meta span::before{ content:""; display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--teal); margin-right:8px; vertical-align:middle; }
+  .cue{ position:absolute; z-index:4; right:max(24px,5vw); bottom:7vh; display:flex; flex-direction:column; align-items:center; gap:10px; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--soft); }
+  .cue i{ display:block; width:1px; height:54px; background:linear-gradient(var(--teal),transparent); animation:cue 2s ease-in-out infinite; transform-origin:top; }
+  @keyframes cue{ 0%{ transform:scaleY(0); } 50%{ transform:scaleY(1); } 100%{ transform:scaleY(1); opacity:0; } }
+  .chip{ position:absolute; z-index:5; right:14px; top:calc(var(--bar) + 12px); font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--soft); background:rgba(7,11,20,.7); border:1px dashed rgba(255,255,255,.3); padding:4px 9px; border-radius:6px; }
+
+  /* ---- article text ------------------------------------------------------------ */
+  .prose{ max-width:660px; margin:0 auto; padding:0 24px; }
+  .prose p, .prose .tx{ font-family:var(--serif); font-size:clamp(19px,2vw,22px); line-height:1.65; color:#dfe7f6; margin-top:1.15em; text-wrap:pretty; }
+  .prose .tx p{ margin:0; font:inherit; color:inherit; }
+  .prose .tx p + p{ margin-top:1.15em; }
+  .prose p.lede{ font-size:clamp(26px,3.6vw,38px); line-height:1.3; color:var(--ink); margin-top:0; font-weight:600; letter-spacing:-.01em; }
+  .prose p.eyebrow{ font-family:var(--sans); font-size:12px; line-height:1.4; color:var(--teal); margin-top:0; }
+  .prose strong, .card strong{ color:var(--ink); }
+  .sect{ padding:clamp(72px,12vh,140px) 0 clamp(24px,5vh,60px); }
+  .sect.tight{ padding-top:clamp(24px,4vh,48px); }
+  .h2{ font-family:var(--serif); font-size:clamp(32px,5vw,56px); line-height:1.06; letter-spacing:-.02em; font-weight:700; text-wrap:balance; }
+  .eyebrow{ font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); margin-bottom:14px; }
+  .src{ font-size:12px !important; font-family:var(--sans) !important; color:var(--faint) !important; margin-top:14px; line-height:1.5 !important; }
+  .prose p.pull{ font-family:var(--serif); font-size:clamp(24px,3.2vw,34px); line-height:1.3; font-weight:600; color:var(--ink); border-left:3px solid var(--teal); padding-left:20px; margin-top:1.4em; }
+
+
+  .rv{ opacity:0; transform:translateY(26px); transition:opacity .8s var(--ease), transform .8s var(--ease); }
+  .rv.in{ opacity:1; transform:none; }
+  html.rm .rv{ opacity:1; transform:none; transition:none; }
+  html:not(.js) .rv{ opacity:1; transform:none; }
+
+  .ph{ position:relative; overflow:hidden; background:linear-gradient(135deg,#1a2a4d,#0e1830 60%,#16203a); border:1px solid var(--line); border-radius:14px; }
+  .ph::before{ content:""; position:absolute; inset:0; background:repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 2px,transparent 2px 16px); }
+  .ph .tag{ position:absolute; left:12px; bottom:12px; font-size:11px; line-height:1.4; color:var(--soft); background:rgba(7,11,20,.72); border:1px dashed rgba(255,255,255,.28); padding:6px 10px; border-radius:6px; max-width:calc(100% - 24px); }
+  .ph .tag b{ color:var(--amber); letter-spacing:.08em; margin-right:6px; }
+
+  /* ---- stepped scenes ------------------------------------------------------------ */
+  .scrolly{ display:grid; grid-template-columns:minmax(300px,370px) 1fr; column-gap:clamp(20px,2.4vw,40px); max-width:1680px; margin:0 auto; padding:0 clamp(16px,2.2vw,32px); }
+  .scrolly .stage{ --sh:calc(100vh - var(--bar) - 40px); display:flex; align-items:center; grid-column:2; grid-row:1; position:sticky; top:var(--bar); height:calc(100vh - var(--bar)); align-self:start; padding:20px 0; }
+  .scrolly .steps{ grid-column:1; grid-row:1; }
+  .frame{ --arn:1.4286; position:relative; height:auto; aspect-ratio:var(--arn); width:min(100%, calc(var(--sh) * var(--arn))); margin:0 auto; border-radius:20px; overflow:hidden; border:1px solid var(--line); background:var(--panel); box-shadow:0 24px 60px rgba(0,0,0,.5); }
+  .frame svg.art{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .stage-cap{ position:absolute; left:16px; bottom:14px; right:16px; display:flex; justify-content:space-between; gap:12px; font-size:12px; color:var(--soft); }
+  .stage-cap b{ color:var(--teal); font-weight:700; margin-right:8px; letter-spacing:.06em; }
+  .pips{ display:flex; gap:5px; align-items:center; }
+  .pips i{ width:18px; height:3px; border-radius:2px; background:rgba(255,255,255,.2); transition:background .3s; }
+  .pips i.on{ background:var(--teal); }
+  .lead{ min-height:80vh; display:flex; flex-direction:column; justify-content:center; padding:24px 0 8px; }
+  .lead .h2{ font-size:clamp(30px,3.6vw,50px); }
+  .lead .eyebrow{ margin-bottom:12px; }
+  .lead-p{ font-family:var(--serif); font-size:clamp(18px,1.7vw,21px); line-height:1.6; color:var(--soft); margin-top:18px; max-width:30ch; }
+  .step{ min-height:100vh; display:flex; align-items:center; padding:24px 0; }
+  .step .card{ background:rgba(17,26,46,.92); border:1px solid var(--line); border-radius:16px; padding:22px 24px 24px; opacity:.38; transform:translateX(-6px); transition:opacity .5s, transform .5s var(--ease), border-color .5s; }
+  .step.on .card{ opacity:1; transform:none; border-color:rgba(46,230,207,.4); }
+  .card .n{ font-size:12px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--teal); }
+  .card h3{ font-family:var(--serif); font-size:clamp(24px,2.6vw,32px); line-height:1.15; letter-spacing:-.01em; margin:8px 0 10px; }
+  .card p{ font-size:16px; line-height:1.65; color:var(--soft); text-wrap:pretty; }
+  .card p + p{ margin-top:.8em; }
+  .card .warn{ color:var(--amber); }
+  html.rm .step .card{ opacity:1; transform:none; transition:none; }
+  @media (max-width:1100px){
+    .scrolly{ display:block; padding:0 16px; }
+    .scrolly .stage{ --sh:calc(58vh - 20px); position:sticky; top:var(--bar); height:58vh; padding:10px 0; z-index:5; background:var(--bg); }
+    .lead{ min-height:auto; padding:6vh 0 0; }
+    .lead-p{ max-width:none; }
+    .step{ min-height:70vh; align-items:flex-start; padding:42vh 0 0; }
+    .step .card{ background:var(--panel); }
+  }
+
+  /* scene A: the work area, driven by data-step on #stageA --------------------------- */
+  #stageA{ background:#1b2a4b; }
+  #aSyr{ transform:translate(150px,358px); transition:transform 1s var(--ease); }
+  #stageA[data-step="4"] #aSyr{ transform:translate(505px,358px); }
+  #aCont{ transform:translate(650px,292px); }
+  #aCw{ transform:translate(-90px,0); opacity:0; transition:transform 1s var(--ease), opacity .5s; }
+  #stageA[data-step="1"] #aCw, #stageA[data-step="2"] #aCw{ transform:translate(78px,0); opacity:1; }
+  #stageA[data-step="3"] #aCw{ transform:translate(326px,0); opacity:1; }
+  #aBurst{ transform-origin:276px 366px; transform:scale(.2); opacity:0; transition:transform .5s var(--ease) .7s, opacity .3s .7s; }
+  #stageA[data-step="3"] #aBurst{ transform:scale(1); opacity:1; }
+  .halo{ opacity:0; transform-origin:122px 9px; transition:opacity .4s; }
+  #stageA:not([data-step="0"]):not([data-step="4"]) .halo{ opacity:1; animation:halo 1.6s ease-in-out infinite; }
+  @keyframes halo{ 0%,100%{ transform:scale(.8); } 50%{ transform:scale(1.15); } }
+  #aPath{ opacity:0; transition:opacity .5s; }
+  #stageA:not([data-step="0"]):not([data-step="4"]) #aPath{ opacity:.9; }
+  #aBub{ opacity:0; transform:translateY(10px); transition:opacity .5s, transform .5s var(--ease); }
+  #stageA[data-step="1"] #aBub{ opacity:1; transform:none; }
+  #aOk{ opacity:0; transform:scale(.6); transform-origin:700px 250px; transition:opacity .5s .8s, transform .5s var(--ease) .8s; }
+  #stageA[data-step="4"] #aOk{ opacity:1; transform:none; }
+  .lbl{ opacity:0; transition:opacity .4s; font:700 13px var(--sans); letter-spacing:.04em; }
+  #stageA[data-step="0"] .l0, #stageA[data-step="2"] .l2, #stageA[data-step="3"] .l3, #stageA[data-step="4"] .l4{ opacity:1; }
+  .ring-ph{ animation:ringph 1.2s ease-out infinite; transform-origin:center; transform-box:fill-box; }
+  @keyframes ringph{ 0%{ transform:scale(.6); opacity:.9; } 100%{ transform:scale(1.5); opacity:0; } }
+
+  /* the four moves: sticky stack ------------------------------------------------------ */
+  .stack{ max-width:860px; margin:48px auto 0; padding:0 24px 12vh; }
+  .layer{ position:sticky; top:calc(var(--bar) + 18px + var(--i) * 30px); margin-bottom:40vh; background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:26px 28px 28px; box-shadow:0 -10px 40px rgba(0,0,0,.45); display:grid; grid-template-columns:auto 1fr; gap:6px 22px; }
+  .layer:last-child{ margin-bottom:0; }
+  .layer .num{ grid-row:1 / 3; font-family:var(--serif); font-size:64px; line-height:.9; font-weight:700; color:var(--c); }
+  .layer h3{ font-family:var(--serif); font-size:clamp(24px,3vw,32px); line-height:1.1; }
+  .layer p{ font-size:16px; color:var(--soft); line-height:1.6; max-width:52ch; }
+  .layer p + p{ margin-top:.6em; }
+  .layer p strong{ color:var(--ink); }
+  .layer.l1{ --c:var(--teal); } .layer.l2{ --c:#6fd3ff; } .layer.l3{ --c:var(--violet); } .layer.l4{ --c:var(--amber); }
+  @media (max-width:560px){ .layer{ grid-template-columns:1fr; } .layer .num{ grid-row:auto; font-size:44px; } }
+
+  /* tempting shortcuts ---------------------------------------------------------------- */
+  .tempt{ max-width:900px; margin:40px auto 0; padding:0 24px; display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; align-items:start; }
+  .tp{ text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px 18px; cursor:pointer; transition:border-color .2s, background .2s; display:block; width:100%; }
+  .tp:hover{ border-color:rgba(255,255,255,.3); }
+  .tp small{ display:block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--amber); font-weight:700; margin-bottom:6px; }
+  .tp b{ font-family:var(--serif); font-size:20px; line-height:1.2; display:block; }
+  .tp .why{ display:none; margin-top:10px; font-size:14.5px; line-height:1.55; color:var(--soft); }
+  .tp[aria-expanded="true"]{ border-color:var(--teal); background:var(--panel-2); }
+  .tp[aria-expanded="true"] small{ color:var(--teal); }
+  .tp[aria-expanded="true"] .why{ display:block; }
+  .tp .more{ font-size:12px; color:var(--faint); margin-top:8px; display:block; }
+  .tp[aria-expanded="true"] .more{ display:none; }
+
+  /* quick check ------------------------------------------------------------------------- */
+  .qc-wrap{ padding:0 24px; }
+  .qc{ max-width:660px; margin:44px auto 0; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px 24px 24px; }
+  .qc .tagline, .scalebox .tagline{ font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--teal); font-weight:700; margin-bottom:8px; }
+  .qc .tagline span, .scalebox .tagline span{ color:var(--faint); font-weight:600; margin-left:8px; }
+  .qc h4{ font-family:var(--serif); font-size:22px; line-height:1.3; font-weight:600; margin-bottom:14px; }
+  .qc .opts{ display:grid; gap:8px; }
+  .opt{ text-align:left; display:flex; gap:12px; align-items:flex-start; padding:11px 14px; border-radius:12px; border:1px solid var(--line); background:var(--panel-2); cursor:pointer; font-size:15.5px; line-height:1.45; color:var(--ink); transition:border-color .2s, background .2s; width:100%; }
+  .opt:hover:not(:disabled){ border-color:rgba(255,255,255,.3); }
+  .opt i{ font-style:normal; font-weight:700; color:var(--faint); flex:none; width:18px; }
+  .opt:disabled{ cursor:default; }
+  .opt.ok{ border-color:var(--teal); background:rgba(46,230,207,.12); } .opt.ok i{ color:var(--teal); }
+  .opt.no{ border-color:var(--amber); background:rgba(255,181,71,.1); } .opt.no i{ color:var(--amber); }
+  .opt.picked{ border-color:var(--teal); background:var(--teal-soft); }
+  .fb{ margin-top:16px; padding-top:14px; border-top:1px solid var(--line); font-size:15.5px; line-height:1.6; color:var(--soft); }
+  .fb b.h{ display:block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; margin-bottom:6px; }
+  .fb b.ok{ color:var(--teal); } .fb b.no{ color:var(--amber); } .fb b.pl{ color:var(--soft); }
+  .fb p + p{ margin-top:.7em; }
+  .again{ margin-top:12px; background:none; border:1px solid var(--line); border-radius:999px; padding:6px 14px; font-size:13px; cursor:pointer; color:var(--ink); }
+
+  /* agreement scale ----------------------------------------------------------------------- */
+  .scalebox{ max-width:660px; margin:44px auto 0; background:var(--panel); border:1px solid var(--line); border-radius:18px; padding:22px 24px 24px; }
+  .scalebox q{ display:block; quotes:none; font-family:var(--serif); font-size:21px; line-height:1.4; margin-bottom:18px; }
+  .scale{ display:flex; gap:10px; }
+  .scale button{ flex:1; padding:12px 0; border-radius:12px; border:1px solid var(--line); background:var(--panel-2); font:700 18px var(--serif); cursor:pointer; color:var(--ink); transition:background .2s, border-color .2s; }
+  .scale button:hover{ border-color:rgba(255,255,255,.35); }
+  .scale button[aria-pressed="true"]{ background:var(--teal); color:var(--on-accent); border-color:var(--teal); }
+  .scale-ends{ display:flex; justify-content:space-between; font-size:12px; color:var(--faint); margin-top:8px; }
+  .scalebox .after{ margin-top:16px; font-size:15px; color:var(--soft); }
+
+  /* the walk (scrubbed) ---------------------------------------------------------------------- */
+  .walk{ height:430vh; position:relative; --p:0; }
+  .walk-sticky{ position:sticky; top:var(--bar); height:calc(100vh - var(--bar)); display:flex; flex-direction:column; justify-content:center; gap:18px; max-width:1200px; margin:0 auto; padding:16px 24px; }
+  .walk-head .h2{ font-size:clamp(28px,4vw,46px); }
+  .walk-head .eyebrow{ margin-bottom:8px; }
+  .room{ position:relative; height:min(46vh,420px); border-radius:20px; overflow:hidden; border:1px solid var(--line); background:linear-gradient(180deg,#14223f,#0d1730 62%,#0a1222 62%); box-shadow:0 24px 60px rgba(0,0,0,.45); }
+  .room::before{ content:""; position:absolute; inset:0; background:repeating-linear-gradient(90deg,rgba(255,255,255,.03) 0 1px,transparent 1px 8.33%); }
+  .floor{ position:absolute; left:0; right:0; bottom:0; height:38%; background:linear-gradient(180deg,#0e1830,#0a1222); border-top:1px solid rgba(255,255,255,.1); }
+  .trail{ position:absolute; left:11%; bottom:22%; height:0; border-top:3px dotted var(--amber); width:calc(var(--p) * 68%); }
+  .person{ position:absolute; bottom:15%; width:clamp(34px,5vw,58px); aspect-ratio:2/5; transform:translateX(-50%); }
+  .person svg{ width:100%; height:100%; display:block; overflow:visible; }
+  .you{ left:calc(11% + var(--p) * 68%); }
+  .you .nd{ position:absolute; left:72%; top:44%; width:34px; height:2px; background:#fff; border-radius:1px; }
+  .you .nd::after{ content:""; position:absolute; right:-14px; top:-12px; width:26px; height:26px; border-radius:50%; border:2px solid var(--amber); animation:halo2 1.4s ease-in-out infinite; }
+  @keyframes halo2{ 0%,100%{ transform:scale(.7); opacity:.9; } 50%{ transform:scale(1.2); opacity:.35; } }
+  .npc{ left:var(--x); opacity:.82; }
+  .npc::after{ content:""; position:absolute; left:50%; top:30%; width:130%; aspect-ratio:1; border-radius:50%; border:2px solid var(--red); transform:translate(-50%,-30%) scale(.5); opacity:0; }
+  .npc.near::after{ animation:near 1s ease-out infinite; }
+  @keyframes near{ 0%{ transform:translate(-50%,-30%) scale(.6); opacity:.9; } 100%{ transform:translate(-50%,-30%) scale(1.5); opacity:0; } }
+  .bin{ position:absolute; right:7%; bottom:15%; width:clamp(46px,6vw,76px); }
+  .bin svg{ width:100%; display:block; }
+  .meters{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; max-width:620px; }
+  .meters div{ background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 14px; }
+  .meters b{ display:block; font-family:var(--serif); font-size:clamp(26px,3.4vw,40px); line-height:1.05; font-variant-numeric:tabular-nums; }
+  .meters span{ font-size:12px; color:var(--faint); }
+  .meters .hot b{ color:var(--amber); }
+  .caps{ position:relative; height:84px; max-width:640px; }
+  .caps p{ position:absolute; inset:0; font-family:var(--serif); font-size:clamp(18px,2.2vw,24px); line-height:1.35; color:var(--ink); opacity:0; transform:translateY(10px); transition:opacity .4s, transform .4s var(--ease); }
+  .caps p.on{ opacity:1; transform:none; }
+  .illus{ font-size:11px; color:var(--faint); }
+  @media (max-width:760px){ .meters b{ font-size:24px; } .caps{ height:110px; } .room{ height:34vh; } }
+
+  /* quote break ---------------------------------------------------------------------------------- */
+  .brk{ height:240vh; position:relative; --p:0; margin-top:clamp(60px,12vh,140px); }
+  .brk-sticky{ position:sticky; top:0; height:100vh; overflow:hidden; display:flex; align-items:center; }
+  .brk .ph{ position:absolute; inset:-10% 0; border:0; border-radius:0; transform:translateY(calc((var(--p) - .5) * -9%)) scale(calc(1.02 + var(--p) * .06)); will-change:transform; }
+  .brk .scrim{ position:absolute; inset:0; background:linear-gradient(90deg,rgba(7,11,20,.88),rgba(7,11,20,.45) 70%,rgba(7,11,20,.2)); }
+  .brk .q{ position:relative; z-index:2; margin:0 max(24px,7vw); max-width:16ch; font-family:var(--serif); font-weight:700; font-size:clamp(40px,7.4vw,104px); line-height:1.02; letter-spacing:-.02em; }
+  .brk .q span{ opacity:.18; transition:opacity .35s; }
+  .brk .q span.lit{ opacity:1; }
+  .brk .q span.em.lit{ color:var(--amber); }
+  .brk .ph .tag{ left:auto; right:14px; bottom:14px; }
+
+  /* the fill line: hot spots ---------------------------------------------------------------------- */
+  .explore{ max-width:1100px; margin:44px auto 0; padding:0 24px; display:grid; grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr); gap:24px; align-items:start; }
+  .bench{ position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--line); aspect-ratio:900/520; background:#0d1730; }
+  .bench svg{ position:absolute; inset:0; width:100%; height:100%; }
+  .hs{ position:absolute; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%; border:2px solid var(--soft); background:rgba(170,182,204,.16); cursor:pointer; padding:0; display:grid; place-items:center; }
+  .hs::before{ content:""; position:absolute; inset:-2px; border-radius:50%; border:2px solid var(--soft); animation:near 1.8s ease-out infinite; }
+  .hs span{ font:700 15px var(--sans); color:var(--ink); }
+  .hs[aria-pressed="true"]{ background:var(--ink); } .hs[aria-pressed="true"] span{ color:var(--on-accent); }
+  .hs.seen::before{ animation:none; opacity:0; }
+  .hs.seen.haz{ border-color:var(--amber); background:rgba(255,181,71,.2); } .hs.seen.haz span{ color:var(--amber); }
+  .hs.seen.fine{ border-color:var(--teal); background:var(--teal-soft); } .hs.seen.fine span{ color:var(--teal); }
+  .hs.seen.haz[aria-pressed="true"]{ background:var(--amber); } .hs.seen.fine[aria-pressed="true"]{ background:var(--teal); }
+  .hs.seen[aria-pressed="true"] span{ color:var(--on-accent); }
+  .note{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:20px 22px; min-height:280px; }
+  .note .empty{ color:var(--faint); font-size:15px; }
+  .note .verdict{ display:inline-block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; font-weight:700; padding:3px 10px; border-radius:999px; margin-bottom:10px; }
+  .note .verdict.haz{ background:rgba(255,181,71,.15); color:var(--amber); } .note .verdict.fine{ background:var(--teal-soft); color:var(--teal); }
+  .note h3{ font-family:var(--serif); font-size:25px; line-height:1.2; margin-bottom:10px; }
+  .note p{ font-size:15px; line-height:1.6; color:var(--soft); }
+  .note p + p{ margin-top:.7em; }
+  .tally{ margin-top:14px; font-size:13px; color:var(--faint); display:flex; align-items:center; gap:10px; }
+  .tally .pips i{ width:22px; height:4px; background:rgba(255,255,255,.18); } .tally .pips i.on{ background:var(--teal); }
+  .hint{ font-size:13px; color:var(--faint); text-align:center; margin-top:12px; }
+  @media (max-width:860px){ .explore{ grid-template-columns:1fr; } }
+
+  /* Chris and Jacob: chain ------------------------------------------------------------------------- */
+  #stageC .nd-c{ fill:#0f1a33; stroke:rgba(255,255,255,.18); stroke-width:3; transition:stroke .5s, fill .5s; }
+  #stageC .ico{ fill:#556382; transition:fill .5s; }
+  #stageC .nl{ fill:#7f8ba3; font:700 18px var(--sans); transition:fill .5s; }
+  #stageC .ns{ fill:#6a7690; font:400 13px var(--sans); }
+  #stageC .cn{ fill:none; stroke:rgba(255,255,255,.14); stroke-width:4; stroke-linecap:round; }
+  #stageC .cn.go{ stroke:var(--amber); stroke-dasharray:150; stroke-dashoffset:150; transition:stroke-dashoffset .9s var(--ease), stroke .5s; }
+  #stageC .ah{ fill:var(--amber); opacity:0; transition:opacity .3s .8s; }
+  #stageC .n1 .nd-c{ stroke:var(--amber); fill:#2a2010; } #stageC .n1 .ico{ fill:var(--amber); } #stageC .n1 .nl{ fill:var(--ink); }
+  #stageC:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .n2 .nd-c{ stroke:var(--amber); fill:#2a2010; }
+  #stageC:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .n2 .ico{ fill:var(--amber); }
+  #stageC:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .n2 .nl{ fill:var(--ink); }
+  #stageC:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .c1{ stroke-dashoffset:0; }
+  #stageC:is([data-step="1"],[data-step="2"],[data-step="3"],[data-step="4"]) .a1{ opacity:1; }
+  #stageC:is([data-step="2"],[data-step="3"],[data-step="4"]) .c2{ stroke-dashoffset:0; stroke:var(--red); }
+  #stageC:is([data-step="2"],[data-step="3"],[data-step="4"]) .a2{ opacity:1; fill:var(--red); }
+  #stageC:is([data-step="2"],[data-step="3"],[data-step="4"]) .n3 .nd-c{ stroke:var(--red); fill:#2a1020; }
+  #stageC:is([data-step="2"],[data-step="3"],[data-step="4"]) .n3 .ico{ fill:var(--red); }
+  #stageC:is([data-step="2"],[data-step="3"],[data-step="4"]) .n3 .nl{ fill:var(--ink); }
+  #stageC .chips{ opacity:0; transform:translateY(8px); transition:opacity .5s .2s, transform .5s var(--ease) .2s; }
+  #stageC:is([data-step="3"],[data-step="4"]) .chips{ opacity:1; transform:none; }
+  #stageC .chips rect{ fill:#2a1020; stroke:var(--red); stroke-width:1.5; } #stageC .chips text{ fill:#ffd0d5; font:700 13px var(--sans); }
+  #stageC .arc1{ fill:none; stroke:var(--teal); stroke-width:3; stroke-dasharray:6 8; stroke-linecap:round; opacity:0; transition:opacity .6s .2s; }
+  #stageC .arclbl{ fill:var(--teal); font:700 16px var(--serif); text-anchor:middle; opacity:0; transition:opacity .6s .5s; }
+  #stageC[data-step="4"] .arc1, #stageC[data-step="4"] .arclbl{ opacity:1; }
+
+  /* the weeks after the stick -------------------------------------------------------------------------- */
+  #stageE .trk{ fill:none; stroke:rgba(255,255,255,.1); stroke-width:14; }
+  #stageE .arc{ fill:none; stroke:var(--amber); stroke-width:14; stroke-linecap:round; stroke-dasharray:942.5; stroke-dashoffset:942.5; transform:rotate(-90deg); transform-origin:200px 200px; transition:stroke-dashoffset 1.2s var(--ease); }
+  #stageE .tick{ fill:#0f1a33; stroke:rgba(255,255,255,.3); stroke-width:3; transition:fill .4s, stroke .4s; }
+  #stageE .tick.on{ fill:var(--amber); stroke:var(--amber); }
+  .clock-mid{ position:absolute; inset:0; display:grid; place-content:center; text-align:center; pointer-events:none; }
+  .clock-mid small{ font-size:12px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); max-width:18ch; margin:0 auto; }
+  .clock-mid b{ display:block; font-family:var(--serif); font-size:clamp(30px,4.6vw,60px); line-height:1.05; }
+  .frame.clock .art{ inset:7%; width:86%; height:86%; }
+
+  /* gloves vs container demo ---------------------------------------------------------------------- */
+  .demo{ max-width:900px; margin:44px auto 0; padding:0 24px; }
+  .tabs{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .tabs button{ background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:9px 18px; font-size:14px; font-weight:600; cursor:pointer; color:var(--soft); }
+  .tabs button[aria-selected="true"]{ background:var(--ink); color:var(--on-accent); border-color:var(--ink); }
+  .demo-frame{ position:relative; border-radius:20px; overflow:hidden; border:1px solid var(--line); background:linear-gradient(180deg,#14223f,#0d1730); aspect-ratio:2/1; }
+  .demo-frame svg{ position:absolute; inset:0; width:100%; height:100%; }
+  .demo-ctl{ position:absolute; left:16px; right:16px; bottom:14px; display:flex; align-items:center; gap:14px; font-size:13px; color:var(--soft); background:rgba(7,11,20,.72); border:1px solid var(--line); border-radius:12px; padding:10px 14px; }
+  .demo-ctl input{ flex:1; accent-color:var(--teal); }
+  .demo-out{ margin-top:14px; font-size:16px; color:var(--soft); line-height:1.6; max-width:62ch; }
+  .demo-out strong{ color:var(--ink); }
+
+  /* compare slider ----------------------------------------------------------------------------------- */
+  .cmp-wrap{ max-width:1000px; margin:44px auto 0; padding:0 24px; }
+  .cmp{ position:relative; aspect-ratio:16/8.5; border-radius:20px; overflow:hidden; border:1px solid var(--line); --x:50%; user-select:none; -webkit-user-select:none; background:#0d1730; }
+  .cmp .sc{ position:absolute; inset:0; }
+  .cmp .sc svg{ width:100%; height:100%; display:block; }
+  .cmp .sc.a{ clip-path:inset(0 calc(100% - var(--x)) 0 0); }
+  .cmp .side{ position:absolute; top:14px; font-size:12px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:5px 11px; border-radius:999px; background:rgba(7,11,20,.8); border:1px solid var(--line); }
+  .cmp .side.l{ left:14px; color:var(--amber); } .cmp .side.r{ right:14px; color:var(--teal); }
+  .cmp .stat{ position:absolute; bottom:14px; font-size:13px; line-height:1.4; padding:8px 12px; border-radius:10px; background:rgba(7,11,20,.82); border:1px solid var(--line); }
+  .cmp .stat.l{ left:14px; } .cmp .stat.r{ right:14px; text-align:right; }
+  .cmp .stat b{ font-family:var(--serif); font-size:20px; display:block; }
+  .cmp .knob{ position:absolute; top:0; bottom:0; left:var(--x); width:2px; background:#fff; transform:translateX(-1px); pointer-events:none; }
+  .cmp .knob::after{ content:"\2194"; position:absolute; top:50%; left:50%; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%; background:#fff; color:#0a1222; display:grid; place-items:center; font-size:20px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,.5); }
+  .cmp input{ position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:ew-resize; margin:0; touch-action:pan-y; }
+  .cmp:focus-within .knob::after{ outline:2px solid var(--teal); outline-offset:3px; }
+  @media (max-width:640px){ .cmp{ aspect-ratio:4/3.6; } .cmp .stat{ font-size:11px; padding:6px 9px; } .cmp .stat b{ font-size:16px; } }
+
+  /* guess-and-reveal ------------------------------------------------------------------------------------- */
+  .reveal-bar{ margin-top:22px; }
+  .reveal-bar .trk{ height:34px; border-radius:10px; background:rgba(255,255,255,.08); overflow:hidden; position:relative; }
+  .reveal-bar .trk i{ position:absolute; inset:0 auto 0 0; width:0; background:linear-gradient(90deg,var(--teal-deep),var(--teal)); border-radius:10px; transition:width 1.6s var(--ease); }
+  .reveal-bar .trk u{ position:absolute; top:0; bottom:0; width:4px; background:var(--amber); left:0; text-decoration:none; }
+  .reveal-bar .row{ display:flex; justify-content:space-between; margin-top:8px; font-size:13px; color:var(--faint); }
+  .big-n{ font-family:var(--serif); font-size:clamp(56px,10vw,110px); line-height:1; font-weight:700; color:var(--teal); font-variant-numeric:tabular-nums; margin-top:16px; }
+  .big-n small{ font-size:.4em; color:var(--soft); margin-left:6px; }
+
+  /* simulation preview ----------------------------------------------------------------------------------- */
+  .sim{ max-width:760px; margin:0 auto; padding:0 24px; display:grid; gap:22px; }
+  .simcard{ background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:24px 26px 26px; }
+  .simcard .part{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); font-weight:700; }
+  .simcard h3{ font-family:var(--serif); font-size:clamp(24px,3vw,32px); line-height:1.15; margin:6px 0 12px; }
+  .simcard p{ font-size:16.5px; line-height:1.65; color:var(--soft); }
+  .simcard p + p{ margin-top:.8em; }
+  .simcard .opts{ display:grid; gap:8px; margin-top:16px; }
+  .rubric{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:16px; }
+  .rubric div{ background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .rubric b{ display:block; font-family:var(--serif); font-size:18px; color:var(--ink); } .rubric span{ font-size:13px; color:var(--soft); line-height:1.45; }
+  .simcard textarea{ width:100%; min-height:96px; margin-top:14px; background:var(--panel-2); border:1px solid var(--line); border-radius:12px; padding:12px 14px; color:var(--ink); font:inherit; font-size:15.5px; resize:vertical; }
+  .btn{ display:inline-block; padding:12px 22px; border-radius:999px; font-weight:700; font-size:15px; text-decoration:none; cursor:pointer; border:1px solid var(--line); background:none; color:var(--ink); }
+  .btn.pri{ background:var(--teal); color:var(--on-accent); border-color:var(--teal); }
+  .btn.sm{ padding:8px 16px; font-size:14px; margin-top:14px; }
+  .btns{ display:flex; flex-wrap:wrap; gap:12px; margin-top:26px; }
+  .end{ max-width:660px; margin:0 auto; padding:56px 24px 96px; }
+  .foot{ border-top:1px solid var(--line); padding:20px 24px 32px; text-align:center; font-size:12px; color:var(--faint); }
+  .band{ background:linear-gradient(180deg,var(--bg),var(--bg-2) 20%,var(--bg-2) 80%,var(--bg)); }
+</style>
+</head>
+<body>
+
+<!-- Shared drawings so every scene draws people and the container the same way -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="person" viewBox="0 0 40 100">
+      <circle cx="20" cy="13" r="11" fill="#8aa0cf"/><rect x="4" y="27" width="32" height="46" rx="14" fill="#6f86b8"/>
+      <rect x="8" y="68" width="10" height="30" rx="4" fill="#4d628f"/><rect x="22" y="68" width="10" height="30" rx="4" fill="#4d628f"/>
+    </symbol>
+    <symbol id="personM" viewBox="0 0 40 100"><!-- hard hat -->
+      <circle cx="20" cy="13" r="11" fill="#8aa0cf"/><path d="M7 11a13 11 0 0 1 26 0z" fill="#ffb547"/><rect x="5" y="10" width="30" height="4" rx="2" fill="#e69a2e"/>
+      <rect x="4" y="27" width="32" height="46" rx="14" fill="#6f86b8"/><rect x="4" y="44" width="32" height="5" fill="#ffb547" opacity=".85"/>
+      <rect x="8" y="68" width="10" height="30" rx="4" fill="#4d628f"/><rect x="22" y="68" width="10" height="30" rx="4" fill="#4d628f"/>
+    </symbol>
+    <symbol id="personLE" viewBox="0 0 40 100"><!-- uniform cap + badge -->
+      <circle cx="20" cy="13" r="11" fill="#8aa0cf"/><path d="M8 9a12 8 0 0 1 24 0z" fill="#1d2d52"/><rect x="6" y="8" width="28" height="3" rx="1.5" fill="#16203a"/>
+      <rect x="4" y="27" width="32" height="46" rx="14" fill="#3f5a99"/><circle cx="27" cy="38" r="3.5" fill="#ffb547"/>
+      <rect x="8" y="68" width="10" height="30" rx="4" fill="#2d4274"/><rect x="22" y="68" width="10" height="30" rx="4" fill="#2d4274"/>
+    </symbol>
+    <symbol id="bin" viewBox="0 0 100 126">
+      <rect x="0" y="14" width="100" height="112" rx="12" fill="#d8404f"/><rect x="0" y="14" width="100" height="112" rx="12" fill="url(#binShade)"/>
+      <rect x="-6" y="0" width="112" height="20" rx="6" fill="#ffb547"/><rect x="24" y="5" width="52" height="7" rx="3" fill="#6b1420"/>
+      <text x="50" y="76" text-anchor="middle" font-family="Open Sans,sans-serif" font-weight="800" font-size="15" fill="#fff" letter-spacing="1">SHARPS</text>
+      <path d="M50 88 l-9 15 h18z" fill="none" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+    </symbol>
+    <linearGradient id="binShade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity=".16"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+    <linearGradient id="gWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b2a4b"/><stop offset="1" stop-color="#0d1628"/></linearGradient>
+    <linearGradient id="gBeam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bcd6ff" stop-opacity=".2"/><stop offset="1" stop-color="#bcd6ff" stop-opacity="0"/></linearGradient>
+  </defs>
+</svg>
+
+<header class="bar">
+  <div class="brand"><span class="orb"></span><span class="t">Contain the Sharp</span></div>
+  <div class="chap" id="chap"><b>00</b>Start</div>
+  <div class="sp"></div>
+  <nav class="dots" id="dots" aria-label="Chapters"></nav>
+  <div class="seg" role="group" aria-label="Sector (review control)">
+    <button id="secM" aria-pressed="true">Manufacturing</button><button id="secLE" aria-pressed="false">Law enforcement</button>
+  </div>
+  <button class="rm-btn" id="rmBtn" aria-pressed="false" title="Turns off parallax and slide-in motion">Reduce motion</button>
+  <div class="prog" id="prog"></div>
+</header>
+
+<!-- HERO: scroll-scrubbed video (never plays; currentTime follows scroll) -->
+<section class="hero" id="top">
+  <div class="hero-sticky">
+    <span class="chip">Placeholder video · swap for sector footage</span>
+    <video class="hero-vid" id="heroVid" muted playsinline preload="auto" disablepictureinpicture
+           poster="../../../assets/videos/SHARPS-parallax-2-poster.jpg" aria-hidden="true">
+      <source src="../../../assets/videos/SHARPS-parallax-2-scrub.mp4" type="video/mp4" />
+    </video>
+    <div class="hero-vig"></div>
+    <div class="hero-fade"></div>
+    <div class="hero-copy" id="heroCopy">
+      <div class="kicker">Module 4 · Bloodborne Pathogens · <span data-k="sectorLabel">Manufacturing</span></div>
+      <h1 data-k="h1">The blade at the bench</h1>
+      <p class="dek" data-k="dek"></p>
+      <div class="meta"><span>About 15 minutes</span><span>Scroll to move through it</span><span>Nothing here is scored</span></div>
+    </div>
+    <div class="cue" aria-hidden="true" id="heroCue">Scroll<i></i></div>
+  </div>
+</section>
+
+<main class="band">
+
+<!-- 1 · THE BEHAVIOR -->
+<section class="sect" data-chapter="The behavior" id="c1">
+  <div class="prose">
+    <p class="eyebrow rv">Chapter 1 · The behavior</p>
+    <p class="lede rv">When I am about to use, handle, or dispose of a needle or sharp, I plan the disposal route before I start, activate the safety feature, and put it straight into a designated container — never into general waste.</p>
+    <div class="tx rv" data-k="defineP"></div>
+    <div class="tx rv" data-k="scopeP"></div>
+  </div>
+</section>
+
+<!-- 2 · THE PAUSE -->
+<section class="sect tight" data-chapter="The pause" id="c2">
+  <div class="scrolly" id="scA">
+    <div class="stage">
+      <div class="frame" id="stageA" data-step="0">
+        <svg class="art" viewBox="0 0 800 560" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <rect width="800" height="560" fill="url(#gWall)"/>
+          <g fill="url(#gBeam)"><polygon points="60,0 150,0 330,400 190,400"/><polygon points="230,0 320,0 500,400 360,400"/></g>
+          <g class="only-m"><rect x="0" y="262" width="800" height="26" fill="#18274a"/><g fill="#33497d"><rect x="40" y="244" width="50" height="18" rx="3"/><rect x="190" y="248" width="40" height="14" rx="3"/><rect x="380" y="242" width="56" height="20" rx="3"/></g>
+            <text x="28" y="196" font-family="Open Sans,sans-serif" font-size="13" font-weight="700" letter-spacing="2" fill="#6a7eae">LINE 4</text></g>
+          <g class="only-le"><rect x="20" y="190" width="170" height="64" rx="6" fill="#16264a" stroke="#2b3f70"/><text x="105" y="228" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="13" font-weight="700" letter-spacing="2" fill="#6a7eae">BOOKING · INTAKE</text></g>
+          <rect x="0" y="392" width="800" height="22" fill="#26365c"/><rect x="0" y="414" width="800" height="146" fill="#101a30"/>
+          <rect x="110" y="376" width="250" height="16" rx="4" fill="#3a4d7a"/>
+          <line id="aPath" x1="276" y1="366" x2="650" y2="366" stroke="#ffb547" stroke-width="3" stroke-dasharray="8 8"/>
+          <g id="aCont"><use href="#bin" width="100" height="100"/></g>
+          <g id="aBub"><rect x="30" y="120" width="270" height="52" rx="26" fill="#16203a" stroke="#2ee6cf" stroke-width="2"/><circle cx="56" cy="146" r="9" fill="#2ee6cf"/><circle cx="56" cy="146" r="9" fill="none" stroke="#2ee6cf" stroke-width="2" class="ring-ph"/><text x="76" y="151" font-family="Open Sans,sans-serif" font-size="14" fill="#eaf0fb" data-k="bubble"></text></g>
+          <g id="aCw"><use class="only-m" href="#personM" x="-20" y="290" width="40" height="100"/><use class="only-le" href="#personLE" x="-20" y="290" width="40" height="100"/></g>
+          <!-- the sharp: a blade at the plant, a recovered needle at intake -->
+          <g id="aSyr">
+            <g class="only-le"><rect x="-26" y="0" width="4" height="16" rx="1" fill="#9fb4d9"/><rect x="-22" y="5" width="22" height="6" fill="#9fb4d9"/><rect x="0" y="0" width="76" height="16" rx="3" fill="#dbe8ff"/><rect x="8" y="3" width="52" height="10" fill="#ff5d6c" opacity=".85"/><rect x="76" y="4" width="6" height="8" fill="#6aa7ff"/><rect x="82" y="7" width="40" height="2" fill="#fff"/></g>
+            <g class="only-m"><polygon points="0,1 104,1 124,17 0,17" fill="#dfe6f5"/><path d="M22 1v16M44 1v16M66 1v16M88 1v16" stroke="#9fb0cf" stroke-width="1.5"/><polygon points="104,1 124,17 104,17" fill="#b9c6e2"/></g>
+            <circle class="halo" cx="122" cy="9" r="15" fill="none" stroke="#ffb547" stroke-width="2.5"/>
+          </g>
+          <g id="aBurst"><circle cx="276" cy="366" r="34" fill="#ff5d6c" opacity=".25"/><circle cx="276" cy="366" r="20" fill="#ff5d6c" opacity=".5"/><path d="M276 330v-14M276 402v14M240 366h-14M312 366h14M251 341l-10-10M301 391l10 10M301 341l10-10M251 391l-10 10" stroke="#ff5d6c" stroke-width="4" stroke-linecap="round"/></g>
+          <g id="aOk"><circle cx="700" cy="250" r="26" fill="#2ee6cf"/><path d="M688 250l9 10 17-20" fill="none" stroke="#04121a" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></g>
+          <text class="lbl l0" x="150" y="338" fill="#aab6cc" data-k="lbl0"></text>
+          <text class="lbl l2" x="150" y="338" fill="#ffb547">Right where you can see it</text>
+          <text class="lbl l3" x="150" y="338" fill="#ff5d6c">The next hand to reach for that spot</text>
+          <text class="lbl l4" x="420" y="338" fill="#2ee6cf">Straight into the container</text>
+        </svg>
+        <div class="stage-cap"><span class="cap"></span><span class="pips"></span></div>
+      </div>
+    </div>
+    <div class="steps">
+      <div class="lead"><p class="eyebrow">Chapter 2 · The pause</p><h2 class="h2" data-k="h2pause"></h2><p class="lead-p">Scroll through one of these moments. Nothing in it feels careless, which is exactly why it’s worth watching closely.</p></div>
+      <div class="step"><div class="card" data-cap="Where the container is"><span class="n" data-k="n0"></span><h3>Where the container is</h3><div data-k="a0"></div></div></div>
+      <div class="step"><div class="card" data-cap="The room gets busy"><span class="n">A moment later</span><h3>The room gets busy</h3><div data-k="a1"></div></div></div>
+      <div class="step"><div class="card" data-cap="Nothing feels careless"><span class="n">The reasonable choice</span><h3>Nothing about it feels careless</h3><div data-k="a2"></div></div></div>
+      <div class="step"><div class="card" data-cap="Who reaches next"><span class="n">The hazard</span><h3>Who reaches for that spot next</h3><div data-k="a3"></div></div></div>
+      <div class="step"><div class="card" data-cap="It goes straight in"><span class="n">The procedure</span><h3>The procedure doesn’t change when the room gets busy</h3><div data-k="a4"></div></div></div>
+    </div>
+  </div>
+
+  <div class="prose" style="margin-top:clamp(40px,8vh,90px)">
+    <p class="eyebrow rv">The safe-sharps procedure</p>
+    <h2 class="h2 rv" style="font-size:clamp(28px,4vw,44px)">Four moves, in this order</h2>
+  </div>
+  <div class="stack">
+    <article class="layer l1" style="--i:0"><span class="num">1</span><h3>Plan the disposal first</h3><p>Have a plan for handling and disposal <strong>before</strong> you use a needle or other sharp instrument, or before you clean up broken glass.</p></article>
+    <article class="layer l2" style="--i:1"><span class="num">2</span><h3>Use an alternative when there is one</h3><p>Use a needle alternative, or a safer alternative, whenever one exists.</p></article>
+    <article class="layer l3" style="--i:2"><span class="num">3</span><h3>Activate the safety feature</h3><p>If the device has a safety feature, activate it.</p></article>
+    <article class="layer l4" style="--i:3"><span class="num">4</span><h3>Straight into the container</h3><p>Dispose of the used sharp directly into a designated sharps container, immediately or as soon as possible.</p><p><strong>Never</strong> recap, bend, or break it. Never leave it on a work surface. Never put it in general waste.</p></article>
+  </div>
+
+  <div class="prose" style="margin-top:-4vh">
+    <p class="eyebrow rv">Tempting shortcuts</p>
+    <h2 class="h2 rv" style="font-size:clamp(28px,4vw,44px)">Each of these feels a little bit safer</h2>
+    <p class="rv">Tap one to see why it isn’t.</p>
+  </div>
+  <div class="tempt" id="tempt"></div>
+
+  <div class="qc-wrap"><div class="qc rv" data-qc="k1"></div></div>
+</section>
+
+<!-- 3 · THE WALK (scrubbed) -->
+<section class="walk" id="walk" data-scrub data-chapter="The walk">
+  <div class="walk-sticky">
+    <div class="walk-head">
+      <p class="eyebrow">Chapter 3 · The walk</p>
+      <h2 class="h2">Carry it yourself</h2>
+    </div>
+    <div class="room" aria-hidden="true">
+      <div class="floor"></div><div class="trail"></div>
+      <div class="person npc" style="--x:38%"><svg viewBox="0 0 40 100"><use href="#person"/></svg></div>
+      <div class="person npc" style="--x:62%"><svg viewBox="0 0 40 100"><use href="#person"/></svg></div>
+      <div class="bin"><svg viewBox="0 0 100 126"><use href="#bin" width="100" height="126"/></svg></div>
+      <div class="person you"><svg viewBox="0 0 40 100"><use href="#person"/></svg><span class="nd"></span></div>
+    </div>
+    <div class="meters">
+      <div><b id="wSteps">0</b><span>steps carried</span></div>
+      <div class="hot"><b id="wSec">0</b><span>seconds uncapped</span></div>
+      <div><b id="wPeople">0</b><span>people passed</span></div>
+    </div>
+    <div class="caps" id="wCaps"><p class="on" data-k="w1"></p><p data-k="w2"></p><p>A few extra steps don’t change the procedure.</p></div>
+    <p class="illus">Illustrative distances. Your work area will differ.</p>
+  </div>
+</section>
+
+<section class="sect tight" id="c3b">
+  <div class="prose">
+    <p class="rv">Plan the disposal route <strong>before</strong> you handle the sharp, then put the used sharp directly into a designated sharps container.</p>
+  </div>
+  <div class="qc-wrap"><div class="qc rv" data-qc="k1up"></div></div>
+</section>
+
+<!-- Pull quote break: scroll-scrubbed word reveal over a photo placeholder -->
+<section class="brk" id="brk" data-scrub aria-label="Pull quote">
+  <div class="brk-sticky">
+    <div class="ph"><div class="tag"><b>IMAGE / VIDEO</b>Full-bleed sector still or second scrub clip · 21:9</div></div>
+    <div class="scrim"></div>
+    <p class="q" id="quote"><span>Don’t</span> <span>set</span> <span>it</span> <span>aside</span> <span class="em">for</span> <span class="em">later.</span></p>
+  </div>
+</section>
+
+<!-- 4 · THE FILL LINE -->
+<section class="sect" data-chapter="The fill line" id="c4">
+  <div class="prose">
+    <p class="eyebrow rv">Chapter 4 · The fill line</p>
+    <h2 class="h2 rv">Two hazards that look nothing alike</h2>
+    <div class="tx rv" data-k="fillP"></div>
+    <p class="rv">Tap each marker. Some of these are hazards. Some are not.</p>
+  </div>
+  <div class="explore rv">
+    <div class="bench" id="bench">
+      <svg viewBox="0 0 900 520" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="900" height="520" fill="url(#gWall)"/>
+        <rect x="40" y="250" width="170" height="10" fill="#26365c"/>
+        <g><rect x="62" y="170" width="120" height="80" rx="8" fill="#e8edf7"/><rect x="62" y="170" width="120" height="80" rx="8" fill="none" stroke="#aab6cc" stroke-width="2"/><rect x="82" y="156" width="80" height="18" rx="5" fill="#ffb547"/><text x="122" y="218" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="12" font-weight="800" fill="#d8404f">SHARPS</text><text x="122" y="236" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="9" fill="#6a7690">SEALED · NEW</text></g>
+        <g transform="translate(262 150)"><use href="#bin" width="86" height="108"/><rect x="6" y="94" width="74" height="16" rx="3" fill="#7b0f1c" opacity=".55"/></g>
+        <g transform="translate(430 140)"><use href="#bin" width="100" height="126"/><path d="M0 40h100" stroke="#fff" stroke-width="2.5" stroke-dasharray="6 5" opacity=".95"/><text x="104" y="43" font-family="Open Sans,sans-serif" font-size="10" font-weight="700" fill="#ffd0d5">FILL LINE</text>
+          <g stroke="#f2f6ff" stroke-width="3" stroke-linecap="round"><path d="M28 14l-5-18M48 14l2-22M66 14l8-16"/></g><g fill="#6aa7ff"><rect x="17" y="-24" width="9" height="7" rx="2"/><rect x="45" y="-30" width="9" height="7" rx="2"/><rect x="71" y="-22" width="9" height="7" rx="2"/></g></g>
+        <rect x="0" y="400" width="640" height="24" fill="#26365c"/><rect x="0" y="424" width="640" height="96" fill="#101a30"/>
+        <rect x="640" y="470" width="260" height="50" fill="#0c1426"/>
+        <g class="only-m" transform="translate(570 392)"><polygon points="0,1 62,1 76,11 0,11" fill="#dfe6f5"/><path d="M14 1v10M28 1v10M42 1v10" stroke="#9fb0cf" stroke-width="1"/></g>
+        <g class="only-le" transform="translate(560 388)"><rect x="-14" y="2" width="14" height="5" fill="#9fb4d9"/><rect width="50" height="9" rx="2" fill="#dbe8ff"/><rect x="5" y="2" width="32" height="5" fill="#ff5d6c" opacity=".85"/><rect x="50" y="3" width="26" height="2" fill="#fff"/></g>
+        <g transform="translate(690 380)"><path d="M0 20h76l-6 80H6z" fill="#556382"/><rect x="-4" y="12" width="84" height="12" rx="4" fill="#6a7690"/><path d="M8 24c6-8 14-8 22 0 8-8 16-8 24 0 6-6 12-6 16 0v6H8z" fill="#7b8aa6"/>
+          <g class="only-m"><polygon points="30,26 44,6 52,28" fill="#9fd6e6" opacity=".9"/></g>
+          <g class="only-le"><rect x="34" y="10" width="7" height="22" rx="2" fill="#dbe8ff" transform="rotate(14 38 20)"/><rect x="36" y="2" width="3" height="10" fill="#fff" transform="rotate(14 38 20)"/></g>
+          <text x="38" y="124" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="11" fill="#7f8ba3">GENERAL WASTE</text></g>
+        <g transform="translate(796 392)"><path d="M0 20h72l-6 70H6z" fill="#46526f"/><rect x="-4" y="12" width="80" height="12" rx="4" fill="#6a7690"/><path d="M6 16h60v8H6z" fill="#e8edf7" opacity=".85"/><text x="36" y="114" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="11" fill="#7f8ba3">GENERAL WASTE</text></g>
+      </svg>
+      <button class="hs" data-i="0" style="left:13.5%;top:36%" aria-pressed="false" aria-label="Marker 1: sealed replacement container on the shelf"><span>1</span></button>
+      <button class="hs" data-i="1" style="left:32%;top:40%" aria-pressed="false" aria-label="Marker 2: wall-mounted container, about a quarter full"><span>2</span></button>
+      <button class="hs" data-i="2" style="left:53%;top:36%" aria-pressed="false" aria-label="Marker 3: container at its fill line"><span>3</span></button>
+      <button class="hs" data-i="3" style="left:70%;top:74%" aria-pressed="false" aria-label="Marker 4: used sharp on the work surface"><span>4</span></button>
+      <button class="hs" data-i="4" style="left:82%;top:77%" aria-pressed="false" aria-label="Marker 5: something partly hidden in the general waste"><span>5</span></button>
+      <button class="hs" data-i="5" style="left:94%;top:80%" aria-pressed="false" aria-label="Marker 6: general-waste bin emptied and relined"><span>6</span></button>
+    </div>
+    <div class="note" id="note" aria-live="polite"><p class="empty">Tap a numbered marker to take a closer look.</p></div>
+  </div>
+  <div class="qc-wrap"><div class="qc rv" data-qc="k2"></div></div>
+</section>
+
+<!-- 5 · A RISK JACOB NEVER CHOSE -->
+<section class="sect" data-chapter="A risk Jacob never chose" id="c5">
+  <div class="scrolly" id="scC">
+    <div class="stage">
+      <div class="frame" id="stageC" data-step="0" style="--arn:1.538">
+        <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+          <path class="cn" d="M194 260H338"/><path class="cn go c1" d="M194 260H338"/><polygon class="ah a1" points="338,248 358,260 338,272"/>
+          <path class="cn" d="M462 260H606"/><path class="cn go c2" d="M462 260H606"/><polygon class="ah a2" points="606,248 626,260 606,272"/>
+          <path class="arc1" d="M130 190C130 70 670 70 670 190"/><text class="arclbl" x="400" y="92">One decision</text>
+          <g class="n1" transform="translate(130 260)"><circle class="nd-c" r="64"/><g class="ico"><circle cx="0" cy="-14" r="12"/><path d="M-22 30a22 22 0 0 1 44 0z"/></g>
+            <text class="nl" y="106" text-anchor="middle">Chris</text><text class="ns" y="128" text-anchor="middle" data-k="n1s"></text></g>
+          <g class="n2" transform="translate(400 260)"><circle class="nd-c" r="64"/><g class="ico"><path d="M-22-14h44l-5 46a8 8 0 0 1-8 7h-18a8 8 0 0 1-8-7z"/><path d="M-8-14l6-14h4l6 14z"/></g>
+            <text class="nl" y="106" text-anchor="middle">The general trash</text><text class="ns" y="128" text-anchor="middle">“Just this once”</text></g>
+          <g class="n3" transform="translate(670 260)"><circle class="nd-c" r="64"/><g class="ico"><circle cx="0" cy="-14" r="12"/><path d="M-22 30a22 22 0 0 1 44 0z"/></g>
+            <text class="nl" y="106" text-anchor="middle">Jacob</text><text class="ns" y="128" text-anchor="middle" data-k="n3s"></text></g>
+          <g class="chips"><rect x="540" y="404" width="50" height="26" rx="13"/><text x="565" y="422" text-anchor="middle">HIV</text><rect x="598" y="404" width="86" height="26" rx="13"/><text x="641" y="422" text-anchor="middle">Hepatitis B</text><rect x="692" y="404" width="86" height="26" rx="13"/><text x="735" y="422" text-anchor="middle">Hepatitis C</text></g>
+        </svg>
+        <div class="stage-cap"><span class="cap"></span><span class="pips"></span></div>
+      </div>
+    </div>
+    <div class="steps">
+      <div class="lead"><p class="eyebrow">Chapter 5 · A risk Jacob never chose</p><h2 class="h2">One decision. Someone else’s injury.</h2><p class="lead-p">A short story about a shortcut, and who ended up carrying it.</p></div>
+      <div class="step"><div class="card" data-cap="Chris"><span class="n">The shortcut</span><h3>Chris</h3><div data-k="s0"></div></div></div>
+      <div class="step"><div class="card" data-cap="Just this once"><span class="n">The shortcut</span><h3>“Just this once”</h3><div data-k="s1"></div></div></div>
+      <div class="step"><div class="card" data-cap="Jacob"><span class="n">Later</span><h3>Jacob collects the bag</h3><div data-k="s2"></div></div></div>
+      <div class="step"><div class="card" data-cap="What a stick can mean"><span class="n">The exposure</span><h3>Jacob never chose it</h3><div data-k="s3"></div></div></div>
+      <div class="step"><div class="card" data-cap="One decision"><span class="n">The chain</span><h3>The shortcut was Chris’s. The risk became Jacob’s.</h3><p>One decision. Someone else’s injury.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 · BEYOND THE NEEDLESTICK -->
+<section class="sect" data-chapter="Beyond the needlestick" id="c6">
+  <div class="scrolly" id="scE">
+    <div class="stage">
+      <div class="frame clock" id="stageE" data-step="0" style="--arn:1">
+        <svg class="art" viewBox="0 0 400 400" aria-hidden="true"><circle class="trk" cx="200" cy="200" r="150"/><circle class="arc" id="arc" cx="200" cy="200" r="150"/><g id="ticks"></g></svg>
+        <div class="clock-mid"><small id="clkSm">First</small><b id="clkBig">Reporting</b></div>
+        <div class="stage-cap"><span class="cap"></span><span class="pips"></span></div>
+      </div>
+    </div>
+    <div class="steps">
+      <div class="lead"><p class="eyebrow">Chapter 6 · Beyond the needlestick</p><h2 class="h2">For Jacob, it didn’t end with the stick</h2><p class="lead-p">Follow what came after.</p></div>
+      <div class="step"><div class="card" data-cap="Reporting" data-big="Reporting" data-sm="First" data-f=".05"><span class="n">First</span><h3>Reporting the injury</h3><p>It meant reporting the injury.</p></div></div>
+      <div class="step"><div class="card" data-cap="Evaluation" data-big="Evaluation" data-sm="Then" data-f=".22"><span class="n">Then</span><h3>A medical evaluation</h3><p>Then a medical evaluation.</p></div></div>
+      <div class="step"><div class="card" data-cap="Blood tests" data-big="Blood tests" data-sm="Then" data-f=".42"><span class="n">Then</span><h3>Blood tests</h3><p>Blood tests, and then the waiting.</p></div></div>
+      <div class="step"><div class="card" data-cap="Weeks of waiting" data-big="Weeks" data-sm="Waiting to learn" data-f=".7"><span class="n">After that</span><h3>Weeks of waiting</h3><p>Weeks of waiting to learn whether he’d been exposed to HIV, hepatitis B, or hepatitis C.</p></div></div>
+      <div class="step"><div class="card" data-cap="At the dinner table" data-big="Home" data-sm="Weeks his family spent waiting too" data-f=".93"><span class="n">And at home</span><h3>The same question, every night</h3><p>Weeks his family spent waiting with him, the same question sitting at their dinner table every night.</p><p>Jacob had no part in the shortcut, but he was left carrying its consequences<span data-k="cl4"></span> He couldn’t see the needle, avoid the shortcut, or choose differently.</p></div></div>
+    </div>
+  </div>
+
+  <div class="prose" style="margin-top:6vh">
+    <p class="pull rv">Chris saved himself a trip to the sharps container. Jacob inherited the risk. That is how far one disposal choice can reach.</p>
+    <p class="rv">If it had been you waiting on those results — you, or someone in your family — how would those weeks have felt?</p>
+  </div>
+  <div class="scalebox rv" id="f1">
+    <div class="tagline">Where do you land? <span>Not scored</span></div>
+    <q>“When I dispose of a sharp, I am making a safety decision that affects not just myself, but every coworker who handles waste downstream.”</q>
+    <div class="scale" role="group" aria-label="Agreement, 1 to 5"></div>
+    <div class="scale-ends"><span>Strongly disagree</span><span>Strongly agree</span></div>
+    <p class="after" hidden>Noted. It isn’t scored, and nothing about what comes next depends on it.</p>
+  </div>
+</section>
+
+<!-- 7 · THE CONTAINER BEATS THE GLOVES -->
+<section class="sect" data-chapter="The container beats the gloves" id="c7">
+  <div class="prose">
+    <p class="eyebrow rv">Chapter 7 · Why it works</p>
+    <h2 class="h2 rv">Why the container beats the gloves</h2>
+    <div class="tx rv" data-k="engP"></div>
+  </div>
+
+  <div class="demo rv" id="demo">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-t="gloves">Heavier gloves</button>
+      <button role="tab" aria-selected="false" data-t="box">A container within reach</button>
+    </div>
+    <div class="demo-frame">
+      <svg viewBox="0 0 800 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+        <rect width="800" height="400" fill="url(#gWall)"/>
+        <g id="gloveScene">
+          <rect x="260" y="270" width="280" height="110" rx="26" fill="#6f86b8"/>
+          <g id="glovelayers"></g>
+          <rect x="396" y="40" width="8" height="40" rx="2" fill="#9fb4d9"/><rect x="398.5" y="78" width="3" height="214" fill="#fff"/><circle cx="400" cy="296" r="5" fill="#ff5d6c"/>
+          <text x="560" y="150" fill="#ffb547" font-family="Open Sans,sans-serif" font-weight="700" font-size="16">Through every layer.</text>
+          <text x="560" y="174" fill="#aab6cc" font-family="Open Sans,sans-serif" font-size="13">A thicker glove isn’t a different control.</text>
+        </g>
+        <g id="boxScene" hidden>
+          <use href="#bin" x="330" y="150" width="140" height="176"/>
+          <rect x="396" y="30" width="8" height="40" rx="2" fill="#9fb4d9"/><rect x="398.5" y="68" width="3" height="100" fill="#fff"/>
+          <rect x="60" y="270" width="150" height="110" rx="26" fill="#6f86b8" opacity=".55"/>
+          <text x="560" y="150" fill="#2ee6cf" font-family="Open Sans,sans-serif" font-weight="700" font-size="16">Contained after disposal.</text>
+          <text x="560" y="174" fill="#aab6cc" font-family="Open Sans,sans-serif" font-size="13">Nobody else reaches it.</text>
+        </g>
+      </svg>
+      <div class="demo-ctl" id="glovectl"><label for="gl">Glove thickness</label><input id="gl" type="range" min="1" max="5" value="1" /><span id="glv">1</span></div>
+    </div>
+    <p class="demo-out" id="demoOut"><strong>Heavy-duty gloves</strong> can help protect against cuts, punctures, and exposure, but even thick gloves can be penetrated by a needle.</p>
+  </div>
+
+  <div class="prose">
+    <p class="rv">A designated sharps container is an <strong>engineering control</strong>. It contains the sharp after disposal, reducing the chance that another person will come into contact with it. That provides stronger protection against needlestick injuries than relying on PPE alone.</p>
+    <p class="rv" data-k="accessP"></p>
+  </div>
+  <div class="cmp-wrap rv">
+    <div class="cmp" id="cmp">
+      <div class="sc b">
+        <svg viewBox="0 0 800 430" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="800" height="430" fill="url(#gWall)"/><rect x="0" y="318" width="800" height="18" fill="#26365c"/><rect x="0" y="336" width="800" height="94" fill="#101a30"/>
+          <use href="#bin" x="470" y="210" width="84" height="106"/><use href="#person" x="330" y="216" width="40" height="100"/><path d="M376 284h88" stroke="#2ee6cf" stroke-width="3" stroke-dasharray="6 6"/>
+        </svg>
+        <div class="stat r"><b>One step</b>nobody passed</div>
+      </div>
+      <div class="sc a">
+        <svg viewBox="0 0 800 430" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <rect width="800" height="430" fill="#13203c"/><rect x="0" y="318" width="800" height="18" fill="#2b3d66"/><rect x="0" y="336" width="800" height="94" fill="#0f182d"/>
+          <use href="#person" x="70" y="216" width="40" height="100"/><use href="#person" x="300" y="216" width="40" height="100" opacity=".6"/><use href="#person" x="520" y="216" width="40" height="100" opacity=".6"/>
+          <use href="#bin" x="700" y="210" width="84" height="106"/><path d="M116 284H694" stroke="#ffb547" stroke-width="3" stroke-dasharray="6 6"/>
+        </svg>
+        <div class="stat l"><b>A long walk</b>two people passed</div>
+      </div>
+      <span class="side l" data-k="cmpL"></span><span class="side r" data-k="cmpR"></span>
+      <div class="knob"></div>
+      <input type="range" min="4" max="96" value="50" id="cmpIn" aria-label="Compare a distant container with an accessible one" />
+    </div>
+    <p class="hint">Drag, or use the arrow keys. Illustrative.</p>
+  </div>
+</section>
+
+<!-- 8 · WHAT YOU'VE SEEN (climate question: sampled, never routes) -->
+<section class="sect" data-chapter="What you’ve seen" id="c8">
+  <div class="prose">
+    <p class="eyebrow rv">Chapter 8 · A question for you</p>
+    <h2 class="h2 rv" data-k="h2poll"></h2>
+    <p class="rv">This one isn’t about right and wrong. Some learners are asked it as a sample, it never changes what you see, and it’s reported only as a group-level picture of what people notice.</p>
+  </div>
+  <div class="qc-wrap"><div class="qc rv" data-qc="poll"></div></div>
+</section>
+
+<!-- 9 · THE SHORTCUT IS THE EXCEPTION (guess, then reveal) -->
+<section class="sect" data-chapter="The shortcut is the exception" id="c9">
+  <div class="prose">
+    <p class="eyebrow rv">Chapter 9 · What people actually do</p>
+    <h2 class="h2 rv">The shortcut is the exception</h2>
+    <p class="rv">There’s a common assumption that when a sharps container isn’t nearby, everyone takes the shortcut and drops the sharp in the nearest trash. Making the trip to a designated container can feel unrealistic when work is moving quickly.</p>
+  </div>
+  <div class="scalebox rv" id="f3">
+    <div class="tagline">Make a guess first <span>Not scored</span></div>
+    <q>“Most people on my shift use the sharps container right away instead of setting a used sharp down for a moment.”</q>
+    <div class="scale" role="group" aria-label="Agreement, 1 to 5"></div>
+    <div class="scale-ends"><span>Strongly disagree</span><span>Strongly agree</span></div>
+    <div class="after" hidden>
+      <div class="big-n"><span id="bigN">0</span><small>%</small></div>
+      <p style="font-size:16px;color:var(--soft);margin-top:6px">of workers surveyed in a U.S. study reported <strong style="color:var(--ink)">always</strong> disposing of sharp objects in a sharps container.</p>
+      <div class="reveal-bar"><div class="trk"><i id="barFill"></i><u id="barMark" title="Your answer"></u></div><div class="row"><span>0%</span><span>Amber mark: where your answer sits on the scale</span><span>100%</span></div></div>
+    </div>
+  </div>
+  <div class="prose" id="f3text" hidden>
+    <p class="pull">Memorable isn’t the same as normal.</p>
+    <p>The shortcut stands out because it’s memorable and because of what can happen when someone takes it, not because it’s how the work normally gets done. The one time someone cuts a corner becomes the story people retell. The routine trips to the sharps container don’t. Safe disposal is the norm, even when the container isn’t convenient.</p>
+    <p class="src">Source: Gershon et al. (2000), “Hospital Safety Climate and Its Relationship with Safe Work Practices and Workplace Exposure Incidents,” American Journal of Infection Control, 28(3), 211–221.</p>
+  </div>
+</section>
+
+<!-- 10 · YOUR TURN: a taste of the hands-on final scene -->
+<section class="sect" data-chapter="Your turn" id="c10">
+  <div class="prose">
+    <p class="eyebrow rv">Chapter 10 · Your turn</p>
+    <h2 class="h2 rv">The hands-on scene</h2>
+    <p class="rv">This is where the behavior is proven, not just recalled. A short preview of the real simulation follows. In the real one you answer in your own words.</p>
+  </div>
+  <div style="height:36px"></div>
+  <div class="sim">
+    <div class="simcard rv"><span class="part">The setup</span><h3 data-k="simH"></h3><div data-k="simSetup"></div></div>
+
+    <div class="simcard rv" id="sim1"><span class="part">Part 1 of 4</span><h3>Dispose now, or set it down?</h3><div data-k="simDecision"></div>
+      <div class="opts" id="simOpts"></div><div class="fb" id="simFb" hidden></div></div>
+
+    <div class="simcard rv"><span class="part">Part 2 of 4</span><h3>Walk the disposal</h3><div data-k="simWalk"></div>
+      <p>In the real scene you describe it step by step, and it’s rated on four things. It’s a quality rating, not a simple right or wrong:</p>
+      <div class="rubric"><div><b>Timing</b><span>How soon the sharp reaches the container.</span></div><div><b>Technique</b><span>No recapping, bending or breaking; safety feature activated.</span></div><div><b>Route</b><span>Planned in advance, straight to a designated container.</span></div><div><b>Recovery</b><span>What you do when it isn’t clean.</span></div></div></div>
+
+    <div class="simcard rv" id="sim3"><span class="part">Part 3 of 4</span><h3>When it isn’t clean</h3>
+      <p>The container you reach is at its fill line, and the spare is in another room. Do you find another proper container, or improvise?</p>
+      <div class="opts" id="simOpts3"></div><div class="fb" id="simFb3" hidden></div></div>
+
+    <div class="simcard rv" id="sim4"><span class="part">Part 4 of 4</span><h3>Your worst shift</h3>
+      <p>What would make this hardest to do right on your worst shift?</p>
+      <textarea id="worst" aria-label="Your answer" placeholder="Type whatever comes to mind"></textarea>
+      <button class="btn sm" id="worstBtn">Done</button>
+      <div class="fb" id="simFb4" hidden>There’s no right answer, and it doesn’t send you anywhere. It just listens. (This preview doesn’t save what you type.)</div></div>
+  </div>
+  <div class="end">
+    <div class="btns rv"><a class="btn pri" href="../../clara/sharps.html">Continue to the simulation</a><button class="btn" id="replay">Read it again</button></div>
+  </div>
+</section>
+
+</main>
+<footer class="foot">Riff 08 · Scroll story. Content from the Contain the Sharp Manufacturing and Law Enforcement scripts. Placeholder art and video; nothing on this page is scored or saved.</footer>
+
+<script src="08-scroll-story.js?v=1"></script>
+</body>
+</html>

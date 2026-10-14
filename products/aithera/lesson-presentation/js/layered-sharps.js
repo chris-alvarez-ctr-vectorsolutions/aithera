@@ -3461,6 +3461,8 @@
     setPeekContent(near, 1); near.className = 'bl-peek sh-battery depth1';
     setPeekContent(far, 2); far.className = 'bl-peek sh-battery depth2';
     pinStageHeight();
+    // Rotating a phone or resizing the window changes how tall every card is.
+    window.addEventListener('resize', function () { if (document.getElementById('blStage')) pinStageHeight(); });
   }
 
   // ---- The review set ----------------------------------------------------------
@@ -3795,6 +3797,8 @@
     setPeekContent(near, 1); near.className = 'bl-peek sh-battery depth1';
     setPeekContent(far, 2); far.className = 'bl-peek sh-battery depth2';
     pinStageHeight();
+    // Rotating a phone or resizing the window changes how tall every card is.
+    window.addEventListener('resize', function () { if (document.getElementById('blStage')) pinStageHeight(); });
 
     // .ll-object (the page's own wrapper) vertically centres on its TOTAL
     // content height — fine for a static screen, but the order task (K1)
