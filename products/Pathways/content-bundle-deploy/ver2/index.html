@@ -346,6 +346,23 @@ body.has-panel { overflow: hidden; }
 .st-skip { background: var(--gray-soft); color: #666; }
 .st .auto { font-weight: 400; opacity: .8; }
 
+/* Template menu (download / upload) + upload drop zone */
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute; right: 0; top: calc(100% + 4px); min-width: 260px; background: #fff;
+  border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.14); padding: 4px 0; z-index: 40;
+}
+.menu-item { display: flex; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 9px 14px; border: 0; background: none; cursor: pointer; font-size: 13.5px; }
+.menu-item:hover { background: var(--blue-soft); }
+.menu-item i { width: 16px; text-align: center; color: #555; }
+.dropzone {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 26px; margin-top: 4px;
+  border: 1.5px dashed var(--border); border-radius: 6px; cursor: pointer; color: #444; text-align: center;
+}
+.dropzone:hover, .dropzone.is-over { border-color: var(--blue); background: #f7fbff; }
+.dropzone > i { font-size: 26px; color: var(--blue); margin-bottom: 4px; }
+.dz-sub { font-size: 12px; color: var(--muted); }
+
 /* ── Folder step ───────────────────────────────────────────── */
 .opt {
   border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; margin-bottom: 10px; max-width: 760px;
@@ -594,13 +611,20 @@ details.skipped ul { margin: 6px 0 0; padding-left: 18px; color: #444; }
     <!-- ── Step 3 · Courses & exams ───────────────── -->
     <div class="step" id="step-3" hidden>
       <h2>Match template slots to this district's courses and exams</h2>
-      <p class="help">The template ships placeholder course names. Match each one here, once, and the form options, activities and badge requirements are all created with the district's real names. Anything you skip is not created.</p>
+      <p class="help">The template ships placeholder course names. Match each one here, once, and the form options, activities and badge requirements are all created with the district's real names. Fill it row by row, paste a list, or download the template, complete it and upload it. Anything you skip is not created.</p>
       <div id="map-banner"></div>
       <div class="map-toolbar">
         <div class="map-counts" id="map-counts"></div>
         <div class="map-actions">
           <button class="btn btn-ghost" id="btn-automatch"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-match</button>
           <button class="btn btn-ghost" id="btn-paste"><i class="fa-regular fa-clipboard"></i> Paste a list</button>
+          <div class="menu-wrap">
+            <button class="btn btn-ghost" id="btn-template" aria-haspopup="menu" aria-expanded="false"><i class="fa-regular fa-file-lines"></i> Template <i class="fa-solid fa-chevron-down" style="font-size:10px"></i></button>
+            <div class="menu" id="template-menu" hidden>
+              <button class="menu-item" id="tpl-download"><i class="fa-solid fa-download"></i> Download template (.csv)</button>
+              <button class="menu-item" id="tpl-upload"><i class="fa-solid fa-upload"></i> Upload completed template…</button>
+            </div>
+          </div>
         </div>
       </div>
       <div id="map-groups"></div>
@@ -678,6 +702,26 @@ details.skipped ul { margin: 6px 0 0; padding-left: 18px; color: #444; }
       <button class="link-btn left" id="paste-sample">Use a sample list</button>
       <button class="btn btn-ghost" data-close="paste-modal">Cancel</button>
       <button class="btn" id="paste-apply">Match to slots</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Upload-completed-template modal ──────────────────── -->
+<div class="modal-bg" id="upload-modal" hidden>
+  <div class="modal">
+    <div class="modal-h">Upload completed template <button class="x" data-close="upload-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-b">
+      <p>Use the template downloaded from this step. Keep the <b>Template slot</b> column as it is and fill in <b>District course or exam</b>; leave it blank to skip a slot. Names that match a synced course map to it, the rest are created as new.</p>
+      <label class="dropzone" id="dropzone">
+        <input type="file" id="tpl-file" accept=".csv,text/csv" hidden>
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <div><b>Choose a file</b> or drag it here</div>
+        <div class="dz-sub">CSV · the template has one row per slot</div>
+      </label>
+    </div>
+    <div class="modal-f">
+      <button class="link-btn left" id="tpl-sample">Use a sample completed file</button>
+      <button class="btn btn-ghost" data-close="upload-modal">Cancel</button>
     </div>
   </div>
 </div>
@@ -1217,6 +1261,84 @@ $('#paste-apply').addEventListener('click', () => {
   toast(`Matched ${n} of ${SLOT_TOTAL} slots from your list`);
 });
 
+/* Template: download a CSV with one row per slot, or upload the completed one */
+const TEMPLATE_FILE = BUNDLE.name.replace(/[^\w]+/g, '-') + '-course-template.csv';
+const SAMPLE_TEMPLATE = {
+  'Global History & Geography I': 'SS 9: Global History I', 'Global History & Geography II': 'SS 10: Global History II',
+  'US History & Government': 'SS 11: US History & Government', 'Participation in Government': 'SS 12: Participation in Government',
+  'Economics': 'SS 12: Economics', 'Civics': 'Civics & Citizenship', 'World Cultures': '', 'Current Events Seminar': '',
+  'AP US History': 'AP United States History', 'AP US Government & Politics': 'AP US Government & Politics',
+  'AP World History': 'AP World History: Modern', 'AP Human Geography': 'AP Human Geography',
+  'Dual-Enrollment American Government': 'Ivy Tech POLS 101: American Government',
+  'Regents: US History & Government': 'Regents US History & Govt', 'Regents: Global History & Geography II': 'Regents Global History & Geography II',
+  'AP US Government Exam': 'AP US Government & Politics Exam'
+};
+function templateRows(values) {
+  const rows = [['Group', 'Template slot', 'Type', 'District course or exam (leave blank to skip)']];
+  SLOT_GROUPS.forEach(g => g.slots.forEach(slot => rows.push([g.name, slot, g.kind, values ? (values[slot] || '') : ''])));
+  return rows;
+}
+function toCsv(rows) { return rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\r\n'); }
+function parseCsv(text) {
+  return text.split(/\r?\n/).filter(l => l.trim()).map(line => {
+    const out = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (q) { if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+      else if (ch === '"') q = true;
+      else if (ch === ',') { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur); return out.map(c => c.trim());
+  });
+}
+function downloadTemplate() {
+  const blob = new Blob([toCsv(templateRows())], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = TEMPLATE_FILE;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('Downloaded ' + TEMPLATE_FILE);
+}
+// Rows: the 4-column template, or a plain 2-column "slot, district name" file.
+function applyTemplate(rows, label) {
+  const d = S.district; let filled = 0, skipped = 0, unknown = 0;
+  const bySlot = new Map();
+  SLOT_GROUPS.forEach(g => g.slots.forEach((slot, i) => bySlot.set(slot.toLowerCase(), { g, i })));
+  rows.forEach((r, idx) => {
+    if (idx === 0 && /template slot/i.test(r.join(','))) return;            // header row
+    const slot = (r.length >= 4 ? r[1] : r[0]) || '', val = (r.length >= 4 ? r[3] : r[1]) || '';
+    const hit = bySlot.get(slot.toLowerCase());
+    if (!hit) { unknown++; return; }
+    const k = slotKey(hit.g, hit.i);
+    if (!val) { S.map[k] = { mode: 'skip', value: '', auto: false }; skipped++; return; }
+    const pool = hit.g.kind === 'exam' ? d.exams : d.courses;
+    const synced = d.courseData === 'sis' ? bestMatch(val, pool, 0.75) : null;
+    S.map[k] = synced ? { mode: 'existing', value: synced, auto: false } : { mode: 'new', value: val, auto: false };
+    filled++;
+  });
+  renderMap();
+  $('#upload-modal').hidden = true;
+  toast(`${label}: ${filled} slot${filled === 1 ? '' : 's'} filled · ${skipped} skipped` + (unknown ? ` · ${unknown} row${unknown === 1 ? '' : 's'} matched no slot` : ''));
+}
+const tplMenu = $('#template-menu'), tplBtn = $('#btn-template');
+function closeMenu() { tplMenu.hidden = true; tplBtn.setAttribute('aria-expanded', 'false'); }
+tplBtn.addEventListener('click', e => { e.stopPropagation(); tplMenu.hidden = !tplMenu.hidden; tplBtn.setAttribute('aria-expanded', String(!tplMenu.hidden)); });
+document.addEventListener('click', e => { if (!e.target.closest('.menu-wrap')) closeMenu(); });
+$('#tpl-download').addEventListener('click', () => { closeMenu(); downloadTemplate(); });
+$('#tpl-upload').addEventListener('click', () => { closeMenu(); $('#upload-modal').hidden = false; });
+$('#tpl-sample').addEventListener('click', () => applyTemplate(templateRows(SAMPLE_TEMPLATE), 'Sample file'));
+const tplFile = $('#tpl-file'), dropzone = $('#dropzone');
+function readTemplateFile(file) {
+  if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => applyTemplate(parseCsv(String(rd.result)), file.name);
+  rd.readAsText(file);
+}
+tplFile.addEventListener('change', () => { readTemplateFile(tplFile.files[0]); tplFile.value = ''; });
+['dragenter', 'dragover'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.add('is-over'); }));
+['dragleave', 'drop'].forEach(ev => dropzone.addEventListener(ev, e => { e.preventDefault(); dropzone.classList.remove('is-over'); }));
+dropzone.addEventListener('drop', e => readTemplateFile(e.dataTransfer.files && e.dataTransfer.files[0]));
+
 /* ============================================================
    Step 4 · Folder
    ============================================================ */
@@ -1380,6 +1502,7 @@ setCrumbs(false);
       case 'preview':  seedForFlow(); openWizard(); goStep(1); break;
       case 'seal':     seedForFlow(); openWizard(); goStep(2); break;
       case 'map':      seedForFlow(); openWizard(); goStep(3); break;
+      case 'map-upload': seedForFlow(); openWizard(); goStep(3); $('#upload-modal').hidden = false; break;
       case 'folder':   seedForFlow(); openWizard(); goStep(4); break;
       case 'review':   seedForFlow(); openWizard(); goStep(5); break;
       case 'confirm':  seedForFlow(); openWizard(); goStep(5); openConfirm(); break;
@@ -1401,10 +1524,10 @@ setCrumbs(false);
     flowMap: {
       title: 'Content Bundle Deploy V2 (content takeover) — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 2880, h: 320 },
+      canvas: { w: 3160, h: 320 },
       flows: [
         { id: 'main', name: 'Deploy a bundle to a district', pill: 'A', color: '#f6c9a8',
-          lane: { x: 20, y: 20, w: 2840, h: 280 }, labelXY: { x: 40, y: 40 } }
+          lane: { x: 20, y: 20, w: 3120, h: 280 }, labelXY: { x: 40, y: 40 } }
       ],
       nodes: [
         { id: 'bundle',   flow: 'main', entry: true, x: 40, y: 120, step: 'Start',  name: 'Bundle page',      state: 'bundle',   desc: 'Internal admin → Content Bundles → NY Civic Seal of Readiness. Deploy Bundle replaces the page content with the wizard; top bar and left nav stay (V2). V1 keeps the side drawer.' },
@@ -1412,15 +1535,16 @@ setCrumbs(false);
         { id: 'district-open', flow: 'main', x: 600, y: 120, step: 'Step 1', name: 'List open + filter', state: 'district-open', desc: 'Type to filter by name or ID. Flags test/sandbox sites and already-deployed districts inline; the current choice is checked.' },
         { id: 'preview',  flow: 'main', x: 880, y: 120, step: 'Step 1', name: 'District preview', state: 'preview',  desc: 'Summary card: name, ID, state, type; students and staff reached; SIS/course-data status; badge folders; already-deployed warning.' },
         { id: 'seal',     flow: 'main', x: 1160, y: 120, step: 'Step 2', name: 'Seal link',        state: 'seal',     desc: 'Is this bundle for a seal, which one, and which badges award it or count toward it.' },
-        { id: 'map',      flow: 'main', x: 1440, y: 120, step: 'Step 3', name: 'Courses & exams',  state: 'map',      desc: 'Two-column matcher: template slot → district course/exam. Auto-match from SIS, paste a list, add new inline. Unmapped slots are skipped.' },
-        { id: 'folder',   flow: 'main', x: 1720, y: 120, step: 'Step 4', name: 'Folder',           state: 'folder',   desc: 'New folder (named for the seal), existing folder, or none.' },
-        { id: 'review',   flow: 'main', x: 2000, y: 120, step: 'Step 5', name: 'Review',           state: 'review',   desc: 'District + reach, seal roles, mapping counts with skipped list, folder, and what will be created. Change links jump back.' },
-        { id: 'confirm',  flow: 'main', x: 2280, y: 120, step: 'Step 5', name: 'Confirm',          state: 'confirm',  desc: 'Repeats the district name and affected counts as the last check against the wrong site.' },
-        { id: 'done',     flow: 'main', x: 2560, y: 120, step: 'End',    name: 'Deployed',         state: 'done',     desc: 'Success summary with counts, Open district, and a logged line.' }
+        { id: 'map',      flow: 'main', x: 1440, y: 120, step: 'Step 3', name: 'Courses & exams',  state: 'map',      desc: 'Two-column matcher: template slot → district course/exam. Auto-match from SIS, paste a list, or download / upload the template; add new inline. Unmapped slots are skipped.' },
+        { id: 'map-upload', flow: 'main', x: 1720, y: 120, step: 'Step 3', name: 'Upload template', state: 'map-upload', desc: 'Template menu → Download template (.csv, one row per slot) or Upload completed template. Uploaded names map to synced courses or are created as new; blanks skip.' },
+        { id: 'folder',   flow: 'main', x: 2000, y: 120, step: 'Step 4', name: 'Folder',           state: 'folder',   desc: 'New folder (named for the seal), existing folder, or none.' },
+        { id: 'review',   flow: 'main', x: 2280, y: 120, step: 'Step 5', name: 'Review',           state: 'review',   desc: 'District + reach, seal roles, mapping counts with skipped list, folder, and what will be created. Change links jump back.' },
+        { id: 'confirm',  flow: 'main', x: 2560, y: 120, step: 'Step 5', name: 'Confirm',          state: 'confirm',  desc: 'Repeats the district name and affected counts as the last check against the wrong site.' },
+        { id: 'done',     flow: 'main', x: 2840, y: 120, step: 'End',    name: 'Deployed',         state: 'done',     desc: 'Success summary with counts, Open district, and a logged line.' }
       ],
       edges: [
         ['bundle', 'district'], ['district', 'district-open'], ['district-open', 'preview'], ['preview', 'seal'], ['seal', 'map'],
-        ['map', 'folder'], ['folder', 'review'], ['review', 'confirm'], ['confirm', 'done']
+        ['map', 'map-upload'], ['map-upload', 'folder'], ['folder', 'review'], ['review', 'confirm'], ['confirm', 'done']
       ]
     }
   };
