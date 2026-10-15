@@ -357,12 +357,16 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 
 .appr { background: #f7f7f8; border-color: #e3e5e8; margin-bottom: 16px; }
 .appr .cap b { font-size: 21px; color: #222; letter-spacing: 0; margin-left: 6px; vertical-align: -2px; }
-.tiles { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 0; margin-top: 10px; }
-/* A group (Staff · Program · Student) keeps its tiles together and wraps as a unit */
-.tgroup { display: flex; flex-wrap: wrap; flex: var(--n) 1 calc(var(--n) * 92px); min-width: 0; gap: 2px; }
-.tgroup + .tgroup { border-left: 1px solid #dcdee2; margin-left: 6px; padding-left: 6px; }
-/* A group that wrapped onto a new line drops its divider (set by JS) */
-.tgroup.wrapped { border-left: 0 !important; margin-left: 0 !important; padding-left: 0 !important; }
+.tiles { display: flex; flex-wrap: wrap; align-items: stretch; gap: 14px 20px; margin-top: 12px; }
+/* Each group (Staff · Program · Student) is labelled ONCE: its badge sits above a
+   divider line that spans the group's tiles, so tiles no longer repeat the tag. */
+.tgroup { display: flex; flex-direction: column; flex: var(--n) 1 calc(var(--n) * 88px); min-width: 0; }
+.tg-head { display: flex; align-items: center; padding: 0 0 6px 4px; border-bottom: 2px solid var(--g-line); margin-bottom: 6px; }
+.tg-head .tag { font-size: 10.5px; }
+.tgroup.staff { --g-line: #f1d39a; }
+.tgroup.program { --g-line: #b9d3f6; }
+.tgroup.student { --g-line: #d7c2f2; }
+.tg-tiles { display: flex; flex-wrap: wrap; gap: 2px; }
 .tile {
   flex: 1 1 88px; min-width: 88px; max-width: 170px; border-radius: 6px; padding: 12px 4px 12px; text-align: center; cursor: pointer; border: 1px solid transparent;
   background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -371,7 +375,7 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .tile .n { font-size: 22px; font-weight: 700; color: #333; line-height: 1.2; }
 .tile .n.zero { color: #b5b8bd; }
 .tile .n.hot { color: var(--orange); }
-.tile .l { font-size: 13px; color: #444; margin-bottom: 4px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tile .l { font-size: 13px; color: #444; margin-bottom: 2px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
 /* The new Signatures tile: same anatomy as its neighbours, first in the row. */
 .tile.is-new .n { color: var(--tag-staff); }
@@ -417,13 +421,16 @@ body.customizing .dcard::before {
 .pop-tabs button { flex: 1; border: 0; background: none; padding: 8px; font-size: 12.5px; color: #555; cursor: pointer; border-radius: 4px; }
 .pop-tabs button.is-on { background: #e3eefb; color: var(--nav-active-text); font-weight: 500; }
 .pop-list { max-height: 440px; overflow-y: auto; padding: 4px 0 6px; }
-.pop-grp { font-size: 12px; font-weight: 600; color: #1a1a2e; padding: 12px 16px 4px; display: flex; align-items: center; gap: 8px; }
-.pop-grp .tag { font-size: 9.5px; }
+.pop-grp { padding: 12px 16px 4px; margin: 0 16px 2px; padding-left: 0; padding-right: 0; border-bottom: 2px solid var(--g-line); }
+.pop-grp:first-child { padding-top: 8px; }
+.pop-grp.staff { --g-line: #f1d39a; }
+.pop-grp.program { --g-line: #b9d3f6; }
+.pop-grp.student { --g-line: #d7c2f2; }
+.pop-grp .tag { font-size: 10px; }
 .pop-row { display: flex; align-items: center; gap: 12px; padding: 7px 16px; font-size: 13px; color: #333; }
 .pop-row .grip { color: #b5b9bf; font-size: 11px; cursor: grab; }
 .pop-row i.ic { width: 16px; text-align: center; color: #3b82d6; font-size: 13px; }
 .pop-row .nm { flex: 1; }
-.pop-row .tag { font-size: 9.5px; min-width: 62px; text-align: center; }
 .pop-row[draggable] { cursor: grab; }
 .pop-row.dragging { opacity: .4; }
 .pop-row.drop-before { box-shadow: inset 0 2px 0 var(--blue); }
@@ -521,7 +528,6 @@ body.customizing .dcard::before {
 }
 @media (max-width: 760px) {
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tgroup + .tgroup { border-top: 1px solid #dcdee2; padding-top: 10px; }
   .tgroup { flex-basis: 100%; }
 }
 @media (max-width: 560px) {
@@ -539,6 +545,10 @@ body.customizing .dcard::before {
 }
 .mixed .opts .btn { white-space: normal; height: auto; min-height: 28px; padding: 4px 10px; text-align: left; }
 .mixed > div { min-width: 0; }
+@media (max-width: 1366px) {
+  .tile { padding-left: 2px; padding-right: 2px; }
+  .tile .l { font-size: 12.5px; }
+}
 
 </style>
 </head>
@@ -932,23 +942,18 @@ function renderTiles() {
   $('#tiles').innerHTML = GROUPS.map(g => {
     const items = order.map(appr).filter(a => a.group === g.id && shown[a.id]);
     if (!items.length) return '';
-    return `<div class="tgroup" style="--n:${items.length}">${items.map(a => {
+    return `<div class="tgroup ${g.id}" style="--n:${items.length}">
+      <div class="tg-head"><span class="tag ${g.id}">${g.tag}</span></div>
+      <div class="tg-tiles">${items.map(a => {
       const n = countFor(a); total += n;
       return `<button class="tile ${a.id === 'signatures' ? 'is-new' : ''}" ${a.id === 'signatures' ? 'onclick="goSignatures()"' : ''}>
         <span class="n ${n === 0 ? 'zero' : ''} ${a.hot ? 'hot' : ''}">${n}</span>
-        <span class="l">${esc(a.label)}</span>
-        <span class="tag ${a.group}">${g.tag}</span></button>`;
-    }).join('')}</div>`;
+        <span class="l">${esc(a.label)}</span></button>`;
+    }).join('')}</div></div>`;
   }).join('');
   $('#apprTotal').textContent = total;
-  markWrapped();
 }
-// Hide the group divider on any group that starts a new line
-function markWrapped() {
-  const gs = $$('#tiles .tgroup');
-  gs.forEach((g, i) => g.classList.toggle('wrapped', i > 0 && g.offsetTop > gs[i - 1].offsetTop + 4));
-}
-window.addEventListener('resize', markWrapped);
+
 
 const METRICS = [['favorites', 'Favorites', 'fa-star'], ['approvals', 'Pending Approvals', 'fa-circle-check'], ['activities', 'Activities', 'fa-rocket'],
   ['experiences', 'Active Experiences', 'fa-briefcase'], ['advisory', 'Advisory Boards', 'fa-list'], ['contacts', 'Contacts', 'fa-user-check'],
@@ -967,15 +972,16 @@ function renderPop() {
         <label class="switch"><input type="checkbox" ${card(id).hidden ? '' : 'checked'} onchange="card('${id}').hidden=!this.checked;markDirty()" aria-label="Show ${m[1]}"><span></span></label>
       </div>`; }).join('');
   } else {
-    // Same order as the tiles, each row tagged like its tile
-    $('#popList').innerHTML = order.map(appr).map(a => `
+    // Same order and grouping as the tiles: one badge header per group, then its rows
+    $('#popList').innerHTML = GROUPS.map(g => `
+      <div class="pop-grp ${g.id}"><span class="tag ${g.id}">${g.tag}</span></div>
+      ${order.map(appr).filter(a => a.group === g.id).map(a => `
       <div class="pop-row" draggable="true" data-drag="appr" data-id="${a.id}" data-group="${a.group}">
         <i class="fa-solid fa-grip-dots-vertical grip"></i>
         <i class="fa-regular ${a.icon} ic"></i>
         <span class="nm">${esc(a.label)}</span>
-        <span class="tag ${a.group}">${GROUPS.find(g => g.id === a.group).tag}</span>
         <label class="switch"><input type="checkbox" ${shown[a.id] ? 'checked' : ''} onchange="shown['${a.id}']=this.checked;renderTiles();markDirty()" aria-label="Show ${esc(a.label)}"><span></span></label>
-      </div>`).join('');
+      </div>`).join('')}`).join('');
   }
   wireDrag();
 }
