@@ -131,11 +131,10 @@
       ${gbin(560, 330, 96, 70, { label: '#4a5578', name: 'TRASH' })}
       <g class="figw">${figure({ hat: null, vest: false, jacket: '#4f6490', hair: '#1d1a26', holding: true })}</g>
       <g class="nocont"><rect x="690" y="176" width="70" height="92" rx="6" fill="none" stroke="#ff5d6c" stroke-width="2" stroke-dasharray="6 5"/><text x="725" y="290" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="11" font-weight="700" fill="#ff5d6c">No sharps container</text><text x="725" y="305" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="11" font-weight="700" fill="#ff5d6c">nearby</text></g>
-      <g class="chipsvg unsafe"><rect x="24" y="76" width="300" height="34" rx="8"/><text x="40" y="98" fill="#ff5d6c">Unsafe disposal — do not copy.</text></g>
     </g>`;
 
   const instr = () => `
-    <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
       <rect x="-2400" y="-1400" width="5600" height="3400" fill="url(#wp)"/>
       ${room({})}
       ${counter(60, 400)}
@@ -144,8 +143,6 @@
       <rect x="432" y="272" width="72" height="6" rx="3" fill="#4a5b88"/><use href="#bin" x="438" y="276" width="60" height="78"/>
       <path class="link" d="M224 336C300 300 380 286 436 292" stroke="#2ee6cf" stroke-width="3" stroke-dasharray="7 7" fill="none"/>
       <g class="figi">${figure({ hat: null, vest: false, jacket: '#4f6490', hair: '#1d1a26', holding: true })}</g>
-      <g class="chipsvg l0"><rect x="24" y="44" width="360" height="34" rx="8"/><text x="40" y="66" fill="#2ee6cf">BEFORE THE TASK: DISPOSAL PLANNED</text></g>
-      <g class="chipsvg l2"><rect x="24" y="44" width="372" height="34" rx="8"/><text x="40" y="66" fill="#2ee6cf">FROM THE DEVICE STRAIGHT TO THE CONTAINER</text></g>
     </svg>`;
 
   const anatomy = () => `

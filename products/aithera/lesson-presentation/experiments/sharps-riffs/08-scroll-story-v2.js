@@ -18,21 +18,16 @@
   const collection = ART.collection, workspace = ART.workspace;
 
   const sceneSVG = (kind) => kind === 'alt' ? `
-    <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
       <rect x="-2400" y="-1400" width="5600" height="3400" fill="url(#wp)"/>
       ${collection(true)}
-      <text class="tl tr0" x="24" y="60">LATER, DURING WASTE COLLECTION</text>
-      <text class="tl tr1" x="24" y="60" fill="#2ee6cf">ALTERNATE ENDING: DISPOSAL PLANNED IN ADVANCE.</text>
       <g class="inset"><rect x="500" y="44" width="276" height="118" rx="12" fill="rgba(7,11,20,.84)" stroke="#2ee6cf"/><use href="#bin" x="520" y="64" width="54" height="68"/>
         <text x="592" y="88" font-family="Open Sans,sans-serif" font-size="12" font-weight="700" fill="#2ee6cf">EARLIER</text><text x="592" y="110" font-family="Open Sans,sans-serif" font-size="13" fill="#eaf0fb">Chris used the designated</text><text x="592" y="128" font-family="Open Sans,sans-serif" font-size="13" fill="#eaf0fb">sharps container.</text></g>
     </svg><div class="stage-cap"><span class="cap"></span><span class="pips"></span></div>` : `
-    <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMax meet" aria-hidden="true">
       <rect x="-2400" y="-1400" width="5600" height="3400" fill="url(#wp)"/>
       ${collection(false)}
       ${workspace()}
-      <text class="tl t0" x="24" y="60">WASTE COLLECTION</text>
-      <text class="tl t2 flash" x="24" y="60">↺ EARLIER THAT DAY</text>
-      <text class="tl t3 flash" x="24" y="60">↺ EARLIER THAT DAY</text>
     </svg><div class="stage-cap"><span class="cap"></span><span class="pips"></span></div>`;
 
   /* kit-drawn art that lives in static markup */
@@ -44,6 +39,10 @@
   $('#stageK').insertAdjacentHTML('afterbegin', ART.anatomy());
 
   $$('[data-scene]').forEach(f => { f.insertAdjacentHTML('afterbegin', '<span class="atag"></span>'); f.insertAdjacentHTML('beforeend', sceneSVG(f.dataset.scene)); });
+  /* where / when labels sit in the stage's top-left corner, level with the step counter, rather than inside the drawing */
+  $('#stageS').insertAdjacentHTML('beforeend', '<div class="tchip" aria-hidden="true"><span class="c0">Waste collection</span><span class="c1 flash">↺ Earlier that day</span></div><div class="tchip warn" aria-hidden="true"><span class="c2">Unsafe disposal — do not copy.</span></div>');
+  $('#stageI').insertAdjacentHTML('beforeend', '<div class="tchip" aria-hidden="true"><span class="c0 good">Before the task: disposal planned</span><span class="c2 good">From the device straight to the container</span></div>');
+  $('#stageR').insertAdjacentHTML('beforeend', '<div class="tchip" aria-hidden="true"><span class="c0">Later, during waste collection</span><span class="c1 good">Alternate ending: disposal planned in advance</span></div>');
   $('#stageS').insertAdjacentHTML('beforeend', '<div class="rw-veil" aria-hidden="true"></div><div class="vhs" aria-hidden="true"><div class="vhs-noise"></div><div class="vhs-lines"></div><div class="vhs-bar"></div><div class="vhs-ui"><span class="ic">◀◀</span><span>REWIND</span><span class="tc vhs-tc">0:24</span></div></div>');
 
   /* container with a marked fill line (V07 still) */
