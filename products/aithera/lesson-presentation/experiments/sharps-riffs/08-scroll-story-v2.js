@@ -213,6 +213,14 @@
     }));
   });
 
+  /* seams: report how far through its pinned run each one is (0 to 1) so the line can drift and fade */
+  const seams = $$('.seam');
+  const paintSeams = () => seams.forEach(s => {
+    const r = s.getBoundingClientRect(), run = r.height - innerHeight;
+    s.style.setProperty('--sp', run > 0 ? clamp(-r.top / run).toFixed(3) : '.5');
+  });
+  addEventListener('scroll', paintSeams, { passive: true }); addEventListener('resize', paintSeams); paintSeams();
+
   /* practice mode: one situation at a time. Back and Next are the only navigation; nothing about the
      answers is scored. The rest of the article opens once every situation has a response. */
   const decEls = $$('.dec'), answered = new Set();
@@ -237,34 +245,40 @@
   const unlock = (scroll) => {
     if (unlocked) return; unlocked = true;
     const rest = $('#afterGate'); rest.hidden = false; rest.classList.add('opening');
-    $('#gate').hidden = true; $('#prHint').hidden = true;
+    $('#gate').hidden = true;
     document.body.classList.remove('locked');
     pinLayout(true);
     watchRv(); centreCards();
     if (scroll) setTimeout(() => $('#s8').scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' }), 450);
   };
+  const GATE_LOCK = $('#gateIc').innerHTML;
   const paintGate = () => {
     $$('#gateDots i').forEach((d, k) => d.classList.toggle('on', k < answered.size));
     $('#gateCount').textContent = answered.size + ' of ' + decEls.length + ' complete';
+    const done = answered.size === decEls.length;
+    $('#gateCard').classList.toggle('done', done);
+    $('#gateTitle').textContent = done ? 'Activity complete' : 'Complete the activity to continue';
+    $('#gateText').textContent = done ? 'Select Continue to move on to the rest of the article.' : 'The rest of the article opens when you’ve finished the activity above.';
+    $('#gateIc').innerHTML = done
+      ? '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>'
+      : GATE_LOCK;
   };
   const showDec = (i) => {
     cur = i;
     decEls.forEach((d, k) => { d.hidden = k !== i; });
     $('#prCount').textContent = 'Situation ' + (i + 1) + ' of ' + decEls.length;
     $('#prBack').disabled = i === 0;
-    $('#prNext').textContent = i === decEls.length - 1 ? 'Finish' : 'Next situation →';
-    $('#prHint').hidden = true;
-    $('#prDone').hidden = !unlocked;
+    $('#prNext').textContent = i === decEls.length - 1 ? (answered.size === decEls.length ? 'Continue →' : 'Finish') : 'Next situation →';
+    $('#prNext').disabled = !answered.has(i);   // an answer is required before moving on
   };
   $('#prBack').addEventListener('click', () => showDec(Math.max(0, cur - 1)));
   $('#prNext').addEventListener('click', () => {
     if (cur < decEls.length - 1) { showDec(cur + 1); return; }
-    if (answered.size < decEls.length) { $('#prHint').hidden = false; return; }
+    if (answered.size < decEls.length) return;
     unlock(true);
   });
   decEls.forEach((d, i) => $$('.opt', d).forEach(b => b.addEventListener('click', () => {
-    answered.add(i); paintGate();
-    if (answered.size === decEls.length) { $('#prDone').hidden = false; $('#prHint').hidden = true; if (cur === decEls.length - 1) $('#prNext').textContent = 'Continue →'; }
+    answered.add(i); paintGate(); showDec(cur);
   })));
   $('#gateSkip').addEventListener('click', () => unlock(true));   // review shortcut, only visible with review marks on
   paintGate(); showDec(0); pinLayout();
