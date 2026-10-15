@@ -202,13 +202,13 @@
       sit: `<p>You have just used the safety-equipped needle shown in this article. The loose cap has rolled under a counter. A designated sharps container is across the room.</p>`, ask: 'What should you do next?',
       opts: [
         ['Activate the built-in safety sheath and take the device to the sharps container.', true, 'Correct. Use the device’s applicable safety feature and complete disposal in the designated container. For the next task, plan the disposal route before starting.'],
-        ['Retrieve the cap and recap the needle before carrying it.', false, 'Recapping is not the step demonstrated here. The built-in safety sheath and the loose cap are different. Activate the safety feature and use the designated container.'],
-        ['Wrap the needle in paper towel until a container is easier to reach.', false, 'Soft wrapping is not an acceptable substitute. Do not put the needle in general waste or use improvised wrapping. Use its safety feature and a proper sharps container.']],
+        ['Retrieve the cap and recap the needle before carrying it.', false, 'Recapping isn’t the step demonstrated here. The built-in safety sheath and the loose cap are different. Activate the safety feature and use the designated container.'],
+        ['Wrap the needle in paper towel until a container is easier to reach.', false, 'Soft wrapping isn’t an acceptable substitute. Do not put the needle in general waste or use improvised wrapping. Use its safety feature and a proper sharps container.']],
       after: `<div class="stillfig">${ART.sheathStill(true, 'Safety feature activated, then straight to the container', false, false)}</div>` },
     { part: 'Situation 2', tag: '<span class="rev">Researched addition · CDC</span>', vis: null,
       sit: `<p>You have finished using the needle. The nearby sharps container has reached its marked fill line.</p><p>There appears to be enough space for one more item.</p>`, ask: 'What should you do?',
       opts: [
-        ['Add the needle because it appears to fit.', false, 'The fill line is the limit. Visible headspace does not make further filling appropriate.'],
+        ['Add the needle because it appears to fit.', false, 'The fill line is the limit. Visible headspace doesn’t make further filling appropriate.'],
         ['Push the contents down to make room.', false, 'Do not compress or manipulate the contents to create space. Follow the replacement process instead.'],
         ['Use the device’s safety feature, use another suitable designated container, and notify the person responsible for replacement.', true, 'Correct for this scenario. Do not overfill the existing container. Follow your workplace procedure if an alternative container is not available.']],
       after: '' },
@@ -217,7 +217,7 @@
       opts: [
         ['Pick up the larger pieces with gloved hands.', false, 'Not by hand—even with gloves. Use mechanical collection methods.'],
         ['Use appropriate tools, such as a brush and dustpan or tongs, and the designated disposal process.', true, 'Correct. Keep your hands away from the glass and follow the workplace’s cleanup procedure.'],
-        ['Wrap the pieces in a soft bag before putting them in regular trash.', false, 'That does not provide the required sharps containment. Use the designated process for contaminated sharps.']],
+        ['Wrap the pieces in a soft bag before putting them in regular trash.', false, 'That doesn’t provide the required sharps containment. Use the designated process for contaminated sharps.']],
       after: ART.glassStrip() }
   ];
   $('#decs').innerHTML = DECS.map((d, di) => `
