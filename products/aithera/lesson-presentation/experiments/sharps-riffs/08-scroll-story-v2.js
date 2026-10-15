@@ -7,6 +7,7 @@
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
   const root = document.documentElement;
+  const BAR = root.classList.contains('embed') ? 0 : 56;   // height of the article's own top bar (none when shown inside the course frame)
   const reduced = () => root.classList.contains('rm');
 
   /* ======================================================================
@@ -59,9 +60,16 @@
   const rmBtn = $('#rmBtn'), tagBtn = $('#tagBtn');
   const setRM = (on) => { root.classList.toggle('rm', on); rmBtn.setAttribute('aria-pressed', String(on)); };
   setRM(matchMedia('(prefers-reduced-motion: reduce)').matches);
+  matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', (e) => setRM(e.matches));   // follows the system setting if it changes while the page is open
   rmBtn.addEventListener('click', () => setRM(!reduced()));
   tagBtn.addEventListener('click', () => { const on = document.body.classList.toggle('notags'); tagBtn.setAttribute('aria-pressed', String(!on)); });
 
+  /* options menu */
+  const toolsBtn = $('#toolsBtn'), toolsMenu = $('#toolsMenu');
+  const setTools = (open) => { toolsMenu.hidden = !open; toolsBtn.setAttribute('aria-expanded', String(open)); };
+  toolsBtn.addEventListener('click', (e) => { e.stopPropagation(); setTools(toolsMenu.hidden); });
+  document.addEventListener('click', (e) => { if (!toolsMenu.hidden && !toolsMenu.contains(e.target)) setTools(false); });
+  addEventListener('keydown', (e) => { if (e.key === 'Escape' && !toolsMenu.hidden) { setTools(false); toolsBtn.focus(); } });
   const expo = $('#expo'), expoBtn = $('#expoBtn');
   const setExpo = (open) => { expo.classList.toggle('open', open); expoBtn.setAttribute('aria-expanded', String(open)); if (open) $('#expoX').focus(); else expoBtn.focus(); };
   expoBtn.addEventListener('click', () => setExpo(!expo.classList.contains('open')));
@@ -134,7 +142,7 @@
 
   /* wide layout: centre each pinned card on the same horizontal midline as the scene */
   const centreCards = () => {
-    const narrow = matchMedia('(max-width:1100px)').matches, bar = 56;
+    const narrow = matchMedia('(max-width:1100px)').matches, bar = BAR;
     $$('.step .card:not(.quote-card)').forEach(c => {
       if (narrow) { c.style.top = ''; c.style.removeProperty('--lt'); return; }
       const top = Math.max(bar + 12, bar + (innerHeight - bar - c.offsetHeight) / 2);
@@ -261,7 +269,7 @@
      length to keep it pinned until the learner is done (and collapses once they are) */
   const stage = $('#prStage'), runEl = $('#prRun');
   function pinLayout(release) {
-    const bar = 56, maxH = innerHeight - bar - 52, h = Math.min(stage.scrollHeight, maxH);
+    const bar = BAR, maxH = innerHeight - bar - 52, h = Math.min(stage.scrollHeight, maxH);
     const top = Math.max(bar + 12, bar + (innerHeight - bar - h) / 2);
     stage.style.setProperty('--prTop', top + 'px');
     runEl.style.setProperty('--prRun', (release || unlocked) ? '0px' : Math.max(0, innerHeight - 28 - top - h) + 'px');
@@ -270,7 +278,7 @@
   new ResizeObserver(() => pinLayout()).observe(stage); addEventListener('resize', () => pinLayout());
   const head = $('#prHead');
   const fadeHead = () => {
-    const r = head.getBoundingClientRect(), gone = clamp(((56 + 30) - r.top) / (r.height * .55));
+    const r = head.getBoundingClientRect(), gone = clamp(((BAR + 30) - r.top) / (r.height * .55));
     head.style.opacity = (1 - gone).toFixed(2);
   };
   addEventListener('scroll', fadeHead, { passive: true }); fadeHead();
