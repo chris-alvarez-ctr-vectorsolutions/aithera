@@ -496,16 +496,13 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 
 .appr { background: #f7f7f8; border-color: #e3e5e8; margin-bottom: 16px; }
 .appr .cap b { font-size: 21px; color: #222; letter-spacing: 0; margin-left: 6px; vertical-align: -2px; }
-.tiles { display: flex; flex-wrap: wrap; align-items: stretch; gap: 14px 20px; margin-top: 12px; }
-/* Each group (Staff · Program · Student) is labelled ONCE: its badge sits above a
-   divider line that spans the group's tiles, so tiles no longer repeat the tag. */
-.tgroup { display: flex; flex-direction: column; flex: var(--n) 1 calc(var(--n) * 88px); min-width: 0; }
-.tg-head { display: flex; align-items: center; padding: 0 0 6px 4px; border-bottom: 2px solid var(--g-line); margin-bottom: 6px; }
-.tg-head .tag { font-size: 10.5px; }
-.tgroup.staff { --g-line: #f1d39a; }
-.tgroup.program { --g-line: #b9d3f6; }
-.tgroup.student { --g-line: #d7c2f2; }
-.tg-tiles { display: flex; flex-wrap: wrap; gap: 2px; }
+.tiles { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 0; margin-top: 10px; }
+/* A group (Staff · Program · Student) keeps its tiles together and wraps as a unit;
+   each tile carries its own tag, groups are split by a thin vertical divider (as live) */
+.tgroup { display: flex; flex-wrap: wrap; flex: var(--n) 1 calc(var(--n) * 92px); min-width: 0; gap: 2px; }
+.tgroup + .tgroup { border-left: 1px solid #dcdee2; margin-left: 6px; padding-left: 6px; }
+/* A group that wrapped onto a new line drops its divider (set by JS) */
+.tgroup.wrapped { border-left: 0 !important; margin-left: 0 !important; padding-left: 0 !important; }
 .tile {
   flex: 1 1 88px; min-width: 88px; max-width: 170px; border-radius: 6px; padding: 12px 4px 12px; text-align: center; cursor: pointer; border: 1px solid transparent;
   background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -514,7 +511,7 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .tile .n { font-size: 22px; font-weight: 700; color: #333; line-height: 1.2; }
 .tile .n.zero { color: #b5b8bd; }
 .tile .n.hot { color: var(--orange); }
-.tile .l { font-size: 13px; color: #444; margin-bottom: 2px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tile .l { font-size: 13px; color: #444; margin-bottom: 4px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
 /* The new Signatures tile: same anatomy as its neighbours, first in the row. */
 .tile.is-new .n { color: var(--tag-staff); }
@@ -603,6 +600,7 @@ body.customizing .dcard::before {
 }
 @media (max-width: 760px) {
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tgroup + .tgroup { border-top: 1px solid #dcdee2; padding-top: 10px; }
   .tgroup { flex-basis: 100%; }
 }
 @media (max-width: 560px) {
@@ -1283,17 +1281,23 @@ function renderTiles() {
   $('#tiles').innerHTML = GROUPS.map(g => {
     const items = order.map(appr).filter(a => a.group === g.id && shown[a.id]);
     if (!items.length) return '';
-    return `<div class="tgroup ${g.id}" style="--n:${items.length}">
-      <div class="tg-head"><span class="tag ${g.id}">${g.tag}</span></div>
-      <div class="tg-tiles">${items.map(a => {
+    return `<div class="tgroup" style="--n:${items.length}">${items.map(a => {
       const n = countFor(a); total += n;
       return `<button class="tile ${a.id === 'signatures' ? 'is-new' : ''}" ${a.id === 'signatures' ? 'onclick="goTracking(\'mine\')"' : ''}>
         <span class="n ${n === 0 ? 'zero' : ''} ${a.hot ? 'hot' : ''}">${n}</span>
-        <span class="l">${esc(a.label)}</span></button>`;
-    }).join('')}</div></div>`;
+        <span class="l">${esc(a.label)}</span>
+        <span class="tag ${a.group}">${g.tag}</span></button>`;
+    }).join('')}</div>`;
   }).join('');
   $('#apprTotal').textContent = total;
+  markWrapped();
 }
+// Hide the group divider on any group that starts a new line
+function markWrapped() {
+  const gs = $$('#tiles .tgroup');
+  gs.forEach((g, i) => g.classList.toggle('wrapped', i > 0 && g.offsetTop > gs[i - 1].offsetTop + 4));
+}
+window.addEventListener('resize', markWrapped);
 
 
 const METRICS = [['favorites', 'Favorites', 'fa-star'], ['approvals', 'Pending Approvals', 'fa-circle-check'], ['activities', 'Activities', 'fa-rocket'],
