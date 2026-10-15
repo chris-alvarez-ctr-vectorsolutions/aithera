@@ -41,7 +41,7 @@
   // includes used to carry no version, so an edge/browser-cached older
   // feedback-widget.js could execute next to the current one and dock a second
   // bubble the dedup never saw. (self-heal below is the belt to this suspenders.)
-  var TOOLBOX_VERSION = '1.3.0';
+  var TOOLBOX_VERSION = '1.3.1';
 
   var qs = location.search;
   if (/[?&]fmthumb=1/.test(qs)) return;        // thumbnail iframe → render bare

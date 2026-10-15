@@ -4,7 +4,7 @@
 (() => {
   // ----- Config ---------------------------------------------------------------
   const CW_WORKER_URL = 'https://ux-mockups-feedback.vectorsolutions-ux.workers.dev';
-  const WIDGET_VERSION = '1.29.2';
+  const WIDGET_VERSION = '1.30.0';
   const HTML2CANVAS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
 
   if (window.__cwWidgetLoaded) return;
@@ -1610,7 +1610,6 @@
     document.body.appendChild(hoverOutline);
     document.addEventListener('mousemove', onPickHover, true);
     document.addEventListener('click', onPickClick, true);
-    document.addEventListener('keydown', onPickKey, true);
     renderPins(); // reveal pins if comments were hidden (dormant) until now
   }
 
@@ -1623,7 +1622,6 @@
     if (hoverOutline) { hoverOutline.remove(); hoverOutline = null; }
     document.removeEventListener('mousemove', onPickHover, true);
     document.removeEventListener('click', onPickClick, true);
-    document.removeEventListener('keydown', onPickKey, true);
     renderPins(); // hide pins again if comments are in the dormant (disabled) state
   }
 
@@ -1768,9 +1766,6 @@
     hoverOutline.classList.remove('cw-hidden');
   }
 
-  function onPickKey(e) {
-    if (e.key === 'Escape') { e.preventDefault(); exitPickMode(); }
-  }
 
   async function onPickClick(e) {
     if (isWidgetEl(e.target)) return;
@@ -3078,6 +3073,35 @@
     document.body.appendChild(lb);
   }
 
+  // ----- Escape ---------------------------------------------------------------
+  // One Escape handler for the whole widget. Each press closes the TOP-MOST open
+  // layer (screenshot lightbox → new-comment popup → comment editor → comment
+  // panel / "Jumped to" reveal → comment list), and the last press closes comment
+  // mode exactly like the dock's ✕ — island, pins, and nav bar all tuck away.
+  // Registered on window in the capture phase so a mock's own key handlers (or a
+  // Vaadin overlay) can't swallow it first; it only stops the event when it
+  // actually closed something, so an Escape the widget doesn't need still reaches
+  // the mock.
+  function onEscapeKey(e) {
+    if (e.key !== 'Escape' || e.isComposing) return;
+    if (movePinId) return;   // Move-pin mode has its own Esc (onMoveKey)
+    // Other toolbox chrome that owns Esc while it's open: the flow map overlay
+    // and the dock's version menu.
+    if (document.querySelector('.fm-overlay.open, .tbx-ver-menu.tbx-open')) return;
+    const lightbox = document.querySelector('.cw-lightbox');
+    const panelPin = panel && state.pins.find(p => p.id === state.openPanelPinId);
+    if (lightbox) lightbox.remove();
+    else if (popup) { closePopup(); enterPickMode(); }               // same as the popup's Cancel
+    else if (panelEditing && panelPin) { panelEditing = false; reopenPanel(panelPin); } // same as the editor's Cancel
+    else if (revealBar) exitReveal();
+    else if (panel) closePanel();
+    else if (navOpen) closeNavList();
+    else if (state.pickMode || !state.commentsHidden) hideComments(); // same as the dock's ✕
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
   // ----- Init -----------------------------------------------------------------
   async function init() {
     // A comment bubble already in the DOM means another copy of this widget has
@@ -3105,7 +3129,7 @@
       });
       try { ro.observe(document.documentElement); } catch (_) {}
     }
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closePopup(); closePanel(); closeNavList(); exitReveal(); } });
+    window.addEventListener('keydown', onEscapeKey, true);
     // Record the user's real clicks (capture phase, before any mock handler can
     // stop propagation) — each new comment snapshots this trail so "Go" can
     // navigate back to the exact step it was left on. Observation only.
