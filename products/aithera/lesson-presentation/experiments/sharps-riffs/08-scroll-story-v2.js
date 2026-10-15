@@ -29,10 +29,9 @@
       <rect x="-2400" y="-1400" width="5600" height="3400" fill="url(#wp)"/>
       ${collection(false)}
       ${workspace()}
-      <text class="tl t0" x="24" y="60">LATER, DURING WASTE COLLECTION</text>
-      <text class="tl t2" x="24" y="60">LATER: WASTE COLLECTION → EARLIER: DISPOSAL</text>
-      <text class="tl t3" x="24" y="60">EARLIER: DISPOSAL</text>
-      <g class="chipsvg cutlbl"><rect x="24" y="76" width="392" height="34" rx="8"/><text x="40" y="98" fill="#2ee6cf">Illustration: a used needle hidden inside the bag.</text></g>
+      <text class="tl t0" x="24" y="60">WASTE COLLECTION</text>
+      <text class="tl t2 flash" x="24" y="60">↺ EARLIER THAT DAY</text>
+      <text class="tl t3 flash" x="24" y="60">↺ EARLIER THAT DAY</text>
     </svg><div class="stage-cap"><span class="cap"></span><span class="pips"></span></div>`;
 
   /* kit-drawn art that lives in static markup */
@@ -44,6 +43,7 @@
   $('#stageK').insertAdjacentHTML('afterbegin', ART.anatomy());
 
   $$('[data-scene]').forEach(f => { f.insertAdjacentHTML('afterbegin', '<span class="atag"></span>'); f.insertAdjacentHTML('beforeend', sceneSVG(f.dataset.scene)); });
+  $('#stageS').insertAdjacentHTML('beforeend', '<div class="rw-veil" aria-hidden="true"></div><div class="vhs" aria-hidden="true"><div class="vhs-noise"></div><div class="vhs-lines"></div><div class="vhs-bar"></div><div class="vhs-ui"><span class="ic">◀◀</span><span>REWIND</span><span class="tc vhs-tc">0:24</span></div></div>');
 
   /* container with a marked fill line (V07 still) */
   const fillArt = ART.fill;
@@ -105,7 +105,7 @@
      3 · STEPPED SCENES: the card in the middle of the screen sets the picture
      ====================================================================== */
   const TAGS = {
-    stageS: ['V01 · illustrated scene', 'V01 + G01 · illustrated cutaway', 'V02 · illustrated rewind', 'V03 · illustrated scene'],
+    stageS: ['V01 · illustrated scene', 'V01 + G01 · illustrated cutaway', 'V02 · rewind prompt', 'V02 · illustrated scene', 'V03 · illustrated scene'],
     stageR: ['V09 · illustrated scene', 'V09 · alternate ending', 'V09 · alternate ending'],
     stageD: ['G03 · chart', 'G03 · chart', 'G03 · chart', 'EPINet · separate dataset'],
     stageK: ['P04 + G02 · annotated photo', 'P04 + G02', 'P04 + G02', 'P04 + G02', 'P04 + G02']
@@ -119,7 +119,7 @@
     const set = (el) => {
       const lead = el.classList.contains('lead-step'), quote = el.classList.contains('quote-step'), i = lead ? 0 : quote ? real.length - 1 : real.indexOf(el), card = $('.card', el);
       stage.dataset.quote = quote ? '1' : '0';
-      stage.dataset.step = i;
+      stage.dataset.step = i; stage.dataset.lead = lead ? '1' : '0';
       steps.forEach(s => s.classList.toggle('on', s === el));
       $$('i', pips).forEach((p, k) => p.classList.toggle('on', !lead && k <= i));
       cap.innerHTML = quote || lead ? '' : '<b>' + (i + 1) + ' / ' + real.length + '</b>' + card.dataset.cap;
@@ -162,6 +162,32 @@
   const plStart = () => { if (plT >= DUR) plT = 0; plRun = true; plLast = performance.now(); requestAnimationFrame(plLoop); plDraw(); };
   $('#plPlay').addEventListener('click', () => { if (plRun) { plRun = false; plDraw(); } else plStart(); });
   $('#plRe').addEventListener('click', () => { plT = 0; plStart(); });
+  /* the rewind: the learner chooses when it happens. The "go back" card waits on the opening scene; pressing its
+     button plays the opening backwards under VHS static, then cuts to the earlier scene (never a crossfade) */
+  const frameS = $('#stageS'), tcEl = $('.vhs-tc', frameS);
+  const scS = $('#scS');
+  let rewound = false, curI = 0, rwTimer = 0, tcRaf = 0;
+  /* once the scene has changed, carry the reader on to Chris's card instead of leaving them on the prompt */
+  const toChris = () => setTimeout(() => $$('.step', scS)[4].scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'center' }), 300);
+  const playRewind = () => {
+    clearTimeout(rwTimer); cancelAnimationFrame(tcRaf); scS.removeAttribute('data-hold'); scS.setAttribute('data-hide-rw', '');   // no card while it plays
+    if (reduced()) { frameS.dataset.step = '3'; rewound = true; toChris(); return; }
+    frameS.dataset.step = '0'; frameS.dataset.lead = '0'; frameS.dataset.rw = '1';
+    const t0 = performance.now(), TOTAL = 2300;
+    const tick = (t) => { const k = clamp((t - t0) / TOTAL); tcEl.textContent = '0:' + String(Math.round(24 * (1 - k))).padStart(2, '0'); if (k < 1) tcRaf = requestAnimationFrame(tick); };
+    tcRaf = requestAnimationFrame(tick);
+    rwTimer = setTimeout(() => { frameS.dataset.step = '3'; delete frameS.dataset.rw; rewound = true; toChris(); }, TOTAL);
+  };
+  hooks.stageS = (i) => {
+    clearTimeout(rwTimer); cancelAnimationFrame(tcRaf); delete frameS.dataset.rw;
+    scS.removeAttribute('data-hide-rw');
+    const prev = curI; curI = i;
+    if (i < 2 || (i === 2 && prev >= 3)) rewound = false;
+    scS.toggleAttribute('data-hold', i === 2 && !rewound);
+    if (i === 2 && !rewound) frameS.dataset.step = '1';   // hold on the opening scene until they press Rewind
+    if (i >= 3) rewound = true;
+  };
+  $('#rewindBtn').addEventListener('click', () => { if (curI === 2) playRewind(); });
   hooks.stageI = (i) => { if (i !== 1) { plRun = false; plT = 0; plDraw(); } };
   plDraw();
 

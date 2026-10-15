@@ -47,7 +47,6 @@
       ${door ? `<g><rect x="40" y="176" width="124" height="222" fill="#0d142b" stroke="#2d3e69" stroke-width="6"/><rect x="50" y="186" width="104" height="212" fill="#121b3a"/>
         <rect x="78" y="148" width="48" height="19" rx="3" fill="#0f3d36"/><text x="102" y="162" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="10" font-weight="800" fill="#5cf5c8">EXIT</text></g>` : ''}
       <rect x="-2400" y="400" width="5600" height="1400" fill="url(#floorG)"/><rect x="-2400" y="396" width="5600" height="6" fill="#34476f"/>
-      <rect x="-2400" y="470" width="5600" height="5" fill="#ffb547" opacity=".5"/>
       ${motes}`;
   };
 
@@ -114,13 +113,20 @@
       ${gbin(470, 312, 112, 88, { bag: true, label: '#3b4f7a', name: 'GENERAL' })}
       ${cart(612)}
       ${alt ? `<text class="nonedl" x="470" y="226" fill="#2ee6cf" font-family="Open Sans,sans-serif" font-size="14" font-weight="700">No needle in this bag</text>`
-            : `<g class="cut"><path d="M496 292L556 272" stroke="#2ee6cf" stroke-width="3" stroke-dasharray="6 5" fill="none"/><rect x="484" y="290" width="22" height="10" rx="3" transform="rotate(-18 484 290)" fill="none" stroke="#2ee6cf" stroke-width="3" stroke-dasharray="5 4"/></g>`}
+            : `<g class="cut">
+          <g transform="translate(528 282) rotate(-22)" fill="rgba(46,230,207,.16)" stroke="#2ee6cf" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">
+            <rect x="-6" y="-5" width="30" height="10" rx="2"/><path d="M-6 0h-16M-6 -2.6v5.2" /><rect x="-9" y="-3" width="3" height="6" rx="1"/>
+            <path d="M24 0h12M36 -7v14"/><path d="M2 -5v10M8 -5v10M14 -5v10" stroke-width="1"/></g>
+          <path d="M514 276L416 265" stroke="#2ee6cf" stroke-width="1.2"/><circle cx="514" cy="276" r="3.2" fill="#2ee6cf"/>
+          <rect x="292" y="254" width="124" height="22" rx="6" fill="rgba(7,11,20,.88)" stroke="#2ee6cf" stroke-width="1"/>
+          <text x="354" y="269" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="8.5" font-weight="700" fill="#2ee6cf">Used needle in the bag</text></g>`}
       <g class="jc"><g transform="translate(0 400)">${figure({})}</g></g>
     </g></g>`;
 
   const workspace = () => `
     <g class="wk">
       ${room({})}
+      <rect x="-2400" y="-1400" width="5600" height="3400" fill="#ffb547" opacity=".16" pointer-events="none"/>
       ${counter(60, 400)}
       ${gbin(560, 330, 96, 70, { label: '#4a5578', name: 'TRASH' })}
       <g class="figw">${figure({ hat: null, vest: false, jacket: '#4f6490', hair: '#1d1a26', holding: true })}</g>
