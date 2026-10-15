@@ -414,6 +414,8 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .grid tbody tr.is-off .lnk { color: #7fa7cf; }
 .grid tbody tr.is-off .st { opacity: .6; }
 .t-grid td:nth-child(2) { min-width: 140px; }
+.st-line .you-line { color: var(--tag-staff); font-weight: 500; }
+.start-btn { margin-top: 2px; }
 
 
 /* ── #5–6 Edit signers: email fixes + signing order in one edit mode ── */
@@ -746,6 +748,10 @@ const T_NO_SELECT = true;
      tBulkBar(rows)    HTML for the selection bar's right side
      openWorkflow(id)  row click */
 let INST = seedMine(buildInstances());
+// Only three statuses: Waiting for signatures · Signature sent · Sending out <date>.
+// Unstarted workflows only matter to #7 (which starts them); elsewhere they're scheduled sends.
+if (typeof T_KEEP_UNSTARTED === 'undefined') INST.filter(w => w.status === 'not')
+  .forEach((w, i) => { w.status = 'sched'; w.sendOn = new Date(2026, 10, 2 + 7 * (i % 3)); w.sendTime = '7:00 AM'; });
 let tFilter = (typeof T_DEFAULT_FILTER !== 'undefined') ? T_DEFAULT_FILTER : 'all';
 let SHOW_DISTRICT = false;      // true only for intermediary roles
 const tSel = new Set();
@@ -756,38 +762,27 @@ const checkable = w => typeof tCheckable === 'function' ? tCheckable(w) : true;
 
 const T_CARDS = [
   ['all', 'All workflows', '#9aa3ad'],
-  ['prog', 'In progress', 'var(--blue)'],
-  ['late', 'Waiting 7+ days', '#d48806'],
-  ['not', 'Not started', '#b8bec6'],
-  ...(typeof T_STATUS_CARDS !== 'undefined' ? T_STATUS_CARDS : []),
-  ['done', 'Completed', 'var(--green)'],
+  ['prog', 'Waiting for signatures', 'var(--blue)'],
+  ['sched', 'Sending out', '#8e63ce'],
+  ['done', 'Signature sent', 'var(--green)'],
 ];
 function tMatch(w, f) {
   if (f === 'all') return true;
   if (f === 'mine') return mine(w);
-  if (f === 'late') return w.status === 'prog' && w.stalled;
   return w.status === f;
 }
 function statusChip(w) {
-  if (w.status === 'not') return '<span class="st not">Not started</span>';
-  if (w.status === 'done') return '<span class="st done"><i class="fa-solid fa-check"></i> Completed</span>';
-  if (w.status === 'sched') return `<span class="st sched"><i class="fa-regular fa-calendar-clock"></i> Sends ${fmtDate(w.sendOn)}</span>`;
-  if (mine(w)) return `<span class="st you">${w.stalled ? `<i class="fa-regular fa-hourglass-half"></i> ` : ''}Waiting on you${w.stalled ? ` · ${w.waitDays} days` : ''}</span>`;
-  if (w.stalled) return `<span class="st stall"><i class="fa-regular fa-hourglass-half"></i> Waiting ${w.waitDays} days</span>`;
-  return '<span class="st prog">In progress</span>';
+  if (w.status === 'sched') return `<span class="st sched"><i class="fa-regular fa-calendar-clock"></i> Sending out ${fmtDate(w.sendOn)}</span>`;
+  if (w.status === 'done') return '<span class="st done"><i class="fa-solid fa-check"></i> Signature sent</span>';
+  if (w.status === 'prog') return '<span class="st prog">Waiting for signatures</span>';
+  return '';                       // not started yet (#7 only)
 }
-function dots(w) {
-  return `<span class="dots" title="${signedN(w)} of ${w.signers.length} signed">${w.signers.map(x => `<span class="${x.state === 'signed' ? 's' : x.state === 'waiting' ? 'w' + (w.stalled ? ' late' : '') : ''}"></span>`).join('')}</span>`;
-}
-// Status = chip, then progress dots + who it's waiting on
+// Status = chip, then (while waiting) who it's waiting on — PRD AC-4.2
 function statusCell(w) {
   const x = waitingOn(w);
-  let line;
-  if (w.status === 'done') line = `${signedN(w)} of ${w.signers.length} signed`;
-  else if (!x) line = `${esc(ROLES[w.signers[0].role].label)} signs first`;
-  else if (x.name === ME) line = `${signedN(w)} of ${w.signers.length} signed · your turn ${x.at === 0 ? 'today' : 'since ' + fmtDate(daysAgo(x.at))}`;
-  else line = `${esc(x.name)} · ${esc(ROLES[x.role].label)} · <span class="${w.stalled ? 'late-txt' : ''}">${x.at === 0 ? 'sent today' : 'since ' + fmtDate(daysAgo(x.at))}</span>`;
-  return `${statusChip(w)}<div class="st-line">${dots(w)}<span>${line}</span></div>`;
+  let line = '';
+  if (w.status === 'prog' && x) line = x.name === ME ? '<span class="you-line">Waiting on you</span>' : `Waiting on ${esc(x.name)} · ${esc(ROLES[x.role].label)}`;
+  return `${statusChip(w) || '<span class="sub">—</span>'}${line ? `<div class="st-line">${line}</div>` : ''}`;
 }
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
@@ -795,13 +790,13 @@ function tRows() {
   const f = fv('tForm'), g = fv('tGrade'), sg = fv('tSeg'), e = fv('tExp'), q = fv('tQ').trim().toLowerCase();
   return INST.filter(w => tMatch(w, tFilter) && (!f || w.form === f) && (!g || String(w.grade) === g) && (!sg || w.seg === sg) && (!e || w.exp === e) &&
     (!q || w.student.toLowerCase().includes(q) || w.signers.some(x => x.name.toLowerCase().includes(q))))
-    // Longest wait first, then not started, then completed
-    .sort((a, b) => (b.waitDays || 0) - (a.waitDays || 0));
+    // Not started first (#7), then longest wait, then scheduled / signed
+    .sort((a, b) => (a.status === 'not' ? -1 : 0) - (b.status === 'not' ? -1 : 0) || (b.waitDays || 0) - (a.waitDays || 0));
 }
 function renderSummary() {
   $('#tSum').innerHTML = T_CARDS.map(([id, label, color]) => {
     const n = INST.filter(w => tMatch(w, id)).length;
-    return `<button class="sum-card ${tFilter === id ? 'is-on' : ''} ${id === 'late' ? 'warn' : ''} ${id === 'mine' ? 'mine' : ''}" onclick="setTFilter('${id}')">
+    return `<button class="sum-card ${tFilter === id ? 'is-on' : ''} ${id === 'mine' ? 'mine' : ''}" onclick="setTFilter('${id}')">
       <span class="n">${n}</span><span class="l"><span class="dot" style="background:${color}"></span>${label}</span></button>`;
   }).join('');
 }
@@ -887,7 +882,7 @@ function metaGrid(w) {
     <dt>Experience</dt><dd>${esc(w.exp)}</dd>
     <dt>School</dt><dd>${esc(w.school)} · Grade ${w.grade}</dd>
     ${SHOW_DISTRICT ? `<dt>District</dt><dd>${esc(w.district)}</dd>` : ''}
-    <dt>Status</dt><dd>${statusChip(w)}</dd>
+    <dt>Status</dt><dd>${statusChip(w) || '—'}</dd>
     <dt>Started</dt><dd>${w.started != null ? fmtLong(daysAgo(w.started)) + ' by Mari Castree' : '—'}</dd>
   </dl>`;
 }
@@ -896,27 +891,22 @@ function timelineItem(w, x) {
   if (x.state === 'signed') stt = `<div class="stt ok"><i class="fa-solid fa-check"></i> Signed<small>${fmtLong(daysAgo(x.at))}</small></div>`;
   else if (x.state === 'waiting') stt = x.at === 0
     ? `<div class="stt wt">Waiting<small>Sent today${x.note ? ' · ' + esc(x.note) : ''}</small></div>`
-    : `<div class="stt ${w.stalled ? 'late' : 'wt'}">Waiting ${x.at} day${x.at === 1 ? '' : 's'}<small>Sent ${fmtDate(daysAgo(x.at))}${w.reminded ? ' · reminded today' : ''}</small></div>`;
+    : `<div class="stt wt">Waiting<small>Sent ${fmtDate(daysAgo(x.at))}</small></div>`;
   else {
     const w8 = waitingOn(w), next = w8 && w.signers.filter(y => y.state === 'queued' && y.order > w8.order).map(y => y.order).sort((a, b) => a - b)[0];
-    stt = `<div class="stt">${w.status === 'prog' && x.order === next ? 'Up next' : 'Not sent yet'}</div>`;
+    stt = `<div class="stt">${w.status === 'prog' && x.order === next ? 'Up next' : ''}</div>`;
   }
-  return `<li class="${x.state} ${x.state === 'waiting' && w.stalled ? 'late' : ''}">
+  return `<li class="${x.state}">
     <span class="ord">${x.state === 'signed' ? '<i class="fa-solid fa-check"></i>' : x.order}</span>
     <div><div class="nm">${esc(x.name)}</div><div class="rl">${esc(ROLES[x.role].label)}</div><div class="em">${esc(x.email)}</div></div>
     ${stt}</li>`;
 }
 
 
-// Scenario: the longest-waiting workflow is stuck on a parent whose email has a typo and bounced
+// Scenario: the longest-waiting workflow is stuck on a parent whose email has a typo
 const HERO = INST.filter(w => w.stalled && waitingOn(w).role === 'parent').sort((a, b) => b.waitDays - a.waitDays)[0];
 const heroParent = waitingOn(HERO);
 heroParent.email = heroParent.email.replace('gmail.com', 'gmial.com');
-heroParent.bounced = true;
-
-// The Status cell flags undelivered email
-const _statusCell = statusCell;
-statusCell = w => _statusCell(w) + (waitingOn(w)?.bounced ? '<div class="bounce"><i class="fa-solid fa-circle-exclamation"></i> Email didn\'t deliver</div>' : '');
 
 let editing = null;   // { id, email: { role: value }, order: { role: n } }
 
@@ -935,9 +925,7 @@ function viewBody(w) {
   const canEdit = w.status === 'prog';
   return `${metaGrid(w)}
     <div class="tl-h"><h3>Signers</h3>${canEdit ? `<button class="link-btn" onclick="startEdit('${w.id}')"><i class="fa-regular fa-pen"></i> Edit signers</button>` : ''}</div>
-    <ol class="tl">${[...w.signers].sort((a, b) => a.order - b.order).map(x => timelineItem(w, x)
-      .replace('<div class="em">', `<div class="em ${x.bounced ? 'bad' : ''}">`)
-      .replace(/<\/div>\s*<div class="stt/, x.bounced ? '<div class="bounce"><i class="fa-solid fa-circle-exclamation"></i> Email didn\'t deliver. Check the address.</div></div><div class="stt' : '$&')).join('')}</ol>`;
+    <ol class="tl">${[...w.signers].sort((a, b) => a.order - b.order).map(x => timelineItem(w, x)).join('')}</ol>`;
 }
 function viewFoot(w) {
   return `<button class="btn ghost"><i class="fa-regular fa-file-lines"></i> View form</button>
@@ -980,7 +968,7 @@ function editBody(w) {
       return `<li class="${par ? 'par' : ''}">
         <select class="sel ord-sel" aria-label="Signing order for ${esc(x.name)}" onchange="setOrder('${x.role}', +this.value)">${opts(dOrder(x))}</select>
         <div>
-          <div class="nm">${esc(x.name)}${x.state === 'waiting' ? `<span class="badge now">Waiting ${x.at} days</span>` : ''}${par ? '<span class="badge par">Same time</span>' : ''}</div>
+          <div class="nm">${esc(x.name)}${x.state === 'waiting' ? '<span class="badge now">Their turn now</span>' : ''}${par ? '<span class="badge par">Same time</span>' : ''}</div>
           <div class="rl">${esc(ROLES[x.role].label)}</div>
           ${emailEditable(x)
             ? `<input class="inp ${changed ? 'changed' : ''} ${changed && !validEmail(v) ? 'invalid' : ''}" type="email" value="${esc(v)}" aria-label="Email for ${esc(x.name)}"
@@ -996,7 +984,7 @@ function editBody(w) {
     <div class="next-box"><i class="fa-regular fa-paper-plane"></i><div id="nextLine">${nextLine(w)}</div></div>`;
 }
 function fxHtml(x, v) {
-  if (v === x.email) return x.bounced ? '<div class="fx err"><i class="fa-solid fa-circle-exclamation"></i> The last email to this address didn\'t deliver.</div>' : '';
+  if (v === x.email) return '';
   if (!validEmail(v)) return '<div class="fx err"><i class="fa-solid fa-circle-exclamation"></i> Enter a valid email address.</div>';
   return `<div class="fx warn"><i class="fa-solid fa-triangle-exclamation"></i> This also updates ${esc(first(x.name))} ${esc(last(x.name))}'s ${ROLES[x.role].record} record.</div>`;
 }
@@ -1084,7 +1072,7 @@ function doSave() {
   const up = firstUp(w), sentTo = [];
   w.signers.forEach(x => {
     const newEmail = dEmail(x) !== x.email;
-    if (newEmail) { x.email = dEmail(x); x.bounced = false; }
+    if (newEmail) x.email = dEmail(x);
     x.order = dOrder(x);
     if (x.state === 'signed') return;
     if (up.includes(x)) {
@@ -1133,9 +1121,9 @@ window.TOOLBOX_CONFIG = {
     ],
     nodes: [
       { id: 'tracking', flow: 'main', entry: true, x: 40, y: 260, step: 'Entry', name: 'Workflow Tracking', state: 'tracking',
-        desc: 'Status flags an email that didn\'t deliver.' },
+        desc: 'Status: Waiting for signatures, and who it\'s waiting on.' },
       { id: 'drawer', flow: 'main', x: 340, y: 260, step: '1', name: 'Workflow details', state: 'drawer',
-        desc: 'Bounced address shown on the signer. Edit signers.' },
+        desc: 'Signer timeline. The parent email has a typo. Edit signers.' },
       { id: 'edit', flow: 'main', x: 640, y: 260, step: '2', name: 'Edit signers', state: 'edit',
         desc: 'One edit mode: order picker + up/down for unsigned; email editable for unsigned Parent / Contact. Signed, student and staff locked with a reason.' },
       { id: 'email', flow: 'main', x: 940, y: 80, step: '3a', name: 'Fix the email', state: 'email',

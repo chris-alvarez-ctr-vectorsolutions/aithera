@@ -414,6 +414,8 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .grid tbody tr.is-off .lnk { color: #7fa7cf; }
 .grid tbody tr.is-off .st { opacity: .6; }
 .t-grid td:nth-child(2) { min-width: 140px; }
+.st-line .you-line { color: var(--tag-staff); font-weight: 500; }
+.start-btn { margin-top: 2px; }
 
 /* ── Start workflow: start now or on a date (shared by #7 / #7.5) ── */
 .when { display: grid; gap: 10px; margin: 6px 0 4px; }
@@ -771,8 +773,7 @@ const CHAIN = {
   ],
 };
 WF_FORMS.push(CHAIN);
-const T_STATUS_CARDS = [['sched', 'Scheduled', '#8e63ce']];
-const T_DEFAULT_FILTER = 'not';
+const T_KEEP_UNSTARTED = true;   // #7 is where unstarted workflows get started
 // Only not-started workflows can be started
 function tCheckable(w) { return w.status === 'not'; }
 function tBulkBar(sel) {
@@ -792,6 +793,10 @@ function tBulkBar(sel) {
      tBulkBar(rows)    HTML for the selection bar's right side
      openWorkflow(id)  row click */
 let INST = seedMine(buildInstances());
+// Only three statuses: Waiting for signatures · Signature sent · Sending out <date>.
+// Unstarted workflows only matter to #7 (which starts them); elsewhere they're scheduled sends.
+if (typeof T_KEEP_UNSTARTED === 'undefined') INST.filter(w => w.status === 'not')
+  .forEach((w, i) => { w.status = 'sched'; w.sendOn = new Date(2026, 10, 2 + 7 * (i % 3)); w.sendTime = '7:00 AM'; });
 let tFilter = (typeof T_DEFAULT_FILTER !== 'undefined') ? T_DEFAULT_FILTER : 'all';
 let SHOW_DISTRICT = false;      // true only for intermediary roles
 const tSel = new Set();
@@ -802,38 +807,27 @@ const checkable = w => typeof tCheckable === 'function' ? tCheckable(w) : true;
 
 const T_CARDS = [
   ['all', 'All workflows', '#9aa3ad'],
-  ['prog', 'In progress', 'var(--blue)'],
-  ['late', 'Waiting 7+ days', '#d48806'],
-  ['not', 'Not started', '#b8bec6'],
-  ...(typeof T_STATUS_CARDS !== 'undefined' ? T_STATUS_CARDS : []),
-  ['done', 'Completed', 'var(--green)'],
+  ['prog', 'Waiting for signatures', 'var(--blue)'],
+  ['sched', 'Sending out', '#8e63ce'],
+  ['done', 'Signature sent', 'var(--green)'],
 ];
 function tMatch(w, f) {
   if (f === 'all') return true;
   if (f === 'mine') return mine(w);
-  if (f === 'late') return w.status === 'prog' && w.stalled;
   return w.status === f;
 }
 function statusChip(w) {
-  if (w.status === 'not') return '<span class="st not">Not started</span>';
-  if (w.status === 'done') return '<span class="st done"><i class="fa-solid fa-check"></i> Completed</span>';
-  if (w.status === 'sched') return `<span class="st sched"><i class="fa-regular fa-calendar-clock"></i> Sends ${fmtDate(w.sendOn)}</span>`;
-  if (mine(w)) return `<span class="st you">${w.stalled ? `<i class="fa-regular fa-hourglass-half"></i> ` : ''}Waiting on you${w.stalled ? ` · ${w.waitDays} days` : ''}</span>`;
-  if (w.stalled) return `<span class="st stall"><i class="fa-regular fa-hourglass-half"></i> Waiting ${w.waitDays} days</span>`;
-  return '<span class="st prog">In progress</span>';
+  if (w.status === 'sched') return `<span class="st sched"><i class="fa-regular fa-calendar-clock"></i> Sending out ${fmtDate(w.sendOn)}</span>`;
+  if (w.status === 'done') return '<span class="st done"><i class="fa-solid fa-check"></i> Signature sent</span>';
+  if (w.status === 'prog') return '<span class="st prog">Waiting for signatures</span>';
+  return '';                       // not started yet (#7 only)
 }
-function dots(w) {
-  return `<span class="dots" title="${signedN(w)} of ${w.signers.length} signed">${w.signers.map(x => `<span class="${x.state === 'signed' ? 's' : x.state === 'waiting' ? 'w' + (w.stalled ? ' late' : '') : ''}"></span>`).join('')}</span>`;
-}
-// Status = chip, then progress dots + who it's waiting on
+// Status = chip, then (while waiting) who it's waiting on — PRD AC-4.2
 function statusCell(w) {
   const x = waitingOn(w);
-  let line;
-  if (w.status === 'done') line = `${signedN(w)} of ${w.signers.length} signed`;
-  else if (!x) line = `${esc(ROLES[w.signers[0].role].label)} signs first`;
-  else if (x.name === ME) line = `${signedN(w)} of ${w.signers.length} signed · your turn ${x.at === 0 ? 'today' : 'since ' + fmtDate(daysAgo(x.at))}`;
-  else line = `${esc(x.name)} · ${esc(ROLES[x.role].label)} · <span class="${w.stalled ? 'late-txt' : ''}">${x.at === 0 ? 'sent today' : 'since ' + fmtDate(daysAgo(x.at))}</span>`;
-  return `${statusChip(w)}<div class="st-line">${dots(w)}<span>${line}</span></div>`;
+  let line = '';
+  if (w.status === 'prog' && x) line = x.name === ME ? '<span class="you-line">Waiting on you</span>' : `Waiting on ${esc(x.name)} · ${esc(ROLES[x.role].label)}`;
+  return `${statusChip(w) || '<span class="sub">—</span>'}${line ? `<div class="st-line">${line}</div>` : ''}`;
 }
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
@@ -841,13 +835,13 @@ function tRows() {
   const f = fv('tForm'), g = fv('tGrade'), sg = fv('tSeg'), e = fv('tExp'), q = fv('tQ').trim().toLowerCase();
   return INST.filter(w => tMatch(w, tFilter) && (!f || w.form === f) && (!g || String(w.grade) === g) && (!sg || w.seg === sg) && (!e || w.exp === e) &&
     (!q || w.student.toLowerCase().includes(q) || w.signers.some(x => x.name.toLowerCase().includes(q))))
-    // Longest wait first, then not started, then completed
-    .sort((a, b) => (b.waitDays || 0) - (a.waitDays || 0));
+    // Not started first (#7), then longest wait, then scheduled / signed
+    .sort((a, b) => (a.status === 'not' ? -1 : 0) - (b.status === 'not' ? -1 : 0) || (b.waitDays || 0) - (a.waitDays || 0));
 }
 function renderSummary() {
   $('#tSum').innerHTML = T_CARDS.map(([id, label, color]) => {
     const n = INST.filter(w => tMatch(w, id)).length;
-    return `<button class="sum-card ${tFilter === id ? 'is-on' : ''} ${id === 'late' ? 'warn' : ''} ${id === 'mine' ? 'mine' : ''}" onclick="setTFilter('${id}')">
+    return `<button class="sum-card ${tFilter === id ? 'is-on' : ''} ${id === 'mine' ? 'mine' : ''}" onclick="setTFilter('${id}')">
       <span class="n">${n}</span><span class="l"><span class="dot" style="background:${color}"></span>${label}</span></button>`;
   }).join('');
 }
@@ -933,7 +927,7 @@ function metaGrid(w) {
     <dt>Experience</dt><dd>${esc(w.exp)}</dd>
     <dt>School</dt><dd>${esc(w.school)} · Grade ${w.grade}</dd>
     ${SHOW_DISTRICT ? `<dt>District</dt><dd>${esc(w.district)}</dd>` : ''}
-    <dt>Status</dt><dd>${statusChip(w)}</dd>
+    <dt>Status</dt><dd>${statusChip(w) || '—'}</dd>
     <dt>Started</dt><dd>${w.started != null ? fmtLong(daysAgo(w.started)) + ' by Mari Castree' : '—'}</dd>
   </dl>`;
 }
@@ -942,12 +936,12 @@ function timelineItem(w, x) {
   if (x.state === 'signed') stt = `<div class="stt ok"><i class="fa-solid fa-check"></i> Signed<small>${fmtLong(daysAgo(x.at))}</small></div>`;
   else if (x.state === 'waiting') stt = x.at === 0
     ? `<div class="stt wt">Waiting<small>Sent today${x.note ? ' · ' + esc(x.note) : ''}</small></div>`
-    : `<div class="stt ${w.stalled ? 'late' : 'wt'}">Waiting ${x.at} day${x.at === 1 ? '' : 's'}<small>Sent ${fmtDate(daysAgo(x.at))}${w.reminded ? ' · reminded today' : ''}</small></div>`;
+    : `<div class="stt wt">Waiting<small>Sent ${fmtDate(daysAgo(x.at))}</small></div>`;
   else {
     const w8 = waitingOn(w), next = w8 && w.signers.filter(y => y.state === 'queued' && y.order > w8.order).map(y => y.order).sort((a, b) => a - b)[0];
-    stt = `<div class="stt">${w.status === 'prog' && x.order === next ? 'Up next' : 'Not sent yet'}</div>`;
+    stt = `<div class="stt">${w.status === 'prog' && x.order === next ? 'Up next' : ''}</div>`;
   }
-  return `<li class="${x.state} ${x.state === 'waiting' && w.stalled ? 'late' : ''}">
+  return `<li class="${x.state}">
     <span class="ord">${x.state === 'signed' ? '<i class="fa-solid fa-check"></i>' : x.order}</span>
     <div><div class="nm">${esc(x.name)}</div><div class="rl">${esc(ROLES[x.role].label)}</div><div class="em">${esc(x.email)}</div></div>
     ${stt}</li>`;
@@ -975,6 +969,11 @@ const TOMORROW = daysAgo(-1);
 })();
 const isMulti = w => w.form === 'f5';
 
+// Unstarted: no status, just a Start button
+const _statusCell = statusCell;
+statusCell = w => w.status === 'not'
+  ? `<button class="btn ghost sm start-btn" onclick="startDialog(['${w.id}'])"><i class="fa-regular fa-play"></i> Start workflow</button>`
+  : _statusCell(w);
 // Status: what sends next, for multi-form workflows
 const _statusChip = statusChip;
 statusChip = w => _statusChip(w) + (w.plan ? nextSendHtml(w) : '');
@@ -987,8 +986,8 @@ function openWorkflow(id) {
   const w = INST.find(x => x.id === id);
   const sched = w.status === 'sched' ? `
     <div class="sched-card">
-      <div class="t"><i class="fa-regular fa-calendar-clock"></i> Scheduled</div>
-      <div class="big">Sends ${fmtLong(w.sendOn)} at ${w.sendTime}</div>
+      <div class="t"><i class="fa-regular fa-calendar-clock"></i> Sending out</div>
+      <div class="big">${fmtLong(w.sendOn)} at ${w.sendTime}</div>
       <div class="acts">
         <button class="btn ghost sm" onclick="startDialog(['${w.id}'], true)"><i class="fa-regular fa-pen"></i> Change date</button>
         <button class="btn ghost sm" onclick="startNow(['${w.id}'])"><i class="fa-regular fa-play"></i> Start now instead</button>
@@ -999,7 +998,7 @@ function openWorkflow(id) {
     <div class="tl-h"><h3>Form schedule</h3>${w.plan.some(p => !p.sent) && w.status !== 'sched' ? `<button class="link-btn" onclick="startDialog(['${w.id}'], true)"><i class="fa-regular fa-pen"></i> Change dates</button>` : ''}</div>
     <ul class="sched-list">${w.plan.map((p, k) => `<li><span class="sub">${k + 1}</span> ${esc(CHAIN.forms[k].name)}
       <span class="when">${p.sent ? '<span class="sent-lbl"><i class="fa-solid fa-paper-plane"></i> Sent ' + fmtDate(p.sentOn) + '</span>'
-        : `<span class="st sched">Sends ${fmtLong(p.when === 'date' ? fromIso(p.date) : w.sendOn)}</span>`}</span></li>`).join('')}</ul>` : '';
+        : `<span class="st sched">Sending out ${fmtLong(p.when === 'date' ? fromIso(p.date) : w.sendOn)}</span>`}</span></li>`).join('')}</ul>` : '';
   openDrawer(`
     <div class="dr-head">
       <div><h2>${esc(w.student)}</h2><div class="dr-sub">${esc(wfForm(w.form).name)}</div></div>
@@ -1172,7 +1171,7 @@ initTracking();
 /* ── Flow map host contract ──────────────────────────────────── */
 function applyFlowState(id, opts) {
   opts = opts || {};
-  closeDrawer(); closeModal(); tSel.clear(); tFilter = 'not'; goTab('tracking');
+  closeDrawer(); closeModal(); tSel.clear(); tFilter = 'all'; goTab('tracking');
   const single = () => INST.filter(w => w.status === 'not' && !isMulti(w)).map(w => w.id);
   const multi = () => INST.filter(w => w.status === 'not' && isMulti(w)).map(w => w.id);
   switch (id) {
@@ -1212,12 +1211,12 @@ window.TOOLBOX_CONFIG = {
       { id: 'multi', name: 'Several forms, different dates (7.5)', pill: 'C', color: '#f0d8b8', lane: { x: 20, y: 470, w: 1520, h: 190 }, labelXY: { x: 40, y: 490 } },
     ],
     nodes: [
-      { id: 'tracking', flow: 'start', entry: true, x: 40, y: 80, step: 'Entry', name: 'Not started', state: 'tracking',
-        desc: 'Workflow Tracking filtered to Not started, with a Scheduled card.' },
+      { id: 'tracking', flow: 'start', entry: true, x: 40, y: 80, step: 'Entry', name: 'Workflow Tracking', state: 'tracking',
+        desc: 'Unstarted workflows sit at the top with no status, just Start workflow. Statuses: Waiting for signatures · Sending out <date> · Signature sent.' },
       { id: 'selected', flow: 'start', x: 340, y: 80, step: '1', name: 'Select workflows', state: 'selected', desc: 'Only not-started rows have a checkbox. Start workflows (n).' },
       { id: 'dialog', flow: 'start', x: 640, y: 80, step: '2', name: 'Start now', state: 'dialog', desc: 'Default: first signer emailed right away.' },
       { id: 'dated', flow: 'start', x: 940, y: 80, step: '3', name: 'Send on a date', state: 'dated', desc: 'Date (after today) + time, Central Time.' },
-      { id: 'scheduled', flow: 'start', x: 1240, y: 80, step: '4', name: 'Scheduled', state: 'scheduled', desc: 'Rows show "Sends Nov 2".' },
+      { id: 'scheduled', flow: 'start', x: 1240, y: 80, step: '4', name: 'Scheduled', state: 'scheduled', desc: 'Rows show "Sending out Nov 2".' },
       { id: 'sched-drawer', flow: 'manage', x: 340, y: 300, step: '1', name: 'Scheduled workflow', state: 'sched-drawer',
         desc: 'Change date, Start now instead, or Cancel schedule.' },
       { id: 'edit-date', flow: 'manage', x: 640, y: 300, step: '2', name: 'Change send date', state: 'edit-date', desc: 'Same dialog, date only.' },
