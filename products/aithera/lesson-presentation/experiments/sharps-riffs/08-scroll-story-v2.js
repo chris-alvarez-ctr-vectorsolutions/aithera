@@ -246,9 +246,9 @@
     const r = s.getBoundingClientRect(), run = r.height - innerHeight, p = run > 0 ? clamp(-r.top / run) : .5;
     s.style.setProperty('--sp', p.toFixed(3));
     if (s.classList.contains('fill-run')) {   // the container fills from the bottom up as you scroll
-      const n = Math.round(clamp((p - .14) / .62) * fillSy.length);
+      const n = Math.round(clamp((p - .1) / .5) * fillSy.length);
       fillSy.forEach((g, i) => g.classList.toggle('on', i < n));
-      s.classList.toggle('lbl', p > .8);
+      s.classList.toggle('lbl', p > .64);
     }
   });
   addEventListener('scroll', paintSeams, { passive: true }); addEventListener('resize', paintSeams); paintSeams();

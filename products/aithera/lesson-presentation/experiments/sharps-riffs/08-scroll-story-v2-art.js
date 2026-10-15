@@ -283,17 +283,17 @@
 
   /* ---- gloves: the same needle through a thin, a thick and a heavy-duty glove ---------------------- */
   const gloves = () => {
-    const col = (cx, layers, label) => {
+    const col = (cx, layers, label, s) => {
       const top = 188 - layers * 16;
       return `<g>
         <ellipse cx="${cx}" cy="236" rx="96" ry="7" fill="url(#shadowG)"/>
         <rect x="${cx - 70}" y="188" width="140" height="42" rx="12" fill="#6f86b8"/>
         ${Array.from({ length: layers }, (_, i) => `<rect x="${cx - 78}" y="${188 - (i + 1) * 15}" width="156" height="17" rx="8" fill="rgba(46,230,207,.28)" stroke="#2ee6cf" stroke-width="1.6"/>`).join('')}
-        <rect x="${cx - 4.5}" y="26" width="9" height="40" rx="2.5" fill="#9fb4d9"/><rect x="${cx - 1.6}" y="64" width="3.2" height="${204 - 64}" fill="#fff"/><circle cx="${cx}" cy="208" r="6" fill="#ff5d6c"/>
+        <g class="nd" style="--s:${s}"><rect x="${cx - 4.5}" y="26" width="9" height="40" rx="2.5" fill="#9fb4d9"/><rect x="${cx - 1.6}" y="64" width="3.2" height="${204 - 64}" fill="#fff"/></g><circle class="pd" style="--s:${s}" cx="${cx}" cy="208" r="6" fill="#ff5d6c"/>
         <text x="${cx}" y="272" text-anchor="middle" font-family="Open Sans,sans-serif" font-size="21" font-weight="700" fill="#eaf0fb">${label}</text></g>`;
     };
     return `<svg viewBox="0 8 900 284" aria-hidden="true"><rect y="0" width="900" height="292" fill="#101b3c"/><rect y="230" width="900" height="62" fill="#0b1329"/><rect y="228" width="900" height="3" fill="#2d4070"/>
-      ${col(160, 1, 'Thin glove')}${col(450, 2, 'Thick glove')}${col(740, 4, 'Heavy-duty glove')}</svg>`;
+      ${col(160, 1, 'Thin glove', .08)}${col(450, 2, 'Thick glove', .3)}${col(740, 4, 'Heavy-duty glove', .52)}</svg>`;
   };
 
   window.ART = { defsHTML, room, figure, collection, workspace, instr, anatomy, fill, fillTall, decD1, decD3, hero, photo, syringe, sheathScene, sheathStill, glassStrip, gloves };
