@@ -6,7 +6,7 @@
 **PRD source**: [PRD - Expanded OSHA Reporting & Capabilities](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29326376990/PRD+-+Expanded+OSHA+Reporting+Capabilities) (Confluence, last modified 2026-09-11) · Jira [SAFELMS-32692](https://lmsportal.atlassian.net/browse/SAFELMS-32692)
 **Reviewed**: 2026-10-15
 **Handed off**: not yet
-**Components confirmed against**: see Component confirmation
+**Components confirmed against**: core v1.22.1, themes v1.9.3 (minimum CONTEXT.md baselines; the mock itself loads core v1.19.0 / themes v1.5.0)
 
 > **Nothing here locks the mock.** Design can keep changing in review and after
 > handoff. Post-handoff changes are recorded in the Handoff log at the bottom and
@@ -31,6 +31,7 @@ The review found the mock broadly aligned with Phase 1. These need a decision be
 4. **OSHA 10-Hour Construction behavior.** This course is Vector-authored. The mock shows the wrong latest-module behavior (AC-3.4) and the ClickSafety certificate (D-4) for it.
 5. **Hover tooltips.** Tooltips carry information in three places, which the accessibility NFR rules out.
 6. **No-results state.** When filters match no learners, the pie turns solid red and the table goes blank with no message.
+7. **Date pickers missing `theme="outlined"`.** The custom date-range pickers (added 2026-10-14) use only `theme="small"`, so they render the non-Vector filled style. Core CONTEXT.md requires `outlined`.
 
 The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10-14 (efb2d531) and now sits under Action Needed.
 
@@ -138,7 +139,163 @@ The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10
 
 ## Component confirmation
 
-_Pending: the Vector component audit is running and will be pasted here._
+> **Version fallback:** the mock loads **core v1.19.0** and **themes v1.5.0**. Both predate the first versions that ship a CONTEXT.md, so this audit used the minimum baselines: core v1.22.1 (fetched from the CDN, plus its per-component CONTEXT.md files) and themes v1.9.3 (local `context/themes/v1.9.3/`). The page runs older libraries than the ones it was checked against. `base-template/version.html` is now on core v1.22.3 / themes v1.9.3. Where v1.22.3 (cached locally) documents something v1.22.1 doesn't, the notes say so.
+
+### Summary
+
+| Category | Count |
+|---|---|
+| ✅ Covered | 7 |
+| ⚠️ Partial | 26 |
+| ❌ Gap | 3 |
+
+**Key takeaways:**
+- **What's solid:** where the mock uses Vaadin, it uses it correctly. That covers every `vaadin-button` (valid `primary`/`secondary`/`tertiary` variants, primary furthest right), the certificate `vaadin-dialog`, the toast `vaadin-notification`, the `vaadin-tooltip` and the Action Needed `vaadin-radio-group`.
+- **One real usage error:** the two custom-range `vaadin-date-picker`s use `theme="small"` without `outlined`. Core CONTEXT.md says date pickers **must** include `theme="outlined"`, otherwise the non-Vector "filled" style renders.
+- **Most of the page is hand-built where a VWC component exists.** The biggest ones to replace:
+  - The three audience-picker modals (People, Group and List Selector) are custom overlays. They should use `vaadin-dialog`, which the certificate already uses, so the page currently has two dialog systems.
+  - The folder-tree picker is custom. `vwc-tree-list` covers nested items, icon, subtitle, single select and keyboard navigation.
+  - The right filter panel is custom. It could be `vwc-drawer position="end"`.
+  - The dashboard tabs are custom. They could be `vaadin-tabs`.
+  - The search inputs are native. They could be `vaadin-text-field theme="outlined"`.
+  - The Date Range dropdown is custom. It could be `vaadin-select theme="outlined"`.
+  - The sortable headers are custom. They could be `vwc-sortable-header`.
+- **Departures that look intentional** (fine to keep for the prototype):
+  - The SafeLMS chrome: sidebar and blue banner.
+  - The production-matched pill pager (`vwc-paginator`'s shadow DOM can't be restyled).
+  - The CSS-only certificate-header tooltip (a `for`-bound `vaadin-tooltip` loses its anchor when the header re-renders).
+  - The table, which production builds as a DevExtreme dxDataGrid.
+- **Colors:**
+  - Only `--blue-accent #0271CE` exactly equals a token (`--lumo-primary-color`).
+  - The main accent `--blue-primary #155DFC` is a noticeably different blue from the Vector primary.
+  - Status colors are Tailwind-style values close to, but not equal to, the success, error and warning tokens.
+  - The neutral grays are very close to the `--lumo-contrast-*` composites.
+- **Three true gaps** (no component in core v1.22.1): data-viz charts, removable filter chips, and an inline info banner.
+- **Upgrade note:** bumping core to v1.22.3 documents and makes available Lumo `theme="badge"` (status pills and tags) and `vaadin-popover` (the column menu). Neither is in the v1.22.1 CONTEXT.md.
+- **Unverified attributes:** these are Vaadin 24 API. Core CONTEXT.md lists the elements but defers to the Vaadin docs for their props, so they couldn't be checked:
+  - `theme="small"` on `vaadin-button`, `vaadin-checkbox` and `vaadin-date-picker`.
+  - `theme="vertical"` on `vaadin-radio-group`.
+  - `no-close-on-outside-click`, `headerRenderer`, `renderer` and `footerRenderer` on `vaadin-dialog`.
+  - `position`, `duration` and `renderer` on `vaadin-notification`.
+  - `for`, `position` and `text` on `vaadin-tooltip`.
+
+### Design Element Coverage
+
+| Design Element | VWC Component | Status | Notes |
+|---|---|---|---|
+| Left sidebar nav (logo, welcome, MAIN/ADMIN groups, district emblem) | `vwc-sidenav` | ⚠️ Partial | Hand-built `.sidebar`/`.nav-item`. `vwc-sidenav` takes `items` (link/group/divider), `activeItemId` and the `topFixed` slot. **Intentional:** SafeLMS chrome. |
+| Blue page-title banner ("Dashboard" + description) | `vwc-headline` (header-text + subtext) | ⚠️ Partial | `vwc-topnav` is an app bar (logo, menu slots, 72px default height), not a page-title banner. `vwc-headline` covers title + subtext but not the gradient banner. **Intentional** SafeLMS chrome. |
+| Dashboard tabs (Completions / Impact Insights / OSHA Dashboard) | `vaadin-tabs` + `vaadin-tab` | ⚠️ Partial | Native `<button role="tab">` with JS-managed `aria-selected`. Vaadin tabs add keyboard arrow navigation and selection state, and follow `--vwc-brand-color`. |
+| Filters / Export / Clear filters buttons | `vaadin-button` | ✅ Covered | `theme="secondary small"`, `"primary small"`, `"tertiary small"` are valid variants. FA icons in `slot="prefix"`. The `small` modifier is **unverified**. |
+| Applied-filter chips (removable, "Key: value ×") | none | ❌ Gap | No dismissible chip/tag in core v1.22.1. Lumo `theme="badge"` (v1.22.3) is static with no remove action. See Gap 2. |
+| Content cards (Completion Status Overview, OSHA Completion Report, Email Learners card) | `vwc-card` | ⚠️ Partial | Hand-built `.report-card` / `.email-card`. `vwc-card theme="outlined"` (or `padded`) with `header`/`content` slots covers this. |
+| Pill labels and tags ("Past 30 days" pill, status badges, "sample name" tag, lock chip) | Lumo `theme="badge"` (core v1.22.3 only) | ⚠️ Partial | Custom `.status-badge` / `.date-badge` / `.ec-sample`. Only usable after upgrading core. The Quiz Score cell (colored text + ✓/✗) needs no component. |
+| Status Distribution pie + legend | none | ❌ Gap | CSS `conic-gradient` pie. No chart component in core; production uses a DevExtreme dxPieChart. Drill views are off (`PIE_DRILLS = false`). |
+| Section info icon + tooltip ("Action Needed ⓘ") | `vaadin-tooltip` | ✅ Covered | Anchored with `for="actionNeededInfo"` to a native `<button>`, so it works on hover and keyboard focus. Attributes **unverified**. (The PRD's NFR rules out conveying information this way; see Reconciliation.) |
+| Action Needed tiles (count "of N", label, icon; click to filter, click again to clear) | `vwc-card` (surface); `vwc-toggle-button-group` (selection) | ⚠️ Partial | Custom `div role="button" aria-pressed`. `vwc-toggle-button-group` suppresses deselection ("always has one selected"), and the tiles allow click-to-clear, so it isn't a drop-in. Use a `vwc-card` surface and keep the toggle logic. |
+| Search inputs (table "Search learners…", modal "Search…") | `vaadin-text-field theme="outlined"` | ⚠️ Partial | Native `<input>` + absolutely positioned FA icon. The Vaadin field has a `prefix` slot plus built-in focus and clear. |
+| Manage-columns button + menu (show/hide, drag-to-reorder, Reset) | `vaadin-button theme="icon secondary"`; `vaadin-checkbox`; `vaadin-popover` (v1.22.3 only) | ⚠️ Partial | Native button, `div` menu and native checkboxes. The overlay needs `vaadin-popover` (not in v1.22.1). The DnD package wasn't verified (no CONTEXT.md fetched). Production uses the dxDataGrid `columnChooser`. |
+| "Last updated" + Refresh text action | `vaadin-button theme="tertiary"` | ⚠️ Partial | Native text button styled to the production Reports page (`#0747A6`). **Intentional.** |
+| Results count + pill pager (First / ‹ 1 › / Last) | `vwc-paginator` | ⚠️ Partial | **Intentional and documented:** the paginator's shadow DOM can't be restyled. `vwc-paginator` also has a page-size selector and "X–Y of Z" text, which this pager doesn't. |
+| Report table (sticky two-row grouped header, "Latest Module" band, horizontal scroll) | Themes `.vwc-table`; `vaadin-grid` | ⚠️ Partial | Native `<table>` + custom CSS. Doesn't use the themes table tokens (`--vwc-table-header-background-color`, `--vwc-table-border-color`, `--vwc-table-row-hover-color`). Production is a dxDataGrid. |
+| Sortable column headers | `vwc-sortable-header` | ⚠️ Partial | Custom `.sortable-th`, and it sets no `aria-sort`. `vwc-sortable-header` sets `aria-sort` automatically and fires `sort-direction-change`. |
+| % Complete mini progress bar | `vaadin-progress-bar` | ⚠️ Partial | Custom `.mod-bar` span. |
+| "View certificate" row link | `vaadin-button theme="tertiary small"` | ⚠️ Partial | Native `<button class="cert-link">` styled as a link. |
+| Certificate column-header info callout | `vaadin-tooltip` | ⚠️ Partial | CSS-only tooltip. **Intentional and documented** (anchor lost on re-render). The PRD wants a visible callout instead; see Reconciliation. |
+| Right "Report Filters" panel (collapsible, pinned Apply footer) | `vwc-drawer position="end"` | ⚠️ Partial | Custom `aside`. `vwc-drawer` covers push mode (`overlay=false`), close button, focus restore (`restoreFocusSelector`) and `overlay-breakpoint`. |
+| Icon-only buttons (panel ✕, modal ✕, Email ← back) | `vaadin-button theme="icon"` / `"icon tertiary"` | ⚠️ Partial | Native buttons. The certificate dialog's close already uses `theme="icon tertiary"`. |
+| Action Needed radio list (filter panel) | `vaadin-radio-group` + `vaadin-radio-button` | ✅ Covered | `value` / `label` used correctly. Radio groups don't need `outlined`. `theme="vertical"` **unverified**. (The PRD asks for multi-select checkboxes here; see Reconciliation.) |
+| Date Range dropdown (trigger + inline preset list + Custom option) | `vaadin-select theme="outlined"` | ⚠️ Partial | Custom; inline to avoid clipping in the scrolling panel. `vaadin-select` opens in an overlay layer, so the panel wouldn't clip it. Worth reconsidering. |
+| Custom-range Start / End date pickers | `vaadin-date-picker` | ⚠️ Partial | **Missing the required `theme="outlined"`** (has `theme="small"` only), so it renders the non-Vector filled style. Fix: `theme="outlined small"`. |
+| Filter section dividers | `vwc-divider` | ⚠️ Partial | Custom `div.filter-divider`. |
+| People launcher card (icon + "All positions / at All Locations") | `vaadin-button` or `vwc-card` | ⚠️ Partial | Custom button card; no dedicated selection-summary launcher. |
+| Course / Completion Status / extra-option checkboxes | `vaadin-checkbox` (+ `vaadin-checkbox-group`) | ⚠️ Partial | Right component, but the label is a sibling `<span>` in a wrapping `<label>` rather than the checkbox's `label` attribute. Confirm label clicks toggle it. `vaadin-checkbox-group` would add an accessible group label. |
+| Apply Filters / "Use these dates" buttons | `vaadin-button` | ✅ Covered | `theme="primary"` (full-width footer) and `theme="secondary small"`. |
+| People Selector, Group Selector and List picker modals | `vaadin-dialog` | ⚠️ Partial | Custom `.tree-modal-overlay` (`role="dialog" aria-modal`). No visible focus trap or Esc handling. Inconsistent with the certificate modal's `vaadin-dialog`. |
+| Position / Location folder tree and list picker | `vwc-tree-list` | ⚠️ Partial | Custom `.tm-node` tree. `vwc-tree-list` covers nested `items` (id, text, icon, subtitle, children), single `value`, `value-change` and ARIA tree keyboard nav. Counts can go in `subtitle`; live search stays custom. |
+| People Selector option buttons | `vaadin-button` | ⚠️ Partial | Custom large light-blue buttons (`#E8F0FE`). |
+| Modal "Done" button (green) | `vaadin-button theme="success primary"` | ⚠️ Partial | Custom `.tm-done` (`#15803d`); the `success` modifier is documented for this. |
+| Inline text links ("(Click here to change)", footer links) | Themes `.vwc-link`; `vaadin-button theme="tertiary"` | ⚠️ Partial | Custom underlined text; themes documents `.vwc-link` with `--vwc-link-color` / `--vwc-link-decoration-color`. |
+| Email message textarea | `vaadin-text-area theme="outlined"` | ⚠️ Partial | Native `<textarea>` with custom border and glow. The Email page is reachable **only from the flow map** in V1.2 (`openActionGroup` is never called; rows render only "View certificate"). |
+| Email Cancel / Send buttons | `vaadin-button` | ✅ Covered | `tertiary` + `primary`, primary furthest right. |
+| Info banner / hint ("greeting and sign-off are locked…", recipients hint) | none | ❌ Gap | Custom `.pencil-banner` and `.ec-header-hint`. Core v1.22.1 has no inline alert/banner (`vaadin-notification` is a transient toast). See Gap 3. |
+| Certificate dialog (header, certificate image, Close / Download PDF) | `vaadin-dialog` (+ `vaadin-button`) | ✅ Covered | Header/body/footer renderers; `icon tertiary` close; tertiary + primary footer. Props **unverified**. |
+| Success toast | `vaadin-notification` | ✅ Covered | `position="bottom-center"`, `duration="3200"`, renderer. **Unverified**. |
+
+### Design Token Usage
+
+Token values are quoted from themes v1.9.3 CONTEXT.md. "≈ composite" is the token's alpha value blended over white.
+
+| Color in Mock | Nearest Token | Token Value | Status |
+|---|---|---|---|
+| `#0271CE` (`--blue-accent`: active tab, links, info hover) | `--lumo-primary-color` / `--lumo-primary-text-color` | `#0271ce` | ✅ Match — swap to the token |
+| `#155DFC` (`--blue-primary`: bar fills, focus rings, active card border, icons) | `--lumo-primary-color` | `#0271ce` | ⚠️ Off — noticeably brighter, more violet; the main accent doesn't match the Vector primary |
+| `#1038C8`, `#1d4ed8`, `#3b6fd4`, `#005DBD`, `#0747A6` (chip text, active option, pager/Refresh) | `--lumo-primary-text-color` | `#0271ce` | ⚠️ Off (pager/Refresh values sampled from production on purpose) |
+| `#3b82f6` (In Progress pie/legend) | `--lumo-primary-color` | `#0271ce` | ⚠️ Off |
+| `#eff6ff`, `#dbeafe`, `#F0F5FF`, `#E1EBF9`, `#E8F0FE`, `#d8e6fd`, `#EEF2FF`, `#eef2f7`, `#FBFCFE` (blue tints) | `--lumo-primary-color-10pct` | `#0271ce1a` (≈ `#E5F0FA`) | ⚠️ Off (`#E1EBF9` closest) |
+| `#bfdbfe`, `#93c5fd`, `#C7D2FE` (chip border/remove icon, sample-tag border) | `--lumo-primary-color-10pct` / `-50pct` | `#0271ce1a` / `#0271cec2` | ⚠️ No direct match |
+| `rgba(21,93,252,.12–.20)` (focus glows) | `--lumo-primary-color-10pct` | `#0271ce1a` | ⚠️ Off |
+| `#101828` (`--ink`: headings, counts) | `--lumo-header-text-color` / `--lumo-contrast` | `#000000de` / `#192434` | ⚠️ Off |
+| `#344055` (`--ink-2`: body), `#1D2939` | `--lumo-body-text-color` / `--lumo-contrast-90pct` | `#000000de` / `#18273af0` | ⚠️ Off |
+| `#6A7282` (`--muted`), `#4b5563`, `#4A5565` | `--lumo-secondary-text-color` | `#00000099` | ⚠️ Off (cooler gray) |
+| `#99A1AF` (`--muted-2`: icons, hints) | `--lumo-tertiary-text-color` | `#1c304a85` (≈ `#8993A0`) | ⚠️ Off |
+| `#374C61`, `#364C61`, `#364153` (sidebar / Last-updated) | `--lumo-contrast-80pct` | `#1a293dd4` | ⚠️ Off (SafeLMS chrome, sampled on purpose) |
+| `#E5E7EB` (`--hair`: borders) | `--lumo-contrast-10pct` | `#1a38601a` (≈ `#E8EBEF`) | ⚠️ Off (near-equal) |
+| `#F3F4F6`, `#F2F5F8`, `#f9fafb`, `#fafafa` (canvas, hover, table header) | `--lumo-contrast-5pct` | `#193b670d` (≈ `#F3F5F7`) | ⚠️ Off (first two near-equal) |
+| `#e9eaec`, `#e2e5ea`, `#CFD6E0` (hover fills, card hover border) | `--lumo-contrast-10pct` | `#1a38601a` | ⚠️ Off |
+| `#d1d5db` (input borders, Not Started pie), `#D6DEEA` | `--lumo-contrast-20pct` | `#1c375a29` (≈ `#DBDFE5`) | ⚠️ Off |
+| `rgba(30,58,95,0.025)` (Latest Module band) | `--lumo-contrast-5pct` | `#193b670d` | ⚠️ No direct match |
+| `#fff` | `--lumo-base-color` | `#fff` | ✅ Match — swap to the token |
+| `#15803d` (Passed text, quiz pass, Done) | `--lumo-success-color` / `--lumo-success-text-color` | `#158444` / `#0a7637` | ⚠️ Off (very close) |
+| `#22c55e` (Passed pie), `#4ADE80` (toast check) | `--lumo-success-color` | `#158444` | ⚠️ Off (much brighter) |
+| `#dcfce7` (Passed badge background) | `--lumo-success-color-10pct` | `#1688461a` (≈ `#E7F3EC`) | ⚠️ Off |
+| `#126b34` (Done hover) | none (handled by `theme="success primary"`) | none | ⚠️ No direct match |
+| `#dc2626` (Failed pie) | `--lumo-error-color` | `#d83e38` | ⚠️ Off (close) |
+| `#b91c1c` (Failed text, quiz fail) | `--lumo-error-text-color` | `#ca150c` | ⚠️ Off (close) |
+| `#fee2e2` (Failed badge, retry tile) | `--lumo-error-color-10pct` | `#e71d131a` (≈ `#FDE8E7`) | ⚠️ Off (close) |
+| `#f4a5a5` (dormant drill) | `--vwc-color-cinnabar-200` | `#f4ada4` | ⚠️ Off (inactive) |
+| `#d97706` (nudge icon) | `--lumo-warning-color` | `#e0782e` | ⚠️ Off (close) |
+| `#92400e`, `#b45309` (Overdue / due-soon text) | `--lumo-warning-text-color` | `#995211` | ⚠️ Off (close) |
+| `#fef3c7` (nudge tile, Overdue badge) | `--lumo-warning-color-10pct` | `#ffcc001a` | ⚠️ Off |
+| `#f59e0b`, `#14b8a6`, `#7c3aed` (dormant drill colors) | `--vwc-color-ecstacy-500` / `--vwc-color-puerto-rico-500` / `--vwc-color-vivid-violet-700` | `#f98e2b` / `#3cbfae` / `#7e398c` | ⚠️ Off (dormant) |
+| `#fdece4` / `#c2410c` (Location node icon tile) | `--vwc-color-ecstacy-50` / `-700` | `#fef4ea` / `#b1651f` | ⚠️ Off |
+| Topbar gradient `#05347a → #095ad2` and related chrome values | none | none | ⚠️ No direct match (SafeLMS brand chrome, intentional) |
+| `rgba(16,24,40,.45)` (custom modal backdrop) | none (provided by `vaadin-dialog`) | none | ⚠️ Goes away with `vaadin-dialog` |
+| `0 1px 3px rgba(16,24,40,.10)` (+ `0 1px 2px …06`) | `--lumo-box-shadow-xs` | `0 1px 4px -1px #1c304a85` | ⚠️ Off |
+| `0 10px 28px rgba(16,24,40,.16)`, `0 8px 28px -6px rgba(16,24,40,.28)` | `--lumo-box-shadow-m` | `0 2px 6px -1px #1c375a29, 0 8px 24px -4px #1c324f61` | ⚠️ Off |
+| `0 18px 64px -8px rgba(16,24,40,.35)` (custom modals) | `--lumo-box-shadow-xl` | `0 4px 24px -3px #1c375a29, 0 18px 64px -8px #1c324f61` | ⚠️ Off (same geometry, different color) |
+| `#1b2330`, hatch `#fafafa` / `#d9d9d9` (certificate overlay) | none | none | ⚠️ Matched to the ClickSafety PNG on purpose |
+
+Font: the `"Open Sans"` stack matches `--lumo-font-family`. Body text is 16px; `--lumo-font-size-m` is `14px`.
+
+Excluded: unused CSS for elements this version never renders (`.chart-flip`, `.donut`, `.prog-chart`, `.bar-chart`, `.module-breakdown`, `.dlv-*`, `.pp*`, `.info-grid`, `.detail-grid`, `.group-row`, `.tree-launch`, `.tree-dropdown`, `.filter-chips`) and the flow-map color `#9ec5fe`. Worth removing that dead CSS before the dev build.
+
+### Gap Component Requirements
+
+The audit ran embedded, without designer input, so each gap lists its open decisions.
+
+**1. Data-viz charts (Status Distribution pie/donut + legend).**
+- **Proposal:** a shared chart surface, or an official stance on the third-party chart library.
+- **Open:**
+  - If production uses DevExtreme dxPieChart, VWC only needs a palette/theming guide, as themes already provides for AG Grid and FullCalendar.
+  - Which tokens should the status series use? There is no semantic data-viz series set today.
+  - Should the dashed empty ring be standardized?
+  - Is the drill-down coming back (`PIE_DRILLS`)?
+
+**2. Removable filter chip.**
+- **Proposal:** a dismissible "Key: value ×" chip with a remove event, possibly extending Lumo `badge` (v1.22.3).
+- **Open:**
+  - Does it need a key prefix, max width with truncation, and a "Clear all" companion?
+  - Does each remove button need an `aria-label`, and where does focus go after removal?
+  - Does it overlap with future multi-select combo box chips?
+
+**3. Inline info / alert banner.**
+- **Proposal:** a persistent message block with info, success, warning and error variants (icon, left accent, optional actions, optional dismiss).
+- **Open:**
+  - Is it a VWC component or a themes CSS class (like `.vwc-link` / `.vwc-table`)?
+  - What does the "hint" density look like compared with a full banner?
+  - Should it use `role="status"` or `role="alert"`?
+  - Is it dismissible?
 
 ## Open questions
 
@@ -152,6 +309,7 @@ _Pending: the Vector component audit is running and will be pasted here._
 - **Refresh button:** keep it, given nightly data? What does it do?
 - **Info text:** where does the "up to a week" certificate note and the Action Needed explanation go now that tooltips are out?
 - **Email Learners page:** confirm it's Phase 2 and should be separated from this handoff.
+- **Component library version:** the mock loads core v1.19.0 / themes v1.5.0; the template is on core v1.22.3. Build against the current version, which also makes the Lumo badge and `vaadin-popover` available.
 - **Re-enrollment (D-8)** and **Expiration Date semantics (D-2)** remain open with ClickSafety.
 
 ## Handoff notes

@@ -33,6 +33,7 @@
 - **Last updated + Refresh, pager:** "Last updated" shows the nightly import time. Refresh's behavior is PENDING. The pager shows 25 rows per page with First/‹/›/Last and an "N results" count, and resets to page 1 on any filter, search or sort change.
 - **Empty states to build:** when no learners match, the pie must not render (the mock shows a solid red disc), cards must not read "0 of 0", and the table needs a "No learners match these filters" message with Clear filters. Also build loading, stale/failed import, and "no learners in your scope" states.
 - **Export:** CSV of the full filtered set, not the current page (AC-5.1, AC-5.2). Give feedback when it starts, and handle the zero-row case.
+- **Components:** tabs → `vaadin-tabs`; cards → `vwc-card`; sortable headers → `vwc-sortable-header` (adds `aria-sort`); % bar → `vaadin-progress-bar`; buttons are already correct `vaadin-button`s; status pills → Lumo `theme="badge"` once core is on v1.22.3. The pie has no VWC component (dxPieChart). Swap hard-coded colors for tokens: the mock's `#155DFC` accent is not the Vector primary `--lumo-primary-color` (`#0271ce`). See mock-definition.md → Component confirmation.
 - **Info text:** the Action Needed info tooltip must go (NFR: no information in tooltips). Its copy also mentions Email Learners, which is Phase 2.
 
 ## filters — Report Filters
@@ -47,11 +48,13 @@
 - **Due within 30 days:** as built, "In Progress learners whose course Due Date is ≤ 30 days away, including overdue". The PRD says "certifications due within 30 days" (PENDING).
 - **2 failures within a module:** must match FR-4 and the card: module failed attempts ≥ 2 for In Progress or Failed learners. The mock's label ("at least 1 failure"), logic (failed-course only) and chip ("Near 3-failure limit") are all wrong.
 - **No learner-name filter:** the table search covers it (AC-4.3).
+- **Components:** panel → `vwc-drawer position="end"`; Action Needed → `vaadin-radio-group` as built (or `vaadin-checkbox-group` if AC-2.1 multi-select wins); Date Range → consider `vaadin-select theme="outlined"` (opens in an overlay, so no clipping); custom-range pickers → `vaadin-date-picker theme="outlined"` (the mock is missing `outlined`); checkboxes → `vaadin-checkbox` in a `vaadin-checkbox-group`; dividers → `vwc-divider`; applied-filter chips have no VWC component yet (gap).
 
 ## groups — People Selector / Position & Location
 - **Reuse the existing component:** use the standard LMS learner/group selector (as in Compliance by Learner); don't build a new one (AC-4.4). It covers Positions & Locations, Quick Groups, Clever and Dynamic groups.
 - **Default:** "All Positions, All Locations", meaning everything within the user's permission scope, not the whole district. Confirm the "Select All Employees In Site" option label is the component's standard wording.
 - **Selection display:** the chosen group replaces the default label on the panel's People card (AC-4.4). Applies on Apply Filters like every other filter.
+- **Components:** the three picker modals → `vaadin-dialog` (the mock's custom overlays lack a focus trap and Esc handling); the folder tree and list → `vwc-tree-list` (counts in `subtitle`); search → `vaadin-text-field theme="outlined"`; Done → `vaadin-button theme="success primary"`.
 - **Quick Groups:** there is no ownership concept, so a group may return zero permitted learners. That must show the empty state, not an error (AC-6.1). Validate scale and whether Quick Groups appear by default with the VRF team (D-7, AC-6.3).
 
 ## email — Email Learners (Phase 2)
