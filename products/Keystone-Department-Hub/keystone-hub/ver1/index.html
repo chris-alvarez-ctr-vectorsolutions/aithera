@@ -877,12 +877,14 @@
        (0,3,0) as the rule above, so it wins on source order alone; keep it
        after that rule. */
     .kx-pubbody .kx-pubgrid > .kx-pubwidget--scatter { grid-column: 1 / -1 !important; }
-    /* The multi-series line (TS_DASH's station comparison) too, for the same
-       reason: five lines in a 380-wide viewBox at scale 0.72 are
-       indistinguishable. Full width here also pairs the two 30/60/90 lists
-       with each other instead of with a short bar widget — see the widget
-       order note in hub-hero.js TS_DASH. */
-    .kx-pubbody .kx-pubgrid > .kx-pubwidget--lines { grid-column: 1 / -1 !important; }
+    /* (The multi-series line used to take the full row here too. It no
+       longer needs to: pdLines draws fixed-size text and strokes at any
+       width, so at two-across it pairs with the card beside it instead of
+       leaving that card alone on a row.) */
+    /* And the bars-against-target (TS_SCHED_DASH's shift comparison): three
+       short bars authored at w:12 above two tall lists. Two-across would
+       pair it with a list and stretch it to that list's height. */
+    .kx-pubbody .kx-pubgrid > .kx-pubwidget--bartarget { grid-column: 1 / -1 !important; }
     /* Columns are no longer the author's, so their row spans can't be either — a
        height chosen for a span-4 card is wrong once that card is span-6. Heights
        go back to content for the whole band. */
@@ -1085,49 +1087,210 @@
      throughout, so nothing here keys off a literal inline style (the donut
      coupling below is the cautionary tale). */
 
-  /* Multi-series line: the legend sits under the plot, wrapping as the
-     widget narrows. A short bar swatch, not a dot, so it reads as "this
-     line" rather than "this point". */
+  /* Multi-series line. The plot scales with its width (no fixed SVG height)
+     up to a ceiling that keeps the 10-unit axis text under ~13px, and the
+     legend moves from a row underneath to a column beside it once the card
+     is wide enough to hold both. .kx-lines-wrap is the container the query
+     measures (a query only sees ancestors, so the element that changes has
+     to sit inside the container) — scoped there, not on .kx-pubwidget-body,
+     so no other widget kind inherits a size-containment it didn't ask for. */
+  .kx-lines-wrap { container-type: inline-size; width: 100%; min-width: 0; }
+  .kx-lines { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
+  .kx-lines .plot { width: 100%; max-width: 760px; min-width: 0; }
+  /* The plot box: height follows the chart's container width (cqw, measured
+     on .kx-lines-wrap) between 150px and 220px, so a 290px card gets a short
+     chart and a full-row card a taller one. Everything inside is positioned
+     in percentages (charts.js pdLines).
+     NOT aspect-ratio + min-height: CSS transfers a min-height through an
+     aspect ratio into a min-WIDTH, so a 150px floor at ratio 2.2 forced the
+     plot to 330px inside a 293px card and the lines ran out of the card. */
+  .kx-lines .plot-area {
+    position: relative; margin-left: 38px; height: clamp(150px, 45cqw, 220px);
+  }
+  .kx-lines .gl { position: absolute; left: 0; right: 0; height: 1px; background: var(--ink-100); }
+  .kx-lines .yl {
+    position: absolute; right: calc(100% + 6px); top: -6px;
+    font-size: 10px; color: var(--ink-400); white-space: nowrap; line-height: 1;
+  }
+  .kx-lines .paths { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; display: block; }
+  .kx-lines .dot {
+    position: absolute; width: 8px; height: 8px; border-radius: 50%; box-sizing: border-box;
+    background: var(--surface-1); border: 2px solid; transform: translate(-50%, -50%);
+  }
+  .kx-lines .xaxis { position: relative; margin-left: 38px; height: 16px; margin-top: 6px; }
+  .kx-lines .xaxis span {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font-size: 10px; color: var(--ink-500); white-space: nowrap; line-height: 1;
+  }
+  .kx-lines .xaxis span:first-child { transform: none; }
+  .kx-lines .xaxis span:last-child { transform: translateX(-100%); }
   .kx-lines-legend {
-    display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px;
-    font-size: 11px; color: var(--ink-600); font-weight: 500;
+    display: flex; flex-wrap: wrap; gap: 6px 14px;
+    font-size: 11.5px; color: var(--ink-600); font-weight: 500;
   }
-  .kx-lines-legend .item { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-  .kx-lines-legend .sw { width: 12px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+  .kx-lines-legend .item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .kx-lines-legend .sw { width: 14px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+  .kx-lines-legend .v {
+    font-family: var(--font-numeric); font-weight: 700; color: var(--ink-800);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Under ~560px the five legend entries wrap to two lines with their values;
+     the names alone hold one line, and the values are on the plot anyway. */
+  @container (max-width: 559px) {
+    .kx-lines-legend .v { display: none; }
+  }
+  @container (min-width: 880px) {
+    .kx-lines { flex-direction: row; align-items: center; gap: 24px; }
+    .kx-lines .plot { flex: 1 1 auto; }
+    .kx-lines-legend { flex-direction: column; gap: 8px; flex: 0 0 auto; min-width: 150px; }
+    /* Swatch and name stay together; only the value sits at the right edge. */
+    .kx-lines-legend .item { display: flex; }
+    .kx-lines-legend .n { flex: 1; }
+  }
 
-  /* Bars against one target: same row geometry as pdBar (64px label, 16px
-     track) so a bar-target widget beside a plain bar widget lines up. The
-     target is a dark tick that overhangs the track by 3px top and bottom —
-     tall enough to read as a line through the bar, not a notch in it. */
-  .kx-bartarget { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-  .kx-bartarget .row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-  .kx-bartarget .lbl {
-    width: 64px; color: var(--ink-600); font-weight: 500; flex-shrink: 0;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* Bars against one target, as tiles: one per group. Three across once the
+     card is ~640px or wider (capped at 960px so a full-width row never grows
+     a tile past ~300px), one stacked column in a narrower card — a third of a
+     wide grid, say — where stacked full-width tiles fill the card's height
+     beside the two lists. NOT auto-fit: with minmax(150px, 300px) the
+     browser counts columns by the 300px maximum, which is how a 586px card
+     ended up with one column of 300px tiles and an empty right half.
+     Tile colour follows the comparison: good at or over target, warn under. */
+  .kx-bartarget-wrap { container-type: inline-size; width: 100%; min-width: 0; }
+  .kx-bartarget { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .kx-bartarget .tiles { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  @container (min-width: 640px) {
+    .kx-bartarget .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 960px; }
   }
+  .kx-bartarget .tile {
+    padding: 10px 12px 11px; border-radius: 10px;
+    background: var(--surface-2); border: 1px solid var(--ink-100);
+    display: flex; flex-direction: column; gap: 4px; min-width: 0;
+  }
+  .kx-bartarget .lbl { font-size: 11.5px; font-weight: 600; color: var(--ink-600); }
+  .kx-bartarget .num {
+    font-family: var(--font-numeric); font-weight: 700; font-size: 26px; line-height: 1.1;
+    letter-spacing: -0.8px; font-variant-numeric: tabular-nums;
+  }
+  .kx-bartarget .is-over .num { color: var(--teal-600); }
+  .kx-bartarget .is-under .num { color: var(--amber-700); }
   .kx-bartarget .track {
-    flex: 1; height: 16px; background: var(--ink-100); border-radius: 5px; position: relative;
+    height: 8px; margin-top: 4px; background: var(--ink-100); border-radius: 99px; position: relative;
   }
-  .kx-bartarget .fill { height: 100%; border-radius: 5px; transition: width 0.6s; }
+  .kx-bartarget .fill { height: 100%; border-radius: 99px; transition: width 0.6s; }
+  .kx-bartarget .is-over .fill { background: var(--teal-500); }
+  .kx-bartarget .is-under .fill { background: var(--amber-500); }
   .kx-bartarget .tick {
     position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px;
     background: var(--ink-800); border-radius: 1px;
   }
-  .kx-bartarget .val {
-    font-family: var(--font-numeric); font-weight: 700; width: 40px; text-align: right;
-    font-variant-numeric: tabular-nums; flex-shrink: 0;
-  }
+  .kx-bartarget .gap { font-size: 11px; color: var(--ink-500); font-weight: 500; margin-top: 2px; }
   .kx-bartarget .foot {
-    display: flex; align-items: center; gap: 6px; margin-top: 2px;
+    display: flex; align-items: center; gap: 6px;
     font-size: 11px; color: var(--ink-500); font-weight: 500;
   }
   .kx-bartarget .tickkey { width: 2px; height: 12px; background: var(--ink-800); border-radius: 1px; }
+
+  /* Column chart (charts.js pdColumns): the same construction as the line
+     chart — an HTML plot box sized from its container, gridlines and columns
+     in percentages, 10px labels that never scale. Columns sit in one flex row
+     of equal category slots; grouped series share a slot side by side,
+     stacked series pile up in one column. */
+  .kx-cols-wrap { container-type: inline-size; width: 100%; min-width: 0; }
+  .kx-cols { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
+  .kx-cols .plot { width: 100%; max-width: 760px; min-width: 0; }
+  .kx-cols .plot-area {
+    position: relative; margin-left: 38px; height: clamp(140px, 40cqw, 200px);
+  }
+  .kx-cols .gl { position: absolute; left: 0; right: 0; height: 1px; background: var(--ink-100); }
+  .kx-cols .gl:last-of-type { background: var(--ink-200); }
+  .kx-cols .yl {
+    position: absolute; right: calc(100% + 6px); top: -6px;
+    font-size: 10px; color: var(--ink-400); white-space: nowrap; line-height: 1;
+  }
+  .kx-cols .cats { position: absolute; inset: 0; display: flex; align-items: stretch; }
+  /* Fixed slot padding, never a percentage: percent padding on a flex item
+     resolves against the whole row, so 12% a side on five slots (each 20%
+     wide) left no room at all and every column collapsed to its 4px minimum. */
+  .kx-cols .cat { flex: 1 1 0; min-width: 0; padding: 0 5px; display: flex; justify-content: center; }
+  .kx-cols .bars {
+    flex: 1; max-width: 120px; display: flex; align-items: flex-end; justify-content: center;
+    gap: 3px; height: 100%;
+  }
+  .kx-cols .bar {
+    flex: 1 1 0; max-width: 34px; min-width: 4px; border-radius: 3px 3px 0 0; position: relative;
+    transition: height 0.5s;
+  }
+  .kx-cols .bar.stack { display: flex; flex-direction: column-reverse; height: 100%; background: none; }
+  .kx-cols .bar.stack .seg { width: 100%; }
+  .kx-cols .bar.stack .seg:last-child { border-radius: 3px 3px 0 0; }
+  .kx-cols .bar .v {
+    position: absolute; left: 50%; bottom: calc(100% + 3px); transform: translateX(-50%);
+    font-family: var(--font-numeric); font-size: 10px; font-weight: 700; color: var(--ink-700);
+    white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
+  .kx-cols .xaxis { position: relative; margin-left: 38px; margin-top: 6px; min-height: 14px; }
+  /* Long category names: one slot each, wrapping inside it (up to three
+     lines, breaking a word only when a slot is narrower than the word). */
+  .kx-cols .xaxis.is-wrap { display: flex; align-items: flex-start; }
+  .kx-cols .xaxis.is-wrap span {
+    flex: 1 1 0; min-width: 0; padding: 0 2px; text-align: center; font-size: 9.5px; color: var(--ink-500);
+    line-height: 1.15; overflow-wrap: anywhere; max-height: 3.5em; overflow: hidden;
+  }
+  /* Short labels: floated at the slot centre, thinned by pdColumns. */
+  .kx-cols .xaxis.is-abs { height: 14px; }
+  .kx-cols .xaxis.is-abs span {
+    position: absolute; top: 0; transform: translateX(-50%);
+    font-size: 10px; color: var(--ink-500); white-space: nowrap; line-height: 1.2;
+  }
+  .kx-lines-legend .sw.sq { width: 10px; height: 10px; border-radius: 2px; }
+  @container (min-width: 880px) {
+    .kx-cols { flex-direction: row; align-items: center; gap: 24px; }
+    .kx-cols .plot { flex: 1 1 auto; }
+    .kx-cols .kx-lines-legend { flex-direction: column; gap: 8px; flex: 0 0 auto; min-width: 130px; }
+  }
+
+  /* Per-person progress list (charts.js pdProgressList). Row colour is the
+     state: complete teal, partial amber, nothing started coral. Two columns
+     once the card is wide enough for two ~360px rows. */
+  .kx-proglist-wrap { container-type: inline-size; width: 100%; min-width: 0; }
+  .kx-proglist { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 28px; width: 100%; }
+  .kx-proglist .row {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 6px 0; font-size: 12px; border-bottom: 1px solid var(--surface-3); min-width: 0;
+  }
+  .kx-proglist .who { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+  .kx-proglist .name { font-weight: 600; color: var(--ink-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kx-proglist .sub { font-size: 11px; color: var(--ink-500); line-height: 1.3; }
+  .kx-proglist .prog { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+  .kx-proglist .prog .n {
+    font-family: var(--font-numeric); font-weight: 700; font-size: 12px; width: 44px; text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .kx-proglist .track { width: 72px; height: 7px; border-radius: 99px; background: var(--ink-100); overflow: hidden; }
+  .kx-proglist .fill { display: block; height: 100%; border-radius: 99px; }
+  .kx-proglist .is-good .fill { background: var(--teal-500); }   .kx-proglist .is-good .n { color: var(--teal-600); }
+  .kx-proglist .is-warn .fill { background: var(--amber-500); }  .kx-proglist .is-warn .n { color: var(--amber-700); }
+  .kx-proglist .is-bad .fill { background: var(--coral-500); }   .kx-proglist .is-bad .n { color: var(--coral-600); }
+  @container (min-width: 760px) {
+    .kx-proglist { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .kx-pubwidget--progresslist .kx-pubwidget-body,
+  .kx-pubwidget--columns .kx-pubwidget-body { justify-content: flex-start !important; }
 
   /* Grouped people list: a window header with its count, then one line per
      person. The count chip carries the urgency (coral for the nearest
      window, amber otherwise, grey for zero); the rows stay neutral so a
      list of seven names doesn't light up like seven alarms. */
-  .kx-grouplist { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+  .kx-grouplist-wrap { container-type: inline-size; width: 100%; min-width: 0; }
+  .kx-grouplist { display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; }
+  .kx-grouplist .grp { min-width: 0; }
+  /* Three windows side by side once there is room for ~220px each: a wide
+     card then reads left to right, soonest first, instead of as one long
+     column with a date hanging 800px away from its name. */
+  @container (min-width: 700px) {
+    .kx-grouplist { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 20px; align-items: start; }
+  }
   .kx-grouplist .grp-h {
     display: flex; align-items: center; gap: 6px; padding-bottom: 4px;
     border-bottom: 1px solid var(--ink-100);
@@ -1157,6 +1320,7 @@
      (styles.css .kx-pubwidget--table); the body's inline centring is for
      charts, which have a fixed height. */
   .kx-pubwidget--grouplist .kx-pubwidget-body,
+  .kx-pubwidget--bartarget .kx-pubwidget-body,
   .kx-pubwidget--lines .kx-pubwidget-body { justify-content: flex-start !important; }
   /* Fixed row track (KX.GRID.ROW in keystone-shared.js) so a published dashboard
      reproduces the author's layout: same columns, same heights, borders level
@@ -1164,6 +1328,20 @@
      Both breakpoints below hand height back to the content when the columns stop
      being the author's. */
   .kx-pubgrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; align-items: stretch; }
+  /* The grid is a size container so its widgets can ask how wide IT is —
+     which, with the Agency Intelligence panel docked beside it, is not the
+     viewport. Inline-size containment only; row sizing is untouched. */
+  .kx-pubgrid { container-type: inline-size; }
+  /* WIDE GRID: a widget that declares a wide span (--ww, from pubWidget's
+     `ww`) takes that many columns once the grid is 1,180px or more across
+     (a 2x laptop display with the assistant panel collapsed is ~1,290px).
+     The two vendor defaults use it to pack onto one row of four / one row of
+     thirds on a big monitor rather than stretching a four-bar card to 600px.
+     Attribute-gated so a widget without ww keeps its inline span; !important
+     because the inline style would otherwise win. */
+  @container (min-width: 1180px) {
+    .kx-pubgrid > .kx-pubwidget[style*="--ww"] { grid-column: span var(--ww) !important; }
+  }
   /* --sized: this dashboard was laid out by hand on the Agency Intelligence
      canvas, so reproduce it — same columns, same fixed row track (KX.GRID.ROW in
      keystone-shared.js), borders level across a row. Applied by dashBody() only

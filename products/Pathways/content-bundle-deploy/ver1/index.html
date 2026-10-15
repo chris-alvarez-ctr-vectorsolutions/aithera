@@ -1,0 +1,1424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pathways: Deploy Content Bundle</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- The internal admin (like the district app) renders in Roboto. The brief is to
+         match the screenshots of the live internal admin, so this mock uses Roboto and
+         tokens sampled from those captures, the same approach as the other Pathways mocks. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+
+<style>
+/* ============================================================
+   Tokens sampled from the internal-admin screenshots
+   (Content Bundles, Districts, Deploy Content Bundle drawer)
+   ============================================================ */
+:root {
+  --text: #212121;
+  --text-2: #4a4a4a;
+  --muted: #6f6f6f;
+  --border: #d9dcdf;
+  --border-soft: #e9ebed;
+  --row-line: #ececec;
+  --sidenav-bg: #f2f2f2;        /* left nav canvas */
+  --sidenav-active: #e2e2e2;    /* active nav item */
+  --accent-bar: #e4572e;        /* orange-red bar on the active nav item */
+  --blue: #1a7fd4;              /* primary buttons */
+  --blue-dark: #1569b4;
+  --blue-soft: #e8f2fc;
+  --blue-line: #b9d8f4;
+  --link: #1976d2;
+  --red: #d12b45;               /* Delete Bundle */
+  --green: #2e7d32;
+  --green-soft: #e8f5e9;
+  --green-line: #c8e6c9;
+  --amber: #9a5b00;
+  --amber-soft: #fff4df;
+  --amber-line: #f0d48f;
+  --gray-soft: #f3f4f6;
+  --gray-line: #dfe2e6;
+  --radius: 4px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: 'Roboto', -apple-system, 'Segoe UI', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  background: #fff;
+}
+button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+a { color: var(--link); }
+[hidden] { display: none !important; }
+
+/* ── Top bar (shared with the district app) ────────────────── */
+.topnav {
+  height: 62px; display: flex; align-items: center; gap: 18px;
+  padding: 0 20px 0 18px;
+  border-bottom: 1px solid var(--border-soft);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+  position: sticky; top: 0; background: #fff; z-index: 20;
+}
+.logo { display: flex; align-items: center; gap: 8px; width: 244px; flex: 0 0 244px; }
+.logo svg { width: 42px; height: 30px; }
+.wordmark .l1 { font-size: 17px; letter-spacing: -.2px; color: #2b2b2b; line-height: 1; }
+.wordmark .l1 b { font-weight: 700; }
+.wordmark .l2 { font-size: 9.5px; color: #555; text-align: right; margin-top: 2px; }
+.crumbs { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; color: #333; }
+.crumbs .sep { color: #666; font-weight: 400; }
+.crumbs a { color: #333; text-decoration: none; cursor: pointer; }
+.crumbs a:hover { text-decoration: underline; }
+.spacer { flex: 1; }
+.pill-search {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #f0f1f3; border: 1px solid #e3e5e8; border-radius: 4px;
+  padding: 6px 12px; font-size: 12.5px; color: #555;
+}
+.pill-search kbd { font-family: inherit; font-size: 11px; background: #e4e6ea; border-radius: 3px; padding: 1px 5px; color: #777; }
+.icon-link { color: #333; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; }
+.avatar { width: 28px; height: 28px; border-radius: 50%; background: #e4e6ea; display: inline-flex; align-items: center; justify-content: center; color: #888; }
+
+/* ── Shell: left nav + main ────────────────────────────────── */
+.shell { display: flex; min-height: calc(100vh - 62px); }
+.sidenav {
+  width: 262px; flex: 0 0 262px;
+  background: var(--sidenav-bg); border-right: 1px solid var(--border-soft);
+  padding-bottom: 48px; position: relative;
+}
+.sidenav .who {
+  text-align: center; font-size: 12.5px; color: #5a5a5a;
+  padding: 14px 10px 12px; border-bottom: 1px solid #e3e3e3; line-height: 1.5;
+}
+.sidenav .nav { padding-top: 10px; }
+.nav-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 11px 22px; font-size: 15px; color: #222; text-decoration: none;
+  border-left: 4px solid transparent; cursor: pointer;
+}
+.nav-item i { width: 20px; text-align: center; font-size: 17px; color: #333; }
+.nav-item.is-active { background: var(--sidenav-active); border-left-color: var(--accent-bar); }
+.nav-item:hover:not(.is-active) { background: #eaeaea; }
+.collapse {
+  position: absolute; right: 8px; bottom: 12px; width: 20px; height: 20px; border-radius: 3px;
+  background: #5f7e96; color: #fff; font-size: 10px; display: flex; align-items: center; justify-content: center;
+}
+.main { flex: 1; min-width: 0; padding: 24px 32px 60px; }
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.btn {
+  border: 0; cursor: pointer; height: 31px; padding: 0 14px; font-size: 13.5px;
+  display: inline-flex; align-items: center; gap: 8px; border-radius: 3px;
+  background: var(--blue); color: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15);
+  white-space: nowrap;
+}
+.btn:hover { background: var(--blue-dark); }
+.btn-lg { height: 36px; padding: 0 20px; font-size: 14px; }
+.btn-danger { background: var(--red); }
+.btn-danger:hover { background: #b3203a; }
+.btn-ghost { background: #fff; color: #333; border: 1px solid var(--border); box-shadow: none; }
+.btn-ghost:hover { background: #f6f6f6; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:disabled:hover { background: var(--blue); }
+.btn-ghost:disabled:hover { background: #fff; }
+.btn-group { display: inline-flex; gap: 2px; margin-bottom: 16px; }
+.btn-group .btn { border-radius: 0; }
+.btn-group .btn:first-child { border-radius: 3px 0 0 3px; }
+.btn-group .btn:last-child { border-radius: 0 3px 3px 0; }
+.link-btn {
+  color: var(--link); text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13.5px; cursor: pointer; background: none; border: 0; padding: 0;
+}
+.link-btn:hover { text-decoration: underline; }
+
+/* ── Bundle page (the screen that exists today) ───────────── */
+.page-title { font-size: 20px; font-weight: 400; margin: 0; color: #222; }
+.page-desc { font-size: 12.5px; color: #555; margin: 2px 0 14px; }
+.bundle-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.bundle-name { font-size: 22px; font-weight: 400; margin: 0; }
+.showing { text-align: right; font-style: italic; font-size: 12.5px; color: #333; margin: 0 0 8px; }
+.table-card { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #fff; }
+.table-card table { width: 100%; border-collapse: collapse; }
+.table-card th {
+  text-align: left; font-weight: 500; font-size: 13.5px; padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.table-card th .th-tools { float: right; color: #777; font-size: 12px; }
+.table-card th .th-tools i { margin-right: 6px; }
+.table-card td { padding: 12px 16px; border-bottom: 1px solid var(--row-line); font-size: 14px; }
+.table-card tr:last-child td { border-bottom: 0; }
+.table-card .trash { color: var(--red); text-align: right; width: 60px; }
+
+/* ── Deploy wizard · right-side panel ───────────────────────
+   Same pattern as the Sharing drawer (Experience Sharing mock), the stacked
+   side panel in the Civic Seal Tracker, and the product's own Deploy Content
+   Bundle drawer: scrim, panel slides in from the right, title + X on top,
+   scrolling body, footer actions. */
+.scrim { position: fixed; inset: 0; background: rgba(17,24,39,.45); opacity: 0; visibility: hidden; transition: opacity .18s ease; z-index: 50; }
+.scrim.open { opacity: 1; visibility: visible; }
+.side-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(820px, 95vw); background: #fff;
+  box-shadow: -12px 0 34px rgba(0,0,0,.22); display: flex; flex-direction: column;
+  transform: translateX(102%); transition: transform .22s ease; z-index: 60;
+}
+.side-panel.in { transform: none; }
+body.no-anim .side-panel, body.no-anim .scrim { transition: none; }
+body.has-panel { overflow: hidden; }
+
+.sp-top { display: flex; align-items: flex-start; gap: 12px; padding: 16px 22px 14px; border-bottom: 1px solid var(--border-soft); }
+.sp-title { flex: 1; min-width: 0; }
+.sp-title h2 { font-size: 18px; font-weight: 500; margin: 0; line-height: 1.3; color: #1a1a2e; }
+.sp-sub { font-size: 12.5px; color: #555; margin-top: 2px; }
+.sp-x {
+  width: 32px; height: 32px; border-radius: 50%; border: 0; background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 17px; flex-shrink: 0;
+}
+.sp-x:hover { background: var(--gray-soft); color: var(--text); }
+
+/* Step bar under the header (horizontal: the panel has no room for a side stepper) */
+.sp-steps { border-bottom: 1px solid var(--border-soft); background: #fafbfc; padding: 0 12px; }
+.sp-steps ol { list-style: none; margin: 0; padding: 0; display: flex; }
+.sp-steps li {
+  flex: 1 1 0; min-width: 0; display: flex; gap: 9px; align-items: flex-start;
+  padding: 12px 10px 10px; border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: default;
+}
+.sp-steps li.is-done { cursor: pointer; }
+.sp-steps li.is-done:hover { background: #f1f4f7; }
+.sp-steps .num {
+  width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #c7cbd1; flex: 0 0 22px; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center; font-size: 11.5px; color: #666;
+}
+.sp-steps .s-txt { min-width: 0; }
+.sp-steps .s-name { font-size: 12.5px; font-weight: 500; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-steps .s-meta { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sp-steps li.is-current { border-bottom-color: var(--blue); }
+.sp-steps li.is-current .num { background: var(--blue); border-color: var(--blue); color: #fff; }
+.sp-steps li.is-current .s-name { color: #1a1a2e; }
+.sp-steps li.is-done .num { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+
+.sp-body { flex: 1; min-height: 0; overflow-y: auto; }
+.step { padding: 20px 24px 28px; }
+.step h2 { font-size: 16px; font-weight: 500; margin: 0 0 4px; color: #1a1a2e; }
+.step .help { margin: 0 0 18px; color: #555; font-size: 12.5px; }
+.sp-foot { border-top: 1px solid var(--border-soft); padding: 12px 22px; background: #fafafa; }
+.foot-wizard, .foot-done { display: flex; justify-content: space-between; align-items: center; }
+.foot-done { justify-content: flex-end; }
+.foot-right { display: flex; align-items: center; gap: 12px; }
+.foot-hint { font-size: 12.5px; color: var(--muted); }
+
+/* ── Form controls ─────────────────────────────────────────── */
+.field-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); align-items: center; gap: 12px; margin-bottom: 14px; }
+.field-row label { font-size: 13.5px; color: #333; }
+.req { color: var(--red); }
+.sel, .inp {
+  height: 36px; border: 1px solid var(--border); border-radius: 4px; padding: 0 12px;
+  background: #fff; width: 100%; font-size: 14px;
+}
+.sel {
+  appearance: none; -webkit-appearance: none; padding-right: 32px; cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'><path d='M1 1l5 5 5-5' fill='none' stroke='%23555' stroke-width='1.6'/></svg>");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.inp:focus, .sel:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(26,127,212,.18); }
+.inp::placeholder { color: #9a9a9a; }
+
+/* District dropdown. Closed, it reads as today's select ("Select One" + chevron).
+   Open, a filter box sits above the list: the Bulk Add Students filter pattern,
+   which came from captures of the live app. The product's list shows a check on
+   the current choice, kept here. */
+.dd-field { position: relative; }
+.dd-trigger { text-align: left; cursor: pointer; display: flex; align-items: center; }
+.dd-trigger[aria-expanded="true"] { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(26,127,212,.18); }
+.dd-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-value.is-placeholder { color: #555; }
+.dd-panel {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: #fff;
+  border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 6px 18px rgba(0,0,0,.14);
+  padding: 8px 0 4px; z-index: 30;
+}
+.dd-search { position: relative; margin: 0 8px 6px; }
+.dd-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #777; font-size: 12px; }
+.dd-search .inp { height: 32px; font-size: 13.5px; padding-left: 30px; }
+.dd-list { list-style: none; margin: 0; padding: 0; max-height: 280px; overflow-y: auto; border-top: 1px solid var(--border-soft); }
+.dd-list li.c-opt { display: flex; align-items: baseline; gap: 10px; padding: 7px 12px 7px 10px; cursor: pointer; }
+.dd-list li.c-opt:hover { background: var(--blue-soft); }
+.dd-list li.is-sel { background: #f3f7fb; }
+.c-check { flex: 0 0 14px; width: 14px; font-size: 11px; color: var(--blue); visibility: hidden; }
+.is-sel .c-check { visibility: visible; }
+.c-name { flex: 1; min-width: 0; font-size: 14px; }
+.c-name mark { background: #fff1a8; padding: 0; }
+.c-meta { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.c-flag { font-size: 11px; color: var(--amber); margin-left: 8px; }
+.dd-list li.c-none { padding: 10px 14px; color: var(--muted); }
+
+/* ── District preview card (the highlighted step) ─────────── */
+.preview { border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; max-width: 760px; overflow: hidden; }
+.preview-head {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  padding: 16px 20px; background: #f7f9fb; border-bottom: 1px solid var(--border-soft);
+}
+.pv-name { font-size: 17px; font-weight: 500; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pv-sub { font-size: 12.5px; color: #555; margin-top: 2px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500;
+  border-radius: 10px; padding: 2px 9px; background: var(--gray-soft); color: #444; border: 1px solid var(--gray-line);
+  white-space: nowrap;
+}
+.chip.ok { background: var(--green-soft); color: var(--green); border-color: var(--green-line); }
+.chip.warn { background: var(--amber-soft); color: var(--amber); border-color: var(--amber-line); }
+.pv-stats { display: grid; grid-template-columns: repeat(4, 1fr); }
+.stat { padding: 14px 20px; border-right: 1px solid var(--border-soft); min-width: 0; }
+.stat:last-child { border-right: 0; }
+.stat-n { font-size: 22px; font-weight: 500; color: #1a1a2e; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat-n.sm { font-size: 16px; padding-top: 4px; }
+.stat-l { font-size: 12.5px; color: #333; margin-top: 2px; font-weight: 500; }
+.stat-s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.pv-note { padding: 12px 20px; border-top: 1px solid var(--border-soft); display: flex; gap: 10px; align-items: flex-start; font-size: 13px; }
+.pv-note i { margin-top: 2px; }
+.pv-note.ok i { color: var(--green); }
+.pv-note.warn { background: var(--amber-soft); color: #5a3a00; }
+.pv-note.warn i { color: #c77700; }
+.empty-hint {
+  margin-top: 14px; color: var(--muted); font-size: 13px; border: 1px dashed var(--border);
+  border-radius: 6px; padding: 28px; text-align: center; max-width: 760px;
+}
+
+/* ── Seal step ─────────────────────────────────────────────── */
+.radio-row { display: flex; gap: 22px; align-items: center; }
+.radio-row label { display: inline-flex; gap: 7px; align-items: center; font-size: 14px; cursor: pointer; }
+.sub-note { font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+.roles { border: 1px solid var(--border); border-radius: 6px; max-width: 760px; overflow: hidden; margin-top: 6px; }
+.roles table { width: 100%; border-collapse: collapse; }
+.roles th { text-align: left; font-size: 12.5px; font-weight: 500; color: #444; padding: 10px 16px; background: #f7f9fb; border-bottom: 1px solid var(--border-soft); }
+.roles td { padding: 10px 16px; border-bottom: 1px solid var(--row-line); font-size: 13.5px; vertical-align: middle; }
+.roles tr:last-child td { border-bottom: 0; }
+.roles .sel { height: 32px; font-size: 13px; width: 230px; }
+.item-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+.section-label { font-size: 13px; font-weight: 600; color: #1a1a2e; margin: 22px 0 6px; }
+.section-label:first-child { margin-top: 0; }
+#seal-fields .section-label:first-child { margin-top: 18px; }   /* sits under the yes/no note */
+
+/* ── Course & exam matcher ─────────────────────────────────── */
+.map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.map-counts { display: flex; gap: 16px; font-size: 13px; color: #444; align-items: center; }
+.map-counts b { font-weight: 500; }
+.map-actions { display: flex; gap: 8px; }
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 16px; border: 1px solid; }
+.banner i { margin-top: 2px; }
+.banner.info { background: var(--blue-soft); border-color: var(--blue-line); color: #1d3b5e; }
+.banner.warn { background: var(--amber-soft); border-color: var(--amber-line); color: #5a3a00; }
+.map-group { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+.map-group-h { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #f7f9fb; border-bottom: 1px solid var(--border-soft); }
+.map-group-h .g-name { font-size: 13.5px; font-weight: 600; color: #1a1a2e; }
+.map-group-h .g-note { font-size: 12px; color: var(--muted); }
+.map-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1.25fr) 108px;
+  gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--row-line);
+}
+.map-row:last-child { border-bottom: 0; }
+.map-row.is-skip .slot-name { color: var(--muted); }
+.slot-name { font-size: 14px; }
+.slot-where { display: flex; gap: 4px; margin-top: 3px; flex-wrap: wrap; }
+.where { font-size: 10.5px; color: #666; background: var(--gray-soft); border: 1px solid var(--gray-line); border-radius: 3px; padding: 0 5px; }
+.arrow { color: #9a9a9a; text-align: center; }
+.target { display: flex; flex-direction: column; gap: 6px; }
+.target .sel, .target .inp { height: 34px; font-size: 13.5px; }
+.st { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500; border-radius: 10px; padding: 2px 9px; white-space: nowrap; }
+.st-mapped { background: var(--green-soft); color: var(--green); }
+.st-new { background: var(--blue-soft); color: #1b5fa0; }
+.st-skip { background: var(--gray-soft); color: #666; }
+.st .auto { font-weight: 400; opacity: .8; }
+
+/* ── Folder step ───────────────────────────────────────────── */
+.opt {
+  border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; margin-bottom: 10px; max-width: 760px;
+  display: grid; grid-template-columns: 22px 1fr; gap: 12px; cursor: pointer;
+}
+.opt.is-on { border-color: var(--blue); background: #fbfdff; }
+.opt input[type=radio] { margin: 2px 0 0; }
+.opt .o-name { font-size: 14px; font-weight: 500; }
+.opt .o-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.opt .o-body { margin-top: 10px; max-width: 420px; }
+.folder-path { font-size: 12.5px; color: #444; margin-top: 6px; display: inline-flex; align-items: center; gap: 6px; }
+.folder-path i { color: #c9a227; }
+
+/* ── Review ────────────────────────────────────────────────── */
+.rv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; max-width: 880px; }
+.rv-card { border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+.rv-card h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; color: #1a1a2e; display: flex; justify-content: space-between; align-items: baseline; }
+.rv-card h3 a { font-weight: 400; font-size: 12.5px; cursor: pointer; }
+.rv-card .big { font-size: 16px; font-weight: 500; }
+.rv-card .line { font-size: 12.5px; color: #444; margin-top: 3px; }
+.rv-list { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; color: #444; }
+.create-box { margin-top: 14px; max-width: 880px; border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+.create-box h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; color: #1a1a2e; }
+.create-row { display: flex; gap: 34px; font-size: 12.5px; color: #444; margin-top: 8px; flex-wrap: wrap; }
+.create-row b { font-size: 20px; font-weight: 500; display: block; color: #1a1a2e; }
+details.skipped { margin-top: 8px; font-size: 12.5px; }
+details.skipped summary { cursor: pointer; color: var(--link); }
+details.skipped ul { margin: 6px 0 0; padding-left: 18px; color: #444; }
+
+/* ── Done ──────────────────────────────────────────────────── */
+.done { max-width: 720px; margin: 40px auto; text-align: center; }
+.done .ok-icon {
+  width: 64px; height: 64px; border-radius: 50%; background: var(--green-soft); color: var(--green);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 14px;
+}
+.done h1 { font-size: 22px; font-weight: 500; margin: 0 0 6px; }
+.done .sub { color: #555; font-size: 13.5px; max-width: 520px; margin: 0 auto; }
+.done .facts { display: flex; justify-content: center; gap: 38px; margin: 24px 0; }
+.done .facts b { display: block; font-size: 22px; font-weight: 500; }
+.done .facts span { font-size: 12.5px; color: #555; }
+.done .actions { display: flex; justify-content: center; gap: 10px; }
+.done .log { margin-top: 24px; font-size: 12px; color: var(--muted); }
+
+/* ── Modals + toast ────────────────────────────────────────── */
+.modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal { background: #fff; border-radius: 6px; width: 540px; max-width: calc(100vw - 32px); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.modal-h { padding: 16px 20px; font-size: 17px; font-weight: 500; border-bottom: 1px solid var(--border-soft); display: flex; justify-content: space-between; align-items: center; }
+.modal-h .x { border: 0; background: none; cursor: pointer; color: #555; font-size: 16px; }
+.modal-b { padding: 18px 20px; font-size: 13.5px; color: #333; }
+.modal-b p { margin: 0 0 10px; }
+.modal-f { padding: 12px 20px; border-top: 1px solid var(--border-soft); display: flex; justify-content: flex-end; gap: 10px; align-items: center; }
+.modal-f .left { margin-right: auto; }
+.modal textarea { width: 100%; min-height: 180px; border: 1px solid var(--border); border-radius: 4px; padding: 10px; font-size: 13px; resize: vertical; line-height: 1.5; }
+.confirm-target { font-size: 15px; font-weight: 500; background: var(--gray-soft); border: 1px solid var(--gray-line); border-radius: 6px; padding: 10px 14px; margin: 4px 0 12px; }
+.confirm-target small { display: block; font-weight: 400; color: #555; font-size: 12.5px; }
+.toast {
+  position: fixed; right: 24px; top: 78px; background: #323232; color: #fff; padding: 10px 16px; border-radius: 4px;
+  font-size: 13px; box-shadow: 0 4px 14px rgba(0,0,0,.3); z-index: 110; opacity: 0; transition: opacity .2s; pointer-events: none;
+}
+.toast.is-on { opacity: 1; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .sidenav { display: none; }
+  .pill-search, .icon-link.text { display: none; }
+  .main { padding: 16px; }
+  .sp-steps .s-meta { display: none; }
+  .field-row { grid-template-columns: 1fr; gap: 4px; }
+  .pv-stats { grid-template-columns: 1fr 1fr; }
+  .rv-grid { grid-template-columns: 1fr; }
+  .map-row { grid-template-columns: 1fr; gap: 6px; }
+  .arrow { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ── Top bar ─────────────────────────────────────────── -->
+  <header class="topnav">
+    <div class="logo">
+      <svg viewBox="0 0 42 30" aria-hidden="true">
+        <path d="M2 4l9 11-9 11h7l9-11L9 4z" fill="#1f6fcf"/>
+        <path d="M14 4l9 11-9 11h7l9-11-9-11z" fill="#2a8fe0"/>
+        <path d="M26 4l9 11-9 11h7l9-11-9-11z" fill="#6ec0f2"/>
+      </svg>
+      <div class="wordmark">
+        <div class="l1">Vector<b>Solutions</b></div>
+        <div class="l2">Vector Pathways</div>
+      </div>
+    </div>
+    <div class="crumbs" id="crumbs"></div>
+    <div class="spacer"></div>
+    <div class="pill-search"><i class="fa-solid fa-table-cells-large"></i> Navigation/Search <kbd>&#8984;K</kbd></div>
+    <span class="icon-link"><i class="fa-solid fa-filter"></i></span>
+    <span class="icon-link text">Go to Resources</span>
+    <span class="icon-link"><i class="fa-regular fa-circle-question"></i></span>
+    <span class="avatar"><i class="fa-solid fa-user"></i></span>
+  </header>
+
+  <div class="shell">
+    <!-- ── Left nav (internal admin) ─────────────────────── -->
+    <nav class="sidenav">
+      <div class="who">Vector Administrator<br>Mari Castree</div>
+      <div class="nav">
+        <a class="nav-item"><i class="fa-solid fa-building"></i> Districts</a>
+        <a class="nav-item"><i class="fa-solid fa-users"></i> Intermediaries</a>
+        <a class="nav-item"><i class="fa-solid fa-list"></i> Users</a>
+        <a class="nav-item"><i class="fa-solid fa-plus"></i> Create Customer</a>
+        <a class="nav-item is-active" id="nav-bundles"><i class="fa-regular fa-box-archive"></i> Content Bundles</a>
+        <a class="nav-item"><i class="fa-solid fa-hard-drive"></i> AWS Files</a>
+        <a class="nav-item"><i class="fa-solid fa-gear"></i> Config &amp; Monitoring</a>
+      </div>
+      <div class="collapse"><i class="fa-solid fa-arrow-left"></i></div>
+    </nav>
+
+    <main class="main">
+
+      <!-- ══════════════════════════════════════════════════
+           VIEW 1 · Bundle page — as it exists today.
+           "Deploy Bundle" opens the wizard in the same right-side
+           panel the two-field drawer uses today.
+           ══════════════════════════════════════════════════ -->
+      <section class="view" id="view-bundle">
+        <h1 class="page-title">Content Bundles</h1>
+        <p class="page-desc">Content Bundles allow you to deploy content from a collection of districts into a new district or support organization.</p>
+        <div class="bundle-head">
+          <h2 class="bundle-name">NY Civic Seal of Readiness</h2>
+          <button class="btn">Close <i class="fa-regular fa-circle-xmark"></i></button>
+        </div>
+        <div class="btn-group">
+          <button class="btn">Add Item <i class="fa-solid fa-plus"></i></button>
+          <button class="btn" id="btn-open-wizard">Deploy Bundle <i class="fa-regular fa-circle-right"></i></button>
+          <button class="btn btn-danger">Delete Bundle <i class="fa-regular fa-trash-can"></i></button>
+        </div>
+        <p class="showing">Showing 3 of 3</p>
+        <div class="table-card">
+          <table>
+            <thead>
+              <tr>
+                <th>Name <span class="th-tools"><i class="fa-solid fa-filter"></i>|</span></th>
+                <th style="width:220px">Type <span class="th-tools"><i class="fa-solid fa-filter"></i>|</span></th>
+                <th class="trash"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Seal of Civic Readiness</td><td>badge</td><td class="trash"><i class="fa-regular fa-trash-can"></i></td></tr>
+              <tr><td>Civic Knowledge</td><td>badge</td><td class="trash"><i class="fa-regular fa-trash-can"></i></td></tr>
+              <tr><td>Civic Participation</td><td>badge</td><td class="trash"><i class="fa-regular fa-trash-can"></i></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     Deploy wizard · right-side panel over the bundle page.
+     Same pattern as the Sharing drawer, the Seal Tracker side panel
+     and the product's own Deploy Content Bundle drawer: scrim, panel
+     slides in from the right, title + X, scrolling body, footer
+     actions. Five steps, then the success screen in the same panel.
+     ══════════════════════════════════════════════════════════ -->
+<div class="scrim" id="wiz-scrim"></div>
+<aside class="side-panel" id="wiz-panel" aria-hidden="true" aria-label="Deploy Content Bundle">
+  <header class="sp-top">
+    <div class="sp-title">
+      <h2>Deploy Content Bundle</h2>
+      <div class="sp-sub">NY Civic Seal of Readiness &middot; 3 badges &middot; 2 forms &middot; 18 template activities</div>
+    </div>
+    <button class="sp-x" id="wiz-x" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+  </header>
+
+  <nav class="sp-steps" aria-label="Steps">
+    <ol id="stepper">
+      <li data-step="1"><span class="num">1</span><div class="s-txt"><div class="s-name">District</div><div class="s-meta" id="meta-1">Where this goes</div></div></li>
+      <li data-step="2"><span class="num">2</span><div class="s-txt"><div class="s-name">Seal</div><div class="s-meta" id="meta-2">What the badges track</div></div></li>
+      <li data-step="3"><span class="num">3</span><div class="s-txt"><div class="s-name">Courses &amp; exams</div><div class="s-meta" id="meta-3">Match template slots</div></div></li>
+      <li data-step="4"><span class="num">4</span><div class="s-txt"><div class="s-name">Folder</div><div class="s-meta" id="meta-4">Where badges land</div></div></li>
+      <li data-step="5"><span class="num">5</span><div class="s-txt"><div class="s-name">Review &amp; deploy</div><div class="s-meta" id="meta-5">Check, then deploy</div></div></li>
+    </ol>
+  </nav>
+
+  <div class="sp-body" id="sp-body">
+<!-- ── Step 1 · District ──────────────────────── -->
+    <div class="step" id="step-1">
+      <h2>Choose the district</h2>
+      <p class="help">Open the list and type to filter by name or ID. The preview shows who the bundle will reach and what is already in the district, so you can confirm it is the right site before anything is created.</p>
+      <div class="field-row">
+        <label for="deploy-to">Deploy to <span class="req">*</span></label>
+        <select class="sel" id="deploy-to">
+          <option>District</option>
+          <option>Support organization</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <label for="district-input" id="district-label">District <span class="req">*</span></label>
+        <div class="dd-field" id="district-combo">
+      <button type="button" class="sel dd-trigger" id="district-trigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="dd-value is-placeholder" id="district-value">Select One</span>
+      </button>
+      <div class="dd-panel" id="district-panel" hidden>
+        <div class="dd-search">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input class="inp" id="district-input" placeholder="Type to filter 185 active districts by name or ID" autocomplete="off" spellcheck="false">
+        </div>
+        <ul class="dd-list" id="district-list" role="listbox"></ul>
+      </div>
+    </div>
+      </div>
+      <div class="empty-hint" id="district-empty">Select a district to see how many students and staff it reaches, its course data, and whether a bundle is already there.</div>
+      <div class="preview" id="district-preview" hidden></div>
+    </div>
+
+    <!-- ── Step 2 · Seal ──────────────────────────── -->
+    <div class="step" id="step-2" hidden>
+      <h2>Link the bundle to a seal</h2>
+      <p class="help">Seal bundles are tracked in the district's seal tracker as well as in badges. Say which seal this is, and which badges award it or count toward it.</p>
+      <div class="section-label">Does this bundle track a seal or endorsement?</div>
+      <div class="radio-row">
+        <label><input type="radio" name="seal-on" value="yes" checked> Yes</label>
+        <label><input type="radio" name="seal-on" value="no"> No, these are standalone badges</label>
+      </div>
+      <p class="sub-note" id="seal-detect">Suggested from the bundle name.</p>
+
+      <div id="seal-fields">
+        <div class="section-label">Which seal?</div>
+        <div class="field-row" style="grid-template-columns: minmax(0, 420px)">
+          <select class="sel" id="seal-select"></select>
+        </div>
+
+        <div class="section-label">How each badge relates to the seal</div>
+        <div class="roles">
+          <table>
+            <thead><tr><th>Bundle item</th><th style="width:250px">Role in the seal</th></tr></thead>
+            <tbody id="roles-body"></tbody>
+          </table>
+        </div>
+        <p class="sub-note">Activities and forms inside each badge follow the badge. The seal tracker shows one row per student for this seal, fed by the badge that awards it.</p>
+      </div>
+      <div id="seal-off-note" class="banner info" hidden><i class="fa-solid fa-circle-info"></i> The badges will deploy without a seal link. They will not appear in the district's seal tracker.</div>
+    </div>
+
+    <!-- ── Step 3 · Courses & exams ───────────────── -->
+    <div class="step" id="step-3" hidden>
+      <h2>Match template slots to this district's courses and exams</h2>
+      <p class="help">The template ships placeholder course names. Match each one here, once, and the form options, activities and badge requirements are all created with the district's real names. Anything you skip is not created.</p>
+      <div id="map-banner"></div>
+      <div class="map-toolbar">
+        <div class="map-counts" id="map-counts"></div>
+        <div class="map-actions">
+          <button class="btn btn-ghost" id="btn-automatch"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto-match</button>
+          <button class="btn btn-ghost" id="btn-paste"><i class="fa-regular fa-clipboard"></i> Paste a list</button>
+        </div>
+      </div>
+      <div id="map-groups"></div>
+    </div>
+
+    <!-- ── Step 4 · Folder ────────────────────────── -->
+    <div class="step" id="step-4" hidden>
+      <h2>Where should the badges go?</h2>
+      <p class="help">Applies to all 3 badges in the bundle. Today they land at the root of Manage Badges and each one is moved by hand.</p>
+      <div id="folder-opts">
+        <label class="opt is-on" data-mode="new">
+          <input type="radio" name="folder" value="new" checked>
+          <div>
+            <div class="o-name">Create a new folder</div>
+            <div class="o-sub">A folder named for the seal keeps the badges together in Manage Badges.</div>
+            <div class="o-body"><input class="inp" id="folder-name" value="NY Seal of Civic Readiness"></div>
+          </div>
+        </label>
+        <label class="opt" data-mode="existing">
+          <input type="radio" name="folder" value="existing">
+          <div>
+            <div class="o-name">Use an existing folder</div>
+            <div class="o-sub" id="folder-existing-sub"></div>
+            <div class="o-body"><select class="sel" id="folder-pick"></select></div>
+          </div>
+        </label>
+        <label class="opt" data-mode="none">
+          <input type="radio" name="folder" value="none">
+          <div>
+            <div class="o-name">No folder</div>
+            <div class="o-sub">Badges go to the root of Manage Badges, as they do today.</div>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- ── Step 5 · Review ────────────────────────── -->
+    <div class="step" id="step-5" hidden>
+      <h2>Review, then deploy</h2>
+      <p class="help">Everything district-specific is decided here. After deploy there should be nothing to rename inside the district.</p>
+      <div id="review-warn"></div>
+      <div class="rv-grid" id="review-grid"></div>
+      <div class="create-box" id="review-create"></div>
+    </div>
+    <!-- ── Success screen, shown in the panel after Deploy ── -->
+    <div class="step" id="step-done" hidden>
+      <div class="done" id="done-body"></div>
+    </div>
+  </div>
+
+  <footer class="sp-foot">
+    <div class="foot-wizard" id="foot-wizard">
+      <span class="foot-hint" id="foot-hint"></span>
+      <div class="foot-right">
+        <button class="link-btn" id="wiz-cancel" style="margin-right:6px">Cancel</button>
+        <button class="btn btn-ghost" id="btn-back">Back</button>
+        <button class="btn" id="btn-next">Next</button>
+      </div>
+    </div>
+    <div class="foot-done" id="foot-done" hidden>
+      <button class="link-btn" id="wiz-close-done">Close</button>
+    </div>
+  </footer>
+</aside>
+
+<!-- ── Paste-a-list modal ───────────────────────────────── -->
+<div class="modal-bg" id="paste-modal" hidden>
+  <div class="modal">
+    <div class="modal-h">Paste the district's course list <button class="x" data-close="paste-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-b">
+      <p>One course or exam per line, in any order. Each line is matched to the closest template slot; lines that match a synced course map to it, the rest are created as new courses.</p>
+      <textarea id="paste-text" placeholder="Global History &amp; Geography I&#10;Civics &amp; Citizenship&#10;AP Human Geography&#10;…"></textarea>
+    </div>
+    <div class="modal-f">
+      <button class="link-btn left" id="paste-sample">Use a sample list</button>
+      <button class="btn btn-ghost" data-close="paste-modal">Cancel</button>
+      <button class="btn" id="paste-apply">Match to slots</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Confirm modal ────────────────────────────────────── -->
+<div class="modal-bg" id="confirm-modal" hidden>
+  <div class="modal">
+    <div class="modal-h">Deploy this bundle? <button class="x" data-close="confirm-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-b" id="confirm-body"></div>
+    <div class="modal-f">
+      <button class="btn btn-ghost" data-close="confirm-modal">Cancel</button>
+      <button class="btn" id="confirm-deploy"></button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   Mock data
+   Districts are placeholders drawn from the names visible in the
+   internal-admin screenshots; counts, states and SIS status are
+   invented for the prototype.
+   ============================================================ */
+const BUNDLE = {
+  name: 'NY Civic Seal of Readiness',
+  badges: [
+    { name: 'Seal of Civic Readiness', role: 'awards', sub: 'Parent badge · awarded when the nested badges are complete' },
+    { name: 'Civic Knowledge',         role: 'counts', sub: 'Nested · activities come from the course and exam slots' },
+    { name: 'Civic Participation',     role: 'counts', sub: 'Nested · 2 project activities, kept as shipped' }
+  ],
+  forms: ['Social Studies Credit', 'Civic Project'],
+  projectActivities: 2
+};
+
+const SEALS = ['NY Seal of Civic Readiness', 'NY Seal of Biliteracy', 'NY Technical Endorsement', 'Other seal or endorsement'];
+
+const ROLE_OPTIONS = [
+  { v: 'awards', t: 'Awards the seal' },
+  { v: 'counts', t: 'Counts toward the seal' },
+  { v: 'none',   t: 'Not linked' }
+];
+
+// Template placeholder slots, grouped the way the template's forms are.
+const SLOT_GROUPS = [
+  { id: 'ss',  name: 'Social Studies Credit', note: 'Form options · activities · Civic Knowledge requirement', kind: 'course',
+    slots: ['Global History & Geography I', 'Global History & Geography II', 'US History & Government', 'Participation in Government', 'Economics', 'Civics', 'World Cultures', 'Current Events Seminar'] },
+  { id: 'adv', name: 'Advanced Credit', note: 'Form options · activities · Civic Knowledge requirement', kind: 'course',
+    slots: ['AP US History', 'AP US Government & Politics', 'AP World History', 'AP Human Geography', 'Dual-Enrollment American Government'] },
+  { id: 'ex',  name: 'Exams', note: 'Academic Exams · Civic Knowledge requirement', kind: 'exam',
+    slots: ['Regents: US History & Government', 'Regents: Global History & Geography II', 'AP US Government Exam'] }
+];
+const SLOT_TOTAL = SLOT_GROUPS.reduce((n, g) => n + g.slots.length, 0);
+
+const DEMO_COURSES = ['SS 9: Global History I', 'SS 10: Global History II', 'SS 11: US History & Government', 'SS 12: Participation in Government', 'SS 12: Economics', 'AP United States History', 'AP US Government & Politics', 'AP World History: Modern', 'Honors Global Studies', 'Psychology', 'Sociology', 'Law & Society'];
+const DEMO_EXAMS   = ['Regents US History & Govt', 'Regents Global History & Geography II', 'AP US Government & Politics Exam', 'AP US History Exam'];
+
+function district(id, name, state, type, students, enrolled, staff, sis, courseData, extra) {
+  return Object.assign({ id, name, state, type, students, enrolled, staff, sis, courseData, courses: [], exams: [], folders: [], deployed: [], since: '2022' }, extra || {});
+}
+
+const DISTRICTS = [
+  district(55,  'Pathways Admin - do not disable', 'NY', 'Internal', 0, 0, 26, 'Other', 'none', { since: '2019', flag: 'Internal' }),
+  district(243, 'PATHWAYos Sandbox', 'NY', 'Sandbox', 412, 640, 25, 'Not specified', 'roster',
+    { since: '2021', flag: 'Sandbox', folders: ['Graduation Requirements'],
+      deployed: [{ bundle: 'NY Civic Seal of Readiness', date: 'Aug 12, 2026', by: 'Jessica Ozuna' }] }),
+  district(571, 'Content Bundle PathwayOS Test District', 'NY', 'Test', 120, 120, 7, 'Not specified', 'none', { since: '2025', flag: 'Test' }),
+  district(592, 'PATHWAYos District', 'NY', 'Public school district', 2210, 3380, 22, 'Not specified', 'roster', { since: '2023', folders: ['Graduation Requirements', 'Work-Based Learning'] }),
+  district(620, 'Pathways Demo District', 'NY', 'Public school district', 1284, 1910, 36, 'PowerSchool', 'sis',
+    { since: '2023', courses: DEMO_COURSES, exams: DEMO_EXAMS, folders: ['Graduation Requirements', 'CTE Pathways', 'Seals & Endorsements'] }),
+  district(101, 'Alain Test', 'NY', 'Test', 40, 40, 3, 'Not specified', 'none', { flag: 'Test' }),
+  district(102, 'Anaheim', 'CA', 'Public school district', 9800, 14200, 210, 'Aeries', 'sis', { courses: DEMO_COURSES.slice(0, 8), exams: DEMO_EXAMS.slice(2), folders: ['Graduation Requirements'] }),
+  district(103, 'Ashtabula County Technical & Career Campus', 'OH', 'Career-technical center', 720, 720, 48, 'PowerSchool', 'roster'),
+  district(104, 'Augusta USD 402', 'KS', 'Public school district', 640, 1100, 52, 'PowerSchool', 'sis', { courses: DEMO_COURSES.slice(0, 6), exams: [] }),
+  district(105, 'Avondale School District', 'AZ', 'Public school district', 0, 5100, 300, 'Synergy', 'roster'),
+  district(106, 'Baugo Community Schools', 'IN', 'Public school district', 540, 1900, 110, 'PowerSchool', 'sis', { courses: DEMO_COURSES.slice(0, 7), exams: DEMO_EXAMS.slice(2) }),
+  district(107, 'Bedford City School District', 'OH', 'Public school district', 880, 2600, 140, 'Infinite Campus', 'roster'),
+  district(108, 'Benton Community School Corp', 'IN', 'Public school district', 430, 1500, 90, 'PowerSchool', 'sis', { courses: DEMO_COURSES.slice(0, 5), exams: [] }),
+  district(109, 'Berea City Schools', 'OH', 'Public school district', 1900, 6300, 380, 'Infinite Campus', 'roster'),
+  district(110, 'Bishop State Community College', 'AL', 'Community college', 0, 3100, 160, 'Banner', 'none'),
+  district(111, 'Blue River Career Programs', 'IN', 'Career-technical center', 410, 410, 30, 'Not specified', 'none'),
+  district(112, 'Brea Olinda Unified', 'CA', 'Public school district', 1850, 5800, 290, 'Aeries', 'sis', { courses: DEMO_COURSES.slice(0, 9), exams: DEMO_EXAMS.slice(2) }),
+  district(113, 'Bridgeport Public Schools', 'CT', 'Public school district', 5400, 19600, 1200, 'PowerSchool', 'roster', { deployed: [{ bundle: 'CT Seal of Biliteracy', date: 'Mar 3, 2026', by: 'Kara Whitman' }] }),
+  district(114, 'Burlington County Institute Of Technology', 'NJ', 'Career-technical center', 2100, 2100, 190, 'PowerSchool', 'sis', { courses: DEMO_COURSES.slice(0, 6), exams: [] }),
+  district(115, 'California Virtual Academies', 'CA', 'Virtual school', 3300, 11000, 420, 'Not specified', 'none'),
+  district(116, 'Carmel Clay Schools', 'IN', 'Public school district', 5600, 16800, 1100, 'PowerSchool', 'sis', { courses: DEMO_COURSES, exams: DEMO_EXAMS, folders: ['Graduation Requirements', 'Honors Diploma'] }),
+  district(117, 'Carroll Consolidated School Corp', 'IN', 'Public school district', 380, 1300, 80, 'PowerSchool', 'roster'),
+  district(118, "Casey's Fake District 2", 'NY', 'Test', 12, 12, 2, 'Not specified', 'none', { flag: 'Test' }),
+  district(119, 'CCRI District Transeo', 'RI', 'Community college', 0, 2400, 60, 'Not specified', 'none'),
+  district(120, 'Century Career Center', 'IN', 'Career-technical center', 650, 650, 44, 'PowerSchool', 'roster'),
+  district(121, 'Choffin Career Center', 'OH', 'Career-technical center', 560, 560, 38, 'Not specified', 'none'),
+  district(122, 'Clarke Co Pblc Schs', 'GA', 'Public school district', 4100, 13000, 900, 'Infinite Campus', 'roster'),
+  district(123, 'Cleveland Heights-University Heights City', 'OH', 'Public school district', 1500, 4900, 350, 'PowerSchool', 'sis', { courses: DEMO_COURSES.slice(0, 8), exams: DEMO_EXAMS.slice(2) }),
+  district(124, 'Clinton Central School Corporation', 'IN', 'Public school district', 390, 1200, 70, 'PowerSchool', 'roster'),
+  district(125, 'Coastline ROP', 'CA', 'Regional occupational program', 2800, 2800, 120, 'Not specified', 'none')
+];
+
+/* ============================================================
+   State
+   ============================================================ */
+const S = {
+  step: 1,
+  district: null,
+  sealOn: true,
+  seal: SEALS[0],
+  roles: {},              // badge name -> awards | counts | none
+  map: {},                // slot key -> { mode: 'skip'|'existing'|'new', value, auto }
+  mapDistrictId: null,    // which district the map was built for
+  folderMode: 'new',
+  folderName: BUNDLE.name,
+  folderPick: ''
+};
+BUNDLE.badges.forEach(b => { S.roles[b.name] = b.role; });
+
+const $  = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+const fmt = n => n.toLocaleString('en-US');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ============================================================
+   Views + breadcrumb
+   ============================================================ */
+/* The wizard is a right-side panel over the bundle page, the same pattern as
+   the Sharing drawer (Experience Sharing) and the Seal Tracker side panel.
+   The page behind it and its breadcrumb never change. */
+const panel = $('#wiz-panel'), scrim = $('#wiz-scrim');
+
+function openWizard() {
+  scrim.classList.add('open');
+  panel.classList.add('in');
+  panel.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('has-panel');
+}
+function closeWizard() {
+  $$('.modal-bg').forEach(m => { m.hidden = true; });
+  scrim.classList.remove('open');
+  panel.classList.remove('in');
+  panel.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('has-panel');
+}
+function scrollPanelTop() { $('#sp-body').scrollTop = 0; }
+
+$('#btn-open-wizard').addEventListener('click', () => { openWizard(); goStep(1); scrollPanelTop(); });
+$('#wiz-x').addEventListener('click', closeWizard);
+$('#wiz-cancel').addEventListener('click', closeWizard);
+$('#wiz-close-done').addEventListener('click', closeWizard);
+$('#nav-bundles').addEventListener('click', closeWizard);
+scrim.addEventListener('click', closeWizard);
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const open = $$('.modal-bg').find(m => !m.hidden);
+  if (open) open.hidden = true; else if (panel.classList.contains('in')) closeWizard();
+});
+
+/* ============================================================
+   Stepper + footer
+   ============================================================ */
+function goStep(n) {
+  S.step = n;
+  $$('.step').forEach(s => { s.hidden = s.id !== 'step-' + n; });
+  $$('#stepper li').forEach(li => {
+    const k = +li.dataset.step;
+    li.classList.toggle('is-current', k === n);
+    li.classList.toggle('is-done', k < n);
+  });
+  if (n >= 3) ensureMap();          // steps 3–5 all read the course map
+  if (n === 4) renderFolder();
+  if (n === 5) renderReview();
+  refreshMetas();
+  refreshFooter();
+}
+
+$$('#stepper li').forEach(li => li.addEventListener('click', () => {
+  if (S.step !== 'done' && li.classList.contains('is-done')) { goStep(+li.dataset.step); scrollPanelTop(); }
+}));
+
+// After a deploy the panel shows the success screen; the step bar reads all-done.
+function showDone() {
+  S.step = 'done';
+  $$('.step').forEach(s => { s.hidden = s.id !== 'step-done'; });
+  $$('#stepper li').forEach(li => { li.classList.remove('is-current'); li.classList.add('is-done'); });
+  $('#foot-wizard').hidden = true; $('#foot-done').hidden = false;
+  scrollPanelTop();
+}
+
+function refreshMetas() {
+  $('#meta-1').textContent = S.district ? S.district.name : 'Where this goes';
+  $('#meta-2').textContent = S.sealOn ? S.seal : 'No seal link';
+  const c = mapCounts();
+  $('#meta-3').textContent = S.mapDistrictId ? `${c.existing + c.fresh} mapped · ${c.skip} skipped` : 'Match template slots';
+  $('#meta-4').textContent = S.folderMode === 'new' ? 'New: ' + (S.folderName || '…') : S.folderMode === 'existing' ? (S.folderPick || 'Existing folder') : 'No folder';
+}
+
+function refreshFooter() {
+  const back = $('#btn-back'), next = $('#btn-next'), hint = $('#foot-hint');
+  $('#foot-wizard').hidden = false; $('#foot-done').hidden = true;
+  back.disabled = S.step === 1;
+  next.disabled = false;
+  hint.textContent = '';
+  if (S.step === 1) {
+    next.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>';
+    next.disabled = !S.district;
+    hint.textContent = S.district ? '' : 'Pick a district to continue';
+  } else if (S.step === 3) {
+    next.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>';
+    const c = mapCounts();
+    if (c.existing + c.fresh === 0) hint.textContent = 'Nothing matched yet. The forms will deploy with no course options.';
+  } else if (S.step === 4) {
+    next.innerHTML = 'Review <i class="fa-solid fa-arrow-right"></i>';
+    next.disabled = S.folderMode === 'new' && !S.folderName.trim();
+    if (next.disabled) hint.textContent = 'Name the folder to continue';
+  } else if (S.step === 5) {
+    next.innerHTML = '<i class="fa-regular fa-circle-right"></i> Deploy to ' + esc(S.district.name);
+  } else {
+    next.innerHTML = 'Next <i class="fa-solid fa-arrow-right"></i>';
+  }
+}
+
+$('#btn-back').addEventListener('click', () => { if (S.step > 1) goStep(S.step - 1); scrollPanelTop(); });
+$('#btn-next').addEventListener('click', () => {
+  if (S.step === 5) { openConfirm(); return; }
+  goStep(S.step + 1); scrollPanelTop();
+});
+
+/* ============================================================
+   Step 1 · District picker + preview
+   ============================================================ */
+/* District dropdown: looks like today's select ("Select One" + chevron); opening
+   it reveals a filter box above the list, the Bulk Add Students filter pattern. */
+const dTrigger = $('#district-trigger'), dPanel = $('#district-panel'), dInput = $('#district-input'),
+      dList = $('#district-list'), dValue = $('#district-value');
+
+$('#deploy-to').addEventListener('change', e => {
+  const org = e.target.value !== 'District';
+  $('#district-label').innerHTML = (org ? 'Organization' : 'District') + ' <span class="req">*</span>';
+  dInput.placeholder = org ? 'Type to filter support organizations' : 'Type to filter 185 active districts by name or ID';
+});
+
+const DISTRICTS_AZ = DISTRICTS.slice().sort((a, b) => a.name.localeCompare(b.name));   // the product lists A–Z
+function filterDistricts(q) {
+  q = q.trim().toLowerCase();
+  if (!q) return DISTRICTS_AZ;
+  return DISTRICTS_AZ.filter(d => d.name.toLowerCase().includes(q) || String(d.id) === q);
+}
+
+function highlight(name, q) {
+  if (!q) return esc(name);
+  const i = name.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return esc(name);
+  return esc(name.slice(0, i)) + '<mark>' + esc(name.slice(i, i + q.length)) + '</mark>' + esc(name.slice(i + q.length));
+}
+
+function renderList() {
+  const q = dInput.value.trim();
+  const rows = filterDistricts(q);
+  const cur = S.district ? S.district.id : null;
+  const row = (pick, sel, name, meta) =>
+    `<li class="c-opt ${sel ? 'is-sel' : ''}" data-pick="${pick}" role="option" aria-selected="${sel}">
+       <i class="fa-solid fa-check c-check"></i><span class="c-name">${name}</span>${meta ? `<span class="c-meta">${meta}</span>` : ''}
+     </li>`;
+  const head = q ? '' : row('none', !cur, 'Select One', '');
+  dList.innerHTML = head + (rows.length
+    ? rows.map(d => row(d.id, d.id === cur,
+        highlight(d.name, q)
+          + (d.flag ? `<span class="c-flag">${d.flag}</span>` : '')
+          + (d.deployed.some(x => x.bundle === BUNDLE.name) ? '<span class="c-flag"><i class="fa-solid fa-triangle-exclamation"></i> Already deployed</span>' : ''),
+        `ID ${d.id} · ${d.state} · ${esc(d.type)}`)).join('')
+    : '<li class="c-none">No active district matches. Try the ID.</li>');
+}
+
+function openDd() {
+  dPanel.hidden = false; dTrigger.setAttribute('aria-expanded', 'true');
+  dInput.value = ''; renderList();
+  setTimeout(() => dInput.focus(), 0);
+  const sel = dList.querySelector('.is-sel'); if (sel) sel.scrollIntoView({ block: 'nearest' });
+}
+function closeDd() { dPanel.hidden = true; dTrigger.setAttribute('aria-expanded', 'false'); }
+
+dTrigger.addEventListener('click', () => { dPanel.hidden ? openDd() : closeDd(); });
+dInput.addEventListener('input', renderList);
+dInput.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.stopPropagation(); closeDd(); dTrigger.focus(); }
+  if (e.key === 'Enter') { const li = dList.querySelector('li[data-pick]:not([data-pick="none"])'); if (li) pickDistrict(+li.dataset.pick); }
+});
+dList.addEventListener('mousedown', e => {
+  const li = e.target.closest('li[data-pick]'); if (!li) return;
+  e.preventDefault();
+  pickDistrict(li.dataset.pick === 'none' ? null : +li.dataset.pick);
+});
+document.addEventListener('click', e => { if (!e.target.closest('#district-combo')) closeDd(); });
+
+function pickDistrict(id) {
+  S.district = id == null ? null : (DISTRICTS.find(d => d.id === id) || null);
+  dValue.textContent = S.district ? S.district.name : 'Select One';
+  dValue.classList.toggle('is-placeholder', !S.district);
+  closeDd();
+  renderPreview();
+  refreshFooter();
+  refreshMetas();
+}
+
+function courseDataLabel(d) {
+  if (d.courseData === 'sis') return { n: d.sis, s: `${d.courses.length} courses · ${d.exams.length} exams synced`, chip: 'ok', chipText: 'Courses synced' };
+  if (d.courseData === 'roster') return { n: d.sis, s: 'Rostering only · no course catalog', chip: 'warn', chipText: 'Rostering only' };
+  return { n: d.sis === 'Not specified' ? 'No SIS' : d.sis, s: 'No course or exam data', chip: 'warn', chipText: 'No course data' };
+}
+
+function renderPreview() {
+  const d = S.district, box = $('#district-preview'), empty = $('#district-empty');
+  if (!d) { box.hidden = true; empty.hidden = false; return; }
+  const cd = courseDataLabel(d);
+  const already = d.deployed.find(x => x.bundle === BUNDLE.name);
+  const other = d.deployed.filter(x => x.bundle !== BUNDLE.name);
+  let note;
+  if (already) {
+    note = `<div class="pv-note warn"><i class="fa-solid fa-triangle-exclamation"></i><div><b>${esc(BUNDLE.name)} is already in this district.</b> Deployed ${already.date} by ${esc(already.by)}. Deploying again creates a second copy of every badge, activity and form.</div></div>`;
+  } else if (other.length) {
+    note = `<div class="pv-note ok"><i class="fa-solid fa-circle-check"></i><div>This bundle has not been deployed here. Other bundles present: ${other.map(o => `<b>${esc(o.bundle)}</b> (${o.date})`).join(', ')}.</div></div>`;
+  } else {
+    note = `<div class="pv-note ok"><i class="fa-solid fa-circle-check"></i><div>No content bundles deployed here yet.</div></div>`;
+  }
+  const folders = d.folders.length ? d.folders.slice(0, 2).join(', ') + (d.folders.length > 2 ? `, +${d.folders.length - 2}` : '') : 'None yet';
+  box.innerHTML = `
+    <div class="preview-head">
+      <div>
+        <div class="pv-name">${esc(d.name)} <span class="chip">${esc(d.type)}</span>${d.flag ? `<span class="chip warn">${d.flag} site</span>` : ''}</div>
+        <div class="pv-sub">ID ${d.id} · ${d.state} · Active since ${d.since}</div>
+      </div>
+      <a class="link-btn" title="Opens the district record">Open in Districts <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+    </div>
+    <div class="pv-stats">
+      <div class="stat"><div class="stat-n">${fmt(d.students)}</div><div class="stat-l">Students reached</div><div class="stat-s">Grades 9–12 · ${fmt(d.enrolled)} enrolled</div></div>
+      <div class="stat"><div class="stat-n">${fmt(d.staff)}</div><div class="stat-l">Staff</div><div class="stat-s">Possible approvers</div></div>
+      <div class="stat"><div class="stat-n sm">${esc(cd.n)}</div><div class="stat-l">SIS <span class="chip ${cd.chip}">${cd.chipText}</span></div><div class="stat-s">${cd.s}</div></div>
+      <div class="stat"><div class="stat-n">${d.folders.length}</div><div class="stat-l">Badge folders</div><div class="stat-s">${esc(folders)}</div></div>
+    </div>
+    ${note}`;
+  box.hidden = false; empty.hidden = true;
+}
+
+/* ============================================================
+   Step 2 · Seal
+   ============================================================ */
+const sealSel = $('#seal-select');
+sealSel.innerHTML = SEALS.map(s => `<option>${esc(s)}</option>`).join('');
+sealSel.addEventListener('change', () => { S.seal = sealSel.value; refreshMetas(); });
+
+$$('input[name="seal-on"]').forEach(r => r.addEventListener('change', () => {
+  S.sealOn = r.value === 'yes' && r.checked ? true : (r.value === 'no' && r.checked ? false : S.sealOn);
+  $('#seal-fields').hidden = !S.sealOn;
+  $('#seal-off-note').hidden = S.sealOn;
+  $('#seal-detect').hidden = !S.sealOn;
+  refreshMetas();
+}));
+
+function renderRoles() {
+  $('#roles-body').innerHTML = BUNDLE.badges.map(b => `
+    <tr>
+      <td><div>${esc(b.name)}</div><div class="item-sub">${esc(b.sub)}</div></td>
+      <td><select class="sel role-sel" data-badge="${esc(b.name)}">
+        ${ROLE_OPTIONS.map(o => `<option value="${o.v}" ${S.roles[b.name] === o.v ? 'selected' : ''}>${o.t}</option>`).join('')}
+      </select></td>
+    </tr>`).join('');
+  $$('.role-sel').forEach(sel => sel.addEventListener('change', () => { S.roles[sel.dataset.badge] = sel.value; }));
+}
+renderRoles();
+
+/* ============================================================
+   Step 3 · Matcher
+   ============================================================ */
+function toks(s) {
+  const n = String(s).toLowerCase().replace(/&/g, ' and ').replace(/united states/g, 'us').replace(/\bu\.?s\.?a?\b/g, 'us').replace(/\bgovt\b/g, 'government')
+    .replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(w => w && !['and', 'of', 'the', 'in', 'a'].includes(w));
+  return new Set(n);
+}
+function sim(a, b) {
+  const A = toks(a), B = toks(b); if (!A.size || !B.size) return 0;
+  let n = 0; A.forEach(t => { if (B.has(t)) n++; });
+  return n / Math.min(A.size, B.size);
+}
+function bestMatch(name, list, min) {
+  let bi = -1, bs = 0;
+  list.forEach((c, i) => { const s = sim(name, c); if (s > bs) { bs = s; bi = i; } });
+  return bs >= (min || 0.6) ? list[bi] : null;
+}
+
+function slotKey(g, i) { return g.id + '-' + i; }
+
+function ensureMap() {
+  if (!S.district) return;
+  if (S.mapDistrictId !== S.district.id) {
+    S.map = {};
+    SLOT_GROUPS.forEach(g => g.slots.forEach((_, i) => { S.map[slotKey(g, i)] = { mode: 'skip', value: '', auto: false }; }));
+    S.mapDistrictId = S.district.id;
+    if (S.district.courseData === 'sis') autoMatch(true);
+  }
+  renderMap();
+}
+
+function autoMatch(silent) {
+  const d = S.district; let n = 0;
+  SLOT_GROUPS.forEach(g => g.slots.forEach((slot, i) => {
+    const k = slotKey(g, i), m = S.map[k];
+    if (m.mode !== 'skip') return;
+    const pool = g.kind === 'exam' ? d.exams : d.courses;
+    const hit = bestMatch(slot, pool);
+    if (hit) { S.map[k] = { mode: 'existing', value: hit, auto: true }; n++; }
+  }));
+  if (!silent) { renderMap(); toast(n ? `Matched ${n} more slot${n === 1 ? '' : 's'} to synced courses` : 'No further matches in the synced catalog'); }
+  return n;
+}
+
+function mapCounts() {
+  let existing = 0, fresh = 0, skip = 0;
+  Object.values(S.map).forEach(m => { if (m.mode === 'existing') existing++; else if (m.mode === 'new' && m.value.trim()) fresh++; else skip++; });
+  return { existing, fresh, skip };
+}
+
+function renderMap() {
+  const d = S.district; if (!d) return;
+  const cd = courseDataLabel(d);
+  const banner = $('#map-banner');
+  if (d.courseData === 'sis') {
+    banner.innerHTML = `<div class="banner info"><i class="fa-solid fa-circle-info"></i><div><b>${d.courses.length} courses and ${d.exams.length} exams are synced from ${esc(d.sis)}.</b> Close matches are filled in and marked <i>auto</i>; check them, then skip or add the rest.</div></div>`;
+  } else {
+    banner.innerHTML = `<div class="banner warn"><i class="fa-solid fa-triangle-exclamation"></i><div><b>${esc(cd.chipText)} for ${esc(d.name)}.</b> There is no catalog to pick from, so type the district's course names here or paste the list the customer sent. Each name becomes a new course in the district.</div></div>`;
+  }
+  $('#btn-automatch').hidden = d.courseData !== 'sis';
+
+  $('#map-groups').innerHTML = SLOT_GROUPS.map(g => `
+    <div class="map-group">
+      <div class="map-group-h"><span class="g-name">${esc(g.name)} <span style="font-weight:400;color:#666">· ${g.slots.length} slots</span></span><span class="g-note">${esc(g.note)}</span></div>
+      ${g.slots.map((slot, i) => rowHtml(g, i, slot)).join('')}
+    </div>`).join('');
+
+  $$('.map-sel').forEach(sel => sel.addEventListener('change', () => {
+    const k = sel.dataset.key, v = sel.value, m = S.map[k];
+    if (v === '__skip') { m.mode = 'skip'; m.value = ''; }
+    else if (v === '__new') { m.mode = 'new'; m.value = m.value || slotName(k); }
+    else { m.mode = 'existing'; m.value = v; }
+    m.auto = false;
+    updateRow(k);
+  }));
+  $$('.new-inp').forEach(inp => inp.addEventListener('input', () => {
+    const k = inp.dataset.key, m = S.map[k];
+    m.mode = inp.value.trim() ? 'new' : (S.district.courseData === 'sis' ? 'new' : 'skip');
+    m.value = inp.value; m.auto = false;
+    updateRow(k, true);
+  }));
+  updateCounts();
+}
+
+function slotName(k) {
+  const [gid, i] = k.split('-'); const g = SLOT_GROUPS.find(x => x.id === gid); return g.slots[+i];
+}
+
+function rowHtml(g, i, slot) {
+  const k = slotKey(g, i), m = S.map[k], d = S.district;
+  const where = g.kind === 'exam' ? ['Exam', 'Badge requirement'] : ['Form option', 'Activity', 'Badge requirement'];
+  let target;
+  if (d.courseData === 'sis') {
+    const pool = g.kind === 'exam' ? d.exams : d.courses;
+    target = `<select class="sel map-sel" data-key="${k}">
+        <option value="__skip" ${m.mode === 'skip' ? 'selected' : ''}>Skip — not offered here</option>
+        <optgroup label="${g.kind === 'exam' ? 'Exams' : 'Courses'} in ${esc(d.name)}">
+          ${pool.map(c => `<option value="${esc(c)}" ${m.mode === 'existing' && m.value === c ? 'selected' : ''}>${esc(c)}</option>`).join('')}
+        </optgroup>
+        <option value="__new" ${m.mode === 'new' ? 'selected' : ''}>+ Add a new ${g.kind}…</option>
+      </select>
+      <input class="inp new-inp" data-key="${k}" placeholder="New ${g.kind} name" value="${esc(m.mode === 'new' ? m.value : '')}" ${m.mode === 'new' ? '' : 'hidden'}>`;
+  } else {
+    target = `<input class="inp new-inp" data-key="${k}" placeholder="Type the district's ${g.kind} name, or leave blank to skip" value="${esc(m.mode === 'new' ? m.value : '')}">`;
+  }
+  return `<div class="map-row ${m.mode === 'skip' ? 'is-skip' : ''}" id="row-${k}">
+      <div class="slot"><div class="slot-name">${esc(slot)}</div><div class="slot-where">${where.map(w => `<span class="where">${w}</span>`).join('')}</div></div>
+      <div class="arrow"><i class="fa-solid fa-arrow-right-long"></i></div>
+      <div class="target">${target}</div>
+      <div class="status">${statusHtml(m)}</div>
+    </div>`;
+}
+
+function statusHtml(m) {
+  if (m.mode === 'existing') return `<span class="st st-mapped"><i class="fa-solid fa-check"></i> Mapped${m.auto ? ' <span class="auto">· auto</span>' : ''}</span>`;
+  if (m.mode === 'new' && m.value.trim()) return `<span class="st st-new"><i class="fa-solid fa-plus"></i> New</span>`;
+  return `<span class="st st-skip">Skipped</span>`;
+}
+
+function updateRow(k, keepFocus) {
+  const row = $('#row-' + k), m = S.map[k];
+  row.classList.toggle('is-skip', !(m.mode === 'existing' || (m.mode === 'new' && m.value.trim())));
+  $('.status', row).innerHTML = statusHtml(m);
+  const inp = $('.new-inp', row);
+  if (S.district.courseData === 'sis' && inp) {
+    inp.hidden = m.mode !== 'new';
+    if (m.mode === 'new' && !keepFocus) { inp.value = m.value; inp.focus(); inp.select(); }
+  }
+  updateCounts();
+}
+
+function updateCounts() {
+  const c = mapCounts();
+  $('#map-counts').innerHTML = `<span><b>${c.existing}</b> mapped to existing</span><span><b>${c.fresh}</b> new</span><span><b>${c.skip}</b> skipped</span><span style="color:#888">of ${SLOT_TOTAL} slots</span>`;
+  refreshMetas(); refreshFooter();
+}
+
+$('#btn-automatch').addEventListener('click', () => autoMatch(false));
+
+/* Paste a list */
+$('#btn-paste').addEventListener('click', () => { $('#paste-modal').hidden = false; $('#paste-text').focus(); });
+$('#paste-sample').addEventListener('click', () => {
+  $('#paste-text').value = ['Global History & Geography I', 'Global History & Geography II', 'US History and Government', 'Participation in Government', 'Economics', 'Civics & Citizenship', 'World Cultures', 'AP U.S. History', 'AP U.S. Government', 'AP Human Geography', 'Regents US History', 'Regents Global History II'].join('\n');
+});
+$('#paste-apply').addEventListener('click', () => {
+  const lines = $('#paste-text').value.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!lines.length) { toast('Paste at least one line'); return; }
+  const d = S.district; let n = 0;
+  SLOT_GROUPS.forEach(g => g.slots.forEach((slot, i) => {
+    const k = slotKey(g, i);
+    const line = bestMatch(slot, lines, 0.6);
+    if (!line) return;
+    const pool = g.kind === 'exam' ? d.exams : d.courses;
+    const synced = d.courseData === 'sis' ? bestMatch(line, pool, 0.75) : null;
+    S.map[k] = synced ? { mode: 'existing', value: synced, auto: false } : { mode: 'new', value: line, auto: false };
+    n++;
+  }));
+  $('#paste-modal').hidden = true;
+  renderMap();
+  toast(`Matched ${n} of ${SLOT_TOTAL} slots from your list`);
+});
+
+/* ============================================================
+   Step 4 · Folder
+   ============================================================ */
+function renderFolder() {
+  const d = S.district, pick = $('#folder-pick'), sub = $('#folder-existing-sub');
+  const existingOpt = $('.opt[data-mode="existing"]');
+  if (d.folders.length) {
+    pick.innerHTML = d.folders.map(f => `<option ${S.folderPick === f ? 'selected' : ''}>${esc(f)}</option>`).join('');
+    pick.disabled = false;
+    sub.textContent = `${d.name} has ${d.folders.length} badge folder${d.folders.length === 1 ? '' : 's'}.`;
+    if (!S.folderPick) S.folderPick = d.folders[0];
+  } else {
+    pick.innerHTML = '<option>No folders in this district</option>';
+    pick.disabled = true;
+    sub.textContent = `${d.name} has no badge folders yet.`;
+  }
+  existingOpt.style.opacity = d.folders.length ? '' : '.55';
+  syncFolderUI();
+}
+function syncFolderUI() {
+  $$('#folder-opts .opt').forEach(o => o.classList.toggle('is-on', o.dataset.mode === S.folderMode));
+  refreshMetas(); refreshFooter();
+}
+$$('input[name="folder"]').forEach(r => r.addEventListener('change', () => {
+  if (r.value === 'existing' && !S.district.folders.length) { $('input[name="folder"][value="new"]').checked = true; S.folderMode = 'new'; toast('No folders here yet. Create one instead.'); }
+  else S.folderMode = r.value;
+  syncFolderUI();
+}));
+$('#folder-name').addEventListener('input', e => { S.folderName = e.target.value; refreshMetas(); refreshFooter(); });
+$('#folder-pick').addEventListener('change', e => { S.folderPick = e.target.value; refreshMetas(); });
+
+/* ============================================================
+   Step 5 · Review + confirm + done
+   ============================================================ */
+function skippedNames() {
+  const out = [];
+  SLOT_GROUPS.forEach(g => g.slots.forEach((slot, i) => { const m = S.map[slotKey(g, i)]; if (!(m.mode === 'existing' || (m.mode === 'new' && m.value.trim()))) out.push(slot); }));
+  return out;
+}
+function newNames() {
+  const out = [];
+  SLOT_GROUPS.forEach(g => g.slots.forEach((slot, i) => { const m = S.map[slotKey(g, i)]; if (m.mode === 'new' && m.value.trim()) out.push(m.value.trim()); }));
+  return out;
+}
+function folderLabel() {
+  return S.folderMode === 'new' ? S.folderName.trim() : S.folderMode === 'existing' ? S.folderPick : null;
+}
+function totals() {
+  const c = mapCounts();
+  return { badges: BUNDLE.badges.length, activities: c.existing + c.fresh + BUNDLE.projectActivities, forms: BUNDLE.forms.length, newCourses: c.fresh, skipped: c.skip, mapped: c.existing };
+}
+
+function renderReview() {
+  const d = S.district, c = mapCounts(), t = totals(), skipped = skippedNames(), fresh = newNames();
+  const already = d.deployed.find(x => x.bundle === BUNDLE.name);
+  $('#review-warn').innerHTML = already
+    ? `<div class="banner warn"><i class="fa-solid fa-triangle-exclamation"></i><div><b>${esc(BUNDLE.name)} is already in ${esc(d.name)}</b> (deployed ${already.date} by ${esc(already.by)}). Deploying again will create a second copy of every badge, activity and form.</div></div>`
+    : '';
+  const awards = BUNDLE.badges.filter(b => S.roles[b.name] === 'awards').map(b => b.name);
+  const counts = BUNDLE.badges.filter(b => S.roles[b.name] === 'counts').map(b => b.name);
+  const fl = folderLabel();
+  $('#review-grid').innerHTML = `
+    <div class="rv-card">
+      <h3>District <a data-go="1">Change</a></h3>
+      <div class="big">${esc(d.name)}</div>
+      <div class="line">ID ${d.id} · ${d.state} · ${esc(d.type)}</div>
+      <div class="line">Reaches <b>${fmt(d.students)} students</b> and <b>${fmt(d.staff)} staff</b></div>
+    </div>
+    <div class="rv-card">
+      <h3>Seal <a data-go="2">Change</a></h3>
+      ${S.sealOn ? `<div class="big">${esc(S.seal)}</div>
+        <div class="line">Awarded by: ${awards.length ? esc(awards.join(', ')) : '<i>none</i>'}</div>
+        <div class="line">Counts toward: ${counts.length ? esc(counts.join(', ')) : '<i>none</i>'}</div>`
+        : `<div class="big">No seal link</div><div class="line">Badges will not appear in the seal tracker.</div>`}
+    </div>
+    <div class="rv-card">
+      <h3>Courses &amp; exams <a data-go="3">Change</a></h3>
+      <div class="big">${c.existing + c.fresh} of ${SLOT_TOTAL} slots filled</div>
+      <div class="line">${c.existing} matched to existing · ${c.fresh} new to create · ${c.skip} skipped</div>
+      ${fresh.length ? `<details class="skipped"><summary>New courses and exams to create (${fresh.length})</summary><ul>${fresh.map(n => `<li>${esc(n)}</li>`).join('')}</ul></details>` : ''}
+      ${skipped.length ? `<details class="skipped"><summary>Template slots that will not be created (${skipped.length})</summary><ul>${skipped.map(n => `<li>${esc(n)}</li>`).join('')}</ul></details>` : ''}
+    </div>
+    <div class="rv-card">
+      <h3>Folder <a data-go="4">Change</a></h3>
+      <div class="big">${fl ? esc(fl) : 'No folder'}</div>
+      <div class="line">${S.folderMode === 'new' ? 'New folder in Manage Badges' : S.folderMode === 'existing' ? 'Existing folder' : 'Badges go to the root of Manage Badges'}</div>
+    </div>`;
+  $('#review-create').innerHTML = `
+    <h3>What will be created in ${esc(d.name)}</h3>
+    <div class="create-row">
+      <div><b>${t.badges}</b>badges</div>
+      <div><b>${t.activities}</b>activities <span style="color:#888">(${t.mapped + t.newCourses} course/exam + ${BUNDLE.projectActivities} project)</span></div>
+      <div><b>${t.forms}</b>forms</div>
+      <div><b>${t.newCourses}</b>new courses or exams</div>
+      <div><b>${t.skipped}</b>template items not created</div>
+    </div>
+    <p class="sub-note" style="margin-top:10px">Project activities under Civic Participation deploy as shipped; edit them in the district only if the customer asks for custom evidence.</p>`;
+  $$('#review-grid a[data-go]').forEach(a => a.addEventListener('click', () => { goStep(+a.dataset.go); scrollPanelTop(); }));
+}
+
+function openConfirm() {
+  const d = S.district, t = totals();
+  $('#confirm-body').innerHTML = `
+    <p>You are about to add <b>${esc(BUNDLE.name)}</b> to:</p>
+    <div class="confirm-target">${esc(d.name)}<small>ID ${d.id} · ${d.state} · ${fmt(d.students)} students · ${fmt(d.staff)} staff</small></div>
+    <p>${t.badges} badges, ${t.activities} activities and ${t.forms} forms will be created${folderLabel() ? ` in the folder <b>${esc(folderLabel())}</b>` : ''}. Check the district name: this cannot be undone from here.</p>`;
+  $('#confirm-deploy').textContent = 'Deploy to ' + d.name;
+  $('#confirm-modal').hidden = false;
+}
+$('#confirm-deploy').addEventListener('click', () => { $('#confirm-modal').hidden = true; renderDone(); showDone(); });
+
+function renderDone() {
+  const d = S.district, t = totals();
+  $('#done-body').innerHTML = `
+    <div class="ok-icon"><i class="fa-solid fa-check"></i></div>
+    <h1>Deployed to ${esc(d.name)}</h1>
+    <p class="sub">${esc(BUNDLE.name)} is live for ${fmt(d.students)} students${folderLabel() ? `, filed under <b>${esc(folderLabel())}</b>` : ''}${S.sealOn ? `, and linked to ${esc(S.seal)} in the seal tracker` : ''}. Nothing is left to rename inside the district.</p>
+    <div class="facts">
+      <div><b>${t.badges}</b><span>badges</span></div>
+      <div><b>${t.activities}</b><span>activities</span></div>
+      <div><b>${t.forms}</b><span>forms</span></div>
+      <div><b>${t.newCourses}</b><span>new courses/exams</span></div>
+      <div><b>${t.skipped}</b><span>skipped</span></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-lg">Open ${esc(d.name)} <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+      <button class="btn btn-lg btn-ghost" id="done-back">Back to Content Bundles</button>
+    </div>
+    <div class="log">Logged Oct 13, 2026 · Mari Castree · ${esc(BUNDLE.name)} → ${esc(d.name)} (ID ${d.id})</div>`;
+  $('#done-back').addEventListener('click', closeWizard);
+}
+
+/* ============================================================
+   Modals + toast
+   ============================================================ */
+$$('[data-close]').forEach(b => b.addEventListener('click', () => { $('#' + b.dataset.close).hidden = true; }));
+$$('.modal-bg').forEach(bg => bg.addEventListener('click', e => { if (e.target === bg) bg.hidden = true; }));
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('is-on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('is-on'), 2600); }
+
+/* Boot */
+$('#crumbs').innerHTML = '<a><i class="fa-regular fa-house"></i></a><span class="sep">/</span><a>Content Bundles</a>';
+</script>
+
+<!-- ── Design Toolbox: Flow Map ─────────────────────────────── -->
+<script>
+  // Put the page into a given screen. Later steps seed a district so the
+  // thumbnails and #fm= deep links show real content.
+  function seedForFlow() {
+    if (!S.district) { pickDistrict(620); }   // Pathways Demo District: SIS-synced, no prior deploy
+    ensureMap();                               // later steps and the Done screen read the course map
+  }
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    if (opts.instant) document.body.classList.add('no-anim');   // thumbnails and deep links: no slide-in
+    $$('.modal-bg').forEach(m => { m.hidden = true; });
+    switch (id) {
+      case 'bundle':   closeWizard(); break;
+      case 'district': openWizard(); goStep(1); break;
+      case 'district-open': openWizard(); goStep(1); openDd(); dInput.value = 'path'; renderList(); break;
+      case 'preview':  seedForFlow(); openWizard(); goStep(1); break;
+      case 'seal':     seedForFlow(); openWizard(); goStep(2); break;
+      case 'map':      seedForFlow(); openWizard(); goStep(3); break;
+      case 'folder':   seedForFlow(); openWizard(); goStep(4); break;
+      case 'review':   seedForFlow(); openWizard(); goStep(5); break;
+      case 'confirm':  seedForFlow(); openWizard(); goStep(5); openConfirm(); break;
+      case 'done':     seedForFlow(); openWizard(); renderDone(); showDone(); break;
+      default:         closeWizard(); break;
+    }
+    scrollPanelTop();
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Content Bundle Deploy — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1770, h: 320 },
+      flows: [
+        { id: 'main', name: 'Deploy a bundle to a district', pill: 'A', color: '#f6c9a8',
+          lane: { x: 20, y: 20, w: 1730, h: 280 }, labelXY: { x: 40, y: 40 } }
+      ],
+      nodes: [
+        { id: 'bundle',   flow: 'main', entry: true, x: 50,   y: 120, step: 'Start',  name: 'Bundle page',      state: 'bundle',   desc: 'Internal admin → Content Bundles → NY Civic Seal of Readiness. Deploy Bundle opens the wizard in the same right-side panel the two-field drawer used.' },
+        { id: 'district', flow: 'main', x: 220,  y: 120, step: 'Step 1', name: 'Choose district',  state: 'district', desc: 'Looks like today\'s District select. Opening it reveals a filter box over the A–Z list (Bulk Add Students filter pattern).' },
+        { id: 'district-open', flow: 'main', x: 390, y: 120, step: 'Step 1', name: 'List open + filter', state: 'district-open', desc: 'Type to filter by name or ID. Flags test/sandbox sites and already-deployed districts inline; the current choice is checked.' },
+        { id: 'preview',  flow: 'main', x: 560,  y: 120, step: 'Step 1', name: 'District preview', state: 'preview',  desc: 'Summary card: name, ID, state, type; students and staff reached; SIS/course-data status; badge folders; already-deployed warning.' },
+        { id: 'seal',     flow: 'main', x: 730,  y: 120, step: 'Step 2', name: 'Seal link',        state: 'seal',     desc: 'Is this bundle for a seal, which one, and which badges award it or count toward it.' },
+        { id: 'map',      flow: 'main', x: 900,  y: 120, step: 'Step 3', name: 'Courses & exams',  state: 'map',      desc: 'Two-column matcher: template slot → district course/exam. Auto-match from SIS, paste a list, add new inline. Unmapped slots are skipped.' },
+        { id: 'folder',   flow: 'main', x: 1070, y: 120, step: 'Step 4', name: 'Folder',           state: 'folder',   desc: 'New folder (named for the seal), existing folder, or none.' },
+        { id: 'review',   flow: 'main', x: 1240, y: 120, step: 'Step 5', name: 'Review',           state: 'review',   desc: 'District + reach, seal roles, mapping counts with skipped list, folder, and what will be created. Change links jump back.' },
+        { id: 'confirm',  flow: 'main', x: 1410, y: 120, step: 'Step 5', name: 'Confirm',          state: 'confirm',  desc: 'Repeats the district name and affected counts as the last check against the wrong site.' },
+        { id: 'done',     flow: 'main', x: 1580, y: 120, step: 'End',    name: 'Deployed',         state: 'done',     desc: 'Success summary with counts, Open district, and a logged line.' }
+      ],
+      edges: [
+        ['bundle', 'district'], ['district', 'district-open'], ['district-open', 'preview'], ['preview', 'seal'], ['seal', 'map'],
+        ['map', 'folder'], ['folder', 'review'], ['review', 'confirm'], ['confirm', 'done']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: comments + flow map (review tooling only; developers strip this). -->
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

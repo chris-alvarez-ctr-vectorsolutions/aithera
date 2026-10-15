@@ -15,12 +15,18 @@ Tables use these status markers consistently:
 ```markdown
 # Mock Definition — <Feature name>
 
+**Stage**: <In review | Ready for dev>
 **Mock**: <relative path to the chosen verN/index.html>
-**Version handed off**: <label, e.g. V1 — or the name for a kept variant>
+**Version**: <label, e.g. V1 — or the name for a kept variant>
 **PRD source**: <file path / Confluence URL / Jira key / "pasted" / "none provided">
-**Date**: <YYYY-MM-DDThh:mm:ssTZD>
+**Reviewed**: <YYYY-MM-DD — the date the reconciliation was last run>
+**Handed off**: <YYYY-MM-DD from <version label> — or "not yet" while in review>
 **Components confirmed against**: core <ver>, themes <ver>  <!-- omit if component confirmation was skipped -->
 
+> **Nothing here locks the mock.** Design can keep changing in review and after
+> handoff. Post-handoff changes are recorded in the Handoff log at the bottom and
+> listed under "Changed since handoff" on the dashboard card.
+>
 > **Read this first.** This document captures what the visual mock cannot show on
 > its own: which requirements it satisfies, where it diverges from the PRD, the
 > edge cases still to build, and the Vector components to use. Pair it with the
@@ -64,6 +70,17 @@ offline · zero-results · destructive-action confirmation.
 |---|---|---|---|
 | <area> | <e.g. empty list> | none | <e.g. show empty state with CTA> |
 
+### Claims to verify
+
+Every factual claim the mock makes — visible copy, tooltips, info callouts,
+empty states, rule-describing code comments, flow-map node descriptions,
+DEV-NOTES.md, the catalog `desc` — checked against the PRD text. This is where
+mistakes and hallucinated rules get caught.
+
+| Claim in the mock | Where | PRD says | Verdict |
+|---|---|---|---|
+| <e.g. "Failed only after 3 attempts"> | <Action Needed tooltip> | <quote, with FR/AC id> | ✅ Matches / ❌ Contradicts / ⚠️ Not in PRD |
+
 ## Behavior & data (not visible in the mock)
 
 - **Data sources**: <where each list/field comes from; mock vs. real data notes>
@@ -97,4 +114,17 @@ so nothing is lost.>
   them.** For production, strip the single `<script src=".../toolbox.js">` include
   from the page. The dock pill, comment widget, and flow map are not part of the
   product design.
+
+## Handoff log
+
+Every handoff, re-sync, and post-handoff change, newest last. Changes keep
+happening after handoff; this is where they are written down.
+
+| Date | Change | Version | Dev build re-synced? | Devs told? |
+|---|---|---|---|---|
+| <YYYY-MM-DD> | Handed off to dev | <V1> | n/a (first build) | <yes — where> |
 ```
+
+During review, leave the Handoff log with just its header row and a line saying
+"Not handed off yet."
+

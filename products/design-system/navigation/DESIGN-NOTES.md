@@ -1,5 +1,23 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-10-13 (V3 wears V4's skin)
+
+- **V3: no divider lines between side-nav sections** (the section headers keep their lead), and
+  **the EHS view carries no mode tabs** in the top bar: identity, search and the universal
+  actions only.
+- **V3 takes V4's styling and keeps its own behaviour.** A skin block at the end of V3's CSS
+  applies the design system tokens and measures read off EHS (Open Sans 13px, blue `#1d4ed8` on
+  `#eff6ff`, 250px sidebar with the 80px logo area, 13/500 rows to 600 with a 3px left bar,
+  44px children with the guide line, hairline section headers, 56px icon rail, 72px top bar with
+  the accent line on top). The app rail, the open/close toggle in the top bar, the hover-peek
+  overlay, the centred search, the location control, V3a/V3b and the tenant switches all work
+  as before. Delete the block to get V3's own look back.
+- **V1 and V3: the identity/tabs divider is back in flow.** The left group's minimum width puts
+  it on the open nav's border exactly as before, but a lockup longer than that budget (Vector
+  EHS Management beside the toggle) now pushes the divider and the tabs right instead of running
+  under them. The EHS and Dashboard views also get their push-right back: the location control
+  after the search is hidden there, so the auto margin now lands on the divider that follows.
+
 ## Changelog · 2026-10-09 (V4: guide lines in nested groups)
 
 - **V4: a 1px guide line runs down the icon column of every open group**, from the first

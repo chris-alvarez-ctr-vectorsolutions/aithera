@@ -23,6 +23,14 @@
   function num(n) { return Number(n).toLocaleString('en-US'); }
   function fac(id) { for (var i = 0; i < D.facilities.length; i++) if (D.facilities[i].id === id) return D.facilities[i]; return null; }
   function short(name) { return name.split(' – ')[0]; }
+  /* scope is 'all', one facility id, or several ids joined with commas */
+  function scopeKind(scope) { return (!scope || scope === 'all') ? 'all' : scope.indexOf(',') > -1 ? 'multi' : 'one'; }
+  function scopeFacs(scope) { if (scopeKind(scope) === 'all') return D.facilities; return scope.split(',').map(fac).filter(Boolean); }
+  function listJoin(l) { return l.length < 2 ? l.join('') : l.slice(0, -1).join(', ') + ' and ' + l[l.length - 1]; }
+  function plural(lbl) { var l = lbl.toLowerCase(); return l === 'category' ? 'categories' : l + 's'; }
+  function cap(t) { return t.charAt(0).toUpperCase() + t.slice(1); }
+  /* detail is a LIST of options per metric (multi-select); older specs may hold a string */
+  function dlist(spec, mid) { var d = spec.detail && spec.detail[mid]; return !d ? [] : Array.isArray(d) ? d : [d]; }
   var PRODUCT = { ehs: { label: 'Vector EHS', chip: 'EHS' }, ct: { label: 'Convergence', chip: 'LMS' } };
   function srcChip(src, text) { return '<span class="src src-' + src + '">' + esc(text || PRODUCT[src].chip) + '</span>'; }
 
@@ -67,7 +75,7 @@
 
   /* ── Values: per facility / department, totals, series. `detail` narrows. ─ */
   var DETAIL_SHARE = [0.44, 0.27, 0.17, 0.08, 0.04];
-  function detailFactor(spec, mid) { var d = spec.detail && spec.detail[mid]; if (!d) return 1; var m = metric(mid), i = m.detail.options.indexOf(d); return i < 0 ? 1 : DETAIL_SHARE[i] || 0.05; }
+  function detailFactor(spec, mid) { var l = dlist(spec, mid); if (!l.length) return 1; var m = metric(mid), t = 0; l.forEach(function (o) { var i = m.detail.options.indexOf(o); t += i < 0 ? 0 : (DETAIL_SHARE[i] || 0.05); }); return Math.min(1, t || 1); }
   function scaleFor(spec, mid) { var m = metric(mid); return (m.kind === 'count' ? RANGE_SCALE[spec.range || 'dash'] : 1) * detailFactor(spec, mid); }
   function facValue(f, mid) {
     return { trir: f.trir, incidents: f.incidents, near_miss: f.nearMisses, observations: Math.round(f.incidents * 1.6 + f.nearMisses), open_ca: f.openCA, inspections: Math.round(f.employees / 48), compliance: f.compliance, overdue: f.overdue, completions: Math.round(f.employees / 9), quals: f.qualsExpiring }[mid];
@@ -79,19 +87,19 @@
   function fmtVal(mid, v) { var m = metric(mid); return (m.kind === 'count') ? Math.max(0, Math.round(v)) : Math.round(v * 10) / 10; }
   function rows(spec, mid) {
     var k = scaleFor(spec, mid);
-    if (spec.scope === 'all') return D.facilities.map(function (f) { return { id: f.id, label: short(f.name), full: f.name, value: fmtVal(mid, facValue(f, mid) * k), hot: f.signal === 'elevated' }; });
+    if (scopeKind(spec.scope) !== 'one') return scopeFacs(spec.scope).map(function (f) { return { id: f.id, label: short(f.name), full: f.name, value: fmtVal(mid, facValue(f, mid) * k), hot: f.signal === 'elevated' }; });
     var f = fac(spec.scope);
     return f.departments.map(function (d) { return { id: f.id, dept: d.name, label: d.name, full: d.name, value: fmtVal(mid, deptValue(f, d, mid) * k), hot: d.signal === 'elevated' }; });
   }
   function total(spec, mid) {
     var k = scaleFor(spec, mid);
-    if (spec.scope !== 'all') return fmtVal(mid, facValue(fac(spec.scope), mid) * k);
-    var emp = D.facilities.reduce(function (a, f) { return a + f.employees; }, 0), m = metric(mid);
-    if (m.kind !== 'count') { var s = 0; D.facilities.forEach(function (f) { s += facValue(f, mid) * f.employees; }); return fmtVal(mid, s / emp * k); }
-    return fmtVal(mid, D.facilities.reduce(function (a, f) { return a + facValue(f, mid); }, 0) * k);
+    if (scopeKind(spec.scope) === 'one') return fmtVal(mid, facValue(fac(spec.scope), mid) * k);
+    var fs = scopeFacs(spec.scope), emp = fs.reduce(function (a, f) { return a + f.employees; }, 0), m = metric(mid);
+    if (m.kind !== 'count') { var s = 0; fs.forEach(function (f) { s += facValue(f, mid) * f.employees; }); return fmtVal(mid, s / emp * k); }
+    return fmtVal(mid, fs.reduce(function (a, f) { return a + facValue(f, mid); }, 0) * k);
   }
   function series(spec, mid) {
-    var t = total(spec, mid), m = metric(mid), f = spec.scope === 'all' ? null : fac(spec.scope), hot = f ? f.signal === 'elevated' : true;
+    var t = total(spec, mid), m = metric(mid), hot = scopeKind(spec.scope) === 'all' || scopeFacs(spec.scope).some(function (x) { return x.signal === 'elevated'; });
     var weekly = m.kind !== 'count' ? t : t / 12, out = [];
     for (var i = 0; i < 12; i++) {
       var k = i / 11, shape = m.shape === 'up' ? (hot ? 0.6 + 0.8 * k : 0.9 + 0.2 * k) : m.shape === 'down' ? (hot ? 1.25 - 0.5 * k : 1.05 - 0.1 * k) : 1;
@@ -100,13 +108,30 @@
     }
     return out;
   }
-  function scopeLabel(scope) { return scope === 'all' ? 'All facilities' : fac(scope).name; }
+  function scopeLabel(scope) { var k = scopeKind(scope); return k === 'all' ? 'All facilities' : k === 'one' ? fac(scope).name : listJoin(scopeFacs(scope).map(function (f) { return short(f.name); })); }
 
   /* ── Viz renderers. A widget holds a LIST of metrics (spec.m), any number. ─ */
   var SERIES = ['var(--lumo-error-color)', 'var(--lumo-primary-color)', 'var(--vwc-color-puerto-rico-600)', 'var(--vwc-color-ecstacy-600)', 'var(--vwc-color-vivid-violet-600)', 'var(--vwc-color-conifer-700)', 'var(--vwc-color-picton-blue-400)', 'var(--vwc-color-cinnabar-800)', 'var(--vwc-color-ecstacy-300)', 'var(--lumo-contrast-60pct)'];
   function mids(spec) { return (spec.m && spec.m.length) ? spec.m : [spec.a, spec.b].filter(Boolean); }
-  function mlabel(spec, mid) { var m = metric(mid), d = spec.detail && spec.detail[mid]; return m.label + (d ? ' (' + d + ')' : ''); }
-  function drillAttr(spec, mid, row) { return ' data-drill="' + esc(mid) + '" data-drill-loc="' + esc(row ? (row.dept ? row.id + '|' + row.dept : row.id) : (spec.scope === 'all' ? 'all' : spec.scope)) + '"'; }
+  function mlabel(spec, mid) { var m = metric(mid), l = dlist(spec, mid); if (spec.tot && spec.tot[mid]) return m.label + ' (total)'; return m.label + (!l.length ? '' : l.length <= 2 ? ' (' + l.join(', ') + ')' : ' (' + l.length + ' ' + plural(m.detail.label) + ')'); }
+  /* ── Widget filter: a widget built with specific picks can be viewed combined, one pick at a time, or as the unfiltered total.
+        spec.filter maps a metric id to 'all' | one pick | 'total' (view state, kept with the widget). ─ */
+  function filterView(spec, mid) { var l = dlist(spec, mid), v = (spec.filter || {})[mid]; if (v === 'total' || (v && l.indexOf(v) > -1)) return v; return l.length > 1 ? 'all' : l[0]; }
+  function viewSpec(spec) {
+    var out = Object.assign({}, spec, { detail: Object.assign({}, spec.detail || {}), tot: {} });
+    mids(spec).forEach(function (mid) { var l = dlist(spec, mid); if (!l.length) return; var v = filterView(spec, mid); if (v === 'total') { delete out.detail[mid]; out.tot[mid] = true; } else if (v !== 'all') out.detail[mid] = [v]; });
+    return out;
+  }
+  function filterHtml(spec) {
+    var rows = mids(spec).map(function (mid) {
+      var l = dlist(spec, mid); if (!l.length) return '';
+      var m = metric(mid), v = filterView(spec, mid);
+      function chip(val, text) { return '<button type="button" class="cw-fchip' + (v === val ? ' is-on' : '') + '" data-wfilter="' + esc(spec.id) + '" data-mid="' + mid + '" data-val="' + esc(val) + '" aria-pressed="' + (v === val) + '">' + esc(text) + '</button>'; }
+      return '<div class="cw-filter" role="group" aria-label="' + esc(m.label) + ' view"><span class="cw-fl">' + esc(m.detail.label) + '</span>' + (l.length > 1 ? chip('all', 'All ' + l.length + ' ' + plural(m.detail.label)) : '') + l.map(function (o) { return chip(o, o); }).join('') + '<span class="cw-fsep" aria-hidden="true"></span>' + chip('total', 'Total ' + m.label.charAt(0).toLowerCase() + m.label.slice(1)) + '</div>';
+    }).join('');
+    return rows ? '<div class="cw-filters">' + rows + '</div>' : '';
+  }
+  function drillAttr(spec, mid, row) { return ' data-drill="' + esc(mid) + '" data-drill-loc="' + esc(row ? (row.dept ? row.id + '|' + row.dept : row.id) : (scopeKind(spec.scope) === 'all' ? 'all' : spec.scope)) + '"'; }
   function legend(spec) {
     return '<div class="cw-legend">' + mids(spec).map(function (id, i) { return '<span class="cw-lg"' + drillAttr(spec, id) + '><i class="sw" style="background:' + SERIES[i] + '"></i>' + esc(mlabel(spec, id)) + srcChip(metric(id).src) + '</span>'; }).join('') + '</div>';
   }
@@ -139,7 +164,7 @@
     return '<svg class="cw-svg tall" viewBox="0 0 ' + w + ' ' + h + '" role="img" aria-label="' + esc(title(spec)) + '"><line class="grid" x1="' + pl + '" y1="' + (h - pb) + '" x2="' + w + '" y2="' + (h - pb) + '"/><line class="grid" x1="' + pl + '" y1="6" x2="' + pl + '" y2="' + (h - pb) + '"/>' +
       '<text x="' + pl + '" y="' + (h - 6) + '">' + esc(mlabel(spec, ids[1])) + ' →</text><text x="12" y="10" transform="rotate(-90 12 10)" text-anchor="end">' + esc(mlabel(spec, ids[0])) + ' →</text>' +
       A.map(function (r, i) { var x = pl + (B[i].value - minB) / ((maxB - minB) || 1) * (w - pl - 12), y = 8 + (1 - r.value / maxA) * (h - pb - 10); return '<circle class="cw-dot" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r.hot ? 7 : 5) + '" fill="' + (r.hot ? SERIES[0] : SERIES[1]) + '" stroke="#fff" stroke-width="2"' + drillAttr(spec, ids[0], r) + '><title>' + esc(r.full + ': ' + r.value + metric(ids[0]).unit + ' / ' + B[i].value + metric(ids[1]).unit) + '</title></circle>' + (r.hot ? '<text x="' + (x + 10).toFixed(1) + '" y="' + (y + 4).toFixed(1) + '" class="lbl">' + esc(r.label) + '</text>' : ''); }).join('') + '</svg>' +
-      '<p class="cw-cap">Each dot is a ' + (spec.scope === 'all' ? 'facility' : 'department') + '. Red dots are flagged <strong>Elevated</strong>; hover for values' + (S.demo.drill ? ', click to see the records' : '') + '.</p>';
+      '<p class="cw-cap">Each dot is a ' + (scopeKind(spec.scope) !== 'one' ? 'facility' : 'department') + '. Red dots are flagged <strong>Elevated</strong>; hover for values' + (S.demo.drill ? ', click to see the records' : '') + '.</p>';
   }
   function vizKpi(spec) {
     function one(mid, i) { var m = metric(mid), s = series(spec, mid), d = s[11] - s[0], bad = (d > 0) === (m.shape === 'up'); return '<div class="cw-kpi"' + drillAttr(spec, mid) + '><div class="cw-kpi-l">' + esc(mlabel(spec, mid)) + srcChip(m.src) + '</div><div class="cw-kpi-v" style="color:' + SERIES[i] + '">' + esc(num(total(spec, mid))) + '<small>' + m.unit + '</small></div><div class="cw-kpi-d ' + (d === 0 ? '' : bad ? 'bad' : 'good') + '"><i class="fa-solid ' + (d > 0 ? 'fa-arrow-up-right' : d < 0 ? 'fa-arrow-down-right' : 'fa-arrow-right') + '" aria-hidden="true"></i>' + (d === 0 ? 'No change' : esc(num(Math.abs(Math.round(d * 10) / 10))) + m.unit + ' over the period') + '</div></div>'; }
@@ -147,7 +172,7 @@
   }
   function vizTable(spec) {
     var ids = mids(spec), R = ids.map(function (id) { return rows(spec, id); });
-    return '<table class="cw-table"><thead><tr><th>' + (spec.scope === 'all' ? 'Facility' : 'Department') + '</th>' + ids.map(function (id) { return '<th class="n">' + esc(mlabel(spec, id)) + '</th>'; }).join('') + '</tr></thead><tbody>' + R[0].map(function (r, i) { return '<tr><td>' + esc(r.full) + '</td>' + R.map(function (x, k) { return '<td class="n"><span' + drillAttr(spec, ids[k], x[i]) + '>' + esc(num(x[i].value)) + metric(ids[k]).unit + '</span></td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
+    return '<table class="cw-table"><thead><tr><th>' + (scopeKind(spec.scope) !== 'one' ? 'Facility' : 'Department') + '</th>' + ids.map(function (id) { return '<th class="n">' + esc(mlabel(spec, id)) + '</th>'; }).join('') + '</tr></thead><tbody>' + R[0].map(function (r, i) { return '<tr><td>' + esc(r.full) + '</td>' + R.map(function (x, k) { return '<td class="n"><span' + drillAttr(spec, ids[k], x[i]) + '>' + esc(num(x[i].value)) + metric(ids[k]).unit + '</span></td>'; }).join('') + '</tr>'; }).join('') + '</tbody></table>';
   }
   function body(spec) { switch (spec.viz) { case 'trend': return vizTrend(spec); case 'scatter': return mids(spec).length === 2 ? vizScatter(spec) : vizBars(spec); case 'kpi': return vizKpi(spec); case 'table': return vizTable(spec); default: return vizBars(spec); } }
   function labelList(spec) { var l = mids(spec).map(function (id) { return mlabel(spec, id); }); if (l.length < 3) return l.join(' vs '); if (l.length === 3) return l[0] + ', ' + l[1] + ' and ' + l[2]; return l[0] + ', ' + l[1] + ' and ' + (l.length - 2) + ' more'; }
@@ -161,7 +186,7 @@
   /* ── Build a widget from a description (Keystone intent match + parser) ── */
   var STOP = ['the', 'and', 'a', 'in', 'on', 'to', 'is', 'of', 'how', 'what', 'where', 'when', 'do', 'does', 'with', 'for', 'are', 'by', 'an', 'at', 'its', 'my', 'me', 'show', 'compare', 'vs', 'versus'];
   function norm(s) { return s.toLowerCase().replace(/[^a-z0-9 ]/g, '').split(/\s+/).filter(function (w) { return w && STOP.indexOf(w) === -1; }); }
-  function keywordOverlap(a, b) { var sb = norm(b); return norm(a).filter(function (w) { return sb.indexOf(w) !== -1; }).length; }
+  function keywordOverlap(a, b) { var sb = norm(b); return norm(a).filter(function (w, i, arr) { return arr.indexOf(w) === i && sb.indexOf(w) !== -1; }).length; }
   var FAC_WORDS = { plant4: ['plant 4', 'riverside'], plant2: ['plant 2', 'columbus'], dceast: ['dc east', 'allentown'], plant1: ['plant 1', 'tulsa'], plant7: ['plant 7', 'greenville'], dcwest: ['dc west', 'reno'] };
   var METRIC_WORDS = [
     ['near_miss', ['near miss', 'near-miss', 'close call']], ['trir', ['incident rate', 'trir', 'rate of incident']], ['incidents', ['incident', 'injur', 'safety trend', 'safety']],
@@ -170,24 +195,27 @@
   ];
   function findDetails(t, m) {
     var out = {};
-    m.forEach(function (id) { var md = metric(id); md.detail.options.forEach(function (o) { var key = o.toLowerCase().split(/[\s\/]+/)[0]; if (key.length > 3 && t.indexOf(key) > -1) out[id] = o; }); });
-    if (t.indexOf('loto') > -1 || t.indexOf('lockout') > -1) m.forEach(function (id) { if (metric(id).detail.options.indexOf('Lockout/Tagout') > -1) out[id] = 'Lockout/Tagout'; });
+    function add(id, o) { out[id] = out[id] || []; if (out[id].indexOf(o) < 0) out[id].push(o); }
+    m.forEach(function (id) { metric(id).detail.options.forEach(function (o) { var key = o.toLowerCase().split(/[\s\/]+/)[0]; if (key.length > 3 && new RegExp('\\b' + key + 's?\\b').test(t)) add(id, o); }); });
+    if (t.indexOf('loto') > -1 || t.indexOf('lockout') > -1) m.forEach(function (id) { if (metric(id).detail.options.indexOf('Lockout/Tagout') > -1) add(id, 'Lockout/Tagout'); });
     return out;
   }
+  function findScope(t) { var ids = []; Object.keys(FAC_WORDS).forEach(function (id) { FAC_WORDS[id].forEach(function (w) { if (t.indexOf(w) > -1 && ids.indexOf(id) < 0) ids.push(id); }); }); return ids.length ? ids.join(',') : null; }
   function rangeFrom(t) { return /30 days|last month|this month/.test(t) ? '30' : /year to date|ytd/.test(t) ? 'ytd' : /12 months|last year|annual/.test(t) ? '365' : /90 days|quarter/.test(t) ? '90' : null; }
   function describeToSpec(text) {
-    var t = text.toLowerCase(), scope = 'all';
-    Object.keys(FAC_WORDS).forEach(function (id) { FAC_WORDS[id].forEach(function (w) { if (t.indexOf(w) > -1) scope = id; }); });
+    var t = text.toLowerCase(), scope = findScope(t) || 'all';
     var range = rangeFrom(t) || 'dash';
-    var hit = SUGGESTIONS.filter(function (s) { return keywordOverlap(text, s.label + ' ' + s.hint) >= 2; })[0];
-    if (hit) { var sp = { via: 'example', scope: hit.spec.scope, m: hit.spec.m.slice(), viz: hit.spec.viz, range: range }; sp.detail = findDetails(t, sp.m); return sp; }
     var found = [];
     METRIC_WORDS.forEach(function (pair) { if (pair[1].some(function (w) { return t.indexOf(w) > -1; }) && found.indexOf(pair[0]) < 0) found.push(pair[0]); });
     if (found.indexOf('incidents') > -1 && found.indexOf('trir') > -1) found.splice(found.indexOf('incidents'), 1);
     if (found.indexOf('overdue') > -1 && found.indexOf('completions') > -1 && t.indexOf('completion') < 0) found.splice(found.indexOf('completions'), 1);
+    /* best example by unique keyword overlap; it must cover every metric named in the text, and a location in the text wins over the example's */
+    var hit = null, best = 2;
+    SUGGESTIONS.forEach(function (s) { var k = keywordOverlap(text, s.label + ' ' + s.hint); if (k > best && found.every(function (id) { return s.spec.m.indexOf(id) > -1; })) { best = k; hit = s; } });
+    if (hit) { var sp = { via: 'example', scope: findScope(t) || hit.spec.scope, m: hit.spec.m.slice(), viz: hit.spec.viz, range: range }; sp.detail = findDetails(t, sp.m); return sp; }
     var m = found.length ? found : [t.indexOf('training') > -1 ? 'completions' : 'incidents'];
     if (m.length === 1 && /\b(compare|vs|versus|against|with|and)\b/.test(t)) m.push(metric(m[0]).src === 'ehs' ? 'completions' : 'incidents');
-    var viz = /trend|over time|week|month|history/.test(t) ? 'trend' : /scatter|correlat|relationship/.test(t) ? (m.length === 2 ? 'scatter' : 'bars') : /table|list|rows|who /.test(t) ? 'table' : /number|total|how many|kpi/.test(t) ? 'kpi' : (m.length > 1 && scope !== 'all' ? 'trend' : 'bars');
+    var viz = /trend|over time|week|month|history/.test(t) ? 'trend' : /scatter|correlat|relationship/.test(t) ? (m.length === 2 ? 'scatter' : 'bars') : /table|list|rows|who /.test(t) ? 'table' : /number|total|how many|kpi/.test(t) ? 'kpi' : (m.length > 1 && scopeKind(scope) === 'one' ? 'trend' : 'bars');
     return { via: 'parsed', scope: scope, m: m, viz: viz, range: range, detail: findDetails(t, m) };
   }
   function readBack(spec) { var ids = mids(spec); return ids.map(function (id) { return '**' + mlabel(spec, id) + '**'; }).join(ids.length > 2 ? ', ' : ' compared with ') + ' for **' + scopeLabel(spec.scope) + '**, ' + rangeLabel(spec.range || 'dash').toLowerCase() + ', shown as ' + VIZ[spec.viz][0].toLowerCase() + '.'; }
@@ -198,7 +226,7 @@
   function W(spec) { spec.id = 'c' + (seq++); return spec; }
   var S, ui = {}, A = null, dlgKey = 0;
   function fresh() {
-    var w = [W({ scope: 'plant4', m: ['incidents', 'near_miss', 'completions'], viz: 'trend', range: 'dash', detail: {} }), W({ scope: 'all', m: ['trir', 'compliance'], viz: 'kpi', range: 'dash', detail: {} })];
+    var w = [W({ scope: 'plant4', m: ['incidents', 'near_miss', 'completions'], viz: 'trend', range: 'dash', detail: { incidents: ['Slips and trips', 'Lacerations', 'Ergonomic strain'] }, filter: {} }), W({ scope: 'all', m: ['trir', 'compliance'], viz: 'kpi', range: 'dash', detail: {} })];
     return { view: 'home', order: ['kpis', 'recs', 'w:' + w[0].id, 'compare', 'w:' + w[1].id, 'row4', 'audit'], hidden: {}, menu: null, widgets: w, studio: false, chatMin: false, exOpen: {}, demo: { specific: true, drill: true } };
   }
   S = fresh();
@@ -214,7 +242,7 @@
     var menu = S.menu === w.id ? '<div class="dw-menu"><button type="button" data-cedit="' + w.id + '">Edit widget</button><button type="button" data-cmove="up" data-cid="' + w.id + '">Move up</button><button type="button" data-cmove="down" data-cid="' + w.id + '">Move down</button><div class="dw-menu-d"></div><button type="button" class="danger" data-cremove="' + w.id + '">Remove from dashboard</button></div>' : '';
     return '<div class="module-head"><div><h2><span class="dw-ic"><i class="fa-regular ' + iconFor(w) + '" aria-hidden="true"></i></span>' + esc(title(w)) + '</h2><p class="sub">' + esc(subFor(w)) + '</p></div>' +
       '<div class="head-tools">' + (w.range && w.range !== 'dash' ? '<span class="dw-range-chip"><i class="fa-regular fa-calendar-range" aria-hidden="true"></i>' + esc(rangeLabel(w.range)) + '</span>' : '') + '<span class="dw-srcs">' + sources(w).map(function (s) { return srcChip(s, PRODUCT[s].label); }).join('') + '</span><span class="dw-kebab-wrap"><button type="button" class="dw-kebab" data-cmenu="' + w.id + '" aria-label="Widget options"><i class="fa-regular fa-ellipsis-vertical" aria-hidden="true"></i></button>' + menu + '</span></div></div>' +
-      '<div class="module-body cm-body cm-' + w.viz + '">' + body(w) + '</div>';
+      filterHtml(w) + '<div class="module-body cm-body cm-' + w.viz + '">' + body(viewSpec(w)) + '</div>';
   }
   function previewHtmlOf(w) { return '<div class="module card cm ms-live" data-preview="1">' + customHtml(w).replace(/<span class="dw-kebab-wrap">[\s\S]*?<\/span><\/div><\/div>/, '</div></div>') + '</div>'; }
   function renderCustom() {
@@ -264,11 +292,11 @@
   var DR = { open: false };
   function dateBack(days) { var d = new Date(2026, 9, 12); d.setDate(d.getDate() - days); return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()] + ' ' + d.getDate(); }
   function recordsFor(mid, loc, dept, detail, count) {
-    var m = metric(mid), f = loc && loc !== 'all' ? fac(loc) : null, out = [], n = Math.max(1, Math.min(count, 40));
-    var people = D.employees, facs = D.facilities;
+    var m = metric(mid), facs = scopeFacs(loc), f = scopeKind(loc) === 'one' ? facs[0] : null, out = [], n = Math.max(1, Math.min(count, 40));
+    var people = D.employees;
     for (var i = 0; i < n; i++) {
       var p = people[(i * 7 + mid.length) % people.length], ff = f || facs[(i * 5 + 1) % facs.length], dp = dept || (f ? f.departments[(i * 3) % f.departments.length].name : p.dept);
-      var opt = detail || m.detail.options[(i * 2 + mid.length) % m.detail.options.length], where = dp + ' · ' + short(ff.name);
+      var opt = detail.length ? detail[i % detail.length] : m.detail.options[(i * 2 + mid.length) % m.detail.options.length], where = dp + ' · ' + short(ff.name);
       switch (mid) {
         case 'overdue': out.push({ cells: [p.name, opt, dp, short(ff.name), dateBack(90 - i * 4), (18 + i * 3) + ' days'], id: p.id }); break;
         case 'compliance': out.push({ cells: [p.name, opt, dp, short(ff.name), i % 4 === 0 ? 'Overdue' : 'Current', i % 4 === 0 ? dateBack(30 + i) : dateBack(-120 + i * 9)], id: p.id }); break;
@@ -285,10 +313,10 @@
   }
   var DR_COLS = { overdue: ['Employee', 'Course', 'Department', 'Facility', 'Due', 'Overdue by'], compliance: ['Employee', 'Course', 'Department', 'Facility', 'Status', 'Due'], completions: ['Employee', 'Course', 'Department', 'Facility', 'Completed', 'Score'], quals: ['Employee', 'Qualification', 'Department', 'Facility', 'Expires', 'In'], incidents: ['Incident', 'Type', 'Employee', 'Where', 'Date', 'Status'], trir: ['Incident', 'Type', 'Employee', 'Where', 'Date', 'Status'], near_miss: ['Near miss', 'Type', 'Where', 'Date', 'Reported by', 'Status'], observations: ['Observation', 'Category', 'Where', 'Date', 'Logged by', 'Status'], open_ca: ['Action', 'Title', 'Source', 'Owner', 'Where', 'Due'], inspections: ['Inspection', 'Type', 'Where', 'Date', 'Inspector', 'Result'] };
   function openDrill(mid, locKey, spec) {
-    var parts = (locKey || 'all').split('|'), loc = parts[0], dept = parts[1] || null, m = metric(mid), detail = spec && spec.detail ? spec.detail[mid] : null;
+    var parts = (locKey || 'all').split('|'), loc = parts[0], dept = parts[1] || null, m = metric(mid), detail = spec ? dlist(spec, mid) : [];
     var sp = spec || { scope: loc, range: 'dash', detail: {} }, v, people;
     if (dept) { var f = fac(loc), d = f.departments.filter(function (x) { return x.name === dept; })[0]; v = fmtVal(mid, deptValue(f, d, mid) * scaleFor(sp, mid)); people = d.employees; }
-    else { v = total(Object.assign({}, sp, { scope: loc }), mid); people = loc === 'all' ? D.facilities.reduce(function (a, x) { return a + x.employees; }, 0) : fac(loc).employees; }
+    else { v = total(Object.assign({}, sp, { scope: loc }), mid); people = scopeFacs(loc).reduce(function (a, x) { return a + x.employees; }, 0); }
     var count = m.kind === 'count' ? v : m.kind === 'pct' ? Math.round(people * v / 100 * (mid === 'compliance' ? 0.08 : 1) * detailFactor(sp, mid)) : Math.round(v * 3);
     DR = { open: true, mid: mid, loc: loc, dept: dept, detail: detail, value: v, count: count, q: '', records: recordsFor(mid, loc, dept, detail, count), spec: sp };
     document.body.classList.add('drill-open'); renderDrill(); setTimeout(function () { var x = $('#drillQ', ui.drill); if (x) x.focus(); }, 60);
@@ -299,13 +327,13 @@
   function renderDrill() {
     var el = ui.drill; if (!el) return;
     if (!DR.open) { el.hidden = true; el.innerHTML = ''; return; }
-    var m = metric(DR.mid), where = (DR.loc === 'all' ? 'All facilities' : fac(DR.loc).name) + (DR.dept ? ' › ' + DR.dept : '');
+    var m = metric(DR.mid), where = scopeLabel(DR.loc) + (DR.dept ? ' › ' + DR.dept : '');
     var recs = drillFiltered(), cols = DR_COLS[DR.mid];
     var actions = m.src === 'ct' ? '<vaadin-button theme="primary small" data-act="drill-assign">Assign training</vaadin-button><vaadin-button theme="secondary small" data-act="drill-open">Open in Convergence</vaadin-button>' : '<vaadin-button theme="primary small" data-act="drill-open">Open in Vector EHS</vaadin-button>';
     var what = m.kind === 'pct' ? esc(num(DR.count)) + ' ' + (DR.mid === 'compliance' ? 'people not current' : 'people overdue') : m.kind === 'rate' ? esc(num(DR.count)) + ' recordable cases behind the rate' : esc(num(DR.count)) + ' records';
     el.hidden = false;
     el.innerHTML = '<div class="drill-head"><div class="drill-flow">' + srcChip(m.src, PRODUCT[m.src].label) + '<span class="drill-where"><i class="fa-regular fa-location-dot" aria-hidden="true"></i>' + esc(where) + '</span>' + (DR.spec.range && DR.spec.range !== 'dash' ? '<span class="drill-where"><i class="fa-regular fa-calendar-range" aria-hidden="true"></i>' + esc(rangeLabel(DR.spec.range)) + '</span>' : '') + '</div>' +
-      '<h2>' + esc(m.label) + (DR.detail ? ': ' + esc(DR.detail) : '') + '</h2><div class="drill-big"><b>' + esc(num(DR.value)) + m.unit + '</b><span>' + what + '</span></div>' +
+      '<h2>' + esc(m.label) + (DR.detail.length ? ': ' + esc(DR.detail.join(', ')) : '') + '</h2><div class="drill-big"><b>' + esc(num(DR.value)) + m.unit + '</b><span>' + what + '</span></div>' +
       '<button type="button" class="rd-close" data-act="drill-close" aria-label="Close"><i class="fa-regular fa-xmark" aria-hidden="true"></i></button></div>' +
       '<div class="drill-tools"><vaadin-text-field theme="outlined" id="drillQ" placeholder="Filter these records" clear-button-visible value="' + esc(DR.q) + '"><i slot="prefix" class="fa-regular fa-magnifying-glass" aria-hidden="true"></i></vaadin-text-field><span class="drill-count">' + recs.length + ' of ' + DR.records.length + '</span></div>' +
       '<div class="drill-body"><table class="drill-table"><thead><tr>' + cols.map(function (c) { return '<th>' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + drillRows(recs, cols) + '</tbody></table>' + (DR.count > DR.records.length ? '<p class="drill-more">Showing the first ' + DR.records.length + ' of ' + esc(num(DR.count)) + '. Open in ' + esc(PRODUCT[m.src].label) + ' for the full list.</p>' : '') + '</div>' +
@@ -321,24 +349,24 @@
   }
 
   /* ── Add widget: full-screen takeover ──────────────────────────────────── */
-  var TRY = ['Compare safety trends at Plant 4 with its training data', 'Who is overdue on Lockout/Tagout at Plant 2, as a table', 'Incident rate vs training compliance across all facilities', 'Forklift incidents vs forklift refresher completions, last 12 months'];
+  var TRY = ['Compare safety trends at Plant 4 with its training data', 'Who is overdue on Lockout/Tagout or Hazard Communication at Plant 2, as a table', 'Incident rate vs training compliance across all facilities', 'Forklift incidents vs forklift refresher completions, last 12 months'];
   function openAdd(opts) {
     opts = opts || {};
     var ex = opts.edit ? widget(opts.edit) : null;
-    A = ex ? { id: ex.id, scope: ex.scope, m: mids(ex).slice(), viz: ex.viz, range: ex.range || 'dash', detail: Object.assign({}, ex.detail || {}), name: ex.title || '', tab: 'create', thread: [], q: '', thinking: false }
-           : { id: null, scope: 'all', m: [], viz: 'bars', range: 'dash', detail: {}, name: '', tab: opts.tab || 'create', q: opts.q || '', thread: [], thinking: false };
+    A = ex ? { id: ex.id, scope: ex.scope, m: mids(ex).slice(), viz: ex.viz, range: ex.range || 'dash', detail: Object.assign({}, ex.detail || {}), filter: Object.assign({}, ex.filter || {}), name: ex.title || '', tab: 'create', thread: [], q: '', thinking: false }
+           : { id: null, scope: 'all', m: [], viz: 'bars', range: 'dash', detail: {}, filter: {}, name: '', tab: opts.tab || 'create', q: opts.q || '', thread: [], thinking: false };
     S.chatMin = !!opts.chatMin; S.studio = true; renderStudio();
     if (opts.q) setTimeout(function () { ask(opts.q); }, 60);
   }
   function closeStudio() { S.studio = false; ui.studio.hidden = true; ui.studio.innerHTML = ''; document.body.classList.remove('is-studio'); }
-  function specOf() { return { scope: A.scope, m: A.m.slice(), viz: A.viz, range: A.range, detail: Object.assign({}, A.detail), title: A.name || '' }; }
+  function specOf() { return { scope: A.scope, m: A.m.slice(), viz: A.viz, range: A.range, detail: Object.assign({}, A.detail), filter: Object.assign({}, A.filter || {}), title: A.name || '' }; }
   function interpret(q) {
     var t = q.toLowerCase(), hasMetric = METRIC_WORDS.some(function (p) { return p[1].some(function (w) { return t.indexOf(w) > -1; }); });
     if (A.m.length && !hasMetric) {
       var viz = /trend|over time|week/.test(t) ? 'trend' : /scatter|correlat/.test(t) ? 'scatter' : /table|list|rows|who /.test(t) ? 'table' : /number|total|kpi/.test(t) ? 'kpi' : /bar/.test(t) ? 'bars' : null;
-      var scope = null; Object.keys(FAC_WORDS).forEach(function (id) { FAC_WORDS[id].forEach(function (w) { if (t.indexOf(w) > -1) scope = id; }); }); if (/all facilit|every facilit|company/.test(t)) scope = 'all';
-      var range = rangeFrom(t);
-      var det = findDetails(t, A.m); Object.keys(det).forEach(function (k) { A.detail[k] = det[k]; });
+      var scope = findScope(t); if (/all facilit|every facilit|company/.test(t)) scope = 'all';
+      var range = rangeFrom(t), only = /\b(only|just)\b/.test(t);
+      var det = findDetails(t, A.m); Object.keys(det).forEach(function (k) { var cur = only ? [] : dlist(A, k).slice(); det[k].forEach(function (o) { if (cur.indexOf(o) < 0) cur.push(o); }); A.detail[k] = cur; });
       if (viz && vizAllowed(A).indexOf(viz) > -1) A.viz = viz; if (scope) A.scope = scope; if (range) A.range = range;
       return (viz || scope || range || Object.keys(det).length) ? 'Updated: now ' + readBack(specOf()) : 'I kept the widget as it is. Try a location, a metric, a date range, or a chart type, like "show it as a table".';
     }
@@ -357,28 +385,28 @@
       : '<div class="ms-ai"><span class="ms-mark sm"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><div class="bubble">Tell me what you want to see: a location, the metrics to compare, a date range, and how to show it. I will fill in the parameters and you can adjust them.</div></div><div class="ms-try"><div class="ms-try-l">Try asking</div>' + TRY.map(function (q) { return '<button type="button" class="ms-choice" data-act="ms-try" data-q="' + esc(q) + '">' + esc(q) + '</button>'; }).join('') + '</div>';
     return '<section class="ms-chat" aria-label="Describe the widget"><div class="ms-chat-head"><div class="ms-chat-row"><span class="ms-mark"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><div class="ms-chat-title">Describe it</div><button type="button" class="ms-iconbtn" data-act="ms-chat-reset" title="New conversation" aria-label="New conversation"><i class="fa-regular fa-rotate-left" aria-hidden="true"></i></button><button type="button" class="ms-iconbtn" data-act="ms-chat-min" title="Minimize the chat" aria-label="Minimize the chat"><i class="fa-regular fa-angles-left" aria-hidden="true"></i></button></div><p class="ms-chat-note">Ask in plain language and refine as you go, like "make it a table", "only Lockout/Tagout" or "last 30 days".</p></div>' +
       '<div class="ms-thread" role="log" aria-live="polite">' + thread + (A.thinking ? '<div class="ms-ai"><span class="ms-mark sm"><i class="fa-regular fa-message-lines" aria-hidden="true"></i></span><div class="bubble ms-thinking"><span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span><em>Reading both products…</em></div></div>' : '') + '</div>' +
-      '<div class="ms-input-wrap"><div class="ms-input"><textarea id="msAsk" rows="2" placeholder="e.g. Who is overdue on Lockout/Tagout at Plant 2" aria-label="Describe the widget">' + esc(A.q || '') + '</textarea><button type="button" class="ms-send" data-act="ms-send" aria-label="Send"' + (A.thinking ? ' disabled' : '') + '><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button></div><p class="ms-input-note">Charts land on the preview and your dashboard, never in the thread.</p></div></section>';
+      '<div class="ms-input-wrap"><div class="ms-input"><textarea id="msAsk" rows="2" placeholder="e.g. Who is overdue on Lockout/Tagout at Plant 2 and Plant 4" aria-label="Describe the widget">' + esc(A.q || '') + '</textarea><button type="button" class="ms-send" data-act="ms-send" aria-label="Send"' + (A.thinking ? ' disabled' : '') + '><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button></div><p class="ms-input-note">Charts land on the preview and your dashboard, never in the thread.</p></div></section>';
   }
   function paramsHtml() {
     var list = [['ehs', 'Vector EHS'], ['ct', 'Convergence']].map(function (g) {
       return '<div class="dw-cat-t">' + g[1] + '</div>' + METRICS.filter(function (m) { return m.src === g[0]; }).map(function (m) {
         var i = A.m.indexOf(m.id), on = i > -1, specific = on && S.demo.specific;
         return '<div class="ms-mwrap' + (specific ? ' is-on' : '') + '"><button type="button" class="dw-mrow ms-check' + (on ? ' is-on' : '') + '" role="checkbox" aria-checked="' + on + '" data-act="toggle-m" data-id="' + m.id + '"><span class="ms-box" aria-hidden="true">' + (on ? '<i class="fa-solid fa-check"></i>' : '') + '</span><span class="dw-ic"><i class="fa-regular ' + m.icon + '" aria-hidden="true"></i></span><span class="ms-mlabel">' + esc(m.label) + '</span>' + (on ? '<i class="sw ms-sw" style="background:' + SERIES[i] + '" title="Series color"></i>' : '') + '</button>' +
-          (specific ? '<div class="ms-detail"><vaadin-select theme="outlined" data-detail="' + m.id + '" label="' + esc(m.detail.label) + '" style="width:100%"></vaadin-select></div>' : '') + '</div>';
+          (specific ? '<div class="ms-detail"><vaadin-multi-select-combo-box theme="outlined" data-detail="' + m.id + '" label="' + esc(cap(plural(m.detail.label))) + '" placeholder="All ' + esc(plural(m.detail.label)) + '" style="width:100%"></vaadin-multi-select-combo-box></div>' : '') + '</div>';
       }).join('');
     }).join('');
     return '<section class="ms-params" aria-label="Parameters"><div class="ms-col-head"><h2>Parameters</h2><p>Filled in from the chat, or set them yourself.</p></div><div class="ms-params-body">' +
       '<vaadin-text-field theme="outlined" id="msName" label="Widget name" placeholder="' + esc(A.m.length ? title(specOf()) : 'Named for what it shows') + '" value="' + esc(A.name || '') + '" style="width:100%"></vaadin-text-field>' +
-      '<div class="dw-step"><span class="n">1</span>Where</div><vaadin-select theme="outlined" id="msScope" aria-label="Where" style="width:100%"></vaadin-select>' +
+      '<div class="dw-step"><span class="n">1</span>Where</div><vaadin-multi-select-combo-box theme="outlined" id="msScope" aria-label="Where" placeholder="All facilities" style="width:100%"></vaadin-multi-select-combo-box><p class="ms-hint">Leave empty for all facilities. One facility breaks down by department; several compare those facilities.</p>' +
       '<div class="dw-step"><span class="n">2</span>Date range</div><vaadin-select theme="outlined" id="msRange" aria-label="Date range" style="width:100%"></vaadin-select>' +
       '<div class="dw-step"><span class="n">3</span>Metrics<span class="ms-count">' + A.m.length + ' selected</span>' + (A.m.length ? '<button type="button" class="ms-clear" data-act="clear-m">Clear</button>' : '') + '</div>' +
-      '<p class="ms-hint">Pick as many as you like from either product to compare them.' + (S.demo.specific ? ' Each one can be narrowed to a course, type or qualification.' : '') + '</p><div role="group" aria-label="Metrics">' + list + '</div>' +
+      '<p class="ms-hint">Pick as many as you like from either product to compare them.' + (S.demo.specific ? ' Each one can be narrowed to one or more courses, types or qualifications.' : '') + '</p><div role="group" aria-label="Metrics">' + list + '</div>' +
       (A.m.length ? '<div class="dw-step"><span class="n">4</span>Show as</div><div class="dw-vizchips">' + vizAllowed(A).map(function (v) { return '<button type="button" class="dw-chip' + (A.viz === v ? ' is-on' : '') + '" data-act="pick-viz" data-v="' + v + '"><i class="fa-regular ' + VIZ[v][1] + '" aria-hidden="true"></i>' + VIZ[v][0] + '</button>'; }).join('') + '</div>' + (A.m.length !== 2 ? '<p class="ms-hint">Scatter needs exactly two metrics.</p>' : '') : '') +
       '</div></section>';
   }
   function previewHtml() {
     var spec = A.m.length ? specOf() : null;
-    return '<section class="ms-preview" aria-label="Preview"><div class="ms-col-head"><h2>Preview</h2><p>' + (spec ? 'How it will look on your dashboard. ' + (A.scope === 'all' ? 'Breaks down by facility. ' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '. ') + esc(rangeLabel(A.range)) + '.' + (S.demo.drill ? ' Click any number to see the records behind it.' : '') : 'Describe the widget in the chat, or pick metrics in Parameters.') + '</p></div>' +
+    return '<section class="ms-preview" aria-label="Preview"><div class="ms-col-head"><h2>Preview</h2><p>' + (spec ? 'How it will look on your dashboard. ' + (scopeKind(A.scope) === 'all' ? 'Breaks down by facility. ' : scopeKind(A.scope) === 'multi' ? 'Compares ' + esc(scopeLabel(A.scope)) + '. ' : 'Breaks down by department at ' + esc(scopeLabel(A.scope)) + '. ') + esc(rangeLabel(A.range)) + '.' + (S.demo.drill ? ' Click any number to see the records behind it.' : '') : 'Describe the widget in the chat, or pick metrics in Parameters.') + '</p></div>' +
       (spec ? '<div class="ms-canvas"><div class="ms-ghost">Key metrics</div>' + previewHtmlOf(Object.assign({ id: 'preview' }, spec)) + '<div class="ms-ghost">Recommended actions</div><p class="ms-where"><i class="fa-regular fa-arrow-turn-down-right" aria-hidden="true"></i>' + (A.id ? 'Stays where it is on your dashboard.' : 'Lands directly under Key metrics. Move it any time from its menu.') + '</p></div>'
         : '<div class="dw-prev-empty ms-empty"><i class="fa-regular fa-chart-mixed" aria-hidden="true"></i><b>Nothing to preview yet</b><span>Try "Who is overdue on Lockout/Tagout at Plant 2, as a table".</span></div>') + '</section>';
   }
@@ -412,11 +440,18 @@
       (create ? '<div class="ms-cols' + (S.chatMin ? ' chat-min' : '') + '">' + chatHtml() + paramsHtml() + previewHtml() + '</div>' : existingHtml());
     $$('.ms-params-body, .ms-thread, .ms-existing', el).forEach(function (x) { var k = x.className.split(' ')[0]; if (keep[k] != null) x.scrollTop = keep[k]; });
     var th = $('.ms-thread', el); if (th && A.thread.length) th.scrollTop = th.scrollHeight;
-    var sel = $('#msScope', el); if (sel) { sel.items = [{ label: 'All facilities', value: 'all' }].concat(D.facilities.map(function (f) { return { label: f.name, value: f.id }; })); sel.value = A.scope; sel.addEventListener('value-changed', function (e) { if (e.detail.value && e.detail.value !== A.scope) { A.scope = e.detail.value; renderStudio(); } }); }
+    var sel = $('#msScope', el); if (sel) { sel.items = D.facilities.map(function (f) { return f.name; }); sel.selectedItems = scopeKind(A.scope) === 'all' ? [] : scopeFacs(A.scope).map(function (f) { return f.name; }); sel.addEventListener('selected-items-changed', function (e) { var names = e.detail.value || [], ids = D.facilities.filter(function (f) { return names.indexOf(f.name) > -1; }).map(function (f) { return f.id; }), next = ids.length ? ids.join(',') : 'all'; if (next !== A.scope) { A.scope = next; refreshPreview(); } }); }
     var rs = $('#msRange', el); if (rs) { rs.items = RANGES.map(function (r) { return { label: r[1], value: r[0] }; }); rs.value = A.range; rs.addEventListener('value-changed', function (e) { if (e.detail.value && e.detail.value !== A.range) { A.range = e.detail.value; renderStudio(); } }); }
-    $$('vaadin-select[data-detail]', el).forEach(function (ds) { var m = metric(ds.dataset.detail); ds.items = [{ label: 'All ' + m.detail.label.toLowerCase() + 's', value: 'all' }].concat(m.detail.options.map(function (o) { return { label: o, value: o }; })); ds.value = A.detail[m.id] || 'all'; ds.addEventListener('value-changed', function (e) { var v = e.detail.value; if (!v || (A.detail[m.id] || 'all') === v) return; if (v === 'all') delete A.detail[m.id]; else A.detail[m.id] = v; renderStudio(); }); });
+    $$('vaadin-multi-select-combo-box[data-detail]', el).forEach(function (ds) { var m = metric(ds.dataset.detail); ds.items = m.detail.options.slice(); ds.selectedItems = dlist(A, m.id).slice(); ds.addEventListener('selected-items-changed', function (e) { var next = (e.detail.value || []).slice(); if (next.join('|') === dlist(A, m.id).join('|')) return; if (next.length) A.detail[m.id] = next; else delete A.detail[m.id]; refreshPreview(); }); });
     var nm = $('#msName', el); if (nm) nm.addEventListener('change', function () { A.name = nm.value.trim(); renderStudio(); });
     if (!create) mountClones();
+    $$('[data-drill]', el).forEach(function (x) { x.setAttribute('tabindex', '0'); });
+  }
+  /* Re-render only the preview column (and the name placeholder) so an open multi-select overlay is not torn down */
+  function refreshPreview() {
+    var el = ui.studio, old = $('.ms-preview', el); if (!old) { renderStudio(); return; }
+    var tmp = document.createElement('div'); tmp.innerHTML = previewHtml(); old.replaceWith(tmp.firstElementChild);
+    var nm = $('#msName', el); if (nm && A.m.length) nm.placeholder = title(specOf());
     $$('[data-drill]', el).forEach(function (x) { x.setAttribute('tabindex', '0'); });
   }
   function openConfirm(wid) {
@@ -437,7 +472,8 @@
   }
   function bindStudio() {
     ui.studio.addEventListener('click', function (e) {
-      var dr = e.target.closest('[data-drill]'); if (dr && S.demo.drill) { e.preventDefault(); var sec = dr.closest('[data-ex-preview]'); var w = sec ? widget(sec.dataset.exPreview.slice(2)) : null; openDrill(dr.dataset.drill, dr.dataset.drillLoc, w || (A.tab === 'create' ? specOf() : null)); return; }
+      var dr = e.target.closest('[data-drill]'); if (dr && S.demo.drill) { e.preventDefault(); var sec = dr.closest('[data-ex-preview]'); var w = sec ? widget(sec.dataset.exPreview.slice(2)) : null; openDrill(dr.dataset.drill, dr.dataset.drillLoc, w ? viewSpec(w) : (A.tab === 'create' ? viewSpec(specOf()) : null)); return; }
+      var wf = e.target.closest('[data-wfilter]'); if (wf) { if (wf.dataset.wfilter === 'preview') { A.filter = A.filter || {}; A.filter[wf.dataset.mid] = wf.dataset.val; refreshPreview(); } else { var fw = widget(wf.dataset.wfilter); if (fw) { fw.filter = fw.filter || {}; fw.filter[wf.dataset.mid] = wf.dataset.val; renderCustom(); renderStudio(); } } return; }
       var b = e.target.closest('[data-act]'); if (!b) return;
       var act = b.dataset.act;
       if (act === 'ms-close') { closeStudio(); return; }
@@ -447,8 +483,8 @@
       if (act === 'ms-chat-reset') { A.thread = []; A.q = ''; renderStudio(); return; }
       if (act === 'ms-try') { ask(b.dataset.q); return; }
       if (act === 'ms-send') { ask(($('#msAsk', ui.studio) || {}).value); return; }
-      if (act === 'toggle-m') { var id = b.dataset.id, i = A.m.indexOf(id); if (i > -1) { A.m.splice(i, 1); delete A.detail[id]; } else A.m.push(id); if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; renderStudio(); var again = ui.studio.querySelector('[data-act="toggle-m"][data-id="' + id + '"]'); if (again) again.focus(); return; }
-      if (act === 'clear-m') { A.m = []; A.detail = {}; renderStudio(); return; }
+      if (act === 'toggle-m') { var id = b.dataset.id, i = A.m.indexOf(id); if (i > -1) { A.m.splice(i, 1); delete A.detail[id]; delete A.filter[id]; } else A.m.push(id); if (vizAllowed(A).indexOf(A.viz) < 0) A.viz = 'bars'; renderStudio(); var again = ui.studio.querySelector('[data-act="toggle-m"][data-id="' + id + '"]'); if (again) again.focus(); return; }
+      if (act === 'clear-m') { A.m = []; A.detail = {}; A.filter = {}; renderStudio(); return; }
       if (act === 'pick-viz') { A.viz = b.dataset.v; renderStudio(); return; }
       if (act === 'ex-preview') { var pid = b.dataset.id; S.exOpen[pid] = !S.exOpen[pid]; renderStudio(); return; }
       if (act === 'ex-edit') { openAdd({ edit: b.dataset.id }); return; }
@@ -486,9 +522,10 @@
       if (DR.open && !t.closest('[data-drill]') && !t.closest('#demoPill')) closeDrill();
       if (t.closest('#moduleStudio')) return;
       if (S.demo.drill) {
-        var dr = t.closest('#main [data-drill]'); if (dr) { e.preventDefault(); var sec = dr.closest('.module.cm'), w = sec ? widget(sec.id.slice(3)) : null; openDrill(dr.dataset.drill, dr.dataset.drillLoc, w || null); return; }
+        var dr = t.closest('#main [data-drill]'); if (dr) { e.preventDefault(); var sec = dr.closest('.module.cm'), w = sec ? widget(sec.id.slice(3)) : null; openDrill(dr.dataset.drill, dr.dataset.drillLoc, w ? viewSpec(w) : null); return; }
         var kp = t.closest('#kpis .kpi[data-report]'); if (kp && KPI_METRIC[kp.dataset.report]) { e.preventDefault(); e.stopImmediatePropagation(); var sc = (window.App && App.state) ? App.state().scope : 'all'; openDrill(KPI_METRIC[kp.dataset.report], sc, null); return; }
       }
+      var wf = t.closest('#main [data-wfilter]'); if (wf) { var fw = widget(wf.dataset.wfilter); if (fw) { fw.filter = fw.filter || {}; fw.filter[wf.dataset.mid] = wf.dataset.val; S.menu = null; renderCustom(); } return; }
       if (S.menu && !t.closest('.dw-kebab-wrap')) { S.menu = null; renderCustom(); }
       var cm = t.closest('[data-cmenu]'); if (cm) { e.stopPropagation(); S.menu = S.menu === cm.dataset.cmenu ? null : cm.dataset.cmenu; renderCustom(); return; }
       var mv = t.closest('[data-cmove]'); if (mv) { S.menu = null; renderCustom(); move('w:' + mv.dataset.cid, mv.dataset.cmove); return; }
@@ -527,7 +564,7 @@
   }
 
   /* ── Flow-map states ───────────────────────────────────────────────────── */
-  var KNOWN = ['settings', 'build', 'add-module', 'create-module', 'describe', 'create-min', 'existing-modules', 'specific', 'drill', 'existing-preview', 'confirm-remove'], pendingState = null, ready = false;
+  var KNOWN = ['settings', 'build', 'add-module', 'create-module', 'describe', 'create-min', 'existing-modules', 'specific', 'drill', 'existing-preview', 'confirm-remove', 'widget-filter'], pendingState = null, ready = false;
   function reset() { var v = fresh(); S.view = v.view; S.order = v.order; S.hidden = {}; S.menu = null; S.widgets = v.widgets; S.exOpen = {}; closeDrill(); if (ui.studio) closeStudio(); if (ui.confirm) ui.confirm.opened = false; }
   function applyState(id) {
     if (!ready) { if (KNOWN.indexOf(id) < 0) return false; pendingState = id; return true; }
@@ -539,9 +576,10 @@
       case 'existing-preview': show('home'); S.exOpen = {}; S.exOpen['w:' + S.widgets[0].id] = true; S.exOpen.compare = true; openAdd({ tab: 'existing' }); return true;
       case 'confirm-remove': show('home'); openAdd({ tab: 'existing' }); setTimeout(function () { openConfirm(S.widgets[0].id); }, 300); return true;
       case 'describe': show('home'); openAdd({ tab: 'create', q: 'Compare safety trends at Plant 4 with its training data' }); return true;
-      case 'specific': show('home'); openAdd({ tab: 'create', q: 'Who is overdue on Lockout/Tagout at Plant 2, as a table' }); return true;
+      case 'specific': show('home'); openAdd({ tab: 'create', q: 'Who is overdue on Lockout/Tagout or Hazard Communication at Plant 2, as a table' }); return true;
       case 'create-min': show('home'); openAdd({ tab: 'create', q: 'Compare safety trends at Plant 4 with its training data', chatMin: true }); return true;
-      case 'drill': show('home'); openDrill('overdue', 'plant2', { scope: 'plant2', range: 'dash', detail: { overdue: 'Lockout/Tagout' } }); return true;
+      case 'widget-filter': show('home'); S.widgets[0].filter = { incidents: 'Lacerations' }; renderCustom(); setTimeout(function () { var el = document.getElementById('cm-' + S.widgets[0].id); if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 200); return true;
+      case 'drill': show('home'); openDrill('overdue', 'plant2', { scope: 'plant2', range: 'dash', detail: { overdue: ['Lockout/Tagout', 'Hazard Communication'] } }); return true;
       default: return false;
     }
   }
@@ -553,7 +591,7 @@
     if (pendingState) { var p = pendingState; pendingState = null; applyState(p); }
   }
   window.Builder = { show: show, applyState: applyState, reset: reset, renderCustom: renderCustom, applyLayout: applyLayout, init: init, openDrill: openDrill };
-  var whenReady = Promise.all(['vaadin-select', 'vaadin-text-field', 'vaadin-dialog', 'vwc-switch'].map(function (t) { return customElements.whenDefined(t); }));
+  var whenReady = Promise.all(['vaadin-select', 'vaadin-multi-select-combo-box', 'vaadin-text-field', 'vaadin-dialog', 'vwc-switch'].map(function (t) { return customElements.whenDefined(t); }));
   var domReady = new Promise(function (res) { if (document.readyState !== 'loading') res(); else document.addEventListener('DOMContentLoaded', res); });
   Promise.all([whenReady, domReady]).then(init);
   domReady.then(function () { setTimeout(init, 9000); });

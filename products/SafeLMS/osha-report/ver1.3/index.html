@@ -177,6 +177,34 @@
     height: 36px; box-sizing: border-box; padding: 0 14px; font-size: var(--lumo-font-size-s, .875rem); color: var(--ink-2);
   }
 
+  /* ── Date Range filter (restored 2026-10-14 — PRD FR-4 lists a date range with relative
+     presets like "past 30 days"). The options expand INLINE inside the panel (not a floating
+     menu) because the panel body scrolls and would clip an absolute dropdown. Presets are
+     relative to the report's "Last updated" date (SORT_REF). ── */
+  .date-range-dd { position: relative; }
+  .drange-trigger {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    background: #fff; border: 1px solid #d1d5db; border-radius: 6px; padding: 7px 10px;
+    font-size: 15px; color: var(--ink-2); cursor: pointer; font-family: inherit; gap: 8px; text-align: left;
+  }
+  .drange-trigger:hover { border-color: var(--muted-2); }
+  .drange-trigger:focus-visible { outline: 2px solid var(--blue-primary); outline-offset: 1px; }
+  .drange-trigger-main { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+  .drange-trigger-main .fa-calendar { color: var(--muted); font-size: 13px; }
+  .drange-trigger-chev { font-size: 12px; color: var(--muted); transition: transform .15s; }
+  .drange-trigger[aria-expanded="true"] .drange-trigger-chev { transform: rotate(180deg); }
+  .drange-menu { margin-top: 6px; background: #fff; border: 1px solid var(--hair); border-radius: 8px; padding: 6px; }
+  .drange-menu[hidden] { display: none; }
+  .drange-opt { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 8px 10px; font-size: 15px; color: var(--ink-2); cursor: pointer; font-family: inherit; }
+  .drange-opt:hover { background: var(--hair-2); }
+  .drange-opt.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+  .drange-opt-custom { border-top: 1px solid var(--hair-2); margin-top: 4px; border-radius: 0 0 6px 6px; }
+  .drange-custom { padding: 6px 4px 4px; }
+  .drange-custom[hidden] { display: none; }
+  .drange-back { background: none; border: 0; color: var(--blue-primary); font-size: 14px; cursor: pointer; padding: 4px; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .drange-custom-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+  .drange-hint { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+
   /* ── Charts (V1) ── */
   .chart-area { display: flex; gap: 32px; padding: 20px 20px 16px; flex-wrap: wrap; align-items: stretch; }
   .chart-col { flex: 0 0 auto; }
@@ -1182,6 +1210,42 @@
 
           <div class="filter-divider"></div>
 
+          <!-- Date Range — restored 2026-10-14 per PRD FR-4. Edits the DRAFT like every other
+               panel filter; nothing applies until "Apply Filters". A learner is in range when their
+               assignment window (start date → due date) overlaps it. PRD does not say which date the
+               range applies to — this is a stated assumption, flagged for the PM. -->
+          <div class="filter-section">
+            <label class="filter-label" id="drangeLabel">Date Range</label>
+            <div class="date-range-dd" id="dateRangeDD">
+              <button type="button" class="drange-trigger" id="drangeTrigger" aria-expanded="false" aria-controls="drangeMenu" aria-labelledby="drangeLabel drangeTriggerLabel">
+                <span class="drange-trigger-main"><i aria-hidden="true" class="fa-regular fa-calendar"></i><span class="drange-trigger-label" id="drangeTriggerLabel">Past 30 days</span></span>
+                <i aria-hidden="true" class="fa-solid fa-chevron-down drange-trigger-chev"></i>
+              </button>
+              <div class="drange-menu" id="drangeMenu" hidden>
+                <div class="drange-presets" role="group" aria-label="Date range presets">
+                  <button type="button" class="drange-opt" data-range="today">Today</button>
+                  <button type="button" class="drange-opt" data-range="yesterday">Yesterday</button>
+                  <button type="button" class="drange-opt" data-range="last7">Past 7 days</button>
+                  <button type="button" class="drange-opt" data-range="last30">Past 30 days</button>
+                  <button type="button" class="drange-opt" data-range="last90">Past 90 days</button>
+                  <button type="button" class="drange-opt" data-range="lastyear">Past year</button>
+                  <button type="button" class="drange-opt drange-opt-custom" data-range="custom">Custom date range</button>
+                </div>
+                <div class="drange-custom" hidden>
+                  <button type="button" class="drange-back"><i aria-hidden="true" class="fa-solid fa-chevron-left"></i> Date range options</button>
+                  <vaadin-date-picker theme="small" class="drange-start" label="Start date" style="width:100%"></vaadin-date-picker>
+                  <vaadin-date-picker theme="small" class="drange-end" label="End date" style="width:100%;margin-top:8px"></vaadin-date-picker>
+                  <div class="drange-custom-actions">
+                    <vaadin-button theme="secondary small" class="drange-use">Use these dates</vaadin-button>
+                  </div>
+                </div>
+              </div>
+              <p class="drange-hint">Learners whose assignment (start to due date) falls in this range.</p>
+            </div>
+          </div>
+
+          <div class="filter-divider"></div>
+
           <!-- People — one entry point. Opens the People Selector (Positions & Locations, Dynamic
                Group, Clever Group, Quick Groups). Card shows the current audience selection. -->
           <div class="filter-section">
@@ -1964,9 +2028,10 @@
     sel: { mode: 'all', posId: 'all', locId: 'all', groupId: null },
     dueSoonOnly: false,
     nearLimitOnly: false,
+    range: null,           // Date Range — set to the default preset (Past 30 days) just below
   };
   // The panel edits a DRAFT copy; nothing takes effect until "Apply Filters" is clicked.
-  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), sel: { ...f.sel }, dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly });
+  const cloneFilters = f => ({ statuses: new Set(f.statuses), courses: new Set(f.courses), actions: new Set(f.actions), sel: { ...f.sel }, dueSoonOnly: f.dueSoonOnly, nearLimitOnly: f.nearLimitOnly, range: f.range && { ...f.range } });
   let draft = cloneFilters(filters);
   // The active Action Needed CARD (or null) — highlighted + drilled into by the pie. Action Needed is
   // SINGLE-SELECT everywhere: clicking a card OR applying a bucket from the panel's radio group sets
@@ -1979,6 +2044,7 @@
     filters.sel = { ...draft.sel };
     filters.dueSoonOnly = draft.dueSoonOnly;
     filters.nearLimitOnly = draft.nearLimitOnly;
+    filters.range = draft.range && { ...draft.range };
   }
   // Quick / Dynamic / Clever groups — each learner is assigned one deterministically from their
   // ext so the filters demonstrate real narrowing (no backing roster in a mock).
@@ -2054,6 +2120,35 @@
     const days = (d.getTime() - SORT_REF.getTime()) / 86400000;
     return days <= DUE_SOON_DAYS;
   }
+  /* Date Range (PRD FR-4). Presets are relative to the report's "Last updated" date (SORT_REF).
+     ASSUMPTION (PRD is silent on which date the range applies to): a learner is in range when
+     their assignment window — start date (none yet for Not Started) through due date — overlaps
+     the range. Open question for the PM in the review notes. */
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fmtDay = d => `${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  const dayOffset = n => { const d = new Date(SORT_REF); d.setDate(d.getDate() - n); return d; };
+  const RANGE_PRESETS = {
+    today:     { label: 'Today',        start: () => dayOffset(0),   end: () => dayOffset(0) },
+    yesterday: { label: 'Yesterday',    start: () => dayOffset(1),   end: () => dayOffset(1) },
+    last7:     { label: 'Past 7 days',  start: () => dayOffset(7),   end: () => dayOffset(0) },
+    last30:    { label: 'Past 30 days', start: () => dayOffset(30),  end: () => dayOffset(0) },
+    last90:    { label: 'Past 90 days', start: () => dayOffset(90),  end: () => dayOffset(0) },
+    lastyear:  { label: 'Past year',    start: () => dayOffset(365), end: () => dayOffset(0) },
+  };
+  const DEFAULT_RANGE = 'last30';
+  function presetRange(key) {
+    const p = RANGE_PRESETS[key];
+    return { preset: key, label: p.label, start: p.start(), end: p.end() };
+  }
+  const isDefaultRange = rg => rg.preset === DEFAULT_RANGE;
+  function passesRange(r, rg) {
+    if (!rg) return true;
+    const cd = courseDates(r);
+    const start = mdyToDate(cd.start), due = mdyToDate(cd.due);
+    if (start && start > rg.end) return false;     // assignment hadn't started by the range end
+    if (due && due < rg.start) return false;       // assignment was due before the range began
+    return true;
+  }
   // "Base" filters — course · status · due-soon · near-limit. These scope both the table
   // and the Action-Needed cards (the cards intentionally ignore the action-needed quick filter
   // so their counts stay meaningful).
@@ -2064,6 +2159,7 @@
     if (!passesAudience(r, filters.sel)) return false;
     if (filters.dueSoonOnly && !dueSoon(r)) return false;
     if (filters.nearLimitOnly && !(r.status === 'failed' && (r.attempts || 1) >= 2)) return false;
+    if (!passesRange(r, filters.range)) return false;
     return true;
   }
   // The People Selector audience filter — one mechanism at a time.
@@ -2348,6 +2444,7 @@
     if (filters.sel.mode !== 'all') n++;
     if (filters.dueSoonOnly) n++;
     if (filters.nearLimitOnly) n++;
+    if (filters.range && !isDefaultRange(filters.range)) n++;   // the default range isn't a "filter"
     return n;
   }
   // Human label for the current audience selection (for the applied-filter chip).
@@ -2373,6 +2470,7 @@
     const ce = document.getElementById('chk-due-soon'); if (ce) ce.checked = draft.dueSoonOnly;
     const cf = document.getElementById('chk-failed-limit'); if (cf) cf.checked = draft.nearLimitOnly;
     updateAudienceCard();   // People card reflects the draft audience selection too
+    syncDateRange();        // Date Range dropdown reflects the draft range
   }
   // One removable chip per active filter, rendered after the "Filtered to:" lead-in.
   function renderAppliedChips() {
@@ -2389,6 +2487,7 @@
       chips.push({ k: kind, label: audienceChipLabel(filters.sel), remove: () => { filters.sel = { mode: 'all', posId: 'all', locId: 'all', groupId: null }; } });
     }
     if (filters.dueSoonOnly) chips.push({ k: '', label: 'Due ≤ 30 days', remove: () => { filters.dueSoonOnly = false; const e = document.getElementById('chk-due-soon'); if (e) e.checked = false; } });
+    if (filters.range && !isDefaultRange(filters.range)) chips.push({ k: 'Dates', label: filters.range.label, remove: () => { filters.range = presetRange(DEFAULT_RANGE); } });
     if (filters.nearLimitOnly) chips.push({ k: '', label: 'Near 3-failure limit', remove: () => { filters.nearLimitOnly = false; const e = document.getElementById('chk-failed-limit'); if (e) e.checked = false; } });
     appliedFilters.innerHTML = '';
     chips.forEach(c => {
@@ -2406,18 +2505,67 @@
     filterLead.textContent = hasFilters ? 'Filtered to:' : 'Showing all courses';
     renderAppliedChips();   // active filters render as removable chips after the lead-in
     filtersClearBtn.hidden = !hasFilters;
+    // The overview card's calendar badge always names the APPLIED range.
+    const badge = document.querySelector('#completionOverview .date-badge');
+    if (badge && filters.range) badge.innerHTML = `<i aria-hidden="true" class="fa-regular fa-calendar"></i> ${filters.range.label}`;
   }
   function clearAllFilters() {
     filters.statuses.clear();
     filters.courses.clear(); filters.actions.clear();
     filters.sel = { mode: 'all', posId: 'all', locId: 'all', groupId: null };
     filters.dueSoonOnly = false; filters.nearLimitOnly = false;
+    filters.range = presetRange(DEFAULT_RANGE);
     draft = cloneFilters(filters);
     searchInput.value = '';
     syncAllChecks();
     applyFilters();
   }
   filtersClearBtn.addEventListener('click', clearAllFilters);
+
+  /* ═══════════════ Date Range dropdown — edits the DRAFT; applies with "Apply Filters" ═══════════════ */
+  const drangeTrigger = document.getElementById('drangeTrigger');
+  const drangeTriggerLabel = document.getElementById('drangeTriggerLabel');
+  const drangeMenu = document.getElementById('drangeMenu');
+  const drangePresets = drangeMenu.querySelector('.drange-presets');
+  const drangeCustom = drangeMenu.querySelector('.drange-custom');
+  const drangeOpts = drangeMenu.querySelectorAll('.drange-opt');
+  const drangeStart = drangeMenu.querySelector('.drange-start');
+  const drangeEnd = drangeMenu.querySelector('.drange-end');
+  const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const parseIsoDay = v => { if (!v) return null; const [y, m, d] = v.split('-').map(Number); return (y && m && d) ? new Date(y, m - 1, d) : null; };
+  function drangeShow(which) {   // 'presets' | 'custom' | null (closed)
+    drangeMenu.hidden = !which;
+    drangeTrigger.setAttribute('aria-expanded', String(!!which));
+    drangePresets.hidden = which !== 'presets';
+    drangeCustom.hidden = which !== 'custom';
+  }
+  function syncDateRange() {
+    const rg = draft.range || presetRange(DEFAULT_RANGE);
+    drangeTriggerLabel.textContent = rg.label;
+    drangeOpts.forEach(o => o.classList.toggle('active', o.dataset.range === rg.preset));
+    drangeStart.value = isoDay(rg.start); drangeEnd.value = isoDay(rg.end);
+    drangeEnd.invalid = false;
+    drangeShow(null);
+  }
+  drangeTrigger.addEventListener('click', () => drangeShow(drangeMenu.hidden ? 'presets' : null));
+  drangeOpts.forEach(opt => opt.addEventListener('click', () => {
+    if (opt.dataset.range === 'custom') { drangeShow('custom'); drangeStart.focus(); return; }
+    draft.range = presetRange(opt.dataset.range);
+    syncDateRange();
+    drangeTrigger.focus();
+  }));
+  drangeMenu.querySelector('.drange-back').addEventListener('click', () => drangeShow('presets'));
+  drangeMenu.querySelector('.drange-use').addEventListener('click', () => {
+    const s = parseIsoDay(drangeStart.value), e = parseIsoDay(drangeEnd.value);
+    if (!s || !e) { drangeEnd.invalid = true; drangeEnd.errorMessage = 'Pick a start and an end date'; return; }
+    if (e < s)    { drangeEnd.invalid = true; drangeEnd.errorMessage = 'End date must be on or after the start date'; return; }
+    draft.range = { preset: 'custom', label: `${fmtDay(s)} – ${fmtDay(e)}`, start: s, end: e };
+    syncDateRange();
+    drangeTrigger.focus();
+  });
+  // Initial applied range = the default preset (shown on the overview badge from first render).
+  filters.range = presetRange(DEFAULT_RANGE);
+  draft = cloneFilters(filters);
 
   /* ═══════════════ Row actions → Email Learners page / Certificate modal ═══════════════ */
   tbody.addEventListener('click', e => {
@@ -2869,7 +3017,7 @@
         { id: 'dashboard', flow: 'entry', entry: true, x: 40, y: 240, step: 'Entry', name: 'OSHA Dashboard', state: 'dashboard', match: [],
           desc: 'The OSHA completion report: status pie, action-needed cards, and the completion table. Each learner row shows overall % Complete, the learner\'s Latest Module (name + that module\'s failed quiz attempts + quiz score), and course-level totals. No per-module modal.' },
         { id: 'filters', flow: 'report', x: 880, y: 120, step: 'Refine', name: 'Report Filters', state: 'filters', match: [],
-          desc: 'The right-side filter panel — OSHA courses, completion status, action-needed buckets, Position/Location, Quick Groups, and the due ≤ 30 days quick filter. Applies on Apply.' },
+          desc: 'The right-side filter panel — action-needed buckets, date range (Past 30 days by default, other presets or a custom range), Position/Location, Quick Groups, OSHA courses, completion status, and the due ≤ 30 days quick filter. Applies on Apply.' },
         { id: 'groups', flow: 'report', x: 880, y: 300, step: 'Refine', name: 'Position / Location picker', state: 'groups', match: [],
           desc: 'The folder-tree picker (single-select, searchable) for Position and Location. Start at "All Positions" / "All Locations" and drill into a specific node; a count shows the learners under each.' },
         { id: 'email', flow: 'report', x: 880, y: 470, step: 'Act', name: 'Email Learners', state: 'email', match: [],

@@ -783,24 +783,27 @@
   };
 
   /* ---------------------------------------------------------------------
-     THE TARGETSOLUTIONS DEFAULT — "Training, Credentials & Staffing"
+     THE VENDOR DEFAULTS — "Training & Credentials" and "Training & Staffing"
      ---------------------------------------------------------------------
      Every product ships a default admin dashboard, and an admin lands on the
      one for the highest-ranked product they hold: TargetSolutions first, then
      Scheduling, Check It, EV+, Guardian Tracking (Rion's Launch Dashboards
-     List in Confluence). This is TargetSolutions'. The embedded TS shell
+     List in Confluence). TS_DASH is TargetSolutions'. The embedded TS shell
      deep-links to it with ?dashboard=<id> (see pdPickFromUrl); the standalone
-     hub keeps landing on the Chief's own B-1 Coverage Snapshot and lists this
-     one in the switcher.
+     hub keeps landing on the Chief's own B-1 Coverage Snapshot and lists both
+     defaults in the switcher.
 
-     Nobody at the department owns or published it — `vendor` marks it as
-     shipped with the product, and the badge, the picker row and the range
-     menu's footnote all read that field rather than an owner.
+     Nobody at the department owns or published either — `vendor` marks a
+     dashboard as shipped with the product, and the badge, the picker row and
+     the range menu's footnote all read that field rather than an owner.
 
-     Widgets 1–4 are the four TS admin widgets from the list; 5–7 are the three
-     "TargetSolutions + Scheduling" ones, which only make sense for a department
-     holding both products (this one does), so each of those declares both
-     sources.
+     TWO dashboards, not one. The four TS admin widgets from the list are
+     TS_DASH; the three "TargetSolutions + Scheduling" widgets are their own
+     dashboard, TS_SCHED_DASH, for a department holding both products. They
+     were one card at first; Rion split them (2026-10-13) so each default
+     reads as a distinct use case — a department's training standing, and
+     training measured against the roster — rather than as one admin
+     dashboard that grows or shrinks with the products you own.
 
      RANGE. The dashboard follows the header's date control like every other
      one; the PRD's per-widget windows (90 days here, six months there) were
@@ -865,8 +868,10 @@
   }
 
   // The department's on-time rate for each window, against the equal window
-  // before it. The sparkline is the station average over the same axis, so
-  // the KPI and the line chart beside it never disagree.
+  // before it. The sparkline is a finer series than the station chart's —
+  // weekly (daily for a 7-day window, monthly for a year) — because three
+  // monthly points, two of them equal, draw a flat line and a kink, which
+  // reads as a rendering fault rather than a trend.
   var TS_ONTIME = {
     last_7:    { num: '94%', delta: '+2 pts vs prior 7 days',             tone: 'good' },
     last_30:   { num: '91%', delta: '+3 pts vs prior 30 days',            tone: 'good' },
@@ -876,14 +881,31 @@
     ytd:       { num: '85%', delta: '+2 pts vs same point last year',     tone: 'good' },
     last_12mo: { num: '84%', delta: '−2 pts vs prior 12 months',        tone: 'warn' }
   };
+  var TS_SPARK_AXIS = {
+    last_7:    ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'],
+    last_30:   ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'],
+    qtd:       ['Apr 1', 'Apr 8', 'Apr 15', 'Apr 22', 'Apr 29', 'May 6'],
+    last_12mo: TS_MONTHS
+  };
+  function tsSparkAxis(range) {
+    if (TS_SPARK_AXIS[range]) return TS_SPARK_AXIS[range];
+    var weeks = { last_90: 13, last_6mo: 26, ytd: 18 }[range] || 13;
+    var out = [];
+    for (var i = 1; i <= weeks; i++) out.push('Wk ' + i);
+    return out;
+  }
   function tsOnTime(range) {
     var k = TS_ONTIME[range] || TS_ONTIME.last_90;
-    var lines = tsStationLines(range);
-    var trend = lines.labels.map(function (l, i) {
-      var sum = 0;
-      lines.series.forEach(function (s) { sum += s.data[i]; });
-      return { x: l, y: Math.round(sum / lines.series.length) };
+    var axis = tsSparkAxis(range), n = axis.length;
+    var end = parseInt(k.num, 10);
+    // A gentle climb into the headline figure with deterministic wobble —
+    // never a flat segment, never a step.
+    var trend = axis.map(function (l, i) {
+      var t = i / Math.max(1, n - 1);
+      var v = end - 5 * (1 - t) + (tsNoise(7, i) - 0.5) * 3;
+      return { x: l, y: Math.round(v * 10) / 10 };
     });
+    trend[n - 1].y = end;
     return { num: k.num, delta: k.delta, tone: k.tone, trend: trend };
   }
 
@@ -899,19 +921,18 @@
   }
 
   var TS_DASH = {
-    id: 'training-credentials-staffing',
-    name: 'Training, Credentials & Staffing', scope: 'All stations · department-wide',
+    id: 'training-credentials',
+    name: 'Training & Credentials', scope: 'All stations · department-wide',
     vendor: 'TargetSolutions', ownerShort: 'Vector',
     range: 'last_90',
-    // Scenario-only: down when the prototype panel says so. The shift
-    // comparison is the Scheduling-backed widget, so "a source didn't
-    // answer" lands on the one card that reads from two systems.
-    failWidget: 'tc5',
+    // Scenario-only: down when the prototype panel says so. The station
+    // chart is the widest card, so the state reads from across a room.
+    failWidget: 'tc4',
     widgets: [
       // 1 · Department credential expirations — four counts, forward 90 days.
       //     Expired is a count of status = Overdue; the three windows are
       //     credentials whose expiry falls inside each band.
-      { id: 'tc1', kind: 'bar', w: 4, range: 'next_90', source: ['ts'], icon: 'badge',
+      { id: 'tc1', kind: 'bar', w: 4, ww: 3, range: 'next_90', source: ['ts'], icon: 'badge',
         title: 'Credential expirations', color: 'var(--amber-500)', tone: 'warn',
         data: [
           { label: 'Expired',    value: 14 },
@@ -920,12 +941,12 @@
           { label: '61–90 days', value: 27 }
         ] },
       // 2 · On-time completion rate — one number against the prior equal window.
-      { id: 'tc2', kind: 'kpi', w: 4, source: ['ts'], icon: 'task_alt',
+      { id: 'tc2', kind: 'kpi', w: 4, ww: 3, source: ['ts'], icon: 'task_alt',
         title: 'On-time completion rate', kpi: tsOnTime },
       // 3 · Personnel on pace by annual credential — % of enrolled personnel
       //     on pace for each of the five highest-enrolment annual credentials,
       //     measured against the credential year, not the dashboard range.
-      { id: 'tc3', kind: 'bar', w: 4, source: ['ts'], icon: 'speed',
+      { id: 'tc3', kind: 'bar', w: 4, ww: 3, source: ['ts'], icon: 'speed',
         title: 'On pace by annual credential',
         subtitle: '% of enrolled personnel · 2026 credential year',
         color: 'var(--teal-500)', tone: 'good', suffix: '%', labelW: 88,
@@ -936,23 +957,38 @@
           { label: 'CPR / BLS',      value: 88 },
           { label: 'Fire Officer I', value: 63 }
         ] },
+      // 4 · Time-series completion comparison — one line per station. Full
+      //     width on an ordinary laptop, where it is the only chart on its
+      //     row; on a wide grid it joins the row above so the whole dashboard
+      //     is one row of four equal cards.
+      { id: 'tc4', kind: 'lines', w: 12, ww: 3, source: ['ts'], icon: 'ssid_chart',
+        title: 'Completion rate by station',
+        ySuffix: '%', yMin: 60, yMax: 100, lines: tsStationLines }
+    ]
+  };
+
+  // The TargetSolutions + Scheduling default: training measured against the
+  // roster. Every widget reads from both products, which is why it is its own
+  // dashboard and not three more cards on the one above (see the note there).
+  var TS_SCHED_DASH = {
+    id: 'training-staffing',
+    name: 'Training & Staffing', scope: 'All stations · department-wide',
+    vendor: 'TargetSolutions + Scheduling', ownerShort: 'Vector',
+    range: 'last_90',
+    // Scenario-only: the shift comparison is the one card here with a
+    // figure rather than a list, so it is the one whose absence is loudest.
+    failWidget: 'tc5',
+    widgets: [
       // 5 · Shift training comparison — bars against the department target.
-      //     Listed before the station chart on purpose: once index.html's
-      //     ≤1300px rule makes the grid two-across, the station chart takes a
-      //     whole row (like the scatter) and this card pairs with the on-pace
-      //     bars above it, two short bar widgets side by side. The other
-      //     order left this three-bar card stretched to the height of a
-      //     seven-person list.
-      { id: 'tc5', kind: 'bartarget', w: 5, source: ['ts', 'sched'], icon: 'groups',
+      //     Full width above the two lists on a laptop (three short bars
+      //     beside a seven-person list left the bars stretched to the list's
+      //     height); on a wide grid all three cards sit in one row of thirds.
+      { id: 'tc5', kind: 'bartarget', w: 12, ww: 4, source: ['ts', 'sched'], icon: 'groups',
         title: 'Completion rate by shift', target: 90, suffix: '%',
         note: 'department standard', data: tsShiftBars },
-      // 4 · Time-series completion comparison — one line per station.
-      { id: 'tc4', kind: 'lines', w: 7, source: ['ts'], icon: 'ssid_chart',
-        title: 'Completion rate by station',
-        ySuffix: '%', yMin: 60, yMax: 100, lines: tsStationLines },
       // 6 · Credentials expiring against qualifiers — people staffed on an
       //     assignment whose qualifier is the credential about to lapse.
-      { id: 'tc6', kind: 'grouplist', w: 6, range: 'next_90', source: ['ts', 'sched'], icon: 'event_busy',
+      { id: 'tc6', kind: 'grouplist', w: 6, ww: 4, range: 'next_90', source: ['ts', 'sched'], icon: 'event_busy',
         title: 'Expiring credentials on staffed assignments',
         subtitle: 'People whose assignment requires the credential that is about to lapse',
         empty: 'Nobody in this window',
@@ -973,7 +1009,7 @@
         ] },
       // 7 · Training event conflicts with staffing assignments — a scheduled
       //     training session that falls inside a shift the person is staffed on.
-      { id: 'tc7', kind: 'grouplist', w: 6, range: 'next_90', source: ['ts', 'sched'], icon: 'event_repeat',
+      { id: 'tc7', kind: 'grouplist', w: 6, ww: 4, range: 'next_90', source: ['ts', 'sched'], icon: 'event_repeat',
         title: 'Training conflicts with staffed shifts',
         subtitle: 'Scheduled training that overlaps a shift the person is assigned to',
         empty: 'No conflicts in this window',
@@ -994,12 +1030,364 @@
     ]
   };
 
+  /* ---------------------------------------------------------------------
+     THE OTHER PRODUCT DEFAULTS
+     ---------------------------------------------------------------------
+     One per product on Rion's Launch Dashboards List, in its stack-rank
+     order after TargetSolutions: Scheduling, Check It, EV+, Guardian
+     Tracking, then the Check It + Scheduling pairing. Same shape as TS_DASH:
+     a vendor default, hand-authored deterministic data, the dashboard range
+     honoured wherever the figure is a trailing window, a fixed forward
+     horizon where it looks ahead, and a snapshot (no window at all) where
+     the PRD describes the state of things right now.
+
+     Data helpers. Every axis-driven series is a FUNCTION of the range so the
+     header control changes the numbers, not just the label; counts stated
+     "per month" in the PRD scale down on a daily or weekly axis (tsScale),
+     and counts stated over a window scale with the window (tsCount).
+     --------------------------------------------------------------------- */
+
+  // Deterministic series: n points drifting from `from` to `to` with ±amp
+  // noise, whole numbers when `whole` is set.
+  function kseries(seed, n, from, to, amp, whole) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var t = n > 1 ? i / (n - 1) : 1;
+      var v = from + (to - from) * t + (tsNoise(seed, i) - 0.5) * 2 * amp;
+      v = Math.max(0, v);
+      out.push(whole ? Math.round(v) : Math.round(v * 10) / 10);
+    }
+    return out;
+  }
+
+  // A monthly figure on the axis tsAxis(range) gives: that axis is days for
+  // a week, weeks for a month or a quarter-to-date, months otherwise.
+  var TS_POINT_SCALE = { last_7: 1 / 30, last_30: 7 / 30, qtd: 7 / 30 };
+  function tsScale(range) { return TS_POINT_SCALE[range] || 1; }
+  // The same for the finer tsSparkAxis(range) (weeks for 90 days, 6 months
+  // and year-to-date too).
+  var TS_WEEK_SCALE = { last_7: 1 / 30, last_12mo: 1 };
+  function tsWeekScale(range) { return TS_WEEK_SCALE[range] != null ? TS_WEEK_SCALE[range] : 7 / 30; }
+  // Whole-window factor for a count the PRD states over `baseDays`.
+  var TS_WINDOW_DAYS = { last_7: 7, last_30: 30, last_90: 90, last_6mo: 182, qtd: 37, ytd: 127, last_12mo: 365 };
+  function tsCount(range, baseDays) { return (TS_WINDOW_DAYS[range] || 30) / (baseDays || 30); }
+  // Scale every value in a series.
+  function scaled(arr, f, whole) {
+    return arr.map(function (v) { return whole ? Math.round(v * f) : Math.round(v * f * 10) / 10; });
+  }
+
+  // A KPI whose figure, delta and sparkline all come from one table keyed by
+  // range: { num, unit?, delta, tone, from? } where `from` is the sparkline's
+  // starting level (defaults to 6% below the figure).
+  function kpiByRange(table, seed) {
+    return function (range) {
+      var k = table[range] || table.last_90 || table.last_30 || table[Object.keys(table)[0]];
+      var axis = tsSparkAxis(range), n = axis.length;
+      var end = parseFloat(k.num);
+      var from = k.from != null ? k.from : end * 0.94;
+      var trend = axis.map(function (l, i) {
+        var t = i / Math.max(1, n - 1);
+        var v = from + (end - from) * t + (tsNoise(seed, i) - 0.5) * Math.abs(end - from) * 0.6;
+        return { x: l, y: Math.round(v * 10) / 10 };
+      });
+      trend[n - 1].y = end;
+      return { num: k.num, unit: k.unit, delta: k.delta, tone: k.tone, trend: trend };
+    };
+  }
+
+  // The next 14 days from the prototype's "today" (7 May 2026 — data.js NOW).
+  var TS_NEXT14 = (function () {
+    var out = [];
+    for (var i = 8; i <= 21; i++) out.push('May ' + i);
+    return out;
+  })();
+
+  /* ---- Scheduling: "Staffing & Coverage" ---- */
+  var SCHED_DASH = {
+    id: 'staffing-coverage',
+    name: 'Staffing & Coverage', scope: 'All stations · department-wide',
+    vendor: 'Scheduling', ownerShort: 'Vector',
+    range: 'last_12mo',
+    failWidget: 'sc4',
+    widgets: [
+      // 1 · Unfilled position rate — % of scheduled positions unfilled.
+      { id: 'sc1', kind: 'lines', w: 4, source: ['sched'], icon: 'person_off',
+        title: 'Unfilled position rate', subtitle: 'Scheduled positions that went unfilled',
+        ySuffix: '%', yMin: 0, yMax: 12,
+        lines: function (range) {
+          var ax = tsAxis(range);
+          return { labels: ax, series: [{ label: 'Unfilled', color: 'var(--coral-400)',
+            data: kseries(31, ax.length, 7.8, 4.6, 1.1) }] };
+        } },
+      // 4 · Overtime hours, this period against the one before it.
+      { id: 'sc4', kind: 'lines', w: 4, source: ['sched'], icon: 'more_time',
+        title: 'Overtime hours', subtitle: 'This period against the one before it',
+        yMin: 0,
+        lines: function (range) {
+          var ax = tsAxis(range), f = tsScale(range);
+          return { labels: ax, series: [
+            { label: 'This period',  color: 'var(--amber-500)', data: scaled(kseries(32, ax.length, 1040, 1310, 90), f, true) },
+            { label: 'Prior period', color: 'var(--ink-300)',   data: scaled(kseries(33, ax.length, 980, 1120, 80), f, true) }
+          ] };
+        } },
+      // 6 · Callback outcomes by month.
+      { id: 'sc6', kind: 'lines', w: 4, source: ['sched'], icon: 'phone_callback',
+        title: 'Callback outcomes', subtitle: 'Accepted, declined and unanswered',
+        yMin: 0,
+        lines: function (range) {
+          var ax = tsAxis(range), f = tsScale(range);
+          return { labels: ax, series: [
+            { label: 'Accepted',   color: 'var(--teal-500)',  data: scaled(kseries(34, ax.length, 58, 66, 7), f, true) },
+            { label: 'Declined',   color: 'var(--amber-500)', data: scaled(kseries(35, ax.length, 24, 19, 4), f, true) },
+            { label: 'Unanswered', color: 'var(--coral-400)', data: scaled(kseries(36, ax.length, 17, 12, 4), f, true) }
+          ] };
+        } },
+      // 2 · Shifts below minimum staffing, next 14 days — forward, fixed.
+      { id: 'sc2', kind: 'columns', w: 4, range: 'next_14', source: ['sched'], icon: 'warning',
+        title: 'Shifts below minimum staffing', subtitle: 'Per day, against configured minimums',
+        values: true,
+        columns: { labels: TS_NEXT14, series: [{ label: 'Shifts below minimum', color: 'var(--coral-400)',
+          data: [1, 0, 2, 1, 0, 0, 3, 1, 1, 0, 2, 0, 1, 2] }] } },
+      // 3 · Shifts below minimum, trailing — reconstructed from today's
+      //     minimums, since violations aren't logged (PRD note).
+      { id: 'sc3', kind: 'lines', w: 4, source: ['sched'], icon: 'history',
+        title: 'Shifts below minimum, trend', subtitle: 'Reconstructed from today’s minimums',
+        yMin: 0,
+        lines: function (range) {
+          var ax = tsSparkAxis(range), f = tsWeekScale(range) * 30 / 7;
+          return { labels: ax, series: [{ label: 'Below minimum', color: 'var(--coral-400)',
+            data: scaled(kseries(37, ax.length, 4.2, 2.1, 1.4), f, true) }] };
+        } },
+      // 5 · Leave balances by type — a snapshot of liability, in hours.
+      { id: 'sc5', kind: 'bar', w: 4, source: ['sched'], icon: 'beach_access',
+        title: 'Leave balances by type', subtitle: 'Outstanding hours, active personnel',
+        color: 'var(--azure-500)', tone: 'neutral', suffix: ' h', labelW: 72,
+        data: [
+          { label: 'Vacation',  value: 4120 },
+          { label: 'Sick',      value: 2860 },
+          { label: 'Comp time', value: 940 },
+          { label: 'Holiday',   value: 610 },
+          { label: 'Personal',  value: 380 }
+        ] }
+    ]
+  };
+
+  /* ---- Check It: "Checks & Repairs" ---- */
+  var CI_DASH = {
+    id: 'checks-repairs',
+    name: 'Checks & Repairs', scope: 'All stations · department-wide',
+    vendor: 'Check It', ownerShort: 'Vector',
+    range: 'last_30',
+    failWidget: 'ci2',
+    widgets: [
+      // 1 · Completed vs missed, by check type.
+      { id: 'ci1', kind: 'columns', w: 6, source: ['ci'], icon: 'checklist',
+        title: 'Checks and inspections: completed vs missed', subtitle: 'By check type',
+        columns: function (range) {
+          var f = tsCount(range, 30);
+          return { labels: ['Vehicle checklists', 'Equipment inspections', 'Controlled substance counts'], series: [
+            { label: 'Completed', color: 'var(--teal-500)',  data: scaled([412, 188, 96], f, true) },
+            { label: 'Missed',    color: 'var(--coral-400)', data: scaled([31, 22, 4], f, true) }
+          ] };
+        } },
+      // 2 · Missed equipment inspections by pool, top 10.
+      { id: 'ci2', kind: 'bar', w: 6, source: ['ci'], icon: 'inventory_2',
+        title: 'Missed equipment inspections by pool', subtitle: 'Top 10 pools',
+        color: 'var(--coral-400)', tone: 'bad', labelW: 118,
+        data: function (range) {
+          var f = tsCount(range, 30);
+          return [
+            { label: 'SCBA · Station 4',    value: 9 }, { label: 'Hose · Station 7',      value: 7 },
+            { label: 'Turnout gear · B',    value: 6 }, { label: 'Ladders · Station 9',   value: 5 },
+            { label: 'EMS bags · Station 1', value: 4 }, { label: 'Rescue tools',          value: 3 },
+            { label: 'Thermal cameras',     value: 3 }, { label: 'Gas monitors',          value: 2 },
+            { label: 'Radios',              value: 2 }, { label: 'Extinguishers',         value: 1 }
+          ].map(function (d) { return { label: d.label, value: Math.max(1, Math.round(d.value * f)) }; });
+        } },
+      // 3 · Open tickets by age, by asset type — a snapshot of what's open now.
+      { id: 'ci3', kind: 'columns', w: 4, source: ['ci'], icon: 'build',
+        title: 'Open tickets by age', subtitle: 'By asset type', stacked: true,
+        columns: { labels: ['0–7 days', '8–30 days', '31–90 days', '90+ days'], series: [
+          { label: 'Apparatus',  color: 'var(--azure-500)', data: [6, 9, 4, 2] },
+          { label: 'Equipment',  color: 'var(--teal-500)',  data: [8, 7, 5, 1] },
+          { label: 'Facilities', color: 'var(--amber-500)', data: [2, 4, 3, 3] },
+          { label: 'PPE',        color: 'var(--ink-400)',   data: [3, 2, 1, 0] }
+        ] } },
+      // 4 · Median days to close, against the prior period.
+      { id: 'ci4', kind: 'kpi', w: 4, source: ['ci'], icon: 'timer',
+        title: 'Median days to close',
+        kpi: kpiByRange({
+          last_7:    { num: '3.8', unit: 'days', delta: '−0.4 days vs prior 7 days',    tone: 'good', from: 4.4 },
+          last_30:   { num: '4.5', unit: 'days', delta: '−0.8 days vs prior 30 days',   tone: 'good', from: 5.6 },
+          last_90:   { num: '5.1', unit: 'days', delta: '−0.3 days vs prior 90 days',   tone: 'good', from: 5.6 },
+          last_6mo:  { num: '5.4', unit: 'days', delta: '+0.2 days vs prior 6 months',  tone: 'warn', from: 5.0 },
+          qtd:       { num: '4.7', unit: 'days', delta: '−0.6 days vs same point last quarter', tone: 'good', from: 5.5 },
+          ytd:       { num: '5.2', unit: 'days', delta: '−0.5 days vs same point last year',    tone: 'good', from: 5.9 },
+          last_12mo: { num: '5.6', unit: 'days', delta: '+0.4 days vs prior 12 months', tone: 'warn', from: 5.0 }
+        }, 41) },
+      // 5 · PPE / equipment pass rate.
+      { id: 'ci5', kind: 'kpi', w: 4, source: ['ci'], icon: 'verified_user',
+        title: 'PPE and equipment pass rate',
+        kpi: kpiByRange({
+          last_7:    { num: '97.1%', delta: '101 of 104 inspections passed',   tone: 'good', from: 95.5 },
+          last_30:   { num: '96.4%', delta: '412 of 427 inspections passed',   tone: 'good', from: 94.8 },
+          last_90:   { num: '95.9%', delta: '1,228 of 1,281 inspections passed', tone: 'good', from: 94.2 },
+          last_6mo:  { num: '95.2%', delta: '2,431 of 2,554 inspections passed', tone: 'good', from: 93.9 },
+          qtd:       { num: '96.6%', delta: '507 of 525 inspections passed',   tone: 'good', from: 95.1 },
+          ytd:       { num: '95.5%', delta: '1,712 of 1,793 inspections passed', tone: 'good', from: 94.0 },
+          last_12mo: { num: '94.8%', delta: '4,902 of 5,171 inspections passed', tone: 'good', from: 93.2 }
+        }, 42) }
+    ]
+  };
+
+  /* ---- EV+: "Evaluations & Plans" ---- */
+  var EV_DASH = {
+    id: 'evaluations-plans',
+    name: 'Evaluations & Plans', scope: 'All stations · department-wide',
+    vendor: 'EV+', ownerShort: 'Vector',
+    range: 'last_12mo',
+    failWidget: 'ev4',
+    widgets: [
+      // 1 · Evaluations completed, by month.
+      { id: 'ev1', kind: 'lines', w: 6, source: ['ev'], icon: 'fact_check',
+        title: 'Evaluations completed', subtitle: 'Completed forms per period',
+        yMin: 0,
+        lines: function (range) {
+          var ax = tsAxis(range), f = tsScale(range);
+          return { labels: ax, series: [{ label: 'Completed', color: 'var(--azure-500)',
+            data: scaled(kseries(51, ax.length, 38, 54, 6), f, true) }] };
+        } },
+      // 3 · First-attempt pass rate by form, top 10 by volume.
+      { id: 'ev3', kind: 'bar', w: 6, source: ['ev'], icon: 'task_alt',
+        title: 'First-attempt pass rate by form', subtitle: 'Top 10 forms by volume',
+        color: 'var(--teal-500)', tone: 'good', suffix: '%', labelW: 124,
+        data: [
+          { label: 'Hose evolution',      value: 91 }, { label: 'Ladder raise',         value: 88 },
+          { label: 'SCBA donning',        value: 94 }, { label: 'Patient assessment',   value: 83 },
+          { label: 'Pump operations',     value: 76 }, { label: 'Vehicle extrication',  value: 71 },
+          { label: 'Forcible entry',      value: 86 }, { label: 'Rope rescue',          value: 68 },
+          { label: 'Hazmat decon',        value: 79 }, { label: 'Radio procedures',     value: 95 }
+        ] },
+      // 4 · Rating trend — average normalized rating, top 5 forms, no names.
+      { id: 'ev4', kind: 'lines', w: 6, source: ['ev'], icon: 'trending_up',
+        title: 'Rating trend by form', subtitle: 'Average normalized rating, top 5 forms',
+        ySuffix: '%', yMin: 50, yMax: 100,
+        lines: function (range) {
+          var ax = tsAxis(range), n = ax.length;
+          return { labels: ax, series: [
+            { label: 'Engine ops',   data: kseries(52, n, 78, 86, 2.5, true) },
+            { label: 'EMS skills',   data: kseries(53, n, 82, 88, 2.5, true) },
+            { label: 'Ladder ops',   data: kseries(54, n, 74, 80, 3, true) },
+            { label: 'Hazmat',       data: kseries(55, n, 71, 70, 3, true) },
+            { label: 'Pump ops',     data: kseries(56, n, 69, 77, 3, true) }
+          ] };
+        } },
+      // 2 · Forms awaiting signature, by age — a snapshot of the backlog.
+      { id: 'ev2', kind: 'bar', w: 3, source: ['ev'], icon: 'draw',
+        title: 'Forms awaiting signature', subtitle: 'By age',
+        color: 'var(--amber-500)', tone: 'warn', labelW: 70,
+        data: [
+          { label: '0–7 days',  value: 9 },
+          { label: '8–30 days', value: 14 },
+          { label: '30+ days',  value: 6 }
+        ] },
+      // 5 · Active plans by progress band — the department version of the
+      //     end user's "My plan progress".
+      { id: 'ev5', kind: 'columns', w: 3, source: ['ev'], icon: 'route',
+        title: 'Active plans by progress', subtitle: 'Count of plans in each band',
+        values: true,
+        columns: { labels: ['0–24%', '25–49%', '50–74%', '75–99%', '100%'],
+          series: [{ label: 'Plans', color: 'var(--azure-500)', data: [6, 11, 14, 9, 4] }] } }
+    ]
+  };
+
+  /* ---- Guardian Tracking: "Documentation & Recognition" ---- */
+  var GT_DASH = {
+    id: 'documentation-recognition',
+    name: 'Documentation & Recognition', scope: 'All stations · department-wide',
+    vendor: 'Guardian Tracking', ownerShort: 'Vector',
+    range: 'last_90',
+    failWidget: 'gt2',
+    widgets: [
+      // 2 · Documentation by category, this period against the prior one.
+      //     Categories are whatever the tenant configured, as the end-user
+      //     defaults do — these five are this department's.
+      { id: 'gt2', kind: 'columns', w: 8, source: ['gt'], icon: 'category',
+        title: 'Documentation by category', subtitle: 'This period against the one before it',
+        columns: function (range) {
+          var f = tsCount(range, 90);
+          return { labels: ['Commendation', 'Coaching note', 'Policy reminder', 'Safety observation', 'Attendance'], series: [
+            { label: 'This period',  color: 'var(--azure-500)', data: scaled([64, 48, 31, 27, 19], f, true) },
+            { label: 'Prior period', color: 'var(--ink-300)',   data: scaled([51, 52, 36, 22, 24], f, true) }
+          ] };
+        } },
+      // 3 · Recognition share.
+      { id: 'gt3', kind: 'kpi', w: 4, source: ['gt'], icon: 'military_tech',
+        title: 'Recognition share', subtitle: 'Documents counting toward positive recognition',
+        kpi: kpiByRange({
+          last_7:    { num: '46%', delta: '+3 pts vs prior 7 days',    tone: 'good', from: 41 },
+          last_30:   { num: '43%', delta: '+4 pts vs prior 30 days',   tone: 'good', from: 38 },
+          last_90:   { num: '41%', delta: '+5 pts vs prior 90 days',   tone: 'good', from: 35 },
+          last_6mo:  { num: '38%', delta: '+2 pts vs prior 6 months',  tone: 'good', from: 35 },
+          qtd:       { num: '44%', delta: '+1 pt vs same point last quarter', tone: 'good', from: 42 },
+          ytd:       { num: '39%', delta: '+3 pts vs same point last year',   tone: 'good', from: 35 },
+          last_12mo: { num: '36%', delta: '−1 pt vs prior 12 months',   tone: 'warn', from: 38 }
+        }, 61) },
+      // 1 · Documentation volume, by month.
+      { id: 'gt1', kind: 'lines', w: 8, source: ['gt'], icon: 'description',
+        title: 'Documentation volume', subtitle: 'Documents submitted per period',
+        yMin: 0,
+        lines: function (range) {
+          var ax = tsAxis(range), f = tsScale(range);
+          return { labels: ax, series: [{ label: 'Documents', color: 'var(--azure-500)',
+            data: scaled(kseries(62, ax.length, 58, 71, 7), f, true) }] };
+        } },
+      // 4 · Threshold proximity — who is at, or one document from, a flag.
+      { id: 'gt4', kind: 'columns', w: 4, source: ['gt'], icon: 'flag',
+        title: 'Threshold proximity', subtitle: 'Personnel at a threshold, or one document away',
+        columns: { labels: ['Early Intervention', 'Positive Recognition'], series: [
+          { label: 'At threshold', color: 'var(--coral-400)', data: [3, 7] },
+          { label: 'One away',     color: 'var(--amber-500)', data: [5, 9] }
+        ] } }
+    ]
+  };
+
+  /* ---- Check It + Scheduling: "Checks on Shift" ---- */
+  var CI_SCHED_DASH = {
+    id: 'checks-on-shift',
+    name: 'Checks on Shift', scope: 'All stations · the shift on duty now',
+    vendor: 'Check It + Scheduling', ownerShort: 'Vector',
+    range: 'last_7',
+    widgets: [
+      // The one widget: who on the active shift has done their assigned
+      // checklists, and who hasn't. Deliberately a list, not a rate — the
+      // lieutenant's next move is a name.
+      { id: 'cs1', kind: 'progresslist', w: 12, source: ['ci', 'sched'], icon: 'checklist',
+        title: 'Checklist completion on the active shift',
+        subtitle: 'A Shift · on duty since 07:00 · assigned checklists per person, completed so far',
+        rows: [
+          { name: 'Devon Hartwell', sub: 'Engine 4 · Daily apparatus check, SCBA',            done: 3, total: 3 },
+          { name: 'Jamal Okafor',   sub: 'Engine 4 · Daily apparatus check, hose',            done: 2, total: 3 },
+          { name: 'Riley Brennan',  sub: 'Engine 4 · EMS bag, controlled substance count',    done: 1, total: 2 },
+          { name: 'Owen Maguire',   sub: 'Engine 7 · Daily apparatus check, ladders',         done: 0, total: 2 },
+          { name: 'Marisol Vega',   sub: 'Engine 9 · Daily apparatus check, gas monitors',    done: 2, total: 2 },
+          { name: 'Eli Rosenfeld',  sub: 'Truck 14 · Weekly operational',                     done: 1, total: 1 },
+          { name: 'Nia Castellano', sub: 'Medic 9 · Controlled substance count',              done: 1, total: 1 },
+          { name: 'Marcus Oyelaran', sub: 'Engine 1 · Daily apparatus check, thermal camera', done: 1, total: 2 },
+          { name: 'Harper Lindqvist', sub: 'Rescue 12 · Rescue tools, rope',                  done: 0, total: 2 },
+          { name: 'Diego Ferreira', sub: 'Engine 1 · SCBA',                                   done: 1, total: 1 },
+          { name: 'Sam Whitaker',   sub: 'Truck 14 · Daily apparatus check',                  done: 0, total: 1 },
+          { name: 'Lena Morozova',  sub: 'Medic 9 · Daily apparatus check',                   done: 1, total: 1 }
+        ] }
+    ]
+  };
+
   /* Which dashboards a role can move between, in menu order — the first is
-     what they land on. The Chief holds three: one they own, one published to
-     them by Training, and the TargetSolutions default that ships with the
-     product. */
+     what they land on. The Chief holds their own, the one Training published
+     to them, and every product default in Rion's stack-rank order (the two
+     cross-product pairings after the products they pair). */
   var DASH_SET = {
-    chief: [CHIEF_DASH, DEPT_DASH, TS_DASH],
+    chief: [CHIEF_DASH, DEPT_DASH, TS_DASH, SCHED_DASH, CI_DASH, EV_DASH, GT_DASH, TS_SCHED_DASH, CI_SCHED_DASH],
     lieutenant: [LT_DASH],
     firefighter: [FF_DASH]
   };
@@ -1287,6 +1675,18 @@
       });
       return { title: title, columns: ['Window', 'Person', 'Detail', 'Date'], rows: grows };
     }
+    if (kind === 'columns') {
+      var csp = dataOf(w.columns);
+      return { title: title,
+        columns: ['Category'].concat(csp.series.map(function (s) { return s.label + (w.ySuffix ? ' (' + w.ySuffix + ')' : ''); })),
+        rows: csp.labels.map(function (l, i) {
+          return [l].concat(csp.series.map(function (s) { return s.data[i]; }));
+        }) };
+    }
+    if (kind === 'progresslist') {
+      return { title: title, columns: ['Person', 'Assignment', 'Completed', 'Assigned'],
+        rows: dataOf(w.rows).map(function (r) { return [r.name, r.sub || '', r.done, r.total]; }) };
+    }
     return { title: title, columns: [], rows: [], note: 'No exportable data.' };
   }
 
@@ -1443,6 +1843,17 @@
       // People bucketed by window — the two 30/60/90 lists.
       icon = icon || 'list';
       body = KXCharts.pdGroupList(dataOf(w.groups) || [], { empty: w.empty });
+    } else if (kind === 'columns') {
+      // Vertical bars, one series or several (grouped, or stacked with
+      // w.stacked). The widget hands over { labels, series } or a function
+      // of the range that returns it.
+      icon = icon || 'bar_chart';
+      body = KXCharts.pdColumns(dataOf(w.columns) || { labels: [], series: [] },
+        { stacked: w.stacked, ySuffix: w.ySuffix, yMax: w.yMax, values: w.values });
+    } else if (kind === 'progresslist') {
+      // One row per person with an X-of-Y bar — the active-shift checklist.
+      icon = icon || 'checklist';
+      body = KXCharts.pdProgressList(dataOf(w.rows) || []);
     } else if (kind === 'donut') {
       var ds = w.metricId ? CC.buildSpec(w.metricId, 'donut') : null;
       icon = icon || (ds ? ds.icon : 'donut_large');
@@ -1587,9 +1998,18 @@
        to 348px and clipped 191px of its content. Those keep auto heights. */
     var sized = !!(opts && opts.sized);
 
+    /* `ww` is a widget's WIDE span: the columns it takes once the grid itself
+       is at least 1180px across (index.html's @container rule on .kx-pubgrid
+       reads --ww) — a 2x MacBook display with the Agency Intelligence panel
+       collapsed is ~1290px of grid, so that is the common "wide" case. A 12-column grid that fills a 2,000px monitor stretches a
+       four-bar widget to 600px for no reason; the wide span lets a dashboard
+       author say "three columns is plenty there" and the row packs tighter,
+       leaving the slack at the right edge instead of inside every card.
+       Dashboards that declare no ww are untouched at every width. */
     return '<div class="kx-pubwidget kx-pubwidget--' + KX.attr(kind) +
       (failed ? ' is-failed' : '') + '" ' +
-      'style="grid-column:span ' + (w.w || 6) +
+      'style="--w:' + (w.w || 6) + ';' + (w.ww ? '--ww:' + w.ww + ';' : '') +
+      'grid-column:span ' + (w.w || 6) +
       (sized ? ';grid-row:span ' + KX.widgetH(w) : '') + '">' +
       '<div class="kx-pubwidget-head">' + iconChip +
       '<span class="title">' + esc(title) + '</span>' +
@@ -1683,6 +2103,11 @@
     }
 
     var count = mine.length + saved.length;
+    // The product defaults get their own group under the dashboards people
+    // at the department built or published — nine rows under one label
+    // read as one undifferentiated list.
+    var own = mine.filter(function (d) { return !d.vendor; });
+    var defaults = mine.filter(function (d) { return !!d.vendor; });
     return '<span style="position:relative;display:inline-flex">' +
       '<button class="kx-dashpick" data-dash-toggle aria-haspopup="menu" ' +
       'aria-expanded="' + (openDashMenu ? 'true' : 'false') + '" ' +
@@ -1693,7 +2118,12 @@
       (openDashMenu
         ? '<div class="kx-menu kx-menu--left" role="menu" style="width:300px;top:calc(100% + 6px)">' +
           '<div class="kx-menu-label">On your homepage</div>' +
-          mine.map(function (d) { return dashRow(d, cfg); }).join('') +
+          own.map(function (d) { return dashRow(d, cfg); }).join('') +
+          (defaults.length
+            ? '<div class="kx-menu-divider"></div>' +
+              '<div class="kx-menu-label">Product defaults</div>' +
+              defaults.map(function (d) { return dashRow(d, cfg); }).join('')
+            : '') +
           '<div class="kx-menu-divider"></div>' +
           '<div class="kx-menu-label">Built in Agency Intelligence</div>' +
           (saved.length

@@ -341,7 +341,9 @@
     var pts = data.map(function (d, i) {
       return (i * step).toFixed(1) + ',' + (h - (d.y - min) / range * h).toFixed(1);
     }).join(' ');
-    return '<svg width="100%" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" ' +
+    // height:100% of whatever box pdKpi gives it (26px minimum, growing with
+    // the card) — the viewBox stretches, the stroke does not.
+    return '<svg width="100%" height="100%" viewBox="0 0 ' + w + ' ' + h + '" ' +
       'preserveAspectRatio="none" style="display:block">' +
       '<polyline points="' + pts + '" fill="none" stroke="' + color + '" stroke-width="1.5" ' +
       'vector-effect="non-scaling-stroke" opacity="0.65"/></svg>';
@@ -355,7 +357,11 @@
       (o.unit ? '<span style="font-size:14px;font-weight:600;color:var(--ink-500)">' + esc(o.unit) + '</span>' : '') +
       '</div>' +
       (o.delta ? '<div style="font-size:11.5px;color:var(--ink-500);font-weight:500">' + esc(o.delta) + '</div>' : '') +
-      (o.trend ? '<div style="margin-top:auto">' + pdSpark(o.trend, o.trendColor || fg) + '</div>' : '') +
+      // The sparkline takes the card's spare height, 26–64px, bottom-aligned:
+      // in a tall row it reads as a small chart under the figure rather than
+      // a hairline stranded 90px below it.
+      (o.trend ? '<div style="margin-top:auto;flex:1 1 26px;min-height:26px;max-height:64px;padding-top:10px;box-sizing:content-box">' +
+        pdSpark(o.trend, o.trendColor || fg) + '</div>' : '') +
       '</div>';
   }
 
@@ -966,8 +972,8 @@
           '<div style="flex:1;height:16px;background:var(--ink-100);border-radius:5px;overflow:hidden">' +
           '<div style="width:' + (d.value / max * 100) + '%;height:100%;background:' +
           (worst ? peakColor : barColor) + ';border-radius:5px;transition:width 0.6s"></div></div>' +
-          '<span style="font-family:var(--font-numeric);font-weight:700;color:var(--ink-700);width:32px;' +
-          'text-align:right;font-variant-numeric:tabular-nums">' + esc(d.value) + esc(suffix) + '</span></div>';
+          '<span style="font-family:var(--font-numeric);font-weight:700;color:var(--ink-700);min-width:32px;' +
+          'text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;flex-shrink:0">' + esc(d.value) + esc(suffix) + '</span></div>';
       }).join('') + '</div>';
   }
 
@@ -1305,73 +1311,212 @@
   // point. opts.ySuffix ('%'); opts.yMin / opts.yMax pin the axis — a
   // completion rate autoscaled into a 78–94 window turns a 3-point dip into
   // a cliff, so the caller states the scale it wants read.
+  //
+  // Responsive by construction: the plot is an HTML box (index.html gives it
+  // an aspect ratio with min/max heights), gridlines, axis labels and point
+  // markers are HTML positioned in percentages, and only the lines are SVG —
+  // a 100×100 viewBox stretched to the box with non-scaling strokes. So a
+  // 290px card and a 1,270px card both draw 10px axis text and 2px lines;
+  // nothing is scaled, which is what a viewBox-scaled chart could never do.
   function pdLines(series, labels, opts) {
     opts = opts || {};
-    var W = 380, H = 160, P = 26, PB = 22;
     var all = [];
     series.forEach(function (s) { s.data.forEach(function (v) { all.push(v); }); });
-    var minY = opts.yMin != null ? opts.yMin : Math.min.apply(null, all);
-    var maxY = opts.yMax != null ? opts.yMax : Math.max.apply(null, all);
+    var rng = niceRange(Math.min.apply(null, all), Math.max.apply(null, all), opts.yMin, opts.yMax);
+    var minY = rng[0], maxY = rng[1];
     if (maxY === minY) maxY = minY + 1;
     var n = Math.max(1, labels.length - 1);
-    var xStep = (W - P * 2) / n;
-    var yPos = function (v) { return P + (H - P - PB) * (1 - (v - minY) / (maxY - minY)); };
-    var grid = [0, 0.5, 1].map(function (t) {
-      var y = P + (H - P - PB) * t;
-      var v = Math.round(maxY - (maxY - minY) * t);
-      return '<line x1="' + P + '" x2="' + (W - P) + '" y1="' + y + '" y2="' + y +
-        '" stroke="var(--ink-100)" stroke-width="1"/>' +
-        '<text x="' + (P - 4) + '" y="' + (y + 3) + '" font-size="9" fill="var(--ink-400)" text-anchor="end">' +
-        v + esc(opts.ySuffix || '') + '</text>';
-    }).join('');
-    // More than eight x labels overlap at 380 wide; thin them, keeping the last.
-    var every = Math.ceil(labels.length / 8);
-    var xlabels = labels.map(function (l, i) {
-      if (i % every !== 0 && i !== labels.length - 1) return '';
-      return '<text x="' + (P + xStep * i).toFixed(1) + '" y="' + (H - 6) +
-        '" font-size="9" fill="var(--ink-500)" text-anchor="middle">' + esc(l) + '</text>';
+    var xPct = function (i) { return (i / n * 100).toFixed(2); };
+    var yPct = function (v) { return ((1 - (v - minY) / (maxY - minY)) * 100).toFixed(2); };
+    var grid = [0, 0.25, 0.5, 0.75, 1].map(function (t) {
+      var v = Math.round((maxY - (maxY - minY) * t) * 100) / 100;
+      return '<div class="gl" style="top:' + (t * 100) + '%"><span class="yl">' + v + esc(opts.ySuffix || '') + '</span></div>';
     }).join('');
     var paths = series.map(function (s, si) {
       var color = s.color || SERIES_COLORS[si % SERIES_COLORS.length];
-      var pts = s.data.map(function (v, i) { return [(P + xStep * i).toFixed(1), yPos(v).toFixed(1)]; });
-      var d = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0] + ',' + p[1]; }).join(' ');
-      return '<path d="' + d + '" fill="none" stroke="' + color +
-        '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
-        pts.map(function (p) {
-          return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="2.4" fill="' + color + '"/>';
-        }).join('');
+      var d = s.data.map(function (v, i) { return (i ? 'L' : 'M') + xPct(i) + ',' + yPct(v); }).join(' ');
+      return '<path d="' + d + '" fill="none" stroke="' + color + '" stroke-width="2" ' +
+        'stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>';
+    }).join('');
+    var dots = series.map(function (s, si) {
+      var color = s.color || SERIES_COLORS[si % SERIES_COLORS.length];
+      return s.data.map(function (v, i) {
+        return '<span class="dot" style="left:' + xPct(i) + '%;top:' + yPct(v) + '%;border-color:' + color + '"></span>';
+      }).join('');
+    }).join('');
+    // More than twelve x labels crowd a narrow card; thin them, keep the last.
+    var every = Math.ceil(labels.length / 12);
+    var xaxis = labels.map(function (l, i) {
+      if (i % every !== 0 && i !== labels.length - 1) return '';
+      return '<span style="left:' + xPct(i) + '%">' + esc(l) + '</span>';
     }).join('');
     var legend = '<div class="kx-lines-legend">' + series.map(function (s, si) {
       var color = s.color || SERIES_COLORS[si % SERIES_COLORS.length];
+      var last = s.data[s.data.length - 1];
       return '<span class="item"><span class="sw" style="background:' + color + '"></span>' +
-        esc(s.label) + '</span>';
+        '<span class="n">' + esc(s.label) + '</span>' +
+        (last != null ? '<span class="v">' + esc(last) + esc(opts.ySuffix || '') + '</span>' : '') + '</span>';
     }).join('') + '</div>';
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" style="display:block">' +
-      grid + paths + xlabels + '</svg>' + legend;
+    // .kx-lines-wrap is the size container the @container rule measures;
+    // a container query only sees ancestors, so the element that changes
+    // layout (.kx-lines) has to sit inside it, not be it.
+    return '<div class="kx-lines-wrap"><div class="kx-lines"><div class="plot">' +
+      '<div class="plot-area">' + grid +
+      '<svg class="paths" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">' + paths + '</svg>' +
+      dots + '</div>' +
+      '<div class="xaxis">' + xaxis + '</div>' +
+      '</div>' + legend + '</div></div>';
   }
 
-  // data: [{ label, value }] on a 0–100 scale; target: the one line every bar
-  // is measured against. A bar at or over the target takes the "good"
-  // colour, under it the "warn" colour — the comparison IS the widget, so
-  // the colour carries it rather than asking for a second look at the tick.
+  // data: [{ label, value }] on a 0–100 scale; target: the one line every
+  // tile is measured against. One tile per group — the figure large, a slim
+  // bar with the target tick under it, and the gap to target in words — laid
+  // out by index.html as a wrapping row of fixed-maximum tiles, so three
+  // shifts in a full-width card are three readable cards, not three bars
+  // stretched across 1,800px. At or over target reads "good", under it
+  // "warn": the comparison IS the widget, so the colour carries it.
   function pdBarTarget(data, target, opts) {
     opts = opts || {};
     var suffix = opts.suffix != null ? opts.suffix : '%';
-    return '<div class="kx-bartarget">' +
+    var clamp = function (v) { return Math.max(0, Math.min(100, v)); };
+    // .kx-bartarget-wrap is the size container index.html's @container rule
+    // measures to decide one column of tiles or three (see pdLines).
+    return '<div class="kx-bartarget-wrap"><div class="kx-bartarget"><div class="tiles">' +
       data.map(function (d) {
-        var over = d.value >= target;
-        return '<div class="row">' +
-          '<span class="lbl">' + esc(d.label) + '</span>' +
-          '<div class="track">' +
-          '<div class="fill" style="width:' + Math.max(0, Math.min(100, d.value)) + '%;background:' +
-          (over ? 'var(--teal-500)' : 'var(--amber-500)') + '"></div>' +
-          '<div class="tick" style="left:' + Math.max(0, Math.min(100, target)) + '%"></div>' +
-          '</div>' +
-          '<span class="val" style="color:' + (over ? 'var(--teal-600)' : 'var(--amber-700)') + '">' +
-          esc(d.value) + esc(suffix) + '</span></div>';
+        var diff = d.value - target;
+        var over = diff >= 0;
+        var gap = diff === 0 ? 'At target'
+          : Math.abs(diff) + ' pt' + (Math.abs(diff) === 1 ? '' : 's') + (over ? ' over target' : ' under target');
+        return '<div class="tile' + (over ? ' is-over' : ' is-under') + '">' +
+          '<div class="lbl">' + esc(d.label) + '</div>' +
+          '<div class="num">' + esc(d.value) + esc(suffix) + '</div>' +
+          '<div class="track"><div class="fill" style="width:' + clamp(d.value) + '%"></div>' +
+          '<div class="tick" style="left:' + clamp(target) + '%"></div></div>' +
+          '<div class="gap">' + esc(gap) + '</div>' +
+          '</div>';
       }).join('') +
-      '<div class="foot"><span class="tickkey"></span>Target ' + esc(target) + esc(suffix) +
-      (opts.note ? ' · ' + esc(opts.note) : '') + '</div></div>';
+      '</div><div class="foot"><span class="tickkey"></span>Target ' + esc(target) + esc(suffix) +
+      (opts.note ? ' · ' + esc(opts.note) : '') + '</div></div></div>';
+  }
+
+  /* ---- Column chart (vertical bars), single / grouped / stacked ----
+     spec: { labels: [category…], series: [{ label, data: [number…], color? }] }
+     opts.stacked draws the series on top of each other per category;
+     opts.ySuffix suffixes the axis; opts.values shows the figure above a
+     single-series column. HTML throughout — gridlines, columns and labels are
+     divs sized in percentages inside a plot box whose height index.html sets
+     from the container width — so, like pdLines, a 300px card and a 900px
+     card draw the same 10px text and the same column proportions. */
+  // Smallest "round" number at or above v: 1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6,
+  // 8 or 10 times a power of ten. An axis top of 1,500 over data that peaks
+  // at 1,310, not 1,357 — and never 2,000, which would waste a quarter of
+  // the plot.
+  function niceCeil(v) {
+    if (v <= 0) return 1;
+    var mag = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+    var n = v / mag, steps = [1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10];
+    for (var i = 0; i < steps.length; i++) if (n <= steps[i] + 1e-9) return steps[i] * mag;
+    return 10 * mag;
+  }
+  function niceMax(v) { return niceCeil(v); }
+  // [lo, hi] for a line axis with four even intervals (five gridlines) that
+  // land on round numbers and contain min..max. A series sitting well above
+  // zero keeps a raised floor so its movement stays readable.
+  function niceRange(min, max, pinLo, pinHi) {
+    if (pinLo != null && pinHi != null) return [pinLo, pinHi];
+    if (max === min) max = min + 1;
+    var step = niceCeil((max - (pinLo != null ? pinLo : min)) / 4);
+    var lo = pinLo != null ? pinLo : Math.floor(min / step) * step;
+    if (pinLo == null && min >= 0 && lo < 0) lo = 0;
+    var hi = pinHi != null ? pinHi : lo + step * Math.ceil((max - lo) / step);
+    // Floor at zero for a count that starts near zero anyway.
+    if (pinLo == null && lo > 0 && lo <= step) lo = 0;
+    return [lo, hi];
+  }
+  function pdColumns(spec, opts) {
+    opts = opts || {};
+    var labels = spec.labels || [], series = spec.series || [];
+    var stacked = !!opts.stacked && series.length > 1;
+    var max = 0;
+    labels.forEach(function (_, i) {
+      if (stacked) {
+        var sum = 0; series.forEach(function (s) { sum += (s.data[i] || 0); });
+        max = Math.max(max, sum);
+      } else {
+        series.forEach(function (s) { max = Math.max(max, s.data[i] || 0); });
+      }
+    });
+    // Four even intervals to a round top. Whole-number data gets a
+    // whole-number step, so a chart of 0–3 shifts reads 0, 1, 2, 3, 4 and
+    // never 0.8, 1.5, 2.3.
+    var whole = series.every(function (s) { return s.data.every(function (v) { return v === Math.round(v); }); });
+    var step = niceCeil(max / 4);
+    if (whole) step = Math.max(1, Math.ceil(step));
+    var top = opts.yMax != null ? opts.yMax : step * 4;
+    var fmt = function (v) { return (Math.round(v * 10) / 10) + esc(opts.ySuffix || ''); };
+    var grid = [0, 0.25, 0.5, 0.75, 1].map(function (t) {
+      return '<div class="gl" style="top:' + (t * 100) + '%"><span class="yl">' + fmt(top * (1 - t)) + '</span></div>';
+    }).join('');
+    var color = function (s, si) { return s.color || SERIES_COLORS[si % SERIES_COLORS.length]; };
+    var cats = labels.map(function (l, i) {
+      var inner;
+      if (stacked) {
+        inner = '<div class="bar stack">' + series.map(function (s, si) {
+          var v = s.data[i] || 0;
+          return '<div class="seg" style="height:' + (v / top * 100).toFixed(2) + '%;background:' + color(s, si) + '" title="' + esc(s.label) + ': ' + fmt(v) + '"></div>';
+        }).join('') + '</div>';
+      } else {
+        inner = series.map(function (s, si) {
+          var v = s.data[i] || 0;
+          return '<div class="bar" style="height:' + (v / top * 100).toFixed(2) + '%;background:' + color(s, si) + '" title="' + esc(s.label) + ': ' + fmt(v) + '">' +
+            (opts.values && series.length === 1 ? '<span class="v">' + fmt(v) + '</span>' : '') + '</div>';
+        }).join('');
+      }
+      return '<div class="cat"><div class="bars">' + inner + '</div></div>';
+    }).join('');
+    // Two kinds of x label. Short ones (dates, bands) float at their slot's
+    // centre and thin out to at most seven so they never collide; long
+    // category names keep their slot and wrap inside it.
+    var short = labels.every(function (l) { return String(l).length <= 7; });
+    var xaxis;
+    if (short) {
+      var every = Math.ceil(labels.length / 7), nL = labels.length;
+      xaxis = labels.map(function (l, i) {
+        if (i % every !== 0) return '';
+        return '<span style="left:' + ((i + 0.5) / nL * 100).toFixed(2) + '%">' + esc(l) + '</span>';
+      }).join('');
+    } else {
+      xaxis = labels.map(function (l) { return '<span>' + esc(l) + '</span>'; }).join('');
+    }
+    var legend = series.length > 1
+      ? '<div class="kx-lines-legend">' + series.map(function (s, si) {
+          return '<span class="item"><span class="sw sq" style="background:' + color(s, si) + '"></span>' +
+            '<span class="n">' + esc(s.label) + '</span></span>';
+        }).join('') + '</div>'
+      : '';
+    return '<div class="kx-cols-wrap"><div class="kx-cols">' +
+      '<div class="plot"><div class="plot-area">' + grid + '<div class="cats">' + cats + '</div></div>' +
+      '<div class="xaxis ' + (short ? 'is-abs' : 'is-wrap') + '">' + xaxis + '</div></div>' + legend + '</div></div>';
+  }
+
+  /* ---- Per-person progress list ----
+     rows: [{ name, sub?, done, total }]. One line per person: who, what
+     they're on, "3 of 5" and a slim bar. Complete reads good, partial warn,
+     none started bad — the row's colour is the state, so a lieutenant can
+     scan twelve names in a glance. Two columns once the card is wide
+     (index.html @container on .kx-proglist-wrap). */
+  function pdProgressList(rows, opts) {
+    opts = opts || {};
+    return '<div class="kx-proglist-wrap"><div class="kx-proglist">' + (rows || []).map(function (r) {
+      var pct = r.total ? Math.round(r.done / r.total * 100) : 0;
+      var tone = r.done >= r.total ? 'good' : r.done > 0 ? 'warn' : 'bad';
+      return '<div class="row is-' + tone + '">' +
+        '<span class="who"><span class="name">' + esc(r.name) + '</span>' +
+        (r.sub ? '<span class="sub">' + esc(r.sub) + '</span>' : '') + '</span>' +
+        '<span class="prog"><span class="n">' + esc(r.done) + ' of ' + esc(r.total) + '</span>' +
+        '<span class="track"><span class="fill" style="width:' + pct + '%"></span></span></span>' +
+        '</div>';
+    }).join('') + '</div></div>';
   }
 
   // groups: [{ label, tone?, rows: [{ name, sub?, right? }] }]. Each group is a
@@ -1380,7 +1525,8 @@
   // reader came for, and a window that vanished would read as not checked.
   function pdGroupList(groups, opts) {
     opts = opts || {};
-    return '<div class="kx-grouplist">' + groups.map(function (g) {
+    // Same wrapper-as-container pattern as pdLines above.
+    return '<div class="kx-grouplist-wrap"><div class="kx-grouplist">' + groups.map(function (g) {
       var n = (g.rows || []).length;
       return '<div class="grp">' +
         '<div class="grp-h"><span class="n">' + esc(g.label) + '</span>' +
@@ -1393,7 +1539,7 @@
             '</div>';
         }).join('') : '<div class="empty">' + esc(opts.empty || 'None') + '</div>') +
         '</div>';
-    }).join('') + '</div>';
+    }).join('') + '</div></div>';
   }
 
   window.KXCharts = {
@@ -1404,6 +1550,7 @@
     pdKpi: pdKpi, pdLine: pdLine, pdBar: pdBar, pdDonut: pdDonut, pdScatter: pdScatter,
     pdOutlierScatter: pdOutlierScatter, pdTable: pdTable, pdSpark: pdSpark,
     pdLines: pdLines, pdBarTarget: pdBarTarget, pdGroupList: pdGroupList,
+    pdColumns: pdColumns, pdProgressList: pdProgressList,
     downloadCSV: downloadCSV, TONE_FG: TONE_FG,
 
     /* ---- interactive table engine ------------------------------------
