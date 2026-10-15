@@ -51,7 +51,7 @@
   new IntersectionObserver((es, o) => es.forEach(e => { if (e.isIntersecting) { $('#fillviz1').classList.add('go'); o.disconnect(); } }), { threshold: .5 }).observe($('#fillviz1'));
 
   /* G03 grid: 40 injuries; the first 34 are one category, the last 6 the other */
-  $('#grid40').innerHTML = Array.from({ length: 40 }, (_, i) => `<i class="mk ${i < 34 ? 'a' : 'b'}"></i>`).join('');
+  $('#grid40').innerHTML = Array.from({ length: 40 }, (_, i) => `<i class="mk ${i < 34 ? 'a' : 'b'}" style="--i:${i};--cd:${i < 34 ? i * 28 : 1100 + (i - 34) * 140}ms"></i>`).join('');
 
   /* ======================================================================
      2 · PAGE CHROME
@@ -240,10 +240,16 @@
   });
 
   /* seams: report how far through its pinned run each one is (0 to 1) so the line can drift and fade */
-  const seams = $$('.seam');
+  const seams = $$('.seam, .pin-run');
+  const fillSy = $$('#fillviz1 .sy').sort((p, q) => p.dataset.i - q.dataset.i);
   const paintSeams = () => seams.forEach(s => {
-    const r = s.getBoundingClientRect(), run = r.height - innerHeight;
-    s.style.setProperty('--sp', run > 0 ? clamp(-r.top / run).toFixed(3) : '.5');
+    const r = s.getBoundingClientRect(), run = r.height - innerHeight, p = run > 0 ? clamp(-r.top / run) : .5;
+    s.style.setProperty('--sp', p.toFixed(3));
+    if (s.classList.contains('fill-run')) {   // the container fills from the bottom up as you scroll
+      const n = Math.round(clamp((p - .14) / .62) * fillSy.length);
+      fillSy.forEach((g, i) => g.classList.toggle('on', i < n));
+      s.classList.toggle('lbl', p > .8);
+    }
   });
   addEventListener('scroll', paintSeams, { passive: true }); addEventListener('resize', paintSeams); paintSeams();
 

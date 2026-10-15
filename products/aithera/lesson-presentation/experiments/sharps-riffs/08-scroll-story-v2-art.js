@@ -152,15 +152,16 @@
     <svg class="art" viewBox="0 0 800 520" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
       <rect x="-2400" y="-1400" width="5600" height="3400" fill="url(#wp)"/>
       <rect x="-2400" y="440" width="5600" height="1400" fill="url(#floorG)"/><rect x="-2400" y="436" width="5600" height="6" fill="#34476f"/>
-      <polygon class="shaft" points="250,0 520,0 640,440 180,440" fill="url(#shaftG)" opacity=".7"/>
+      <polygon class="shaft" points="313,-400 411,-400 640,440 180,440" fill="url(#shaftG)" opacity=".7"/>
       <ellipse cx="400" cy="448" rx="150" ry="9" fill="url(#shadowG)"/>
       <rect x="352" y="70" width="96" height="14" rx="5" fill="#33466f"/><rect x="396" y="84" width="8" height="12" fill="#33466f"/>
       <use href="#bin" x="290" y="90" width="220" height="286"/>
       <path d="M298 160h204" stroke="#fff" stroke-opacity=".5" stroke-width="2.5" stroke-dasharray="8 6"/><text x="500" y="156" text-anchor="end" font-family="Open Sans,sans-serif" font-size="11" font-weight="700" fill="#fff" fill-opacity=".7">FILL LINE</text>
-      <g class="an an1"><line x1="300" y1="300" x2="240" y2="300"/><circle cx="300" cy="300" r="5"/><circle cx="52" cy="296" r="13"/><text class="num" x="52" y="301" text-anchor="middle">1</text><text x="76" y="292">Puncture-resistant</text><text x="76" y="311">body</text><text class="sm" x="76" y="331">Helps contain sharp objects.</text></g>
+      <g class="an an1"><line x1="300" y1="300" x2="234" y2="300"/><circle cx="300" cy="300" r="5"/><circle cx="26" cy="296" r="13"/><text class="num" x="26" y="301" text-anchor="middle">1</text><text x="50" y="292">Puncture-resistant</text><text x="50" y="314">body</text><text class="sm" x="50" y="335">Helps contain sharp objects.</text></g>
       <g class="an an2"><line x1="480" y1="360" x2="556" y2="418"/><circle cx="480" cy="360" r="5"/><circle cx="572" cy="418" r="13"/><text class="num" x="572" y="423" text-anchor="middle">2</text><text x="594" y="414">Leakproof sides</text><text x="594" y="433">and bottom</text><text class="sm" x="594" y="453">Helps contain liquids.</text></g>
       <g class="an an3"><line x1="500" y1="240" x2="556" y2="240"/><circle cx="500" cy="240" r="5"/><circle cx="572" cy="240" r="13"/><text class="num" x="572" y="245" text-anchor="middle">3</text><text x="594" y="236">Appropriate labeling</text><text class="sm" x="594" y="256">Identifies the</text><text class="sm" x="594" y="272">hazardous contents.</text></g>
       <g class="an an4"><line x1="500" y1="104" x2="556" y2="96"/><circle cx="500" cy="104" r="5"/><circle cx="572" cy="96" r="13"/><text class="num" x="572" y="101" text-anchor="middle">4</text><text x="594" y="92">Closure</text><text class="sm" x="594" y="112">Allows the container to be</text><text class="sm" x="594" y="128">secured for removal.</text></g>
+    <g class="an an4"><text class="sm" x="400" y="492" text-anchor="middle">These are explanatory labels, not claims that a container eliminates every possible injury.</text></g>
     </svg>`;
 
 
@@ -175,22 +176,24 @@
       items.push([x, y, rot, rnd()]);
     }
     items.sort((p, q) => p[1] - q[1]);
-    return items.map(([x, y, r, k]) => `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${r.toFixed(0)}) scale(.5) translate(-48 -8)" opacity="${(.8 + k * .2).toFixed(2)}">${syringe()}</g>`).join('');
+    /* each syringe sits in a .sy wrapper (index 0 = the bottom of the pile) so a page can drop them in one at a time */
+    return items.map(([x, y, r, k], i) => `<g class="sy" data-i="${items.length - 1 - i}"><g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${r.toFixed(0)}) scale(.5) translate(-48 -8)" opacity="${(.8 + k * .2).toFixed(2)}">${syringe()}</g></g>`).join('');
   };
-  const fillTall = () => `<svg class="art" viewBox="0 0 500 500" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <clipPath id="pcTall"><rect x="177" y="222" width="146" height="208"/></clipPath>
-      <rect x="-300" y="-300" width="1100" height="1100" fill="#13203f"/>
-      <polygon points="140,0 360,0 450,444 50,444" fill="#cfe0ff" opacity=".05"/>
-      <ellipse cx="250" cy="448" rx="140" ry="8" fill="url(#shadowG)"/>
-      <rect x="165" y="52" width="170" height="388" rx="14" fill="#1d2a4c" stroke="#3d5282" stroke-width="3"/>
-      <rect x="177" y="62" width="146" height="170" fill="#2ee6cf" opacity=".05"/><rect x="177" y="232" width="146" height="198" fill="#18254a"/>
-      <g class="contents" clip-path="url(#pcTall)">${pile(177, 323, 232, 430, 40, 7)}</g>
-      <path d="M182 66V428" stroke="#fff" stroke-opacity=".09" stroke-width="6"/>
-      <path d="M156 232H344" stroke="#ff5d6c" stroke-width="3" stroke-dasharray="9 6"/>
-      <rect x="152" y="30" width="196" height="30" rx="10" fill="url(#lidG)"/><rect x="204" y="40" width="92" height="9" rx="4.5" fill="#5a0f1b"/>
-      <g class="flbl"><path d="M146 66v166M138 66h16M138 232h16" stroke="#aab6cc" stroke-width="2" fill="none"/>
-        <text x="128" y="142" text-anchor="end" font-family="Open Sans,sans-serif" font-size="17" font-weight="600" fill="#eaf0fb">Visible space</text><text x="128" y="163" text-anchor="end" font-family="Open Sans,sans-serif" font-size="17" font-weight="600" fill="#eaf0fb">above</text>
-        <text x="354" y="226" font-family="Open Sans,sans-serif" font-size="17" font-weight="700" fill="#ff5d6c">Marked fill</text><text x="354" y="247" font-family="Open Sans,sans-serif" font-size="17" font-weight="700" fill="#ff5d6c">limit reached</text></g></svg>`;
+  /* a container with a marked fill line: wide and low, like a real one */
+  const fillTall = () => `<svg class="art" viewBox="0 0 720 400" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <clipPath id="pcTall"><rect x="222" y="226" width="276" height="136"/></clipPath>
+      <rect x="-300" y="-300" width="1320" height="1000" fill="#13203f"/>
+      <polygon points="250,0 470,0 610,372 110,372" fill="#cfe0ff" opacity=".05"/>
+      <ellipse cx="360" cy="374" rx="190" ry="9" fill="url(#shadowG)"/>
+      <rect x="210" y="146" width="300" height="220" rx="14" fill="#1d2a4c" stroke="#3d5282" stroke-width="3"/>
+      <rect x="222" y="154" width="276" height="72" fill="#2ee6cf" opacity=".05"/><rect x="222" y="226" width="276" height="136" fill="#18254a"/>
+      <g class="contents" clip-path="url(#pcTall)">${pile(222, 498, 226, 362, 52, 7)}</g>
+      <path d="M228 160V358" stroke="#fff" stroke-opacity=".09" stroke-width="6"/>
+      <path d="M200 226H520" stroke="#ff5d6c" stroke-width="3" stroke-dasharray="9 6"/>
+      <rect x="194" y="118" width="332" height="32" rx="10" fill="url(#lidG)"/><rect x="282" y="129" width="156" height="9" rx="4.5" fill="#5a0f1b"/>
+      <g class="flbl"><path d="M186 150v76M178 150h16M178 226h16" stroke="#aab6cc" stroke-width="2" fill="none"/>
+        <text x="168" y="184" text-anchor="end" font-family="Open Sans,sans-serif" font-size="19" font-weight="600" fill="#eaf0fb">Visible space</text><text x="168" y="208" text-anchor="end" font-family="Open Sans,sans-serif" font-size="19" font-weight="600" fill="#eaf0fb">above</text>
+        <text x="534" y="222" font-family="Open Sans,sans-serif" font-size="19" font-weight="700" fill="#ff5d6c">Marked fill</text><text x="534" y="246" font-family="Open Sans,sans-serif" font-size="19" font-weight="700" fill="#ff5d6c">limit reached</text></g></svg>`;
 
   const fill = (slice) => `<svg class="art" viewBox="0 0 880 400" preserveAspectRatio="xMidYMid ${slice ? 'slice' : 'meet'}" aria-hidden="true">
       <rect x="-800" y="-400" width="2480" height="1200" fill="#13203f"/><rect x="-800" y="356" width="2480" height="600" fill="#0e1731"/>
