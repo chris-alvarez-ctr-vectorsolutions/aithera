@@ -169,13 +169,13 @@
   .report-card-header { padding: 16px 20px 12px; border-bottom: 1px solid var(--hair-2); }
   .report-card-title-row { display: flex; align-items: center; justify-content: space-between; }
   .report-card-title { margin: 0; font-size: 17px; font-weight: 700; color: var(--ink); }
+  /* Applied date range beside the card title — plain text (2026-10-16: no pill/button look, so it
+     never reads as clickable). Still updates with the applied Date Range filter. */
   .date-badge {
     display: inline-flex; align-items: center; gap: 6px;
-    background: #f9fafb; border: 1px solid var(--hair); border-radius: 6px;
-    /* match the Email Learners button height/type so the two controls read as the same size
-       (the small-theme button label is var(--lumo-font-size-s) ≈ 12.25px, not 14px) */
-    height: 36px; box-sizing: border-box; padding: 0 14px; font-size: var(--lumo-font-size-s, .875rem); color: var(--ink-2);
+    font-size: 14px; font-weight: 600; color: var(--muted);
   }
+  .date-badge i { font-size: 13px; color: var(--muted-2); }
 
   /* ── Date Range filter (restored 2026-10-14 — PRD FR-4 lists a date range with relative
      presets like "past 30 days"). The options expand INLINE inside the panel (not a floating
@@ -203,6 +203,26 @@
   .drange-custom[hidden] { display: none; }
   .drange-back { background: none; border: 0; color: var(--blue-primary); font-size: 14px; cursor: pointer; padding: 4px; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .drange-custom-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+  /* Custom range = one rounded pill with two native date fields and an arrow between them.
+     Native <input type="date"> on purpose (2026-10-16): each field opens its own browser calendar
+     (month menu, up/down arrows, Clear / Today) to match the reference design — vaadin-date-picker's
+     overlay can't take that look. */
+  .drange-pill {
+    display: flex; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid var(--hair); border-radius: 999px;
+    padding: 4px 10px; box-shadow: 0 1px 3px rgba(16,24,40,.08);
+  }
+  .drange-pill:focus-within { border-color: var(--blue-primary); }
+  .drange-pill input[type="date"] {
+    flex: 1 1 0; min-width: 0; border: 0; background: transparent; padding: 6px 2px;
+    font-family: inherit; font-size: 14px; color: var(--ink-2); cursor: pointer;
+  }
+  .drange-pill input[type="date"]:focus { outline: none; }
+  .drange-pill input[type="date"]::-webkit-calendar-picker-indicator { cursor: pointer; opacity: .75; }
+  .drange-pill .drange-arrow { flex: 0 0 auto; color: var(--muted-2); font-size: 13px; }
+  .drange-pill.invalid { border-color: #dc2626; }
+  .drange-error { margin: 6px 4px 0; font-size: 13px; color: #b91c1c; }
+  .drange-error[hidden] { display: none; }
   .drange-hint { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
 
   /* ── Charts (V1) ── */
@@ -1233,11 +1253,14 @@
                 </div>
                 <div class="drange-custom" hidden>
                   <button type="button" class="drange-back"><i aria-hidden="true" class="fa-solid fa-chevron-left"></i> Date range options</button>
-                  <vaadin-date-picker theme="small" class="drange-start" label="Start date" style="width:100%"></vaadin-date-picker>
-                  <vaadin-date-picker theme="small" class="drange-end" label="End date" style="width:100%;margin-top:8px"></vaadin-date-picker>
-                  <div class="drange-custom-actions">
-                    <vaadin-button theme="secondary small" class="drange-use">Use these dates</vaadin-button>
+                  <!-- Two separate calendars: each date field opens its own picker. The range updates the
+                       draft as soon as both dates are valid (still applies on "Apply Filters"). -->
+                  <div class="drange-pill" role="group" aria-label="Custom date range">
+                    <input type="date" class="drange-start" aria-label="Start date">
+                    <i aria-hidden="true" class="fa-solid fa-arrow-right drange-arrow"></i>
+                    <input type="date" class="drange-end" aria-label="End date">
                   </div>
+                  <p class="drange-error" role="alert" hidden></p>
                 </div>
               </div>
               <p class="drange-hint">Learners whose assignment (start to due date) falls in this range.</p>
@@ -2531,6 +2554,7 @@
   const drangeOpts = drangeMenu.querySelectorAll('.drange-opt');
   const drangeStart = drangeMenu.querySelector('.drange-start');
   const drangeEnd = drangeMenu.querySelector('.drange-end');
+  const drangeError = drangeMenu.querySelector('.drange-error');
   const isoDay = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const parseIsoDay = v => { if (!v) return null; const [y, m, d] = v.split('-').map(Number); return (y && m && d) ? new Date(y, m - 1, d) : null; };
   function drangeShow(which) {   // 'presets' | 'custom' | null (closed)
@@ -2544,8 +2568,13 @@
     drangeTriggerLabel.textContent = rg.label;
     drangeOpts.forEach(o => o.classList.toggle('active', o.dataset.range === rg.preset));
     drangeStart.value = isoDay(rg.start); drangeEnd.value = isoDay(rg.end);
-    drangeEnd.invalid = false;
+    drangeStart.max = drangeEnd.value; drangeEnd.min = drangeStart.value;   // calendars grey out impossible days
+    drangeSetError('');
     drangeShow(null);
+  }
+  function drangeSetError(msg) {
+    drangeError.textContent = msg; drangeError.hidden = !msg;
+    drangeMenu.querySelector('.drange-pill').classList.toggle('invalid', !!msg);
   }
   drangeTrigger.addEventListener('click', () => drangeShow(drangeMenu.hidden ? 'presets' : null));
   drangeOpts.forEach(opt => opt.addEventListener('click', () => {
@@ -2555,14 +2584,20 @@
     drangeTrigger.focus();
   }));
   drangeMenu.querySelector('.drange-back').addEventListener('click', () => drangeShow('presets'));
-  drangeMenu.querySelector('.drange-use').addEventListener('click', () => {
+  // Either date changing updates the draft range right away (no extra confirm button); the panel
+  // stays open on the custom view so both dates can be set. Nothing applies until "Apply Filters".
+  function drangeCustomChanged() {
+    drangeStart.max = drangeEnd.value || ''; drangeEnd.min = drangeStart.value || '';
     const s = parseIsoDay(drangeStart.value), e = parseIsoDay(drangeEnd.value);
-    if (!s || !e) { drangeEnd.invalid = true; drangeEnd.errorMessage = 'Pick a start and an end date'; return; }
-    if (e < s)    { drangeEnd.invalid = true; drangeEnd.errorMessage = 'End date must be on or after the start date'; return; }
+    if (!s || !e) { drangeSetError('Pick a start and an end date'); return; }
+    if (e < s)    { drangeSetError('End date must be on or after the start date'); return; }
+    drangeSetError('');
     draft.range = { preset: 'custom', label: `${fmtDay(s)} – ${fmtDay(e)}`, start: s, end: e };
-    syncDateRange();
-    drangeTrigger.focus();
-  });
+    drangeTriggerLabel.textContent = draft.range.label;
+    drangeOpts.forEach(o => o.classList.toggle('active', o.dataset.range === 'custom'));
+  }
+  drangeStart.addEventListener('change', drangeCustomChanged);
+  drangeEnd.addEventListener('change', drangeCustomChanged);
   // Initial applied range = the default preset (shown on the overview badge from first render).
   filters.range = presetRange(DEFAULT_RANGE);
   draft = cloneFilters(filters);

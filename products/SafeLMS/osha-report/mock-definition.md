@@ -31,7 +31,7 @@ The review found the mock broadly aligned with Phase 1. These need a decision be
 4. **OSHA 10-Hour Construction behavior.** This course is Vector-authored. The mock shows the wrong latest-module behavior (AC-3.4) and the ClickSafety certificate (D-4) for it.
 5. **Hover tooltips.** Tooltips carry information in three places, which the accessibility NFR rules out.
 6. **No-results state.** When filters match no learners, the pie turns solid red and the table goes blank with no message.
-7. **Date pickers missing `theme="outlined"`.** The custom date-range pickers (added 2026-10-14) use only `theme="small"`, so they render the non-Vector filled style. Core CONTEXT.md requires `outlined`.
+7. **Custom date range uses browser date fields, not Vector.** Since 2026-10-16 the custom range is a pill holding two native `<input type="date">` fields, each opening its own browser calendar, to match the reference design. `vaadin-date-picker` can't take that look. Dev should confirm the look with design and decide whether to build it on `vaadin-date-picker` or accept the native control.
 
 The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10-14 (efb2d531) and now sits under Action Needed.
 
@@ -151,7 +151,7 @@ The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10
 
 **Key takeaways:**
 - **What's solid:** where the mock uses Vaadin, it uses it correctly. That covers every `vaadin-button` (valid `primary`/`secondary`/`tertiary` variants, primary furthest right), the certificate `vaadin-dialog`, the toast `vaadin-notification`, the `vaadin-tooltip` and the Action Needed `vaadin-radio-group`.
-- **One real usage error:** the two custom-range `vaadin-date-picker`s use `theme="small"` without `outlined`. Core CONTEXT.md says date pickers **must** include `theme="outlined"`, otherwise the non-Vector "filled" style renders.
+- **One real usage error (since replaced):** the two custom-range `vaadin-date-picker`s used `theme="small"` without `outlined`. Core CONTEXT.md says date pickers **must** include `theme="outlined"`. On 2026-10-16 they were replaced with native date fields on purpose (see the table row).
 - **Most of the page is hand-built where a VWC component exists.** The biggest ones to replace:
   - The three audience-picker modals (People, Group and List Selector) are custom overlays. They should use `vaadin-dialog`, which the certificate already uses, so the page currently has two dialog systems.
   - The folder-tree picker is custom. `vwc-tree-list` covers nested items, icon, subtitle, single select and keyboard navigation.
@@ -206,7 +206,7 @@ The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10
 | Icon-only buttons (panel ✕, modal ✕, Email ← back) | `vaadin-button theme="icon"` / `"icon tertiary"` | ⚠️ Partial | Native buttons. The certificate dialog's close already uses `theme="icon tertiary"`. |
 | Action Needed radio list (filter panel) | `vaadin-radio-group` + `vaadin-radio-button` | ✅ Covered | `value` / `label` used correctly. Radio groups don't need `outlined`. `theme="vertical"` **unverified**. (The PRD asks for multi-select checkboxes here; see Reconciliation.) |
 | Date Range dropdown (trigger + inline preset list + Custom option) | `vaadin-select theme="outlined"` | ⚠️ Partial | Custom; inline to avoid clipping in the scrolling panel. `vaadin-select` opens in an overlay layer, so the panel wouldn't clip it. Worth reconsidering. |
-| Custom-range Start / End date pickers | `vaadin-date-picker` | ⚠️ Partial | **Missing the required `theme="outlined"`** (has `theme="small"` only), so it renders the non-Vector filled style. Fix: `theme="outlined small"`. |
+| Custom-range Start / End date pickers | `vaadin-date-picker` | ⚠️ Partial | **Deliberate departure (2026-10-16):** two native `<input type="date">` fields in one rounded pill with an arrow between them, each opening its own browser calendar (month menu, up/down arrows, Clear / Today) to match the reference design. The audit's earlier finding (pickers missing `theme="outlined"`) no longer applies. If built on `vaadin-date-picker`, it must use `theme="outlined"`. |
 | Filter section dividers | `vwc-divider` | ⚠️ Partial | Custom `div.filter-divider`. |
 | People launcher card (icon + "All positions / at All Locations") | `vaadin-button` or `vwc-card` | ⚠️ Partial | Custom button card; no dedicated selection-summary launcher. |
 | Course / Completion Status / extra-option checkboxes | `vaadin-checkbox` (+ `vaadin-checkbox-group`) | ⚠️ Partial | Right component, but the label is a sibling `<span>` in a wrapping `<label>` rather than the checkbox's `label` attribute. Confirm label clicks toggle it. `vaadin-checkbox-group` would add an accessible group label. |
