@@ -634,8 +634,12 @@ href="../../../../assets/fontawesome/css/all.min.css"
      mid-drag the live ordinal is the answer you are looking for, and the
      handle has already done its job. */
   .cm-section-gripswap { display: none; }
-  .cm-section:hover .cm-section-ord { display: none; }
-  .cm-section:hover .cm-section-gripswap { display: block; }
+  /* Scoped to the head, where a drag can start — hovering the steps inside
+     a section is not reaching for the section. A .no-drag card (the only
+     section) keeps its number: there is nothing to reorder it against. */
+  .cm-section:not(.no-drag) .cm-section-head:hover .cm-section-ord { display: none; }
+  .cm-section:not(.no-drag) .cm-section-head:hover .cm-section-gripswap { display: block; }
+  .cm-section.no-drag .cm-section-marker { cursor: default; }
   .cm-section.is-dragging .cm-section-ord { display: block; }
   .cm-section.is-dragging .cm-section-gripswap { display: none; }
   /* The moving card's number is the live one — give it full contrast against
@@ -854,7 +858,7 @@ href="../../../../assets/fontawesome/css/all.min.css"
      are draggable peers, so it follows the same reveal-on-hover rule as the
      step rows' grip rather than sitting there permanently. */
   .cm-block-row .cm-grip { opacity: 0; transition: opacity .12s ease; }
-  .cm-block:hover .cm-grip, .cm-block:focus-within .cm-grip { opacity: 1; }
+  .cm-block-row:hover .cm-grip, .cm-block-row:focus-within .cm-grip { opacity: 1; }
   @media (hover: none) { .cm-block-row .cm-grip { opacity: 1; } }
   /* The two add buttons sit side by side under the lane. */
   .cm-lane-add { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
@@ -947,8 +951,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
   }
   .cm-just-moved { animation: cm-land 620ms var(--cm-ease); border-radius: 4px; }
   .cm-sectionstep .cm-grip { flex-shrink: 0; opacity: 0; transition: opacity .12s ease; }
-  .cm-sectionstep:hover .cm-grip,
-  .cm-sectionstep:focus-within .cm-grip { opacity: 1; }
+  .cm-sectionstep-head:hover .cm-grip,
+  .cm-sectionstep-head:focus-within .cm-grip { opacity: 1; }
   /* Touch has no hover, so the grip must always be visible on a coarse
      pointer or the affordance is unreachable there. */
   @media (hover: none) { .cm-sectionstep .cm-grip { opacity: 1; } }
@@ -1397,9 +1401,19 @@ href="../../../../assets/fontawesome/css/all.min.css"
      grips on every row is a lot of visual noise for an affordance you only
      need when you reach for it. */
   .cm-stepcard .cm-grip { flex-shrink: 0; opacity: 0; transition: opacity .12s ease; }
-  .cm-stepcard:hover .cm-grip,
-  .cm-stepcard:focus-within .cm-grip { opacity: 1; }
+  .cm-stepcard-head:hover .cm-grip,
+  .cm-stepcard-head:focus-within .cm-grip { opacity: 1; }
   @media (hover: none) { .cm-stepcard .cm-grip { opacity: 1; } }
+  /* A container that cannot move — the only section, the only step, the one
+     item in the one section — shows no handle at all, on hover, focus or
+     touch. Declared last so it wins over every reveal rule above. */
+  /* Child combinators throughout: the only SECTION is .no-drag while the
+     rows inside it may still move, so a descendant selector would strip
+     their grips too. visibility, not display, so the row does not shift. */
+  .cm-sectionstep.no-drag > .cm-sectionstep-head .cm-grip,
+  .cm-block.no-drag > .cm-block-row > .cm-grip,
+  .cm-stepcard.no-drag > .cm-stepcard-head > .cm-grip { visibility: hidden; }
+  .cm-section.no-drag .cm-section-gripswap { display: none !important; }
   /* Open, the body is white — the content level, one step in from the
      tinted card that holds it. Same relationship .cm-block-steps has. */
   .cm-stepcard-body {
@@ -2908,6 +2922,16 @@ href="../../../../assets/fontawesome/css/all.min.css"
                 </div>
                 <div class="cm-statusset" id="bStatusSet"></div>
 
+                <!-- Q31 — eligible for nesting. A per-checklist flag, not a
+                     type: it is what makes this checklist pickable inside
+                     another checklist's nested step. Either/or with nested
+                     steps of its own (Q30, one level) — see isNestable(). -->
+                <div class="cm-cfg-section">
+                  <span class="cm-cfg-section-title">Nesting</span>
+                  <span class="cm-cfg-section-note">Whether other checklists can run this one inside a nested step</span>
+                </div>
+                <div id="bNesting"></div>
+
                 <div class="cm-cfg-section">
                   <span class="cm-cfg-section-title">Schedule</span>
                 </div>
@@ -3223,6 +3247,8 @@ href="../../../../assets/fontawesome/css/all.min.css"
 <vaadin-dialog id="dlgPicker" header-title="Add deployment"></vaadin-dialog>
 <vaadin-dialog id="dlgBreak" header-title="Break template link"></vaadin-dialog>
 <vaadin-dialog id="dlgExplode" header-title="Break link — convert to steps"></vaadin-dialog>
+<!-- Q31 — the nestable flag vs. nested steps, either/or. Title set per use. -->
+<vaadin-dialog id="dlgNestSwitch"></vaadin-dialog>
 <vaadin-dialog id="dlgBlast" header-title="Publish content block"></vaadin-dialog>
 <vaadin-dialog id="dlgPublish" header-title="Publish checklist"></vaadin-dialog>
 <vaadin-dialog id="dlgDiscard" header-title="Unsaved changes"></vaadin-dialog>
@@ -3825,6 +3851,146 @@ function nestedStepsIn(c) {
   return out;
 }
 
+/* ---- Eligible for nesting (Q31) ---------------------------------------
+   "A checklist must be flagged eligible for nesting before it can be selected
+   inside another checklist." The flag is `c.nestable`. A per-item checklist
+   (`perItemOnly`, used nested and never deployed on its own) counts as
+   nestable by definition.
+
+   Nesting is one level (Q30), so the flag and nested steps are EITHER/OR on
+   a checklist: a nestable checklist holds no nested steps of its own, or
+   picking it inside a parent would nest two deep. Neither side is disabled —
+   flipping one asks to give up the other (see openNestSwitchDialog):
+     · switching ON  removes this checklist's nested steps
+     · adding a nested step switches the flag OFF
+     · switching OFF clears the reference in every parent that nested it,
+       which then shows its "No Per-Item Checklist selected" warning. What
+       unflagging SHOULD do to parents is not in the PRD — OPEN-QUESTIONS #9. */
+const isNestable = c => !!(c && (c.nestable || c.perItemOnly));
+
+/* Where this checklist's nested steps live, split by whether they can be
+   deleted outright. A local step is the checklist's own; one inside a block
+   instance is shared with every other checklist using that block, so it can
+   only go by breaking this checklist's link to the block first. */
+function nestedStepLocations(c) {
+  const local = [], inBlocks = [];
+  (c && c.sections || []).forEach(sec => {
+    sectionSteps(sec).forEach(st => { if (isNested(st)) local.push({ sec, step: st }); });
+    sectionBlocks(sec).forEach(inst => {
+      const b = blockById(inst.blockId);
+      const steps = (b && b.steps || []).filter(isNested);
+      if (steps.length) inBlocks.push({ sec, inst, block: b, steps });
+    });
+  });
+  return { local, inBlocks, count: local.length + inBlocks.reduce((n, x) => n + x.steps.length, 0) };
+}
+
+/* Checklists that nest `c` — any nested step, local or inside one of their
+   blocks, naming it. A block step is shared, so one step can make several
+   checklists parents; `steps` is deduplicated for that reason. */
+function nestingParents(c) {
+  const parents = [], steps = new Set();
+  if (!c) return { parents, steps: [] };
+  CHECKLISTS.forEach(p => {
+    if (p.id === c.id) return;
+    const hits = nestedStepsIn(p).filter(st => st.checklistId === c.id);
+    if (!hits.length) return;
+    parents.push(p);
+    hits.forEach(st => steps.add(st));
+  });
+  return { parents, steps: [...steps] };
+}
+
+/* Switch ON. Blocks holding nested steps are broken out into local steps
+   first (explodeBlock — the same "Break link" the row menu offers), so the
+   shared block itself and every other checklist using it are untouched; then
+   every nested step goes. Walks each section backwards because exploding
+   changes the indexes after it. */
+function makeNestable(c) {
+  let removed = 0;
+  (c.sections || []).forEach(sec => {
+    const items = sectionItems(sec);
+    for (let i = items.length - 1; i >= 0; i--) {
+      const it = items[i];
+      if (it.kind !== 'block') continue;
+      const b = blockById(it.inst.blockId);
+      if ((b && b.steps || []).some(isNested)) explodeBlock(sec, it.inst, i);
+    }
+    const kept = sectionItems(sec).filter(it => !(it.kind === 'step' && isNested(it.step)));
+    removed += sectionItems(sec).length - kept.length;
+    sec.items = kept;
+    renumberSection(sec);
+  });
+  c.nestable = true;
+  return removed;
+}
+
+/* Switch OFF. Returns the parents whose reference was cleared. perItemOnly
+   goes too: a checklist that can no longer be nested is not "per-item". */
+function unflagNestable(c) {
+  const { parents, steps } = nestingParents(c);
+  steps.forEach(st => { st.checklistId = null; });
+  c.nestable = false;
+  c.perItemOnly = false;
+  return parents;
+}
+
+/* The one confirm dialog for every side of the either/or. `onCancel` also
+   runs on Esc or an outside click, so the caller can put its control back. */
+function openNestSwitchDialog(opts) {
+  const dlg = document.getElementById('dlgNestSwitch');
+  let confirmed = false;
+  dlg.headerTitle = opts.title;
+  dlg.renderer = (root) => {
+    root.innerHTML = '';
+    const wrap = document.createElement('div');
+    wrap.className = 'cm-dialog-wrap cm-dialog-wrap--sm';
+    wrap.innerHTML = opts.bodyHtml;
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = (root) => {
+    root.innerHTML = '';
+    const foot = document.createElement('div');
+    foot.className = 'cm-dialog-foot';
+    const right = document.createElement('div');
+    right.className = 'cm-dialog-foot-right';
+    right.appendChild(textBtn(opts.cancelLabel || 'Cancel', 'secondary', () => { dlg.opened = false; }));
+    const ok = document.createElement('vaadin-button');
+    ok.setAttribute('theme', 'error primary');
+    ok.textContent = opts.confirmLabel;
+    ok.addEventListener('click', () => {
+      confirmed = true;
+      dlg.opened = false;
+      opts.onConfirm();
+    });
+    right.appendChild(ok);
+    foot.appendChild(right);
+    root.appendChild(foot);
+  };
+  const onClose = e => {
+    if (e.detail.value) return;
+    dlg.removeEventListener('opened-changed', onClose);
+    if (!confirmed && opts.onCancel) opts.onCancel();
+  };
+  dlg.addEventListener('opened-changed', onClose);
+  dlg.opened = true;
+}
+
+/* Shared copy for the dialogs: the rule, and the list of what goes. */
+const NEST_RULE_HTML =
+  'Nesting is one level only. A checklist that can be nested inside another ' +
+  'cannot contain nested checks of its own — so it is one or the other.';
+const nestList = names => '<ul class="cm-blast-list">' +
+  names.map(n => '<li>' + n + '</li>').join('') + '</ul>';
+const parentsAlertHtml = parents =>
+  '<div class="cm-alert cm-alert--warn" style="margin:14px 0 0">' +
+    '<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>' +
+    '<div class="cm-alert-body"><strong>' + parents.length + ' checklist' +
+      (parents.length === 1 ? ' nests' : 's nest') + ' this one.</strong>' +
+      'Their nested step will be left with no checklist named, and will warn until ' +
+      'someone picks another.</div>' +
+  '</div>' + nestList(parents.map(p => '<strong>' + escHtml(p.name) + '</strong>'));
+
 /* Deployments that could never run this checklist, because it nests and they
    are not a nestable entity (Q30). Used in BOTH directions: the picker gates
    on it, and adding a nested step is refused while any exist — so the broken
@@ -4025,6 +4191,9 @@ const CHECKLISTS = [
     /* In Service only — a rig that is out of service is not running a morning
        readiness check. The single-status case. */
     appliesToStatuses: ['inservice'],
+    /* Q18 — AI voice completion, per checklist. Carried over as-is from the
+       legacy flag (41,155 checklists have it on), so it must survive. */
+    aiEnabled: true,
     /* The checklist default — every deployment inherits this unless it sets its
        own. Morning check: due at shift change, every day, 2h grace. */
     defaultSchedule: mkSchedule('daily', '06:00', ALL_DAYS, 2),
@@ -4116,7 +4285,7 @@ const CHECKLISTS = [
     appliesToStatuses: ['inservice', 'oos'],
     defaultSchedule: mkSchedule('daily', '06:00', ALL_DAYS, 2),
     status: 'published', version: 2, liveVersion: 2, hasDraft: false, origin: 'blocks',
-    perItemOnly: true, lastRun: 'Today, 06:14',
+    nestable: true, perItemOnly: true, lastRun: 'Today, 06:14',
     sections: [
       /* All local steps, no blocks — so they sit in preSteps and the blocks
          run is simply empty. A section is allowed to be local-only. */
@@ -4146,7 +4315,7 @@ const CHECKLISTS = [
     appliesToStatuses: ['inservice'],
     defaultSchedule: mkSchedule('monthly', '09:00', ALL_DAYS, 24),
     status: 'published', version: 3, liveVersion: 3, hasDraft: false, origin: 'blocks',
-    perItemOnly: true, lastRun: '2026-09-12',
+    nestable: true, perItemOnly: true, lastRun: '2026-09-12',
     sections: [
       { id: 'li-s1', name: 'Ladder condition', collapsed: false, templateLocked: false,
         preSteps: [
@@ -4160,6 +4329,8 @@ const CHECKLISTS = [
     deployments: [] },
   { id: 'quarterly-hydrant', name: 'Quarterly Hydrant Check', type: 'facility', cadence: 'quarterly',
     appliesToStatuses: ['inservice'],
+    /* Q18 extends voice past apparatus — a facility check can use it too. */
+    aiEnabled: true,
     defaultSchedule: mkSchedule('quarterly', '09:00', ALL_DAYS, 24),
     status: 'draft', version: 1, liveVersion: null, hasDraft: true, origin: 'scratch', lastRun: '—',
     /* Exercises the non-nestable entity types (Q21). Safe here: this
@@ -4204,6 +4375,7 @@ const CHECKLISTS = [
      A paused deployment keeps the history without scheduling new runs. */
   { id: 'preshift-radio', name: 'Pre-Shift Radio Check (legacy)', type: 'apparatus', cadence: 'daily',
     appliesToStatuses: ['inservice'],
+    aiEnabled: true,
     defaultSchedule: mkSchedule('daily', '06:30', ALL_DAYS, 1),
     status: 'archived', version: 7, liveVersion: 7, hasDraft: false, origin: 'blocks', lastRun: '2026-04-11',
     sections: [
@@ -5178,20 +5350,30 @@ function openNewChecklistDialog() {
       cb.checked = on();
       cb.setAttribute('aria-label', ENTITY_STATUS[v]);
       cb.addEventListener('checked-changed', e => {
+        /* Same guards as the builder's renderStatusSet(). Vaadin fires
+           checked-changed when a checkbox is CREATED with a value, so this
+           used to call requestContentUpdate() → rebuild → echo → rebuild,
+           forever, the moment the dialog opened. Bail when already in sync,
+           and toggle the class in place rather than re-rendering. */
+        if (cb._settingChecked) return;
         const cur = draft.appliesToStatuses.slice();
         const i = cur.indexOf(v);
-        if (e.detail.value) { if (i === -1) cur.push(v); }
+        const want = !!e.detail.value;
+        if (want === (i !== -1)) return;          // already in sync
+        if (want) { cur.push(v); }
         else {
           // Same rule as the builder: the set can never empty.
           if (cur.length === 1) {
+            cb._settingChecked = true;
             cb.checked = true;
+            cb._settingChecked = false;
             toast('A checklist must apply to at least one status', 'fa-circle-exclamation');
             return;
           }
           cur.splice(i, 1);
         }
         draft.appliesToStatuses = ENTITY_STATUS_ORDER.filter(x => cur.indexOf(x) !== -1);
-        dlg.requestContentUpdate();
+        cell.classList.toggle('active', want);    // in place, no rebuild
       });
       const txt = document.createElement('span');
       txt.className = 'cm-statusopt-text';
@@ -7014,6 +7196,8 @@ function openBuilder(id) {
 
   renderSetupRecap();
   renderStatusSet();
+  renderSettings();   // the AI voice switch is per checklist (Q18)
+  renderNesting();
   compactTextAreas();
   renderReleaseBar();
 
@@ -7183,6 +7367,87 @@ function renderStatusSet() {
   });
 }
 
+/* Q31 — the "can be nested" switch in Setup. Rebuilt whole on every change
+   (and on cancel, to put the switch back): the handler bails when the value
+   already matches the model, so a create-time echo cannot loop. */
+function renderNesting() {
+  const host = document.getElementById('bNesting');
+  if (!host) return;
+  const c = currentChecklist();
+  host.innerHTML = '';
+  if (!c) return;
+  const on = isNestable(c);
+  const parents = nestingParents(c).parents;
+
+  const row = document.createElement('div');
+  row.className = 'cm-switch-row';
+  const help = on
+    ? 'Runs once per item inside another checklist\'s nested step. Cannot contain nested ' +
+      'steps of its own.' + (parents.length
+        ? ' Nested by ' + parents.map(p => p.name).join(', ') + '.' : ' Not nested anywhere yet.')
+    : 'Off — it runs only where it is deployed, and can contain nested steps.';
+  row.innerHTML = '<div class="cm-switch-text">' +
+    '<div class="cm-switch-label">Can be nested inside another checklist</div>' +
+    '<div class="cm-switch-help">' + escHtml(help) + '</div></div>';
+  const sw = document.createElement('vwc-switch');
+  sw.checked = on;
+  sw.setAttribute('accessible-name', 'Can be nested inside another checklist');
+  onSwitchChange(sw, v => {
+    if (v === isNestable(c)) return;            // create-time echo, or already in sync
+    const done = (msg, detail) => {
+      markBuilderDirty(); renderSections(); renderNesting();
+      logEdit(c.id, msg, detail);
+      toast(msg, 'fa-diagram-nested');
+    };
+    if (v) {
+      const loc = nestedStepLocations(c);
+      if (!loc.count) { c.nestable = true; done('Can now be nested', 'Pickable in a nested step'); return; }
+      const names = loc.local.map(x => '<strong>' + escHtml(x.step.label || 'Untitled step') +
+          '</strong> — ' + escHtml(x.sec.name))
+        .concat(loc.inBlocks.map(x => x.steps.map(st => '<strong>' + escHtml(st.label) +
+          '</strong> — in the shared block ' + escHtml(x.block.name))).flat());
+      const blockNote = loc.inBlocks.length
+        ? '<p style="margin:12px 0 0;font-size:13px">' + loc.inBlocks.length + ' of these sit' +
+          (loc.inBlocks.length === 1 ? 's' : '') + ' in a shared content block. Its link is ' +
+          'broken for this checklist only: the block\'s other steps become this checklist\'s own, ' +
+          'and the block itself — and every other checklist using it — is unchanged.</p>'
+        : '';
+      openNestSwitchDialog({
+        title: 'Make this checklist nestable?',
+        bodyHtml: '<p style="margin:0;font-size:13.5px">' + NEST_RULE_HTML + '</p>' +
+          '<div class="cm-alert cm-alert--err" style="margin:14px 0 0">' +
+            '<i class="fa-solid fa-trash-can" aria-hidden="true"></i>' +
+            '<div class="cm-alert-body"><strong>' + loc.count + ' nested step' +
+              (loc.count === 1 ? '' : 's') + ' will be removed.</strong></div></div>' +
+          nestList(names) + blockNote,
+        confirmLabel: 'Remove and make nestable',
+        cancelLabel: 'Keep nested steps',
+        onConfirm: () => {
+          const removed = makeNestable(c);
+          done('Can now be nested', removed + ' nested step' + (removed === 1 ? '' : 's') + ' removed');
+        },
+        onCancel: renderNesting
+      });
+    } else {
+      if (!parents.length) { unflagNestable(c); done('No longer nestable', 'Not nested anywhere'); return; }
+      openNestSwitchDialog({
+        title: 'Stop this checklist being nested?',
+        bodyHtml: '<p style="margin:0;font-size:13.5px">Turning this off means it can no longer ' +
+          'be picked inside another checklist\'s nested step.</p>' + parentsAlertHtml(parents),
+        confirmLabel: 'Turn off nesting',
+        cancelLabel: 'Keep it nestable',
+        onConfirm: () => {
+          const cleared = unflagNestable(c);
+          done('No longer nestable', 'Cleared from ' + cleared.map(p => p.name).join(', '));
+        },
+        onCancel: renderNesting
+      });
+    }
+  });
+  row.appendChild(sw);
+  host.appendChild(row);
+}
+
 /* Why an author would tick each one. Retired is the one worth spelling out —
    the PRD flags (Q4) that an item can sit in a status with no checklist and
    the system stays silent, which is intended for Retired and probably wrong
@@ -7312,7 +7577,12 @@ function renderSectionItems(sec) {
       ? renderSectionStep(sec, it.step, idx)
       : renderBlockInstance(sec, it.inst, idx);
 
-    row.draggable = true;
+    /* An item can also move to another section, so it is stuck only when it
+       is the one item in the one section. */
+    const canMove = items.length > 1 ||
+      (currentChecklist().sections || []).length > 1;
+    armDragFromHead(row,
+      it.kind === 'step' ? '.cm-sectionstep-head' : '.cm-block-row', canMove);
     row.classList.add('cm-lane-item');
     /* Positional anchor for the whole lane, step or block alike — the drop
        handler knows where a thing landed by index, not by id. */
@@ -7445,7 +7715,7 @@ function rowMenu(actions) {
   trigger.setAttribute('aria-label', 'More actions');
   trigger.setAttribute('aria-haspopup', 'menu');
   trigger.setAttribute('aria-expanded', 'false');
-  trigger.innerHTML = '<i class="fa-solid fa-ellipsis" aria-hidden="true"></i>';
+  trigger.innerHTML = '<i class="fa-solid fa-ellipsis-vertical" aria-hidden="true"></i>';
 
   const menu = document.createElement('div');
   menu.className = 'cm-rowmenu-list';
@@ -7809,6 +8079,32 @@ function openMoveItemDialog(fromSec, fromIdx) {
 /* ---- Sections + block instances -------------------------------------- */
 let dragSectionId = null;
 
+/* Drag starts from a container's HEAD only — the bar holding its grip — never
+   from its open body. Every draggable here (section, lane row, block, step
+   card) wraps form fields or other rows, and with the whole element draggable
+   a press-and-move anywhere inside started a drag: from an open step's fields
+   it was a ghost drag the body's dragstart guard swallowed, so nothing could
+   land; from a section's gaps and add buttons it dragged the entire section.
+
+   The element is made draggable on pointerdown, before the browser decides
+   what a drag would pick up, and only when the press lands on the head and
+   not on one of its controls. `head` must be a direct child of `el`, so a
+   head belonging to a nested container never arms its ancestor.
+
+   `enabled: false` is for a container with nowhere to go (the only section,
+   the only step). It stays undraggable and is marked .no-drag, which the CSS
+   uses to suppress the grip and the hover swap — no handle for a move that
+   cannot happen. */
+function armDragFromHead(el, headSel, enabled) {
+  el.draggable = false;
+  if (!enabled) { el.classList.add('no-drag'); return; }
+  el.addEventListener('pointerdown', e => {
+    const head = e.target.closest(headSel);
+    el.draggable = !!head && head.parentElement === el &&
+      !e.target.closest('button, vaadin-button, .cm-rowmenu, input, a');
+  });
+}
+
 /* Insert a new section AT a position. Adding is positional now — every gap
    between cards carries its own inserter — so the index is the argument;
    passing c.sections.length appends. */
@@ -8041,7 +8337,7 @@ function renderSections() {
 
     const el = document.createElement('div');
     el.className = 'cm-section' + (sec.collapsed ? ' is-collapsed' : '');
-    el.draggable = true;
+    armDragFromHead(el, '.cm-section-head', c.sections.length > 1);
     el.dataset.sectionId = sec.id;
     el.dataset.anchor = 'sec:' + sec.id;
 
@@ -8145,6 +8441,8 @@ function renderSections() {
     el.addEventListener('dragstart', e => {
       dragSectionId = sec.id; el.classList.add('is-dragging');
       e.dataTransfer.effectAllowed = 'move';
+      // Firefox will not start a drag without a payload.
+      try { e.dataTransfer.setData('text/plain', sec.name || 'section'); } catch (_) {}
     });
     el.addEventListener('dragend', () => {
       dragSectionId = null; el.classList.remove('is-dragging');
@@ -8156,9 +8454,9 @@ function renderSections() {
          here would make the whole card a valid drop surface, so a release
          anywhere in the section would silently do nothing while showing a
          "drop allowed" cursor. The gaps are the only item targets. */
-      if (dragItem) return;
+      if (dragItem || !dragSectionId) return;
       e.preventDefault();
-      if (dragSectionId && dragSectionId !== sec.id) {
+      if (dragSectionId !== sec.id) {
         el.classList.add('is-drag-over');
         /* The ordinals are the point of this marker, so they preview the drop
            rather than waiting for it — hovering a target renumbers every card
@@ -8167,7 +8465,10 @@ function renderSections() {
         previewSectionOrder(c, dragSectionId, sec.id);
       }
     });
-    el.addEventListener('dragleave', () => {
+    el.addEventListener('dragleave', e => {
+      /* dragleave fires on every child boundary crossed inside the card;
+         only a real exit clears the marker, or the ordinals flicker. */
+      if (e.relatedTarget && el.contains(e.relatedTarget)) return;
       el.classList.remove('is-drag-over');
       previewSectionOrder(c, null, null);
     });
@@ -9306,6 +9607,28 @@ const SETTINGS = SETTINGS_GROUPS.reduce((a, g) => a.concat(g.items), []);
 function renderSettings() {
   const host = document.getElementById('settingsBody');
   host.innerHTML = '';
+
+  /* Q18 — AI voice completion. Unlike the switches below, this one belongs to
+     the CHECKLIST (`c.aiEnabled`), because that is where the legacy flag lives
+     and it has to carry over unchanged. Not gated by entity type: Q18 extends
+     voice to equipment, capital equipment and station checks. */
+  const c = currentChecklist();
+  if (c) {
+    host.appendChild(cfgSection('Crew input', c.aiEnabled ? 'On' : 'Off'));
+    const row = document.createElement('div');
+    row.className = 'cm-switch-row';
+    row.innerHTML = '<div class="cm-switch-text">' +
+      '<div class="cm-switch-label">Allow AI voice completion</div>' +
+      '<div class="cm-switch-help">Crews can answer steps by speaking. Steps that require a ' +
+      'photo, video or signature still have to be captured by hand.</div></div>';
+    const sw = document.createElement('vwc-switch');
+    sw.checked = !!c.aiEnabled;
+    sw.setAttribute('accessible-name', 'Allow AI voice completion');
+    onSwitchChange(sw, v => { c.aiEnabled = v; markBuilderDirty(); renderSettings(); });
+    row.appendChild(sw);
+    host.appendChild(row);
+  }
+
   SETTINGS_GROUPS.forEach(g => {
     /* One L1 heading per phase of a run, with a count so a collapsed scan
        still says how much is on. */
@@ -10121,10 +10444,12 @@ function perItemSteps(step) {
 }
 
 /* Checklists eligible to BE a per-item checklist: published, because a
-   reference has to resolve to a live revision. `excludeId` drops the checklist
-   being edited, since a step cannot reference its own parent. */
+   reference has to resolve to a live revision, and flagged nestable (Q31).
+   The flag also enforces one level (Q30) — a nestable checklist holds no
+   nested steps, so nothing picked here can nest again. `excludeId` drops the
+   checklist being edited, since a step cannot reference its own parent. */
 function perItemCandidates(excludeId) {
-  return CHECKLISTS.filter(c =>
+  return CHECKLISTS.filter(c => isNestable(c) &&
     c.status === 'published' && c.liveVersion != null && c.id !== excludeId);
 }
 
@@ -10445,10 +10770,11 @@ function buildStepForm(st, body, onChange, titleEl) {
      added, stay out of the list. */
   type.items = authorableTypes().map(r => ({ label: r.label, value: r.value }));
   type.value = s.type;
-  type.addEventListener('value-changed', e => {
-    if (!e.detail.value || e.detail.value === s.type) return;
+  /* The type change itself, split out of the listener so the Q31 confirm
+     dialog below can apply it after the author says yes. */
+  const applyType = next => {
     const prevType = s.type;
-    s.type = e.detail.value;
+    s.type = next;
     if (s.type === 'single') { if (!s.options) s.options = ['Option 1']; }
     else { delete s.options; delete s.failOptions; }
     if (s.type !== 'numeric') { delete s.unit; delete s.min; delete s.max; }
@@ -10471,7 +10797,7 @@ function buildStepForm(st, body, onChange, titleEl) {
          closes the other end. */
       const blocked = nestConflictsForStep();
       if (blocked.length) {
-        s.type = e.detail.value = prevType;
+        s.type = prevType;
         toast('Cannot nest here — ' + blocked.length + ' deployment' +
           (blocked.length === 1 ? '' : 's') + ' cannot run a nested check',
           'fa-circle-exclamation');
@@ -10495,6 +10821,51 @@ function buildStepForm(st, body, onChange, titleEl) {
       delete s.assetType; delete s.checklistId; delete s.minPassing;
     }
     onChange(true);
+  };
+  type.addEventListener('value-changed', e => {
+    const next = e.detail.value;
+    if (!next || next === s.type) return;
+    /* Q31 either/or, the "add a nested step" side. A nestable checklist holds
+       no nested steps (Q30, one level), so making this step nested switches
+       the flag off on whatever would contain it: the checklist being built,
+       or — in the block creator — every nestable checklist using this block.
+       The Q30 entity guard inside applyType() runs first; no point asking. */
+    if (next === 'nested' && !nestConflictsForStep().length) {
+      const inBuilder = !!(titleEl && titleEl.closest('.cm-sectionstep'));
+      const losing = inBuilder
+        ? [currentChecklist()].filter(isNestable)
+        : CHECKLISTS.filter(c => isNestable(c) && checklistUsesBlock(c, activeBlockId));
+      if (losing.length) {
+        type.value = s.type;                      // back until confirmed
+        const parents = [...new Set(losing.map(c => nestingParents(c).parents).flat())];
+        const names = losing.map(c => '<strong>' + escHtml(c.name) + '</strong>');
+        openNestSwitchDialog({
+          title: 'Add a nested step?',
+          bodyHtml: '<p style="margin:0;font-size:13.5px">' + NEST_RULE_HTML + '</p>' +
+            '<p style="margin:12px 0 0;font-size:13.5px">' + (inBuilder
+              ? 'Adding a nested step turns off <strong>Can be nested</strong> on this checklist:'
+              : 'This block is used by ' + losing.length + ' checklist' +
+                (losing.length === 1 ? '' : 's') + ' that can be nested. Adding a nested step ' +
+                'turns that off on each of them:') + '</p>' +
+            nestList(names) + (parents.length ? parentsAlertHtml(parents) : ''),
+          confirmLabel: 'Add nested step',
+          cancelLabel: 'Keep it nestable',
+          onConfirm: () => {
+            losing.forEach(c => {
+              const cleared = unflagNestable(c);
+              logEdit(c.id, 'No longer nestable', 'A nested step was added' +
+                (cleared.length ? ' · cleared from ' + cleared.map(p => p.name).join(', ') : ''));
+            });
+            applyType('nested');
+            type.value = 'nested';                // echo returns early: already in sync
+            if (inBuilder) renderNesting();
+            toast('Nested step added · no longer nestable', 'fa-diagram-nested');
+          }
+        });
+        return;
+      }
+    }
+    applyType(next);
   });
   grid2.appendChild(type);
 
@@ -10940,7 +11311,7 @@ function renderCreatorSteps() {
     const rm = respMeta(s.type);
     const card = document.createElement('div');
     card.className = 'cm-stepcard';
-    card.draggable = true;
+    armDragFromHead(card, '.cm-stepcard-head', creatorSteps.length > 1);
     card.dataset.anchor = 'cstep:' + idx;
 
     /* Collapsed by default, like a section or a block in the checklist
@@ -11039,16 +11410,23 @@ function renderCreatorSteps() {
     card.addEventListener('dragstart', e => {
       dragStepIdx = idx; card.classList.add('is-dragging');
       e.dataTransfer.effectAllowed = 'move';
+      // Firefox will not start a drag without a payload.
+      try { e.dataTransfer.setData('text/plain', s.label || 'step'); } catch (_) {}
     });
     card.addEventListener('dragend', () => {
       dragStepIdx = null; card.classList.remove('is-dragging');
       host.querySelectorAll('.cm-stepcard').forEach(n => n.classList.remove('is-drag-over'));
     });
     card.addEventListener('dragover', e => {
+      // Only a step drag may land here — not a file or stray text.
+      if (dragStepIdx === null) return;
       e.preventDefault();
-      if (dragStepIdx !== null && dragStepIdx !== idx) card.classList.add('is-drag-over');
+      if (dragStepIdx !== idx) card.classList.add('is-drag-over');
     });
-    card.addEventListener('dragleave', () => card.classList.remove('is-drag-over'));
+    card.addEventListener('dragleave', e => {
+      if (e.relatedTarget && card.contains(e.relatedTarget)) return;
+      card.classList.remove('is-drag-over');
+    });
     card.addEventListener('drop', e => {
       e.preventDefault();
       card.classList.remove('is-drag-over');
@@ -12535,6 +12913,21 @@ function openPublishDialog() {
       html += '</ul>';
     }
 
+    /* Q31 — a nestable checklist runs inside other checklists too, so its
+       publish reaches them the way a block's does. Named, like the rigs. */
+    const nestParents = isNestable(c) ? nestingParents(c).parents : [];
+    if (nestParents.length) {
+      html +=
+        '<div class="cm-alert cm-alert--info" style="margin:14px 0 0">' +
+          '<i class="fa-solid fa-diagram-nested" aria-hidden="true"></i>' +
+          '<div class="cm-alert-body"><strong>Also nested in ' + nestParents.length +
+            ' checklist' + (nestParents.length === 1 ? '' : 's') + '.</strong>' +
+            /* Deliberately silent on WHEN they pick it up — not in the PRD,
+               OPEN-QUESTIONS #10. */
+            'Their nested step runs this checklist, so this publish affects them too.</div>' +
+        '</div>' + nestList(nestParents.map(p => '<strong>' + escHtml(p.name) + '</strong>'));
+    }
+
     wrap.innerHTML = html;
     root.appendChild(wrap);
   };
@@ -12938,7 +13331,7 @@ function applyFlowState(id, opts) {
   const closeAll = () => {
     ['dlgImport', 'dlgPicker', 'dlgBreak', 'dlgBlast', 'dlgRenameSection',
      'dlgPublish', 'dlgDiscard', 'dlgBatch', 'dlgRetire',
-     'dlgLibCadence', 'dlgSchedule', 'dlgRepeatPreview'].forEach(x => {
+     'dlgLibCadence', 'dlgSchedule', 'dlgRepeatPreview', 'dlgNestSwitch'].forEach(x => {
       const d = document.getElementById(x);
       if (d) d.opened = false;
     });
