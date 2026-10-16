@@ -416,6 +416,9 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .t-grid td:nth-child(2) { min-width: 140px; }
 .st-line .you-line { color: var(--tag-staff); font-weight: 500; }
 .start-btn { margin-top: 2px; }
+/* #7: the "Start workflow" status badge is also the button that starts it */
+button.st { font-family: inherit; cursor: pointer; }
+button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 
 /* ── Answer once, sign once (shared by #3 / #4) ─────────────── */
 /* ── Review & sign ─────────────────────────────────────────── */
@@ -1083,7 +1086,7 @@ const T_DEFAULT_FILTER = 'all';
      tBulkBar(rows)    HTML for the selection bar's right side
      openWorkflow(id)  row click */
 let INST = seedMine(buildInstances());
-// Only three statuses: Waiting for signatures · Signature sent · Sending out <date>.
+// Statuses: Waiting for signatures · Signature sent · Sending out <date> (+ Start workflow in #7).
 // Unstarted workflows only matter to #7 (which starts them); elsewhere they're scheduled sends.
 if (typeof T_KEEP_UNSTARTED === 'undefined') INST.filter(w => w.status === 'not')
   .forEach((w, i) => { w.status = 'sched'; w.sendOn = new Date(2026, 10, 2 + 7 * (i % 3)); w.sendTime = '7:00 AM'; });
@@ -1097,6 +1100,8 @@ const checkable = w => typeof tCheckable === 'function' ? tCheckable(w) : true;
 
 const T_CARDS = [
   ['all', 'All workflows', '#9aa3ad'],
+  // #7 only: workflows nobody has started yet carry a "Start workflow" status
+  ...(typeof T_KEEP_UNSTARTED !== 'undefined' ? [['not', 'Start workflow', '#8a939e']] : []),
   ['prog', 'Waiting for signatures', 'var(--blue)'],
   ['sched', 'Sending out', '#8e63ce'],
   ['done', 'Signature sent', 'var(--green)'],
@@ -1110,15 +1115,11 @@ function statusChip(w) {
   if (w.status === 'sched') return `<span class="st sched"><i class="fa-regular fa-calendar-clock"></i> Sending out ${fmtDate(w.sendOn)}</span>`;
   if (w.status === 'done') return '<span class="st done"><i class="fa-solid fa-check"></i> Signature sent</span>';
   if (w.status === 'prog') return '<span class="st prog">Waiting for signatures</span>';
-  return '';                       // not started yet (#7 only)
+  if (w.status === 'not') return '<span class="st not"><i class="fa-regular fa-play"></i> Start workflow</span>';   // #7 only
+  return '';
 }
-// Status = chip, then (while waiting) who it's waiting on — PRD AC-4.2
-function statusCell(w) {
-  const x = waitingOn(w);
-  let line = '';
-  if (w.status === 'prog' && x) line = x.name === ME ? '<span class="you-line">Waiting on you</span>' : `Waiting on ${esc(x.name)} · ${esc(ROLES[x.role].label)}`;
-  return `${statusChip(w) || '<span class="sub">—</span>'}${line ? `<div class="st-line">${line}</div>` : ''}`;
-}
+// Status = the badge only (no extra copy underneath)
+function statusCell(w) { return statusChip(w) || '<span class="sub">—</span>'; }
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
 function tRows() {
