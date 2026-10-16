@@ -185,8 +185,12 @@ Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`. If a designer ha
 
 **Who gets one.** This is still being trialed with the team:
 - **Deborah Kim** (git `user.email` is `deborah.kim@vectorsolutions.com`): create the ticket without asking.
-- **Every other designer:** ask once, in one line, while scaffolding: *"Want a design Jira ticket for this mock on the UX board?"* Create it only on a yes. On a no, set `"designJira": false` on the item so nobody asks about that mock again.
-- **"Don't ask me."** If a designer says they don't want design tickets ("don't ask me", "stop asking", "no, never"), save it to Claude memory right away as a feedback memory: *"<name> opted out of design Jira tickets on <date>; never ask again."* From then on, never ask that designer, not while scaffolding and not at review. Only bring it up again if they do. Check memory for an opt-out **before** every ask. One "no" for one mock is just that mock (`"designJira": false`). Opting out is when they say it about all their mocks.
+- **Every other designer:** first check Claude memory for an answer they've already given. If there isn't one, ask while scaffolding, offering three choices (use AskUserQuestion):
+  1. **Yes, this mock**: create it this time, and ask again next time.
+  2. **Yes, always**: create it, and save a memory, *"<name> wants a design Jira ticket on every new mock (<date>)."* From then on, create one for them without asking, the same as for Deborah.
+  3. **Don't ask me**: no ticket. Save a memory, *"<name> opted out of design Jira tickets (<date>); never ask, not at creation and not at review."* From then on, never bring design tickets up with them, **including in review**. Only revisit it if they raise it.
+
+  If they decline in some other way ("not this one"), set `"designJira": false` on that item so nobody asks about that mock again.
 - **Never backfill.** Don't go back and create tickets for mocks that already exist. An older mock with no `designJira` field gets one only if its designer says yes when it goes to In Review (see `ux-wrapup`).
 
 **Creating it:**
@@ -201,10 +205,10 @@ Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`. If a designer ha
 4. **Link it** with "Relates" to any product ticket the designer gave (SCHED-…, VPATH-…, SAFELMS-…).
 5. **Dashboard:** put the key in `designJira` in `products.json`. Leave `jira` (the product ticket) as it is.
 
-**Sorting a ticket a designer hands over:**
-- A **UX-…** key is a design ticket → `designJira`.
-- A **Confluence link** is a PRD → `prd`.
-- **Any other Jira key** (SCHED-…, VPATH-…): ask in one line, *"Is <KEY> the product ticket, or is it the PRD?"* Product ticket → `jira`. PRD → `prd`. It can be both (the product ticket where the PRD is written), so then set both.
+**Which slot a link goes in.** Sort it yourself; don't quiz the designer:
+- A **UX-…** key → `designJira`.
+- A **Confluence page** → `prd`.
+- **Any other Jira key** (SCHED-…, VPATH-…) → `jira`. Open the ticket too: if its description is written as a PRD (problem, scope, requirements, acceptance criteria), also set `prd` to its browse URL and mention that in one line. VPATH-16031 is an example of one ticket filling both slots.
 
 **When a PRD link is shared later**, set `prd` in `products.json`. If the mock has a design ticket, also replace the `**PRD:**` line in its description.
 

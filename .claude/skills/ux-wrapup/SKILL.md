@@ -426,8 +426,9 @@ Use the Atlassian (Rovo) tools; load them via ToolSearch if they aren't loaded.
 **`"designJira": false`** (the designer already declined): skip this phase
 silently. Don't ask again.
 
-**The designer opted out of design tickets** (a memory says so; see CLAUDE.md
-"Don't ask me"): skip this phase silently.
+**The designer chose "Don't ask me"** (a memory says so; see CLAUDE.md
+**Designer Jira Ticket**): skip this whole phase silently. Don't search, don't
+ask, and don't mention design tickets in the report.
 
 **No `designJira` field at all** (e.g. an older mock, or one made before this
 existed):
@@ -439,8 +440,8 @@ existed):
 2. **None found:** ask, *"This mock has no design Jira ticket. Want me to create
    one?"* Ask Deborah Kim too, because it's an older mock. On a yes, create it
    per CLAUDE.md and continue below. On a no, set `"designJira": false` and skip
-   this phase. If they say not to ask again, record the opt-out (CLAUDE.md
-   "Don't ask me").
+   this phase. If they say not to ask again, save the "Don't ask me" memory
+   (CLAUDE.md **Designer Jira Ticket**).
 
 **Review mode:**
 1. **Status:** transition the ticket to **In Review**.
