@@ -13,8 +13,12 @@
   </script>
   <link rel="stylesheet"
     href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
-  <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
+  <!-- Font Awesome 6 PRO, self-hosted. Switched off the Free CDN because this
+       mock uses fa-sparkles, which is Pro-only — on Free it rendered as a
+       zero-width invisible glyph with no error (the AI modal title and the
+       Generate button were silently blank). Depth-relative: this file sits
+       four levels below the repo root. -->
+  <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -5771,6 +5775,13 @@
     </div>
     <div class="modal-footer" id="ai-gen-footer">
       <vaadin-button theme="secondary" onclick="closeModal('modal-media-generate')">Cancel</vaadin-button>
+      <!-- Secondary CTA: turn the finished still into a short animated video.
+           Not wired up — the button is here to show WHEN the affordance
+           appears, which is once an image has landed and the image is one the
+           user may generate from (never a licensed stock asset). -->
+      <vaadin-button theme="secondary" id="animate-image-btn" onclick="onAnimateImage()" style="display:none;">
+        <i class="fa-solid fa-sparkles"></i> Animate Image
+      </vaadin-button>
       <vaadin-button theme="primary" id="apply-generate-btn" onclick="applySelectedMedia('modal-media-generate')" disabled>
         <i class="fa-solid fa-check"></i> Apply to Scene
       </vaadin-button>
@@ -11597,6 +11608,33 @@ function syncModalOrigin() {
   }
 }
 
+/* "Animate Image" — secondary CTA beside Apply to Scene.
+
+   Appears once an image has actually LANDED in the editing surface, which is
+   the same moment Effects becomes meaningful: there is a current version to
+   act on, and the user is not mid-edit (the framing controls own the footer
+   while editing, and Apply is disabled there too).
+
+   Hidden for STOCK images. A stock asset is licensed as-is, which is why the
+   AI prompt and style picker are already suppressed for that origin — the
+   same reasoning rules out generating an animated derivative of it. So this
+   follows generated and uploaded images only.
+
+   Display-only in the prototype: the button shows at the right time so the
+   placement and timing can be reviewed. Nothing is generated. */
+function syncAnimateButton() {
+  const btn = document.getElementById('animate-image-btn');
+  if (!btn) return;
+  const hasImage = aiVersions.length > 0 && !!selectedMediaUrl;
+  const isStock  = aiOrigin === 'stock';
+  btn.style.display = (hasImage && !isStock && !aiEditing) ? '' : 'none';
+}
+
+/* Not built out — the CTA exists to show when the affordance appears. */
+function onAnimateImage() {
+  alert('Animate Image — not built in this prototype.\n\nThis would generate a short animated video from the current image.');
+}
+
 /* Once a version exists, generating again is a CHANGE to that image — the
    button, the field label, and its placeholder all switch to that mode. */
 function syncGenerateButton() {
@@ -11645,6 +11683,7 @@ function renderAIVersion() {
       '<span>Your generated image will appear here</span></div>';
     selectedMediaUrl = null;
     document.getElementById('apply-generate-btn').disabled = true;
+    syncAnimateButton();        // nothing landed yet — stays hidden
     return;
   }
 
@@ -11663,7 +11702,11 @@ function renderAIVersion() {
   if (aiEditing) initEditDrag(imgEl, preview);
 
   bar.classList.toggle('hidden', aiEditing);
-  if (aiEditing) { selectedMediaUrl = v.url; return; }   // Apply stays disabled; syncEditUI owns it
+  if (aiEditing) {
+    selectedMediaUrl = v.url;
+    syncAnimateButton();        // hidden while the framing controls own the footer
+    return;                     // Apply stays disabled; syncEditUI owns it
+  }
   document.getElementById('ai-ver-count').textContent = `${aiVersionIdx + 1} / ${aiVersions.length}`;
   document.getElementById('ai-ver-prev').disabled = aiVersionIdx === 0;
   document.getElementById('ai-ver-next').disabled = aiVersionIdx === aiVersions.length - 1;
@@ -11671,6 +11714,7 @@ function renderAIVersion() {
   // Applying uses whichever version is on screen
   selectedMediaUrl = v.url;
   document.getElementById('apply-generate-btn').disabled = aiEditing;
+  syncAnimateButton();          // an image has landed — show it unless stock
 }
 
 /* =====================================================================
@@ -11749,6 +11793,8 @@ function syncEditUI() {
     const el = document.getElementById(id);
     if (el) el.style.display = (aiEditing || hideForOrigin) ? 'none' : '';
   });
+  syncAnimateButton();
+
   const applyBtn = document.getElementById('apply-generate-btn');
   if (applyBtn) {
     if (aiEditing) {
