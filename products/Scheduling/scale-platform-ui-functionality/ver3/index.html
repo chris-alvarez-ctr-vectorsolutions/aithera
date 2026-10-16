@@ -1,21 +1,13 @@
 <!DOCTYPE html>
-<!-- Scale Platform UI Functionality — V3: End-user dashboard as the landing page
-     (SCHED-25068; parent SCHED-24852).
-
-     Mobile-first home screen for end users (crew): next shift + who you're on
-     with first, then "needs your response" (callback / trade), big quick-action
-     tiles (incl. Review my time card), upcoming shifts and time off. Sections
-     can be reordered/hidden and the layout is remembered on the device.
-     Builds on the Lovable end-user console concept and the usability read-out's
-     end-user dashboard recommendation.
-
+<!-- Scale Platform UI Functionality — V3: separate admin and end-user dashboards
+     (SCHED-25068; parent SCHED-24852). Mobile-first landing page. MODE='separate' in the script.
      PRESENTING: phone frame + brief on wide screens; full-bleed at ≤520px. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <!-- No maximum-scale: pinch-zoom stays available on phones (SCHED-25064 "add ability to zoom") -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scale Platform UI — V3 End-user dashboard</title>
+    <title>Scale Platform UI — V3 Dashboards</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
@@ -41,14 +33,28 @@
 
 <style>
   /* ══════════ TOKENS ══════════
-     Semantic colors come from the Vector theme (Lumo tokens). The two app-chrome
-     colors match the production Scheduling top bar. */
+     New UI (sheets, brief, buttons) uses Vector theme tokens. The --prod-* colors
+     reproduce the CURRENT production mobile scheduler, which this ticket keeps:
+     "slightly bigger and better", not a facelift. */
   :root {
-    --app-bar: #16202b;            /* production Scheduling top bar */
-    --app-bar-ink: #e5e7eb;
-    --canvas: #f2f5f8;             /* page canvas behind cards */
+    --app-bar: #16202b;            /* production top bar */
+    --canvas: #f2f5f8;
     --stage: #e3e8ee;              /* presentation backdrop around the phone */
-    --open-slot: var(--vwc-notification-color-10pct, #ffc7001a);
+    --prod-bg: #f7f7f7;
+    --prod-line: #c9cdd2;
+    --prod-btn: #f4f5f6;
+    --prod-ink: #2c3744;
+    --prod-muted: #5f6b77;
+    --prod-red: #e0302a;
+    --prod-bar: #262c31;           /* assigned-person bar */
+    --prod-green: #3fb34f;         /* bar left edge */
+    --prod-notes: #fffccf;
+    --prod-stripe-a: #f6ee9d;
+    --prod-stripe-b: #ede07a;
+    --st-blue: #2ea0ea;
+    --st-orange: #f8962a;
+    --st-green: #9fd59b;
+    --st-blue2: #2f84de;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -66,8 +72,8 @@
   .stage { min-height: 100vh; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 28px 24px 96px; }
   .brief { width: 330px; flex: none; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-l); box-shadow: var(--lumo-box-shadow-xs); padding: 22px 22px 18px; }
   .device { width: 390px; height: min(844px, calc(100vh - 110px)); min-height: 560px; flex: none; background: #0d1117; border-radius: 46px; padding: 10px; box-shadow: var(--lumo-box-shadow-l); position: sticky; top: 28px; }
-  /* transform makes the screen the containing block for every absolutely/fixed
-     positioned layer (sheets, toasts), so they stay inside the phone */
+  /* transform makes the screen the containing block for every absolutely
+     positioned layer (sheets, bubble, toasts), so they stay inside the phone */
   .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; background: var(--canvas); display: flex; flex-direction: column; transform: translateZ(0); }
   .statusbar { height: 34px; flex: none; background: var(--app-bar); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 30px; font-size: 13px; font-weight: 600; }
   .statusbar .sb-ic { display: flex; gap: 6px; font-size: 12px; }
@@ -97,206 +103,157 @@
   .ev b { text-align: center; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); border-radius: var(--lumo-border-radius-s); padding: 3px 0; font-size: 12px; }
   .brief .links a { display: inline-flex; align-items: center; gap: 6px; color: var(--lumo-primary-text-color); text-decoration: none; margin-right: 14px; font-weight: 600; }
   .brief .links a:hover { text-decoration: underline; }
-  .viewas { display: flex; align-items: center; gap: 10px; }
+  .viewas { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-  /* ══════════ APP SHELL ══════════ */
+  /* ══════════ SHEETS + TOAST (new UI, Vector tokens) ══════════ */
   .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; position: relative; }
-  /* Quick-return header: .top is sticky; JS slides it up by the header's height
-     as you scroll down (date row stays pinned) and pulls it back on scroll up. */
-  .top { position: sticky; top: 0; z-index: 20; }
-  .appbar { height: 52px; background: var(--app-bar); color: var(--app-bar-ink); display: flex; align-items: center; gap: 4px; padding: 0 6px; }
-  .appbar .ab-title { flex: 1; font-size: 16px; font-weight: 600; text-align: center; }
-  .ab-btn { width: 44px; height: 44px; border: 0; background: none; color: #cbd2da; font-size: 18px; border-radius: 50%; cursor: pointer; position: relative; }
-  .ab-btn:hover { color: #fff; }
-  .ab-badge { position: absolute; top: 6px; right: 5px; background: var(--lumo-error-color); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
-  .viewbar { background: var(--lumo-base-color); padding: 10px 12px 8px; display: flex; justify-content: center; border-bottom: 1px solid var(--lumo-contrast-10pct); }
-  /* people rows shared by the sheets */
-  .av { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--vwc-color-picton-blue-700, #2b81a3); }
-  .av.c1 { background: var(--vwc-color-ecstacy-700, #b1651f); }
-  .av.c2 { background: var(--vwc-color-vivid-violet-700, #7e398c); }
-  .av.c3 { background: var(--vwc-color-puerto-rico-700, #2b887c); }
-  .av.c4 { background: var(--vwc-color-cinnabar-700, #a43628); }
-  .prow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px; }
-  .prow + .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
-  .prow .pm { flex: 1; min-width: 0; line-height: 1.3; }
-  .prow .pn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .prow .ps { font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .ic-misc { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); }
-
-  /* ══════════ NOTES ══════════ */
-  .note { margin: 0 12px 12px; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: var(--vwc-notification-color-10pct, #ffc7001a); border: 1px solid var(--vwc-notification-color-50pct, #ffc70080); border-radius: var(--lumo-border-radius-m); line-height: 1.4; }
-  .note i { color: var(--vwc-notification-text-color, #a66900); margin-top: 2px; }
-
-  /* ══════════ ROSTER ══════════ */
-  .station-hd { display: flex; align-items: baseline; gap: 8px; padding: 6px 16px 6px; font-weight: 700; color: var(--lumo-header-text-color); }
-  .station-hd small { font-weight: 400; color: var(--lumo-secondary-text-color); }
-  .unit { margin: 0 12px 10px; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: var(--lumo-box-shadow-xs); overflow: hidden; }
-  .unit-hd { display: flex; align-items: center; gap: 8px; padding: 8px 4px 6px 12px; min-height: 48px; }
-  .unit-hd .un { font-weight: 700; font-size: 15px; }
-  .unit-hd .ut { font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .unit-hd .grow { flex: 1; min-width: 0; line-height: 1.3; }
-  .unit .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
-  .q { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: var(--lumo-border-radius-s); background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); white-space: nowrap; }
-  .prow.open { background: var(--open-slot); }
-  .prow.open .pn { color: var(--vwc-notification-text-color, #a66900); }
-  .ic-open { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 2px dashed var(--vwc-notification-color, #ffc700); }
-  .me-tag { font-size: 11px; font-weight: 700; color: var(--lumo-primary-text-color); margin-left: 4px; }
-
-  /* End users never see controls they can't use (SCHED-25064) */
-  body.role-eu .admin-only { display: none !important; }
-
-  /* ══════════ BOTTOM SHEET (drawer) ══════════
-     Custom sheet rather than vwc-drawer: vwc-drawer anchors to the page, and in
-     presentation mode the sheet must stay inside the phone frame. Production
-     should use vwc-drawer position="bottom" overlay (see open questions). */
   .scrim { position: absolute; inset: 0; background: rgba(15, 23, 34, .45); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 40; }
   .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 86%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 41; transform: translateY(102%); transition: transform .24s ease; display: flex; flex-direction: column; box-shadow: var(--lumo-box-shadow-xl); }
   .sheet-open .scrim { opacity: 1; pointer-events: auto; }
   .sheet-open .sheet { transform: none; }
-  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; }
-  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; flex: none; }
+  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; flex: none; }
   .sheet-hd h2 { flex: 1; margin: 0; font-size: 17px; }
-  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; flex: none; }
   .sheet-tools vaadin-text-field { width: 100%; }
   .sheet-body { flex: 1; overflow-y: auto; border-top: 1px solid var(--lumo-contrast-10pct); }
-  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); }
-  .drow { border-bottom: 1px solid var(--lumo-contrast-5pct); }
-  .drow > button { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; padding: 0; }
-  .drow > button:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
-  .drow .chev { color: var(--lumo-tertiary-text-color); transition: transform .18s; }
-  .drow.open .chev { transform: rotate(90deg); }
-  .ddetail { display: none; padding: 2px 16px 14px 52px; line-height: 1.5; }
-  .drow.open .ddetail { display: block; }
-  .ddetail dl { display: grid; grid-template-columns: 82px 1fr; gap: 2px 8px; margin: 0 0 10px; }
-  .ddetail dt { color: var(--lumo-secondary-text-color); font-size: 12px; }
-  .ddetail dd { margin: 0; font-size: 13px; }
-  .ddetail .acts { display: flex; gap: 8px; }
+  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); flex: none; }
+  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 80; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 12px; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { border: 0; background: none; color: var(--vwc-color-picton-blue-300, #7dcdee); font-weight: 700; cursor: pointer; padding: 0; }
   .empty { padding: 28px 16px; text-align: center; color: var(--lumo-secondary-text-color); }
+  body.role-eu .admin-only { display: none !important; }
 
-  /* ══════════ TOAST ══════════ */
-  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 60; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
-
-  /* ══════════ DASHBOARD (the V3 change) ══════════ */
+  /* ══════════ DASHBOARD ══════════ */
+  .appbar { height: 52px; flex: none; background: var(--app-bar); color: #e5e7eb; display: flex; align-items: center; gap: 4px; padding: 0 6px; }
+  .appbar .ab-title { flex: 1; font-size: 16px; font-weight: 600; text-align: center; }
+  .ab-btn { width: 44px; height: 44px; border: 0; background: none; color: #cbd2da; font-size: 18px; border-radius: 50%; cursor: pointer; position: relative; }
+  .ab-badge { position: absolute; top: 6px; right: 5px; background: var(--lumo-error-color); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
   .home { padding: 16px 14px 96px; display: flex; flex-direction: column; gap: 18px; }
+  .greet-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
   .greet h1 { margin: 0; font-size: 22px; line-height: 1.2; color: var(--lumo-header-text-color); }
   .greet p { margin: 2px 0 0; color: var(--lumo-secondary-text-color); }
+  .role-pill { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
   .sec-hd { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 8px; }
   .sec-hd h2 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lumo-secondary-text-color); display: flex; align-items: center; gap: 8px; }
   .sec-hd vaadin-button { margin: -6px -4px; }
 
-  /* Next shift hero — the answer to "when do I work next, and with whom" */
   .hero { background: var(--lumo-primary-color); color: var(--lumo-primary-contrast-color); border-radius: var(--lumo-border-radius-l); padding: 16px 16px 14px; box-shadow: var(--lumo-box-shadow-s); }
-  .hero .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .85; }
+  .hero .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .85; display: flex; align-items: center; gap: 6px; }
+  .hero .live { width: 8px; height: 8px; border-radius: 50%; background: #7CFC9A; box-shadow: 0 0 0 3px rgba(124,252,154,.3); }
   .hero .when { font-size: 30px; font-weight: 700; line-height: 1.15; margin: 4px 0 2px; }
   .hero .sub { opacity: .92; line-height: 1.4; }
   .hero .crew { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.25); }
-  .hero .crew .stack .av { border-color: var(--lumo-primary-color); }
   .hero .crew .names { flex: 1; font-size: 13px; line-height: 1.3; min-width: 0; }
   .hero .crew .names small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
   /* custom on-blue button: Vaadin's secondary style has no on-primary variant */
   .hero-btn { flex: none; height: 40px; padding: 0 16px; border: 0; border-radius: var(--vaadin-button-border-radius, 4px); background: var(--lumo-base-color); color: var(--lumo-primary-text-color); font-weight: 600; cursor: pointer; }
-  .hero-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
   .stack { display: flex; }
-  .stack .av { margin-left: -8px; border: 2px solid var(--lumo-base-color); }
+  .stack .av { margin-left: -8px; border: 2px solid var(--lumo-primary-color); }
   .stack .av:first-child { margin-left: 0; }
+  .av { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--vwc-color-picton-blue-700, #2b81a3); }
+  .av.c1 { background: var(--vwc-color-ecstacy-700, #b1651f); } .av.c2 { background: var(--vwc-color-vivid-violet-700, #7e398c); } .av.c3 { background: var(--vwc-color-puerto-rico-700, #2b887c); } .av.c4 { background: var(--vwc-color-cinnabar-700, #a43628); }
 
-  /* Needs your response */
   .card { background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: var(--lumo-box-shadow-xs); }
-  .resp { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .resp { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
   .resp + .resp { border-top: 1px solid var(--lumo-contrast-10pct); }
   .resp .rt { display: flex; align-items: center; gap: 8px; font-weight: 700; }
   .resp .rt i { color: var(--lumo-primary-text-color); width: 18px; text-align: center; }
+  .resp .rt .tm { margin-left: auto; font-weight: 400; font-size: 12px; color: var(--lumo-tertiary-text-color); }
   .resp .rd { color: var(--lumo-secondary-text-color); line-height: 1.4; padding-left: 26px; }
   .resp .rdue { font-size: 12px; color: var(--lumo-warning-text-color); font-weight: 600; padding-left: 26px; }
-  .resp .ra { display: flex; justify-content: flex-end; gap: 8px; }
+  .resp .ra { display: flex; justify-content: flex-end; gap: 8px; margin-top: 2px; }
   .resp.done { background: var(--lumo-success-color-10pct); }
   .resp.done .rt i { color: var(--lumo-success-text-color); }
+  .resp.urgent .rt i { color: var(--lumo-error-color); }
 
-  /* Quick actions — big tiles, the fat-finger fix */
   .qa { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-  .qa button { position: relative; min-height: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 10px 6px; border: 0; border-radius: var(--lumo-border-radius-m); background: var(--lumo-base-color); box-shadow: var(--lumo-box-shadow-xs); cursor: pointer; color: var(--lumo-body-text-color); font-size: 12.5px; font-weight: 600; line-height: 1.25; text-align: center; }
+  .qa button { min-height: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px 6px; border: 0; border-radius: var(--lumo-border-radius-m); background: var(--lumo-base-color); box-shadow: var(--lumo-box-shadow-xs); cursor: pointer; color: var(--lumo-body-text-color); font-size: 12.5px; font-weight: 600; line-height: 1.25; text-align: center; }
   .qa button:hover { box-shadow: 0 0 0 2px var(--lumo-primary-color-50pct); }
-  .qa button:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 2px; }
   .qa i { font-size: 22px; color: var(--lumo-primary-text-color); }
-  .qa .tag { font-size: 11px; margin-top: -2px; }
+  .qa .tag { font-size: 11px; }
 
-  /* Upcoming */
+  .glance { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 12px; }
+  .glance div { text-align: center; line-height: 1.2; padding: 8px 2px; border-radius: var(--lumo-border-radius-m); background: var(--lumo-contrast-5pct); }
+  .glance b { display: block; font-size: 20px; color: var(--lumo-header-text-color); }
+  .glance .bad b { color: var(--lumo-error-text-color); }
+  .glance span { font-size: 11px; color: var(--lumo-secondary-text-color); }
+  .glance-ft { display: flex; justify-content: flex-end; padding: 0 8px 8px; }
+
+  .hours { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .hours .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .hours b { font-size: 20px; }
+  .hours .s { font-size: 12.5px; color: var(--lumo-secondary-text-color); }
+
   .up { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 14px; width: 100%; border: 0; background: none; text-align: left; cursor: pointer; }
   .up + .up { border-top: 1px solid var(--lumo-contrast-10pct); }
-  .up:hover { background: var(--lumo-contrast-5pct); }
   .up .day { width: 44px; flex: none; text-align: center; line-height: 1.1; border-radius: var(--lumo-border-radius-m); background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); padding: 6px 0; }
   .up .day b { display: block; font-size: 18px; }
   .up .day span { font-size: 11px; font-weight: 700; text-transform: uppercase; }
   .up .info { flex: 1; min-width: 0; line-height: 1.35; }
-  .up .info .t { font-weight: 700; color: var(--lumo-body-text-color); }
+  .up .info .t { font-weight: 700; }
   .up .info .w { font-size: 12.5px; color: var(--lumo-secondary-text-color); }
   .up .chev { color: var(--lumo-tertiary-text-color); }
   .up.new { background: var(--lumo-success-color-10pct); }
 
-  /* Time off */
   .bank { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 14px; }
   .bank div { text-align: center; line-height: 1.2; }
-  .bank b { display: block; font-size: 18px; color: var(--lumo-header-text-color); }
+  .bank b { display: block; font-size: 18px; }
   .bank span { font-size: 11px; color: var(--lumo-secondary-text-color); }
   .to { display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 6px 14px; border-top: 1px solid var(--lumo-contrast-10pct); }
   .to .info { flex: 1; line-height: 1.35; }
   .to .info .w { font-size: 12.5px; color: var(--lumo-secondary-text-color); }
 
-  /* Bottom tab bar */
   .tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 64px; background: var(--lumo-base-color); border-top: 1px solid var(--lumo-contrast-10pct); display: grid; grid-template-columns: repeat(4, 1fr); z-index: 30; }
-  .tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--lumo-secondary-text-color); cursor: pointer; }
+  .tabbar button { position: relative; border: 0; background: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--lumo-secondary-text-color); cursor: pointer; }
   .tabbar button i { font-size: 18px; }
   .tabbar button[aria-current="page"] { color: var(--lumo-primary-text-color); }
   .tabbar button[aria-current="page"] i { background: var(--lumo-primary-color-10pct); padding: 4px 18px; border-radius: 999px; }
+  .tabbar .tb-badge { position: absolute; top: 6px; left: calc(50% + 6px); background: var(--lumo-error-color); color: #fff; font-size: 10px; padding: 1px 5px; border-radius: 8px; }
 
-  /* Sheets */
+  /* V3.1: what an end user doesn't see, revealed for the presentation */
+  .hid { display: none; }
+  body.reveal .hid { display: block; position: relative; opacity: .45; outline: 2px dashed var(--lumo-error-color); outline-offset: 3px; border-radius: var(--lumo-border-radius-m); }
+  body.reveal .hid::before { content: 'Hidden for end users'; position: absolute; top: -10px; right: 8px; z-index: 2; background: var(--lumo-error-color); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; }
+  .qa button.hid, .resp.hid { display: none; }
+  body.reveal .qa button.hid { display: flex; }
+  body.reveal .resp.hid { display: flex; }
+
   .sheet-body.pad { padding: 4px 16px 16px; }
   .dl { display: grid; grid-template-columns: 90px 1fr; gap: 6px 10px; margin: 10px 0 14px; line-height: 1.4; }
   .dl dt { color: var(--lumo-secondary-text-color); font-size: 12.5px; }
   .dl dd { margin: 0; }
-  .crewlist .prow { padding-left: 0; padding-right: 0; }
+  .prow { display: flex; align-items: center; gap: 10px; min-height: 48px; border-top: 1px solid var(--lumo-contrast-5pct); }
+  .prow .pm { flex: 1; font-weight: 600; }
+  .prow .q { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: var(--lumo-border-radius-s); background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); }
+  .me-tag { font-size: 11px; font-weight: 700; color: var(--lumo-primary-text-color); margin-left: 4px; }
   .cust { display: flex; align-items: center; gap: 6px; min-height: 56px; border-bottom: 1px solid var(--lumo-contrast-10pct); }
   .cust .cl { flex: 1; line-height: 1.3; }
   .cust .cl small { display: block; font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .cust vaadin-button[disabled] { opacity: .35; }
-  .sec-hidden { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="stage">
 
-  <!-- ── Brief: presenter notes shown beside the phone on wide screens ── -->
   <aside class="brief" aria-label="About this version">
     <div class="kicker">V3 · SCHED-25068</div>
-    <h1>End-user dashboard as the landing page</h1>
-    <p class="lede">An end user signs in and sees their next shift, who they're working with and what's coming up. Big quick-action buttons sit below. Today they land on a grid of icons with no schedule information.</p>
-
+    <h1>Separate dashboards for admins and end users</h1>
+    <p class="lede">Both open on your own shift and who you're on with. Then the priorities split. <b>Admins</b> see what needs action: sick calls, time-off and trade approvals, shift bids, then today's staffing. <b>End users</b> see their own tasks: request time off, call in sick, my hours, shift bidding, trades.</p>
+    <h2>View as</h2>
+    <div class="viewas"><vwc-toggle-button-group id="roleToggle" selected="admin"><vwc-toggle-button value="admin">Admin</vwc-toggle-button><vwc-toggle-button value="eu">End user</vwc-toggle-button></vwc-toggle-button-group></div>
     <h2>Try it</h2>
     <ul>
-      <li>Tap <b>Details</b> on the next shift to see the full crew.</li>
-      <li>Accept the <b>callback</b>. It joins your upcoming shifts.</li>
-      <li>Tap <b>Edit</b> on the home screen to hide or reorder sections. Your layout is remembered.</li>
-      <li><b>Review my time card</b> is a quick action, as in the Lovable concept.</li>
+      <li>Admin: <b>Approve</b> Taylor's time off. The card confirms in place.</li>
+      <li>End user: <b>Accept</b> the callback. It joins your upcoming shifts.</li>
+      <li>End user: <b>Edit</b> hides or reorders sections. The end-user home is the only customizable one.</li>
     </ul>
-
-    <h2>Why</h2>
-    <div class="ev"><b>6/10</b><span>End users couldn't find their own shift in a roster that shows everyone</span></div>
-    <div class="ev"><b>4/10</b><span>Tried a misc shift or "add event" instead</span></div>
-    <div class="ev"><b>4/10</b><span>Failed "Request time off". The time-off features are scattered across menus.</span></div>
-
-    <h2>Builds on</h2>
-    <ul>
-      <li>The Lovable end-user console concept (planned for 2027)</li>
-      <li>Read-out recommendations: an end-user dashboard and one time-off home</li>
-    </ul>
-
+    <h2>Compare with V3.1</h2>
+    <p class="lede" style="margin:0">V3.1 builds only the admin dashboard and hides admin tasks for end users. Fewer screens to build, but a thinner end-user home.</p>
     <h2>Links</h2>
     <div class="links">
       <a href="https://lmsportal.atlassian.net/browse/SCHED-25068" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25068</a>
       <a href="https://scheduling-enduser-console.lovable.app" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i>Lovable</a>
-      <a href="https://lmsportal.atlassian.net/wiki/spaces/UXR/pages/29476749374/Scheduling+Mobile+Usability+Test+Findings+and+Recommendations" target="_blank" rel="noopener"><i class="fa-solid fa-flask"></i>Research</a>
     </div>
   </aside>
 
@@ -304,259 +261,282 @@
   <div class="device">
     <div class="screen" id="screen">
       <div class="statusbar" aria-hidden="true"><span>9:41</span><span class="sb-ic"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></span></div>
-
       <div class="appbar">
         <button class="ab-btn" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
         <span class="ab-title">Vector Scheduling</span>
-        <button class="ab-btn" aria-label="Notifications, 2 unread"><i class="fa-solid fa-bell"></i><span class="ab-badge">2</span></button>
+        <button class="ab-btn" aria-label="Notifications"><i class="fa-solid fa-bell"></i><span class="ab-badge" id="bellCnt">3</span></button>
       </div>
-
-      <div class="scroll" id="scroll">
-        <main class="home" id="home"></main>
-      </div>
-
-      <nav class="tabbar" aria-label="Main">
-        <button aria-current="page"><i class="fa-solid fa-house"></i>Home</button>
-        <button data-act="toast" data-msg="Opens CrewScheduler, filtered to My schedule (see V2)"><i class="fa-regular fa-calendar"></i>Schedule</button>
-        <button data-act="toast" data-msg="Opens the time-off home"><i class="fa-regular fa-umbrella-beach"></i>Time off</button>
-        <button data-act="toast" data-msg="Opens profile and settings"><i class="fa-regular fa-circle-user"></i>Me</button>
-      </nav>
+      <div class="scroll" id="scroll"><main class="home" id="home"></main></div>
+      <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
 
       <div class="scrim" data-act="closeSheet"></div>
       <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
         <div class="grab"></div>
-        <div class="sheet-hd">
-          <h2 id="sheetTitle"></h2>
-          <vaadin-button theme="icon" aria-label="Close" data-act="closeSheet"><i class="fa-solid fa-xmark"></i></vaadin-button>
-        </div>
+        <div class="sheet-hd"><h2 id="sheetTitle"></h2><vaadin-button theme="icon" aria-label="Close" data-act="closeSheet"><i class="fa-solid fa-xmark"></i></vaadin-button></div>
         <div class="sheet-body pad" id="sheetBody"></div>
         <div class="sheet-ft" id="sheetFt"></div>
       </div>
-
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
     </div>
   </div>
 </div>
 
 <script>
-  /* ══════════ MOCK DATA ══════════ */
-  const ME = { name: 'Alex Rivera', first: 'Alex', q: 'Paramedic' };
-  const NEXT = {
-    eyebrow: 'Next shift · Tomorrow', when: '07:00 – 07:00', date: 'Thu, Oct 17 · 24 hrs',
-    where: 'Station 3 · Engine 31 · Paramedic', addr: '1220 Harbor Blvd',
-    crew: [{ p: 'Grace Liu', q: 'Capt' }, { p: 'Ben Carter', q: 'Eng' }, { p: 'Alex Rivera', q: 'PM', me: true }, { p: 'Theo Grant', q: 'FF' }],
-    note: 'Area familiarization at Ocean Beach at 08:00. Bring your hazmat cert card.'
-  };
-  const UPCOMING = [
-    { dow: 'Thu', d: 17, t: '07:00 – 07:00', w: 'Engine 31 · Station 3' },
-    { dow: 'Sun', d: 20, t: '07:00 – 07:00', w: 'Engine 31 · Station 3' },
-    { dow: 'Wed', d: 23, t: '07:00 – 19:00', w: 'Medic 3 · Station 3 · Overtime' },
-    { dow: 'Sat', d: 26, t: '07:00 – 07:00', w: 'Engine 31 · Station 3' }
-  ];
-  const CALLBACK = { dow: 'Sat', d: 19, t: '19:00 – 07:00', w: 'Engine 5 · Station 5 · Callback' };
-  const QA_ALL = [
-    { id: 'timeoff', icon: 'fa-umbrella-beach', l: 'Request time off' },
-    { id: 'timecard', icon: 'fa-user-clock', l: 'Review my time card', tag: 'Due Fri' },
-    { id: 'open', icon: 'fa-hand-pointer', l: 'Shifts I can take', tag: '4' },
-    { id: 'trade', icon: 'fa-arrow-right-arrow-left', l: 'Trade a shift' },
-    { id: 'schedule', icon: 'fa-calendar-days', l: 'Full crew schedule' },
-    { id: 'bank', icon: 'fa-piggy-bank', l: 'Time off bank' }
-  ];
-  const QA_MSG = {
-    timeoff: 'Opens Request time off', timecard: 'Opens Electronic Timecard for this pay period',
-    open: 'Opens open shifts you qualify for', trade: 'Opens Trade a shift',
-    schedule: 'Opens CrewScheduler (V1/V2)', bank: 'Opens your time off balances'
-  };
-  const SECTIONS = {
-    respond: { l: 'Needs your response', d: 'Callbacks and trade requests' },
-    actions: { l: 'Quick actions', d: 'Shortcuts you use most' },
-    upcoming: { l: 'Upcoming shifts', d: 'Your next four shifts' },
-    timeoff: { l: 'Time off', d: 'Balances and requests' }
-  };
+  /* MODE: 'separate' (V3) = a dashboard built for each role.
+           'shared'   (V3.1) = one admin dashboard; end users get it with
+                                admin-only items hidden. */
+  const MODE = 'separate';
 
   /* ══════════ HELPERS ══════════ */
   const $ = (s, r = document) => r.querySelector(s);
-  const initials = n => n.split(' ').map(w => w[0]).join('').slice(0, 2);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const initials = n => n.split(' ').map(w => w[0]).join('').slice(0, 2);
+  const AV = ['', 'c1', 'c2', 'c3', 'c4'];
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   };
   let toastTimer;
-  function toast(msg) {
-    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1900);
-  }
-  const AV = ['', 'c1', 'c2', 'c3', 'c4'];
+  function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1900); }
+  function onToggleTap(sel, fn) { const g = $(sel); if (g) g.addEventListener('click', e => { const b = e.target.closest('vwc-toggle-button'); if (b) fn(b.getAttribute('value')); }); }
+  function setGroup(sel, v) { const g = $(sel); if (g) { g.setAttribute('selected', v); g.selected = v; } }
 
-  /* ══════════ STATE ══════════
-     layout = section order + visibility, remembered on the device. */
-  const DEFAULT_LAYOUT = { order: ['respond', 'actions', 'upcoming', 'timeoff'], hidden: [] };
-  const LAYOUT_KEY = 'spui-v3-layout';
-  const state = {
-    callback: 'pending',   // pending | accepted | declined
-    trade: 'pending',      // pending | declined
-    layout: store.get(LAYOUT_KEY, DEFAULT_LAYOUT)
+  /* ══════════ PEOPLE + DATA ══════════ */
+  const PEOPLE = {
+    admin: { first: 'Lena', title: 'Captain · Scheduler', next: { eyebrow: 'On shift now', live: true, when: '07:00 – 07:00', date: 'Wed, Oct 16 · 24 hrs', where: 'Station 1 · Truck 1 · Captain',
+      crew: [{ p: 'Lena Park', q: 'CAPT', me: true }, { p: 'Dev Raman', q: 'ENG' }, { p: 'Priya Shah', q: 'FF' }, { p: 'Open slot', q: 'FF' }], addr: '410 Main St' } },
+    eu: { first: 'Alex', title: 'Firefighter / Paramedic', next: { eyebrow: 'Next shift · Tomorrow', when: '07:00 – 07:00', date: 'Thu, Oct 17 · 24 hrs', where: 'Station 3 · Engine 31 · Paramedic',
+      crew: [{ p: 'Grace Liu', q: 'CAPT' }, { p: 'Ben Carter', q: 'ENG' }, { p: 'Alex Rivera', q: 'PM', me: true }, { p: 'Theo Grant', q: 'FF' }], addr: '1220 Harbor Blvd' } }
+  };
+  /* Action items. `who`: which role it's addressed to. `admin: true` = an
+     admin task (approvals, fills) — hidden for end users in shared mode. */
+  const ITEMS = [
+    { id: 'sick', who: 'admin', admin: true, urgent: true, icon: 'fa-user-injured', t: 'Rosa King called in sick', tm: '05:42',
+      d: 'Medic 3 · PM · 19:00 – 07:00 tonight is uncovered', acts: [['secondary', 'Message'], ['primary', 'Fill slot']] },
+    { id: 'pto', who: 'admin', admin: true, icon: 'fa-umbrella-beach', t: 'Time off request · Taylor Vance', tm: '1h',
+      d: 'Vacation · Nov 2 – 4 · 72 hrs · Engine 1 FF', acts: [['secondary', 'Deny'], ['primary', 'Approve']] },
+    { id: 'tradeAppr', who: 'admin', admin: true, icon: 'fa-arrow-right-arrow-left', t: 'Trade to approve', tm: '2h',
+      d: 'Jordan Alvarez ↔ Alex Rivera · Oct 26 / Oct 27', acts: [['secondary', 'Deny'], ['primary', 'Approve']] },
+    { id: 'bid', who: 'admin', admin: true, icon: 'fa-gavel', t: 'Shift bids to award', tm: '3h',
+      d: 'Engine 5 · ENG · Sat, Oct 19 · 2 bids', acts: [['primary', 'Review bids']] },
+    { id: 'callback', who: 'eu', icon: 'fa-phone-volume', t: 'Callback: Engine 5', due: 'Respond by today, 17:00',
+      d: 'Sat, Oct 19 · 19:00 – 07:00 · Firefighter · you\'re #2 on the list', acts: [['secondary', 'Decline'], ['primary', 'Accept']] },
+    { id: 'trade', who: 'eu', icon: 'fa-arrow-right-arrow-left', t: 'Trade request from Jordan Alvarez',
+      d: 'Their Sun, Oct 27 (Engine 1) for your Sat, Oct 26 (Engine 31)', acts: [['secondary', 'Decline'], ['primary', 'Review']] }
+  ];
+  const QA = {
+    eu: [
+      { id: 'pto', icon: 'fa-umbrella-beach', l: 'Request time off' },
+      { id: 'sick', icon: 'fa-head-side-cough', l: 'Call in sick' },
+      { id: 'hours', icon: 'fa-user-clock', l: 'My hours', tag: ['error', 'Due Fri'] },
+      { id: 'bid', icon: 'fa-gavel', l: 'Shift bidding', tag: ['primary', '2 open'] },
+      { id: 'trade', icon: 'fa-arrow-right-arrow-left', l: 'Trade a shift' },
+      { id: 'sched', icon: 'fa-calendar-days', l: 'My schedule' }
+    ],
+    admin: [
+      { id: 'fill', icon: 'fa-user-plus', l: 'Fill open slots', tag: ['error', '5'], admin: true },
+      { id: 'pto', icon: 'fa-umbrella-beach', l: 'Add time off' },
+      { id: 'callback', icon: 'fa-phone-volume', l: 'Post callback', admin: true },
+      { id: 'bulk', icon: 'fa-rotate-right', l: 'Bulk change', admin: true },
+      { id: 'msg', icon: 'fa-comment-dots', l: 'Message crew', admin: true },
+      { id: 'sched', icon: 'fa-calendar-days', l: 'CrewScheduler' }
+    ]
+  };
+  const UPCOMING = {
+    eu: [{ dow: 'Thu', d: 17, t: '07:00 – 07:00', w: 'Engine 31 · Station 3' }, { dow: 'Sun', d: 20, t: '07:00 – 07:00', w: 'Engine 31 · Station 3' }, { dow: 'Wed', d: 23, t: '07:00 – 19:00', w: 'Medic 3 · Overtime' }, { dow: 'Sat', d: 26, t: '07:00 – 07:00', w: 'Engine 31 · Station 3' }],
+    admin: [{ dow: 'Sat', d: 19, t: '07:00 – 07:00', w: 'Truck 1 · Station 1' }, { dow: 'Tue', d: 22, t: '07:00 – 07:00', w: 'Truck 1 · Station 1' }, { dow: 'Fri', d: 25, t: '07:00 – 07:00', w: 'Truck 1 · Station 1' }]
+  };
+  const CALLBACK_SHIFT = { dow: 'Sat', d: 19, t: '19:00 – 07:00', w: 'Engine 5 · Callback', isNew: true };
+  const MSG = {
+    pto: 'Opens Request time off', sick: 'Opens Call in sick for your next shift', hours: 'Opens Electronic Timecard',
+    bid: 'Opens Shift bidding', trade: 'Opens Trade a shift', sched: 'Opens CrewScheduler (V1 / V2)',
+    fill: 'Opens open slots to fill', callback: 'Opens Post callback', bulk: 'Opens Bulk Change', msg: 'Opens Message crew'
   };
 
-  /* ══════════ RENDER: HOME ══════════ */
-  function heroHTML() {
-    const others = NEXT.crew.filter(c => !c.me);
-    return `<section class="hero" aria-label="Next shift">
-      <div class="eyebrow">${esc(NEXT.eyebrow)}</div>
-      <div class="when">${esc(NEXT.when)}</div>
-      <div class="sub">${esc(NEXT.date)}<br>${esc(NEXT.where)}</div>
-      <div class="crew">
-        <span class="stack">${others.slice(0, 3).map((c, i) => `<span class="av ${AV[i + 1]}" aria-hidden="true">${initials(c.p)}</span>`).join('')}</span>
-        <span class="names"><small>On with</small>${others.map(c => esc(c.p.split(' ')[0])).join(', ')}</span>
-        <button class="hero-btn" data-act="details">Details</button>
-      </div>
-    </section>`;
+  /* ══════════ STATE ══════════ */
+  const SECTIONS = { actions: 'Quick actions', respond: 'Needs your response', hours: 'My hours', upcoming: 'Upcoming shifts', timeoff: 'Time off' };
+  const DEFAULT_LAYOUT = { order: ['actions', 'respond', 'hours', 'upcoming', 'timeoff'], hidden: [] };
+  const LAYOUT_KEY = 'spui-v3b-layout';
+  const state = { role: 'admin', reveal: false, done: {}, layout: store.get(LAYOUT_KEY, DEFAULT_LAYOUT) };
+
+  /* ══════════ PIECES ══════════ */
+  function heroHTML(p) {
+    const n = p.next, others = n.crew.filter(c => !c.me);
+    return `<section class="hero" aria-label="Your shift">
+      <div class="eyebrow">${n.live ? '<span class="live"></span>' : ''}${esc(n.eyebrow)}</div>
+      <div class="when">${esc(n.when)}</div>
+      <div class="sub">${esc(n.date)}<br>${esc(n.where)}</div>
+      <div class="crew"><span class="stack">${others.slice(0, 3).map((c, i) => `<span class="av ${AV[i + 1]}" aria-hidden="true">${c.p === 'Open slot' ? '?' : initials(c.p)}</span>`).join('')}</span>
+        <span class="names"><small>On with</small>${others.map(c => c.p === 'Open slot' ? '1 open slot' : esc(c.p.split(' ')[0])).join(', ')}</span>
+        <button class="hero-btn" data-act="details">Details</button></div></section>`;
   }
-  function respondHTML() {
-    const items = [];
-    if (state.callback === 'pending') items.push(`<div class="resp">
-        <div class="rt"><i class="fa-solid fa-phone-volume"></i>Callback: Engine 5</div>
-        <div class="rd">Sat, Oct 19 · 19:00 – 07:00 · Firefighter<br>You're #2 on the callback list</div>
-        <div class="rdue"><i class="fa-regular fa-clock"></i> Respond by today, 17:00</div>
-        <div class="ra"><vaadin-button theme="secondary" data-act="cbDecline">Decline</vaadin-button><vaadin-button theme="primary" data-act="cbAccept">Accept</vaadin-button></div>
-      </div>`);
-    if (state.callback === 'accepted') items.push(`<div class="resp done">
-        <div class="rt"><i class="fa-solid fa-circle-check"></i>Callback accepted</div>
-        <div class="rd">Engine 5 · Sat, Oct 19 · 19:00 – 07:00 is now in your upcoming shifts.</div>
-      </div>`);
-    if (state.trade === 'pending') items.push(`<div class="resp">
-        <div class="rt"><i class="fa-solid fa-arrow-right-arrow-left"></i>Trade request from Jordan Alvarez</div>
-        <div class="rd">Their Sun, Oct 27 (Engine 1) for your Sat, Oct 26 (Engine 31)</div>
-        <div class="ra"><vaadin-button theme="secondary" data-act="tradeDecline">Decline</vaadin-button><vaadin-button theme="primary" data-act="toast" data-msg="Opens the trade to review and accept">Review</vaadin-button></div>
-      </div>`);
-    const pending = (state.callback === 'pending') + (state.trade === 'pending');
-    if (!items.length) return '';
-    return `<section data-sec="respond"><div class="sec-hd"><h2>Needs your response ${pending ? `<span theme="badge error primary pill">${pending}</span>` : ''}</h2></div>
-      <div class="card">${items.join('')}</div></section>`;
+  function itemHTML(it, hidden) {
+    const st = state.done[it.id];
+    if (st === 'gone') return '';
+    if (st) return `<div class="resp done"><div class="rt"><i class="fa-solid fa-circle-check"></i>${esc(st)}</div></div>`;
+    return `<div class="resp${it.urgent ? ' urgent' : ''}${hidden ? ' hid' : ''}">
+      <div class="rt"><i class="fa-solid ${it.icon}"></i>${esc(it.t)}${it.tm ? `<span class="tm">${it.tm}</span>` : ''}</div>
+      <div class="rd">${esc(it.d)}</div>${it.due ? `<div class="rdue"><i class="fa-regular fa-clock"></i> ${esc(it.due)}</div>` : ''}
+      <div class="ra">${it.acts.map(([th, l]) => `<vaadin-button theme="${th}" data-act="item" data-id="${it.id}" data-l="${esc(l)}">${esc(l)}</vaadin-button>`).join('')}</div></div>`;
   }
-  function actionsHTML() {
-    return `<section data-sec="actions"><div class="sec-hd"><h2>Quick actions</h2></div>
-      <div class="qa">${QA_ALL.map(a => `<button data-act="qa" data-id="${a.id}"><i class="fa-solid ${a.icon}"></i><span>${esc(a.l)}</span>${a.tag ? `<span class="tag" theme="badge ${a.id === 'timecard' ? 'error' : 'primary'} pill">${esc(a.tag)}</span>` : ''}</button>`).join('')}</div></section>`;
+  function respondHTML(items, title, hiddenFn) {
+    const html = items.map(it => itemHTML(it, hiddenFn(it))).join('');
+    const live = items.filter(it => !state.done[it.id] && !hiddenFn(it)).length;
+    if (!html.trim()) return '';
+    return `<section><div class="sec-hd"><h2>${title} ${live ? `<span theme="badge error primary pill">${live}</span>` : ''}</h2></div><div class="card">${html}</div></section>`;
   }
-  function upcomingHTML() {
-    let list = UPCOMING.slice();
-    if (state.callback === 'accepted') list.splice(1, 0, Object.assign({ isNew: true }, CALLBACK));
-    return `<section data-sec="upcoming"><div class="sec-hd"><h2>Upcoming shifts</h2><vaadin-button theme="tertiary" data-act="toast" data-msg="Opens My schedule">See all</vaadin-button></div>
-      <div class="card">${list.slice(0, 4).map(u => `<button class="up${u.isNew ? ' new' : ''}" data-act="toast" data-msg="Opens ${esc(u.dow)} ${u.d} shift details">
-        <span class="day"><span>${u.dow}</span><b>${u.d}</b></span>
-        <span class="info"><span class="t">${esc(u.t)}</span>${u.isNew ? ' <span theme="badge success">New</span>' : ''}<br><span class="w">${esc(u.w)}</span></span>
-        <i class="fa-solid fa-chevron-right chev"></i></button>`).join('')}</div></section>`;
+  function actionsHTML(list, hiddenFn) {
+    return `<section><div class="sec-hd"><h2>Quick actions</h2></div><div class="qa">${list.map(a => `<button class="${hiddenFn(a) ? 'hid' : ''}" data-act="qa" data-id="${a.id}"><i class="fa-solid ${a.icon}"></i><span>${esc(a.l)}</span>${a.tag ? `<span class="tag" theme="badge ${a.tag[0]} pill">${esc(a.tag[1])}</span>` : ''}</button>`).join('')}</div></section>`;
+  }
+  function upcomingHTML(role) {
+    const list = UPCOMING[role].slice();
+    if (role === 'eu' && state.done.callback === 'Callback accepted · added to your schedule') list.splice(1, 0, CALLBACK_SHIFT);
+    return `<section><div class="sec-hd"><h2>Upcoming shifts</h2><vaadin-button theme="tertiary" data-act="toast" data-msg="Opens My schedule">See all</vaadin-button></div>
+      <div class="card">${list.slice(0, 4).map(u => `<button class="up${u.isNew ? ' new' : ''}" data-act="toast" data-msg="Opens ${u.dow} ${u.d} shift"><span class="day"><span>${u.dow}</span><b>${u.d}</b></span>
+        <span class="info"><span class="t">${esc(u.t)}</span>${u.isNew ? ' <span theme="badge success">New</span>' : ''}<br><span class="w">${esc(u.w)}</span></span><i class="fa-solid fa-chevron-right chev"></i></button>`).join('')}</div></section>`;
+  }
+  function hoursHTML() {
+    return `<section><div class="sec-hd"><h2>My hours</h2><vaadin-button theme="tertiary" data-act="toast" data-msg="Opens Electronic Timecard">Review time card</vaadin-button></div>
+      <div class="card hours"><div class="row"><span><b>72</b> of 96 hrs</span><span theme="badge error">Submit by Fri</span></div>
+      <vaadin-progress-bar value="0.75" aria-label="72 of 96 hours"></vaadin-progress-bar>
+      <div class="s">Pay period Oct 6 – 19 · 12 hrs overtime</div></div></section>`;
   }
   function timeoffHTML() {
-    return `<section data-sec="timeoff"><div class="sec-hd"><h2>Time off</h2><vaadin-button theme="tertiary" data-act="toast" data-msg="Opens Request time off">Request</vaadin-button></div>
-      <div class="card">
-        <div class="bank"><div><b>120</b><span>Vacation hrs</span></div><div><b>80</b><span>Sick hrs</span></div><div><b>24</b><span>Comp hrs</span></div><div><b>56</b><span>Holiday hrs</span></div></div>
+    return `<section><div class="sec-hd"><h2>Time off</h2><vaadin-button theme="tertiary" data-act="toast" data-msg="Opens Request time off">Request</vaadin-button></div>
+      <div class="card"><div class="bank"><div><b>120</b><span>Vacation hrs</span></div><div><b>80</b><span>Sick hrs</span></div><div><b>24</b><span>Comp hrs</span></div><div><b>56</b><span>Holiday hrs</span></div></div>
         <div class="to"><div class="info"><b>Thanksgiving</b><div class="w">Nov 27 – 28 · Vacation · 48 hrs</div></div><span theme="badge success">Approved</span></div>
-        <div class="to"><div class="info"><b>Family trip</b><div class="w">Dec 23 – 26 · Vacation · 72 hrs</div></div><span theme="badge">Pending</span></div>
-      </div></section>`;
+        <div class="to"><div class="info"><b>Family trip</b><div class="w">Dec 23 – 26 · Vacation · 72 hrs</div></div><span theme="badge">Pending</span></div></div></section>`;
   }
-  const SECTION_HTML = { respond: respondHTML, actions: actionsHTML, upcoming: upcomingHTML, timeoff: timeoffHTML };
+  function glanceHTML(hidden) {
+    return `<section class="${hidden ? 'hid' : ''}"><div class="sec-hd"><h2>Today · Battalion 3</h2></div>
+      <div class="card"><div class="glance"><div><b>22/27</b><span>Filled</span></div><div class="bad"><b>5</b><span>Open slots</span></div><div><b>4</b><span>Off</span></div><div class="bad"><b>3</b><span>Uncovered</span></div></div>
+      <div class="glance-ft"><vaadin-button theme="secondary" data-act="toast" data-msg="Opens CrewScheduler">Open CrewScheduler</vaadin-button></div></div></section>`;
+  }
 
-  function renderHome() {
-    const L = state.layout;
-    $('#home').innerHTML = `
-      <div class="sec-hd" style="margin:0">
-        <div class="greet"><h1>Good morning, ${esc(ME.first)}</h1><p>Wednesday, Oct 16 · You're off today</p></div>
-        <vaadin-button theme="tertiary" data-act="customize" aria-label="Customize home"><i class="fa-solid fa-pen" slot="prefix"></i>Edit</vaadin-button>
-      </div>
-      ${heroHTML()}
-      ${L.order.filter(id => !L.hidden.includes(id)).map(id => SECTION_HTML[id]()).join('')}`;
+  /* ══════════ DASHBOARDS ══════════ */
+  function greetHTML(p, editable) {
+    return `<div class="greet-row"><div class="greet"><h1>Good morning, ${esc(p.first)}</h1><p>${esc(p.title)}</p></div>
+      ${editable ? '<vaadin-button theme="tertiary" data-act="customize"><i class="fa-solid fa-pen" slot="prefix"></i>Edit</vaadin-button>' : ''}</div>`;
+  }
+  /* V3 · Admin: act fast — what needs me, then the day's staffing */
+  function adminDashboard() {
+    const p = PEOPLE.admin;
+    return greetHTML(p) + heroHTML(p) + respondHTML(ITEMS.filter(i => i.who === 'admin'), 'Needs your action', () => false)
+      + glanceHTML(false) + actionsHTML(QA.admin, () => false) + upcomingHTML('admin');
+  }
+  /* V3 · End user: my shift, then the things I do myself */
+  function euDashboard() {
+    const p = PEOPLE.eu, L = state.layout;
+    const sec = { actions: () => actionsHTML(QA.eu, () => false), respond: () => respondHTML(ITEMS.filter(i => i.who === 'eu'), 'Needs your response', () => false),
+      hours: hoursHTML, upcoming: () => upcomingHTML('eu'), timeoff: timeoffHTML };
+    return greetHTML(p, true) + heroHTML(p) + L.order.filter(id => !L.hidden.includes(id)).map(id => sec[id]()).join('');
+  }
+  /* V3.1 · Shared: the admin dashboard for everyone; end users lose the admin tasks */
+  function sharedDashboard() {
+    const eu = state.role === 'eu', p = eu ? PEOPLE.eu : PEOPLE.admin;
+    const items = eu ? ITEMS : ITEMS.filter(i => i.who === 'admin');
+    return greetHTML(p) + heroHTML(p)
+      + respondHTML(items, 'Needs your action', it => eu && it.admin)
+      + glanceHTML(eu) + actionsHTML(QA.admin, a => eu && a.admin) + upcomingHTML(eu ? 'eu' : 'admin');
+  }
+
+  function renderTabs() {
+    const eu = state.role === 'eu';
+    const tabs = MODE === 'separate' && eu
+      ? [['fa-house', 'Home'], ['fa-calendar', 'Schedule'], ['fa-umbrella-beach', 'Time off'], ['fa-circle-user', 'Me']]
+      : [['fa-house', 'Home'], ['fa-calendar', 'Schedule'], eu ? ['fa-umbrella-beach', 'Time off'] : ['fa-inbox', 'Approvals', 3], ['fa-circle-user', 'Me']];
+    $('#tabbar').innerHTML = tabs.map(([ic, l, b], i) => `<button ${i === 0 ? 'aria-current="page"' : `data-act="toast" data-msg="Opens ${l}"`}><i class="fa-${i === 0 ? 'solid' : 'regular'} ${ic}"></i>${l}${b ? `<span class="tb-badge">${b}</span>` : ''}</button>`).join('');
+  }
+  function render() {
+    $('#home').innerHTML = MODE === 'shared' ? sharedDashboard() : (state.role === 'eu' ? euDashboard() : adminDashboard());
+    document.body.classList.toggle('reveal', MODE === 'shared' && state.role === 'eu' && state.reveal);
+    $('#bellCnt').textContent = state.role === 'eu' ? 2 : 5;
+    renderTabs();
   }
 
   /* ══════════ SHEETS ══════════ */
   function openSheet(title, body, foot) {
-    $('#sheetTitle').textContent = title;
-    $('#sheetBody').innerHTML = body;
-    $('#sheetFt').innerHTML = foot || '';
-    $('#sheetFt').style.display = foot ? '' : 'none';
+    $('#sheetTitle').textContent = title; $('#sheetBody').innerHTML = body;
+    $('#sheetFt').innerHTML = foot || ''; $('#sheetFt').style.display = foot ? '' : 'none';
     $('#screen').classList.add('sheet-open');
   }
   function closeSheet() { $('#screen').classList.remove('sheet-open'); }
-
   function openDetails() {
-    openSheet('Thu, Oct 17 · Engine 31', `
-      <dl class="dl"><dt>Time</dt><dd>07:00 – 07:00 (24 hrs)</dd>
-        <dt>Position</dt><dd>Paramedic</dd>
-        <dt>Location</dt><dd>Station 3 · ${esc(NEXT.addr)}<br><a href="#" data-act="toast" data-msg="Opens maps" style="color:var(--lumo-primary-text-color)">Directions</a></dd></dl>
-      <div class="note" style="margin:0 0 14px"><i class="fa-solid fa-note-sticky"></i><div>${esc(NEXT.note)}</div></div>
-      <div class="sec-hd"><h2>Crew · ${NEXT.crew.length}</h2></div>
-      <div class="crewlist">${NEXT.crew.map((c, i) => `<div class="prow"><span class="av ${AV[i % 5]}">${initials(c.p)}</span>
-        <div class="pm"><div class="pn">${esc(c.p)}${c.me ? '<span class="me-tag">You</span>' : ''}</div></div><span class="q">${esc(c.q)}</span></div>`).join('')}</div>`,
-      `<vaadin-button theme="secondary" data-act="toast" data-msg="Opens Request time off for Oct 17">Request time off</vaadin-button>
-       <vaadin-button theme="primary" data-act="toast" data-msg="Opens Trade this shift">Trade this shift</vaadin-button>`);
+    const p = state.role === 'eu' ? PEOPLE.eu : PEOPLE.admin, n = p.next;
+    openSheet(n.date.split(' · ')[0] + ' · ' + n.where.split(' · ')[1], `
+      <dl class="dl"><dt>Time</dt><dd>${esc(n.when)} (${esc(n.date.split(' · ')[1])})</dd><dt>Location</dt><dd>${esc(n.where.split(' · ')[0])} · ${esc(n.addr)}</dd></dl>
+      <div class="sec-hd"><h2>Crew · ${n.crew.length}</h2></div>
+      ${n.crew.map((c, i) => `<div class="prow"><span class="av ${AV[i % 5]}">${c.p === 'Open slot' ? '?' : initials(c.p)}</span><span class="pm">${esc(c.p)}${c.me ? '<span class="me-tag">You</span>' : ''}</span><span class="q">${esc(c.q)}</span></div>`).join('')}`,
+      state.role === 'eu'
+        ? `<vaadin-button theme="secondary" data-act="toast" data-msg="Opens Request time off for this shift">Request time off</vaadin-button><vaadin-button theme="primary" data-act="toast" data-msg="Opens Trade this shift">Trade this shift</vaadin-button>`
+        : `<vaadin-button theme="primary" data-act="toast" data-msg="Opens Fill slot on Truck 1">Fill open slot</vaadin-button>`);
   }
   function customizeBody() {
     const L = state.layout;
-    return `<p style="margin:0 0 6px;color:var(--lumo-secondary-text-color)">Your next shift is always first. Choose what shows below it and in what order.</p>
+    return `<p style="margin:0 0 6px;color:var(--lumo-secondary-text-color)">Your next shift stays first. Choose what shows below it, and in what order.</p>
       ${L.order.map((id, i) => `<div class="cust">
-        <vaadin-button theme="icon" aria-label="Move ${SECTIONS[id].l} up" data-act="moveUp" data-id="${id}" ${i === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></vaadin-button>
-        <vaadin-button theme="icon" aria-label="Move ${SECTIONS[id].l} down" data-act="moveDown" data-id="${id}" ${i === L.order.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></vaadin-button>
-        <span class="cl">${esc(SECTIONS[id].l)}<small>${esc(SECTIONS[id].d)}</small></span>
-        <vwc-switch data-sec-toggle="${id}" accessible-name="Show ${esc(SECTIONS[id].l)}" ${L.hidden.includes(id) ? '' : 'checked'}></vwc-switch>
-      </div>`).join('')}`;
+        <vaadin-button theme="icon" aria-label="Move ${SECTIONS[id]} up" data-act="moveUp" data-id="${id}" ${i === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-up"></i></vaadin-button>
+        <vaadin-button theme="icon" aria-label="Move ${SECTIONS[id]} down" data-act="moveDown" data-id="${id}" ${i === L.order.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-down"></i></vaadin-button>
+        <span class="cl">${esc(SECTIONS[id])}</span>
+        <vwc-switch data-sec-toggle="${id}" accessible-name="Show ${esc(SECTIONS[id])}" ${L.hidden.includes(id) ? '' : 'checked'}></vwc-switch></div>`).join('')}`;
   }
-  function openCustomize() {
-    openSheet('Customize home', customizeBody(),
-      `<vaadin-button theme="tertiary" data-act="resetLayout">Reset</vaadin-button><vaadin-button theme="primary" data-act="closeSheet">Done</vaadin-button>`);
-  }
-  function saveLayout() { store.set(LAYOUT_KEY, state.layout); renderHome(); $('#sheetBody').innerHTML = customizeBody(); }
+  function openCustomize() { openSheet('Customize home', customizeBody(), `<vaadin-button theme="tertiary" data-act="resetLayout">Reset</vaadin-button><vaadin-button theme="primary" data-act="closeSheet">Done</vaadin-button>`); }
+  function saveLayout() { store.set(LAYOUT_KEY, state.layout); render(); $('#sheetBody').innerHTML = customizeBody(); }
+
+  /* Outcome of an action-item button → the confirmation that replaces it */
+  const OUTCOME = {
+    'sick:Fill slot': null, 'sick:Message': null,
+    'pto:Approve': 'Approved · Taylor Vance, Nov 2 – 4', 'pto:Deny': 'Denied · Taylor Vance was notified',
+    'tradeAppr:Approve': 'Trade approved', 'tradeAppr:Deny': 'Trade denied',
+    'callback:Accept': 'Callback accepted · added to your schedule', 'callback:Decline': 'gone',
+    'trade:Decline': 'gone'
+  };
+
+  function setRole(r) { state.role = r; setGroup('#roleToggle', r); render(); }
 
   /* ══════════ EVENTS ══════════ */
   document.addEventListener('click', e => {
     const sw = e.target.closest('vwc-switch[data-sec-toggle]');
-    if (sw) {
-      setTimeout(() => {
-        const id = sw.dataset.secToggle, L = state.layout;
-        L.hidden = sw.checked ? L.hidden.filter(x => x !== id) : [...new Set([...L.hidden, id])];
-        store.set(LAYOUT_KEY, L); renderHome();
-      });
-      return;
-    }
-    const el = e.target.closest('[data-act]');
-    if (!el) return;
+    if (sw) { setTimeout(() => { const id = sw.dataset.secToggle, L = state.layout; L.hidden = sw.checked ? L.hidden.filter(x => x !== id) : [...new Set([...L.hidden, id])]; store.set(LAYOUT_KEY, L); render(); }); return; }
+    const el = e.target.closest('[data-act]'); if (!el) return;
     const a = el.dataset.act;
-    if (a === 'toast') { e.preventDefault(); toast(el.dataset.msg); }
+    if (a === 'toast') toast(el.dataset.msg);
     if (a === 'closeSheet') closeSheet();
     if (a === 'details') openDetails();
     if (a === 'customize') openCustomize();
-    if (a === 'qa') toast(QA_MSG[el.dataset.id]);
-    if (a === 'cbAccept') { state.callback = 'accepted'; renderHome(); toast('Callback accepted. Added to your schedule.'); }
-    if (a === 'cbDecline') { state.callback = 'declined'; renderHome(); toast('Callback declined. The next person on the list is notified.'); }
-    if (a === 'tradeDecline') { state.trade = 'declined'; renderHome(); toast('Trade declined'); }
-    if (a === 'moveUp' || a === 'moveDown') {
-      const o = state.layout.order, i = o.indexOf(el.dataset.id), j = a === 'moveUp' ? i - 1 : i + 1;
-      if (j < 0 || j >= o.length) return;
-      [o[i], o[j]] = [o[j], o[i]]; saveLayout();
+    if (a === 'qa') toast(MSG[el.dataset.id]);
+    if (a === 'item') {
+      const key = el.dataset.id + ':' + el.dataset.l, out = OUTCOME[key];
+      if (out === undefined || out === null) { toast(`Opens ${el.dataset.l}`); return; }
+      state.done[el.dataset.id] = out; render();
+      if (out !== 'gone') toast(out.split(' · ')[0]); else toast('Declined');
     }
+    if (a === 'moveUp' || a === 'moveDown') { const o = state.layout.order, i = o.indexOf(el.dataset.id), j = a === 'moveUp' ? i - 1 : i + 1; if (j >= 0 && j < o.length) { [o[i], o[j]] = [o[j], o[i]]; saveLayout(); } }
     if (a === 'resetLayout') { state.layout = JSON.parse(JSON.stringify(DEFAULT_LAYOUT)); saveLayout(); }
   });
+  onToggleTap('#roleToggle', setRole);
+  const rv = $('#revealSw');
+  if (rv) rv.addEventListener('click', () => setTimeout(() => { state.reveal = !!rv.checked; render(); }));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
-  renderHome();
+  render();
 </script>
 
 <!-- ── Design Toolbox: Flow Map ── -->
 <script>
   function applyFlowState(id, opts) {
     opts = opts || {};
-    closeSheet();
-    state.callback = 'pending'; state.trade = 'pending';
-    state.layout = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+    closeSheet(); state.done = {}; state.reveal = false; state.layout = JSON.parse(JSON.stringify(DEFAULT_LAYOUT));
+    const rv = document.getElementById('revealSw'); if (rv) rv.checked = false;
     switch (id) {
-      case 'home': break;
-      case 'details': renderHome(); openDetails(); break;
-      case 'accepted': state.callback = 'accepted'; break;
-      case 'customize': renderHome(); openCustomize(); break;
-      case 'customized': state.layout = { order: ['upcoming', 'actions', 'respond', 'timeoff'], hidden: ['timeoff'] }; break;
-      default: break;
+      case 'admin': setRole('admin'); break;
+      case 'adminDone': state.done = { pto: 'Approved · Taylor Vance, Nov 2 – 4' }; setRole('admin'); break;
+      case 'eu': setRole('eu'); break;
+      case 'euAccepted': state.done = { callback: 'Callback accepted · added to your schedule' }; setRole('eu'); break;
+      case 'euReveal': state.reveal = true; if (rv) rv.checked = true; setRole('eu'); break;
+      case 'details': setRole('eu'); openDetails(); break;
+      default: setRole('admin'); break;
     }
-    renderHome();
     if (!opts.instant) document.querySelector('#scroll').scrollTo(0, 0);
   }
   window.applyFlowState = applyFlowState;
@@ -570,30 +550,15 @@
 
   window.TOOLBOX_CONFIG = {
     flowMap: {
-      title: 'Scale Platform UI · V3 End-user dashboard — Flow Map',
+      title: 'Scale Platform UI · V3 Separate dashboards — Flow Map',
       applyState: 'applyFlowState',
       canvas: { w: 1220, h: 700 },
       flows: [
-        { id: 'main', name: 'Land and act', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 1180, h: 320 }, labelXY: { x: 40, y: 40 } },
-        { id: 'custom', name: 'Make it mine', pill: 'B', color: '#b8e0f0',
-          lane: { x: 20, y: 360, w: 1180, h: 320 }, labelXY: { x: 40, y: 380 } }
+        { id: 'adm', name: 'Admin', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1180, h: 320 }, labelXY: { x: 40, y: 40 } },
+        { id: 'eu', name: 'End user', pill: 'B', color: '#b8e0f0', lane: { x: 20, y: 360, w: 1180, h: 320 }, labelXY: { x: 40, y: 380 } }
       ],
-      nodes: [
-        { id: 'home', flow: 'main', entry: true, x: 60, y: 120, step: 'Entry', name: 'Home (landing)', state: 'home',
-          desc: 'Next shift and crew first, then items that need a response, quick actions, upcoming shifts and time off.' },
-        { id: 'details', flow: 'main', x: 340, y: 120, step: 'Step 2', name: 'Shift details', state: 'details',
-          desc: 'Full crew, location, note, and Trade / Request time off for this shift.' },
-        { id: 'accepted', flow: 'main', x: 620, y: 120, step: 'Step 3', name: 'Callback accepted', state: 'accepted',
-          desc: 'Confirmation in place. The shift appears in Upcoming tagged New.' },
-        { id: 'customize', flow: 'custom', x: 60, y: 460, step: 'Step 1', name: 'Customize home', state: 'customize',
-          desc: 'Reorder or hide sections. Next shift is pinned.' },
-        { id: 'customized', flow: 'custom', x: 340, y: 460, step: 'Result', name: 'Customized home', state: 'customized',
-          desc: 'Example: Upcoming moved up, Time off hidden. Saved on the device.' }
-      ],
-      edges: [
-        ['home', 'details'], ['home', 'accepted'], ['home', 'customize'], ['customize', 'customized']
-      ]
+      nodes: [{"id": "admin", "flow": "adm", "entry": true, "x": 60, "y": 120, "step": "Entry", "name": "Admin dashboard", "state": "admin", "desc": "Own shift + crew, Needs your action (sick call, approvals, bids), today at a glance, admin quick actions."}, {"id": "adminDone", "flow": "adm", "x": 340, "y": 120, "step": "Step 2", "name": "Request approved", "state": "adminDone", "desc": "Approval confirms in place."}, {"id": "eu", "flow": "eu", "x": 60, "y": 460, "step": "Entry", "name": "End-user dashboard", "state": "eu", "desc": "Next shift + crew, quick actions (time off, sick, hours, bidding, trade), responses, hours, upcoming, time off."}, {"id": "euAccepted", "flow": "eu", "x": 340, "y": 460, "step": "Step 2", "name": "Callback accepted", "state": "euAccepted", "desc": "Shows up in Upcoming tagged New."}, {"id": "details", "flow": "eu", "x": 620, "y": 460, "step": "Step 2", "name": "Shift details", "state": "details", "desc": "Full crew and shift actions."}],
+      edges: [["admin", "adminDone"], ["eu", "euAccepted"], ["eu", "details"]]
     }
   };
 </script>

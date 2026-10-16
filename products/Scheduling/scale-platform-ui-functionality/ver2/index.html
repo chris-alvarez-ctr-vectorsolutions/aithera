@@ -1,21 +1,18 @@
 <!DOCTYPE html>
-<!-- Scale Platform UI Functionality — V2: Advanced filtering on the scheduler
-     (SCHED-25067 + the "only my schedule" filter from SCHED-25064; parent SCHED-24852).
-
-     Mobile-first CrewScheduler day view with a sticky filter bar (Filters,
-     My schedule, Open slots + removable active chips) and a full-height filter
-     sheet: qualifier, person, time, assignment, display density and the
-     dual-scheduled flag. Matching rows are highlighted; non-matching rows fold
-     into "+N more"; hidden assignments are summarized, not silently dropped.
-     Applied filters are remembered on the device.
-
+<!-- Scale Platform UI Functionality — V2: Filters on the production scheduler
+     (SCHED-25067 + "only my schedule" from SCHED-25064; parent SCHED-24852).
+     Filters: qualifier (multi, first), assignment, shift length, open slots
+     (show / only / hide), My schedule, Employees Off & Misc on/off, duplicate
+     (dual-scheduled) shifts on/off. Matches highlighted, the rest folds into
+     "+N more" inside its assignment. Admins default to the full day, end users
+     to My schedule. Filters are remembered per role.
      PRESENTING: phone frame + brief on wide screens; full-bleed at ≤520px. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <!-- No maximum-scale: pinch-zoom stays available on phones (SCHED-25064 "add ability to zoom") -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scale Platform UI — V2 Advanced filtering</title>
+    <title>Scale Platform UI — V2 Filters</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
@@ -41,14 +38,28 @@
 
 <style>
   /* ══════════ TOKENS ══════════
-     Semantic colors come from the Vector theme (Lumo tokens). The two app-chrome
-     colors match the production Scheduling top bar. */
+     New UI (sheets, brief, buttons) uses Vector theme tokens. The --prod-* colors
+     reproduce the CURRENT production mobile scheduler, which this ticket keeps:
+     "slightly bigger and better", not a facelift. */
   :root {
-    --app-bar: #16202b;            /* production Scheduling top bar */
-    --app-bar-ink: #e5e7eb;
-    --canvas: #f2f5f8;             /* page canvas behind cards */
+    --app-bar: #16202b;            /* production top bar */
+    --canvas: #f2f5f8;
     --stage: #e3e8ee;              /* presentation backdrop around the phone */
-    --open-slot: var(--vwc-notification-color-10pct, #ffc7001a);
+    --prod-bg: #f7f7f7;
+    --prod-line: #c9cdd2;
+    --prod-btn: #f4f5f6;
+    --prod-ink: #2c3744;
+    --prod-muted: #5f6b77;
+    --prod-red: #e0302a;
+    --prod-bar: #262c31;           /* assigned-person bar */
+    --prod-green: #3fb34f;         /* bar left edge */
+    --prod-notes: #fffccf;
+    --prod-stripe-a: #f6ee9d;
+    --prod-stripe-b: #ede07a;
+    --st-blue: #2ea0ea;
+    --st-orange: #f8962a;
+    --st-green: #9fd59b;
+    --st-blue2: #2f84de;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -66,8 +77,8 @@
   .stage { min-height: 100vh; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 28px 24px 96px; }
   .brief { width: 330px; flex: none; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-l); box-shadow: var(--lumo-box-shadow-xs); padding: 22px 22px 18px; }
   .device { width: 390px; height: min(844px, calc(100vh - 110px)); min-height: 560px; flex: none; background: #0d1117; border-radius: 46px; padding: 10px; box-shadow: var(--lumo-box-shadow-l); position: sticky; top: 28px; }
-  /* transform makes the screen the containing block for every absolutely/fixed
-     positioned layer (sheets, toasts), so they stay inside the phone */
+  /* transform makes the screen the containing block for every absolutely
+     positioned layer (sheets, bubble, toasts), so they stay inside the phone */
   .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; background: var(--canvas); display: flex; flex-direction: column; transform: translateZ(0); }
   .statusbar { height: 34px; flex: none; background: var(--app-bar); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 30px; font-size: 13px; font-weight: 600; }
   .statusbar .sb-ic { display: flex; gap: 6px; font-size: 12px; }
@@ -97,161 +108,183 @@
   .ev b { text-align: center; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); border-radius: var(--lumo-border-radius-s); padding: 3px 0; font-size: 12px; }
   .brief .links a { display: inline-flex; align-items: center; gap: 6px; color: var(--lumo-primary-text-color); text-decoration: none; margin-right: 14px; font-weight: 600; }
   .brief .links a:hover { text-decoration: underline; }
-  .viewas { display: flex; align-items: center; gap: 10px; }
+  .viewas { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-  /* ══════════ APP SHELL ══════════ */
+  /* ══════════ SHEETS + TOAST (new UI, Vector tokens) ══════════ */
   .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; position: relative; }
-  /* Quick-return header: .top is sticky; JS slides it up by the header's height
-     as you scroll down (date row stays pinned) and pulls it back on scroll up. */
-  .top { position: sticky; top: 0; z-index: 20; }
-  .appbar { height: 52px; background: var(--app-bar); color: var(--app-bar-ink); display: flex; align-items: center; gap: 4px; padding: 0 6px; }
-  .appbar .ab-title { flex: 1; font-size: 16px; font-weight: 600; text-align: center; }
-  .ab-btn { width: 44px; height: 44px; border: 0; background: none; color: #cbd2da; font-size: 18px; border-radius: 50%; cursor: pointer; position: relative; }
-  .ab-btn:hover { color: #fff; }
-  .ab-badge { position: absolute; top: 6px; right: 5px; background: var(--lumo-error-color); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
-  .viewbar { background: var(--lumo-base-color); padding: 10px 12px 8px; display: flex; justify-content: center; border-bottom: 1px solid var(--lumo-contrast-10pct); }
-  /* Date row — centered on every device size (SCHED-25064) */
-  .daterow { background: var(--lumo-base-color); display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding: 4px 6px; border-bottom: 1px solid var(--lumo-contrast-10pct); box-shadow: 0 2px 6px -4px var(--lumo-contrast-40pct); }
-  .date-btn { height: 44px; border: 0; background: none; cursor: pointer; color: var(--lumo-primary-text-color); font-size: 16px; border-radius: var(--lumo-border-radius-m); }
-  .date-btn:hover { background: var(--lumo-primary-color-10pct); }
-  .date-mid { text-align: center; line-height: 1.2; }
-  .date-mid .d { font-weight: 700; font-size: 15px; }
-  .date-mid .s { font-size: 12px; color: var(--lumo-secondary-text-color); }
-
-  /* people rows shared by the roster and the sheet */
-  .av { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--vwc-color-picton-blue-700, #2b81a3); }
-  .av.c1 { background: var(--vwc-color-ecstacy-700, #b1651f); }
-  .av.c2 { background: var(--vwc-color-vivid-violet-700, #7e398c); }
-  .av.c3 { background: var(--vwc-color-puerto-rico-700, #2b887c); }
-  .av.c4 { background: var(--vwc-color-cinnabar-700, #a43628); }
-  .prow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px; }
-  .prow + .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
-  .prow .pm { flex: 1; min-width: 0; line-height: 1.3; }
-  .prow .pn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .prow .ps { font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .ic-misc { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); }
-
-  /* ══════════ NOTES ══════════ */
-  .note { margin: 0 12px 12px; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: var(--vwc-notification-color-10pct, #ffc7001a); border: 1px solid var(--vwc-notification-color-50pct, #ffc70080); border-radius: var(--lumo-border-radius-m); line-height: 1.4; }
-  .note i { color: var(--vwc-notification-text-color, #a66900); margin-top: 2px; }
-
-  /* ══════════ ROSTER ══════════ */
-  .station-hd { display: flex; align-items: baseline; gap: 8px; padding: 6px 16px 6px; font-weight: 700; color: var(--lumo-header-text-color); }
-  .station-hd small { font-weight: 400; color: var(--lumo-secondary-text-color); }
-  .unit { margin: 0 12px 10px; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: var(--lumo-box-shadow-xs); overflow: hidden; }
-  .unit-hd { display: flex; align-items: center; gap: 8px; padding: 8px 4px 6px 12px; min-height: 48px; }
-  .unit-hd .un { font-weight: 700; font-size: 15px; }
-  .unit-hd .ut { font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .unit-hd .grow { flex: 1; min-width: 0; line-height: 1.3; }
-  .unit .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
-  .q { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: var(--lumo-border-radius-s); background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); white-space: nowrap; }
-  .prow.open { background: var(--open-slot); }
-  .prow.open .pn { color: var(--vwc-notification-text-color, #a66900); }
-  .ic-open { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 2px dashed var(--vwc-notification-color, #ffc700); }
-  .me-tag { font-size: 11px; font-weight: 700; color: var(--lumo-primary-text-color); margin-left: 4px; }
-
-  /* End users never see controls they can't use (SCHED-25064) */
-  body.role-eu .admin-only { display: none !important; }
-
-  /* ══════════ BOTTOM SHEET (drawer) ══════════
-     Custom sheet rather than vwc-drawer: vwc-drawer anchors to the page, and in
-     presentation mode the sheet must stay inside the phone frame. Production
-     should use vwc-drawer position="bottom" overlay (see open questions). */
   .scrim { position: absolute; inset: 0; background: rgba(15, 23, 34, .45); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 40; }
   .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 86%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 41; transform: translateY(102%); transition: transform .24s ease; display: flex; flex-direction: column; box-shadow: var(--lumo-box-shadow-xl); }
   .sheet-open .scrim { opacity: 1; pointer-events: auto; }
   .sheet-open .sheet { transform: none; }
-  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; }
-  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; flex: none; }
+  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; flex: none; }
   .sheet-hd h2 { flex: 1; margin: 0; font-size: 17px; }
-  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; flex: none; }
   .sheet-tools vaadin-text-field { width: 100%; }
   .sheet-body { flex: 1; overflow-y: auto; border-top: 1px solid var(--lumo-contrast-10pct); }
-  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); }
-  .drow { border-bottom: 1px solid var(--lumo-contrast-5pct); }
-  .drow > button { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; padding: 0; }
-  .drow > button:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
-  .drow .chev { color: var(--lumo-tertiary-text-color); transition: transform .18s; }
-  .drow.open .chev { transform: rotate(90deg); }
-  .ddetail { display: none; padding: 2px 16px 14px 52px; line-height: 1.5; }
-  .drow.open .ddetail { display: block; }
-  .ddetail dl { display: grid; grid-template-columns: 82px 1fr; gap: 2px 8px; margin: 0 0 10px; }
-  .ddetail dt { color: var(--lumo-secondary-text-color); font-size: 12px; }
-  .ddetail dd { margin: 0; font-size: 13px; }
-  .ddetail .acts { display: flex; gap: 8px; }
+  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); flex: none; }
+  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 80; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 12px; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { border: 0; background: none; color: var(--vwc-color-picton-blue-300, #7dcdee); font-weight: 700; cursor: pointer; padding: 0; }
   .empty { padding: 28px 16px; text-align: center; color: var(--lumo-secondary-text-color); }
+  body.role-eu .admin-only { display: none !important; }
 
-  /* ══════════ TOAST ══════════ */
-  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 60; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  /* ══════════ PRODUCTION SCHEDULER (reproduced, lightly improved) ══════════
+     Matches today's mobile CrewScheduler: grey toolbar buttons, Timeline/List
+     view buttons, search, "All assignments shown" dropdown, today/«»/month/week/
+     day, boxed date header, yellow NOTES, colored station headers, red-bordered
+     assignment cards, dark name bars with boxed qualifier tags, striped open
+     slots. "Better" = bigger tap targets (≥40px), tidy wrapping, sticky date,
+     and a single full-width column because Employees Off / Misc moved out. */
+  .prod { background: var(--prod-bg); color: var(--prod-ink); font-size: 14px; }
+  .p-appbar { height: 52px; background: var(--app-bar); display: flex; align-items: center; padding: 0 4px 0 0; }
+  .p-appbar button { width: 48px; height: 52px; border: 0; background: none; color: #cbd2da; font-size: 18px; cursor: pointer; position: relative; }
+  .p-appbar button.on { background: #253444; color: #fff; }
+  .p-appbar .ic-clock { color: #f2c14e; }
+  .p-appbar .logo { margin-left: auto; padding-right: 12px; color: #6fa8dc; font-size: 22px; }
+  .p-badge { position: absolute; top: 8px; right: 6px; background: var(--prod-red); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
 
-  /* ══════════ FILTER BAR (the V2 change) ══════════
-     Lives in the sticky top under the date row so filters stay one tap away
-     while scrolling. Chips are 36px tall with 44px tap area from padding. */
-  .fbar { background: var(--lumo-base-color); display: flex; gap: 8px; padding: 8px 12px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--lumo-contrast-10pct); }
-  .fbar::-webkit-scrollbar { display: none; }
-  .chip { flex: none; height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--lumo-contrast-30pct); background: var(--lumo-base-color); color: var(--lumo-body-text-color); font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-  .chip:hover { border-color: var(--lumo-primary-color); }
+  .p-tools { padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 8px; background: #fff; }
+  .p-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .p-row.scrollx { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .p-row.scrollx::-webkit-scrollbar { display: none; }
+  .p-btn { flex: none; height: 40px; display: inline-flex; align-items: stretch; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; color: var(--prod-ink); cursor: pointer; overflow: hidden; padding: 0; font-size: 14px; }
+  .p-btn .ic { width: 38px; display: flex; align-items: center; justify-content: center; background: var(--prod-btn); border-right: 1px solid var(--prod-line); color: #3a4651; }
+  .p-btn .tx { display: flex; align-items: center; gap: 6px; padding: 0 12px; white-space: nowrap; }
+  .p-icon { flex: none; width: 40px; height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; color: #3a4651; cursor: pointer; }
+  .p-zoom { flex: none; display: inline-flex; border: 1px solid var(--prod-line); border-radius: 4px; overflow: hidden; }
+  .p-zoom button { width: 40px; height: 38px; border: 0; background: #fff; cursor: pointer; font-size: 16px; }
+  .p-zoom button + button { border-left: 1px solid var(--prod-line); background: #eef6ee; }
+  .p-zoom .minus { color: var(--prod-red); }
+  .p-zoom .plus { color: var(--prod-green); }
+  .p-search { flex: 1; min-width: 0; height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; padding: 0 12px; font: inherit; color: var(--prod-ink); }
+  .p-select { height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--prod-ink); white-space: nowrap; }
+  .p-seg { display: inline-flex; border: 1px solid var(--prod-line); border-radius: 4px; overflow: hidden; flex: none; }
+  .p-seg button { height: 38px; min-width: 40px; padding: 0 10px; border: 0; background: #fff; cursor: pointer; color: var(--prod-ink); }
+  .p-seg button + button { border-left: 1px solid var(--prod-line); }
+  .p-seg button.on { background: #dfe2e5; box-shadow: inset 0 1px 3px rgba(0,0,0,.15); }
+  .p-cal { color: #b94a48; font-size: 22px; margin-left: auto; }
+
+  /* Sticky date header — centered, with day arrows (SCHED-25064) */
+  .p-date { display: grid; grid-template-columns: 44px 1fr 44px auto; align-items: center; gap: 4px; padding: 6px 8px; background: #fff; border-top: 1px solid #e3e6e9; border-bottom: 1px solid #d6dadf; box-shadow: 0 2px 5px -3px rgba(0,0,0,.25); }
+  .p-date .arr { height: 40px; border: 0; background: none; color: var(--prod-ink); font-size: 16px; cursor: pointer; }
+  .p-date .box { justify-self: center; padding: 6px 14px; border: 1.5px solid #555; border-radius: 4px; background: #e9eaeb; font-size: 16px; letter-spacing: .3px; }
+  .p-date .tools { display: flex; gap: 10px; align-items: center; padding-right: 4px; font-size: 20px; }
+  .p-date .tools .nb { color: #c0262d; }
+
+  .p-notes { margin: 10px 10px 0; background: var(--prod-notes); border-left: 6px solid #b9b9a0; padding: 10px 12px; font-size: 15px; line-height: 1.4; }
+  .p-notes u { display: block; margin-bottom: 6px; }
+
+  /* station column — colored header tab + framed body */
+  .p-station { margin: 12px 10px 0; border: 2px solid var(--stc); border-radius: 6px 6px 4px 4px; background: #fff; }
+  .p-station > .hd { background: var(--stc); color: #fff; text-align: center; font-weight: 700; font-size: 17px; letter-spacing: .4px; padding: 8px; border-radius: 3px 3px 0 0; }
+  .p-station.dark > .hd { color: #2a2a2a; }
+  .p-station > .bd { padding: 8px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* assignment card */
+  .p-card { background: #f4f4f4; border: 2px solid #d8d8d8; border-radius: 3px; padding: 8px 8px 10px; }
+  .p-card.short { border-color: var(--prod-red); }
+  .p-card .hd { display: flex; align-items: center; gap: 8px; }
+  .p-card .nm { font-size: 16px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+  .p-card .nm i { color: #8a939c; font-size: 14px; }
+  .p-card .ct { color: var(--prod-red); font-weight: 700; font-size: 16px; }
+  .p-card .ct.full { color: #2e7d32; }
+  .p-card .kb { width: 32px; height: 32px; border: 0; background: none; color: #333; cursor: pointer; font-size: 16px; }
+  .p-card .tm { color: var(--prod-muted); font-size: 14px; margin: 2px 0 10px; }
+  .p-card .rows { display: flex; flex-direction: column; gap: 8px; }
+
+  /* assigned person — dark bar, green edge, boxed qualifier tags on the top edge */
+  .p-bar { position: relative; background: var(--prod-bar); color: #fff; border-radius: 4px; border-left: 7px solid var(--prod-green); padding: 13px 10px 7px; min-height: 44px; font-size: 16px; line-height: 1.25; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .p-bar .tags { position: absolute; top: -9px; left: 4px; display: flex; gap: 3px; }
+  .p-tag { background: #fff; color: #111; border: 1.5px solid #222; border-radius: 3px; font-size: 11px; font-weight: 700; line-height: 1; padding: 2px 4px; }
+  .p-tag.pm { background: #2f6fd6; color: #fff; border-color: #1d4fa3; }
+  .p-bar .part { display: inline-block; margin-top: 4px; background: var(--prod-red); color: #fff; font-size: 13px; padding: 1px 6px; border-radius: 3px; }
+  .p-bar .me { font-size: 11px; font-weight: 700; background: #fff; color: var(--prod-ink); border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
+  .p-bar .dual { color: #f59e0b; margin-left: 6px; font-size: 13px; }
+  .p-bar .dual-note { display: block; font-size: 12px; color: #f8c76a; margin-top: 2px; }
+
+  /* open slot — yellow stripes, unchanged look */
+  .p-open { background: repeating-linear-gradient(135deg, var(--prod-stripe-a) 0 12px, var(--prod-stripe-b) 12px 24px); border-radius: 4px; padding: 9px 10px; min-height: 44px; font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #222; }
+  .p-open .p-tag { font-size: 11px; }
+  .p-open .sub { flex-basis: 100%; font-size: 13px; color: #5a5320; }
+  .p-open .fill { margin-left: auto; height: 30px; padding: 0 10px; border: 1px solid #b9ad4f; border-radius: 4px; background: rgba(255,255,255,.6); color: #3b3510; cursor: pointer; font-size: 13px; }
+  /* NEW: who is off and why, right on the slot they left open */
+  .p-off-note { flex-basis: 100%; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b2a10; }
+  .p-off-note i { color: var(--prod-red); }
+
+  .p-self { height: 40px; border: 1px solid #7d8a96; border-radius: 4px; background: #a9b4be; color: #22313f; text-decoration: underline; letter-spacing: .4px; text-transform: uppercase; font-size: 14px; cursor: pointer; }
+
+  /* Employees Off / Misc — production box styles */
+  .p-offbox { background: #dcdcdc; border-radius: 3px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .p-miscbox { background: #fffccf; border: 2px solid #2a2a2a; border-radius: 3px; padding: 8px; }
+  .p-offbox .bh, .p-miscbox .bh { font-size: 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .p-add { height: 38px; width: 100%; border: 0; border-radius: 4px; background: repeating-linear-gradient(135deg, var(--prod-stripe-a) 0 12px, var(--prod-stripe-b) 12px 24px); text-align: left; padding: 0 12px; font-size: 16px; cursor: pointer; color: #222; }
+  .p-offrow { background: #9aa3ab; color: #fff; border-radius: 4px; border-left: 7px solid #6b747c; padding: 7px 10px; margin-bottom: 8px; line-height: 1.3; }
+  .p-offrow b { font-weight: 600; font-size: 15px; }
+  .p-offrow .s { font-size: 12.5px; opacity: .95; }
+  .p-offrow .aff { display: inline-block; margin-top: 3px; background: var(--prod-red); color: #fff; border-radius: 3px; font-size: 12px; padding: 1px 6px; }
+  .p-offrow .cov { display: inline-block; margin-top: 3px; background: #2e7d32; color: #fff; border-radius: 3px; font-size: 12px; padding: 1px 6px; }
+  .p-miscrow { background: #fff7a8; border: 1px solid #c9bd52; border-radius: 4px; padding: 7px 10px; margin-bottom: 8px; line-height: 1.3; }
+  .p-miscrow .s { font-size: 12.5px; color: #5a5320; }
+
+  .top { position: sticky; top: 0; z-index: 20; }
+
+  /* ══════════ FILTERS (the V2 change) ══════════ */
+  .p-fbar { background: #fff; display: flex; gap: 6px; padding: 8px 10px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #d6dadf; }
+  .p-fbar::-webkit-scrollbar { display: none; }
+  .chip { flex: none; height: 38px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border-radius: 4px; border: 1px solid var(--prod-line); background: #fff; color: var(--prod-ink); font-size: 14px; cursor: pointer; white-space: nowrap; }
   .chip:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 2px; }
-  .chip[aria-pressed="true"] { background: var(--lumo-primary-color); border-color: var(--lumo-primary-color); color: var(--lumo-primary-contrast-color); }
-  .chip .n { background: var(--lumo-primary-contrast-color); color: var(--lumo-primary-text-color); border-radius: 999px; font-size: 11px; padding: 1px 7px; }
-  .chip.removable { background: var(--lumo-primary-color-10pct); border-color: transparent; color: var(--lumo-primary-text-color); padding-right: 8px; }
-  .chip.removable i { font-size: 12px; opacity: .8; }
-  .summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px 4px; font-size: 13px; color: var(--lumo-secondary-text-color); }
-  .summary b { color: var(--lumo-body-text-color); }
+  .chip[aria-pressed="true"] { background: var(--lumo-primary-color); border-color: var(--lumo-primary-color); color: #fff; }
+  .chip .n { background: #fff; color: var(--lumo-primary-text-color); border-radius: 999px; font-size: 11px; font-weight: 700; padding: 1px 7px; }
+  .chip.rm { background: var(--lumo-primary-color-10pct); border-color: transparent; color: var(--lumo-primary-text-color); font-weight: 600; padding-right: 8px; }
+  .summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px 0; font-size: 13px; color: var(--prod-muted); }
+  .summary b { color: var(--prod-ink); }
+  .p-bar.hit, .p-open.hit { outline: 3px solid var(--lumo-primary-color); outline-offset: 2px; }
+  .p-more { width: 100%; height: 38px; margin-top: 8px; border: 1px dashed #9aa3ab; border-radius: 4px; background: none; color: var(--lumo-primary-text-color); font-weight: 600; cursor: pointer; }
+  .hidden-note { margin: 12px 10px 0; padding: 12px; border: 1px dashed #9aa3ab; border-radius: 4px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--prod-muted); font-size: 13px; background: #fff; }
+  .flash { animation: flash 1.4s ease; }
+  @keyframes flash { 0%, 60% { box-shadow: 0 0 0 4px var(--lumo-primary-color); } 100% { box-shadow: 0 0 0 0 transparent; } }
 
-  /* match highlighting */
-  .prow.hit { box-shadow: inset 3px 0 0 var(--lumo-primary-color); background: var(--lumo-primary-color-10pct); }
-  .prow.open.hit { background: var(--open-slot); }
-  .more-btn { width: 100%; min-height: 40px; border: 0; border-top: 1px solid var(--lumo-contrast-5pct); background: none; color: var(--lumo-primary-text-color); font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; padding: 0 12px 0 52px; }
-  .hidden-note { margin: 4px 12px 12px; padding: 12px; border: 1px dashed var(--lumo-contrast-30pct); border-radius: var(--lumo-border-radius-m); display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--lumo-secondary-text-color); font-size: 13px; }
-  .dual { color: var(--lumo-warning-color); font-size: 13px; }
-  .dual-note { font-size: 12px; color: var(--lumo-warning-text-color); }
+  /* Off & Misc strip — same as V1, hideable from Filters */
+  .p-strip { margin: 10px 10px 0; background: #dcdcdc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.2); overflow: hidden; }
+  .p-strip-hd { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 15px; color: var(--prod-ink); flex-wrap: wrap; }
+  .p-strip-hd .sep { color: #8c949b; }
+  .p-strip-hd .warn { background: var(--prod-red); color: #fff; border-radius: 3px; font-size: 12.5px; padding: 2px 7px; }
+  .p-strip-hd .chev { margin-left: auto; transition: transform .18s; }
+  .p-strip.open .chev { transform: rotate(180deg); }
+  .p-strip-bd { display: none; padding: 0 8px 10px; }
+  .p-strip.open .p-strip-bd { display: flex; flex-direction: column; gap: 10px; }
+  .p-strip-bd .p-offbox { box-shadow: none; background: #e9e9e9; }
 
-  /* Compact density — answers "customers want dense views" without shrinking
-     tap targets below 32px */
-  body.dense .prow { min-height: 34px; padding-top: 3px; padding-bottom: 3px; }
-  body.dense .unit .av, body.dense .unit .ic-open { width: 22px; height: 22px; font-size: 9px; }
-  body.dense .unit-hd { min-height: 38px; padding-top: 4px; padding-bottom: 2px; }
-  body.dense .unit-hd .un { font-size: 14px; }
-  body.dense .unit { margin-bottom: 6px; }
-  body.dense .prow .ps { display: none; }
-  body.dense .more-btn { padding-left: 44px; min-height: 34px; }
-
-  /* ══════════ FILTER SHEET ══════════ */
+  /* filter sheet (new UI, Vector components) */
   .sheet.full { height: 94%; }
-  .fsec { padding: 14px 16px 6px; border-bottom: 1px solid var(--lumo-contrast-5pct); }
-  .fsec h3 { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lumo-secondary-text-color); }
-  .fsec vaadin-text-field { width: 100%; }
+  .fsec { padding: 14px 16px 8px; border-bottom: 1px solid var(--lumo-contrast-5pct); }
+  .fsec h3 { margin: 0 0 10px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lumo-secondary-text-color); display: flex; justify-content: space-between; align-items: center; }
+  .fsec h3 small { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 12px; }
+  .fsec vwc-toggle-button-group { flex-wrap: wrap; }
+  .fnote { font-size: 12px; color: var(--lumo-secondary-text-color); margin: 8px 0 4px; }
   .swrow { display: flex; align-items: center; gap: 12px; min-height: 52px; }
   .swrow .sl { flex: 1; line-height: 1.3; }
   .swrow .sl small { display: block; color: var(--lumo-secondary-text-color); font-size: 12px; }
-  .qgrid vwc-toggle-button-group { flex-wrap: wrap; }
-  .sugg { margin: 6px 0 0; }
-  .sugg button { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; border: 0; background: none; cursor: pointer; text-align: left; padding: 0 4px; border-radius: var(--lumo-border-radius-m); }
-  .sugg button:hover { background: var(--lumo-contrast-5pct); }
-  .picked { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 4px; }
-  .ugrp { margin-bottom: 8px; }
-  .ugrp .uh { font-weight: 700; font-size: 13px; margin: 4px 0 2px; }
+  .ugrp { margin-bottom: 6px; }
+  .ugrp .uh { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 13px; margin: 4px 0 0; }
   .ugrp vaadin-checkbox { display: flex; min-height: 40px; align-items: center; }
   .remember { font-size: 12px; color: var(--lumo-secondary-text-color); padding: 12px 16px 18px; display: flex; gap: 8px; align-items: center; }
   .sheet-ft.stack { flex-direction: column; align-items: stretch; }
   .sheet-ft.stack vaadin-button[theme~="primary"] { width: 100%; height: 48px; font-size: 15px; }
-
-  /* role-specific controls */
   .eu-only { display: none !important; }
-  body.role-eu .eu-only { display: inline-flex !important; }
+  body.role-eu .eu-only { display: revert !important; }
 </style>
 </head>
 <body>
 
 <div class="stage">
 
-  <!-- ── Brief: presenter notes shown beside the phone on wide screens ── -->
+  <!-- ── Brief ── -->
   <aside class="brief" aria-label="About this version">
     <div class="kicker">V2 · SCHED-25067</div>
-    <h1>Advanced filtering on the scheduler</h1>
-    <p class="lede">Filter the day by qualifier, person, time and assignment. "Show open slots only" and "My schedule" are one tap away in the bar under the date. Matching rows are highlighted. Everything else folds away rather than shrinking.</p>
+    <h1>Filtering on today's scheduler</h1>
+    <p class="lede">Same scheduler, with filters people actually use. Qualifiers come first and are multi-select. Then assignment (Engine 1, Truck 1…), shift length, and open slots: show, only, or hide. Two switches turn the Employees Off &amp; Misc section and duplicate (dual-scheduled) shifts on or off. Matching rows are highlighted. The rest fold into "+N more" inside their assignment.</p>
 
     <h2>View as</h2>
     <div class="viewas">
@@ -260,28 +293,26 @@
         <vwc-toggle-button value="eu">End user</vwc-toggle-button>
       </vwc-toggle-button-group>
     </div>
+    <p class="lede" style="margin:8px 0 0;font-size:13px">Admins start on the full schedule. End users start on <b>My schedule</b>.</p>
 
     <h2>Try it</h2>
     <ul>
-      <li>Tap <b>Open slots</b>, then <b>Filters</b> → Qualifier <b>PM</b>.</li>
-      <li>Tap <b>My schedule</b> to see only your assignment.</li>
-      <li>In Filters → Display, switch to <b>Compact</b> for a denser view, or hide the dual-scheduled flag.</li>
-      <li>Reload the page. Your filters are still set.</li>
+      <li><b>Filters</b> → qualifiers <b>FF</b> + <b>PM</b> → open slots <b>Only</b>.</li>
+      <li>Open slots <b>Hide</b> shows only who's working.</li>
+      <li>Turn off <b>Duplicate shifts</b>. Mia Torres's second listing on Rescue 5 goes away.</li>
+      <li><b>All assignments shown</b> opens the same sheet at Assignment.</li>
+      <li>Reload. Your filters are remembered.</li>
     </ul>
 
     <h2>Why</h2>
-    <div class="ev"><b>5/10</b><span>End users couldn't find an open shift with the right qualifier and wanted a filter (5/10 admins too)</span></div>
-    <div class="ev"><b>6/10</b><span>End users couldn't find their own shift in a roster that shows everyone</span></div>
-    <div class="ev"><b>7/10</b><span>Admins were overwhelmed on first sight and hit mis-taps</span></div>
-
-    <h2>Density vs. readability</h2>
-    <p class="lede" style="margin:0">Customers pushed back on bulky UI in the TargetSolutions update. So filters cut <i>volume</i>, and a Compact density keeps the dense view for people who want it.</p>
+    <div class="ev"><b>5/10</b><span>Couldn't find an open shift with the right qualifier and wanted a filter (end users and admins)</span></div>
+    <div class="ev"><b>6/10</b><span>End users couldn't find their own shift</span></div>
+    <div class="ev"><b>7/10</b><span>Admins were overwhelmed on first sight</span></div>
 
     <h2>Links</h2>
     <div class="links">
       <a href="https://lmsportal.atlassian.net/browse/SCHED-25067" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25067</a>
       <a href="https://lmsportal.atlassian.net/browse/SCHED-25064" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25064</a>
-      <a href="https://lmsportal.atlassian.net/wiki/spaces/UXR/pages/29476749374/Scheduling+Mobile+Usability+Test+Findings+and+Recommendations" target="_blank" rel="noopener"><i class="fa-solid fa-flask"></i>Research</a>
     </div>
   </aside>
 
@@ -290,36 +321,57 @@
     <div class="screen" id="screen">
       <div class="statusbar" aria-hidden="true"><span>9:41</span><span class="sb-ic"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></span></div>
 
-      <div class="scroll" id="scroll">
-        <!-- Quick-return header + sticky date row + sticky filter bar -->
+      <div class="scroll prod" id="scroll">
+        <!-- Quick-return header: the production toolbar slides away on scroll
+             down and back on scroll up; the date header stays pinned. -->
         <div class="top" id="top">
           <div id="hdr">
-            <div class="appbar">
-              <button class="ab-btn" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
-              <span class="ab-title">CrewScheduler</span>
-              <button class="ab-btn" aria-label="Notifications, 3 unread"><i class="fa-solid fa-bell"></i><span class="ab-badge">3</span></button>
-              <button class="ab-btn admin-only" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+            <div class="p-appbar">
+              <button class="on" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+              <button class="admin-only" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+              <button aria-label="Notifications, 3 unread"><i class="fa-regular fa-bell"></i><span class="p-badge">3</span></button>
+              <button aria-label="Timecard"><i class="fa-solid fa-user-clock ic-clock"></i></button>
+              <button aria-label="Calendar"><i class="fa-regular fa-calendar-days"></i></button>
+              <span class="logo" aria-hidden="true"><i class="fa-solid fa-chart-simple"></i></span>
             </div>
-            <div class="viewbar">
-              <vwc-toggle-button-group selected="day">
-                <vwc-toggle-button value="month">Month</vwc-toggle-button>
-                <vwc-toggle-button value="week">Week</vwc-toggle-button>
-                <vwc-toggle-button value="day">Day</vwc-toggle-button>
-              </vwc-toggle-button-group>
+            <div class="p-tools">
+              <div class="p-row scrollx">
+                <button class="p-btn admin-only" data-act="toast" data-msg="Bulk Change"><span class="ic"><i class="fa-solid fa-rotate-right"></i></span><span class="tx">Bulk Change</span></button>
+                <button class="p-btn" data-act="toast" data-msg="More options"><span class="ic"><i class="fa-solid fa-bars"></i></span><span class="tx">More options <i class="fa-solid fa-caret-down"></i></span></button>
+                <button class="p-icon" aria-label="Print" data-act="toast" data-msg="Print"><i class="fa-solid fa-print"></i></button>
+                <button class="p-icon" aria-label="Help" data-act="toast" data-msg="Help"><i class="fa-solid fa-question"></i></button>
+                <button class="p-icon" aria-label="Full screen" data-act="toast" data-msg="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+                <span class="p-zoom"><button class="minus" aria-label="Zoom out" data-act="toast" data-msg="Zoom out"><i class="fa-solid fa-minus"></i></button><button class="plus" aria-label="Zoom in" data-act="toast" data-msg="Zoom in"><i class="fa-solid fa-plus"></i></button></span>
+              </div>
+              <div class="p-row">
+                <button class="p-btn" data-act="toast" data-msg="TimelineView"><span class="ic"><i class="fa-solid fa-bars"></i></span><span class="tx">TimelineView</span></button>
+                <button class="p-btn" data-act="toast" data-msg="ListView"><span class="ic"><i class="fa-solid fa-database"></i></span><span class="tx">ListView</span></button>
+              </div>
+              <div class="p-row"><input class="p-search" id="pSearch" type="search" placeholder="Search..." aria-label="Search"></div>
+              <div class="p-row"><button class="p-select" id="assignSel" data-act="openAssign"></button></div>
+              <div class="p-row">
+                <span class="p-seg"><button data-act="toast" data-msg="Today">today</button></span>
+                <span class="p-seg"><button aria-label="Previous" data-act="toast" data-msg="Previous day">«</button><button aria-label="Next" data-act="toast" data-msg="Next day">»</button></span>
+                <span class="p-seg"><button>month</button><button>week</button><button class="on">day</button></span>
+                <i class="fa-regular fa-calendar p-cal" aria-hidden="true"></i>
+              </div>
             </div>
           </div>
-          <div class="daterow">
-            <button class="date-btn" aria-label="Previous day" data-act="toast" data-msg="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
-            <div class="date-mid"><div class="d">Wed, Oct 16</div><div class="s">A Shift · Battalion 3</div></div>
-            <button class="date-btn" aria-label="Next day" data-act="toast" data-msg="Next day"><i class="fa-solid fa-chevron-right"></i></button>
+          <div class="p-date">
+            <button class="arr" aria-label="Previous day" data-act="toast" data-msg="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="box">WEDNESDAY 10/16</span>
+            <button class="arr" aria-label="Next day" data-act="toast" data-msg="Next day"><i class="fa-solid fa-chevron-right"></i></button>
+            <span class="tools"><i class="fa-solid fa-book nb" aria-hidden="true"></i><i class="fa-solid fa-gear admin-only" aria-hidden="true"></i></span>
           </div>
-          <div class="fbar" id="fbar" role="toolbar" aria-label="Filters"></div>
+          <div class="p-fbar" id="fbar" role="toolbar" aria-label="Filters"></div>
         </div>
-
         <div class="summary" id="summary"></div>
+        <section class="p-strip" id="strip" aria-label="Employees off and misc"></section>
+        <div class="p-notes"><u>NOTES</u>Area Familiarization Training @ Ocean Beach — 10/16 @ 0800</div>
         <div id="roster"></div>
-        <div style="height:80px"></div>
+        <div style="height:110px"></div>
       </div>
+
 
       <!-- Filter sheet -->
       <div class="scrim" data-act="closeSheet"></div>
@@ -330,52 +382,44 @@
           <h2 id="sheetTitle" style="text-align:center">Filters</h2>
           <vaadin-button theme="tertiary" data-act="reset">Reset</vaadin-button>
         </div>
-        <div class="sheet-body">
+        <div class="sheet-body" id="sheetBody">
           <section class="fsec">
-            <h3>Show</h3>
-            <div class="swrow"><span class="sl">My schedule only<small>Assignments where you're scheduled</small></span><vwc-switch id="swMine" accessible-name="My schedule only"></vwc-switch></div>
-            <div class="swrow"><span class="sl">Open slots only<small>Hide filled positions</small></span><vwc-switch id="swOpen" accessible-name="Open slots only"></vwc-switch></div>
-          </section>
-          <section class="fsec qgrid">
-            <h3>Qualifier</h3>
+            <h3>Qualifier <small>Pick any</small></h3>
             <vwc-toggle-button-group id="qualGroup" multiple display-check>
-              <vwc-toggle-button value="Capt">Capt</vwc-toggle-button>
-              <vwc-toggle-button value="Eng">Eng</vwc-toggle-button>
+              <vwc-toggle-button value="CAPT">CAPT</vwc-toggle-button>
+              <vwc-toggle-button value="ENG">ENG</vwc-toggle-button>
               <vwc-toggle-button value="FF">FF</vwc-toggle-button>
               <vwc-toggle-button value="PM">PM</vwc-toggle-button>
               <vwc-toggle-button value="EMT">EMT</vwc-toggle-button>
+              <vwc-toggle-button value="BC">BC</vwc-toggle-button>
             </vwc-toggle-button-group>
-            <p class="ps" style="font-size:12px;color:var(--lumo-secondary-text-color);margin:8px 0 6px">Capt = Captain · Eng = Engineer · FF = Firefighter · PM = Paramedic</p>
+            <p class="fnote">CAPT Captain · ENG Engineer · FF Firefighter · PM Paramedic · EMT · BC Battalion Chief</p>
           </section>
-          <section class="fsec">
-            <h3>Person</h3>
-            <vaadin-text-field id="personSearch" theme="outlined" placeholder="Search by name" clear-button-visible>
-              <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
-            </vaadin-text-field>
-            <div class="sugg" id="sugg"></div>
-            <div class="picked" id="picked"></div>
-          </section>
-          <section class="fsec">
-            <h3>Time</h3>
-            <vwc-toggle-button-group id="timeGroup" selected="any">
-              <vwc-toggle-button value="any">Any</vwc-toggle-button>
-              <vwc-toggle-button value="full">24 hr</vwc-toggle-button>
-              <vwc-toggle-button value="day">Day</vwc-toggle-button>
-              <vwc-toggle-button value="night">Night</vwc-toggle-button>
-            </vwc-toggle-button-group>
-            <p style="font-size:12px;color:var(--lumo-secondary-text-color);margin:8px 0 6px">Day 07:00–19:00 · Night 19:00–07:00</p>
-          </section>
-          <section class="fsec">
-            <h3>Assignment</h3>
+          <section class="fsec" id="secAssign">
+            <h3>Assignment <small><a href="#" data-act="allUnits" style="color:var(--lumo-primary-text-color)">Select all</a></small></h3>
             <div id="unitList"></div>
           </section>
           <section class="fsec">
-            <h3>Display</h3>
-            <vwc-toggle-button-group id="densityGroup" selected="comfortable">
-              <vwc-toggle-button value="comfortable">Comfortable</vwc-toggle-button>
-              <vwc-toggle-button value="compact">Compact</vwc-toggle-button>
+            <h3>Shift length <small>Pick any</small></h3>
+            <vwc-toggle-button-group id="lenGroup" multiple display-check>
+              <vwc-toggle-button value="8">8 hrs</vwc-toggle-button>
+              <vwc-toggle-button value="12">12 hrs</vwc-toggle-button>
+              <vwc-toggle-button value="24">24 hrs</vwc-toggle-button>
             </vwc-toggle-button-group>
-            <div class="swrow"><span class="sl">Show dual-scheduled flag<small>The orange flag on people with a second shift today</small></span><vwc-switch id="swDual" checked accessible-name="Show dual-scheduled flag"></vwc-switch></div>
+          </section>
+          <section class="fsec">
+            <h3>Open slots</h3>
+            <vwc-toggle-button-group id="openGroup" selected="show">
+              <vwc-toggle-button value="show">Show</vwc-toggle-button>
+              <vwc-toggle-button value="only">Only open</vwc-toggle-button>
+              <vwc-toggle-button value="hide">Hide</vwc-toggle-button>
+            </vwc-toggle-button-group>
+          </section>
+          <section class="fsec">
+            <h3>Show on the schedule</h3>
+            <div class="swrow"><span class="sl">My schedule only<small>Assignments where you're scheduled</small></span><vwc-switch id="swMine" accessible-name="My schedule only"></vwc-switch></div>
+            <div class="swrow"><span class="sl">Employees Off &amp; Misc<small>The section under the date</small></span><vwc-switch id="swOff" checked accessible-name="Show Employees Off and Misc"></vwc-switch></div>
+            <div class="swrow"><span class="sl">Duplicate shifts<small>A person's second listing when they're dual-scheduled, and its flag</small></span><vwc-switch id="swDup" checked accessible-name="Show duplicate shifts"></vwc-switch></div>
           </section>
           <div class="remember"><i class="fa-solid fa-floppy-disk"></i>Filters are remembered the next time you open the scheduler.</div>
         </div>
@@ -390,242 +434,109 @@
 </div>
 
 <script>
-  /* ══════════ MOCK DATA ══════════
-     shift: full = 07–07 (24 hr) · day = 07–19 · night = 19–07 */
+  /* ══════════ MOCK DATA (shared by V1, V1.1, V2) ══════════
+     hrs = shift length. offBy = the person whose time off left this slot open.
+     dual = also scheduled on another assignment today; dup = the second listing. */
   const ME = 'Alex Rivera';
-  const STATIONS = [
-    { name: 'Station 1', units: [
-      { id: 'e1', name: 'Engine 1', shift: 'full', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Rafael Diaz', q: 'Capt' }, { p: 'Jordan Alvarez', q: 'Eng' }, { p: 'Sam Okafor', q: 'FF' }, { open: true, q: 'PM', need: 'Paramedic' }] },
-      { id: 't1', name: 'Truck 1', shift: 'full', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Lena Park', q: 'Capt' }, { p: 'Dev Raman', q: 'Eng' }, { p: 'Chris Moreno', q: 'FF', part: '07:00 – 19:00' }, { open: true, q: 'FF', need: 'Firefighter', part: '19:00 – 07:00' }] },
-      { id: 'm1', name: 'Medic 1', shift: 'day', time: '07:00 – 19:00 · 12 hrs', rows: [{ p: 'Nina Brooks', q: 'PM' }, { p: 'Owen Tate', q: 'EMT' }] }
+  const STATIONS_SEED = [
+    { id: 's1', name: 'STATION 1', color: '--st-blue', units: [
+      { id: 'e1', name: 'Engine 1', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Rafael Diaz', q: ['CAPT'] }, { p: 'Jordan Alvarez', q: ['ENG'] }, { p: 'Sam Okafor', q: ['FF'] }, { open: true, q: ['PM'] }] },
+      { id: 't1', name: 'Truck 1', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Lena Park', q: ['CAPT'] }, { p: 'Dev Raman', q: ['ENG'] }, { p: 'Priya Shah', q: ['FF'], part: '12 - 7 (19 hrs)' }, { open: true, q: ['FF'], part: '07:00 - 12:00', offBy: 'Priya Shah', offType: 'Comp time' }] },
+      { id: 'm1', name: 'Medic 1', hrs: 12, time: '7 - 19 (12 hrs)', rows: [{ p: 'Nina Brooks', q: ['PM'] }, { p: 'Owen Tate', q: ['EMT'] }] }
     ] },
-    { name: 'Station 3', units: [
-      { id: 'e31', name: 'Engine 31', shift: 'full', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Grace Liu', q: 'Capt' }, { p: 'Ben Carter', q: 'Eng', dual: 'Also on Hazmat refresher 09:00–11:00' }, { p: 'Alex Rivera', q: 'PM', me: true }, { p: 'Theo Grant', q: 'FF' }] },
-      { id: 'm3', name: 'Medic 3', shift: 'night', time: '19:00 – 07:00 · 12 hrs', rows: [{ open: true, q: 'PM', need: 'Paramedic' }, { p: 'Ivy Chen', q: 'EMT' }] }
+    { id: 'south', name: 'SOUTH', color: '--st-orange', dark: true, units: [
+      { id: 'e31', name: 'Engine 31', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Grace Liu', q: ['CAPT'] }, { p: 'Ben Carter', q: ['ENG'] }, { p: 'Alex Rivera', q: ['FF', 'PM'], me: true }, { p: 'Theo Grant', q: ['FF'] }] },
+      { id: 'm3', name: 'Medic 3', hrs: 12, time: '19 - 7 (12 hrs)', rows: [{ open: true, q: ['PM'], offBy: 'Rosa King', offType: 'Sick' }, { p: 'Ivy Chen', q: ['EMT'] }] }
     ] },
-    { name: 'Station 5', units: [
-      { id: 'e5', name: 'Engine 5', shift: 'full', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Hugo Silva', q: 'Capt' }, { open: true, q: 'Eng', need: 'Engineer' }, { p: 'Mia Torres', q: 'FF', dual: 'Also on Hazmat refresher 09:00–11:00' }, { p: 'Kai Nguyen', q: 'FF' }] },
-      { id: 'r5', name: 'Rescue 5', shift: 'day', time: '07:00 – 19:00 · 12 hrs', rows: [{ p: 'Zoe Adams', q: 'Capt' }, { open: true, q: 'FF', need: 'Firefighter' }] }
+    { id: 'north', name: 'NORTH', color: '--st-green', dark: true, units: [
+      { id: 'e5', name: 'Engine 5', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Hugo Silva', q: ['CAPT'] }, { open: true, q: ['ENG'], offBy: 'Jamal Moore', offType: 'Kelly day' }, { p: 'Mia Torres', q: ['FF'], dual: 'Rescue 5' }, { p: 'Kai Nguyen', q: ['FF'] }] },
+      { id: 'r5', name: 'Rescue 5', hrs: 12, time: '7 - 19 (12 hrs)', rows: [{ p: 'Zoe Adams', q: ['CAPT'] }, { p: 'Mia Torres', q: ['FF'], dual: 'Engine 5', dup: true }] }
+    ] },
+    { id: 's4', name: 'STATION 4', color: '--st-blue2', units: [
+      { id: 'b4', name: 'Battalion 4', hrs: 8, time: '8 - 16 (8 hrs)', rows: [{ p: 'Marcus Hale', q: ['BC'] }] },
+      { id: 'hs', name: 'Hourly Staffing', hrs: 8, time: '8 - 16 (8 hrs)', signup: true, rows: [{ open: true, q: [] }, { open: true, q: [] }] }
     ] }
   ];
-  const ALL_UNITS = STATIONS.flatMap(s => s.units);
-  const PEOPLE = [...new Set(ALL_UNITS.flatMap(u => u.rows.filter(r => !r.open).map(r => r.p)))].sort();
-  const TIME_LBL = { full: '24 hr', day: 'Day', night: 'Night' };
+  const OFF_SEED = [
+    { p: 'Taylor Vance', type: 'Vacation', time: 'All day', unit: 'e1', q: 'FF', covered: 'Sam Okafor' },
+    { p: 'Rosa King', type: 'Sick', time: 'All day', unit: 'm3', q: 'PM', by: 'Called in 05:42' },
+    { p: 'Jamal Moore', type: 'Kelly day', time: 'All day', unit: 'e5', q: 'ENG' },
+    { p: 'Priya Shah', type: 'Comp time', time: '07:00 – 12:00', unit: 't1', q: 'FF' }
+  ];
+  const MISC_SEED = [
+    { t: 'Hazmat refresher', who: 'Ben Carter, Mia Torres', time: '09:00 – 11:00', where: 'Station 5 training room' },
+    { t: 'Light duty', who: 'Mike Ortiz', time: '08:00 – 16:00', where: 'Admin office' }
+  ];
+  const clone = o => JSON.parse(JSON.stringify(o));
+  let STATIONS = clone(STATIONS_SEED), OFF = clone(OFF_SEED), MISC = clone(MISC_SEED);
+  const allUnits = () => STATIONS.flatMap(s => s.units);
+  const unitById = id => allUnits().find(u => u.id === id);
+  const uncoveredCount = () => OFF.filter(o => !o.covered).length;
 
   /* ══════════ HELPERS ══════════ */
   const $ = (s, r = document) => r.querySelector(s);
-  const initials = n => n.split(' ').map(w => w[0]).join('').slice(0, 2);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   };
   let toastTimer;
-  function toast(msg) {
-    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  function toast(msg, undoFn) {
+    const t = $('#toast');
+    t.innerHTML = `<span>${esc(msg)}</span>${undoFn ? '<button type="button">Undo</button>' : ''}`;
+    if (undoFn) t.querySelector('button').onclick = () => { undoFn(); t.classList.remove('show'); };
+    t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), undoFn ? 4500 : 1900);
+  }
+  const tagHTML = q => `<span class="p-tag${q === 'PM' ? ' pm' : ''}">${esc(q)}</span>`;
+
+  /* Scroll the roster to an assignment and flash it — keeps "who's off" in
+     the context of the assignment it affects. */
+  function showUnit(id) {
+    const el = document.querySelector(`[data-unit="${id}"]`); if (!el) return;
+    const sc = $('#scroll');
+    sc.scrollTo({ top: el.offsetTop - $('#top').offsetHeight - 70, behavior: 'smooth' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   }
 
-  /* ══════════ STATE ══════════
-     `applied` drives the roster; `draft` is what the open sheet is editing.
-     Quick chips in the bar write straight to `applied`. Applied filters are
-     remembered on this device (SCHED-25064 "remember what was last set"). */
-  const BLANK = () => ({ mine: false, openOnly: false, quals: [], people: [], time: 'any', units: [], dense: false, dual: true });
-  const STORE_KEY = 'spui-v2-filters';
-  let applied = Object.assign(BLANK(), store.get(STORE_KEY, {}));
-  let draft = null;
-  let expanded = new Set();     // units whose folded rows were opened
-  let personQuery = '';
-  let showAll = false;          // "show hidden assignments" from the footer note
-
-  const save = () => store.set(STORE_KEY, applied);
-
-  /* ══════════ MATCHING ══════════ */
-  const rowFiltersOn = f => f.mine || f.openOnly || f.quals.length || f.people.length;
-  function rowMatch(r, f) {
-    if (f.mine && !r.me) return false;
-    if (f.openOnly && !r.open) return false;
-    if (f.quals.length && !f.quals.includes(r.q)) return false;
-    if (f.people.length && (r.open || !f.people.includes(r.p))) return false;
-    return true;
-  }
-  function unitMatch(u, f) {
-    if (f.units.length && !f.units.includes(u.id)) return false;
-    if (f.time !== 'any' && u.shift !== f.time) return false;
-    if (rowFiltersOn(f) && !u.rows.some(r => rowMatch(r, f))) return false;
-    return true;
-  }
-  const countMatches = f => ALL_UNITS.filter(u => unitMatch(u, f)).length;
-  const activeCount = f => (f.mine ? 1 : 0) + (f.openOnly ? 1 : 0) + f.quals.length + f.people.length + (f.time !== 'any' ? 1 : 0) + f.units.length;
-
-  /* ══════════ RENDER: FILTER BAR ══════════ */
-  function renderBar() {
-    const f = applied, n = activeCount(f);
-    const chips = [];
-    f.quals.forEach(q => chips.push({ k: 'qual', v: q, l: q }));
-    f.people.forEach(p => chips.push({ k: 'person', v: p, l: p }));
-    if (f.time !== 'any') chips.push({ k: 'time', v: f.time, l: TIME_LBL[f.time] });
-    f.units.forEach(id => chips.push({ k: 'unit', v: id, l: ALL_UNITS.find(u => u.id === id).name }));
-    $('#fbar').innerHTML = `
-      <button class="chip" data-act="openSheet" aria-pressed="${n > 0}"><i class="fa-solid fa-sliders"></i>Filters${n ? `<span class="n">${n}</span>` : ''}</button>
-      <button class="chip" data-act="quick" data-k="mine" aria-pressed="${f.mine}"><i class="fa-solid fa-user"></i>My schedule</button>
-      <button class="chip" data-act="quick" data-k="openOnly" aria-pressed="${f.openOnly}"><i class="fa-regular fa-circle-dashed"></i>Open slots</button>
-      ${chips.map(c => `<button class="chip removable" data-act="remove" data-k="${c.k}" data-v="${esc(c.v)}" aria-label="Remove filter ${esc(c.l)}">${esc(c.l)}<i class="fa-solid fa-xmark"></i></button>`).join('')}`;
+  /* ══════════ RENDER: ROSTER ══════════
+     opts: unitVisible(u), rowVisible(r,u), rowHit(r,u), footer(u, foldedCount),
+           showDualFlag, draggable. Every hook defaults to "show everything". */
+  function rosterHTML(opts = {}) {
+    const o = Object.assign({ unitVisible: () => true, rowVisible: () => true, rowHit: () => false, footer: () => '', showDualFlag: true, draggable: false, stationVisible: null }, opts);
+    return STATIONS.map(st => {
+      const units = st.units.filter(o.unitVisible);
+      if (!units.length) return '';
+      return `<section class="p-station${st.dark ? ' dark' : ''}" style="--stc: var(${st.color})">
+        <div class="hd">${esc(st.name)}</div>
+        <div class="bd">${units.map(u => {
+          const filled = u.rows.filter(r => !r.open).length;
+          const vis = u.rows.map((r, i) => ({ r, i })).filter(x => o.rowVisible(x.r, u));
+          return `<article class="p-card${filled < u.rows.length ? ' short' : ''}" data-unit="${u.id}">
+            <div class="hd"><span class="nm">${esc(u.name)}${u.signup ? '<i class="fa-solid fa-user-plus" aria-label="Sign-up shift"></i>' : ''}</span>
+              <span class="ct${filled === u.rows.length ? ' full' : ''}" aria-label="${filled} of ${u.rows.length} filled">${filled}/${u.rows.length}</span>
+              <button class="kb admin-only" aria-label="${esc(u.name)} actions" data-act="toast" data-msg="${esc(u.name)}: add, move or notify"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>
+            <div class="tm">${esc(u.time)}</div>
+            <div class="rows">${vis.map(({ r, i }) => {
+              const hit = o.rowHit(r, u) ? ' hit' : '';
+              if (r.open) return `<div class="p-open${hit}" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Open slot ${r.q.map(tagHTML).join(' ')}
+                  ${r.part ? `<span class="sub">${esc(r.part)}</span>` : ''}
+                  ${r.offBy ? `<span class="p-off-note"><i class="fa-solid fa-user-slash"></i>${esc(r.offBy)} off · ${esc(r.offType)}</span>` : ''}</div>`;
+              return `<div class="p-bar${hit}" data-u="${u.id}" data-i="${i}"${o.draggable ? ' data-drag="1"' : ''}>
+                  <span class="tags">${r.q.map(tagHTML).join('')}</span>${esc(r.p)}${r.me ? '<span class="me">YOU</span>' : ''}${r.dual && o.showDualFlag ? `<i class="fa-solid fa-flag dual" aria-label="Dual-scheduled"></i>` : ''}
+                  ${r.part ? `<br><span class="part">${esc(r.part)}</span>` : ''}
+                  ${r.dual && o.showDualFlag ? `<span class="dual-note">Also on ${esc(r.dual)} today</span>` : ''}</div>`;
+            }).join('')}</div>
+            ${o.footer(u, u.rows.length - vis.length)}
+            ${u.signup ? '<button class="p-self" style="margin-top:8px;width:100%" data-act="toast" data-msg="Signed up for Hourly Staffing">+ Schedule yourself</button>' : ''}
+          </article>`;
+        }).join('')}</div></section>`;
+    }).join('');
   }
 
-  /* ══════════ RENDER: ROSTER ══════════ */
-  function personRow(r, hit) {
-    const dual = r.dual && applied.dual ? `<i class="fa-solid fa-flag dual" title="${esc(r.dual)}" aria-label="Dual-scheduled"></i>` : '';
-    return `<div class="prow${hit ? ' hit' : ''}"><span class="av">${initials(r.p)}</span>
-      <div class="pm"><div class="pn">${esc(r.p)}${r.me ? '<span class="me-tag">You</span>' : ''} ${dual}</div>${r.part ? `<div class="ps">${esc(r.part)}</div>` : ''}${r.dual && applied.dual ? `<div class="ps dual-note">${esc(r.dual)}</div>` : ''}</div>
-      <span class="q">${esc(r.q)}</span></div>`;
-  }
-  function openRow(r, u, hit) {
-    return `<div class="prow open${hit ? ' hit' : ''}"><span class="ic-open" aria-hidden="true"></span>
-      <div class="pm"><div class="pn">Open slot</div><div class="ps">Needs ${esc(r.need)}${r.part ? ' · ' + esc(r.part) : ''}</div></div>
-      <span class="q">${esc(r.q)}</span>
-      <vaadin-button theme="tertiary" class="admin-only" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Fill</vaadin-button>
-      <vaadin-button theme="tertiary" class="eu-only" data-act="toast" data-msg="Request sent: ${esc(u.name)} ${esc(r.q)}">Sign up</vaadin-button></div>`;
-  }
-  function renderRoster() {
-    const f = applied, rowsOn = rowFiltersOn(f);
-    document.body.classList.toggle('dense', f.dense);
-    let shown = 0, hidden = 0, html = '';
-    STATIONS.forEach(st => {
-      const units = st.units.filter(u => showAll || unitMatch(u, f));
-      hidden += st.units.length - units.length;
-      if (!units.length) return;
-      html += `<div class="station-hd">${esc(st.name)} <small>${units.length} of ${st.units.length} units</small></div>`;
-      units.forEach(u => {
-        shown++;
-        const filled = u.rows.filter(r => !r.open).length, short = filled < u.rows.length;
-        const isExp = expanded.has(u.id) || !rowsOn || showAll;
-        const vis = u.rows.filter(r => isExp || rowMatch(r, f));
-        const folded = u.rows.length - vis.length;
-        html += `<article class="unit">
-          <div class="unit-hd">
-            <div class="grow"><div class="un">${esc(u.name)}</div><div class="ut">${esc(u.time)}</div></div>
-            <span theme="badge ${short ? 'error' : 'success'}" aria-label="${filled} of ${u.rows.length} staffed">${filled}/${u.rows.length}</span>
-            <vaadin-button theme="icon" class="admin-only" aria-label="${esc(u.name)} actions" data-act="toast" data-msg="${esc(u.name)}: add, move or notify"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button>
-          </div>
-          ${vis.map(r => { const hit = rowsOn && rowMatch(r, f); return r.open ? openRow(r, u, hit) : personRow(r, hit); }).join('')}
-          ${folded ? `<button class="more-btn" data-act="expand" data-id="${u.id}">+ ${folded} more on ${esc(u.name)}</button>` : ''}
-          ${rowsOn && expanded.has(u.id) ? `<button class="more-btn" data-act="collapse" data-id="${u.id}">Show matches only</button>` : ''}
-        </article>`;
-      });
-    });
-    if (!shown) {
-      html = `<div class="empty"><i class="fa-regular fa-calendar-xmark" style="font-size:28px;display:block;margin-bottom:8px"></i>No assignments match these filters.<br><br><vaadin-button theme="secondary" data-act="reset">Clear filters</vaadin-button></div>`;
-    } else if (hidden) {
-      html += `<div class="hidden-note"><span>${hidden} assignment${hidden > 1 ? 's' : ''} hidden by filters</span><vaadin-button theme="tertiary" data-act="showAll">Show all</vaadin-button></div>`;
-    } else if (showAll && activeCount(f)) {
-      html += `<div class="hidden-note"><span>Showing everything</span><vaadin-button theme="tertiary" data-act="hideAgain">Apply filters again</vaadin-button></div>`;
-    }
-    $('#roster').innerHTML = html;
-    const n = activeCount(f);
-    $('#summary').innerHTML = n
-      ? `<span>Showing <b>${countMatches(f)}</b> of ${ALL_UNITS.length} assignments</span><vaadin-button theme="tertiary" data-act="reset">Clear all</vaadin-button>`
-      : `<span>All ${ALL_UNITS.length} assignments · ${ALL_UNITS.reduce((a, u) => a + u.rows.filter(r => r.open).length, 0)} open slots</span>`;
-  }
-  function renderAll() { renderBar(); renderRoster(); }
-
-  /* ══════════ RENDER: FILTER SHEET ══════════ */
-  function syncSheetControls() {
-    const d = draft;
-    $('#swMine').checked = d.mine;
-    $('#swOpen').checked = d.openOnly;
-    $('#swDual').checked = d.dual;
-    setGroup('#qualGroup', d.quals);
-    setGroup('#timeGroup', d.time);
-    setGroup('#densityGroup', d.dense ? 'compact' : 'comfortable');
-    $('#unitList').innerHTML = STATIONS.map(st => `<div class="ugrp"><div class="uh">${esc(st.name)}</div>
-      ${st.units.map(u => `<vaadin-checkbox data-unit="${u.id}" label="${esc(u.name)} · ${TIME_LBL[u.shift]}" ${d.units.includes(u.id) ? 'checked' : ''}></vaadin-checkbox>`).join('')}</div>`).join('');
-    renderPeople();
-    renderApply();
-  }
-  function setGroup(sel, val) {
-    const g = $(sel);
-    g.setAttribute('selected', Array.isArray(val) ? JSON.stringify(val) : val);
-    g.selected = val;
-  }
-  function renderPeople() {
-    const q = personQuery.trim().toLowerCase();
-    const list = q ? PEOPLE.filter(p => p.toLowerCase().includes(q) && !draft.people.includes(p)).slice(0, 4) : [];
-    $('#sugg').innerHTML = list.map(p => `<button data-act="pick" data-v="${esc(p)}"><span class="av">${initials(p)}</span>${esc(p)}${p === ME ? '<span class="me-tag">You</span>' : ''}</button>`).join('')
-      || (q ? `<div class="ps" style="padding:8px 4px;color:var(--lumo-secondary-text-color)">No one named “${esc(personQuery)}” on this day.</div>` : '');
-    $('#picked').innerHTML = draft.people.map(p => `<button class="chip removable" data-act="unpick" data-v="${esc(p)}">${esc(p)}<i class="fa-solid fa-xmark"></i></button>`).join('');
-  }
-  function renderApply() {
-    const n = countMatches(draft);
-    $('#applyBtn').textContent = n ? `Show ${n} assignment${n > 1 ? 's' : ''}` : 'No matching assignments';
-  }
-  function openSheet() {
-    draft = JSON.parse(JSON.stringify(applied));
-    personQuery = ''; $('#personSearch').value = '';
-    syncSheetControls();
-    $('#screen').classList.add('sheet-open');
-  }
-  function closeSheet() { $('#screen').classList.remove('sheet-open'); }
-  function applyDraft() { applied = draft; showAll = false; expanded.clear(); save(); closeSheet(); renderAll(); $('#scroll').scrollTo(0, 0); }
-
-  /* ══════════ ROLE ══════════ */
-  function setRole(r) {
-    document.body.classList.toggle('role-eu', r === 'eu');
-    setGroup('#roleToggle', r);
-  }
-
-  /* ══════════ EVENTS ══════════ */
-  document.addEventListener('click', e => {
-    const el = e.target.closest('[data-act]');
-    if (!el) return;
-    const a = el.dataset.act, k = el.dataset.k, v = el.dataset.v;
-    if (a === 'toast') toast(el.dataset.msg);
-    if (a === 'openSheet') openSheet();
-    if (a === 'closeSheet') closeSheet();
-    if (a === 'apply') applyDraft();
-    if (a === 'reset') {
-      const keep = { dense: applied.dense, dual: applied.dual };
-      if ($('#screen').classList.contains('sheet-open')) { draft = Object.assign(BLANK(), { dense: draft.dense, dual: draft.dual }); syncSheetControls(); }
-      else { applied = Object.assign(BLANK(), keep); showAll = false; expanded.clear(); save(); renderAll(); }
-    }
-    if (a === 'quick') { applied[k] = !applied[k]; showAll = false; expanded.clear(); save(); renderAll(); }
-    if (a === 'remove') {
-      if (k === 'qual') applied.quals = applied.quals.filter(x => x !== v);
-      if (k === 'person') applied.people = applied.people.filter(x => x !== v);
-      if (k === 'unit') applied.units = applied.units.filter(x => x !== v);
-      if (k === 'time') applied.time = 'any';
-      save(); renderAll();
-    }
-    if (a === 'expand') { expanded.add(el.dataset.id); renderRoster(); }
-    if (a === 'collapse') { expanded.delete(el.dataset.id); renderRoster(); }
-    if (a === 'showAll') { showAll = true; renderRoster(); }
-    if (a === 'hideAgain') { showAll = false; renderRoster(); }
-    if (a === 'pick') { draft.people.push(v); personQuery = ''; $('#personSearch').value = ''; renderPeople(); renderApply(); }
-    if (a === 'unpick') { draft.people = draft.people.filter(x => x !== v); renderPeople(); renderApply(); }
-  });
-
-  /* Toggle groups + switches: react to the user's tap and read the value back,
-     not the component's change events (those also fire while upgrading). */
-  function onToggleTap(sel, fn) {
-    $(sel).addEventListener('click', e => { const b = e.target.closest('vwc-toggle-button'); if (b) fn(b.getAttribute('value')); });
-  }
-  onToggleTap('#roleToggle', setRole);
-  onToggleTap('#qualGroup', v => { draft.quals = draft.quals.includes(v) ? draft.quals.filter(x => x !== v) : [...draft.quals, v]; renderApply(); });
-  onToggleTap('#timeGroup', v => { draft.time = v; renderApply(); });
-  onToggleTap('#densityGroup', v => { draft.dense = v === 'compact'; });
-  [['#swMine', 'mine'], ['#swOpen', 'openOnly'], ['#swDual', 'dual']].forEach(([sel, key]) => {
-    $(sel).addEventListener('click', () => setTimeout(() => { draft[key] = !!$(sel).checked; renderApply(); }));
-  });
-  $('#unitList').addEventListener('change', e => {
-    const id = e.target.dataset && e.target.dataset.unit; if (!id) return;
-    draft.units = e.target.checked ? [...new Set([...draft.units, id])] : draft.units.filter(x => x !== id);
-    renderApply();
-  });
-  $('#personSearch').addEventListener('value-changed', e => { if (!draft) return; personQuery = e.detail.value || ''; renderPeople(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
-
-  /* Quick-return header (same as V1): date row + filter bar stay pinned. */
-  (function quickReturn() {
+  /* Quick-return header: slide the toolbar away on scroll down, pull it back on
+     scroll up. The date header (bottom of .top) always stays pinned. */
+  function quickReturn() {
     const sc = $('#scroll'), top = $('#top'), hdr = $('#hdr');
     let last = 0, off = 0;
     sc.addEventListener('scroll', () => {
@@ -633,24 +544,194 @@
       off = y <= 0 ? 0 : Math.min(0, Math.max(-hdr.offsetHeight, off - d));
       top.style.top = off + 'px';
     }, { passive: true });
-  })();
+  }
 
-  renderAll();
+  /* Toggle groups: react to the user's tap and read the value back (the
+     component's selection-change also fires while upgrading). */
+  function onToggleTap(sel, fn) {
+    const g = $(sel); if (!g) return;
+    g.addEventListener('click', e => { const b = e.target.closest('vwc-toggle-button'); if (b) fn(b.getAttribute('value')); });
+  }
+  function setGroup(sel, val) {
+    const g = $(sel); if (!g) return;
+    g.setAttribute('selected', Array.isArray(val) ? JSON.stringify(val) : val);
+    g.selected = val;
+  }
+
+
+  /* ══════════ V2 STATE ══════════
+     `applied` drives the roster; `draft` is what the open sheet edits. Stored
+     per role, so admins default to the full day and end users to My schedule. */
+  const BLANK = role => ({ quals: [], units: [], lens: [], open: 'show', mine: role === 'eu', offMisc: true, dup: true });
+  const KEY = role => 'spui-v2b-filters-' + role;
+  let role = 'admin';
+  let applied = Object.assign(BLANK(role), store.get(KEY(role), {}));
+  let draft = null, expanded = new Set(), showAll = false, stripOpen = false;
+  const save = () => store.set(KEY(role), applied);
+  const TOTAL = () => allUnits().length;
+
+  /* ══════════ MATCHING ══════════ */
+  const rowFiltersOn = f => f.quals.length || f.mine || f.open === 'only';
+  function rowMatch(r, f) {
+    if (f.mine && !r.me) return false;
+    if (f.open === 'only' && !r.open) return false;
+    if (f.quals.length && !r.q.some(q => f.quals.includes(q))) return false;
+    return true;
+  }
+  function rowShown(r, f) {                        // hard hides (not folded)
+    if (r.open && f.open === 'hide') return false;
+    if (r.dup && !f.dup) return false;
+    return true;
+  }
+  function unitMatch(u, f) {
+    if (f.units.length && !f.units.includes(u.id)) return false;
+    if (f.lens.length && !f.lens.includes(String(u.hrs))) return false;
+    const rows = u.rows.filter(r => rowShown(r, f));
+    if (!rows.length) return false;
+    if (rowFiltersOn(f) && !rows.some(r => rowMatch(r, f))) return false;
+    return true;
+  }
+  const countMatches = f => allUnits().filter(u => unitMatch(u, f)).length;
+  const activeCount = f => f.quals.length + f.units.length + f.lens.length + (f.open !== 'show' ? 1 : 0) + (f.mine ? 1 : 0) + (!f.offMisc ? 1 : 0) + (!f.dup ? 1 : 0);
+
+  /* ══════════ RENDER ══════════ */
+  function renderBar() {
+    const f = applied, n = activeCount(f), chips = [];
+    f.quals.forEach(q => chips.push(['qual', q, q]));
+    f.units.forEach(id => chips.push(['unit', id, unitById(id).name]));
+    f.lens.forEach(h => chips.push(['len', h, h + ' hrs']));
+    if (f.open !== 'show') chips.push(['open', f.open, f.open === 'only' ? 'Open slots only' : 'Open slots hidden']);
+    if (!f.offMisc) chips.push(['offMisc', '', 'Off & Misc hidden']);
+    if (!f.dup) chips.push(['dup', '', 'Duplicates hidden']);
+    $('#fbar').innerHTML = `
+      <button class="chip" data-act="openSheet" aria-pressed="${n > 0}"><i class="fa-solid fa-sliders"></i>Filters${n ? `<span class="n">${n}</span>` : ''}</button>
+      <button class="chip" data-act="quickMine" aria-pressed="${f.mine}"><i class="fa-solid fa-user"></i>My schedule</button>
+      ${chips.map(([k, v, l]) => `<button class="chip rm" data-act="remove" data-k="${k}" data-v="${esc(v)}" aria-label="Remove filter ${esc(l)}">${esc(l)}<i class="fa-solid fa-xmark"></i></button>`).join('')}`;
+    $('#assignSel').innerHTML = `${f.units.length ? `${f.units.length} of ${TOTAL()} assignments shown` : `All assignments shown (${TOTAL()})`} <i class="fa-solid fa-caret-down"></i>`;
+  }
+  function renderStrip() {
+    const el = $('#strip');
+    el.style.display = applied.offMisc ? '' : 'none';
+    const unc = uncoveredCount();
+    el.innerHTML = `<button class="p-strip-hd" data-act="strip" aria-expanded="${stripOpen}">
+        <i class="fa-solid fa-user-slash"></i><span>Employees Off <b>${OFF.length}</b></span><span class="sep">·</span><span>Misc <b>${MISC.length}</b></span>
+        ${unc ? `<span class="warn">${unc} uncovered</span>` : ''}<i class="fa-solid fa-chevron-down chev"></i></button>
+      <div class="p-strip-bd">
+        <div class="p-offbox"><div class="bh">Employees Off</div>${OFF.map(o => `<div class="p-offrow"><b>${esc(o.p)}</b> <span class="p-tag">${esc(o.q)}</span><div class="s">${esc(o.type)} · ${esc(o.time)}</div>${o.covered ? `<span class="cov">${esc(unitById(o.unit).name)} · covered</span>` : `<span class="aff">${esc(unitById(o.unit).name)} · open slot</span>`}</div>`).join('')}</div>
+        <div class="p-miscbox"><div class="bh">Misc</div>${MISC.map(m => `<div class="p-miscrow"><b>${esc(m.t)}</b><div class="s">${esc(m.who)} · ${esc(m.time)}</div></div>`).join('')}</div>
+      </div>`;
+    el.classList.toggle('open', stripOpen);
+  }
+  function renderRoster() {
+    const f = applied, rowsOn = rowFiltersOn(f);
+    let html = rosterHTML({
+      showDualFlag: f.dup,
+      unitVisible: u => showAll || unitMatch(u, f),
+      rowVisible: (r, u) => rowShown(r, f) && (showAll || !rowsOn || expanded.has(u.id) || rowMatch(r, f)),
+      rowHit: r => rowsOn && rowMatch(r, f),
+      footer: (u, n) => {
+        const hard = u.rows.filter(r => !rowShown(r, f)).length;
+        const folded = n - hard;
+        if (folded > 0) return `<button class="p-more" data-act="expand" data-id="${u.id}">+ ${folded} more on ${esc(u.name)}</button>`;
+        if (rowsOn && expanded.has(u.id)) return `<button class="p-more" data-act="collapse" data-id="${u.id}">Show matches only</button>`;
+        return '';
+      }
+    });
+    const shown = showAll ? TOTAL() : countMatches(f), hidden = TOTAL() - shown;
+    if (!shown) html = `<div class="empty"><i class="fa-regular fa-calendar-xmark" style="font-size:28px;display:block;margin-bottom:8px"></i>No assignments match these filters.<br><br><vaadin-button theme="secondary" data-act="reset">Clear filters</vaadin-button></div>`;
+    else if (hidden) html += `<div class="hidden-note"><span>${hidden} assignment${hidden > 1 ? 's' : ''} hidden by filters</span><vaadin-button theme="tertiary" data-act="showAll">Show all</vaadin-button></div>`;
+    $('#roster').innerHTML = html;
+    const n = activeCount(f);
+    $('#summary').innerHTML = n ? `<span>Showing <b>${shown}</b> of ${TOTAL()} assignments</span><vaadin-button theme="tertiary" data-act="reset">Clear all</vaadin-button>` : '';
+    $('#summary').style.display = n ? '' : 'none';
+  }
+  function renderAll() { renderBar(); renderStrip(); renderRoster(); }
+
+  /* ══════════ SHEET ══════════ */
+  function syncSheet() {
+    const d = draft;
+    setGroup('#qualGroup', d.quals); setGroup('#lenGroup', d.lens); setGroup('#openGroup', d.open);
+    $('#swMine').checked = d.mine; $('#swOff').checked = d.offMisc; $('#swDup').checked = d.dup;
+    $('#unitList').innerHTML = STATIONS.map(st => `<div class="ugrp"><div class="uh">${esc(st.name)}</div>
+      ${st.units.map(u => `<vaadin-checkbox data-unit="${u.id}" label="${esc(u.name)} · ${u.hrs} hrs" ${d.units.includes(u.id) ? 'checked' : ''}></vaadin-checkbox>`).join('')}</div>`).join('');
+    renderApply();
+  }
+  function renderApply() { const n = countMatches(draft); $('#applyBtn').textContent = n ? `Show ${n} assignment${n > 1 ? 's' : ''}` : 'No matching assignments'; }
+  function openSheet(section) {
+    draft = clone(applied); syncSheet();
+    $('#screen').classList.add('sheet-open');
+    const body = $('#sheetBody');
+    body.scrollTop = section === 'assign' ? $('#secAssign').offsetTop - 8 : 0;
+  }
+  function closeSheet() { $('#screen').classList.remove('sheet-open'); }
+  function applyDraft() { applied = draft; showAll = false; expanded.clear(); save(); closeSheet(); renderAll(); $('#scroll').scrollTo(0, 0); }
+
+  function setRole(r) {
+    role = r; document.body.classList.toggle('role-eu', r === 'eu'); setGroup('#roleToggle', r);
+    applied = Object.assign(BLANK(r), store.get(KEY(r), {})); showAll = false; expanded.clear(); renderAll();
+  }
+
+  /* ══════════ EVENTS ══════════ */
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    const a = el.dataset.act, k = el.dataset.k, v = el.dataset.v;
+    if (a === 'toast') toast(el.dataset.msg);
+    if (a === 'openSheet') openSheet();
+    if (a === 'openAssign') openSheet('assign');
+    if (a === 'closeSheet') closeSheet();
+    if (a === 'apply') applyDraft();
+    if (a === 'strip') { stripOpen = !stripOpen; renderStrip(); }
+    if (a === 'allUnits') { e.preventDefault(); draft.units = []; syncSheet(); }
+    if (a === 'reset') {
+      if ($('#screen').classList.contains('sheet-open')) { draft = BLANK(role); syncSheet(); }
+      else { applied = BLANK(role); showAll = false; expanded.clear(); save(); renderAll(); }
+    }
+    if (a === 'quickMine') { applied.mine = !applied.mine; expanded.clear(); save(); renderAll(); }
+    if (a === 'remove') {
+      if (k === 'qual') applied.quals = applied.quals.filter(x => x !== v);
+      if (k === 'unit') applied.units = applied.units.filter(x => x !== v);
+      if (k === 'len') applied.lens = applied.lens.filter(x => x !== v);
+      if (k === 'open') applied.open = 'show';
+      if (k === 'offMisc') applied.offMisc = true;
+      if (k === 'dup') applied.dup = true;
+      save(); renderAll();
+    }
+    if (a === 'expand') { expanded.add(el.dataset.id); renderRoster(); }
+    if (a === 'collapse') { expanded.delete(el.dataset.id); renderRoster(); }
+    if (a === 'showAll') { showAll = true; renderRoster(); }
+  });
+  const toggleIn = (arr, v) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v];
+  onToggleTap('#roleToggle', setRole);
+  onToggleTap('#qualGroup', v => { draft.quals = toggleIn(draft.quals, v); renderApply(); });
+  onToggleTap('#lenGroup', v => { draft.lens = toggleIn(draft.lens, v); renderApply(); });
+  onToggleTap('#openGroup', v => { draft.open = v; renderApply(); });
+  [['#swMine', 'mine'], ['#swOff', 'offMisc'], ['#swDup', 'dup']].forEach(([sel, key]) => {
+    $(sel).addEventListener('click', () => setTimeout(() => { draft[key] = !!$(sel).checked; renderApply(); }));
+  });
+  $('#unitList').addEventListener('change', e => {
+    const id = e.target.dataset && e.target.dataset.unit; if (!id) return;
+    draft.units = e.target.checked ? [...new Set([...draft.units, id])] : draft.units.filter(x => x !== id);
+    renderApply();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+  quickReturn(); renderAll();
 </script>
 
 <!-- ── Design Toolbox: Flow Map ── -->
 <script>
   function applyFlowState(id, opts) {
     opts = opts || {};
-    closeSheet(); setRole('admin'); showAll = false; expanded.clear();
+    closeSheet(); setRole('admin'); showAll = false; expanded.clear(); stripOpen = false;
+    const B = BLANK('admin');
     switch (id) {
-      case 'day': applied = BLANK(); break;
-      case 'quick': applied = Object.assign(BLANK(), { openOnly: true }); break;
-      case 'sheet': applied = Object.assign(BLANK(), { openOnly: true }); openSheet(); draft.quals = ['PM']; syncSheetControls(); break;
-      case 'results': applied = Object.assign(BLANK(), { openOnly: true, quals: ['PM'] }); break;
-      case 'mine': applied = Object.assign(BLANK(), { mine: true }); break;
-      case 'compact': applied = Object.assign(BLANK(), { dense: true, dual: false }); break;
-      case 'empty': applied = Object.assign(BLANK(), { openOnly: true, quals: ['Capt'] }); break;
+      case 'day': applied = B; break;
+      case 'sheet': applied = B; renderAll(); openSheet(); draft.quals = ['FF', 'PM']; draft.open = 'only'; syncSheet(); return;
+      case 'results': applied = Object.assign(B, { quals: ['FF', 'PM'], open: 'only' }); break;
+      case 'hideOpen': applied = Object.assign(B, { open: 'hide' }); break;
+      case 'noDup': applied = Object.assign(B, { dup: false, offMisc: false, lens: ['12'] }); break;
+      case 'endUser': setRole('eu'); applied = BLANK('eu'); break;
+      case 'empty': applied = Object.assign(B, { quals: ['BC'], open: 'only' }); break;
       default: break;
     }
     renderAll();
@@ -667,34 +748,29 @@
 
   window.TOOLBOX_CONFIG = {
     flowMap: {
-      title: 'Scale Platform UI · V2 Advanced filtering — Flow Map',
+      title: 'Scale Platform UI · V2 Filters — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 1500, h: 700 },
+      canvas: { w: 1220, h: 700 },
       flows: [
-        { id: 'main', name: 'Find an open slot', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 1460, h: 320 }, labelXY: { x: 40, y: 40 } },
-        { id: 'alt', name: 'Other views', pill: 'B', color: '#b8e0f0',
-          lane: { x: 20, y: 360, w: 1460, h: 320 }, labelXY: { x: 40, y: 380 } }
+        { id: 'main', name: 'Find open FF/PM slots', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1180, h: 320 }, labelXY: { x: 40, y: 40 } },
+        { id: 'alt', name: 'Other filters', pill: 'B', color: '#b8e0f0',
+          lane: { x: 20, y: 360, w: 1180, h: 320 }, labelXY: { x: 40, y: 380 } }
       ],
       nodes: [
-        { id: 'day', flow: 'main', entry: true, x: 60, y: 120, step: 'Entry', name: 'Day view, no filters', state: 'day',
-          desc: 'Filter bar sits under the sticky date row: Filters, My schedule, Open slots.' },
-        { id: 'quick', flow: 'main', x: 340, y: 120, step: 'Step 2', name: 'Open slots only', state: 'quick',
-          desc: 'One-tap quick filter. Filled rows fold into "+N more".' },
-        { id: 'sheet', flow: 'main', x: 620, y: 120, step: 'Step 3', name: 'Filters sheet', state: 'sheet',
-          desc: 'Qualifier, person, time, assignment and display options. Live result count on the button.' },
-        { id: 'results', flow: 'main', x: 900, y: 120, step: 'Step 4', name: 'Open PM slots', state: 'results',
-          desc: 'Matches highlighted, removable chips in the bar, hidden assignments summarized at the bottom.' },
-        { id: 'empty', flow: 'main', x: 1180, y: 120, step: 'Edge', name: 'No matches', state: 'empty',
-          desc: 'Empty state with Clear filters.' },
-        { id: 'mine', flow: 'alt', x: 60, y: 460, step: 'Variant', name: 'My schedule', state: 'mine',
-          desc: 'Only assignments where I am scheduled (SCHED-25064).' },
-        { id: 'compact', flow: 'alt', x: 340, y: 460, step: 'Variant', name: 'Compact, flag hidden', state: 'compact',
-          desc: 'Dense view for power users, and the dual-scheduled flag turned off.' }
+        { id: 'day', flow: 'main', entry: true, x: 60, y: 120, step: 'Entry', name: 'Admin, full day', state: 'day',
+          desc: 'Production scheduler with Filters + My schedule under the date.' },
+        { id: 'sheet', flow: 'main', x: 340, y: 120, step: 'Step 2', name: 'Filters sheet', state: 'sheet',
+          desc: 'Qualifier (multi) first, then assignment, shift length, open slots, show/hide switches.' },
+        { id: 'results', flow: 'main', x: 620, y: 120, step: 'Step 3', name: 'Open FF/PM slots', state: 'results',
+          desc: 'Matches outlined; the rest folds into "+N more" within each assignment.' },
+        { id: 'empty', flow: 'main', x: 900, y: 120, step: 'Edge', name: 'No matches', state: 'empty', desc: 'Empty state with Clear filters.' },
+        { id: 'hideOpen', flow: 'alt', x: 60, y: 460, step: 'Variant', name: 'Open slots hidden', state: 'hideOpen', desc: 'Only who is working.' },
+        { id: 'noDup', flow: 'alt', x: 340, y: 460, step: 'Variant', name: '12 hrs, no duplicates, no Off & Misc', state: 'noDup',
+          desc: 'Shift length filter; duplicate listings and the Off & Misc section turned off.' },
+        { id: 'endUser', flow: 'alt', x: 620, y: 460, step: 'Variant', name: 'End user default', state: 'endUser', desc: 'End users land on My schedule.' }
       ],
-      edges: [
-        ['day', 'quick'], ['quick', 'sheet'], ['sheet', 'results'], ['sheet', 'empty'], ['day', 'mine'], ['day', 'compact']
-      ]
+      edges: [['day', 'sheet'], ['sheet', 'results'], ['sheet', 'empty'], ['day', 'hideOpen'], ['day', 'noDup'], ['day', 'endUser']]
     }
   };
 </script>

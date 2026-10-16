@@ -1,23 +1,16 @@
 <!DOCTYPE html>
-<!-- Scale Platform UI Functionality — V1: Employees Off / Misc relocation
-     (SCHED-25064, parent SCHED-24852).
-
-     Mobile-first CrewScheduler day view. The Employees Off + Misc column that is
-     pinned beside the roster today moves into ONE collapsible strip under the
-     sticky date row; "Open full list" moves it into a bottom-sheet drawer with
-     search. Also covers the smaller SCHED-25064 day-view items: quick-return
-     header + sticky date row, centered date navigation, end users never see
-     buttons they can't use, and the strip remembers its open/closed state.
-
-     PRESENTING: on a laptop/desktop the app renders inside a phone frame with a
-     brief beside it, so the link can be shown in Chrome and still read as a phone.
-     At phone width (≤520px) the frame and brief drop away and the app is full-bleed. -->
+<!-- Scale Platform UI Functionality — V1: Employees Off & Misc strip (SCHED-25064; parent SCHED-24852).
+     Keeps today's production mobile scheduler (toolbar, cards, name bars, striped
+     open slots), slightly bigger. The Employees Off / Misc column becomes a strip
+     under the sticky date header — CLOSED by default, but its summary still shows
+     how many are off and uncovered, and every affected open slot names who is off.
+     PRESENTING: phone frame + brief on wide screens; full-bleed at ≤520px. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <!-- No maximum-scale: pinch-zoom stays available on phones (SCHED-25064 "add ability to zoom") -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scale Platform UI — V1 Employees Off & Misc</title>
+    <title>Scale Platform UI — V1 Off & Misc strip</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
@@ -43,14 +36,28 @@
 
 <style>
   /* ══════════ TOKENS ══════════
-     Semantic colors come from the Vector theme (Lumo tokens). The two app-chrome
-     colors match the production Scheduling top bar. */
+     New UI (sheets, brief, buttons) uses Vector theme tokens. The --prod-* colors
+     reproduce the CURRENT production mobile scheduler, which this ticket keeps:
+     "slightly bigger and better", not a facelift. */
   :root {
-    --app-bar: #16202b;            /* production Scheduling top bar */
-    --app-bar-ink: #e5e7eb;
-    --canvas: #f2f5f8;             /* page canvas behind cards */
+    --app-bar: #16202b;            /* production top bar */
+    --canvas: #f2f5f8;
     --stage: #e3e8ee;              /* presentation backdrop around the phone */
-    --open-slot: var(--vwc-notification-color-10pct, #ffc7001a);
+    --prod-bg: #f7f7f7;
+    --prod-line: #c9cdd2;
+    --prod-btn: #f4f5f6;
+    --prod-ink: #2c3744;
+    --prod-muted: #5f6b77;
+    --prod-red: #e0302a;
+    --prod-bar: #262c31;           /* assigned-person bar */
+    --prod-green: #3fb34f;         /* bar left edge */
+    --prod-notes: #fffccf;
+    --prod-stripe-a: #f6ee9d;
+    --prod-stripe-b: #ede07a;
+    --st-blue: #2ea0ea;
+    --st-orange: #f8962a;
+    --st-green: #9fd59b;
+    --st-blue2: #2f84de;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
@@ -68,8 +75,8 @@
   .stage { min-height: 100vh; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 28px 24px 96px; }
   .brief { width: 330px; flex: none; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-l); box-shadow: var(--lumo-box-shadow-xs); padding: 22px 22px 18px; }
   .device { width: 390px; height: min(844px, calc(100vh - 110px)); min-height: 560px; flex: none; background: #0d1117; border-radius: 46px; padding: 10px; box-shadow: var(--lumo-box-shadow-l); position: sticky; top: 28px; }
-  /* transform makes the screen the containing block for every absolutely/fixed
-     positioned layer (sheets, toasts), so they stay inside the phone */
+  /* transform makes the screen the containing block for every absolutely
+     positioned layer (sheets, bubble, toasts), so they stay inside the phone */
   .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; background: var(--canvas); display: flex; flex-direction: column; transform: translateZ(0); }
   .statusbar { height: 34px; flex: none; background: var(--app-bar); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 30px; font-size: 13px; font-weight: 600; }
   .statusbar .sb-ic { display: flex; gap: 6px; font-size: 12px; }
@@ -99,110 +106,151 @@
   .ev b { text-align: center; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); border-radius: var(--lumo-border-radius-s); padding: 3px 0; font-size: 12px; }
   .brief .links a { display: inline-flex; align-items: center; gap: 6px; color: var(--lumo-primary-text-color); text-decoration: none; margin-right: 14px; font-weight: 600; }
   .brief .links a:hover { text-decoration: underline; }
-  .viewas { display: flex; align-items: center; gap: 10px; }
+  .viewas { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-  /* ══════════ APP SHELL ══════════ */
+  /* ══════════ SHEETS + TOAST (new UI, Vector tokens) ══════════ */
   .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; position: relative; }
-  /* Quick-return header: .top is sticky; JS slides it up by the header's height
-     as you scroll down (date row stays pinned) and pulls it back on scroll up. */
-  .top { position: sticky; top: 0; z-index: 20; }
-  .appbar { height: 52px; background: var(--app-bar); color: var(--app-bar-ink); display: flex; align-items: center; gap: 4px; padding: 0 6px; }
-  .appbar .ab-title { flex: 1; font-size: 16px; font-weight: 600; text-align: center; }
-  .ab-btn { width: 44px; height: 44px; border: 0; background: none; color: #cbd2da; font-size: 18px; border-radius: 50%; cursor: pointer; position: relative; }
-  .ab-btn:hover { color: #fff; }
-  .ab-badge { position: absolute; top: 6px; right: 5px; background: var(--lumo-error-color); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
-  .viewbar { background: var(--lumo-base-color); padding: 10px 12px 8px; display: flex; justify-content: center; border-bottom: 1px solid var(--lumo-contrast-10pct); }
-  /* Date row — centered on every device size (SCHED-25064) */
-  .daterow { background: var(--lumo-base-color); display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding: 4px 6px; border-bottom: 1px solid var(--lumo-contrast-10pct); box-shadow: 0 2px 6px -4px var(--lumo-contrast-40pct); }
-  .date-btn { height: 44px; border: 0; background: none; cursor: pointer; color: var(--lumo-primary-text-color); font-size: 16px; border-radius: var(--lumo-border-radius-m); }
-  .date-btn:hover { background: var(--lumo-primary-color-10pct); }
-  .date-mid { text-align: center; line-height: 1.2; }
-  .date-mid .d { font-weight: 700; font-size: 15px; }
-  .date-mid .s { font-size: 12px; color: var(--lumo-secondary-text-color); }
-
-  /* ══════════ OFF & MISC STRIP (the V1 change) ══════════ */
-  .strip { margin: 12px 12px 10px; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: var(--lumo-box-shadow-xs); overflow: hidden; }
-  .strip-hd { width: 100%; min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0; background: none; cursor: pointer; text-align: left; }
-  .strip-hd:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
-  .strip-lbl { font-weight: 700; }
-  .strip-sep { color: var(--lumo-contrast-30pct); }
-  .strip-misc { color: var(--lumo-secondary-text-color); }
-  .stack { display: flex; }
-  .stack .av { margin-left: -8px; border: 2px solid var(--lumo-base-color); }
-  .stack .av:first-child { margin-left: 0; }
-  .strip-chev { margin-left: auto; color: var(--lumo-secondary-text-color); transition: transform .18s ease; }
-  .strip.open .strip-chev { transform: rotate(180deg); }
-  .strip-body { display: none; border-top: 1px solid var(--lumo-contrast-10pct); }
-  .strip.open .strip-body { display: block; }
-  .grp-hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 2px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lumo-secondary-text-color); }
-  .strip-ft { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px 12px; flex-wrap: wrap; }
-
-  /* people rows shared by the strip, the drawer and the roster */
-  .av { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--vwc-color-picton-blue-700, #2b81a3); }
-  .av.c1 { background: var(--vwc-color-ecstacy-700, #b1651f); }
-  .av.c2 { background: var(--vwc-color-vivid-violet-700, #7e398c); }
-  .av.c3 { background: var(--vwc-color-puerto-rico-700, #2b887c); }
-  .av.c4 { background: var(--vwc-color-cinnabar-700, #a43628); }
-  .prow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px; }
-  .prow + .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
-  .prow .pm { flex: 1; min-width: 0; line-height: 1.3; }
-  .prow .pn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .prow .ps { font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .ic-misc { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); }
-
-  /* ══════════ NOTES ══════════ */
-  .note { margin: 0 12px 12px; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: var(--vwc-notification-color-10pct, #ffc7001a); border: 1px solid var(--vwc-notification-color-50pct, #ffc70080); border-radius: var(--lumo-border-radius-m); line-height: 1.4; }
-  .note i { color: var(--vwc-notification-text-color, #a66900); margin-top: 2px; }
-
-  /* ══════════ ROSTER ══════════ */
-  .station-hd { display: flex; align-items: baseline; gap: 8px; padding: 6px 16px 6px; font-weight: 700; color: var(--lumo-header-text-color); }
-  .station-hd small { font-weight: 400; color: var(--lumo-secondary-text-color); }
-  .unit { margin: 0 12px 10px; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: var(--lumo-box-shadow-xs); overflow: hidden; }
-  .unit-hd { display: flex; align-items: center; gap: 8px; padding: 8px 4px 6px 12px; min-height: 48px; }
-  .unit-hd .un { font-weight: 700; font-size: 15px; }
-  .unit-hd .ut { font-size: 12px; color: var(--lumo-secondary-text-color); }
-  .unit-hd .grow { flex: 1; min-width: 0; line-height: 1.3; }
-  .unit .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
-  .q { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: var(--lumo-border-radius-s); background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); white-space: nowrap; }
-  .prow.open { background: var(--open-slot); }
-  .prow.open .pn { color: var(--vwc-notification-text-color, #a66900); }
-  .ic-open { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 2px dashed var(--vwc-notification-color, #ffc700); }
-  .me-tag { font-size: 11px; font-weight: 700; color: var(--lumo-primary-text-color); margin-left: 4px; }
-
-  /* End users never see controls they can't use (SCHED-25064) */
-  body.role-eu .admin-only { display: none !important; }
-
-  /* ══════════ BOTTOM SHEET (drawer) ══════════
-     Custom sheet rather than vwc-drawer: vwc-drawer anchors to the page, and in
-     presentation mode the sheet must stay inside the phone frame. Production
-     should use vwc-drawer position="bottom" overlay (see open questions). */
   .scrim { position: absolute; inset: 0; background: rgba(15, 23, 34, .45); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 40; }
   .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 86%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 41; transform: translateY(102%); transition: transform .24s ease; display: flex; flex-direction: column; box-shadow: var(--lumo-box-shadow-xl); }
   .sheet-open .scrim { opacity: 1; pointer-events: auto; }
   .sheet-open .sheet { transform: none; }
-  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; }
-  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; flex: none; }
+  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; flex: none; }
   .sheet-hd h2 { flex: 1; margin: 0; font-size: 17px; }
-  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; flex: none; }
   .sheet-tools vaadin-text-field { width: 100%; }
   .sheet-body { flex: 1; overflow-y: auto; border-top: 1px solid var(--lumo-contrast-10pct); }
-  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); }
-  .drow { border-bottom: 1px solid var(--lumo-contrast-5pct); }
-  .drow > button { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; padding: 0; }
-  .drow > button:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
-  .drow .chev { color: var(--lumo-tertiary-text-color); transition: transform .18s; }
-  .drow.open .chev { transform: rotate(90deg); }
-  .ddetail { display: none; padding: 2px 16px 14px 52px; line-height: 1.5; }
-  .drow.open .ddetail { display: block; }
-  .ddetail dl { display: grid; grid-template-columns: 82px 1fr; gap: 2px 8px; margin: 0 0 10px; }
-  .ddetail dt { color: var(--lumo-secondary-text-color); font-size: 12px; }
-  .ddetail dd { margin: 0; font-size: 13px; }
-  .ddetail .acts { display: flex; gap: 8px; }
+  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); flex: none; }
+  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 80; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 12px; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { border: 0; background: none; color: var(--vwc-color-picton-blue-300, #7dcdee); font-weight: 700; cursor: pointer; padding: 0; }
   .empty { padding: 28px 16px; text-align: center; color: var(--lumo-secondary-text-color); }
+  body.role-eu .admin-only { display: none !important; }
 
-  /* ══════════ TOAST ══════════ */
-  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 60; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
-  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  /* ══════════ PRODUCTION SCHEDULER (reproduced, lightly improved) ══════════
+     Matches today's mobile CrewScheduler: grey toolbar buttons, Timeline/List
+     view buttons, search, "All assignments shown" dropdown, today/«»/month/week/
+     day, boxed date header, yellow NOTES, colored station headers, red-bordered
+     assignment cards, dark name bars with boxed qualifier tags, striped open
+     slots. "Better" = bigger tap targets (≥40px), tidy wrapping, sticky date,
+     and a single full-width column because Employees Off / Misc moved out. */
+  .prod { background: var(--prod-bg); color: var(--prod-ink); font-size: 14px; }
+  .p-appbar { height: 52px; background: var(--app-bar); display: flex; align-items: center; padding: 0 4px 0 0; }
+  .p-appbar button { width: 48px; height: 52px; border: 0; background: none; color: #cbd2da; font-size: 18px; cursor: pointer; position: relative; }
+  .p-appbar button.on { background: #253444; color: #fff; }
+  .p-appbar .ic-clock { color: #f2c14e; }
+  .p-appbar .logo { margin-left: auto; padding-right: 12px; color: #6fa8dc; font-size: 22px; }
+  .p-badge { position: absolute; top: 8px; right: 6px; background: var(--prod-red); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
+
+  .p-tools { padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 8px; background: #fff; }
+  .p-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .p-row.scrollx { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .p-row.scrollx::-webkit-scrollbar { display: none; }
+  .p-btn { flex: none; height: 40px; display: inline-flex; align-items: stretch; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; color: var(--prod-ink); cursor: pointer; overflow: hidden; padding: 0; font-size: 14px; }
+  .p-btn .ic { width: 38px; display: flex; align-items: center; justify-content: center; background: var(--prod-btn); border-right: 1px solid var(--prod-line); color: #3a4651; }
+  .p-btn .tx { display: flex; align-items: center; gap: 6px; padding: 0 12px; white-space: nowrap; }
+  .p-icon { flex: none; width: 40px; height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; color: #3a4651; cursor: pointer; }
+  .p-zoom { flex: none; display: inline-flex; border: 1px solid var(--prod-line); border-radius: 4px; overflow: hidden; }
+  .p-zoom button { width: 40px; height: 38px; border: 0; background: #fff; cursor: pointer; font-size: 16px; }
+  .p-zoom button + button { border-left: 1px solid var(--prod-line); background: #eef6ee; }
+  .p-zoom .minus { color: var(--prod-red); }
+  .p-zoom .plus { color: var(--prod-green); }
+  .p-search { flex: 1; min-width: 0; height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; padding: 0 12px; font: inherit; color: var(--prod-ink); }
+  .p-select { height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--prod-ink); white-space: nowrap; }
+  .p-seg { display: inline-flex; border: 1px solid var(--prod-line); border-radius: 4px; overflow: hidden; flex: none; }
+  .p-seg button { height: 38px; min-width: 40px; padding: 0 10px; border: 0; background: #fff; cursor: pointer; color: var(--prod-ink); }
+  .p-seg button + button { border-left: 1px solid var(--prod-line); }
+  .p-seg button.on { background: #dfe2e5; box-shadow: inset 0 1px 3px rgba(0,0,0,.15); }
+  .p-cal { color: #b94a48; font-size: 22px; margin-left: auto; }
+
+  /* Sticky date header — centered, with day arrows (SCHED-25064) */
+  .p-date { display: grid; grid-template-columns: 44px 1fr 44px auto; align-items: center; gap: 4px; padding: 6px 8px; background: #fff; border-top: 1px solid #e3e6e9; border-bottom: 1px solid #d6dadf; box-shadow: 0 2px 5px -3px rgba(0,0,0,.25); }
+  .p-date .arr { height: 40px; border: 0; background: none; color: var(--prod-ink); font-size: 16px; cursor: pointer; }
+  .p-date .box { justify-self: center; padding: 6px 14px; border: 1.5px solid #555; border-radius: 4px; background: #e9eaeb; font-size: 16px; letter-spacing: .3px; }
+  .p-date .tools { display: flex; gap: 10px; align-items: center; padding-right: 4px; font-size: 20px; }
+  .p-date .tools .nb { color: #c0262d; }
+
+  .p-notes { margin: 10px 10px 0; background: var(--prod-notes); border-left: 6px solid #b9b9a0; padding: 10px 12px; font-size: 15px; line-height: 1.4; }
+  .p-notes u { display: block; margin-bottom: 6px; }
+
+  /* station column — colored header tab + framed body */
+  .p-station { margin: 12px 10px 0; border: 2px solid var(--stc); border-radius: 6px 6px 4px 4px; background: #fff; }
+  .p-station > .hd { background: var(--stc); color: #fff; text-align: center; font-weight: 700; font-size: 17px; letter-spacing: .4px; padding: 8px; border-radius: 3px 3px 0 0; }
+  .p-station.dark > .hd { color: #2a2a2a; }
+  .p-station > .bd { padding: 8px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* assignment card */
+  .p-card { background: #f4f4f4; border: 2px solid #d8d8d8; border-radius: 3px; padding: 8px 8px 10px; }
+  .p-card.short { border-color: var(--prod-red); }
+  .p-card .hd { display: flex; align-items: center; gap: 8px; }
+  .p-card .nm { font-size: 16px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+  .p-card .nm i { color: #8a939c; font-size: 14px; }
+  .p-card .ct { color: var(--prod-red); font-weight: 700; font-size: 16px; }
+  .p-card .ct.full { color: #2e7d32; }
+  .p-card .kb { width: 32px; height: 32px; border: 0; background: none; color: #333; cursor: pointer; font-size: 16px; }
+  .p-card .tm { color: var(--prod-muted); font-size: 14px; margin: 2px 0 10px; }
+  .p-card .rows { display: flex; flex-direction: column; gap: 8px; }
+
+  /* assigned person — dark bar, green edge, boxed qualifier tags on the top edge */
+  .p-bar { position: relative; background: var(--prod-bar); color: #fff; border-radius: 4px; border-left: 7px solid var(--prod-green); padding: 13px 10px 7px; min-height: 44px; font-size: 16px; line-height: 1.25; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .p-bar .tags { position: absolute; top: -9px; left: 4px; display: flex; gap: 3px; }
+  .p-tag { background: #fff; color: #111; border: 1.5px solid #222; border-radius: 3px; font-size: 11px; font-weight: 700; line-height: 1; padding: 2px 4px; }
+  .p-tag.pm { background: #2f6fd6; color: #fff; border-color: #1d4fa3; }
+  .p-bar .part { display: inline-block; margin-top: 4px; background: var(--prod-red); color: #fff; font-size: 13px; padding: 1px 6px; border-radius: 3px; }
+  .p-bar .me { font-size: 11px; font-weight: 700; background: #fff; color: var(--prod-ink); border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
+  .p-bar .dual { color: #f59e0b; margin-left: 6px; font-size: 13px; }
+  .p-bar .dual-note { display: block; font-size: 12px; color: #f8c76a; margin-top: 2px; }
+
+  /* open slot — yellow stripes, unchanged look */
+  .p-open { background: repeating-linear-gradient(135deg, var(--prod-stripe-a) 0 12px, var(--prod-stripe-b) 12px 24px); border-radius: 4px; padding: 9px 10px; min-height: 44px; font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #222; }
+  .p-open .p-tag { font-size: 11px; }
+  .p-open .sub { flex-basis: 100%; font-size: 13px; color: #5a5320; }
+  .p-open .fill { margin-left: auto; height: 30px; padding: 0 10px; border: 1px solid #b9ad4f; border-radius: 4px; background: rgba(255,255,255,.6); color: #3b3510; cursor: pointer; font-size: 13px; }
+  /* NEW: who is off and why, right on the slot they left open */
+  .p-off-note { flex-basis: 100%; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b2a10; }
+  .p-off-note i { color: var(--prod-red); }
+
+  .p-self { height: 40px; border: 1px solid #7d8a96; border-radius: 4px; background: #a9b4be; color: #22313f; text-decoration: underline; letter-spacing: .4px; text-transform: uppercase; font-size: 14px; cursor: pointer; }
+
+  /* Employees Off / Misc — production box styles */
+  .p-offbox { background: #dcdcdc; border-radius: 3px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .p-miscbox { background: #fffccf; border: 2px solid #2a2a2a; border-radius: 3px; padding: 8px; }
+  .p-offbox .bh, .p-miscbox .bh { font-size: 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .p-add { height: 38px; width: 100%; border: 0; border-radius: 4px; background: repeating-linear-gradient(135deg, var(--prod-stripe-a) 0 12px, var(--prod-stripe-b) 12px 24px); text-align: left; padding: 0 12px; font-size: 16px; cursor: pointer; color: #222; }
+  .p-offrow { background: #9aa3ab; color: #fff; border-radius: 4px; border-left: 7px solid #6b747c; padding: 7px 10px; margin-bottom: 8px; line-height: 1.3; }
+  .p-offrow b { font-weight: 600; font-size: 15px; }
+  .p-offrow .s { font-size: 12.5px; opacity: .95; }
+  .p-offrow .aff { display: inline-block; margin-top: 3px; background: var(--prod-red); color: #fff; border-radius: 3px; font-size: 12px; padding: 1px 6px; }
+  .p-offrow .cov { display: inline-block; margin-top: 3px; background: #2e7d32; color: #fff; border-radius: 3px; font-size: 12px; padding: 1px 6px; }
+  .p-miscrow { background: #fff7a8; border: 1px solid #c9bd52; border-radius: 4px; padding: 7px 10px; margin-bottom: 8px; line-height: 1.3; }
+  .p-miscrow .s { font-size: 12.5px; color: #5a5320; }
+
+  .top { position: sticky; top: 0; z-index: 20; }
+
+  /* ══════════ OFF & MISC STRIP (the V1 change) ══════════
+     Replaces the Employees Off / Misc column that sat beside the roster.
+     Starts CLOSED; the summary still says how many are off and how many slots
+     that leaves uncovered, and each affected slot says who is off. */
+  .p-strip { margin: 10px 10px 0; background: #dcdcdc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.2); overflow: hidden; }
+  .p-strip-hd { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 15px; color: var(--prod-ink); flex-wrap: wrap; }
+  .p-strip-hd:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
+  .p-strip-hd .sep { color: #8c949b; }
+  .p-strip-hd .warn { background: var(--prod-red); color: #fff; border-radius: 3px; font-size: 12.5px; padding: 2px 7px; }
+  .p-strip-hd .chev { margin-left: auto; transition: transform .18s; }
+  .p-strip.open .chev { transform: rotate(180deg); }
+  .p-strip-bd { display: none; padding: 0 8px 10px; }
+  .p-strip.open .p-strip-bd { display: flex; flex-direction: column; gap: 10px; }
+  .p-strip-bd .p-offbox { box-shadow: none; background: #e9e9e9; }
+  .p-offrow { cursor: pointer; }
+  .p-strip-ft { display: flex; justify-content: flex-end; }
+  .flash { animation: flash 1.4s ease; }
+  @keyframes flash { 0%, 60% { box-shadow: 0 0 0 4px var(--lumo-primary-color); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+  /* full-list drawer (new UI) */
+  .drow { padding: 10px 16px; border-bottom: 1px solid var(--lumo-contrast-10pct); line-height: 1.45; }
+  .drow .t { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .drow .s { font-size: 13px; color: var(--lumo-secondary-text-color); }
+  .drow .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -212,8 +260,8 @@
   <!-- ── Brief: presenter notes shown beside the phone on wide screens ── -->
   <aside class="brief" aria-label="About this version">
     <div class="kicker">V1 · SCHED-25064</div>
-    <h1>Move Employees Off &amp; Misc out of the roster</h1>
-    <p class="lede">The Employees Off / Misc column no longer sits beside the roster. Who's off and misc shifts move into one strip under the date. Tap the strip to expand it, or open the full list in a drawer.</p>
+    <h1>Move Employees Off &amp; Misc into a strip</h1>
+    <p class="lede">Today's scheduler stays as it is: same toolbar, cards, name bars and open slots, slightly bigger. The Employees Off / Misc column moves into a strip under the date. The strip starts closed but still shows how many slots are uncovered. Each affected slot names who is off.</p>
 
     <h2>View as</h2>
     <div class="viewas">
@@ -225,23 +273,22 @@
 
     <h2>Try it</h2>
     <ul>
-      <li>Tap <b>Off today</b> to expand it in place. It stays open or closed the next time you visit.</li>
-      <li>Tap <b>Open full list</b> for the drawer, then search and tap a person.</li>
-      <li>Scroll the roster. The header slides away and the date row stays pinned.</li>
-      <li>Switch to <b>End user</b>. The ⋮ menus and Add buttons disappear.</li>
+      <li>Read the closed strip: <b>4 off · 3 uncovered</b>. Then scroll. Medic 3, Engine 5 and Truck 1 each say who is off.</li>
+      <li>Open the strip and tap a person. The roster jumps to the slot they left.</li>
+      <li><b>Open full list</b> opens a drawer with search.</li>
+      <li>Switch to <b>End user</b>. The ⋮ menus, Bulk Change and Add buttons disappear.</li>
     </ul>
 
     <h2>Why</h2>
-    <div class="ev"><b>⅓</b><span>Width the pinned Off / Misc column takes on a phone today. On the "Now" view it leaves about half the screen blank.</span></div>
+    <div class="ev"><b>½</b><span>On the "Now" view, the pinned column leaves about half the phone screen blank</span></div>
     <div class="ev"><b>4/10</b><span>Admins went to the navigation menu first to add time off</span></div>
-    <div class="ev"><b>3/10</b><span>Admins failed "Add time off for staff"</span></div>
 
     <h2>Also in this ticket</h2>
     <ul>
-      <li>Sticky date row with a quick-return header</li>
-      <li>Date navigation centered on every screen size</li>
-      <li>Pinch-zoom left on</li>
-      <li>View state remembered between sessions</li>
+      <li>Sticky, centered date header with day arrows</li>
+      <li>The toolbar slides away on scroll and comes back on scroll up</li>
+      <li>Pinch-zoom left on. The −/+ zoom buttons stay.</li>
+      <li>Strip open/closed is remembered</li>
     </ul>
 
     <h2>Links</h2>
@@ -256,61 +303,71 @@
     <div class="screen" id="screen">
       <div class="statusbar" aria-hidden="true"><span>9:41</span><span class="sb-ic"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></span></div>
 
-      <div class="scroll" id="scroll">
-        <!-- Quick-return header + sticky date row -->
+      <div class="scroll prod" id="scroll">
+        <!-- Quick-return header: the production toolbar slides away on scroll
+             down and back on scroll up; the date header stays pinned. -->
         <div class="top" id="top">
           <div id="hdr">
-            <div class="appbar">
-              <button class="ab-btn" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
-              <span class="ab-title">CrewScheduler</span>
-              <button class="ab-btn" aria-label="Notifications, 3 unread"><i class="fa-solid fa-bell"></i><span class="ab-badge">3</span></button>
-              <button class="ab-btn admin-only" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+            <div class="p-appbar">
+              <button class="on" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+              <button class="admin-only" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+              <button aria-label="Notifications, 3 unread"><i class="fa-regular fa-bell"></i><span class="p-badge">3</span></button>
+              <button aria-label="Timecard"><i class="fa-solid fa-user-clock ic-clock"></i></button>
+              <button aria-label="Calendar"><i class="fa-regular fa-calendar-days"></i></button>
+              <span class="logo" aria-hidden="true"><i class="fa-solid fa-chart-simple"></i></span>
             </div>
-            <div class="viewbar">
-              <vwc-toggle-button-group id="rangeToggle" selected="day">
-                <vwc-toggle-button value="month">Month</vwc-toggle-button>
-                <vwc-toggle-button value="week">Week</vwc-toggle-button>
-                <vwc-toggle-button value="day">Day</vwc-toggle-button>
-              </vwc-toggle-button-group>
+            <div class="p-tools">
+              <div class="p-row scrollx">
+                <button class="p-btn admin-only" data-act="toast" data-msg="Bulk Change"><span class="ic"><i class="fa-solid fa-rotate-right"></i></span><span class="tx">Bulk Change</span></button>
+                <button class="p-btn" data-act="toast" data-msg="More options"><span class="ic"><i class="fa-solid fa-bars"></i></span><span class="tx">More options <i class="fa-solid fa-caret-down"></i></span></button>
+                <button class="p-icon" aria-label="Print" data-act="toast" data-msg="Print"><i class="fa-solid fa-print"></i></button>
+                <button class="p-icon" aria-label="Help" data-act="toast" data-msg="Help"><i class="fa-solid fa-question"></i></button>
+                <button class="p-icon" aria-label="Full screen" data-act="toast" data-msg="Full screen"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+                <span class="p-zoom"><button class="minus" aria-label="Zoom out" data-act="toast" data-msg="Zoom out"><i class="fa-solid fa-minus"></i></button><button class="plus" aria-label="Zoom in" data-act="toast" data-msg="Zoom in"><i class="fa-solid fa-plus"></i></button></span>
+              </div>
+              <div class="p-row">
+                <button class="p-btn" data-act="toast" data-msg="TimelineView"><span class="ic"><i class="fa-solid fa-bars"></i></span><span class="tx">TimelineView</span></button>
+                <button class="p-btn" data-act="toast" data-msg="ListView"><span class="ic"><i class="fa-solid fa-database"></i></span><span class="tx">ListView</span></button>
+              </div>
+              <div class="p-row"><input class="p-search" id="pSearch" type="search" placeholder="Search..." aria-label="Search"></div>
+              <div class="p-row"><button class="p-select" data-act="toast" data-msg="Assignment filter (see V2)">All assignments shown (9) <i class="fa-solid fa-caret-down"></i></button></div>
+              <div class="p-row">
+                <span class="p-seg"><button data-act="toast" data-msg="Today">today</button></span>
+                <span class="p-seg"><button aria-label="Previous" data-act="toast" data-msg="Previous day">«</button><button aria-label="Next" data-act="toast" data-msg="Next day">»</button></span>
+                <span class="p-seg"><button>month</button><button>week</button><button class="on">day</button></span>
+                <i class="fa-regular fa-calendar p-cal" aria-hidden="true"></i>
+              </div>
             </div>
           </div>
-          <div class="daterow">
-            <button class="date-btn" aria-label="Previous day" data-act="toast" data-msg="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
-            <div class="date-mid"><div class="d">Wed, Oct 16</div><div class="s">A Shift · Battalion 3</div></div>
-            <button class="date-btn" aria-label="Next day" data-act="toast" data-msg="Next day"><i class="fa-solid fa-chevron-right"></i></button>
+          <div class="p-date">
+            <button class="arr" aria-label="Previous day" data-act="toast" data-msg="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="box">WEDNESDAY 10/16</span>
+            <button class="arr" aria-label="Next day" data-act="toast" data-msg="Next day"><i class="fa-solid fa-chevron-right"></i></button>
+            <span class="tools"><i class="fa-solid fa-book nb" aria-hidden="true"></i><i class="fa-solid fa-gear admin-only" aria-hidden="true"></i></span>
           </div>
+
         </div>
-
-        <!-- Off & Misc strip (replaces the pinned column) -->
-        <section class="strip" id="strip" aria-label="Employees off and misc shifts">
-          <button class="strip-hd" id="stripToggle" aria-expanded="false" aria-controls="stripBody">
-            <span class="stack" id="stripStack"></span>
-            <span><span class="strip-lbl" id="stripOffLbl"></span> <span class="strip-sep">·</span> <span class="strip-misc" id="stripMiscLbl"></span></span>
-            <i class="fa-solid fa-chevron-down strip-chev"></i>
-          </button>
-          <div class="strip-body" id="stripBody"></div>
-        </section>
-
-        <div class="note"><i class="fa-solid fa-note-sticky"></i><div><b>Note:</b> Area familiarization at Ocean Beach, 08:00. Engine 31 and Truck 1 attend.</div></div>
-
+        <section class="p-strip" id="strip" aria-label="Employees off and misc"></section>
+        <div class="p-notes"><u>NOTES</u>Area Familiarization Training @ Ocean Beach — 10/16 @ 0800</div>
         <div id="roster"></div>
-        <div style="height:80px"></div>
+        <div style="height:110px"></div>
       </div>
+
 
       <!-- Drawer: the full Off & Misc list -->
       <div class="scrim" data-act="closeSheet"></div>
       <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
         <div class="grab"></div>
         <div class="sheet-hd">
-          <h2 id="sheetTitle">Off &amp; Misc · Wed, Oct 16</h2>
+          <h2 id="sheetTitle">Off &amp; Misc · Wed 10/16</h2>
           <vaadin-button theme="icon" aria-label="Close" data-act="closeSheet"><i class="fa-solid fa-xmark"></i></vaadin-button>
         </div>
         <div class="sheet-tools">
           <vwc-toggle-button-group id="sheetTabs" selected="off">
-            <vwc-toggle-button value="off">Employees off (4)</vwc-toggle-button>
+            <vwc-toggle-button value="off">Employees Off (4)</vwc-toggle-button>
             <vwc-toggle-button value="misc">Misc (2)</vwc-toggle-button>
           </vwc-toggle-button-group>
-          <vaadin-text-field id="sheetSearch" theme="outlined" placeholder="Search name, unit or reason" clear-button-visible>
+          <vaadin-text-field id="sheetSearch" theme="outlined" placeholder="Search name, assignment or reason" clear-button-visible>
             <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
           </vaadin-text-field>
         </div>
@@ -327,203 +384,109 @@
 </div>
 
 <script>
-  /* ══════════ MOCK DATA ══════════ */
-  const OFF = [
-    { p: 'Taylor Vance', c: 'c1', type: 'Vacation', time: 'All day', slot: 'Engine 1 · FF', cover: 'Covered by Sam Okafor', by: 'Capt. Rafael Diaz' },
-    { p: 'Rosa King', c: 'c2', type: 'Sick', time: 'All day', slot: 'Medic 3 · PM', cover: 'Not covered. Open slot on Medic 3', open: true, by: 'Called in 05:42' },
-    { p: 'Jamal Moore', c: 'c3', type: 'Kelly day', time: 'All day', slot: 'Engine 5 · Eng', cover: 'Not covered. Open slot on Engine 5', open: true, by: 'Scheduled' },
-    { p: 'Priya Shah', c: 'c4', type: 'Comp time', time: '07:00 – 12:00', slot: 'Truck 1 · FF', cover: 'Partial. Chris Moreno until 19:00', by: 'BC Marcus Hale' }
-  ];
-  const MISC = [
-    { t: 'Hazmat refresher', who: 'Ben Carter, Mia Torres', time: '09:00 – 11:00', where: 'Station 5 training room', icon: 'fa-graduation-cap' },
-    { t: 'Light duty', who: 'Mike Ortiz', time: '08:00 – 16:00', where: 'Admin office', icon: 'fa-briefcase' }
-  ];
-  const STATIONS = [
-    { name: 'Station 1', units: [
-      { name: 'Engine 1', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Rafael Diaz', q: 'Capt' }, { p: 'Jordan Alvarez', q: 'Eng' }, { p: 'Sam Okafor', q: 'FF' }, { open: true, q: 'PM', need: 'Paramedic' }] },
-      { name: 'Truck 1', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Lena Park', q: 'Capt' }, { p: 'Dev Raman', q: 'Eng' }, { p: 'Chris Moreno', q: 'FF', part: '07:00 – 19:00' }, { open: true, q: 'FF', need: 'Firefighter', part: '19:00 – 07:00' }] },
-      { name: 'Medic 1', time: '07:00 – 19:00 · 12 hrs', rows: [{ p: 'Nina Brooks', q: 'PM' }, { p: 'Owen Tate', q: 'EMT' }] }
+  /* ══════════ MOCK DATA (shared by V1, V1.1, V2) ══════════
+     hrs = shift length. offBy = the person whose time off left this slot open.
+     dual = also scheduled on another assignment today; dup = the second listing. */
+  const ME = 'Alex Rivera';
+  const STATIONS_SEED = [
+    { id: 's1', name: 'STATION 1', color: '--st-blue', units: [
+      { id: 'e1', name: 'Engine 1', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Rafael Diaz', q: ['CAPT'] }, { p: 'Jordan Alvarez', q: ['ENG'] }, { p: 'Sam Okafor', q: ['FF'] }, { open: true, q: ['PM'] }] },
+      { id: 't1', name: 'Truck 1', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Lena Park', q: ['CAPT'] }, { p: 'Dev Raman', q: ['ENG'] }, { p: 'Priya Shah', q: ['FF'], part: '12 - 7 (19 hrs)' }, { open: true, q: ['FF'], part: '07:00 - 12:00', offBy: 'Priya Shah', offType: 'Comp time' }] },
+      { id: 'm1', name: 'Medic 1', hrs: 12, time: '7 - 19 (12 hrs)', rows: [{ p: 'Nina Brooks', q: ['PM'] }, { p: 'Owen Tate', q: ['EMT'] }] }
     ] },
-    { name: 'Station 3', units: [
-      { name: 'Engine 31', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Grace Liu', q: 'Capt' }, { p: 'Ben Carter', q: 'Eng' }, { p: 'Alex Rivera', q: 'PM', me: true }, { p: 'Theo Grant', q: 'FF' }] },
-      { name: 'Medic 3', time: '19:00 – 07:00 · 12 hrs', rows: [{ open: true, q: 'PM', need: 'Paramedic' }, { p: 'Ivy Chen', q: 'EMT' }] }
+    { id: 'south', name: 'SOUTH', color: '--st-orange', dark: true, units: [
+      { id: 'e31', name: 'Engine 31', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Grace Liu', q: ['CAPT'] }, { p: 'Ben Carter', q: ['ENG'] }, { p: 'Alex Rivera', q: ['FF', 'PM'], me: true }, { p: 'Theo Grant', q: ['FF'] }] },
+      { id: 'm3', name: 'Medic 3', hrs: 12, time: '19 - 7 (12 hrs)', rows: [{ open: true, q: ['PM'], offBy: 'Rosa King', offType: 'Sick' }, { p: 'Ivy Chen', q: ['EMT'] }] }
     ] },
-    { name: 'Station 5', units: [
-      { name: 'Engine 5', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Hugo Silva', q: 'Capt' }, { open: true, q: 'Eng', need: 'Engineer' }, { p: 'Mia Torres', q: 'FF' }, { p: 'Kai Nguyen', q: 'FF' }] },
-      { name: 'Rescue 5', time: '07:00 – 19:00 · 12 hrs', rows: [{ p: 'Zoe Adams', q: 'Capt' }, { p: 'Luis Romero', q: 'FF' }] }
+    { id: 'north', name: 'NORTH', color: '--st-green', dark: true, units: [
+      { id: 'e5', name: 'Engine 5', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Hugo Silva', q: ['CAPT'] }, { open: true, q: ['ENG'], offBy: 'Jamal Moore', offType: 'Kelly day' }, { p: 'Mia Torres', q: ['FF'], dual: 'Rescue 5' }, { p: 'Kai Nguyen', q: ['FF'] }] },
+      { id: 'r5', name: 'Rescue 5', hrs: 12, time: '7 - 19 (12 hrs)', rows: [{ p: 'Zoe Adams', q: ['CAPT'] }, { p: 'Mia Torres', q: ['FF'], dual: 'Engine 5', dup: true }] }
+    ] },
+    { id: 's4', name: 'STATION 4', color: '--st-blue2', units: [
+      { id: 'b4', name: 'Battalion 4', hrs: 8, time: '8 - 16 (8 hrs)', rows: [{ p: 'Marcus Hale', q: ['BC'] }] },
+      { id: 'hs', name: 'Hourly Staffing', hrs: 8, time: '8 - 16 (8 hrs)', signup: true, rows: [{ open: true, q: [] }, { open: true, q: [] }] }
     ] }
   ];
+  const OFF_SEED = [
+    { p: 'Taylor Vance', type: 'Vacation', time: 'All day', unit: 'e1', q: 'FF', covered: 'Sam Okafor' },
+    { p: 'Rosa King', type: 'Sick', time: 'All day', unit: 'm3', q: 'PM', by: 'Called in 05:42' },
+    { p: 'Jamal Moore', type: 'Kelly day', time: 'All day', unit: 'e5', q: 'ENG' },
+    { p: 'Priya Shah', type: 'Comp time', time: '07:00 – 12:00', unit: 't1', q: 'FF' }
+  ];
+  const MISC_SEED = [
+    { t: 'Hazmat refresher', who: 'Ben Carter, Mia Torres', time: '09:00 – 11:00', where: 'Station 5 training room' },
+    { t: 'Light duty', who: 'Mike Ortiz', time: '08:00 – 16:00', where: 'Admin office' }
+  ];
+  const clone = o => JSON.parse(JSON.stringify(o));
+  let STATIONS = clone(STATIONS_SEED), OFF = clone(OFF_SEED), MISC = clone(MISC_SEED);
+  const allUnits = () => STATIONS.flatMap(s => s.units);
+  const unitById = id => allUnits().find(u => u.id === id);
+  const uncoveredCount = () => OFF.filter(o => !o.covered).length;
 
   /* ══════════ HELPERS ══════════ */
   const $ = (s, r = document) => r.querySelector(s);
-  const initials = n => n.split(' ').map(w => w[0]).join('').slice(0, 2);
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   };
   let toastTimer;
-  function toast(msg) {
-    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  function toast(msg, undoFn) {
+    const t = $('#toast');
+    t.innerHTML = `<span>${esc(msg)}</span>${undoFn ? '<button type="button">Undo</button>' : ''}`;
+    if (undoFn) t.querySelector('button').onclick = () => { undoFn(); t.classList.remove('show'); };
+    t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), undoFn ? 4500 : 1900);
+  }
+  const tagHTML = q => `<span class="p-tag${q === 'PM' ? ' pm' : ''}">${esc(q)}</span>`;
+
+  /* Scroll the roster to an assignment and flash it — keeps "who's off" in
+     the context of the assignment it affects. */
+  function showUnit(id) {
+    const el = document.querySelector(`[data-unit="${id}"]`); if (!el) return;
+    const sc = $('#scroll');
+    sc.scrollTo({ top: el.offsetTop - $('#top').offsetHeight - 70, behavior: 'smooth' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
   }
 
-  /* ══════════ STATE ══════════ */
-  const state = {
-    role: 'admin',
-    stripOpen: store.get('spui-v1-strip-open', false),   // remembered across sessions
-    tab: 'off',
-    query: '',
-    openRow: null
-  };
-
-  /* ══════════ RENDER: STRIP ══════════ */
-  function offRow(o) {
-    return `<div class="prow"><span class="av ${o.c}">${initials(o.p)}</span>
-      <div class="pm"><div class="pn">${esc(o.p)}</div><div class="ps">${esc(o.slot)} · ${esc(o.time)}</div></div>
-      <span theme="badge${o.type === 'Sick' ? ' error' : ''}">${esc(o.type)}</span></div>`;
-  }
-  function miscRow(m) {
-    return `<div class="prow"><span class="ic-misc"><i class="fa-solid ${m.icon}"></i></span>
-      <div class="pm"><div class="pn">${esc(m.t)}</div><div class="ps">${esc(m.who)} · ${esc(m.time)}</div></div></div>`;
-  }
-  function renderStrip() {
-    $('#stripStack').innerHTML = OFF.slice(0, 3).map(o => `<span class="av ${o.c}" aria-hidden="true">${initials(o.p)}</span>`).join('');
-    $('#stripOffLbl').textContent = `Off today · ${OFF.length}`;
-    $('#stripMiscLbl').textContent = `Misc · ${MISC.length}`;
-    $('#stripBody').innerHTML = `
-      <div class="grp-hd"><span>Employees off</span></div>
-      ${OFF.map(offRow).join('')}
-      <div class="grp-hd"><span>Misc</span></div>
-      ${MISC.map(miscRow).join('')}
-      <div class="strip-ft">
-        <vaadin-button theme="tertiary" class="admin-only" data-act="toast" data-msg="Opens Add time off"><i class="fa-solid fa-plus" slot="prefix"></i>Add time off</vaadin-button>
-        <vaadin-button theme="secondary" data-act="openSheet"><i class="fa-solid fa-up-right-and-down-left-from-center" slot="prefix"></i>Open full list</vaadin-button>
-      </div>`;
-    $('#strip').classList.toggle('open', state.stripOpen);
-    $('#stripToggle').setAttribute('aria-expanded', state.stripOpen);
-  }
-
-  /* ══════════ RENDER: ROSTER ══════════ */
-  function renderRoster() {
-    $('#roster').innerHTML = STATIONS.map(st => {
-      const open = st.units.reduce((n, u) => n + u.rows.filter(r => r.open).length, 0);
-      return `<div class="station-hd">${esc(st.name)} <small>${st.units.length} units${open ? ` · ${open} open` : ''}</small></div>` +
-        st.units.map(u => {
+  /* ══════════ RENDER: ROSTER ══════════
+     opts: unitVisible(u), rowVisible(r,u), rowHit(r,u), footer(u, foldedCount),
+           showDualFlag, draggable. Every hook defaults to "show everything". */
+  function rosterHTML(opts = {}) {
+    const o = Object.assign({ unitVisible: () => true, rowVisible: () => true, rowHit: () => false, footer: () => '', showDualFlag: true, draggable: false, stationVisible: null }, opts);
+    return STATIONS.map(st => {
+      const units = st.units.filter(o.unitVisible);
+      if (!units.length) return '';
+      return `<section class="p-station${st.dark ? ' dark' : ''}" style="--stc: var(${st.color})">
+        <div class="hd">${esc(st.name)}</div>
+        <div class="bd">${units.map(u => {
           const filled = u.rows.filter(r => !r.open).length;
-          const short = filled < u.rows.length;
-          return `<article class="unit">
-            <div class="unit-hd">
-              <div class="grow"><div class="un">${esc(u.name)}</div><div class="ut">${esc(u.time)}</div></div>
-              <span theme="badge ${short ? 'error' : 'success'}" aria-label="${filled} of ${u.rows.length} staffed">${filled}/${u.rows.length}</span>
-              <vaadin-button theme="icon" class="admin-only" aria-label="${esc(u.name)} actions" data-act="toast" data-msg="${esc(u.name)}: add, move or notify"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button>
-            </div>
-            ${u.rows.map(r => r.open
-              ? `<div class="prow open"><span class="ic-open" aria-hidden="true"></span>
-                   <div class="pm"><div class="pn">Open slot</div><div class="ps">Needs ${esc(r.need)}${r.part ? ' · ' + esc(r.part) : ''}</div></div>
-                   <span class="q">${esc(r.q)}</span>
-                   <vaadin-button theme="tertiary" class="admin-only" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Fill</vaadin-button></div>`
-              : `<div class="prow"><span class="av">${initials(r.p)}</span>
-                   <div class="pm"><div class="pn">${esc(r.p)}${r.me ? '<span class="me-tag">You</span>' : ''}</div>${r.part ? `<div class="ps">${esc(r.part)}</div>` : ''}</div>
-                   <span class="q">${esc(r.q)}</span></div>`
-            ).join('')}
+          const vis = u.rows.map((r, i) => ({ r, i })).filter(x => o.rowVisible(x.r, u));
+          return `<article class="p-card${filled < u.rows.length ? ' short' : ''}" data-unit="${u.id}">
+            <div class="hd"><span class="nm">${esc(u.name)}${u.signup ? '<i class="fa-solid fa-user-plus" aria-label="Sign-up shift"></i>' : ''}</span>
+              <span class="ct${filled === u.rows.length ? ' full' : ''}" aria-label="${filled} of ${u.rows.length} filled">${filled}/${u.rows.length}</span>
+              <button class="kb admin-only" aria-label="${esc(u.name)} actions" data-act="toast" data-msg="${esc(u.name)}: add, move or notify"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>
+            <div class="tm">${esc(u.time)}</div>
+            <div class="rows">${vis.map(({ r, i }) => {
+              const hit = o.rowHit(r, u) ? ' hit' : '';
+              if (r.open) return `<div class="p-open${hit}" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Open slot ${r.q.map(tagHTML).join(' ')}
+                  ${r.part ? `<span class="sub">${esc(r.part)}</span>` : ''}
+                  ${r.offBy ? `<span class="p-off-note"><i class="fa-solid fa-user-slash"></i>${esc(r.offBy)} off · ${esc(r.offType)}</span>` : ''}</div>`;
+              return `<div class="p-bar${hit}" data-u="${u.id}" data-i="${i}"${o.draggable ? ' data-drag="1"' : ''}>
+                  <span class="tags">${r.q.map(tagHTML).join('')}</span>${esc(r.p)}${r.me ? '<span class="me">YOU</span>' : ''}${r.dual && o.showDualFlag ? `<i class="fa-solid fa-flag dual" aria-label="Dual-scheduled"></i>` : ''}
+                  ${r.part ? `<br><span class="part">${esc(r.part)}</span>` : ''}
+                  ${r.dual && o.showDualFlag ? `<span class="dual-note">Also on ${esc(r.dual)} today</span>` : ''}</div>`;
+            }).join('')}</div>
+            ${o.footer(u, u.rows.length - vis.length)}
+            ${u.signup ? '<button class="p-self" style="margin-top:8px;width:100%" data-act="toast" data-msg="Signed up for Hourly Staffing">+ Schedule yourself</button>' : ''}
           </article>`;
-        }).join('');
+        }).join('')}</div></section>`;
     }).join('');
   }
 
-  /* ══════════ RENDER: DRAWER ══════════ */
-  function renderSheetTabs() {
-    const g = $('#sheetTabs');
-    g.setAttribute('selected', state.tab); g.selected = state.tab;
-  }
-  function renderSheet() {
-    const q = state.query.trim().toLowerCase();
-    let html = '';
-    if (state.tab === 'off') {
-      const list = OFF.filter(o => !q || [o.p, o.type, o.slot].join(' ').toLowerCase().includes(q));
-      html = list.map((o, i) => {
-        const id = 'off-' + OFF.indexOf(o);
-        return `<div class="drow${state.openRow === id ? ' open' : ''}">
-          <button data-act="row" data-id="${id}" aria-expanded="${state.openRow === id}">
-            <div class="prow"><span class="av ${o.c}">${initials(o.p)}</span>
-              <div class="pm"><div class="pn">${esc(o.p)}</div><div class="ps">${esc(o.slot)} · ${esc(o.time)}</div></div>
-              <span theme="badge${o.type === 'Sick' ? ' error' : ''}">${esc(o.type)}</span>
-              <i class="fa-solid fa-chevron-right chev"></i></div>
-          </button>
-          <div class="ddetail">
-            <dl><dt>Type</dt><dd>${esc(o.type)}, ${esc(o.time)}</dd>
-                <dt>Their slot</dt><dd>${esc(o.slot)}</dd>
-                <dt>Coverage</dt><dd${o.open ? ' style="color:var(--lumo-error-text-color)"' : ''}>${esc(o.cover)}</dd>
-                <dt>Logged by</dt><dd>${esc(o.by)}</dd></dl>
-            <div class="acts admin-only">
-              ${o.open ? `<vaadin-button theme="primary" data-act="toast" data-msg="Opens Fill shift for ${esc(o.slot)}">Fill slot</vaadin-button>` : ''}
-              <vaadin-button theme="secondary" data-act="toast" data-msg="Opens time off for ${esc(o.p)}">Edit time off</vaadin-button>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    } else {
-      const list = MISC.filter(m => !q || [m.t, m.who, m.where].join(' ').toLowerCase().includes(q));
-      html = list.map(m => {
-        const id = 'misc-' + MISC.indexOf(m);
-        return `<div class="drow${state.openRow === id ? ' open' : ''}">
-          <button data-act="row" data-id="${id}" aria-expanded="${state.openRow === id}">
-            <div class="prow"><span class="ic-misc"><i class="fa-solid ${m.icon}"></i></span>
-              <div class="pm"><div class="pn">${esc(m.t)}</div><div class="ps">${esc(m.who)}</div></div>
-              <span class="ps">${esc(m.time)}</span><i class="fa-solid fa-chevron-right chev"></i></div>
-          </button>
-          <div class="ddetail">
-            <dl><dt>When</dt><dd>${esc(m.time)}</dd><dt>Where</dt><dd>${esc(m.where)}</dd><dt>Who</dt><dd>${esc(m.who)}</dd></dl>
-            <div class="acts admin-only"><vaadin-button theme="secondary" data-act="toast" data-msg="Opens misc shift">Edit</vaadin-button></div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-    $('#sheetBody').innerHTML = html || `<div class="empty">No one matches “${esc(state.query)}”.</div>`;
-  }
-  function openSheet(tab) {
-    if (tab) state.tab = tab;
-    renderSheetTabs(); renderSheet();
-    $('#screen').classList.add('sheet-open');
-  }
-  function closeSheet() { $('#screen').classList.remove('sheet-open'); }
-
-  /* ══════════ ROLE ══════════ */
-  function setRole(r) {
-    state.role = r;
-    document.body.classList.toggle('role-eu', r === 'eu');
-    const g = $('#roleToggle'); g.setAttribute('selected', r); g.selected = r;
-  }
-
-  /* ══════════ EVENTS ══════════ */
-  document.addEventListener('click', e => {
-    const el = e.target.closest('[data-act]');
-    if (!el) return;
-    const act = el.dataset.act;
-    if (act === 'toast') toast(el.dataset.msg);
-    if (act === 'openSheet') openSheet();
-    if (act === 'closeSheet') closeSheet();
-    if (act === 'row') { state.openRow = state.openRow === el.dataset.id ? null : el.dataset.id; renderSheet(); }
-  });
-  $('#stripToggle').addEventListener('click', () => {
-    state.stripOpen = !state.stripOpen;
-    store.set('spui-v1-strip-open', state.stripOpen);
-    renderStrip();
-  });
-  /* Toggle groups: react to the user's tap (not selection-change, which the
-     component also fires while upgrading and would undo flow-map deep links). */
-  function onToggleTap(groupSel, fn) {
-    $(groupSel).addEventListener('click', e => { const b = e.target.closest('vwc-toggle-button'); if (b) fn(b.getAttribute('value')); });
-  }
-  onToggleTap('#sheetTabs', v => { if (v === state.tab) return; state.tab = v; state.openRow = null; renderSheet(); });
-  $('#sheetSearch').addEventListener('value-changed', e => { state.query = e.detail.value || ''; renderSheet(); });
-  onToggleTap('#roleToggle', setRole);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
-
-  /* Quick-return header: slide the header away on scroll down, pull it back on
-     scroll up. The date row (bottom of .top) always stays pinned. */
-  (function quickReturn() {
+  /* Quick-return header: slide the toolbar away on scroll down, pull it back on
+     scroll up. The date header (bottom of .top) always stays pinned. */
+  function quickReturn() {
     const sc = $('#scroll'), top = $('#top'), hdr = $('#hdr');
     let last = 0, off = 0;
     sc.addEventListener('scroll', () => {
@@ -531,23 +494,111 @@
       off = y <= 0 ? 0 : Math.min(0, Math.max(-hdr.offsetHeight, off - d));
       top.style.top = off + 'px';
     }, { passive: true });
-  })();
+  }
 
-  renderStrip(); renderRoster();
+  /* Toggle groups: react to the user's tap and read the value back (the
+     component's selection-change also fires while upgrading). */
+  function onToggleTap(sel, fn) {
+    const g = $(sel); if (!g) return;
+    g.addEventListener('click', e => { const b = e.target.closest('vwc-toggle-button'); if (b) fn(b.getAttribute('value')); });
+  }
+  function setGroup(sel, val) {
+    const g = $(sel); if (!g) return;
+    g.setAttribute('selected', Array.isArray(val) ? JSON.stringify(val) : val);
+    g.selected = val;
+  }
+
+
+  /* ══════════ V1 STATE ══════════ */
+  const STRIP_KEY = 'spui-v1-strip-open-v2';   // starts closed by default
+  const state = { stripOpen: store.get(STRIP_KEY, false), tab: 'off', query: '' };
+
+  /* ══════════ RENDER: STRIP ══════════ */
+  function offRowHTML(o) {
+    const u = unitById(o.unit);
+    return `<div class="p-offrow" data-act="goto" data-unit-id="${o.unit}" role="button" tabindex="0">
+      <b>${esc(o.p)}</b> <span class="p-tag" style="vertical-align:1px">${esc(o.q)}</span>
+      <div class="s">${esc(o.type)} · ${esc(o.time)}</div>
+      ${o.covered ? `<span class="cov">${esc(u.name)} · covered by ${esc(o.covered)}</span>` : `<span class="aff">${esc(u.name)} · open slot</span>`}
+    </div>`;
+  }
+  function miscRowHTML(m) {
+    return `<div class="p-miscrow"><b>${esc(m.t)}</b><div class="s">${esc(m.who)} · ${esc(m.time)}</div></div>`;
+  }
+  function renderStrip() {
+    const unc = uncoveredCount();
+    $('#strip').innerHTML = `
+      <button class="p-strip-hd" id="stripToggle" aria-expanded="${state.stripOpen}">
+        <i class="fa-solid fa-user-slash"></i><span>Employees Off <b>${OFF.length}</b></span><span class="sep">·</span><span>Misc <b>${MISC.length}</b></span>
+        ${unc ? `<span class="warn">${unc} uncovered</span>` : ''}
+        <i class="fa-solid fa-chevron-down chev"></i>
+      </button>
+      <div class="p-strip-bd">
+        <div class="p-offbox"><div class="bh">Employees Off</div>${OFF.map(offRowHTML).join('')}
+          <button class="p-add admin-only" data-act="toast" data-msg="Opens Add time off">+ Add</button></div>
+        <div class="p-miscbox"><div class="bh">Misc</div>${MISC.map(miscRowHTML).join('')}
+          <button class="p-add admin-only" data-act="toast" data-msg="Opens Add misc shift">+ Add</button></div>
+        <div class="p-strip-ft"><vaadin-button theme="secondary" data-act="openSheet"><i class="fa-solid fa-up-right-and-down-left-from-center" slot="prefix"></i>Open full list</vaadin-button></div>
+      </div>`;
+    $('#strip').classList.toggle('open', state.stripOpen);
+  }
+  function renderRoster() { $('#roster').innerHTML = rosterHTML(); }
+
+  /* ══════════ RENDER: DRAWER ══════════ */
+  function renderSheet() {
+    const q = state.query.trim().toLowerCase();
+    let html;
+    if (state.tab === 'off') {
+      html = OFF.filter(o => !q || [o.p, o.type, unitById(o.unit).name].join(' ').toLowerCase().includes(q)).map(o => {
+        const u = unitById(o.unit);
+        return `<div class="drow"><div class="t">${esc(o.p)} <span theme="badge${o.type === 'Sick' ? ' error' : ''}">${esc(o.type)}</span></div>
+          <div class="s">${esc(u.name)} · ${esc(o.q)} · ${esc(o.time)}${o.by ? ' · ' + esc(o.by) : ''}</div>
+          <div class="s" style="color:${o.covered ? 'var(--lumo-success-text-color)' : 'var(--lumo-error-text-color)'}">${o.covered ? 'Covered by ' + esc(o.covered) : 'Not covered. Open slot on ' + esc(u.name)}</div>
+          <div class="acts"><vaadin-button theme="tertiary" data-act="goto" data-unit-id="${o.unit}">Show on schedule</vaadin-button>
+            ${o.covered ? '' : `<vaadin-button theme="primary" class="admin-only" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Fill slot</vaadin-button>`}</div></div>`;
+      }).join('');
+    } else {
+      html = MISC.filter(m => !q || [m.t, m.who, m.where].join(' ').toLowerCase().includes(q)).map(m =>
+        `<div class="drow"><div class="t">${esc(m.t)}</div><div class="s">${esc(m.who)} · ${esc(m.time)} · ${esc(m.where)}</div></div>`).join('');
+    }
+    $('#sheetBody').innerHTML = html || `<div class="empty">No one matches “${esc(state.query)}”.</div>`;
+  }
+  function openSheet(tab) { if (tab) state.tab = tab; setGroup('#sheetTabs', state.tab); renderSheet(); $('#screen').classList.add('sheet-open'); }
+  function closeSheet() { $('#screen').classList.remove('sheet-open'); }
+
+  function setRole(r) { document.body.classList.toggle('role-eu', r === 'eu'); setGroup('#roleToggle', r); }
+
+  /* ══════════ EVENTS ══════════ */
+  document.addEventListener('click', e => {
+    if (e.target.closest('#stripToggle')) {
+      state.stripOpen = !state.stripOpen; store.set(STRIP_KEY, state.stripOpen); renderStrip(); return;
+    }
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    const a = el.dataset.act;
+    if (a === 'toast') toast(el.dataset.msg);
+    if (a === 'openSheet') openSheet();
+    if (a === 'closeSheet') closeSheet();
+    if (a === 'goto') { closeSheet(); showUnit(el.dataset.unitId); }
+  });
+  onToggleTap('#sheetTabs', v => { if (v !== state.tab) { state.tab = v; renderSheet(); } });
+  onToggleTap('#roleToggle', setRole);
+  $('#sheetSearch').addEventListener('value-changed', e => { state.query = e.detail.value || ''; renderSheet(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+  quickReturn(); renderStrip(); renderRoster();
 </script>
 
 <!-- ── Design Toolbox: Flow Map ── -->
 <script>
   function applyFlowState(id, opts) {
     opts = opts || {};
-    closeSheet(); setRole('admin'); state.openRow = null; state.query = '';
+    closeSheet(); setRole('admin'); state.query = '';
     const f = document.querySelector('#sheetSearch'); if (f) f.value = '';
     switch (id) {
       case 'stripClosed': state.stripOpen = false; break;
       case 'stripOpen': state.stripOpen = true; break;
-      case 'drawer': state.stripOpen = true; openSheet('off'); break;
-      case 'drawerDetail': state.stripOpen = true; state.openRow = 'off-1'; openSheet('off'); break;
-      case 'endUser': state.stripOpen = true; setRole('eu'); break;
+      case 'drawer': state.stripOpen = false; openSheet('off'); break;
+      case 'endUser': state.stripOpen = false; setRole('eu'); break;
       default: break;
     }
     renderStrip();
@@ -564,28 +615,24 @@
 
   window.TOOLBOX_CONFIG = {
     flowMap: {
-      title: 'Scale Platform UI · V1 Employees Off & Misc — Flow Map',
+      title: 'Scale Platform UI · V1 Off & Misc strip — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 1500, h: 440 },
+      canvas: { w: 1220, h: 440 },
       flows: [
-        { id: 'main', name: 'Off & Misc strip → drawer', pill: 'A', color: '#c9b8f0',
-          lane: { x: 20, y: 20, w: 1460, h: 400 }, labelXY: { x: 40, y: 40 } }
+        { id: 'main', name: 'Off & Misc strip', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1180, h: 400 }, labelXY: { x: 40, y: 40 } }
       ],
       nodes: [
         { id: 'stripClosed', flow: 'main', entry: true, x: 60, y: 170, step: 'Entry', name: 'Day view, strip closed', state: 'stripClosed',
-          desc: 'Roster gets the full width. Who is off and misc shifts collapse into one strip under the date.' },
-        { id: 'stripOpen', flow: 'main', x: 340, y: 170, step: 'Step 2', name: 'Strip expanded', state: 'stripOpen',
-          desc: 'Expands in place. Open/closed is remembered next session.' },
+          desc: 'Production scheduler, full width. Closed strip still reads "4 off · 3 uncovered"; affected slots name who is off.' },
+        { id: 'stripOpen', flow: 'main', x: 340, y: 170, step: 'Step 2', name: 'Strip open', state: 'stripOpen',
+          desc: 'Production Employees Off / Misc boxes. Tap a person to jump to their slot.' },
         { id: 'drawer', flow: 'main', x: 620, y: 170, step: 'Step 3', name: 'Full list drawer', state: 'drawer',
-          desc: 'Bottom sheet with Employees off / Misc tabs and search.' },
-        { id: 'drawerDetail', flow: 'main', x: 900, y: 170, step: 'Step 4', name: 'Person selected', state: 'drawerDetail',
-          desc: 'Selecting a search result shows coverage and admin actions (Fill slot, Edit).' },
-        { id: 'endUser', flow: 'main', x: 1180, y: 170, step: 'Variant', name: 'End-user view', state: 'endUser',
-          desc: 'Same screen with ⋮ menus, Fill and Add buttons hidden.' }
+          desc: 'Searchable list with coverage and Fill slot.' },
+        { id: 'endUser', flow: 'main', x: 900, y: 170, step: 'Variant', name: 'End-user view', state: 'endUser',
+          desc: 'Admin-only controls hidden: ⋮, Bulk Change, settings, + Add.' }
       ],
-      edges: [
-        ['stripClosed', 'stripOpen'], ['stripOpen', 'drawer'], ['drawer', 'drawerDetail'], ['stripOpen', 'endUser']
-      ]
+      edges: [['stripClosed', 'stripOpen'], ['stripOpen', 'drawer'], ['stripClosed', 'endUser']]
     }
   };
 </script>
