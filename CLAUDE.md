@@ -169,14 +169,23 @@ As a backstop, a rename now **self-heals automatically** — nobody's commit is 
 
 So a card link never stays dead. Two things automation still cannot do, so handle them yourself: a **cross-product move** (file goes to a different `products/<Product>/` folder) can't be auto-relinked — fix the `rel` by hand; and **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
 
-## Designer Jira Ticket (every new mock)
+## Designer Jira Ticket (new mocks)
 
-Whenever a new mock is created under a product, Claude also creates its **design ticket** in Jira and wires it to the dashboard card. Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`.
+Every mock can have a **design ticket**: a UX Story on the User Experience board in Jira, shown as the Jira badge on its dashboard card. Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`.
+
+**What "create a new file under <Product>" means.** When a designer says *"let's create a new file/mock/design under <Product>"*, they mean two things: scaffold a new versioned mock (section 3 above) **and** start its design ticket.
+
+**Who gets one.** This is still being trialed with the team:
+- **Deborah Kim** (git `user.email` is `deborah.kim@vectorsolutions.com`): create the ticket without asking.
+- **Every other designer:** ask once, in one line, while scaffolding: *"Want a design Jira ticket for this mock on the UX board?"* Create it only on a yes.
+- **Never backfill.** Don't go back and create tickets for mocks that already exist. An older mock without a ticket gets one only if its designer says yes when it goes to In Review (see `ux-wrapup`).
+
+**Creating it:**
 
 1. **Check for a duplicate first.** Search the UX project (`project = UX AND summary ~ "<mock name>"`, plus anything already linked to the product ticket). If a design ticket exists, reuse it.
 2. **Create it** in project **UX** (User Experience), issue type **UX Story**:
    - **Summary:** `<Product> - <Mock name>` (e.g. `Scheduling - Scale Platform UI Functionality`)
-   - **Assignee:** the designer creating the mock
+   - **Assignee:** the designer creating the mock (look up their Jira account from their git `user.email`)
    - **Account:** **CAPEX** (Tempo field `customfield_10924`, pass the option id `2`), then read the ticket back to confirm it saved
    - **Description:** one line on what the design covers, then `**Mock:** <GitHub Pages URL of the feature folder>`, a short list of versions, and `**PRD:** <link>` or `**PRD:** not yet shared`
 3. **Move it to In Progress** (the transition is named "In Progress").
@@ -189,13 +198,17 @@ Whenever a new mock is created under a product, Claude also creates its **design
 
 **When a PRD link is shared later** (Confluence page or PRD ticket), update both places together: `prd` in `products.json`, and the `**PRD:**` line in the UX ticket's description.
 
+**Later stages.** The ticket follows the card:
+- **In Review / Ready for Dev:** `ux-wrapup` handles the ticket (its *Design Jira ticket* phase).
+- **Archiving:** when a designer archives a mock that has a design ticket, ask first: *"Flip <UX-key> to Done too?"* Transition it only on a yes, then set `"status": "archived"`.
+
 ## Dev Handoff / Wrap-Up
 
 When a designer says the mock is nearly done or done — *"put this in review,"* *"check it against the PRD,"* *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill. Use it too when a designer asks to **change a mock whose card is Ready for Dev**.
 
 **Three stages, nothing locks.** In Progress → **In Review** (PRD reconciliation written down in `mock-definition.md`, including a check for claims the mock makes that the PRD doesn't support; no dev build) → **Ready for Dev** (the dev build exists). Design keeps changing in every stage. After handoff, the dashboard card shows the handoff date, lists every later commit under "Changed since handoff," and warns when the dev build is behind the design. A post-handoff change is named as one, logged in `mock-definition.md`, and either re-synced into the dev build or spun off as a new version. The skill holds the steps.
 
-**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the reconciliation (including the claims check), the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
+**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the reconciliation (including the claims check), the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, the design Jira ticket's status and description, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
 
 Two consequences worth knowing before the handoff starts, because they change what you do *during* design:
 
