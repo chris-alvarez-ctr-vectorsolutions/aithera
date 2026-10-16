@@ -208,7 +208,9 @@ Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`. If a designer ha
 **Which slot a link goes in.** Sort it yourself; don't quiz the designer:
 - A **UX-…** key → `designJira`.
 - A **Confluence page** → `prd`.
-- **Any other Jira key** (SCHED-…, VPATH-…) → `jira`. Open the ticket too: if its description is written as a PRD (problem, scope, requirements, acceptance criteria), also set `prd` to its browse URL and mention that in one line. VPATH-16031 is an example of one ticket filling both slots.
+- **Any other Jira key** (SCHED-…, VPATH-…) → `jira`. Open the ticket too: if its description is written as a PRD (problem, scope, requirements, acceptance criteria), also set `prd` to its browse URL and mention that in one line. The card then **combines them into one violet "PRD · <KEY>" badge** on its own. VPATH-16031 and SCHED-24851 are examples.
+
+A PRD can be either a Jira link or a Confluence link. Both go in `prd`.
 
 **When a PRD link is shared later**, set `prd` in `products.json`. If the mock has a design ticket, also replace the `**PRD:**` line in its description.
 

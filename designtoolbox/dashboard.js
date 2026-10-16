@@ -1676,8 +1676,17 @@
     const { title, ticket, ticketUrl, designTicket, designTicketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks, reviewDocUrl } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
+    // Product ticket that IS the PRD: product teams often write the PRD inside the
+    // Jira ticket. When the PRD link is a Jira ticket and it's the same key as the
+    // product ticket (or there's no product ticket), show one combined PRD badge.
+    const prdKeyMatch = prdUrl ? prdUrl.match(/\/browse\/([A-Z][A-Z0-9]+-\d+)/i) : null;
+    const prdKey = prdKeyMatch ? prdKeyMatch[1].toUpperCase() : null;
+    const prdIsTicket = !!prdKey && (!ticket || String(ticket).trim().toUpperCase() === prdKey);
+
     let ticketHtml = '';
-    if (ticket && ticketUrl) {
+    if (prdIsTicket) {
+      ticketHtml = '';
+    } else if (ticket && ticketUrl) {
       ticketHtml = `<a class="ticket-badge ticket-badge--link" href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(ticket)} in Jira"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</a>`;
     } else if (ticket) {
       ticketHtml = `<span class="ticket-badge"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</span>`;
@@ -1695,7 +1704,9 @@
     // PRD link badge: a filled violet link when a requirements URL is curated,
     // otherwise a dashed-outline placeholder — same shape/label pattern as the
     // missing Jira tag, so an unlinked PRD reads as a prompt, not an alert.
-    const prdHtml = prdUrl
+    const prdHtml = prdIsTicket
+      ? `<a class="ticket-badge prd-badge" href="${escapeHtml(prdUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(prdKey)} in Jira: the product ticket, with the PRD written in it"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD · ${escapeHtml(prdKey)}</a>`
+      : prdUrl
       ? `<a class="ticket-badge prd-badge" href="${escapeHtml(prdUrl)}" target="_blank" rel="noopener" title="Open the PRD (requirements doc) in a new tab"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD</a>`
       : `<span class="ticket-badge ticket-badge--missing" title="No PRD (requirements doc) is linked to this prototype yet"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD</span>`;
 
