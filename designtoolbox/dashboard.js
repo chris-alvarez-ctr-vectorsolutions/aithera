@@ -464,6 +464,9 @@
 
       applyProductBranding(meta.product);
       state.allMocks = computeMocks(meta);
+      // Open the folder a shared ?folder= link points at.
+      const urlFolder = folderFromUrl();
+      if (urlFolder) { state.tab = urlFolder; openAncestors(urlFolder); }
       attachChanges(state.allMocks, meta);
 
       if (state.allMocks.length === 0) {
@@ -725,6 +728,8 @@
       renderTabBar(folders, loose, !!search);
       byId('folderNav').hidden = true;
     }
+    // After the nav render, which resets a folder that no longer exists.
+    syncFolderUrl();
 
     // 2) Pick the active selection's subset. The banner search is GLOBAL: while
     //    a query is active it looks across every folder (the rail dims to show
@@ -871,6 +876,42 @@
   // Human-readable form of a folder key, for labels and tooltips.
   function folderDisplay(key) { return key.split(FOLDER_SEP).join(' / '); }
 
+  // ── Folder deep links ──────────────────────────────────────────────────
+  // The selected folder is mirrored into the DASHBOARD's URL as
+  // ?folder=<segment>/<segment> (each segment URI-encoded, so a name that
+  // contains " / " stays one folder). Main = no param. Only the dashboard URL
+  // changes — the card links to the mocks are untouched, so every design link
+  // anyone already shared keeps working.
+  function folderFromUrl() {
+    const m = window.location.search.match(/[?&]folder=([^&#]*)/);
+    if (!m || !m[1]) return null;
+    try { return m[1].split('/').map(seg => decodeURIComponent(seg.replace(/\+/g, ' '))).join(FOLDER_SEP); }
+    catch { return null; } // malformed escape — ignore and land on Main
+  }
+  function folderUrl(key) {
+    const params = window.location.search.replace(/^\?/, '').split('&')
+      .filter(p => p && !/^folder=/.test(p));
+    if (key && key !== MAIN_KEY) params.push('folder=' + key.split(FOLDER_SEP).map(encodeURIComponent).join('/'));
+    return window.location.pathname + (params.length ? '?' + params.join('&') : '') + window.location.hash;
+  }
+  // A click on a folder pushes a history entry (so Back returns to the previous
+  // folder); automatic corrections, like a stale ?folder=, just replace it.
+  let folderUrlPush = false;
+  function syncFolderUrl() {
+    const want = folderUrl(state.tab);
+    const push = folderUrlPush;
+    folderUrlPush = false;
+    if (want === window.location.pathname + window.location.search + window.location.hash) return;
+    try { history[push ? 'pushState' : 'replaceState'](null, '', want); } catch { /* file:// in some browsers */ }
+  }
+  window.addEventListener('popstate', () => {
+    if (!state.allMocks.length) return;
+    const key = folderFromUrl();
+    if (key) openAncestors(key);
+    state.tab = key || (FOLDER_NAV_STYLE === 'sidebar' ? MAIN_KEY : null);
+    applyFiltersAndRender();
+  });
+
   // A path is a valid selection if any mock lives at it OR below it (a parent
   // folder may hold only subfolders, never a direct mock).
   function folderExists(folders, path) {
@@ -976,6 +1017,7 @@
     closeTabMenu();
     if (state.tab === tabKey && !state.search) return;
     state.tab = tabKey;
+    folderUrlPush = true;
     // The banner search is global (spans all folders) — picking a folder while
     // a query is active exits the search into that folder's scope.
     if (state.search) {
@@ -1202,6 +1244,7 @@
     const scope = mock.groupKey || MAIN_KEY;
     if (scope !== MAIN_KEY) openAncestors(scope);
     state.tab = scope;
+    folderUrlPush = true;
     applyFiltersAndRender();
     requestAnimationFrame(() => {
       const el = [...document.querySelectorAll('.mock-card, .proto-row')]
