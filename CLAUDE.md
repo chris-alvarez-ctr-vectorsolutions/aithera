@@ -169,6 +169,26 @@ As a backstop, a rename now **self-heals automatically** — nobody's commit is 
 
 So a card link never stays dead. Two things automation still cannot do, so handle them yourself: a **cross-product move** (file goes to a different `products/<Product>/` folder) can't be auto-relinked — fix the `rel` by hand; and **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
 
+## Designer Jira Ticket (every new mock)
+
+Whenever a new mock is created under a product, Claude also creates its **design ticket** in Jira and wires it to the dashboard card. Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`.
+
+1. **Check for a duplicate first.** Search the UX project (`project = UX AND summary ~ "<mock name>"`, plus anything already linked to the product ticket). If a design ticket exists, reuse it.
+2. **Create it** in project **UX** (User Experience), issue type **UX Story**:
+   - **Summary:** `<Product> - <Mock name>` (e.g. `Scheduling - Scale Platform UI Functionality`)
+   - **Assignee:** the designer creating the mock
+   - **Account:** **CAPEX** (Tempo field `customfield_10924`, pass the option id `2`), then read the ticket back to confirm it saved
+   - **Description:** one line on what the design covers, then `**Mock:** <GitHub Pages URL of the feature folder>`, a short list of versions, and `**PRD:** <link>` or `**PRD:** not yet shared`
+3. **Move it to In Progress** (the transition is named "In Progress").
+4. **Link it** with "Relates" to any product ticket the designer gave (SCHED-…, VPATH-…, SAFELMS-…).
+5. **Dashboard:** in `products.json`, the card's `jira` is always **the UX design ticket**. Never add a second ticket badge.
+
+**When a designer says "add a Jira ticket" or hands over a ticket key, ask which kind it is:** the design Jira ticket, or a Jira ticket that is really a **PRD**. Product teams often write the PRD inside a Jira ticket.
+- **Design ticket** → it goes in `jira`.
+- **PRD** → it goes in the card's `prd` as a full URL (`https://lmsportal.atlassian.net/browse/<KEY>`), **and** replaces the `**PRD:**` line in the UX ticket's description.
+
+**When a PRD link is shared later** (Confluence page or PRD ticket), update both places together: `prd` in `products.json`, and the `**PRD:**` line in the UX ticket's description.
+
 ## Dev Handoff / Wrap-Up
 
 When a designer says the mock is nearly done or done — *"put this in review,"* *"check it against the PRD,"* *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill. Use it too when a designer asks to **change a mock whose card is Ready for Dev**.
