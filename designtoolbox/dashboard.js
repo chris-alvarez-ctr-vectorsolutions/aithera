@@ -540,6 +540,9 @@
 
       const ticket = m.ticket || auto.ticket;
       const ticketUrl = m.ticketUrl || (ticket && jiraBaseNorm ? jiraBaseNorm + ticket : null);
+      // Optional design ticket on the User Experience board (products.json `designJira`).
+      const designTicket = (typeof m.designTicket === 'string' && m.designTicket.trim()) ? m.designTicket.trim() : null;
+      const designTicketUrl = designTicket && jiraBaseNorm ? jiraBaseNorm + designTicket : null;
 
       // Optional link to the requirements doc (Confluence PRD, etc.). Curated as
       // a full URL in products.json; only http(s) links are rendered.
@@ -567,6 +570,8 @@
         title: m.title || auto.title,
         ticket,
         ticketUrl,
+        designTicket,
+        designTicketUrl,
         prdUrl,
         description: m.description || describe(folder, parent),
         modified: m.modified || null,
@@ -1668,7 +1673,7 @@
   }
 
   function buildCard(mock, idx, showFolder) {
-    const { title, ticket, ticketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks, reviewDocUrl } = mock;
+    const { title, ticket, ticketUrl, designTicket, designTicketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks, reviewDocUrl } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
     let ticketHtml = '';
@@ -1679,6 +1684,13 @@
     } else {
       ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet"><i class="fa-solid fa-link ticket-link-icon"></i>Jira ticket</span>`;
     }
+
+    // Design ticket badge (UX board): rose tone so it reads apart from the product
+    // ticket. Only rendered when curated, with no placeholder, since design
+    // tickets are opt-in.
+    const designTicketHtml = designTicket && designTicketUrl
+      ? `<a class="ticket-badge design-badge" href="${escapeHtml(designTicketUrl)}" target="_blank" rel="noopener" title="Open the design ticket ${escapeHtml(designTicket)} in Jira"><i class="fa-solid fa-pen-ruler ticket-link-icon"></i>${escapeHtml(designTicket)}</a>`
+      : (designTicket ? `<span class="ticket-badge design-badge"><i class="fa-solid fa-pen-ruler ticket-link-icon"></i>${escapeHtml(designTicket)}</span>` : '');
 
     // PRD link badge: a filled violet link when a requirements URL is curated,
     // otherwise a dashed-outline placeholder — same shape/label pattern as the
@@ -1806,6 +1818,7 @@
         <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
           ${ticketHtml}
+          ${designTicketHtml}
           ${prdHtml}
           ${showFolder ? folderChipHtml(mock) : ''}
           ${mockStar(mock)}
@@ -2441,6 +2454,13 @@
       a.prd-badge { cursor: pointer; color: #6d28d9; background: #ede9fe; }
       a.prd-badge:hover { background: #6d28d9; color: #fff; transform: translateY(-1px); }
       a.prd-badge:hover .ticket-link-icon { opacity: 1; }
+
+      /* Design ticket badge (UX board): rose tone, apart from the product ticket
+         (indigo) and the PRD (violet). */
+      .design-badge { color: #be185d; background: #fce7f3; }
+      a.design-badge { cursor: pointer; }
+      a.design-badge:hover { background: #be185d; color: #fff; transform: translateY(-1px); }
+      a.design-badge:hover .ticket-link-icon { opacity: 1; }
 
       .status-badge {
         display: inline-flex; align-items: center; gap: 7px; background: var(--status-bg); color: var(--status-fg);

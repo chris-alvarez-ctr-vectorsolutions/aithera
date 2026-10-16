@@ -308,6 +308,9 @@ function buildProduct(product, jiraBase) {
     if (it.desc) entry.description = it.desc;
     if (it._folder) entry.folder = it._folder;
     if (it.jira) entry.ticket = it.jira;
+    // Optional design ticket on the User Experience board (UX-1234), shown as its
+    // own badge beside the product ticket. `false` means the designer declined one.
+    if (typeof it.designJira === 'string' && it.designJira) entry.designTicket = it.designJira;
     // Optional full URL to the requirements doc (Confluence PRD, etc.); the
     // dashboard renders it as a "PRD" link badge beside the Jira ticket.
     if (it.prd) entry.prd = it.prd;

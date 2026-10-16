@@ -132,7 +132,7 @@ products/<Product>/<feature>/
      "jira": "TICKET-123", "status": "in-progress" }
    ```
 
-   `jira` and `status` are optional. Valid statuses: `in-progress` (the default), `in-review` (set by the `ux-wrapup` skill's review mode), `ready-for-dev` (normally set by the dev build file itself, not by hand), `archived`.
+   `jira` (the product ticket), `designJira` (the design ticket, see **Designer Jira Ticket** below), `prd` (full URL to the PRD) and `status` are optional. Valid statuses: `in-progress` (the default), `in-review` (set by the `ux-wrapup` skill's review mode), `ready-for-dev` (normally set by the dev build file itself, not by hand), `archived`.
 
    **Folder groups are a first-class dashboard experience — use them deliberately.** Wrapping items in `{ "folder": "Group Name", "items": [ … ] }` makes that group render as a real **folder in the product dashboard**: an entry in the left "Folders" rail with per-status pill counts, selectable as a scope, and **favoritable** (designers can star folders to pin them; saved per browser). **Folders nest to any depth** — a `folder` group's `items` may contain further `folder` groups, rendered as a collapsible tree in the rail; selecting a parent scopes to its whole subtree and the content column shows a breadcrumb of the active path. To put a mock in a nested folder, just nest the groups in `products.json` — nothing else to wire up:
 
@@ -171,14 +171,23 @@ So a card link never stays dead. Two things automation still cannot do, so handl
 
 ## Designer Jira Ticket (new mocks)
 
-Every mock can have a **design ticket**: a UX Story on the User Experience board in Jira, shown as the Jira badge on its dashboard card. Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`.
+A dashboard card has three separate link slots. Keep them apart:
+
+| `products.json` field | What it is | Badge on the card |
+|---|---|---|
+| `jira` | The **product ticket** (SCHED-…, VPATH-…, SAFELMS-…). Unchanged from how it's always worked. | Indigo, key shown |
+| `designJira` | The **design ticket**: a UX Story on the User Experience board (UX-…). Opt-in. | Rose, key shown; only appears when set |
+| `prd` | The **PRD**, as a full URL (Confluence page, or `https://lmsportal.atlassian.net/browse/<KEY>` when the PRD lives in a Jira ticket) | Violet "PRD" |
+
+Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`. If a designer has no Atlassian connection, say so in one line and carry on with the mock. Never block design work on Jira.
 
 **What "create a new file under <Product>" means.** When a designer says *"let's create a new file/mock/design under <Product>"*, they mean two things: scaffold a new versioned mock (section 3 above) **and** start its design ticket.
 
 **Who gets one.** This is still being trialed with the team:
 - **Deborah Kim** (git `user.email` is `deborah.kim@vectorsolutions.com`): create the ticket without asking.
-- **Every other designer:** ask once, in one line, while scaffolding: *"Want a design Jira ticket for this mock on the UX board?"* Create it only on a yes.
-- **Never backfill.** Don't go back and create tickets for mocks that already exist. An older mock without a ticket gets one only if its designer says yes when it goes to In Review (see `ux-wrapup`).
+- **Every other designer:** ask once, in one line, while scaffolding: *"Want a design Jira ticket for this mock on the UX board?"* Create it only on a yes. On a no, set `"designJira": false` on the item so nobody asks about that mock again.
+- **"Don't ask me."** If a designer says they don't want design tickets ("don't ask me", "stop asking", "no, never"), save it to Claude memory right away as a feedback memory: *"<name> opted out of design Jira tickets on <date>; never ask again."* From then on, never ask that designer, not while scaffolding and not at review. Only bring it up again if they do. Check memory for an opt-out **before** every ask. One "no" for one mock is just that mock (`"designJira": false`). Opting out is when they say it about all their mocks.
+- **Never backfill.** Don't go back and create tickets for mocks that already exist. An older mock with no `designJira` field gets one only if its designer says yes when it goes to In Review (see `ux-wrapup`).
 
 **Creating it:**
 
@@ -190,15 +199,16 @@ Every mock can have a **design ticket**: a UX Story on the User Experience board
    - **Description:** one line on what the design covers, then `**Mock:** <GitHub Pages URL of the feature folder>`, a short list of versions, and `**PRD:** <link>` or `**PRD:** not yet shared`
 3. **Move it to In Progress** (the transition is named "In Progress").
 4. **Link it** with "Relates" to any product ticket the designer gave (SCHED-…, VPATH-…, SAFELMS-…).
-5. **Dashboard:** in `products.json`, the card's `jira` is always **the UX design ticket**. Never add a second ticket badge.
+5. **Dashboard:** put the key in `designJira` in `products.json`. Leave `jira` (the product ticket) as it is.
 
-**When a designer says "add a Jira ticket" or hands over a ticket key, ask which kind it is:** the design Jira ticket, or a Jira ticket that is really a **PRD**. Product teams often write the PRD inside a Jira ticket.
-- **Design ticket** → it goes in `jira`.
-- **PRD** → it goes in the card's `prd` as a full URL (`https://lmsportal.atlassian.net/browse/<KEY>`), **and** replaces the `**PRD:**` line in the UX ticket's description.
+**Sorting a ticket a designer hands over:**
+- A **UX-…** key is a design ticket → `designJira`.
+- A **Confluence link** is a PRD → `prd`.
+- **Any other Jira key** (SCHED-…, VPATH-…): ask in one line, *"Is <KEY> the product ticket, or is it the PRD?"* Product ticket → `jira`. PRD → `prd`. It can be both (the product ticket where the PRD is written), so then set both.
 
-**When a PRD link is shared later** (Confluence page or PRD ticket), update both places together: `prd` in `products.json`, and the `**PRD:**` line in the UX ticket's description.
+**When a PRD link is shared later**, set `prd` in `products.json`. If the mock has a design ticket, also replace the `**PRD:**` line in its description.
 
-**Later stages.** The ticket follows the card:
+**Later stages.** The design ticket follows the card. None of this applies to mocks without one:
 - **In Review / Ready for Dev:** `ux-wrapup` handles the ticket (its *Design Jira ticket* phase).
 - **Archiving:** when a designer archives a mock that has a design ticket, ask first: *"Flip <UX-key> to Done too?"* Transition it only on a yes, then set `"status": "archived"`.
 

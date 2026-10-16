@@ -107,7 +107,7 @@ update `mock-definition.md` so it stays true.
 
 ## Handoff mode — "ready for dev"
 
-Run every phase. **Before Phase 0**, if the card has a design ticket (Phase 7.5),
+Run every phase. **Before Phase 0**, if the item has a `designJira` key (Phase 7.5),
 ask in one line: *"Flip <UX-key> to Done before I hand this off?"* Act on the
 answer in Phase 7.5.
 
@@ -417,16 +417,30 @@ Only `"archived"` still overrides a dev build.
 
 ### Phase 7.5 — Design Jira ticket (UX board)
 
-The design ticket is the mock's UX Story on the User Experience board. The
-card's `jira` in `products.json` holds its key (`UX-…`). How it's created, plus
-the CAPEX account and the description layout, is in CLAUDE.md under **Designer
-Jira Ticket (new mocks)**. Use the Atlassian (Rovo) tools; load them via
-ToolSearch if they aren't loaded.
+The design ticket is the mock's UX Story on the User Experience board. Its key
+(`UX-…`) is in the item's `designJira` in `products.json`, separate from `jira`
+(the product ticket) and `prd`. How it's created, plus the CAPEX account and the
+description layout, is in CLAUDE.md under **Designer Jira Ticket (new mocks)**.
+Use the Atlassian (Rovo) tools; load them via ToolSearch if they aren't loaded.
 
-**No design ticket yet?** (An older mock, or `jira` holds a product key such as
-SCHED-….) Ask the designer: *"This mock has no design Jira ticket. Want me to
-create one?"* Deborah Kim included, because this is an older mock. On a yes,
-create it per CLAUDE.md, then continue below. On a no, skip this phase.
+**`"designJira": false`** (the designer already declined): skip this phase
+silently. Don't ask again.
+
+**The designer opted out of design tickets** (a memory says so; see CLAUDE.md
+"Don't ask me"): skip this phase silently.
+
+**No `designJira` field at all** (e.g. an older mock, or one made before this
+existed):
+1. **Look first.** Search the UX board for a ticket that already covers it:
+   `project = UX AND summary ~ "<mock name>"`, plus anything linked to the
+   product ticket in `jira`. If one turns up, ask: *"Found <UX-key>, '<summary>'.
+   Is that this mock's design ticket?"* On a yes, set `designJira` and continue
+   below.
+2. **None found:** ask, *"This mock has no design Jira ticket. Want me to create
+   one?"* Ask Deborah Kim too, because it's an older mock. On a yes, create it
+   per CLAUDE.md and continue below. On a no, set `"designJira": false` and skip
+   this phase. If they say not to ask again, record the opt-out (CLAUDE.md
+   "Don't ask me").
 
 **Review mode:**
 1. **Status:** transition the ticket to **In Review**.
@@ -478,4 +492,7 @@ dashboard picks up a `products.json` status change on push.
 | Flipping the design ticket to Done without asking | Ask before handoff; transition only on a yes (Phase 7.5) |
 | Moving the ticket to In Review but leaving an outdated description | Rewrite whatever no longer matches the design, and re-check the mock link and PRD (Phase 7.5) |
 | Creating a design ticket for an older mock unprompted | Ask the designer first (Phase 7.5) |
+| Asking again after a designer declined a design ticket | `"designJira": false` skips that mock; an opt-out memory skips the designer (Phase 7.5) |
+| Offering to create a design ticket without searching first | Search the UX board; a ticket may already exist (Phase 7.5) |
+| Putting the design ticket in `jira` | `jira` is the product ticket; the design ticket goes in `designJira` |
 | Putting `dev_handoff.html` inside `verN/` | It must sit at the feature root beside the loader, or the dashboard won't detect it |
