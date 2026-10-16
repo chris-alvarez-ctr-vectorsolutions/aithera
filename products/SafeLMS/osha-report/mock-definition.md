@@ -189,7 +189,7 @@ The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10
 | Filters / Export / Clear filters buttons | `vaadin-button` | ✅ Covered | `theme="secondary small"`, `"primary small"`, `"tertiary small"` are valid variants. FA icons in `slot="prefix"`. The `small` modifier is **unverified**. |
 | Applied-filter chips (removable, "Key: value ×") | none | ❌ Gap | No dismissible chip/tag in core v1.22.1. Lumo `theme="badge"` (v1.22.3) is static with no remove action. See Gap 2. |
 | Content cards (Completion Status Overview, OSHA Completion Report, Email Learners card) | `vwc-card` | ⚠️ Partial | Hand-built `.report-card` / `.email-card`. `vwc-card theme="outlined"` (or `padded`) with `header`/`content` slots covers this. |
-| Pill labels and tags ("Past 30 days" pill, status badges, "sample name" tag, lock chip) | Lumo `theme="badge"` (core v1.22.3 only) | ⚠️ Partial | Custom `.status-badge` / `.date-badge` / `.ec-sample`. Only usable after upgrading core. The Quiz Score cell (colored text + ✓/✗) needs no component. |
+| Pill labels and tags (status badges, "sample name" tag, lock chip) | Lumo `theme="badge"` (core v1.22.3 only) | ⚠️ Partial | Custom `.status-badge` / `.date-badge` / `.ec-sample`. Only usable after upgrading core. The Quiz Score cell (colored text + ✓/✗) needs no component. |
 | Status Distribution pie + legend | none | ❌ Gap | CSS `conic-gradient` pie. No chart component in core; production uses a DevExtreme dxPieChart. Drill views are off (`PIE_DRILLS = false`). |
 | Section info icon + tooltip ("Action Needed ⓘ") | `vaadin-tooltip` | ✅ Covered | Anchored with `for="actionNeededInfo"` to a native `<button>`, so it works on hover and keyboard focus. Attributes **unverified**. (The PRD's NFR rules out conveying information this way; see Reconciliation.) |
 | Action Needed tiles (count "of N", label, icon; click to filter, click again to clear) | `vwc-card` (surface); `vwc-toggle-button-group` (selection) | ⚠️ Partial | Custom `div role="button" aria-pressed`. `vwc-toggle-button-group` suppresses deselection ("always has one selected"), and the tiles allow click-to-clear, so it isn't a drop-in. Use a `vwc-card` surface and keep the toggle logic. |
@@ -301,7 +301,7 @@ The audit ran embedded, without designer input, so each gap lists its open decis
 
 - **Action Needed in the panel:** single-select (as built) or multi-select (AC-2.1)? Update whichever is wrong.
 - **2-failures filter:** confirm FR-4's "at least 2 failures within a module", then fix the panel label, logic and chip to match the card.
-- **Date range:** which date does it apply to (assignment window as built, start date, completion date, last access)? Is "Past 30 days" the right default?
+- **Date range:** which date does it apply to (assignment window as built, start date, completion date, last access)? Is "Past 90 days" (design default since 2026-10-16) the right default? The PRD only gives "past 30 days" as an example.
 - **"Certifications due within 30 days":** course due date for In Progress learners (as built), or certification expiry?
 - **Total Course Quiz Failures:** confirm the feed supplies a course-wide total alongside the module count (D-2 open item), and show 0 rather than "—".
 - **Certificate:** link vs. preview modal; no column header per AC-3.3; pending state before the weekly feed delivers it.
