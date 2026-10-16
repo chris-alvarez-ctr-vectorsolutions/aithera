@@ -1,5 +1,28 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-10-16 (V5: the tenant brand on the top-nav bar)
+
+- **New `v5-tenant-brand.html`.** A copy of V4 (the design system shell EHS ships) that carries
+  the customer-branding concept V3b piloted. V3b drew an accent stripe UNDER the top bar; V5
+  moves the colour to where the design system already draws a bar, the 8px band across the
+  TOP of `vwc-topnav`. The component paints that band from `--vwc-topnav-border-color`
+  (falling back to `--vwc-brand-color`, then `--lumo-primary-color`), so a tenant colour is
+  one token set on the element, not a second bar.
+- **Two brand surfaces, one switch.** `body.brand-on` flips the bar colour and the side-nav
+  logo slot together. On: Georgia-Pacific blue `#1467a3` (lifted from its mark) and the
+  Georgia-Pacific logo. Off: the design system primary blue and an "Upload your logo"
+  placeholder in the 80px slot, so stakeholders see what a fresh tenant ships with.
+- **Review pill.** `Brand` replaces V4’s `Logo` button (the slot now always shows something).
+  Deep links `?brand=off` and `?brand=<hex>`.
+- **Customer logo.** The supplied Georgia-Pacific SVG sits once in the page as a symbol with
+  its viewBox tightened to the mark (the source lives in a 200×200 canvas); the five logo
+  slots reference it.
+- **Live peek, from V3.** Collapsed, the nav peeks open on hover: within 16px of the column
+  (or over it) a copy of the open nav slides out over the content, 100ms in, 200ms out
+  (V3 waits 500ms), otherwise V3's code. Two adaptations for the EHS shell: clicking a link in the copy
+  navigates AND slides the copy back (the nav was only borrowed for the click), and the edge
+  chevron on the copy docks the real nav open in its place. `?state=peek` opens it on load.
+
 ## Changelog · 2026-10-13 (V3 wears V4's skin)
 
 - **V3: no divider lines between side-nav sections** (the section headers keep their lead), and
@@ -435,6 +458,7 @@ review-pill toggles (Logo / Loc / Tabs where tabs exist).
 |---|---|---|
 | V1 | `v1-launcher-tabs.html` | The reference shell: full-width top bar with the waffle launcher, location picker top-right |
 | V4 | `v4-design-system.html` | The design system shell as EHS ships it: real `vwc-topnav` + `vwc-app-switcher-menu` + `vwc-user-menu`, EHS's sidebar (250px, Open Sans, 3px active bar, round edge chevron to collapse); Convergence's five tabs with the V3b side navs; location top-right; no peek, no search, no accent bar |
+| V5 | `v5-tenant-brand.html` | V4 with the tenant brand: the customer colour on `vwc-topnav`’s own top bar (one token, `--vwc-topnav-border-color`) and the customer logo in the side-nav slot, or the shipped default (design system blue + an upload placeholder). `?brand=off`, `?brand=<hex>` |
 | V3 | `v3-app-rail.html` | The product switcher is a persistent FULL-HEIGHT app rail beside the side nav (Dashboard on top, launcher at the bottom split into your vs other platforms); the location picker sits in the side nav. Two toggleable variants: **a** = Learner + Admin tabs (learner list, filter side panels on My Training and Catalog, Reports section in Admin); **b** = Convergence's five tabs with Convergence's side navs. `?variant=a\|b`, `?view=<learner page>`, `?state=bothclosed` |
 
 ## Archived explorations
@@ -453,6 +477,7 @@ they are switches every version can show, not separate versions:
 | Customer logo, shown or hidden | `Logo` in the review pill | `?logo=off` |
 | Customer logo, top or bottom of the side nav | `Logo: top` / `Logo: bottom` in the pill | `?logopos=top\|bottom` |
 | Accent bar under the top nav, and its colour | `Bar` in the pill; colour swatches under "Top nav accent" in the profile menu | `?bar`, `?bar=<hex>` |
+| V5: the top-nav bar colour + customer logo, vs the shipped default | `Brand` in the pill | `?brand=off`, `?brand=<hex>` |
 
 The accent bar is one token and one class (`--brand-bar`, `body.tb-bar`), so setting a
 tenant's colour is a single custom-property write. The colour picker lives in the profile
@@ -644,6 +669,8 @@ navigation/
   index.html               gallery (live iframe thumbnails, rationale, links)
   v1-launcher-tabs.html    V1 · reference shell: waffle launcher in a full-width top bar
   v3-app-rail.html         V3 · full-height app rail beside the nav, location in the nav
+  v4-design-system.html    V4 · the design system shell EHS already ships
+  v5-tenant-brand.html     V5 · V4 with the tenant brand on the top-nav bar + customer logo
   archive/                 the original six-version exploration
   DESIGN-NOTES.md          this file
 ```
