@@ -10,8 +10,9 @@
 
   Views:
     · Agency Intelligence home — Dashboards tab (dense sortable/filterable/paginated
-      management table, plus a card view) and AI access tab (homepage Agency Intelligence
-      grants + a full audit log of every question answered)
+      management table, plus a card view), AI access tab (homepage Agency Intelligence
+      grants + a full audit log of every question answered) and AI groups tab (the one
+      place live-rule groups are created, edited, duplicated and deleted)
     · Build view — the two-pane dashboard canvas + Agency Intelligence, the docked
       text-only chat. Charts land on the canvas, never in the chat.
 
@@ -22,14 +23,17 @@
   Reskinned on Vector web components: vaadin-text-field for search and naming,
   vaadin-button throughout, vwc-paginator for the table pager,
   vwc-sortable-header for column sorting, vaadin-dialog for the publish and
-  export flows, vwc-toggle-button-group for the view/mode switches.
+  export flows, vwc-toggle-button-group for the view/mode switches. The publish
+  dialog's audience tabs are the Vector "Selection List" design pattern:
+  vaadin-grid + vaadin-grid-selection-column on the left, a vwc-drawer with a
+  vwc-headline on the right itemising the selection.
 -->
 
 <link rel="stylesheet" href="styles.css">
 
 <!-- Vector Web Components — core + themes + Open Sans + Font Awesome -->
-<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.5.1/core.iife.js"></script>
-<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.1.1/styles.js"></script>
+<script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+<script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
 <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
 
@@ -818,7 +822,7 @@
     padding: 9px 12px; border-radius: 10px; font-size: 12px; line-height: 1.45;
     background: var(--amber-50); border: 1px solid var(--amber-400); color: var(--ink-800);
   }
-  .au-editing span { flex: 1; }
+  .au-editing-text { flex: 1; }
 
   /* Job-title cards */
   .au-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -1012,10 +1016,61 @@
   .au-sched b { display: block; font-size: 13px; }
   .au-sched span span { display: block; font-size: 11px; color: var(--ink-500); }
   .au-foot {
-    display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 14px;
-    border-top: 1px solid var(--ink-100);
+    display: flex; align-items: center; gap: 10px; margin-top: 16px; padding-top: 6px;
   }
   .au-sum { flex: 1; font-size: 12.5px; color: var(--ink-600); }
+
+  /* ---- Selection List (Vector design pattern) ----
+     Each audience tab is a vaadin-grid with a selection column on the left and
+     a vwc-drawer on the right that itemises the selection. The drawer rides
+     the `relative-drawer` theme so it stays inside this box rather than the
+     viewport, and flips to an overlay below its breakpoint. Heights are fixed
+     because the grid virtualises — it needs a box to fill. */
+  .au-tabbody--list { min-height: 0; max-height: none; overflow: visible; padding-right: 0; }
+  .au-sel {
+    height: min(440px, 52vh);
+    --vwc-drawer-offset-top: 0px; --vwc-drawer-width: fit-content;
+    border: 1px solid var(--ink-100); border-radius: 12px; overflow: hidden;
+    background: var(--surface-1);
+  }
+  .au-sel-content { height: 100%; position: relative; }
+  .au-grid { height: 100%; border: none; font-size: 13px; }
+  .au-cell-name { font-weight: 600; color: var(--ink-900); }
+  .au-cell-dim { color: var(--ink-500); }
+  .au-cell-num { font-family: var(--font-numeric); font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* "Show selection" only matters once the panel is hidden — mirrors the
+     pattern's external toggle, which disappears while the drawer is docked. */
+  .au-sel-open { position: absolute; bottom: 12px; right: 12px; box-shadow: var(--elev-2); }
+  .au-sel[open]:not([overlay]) .au-sel-open { display: none; }
+  .au-sel-open-pip { background: white; color: var(--teal-600); margin-left: 6px; }
+  .au-side {
+    width: 264px; height: 100%; background: var(--surface-1);
+    border-left: 1px solid var(--ink-100);
+  }
+  .au-side-head {
+    padding: 8px 10px 8px 14px; background: var(--surface-1);
+    box-shadow: var(--lumo-box-shadow-xs); position: relative; z-index: 1;
+  }
+  .au-side-icon { display: inline-flex; color: var(--teal-600); }
+  .au-side-list {
+    list-style: none; margin: 0; padding: 10px 12px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .au-side-item {
+    display: flex; align-items: center; gap: 6px; padding: 6px 4px 6px 10px;
+    border: 1px solid var(--lumo-contrast-20pct); border-radius: 8px;
+  }
+  .au-side-name { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-900); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .au-side-sub { display: block; font-size: 11px; color: var(--ink-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .au-side-empty { padding: 16px 8px; text-align: center; font-size: 12px; color: var(--ink-500); line-height: 1.5; }
+  /* The AI groups tab explains where groups come from and links there. */
+  .au-manage {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+    padding: 8px 12px; border-radius: 10px; font-size: 11.5px; line-height: 1.45;
+    background: var(--amber-50); border: 1px solid var(--amber-400); color: var(--ink-700);
+  }
+  .au-manage-text { flex: 1; }
+  .au-manage .au-link { white-space: nowrap; }
 
   /* ====================================================================
      DATA EXPLORER
@@ -1088,6 +1143,15 @@
     border-bottom: 1px solid var(--ink-100);
   }
   .cp-grant-row:last-child { border-bottom: none; }
+  /* AI groups tab — one row per saved live rule, same rhythm as a grant row. */
+  .cp-groups-panel { max-width: 1040px; }
+  .cp-group-mark {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    background: var(--amber-50); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cp-group-rule { font-size: 12px; color: var(--ink-600); margin-top: 2px; }
+  .cp-group-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
   .cp-ent-dots { display: inline-flex; gap: 3px; }
   .cp-ent-dots .d { width: 10px; height: 10px; border-radius: 3px; }
   .cp-log-row { padding: 12px 18px; border-bottom: 1px solid var(--ink-100); }
@@ -1116,6 +1180,7 @@
 <!-- Roster + rule engine must load before the audience dialog that uses it. -->
 <script src="agency-intel-roster.js"></script>
 <script src="agency-intel-audience.js"></script>
+<script src="agency-intel-groups.js"></script>
 <script src="agency-intel-export.js"></script>
 <script src="agency-intel-page.js"></script>
 
@@ -1144,11 +1209,14 @@
         { id: 'add-widget', name: 'Add widget dialog', step: 'Modal',
           desc: 'The Add-a-widget dialog over the builder.', x: 470, y: 470 },
         { id: 'publish', name: 'Publish / Manage delivery', step: 'Modal',
-          desc: 'The audience dialog opened by Publish / Manage delivery / Edit schedule.', x: 880, y: 470 }
+          desc: 'The audience dialog opened by Publish / Manage delivery / Edit schedule. Each tab is a Selection List; AI groups are picked here, never built here.', x: 880, y: 470 },
+        { id: 'home-groups', name: 'Home — AI groups', step: 'Home · AI groups',
+          desc: 'The AI groups tab — the one place live-rule groups are created, edited, duplicated and deleted. "Manage groups" in the publish dialog lands here.', x: 60, y: 820 }
       ],
       edges: [
         ['home', 'build'], ['build', 'build-preview'], ['build-preview', 'build-report'],
-        ['home', 'home-ai'], ['build', 'add-widget'], ['build', 'publish']
+        ['home', 'home-ai'], ['home', 'home-groups'], ['build', 'add-widget'], ['build', 'publish'],
+        ['publish', 'home-groups']
       ]
     }
   };

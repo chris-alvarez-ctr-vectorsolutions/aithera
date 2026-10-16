@@ -605,6 +605,22 @@
     return g;
   }
 
+  // Remove a saved group. Dashboards that were published to it are the
+  // caller's problem (agency-intel-page.js strips the id from every audience
+  // before calling this) — the roster only owns the rule itself.
+  function deleteGroup(id) {
+    var ix = GROUPS.findIndex(function (g) { return g.id === id; });
+    if (ix === -1) return false;
+    GROUPS.splice(ix, 1);
+    return true;
+  }
+
+  // Every clause of a rule as one plain-language line, for list rows where
+  // the chips would be too tall: "Engineer · HazMat · Battalion B-2".
+  function ruleLine(g) {
+    return (g && g.clauses || []).map(clauseLabel).join(' · ');
+  }
+
   /* =====================================================================
      AUDIENCE RESOLUTION
      Titles report counts while groups resolve to people, so reach has to
@@ -644,6 +660,8 @@
     groupById: groupById,
     saveGroup: saveGroup,
     updateGroup: updateGroup,
+    deleteGroup: deleteGroup,
+    ruleLine: ruleLine,
     resolveAudience: resolveAudience,
     audienceCount: audienceCount,
     FIELD_LIST: FIELD_LIST

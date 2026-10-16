@@ -3,21 +3,33 @@
    agency-intel-audience.js — the "Who sees it live?" dialog.
 
    Two steps behind one dialog shell:
-     1. Audience — three ways to pick people:
-          • Job titles        — the 8 roles, as cards
+     1. Audience — three ways to pick people, each a Selection List:
+          • Job titles        — the 8 roles (v2, Future-functionality flag)
           • Named individuals — the full roster, searchable
-          • AI groups         — saved live rules, or build one by talking
-     2. Review  — cadence + format, then publish.
+          • AI groups         — saved live rules, pick only; groups are
+                                MADE on the home screen's AI groups tab
+                                (agency-intel-groups.js), and this tab
+                                links there
+     2. Review  — the itemised roster, cadence + format, then publish.
+
+   Every audience tab is the Vector "Selection List" design pattern: a
+   vaadin-grid with a selection column on the left and a vwc-drawer on
+   the right that itemises what is picked, each entry removable. Ticking
+   a row and removing it from the panel are the same state — the panel
+   is the one place the whole selection can be read without scrolling.
 
    Selections UNION across all three tabs and de-duplicate by person, so
    "all Captains plus the HazMat crew" is one audience, counted once.
 
    All matching logic lives in agency-intel-roster.js; this file only
-   renders and wires. Two traps this file is written around:
+   renders and wires. Three traps this file is written around:
      • the dialog renders into a vaadin-dialog overlay outside #root, so
        every handler is delegated on the dialog body element;
-     • the chat input writes to state WITHOUT a re-render, or the caret
-       jumps mid-sentence.
+     • vaadin-grid is a component, not markup — its items, renderers and
+       selection are set in hydrate() after each paint, and a selection
+       change updates the side panel in place rather than repainting the
+       grid (a repaint would reset its scroll and drop the focused row);
+     • the search input filters the grid in place for the same reason.
    ===================================================================== */
 
 (function () {
@@ -27,9 +39,6 @@
   var CP = window.AGENCY_INTEL;
   var R = window.AGENCY_INTEL_ROSTER;
   var esc = KX.esc, attr = KX.attr, micon = KX.micon;
-
-  var NAME_CAP = 8;                       // names shown before "+ N more"
-  var CHIP_CAP = 12;                      // picked-name chips before "+ N more"
 
   var S = null;                           // per-open state
   var OPTS = null;                        // options passed to open()
@@ -53,265 +62,248 @@
     return esc(p.rank) + ' · ' + esc(p.stationName) + ' · ' + esc(p.grade);
   }
 
-  // The "n of m selected — Select all" strip that sits above a pick list.
-  // One toggle, not two buttons: once everything on offer is picked, the only
-  // useful next move is to drop it all again, so the same control flips to
-  // Clear. `hook` is the data-attribute the delegated click handler reads.
-  function bulkBar(countText, hook, allOn, selectLabel) {
-    return '<div class="au-bulk"><span>' + countText + '</span>' +
-      '<button class="au-link" ' + hook + '="' + (allOn ? 'clear' : 'all') + '">' +
-      micon(allOn ? 'remove_done' : 'done_all', { size: 15 }) + ' ' +
-      (allOn ? 'Clear all' : selectLabel) + '</button></div>';
+  /* ---------------------------------------------------------------- */
+  /* Selection List — one renderer for all three tabs                  */
+  /* ---------------------------------------------------------------- */
+
+  /* A tab is described by a spec; the markup and the grid wiring are
+     shared. `key` is the S[] array the tab reads and writes.
+
+       key        'titles' | 'individuals' | 'groups'
+       items      the full list, each with an `id`
+       columns    [{ header, render(item) -> html, width?, grow? }]
+       noun       'people' / 'job titles' / 'groups' — for the counts
+       searchable show the search box (and what it filters on)
+       haystack   (item) -> lowercase string the search matches
+       side(item) -> html for the item's row in the selection panel
+       above      optional html between the search box and the grid
+       empty      html when the full list is empty */
+
+  function visible(spec) {
+    var q = (S.search || '').trim().toLowerCase();
+    if (!q || !spec.searchable) return spec.items.slice();
+    return spec.items.filter(function (it) { return spec.haystack(it).indexOf(q) !== -1; });
   }
 
-  /* ---------------------------------------------------------------- */
-  /* Tab 1 — Job titles                                                */
-  /* ---------------------------------------------------------------- */
-
-  function titlesTab() {
-    var all = CP.JOB_TITLES || [];
-    return bulkBar(
-      S.titles.length + ' of ' + all.length + ' job titles selected',
-      'data-au-all-titles',
-      all.length > 0 && S.titles.length === all.length,
-      'Select all ' + all.length
-    ) +
-      '<div class="au-grid">' +
-      (CP.JOB_TITLES || []).map(function (t) {
-        var on = S.titles.indexOf(t.id) !== -1;
-        return '<button class="au-card' + (on ? ' is-on' : '') + '" data-au-title="' + attr(t.id) + '">' +
-          '<span class="au-check">' + (on ? micon('check', { size: 14 }) : '') + '</span>' +
-          '<span class="au-card-body">' +
-          '<span class="au-card-title">' + esc(t.label) + '</span>' +
-          '<span class="au-card-sub">' + t.count + ' people</span>' +
-          srcDots(t.entitlements) +
-          '</span></button>';
-      }).join('') + '</div>';
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Tab 2 — Named individuals                                         */
-  /* ---------------------------------------------------------------- */
-
-  // The roster rows the search is currently showing. Shared by the tab and by
-  // the bulk select/clear handler so the two can never disagree about what
-  // "all" means while a filter is typed in.
-  function visibleRoster() {
-    var q = S.search.trim().toLowerCase();
-    if (!q) return R.ROSTER.slice();
-    return R.ROSTER.filter(function (p) {
-      return (p.name + ' ' + p.rank + ' ' + p.stationName + ' ' + p.stationLabel + ' ' +
-        p.grade + ' ' + p.battalion).toLowerCase().indexOf(q) !== -1;
-    });
-  }
-
-  function individualsTab() {
-    var q = S.search.trim().toLowerCase();
-    var list = visibleRoster();
-
-    // Chips are capped: "Select all" can put 113 names in here, and an
-    // uncapped cloud pushes the list itself off the bottom of the dialog.
-    var picked = S.individuals;
-    var shown = S.showAllChips ? picked : picked.slice(0, CHIP_CAP);
-    var chips = picked.length
-      ? '<div class="au-chips">' + shown.map(function (id) {
-          var p = R.personById(id);
-          return p ? '<span class="au-chip">' + esc(p.name) +
-            '<button data-au-unpick="' + attr(id) + '" aria-label="Remove ' + attr(p.name) + '">' +
-            micon('close', { size: 13 }) + '</button></span>' : '';
-        }).join('') +
-        (picked.length > shown.length
-          ? '<button class="au-link" data-au-morechips="1">+ ' +
-            (picked.length - shown.length) + ' more</button>'
-          : picked.length > CHIP_CAP
-            ? '<button class="au-link" data-au-morechips="1">Show fewer</button>'
-            : '') +
-        '</div>'
-      : '';
-
-    // Select-all acts on what the search is currently showing, so "capt" then
-    // Select all reads as "everyone matching capt", not the whole roster.
-    var visSel = list.filter(function (p) {
-      return S.individuals.indexOf(p.id) !== -1;
-    }).length;
-    var allVisOn = list.length > 0 && visSel === list.length;
-    var bulk = list.length
-      ? bulkBar(
-          q ? visSel + ' of ' + list.length + ' matching selected'
-            : S.individuals.length + ' of ' + R.ROSTER.length + ' people selected',
-          'data-au-all-people',
-          allVisOn,
-          q ? 'Select all ' + list.length + ' matching' : 'Select all ' + list.length
-        )
-      : '';
-
-    return chips +
-      '<input class="au-search" id="auSearch" placeholder="Search 113 people — name, rank, station…" ' +
-      'value="' + attr(S.search) + '">' +
-      bulk +
-      '<div class="au-list">' +
-      (list.length
-        ? list.map(function (p) {
-            var on = S.individuals.indexOf(p.id) !== -1;
-            return '<button class="au-row' + (on ? ' is-on' : '') + '" data-au-person="' + attr(p.id) + '">' +
-              '<span class="au-check">' + (on ? micon('check', { size: 14 }) : '') + '</span>' +
-              '<span style="flex:1;min-width:0">' +
-              '<span class="au-row-name">' + esc(p.name) + '</span>' +
-              '<span class="au-row-sub">' + personLine(p) + '</span></span>' +
-              srcDots(p.entitlements) + '</button>';
-          }).join('')
-        : '<div class="au-empty">No one matches “' + esc(S.search) + '”.</div>') +
-      '</div>';
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Tab 3 — AI groups                                                 */
-  /* ---------------------------------------------------------------- */
-
-  function savedGroupsHtml() {
-    if (!R.GROUPS.length) return '';
-
-    // Once a conversation is under way the saved list collapses, so the
-    // chat, chips and count stay above the fold — that's the part the
-    // user is actually working in.
-    if (S.thread.length && !S.showSaved) {
-      return '<button class="au-saved-toggle" data-au-showsaved="1">' +
-        micon('expand_more', { size: 16 }) + ' ' + R.GROUPS.length + ' saved groups' +
-        (S.groups.length ? ' · ' + S.groups.length + ' selected' : '') + '</button>';
+  var SPECS = {
+    titles: function () {
+      return {
+        key: 'titles',
+        items: CP.JOB_TITLES || [],
+        noun: 'job titles',
+        searchable: false,
+        columns: [
+          { header: 'Job title', grow: 2, render: function (t) {
+            return '<span class="au-cell-name">' + esc(t.label) + '</span>';
+          } },
+          { header: 'People', width: '90px', render: function (t) {
+            return '<span class="au-cell-num">' + t.count + '</span>';
+          } },
+          { header: 'Entitlements', width: '232px', render: function (t) { return srcDots(t.entitlements); } }
+        ],
+        side: function (t) {
+          return '<span class="au-side-name">' + esc(t.label) + '</span>' +
+            '<span class="au-side-sub">Job title · ' + t.count + ' people</span>';
+        }
+      };
+    },
+    individuals: function () {
+      return {
+        key: 'individuals',
+        items: R.ROSTER,
+        noun: 'people',
+        searchable: true,
+        placeholder: 'Search ' + R.ROSTER.length + ' people — name, rank, station…',
+        haystack: function (p) {
+          return (p.name + ' ' + p.rank + ' ' + p.stationName + ' ' + p.stationLabel + ' ' +
+            p.grade + ' ' + p.battalion).toLowerCase();
+        },
+        columns: [
+          { header: 'Name', grow: 2, render: function (p) {
+            return '<span class="au-cell-name">' + esc(p.name) + '</span>';
+          } },
+          { header: 'Rank', width: '125px', render: function (p) { return esc(p.rank); } },
+          { header: 'Station', width: '135px', render: function (p) {
+            return esc(p.stationName) + ' <span class="au-cell-dim">· ' + esc(p.grade) + '</span>';
+          } },
+          // Five chips need ~215px; a flexible column wraps them to two lines.
+          { header: 'Entitlements', width: '232px', render: function (p) { return srcDots(p.entitlements); } }
+        ],
+        side: function (p) {
+          return '<span class="au-side-name">' + esc(p.name) + '</span>' +
+            '<span class="au-side-sub">' + personLine(p) + '</span>';
+        }
+      };
+    },
+    groups: function () {
+      return {
+        key: 'groups',
+        items: R.GROUPS,
+        noun: 'groups',
+        searchable: false,
+        // Groups are made elsewhere now — say so above the list, with the
+        // way there, so the person who came here to BUILD one isn't stuck.
+        above: '<div class="au-manage">' + micon('bolt', { size: 14, fill: 1 }) +
+          '<span class="au-manage-text">AI groups are live rules — people who match later receive this automatically. ' +
+          'Groups are created and edited on the home screen.</span>' +
+          '<button class="au-link" data-au-manage="1">Manage groups ' +
+          micon('arrow_outward', { size: 14 }) + '</button></div>',
+        empty: '<div class="au-empty">No saved groups yet. ' +
+          '<button class="au-link" data-au-manage="1">Create one on the AI groups tab</button></div>',
+        columns: [
+          { header: 'Group', grow: 2, render: function (g) {
+            return '<span class="au-cell-name">' + micon('auto_awesome', { size: 13, color: 'var(--amber-700)' }) +
+              ' ' + esc(g.name) + '</span>';
+          } },
+          { header: 'Rule', grow: 3, render: function (g) {
+            return '<span class="au-cell-dim">' + esc(R.ruleLine(g)) + '</span>';
+          } },
+          { header: 'People today', width: '110px', render: function (g) {
+            return '<span class="au-cell-num">' + R.evaluate(g).count + '</span>';
+          } }
+        ],
+        side: function (g) {
+          var n = R.evaluate(g).count;
+          return '<span class="au-side-name">' + esc(g.name) + '</span>' +
+            '<span class="au-side-sub">Live rule · ' + n + ' ' + (n === 1 ? 'person' : 'people') + ' today</span>';
+        }
+      };
     }
+  };
 
-    return '<div class="au-sec">Saved groups' +
-      (S.thread.length
-        ? '<button class="au-link" data-au-hidesaved="1" style="float:right;margin-top:-4px">Hide</button>'
-        : '') + '</div>' +
-      '<div class="au-saved">' + R.GROUPS.map(function (g) {
-        var on = S.groups.indexOf(g.id) !== -1;
-        var n = R.evaluate(g).count;
-        return '<button class="au-row' + (on ? ' is-on' : '') + '" data-au-group="' + attr(g.id) + '">' +
-          '<span class="au-check">' + (on ? micon('check', { size: 14 }) : '') + '</span>' +
-          '<span style="flex:1;min-width:0">' +
-          '<span class="au-row-name">' + micon('auto_awesome', { size: 13 }) + ' ' + esc(g.name) + '</span>' +
-          '<span class="au-row-sub">Live rule · re-evaluates nightly · ' + n + ' today</span></span>' +
-          '<span class="au-dup" data-au-edit="' + attr(g.id) + '" role="button" ' +
-          'title="Change this group\'s rule or name">Edit</span>' +
-          '<span class="au-dup" data-au-dup="' + attr(g.id) + '" role="button" ' +
-          'title="Start a new group from this one">Duplicate</span>' +
-          '</button>';
-      }).join('') + '</div>';
+  function currentSpec() { return SPECS[S.tab](); }
+
+  function sideRows(spec) {
+    var picked = S[spec.key];
+    if (!picked.length) {
+      return '<li class="au-side-empty">Nothing selected yet — tick a row to add it.</li>';
+    }
+    return picked.map(function (id) {
+      var it = spec.items.find(function (x) { return x.id === id; });
+      if (!it) return '';
+      return '<li class="au-side-item">' +
+        '<span style="flex:1;min-width:0">' + spec.side(it) + '</span>' +
+        '<vaadin-button theme="icon tertiary small" data-au-unpick="' + attr(id) + '" ' +
+        'aria-label="Remove">' + micon('close', { size: 15 }) + '</vaadin-button></li>';
+    }).join('');
   }
 
-  var STARTERS = [
-    'HazMat-certified engineers in B-2',
-    'New hires in their first year',
-    'Everyone at the Airport station on C shift'
-  ];
+  function sideCount(spec) {
+    return S[spec.key].length + ' of ' + spec.items.length + ' selected';
+  }
 
-  function chatHtml() {
-    var res = R.evaluate(S.rule, S.required);
-    var hasRule = (S.rule.clauses || []).length > 0;
+  function selectionListHtml(spec) {
+    if (!spec.items.length) return (spec.above || '') + (spec.empty || '<div class="au-empty">Nothing to choose from.</div>');
 
-    var thread = S.thread.map(function (m) {
-      if (m.role === 'user') return '<div class="au-msg au-msg--me"><span>' + esc(m.text) + '</span></div>';
-      return '<div class="au-msg"><span class="au-ai-mark">' + micon('auto_awesome', { size: 13 }) + '</span>' +
-        '<span class="au-bubble">' + esc(m.text) +
-        (m.choices
-          ? '<span class="au-choices">' + m.choices.map(function (c, i) {
-              return '<button data-au-choice="' + i + '">' + esc(c.label) + '</button>';
-            }).join('') + '</span>'
-          : '') +
-        (m.offerDrop
-          ? '<span class="au-choices"><button data-au-drop="1">Drop ' +
-            esc(R.clauseLabel(m.offerDrop)) + '</button></span>'
-          : '') +
-        '</span></div>';
+    var cols = spec.columns.map(function (c, i) {
+      return '<vaadin-grid-column header="' + attr(c.header) + '" data-au-col="' + i + '"' +
+        (c.width ? ' width="' + c.width + '" flex-grow="0"' : '') +
+        (c.grow ? ' flex-grow="' + c.grow + '"' : '') + '></vaadin-grid-column>';
     }).join('');
 
-    var starters = S.thread.length ? '' :
-      '<div class="au-starters">' + STARTERS.map(function (s) {
-        return '<button data-au-starter="' + attr(s) + '">' + micon('auto_awesome', { size: 12 }) +
-          ' ' + esc(s) + '</button>';
-      }).join('') + '</div>';
-
-    var chips = hasRule
-      ? '<div class="au-rule"><span class="au-rule-lbl">Rule</span>' +
-        (S.rule.clauses || []).map(function (c, i) {
-          return '<span class="au-chip' + (c.negate ? ' is-neg' : '') + '">' + esc(R.clauseLabel(c)) +
-            '<button data-au-declause="' + i + '" aria-label="Remove criterion">' +
-            micon('close', { size: 13 }) + '</button></span>';
-        }).join('') + '</div>'
-      : '';
-
-    var count = hasRule
-      ? '<div class="au-count' + (res.count ? '' : ' is-zero') + '">' +
-        micon(res.count ? 'check_circle' : 'error', { size: 15, fill: 1 }) +
-        '<span><b>' + res.count + '</b> ' + (res.count === 1 ? 'person' : 'people') + ' match</span>' +
-        (res.count
-          ? '<button class="au-link" data-au-names="1">' + (S.showNames ? 'hide' : 'show') + '</button>'
-          : '') +
-        (res.coverage.missing.length
-          ? '<span class="au-warn">' + micon('info', { size: 13, fill: 1 }) + ' ' +
-            res.coverage.missing.map(function (m) {
-              return m.count + ' missing ' + ((K.SOURCES && K.SOURCES[m.source]) ?
-                K.SOURCES[m.source].short : m.source);
-            }).join(' · ') + '</span>'
-          : '') +
-        '</div>' +
-        (S.showNames
-          ? '<div class="au-names">' + res.people.slice(0, NAME_CAP).map(function (p) {
-              return '<span>' + esc(p.name) + ' <i>' + personLine(p) + '</i></span>';
-            }).join('') +
-            (res.count > NAME_CAP
-              ? '<span class="au-more">+ ' + (res.count - NAME_CAP) + ' more</span>' : '') +
-            '</div>'
-          : '')
-      : '';
-
-    // Editing an existing group edits a LIVE RULE — every dashboard already
-    // published to it follows the change. Say so plainly, with the count,
-    // before the user commits.
-    var editing = S.editingId ? R.groupById(S.editingId) : null;
-    var used = (editing && OPTS && OPTS.groupUsage) ? OPTS.groupUsage(S.editingId) : 0;
-    var banner = editing
-      ? '<div class="au-editing">' + micon('edit', { size: 14, fill: 1 }) +
-        '<span>Editing <b>' + esc(editing.name) + '</b>' +
-        (used
-          ? ' — this rule is live on <b>' + used + '</b> other dashboard' + (used === 1 ? '' : 's') +
-            ', which will follow this change.'
-          : ' — not used by any other dashboard yet.') +
-        '</span><button class="au-link" data-au-canceledit="1">Cancel</button></div>'
-      : '';
-
-    var save = (hasRule && res.count)
-      ? '<div class="au-save">' +
-        '<input class="au-search" id="auGroupName" value="' +
-        attr(S.name || (editing ? editing.name : R.suggestName(S.rule))) + '">' +
-        (editing
-          ? '<vaadin-button theme="primary" id="auUpdateGroup">' + micon('check', { size: 16 }) +
-            '<span class="kx-btn-label">Save changes</span></vaadin-button>' +
-            '<vaadin-button theme="secondary" id="auSaveGroup">' +
-            '<span>Save as new</span></vaadin-button>'
-          : '<vaadin-button theme="primary" id="auSaveGroup">' + micon('bookmark_add', { size: 16 }) +
-            '<span class="kx-btn-label">Save &amp; use</span></vaadin-button>') +
-        '</div>'
-      : '';
-
-    return '<div class="au-sec">' +
-      (S.editingId ? 'Editing a group' : S.thread.length ? 'Building a group' : 'Describe a new group') +
-      '</div>' + banner +
-      '<div class="au-chat">' +
-      '<div class="au-thread" id="auThread">' +
-      (S.thread.length ? thread :
-        '<div class="au-hint">Describe who should see this — by rank, station, battalion, shift, ' +
-        'pay grade, tenure, certification, employment type or assignment.</div>') +
-      starters + '</div>' +
-      chips + count + save +
-      '<div class="au-input">' +
-      '<textarea id="auDraft" rows="1" placeholder="e.g. hazmat engineers in B-2, excluding probationary"></textarea>' +
-      '<button id="auSend" aria-label="Send">' + micon('arrow_upward', { size: 16 }) + '</button>' +
-      '</div></div>';
+    return (spec.searchable
+      ? '<input class="au-search" id="auSearch" placeholder="' + attr(spec.placeholder) + '" ' +
+        'value="' + attr(S.search) + '" aria-label="Search">'
+      : '') +
+      (spec.above || '') +
+      // The Selection List pattern: grid on the left, selection drawer on the
+      // right. `relative-drawer` keeps the drawer inside this box instead of
+      // the viewport; the breakpoint flips it to an overlay when the dialog
+      // is too narrow to show both side by side.
+      '<vwc-drawer class="au-sel" position="end" theme="no-padding relative-drawer" ' +
+      (S.sideOpen ? 'open ' : '') + 'overlay-breakpoint="600">' +
+      '<div slot="content" class="vwc-horizontal-container au-sel-content">' +
+      '<vaadin-grid id="auGrid" class="vwc-horizontal-container--child-grow au-grid" item-id-path="id" theme="compact">' +
+      '<vaadin-grid-selection-column auto-select></vaadin-grid-selection-column>' +
+      cols + '</vaadin-grid>' +
+      '<vaadin-button theme="primary small" class="au-sel-open" data-au-side="open" title="Show selection">' +
+      micon('left_panel_open', { size: 16 }) + '<span class="kx-btn-label">Selection</span>' +
+      '<span class="au-pip au-sel-open-pip" id="auSideBadge"' + (S[spec.key].length ? '' : ' hidden') + '>' +
+      S[spec.key].length + '</span></vaadin-button>' +
+      '</div>' +
+      '<div slot="drawer-content" class="vwc-vertical-container au-side">' +
+      '<vwc-headline heading-level="2" class="au-side-head vwc-vertical-container--sticky-header">' +
+      '<span slot="icon" class="au-side-icon">' + micon('checklist', { size: 20 }) + '</span>' +
+      '<span slot="header-text">Selection</span>' +
+      '<vaadin-button slot="header-end" theme="icon tertiary small" data-au-side="close" ' +
+      'aria-label="Hide selection" title="Hide selection">' + micon('arrow_forward', { size: 18 }) + '</vaadin-button>' +
+      '<span slot="subtext" id="auSideCount">' + sideCount(spec) + '</span>' +
+      '</vwc-headline>' +
+      '<ul class="au-side-list vwc-vertical-container--child-grow" id="auSideList">' + sideRows(spec) + '</ul>' +
+      '</div></vwc-drawer>';
   }
 
-  function groupsTab() { return savedGroupsHtml() + chatHtml(); }
+  /* After a selection change: refresh the parts that show the selection
+     without touching the grid. The grid already reflects it. */
+  function refreshSelection() {
+    if (!HOST) return;
+    var spec = currentSpec();
+    var list = HOST.querySelector('#auSideList');
+    if (list) list.innerHTML = sideRows(spec);
+    var count = HOST.querySelector('#auSideCount');
+    if (count) count.textContent = sideCount(spec);
+    var badge = HOST.querySelector('#auSideBadge');
+    if (badge) {
+      badge.textContent = S[spec.key].length;
+      if (S[spec.key].length) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', '');
+    }
+    // Tab pips + footer summary + the Review button's enabled state.
+    tabs().forEach(function (t) {
+      var btn = HOST.querySelector('[data-au-tab="' + t.id + '"]');
+      if (!btn) return;
+      var pip = btn.querySelector('.au-pip');
+      var n = S[t.id].length;
+      if (n && !pip) {
+        pip = document.createElement('span'); pip.className = 'au-pip'; btn.appendChild(pip);
+      }
+      if (pip) { if (n) pip.textContent = n; else pip.remove(); }
+    });
+    var sum = HOST.querySelector('.au-sum');
+    var n = reach().length;
+    if (sum) sum.innerHTML = summaryHtml(n);
+    var next = HOST.querySelector('#auNext');
+    if (next) { if (n) next.removeAttribute('disabled'); else next.setAttribute('disabled', ''); }
+  }
+
+  /* Wire the grid after a paint: items, column renderers, selection. */
+  function mountGrid() {
+    // The drawer's built-in close button is replaced by the headline's own
+    // hide action, so the panel header reads as one row. `closable` is a
+    // boolean property — an attribute of "false" would still count as present.
+    var drawer = HOST.querySelector('.au-sel');
+    if (drawer) drawer.closable = false;
+
+    var grid = HOST.querySelector('#auGrid');
+    if (!grid) return;
+    var spec = currentSpec();
+
+    spec.columns.forEach(function (c, i) {
+      var col = grid.querySelector('[data-au-col="' + i + '"]');
+      if (col) col.renderer = function (root, _col, model) { root.innerHTML = c.render(model.item); };
+    });
+
+    var vis = visible(spec);
+    grid.items = vis;
+    grid.selectedItems = vis.filter(function (it) { return S[spec.key].indexOf(it.id) !== -1; });
+
+    // The grid only knows the rows it is showing, so a change there replaces
+    // the VISIBLE part of the selection and keeps whatever the search is
+    // hiding — "capt", select all, then clear the search must not lose the
+    // Captains nor drop the Lieutenants picked before.
+    grid.addEventListener('selected-items-changed', function (e) {
+      var shown = {};
+      (grid.items || []).forEach(function (it) { shown[it.id] = true; });
+      var kept = S[spec.key].filter(function (id) { return !shown[id]; });
+      var picked = (e.detail.value || []).map(function (it) { return it.id; });
+      // Preserve the order people were picked in — the side panel lists in
+      // that order, and a re-sort on every tick would make it jump.
+      var next = S[spec.key].filter(function (id) { return picked.indexOf(id) !== -1 || !shown[id]; });
+      picked.forEach(function (id) { if (next.indexOf(id) === -1) next.push(id); });
+      kept.forEach(function (id) { if (next.indexOf(id) === -1) next.push(id); });
+      S[spec.key] = next;
+      refreshSelection();
+    });
+  }
 
   /* ---------------------------------------------------------------- */
   /* Step 2 — review                                                   */
@@ -449,30 +441,30 @@
     return ALL_TABS.filter(function (t) { return !t.gated || CP.titlesEnabled(); });
   }
 
-  function bodyHtml() {
-    var n = reach().length;
-    var summary = n
+  function summaryHtml(n) {
+    return n
       ? 'Reaches <b>' + n + '</b> ' + (n === 1 ? 'person' : 'people')
       : 'No audience selected yet';
+  }
+
+  function bodyHtml() {
+    var n = reach().length;
 
     return (S.step === 'audience'
       ? '<div class="au-tabs">' + tabs().map(function (t) {
           var on = S.tab === t.id;
-          var count = t.id === 'titles' ? S.titles.length
-            : t.id === 'individuals' ? S.individuals.length : S.groups.length;
+          var count = S[t.id].length;
           return '<button data-au-tab="' + t.id + '" class="' + (on ? 'is-on' : '') + '">' +
             micon(t.icon, { size: 15 }) + ' ' + esc(t.label) +
             (count ? '<span class="au-pip">' + count + '</span>' : '') + '</button>';
         }).join('') + '</div>' +
         '<div class="au-promise">Everyone selected gets it on their homepage automatically — ' +
         'current and future.</div>' +
-        '<div class="au-tabbody">' +
-        (S.tab === 'groups' ? groupsTab() : S.tab === 'titles' ? titlesTab() : individualsTab()) +
-        '</div>'
+        '<div class="au-tabbody au-tabbody--list">' + selectionListHtml(currentSpec()) + '</div>'
       : '<div class="au-tabbody' + (CP.deliveryEnabled() ? '' : ' is-short') + '">' +
         reviewHtml() + '</div>') +
       '<div class="au-foot">' +
-      '<span class="au-sum">' + summary + '</span>' +
+      '<span class="au-sum">' + summaryHtml(n) + '</span>' +
       (S.step === 'review'
         ? '<button class="au-link" data-au-step="audience">' + micon('arrow_back', { size: 14 }) +
           ' Back</button>' +
@@ -492,8 +484,7 @@
   }
 
   function hydrate() {
-    var thread = HOST.querySelector('#auThread');
-    if (thread) thread.scrollTop = thread.scrollHeight;
+    mountGrid();
 
     var cad = HOST.querySelector('#auCadence');
     if (cad) {
@@ -511,40 +502,6 @@
         if (e.detail.value) S.format = e.detail.value;
       });
     }
-  }
-
-  /* ---------------------------------------------------------------- */
-  /* Conversation                                                      */
-  /* ---------------------------------------------------------------- */
-
-  function send(text) {
-    var t = (text || '').trim();
-    if (!t) return;
-    S.thread.push({ role: 'user', text: t });
-    var res = R.respond(t, S.rule);
-    S.rule = res.rule;
-    S.name = '';                                    // re-suggest a name
-    S.thread.push({ role: 'ai', text: res.text, choices: res.choices || null,
-      offerDrop: res.offerDrop || null });
-    S.showNames = false;
-    paint();
-  }
-
-  function applyChoice(ix) {
-    var last = null;
-    for (var i = S.thread.length - 1; i >= 0; i--) {
-      if (S.thread[i].choices) { last = S.thread[i]; break; }
-    }
-    if (!last) return;
-    var choice = last.choices[ix];
-    if (!choice) return;
-    S.rule = R.mergeClauses(S.rule, choice.clauses, 'only');
-    last.choices = null;                            // question answered
-    var res = R.evaluate(S.rule, S.required);
-    S.thread.push({ role: 'ai',
-      text: choice.label + ' — ' + res.count + ' ' + (res.count === 1 ? 'person' : 'people') + ' match.' });
-    S.name = '';
-    paint();
   }
 
   /* ---------------------------------------------------------------- */
@@ -583,17 +540,7 @@
       // the original audience. One less piece of state to keep honest.
       restoring: restoring,
       search: '',
-      thread: [], rule: { clauses: [] }, showNames: false, name: '', showSaved: false, editingId: null,
-      showAllChips: false,
-      // Sources this dashboard's widgets actually read — scopes the
-      // entitlement warning so it only fires on relevant gaps.
-      required: (function () {
-        var set = {};
-        (d.widgets || []).forEach(function (w) {
-          CP.widgetSources(w).forEach(function (s) { set[s] = true; });
-        });
-        return Object.keys(set);
-      })(),
+      sideOpen: true,                         // the selection drawer, per open
       cadence: (del || {}).cadence || CP.CADENCES[0].id,
       format: (del || {}).format || CP.REPORT_FORMATS[0].id,
       schedule: !!del
@@ -602,11 +549,12 @@
     DLG = KX.openDialog({
       title: 'Who sees it live?',
       // Kept short on purpose: the dialog overlay sizes to its widest child,
-      // and a long subtitle stretches it far past the 680px body.
+      // and a long subtitle stretches it past the body.
       subtitle: 'Put “' + d.name + '” in front of the right people.',
       icon: 'groups',
       accent: 'var(--teal-400)',
-      width: '680px',
+      // Wide enough for the grid and the selection panel side by side.
+      width: '1040px',
       body: '<div id="auHost"></div>',
       onMount: function (body, dlg) {
         HOST = body.querySelector('#auHost');
@@ -619,41 +567,25 @@
           var el;
 
           if ((el = e.target.closest('[data-au-tab]'))) {
-            S.tab = el.getAttribute('data-au-tab'); paint(); return;
+            S.tab = el.getAttribute('data-au-tab'); S.search = ''; paint(); return;
           }
           if ((el = e.target.closest('[data-au-step]'))) {
             S.step = el.getAttribute('data-au-step'); paint(); return;
           }
-          if ((el = e.target.closest('[data-au-title]'))) {
-            var tid = el.getAttribute('data-au-title');
-            var ti = S.titles.indexOf(tid);
-            if (ti === -1) S.titles.push(tid); else S.titles.splice(ti, 1);
-            paint(); return;
+          // Show / hide the selection panel. The drawer keeps its own open
+          // state; S.sideOpen just makes the choice survive a tab switch.
+          if ((el = e.target.closest('[data-au-side]'))) {
+            var drawer = HOST.querySelector('.au-sel');
+            S.sideOpen = el.getAttribute('data-au-side') === 'open';
+            if (drawer) drawer.open = S.sideOpen;
+            return;
           }
-          // Bulk select / clear — job titles.
-          if ((el = e.target.closest('[data-au-all-titles]'))) {
-            S.titles = el.getAttribute('data-au-all-titles') === 'clear'
-              ? []
-              : (CP.JOB_TITLES || []).map(function (t) { return t.id; });
-            paint(); return;
-          }
-          // Bulk select / clear — named individuals, scoped to the rows the
-          // search is currently showing.
-          if ((el = e.target.closest('[data-au-all-people]'))) {
-            var vis = visibleRoster().map(function (p) { return p.id; });
-            if (el.getAttribute('data-au-all-people') === 'clear') {
-              S.individuals = S.individuals.filter(function (x) {
-                return vis.indexOf(x) === -1;
-              });
-            } else {
-              vis.forEach(function (x) {
-                if (S.individuals.indexOf(x) === -1) S.individuals.push(x);
-              });
-            }
-            paint(); return;
-          }
-          if (e.target.closest('[data-au-morechips]')) {
-            S.showAllChips = !S.showAllChips; paint(); return;
+          // Hand-off to the AI groups tab on the home screen: close here,
+          // land there. The page decides what that means.
+          if (e.target.closest('[data-au-manage]')) {
+            dlg.opened = false;
+            if (OPTS.onManageGroups) OPTS.onManageGroups();
+            return;
           }
           /* Remove one audience entry from the review roster.
 
@@ -689,123 +621,21 @@
             }
             return;
           }
+          // Remove from the selection panel: untick it in the grid, which
+          // fires selected-items-changed and updates the panel from there.
+          // If the search is hiding the row, drop it from state directly.
           if ((el = e.target.closest('[data-au-unpick]'))) {
             var uid = el.getAttribute('data-au-unpick');
-            S.individuals = S.individuals.filter(function (x) { return x !== uid; });
-            paint(); return;
-          }
-          if ((el = e.target.closest('[data-au-person]'))) {
-            var pid = el.getAttribute('data-au-person');
-            var pi = S.individuals.indexOf(pid);
-            if (pi === -1) S.individuals.push(pid); else S.individuals.splice(pi, 1);
-            paint(); return;
-          }
-          // Edit a saved group in place — loads its rule into the chat.
-          if ((el = e.target.closest('[data-au-edit]'))) {
-            e.stopPropagation();
-            var eg = R.groupById(el.getAttribute('data-au-edit'));
-            if (eg) {
-              S.editingId = eg.id;
-              S.rule = { clauses: eg.clauses.map(function (c) { return Object.assign({}, c); }) };
-              S.name = eg.name;
-              S.showSaved = false;
-              S.thread = [{ role: 'ai', text: 'Editing “' + eg.name +
-                '”. Tell me what to change, or edit the criteria directly.' }];
-              paint();
+            var grid = HOST.querySelector('#auGrid');
+            var shownItem = grid && (grid.items || []).find(function (it) { return it.id === uid; });
+            if (grid && shownItem) {
+              grid.selectedItems = (grid.selectedItems || []).filter(function (it) { return it.id !== uid; });
+            } else {
+              var key = currentSpec().key;
+              S[key] = S[key].filter(function (x) { return x !== uid; });
+              refreshSelection();
             }
             return;
-          }
-          // "Duplicate & refine" sits inside the group row — check it first
-          // so it doesn't also toggle selection.
-          if ((el = e.target.closest('[data-au-dup]'))) {
-            e.stopPropagation();
-            var dg = R.groupById(el.getAttribute('data-au-dup'));
-            if (dg) {
-              S.rule = { clauses: dg.clauses.slice() };
-              S.name = dg.name + ' (copy)';
-              S.thread = [{ role: 'ai',
-                text: 'Started from “' + dg.name + '”. Tell me what to change.' }];
-              paint();
-            }
-            return;
-          }
-          if ((el = e.target.closest('[data-au-group]'))) {
-            var gid = el.getAttribute('data-au-group');
-            var gi = S.groups.indexOf(gid);
-            if (gi === -1) S.groups.push(gid); else S.groups.splice(gi, 1);
-            paint(); return;
-          }
-          if (e.target.closest('[data-au-canceledit]')) {
-            S.editingId = null; S.rule = { clauses: [] }; S.thread = []; S.name = '';
-            paint(); return;
-          }
-          if (e.target.closest('#auUpdateGroup')) {
-            var upName = HOST.querySelector('#auGroupName');
-            var updated = R.updateGroup(S.editingId,
-              (upName && upName.value.trim()) || null, S.rule.clauses);
-            if (updated) {
-              var others = OPTS.groupUsage ? OPTS.groupUsage(updated.id) : 0;
-              KX.pushToast({
-                title: 'Group updated',
-                body: updated.name + ' · ' + R.evaluate(updated).count + ' people today' +
-                  (others ? ' · ' + others + ' other dashboard' + (others === 1 ? '' : 's') + ' updated' : ''),
-                icon: 'edit', tone: 'success'
-              });
-              // Using the group here too is the common intent after editing.
-              if (S.groups.indexOf(updated.id) === -1) S.groups.push(updated.id);
-            }
-            S.editingId = null; S.rule = { clauses: [] }; S.thread = []; S.name = '';
-            S.showSaved = true;
-            paint(); return;
-          }
-          if (e.target.closest('[data-au-showsaved]')) { S.showSaved = true; paint(); return; }
-          if (e.target.closest('[data-au-hidesaved]')) { S.showSaved = false; paint(); return; }
-          if ((el = e.target.closest('[data-au-starter]'))) {
-            send(el.getAttribute('data-au-starter')); return;
-          }
-          if ((el = e.target.closest('[data-au-choice]'))) {
-            applyChoice(+el.getAttribute('data-au-choice')); return;
-          }
-          if (e.target.closest('[data-au-drop]')) {
-            var blame = null;
-            for (var i = S.thread.length - 1; i >= 0; i--) {
-              if (S.thread[i].offerDrop) { blame = S.thread[i]; break; }
-            }
-            if (blame) {
-              S.rule = { clauses: (S.rule.clauses || []).filter(function (c) {
-                return R.clauseLabel(c) !== R.clauseLabel(blame.offerDrop);
-              }) };
-              blame.offerDrop = null;
-              var rr = R.evaluate(S.rule, S.required);
-              S.thread.push({ role: 'ai', text: 'Dropped it — ' + rr.count + ' ' +
-                (rr.count === 1 ? 'person' : 'people') + ' match now.' });
-              paint();
-            }
-            return;
-          }
-          if ((el = e.target.closest('[data-au-declause]'))) {
-            var ci = +el.getAttribute('data-au-declause');
-            S.rule = { clauses: (S.rule.clauses || []).filter(function (_, j) { return j !== ci; }) };
-            S.name = '';
-            paint(); return;
-          }
-          if (e.target.closest('[data-au-names]')) { S.showNames = !S.showNames; paint(); return; }
-          if (e.target.closest('#auSend')) {
-            var ta = HOST.querySelector('#auDraft');
-            send(ta ? ta.value : ''); return;
-          }
-          if (e.target.closest('#auSaveGroup')) {
-            var nameEl = HOST.querySelector('#auGroupName');
-            var g = R.saveGroup((nameEl && nameEl.value.trim()) || R.suggestName(S.rule),
-              S.rule.clauses);
-            S.groups.push(g.id);
-            S.rule = { clauses: [] };
-            S.thread = [];
-            S.name = '';
-            S.editingId = null;
-            KX.pushToast({ title: 'Group saved', body: g.name + ' · ' + R.evaluate(g).count +
-              ' people today', icon: 'bookmark_added', tone: 'success' });
-            paint(); return;
           }
           if (e.target.closest('#auCancel')) { dlg.opened = false; return; }
           if (e.target.closest('#auNext')) {
@@ -814,9 +644,9 @@
           }
           if (e.target.closest('#auPublish')) {
             var ids = reach();
-            var live = ids.length > 0;
+            var isLive = ids.length > 0;
             opts.onPublish({
-              audience: live
+              audience: isLive
                 ? { titles: S.titles, individuals: S.individuals, groups: S.groups }
                 : null,
               delivery: S.schedule
@@ -828,27 +658,18 @@
           }
         });
 
-        // Search + chat draft: update state WITHOUT a re-render so the
-        // caret stays put. The list re-renders only for search.
+        // Search filters the grid IN PLACE — no repaint, so the caret stays
+        // put and the grid keeps its scroll. Selection survives because the
+        // grid is keyed on item id and the handler above keeps hidden picks.
         body.addEventListener('input', function (e) {
           if (e.target.id === 'auSearch') {
             S.search = e.target.value;
-            var scroll = HOST.querySelector('.au-list');
-            var top = scroll ? scroll.scrollTop : 0;
-            paint();
-            var f = HOST.querySelector('#auSearch');
-            if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); }
-            var s2 = HOST.querySelector('.au-list');
-            if (s2) s2.scrollTop = top;
-            return;
-          }
-          if (e.target.id === 'auGroupName') { S.name = e.target.value; return; }
-        });
-
-        body.addEventListener('keydown', function (e) {
-          if (e.target.id === 'auDraft' && e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            send(e.target.value);
+            var grid = HOST.querySelector('#auGrid');
+            if (!grid) return;
+            var spec = currentSpec();
+            var vis = visible(spec);
+            grid.items = vis;
+            grid.selectedItems = vis.filter(function (it) { return S[spec.key].indexOf(it.id) !== -1; });
           }
         });
 
