@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<!-- Scale Platform UI Functionality — V1: Employees Off / Misc relocation
+     (SCHED-25064, parent SCHED-24852).
+
+     Mobile-first CrewScheduler day view. The Employees Off + Misc column that is
+     pinned beside the roster today moves into ONE collapsible strip under the
+     sticky date row; "Open full list" moves it into a bottom-sheet drawer with
+     search. Also covers the smaller SCHED-25064 day-view items: quick-return
+     header + sticky date row, centered date navigation, end users never see
+     buttons they can't use, and the strip remembers its open/closed state.
+
+     PRESENTING: on a laptop/desktop the app renders inside a phone frame with a
+     brief beside it, so the link can be shown in Chrome and still read as a phone.
+     At phone width (≤520px) the frame and brief drop away and the app is full-bleed. -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- No maximum-scale: pinch-zoom stays available on phones (SCHED-25064 "add ability to zoom") -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scale Platform UI — V1 Employees Off & Misc</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 PRO — self-hosted, depth-relative (see repo CLAUDE.md) -->
+    <link
+    rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css"
+    />
+
+<style>
+  /* ══════════ TOKENS ══════════
+     Semantic colors come from the Vector theme (Lumo tokens). The two app-chrome
+     colors match the production Scheduling top bar. */
+  :root {
+    --app-bar: #16202b;            /* production Scheduling top bar */
+    --app-bar-ink: #e5e7eb;
+    --canvas: #f2f5f8;             /* page canvas behind cards */
+    --stage: #e3e8ee;              /* presentation backdrop around the phone */
+    --open-slot: var(--vwc-notification-color-10pct, #ffc7001a);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--lumo-font-family, 'Open Sans', sans-serif);
+    font-size: var(--lumo-font-size-m, 14px);
+    color: var(--lumo-body-text-color);
+    background: var(--stage);
+  }
+  button { font: inherit; }
+
+  /* ══════════ PRESENTATION STAGE ══════════
+     Desktop: brief on the left, phone on the right. Tablet: stacked.
+     Phone (≤520px): no frame, no brief — the app fills the screen. */
+  .stage { min-height: 100vh; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 28px 24px 96px; }
+  .brief { width: 330px; flex: none; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-l); box-shadow: var(--lumo-box-shadow-xs); padding: 22px 22px 18px; }
+  .device { width: 390px; height: min(844px, calc(100vh - 110px)); min-height: 560px; flex: none; background: #0d1117; border-radius: 46px; padding: 10px; box-shadow: var(--lumo-box-shadow-l); position: sticky; top: 28px; }
+  /* transform makes the screen the containing block for every absolutely/fixed
+     positioned layer (sheets, toasts), so they stay inside the phone */
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; background: var(--canvas); display: flex; flex-direction: column; transform: translateZ(0); }
+  .statusbar { height: 34px; flex: none; background: var(--app-bar); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 30px; font-size: 13px; font-weight: 600; }
+  .statusbar .sb-ic { display: flex; gap: 6px; font-size: 12px; }
+
+  @media (max-width: 899px) {
+    .stage { flex-direction: column; align-items: center; gap: 24px; }
+    .brief { width: 100%; max-width: 390px; order: 2; }
+    .device { position: static; }
+  }
+  @media (max-width: 520px) {
+    body { background: var(--canvas); }
+    .stage { display: block; padding: 0; min-height: 0; }
+    .brief { display: none; }
+    .device { width: 100%; height: 100vh; height: 100dvh; min-height: 0; border-radius: 0; padding: 0; box-shadow: none; background: none; }
+    .screen { border-radius: 0; }
+    .statusbar { display: none; }
+  }
+
+  /* ══════════ BRIEF (presenter notes beside the phone) ══════════ */
+  .kicker { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--lumo-primary-text-color); }
+  .brief h1 { font-size: 22px; line-height: 1.25; margin: 6px 0 8px; color: var(--lumo-header-text-color); }
+  .brief .lede { color: var(--lumo-secondary-text-color); line-height: 1.5; margin: 0 0 14px; }
+  .brief h2 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--lumo-secondary-text-color); margin: 16px 0 6px; }
+  .brief ul { margin: 0; padding-left: 18px; line-height: 1.5; }
+  .brief li { margin-bottom: 4px; }
+  .ev { display: grid; grid-template-columns: 46px 1fr; gap: 8px; align-items: center; margin-bottom: 6px; line-height: 1.35; }
+  .ev b { text-align: center; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); border-radius: var(--lumo-border-radius-s); padding: 3px 0; font-size: 12px; }
+  .brief .links a { display: inline-flex; align-items: center; gap: 6px; color: var(--lumo-primary-text-color); text-decoration: none; margin-right: 14px; font-weight: 600; }
+  .brief .links a:hover { text-decoration: underline; }
+  .viewas { display: flex; align-items: center; gap: 10px; }
+
+  /* ══════════ APP SHELL ══════════ */
+  .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; position: relative; }
+  /* Quick-return header: .top is sticky; JS slides it up by the header's height
+     as you scroll down (date row stays pinned) and pulls it back on scroll up. */
+  .top { position: sticky; top: 0; z-index: 20; }
+  .appbar { height: 52px; background: var(--app-bar); color: var(--app-bar-ink); display: flex; align-items: center; gap: 4px; padding: 0 6px; }
+  .appbar .ab-title { flex: 1; font-size: 16px; font-weight: 600; text-align: center; }
+  .ab-btn { width: 44px; height: 44px; border: 0; background: none; color: #cbd2da; font-size: 18px; border-radius: 50%; cursor: pointer; position: relative; }
+  .ab-btn:hover { color: #fff; }
+  .ab-badge { position: absolute; top: 6px; right: 5px; background: var(--lumo-error-color); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
+  .viewbar { background: var(--lumo-base-color); padding: 10px 12px 8px; display: flex; justify-content: center; border-bottom: 1px solid var(--lumo-contrast-10pct); }
+  /* Date row — centered on every device size (SCHED-25064) */
+  .daterow { background: var(--lumo-base-color); display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; padding: 4px 6px; border-bottom: 1px solid var(--lumo-contrast-10pct); box-shadow: 0 2px 6px -4px var(--lumo-contrast-40pct); }
+  .date-btn { height: 44px; border: 0; background: none; cursor: pointer; color: var(--lumo-primary-text-color); font-size: 16px; border-radius: var(--lumo-border-radius-m); }
+  .date-btn:hover { background: var(--lumo-primary-color-10pct); }
+  .date-mid { text-align: center; line-height: 1.2; }
+  .date-mid .d { font-weight: 700; font-size: 15px; }
+  .date-mid .s { font-size: 12px; color: var(--lumo-secondary-text-color); }
+
+  /* ══════════ OFF & MISC STRIP (the V1 change) ══════════ */
+  .strip { margin: 12px 12px 10px; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: var(--lumo-box-shadow-xs); overflow: hidden; }
+  .strip-hd { width: 100%; min-height: 52px; display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 0; background: none; cursor: pointer; text-align: left; }
+  .strip-hd:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
+  .strip-lbl { font-weight: 700; }
+  .strip-sep { color: var(--lumo-contrast-30pct); }
+  .strip-misc { color: var(--lumo-secondary-text-color); }
+  .stack { display: flex; }
+  .stack .av { margin-left: -8px; border: 2px solid var(--lumo-base-color); }
+  .stack .av:first-child { margin-left: 0; }
+  .strip-chev { margin-left: auto; color: var(--lumo-secondary-text-color); transition: transform .18s ease; }
+  .strip.open .strip-chev { transform: rotate(180deg); }
+  .strip-body { display: none; border-top: 1px solid var(--lumo-contrast-10pct); }
+  .strip.open .strip-body { display: block; }
+  .grp-hd { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 2px; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lumo-secondary-text-color); }
+  .strip-ft { display: flex; justify-content: flex-end; gap: 8px; padding: 8px 12px 12px; flex-wrap: wrap; }
+
+  /* people rows shared by the strip, the drawer and the roster */
+  .av { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--vwc-color-picton-blue-700, #2b81a3); }
+  .av.c1 { background: var(--vwc-color-ecstacy-700, #b1651f); }
+  .av.c2 { background: var(--vwc-color-vivid-violet-700, #7e398c); }
+  .av.c3 { background: var(--vwc-color-puerto-rico-700, #2b887c); }
+  .av.c4 { background: var(--vwc-color-cinnabar-700, #a43628); }
+  .prow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 6px 12px; }
+  .prow + .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
+  .prow .pm { flex: 1; min-width: 0; line-height: 1.3; }
+  .prow .pn { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .prow .ps { font-size: 12px; color: var(--lumo-secondary-text-color); }
+  .ic-misc { width: 30px; height: 30px; border-radius: 50%; flex: none; display: inline-flex; align-items: center; justify-content: center; background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); }
+
+  /* ══════════ NOTES ══════════ */
+  .note { margin: 0 12px 12px; display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; background: var(--vwc-notification-color-10pct, #ffc7001a); border: 1px solid var(--vwc-notification-color-50pct, #ffc70080); border-radius: var(--lumo-border-radius-m); line-height: 1.4; }
+  .note i { color: var(--vwc-notification-text-color, #a66900); margin-top: 2px; }
+
+  /* ══════════ ROSTER ══════════ */
+  .station-hd { display: flex; align-items: baseline; gap: 8px; padding: 6px 16px 6px; font-weight: 700; color: var(--lumo-header-text-color); }
+  .station-hd small { font-weight: 400; color: var(--lumo-secondary-text-color); }
+  .unit { margin: 0 12px 10px; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-m); box-shadow: var(--lumo-box-shadow-xs); overflow: hidden; }
+  .unit-hd { display: flex; align-items: center; gap: 8px; padding: 8px 4px 6px 12px; min-height: 48px; }
+  .unit-hd .un { font-weight: 700; font-size: 15px; }
+  .unit-hd .ut { font-size: 12px; color: var(--lumo-secondary-text-color); }
+  .unit-hd .grow { flex: 1; min-width: 0; line-height: 1.3; }
+  .unit .prow { border-top: 1px solid var(--lumo-contrast-5pct); }
+  .q { font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: var(--lumo-border-radius-s); background: var(--lumo-contrast-5pct); color: var(--lumo-secondary-text-color); white-space: nowrap; }
+  .prow.open { background: var(--open-slot); }
+  .prow.open .pn { color: var(--vwc-notification-text-color, #a66900); }
+  .ic-open { width: 30px; height: 30px; border-radius: 50%; flex: none; border: 2px dashed var(--vwc-notification-color, #ffc700); }
+  .me-tag { font-size: 11px; font-weight: 700; color: var(--lumo-primary-text-color); margin-left: 4px; }
+
+  /* End users never see controls they can't use (SCHED-25064) */
+  body.role-eu .admin-only { display: none !important; }
+
+  /* ══════════ BOTTOM SHEET (drawer) ══════════
+     Custom sheet rather than vwc-drawer: vwc-drawer anchors to the page, and in
+     presentation mode the sheet must stay inside the phone frame. Production
+     should use vwc-drawer position="bottom" overlay (see open questions). */
+  .scrim { position: absolute; inset: 0; background: rgba(15, 23, 34, .45); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 40; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 86%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 41; transform: translateY(102%); transition: transform .24s ease; display: flex; flex-direction: column; box-shadow: var(--lumo-box-shadow-xl); }
+  .sheet-open .scrim { opacity: 1; pointer-events: auto; }
+  .sheet-open .sheet { transform: none; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; }
+  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; }
+  .sheet-hd h2 { flex: 1; margin: 0; font-size: 17px; }
+  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .sheet-tools vaadin-text-field { width: 100%; }
+  .sheet-body { flex: 1; overflow-y: auto; border-top: 1px solid var(--lumo-contrast-10pct); }
+  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); }
+  .drow { border-bottom: 1px solid var(--lumo-contrast-5pct); }
+  .drow > button { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; padding: 0; }
+  .drow > button:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
+  .drow .chev { color: var(--lumo-tertiary-text-color); transition: transform .18s; }
+  .drow.open .chev { transform: rotate(90deg); }
+  .ddetail { display: none; padding: 2px 16px 14px 52px; line-height: 1.5; }
+  .drow.open .ddetail { display: block; }
+  .ddetail dl { display: grid; grid-template-columns: 82px 1fr; gap: 2px 8px; margin: 0 0 10px; }
+  .ddetail dt { color: var(--lumo-secondary-text-color); font-size: 12px; }
+  .ddetail dd { margin: 0; font-size: 13px; }
+  .ddetail .acts { display: flex; gap: 8px; }
+  .empty { padding: 28px 16px; text-align: center; color: var(--lumo-secondary-text-color); }
+
+  /* ══════════ TOAST ══════════ */
+  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 60; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- ── Brief: presenter notes shown beside the phone on wide screens ── -->
+  <aside class="brief" aria-label="About this version">
+    <div class="kicker">V1 · SCHED-25064</div>
+    <h1>Move Employees Off &amp; Misc out of the roster</h1>
+    <p class="lede">The Employees Off / Misc column no longer sits beside the roster. Who's off and misc shifts move into one strip under the date. Tap the strip to expand it, or open the full list in a drawer.</p>
+
+    <h2>View as</h2>
+    <div class="viewas">
+      <vwc-toggle-button-group id="roleToggle" selected="admin">
+        <vwc-toggle-button value="admin">Admin</vwc-toggle-button>
+        <vwc-toggle-button value="eu">End user</vwc-toggle-button>
+      </vwc-toggle-button-group>
+    </div>
+
+    <h2>Try it</h2>
+    <ul>
+      <li>Tap <b>Off today</b> to expand it in place. It stays open or closed the next time you visit.</li>
+      <li>Tap <b>Open full list</b> for the drawer, then search and tap a person.</li>
+      <li>Scroll the roster. The header slides away and the date row stays pinned.</li>
+      <li>Switch to <b>End user</b>. The ⋮ menus and Add buttons disappear.</li>
+    </ul>
+
+    <h2>Why</h2>
+    <div class="ev"><b>⅓</b><span>Width the pinned Off / Misc column takes on a phone today. On the "Now" view it leaves about half the screen blank.</span></div>
+    <div class="ev"><b>4/10</b><span>Admins went to the navigation menu first to add time off</span></div>
+    <div class="ev"><b>3/10</b><span>Admins failed "Add time off for staff"</span></div>
+
+    <h2>Also in this ticket</h2>
+    <ul>
+      <li>Sticky date row with a quick-return header</li>
+      <li>Date navigation centered on every screen size</li>
+      <li>Pinch-zoom left on</li>
+      <li>View state remembered between sessions</li>
+    </ul>
+
+    <h2>Links</h2>
+    <div class="links">
+      <a href="https://lmsportal.atlassian.net/browse/SCHED-25064" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25064</a>
+      <a href="https://lmsportal.atlassian.net/wiki/spaces/UXR/pages/29476749374/Scheduling+Mobile+Usability+Test+Findings+and+Recommendations" target="_blank" rel="noopener"><i class="fa-solid fa-flask"></i>Research</a>
+    </div>
+  </aside>
+
+  <!-- ── Phone ── -->
+  <div class="device">
+    <div class="screen" id="screen">
+      <div class="statusbar" aria-hidden="true"><span>9:41</span><span class="sb-ic"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></span></div>
+
+      <div class="scroll" id="scroll">
+        <!-- Quick-return header + sticky date row -->
+        <div class="top" id="top">
+          <div id="hdr">
+            <div class="appbar">
+              <button class="ab-btn" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+              <span class="ab-title">CrewScheduler</span>
+              <button class="ab-btn" aria-label="Notifications, 3 unread"><i class="fa-solid fa-bell"></i><span class="ab-badge">3</span></button>
+              <button class="ab-btn admin-only" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+            </div>
+            <div class="viewbar">
+              <vwc-toggle-button-group id="rangeToggle" selected="day">
+                <vwc-toggle-button value="month">Month</vwc-toggle-button>
+                <vwc-toggle-button value="week">Week</vwc-toggle-button>
+                <vwc-toggle-button value="day">Day</vwc-toggle-button>
+              </vwc-toggle-button-group>
+            </div>
+          </div>
+          <div class="daterow">
+            <button class="date-btn" aria-label="Previous day" data-act="toast" data-msg="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
+            <div class="date-mid"><div class="d">Wed, Oct 16</div><div class="s">A Shift · Battalion 3</div></div>
+            <button class="date-btn" aria-label="Next day" data-act="toast" data-msg="Next day"><i class="fa-solid fa-chevron-right"></i></button>
+          </div>
+        </div>
+
+        <!-- Off & Misc strip (replaces the pinned column) -->
+        <section class="strip" id="strip" aria-label="Employees off and misc shifts">
+          <button class="strip-hd" id="stripToggle" aria-expanded="false" aria-controls="stripBody">
+            <span class="stack" id="stripStack"></span>
+            <span><span class="strip-lbl" id="stripOffLbl"></span> <span class="strip-sep">·</span> <span class="strip-misc" id="stripMiscLbl"></span></span>
+            <i class="fa-solid fa-chevron-down strip-chev"></i>
+          </button>
+          <div class="strip-body" id="stripBody"></div>
+        </section>
+
+        <div class="note"><i class="fa-solid fa-note-sticky"></i><div><b>Note:</b> Area familiarization at Ocean Beach, 08:00. Engine 31 and Truck 1 attend.</div></div>
+
+        <div id="roster"></div>
+        <div style="height:80px"></div>
+      </div>
+
+      <!-- Drawer: the full Off & Misc list -->
+      <div class="scrim" data-act="closeSheet"></div>
+      <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="grab"></div>
+        <div class="sheet-hd">
+          <h2 id="sheetTitle">Off &amp; Misc · Wed, Oct 16</h2>
+          <vaadin-button theme="icon" aria-label="Close" data-act="closeSheet"><i class="fa-solid fa-xmark"></i></vaadin-button>
+        </div>
+        <div class="sheet-tools">
+          <vwc-toggle-button-group id="sheetTabs" selected="off">
+            <vwc-toggle-button value="off">Employees off (4)</vwc-toggle-button>
+            <vwc-toggle-button value="misc">Misc (2)</vwc-toggle-button>
+          </vwc-toggle-button-group>
+          <vaadin-text-field id="sheetSearch" theme="outlined" placeholder="Search name, unit or reason" clear-button-visible>
+            <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
+          </vaadin-text-field>
+        </div>
+        <div class="sheet-body" id="sheetBody"></div>
+        <div class="sheet-ft admin-only">
+          <vaadin-button theme="secondary" data-act="toast" data-msg="Opens Add misc shift">Add misc</vaadin-button>
+          <vaadin-button theme="primary" data-act="toast" data-msg="Opens Add time off">Add time off</vaadin-button>
+        </div>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ══════════ MOCK DATA ══════════ */
+  const OFF = [
+    { p: 'Taylor Vance', c: 'c1', type: 'Vacation', time: 'All day', slot: 'Engine 1 · FF', cover: 'Covered by Sam Okafor', by: 'Capt. Rafael Diaz' },
+    { p: 'Rosa King', c: 'c2', type: 'Sick', time: 'All day', slot: 'Medic 3 · PM', cover: 'Not covered. Open slot on Medic 3', open: true, by: 'Called in 05:42' },
+    { p: 'Jamal Moore', c: 'c3', type: 'Kelly day', time: 'All day', slot: 'Engine 5 · Eng', cover: 'Not covered. Open slot on Engine 5', open: true, by: 'Scheduled' },
+    { p: 'Priya Shah', c: 'c4', type: 'Comp time', time: '07:00 – 12:00', slot: 'Truck 1 · FF', cover: 'Partial. Chris Moreno until 19:00', by: 'BC Marcus Hale' }
+  ];
+  const MISC = [
+    { t: 'Hazmat refresher', who: 'Ben Carter, Mia Torres', time: '09:00 – 11:00', where: 'Station 5 training room', icon: 'fa-graduation-cap' },
+    { t: 'Light duty', who: 'Mike Ortiz', time: '08:00 – 16:00', where: 'Admin office', icon: 'fa-briefcase' }
+  ];
+  const STATIONS = [
+    { name: 'Station 1', units: [
+      { name: 'Engine 1', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Rafael Diaz', q: 'Capt' }, { p: 'Jordan Alvarez', q: 'Eng' }, { p: 'Sam Okafor', q: 'FF' }, { open: true, q: 'PM', need: 'Paramedic' }] },
+      { name: 'Truck 1', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Lena Park', q: 'Capt' }, { p: 'Dev Raman', q: 'Eng' }, { p: 'Chris Moreno', q: 'FF', part: '07:00 – 19:00' }, { open: true, q: 'FF', need: 'Firefighter', part: '19:00 – 07:00' }] },
+      { name: 'Medic 1', time: '07:00 – 19:00 · 12 hrs', rows: [{ p: 'Nina Brooks', q: 'PM' }, { p: 'Owen Tate', q: 'EMT' }] }
+    ] },
+    { name: 'Station 3', units: [
+      { name: 'Engine 31', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Grace Liu', q: 'Capt' }, { p: 'Ben Carter', q: 'Eng' }, { p: 'Alex Rivera', q: 'PM', me: true }, { p: 'Theo Grant', q: 'FF' }] },
+      { name: 'Medic 3', time: '19:00 – 07:00 · 12 hrs', rows: [{ open: true, q: 'PM', need: 'Paramedic' }, { p: 'Ivy Chen', q: 'EMT' }] }
+    ] },
+    { name: 'Station 5', units: [
+      { name: 'Engine 5', time: '07:00 – 07:00 · 24 hrs', rows: [{ p: 'Hugo Silva', q: 'Capt' }, { open: true, q: 'Eng', need: 'Engineer' }, { p: 'Mia Torres', q: 'FF' }, { p: 'Kai Nguyen', q: 'FF' }] },
+      { name: 'Rescue 5', time: '07:00 – 19:00 · 12 hrs', rows: [{ p: 'Zoe Adams', q: 'Capt' }, { p: 'Luis Romero', q: 'FF' }] }
+    ] }
+  ];
+
+  /* ══════════ HELPERS ══════════ */
+  const $ = (s, r = document) => r.querySelector(s);
+  const initials = n => n.split(' ').map(w => w[0]).join('').slice(0, 2);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  let toastTimer;
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  /* ══════════ STATE ══════════ */
+  const state = {
+    role: 'admin',
+    stripOpen: store.get('spui-v1-strip-open', false),   // remembered across sessions
+    tab: 'off',
+    query: '',
+    openRow: null
+  };
+
+  /* ══════════ RENDER: STRIP ══════════ */
+  function offRow(o) {
+    return `<div class="prow"><span class="av ${o.c}">${initials(o.p)}</span>
+      <div class="pm"><div class="pn">${esc(o.p)}</div><div class="ps">${esc(o.slot)} · ${esc(o.time)}</div></div>
+      <span theme="badge${o.type === 'Sick' ? ' error' : ''}">${esc(o.type)}</span></div>`;
+  }
+  function miscRow(m) {
+    return `<div class="prow"><span class="ic-misc"><i class="fa-solid ${m.icon}"></i></span>
+      <div class="pm"><div class="pn">${esc(m.t)}</div><div class="ps">${esc(m.who)} · ${esc(m.time)}</div></div></div>`;
+  }
+  function renderStrip() {
+    $('#stripStack').innerHTML = OFF.slice(0, 3).map(o => `<span class="av ${o.c}" aria-hidden="true">${initials(o.p)}</span>`).join('');
+    $('#stripOffLbl').textContent = `Off today · ${OFF.length}`;
+    $('#stripMiscLbl').textContent = `Misc · ${MISC.length}`;
+    $('#stripBody').innerHTML = `
+      <div class="grp-hd"><span>Employees off</span></div>
+      ${OFF.map(offRow).join('')}
+      <div class="grp-hd"><span>Misc</span></div>
+      ${MISC.map(miscRow).join('')}
+      <div class="strip-ft">
+        <vaadin-button theme="tertiary" class="admin-only" data-act="toast" data-msg="Opens Add time off"><i class="fa-solid fa-plus" slot="prefix"></i>Add time off</vaadin-button>
+        <vaadin-button theme="secondary" data-act="openSheet"><i class="fa-solid fa-up-right-and-down-left-from-center" slot="prefix"></i>Open full list</vaadin-button>
+      </div>`;
+    $('#strip').classList.toggle('open', state.stripOpen);
+    $('#stripToggle').setAttribute('aria-expanded', state.stripOpen);
+  }
+
+  /* ══════════ RENDER: ROSTER ══════════ */
+  function renderRoster() {
+    $('#roster').innerHTML = STATIONS.map(st => {
+      const open = st.units.reduce((n, u) => n + u.rows.filter(r => r.open).length, 0);
+      return `<div class="station-hd">${esc(st.name)} <small>${st.units.length} units${open ? ` · ${open} open` : ''}</small></div>` +
+        st.units.map(u => {
+          const filled = u.rows.filter(r => !r.open).length;
+          const short = filled < u.rows.length;
+          return `<article class="unit">
+            <div class="unit-hd">
+              <div class="grow"><div class="un">${esc(u.name)}</div><div class="ut">${esc(u.time)}</div></div>
+              <span theme="badge ${short ? 'error' : 'success'}" aria-label="${filled} of ${u.rows.length} staffed">${filled}/${u.rows.length}</span>
+              <vaadin-button theme="icon" class="admin-only" aria-label="${esc(u.name)} actions" data-act="toast" data-msg="${esc(u.name)}: add, move or notify"><i class="fa-solid fa-ellipsis-vertical"></i></vaadin-button>
+            </div>
+            ${u.rows.map(r => r.open
+              ? `<div class="prow open"><span class="ic-open" aria-hidden="true"></span>
+                   <div class="pm"><div class="pn">Open slot</div><div class="ps">Needs ${esc(r.need)}${r.part ? ' · ' + esc(r.part) : ''}</div></div>
+                   <span class="q">${esc(r.q)}</span>
+                   <vaadin-button theme="tertiary" class="admin-only" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Fill</vaadin-button></div>`
+              : `<div class="prow"><span class="av">${initials(r.p)}</span>
+                   <div class="pm"><div class="pn">${esc(r.p)}${r.me ? '<span class="me-tag">You</span>' : ''}</div>${r.part ? `<div class="ps">${esc(r.part)}</div>` : ''}</div>
+                   <span class="q">${esc(r.q)}</span></div>`
+            ).join('')}
+          </article>`;
+        }).join('');
+    }).join('');
+  }
+
+  /* ══════════ RENDER: DRAWER ══════════ */
+  function renderSheetTabs() {
+    const g = $('#sheetTabs');
+    g.setAttribute('selected', state.tab); g.selected = state.tab;
+  }
+  function renderSheet() {
+    const q = state.query.trim().toLowerCase();
+    let html = '';
+    if (state.tab === 'off') {
+      const list = OFF.filter(o => !q || [o.p, o.type, o.slot].join(' ').toLowerCase().includes(q));
+      html = list.map((o, i) => {
+        const id = 'off-' + OFF.indexOf(o);
+        return `<div class="drow${state.openRow === id ? ' open' : ''}">
+          <button data-act="row" data-id="${id}" aria-expanded="${state.openRow === id}">
+            <div class="prow"><span class="av ${o.c}">${initials(o.p)}</span>
+              <div class="pm"><div class="pn">${esc(o.p)}</div><div class="ps">${esc(o.slot)} · ${esc(o.time)}</div></div>
+              <span theme="badge${o.type === 'Sick' ? ' error' : ''}">${esc(o.type)}</span>
+              <i class="fa-solid fa-chevron-right chev"></i></div>
+          </button>
+          <div class="ddetail">
+            <dl><dt>Type</dt><dd>${esc(o.type)}, ${esc(o.time)}</dd>
+                <dt>Their slot</dt><dd>${esc(o.slot)}</dd>
+                <dt>Coverage</dt><dd${o.open ? ' style="color:var(--lumo-error-text-color)"' : ''}>${esc(o.cover)}</dd>
+                <dt>Logged by</dt><dd>${esc(o.by)}</dd></dl>
+            <div class="acts admin-only">
+              ${o.open ? `<vaadin-button theme="primary" data-act="toast" data-msg="Opens Fill shift for ${esc(o.slot)}">Fill slot</vaadin-button>` : ''}
+              <vaadin-button theme="secondary" data-act="toast" data-msg="Opens time off for ${esc(o.p)}">Edit time off</vaadin-button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    } else {
+      const list = MISC.filter(m => !q || [m.t, m.who, m.where].join(' ').toLowerCase().includes(q));
+      html = list.map(m => {
+        const id = 'misc-' + MISC.indexOf(m);
+        return `<div class="drow${state.openRow === id ? ' open' : ''}">
+          <button data-act="row" data-id="${id}" aria-expanded="${state.openRow === id}">
+            <div class="prow"><span class="ic-misc"><i class="fa-solid ${m.icon}"></i></span>
+              <div class="pm"><div class="pn">${esc(m.t)}</div><div class="ps">${esc(m.who)}</div></div>
+              <span class="ps">${esc(m.time)}</span><i class="fa-solid fa-chevron-right chev"></i></div>
+          </button>
+          <div class="ddetail">
+            <dl><dt>When</dt><dd>${esc(m.time)}</dd><dt>Where</dt><dd>${esc(m.where)}</dd><dt>Who</dt><dd>${esc(m.who)}</dd></dl>
+            <div class="acts admin-only"><vaadin-button theme="secondary" data-act="toast" data-msg="Opens misc shift">Edit</vaadin-button></div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    $('#sheetBody').innerHTML = html || `<div class="empty">No one matches “${esc(state.query)}”.</div>`;
+  }
+  function openSheet(tab) {
+    if (tab) state.tab = tab;
+    renderSheetTabs(); renderSheet();
+    $('#screen').classList.add('sheet-open');
+  }
+  function closeSheet() { $('#screen').classList.remove('sheet-open'); }
+
+  /* ══════════ ROLE ══════════ */
+  function setRole(r) {
+    state.role = r;
+    document.body.classList.toggle('role-eu', r === 'eu');
+    const g = $('#roleToggle'); g.setAttribute('selected', r); g.selected = r;
+  }
+
+  /* ══════════ EVENTS ══════════ */
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]');
+    if (!el) return;
+    const act = el.dataset.act;
+    if (act === 'toast') toast(el.dataset.msg);
+    if (act === 'openSheet') openSheet();
+    if (act === 'closeSheet') closeSheet();
+    if (act === 'row') { state.openRow = state.openRow === el.dataset.id ? null : el.dataset.id; renderSheet(); }
+  });
+  $('#stripToggle').addEventListener('click', () => {
+    state.stripOpen = !state.stripOpen;
+    store.set('spui-v1-strip-open', state.stripOpen);
+    renderStrip();
+  });
+  /* Toggle groups: react to the user's tap (not selection-change, which the
+     component also fires while upgrading and would undo flow-map deep links). */
+  function onToggleTap(groupSel, fn) {
+    $(groupSel).addEventListener('click', e => { const b = e.target.closest('vwc-toggle-button'); if (b) fn(b.getAttribute('value')); });
+  }
+  onToggleTap('#sheetTabs', v => { if (v === state.tab) return; state.tab = v; state.openRow = null; renderSheet(); });
+  $('#sheetSearch').addEventListener('value-changed', e => { state.query = e.detail.value || ''; renderSheet(); });
+  onToggleTap('#roleToggle', setRole);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+  /* Quick-return header: slide the header away on scroll down, pull it back on
+     scroll up. The date row (bottom of .top) always stays pinned. */
+  (function quickReturn() {
+    const sc = $('#scroll'), top = $('#top'), hdr = $('#hdr');
+    let last = 0, off = 0;
+    sc.addEventListener('scroll', () => {
+      const y = sc.scrollTop, d = y - last; last = y;
+      off = y <= 0 ? 0 : Math.min(0, Math.max(-hdr.offsetHeight, off - d));
+      top.style.top = off + 'px';
+    }, { passive: true });
+  })();
+
+  renderStrip(); renderRoster();
+</script>
+
+<!-- ── Design Toolbox: Flow Map ── -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    closeSheet(); setRole('admin'); state.openRow = null; state.query = '';
+    const f = document.querySelector('#sheetSearch'); if (f) f.value = '';
+    switch (id) {
+      case 'stripClosed': state.stripOpen = false; break;
+      case 'stripOpen': state.stripOpen = true; break;
+      case 'drawer': state.stripOpen = true; openSheet('off'); break;
+      case 'drawerDetail': state.stripOpen = true; state.openRow = 'off-1'; openSheet('off'); break;
+      case 'endUser': state.stripOpen = true; setRole('eu'); break;
+      default: break;
+    }
+    renderStrip();
+    if (!opts.instant) document.querySelector('#scroll').scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Scale Platform UI · V1 Employees Off & Misc — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1500, h: 440 },
+      flows: [
+        { id: 'main', name: 'Off & Misc strip → drawer', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1460, h: 400 }, labelXY: { x: 40, y: 40 } }
+      ],
+      nodes: [
+        { id: 'stripClosed', flow: 'main', entry: true, x: 60, y: 170, step: 'Entry', name: 'Day view, strip closed', state: 'stripClosed',
+          desc: 'Roster gets the full width. Who is off and misc shifts collapse into one strip under the date.' },
+        { id: 'stripOpen', flow: 'main', x: 340, y: 170, step: 'Step 2', name: 'Strip expanded', state: 'stripOpen',
+          desc: 'Expands in place. Open/closed is remembered next session.' },
+        { id: 'drawer', flow: 'main', x: 620, y: 170, step: 'Step 3', name: 'Full list drawer', state: 'drawer',
+          desc: 'Bottom sheet with Employees off / Misc tabs and search.' },
+        { id: 'drawerDetail', flow: 'main', x: 900, y: 170, step: 'Step 4', name: 'Person selected', state: 'drawerDetail',
+          desc: 'Selecting a search result shows coverage and admin actions (Fill slot, Edit).' },
+        { id: 'endUser', flow: 'main', x: 1180, y: 170, step: 'Variant', name: 'End-user view', state: 'endUser',
+          desc: 'Same screen with ⋮ menus, Fill and Add buttons hidden.' }
+      ],
+      edges: [
+        ['stripClosed', 'stripOpen'], ['stripOpen', 'drawer'], ['drawer', 'drawerDetail'], ['stripOpen', 'endUser']
+      ]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: comments + flow map (review tooling only; strip for production) -->
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
