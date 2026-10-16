@@ -420,6 +420,21 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 button.st { font-family: inherit; cursor: pointer; }
 button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 
+/* ── Selection bar + row actions (shared) ── */
+.sel-bar .hint { font-size: 12.5px; color: #555; }
+.sel-bar .hint.warn { color: var(--amber); }
+.rv-who { font-size: 12px; color: var(--muted); }
+.sel-bar .right { flex-wrap: wrap; min-width: 0; justify-content: flex-end; }
+.sel-bar .hint.warn { flex-basis: 100%; text-align: right; order: -1; }
+.sel-bar .right .btn.ghost { white-space: normal; height: auto; min-height: 28px; padding: 4px 10px; text-align: left; }
+.t-grid td:nth-child(2) { min-width: 150px; }
+@media (max-width: 768px) { .sel-bar .hint.warn { text-align: left; } .sel-bar .right { justify-content: flex-start; } }
+/* "Sign" status badge: rows waiting on you sign right from the Status column */
+button.st.sign { background: var(--tag-staff-bg); color: var(--tag-staff); border-color: #f1d39a; font-weight: 600; }
+button.st.sign:hover { background: #fbe4bb; border-color: #e7bd6a; }
+.row-act { width: 64px; text-align: center; }
+.row-act .lnk { font-size: 14px; }
+
 /* ── Answer once, sign once (shared by #3 / #4) ─────────────── */
 /* ── Review & sign ─────────────────────────────────────────── */
 .rv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 20px; max-width: 1180px; align-items: start; }
@@ -589,15 +604,7 @@ body.customizing .dcard::before {
 
 
 /* ── #4: forms waiting on the signed-in user ───────────────── */
-.you { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; color: var(--tag-staff); background: var(--tag-staff-bg); border-radius: 3px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
-.sel-bar .hint { font-size: 12.5px; color: #555; }
-.sel-bar .hint.warn { color: var(--amber); }
-.rv-who { font-size: 12px; color: var(--muted); }
-.sel-bar .right { flex-wrap: wrap; min-width: 0; justify-content: flex-end; }
-.sel-bar .hint.warn { flex-basis: 100%; text-align: right; order: -1; }
-.sel-bar .right .btn.ghost { white-space: normal; height: auto; min-height: 28px; padding: 4px 10px; text-align: left; }
-.t-grid td:nth-child(2) { min-width: 150px; }
-@media (max-width: 768px) { .sel-bar .hint.warn { text-align: left; } .sel-bar .right { justify-content: flex-start; } }
+
 
 /* ── Responsive (#3) ───────────────────────────────────────── */
 @media (max-width: 1280px) {
@@ -912,6 +919,7 @@ body.customizing .dcard::before {
       </div>
     </section>
 
+
   </main>
 </div>
 
@@ -957,9 +965,11 @@ function toast(msg) {
    Columns per the PRD: Student Name, Experience, Form Name, District
    (intermediary roles only), School, plus Status. Filters: Workflow, Grade,
    Segment, Experience, and search.
-   Bulk signing (FR-3): multi-select forms waiting on you, the SAME form only
-   (once you pick a row, other forms can't be checked), then answer the shared
-   questions once and sign once. */
+   Signing (FR-3), shared with every version via common/signflow.js:
+   · a row waiting on you shows a "Sign" status badge: sign that one form
+   · any row can be selected (Select all = the whole page); Sign & approve (n)
+     signs the selected forms waiting on you, one form at a time (PRD)
+   then answer the shared questions once and sign once. */
 /* ── Mock data: workflow form instances across experiences ─────────
    One instance = one student's copy of a workflow form, with its ordered
    signer list. Deterministic so screenshots and flow-map thumbnails match. */
@@ -1055,36 +1065,20 @@ function seedMine(list) {
 }
 
 
-// Only forms waiting on you get a checkbox; once one is checked, only the same form can join it
-function tCheckable(w) { return mine(w); }
-function tSelectable(w) {
-  const picked = INST.find(x => tSel.has(x.id));
-  return !picked || picked.form === w.form;
-}
-// Header "select all": the workflow already picked, or the Workflow filter, or the only form in view
-function tAllScope(rows) {
-  const picked = INST.find(x => tSel.has(x.id));
-  const f = picked ? picked.form : $('#tForm').value || (new Set(rows.map(w => w.form)).size === 1 ? rows[0]?.form : '');
-  return f ? rows.filter(w => w.form === f) : null;
-}
-function tBulkBar(sel) {
-  return `<span class="hint">${esc(wfForm(sel[0].form).name)}</span>
-    <button class="btn sm" onclick="goSign()"><i class="fa-regular fa-signature"></i> Sign &amp; approve (${sel.length})</button>`;
-}
 const T_DEFAULT_FILTER = 'all';
 /* ── Workflow Tracking list (shared by #3–4, #5–6, #7) ──────────
    Manage › Forms › Workflow Tracking: every workflow form across experiences.
    Columns per VPATH-16031 #4: Student Name, Experience, Form Name,
    District (intermediary roles only), School — plus Status.
+   It is ONE table across all versions; a version only adds its own extras.
+   Every row can be selected (Select all = every row on the page). Signing is
+   shared too (common/signflow.js): rows waiting on you show a "Sign" status
+   badge, and Sign & approve (n) in the selection bar signs several forms.
    Hooks a version can define BEFORE this runs:
-     T_STATUS_CARDS    extra summary cards, e.g. ['sched', 'Scheduled', '#8e63ce']
      T_DEFAULT_FILTER  starting status card
-     T_NO_SELECT       true = no checkbox column
-     tCheckable(w)     does the row get a checkbox at all?
-     tSelectable(w)    can this row be checked right now?
-     tAllScope(rows)   rows the header checkbox selects (null = disabled)
-     tBulkBar(rows)    HTML for the selection bar's right side
-     openWorkflow(id)  row click */
+     T_KEEP_UNSTARTED  #7 only: keep unstarted workflows (Start workflow status)
+     tExtraBulk(rows)  extra selection-bar actions (e.g. #7 Start workflows)
+     openWorkflow(id)  View link / name click */
 let INST = seedMine(buildInstances());
 // Statuses: Waiting for signatures · Signature sent · Sending out <date> (+ Start workflow in #7).
 // Unstarted workflows only matter to #7 (which starts them); elsewhere they're scheduled sends.
@@ -1093,13 +1087,10 @@ if (typeof T_KEEP_UNSTARTED === 'undefined') INST.filter(w => w.status === 'not'
 let tFilter = (typeof T_DEFAULT_FILTER !== 'undefined') ? T_DEFAULT_FILTER : 'all';
 let SHOW_DISTRICT = false;      // true only for intermediary roles
 const tSel = new Set();
-const canSelect = typeof T_NO_SELECT === 'undefined' || !T_NO_SELECT;
-const selectable = w => typeof tSelectable === 'function' ? tSelectable(w) : true;
-// Does this row get a checkbox at all? (e.g. only forms you could act on)
-const checkable = w => typeof tCheckable === 'function' ? tCheckable(w) : true;
 
 const T_CARDS = [
   ['all', 'All workflows', '#9aa3ad'],
+  ['mine', 'Waiting on you', 'var(--tag-staff)'],
   // #7 only: workflows nobody has started yet carry a "Start workflow" status
   ...(typeof T_KEEP_UNSTARTED !== 'undefined' ? [['not', 'Start workflow', '#8a939e']] : []),
   ['prog', 'Waiting for signatures', 'var(--blue)'],
@@ -1118,8 +1109,14 @@ function statusChip(w) {
   if (w.status === 'not') return '<span class="st not"><i class="fa-regular fa-play"></i> Start workflow</span>';   // #7 only
   return '';
 }
-// Status = the badge only (no extra copy underneath)
-function statusCell(w) { return statusChip(w) || '<span class="sub">—</span>'; }
+// Status column: the badge only. Two badges are also buttons:
+//   Sign            rows waiting on you: sign this one form right here
+//   Start workflow  #7, unstarted: opens Start now / schedule
+function statusCell(w) {
+  if (mine(w)) return `<button class="st sign" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`;
+  if (w.status === 'not' && typeof startDialog === 'function') return `<button class="st not" onclick="startDialog(['${w.id}'])" title="Start now or schedule"><i class="fa-regular fa-play"></i> Start workflow</button>`;
+  return statusChip(w) || '<span class="sub">—</span>';
+}
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
 function tRows() {
@@ -1138,46 +1135,45 @@ function renderSummary() {
 }
 function setTFilter(f) { tFilter = f; tSel.clear(); renderTracking(); }
 
-function allScope(rows) {
-  const ok = rows.filter(w => checkable(w) && selectable(w));
-  return typeof tAllScope === 'function' ? tAllScope(ok) : ok;
-}
 function renderTracking() {
   renderSummary();
-  const rows = tRows(), cols = 6 + (canSelect ? 1 : 0) + (SHOW_DISTRICT ? 1 : 0);
-  const scope = canSelect ? allScope(rows) : null;
-  $('#tHead').innerHTML = `${canSelect ? `<th class="cb"><input type="checkbox" id="tAll" onchange="tToggleAll(this.checked)" aria-label="Select all"
-      ${scope && scope.length ? '' : 'disabled title="Filter to one workflow, or pick a row first, to select all"'}></th>` : ''}
+  const rows = tRows(), cols = 7 + (SHOW_DISTRICT ? 1 : 0);
+  $('#tHead').innerHTML = `<th class="cb"><input type="checkbox" id="tAll" onchange="tToggleAll(this.checked)" aria-label="Select all"></th>
     <th>Student Name</th><th>Experience</th><th>Form Name</th>${SHOW_DISTRICT ? '<th>District</th>' : ''}<th>School</th><th>Status</th><th></th>`;
   $('#tShowing').textContent = `Showing ${rows.length} of ${INST.length}`;
   $('#tBody').innerHTML = rows.length ? rows.map(w => {
-    const on = tSel.has(w.id), box = checkable(w), can = on || (box && selectable(w));
-    return `<tr class="${on ? 'is-sel' : ''} ${canSelect && box && !can ? 'is-off' : ''}" data-id="${w.id}">
-      ${canSelect ? `<td class="cb">${box ? `<input type="checkbox" ${on ? 'checked' : ''} ${can ? '' : 'disabled'} onchange="tToggle('${w.id}', this.checked)" aria-label="Select ${esc(w.student)}">` : ''}</td>` : ''}
+    const on = tSel.has(w.id);
+    return `<tr class="${on ? 'is-sel' : ''}" data-id="${w.id}">
+      <td class="cb"><input type="checkbox" ${on ? 'checked' : ''} onchange="tToggle('${w.id}', this.checked)" aria-label="Select ${esc(w.student)}"></td>
       <td><a class="lnk" onclick="openWorkflow('${w.id}')">${esc(w.student)}</a><div class="sub">Grade ${w.grade}</div></td>
       <td>${esc(w.exp)}<div class="sub">${esc(w.seg)}</div></td>
       <td>${esc(wfForm(w.form).name)}</td>
       ${SHOW_DISTRICT ? `<td>${esc(w.district)}</td>` : ''}
       <td>${esc(w.school)}</td>
       <td>${statusCell(w)}</td>
-      <td class="row-act"><button class="kebab" onclick="openWorkflow('${w.id}')" aria-label="Open workflow"><i class="fa-solid fa-ellipsis-vertical"></i></button></td>
+      <td class="row-act"><a class="lnk" onclick="openWorkflow('${w.id}')">View</a></td>
     </tr>`; }).join('') : `<tr class="empty"><td colspan="${cols}">No workflows match these filters.</td></tr>`;
-  if (canSelect) {
-    const all = $('#tAll'), sc = scope || [];
-    all.checked = sc.length > 0 && sc.every(w => tSel.has(w.id));
-    all.indeterminate = !all.checked && rows.some(w => tSel.has(w.id));
-  }
+  const all = $('#tAll');
+  all.checked = rows.length > 0 && rows.every(w => tSel.has(w.id));
+  all.indeterminate = !all.checked && rows.some(w => tSel.has(w.id));
   const bar = $('#tSelBar'), sel = INST.filter(w => tSel.has(w.id));
   bar.hidden = !sel.length;
   if (sel.length) bar.innerHTML = `<span class="cnt">${sel.length} selected</span><div class="right">
-    <button class="link-btn" onclick="tSel.clear();renderTracking()">Clear</button>${typeof tBulkBar === 'function' ? tBulkBar(sel) : ''}</div>`;
+    <button class="link-btn" onclick="tSel.clear();renderTracking()">Clear</button>${bulkBar(sel)}</div>`;
+}
+// Selection bar actions. Signing works on the selected forms waiting on you,
+// one form at a time (PRD); other selected rows are left alone.
+function bulkBar(sel) {
+  const ms = sel.filter(mine), forms = [...new Set(ms.map(w => w.form))];
+  let html = '';
+  if (forms.length === 1) html = `${ms.length < sel.length ? `<span class="hint">${ms.length} of ${sel.length} are waiting on you</span>` : ''}
+    <button class="btn sm" onclick="goSign()"><i class="fa-regular fa-signature"></i> Sign &amp; approve (${ms.length})</button>`;
+  else if (forms.length > 1) html = `<span class="hint warn"><i class="fa-solid fa-triangle-exclamation"></i> Forms are signed together only when they're the same form. Sign one form at a time:</span>
+    ${forms.map(f => `<button class="btn ghost sm" onclick="goSign(INST.filter(w => tSel.has(w.id) && mine(w) && w.form === '${f}').map(w => w.id))"><i class="fa-regular fa-signature"></i> ${esc(wfForm(f).name)} (${ms.filter(w => w.form === f).length})</button>`).join('')}`;
+  return html + (typeof tExtraBulk === 'function' ? tExtraBulk(sel) : '');
 }
 function tToggle(id, on) { on ? tSel.add(id) : tSel.delete(id); renderTracking(); }
-function tToggleAll(on) {
-  const sc = allScope(tRows()) || [];
-  if (on) sc.forEach(w => tSel.add(w.id)); else tRows().forEach(w => tSel.delete(w.id));
-  renderTracking();
-}
+function tToggleAll(on) { tRows().forEach(w => on ? tSel.add(w.id) : tSel.delete(w.id)); renderTracking(); }
 
 // Today's Workflow Forms tab, from the live screenshot
 function renderWfForms() {
@@ -1238,7 +1234,6 @@ function timelineItem(w, x) {
     ${stt}</li>`;
 }
 
-T_CARDS.splice(1, 0, ['mine', 'Waiting on you', 'var(--tag-staff)']);
 
 /* ── Dashboard approvals ─────────────────────────────────────── */
 const APPROVALS_DEFAULT = [
@@ -1394,6 +1389,11 @@ function openWorkflow(id) {
     </div>`);
 }
 
+/* ── Signing, shared by every version (#3–4, #5–6, #7) ─────────
+   It's one Workflow Tracking table, so signing works the same everywhere:
+   the "Sign" status badge on a row waiting on you signs that one form;
+   Sign & approve (n) in the selection bar signs several of the same form.
+   Change signing here and every version picks it up. */
 /* ── Sign & approve: answer once, sign once ──────────────────── */
 const Q2 = { f1: 'Supervisor has completed the district safety orientation', f2: 'Learning objectives were reviewed with the student',
   f3: 'Placement hours fit the student\'s class schedule', f4: 'Training plan matches the site\'s posted duties' };
@@ -1466,7 +1466,13 @@ function doSign() {
   setCrumbs([['Manage'], ['Forms', 'backToTracking()'], ['Signed']]);
   window.scrollTo(0, 0);
 }
-function backToTracking() { goTracking(); }
+// Back to the table: #3–4 has its own navigation helper; the others just show the Manage view
+function backToTracking() {
+  if (typeof goTracking === 'function') return goTracking();
+  showView('view-manage'); goTab('tracking'); renderTracking(); window.scrollTo(0, 0);
+}
+
+
 
 
 /* ── Navigation ──────────────────────────────────────────────── */
@@ -1516,6 +1522,7 @@ function applyFlowState(id, opts) {
       goTracking('mine'); pickTop(); goSign();
       $$('[name="q1"]')[0].checked = true; $$('[name="q2"]')[0].checked = true;
       $('#sigName').value = 'Mari Castree'; $('#attest').checked = true; doSign(); break;
+    case 'sign-one': goTracking('mine'); goSign([INST.find(mine).id]); break;
     default: goDashboard();
   }
   if (!opts.instant) window.scrollTo(0, 0);
@@ -1549,16 +1556,18 @@ window.TOOLBOX_CONFIG = {
       { id: 'intermediary', flow: 'sign', x: 340, y: 460, step: 'Role', name: 'Intermediary view', state: 'intermediary',
         desc: 'District column appears only for intermediary roles.' },
       { id: 'selected', flow: 'sign', x: 340, y: 300, step: '2', name: 'Multi-select (same form)', state: 'selected',
-        desc: 'After the first pick, other forms can\'t be checked. Select all works within one workflow.' },
+        desc: 'Any row can be selected; Sign & approve (n) signs the ones waiting on you (one form at a time).' },
       { id: 'drawer', flow: 'sign', x: 640, y: 460, step: 'Option', name: 'Workflow details', state: 'drawer',
         desc: 'Signer timeline; Sign & approve a single form.' },
+      { id: 'sign-one', flow: 'sign', x: 340, y: 160, step: 'Option', name: 'Sign one from the table', state: 'sign-one',
+        desc: 'The "Sign" status badge on a row waiting on you signs that form, no selecting needed.' },
       { id: 'review', flow: 'sign', x: 640, y: 300, step: '3', name: 'Answer once, sign once', state: 'review',
         desc: 'Shared questions once, one signature, applies to every listed student.' },
       { id: 'done', flow: 'sign', x: 940, y: 300, step: '4', name: 'Signed', state: 'done',
         desc: 'Workflows complete or move to their next signer; tile count drops.' },
     ],
     edges: [['dashboard', 'customize'], ['dashboard', 'mine'], ['mine', 'selected'], ['mine', 'all'], ['all', 'intermediary'],
-      ['mine', 'drawer'], ['selected', 'review'], ['drawer', 'review'], ['review', 'done']]
+      ['mine', 'drawer'], ['mine', 'sign-one'], ['sign-one', 'done'], ['selected', 'review'], ['drawer', 'review'], ['review', 'done']]
   }
 };
 
