@@ -2177,9 +2177,20 @@
     }
 
     if (isAdmin) {
-      out += '<a class="kx-pubhead-btn" href="agency-intelligence-dashboard.html" target="_blank" rel="noreferrer" ' +
-        'title="Open Agency Intelligence">' + micon('auto_awesome', { size: 14, fill: 1 }) +
-        '<span class="lbl">Agency Intelligence</span>' + micon('open_in_new', { size: 13 }) + '</a>';
+      // On a product default the link is PROMOTED: filled amber and worded as
+      // the action it enables, not the product it opens. "Agency Intelligence"
+      // is a name and says nothing about editability; an admin parked on a
+      // vendor default needs to be told the dashboard is not fixed. The
+      // destination is unchanged — it opens the canvas, where they can start
+      // blank or duplicate the default they are looking at. On an owned or
+      // received dashboard the link keeps its neutral pill and its name.
+      var build = !!cfg.vendor;
+      out += '<a class="kx-pubhead-btn' + (build ? ' is-build' : '') + '" ' +
+        'href="agency-intelligence-dashboard.html" target="_blank" rel="noreferrer" ' +
+        'title="' + (build ? 'Build your own dashboard in Agency Intelligence' : 'Open Agency Intelligence') + '">' +
+        micon('auto_awesome', { size: 14, fill: 1 }) +
+        '<span class="lbl">' + (build ? 'Build your own dashboard' : 'Agency Intelligence') + '</span>' +
+        micon('open_in_new', { size: 13 }) + '</a>';
     }
 
     return out + '</div>';
@@ -2202,9 +2213,11 @@
   }
 
   function dashBody(cfg, variant) {
+    // The Agency Intelligence rail is a page-level sibling now (hub.js render,
+    // hub-ai-panel.js), not a child of this card. It still needs to know whose
+    // dashboard it is beside, for the way into the builder.
     var AI = window.KXAIPanel;
-    var granted = AI && AI.hasAccess(VARIANT_ROLE[variant]);
-    if (granted) AI.setContext(VARIANT_ROLE[variant], cfg);
+    if (AI) AI.setContext(VARIANT_ROLE[variant], cfg);
 
     // Exactly the widgets the dashboard was built with. Chat used to be able to
     // append to this — it can't now, so there is no merge and no landing-zone
@@ -2219,10 +2232,13 @@
     // The modifier switches the grid onto the fixed row track. Without it the
     // grid keeps auto rows and nothing about the published look changes.
     var grid = '<div class="kx-pubgrid' + (sized ? ' kx-pubgrid--sized' : '') + '">' + cells + '</div>';
-    if (!granted) return grid;
 
-    return '<div class="kx-pubbody' + (AI.isExpanded() ? ' is-expanded' : '') + '">' +
-      AI.html() + grid + '</div>';
+    // .kx-pubbody marks a grid that shares the viewport with the open rail:
+    // index.html's narrowing rules (two-across below 1300px, and so on) key
+    // off it. With the rail folded to its ribbon the grid has the width it
+    // always had, so the wrapper goes and the full-width spans stay.
+    var beside = AI && AI.isOpen();
+    return beside ? '<div class="kx-pubbody">' + grid + '</div>' : grid;
   }
 
   /* ---------------------------------------------------------------------
@@ -2252,6 +2268,60 @@
   // who could revoke it either.
   function isUnshared(variant, cfg) {
     return unshared && !cfg.owned && !cfg.vendor;
+  }
+
+  /* ---------------------------------------------------------------------
+     "BUILD YOUR OWN" — the nudge on a product default
+     ---------------------------------------------------------------------
+     An admin lands on the vendor default for their highest-ranked product
+     (see DASH_SET / pdPickFromUrl) and nothing on the card says they can
+     replace it. The promoted header button (pdHeaderControls) and this note
+     are the two halves of one offer: the button is the control, the note is
+     the sentence that explains it.
+
+     Shown when ALL of: the viewer is an admin, the dashboard is a vendor
+     default, they have not built a dashboard of their own, and they have not
+     dismissed it. Two ways out, both deliberate:
+
+       · DISMISS — an admin who likes the default should not be nagged. The
+         choice persists per browser (localStorage), once, not per dashboard:
+         switching between the product defaults must not bring it back.
+       · RETIRE — once they own a dashboard the offer is moot and the note
+         goes without being asked.
+
+     "Owns a dashboard" is read from pdSavedDashboards(): the ones built on
+     the Agency Intelligence canvas in this browser. In production the test is
+     simply "owns any dashboard". The prototype's hand-authored B-1 Coverage
+     Snapshot is NOT counted, on purpose — it ships with the Chief so the
+     switcher has something to switch to, and counting it would make this
+     state unreachable without a scenario switch. As built, the whole loop is
+     demoable end to end: land on the default, see the note, build one on the
+     canvas, come back, note gone.
+     --------------------------------------------------------------------- */
+  var NUDGE_KEY = 'keystone.defaultNudgeDismissed';
+  function nudgeDismissed() {
+    try { return localStorage.getItem(NUDGE_KEY) === '1'; } catch (e) { return false; }
+  }
+  function dismissNudge() {
+    try { localStorage.setItem(NUDGE_KEY, '1'); } catch (e) {}
+  }
+  function showsDefaultNudge(variant, cfg) {
+    return variant === 'chief' && !!cfg.vendor && !pdSavedDashboards().length && !nudgeDismissed();
+  }
+  function defaultNudge(cfg) {
+    return '<div class="kx-defnudge" role="note">' +
+      '<span class="mark">' + micon('auto_awesome', { size: 15, fill: 1 }) + '</span>' +
+      '<span class="body">' +
+      // Names the product so the reader knows WHICH default this is, then says
+      // what building their own gets them — the widgets, the homepage — rather
+      // than describing the tool.
+      '<strong>This is the ' + esc(cfg.vendor) + ' default.</strong> ' +
+      'Build your own dashboard to choose the widgets on your homepage, or start from this one. ' +
+      '<a href="agency-intelligence-dashboard.html" target="_blank" rel="noreferrer">' +
+      'Open Agency Intelligence' + '</a>' +
+      '</span>' +
+      '<button class="kx-defnudge-x" data-defnudge-dismiss aria-label="Dismiss" ' +
+      'title="Keep the default and hide this note">' + micon('close', { size: 16 }) + '</button></div>';
   }
 
   /* What you land on depends on what you lost, and there are three cases —
@@ -2353,12 +2423,22 @@
       '<div class="kx-pubdash" data-pubdash="' + KX.attr(variant) + '">' +
       '<div class="kx-pubhead">' +
       '<span class="kx-pubmark">' + micon('dashboard_customize', { size: 18, fill: 1 }) + '</span>' +
-      '<div style="min-width:0;flex:1">' +
+      // A floor under the title block, not min-width:0: with the Agency
+      // Intelligence rail open the card is ~700px wide at a 1200px viewport,
+      // and a block allowed to shrink to nothing let the title pill run under
+      // the range control. At 300px the pill always fits and the control
+      // cluster wraps onto its own line below (.kx-pubhead wraps).
+      '<div style="min-width:min(100%,300px);flex:1">' +
       '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
       dashPicker(cfg, variant) + badge +
       '</div>' +
       '<div class="kx-pubmeta">' + meta + '</div></div>' +
       pdHeaderControls(cfg, variant) + '</div>' +
+
+      // The build-your-own note sits between the header and the grid: under
+      // the title that says "Default dashboard", above the widgets it is
+      // talking about. See showsDefaultNudge for when it appears.
+      (showsDefaultNudge(variant, cfg) ? defaultNudge(cfg) : '') +
 
       dashBody(cfg, variant) +
 
@@ -2419,6 +2499,11 @@
 
       if (e.target.closest('[data-unshared-dismiss]')) {
         unsharedDismissed = true;
+        window.KXHub.render();
+        return;
+      }
+      if (e.target.closest('[data-defnudge-dismiss]')) {
+        dismissNudge();
         window.KXHub.render();
         return;
       }

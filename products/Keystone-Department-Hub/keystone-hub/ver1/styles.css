@@ -763,50 +763,223 @@ summary::-webkit-details-marker { display: none; }
   box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.16);
 }
 
-.kx-aipanel {
-  width: 320px; flex-shrink: 0; align-self: stretch;
-  display: flex; flex-direction: column; min-height: 0;
-  background: var(--surface-1); border: 1px solid var(--ink-100);
-  border-radius: 14px; box-shadow: var(--elev-1); overflow: hidden;
-}
-@media (max-width: 980px) { .kx-aipanel { width: 100%; } }
+/* ======================================================================
+   AGENCY INTELLIGENCE — THE DOCKED DRAWER  (hub-ai-panel.js)
+   ----------------------------------------------------------------------
+   The docked preset of the shared AI chat component, built on the Vector
+   <vwc-drawer> (core v1.5.1): position="end", sidebar mode, so the page
+   sits in its content slot and reflows narrower beside a 400px panel. The
+   component owns the two-column layout, the sticky full-height column and
+   the collapse button; the rules here dress its parts and lay out the two
+   slots this hub fills.
 
-.kx-ai-collapsed {
-  width: 40px; flex-shrink: 0; align-self: stretch; cursor: pointer;
-  background: var(--surface-1); border: 1px solid var(--ink-100);
-  border-radius: 14px; box-shadow: var(--elev-1);
-  display: flex; flex-direction: column; align-items: center;
-  gap: 12px; padding: 12px 0;
+   TOKENS. The component's neutrals map onto the hub's ink scale (its
+   #D7DBE2 border is --ink-200, its #5E6978 caption is --ink-500, its
+   #EEF1F5 user bubble is --surface-3) and ONE accent token does everything
+   coloured: signifier, send button, focus ring, links, selected states.
+   The anatomy sheet's sector themes swap that one token; here it is the
+   hub's Agency Intelligence amber. Change --ai-accent and nothing else.
+   ====================================================================== */
+.kx-aidrawer, .kx-airib {
+  --ai-accent: var(--amber-600);
+  --ai-accent-tint: var(--amber-50);
+  --ai-accent-soft: var(--amber-200);
 }
-.kx-ai-collapsed .vlabel {
+.kx-aidrawer {
+  /* The hub has no topnav of its own (the product shell's sits outside the
+     iframe), so the drawer column starts at the top of the viewport. */
+  --vwc-drawer-offset-top: 0px;
+  --vwc-drawer-width: 400px;
+  flex: 1; min-width: 0;
+  font-size: 13px; line-height: 18px; color: var(--ink-900);
+}
+.kx-aidrawer::part(content-container) { min-width: 0; }
+.kx-aidrawer-page { min-width: 0; }
+/* The panel: white, one hairline on its left, no card shadow, and a flex
+   column so the header row stays put and the body below it fills the rest. */
+.kx-aidrawer::part(drawer-container) {
+  display: flex; flex-direction: column;
+  background: var(--surface-1); border-left: 1px solid var(--ink-200);
+  box-shadow: none; overflow: hidden;
+}
+/* The component's own collapse button — the docked window control. */
+.kx-aidrawer::part(collapse-button) {
+  margin: 6px 6px 0 0; width: 32px; height: 32px; min-width: 0;
+  color: var(--ink-600);
+}
+.kx-aidrawer .agency-intel-mark, .kx-airib .agency-intel-mark { box-shadow: none; }
+.kx-ai-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Collapsed: the ribbon, a sibling of .kx-main while the drawer is closed.
+   Same width as a header button row, the name up the edge, the chevron
+   pointing the way it opens. The whole ribbon is the button. */
+.kx-airib {
+  width: 44px; flex: none; align-self: flex-start;
+  position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column;
+  background: var(--surface-1); border-left: 1px solid var(--ink-200);
+}
+.kx-airib-open {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: 12px 0; border: none; background: transparent; cursor: pointer;
+  font-family: inherit; color: var(--ink-600);
+}
+.kx-airib-open:hover { background: var(--surface-2); }
+.kx-airib-open .vlabel {
   writing-mode: vertical-rl; transform: rotate(180deg);
-  font-size: 11px; font-weight: 700; letter-spacing: 0.8px; color: var(--ink-600);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.8px;
 }
-.kx-ai-collapsed .kx-ai-collapsed-chev { margin-top: auto; color: var(--ink-400); font-size: 13px; }
-@media (max-width: 980px) {
-  .kx-ai-collapsed { width: 100%; flex-direction: row; justify-content: center; padding: 10px 0; }
-  .kx-ai-collapsed .vlabel { writing-mode: horizontal-tb; transform: none; }
-  .kx-ai-collapsed .kx-ai-collapsed-chev { margin-top: 0; margin-left: auto; }
-}
+.kx-airib-open .fa-angles-left { margin-top: auto; color: var(--ink-400); font-size: 13px; }
 
+/* Header zone (drawer-header slot): signifier · name + scope · actions.
+   It shares the component's header row with the collapse button, which is
+   why the rule under the header lives on the body's top edge, not here. */
 .kx-ai-head {
-  display: flex; align-items: center; gap: 10px; padding: 11px 12px;
-  border-bottom: 1px solid var(--ink-100);
-  background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  padding: 10px 0 10px 12px;
 }
-/* Title only — the header used to carry a "Ask about <dashboard>" subtitle
-   under this, which read as if the assistant only knew about that one card.
-   Its .s rule went with it; nothing else in this header emits one. */
-.kx-ai-head .t { font-weight: 700; font-size: 14px; color: var(--ink-900); line-height: 1.15; }
+.kx-ai-ident { flex: 1; min-width: 0; }
+.kx-ai-ident .t { font-weight: 600; font-size: 14px; line-height: 18px; color: var(--ink-900); }
+.kx-ai-ident .s {
+  font-size: 12px; line-height: 16px; color: var(--ink-500);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kx-ai-actions { display: flex; align-items: center; gap: 2px; flex: none; }
 .kx-ai-iconbtn {
-  width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px; cursor: pointer;
-  border: none; background: transparent; color: var(--ink-500);
-  /* Font Awesome glyphs size off font-size, where the Material ones they
-     replaced carried their own inline size. */
-  font-size: 13px;
+  width: 28px; height: 28px; flex-shrink: 0; border-radius: 6px; cursor: pointer;
+  border: none; background: transparent; color: var(--ink-600);
+  /* Font Awesome glyphs size off font-size. */
+  font-size: 14px;
   display: inline-flex; align-items: center; justify-content: center;
 }
-.kx-ai-iconbtn:hover { background: var(--surface-3); color: var(--ink-800); }
+.kx-ai-iconbtn:hover { background: var(--surface-3); color: var(--ink-900); }
+.kx-ai-iconbtn:disabled { color: var(--ink-300); background: none; cursor: default; }
+.kx-ai-sep { width: 1px; height: 18px; background: var(--ink-100); margin: 0 3px; }
+
+/* The visible-focus reference for every control on the panel: 2px accent,
+   2px offset. */
+.kx-ai-iconbtn:focus-visible, .kx-ai-act:focus-visible, .kx-ai-prompt:focus-visible,
+.kx-ai-send:focus-visible, .kx-ai-retry:focus-visible, .kx-airib-open:focus-visible,
+.kx-ai-foot a:focus-visible { outline: 2px solid var(--ai-accent); outline-offset: 2px; }
+
+/* Body (drawer-content slot): conversation → composer → footer, filling the
+   panel below the header row. */
+.kx-ai-body {
+  flex: 1; min-height: 0; display: flex; flex-direction: column;
+  border-top: 1px solid var(--ink-100);
+}
+/* Conversation surface — the one zone that scrolls. */
+.kx-ai-surface {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: 12px 12px 4px; display: flex; flex-direction: column; gap: 12px;
+}
+/* Empty state: the invitation line, then the prompts as plain rows. */
+.kx-ai-invite { margin: 0; color: var(--ink-600); font-size: 12px; line-height: 16px; }
+.kx-ai-prompts { display: flex; flex-direction: column; gap: 6px; }
+.kx-ai-prompt {
+  text-align: left; padding: 6px 10px; border: 1px solid var(--ink-200); border-radius: 8px;
+  background: var(--surface-1); color: var(--ink-900); font-family: inherit;
+  font-size: 12px; line-height: 16px; cursor: pointer;
+}
+.kx-ai-prompt:hover { border-color: var(--ai-accent-soft); background: var(--ai-accent-tint); }
+
+/* User message: the only bubble in the thread. */
+.kx-ai-user { display: flex; justify-content: flex-end; }
+.kx-ai-user .bubble {
+  max-width: 85%; background: var(--surface-3); color: var(--ink-900);
+  border-radius: 12px 12px 3px 12px; padding: 8px 12px;
+}
+/* Working line: verb + object, muted, with a ring. */
+.kx-ai-working {
+  display: flex; align-items: center; gap: 8px; padding-left: 2px;
+  color: var(--ink-500); font-size: 12px; line-height: 16px;
+}
+.kx-ai-working .ring {
+  width: 16px; height: 16px; flex: none; border-radius: 50%;
+  border: 2.5px solid var(--ink-200); border-top-color: var(--ai-accent);
+  animation: kx-ai-spin 0.9s linear infinite;
+}
+@keyframes kx-ai-spin { to { transform: rotate(360deg); } }
+/* Agent message: avatar at 24, text flush, the response's slots stacked. */
+.kx-ai-turn { display: flex; gap: 10px; align-items: flex-start; }
+.kx-ai-turn .body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding-top: 3px; }
+.kx-ai-text { margin: 0; color: var(--ink-900); }
+.kx-ai-text strong { font-weight: 700; }
+.kx-ai-denied {
+  display: flex; align-items: flex-start; gap: 6px; font-size: 11px;
+  color: var(--lumo-error-text-color); line-height: 1.45;
+}
+.kx-ai-resp-actions { display: flex; align-items: center; gap: 2px; margin-left: -5px; }
+.kx-ai-resp-actions .kx-ai-sep { height: 14px; margin: 0 4px; }
+.kx-ai-act {
+  width: 26px; height: 26px; border-radius: 6px; border: none; background: none;
+  color: var(--ink-500); font-size: 13px; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.kx-ai-act:hover { background: var(--surface-3); color: var(--ink-900); }
+.kx-ai-act.is-on { color: var(--ai-accent); }
+.kx-ai-disclosure {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; line-height: 14px; color: var(--ink-500);
+}
+.kx-ai-error { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--ink-900); }
+.kx-ai-retry {
+  border: none; background: none; padding: 0; font: inherit; font-weight: 600;
+  color: var(--ai-accent); cursor: pointer;
+}
+.kx-ai-retry:hover { text-decoration: underline; }
+
+/* Composer: input and one send/stop button, no capability icons. */
+.kx-ai-composer { flex: none; border-top: 1px solid var(--ink-100); padding: 8px 12px 10px; }
+.kx-ai-input {
+  display: flex; align-items: flex-end; gap: 2px; padding: 4px;
+  border: 1px solid var(--ink-300); border-radius: 10px; background: var(--surface-1);
+}
+.kx-ai-input:focus-within { border-color: var(--ai-accent); box-shadow: 0 0 0 3px var(--ai-accent-tint); }
+.kx-ai-input textarea {
+  flex: 1; min-width: 0; resize: none; border: none; outline: none; background: transparent;
+  font-family: inherit; font-size: 13px; line-height: 18px; color: var(--ink-900);
+  /* One line at rest; grows with the draft to six lines, then scrolls. */
+  padding: 6px; min-height: 30px; max-height: 120px;
+}
+.kx-ai-input textarea::placeholder { color: var(--ink-400); }
+.kx-ai-send {
+  width: 30px; height: 30px; flex: none; border-radius: 7px; border: none;
+  background: var(--ink-200); color: var(--ink-500); cursor: default; font-size: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.kx-ai-send.is-ready, .kx-ai-send.is-stop { background: var(--ai-accent); color: #fff; cursor: pointer; }
+.kx-ai-send.is-stop { font-size: 11px; }
+
+/* Footer: privacy left, help right. */
+.kx-ai-foot {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 12px 10px; border-top: 1px solid var(--ink-100);
+  font-size: 11px; line-height: 14px; color: var(--ink-500);
+}
+.kx-ai-foot a { color: var(--ink-500); display: inline-flex; align-items: center; gap: 4px; }
+.kx-ai-foot a:hover { color: var(--ink-900); }
+
+/* The prototype FAB lives bottom-right; while the drawer is open that corner
+   is the composer, so the FAB steps left of the drawer. */
+body.kx-airail-open .kx-proto-fab { right: 424px; }
+
+/* Phones. The design makes every mode a bottom sheet on mobile; that is a
+   later pass. Until then the drawer starts closed and uses the component's
+   OVERLAY mode when opened (a modal dialog over the page, closed by its own
+   button or the backdrop), and the ribbon is a tab on the right edge rather
+   than a full-height column. */
+@media (max-width: 860px) {
+  .kx-airib {
+    position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+    height: auto; width: 40px; z-index: 300;
+    border: 1px solid var(--ink-200); border-right: none; border-radius: 10px 0 0 10px;
+    box-shadow: var(--elev-2);
+  }
+  .kx-airib-open { gap: 10px; padding: 10px 0; }
+  .kx-airib-open .fa-angles-left { margin-top: 0; }
+  body.kx-airail-open .kx-proto-fab { right: 24px; }
+}
 
 /* Dialog header close (KX.openDialog). Same plain-button-plus-Font-Awesome
    recipe as .kx-ai-iconbtn above — a vaadin-button theme="tertiary" underlines
@@ -824,100 +997,6 @@ summary::-webkit-details-marker { display: none; }
 .kx-dlg-close:hover { background: var(--surface-3); color: var(--ink-900); }
 .kx-dlg-close:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 1px; }
 
-/* Suggestion chips — a vertical stack, not a scrolling row: the compact panel
-   is now as tall as the widget row beside it, so there is vertical space to
-   spare and none to spend on a horizontal row without clipping a label. The
-   generous padding/gap here (vs. the old single-row chip's tighter sizing)
-   is deliberate: it is what soaks up that spare vertical space instead of
-   leaving it as dead space above the input, per Task 8's measured gap. */
-.kx-ai-chips {
-  display: flex; flex-direction: column; gap: 13px; padding: 18px 14px;
-}
-.kx-ai-chips-label {
-  font-size: 10px; font-weight: 700; letter-spacing: 1px;
-  text-transform: uppercase; color: var(--ink-400); padding: 0 2px; margin-bottom: 2px;
-}
-.kx-ai-chip {
-  width: 100%; text-align: left; padding: 9px 14px; border-radius: var(--radius-pill);
-  border: 1px solid var(--ink-200); background: var(--surface-1);
-  color: var(--ink-800); font-size: 11.5px; font-weight: 600;
-  cursor: pointer; font-family: inherit; white-space: nowrap;
-  overflow: hidden; text-overflow: ellipsis;
-}
-.kx-ai-chip:hover { border-color: var(--amber-400); background: var(--amber-50); }
-
-.kx-ai-input-wrap { border-top: 1px solid var(--ink-100); padding: 10px; background: var(--surface-2); margin-top: auto; }
-.kx-ai-input {
-  display: flex; align-items: flex-end; gap: 8px; background: var(--surface-1);
-  border: 1px solid var(--ink-200); border-radius: 12px; padding: 6px 7px 6px 12px;
-}
-.kx-ai-input:focus-within { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
-.kx-ai-input textarea {
-  flex: 1; resize: none; border: none; outline: none; background: transparent;
-  font-family: inherit; font-size: 12.5px; color: var(--ink-900);
-  /* min-height is a floor that never binds: rows="1" gives the textarea an
-     intrinsic auto-height of ~25.5px at this font-size/line-height, which is
-     already taller. Any value below ~25px here is inert — it is kept only as a
-     guard for a UA that would otherwise collapse the box. max-height IS the
-     binding one: it caps a long draft and hands overflow to the scrollbar. */
-  padding: 4px 0; min-height: 20px; max-height: 120px; line-height: 1.4;
-}
-.kx-ai-send {
-  width: 30px; height: 30px; border-radius: var(--radius-pill); border: none;
-  flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
-  background: var(--ink-200); color: var(--ink-500); cursor: default;
-}
-.kx-ai-send.is-ready { background: var(--ink-900); color: white; cursor: pointer; }
-.kx-ai-legal { font-size: 10px; color: var(--ink-400); margin-top: 6px; padding-left: 4px; line-height: 1.4; }
-
-.kx-ai-thread {
-  flex: 1; min-height: 0; overflow-y: auto; padding: 14px 12px;
-  display: flex; flex-direction: column; gap: 12px;
-}
-.kx-ai-user { display: flex; justify-content: flex-end; }
-.kx-ai-user .bubble {
-  max-width: 86%; padding: 7px 11px; border-radius: 13px 13px 4px 13px;
-  background: var(--ink-900); color: white; font-size: 12.5px; line-height: 1.45;
-}
-.kx-ai-turn { display: flex; gap: 8px; align-items: flex-start; }
-.kx-ai-turn .bubble {
-  background: var(--surface-2); border: 1px solid var(--ink-100);
-  border-radius: 13px 13px 13px 4px; padding: 8px 11px;
-  font-size: 12.5px; line-height: 1.5; color: var(--ink-700);
-}
-.kx-ai-denied {
-  display: flex; align-items: flex-start; gap: 6px; font-size: 11px;
-  color: var(--lumo-error-text-color); line-height: 1.45;
-}
-.kx-ai-dot {
-  width: 5px; height: 5px; border-radius: 99px; background: var(--ink-500);
-  display: inline-block; animation: kx-ai-bounce 1s ease-in-out infinite;
-}
-@keyframes kx-ai-bounce {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-3px); opacity: 1; }
-}
-
-/* The thread scrolls inside the panel rather than growing the dashboard.
-   .kx-ai-thread's overflow-y:auto needs a bounded ancestor to scroll inside;
-   without this cap the row's height just tracks the conversation. Capping the
-   PANEL and not .kx-pubbody deliberately leaves the widget grid free to be
-   taller — Task 4 adds a second widget row to it. */
-.kx-pubbody.is-expanded .kx-aipanel { max-height: 520px; }
-
-/* The hand-off out of a chat answer. Replaces .kx-ai-add / .kx-ai-added (a
-   button that dropped the answer straight onto the published grid) and the
-   .kx-ai-drop landing row that used to open up to receive it — the homepage
-   reads a dashboard, it does not compose one. Styled as a quiet link-button:
-   it leaves the page, so it must not look like it acts on the card. */
-.kx-ai-build {
-  display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
-  padding: 5px 10px; border-radius: 8px; cursor: pointer; font-family: inherit;
-  border: 1px solid var(--ink-200); background: var(--surface-1);
-  font-size: 11.5px; font-weight: 600; color: var(--ink-800); text-decoration: none;
-}
-.kx-ai-build:hover { border-color: var(--amber-400); background: var(--amber-50); }
-.kx-ai-build:focus-visible { outline: 2px solid var(--amber-400); outline-offset: 1px; }
 
 /* ======================================================================
    INTERACTIVE TABLE WIDGET  (KXCharts.tableWidget)

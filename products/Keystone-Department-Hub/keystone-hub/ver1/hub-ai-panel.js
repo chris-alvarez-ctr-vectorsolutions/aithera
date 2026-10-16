@@ -1,22 +1,63 @@
 /* global window, document, KEYSTONE, KX */
 /* ========================================================================
-   hub-ai-panel.js — Homepage Agency Intelligence, docked inside the
-   published-dashboard container.
+   hub-ai-panel.js — Agency Intelligence, docked to the right of the page.
    ------------------------------------------------------------------------
-   Chat on the left of .kx-pubdash, widgets on the right. Visible only to
-   roles the AI access tab has granted — the gate reads the same
+   The DOCKED preset of the shared AI chat component (the "Reusable AI Chat
+   Component" canvas: artboard 1, the anatomy sheet, and artboard 3, the
+   Standard docked panel). A 400px rail that is a SIBLING of the page
+   content and pushes it narrower — never a layer over it. Open on page load
+   for every role; the collapse control in its header folds it to a ribbon on
+   the right edge, and the ribbon reopens it.
+
+   Slots carried over from the anatomy sheet (component A), in its fixed
+   order. Anything not listed is OFF and leaves no gap:
+     Header        signifier · agent name · scope label · new conversation ·
+                   window controls (docked: collapse)
+     Conversation  empty state (invitation line + suggested prompts) ·
+                   user message · working line · agent message ·
+                   per-response actions (copy, add to dashboard, thumbs) ·
+                   disclosure line · error row with retry
+     Composer      text input (grows to six lines) · send / stop
+     Footer        privacy note · help link
+   Off: history, overflow menu, close, context strip, action card, rich
+   response, citations, confirmation, escalation, quick replies, capability
+   icons (attach / select / voice). CLOSE is off on purpose: the standalone
+   hub has no app bar to reopen from, so collapse is the one way out and the
+   ribbon the way back. Expand-to-embedded (the Builder's left column) is the
+   next step and is not here yet.
+
+   Who sees it: roles the AI access tab has granted. The gate reads the same
    seedGrants() the tab manages, so there is one source of truth and no
-   duplicated permission model.
+   duplicated permission model. An ungranted role gets the page exactly as it
+   was, with no drawer and no ribbon. The grants also shape what the
+   assistant will ANSWER — suggestions are filtered by the asker's
+   entitlements and a refused question says why.
+
+   The drawer itself is the Vector <vwc-drawer> (core v1.5.1, the build this
+   hub loads — read from the bundle, since that version predates the
+   published CONTEXT.md): position="end", sidebar mode so it PUSHES the page,
+   theme="no-padding", with the component's own collapse button as the
+   window control. This file supplies the drawer-header and drawer-content
+   slots and the ribbon the page shows while the drawer is closed; hub.js
+   wraps the page in it (see wrap()).
 
    Text answers only. A chart never renders in the thread; an answer that
-   resolves to a metric can be ADDED to the widget grid, which is the canvas
-   on this surface.
+   resolves to a metric can be taken INTO the builder, which is the canvas.
    ======================================================================== */
 
 (function () {
   'use strict';
 
   var K = window.KEYSTONE;
+  var esc = KX.esc, micon = KX.micon;
+
+  // roleId -> the AGENCY_INTEL.INDIVIDUALS entry for that role's person.
+  function personFor(roleId) {
+    var role = K.ROLES[roleId];
+    var CP = window.AGENCY_INTEL;
+    if (!role || !CP || !CP.INDIVIDUALS) return null;
+    return CP.INDIVIDUALS.find(function (p) { return p.id === role.selfId; }) || null;
+  }
 
   /* =====================================================================
      ACCESS GATE
@@ -41,14 +82,6 @@
     });
   }
 
-  // roleId -> the AGENCY_INTEL.INDIVIDUALS entry for that role's person.
-  function personFor(roleId) {
-    var role = K.ROLES[roleId];
-    var CP = window.AGENCY_INTEL;
-    if (!role || !CP || !CP.INDIVIDUALS) return null;
-    return CP.INDIVIDUALS.find(function (p) { return p.id === role.selfId; }) || null;
-  }
-
   function hasAccess(roleId) {
     var person = personFor(roleId);
     if (!person) return false;
@@ -57,77 +90,80 @@
     return ids(g.titles).indexOf(person.titleId) !== -1;
   }
 
-  var esc = KX.esc, micon = KX.micon;
-
   /* =====================================================================
      STATE — session only. No localStorage, so every reviewer opens the
-     same way.
+     same way: rail open on desktop, folded to the ribbon on a phone.
      ===================================================================== */
 
-  // NOT SCOPED PER DASHBOARD — deliberate, and a real limitation to carry into
-  // any implementation. state.thread is page-global, so granting the assistant
-  // to a second role — a pure seedGrants() data change, no code involved —
-  // would show that role the Chief's conversation. A production build must key
-  // the thread by dashboard identity.
-  //
-  // (This used to be the more serious of two leaks: chat-added widgets were
-  // page-global too, so they could render on a role's read-only dashboard.
-  // Adding from chat is gone, so only the thread remains.)
-  //
-  // The same applies to every other piece of module state in this file. The full
-  // list: state.draft, state.thinking, state.collapsed, the currentPerson /
-  // currentOwned pair below, and sendEpoch (the monotonic send id, near send())
-  // are all one-per-page, not one-per-dashboard. If you add module state here,
-  // add it to this list too.
-  //
-  // And setContext() is
-  // called only from the granted branch of dashBody(), so currentPerson /
-  // currentOwned are never reset when an ungranted role renders — they keep
-  // whatever the last granted role left behind. Harmless today because nothing
-  // reads them without a panel on screen, and left as-is by explicit ruling.
+  // NOT SCOPED PER DASHBOARD OR ROLE — deliberate, and a real limitation to
+  // carry into any implementation. state.thread is page-global, so switching
+  // roles in the prototype panel shows the next role the previous one's
+  // conversation. A production build must key the thread by user.
   var state = {
-    thread: [],      // { role:'user', text } | { role:'assistant', text, metricId, denied }
+    thread: [],      // { role:'user', text } | { role:'assistant', text, metricId, denied, deniedNote, error, vote, q }
     draft: '',
     thinking: false,
-    // Phones start with the panel collapsed: open, it is ~300px of prompts
-    // above the first widget and the task list lands two screens down.
-    // Initial state only; resizing later does not toggle it.
-    collapsed: !!(window.matchMedia && window.matchMedia('(max-width: 860px)').matches)
+    // Phones start folded: open, the rail would cover the whole page. Set
+    // from the phone media query below once the viewport has a real width.
+    open: true
   };
 
-  // A collapsed panel reports as not expanded, so the container returns to
-  // compact height with no extra bookkeeping in the hero.
-  function isExpanded() { return !state.collapsed && (state.thread.length > 0 || state.thinking); }
+  // "Is the drawer beside the page right now" — open AND granted to the
+  // role being drawn. dashBody() keys the grid's narrowing off this.
+  var currentRole = null;
+  function isOpen() { return state.open && hasAccess(currentRole); }
 
+  /* The initial open/folded state follows the phone media query, but NOT
+     at script load: inside the embedded product shells the hub's iframe is
+     display:none until its tab is chosen, and a hidden iframe reports a
+     0px viewport that matches "(max-width: 860px)". So the query is applied
+     on every change too, until the reader touches the control themselves —
+     after that it is their choice and the viewport stops deciding. */
+  var MQ_PHONE = window.matchMedia ? window.matchMedia('(max-width: 860px)') : null;
+  var userToggled = false;
+  function applyPhoneDefault(render) {
+    if (!MQ_PHONE || userToggled || window.innerWidth === 0) return;
+    var want = !MQ_PHONE.matches;
+    if (want === state.open) return;
+    state.open = want;
+    if (render && window.KXHub) window.KXHub.render();
+  }
+  applyPhoneDefault(false);
+  if (MQ_PHONE && MQ_PHONE.addEventListener) {
+    MQ_PHONE.addEventListener('change', function () { applyPhoneDefault(true); });
+  }
+
+  // The signifier: the three-sparkle mark in a filled rounded square. Three
+  // sizes on the anatomy sheet — entry 48 / header 28 / avatar 24 — with the
+  // radius stepping down alongside. Only the header and avatar sizes appear
+  // on this surface.
   function mark(size) {
     size = size || 28;
-    return '<span class="agency-intel-mark" style="width:' + size + 'px;height:' + size + 'px">' +
+    var radius = size <= 24 ? 7 : 8;
+    return '<span class="agency-intel-mark" role="img" aria-label="Agency Intelligence" ' +
+      'style="width:' + size + 'px;height:' + size + 'px;border-radius:' + radius + 'px">' +
       micon('auto_awesome', { size: Math.round(size * 0.56), fill: 1 }) + '</span>';
   }
 
-  // Set every render from the variant the hero is drawing, so respond() and the
+  // Set every render from the role the hub is drawing, so respond() and the
   // suggestion filter always use the right asker.
   var currentPerson = null;
-  // Whether the reader owns the dashboard they are looking at. It no longer
-  // gates an edit — nothing on this page edits a dashboard — but it still
-  // decides whether we offer the way INTO the builder, since someone reading a
-  // dashboard published to them has nothing there to edit. Matches the
-  // Agency Intelligence link in the card header, which is owner-only too.
+  // Whether the reader owns the dashboard they are looking at. Decides whether
+  // an answer offers the way INTO the builder: someone reading a dashboard
+  // published to them has nothing there to edit.
   var currentOwned = false;
   function setContext(roleId, cfg) {
+    currentRole = roleId;
     currentPerson = personFor(roleId);
     currentOwned = !!(cfg && cfg.owned);
   }
 
   /* =====================================================================
-     SUGGESTIONS
+     SUGGESTED PROMPTS (anatomy slot 9, the config half of the empty state)
      ---------------------------------------------------------------------
      Filtered by the asker's entitlements. The system knows what it will
-     refuse, so it must not suggest it — a hand-picked chip whose source app the
-     asker lacks would open the panel on a refusal. The filter is live rather
-     than hard-coded per role precisely because entitlements are data: the
-     Battalion Chief now holds all five sources, so all six chips qualify and the
-     slice(0, 3) decides; a Training Officer's pool shrinks to what they can see.
+     refuse, so it must not suggest it — a prompt whose source app the asker
+     lacks would open the thread on a refusal.
 
      Each entry's metricId MUST match what matchQuestion() in
      agency-intel-ai-data.js routes `q` to, or the filter lies. Verified:
@@ -140,12 +176,12 @@
      ===================================================================== */
 
   var SUGGESTION_POOL = [
-    { metricId: 'training_completion',    label: 'Training compliance',  q: 'Which stations are behind on training?' },
-    { metricId: 'overdue_inspections',    label: 'Overdue inspections',  q: 'Which inspections are overdue at Station 4?' },
-    { metricId: 'response_time',          label: 'Response time',        q: 'What’s our average response time this quarter?' },
-    { metricId: 'ceu_progress',           label: 'CEU progress',         q: 'CEU completion by station?' },
-    { metricId: 'credential_expirations', label: 'Credentials expiring', q: 'Whose paramedic cert expires in the next 60 days?' },
-    { metricId: 'open_shifts',            label: 'Open shifts',          q: 'Which shifts are open next week?' }
+    { metricId: 'training_completion',    q: 'Which stations are behind on training?' },
+    { metricId: 'overdue_inspections',    q: 'Which inspections are overdue at Station 4?' },
+    { metricId: 'response_time',          q: 'What’s our average response time this quarter?' },
+    { metricId: 'ceu_progress',           q: 'CEU completion by station?' },
+    { metricId: 'credential_expirations', q: 'Whose paramedic cert expires in the next 60 days?' },
+    { metricId: 'open_shifts',            q: 'Which shifts are open next week?' }
   ];
 
   function suggestionsFor(person) {
@@ -160,129 +196,205 @@
     }).slice(0, 3);
   }
 
-  function chipsHtml(person) {
-    var list = suggestionsFor(person);
-    if (!list.length) return '';
-    // Stacked, not a scrolling row: the compact panel is as tall as the widget
-    // row beside it, so there is vertical room to spare and none horizontally —
-    // a 320px row clipped the third chip.
-    return '<div class="kx-ai-chips">' +
-      '<div class="kx-ai-chips-label">Try asking</div>' +
-      list.map(function (s, i) {
-        return '<button class="kx-ai-chip" data-kx-ai-chip="' + i + '" ' +
-          'title="' + KX.attr(s.q) + '">' + esc(s.label) + '</button>';
-      }).join('') + '</div>';
+  /* =====================================================================
+     MARKUP — zones in the system's fixed order:
+     header → conversation → composer → footer
+     ===================================================================== */
+
+  function headerHtml() {
+    var hasThread = state.thread.length > 0 || state.thinking;
+    // Slotted into the drawer's header row. The component appends its own
+    // collapse button after this (closable, the default), which is the
+    // docked mode's window control — so none is drawn here.
+    return '<div slot="drawer-header" class="kx-ai-head">' + mark(28) +
+      '<div class="kx-ai-ident">' +
+      '<div class="t">Agency Intelligence</div>' +
+      // Scope label: one line, says what the agent can SEE, not what it can
+      // do. Ellipsizes; the full text sits in the tooltip.
+      '<div class="s" title="Your department’s data across Vector apps">Your department’s data across Vector apps</div>' +
+      '</div>' +
+      '<div class="kx-ai-actions">' +
+      // New conversation is first of the header actions whenever present.
+      // Disabled rather than hidden on an empty thread so the controls never
+      // shift sideways when the first message lands.
+      '<button class="kx-ai-iconbtn" id="kxAiNew" title="New conversation" ' +
+      'aria-label="New conversation"' + (hasThread ? '' : ' disabled') + '>' +
+      '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i></button>' +
+      '<span class="kx-ai-sep" aria-hidden="true"></span>' +
+      '</div></div>';
+  }
+
+  // The empty state. Two parts: the invitation line is a RULE — one sentence
+  // derived from the scope, so the surface is never blank — and the prompts
+  // are config. Replaced by the thread after the first message.
+  function emptyHtml() {
+    var list = suggestionsFor(currentPerson);
+    return '<div class="kx-ai-surface kx-ai-empty">' +
+      '<p class="kx-ai-invite">Ask about training, inspections, response times, ' +
+      'or what’s due across your department.</p>' +
+      (list.length
+        ? '<div class="kx-ai-prompts">' +
+          list.map(function (s, i) {
+            return '<button class="kx-ai-prompt" data-kx-ai-chip="' + i + '">' + esc(s.q) + '</button>';
+          }).join('') + '</div>'
+        : '') +
+      '</div>';
   }
 
   // Bold spans in the seeded answers arrive as **markdown**.
   function bubbleText(text) {
     return String(text).split('**').map(function (part, i) {
-      return i % 2
-        ? '<strong style="color:var(--ink-900)">' + esc(part) + '</strong>'
-        : esc(part);
+      return i % 2 ? '<strong>' + esc(part) + '</strong>' : esc(part);
     }).join('');
   }
 
-  function turnHtml(msg) {
+  // One per response, always: the disclosure line. The instance picks the
+  // level only; this surface uses the standard line, not the high-stakes band.
+  function disclosureHtml() {
+    return '<div class="kx-ai-disclosure">' +
+      '<i class="fa-regular fa-circle-info" aria-hidden="true"></i>' +
+      '<span>AI-generated · verify before use</span></div>';
+  }
+
+  // Per-response actions. Membership is config, ORDER is a rule:
+  // copy → insert into field → add to dashboard → regenerate → thumbs.
+  // Insert and regenerate are off here (no bound field; no model to re-run).
+  function actionsHtml(msg, idx) {
+    // The homepage is a VIEW of a published dashboard, never an editing
+    // surface. Where an answer is chartable and the reader owns the dashboard,
+    // "add to dashboard" points at the one place that CAN change it.
+    var canBuild = !!(msg.metricId && currentOwned);
+    return '<div class="kx-ai-resp-actions">' +
+      '<button class="kx-ai-act' + (msg.copied ? ' is-on' : '') + '" data-kx-ai-copy="' + idx + '" ' +
+      'title="' + (msg.copied ? 'Copied' : 'Copy') + '" aria-label="Copy response">' +
+      '<i class="fa-regular ' + (msg.copied ? 'fa-check' : 'fa-copy') + '" aria-hidden="true"></i></button>' +
+      (canBuild
+        ? '<a class="kx-ai-act" href="agency-intelligence-dashboard.html" target="_blank" rel="noreferrer" ' +
+          'title="Add to dashboard in Agency Intelligence" aria-label="Add to dashboard in Agency Intelligence">' +
+          '<i class="fa-regular fa-square-plus" aria-hidden="true"></i></a>'
+        : '') +
+      '<span class="kx-ai-sep" aria-hidden="true"></span>' +
+      '<button class="kx-ai-act' + (msg.vote === 'up' ? ' is-on' : '') + '" data-kx-ai-vote="up" data-kx-ai-idx="' + idx + '" ' +
+      'title="Good response" aria-label="Good response" aria-pressed="' + (msg.vote === 'up') + '">' +
+      '<i class="fa-' + (msg.vote === 'up' ? 'solid' : 'regular') + ' fa-thumbs-up" aria-hidden="true"></i></button>' +
+      '<button class="kx-ai-act' + (msg.vote === 'down' ? ' is-on' : '') + '" data-kx-ai-vote="down" data-kx-ai-idx="' + idx + '" ' +
+      'title="Poor response" aria-label="Poor response" aria-pressed="' + (msg.vote === 'down') + '">' +
+      '<i class="fa-' + (msg.vote === 'down' ? 'solid' : 'regular') + ' fa-thumbs-down" aria-hidden="true"></i></button>' +
+      '</div>';
+  }
+
+  function turnHtml(msg, idx) {
     if (msg.role === 'user') {
+      // The ONLY bubble in the thread: right-aligned, neutral fill. Agent
+      // text sits flush so the two never look alike.
       return '<div class="kx-ai-user"><div class="bubble">' + esc(msg.text) + '</div></div>';
     }
-    // The homepage is a VIEW of a published dashboard, never an editing
-    // surface — nothing here changes which widgets it carries. Where an answer
-    // is chartable and the reader owns the dashboard, point at the one place
-    // that CAN change it rather than doing it from the card.
-    var canBuild = msg.metricId && currentOwned;
+    if (msg.error) {
+      // Error with retry takes the agent row. Plain words; retry always offered.
+      return '<div class="kx-ai-turn">' + mark(24) +
+        '<div class="body"><div class="kx-ai-error">' +
+        '<span>Couldn’t reach your Vector apps to answer that.</span>' +
+        '<button class="kx-ai-retry" data-kx-ai-retry="' + idx + '">Retry</button>' +
+        '</div></div></div>';
+    }
     return '<div class="kx-ai-turn">' + mark(24) +
-      '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">' +
-      '<div class="bubble">' + bubbleText(msg.text) + '</div>' +
+      '<div class="body">' +
+      '<p class="kx-ai-text">' + bubbleText(msg.text) + '</p>' +
       (msg.denied
         ? '<div class="kx-ai-denied">' + micon('block', { size: 13, fill: 1 }) +
           '<span>' + esc(msg.deniedNote || 'Outside your data permissions.') + '</span></div>'
         : '') +
-      (canBuild
-        ? '<a class="kx-ai-build" href="agency-intelligence-dashboard.html" ' +
-          'target="_blank" rel="noreferrer" ' +
-          'title="Build this into a widget in Agency Intelligence">' +
-          micon('auto_awesome', { size: 14, fill: 1 }) +
-          '<span>Open in Agency Intelligence</span>' +
-          micon('open_in_new', { size: 13 }) + '</a>'
-        : '') +
+      actionsHtml(msg, idx) +
+      disclosureHtml() +
       '</div></div>';
   }
 
-  function thinkingHtml() {
-    return '<div class="kx-ai-turn" style="align-items:center">' + mark(24) +
-      '<div style="display:inline-flex;align-items:center;gap:5px;padding:8px 12px;' +
-      'background:var(--surface-2);border:1px solid var(--ink-100);border-radius:13px 13px 13px 4px">' +
-      '<span class="kx-ai-dot"></span>' +
-      '<span class="kx-ai-dot" style="animation-delay:140ms"></span>' +
-      '<span class="kx-ai-dot" style="animation-delay:280ms"></span>' +
-      '<span style="font-size:11px;color:var(--ink-500);margin-left:4px;font-style:italic">' +
-      'Querying your apps…</span></div></div>';
+  // Working / status line: verb + object, muted, with a progress ring. Never
+  // styled like streaming text, which is body-coloured.
+  function workingHtml() {
+    return '<div class="kx-ai-working" aria-live="polite">' +
+      '<span class="ring" aria-hidden="true"></span>' +
+      '<span>Checking your Vector apps…</span></div>';
   }
 
-  // role="log" + aria-live="polite" so an answer that arrives after the 620ms
-  // beat is announced. Polite, not assertive: the user asked for it, so it must
+  // role="log" + aria-live="polite" so an answer that arrives after the beat
+  // is announced. Polite, not assertive: the user asked for it, so it must
   // not cut across whatever they are reading now.
   function threadHtml() {
-    return '<div class="kx-ai-thread" id="kxAiThread" role="log" aria-live="polite">' +
+    return '<div class="kx-ai-surface kx-ai-thread" id="kxAiThread" role="log" aria-live="polite">' +
       state.thread.map(turnHtml).join('') +
-      (state.thinking ? thinkingHtml() : '') +
+      (state.thinking ? workingHtml() : '') +
       '</div>';
   }
 
-  /* =====================================================================
-     PANEL MARKUP
-     ===================================================================== */
-
-  function inputHtml(expanded) {
+  // Composer: text input and ONE button that is Send at rest and Stop while
+  // generating, in the same spot. No capability icons on this instance.
+  function composerHtml() {
     var ready = !!state.draft.trim() && !state.thinking;
-    return '<div class="kx-ai-input-wrap"><div class="kx-ai-input">' +
-      '<textarea id="kxAiDraft" rows="1" ' +
-      'placeholder="Ask Agency Intelligence about your data">' + esc(state.draft) + '</textarea>' +
-      '<button class="kx-ai-send' + (ready ? ' is-ready' : '') + '" id="kxAiSend" ' +
-      'title="Send" aria-label="Send"' + (ready ? '' : ' disabled') + '>' +
-      micon('arrow_upward', { size: 17, weight: 500 }) + '</button>' +
-      '</div>' +
-      // Only once there are answers to caveat. The compact panel spends that
-      // vertical space on suggestion chips instead, and has none to spare.
-      (expanded
-        ? '<div class="kx-ai-legal">Answers here don\'t change the dashboard — ' +
-          'widgets are added in Agency Intelligence. ' +
-          'Agency Intelligence can be wrong — verify before acting.</div>'
-        : '') +
+    return '<div class="kx-ai-composer"><div class="kx-ai-input">' +
+      '<label class="kx-ai-sr" for="kxAiDraft">Message</label>' +
+      '<textarea id="kxAiDraft" rows="1" placeholder="Ask about your department…">' + esc(state.draft) + '</textarea>' +
+      (state.thinking
+        ? '<button class="kx-ai-send is-stop" id="kxAiStop" title="Stop" aria-label="Stop generating">' +
+          '<i class="fa-solid fa-stop" aria-hidden="true"></i></button>'
+        : '<button class="kx-ai-send' + (ready ? ' is-ready' : '') + '" id="kxAiSend" ' +
+          'title="Send" aria-label="Send"' + (ready ? '' : ' disabled') + '>' +
+          '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>') +
+      '</div></div>';
+  }
+
+  // Footer: one zone, on. Privacy note left, help right. Prototype links.
+  function footerHtml() {
+    return '<div class="kx-ai-foot">' +
+      '<span>Private to your department · <a href="#" data-kx-ai-noop>Privacy</a></span>' +
+      '<a href="#" data-kx-ai-noop><i class="fa-regular fa-circle-question" aria-hidden="true"></i>Help</a>' +
       '</div>';
   }
 
-  // No `cfg` argument any more: the header used to name the dashboard
-  // ("Ask about B-1 Coverage Snapshot"), which framed the assistant as
-  // scoped to that one card. It isn't — you can ask it about anything in
-  // the suite — so the subtitle is gone and nothing here needs the config.
-  function html() {
-    if (state.collapsed) {
-      return '<button class="kx-ai-collapsed" id="kxAiExpand" ' +
-        'title="Open Agency Intelligence" aria-label="Open Agency Intelligence">' +
-        mark(24) + '<span class="vlabel">Agency Intelligence</span>' +
-        '<i class="fa-solid fa-angles-right kx-ai-collapsed-chev" aria-hidden="true"></i>' +
-        '</button>';
-    }
-    var person = currentPerson;
-    return '<div class="kx-aipanel" id="kxAiPanel">' +
-      '<div class="kx-ai-head">' + mark(28) +
-      '<div style="flex:1;min-width:0">' +
-      '<div class="t">Agency Intelligence</div>' +
-      '</div>' +
-      (state.thread.length
-        ? '<button class="kx-ai-iconbtn" id="kxAiNew" title="New chat" aria-label="New chat">' +
-          '<i class="fa-regular fa-pen-to-square" aria-hidden="true"></i></button>'
-        : '') +
-      '<button class="kx-ai-iconbtn" id="kxAiCollapse" title="Collapse Agency Intelligence" ' +
-      'aria-label="Collapse Agency Intelligence">' +
+  // The ribbon the drawer folds to: a sibling of .kx-main inside .kx-shell,
+  // drawn only while the drawer is closed. Same signifier, the name running
+  // up the edge, and the chevron pointing the way it will open.
+  function ribbonHtml(roleId) {
+    if (state.open || !hasAccess(roleId)) return '';
+    return '<aside class="kx-airib" aria-label="Agency Intelligence, collapsed">' +
+      '<button class="kx-airib-open" id="kxAiExpand" title="Open Agency Intelligence" ' +
+      'aria-label="Open Agency Intelligence" aria-expanded="false">' +
+      mark(28) + '<span class="vlabel">Agency Intelligence</span>' +
       '<i class="fa-solid fa-angles-left" aria-hidden="true"></i>' +
-      '</button></div>' +
-      (isExpanded() ? threadHtml() : chipsHtml(person)) +
-      inputHtml(isExpanded()) +
+      '</button></aside>';
+  }
+
+  // Everything inside the drawer panel below its header row.
+  function bodyHtml() {
+    var hasThread = state.thread.length > 0 || state.thinking;
+    return '<div slot="drawer-content" class="kx-ai-body" id="kxAiPanel">' +
+      (hasThread ? threadHtml() : emptyHtml()) +
+      composerHtml() +
+      footerHtml() +
       '</div>';
+  }
+
+  /* Wrap the page in the Vector drawer. `content` is the page shell; it goes
+     in the drawer's content slot so the component lays the two out side by
+     side and the page reflows narrower. Returned unchanged when the role has
+     no grant or the drawer is closed — then there is no drawer at all, only
+     the ribbon ribbonHtml() put in the shell.
+
+     Phones get the component's OVERLAY mode: a modal <dialog> over the page
+     with a backdrop, closed by its own button or the backdrop. The `open`
+     attribute is left off there and set as a property in afterRender(),
+     because the component only calls showModal() when it SEES open change —
+     an element created already-open never shows its dialog. Desktop keeps
+     the attribute so a hub re-render never flashes the page full-width. */
+  function wrap(content, roleId) {
+    if (!state.open || !hasAccess(roleId)) return content;
+    var phone = !!(MQ_PHONE && MQ_PHONE.matches);
+    return '<vwc-drawer class="kx-aidrawer" id="kxAiDrawer" position="end" theme="no-padding"' +
+      (phone ? ' overlay' : ' open') + '>' +
+      '<div slot="content" class="kx-aidrawer-page">' + content + '</div>' +
+      headerHtml() +
+      bodyHtml() +
+      '</vwc-drawer>';
   }
 
   /* =====================================================================
@@ -290,24 +402,78 @@
      ===================================================================== */
 
   function deniedNote(entry) {
-    var K2 = window.KEYSTONE;
     var srcs = (entry && entry.deniedSources) || [];
     if (!srcs.length) return 'Outside your data permissions.';
     var names = srcs.map(function (s) {
-      return (K2.SOURCES[s] || {}).name || s;
+      return (K.SOURCES[s] || {}).name || s;
     }).join(', ');
     return 'Needs ' + names + ' — your account has no access. An administrator can grant it.';
   }
 
   /* ---------------------------------------------------------------------
-     FOCUS ACROSS RENDERS
+     FOCUS AND SCROLL ACROSS RENDERS
      ---------------------------------------------------------------------
      hub.js replaces #root.innerHTML on every render, so the textarea the user
      was typing in is a DIFFERENT element afterwards and the caret is simply
-     gone — activeElement falls back to <body>. Without this, every follow-up
-     question costs a click, and typing while the dots animate loses the caret
-     the moment the answer lands.
+     gone. The same render throws away the thread's scroll position. hub.js
+     calls beforeRender()/afterRender() around the swap so both survive; the
+     panel's own renders go through renderKeepingCaret() on top of that.
      --------------------------------------------------------------------- */
+
+  var savedScroll = null;
+  function beforeRender() {
+    var t = document.getElementById('kxAiThread');
+    savedScroll = t ? t.scrollTop : null;
+  }
+  function afterRender() {
+    var t = document.getElementById('kxAiThread');
+    if (t && savedScroll != null) t.scrollTop = savedScroll;
+    savedScroll = null;
+    fitDraft();
+    wireDrawer();
+    // The prototype FAB sits bottom-right; the drawer owns that corner now.
+    document.body.classList.toggle('kx-airail-open', !!document.getElementById('kxAiDrawer'));
+  }
+
+  // The drawer element is new after every hub render, so its listener is
+  // attached here each time. Its own collapse button (and, in overlay mode,
+  // the backdrop) flips `open`; the component announces that with
+  // open-changed and this folds the page to the ribbon in response.
+  function wireDrawer() {
+    var d = document.getElementById('kxAiDrawer');
+    if (!d) return;
+    d.addEventListener('open-changed', function (e) {
+      if (e.detail === false && state.open) {
+        userToggled = true;
+        state.open = false;
+        window.KXHub.render();
+        var rib = document.getElementById('kxAiExpand');
+        if (rib) rib.focus({ preventScroll: true });
+      }
+    });
+    if (d.hasAttribute('overlay') && !d.open) {
+      // After the element's FIRST update, not before: the component calls
+      // showModal() only when its update cycle records open changing from a
+      // defined value, and a property set before the first render is folded
+      // into that render's "everything is new" cycle, so the dialog would
+      // open non-modally, inline in the page.
+      var show = function () {
+        if (document.getElementById('kxAiDrawer') !== d) return;
+        var ready = d.updateComplete || Promise.resolve();
+        ready.then(function () { if (document.getElementById('kxAiDrawer') === d) d.open = true; });
+      };
+      if (window.customElements && customElements.get('vwc-drawer')) show();
+      else if (window.customElements) customElements.whenDefined('vwc-drawer').then(show);
+    }
+  }
+
+  // The input grows to six lines, then scrolls (max-height in CSS).
+  function fitDraft() {
+    var el = document.getElementById('kxAiDraft');
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
 
   // Only reclaim focus if nobody else has taken it. Focus inside the panel is
   // ours; focus on <body> is nobody's (usually our own previous render throwing
@@ -318,9 +484,6 @@
     return !!(a.closest && a.closest('#kxAiPanel'));
   }
 
-  // Render, then hand the caret back to the draft box at the same offsets.
-  // Silently does nothing when the panel is collapsed or absent — there is no
-  // textarea to focus then — and never scrolls the page to do it.
   function renderKeepingCaret() {
     var before = document.getElementById('kxAiDraft');
     var selStart = before ? before.selectionStart : null;
@@ -336,28 +499,13 @@
     }
   }
 
-  // Monotonic send id. The answer callback compares the epoch it captured against
-  // the current one and drops itself if they differ, so an in-flight beat can no
-  // longer land after the thread it belonged to is gone.
-  //
-  // The ONE path that gets there: "New chat" while the dots are still animating.
-  // It clears state.thread and state.thinking, and the timer then fired into an
-  // empty thread — an orphan answer with a live Add button and no question above
-  // it. Clearing state.thinking is also what re-opens send()'s own guard, so a
-  // message typed straight after New chat could start a SECOND timer while the
-  // first was still pending, and the two could land out of order.
-  //
-  // Note what this is NOT for: a plain second send cannot reach a second timer.
-  // send() returns early while state.thinking is true, and the Send button is
-  // disabled for the same reason, so there is only ever one timer in flight
-  // unless something clears thinking mid-beat. New chat is the only thing that
-  // does. (An earlier version of this comment credited the guard with fixing the
-  // plain-double-send case; that case was already impossible. The guard is right,
-  // the reason was wrong.)
+  // Monotonic send id. The answer callback compares the epoch it captured
+  // against the current one and drops itself if they differ, so an in-flight
+  // beat can never land after the thread it belonged to is gone. New
+  // conversation and Stop both bump it while the dots are still running.
   var sendEpoch = 0;
 
-  function send() {
-    var q = state.draft.trim();
+  function ask(q) {
     if (!q || state.thinking || !currentPerson) return;
     sendEpoch += 1;
     var epoch = sendEpoch;
@@ -365,16 +513,15 @@
     state.draft = '';
     state.thinking = true;
     renderKeepingCaret();
+    scrollThread();
 
-    // A beat of latency so the thinking state is legible; this is a prototype,
+    // A beat of latency so the working line is legible; this is a prototype,
     // there is no request behind it.
     window.setTimeout(function () {
-      // Superseded — New chat or a later send happened while this beat ran.
       if (epoch !== sendEpoch) return;
-      // Guard the call so a throw can never leave `thinking` stuck true —
-      // that would freeze the panel on the animated dots forever, silently
-      // swallowing every message afterward (send() bails out while thinking
-      // is true). Fall through to a plain assistant turn instead.
+      // Guard the call so a throw can never leave `thinking` stuck true — that
+      // would freeze the panel on the ring forever. Fall through to the error
+      // row, which offers a retry.
       try {
         var res = window.AGENCY_INTEL_AI.homepageRespond(q, currentPerson, null);
         state.thinking = false;
@@ -383,21 +530,24 @@
           text: res.text,
           metricId: (res.entry && res.entry.outcome === 'answered') ? res.entry.metricId : null,
           denied: !!res.denied,
-          deniedNote: res.denied ? deniedNote(res.entry) : ''
+          deniedNote: res.denied ? deniedNote(res.entry) : '',
+          q: q
         });
       } catch (err) {
         state.thinking = false;
-        state.thread.push({
-          role: 'assistant',
-          text: 'Something went wrong answering that — try asking again.',
-          metricId: null,
-          denied: false,
-          deniedNote: ''
-        });
+        state.thread.push({ role: 'assistant', error: true, q: q });
       }
       renderKeepingCaret();
       scrollThread();
     }, 620);
+  }
+
+  function send() { ask(state.draft.trim()); }
+
+  function stop() {
+    sendEpoch += 1;
+    state.thinking = false;
+    renderKeepingCaret();
   }
 
   function scrollThread() {
@@ -405,16 +555,22 @@
     if (t) t.scrollTop = t.scrollHeight;
   }
 
+  function copyText(msg, idx) {
+    var plain = String(msg.text || '').replace(/\*\*/g, '');
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(plain);
+    } catch (e) { /* clipboard unavailable on file:// — the tick still shows */ }
+    msg.copied = true;
+    window.KXHub.render();
+    window.setTimeout(function () {
+      if (state.thread[idx] === msg) { msg.copied = false; window.KXHub.render(); }
+    }, 1400);
+  }
+
   /* =====================================================================
      WIRING — one delegated listener on #root, guarded so the hub's
      re-renders never stack handlers.
      ===================================================================== */
-
-  // NOTE: this file used to build widget specs here (makeWidgetSpec /
-  // addWidget / removeWidget, plus a METRIC_RANGE table) so a chat answer could
-  // land on the published grid. All of it is gone: a dashboard's widgets are
-  // decided by whoever built it, while they are editing it in Agency
-  // Intelligence. The homepage reads a dashboard; it does not compose one.
 
   var wired = false;
   function wire() {
@@ -423,39 +579,62 @@
     var root = document.getElementById('root');
 
     root.addEventListener('click', function (e) {
-      if (e.target.closest('#kxAiCollapse')) {
-        state.collapsed = true;
-        window.KXHub.render();
-        return;
-      }
       if (e.target.closest('#kxAiExpand')) {
-        state.collapsed = false;
+        userToggled = true;
+        state.open = true;
         window.KXHub.render();
+        var draft = document.getElementById('kxAiDraft');
+        if (draft) draft.focus({ preventScroll: true });
         return;
       }
       if (e.target.closest('#kxAiNew')) {
         state.thread = [];
         state.draft = '';
         state.thinking = false;
-        // The button is live during the thinking beat, so cancel that beat too —
-        // otherwise the answer lands in the fresh thread a moment later.
-        sendEpoch += 1;
-        window.KXHub.render();
+        sendEpoch += 1;   // cancel a beat still in flight
+        renderKeepingCaret();
         return;
       }
+      if (e.target.closest('#kxAiStop')) { stop(); return; }
+      if (e.target.closest('#kxAiSend')) { send(); return; }
+
       var chip = e.target.closest('[data-kx-ai-chip]');
       if (chip) {
         var list = suggestionsFor(currentPerson);
         var s = list[Number(chip.getAttribute('data-kx-ai-chip'))];
-        if (s) { state.draft = s.q; send(); }
+        if (s) ask(s.q);
         return;
       }
-      if (e.target.closest('#kxAiSend')) { send(); return; }
+      var retry = e.target.closest('[data-kx-ai-retry]');
+      if (retry) {
+        var i = Number(retry.getAttribute('data-kx-ai-retry'));
+        var failed = state.thread[i];
+        // Drop the error row and the question above it, then ask again.
+        state.thread.splice(i - 1 >= 0 && state.thread[i - 1].role === 'user' ? i - 1 : i, 2);
+        if (failed && failed.q) ask(failed.q);
+        return;
+      }
+      var copy = e.target.closest('[data-kx-ai-copy]');
+      if (copy) {
+        var ci = Number(copy.getAttribute('data-kx-ai-copy'));
+        if (state.thread[ci]) copyText(state.thread[ci], ci);
+        return;
+      }
+      var vote = e.target.closest('[data-kx-ai-vote]');
+      if (vote) {
+        var vi = Number(vote.getAttribute('data-kx-ai-idx'));
+        var dir = vote.getAttribute('data-kx-ai-vote');
+        var m = state.thread[vi];
+        if (m) { m.vote = m.vote === dir ? null : dir; window.KXHub.render(); }
+        return;
+      }
+      if (e.target.closest('[data-kx-ai-noop]')) { e.preventDefault(); return; }
     });
 
     root.addEventListener('input', function (e) {
       if (e.target.id === 'kxAiDraft') {
         state.draft = e.target.value;
+        fitDraft();
         // Toggle the send button in place — a full re-render would steal focus
         // and drop the caret mid-sentence.
         var btn = document.getElementById('kxAiSend');
@@ -479,13 +658,14 @@
     hasAccess: hasAccess,
     personFor: personFor,
     setContext: setContext,
-    html: html,
-    isExpanded: isExpanded,
+    wrap: wrap,
+    ribbonHtml: ribbonHtml,
+    isOpen: isOpen,
+    beforeRender: beforeRender,
+    afterRender: afterRender,
     wire: wire
   };
 
-  // The hub renders before this file's consumers exist, so wire on DOM ready
-  // rather than from the hero's render path.
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', wire);
   } else {

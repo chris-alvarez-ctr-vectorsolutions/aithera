@@ -1190,8 +1190,16 @@
       else if (flags.futureOn && r.hero === 'crew') hero = KXHero.publishedDashboard('lieutenant');
     }
 
-    document.getElementById('root').innerHTML =
-      '<div class="kx-app" data-accent="' + DEFAULTS.accent + '">' +
+    // Agency Intelligence docks beside the page as a Vector <vwc-drawer>
+    // (hub-ai-panel.js). The page shell goes in its content slot, so the
+    // drawer pushes the page narrower rather than covering it; while the
+    // drawer is closed the shell carries a ribbon instead and no drawer is
+    // rendered. The panel survives this innerHTML swap through its
+    // before/after hooks (thread scroll, caret, drawer wiring).
+    var AI = window.KXAIPanel;
+    if (AI) AI.beforeRender();
+
+    var shell =
       '<div class="kx-shell"><div class="kx-main">' +
       '<main class="kx-content">' +
       '<section class="kx-hero"><div class="kx-hero-inner">' + greetingHeader(scoped) + '</div></section>' +
@@ -1207,9 +1215,17 @@
       taskTable(filtered) +
       '</section>' +
       '</div>' +
-      '</main></div></div>' +
+      '</main></div>' +
+      (AI ? AI.ribbonHtml(state.role) : '') +
+      '</div>';
+
+    document.getElementById('root').innerHTML =
+      '<div class="kx-app" data-accent="' + DEFAULTS.accent + '">' +
+      (AI ? AI.wrap(shell, state.role) : shell) +
       tasksJumpPill(filtered.length) +
       '</div>';
+
+    if (AI) AI.afterRender();
 
     // Every Vector component in the view was just re-created, and in Safari a
     // component built after page load never receives the theme stylesheet on its
