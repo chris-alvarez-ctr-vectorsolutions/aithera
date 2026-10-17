@@ -17,6 +17,7 @@
 - (2026-10-02) **One flag drives everything:** `deviceId === 'shared'` is the only switch; every shared-mode behavior below reads it. Persist it with the country.
 
 ## login
+- (2026-10-16) **Brand lockup is the supplied Vector Solutions / TargetSolutions logo** (`ver1/ts-logo.svg`) on the country, device and login screens, replacing the typeset "TargetSolutions" wordmark and the "Vector Solutions" sub-line, which the lockup already carries. Wordmark text is white in the SVG because the screens are navy; the flame mark keeps its colors.
 - (2026-10-02) **Two remembered-choice pills** under the brand mark: country and device type, each with its own Change.
 - (2026-10-02) **Failed sign-in shows the error and a country nudge.** Under the fields: "That username and password didn't work. Try again, or reset your password below." Then a tappable card: "🇺🇸 Signing in to United States. If your department is in Canada, switch country and try again · Switch". US and Canada accounts are separate databases, so a failed login at a department near the border is often really the wrong country, and the nudge should appear on every failure, not only after several. Switch flips the country in place (the pill at the top updates), keeps what was typed, and clears the error; typing in either field also clears it. Prototype rule: a blank username or password fails, anything else succeeds.
 
