@@ -794,9 +794,13 @@ so rehearsal is where the fix is made — the same stance D33 took at activity
 level, where a kept roll becomes the example.
 
 **What stays separate** (D44): the rehearsal shows its workings — reasons,
-rerolls, the all-paths table. The learner preview (stage 3) shows none of
-them: it runs the real activities, follows the edges on their actual
-outcomes, and reports the path taken.
+rerolls, the all-paths table. The learner preview (stage 3, built the same
+day) shows none of them: it runs the real activities, follows the edges on
+their actual outcomes — the scenario's landed levels, a pass/fail choice on
+the check's stand-in since the real check would score it — and only the
+**report** afterwards explains the path with the composer's reasons, the
+points it reached, the beats fired, and which of the enumerated paths it
+was.
 
 ---
 

@@ -24,12 +24,11 @@ artifact, a change map or a dockable panel. Same call as the parent prototype.
 
 **Where it stands.** Four layers navigable from the rail (Info set, Brief,
 Activities, Outputs); two review renderers (video, scenario); decisions G1–G17
-in `MODEL.md`; 80 flow-map states, all rendering clean. Passes 1–5 are
+in `MODEL.md`; 82 flow-map states, all rendering clean. Passes 1–5 are
 committed as `6034cf33`, passes 6a and 7 as `bb924036`, Pass 8 (spec edits +
-the Coverage tab) as `0b98453a`, Pass 9 stage 1 (Compose) as `5461be36`, and
-stage 2 (output rehearsal) is the commit after it. Pass 9 ends with stage 3
-(the learner preview follows the edges) — the user approves each stage
-before it is built.
+the Coverage tab) as `0b98453a`, Pass 9 stage 1 (Compose) as `5461be36`,
+stage 2 (output rehearsal) as `40f28c08`, and stage 3 (the preview follows
+the edges) is the commit after it. Pass 9 is complete.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -127,12 +126,14 @@ before it is built.
   per-path threshold; `signedOff(o)` compares `o.signedSig` to `sigKey(o)`.
   Any structure change resets the trace.
 
-**Next:** Pass 9 stage 3 — the learner preview follows the edges. The
-existing output preview walks `out.acts` in a fixed list; it should walk the
-structure from the entry, feed each activity's real outcome into the next
-connection (the scenario's level from the run, a pass/fail choice on the
-check's stand-in card), and report the path taken with its reasons, beats
-fired and points reached. Then the job-aid proof.
+- **Preview (stage 3):** in output mode `P` carries `node`, `trace` (edge
+  ids), `items` (grows as the walk goes), `outcomes`, `runs` (the scenario's
+  levels and beats per visit). `pItemDone(outcome)` picks the next
+  connection with `nextEdge(st, node, outcome, scn)`; `seedExpPreview` is the
+  flow-map seed.
+
+**Next:** the job-aid proof — a static modality with no renderer, to show a
+new modality needs a review renderer, not a surface.
 
 ## If you are picking this up cold
 
@@ -373,9 +374,29 @@ Below the map on an output's Structure view (G17).
 - A Course gets the same card with one row and nothing to choose.
 - Five more flow-map states on lane I.
 
-**Next for Pass 9:** stage 3, the learner preview following the edges on the
-activities' real outcomes, reporting the path taken with its reasons, beats
-fired and points reached.
+## What the mock shows — Pass 9 · stage 3, the preview follows the edges (2026-10-19)
+
+**Preview as learner** on any output now walks its structure instead of a
+fixed list (D44 kept: none of the rehearsal's workings show while walking).
+
+- The entry's connection picks the first activity. Each activity's **real
+  outcome** picks the next connection: the video completing, the levels the
+  scenario run actually landed (Unthoughtful on step 2 sends the learner to
+  the podcast, rule 2), and on the check's stand-in card a **Pass / Fail**
+  choice, since the real check would score it. Failing routes to the
+  inspection card and back to the check (rule 1). The side list shows the
+  path so far, each step's outcome, and what decided it; what comes next is
+  "decided by what happens here" wherever more than one connection leaves
+  the node.
+- **The report is the path taken**: every connection with its reason, the
+  points this path reached against the bar, the beats the scenario fired and
+  the level each landed, and which of the n enumerated paths this was. It
+  points at the rehearsal and the all-paths sign-off for the others.
+- The Experience card gains a **Rehearse paths** button beside Structure.
+- Two flow-map states; the output-preview gate (G1) is unchanged.
+
+The Pass 9 plan is complete. Remaining open: Q16 (what else a rule may
+condition on).
 
 ## What the mock shows — Pass 8, spec edits and the Coverage tab (2026-10-19)
 
@@ -570,7 +591,7 @@ Everything is in-memory; reload resets.
 8. ~~**Pass 8** — G14 spec edits and the Coverage tab~~ — built 2026-10-19.
 9. **Pass 9 — Compose and the output walk-through.** ~~Stage 1: structure,
    composition brief, reasons, reachability, pins~~ — built 2026-10-19.
-   ~~Stage 2: output rehearsal~~ — built 2026-10-19. Stage 3: learner
-   preview follows the edges.
+   ~~Stage 2: output rehearsal~~ — built 2026-10-19. ~~Stage 3: learner
+   preview follows the edges~~ — built 2026-10-19.
 10. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.

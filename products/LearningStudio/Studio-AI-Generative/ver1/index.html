@@ -957,6 +957,11 @@ body.mod-scenario #scn { display: block; }
 .signoff { display: flex; gap: 10px; align-items: center; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: #cfd7e3; }
 .signoff.ok { border-color: rgba(79,196,138,.5); background: var(--ok-bg); }
 .signoff > div { flex: 1; }
+/* stage 3 — the preview's path */
+.ptr { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #2a3240; font-size: 13px; color: #dfe6ef; }
+.ptr .num { width: 20px; height: 20px; border-radius: 50%; background: #2a3240; color: #dfe6ef; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 1px; }
+.ptr .tr-why { color: #9aa6b6; }
+.pli.next { opacity: .7; border-style: dashed; }
 @media (max-width: 1100px) { .reh-grid { grid-template-columns: 1fr; } }
 /* coverage tab */
 .cov-card .card-top .where { font-weight: 700; color: var(--text); }
@@ -3220,7 +3225,7 @@ function outputCardHTML(o) {
     <div class="ogrid"><div>
       <div class="dl">Structure <span class="am" style="text-transform:none;letter-spacing:0;font-weight:600">· v${st.version}</span></div>
       <div class="struct-sum"><i class="fa-regular ${o.kind === 'Experience' ? 'fa-sitemap' : 'fa-arrow-right-long'}"></i><div>${o.kind === 'Experience' ? `Generated traversal — <b>${rc.paths.length} path${rc.paths.length === 1 ? '' : 's'}</b> from entry to completion, ${st.edges.length} connections, ${o.comp.rules.length} rule${o.comp.rules.length === 1 ? '' : 's'}. ${shortPts.length ? `<span style="color:var(--danger)">${shortPts.map(p => `${p.short} guaranteed on ${p.reach.n} of ${p.reach.m}`).join(', ')}</span>` : '<span style="color:var(--ok)">Every point guaranteed on every path.</span>'}${st.unmapped.length ? ` <span style="color:var(--unreq)">${st.unmapped.length} rule${st.unmapped.length > 1 ? 's' : ''} unmapped.</span>` : ''}` : `Fixed sequence — one path: ${o.acts.map(a => esc(shortTitle(a))).join(' → ')} → completion.`}</div>
-        <button class="btn sm" data-ostruct="${o.id}"><i class="fa-regular fa-sitemap"></i>${o.kind === 'Experience' ? 'Structure &amp; reasons' : 'Structure'}</button></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><button class="btn sm" data-ostruct="${o.id}"><i class="fa-regular fa-sitemap"></i>${o.kind === 'Experience' ? 'Structure &amp; reasons' : 'Structure'}</button>${o.kind === 'Experience' ? `<button class="btn sm" data-orehearse="${o.id}" title="Walk the structure choosing outcomes (G17)"><i class="fa-regular fa-person-walking"></i>Rehearse paths</button>` : ''}</div></div>
       <div class="dl" style="margin-top:18px">Activities</div>
       <table class="mini"><tbody>${o.acts.map(a => actRowHTML(planRow(a))).join('')}</tbody></table>
       <div class="dl" style="margin-top:18px">Threshold</div>
@@ -3275,6 +3280,7 @@ $('#outputsView').addEventListener('click', e => {
   if (d.openpt) { setLayer('info'); openPoint(d.openpt); return; }
   // ── Pass 9 — structure
   if (d.ostruct) return openOutput(d.ostruct);
+  if (d.orehearse) { openOutput(d.orehearse); const el = $('.reh-now'); if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   if (d.oback !== undefined) { B.outOpen = null; B.outSel = null; return renderOutputs(); }
   if (d.sedge) { B.outSel = B.outSel && B.outSel.id === d.sedge ? null : { kind: 'edge', id: d.sedge }; return renderOutputs(); }
   if (d.snode) { B.outSel = B.outSel && B.outSel.id === d.snode ? null : { kind: 'node', id: d.snode }; return renderOutputs(); }
@@ -3648,11 +3654,20 @@ function openPlayer(o) {
   const base = { gen: latestIdx(), idx: 0, t: 0, furthest: 0, playing: false, speed: 2, done: false, finished: [] };
   if (o.mode === 'activity') P = { ...base, mode: 'activity', items: [R.id] };
   else {
-    const out = outById(o.outId);
-    P = { ...base, mode: 'output', outId: out.id, items: [...out.acts].sort((a, b) => (!!REV[b]) - (!!REV[a])) };
+    // Pass 9 · stage 3 — the preview FOLLOWS THE STRUCTURE: start at the entry's connection; each activity's real
+    // outcome picks the next connection (D44 — none of the rehearsal's workings show; the report explains afterwards).
+    const out = outById(o.outId), st = structOf(out), first = st.edges.find(e => e.from === 'entry');
+    P = { ...base, mode: 'output', outId: out.id, node: first.to, items: [st.nodes[first.to].act], trace: [first.id], outcomes: [], runs: {} };
   }
   pSetItem();
   renderPlayer();
+}
+const scnOutcomeLabel = scn => Object.entries(scn.levels).map(([sid, lv]) => `step ${sid.replace('st-', '')}: ${LEVEL_LABEL[lv] || lv}`).join(', ') || 'completed';
+/* Which connection fires for this outcome. Outcome-specific connections first, in the composer's (rule) order; then the default. */
+function nextEdge(st, node, oc, scn) {
+  const outs = st.edges.filter(e => e.from === node);
+  return outs.find(x => x.on !== 'any' && x.on !== 'else' && (x.on === oc || (scn && /^st-/.test(x.on) && scn.levels[x.on.split(':')[0]] === x.on.split(':')[1])))
+    || outs.find(x => x.on === 'else' || x.on === 'any' || x.on === 'completed' || x.on === 'passed') || outs[0];
 }
 function pSetItem() { const rv = REV[P.items[P.idx]]; P.gen = rv ? rv.gens.length - 1 : null; if (P.items[P.idx] === 'act-scenario') scnPlayerInit();
 }
@@ -3669,14 +3684,19 @@ function pTogglePlay() {
   }, 100);
   renderPlayer();
 }
-function pItemDone() {
+function pItemDone(outcome) {
   if (P.mode === 'activity') {
     P.done = true;
     return;
   }
-  P.finished.push(P.items[P.idx]);
-  if (P.idx < P.items.length - 1) { P.idx++; P.t = 0; P.furthest = 0; pSetItem(); }
-  else { P.done = true; const o = outById(P.outId); o.previewSig = sigKey(o); }
+  const o = outById(P.outId), st = structOf(o), act = P.items[P.idx], scn = act === 'act-scenario' ? P.scn : null;
+  const oc = outcome || (act === 'act-check' ? 'passed' : 'completed');
+  if (scn) P.runs[P.idx] = { levels: { ...scn.levels }, beats: [...scn.beats] };
+  P.finished.push(act); P.outcomes.push(scn ? scnOutcomeLabel(scn) : oc);
+  const e = nextEdge(st, P.node, oc, scn);
+  P.trace.push(e.id); P.node = e.to;
+  if (e.to === 'exit') { P.done = true; o.previewSig = sigKey(o); return; }
+  P.items.push(st.nodes[e.to].act); P.idx++; P.t = 0; P.furthest = 0; pSetItem();
 }
 function renderPlayer() {
   if (!P) return;
@@ -3686,16 +3706,19 @@ function renderPlayer() {
     : item === 'act-video' ? videoPlayerHTML(r)
     : item === 'act-scenario' ? scenarioPlayerHTML(r)
     : `<div class="ptitle">${esc(r.title)}</div><div class="standin"><i class="fa-regular ${r.icon}" style="font-size:34px"></i><b style="color:#dfe6ef">${r.modality} · generation ${rowGen(r)}</b>
-        <div>The ${r.modality.toLowerCase()} player runs here. This prototype only renders the video, so this card stands in for walking it.</div>
-        <button class="btn primary" data-pnext>Continue as if completed</button></div>`;
+        <div>The ${r.modality.toLowerCase()} player runs here. This prototype only renders the video and the scenario, so this card stands in for walking it.</div>
+        ${r.modality === 'Knowledge check' ? `<div class="am" style="margin:-4px 0 4px">The real check scores this. Choose how it went to follow that path.</div><div class="card-actions" style="justify-content:center"><button class="btn primary" data-pnext="passed"><i class="fa-solid fa-check"></i>Pass the check</button><button class="btn" data-pnext="failed"><i class="fa-solid fa-xmark"></i>Fail the check</button></div>`
+          : `<button class="btn primary" data-pnext="completed">Continue as if completed</button>`}</div>`;
+  const st = out ? structOf(out) : null;
+  const plist = out ? P.items.map((a, i) => {
+    const rr = planRow(a), done = i < P.idx || P.done, e = st.edges.find(x => x.id === P.trace[i]), R = e ? REASON[e.reason.kind] : null;
+    return `<div class="pli ${i === P.idx && !P.done ? 'cur' : ''} ${done ? 'done' : ''}"><i class="${done ? 'fa-solid fa-circle-check' : 'fa-regular ' + rr.icon}"></i><div><b>${esc(rr.title)}</b><div class="am">${rr.modality}${done && P.outcomes[i] ? ` · ${esc(P.outcomes[i])}` : ''}</div>${e && e.reason.kind !== 'default' ? `<div class="am" style="color:${R.color}"><i class="fa-solid ${R.icon}"></i> ${R.label}${e.reason.n ? ' ' + e.reason.n : ''}</div>` : ''}</div></div>`;
+  }).join('') + (P.done ? `<div class="pli done"><i class="fa-solid fa-flag-checkered"></i><div><b>Completion</b></div></div>` : (st.edges.filter(x => x.from === P.node).length > 1 ? `<div class="pli next"><i class="fa-regular fa-circle-question"></i><div><b>Next</b><div class="am">decided by what happens here</div></div></div>` : (() => { const n = st.edges.find(x => x.from === P.node); return n && n.to !== 'exit' ? `<div class="pli next"><i class="fa-regular ${planRow(st.nodes[n.to].act).icon}"></i><div><b>${esc(planRow(st.nodes[n.to].act).title)}</b><div class="am">next</div></div></div>` : `<div class="pli next"><i class="fa-regular fa-flag"></i><div><b>Completion</b><div class="am">next</div></div></div>`; })())) : '';
   $('#player').innerHTML = `<div class="player-back"><div class="pwin" role="dialog" aria-label="Learner preview">
     <div class="pwin-bar"><span class="dots"><span></span><span></span><span></span></span><span class="url"><i class="fa-solid fa-lock"></i>learn.example.com/preview/${slug}</span>
       <span class="ptag">Learner preview · not tracked</span><button class="icon-btn" data-pclose2 title="Close preview (Esc)"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="pbody"><div class="pmain">${main}</div>
-      ${out ? `<aside class="plist"><div class="dl">${esc(out.name)}</div>${P.items.map((a, i) => {
-        const rr = planRow(a), done = P.finished.includes(a) || P.done;
-        return `<div class="pli ${i === P.idx && !P.done ? 'cur' : ''} ${done ? 'done' : ''}"><i class="${done ? 'fa-solid fa-circle-check' : 'fa-regular ' + rr.icon}"></i><div><b>${esc(rr.title)}</b><div class="am">${rr.modality}</div></div></div>`;
-      }).join('')}</aside>` : ''}</div>
+      ${out ? `<aside class="plist"><div class="dl">${esc(out.name)}</div><div class="am" style="margin:-4px 0 8px">${out.kind === 'Experience' ? 'Your path so far — what comes next follows from what you do.' : 'In order.'}</div>${plist}</aside>` : ''}</div>
   </div></div>`;
 }
 function videoPlayerHTML(r) {
@@ -3752,10 +3775,20 @@ function activityReportHTML() {
     <div class="am" style="margin-top:12px">The approval pins generation ${g.n}. A later generation shows it as out of date, and a person re-approves (D41).</div></div>`;
 }
 function outputReportHTML(o) {
-  return `<div class="pdone"><div class="eyebrow">Output preview complete</div><h2 style="margin:4px 0 6px">${esc(o.name)} — what a learner reached</h2>
-    <div class="sub">Walked in order, as a learner. Recorded against this exact state: any change after it means previewing again (G1).</div>
-    ${threshold(o).map(p => `<div class="reach"><b>${p.short}</b><div>${esc(p.title)}<div class="am">${p.best ? `${DEPTH[p.best]} via ${esc(shortTitle(p.by))} · needs ${DEPTH[p.need]}` : `Nothing in this output carries it · needs ${DEPTH[p.need]}`}</div></div>${p.ok ? '<span class="mb ok">Met</span>' : '<span class="mb warn">Below the bar</span>'}</div>`).join('')}
-    <div class="card-actions" style="margin-top:18px"><button class="btn primary" data-pclose2>Back to outputs</button></div></div>`;
+  const st = structOf(o), rc = reachOf(o), pr = pathReach(o, P.items), isExp = o.kind === 'Experience';
+  // which enumerated path this run took (by the sequence of connections)
+  const pathNo = rc.paths.findIndex(pp => pp.choices.map(e => e.id).join() === P.trace.join()) + 1;
+  const trace = P.trace.map((id, i) => { const e = st.edges.find(x => x.id === id), R = REASON[e.reason.kind], a = i < P.items.length ? planRow(P.items[i]) : null; return `<div class="ptr"><span class="num">${i + 1}</span><div class="grow"><b>${a ? esc(a.title) : 'Completion'}</b>${i > 0 && P.outcomes[i - 1] ? ` <span class="am">· after ${esc(P.outcomes[i - 1])}</span>` : i === 0 ? ' <span class="am">· entry</span>' : ''}
+      <div class="tr-why"><span class="rpill" style="color:${R.color};border-color:${R.color}"><i class="fa-solid ${R.icon}"></i>${R.label}${e.reason.n ? ' ' + e.reason.n : ''}</span><span>${esc(e.reason.text)}</span></div></div></div>`; }).join('');
+  const beats = Object.entries(P.runs).map(([i, run]) => { const r = planRow(P.items[+i]), g = revLatest(REV['act-scenario']), d = g.doc; return Object.entries(r.points).map(([pid, depth]) => { const p = pointOf(pid), c = d.covers[pid]; const si = c ? d.steps.findIndex(x => x.id === c.beat) : -1, fired = c && run.beats.includes(c.beat); return `<div class="reach"><b>${p ? p.short : pid}</b><div>${p ? esc(p.title) : ''}<div class="am">${c ? `Beat: step ${si + 1} — ${esc(d.steps[si].label)}${fired ? ` · reached, landed <b>${LEVEL_LABEL[run.levels[c.beat]] || '—'}</b>` : ' · not reached on this run'}` : 'no beat named'}</div></div>${fired ? `<span class="mb ok">${DEPTH[depth]}</span>` : '<span class="mb warn">Beat not fired</span>'}</div>`; }).join(''); }).join('');
+  return `<div class="pdone"><div class="eyebrow">Output preview complete${isExp && pathNo ? ` · path ${pathNo} of ${rc.paths.length}` : ''}</div><h2 style="margin:4px 0 6px">${esc(o.name)} — the path this learner took</h2>
+    <div class="sub">${isExp ? 'Followed the structure on what actually happened in each activity: the scenario’s levels, how the check went. The reasons below are the composer’s (G16); the learner saw none of them (D44).' : 'Walked in order, as a learner.'} Recorded against this exact state: any change after it means previewing again (G1).</div>
+    <div class="dl">Path taken</div>${trace}
+    <div class="dl" style="margin-top:16px">Points reached on this path</div>
+    ${pr.map(p => `<div class="reach"><b>${p.short}</b><div>${esc(p.title)}<div class="am">${p.best ? `${DEPTH[p.best]} via ${esc(shortTitle(p.by))} · needs ${DEPTH[p.need]}` : `Nothing on this path carries it · needs ${DEPTH[p.need]}`}</div></div>${p.ok ? '<span class="mb ok">Met</span>' : '<span class="mb warn">Below the bar</span>'}</div>`).join('')}
+    ${beats ? `<div class="dl" style="margin-top:16px">Beats fired · scenario</div>${beats}` : ''}
+    ${isExp ? `<div class="am" style="margin-top:14px">This is one of ${rc.paths.length} paths a learner can take. The others are in the rehearsal on the structure view, and the all-paths sign-off covers every one of them (G17).</div>` : ''}
+    <div class="card-actions" style="margin-top:18px"><button class="btn" data-preplay><i class="fa-solid fa-rotate-left"></i>Walk it again</button><button class="btn primary" data-pclose2>Back to outputs</button></div></div>`;
 }
 $('#player').addEventListener('click', e => {
   const t = e.target.closest('button, [data-pbar]'); if (!t || !P) return;
@@ -3766,8 +3799,8 @@ $('#player').addEventListener('click', e => {
   if (d.spsend !== undefined) { const b = $('#spBox'); if (b && b.value.trim()) spSend(b.value.trim()); return; }
   if (d.spquick) return spSend(d.spquick);
   if (d.pspeed) { P.speed = +d.pspeed; return renderPlayer(); }
-  if (d.pnext !== undefined) { pItemDone(); return renderPlayer(); }
-  if (d.preplay !== undefined) { P.done = false; if (P.items[P.idx] === 'act-scenario') scnPlayerInit(); else { P.t = 0; P.furthest = pTotal(); } return renderPlayer(); }
+  if (d.pnext !== undefined) { pItemDone(d.pnext || undefined); return renderPlayer(); }
+  if (d.preplay !== undefined) { if (P.mode === 'output') { openPlayer({ mode: 'output', outId: P.outId }); return; } P.done = false; if (P.items[P.idx] === 'act-scenario') scnPlayerInit(); else { P.t = 0; P.furthest = pTotal(); } return renderPlayer(); }
   if (d.papprove !== undefined) { if (t.disabled) return; const rv = REV[P.items[P.idx]]; rv.approval = { gen: rv.gens[P.gen].n, on: 'Today' }; renderPlayer(); return toast(`Content approved · pinned to generation ${rv.approval.gen} (D41)`); }
   if (d.pbar !== undefined) {
     const r = t.getBoundingClientRect();
@@ -4838,6 +4871,18 @@ function seedSpec() {
   queueSpec(r, 'treatment', 'Refresher-length');
   queueSpec(r, 'constraints', [...specValue(r, 'constraints'), 'Never show a person standing under raised forks']);
 }
+/* Pass 9 · stage 3 — a learner walks the Experience: Unthoughtful on step 2 → podcast → fails the check → card → passes. */
+function seedExpPreview(toReport) {
+  openPlayer({ mode: 'output', outId: 'out-exp' });
+  P.t = P.furthest = pTotal(); pItemDone();                                   // the video, watched through
+  const d = revLatest(REV['act-scenario']).doc;
+  spNext(); spNext();                                                          // narrative → opening → step 1
+  d.steps.forEach((st, i) => { for (let k = 0; k < st.exitTurns; k++) spSend(i === 1 ? TRY_LINE.unthoughtful : TRY_LINE.strong); spNext(); });
+  spNext();                                                                    // close → the scenario's outcome picks the next connection
+  pItemDone('completed');                                                      // the podcast, rule 2's insertion
+  if (toReport) { pItemDone('failed'); pItemDone('completed'); pItemDone('passed'); }
+  renderPlayer();
+}
 function seedSpecAdd() { openSpec('act-video'); B.specDialog = { act: 'act-video', op: 'add', pid: 'info-3', depth: 'awareness', choice: 'analyse', keep: {} }; commitSpec({ instant: true }); }
 function seedScnPending() {
   const add = (elId, text, verbatim) => { const i = infoFor(elId); R.pending.push({ n: ++R.seq, type: 'annotate', elId, text, verbatim, label: labelOf(i), where: whereOf(i) }); };
@@ -4962,6 +5007,9 @@ function applyFlowState(id, opts) {
     case 'out-rehearse-short': { openOutput('out-exp'); rehWalk(outById('out-exp'), [null, null, 'st-1:strong', null]); after = () => $('.reh-now').scrollIntoView({ block: 'center' }); break; }
     case 'out-allpaths': { openOutput('out-exp'); after = () => $('.ap-table').scrollIntoView({ block: 'center' }); break; }
     case 'out-signoff': { openOutput('out-exp'); const o = outById('out-exp'); togglePin(o, 'act-check'); o.signedSig = sigKey(o); o.signedStruct = structOf(o).version; after = () => $('.ap-table').scrollIntoView({ block: 'center' }); break; }
+    // ── Pass 9 · stage 3 — the learner preview follows the edges
+    case 'exp-preview-check': S.layer = 'outputs'; after = () => seedExpPreview(false); break;
+    case 'exp-preview-report': S.layer = 'outputs'; after = () => seedExpPreview(true); break;
     default: break;
   }
   setDock(dock, { silent: true });
@@ -4989,7 +5037,7 @@ window.TOOLBOX_CONFIG = {
   flowMap: {
     title: 'Studio AI Generative — Flow Map',
     applyState: 'applyFlowState',
-    canvas: { w: 1500, h: 3300 },
+    canvas: { w: 1500, h: 3450 },
     flows: [
       { id: 'loop', name: 'Review loop (G4–G6, G9)', pill: 'A', color: '#c9b8f0',
         lane: { x: 20, y: 20, w: 1460, h: 440 }, labelXY: { x: 40, y: 40 } },
@@ -5007,8 +5055,8 @@ window.TOOLBOX_CONFIG = {
         lane: { x: 20, y: 2100, w: 1460, h: 320 }, labelXY: { x: 40, y: 2120 } },
       { id: 'spec', name: 'Spec edits — treatment rides the task, points get the scoped choice (G14, G15) · Coverage tab (G1)', pill: 'H', color: '#f0e6b8',
         lane: { x: 20, y: 2440, w: 1460, h: 480 }, labelXY: { x: 40, y: 2460 } },
-      { id: 'comp', name: 'Compose — an output’s structure, with the reason for every connection (D4, D47, G16)', pill: 'I', color: '#d9c9f0',
-        lane: { x: 20, y: 2940, w: 1460, h: 330 }, labelXY: { x: 40, y: 2960 } }
+      { id: 'comp', name: 'Compose — an output’s structure, with the reason for every connection (D4, D47, G16) · rehearsal (G17) · preview follows the edges', pill: 'I', color: '#d9c9f0',
+        lane: { x: 20, y: 2940, w: 1460, h: 480 }, labelXY: { x: 40, y: 2960 } }
     ],
     nodes: [
       { id: 'g1', flow: 'loop', entry: true, x: 60, y: 90, step: 'Entry', name: 'Generation 1', state: 'g1',
@@ -5173,7 +5221,12 @@ window.TOOLBOX_CONFIG = {
       { id: 'or4', flow: 'comp', x: 780, y: 3160, step: 'Sign-off', name: 'All paths · one short', state: 'out-allpaths',
         desc: 'Every route a learner can take, every point against the bar. One red row names the path and the point; sign-off is blocked until the structure is fixed.' },
       { id: 'or5', flow: 'comp', x: 1020, y: 3160, step: 'G11', name: 'Signed off', state: 'out-signoff',
-        desc: 'After the pin: six paths, every one green, signed off against structure v2 and the activities’ current generations. The handoff gate reads it; any later change clears it.' }
+        desc: 'After the pin: six paths, every one green, signed off against structure v2 and the activities’ current generations. The handoff gate reads it; any later change clears it.' },
+      // ── Pass 9 · stage 3 — the learner preview follows the edges
+      { id: 'ep1', flow: 'comp', x: 60, y: 3310, step: 'D44', name: 'Preview · the check decides', state: 'exp-preview-check',
+        desc: 'The learner preview follows the structure on real outcomes: the scenario landed Unthoughtful on step 2, so the podcast came next (rule 2). Now at the check: pass or fail it, and the path follows.' },
+      { id: 'ep2', flow: 'comp', x: 300, y: 3310, step: 'G1', name: 'Report · the path taken', state: 'exp-preview-report',
+        desc: 'Failed the check → the inspection card (rule 1) → passed on retry → completion. The report is the path with every connection’s reason, the points this path reached, and the beats the scenario fired — path 4 of 5.' }
     ],
     edges: [
       ['g1', 'annotate'], ['g1', 'region'], ['annotate', 'pending'], ['region', 'pending'], ['pending', 'working'],
@@ -5188,7 +5241,8 @@ window.TOOLBOX_CONFIG = {
       ['brief', 'sp1'], ['sp1', 'sp2'], ['sp2', 'sp3'], ['sp3', 'sp4'], ['sp4', 'sp5'], ['sp5', 'sp6'],
       ['sp1', 'sp7'], ['sp7', 'sp8'], ['sp8', 'sp9'], ['sp9', 'sp10'], ['sp10', 'sp5'], ['sp1', 'sp11'], ['sp11', 'sp12'], ['sp7', 'sp13'], ['sp7', 'sp14'],
       ['outs', 'os1'], ['os1', 'os2'], ['os2', 'os3'], ['os3', 'os4'], ['os1', 'os5'], ['os5', 'os6'],
-      ['os1', 'or1'], ['or1', 'or2'], ['or1', 'or3'], ['or3', 'or4'], ['or4', 'or5'], ['os4', 'or5']
+      ['os1', 'or1'], ['or1', 'or2'], ['or1', 'or3'], ['or3', 'or4'], ['or4', 'or5'], ['os4', 'or5'],
+      ['opv', 'ep1'], ['or2', 'ep1'], ['ep1', 'ep2']
     ]
   }
 };
