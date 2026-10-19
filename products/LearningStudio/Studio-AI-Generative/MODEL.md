@@ -679,6 +679,35 @@ cover"* — the "suggest" half of D41 — comes for free.
 
 ---
 
+## Scenario — the seven answers (built 2026-10-16)
+
+The first modality to answer the questions below after video, and the one
+that tests the model hardest, because its content is generated at runtime.
+
+| | Scenario |
+|---|---|
+| 1 · Previewed how? | **Generated at runtime.** Authoring review is the parent's rehearsal (D33): Read for verbatim content, Calibrate to see which level catches an answer, Play for free conversation with reroll. Learner preview plays one run. |
+| 2 · Elements | The six-stage spine as element groups: narrative, opening messages, setting, canon facts, characters, coach persona, tone guidelines, misconceptions; per step — purpose, opening/brief, scene, exhibit, rubric items, calibration guidelines, pinned examples, key points, probe, final word; closing summary, components, references; and the **coverage claims** as one element. |
+| 3 · Excerpt | The element's primary text; for multi-field elements (character, guideline) every field. |
+| 4 · Beat | A **step** (D42, D46). The coverage element names the beat per point; the reviewer checks the step is unskippable (exits after ≥1 turn). |
+| 5 · "What changed" | Text diff per field, as for video. Plus the **coverage element**: a moved beat is a field change. No timeline; Jump switches to the element's phase and step. |
+| 6 · Depth guidance | Working credibly; Mastery when a roleplay holds under pressure. Guidance only (D15). |
+| 7 · Generator guarantees | Carryover names steps by id, never position; an opening is verbatim; the closing ships verbatim on every path; a kept roll becomes the level's example and is locked. |
+
+**Two things the port settled about the model:**
+
+- **Keep-as-example is a Pending item** (`pin`), not a direct write. D33 made
+  rehearsal an authoring gesture; G9 makes every edit a task item. A pin is a
+  targeted request whose value is already known — exactly the shape G5 gave
+  restore — so it rides the next task and locks on landing.
+- **Drift's second form is real.** Rewriting a guideline regenerates the
+  example drawn under it and can re-anchor a beat. Both show as unrequested
+  because the diff compares generations rather than trusting the generator
+  (G6). A point whose beat step changed shows its SME confirmation as stale,
+  per point (G12).
+
+---
+
 ## What each modality now has to answer
 
 Replaces the parent's seven framework questions. A modality no longer needs an

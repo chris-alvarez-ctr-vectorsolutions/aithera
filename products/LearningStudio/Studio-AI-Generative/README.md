@@ -10,7 +10,7 @@ The comparison the team already lives: a UX designer moving from a Figma canvas
 to reviewing a live HTML prototype that Claude Code built — and steering the
 next version by pointing at things and saying what should change.
 
-**Status:** exploration. Passes 1–5 of the mock are built (`ver1/index.html`, opened
+**Status:** exploration. Passes 1–7 of the mock are built (`ver1/index.html`, opened
 through the loader `index.html`). Started 2026-10-15.
 
 Built as a versioned feature with the Design Toolbox and a flow map; the flow
@@ -19,6 +19,54 @@ components** — this is exploration, and the components don't cover a generated
 artifact, a change map or a dockable panel. Same call as the parent prototype.
 
 ---
+
+## Session handoff — 2026-10-19
+
+**Where it stands.** Four layers navigable from the rail (Info set, Brief,
+Activities, Outputs); two review renderers (video, scenario); decisions G1–G14
+in `MODEL.md`; 61 flow-map states, all rendering clean. Passes 1–5 are
+committed as `6034cf33`; passes 6a (Activities layer) and 7 (scenario) are
+the commit after it.
+
+**Known rough edges, deliberately left:**
+- The scenario's Interaction phase is the densest screen (steps · rehearsal ·
+  panel). Reads at 1440px; tight below.
+- After one guideline edit, every point anchored to the changed step shows its
+  SME confirmation as stale (G12, per point). Correct, but the Coverage table
+  goes amber fast — may want a softer treatment.
+- The brief's generation plan and the Activities list show near-identical rows
+  with overlapping status. Kept on purpose (spec vs. artifact); if it grates,
+  strip status from the plan.
+- Activities without a renderer (podcast, check, job aid) use **simulated**
+  Regenerate / Approve buttons (labelled "sim") so the gates can be exercised.
+
+**How the mock is verified** (no test framework; headless Chrome from the CLI):
+- *Every flow state renders without console errors:* loop over the `state:`
+  ids in the flow-map config, load `index.html#fm=<state>` with
+  `--headless=new --dump-dom --enable-logging=stderr`, and grep the stderr
+  for `CONSOLE` lines that aren't the toolbox's expected `file://` CORS noise.
+- *Interaction paths:* copy `index.html` to a scratch file with the toolbox
+  `<script>` stripped, append a `<script>` that drives the page with synthetic
+  clicks (`dispatchEvent(new MouseEvent('click', {bubbles:true}))`) and logs
+  to a `<pre id="RESULT">`, then `--dump-dom` and read it back. Use absolute
+  paths — the shell cwd resets between tool calls.
+- *Icons:* every `fa-*` class in the file must appear as a selector in
+  `assets/fontawesome/css/all.min.css`; a missing one renders as an invisible
+  zero-width glyph.
+
+**Architecture notes for the next change:**
+- Review state is **per activity**: `REV[id]` holds generations, Pending,
+  locks, approval; `R` points at the open one. Shared shell state is `S`.
+  Each modality is an `ADAPT[id]` with `elements / apply / fresh / carriers /
+  jump`. A new modality = a seed, an adapter, a renderer, a player stand-in.
+- `POINTS` is derived from the information set (`syncPoints()`); never edit it
+  directly. Every claim pins a point version (`prov[pid].ptv`).
+- The seed data for the six points, the library, the comments and the
+  scenario is the parent's, extracted verbatim — don't retype it; re-extract.
+
+**Next:** Pass 8 — G14 spec edits (treatment fields ride the task; point
+changes get a scoped analyse/refresh) and a coverage panel on the video review
+matching the scenario's; then the job-aid proof.
 
 ## If you are picking this up cold
 
@@ -199,6 +247,70 @@ the analysis says that element holds.
 Activities other than the main video have **simulated** Regenerate and Approve
 buttons (labelled "sim") so the gates can be satisfied end to end.
 
+## What the mock shows — Pass 7, the scenario (2026-10-16)
+
+The generated-at-runtime proof. The video was the easy case: static, so
+watching it verifies coverage. A scenario's coach replies differ every run,
+so a rendered artifact cannot stand in for the learner's experience — and
+this is where the parent's deepest thinking (rehearsal, D33; beats, D42)
+either survives the all-prompt model or doesn't. Open **Hazard walkthrough —
+loading dock** from Activities.
+
+- **The parent's scenario surface, ported as a review renderer.** The
+  six-stage spine (Framing, World, Coverage, Interaction, Coach, Close) is now
+  the *structure of the generated artifact*: every narrative line, canon fact,
+  character, calibration guideline, pinned example, key point and closing
+  component is a targetable element with a stable id. All three practice
+  modes come across. Nothing is a form. The seed is the parent's, verbatim.
+- **The shared shell is shared in code, not just in copy.** Review state
+  (generations, Pending, locks, approval) is now **per activity** (`REV`), the
+  panel reads whichever is open, and each modality supplies an adapter:
+  elements, apply, fresh-start, coverage carriers, jump. Opening the scenario
+  changes the body; the Changes / Pending / History tabs, the change map,
+  locks, the verbatim rule and the revision task are the same code the video
+  uses.
+- **Rehearsal (D33), kept almost unchanged.** Read / Calibrate / Play beside
+  the steps. Type a learner answer and see which level catches it; **reroll**
+  to see the spread the guideline produces; the level tag jumps to the
+  guideline element. **Keep a roll** queues a Pending `pin` — a known value,
+  applied exactly by the next task and locked (G4/G5): the parent's "rehearsal
+  is an authoring gesture", made consistent with G9.
+- **Coverage with beats (D42).** The generator's claims are an element: point,
+  depth, and the step that guarantees it. The reviewer checks the beat is
+  unskippable. Provenance and point version sit beside each.
+- **Unrequested drift, second form (G6).** Annotating the Strong guideline
+  makes generation 5 regenerate the example drawn under it *and* move P3's
+  beat to step 2 — both unrequested, both caught by comparing the
+  generations, and the moved beat shows on the Coverage phase as a change
+  like any other. Every carrier of a point whose beat step changed shows its
+  SME confirmation as stale.
+- **Learner preview = playing it.** One run of a conversation that differs
+  every time; the report is about beats fired and the level each landed on,
+  not the words. Content approval from the report, as for video.
+- **Everything upstream now reaches the scenario**: brief analysis queues
+  into *its* Pending (Marcus's hi-vis, the step-2 scene), the refresh dialog
+  offers *its* locks (the SME-locked closing summary), Outputs shows its
+  generation and approval, the Information Set's *Carried by* reads its
+  claims.
+- **Prompt-smell (D37)** now blocks a verbatim annotation that talks about
+  the AI or the interface.
+
+## What the mock shows — Pass 6a, the Activities layer (2026-10-16)
+
+The rail's **Activities** used to drop straight into the one activity with a
+review renderer, which hid the structure. It is now the project's **library of
+activities**, grouped by modality — generation, approval, brief currency,
+drift, points with provenance, which outputs each sits in — and the review
+screen is one level **down**: Open drills in, a back link returns.
+
+- **Open on the video** → the Pass 1 review screen.
+- **Open on any other modality** → the **shared shell** with the body missing:
+  generations, approval, coverage with provenance and point version, outputs
+  — and a note that only the review renderer is unbuilt. This is the
+  "common platform, unique body" principle shown rather than toasted.
+- The plan's and Outputs' Open buttons drill in the same way; Generate works
+  from here for rows whose points are accepted.
+
 ## What the mock shows — Pass 5, the Information Set layer (2026-10-16)
 
 Chosen over a read-only stub because, with four layers, the one the model
@@ -273,8 +385,10 @@ Everything is in-memory; reload resets.
 3. ~~**Pass 2 — the project brief layer**~~ — built 2026-10-15.
 4. ~~**Pass 3 — gates**~~ — built 2026-10-15.
 5. ~~**Pass 5 — the Information Set layer**~~ — built 2026-10-16.
-6. **Pass 6** — G14 spec edits (treatment fields ride the task; point changes
+6. ~~**Pass 6a — the Activities layer**~~ — built 2026-10-16.
+7. ~~**Pass 7 — the scenario review renderer**~~ — built 2026-10-16.
+8. **Pass 8** — G14 spec edits (treatment fields ride the task; point changes
    get a scoped analyse/refresh) and a **coverage panel** in the review tooling
    (G1 promises it; the preview report is the only place claims show today).
-7. Prove the loop again on **job aid** — an undesigned modality — to show a new
+9. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.
