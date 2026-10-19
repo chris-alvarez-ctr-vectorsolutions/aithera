@@ -630,6 +630,40 @@
   @media (max-width: 560px) { .ver-chip, .pv-sub { display: none; } .pv-head { gap: 8px; padding: 0 10px 0 12px; } }
   .topbar .tb-user { white-space: nowrap; }
 
+  /* Preview guide — shown in the preview pane until the rule can be previewed */
+  .pv-guide { flex: 1; min-height: 0; overflow-y: auto; padding: 28px 20px 72px; display: flex; justify-content: center; }
+  .pv-guide-in { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px; }
+  .pg-title { font-size: 16px; line-height: 22px; font-weight: 600; color: var(--ink); }
+  .pg-sub { margin-top: 4px; font-size: 12.5px; line-height: 18px; color: var(--muted); }
+  .pg-ask { background: #fff; border: 1px solid var(--ai-soft); border-radius: 10px; padding: 12px 14px; box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 8px 24px rgba(45,91,227,.08); }
+  .pg-ask-head { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ai); }
+  .pg-ask-head .tile { width: 20px; height: 20px; border-radius: 6px; background: var(--ai); display: inline-flex; align-items: center; justify-content: center; }
+  .pg-q { margin: 8px 0 10px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--ink); }
+  .pg-opts { display: flex; flex-direction: column; gap: 6px; }
+  .pg-opt { width: 100%; text-align: left; display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 8px 10px 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; font: 500 13px var(--font); color: var(--ink); cursor: pointer; transition: border-color .12s, background .12s; }
+  .pg-opt:hover, .pg-opt:focus-visible { border-color: var(--ai); background: var(--ai-tint); }
+  .pg-opt-tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pg-opt-tx .d { font-size: 11.5px; line-height: 15px; font-weight: 400; color: var(--muted); }
+  .pg-opt .arr { font-size: 11px; color: var(--ai); opacity: 0; transition: opacity .12s; flex: none; }
+  .pg-opt:hover .arr, .pg-opt:focus-visible .arr { opacity: 1; }
+  .pg-hint { margin-top: 8px; font-size: 11.5px; color: var(--muted); }
+  .pg-alt { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line-3); }
+  .pg-alt .text-btn i { margin-right: 3px; }
+  .pg-alt .pg-skip { color: var(--muted); font-weight: 500; margin-left: auto; }
+  .pg-steps { background: #fff; border: 1px solid var(--line-2); border-radius: 10px; }
+  .pg-steps-head { padding: 10px 14px 2px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .pg-step { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; }
+  .pg-step + .pg-step { border-top: 1px solid var(--line-3); }
+  .pg-dot { width: 20px; height: 20px; border-radius: 999px; flex: none; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: #EEF0F3; color: var(--faint); }
+  .pg-step.done .pg-dot { background: var(--success-bg); color: var(--success); font-size: 10px; }
+  .pg-step.next .pg-dot { background: #fff; color: var(--ai); box-shadow: inset 0 0 0 1.5px var(--ai); }
+  .pg-body { flex: 1; min-width: 0; }
+  .pg-label { font-size: 12.5px; line-height: 17px; font-weight: 600; color: var(--ink); }
+  .pg-step.todo .pg-label { color: var(--ink-2); }
+  .pg-val { font-size: 12px; line-height: 16px; color: var(--muted); }
+  .pg-link { font-size: 11.5px; margin-top: 1px; }
+  .field-reveal.flash { animation: cfgApplyRing 1.7s ease; }
+
   /* Simulator inside the preview pane */
   .sim, .sim-body { background: var(--surface-3); }
   .sim-compact-head { background: #fff; color: var(--ink); border-bottom: 1px solid var(--line-3); }
@@ -2933,7 +2967,9 @@ function enterPreview(opts = {}) {
     if (!bld.threePane) renderBuilderShell();
     if (!opts.quiet) {
       const top = previewTop();
-      aiReplyLater(() => bld.messages.push({ role: 'ai', text: `The predicted call order is live in the preview on the right${top ? ` — ${top.name} would be called first` : ''}. It updates every time a parameter changes, here or in chat.` }), 450);
+      aiReplyLater(() => bld.messages.push({ role: 'ai', text: previewReady()
+        ? `The predicted call order is live in the preview on the right${top ? ` — ${top.name} would be called first` : ''}. It updates every time a parameter changes, here or in chat.`
+        : "The preview on the right fills in as soon as I know how this rule ranks people. Tell me here, or pick an option there." }), 450);
     }
     flashPane('rule-builder-preview');
     return;
@@ -3254,7 +3290,7 @@ function renderRuleBuilder(el, seed) {
 // when there's room; below that, V2's two panes with Preview ranking as a tab.
 const THREE_PANE_MIN = 1200;
 function threePane() { return window.innerWidth >= THREE_PANE_MIN; }
-function previewReady() { return !!bld && (bld.revealedFields.has('ruleType') || !!bld.existingRule || Object.keys(bld.fieldSource).length > 0); }
+function previewReady() { return !!bld && (!!bld.existingRule || bld.revealedFields.has('ruleType') || !!bld.fieldSource.ruleType); }
 // Who the preview pane says is called first — chat quotes the same list.
 function previewTop() {
   if (!previewReady()) return null;
@@ -3337,7 +3373,9 @@ function renderRightPane() {
     </div>
     <div class="cfg-body" id="cfgBody"></div>`;
   const body = byId('cfgBody');
-  if (previewing) {
+  if (previewing && !previewReady()) {
+    body.innerHTML = `${builderPreviewHeadHtml(true)}${previewGuideHtml()}`;
+  } else if (previewing) {
     body.innerHTML = '<div id="cfgPreviewSim" class="pv-mount"></div>';
     renderSimulator(byId('cfgPreviewSim'), { seed: { form: bld.form }, panelOnly: true, noChat: true, inBuilder: true });
   } else {
@@ -3353,19 +3391,98 @@ function renderPreviewPane() {
   if (!host) return;
   bld.previewMounted = false;
   if (!previewReady()) {
-    host.innerHTML = `
-      ${builderPreviewHeadHtml(true)}
-      <div class="pv-empty">
-        <div class="pv-ghost" aria-hidden="true">${[86, 70, 78, 62, 74].map((w, i) => `<div class="pv-ghost-row"><span class="n">${i + 1}</span><span class="bar" style="width:${w}%"></span></div>`).join('')}</div>
-        <div class="pv-empty-title">The predicted call order lands here</div>
-        <div class="pv-empty-sub">Once Vectoria knows how this rule ranks people, you'll see who gets called first. It updates every time a parameter changes.</div>
-      </div>`;
+    host.innerHTML = `${builderPreviewHeadHtml(true)}${previewGuideHtml()}`;
     return;
   }
   host.innerHTML = '<div id="cfgPreviewSim" class="pv-mount"></div>';
   renderSimulator(byId('cfgPreviewSim'), { seed: { form: bld.form }, panelOnly: true, noChat: true, inBuilder: true });
   bld.previewMounted = true;
 }
+// ── Preview guide ────────────────────────────────────────────────────
+// Until the preview can render, its pane helps the person answer: it mirrors
+// the question Vectoria is asking right now with one-click answers, and lists
+// what the preview still needs (who the rule covers, how it ranks people).
+function currentAsk() {
+  if (bld.typing) return { typing: true };
+  const msgs = bld.messages;
+  const lastAiIdx = msgs.reduce((l, m, i) => m.role === 'ai' ? i : l, -1);
+  if (lastAiIdx < 0) return null;
+  const m = msgs[lastAiIdx];
+  const paras = stripBold(m.text).split(/\n+/).map(t => t.trim()).filter(Boolean);
+  const q = ([...paras].reverse().find(t => /\?\s*$/.test(t)) || paras[paras.length - 1] || '').replace(/ below/, '');
+  if (msgs.slice(lastAiIdx + 1).some(x => x.role === 'suggestions')) {
+    return { q: 'How should this rule rank people?', kind: 'suggestions', options: SUGGESTION_SETS.flat().map(x => ({ label: x.name, desc: x.desc })) };
+  }
+  if (m.chips && m.chips.length) return { q, kind: m.multi ? 'multi' : (m.freeform ? 'freeform' : 'chips'), options: m.chips.map(c => ({ label: c })) };
+  return { q, kind: 'open' };
+}
+function previewNeeds() {
+  const f = bld.form;
+  const coversDone = !!(bld.fieldSource.ruleAffects || bld.fieldSource.selectedApproaches || bld.hasSeededGroups);
+  const ranksDone = previewReady();
+  return [
+    { key: 'ruleAffects', label: 'Who the rule covers', done: coversDone,
+      value: f.ruleAffects === 'selected' && f.selectedApproaches.length ? f.selectedApproaches.join(', ') : 'All approaches',
+      hint: 'Every approach, or only some (e.g. Firefighter 2, Captains).' },
+    { key: 'ruleType', label: 'How it ranks people', done: ranksDone,
+      value: ruleTypeLabel(f.ruleType),
+      hint: 'Hours worked, seniority, a rotating list, or a lottery.' },
+  ];
+}
+function previewGuideHtml() {
+  const ask = currentAsk();
+  const needs = previewNeeds();
+  const left = needs.filter(n => !n.done).length;
+  const nextKey = (needs.find(n => !n.done) || {}).key;
+  const optBtn = (o) => ask.kind === 'suggestions'
+    ? `<button class="pg-opt" data-rb="suggestion" data-name="${esc(o.label)}"><span class="pg-opt-tx"><span class="l">${esc(o.label)}</span><span class="d">${esc(o.desc || '')}</span></span><i class="fa-solid fa-arrow-right arr"></i></button>`
+    : `<button class="pg-opt" data-rb="chip" data-chip="${esc(o.label)}"><span class="pg-opt-tx"><span class="l">${esc(o.label)}</span></span><i class="fa-solid fa-arrow-right arr"></i></button>`;
+  const askCard = !ask ? '' : ask.typing ? `
+    <div class="pg-ask">
+      <div class="pg-ask-head"><span class="tile">${sparkSvg(12)}</span>Vectoria is thinking</div>
+      <div class="typing-dots" style="margin-top:10px"><span></span><span></span><span></span></div>
+    </div>` : `
+    <div class="pg-ask">
+      <div class="pg-ask-head"><span class="tile">${sparkSvg(12)}</span>Vectoria is asking</div>
+      <div class="pg-q">${esc(ask.q)}</div>
+      ${ask.options ? `<div class="pg-opts">${ask.options.map(optBtn).join('')}</div>` : ''}
+      ${ask.kind === 'multi' ? '<div class="pg-hint">Need more than one? Tick several in the chat.</div>' : ''}
+      ${ask.kind === 'freeform' ? '<div class="pg-hint">Pick an example to start from, or write your own.</div>' : ''}
+      <div class="pg-alt">
+        <button class="text-btn" data-rb="focus-chat"><i class="fa-regular fa-keyboard"></i> ${ask.options ? 'Answer in your own words' : 'Type your answer in chat'}</button>
+        ${ask.kind !== 'open' ? '<button class="text-btn pg-skip" data-rb="skip">Skip for now</button>' : ''}
+      </div>
+    </div>`;
+  return `
+  <div class="pv-guide" id="pvGuide">
+    <div class="pv-guide-in">
+      <div>
+        <div class="pg-title">${left === 1 ? 'One answer' : left + ' answers'} to your first preview</div>
+        <div class="pg-sub">The predicted call order shows here as soon as Vectoria knows who the rule covers and how it ranks people. Answer here or in the chat.</div>
+      </div>
+      ${askCard}
+      <div class="pg-steps">
+        <div class="pg-steps-head">What the preview needs</div>
+        ${needs.map((n, i) => `
+          <div class="pg-step ${n.done ? 'done' : (n.key === nextKey ? 'next' : 'todo')}">
+            <span class="pg-dot">${n.done ? '<i class="fa-solid fa-check"></i>' : i + 1}</span>
+            <div class="pg-body">
+              <div class="pg-label">${esc(n.label)}</div>
+              <div class="pg-val">${n.done ? esc(n.value) : esc(n.hint)}</div>
+            </div>
+            ${n.done ? '' : `<button class="text-btn pg-link" data-rb="goto-field" data-field="${n.key}">Set in parameters</button>`}
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+// Keep the guide in step with the chat (and swap it for the live preview once ready).
+function syncPreviewGuide() {
+  if (!bld || (previewReady() && !byId('pvGuide'))) return;
+  if (bld.threePane) renderPreviewPane();
+  else if (bld.previewing && byId('rule-builder-config')) renderRightPane();
+}
+
 // Re-render the live preview after a parameter change, keeping its scroll.
 function refreshPreviewPane() {
   if (!bld || !bld.threePane) return;
@@ -3514,6 +3631,7 @@ function renderBuilderChat() {
   }).join('') + (bld.typing ? `
     <div class="msg-ai">${aiAvatar(24)}<div class="typing-dots"><span></span><span></span><span></span></div></div>` : '');
   thread.scrollTop = thread.scrollHeight;
+  syncPreviewGuide();
 
   // Freeform block wiring (textarea + example rows).
   const ffText = byId('ffText');
@@ -4058,6 +4176,15 @@ document.addEventListener('click', (e) => {
       patchForm({ [sg.field]: sg.value }, { fromChat: true });
       bld.pendingApplied = [];   // the note records it; no reference card
       renderBuilderChat();
+    }
+  }
+  else if ((el = t('[data-rb="goto-field"]'))) {
+    // Jump to a parameter card (opening the parameters pane/tab if needed) and flash it.
+    if (!bld.cfgOpen || bld.previewing) { bld.cfgOpen = true; bld.previewing = false; renderBuilderShell(); }
+    const card = document.querySelector(`#cfgScroll [data-field="${el.dataset.field}"]`);
+    if (card) {
+      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash');
     }
   }
   else if ((el = t('[data-rb="dismiss-suggest"]'))) { bld.dismissedSuggest.add(el.dataset.field); renderBuilderPanel(); }

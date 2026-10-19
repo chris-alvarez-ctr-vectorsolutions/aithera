@@ -17,6 +17,6 @@
 
 ## preview — Step 2 · Preview (live call order)
 - **Preview pane = the Builder's preview canvas.** Its header shows the rule name, Draft, a version chip that goes up with every change, Reset, and **Save rule** (the Builder's Publish). Below it: rule summary, Callback Settings, and the predicted call order, which re-renders on every parameter change and keeps its scroll position.
-- **Empty canvas first.** On a blank rule the pane shows a ghost list ("The predicted call order lands here") until a parameter is set.
+- **Guide before the preview.** Until Vectoria knows how the rule ranks people, the pane coaches the answer instead of sitting empty. A "Vectoria is asking" card repeats the current chat question with one-click answers (rule types include their one-line descriptions), plus "Answer in your own words" and "Skip for now." Below it, "What the preview needs" lists Who the rule covers and How it ranks people, ticking each off with its value and offering "Set in parameters," which jumps to and flashes that card. A header shows "N answers to your first preview." The guide follows the chat and gives way to the live call order once the rule type is set. The Preview ranking tab below 1200px shows the same guide.
 - **Sources strip** under the call order: roster, callback history, lookback, filters, and "hypothetical, nothing dispatched."
 - "Preview ranking" in chat points at the pane, and the reply names the same first person the pane shows.
