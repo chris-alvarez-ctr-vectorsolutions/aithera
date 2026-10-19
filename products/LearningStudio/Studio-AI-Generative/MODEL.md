@@ -690,6 +690,77 @@ same way: a new element of the carrier kind, plus the claim it adds.
 
 ---
 
+## G16 · An output's structure is composed from a brief, and every connection carries its reason
+**2026-10-19** · Pass 9, stage 1 · builds on parent D4 (edges live in the output) and D47 (reachability is computed; the author pins)
+
+**Compose** was the one parent operation never built. It is now the same
+shape as everything below the line in this spin-off: a **composition
+brief** directs it, the AI **proposes** the structure, the author reviews and
+accepts (D16). The brief is three things: the **default path** (an ordered
+list — the spine every learner is expected to follow), **rules** in prose
+that route by outcome, and a **completion** rule.
+
+**Outcomes are flat and per modality** (settled with the user, 2026-10-19):
+a knowledge check passes or fails; a scenario lands a level at a beat step;
+a video, podcast or job aid completes. Score bands belong to the real
+product, not this proof. **The entry is single and pinned**: every learner
+starts at the same activity, so every path has one root and reachability is
+one computation.
+
+**Every connection carries its reason.** The map alone is not the QA
+artifact; the map *with why each connection exists* is what a reviewer signs
+off. Five kinds:
+
+| Reason | Drawn by | Says |
+|---|---|---|
+| **default** | the brief's path | "Default path, step n" |
+| **rule n** | a brief rule | quotes the rule; the outcome it fires on |
+| **repair** | the composer | which point fell short on which path, and why this activity (the lightest carrier) was inserted |
+| **pin** | the author (D47) | which rule's skip now lands here instead of past it |
+| **gate** | the completion rule | the exit |
+
+The composer's **reasoning** is kept in order beside the map ("Rule 3: Strong
+on step 1 skips the check — straight to completion. Repair: on that path P1
+fell short of Working, so the inspection card was inserted before
+completion. Short: P3 is guaranteed on 4 of 5 paths and no repair exists.").
+
+**Repairs never override a rule.** When a path is short, the composer inserts
+the lightest activity that carries the point at the bar — as its **own
+instance** in the structure, never a node a rule's loop already owns — but
+it will not insert something the path's own rule skips. If the only carrier is
+exactly what the rule skips, it reports **short** and offers the author the
+fix: pin that activity required, drop the rule, or change the format's bar.
+The author decides; the composer explains.
+
+**The threshold reads reachability.** A point counts only if every path from
+entry to completion carries it at the bar (D47). The Outputs threshold gains
+"on paths: every path / n of m", and the handoff pin records the structure
+version, so a pin, a new rule or an accepted proposal clears a handoff like
+any other change (G11).
+
+**Pins apply at once; brief edits propose.** A pin is the author's input to
+the computation, so it recomposes immediately and bumps the version. A brief
+edit (a rule added, the path reordered) produces a **proposal** — the
+connections that would be added or removed, each with its reason, and the
+composer's new reasoning — accepted or discarded.
+
+**What the composer understands** is deliberately three rule shapes in this
+mock (fail X → repeat Y, retry; level on step N → Y before Z; level on step
+N → skip Z). An instruction outside them is **unmapped**: kept in the brief,
+flagged, and a handoff gate until reworded or removed. The real product's
+composer is a model; the point here is that an instruction it cannot honour
+is surfaced, never silently dropped.
+
+**A simplification to remember:** a scenario's outcome edges are treated as
+alternatives in rule order. A learner can in fact be Strong on step 1 *and*
+Unthoughtful on step 2; the mock routes on whichever rule fires first.
+
+**Resolves OQ Q15:** a Course is one path, so an output walk-through is
+optional; an Experience's traversal is generated, so the walk-through
+(stage 2, the output rehearsal) is required before handoff.
+
+---
+
 ## Coverage under generation
 
 The parent has the LED tag coverage. Here the **generator claims** coverage and

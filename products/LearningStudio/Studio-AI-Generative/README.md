@@ -23,10 +23,13 @@ artifact, a change map or a dockable panel. Same call as the parent prototype.
 ## Session handoff — 2026-10-19
 
 **Where it stands.** Four layers navigable from the rail (Info set, Brief,
-Activities, Outputs); two review renderers (video, scenario); decisions G1–G15
-in `MODEL.md`; 69 flow-map states, all rendering clean. Passes 1–5 are
-committed as `6034cf33`, passes 6a and 7 as `bb924036`, and Pass 8 (spec
-edits + the Coverage tab) is the commit after it.
+Activities, Outputs); two review renderers (video, scenario); decisions G1–G16
+in `MODEL.md`; 75 flow-map states, all rendering clean. Passes 1–5 are
+committed as `6034cf33`, passes 6a and 7 as `bb924036`, Pass 8 (spec edits +
+the Coverage tab) as `0b98453a`, and Pass 9 stage 1 (Compose) is the commit
+after it. Pass 9 continues with stage 2 (output rehearsal) and stage 3
+(learner preview follows edges) — the plan is in the Pass 9 section below and
+the user approves each stage before it is built.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -54,6 +57,17 @@ edits + the Coverage tab) is the commit after it.
   and redraws scene 1; a goal change rewrites the overlays). What matters is
   that each stays inside its field's scope (G15) and recomposition still
   drifts (shorter lines move overlay windows).
+- The composer (Pass 9) parses rules with three regexes and resolves
+  activities by keyword (`ACT_WORDS`). It is a stand-in for a model; the
+  design point is that an instruction it can't honour is surfaced as
+  unmapped, never dropped. Scenario outcome edges are treated as alternatives
+  in rule order (a learner can't be routed on both step 1 and step 2 in one
+  run) — see G16.
+- Path enumeration lets a node be visited twice, which admits exactly one
+  retry loop. A second failure dead-ends in the enumeration (not a path), which
+  is fine for the proof but is not how the product would bound retries.
+- Seed deviation (Pass 9): the inspection card carries P1 at **Working** (was
+  Awareness) so the composer has a lighter repair than the check.
 
 **How the mock is verified** (no test framework; headless Chrome from the CLI):
 - *Every flow state renders without console errors:* loop over the `state:`
@@ -97,10 +111,20 @@ edits + the Coverage tab) is the commit after it.
 - The seed data for the six points, the library, the comments and the
   scenario is the parent's, extracted verbatim — don't retype it; re-extract.
 
-**Next:** the job-aid proof — a static modality with no renderer, to show a
-new modality needs a review renderer, not a surface. The shared shell, the
-Coverage tab and the spec editor already work on it (stand-in mode); what it
-lacks is a body with addressable elements and a player.
+- **Compose (Pass 9):** an output's `structure` is composed lazily by
+  `structOf(o)` from `o.comp` (path, rules, completion) and `o.pins`:
+  `{ nodes, edges, spine, notes, unmapped, shorts, collisions, version }`.
+  Node ids are `n-<act>`; a repair inserts its own instance `n-<act>#rN`.
+  `enumeratePaths` / `reachOf` drive the threshold, the gates and the map;
+  `outSig` includes the structure version. Brief edits go to `o.draft` →
+  `proposeStructure` → `acceptProposal`; pins call `togglePin` and recompose
+  at once. The map is hand-rolled SVG (`layoutStructure`, `structMapSVG`),
+  layered by longest path with back edges detected on the DFS stack.
+
+**Next:** Pass 9 stage 2 (output rehearsal: walk, choose outcomes, reroll,
+all-paths sign-off table, pin from inside), then stage 3 (learner preview
+follows the edges; its report = path taken with reasons, beats fired, points
+reached). After that, the job-aid proof.
 
 ## If you are picking this up cold
 
@@ -280,6 +304,48 @@ the analysis says that element holds.
 
 Activities other than the main video have **simulated** Regenerate and Approve
 buttons (labelled "sim") so the gates can be satisfied end to end.
+
+## What the mock shows — Pass 9 · stage 1, Compose (2026-10-19)
+
+**Outputs** now has a third output, *Forklift Operator Experience*, whose
+traversal is generated. Open **Structure & reasons** on it (a Course has the
+same view with one path and no rules).
+
+- **A composition brief guides the composer** (G16): the default path as an
+  ordered list, routing rules in prose, a completion rule. The AI proposes
+  the map; the author accepts (D16). Three rule shapes are understood: *fails
+  X → repeats Y, then retries*; *<level> on <scenario> step N → hears Y before
+  Z*; *<level> on step N → skips Z*. Anything else is flagged **unmapped**,
+  kept in the brief, and blocks the handoff gate until reworded.
+- **Every connection carries its reason.** Click one: default path, the brief
+  rule quoted, a repair naming the point it protects and the rule it modifies,
+  a pin naming the rule whose skip now lands here, or the completion gate.
+  The composer's reasoning sits beside the map in order — this plus the map is
+  the QA record.
+- **Repairs are honest.** Rule 3 lets a Strong learner skip the check, which
+  leaves P1 short on that path. The composer inserts the inspection card as
+  its own instance (the lightest activity carrying P1 at Working) and says
+  so. P3 it cannot repair, because only the check reaches Mastery and that is
+  exactly what the rule skips: it reports *short*, and Flags offers **Pin the
+  check required** or **Drop rule 3**.
+- **Pins apply at once** (D47). Pinning the check retargets rule 3's skip
+  onto the check, the repair disappears, every point is guaranteed on every
+  path, the structure is v2, and the handoff pin (which now records the
+  structure version) clears.
+- **The threshold reads reachability**: "every path" or "n of m paths" per
+  point, with the missing paths named. The Paths list shows every route from
+  entry to completion with the outcomes that select it.
+- **Brief edits propose.** Add a rule or reorder the path and re-compose: the
+  proposal lists the connections it would add or remove, each with its
+  reason, plus the new reasoning. Accept bumps the version; discard restores
+  the draft.
+- Six flow-map states (lane I). The D38 collision check (two scenario
+  warm-ups in a row) is wired but nothing in the seed triggers it.
+
+**Next for Pass 9:** stage 2, output rehearsal — walk the structure choosing
+outcomes, see each connection's reason fire, reroll, enumerate all paths as
+the sign-off table, pin from inside the rehearsal. Then stage 3, the learner
+preview following the edges.
 
 ## What the mock shows — Pass 8, spec edits and the Coverage tab (2026-10-19)
 
@@ -472,5 +538,8 @@ Everything is in-memory; reload resets.
 6. ~~**Pass 6a — the Activities layer**~~ — built 2026-10-16.
 7. ~~**Pass 7 — the scenario review renderer**~~ — built 2026-10-16.
 8. ~~**Pass 8** — G14 spec edits and the Coverage tab~~ — built 2026-10-19.
-9. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
+9. **Pass 9 — Compose and the output walk-through.** ~~Stage 1: structure,
+   composition brief, reasons, reachability, pins~~ — built 2026-10-19.
+   Stage 2: output rehearsal. Stage 3: learner preview follows the edges.
+10. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.
