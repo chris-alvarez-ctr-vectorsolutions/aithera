@@ -10,7 +10,7 @@ The comparison the team already lives: a UX designer moving from a Figma canvas
 to reviewing a live HTML prototype that Claude Code built — and steering the
 next version by pointing at things and saying what should change.
 
-**Status:** exploration. Passes 1–7 of the mock are built (`ver1/index.html`, opened
+**Status:** exploration. Passes 1–8 of the mock are built (`ver1/index.html`, opened
 through the loader `index.html`). Started 2026-10-15.
 
 Built as a versioned feature with the Design Toolbox and a flow map; the flow
@@ -23,10 +23,10 @@ artifact, a change map or a dockable panel. Same call as the parent prototype.
 ## Session handoff — 2026-10-19
 
 **Where it stands.** Four layers navigable from the rail (Info set, Brief,
-Activities, Outputs); two review renderers (video, scenario); decisions G1–G14
-in `MODEL.md`; 61 flow-map states, all rendering clean. Passes 1–5 are
-committed as `6034cf33`; passes 6a (Activities layer) and 7 (scenario) are
-the commit after it.
+Activities, Outputs); two review renderers (video, scenario); decisions G1–G15
+in `MODEL.md`; 69 flow-map states, all rendering clean. Passes 1–5 are
+committed as `6034cf33`, passes 6a and 7 as `bb924036`, and Pass 8 (spec
+edits + the Coverage tab) is the commit after it.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -39,6 +39,21 @@ the commit after it.
   strip status from the plan.
 - Activities without a renderer (podcast, check, job aid) use **simulated**
   Regenerate / Approve buttons (labelled "sim") so the gates can be exercised.
+  Their spec edits queue into a `specQueue` on the row and land on sim
+  Regenerate.
+- The review panel now has four tabs. At the side docks the tab icons are
+  hidden (labels only) so the five dock buttons still fit; below 1100px the
+  tabs go icon-only with titles. The float panel grew to 380px for the same
+  reason.
+- A claim can stand with no carrier ("Claim anyway" in a points analysis).
+  Coverage and the preview report show it as not reached, and the handoff
+  review lists it under "left as is". Whether that should ever be allowed is
+  a design call not yet made — see the note under G14 in `MODEL.md`.
+- The spec editor's content effects are scripted stand-ins (a refresher
+  treatment takes each line's shorter alt; an audience change swaps the truck
+  and redraws scene 1; a goal change rewrites the overlays). What matters is
+  that each stays inside its field's scope (G15) and recomposition still
+  drifts (shorter lines move overlay windows).
 
 **How the mock is verified** (no test framework; headless Chrome from the CLI):
 - *Every flow state renders without console errors:* loop over the `state:`
@@ -58,15 +73,34 @@ the commit after it.
 - Review state is **per activity**: `REV[id]` holds generations, Pending,
   locks, approval; `R` points at the open one. Shared shell state is `S`.
   Each modality is an `ADAPT[id]` with `elements / apply / fresh / carriers /
-  jump`. A new modality = a seed, an adapter, a renderer, a player stand-in.
+  claimed / specScope / coverKinds / jump`. A new modality = a seed, an
+  adapter, a renderer, a player stand-in.
+- **Coverage claims live on the generation** (Pass 8): `gen.claims` for the
+  video (point → carrier element ids), `gen.doc.covers` for the scenario
+  (point → depth + beat). `VIDEO_CLAIMS` is only the seed. The adapter's
+  `carriers(pid, gen)` / `claimed(gen)` read them; `provOf` staleness, the
+  Coverage tab and the preview report all go through the adapter.
+- **Pending item types:** `annotate`, `region`, `restore`, `pin`, and since
+  Pass 8 `spec` (`{ field, from, to }` — lands on the plan row in `apply`
+  via `applySpecToRow`) and `cover` (`{ pid, depth }` — the adapter adds a
+  carrier). The diff attributes a change to a `spec` item by **scope**
+  (`ADAPT[id].specScope[field]` = element kinds × fields, G15), never by
+  element id. Anything outside the scope is drift.
+- A points edit never rides a task. `commitSpec` writes the claim to the row
+  at once, then either `startOver(r, keep)` (scoped refresh) or
+  `startAnalysis(..., { scope })` — the same `analyse` / `findingsHTML` /
+  `applyFindings` path the brief uses, with `B.findings.scope` set. The
+  `points` entry in `LIB` is the per-point analysis (`pointFindings`); a
+  fourth verdict, `missing`, exists only there.
 - `POINTS` is derived from the information set (`syncPoints()`); never edit it
   directly. Every claim pins a point version (`prov[pid].ptv`).
 - The seed data for the six points, the library, the comments and the
   scenario is the parent's, extracted verbatim — don't retype it; re-extract.
 
-**Next:** Pass 8 — G14 spec edits (treatment fields ride the task; point
-changes get a scoped analyse/refresh) and a coverage panel on the video review
-matching the scenario's; then the job-aid proof.
+**Next:** the job-aid proof — a static modality with no renderer, to show a
+new modality needs a review renderer, not a surface. The shared shell, the
+Coverage tab and the spec editor already work on it (stand-in mode); what it
+lacks is a body with addressable elements and a player.
 
 ## If you are picking this up cold
 
@@ -247,6 +281,56 @@ the analysis says that element holds.
 Activities other than the main video have **simulated** Regenerate and Approve
 buttons (labelled "sim") so the gates can be satisfied end to end.
 
+## What the mock shows — Pass 8, spec edits and the Coverage tab (2026-10-19)
+
+Open a plan row in the **Brief** (or the brief chip on a review screen, which
+now lands on that activity's row, expanded). The detail row is the activity
+spec, split the way G14 draws it: **what** on the left (the points it claims),
+**how** on the right (audience, treatment, assistant goal, activity
+constraints).
+
+- **Treatment fields ride the next revision task** (G14). Change the
+  treatment, edit the goal, add a constraint: each queues at once as a
+  `spec` item — the field shows *#n queued · was …* with a revert, the row
+  shows *n spec edits queued*, and the review screen's Pending lists it beside
+  the annotations. Nothing regenerates until the task is sent; the spec value
+  lands with the generation it produces. Set a field back to its current
+  value and the item disappears.
+- **Attribution is by scope, not by element** (G15, new). A spec item names no
+  element, so the diff asks the adapter which element kinds × fields the
+  field is entitled to move. A refresher treatment shortens every narration
+  line — requested, in scope — and the overlay windows that move with them are
+  drift, caught by comparison (G6) and shown louder, exactly as for an
+  annotation.
+- **Points get the scoped G10 choice.** Adding or removing a point opens a
+  dialog for *this one activity*: the claim change, its consequences
+  (an SME confirmation cleared — reported, never repaired, D43; what each
+  output's threshold does; the handoff that clears), and **Analyse** or
+  **Refresh**. Refresh reuses the brief's cost dialog — the locks it would
+  throw away, the approval that goes stale — scoped to the activity.
+- **Analyse reads the live generation.** Adding P3 to the video: nothing
+  carries it, so the finding is *Not covered* — **Cover it** queues a `cover`
+  item (the next generation adds a carrier, and that new line is the requested
+  change) or **Claim anyway** leaves the claim standing uncarried. Adding P2 to
+  the scenario: step 3 already teaches the dismount, so the finding *holds*
+  and applying registers step 3 as P2's beat. Removing P2 from the video names
+  the narration line that carried it — remove it, or leave it (the content
+  stays, unclaimed).
+- **The generator re-proposes its claims against the spec.** A dropped point
+  is no longer claimed by the next generation; on the scenario the coverage
+  element loses that field, attributed to the spec rather than reported as
+  drift.
+- **Coverage tab** in the review panel (G1 promised it; the preview report was
+  the only place claims showed). Per claimed point: the depth, the carriers in
+  the viewed generation (video: each element with its timestamp, as a jump
+  target; scenario: the beat step and whether it's unskippable), who judged
+  the depth, the point version. A claim with no carrier is amber with
+  **Cover it**; content the generation carries that the spec doesn't claim is
+  listed separately. Approval and SME confirmation stay on the preview report
+  (G12).
+- Activities without a renderer take the same spec edits into a queue on the
+  row; sim Regenerate applies them.
+
 ## What the mock shows — Pass 7, the scenario (2026-10-16)
 
 The generated-at-runtime proof. The video was the easy case: static, so
@@ -387,8 +471,6 @@ Everything is in-memory; reload resets.
 5. ~~**Pass 5 — the Information Set layer**~~ — built 2026-10-16.
 6. ~~**Pass 6a — the Activities layer**~~ — built 2026-10-16.
 7. ~~**Pass 7 — the scenario review renderer**~~ — built 2026-10-16.
-8. **Pass 8** — G14 spec edits (treatment fields ride the task; point changes
-   get a scoped analyse/refresh) and a **coverage panel** in the review tooling
-   (G1 promises it; the preview report is the only place claims show today).
+8. ~~**Pass 8** — G14 spec edits and the Coverage tab~~ — built 2026-10-19.
 9. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.

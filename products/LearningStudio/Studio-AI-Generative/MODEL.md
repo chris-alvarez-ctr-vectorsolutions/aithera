@@ -647,6 +647,47 @@ gets the heavier handling regardless of grain.
 **Modality** is not editable on an existing activity. Changing modality is
 transmute (parent `MODEL.md`), which creates a sibling activity.
 
+**Built 2026-10-19 (Pass 8).** Two things the build settled:
+
+- *An added point the generation doesn't carry* is a fourth analysis verdict,
+  **not covered**, with two dispositions: **cover it** (a `cover` item in
+  Pending — the next generation adds a carrier, and that carrier is the
+  requested change) or **claim anyway**. The second leaves a claim standing
+  with no carrier: Coverage and the preview report show it as not reached, and
+  it travels to the handoff review as "left as is". Whether an uncarried claim
+  should be allowed to stand at all is open; the mock allows it and makes it
+  visible rather than forbidding it.
+- *A removed point* is simply no longer claimed by the next generation — the
+  generator re-proposes its claims against the spec — and the diff attributes
+  the dropped claim to the spec, not to drift. The content that carried it
+  stays unless the author removes it in the analysis.
+
+---
+
+## G15 · A spec item is attributed by scope, not by element
+**2026-10-19** · raised by building G14
+
+G5/G6 attribute a change to a request by element id: an annotation targets an
+element, so a change to that element is requested and everything else is
+drift. A treatment-level spec edit (G14) names no element — "make this
+refresher-length" legitimately moves every narration line — so by-id
+attribution would report the whole generation as drift.
+
+A spec item therefore declares a **scope**: the element kinds and fields the
+field is entitled to move, supplied by the modality adapter. For the video,
+*treatment* may move narration text and remove lines; *audience* may relabel
+objects and redraw backgrounds; *assistant goal* may rewrite overlays;
+*activity constraints* may move nothing (they steer generation; if a
+generation changes under a constraint edit, that change is drift). For the
+scenario: *treatment* → step exit gates and probes; *audience* → settings;
+*goal* → the coach persona; *constraints* → characters' dress.
+
+Everything inside the scope is requested; everything outside is drift, caught
+by comparison and shown louder (G6), exactly as for an annotation. This keeps
+G6's stance — attribution never trusts the generator's account of what it did
+— while giving a spec edit the breadth it needs. A `cover` item is scoped the
+same way: a new element of the carrier kind, plus the claim it adds.
+
 ---
 
 ## Coverage under generation
@@ -665,6 +706,13 @@ the **reviewer checks** it:
 
 Because every generation re-proposes its claims, *"what does this now appear to
 cover"* — the "suggest" half of D41 — comes for free.
+
+**Where it shows (Pass 8):** the review panel's **Coverage** tab — per claimed
+point, the carriers in the viewed generation (elements with timestamps for the
+video, the beat step for the scenario), who judged the depth, the point
+version; a claim with no carrier is flagged with a one-click cover request;
+content the generation carries that the spec doesn't claim is listed apart.
+Approval and confirmation are still granted from the preview report (G12).
 
 ---
 
