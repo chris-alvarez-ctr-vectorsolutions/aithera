@@ -432,7 +432,7 @@ button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 /* "Sign": rows waiting on you sign right from the Status column, as a secondary button */
 .sign-btn { font-family: inherit; }
 .sign-btn i { color: var(--blue); }
-.row-act { width: 64px; text-align: center; }
+.row-act { width: 84px; text-align: center; }
 .row-act .lnk { font-size: 14px; }
 /* Drawer footer hides itself when there's no action for this workflow */
 .dr-foot:not(:has(*)) { display: none; }
@@ -1022,7 +1022,7 @@ function toast(msg) {
    (intermediary roles only), School, plus Status. Filters: Workflow, Grade,
    Segment, Experience, and search.
    Signing (FR-3), shared with every version via common/signflow.js:
-   · a row waiting on you shows a "Sign" status badge: sign that one form
+   · a row waiting on you has a Sign button in place of View: sign that one form
    · any row can be selected (Select all = the whole page); Sign & approve (n)
      signs the selected forms waiting on you, one form at a time (PRD)
    then answer the shared questions once and sign once. */
@@ -1165,13 +1165,19 @@ function statusChip(w) {
   if (w.status === 'not') return '<span class="st not"><i class="fa-regular fa-play"></i> Start workflow</span>';   // #7 only
   return '';
 }
-// Status column: the badge only. Two badges are also buttons:
-//   Sign            rows waiting on you: sign this one form right here
+// Status column: the badge only. In #7 the Start workflow badge is also a button:
 //   Start workflow  #7, unstarted: opens Start now / schedule
 function statusCell(w) {
-  if (mine(w)) return `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`;
   if (w.status === 'not' && typeof startDialog === 'function') return `<button class="st not" onclick="startDialog(['${w.id}'])" title="Start now or schedule"><i class="fa-regular fa-play"></i> Start workflow</button>`;
   return statusChip(w) || '<span class="sub">—</span>';
+}
+
+// Last column: rows waiting on you get a Sign button (signs this one form);
+// everything else opens the workflow details. The student name always opens details.
+function rowAction(w) {
+  return mine(w)
+    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`
+    : `<a class="lnk" onclick="openWorkflow('${w.id}')">View</a>`;
 }
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
@@ -1207,7 +1213,7 @@ function renderTracking() {
       ${SHOW_DISTRICT ? `<td>${esc(w.district)}</td>` : ''}
       <td>${esc(w.school)}</td>
       <td>${statusCell(w)}</td>
-      <td class="row-act"><a class="lnk" onclick="openWorkflow('${w.id}')">View</a></td>
+      <td class="row-act">${rowAction(w)}</td>
     </tr>`; }).join('') : `<tr class="empty"><td colspan="${cols}">No workflows match these filters.</td></tr>`;
   const all = $('#tAll');
   all.checked = rows.length > 0 && rows.every(w => tSel.has(w.id));
@@ -1649,7 +1655,7 @@ window.TOOLBOX_CONFIG = {
       { id: 'drawer', flow: 'sign', x: 640, y: 460, step: 'Option', name: 'Workflow details', state: 'drawer',
         desc: 'Signer timeline; Sign & approve a single form.' },
       { id: 'sign-one', flow: 'sign', x: 340, y: 460, step: 'Option', name: 'Sign one from the table', state: 'sign-one',
-        desc: 'The "Sign" status badge on a row waiting on you signs that form, no selecting needed.' },
+        desc: 'Rows waiting on you show Waiting for signatures, with a Sign button in place of View. No selecting needed.' },
       { id: 'review', flow: 'sign', x: 640, y: 300, step: '3', name: 'Answer once, sign once', state: 'review',
         desc: 'Shared questions once, one signature, applies to every listed student.' },
       { id: 'done', flow: 'sign', x: 940, y: 300, step: '4', name: 'Signed', state: 'done',

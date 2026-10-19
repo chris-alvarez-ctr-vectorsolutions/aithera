@@ -432,7 +432,7 @@ button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 /* "Sign": rows waiting on you sign right from the Status column, as a secondary button */
 .sign-btn { font-family: inherit; }
 .sign-btn i { color: var(--blue); }
-.row-act { width: 64px; text-align: center; }
+.row-act { width: 84px; text-align: center; }
 .row-act .lnk { font-size: 14px; }
 /* Drawer footer hides itself when there's no action for this workflow */
 .dr-foot:not(:has(*)) { display: none; }
@@ -961,13 +961,19 @@ function statusChip(w) {
   if (w.status === 'not') return '<span class="st not"><i class="fa-regular fa-play"></i> Start workflow</span>';   // #7 only
   return '';
 }
-// Status column: the badge only. Two badges are also buttons:
-//   Sign            rows waiting on you: sign this one form right here
+// Status column: the badge only. In #7 the Start workflow badge is also a button:
 //   Start workflow  #7, unstarted: opens Start now / schedule
 function statusCell(w) {
-  if (mine(w)) return `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`;
   if (w.status === 'not' && typeof startDialog === 'function') return `<button class="st not" onclick="startDialog(['${w.id}'])" title="Start now or schedule"><i class="fa-regular fa-play"></i> Start workflow</button>`;
   return statusChip(w) || '<span class="sub">—</span>';
+}
+
+// Last column: rows waiting on you get a Sign button (signs this one form);
+// everything else opens the workflow details. The student name always opens details.
+function rowAction(w) {
+  return mine(w)
+    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`
+    : `<a class="lnk" onclick="openWorkflow('${w.id}')">View</a>`;
 }
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
@@ -1003,7 +1009,7 @@ function renderTracking() {
       ${SHOW_DISTRICT ? `<td>${esc(w.district)}</td>` : ''}
       <td>${esc(w.school)}</td>
       <td>${statusCell(w)}</td>
-      <td class="row-act"><a class="lnk" onclick="openWorkflow('${w.id}')">View</a></td>
+      <td class="row-act">${rowAction(w)}</td>
     </tr>`; }).join('') : `<tr class="empty"><td colspan="${cols}">No workflows match these filters.</td></tr>`;
   const all = $('#tAll');
   all.checked = rows.length > 0 && rows.every(w => tSel.has(w.id));
@@ -1435,7 +1441,7 @@ window.TOOLBOX_CONFIG = {
       { id: 'confirm', flow: 'main', x: 1240, y: 260, step: '4', name: 'Confirm', state: 'confirm',
         desc: 'Email old → new with the record warning (copy TBD) and the new signing order.' },
       { id: 'sign-one', flow: 'main', x: 340, y: 80, step: 'Shared', name: 'Sign from the table', state: 'sign-one',
-        desc: 'Same table as #3–4: the Sign badge signs a form waiting on you.' },
+        desc: 'Same table as #3–4: the Sign button (in place of View) signs a form waiting on you.' },
       { id: 'saved', flow: 'main', x: 1240, y: 80, step: '5', name: 'Saved and sent', state: 'saved',
         desc: 'Whoever is now next gets the form, at the corrected address.' },
     ],

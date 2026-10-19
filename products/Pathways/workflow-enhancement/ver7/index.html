@@ -432,7 +432,7 @@ button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
 /* "Sign": rows waiting on you sign right from the Status column, as a secondary button */
 .sign-btn { font-family: inherit; }
 .sign-btn i { color: var(--blue); }
-.row-act { width: 64px; text-align: center; }
+.row-act { width: 84px; text-align: center; }
 .row-act .lnk { font-size: 14px; }
 /* Drawer footer hides itself when there's no action for this workflow */
 .dr-foot:not(:has(*)) { display: none; }
@@ -1007,13 +1007,19 @@ function statusChip(w) {
   if (w.status === 'not') return '<span class="st not"><i class="fa-regular fa-play"></i> Start workflow</span>';   // #7 only
   return '';
 }
-// Status column: the badge only. Two badges are also buttons:
-//   Sign            rows waiting on you: sign this one form right here
+// Status column: the badge only. In #7 the Start workflow badge is also a button:
 //   Start workflow  #7, unstarted: opens Start now / schedule
 function statusCell(w) {
-  if (mine(w)) return `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`;
   if (w.status === 'not' && typeof startDialog === 'function') return `<button class="st not" onclick="startDialog(['${w.id}'])" title="Start now or schedule"><i class="fa-regular fa-play"></i> Start workflow</button>`;
   return statusChip(w) || '<span class="sub">—</span>';
+}
+
+// Last column: rows waiting on you get a Sign button (signs this one form);
+// everything else opens the workflow details. The student name always opens details.
+function rowAction(w) {
+  return mine(w)
+    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`
+    : `<a class="lnk" onclick="openWorkflow('${w.id}')">View</a>`;
 }
 
 function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
@@ -1049,7 +1055,7 @@ function renderTracking() {
       ${SHOW_DISTRICT ? `<td>${esc(w.district)}</td>` : ''}
       <td>${esc(w.school)}</td>
       <td>${statusCell(w)}</td>
-      <td class="row-act"><a class="lnk" onclick="openWorkflow('${w.id}')">View</a></td>
+      <td class="row-act">${rowAction(w)}</td>
     </tr>`; }).join('') : `<tr class="empty"><td colspan="${cols}">No workflows match these filters.</td></tr>`;
   const all = $('#tAll');
   all.checked = rows.length > 0 && rows.every(w => tSel.has(w.id));
@@ -1516,7 +1522,7 @@ window.TOOLBOX_CONFIG = {
       { id: 'dated', flow: 'start', x: 1240, y: 80, step: '3', name: 'Send on a date', state: 'dated', desc: 'Date (after today) + time, Central Time.' },
       { id: 'scheduled', flow: 'start', x: 1540, y: 80, step: '4', name: 'Scheduled', state: 'scheduled', desc: 'Rows show "Sending out Nov 2".' },
       { id: 'sign-one', flow: 'manage', x: 940, y: 300, step: 'Shared', name: 'Sign from the table', state: 'sign-one',
-        desc: 'Same table as #3–4: the Sign badge signs a form waiting on you.' },
+        desc: 'Same table as #3–4: the Sign button (in place of View) signs a form waiting on you.' },
       { id: 'sched-drawer', flow: 'manage', x: 340, y: 300, step: '1', name: 'Scheduled workflow', state: 'sched-drawer',
         desc: 'Change date, Start now instead, or Cancel schedule.' },
       { id: 'edit-date', flow: 'manage', x: 640, y: 300, step: '2', name: 'Change send date', state: 'edit-date', desc: 'Same dialog, date only.' },
