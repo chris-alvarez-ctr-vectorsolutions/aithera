@@ -434,6 +434,38 @@ button.st.sign { background: var(--tag-staff-bg); color: var(--tag-staff); borde
 button.st.sign:hover { background: #fbe4bb; border-color: #e7bd6a; }
 .row-act { width: 64px; text-align: center; }
 .row-act .lnk { font-size: 14px; }
+/* Drawer footer hides itself when there's no action for this workflow */
+.dr-foot:not(:has(*)) { display: none; }
+
+/* ── Manage Existing (live landing page for the Manage nav item) ── */
+.mx { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 48px; align-items: start; margin-top: 40px; }
+.mx-intro { text-align: center; }
+.mx-art { width: 270px; max-width: 100%; aspect-ratio: 1; margin: 0 auto 30px; background: #f4dbd6; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+.mx-art svg { width: 78%; }
+.mx-intro p { font-size: 14px; line-height: 1.55; color: #333; margin: 0 auto; max-width: 640px; }
+.mx-card { border: 1px solid var(--border); border-radius: 6px; padding: 30px 30px 24px; background: #fff; min-width: 0; }
+.mx-h { font-size: 13.5px; text-transform: uppercase; letter-spacing: .02em; color: #222; margin-bottom: 20px; }
+.mx-list { display: flex; flex-direction: column; gap: 2px; }
+.mx-row {
+  display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; border: 0; border-radius: 3px;
+  background: #f1f1f1; padding: 14px 16px; font-family: inherit; cursor: pointer; color: inherit;
+}
+.mx-row:hover { background: #e8eaed; }
+.mx-row:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.mx-row .t { font-size: 14.5px; color: #222; }
+.mx-row .d { font-size: 12.5px; color: #555; margin-top: 3px; }
+.mx-row .txt { flex: 1; min-width: 0; }
+.mx-row > i { color: var(--blue); font-size: 16px; }
+@media (max-width: 1100px) {
+  .mx { grid-template-columns: 1fr; gap: 24px; margin-top: 20px; }
+  .mx-intro { display: flex; align-items: center; gap: 20px; text-align: left; }
+  .mx-art { width: 120px; flex-shrink: 0; margin: 0; }
+  .mx-intro p { margin: 0; }
+}
+@media (max-width: 768px) {
+  .mx-art { display: none; }
+  .mx-card { padding: 18px 14px 14px; }
+}
 
 /* ── Answer once, sign once (shared by #3 / #4) ─────────────── */
 /* ── Review & sign ─────────────────────────────────────────── */
@@ -864,6 +896,30 @@ body.customizing .dcard::before {
 
     </section>
 
+    <!-- ════════ Manage Existing ════════
+         Today's landing page for the Manage nav item, from the live screenshot.
+         Forms → Manage Forms, where the new Workflow Tracking tab lives. -->
+    <section class="view" id="view-manage-existing" hidden>
+      <h1 class="page-title">Manage Existing</h1>
+      <div class="mx">
+        <div class="mx-intro">
+          <div class="mx-art" aria-hidden="true">
+            <svg viewBox="0 0 220 90" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round">
+              <path d="M4 34 L30 22 L56 34 L82 22 L108 34 L134 22 L160 34 L186 22 L212 34 L212 72 L186 84 L160 72 L134 84 L108 72 L82 84 L56 72 L30 84 L4 72 Z"/>
+              <path d="M4 34 L30 46 L56 34 M56 34 L82 46 L108 34 M108 34 L134 46 L160 34 M160 34 L186 46 L212 34"/>
+              <path d="M30 46 V84 M82 46 V84 M134 46 V84 M186 46 V84 M56 34 V72 M108 34 V72 M160 34 V72"/>
+            </svg>
+          </div>
+          <p>Seamlessly oversee and organize all aspects of your WBL program to ensure smooth administration and progress.</p>
+        </div>
+        <div class="mx-card">
+          <div class="mx-h">What would you like to manage?</div>
+          <div class="mx-list" id="mxList"></div>
+        </div>
+      </div>
+    </section>
+
+
     <!-- ════════ Sign & approve: answer once, sign once (same flow as #3) ════════ -->
     <section class="view" id="view-review" hidden>
       <button class="backlink" onclick="backToTracking()"><i class="fa-solid fa-arrow-left"></i> Back to Workflow Tracking</button>
@@ -1190,10 +1246,41 @@ function goTab(t) {
   $$('#segTabs button').forEach(b => b.classList.toggle('is-on', b.dataset.tab === t));
   $('#tab-workflow').hidden = t !== 'workflow';
   $('#tab-tracking').hidden = t !== 'tracking';
-  setCrumbs([['Manage'], ['Forms']]);
+  setCrumbs([['Manage Existing', 'goManageExisting()'], ['Forms']]);
 }
 
+/* ── Manage Existing: what the Manage nav item opens today ──
+   Forms → Manage Forms (Workflow Tracking tab). The rest aren't part of this mock. */
+const MX_ITEMS = [
+  ['Activities', 'Monitor and maintain student assignment and completion of activities'],
+  ['Approvals', 'Confirm or reject all hours, activities, entities, and events'],
+  ['Badges', 'Oversee progress and assignment of achievement sets'],
+  ['Calendar', 'View of all WBL and school events'],
+  ['Experience Templates', 'View and organize all templates available for experience creation'],
+  ['Experiences', 'Monitor and analyze ongoing experiences'],
+  ['Forms', 'Digitize paperwork to collect data from all stakeholders'],
+  ['Service', 'Manage student service groups, logs, and approvals'],
+  ['Stakeholders', 'Update and maintain WBL partners and participants'],
+  ['WBL Events', 'Oversee work-based learning and school events'],
+];
+function goManageExisting() {
+  if (typeof togglePop === 'function') togglePop(false);
+  closeDrawer(); closeModal();
+  showView('view-manage-existing'); setNav('manage'); setCrumbs([['Manage Existing']]);
+  window.scrollTo(0, 0);
+}
+function openForms() {
+  if (typeof goTracking === 'function') return goTracking('all');
+  tFilter = 'all'; tSel.clear();
+  showView('view-manage'); setNav('manage'); goTab('tracking'); renderTracking(); window.scrollTo(0, 0);
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('.nav-item')?.dataset.nav === 'manage') goManageExisting();
+});
+
 function initTracking() {
+  $('#mxList').innerHTML = MX_ITEMS.map(([t, d]) => `<button class="mx-row" onclick="${t === 'Forms' ? 'openForms()' : `toast('${t} isn\\'t part of this mock')`}">
+    <span class="txt"><div class="t">${t}</div><div class="d">${d}</div></span><i class="fa-solid fa-chevron-right"></i></button>`).join('');
   WF_FORMS.forEach(f => $('#tForm').insertAdjacentHTML('beforeend', `<option value="${f.id}">${esc(f.name)}</option>`));
   EXPS.forEach(e => $('#tExp').insertAdjacentHTML('beforeend', `<option>${esc(e.name)}</option>`));
   [...new Set(EXPS.map(e => e.seg))].forEach(sg => $('#tSeg').insertAdjacentHTML('beforeend', `<option>${esc(sg)}</option>`));
@@ -1384,7 +1471,6 @@ function openWorkflow(id) {
       <ol class="tl">${w.signers.map(x => timelineItem(w, x)).join('')}</ol>
     </div>
     <div class="dr-foot">
-      <button class="btn ghost"><i class="fa-regular fa-file-lines"></i> View form</button>
       ${mine(w) ? `<button class="btn" onclick="closeDrawer();goSign(['${w.id}'])"><i class="fa-regular fa-signature"></i> Sign &amp; approve</button>` : ''}
     </div>`);
 }
@@ -1404,7 +1490,7 @@ function goSign(ids) {
   $('#sigName').value = ''; $('#attest').checked = false; $('#rvQuestions').innerHTML = '';
   renderReview();
   showView('view-review');
-  setCrumbs([['Manage'], ['Forms', 'backToTracking()'], ['Sign & approve']]);
+  setCrumbs([['Manage Existing', 'goManageExisting()'], ['Forms', 'backToTracking()'], ['Sign & approve']]);
   window.scrollTo(0, 0);
 }
 function renderReview() {
@@ -1463,7 +1549,7 @@ function doSign() {
   $('#doneN').textContent = n;
   $('#doneLeft').textContent = INST.filter(mine).length;
   showView('view-done');
-  setCrumbs([['Manage'], ['Forms', 'backToTracking()'], ['Signed']]);
+  setCrumbs([['Manage Existing', 'goManageExisting()'], ['Forms', 'backToTracking()'], ['Signed']]);
   window.scrollTo(0, 0);
 }
 // Back to the table: #3–4 has its own navigation helper; the others just show the Manage view
@@ -1489,7 +1575,6 @@ function goTracking(filter) {
 document.addEventListener('click', e => {
   const a = e.target.closest('.nav-item');
   if (a?.dataset.nav === 'dashboard') goDashboard();
-  if (a?.dataset.nav === 'manage') goTracking();
 });
 // Intermediary roles see a District column (they span several districts)
 function setIntermediary(on) {
@@ -1512,6 +1597,7 @@ function applyFlowState(id, opts) {
   const pickTop = () => { const f = topForm(); INST.filter(w => mine(w) && w.form === f).forEach(w => tSel.add(w.id)); };
   switch (id) {
     case 'customize': goDashboard(); startCustomize(); break;
+    case 'manage-existing': goManageExisting(); break;
     case 'mine': goTracking('mine'); break;
     case 'all': goTracking('all'); break;
     case 'selected': goTracking('mine'); pickTop(); renderTracking(); break;
@@ -1539,10 +1625,11 @@ window.TOOLBOX_CONFIG = {
   flowMap: {
     title: 'Workflow Enhancement #3–4 Bulk Signing + Tracking — Flow Map',
     applyState: 'applyFlowState',
-    canvas: { w: 1560, h: 640 },
+    canvas: { w: 1560, h: 860 },
     flows: [
       { id: 'dash', name: 'Dashboard entry', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1520, h: 200 }, labelXY: { x: 40, y: 40 } },
       { id: 'sign', name: 'Find it, sign it', pill: 'B', color: '#b8dcf0', lane: { x: 20, y: 240, w: 1520, h: 380 }, labelXY: { x: 40, y: 260 } },
+      { id: 'nav', name: 'From the Manage menu', pill: 'C', color: '#f0d8b8', lane: { x: 20, y: 640, w: 1520, h: 200 }, labelXY: { x: 40, y: 660 } },
     ],
     nodes: [
       { id: 'dashboard', flow: 'dash', entry: true, x: 40, y: 70, step: 'Entry', name: 'Admin Dashboard', state: 'dashboard',
@@ -1551,22 +1638,24 @@ window.TOOLBOX_CONFIG = {
         desc: 'Approvals listed in tile order under one badge per group. Drag reorders within a group.' },
       { id: 'mine', flow: 'sign', x: 40, y: 300, step: '1', name: 'Waiting on you', state: 'mine',
         desc: 'Signatures tile opens Workflow Tracking filtered to forms waiting on you.' },
-      { id: 'all', flow: 'sign', x: 40, y: 460, step: 'Tracking', name: 'All workflows', state: 'all',
+      { id: 'manage-existing', flow: 'nav', entry: true, x: 40, y: 700, step: '1', name: 'Manage Existing', state: 'manage-existing',
+        desc: 'Manage nav opens today\'s menu page. Forms → Manage Forms › Workflow Tracking.' },
+      { id: 'all', flow: 'nav', x: 340, y: 700, step: '2', name: 'All workflows', state: 'all',
         desc: 'Every workflow form across experiences, with status and who it\'s waiting on.' },
-      { id: 'intermediary', flow: 'sign', x: 340, y: 460, step: 'Role', name: 'Intermediary view', state: 'intermediary',
+      { id: 'intermediary', flow: 'nav', x: 640, y: 700, step: 'Role', name: 'Intermediary view', state: 'intermediary',
         desc: 'District column appears only for intermediary roles.' },
       { id: 'selected', flow: 'sign', x: 340, y: 300, step: '2', name: 'Multi-select (same form)', state: 'selected',
         desc: 'Any row can be selected; Sign & approve (n) signs the ones waiting on you (one form at a time).' },
       { id: 'drawer', flow: 'sign', x: 640, y: 460, step: 'Option', name: 'Workflow details', state: 'drawer',
         desc: 'Signer timeline; Sign & approve a single form.' },
-      { id: 'sign-one', flow: 'sign', x: 340, y: 160, step: 'Option', name: 'Sign one from the table', state: 'sign-one',
+      { id: 'sign-one', flow: 'sign', x: 340, y: 460, step: 'Option', name: 'Sign one from the table', state: 'sign-one',
         desc: 'The "Sign" status badge on a row waiting on you signs that form, no selecting needed.' },
       { id: 'review', flow: 'sign', x: 640, y: 300, step: '3', name: 'Answer once, sign once', state: 'review',
         desc: 'Shared questions once, one signature, applies to every listed student.' },
       { id: 'done', flow: 'sign', x: 940, y: 300, step: '4', name: 'Signed', state: 'done',
         desc: 'Workflows complete or move to their next signer; tile count drops.' },
     ],
-    edges: [['dashboard', 'customize'], ['dashboard', 'mine'], ['mine', 'selected'], ['mine', 'all'], ['all', 'intermediary'],
+    edges: [['dashboard', 'customize'], ['dashboard', 'mine'], ['mine', 'selected'], ['manage-existing', 'all'], ['all', 'intermediary'],
       ['mine', 'drawer'], ['mine', 'sign-one'], ['sign-one', 'done'], ['selected', 'review'], ['drawer', 'review'], ['review', 'done']]
   }
 };
