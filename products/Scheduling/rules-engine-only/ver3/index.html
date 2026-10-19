@@ -640,10 +640,9 @@
   .pg-arrow { width: 32px; height: 32px; border-radius: 999px; flex: none; background: var(--ai-tint); border: 1px solid var(--ai-soft); color: var(--ai); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; animation: pgNudge 1.6s ease-in-out infinite; }
   @keyframes pgNudge { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-5px); } }
   .pg-quote { font-size: 13px; line-height: 19px; color: var(--ink-2); padding-left: 10px; border-left: 2px solid var(--ai-soft); }
-  /* The chat question the preview is waiting on */
-  .msg-ai.asking .msg-body { background: var(--ai-tint); border-radius: 10px; padding: 8px 10px 10px; margin: -4px 0 0 -4px; box-shadow: inset 0 0 0 1px var(--ai-soft); animation: askPulse 1.4s ease-out 2; }
-  @keyframes askPulse { 0% { box-shadow: inset 0 0 0 1px var(--ai-soft), 0 0 0 0 rgba(45,91,227,.28); } 100% { box-shadow: inset 0 0 0 1px var(--ai-soft), 0 0 0 8px rgba(45,91,227,0); } }
-  @media (prefers-reduced-motion: reduce) { .pg-arrow, .msg-ai.asking .msg-body { animation: none; } }
+  /* The chat question the preview is waiting on — a touch larger, no box */
+  .msg-ai.asking .text { font-size: 15px; line-height: 22px; }
+  @media (prefers-reduced-motion: reduce) { .pg-arrow { animation: none; } }
   .pg-needs { list-style: none; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%; }
   .pg-needs li { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 17px; color: var(--muted); }
   .pg-needs b { font-weight: 600; color: var(--ink-2); }
@@ -2631,7 +2630,9 @@ function initBuilder(seed) {
     awaitingMou: false, fillQueue: null, initialApproachAnswered: false,
     subResumeIdx: null, subQCount: 0, editAwaitingFor: null,
     input: '', typing: false, composerSpotlight: false, customAnswer: false,
-    chipSelections: new Set(), attachments: [], cfgOpen: true, previewing: false,
+    // V3: a blank rule starts with Rule parameters collapsed so the first move is
+    // answering Vectoria; the pane opens itself on the first applied answer.
+    chipSelections: new Set(), attachments: [], cfgOpen: !noSeedFresh, cfgAutoOpened: !noSeedFresh, previewing: false,
     revealedFields: revealed, newestField: null, newestFieldTimer: null,
     applying: false, applyingTimer: null,
     panelEditCount: 0, richOpen: null,
@@ -2720,6 +2721,17 @@ function patchForm(updates, opts = {}) {
       break; // one chat record per patchForm call
     }
   }
+  if (!bld.cfgOpen && !bld.cfgAutoOpened) {
+    // First answer landed — reveal Rule parameters (once; a manual collapse sticks).
+    bld.cfgAutoOpened = true;
+    bld.cfgOpen = true;
+    // Mid-patch the user's message may not be in the thread yet — don't let this
+    // repaint hand the "applied" card to Vectoria's previous reply.
+    bld.holdApplied = true;
+    renderBuilderShell();
+    bld.holdApplied = false;
+    if (chatDrivenChange) markConfigApplying();
+  }
   renderBuilderPanel();
   refreshPreviewPane();
   paintContext();
@@ -2763,7 +2775,7 @@ function topNextPillHtml() {
 // V3: the reply that follows a chat-driven change carries what it changed, shown
 // as the Builder's reference card ("Updated in Rule parameters").
 function attachApplied() {
-  if (!bld.pendingApplied.length || bld.typing) return;
+  if (!bld.pendingApplied.length || bld.typing || bld.holdApplied) return;
   // Only once Vectoria has answered the latest user turn — never onto an older reply.
   const lastAi = bld.messages.reduce((l, x, i) => x.role === 'ai' ? i : l, -1);
   const lastUser = bld.messages.reduce((l, x, i) => x.role === 'user' ? i : l, -1);
@@ -3000,6 +3012,8 @@ function startOver() {
   bld.previewVer = 1;
   bld.dismissedSuggest = new Set();
   bld.rating = null;
+  bld.cfgOpen = false;
+  bld.cfgAutoOpened = false;
   renderBuilderShell();
 }
 
@@ -4176,7 +4190,7 @@ document.addEventListener('click', (e) => {
     const last = [...bld.messages].reverse().find(m => m.role === 'ai');
     try { navigator.clipboard.writeText(stripBold(last?.text || '')); } catch (_) {}
   }
-  else if ((el = t('[data-rb="close-config"]'))) { bld.cfgOpen = false; renderBuilderShell(); }
+  else if ((el = t('[data-rb="close-config"]'))) { bld.cfgOpen = false; bld.cfgAutoOpened = true; renderBuilderShell(); }
   else if ((el = t('[data-rb="save-rule"]')))    { if (skippedCount() === 0) commitSave(); }
   else if ((el = t('[data-rb="start-over"]')))   { startOver(); }
   else if ((el = t('[data-rb="chip"]')))         { send(el.dataset.chip); }
