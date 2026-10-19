@@ -81,7 +81,7 @@
   .device { width: 390px; height: min(844px, calc(100vh - 110px)); min-height: 560px; flex: none; background: #0d1117; border-radius: 46px; padding: 10px; box-shadow: var(--lumo-box-shadow-l); position: sticky; top: 28px; }
   /* transform makes the screen the containing block for every absolutely
      positioned layer (sheets, bubble, toasts), so they stay inside the phone */
-  .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; background: var(--canvas); display: flex; flex-direction: column; transform: translateZ(0); }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; overflow: clip; background: var(--canvas); display: flex; flex-direction: column; transform: translateZ(0); }
   .statusbar { height: 34px; flex: none; background: var(--app-bar); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 30px; font-size: 13px; font-weight: 600; }
   .statusbar .sb-ic { display: flex; gap: 6px; font-size: 12px; }
 
@@ -103,6 +103,8 @@
   .kicker { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--lumo-primary-text-color); }
   .brief h1 { font-size: 22px; line-height: 1.25; margin: 6px 0 8px; color: var(--lumo-header-text-color); }
   .brief .lede { color: var(--lumo-secondary-text-color); line-height: 1.5; margin: 0 0 14px; }
+  .brief .way { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 4px; padding: 8px 10px; border-radius: var(--lumo-border-radius-m); background: var(--lumo-primary-color-10pct); font-size: 13px; line-height: 1.45; }
+  .brief .way i { color: var(--lumo-primary-text-color); margin-top: 3px; }
   .brief h2 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--lumo-secondary-text-color); margin: 16px 0 6px; }
   .brief ul { margin: 0; padding-left: 18px; line-height: 1.5; }
   .brief li { margin-bottom: 4px; }
@@ -260,16 +262,6 @@
   .flash { animation: flash 1.4s ease; }
   @keyframes flash { 0%, 60% { box-shadow: 0 0 0 4px var(--lumo-primary-color); } 100% { box-shadow: 0 0 0 0 transparent; } }
 
-  /* Off & Misc strip — same as V1, hideable from Filters */
-  .p-strip { margin: 10px 10px 0; background: #dcdcdc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.2); overflow: hidden; }
-  .p-strip-hd { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 15px; color: var(--prod-ink); flex-wrap: wrap; }
-  .p-strip-hd .sep { color: #8c949b; }
-  .p-strip-hd .warn { background: var(--prod-red); color: #fff; border-radius: 3px; font-size: 12.5px; padding: 2px 7px; }
-  .p-strip-hd .chev { margin-left: auto; transition: transform .18s; }
-  .p-strip.open .chev { transform: rotate(180deg); }
-  .p-strip-bd { display: none; padding: 0 8px 10px; }
-  .p-strip.open .p-strip-bd { display: flex; flex-direction: column; gap: 10px; }
-  .p-strip-bd .p-offbox { box-shadow: none; background: #e9e9e9; }
 
   /* filter sheet (new UI, Vector components) */
   .sheet.full { height: 94%; }
@@ -289,6 +281,77 @@
   .sheet-ft.stack vaadin-button[theme~="primary"] { width: 100%; height: 48px; font-size: 15px; }
   .eu-only { display: none !important; }
   body.role-eu .eu-only { display: revert !important; }
+
+  /* ══════════ SEARCH + FILTERS ROW ══════════ */
+  .p-filter { flex: none; height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid transparent; border-radius: 4px; background: #eceef0; color: var(--prod-ink); font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .p-filter:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 2px; }
+  .p-filter[aria-pressed="true"] { background: var(--lumo-primary-color); color: #fff; }
+  .p-filter .n { background: #fff; color: var(--lumo-primary-text-color); border-radius: 999px; font-size: 11px; font-weight: 700; padding: 1px 7px; }
+  .p-filter .n:empty { display: none; }
+
+  /* ══════════ NOTES — closable; the notebook icon in the date bar brings them back ══════════ */
+  .p-notes { display: flex; align-items: flex-start; gap: 8px; }
+  .p-notes[hidden] { display: none; }
+  .p-notes .nt { flex: 1; min-width: 0; }
+  .nclose { flex: none; width: 32px; height: 32px; margin: -6px -8px -6px 0; border: 0; border-radius: 4px; background: none; color: #6b6340; font-size: 16px; cursor: pointer; }
+  .nclose:hover { background: rgba(0,0,0,.06); }
+  .p-date .tools button.nb { width: 30px; height: 34px; padding: 0; border: 0; background: none; color: #f2c14e; font-size: 19px; cursor: pointer; }
+  .p-date .tools button.nb[aria-pressed="false"] { opacity: .5; }
+
+  /* ══════════ PRESS-AND-HOLD DRAG ══════════
+     Hold a name: a fill bar runs along it, then it lifts and follows you.
+     Drop on another assignment, or on Time off / Misc. */
+  .p-bar[data-drag] { cursor: grab; touch-action: pan-y; }
+  .p-bar.holding { transform: scale(.97); transition: transform .4s ease; }
+  .p-bar.holding::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: #8fd3ff; border-radius: 0 0 4px 0; transform-origin: left; animation: holdfill .4s linear forwards; }
+  @keyframes holdfill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .p-bar.lifted { opacity: .3; outline: 2px dashed #8a939c; outline-offset: 2px; }
+  .ghost { position: absolute; z-index: 70; pointer-events: none; transform: rotate(-2deg) scale(1.04); transform-origin: left center; box-shadow: 0 12px 28px rgba(0,0,0,.45); outline: 2px solid #8fd3ff; }
+  .ghost .mv { position: absolute; top: -22px; right: 0; background: var(--lumo-primary-color); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .p-card.drop-over { outline: 3px solid var(--lumo-primary-color); outline-offset: 2px; background: #e6f1fc; }
+  .moved-note { display: block; flex-basis: 100%; font-size: 12px; color: #9fd3ff; margin-top: 2px; }
+  .targets { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; z-index: 60; pointer-events: none; }
+  .tgt { position: absolute; width: 76px; height: 76px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,.35); transform: translate(0,0) scale(.3); opacity: 0; transition: transform .22s cubic-bezier(.3,1.4,.5,1), opacity .15s; right: 10px; bottom: 16px; }
+  .tgt i { font-size: 22px; }
+  .tgt.off { background: #3c4650; color: #fff; }
+  .tgt.misc { background: #fff7a8; color: #3b3510; border: 2px solid #2a2a2a; }
+  .dragging .tgt.off { opacity: 1; transform: translate(-4px, -104px) scale(1); }
+  .dragging .tgt.misc { opacity: 1; transform: translate(-96px, -60px) scale(1); }
+  .dragging .tgt.over { box-shadow: 0 0 0 5px var(--lumo-primary-color), 0 8px 22px rgba(0,0,0,.4); }
+  .dragging .tgt.off.over { transform: translate(-4px, -104px) scale(1.18); }
+  .dragging .tgt.misc.over { transform: translate(-96px, -60px) scale(1.18); }
+  .drag-tip { position: absolute; left: 12px; right: 12px; top: 44px; z-index: 60; background: var(--lumo-contrast-90pct); color: #fff; border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.35; opacity: 0; transition: opacity .15s; pointer-events: none; }
+  .dragging .drag-tip { opacity: 1; }
+
+  /* ══════════ MOVE SHEET (after a drop on Time off / Misc, or a tap on a name) ══════════ */
+  .mscrim { position: absolute; inset: 0; background: rgba(15, 23, 34, .45); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 46; }
+  #msheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 80%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 47; transform: translateY(102%); transition: transform .24s ease; display: flex; flex-direction: column; box-shadow: var(--lumo-box-shadow-xl); }
+  .move-open .mscrim { opacity: 1; pointer-events: auto; }
+  .move-open #msheet { transform: none; }
+  .cbody { padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 12px; }
+  .cbody .who { display: flex; align-items: center; gap: 10px; }
+  .cbody .who .p-bar { flex: 1; }
+  .cbody h3 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lumo-secondary-text-color); }
+  .cbody vwc-toggle-button-group { flex-wrap: wrap; }
+  .cbody .res { font-size: 13px; color: var(--lumo-secondary-text-color); line-height: 1.4; background: var(--lumo-contrast-5pct); border-radius: var(--lumo-border-radius-m); padding: 8px 10px; }
+
+  /* ══════════ OFF & MISC BUBBLE (same as V1.1) ══════════
+     Tap → it grows into a half-height drawer; close → it shrinks back into the circle. */
+  .bubble { position: absolute; right: 16px; bottom: 22px; width: 62px; height: 62px; border-radius: 50%; border: 0; background: #3c4650; color: #fff; font-size: 22px; box-shadow: 0 6px 18px rgba(0,0,0,.35); cursor: pointer; z-index: 45; transition: transform .2s ease, opacity .2s ease; }
+  .bubble:focus-visible { outline: 3px solid var(--lumo-primary-color); outline-offset: 3px; }
+  .bubble .cnt { position: absolute; top: -4px; right: -4px; min-width: 24px; height: 24px; border-radius: 12px; background: var(--prod-red); color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; padding: 0 6px; border: 2px solid #fff; }
+  .bubble .unc { position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); white-space: nowrap; background: #fff; color: var(--prod-red); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+  .bubble.pulse { animation: pulse .7s ease; }
+  @keyframes pulse { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  .drawer-open .bubble, .dragging .bubble { transform: scale(.4); opacity: 0; pointer-events: none; }
+  .bdrawer { position: absolute; left: 0; right: 0; bottom: 0; height: 52%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 44; display: flex; flex-direction: column; box-shadow: 0 -8px 30px rgba(0,0,0,.25);
+    transform-origin: calc(100% - 47px) calc(100% - 53px); transform: scale(.08); opacity: 0; pointer-events: none; border-radius: 50%;
+    transition: transform .28s cubic-bezier(.3,.7,.3,1), opacity .2s ease, border-radius .28s ease; }
+  .drawer-open .bdrawer { transform: none; opacity: 1; pointer-events: auto; border-radius: 18px 18px 0 0; }
+  .bdrawer .sheet-hd { padding-top: 10px; }
+  .bdrawer .lists { flex: 1; overflow-y: auto; padding: 0 12px 12px; }
+  .bdrawer .p-offrow { cursor: pointer; }
+  .hint { font-size: 12px; color: var(--lumo-secondary-text-color); display: flex; gap: 6px; align-items: center; padding: 0 16px 8px; }
 </style>
 </head>
 <body>
@@ -298,9 +361,9 @@
   <!-- ── Brief ── -->
   <aside class="brief" aria-label="About this version">
     <div class="kicker">V2 · SCHED-25067</div>
-    <h1>Filtering on today's scheduler</h1>
-    <p class="lede">Same scheduler, with filters people actually use. Qualifiers come first and are multi-select. Then assignment (Engine 1, Truck 1…), shift length, and open slots: show, only, or hide. Two switches turn the Employees Off &amp; Misc section and duplicate (dual-scheduled) shifts on or off. Matching rows are highlighted. The rest fold into "+N more" inside their assignment.</p>
-
+    <h1>Filters + the Off &amp; Misc bubble</h1>
+    <p class="lede">Filter by qualifier, assignment, shift length and open slots. Off &amp; Misc move into a drag-to bubble.</p>
+    <p class="way"><i class="fa-solid fa-shuffle"></i><span><b>A different way:</b> filters live in one sheet, with chips you can remove. Off &amp; Misc use the bubble, not V1&rsquo;s strip.</span></p>
     <h2>View as</h2>
     <div class="viewas">
       <vwc-toggle-button-group id="roleToggle" selected="admin">
@@ -308,27 +371,16 @@
         <vwc-toggle-button value="eu">End user</vwc-toggle-button>
       </vwc-toggle-button-group>
     </div>
-    <p class="lede" style="margin:8px 0 0;font-size:13px">Admins start on the full schedule. End users start on <b>My schedule</b>.</p>
 
     <h2>Try it</h2>
     <ul>
-      <li><b>Filters</b> → qualifiers <b>FF</b> + <b>PM</b> → open slots <b>Only</b>.</li>
-      <li>Open slots <b>Hide</b> shows only who's working.</li>
-      <li>Turn off <b>Duplicate shifts</b>. Mia Torres's second listing on Rescue 5 goes away.</li>
-      <li><b>All assignments shown</b> opens the same sheet at Assignment.</li>
+      <li><b>Filters</b> → <b>FF</b> + <b>PM</b> → <b>Only open</b>.</li>
+      <li><b>Hold</b> a name until it lifts, then drop it on another assignment, or on <b>Time off</b> / <b>Misc</b>.</li>
       <li>Reload. Your filters are remembered.</li>
     </ul>
 
-    <h2>Why</h2>
-    <div class="ev"><b>5/10</b><span>Couldn't find an open shift with the right qualifier and wanted a filter (end users and admins)</span></div>
-    <div class="ev"><b>6/10</b><span>End users couldn't find their own shift</span></div>
-    <div class="ev"><b>7/10</b><span>Admins were overwhelmed on first sight</span></div>
-
     <h2>Links</h2>
-    <div class="links">
-      <a href="https://lmsportal.atlassian.net/browse/SCHED-25067" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25067</a>
-      <a href="https://lmsportal.atlassian.net/browse/SCHED-25064" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25064</a>
-    </div>
+    <div class="links"><a href="https://lmsportal.atlassian.net/browse/SCHED-25067" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25067</a><a href="https://lmsportal.atlassian.net/browse/SCHED-25064" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25064</a></div>
   </aside>
 
   <!-- ── Phone ── -->
@@ -352,8 +404,7 @@
             <!-- Compact toolbar, matching today's production mobile header: assignment
                  filter, search, then one row of week/day · Next B day · date picker · «/». -->
             <div class="p-tools">
-              <div class="p-row center"><button class="p-select" id="assignSel" data-act="openAssign"></button></div>
-              <div class="p-row"><input class="p-search" id="pSearch" type="search" placeholder="Search..." aria-label="Search"></div>
+              <div class="p-row"><input class="p-search" id="pSearch" type="search" placeholder="Search..." aria-label="Search"><button class="p-filter" id="filterBtn" data-act="openSheet" aria-pressed="false"><i class="fa-solid fa-sliders"></i>Filters<span class="n" id="fCount"></span></button><button class="p-filter" id="mineBtn" data-act="quickMine" aria-pressed="false" aria-label="My schedule"><i class="fa-solid fa-user"></i>Mine</button></div>
               <div class="p-row nav">
                 <span class="p-seg navy"><button data-act="toast" data-msg="Week view">week</button><button class="on" aria-pressed="true">day</button></span>
                 <button class="p-navy" data-act="toast" data-msg="Jumps to the next B shift day">Next B day</button>
@@ -368,13 +419,12 @@
             <button class="arr" aria-label="Previous day" data-act="toast" data-msg="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
             <span class="box">WEDNESDAY 10/16</span>
             <button class="arr" aria-label="Next day" data-act="toast" data-msg="Next day"><i class="fa-solid fa-chevron-right"></i></button>
-            <span class="tools"><i class="fa-solid fa-book nb" aria-hidden="true"></i><i class="fa-solid fa-gear admin-only" aria-hidden="true"></i></span>
+            <span class="tools"><button class="nb" data-act="toggleNotes" aria-label="Notes" aria-pressed="true"><i class="fa-solid fa-book"></i></button><i class="fa-solid fa-gear admin-only" aria-hidden="true"></i></span>
           </div>
           <div class="p-fbar" id="fbar" role="toolbar" aria-label="Filters"></div>
         </div>
         <div class="summary" id="summary"></div>
-        <section class="p-strip" id="strip" aria-label="Employees off and misc"></section>
-        <div class="p-notes"><u>NOTES</u>Area Familiarization Training @ Ocean Beach — 10/16 @ 0800</div>
+        <div class="p-notes" id="notes"><span class="nt"><u>NOTES</u>Area Familiarization Training @ Ocean Beach — 10/16 @ 0800</span><button class="nclose" data-act="closeNotes" aria-label="Close notes"><i class="fa-solid fa-xmark"></i></button></div>
         <div id="roster"></div>
         <div style="height:110px"></div>
       </div>
@@ -425,7 +475,7 @@
           <section class="fsec">
             <h3>Show on the schedule</h3>
             <div class="swrow"><span class="sl">My schedule only<small>Assignments where you're scheduled</small></span><vwc-switch id="swMine" accessible-name="My schedule only"></vwc-switch></div>
-            <div class="swrow"><span class="sl">Employees Off &amp; Misc<small>The section under the date</small></span><vwc-switch id="swOff" checked accessible-name="Show Employees Off and Misc"></vwc-switch></div>
+            <div class="swrow"><span class="sl">Employees Off &amp; Misc<small>The bubble at the bottom right</small></span><vwc-switch id="swOff" checked accessible-name="Show Employees Off and Misc"></vwc-switch></div>
             <div class="swrow"><span class="sl">Duplicate shifts<small>A person's second listing when they're dual-scheduled, and its flag</small></span><vwc-switch id="swDup" checked accessible-name="Show duplicate shifts"></vwc-switch></div>
           </section>
           <div class="remember"><i class="fa-solid fa-floppy-disk"></i>Filters are remembered the next time you open the scheduler.</div>
@@ -433,6 +483,40 @@
         <div class="sheet-ft stack">
           <vaadin-button theme="primary" id="applyBtn" data-act="apply">Show assignments</vaadin-button>
         </div>
+      </div>
+
+
+      <!-- Off & Misc bubble + the half drawer that grows out of it (same as V1.1) -->
+      <button class="bubble" id="bubble" aria-label="Employees off and misc" aria-expanded="false" aria-controls="bdrawer"><i class="fa-solid fa-user-slash"></i><span class="cnt" id="bCnt"></span><span class="unc" id="bUnc"></span></button>
+      <section class="bdrawer" id="bdrawer" role="dialog" aria-label="Employees off and misc">
+        <div class="sheet-hd">
+          <h2>Off &amp; Misc · Wed 10/16</h2>
+          <vaadin-button theme="icon" aria-label="Collapse to bubble" data-act="closeDrawer"><i class="fa-solid fa-chevron-down"></i></vaadin-button>
+        </div>
+        <div class="sheet-tools">
+          <vwc-toggle-button-group id="dTabs" selected="off">
+            <vwc-toggle-button value="off">Employees Off (<span id="tOff">4</span>)</vwc-toggle-button>
+            <vwc-toggle-button value="misc">Misc (<span id="tMisc">2</span>)</vwc-toggle-button>
+          </vwc-toggle-button-group>
+        </div>
+        <div class="hint admin-only"><i class="fa-solid fa-hand-pointer"></i>Tip: press and hold a name, then drag it here.</div>
+        <div class="lists" id="dList"></div>
+      </section>
+
+      <!-- Drop targets: fan out from the bottom-right corner while a name is dragged -->
+      <div class="targets" aria-hidden="true">
+        <div class="tgt off" data-target="off"><i class="fa-solid fa-user-slash"></i>Time off</div>
+        <div class="tgt misc" data-target="misc"><i class="fa-solid fa-briefcase"></i>Misc</div>
+      </div>
+      <div class="drag-tip" id="dragTip"></div>
+
+      <!-- Move sheet: after a drop on Time off / Misc, or a tap on a name -->
+      <div class="mscrim" data-act="closeMove"></div>
+      <div class="msheet" id="msheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+        <div class="grab"></div>
+        <div class="sheet-hd"><h2 id="mTitle"></h2><vaadin-button theme="icon" aria-label="Close" data-act="closeMove"><i class="fa-solid fa-xmark"></i></vaadin-button></div>
+        <div class="cbody" id="mBody"></div>
+        <div class="sheet-ft" id="mFt"></div>
       </div>
 
       <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -528,11 +612,11 @@
               const hit = o.rowHit(r, u) ? ' hit' : '';
               if (r.open) return `<div class="p-open${hit}" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Open slot ${r.q.map(tagHTML).join(' ')}
                   ${r.part ? `<span class="sub">${esc(r.part)}</span>` : ''}
-                  ${r.offBy ? `<span class="p-off-note"><i class="fa-solid fa-user-slash"></i>${esc(r.offBy)} off · ${esc(r.offType)}</span>` : ''}</div>`;
+                  ${r.offBy ? `<span class="p-off-note"><i class="fa-solid fa-user-slash"></i>${esc(r.offBy)} off · ${esc(r.offType)}</span>` : ''}${r.movedTo ? `<span class="p-off-note"><i class="fa-solid fa-arrow-right-arrow-left"></i>${esc(r.movedFrom)} moved to ${esc(r.movedTo)}</span>` : ''}</div>`;
               return `<div class="p-bar${hit}" data-u="${u.id}" data-i="${i}"${o.draggable ? ' data-drag="1"' : ''}>
                   <span class="tags">${r.q.map(tagHTML).join('')}</span>${esc(r.p)}${r.me ? '<span class="me">YOU</span>' : ''}${r.dual && o.showDualFlag ? `<i class="fa-solid fa-flag dual" aria-label="Dual-scheduled"></i>` : ''}
                   ${r.part ? `<br><span class="part">${esc(r.part)}</span>` : ''}
-                  ${r.dual && o.showDualFlag ? `<span class="dual-note">Also on ${esc(r.dual)} today</span>` : ''}</div>`;
+                  ${r.dual && o.showDualFlag ? `<span class="dual-note">Also on ${esc(r.dual)} today</span>` : ''}${r.movedIn ? `<span class="moved-note"><i class="fa-solid fa-arrow-right-arrow-left"></i> Moved from ${esc(r.movedIn)}</span>` : ''}</div>`;
             }).join('')}</div>
             ${o.footer(u, u.rows.length - vis.length)}
             ${u.signup ? '<button class="p-self" style="margin-top:8px;width:100%" data-act="toast" data-msg="Signed up for Hourly Staffing">+ Schedule yourself</button>' : ''}
@@ -610,28 +694,38 @@
     if (f.open !== 'show') chips.push(['open', f.open, f.open === 'only' ? 'Open slots only' : 'Open slots hidden']);
     if (!f.offMisc) chips.push(['offMisc', '', 'Off & Misc hidden']);
     if (!f.dup) chips.push(['dup', '', 'Duplicates hidden']);
+    $('#fbar').style.display = chips.length ? '' : 'none';
+    $('#fCount').textContent = n || '';
+    $('#filterBtn').setAttribute('aria-pressed', String(n > 0));
+    $('#mineBtn').setAttribute('aria-pressed', String(f.mine));
     $('#fbar').innerHTML = `
-      <button class="chip" data-act="openSheet" aria-pressed="${n > 0}"><i class="fa-solid fa-sliders"></i>Filters${n ? `<span class="n">${n}</span>` : ''}</button>
-      <button class="chip" data-act="quickMine" aria-pressed="${f.mine}"><i class="fa-solid fa-user"></i>My schedule</button>
       ${chips.map(([k, v, l]) => `<button class="chip rm" data-act="remove" data-k="${k}" data-v="${esc(v)}" aria-label="Remove filter ${esc(l)}">${esc(l)}<i class="fa-solid fa-xmark"></i></button>`).join('')}`;
-    $('#assignSel').innerHTML = `${f.units.length ? `${f.units.length} of ${TOTAL()} assignments shown` : `All assignments shown (${TOTAL()})`} <i class="fa-solid fa-caret-down"></i>`;
   }
-  function renderStrip() {
-    const el = $('#strip');
-    el.style.display = applied.offMisc ? '' : 'none';
+  /* Off & Misc bubble + half drawer (same as V1.1); hidden by the Filters switch */
+  let drawerTab = 'off';
+  function renderBubble() {
+    $('#bubble').style.display = applied.offMisc ? '' : 'none';
+    $('#bCnt').textContent = OFF.length + MISC.length;
     const unc = uncoveredCount();
-    el.innerHTML = `<button class="p-strip-hd" data-act="strip" aria-expanded="${stripOpen}">
-        <i class="fa-solid fa-user-slash"></i><span>Employees Off <b>${OFF.length}</b></span><span class="sep">·</span><span>Misc <b>${MISC.length}</b></span>
-        ${unc ? `<span class="warn">${unc} uncovered</span>` : ''}<i class="fa-solid fa-chevron-down chev"></i></button>
-      <div class="p-strip-bd">
-        <div class="p-offbox"><div class="bh">Employees Off</div>${OFF.map(o => `<div class="p-offrow"><b>${esc(o.p)}</b> <span class="p-tag">${esc(o.q)}</span><div class="s">${esc(o.type)} · ${esc(o.time)}</div>${o.covered ? `<span class="cov">${esc(unitById(o.unit).name)} · covered</span>` : `<span class="aff">${esc(unitById(o.unit).name)} · open slot</span>`}</div>`).join('')}</div>
-        <div class="p-miscbox"><div class="bh">Misc</div>${MISC.map(m => `<div class="p-miscrow"><b>${esc(m.t)}</b><div class="s">${esc(m.who)} · ${esc(m.time)}</div></div>`).join('')}</div>
-      </div>`;
-    el.classList.toggle('open', stripOpen);
+    $('#bUnc').textContent = unc ? `${unc} open` : ''; $('#bUnc').style.display = unc ? '' : 'none';
+    $('#tOff').textContent = OFF.length; $('#tMisc').textContent = MISC.length;
   }
+  function renderDrawer() {
+    $('#dList').innerHTML = drawerTab === 'off'
+      ? `<div class="p-offbox" style="box-shadow:none">${OFF.map(o => {
+          const u = unitById(o.unit);
+          return `<div class="p-offrow" data-act="goto" data-unit-id="${o.unit}" role="button" tabindex="0"><b>${esc(o.p)}</b> <span class="p-tag" style="vertical-align:1px">${esc(o.q)}</span>
+            <div class="s">${esc(o.type)} · ${esc(o.time)}</div>
+            ${o.covered ? `<span class="cov">${esc(u.name)} · covered by ${esc(o.covered)}</span>` : `<span class="aff">${esc(u.name)} · open slot</span>`}</div>`;
+        }).join('')}<button class="p-add admin-only" data-act="toast" data-msg="Opens Add time off">+ Add</button></div>`
+      : `<div class="p-miscbox">${MISC.map(m => `<div class="p-miscrow"><b>${esc(m.t)}</b><div class="s">${esc(m.who)} · ${esc(m.time)}</div></div>`).join('')}<button class="p-add admin-only" data-act="toast" data-msg="Opens Add misc shift">+ Add</button></div>`;
+  }
+  function openDrawer() { renderDrawer(); $('#screen').classList.add('drawer-open'); $('#bubble').setAttribute('aria-expanded', 'true'); }
+  function closeDrawer() { $('#screen').classList.remove('drawer-open'); $('#bubble').setAttribute('aria-expanded', 'false'); }
   function renderRoster() {
     const f = applied, rowsOn = rowFiltersOn(f);
     let html = rosterHTML({
+      draggable: role === 'admin',
       showDualFlag: f.dup,
       unitVisible: u => showAll || unitMatch(u, f),
       rowVisible: (r, u) => rowShown(r, f) && (showAll || !rowsOn || expanded.has(u.id) || rowMatch(r, f)),
@@ -652,7 +746,7 @@
     $('#summary').innerHTML = n ? `<span>Showing <b>${shown}</b> of ${TOTAL()} assignments</span><vaadin-button theme="tertiary" data-act="reset">Clear all</vaadin-button>` : '';
     $('#summary').style.display = n ? '' : 'none';
   }
-  function renderAll() { renderBar(); renderStrip(); renderRoster(); }
+  function renderAll() { renderBar(); renderBubble(); renderDrawer(); renderRoster(); }
 
   /* ══════════ SHEET ══════════ */
   function syncSheet() {
@@ -680,14 +774,15 @@
 
   /* ══════════ EVENTS ══════════ */
   document.addEventListener('click', e => {
+    if (e.target.closest('#bubble')) { openDrawer(); return; }
     const el = e.target.closest('[data-act]'); if (!el) return;
     const a = el.dataset.act, k = el.dataset.k, v = el.dataset.v;
     if (a === 'toast') toast(el.dataset.msg);
     if (a === 'openSheet') openSheet();
-    if (a === 'openAssign') openSheet('assign');
     if (a === 'closeSheet') closeSheet();
     if (a === 'apply') applyDraft();
-    if (a === 'strip') { stripOpen = !stripOpen; renderStrip(); }
+    if (a === 'closeDrawer') closeDrawer();
+    if (a === 'goto') { closeDrawer(); showUnit(el.dataset.unitId); }
     if (a === 'allUnits') { e.preventDefault(); draft.units = []; syncSheet(); }
     if (a === 'reset') {
       if ($('#screen').classList.contains('sheet-open')) { draft = BLANK(role); syncSheet(); }
@@ -720,7 +815,181 @@
     draft.units = e.target.checked ? [...new Set([...draft.units, id])] : draft.units.filter(x => x !== id);
     renderApply();
   });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+  onToggleTap('#dTabs', v => { drawerTab = v; renderDrawer(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeMove(); closeDrawer(); } });
+
+  /* ══════════ PRESS-AND-HOLD DRAG ══════════
+     Hold a name for 0.4s (mouse or finger): a fill bar runs along it, then it
+     lifts (a haptic tick on phones), a "Moving" ghost follows you and Time off /
+     Misc fan out from the corner. Drop it on another assignment to move the
+     person there, or on Time off / Misc. Near the top or bottom edge the
+     schedule scrolls so any station is reachable. Moving before the hold
+     completes is treated as a scroll. A quick tap opens the Move menu. */
+  const HOLD_MS = 400;
+  function initDnd(cfg) {
+    const screen = $('#screen'), sc = $('#scroll');
+    let src = null, ghost = null, timer = null, start = null, last = null, dragging = false, justDragged = false, raf = 0, grab = null;
+    const rel = e => { const r = screen.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    function cancelHold() { clearTimeout(timer); if (src) src.classList.remove('holding'); src = null; }
+    function begin() {
+      if (!src) return;
+      dragging = true; src.classList.remove('holding'); if (cfg.beforeDrag) cfg.beforeDrag();
+      const br = src.getBoundingClientRect(); grab = { x: last.clientX - br.left, y: last.clientY - br.top };   // keep the grab point under the finger
+      ghost = src.cloneNode(true); ghost.style.width = br.width + 'px'; ghost.classList.remove('holding'); ghost.classList.add('ghost'); ghost.removeAttribute('data-drag');
+      ghost.insertAdjacentHTML('beforeend', '<span class="mv"><i class="fa-solid fa-up-down-left-right"></i> Moving</span>');
+      screen.appendChild(ghost); src.classList.add('lifted'); screen.classList.add('dragging');
+      $('#dragTip').innerHTML = `Moving <b>${esc(cfg.nameOf(src.dataset.u, +src.dataset.i))}</b>. Drop on an assignment, or on <b>Time off</b> / <b>Misc</b>.`;
+      try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+      move(last); raf = requestAnimationFrame(edgeScroll);
+    }
+    function hit(e) {
+      let tgt = null;
+      document.querySelectorAll('.tgt').forEach(t => {
+        const r = t.getBoundingClientRect();
+        const on = e.clientX >= r.left - 12 && e.clientX <= r.right + 12 && e.clientY >= r.top - 12 && e.clientY <= r.bottom + 12;
+        t.classList.toggle('over', on); if (on) tgt = t;
+      });
+      let card = null;
+      if (!tgt) {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        card = el && el.closest('.p-card[data-unit]');
+        if (card && card.dataset.unit === src.dataset.u) card = null;
+      }
+      document.querySelectorAll('.p-card.drop-over').forEach(c => { if (c !== card) c.classList.remove('drop-over'); });
+      if (card) card.classList.add('drop-over');
+      return { tgt, card };
+    }
+    function move(e) { const p = rel(e); ghost.style.left = (p.x - grab.x) + 'px'; ghost.style.top = (p.y - grab.y - 10) + 'px'; hit(e); }
+    function edgeScroll() {
+      if (!dragging) return;
+      const r = sc.getBoundingClientRect(), topEdge = $('#top').getBoundingClientRect().bottom, y = last.clientY;
+      const overTgt = !!document.querySelector('.tgt.over');
+      let d = 0;
+      if (y < topEdge + 56) d = -Math.min(14, (topEdge + 56 - y) / 3);
+      else if (y > r.bottom - 64 && !overTgt) d = Math.min(14, (y - (r.bottom - 64)) / 3);
+      if (d) { sc.scrollTop += d; hit(last); }
+      raf = requestAnimationFrame(edgeScroll);
+    }
+    function end() {
+      clearTimeout(timer);
+      if (dragging) {
+        cancelAnimationFrame(raf);
+        const { tgt, card } = hit(last), u = src.dataset.u, i = +src.dataset.i;
+        ghost.remove(); src.classList.remove('lifted'); screen.classList.remove('dragging');
+        document.querySelectorAll('.tgt.over, .p-card.drop-over').forEach(x => x.classList.remove('over', 'drop-over'));
+        if (tgt) cfg.dropOff(u, i, tgt.dataset.target);
+        else if (card) moveToUnit(u, i, card.dataset.unit, cfg.rerender);
+        justDragged = true; setTimeout(() => { justDragged = false; }, 60);
+      } else if (src) src.classList.remove('holding');
+      src = null; dragging = false; start = null;
+    }
+    sc.addEventListener('pointerdown', e => {
+      const bar = e.target.closest('.p-bar[data-drag]'); if (!bar || !cfg.isAdmin() || e.button > 0) return;
+      src = bar; start = { x: e.clientX, y: e.clientY }; last = e;
+      bar.classList.add('holding');
+      timer = setTimeout(begin, HOLD_MS);
+    });
+    window.addEventListener('pointermove', e => {
+      if (!src) return;
+      last = e;
+      if (dragging) { move(e); return; }
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) cancelHold();   // moved before the hold finished: a scroll
+    });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', () => { if (!dragging) { cancelHold(); start = null; } });
+    // Touch fallback: keep following the finger even if the browser cancels the pointer
+    sc.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      e.preventDefault();
+      const t = e.touches[0]; last = { clientX: t.clientX, clientY: t.clientY }; move(last);
+    }, { passive: false });
+    window.addEventListener('touchend', () => { if (dragging) end(); });
+    sc.addEventListener('contextmenu', e => { if (e.target.closest('.p-bar[data-drag]')) e.preventDefault(); });
+    sc.addEventListener('click', e => {
+      const bar = e.target.closest('.p-bar[data-drag]');
+      if (!bar || justDragged || !cfg.isAdmin()) return;
+      cfg.onTap(bar.dataset.u, +bar.dataset.i);
+    });
+  }
+
+  /* Drop on another assignment: the person takes the first open slot that fits
+     their qualifier (or joins the assignment), and the slot they left opens up
+     and says where they went. Undo puts everything back. */
+  function moveToUnit(u, i, to, rerender) {
+    const from = unitById(u), dest = unitById(to), r = from.rows[i];
+    const before = clone({ STATIONS, OFF, MISC });
+    from.rows[i] = { open: true, q: r.q, movedFrom: r.p, movedTo: dest.name };
+    const slot = dest.rows.findIndex(x => x.open && (!x.q.length || x.q.some(q => r.q.includes(q))));
+    const placed = { p: r.p, q: r.q, me: r.me, movedIn: from.name };
+    if (slot >= 0) dest.rows[slot] = placed; else dest.rows.push(placed);
+    rerender();
+    const card = document.querySelector(`[data-unit="${to}"]`);
+    if (card) { card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+    toast(`${r.p} moved to ${dest.name}${slot >= 0 ? ', filling the open slot' : ''}`, () => { STATIONS = before.STATIONS; OFF = before.OFF; MISC = before.MISC; rerender(); });
+  }
+
+  /* ══════════ MOVE TO TIME OFF / MISC (after a drop, or from the tap menu) ══════════ */
+  const OFF_TYPES = ['Vacation', 'Sick', 'Kelly day', 'Comp time', 'Other'];
+  const MISC_TYPES = ['Training', 'Light duty', 'Admin', 'Other'];
+  let pending = null;
+  function openMove(u, i, kind) {
+    const unit = unitById(u), r = unit.rows[i];
+    pending = { u, i, kind, type: kind === 'off' ? 'Vacation' : 'Training', span: 'full' };
+    const types = kind === 'off' ? OFF_TYPES : MISC_TYPES;
+    $('#mTitle').textContent = kind === 'off' ? 'Move to Employees Off' : 'Move to Misc';
+    $('#mBody').innerHTML = `
+      <div class="who"><div class="p-bar"><span class="tags">${r.q.map(tagHTML).join('')}</span>${esc(r.p)}</div></div>
+      <h3>${kind === 'off' ? 'Reason' : 'Type'}</h3>
+      <vwc-toggle-button-group id="mType" selected="${types[0]}">${types.map(t => `<vwc-toggle-button value="${t}">${t}</vwc-toggle-button>`).join('')}</vwc-toggle-button-group>
+      <h3>How long</h3>
+      <vwc-toggle-button-group id="mSpan" selected="full"><vwc-toggle-button value="full">Whole shift (${esc(unit.time)})</vwc-toggle-button><vwc-toggle-button value="part">Part of shift</vwc-toggle-button></vwc-toggle-button-group>
+      <div class="res"><i class="fa-solid fa-circle-info"></i> ${esc(r.p)}'s ${esc(r.q.join('/'))} slot on <b>${esc(unit.name)}</b> becomes an open slot that says who is off.</div>`;
+    $('#mFt').style.flexWrap = '';
+    $('#mFt').innerHTML = `<vaadin-button theme="secondary" data-act="closeMove">Cancel</vaadin-button><vaadin-button theme="primary" data-act="confirmMove">${kind === 'off' ? 'Move to time off' : 'Move to misc'}</vaadin-button>`;
+    onToggleTap('#mType', v => { pending.type = v; });
+    onToggleTap('#mSpan', v => { pending.span = v; });
+    $('#screen').classList.add('move-open');
+  }
+  function openMoveMenu(u, i) {
+    const unit = unitById(u), r = unit.rows[i];
+    $('#mTitle').textContent = r.p;
+    $('#mBody').innerHTML = `<div class="res">${esc(unit.name)} · ${esc(r.q.join('/'))} · ${esc(r.part || unit.time)}<br>Tip: press and hold a name to drag it to another assignment.</div>`;
+    $('#mFt').style.flexWrap = 'wrap';
+    $('#mFt').innerHTML = `<vaadin-button theme="tertiary" data-act="toast" data-msg="Opens Edit shift">Edit shift</vaadin-button>
+      <vaadin-button theme="secondary" data-act="moveTo" data-k="misc" data-u="${u}" data-i="${i}">Move to misc</vaadin-button>
+      <vaadin-button theme="primary" data-act="moveTo" data-k="off" data-u="${u}" data-i="${i}">Move to time off</vaadin-button>`;
+    $('#screen').classList.add('move-open');
+  }
+  function closeMove() { $('#screen').classList.remove('move-open'); }
+  function confirmMove(rerender) {
+    const { u, i, kind, type, span } = pending;
+    const unit = unitById(u), r = unit.rows[i];
+    const before = clone({ STATIONS, OFF, MISC });
+    unit.rows[i] = { open: true, q: r.q, offBy: r.p, offType: kind === 'off' ? type : `Misc: ${type}`, part: span === 'part' ? 'Part of shift' : r.part };
+    if (kind === 'off') OFF.push({ p: r.p, type, time: span === 'part' ? 'Part of shift' : 'All day', unit: u, q: r.q[0] });
+    else MISC.push({ t: type, who: r.p, time: span === 'part' ? 'Part of shift' : unit.time, where: unit.name });
+    closeMove(); rerender();
+    const b = $('#bubble'); if (b) { b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); }
+    toast(`${r.p} moved to ${kind === 'off' ? 'Employees Off' : 'Misc'}`, () => { STATIONS = before.STATIONS; OFF = before.OFF; MISC = before.MISC; rerender(); });
+  }
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    const a = el.dataset.act;
+    if (a === 'closeMove') closeMove();
+    if (a === 'confirmMove') confirmMove(renderAll);
+    if (a === 'moveTo') { closeMove(); setTimeout(() => openMove(el.dataset.u, +el.dataset.i, el.dataset.k), 180); }
+  });
+
+  /* Notes: ✕ closes them; the notebook icon in the date bar brings them back */
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act="closeNotes"], [data-act="toggleNotes"]'); if (!el) return;
+    const n = $('#notes'), show = el.dataset.act === 'toggleNotes' && n.hidden;
+    n.hidden = !show; $('.p-date .nb').setAttribute('aria-pressed', String(show));
+    if (!show) toast('Notes hidden. Tap the notebook icon to show them.');
+  });
+  initDnd({ isAdmin: () => role === 'admin', beforeDrag: closeDrawer, nameOf: (u, i) => unitById(u).rows[i].p,
+    dropOff: openMove, onTap: openMoveMenu, rerender: renderAll });
 
   quickReturn(); renderAll();
 </script>
@@ -729,7 +998,9 @@
 <script>
   function applyFlowState(id, opts) {
     opts = opts || {};
-    closeSheet(); setRole('admin'); showAll = false; expanded.clear(); stripOpen = false;
+    STATIONS = clone(STATIONS_SEED); OFF = clone(OFF_SEED); MISC = clone(MISC_SEED);
+    closeSheet(); closeMove(); closeDrawer(); setRole('admin'); showAll = false; expanded.clear();
+    document.getElementById('screen').classList.remove('dragging'); document.getElementById('notes').hidden = false;
     const B = BLANK('admin');
     switch (id) {
       case 'day': applied = B; break;
@@ -739,6 +1010,10 @@
       case 'noDup': applied = Object.assign(B, { dup: false, offMisc: false, lens: ['12'] }); break;
       case 'endUser': setRole('eu'); applied = BLANK('eu'); break;
       case 'empty': applied = Object.assign(B, { quals: ['BC'], open: 'only' }); break;
+      case 'drawer': applied = B; renderAll(); openDrawer(); return;
+      case 'dragging': applied = B; renderAll(); document.getElementById('screen').classList.add('dragging'); document.querySelector('.tgt.off').classList.add('over'); return;
+      case 'movedUnit': applied = B; renderAll(); moveToUnit('e1', 2, 't1', renderAll); return;
+      case 'confirm': applied = B; renderAll(); openMove('e31', 3, 'off'); return;
       default: break;
     }
     renderAll();
@@ -757,16 +1032,18 @@
     flowMap: {
       title: 'Mobile UI Enhancements · V2 Filters — Flow Map',
       applyState: 'applyFlowState',
-      canvas: { w: 1220, h: 700 },
+      canvas: { w: 1220, h: 1040 },
       flows: [
         { id: 'main', name: 'Find open FF/PM slots', pill: 'A', color: '#c9b8f0',
           lane: { x: 20, y: 20, w: 1180, h: 320 }, labelXY: { x: 40, y: 40 } },
         { id: 'alt', name: 'Other filters', pill: 'B', color: '#b8e0f0',
-          lane: { x: 20, y: 360, w: 1180, h: 320 }, labelXY: { x: 40, y: 380 } }
+          lane: { x: 20, y: 360, w: 1180, h: 320 }, labelXY: { x: 40, y: 380 } },
+        { id: 'off', name: 'Off & Misc bubble + drag', pill: 'C', color: '#f0d9b8',
+          lane: { x: 20, y: 700, w: 1180, h: 320 }, labelXY: { x: 40, y: 720 } }
       ],
       nodes: [
         { id: 'day', flow: 'main', entry: true, x: 60, y: 120, step: 'Entry', name: 'Admin, full day', state: 'day',
-          desc: 'Production scheduler with Filters + My schedule under the date.' },
+          desc: 'Search, Filters and Mine share one row; Off & Misc in the bubble.' },
         { id: 'sheet', flow: 'main', x: 340, y: 120, step: 'Step 2', name: 'Filters sheet', state: 'sheet',
           desc: 'Qualifier (multi) first, then assignment, shift length, open slots, show/hide switches.' },
         { id: 'results', flow: 'main', x: 620, y: 120, step: 'Step 3', name: 'Open FF/PM slots', state: 'results',
@@ -775,9 +1052,13 @@
         { id: 'hideOpen', flow: 'alt', x: 60, y: 460, step: 'Variant', name: 'Open slots hidden', state: 'hideOpen', desc: 'Only who is working.' },
         { id: 'noDup', flow: 'alt', x: 340, y: 460, step: 'Variant', name: '12 hrs, no duplicates, no Off & Misc', state: 'noDup',
           desc: 'Shift length filter; duplicate listings and the Off & Misc section turned off.' },
-        { id: 'endUser', flow: 'alt', x: 620, y: 460, step: 'Variant', name: 'End user default', state: 'endUser', desc: 'End users land on My schedule.' }
+        { id: 'endUser', flow: 'alt', x: 620, y: 460, step: 'Variant', name: 'End user default', state: 'endUser', desc: 'End users land on My schedule.' },
+        { id: 'drawer', flow: 'off', x: 60, y: 800, step: 'Branch A', name: 'Bubble → half drawer', state: 'drawer', desc: 'Who is off and misc; tap a person to jump to their slot.' },
+        { id: 'dragging', flow: 'off', x: 340, y: 800, step: 'Branch B', name: 'Dragging a name', state: 'dragging', desc: 'Hold 0.4s, the name lifts; Time off / Misc fan out; any assignment is a drop target.' },
+        { id: 'movedUnit', flow: 'off', x: 620, y: 800, step: 'Result', name: 'Moved to Truck 1', state: 'movedUnit', desc: 'Fills the matching open slot; the slot left behind says where they went. Undo.' },
+        { id: 'confirm', flow: 'off', x: 900, y: 800, step: 'Result', name: 'Move to time off', state: 'confirm', desc: 'Dropped on Time off: pick reason and whole/part shift.' }
       ],
-      edges: [['day', 'sheet'], ['sheet', 'results'], ['sheet', 'empty'], ['day', 'hideOpen'], ['day', 'noDup'], ['day', 'endUser']]
+      edges: [['day', 'drawer'], ['day', 'dragging'], ['dragging', 'movedUnit'], ['dragging', 'confirm'], ['day', 'sheet'], ['sheet', 'results'], ['sheet', 'empty'], ['day', 'hideOpen'], ['day', 'noDup'], ['day', 'endUser']]
     }
   };
 </script>
