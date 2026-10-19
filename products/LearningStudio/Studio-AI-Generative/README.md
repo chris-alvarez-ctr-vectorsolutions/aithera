@@ -23,13 +23,13 @@ artifact, a change map or a dockable panel. Same call as the parent prototype.
 ## Session handoff — 2026-10-19
 
 **Where it stands.** Four layers navigable from the rail (Info set, Brief,
-Activities, Outputs); two review renderers (video, scenario); decisions G1–G16
-in `MODEL.md`; 75 flow-map states, all rendering clean. Passes 1–5 are
+Activities, Outputs); two review renderers (video, scenario); decisions G1–G17
+in `MODEL.md`; 80 flow-map states, all rendering clean. Passes 1–5 are
 committed as `6034cf33`, passes 6a and 7 as `bb924036`, Pass 8 (spec edits +
-the Coverage tab) as `0b98453a`, and Pass 9 stage 1 (Compose) is the commit
-after it. Pass 9 continues with stage 2 (output rehearsal) and stage 3
-(learner preview follows edges) — the plan is in the Pass 9 section below and
-the user approves each stage before it is built.
+the Coverage tab) as `0b98453a`, Pass 9 stage 1 (Compose) as `5461be36`, and
+stage 2 (output rehearsal) is the commit after it. Pass 9 ends with stage 3
+(the learner preview follows the edges) — the user approves each stage
+before it is built.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -121,10 +121,18 @@ the user approves each stage before it is built.
   at once. The map is hand-rolled SVG (`layoutStructure`, `structMapSVG`),
   layered by longest path with back edges detected on the DFS stack.
 
-**Next:** Pass 9 stage 2 (output rehearsal: walk, choose outcomes, reroll,
-all-paths sign-off table, pin from inside), then stage 3 (learner preview
-follows the edges; its report = path taken with reasons, beats fired, points
-reached). After that, the job-aid proof.
+- **Rehearsal (stage 2):** `o.reh.trace` is a list of edge ids; `rehNode`,
+  `rehEdges`, `rehActs` derive the rest; `rehWalk(o, [on…])` seeds a walk
+  (null = the default / otherwise connection). `pathReach(o, acts)` is the
+  per-path threshold; `signedOff(o)` compares `o.signedSig` to `sigKey(o)`.
+  Any structure change resets the trace.
+
+**Next:** Pass 9 stage 3 — the learner preview follows the edges. The
+existing output preview walks `out.acts` in a fixed list; it should walk the
+structure from the entry, feed each activity's real outcome into the next
+connection (the scenario's level from the run, a pass/fail choice on the
+check's stand-in card), and report the path taken with its reasons, beats
+fired and points reached. Then the job-aid proof.
 
 ## If you are picking this up cold
 
@@ -342,10 +350,32 @@ same view with one path and no rules).
 - Six flow-map states (lane I). The D38 collision check (two scenario
   warm-ups in a row) is wired but nothing in the seed triggers it.
 
-**Next for Pass 9:** stage 2, output rehearsal — walk the structure choosing
-outcomes, see each connection's reason fire, reroll, enumerate all paths as
-the sign-off table, pin from inside the rehearsal. Then stage 3, the learner
-preview following the edges.
+## What the mock shows — Pass 9 · stage 2, output rehearsal (2026-10-19)
+
+Below the map on an output's Structure view (G17).
+
+- **Walk the structure.** Begin at the entry; at each activity pick what
+  happened. Every outcome button names the connection it fires, where it
+  leads and the reason it carries; the trace below reads as the QA record for
+  that path, with the reason under each step. The map lights the walked
+  route. **Change** at any step rerolls from there; **Restart** clears it.
+- **Completion shows what the path reached**, point by point against the
+  bar. A short path says so, and offers the pin right there: *Pin the check
+  required · carries P3 at Mastery*. Pinning recomposes (structure v2) and
+  resets the walk.
+- **All paths** enumerates every route from entry to completion with the
+  outcomes that select it and a chip per point. A red row names the path and
+  the point it misses, and sign-off is blocked until the structure is fixed.
+  **Sign off all paths** appears when every row is green; it is pinned to the
+  structure version and the activities' generations, so a pin, an accepted
+  proposal or a regeneration clears it. The Experience's handoff gate reads
+  it.
+- A Course gets the same card with one row and nothing to choose.
+- Five more flow-map states on lane I.
+
+**Next for Pass 9:** stage 3, the learner preview following the edges on the
+activities' real outcomes, reporting the path taken with its reasons, beats
+fired and points reached.
 
 ## What the mock shows — Pass 8, spec edits and the Coverage tab (2026-10-19)
 
@@ -540,6 +570,7 @@ Everything is in-memory; reload resets.
 8. ~~**Pass 8** — G14 spec edits and the Coverage tab~~ — built 2026-10-19.
 9. **Pass 9 — Compose and the output walk-through.** ~~Stage 1: structure,
    composition brief, reasons, reachability, pins~~ — built 2026-10-19.
-   Stage 2: output rehearsal. Stage 3: learner preview follows the edges.
+   ~~Stage 2: output rehearsal~~ — built 2026-10-19. Stage 3: learner
+   preview follows the edges.
 10. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.

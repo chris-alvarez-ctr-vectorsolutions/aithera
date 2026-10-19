@@ -934,6 +934,30 @@ body.mod-scenario #scn { display: block; }
 .flag { display: flex; gap: 10px; align-items: flex-start; font-size: 12px; color: #cfd7e3; padding: 8px 0; border-top: 1px solid var(--line); line-height: 1.45; }
 .flag:first-of-type { border-top: 0; } .flag > i { margin-top: 3px; }
 .proposal-card { border: 1px dashed rgba(124,156,255,.6); background: linear-gradient(0deg, var(--accent-bg), var(--accent-bg)), var(--surface); }
+/* stage 2 — rehearsal */
+.reh-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, 1fr); gap: 22px; }
+.tr-row { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; color: #cfd7e3; }
+.tr-row .num { width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #0d1424; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 1px; }
+.tr-why { display: flex; gap: 8px; align-items: flex-start; margin-top: 4px; font-size: 11.5px; color: var(--muted); line-height: 1.45; }
+.tr-why .rpill { flex: none; margin-top: 1px; }
+.reh-now { margin-top: 10px; padding: 12px 14px; background: var(--surface2); border: 1px dashed var(--accent); border-radius: 8px; font-size: 13px; }
+.reh-now.done { border-style: solid; border-color: var(--line); }
+.reh-now-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.reh-outs { display: flex; flex-direction: column; gap: 6px; }
+.reh-outs .btn { justify-content: flex-start; gap: 8px; height: auto; padding: 7px 10px; text-align: left; }
+.reh-outs .btn.alt { border-color: rgba(124,156,255,.45); }
+.reh-outs .btn .rpill { margin-left: auto; }
+.ap-table td { font-size: 12px; vertical-align: middle; }
+.ap-table tr.short td { background: linear-gradient(0deg, rgba(255,122,122,.06), rgba(255,122,122,.06)); }
+.ap-table .num { width: 20px; height: 20px; border-radius: 50%; background: var(--surface3); color: var(--muted); font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+.ap-chips { display: flex; gap: 3px; flex-wrap: wrap; }
+.apc { font-size: 10px; font-weight: 800; padding: 1px 5px; border-radius: 4px; background: var(--ok-bg); color: var(--ok); }
+.apc.no { background: rgba(255,122,122,.16); color: var(--danger); }
+.ap-pts td { font-size: 12px; }
+.signoff { display: flex; gap: 10px; align-items: center; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: #cfd7e3; }
+.signoff.ok { border-color: rgba(79,196,138,.5); background: var(--ok-bg); }
+.signoff > div { flex: 1; }
+@media (max-width: 1100px) { .reh-grid { grid-template-columns: 1fr; } }
 /* coverage tab */
 .cov-card .card-top .where { font-weight: 700; color: var(--text); }
 .cov-car { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
@@ -3152,7 +3176,8 @@ function outputGates(o) {
   return [
     { ok: thr.every(p => p.ok), label: m > 1 ? 'Every point meets its required depth on every path (D47)' : 'Every point meets its required depth',
       bad: `${thr.filter(p => !p.ok && !p.archived && !short.includes(p)).map(p => p.short).join(', ') || (short.length ? '' : '—')}${short.length ? `${thr.some(p => !p.ok && !p.archived && !short.includes(p)) ? ' below the bar; ' : ''}${short.map(p => `${p.short} guaranteed on ${p.reach.n} of ${p.reach.m} paths`).join(', ')}` : ' below the bar'}${thr.some(p => p.archived) ? `; ${thr.filter(p => p.archived).map(p => p.short).join(', ')} archived` : ''}. Open the structure to compose.` },
-    ...(o.kind === 'Experience' ? [{ ok: !st.unmapped.length, label: 'Every rule in the composition brief maps to a connection', bad: st.unmapped.map(u => `rule ${u.n}: “${u.text}”`).join(' · ') }] : []),
+    ...(o.kind === 'Experience' ? [{ ok: !st.unmapped.length, label: 'Every rule in the composition brief maps to a connection', bad: st.unmapped.map(u => `rule ${u.n}: “${u.text}”`).join(' · ') },
+      { ok: signedOff(o), label: 'Every path rehearsed and signed off since the last change (G17, D44)', bad: o.signedSig ? 'The structure or an activity changed since the sign-off — walk it again' : 'Open the structure and sign off the all-paths table' }] : []),
     { ok: !archivedDeps.length, label: 'No activity depends on an archived point (D19 — hard no-deliver)', bad: archivedDeps.join(' · ') },
     ...(GOAL.requiresCurrent ? [{ ok: !notCurrent.length, label: `Every confirmation is against the current point version (goal: ${GOAL.name}, D20)`,
       bad: notCurrent.map(p => `${p.short} on ${shortTitle(p.by)}: confirmed against v${p.drift.from}, point is v${p.drift.to}`).join(' · ') }] : []),
@@ -3262,6 +3287,11 @@ $('#outputsView').addEventListener('click', e => {
   if (d.srule) { const o = outById(B.outOpen); const i = o.draft.rules.indexOf(o.comp.rules[+d.srule - 1]); if (i >= 0) o.draft.rules.splice(i, 1); proposeStructure(o); B.outSel = null; return renderOutputs(); }
   if (d.recompose !== undefined) { proposeStructure(outById(B.outOpen)); return renderOutputs(); }
   if (d.paccept3 !== undefined) { acceptProposal(outById(B.outOpen)); return renderOutputs(); }
+  // ── stage 2 — rehearsal
+  if (d.rgo) { rehGo(outById(B.outOpen), d.rgo); return renderOutputs(); }
+  if (d.rback) { const o = outById(B.outOpen); rehOf(o).trace = rehOf(o).trace.slice(0, +d.rback - 1); return renderOutputs(); }
+  if (d.rrestart !== undefined) { rehOf(outById(B.outOpen)).trace = []; return renderOutputs(); }
+  if (d.rsign !== undefined) { const o = outById(B.outOpen); o.signedSig = sigKey(o); o.signedStruct = structOf(o).version; renderOutputs(); return toast(`All paths signed off against structure v${o.signedStruct} — the handoff gate reads it (G17)`); }
   if (d.pdiscard3 !== undefined) { const o = outById(B.outOpen); o.proposal = null; o.draft = clone(o.comp); return renderOutputs(); }
   if (d.opreview) return openPlayer({ mode: 'output', outId: d.opreview });
   if (d.oapprove) { if (t.disabled) return; B.pubDialog = d.oapprove; return renderOutputs(); }
@@ -3424,14 +3454,14 @@ function proposeStructure(o) {
 }
 function acceptProposal(o) {
   const d = o.proposalDiff, v = o.proposal.version;
-  o.comp = clone(o.draft); o.structure = o.proposal; o.proposal = null;
+  o.comp = clone(o.draft); o.structure = o.proposal; o.proposal = null; o.reh = { trace: [] };
   o.structLog.unshift({ v, on: 'Today', note: `${d.added.length} connection${d.added.length === 1 ? '' : 's'} added, ${d.removed.length} removed · rules: ${o.comp.rules.length}` });
   B.outSel = null; toast(`Structure v${v} accepted — any handoff approval on this output is cleared (G11)`);
 }
 function togglePin(o, act) {
   const on = !o.pins.includes(act); o.pins = on ? [...o.pins, act] : o.pins.filter(a => a !== act);
   const v = o.structure.version + 1, prev = o.structure;
-  o.structure = composeStructure(o, o.comp, o.pins); o.structure.version = v;
+  o.structure = composeStructure(o, o.comp, o.pins); o.structure.version = v; o.reh = { trace: [] };
   const d = structDiff(prev, o.structure);
   o.structLog.unshift({ v, on: 'Today', note: `${on ? 'Pinned' : 'Unpinned'} ${shortTitle(act)} ${on ? 'required' : ''} · ${d.added.length} connection${d.added.length === 1 ? '' : 's'} redrawn` });
   if (o.proposal) proposeStructure(o);
@@ -3455,8 +3485,9 @@ function layoutStructure(st) {
 function structMapSVG(st, o) {
   const { pos, back, W, H } = layoutStructure(st), sel = B.outSel;
   const paths = enumeratePaths(st), onPaths = id => paths.filter(p => p.nodes.includes(id)).length;
+  const walked = new Set(rehOf(o).trace), visited = new Set(['entry', ...rehEdges(o).map(e => e.to)]), here = rehNode(o);
   const edges = st.edges.map(e => {
-    const a = pos[e.from], b = pos[e.to], isBack = back.has(e.id), col = REASON[e.reason.kind].color, on = sel && sel.kind === 'edge' && sel.id === e.id;
+    const a = pos[e.from], b = pos[e.to], isBack = back.has(e.id), col = REASON[e.reason.kind].color, on = (sel && sel.kind === 'edge' && sel.id === e.id) || walked.has(e.id);
     let d, mid;
     if (isBack) { const x0 = a.x + a.w / 2, y0 = a.y + a.h, x1 = b.x + b.w / 2, y1 = b.y + b.h, dy = 54; d = `M${x0},${y0} C${x0},${y0 + dy} ${x1},${y1 + dy} ${x1},${y1}`; mid = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 + dy * 0.75 }; }
     else { const x0 = a.x + a.w, y0 = a.y + a.h / 2, x1 = b.x, y1 = b.y + b.h / 2, c = Math.max(40, (x1 - x0) / 2); d = `M${x0},${y0} C${x0 + c},${y0} ${x1 - c},${y1} ${x1},${y1}`; mid = { x: (x0 + 3 * (x0 + c) + 3 * (x1 - c) + x1) / 8, y: (y0 + 3 * y0 + 3 * y1 + y1) / 8 }; }
@@ -3465,9 +3496,9 @@ function structMapSVG(st, o) {
       ${lbl ? `<rect x="${mid.x - lw / 2}" y="${mid.y - 9}" width="${lw}" height="18" rx="9" style="fill:var(--chrome);stroke:${col}" stroke-width="1"></rect><text x="${mid.x}" y="${mid.y + 4}" text-anchor="middle" font-size="10.5" font-weight="700" style="fill:${col}">${esc(lbl)}</text>` : ''}</g>`;
   }).join('');
   const nodes = Object.values(st.nodes).map(n => {
-    const p = pos[n.id], on = sel && sel.kind === 'node' && sel.id === n.id, term = !n.act;
+    const p = pos[n.id], on = sel && sel.kind === 'node' && sel.id === n.id, term = !n.act, was = visited.has(n.id), cur = here === n.id && rehOf(o).trace.length;
     const r = n.act ? planRow(n.act) : null, np = onPaths(n.id);
-    return `<g data-snode="${n.id}" class="snode ${on ? 'on' : ''}" style="cursor:pointer"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="${term ? 26 : 8}" style="fill:${term ? 'var(--surface3)' : 'var(--surface2)'};stroke:${on ? 'var(--accent)' : n.required ? 'var(--lock)' : 'var(--line)'}" stroke-width="${on ? 2 : n.required ? 2 : 1}"></rect>
+    return `<g data-snode="${n.id}" class="snode ${on ? 'on' : ''}" style="cursor:pointer"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="${p.h}" rx="${term ? 26 : 8}" style="fill:${was ? 'rgba(124,156,255,.18)' : term ? 'var(--surface3)' : 'var(--surface2)'};stroke:${on || cur ? 'var(--accent)' : n.required ? 'var(--lock)' : was ? 'rgba(124,156,255,.6)' : 'var(--line)'}" stroke-width="${on || cur ? 2.5 : n.required ? 2 : 1}" ${cur ? 'stroke-dasharray="5 3"' : ''}></rect>
       <text x="${p.x + (term ? p.w / 2 : 12)}" y="${p.y + (term ? 31 : 22)}" ${term ? 'text-anchor="middle"' : ''} font-size="12" font-weight="700" style="fill:var(--text)">${esc(term ? nodeName(st, n.id) : mapName(n.act))}</text>
       ${r ? `<text x="${p.x + 12}" y="${p.y + 40}" font-size="10" style="fill:var(--muted)">${esc(r.modality)} · on ${np} of ${paths.length} path${paths.length === 1 ? '' : 's'}</text>` : ''}
       ${n.required ? `<rect x="${p.x + p.w - 58}" y="${p.y - 9}" width="58" height="16" rx="8" style="fill:var(--lock)"></rect><text x="${p.x + p.w - 29}" y="${p.y + 3}" text-anchor="middle" font-size="9.5" font-weight="800" style="fill:#1a1030">REQUIRED</text>` : ''}</g>`;
@@ -3519,6 +3550,7 @@ function outputStructureHTML(o) {
       <div class="legend">${['default', 'rule', 'repair', 'pin', 'gate'].map(k => `<span><i class="fa-solid ${REASON[k].icon}" style="color:${REASON[k].color}"></i>${REASON[k].label}</span>`).join('')}<span class="am">· dashed = drawn by the composer or a pin, not by the brief</span></div>
       <div class="smap">${structMapSVG(st, o)}</div>
       ${whyPanelHTML(st, o)}</div>
+    ${outRehearsalHTML(o)}
     ${propo}
     <div class="ogrid"><div>
       <div class="bcard"><h3><i class="fa-regular fa-clipboard-list"></i>Composition brief</h3>
@@ -3544,6 +3576,69 @@ function outputStructureHTML(o) {
     </div></div></div>`;
 }
 const noteHTML = n => `<div class="note ${n.kind}"><span class="rpill" style="color:${REASON[n.kind].color};border-color:${REASON[n.kind].color}"><i class="fa-solid ${REASON[n.kind].icon}"></i>${REASON[n.kind].label}${n.n ? ' ' + n.n : ''}</span><span>${esc(n.text)}</span></div>`;
+
+/* ════════════════════════════════════════════════════════════════════
+   PASS 9 · STAGE 2 — OUTPUT REHEARSAL: the traversal review (D33 at output
+   level, G17). At activity level the probabilistic thing is the coach's
+   reply, so rehearsal rerolls replies. At output level it is the PATH: which
+   activity comes next given what the learner just did. So the reviewer walks
+   the structure choosing an outcome at each activity, sees which connection
+   fires and WHY (the reason from G16), changes any earlier outcome to reroll
+   the rest, and reads the all-paths table — every route, every point, the
+   gate — which is the sign-off. Where a walk ends short, the pin is offered
+   right there: the authoring gesture rehearsal exists for (D33 → D47).
+   ════════════════════════════════════════════════════════════════════ */
+const rehOf = o => (o.reh = o.reh || { trace: [] });
+const rehEdges = o => rehOf(o).trace.map(id => structOf(o).edges.find(e => e.id === id)).filter(Boolean);
+const rehNode = o => { const es = rehEdges(o); return es.length ? es[es.length - 1].to : 'entry'; };
+const rehActs = o => { const st = structOf(o); return rehEdges(o).map(e => st.nodes[e.to]).filter(n => n && n.act).map(n => n.act); };
+function rehGo(o, edgeId) { rehOf(o).trace.push(edgeId); }
+function rehWalk(o, ons) {   // seed helper: follow outcomes in order (null = the default / otherwise connection)
+  const st = structOf(o);
+  ons.forEach(on => { const from = rehNode(o), outs = st.edges.filter(e => e.from === from); const e = on ? outs.find(x => x.on === on) : outs.find(x => x.on === 'any' || x.on === 'else' || x.on === 'passed' || x.on === 'completed'); if (e) rehGo(o, e.id); });
+}
+/* What a path (a list of activities) reaches, point by point, against the output's bar. */
+function pathReach(o, acts) {
+  return POINTS.filter(p => p.lifecycle !== 'archived').map(p => {
+    const need = FORMATS[o.format].bar(p); let best = null, by = null;
+    acts.forEach(a => { const d = planRow(a).points[p.id]; if (d && (!best || DEPTH_RANK[d] > DEPTH_RANK[best])) { best = d; by = a; } });
+    return { ...p, need, best, by, ok: !!best && DEPTH_RANK[best] >= DEPTH_RANK[need] };
+  });
+}
+/* The repair the reviewer can make from a short walk: an activity carrying the point at the bar that this path doesn't visit. */
+function pinSuggestion(o, pid, need, acts) {
+  const st = structOf(o);
+  return B.plan.filter(r => rowGen(r) && !acts.includes(r.id) && DEPTH_RANK[r.points[pid] || 'x'] >= DEPTH_RANK[need] && Object.values(st.nodes).some(n => n.act === r.id)).sort((a, b) => DEPTH_RANK[a.points[pid]] - DEPTH_RANK[b.points[pid]])[0] || null;
+}
+const signedOff = o => o.signedSig === sigKey(o);
+function outRehearsalHTML(o) {
+  const st = structOf(o), rc = reachOf(o), es = rehEdges(o), at = rehNode(o), acts = rehActs(o), isExp = o.kind === 'Experience';
+  const trace = es.map((e, i) => { const R = REASON[e.reason.kind]; return `<div class="tr-row"><span class="num">${i + 1}</span><div class="grow"><b>${esc(nodeName(st, e.to))}</b> <span class="am">· ${e.on === 'any' ? 'continued' : e.on === 'else' ? 'any other outcome' : onLabel(e.on)} at ${esc(nodeName(st, e.from))}</span>
+      <div class="tr-why"><span class="rpill" style="color:${R.color};border-color:${R.color}"><i class="fa-solid ${R.icon}"></i>${R.label}${e.reason.n ? ' ' + e.reason.n : ''}</span><span>${esc(e.reason.text)}</span></div></div>
+      ${st.nodes[e.to].act ? `<button class="btn sm" data-rback="${i + 1}" title="Reroll from here — change what happened at ${esc(nodeName(st, e.to))}"><i class="fa-solid fa-dice"></i>Change</button>` : ''}</div>`; }).join('');
+  let now;
+  if (at === 'exit') {
+    const pr = pathReach(o, acts), short = pr.filter(p => !p.ok);
+    now = `<div class="reh-now done"><div class="reh-now-head"><i class="fa-solid fa-flag-checkered" style="color:var(--ok)"></i><b>Completion reached</b> <span class="am">· ${acts.length} activities · ${esc(o.comp.completion)}</span></div>
+      <table class="mini ap-pts"><thead><tr><th>Point</th><th>Needs</th><th>Reached</th><th></th></tr></thead><tbody>${pr.map(p => `<tr><td><b>${p.short}</b> ${esc(p.title)}</td><td>${DEPTH[p.need]}</td><td>${p.best ? `${DEPTH[p.best]} · ${esc(shortTitle(p.by))}` : '<span class="am">nothing on this path</span>'}</td><td>${p.ok ? '<i class="fa-solid fa-check" style="color:var(--ok)"></i>' : '<i class="fa-solid fa-xmark" style="color:var(--danger)"></i>'}</td></tr>`).join('')}</tbody></table>
+      ${short.length ? `<div class="g11" style="margin-top:10px"><i class="fa-solid fa-circle-xmark" style="color:var(--danger)"></i><div><b>This path is short on ${short.map(p => p.short).join(', ')}.</b> A learner who takes it finishes without meeting the bar. ${short.map(p => { const s = pinSuggestion(o, p.id, p.need, acts); return s ? `<button class="btn sm" data-spin="${s.id}" style="margin:4px 6px 0 0"><i class="fa-solid fa-thumbtack"></i>Pin ${esc(shortTitle(s.id))} required <span class="am">· carries ${p.short} at ${DEPTH[s.points[p.id]]}</span></button>` : `<span class="am">Nothing in the structure carries ${p.short} at ${DEPTH[p.need]} — add an activity or lower the format's bar.</span>`; }).join('')}</div></div>` : `<div class="mb ok" style="margin-top:10px"><i class="fa-solid fa-circle-check"></i>Threshold met on this path</div>`}
+      <div class="card-actions" style="margin-top:10px"><button class="btn sm" data-rrestart><i class="fa-solid fa-rotate-left"></i>Walk again</button></div></div>`;
+  } else {
+    const outs = st.edges.filter(e => e.from === at), n = st.nodes[at], r = n.act ? planRow(n.act) : null;
+    now = `<div class="reh-now"><div class="reh-now-head">${r ? `<i class="fa-regular ${r.icon}"></i><b>${esc(r.title)}</b> <span class="am">· ${r.modality} · generation ${rowGen(r)}${r.modality === 'Scenario' ? ' · outcome = the level landed at the step a rule names' : ''}</span>` : `<i class="fa-solid fa-door-open"></i><b>Entry</b> <span class="am">· every learner starts here</span>`}</div>
+      <div class="am" style="margin:6px 0">${r ? 'What happened here? Pick an outcome; the connection it fires is explained as it fires.' : 'Begin the walk.'}</div>
+      <div class="reh-outs">${outs.map(e => { const R = REASON[e.reason.kind]; return `<button class="btn sm ${e.on === 'any' || e.on === 'else' || e.on === 'passed' || e.on === 'completed' ? '' : 'alt'}" data-rgo="${e.id}"><i class="fa-solid ${e.on === 'failed' ? 'fa-xmark' : e.on === 'passed' ? 'fa-check' : e.on === 'any' || e.on === 'else' ? 'fa-arrow-right' : 'fa-comment-dots'}"></i>${e.on === 'any' ? (r ? 'Completed' : 'Begin') : e.on === 'else' ? 'Any other outcome' : onLabel(e.on)[0].toUpperCase() + onLabel(e.on).slice(1)} <span class="am">→ ${esc(nodeName(st, e.to))}</span><span class="rpill" style="color:${R.color};border-color:${R.color}">${R.label}${e.reason.n ? ' ' + e.reason.n : ''}</span></button>`; }).join('')}</div>
+      ${es.length ? `<div class="card-actions" style="margin-top:10px"><button class="btn sm" data-rrestart><i class="fa-solid fa-rotate-left"></i>Restart</button></div>` : ''}</div>`;
+  }
+  const allOk = rc.paths.every(pp => pathReach(o, pp.acts).every(p => p.ok)), signed = signedOff(o);
+  const rows = rc.paths.map((pp, i) => { const pr = pathReach(o, pp.acts), ok = pr.every(p => p.ok); return `<tr class="${ok ? '' : 'short'}"><td><span class="num">${i + 1}</span></td><td>${esc(pp.label)}<div class="am">${pp.acts.map(a => esc(mapName(a))).join(' → ')} → completion</div></td><td><div class="ap-chips">${pr.map(p => `<span class="apc ${p.ok ? 'ok' : 'no'}" title="${p.short} needs ${DEPTH[p.need]} — ${p.best ? DEPTH[p.best] + ' via ' + esc(shortTitle(p.by)) : 'nothing on this path'}">${p.short}</span>`).join('')}</div></td><td>${ok ? '<span class="mb ok">meets the bar</span>' : `<span class="mb warn">short: ${pr.filter(p => !p.ok).map(p => p.short).join(', ')}</span>`}</td></tr>`; }).join('');
+  return `<div class="bcard"><h3><i class="fa-regular fa-person-walking"></i>Rehearsal — walk the structure${isExp ? '' : ' <span class="am" style="font-weight:600">· one path, nothing to choose</span>'}</h3>
+    <div class="sub">Rehearsal at output level (D33, G17): the probabilistic thing is the <b>path</b>. Pick an outcome at each activity and watch which connection fires and why; <b>Change</b> an earlier outcome to reroll everything after it. The all-paths table on the right is what gets signed off: every route a learner can take, every point against the bar.</div>
+    <div class="reh-grid"><div><div class="dl">Walk</div>${trace}${now}</div>
+      <div><div class="dl">All paths <span class="am" style="text-transform:none;letter-spacing:0;font-weight:600">· ${rc.paths.length} from entry to completion</span></div>
+        <table class="mini ap-table"><tbody>${rows}</tbody></table>
+        <div class="signoff ${signed ? 'ok' : ''}">${signed ? `<i class="fa-solid fa-circle-check" style="color:var(--ok)"></i><div><b>Signed off</b> against structure v${o.signedStruct} and the activities' current generations. Any change clears it (G11).</div>` : allOk ? `<i class="fa-solid fa-scale-balanced" style="color:var(--ok)"></i><div>Every path meets the bar.</div><button class="btn sm primary" data-rsign><i class="fa-solid fa-signature"></i>Sign off all paths</button>` : `<i class="fa-solid fa-triangle-exclamation" style="color:var(--unreq)"></i><div>${rc.paths.filter(pp => !pathReach(o, pp.acts).every(p => p.ok)).length} path${rc.paths.filter(pp => !pathReach(o, pp.acts).every(p => p.ok)).length === 1 ? '' : 's'} short — fix the structure (a pin, a rule, an activity) before signing off.</div>`}</div></div></div></div>`;
+}
 
 /* Learner preview — its own window, the learner's chrome, nothing to author (D44, G1)
    ------------------------------------------------------------------------------ */
@@ -4861,6 +4956,12 @@ function applyFlowState(id, opts) {
     case 'out-pin': openOutput('out-exp'); togglePin(outById('out-exp'), 'act-check'); B.outSel = { kind: 'node', id: 'n-act-check' }; break;
     case 'out-brief-rule': { openOutput('out-exp'); const o = outById('out-exp'); o.draft.rules.push('Anyone Neutral on the scenario’s step 2 hears the podcast before the check.'); proposeStructure(o); break; }
     case 'out-unmapped': { openOutput('out-exp'); const o = outById('out-exp'); o.draft.rules.push('Make the podcast optional for everyone.'); proposeStructure(o); break; }
+    // ── Pass 9 · stage 2 — output rehearsal
+    case 'out-rehearse': { openOutput('out-exp'); rehWalk(outById('out-exp'), [null, null]); after = () => $('.reh-now').scrollIntoView({ block: 'center' }); break; }
+    case 'out-rehearse-done': { openOutput('out-exp'); rehWalk(outById('out-exp'), [null, null, 'st-2:unthoughtful', null, 'passed']); after = () => $('.reh-now').scrollIntoView({ block: 'center' }); break; }
+    case 'out-rehearse-short': { openOutput('out-exp'); rehWalk(outById('out-exp'), [null, null, 'st-1:strong', null]); after = () => $('.reh-now').scrollIntoView({ block: 'center' }); break; }
+    case 'out-allpaths': { openOutput('out-exp'); after = () => $('.ap-table').scrollIntoView({ block: 'center' }); break; }
+    case 'out-signoff': { openOutput('out-exp'); const o = outById('out-exp'); togglePin(o, 'act-check'); o.signedSig = sigKey(o); o.signedStruct = structOf(o).version; after = () => $('.ap-table').scrollIntoView({ block: 'center' }); break; }
     default: break;
   }
   setDock(dock, { silent: true });
@@ -5061,7 +5162,18 @@ window.TOOLBOX_CONFIG = {
       { id: 'os5', flow: 'comp', x: 1020, y: 3010, step: 'D16', name: 'A new rule → proposal', state: 'out-brief-rule',
         desc: 'Tell the composer something new. It re-reads the brief and PROPOSES v2: the connections it would add or remove, with reasons, and how it reasoned. Nothing changes until accepted.' },
       { id: 'os6', flow: 'comp', x: 1260, y: 3010, step: 'Flag', name: 'An instruction it can’t map', state: 'out-unmapped',
-        desc: '“Make the podcast optional for everyone” fits none of the shapes the composer understands. It says so, names the shapes it does, and the handoff gate would flag an unmapped rule.' }
+        desc: '“Make the podcast optional for everyone” fits none of the shapes the composer understands. It says so, names the shapes it does, and the handoff gate would flag an unmapped rule.' },
+      // ── Pass 9 · stage 2 — output rehearsal
+      { id: 'or1', flow: 'comp', x: 60, y: 3160, step: 'D33', name: 'Rehearse · at the scenario', state: 'out-rehearse',
+        desc: 'Walking the structure. At the scenario the reviewer picks what happened — Unthoughtful on step 2, Strong on step 1, or anything else — and each button names the connection it fires and why.' },
+      { id: 'or2', flow: 'comp', x: 300, y: 3160, step: 'G17', name: 'A path to completion', state: 'out-rehearse-done',
+        desc: 'Unthoughtful on step 2 → the podcast was inserted (rule 2) → the check passed → completion. The trace is the QA record for this path; the points table shows what it reached. Change any step to reroll.' },
+      { id: 'or3', flow: 'comp', x: 540, y: 3160, step: 'D47', name: 'A short path → pin here', state: 'out-rehearse-short',
+        desc: 'Strong on step 1 → the inspection card (the composer’s repair) → completion, and P3 is short. The pin is offered where the gap was found: rehearsal is an authoring gesture.' },
+      { id: 'or4', flow: 'comp', x: 780, y: 3160, step: 'Sign-off', name: 'All paths · one short', state: 'out-allpaths',
+        desc: 'Every route a learner can take, every point against the bar. One red row names the path and the point; sign-off is blocked until the structure is fixed.' },
+      { id: 'or5', flow: 'comp', x: 1020, y: 3160, step: 'G11', name: 'Signed off', state: 'out-signoff',
+        desc: 'After the pin: six paths, every one green, signed off against structure v2 and the activities’ current generations. The handoff gate reads it; any later change clears it.' }
     ],
     edges: [
       ['g1', 'annotate'], ['g1', 'region'], ['annotate', 'pending'], ['region', 'pending'], ['pending', 'working'],
@@ -5075,7 +5187,8 @@ window.TOOLBOX_CONFIG = {
       ['pv', 'pvdone'], ['pvdone', 'appr'], ['appr', 'outsme'], ['outs', 'outclr'], ['outclr', 'outbrief'], ['appr', 'opv'], ['opv', 'pubrev'], ['pubrev', 'pubd'],
       ['brief', 'sp1'], ['sp1', 'sp2'], ['sp2', 'sp3'], ['sp3', 'sp4'], ['sp4', 'sp5'], ['sp5', 'sp6'],
       ['sp1', 'sp7'], ['sp7', 'sp8'], ['sp8', 'sp9'], ['sp9', 'sp10'], ['sp10', 'sp5'], ['sp1', 'sp11'], ['sp11', 'sp12'], ['sp7', 'sp13'], ['sp7', 'sp14'],
-      ['outs', 'os1'], ['os1', 'os2'], ['os2', 'os3'], ['os3', 'os4'], ['os1', 'os5'], ['os5', 'os6']
+      ['outs', 'os1'], ['os1', 'os2'], ['os2', 'os3'], ['os3', 'os4'], ['os1', 'os5'], ['os5', 'os6'],
+      ['os1', 'or1'], ['or1', 'or2'], ['or1', 'or3'], ['or3', 'or4'], ['or4', 'or5'], ['os4', 'or5']
     ]
   }
 };

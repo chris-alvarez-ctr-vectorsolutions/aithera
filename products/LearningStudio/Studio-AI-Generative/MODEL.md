@@ -761,6 +761,45 @@ optional; an Experience's traversal is generated, so the walk-through
 
 ---
 
+## G17 · Output rehearsal is outcome-driven traversal; the all-paths table is the sign-off
+**2026-10-19** · Pass 9, stage 2 · D33 and D44 applied at output level
+
+At activity level the probabilistic thing is the coach's reply, so rehearsal
+(D33) rerolls replies. At output level the probabilistic thing is the
+**path** — which activity comes next given what the learner just did — so
+output rehearsal is the same instrument pointed at a different variable.
+
+**The walk.** The reviewer starts at the entry and, at each activity, picks
+an outcome (the flat set from G16). Each button names the connection it
+fires and the reason it carries, and the trace accumulates as a readable
+record: *Entry → video (completed, default path) → scenario (step 2:
+Unthoughtful) → podcast (brief rule 2) → check (failed) → inspection card
+(brief rule 1) → check (passed) → completion (gate)*. **Change** at any step
+truncates the trace there and rerolls everything after it — the D33 reroll,
+applied to a route instead of a reply. At completion, the points table says
+what this path reached against the bar.
+
+**The sign-off.** Beside the walk, every path from entry to completion is
+enumerated with every point against the bar. A red row names the path and
+the point it misses. **Sign off all paths** is offered only when every row
+is green, and it pins the structure version plus the activities' current
+generations (via the output signature): a pin, an accepted proposal, or any
+activity regenerating clears it, like a handoff (G11). The handoff gate for
+an Experience reads it.
+
+**The authoring gesture.** Where a walk ends short, the pin (D47) is offered
+in the completion panel, naming the lightest activity in the structure that
+carries the missing point at the bar. Rehearsal is where the gap is found,
+so rehearsal is where the fix is made — the same stance D33 took at activity
+level, where a kept roll becomes the example.
+
+**What stays separate** (D44): the rehearsal shows its workings — reasons,
+rerolls, the all-paths table. The learner preview (stage 3) shows none of
+them: it runs the real activities, follows the edges on their actual
+outcomes, and reports the path taken.
+
+---
+
 ## Coverage under generation
 
 The parent has the LED tag coverage. Here the **generator claims** coverage and
