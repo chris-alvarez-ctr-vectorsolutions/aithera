@@ -27,8 +27,9 @@ Activities, Outputs); two review renderers (video, scenario); decisions G1–G17
 in `MODEL.md`; 82 flow-map states, all rendering clean. Passes 1–5 are
 committed as `6034cf33`, passes 6a and 7 as `bb924036`, Pass 8 (spec edits +
 the Coverage tab) as `0b98453a`, Pass 9 stage 1 (Compose) as `5461be36`,
-stage 2 (output rehearsal) as `40f28c08`, and stage 3 (the preview follows
-the edges) is the commit after it. Pass 9 is complete.
+stage 2 (output rehearsal) as `40f28c08`, stage 3 (the preview follows the
+edges) as `a97c46fe`, and Pass 10 (the Outputs layer at lower density) is
+the commit after it.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -132,8 +133,16 @@ the edges) is the commit after it. Pass 9 is complete.
   connection with `nextEdge(st, node, outcome, scn)`; `seedExpPreview` is the
   flow-map seed.
 
-**Next:** the job-aid proof — a static modality with no renderer, to show a
-new modality needs a review renderer, not a surface.
+- **Outputs UI (Pass 10):** `B.outOpen` + `B.outTab` select the detail and
+  its tab; `B.outEdit` opens the brief drawer; `B.outInfo` is the open ⓘ
+  note; `B.outReason` unfolds the reasoning. `outNext(o)` derives the single
+  next step from the first open gate; `outStatusLine(o)` the status words.
+  Rationale copy lives in `OUT_NOTES`.
+
+**Next:** either carry the Pass 10 treatment (index + tabs + ⓘ rationale)
+to Brief, Information Set and Activities, or the job-aid proof — a static
+modality with no renderer, to show a new modality needs a review renderer,
+not a surface.
 
 ## If you are picking this up cold
 
@@ -374,6 +383,39 @@ Below the map on an output's Structure view (G17).
 - A Course gets the same card with one row and nothing to choose.
 - Five more flow-map states on lane I.
 
+## What the mock shows — Pass 10, the Outputs layer at lower density (2026-10-19)
+
+The Outputs list and the structure view had grown to roughly forty data
+points per card and nine stacked sections on one scroll. This pass reorganises
+them around one question per screen, with the design rationale moved out of
+body copy.
+
+- **Outputs is an index.** One row per output: name, kind and format, a
+  status line in words ("Handoff cleared by a change · 5 paths · P3 short · 2
+  gates open"), and **one next step** derived from the first open gate ("Fix
+  the structure", "Rehearse & sign off the paths", "Review & approve", "Send
+  to publish pipeline"). No tables.
+- **An output is one page with four tabs.** *Overview*: activities with
+  their status, what the output is, the open gates in brief. *Structure*: a
+  flag strip (short points, unmapped rules) with their fixes, the brief as
+  one line with **Edit the brief**, the map with its why panel, and the
+  composer's reasoning folded. *Rehearsal*: the map lighting the route, the
+  walk, all paths, sign-off. *Readiness*: the gates, the threshold table
+  (Point · Needs · Delivered with who judged it · Paths · ✓), the handoff pin
+  and "changed since", preview / approve / send, structure versions.
+- **The composition brief edits in a side drawer**, and proposals arrive in
+  the same drawer; a strip on the Structure tab says a proposal is waiting.
+- **Map density**: outcome labels only where a choice exists, the "on n of m
+  paths" line only when a node is skippable, and a red **!** on the connection
+  where a point goes short — clicking it opens the why panel with the short
+  explained.
+- **Copy**: every explanatory paragraph became one sentence in product voice.
+  The G and D references live behind ⓘ buttons on each card heading; the
+  note opens inline and closes again. The same treatment is not yet applied
+  to Brief, Information Set or Activities.
+- Flow-map states for outputs now open the right tab (readiness for the
+  handoff states, structure or rehearsal for Compose).
+
 ## What the mock shows — Pass 9 · stage 3, the preview follows the edges (2026-10-19)
 
 **Preview as learner** on any output now walks its structure instead of a
@@ -593,5 +635,8 @@ Everything is in-memory; reload resets.
    composition brief, reasons, reachability, pins~~ — built 2026-10-19.
    ~~Stage 2: output rehearsal~~ — built 2026-10-19. ~~Stage 3: learner
    preview follows the edges~~ — built 2026-10-19.
-10. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
+10. ~~**Pass 10** — the Outputs layer at lower density: index, four tabs,
+    rationale behind ⓘ~~ — built 2026-10-19. Candidate: the same treatment
+    for Brief, Information Set and Activities.
+11. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.
