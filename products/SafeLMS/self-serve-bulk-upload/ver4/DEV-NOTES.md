@@ -17,6 +17,12 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 - **[DONE]** Which rows get an ⓘ and which fields it shows follow the catalog's
   "Columns in view details modal" column (Confluence PMC 29424549907, v35). "No modal" rows have
   no ⓘ.
+- **[DONE]** The Userbrain test copy (`usertest/safelms-bulk-upload/`) is rebuilt from this
+  version. It starts on Employees, uses the realistic file names and has no toolbox, as before.
+  `new_hires_2027.csv` stays **warnings only**: its name-change and possible-duplicate warnings
+  (Blocked now) are swapped for a group not on the site and "very few positions on your site",
+  next to the existing new location, plus 2 reactivated users whose ⓘ opens the pop-up.
+  `staff_update_october.csv` is still the blocked file.
 
 ## (2026-10-20) Duplicates are Blocked; › rows show what's on your site; no Row column
 
