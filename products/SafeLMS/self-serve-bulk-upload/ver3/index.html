@@ -904,7 +904,8 @@
   /* ---- View details (2026-10-09) ---- */
   .ax-note b { color: #1B2B3E; }
   /* Rows as uploaded (2026-10-20). A row that contradicts the site has a › chevron in the
-     far-right column; it opens a "Currently on your site" line under it. */
+     far-right column; it opens a "Currently on your site" drawer under it: tinted band, blue
+     accent bar on the left, a label tag, values in the file's columns. */
   .ax-list .axt { table-layout: fixed; }
   .ax-list .axt th:last-child { width: 16px; }
   .ax-list .axt td { overflow-wrap: anywhere; }
@@ -914,12 +915,14 @@
   .axt tr.axr:focus-visible { outline: 2px solid #1257B8; outline-offset: -2px; }
   .axr-chev { color: #1257B8; font-size: 11px; transition: transform .15s; }
   .axt tr.axr.is-open .axr-chev { transform: rotate(90deg); }
-  .axt tr.axr.is-open td { background: #EEF4FC; border-bottom-color: transparent; }
-  .axt tr.axr-site td { background: #F8FAFC; border-bottom-color: transparent; }
-  .axt tr.axr-cap td { padding-bottom: 2px; }
-  .axt tr.axr-site:last-of-type td, .axt tr.axr-site + tr:not(.axr-site) td { border-top: 0; }
-  .site-cap { font-size: 11px; font-weight: 700; letter-spacing: .3px; color: #5B6B7E; }
-  .axt td.axt-site-diff { color: #B42318; font-weight: 600; }
+  .axt tr.axr.is-open td { background: #fff; border-bottom-color: transparent; font-weight: 600; }
+  .axt tr.axr-site td { background: #EEF4FC; color: #0C3F87; border-bottom-color: #EEF4FC; border-top-color: #EEF4FC; }
+  .axt tr.axr-site td.axt-row { color: #0C3F87; }
+  .axt tr.axr-site td:first-child { border-left: 4px solid #1257B8; }
+  .axt tr.axr-cap td { padding-top: 10px; padding-bottom: 0; }
+  .axt tr.axr-site.is-last td { padding-bottom: 11px; border-bottom: 1px solid #C6D9F0; }
+  .site-cap { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
+    text-transform: uppercase; color: #fff; background: #1257B8; border-radius: 4px; padding: 3px 8px; }
   .axt td.axt-lbl { font-size: 12px; font-weight: 600; color: #5B6B7E; }
 
   /* ---- Failed automated upload (log page) ---- */
@@ -2296,19 +2299,20 @@
     return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(o.v) + '</td>';
   }
   /* Rows that contradict the site (2026-10-20, replaces the "After import" box): the row gets
-     a › chevron in the far-right column; opening it adds a "Currently on your site" line under
-     it — the site's values in the same columns, the ones that differ from the file in red.
+     a › chevron in the far-right column; opening it adds a "Currently on your site" drawer under
+     it — a tinted band with a left accent bar and a label tag, the site's values in the same
+     columns as the file's so they compare by eye. No highlighting of what differs (2026-10-20:
+     we may only be able to pull the site record, not compute the diff).
      Rows that don't contradict the site have no chevron. No ⓘ / details sentence (2026-10-20).
      skip = 1 drops the Row column (2026-10-20: no Row column on the page; the CSV keeps it). */
   function plainV(c) { return (c && typeof c === 'object') ? c.v : c; }
   function siteRowsHTML(r, recs, skip) {
     var out = '<tr class="axr-site axr-cap"><td colspan="' + (r.length - skip + 1) + '"><span class="site-cap">Currently on your site</span></td></tr>';
-    recs.forEach(function (rec) {
-      out += '<tr class="axr-site">';
+    recs.forEach(function (rec, k) {
+      out += '<tr class="axr-site' + (k === recs.length - 1 ? ' is-last' : '') + '">';
       for (var j = skip; j < r.length; j++) {
-        var sv = rec[j] != null ? rec[j] : '', diff = sv !== '' && String(sv) !== String(plainV(r[j]));
-        var cls = [(r[j] && r[j].c === 'row') ? 'axt-row' : '', diff ? 'axt-site-diff' : ''].filter(Boolean).join(' ');   // usernames/codes stay mono
-        out += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(sv) + '</td>';
+        var sv = rec[j] != null ? rec[j] : '';
+        out += '<td' + ((r[j] && r[j].c === 'row') ? ' class="axt-row"' : '') + '>' + esc(sv) + '</td>';   // usernames/codes stay mono
       }
       out += '<td></td></tr>';
     });
@@ -3181,7 +3185,7 @@
         { id: 'review-saml', flow: 'import', x: 1030, y: 60, step: 'Review · Blocked', name: 'Blocked — unreadable dates', state: 'review-saml',
           desc: 'broken_begin_date (BLOCKING) + duplicate_email_in_upload (BLOCKING since 2026-10-20) + early_begin_date (WARNING) + info.' },
         { id: 'review-escalate', flow: 'import', x: 1360, y: 60, step: 'Review · Blocked', name: 'Blocked — duplicate accounts', state: 'review-escalate',
-          desc: 'Duplicates are Blocked (2026-10-20): duplicate_person, potential_duplicate_user, duplicate_email_in_upload, non_identical_username. A row whose details contradict the site has a › chevron; the chevron sits in the far-right column. Opening it shows “Currently on your site” (username, first name, last name, with the values that differ in red). The first row opens here.' },
+          desc: 'Duplicates are Blocked (2026-10-20): duplicate_person, potential_duplicate_user, duplicate_email_in_upload, non_identical_username. A row whose details contradict the site has a › chevron; the chevron sits in the far-right column. Opening it shows “Currently on your site” in a tinted drawer with a blue accent bar and label tag (username, first name, last name in the file’s columns; no diff highlighting). The first row opens here.' },
 
         { id: 'review-info', flow: 'import', x: 700, y: 420, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },

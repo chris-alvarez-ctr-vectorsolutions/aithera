@@ -27,6 +27,11 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 - **[DONE]** Follow-up (same day): the chevron sits in the far-right column; no ⓘ / details
   sentence next to "Currently on your site"; no "Open a row to see what's on your site now."
   hint; no "Have a question about this? Raise an issue ticket." line under blocked rows.
+- **[DONE]** Follow-up: no highlighting of the values that differ. We may only be able to pull
+  the site's record, not compare it field by field. The opened row's "Currently on your site" is
+  now a drawer: a tinted blue band with a 4px blue accent bar on the left and a solid
+  "CURRENTLY ON YOUR SITE" tag. The site's values sit in the same columns as the file's row
+  above (which turns bold and white while open), so they still compare by eye.
 - **[DONE]** No Row column in the tables on Review or the failed-run page. The CSV download
   keeps it so admins can find the row in their file.
 - **[DONE]** Sample files: "Warnings only" now raises skipped rows and a new location (its name
