@@ -6,23 +6,10 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
-## (2026-10-20) Modal version — compare in a pop-up
+## (2026-10-20) Embedded table version
 
-- **[DONE]** Copied from Flow 3. Instead of the › chevron and the "Currently on your site" drawer,
-  every row that has a record on the site gets an **ⓘ** in the far-right column. It opens a
-  **Compare with your site** pop-up: one line per field, the value **From your file** next to
-  the value **Currently on your site**. A username that matches two site users shows two site
-  columns. Fields only the site has (Status, Deactivated on, Location, Email) show "—" for the
-  file. No highlighting of what differs. Close with ✕, Close, Escape, or a click outside.
-- **[DONE]** Which rows get an ⓘ and which fields it shows follow the catalog's
-  "Columns in view details modal" column (Confluence PMC 29424549907, v35). "No modal" rows have
-  no ⓘ.
-- **[DONE]** The Userbrain test copy (`usertest/safelms-bulk-upload/`) is rebuilt from this
-  version. It starts on Employees, uses the realistic file names and has no toolbox, as before.
-  `new_hires_2027.csv` stays **warnings only**: its name-change and possible-duplicate warnings
-  (Blocked now) are swapped for a group not on the site and "very few positions on your site",
-  next to the existing new location, plus 2 reactivated users whose ⓘ opens the pop-up.
-  `staff_update_october.csv` is still the blocked file.
+- **[DONE]** This was Flow 3 until the swap (designer call, 2026-10-20). It keeps the › chevron
+  and the "Currently on your site" drawer inside the table. Flow 3 now uses the compare pop-up.
 
 ## (2026-10-20) Duplicates are Blocked; › rows show what's on your site; no Row column
 
