@@ -532,6 +532,8 @@
 
     return '<div class="cpw-card' + (selected ? ' is-selected' : '') +
       (editable ? ' is-editable' : '') + (grabbed ? ' is-grabbed' : '') +
+      // While its menu is open the card must not clip (see .cpw-card.is-menu-open)
+      (openMenu === widget.id ? ' is-menu-open' : '') +
       '" data-widget-id="' + KX.attr(widget.id) + '" ' +
       'data-w-cols="' + gw + '" data-w-rows="' + gh + '" ' +
       'style="' + place + '" tabindex="0"' +

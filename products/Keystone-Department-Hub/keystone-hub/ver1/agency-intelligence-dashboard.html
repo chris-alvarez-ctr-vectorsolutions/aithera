@@ -283,7 +283,10 @@
     background: transparent; color: var(--ink-500);
   }
   .cp-modes button.is-on { background: var(--surface-1); color: var(--ink-900); box-shadow: var(--elev-1); }
-  .cp-panes { flex: 1; display: flex; gap: 16px; min-height: 0; align-items: flex-start; }
+  /* Three panes: chat · Parameters · canvas (DOM order is reversed by
+     .dock-left so the chat lands on the left). Chat and Parameters are sticky,
+     viewport-tall columns; the canvas scrolls with the page. */
+  .cp-panes { flex: 1; display: flex; gap: 14px; min-height: 0; align-items: flex-start; }
   .cp-panes.dock-left { flex-direction: row-reverse; }
   .cp-canvas { flex: 1; min-width: 0; }
   /* Rows are a fixed 48px track (KXCanvas.GRID.ROW) and every card spans a whole
@@ -319,6 +322,12 @@
     position: relative; min-height: 0; overflow: hidden;
   }
   .cpw-card:hover { border-color: var(--ink-200); }
+  /* The ⋮ menu is positioned inside the card, and the card clips its content
+     to keep tall charts within the border — which also cut the menu off at
+     the card's bottom edge, hiding its last rows (Export, Remove widget).
+     While the menu is open the card stops clipping and rises above its
+     neighbours so the whole menu shows, whatever the card's height. */
+  .cpw-card.is-menu-open { overflow: visible; z-index: 20; }
   .cpw-card.is-selected { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
   .cpw-card:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 2px; }
   .cpw-card-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -505,44 +514,39 @@
   .cpw-text::part(input-field) { background: var(--surface-2); }
 
   /* ---------------------------------------------------------------------
-     The "Add widget" slot. Lives in .cp-grid as a sibling of the cards, sized
-     like a small widget (6 of 12 columns, 4 row tracks) so it reads as the
-     empty tile the next widget will fill rather than as a link below the
-     canvas. Dashed and unfilled so it never reads as a widget that finished
-     loading; it warms to the canvas's amber accent on hover and focus.
+     The ghost slot where the next widget lands. Lives in .cp-grid as a
+     sibling of the cards, sized like a small widget (6 of 12 columns, 4 row
+     tracks), and is replaced by the draft card the moment a widget is in
+     progress. Deliberately quiet — Parameters is always live, so this opens
+     nothing; it only marks the spot and hands focus to Parameters on click.
      --------------------------------------------------------------------- */
   .cpw-add {
     grid-column: span 6; grid-row: span 4;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 9px; padding: 18px; min-width: 0; min-height: 0; text-align: center;
+    gap: 4px; padding: 18px; min-width: 0; min-height: 0; text-align: center;
     font-family: inherit; cursor: pointer;
-    background: var(--surface-2); border: 2px dashed var(--ink-200); border-radius: 14px;
-    transition: border-color 0.15s, background 0.15s;
+    background: transparent; border: 1.5px dashed var(--ink-200); border-radius: 14px;
+    transition: border-color 0.15s;
   }
-  .cpw-add:hover { border-color: var(--amber-400); background: var(--amber-50); }
+  .cpw-add:hover { border-color: var(--amber-300); }
   .cpw-add:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 2px; }
-  .cpw-add-mark {
-    width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
-    background: var(--surface-1); border: 1px solid var(--ink-100); color: var(--amber-600);
-    display: inline-flex; align-items: center; justify-content: center;
-    transition: border-color 0.15s, color 0.15s;
-  }
-  .cpw-add:hover .cpw-add-mark { border-color: var(--amber-200); color: var(--amber-500); }
-  .cpw-add-title { font-size: 14.5px; font-weight: 700; color: var(--ink-800); }
-  .cpw-add:hover .cpw-add-title { color: var(--amber-700); }
+  .cpw-add-title { font-size: 13px; font-weight: 700; color: var(--ink-400); }
+  .cpw-add:hover .cpw-add-title { color: var(--ink-600); }
   /* Capped in ch so the sentence wraps to two tidy lines at any tile width. */
-  .cpw-add-sub { font-size: 12px; line-height: 1.45; max-width: 34ch; color: var(--ink-500); }
+  .cpw-add-sub { font-size: 12px; line-height: 1.45; max-width: 34ch; color: var(--ink-400); }
   /* Stacked single-column, the grid's row track is gone (see .cp-grid above),
-     so the tile needs a height of its own to stay a big target. */
-  @media (max-width: 900px) { .cpw-add { min-height: 180px; } }
-  @media (prefers-reduced-motion: reduce) {
-    .cpw-add, .cpw-add-mark { transition: none; }
-  }
+     so the slot needs a height of its own. */
+  @media (max-width: 900px) { .cpw-add { min-height: 140px; } }
+  @media (prefers-reduced-motion: reduce) { .cpw-add { transition: none; } }
 
   .cp-canvas-empty {
     background: var(--surface-1); border: 1px dashed var(--ink-200); border-radius: 18px;
-    min-height: 460px; display: flex; align-items: center; justify-content: center; padding: 20px;
+    min-height: 460px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    text-align: center; padding: 20px;
   }
+  .cp-canvas-empty h2 { font-family: var(--font-display); font-weight: 600; font-size: 24px; color: var(--ink-900); margin: 14px 0 6px; }
+  .cp-canvas-empty p { font-size: 13.5px; color: var(--ink-500); max-width: 420px; margin: 0; line-height: 1.55; }
+  .cp-canvas-empty p b { color: var(--ink-800); font-weight: 700; }
 
   /* Agency Intelligence dock.
 
@@ -592,9 +596,8 @@
      column wrapped it four deep and pushed the buttons to the middle of the
      stack, so it gets its own row and the panel's whole width. */
   .cpv-head {
-    display: flex; flex-direction: column; gap: 9px; padding: 13px 14px;
-    border-bottom: 1px solid var(--ink-100);
-    background: linear-gradient(180deg, var(--surface-1), var(--surface-2));
+    display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 11px;
+    border-bottom: 1px solid var(--ink-100); background: var(--surface-1);
   }
   .cpv-head-row { display: flex; align-items: center; gap: 11px; }
   .cpv-head-note {
@@ -603,14 +606,34 @@
   .cpv-thread { flex: 1; min-height: 220px; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 14px; }
   .cpv-user { display: flex; justify-content: flex-end; }
   .cpv-user .bubble {
-    max-width: 86%; padding: 8px 12px; border-radius: 14px 14px 4px 14px;
-    background: var(--ink-900); color: white; font-size: 13px; line-height: 1.45;
+    max-width: 85%; padding: 8px 12px; border-radius: 12px 12px 3px 12px;
+    background: var(--surface-3); color: var(--ink-900); font-size: 13px; line-height: 1.45;
   }
-  .cpv-ai { display: flex; gap: 9px; align-items: flex-start; }
-  .cpv-ai .bubble {
-    background: var(--surface-2); border: 1px solid var(--ink-100);
-    border-radius: 14px 14px 14px 4px; padding: 9px 12px;
-    font-size: 13px; line-height: 1.5; color: var(--ink-700);
+  .cpv-ai { display: flex; gap: 10px; align-items: flex-start; }
+  /* Replies are plain text beside the mark — no bubble — so the thread reads
+     as a conversation, and the only boxed things in it are references. */
+  .cpv-ai .bubble { padding: 3px 0 0; font-size: 13px; line-height: 1.5; color: var(--ink-800); }
+  .cpv-ref {
+    display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px;
+    border-radius: 9px; border: 1px solid var(--amber-300); background: var(--amber-50);
+    font-family: inherit; color: var(--ink-800); cursor: pointer;
+  }
+  .cpv-ref:hover { border-color: var(--amber-400); }
+  .cpv-ref-ic {
+    width: 28px; height: 28px; flex-shrink: 0; border-radius: 7px; background: var(--surface-1);
+    border: 1px solid var(--amber-200); color: var(--amber-700); display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cpv-ref-t { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 12px; line-height: 16px; }
+  .cpv-ref-t b { color: var(--amber-700); font-weight: 700; }
+  .cpv-ref-t small { font-size: 12px; color: var(--ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cpv-note {
+    display: flex; align-items: center; gap: 8px; padding-left: 36px;
+    font-size: 11px; line-height: 14px; color: var(--ink-500);
+  }
+  .cpv-note strong { font-weight: 700; color: var(--ink-700) !important; }
+  .cpv-note-ic {
+    flex-shrink: 0; width: 14px; height: 14px; border-radius: 999px; border: 1.5px solid var(--ink-300);
+    box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; font-size: 7px;
   }
   .cpv-added {
     display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
@@ -623,125 +646,201 @@
     cursor: pointer; font-family: inherit;
   }
   .cpv-choice:hover { border-color: var(--amber-400); background: var(--amber-50); }
-  .cpv-input-wrap { border-top: 1px solid var(--ink-100); padding: 11px; background: var(--surface-2); }
+  .cpv-input-wrap { border-top: 1px solid var(--ink-100); padding: 10px 11px 9px; background: var(--surface-1); }
   .cpv-input {
     display: flex; align-items: flex-end; gap: 8px; background: var(--surface-1);
-    border: 1px solid var(--ink-200); border-radius: 13px; padding: 7px 8px 7px 13px;
+    border: 1px solid var(--ink-300); border-radius: 11px; padding: 5px 6px 5px 12px;
   }
   .cpv-input:focus-within { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
   .cpv-input textarea {
     flex: 1; resize: none; border: none; outline: none; background: transparent;
     font-family: inherit; font-size: 13px; color: var(--ink-900);
-    padding: 5px 0; min-height: 60px; max-height: 140px; line-height: 1.4;
+    padding: 5px 0; min-height: 44px; max-height: 140px; line-height: 1.4;
   }
   .cpv-dot { width: 6px; height: 6px; border-radius: 99px; background: var(--ink-500); display: inline-block; animation: cpv-bounce 1s ease-in-out infinite; }
   @keyframes cpv-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.4; } 30% { transform: translateY(-3px); opacity: 1; } }
   .cpv-collapsed {
-    width: 56px; align-self: stretch; flex-shrink: 0;
+    width: 56px; align-self: flex-start; flex-shrink: 0;
+    height: calc(100vh - 160px); position: sticky; top: 16px; box-sizing: border-box;
     background: var(--surface-1); border: 1px solid var(--ink-100); border-radius: 16px;
     display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 16px 0;
     cursor: pointer; box-shadow: var(--elev-1);
   }
   .cpv-collapsed .vlabel { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--ink-600); }
 
-  /* Widget builder (empty canvas) */
-  .cp-builder { width: 100%; max-width: 880px; margin: 0 auto; padding: 18px 0 8px; }
-  .cp-builder.is-modal { max-width: 100%; padding: 0; }
-  /* Centered head + Simple/Advanced tab pill. The modal variant drops the head
-     and footer — those belong to the empty state only. */
-  .cp-builder-head { text-align: center; margin-bottom: 16px; }
-  .cp-builder-head h2 {
-    font-family: var(--font-display); font-weight: 600; font-size: 27px;
-    color: var(--ink-900); margin: 14px 0 6px;
+  /* ====================================================================
+     PARAMETERS PANE — the widget builder
+     Three panes after the reusable AI chat component's "Full" preset:
+     Agency Intelligence (chat) · Parameters · canvas. Every control that
+     defines a widget lives in this pane; the canvas only previews it.
+     ==================================================================== */
+  .cp-params {
+    width: 380px; flex-shrink: 0; align-self: flex-start; display: flex; flex-direction: column;
+    background: var(--surface-2); border: 1px solid var(--ink-100); border-radius: 16px;
+    box-shadow: var(--elev-1); overflow: hidden; min-height: 0;
+    height: calc(100vh - 160px); position: sticky; top: 16px;
   }
-  .cp-builder-tabs { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 18px; }
-  .cp-builder-modes { display: flex; gap: 3px; background: var(--surface-3); padding: 4px; border-radius: var(--radius-pill); }
-  .cp-builder-sub { font-size: 12.5px; color: var(--ink-500); text-align: center; }
-  .cp-builder-foot { text-align: center; margin-top: 20px; font-size: 12.5px; color: var(--ink-500); }
-  .cp-builder-foot button {
-    background: none; border: none; color: var(--lumo-primary-text-color);
-    font-weight: 600; cursor: pointer; font-size: 12.5px; font-family: inherit;
+  /* Below 1500px the canvas is the pane that gives: chat and Parameters narrow
+     a little so the draft widget still reads at widget scale. */
+  @media (max-width: 1500px) { .cp-params { width: 350px; } .cpv-panel { width: 340px; } }
+  @media (max-width: 900px) { .cp-params { width: 100%; height: auto; max-height: 560px; position: static; align-self: stretch; } }
+  .cp-params-h {
+    flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; min-height: 46px; padding: 6px 14px;
+    background: var(--surface-1); border-bottom: 1px solid var(--ink-100); font-size: 13px;
   }
-  /* Advanced — the option list, then a drill-in panel per option. */
-  .cp-adv-list { display: flex; flex-direction: column; gap: 10px; }
-  .cp-adv-opt {
-    display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; border-radius: 12px;
-    cursor: pointer; text-align: left; width: 100%; font-family: inherit;
-    background: var(--surface-1); border: 1px solid var(--ink-200);
-    transition: border-color .15s, background .15s;
+  .cp-params-h .t { font-weight: 700; font-size: 14px; color: var(--ink-900); }
+  .cp-params-h .sp, .cp-pcard-h .sp { flex: 1; }
+  .cp-params-pill { flex-shrink: 0; display: flex; justify-content: center; padding: 10px 14px 0; }
+  .cp-params-modes button { font-size: 12px; padding: 5px 12px; }
+  .cp-params-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px 16px; }
+  .cp-params-foot {
+    flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+    background: var(--surface-1); border-top: 1px solid var(--ink-100);
   }
-  .cp-adv-opt:hover { border-color: var(--amber-400); background: var(--amber-50); }
-  .cp-adv-opt .ico {
-    width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
-    background: var(--amber-100); color: var(--amber-700);
+  .cp-params-foot vaadin-button { height: 34px; flex-shrink: 0; }
+  .cp-plink {
+    border: none; background: none; padding: 0; font-family: inherit; font-size: 11.5px; font-weight: 700;
+    color: var(--lumo-primary-text-color); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
+  }
+  .cp-plink:hover { text-decoration: underline; }
+  .cp-vsep { width: 1px; height: 14px; background: var(--ink-200); }
+  .cp-cnt {
+    min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--lumo-primary-color);
+    color: white; font-size: 10px; line-height: 16px; text-align: center;
+  }
+  .cp-plink[aria-pressed="true"] .cp-cnt { background: var(--ink-900); }
+  /* one white card per parameter */
+  .cp-pcard { background: var(--surface-1); border: 1px solid var(--ink-200); border-radius: 10px; padding: 9px 10px 10px; }
+  .cp-pcard + .cp-pcard { margin-top: 10px; }
+  .cp-pcard.is-changed { border-color: var(--lumo-primary-color); box-shadow: 0 0 0 2px var(--lumo-primary-color-10pct); }
+  .cp-pcard-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 12.5px; }
+  .cp-pcard-h .t { font-weight: 700; color: var(--ink-900); }
+  .cp-req { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--coral-500, var(--lumo-error-text-color)); }
+  .cp-pcount { font-size: 11px; color: var(--ink-500); }
+  .cp-prov { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; }
+  .cp-prov.chat { color: var(--amber-600); }
+  .cp-prov.you { color: var(--ink-500); }
+  .cp-phint { margin: 8px 0 0; font-size: 11.5px; line-height: 1.45; color: var(--ink-500); }
+  .cp-pintro { margin: 0 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--ink-500); }
+  .cp-ptitle { font-size: 14px; font-weight: 700; color: var(--ink-900); margin-bottom: 4px; }
+  .cp-pask { margin: 14px 0 0; text-align: center; font-size: 12px; color: var(--ink-500); }
+  .cp-pask button { background: none; border: none; padding: 0; color: var(--lumo-primary-text-color); font-weight: 700; cursor: pointer; font-size: 12px; font-family: inherit; }
+  .cp-pwarn {
+    display: flex; gap: 8px; align-items: flex-start; margin-top: 10px; padding: 10px 12px; border-radius: 9px;
+    background: var(--amber-50); border: 1px solid var(--amber-200); color: var(--amber-700); font-size: 12px; line-height: 1.5;
+  }
+  .cp-pwarn span { color: var(--ink-800); }
+  /* the metric list: flat rows, grouped by category */
+  .cp-pcard.metric { padding-bottom: 4px; }
+  .cp-prows { margin: 0 -10px; }
+  .cp-pgroup { padding: 5px 10px 2px; font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-400); }
+  .cp-prow {
+    display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 10px; border: none; background: none;
+    font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-800); text-align: left; cursor: pointer;
+  }
+  .cp-prow:hover { background: var(--surface-3); }
+  .cp-prow:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
+  .cp-prow .ic {
+    width: 22px; height: 22px; border-radius: 6px; flex-shrink: 0; background: var(--amber-100); color: var(--amber-700);
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .cp-adv-opt .txt { flex: 1; min-width: 0; }
-  .cp-adv-opt .t { display: block; font-size: 14px; font-weight: 700; color: var(--ink-900); }
-  .cp-adv-opt .d { display: block; font-size: 12.5px; color: var(--ink-500); line-height: 1.5; margin-top: 2px; }
-  .cp-adv-opt .chev { flex-shrink: 0; align-self: center; color: var(--ink-300); display: inline-flex; }
-  .cp-adv-back {
-    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
-    background: var(--surface-1); border: 1px solid var(--ink-200); color: var(--ink-600);
-    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; margin-bottom: 14px;
+  .cp-prow .lbl { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cp-prow.is-on { background: var(--amber-50); box-shadow: inset 3px 0 0 var(--amber-500); color: var(--ink-900); }
+  .cp-prow.is-on .ic { background: var(--amber-500); color: white; }
+  /* segmented control: dark when selected, dashed when not available */
+  .cp-seg2 { display: flex; flex-wrap: wrap; gap: 4px; }
+  .cp-seg2 button {
+    display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 7px;
+    border: 1px solid var(--ink-200); background: var(--surface-1); font-family: inherit; font-size: 12px; font-weight: 600;
+    color: var(--ink-700); cursor: pointer; white-space: nowrap;
   }
-  .cp-adv-back:hover { border-color: var(--ink-300); }
-  /* Plain text inputs used by the summary-table and commentary builders. */
-  .cp-b-field {
-    width: 100%; padding: 9px 12px; font-size: 13px; font-family: inherit;
-    border: 1px solid var(--ink-200); border-radius: 9px; background: var(--surface-1);
-    outline: none; color: var(--ink-900);
+  .cp-seg2 button:hover:not([disabled]) { border-color: var(--ink-300); }
+  .cp-seg2 button[aria-pressed="true"] { background: var(--ink-900); border-color: var(--ink-900); color: white; }
+  .cp-seg2 button[disabled] { border-style: dashed; background: var(--surface-2); color: var(--ink-300); cursor: not-allowed; }
+  .cp-seg2 button:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 1px; }
+  /* the suggestion the chat (or the catalog) makes, ghosted where it would land */
+  .cp-sugg {
+    display: flex; align-items: center; gap: 8px; margin-top: 10px; padding: 8px 10px; border-radius: 7px;
+    border: 1px dashed var(--amber-300); font-size: 12px; color: var(--ink-600); line-height: 1.4;
   }
-  .cp-b-field:focus { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
-  textarea.cp-b-field { line-height: 1.6; resize: vertical; }
-  .cp-step { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-  .cp-step .n {
-    width: 20px; height: 20px; border-radius: 99px; background: var(--ink-900); color: white;
-    font-size: 11px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+  .cp-sugg > span { flex: 1; }
+  .cp-sugg b { color: var(--ink-900); }
+  .cp-sugg-accept {
+    height: 24px; padding: 0 9px; border-radius: 6px; border: none; background: var(--ink-900); color: white;
+    font-family: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer;
   }
-  .cp-step .t { font-size: 13px; font-weight: 700; color: var(--ink-800); }
-  .cp-metric-btn {
-    display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 9px;
-    cursor: pointer; font-family: inherit; text-align: left; width: 100%;
-    background: var(--surface-1); border: 1px solid var(--ink-100);
-    font-size: 12.5px; font-weight: 600; color: var(--ink-800);
-    transition: border-color .12s;
+  /* inherited time range: tinted, linked, read-only here */
+  .cp-inh { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink-500); }
+  .cp-inh-box {
+    display: flex; flex-direction: column; gap: 3px; padding: 7px 10px 8px; border: 1px solid var(--ink-100);
+    border-radius: 7px; background: var(--surface-2); font-size: 12.5px;
   }
-  .cp-metric-btn:hover { border-color: var(--ink-300); }
-  .cp-metric-btn.is-on { background: var(--amber-50); border-color: var(--amber-400); box-shadow: 0 0 0 2px var(--amber-50); }
-  .cp-metric-btn .ic {
-    width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
-    background: var(--amber-100); color: var(--amber-700);
-    display: inline-flex; align-items: center; justify-content: center;
-  }
-  .cp-metric-btn.is-on .ic { background: var(--amber-400); color: white; }
-  .cp-chip {
-    display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: var(--radius-pill);
-    cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 600;
-    background: var(--surface-1); color: var(--ink-700); border: 1px solid var(--ink-200);
-    transition: background .12s;
-  }
-  .cp-chip.is-on { background: var(--ink-900); color: white; border-color: var(--ink-900); }
-  .cp-param-panel { margin-top: 14px; padding: 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--ink-100); }
+  .cp-inh-box .v { color: var(--ink-900); font-weight: 600; }
+  .cp-inh-box .r { font-size: 11px; line-height: 1.45; color: var(--ink-500); }
+  .cp-catchips { display: flex; flex-wrap: wrap; gap: 6px; }
   .cp-cat-chip {
-    display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 999px;
+    display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 10px; border-radius: 999px;
     cursor: pointer; font-family: inherit; font-size: 11.5px; font-weight: 600;
     background: var(--surface-1); color: var(--ink-600); border: 1px solid var(--ink-200);
   }
   .cp-cat-chip.is-on { background: var(--amber-50); color: var(--amber-700); border-color: var(--amber-400); }
-  .cp-idea {
-    display: flex; align-items: flex-start; gap: 11px; padding: 13px; border-radius: 13px;
-    text-align: left; cursor: pointer; font-family: inherit;
-    background: var(--surface-1); border: 1px solid var(--ink-100); box-shadow: var(--elev-1);
-    transition: border-color .15s, box-shadow .15s;
+  /* Advanced — the option list, then a drill-in panel per option */
+  .cp-adv-list { display: flex; flex-direction: column; gap: 8px; }
+  .cp-adv-opt {
+    display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border-radius: 10px;
+    cursor: pointer; text-align: left; width: 100%; font-family: inherit;
+    background: var(--surface-1); border: 1px solid var(--ink-200); transition: border-color .15s, background .15s;
   }
-  .cp-idea.is-on { background: var(--amber-50); border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
-  .cp-idea .box {
-    width: 22px; height: 22px; border-radius: 6px; margin-top: 1px; flex-shrink: 0;
-    background: var(--surface-1); border: 1px solid var(--ink-300);
+  .cp-adv-opt:hover { border-color: var(--amber-400); background: var(--amber-50); }
+  .cp-adv-opt .ico {
+    width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; background: var(--amber-100); color: var(--amber-700);
     display: inline-flex; align-items: center; justify-content: center;
   }
-  .cp-idea.is-on .box { background: var(--amber-400); border-color: var(--amber-400); color: white; }
+  .cp-adv-opt .txt { flex: 1; min-width: 0; }
+  .cp-adv-opt .t { display: block; font-size: 13px; font-weight: 700; color: var(--ink-900); }
+  .cp-adv-opt .d { display: block; font-size: 11.5px; color: var(--ink-500); line-height: 1.45; margin-top: 2px; }
+  .cp-adv-opt .chev { flex-shrink: 0; align-self: center; color: var(--ink-300); display: inline-flex; }
+  .cp-adv-back {
+    display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; margin-bottom: 10px;
+    background: var(--surface-1); border: 1px solid var(--ink-200); color: var(--ink-600);
+    font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .cp-adv-back:hover { border-color: var(--ink-300); }
+  .cp-b-field {
+    width: 100%; padding: 8px 11px; font-size: 13px; font-family: inherit; box-sizing: border-box;
+    border: 1px solid var(--ink-200); border-radius: 8px; background: var(--surface-1); outline: none; color: var(--ink-900);
+  }
+  .cp-b-field:focus { border-color: var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); }
+  textarea.cp-b-field { line-height: 1.6; resize: vertical; }
+  .cp-ideas { display: flex; flex-direction: column; gap: 8px; }
+  .cp-idea {
+    display: flex; align-items: center; gap: 9px; padding: 9px 10px; border-radius: 10px; width: 100%;
+    text-align: left; cursor: pointer; font-family: inherit;
+    background: var(--surface-1); border: 1px solid var(--ink-200); transition: border-color .15s;
+  }
+  .cp-idea.is-on { background: var(--amber-50); border-color: var(--amber-400); }
+  .cp-idea .box {
+    width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; background: var(--surface-1); border: 1px solid var(--ink-300);
+    display: inline-flex; align-items: center; justify-content: center; color: white;
+  }
+  .cp-idea.is-on .box { background: var(--amber-500); border-color: var(--amber-500); }
+  .cp-idea .ico {
+    width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0; background: var(--amber-100); color: var(--amber-700);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cp-idea .txt { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--ink-900); line-height: 1.35; }
+
+  /* The draft widget on the canvas: the real card, dashed, badged, inert */
+  .cpw-card.is-draft { border: 1.5px dashed var(--amber-400); box-shadow: 0 0 0 3px var(--amber-50); cursor: default; }
+  .cpw-card.is-draft:hover { border-color: var(--amber-400); }
+  .cpw-card.is-draft .cpw-kebab { display: none; }
+  .cpw-card.is-draft.is-flash { animation: cpw-flash 1s ease-out; }
+  @keyframes cpw-flash { 0% { box-shadow: 0 0 0 4px var(--amber-400); } 100% { box-shadow: 0 0 0 3px var(--amber-50); } }
+  @media (prefers-reduced-motion: reduce) { .cpw-card.is-draft.is-flash { animation: none; } }
+  .cpw-draft-badge {
+    position: absolute; top: 10px; right: 12px; z-index: 2; font-size: 10px; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; padding: 2px 6px; border-radius: 4px; background: var(--amber-100); color: var(--amber-700);
+  }
 
   /* ====================================================================
      PRINT / PDF EXPORT
@@ -1200,14 +1299,14 @@
         { id: 'home-ai', name: 'Home — AI access', step: 'Home · AI access',
           desc: 'The AI access tab on the home screen.', x: 60, y: 470 },
         { id: 'build', name: 'Dashboard build — Edit', step: 'Build · Edit',
-          desc: 'Two-pane builder (first dashboard). Publish / Manage delivery lives in this header.',
+          desc: 'Three-pane builder (first dashboard): Agency Intelligence chat, Parameters (every control of the widget builder), and the canvas, where the widget in progress previews in place as a draft. Publish / Manage delivery lives in this header.',
           x: 470, y: 120 },
         { id: 'build-preview', name: 'Dashboard build — Preview', step: 'Build · Preview',
           desc: 'Preview mode — the dashboard as its audience sees it.', x: 880, y: 120 },
         { id: 'build-report', name: 'Dashboard build — Report', step: 'Build · Report',
           desc: 'Report / delivery mode (falls back to Preview when delivery is off).', x: 1290, y: 120 },
-        { id: 'add-widget', name: 'Add widget dialog', step: 'Modal',
-          desc: 'The Add-a-widget dialog over the builder.', x: 470, y: 470 },
+        { id: 'add-widget', name: 'Next widget slot', step: 'Build · Add',
+          desc: 'The ghost slot after the last card marks where the next widget lands; clicking it focuses Parameters, which is always live. The slot becomes the draft card while a widget is in progress, and Add to dashboard commits it. Start over in the Parameters header clears a half-built widget.', x: 470, y: 470 },
         { id: 'publish', name: 'Publish / Manage delivery', step: 'Modal',
           desc: 'The audience dialog opened by Publish / Manage delivery / Edit schedule. Each tab is a Selection List; AI groups are picked here, never built here.', x: 880, y: 470 },
         { id: 'home-groups', name: 'Home — AI groups', step: 'Home · AI groups',
