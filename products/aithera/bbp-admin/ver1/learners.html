@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learners — Vector Training Admin</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=22" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <section class="rp-card" aria-label="Learners">
+            <div class="chips-row" id="filterChips" role="group" aria-label="Filter"></div>
+            <div class="table-scroll">
+                <table class="rp-table">
+                    <thead><tr>
+                        <th>Learner</th>
+                        <th id="thAreas">Areas</th>
+                        <th>Path</th>
+                        <th>Result</th>
+                    </tr></thead>
+                    <tbody id="learnerRows"></tbody>
+                </table>
+            </div>
+        </section>
+        <p class="rp-footline" id="foot"></p>
+
+    </main>
+
+    <script src="data.js?v=9"></script>
+    <script src="admin-ui.js?v=8"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector;
+        var scope = A.getScope();
+        A.head({ active: 'learners', title: 'Learners', scope: true });
+        A.wirePops();
+        document.getElementById('thAreas').title = B.AREAS.map(function (a) { return a.name; }).join(' · ');
+        var roster = B.LEARNERS.filter(function (l) { return B.inScope(l, scope); });
+        var FILTERS = [
+          { key: 'all',     label: 'All',          test: function () { return true; } },
+          { key: 'strong',  label: 'Doing well',   test: function (l) { return B.standing(l) === 'strong'; } },
+          { key: 'support', label: 'Needs support', test: function (l) { return B.standing(l) === 'support'; } },
+          { key: 'open',    label: 'Not finished', test: function (l) { return B.standing(l) === 'open'; } },
+          { key: 'skip',    label: 'Skipped ahead', route: true, test: function (l) { return l.path === 'short'; } },
+          { key: 'harder',  label: 'Harder checks', route: true, test: function (l) { return l.path === 'up'; } },
+          { key: 'extra',   label: 'Extra practice', route: true, test: function (l) { return l.path === 'extra'; } }
+        ];
+        var roles = S.roles.filter(function (r) { return roster.some(function (l) { return l.role === r; }); });
+        var active = 'all', role = 'any';
+        var pf = new URLSearchParams(location.search).get('f');
+        if (pf && FILTERS.some(function (x) { return x.key === pf; })) active = pf;
+        function chipHtml(x) { return '<button class="fchip' + (x.key === active ? ' active' : '') + '" data-f="' + x.key + '">' + x.label + '<small>' + roster.filter(x.test).length + '</small></button>'; }
+        function render() {
+          var f = FILTERS.filter(function (x) { return x.key === active; })[0];
+          document.getElementById('filterChips').innerHTML =
+            FILTERS.filter(function (x) { return !x.route; }).map(chipHtml).join('') +
+            '<span class="chip-sep"></span><span class="chip-lbl">Route</span>' +
+            FILTERS.filter(function (x) { return x.route; }).map(chipHtml).join('') +
+            '<span class="chip-sep"></span>' +
+            ['any'].concat(roles).map(function (r) { return '<button class="fchip role' + (r === role ? ' active' : '') + '" data-r="' + r + '">' + (r === 'any' ? 'All roles' : r) + '</button>'; }).join('');
+          var rows = roster.filter(f.test).filter(function (l) { return role === 'any' || l.role === role; });
+          document.getElementById('learnerRows').innerHTML = rows.length ? rows.map(A.learnerRow).join('') : '<tr><td colspan="4" class="dots-none" style="padding:22px">No one matches.</td></tr>';
+          A.wireRows(document.getElementById('learnerRows'));
+          document.querySelectorAll('#filterChips .fchip').forEach(function (b) {
+            b.addEventListener('click', function () { if (b.dataset.f) active = b.dataset.f; else role = b.dataset.r; render(); });
+          });
+        }
+        render();
+        document.getElementById('foot').innerHTML = '<i class="fa-solid fa-circle-info"></i> Showing the demo roster (' + roster.length + ' of ' + B.headcount(scope) + ') · dots read ' + B.AREAS.map(function (a) { return a.name; }).join(' → ') + ' · representative data';
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

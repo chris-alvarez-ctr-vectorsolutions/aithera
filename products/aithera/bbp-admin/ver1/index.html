@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Overview — Vector Training Admin</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=22" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <!-- Org-wide numbers across every active course; the trend rides inside the first tile -->
+        <section class="rp-kpis rp-kpis--3" id="kpis" aria-label="Key figures"></section>
+
+        <!-- Attention lives inside each course: if someone needs help, it is in the context of a course -->
+        <section class="rp-card" aria-label="Active courses">
+            <div class="rp-card-head">
+                <div><h2>Active courses</h2><p class="rp-card-sub" style="margin:2px 0 0">Soonest due first</p></div>
+                <a href="courses.html" class="card-link">All courses <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <div id="courseRows"></div>
+            <div class="dual-legend">
+                <span><i style="background:#7fb8e6"></i> Finished</span>
+                <span><i style="background:var(--rp-primary)"></i> Showed competency</span>
+            </div>
+        </section>
+        <p class="rp-footline"><i class="fa-solid fa-circle-info"></i> Representative data for the prototype.</p>
+
+    </main>
+
+    <script src="data.js?v=9"></script>
+    <script src="admin-ui.js?v=8"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector;
+        var scope = A.getScope(), t = B.stats(scope), node = B.node(scope);
+        A.head({ active: 'overview', title: 'Overview', scope: true,
+                 chips: ['<span class="rp-chip"><i class="fa-solid fa-calendar"></i> Sep 28 – Oct 19</span>'] });
+        A.wirePops();
+
+        function tile(label, value, sub, cls, extra) {
+          return '<div class="rp-card tile' + (cls || '') + '"><span class="tile-label">' + label + '</span><span class="tile-value">' + value + '</span><span class="tile-delta flat">' + sub + '</span>' + (extra || '') + '</div>';
+        }
+        // Every active course, with what an admin needs at a glance. Only Bloodborne Pathogens
+        // has a live report; the others carry representative early numbers.
+        var A0 = t.assigned;
+        function sh(r) { return Math.round(A0 * r); }
+        var courses = [
+          { name: 'Bloodborne Pathogens', icon: 'fa-droplet', cls: 'ci-blue', due: 'Nov 6', days: 17, href: 'course-report.html', adaptive: true,
+            assigned: t.assigned, completed: t.completed, demo: t.demonstrated, support: t.support, open: t.unfinished },
+          { name: 'Hazard Communication', icon: 'fa-triangle-exclamation', cls: 'ci-amber', due: 'Nov 20', days: 31, adaptive: true,
+            assigned: A0, completed: sh(.32), demo: sh(.19), support: sh(.06), open: A0 - sh(.32) },
+          { name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', due: 'Dec 4', days: 45, adaptive: false,
+            assigned: sh(.75), completed: sh(.75 * .13), demo: null, support: null, open: sh(.75) - sh(.75 * .13) }
+        ];
+        var totA = 0, totC = 0, adA = 0, adD = 0, sup = 0;
+        courses.forEach(function (c) { totA += c.assigned; totC += c.completed; if (c.adaptive) { adA += c.assigned; adD += c.demo; sup += c.support; } });
+
+        var spark = '<svg class="spark" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="Rising over the last three weeks"><polygon class="area" points="0,28 0,28 24,23.6 48,18.4 72,13.2 96,9.6 120,7 120,28"/><polyline points="0,28 24,23.6 48,18.4 72,13.2 96,9.6 120,7"/><circle cx="120" cy="7" r="3"/></svg>';
+        document.getElementById('kpis').innerHTML =
+          tile('Org performance', B.pct(adD, adA) + '<small>%</small>', 'showed competency · ' + adD + ' of ' + adA, '', spark) +
+          tile('Assignments finished', B.pct(totC, totA) + '<small>%</small>', totC + ' of ' + totA + ' across ' + courses.length + ' courses', ' tile--muted') +
+          '<a class="rp-card tile tile--link" href="learners.html?f=support"><span class="tile-label">Need support</span><span class="tile-value">' + sup + '<small> people</small></span><span class="tile-delta flat">a key point still open · see who <i class="fa-solid fa-arrow-right"></i></span></a>';
+
+        function bar(kind, v, title) {
+          return '<span class="dbar"><span class="dbar-track"><span class="dbar-fill ' + kind + '" style="width:' + v + '%"></span></span><span class="dbar-val" title="' + title + '"><b>' + v + '%</b></span></span>';
+        }
+        function chip(n, label, cls, href) {
+          if (!n) return '';
+          var inner = '<b>' + n + '</b> ' + label;
+          return href ? '<a class="att-chip ' + cls + '" href="' + href + '">' + inner + '</a>' : '<span class="att-chip ' + cls + '">' + inner + '</span>';
+        }
+        courses.sort(function (a, b) { return a.days - b.days; });
+        document.getElementById('courseRows').innerHTML = courses.map(function (c) {
+          var urgent = c.days <= 21 ? ' urgent' : '';
+          return '<div class="course-row"><span class="dual-name"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span>' +
+              (c.href ? '<a href="' + c.href + '">' + c.name + '</a>' : c.name) + '<span class="due' + urgent + '">Due ' + c.due + ' · ' + c.days + ' days' + (c.adaptive ? '' : ' · standard course') + '</span></span></span>' +
+            '<span class="dual-bars">' + bar('comp', B.pct(c.completed, c.assigned), 'Finished') +
+              (c.demo == null ? '<span class="dbar-note" title="Standard courses report completion only"><i class="fa-solid fa-circle-info"></i>Completion only</span>' : bar('demo', B.pct(c.demo, c.assigned), 'Showed competency')) + '</span>' +
+            '<span class="course-att">' + (chip(c.support, 'need support', 'warn', c.href ? c.href + '?people=support' : '') + chip(c.open, 'not finished', 'mut', c.href ? c.href + '?people=open' : '') || '<span class="att-none">Nothing needs attention</span>') + '</span></div>';
+        }).join('');
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

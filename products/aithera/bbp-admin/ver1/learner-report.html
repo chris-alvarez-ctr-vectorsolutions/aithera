@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learner record — Vector Training Admin</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=22" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <div class="seg-tabs" role="tablist" aria-label="Learner record views">
+            <button type="button" role="tab" data-tab="summary" class="on">Summary</button>
+            <button type="button" role="tab" data-tab="route">Learning path results</button>
+            <button type="button" role="tab" data-tab="beyond">Beyond this course</button>
+            <button type="button" role="tab" data-tab="evidence">Evidence</button>
+        </div>
+
+        <!-- ============ Summary ============ -->
+        <div data-panel="summary" class="panel">
+            <div class="rp-grid-2">
+                <section class="rp-card" aria-label="Results by area">
+                    <div class="rp-card-head"><h2>Section outcomes</h2></div>
+                    <div id="areaRows"></div>
+                </section>
+                <div class="col-stack">
+                    <section class="rp-kpis rp-kpis--2" id="tiles" aria-label="At a glance"></section>
+                    <section class="rp-card" aria-label="Route in brief">
+                        <div class="rp-card-head"><h2>Route</h2><a class="card-link" href="#route" data-go="route">See the route <i class="fa-solid fa-arrow-right"></i></a></div>
+                        <p class="rp-card-sub" id="routeNote" style="margin:0"></p>
+                    </section>
+                    <section class="rp-card" aria-label="What happens next">
+                        <div class="rp-card-head"><h2>What happens next</h2></div>
+                        <div class="lr-reco" style="margin-top:6px"><i class="fa-solid fa-calendar-plus"></i><div id="nextBox"></div></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ Route and time ============ -->
+        <div data-panel="route" class="panel" hidden>
+            <section class="rp-card" aria-label="Route taken">
+                <div class="rp-card-head">
+                    <h2>The route they took</h2>
+                    <a class="card-link" id="tryLink" href="preview.html">Try this route <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <div class="map-scroll" id="routeMap"></div>
+                <div id="timeBar"></div>
+            </section>
+        </div>
+
+        <!-- ============ Beyond this course ============ -->
+        <div data-panel="beyond" class="panel" hidden>
+            <section class="rp-card" aria-label="Beyond this course">
+                <div class="rp-card-head"><h2>Beyond this course</h2><span id="crInfo"></span></div>
+                <div id="creditBody"></div>
+            </section>
+        </div>
+
+        <!-- ============ Evidence ============ -->
+        <div data-panel="evidence" class="panel" hidden>
+            <section class="rp-card audit" aria-label="Evidence trail">
+                <div class="rp-card-head"><h2>Evidence trail</h2><span id="auditInfo"></span></div>
+                <div id="auditRows"></div>
+            </section>
+        </div>
+        <p class="rp-footline"><i class="fa-solid fa-circle-info"></i> Representative record for the prototype.</p>
+
+    </main>
+
+    <script src="data.js?v=9"></script>
+    <script src="admin-ui.js?v=8"></script>
+    <script src="flow.js?v=7"></script>
+    <script src="credit.js?v=3"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector;
+        var q2 = new URLSearchParams(location.search);
+        var name = q2.get('learner') || B.LEARNERS[0].name;
+        var l = B.LEARNERS.filter(function (x) { return x.name === name; })[0] || B.LEARNERS[0];
+        var unit = B.node(l.unit), first = A.esc(l.name.split(' ')[0]);
+        document.title = l.name + ' — Learner record';
+
+        function dwellMap(x) { var m = {}; Object.keys(x.dwell.actual).forEach(function (k) { m[k] = { actual: x.dwell.actual[k], typical: x.dwell.typical[k] }; }); return m; }
+        var done = !!l.profile, st = B.standing(l);
+        var good = done ? l.profile.filter(function (b) { return b >= 2; }).length : 0;
+        var fromCourse = q2.get('from') === 'course';
+        var crumbs = fromCourse
+          ? [{ label: 'Courses', href: 'courses.html' }, { label: 'Bloodborne Pathogens', href: 'course-report.html' + (q2.get('g') ? '?people=' + q2.get('g') : '') }, { label: l.name }]
+          : [{ label: 'Learners', href: 'learners.html' }, { label: l.name }];
+        A.head({ active: fromCourse ? 'courses' : 'learners', title: l.name, crumbs: crumbs, assign: false,
+                 sub: A.esc(l.role) + ' · ' + A.esc(unit.name) + ' · Bloodborne Pathogens' + (done ? ' · finished ' + l.completed : '') });
+        A.wirePops();
+
+        if (!done) {
+          document.querySelector('.rp-main').innerHTML =
+            '<section class="rp-card"><div class="rp-card-head"><h2>No record yet</h2></div><p class="rp-card-sub">' + first +
+            (l.status === 'progress' ? ' is partway through. Their route and results appear here when they finish.' : ' hasn’t started. Their route and results appear here when they finish.') + '</p></section>';
+          return;
+        }
+
+        /* ---- Summary ---- */
+        var taken = {};
+        if (l.path === 'short') taken.l1 = 'skip';
+        if (l.path === 'up') taken.l2 = 'harder';
+        if (l.path === 'extra') taken.practice = 'extra';
+
+        var STAND = { strong: ['Doing well', 'ok'], ontrack: ['On track', ''], support: ['Needs support', 'warn'] }[st];
+        function tile(label, value, sub, cls) { return '<div class="rp-card tile"><span class="tile-label">' + label + '</span><span class="tile-value tile-value--sm ' + (cls || '') + '">' + value + '</span><span class="tile-delta flat">' + sub + '</span></div>'; }
+        document.getElementById('tiles').innerHTML =
+          tile('Where they stand', STAND[0], A.esc(B.standingReason(l)), STAND[1]) +
+          tile('Time', l.mins + '<small> min</small>', 'typical ' + l.typicalMins + ' for this route');
+
+        document.getElementById('routeNote').innerHTML = {
+          std:   first + ' took the course as written. Nothing needed to change.',
+          short: first + ' answered the opening questions on handling correctly, so <b>Lesson 1 was skipped</b>. It still counts as covered.',
+          up:    first + ' was clearly ahead on spotting hazards, so <b>Lesson 2 used harder checks</b>.',
+          extra: first + ' missed a check in the live practice, so <b>a short round of extra practice was added</b> before the closing check.'
+        }[l.path];
+        document.getElementById('tryLink').href = 'preview.html?persona=' + { std: 'new', short: 'ahead', up: 'ahead', extra: 'miss' }[l.path];
+
+        var pre = l.profile.map(function (b, i) {
+          if (i === 4) return null;
+          if (i === 0 && (l.path === 'short' || l.path === 'up')) return b;
+          return Math.max(1, b - 1);
+        });
+        var ev = S.evidence, keys = ['k1', 'k2', 'f1', 'f3', 'd2'];
+        document.getElementById('areaRows').innerHTML = B.AREAS.map(function (a, i) {
+          var after = l.profile[i], before = pre[i];
+          var mom = before == null ? '' : after > before ? '<span class="lr-mom up"><i class="fa-solid fa-arrow-trend-up"></i> Improved</span>' : '<span class="lr-mom held"><i class="fa-solid fa-arrows-left-right"></i> Held</span>';
+          var quote = after === 1 ? (i === 4 ? ev.d2gap : 'Still at Practice Needed after the closing check.') : ev[keys[i]];
+          return '<div class="lr-row"><span class="lr-ico"><i class="fa-solid ' + a.icon + '"></i></span><div>' +
+            '<div class="lr-row-head"><h3>' + a.name + '</h3>' + mom + '</div>' +
+            '<div class="lr-bands">' + (before == null ? '<span class="rp-chip" style="padding:2px 10px">Performed live</span><i class="fa-solid fa-arrow-right-long arrow"></i>' :
+              '<span class="band ' + B.BAND[before].chip + '">' + B.BAND[before].label + '</span><i class="fa-solid fa-arrow-right-long arrow"></i>') +
+            '<span class="band ' + B.BAND[after].chip + '">' + B.BAND[after].label + '</span></div>' +
+            '<p class="lr-quote"><i class="fa-solid fa-quote-left"></i> ' + A.esc(quote) + '</p></div></div>';
+        }).join('');
+        document.getElementById('nextBox').innerHTML = '<h3>' + (l.status === 'followup' ? 'Follow-up check-in · Nov 11' : '30-day check-in · Nov 15') + '</h3>' +
+          '<p>' + (l.status === 'followup' ? 'Five minutes, focused on their open areas.' : 'Five minutes, a month on, to see whether the habit stuck.') + '</p>';
+
+        /* ---- The other views render when first opened ---- */
+        function renderRoute() {
+          Flow.render(document.getElementById('routeMap'), { steps: B.MODULE.steps, taken: taken, follow: 'queued', dwell: dwellMap(l) });
+          Flow.timeBar(document.getElementById('timeBar'), { steps: B.MODULE.steps, taken: taken, dwell: l.dwell });
+        }
+        function renderBeyond() {
+          Credit.render(document.getElementById('creditBody'), { mode: 'learner', learner: l, first: first, role: l.role });
+          document.getElementById('crInfo').innerHTML = A.info('<p>Some objectives appear in more than one course. When someone proves one here, it counts in the others, so they skip what they’ve already shown.</p>', 'About credit');
+          A.wirePops();
+        }
+        function renderEvidence() {
+          document.getElementById('auditInfo').innerHTML = A.info('<p>Each result comes from something the person actually said or did, scored against the course’s written goals. The full transcript is kept for compliance review.</p>', 'About the evidence trail');
+          A.wirePops();
+          var d2 = l.profile[4];
+          document.getElementById('auditRows').innerHTML =
+            '<details open><summary><span class="band ' + B.BAND[d2].chip + '">' + B.BAND[d2].label + '</span> Doing it right <i class="fa-solid fa-chevron-right chev"></i></summary><ol class="audit-chain">' +
+              '<li><b>Live practice</b> · ' + A.esc(S.scenes.practice) + '<span class="said">' + A.esc(d2 === 1 ? ev.d2gap : ev.d2) + '</span></li>' +
+              (l.path === 'extra' ? '<li><b>Extra practice</b> · Added after the first attempt, with one targeted rep.<span class="said">Second attempt scored ' + B.BAND[Math.max(d2, 2)].label + '.</span></li>' : '') +
+            '</ol></details>' +
+            '<details><summary><span class="band ' + B.BAND[l.profile[0]].chip + '">' + B.BAND[l.profile[0]].label + '</span> Safe handling steps <i class="fa-solid fa-chevron-right chev"></i></summary><ol class="audit-chain">' +
+              '<li><b>Opening question 1</b> · The correct handling steps.<span class="said">' + (l.path === 'short' || l.path === 'up' ? 'Answered correctly the first time, so Lesson 1 was skipped.' : 'Missed one step, so Lesson 1 was served in full.') + '</span></li>' +
+              '<li><b>Closing check</b> · The same question again.<span class="said">' + A.esc(ev.k1) + '</span></li></ol></details>' +
+            '<details><summary><span class="band band-ok">Full transcript</span> Kept for compliance review <i class="fa-solid fa-chevron-right chev"></i></summary><ol class="audit-chain"><li>The complete record of every question, answer and conversation turn is retained. This panel shows the scoring-relevant excerpts.</li></ol></details>';
+        }
+        var rendered = {}, tabs = document.querySelectorAll('.seg-tabs button'), panels = document.querySelectorAll('.panel');
+        function show(n) {
+          if (!document.querySelector('[data-panel="' + n + '"]')) n = 'summary';
+          tabs.forEach(function (b) { b.classList.toggle('on', b.dataset.tab === n); });
+          panels.forEach(function (p) { p.hidden = p.dataset.panel !== n; });
+          if (!rendered[n]) { rendered[n] = true; ({ route: renderRoute, beyond: renderBeyond, evidence: renderEvidence }[n] || function () {})(); }
+        }
+        tabs.forEach(function (b) { b.addEventListener('click', function () { history.replaceState(null, '', '#' + b.dataset.tab); show(b.dataset.tab); }); });
+        document.querySelectorAll('[data-go]').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); history.replaceState(null, '', '#' + a.dataset.go); show(a.dataset.go); }); });
+        show((location.hash || '').replace('#', '') || 'summary');
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

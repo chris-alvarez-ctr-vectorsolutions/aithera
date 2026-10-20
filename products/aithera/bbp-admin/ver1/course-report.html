@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bloodborne Pathogens — Course Report</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <link rel="stylesheet" href="admin.css?v=22" />
+</head>
+<body>
+    <div id="head"></div>
+    <main class="rp-main">
+
+        <div class="seg-tabs" role="tablist" aria-label="Course report views">
+            <button type="button" role="tab" data-tab="summary" class="on">Summary</button>
+            <button type="button" role="tab" data-tab="beyond">Beyond this course</button>
+        </div>
+
+        <!-- ============ Summary ============ -->
+        <div data-panel="summary" class="panel">
+
+            <!-- Is this course still moving, or wrapped? Every number below depends on the answer. -->
+            <div class="state-strip" id="stateStrip"></div>
+
+            <!-- The learning path leads the page: it is the clearest picture of what the course did -->
+            <section class="rp-card" aria-label="How people moved through it">
+                <div class="rp-card-head">
+                    <h2>How people moved through it</h2>
+                    <a class="card-link" href="preview.html">Walk through these routes <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+                <p class="rp-card-sub" id="adaptNote"></p>
+                <div id="adaptChip" style="margin:-2px 0 10px"></div>
+                <div class="map-scroll" id="routeMap"></div>
+                <details class="tb-details" id="timeDetails">
+                    <summary><span class="tb-sum" id="timeSum"></span><i class="fa-solid fa-chevron-down"></i></summary>
+                    <div id="timeBar"></div>
+                </details>
+                <p class="sofar-note" id="sofarNote"></p>
+            </section>
+
+            <div class="rp-grid-2">
+                <section class="rp-card" aria-label="Section outcomes">
+                    <div class="rp-card-head"><h2>Section outcomes <span class="sofar-pill" data-open-only>so far</span></h2><span id="attInfo"></span></div>
+                    <div class="dm-head"><span></span><div class="dm-axis-lbl"><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>
+                    <div id="attRows"></div>
+                    <div class="dm-key">
+                        <span><i class="dm-k before"></i> Before</span>
+                        <span><i class="dm-k after"></i> After</span>
+                        <span class="dm-note">Share of people at Good or better</span>
+                    </div>
+                </section>
+                <div class="col-stack">
+                    <section class="rp-kpis rp-kpis--2" id="kpis" aria-label="Key figures"></section>
+                    <section class="rp-card" aria-label="People at a glance">
+                        <div class="rp-card-head"><h2>Learner performance</h2><span id="whoInfo"></span></div>
+                        <div id="who"></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============ Beyond this course ============ -->
+        <div data-panel="beyond" class="panel" hidden>
+            <section class="rp-card" aria-label="Beyond this course">
+                <div class="rp-card-head"><h2>Beyond this course</h2><span id="crInfo"></span></div>
+                <div id="creditBody"></div>
+            </section>
+        </div>
+        <vwc-drawer id="whoDrawer" overlay position="end" restore-focus-selector=".who-hit">
+            <div slot="drawer-header"></div>
+            <div slot="drawer-content"></div>
+        </vwc-drawer>
+        <p class="rp-footline"><i class="fa-solid fa-circle-info"></i> Bloodborne Pathogens · module “Contain the Sharp” · representative data</p>
+
+    </main>
+
+    <script src="data.js?v=9"></script>
+    <script src="admin-ui.js?v=8"></script>
+    <script src="flow.js?v=7"></script>
+    <script src="credit.js?v=3"></script>
+    <script>
+
+      (function () {
+        var B = window.BBP, A = window.Admin, S = B.sector;
+        var scope = A.getScope(), t = B.stats(scope), node = B.node(scope);
+        var eff = B.effective(scope, S.seed);
+        // Course state: open (people still working) or closed (wrapped, numbers are final).
+        var closed = new URLSearchParams(location.search).get('state') === 'closed';
+        var inFlight = t.unfinished;
+        var onCount = B.BEHAVIORS.filter(function (b) { return eff[b.key].value; }).length;
+
+        // Settings in force when this was assigned. Shown on the "Learning path results" view,
+        // where it explains what you're looking at, not in the page header.
+        var settingsChip =
+          '<span class="pop-anchor"><button type="button" class="rp-chip chip-btn" aria-expanded="false"><i class="fa-solid fa-toggle-on"></i> Adapts: ' + onCount + ' of ' + B.BEHAVIORS.length + ' on <i class="fa-solid fa-chevron-down" style="font-size:9px;color:var(--rp-ink-faint)"></i></button>' +
+          '<span class="rp-pop"><p><b>Settings when this was assigned</b></p>' +
+          B.BEHAVIORS.map(function (b) {
+            var e = eff[b.key];
+            return '<p style="display:flex;gap:8px;justify-content:space-between"><span>' + A.esc(b.label) + '</span><span class="pill' + (e.value ? '' : ' off') + '">' + (e.value ? 'On' : 'Off') + '</span></p>';
+          }).join('') +
+          '<p><a href="settings.html">Change settings for future assignments</a></p></span></span>';
+        var versionSub = '<i class="fa-solid fa-masks-theater" style="color:var(--rp-ink-faint);margin-right:6px"></i>' + A.esc(S.short) + ' version ' +
+          A.info('<p><b>Written for this sector.</b> ' + A.esc(S.versionNote) + '</p><p>Everyone in this group receives this version. Other sectors receive their own.</p>', 'About the version');
+
+        A.head({ active: 'courses', title: 'Bloodborne Pathogens', scope: true, sub: versionSub,
+                 assignLabel: 'Assign again', assignHref: 'assign.html?course=bbp',
+                 crumbs: [{ label: 'Courses', href: 'courses.html' }, { label: 'Bloodborne Pathogens' }],
+                 chips: ['<span class="rp-chip"><i class="fa-solid fa-calendar"></i> Due Nov 6</span>'] });
+        A.wirePops();
+
+        /* ---- Status strip: still moving, or wrapped ---- */
+        var now = B.whereNow(t.unfinished), stuck = Object.keys(now).filter(function (k) { return k !== 'start'; }).sort(function (a, b) { return now[b] - now[a]; })[0];
+        var stuckName = B.MODULE.steps.filter(function (s) { return s.id === stuck; })[0].label.toLowerCase();
+        var started = t.unfinished - now.start;
+        document.getElementById('stateStrip').innerHTML = closed
+          ? '<span class="st-badge closed"><i class="fa-solid fa-lock"></i> Closed</span><span class="st-txt"><b>Final results.</b> Closed Nov 6 · ' + t.completed + ' of ' + t.assigned + ' finished · ' + t.unfinished + ' did not finish.</span>' +
+            '<span class="st-demo">Demo: <a href="course-report.html">view open</a></span>'
+          : '<span class="st-badge live"><i></i> Open</span><span class="st-txt"><b>' + t.completed + ' of ' + t.assigned + ' finished</b> · ' + t.unfinished + ' still to go · due Nov 6, 17 days left. ' +
+            (started ? 'Of the ' + started + ' in progress, most are at <b>' + stuckName + '</b>.' : '') + '</span>' +
+            '<span class="st-demo">Demo: <a href="course-report.html?state=closed">view closed</a></span>';
+        document.querySelectorAll('[data-open-only]').forEach(function (el) { el.hidden = closed; });
+        document.getElementById('sofarNote').innerHTML = closed ? '' : '<i class="fa-solid fa-circle-info"></i> Branch counts and results include the ' + t.completed + ' who have finished. The ' + t.unfinished + ' still working may add to them.';
+
+        /* ---- Summary: three numbers, before/after, who to look at ---- */
+        function tile(label, value, delta, cls) {
+          return '<div class="rp-card tile' + (cls || '') + '"><span class="tile-label">' + label + '</span><span class="tile-value">' + value + '</span><span class="tile-delta flat">' + delta + '</span></div>';
+        }
+        document.getElementById('kpis').innerHTML =
+          tile('Course performance', B.pct(t.demonstrated, t.assigned) + '<small>%</small>', 'showed competency' + (closed ? '' : ' so far') + ' · ' + t.demonstrated + ' of ' + t.assigned) +
+          tile('Finished', B.pct(t.completed, t.assigned) + '<small>%</small>', t.completed + ' of ' + t.assigned + ' completed the course', ' tile--muted');
+
+        // Share of people at Good or better, before and after, per section. Excellent is the
+        // secondary line. "Doing it right" is only performed live, so its "before" is the
+        // first attempt, and its "after" is where people ended up once extra practice ran.
+        var SECTIONS = [
+          { name: 'Safe handling steps',   before: [22, 64, 14], after: [5, 55, 40] },
+          { name: 'Spotting hazards',      before: [30, 58, 12], after: [10, 62, 28] },
+          { name: 'Why it matters',        before: [18, 62, 20], after: [6, 58, 36] },
+          { name: 'What people really do', before: [26, 60, 14], after: [8, 64, 28] },
+          { name: 'Doing it right',        before: [29, 58, 13], after: [9, 61, 30], note: 'first try → final' }
+        ];
+        function pos(v) { return Math.max(0, Math.min(100, (v - 50) / 50 * 100)); }
+        document.getElementById('attRows').innerHTML = SECTIONS.map(function (r) {
+          var b = 100 - r.before[0], a = 100 - r.after[0];
+          return '<div class="dm-row"><div class="dm-name"><h3>' + r.name + '</h3><small>Excellent ' + r.before[2] + '% → ' + r.after[2] + '%' + (r.note ? ' · ' + r.note : '') + '</small></div>' +
+            '<div class="dm-track" role="img" aria-label="' + r.name + ': ' + b + '% at Good or better before, ' + a + '% after">' +
+              '<span class="dm-line" style="left:' + pos(b) + '%;width:' + (pos(a) - pos(b)) + '%"></span>' +
+              '<span class="dm-dot before" style="left:' + pos(b) + '%"></span><span class="dm-dot after" style="left:' + pos(a) + '%"></span></div>' +
+            '<div class="dm-val"><b>' + b + '% → ' + a + '%</b><em>+' + (a - b) + ' pts</em></div></div>';
+        }).join('');
+        document.getElementById('attInfo').innerHTML = A.info('<p><b>Each row</b> is a section of the module. The hollow dot is where people started, and the solid dot is where they ended. The numbers are the share of people at <b>Good or better</b>, so a longer line means more movement.</p><p>For the first four sections, “before” is the opening questions. <b>Doing it right</b> is only performed live, so its “before” is each person’s first attempt and its “after” is where they ended up after any extra practice.</p><p>Excellent is shown underneath as a second measure.</p>', 'How to read this');
+
+        // People at a glance: three plain counts. The full list opens in a side panel
+        // on this page, so the admin never loses which course they are looking at.
+        // Groups are decided on what people can demonstrate at the end, never on speed or route.
+        var all = B.LEARNERS.filter(function (l) { return B.inScope(l, scope); });
+        var GROUPS = [
+          { key: 'strong',  label: 'Doing well',    total: t.strong,     icon: 'fa-circle-check', cls: 'good',
+            rule: 'Nothing at Practice Needed, and Excellent in at least three areas.', line: 'Nothing open' },
+          { key: 'support', label: 'Needs support', total: t.support,    icon: 'fa-flag',         cls: 'warn',
+            rule: 'At least one area still at Practice Needed after the course, so a key point was missed.', line: '30-day check-in queued for Nov 15' },
+          { key: 'open',    label: 'Not finished',  total: t.unfinished, icon: 'fa-hourglass-half', cls: 'mut',
+            rule: 'Not started, or stalled partway through.', line: closed ? 'Missed the Nov 6 due date' : 'Due Nov 6 · 17 days left', remind: !closed }
+        ];
+        function members(g) {
+          var rows = all.filter(function (l) { return B.standing(l) === g.key; });
+          if (g.key === 'support') rows.sort(function (a, b) { return b.profile.filter(function (x) { return x === 1; }).length - a.profile.filter(function (x) { return x === 1; }).length; });
+          return rows;
+        }
+        var reminded = false;
+        function remindBtn(g, extra) {
+          if (!g.remind) return '';
+          return reminded
+            ? '<span class="remind-done"><i class="fa-solid fa-check"></i> Reminder sent</span>'
+            : '<vaadin-button theme="secondary" class="remind' + (extra || '') + '" data-remind><i class="fa-solid fa-bell" style="margin-right:7px"></i>Remind ' + g.total + '</vaadin-button>';
+        }
+        function drawPeople() {
+          document.getElementById('who').innerHTML = GROUPS.map(function (g) {
+            var line = g.remind && reminded ? 'Reminder sent to ' + g.total + ' people · due Nov 6' : g.line;
+            return '<div class="who-card ' + g.cls + (g.remind ? ' has-action' : '') + '"><button type="button" class="who-hit" data-g="' + g.key + '" aria-label="Open the ' + g.label + ' list"></button>' +
+              '<span class="who-ico"><i class="fa-solid ' + g.icon + '"></i></span>' +
+              '<span class="who-main"><b>' + g.label + '</b><small>' + line + '</small></span>' + remindBtn(g) +
+              '<span class="who-n">' + g.total + '</span><i class="fa-solid fa-chevron-right who-go"></i></div>';
+          }).join('');
+          document.querySelectorAll('.who-hit').forEach(function (b) { b.addEventListener('click', function () { openDrawer(b.dataset.g); }); });
+          document.querySelectorAll('[data-remind]').forEach(function (b) { b.addEventListener('click', sendReminder); });
+        }
+        function sendReminder() { reminded = true; drawPeople(); if (drawer.open) drawList(); }
+        document.getElementById('whoInfo').innerHTML = A.info('<p>Everyone in this group, sorted by what they can demonstrate. Groups are based on results only. Speed, skipping ahead and extra practice never count for or against someone.</p>', 'How these are decided');
+        A.wirePops();
+
+        // ---- The side panel (Vector drawer, overlay from the right) ----
+        var drawer = document.getElementById('whoDrawer'), cur = 'strong';
+        function drawList() {
+          var g = GROUPS.filter(function (x) { return x.key === cur; })[0], rows = members(g);
+          drawer.querySelector('[slot="drawer-header"]').innerHTML = '<span class="dr-title">' + g.label + ' <b>' + g.total + '</b></span>';
+          drawer.querySelector('[slot="drawer-content"]').innerHTML =
+            '<div class="dr-switch" role="group" aria-label="Group">' + GROUPS.map(function (x) {
+              return '<button type="button" class="' + (x.key === cur ? 'on' : '') + '" data-g="' + x.key + '">' + x.label + '<small>' + x.total + '</small></button>';
+            }).join('') + '</div>' +
+            '<p class="dr-rule">' + g.rule + '</p>' +
+            (g.remind ? '<div class="dr-remind">' + remindBtn(g) + '<small>' + (reminded ? 'Everyone in this group has been reminded.' : 'Sends a reminder with the due date.') + '</small></div>' : '') +
+            (rows.length ? rows.map(function (l) {
+              var u = B.node(l.unit);
+              return '<a class="dr-row" href="' + A.learnerHref(l) + '&from=course&g=' + cur + '"><span class="row-avatar" style="margin:0">' + A.initials(l.name) + '</span>' +
+                '<span class="dr-who"><b>' + A.esc(l.name) + '</b><small>' + A.esc(l.role) + ' · ' + A.esc(u.name) + '</small><em>' + A.esc(B.standingReason(l)) + '</em></span>' +
+                (l.profile ? A.dots(l.profile) : '') + '</a>';
+            }).join('') : '<p class="rp-card-sub">Nobody in this group.</p>') +
+            '<p class="dr-foot">Showing ' + rows.length + ' from the demo roster. ' + g.total + ' in this group overall.</p>';
+          drawer.querySelectorAll('[data-remind]').forEach(function (b) { b.addEventListener('click', sendReminder); });
+          drawer.querySelectorAll('.dr-switch button').forEach(function (b) { b.addEventListener('click', function () { cur = b.dataset.g; drawList(); }); });
+        }
+        function openDrawer(key) { cur = key; drawList(); drawer.open = true; drawer.setAttribute('open', ''); }
+        drawPeople();
+        var pq = new URLSearchParams(location.search).get('people');
+        if (pq && GROUPS.some(function (g) { return g.key === pq; })) openDrawer(pq);
+
+        /* ---- The other two views render when first opened, so they can measure themselves ---- */
+        var done = {};
+        function renderRoute() {
+          document.getElementById('adaptNote').innerHTML =
+            '<b>' + t.extra + ' got extra practice</b>, and 87% of them reached Good or better. <b>' + t.skipped + ' skipped ahead</b>, saving about 9 minutes each, and ' + t.harder +
+            ' got harder checks. Skipped lessons still show as covered on the record. Ribbon width is how many people took each branch.';
+          document.getElementById('adaptChip').innerHTML = settingsChip;
+          var cb = document.querySelector('#adaptChip .chip-btn'), cp = cb.nextElementSibling;
+          cb.addEventListener('click', function (e) { e.stopPropagation(); cp.classList.toggle('open'); });
+          document.addEventListener('click', function (e) { if (!cp.contains(e.target)) cp.classList.remove('open'); });
+          var gd = {}, gm = {}, slow = [], total = 0, typ = 0;
+          Object.keys(B.GROUP_DWELL).forEach(function (k) {
+            var v = B.GROUP_DWELL[k]; gd[k] = { typical: v[0], actual: v[1] }; gm[k] = v[1]; total += v[1]; typ += v[0];
+            if (v[1] / v[0] >= 1.4 && v[1] - v[0] >= 2) slow.push(B.MODULE.steps.filter(function (s) { return s.id === k; })[0].short.toLowerCase());
+          });
+          Flow.render(document.getElementById('routeMap'), { steps: B.MODULE.steps, total: t.completed,
+            counts: { skip: eff.skip.value ? t.skipped : 0, harder: eff.harder.value ? t.harder : 0, extra: t.extra },
+            off: { skip: !eff.skip.value, harder: !eff.harder.value, extra: !eff.extra.value }, follow: eff.followup.value ? 'queued' : 'off', dwell: gd,
+            now: closed ? null : now });
+          Flow.timeBar(document.getElementById('timeBar'), { steps: B.MODULE.steps, taken: {}, dwell: { actual: gm }, group: true });
+          document.getElementById('timeSum').innerHTML = '<b>Time</b> ' + total + ' min median · typical ' + typ + (slow.length ? ' <span class="tb-d slow"><i class="fa-solid fa-clock"></i>Slow at ' + slow.join(', ') + '</span>' : '');
+        }
+        renderRoute();
+        function renderBeyond() {
+          Credit.render(document.getElementById('creditBody'), { mode: 'cohort', scope: scope });
+          document.getElementById('crInfo').innerHTML = A.info('<p>Some objectives appear in more than one course. When people prove one here, it counts in the others, so they skip what they’ve already shown.</p>', 'About credit');
+          A.wirePops();
+        }
+        var tabs = document.querySelectorAll('.seg-tabs button'), panels = document.querySelectorAll('.panel');
+        function show(name) {
+          if (!document.querySelector('[data-panel="' + name + '"]')) name = 'summary';
+          tabs.forEach(function (b) { b.classList.toggle('on', b.dataset.tab === name); b.setAttribute('aria-selected', String(b.dataset.tab === name)); });
+          panels.forEach(function (p) { p.hidden = p.dataset.panel !== name; });
+          if (!done[name]) { done[name] = true; if (name === 'beyond') renderBeyond(); }
+        }
+        tabs.forEach(function (b) { b.addEventListener('click', function () { history.replaceState(null, '', '#' + b.dataset.tab); show(b.dataset.tab); }); });
+        show(((location.hash || '').replace('#', '') === 'beyond') ? 'beyond' : 'summary');
+      })();
+
+    </script>
+    <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>
