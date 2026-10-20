@@ -6,6 +6,31 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-20) Duplicates are Blocked; › rows show what's on your site; no Row column
+
+- **[DONE]** The whole "Duplicate & identity detection" group is **Blocked** now (designer call;
+  the Confluence catalog still says WARNING): `duplicate_email_in_upload`, `duplicate_user_in_system`,
+  `non_identical_username`, `potential_duplicate_user`, `duplicate_external_unique_id_in_upload`,
+  `duplicate_external_unique_id_in_system`, `non_identical_external_unique_id`,
+  `potential_duplicate_user_external_unique_id`. A duplicate person is an error, not a value the
+  upload overwrites. Each one has a "To fix it, … then upload again." line instead of "If you import".
+  `duplicate_user_in_system`'s message changed to match: "Some usernames in this file belong to
+  someone with a different name on your site." (was "Some users' names will change on your site.").
+- **PENDING** Same-name checks (`non_identical_*`, `potential_duplicate_user*`) now block two
+  different people who happen to share a name. Confirm with PM how an admin gets those through.
+- **[DONE]** The "After import" box is gone. A row whose details contradict the site has a ›
+  chevron. Opening it adds **Currently on your site** under the row: the site's username, first
+  name and last name (plus the conflicting column, e.g. email or External Unique ID) in the same
+  columns, with the values that differ in red. When one username matches two site users, both
+  show. The ⓘ next to "Currently on your site" shows that row's one-line details. Rows with no
+  site conflict (in-file duplicates, skipped rows, new accounts) have no chevron. Data:
+  `site` on each catalog entry.
+- **[DONE]** No Row column in the tables on Review or the failed-run page. The CSV download
+  keeps it so admins can find the row in their file.
+- **[DONE]** Sample files: "Warnings only" now raises skipped rows and a new location (its name
+  change is Blocked now); the duplicates file is "Blocked · duplicates"; the failed automated run
+  that stopped on warnings raises skipped rows, an early begin date and a new location.
+
 ## (2026-10-20) Blocked first everywhere; warnings ranked one by one
 
 - **[DONE]** Review, the CSV and the failed-run page list **Blocked** first, then every

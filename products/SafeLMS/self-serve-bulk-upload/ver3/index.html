@@ -905,25 +905,28 @@
 
   /* ---- View details (2026-10-09) ---- */
   .ax-note b { color: #1B2B3E; }
-  /* Rows as uploaded — click one to see it after the import (one at a time). */
+  /* Rows as uploaded (2026-10-20). A row that contradicts the site has a › chevron; it opens
+     a "Currently on your site" line under it, with an ⓘ for the details sentence. */
+  .ax-list .axt { table-layout: fixed; }
+  .ax-list .axt th:last-child { width: 16px; }
+  .ax-list .axt td { overflow-wrap: anywhere; }
+  .axt th.axt-chev, .axt td.axt-chev { width: 30px; padding-left: 10px; padding-right: 0; }
   .axt tr.axr { cursor: pointer; }
   .axt tr.axr:hover td { background: #F5F9FE; }
   .axt tr.axr:focus-visible { outline: 2px solid #1257B8; outline-offset: -2px; }
-  .axt tr.axr.is-open td { background: #EEF4FC; }
-  .axt tr.axr.is-open td:first-child { box-shadow: inset 3px 0 0 #1257B8; }
-  /* The selected row's result — its own box under "Rows from your file". */
-  .ax-after { border: 1px solid #B9CBE2; border-radius: 9px; background: #fff; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
-  .ax-after .axt-wrap { border: 0; border-radius: 0; }
-  /* Same fixed columns in both tables so the result row lines up under the rows above. */
-  .ax-list .axt, .ax-after .axt { table-layout: fixed; }
-  .ax-list .axt th:first-child, .ax-after .axt th:first-child { width: 128px; }
-  .ax-list .axt th:last-child, .ax-after .axt th:last-child { width: 16px; }
-  /* Clickable row's number reads as a link (2026-10-09). */
-  .axt td.axr-link { color: #1257B8; font-weight: 600; text-decoration: underline dotted; text-underline-offset: 3px; }
-  .axt tr.axr:hover td.axr-link { text-decoration-style: solid; }
-  /* Tag beside "View details": this alert has rows whose change you can see. */
+  .axr-chev { color: #1257B8; font-size: 11px; transition: transform .15s; }
+  .axt tr.axr.is-open .axr-chev { transform: rotate(90deg); }
+  .axt tr.axr.is-open td { background: #EEF4FC; border-bottom-color: transparent; }
+  .axt tr.axr-site td { background: #F8FAFC; border-bottom-color: transparent; }
+  .axt tr.axr-cap td { padding-bottom: 2px; }
+  .axt tr.axr-site:last-of-type td, .axt tr.axr-site + tr:not(.axr-site) td { border-top: 0; }
+  .site-cap { font-size: 11px; font-weight: 700; letter-spacing: .3px; color: #5B6B7E; }
+  .site-info { border: none; background: none; color: #1257B8; cursor: pointer; padding: 0 4px; margin-left: 4px; font-size: 13px; vertical-align: -1px; }
+  .site-info:hover, .site-info.is-on { color: #0C3F87; }
+  .site-info:focus-visible { outline: 2px solid #1257B8; outline-offset: 1px; border-radius: 50%; }
+  .axt td.axt-site-diff { color: #B42318; font-weight: 600; }
+  .axt tr.axr-note td { font-size: 12.5px; color: #3D4F63; line-height: 1.5; padding-top: 2px; }
   .axt td.axt-lbl { font-size: 12px; font-weight: 600; color: #5B6B7E; }
-  .ax-list .axt td, .ax-after .axt td { overflow-wrap: anywhere; }
 
   /* ---- Failed automated upload (log page) ---- */
   .ld-fail { display: flex; gap: 12px; align-items: flex-start; background: #FEF3F2; border: 1px solid #F1C0BB; border-radius: 10px; padding: 13px 16px; }
@@ -1073,12 +1076,12 @@
   var FILES = [
     { id: 'blast',   name: 'copy_review_every_catalog_message.csv',     rows: 168, tag: 'Has all the errors · all 44 catalog messages',     kind: 'blocked',
       note: 'Has all the errors — every message in the Error & Notification Message Catalog, most severe first, for checking copy.' },
-    { id: 'dupes',   name: 'blocked_duplicate_accounts.csv',      rows: 152, tag: 'Blocked + warnings · duplicates',    kind: 'escalate',
-      note: 'A username matches two active accounts (blocks); possible duplicate people and shared emails are warnings.' },
+    { id: 'dupes',   name: 'blocked_duplicate_accounts.csv',      rows: 152, tag: 'Blocked · duplicates',    kind: 'escalate',
+      note: 'Duplicates block it: a username that matches two active accounts, possible duplicate users, a shared email, same-name users.' },
     { id: 'saml',    name: 'blocked_unreadable_dates.csv',    rows: 156, tag: 'Blocked + warnings · bad dates',   kind: 'blocked',
-      note: 'Unreadable begin dates block it; early begin dates and a shared email are warnings.' },
+      note: 'Unreadable begin dates and a shared email block it; early begin dates are a warning.' },
     { id: 'confirm', name: 'needs_confirmation_fall_roster.csv',  rows: 164, tag: 'Warnings only · confirm to run',        kind: 'confirm',
-      note: 'Full fall roster — a name change and skipped rows to confirm; no blocks.' },
+      note: 'Full fall roster — skipped rows and a new location to confirm; no blocks.' },
     { id: 'clean',   name: 'clean_no_errors_new_hires.csv',              rows: 45,  tag: 'Clean · no errors',        kind: 'ok',
       note: 'September new-hire batch — imports straight through with nothing to fix.' }
   ];
@@ -1168,7 +1171,8 @@
     view: 'employees',   // 'employees' = the Employees-tab landing (list + entry point); 'import' = bulk-import flow detail page
     importFull: false,   // the bulk upload page is open (sidebar + its own blue "Bulk Upload" header)
     addMenu: false,      // Employees: the Add Employee split button's menu is open
-    axOpen: null,        // Review: the one row showing its "after the import" line — 'alertId|rowIndex'
+    axOpen: {},          // Review: rows opened with their › chevron — { 'alertId|rowIndex': true }
+    axInfo: {},          // …and which of those show the ⓘ details line
     disc: {},            // open/closed state for the progressive-disclosure expanders
     attnSev: 'fixable',  // attention-needed step severity: 'fixable' (amber) | 'escalate' (red)
     attnSent: false,     // escalate handed to Vector's team
@@ -1225,7 +1229,7 @@
   function go(step) {
     if (step === 'review') {
       clearTimeout(_validateTimer);
-      setState({ step: step, validating: true, disc: {}, axOpen: null });   // every "See details" starts closed
+      setState({ step: step, validating: true, disc: {}, axOpen: {}, axInfo: {} });   // every "See details" starts closed
       _validateTimer = setTimeout(function () { setState({ validating: false }); }, 1100);
     } else { setState({ step: step }); }
   }
@@ -1264,6 +1268,9 @@
        tier:  blocked (BLOCKING) | confirm (WARNING) | info (INFO)
        msg:   admin-facing message; {count} is filled in. 1st sentence = title.
        head/rows: the expanded list (omit for count/summary-only).
+       site:  rows that contradict the site — what's on the site now for that row, as
+              [{ columnIndex: value }] (more than one record when it matches several users).
+              Those rows get a › chevron that opens "Currently on your site" (2026-10-20).
        where: BLOCKING only — row(s) + column to look at, shown without expanding.
        fix:   BLOCKING only — one-line "what to do".
      ========================================================================== */
@@ -1490,6 +1497,7 @@
       clean: 'To fix it, use the location name your site already has.',
       head: ['Row', 'Username', 'Building code', 'Location'],
       rows: function () { return [[R(4), M('ijones'), M('B-103'), 'Ridgewood HS'], [R(29), M('jkhan'), M('B-103'), 'Ridgewood HS']]; },
+      site: function () { return [{ 2: 'B-103', 3: 'Ridgewood High' }]; },
       after: function () { return AF('warn', 'Location B-103 is renamed from “Ridgewood High” to “Ridgewood HS” for everyone placed there.', { 3: W('Ridgewood HS', 'Ridgewood High') }); } },
     pos_code_difference: { tier: 'confirm', msg: 'Some position codes have a different position name on your site.',
       why: '',
@@ -1497,78 +1505,81 @@
       clean: 'To fix it, use the position name your site already has.',
       head: ['Row', 'Username', 'Position code', 'Position'],
       rows: function () { return [[R(13), M('klopez'), M('P-120'), 'Para'], [R(57), M('lmorris'), M('P-120'), 'Para']]; },
+      site: function () { return [{ 2: 'P-120', 3: 'Paraprofessional' }]; },
       after: function () { return AF('warn', 'Position P-120 is renamed from “Paraprofessional” to “Para” for everyone who holds it.', { 3: W('Para', 'Paraprofessional') }); } },
 
     /* 3. Duplicate & identity detection (users) */
-    duplicate_email_in_upload: { tier: 'confirm', msg: 'Some usernames in this file share an email address.',
+    duplicate_email_in_upload: { tier: 'blocked', msg: 'Some usernames in this file share an email address.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
       why: 'Users who share an email get reminders for every account and may sign in to the wrong one.',
-      will: 'If you import, each username keeps the shared email.',
-      clean: 'To fix it, give each username its own email, or delete the extra row if it’s the same user.',
+      will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'Email'],
       rows: function () { return [[R(34), M('jsmith'), 'John', 'Smith', 'jsmith@ridgewood.k12.us'], [R(91), M('john.smith'), 'John', 'Smith', 'jsmith@ridgewood.k12.us']]; },
-      after: function (r, i) { return i === 0
-        ? AF('warn', 'jsmith keeps this email, and john.smith (row 91) gets it too, so two accounts share it.')
-        : AF('warn', 'A new account, john.smith, is created with jsmith@ridgewood.k12.us, the same email as jsmith.'); } },
+      after: function (r, i) { return AF('block', i === 0
+        ? 'Can’t be imported. jsmith and john.smith (row 91) use the same email.'
+        : 'Can’t be imported. john.smith uses the same email as jsmith (row 34).'); },
+      fix: 'To fix it, give each username its own email, or delete the extra row if it’s the same user, then upload again.' },
     duplicate_user_in_upload: { tier: 'blocked', msg: 'One username is used for more than one name in this file.',   // BLOCKED (designer, 2026-10-12; Confluence still says WARNING)
       why: 'Usernames must be unique, and we can’t tell which name is right. If it’s one user with two jobs, the names should match on every row.',
       will: '',
       head: U3, rows: function () { return [[R(22), M('achen'), 'Amy', 'Chen'], [R(130), M('achen'), 'Andrew', 'Chen']]; },
       after: function (r, i) { return AF('block', 'Can’t be imported. achen is used for Amy Chen (row 22) and Andrew Chen (row 130).', { 1: NI() }); },
       fix: 'To fix it, give each user their own username, or make the names match if it’s the same user, then upload again.' },
-    duplicate_user_in_system: { tier: 'confirm', msg: 'Some users’ names will change on your site.',
-      why: 'These usernames are on your site with a different name, often a last-name change or a preferred name. If your organization reuses usernames, training records could move to the wrong user.',
-      will: 'If you import, their names change to match your file. Usernames and training history stay the same.',
-      clean: 'To fix it, use the name your site already has.',
+    duplicate_user_in_system: { tier: 'blocked', msg: 'Some usernames in this file belong to someone with a different name on your site.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
+      why: 'It’s often a last-name change or a preferred name. If your organization reuses usernames, training records would move to the wrong user.',
+      will: '',
       head: U3, rows: function () { return [[R(23), M('jsmith2'), 'Jesse', 'Smith'], [R(118), M('shartley'), 'Sue', 'Hartley']]; },
-      after: function (r, i) { return i === 0
-        ? AF('warn', 'The name on your site changes from Jessyca Smith to Jesse Smith.', { 2: W('Jesse', 'Jessyca') })
-        : AF('warn', 'The name on your site changes from Susan Hartley to Sue Hartley.', { 2: W('Sue', 'Susan') }); } },
-    non_identical_username: { tier: 'confirm', msg: 'Some users in this file have the same name but different usernames.',
+      site: function (r, i) { return [[{ 1: 'jsmith2', 2: 'Jessyca', 3: 'Smith' }], [{ 1: 'shartley', 2: 'Susan', 3: 'Hartley' }]][i]; },
+      after: function (r, i) { return AF('block', 'Can’t be imported. ' + un(r) + ' is ' + ['Jessyca Smith', 'Susan Hartley'][i] + ' on your site.'); },
+      fix: 'To fix it, use the name your site already has, or give a new user their own username, then upload again.' },
+    non_identical_username: { tier: 'blocked', msg: 'Some users in this file have the same name but different usernames.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
       why: 'That can be two different users, or one user with two usernames.',
-      will: 'If you import, each username gets its own account, so one user could end up with two.',
-      clean: 'To fix it, delete the extra row if it’s the same user.',
+      will: '',
       head: U3, rows: function () { return [[R(9), M('mlopez'), 'Maria', 'Lopez'], [R(150), M('mlopez2'), 'Maria', 'Lopez']]; },
-      after: function (r, i) { return i === 0
-        ? AF('warn', 'mlopez is saved as Maria Lopez.')
-        : AF('warn', 'A second account, mlopez2, is created, also named Maria Lopez.'); } },
-    potential_duplicate_user: { tier: 'confirm', msg: 'Some users in this file may already be on your site under a different username.',
-      why: 'Someone on your site has the same name. It’s most likely the same user.',
-      will: 'If you import, a second account is created, and they may have to repeat training.',
-      clean: 'To fix it, use their existing username.',
+      after: function (r, i) { return AF('block', i === 0
+        ? 'Can’t be imported. Maria Lopez is also on row 150 as mlopez2.'
+        : 'Can’t be imported. Maria Lopez is also on row 9 as mlopez.'); },
+      fix: 'To fix it, delete the extra row if it’s the same user, then upload again.' },
+    potential_duplicate_user: { tier: 'blocked', msg: 'Some users in this file may already be on your site under a different username.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
+      why: 'Someone on your site has the same name. It’s most likely the same user, and a second account would split their training history.',
+      will: '',
       head: U3, rows: function () { return [[R(17), M('sarah.linden2'), 'Sarah', 'Linden'], [R(64), M('marcus.webb'), 'Marcus', 'Webb'], [R(133), M('priya.nair2'), 'Priya', 'Nair']]; },
-      after: function (r, i) { return AF('warn', 'A new account, ' + un(r) + ', is created. ' + nm(r) + ' already has the account ' + ['slinden', 'mwebb', 'pnair'][i] + ', so they’d have two, and their training history stays on ' + ['slinden', 'mwebb', 'pnair'][i] + '.'); } },
-    duplicate_external_unique_id_in_upload: { tier: 'confirm', msg: 'One External Unique ID is used on more than one row.',
+      site: function (r, i) { return [{ 1: ['slinden', 'mwebb', 'pnair'][i], 2: r[2], 3: r[3] }]; },
+      after: function (r, i) { return AF('block', 'Can’t be imported. ' + nm(r) + ' is already on your site as ' + ['slinden', 'mwebb', 'pnair'][i] + '.'); },
+      fix: 'To fix it, use their existing username, then upload again.' },
+    duplicate_external_unique_id_in_upload: { tier: 'blocked', msg: 'One External Unique ID is used on more than one row.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
       why: 'Each ID should belong to one user. If these rows have different usernames, one user could get two accounts.',
-      will: 'If you import, all of these users get the same ID.',
-      clean: 'To fix it, give each user their own External Unique ID.',
+      will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'External Unique ID'],
       rows: function () { return [[R(16), M('dbaker'), 'Dana', 'Baker', M('E-004417')], [R(77), M('dwhitfield'), 'Dana', 'Whitfield', M('E-004417')]]; },
-      after: function (r, i) { return i === 0
-        ? AF('warn', 'dbaker gets E-004417, and dwhitfield (row 77) gets the same ID.')
-        : AF('warn', 'dwhitfield gets E-004417, the same ID as dbaker.'); } },
-    duplicate_external_unique_id_in_system: { tier: 'confirm', msg: 'Some External Unique IDs belong to someone with a different name on your site.',
-      why: 'Often a last-name change or a preferred name. If your organization reuses IDs, training records could move to the wrong user.',
-      will: 'If you import, the name on your site changes to match your file.',
-      clean: 'To fix it, check the External Unique ID in your file.',
+      after: function (r, i) { return AF('block', i === 0
+        ? 'Can’t be imported. E-004417 is also used for dwhitfield (row 77).'
+        : 'Can’t be imported. E-004417 is also used for dbaker (row 16).'); },
+      fix: 'To fix it, give each user their own External Unique ID, then upload again.' },
+    duplicate_external_unique_id_in_system: { tier: 'blocked', msg: 'Some External Unique IDs belong to someone with a different name on your site.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
+      why: 'It’s often a last-name change or a preferred name. If your organization reuses IDs, training records would move to the wrong user.',
+      will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'External Unique ID'],
       rows: function () { return [[R(81), M('dbaker'), 'Dana', 'Baker', M('E-002290')]]; },
-      after: function () { return AF('warn', 'The user with E-002290 on your site is renamed from Dana Whitfield to Dana Baker.', { 3: W('Baker', 'Whitfield') }); } },
-    non_identical_external_unique_id: { tier: 'confirm', msg: 'Some users in this file have the same name but different External Unique IDs.',
+      site: function () { return [{ 1: 'dbaker', 2: 'Dana', 3: 'Whitfield', 4: 'E-002290' }]; },
+      after: function () { return AF('block', 'Can’t be imported. E-002290 is Dana Whitfield on your site.'); },
+      fix: 'To fix it, check the External Unique ID, or use the name your site already has, then upload again.' },
+    non_identical_external_unique_id: { tier: 'blocked', msg: 'Some users in this file have the same name but different External Unique IDs.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
       why: 'That can be two users with the same name, or one user with a typo in the ID.',
-      will: 'If you import, each row is saved as its own user.',
-      clean: 'To fix it, correct the ID if it’s the same user.',
+      will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'External Unique ID'],
       rows: function () { return [[R(30), M('tallen'), 'Tom', 'Allen', M('E-001873')], [R(118), M('tallen2'), 'Tom', 'Allen', M('E-003305')]]; },
-      after: function (r, i) { return i === 0
-        ? AF('warn', 'tallen is saved with E-001873.')
-        : AF('warn', 'A second Tom Allen, tallen2, is saved with E-003305.'); } },
-    potential_duplicate_user_external_unique_id: { tier: 'confirm', msg: 'Some users in this file are on your site with a different External Unique ID.',
+      after: function (r, i) { return AF('block', i === 0
+        ? 'Can’t be imported. Tom Allen is also on row 118 with E-003305.'
+        : 'Can’t be imported. Tom Allen is also on row 30 with E-001873.'); },
+      fix: 'To fix it, correct the ID if it’s the same user, then upload again.' },
+    potential_duplicate_user_external_unique_id: { tier: 'blocked', msg: 'Some users in this file are on your site with a different External Unique ID.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
       why: 'Someone on your site has the same name. It’s most likely the same user.',
-      will: 'If you import, their ID on your site changes to the one in your file.',
-      clean: 'To fix it, use the External Unique ID your site already has.',
+      will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'External Unique ID'],
       rows: function () { return [[R(102), M('gharper'), 'Gary', 'Harper', M('E-009912')]]; },
-      after: function () { return AF('warn', 'Gary Harper’s External Unique ID on your site changes from E-000418 to E-009912.', { 4: W('E-009912', 'E-000418') }); } },
+      site: function () { return [{ 1: 'gharper', 2: 'Gary', 3: 'Harper', 4: 'E-000418' }]; },
+      after: function () { return AF('block', 'Can’t be imported. Gary Harper is on your site with E-000418.'); },
+      fix: 'To fix it, use the External Unique ID your site already has, then upload again.' },
 
     /* 4. Missing references, conflicts & sync */
     missing_pos: { tier: 'confirm', msg: 'This file uses groups that aren’t on your site yet.',
@@ -1596,12 +1607,14 @@
       will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'Email'],
       rows: function () { return [[R(55), M('pnair'), 'Priya', 'Nair', { v: 'priya.nair@gmail.com', c: 'bad' }]]; },
+      site: function () { return [{ 1: 'pnair', 2: 'Priya', 3: 'Nair', 4: 'pnair@ridgewood.k12.us' }]; },
       after: function () { return AF('block', 'Can’t be imported. pnair’s email on your site is pnair@ridgewood.k12.us, and an upload can’t change it.', { 4: NI() }); },
       fix: 'To fix it, change the value to match your site or delete the row, then upload again.' },
     duplicate_person: { tier: 'blocked', msg: 'A username in this file matches more than one active user on your site.',
       why: 'We can’t tell whose account to update.',
       will: '',
       head: U3, rows: function () { return [[R(48), M('cdelgado'), 'Carlos', 'Delgado']]; },
+      site: function () { return [{ 1: 'cdelgado', 2: 'Carlos', 3: 'Delgado' }, { 1: 'cdelgado', 2: 'Carla', 3: 'Delgado' }]; },
       after: function () { return AF('block', 'Can’t be imported. Two active users on your site use cdelgado: Carlos Delgado (Lincoln Elementary) and Carla Delgado (District Office).', { 1: NI() }); },
       fix: 'To fix it, change the username to the right user’s or delete the row, then upload again.', support: true },
     sync_error: { tier: 'blocked', msg: 'Something went wrong while checking your file.',
@@ -1614,11 +1627,11 @@
   // Which catalog messages each sample file raises: [key, count].
   var FILE_MSGS = {
     clean:   [['new_person', 42], ['all_rows', 45]],
-    confirm: [['duplicate_user_in_system'], ['removed_rows'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
+    confirm: [['removed_rows'], ['missing_bldg'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
     saml:    [['broken_begin_date'], ['early_begin_date'], ['duplicate_email_in_upload'], ['new_person', 9], ['all_rows', 156]],
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
     blast:   null,  // copy review: EVERY catalog message, sorted most severe first
-    auto:    [['duplicate_user_in_system'], ['duplicate_email_in_upload'], ['early_begin_date'], ['missing_bldg'], ['new_person', 3], ['all_rows', 171]],   // name change kept; email, begin date, location from its columns
+    auto:    [['removed_rows'], ['early_begin_date'], ['missing_bldg'], ['new_person', 3], ['all_rows', 171]],   // warnings only: skipped rows, begin date, location
     autob:   [['broken_begin_date'], ['duplicate_person'], ['new_person', 3], ['all_rows', 171]]
   };
   // Totals for the copy-review file. Sampled messages show a subset of rows but say the real total.
@@ -1657,7 +1670,8 @@
       // Rows as uploaded + the "after the import" line for each (2026-10-09).
       list: rows ? { head: c.head, rows: rows, total: all.length, all: all, note: c.note ? c.note(count) : '',
         allAfters: c.after ? all.map(function (r, i) { return c.after(r, i); }) : null,
-        afters: c.after ? rows.map(function (r, i) { return c.after(r, i); }) : null } : null,
+        afters: c.after ? rows.map(function (r, i) { return c.after(r, i); }) : null,
+        sites: c.site ? rows.map(function (r, i) { return c.site(r, i) || null; }) : null } : null,
       why: fill(c.why), will: fill(c.will), clean: c.clean || '',
       fix: c.fix, supportBtn: !!c.support, count: count,
       ackLabel: 'I’ve reviewed this. Continue with the upload.' };
@@ -1667,7 +1681,7 @@
   /* Review order (2026-10-20): Blocked first, then every WARNING by how much harm it does
      if the admin clicks through, then Info. Within the warnings, top to bottom:
        1. the wrong file (almost nothing in it is on the site yet)
-       2. training records or sign-in that could land on the wrong user
+       2. sign-in that changes for existing users (duplicates are Blocked since 2026-10-20)
        3. rows or values that get left out
        4. renames that reach everyone at a location or in a position
        5. dates that are probably typos
@@ -1675,9 +1689,7 @@
      Blocked and Info keep their catalog order. Applies to Review, the CSV and the failed-run page. */
   var WARN_ORDER = [
     'total_person_change', 'large_person_change', 'total_pos_change', 'total_bldg_change', 'large_pos_change', 'large_bldg_change',
-    'duplicate_user_in_system', 'duplicate_external_unique_id_in_system', 'password_changed',
-    'potential_duplicate_user', 'potential_duplicate_user_external_unique_id', 'duplicate_external_unique_id_in_upload',
-    'duplicate_email_in_upload', 'non_identical_username', 'non_identical_external_unique_id',
+    'password_changed',   // the duplicate / identity group moved to Blocked (2026-10-20)
     'removed_rows', 'unknown_attribute',
     'bldg_code_difference', 'pos_code_difference', 'bldg_same_codes_diff_name', 'pos_same_codes_diff_name',
     'bldg_same_name_diff_codes', 'pos_same_name_diff_codes',
@@ -2280,10 +2292,9 @@
   /* One review alert: a short banner (chip + title) that opens with "View details".
      Details (2026-10-09): the catalog's second sentence, then "What's happening" and
      "What will happen" (+ "What to do" when Blocked), then the rows exactly as they are in
-     the file. Click a row to see it after the import — one line under that row; clicking
-     another row moves the line there (state.axOpen = "alertId|rowIndex", one at a time).
-     logRun = the upload log's view of a failed automated run: no checkbox, no after-lines,
-     and the warning's "How to fix it" (what to change in the file) instead. */
+     the file (no Row column). A row that contradicts the site has a › — see siteRowsHTML.
+     logRun = the upload log's view of a failed automated run: no checkbox, and the
+     warning's "How to fix it" (what to change in the file) instead. */
   // A WARNING that's been acknowledged turns blue "Reviewed" — done, but not a green "success".
   var REVIEWED = { chip: 'Reviewed', icon: 'fa-circle-check', chipBg: '#1257B8', border: '#C6D9F0', headBg: '#F5F9FE', titleColor: '#1B2B3E' };
   function cellHTML(c, j) {
@@ -2291,25 +2302,28 @@
     var cls = o.c ? 'axt-' + o.c : (j === 0 ? 'axt-k' : '');
     return '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(o.v) + '</td>';
   }
-  /* Only rows where a value actually CHANGES are clickable (2026-10-09). Informational rows —
-     new accounts, skipped / blocked rows, dates saved as-is — have no before and after, so they
-     aren't. The selected row's change shows in its own section BELOW the "Rows from your file"
-     box, styled like the rows above, columns lined up so the admin compares by eye:
-       "After import" — just that row's line after the change (the box above is the before). */
+  /* Rows that contradict the site (2026-10-20, replaces the "After import" box): the row gets
+     a › chevron; opening it adds a "Currently on your site" line under it — the site's values
+     in the same columns, the ones that differ from the file in red — with an ⓘ that shows the
+     plain sentence on what that row means. Rows that don't contradict the site have no chevron.
+     skip = 1 drops the Row column (2026-10-20: no Row column on the page; the CSV keeps it). */
   function plainV(c) { return (c && typeof c === 'object') ? c.v : c; }
-  function hasChange(af) { for (var k in (af && af.set) || {}) { if (af.set[k].was) return true; } return false; }
-  function afterSectionHTML(L, i) {
-    // "After import" box (2026-10-09): just the selected row's line after the change — same
-    // columns as "Rows from your file" (the before), no extra rows.
-    var r = L.rows[i], af = L.afters[i], cells = cellHTML(r[0], 0);
-    for (var j = 1; j < r.length; j++) {
-      var o = (r[j] && typeof r[j] === 'object') ? r[j] : { v: r[j] }, ch = af.set[j];
-      cells += '<td' + (o.c === 'row' ? ' class="axt-row"' : '') + '>' + esc(ch ? ch.v : o.v) + '</td>';
-    }
-    return '<div class="ax-after">'
-      + '<div class="ax-note"><b>After import</b></div>'
-      + '<div class="axt-wrap"><table class="axt"><thead><tr>' + L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('')
-      + '<th></th></tr></thead><tbody><tr>' + cells + '<td></td></tr></tbody></table></div></div>';
+  function siteRowsHTML(r, recs, note, rid, skip, infoOpen) {
+    var span = r.length - skip + 1;   // chevron column + the data columns (the spacer column stays empty)
+    var out = '<tr class="axr-site axr-cap"><td></td><td colspan="' + span + '"><span class="site-cap">Currently on your site</span>'
+      + (note ? '<button class="site-info' + (infoOpen ? ' is-on' : '') + '" data-act="axInfo" data-arg="' + rid + '" aria-expanded="' + infoOpen + '" aria-label="View details">'
+        + '<i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>' : '') + '</td></tr>';
+    recs.forEach(function (rec) {
+      out += '<tr class="axr-site"><td></td>';
+      for (var j = skip; j < r.length; j++) {
+        var sv = rec[j] != null ? rec[j] : '', diff = sv !== '' && String(sv) !== String(plainV(r[j]));
+        var cls = [(r[j] && r[j].c === 'row') ? 'axt-row' : '', diff ? 'axt-site-diff' : ''].filter(Boolean).join(' ');   // usernames/codes stay mono
+        out += '<td' + (cls ? ' class="' + cls + '"' : '') + '>' + esc(sv) + '</td>';
+      }
+      out += '<td></td></tr>';
+    });
+    if (note && infoOpen) out += '<tr class="axr-site axr-note"><td></td><td colspan="' + span + '">' + esc(note) + '</td></tr>';
+    return out;
   }
 
   /* The details line (2026-10-09), one copy everywhere: why it matters, then what happens
@@ -2333,35 +2347,27 @@
     var line = detailsLine(a);   // same copy on Review, the failed-upload page and in the CSV
     if (line) body += '<div class="alert-sub">' + esc(line) + '</div>';
     if (a.list) {
-      var L = a.list, sel = -1, clickRows = [];
-      // The first changing row is selected as soon as details open (2026-10-12), so the
-      // "From your file" / "After import" pair shows without a click; clicking another
-      // blue row number moves it. Only rows whose values change are clickable.
-      var firstChg = -1; if (!logRun && L.afters) L.afters.forEach(function (af, i) { if (firstChg < 0 && hasChange(af)) firstChg = i; });
-      var cur = (state.axOpen && state.axOpen.indexOf(a.id + '|') === 0) ? state.axOpen : (firstChg >= 0 ? a.id + '|' + firstChg : null);
-      var th = L.head.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th>';
+      var L = a.list, skip = L.head[0] === 'Row' ? 1 : 0, nOpenable = 0;
+      var chev = !!(L.sites && L.sites.some(Boolean));   // chevron column only when a row contradicts the site
+      var th = (chev ? '<th class="axt-chev"></th>' : '') + L.head.slice(skip).map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') + '<th></th>';
       var tb = L.rows.map(function (r, i) {
-        var clickable = !logRun && !!L.afters && hasChange(L.afters[i]);
-        var rid = a.id + '|' + i, isSel = clickable && cur === rid;
-        if (clickable) clickRows.push(plainV(r[0]));
-        if (isSel) sel = i;
-        // Cue (2026-10-09): a clickable row's number is blue + underlined like a link — no button.
-        return '<tr' + (clickable ? ' class="axr' + (isSel ? ' is-open' : '') + '" data-act="axRow" data-arg="' + rid + '" role="button" tabindex="0" aria-pressed="' + isSel + '"' : '') + '>'
-          + r.map(function (c, j) { return j === 0 && clickable ? '<td class="axt-row axr-link">' + esc(plainV(c)) + '</td>' : cellHTML(c, j); }).join('')
-          + '<td></td></tr>';
+        var recs = L.sites && L.sites[i], rid = a.id + '|' + i, isOpen = !!(recs && state.axOpen[rid]);
+        var cells = r.slice(skip).map(function (c, j) { return cellHTML(c, j + skip); }).join('') + '<td></td>';
+        if (!chev) return '<tr>' + cells + '</tr>';
+        if (!recs) return '<tr><td class="axt-chev"></td>' + cells + '</tr>';
+        nOpenable++;
+        return '<tr class="axr' + (isOpen ? ' is-open' : '') + '" data-act="axRow" data-arg="' + rid + '" role="button" tabindex="0" aria-expanded="' + isOpen + '">'
+          + '<td class="axt-chev"><i class="fa-solid fa-chevron-right axr-chev" aria-hidden="true"></i></td>' + cells + '</tr>'
+          + (isOpen ? siteRowsHTML(r, recs, L.afters && L.afters[i] ? L.afters[i].note : '', rid, skip, !!state.axInfo[rid]) : '');
       }).join('');
-      // The hint names the rows to click: "Click Row 23 or Row 118 to see the change."
-      var hint = clickRows.length < 2 ? ''   // a single changing row is already shown below
-        : clickRows.length > 3 ? 'Click a blue row number to see its change.'
-        : 'Click ' + clickRows.slice(0, -1).join(', ') + ' or ' + clickRows[clickRows.length - 1] + ' to see its change.';
+      var hint = nOpenable ? (nOpenable === 1 ? 'Open the row to see what’s on your site now.' : 'Open a row to see what’s on your site now.') : '';
       body += '<div class="ax-list">'
         + '<div class="ax-note"><b>From your file</b>' + (hint ? '<span class="ax-hint">' + esc(hint) + '</span>' : '') + '</div>'
-        + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '"><table class="axt"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
+        + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '"><table class="axt' + (chev ? ' has-chev' : '') + '"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
         // Over 20: the table stops at 20 and the CSV has the rest (2026-10-09).
         + (L.total > L.rows.length ? '<div class="ax-more"><i class="fa-solid fa-file-csv" aria-hidden="true"></i><span>Showing the first ' + L.rows.length + ' rows. '
           + (logRun ? 'Download the file to see all of them.' : 'To see all of them, <button class="ax-more-link" data-act="dlCsv">download the CSV</button>.') + '</span></div>' : '')
-        + '</div>'
-        + (sel >= 0 ? afterSectionHTML(L, sel) : '');
+        + '</div>';
     }
     // No "What to do" box (removed 2026-10-09) — the line above the rows covers it; the CSV still lists it.
     // Blocked: questions go to an issue ticket in the Support Center (the "Submit a ticket" button was removed 2026-09-30).
@@ -3061,14 +3067,14 @@
       case 'recipAdd': addRecipient(); break;
       case 'recipCancel': setState({ recipEdit: false, recipErr: '', recipVal: '' }); break;
       case 'recipSave': setState({ recipients: state.recipDraft.slice(), recipEdit: false, recipErr: '', recipVal: '', recipSaved: true }); break;
-      /* Review: show one row after the import (clicking the open row closes it) */
-      case 'axRow': setState({ axOpen: arg }); break;   // one row is always shown; clicking another moves the After import line
+      /* Review: › opens/closes a row's "Currently on your site" line; ⓘ shows its details */
+      case 'axRow': { var ao = {}; for (var ak in state.axOpen) ao[ak] = state.axOpen[ak]; ao[arg] = !ao[arg]; setState({ axOpen: ao }); break; }
+      case 'axInfo': { var ai = {}; for (var ik in state.axInfo) ai[ik] = state.axInfo[ik]; ai[arg] = !ai[arg]; setState({ axInfo: ai }); break; }
       case 'toggleFail': setState({ notifyFail: !state.notifyFail }); break;
       case 'toggleSuccess': setState({ notifySuccess: !state.notifySuccess }); break;
       case 'toggleHelp': e.preventDefault(); setState({ openHelp: state.openHelp === arg ? null : arg }); break;
       case 'closeHelp': e.preventDefault(); setState({ openHelp: null }); break;
-      case 'toggleDisc': {   // (Hide details also closes that alert's after-line)
-        if (state.axOpen && state.axOpen.indexOf(arg.slice(3) + '|') === 0) state.axOpen = null;
+      case 'toggleDisc': {
         var d = {}; for (var dk in state.disc) d[dk] = state.disc[dk];
         d[arg] = !d[arg]; setState({ disc: d });
         break;
@@ -3121,11 +3127,11 @@
   /* --------------------------------------------- Design Toolbox flow-map host */
   function reviewFor(fileId, pu, pj) {
     setState({ tab: 'import', view: 'import', importFull: true, fileId: fileId, mapping: defaultMapping(fileId),
-      purgeUsers: !!pu, purgeJobs: !!pj, repSent: false, acks: {}, disc: {}, axOpen: null, step: 'review', validating: false });
+      purgeUsers: !!pu, purgeJobs: !!pj, repSent: false, acks: {}, disc: {}, axOpen: {}, axInfo: {}, step: 'review', validating: false });
   }
 
   function applyFlowState(id) {
-    state.confirmRun = false; state.csvOpen = false; state.toast = null; state.addMenu = false; state.axOpen = null; state.recipEdit = false;   // a flow-map jump never lands inside the Run pop-up
+    state.confirmRun = false; state.csvOpen = false; state.toast = null; state.addMenu = false; state.axOpen = {}; state.axInfo = {}; state.recipEdit = false;   // a flow-map jump never lands inside the Run pop-up
     switch (id) {
       case 'employees': setState({ view: 'employees', addEmp: false, importFull: false }); break;
       case 'add-menu': setState({ view: 'employees', addEmp: false, importFull: false, addMenu: true }); break;
@@ -3143,10 +3149,11 @@
       /* Manual import — one node per severity path */
       case 'review-info':     reviewFor('clean', false, false); break;  // INFO only — runs freely
       case 'review-confirm':  reviewFor('confirm', false, false);   // CONFIRM — name change + skipped rows (+ info);
-        setState({ disc: { 'ax:duplicate_user_in_system': true }, axOpen: 'duplicate_user_in_system|0' }); break;   // opened, first row's after-line showing
+        setState({ disc: { 'ax:removed_rows': true } }); break;   // skipped rows opened
       case 'review-blocked':  reviewFor('blast', true, true); break;  // V3 entry: every catalog message, deactivation setting ON
       case 'review-saml':     reviewFor('saml', false, false); break;   // BLOCKED — SAML mismatch
-      case 'review-escalate': reviewFor('dupes', false, false); break;  // BLOCKED ×2 + CONTACT VECTOR
+      case 'review-escalate': reviewFor('dupes', false, false);   // BLOCKED — duplicates
+        setState({ disc: { 'ax:potential_duplicate_user': true }, axOpen: { 'potential_duplicate_user|0': true } }); break;   // first row open on "Currently on your site"
       case 'done': setState({ view: 'employees', importFull: false, addEmp: false, fileId: null, step: 'upload',
         toast: { counts: summaryFor('confirm', true, true), keep: true, onLog: false } }); break;   // no auto-dismiss in the flow map
       /* Attention-needed step (V1 treatment = inline alert mode) */
@@ -3188,14 +3195,14 @@
         { id: 'review-blocked', flow: 'import', entry: true, x: 700, y: 60, step: 'Review · Copy review', name: 'Every catalog message', state: 'review-blocked',
           desc: 'V3 starts here, with the Import settings switch ON. Copy review: the first sample file raises every message from the Error & Notification Message Catalog (PMC 29424549907) most severe first, each tagged with its key, so the copy and tiers can be checked against Confluence.' },
         { id: 'review-saml', flow: 'import', x: 1030, y: 60, step: 'Review · Blocked', name: 'Blocked — unreadable dates', state: 'review-saml',
-          desc: 'broken_begin_date (BLOCKING — rows 14, 27, 88 in the table; the header tags Column H · BEGIN_DATE) + early_end_date (WARNING) + info.' },
+          desc: 'broken_begin_date (BLOCKING) + duplicate_email_in_upload (BLOCKING since 2026-10-20) + early_begin_date (WARNING) + info.' },
         { id: 'review-escalate', flow: 'import', x: 1360, y: 60, step: 'Review · Blocked', name: 'Blocked — duplicate accounts', state: 'review-escalate',
-          desc: 'duplicate_person (BLOCKING → Submit a ticket) + potential_duplicate_user (WARNING, each row shown as the duplicate account it would create) + duplicate_email_in_upload (WARNING).' },
+          desc: 'Duplicates are Blocked (2026-10-20): duplicate_person, potential_duplicate_user, duplicate_email_in_upload, non_identical_username. A row whose details contradict the site has a › chevron; opening it shows “Currently on your site” (username, first name, last name, with the values that differ in red), and its ⓘ shows the one-line details for that row. The first row opens here.' },
 
         { id: 'review-info', flow: 'import', x: 700, y: 420, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
         { id: 'review-confirm', flow: 'import', x: 1030, y: 420, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
-          desc: 'duplicate_user_in_system (name change, Jessyca → Jesse) + removed_rows + info. View details = one plain line on what the warning is about and how it changes things, then the rows exactly as uploaded. Only rows where a value changes are clickable — their row number is blue and underlined, the first one is selected as soon as details open, and the hint names the rest (“Click Row 23 or Row 118 to see its change.”). Below the box, an “After import” box shows the selected row’s line after the change. No “changes to compare” pill (2026-10-12). Informational rows (new accounts, skipped, blocked) aren’t clickable. Every WARNING is checked “I’ve reviewed this” before Run import unlocks. Run confirmation: Run stays blue; “Also download your current employee data” has a download icon on the left and the checkbox on the right.' },
+          desc: 'removed_rows (skipped rows) + missing_bldg (new location) + info. View details = one plain line on what the warning is about and how it changes things, then the rows exactly as uploaded (no Row column, 2026-10-20). Every WARNING is checked “I’ve reviewed this” before Run import unlocks. Run confirmation: Run stays blue; “Also download your current employee data” has a download icon on the left and the checkbox on the right.' },
         { id: 'log-auto', flow: 'import', x: 1030, y: 250, step: 'Log → Failed run', name: 'Automated upload failed — how to fix it', state: 'log-auto',
           desc: 'A failed automated upload can’t be reviewed or approved (2026-10-09) — they have to run it again. Its page says it didn’t run and nothing changed, then lists why: each Blocked / Warning alert opens to one line on what it’s about and how to fix the file, then the rows from the file. Side panel: Upload a corrected file, Download file, and the failure email list with “Edit the list”.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',
