@@ -920,6 +920,8 @@
   .axt tr.axr-site td.axt-row { color: #0C3F87; }
   .axt tr.axr-site td:first-child { border-left: 4px solid #1257B8; }
   .axt tr.axr-cap td { padding-top: 10px; padding-bottom: 0; }
+  .axt td.site-extra span + span { margin-left: 18px; }
+  .axt td.site-extra b { font-weight: 600; }
   .axt tr.axr-site.is-last td { padding-bottom: 11px; border-bottom: 1px solid #C6D9F0; }
   .site-cap { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .4px;
     text-transform: uppercase; color: #fff; background: #1257B8; border-radius: 4px; padding: 3px 8px; }
@@ -1267,6 +1269,8 @@
        site:  rows that contradict the site — what's on the site now for that row, as
               [{ columnIndex: value }] (more than one record when it matches several users).
               Those rows get a › chevron that opens "Currently on your site" (2026-10-20).
+              Columns follow the catalog's "Columns in view details modal" column; _extra =
+              [[label, value]] for site fields the file table has no column for.
        where: BLOCKING only — row(s) + column to look at, shown without expanding.
        fix:   BLOCKING only — one-line "what to do".
      ========================================================================== */
@@ -1370,12 +1374,14 @@
       why: 'These users are deactivated on your site but in this file.',
       will: 'They can sign in again, and their training history is still there. Check that they should be active again.',
       head: U3, rows: function (n) { return uRows(n, 610); },
+      site: function (r, i) { return [{ 1: un(r), 2: r[2], 3: r[3], _extra: [['Status', 'Deactivated'], ['Deactivated on', ['Jun 12, 2025', 'Aug 30, 2025', 'Jan 5, 2026'][i % 3]]] }]; },
       after: function (r, i) { return AF('ok', 'Reactivated. ' + nm(r) + ' has been deactivated since ' + ['Jun 12, 2025', 'Aug 30, 2025', 'Jan 5, 2026'][i % 3] + '. They can sign in again.'); } },
     password_changed: { tier: 'confirm', msg: 'Some users’ passwords will change.',
       why: 'This file has passwords that differ from the ones on your site.',
       will: 'If you import, these users sign in with the password from your file. Their current one stops working.',
       clean: 'To fix it, remove the password column, or leave the password blank for anyone whose password shouldn’t change.',
       note: function () { return 'Password values are never shown.'; }, head: U3, rows: function (n) { return uRows(n, 640); },
+      site: function (r) { return [{ 1: un(r), 2: r[2], 3: r[3] }]; },
       after: function (r) { return AF('warn', un(r) + '’s password changes to the one in your file. Their current password stops working.'); } },
     removed_rows: { tier: 'confirm', msg: 'Some rows will be skipped.',
       why: 'These rows are blank or missing a username, first name or last name.',
@@ -1394,12 +1400,14 @@
       will: 'Each code is added with the location name from your file. Check that it isn’t an existing location under a different code. To leave codes out, set that column to “Don’t import” when you map columns.',
       head: ['Row', 'Username', 'Building code', 'Location'],
       rows: function () { return [[R(3), M('cortiz'), M('B-114'), 'Westside Annex'], [R(52), M('dpatel'), M('B-120'), 'Early Learning Center']]; },
+      site: function (r, i) { return i === 1 ? [{ 2: '—', 3: r[3] }] : null; },
       after: function (r) { return AF('ok', 'Building code ' + r[2].v + ' is added to your site for ' + r[3] + '.'); } },
     missing_pos_codes: { tier: 'info', msg: 'Some position codes in this file are new to your site.',
       why: '',
       will: 'Each code is added with the position name from your file. Check that it isn’t an existing position under a different code. To leave codes out, set that column to “Don’t import” when you map columns.',
       head: ['Row', 'Username', 'Position code', 'Position'],
       rows: function () { return [[R(15), M('ahughes'), M('P-305'), 'Athletic Trainer']]; },
+      site: function (r) { return [{ 2: '—', 3: r[3] }]; },
       after: function (r) { return AF('ok', 'Position code ' + r[2].v + ' is added to your site for ' + r[3] + '.'); } },
     all_rows: { tier: 'info', msg: 'The rows in this file will be imported.' },   // total count only — no list, no details (catalog)
     all_bldg_codes: { tier: 'info', msg: 'This file includes building codes.',
@@ -1407,18 +1415,21 @@
       will: 'Each user is placed at the location for their code. Check that the codes match the ones on your site.',
       head: ['Row', 'Username', 'First name', 'Last name', 'Building code'],
       rows: function (n) { return people(n, 880).map(function (p, i) { return [R(2 + i), M(p.user), p.first, p.last, M('B-' + (101 + i))]; }); },
+      site: function (r, i) { return [{ 4: r[4].v, _extra: [['Location', LOC[i % LOC.length]]] }]; },
       after: function (r, i) { return AF('ok', un(r) + ' is placed at ' + LOC[i % LOC.length] + ' (' + r[4].v + ').'); } },
     all_pos_codes: { tier: 'info', msg: 'This file includes position codes.',
       why: '',
       will: 'Each user is given the position for their code. Check that the codes match the ones on your site.',
       head: ['Row', 'Username', 'First name', 'Last name', 'Position code'],
       rows: function (n) { return people(n, 890).map(function (p, i) { return [R(2 + i), M(p.user), p.first, p.last, M('P-' + (201 + i))]; }); },
+      site: function (r, i) { return [{ 4: r[4].v, _extra: [['Position', POS[i % POS.length]]] }]; },
       after: function (r, i) { return AF('ok', un(r) + ' is given the position ' + POS[i % POS.length] + ' (' + r[4].v + ').'); } },
     broken_begin_date: { tier: 'blocked', msg: 'Some rows have a begin date we can’t read.',
       why: 'Dates must be real and in YYYY-MM-DD format, not 13/45/2026 or “TBD”.',
       will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'Begin date'],
       rows: function () { return [[R(14), M('bhughes'), 'Brian', 'Hughes', { v: '13/45/2026', c: 'bad' }], [R(27), M('cortiz'), 'Chloe', 'Ortiz', { v: 'Sept 31', c: 'bad' }], [R(88), M('gmorris'), 'Grace', 'Morris', { v: 'TBD', c: 'bad' }]]; },
+      site: function (r, i) { return i < 2 ? [{ 1: un(r), 2: r[2], 3: r[3], 4: ['2019-08-15', '2021-01-04'][i] }] : null; },
       after: function (r) { return AF('block', 'Can’t be imported. “' + r[4].v + '” isn’t a date we can read. Use one format, like 2026-09-01.', { 4: NI() }); },
       fix: 'To fix it, enter each begin date as YYYY-MM-DD (like 2026-09-01) or leave it blank, then upload again.' },
     broken_end_date: { tier: 'blocked', msg: 'Some rows have an end date we can’t read.',
@@ -1426,6 +1437,7 @@
       will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'End date'],
       rows: function () { return [[R(40), M('fevans'), 'Felix', 'Evans', { v: '2026-31-12', c: 'bad' }]]; },
+      site: function (r) { return [{ 1: un(r), 2: r[2], 3: r[3], 4: '—' }]; },
       after: function (r) { return AF('block', 'Can’t be imported. “' + r[4].v + '” isn’t a date we can read. Use one format, like 2026-12-31.', { 4: NI() }); },
       fix: 'To fix it, enter each end date as YYYY-MM-DD (like 2026-12-31) or leave it blank, then upload again.' },
     early_begin_date: { tier: 'confirm', msg: 'Some rows have a begin date before 1940.',
@@ -1434,6 +1446,7 @@
       clean: 'To fix it, correct the year.',
       head: ['Row', 'Username', 'First name', 'Last name', 'Begin date'],
       rows: function () { return [[R(52), M('tyoung'), 'Tara', 'Young', '01/01/1902'], [R(97), M('wbrooks'), 'Will', 'Brooks', '08/15/1924']]; },
+      site: function (r, i) { return i === 0 ? [{ 1: un(r), 2: r[2], 3: r[3], 4: '01/01/2002' }] : null; },
       after: function (r) { return AF('warn', un(r) + '’s begin date is saved as ' + r[4] + '. If that’s a typo, fix it in your file first.'); } },
     early_end_date: { tier: 'confirm', msg: 'Some rows have an end date before 1940.',
       why: 'That’s usually a typo, and it can change which training users are assigned.',
@@ -1441,6 +1454,7 @@
       clean: 'To fix it, correct the year.',
       head: ['Row', 'Username', 'First name', 'Last name', 'End date'],
       rows: function () { return [[R(63), M('ydunn'), 'Yusuf', 'Dunn', '06/15/1901']]; },
+      site: function (r) { return [{ 1: un(r), 2: r[2], 3: r[3], 4: '—' }]; },
       after: function (r) { return AF('warn', un(r) + '’s end date is saved as ' + r[4] + '. If that’s a typo, fix it in your file first.'); } },
     unknown_attribute: { tier: 'confirm', msg: 'Some rows have a custom field value your site doesn’t accept.',
       why: 'Custom fields only accept certain values, and these aren’t among them.',
@@ -1448,6 +1462,7 @@
       clean: 'To fix it, change the value to one your site accepts.',
       head: ['Row', 'Username', 'First name', 'Last name', 'Custom field', 'Value'],
       rows: function () { return [[R(19), M('kjones'), 'Kara', 'Jones', 'Grade level', { v: 'Grade 13', c: 'bad' }], [R(45), M('nwalsh'), 'Nora', 'Walsh', 'Department', { v: 'Athletix', c: 'bad' }]]; },
+      site: function (r, i) { return [{ 1: un(r), 2: r[2], 3: r[3], 4: r[4], 5: ['12', 'Athletics'][i] }]; },
       after: function (r, i) { return AF('warn', r[4] + ' isn’t updated for ' + un(r) + '. “' + r[5].v + '” isn’t an allowed value. Allowed: ' + ['K, 1–12', 'Academics, Athletics, Facilities, Transportation'][i] + '.', { 5: W('Not updated') }); } },
 
     /* 2. Building & Position code / name conflicts */
@@ -1457,6 +1472,7 @@
       clean: 'To fix it, use one name per building code, or set the building code column to “Don’t import”.',
       head: ['Row', 'Username', 'Building code', 'Location'],
       rows: function () { return [[R(8), M('aadams'), M('B-102'), 'Lincoln Elementary'], [R(33), M('bchen'), M('B-102'), 'Lincoln Elem.']]; },
+      site: function () { return [{ 2: 'B-102', 3: 'Lincoln Elementary' }]; },
       after: function (r, i) { return i === 0
         ? AF('warn', 'B-102 ends up named “Lincoln Elem.” (the name on row 33), and ' + un(r) + ' is placed there.', { 3: W('Lincoln Elem.', 'Lincoln Elementary') })
         : AF('warn', 'B-102 is named “Lincoln Elem.”, and ' + un(r) + ' is placed there.'); } },
@@ -1466,6 +1482,7 @@
       clean: 'To fix it, use one building code per location, or set the building code column to “Don’t import”.',
       head: ['Row', 'Username', 'Building code', 'Location'],
       rows: function () { return [[R(12), M('cdiaz'), M('B-104'), 'Kennedy Middle'], [R(90), M('devans'), M('B-140'), 'Kennedy Middle']]; },
+      site: function () { return [{ 2: 'B-104', 3: 'Kennedy Middle' }]; },
       after: function (r, i) { return i === 0
         ? AF('warn', un(r) + ' is placed at Kennedy Middle (B-104).')
         : AF('warn', 'A second location named Kennedy Middle is created with code B-140, and ' + un(r) + ' is placed there.'); } },
@@ -1475,6 +1492,7 @@
       clean: 'To fix it, use one name per position code, or set the position code column to “Don’t import”.',
       head: ['Row', 'Username', 'Position code', 'Position'],
       rows: function () { return [[R(5), M('efoster'), M('P-210'), 'Counselor'], [R(61), M('fgarcia'), M('P-210'), 'School Counselor']]; },
+      site: function () { return [{ 2: 'P-210', 3: 'Counselor' }]; },
       after: function (r, i) { return i === 0
         ? AF('warn', 'P-210 ends up named “School Counselor” (the name on row 61), and ' + un(r) + ' is given it.', { 3: W('School Counselor', 'Counselor') })
         : AF('warn', 'P-210 is named “School Counselor”, and ' + un(r) + ' is given it.'); } },
@@ -1484,6 +1502,7 @@
       clean: 'To fix it, use one position code per position, or set the position code column to “Don’t import”.',
       head: ['Row', 'Username', 'Position code', 'Position'],
       rows: function () { return [[R(44), M('ghughes'), M('P-401'), 'Bus Driver'], [R(102), M('hito'), M('P-410'), 'Bus Driver']]; },
+      site: function () { return [{ 2: 'P-401', 3: 'Bus Driver' }]; },
       after: function (r, i) { return i === 0
         ? AF('warn', un(r) + ' is given Bus Driver (P-401).')
         : AF('warn', 'A second position named Bus Driver is created with code P-410, and ' + un(r) + ' is given it.'); } },
@@ -1510,6 +1529,7 @@
       will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'Email'],
       rows: function () { return [[R(34), M('jsmith'), 'John', 'Smith', 'jsmith@ridgewood.k12.us'], [R(91), M('john.smith'), 'John', 'Smith', 'jsmith@ridgewood.k12.us']]; },
+      site: function () { return [{ 1: 'jsmith', 2: 'John', 3: 'Smith', 4: 'jsmith@ridgewood.k12.us' }]; },
       after: function (r, i) { return AF('block', i === 0
         ? 'Can’t be imported. jsmith and john.smith (row 91) use the same email.'
         : 'Can’t be imported. john.smith uses the same email as jsmith (row 34).'); },
@@ -1518,6 +1538,7 @@
       why: 'Usernames must be unique, and we can’t tell which name is right. If it’s one user with two jobs, the names should match on every row.',
       will: '',
       head: U3, rows: function () { return [[R(22), M('achen'), 'Amy', 'Chen'], [R(130), M('achen'), 'Andrew', 'Chen']]; },
+      site: function () { return [{ 1: 'achen', 2: 'Amy', 3: 'Chen' }]; },
       after: function (r, i) { return AF('block', 'Can’t be imported. achen is used for Amy Chen (row 22) and Andrew Chen (row 130).', { 1: NI() }); },
       fix: 'To fix it, give each user their own username, or make the names match if it’s the same user, then upload again.' },
     duplicate_user_in_system: { tier: 'blocked', msg: 'Some usernames in this file belong to someone with a different name on your site.',   // BLOCKED (designer, 2026-10-20: duplicates are errors; Confluence still says WARNING)
@@ -1531,6 +1552,7 @@
       why: 'That can be two different users, or one user with two usernames.',
       will: '',
       head: U3, rows: function () { return [[R(9), M('mlopez'), 'Maria', 'Lopez'], [R(150), M('mlopez2'), 'Maria', 'Lopez']]; },
+      site: function () { return [{ 1: 'mlopez', 2: 'Maria', 3: 'Lopez' }]; },
       after: function (r, i) { return AF('block', i === 0
         ? 'Can’t be imported. Maria Lopez is also on row 150 as mlopez2.'
         : 'Can’t be imported. Maria Lopez is also on row 9 as mlopez.'); },
@@ -1547,6 +1569,7 @@
       will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'External Unique ID'],
       rows: function () { return [[R(16), M('dbaker'), 'Dana', 'Baker', M('E-004417')], [R(77), M('dwhitfield'), 'Dana', 'Whitfield', M('E-004417')]]; },
+      site: function () { return [{ 1: 'dbaker', 2: 'Dana', 3: 'Baker', 4: 'E-004417' }]; },
       after: function (r, i) { return AF('block', i === 0
         ? 'Can’t be imported. E-004417 is also used for dwhitfield (row 77).'
         : 'Can’t be imported. E-004417 is also used for dbaker (row 16).'); },
@@ -1564,6 +1587,7 @@
       will: '',
       head: ['Row', 'Username', 'First name', 'Last name', 'External Unique ID'],
       rows: function () { return [[R(30), M('tallen'), 'Tom', 'Allen', M('E-001873')], [R(118), M('tallen2'), 'Tom', 'Allen', M('E-003305')]]; },
+      site: function () { return [{ 1: 'tallen', 2: 'Tom', 3: 'Allen', 4: 'E-001873' }]; },
       after: function (r, i) { return AF('block', i === 0
         ? 'Can’t be imported. Tom Allen is also on row 118 with E-003305.'
         : 'Can’t be imported. Tom Allen is also on row 30 with E-001873.'); },
@@ -1610,7 +1634,7 @@
       why: 'We can’t tell whose account to update.',
       will: '',
       head: U3, rows: function () { return [[R(48), M('cdelgado'), 'Carlos', 'Delgado']]; },
-      site: function () { return [{ 1: 'cdelgado', 2: 'Carlos', 3: 'Delgado' }, { 1: 'cdelgado', 2: 'Carla', 3: 'Delgado' }]; },
+      site: function () { return [{ 1: 'cdelgado', 2: 'Carlos', 3: 'Delgado', _extra: [['Email', 'cdelgado@ridgewood.k12.us']] }, { 1: 'cdelgado', 2: 'Carla', 3: 'Delgado', _extra: [['Email', 'carla.delgado@ridgewood.k12.us']] }]; },
       after: function () { return AF('block', 'Can’t be imported. Two active users on your site use cdelgado: Carlos Delgado (Lincoln Elementary) and Carla Delgado (District Office).', { 1: NI() }); },
       fix: 'To fix it, change the username to the right user’s or delete the row, then upload again.', support: true },
     sync_error: { tier: 'blocked', msg: 'Something went wrong while checking your file.',
@@ -2308,14 +2332,19 @@
   function plainV(c) { return (c && typeof c === 'object') ? c.v : c; }
   function siteRowsHTML(r, recs, skip) {
     var out = '<tr class="axr-site axr-cap"><td colspan="' + (r.length - skip + 1) + '"><span class="site-cap">Currently on your site</span></td></tr>';
-    recs.forEach(function (rec, k) {
-      out += '<tr class="axr-site' + (k === recs.length - 1 ? ' is-last' : '') + '">';
+    var rows = [];
+    recs.forEach(function (rec) {
+      var tr = '';
       for (var j = skip; j < r.length; j++) {
         var sv = rec[j] != null ? rec[j] : '';
-        out += '<td' + ((r[j] && r[j].c === 'row') ? ' class="axt-row"' : '') + '>' + esc(sv) + '</td>';   // usernames/codes stay mono
+        tr += '<td' + ((r[j] && r[j].c === 'row') ? ' class="axt-row"' : '') + '>' + esc(sv) + '</td>';   // usernames/codes stay mono
       }
-      out += '<td></td></tr>';
+      rows.push(tr + '<td></td>');
+      // Site fields with no column in the file table (e.g. Status, Deactivated on) — one line under the values.
+      if (rec._extra) rows.push('<td colspan="' + (r.length - skip + 1) + '" class="site-extra">'
+        + rec._extra.map(function (x) { return '<span>' + esc(x[0]) + ': <b>' + esc(x[1]) + '</b></span>'; }).join('') + '</td>');
     });
+    rows.forEach(function (tr, k) { out += '<tr class="axr-site' + (k === rows.length - 1 ? ' is-last' : '') + '">' + tr + '</tr>'; });
     return out;
   }
 
