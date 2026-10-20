@@ -387,7 +387,7 @@
   /* scannable table (scrolls for large sets instead of a 150-row wall) */
   .axt-wrap { max-height: 220px; overflow: auto; border: 1px solid #EDF1F6; border-radius: 8px; }
   .axt { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .axt thead th { position: sticky; top: 0; background: #F8FAFC; text-align: left; font-size: 10.5px; font-weight: 700;
+  .axt thead th { position: sticky; top: 0; z-index: 2; background: #F8FAFC; text-align: left; font-size: 10.5px; font-weight: 700;
     letter-spacing: .4px; text-transform: uppercase; color: #8CA0B4; padding: 8px 12px; border-bottom: 1px solid #EDF1F6; }
   .axt td { padding: 8px 12px; border-bottom: 1px solid #F3F6FA; color: #3D4F63; vertical-align: middle; }
   .axt tbody tr:last-child td { border-bottom: 0; }
@@ -2434,7 +2434,7 @@
       }).join('');
       body += '<div class="ax-list">'
         + '<div class="ax-note"><b>From your file</b></div>'
-        + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '"><table class="axt' + (info ? ' has-chev' : '') + '"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
+        + '<div class="axt-wrap' + (L.rows.length > 8 ? ' is-long' : '') + '" data-ax="' + a.id + '"><table class="axt' + (info ? ' has-chev' : '') + '"><thead><tr>' + th + '</tr></thead><tbody>' + tb + '</tbody></table></div>'
         // Over 20: the table stops at 20 and the CSV has the rest (2026-10-09).
         + (L.total > L.rows.length ? '<div class="ax-more"><i class="fa-solid fa-file-csv" aria-hidden="true"></i><span>Showing the first ' + L.rows.length + ' rows. '
           + (logRun ? 'Download the file to see all of them.' : 'To see all of them, <button class="ax-more-link" data-act="dlCsv">download the CSV</button>.') + '</span></div>' : '')
@@ -3002,6 +3002,9 @@
     // view back to the top. Navigation that WANTS the top still calls scrollTop()
     // after setState, which overrides this restore.
     var _m = $app.querySelector('.scroll'), _mTop = _m ? _m.scrollTop : 0;
+    // Each alert's table box keeps its own scroll position too (2026-10-20) — opening a row's
+    // drawer or pop-up used to snap the box back and slide the row under the sticky header.
+    var _wraps = {}; $app.querySelectorAll('.axt-wrap[data-ax]').forEach(function (w) { _wraps[w.getAttribute('data-ax')] = w.scrollTop; });
     // Only replay entrance animations when the screen actually changes (new view,
     // step, or an overlay/modal opening). Same-screen clicks re-render silently.
     var _screen = [state.view, state.importFull, state.step, state.fileModal, state.addEmp, state.confirmRun].join('|');
@@ -3037,6 +3040,18 @@
 
     // Restore the captured scroll positions onto the freshly-built containers.
     var _m2 = $app.querySelector('.scroll'); if (_m2) _m2.scrollTop = _mTop;
+    $app.querySelectorAll('.axt-wrap[data-ax]').forEach(function (w) { var t = _wraps[w.getAttribute('data-ax')]; if (t) w.scrollTop = t; });
+    if (render._reveal) { revealRow(render._reveal); render._reveal = null; }
+  }
+
+  function revealRow(rid) {
+    var tr = $app.querySelector('tr.axr[data-arg="' + rid + '"]'), wrap = tr && tr.closest('.axt-wrap');
+    if (!wrap) return;
+    var head = wrap.querySelector('thead'), hh = head ? head.offsetHeight : 0, wTop = wrap.getBoundingClientRect().top;
+    var last = tr; while (last.nextElementSibling && last.nextElementSibling.classList.contains('axr-site')) last = last.nextElementSibling;
+    var top = tr.getBoundingClientRect().top - wTop + wrap.scrollTop, bottom = last.getBoundingClientRect().bottom - wTop + wrap.scrollTop;
+    if (top - hh < wrap.scrollTop) wrap.scrollTop = top - hh;
+    else if (bottom > wrap.scrollTop + wrap.clientHeight) wrap.scrollTop = Math.min(top - hh, bottom - wrap.clientHeight);
   }
 
   /* -------------------------------------------------------------- interaction */
