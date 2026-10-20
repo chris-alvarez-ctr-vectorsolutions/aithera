@@ -28,8 +28,8 @@ in `MODEL.md`; 82 flow-map states, all rendering clean. Passes 1–5 are
 committed as `6034cf33`, passes 6a and 7 as `bb924036`, Pass 8 (spec edits +
 the Coverage tab) as `0b98453a`, Pass 9 stage 1 (Compose) as `5461be36`,
 stage 2 (output rehearsal) as `40f28c08`, stage 3 (the preview follows the
-edges) as `a97c46fe`, and Pass 10 (the Outputs layer at lower density) is
-the commit after it.
+edges) as `a97c46fe`, Pass 10 (the Outputs layer at lower density) as
+`86a303ec`, and Pass 11 (creating an output) is the commit after it.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -138,6 +138,12 @@ the commit after it.
   note; `B.outReason` unfolds the reasoning. `outNext(o)` derives the single
   next step from the first open gate; `outStatusLine(o)` the status words.
   Rationale copy lives in `OUT_NOTES`.
+- **Creation (Pass 11):** `B.newOut` is the draft (`newOutDraft`),
+  `newOutputHTML` the modal, `createOutput` pushes the output and composes
+  v1. `o.acts` is derived by `syncActs(o)` after every compose, accept, pin
+  or kind change — never set by hand. `setKind` handles Course ↔ Experience;
+  the format is a plain property whose change the signature catches.
+  `B.addMenu` is the open "Add to an output" menu on the Activities layer.
 
 **Next:** either carry the Pass 10 treatment (index + tabs + ⓘ rationale)
 to Brief, Information Set and Activities, or the job-aid proof — a static
@@ -382,6 +388,32 @@ Below the map on an output's Structure view (G17).
   it.
 - A Course gets the same card with one row and nothing to choose.
 - Five more flow-map states on lane I.
+
+## What the mock shows — Pass 11, creating an output (2026-10-20)
+
+The missing half of Compose: outputs were seeded, and nothing created one.
+
+- **New output** on the Outputs index. The composition brief *is* the
+  creation: name, kind (Course or Experience), format (which sets the bar),
+  the default path picked from generated activities, rules in prose for an
+  Experience, and the completion rule. **Compose** opens the new output on
+  its Structure tab with the first proposal as v1, the reasoning unfolded and
+  anything the composer couldn't repair flagged.
+- **The activity set is derived from the structure.** An activity is in an
+  output because a node refers to it, so adding to the path, or writing a
+  rule that names an activity, is what adds it. The old separate list is
+  gone, which removes the mismatch it would have created between the
+  threshold and the paths.
+- **Kind and format are editable on Overview.** Changing the format changes
+  the bar: the threshold recomputes, and the sign-off and any handoff clear
+  (the pin now records the format). Changing kind to Course drops the rules
+  and pins and recomposes as one path; to Experience lets rules route.
+- **From the Activities layer**, each generated activity's card has *Add to
+  an output*: pick an output and it is appended to that output's default
+  path with a proposal waiting in the drawer, or start a new output with it
+  as the first step.
+- Four flow-map states on lane J. Batch variants and output templates are
+  deliberately out (Q7).
 
 ## What the mock shows — Pass 10, the Outputs layer at lower density (2026-10-19)
 
@@ -638,5 +670,8 @@ Everything is in-memory; reload resets.
 10. ~~**Pass 10** — the Outputs layer at lower density: index, four tabs,
     rationale behind ⓘ~~ — built 2026-10-19. Candidate: the same treatment
     for Brief, Information Set and Activities.
-11. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
+11. ~~**Pass 11** — creating an output; the activity set derived from the
+    structure; kind and format editable; add-to-output from Activities~~ —
+    built 2026-10-20.
+12. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.

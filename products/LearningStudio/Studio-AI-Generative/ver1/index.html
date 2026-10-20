@@ -998,6 +998,12 @@ body.mod-scenario #scn { display: block; }
 .odrawer-head { display: flex; gap: 8px; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
 .odrawer-body { flex: 1; overflow: auto; padding: 16px; }
 .odrawer .sd span:nth-child(2) { font-size: 11.5px; }
+/* Pass 11 — new output, kind/format, add-to-output */
+.ngrid { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 14px; }
+.npick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.inp.inl { width: auto; padding: 3px 8px; font-size: 12px; display: inline-block; }
+.in-out .ptadd .vmenu { min-width: 300px; }
+@media (max-width: 900px) { .ngrid { grid-template-columns: 1fr; } }
 /* stage 3 — the preview's path */
 .ptr { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid #2a3240; font-size: 13px; color: #dfe6ef; }
 .ptr .num { width: 20px; height: 20px; border-radius: 50%; background: #2a3240; color: #dfe6ef; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 1px; }
@@ -3165,7 +3171,7 @@ function approvalChip(r) {
 const outById = id => B.outputs.find(o => o.id === id);
 const shortTitle = id => planRow(id).title.replace(/:.*$/, '');
 const outPts = o => { const ids = [...new Set(o.acts.flatMap(a => Object.keys(planRow(a).points)))].sort(); return Object.fromEntries(ids.map(pid => { const p = pointOf(pid); return [pid, !p ? 'removed' : p.lifecycle === 'archived' ? 'archived' : 'v' + p.version]; })); };
-const outSig = o => ({ brief: B.version, struct: structOf(o).version, gens: Object.fromEntries(o.acts.map(a => [a, rowGen(planRow(a))])), pts: outPts(o) });
+const outSig = o => ({ brief: B.version, struct: structOf(o).version, format: o.format, gens: Object.fromEntries(o.acts.map(a => [a, rowGen(planRow(a))])), pts: outPts(o) });
 const sigKey = o => JSON.stringify(outSig(o));
 const pinText = pin => `brief v${pin.brief} · structure v${pin.struct ?? 1} · ` + Object.entries(pin.gens).map(([a, g]) => `${shortTitle(a)} g${g}`).join(' · ') + (pin.pts ? ' · points ' + Object.entries(pin.pts).map(([pid, v]) => `${(pointOf(pid) || { short: pid }).short} ${v}`).join(', ') : '');
 
@@ -3173,9 +3179,11 @@ const pinText = pin => `brief v${pin.brief} · structure v${pin.struct ?? 1} · 
 function publishState(o) {
   if (!o.pin) return { state: 'none', why: [] };
   if (o.pin.struct == null) o.pin.struct = 1;              // seeded pins predate structures
+  if (o.pin.format == null) o.pin.format = o.format;
   const cur = outSig(o), why = [];
   if (cur.brief !== o.pin.brief) why.push(`Brief v${o.pin.brief} → v${cur.brief}`);
   if (cur.struct !== o.pin.struct) why.push(`Structure v${o.pin.struct} → v${cur.struct}`);
+  if (cur.format !== o.pin.format) why.push(`Format ${o.pin.format} → ${cur.format}`);
   o.acts.forEach(a => { if (cur.gens[a] !== o.pin.gens[a]) why.push(`${planRow(a).title}: generation ${o.pin.gens[a] ?? '—'} → ${cur.gens[a]}`); });
   Object.keys({ ...cur.pts, ...(o.pin.pts || {}) }).forEach(pid => { const was = (o.pin.pts || {})[pid], now = cur.pts[pid]; if (was !== now) why.push(`${(pointOf(pid) || { short: pid }).short}: ${was || 'not claimed'} → ${now || 'no longer claimed'}`); });
   return why.length ? { state: 'cleared', why } : { state: 'approved', why };
@@ -3239,7 +3247,7 @@ function outputGates(o) {
 
 function renderOutputs() {
   const v = $('#outputsView'), st = v.scrollTop, o = B.outOpen && outById(B.outOpen);
-  v.innerHTML = (o ? outputDetailHTML(o) : outputIndexHTML()) + (B.pubDialog ? pubDialogHTML(outById(B.pubDialog)) : '');
+  v.innerHTML = (o ? outputDetailHTML(o) : outputIndexHTML()) + (B.pubDialog ? pubDialogHTML(outById(B.pubDialog)) : '') + (B.newOut ? newOutputHTML() : '');
   if (o && !B.outScrollTop) { v.scrollTop = 0; B.outScrollTop = true; } else v.scrollTop = st;
 }
 function actRowHTML(r) {
@@ -3296,8 +3304,45 @@ function outStatusLine(o) {
 const statusHTML2 = s => s.parts.map((p, i) => `<span class="${i === 0 ? (s.warn ? 'warn' : s.ok ? 'ok' : 'muted') : ''}">${esc(p)}</span>`).join('<span class="sep">·</span>');
 function outputIndexHTML() {
   return `<div class="out-wrap"><div class="bhead"><div><div class="eyebrow">Forklift Safety &amp; Operation</div><h1>Outputs ${infoBtn('index')}</h1>
-      <div class="sub" style="margin:0">What gets delivered, and what each one needs next.</div>${infoNote('index')}</div></div>
+      <div class="sub" style="margin:0">What gets delivered, and what each one needs next.</div>${infoNote('index')}</div>
+      <div class="goal"><button class="btn primary" data-onew><i class="fa-solid fa-plus"></i>New output</button></div></div>
     <div class="oindex">${B.outputs.map(outRowHTML).join('')}</div></div>`;
+}
+/* ── Pass 11 — creating an output. The composition brief IS the creation: name it, pick kind and format (the bar),
+   choose the default path, write rules, state completion — and the composer's first proposal is the output. ── */
+const newOutDraft = (path = []) => ({ name: '', kind: 'Experience', format: 'Full course', path: [...path], rules: [], completion: 'Every point at its bar.' });
+function newOutputHTML() {
+  const n = B.newOut, isExp = n.kind === 'Experience', free = B.plan.filter(r => rowGen(r) && !n.path.includes(r.id)), can = n.name.trim() && n.path.length;
+  return `<div class="modal-back"><div class="modal" role="dialog" aria-label="New output">
+    <div class="modal-head"><h2>New output</h2><button class="icon-btn" data-nclose title="Cancel"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="ngrid">
+        <div><div class="dl">Name</div><input class="inp" data-nfield="name" value="${esc(n.name)}" placeholder="e.g. Forklift Onboarding"></div>
+        <div><div class="dl">Kind</div><div class="seg">${['Course', 'Experience'].map(k => `<button class="${n.kind === k ? 'on' : ''}" data-nkind="${k}">${k}</button>`).join('')}</div><div class="am" style="margin-top:4px">${isExp ? 'Traversal generated from the brief — rules route by outcome.' : 'A fixed sequence — one path.'}</div></div>
+        <div><div class="dl">Format</div><select class="inp" data-nfield="format">${Object.keys(FORMATS).map(k => `<option ${k === n.format ? 'selected' : ''}>${k}</option>`).join('')}</select><div class="am" style="margin-top:4px">Sets the bar: ${FORMATS[n.format].desc}.</div></div>
+      </div>
+      <div class="dl" style="margin-top:16px">Default path <span class="am" style="text-transform:none;letter-spacing:0;font-weight:600">· the spine every learner is expected to follow</span></div>
+      ${n.path.map((a, i) => `<div class="cp-row"><span class="num">${i + 1}</span><i class="fa-regular ${planRow(a).icon}" style="color:var(--muted)"></i><span class="grow">${esc(planRow(a).title)}</span><button class="icon-btn" data-nmove="${i}|-1" ${i === 0 ? 'disabled' : ''}><i class="fa-solid fa-chevron-up"></i></button><button class="icon-btn" data-nmove="${i}|1" ${i === n.path.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-down"></i></button><button class="icon-btn" data-nrem="${i}"><i class="fa-regular fa-trash"></i></button></div>`).join('') || '<div class="am">Nothing yet — add activities below.</div>'}
+      ${free.length ? `<div class="npick">${free.map(r => `<button class="btn sm" data-nadd="${r.id}"><i class="fa-solid fa-plus"></i>${esc(shortTitle(r.id))} <span class="am">· ${r.modality}</span></button>`).join('')}</div>` : ''}
+      ${isExp ? `<div class="dl" style="margin-top:16px">Rules <span class="am" style="text-transform:none;letter-spacing:0;font-weight:600">· by outcome, in prose</span></div>
+        ${n.rules.map((r, i) => `<div class="cr-row"><span class="num">${i + 1}</span><span class="grow">${esc(r)}</span><button class="icon-btn" data-nrrem="${i}"><i class="fa-regular fa-trash"></i></button></div>`).join('')}
+        <div class="cadd" style="margin-top:6px"><input class="inp" id="nRuleInput" placeholder="e.g. Anyone who fails the check repeats the inspection card, then retries the check."><button class="btn sm" data-nradd><i class="fa-solid fa-plus"></i>Add</button></div>` : ''}
+      <div class="dl" style="margin-top:16px">Completion</div><input class="inp" data-nfield="completion" value="${esc(n.completion)}">
+      <div class="am" style="margin-top:12px">The composer draws the structure from this. Every connection will carry its reason; activities that rules name are brought in automatically.</div>
+    </div>
+    <div class="modal-foot"><button class="btn" data-nclose>Cancel</button><div class="spacer"></div><button class="btn primary" data-ngo ${can ? '' : 'disabled'}><i class="fa-solid fa-sparkles"></i>Compose</button></div></div></div>`;
+}
+function createOutput() {
+  const n = B.newOut, slug = n.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'output';
+  const o = { id: `out-${slug}-${++B.vseq}`, name: n.name.trim(), kind: n.kind, format: n.format, acts: [...n.path], pin: null, pins: [],
+    comp: { path: [...n.path], rules: n.kind === 'Experience' ? [...n.rules] : [], completion: n.completion.trim() || 'Every point at its bar.' } };
+  B.outputs.push(o); structOf(o);
+  o.structLog = [{ v: 1, on: 'Today', note: `Composed from the brief${o.comp.rules.length ? ` · ${o.comp.rules.length} rule${o.comp.rules.length === 1 ? '' : 's'}` : ''}` }];
+  B.newOut = null; B.outReason = true;
+  openOutput(o.id, 'structure');
+  const st = o.structure;
+  toast(`${esc(o.name)} composed · ${reachOf(o).paths.length} path${reachOf(o).paths.length === 1 ? '' : 's'}${st.shorts.length ? ` · <span style="color:var(--danger)">${st.shorts.length} short</span>` : ''}${st.unmapped.length ? ` · ${st.unmapped.length} unmapped` : ''}`);
+  return o;
 }
 function outRowHTML(o) {
   const s = outStatusLine(o), nx = outNext(o);
@@ -3343,6 +3388,16 @@ $('#outputsView').addEventListener('click', e => {
   if (d.ostruct) return openOutput(d.ostruct, 'structure');
   if (d.orehearse) return openOutput(d.orehearse, 'rehearsal');
   if (d.oopenout) return openOutput(d.oopenout, 'overview');
+  // ── Pass 11 — new output
+  if (d.onew !== undefined) { B.newOut = newOutDraft(); return renderOutputs(); }
+  if (d.nclose !== undefined) { B.newOut = null; return renderOutputs(); }
+  if (d.nkind) { B.newOut.kind = d.nkind; return renderOutputs(); }
+  if (d.nadd) { B.newOut.path.push(d.nadd); return renderOutputs(); }
+  if (d.nrem) { B.newOut.path.splice(+d.nrem, 1); return renderOutputs(); }
+  if (d.nmove) { const [i, dir] = d.nmove.split('|'), p = B.newOut.path, a = +i, b = a + (+dir); if (b < 0 || b >= p.length) return; [p[a], p[b]] = [p[b], p[a]]; return renderOutputs(); }
+  if (d.nrrem) { B.newOut.rules.splice(+d.nrrem, 1); return renderOutputs(); }
+  if (d.nradd !== undefined) { const inp = $('#nRuleInput'), v = inp && inp.value.trim(); if (v) { B.newOut.rules.push(v); renderOutputs(); } return; }
+  if (d.ngo !== undefined) { if (t.disabled) return; createOutput(); return; }
   if (d.otab) { B.outTab = d.otab; B.outSel = null; B.outInfo = null; return renderOutputs(); }
   if (d.oedit !== undefined) { B.outEdit = true; return renderOutputs(); }
   if (d.oclose !== undefined) { B.outEdit = false; return renderOutputs(); }
@@ -3389,12 +3444,27 @@ $('#outputsView').addEventListener('click', e => {
 });
 
 $('#outputsView').addEventListener('change', e => {
-  const d = e.target.dataset, o = B.outOpen && outById(B.outOpen); if (!o) return;
+  const d = e.target.dataset, o = B.outOpen && outById(B.outOpen);
+  if (d.nfield && B.newOut) { B.newOut[d.nfield] = e.target.value; if (d.nfield !== 'name') renderOutputs(); else { const go = $('[data-ngo]'); if (go) go.disabled = !(e.target.value.trim() && B.newOut.path.length); } return; }
+  if (!o) return;
   if (d.cpadd !== undefined && e.target.value) { o.draft.path.push(e.target.value); renderOutputs(); }
   if (d.ccomp !== undefined) { o.draft.completion = e.target.value; renderOutputs(); }
+  if (d.oformat !== undefined) { const was = o.format; o.format = e.target.value; renderOutputs(); toast(`Format ${was} → ${o.format} — the bar is now ${FORMATS[o.format].desc}; threshold, sign-off and any handoff recompute against it (G13)`); }
+  if (d.okind !== undefined) { setKind(o, e.target.value); renderOutputs(); }
 });
+function setKind(o, kind) {
+  if (kind === o.kind) return;
+  const was = o.kind, dropped = kind === 'Course' ? o.comp.rules.length : 0;
+  o.kind = kind; if (kind === 'Course') { o.comp.rules = []; o.pins = []; o.draft = clone(o.comp); o.proposal = null; }
+  const v = o.structure.version + 1; o.structure = composeStructure(o, o.comp, o.pins); o.structure.version = v; o.reh = { trace: [] }; syncActs(o);
+  o.structLog.unshift({ v, on: 'Today', note: `${was} → ${kind}${dropped ? ` · ${dropped} rule${dropped === 1 ? '' : 's'} and any pins removed — a Course is one path` : ' · rules may now route by outcome'}` });
+  toast(kind === 'Course' ? `Now a Course — one path${dropped ? `; ${dropped} rule${dropped === 1 ? '' : 's'} removed` : ''} (structure v${v})` : `Now an Experience — add rules in the brief to route by outcome (structure v${v})`);
+}
+$('#outputsView').addEventListener('input', e => { if (e.target.dataset.nfield === 'name' && B.newOut) { B.newOut.name = e.target.value; const go = $('[data-ngo]'); if (go) go.disabled = !(e.target.value.trim() && B.newOut.path.length); } });
 $('#outputsView').addEventListener('keydown', e => {
   if (e.target.id === 'ruleInput' && e.key === 'Enter') { const o = outById(B.outOpen), v = e.target.value.trim(); if (v) { o.draft.rules.push(v); proposeStructure(o); renderOutputs(); } }
+  if (e.target.id === 'nRuleInput' && e.key === 'Enter') { const v = e.target.value.trim(); if (v) { B.newOut.rules.push(v); renderOutputs(); } }
+  if (e.target.dataset.nfield === 'name') { B.newOut.name = e.target.value; const go = $('[data-ngo]'); if (go) go.disabled = !(e.target.value.trim() && B.newOut.path.length); }
 });
 
 /* ════════════════════════════════════════════════════════════════════
@@ -3516,8 +3586,14 @@ function repairStructure(st, o, pins = []) {
 function structOf(o) {
   if (!o.comp) o.comp = { path: o.acts.slice(), rules: [], completion: 'Every point at its bar.' };
   if (!o.pins) o.pins = [];
-  if (!o.structure) { o.structure = composeStructure(o, o.comp, o.pins); o.structLog = [{ v: 1, on: o.pin ? o.pin.on : 'Oct 9', note: o.kind === 'Experience' ? 'Composed from the brief: default path + 3 rules' : 'Composed from the activity order' }]; }
+  if (!o.structure) { o.structure = composeStructure(o, o.comp, o.pins); o.structLog = o.structLog || [{ v: 1, on: o.pin ? o.pin.on : 'Oct 9', note: o.kind === 'Experience' ? `Composed from the brief: default path + ${o.comp.rules.length} rules` : 'Composed from the activity order' }]; syncActs(o); }
   return o.structure;
+}
+/* An activity is IN an output because a node refers to it (Pass 11): the set is derived from the structure, never kept apart. */
+function syncActs(o) {
+  const st = o.structure, ids = st.spine.filter(id => st.nodes[id] && st.nodes[id].act).map(id => st.nodes[id].act);
+  Object.values(st.nodes).forEach(n => { if (n.act && !ids.includes(n.act)) ids.push(n.act); });
+  o.acts = ids;
 }
 function reachOf(o) {
   const st = structOf(o), paths = enumeratePaths(st);
@@ -3536,14 +3612,14 @@ function proposeStructure(o) {
 }
 function acceptProposal(o) {
   const d = o.proposalDiff, v = o.proposal.version;
-  o.comp = clone(o.draft); o.structure = o.proposal; o.proposal = null; o.reh = { trace: [] };
+  o.comp = clone(o.draft); o.structure = o.proposal; o.proposal = null; o.reh = { trace: [] }; syncActs(o);
   o.structLog.unshift({ v, on: 'Today', note: `${d.added.length} connection${d.added.length === 1 ? '' : 's'} added, ${d.removed.length} removed · rules: ${o.comp.rules.length}` });
   B.outSel = null; toast(`Structure v${v} accepted — any handoff approval on this output is cleared (G11)`);
 }
 function togglePin(o, act) {
   const on = !o.pins.includes(act); o.pins = on ? [...o.pins, act] : o.pins.filter(a => a !== act);
   const v = o.structure.version + 1, prev = o.structure;
-  o.structure = composeStructure(o, o.comp, o.pins); o.structure.version = v; o.reh = { trace: [] };
+  o.structure = composeStructure(o, o.comp, o.pins); o.structure.version = v; o.reh = { trace: [] }; syncActs(o);
   const d = structDiff(prev, o.structure);
   o.structLog.unshift({ v, on: 'Today', note: `${on ? 'Pinned' : 'Unpinned'} ${shortTitle(act)} ${on ? 'required' : ''} · ${d.added.length} connection${d.added.length === 1 ? '' : 's'} redrawn` });
   if (o.proposal) proposeStructure(o);
@@ -3632,8 +3708,8 @@ function outOverviewHTML(o) {
       <table class="mini"><tbody>${o.acts.map(a => actRowHTML(planRow(a))).join('')}</tbody></table></div>
   </div><div>
     <div class="bcard"><h3>About</h3>
-      <div class="kv"><span>Kind</span><div><b>${o.kind}</b></div></div>
-      <div class="kv"><span>Format</span><div><b>${o.format}</b> <span class="am">— ${FORMATS[o.format].desc}</span></div></div>
+      <div class="kv"><span>Kind</span><div><select class="inp inl" data-okind>${['Course', 'Experience'].map(k => `<option ${k === o.kind ? 'selected' : ''}>${k}</option>`).join('')}</select> <span class="am">— ${o.kind === 'Experience' ? 'traversal generated from the brief' : 'a fixed sequence'}</span></div></div>
+      <div class="kv"><span>Format</span><div><select class="inp inl" data-oformat>${Object.keys(FORMATS).map(k => `<option ${k === o.format ? 'selected' : ''}>${k}</option>`).join('')}</select> <span class="am">— ${FORMATS[o.format].desc}</span></div></div>
       <div class="kv"><span>Goal</span><div><b>${GOAL.name}</b> <span class="am">— ${GOAL.requiresConfirmation ? 'an SME confirms depth' : 'LED judgment suffices'}</span></div></div>
       <div class="kv"><span>Structure</span><div><b>v${structOf(o).version}</b> <span class="am">— ${o.kind === 'Experience' ? `${rc.paths.length} paths · ${o.comp.rules.length} rule${o.comp.rules.length === 1 ? '' : 's'}` : 'one path'}</span></div></div></div>
     <div class="bcard"><h3>Readiness</h3>
@@ -4252,7 +4328,7 @@ function actCardHTML(r) {
       <div class="am" style="margin-top:2px">${r.modality} · ${esc(r.audience || B.saved.audience)} · ${r.treatment}${r.overrides.length ? ` · overrides ${r.overrides.filter(o => BFIELDS[o]).map(o => BFIELDS[o].label.toLowerCase()).join(', ')}` : ''}${r.goal && r.goal !== '— (no assistant)' ? ` · assistant: ${esc(r.goal.split(' — ')[0].toLowerCase())}` : ''}</div>
       <div class="pts">${Object.entries(r.points).map(([p, d]) => ptChip(p, d, { prov: provOf(r, p) })).join('')}${r.proposals ? `<span class="pt-prop"><i class="fa-solid fa-sparkles"></i>${Object.keys(r.proposals.points).length} proposed — accept in the plan</span>` : ''}</div>
       <div class="sts">${statusHTML(r)}${open ? `<span class="mb warn"><i class="fa-solid fa-triangle-exclamation"></i>${open} unrequested change${open > 1 ? 's' : ''} to decide</span>` : ''}${vid && rv.pending.length ? `<span class="mb acc"><i class="fa-solid fa-list-check"></i>${rv.pending.length} queued</span>` : ''}</div>
-      <div class="in-out">${outs.length ? `In <b>${outs.map(o => esc(o.name)).join('</b>, <b>')}</b>` : 'In no output yet'}</div>
+      <div class="in-out">${outs.length ? `In <b>${outs.map(o => esc(o.name)).join('</b>, <b>')}</b>` : 'In no output yet'}${g ? ` <span class="ptadd"><button class="btn sm" data-addtoout="${r.id}" style="margin-left:8px"><i class="fa-solid fa-plus"></i>Add to an output</button>${B.addMenu === r.id ? `<div class="vmenu"><div class="dl">Add to</div>${B.outputs.filter(o => !o.acts.includes(r.id)).map(o => `<button data-addto="${o.id}|${r.id}">${esc(o.name)} <span>· ${o.kind} · appends to the default path, then proposes</span></button>`).join('') || '<div class="am" style="padding:4px 8px">Already in every output.</div>'}<button data-addtonew="${r.id}" style="border-top:1px solid var(--line);margin-top:4px"><i class="fa-solid fa-plus" style="margin-right:6px"></i>New output…</button></div>` : ''}</span>` : ''}</div>
     </div><div class="ra">
       ${g ? `<button class="btn sm primary" data-openactivity="${r.id}">Open<i class="fa-solid fa-arrow-right"></i></button>` : `<button class="btn sm primary" data-agen="${r.id}" ${r.proposals || !Object.keys(r.points).length ? 'disabled title="Accept its points in the plan first"' : ''}><i class="fa-solid fa-wand-magic-sparkles"></i>Generate</button>`}
       ${g && !vid ? `<button class="btn sm" data-aregen="${r.id}" title="No renderer — simulated">Regenerate <span class="am">sim</span></button>` : ''}
@@ -4277,7 +4353,10 @@ function standinHTML(r) {
   </div>`;
 }
 $('#actsView').addEventListener('click', e => {
-  const t = e.target.closest('button'); if (!t) return; const d = t.dataset;
+  const t = e.target.closest('button'); if (!t) { if (B.addMenu) { B.addMenu = null; renderActs(); } return; } const d = t.dataset;
+  if (d.addtoout) { B.addMenu = B.addMenu === d.addtoout ? null : d.addtoout; return renderActs(); }
+  if (d.addto) { const [oid, act] = d.addto.split('|'), o = outById(oid); structOf(o); o.draft = clone(o.comp); o.draft.path.push(act); proposeStructure(o); B.addMenu = null; openOutput(oid, 'structure'); B.outEdit = true; renderOutputs(); return toast(`${esc(shortTitle(act))} appended to ${esc(o.name)}'s default path — the composer proposes v${o.proposal.version}`); }
+  if (d.addtonew) { B.newOut = newOutDraft([d.addtonew]); B.addMenu = null; S.layer = 'outputs'; B.outOpen = null; render(); return; }
   if (d.openactivity) return openActivity(d.openactivity);
   if (d.actlist !== undefined) return setLayer('activities');
   if (d.layer) return setLayer(d.layer);
@@ -4989,6 +5068,8 @@ function seedSpec() {
   queueSpec(r, 'treatment', 'Refresher-length');
   queueSpec(r, 'constraints', [...specValue(r, 'constraints'), 'Never show a person standing under raised forks']);
 }
+/* Pass 11 — a new output, seeded mid-creation */
+function seedNewOut() { const n = newOutDraft(['act-video', 'act-check']); n.name = 'Forklift Onboarding'; n.rules = ['Anyone who fails the check repeats the inspection card, then retries the check.']; return n; }
 /* Pass 9 · stage 3 — a learner walks the Experience: Unthoughtful on step 2 → podcast → fails the check → card → passes. */
 function seedExpPreview(toReport) {
   openPlayer({ mode: 'output', outId: 'out-exp' });
@@ -5127,6 +5208,11 @@ function applyFlowState(id, opts) {
     case 'out-signoff': { openOutput('out-exp', 'rehearsal'); const o = outById('out-exp'); togglePin(o, 'act-check'); o.signedSig = sigKey(o); o.signedStruct = structOf(o).version; after = () => $('.ap-table').scrollIntoView({ block: 'center' }); break; }
     // ── Pass 9 · stage 3 — the learner preview follows the edges
     case 'exp-preview-check': S.layer = 'outputs'; after = () => seedExpPreview(false); break;
+    // ── Pass 11 — creating an output
+    case 'out-new': S.layer = 'outputs'; B.newOut = seedNewOut(); break;
+    case 'out-new-composed': S.layer = 'outputs'; B.newOut = seedNewOut(); createOutput(); break;
+    case 'out-format': { openOutput('out-exp', 'overview'); const o = outById('out-exp'); togglePin(o, 'act-check'); o.signedSig = sigKey(o); o.signedStruct = structOf(o).version; o.format = 'Refresher'; openOutput('out-exp', 'readiness'); break; }
+    case 'act-add-to-output': S.actView = 'list'; B.addMenu = 'act-podcast'; break;
     case 'exp-preview-report': S.layer = 'outputs'; after = () => seedExpPreview(true); break;
     default: break;
   }
@@ -5155,7 +5241,7 @@ window.TOOLBOX_CONFIG = {
   flowMap: {
     title: 'Studio AI Generative — Flow Map',
     applyState: 'applyFlowState',
-    canvas: { w: 1500, h: 3450 },
+    canvas: { w: 1500, h: 3660 },
     flows: [
       { id: 'loop', name: 'Review loop (G4–G6, G9)', pill: 'A', color: '#c9b8f0',
         lane: { x: 20, y: 20, w: 1460, h: 440 }, labelXY: { x: 40, y: 40 } },
@@ -5174,7 +5260,9 @@ window.TOOLBOX_CONFIG = {
       { id: 'spec', name: 'Spec edits — treatment rides the task, points get the scoped choice (G14, G15) · Coverage tab (G1)', pill: 'H', color: '#f0e6b8',
         lane: { x: 20, y: 2440, w: 1460, h: 480 }, labelXY: { x: 40, y: 2460 } },
       { id: 'comp', name: 'Compose — an output’s structure, with the reason for every connection (D4, D47, G16) · rehearsal (G17) · preview follows the edges', pill: 'I', color: '#d9c9f0',
-        lane: { x: 20, y: 2940, w: 1460, h: 480 }, labelXY: { x: 40, y: 2960 } }
+        lane: { x: 20, y: 2940, w: 1460, h: 480 }, labelXY: { x: 40, y: 2960 } },
+      { id: 'new', name: 'Creating an output — the brief is the first proposal; the activity set is derived from the structure', pill: 'J', color: '#f0c9d9',
+        lane: { x: 20, y: 3440, w: 1460, h: 200 }, labelXY: { x: 40, y: 3460 } }
     ],
     nodes: [
       { id: 'g1', flow: 'loop', entry: true, x: 60, y: 90, step: 'Entry', name: 'Generation 1', state: 'g1',
@@ -5344,7 +5432,16 @@ window.TOOLBOX_CONFIG = {
       { id: 'ep1', flow: 'comp', x: 60, y: 3310, step: 'D44', name: 'Preview · the check decides', state: 'exp-preview-check',
         desc: 'The learner preview follows the structure on real outcomes: the scenario landed Unthoughtful on step 2, so the podcast came next (rule 2). Now at the check: pass or fail it, and the path follows.' },
       { id: 'ep2', flow: 'comp', x: 300, y: 3310, step: 'G1', name: 'Report · the path taken', state: 'exp-preview-report',
-        desc: 'Failed the check → the inspection card (rule 1) → passed on retry → completion. The report is the path with every connection’s reason, the points this path reached, and the beats the scenario fired — path 4 of 5.' }
+        desc: 'Failed the check → the inspection card (rule 1) → passed on retry → completion. The report is the path with every connection’s reason, the points this path reached, and the beats the scenario fired — path 4 of 5.' },
+      // ── Pass 11 — creating an output
+      { id: 'on1', flow: 'new', x: 60, y: 3510, step: 'Create', name: 'New output', state: 'out-new',
+        desc: 'Name it, pick kind and format (the bar), choose the default path, write rules, state completion. The composition brief is the creation — nothing else to fill in.' },
+      { id: 'on2', flow: 'new', x: 300, y: 3510, step: 'D16', name: 'Composed · first proposal', state: 'out-new-composed',
+        desc: 'Compose opens the new output on its Structure tab: the map with every connection’s reason, the reasoning unfolded, and whatever the composer could not repair flagged. The activity set is read off the structure.' },
+      { id: 'on3', flow: 'new', x: 540, y: 3510, step: 'G13', name: 'Change the format', state: 'out-format',
+        desc: 'Format is author configuration: switching it changes the bar, so the threshold recomputes and the sign-off and any handoff clear. Kind works the same way — a Course drops its rules and pins.' },
+      { id: 'on4', flow: 'new', x: 780, y: 3510, step: 'Entry', name: 'Add to an output, from Activities', state: 'act-add-to-output',
+        desc: 'From an activity card: pick an output and it is appended to that output’s default path with a proposal waiting, or start a new output with it as the first step.' }
     ],
     edges: [
       ['g1', 'annotate'], ['g1', 'region'], ['annotate', 'pending'], ['region', 'pending'], ['pending', 'working'],
@@ -5360,7 +5457,8 @@ window.TOOLBOX_CONFIG = {
       ['sp1', 'sp7'], ['sp7', 'sp8'], ['sp8', 'sp9'], ['sp9', 'sp10'], ['sp10', 'sp5'], ['sp1', 'sp11'], ['sp11', 'sp12'], ['sp7', 'sp13'], ['sp7', 'sp14'],
       ['outs', 'os1'], ['os1', 'os2'], ['os2', 'os3'], ['os3', 'os4'], ['os1', 'os5'], ['os5', 'os6'],
       ['os1', 'or1'], ['or1', 'or2'], ['or1', 'or3'], ['or3', 'or4'], ['or4', 'or5'], ['os4', 'or5'],
-      ['opv', 'ep1'], ['or2', 'ep1'], ['ep1', 'ep2']
+      ['opv', 'ep1'], ['or2', 'ep1'], ['ep1', 'ep2'],
+      ['outs', 'on1'], ['on1', 'on2'], ['on2', 'on3'], ['alist', 'on4'], ['on4', 'on1']
     ]
   }
 };

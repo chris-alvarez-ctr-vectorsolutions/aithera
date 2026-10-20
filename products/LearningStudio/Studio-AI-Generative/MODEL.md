@@ -751,6 +751,16 @@ flagged, and a handoff gate until reworded or removed. The real product's
 composer is a model; the point here is that an instruction it cannot honour
 is surfaced, never silently dropped.
 
+**Built 2026-10-20 (Pass 11) — creation and membership.** Creating an output
+is writing its composition brief; the composer's first proposal is the
+output, as v1. An output's **activity set is derived from its structure**:
+an activity is in an output because a node refers to it. There is no
+separate membership list to drift from the paths — adding to the default
+path, or writing a rule that names an activity, is what adds it. Kind and
+format are author configuration (G13): a format change moves the bar and
+is caught by the output signature like any other change; a change to Course
+drops rules and pins, because a Course is one path.
+
 **A simplification to remember:** a scenario's outcome edges are treated as
 alternatives in rule order. A learner can in fact be Strong on step 1 *and*
 Unthoughtful on step 2; the mock routes on whichever rule fires first.
