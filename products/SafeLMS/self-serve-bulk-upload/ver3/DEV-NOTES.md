@@ -22,9 +22,11 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   chevron. Opening it adds **Currently on your site** under the row: the site's username, first
   name and last name (plus the conflicting column, e.g. email or External Unique ID) in the same
   columns, with the values that differ in red. When one username matches two site users, both
-  show. The ⓘ next to "Currently on your site" shows that row's one-line details. Rows with no
-  site conflict (in-file duplicates, skipped rows, new accounts) have no chevron. Data:
-  `site` on each catalog entry.
+  show. Rows with no site conflict (in-file duplicates, skipped rows, new accounts) have no
+  chevron. Data: `site` on each catalog entry.
+- **[DONE]** Follow-up (same day): the chevron sits in the far-right column; no ⓘ / details
+  sentence next to "Currently on your site"; no "Open a row to see what's on your site now."
+  hint; no "Have a question about this? Raise an issue ticket." line under blocked rows.
 - **[DONE]** No Row column in the tables on Review or the failed-run page. The CSV download
   keeps it so admins can find the row in their file.
 - **[DONE]** Sample files: "Warnings only" now raises skipped rows and a new location (its name
