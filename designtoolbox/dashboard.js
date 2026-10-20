@@ -1246,6 +1246,7 @@
     const input = byId('searchInput');
     if (input) { input.value = ''; byId('searchWrapper').classList.remove('has-value'); }
     state.statuses.clear();
+    chipOpenedStatuses.clear();
     const scope = mock.groupKey || MAIN_KEY;
     if (scope !== MAIN_KEY) openAncestors(scope);
     state.tab = scope;
@@ -1255,6 +1256,10 @@
       const el = [...document.querySelectorAll('.mock-card, .proto-row')]
         .find(n => n.dataset.rel === relKey);
       if (!el) return;
+      // The card may sit in a status section the designer keeps collapsed —
+      // open it for this jump without changing their saved preference.
+      const det = el.closest('.status-details');
+      if (det) det.open = true;
       // Skip the staggered entry fade-in for the card we jumped to — otherwise a
       // card far down the list appears up to half a second after the rest, which
       // reads as "slow to populate." (Cancelling `animation` doesn't affect the
@@ -1454,24 +1459,51 @@
     orderNodes([...tree.children.values()]).forEach(n => renderNode(n, 0));
   }
 
-  // One status section: header + a body to fill. The ARCHIVED section is a
-  // collapsible <details> that starts CLOSED on every dashboard load (archived
-  // work stays out of the way); clicking its header opens it, and that choice
-  // is kept while you stay on the page. It opens on its own while searching or
-  // when the status filter is Archived-only, so matches never hide behind it.
-  let archiveOpen = false;
+  // Collapsed status sections, remembered per browser (one setting shared by
+  // every product dashboard, so "I always close Ready for Dev" follows the
+  // designer across products). Stored as the CLOSED set; with nothing saved
+  // yet, only Archived starts closed. Read once at load, written on toggle.
+  const COLLAPSED_STATUS_KEY = 'designlab-collapsed-statuses';
+  const collapsedStatuses = (() => {
+    try {
+      const a = JSON.parse(localStorage.getItem(COLLAPSED_STATUS_KEY));
+      if (Array.isArray(a)) return new Set(a);
+    } catch { /* private mode / bad JSON */ }
+    return new Set(['archived']);
+  })();
+  function saveCollapsedStatuses() {
+    try { localStorage.setItem(COLLAPSED_STATUS_KEY, JSON.stringify([...collapsedStatuses])); } catch { /* private mode */ }
+  }
+  // Statuses opened by turning on their filter chip. This overrides the saved
+  // preference only while that chip stays on — clearing the filter returns the
+  // section to how the designer normally keeps it. Never persisted.
+  const chipOpenedStatuses = new Set();
+
+  // One status section: header + a body to fill. Every section is a
+  // collapsible <details>; clicking the header toggles it and saves the choice
+  // (see COLLAPSED_STATUS_KEY). A section always opens while searching or when
+  // its status chip is on, so matches never hide behind a closed header.
   function statusSection(status, count, sub) {
     const wrap = document.createElement('section');
     wrap.className = 'section' + (sub ? ' section--sub' : '');
     const header = statusSectionHeader(status, count);
-    if (status !== 'archived') { wrap.appendChild(header); return { wrap, body: wrap }; }
     const det = document.createElement('details');
-    det.className = 'archive-details';
-    det.open = archiveOpen || !!state.search || (state.statuses.size === 1 && state.statuses.has('archived'));
+    det.className = 'status-details';
+    det.dataset.status = status;
+    det.open = !collapsedStatuses.has(status) || chipOpenedStatuses.has(status) || !!state.search;
     const sum = document.createElement('summary');
-    header.insertAdjacentHTML('afterbegin', '<i class="fa-solid fa-chevron-right archive-chevron" aria-hidden="true"></i>');
+    header.insertAdjacentHTML('afterbegin', '<i class="fa-solid fa-chevron-right status-chevron" aria-hidden="true"></i>');
     sum.appendChild(header);
-    sum.addEventListener('click', () => { archiveOpen = !det.open; });
+    sum.addEventListener('click', (e) => {
+      e.preventDefault();
+      const open = !det.open;
+      if (open) collapsedStatuses.delete(status);
+      else { collapsedStatuses.add(status); chipOpenedStatuses.delete(status); }
+      saveCollapsedStatuses();
+      // Same status can appear more than once (Main + folder sections while
+      // searching), so flip every copy, not just this one.
+      document.querySelectorAll(`.status-details[data-status="${status}"]`).forEach(d => { d.open = open; });
+    });
     det.appendChild(sum);
     wrap.appendChild(det);
     return { wrap, body: det };
@@ -1610,6 +1642,7 @@
   function clearFilters() {
     state.search = '';
     state.statuses.clear();
+    chipOpenedStatuses.clear();
     const input = byId('searchInput');
     input.value = '';
     byId('searchWrapper').classList.remove('has-value');
@@ -2094,9 +2127,12 @@
       searchInput.focus();
     });
     const toggleStatusFilter = (status) => {
-      if (status === 'all') state.statuses.clear();
-      else if (state.statuses.has(status)) state.statuses.delete(status);
-      else state.statuses.add(status);
+      // Turning a chip ON opens that status's section even if the designer
+      // usually keeps it collapsed; turning it off (or "All") restores their
+      // saved layout.
+      if (status === 'all') { state.statuses.clear(); chipOpenedStatuses.clear(); }
+      else if (state.statuses.has(status)) { state.statuses.delete(status); chipOpenedStatuses.delete(status); }
+      else { state.statuses.add(status); chipOpenedStatuses.add(status); }
       updateChipActiveState();
       applyFiltersAndRender();
     };
@@ -2742,14 +2778,16 @@
       }
       .fav-details[open] .fav-chevron { transform: rotate(90deg); }
 
-      /* Archived section — collapsed by default (see statusSection) */
-      .archive-details > summary { cursor: pointer; list-style: none; user-select: none; }
-      .archive-details > summary::-webkit-details-marker { display: none; }
-      .archive-details > summary .section-header { align-items: center; }
-      .archive-details:not([open]) > summary .section-header { margin-bottom: 0; }
-      .archive-chevron { font-size: 13px; color: var(--text-muted); transition: transform 0.15s ease; }
-      .archive-details[open] .archive-chevron { transform: rotate(90deg); }
-      .archive-details > summary:hover .section-title { color: var(--accent-deep); }
+      /* Status sections — each collapsible, open/closed remembered per browser
+         (see statusSection). Archived starts closed until the designer opens it. */
+      .status-details > summary { cursor: pointer; list-style: none; user-select: none; }
+      .status-details > summary::-webkit-details-marker { display: none; }
+      .status-details > summary .section-header { align-items: center; }
+      .status-details:not([open]) > summary .section-header { margin-bottom: 0; }
+      .status-chevron { font-size: 13px; color: var(--text-muted); transition: transform 0.15s ease; }
+      .status-details[open] .status-chevron { transform: rotate(90deg); }
+      .status-details > summary:hover .section-title { color: var(--accent-deep); }
+      .status-details > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
       .fav-title-star { color: #f59e0b; font-size: 17px; margin-right: 4px; }
 
       /* kept for potential nested sections; unused by the tab layout */
