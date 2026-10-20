@@ -6,6 +6,22 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-20) Blocked first everywhere; warnings ranked one by one
+
+- **[DONE]** Review, the CSV and the failed-run page list **Blocked** first, then every
+  **Warning** in a fixed rank, then **Info**. `WARN_WEIGHT` (three coarse buckets) is replaced
+  by `WARN_ORDER`, one entry per warning key. Top to bottom: the wrong file ("None of / Very
+  few of the users / positions / locations…"), then training records or sign-in that could land
+  on the wrong user (name or ID changes on the site, password changes, likely duplicate accounts,
+  shared emails and IDs), then rows or values left out (skipped rows, custom field values), then
+  location/position renames and code conflicts, then pre-1940 dates. The mildest come last: the
+  file adds a new location, group or user (`missing_bldg`, `missing_pos`, `missing_person`).
+  Blocked and Info keep catalog order.
+- **[DONE]** Sample-file picker lists the files with the most issues first: copy review (every
+  message), duplicate accounts, unreadable dates, warnings only, clean.
+- **[DONE]** Flow map: the three Blocked review branches sit on the top row; Info → Confirm →
+  Done moved to the row below.
+
 ## (2026-10-09) Condensed alert copy; "From your file" captions
 
 - **[DONE]** **Every title and View details line condensed** (all 44 catalog messages). The
@@ -374,7 +390,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   (deactivations, jobs removed, "none of these match" file checks) → wrong/duplicate accounts,
   password changes, skipped rows, "only a few match" → other warnings (dates, codes, columns) →
   info. Ties keep catalog order. The copy-review file uses the same order now (was catalog order).
-  Weights live in `WARN_WEIGHT` / `severity()`.
+  Weights live in `WARN_WEIGHT` / `severity()` (replaced by `WARN_ORDER` on 2026-10-20).
 - **[DONE]** "Download current data (.csv)" on the Review side panel (a snapshot of the site
   before the import), "Data before this import" on Import complete, and "Data before this
   upload" on a completed run's log page.

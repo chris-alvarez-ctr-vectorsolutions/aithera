@@ -1117,21 +1117,21 @@
 
   function ordinal(n) { var s = ['th', 'st', 'nd', 'rd'], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
 
-  /* Sample files for the prototype picker — ordered CLEANEST FIRST → MOST ISSUES
-     LAST, and each tagged with the kind of errors it triggers so a tester can grab
-     the right scenario. tag = short label, kind drives the pill color (see
-     fileModalHTML), note = one-line description of what it demonstrates. */
+  /* Sample files for the prototype picker — ordered MOST ISSUES FIRST → CLEANEST
+     LAST (2026-10-20: blocked files lead), and each tagged with the kind of errors it
+     triggers so a tester can grab the right scenario. tag = short label, kind drives
+     the pill color (see fileModalHTML), note = one-line description of what it demonstrates. */
   var FILES = [
-    { id: 'clean',   name: 'clean_no_errors_new_hires.csv',              rows: 45,  tag: 'Clean · no errors',        kind: 'ok',
-      note: 'September new-hire batch — imports straight through with nothing to fix.' },
-    { id: 'confirm', name: 'needs_confirmation_fall_roster.csv',  rows: 164, tag: 'Warnings only · confirm to run',        kind: 'confirm',
-      note: 'Full fall roster — a name change and skipped rows to confirm; no blocks.' },
-    { id: 'saml',    name: 'blocked_unreadable_dates.csv',    rows: 156, tag: 'Blocked + warnings · bad dates',   kind: 'blocked',
-      note: 'Unreadable begin dates block it; early begin dates and a shared email are warnings.' },
+    { id: 'blast',   name: 'copy_review_every_catalog_message.csv',     rows: 168, tag: 'Has all the errors · all 44 catalog messages',     kind: 'blocked',
+      note: 'Has all the errors — every message in the Error & Notification Message Catalog, most severe first, for checking copy.' },
     { id: 'dupes',   name: 'blocked_duplicate_accounts.csv',      rows: 152, tag: 'Blocked + warnings · duplicates',    kind: 'escalate',
       note: 'A username matches two active accounts (blocks); possible duplicate people and shared emails are warnings.' },
-    { id: 'blast',   name: 'copy_review_every_catalog_message.csv',     rows: 168, tag: 'Has all the errors · all 44 catalog messages',     kind: 'blocked',
-      note: 'Has all the errors — every message in the Error & Notification Message Catalog, in catalog order, for checking copy.' }
+    { id: 'saml',    name: 'blocked_unreadable_dates.csv',    rows: 156, tag: 'Blocked + warnings · bad dates',   kind: 'blocked',
+      note: 'Unreadable begin dates block it; early begin dates and a shared email are warnings.' },
+    { id: 'confirm', name: 'needs_confirmation_fall_roster.csv',  rows: 164, tag: 'Warnings only · confirm to run',        kind: 'confirm',
+      note: 'Full fall roster — a name change and skipped rows to confirm; no blocks.' },
+    { id: 'clean',   name: 'clean_no_errors_new_hires.csv',              rows: 45,  tag: 'Clean · no errors',        kind: 'ok',
+      note: 'September new-hire batch — imports straight through with nothing to fix.' }
   ];
 
   var COLS = {
@@ -1669,7 +1669,7 @@
     confirm: [['duplicate_user_in_system'], ['removed_rows'], ['new_person', 12], ['reactivated_person', 2], ['unchanged_rows', 32], ['all_rows', 164]],
     saml:    [['broken_begin_date'], ['early_begin_date'], ['duplicate_email_in_upload'], ['new_person', 9], ['all_rows', 156]],
     dupes:   [['duplicate_person'], ['potential_duplicate_user'], ['duplicate_email_in_upload'], ['non_identical_username'], ['new_person', 26], ['all_rows', 152]],
-    blast:   null,  // copy review: EVERY catalog message, in catalog order
+    blast:   null,  // copy review: EVERY catalog message, sorted most severe first
     auto:    [['duplicate_user_in_system'], ['duplicate_email_in_upload'], ['early_begin_date'], ['missing_bldg'], ['new_person', 3], ['all_rows', 171]],   // name change kept; email, begin date, location from its columns
     autob:   [['broken_begin_date'], ['duplicate_person'], ['new_person', 3], ['all_rows', 171]]
   };
@@ -1716,19 +1716,30 @@
     return a;
   }
 
-  /* Warning weight: lower = shown higher. 0 = the wrong file; 1 = wrong or duplicate accounts, sign-in changes, skipped rows;
-     2 = everything else (dates, codes, unmatched columns). */
-  var WARN_WEIGHT = {
-    total_person_change: 0, total_pos_change: 0, total_bldg_change: 0,
-    removed_rows: 1,    duplicate_user_in_system: 1, duplicate_user_in_upload: 1, duplicate_email_in_upload: 1, potential_duplicate_user: 1,
-    non_identical_username: 1, duplicate_external_unique_id_in_upload: 1, duplicate_external_unique_id_in_system: 1,
-    non_identical_external_unique_id: 1, potential_duplicate_user_external_unique_id: 1, password_changed: 1,
-    missing_person: 1, large_person_change: 1, large_pos_change: 1, large_bldg_change: 1
-  };
+  /* Review order (2026-10-20): Blocked first, then every WARNING by how much harm it does
+     if the admin clicks through, then Info. Within the warnings, top to bottom:
+       1. the wrong file (almost nothing in it is on the site yet)
+       2. training records or sign-in that could land on the wrong user
+       3. rows or values that get left out
+       4. renames that reach everyone at a location or in a position
+       5. dates that are probably typos
+       6. mildest: the file adds something new (a location, a group, one more user)
+     Blocked and Info keep their catalog order. Applies to Review, the CSV and the failed-run page. */
+  var WARN_ORDER = [
+    'total_person_change', 'large_person_change', 'total_pos_change', 'total_bldg_change', 'large_pos_change', 'large_bldg_change',
+    'duplicate_user_in_system', 'duplicate_external_unique_id_in_system', 'password_changed',
+    'potential_duplicate_user', 'potential_duplicate_user_external_unique_id', 'duplicate_external_unique_id_in_upload',
+    'duplicate_email_in_upload', 'non_identical_username', 'non_identical_external_unique_id',
+    'removed_rows', 'unknown_attribute',
+    'bldg_code_difference', 'pos_code_difference', 'bldg_same_codes_diff_name', 'pos_same_codes_diff_name',
+    'bldg_same_name_diff_codes', 'pos_same_name_diff_codes',
+    'early_begin_date', 'early_end_date',
+    'missing_bldg', 'missing_pos', 'missing_person'
+  ];
   function severity(a) {
     if (a.tier === 'blocked' || a.tier === 'escalate') return 0;
-    if (a.tier === 'confirm') return 1 + (WARN_WEIGHT.hasOwnProperty(a.id) ? WARN_WEIGHT[a.id] : 2);
-    return 4;
+    if (a.tier === 'confirm') { var i = WARN_ORDER.indexOf(a.id); return 1 + (i < 0 ? WARN_ORDER.length : i); }
+    return 1000;
   }
 
   /* An alert only shows when the file has a column for the data it's about (2026-10-02) —
@@ -1765,7 +1776,7 @@
       .filter(function (m) { return fileHasDataFor(fileId, m[0]); })
       .map(function (m) { return catalogAlert(m[0], m[1]); });
 
-    // Most severe first (2026-09-29): Blocking, then the biggest warnings, then info.
+    // Most severe first (2026-09-29, ranked 2026-10-20): Blocked, then warnings by WARN_ORDER, then info.
     // Ties keep their catalog order. Applies to the copy-review file too.
     return A.map(function (a, i) { return { a: a, i: i }; })
       .sort(function (x, y) { return (severity(x.a) - severity(y.a)) || (x.i - y.i); })
@@ -3255,7 +3266,7 @@
       ],
       nodes: [
         /* ── Manual import: wizard on the left, then one branch per severity ──
-           Row 1 (y60): Info → Confirm → Done.  Row 2 (y420): the three stops. ── */
+           Row 1 (y60): the three Blocked stops (2026-10-20: blocked first).  Row 2 (y420): Info → Confirm → Done. ── */
         { id: 'email', flow: 'import', entry: true, x: 40, y: 60, step: 'Start', name: 'Failure email', state: 'email',
           desc: 'V2 starts here. Customers own the auto-uploader, so when a nightly automated upload fails, Vector emails the SITE ADMINS (not Care): a generic note — which file, when, that it didn’t run and nothing changed — and one button, “View upload log”, which lands on the log with that run highlighted; the run’s page explains why it failed and how to fix the file (it can’t be approved). The email footer’s “Manage who gets these emails” opens the list on the upload log. Help = Support Center.' },
         { id: 'employees', flow: 'import', entry: true, x: 40, y: 250, step: 'Entry', name: 'Employees tab — Add Employee split button', state: 'add-menu',
@@ -3267,23 +3278,23 @@
         { id: 'settings', flow: 'import', x: 500, y: 410, step: 'Step 3', name: 'Import settings', state: 'settings',
           desc: 'One off-by-default switch — “Deactivate all people and positions not in this file” — with a live On/Off description directly under it. Users-only or positions-only deactivation isn’t self-serve: a banner routes to Vector Care via the Support Center.' },
 
-        { id: 'review-info', flow: 'import', x: 700, y: 60, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
+        { id: 'review-blocked', flow: 'import', x: 700, y: 60, step: 'Review · Copy review', name: 'Every catalog message', state: 'review-blocked',
+          desc: 'Copy review: the first sample file raises every message from the Error & Notification Message Catalog (PMC 29424549907) most severe first, each tagged with its key, so the copy and tiers can be checked against Confluence.' },
+        { id: 'review-saml', flow: 'import', x: 1030, y: 60, step: 'Review · Blocked', name: 'Blocked — unreadable dates', state: 'review-saml',
+          desc: 'broken_begin_date (BLOCKING — rows 14, 27, 88 in the table; the header tags Column H · BEGIN_DATE) + early_end_date (WARNING) + info.' },
+        { id: 'review-escalate', flow: 'import', x: 1360, y: 60, step: 'Review · Blocked', name: 'Blocked — duplicate accounts', state: 'review-escalate',
+          desc: 'duplicate_person (BLOCKING → Submit a ticket) + potential_duplicate_user (WARNING, each row shown as the duplicate account it would create) + duplicate_email_in_upload (WARNING).' },
+
+        { id: 'review-info', flow: 'import', x: 700, y: 420, step: 'Review · Info', name: 'Info only — runs freely', state: 'review-info',
           desc: 'INFO tier only (e.g. 3 emails updated, new users created). Nothing to acknowledge — Run import is enabled immediately.' },
-        { id: 'review-confirm', flow: 'import', x: 1030, y: 60, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
+        { id: 'review-confirm', flow: 'import', x: 1030, y: 420, step: 'Review · Confirm', name: 'Confirm — acknowledge & run', state: 'review-confirm',
           desc: 'duplicate_user_in_system (name change, Jessyca → Jesse) + removed_rows + info. View details = one plain line on what the warning is about and how it changes things, then the rows exactly as uploaded. Only rows where a value changes are clickable — their row number is blue and underlined, the first one is selected as soon as details open, and the hint names the rest (“Click Row 23 or Row 118 to see its change.”). Below the box, an “After import” box shows the selected row’s line after the change. No “changes to compare” pill (2026-10-12). Informational rows (new accounts, skipped, blocked) aren’t clickable. Every WARNING is checked “I’ve reviewed this” before Run import unlocks. Run confirmation: Run stays blue; “Also download your current employee data” has a download icon on the left and the checkbox on the right.' },
         { id: 'log-auto', flow: 'import', x: 1030, y: 250, step: 'Log → Failed run', name: 'Automated upload failed — how to fix it', state: 'log-auto',
           desc: 'A failed automated upload can’t be reviewed or approved (2026-10-09) — they have to run it again. Its page says it didn’t run and nothing changed, then lists why: each Blocked / Warning alert opens to one line on what it’s about and how to fix the file, then the rows from the file. Side panel: Upload a corrected file, Download file, and the failure email list with “Edit the list”.' },
         { id: 'log', flow: 'import', x: 1360, y: 250, step: 'Log', name: 'Upload log', state: 'log',
           desc: 'Every upload on the site: when, file, rows, who ran it, result (Completed / Blocked — automated only / Cancelled) and what changed; runs that didn’t go show just the arrow. Role + Method columns dropped (2026-10-09) — filter All / Manual / Automated instead; each row opens its own page. Right column: “Made a mistake?” → Contact Vector Care, and “Failed automated upload emails” — who gets the email when an automated upload fails, with Edit list (remove people, add an email, Save / Cancel).' },
-        { id: 'done', flow: 'import', x: 1360, y: 60, step: 'Done', name: 'Back on Employees + toast', state: 'done',
+        { id: 'done', flow: 'import', x: 1360, y: 420, step: 'Done', name: 'Back on Employees + toast', state: 'done',
           desc: 'No “Import complete” page (2026-10-01): Run import lands back on Employees with a toast — “Your upload ran. N added · N updated…” + “You can see it in the upload log now.” (+ “A copy of your data from before it ran was downloaded.” when that box was checked on the Run confirmation). Clears after ~8s.' },
-
-        { id: 'review-blocked', flow: 'import', x: 700, y: 420, step: 'Review · Copy review', name: 'Every catalog message', state: 'review-blocked',
-          desc: 'Copy review: the last sample file raises every message from the Error & Notification Message Catalog (PMC 29424549907) most severe first, each tagged with its key, so the copy and tiers can be checked against Confluence.' },
-        { id: 'review-saml', flow: 'import', x: 1030, y: 420, step: 'Review · Blocked', name: 'Blocked — unreadable dates', state: 'review-saml',
-          desc: 'broken_begin_date (BLOCKING — rows 14, 27, 88 in the table; the header tags Column H · BEGIN_DATE) + early_end_date (WARNING) + info.' },
-        { id: 'review-escalate', flow: 'import', x: 1360, y: 420, step: 'Review · Blocked', name: 'Blocked — duplicate accounts', state: 'review-escalate',
-          desc: 'duplicate_person (BLOCKING → Submit a ticket) + potential_duplicate_user (WARNING, each row shown as the duplicate account it would create) + duplicate_email_in_upload (WARNING).' },
 
         { id: 'attn-fixable', flow: 'import', x: 700, y: 620, step: 'Attention · amber', name: 'Alert mode — you fix it', state: 'attn-fixable',
           desc: 'V1 attention treatment = inline ALERT MODE, AMBER: a distinct colored card (not red) for a problem the customer fixes themselves — plain-language cause, A→B, “Fix it & upload again.”' },
@@ -3293,8 +3304,8 @@
       edges: [
         ['email', 'log'], ['employees', 'upload'],
         ['upload', 'map'], ['upload', 'settings'], ['map', 'settings'],
-        ['settings', 'review-info'], ['settings', 'review-confirm'], ['settings', 'review-blocked'],
-        ['settings', 'review-saml'], ['settings', 'review-escalate'],
+        ['settings', 'review-blocked'], ['settings', 'review-saml'], ['settings', 'review-escalate'],
+        ['settings', 'review-info'], ['settings', 'review-confirm'],
         ['review-info', 'done'], ['review-confirm', 'done'], ['done', 'log'], ['employees', 'log'], ['log', 'log-auto']
       ]
     }
