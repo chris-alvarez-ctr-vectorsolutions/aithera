@@ -132,7 +132,7 @@ products/<Product>/<feature>/
      "jira": "TICKET-123", "status": "in-progress" }
    ```
 
-   `jira` and `status` are optional. Valid statuses: `in-progress` (the default), `in-review` (set by the `ux-wrapup` skill's review mode), `ready-for-dev` (normally set by the dev build file itself, not by hand), `archived`.
+   `jira` (the product ticket), `designJira` (the design ticket, see **Designer Jira Ticket** below), `prd` (full URL to the PRD) and `status` are optional. Valid statuses: `in-progress` (the default), `in-review` (set by the `ux-wrapup` skill's review mode), `ready-for-dev` (normally set by the dev build file itself, not by hand), `archived`.
 
    **Folder groups are a first-class dashboard experience — use them deliberately.** Wrapping items in `{ "folder": "Group Name", "items": [ … ] }` makes that group render as a real **folder in the product dashboard**: an entry in the left "Folders" rail with per-status pill counts, selectable as a scope, and **favoritable** (designers can star folders to pin them; saved per browser). **Folders nest to any depth** — a `folder` group's `items` may contain further `folder` groups, rendered as a collapsible tree in the rail; selecting a parent scopes to its whole subtree and the content column shows a breadcrumb of the active path. To put a mock in a nested folder, just nest the groups in `products.json` — nothing else to wire up:
 
@@ -169,13 +169,62 @@ As a backstop, a rename now **self-heals automatically** — nobody's commit is 
 
 So a card link never stays dead. Two things automation still cannot do, so handle them yourself: a **cross-product move** (file goes to a different `products/<Product>/` folder) can't be auto-relinked — fix the `rel` by hand; and **previously shared URLs still 404 for whoever holds them** — after a move, re-share the new link (and mention the change if the old link went out in Slack/Jira).
 
+## Designer Jira Ticket (new mocks)
+
+A dashboard card has three separate link slots. Keep them apart:
+
+| `products.json` field | What it is | Badge on the card |
+|---|---|---|
+| `jira` | The **product ticket** (SCHED-…, VPATH-…, SAFELMS-…). Unchanged from how it's always worked. | Indigo, key shown |
+| `designJira` | The **design ticket**: a UX Story on the User Experience board (UX-…). Opt-in. | Rose, key shown; only appears when set |
+| `prd` | The **PRD**, as a full URL (Confluence page, or `https://lmsportal.atlassian.net/browse/<KEY>` when the PRD lives in a Jira ticket) | Violet "PRD" |
+
+Use the Atlassian (Rovo) tools, site `lmsportal.atlassian.net`. If a designer has no Atlassian connection, say so in one line and carry on with the mock. Never block design work on Jira.
+
+**What "create a new file under <Product>" means.** When a designer says *"let's create a new file/mock/design under <Product>"*, they mean two things: scaffold a new versioned mock (section 3 above) **and** start its design ticket.
+
+**Who gets one.** This is still being trialed with the team:
+- **Deborah Kim** (git `user.email` is `deborah.kim@vectorsolutions.com`): create the ticket without asking.
+- **Every other designer:** first check Claude memory for an answer they've already given. If there isn't one, ask while scaffolding, offering three choices (use AskUserQuestion):
+  1. **Yes, this mock**: create it this time, and ask again next time.
+  2. **Yes, always**: create it, and save a memory, *"<name> wants a design Jira ticket on every new mock (<date>)."* From then on, create one for them without asking, the same as for Deborah.
+  3. **Don't ask me**: no ticket. Save a memory, *"<name> opted out of design Jira tickets (<date>); never ask, not at creation and not at review."* From then on, never bring design tickets up with them, **including in review**. Only revisit it if they raise it.
+
+  If they decline in some other way ("not this one"), set `"designJira": false` on that item so nobody asks about that mock again.
+- **Never backfill.** Don't go back and create tickets for mocks that already exist. An older mock with no `designJira` field gets one only if its designer says yes when it goes to In Review (see `ux-wrapup`).
+
+**Creating it:**
+
+1. **Check for a duplicate first.** Search the UX project (`project = UX AND summary ~ "<mock name>"`, plus anything already linked to the product ticket). If a design ticket exists, reuse it.
+2. **Create it** in project **UX** (User Experience), issue type **UX Story**:
+   - **Summary:** `<Product> - <Mock name>` (e.g. `Scheduling - Scale Platform UI Functionality`)
+   - **Assignee:** the designer creating the mock (look up their Jira account from their git `user.email`)
+   - **Account:** **CAPEX** (Tempo field `customfield_10924`, pass the option id `2`), then read the ticket back to confirm it saved
+   - **Description:** one line on what the design covers, then `**Mock:** <GitHub Pages URL of the feature folder>`, a short list of versions, and `**PRD:** <link>` or `**PRD:** not yet shared`
+3. **Move it to In Progress** (the transition is named "In Progress").
+4. **Link it** with "Relates" to any product ticket the designer gave (SCHED-…, VPATH-…, SAFELMS-…).
+5. **Dashboard:** put the key in `designJira` in `products.json`. Leave `jira` (the product ticket) as it is.
+
+**Which slot a link goes in.** Sort it yourself; don't quiz the designer:
+- A **UX-…** key → `designJira`.
+- A **Confluence page** → `prd`.
+- **Any other Jira key** (SCHED-…, VPATH-…) → `jira`. Open the ticket too: if its description is written as a PRD (problem, scope, requirements, acceptance criteria), also set `prd` to its browse URL and mention that in one line. The card then **combines them into one violet "PRD · <KEY>" badge** on its own. VPATH-16031 and SCHED-24851 are examples.
+
+A PRD can be either a Jira link or a Confluence link. Both go in `prd`.
+
+**When a PRD link is shared later**, set `prd` in `products.json`. If the mock has a design ticket, also replace the `**PRD:**` line in its description.
+
+**Later stages.** The design ticket follows the card. None of this applies to mocks without one:
+- **In Review / Ready for Dev:** `ux-wrapup` handles the ticket (its *Design Jira ticket* phase).
+- **Archiving:** when a designer archives a mock that has a design ticket, ask first: *"Flip <UX-key> to Done too?"* Transition it only on a yes, then set `"status": "archived"`.
+
 ## Dev Handoff / Wrap-Up
 
 When a designer says the mock is nearly done or done — *"put this in review,"* *"check it against the PRD,"* *"wrap this up,"* *"this is ready for dev,"* *"ready for handoff,"* *"hand this off,"* *"reconcile against the PRD,"* or similar — use the **`ux-wrapup`** skill. Use it too when a designer asks to **change a mock whose card is Ready for Dev**.
 
 **Three stages, nothing locks.** In Progress → **In Review** (PRD reconciliation written down in `mock-definition.md`, including a check for claims the mock makes that the PRD doesn't support; no dev build) → **Ready for Dev** (the dev build exists). Design keeps changing in every stage. After handoff, the dashboard card shows the handoff date, lists every later commit under "Changed since handoff," and warns when the dev build is behind the design. A post-handoff change is named as one, logged in `mock-definition.md`, and either re-synced into the dev build or spun off as a new version. The skill holds the steps.
 
-**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the reconciliation (including the claims check), the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
+**`ux-wrapup` is the single source of truth for the entire completion phase.** It owns, in order: picking the version, sourcing the PRD, the reconciliation (including the claims check), the conditional component confirmation, `mock-definition.md`, `DEV-NOTES.md`, `dev_handoff.html`, the dashboard flip, the design Jira ticket's status and description, and the commit/share step. **Do not restate or improvise any of those steps here** — read them from the skill so there is exactly one copy of the procedure.
 
 Two consequences worth knowing before the handoff starts, because they change what you do *during* design:
 

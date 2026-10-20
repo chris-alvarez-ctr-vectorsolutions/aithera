@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<!-- Mobile UI Enhancements — V1: Employees Off & Misc strip (SCHED-25064; parent SCHED-24852).
+     Keeps today's production mobile scheduler (toolbar, cards, name bars, striped
+     open slots), slightly bigger. The Employees Off / Misc column becomes a strip
+     under the sticky date header — CLOSED by default, but its summary still shows
+     how many are off and uncovered, and every affected open slot names who is off.
+     PRESENTING: phone frame + brief on wide screens; full-bleed at ≤520px. -->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- No maximum-scale: pinch-zoom stays available on phones (SCHED-25064 "add ability to zoom") -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile UI Enhancements — V1 Off & Misc strip</title>
+    <script
+    type="module"
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
+    </script>
+
+    <!-- Vector Web Components JavaScript -->
+    <!-- Important! This should always be imported as script -->
+    <script
+    src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js">
+    </script>
+
+    <!-- Our Standard font face - Open Sans -->
+    <link
+    rel="stylesheet"
+    href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css"
+    />
+
+    <!-- Font Awesome 6 PRO — self-hosted, depth-relative (see repo CLAUDE.md) -->
+    <link
+    rel="stylesheet"
+    href="../../../../assets/fontawesome/css/all.min.css"
+    />
+
+<style>
+  /* ══════════ TOKENS ══════════
+     New UI (sheets, brief, buttons) uses Vector theme tokens. The --prod-* colors
+     reproduce the CURRENT production mobile scheduler, which this ticket keeps:
+     "slightly bigger and better", not a facelift. */
+  :root {
+    --app-bar: #16202b;            /* production top bar */
+    --canvas: #f2f5f8;
+    --stage: #e3e8ee;              /* presentation backdrop around the phone */
+    --prod-bg: #f7f7f7;
+    --prod-line: #c9cdd2;
+    --prod-btn: #f4f5f6;
+    --prod-ink: #2c3744;
+    --prod-muted: #5f6b77;
+    --prod-red: #e0302a;
+    --prod-bar: #262c31;           /* assigned-person bar */
+    --prod-green: #3fb34f;         /* bar left edge */
+    --prod-notes: #fffccf;
+    --prod-navy: #22416f;          /* toolbar day/week + paging buttons */
+    --prod-shift-b: #4a4fb3;       /* B shift color (date bar) */
+    --prod-stripe-a: #f6ee9d;
+    --prod-stripe-b: #ede07a;
+    --st-blue: #2ea0ea;
+    --st-orange: #f8962a;
+    --st-green: #9fd59b;
+    --st-blue2: #2f84de;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    font-family: var(--lumo-font-family, 'Open Sans', sans-serif);
+    font-size: var(--lumo-font-size-m, 14px);
+    color: var(--lumo-body-text-color);
+    background: var(--stage);
+  }
+  button { font: inherit; }
+
+  /* ══════════ PRESENTATION STAGE ══════════
+     Desktop: brief on the left, phone on the right. Tablet: stacked.
+     Phone (≤520px): no frame, no brief — the app fills the screen. */
+  .stage { min-height: 100vh; display: flex; gap: 40px; justify-content: center; align-items: flex-start; padding: 28px 24px 96px; }
+  .brief { width: 330px; flex: none; background: var(--lumo-base-color); border-radius: var(--lumo-border-radius-l); box-shadow: var(--lumo-box-shadow-xs); padding: 22px 22px 18px; }
+  .device { width: 390px; height: min(844px, calc(100vh - 110px)); min-height: 560px; flex: none; background: #0d1117; border-radius: 46px; padding: 10px; box-shadow: var(--lumo-box-shadow-l); position: sticky; top: 28px; }
+  /* transform makes the screen the containing block for every absolutely
+     positioned layer (sheets, bubble, toasts), so they stay inside the phone */
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; overflow: clip; background: var(--canvas); display: flex; flex-direction: column; transform: translateZ(0); }
+  .statusbar { height: 34px; flex: none; background: var(--app-bar); color: #fff; display: flex; align-items: center; justify-content: space-between; padding: 4px 26px 0 30px; font-size: 13px; font-weight: 600; }
+  .statusbar .sb-ic { display: flex; gap: 6px; font-size: 12px; }
+
+  @media (max-width: 899px) {
+    .stage { flex-direction: column; align-items: center; gap: 24px; }
+    .brief { width: 100%; max-width: 390px; order: 2; }
+    .device { position: static; }
+  }
+  @media (max-width: 520px) {
+    body { background: var(--canvas); }
+    .stage { display: block; padding: 0; min-height: 0; }
+    .brief { display: none; }
+    .device { width: 100%; height: 100vh; height: 100dvh; min-height: 0; border-radius: 0; padding: 0; box-shadow: none; background: none; }
+    .screen { border-radius: 0; }
+    .statusbar { display: none; }
+  }
+
+  /* ══════════ BRIEF (presenter notes beside the phone) ══════════ */
+  .kicker { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--lumo-primary-text-color); }
+  .brief h1 { font-size: 22px; line-height: 1.25; margin: 6px 0 8px; color: var(--lumo-header-text-color); }
+  .brief .lede { color: var(--lumo-secondary-text-color); line-height: 1.5; margin: 0 0 14px; }
+  .brief .way { display: flex; gap: 8px; align-items: flex-start; margin: 0 0 4px; padding: 8px 10px; border-radius: var(--lumo-border-radius-m); background: var(--lumo-primary-color-10pct); font-size: 13px; line-height: 1.45; }
+  .brief .way i { color: var(--lumo-primary-text-color); margin-top: 3px; }
+  .brief h2 { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--lumo-secondary-text-color); margin: 16px 0 6px; }
+  .brief ul { margin: 0; padding-left: 18px; line-height: 1.5; }
+  .brief li { margin-bottom: 4px; }
+  .ev { display: grid; grid-template-columns: 46px 1fr; gap: 8px; align-items: center; margin-bottom: 6px; line-height: 1.35; }
+  .ev b { text-align: center; background: var(--lumo-primary-color-10pct); color: var(--lumo-primary-text-color); border-radius: var(--lumo-border-radius-s); padding: 3px 0; font-size: 12px; }
+  .brief .links a { display: inline-flex; align-items: center; gap: 6px; color: var(--lumo-primary-text-color); text-decoration: none; margin-right: 14px; font-weight: 600; }
+  .brief .links a:hover { text-decoration: underline; }
+  .viewas { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  /* ══════════ SHEETS + TOAST (new UI, Vector tokens) ══════════ */
+  .scroll { flex: 1; overflow-y: auto; overscroll-behavior: contain; position: relative; }
+  .scrim { position: absolute; inset: 0; background: rgba(15, 23, 34, .45); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 40; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 86%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 41; transform: translateY(102%); transition: transform .24s ease; display: flex; flex-direction: column; box-shadow: var(--lumo-box-shadow-xl); }
+  .sheet-open .scrim { opacity: 1; pointer-events: auto; }
+  .sheet-open .sheet { transform: none; }
+  .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--lumo-contrast-20pct); margin: 8px auto 2px; flex: none; }
+  .sheet-hd { display: flex; align-items: center; gap: 8px; padding: 4px 8px 8px 16px; flex: none; }
+  .sheet-hd h2 { flex: 1; margin: 0; font-size: 17px; }
+  .sheet-tools { padding: 0 16px 8px; display: flex; flex-direction: column; gap: 10px; flex: none; }
+  .sheet-tools vaadin-text-field { width: 100%; }
+  .sheet-body { flex: 1; overflow-y: auto; border-top: 1px solid var(--lumo-contrast-10pct); }
+  .sheet-ft { padding: 10px 16px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--lumo-contrast-10pct); flex: none; }
+  .toast { position: absolute; left: 50%; bottom: 22px; transform: translate(-50%, 20px); background: var(--lumo-contrast-90pct); color: #fff; padding: 10px 16px; border-radius: 999px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; z-index: 80; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 12px; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast button { border: 0; background: none; color: var(--vwc-color-picton-blue-300, #7dcdee); font-weight: 700; cursor: pointer; padding: 0; }
+  .empty { padding: 28px 16px; text-align: center; color: var(--lumo-secondary-text-color); }
+  body.role-eu .admin-only { display: none !important; }
+
+  /* ══════════ PRODUCTION SCHEDULER (reproduced, lightly improved) ══════════
+     Matches today's mobile CrewScheduler: compact header (assignment dropdown,
+     search, week/day · Next B day · date picker · «»), shift-colored date bar, yellow NOTES, colored station headers, red-bordered
+     assignment cards, dark name bars with boxed qualifier tags, striped open
+     slots. "Better" = bigger tap targets (≥40px), tidy wrapping, sticky date,
+     and a single full-width column because Employees Off / Misc moved out. */
+  .prod { background: var(--prod-bg); color: var(--prod-ink); font-size: 14px; }
+  .p-appbar { height: 52px; background: var(--app-bar); display: flex; align-items: center; padding: 0 4px 0 0; }
+  .p-appbar button { width: 48px; height: 52px; border: 0; background: none; color: #cbd2da; font-size: 18px; cursor: pointer; position: relative; }
+  .p-appbar button.on { background: #253444; color: #fff; }
+  .p-appbar .ic-clock { color: #f2c14e; }
+  .p-appbar .logo { margin-left: auto; padding-right: 12px; color: #6fa8dc; font-size: 22px; }
+  .p-badge { position: absolute; top: 8px; right: 6px; background: var(--prod-red); color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9px; }
+
+  .p-tools { padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; background: #fff; }
+  .p-row.center { justify-content: center; }
+  .p-tools .p-select, .p-tools .p-search { height: 36px; }
+  .p-tools .p-select { background: #eceef0; border-color: transparent; }
+  .p-row.nav { flex-wrap: nowrap; gap: 6px; }
+  .p-seg.navy { border: 0; }
+  .p-seg.navy button { height: 36px; background: var(--prod-navy); color: #fff; opacity: .78; }
+  .p-seg.navy button + button { border-left: 1px solid rgba(255,255,255,.25); }
+  .p-seg.navy button.on { opacity: 1; background: var(--prod-navy); box-shadow: inset 0 -3px 0 #8fb4e8; }
+  .p-navy { flex: none; height: 36px; padding: 0 12px; border: 0; border-radius: 4px; background: var(--prod-navy); color: #fff; font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .p-calbtn { flex: none; width: 38px; height: 36px; margin-left: auto; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; color: #b94a48; font-size: 18px; cursor: pointer; }
+  .p-pager { display: inline-flex; gap: 4px; flex: none; }
+  .p-pager .p-navy { width: 38px; padding: 0; font-size: 18px; }
+  .p-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .p-row.scrollx { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .p-row.scrollx::-webkit-scrollbar { display: none; }
+  .p-btn { flex: none; height: 40px; display: inline-flex; align-items: stretch; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; color: var(--prod-ink); cursor: pointer; overflow: hidden; padding: 0; font-size: 14px; }
+  .p-btn .ic { width: 38px; display: flex; align-items: center; justify-content: center; background: var(--prod-btn); border-right: 1px solid var(--prod-line); color: #3a4651; }
+  .p-btn .tx { display: flex; align-items: center; gap: 6px; padding: 0 12px; white-space: nowrap; }
+  .p-icon { flex: none; width: 40px; height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; color: #3a4651; cursor: pointer; }
+  .p-zoom { flex: none; display: inline-flex; border: 1px solid var(--prod-line); border-radius: 4px; overflow: hidden; }
+  .p-zoom button { width: 40px; height: 38px; border: 0; background: #fff; cursor: pointer; font-size: 16px; }
+  .p-zoom button + button { border-left: 1px solid var(--prod-line); background: #eef6ee; }
+  .p-zoom .minus { color: var(--prod-red); }
+  .p-zoom .plus { color: var(--prod-green); }
+  .p-search { flex: 1; min-width: 0; height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; padding: 0 12px; font: inherit; color: var(--prod-ink); }
+  .p-select { height: 40px; border: 1px solid var(--prod-line); border-radius: 4px; background: #fff; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: var(--prod-ink); white-space: nowrap; }
+  .p-seg { display: inline-flex; border: 1px solid var(--prod-line); border-radius: 4px; overflow: hidden; flex: none; }
+  .p-seg button { height: 38px; min-width: 40px; padding: 0 10px; border: 0; background: #fff; cursor: pointer; color: var(--prod-ink); }
+  .p-seg button + button { border-left: 1px solid var(--prod-line); }
+  .p-seg button.on { background: #dfe2e5; box-shadow: inset 0 1px 3px rgba(0,0,0,.15); }
+  .p-cal { color: #b94a48; font-size: 22px; margin-left: auto; }
+
+  /* Sticky shift/date bar — shift color, shift letter, centered boxed date with
+     day arrows (SCHED-25064), notebook + settings */
+  .p-date { display: grid; grid-template-columns: 30px 36px 1fr 36px auto; align-items: center; gap: 2px; padding: 5px 8px; background: var(--prod-shift-b); box-shadow: 0 2px 5px -3px rgba(0,0,0,.35); }
+  .p-date .shift { width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; border-radius: 3px; background: #c7cdf2; color: #1d2340; font-weight: 600; }
+  .p-date .arr { height: 36px; border: 0; background: none; color: #fff; font-size: 15px; cursor: pointer; }
+  .p-date .box { justify-self: center; padding: 4px 12px; border: 1.5px solid #222; border-radius: 4px; background: #e9eaeb; font-size: 15px; letter-spacing: .3px; white-space: nowrap; }
+  .p-date .tools { display: flex; gap: 10px; align-items: center; padding: 0 2px 0 4px; font-size: 19px; color: #111; }
+  .p-date .tools .nb { color: #f2c14e; }
+
+  .p-notes { margin: 10px 10px 0; background: var(--prod-notes); border-left: 6px solid #b9b9a0; padding: 10px 12px; font-size: 15px; line-height: 1.4; }
+  .p-notes u { display: block; margin-bottom: 6px; }
+
+  /* station column — colored header tab + framed body */
+  .p-station { margin: 12px 10px 0; border: 2px solid var(--stc); border-radius: 6px 6px 4px 4px; background: #fff; }
+  .p-station > .hd { background: var(--stc); color: #fff; text-align: center; font-weight: 700; font-size: 17px; letter-spacing: .4px; padding: 8px; border-radius: 3px 3px 0 0; }
+  .p-station.dark > .hd { color: #2a2a2a; }
+  .p-station > .bd { padding: 8px; display: flex; flex-direction: column; gap: 10px; }
+
+  /* assignment card */
+  .p-card { background: #f4f4f4; border: 2px solid #d8d8d8; border-radius: 3px; padding: 8px 8px 10px; }
+  .p-card.short { border-color: var(--prod-red); }
+  .p-card .hd { display: flex; align-items: center; gap: 8px; }
+  .p-card .nm { font-size: 16px; flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+  .p-card .nm i { color: #8a939c; font-size: 14px; }
+  .p-card .ct { color: var(--prod-red); font-weight: 700; font-size: 16px; }
+  .p-card .ct.full { color: #2e7d32; }
+  .p-card .kb { width: 32px; height: 32px; border: 0; background: none; color: #333; cursor: pointer; font-size: 16px; }
+  .p-card .tm { color: var(--prod-muted); font-size: 14px; margin: 2px 0 10px; }
+  .p-card .rows { display: flex; flex-direction: column; gap: 8px; }
+
+  /* assigned person — dark bar, green edge, boxed qualifier tags on the top edge */
+  .p-bar { position: relative; background: var(--prod-bar); color: #fff; border-radius: 4px; border-left: 7px solid var(--prod-green); padding: 13px 10px 7px; min-height: 44px; font-size: 16px; line-height: 1.25; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .p-bar .tags { position: absolute; top: -9px; left: 4px; display: flex; gap: 3px; }
+  .p-tag { background: #fff; color: #111; border: 1.5px solid #222; border-radius: 3px; font-size: 11px; font-weight: 700; line-height: 1; padding: 2px 4px; }
+  .p-tag.pm { background: #2f6fd6; color: #fff; border-color: #1d4fa3; }
+  .p-bar .part { display: inline-block; margin-top: 4px; background: var(--prod-red); color: #fff; font-size: 13px; padding: 1px 6px; border-radius: 3px; }
+  .p-bar .me { font-size: 11px; font-weight: 700; background: #fff; color: var(--prod-ink); border-radius: 3px; padding: 1px 5px; margin-left: 6px; vertical-align: 2px; }
+  .p-bar .dual { color: #f59e0b; margin-left: 6px; font-size: 13px; }
+  .p-bar .dual-note { display: block; font-size: 12px; color: #f8c76a; margin-top: 2px; }
+
+  /* open slot — yellow stripes, unchanged look */
+  .p-open { background: repeating-linear-gradient(135deg, var(--prod-stripe-a) 0 12px, var(--prod-stripe-b) 12px 24px); border-radius: 4px; padding: 9px 10px; min-height: 44px; font-size: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: #222; }
+  .p-open .p-tag { font-size: 11px; }
+  .p-open .sub { flex-basis: 100%; font-size: 13px; color: #5a5320; }
+  .p-open .fill { margin-left: auto; height: 30px; padding: 0 10px; border: 1px solid #b9ad4f; border-radius: 4px; background: rgba(255,255,255,.6); color: #3b3510; cursor: pointer; font-size: 13px; }
+  /* NEW: who is off and why, right on the slot they left open */
+  .p-off-note { flex-basis: 100%; display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b2a10; }
+  .p-off-note i { color: var(--prod-red); }
+
+  .p-self { height: 40px; border: 1px solid #7d8a96; border-radius: 4px; background: #a9b4be; color: #22313f; text-decoration: underline; letter-spacing: .4px; text-transform: uppercase; font-size: 14px; cursor: pointer; }
+
+  /* Employees Off / Misc — production box styles */
+  .p-offbox { background: #dcdcdc; border-radius: 3px; padding: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+  .p-miscbox { background: #fffccf; border: 2px solid #2a2a2a; border-radius: 3px; padding: 8px; }
+  .p-offbox .bh, .p-miscbox .bh { font-size: 15px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .p-add { height: 38px; width: 100%; border: 0; border-radius: 4px; background: repeating-linear-gradient(135deg, var(--prod-stripe-a) 0 12px, var(--prod-stripe-b) 12px 24px); text-align: left; padding: 0 12px; font-size: 16px; cursor: pointer; color: #222; }
+  .p-offrow { background: #9aa3ab; color: #fff; border-radius: 4px; border-left: 7px solid #6b747c; padding: 7px 10px; margin-bottom: 8px; line-height: 1.3; }
+  .p-offrow b { font-weight: 600; font-size: 15px; }
+  .p-offrow .s { font-size: 12.5px; opacity: .95; }
+  .p-offrow .aff { display: inline-block; margin-top: 3px; background: var(--prod-red); color: #fff; border-radius: 3px; font-size: 12px; padding: 1px 6px; }
+  .p-offrow .cov { display: inline-block; margin-top: 3px; background: #2e7d32; color: #fff; border-radius: 3px; font-size: 12px; padding: 1px 6px; }
+  .p-miscrow { background: #fff7a8; border: 1px solid #c9bd52; border-radius: 4px; padding: 7px 10px; margin-bottom: 8px; line-height: 1.3; }
+  .p-miscrow .s { font-size: 12.5px; color: #5a5320; }
+
+  .top { position: sticky; top: 0; z-index: 20; }
+
+  /* ══════════ OFF & MISC STRIP (the V1 change) ══════════
+     Replaces the Employees Off / Misc column that sat beside the roster.
+     Starts CLOSED; the summary still says how many are off and how many slots
+     that leaves uncovered, and each affected slot says who is off. */
+  .p-strip { margin: 10px 10px 0; background: #dcdcdc; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,.2); overflow: hidden; }
+  .p-strip-hd { width: 100%; min-height: 48px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 15px; color: var(--prod-ink); flex-wrap: wrap; }
+  .p-strip-hd:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: -2px; }
+  .p-strip-hd .sep { color: #8c949b; }
+  .p-strip-hd .warn { background: var(--prod-red); color: #fff; border-radius: 3px; font-size: 12.5px; padding: 2px 7px; }
+  .p-strip-hd .chev { margin-left: auto; transition: transform .18s; }
+  .p-strip.open .chev { transform: rotate(180deg); }
+  .p-strip-bd { display: none; padding: 0 8px 10px; }
+  .p-strip.open .p-strip-bd { display: flex; flex-direction: column; gap: 10px; }
+  .p-strip-bd .p-offbox { box-shadow: none; background: #e9e9e9; }
+  .p-offrow { cursor: pointer; }
+  .p-strip-ft { display: flex; justify-content: flex-end; }
+  .flash { animation: flash 1.4s ease; }
+  @keyframes flash { 0%, 60% { box-shadow: 0 0 0 4px var(--lumo-primary-color); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+  /* full-list drawer (new UI) */
+  .drow { padding: 10px 16px; border-bottom: 1px solid var(--lumo-contrast-10pct); line-height: 1.45; }
+  .drow .t { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .drow .s { font-size: 13px; color: var(--lumo-secondary-text-color); }
+  .drow .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+  /* ══════════ SEARCH + FILTERS ROW ══════════ */
+  .p-filter { flex: none; height: 36px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 1px solid transparent; border-radius: 4px; background: #eceef0; color: var(--prod-ink); font-size: 14px; cursor: pointer; white-space: nowrap; }
+  .p-filter:focus-visible { outline: 2px solid var(--lumo-primary-color); outline-offset: 2px; }
+  .p-filter[aria-pressed="true"] { background: var(--lumo-primary-color); color: #fff; }
+  .p-filter .n { background: #fff; color: var(--lumo-primary-text-color); border-radius: 999px; font-size: 11px; font-weight: 700; padding: 1px 7px; }
+  .p-filter .n:empty { display: none; }
+
+  /* ══════════ NOTES — closable; the notebook icon in the date bar brings them back ══════════ */
+  .p-notes { display: flex; align-items: flex-start; gap: 8px; }
+  .p-notes[hidden] { display: none; }
+  .p-notes .nt { flex: 1; min-width: 0; }
+  .nclose { flex: none; width: 32px; height: 32px; margin: -6px -8px -6px 0; border: 0; border-radius: 4px; background: none; color: #6b6340; font-size: 16px; cursor: pointer; }
+  .nclose:hover { background: rgba(0,0,0,.06); }
+  .p-date .tools button.nb { width: 30px; height: 34px; padding: 0; border: 0; background: none; color: #f2c14e; font-size: 19px; cursor: pointer; }
+  .p-date .tools button.nb[aria-pressed="false"] { opacity: .5; }
+
+  /* ══════════ PRESS-AND-HOLD DRAG ══════════
+     Hold a name: a fill bar runs along it, then it lifts and follows you.
+     Drop on another assignment, or on Time off / Misc. */
+  .p-bar[data-drag] { cursor: grab; touch-action: pan-y; }
+  .p-bar.holding { transform: scale(.97); transition: transform .4s ease; }
+  .p-bar.holding::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: #8fd3ff; border-radius: 0 0 4px 0; transform-origin: left; animation: holdfill .4s linear forwards; }
+  @keyframes holdfill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .p-bar.lifted { opacity: .3; outline: 2px dashed #8a939c; outline-offset: 2px; }
+  .ghost { position: absolute; z-index: 70; pointer-events: none; transform: rotate(-2deg) scale(1.04); transform-origin: left center; box-shadow: 0 12px 28px rgba(0,0,0,.45); outline: 2px solid #8fd3ff; }
+  .ghost .mv { position: absolute; top: -22px; right: 0; background: var(--lumo-primary-color); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .p-card.drop-over { outline: 3px solid var(--lumo-primary-color); outline-offset: 2px; background: #e6f1fc; }
+  .moved-note { display: block; flex-basis: 100%; font-size: 12px; color: #9fd3ff; margin-top: 2px; }
+  .targets { position: absolute; right: 0; bottom: 0; width: 1px; height: 1px; z-index: 60; pointer-events: none; }
+  .tgt { position: absolute; width: 76px; height: 76px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; font-weight: 700; box-shadow: 0 6px 18px rgba(0,0,0,.35); transform: translate(0,0) scale(.3); opacity: 0; transition: transform .22s cubic-bezier(.3,1.4,.5,1), opacity .15s; right: 10px; bottom: 16px; }
+  .tgt i { font-size: 22px; }
+  .tgt.off { background: #3c4650; color: #fff; }
+  .tgt.misc { background: #fff7a8; color: #3b3510; border: 2px solid #2a2a2a; }
+  .dragging .tgt.off { opacity: 1; transform: translate(-4px, -104px) scale(1); }
+  .dragging .tgt.misc { opacity: 1; transform: translate(-96px, -60px) scale(1); }
+  .dragging .tgt.over { box-shadow: 0 0 0 5px var(--lumo-primary-color), 0 8px 22px rgba(0,0,0,.4); }
+  .dragging .tgt.off.over { transform: translate(-4px, -104px) scale(1.18); }
+  .dragging .tgt.misc.over { transform: translate(-96px, -60px) scale(1.18); }
+  .drag-tip { position: absolute; left: 12px; right: 12px; top: 44px; z-index: 60; background: var(--lumo-contrast-90pct); color: #fff; border-radius: 10px; padding: 8px 12px; font-size: 13px; line-height: 1.35; opacity: 0; transition: opacity .15s; pointer-events: none; }
+  .dragging .drag-tip { opacity: 1; }
+
+  /* ══════════ MOVE SHEET (after a drop on Time off / Misc, or a tap on a name) ══════════ */
+  .mscrim { position: absolute; inset: 0; background: rgba(15, 23, 34, .45); opacity: 0; pointer-events: none; transition: opacity .2s ease; z-index: 46; }
+  #msheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 80%; background: var(--lumo-base-color); border-radius: 18px 18px 0 0; z-index: 47; transform: translateY(102%); transition: transform .24s ease; display: flex; flex-direction: column; box-shadow: var(--lumo-box-shadow-xl); }
+  .move-open .mscrim { opacity: 1; pointer-events: auto; }
+  .move-open #msheet { transform: none; }
+  .cbody { padding: 4px 16px 12px; display: flex; flex-direction: column; gap: 12px; }
+  .cbody .who { display: flex; align-items: center; gap: 10px; }
+  .cbody .who .p-bar { flex: 1; }
+  .cbody h3 { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--lumo-secondary-text-color); }
+  .cbody vwc-toggle-button-group { flex-wrap: wrap; }
+  .cbody .res { font-size: 13px; color: var(--lumo-secondary-text-color); line-height: 1.4; background: var(--lumo-contrast-5pct); border-radius: var(--lumo-border-radius-m); padding: 8px 10px; }
+
+  /* ══════════ V1 DENSITY ══════════
+     Tighter vertical rhythm so more of the day fits before you scroll:
+     assignment time sits beside its name, qualifier tags sit inline in the
+     name bar, part-shift times sit at the right of the bar, NOTES reads as
+     one line, smaller station headers and gaps. Rows stay ≥34px to tap. */
+  .p-notes { margin: 6px 6px 0; padding: 6px 8px 6px 10px; font-size: 13.5px; line-height: 1.35; border-left-width: 4px; }
+  .p-notes u { display: inline; margin: 0 6px 0 0; }
+  .p-strip { margin: 6px 6px 0; }
+  .p-strip-hd { min-height: 40px; padding: 4px 10px; font-size: 14px; }
+  .p-station { margin: 8px 6px 0; }
+  .p-station > .hd { font-size: 14px; padding: 4px; }
+  .p-station > .bd { padding: 6px; gap: 6px; }
+  .p-card { padding: 4px 6px 6px; border-width: 1.5px; }
+  .p-card .hd { gap: 4px; margin-bottom: 4px; }
+  .p-card .nm { font-size: 15px; font-weight: 600; gap: 6px; flex-wrap: wrap; }
+  .p-card .nm .tm { margin: 0; font-size: 12.5px; font-weight: 400; color: var(--prod-muted); white-space: nowrap; }
+  .p-card .ct { font-size: 14px; }
+  .p-card .kb { width: 28px; height: 28px; }
+  .p-card .rows { gap: 4px; }
+  .p-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 6px; min-height: 34px; padding: 5px 8px; font-size: 15px; border-left-width: 5px; }
+  .p-bar .tags { position: static; gap: 3px; }
+  .p-bar br { display: none; }
+  .p-bar .part { margin: 0 0 0 auto; font-size: 12px; }
+  .p-bar .me { margin-left: 0; }
+  .p-bar .dual-note { flex-basis: 100%; margin: 0; }
+  .p-tag { font-size: 10.5px; padding: 2px 3px; }
+  .p-open { min-height: 34px; padding: 5px 8px; font-size: 15px; gap: 3px 6px; }
+  .p-open .sub { flex-basis: auto; margin-left: auto; font-size: 12px; }
+  .p-off-note { font-size: 12px; }
+  .p-self { height: 34px; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- ── Brief: presenter notes shown beside the phone on wide screens ── -->
+  <aside class="brief" aria-label="About this version">
+    <div class="kicker">V1 · SCHED-25064</div>
+    <h1>Off &amp; Misc as a strip</h1>
+    <p class="lede">Today's scheduler, tightened so more fits on one screen. Employees Off &amp; Misc fold into a strip under the date.</p>
+    <p class="way"><i class="fa-solid fa-shuffle"></i><span><b>A different way:</b> open Off &amp; Misc in place. V1.1 and V2 try a drag-to bubble instead.</span></p>
+    <h2>View as</h2>
+    <div class="viewas">
+      <vwc-toggle-button-group id="roleToggle" selected="admin">
+        <vwc-toggle-button value="admin">Admin</vwc-toggle-button>
+        <vwc-toggle-button value="eu">End user</vwc-toggle-button>
+      </vwc-toggle-button-group>
+    </div>
+
+    <h2>Try it</h2>
+    <ul>
+      <li>Open the strip, then tap a person to jump to their slot.</li>
+      <li>Close the yellow <b>Notes</b> with ✕. The notebook icon brings them back.</li>
+      <li><b>Hold</b> a name, then drag it to another assignment or onto <b>Time off</b> / <b>Misc</b>.</li>
+    </ul>
+
+    <h2>Links</h2>
+    <div class="links"><a href="https://lmsportal.atlassian.net/browse/SCHED-25064" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25064</a><a href="https://lmsportal.atlassian.net/wiki/spaces/UXR/pages/29476749374/Scheduling+Mobile+Usability+Test+Findings+and+Recommendations" target="_blank" rel="noopener"><i class="fa-solid fa-flask"></i>Research</a></div>
+  </aside>
+
+  <!-- ── Phone ── -->
+  <div class="device">
+    <div class="screen" id="screen">
+      <div class="statusbar" aria-hidden="true"><span>9:41</span><span class="sb-ic"><i class="fa-solid fa-signal"></i><i class="fa-solid fa-wifi"></i><i class="fa-solid fa-battery-three-quarters"></i></span></div>
+
+      <div class="scroll prod" id="scroll">
+        <!-- Quick-return header: the production toolbar slides away on scroll
+             down and back on scroll up; the date header stays pinned. -->
+        <div class="top" id="top">
+          <div id="hdr">
+            <div class="p-appbar">
+              <button class="on" aria-label="Menu"><i class="fa-solid fa-bars"></i></button>
+              <button class="admin-only" aria-label="Settings"><i class="fa-solid fa-gear"></i></button>
+              <button aria-label="Notifications, 3 unread"><i class="fa-regular fa-bell"></i><span class="p-badge">3</span></button>
+              <button aria-label="Timecard"><i class="fa-solid fa-user-clock ic-clock"></i></button>
+              <button aria-label="Calendar"><i class="fa-regular fa-calendar-days"></i></button>
+              <span class="logo" aria-hidden="true"><i class="fa-solid fa-chart-simple"></i></span>
+            </div>
+            <!-- Compact toolbar, matching today's production mobile header: assignment
+                 filter, search, then one row of week/day · Next B day · date picker · «/». -->
+            <div class="p-tools">
+              <div class="p-row"><input class="p-search" id="pSearch" type="search" placeholder="Search..." aria-label="Search"><button class="p-filter" data-act="toast" data-msg="Filters (see V2)"><i class="fa-solid fa-sliders"></i>Filters</button></div>
+              <div class="p-row nav">
+                <span class="p-seg navy"><button data-act="toast" data-msg="Week view">week</button><button class="on" aria-pressed="true">day</button></span>
+                <button class="p-navy" data-act="toast" data-msg="Jumps to the next B shift day">Next B day</button>
+                <button class="p-calbtn" aria-label="Pick a date" data-act="toast" data-msg="Opens the date picker"><i class="fa-regular fa-calendar-days"></i></button>
+                <span class="p-pager"><button class="p-navy" aria-label="Previous day" data-act="toast" data-msg="Previous day">«</button><button class="p-navy" aria-label="Next day" data-act="toast" data-msg="Next day">»</button></span>
+              </div>
+            </div>
+          </div>
+          <!-- Sticky shift/date bar in the shift's color (B shift) -->
+          <div class="p-date">
+            <span class="shift" aria-label="B shift">B</span>
+            <button class="arr" aria-label="Previous day" data-act="toast" data-msg="Previous day"><i class="fa-solid fa-chevron-left"></i></button>
+            <span class="box">WEDNESDAY 10/16</span>
+            <button class="arr" aria-label="Next day" data-act="toast" data-msg="Next day"><i class="fa-solid fa-chevron-right"></i></button>
+            <span class="tools"><button class="nb" data-act="toggleNotes" aria-label="Notes" aria-pressed="true"><i class="fa-solid fa-book"></i></button><i class="fa-solid fa-gear admin-only" aria-hidden="true"></i></span>
+          </div>
+
+        </div>
+        <section class="p-strip" id="strip" aria-label="Employees off and misc"></section>
+        <div class="p-notes" id="notes"><span class="nt"><u>NOTES</u>Area Familiarization Training @ Ocean Beach — 10/16 @ 0800</span><button class="nclose" data-act="closeNotes" aria-label="Close notes"><i class="fa-solid fa-xmark"></i></button></div>
+        <div id="roster"></div>
+        <div style="height:110px"></div>
+      </div>
+
+
+      <!-- Drawer: the full Off & Misc list -->
+      <div class="scrim" data-act="closeSheet"></div>
+      <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="grab"></div>
+        <div class="sheet-hd">
+          <h2 id="sheetTitle">Off &amp; Misc · Wed 10/16</h2>
+          <vaadin-button theme="icon" aria-label="Close" data-act="closeSheet"><i class="fa-solid fa-xmark"></i></vaadin-button>
+        </div>
+        <div class="sheet-tools">
+          <vwc-toggle-button-group id="sheetTabs" selected="off">
+            <vwc-toggle-button value="off">Employees Off (4)</vwc-toggle-button>
+            <vwc-toggle-button value="misc">Misc (2)</vwc-toggle-button>
+          </vwc-toggle-button-group>
+          <vaadin-text-field id="sheetSearch" theme="outlined" placeholder="Search name, assignment or reason" clear-button-visible>
+            <i slot="prefix" class="fa-solid fa-magnifying-glass"></i>
+          </vaadin-text-field>
+        </div>
+        <div class="sheet-body" id="sheetBody"></div>
+        <div class="sheet-ft admin-only">
+          <vaadin-button theme="secondary" data-act="toast" data-msg="Opens Add misc shift">Add misc</vaadin-button>
+          <vaadin-button theme="primary" data-act="toast" data-msg="Opens Add time off">Add time off</vaadin-button>
+        </div>
+      </div>
+
+
+      <!-- Drop targets: fan out from the bottom-right corner while a name is dragged -->
+      <div class="targets" aria-hidden="true">
+        <div class="tgt off" data-target="off"><i class="fa-solid fa-user-slash"></i>Time off</div>
+        <div class="tgt misc" data-target="misc"><i class="fa-solid fa-briefcase"></i>Misc</div>
+      </div>
+      <div class="drag-tip" id="dragTip"></div>
+
+      <!-- Move sheet: after a drop on Time off / Misc, or a tap on a name -->
+      <div class="mscrim" data-act="closeMove"></div>
+      <div class="msheet" id="msheet" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+        <div class="grab"></div>
+        <div class="sheet-hd"><h2 id="mTitle"></h2><vaadin-button theme="icon" aria-label="Close" data-act="closeMove"><i class="fa-solid fa-xmark"></i></vaadin-button></div>
+        <div class="cbody" id="mBody"></div>
+        <div class="sheet-ft" id="mFt"></div>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ══════════ MOCK DATA (shared by V1, V1.1, V2) ══════════
+     hrs = shift length. offBy = the person whose time off left this slot open.
+     dual = also scheduled on another assignment today; dup = the second listing. */
+  const ME = 'Alex Rivera';
+  const STATIONS_SEED = [
+    { id: 's1', name: 'STATION 1', color: '--st-blue', units: [
+      { id: 'e1', name: 'Engine 1', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Rafael Diaz', q: ['CAPT'] }, { p: 'Jordan Alvarez', q: ['ENG'] }, { p: 'Sam Okafor', q: ['FF'] }, { open: true, q: ['PM'] }] },
+      { id: 't1', name: 'Truck 1', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Lena Park', q: ['CAPT'] }, { p: 'Dev Raman', q: ['ENG'] }, { p: 'Priya Shah', q: ['FF'], part: '12 - 7 (19 hrs)' }, { open: true, q: ['FF'], part: '07:00 - 12:00', offBy: 'Priya Shah', offType: 'Comp time' }] },
+      { id: 'm1', name: 'Medic 1', hrs: 12, time: '7 - 19 (12 hrs)', rows: [{ p: 'Nina Brooks', q: ['PM'] }, { p: 'Owen Tate', q: ['EMT'] }] }
+    ] },
+    { id: 'south', name: 'SOUTH', color: '--st-orange', dark: true, units: [
+      { id: 'e31', name: 'Engine 31', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Grace Liu', q: ['CAPT'] }, { p: 'Ben Carter', q: ['ENG'] }, { p: 'Alex Rivera', q: ['FF', 'PM'], me: true }, { p: 'Theo Grant', q: ['FF'] }] },
+      { id: 'm3', name: 'Medic 3', hrs: 12, time: '19 - 7 (12 hrs)', rows: [{ open: true, q: ['PM'], offBy: 'Rosa King', offType: 'Sick' }, { p: 'Ivy Chen', q: ['EMT'] }] }
+    ] },
+    { id: 'north', name: 'NORTH', color: '--st-green', dark: true, units: [
+      { id: 'e5', name: 'Engine 5', hrs: 24, time: '7 - 7 (24 hrs)', rows: [{ p: 'Hugo Silva', q: ['CAPT'] }, { open: true, q: ['ENG'], offBy: 'Jamal Moore', offType: 'Kelly day' }, { p: 'Mia Torres', q: ['FF'], dual: 'Rescue 5' }, { p: 'Kai Nguyen', q: ['FF'] }] },
+      { id: 'r5', name: 'Rescue 5', hrs: 12, time: '7 - 19 (12 hrs)', rows: [{ p: 'Zoe Adams', q: ['CAPT'] }, { p: 'Mia Torres', q: ['FF'], dual: 'Engine 5', dup: true }] }
+    ] },
+    { id: 's4', name: 'STATION 4', color: '--st-blue2', units: [
+      { id: 'b4', name: 'Battalion 4', hrs: 8, time: '8 - 16 (8 hrs)', rows: [{ p: 'Marcus Hale', q: ['BC'] }] },
+      { id: 'hs', name: 'Hourly Staffing', hrs: 8, time: '8 - 16 (8 hrs)', signup: true, rows: [{ open: true, q: [] }, { open: true, q: [] }] }
+    ] }
+  ];
+  const OFF_SEED = [
+    { p: 'Taylor Vance', type: 'Vacation', time: 'All day', unit: 'e1', q: 'FF', covered: 'Sam Okafor' },
+    { p: 'Rosa King', type: 'Sick', time: 'All day', unit: 'm3', q: 'PM', by: 'Called in 05:42' },
+    { p: 'Jamal Moore', type: 'Kelly day', time: 'All day', unit: 'e5', q: 'ENG' },
+    { p: 'Priya Shah', type: 'Comp time', time: '07:00 – 12:00', unit: 't1', q: 'FF' }
+  ];
+  const MISC_SEED = [
+    { t: 'Hazmat refresher', who: 'Ben Carter, Mia Torres', time: '09:00 – 11:00', where: 'Station 5 training room' },
+    { t: 'Light duty', who: 'Mike Ortiz', time: '08:00 – 16:00', where: 'Admin office' }
+  ];
+  const clone = o => JSON.parse(JSON.stringify(o));
+  let STATIONS = clone(STATIONS_SEED), OFF = clone(OFF_SEED), MISC = clone(MISC_SEED);
+  const allUnits = () => STATIONS.flatMap(s => s.units);
+  const unitById = id => allUnits().find(u => u.id === id);
+  const uncoveredCount = () => OFF.filter(o => !o.covered).length;
+
+  /* ══════════ HELPERS ══════════ */
+  const $ = (s, r = document) => r.querySelector(s);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  let toastTimer;
+  function toast(msg, undoFn) {
+    const t = $('#toast');
+    t.innerHTML = `<span>${esc(msg)}</span>${undoFn ? '<button type="button">Undo</button>' : ''}`;
+    if (undoFn) t.querySelector('button').onclick = () => { undoFn(); t.classList.remove('show'); };
+    t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), undoFn ? 4500 : 1900);
+  }
+  const tagHTML = q => `<span class="p-tag${q === 'PM' ? ' pm' : ''}">${esc(q)}</span>`;
+
+  /* Scroll the roster to an assignment and flash it — keeps "who's off" in
+     the context of the assignment it affects. */
+  function showUnit(id) {
+    const el = document.querySelector(`[data-unit="${id}"]`); if (!el) return;
+    const sc = $('#scroll');
+    sc.scrollTo({ top: el.offsetTop - $('#top').offsetHeight - 70, behavior: 'smooth' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+  }
+
+  /* ══════════ RENDER: ROSTER ══════════
+     opts: unitVisible(u), rowVisible(r,u), rowHit(r,u), footer(u, foldedCount),
+           showDualFlag, draggable. Every hook defaults to "show everything". */
+  function rosterHTML(opts = {}) {
+    const o = Object.assign({ unitVisible: () => true, rowVisible: () => true, rowHit: () => false, footer: () => '', showDualFlag: true, draggable: false, stationVisible: null }, opts);
+    return STATIONS.map(st => {
+      const units = st.units.filter(o.unitVisible);
+      if (!units.length) return '';
+      return `<section class="p-station${st.dark ? ' dark' : ''}" style="--stc: var(${st.color})">
+        <div class="hd">${esc(st.name)}</div>
+        <div class="bd">${units.map(u => {
+          const filled = u.rows.filter(r => !r.open).length;
+          const vis = u.rows.map((r, i) => ({ r, i })).filter(x => o.rowVisible(x.r, u));
+          return `<article class="p-card${filled < u.rows.length ? ' short' : ''}" data-unit="${u.id}">
+            <div class="hd"><span class="nm">${esc(u.name)}${u.signup ? '<i class="fa-solid fa-user-plus" aria-label="Sign-up shift"></i>' : ''}<span class="tm">${esc(u.time)}</span></span>
+              <span class="ct${filled === u.rows.length ? ' full' : ''}" aria-label="${filled} of ${u.rows.length} filled">${filled}/${u.rows.length}</span>
+              <button class="kb admin-only" aria-label="${esc(u.name)} actions" data-act="toast" data-msg="${esc(u.name)}: add, move or notify"><i class="fa-solid fa-ellipsis-vertical"></i></button></div>
+            <div class="rows">${vis.map(({ r, i }) => {
+              const hit = o.rowHit(r, u) ? ' hit' : '';
+              if (r.open) return `<div class="p-open${hit}" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Open slot ${r.q.map(tagHTML).join(' ')}
+                  ${r.part ? `<span class="sub">${esc(r.part)}</span>` : ''}
+                  ${r.offBy ? `<span class="p-off-note"><i class="fa-solid fa-user-slash"></i>${esc(r.offBy)} off · ${esc(r.offType)}</span>` : ''}${r.movedTo ? `<span class="p-off-note"><i class="fa-solid fa-arrow-right-arrow-left"></i>${esc(r.movedFrom)} moved to ${esc(r.movedTo)}</span>` : ''}</div>`;
+              return `<div class="p-bar${hit}" data-u="${u.id}" data-i="${i}"${o.draggable ? ' data-drag="1"' : ''}>
+                  <span class="tags">${r.q.map(tagHTML).join('')}</span>${esc(r.p)}${r.me ? '<span class="me">YOU</span>' : ''}${r.dual && o.showDualFlag ? `<i class="fa-solid fa-flag dual" aria-label="Dual-scheduled"></i>` : ''}
+                  ${r.part ? `<br><span class="part">${esc(r.part)}</span>` : ''}
+                  ${r.dual && o.showDualFlag ? `<span class="dual-note">Also on ${esc(r.dual)} today</span>` : ''}${r.movedIn ? `<span class="moved-note"><i class="fa-solid fa-arrow-right-arrow-left"></i> Moved from ${esc(r.movedIn)}</span>` : ''}</div>`;
+            }).join('')}</div>
+            ${o.footer(u, u.rows.length - vis.length)}
+            ${u.signup ? '<button class="p-self" style="margin-top:8px;width:100%" data-act="toast" data-msg="Signed up for Hourly Staffing">+ Schedule yourself</button>' : ''}
+          </article>`;
+        }).join('')}</div></section>`;
+    }).join('');
+  }
+
+  /* Quick-return header: slide the toolbar away on scroll down, pull it back on
+     scroll up. The date header (bottom of .top) always stays pinned. */
+  function quickReturn() {
+    const sc = $('#scroll'), top = $('#top'), hdr = $('#hdr');
+    let last = 0, off = 0;
+    sc.addEventListener('scroll', () => {
+      const y = sc.scrollTop, d = y - last; last = y;
+      off = y <= 0 ? 0 : Math.min(0, Math.max(-hdr.offsetHeight, off - d));
+      top.style.top = off + 'px';
+    }, { passive: true });
+  }
+
+  /* Toggle groups: react to the user's tap and read the value back (the
+     component's selection-change also fires while upgrading). */
+  function onToggleTap(sel, fn) {
+    const g = $(sel); if (!g) return;
+    g.addEventListener('click', e => { const b = e.target.closest('vwc-toggle-button'); if (b) fn(b.getAttribute('value')); });
+  }
+  function setGroup(sel, val) {
+    const g = $(sel); if (!g) return;
+    g.setAttribute('selected', Array.isArray(val) ? JSON.stringify(val) : val);
+    g.selected = val;
+  }
+
+
+  /* ══════════ V1 STATE ══════════ */
+  const STRIP_KEY = 'spui-v1-strip-open-v2';   // starts closed by default
+  const state = { stripOpen: store.get(STRIP_KEY, false), tab: 'off', query: '', role: 'admin' };
+
+  /* ══════════ RENDER: STRIP ══════════ */
+  function offRowHTML(o) {
+    const u = unitById(o.unit);
+    return `<div class="p-offrow" data-act="goto" data-unit-id="${o.unit}" role="button" tabindex="0">
+      <b>${esc(o.p)}</b> <span class="p-tag" style="vertical-align:1px">${esc(o.q)}</span>
+      <div class="s">${esc(o.type)} · ${esc(o.time)}</div>
+      ${o.covered ? `<span class="cov">${esc(u.name)} · covered by ${esc(o.covered)}</span>` : `<span class="aff">${esc(u.name)} · open slot</span>`}
+    </div>`;
+  }
+  function miscRowHTML(m) {
+    return `<div class="p-miscrow"><b>${esc(m.t)}</b><div class="s">${esc(m.who)} · ${esc(m.time)}</div></div>`;
+  }
+  function renderStrip() {
+    const unc = uncoveredCount();
+    $('#strip').innerHTML = `
+      <button class="p-strip-hd" id="stripToggle" aria-expanded="${state.stripOpen}">
+        <i class="fa-solid fa-user-slash"></i><span>Employees Off <b>${OFF.length}</b></span><span class="sep">·</span><span>Misc <b>${MISC.length}</b></span>
+        ${unc ? `<span class="warn">${unc} uncovered</span>` : ''}
+        <i class="fa-solid fa-chevron-down chev"></i>
+      </button>
+      <div class="p-strip-bd">
+        <div class="p-offbox"><div class="bh">Employees Off</div>${OFF.map(offRowHTML).join('')}
+          <button class="p-add admin-only" data-act="toast" data-msg="Opens Add time off">+ Add</button></div>
+        <div class="p-miscbox"><div class="bh">Misc</div>${MISC.map(miscRowHTML).join('')}
+          <button class="p-add admin-only" data-act="toast" data-msg="Opens Add misc shift">+ Add</button></div>
+        <div class="p-strip-ft"><vaadin-button theme="secondary" data-act="openSheet"><i class="fa-solid fa-up-right-and-down-left-from-center" slot="prefix"></i>Open full list</vaadin-button></div>
+      </div>`;
+    $('#strip').classList.toggle('open', state.stripOpen);
+  }
+  function renderRoster() { $('#roster').innerHTML = rosterHTML({ draggable: state.role === 'admin' }); }
+  function rerenderAll() { renderStrip(); renderRoster(); }
+
+  /* ══════════ RENDER: DRAWER ══════════ */
+  function renderSheet() {
+    const q = state.query.trim().toLowerCase();
+    let html;
+    if (state.tab === 'off') {
+      html = OFF.filter(o => !q || [o.p, o.type, unitById(o.unit).name].join(' ').toLowerCase().includes(q)).map(o => {
+        const u = unitById(o.unit);
+        return `<div class="drow"><div class="t">${esc(o.p)} <span theme="badge${o.type === 'Sick' ? ' error' : ''}">${esc(o.type)}</span></div>
+          <div class="s">${esc(u.name)} · ${esc(o.q)} · ${esc(o.time)}${o.by ? ' · ' + esc(o.by) : ''}</div>
+          <div class="s" style="color:${o.covered ? 'var(--lumo-success-text-color)' : 'var(--lumo-error-text-color)'}">${o.covered ? 'Covered by ' + esc(o.covered) : 'Not covered. Open slot on ' + esc(u.name)}</div>
+          <div class="acts"><vaadin-button theme="tertiary" data-act="goto" data-unit-id="${o.unit}">Show on schedule</vaadin-button>
+            ${o.covered ? '' : `<vaadin-button theme="primary" class="admin-only" data-act="toast" data-msg="Opens Fill shift for ${esc(u.name)}">Fill slot</vaadin-button>`}</div></div>`;
+      }).join('');
+    } else {
+      html = MISC.filter(m => !q || [m.t, m.who, m.where].join(' ').toLowerCase().includes(q)).map(m =>
+        `<div class="drow"><div class="t">${esc(m.t)}</div><div class="s">${esc(m.who)} · ${esc(m.time)} · ${esc(m.where)}</div></div>`).join('');
+    }
+    $('#sheetBody').innerHTML = html || `<div class="empty">No one matches “${esc(state.query)}”.</div>`;
+  }
+  function openSheet(tab) { if (tab) state.tab = tab; setGroup('#sheetTabs', state.tab); renderSheet(); $('#screen').classList.add('sheet-open'); }
+  function closeSheet() { $('#screen').classList.remove('sheet-open'); }
+
+  function setRole(r) { state.role = r; document.body.classList.toggle('role-eu', r === 'eu'); setGroup('#roleToggle', r); renderRoster(); }
+
+  /* ══════════ EVENTS ══════════ */
+  document.addEventListener('click', e => {
+    if (e.target.closest('#stripToggle')) {
+      state.stripOpen = !state.stripOpen; store.set(STRIP_KEY, state.stripOpen); renderStrip(); return;
+    }
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    const a = el.dataset.act;
+    if (a === 'toast') toast(el.dataset.msg);
+    if (a === 'openSheet') openSheet();
+    if (a === 'closeSheet') closeSheet();
+    if (a === 'goto') { closeSheet(); showUnit(el.dataset.unitId); }
+  });
+  onToggleTap('#sheetTabs', v => { if (v !== state.tab) { state.tab = v; renderSheet(); } });
+  onToggleTap('#roleToggle', setRole);
+  $('#sheetSearch').addEventListener('value-changed', e => { state.query = e.detail.value || ''; renderSheet(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(); closeMove(); } });
+
+  /* ══════════ PRESS-AND-HOLD DRAG ══════════
+     Hold a name for 0.4s (mouse or finger): a fill bar runs along it, then it
+     lifts (a haptic tick on phones), a "Moving" ghost follows you and Time off /
+     Misc fan out from the corner. Drop it on another assignment to move the
+     person there, or on Time off / Misc. Near the top or bottom edge the
+     schedule scrolls so any station is reachable. Moving before the hold
+     completes is treated as a scroll. A quick tap opens the Move menu. */
+  const HOLD_MS = 400;
+  function initDnd(cfg) {
+    const screen = $('#screen'), sc = $('#scroll');
+    let src = null, ghost = null, timer = null, start = null, last = null, dragging = false, justDragged = false, raf = 0, grab = null;
+    const rel = e => { const r = screen.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    function cancelHold() { clearTimeout(timer); if (src) src.classList.remove('holding'); src = null; }
+    function begin() {
+      if (!src) return;
+      dragging = true; src.classList.remove('holding'); if (cfg.beforeDrag) cfg.beforeDrag();
+      const br = src.getBoundingClientRect(); grab = { x: last.clientX - br.left, y: last.clientY - br.top };   // keep the grab point under the finger
+      ghost = src.cloneNode(true); ghost.style.width = br.width + 'px'; ghost.classList.remove('holding'); ghost.classList.add('ghost'); ghost.removeAttribute('data-drag');
+      ghost.insertAdjacentHTML('beforeend', '<span class="mv"><i class="fa-solid fa-up-down-left-right"></i> Moving</span>');
+      screen.appendChild(ghost); src.classList.add('lifted'); screen.classList.add('dragging');
+      $('#dragTip').innerHTML = `Moving <b>${esc(cfg.nameOf(src.dataset.u, +src.dataset.i))}</b>. Drop on an assignment, or on <b>Time off</b> / <b>Misc</b>.`;
+      try { if (navigator.vibrate) navigator.vibrate(12); } catch (e) {}
+      move(last); raf = requestAnimationFrame(edgeScroll);
+    }
+    function hit(e) {
+      let tgt = null;
+      document.querySelectorAll('.tgt').forEach(t => {
+        const r = t.getBoundingClientRect();
+        const on = e.clientX >= r.left - 12 && e.clientX <= r.right + 12 && e.clientY >= r.top - 12 && e.clientY <= r.bottom + 12;
+        t.classList.toggle('over', on); if (on) tgt = t;
+      });
+      let card = null;
+      if (!tgt) {
+        const el = document.elementFromPoint(e.clientX, e.clientY);
+        card = el && el.closest('.p-card[data-unit]');
+        if (card && card.dataset.unit === src.dataset.u) card = null;
+      }
+      document.querySelectorAll('.p-card.drop-over').forEach(c => { if (c !== card) c.classList.remove('drop-over'); });
+      if (card) card.classList.add('drop-over');
+      return { tgt, card };
+    }
+    function move(e) { const p = rel(e); ghost.style.left = (p.x - grab.x) + 'px'; ghost.style.top = (p.y - grab.y - 10) + 'px'; hit(e); }
+    function edgeScroll() {
+      if (!dragging) return;
+      const r = sc.getBoundingClientRect(), topEdge = $('#top').getBoundingClientRect().bottom, y = last.clientY;
+      const overTgt = !!document.querySelector('.tgt.over');
+      let d = 0;
+      if (y < topEdge + 56) d = -Math.min(14, (topEdge + 56 - y) / 3);
+      else if (y > r.bottom - 64 && !overTgt) d = Math.min(14, (y - (r.bottom - 64)) / 3);
+      if (d) { sc.scrollTop += d; hit(last); }
+      raf = requestAnimationFrame(edgeScroll);
+    }
+    function end() {
+      clearTimeout(timer);
+      if (dragging) {
+        cancelAnimationFrame(raf);
+        const { tgt, card } = hit(last), u = src.dataset.u, i = +src.dataset.i;
+        ghost.remove(); src.classList.remove('lifted'); screen.classList.remove('dragging');
+        document.querySelectorAll('.tgt.over, .p-card.drop-over').forEach(x => x.classList.remove('over', 'drop-over'));
+        if (tgt) cfg.dropOff(u, i, tgt.dataset.target);
+        else if (card) moveToUnit(u, i, card.dataset.unit, cfg.rerender);
+        justDragged = true; setTimeout(() => { justDragged = false; }, 60);
+      } else if (src) src.classList.remove('holding');
+      src = null; dragging = false; start = null;
+    }
+    sc.addEventListener('pointerdown', e => {
+      const bar = e.target.closest('.p-bar[data-drag]'); if (!bar || !cfg.isAdmin() || e.button > 0) return;
+      src = bar; start = { x: e.clientX, y: e.clientY }; last = e;
+      bar.classList.add('holding');
+      timer = setTimeout(begin, HOLD_MS);
+    });
+    window.addEventListener('pointermove', e => {
+      if (!src) return;
+      last = e;
+      if (dragging) { move(e); return; }
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) cancelHold();   // moved before the hold finished: a scroll
+    });
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', () => { if (!dragging) { cancelHold(); start = null; } });
+    // Touch fallback: keep following the finger even if the browser cancels the pointer
+    sc.addEventListener('touchmove', e => {
+      if (!dragging) return;
+      e.preventDefault();
+      const t = e.touches[0]; last = { clientX: t.clientX, clientY: t.clientY }; move(last);
+    }, { passive: false });
+    window.addEventListener('touchend', () => { if (dragging) end(); });
+    sc.addEventListener('contextmenu', e => { if (e.target.closest('.p-bar[data-drag]')) e.preventDefault(); });
+    sc.addEventListener('click', e => {
+      const bar = e.target.closest('.p-bar[data-drag]');
+      if (!bar || justDragged || !cfg.isAdmin()) return;
+      cfg.onTap(bar.dataset.u, +bar.dataset.i);
+    });
+  }
+
+  /* Drop on another assignment: the person takes the first open slot that fits
+     their qualifier (or joins the assignment), and the slot they left opens up
+     and says where they went. Undo puts everything back. */
+  function moveToUnit(u, i, to, rerender) {
+    const from = unitById(u), dest = unitById(to), r = from.rows[i];
+    const before = clone({ STATIONS, OFF, MISC });
+    from.rows[i] = { open: true, q: r.q, movedFrom: r.p, movedTo: dest.name };
+    const slot = dest.rows.findIndex(x => x.open && (!x.q.length || x.q.some(q => r.q.includes(q))));
+    const placed = { p: r.p, q: r.q, me: r.me, movedIn: from.name };
+    if (slot >= 0) dest.rows[slot] = placed; else dest.rows.push(placed);
+    rerender();
+    const card = document.querySelector(`[data-unit="${to}"]`);
+    if (card) { card.classList.remove('flash'); void card.offsetWidth; card.classList.add('flash'); }
+    toast(`${r.p} moved to ${dest.name}${slot >= 0 ? ', filling the open slot' : ''}`, () => { STATIONS = before.STATIONS; OFF = before.OFF; MISC = before.MISC; rerender(); });
+  }
+
+  /* ══════════ MOVE TO TIME OFF / MISC (after a drop, or from the tap menu) ══════════ */
+  const OFF_TYPES = ['Vacation', 'Sick', 'Kelly day', 'Comp time', 'Other'];
+  const MISC_TYPES = ['Training', 'Light duty', 'Admin', 'Other'];
+  let pending = null;
+  function openMove(u, i, kind) {
+    const unit = unitById(u), r = unit.rows[i];
+    pending = { u, i, kind, type: kind === 'off' ? 'Vacation' : 'Training', span: 'full' };
+    const types = kind === 'off' ? OFF_TYPES : MISC_TYPES;
+    $('#mTitle').textContent = kind === 'off' ? 'Move to Employees Off' : 'Move to Misc';
+    $('#mBody').innerHTML = `
+      <div class="who"><div class="p-bar"><span class="tags">${r.q.map(tagHTML).join('')}</span>${esc(r.p)}</div></div>
+      <h3>${kind === 'off' ? 'Reason' : 'Type'}</h3>
+      <vwc-toggle-button-group id="mType" selected="${types[0]}">${types.map(t => `<vwc-toggle-button value="${t}">${t}</vwc-toggle-button>`).join('')}</vwc-toggle-button-group>
+      <h3>How long</h3>
+      <vwc-toggle-button-group id="mSpan" selected="full"><vwc-toggle-button value="full">Whole shift (${esc(unit.time)})</vwc-toggle-button><vwc-toggle-button value="part">Part of shift</vwc-toggle-button></vwc-toggle-button-group>
+      <div class="res"><i class="fa-solid fa-circle-info"></i> ${esc(r.p)}'s ${esc(r.q.join('/'))} slot on <b>${esc(unit.name)}</b> becomes an open slot that says who is off.</div>`;
+    $('#mFt').style.flexWrap = '';
+    $('#mFt').innerHTML = `<vaadin-button theme="secondary" data-act="closeMove">Cancel</vaadin-button><vaadin-button theme="primary" data-act="confirmMove">${kind === 'off' ? 'Move to time off' : 'Move to misc'}</vaadin-button>`;
+    onToggleTap('#mType', v => { pending.type = v; });
+    onToggleTap('#mSpan', v => { pending.span = v; });
+    $('#screen').classList.add('move-open');
+  }
+  function openMoveMenu(u, i) {
+    const unit = unitById(u), r = unit.rows[i];
+    $('#mTitle').textContent = r.p;
+    $('#mBody').innerHTML = `<div class="res">${esc(unit.name)} · ${esc(r.q.join('/'))} · ${esc(r.part || unit.time)}<br>Tip: press and hold a name to drag it to another assignment.</div>`;
+    $('#mFt').style.flexWrap = 'wrap';
+    $('#mFt').innerHTML = `<vaadin-button theme="tertiary" data-act="toast" data-msg="Opens Edit shift">Edit shift</vaadin-button>
+      <vaadin-button theme="secondary" data-act="moveTo" data-k="misc" data-u="${u}" data-i="${i}">Move to misc</vaadin-button>
+      <vaadin-button theme="primary" data-act="moveTo" data-k="off" data-u="${u}" data-i="${i}">Move to time off</vaadin-button>`;
+    $('#screen').classList.add('move-open');
+  }
+  function closeMove() { $('#screen').classList.remove('move-open'); }
+  function confirmMove(rerender) {
+    const { u, i, kind, type, span } = pending;
+    const unit = unitById(u), r = unit.rows[i];
+    const before = clone({ STATIONS, OFF, MISC });
+    unit.rows[i] = { open: true, q: r.q, offBy: r.p, offType: kind === 'off' ? type : `Misc: ${type}`, part: span === 'part' ? 'Part of shift' : r.part };
+    if (kind === 'off') OFF.push({ p: r.p, type, time: span === 'part' ? 'Part of shift' : 'All day', unit: u, q: r.q[0] });
+    else MISC.push({ t: type, who: r.p, time: span === 'part' ? 'Part of shift' : unit.time, where: unit.name });
+    closeMove(); rerender();
+    const b = $('#bubble'); if (b) { b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); }
+    toast(`${r.p} moved to ${kind === 'off' ? 'Employees Off' : 'Misc'}`, () => { STATIONS = before.STATIONS; OFF = before.OFF; MISC = before.MISC; rerender(); });
+  }
+
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act]'); if (!el) return;
+    const a = el.dataset.act;
+    if (a === 'closeMove') closeMove();
+    if (a === 'confirmMove') confirmMove(rerenderAll);
+    if (a === 'moveTo') { closeMove(); setTimeout(() => openMove(el.dataset.u, +el.dataset.i, el.dataset.k), 180); }
+  });
+
+  /* Notes: ✕ closes them; the notebook icon in the date bar brings them back */
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[data-act="closeNotes"], [data-act="toggleNotes"]'); if (!el) return;
+    const n = $('#notes'), show = el.dataset.act === 'toggleNotes' && n.hidden;
+    n.hidden = !show; $('.p-date .nb').setAttribute('aria-pressed', String(show));
+    if (!show) toast('Notes hidden. Tap the notebook icon to show them.');
+  });
+  initDnd({ isAdmin: () => state.role === 'admin', beforeDrag: closeSheet, nameOf: (u, i) => unitById(u).rows[i].p,
+    dropOff: openMove, onTap: openMoveMenu, rerender: rerenderAll });
+
+  quickReturn(); renderStrip(); renderRoster();
+</script>
+
+<!-- ── Design Toolbox: Flow Map ── -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    STATIONS = clone(STATIONS_SEED); OFF = clone(OFF_SEED); MISC = clone(MISC_SEED);
+    closeSheet(); closeMove(); setRole('admin'); state.query = ''; document.getElementById('screen').classList.remove('dragging');
+    document.getElementById('notes').hidden = false;
+    const f = document.querySelector('#sheetSearch'); if (f) f.value = '';
+    switch (id) {
+      case 'stripClosed': state.stripOpen = false; break;
+      case 'stripOpen': state.stripOpen = true; break;
+      case 'drawer': state.stripOpen = false; openSheet('off'); break;
+      case 'endUser': state.stripOpen = false; setRole('eu'); break;
+      case 'dragging': state.stripOpen = false; document.getElementById('screen').classList.add('dragging'); break;
+      case 'movedUnit': state.stripOpen = false; renderStrip(); moveToUnit('e1', 2, 't1', rerenderAll); break;
+      case 'confirm': state.stripOpen = false; renderStrip(); openMove('e31', 3, 'off'); break;
+      default: break;
+    }
+    renderStrip(); if (id !== 'movedUnit') renderRoster();
+    if (!opts.instant) document.querySelector('#scroll').scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  bootFromHash();
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Mobile UI Enhancements · V1 Off & Misc strip — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1220, h: 800 },
+      flows: [
+        { id: 'main', name: 'Off & Misc strip', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1180, h: 380 }, labelXY: { x: 40, y: 40 } },
+        { id: 'move', name: 'Press, hold and drag a name', pill: 'B', color: '#b8e0f0',
+          lane: { x: 20, y: 420, w: 1180, h: 360 }, labelXY: { x: 40, y: 440 } }
+      ],
+      nodes: [
+        { id: 'stripClosed', flow: 'main', entry: true, x: 60, y: 170, step: 'Entry', name: 'Day view, strip closed', state: 'stripClosed',
+          desc: 'Production scheduler, full width. Closed strip still reads "4 off · 3 uncovered"; affected slots name who is off.' },
+        { id: 'stripOpen', flow: 'main', x: 340, y: 170, step: 'Step 2', name: 'Strip open', state: 'stripOpen',
+          desc: 'Production Employees Off / Misc boxes. Tap a person to jump to their slot.' },
+        { id: 'drawer', flow: 'main', x: 620, y: 170, step: 'Step 3', name: 'Full list drawer', state: 'drawer',
+          desc: 'Searchable list with coverage and Fill slot.' },
+        { id: 'endUser', flow: 'main', x: 900, y: 170, step: 'Variant', name: 'End-user view', state: 'endUser',
+          desc: 'Admin-only controls hidden: ⋮, settings, + Add, dragging.' },
+        { id: 'dragging', flow: 'move', x: 60, y: 540, step: 'Step 1', name: 'Dragging a name', state: 'dragging',
+          desc: 'Hold 0.4s, the name lifts; drop on an assignment or on Time off / Misc.' },
+        { id: 'movedUnit', flow: 'move', x: 340, y: 540, step: 'Result', name: 'Moved to Truck 1', state: 'movedUnit',
+          desc: 'Fills the matching open slot; the slot left behind says where they went. Undo.' },
+        { id: 'confirm', flow: 'move', x: 620, y: 540, step: 'Result', name: 'Move to time off', state: 'confirm',
+          desc: 'Dropped on Time off: pick reason and whole/part shift.' }
+      ],
+      edges: [['stripClosed', 'stripOpen'], ['stripOpen', 'drawer'], ['stripClosed', 'endUser'], ['stripClosed', 'dragging'], ['dragging', 'movedUnit'], ['dragging', 'confirm']]
+    }
+  };
+</script>
+
+<!-- Design Toolbox: comments + flow map (review tooling only; strip for production) -->
+<script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+</body>
+</html>

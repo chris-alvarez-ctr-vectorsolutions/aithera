@@ -95,6 +95,8 @@ Run Phases 0–5 below with these differences:
 6. **Skip Phase 6.** No dev build at review.
 7. **Set the stage.** Add `"status": "in-review"` to the mock's item in
    `products.json` and bump its `modified` date. Commit and push (see Phase 8).
+7a. **Design Jira ticket (Phase 7.5):** move it to In Review and bring its
+   description up to date.
 8. **Report in chat:** the count of findings per pass, the few that matter most
    (missed requirements and claims that contradict the PRD first), and the
    GitHub link to `mock-definition.md`. Say plainly that nothing is locked.
@@ -105,7 +107,11 @@ update `mock-definition.md` so it stays true.
 
 ## Handoff mode — "ready for dev"
 
-Run every phase. If the mock already went through review (a
+Run every phase. **Before Phase 0**, if the item has a `designJira` key (Phase 7.5),
+ask in one line: *"Flip <UX-key> to Done before I hand this off?"* Act on the
+answer in Phase 7.5.
+
+If the mock already went through review (a
 `mock-definition.md` with `**Stage**: In review` exists), don't start over:
 
 - Read it, then list what changed since the review date with
@@ -409,6 +415,55 @@ the mock's `status` unset in `meta.json` (the file alone flips it) or set
 `"status": "ready-for-dev"` explicitly. Remove an `"in-review"` pin at handoff.
 Only `"archived"` still overrides a dev build.
 
+### Phase 7.5 — Design Jira ticket (UX board)
+
+The design ticket is the mock's UX Story on the User Experience board. Its key
+(`UX-…`) is in the item's `designJira` in `products.json`, separate from `jira`
+(the product ticket) and `prd`. How it's created, plus the CAPEX account and the
+description layout, is in CLAUDE.md under **Designer Jira Ticket (new mocks)**.
+Use the Atlassian (Rovo) tools; load them via ToolSearch if they aren't loaded.
+
+**`"designJira": false`** (the designer already declined): skip this phase
+silently. Don't ask again.
+
+**The designer chose "Don't ask me"** (a memory says so; see CLAUDE.md
+**Designer Jira Ticket**): skip this whole phase silently. Don't search, don't
+ask, and don't mention design tickets in the report.
+
+**No `designJira` field at all** (e.g. an older mock, or one made before this
+existed):
+1. **Look first.** Search the UX board for a ticket that already covers it:
+   `project = UX AND summary ~ "<mock name>"`, plus anything linked to the
+   product ticket in `jira`. If one turns up, ask: *"Found <UX-key>, '<summary>'.
+   Is that this mock's design ticket?"* On a yes, set `designJira` and continue
+   below.
+2. **None found:** ask, *"This mock has no design Jira ticket. Want me to create
+   one?"* Ask Deborah Kim too, because it's an older mock. On a yes, create it
+   per CLAUDE.md and continue below. On a no, set `"designJira": false` and skip
+   this phase. If they say not to ask again, save the "Don't ask me" memory
+   (CLAUDE.md **Designer Jira Ticket**).
+
+**Review mode:**
+1. **Status:** transition the ticket to **In Review**.
+2. **Description:** read it against the design as it stands now: the
+   `versions.json` labels, each version's screens, and the card's `desc`. Rewrite
+   any sentence or version bullet that no longer matches (versions added, renamed
+   or dropped; scope that moved). Keep the layout: summary line, `**Mock:**`,
+   versions, `**PRD:**`. Don't add a changelog. The description should simply be
+   true.
+3. **Mock link:** it must be the feature folder's GitHub Pages URL (the loader,
+   not a `verN/` file), and it must load. Check with
+   `curl -s -o /dev/null -w "%{http_code}"` and expect `200`. Fix it if the mock
+   moved.
+4. **PRD:** if the card has a `prd` (or Phase 1 found one), put that link on the
+   `**PRD:**` line.
+
+**Handoff mode:** use the answer to the question asked before Phase 0. On a yes,
+transition the ticket to **Done**. On a no, leave it alone. Either way, make sure
+the `**PRD:**` line matches the card's `prd`.
+
+Report what changed on the ticket in one line in the final chat message.
+
 ### Phase 8 — Commit and share
 
 Commit and push the new files, then give the designer the links. At handoff
@@ -435,4 +490,10 @@ dashboard picks up a `products.json` status change on push.
 | Skipping Claims to verify because the mock "looks right" | Hallucinated rules look right by design; check each claim against the PRD text |
 | Building `dev_handoff.html` during review | Review stops at Phase 5; the dev build is the handoff |
 | Leaving `"status": "in-review"` pinned after handoff | Remove it in Handoff mode |
+| Flipping the design ticket to Done without asking | Ask before handoff; transition only on a yes (Phase 7.5) |
+| Moving the ticket to In Review but leaving an outdated description | Rewrite whatever no longer matches the design, and re-check the mock link and PRD (Phase 7.5) |
+| Creating a design ticket for an older mock unprompted | Ask the designer first (Phase 7.5) |
+| Asking again after a designer declined a design ticket | `"designJira": false` skips that mock; an opt-out memory skips the designer (Phase 7.5) |
+| Offering to create a design ticket without searching first | Search the UX board; a ticket may already exist (Phase 7.5) |
+| Putting the design ticket in `jira` | `jira` is the product ticket; the design ticket goes in `designJira` |
 | Putting `dev_handoff.html` inside `verN/` | It must sit at the feature root beside the loader, or the dashboard won't detect it |

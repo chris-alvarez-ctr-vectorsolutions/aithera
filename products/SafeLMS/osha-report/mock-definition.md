@@ -31,7 +31,7 @@ The review found the mock broadly aligned with Phase 1. These need a decision be
 4. **OSHA 10-Hour Construction behavior.** This course is Vector-authored. The mock shows the wrong latest-module behavior (AC-3.4) and the ClickSafety certificate (D-4) for it.
 5. **Hover tooltips.** Tooltips carry information in three places, which the accessibility NFR rules out.
 6. **No-results state.** When filters match no learners, the pie turns solid red and the table goes blank with no message.
-7. **Date pickers missing `theme="outlined"`.** The custom date-range pickers (added 2026-10-14) use only `theme="small"`, so they render the non-Vector filled style. Core CONTEXT.md requires `outlined`.
+7. **Custom date range uses browser date fields, not Vector.** Since 2026-10-16 the custom range is a pill holding two native `<input type="date">` fields, each opening its own browser calendar, to match the reference design. `vaadin-date-picker` can't take that look. Dev should confirm the look with design and decide whether to build it on `vaadin-date-picker` or accept the native control.
 
 The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10-14 (efb2d531) and now sits under Action Needed.
 
@@ -151,7 +151,7 @@ The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10
 
 **Key takeaways:**
 - **What's solid:** where the mock uses Vaadin, it uses it correctly. That covers every `vaadin-button` (valid `primary`/`secondary`/`tertiary` variants, primary furthest right), the certificate `vaadin-dialog`, the toast `vaadin-notification`, the `vaadin-tooltip` and the Action Needed `vaadin-radio-group`.
-- **One real usage error:** the two custom-range `vaadin-date-picker`s use `theme="small"` without `outlined`. Core CONTEXT.md says date pickers **must** include `theme="outlined"`, otherwise the non-Vector "filled" style renders.
+- **One real usage error (since replaced):** the two custom-range `vaadin-date-picker`s used `theme="small"` without `outlined`. Core CONTEXT.md says date pickers **must** include `theme="outlined"`. On 2026-10-16 they were replaced with native date fields on purpose (see the table row).
 - **Most of the page is hand-built where a VWC component exists.** The biggest ones to replace:
   - The three audience-picker modals (People, Group and List Selector) are custom overlays. They should use `vaadin-dialog`, which the certificate already uses, so the page currently has two dialog systems.
   - The folder-tree picker is custom. `vwc-tree-list` covers nested items, icon, subtitle, single select and keyboard navigation.
@@ -189,7 +189,7 @@ The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10
 | Filters / Export / Clear filters buttons | `vaadin-button` | ✅ Covered | `theme="secondary small"`, `"primary small"`, `"tertiary small"` are valid variants. FA icons in `slot="prefix"`. The `small` modifier is **unverified**. |
 | Applied-filter chips (removable, "Key: value ×") | none | ❌ Gap | No dismissible chip/tag in core v1.22.1. Lumo `theme="badge"` (v1.22.3) is static with no remove action. See Gap 2. |
 | Content cards (Completion Status Overview, OSHA Completion Report, Email Learners card) | `vwc-card` | ⚠️ Partial | Hand-built `.report-card` / `.email-card`. `vwc-card theme="outlined"` (or `padded`) with `header`/`content` slots covers this. |
-| Pill labels and tags ("Past 30 days" pill, status badges, "sample name" tag, lock chip) | Lumo `theme="badge"` (core v1.22.3 only) | ⚠️ Partial | Custom `.status-badge` / `.date-badge` / `.ec-sample`. Only usable after upgrading core. The Quiz Score cell (colored text + ✓/✗) needs no component. |
+| Pill labels and tags (status badges, "sample name" tag, lock chip) | Lumo `theme="badge"` (core v1.22.3 only) | ⚠️ Partial | Custom `.status-badge` / `.date-badge` / `.ec-sample`. Only usable after upgrading core. The Quiz Score cell (colored text + ✓/✗) needs no component. |
 | Status Distribution pie + legend | none | ❌ Gap | CSS `conic-gradient` pie. No chart component in core; production uses a DevExtreme dxPieChart. Drill views are off (`PIE_DRILLS = false`). |
 | Section info icon + tooltip ("Action Needed ⓘ") | `vaadin-tooltip` | ✅ Covered | Anchored with `for="actionNeededInfo"` to a native `<button>`, so it works on hover and keyboard focus. Attributes **unverified**. (The PRD's NFR rules out conveying information this way; see Reconciliation.) |
 | Action Needed tiles (count "of N", label, icon; click to filter, click again to clear) | `vwc-card` (surface); `vwc-toggle-button-group` (selection) | ⚠️ Partial | Custom `div role="button" aria-pressed`. `vwc-toggle-button-group` suppresses deselection ("always has one selected"), and the tiles allow click-to-clear, so it isn't a drop-in. Use a `vwc-card` surface and keep the toggle logic. |
@@ -206,7 +206,7 @@ The Date Range filter, removed on 2026-07-15 (a44243f3), was restored on 2026-10
 | Icon-only buttons (panel ✕, modal ✕, Email ← back) | `vaadin-button theme="icon"` / `"icon tertiary"` | ⚠️ Partial | Native buttons. The certificate dialog's close already uses `theme="icon tertiary"`. |
 | Action Needed radio list (filter panel) | `vaadin-radio-group` + `vaadin-radio-button` | ✅ Covered | `value` / `label` used correctly. Radio groups don't need `outlined`. `theme="vertical"` **unverified**. (The PRD asks for multi-select checkboxes here; see Reconciliation.) |
 | Date Range dropdown (trigger + inline preset list + Custom option) | `vaadin-select theme="outlined"` | ⚠️ Partial | Custom; inline to avoid clipping in the scrolling panel. `vaadin-select` opens in an overlay layer, so the panel wouldn't clip it. Worth reconsidering. |
-| Custom-range Start / End date pickers | `vaadin-date-picker` | ⚠️ Partial | **Missing the required `theme="outlined"`** (has `theme="small"` only), so it renders the non-Vector filled style. Fix: `theme="outlined small"`. |
+| Custom-range Start / End date pickers | `vaadin-date-picker` | ⚠️ Partial | **Deliberate departure (2026-10-16):** two native `<input type="date">` fields in one rounded pill with an arrow between them, each opening its own browser calendar (month menu, up/down arrows, Clear / Today) to match the reference design. The audit's earlier finding (pickers missing `theme="outlined"`) no longer applies. If built on `vaadin-date-picker`, it must use `theme="outlined"`. |
 | Filter section dividers | `vwc-divider` | ⚠️ Partial | Custom `div.filter-divider`. |
 | People launcher card (icon + "All positions / at All Locations") | `vaadin-button` or `vwc-card` | ⚠️ Partial | Custom button card; no dedicated selection-summary launcher. |
 | Course / Completion Status / extra-option checkboxes | `vaadin-checkbox` (+ `vaadin-checkbox-group`) | ⚠️ Partial | Right component, but the label is a sibling `<span>` in a wrapping `<label>` rather than the checkbox's `label` attribute. Confirm label clicks toggle it. `vaadin-checkbox-group` would add an accessible group label. |
@@ -301,7 +301,7 @@ The audit ran embedded, without designer input, so each gap lists its open decis
 
 - **Action Needed in the panel:** single-select (as built) or multi-select (AC-2.1)? Update whichever is wrong.
 - **2-failures filter:** confirm FR-4's "at least 2 failures within a module", then fix the panel label, logic and chip to match the card.
-- **Date range:** which date does it apply to (assignment window as built, start date, completion date, last access)? Is "Past 30 days" the right default?
+- **Date range:** which date does it apply to (assignment window as built, start date, completion date, last access)? Is "Past 90 days" (design default since 2026-10-16) the right default? The PRD only gives "past 30 days" as an example.
 - **"Certifications due within 30 days":** course due date for In Progress learners (as built), or certification expiry?
 - **Total Course Quiz Failures:** confirm the feed supplies a course-wide total alongside the module count (D-2 open item), and show 0 rather than "—".
 - **Certificate:** link vs. preview modal; no column header per AC-3.3; pending state before the weekly feed delivers it.

@@ -464,6 +464,9 @@
 
       applyProductBranding(meta.product);
       state.allMocks = computeMocks(meta);
+      // Open the folder a shared ?folder= link points at.
+      const urlFolder = folderFromUrl();
+      if (urlFolder) { state.tab = urlFolder; openAncestors(urlFolder); }
       attachChanges(state.allMocks, meta);
 
       if (state.allMocks.length === 0) {
@@ -537,6 +540,9 @@
 
       const ticket = m.ticket || auto.ticket;
       const ticketUrl = m.ticketUrl || (ticket && jiraBaseNorm ? jiraBaseNorm + ticket : null);
+      // Optional design ticket on the User Experience board (products.json `designJira`).
+      const designTicket = (typeof m.designTicket === 'string' && m.designTicket.trim()) ? m.designTicket.trim() : null;
+      const designTicketUrl = designTicket && jiraBaseNorm ? jiraBaseNorm + designTicket : null;
 
       // Optional link to the requirements doc (Confluence PRD, etc.). Curated as
       // a full URL in products.json; only http(s) links are rendered.
@@ -564,6 +570,8 @@
         title: m.title || auto.title,
         ticket,
         ticketUrl,
+        designTicket,
+        designTicketUrl,
         prdUrl,
         description: m.description || describe(folder, parent),
         modified: m.modified || null,
@@ -725,6 +733,8 @@
       renderTabBar(folders, loose, !!search);
       byId('folderNav').hidden = true;
     }
+    // After the nav render, which resets a folder that no longer exists.
+    syncFolderUrl();
 
     // 2) Pick the active selection's subset. The banner search is GLOBAL: while
     //    a query is active it looks across every folder (the rail dims to show
@@ -871,6 +881,42 @@
   // Human-readable form of a folder key, for labels and tooltips.
   function folderDisplay(key) { return key.split(FOLDER_SEP).join(' / '); }
 
+  // ── Folder deep links ──────────────────────────────────────────────────
+  // The selected folder is mirrored into the DASHBOARD's URL as
+  // ?folder=<segment>/<segment> (each segment URI-encoded, so a name that
+  // contains " / " stays one folder). Main = no param. Only the dashboard URL
+  // changes — the card links to the mocks are untouched, so every design link
+  // anyone already shared keeps working.
+  function folderFromUrl() {
+    const m = window.location.search.match(/[?&]folder=([^&#]*)/);
+    if (!m || !m[1]) return null;
+    try { return m[1].split('/').map(seg => decodeURIComponent(seg.replace(/\+/g, ' '))).join(FOLDER_SEP); }
+    catch { return null; } // malformed escape — ignore and land on Main
+  }
+  function folderUrl(key) {
+    const params = window.location.search.replace(/^\?/, '').split('&')
+      .filter(p => p && !/^folder=/.test(p));
+    if (key && key !== MAIN_KEY) params.push('folder=' + key.split(FOLDER_SEP).map(encodeURIComponent).join('/'));
+    return window.location.pathname + (params.length ? '?' + params.join('&') : '') + window.location.hash;
+  }
+  // A click on a folder pushes a history entry (so Back returns to the previous
+  // folder); automatic corrections, like a stale ?folder=, just replace it.
+  let folderUrlPush = false;
+  function syncFolderUrl() {
+    const want = folderUrl(state.tab);
+    const push = folderUrlPush;
+    folderUrlPush = false;
+    if (want === window.location.pathname + window.location.search + window.location.hash) return;
+    try { history[push ? 'pushState' : 'replaceState'](null, '', want); } catch { /* file:// in some browsers */ }
+  }
+  window.addEventListener('popstate', () => {
+    if (!state.allMocks.length) return;
+    const key = folderFromUrl();
+    if (key) openAncestors(key);
+    state.tab = key || (FOLDER_NAV_STYLE === 'sidebar' ? MAIN_KEY : null);
+    applyFiltersAndRender();
+  });
+
   // A path is a valid selection if any mock lives at it OR below it (a parent
   // folder may hold only subfolders, never a direct mock).
   function folderExists(folders, path) {
@@ -976,6 +1022,7 @@
     closeTabMenu();
     if (state.tab === tabKey && !state.search) return;
     state.tab = tabKey;
+    folderUrlPush = true;
     // The banner search is global (spans all folders) — picking a folder while
     // a query is active exits the search into that folder's scope.
     if (state.search) {
@@ -1202,6 +1249,7 @@
     const scope = mock.groupKey || MAIN_KEY;
     if (scope !== MAIN_KEY) openAncestors(scope);
     state.tab = scope;
+    folderUrlPush = true;
     applyFiltersAndRender();
     requestAnimationFrame(() => {
       const el = [...document.querySelectorAll('.mock-card, .proto-row')]
@@ -1625,11 +1673,20 @@
   }
 
   function buildCard(mock, idx, showFolder) {
-    const { title, ticket, ticketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks, reviewDocUrl } = mock;
+    const { title, ticket, ticketUrl, designTicket, designTicketUrl, prdUrl, description, status, blobUrl, pagesUrl, devHandoff, devBlobUrl, devPagesUrl, designerNote, extraLinks, reviewDocUrl } = mock;
     const statusLabel = STATUS_LABELS[status] || STATUS_LABELS[DEFAULT_STATUS];
 
+    // Product ticket that IS the PRD: product teams often write the PRD inside the
+    // Jira ticket. When the PRD link is a Jira ticket and it's the same key as the
+    // product ticket (or there's no product ticket), show one combined PRD badge.
+    const prdKeyMatch = prdUrl ? prdUrl.match(/\/browse\/([A-Z][A-Z0-9]+-\d+)/i) : null;
+    const prdKey = prdKeyMatch ? prdKeyMatch[1].toUpperCase() : null;
+    const prdIsTicket = !!prdKey && (!ticket || String(ticket).trim().toUpperCase() === prdKey);
+
     let ticketHtml = '';
-    if (ticket && ticketUrl) {
+    if (prdIsTicket) {
+      ticketHtml = '';
+    } else if (ticket && ticketUrl) {
       ticketHtml = `<a class="ticket-badge ticket-badge--link" href="${escapeHtml(ticketUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(ticket)} in Jira"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</a>`;
     } else if (ticket) {
       ticketHtml = `<span class="ticket-badge"><i class="fa-solid fa-link ticket-link-icon"></i>${escapeHtml(ticket)}</span>`;
@@ -1637,10 +1694,19 @@
       ticketHtml = `<span class="ticket-badge ticket-badge--missing" title="No Jira ticket is linked to this prototype yet"><i class="fa-solid fa-link ticket-link-icon"></i>Jira ticket</span>`;
     }
 
+    // Design ticket badge (UX board): rose tone so it reads apart from the product
+    // ticket. Only rendered when curated, with no placeholder, since design
+    // tickets are opt-in.
+    const designTicketHtml = designTicket && designTicketUrl
+      ? `<a class="ticket-badge design-badge" href="${escapeHtml(designTicketUrl)}" target="_blank" rel="noopener" title="Open the design ticket ${escapeHtml(designTicket)} in Jira"><i class="fa-solid fa-pen-ruler ticket-link-icon"></i>${escapeHtml(designTicket)}</a>`
+      : (designTicket ? `<span class="ticket-badge design-badge"><i class="fa-solid fa-pen-ruler ticket-link-icon"></i>${escapeHtml(designTicket)}</span>` : '');
+
     // PRD link badge: a filled violet link when a requirements URL is curated,
     // otherwise a dashed-outline placeholder — same shape/label pattern as the
     // missing Jira tag, so an unlinked PRD reads as a prompt, not an alert.
-    const prdHtml = prdUrl
+    const prdHtml = prdIsTicket
+      ? `<a class="ticket-badge prd-badge" href="${escapeHtml(prdUrl)}" target="_blank" rel="noopener" title="Open ${escapeHtml(prdKey)} in Jira: the product ticket, with the PRD written in it"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD · ${escapeHtml(prdKey)}</a>`
+      : prdUrl
       ? `<a class="ticket-badge prd-badge" href="${escapeHtml(prdUrl)}" target="_blank" rel="noopener" title="Open the PRD (requirements doc) in a new tab"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD</a>`
       : `<span class="ticket-badge ticket-badge--missing" title="No PRD (requirements doc) is linked to this prototype yet"><i class="fa-solid fa-file-lines ticket-link-icon"></i>PRD</span>`;
 
@@ -1763,6 +1829,7 @@
         <div class="card-badge-row">
           <span class="status-badge" data-status="${escapeHtml(status)}"><i class="fa-solid ${statusIcon(status)} status-icon"></i>${escapeHtml(statusLabel)}</span>
           ${ticketHtml}
+          ${designTicketHtml}
           ${prdHtml}
           ${showFolder ? folderChipHtml(mock) : ''}
           ${mockStar(mock)}
@@ -2398,6 +2465,13 @@
       a.prd-badge { cursor: pointer; color: #6d28d9; background: #ede9fe; }
       a.prd-badge:hover { background: #6d28d9; color: #fff; transform: translateY(-1px); }
       a.prd-badge:hover .ticket-link-icon { opacity: 1; }
+
+      /* Design ticket badge (UX board): rose tone, apart from the product ticket
+         (indigo) and the PRD (violet). */
+      .design-badge { color: #be185d; background: #fce7f3; }
+      a.design-badge { cursor: pointer; }
+      a.design-badge:hover { background: #be185d; color: #fff; transform: translateY(-1px); }
+      a.design-badge:hover .ticket-link-icon { opacity: 1; }
 
       .status-badge {
         display: inline-flex; align-items: center; gap: 7px; background: var(--status-bg); color: var(--status-fg);

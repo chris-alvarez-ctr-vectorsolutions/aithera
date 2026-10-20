@@ -1109,6 +1109,8 @@
 
     var subtitle = tab === 'ai'
       ? 'Who gets an Agency Intelligence assistant, and who can build dashboards. Every question the assistant answers is audited below.'
+      : tab === 'groups'
+        ? 'Saved AI groups — live rules you can publish any dashboard to. Create them here; pick them in the publish dialog.'
       : tab === 'explore'
         ? 'Explore your data with Agency Intelligence — follow any thread. Exploration doesn\'t have to become a dashboard.'
         // The "schedule it out as a report" half of the promise is v2 — with
@@ -1125,9 +1127,14 @@
        ?tab=ai deep link and the flow map keep resolving. */
     var TABS = [{ id: 'dashboards', label: 'Dashboards', icon: 'space_dashboard' }]
       .concat(exploreOn ? [{ id: 'explore', label: 'Data Explorer', icon: 'travel_explore' }] : [])
-      .concat(isAdmin ? [{ id: 'ai', label: 'Access', icon: 'shield_person' }] : []);
-    // Standing on Access when the role changes to a non-admin drops you home.
-    if (tab === 'ai' && !isAdmin) tab = 'dashboards';
+      .concat(isAdmin ? [{ id: 'ai', label: 'Access', icon: 'shield_person' },
+                         // AI groups are made here and only PICKED in the publish
+                         // dialog — one place to see every live rule and what it
+                         // reaches. Admin-only alongside Access for the same reason:
+                         // a rule can put a dashboard on dozens of homepages.
+                         { id: 'groups', label: 'AI groups', icon: 'auto_awesome' }] : []);
+    // Standing on Access / AI groups when the role changes to a non-admin drops you home.
+    if ((tab === 'ai' || tab === 'groups') && !isAdmin) tab = 'dashboards';
 
     return '<div class="cp-page">' +
       // Same back-to-hub pill the Prioritization settings page uses. Home only —
@@ -1166,6 +1173,7 @@
         : '') +
 
       (tab === 'ai' ? (aiAccessTab() + dashAccessPanel())
+        : tab === 'groups' ? (window.KXGroups ? window.KXGroups.html() : '')
         : tab === 'explore' ? (window.KXExplore ? window.KXExplore.html() : '')
         : dashboardsTab()) +
       '</div>';
@@ -2045,11 +2053,12 @@
       step: (opts && opts.step) || 'audience',
       // How many OTHER dashboards ride on this group — editing a live rule
       // changes their audience too, so the dialog warns before saving.
-      groupUsage: function (gid) {
-        return state.dashboards.filter(function (x) {
-          return x.id !== d.id && x.assignedTo &&
-            (x.assignedTo.groups || []).indexOf(gid) !== -1;
-        }).length;
+      // "Manage groups" inside the dialog lands on the home screen's AI
+      // groups tab — the only place groups are created or changed now.
+      onManageGroups: function () {
+        state.homeTab = 'groups';
+        goHome();
+        advertiseFlow('home-groups');
       },
       onPublish: function (out) {
         assignDash(d.id, out.audience, out.delivery);
@@ -2438,6 +2447,10 @@
   function advertiseFlow(id) {
     try { window.__toolboxFlowState = { state: id, version: '' }; } catch (e) {}
   }
+  // Which home node the flow map should show for the current home tab.
+  function homeFlowId() {
+    return state.homeTab === 'ai' ? 'home-ai' : state.homeTab === 'groups' ? 'home-groups' : 'home';
+  }
   // The single hook the flow map / comment "Go" calls to reach a named screen.
   // Each case drives the mock into that state via its own functions; modal nodes
   // open the builder first, then the dialog.
@@ -2450,9 +2463,10 @@
     var base = parts[0];
     var did = parts[1] || '';
     // Home screens.
-    if (base === 'home' || base === 'home-ai') {
+    if (base === 'home' || base === 'home-ai' || base === 'home-groups') {
       goHome();
       if (base === 'home-ai') { state.homeTab = 'ai'; advertiseFlow('home-ai'); render(); }
+      if (base === 'home-groups') { state.homeTab = 'groups'; advertiseFlow('home-groups'); render(); }
       return;
     }
     // Everything else lives inside a dashboard.
@@ -3024,10 +3038,44 @@
     // Canvas layout editing (drag-resize, drag-reorder, keyboard equivalents).
     mountLayoutEditing(root);
 
+    // The AI groups tab (agency-intel-groups.js) owns its own clicks; it only
+    // needs to know which dashboards ride on a group, and how to strip one.
+    var dashboardsUsing = function (gid) {
+      return state.dashboards.filter(function (x) {
+        return x.assignedTo && (x.assignedTo.groups || []).indexOf(gid) !== -1;
+      });
+    };
+    if (window.KXGroups) window.KXGroups.init({
+      usage: function (gid) { return dashboardsUsing(gid).length; },
+      usingNames: function (gid) { return dashboardsUsing(gid).map(function (x) { return x.name; }); },
+      // Deleting a group takes it out of every audience that names it. A
+      // dashboard left with nobody is no longer live — same outcome as
+      // removing its last person in the publish dialog.
+      onDelete: function (gid) {
+        var strip = function (a) {
+          if (!a || !a.groups || a.groups.indexOf(gid) === -1) return a;
+          return Object.assign({}, a, { groups: a.groups.filter(function (g) { return g !== gid; }) });
+        };
+        state.dashboards = state.dashboards.map(function (d) {
+          var next = strip(d.assignedTo), last = strip(d.lastAudience);
+          if (next === d.assignedTo && last === d.lastAudience) return d;
+          var live = !!(next && ((next.titles || []).length ||
+            (next.individuals || []).length || (next.groups || []).length));
+          return Object.assign({}, d, {
+            assignedTo: live ? next : null,
+            lastAudience: live ? last : null,
+            status: live ? d.status : 'private',
+            updatedAt: TODAY
+          });
+        });
+      },
+      rerender: render
+    });
+
     root.addEventListener('click', function (e) {
       /* ---- home: tabs / filters / view mode ---- */
       var tab = e.target.closest('[data-cp-tab]');
-      if (tab) { state.homeTab = tab.getAttribute('data-cp-tab'); advertiseFlow(state.homeTab === 'ai' ? 'home-ai' : 'home'); render(); return; }
+      if (tab) { state.homeTab = tab.getAttribute('data-cp-tab'); advertiseFlow(homeFlowId()); render(); return; }
 
       var f = e.target.closest('[data-cp-filter]');
       if (f) { state.filter = f.getAttribute('data-cp-filter'); state.page = 1; render(); return; }
@@ -3711,6 +3759,7 @@
     if (fm) { try { window.applyFlowState(decodeURIComponent(fm[1])); } catch (e) {} return; }
     var p = new URLSearchParams(location.search);
     if (p.get('tab') === 'ai') { state.homeTab = 'ai'; return; }
+    if (p.get('tab') === 'groups') { state.homeTab = 'groups'; return; }
     if (p.get('new')) { newDash(); return; }
     var did = p.get('dashboard') || p.get('custom');
     if (did) {

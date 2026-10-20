@@ -45,6 +45,12 @@ The 0→1 sourcing workflow is a later pass (D7).
 
 ## Where this stands — 2026-09-20
 
+> **A spin-off exists (2026-10-15):** [`../Studio-AI-Generative/`](../Studio-AI-Generative/README.md)
+> keeps this platform's information layer and replaces the per-modality
+> authoring surfaces with a brief → generate → review → revise loop. Its
+> `MODEL.md` records which decisions here it carries, changes or supersedes.
+> Nothing in this folder was altered by it.
+
 The **information layer, activity layer and outputs** are all modelled and
 demonstrable, with depth/goal validation live. **Two modalities have substantial
 authoring surfaces** — video and scenario. Four are undesigned.

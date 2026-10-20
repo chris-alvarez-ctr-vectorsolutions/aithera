@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pathways: Workflow Enhancement · #3 Bulk signing</title>
+    <title>Pathways: Workflow Enhancement · #3–4 Bulk signing + tracking</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
@@ -332,6 +332,197 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 /* ============================================================
    Version-specific styles
    ============================================================ */
+/* ── Workflow Tracking list (shared by #4–#7.5) ──────────────── */
+.wt-head { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 14px; }
+.wt-sum { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.sum-card {
+  border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; min-width: 0; background: #fff; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.sum-card:hover { border-color: var(--border-strong); background: #fafbfc; }
+.sum-card .n { font-size: 22px; font-weight: 500; color: #222; line-height: 1.2; }
+.sum-card .l { font-size: 12.5px; color: #555; display: flex; align-items: center; gap: 6px; }
+.sum-card .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.sum-card.is-on { border-color: var(--blue); background: var(--blue-soft); box-shadow: inset 0 0 0 1px var(--blue); }
+.sum-card.warn .n { color: var(--amber); }
+
+/* Progress: one dot per signer, in signing order */
+.progc { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.dots { display: inline-flex; gap: 3px; }
+.dots span { width: 10px; height: 10px; border-radius: 50%; background: #e1e4e8; border: 1px solid #cfd4da; }
+.dots span.s { background: var(--green); border-color: var(--green); }
+.dots span.w { background: #fff; border: 2px solid var(--blue); }
+.dots span.w.late { border-color: #d48806; }
+.progc .of { font-size: 12.5px; color: #555; }
+.who { font-size: 13.5px; }
+.who .role { font-size: 12px; color: var(--muted); }
+.late-txt { color: var(--amber); font-weight: 500; }
+.rem { font-size: 11.5px; color: var(--muted); }
+.row-act { width: 44px; text-align: center; }
+.kebab { border: 0; background: none; cursor: pointer; width: 30px; height: 30px; border-radius: 50%; color: #555; }
+.kebab:hover { background: var(--gray-soft); }
+
+/* ── Workflow drawer: meta + signer timeline ─────────────────── */
+.meta-grid { display: grid; grid-template-columns: 110px 1fr; gap: 8px 14px; font-size: 13.5px; margin-bottom: 22px; }
+.meta-grid dt { color: var(--muted); }
+.meta-grid dd { margin: 0; }
+.tl-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.tl-h h3 { font-size: 14px; font-weight: 600; color: #1a1a2e; margin: 0; }
+.tl { list-style: none; margin: 0; padding: 0; position: relative; }
+.tl li { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; padding: 10px 0; position: relative; align-items: start; }
+.tl li:not(:last-child)::after { content: ''; position: absolute; left: 13px; top: 38px; bottom: -8px; width: 2px; background: #e3e6ea; }
+.tl .ord {
+  width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12.5px; font-weight: 500;
+  background: #fff; border: 1.5px solid #c7cdd4; color: #555; position: relative; z-index: 1;
+}
+.tl li.signed .ord { background: var(--green); border-color: var(--green); color: #fff; }
+.tl li.waiting .ord { border: 2px solid var(--blue); color: var(--blue); }
+.tl li.waiting.late .ord { border-color: #d48806; color: #b26a00; }
+.tl .nm { font-size: 14px; font-weight: 500; }
+.tl .rl { font-size: 12px; color: var(--muted); }
+.tl .em { font-size: 12.5px; color: #444; margin-top: 2px; word-break: break-all; }
+.tl .stt { font-size: 12.5px; text-align: right; white-space: nowrap; color: #555; }
+.tl .stt.ok { color: var(--green); }
+.tl .stt.wt { color: #1b5fa0; font-weight: 500; }
+.tl .stt.late { color: var(--amber); font-weight: 500; }
+.tl .stt small { display: block; font-weight: 400; color: var(--muted); font-size: 11.5px; }
+.sel-bar {
+  display: flex; align-items: center; gap: 14px; padding: 10px 14px 10px 20px; background: #eef5fd; border-bottom: 1px solid var(--blue-line);
+  font-size: 13.5px;
+}
+.sel-bar .cnt { font-weight: 500; color: #1a1a2e; }
+.sel-bar .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+
+.t-grid td { padding-top: 9px; padding-bottom: 9px; }
+.sel-bar { flex-wrap: wrap; }
+.wt-head { gap: 12px; flex-wrap: wrap; }
+@media (max-width: 768px) {
+  .wt-sum { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .sum-card { padding: 10px 12px; }
+  .sum-card .n { font-size: 19px; }
+  .meta-grid { grid-template-columns: 96px 1fr; }
+  .tl li { grid-template-columns: 28px 1fr; }
+  .tl .stt { grid-column: 2; text-align: left; }
+}
+
+/* Status cell: chip, then dots + who it's waiting on */
+.st.you { background: var(--tag-staff-bg); color: var(--tag-staff); border-color: #f1d39a; }
+.st-line { display: flex; align-items: center; gap: 8px; margin-top: 5px; font-size: 12px; color: var(--muted); }
+.st-line .dots { flex-shrink: 0; }
+.sum-card.mine .n { color: var(--tag-staff); }
+.grid tbody tr.is-off td { color: #9aa0a6; }
+.grid tbody tr.is-off .lnk { color: #7fa7cf; }
+.grid tbody tr.is-off .st { opacity: .6; }
+.t-grid td:nth-child(2) { min-width: 140px; }
+.st-line .you-line { color: var(--tag-staff); font-weight: 500; }
+.start-btn { margin-top: 2px; }
+/* #7: the "Start workflow" status badge is also the button that starts it */
+button.st { font-family: inherit; cursor: pointer; }
+button.st.not:hover { background: #e7eaee; border-color: #c9ced5; }
+
+/* ── Selection bar + row actions (shared) ── */
+.sel-bar .hint { font-size: 12.5px; color: #555; }
+.sel-bar .hint.warn { color: var(--amber); }
+.rv-who { font-size: 12px; color: var(--muted); }
+.sel-bar .right { flex-wrap: wrap; min-width: 0; justify-content: flex-end; }
+.sel-bar .hint.warn { flex-basis: 100%; text-align: right; order: -1; }
+.sel-bar .right .btn.ghost { white-space: normal; height: auto; min-height: 28px; padding: 4px 10px; text-align: left; }
+.t-grid td:nth-child(2) { min-width: 150px; }
+@media (max-width: 768px) { .sel-bar .hint.warn { text-align: left; } .sel-bar .right { justify-content: flex-start; } }
+/* "Sign": rows waiting on you sign right from the Status column, as a secondary button */
+.sign-btn { font-family: inherit; }
+.sign-btn i { color: var(--blue); }
+.row-act { width: 84px; text-align: center; }
+.row-act .lnk { font-size: 14px; }
+/* Drawer footer hides itself when there's no action for this workflow */
+.dr-foot:not(:has(*)) { display: none; }
+
+/* ── Manage Existing (live landing page for the Manage nav item) ── */
+.mx { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 48px; align-items: start; margin-top: 40px; }
+.mx-intro { text-align: center; }
+.mx-art { width: 270px; max-width: 100%; aspect-ratio: 1; margin: 0 auto 30px; background: #f4dbd6; border-radius: 4px; display: flex; align-items: center; justify-content: center; }
+.mx-art svg { width: 78%; }
+.mx-intro p { font-size: 14px; line-height: 1.55; color: #333; margin: 0 auto; max-width: 640px; }
+.mx-card { border: 1px solid var(--border); border-radius: 6px; padding: 30px 30px 24px; background: #fff; min-width: 0; }
+.mx-h { font-size: 13.5px; text-transform: uppercase; letter-spacing: .02em; color: #222; margin-bottom: 20px; }
+.mx-list { display: flex; flex-direction: column; gap: 2px; }
+.mx-row {
+  display: flex; align-items: center; gap: 16px; width: 100%; text-align: left; border: 0; border-radius: 3px;
+  background: #f1f1f1; padding: 14px 16px; font-family: inherit; cursor: pointer; color: inherit;
+}
+.mx-row:hover { background: #e8eaed; }
+.mx-row:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.mx-row .t { font-size: 14.5px; color: #222; }
+.mx-row .d { font-size: 12.5px; color: #555; margin-top: 3px; }
+.mx-row .txt { flex: 1; min-width: 0; }
+.mx-row > i { color: var(--blue); font-size: 16px; }
+@media (max-width: 1100px) {
+  .mx { grid-template-columns: 1fr; gap: 24px; margin-top: 20px; }
+  .mx-intro { display: flex; align-items: center; gap: 20px; text-align: left; }
+  .mx-art { width: 120px; flex-shrink: 0; margin: 0; }
+  .mx-intro p { margin: 0; }
+}
+@media (max-width: 768px) {
+  .mx-art { display: none; }
+  .mx-card { padding: 18px 14px 14px; }
+}
+
+/* ── Answer once, sign once (shared by #3 / #4) ─────────────── */
+/* ── Review & sign ─────────────────────────────────────────── */
+.rv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 20px; max-width: 1180px; align-items: start; }
+.card { border: 1px solid var(--border); border-radius: 6px; background: #fff; }
+.card-h { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.card-h h3 { margin: 0; font-size: 14px; font-weight: 600; color: #1a1a2e; }
+.card-h .meta { font-size: 12px; color: var(--muted); }
+.card-b { padding: 18px 20px; }
+.q { margin-bottom: 20px; }
+.q:last-child { margin-bottom: 0; }
+.q .qt { font-size: 13.5px; font-weight: 500; color: #222; margin-bottom: 8px; }
+.q .qt .req { color: var(--red); }
+.q .opts { display: flex; gap: 22px; }
+.q .opts label { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; cursor: pointer; }
+.applies { font-size: 12.5px; color: #555; margin-top: 4px; }
+.sig-prev {
+  height: 64px; border: 1px dashed var(--border-strong); border-radius: 4px; margin-top: 10px; display: flex; align-items: center; padding: 0 16px;
+  font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 30px; color: #1a2b4a; background: #fbfcfd;
+}
+.sig-prev.empty { font-family: inherit; font-size: 12.5px; color: var(--muted); }
+.attest { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 13px; color: #333; line-height: 1.5; cursor: pointer; }
+.attest input { margin-top: 3px; flex-shrink: 0; }
+.stu-list { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow-y: auto; }
+.stu-list li { display: flex; align-items: center; gap: 10px; padding: 9px 20px; border-bottom: 1px solid var(--row-line); }
+.stu-list li:last-child { border-bottom: 0; }
+.stu-list .nm { font-size: 13.5px; }
+.stu-list .ex { font-size: 12px; color: var(--muted); }
+.stu-list .rm { margin-left: auto; border: 0; background: none; color: #888; cursor: pointer; width: 26px; height: 26px; border-radius: 50%; }
+.stu-list .rm:hover { background: var(--red-soft); color: var(--red); }
+.rv-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; max-width: 1180px; align-items: center; flex-wrap: wrap; }
+.rv-foot .hint { margin-right: auto; font-size: 12.5px; color: var(--muted); }
+
+/* ── Done ──────────────────────────────────────────────────── */
+.done { max-width: 640px; margin: 48px auto; text-align: center; }
+.done .ok {
+  width: 64px; height: 64px; border-radius: 50%; background: var(--green-soft); color: var(--green);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 14px;
+}
+.done h1 { font-size: 22px; font-weight: 500; margin: 0 0 6px; }
+.done .sub { color: #555; font-size: 13.5px; }
+.done .facts { display: flex; justify-content: center; gap: 44px; margin: 26px 0; }
+.done .facts b { display: block; font-size: 24px; font-weight: 500; }
+.done .facts span { font-size: 12.5px; color: #555; }
+.done .actions { display: flex; justify-content: center; gap: 10px; }
+
+.sel-bar { flex-wrap: wrap; }
+.q .opts { flex-wrap: wrap; gap: 10px 22px; }
+
+
+.mixed { margin: 12px 14px; }
+.mixed .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.mixed .opts .btn { white-space: normal; height: auto; min-height: 28px; padding: 4px 10px; text-align: left; }
+@media (max-width: 1100px) { .rv { grid-template-columns: 1fr; } .stu-list { max-height: 300px; } }
+@media (max-width: 560px) { .done .facts { gap: 24px; } .rv-foot .hint { flex-basis: 100%; } }
+
+
 /* ── Admin Dashboard (matches live) ────────────────────────── */
 /* (Hello header replaced by the customize bar) */
 .dash-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; min-height: 36px; }
@@ -357,16 +548,13 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 
 .appr { background: #f7f7f8; border-color: #e3e5e8; margin-bottom: 16px; }
 .appr .cap b { font-size: 21px; color: #222; letter-spacing: 0; margin-left: 6px; vertical-align: -2px; }
-.tiles { display: flex; flex-wrap: wrap; align-items: stretch; gap: 14px 20px; margin-top: 12px; }
-/* Each group (Staff · Program · Student) is labelled ONCE: its badge sits above a
-   divider line that spans the group's tiles, so tiles no longer repeat the tag. */
-.tgroup { display: flex; flex-direction: column; flex: var(--n) 1 calc(var(--n) * 88px); min-width: 0; }
-.tg-head { display: flex; align-items: center; padding: 0 0 6px 4px; border-bottom: 2px solid var(--g-line); margin-bottom: 6px; }
-.tg-head .tag { font-size: 10.5px; }
-.tgroup.staff { --g-line: #f1d39a; }
-.tgroup.program { --g-line: #b9d3f6; }
-.tgroup.student { --g-line: #d7c2f2; }
-.tg-tiles { display: flex; flex-wrap: wrap; gap: 2px; }
+.tiles { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px 0; margin-top: 10px; }
+/* A group (Staff · Program · Student) keeps its tiles together and wraps as a unit;
+   each tile carries its own tag, groups are split by a thin vertical divider (as live) */
+.tgroup { display: flex; flex-wrap: wrap; flex: var(--n) 1 calc(var(--n) * 92px); min-width: 0; gap: 2px; }
+.tgroup + .tgroup { border-left: 1px solid #dcdee2; margin-left: 6px; padding-left: 6px; }
+/* A group that wrapped onto a new line drops its divider (set by JS) */
+.tgroup.wrapped { border-left: 0 !important; margin-left: 0 !important; padding-left: 0 !important; }
 .tile {
   flex: 1 1 88px; min-width: 88px; max-width: 170px; border-radius: 6px; padding: 12px 4px 12px; text-align: center; cursor: pointer; border: 1px solid transparent;
   background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
@@ -375,7 +563,7 @@ textarea.inp { height: auto; padding: 9px 12px; resize: vertical; }
 .tile .n { font-size: 22px; font-weight: 700; color: #333; line-height: 1.2; }
 .tile .n.zero { color: #b5b8bd; }
 .tile .n.hot { color: var(--orange); }
-.tile .l { font-size: 13px; color: #444; margin-bottom: 2px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tile .l { font-size: 13px; color: #444; margin-bottom: 4px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
 /* The new Signatures tile: same anatomy as its neighbours, first in the row. */
 .tile.is-new .n { color: var(--tag-staff); }
@@ -421,11 +609,11 @@ body.customizing .dcard::before {
 .pop-tabs button { flex: 1; border: 0; background: none; padding: 8px; font-size: 12.5px; color: #555; cursor: pointer; border-radius: 4px; }
 .pop-tabs button.is-on { background: #e3eefb; color: var(--nav-active-text); font-weight: 500; }
 .pop-list { max-height: 440px; overflow-y: auto; padding: 4px 0 6px; }
-.pop-grp { padding: 12px 16px 4px; margin: 0 16px 2px; padding-left: 0; padding-right: 0; border-bottom: 2px solid var(--g-line); }
+/* Group header = its tag. A plain gray line sits ABOVE each group after the
+   first (Signatures | PROGRAM, WBL Events | STUDENT); no line under the tag. */
+.pop-grp { padding: 10px 0 4px; margin: 0 16px; }
 .pop-grp:first-child { padding-top: 8px; }
-.pop-grp.staff { --g-line: #f1d39a; }
-.pop-grp.program { --g-line: #b9d3f6; }
-.pop-grp.student { --g-line: #d7c2f2; }
+.pop-grp:not(:first-child) { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 12px; }
 .pop-grp .tag { font-size: 10px; }
 .pop-row { display: flex; align-items: center; gap: 12px; padding: 7px 16px; font-size: 13px; color: #333; }
 .pop-row .grip { color: #b5b9bf; font-size: 11px; cursor: grab; }
@@ -446,88 +634,17 @@ body.customizing .dcard::before {
 .switch input:checked + span { background: #8cbcec; }
 .switch input:checked + span::after { left: 15px; background: var(--blue); }
 
-/* ── Signatures page ───────────────────────────────────────── */
-.form-chips { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 16px; align-items: center; }
-.form-chips .lbl { font-size: 12.5px; color: #555; margin-right: 4px; }
-.fchip {
-  border: 1px solid var(--border-strong); background: #fff; border-radius: 16px; padding: 6px 12px; font-size: 13px; color: #333;
-  cursor: pointer; display: inline-flex; gap: 8px; align-items: center;
-}
-.fchip b { font-weight: 500; color: #666; font-size: 12px; background: var(--gray-soft); border-radius: 8px; padding: 0 6px; }
-.fchip.is-on { border-color: var(--blue); background: var(--blue-soft); color: var(--nav-active-text); }
-.fchip.is-on b { background: #fff; color: var(--nav-active-text); }
-.sel-bar {
-  display: flex; align-items: center; gap: 14px; padding: 10px 14px 10px 20px; background: #eef5fd; border-bottom: 1px solid var(--blue-line);
-  font-size: 13.5px;
-}
-.sel-bar .cnt { font-weight: 500; color: #1a1a2e; }
-.sel-bar .frm { color: #555; }
-.sel-bar .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
-.mixed { margin: 12px 14px; }
-.mixed .opts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-.wait { font-size: 12px; color: var(--muted); }
-.wait.old { color: var(--amber); font-weight: 500; }
-.sign-link { font-weight: 500; }
 
-/* ── Review & sign ─────────────────────────────────────────── */
-.rv { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 360px); gap: 20px; max-width: 1180px; align-items: start; }
-.card { border: 1px solid var(--border); border-radius: 6px; background: #fff; }
-.card-h { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.card-h h3 { margin: 0; font-size: 14px; font-weight: 600; color: #1a1a2e; }
-.card-h .meta { font-size: 12px; color: var(--muted); }
-.card-b { padding: 18px 20px; }
-.q { margin-bottom: 20px; }
-.q:last-child { margin-bottom: 0; }
-.q .qt { font-size: 13.5px; font-weight: 500; color: #222; margin-bottom: 8px; }
-.q .qt .req { color: var(--red); }
-.q .opts { display: flex; gap: 22px; }
-.q .opts label { display: inline-flex; gap: 8px; align-items: center; font-size: 13.5px; cursor: pointer; }
-.applies { font-size: 12.5px; color: #555; margin-top: 4px; }
-.sig-prev {
-  height: 64px; border: 1px dashed var(--border-strong); border-radius: 4px; margin-top: 10px; display: flex; align-items: center; padding: 0 16px;
-  font-family: 'Brush Script MT', 'Segoe Script', cursive; font-size: 30px; color: #1a2b4a; background: #fbfcfd;
-}
-.sig-prev.empty { font-family: inherit; font-size: 12.5px; color: var(--muted); }
-.attest { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 13px; color: #333; line-height: 1.5; cursor: pointer; }
-.attest input { margin-top: 3px; flex-shrink: 0; }
-.stu-list { list-style: none; margin: 0; padding: 0; max-height: 520px; overflow-y: auto; }
-.stu-list li { display: flex; align-items: center; gap: 10px; padding: 9px 20px; border-bottom: 1px solid var(--row-line); }
-.stu-list li:last-child { border-bottom: 0; }
-.stu-list .nm { font-size: 13.5px; }
-.stu-list .ex { font-size: 12px; color: var(--muted); }
-.stu-list .rm { margin-left: auto; border: 0; background: none; color: #888; cursor: pointer; width: 26px; height: 26px; border-radius: 50%; }
-.stu-list .rm:hover { background: var(--red-soft); color: var(--red); }
-.rv-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; max-width: 1180px; align-items: center; flex-wrap: wrap; }
-.rv-foot .hint { margin-right: auto; font-size: 12.5px; color: var(--muted); }
+/* ── #4: forms waiting on the signed-in user ───────────────── */
 
-/* ── Done ──────────────────────────────────────────────────── */
-.done { max-width: 640px; margin: 48px auto; text-align: center; }
-.done .ok {
-  width: 64px; height: 64px; border-radius: 50%; background: var(--green-soft); color: var(--green);
-  display: inline-flex; align-items: center; justify-content: center; font-size: 30px; margin-bottom: 14px;
-}
-.done h1 { font-size: 22px; font-weight: 500; margin: 0 0 6px; }
-.done .sub { color: #555; font-size: 13.5px; }
-.done .facts { display: flex; justify-content: center; gap: 44px; margin: 26px 0; }
-.done .facts b { display: block; font-size: 24px; font-weight: 500; }
-.done .facts span { font-size: 12.5px; color: #555; }
-.done .actions { display: flex; justify-content: center; gap: 10px; }
-
-.sig-grid .nowrap { white-space: nowrap; }
-.sig-grid td { padding-top: 9px; padding-bottom: 9px; }
-.sel-bar { flex-wrap: wrap; }
-.q .opts { flex-wrap: wrap; gap: 10px 22px; }
 
 /* ── Responsive (#3) ───────────────────────────────────────── */
 @media (max-width: 1280px) {
   .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
-@media (max-width: 1100px) {
-  .rv { grid-template-columns: 1fr; }
-  .stu-list { max-height: 300px; }
-}
 @media (max-width: 760px) {
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tgroup + .tgroup { border-top: 1px solid #dcdee2; padding-top: 10px; }
   .tgroup { flex-basis: 100%; }
 }
 @media (max-width: 560px) {
@@ -543,8 +660,6 @@ body.customizing .dcard::before {
   .done .facts { gap: 24px; }
   .rv-foot .hint { flex-basis: 100%; }
 }
-.mixed .opts .btn { white-space: normal; height: auto; min-height: 28px; padding: 4px 10px; text-align: left; }
-.mixed > div { min-width: 0; }
 @media (max-width: 1366px) {
   .tile { padding-left: 2px; padding-right: 2px; }
   .tile .l { font-size: 12.5px; }
@@ -711,75 +826,109 @@ body.customizing .dcard::before {
       </div>
     </section>
 
-    <!-- ════════ Signatures: workflow forms waiting on the signed-in user ════════ -->
-    <section class="view" id="view-signatures" hidden>
+    <section class="view" id="view-manage" hidden>
+      <!-- Manage Forms header + tabs (matches live). "Workflow Tracking" is the new tab. -->
       <div class="page-head">
         <div>
-          <h1 class="page-title">Signatures</h1>
-          <p class="page-sub">Workflow forms waiting on your signature. Select several of the same form to sign them all at once.</p>
+          <h1 class="page-title">Manage Forms</h1>
+          <p class="page-sub">View forms and submissions from stakeholders across your work-based learning program</p>
+        </div>
+        <div class="head-actions">
+          <button class="btn teal">Explore Resources</button>
+          <button class="btn">Create Form</button>
+        </div>
+      </div>
+      <div class="seg-tabs" id="segTabs">
+        <button data-tab="regular">Regular Forms</button>
+        <button data-tab="foundational">Foundational Forms</button>
+        <button data-tab="workflow" onclick="goTab('workflow')">Workflow Forms</button>
+        <button data-tab="tracking" onclick="goTab('tracking')">Workflow Tracking<span class="new">NEW</span></button>
+      </div>
+
+      <!-- ── Workflow Forms (today's tab, unchanged) ── -->
+      <div id="tab-workflow" hidden>
+        <div class="wt-head"><h2 class="section-title">Workflow Forms</h2><span class="showing">Showing 7 of 16</span></div>
+        <div class="table-card">
+          <div class="tbar">
+            <button class="tool"><i class="fa-regular fa-download"></i> Export</button>
+            <button class="tool"><i class="fa-regular fa-table-columns"></i> Columns</button>
+            <button class="tool"><i class="fa-regular fa-bookmark"></i> Views</button>
+            <button class="tool"><i class="fa-regular fa-folder"></i> Folder</button>
+            <button class="tool"><i class="fa-regular fa-bolt"></i> Actions</button>
+            <span class="spacer"></span>
+            <select class="flt"><option>Unarchived Forms Only</option></select>
+            <div class="search"><span class="s-ico"><i class="fa-regular fa-magnifying-glass"></i></span><input placeholder="Search"></div>
+          </div>
+          <div class="t-scroll"><table class="grid">
+            <thead><tr><th class="cb"><input type="checkbox" aria-label="Select all"></th><th>Name</th><th>Description</th><th>Created</th><th>Updated</th><th>View</th><th>Sharing</th><th>Attachments</th><th>Submissions</th></tr></thead>
+            <tbody id="wfFormsBody"></tbody>
+          </table></div>
         </div>
       </div>
 
-      <div class="form-chips" id="formChips"></div>
-
-      <div style="display:flex;justify-content:flex-end;margin-bottom:8px"><span class="showing" id="sigShowing"></span></div>
-      <div class="table-card">
-        <div class="tbar">
-          <button class="tool"><i class="fa-regular fa-download"></i> Export</button>
-          <button class="tool"><i class="fa-regular fa-table-columns"></i> Columns</button>
-          <span class="spacer"></span>
-          <select class="flt" id="fGrade" onchange="renderSig()"><option value="">Grade</option><option>10</option><option>11</option><option>12</option></select>
-          <select class="flt" id="fSeg" onchange="renderSig()"><option value="">Segment</option></select>
-          <select class="flt" id="fExp" onchange="renderSig()"><option value="">Experience</option></select>
-          <div class="search"><span class="s-ico"><i class="fa-regular fa-magnifying-glass"></i></span><input id="fQ" placeholder="Search students" oninput="renderSig()"></div>
-        </div>
-
-        <!-- Selection bar: appears once anything is checked -->
-        <div class="sel-bar" id="selBar" hidden>
-          <span class="cnt" id="selCnt"></span>
-          <span class="frm" id="selForm"></span>
-          <div class="right">
-            <button class="link-btn" onclick="clearSel()">Clear</button>
-            <button class="btn" id="btnSignSel" onclick="goReview()"><i class="fa-regular fa-signature"></i> <span></span></button>
+      <!-- ── Workflow Tracking (new): every workflow form, across experiences ── -->
+      <div id="tab-tracking">
+        <div class="wt-head"><h2 class="section-title">Workflow Tracking</h2><span class="showing" id="tShowing"></span></div>
+        <div class="wt-sum" id="tSum"></div>
+        <div class="table-card">
+          <div class="tbar">
+            <button class="tool"><i class="fa-regular fa-download"></i> Export</button>
+            <button class="tool"><i class="fa-regular fa-table-columns"></i> Columns</button>
+            <button class="tool"><i class="fa-regular fa-bookmark"></i> Views</button>
+            <span class="spacer"></span>
+            <select class="flt" id="tForm" onchange="renderTracking()" aria-label="Workflow"><option value="">Workflow</option></select>
+            <select class="flt" id="tGrade" onchange="renderTracking()" aria-label="Grade"><option value="">Grade</option><option>10</option><option>11</option><option>12</option></select>
+            <select class="flt" id="tSeg" onchange="renderTracking()" aria-label="Segment"><option value="">Segment</option></select>
+            <select class="flt" id="tExp" onchange="renderTracking()" aria-label="Experience"><option value="">Experience</option></select>
+            <div class="search"><span class="s-ico"><i class="fa-regular fa-magnifying-glass"></i></span><input id="tQ" placeholder="Search students or signers" oninput="renderTracking()"></div>
+          </div>
+          <div class="sel-bar" id="tSelBar" hidden></div>
+          <div class="t-scroll">
+          <table class="grid t-grid">
+            <thead>
+              <tr id="tHead"></tr>
+            </thead>
+            <tbody id="tBody"></tbody>
+          </table>
           </div>
         </div>
-        <!-- Mixed-form guard: bulk signing applies only to the same form -->
-        <div class="banner warn mixed" id="mixedWarn" hidden>
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          <div>
-            <b>These are different forms.</b> Forms can be signed together only when they're all the same form. Keep one:
-            <div class="opts" id="mixedOpts"></div>
-          </div>
-        </div>
+      </div>
 
-        <div class="t-scroll">
-        <table class="grid sig-grid">
-          <thead>
-            <tr>
-              <th class="cb"><input type="checkbox" id="cbAll" onchange="toggleAll(this.checked)" aria-label="Select all"></th>
-              <th>Student</th>
-              <th>Form</th>
-              <th>Experience</th>
-              <th>Sent to you</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="sigBody"></tbody>
-        </table>
+    </section>
+
+    <!-- ════════ Manage Existing ════════
+         Today's landing page for the Manage nav item, from the live screenshot.
+         Forms → Manage Forms, where the new Workflow Tracking tab lives. -->
+    <section class="view" id="view-manage-existing" hidden>
+      <h1 class="page-title">Manage Existing</h1>
+      <div class="mx">
+        <div class="mx-intro">
+          <div class="mx-art" aria-hidden="true">
+            <svg viewBox="0 0 220 90" fill="none" stroke="#fff" stroke-width="2" stroke-linejoin="round">
+              <path d="M4 34 L30 22 L56 34 L82 22 L108 34 L134 22 L160 34 L186 22 L212 34 L212 72 L186 84 L160 72 L134 84 L108 72 L82 84 L56 72 L30 84 L4 72 Z"/>
+              <path d="M4 34 L30 46 L56 34 M56 34 L82 46 L108 34 M108 34 L134 46 L160 34 M160 34 L186 46 L212 34"/>
+              <path d="M30 46 V84 M82 46 V84 M134 46 V84 M186 46 V84 M56 34 V72 M108 34 V72 M160 34 V72"/>
+            </svg>
+          </div>
+          <p>Seamlessly oversee and organize all aspects of your WBL program to ensure smooth administration and progress.</p>
+        </div>
+        <div class="mx-card">
+          <div class="mx-h">What would you like to manage?</div>
+          <div class="mx-list" id="mxList"></div>
         </div>
       </div>
     </section>
 
-    <!-- ════════ Review & sign once ════════ -->
+
+    <!-- ════════ Sign & approve: answer once, sign once (same flow as #3) ════════ -->
     <section class="view" id="view-review" hidden>
-      <button class="backlink" onclick="goSignatures()"><i class="fa-solid fa-arrow-left"></i> Back to Signatures</button>
+      <button class="backlink" onclick="backToTracking()"><i class="fa-solid fa-arrow-left"></i> Back to Workflow Tracking</button>
       <div class="page-head">
         <div>
           <h1 class="page-title" id="rvTitle"></h1>
           <p class="page-sub" id="rvSub"></p>
         </div>
       </div>
-
       <div class="rv">
         <div>
           <div class="card" style="margin-bottom:16px">
@@ -799,36 +948,33 @@ body.customizing .dcard::before {
             </div>
           </div>
         </div>
-
         <div class="card">
           <div class="card-h"><h3 id="stuHead"></h3><span class="meta">Remove anyone to sign separately</span></div>
           <ul class="stu-list" id="stuList"></ul>
         </div>
       </div>
-
       <div class="rv-foot">
         <span class="hint" id="rvHint"></span>
-        <button class="btn ghost" onclick="goSignatures()">Cancel</button>
+        <button class="btn ghost" onclick="backToTracking()">Cancel</button>
         <button class="btn" id="btnSign" onclick="doSign()" disabled><i class="fa-regular fa-signature"></i> <span></span></button>
       </div>
     </section>
 
-    <!-- ════════ Signed ════════ -->
     <section class="view" id="view-done" hidden>
       <div class="done">
         <div class="ok"><i class="fa-solid fa-check"></i></div>
         <h1 id="doneTitle"></h1>
-        <p class="sub">Each student's workflow moved on to its next signer.</p>
+        <p class="sub" id="doneSub"></p>
         <div class="facts">
           <div><b id="doneN"></b><span>Signed just now</span></div>
           <div><b id="doneLeft"></b><span>Still waiting on you</span></div>
         </div>
         <div class="actions">
-          <button class="btn ghost" onclick="goDashboard()">Back to Dashboard</button>
-          <button class="btn" onclick="goSignatures()">Back to Signatures</button>
+          <button class="btn" onclick="backToTracking()">Back to Workflow Tracking</button>
         </div>
       </div>
     </section>
+
 
   </main>
 </div>
@@ -866,44 +1012,321 @@ function toast(msg) {
 /* ============================================================
    Version-specific script
    ============================================================ */
-/* ── #3 Bulk signing (VPATH-16031 scope item 3, FR-3) ─────────────────
-   Entry: a new "Signatures" tile, first in Pending Approvals, counting the
-   workflow forms waiting on the signed-in user (matched by email).
-   Bulk signing only applies to several pending copies of the SAME form. */
+/* ── #3–4 Bulk signing + cross-experience tracking (VPATH-16031 items 3 & 4) ──
+   One surface, two entry points:
+   · Admin Dashboard: a new Signatures tile (first in Pending Approvals) counts
+     the workflow forms waiting on the signed-in user and opens the tracking
+     view filtered to "Waiting on you".
+   · Manage › Forms › Workflow Tracking: every workflow form across experiences.
+   Columns per the PRD: Student Name, Experience, Form Name, District
+   (intermediary roles only), School, plus Status. Filters: Workflow, Grade,
+   Segment, Experience, and search.
+   Signing (FR-3), shared with every version via common/signflow.js:
+   · a row waiting on you has a Sign button in place of View: sign that one form
+   · any row can be selected (Select all = the whole page); Sign & approve (n)
+     signs the selected forms waiting on you, one form at a time (PRD)
+   then answer the shared questions once and sign once. */
+/* ── Mock data: workflow form instances across experiences ─────────
+   One instance = one student's copy of a workflow form, with its ordered
+   signer list. Deterministic so screenshots and flow-map thumbnails match. */
+const TODAY = new Date(2026, 9, 15);
+const DAY = 864e5;
+const daysAgo = n => new Date(TODAY - n * DAY);
+const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+const fmtLong = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
-/* ── Mock data ──────────────────────────────────────────────── */
-const FORMS = [
-  { id: 'f1', name: 'Internship Approval Form', q2: 'Supervisor has completed the district safety orientation' },
-  { id: 'f2', name: 'WBL Training Plan - Learning Objectives & Evaluation', q2: 'Learning objectives were reviewed with the student' },
-  { id: 'f3', name: 'Career Exploration Training Plan', q2: 'Placement hours fit the student\'s class schedule' },
+const EXPS = [
+  { name: 'Orthopedic Center Internship', seg: 'Health Sciences', bp: ['Kota, Aaron', 'aaronk@pathwayos.com'] },
+  { name: 'Peterbilt Trucks Apprenticeship', seg: 'Transportation', bp: ['Griffith, Aaron', 'aaron@gmail.com'] },
+  { name: 'State Medical Center Clinical Rotation', seg: 'Health Sciences', bp: ['Burch, Abby', 'abbyb@pathwayos.com'] },
+  { name: 'Abbott Labs Job Shadow', seg: 'Manufacturing', bp: ['McGrath, Adam', 'adam.mcgrath@abbottlabs.com'] },
+  { name: 'Action Group IT Help Desk', seg: 'Information Technology', bp: ['Bush, Adam', 'adam.bush@actiongroup.com'] },
 ];
-const EXPERIENCES = [
-  { name: 'Orthopedic Center Internship', seg: 'Health Sciences' },
-  { name: 'State Medical Center Clinical Rotation', seg: 'Health Sciences' },
-  { name: 'Peterbilt Trucks Apprenticeship', seg: 'Transportation' },
-  { name: 'Abbott Labs Job Shadow', seg: 'Manufacturing' },
-  { name: 'Action Group IT Help Desk', seg: 'Information Technology' },
+// District only shows for intermediary roles (an intermediary spans several districts)
+const SCHOOLS = [
+  { name: 'Abe Lincoln High School', district: 'Westbrook USD', approver: ['Hughes, Dana', 'dhughes@ctedistrict.org'] },
+  { name: 'Westfield High School', district: 'Lakeside SD', approver: ['Okoro, James', 'jokoro@ctedistrict.org'] },
+  { name: 'Central CTE Center', district: 'Pine Valley SD', approver: ['Castree, Mari', 'mcastree@ctedistrict.org'] },
 ];
-const SCHOOLS = ['Abe Lincoln High School', 'Westfield High School', 'Central CTE Center'];
-const NAMES = ['Rivera, Sofia','Nguyen, Brandon','Patel, Anika','Johnson, Marcus','Garcia, Luis','Kim, Hannah','Brown, Tyler','Okafor, Chidi',
+// Signer roles: who they are, and whether their email can be edited after start (FR-5)
+const ROLES = {
+  student: { label: 'Student', record: 'student' },
+  parent: { label: 'Parent', record: 'parent' },
+  bp: { label: 'Business Partner', record: 'contact' },
+  approver: { label: 'School Approver', record: 'staff' },
+};
+const WF_FORMS = [
+  { id: 'f1', name: 'Internship Approval Form', chain: ['student', 'parent', 'bp', 'approver'] },
+  { id: 'f2', name: 'WBL Training Plan - Learning Objectives & Evaluation', chain: ['student', 'bp', 'approver'] },
+  { id: 'f3', name: 'Career Exploration Training Plan', chain: ['student', 'parent', 'approver'] },
+  { id: 'f4', name: 'Louisa Co. HQ WBL Training Plan', chain: ['student', 'parent', 'bp'] },
+];
+const STUDENTS = ['Rivera, Sofia','Nguyen, Brandon','Patel, Anika','Johnson, Marcus','Garcia, Luis','Kim, Hannah','Brown, Tyler','Okafor, Chidi',
   'Martinez, Elena','Smith, Jordan','Lee, Grace','Davis, Malik','Lopez, Isabella','Wilson, Ethan','Anderson, Maya','Thomas, Caleb',
   'Hernandez, Ava','Moore, Noah','Jackson, Zoe','White, Liam','Harris, Chloe','Clark, Mason','Lewis, Aaliyah','Young, Owen',
   'Walker, Lily','Hall, Dylan','Allen, Nora','King, Gabriel','Wright, Mia','Scott, Julian','Green, Layla','Baker, Isaac',
   'Adams, Riley','Nelson, Aiden','Carter, Stella','Mitchell, Leo','Perez, Camila','Roberts, Hudson','Turner, Violet','Phillips, Ezra',
-  'Campbell, Hazel','Parker, Miles','Evans, Aurora','Edwards, Jaxon','Collins, Ivy','Stewart, Asher','Sanchez, Luna','Morris, Wyatt',
-  'Rogers, Penelope','Reed, Carter','Cook, Ellie','Morgan, Rowan','Bell, Willow','Murphy, Silas','Bailey, Ruby','Cooper, Emmett'];
+  'Campbell, Hazel','Parker, Miles','Evans, Aurora','Edwards, Jaxon','Collins, Ivy','Stewart, Asher','Sanchez, Luna','Morris, Wyatt'];
+const PARENT_FIRST = ['Maria', 'David', 'Priya', 'Angela', 'Ana', 'Susan', 'Robert', 'Ngozi', 'Carmen', 'Lisa', 'Daniel', 'Keisha'];
 
-// 56 pending signatures: 32 × f1, 14 × f2, 10 × f3. Deterministic, oldest first.
-const ROWS = NAMES.map((n, i) => {
-  const form = i < 32 ? FORMS[0] : i < 46 ? FORMS[1] : FORMS[2];
-  const exp = EXPERIENCES[(i * 3 + (i < 32 ? 0 : 1)) % EXPERIENCES.length];
-  const days = 21 - Math.floor(i / 3);
-  return { id: 'r' + i, name: n, grade: 10 + (i % 3), form: form.id, exp: exp.name, seg: exp.seg, school: SCHOOLS[i % 3], days: Math.max(days, 1) };
+const first = n => n.split(', ')[1];
+const last = n => n.split(', ')[0];
+const mail = (n, dom) => (first(n) + '.' + last(n)).toLowerCase().replace(/[^a-z.]/g, '') + '@' + dom;
+
+// status mix: 0-5 not started, 6-37 in progress (every 4th stalled), 38-47 completed
+function buildInstances() {
+  return STUDENTS.map((s, i) => {
+    const form = WF_FORMS[i % 4 === 3 ? (i % 8 === 3 ? 3 : 2) : i % 3 === 2 ? 1 : 0];
+    const exp = EXPS[(i * 2) % EXPS.length];
+    const school = SCHOOLS[i % SCHOOLS.length];
+    const parent = last(s) + ', ' + PARENT_FIRST[i % PARENT_FIRST.length];
+    const people = {
+      student: [s, mail(s, 'students.ctedistrict.org')],
+      parent: [parent, mail(parent, 'gmail.com')],
+      bp: exp.bp,
+      approver: school.approver,
+    };
+    const status = i < 6 ? 'not' : i < 38 ? 'prog' : 'done';
+    const stalled = status === 'prog' && i % 4 === 0;
+    const n = form.chain.length;
+    const signedCount = status === 'not' ? 0 : status === 'done' ? n : 1 + (i % (n - 1));
+    const waitDays = stalled ? 8 + (i % 13) : 1 + (i % 6);
+    const started = status === 'not' ? null : waitDays + signedCount * 2 + (i % 3);
+    const signers = form.chain.map((role, k) => ({
+      role, order: k + 1, name: people[role][0], email: people[role][1],
+      state: k < signedCount ? 'signed' : (status === 'prog' && k === signedCount) ? 'waiting' : 'queued',
+      at: k < signedCount ? started - 2 * (k + 1) + 1 : (status === 'prog' && k === signedCount) ? waitDays : null,
+    }));
+    return { id: 'w' + i, student: s, grade: 10 + (i % 3), school: school.name, district: school.district, form: form.id, exp: exp.name, seg: exp.seg,
+      status, stalled, started, waitDays: status === 'prog' ? waitDays : null, signers, reminded: null };
+  });
+}
+const wfForm = id => WF_FORMS.find(f => f.id === id);
+const waitingOn = w => w.signers.find(x => x.state === 'waiting');
+const signedN = w => w.signers.filter(x => x.state === 'signed').length;
+
+// The signed-in user (Mari Castree) is the School Approver at Central CTE Center,
+// so in-progress workflows there have reached her and wait on her signature.
+const ME = 'Castree, Mari';
+const mine = w => w.status === 'prog' && waitingOn(w)?.name === ME;
+function seedMine(list) {
+  list.filter(w => w.status === 'prog' && w.school === 'Central CTE Center' && w.signers.some(x => x.role === 'approver')).forEach(w => {
+    const n = w.signers.length;
+    w.signers.forEach((x, k) => {
+      if (k < n - 1) { x.state = 'signed'; x.at = w.waitDays + (n - 1 - k) * 2; }
+      else { x.state = 'waiting'; x.at = w.waitDays; }
+    });
+  });
+  return list;
+}
+
+
+const T_DEFAULT_FILTER = 'all';
+/* ── Workflow Tracking list (shared by #3–4, #5–6, #7) ──────────
+   Manage › Forms › Workflow Tracking: every workflow form across experiences.
+   Columns per VPATH-16031 #4: Student Name, Experience, Form Name,
+   District (intermediary roles only), School — plus Status.
+   It is ONE table across all versions; a version only adds its own extras.
+   Every row can be selected (Select all = every row on the page). Signing is
+   shared too (common/signflow.js): rows waiting on you show a "Sign" status
+   badge, and Sign & approve (n) in the selection bar signs several forms.
+   Hooks a version can define BEFORE this runs:
+     T_DEFAULT_FILTER  starting status card
+     T_KEEP_UNSTARTED  #7 only: keep unstarted workflows (Start workflow status)
+     tExtraBulk(rows)  extra selection-bar actions (e.g. #7 Start workflows)
+     openWorkflow(id)  View link / name click */
+let INST = seedMine(buildInstances());
+// Statuses: Waiting for signatures · Signature sent · Sending out <date> (+ Start workflow in #7).
+// Unstarted workflows only matter to #7 (which starts them); elsewhere they're scheduled sends.
+if (typeof T_KEEP_UNSTARTED === 'undefined') INST.filter(w => w.status === 'not')
+  .forEach((w, i) => { w.status = 'sched'; w.sendOn = new Date(2026, 10, 2 + 7 * (i % 3)); w.sendTime = '7:00 AM'; });
+let tFilter = (typeof T_DEFAULT_FILTER !== 'undefined') ? T_DEFAULT_FILTER : 'all';
+let SHOW_DISTRICT = false;      // true only for intermediary roles
+const tSel = new Set();
+
+const T_CARDS = [
+  ['all', 'All workflows', '#9aa3ad'],
+  ['mine', 'Waiting on you', 'var(--tag-staff)'],
+  // #7 only: workflows nobody has started yet carry a "Start workflow" status
+  ...(typeof T_KEEP_UNSTARTED !== 'undefined' ? [['not', 'Start workflow', '#8a939e']] : []),
+  ['prog', 'Waiting for signatures', 'var(--blue)'],
+  ['sched', 'Sending out', '#8e63ce'],
+  ['done', 'Signature sent', 'var(--green)'],
+];
+function tMatch(w, f) {
+  if (f === 'all') return true;
+  if (f === 'mine') return mine(w);
+  return w.status === f;
+}
+function statusChip(w) {
+  if (w.status === 'sched') return `<span class="st sched"><i class="fa-regular fa-calendar-clock"></i> Sending out ${fmtDate(w.sendOn)}</span>`;
+  if (w.status === 'done') return '<span class="st done"><i class="fa-solid fa-check"></i> Signature sent</span>';
+  if (w.status === 'prog') return '<span class="st prog">Waiting for signatures</span>';
+  if (w.status === 'not') return '<span class="st not"><i class="fa-regular fa-play"></i> Start workflow</span>';   // #7 only
+  return '';
+}
+// Status column: the badge only. In #7 the Start workflow badge is also a button:
+//   Start workflow  #7, unstarted: opens Start now / schedule
+function statusCell(w) {
+  if (w.status === 'not' && typeof startDialog === 'function') return `<button class="st not" onclick="startDialog(['${w.id}'])" title="Start now or schedule"><i class="fa-regular fa-play"></i> Start workflow</button>`;
+  return statusChip(w) || '<span class="sub">—</span>';
+}
+
+// Last column: rows waiting on you get a Sign button (signs this one form);
+// everything else opens the workflow details. The student name always opens details.
+function rowAction(w) {
+  return mine(w)
+    ? `<button class="btn ghost sm sign-btn" onclick="goSign(['${w.id}'])" title="Sign this form"><i class="fa-regular fa-signature"></i> Sign</button>`
+    : `<a class="lnk" onclick="openWorkflow('${w.id}')">View</a>`;
+}
+
+function fv(id) { const el = $('#' + id); return el ? el.value : ''; }
+function tRows() {
+  const f = fv('tForm'), g = fv('tGrade'), sg = fv('tSeg'), e = fv('tExp'), q = fv('tQ').trim().toLowerCase();
+  return INST.filter(w => tMatch(w, tFilter) && (!f || w.form === f) && (!g || String(w.grade) === g) && (!sg || w.seg === sg) && (!e || w.exp === e) &&
+    (!q || w.student.toLowerCase().includes(q) || w.signers.some(x => x.name.toLowerCase().includes(q))))
+    // Not started first (#7), then longest wait, then scheduled / signed
+    .sort((a, b) => (a.status === 'not' ? -1 : 0) - (b.status === 'not' ? -1 : 0) || (b.waitDays || 0) - (a.waitDays || 0));
+}
+function renderSummary() {
+  $('#tSum').innerHTML = T_CARDS.map(([id, label, color]) => {
+    const n = INST.filter(w => tMatch(w, id)).length;
+    return `<button class="sum-card ${tFilter === id ? 'is-on' : ''} ${id === 'mine' ? 'mine' : ''}" onclick="setTFilter('${id}')">
+      <span class="n">${n}</span><span class="l"><span class="dot" style="background:${color}"></span>${label}</span></button>`;
+  }).join('');
+}
+function setTFilter(f) { tFilter = f; tSel.clear(); renderTracking(); }
+
+function renderTracking() {
+  renderSummary();
+  const rows = tRows(), cols = 7 + (SHOW_DISTRICT ? 1 : 0);
+  $('#tHead').innerHTML = `<th class="cb"><input type="checkbox" id="tAll" onchange="tToggleAll(this.checked)" aria-label="Select all"></th>
+    <th>Student Name</th><th>Experience</th><th>Form Name</th>${SHOW_DISTRICT ? '<th>District</th>' : ''}<th>School</th><th>Status</th><th></th>`;
+  $('#tShowing').textContent = `Showing ${rows.length} of ${INST.length}`;
+  $('#tBody').innerHTML = rows.length ? rows.map(w => {
+    const on = tSel.has(w.id);
+    return `<tr class="${on ? 'is-sel' : ''}" data-id="${w.id}">
+      <td class="cb"><input type="checkbox" ${on ? 'checked' : ''} onchange="tToggle('${w.id}', this.checked)" aria-label="Select ${esc(w.student)}"></td>
+      <td><a class="lnk" onclick="openWorkflow('${w.id}')">${esc(w.student)}</a><div class="sub">Grade ${w.grade}</div></td>
+      <td>${esc(w.exp)}<div class="sub">${esc(w.seg)}</div></td>
+      <td>${esc(wfForm(w.form).name)}</td>
+      ${SHOW_DISTRICT ? `<td>${esc(w.district)}</td>` : ''}
+      <td>${esc(w.school)}</td>
+      <td>${statusCell(w)}</td>
+      <td class="row-act">${rowAction(w)}</td>
+    </tr>`; }).join('') : `<tr class="empty"><td colspan="${cols}">No workflows match these filters.</td></tr>`;
+  const all = $('#tAll');
+  all.checked = rows.length > 0 && rows.every(w => tSel.has(w.id));
+  all.indeterminate = !all.checked && rows.some(w => tSel.has(w.id));
+  const bar = $('#tSelBar'), sel = INST.filter(w => tSel.has(w.id));
+  bar.hidden = !sel.length;
+  if (sel.length) bar.innerHTML = `<span class="cnt">${sel.length} selected</span><div class="right">
+    <button class="link-btn" onclick="tSel.clear();renderTracking()">Clear</button>${bulkBar(sel)}</div>`;
+}
+// Selection bar actions. Signing works on the selected forms waiting on you,
+// one form at a time (PRD); other selected rows are left alone.
+function bulkBar(sel) {
+  const ms = sel.filter(mine), forms = [...new Set(ms.map(w => w.form))];
+  let html = '';
+  if (forms.length === 1) html = `${ms.length < sel.length ? `<span class="hint">${ms.length} of ${sel.length} are waiting on you</span>` : ''}
+    <button class="btn sm" onclick="goSign()"><i class="fa-regular fa-signature"></i> Sign &amp; approve (${ms.length})</button>`;
+  else if (forms.length > 1) html = `<span class="hint warn"><i class="fa-solid fa-triangle-exclamation"></i> Forms are signed together only when they're the same form. Sign one form at a time:</span>
+    ${forms.map(f => `<button class="btn ghost sm" onclick="goSign(INST.filter(w => tSel.has(w.id) && mine(w) && w.form === '${f}').map(w => w.id))"><i class="fa-regular fa-signature"></i> ${esc(wfForm(f).name)} (${ms.filter(w => w.form === f).length})</button>`).join('')}`;
+  return html + (typeof tExtraBulk === 'function' ? tExtraBulk(sel) : '');
+}
+function tToggle(id, on) { on ? tSel.add(id) : tSel.delete(id); renderTracking(); }
+function tToggleAll(on) { tRows().forEach(w => on ? tSel.add(w.id) : tSel.delete(w.id)); renderTracking(); }
+
+// Today's Workflow Forms tab, from the live screenshot
+function renderWfForms() {
+  const rows = [['Test', 1, '10/15/2026', '10/15/2026'], ['Internship Approval Form (Copy)', 1, '09/15/2026', '09/15/2026'],
+    ['Internship Approval Form', 1, '09/15/2026', '10/13/2026'], ['Louisa Co. HQ WBL Training Plan', 0, '03/30/2026', '03/30/2026'],
+    ['Career Exploration Training Plan', 0, '01/30/2026', '01/30/2026'], ['Dynamic Form', 1, '07/25/2025', '07/25/2025'],
+    ['WBL Training Plan - Learning Objectives & Evaluation', 0, '11/12/2024', '11/12/2024']];
+  $('#wfFormsBody').innerHTML = rows.map(([n, d, c, u]) => `<tr><td class="cb"><input type="checkbox"></td><td><a class="lnk">${esc(n)}</a></td>
+    <td>${d ? '<i class="fa-regular fa-circle-info" style="font-size:18px;color:#444"></i>' : ''}</td><td>${c}</td><td>${u}</td>
+    <td><a class="lnk">View</a></td><td><a class="lnk">View</a></td><td>-</td><td><a class="lnk">View</a></td></tr>`).join('');
+}
+
+function goTab(t) {
+  $$('#segTabs button').forEach(b => b.classList.toggle('is-on', b.dataset.tab === t));
+  $('#tab-workflow').hidden = t !== 'workflow';
+  $('#tab-tracking').hidden = t !== 'tracking';
+  setCrumbs([['Manage Existing', 'goManageExisting()'], ['Forms']]);
+}
+
+/* ── Manage Existing: what the Manage nav item opens today ──
+   Forms → Manage Forms (Workflow Tracking tab). The rest aren't part of this mock. */
+const MX_ITEMS = [
+  ['Activities', 'Monitor and maintain student assignment and completion of activities'],
+  ['Approvals', 'Confirm or reject all hours, activities, entities, and events'],
+  ['Badges', 'Oversee progress and assignment of achievement sets'],
+  ['Calendar', 'View of all WBL and school events'],
+  ['Experience Templates', 'View and organize all templates available for experience creation'],
+  ['Experiences', 'Monitor and analyze ongoing experiences'],
+  ['Forms', 'Digitize paperwork to collect data from all stakeholders'],
+  ['Service', 'Manage student service groups, logs, and approvals'],
+  ['Stakeholders', 'Update and maintain WBL partners and participants'],
+  ['WBL Events', 'Oversee work-based learning and school events'],
+];
+function goManageExisting() {
+  if (typeof togglePop === 'function') togglePop(false);
+  closeDrawer(); closeModal();
+  showView('view-manage-existing'); setNav('manage'); setCrumbs([['Manage Existing']]);
+  window.scrollTo(0, 0);
+}
+function openForms() {
+  if (typeof goTracking === 'function') return goTracking('all');
+  tFilter = 'all'; tSel.clear();
+  showView('view-manage'); setNav('manage'); goTab('tracking'); renderTracking(); window.scrollTo(0, 0);
+}
+document.addEventListener('click', e => {
+  if (e.target.closest('.nav-item')?.dataset.nav === 'manage') goManageExisting();
 });
-const TODAY = new Date(2026, 9, 15);
-const fmtDate = d => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-const sentLabel = days => fmtDate(new Date(TODAY - days * 864e5));
-const formById = id => FORMS.find(f => f.id === id);
+
+function initTracking() {
+  $('#mxList').innerHTML = MX_ITEMS.map(([t, d]) => `<button class="mx-row" onclick="${t === 'Forms' ? 'openForms()' : `toast('${t} isn\\'t part of this mock')`}">
+    <span class="txt"><div class="t">${t}</div><div class="d">${d}</div></span><i class="fa-solid fa-chevron-right"></i></button>`).join('');
+  WF_FORMS.forEach(f => $('#tForm').insertAdjacentHTML('beforeend', `<option value="${f.id}">${esc(f.name)}</option>`));
+  EXPS.forEach(e => $('#tExp').insertAdjacentHTML('beforeend', `<option>${esc(e.name)}</option>`));
+  [...new Set(EXPS.map(e => e.seg))].forEach(sg => $('#tSeg').insertAdjacentHTML('beforeend', `<option>${esc(sg)}</option>`));
+  $$('.flt').forEach(s => s.addEventListener('change', () => s.classList.toggle('is-set', !!s.value)));
+  renderWfForms();
+  setNav('manage');
+  goTab('tracking');
+  renderTracking();
+}
+
+/* ── Drawer helpers ──────────────────────────────────────────── */
+function openDrawer(html) { closeDrawer(); document.body.insertAdjacentHTML('beforeend', `<div class="scrim" id="scrim" onclick="closeDrawer()"></div><aside class="drawer" id="drawer" role="dialog" aria-modal="true">${html}</aside>`); }
+function closeDrawer() { $('#scrim')?.remove(); $('#drawer')?.remove(); }
+function openModal(html) { closeModal(); document.body.insertAdjacentHTML('beforeend', `<div class="modal-bg" id="modal"><div class="modal" role="dialog" aria-modal="true">${html}</div></div>`); }
+function closeModal() { $('#modal')?.remove(); }
+function metaGrid(w) {
+  return `<dl class="meta-grid">
+    <dt>Experience</dt><dd>${esc(w.exp)}</dd>
+    <dt>School</dt><dd>${esc(w.school)} · Grade ${w.grade}</dd>
+    ${SHOW_DISTRICT ? `<dt>District</dt><dd>${esc(w.district)}</dd>` : ''}
+    <dt>Status</dt><dd>${statusChip(w) || '—'}</dd>
+    <dt>Started</dt><dd>${w.started != null ? fmtLong(daysAgo(w.started)) + ' by Mari Castree' : '—'}</dd>
+  </dl>`;
+}
+function timelineItem(w, x) {
+  let stt;
+  if (x.state === 'signed') stt = `<div class="stt ok"><i class="fa-solid fa-check"></i> Signed<small>${fmtLong(daysAgo(x.at))}</small></div>`;
+  else if (x.state === 'waiting') stt = x.at === 0
+    ? `<div class="stt wt">Waiting<small>Sent today${x.note ? ' · ' + esc(x.note) : ''}</small></div>`
+    : `<div class="stt wt">Waiting<small>Sent ${fmtDate(daysAgo(x.at))}</small></div>`;
+  else {
+    const w8 = waitingOn(w), next = w8 && w.signers.filter(y => y.state === 'queued' && y.order > w8.order).map(y => y.order).sort((a, b) => a - b)[0];
+    stt = `<div class="stt">${w.status === 'prog' && x.order === next ? 'Up next' : ''}</div>`;
+  }
+  return `<li class="${x.state}">
+    <span class="ord">${x.state === 'signed' ? '<i class="fa-solid fa-check"></i>' : x.order}</span>
+    <div><div class="nm">${esc(x.name)}</div><div class="rl">${esc(ROLES[x.role].label)}</div><div class="em">${esc(x.email)}</div></div>
+    ${stt}</li>`;
+}
+
 
 /* ── Dashboard approvals ─────────────────────────────────────── */
 const APPROVALS_DEFAULT = [
@@ -934,7 +1357,7 @@ function resetApprovals() {
   renderTiles(); renderPop();
 }
 const appr = id => APPROVALS_DEFAULT.find(a => a.id === id);
-function countFor(a) { return a.id === 'signatures' ? ROWS.length : a.n; }
+function countFor(a) { return a.id === 'signatures' ? INST.filter(mine).length : a.n; }
 
 // Tiles render per group (Staff · Program · Student) so a group wraps as a unit on narrow screens
 function renderTiles() {
@@ -942,17 +1365,23 @@ function renderTiles() {
   $('#tiles').innerHTML = GROUPS.map(g => {
     const items = order.map(appr).filter(a => a.group === g.id && shown[a.id]);
     if (!items.length) return '';
-    return `<div class="tgroup ${g.id}" style="--n:${items.length}">
-      <div class="tg-head"><span class="tag ${g.id}">${g.tag}</span></div>
-      <div class="tg-tiles">${items.map(a => {
+    return `<div class="tgroup" style="--n:${items.length}">${items.map(a => {
       const n = countFor(a); total += n;
-      return `<button class="tile ${a.id === 'signatures' ? 'is-new' : ''}" ${a.id === 'signatures' ? 'onclick="goSignatures()"' : ''}>
+      return `<button class="tile ${a.id === 'signatures' ? 'is-new' : ''}" ${a.id === 'signatures' ? 'onclick="goTracking(\'mine\')"' : ''}>
         <span class="n ${n === 0 ? 'zero' : ''} ${a.hot ? 'hot' : ''}">${n}</span>
-        <span class="l">${esc(a.label)}</span></button>`;
-    }).join('')}</div></div>`;
+        <span class="l">${esc(a.label)}</span>
+        <span class="tag ${a.group}">${g.tag}</span></button>`;
+    }).join('')}</div>`;
   }).join('');
   $('#apprTotal').textContent = total;
+  markWrapped();
 }
+// Hide the group divider on any group that starts a new line
+function markWrapped() {
+  const gs = $$('#tiles .tgroup');
+  gs.forEach((g, i) => g.classList.toggle('wrapped', i > 0 && g.offsetTop > gs[i - 1].offsetTop + 4));
+}
+window.addEventListener('resize', markWrapped);
 
 
 const METRICS = [['favorites', 'Favorites', 'fa-star'], ['approvals', 'Pending Approvals', 'fa-circle-check'], ['activities', 'Activities', 'fa-rocket'],
@@ -1035,162 +1464,157 @@ function applyCustomize() {
   toast('Dashboard saved');
 }
 
-/* ── Signatures table ────────────────────────────────────────── */
-let formFilter = '';        // '' = all forms
-const selected = new Set();
-
-function visibleRows() {
-  const g = $('#fGrade').value, s = $('#fSeg').value, e = $('#fExp').value, q = $('#fQ').value.trim().toLowerCase();
-  return ROWS.filter(r => (!formFilter || r.form === formFilter) && (!g || String(r.grade) === g) && (!s || r.seg === s) &&
-    (!e || r.exp === e) && (!q || r.name.toLowerCase().includes(q)));
+function openWorkflow(id) {
+  const w = INST.find(x => x.id === id);
+  openDrawer(`
+    <div class="dr-head">
+      <div><h2>${esc(w.student)}</h2><div class="dr-sub">${esc(wfForm(w.form).name)}</div></div>
+      <button class="dr-x" onclick="closeDrawer()" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="dr-body">
+      ${metaGrid(w)}
+      <div class="tl-h"><h3>Signers</h3><span class="sub">${signedN(w)} of ${w.signers.length} signed</span></div>
+      <ol class="tl">${w.signers.map(x => timelineItem(w, x)).join('')}</ol>
+    </div>
+    <div class="dr-foot">
+      ${mine(w) ? `<button class="btn" onclick="closeDrawer();goSign(['${w.id}'])"><i class="fa-regular fa-signature"></i> Sign &amp; approve</button>` : ''}
+    </div>`);
 }
 
-function renderChips() {
-  const chip = (id, label, n) => `<button class="fchip ${formFilter === id ? 'is-on' : ''}" onclick="setForm('${id}')">${esc(label)} <b>${n}</b></button>`;
-  $('#formChips').innerHTML = '<span class="lbl">Form</span>' + chip('', 'All forms', ROWS.length) +
-    FORMS.map(f => [f, ROWS.filter(r => r.form === f.id).length]).filter(([, n]) => n).map(([f, n]) => chip(f.id, f.name, n)).join('');
-}
-function setForm(id) {
-  formFilter = id;
-  // Keep only selections that still belong to the chosen form
-  if (id) [...selected].forEach(rid => { if (ROWS.find(r => r.id === rid)?.form !== id) selected.delete(rid); });
-  renderSig();
-}
-
-function renderSig() {
-  renderChips();
-  const rows = visibleRows();
-  $('#sigShowing').textContent = `Showing ${rows.length} of ${ROWS.length}`;
-  $('#sigBody').innerHTML = rows.length ? rows.map(r => `
-    <tr class="${selected.has(r.id) ? 'is-sel' : ''}">
-      <td class="cb"><input type="checkbox" ${selected.has(r.id) ? 'checked' : ''} onchange="toggleRow('${r.id}', this.checked)" aria-label="Select ${esc(r.name)}"></td>
-      <td><a class="lnk">${esc(r.name)}</a><div class="sub">Grade ${r.grade} · ${esc(r.school)}</div></td>
-      <td>${esc(formById(r.form).name)}</td>
-      <td>${esc(r.exp)}<div class="sub">${esc(r.seg)}</div></td>
-      <td class="nowrap">${sentLabel(r.days)}<div class="wait ${r.days > 14 ? 'old' : ''}">${r.days} day${r.days === 1 ? '' : 's'} ago</div></td>
-      <td class="nowrap"><a class="lnk sign-link" onclick="signOne('${r.id}')">Sign</a></td>
-    </tr>`).join('') : '<tr class="empty"><td colspan="6">No forms match these filters.</td></tr>';
-  const allOn = rows.length && rows.every(r => selected.has(r.id));
-  $('#cbAll').checked = !!allOn;
-  $('#cbAll').indeterminate = !allOn && rows.some(r => selected.has(r.id));
-  syncSelBar();
-}
-function toggleRow(id, on) { on ? selected.add(id) : selected.delete(id); renderSig(); }
-function toggleAll(on) { visibleRows().forEach(r => on ? selected.add(r.id) : selected.delete(r.id)); renderSig(); }
-function clearSel() { selected.clear(); renderSig(); }
-
-function selForms() { return [...new Set([...selected].map(id => ROWS.find(r => r.id === id).form))]; }
-function syncSelBar() {
-  const n = selected.size, forms = selForms();
-  $('#selBar').hidden = !n;
-  $('#mixedWarn').hidden = forms.length < 2;
-  if (!n) return;
-  $('#selCnt').textContent = `${n} selected`;
-  $('#selForm').textContent = forms.length === 1 ? '· ' + formById(forms[0]).name : `· ${forms.length} different forms`;
-  const b = $('#btnSignSel');
-  b.disabled = forms.length > 1;
-  $('span', b).textContent = n === 1 ? 'Sign form' : `Sign ${n} forms`;
-  $('#mixedOpts').innerHTML = forms.map(fid => {
-    const c = [...selected].filter(id => ROWS.find(r => r.id === id).form === fid).length;
-    return `<button class="btn ghost sm" onclick="keepForm('${fid}')">${esc(formById(fid).name)} (${c})</button>`;
-  }).join('');
-}
-function keepForm(fid) { setForm(fid); }
-
-/* ── Review & sign ───────────────────────────────────────────── */
-let batch = [];             // row ids being signed
-function signOne(id) { selected.clear(); selected.add(id); goReview(); }
-function goReview() {
-  if (!selected.size || selForms().length > 1) return;
-  batch = [...selected];
+/* ── Signing, shared by every version (#3–4, #5–6, #7) ─────────
+   It's one Workflow Tracking table, so signing works the same everywhere:
+   the "Sign" status badge on a row waiting on you signs that one form;
+   Sign & approve (n) in the selection bar signs several of the same form.
+   Change signing here and every version picks it up. */
+/* ── Sign & approve: answer once, sign once ──────────────────── */
+const Q2 = { f1: 'Supervisor has completed the district safety orientation', f2: 'Learning objectives were reviewed with the student',
+  f3: 'Placement hours fit the student\'s class schedule', f4: 'Training plan matches the site\'s posted duties' };
+let batch = [];
+function goSign(ids) {
+  batch = ids || INST.filter(w => tSel.has(w.id) && mine(w)).map(w => w.id);
+  if (!batch.length) return;
   $('#sigName').value = ''; $('#attest').checked = false; $('#rvQuestions').innerHTML = '';
   renderReview();
   showView('view-review');
-  setCrumbs([['Admin Dashboard', 'goDashboard()'], ['Signatures', 'goSignatures()'], ['Sign forms']]);
+  setCrumbs([['Manage Existing', 'goManageExisting()'], ['Forms', 'backToTracking()'], ['Sign & approve']]);
   window.scrollTo(0, 0);
 }
 function renderReview() {
-  const n = batch.length, form = formById(ROWS.find(r => r.id === batch[0]).form);
-  $('#rvTitle').textContent = n === 1 ? 'Sign 1 form' : `Sign ${n} forms`;
-  $('#rvSub').textContent = n === 1 ? form.name : `${form.name} · your answers and signature apply to all ${n} students`;
-  $('#rvDate').textContent = 'Signing as Mari Castree · ' + TODAY.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const keep = id => $(`[name="${id}"]:checked`)?.value || '';
+  const n = batch.length, ws = batch.map(id => INST.find(w => w.id === id)), form = wfForm(ws[0].form);
+  $('#rvTitle').textContent = n === 1 ? 'Sign & approve 1 form' : `Sign & approve ${n} forms`;
+  $('#rvSub').textContent = n === 1 ? `${form.name} · ${ws[0].student}` : `${form.name} · your answers and signature apply to all ${n} students`;
+  $('#rvDate').textContent = 'Signing as Mari Castree · ' + fmtLong(TODAY);
+  const keep = nm => $(`[name="${nm}"]:checked`)?.value || '';
   const q1 = keep('q1'), q2 = keep('q2'), cm = $('#q3') ? $('#q3').value : '';
   $('#rvQuestions').innerHTML = `
     <div class="q"><div class="qt">Do you approve this placement? <span class="req">*</span></div>
       <div class="opts"><label><input type="radio" name="q1" value="yes" onchange="syncSig()" ${q1 === 'yes' ? 'checked' : ''}> Approve</label>
       <label><input type="radio" name="q1" value="no" onchange="syncSig()" ${q1 === 'no' ? 'checked' : ''}> Do not approve</label></div></div>
-    <div class="q"><div class="qt">${esc(form.q2)} <span class="req">*</span></div>
+    <div class="q"><div class="qt">${esc(Q2[form.id])} <span class="req">*</span></div>
       <div class="opts"><label><input type="radio" name="q2" value="yes" onchange="syncSig()" ${q2 === 'yes' ? 'checked' : ''}> Yes</label>
       <label><input type="radio" name="q2" value="no" onchange="syncSig()" ${q2 === 'no' ? 'checked' : ''}> No</label></div></div>
     <div class="q"><div class="qt">Comments</div>
       <textarea class="inp" id="q3" rows="3" placeholder="Optional">${esc(cm)}</textarea>
       ${n > 1 ? `<div class="applies">Your comment is added to all ${n} forms.</div>` : ''}</div>`;
   $('#stuHead').textContent = `Students (${n})`;
-  $('#stuList').innerHTML = batch.map(id => { const r = ROWS.find(x => x.id === id); return `
-    <li><div><div class="nm">${esc(r.name)}</div><div class="ex">${esc(r.exp)} · Grade ${r.grade}</div></div>
-    ${n > 1 ? `<button class="rm" onclick="removeFromBatch('${id}')" title="Remove from this signing" aria-label="Remove ${esc(r.name)}"><i class="fa-solid fa-xmark"></i></button>` : ''}</li>`; }).join('');
+  $('#stuList').innerHTML = ws.map(w => `
+    <li><div><div class="nm">${esc(w.student)}</div><div class="ex">${esc(w.exp)} · Grade ${w.grade}</div>
+      <div class="rv-who">Signed by ${w.signers.filter(x => x.state === 'signed').map(x => esc(ROLES[x.role].label)).join(', ')}</div></div>
+    ${n > 1 ? `<button class="rm" onclick="removeFromBatch('${w.id}')" title="Remove from this signing" aria-label="Remove ${esc(w.student)}"><i class="fa-solid fa-xmark"></i></button>` : ''}</li>`).join('');
   $('#attestTxt').textContent = n === 1
     ? 'I have reviewed this form and agree that typing my name is my electronic signature.'
     : `I have reviewed the ${form.name} for the ${n} students listed and agree that typing my name is my electronic signature on each of them.`;
   syncSig();
 }
-function removeFromBatch(id) { batch = batch.filter(x => x !== id); selected.delete(id); renderReview(); }
+function removeFromBatch(id) { batch = batch.filter(x => x !== id); tSel.delete(id); renderReview(); }
 function syncSig() {
   const name = $('#sigName').value.trim(), p = $('#sigPrev');
   p.textContent = name || 'Your signature will appear here';
   p.classList.toggle('empty', !name);
   const answered = $('[name="q1"]:checked') && $('[name="q2"]:checked');
-  const ok = answered && name && $('#attest').checked;
-  const b = $('#btnSign');
+  const ok = answered && name && $('#attest').checked, b = $('#btnSign');
   b.disabled = !ok;
-  $('span', b).textContent = batch.length === 1 ? 'Sign form' : `Sign ${batch.length} forms`;
+  $('span', b).textContent = batch.length === 1 ? 'Sign & approve' : `Sign & approve ${batch.length} forms`;
   $('#rvHint').textContent = ok ? '' : !answered ? 'Answer the required questions to sign.' : !name ? 'Type your name to sign.' : 'Check the box to confirm.';
 }
 function doSign() {
-  const n = batch.length, form = formById(ROWS.find(r => r.id === batch[0]).form);
-  batch.forEach(id => { const i = ROWS.findIndex(r => r.id === id); if (i > -1) ROWS.splice(i, 1); selected.delete(id); });
-  $('#doneTitle').textContent = n === 1 ? `${form.name} signed` : `${n} ${form.name}s signed`;
-  $('#doneN').textContent = n;
-  $('#doneLeft').textContent = ROWS.length;
+  const n = batch.length, form = wfForm(INST.find(w => w.id === batch[0]).form);
+  let completed = 0;
+  batch.forEach(id => {
+    const w = INST.find(x => x.id === id), me = waitingOn(w);
+    me.state = 'signed'; me.at = 0;
+    const next = w.signers.find(x => x.state === 'queued');
+    if (next) { next.state = 'waiting'; next.at = 0; w.waitDays = 0; w.stalled = false; }
+    else { w.status = 'done'; w.waitDays = null; w.stalled = false; completed++; }
+    tSel.delete(id);
+  });
   batch = [];
-  renderTiles();
+  $('#doneTitle').textContent = n === 1 ? '1 form signed' : `${n} forms signed`;
+  $('#doneSub').textContent = form.name + ' · ' + (completed === n ? `You were the last signer, so ${n === 1 ? 'this workflow is' : 'these workflows are'} now complete.`
+    : completed ? `${completed} completed; the rest moved on to their next signer.` : 'Each workflow moved on to its next signer.');
+  $('#doneN').textContent = n;
+  $('#doneLeft').textContent = INST.filter(mine).length;
   showView('view-done');
-  setCrumbs([['Admin Dashboard', 'goDashboard()'], ['Signatures', 'goSignatures()'], ['Signed']]);
+  setCrumbs([['Manage Existing', 'goManageExisting()'], ['Forms', 'backToTracking()'], ['Signed']]);
   window.scrollTo(0, 0);
 }
+// Back to the table: #3–4 has its own navigation helper; the others just show the Manage view
+function backToTracking() {
+  if (typeof goTracking === 'function') return goTracking();
+  showView('view-manage'); goTab('tracking'); renderTracking(); window.scrollTo(0, 0);
+}
+
+
+
 
 /* ── Navigation ──────────────────────────────────────────────── */
-function goDashboard() { applyCustomizeSilently(); showView('view-dashboard'); setNav('dashboard'); setCrumbs([['Admin Dashboard']]); renderTiles(); window.scrollTo(0, 0); }
-function goSignatures() { applyCustomizeSilently(); showView('view-signatures'); setNav('dashboard'); setCrumbs([['Admin Dashboard', 'goDashboard()'], ['Signatures']]); renderSig(); window.scrollTo(0, 0); }
-function applyCustomizeSilently() { togglePop(false); }
+function goDashboard() {
+  togglePop(false); closeDrawer(); showView('view-dashboard'); setNav('dashboard'); setCrumbs([['Admin Dashboard']]);
+  renderTiles(); window.scrollTo(0, 0);
+}
+function goTracking(filter) {
+  togglePop(false); closeDrawer(); showView('view-manage'); setNav('manage'); goTab('tracking');
+  if (filter) { tFilter = filter; tSel.clear(); }
+  renderTracking(); window.scrollTo(0, 0);
+}
+// Sidenav links that exist in this mock
+document.addEventListener('click', e => {
+  const a = e.target.closest('.nav-item');
+  if (a?.dataset.nav === 'dashboard') goDashboard();
+});
+// Intermediary roles see a District column (they span several districts)
+function setIntermediary(on) {
+  SHOW_DISTRICT = on;
+  $('.org-name').textContent = on ? 'Region 4 ESC' : 'CTE District';
+  $('.org-role').textContent = on ? 'Intermediary Administrator' : 'District Administrator';
+  renderTracking();
+}
 
-/* ── Init ────────────────────────────────────────────────────── */
-[...new Set(ROWS.map(r => r.seg))].forEach(s => $('#fSeg').insertAdjacentHTML('beforeend', `<option>${esc(s)}</option>`));
-[...new Set(ROWS.map(r => r.exp))].forEach(e => $('#fExp').insertAdjacentHTML('beforeend', `<option>${esc(e)}</option>`));
-$$('.flt').forEach(s => s.addEventListener('change', () => s.classList.toggle('is-set', !!s.value)));
+initTracking();
 resetApprovals();
 goDashboard();
 
 /* ── Flow map host contract ──────────────────────────────────── */
 function applyFlowState(id, opts) {
   opts = opts || {};
-  formFilter = ''; selected.clear();
+  tSel.clear(); setIntermediary(false);
+  const topForm = () => { const c = {}; INST.filter(mine).forEach(w => { c[w.form] = (c[w.form] || 0) + 1; });
+    return Object.keys(c).sort((a, b) => c[b] - c[a])[0]; };
+  const pickTop = () => { const f = topForm(); INST.filter(w => mine(w) && w.form === f).forEach(w => tSel.add(w.id)); };
   switch (id) {
     case 'customize': goDashboard(); startCustomize(); break;
-    case 'signatures': goSignatures(); break;
-    case 'selected':
-      goSignatures(); formFilter = 'f1';
-      ROWS.filter(r => r.form === 'f1').slice(0, 12).forEach(r => selected.add(r.id)); renderSig(); break;
-    case 'mixed':
-      goSignatures(); ROWS.slice(28, 36).forEach(r => selected.add(r.id)); renderSig(); break;
-    case 'review':
-      goSignatures(); formFilter = 'f1';
-      ROWS.filter(r => r.form === 'f1').slice(0, 12).forEach(r => selected.add(r.id)); goReview(); break;
+    case 'manage-existing': goManageExisting(); break;
+    case 'mine': goTracking('mine'); break;
+    case 'all': goTracking('all'); break;
+    case 'selected': goTracking('mine'); pickTop(); renderTracking(); break;
+    case 'drawer': goTracking('mine'); openWorkflow(INST.find(mine).id); break;
+    case 'intermediary': goTracking('all'); setIntermediary(true); break;
+    case 'review': goTracking('mine'); pickTop(); goSign(); break;
     case 'done':
-      goSignatures(); ROWS.filter(r => r.form === 'f1').slice(0, 12).forEach(r => selected.add(r.id)); goReview();
+      goTracking('mine'); pickTop(); goSign();
       $$('[name="q1"]')[0].checked = true; $$('[name="q2"]')[0].checked = true;
       $('#sigName').value = 'Mari Castree'; $('#attest').checked = true; doSign(); break;
+    case 'sign-one': goTracking('mine'); goSign([INST.find(mine).id]); break;
     default: goDashboard();
   }
   if (!opts.instant) window.scrollTo(0, 0);
@@ -1205,33 +1629,40 @@ window.addEventListener('hashchange', bootFromHash);
 
 window.TOOLBOX_CONFIG = {
   flowMap: {
-    title: 'Workflow Enhancement #3 Bulk Signing — Flow Map',
+    title: 'Workflow Enhancement #3–4 Bulk Signing + Tracking — Flow Map',
     applyState: 'applyFlowState',
-    canvas: { w: 1500, h: 640 },
+    canvas: { w: 1560, h: 860 },
     flows: [
-      { id: 'dash', name: 'Dashboard entry', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1460, h: 220 }, labelXY: { x: 40, y: 40 } },
-      { id: 'sign', name: 'Sign once', pill: 'B', color: '#b8dcf0', lane: { x: 20, y: 270, w: 1460, h: 350 }, labelXY: { x: 40, y: 290 } },
+      { id: 'dash', name: 'Dashboard entry', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1520, h: 200 }, labelXY: { x: 40, y: 40 } },
+      { id: 'sign', name: 'Find it, sign it', pill: 'B', color: '#b8dcf0', lane: { x: 20, y: 240, w: 1520, h: 380 }, labelXY: { x: 40, y: 260 } },
+      { id: 'nav', name: 'From the Manage menu', pill: 'C', color: '#f0d8b8', lane: { x: 20, y: 640, w: 1520, h: 200 }, labelXY: { x: 40, y: 660 } },
     ],
     nodes: [
-      { id: 'dashboard', flow: 'dash', entry: true, x: 60, y: 80, step: 'Entry', name: 'Admin Dashboard', state: 'dashboard',
-        desc: 'New Signatures tile sits first in Pending Approvals, counting workflow forms waiting on the signed-in staff member.' },
-      { id: 'customize', flow: 'dash', x: 360, y: 80, step: 'Option', name: 'Customize Dashboard', state: 'customize',
-        desc: 'Approvals list grouped Staff / Program / Student, in the same order as the tiles.' },
-      { id: 'signatures', flow: 'sign', x: 60, y: 330, step: '1', name: 'Signatures table', state: 'signatures',
-        desc: 'Every form waiting on me. Form chips, Grade / Segment / Experience filters, search.' },
-      { id: 'selected', flow: 'sign', x: 360, y: 330, step: '2', name: 'Same form selected', state: 'selected',
-        desc: 'Pick one form, select rows (or all), Sign N forms.' },
-      { id: 'mixed', flow: 'sign', x: 360, y: 470, step: 'Guard', name: 'Mixed forms', state: 'mixed',
-        desc: 'Selecting different forms blocks bulk sign and offers "keep one".' },
-      { id: 'review', flow: 'sign', x: 660, y: 330, step: '3', name: 'Answer once, sign once', state: 'review',
-        desc: 'Signer answers their section once, types a signature, confirms it applies to every listed student.' },
-      { id: 'done', flow: 'sign', x: 960, y: 330, step: '4', name: 'Signed', state: 'done',
-        desc: 'Count signed, count still waiting. Tile count drops.' },
+      { id: 'dashboard', flow: 'dash', entry: true, x: 40, y: 70, step: 'Entry', name: 'Admin Dashboard', state: 'dashboard',
+        desc: 'Settings / My Dashboard / Apply Changes bar. Signatures tile first, groups labelled once (Staff · Program · Student).' },
+      { id: 'customize', flow: 'dash', x: 340, y: 70, step: 'Option', name: 'Customize Dashboard', state: 'customize',
+        desc: 'Approvals listed in tile order under one badge per group. Drag reorders within a group.' },
+      { id: 'mine', flow: 'sign', x: 40, y: 300, step: '1', name: 'Waiting on you', state: 'mine',
+        desc: 'Signatures tile opens Workflow Tracking filtered to forms waiting on you.' },
+      { id: 'manage-existing', flow: 'nav', entry: true, x: 40, y: 700, step: '1', name: 'Manage Existing', state: 'manage-existing',
+        desc: 'Manage nav opens today\'s menu page. Forms → Manage Forms › Workflow Tracking.' },
+      { id: 'all', flow: 'nav', x: 340, y: 700, step: '2', name: 'All workflows', state: 'all',
+        desc: 'Every workflow form across experiences, with status and who it\'s waiting on.' },
+      { id: 'intermediary', flow: 'nav', x: 640, y: 700, step: 'Role', name: 'Intermediary view', state: 'intermediary',
+        desc: 'District column appears only for intermediary roles.' },
+      { id: 'selected', flow: 'sign', x: 340, y: 300, step: '2', name: 'Multi-select (same form)', state: 'selected',
+        desc: 'Any row can be selected; Sign & approve (n) signs the ones waiting on you (one form at a time).' },
+      { id: 'drawer', flow: 'sign', x: 640, y: 460, step: 'Option', name: 'Workflow details', state: 'drawer',
+        desc: 'Signer timeline; Sign & approve a single form.' },
+      { id: 'sign-one', flow: 'sign', x: 340, y: 460, step: 'Option', name: 'Sign one from the table', state: 'sign-one',
+        desc: 'Rows waiting on you show Waiting for signatures, with a Sign button in place of View. No selecting needed.' },
+      { id: 'review', flow: 'sign', x: 640, y: 300, step: '3', name: 'Answer once, sign once', state: 'review',
+        desc: 'Shared questions once, one signature, applies to every listed student.' },
+      { id: 'done', flow: 'sign', x: 940, y: 300, step: '4', name: 'Signed', state: 'done',
+        desc: 'Workflows complete or move to their next signer; tile count drops.' },
     ],
-    edges: [
-      ['dashboard', 'customize'], ['dashboard', 'signatures'], ['signatures', 'selected'], ['signatures', 'mixed'],
-      ['mixed', 'selected'], ['selected', 'review'], ['review', 'done'],
-    ]
+    edges: [['dashboard', 'customize'], ['dashboard', 'mine'], ['mine', 'selected'], ['manage-existing', 'all'], ['all', 'intermediary'],
+      ['mine', 'drawer'], ['mine', 'sign-one'], ['sign-one', 'done'], ['selected', 'review'], ['drawer', 'review'], ['review', 'done']]
   }
 };
 
