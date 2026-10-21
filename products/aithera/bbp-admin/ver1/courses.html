@@ -11,19 +11,18 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=22" />
+    <link rel="stylesheet" href="admin.css?v=53" />
 </head>
 <body>
     <div id="head"></div>
     <main class="rp-main">
 
         <div class="course-grid" id="courseGrid"></div>
-        <p class="rp-footline"><i class="fa-solid fa-circle-info"></i> Representative data for the prototype.</p>
 
     </main>
 
-    <script src="data.js?v=9"></script>
-    <script src="admin-ui.js?v=8"></script>
+    <script src="data.js?v=14"></script>
+    <script src="admin-ui.js?v=10"></script>
     <script>
 
       (function () {
@@ -31,28 +30,54 @@
         var scope = A.getScope(), t = B.stats(scope), n = B.headcount(scope);
         A.head({ active: 'courses', title: 'Courses', scope: true });
         A.wirePops();
-        var share = n / B.headcount(S.tree.id);
-        function sc(x) { return Math.round(x * share); }
-        var courses = [
-          { name: 'Bloodborne Pathogens', icon: 'fa-droplet', cls: 'ci-blue', ai: true, due: 'Nov 6', assigned: t.assigned, completed: t.completed, demo: t.demonstrated,
-            adjusted: t.adjusted, gap: 'Doing it right', gapNote: '41% → 9% at Practice Needed', href: 'course-report.html' },
-          { name: 'Hazard Communication', icon: 'fa-triangle-exclamation', cls: 'ci-amber', ai: true, due: 'Nov 20', assigned: n, completed: sc(41), demo: sc(24), adjusted: sc(15), gap: 'Cues to action', gapNote: 'early signal, 32% in' },
-          { name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', ai: false, due: 'Dec 4', assigned: sc(96), completed: sc(12), demo: null, adjusted: null, gapNote: 'A standard course reports completion only.' }
-        ];
+        // Each card is a small copy of the course report's Learner performance card: same bar, same group names,
+        // same phrase for the headline, so clicking in shows the same picture at full size.
+        var courses = B.courseSummary(scope).map(function (c) {
+          c.href = c.id === 'bbp' ? 'course-report.html' : null;
+          return c;
+        });
+        function seg(key, n, label, total) {
+          return n ? '<span class="seg-' + key + '" style="flex:' + n + ' 1 0" title="' + label + ': ' + n + ' of ' + total + '"></span>' : '';
+        }
         document.getElementById('courseGrid').innerHTML = courses.map(function (c) {
-          var comp = B.pct(c.completed, c.assigned), demo = c.demo == null ? null : B.pct(c.demo, c.assigned);
-          var inner =
-            '<span class="cc-head"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><h2>' + c.name + '</h2></span>' +
-            '<span class="cc-chips"><span class="course-tag due">Due ' + c.due + '</span>' +
-              '<span class="course-tag ' + (c.ai ? 'ai">Adaptive' : 'std">Standard') + '</span>' +
-              '<span class="course-tag std">' + c.assigned + ' assigned</span>' +
-              (c.adjusted ? '<span class="path-tag recomp" title="Learners whose path was adjusted">' + B.pct(c.adjusted, c.completed) + '% adjusted</span>' : '') + '</span>' +
-            (demo == null ? '<span class="cc-hero na">Completion only</span>' : '<span class="cc-hero">' + demo + '%<small>showed they can do it</small></span>') +
-            '<span class="cc-bars"><span class="dbar"><span class="dbar-track"><span class="dbar-fill comp" style="width:' + comp + '%"></span></span><span class="dbar-val"><b>' + comp + '%</b> completed</span></span>' +
-            (demo == null ? '' : '<span class="dbar"><span class="dbar-track"><span class="dbar-fill demo" style="width:' + demo + '%"></span></span><span class="dbar-val"><b>' + demo + '%</b> demonstrated</span></span>') + '</span>' +
-            '<span class="cc-gap"><i class="fa-solid ' + (c.gap ? 'fa-magnifying-glass-chart' : 'fa-circle-info') + '"></i>' +
-              (c.gap ? 'Biggest gap: <b>' + c.gap + '</b> · ' + c.gapNote : c.gapNote) + '</span>';
-          return c.href ? '<a class="rp-card course-card" href="' + c.href + '">' + inner + '</a>' : '<div class="rp-card course-card">' + inner + '</div>';
+          var comp = B.pct(c.completed, c.assigned), demo = c.demo == null ? null : B.pct(c.demo, c.completed);
+          var title = c.href ? '<a class="cc-link" href="' + c.href + '">' + c.name + '</a>' : c.name;
+          // Status reads like the report's strip: open with people still to go, or everyone done.
+          var status = c.open
+            ? '<span class="st-badge live"><i></i> Open</span><span class="cc-status-txt"><b>' + c.open + ' still to go</b> · Due ' + c.due + '</span>'
+            : '<span class="st-badge closed"><i class="fa-solid fa-check"></i> All finished</span><span class="cc-status-txt">Due ' + c.due + '</span>';
+          var bar, groups, hero;
+          if (demo == null) {
+            // Standard courses report completion only: finished and not finished.
+            hero = '<span class="cc-hero">' + comp + '%<small>finished</small></span>';
+            bar = seg('done', c.completed, 'Finished', c.assigned) + seg('open', c.open, 'Not finished', c.assigned);
+            groups = '<span class="cc-g"><i class="cc-k seg-done"></i><b>' + c.completed + '</b> Finished</span>' +
+                     '<span class="cc-g"><i class="cc-k seg-open"></i><b>' + c.open + '</b> Not finished</span>';
+          } else {
+            hero = '<span class="cc-hero">' + demo + '%<small>of finishers showed competency</small></span>';
+            bar = seg('strong', c.strong, 'Doing well', c.assigned) + seg('ontrack', c.ontrack, 'On track', c.assigned) +
+                  seg('support', c.support, 'Needs support', c.assigned) + seg('open', c.open, 'Not finished', c.assigned);
+            groups = '<span class="cc-g good"><i class="cc-k seg-strong"></i><b>' + c.strong + '</b> Doing well</span>' +
+                     '<span class="cc-g ontrack"><i class="cc-k seg-ontrack"></i><b>' + c.ontrack + '</b> On track</span>' +
+                     '<span class="cc-g warn"><i class="cc-k seg-support"></i><b>' + c.support + '</b> Needs support</span>' +
+                     '<span class="cc-g mut"><i class="cc-k seg-open"></i><b>' + c.open + '</b> Not finished</span>';
+          }
+          // Weakest area = the one with the most people still at Practice Needed, worded like its By section row (Good or better) and linked to it.
+          var weak = c.gap
+            ? 'Weakest area' + (c.early ? ' so far' : '') + ': <b>' + c.gap.name + '</b> · ' + (100 - c.gap.before) + '% → ' + (100 - c.gap.after) + '% at Good or better'
+            : 'A standard course reports completion only.';
+          weak = '<i class="fa-solid ' + (c.gap ? 'fa-magnifying-glass-chart' : 'fa-circle-info') + '"></i>' + weak;
+          var foot = c.gap && c.href ? '<a class="cc-gap cc-gap-link" href="' + c.href + '#bySection">' + weak + ' <i class="fa-solid fa-arrow-right cc-go"></i></a>' : '<p class="cc-gap">' + weak + '</p>';
+          return '<div class="rp-card course-card' + (c.href ? ' is-link' : '') + '">' +
+            '<div class="cc-head"><span class="ci ' + (c.adaptive ? 'ci-blue' : 'ci-gray') + '" role="img" aria-label="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '" title="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '"><i class="fa-solid ' + (c.adaptive ? 'fa-route' : 'fa-list-ol') + '"></i></span><h2>' + title + '</h2></div>' +
+            '<div class="cc-status">' + status + '</div>' +
+            hero +
+            '<p class="cc-sum">' + comp + '% finished · ' + c.completed + ' of ' + c.assigned + '</p>' +
+            '<div class="pg-bar cc-bar" role="img" aria-label="' + (demo == null
+              ? c.completed + ' finished, ' + c.open + ' not finished'
+              : c.strong + ' doing well, ' + c.ontrack + ' on track, ' + c.support + ' needs support, ' + c.open + ' not finished') + ', of ' + c.assigned + ' enrolled">' + bar + '</div>' +
+            '<div class="cc-groups">' + groups + '</div>' +
+            foot + '</div>';
         }).join('');
       })();
 

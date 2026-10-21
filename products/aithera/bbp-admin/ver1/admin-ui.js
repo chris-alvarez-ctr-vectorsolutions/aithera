@@ -199,8 +199,12 @@
     }
     return '<span class="band band-mut">' + (l.status === 'progress' ? 'In progress' : 'Not started') + '</span>';
   }
+  // The module record (one course's route and outcomes) vs. the person's whole journey.
   function learnerHref(l) {
     return 'learner-report.html?learner=' + encodeURIComponent(l.name);
+  }
+  function learnerProfileHref(l) {
+    return 'learner.html?learner=' + encodeURIComponent(l.name);
   }
   function learnerRow(l) {
     var u = B.node(l.unit);
@@ -216,9 +220,9 @@
   }
 
   window.Admin = {
-    esc: esc, initials: initials, head: head, wirePops: wirePops, info: info,
+    placePop: place, esc: esc, initials: initials, head: head, wirePops: wirePops, info: info,
     getScope: getScope, setScope: setScope, scopeButton: scopeButton,
-    dots: dots, pathTag: pathTag, statusChip: statusChip, learnerHref: learnerHref,
+    dots: dots, pathTag: pathTag, statusChip: statusChip, learnerHref: learnerHref, learnerProfileHref: learnerProfileHref,
     learnerRow: learnerRow, wireRows: wireRows
   };
 })();

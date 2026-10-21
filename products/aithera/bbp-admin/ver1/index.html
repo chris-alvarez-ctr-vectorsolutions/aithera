@@ -11,13 +11,16 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=22" />
+    <link rel="stylesheet" href="admin.css?v=53" />
 </head>
 <body>
     <div id="head"></div>
     <main class="rp-main">
 
-        <!-- Org-wide numbers across every active course; the trend rides inside the first tile -->
+        <!-- The headline: did the training work, across every adaptive course? -->
+        <section class="rp-card hero" aria-label="Outcome achievement" id="hero"></section>
+
+        <!-- Org-wide numbers across every active course; the trend rides inside the second tile -->
         <section class="rp-kpis rp-kpis--3" id="kpis" aria-label="Key figures"></section>
 
         <!-- Attention lives inside each course: if someone needs help, it is in the context of a course -->
@@ -29,20 +32,19 @@
             <div id="courseRows"></div>
             <div class="dual-legend">
                 <span><i style="background:#7fb8e6"></i> Finished</span>
-                <span><i style="background:var(--rp-primary)"></i> Showed competency</span>
+                <span><i style="background:var(--rp-primary)"></i> Showed competency (of those who finished)</span>
             </div>
         </section>
-        <p class="rp-footline"><i class="fa-solid fa-circle-info"></i> Representative data for the prototype.</p>
 
     </main>
 
-    <script src="data.js?v=9"></script>
-    <script src="admin-ui.js?v=8"></script>
+    <script src="data.js?v=14"></script>
+    <script src="admin-ui.js?v=10"></script>
     <script>
 
       (function () {
-        var B = window.BBP, A = window.Admin, S = B.sector;
-        var scope = A.getScope(), t = B.stats(scope), node = B.node(scope);
+        var B = window.BBP, A = window.Admin, S = B.sector, E = A.esc;
+        var scope = A.getScope(), node = B.node(scope);
         A.head({ active: 'overview', title: 'Overview', scope: true,
                  chips: ['<span class="rp-chip"><i class="fa-solid fa-calendar"></i> Sep 28 – Oct 19</span>'] });
         A.wirePops();
@@ -50,27 +52,47 @@
         function tile(label, value, sub, cls, extra) {
           return '<div class="rp-card tile' + (cls || '') + '"><span class="tile-label">' + label + '</span><span class="tile-value">' + value + '</span><span class="tile-delta flat">' + sub + '</span>' + (extra || '') + '</div>';
         }
-        // Every active course, with what an admin needs at a glance. Only Bloodborne Pathogens
-        // has a live report; the others carry representative early numbers.
-        var A0 = t.assigned;
-        function sh(r) { return Math.round(A0 * r); }
-        var courses = [
-          { name: 'Bloodborne Pathogens', icon: 'fa-droplet', cls: 'ci-blue', due: 'Nov 6', days: 17, href: 'course-report.html', adaptive: true,
-            assigned: t.assigned, completed: t.completed, demo: t.demonstrated, support: t.support, open: t.unfinished },
-          { name: 'Hazard Communication', icon: 'fa-triangle-exclamation', cls: 'ci-amber', due: 'Nov 20', days: 31, adaptive: true,
-            assigned: A0, completed: sh(.32), demo: sh(.19), support: sh(.06), open: A0 - sh(.32) },
-          { name: 'Lockout/Tagout', icon: 'fa-bolt', cls: 'ci-violet', due: 'Dec 4', days: 45, adaptive: false,
-            assigned: sh(.75), completed: sh(.75 * .13), demo: null, support: null, open: sh(.75) - sh(.75 * .13) }
-        ];
-        var totA = 0, totC = 0, adA = 0, adD = 0, sup = 0;
-        courses.forEach(function (c) { totA += c.assigned; totC += c.completed; if (c.adaptive) { adA += c.assigned; adD += c.demo; sup += c.support; } });
+        // One summary per course, the same numbers the Courses page shows.
+        var courses = B.courseSummary(scope).sort(function (a, b) { return a.days - b.days; });
+        var totA = 0, totC = 0, adC = 0, adD = 0, sup = 0;
+        courses.forEach(function (c) { totA += c.assigned; totC += c.completed; if (c.adaptive) { adC += c.completed; adD += c.demo; sup += c.support; } });
+        var soon = courses[0];
 
+        /* ---- Outcome achievement: skill-area results at Good or better, now vs. at the start, over every adaptive course ---- */
+        var scored = courses.filter(function (c) { return c.adaptive && c.areas; });
+        var live = scored.filter(function (c) { return !c.early && c.completed >= 8; });
+        var wB = 0, wA = 0, w = 0;
+        live.forEach(function (c) { wB += c.before * c.completed; wA += c.after * c.completed; w += c.completed; });
+        var before = w ? Math.round(wB / w) : 0, after = w ? Math.round(wA / w) : 0;
+        function pos(v) { return Math.max(0, Math.min(100, (v - 50) / 50 * 100)); }
+        function row(c) {
+          var tooEarly = !(c.completed >= 8 && !c.early);
+          var track = tooEarly ? '<div class="dm-track dim"></div>' :
+            '<div class="dm-track" role="img" aria-label="' + E(c.name) + ': ' + c.before + '% at Good or better before, ' + c.after + '% after"><span class="dm-line" style="left:' + pos(c.before) + '%;width:' + (pos(c.after) - pos(c.before)) + '%"></span>' +
+            '<span class="dm-dot before" style="left:' + pos(c.before) + '%"></span><span class="dm-dot after" style="left:' + pos(c.after) + '%"></span></div>';
+          var val = tooEarly ? '<div class="dm-val"><b class="dim">Too early</b><em class="dim">' + c.completed + ' finished</em></div>'
+                             : '<div class="dm-val"><b>' + c.before + '% → ' + c.after + '%</b><em>+' + (c.after - c.before) + ' pts</em></div>';
+          return '<div class="dm-row"><div class="dm-name"><h3>' + (c.id === 'bbp' ? '<a href="course-report.html">' + E(c.name) + '</a>' : E(c.name)) + '</h3><small>' + c.completed + ' of ' + c.assigned + ' finished</small></div>' + track + val + '</div>';
+        }
+        document.getElementById('hero').innerHTML =
+          '<div class="hero-main"><span class="tile-label">Outcome achievement ' + A.info('<p><b>Of everything people were measured on</b> in adaptive courses, the share at <b>Good or better</b> now, compared with where they started (the opening questions).</p><p>Weighted by who has finished. Courses with only a few finishers are shown but not counted yet. Standard courses report completion only, so they are not scored here.</p>', 'How outcome achievement is measured') + '</span>' +
+            '<span class="hero-n">' + after + '<small>%</small></span>' +
+            '<span class="hero-s">of skill areas at <b>Good or better</b> after training</span>' +
+            '<span class="hero-lift"><i class="fa-solid fa-arrow-trend-up"></i> +' + (after - before) + ' pts from ' + before + '% at the start</span>' +
+            '<small class="hero-f">' + live.length + ' adaptive courses · ' + w + ' finishers counted</small></div>' +
+          '<div class="hero-rows"><div class="dm-head"><span></span><div class="dm-axis-lbl"><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>' + scored.map(row).join('') + '</div>';
+        A.wirePops();
+
+        /* ---- Key figures ---- */
         var spark = '<svg class="spark" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="Rising over the last three weeks"><polygon class="area" points="0,28 0,28 24,23.6 48,18.4 72,13.2 96,9.6 120,7 120,28"/><polyline points="0,28 24,23.6 48,18.4 72,13.2 96,9.6 120,7"/><circle cx="120" cy="7" r="3"/></svg>';
+        var finBar = '<span class="tile-meter" role="img" aria-label="' + B.pct(totC, totA) + ' percent finished"><span style="width:' + B.pct(totC, totA) + '%"></span></span>';
         document.getElementById('kpis').innerHTML =
-          tile('Org performance', B.pct(adD, adA) + '<small>%</small>', 'showed competency · ' + adD + ' of ' + adA, '', spark) +
-          tile('Assignments finished', B.pct(totC, totA) + '<small>%</small>', totC + ' of ' + totA + ' across ' + courses.length + ' courses', ' tile--muted') +
-          '<a class="rp-card tile tile--link" href="learners.html?f=support"><span class="tile-label">Need support</span><span class="tile-value">' + sup + '<small> people</small></span><span class="tile-delta flat">a key point still open · see who <i class="fa-solid fa-arrow-right"></i></span></a>';
+          tile('Finished', B.pct(totC, totA) + '<small>%</small>', totC + ' of ' + totA + ' assignments · ' + courses.length + ' courses', '', finBar +
+            '<span class="tile-foot"><i class="fa-regular fa-clock"></i> Next due <b>' + soon.due + '</b> · ' + E(soon.name) + '</span>') +
+          tile('Showed competency', B.pct(adD, adC) + '<small>%</small>', adD + ' of ' + adC + ' who finished adaptive courses', '', spark) +
+          '<a class="rp-card tile tile--link" href="learners.html?f=support"><span class="tile-label">Need support</span><span class="tile-value">' + sup + '<small> people</small></span><span class="tile-delta flat">still working on a key area</span><span class="tile-foot tile-foot--link">See who <i class="fa-solid fa-arrow-right"></i></span></a>';
 
+        /* ---- Active courses ---- */
         function bar(kind, v, title) {
           return '<span class="dbar"><span class="dbar-track"><span class="dbar-fill ' + kind + '" style="width:' + v + '%"></span></span><span class="dbar-val" title="' + title + '"><b>' + v + '%</b></span></span>';
         }
@@ -79,14 +101,13 @@
           var inner = '<b>' + n + '</b> ' + label;
           return href ? '<a class="att-chip ' + cls + '" href="' + href + '">' + inner + '</a>' : '<span class="att-chip ' + cls + '">' + inner + '</span>';
         }
-        courses.sort(function (a, b) { return a.days - b.days; });
         document.getElementById('courseRows').innerHTML = courses.map(function (c) {
-          var urgent = c.days <= 21 ? ' urgent' : '';
-          return '<div class="course-row"><span class="dual-name"><span class="ci ' + c.cls + '"><i class="fa-solid ' + c.icon + '"></i></span><span>' +
-              (c.href ? '<a href="' + c.href + '">' + c.name + '</a>' : c.name) + '<span class="due' + urgent + '">Due ' + c.due + ' · ' + c.days + ' days' + (c.adaptive ? '' : ' · standard course') + '</span></span></span>' +
+          var urgent = c.days <= 21 ? ' urgent' : '', href = c.id === 'bbp' ? 'course-report.html' : null;
+          var ico = '<span class="ci ' + (c.adaptive ? 'ci-blue' : 'ci-gray') + '" role="img" aria-label="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '" title="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '"><i class="fa-solid ' + (c.adaptive ? 'fa-route' : 'fa-list-ol') + '"></i></span>';
+          return '<div class="course-row"><span class="dual-name">' + ico + '<span>' + (href ? '<a href="' + href + '">' + E(c.name) + '</a>' : E(c.name)) + '<span class="due' + urgent + '">Due ' + c.due + ' · ' + c.days + ' days</span></span></span>' +
             '<span class="dual-bars">' + bar('comp', B.pct(c.completed, c.assigned), 'Finished') +
-              (c.demo == null ? '<span class="dbar-note" title="Standard courses report completion only"><i class="fa-solid fa-circle-info"></i>Completion only</span>' : bar('demo', B.pct(c.demo, c.assigned), 'Showed competency')) + '</span>' +
-            '<span class="course-att">' + (chip(c.support, 'need support', 'warn', c.href ? c.href + '?people=support' : '') + chip(c.open, 'not finished', 'mut', c.href ? c.href + '?people=open' : '') || '<span class="att-none">Nothing needs attention</span>') + '</span></div>';
+              (c.demo == null ? '<span class="dbar-note" title="Standard courses report completion only"><i class="fa-solid fa-circle-info"></i>Completion only</span>' : bar('demo', B.pct(c.demo, c.completed), 'Showed competency, as a share of those who finished')) + '</span>' +
+            '<span class="course-att">' + (chip(c.support, 'need support', 'warn', href ? href + '?people=support' : '') + chip(c.open, 'not finished', 'mut', href ? href + '?people=open' : '') || '<span class="att-none">Nothing needs attention</span>') + '</span></div>';
         }).join('');
       })();
 

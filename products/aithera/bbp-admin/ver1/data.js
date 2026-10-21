@@ -221,6 +221,10 @@
     t.strong = Math.round(t.completed * 0.33);                    // representative share of finishers
     t.support = t.followup;                                       // one or more areas still open
     t.unfinished = t.assigned - t.completed;
+    // Showed competency = finished with nothing left at Practice Needed. So finishers split cleanly:
+    // doing well + on track + needs support = completed, and competency = completed - needs support.
+    t.demonstrated = t.completed - t.support;
+    t.ontrack = t.completed - t.strong - t.support;
     return t;
   }
   function pct(a, b) { return b ? Math.round(a / b * 100) : 0; }
@@ -394,6 +398,120 @@
     return { courses: courses, completers: n };
   }
 
+  /* ------------------------------------------------------------------------
+     Everything a learner is assigned, across courses. The learners list reads this, so it never
+     depends on any one course. Bloodborne Pathogens comes from the real roster; the rest are
+     representative: who is assigned what, and how far along, is derived from the name so it is
+     stable between page loads. `rate` = share of assignees who have finished; `share` = share
+     of the org assigned the course. Matches the numbers on the Courses page.
+     ---------------------------------------------------------------------- */
+  // `days` = days until due from "today" (Oct 20), `mins` = written length, `areas` = what a result is reported on.
+  var COURSES = [
+    { id: 'bbp',  name: 'Bloodborne Pathogens',     due: 'Nov 6',  days: 17, order: 1, adaptive: true,  mins: 33, lessons: 6 },
+    { id: 'resp', name: 'Respiratory Protection',   due: 'Nov 13', days: 24, order: 2, adaptive: true,  mins: 28, lessons: 5, share: 69,  rate: 59,
+      areas: ['Choosing the right respirator', 'Fit and seal checks', 'Cleaning and storage'] },
+    { id: 'haz',  name: 'Hazard Communication',     due: 'Nov 20', days: 31, order: 3, adaptive: true,  mins: 35, lessons: 6, share: 100, rate: 32,
+      areas: ['Reading labels', 'Safety data sheets', 'Cues to action'] },
+    { id: 'fire', name: 'Fire Extinguisher Safety', due: 'Nov 25', days: 36, order: 4, adaptive: false, mins: 12, lessons: 3, share: 100, rate: 52 },
+    { id: 'lot',  name: 'Lockout/Tagout',           due: 'Dec 4',  days: 45, order: 5, adaptive: false, mins: 20, lessons: 4, share: 75,  rate: 13 },
+    { id: 'fork', name: 'Forklift Safety',          due: 'Dec 11', days: 52, order: 6, adaptive: true,  mins: 30, lessons: 5, share: 31,  rate: 15,
+      areas: ['Pre-use inspection', 'Load stability', 'Traffic and pedestrians'] }
+  ];
+  function dayOf(s) { return s ? parseInt(String(s).replace(/\D+/g, ''), 10) : null; }
+  function learnerCourses(l) {
+    var out = [];
+    COURSES.forEach(function (c) {
+      var h = function (k) { return hash(l.name + c.id + k); };
+      var state, support = false, x = { id: c.id, name: c.name, due: c.due, days: c.days, order: c.order, adaptive: c.adaptive, lessons: c.lessons };
+      if (c.id === 'bbp') {
+        state = (l.status === 'demo' || l.status === 'followup') ? 'done' : (l.status === 'progress' ? 'progress' : 'notstarted');
+        support = standing(l) === 'support';
+        if (state === 'done') {
+          x.finishedD = dayOf(l.completed); x.startedD = x.finishedD - 1; x.lastD = x.finishedD; x.mins = l.mins; x.typical = l.typicalMins; x.route = l.path;
+          x.areas = AREAS.map(function (a, i) { return { name: a.name, band: l.profile[i] }; });
+        }
+      } else {
+        if (h('a') % 100 >= c.share) return;                              // not assigned
+        var r = h('s') % 100;
+        state = r < c.rate ? 'done' : (r < c.rate + 30 ? 'progress' : 'notstarted');
+        support = c.adaptive && state === 'done' && h('x') % 100 < 14;
+        if (state === 'done') {
+          x.finishedD = 5 + h('f') % 14; x.startedD = x.finishedD - 1 - h('g') % 2; x.lastD = x.finishedD;
+          x.typical = c.mins; x.mins = Math.round(c.mins * (0.85 + (h('m') % 40) / 100));
+          if (c.adaptive) {
+            var rr = h('p') % 100; x.route = rr < 68 ? 'std' : (rr < 80 ? 'short' : (rr < 92 ? 'extra' : 'up'));
+            var openIdx = h('o') % c.areas.length;
+            x.areas = c.areas.map(function (n, i) { return { name: n, band: support && (i === openIdx || (h('o2') % 3 === 0 && i === (openIdx + 1) % c.areas.length)) ? 1 : (h('b' + i) % 100 < 35 ? 3 : 2) }; });
+          }
+        }
+      }
+      if (state === 'progress') {
+        x.pct = c.id === 'bbp' ? 40 : 15 + h('q') % 70; x.lessonAt = Math.max(1, Math.min(c.lessons, Math.round(x.pct / 100 * c.lessons)));
+        x.startedD = 6 + h('t') % 8; x.lastD = c.id === 'bbp' ? 13 : Math.max(x.startedD, 12 + h('l') % 7);
+        x.at = c.id === 'bbp' ? MODULE.steps[Math.min(x.lessonAt, MODULE.steps.length) - 1].label : 'Lesson ' + x.lessonAt + ' of ' + c.lessons;
+      }
+      x.state = state; x.support = support;
+      if (x.areas) x.openAreas = x.areas.filter(function (a) { return a.band === 1; }).map(function (a) { return a.name; });
+      out.push(x);
+    });
+    return out;
+  }
+
+
+  /* ------------------------------------------------------------------------
+     Outcomes by skill area, per course: share of people at Practice Needed at the start and at the end.
+     Bloodborne Pathogens is the real section data (shown on its report); the others are representative.
+     Good-or-better = 100 - Practice Needed, so one source feeds the section view, the course cards and
+     the Overview roll-up.
+     ---------------------------------------------------------------------- */
+  var SECTIONS = [
+    { name: 'Safe handling steps',   before: [22, 64, 14], after: [5, 55, 40] },
+    { name: 'Spotting hazards',      before: [30, 58, 12], after: [10, 62, 28] },
+    { name: 'Why it matters',        before: [18, 62, 20], after: [6, 58, 36] },
+    { name: 'What people really do', before: [26, 60, 14], after: [8, 64, 28] },
+    { name: 'Doing it right',        before: [29, 58, 13], after: [9, 61, 30], note: 'first try → final' }
+  ];
+  var COURSE_AREAS = {
+    resp: [{ name: 'Choosing the right respirator', before: 24, after: 7 }, { name: 'Fit and seal checks', before: 36, after: 14 }, { name: 'Cleaning and storage', before: 20, after: 6 }],
+    haz:  [{ name: 'Reading labels', before: 28, after: 9 }, { name: 'Safety data sheets', before: 33, after: 15 }, { name: 'Cues to action', before: 41, after: 18 }],
+    fork: [{ name: 'Pre-use inspection', before: 25, after: 8 }, { name: 'Load stability', before: 38, after: 15 }, { name: 'Traffic and pedestrians', before: 30, after: 12 }]
+  };
+  function areaOutcomes(id) {
+    if (id === 'bbp') return SECTIONS.map(function (s) { return { name: s.name, before: s.before[0], after: s.after[0] }; });
+    return COURSE_AREAS[id] || null;
+  }
+  function avg(a, k) { return a.reduce(function (s, x) { return s + (100 - x[k]); }, 0) / a.length; }
+
+  /* Every course at a glance for a group: the one source for the Overview and the Courses page. Support is
+     the finishers who still have an area at Practice Needed, so competency + support = finished. */
+  function courseSummary(scopeId) {
+    var t = stats(scopeId), n = headcount(scopeId), share = n / headcount(S.tree.id);
+    function sc(x) { return Math.round(x * share); }
+    var raw = {
+      bbp:  { assigned: t.assigned, completed: t.completed, demo: t.demonstrated, adjusted: t.adjusted },
+      resp: { assigned: sc(88), completed: sc(52), demo: sc(37), adjusted: sc(19) },
+      haz:  { assigned: n,      completed: sc(41), demo: sc(24), adjusted: sc(15) },
+      fire: { assigned: n,      completed: sc(67) },
+      lot:  { assigned: sc(96), completed: sc(12) },
+      fork: { assigned: sc(40), completed: sc(6),  demo: sc(2),  adjusted: sc(1) }
+    };
+    return COURSES.map(function (c) {
+      var r = raw[c.id], a = areaOutcomes(c.id), o = { id: c.id, name: c.name, due: c.due, days: c.days, order: c.order, adaptive: c.adaptive,
+        assigned: r.assigned, completed: r.completed, demo: c.adaptive ? r.demo : null, adjusted: c.adaptive ? r.adjusted : null, open: r.assigned - r.completed };
+      o.support = c.adaptive ? r.completed - r.demo : null;
+      // Same split the course report draws: doing well + on track = showed competency. Bloodborne is real; others use its share.
+      o.strong = c.adaptive ? (c.id === 'bbp' ? t.strong : Math.min(r.demo, Math.round(r.completed * 0.33))) : null;
+      o.ontrack = c.adaptive ? r.demo - o.strong : null;
+      o.early = r.completed < r.assigned * 0.4;
+      if (a) {
+        o.before = Math.round(avg(a, 'before')); o.after = Math.round(avg(a, 'after'));
+        o.areas = a;
+        o.gap = a.slice().sort(function (x, y) { return y.after - x.after; })[0];
+      }
+      return o;
+    });
+  }
+
   /* Where someone stands, from what they can demonstrate at the end of the
      course. Deliberately NOT based on speed, route or number of tries: skipping
      ahead is how someone got there, and extra practice is the engine working,
@@ -436,7 +554,7 @@
     BEHAVIORS: BEHAVIORS, AREAS: AREAS, BAND: BAND,
     node: node, pathTo: pathTo, leaves: leaves, headcount: headcount, levelName: levelName,
     liveCfg: liveCfg, saveCfg: saveCfg, resetCfg: resetCfg, effective: effective,
-    stats: stats, pct: pct, whereNow: whereNow, standing: standing, standingReason: standingReason, GROUP_DWELL: GROUP_DWELL, MODULE: MODULE, catalog: catalog, credit: credit, creditCohort: creditCohort, PROOF_RATE: PROOF_RATE, LEARNERS: LEARNERS, inScope: inScope, steps: steps,
+    stats: stats, pct: pct, whereNow: whereNow, standing: standing, standingReason: standingReason, GROUP_DWELL: GROUP_DWELL, MODULE: MODULE, catalog: catalog, credit: credit, creditCohort: creditCohort, PROOF_RATE: PROOF_RATE, LEARNERS: LEARNERS, COURSES: COURSES, learnerCourses: learnerCourses, SECTIONS: SECTIONS, areaOutcomes: areaOutcomes, courseSummary: courseSummary, inScope: inScope, steps: steps,
     load: load, save: save, setSector: function (k) { save('bbp.sector', k); }
   };
 })();
