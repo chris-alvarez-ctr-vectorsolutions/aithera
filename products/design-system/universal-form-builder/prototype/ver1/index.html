@@ -487,6 +487,39 @@
   .fb-bpicker-row .fb-chips { margin-left: auto; }
   .fb-imglist { display: flex; flex-wrap: wrap; gap: 6px; }
   .fb-imglist .fb-chip { padding: 5px 8px; }
+
+  /* ---- Pass 3: rules, outcomes, pinned and injected rows ---- */
+  .fb-chip.is-broken { background: var(--lumo-error-color-10pct, #e71d131a); color: var(--lumo-error-text-color, #ca150c); }
+  .fb-rule { display: flex; align-items: flex-start; gap: 9px; padding: 8px 10px; border: 1px solid var(--fb-line); border-radius: 6px; background: var(--fb-zebra); }
+  .fb-rule.is-broken { border-color: var(--lumo-error-color, #d83e38); }
+  .fb-rule i.lead { color: var(--lumo-warning-text-color, #995211); margin-top: 3px; }
+  .fb-rule-text { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.45; }
+  .fb-rule-text b { font-weight: 600; }
+  .fb-rule-text .fb-help { margin-top: 2px; }
+  .fb-rule-acts { display: flex; gap: 2px; flex-shrink: 0; }
+  .fb-ruledlg { min-width: min(720px, 86vw); display: flex; flex-direction: column; gap: 16px; }
+  .fb-rule-when, .fb-rule-then { border: 1px solid var(--fb-line); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+  .fb-rule-kw { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--fb-ink-500); display: flex; align-items: center; gap: 8px; }
+  .fb-rule-kw b { font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--fb-ink-900); }
+  .fb-rule-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+  .fb-rule-row > * { min-width: 160px; }
+  .fb-rule-row > vaadin-select:first-child { min-width: 320px; }
+  .fb-effect { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--fb-line-soft); border-radius: 6px; background: var(--fb-zebra); }
+  .fb-effect-head { display: flex; gap: 10px; align-items: flex-end; }
+  .fb-effect-head > vaadin-select { flex: 1; min-width: 0; }
+  .fb-effect-args { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; padding-left: 2px; }
+  .fb-effect-args > * { min-width: 150px; }
+  .fb-effect-args .fb-checkrow { flex-direction: row; gap: 10px; flex-wrap: wrap; }
+  .fb-outcome-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--lumo-warning-color-10pct, #ffcc001a); color: var(--lumo-warning-text-color, #995211); }
+  .fb-pinned { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin: 0 0 6px; border: 1px dashed var(--fb-line-strong); border-radius: 7px; background: var(--fb-card-bg); font-size: 12.5px; color: var(--fb-ink-700); }
+  .fb-pinned .fb-mech-tile { width: 26px; height: 26px; font-size: 11px; }
+  .fb-pinned b { font-weight: 600; }
+  .fb-pinned .fb-help { margin-left: 2px; }
+  .fb-pinned .fb-chip { margin-left: auto; }
+  .fb-rpanel { min-width: min(820px, 88vw); display: flex; flex-direction: column; gap: 10px; max-height: 64vh; overflow-y: auto; }
+  .fb-rpanel-q { display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; padding: 8px 0 2px; color: var(--fb-ink-700); }
+  .fb-rpanel-q .fb-mech-tile { width: 22px; height: 22px; font-size: 10px; }
+  .fb-rpanel-q span.loc { font-weight: 400; color: var(--fb-ink-500); }
 </style>
 </head>
 <body>
@@ -765,7 +798,7 @@ const PROFILES = {
         apply: q => { q.config.multi = false; q.config.options = [
           { id: 'pass', label: 'Pass', value: null, meaning: 'none', excludeAvg: false },
           { id: 'fail', label: 'Fail', value: null, meaning: 'fails', excludeAvg: false } ];
-          q.config.format = 'buttons'; q.capture.comment = 'allowed'; q.rules = [{ when: { option: 'fail' }, then: ['requireComment'] }]; } },
+          q.config.format = 'buttons'; q.capture.comment = 'allowed'; q.rules = [{ id: uid('r'), when: { op: 'fails' }, then: [{ effect: 'requireComment' }], fixed: true }]; } },
       { id: 'complete',  mechanism: 'choice',  label: 'Complete / Incomplete', conf: 'design',
         desc: 'Binary choice with no fail meaning: incomplete is a state, not a judgement.',
         apply: q => { q.config.multi = false; q.config.options = [
@@ -995,6 +1028,16 @@ const LOCK_META = {
   all:    { label: 'First signature locks all questions',   help: 'Signing allowed only when every required question is answered.' },
   prior:  { label: 'Signature locks questions before it',   help: 'Locks everything ordered above the signature.' }
 };
+/* Default settings for a product outcome when a rule first adds it. */
+function defaultOutcomeArgs(id) {
+  switch (id) {
+    case 'ticket': return { priority: 'normal', assignTo: 'responsible', titleMode: 'step', includeAnswer: true };
+    case 'notify': return { targets: ['responsible'], channels: ['app'] };
+    case 'courseRec': return { courseId: 'c-questioning' };
+    case 'growthPlan': return { formId: null };
+    default: return {};
+  }
+}
 const CONF_META = {
   code:       { label: 'Code-confirmed', icon: 'fa-code' },
   design:     { label: 'Seen in design', icon: 'fa-pen-ruler' },
@@ -1033,7 +1076,7 @@ function mkQ(profileId, mechanism, presetId, title, o) {
   if (o.who) q.answeredBy = { relation: o.who };
   if (o.ext) q.extensions = o.ext;
   if (o.rules) q.rules = o.rules;
-  if (o.outcomes) q.outcomes = o.outcomes;      // Check It fail outcomes (pass 3 makes them rule effects)
+  if (o.outcomes && o.outcomes.length) q.rules.push({ id: uid('r'), when: { op: 'fails' }, then: o.outcomes.map(oc => ({ effect: 'outcome', outcome: oc, args: defaultOutcomeArgs(oc) })) });
   if (o.labels) q.config.labels = o.labels;     // Q41 response relabel
   if (o.pres) Object.assign(q.presentation, o.pres);
   return q;
@@ -1812,6 +1855,7 @@ function renderCanvas() {
     host.appendChild(el('div', { class: 'fb-empty' }, [icon('fa-layer-group'), el('h3', { text: 'No ' + V('section') + 's yet' }), el('p', { text: 'Add a ' + V('section') + ' to start placing ' + V('questions') + '.' })]));
     return;
   }
+  renderPinnedRows(host, f);
   f.sections.forEach((s, si) => host.appendChild(renderSection(f, s, si)));
 }
 function renderSection(f, s, si) {
@@ -1943,7 +1987,8 @@ function itemChips(q) {
   const fails = q.mechanism === 'choice' && q.config.options.some(o => o.meaning === 'fails');
   const rangeFail = q.mechanism === 'measure' && (q.config.min != null || q.config.max != null || q.config.par != null);
   if (fails || rangeFail) chips.push(el('span', { class: 'fb-chip is-rule' }, [icon('fa-triangle-exclamation'), 'Can fail']));
-  if (q.outcomes && q.outcomes.length) chips.push(el('span', { class: 'fb-chip is-rule', title: 'Pass 3: rule outcomes' }, [icon('fa-bolt'), 'On fail: ' + q.outcomes.map(o => (P().extensions.outcomes.find(x => x.id === o) || {}).label || o).join(', ')]));
+  (q.rules || []).forEach(r => chips.push(el('span', { class: 'fb-chip is-rule' + (ruleProblem(r) ? ' is-broken' : ''), title: ruleProblem(r) || 'Rule' }, [icon(ruleProblem(r) ? 'fa-triangle-exclamation' : 'fa-bolt'), ruleText(r, q)])));
+  formRulesFor(q).forEach(r => chips.push(el('span', { class: 'fb-chip is-rule', title: 'Form-level rule' }, [icon('fa-bolt'), ruleText(r, q)])));
   if (q.extensions && q.extensions.predefinedTags && q.extensions.predefinedTags.length) chips.push(el('span', { class: 'fb-chip' }, [icon('fa-tag'), q.extensions.predefinedTags.length + ' tag' + (q.extensions.predefinedTags.length === 1 ? '' : 's')]));
   if (q.extensions && q.extensions.assetId) chips.push(el('span', { class: 'fb-chip' }, [icon('fa-link'), 'Asset-tied']));
   return chips;
@@ -2191,6 +2236,12 @@ function renderFormInspector(host, f) {
     const nodes = groups[g].map(x => extensionControl(x, f.productSettings, v => { f.productSettings[x.id] = v; markDirty(); renderInspector(); }, f));
     body.appendChild(stage('f-ext-' + g, g, nodes, { conf: groups[g][0].conf, note: 'extension' }));
   });
+  const allRules = collectRules(f);
+  body.appendChild(stage('f-rules', 'Rules', [
+    el('div', { class: 'fb-help', text: allRules.length ? allRules.length + ' rule' + (allRules.length === 1 ? '' : 's') + ' on this ' + V('form') + ', including those inside linked ' + V('blocks').toLowerCase() + '.' : 'No rules yet. Rules live on the ' + V('question') + ' whose answer triggers them.' }),
+    allRules.some(x => ruleProblem(x.rule)) ? el('div', { class: 'fb-lock-note' }, [icon('fa-triangle-exclamation'), allRules.filter(x => ruleProblem(x.rule)).length + ' rule(s) point at something that no longer exists.']) : null,
+    textBtn('Open rules panel', 'secondary', () => openRulesPanel(f))
+  ], { open: false, note: allRules.length + ' rule' + (allRules.length === 1 ? '' : 's') }));
   body.appendChild(stage('f-prop', 'Propagation', [
     el('div', { class: 'fb-help', html: p.propagation === 'auto'
       ? 'Publishing a ' + escHtml(V('block')) + ' <b>updates every ' + escHtml(V('form')) + ' using it</b>. Records stay bound to the version they ran against.'
@@ -2288,7 +2339,7 @@ function renderQuestionInspector(host, f, s, q, focusTitle) {
 
   /* Stage 4: capture — comment and evidence, three-state each. */
   if (!isStruct && q.mechanism !== 'display' && q.mechanism !== 'evidence' && q.mechanism !== 'calculate') {
-    const forcedComment = q.rules && q.rules.some(r => r.then.includes('requireComment'));
+    const forcedComment = q.rules && q.rules.some(r => r.then.some(t => t.effect === 'requireComment'));
     const cap = [
       field('Comment', segmented(TRI, q.capture.comment, v => { q.capture.comment = v; onChange(); }, { full: true }), forcedComment ? 'A failing answer always requires a comment, whatever this says.' : null),
       field('Evidence', segmented(TRI, q.capture.evidence.mode, v => { q.capture.evidence.mode = v; onChange(); renderInspector(); }, { full: true })),
@@ -2303,11 +2354,8 @@ function renderQuestionInspector(host, f, s, q, focusTitle) {
   if (qx.length && !isStruct && q.mechanism !== 'display') {
     body.appendChild(stage('q-ext', p.name, qx.map(x => extensionControl(x, q.extensions, v => { q.extensions[x.id] = v; onChange(); })), { open: false, note: 'extension', conf: qx[0].conf }));
   }
-  /* Check It fail outcomes are shown as read-only chips until pass 3 wires
-     them as rule effects (07, trap #1). */
-  if (p.extensions.outcomes.length && q.outcomes) {
-    body.appendChild(stage('q-rules', 'When it fails', [ el('div', { class: 'fb-chips' }, (q.outcomes.length ? q.outcomes : []).map(o => { const oc = p.extensions.outcomes.find(x => x.id === o); return el('span', { class: 'fb-chip is-rule' }, [icon(oc ? oc.icon : 'fa-bolt'), oc ? oc.label : o]); })), el('div', { class: 'fb-help', text: q.outcomes.length ? 'Registered outcomes from ' + p.name + '. Pass 3: edited in the rules panel.' : 'The failure is recorded; nothing else happens. Pass 3 adds outcomes.' }) ], { open: false, conf: 'design' }));
-  }
+  /* Stage 5b: rules — when (answer) → then (effects, product outcomes). */
+  if (q.mechanism !== 'display' && q.mechanism !== 'timer') body.appendChild(rulesStage(f, s, q));
 
   /* Stage 6: presentation hints (token-restricted; products may ignore). */
   if (p.presentation.show && !isStruct) {
@@ -2777,6 +2825,279 @@ function openScaleDialog(id) {
 }
 </script>
 
+<script>
+/* ======================================================================
+   PASS 3 — rules model, product outcomes, rules panel, pinned + injected
+   rows (FB-R-01…R-08; extensions at the rule-outcome and injected-question
+   attachment points)
+
+   Rule = { id, when: { op, value? }, then: [ { effect, target?, outcome?, args? } ] }
+   A rule lives on the question whose answer triggers it, so it travels
+   with a block. Cross-question effects (show / hide / require) name a
+   target question or section in the same container.
+   ====================================================================== */
+const EFFECTS = [
+  { id: 'requireComment',  label: 'Require a comment',            scope: 'self',   text: () => 'comment required' },
+  { id: 'requireEvidence', label: 'Require evidence',             scope: 'self',   text: () => 'evidence required' },
+  { id: 'requireDuration', label: 'Require a duration',           scope: 'self',   text: () => 'duration required', only: ['scale', 'choice'] },
+  { id: 'fail',            label: 'Count as a failure',           scope: 'self',   text: () => 'counts as a failure' },
+  { id: 'show',            label: 'Show…',                        scope: 'target', text: t => 'show ' + t },
+  { id: 'hide',            label: 'Hide…',                        scope: 'target', text: t => 'hide ' + t },
+  { id: 'require',         label: 'Make required…',               scope: 'target', text: t => 'require ' + t },
+  { id: 'setLabel',        label: 'Change a label…',              scope: 'target', text: t => 'relabel ' + t }
+];
+/* Conditions a mechanism can express. `fails` is the built-in fail
+   condition (option meaning, range, par, minimum passing). */
+function conditionsFor(q) {
+  const c = q.config;
+  const base = [{ op: 'answered', label: 'is answered' }, { op: 'unanswered', label: 'is left unanswered' }];
+  switch (q.mechanism) {
+    case 'choice': {
+      const ops = [{ op: 'is', label: 'is', value: 'option' }, { op: 'isNot', label: 'is not', value: 'option' }];
+      if (c.options.some(o => o.meaning === 'fails')) ops.unshift({ op: 'fails', label: 'fails (a failing option is chosen)' });
+      if (c.allowOther) ops.push({ op: 'isOther', label: 'is "Other"' });
+      return ops.concat(base);
+    }
+    case 'scale': return [{ op: 'is', label: 'is level', value: 'level' }, { op: 'atMost', label: 'is at or below level', value: 'level' }, { op: 'atLeast', label: 'is at or above level', value: 'level' }].concat(base);
+    case 'measure': {
+      const ops = [{ op: 'lt', label: 'is below', value: 'number' }, { op: 'gt', label: 'is above', value: 'number' }];
+      if (c.min != null || c.max != null) ops.unshift({ op: 'fails', label: 'fails (outside the accepted range)' });
+      if (c.format === 'count' && c.par != null) ops.unshift({ op: 'fails', label: 'fails (under par)' });
+      return ops.concat(base);
+    }
+    case 'text': return [{ op: 'contains', label: 'contains', value: 'text' }, { op: 'mismatch', label: 'does not match the expected value', value: 'text' }].concat(base);
+    case 'datetime': return [{ op: 'before', label: 'is before', value: 'date' }, { op: 'after', label: 'is after', value: 'date' }].concat(base);
+    case 'attest': return [{ op: 'signed', label: 'is signed' }, { op: 'unsigned', label: 'is not signed' }];
+    case 'nested': return [{ op: 'fails', label: 'fails (fewer than the minimum pass)' }, { op: 'skipped', label: 'is skipped by the look-back' }];
+    case 'repeat': return [{ op: 'anyFails', label: 'any row fails' }, { op: 'tooFew', label: 'has fewer rows than the minimum' }];
+    case 'lookup': return [{ op: 'is', label: 'is', value: 'text' }].concat(base);
+    case 'calculate': return [{ op: 'lt', label: 'is below', value: 'number' }, { op: 'gt', label: 'is above', value: 'number' }];
+    default: return base;
+  }
+}
+function conditionText(q, when) {
+  const defs = conditionsFor(q); const d = defs.find(x => x.op === when.op) || { label: when.op };
+  let v = '';
+  if (d.value === 'option') { const o = q.config.options.find(o => o.id === when.value); v = o ? '"' + ((q.config.labels || {})[o.id] || o.label) + '"' : '(missing option)'; }
+  else if (d.value === 'level') { const lv = (q.config.scaleRef && scaleById(q.config.scaleRef) || q.config).levels; const l = lv[when.value]; v = l ? '"' + l.title + '"' : '(missing level)'; }
+  else if (d.value) v = when.value != null && when.value !== '' ? String(when.value) + (q.mechanism === 'measure' && q.config.unit ? ' ' + q.config.unit : '') : '…';
+  return d.label.replace(/\s*\(.*\)$/, '') + (v ? ' ' + v : '');
+}
+/* Targets a rule on `q` may act on: other questions and sections in the same
+   container (a block's rules stay inside the block). */
+function targetsFor(f, q) {
+  const out = [];
+  f.sections.forEach(sec => {
+    if (!f.isBlock) out.push({ id: 'section:' + sec.id, label: cap(V('section')) + ': ' + sec.title, kind: 'section' });
+    sec.items.forEach(it => { if (it.type === 'block' || it.id === q.id) return; out.push({ id: 'question:' + it.id, label: (it.title || 'Untitled'), kind: 'question', mechanism: it.mechanism }); if (it.mechanism === 'repeat') it.config.items.forEach(c => out.push({ id: 'question:' + c.id, label: '↳ ' + (c.title || 'Untitled'), kind: 'question' })); });
+  });
+  return out;
+}
+function targetLabel(f, id) {
+  if (!id) return '…';
+  const [kind, tid] = id.split(':');
+  if (kind === 'section') { const sec = f.sections.find(x => x.id === tid); return sec ? 'the ' + V('section') + ' "' + sec.title + '"' : null; }
+  for (const sec of f.sections) { for (const it of sec.items) { if (it.id === tid) return '"' + (it.title || 'Untitled') + '"'; if (it.mechanism === 'repeat') { const c = it.config.items.find(x => x.id === tid); if (c) return '"' + (c.title || 'Untitled') + '"'; } } }
+  return null;
+}
+function outcomeDef(id) { return P().extensions.outcomes.find(o => o.id === id) || { id, label: id, icon: 'fa-bolt' }; }
+function outcomeText(t) {
+  const d = outcomeDef(t.outcome); const a = t.args || {};
+  switch (t.outcome) {
+    case 'ticket': return 'create a ' + (a.priority || 'normal') + '-priority ticket' + (a.assignTo === 'queue' ? ' in the queue' : a.assignTo === 'user' ? ' for a named user' : ' for the responsible party');
+    case 'notify': return 'notify ' + (a.targets || []).join(', ') + (a.channels && a.channels.length ? ' by ' + a.channels.join(' + ') : '');
+    case 'oos': return 'take the entity out of service';
+    case 'courseRec': return 'recommend the course "' + (COURSES.find(c => c.id === a.courseId) || { name: '…' }).name + '"';
+    case 'growthPlan': { const t2 = a.formId && lib().forms.find(x => x.id === a.formId); return 'open a growth plan' + (t2 ? ' ("' + t2.name + '")' : ''); }
+    default: return d.label.toLowerCase();
+  }
+}
+const COURSES = [{ id: 'c-questioning', name: 'Higher-Order Questioning' }, { id: 'c-climate', name: 'Building Classroom Climate' }, { id: 'c-differentiation', name: 'Differentiation Basics' }];
+function ruleText(r, q) {
+  const f = currentForm();
+  const then = r.then.map(t => {
+    if (t.effect === 'outcome') return outcomeText(t);
+    const e = EFFECTS.find(x => x.id === t.effect) || { text: () => t.effect };
+    return e.scope === 'target' ? e.text(targetLabel(f, t.target) || '(missing target)') : e.text();
+  }).join(', ');
+  return 'When it ' + conditionText(q, r.when) + ' → ' + then;
+}
+/* A rule is broken when a target or option it names no longer exists. */
+function ruleProblem(r) {
+  const f = currentForm(); if (!f) return null;
+  for (const t of r.then) if (t.effect !== 'outcome' && EFFECTS.find(x => x.id === t.effect && x.scope === 'target') && !targetLabel(f, t.target)) return 'Target no longer exists';
+  return null;
+}
+/* Form-level rules whose subject is `q` (cross-question rules authored from
+   the panel are stored on the question too, so this is reserved). */
+function formRulesFor(q) { const f = currentForm(); return (f && f.rules || []).filter(r => r.when && r.when.questionId === q.id); }
+function collectRules(f) {
+  const out = []; const seenBlocks = {};
+  f.sections.forEach(sec => sec.items.forEach(it => {
+    if (it.type === 'block') {
+      /* A block placed twice carries its rules once; say how often it is placed. */
+      if (seenBlocks[it.blockId]) { seenBlocks[it.blockId].n += 1; seenBlocks[it.blockId].rows.forEach(x => { x.where = x.block + ' · placed ' + seenBlocks[it.blockId].n + '×'; }); return; }
+      const b = blockById(it.blockId); const rows = [];
+      (b.items || []).forEach(bq => (bq.rules || []).forEach(r => { const row = { q: bq, rule: r, where: b.name, block: b.name, inBlock: true }; rows.push(row); out.push(row); }));
+      seenBlocks[it.blockId] = { n: 1, rows }; return;
+    }
+    (it.rules || []).forEach(r => out.push({ q: it, rule: r, where: sec.title }));
+    if (it.mechanism === 'repeat') it.config.items.forEach(c => (c.rules || []).forEach(r => out.push({ q: c, rule: r, where: sec.title + ' › ' + (it.title || 'Repeat') })));
+  }));
+  return out;
+}
+
+/* ---- The Rules stage in a question's inspector ---------------------------- */
+function rulesStage(f, s, q) {
+  const list = el('div', { class: 'fb-optlist' });
+  (q.rules || []).forEach((r, i) => {
+    const prob = ruleProblem(r);
+    const row = el('div', { class: 'fb-rule' + (prob ? ' is-broken' : '') }, [
+      icon(prob ? 'fa-triangle-exclamation' : 'fa-bolt', 'lead'),
+      el('div', { class: 'fb-rule-text' }, [ el('div', { html: '<b>When it ' + escHtml(conditionText(q, r.when)) + '</b>' }), el('div', { class: 'fb-help', text: '→ ' + r.then.map(t => t.effect === 'outcome' ? outcomeText(t) : (EFFECTS.find(x => x.id === t.effect) || { text: () => t.effect }).scope === 'target' ? EFFECTS.find(x => x.id === t.effect).text(targetLabel(f, t.target) || '(missing target)') : EFFECTS.find(x => x.id === t.effect).text()).join(' · ') + (prob ? ' — ' + prob : '') + (r.fixed ? ' — built into the preset' : '') }) ]),
+      el('div', { class: 'fb-rule-acts' }, [ iconBtn('fa-pen', 'Edit rule', () => openRuleDialog(f, s, q, r)), r.fixed ? null : iconBtn('fa-xmark', 'Delete rule', () => { q.rules.splice(i, 1); onChange(); renderInspector(); }) ])
+    ]);
+    list.appendChild(row);
+  });
+  const outcomes = P().extensions.outcomes;
+  const nodes = [
+    (q.rules || []).length ? list : el('div', { class: 'fb-help', text: 'No rules. The answer is recorded and nothing else happens.' }),
+    textBtn('Add rule', 'tertiary', () => openRuleDialog(f, s, q, null)),
+    el('div', { class: 'fb-help', html: 'One model everywhere: <b>when</b> this answer… <b>then</b> show, hide, require, fail or trigger a product outcome' + (outcomes.length ? ' (' + outcomes.map(o => escHtml(o.label.toLowerCase())).join(', ') + ')' : '') + '. Outcomes are registered by ' + escHtml(P().name) + ' (layer 3).' })
+  ];
+  return stage('q-rules', 'Rules', nodes, { open: !!(q.rules && q.rules.length), note: (q.rules || []).length ? (q.rules.length + ' rule' + (q.rules.length === 1 ? '' : 's')) : 'none', conf: 'assumption' });
+}
+
+/* ---- Rule editor dialog ------------------------------------------------------ */
+function openRuleDialog(f, s, q, existing) {
+  const dlg = document.getElementById('dlgPicker');
+  const conds = conditionsFor(q);
+  const r = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('r'), when: { op: conds[0].op, value: conds[0].value === 'option' ? (q.config.options[0] || {}).id : conds[0].value === 'level' ? 0 : '' }, then: [] };
+  const p = P();
+  dlg.headerTitle = (existing ? 'Edit rule on ' : 'New rule on ') + '"' + (q.title || 'Untitled') + '"';
+  dlg.renderer = root => {
+    root.innerHTML = '';
+    const wrap = el('div', { class: 'fb-ruledlg' });
+    /* WHEN */
+    const whenBox = el('div', { class: 'fb-rule-when' });
+    const whenRow = el('div', { class: 'fb-rule-row' });
+    const valueHost = el('div');
+    const drawValue = () => {
+      valueHost.innerHTML = '';
+      const d = conds.find(x => x.op === r.when.op) || {};
+      if (d.value === 'option') valueHost.appendChild(vSelect({ label: 'Option', items: q.config.options.map(o => ({ id: o.id, label: (q.config.labels || {})[o.id] || o.label })), value: r.when.value, onchange: v => { r.when.value = v; } }));
+      else if (d.value === 'level') { const lv = (q.config.scaleRef && scaleById(q.config.scaleRef) || q.config).levels; valueHost.appendChild(vSelect({ label: 'Level', items: lv.map((l, i) => ({ id: String(i), label: l.value + ' · ' + l.title })), value: String(r.when.value || 0), onchange: v => { r.when.value = Number(v); } })); }
+      else if (d.value === 'number') valueHost.appendChild(vNumber({ label: 'Value' + (q.config.unit ? ' (' + q.config.unit + ')' : ''), value: r.when.value, onchange: v => { r.when.value = v === '' ? '' : Number(v); } }));
+      else if (d.value === 'text') valueHost.appendChild(vText({ label: 'Text', value: r.when.value || '', onchange: v => { r.when.value = v; } }));
+      else if (d.value === 'date') valueHost.appendChild(vText({ label: 'Date', value: r.when.value || '', placeholder: 'YYYY-MM-DD or "today"', onchange: v => { r.when.value = v; } }));
+    };
+    whenRow.appendChild(vSelect({ label: 'Condition', items: conds.map(c => ({ id: c.op + '|' + (c.label), label: c.label })), value: (conds.find(x => x.op === r.when.op) || conds[0]).op + '|' + (conds.find(x => x.op === r.when.op) || conds[0]).label, onchange: v => { const op = v.split('|')[0]; const d = conds.find(x => x.op === op && v.endsWith(x.label)) || conds.find(x => x.op === op); r.when.op = d.op; r.when.value = d.value === 'option' ? (q.config.options[0] || {}).id : d.value === 'level' ? 0 : ''; drawValue(); } }));
+    whenRow.appendChild(valueHost); drawValue();
+    whenBox.appendChild(el('div', { class: 'fb-rule-kw' }, ['When', el('b', { text: '"' + (q.title || 'Untitled') + '"' })]));
+    whenBox.appendChild(whenRow);
+    wrap.appendChild(whenBox);
+    /* THEN */
+    const thenBox = el('div', { class: 'fb-rule-then' });
+    thenBox.appendChild(el('div', { class: 'fb-rule-kw' }, ['Then']));
+    const effList = el('div', { style: 'display:flex;flex-direction:column;gap:8px' });
+    const effectItems = () => EFFECTS.filter(e => !e.only || e.only.includes(q.mechanism)).map(e => ({ id: e.id, label: e.label })).concat(p.extensions.outcomes.map(o => ({ id: 'outcome:' + o.id, label: o.label + ' (' + p.name + ')' })));
+    const drawEffects = () => {
+      effList.innerHTML = '';
+      if (!r.then.length) effList.appendChild(el('div', { class: 'fb-help', text: 'Add at least one effect.' }));
+      r.then.forEach((t, i) => {
+        const box = el('div', { class: 'fb-effect' });
+        const head = el('div', { class: 'fb-effect-head' });
+        head.appendChild(vSelect({ label: 'Effect', items: effectItems(), value: t.effect === 'outcome' ? 'outcome:' + t.outcome : t.effect, onchange: v => { if (v.startsWith('outcome:')) { r.then[i] = { effect: 'outcome', outcome: v.slice(8), args: defaultOutcomeArgs(v.slice(8)) }; } else { r.then[i] = { effect: v }; } drawEffects(); } }));
+        head.appendChild(iconBtn('fa-xmark', 'Remove effect', () => { r.then.splice(i, 1); drawEffects(); }));
+        box.appendChild(head);
+        const args = el('div', { class: 'fb-effect-args' });
+        const eDef = EFFECTS.find(x => x.id === t.effect);
+        if (eDef && eDef.scope === 'target') {
+          const tg = targetsFor(f, q);
+          args.appendChild(vSelect({ label: 'Target', items: [{ id: '', label: 'Choose…' }].concat(tg.map(x => ({ id: x.id, label: x.label }))), value: t.target || '', onchange: v => { t.target = v; } }));
+          if (t.effect === 'setLabel') args.appendChild(vText({ label: 'New label', value: t.args && t.args.label || '', onchange: v => { t.args = { label: v }; } }));
+        }
+        if (t.effect === 'outcome') {
+          t.args = t.args || defaultOutcomeArgs(t.outcome);
+          args.appendChild(el('span', { class: 'fb-outcome-badge' }, [icon(outcomeDef(t.outcome).icon), 'Product outcome · settings from ' + p.name]));
+          if (t.outcome === 'ticket') {
+            args.appendChild(vSelect({ label: 'Priority', items: ['low', 'normal', 'high', 'critical'].map(x => ({ id: x, label: cap(x) })), value: t.args.priority, onchange: v => { t.args.priority = v; } }));
+            args.appendChild(vSelect({ label: 'Assign to', items: [{ id: 'responsible', label: 'Responsible party' }, { id: 'queue', label: 'Maintenance queue' }, { id: 'user', label: 'A named user' }], value: t.args.assignTo, onchange: v => { t.args.assignTo = v; } }));
+            args.appendChild(vSelect({ label: 'Ticket title', items: [{ id: 'step', label: 'The ' + V('question') + ' label' }, { id: 'custom', label: 'Custom' }], value: t.args.titleMode, onchange: v => { t.args.titleMode = v; } }));
+            args.appendChild(el('div', { class: 'fb-checkrow' }, [vCheck({ label: 'Include the answer', checked: t.args.includeAnswer, onchange: v => { t.args.includeAnswer = v; } })]));
+          }
+          if (t.outcome === 'notify') {
+            args.appendChild(el('div', { class: 'fb-checkrow' }, [['responsible', 'Responsible party'], ['officer', 'Officer on duty'], ['station', 'Station']].map(([id, l]) => vCheck({ label: l, checked: (t.args.targets || []).includes(id), onchange: on => { const a = t.args.targets = t.args.targets || []; const k = a.indexOf(id); if (on && k === -1) a.push(id); if (!on && k !== -1) a.splice(k, 1); } }))));
+            args.appendChild(el('div', { class: 'fb-checkrow' }, [['app', 'In app'], ['email', 'Email'], ['sms', 'SMS']].map(([id, l]) => vCheck({ label: l, checked: (t.args.channels || []).includes(id), onchange: on => { const a = t.args.channels = t.args.channels || []; const k = a.indexOf(id); if (on && k === -1) a.push(id); if (!on && k !== -1) a.splice(k, 1); } }))));
+          }
+          if (t.outcome === 'oos') args.appendChild(el('div', { class: 'fb-help', text: 'An officer can override with a readiness determination. Department settings can suspend this globally.' }));
+          if (t.outcome === 'courseRec') args.appendChild(vSelect({ label: 'Course', items: COURSES.map(c => ({ id: c.id, label: c.name })), value: t.args.courseId, onchange: v => { t.args.courseId = v; } }));
+          if (t.outcome === 'growthPlan') args.appendChild(vSelect({ label: 'Growth plan form', items: [{ id: '', label: 'Choose…' }].concat(lib().forms.filter(x => x.id !== f.id).map(x => ({ id: x.id, label: x.name }))), value: t.args.formId || '', onchange: v => { t.args.formId = v || null; } }));
+        }
+        if (args.childElementCount) box.appendChild(args);
+        effList.appendChild(box);
+      });
+    };
+    drawEffects();
+    thenBox.appendChild(effList);
+    thenBox.appendChild(el('button', { type: 'button', class: 'fb-inline-add', onclick: () => { r.then.push({ effect: 'requireComment' }); drawEffects(); } }, [icon('fa-plus'), 'Add effect']));
+    wrap.appendChild(thenBox);
+    wrap.appendChild(el('div', { class: 'fb-help', html: 'Rules are validated at publish (FB-R-07). A rule whose target disappears is flagged on the canvas.' }));
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('div', { class: 'right' }, [ textBtn('Cancel', 'secondary', () => { dlg.opened = false; }), textBtn(existing ? 'Save rule' : 'Add rule', 'primary', () => {
+    if (!r.then.length) return toast('Add at least one effect', 'fa-circle-info');
+    if (r.then.some(t => EFFECTS.find(x => x.id === t.effect && x.scope === 'target') && !t.target)) return toast('Choose a target for every show / hide / require effect', 'fa-circle-info');
+    q.rules = q.rules || [];
+    if (existing) { const i = q.rules.findIndex(x => x.id === existing.id); q.rules[i] = r; } else q.rules.push(r);
+    dlg.opened = false; onChange(); renderInspector(); toast(existing ? 'Rule saved' : 'Rule added');
+  }) ]) ])); };
+  dlg.opened = true;
+}
+
+/* ---- Form-level rules panel --------------------------------------------- */
+function openRulesPanel(f) {
+  const dlg = document.getElementById('dlgPicker');
+  dlg.headerTitle = 'Rules in "' + f.name + '"';
+  dlg.renderer = root => {
+    root.innerHTML = '';
+    const wrap = el('div', { class: 'fb-rpanel' });
+    const all = collectRules(f);
+    if (!all.length) wrap.appendChild(el('div', { class: 'fb-help', text: 'No rules yet. Select a ' + V('question') + ' and add one from its Rules stage.' }));
+    const byQ = new Map();
+    all.forEach(x => { if (!byQ.has(x.q)) byQ.set(x.q, { q: x.q, where: x.where, inBlock: x.inBlock, rules: [] }); byQ.get(x.q).rules.push(x.rule); });
+    byQ.forEach(g => {
+      wrap.appendChild(el('div', { class: 'fb-rpanel-q' }, [ el('span', { class: 'fb-mech-tile', 'data-m': g.q.mechanism }, [icon(MECHANISMS[g.q.mechanism].icon)]), g.q.title || 'Untitled', el('span', { class: 'loc', text: '· ' + g.where + (g.inBlock ? ' (shared ' + V('block') + ')' : '') }) ]));
+      g.rules.forEach(r => { const prob = ruleProblem(r); wrap.appendChild(el('div', { class: 'fb-rule' + (prob ? ' is-broken' : '') }, [ icon(prob ? 'fa-triangle-exclamation' : 'fa-bolt', 'lead'), el('div', { class: 'fb-rule-text', text: ruleText(r, g.q) + (prob ? ' — ' + prob : '') }), g.inBlock ? el('span', { class: 'fb-sealed' }, [icon('fa-lock'), 'edit in the ' + V('block')]) : el('div', { class: 'fb-rule-acts' }, [iconBtn('fa-pen', 'Edit', () => { dlg.opened = false; const sec = f.sections.find(x => x.items.includes(g.q) || x.items.some(it => it.mechanism === 'repeat' && it.config.items.includes(g.q))); const par = sec.items.find(it => it.mechanism === 'repeat' && it.config.items.includes(g.q)); state.sel = { kind: 'item', sectionId: sec.id, id: g.q.id, parentId: par ? par.id : undefined }; renderCanvas(); renderInspector(); setTimeout(() => openRuleDialog(f, sec, g.q, r), 80); })]) ])); });
+    });
+    const injected = injectedRows(f);
+    if (injected.length) { wrap.appendChild(el('div', { class: 'fb-rpanel-q' }, [icon('fa-arrow-down-to-line'), 'Injected by extensions at fill-in'])); injected.forEach(x => wrap.appendChild(el('div', { class: 'fb-rule' }, [icon('fa-puzzle-piece', 'lead'), el('div', { class: 'fb-rule-text', text: x.text })]))); }
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('span', { class: 'fb-help', text: 'Rules live on the ' + V('question') + ' that triggers them, so they travel with shared ' + V('blocks').toLowerCase() + '.' }), el('div', { class: 'right' }, [textBtn('Close', 'secondary', () => { dlg.opened = false; })]) ])); };
+  dlg.opened = true;
+}
+
+/* ---- Pinned and injected rows above the first section ----------------------
+   An extension that declares `injects` adds a question at fill-in that no
+   author placed (CalFire JAC with several codes). A form-level Timer is a
+   pinned widget, not a question (D11). Both are shown where they will
+   appear, read-only, so the author sees the whole delivered form. */
+function injectedRows(f) {
+  const out = [];
+  P().extensions.form.filter(x => x.injects && (!x.when || x.when(f))).forEach(x => {
+    const v = f.productSettings[x.id];
+    if (Array.isArray(v) && v.length > 1) out.push({ ext: x, text: 'Pick a ' + x.label.replace(/s$/, '') + ' (' + v.length + ' attached' + (f.productSettings[x.id + 'Required'] ? ', required' : ', optional') + ') — injected as the first question by the ' + x.label + ' extension' });
+  });
+  return out;
+}
+function renderPinnedRows(host, f) {
+  if (f.isBlock) return;
+  if (P().timer.show && f.timer && f.timer.on) host.appendChild(el('div', { class: 'fb-pinned' }, [ el('span', { class: 'fb-mech-tile', 'data-m': 'timer' }, [icon('fa-stopwatch')]), el('span', { html: '<b>Elapsed-time bar</b> pinned to the top of the ' + escHtml(V('form')) + (f.timer.max ? ' · max ' + f.timer.max + ' min' : '') }), el('span', { class: 'fb-chip', text: 'pinned widget · Timer, scope: form' }) ]));
+  injectedRows(f).forEach(x => host.appendChild(el('div', { class: 'fb-pinned', style: 'cursor:pointer', onclick: () => { state.sel = { kind: 'form' }; state.openStages['f-ext-' + x.ext.group] = true; renderCanvas(); renderInspector(); } }, [ el('span', { class: 'fb-mech-tile', 'data-m': 'choice' }, [icon('fa-arrow-down-to-line')]), el('span', { text: x.text }), el('span', { class: 'fb-chip', text: 'injected by extension' }) ])));
+}
+</script>
+
 <!-- ── Design Toolbox: Flow Map ───────────────────────────────────────────
      One node per surface of pass 1, each with a deep link (#fm=<state>) so
      the walkthrough can land on any scene. Later passes add nodes. -->
@@ -2805,6 +3126,9 @@ function openScaleDialog(id) {
       case 'repeat-ci': go('checkit', () => { openBlock('scba-readiness'); const pf = currentForm(); const rep = pf.sections[0].items.find(x => x.mechanism === 'repeat'); state.sel = { kind: 'item', sectionId: pf.sections[0].id, id: rep.id }; renderCanvas(); renderInspector(); }); break;
       case 'blockeditor-ev': go('evaluations', () => { openBlock('d3'); }); break;
       case 'scale-ev': go('evaluations', () => { state.editing = { type: 'form' }; state.libTab = 'scales'; setView('library'); setTimeout(() => openScaleDialog('danielson4'), 60); }); break;
+      case 'rule-ci': go('checkit', () => { state.formId = 'apparatus-morning'; const f = currentForm(); const sec = f.sections[0]; const q = firstOf(sec, x => x.mechanism === 'choice'); state.sel = { kind: 'item', sectionId: sec.id, id: q.id }; state.openStages['q-rules'] = true; setView('builder'); setTimeout(() => openRuleDialog(f, sec, q, q.rules[1] || q.rules[0]), 80); }); break;
+      case 'rule-ev': go('evaluations', () => { state.formId = 'walkthrough-10'; const f = currentForm(); const sec = f.sections[1]; const q = firstOf(sec, x => x.mechanism === 'scale'); state.sel = { kind: 'item', sectionId: sec.id, id: q.id }; state.openStages['q-rules'] = true; setView('builder'); setTimeout(() => openRuleDialog(f, sec, q, null), 80); }); break;
+      case 'rulespanel-ci': go('checkit', () => { state.formId = 'apparatus-morning'; state.sel = { kind: 'form' }; setView('builder'); setTimeout(() => openRulesPanel(currentForm()), 80); }); break;
       default: go('checkit', () => { state.libTab = 'forms'; setView('library'); }); break;
     }
     if (!opts.instant) window.scrollTo(0, 0);
@@ -2840,17 +3164,20 @@ function openScaleDialog(id) {
         { id: 'blockpicker-ci', flow: 'ci', x: 360, y: 200, step: '6', name: 'Add content block: picker', state: 'blockpicker-ci', desc: 'Search, grouped by category; single-use blocks already placed are disabled; "add custom steps instead" escape.' },
         { id: 'blockeditor-ci', flow: 'ci', x: 660, y: 200, step: '7', name: 'Content block editor: SCBA Readiness', state: 'blockeditor-ci', desc: 'The same canvas editing a block: block-level instructions with images (Q40), multi-use, where it is used, blast-radius note.' },
         { id: 'repeat-ci', flow: 'ci', x: 960, y: 200, step: '8', name: 'Repeat: answer per bottle', state: 'repeat-ci', desc: 'Repeat rows come from a product data source (SCBA bottles); inline questions edited in place. The 07 trap #2 fix.' },
+        { id: 'rule-ci', flow: 'ci', x: 1260, y: 200, step: '9', name: 'Rule editor: fail → ticket', state: 'rule-ci', desc: 'When the step fails → create a ticket, with Check It’s own ticket settings (priority, assignee, title). Outcomes are registered by the product (07 trap #1 fix).' },
+        { id: 'rulespanel-ci', flow: 'ci', x: 60, y: 200, step: '10', name: 'Rules panel', state: 'rulespanel-ci', desc: 'Every rule in the checklist, including those inside shared content blocks, in plain language; broken targets flagged.' },
         { id: 'library-ev', flow: 'ev', entry: true, x: 60,  y: 410, step: '1', name: 'Forms library', state: 'library-ev', desc: 'Same shell, Evaluations vocabulary: forms, form sections, scales. Statuses incl. Superseded and Publish-Restricted.' },
         { id: 'setup-ev', flow: 'ev', x: 360, y: 410, step: '2', name: 'New form: setup', state: 'setup-ev', desc: 'Kind + Mode + Template (P2) and who can start it. Mode locks after publish, said up front.' },
         { id: 'builder-ev', flow: 'ev', x: 660, y: 410, step: '3', name: 'Builder: Classroom Observation', state: 'builder-ev', desc: 'Danielson domains as linked blocks; form settings grouped, conditional, with lock warnings and extension chips.' },
         { id: 'question-ev', flow: 'ev', x: 960, y: 410, step: '4', name: 'Question inspector: who answers', state: 'question-ev', desc: 'Relationship-based who-answers with the per-mechanism allowed matrix (code-confirmed).' },
         { id: 'picker-ev', flow: 'ev', x: 1260, y: 410, step: '5', name: 'Add question: presets', state: 'picker-ev', desc: 'The same mechanisms wearing Evaluations presets: Rating Scale, Choose One, Signature (non-locking)…' },
         { id: 'blockeditor-ev', flow: 'ev', x: 660, y: 500, step: '6', name: 'Form section editor: Domain 3', state: 'blockeditor-ev', desc: 'A Danielson domain as a linked form section. Editing it reaches four forms; Evaluations holds them until republished (P3).' },
-        { id: 'scale-ev', flow: 'ev', x: 960, y: 500, step: '7', name: 'Scale editor: Danielson 4-level', state: 'scale-ev', desc: 'Named scales in the library: up to 8 levels with value, title, description, colour, exclude-from-averages, require-duration. Linked questions follow.' }
+        { id: 'scale-ev', flow: 'ev', x: 960, y: 500, step: '7', name: 'Scale editor: Danielson 4-level', state: 'scale-ev', desc: 'Named scales in the library: up to 8 levels with value, title, description, colour, exclude-from-averages, require-duration. Linked questions follow.' },
+        { id: 'rule-ev', flow: 'ev', x: 1260, y: 500, step: '8', name: 'Rule editor: low rating → growth plan', state: 'rule-ev', desc: 'The same rules model wearing Evaluations outcomes: a rating at or below a level → require a duration, recommend a course, open a growth plan.' }
       ],
       edges: [
-        ['library-ci', 'builder-ci'], ['builder-ci', 'question-ci'], ['builder-ci', 'block-ci'], ['builder-ci', 'picker-ci'], ['builder-ci', 'blockpicker-ci'], ['block-ci', 'blockeditor-ci'], ['blockeditor-ci', 'repeat-ci'],
-        ['library-ev', 'setup-ev'], ['setup-ev', 'builder-ev'], ['builder-ev', 'question-ev'], ['builder-ev', 'picker-ev'], ['builder-ev', 'blockeditor-ev'], ['library-ev', 'scale-ev']
+        ['library-ci', 'builder-ci'], ['builder-ci', 'question-ci'], ['builder-ci', 'block-ci'], ['builder-ci', 'picker-ci'], ['builder-ci', 'blockpicker-ci'], ['block-ci', 'blockeditor-ci'], ['blockeditor-ci', 'repeat-ci'], ['question-ci', 'rule-ci'], ['builder-ci', 'rulespanel-ci'],
+        ['library-ev', 'setup-ev'], ['setup-ev', 'builder-ev'], ['builder-ev', 'question-ev'], ['builder-ev', 'picker-ev'], ['builder-ev', 'blockeditor-ev'], ['library-ev', 'scale-ev'], ['question-ev', 'rule-ev']
       ]
     }
   };
