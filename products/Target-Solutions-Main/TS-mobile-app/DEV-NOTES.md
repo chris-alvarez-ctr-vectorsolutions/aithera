@@ -49,6 +49,13 @@
 - **Account lives in More:** an account row (avatar, name, role · department) at the top of More opens Profile, which holds Log Out. The header no longer carries a bell or avatar.
 - **Theming hook:** only the status bar and the Home brand bar use the `--brand` / `--brandContrast` token pair (styles.css `:root`). A TS customer theme is that pair, optionally plus `--accent`; buttons, links and the active tab stay on `--accent` / `--link` so contrast holds.
 
+## home-empty
+- (2026-10-21) **Why it exists:** Quick Links are admin-configured, so a department that has not set any up still needs a Home to land on. Same card, same customer-named title; only the card body changes.
+- (2026-10-21) **Content:** an accent-tinted icon disc (grid icon), "No Quick Links yet", one line — "Your department hasn't set up any Quick Links. You can still record completions and scan QR codes." — then two full-width buttons: **Record a completion** (primary) and **Scan a QR code** (secondary, navy outline).
+- (2026-10-21) **Actions reuse existing routes:** Record a completion opens a fresh Record Completions task (same as the Record tab); Scan a QR code opens the scanner tab. No new flows.
+- (2026-10-21) **Condition:** show it when the department's Quick Links card has zero tiles across all groups. The brand bar, tab bar and alerts are unchanged.
+- (2026-10-21) **Prototype only:** the "Quick Links On/Off" switch in the UX tools dock and the `?ql=off` URL flag are review tooling, not product.
+
 ## record
 - **No app bar in the flow:** the screen draws its own title row (X that keeps the draft, "Record Completions", Vector AI badge), which scrolls away with the content. Saves the 56px bar on the screen that needs vertical room most, and matches the web note that the top nav hides in this flow.
 - **Full-screen task:** the bottom tab bar hides while Record Completions is open (`.app--task`). The title-row X leaves and keeps the draft; the footer Cancel discards it after an "Unsaved changes" prompt.

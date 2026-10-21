@@ -414,6 +414,11 @@
     var requested = id;
     if (window.APP) window.APP.setDevice(SHARED[id] ? 'shared' : 'personal');
     if (SHARED[id]) id = SHARED[id];
+    // Home has two states: Quick Links configured (home) or not (home-empty).
+    // Only these two touch the flag, so stepping to any other node leaves the
+    // UX-tools toggle where the designer put it.
+    if (window.APP && (id === 'home' || id === 'home-empty')) window.APP.setQuickLinks(id === 'home');
+    if (id === 'home-empty') id = 'home';
     // Every state goes through record.js when it is loaded: Record Completions
     // and self-assign states set up their own draft data so the thumbnails show
     // real, filled-in screens, and any other state first drops a self-assign
@@ -464,6 +469,9 @@
         { id: 'home', flow: 'main', x: 820, y: 180,
           step: 'Home', name: 'Quick Links', state: 'home',
           desc: 'Home shows Quick Links only, under a brand bar (department name, --brand colour) that scrolls away with the page. One customer-named card with customer-named group sub-headers and admin-ordered, admin-colored tiles.' },
+        { id: 'home-empty', flow: 'main', x: 820, y: 320,
+          step: 'Home', name: 'No Quick Links yet', state: 'home-empty',
+          desc: 'Home for a department that has not configured any Quick Links. The same card and customer-named title, with the body replaced by an empty state: icon, "No Quick Links yet", one line of explanation, and the two actions that work without admin setup — Record a completion (primary) and Scan a QR code (secondary). Toggle it from the UX tools dock at the bottom of the page.' },
         { id: 'record', flow: 'main', x: 1000, y: 60,
           step: 'Tab', name: 'Record: Activities', state: 'record',
           desc: 'The Activities view of the full-screen task. No app bar: the screen draws its own title row (X keeps the draft, Vector AI badge) and the tab bar hides while the flow is open. An Activities | Participants segmented control (with counts) replaces the old stepper: two views of one record, in any order; Cancel and Submit sit under both. Empty state offers Add Activities; RCA Quick Links land here with their activity already added.' },
@@ -525,6 +533,8 @@
         ['login', 'prompt'],
         ['prompt', 'home'],
         ['home', 'record'],
+        ['home-empty', 'record'],
+        ['home-empty', 'scan'],
         ['record', 'record-picker'],
         ['record-picker', 'record-form'],
         ['record-form', 'record-voice'],
@@ -546,5 +556,43 @@
 <!-- Design Toolbox: pin-and-comment review widget + flow map. Review tooling
      only — NOT part of the product; developers strip this line. -->
 <script src="../../../../designtoolbox/toolbox.js?v=1.1.0"></script>
+
+<!-- ── UX tools: prototype switches docked into the toolbox pill ─────────────
+     Review tooling only — NOT part of the product; developers strip this too.
+     "Quick Links" flips Home between the configured card and the "No Quick
+     Links yet" empty state (APP.setQuickLinks). ?ql=off in the URL starts the
+     page in the empty state. -->
+<script>
+  (function () {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ux-tool';
+    btn.title = 'Toggle whether this department has Quick Links configured';
+    btn.style.cssText = 'display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);' +
+      'color:#e4e4e7;border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:7px 11px;' +
+      'font:700 13px/1 "Open Sans",system-ui,sans-serif;cursor:pointer;white-space:nowrap;';
+    function paint() {
+      var on = window.APP ? window.APP.hasQuickLinks() : true;
+      btn.innerHTML = 'Quick Links <span style="display:inline-block;min-width:28px;text-align:center;padding:3px 6px;border-radius:999px;' +
+        (on ? 'background:#16a34a;color:#fff;' : 'background:#52525b;color:#e4e4e7;') + '">' + (on ? 'On' : 'Off') + '</span>';
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    btn.addEventListener('click', function () {
+      if (!window.APP) return;
+      window.APP.setQuickLinks(!window.APP.hasQuickLinks());
+      if (window.goTo) window.goTo('home');   // show the change where it lives
+    });
+    document.addEventListener('ts:quicklinks', paint);
+    if (/[?&]ql=off\b/.test(location.search) && window.APP) window.APP.setQuickLinks(false);
+    paint();
+
+    // Dock into the toolbox pill; it may mount a beat after this script runs.
+    var tries = 0;
+    (function dock() {
+      if (window.ToolboxDock && typeof window.ToolboxDock.add === 'function') { window.ToolboxDock.add(btn); return; }
+      if (tries++ < 10) setTimeout(dock, 200);
+    })();
+  })();
+</script>
 </body>
 </html>

@@ -56,6 +56,18 @@
     ]
   };
 
+  /* Empty state for a department that has not configured any Quick Links yet.
+     Home still has to land somewhere, so the card keeps its title and offers
+     the two things that work without admin setup: Record and Scan. Toggled
+     from the UX tools dock (bottom of the page) via APP.setQuickLinks(). */
+  var quickLinksConfigured = true;
+  var QUICK_LINKS_EMPTY = {
+    title: 'No Quick Links yet',
+    body:  "Your department hasn't set up any Quick Links. You can still record completions and scan QR codes.",
+    record: 'Record a completion',
+    scan:   'Scan a QR code'
+  };
+
   /* "More" tab. Only built features are listed — the below-the-line PRD
      features are deliberately absent rather than shown as "coming soon". */
   var MORE_PRIMARY = [
@@ -158,6 +170,22 @@
 
   function renderQuickLinks() {
     $('#ql-title').textContent = QUICK_LINKS.title;
+    if (!quickLinksConfigured) {
+      // Same card, same customer-named title; the body swaps to the empty
+      // state. Record uses the same fresh-record path as the Record tab; Scan
+      // opens the viewfinder.
+      $('#ql-groups').innerHTML =
+        '<div class="ql-empty">' +
+        '<span class="ql-empty__icon" aria-hidden="true"><i class="fa-solid fa-grid-2"></i></span>' +
+        '<h3 class="ql-empty__title">' + QUICK_LINKS_EMPTY.title + '</h3>' +
+        '<p class="ql-empty__body">' + QUICK_LINKS_EMPTY.body + '</p>' +
+        '<button class="t-Button t-Button--primary" type="button" data-goto="record">' +
+        '<i class="fa-solid fa-clipboard-check"></i>' + QUICK_LINKS_EMPTY.record + '</button>' +
+        '<button class="t-Button t-Button--secondary ql-empty__scan" type="button" data-goto="scan">' +
+        '<i class="fa-solid fa-qrcode"></i>' + QUICK_LINKS_EMPTY.scan + '</button>' +
+        '</div>';
+      return;
+    }
     $('#ql-groups').innerHTML = QUICK_LINKS.groups.map(function (group) {
       var tiles = group.tiles.map(function (tile) {
         return '<button class="ql-tile" type="button" data-ink="' + tile.ink + '"' +
@@ -609,7 +637,17 @@
     isShared: isShared,
     signOut: signOut,
     showIdleWarning: showIdleWarning,
-    setDevice: setDevice
+    setDevice: setDevice,
+    // Quick Links configured? false renders the "No Quick Links yet" state on
+    // Home. Driven by the UX tools dock toggle and the flow map's home-empty node.
+    hasQuickLinks: function () { return quickLinksConfigured; },
+    setQuickLinks: function (on) {
+      on = !!on;
+      if (on === quickLinksConfigured) return;
+      quickLinksConfigured = on;
+      renderQuickLinks();
+      document.dispatchEvent(new CustomEvent('ts:quicklinks', { detail: { configured: on } }));
+    }
   };
 
   // First launch asks for the country, then the device type; later launches remember both.
