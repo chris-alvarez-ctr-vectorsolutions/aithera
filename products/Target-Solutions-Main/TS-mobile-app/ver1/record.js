@@ -491,7 +491,7 @@
     var a = draft.activities[0], def = defOf(a.id);
     return '<div class="rc-title">' +
            '<button class="rc-iconbtn" data-task-leave="self" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
-           '<h1 class="rc-title__text">Record Completion</h1></div>' +
+           '<h1 class="rc-title__text">Self Assign</h1></div>' +
            '<div class="rc-self">' +
            '<span class="rc-self__kicker"><i class="fa-solid fa-user-check"></i> Self-assign · recorded for you</span>' +
            '<h2 class="rc-self__name">' + esc(def.name) + '</h2>' +
@@ -504,7 +504,7 @@
 
   function renderDoneSelf() {
     var s = lastSelf, shared = window.APP && window.APP.isShared();
-    doneEl.closest('.screen').dataset.title = 'Record Completion';   // singular in the app bar
+    doneEl.closest('.screen').dataset.title = 'Self Assign';   // the self-assign flow keeps its own title on the confirmation
     doneEl.innerHTML =
       '<div class="rc-done__icon"><i class="fa-solid fa-check"></i></div>' +
       '<h1 class="t-H1">Completion recorded</h1>' +

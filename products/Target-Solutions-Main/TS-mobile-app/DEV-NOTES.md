@@ -137,11 +137,13 @@
 
 ## self-assign
 - (2026-10-02) **What it is:** a completion the user records for themselves only. Opened by a Self Assign Quick Link (the "Physical Fitness" tile replaces "SCBA Refresher") or a scanned QR code; the Scan tab's simulated scan resolves to Physical Fitness, standing in for the printed code outside the workout room.
-- (2026-10-02) **Same screen, reduced:** title "Record Completion" with the X, a header card naming the activity ("Self-assign · recorded for you"), then the single form. No stepper, no Participants step, no Add Activities, no accordion, no apply-to-all switches, no VoiceComplete button or kebab. Instructor is labelled optional. On a shared device the "Recording as … · Not you?" line sits above the card.
+- (2026-10-02) **Same screen, reduced:** title "Self Assign" (was "Record Completion" until 2026-10-21) with the X, a header card naming the activity ("Self-assign · recorded for you"), then the single form. No stepper, no Participants step, no Add Activities, no accordion, no apply-to-all switches, no VoiceComplete button or kebab. Instructor is labelled optional. On a shared device the "Recording as … · Not you?" line sits above the card.
 - (2026-10-02) **Plain dictation, not VoiceComplete:** the mic on Notes (and Areas, where configured) streams speech to text straight into that field; nothing is interpreted. Tap to start, tap again or let it finish to stop; it appends to whatever is already typed. The same mic now works this way in the group flow too (it was a placeholder toast).
 - (2026-10-02) **No draft:** X and Cancel both discard, with an "Unsaved changes" confirm if anything was entered. The group Record Completions draft is parked while a self-assign is open and comes back untouched afterwards; the Record tab dot reflects the group draft only. A self-assign is a 30-second task and a lingering fitness draft would be confusing when the next Quick Link opens the group flow.
 - (2026-10-02) **Validation:** only that the activity is configured. Fields are optional; date and time default to now.
 - (2026-10-02) **Physical Fitness mock definition:** objectives (cardiovascular, strength, flexibility & mobility, job-specific), duration, notes. No techniques or areas. It is also in the activity picker, so a crew PT session can be group-recorded.
+
+- (2026-10-21) **Title is "Self Assign":** the form's title row and the confirmation's app bar both read "Self Assign" instead of "Record Completion", so the flow a Self Assign Quick Link opens is named for what it is. The group flow keeps "Record Completions".
 
 ## self-assign-done
 - (2026-10-02) **Confirmation for one person:** activity, date and duration, "Recorded for Jordan Lee" (plus "on this shared device" in shared mode). Actions: Record another (reopens the same activity), Go to Home. No "Same participants" shortcut.

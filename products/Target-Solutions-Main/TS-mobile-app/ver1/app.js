@@ -243,7 +243,7 @@
     var meta = SCREENS[id] || {};
     if (meta.noHeader) { header.innerHTML = ''; return; }   // the screen draws its own title row / brand bar
     // A screen may override its bar title via data-title (record.js does for the
-    // confirmation: "Record Completion" after a self-assign, plural after a group).
+    // confirmation: "Self Assign" after a self-assign, "Record Completions" after a group).
     var screenEl = $('#screen-' + id);
     var title = (screenEl && screenEl.dataset.title) || meta.title || '';
     header.innerHTML =
