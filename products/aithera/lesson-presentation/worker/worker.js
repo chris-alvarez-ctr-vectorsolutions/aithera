@@ -35,8 +35,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:4601',
   'http://127.0.0.1:4601',
   'https://vectorlearning.github.io',
-  // Dev team's LMS test environment, which embeds the player in an iframe.
+  // Dev team's LMS environments, which embed the player in an iframe.
+  'https://training.develop.us-east-2.vsp-nonprod.com',
   'https://training.test3.us-east-2.vsp-nonprod.com',
+  'https://training.staging.us-east-2.vsp-nonprod.com',
+  'https://training.vectorsolutions.com',
 ];
 
 function corsHeaders(origin) {
