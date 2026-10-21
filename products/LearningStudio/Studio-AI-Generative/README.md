@@ -29,7 +29,8 @@ committed as `6034cf33`, passes 6a and 7 as `bb924036`, Pass 8 (spec edits +
 the Coverage tab) as `0b98453a`, Pass 9 stage 1 (Compose) as `5461be36`,
 stage 2 (output rehearsal) as `40f28c08`, stage 3 (the preview follows the
 edges) as `a97c46fe`, Pass 10 (the Outputs layer at lower density) as
-`86a303ec`, and Pass 11 (creating an output) is the commit after it.
+`86a303ec`, Pass 11 (creating an output) as `f446cccf`, and Pass 12 (the
+UI copy audit) is the commit after it.
 
 **Known rough edges, deliberately left:**
 - The scenario's Interaction phase is the densest screen (steps · rehearsal ·
@@ -145,10 +146,15 @@ edges) as `a97c46fe`, Pass 10 (the Outputs layer at lower density) as
   the format is a plain property whose change the signature catches.
   `B.addMenu` is the open "Add to an output" menu on the Activities layer.
 
-**Next:** either carry the Pass 10 treatment (index + tabs + ⓘ rationale)
-to Brief, Information Set and Activities, or the job-aid proof — a static
-modality with no renderer, to show a new modality needs a review renderer,
-not a surface.
+- **ⓘ notes (Pass 12):** `infoBtn(key)` / `infoNote(key)` render from
+  `NOTES` (falling back to `OUT_NOTES`); `INFO_OPEN` is the one open key,
+  toggled by a capture-phase document listener so the click never reaches a
+  layer's own handlers. Flow-state jumps reset it.
+
+**Next:** the Pass 10 *structure* (index + tabs) is still Outputs-only; the
+Brief, Information Set and Activities got its copy treatment in Pass 12 but
+not its layout. Or the job-aid proof — a static modality with no renderer,
+to show a new modality needs a review renderer, not a surface.
 
 ## If you are picking this up cold
 
@@ -388,6 +394,36 @@ Below the map on an output's Structure view (G17).
   it.
 - A Course gets the same card with one row and nothing to choose.
 - Five more flow-map states on lane I.
+
+## Pass 12 — UI copy audit: rationale out of the product (2026-10-20)
+
+Design reasoning from the build conversations had leaked into the UI. An
+audit of every string literal plus a rendered sweep of all flow states found
+86 visible decision references (D/G/Q numbers), 9 build-state notes ("Pass 1
+built the video", "not built", "this prototype"), about 30 design-rationale
+paragraphs, and three internal terms. All of it is out of the product copy:
+
+- **Decision references** are gone from body copy, tooltips and toasts. The
+  reasoning lives in `MODEL.md` and, on screen, behind an **ⓘ** on the card
+  or heading it explains. The ⓘ mechanism now works on every layer (one note
+  open at a time; `NOTES` holds the copy, `OUT_NOTES` the Outputs set).
+- **Build-state notes** are removed or rewritten in product voice ("Earlier
+  generations aren't shown here", "The knowledge check opens here").
+- **Rationale paragraphs** are one sentence each, with the reasoning behind
+  ⓘ — the Pass 10 treatment, now on the Brief, Information Set, Activities,
+  the scenario's phase notes, the Coverage tab and the preview reports.
+- **Vocabulary**: "no deliver" → *blocked*; "walled off" → *never shown to
+  learners*; "carrier / carried by" → *where it's taught / teaches*. LED,
+  lineage and composer stay.
+- **Prototype scaffolding stays as it was** by decision: the *sim* buttons,
+  the stand-in cards, the check's Pass / Fail chooser.
+- Three bugs the sweep surfaced are fixed: depths showing as "undefined" in
+  four strings (the format bar read `req` from an information-set record that
+  stores `requires`); the library popover staying open across flow-map
+  jumps; a dead "Pass 3" toast handler.
+
+**Keep it that way:** new UI copy is product voice. Put the why in
+`MODEL.md`, and if it's worth having on screen, in `NOTES` behind an ⓘ.
 
 ## What the mock shows — Pass 11, creating an output (2026-10-20)
 
@@ -673,5 +709,8 @@ Everything is in-memory; reload resets.
 11. ~~**Pass 11** — creating an output; the activity set derived from the
     structure; kind and format editable; add-to-output from Activities~~ —
     built 2026-10-20.
+12. ~~**Pass 12** — UI copy audit: decision refs, build notes and rationale
+    out of product copy, ⓘ on every layer, three vocabulary renames~~ —
+    done 2026-10-20.
 12. Prove the loop again on **job aid** — now the *cheap* proof: a static modality with no renderer yet — an undesigned modality — to show a new
    modality needs a review renderer, not a surface.
