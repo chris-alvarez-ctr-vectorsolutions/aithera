@@ -46,7 +46,7 @@ in the download. V2 adds the following:
   saved to the Report Log … and is currently generating.") with Email Me The
   Report and a dismiss ✕, above the generated row at 0 results.
 - **Email Me The Report asks for a title.** The button opens a small modal with
-  a Report title field already filled in with the auto-generated name. Email Me
+  a Report title field already filled in with the default name (report type + run number). Email Me
   saves the title as the run's name and requests the email. The blue banner
   is then replaced in place by the live build's white confirmation banner
   (green accent + check, dismiss ✕): "We'll email you when **<title>** is
