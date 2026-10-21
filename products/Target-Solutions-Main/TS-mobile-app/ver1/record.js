@@ -282,9 +282,15 @@
   }
 
   /* No app bar on this screen — the title row carries the X (leave, keep the
-     draft; app.js handles data-task-leave) and the Vector AI badge. */
+     draft; app.js handles data-task-leave) and the Vector AI badge.
+     With no Home tab (no Quick Links configured) this screen IS the landing
+     screen, so it gets Home's treatment: the brand bar with the department
+     name across the top, scrolling away with the content like it does on Home. */
   function renderTitle() {
-    return '<div class="rc-title">' +
+    var brand = (window.APP && !window.APP.hasHome())
+      ? '<div class="home-brand rc-brand"><span class="home-brand__dept">' + esc(window.APP.user.department) + '</span></div>'
+      : '';
+    return brand + '<div class="rc-title">' +
            '<button class="rc-iconbtn" data-task-leave type="button" aria-label="Close and keep draft"><i class="fa-solid fa-xmark"></i></button>' +
            '<h1 class="rc-title__text">Record Completions</h1>' +
            '<span class="ai-badge ai-badge--tint"><i class="fa-solid fa-sparkles"></i> Vector AI</span></div>';
@@ -484,7 +490,7 @@
   function renderSelf() {
     var a = draft.activities[0], def = defOf(a.id);
     return '<div class="rc-title">' +
-           '<button class="rc-iconbtn" data-task-leave type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
+           '<button class="rc-iconbtn" data-task-leave="self" type="button" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
            '<h1 class="rc-title__text">Record Completion</h1></div>' +
            '<div class="rc-self">' +
            '<span class="rc-self__kicker"><i class="fa-solid fa-user-check"></i> Self-assign · recorded for you</span>' +
@@ -1242,7 +1248,7 @@
     }
   }
 
-  window.RC = { openWith: openWith, openSelf: openSelf, applyState: applyState, leave: leave, cancel: cancel, reset: reset };
+  window.RC = { openWith: openWith, openSelf: openSelf, applyState: applyState, leave: leave, cancel: cancel, reset: reset, rerender: render };
 
   /* ===========================================================================
      INIT

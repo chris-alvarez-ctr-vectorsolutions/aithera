@@ -794,6 +794,7 @@
       if (mode === quickLinksMode) return;
       quickLinksMode = mode;
       renderQuickLinks();
+      if (window.RC && window.RC.rerender) window.RC.rerender();   // Record's brand bar follows the mode
       // Re-run the current screen so the tab bar / task chrome follow the mode
       // (and a Home that no longer exists becomes Record).
       if (!app.hidden) goTo(currentScreen, { instant: true });

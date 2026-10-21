@@ -77,6 +77,7 @@
 
 ## home-empty
 - (2026-10-21, later) **Decision: no Home tab at all when a department has no Quick Links.** Feedback on the empty state was to drop it. Instead the Home tab is removed from the tab bar and sign-in lands directly on **Record Completions**. Condition: the department's Quick Links card has zero tiles across all groups.
+- (2026-10-21) **Record gets Home's top treatment.** With no Home tab, the Record Completions screen carries the full `--brand` bar with the department name across the top, exactly like Home does, scrolling away with the content. Departments that do have Quick Links see Record unchanged (no brand bar).
 - (2026-10-21) **Record becomes the landing screen, so it keeps the tab bar** (Record · Scan · Alerts · More) — it is the only way to reach the other tabs — and its X is hidden, because there is nowhere to leave to. Cancel still discards the draft and stays on Record. Everything else about the task is unchanged.
 - (2026-10-21) **Every route to Home goes to Record instead:** the notification pre-prompt's buttons, and "Go to Home" on the confirmation screens (that button is simply hidden there; "Record more" / "Record another" remain).
 - (2026-10-21) ~~"No Quick Links yet" empty state inside the Quick Links card with Record a completion / Scan a QR code buttons.~~ Superseded by the decision above; removed from the mock.
