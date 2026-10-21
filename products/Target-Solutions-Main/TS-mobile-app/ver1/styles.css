@@ -500,24 +500,6 @@ body {
 .ql-tile--locked:active { transform: none; }
 .ql-tile__lock { position: absolute; top: 6px; right: 7px; font-size: 10px !important; opacity: .9; }
 
-/* Empty state — no Quick Links configured for this department yet. Lives in
-   the same card, under the same customer-named title, so Home keeps its shape.
-   Icon disc is the accent at low opacity; buttons are the standard primary /
-   secondary pair pointing at the two things that work without admin setup. */
-.ql-empty {
-  display: flex; flex-direction: column; align-items: center; text-align: center;
-  padding: var(--space-5) var(--space-2) var(--space-2); gap: var(--space-2);
-}
-.ql-empty__icon {
-  width: 72px; height: 72px; border-radius: var(--radius-round);
-  display: inline-flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--accent) 10%, var(--card));
-  color: var(--accent); font-size: 28px; margin-bottom: var(--space-3);
-}
-.ql-empty__title { margin: 0; font-size: var(--fs-5); font-weight: 800; color: var(--color-navy-800); }
-.ql-empty__body  { margin: 0 0 var(--space-5); font-size: var(--fs-4); line-height: 1.45; color: var(--colorSubtle); max-width: 300px; }
-.ql-empty .t-Button + .t-Button { margin-top: var(--space-1); }
-.ql-empty__scan { border-color: var(--color-navy-800); }
 
 /* =============================================================================
    LOGIN  (Initial App Foundation — happy path only)
@@ -732,13 +714,49 @@ body {
 /* Scanner — dark viewfinder with a cut-out reticle */
 .scanner {
   flex: 1; display: none; flex-direction: column; background: #0e1622;
-  padding: calc(var(--header-h) + var(--space-6)) var(--space-6) var(--space-6);
-  align-items: center; justify-content: center; gap: var(--space-6);
+  padding-top: var(--header-h); min-height: 0;
 }
 .scanner.is-active { display: flex; }
+/* The staged "camera feed": fills the space above the hint, edge to edge. */
+.scanner__camera { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+/* Painted cinder-block gym wall: block courses from two repeating gradients
+   (mortar lines), a colored stripe at waist height, and a vignette so it
+   reads as a phone camera rather than a flat graphic. */
+.scanner__wall {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 45%, rgba(0,0,0,.42) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0) 0 62%, #8a2432 62% 72%, rgba(0,0,0,0) 72%),
+    repeating-linear-gradient(180deg, rgba(0,0,0,0) 0 38px, rgba(70,66,60,.55) 38px 41px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0) 0 78px, rgba(70,66,60,.5) 78px 81px),
+    linear-gradient(180deg, #bdb6a8 0%, #aaa396 100%);
+}
+/* The printed sheet, taped up slightly crooked */
+.scanner__paper {
+  position: absolute; left: 50%; top: 50%; width: 196px;
+  transform: translate(-50%, -54%) rotate(-2.5deg);
+  background: #fbfbf9; padding: 14px 14px 12px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 10px 24px rgba(0,0,0,.35);
+}
+.scanner__tape {
+  position: absolute; top: -8px; width: 54px; height: 18px;
+  background: rgba(230,222,190,.72); box-shadow: 0 1px 2px rgba(0,0,0,.15);
+}
+.scanner__tape--tl { left: 14px;  transform: rotate(-38deg); }
+.scanner__tape--tr { right: 14px; transform: rotate(36deg); }
+.scanner__paper-dept  { font-size: 9px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: #5a5a5a; }
+.scanner__qr          { width: 140px; height: 140px; display: block; }
+.scanner__paper-title { font-size: 15px; font-weight: 800; color: #111; margin-top: 2px; }
+.scanner__paper-sub   { font-size: 10px; color: #555; }
+/* Framing guide over the feed */
 .scanner__view {
-  position: relative; width: 230px; height: 230px; border-radius: var(--radius-4);
-  background: repeating-linear-gradient(45deg, #16202f, #16202f 12px, #1a2637 12px, #1a2637 24px);
+  position: absolute; left: 50%; top: 50%; width: 250px; height: 250px;
+  transform: translate(-50%, -54%); border-radius: var(--radius-4); pointer-events: none;
+}
+.scanner__foot {
+  flex: none; display: flex; flex-direction: column; align-items: center; gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-7);
 }
 .scanner__view::before,
 .scanner__view::after {
@@ -750,11 +768,6 @@ body {
 .scanner__corner { position: absolute; width: 46px; height: 46px; border: 4px solid var(--accent); }
 .scanner__corner--tr { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-radius: 0 var(--radius-3) 0 0; }
 .scanner__corner--bl { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-radius: 0 0 0 var(--radius-3); }
-.scanner__line {
-  position: absolute; left: 10px; right: 10px; height: 2px; background: var(--accent);
-  box-shadow: 0 0 12px var(--accent); animation: sweep 2.4s ease-in-out infinite;
-}
-@keyframes sweep { 0%,100% { top: 14px; } 50% { top: 214px; } }
 .scanner__hint { color: #c3ceda; font-size: var(--fs-3); text-align: center; max-width: 240px; line-height: 1.5; }
 
 /* =============================================================================
@@ -767,6 +780,12 @@ body {
 
 /* Full-screen task: tab bar hides, footer takes its place */
 .app--task .t-Tabs { display: none; }
+/* No Quick Links → no Home tab. Record is the landing screen, keeps the tab
+   bar (see goTo) and has nowhere to "leave" to, so its X and the "Go to Home"
+   buttons go too. */
+.app--no-home .t-Tabs__tab[data-tab="home"] { display: none; }
+.app--no-home [data-task-leave] { visibility: hidden; }
+.app--no-home .rc-done [data-goto="home"] { display: none; }
 
 /* Draft dot on the Record tab, unread count on the Alerts tab */
 .t-Tabs__tab { position: relative; }

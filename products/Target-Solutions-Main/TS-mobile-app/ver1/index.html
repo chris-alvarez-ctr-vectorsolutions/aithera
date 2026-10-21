@@ -346,17 +346,33 @@
         <div class="screen__body rc-done" id="rc-done"></div>
       </section>
 
-      <!-- ---- SCAN: QR / barcode → activities (feature #5a) ---- -->
+      <!-- ---- SCAN: QR / barcode → activities (feature #5a) ----
+           The "camera feed" is a staged scene: a printed sheet with the
+           Physical Fitness QR code taped to a painted gym wall, so the screen
+           reads as "pointing the phone at the code outside the workout room".
+           The red corners are the app's framing guide over the feed. -->
       <section class="scanner" id="screen-scan">
-        <div class="scanner__view">
-          <span class="scanner__corner scanner__corner--tr"></span>
-          <span class="scanner__corner scanner__corner--bl"></span>
-          <div class="scanner__line"></div>
+        <div class="scanner__camera" aria-hidden="true">
+          <div class="scanner__wall"></div>
+          <div class="scanner__paper">
+            <span class="scanner__tape scanner__tape--tl"></span>
+            <span class="scanner__tape scanner__tape--tr"></span>
+            <span class="scanner__paper-dept">Springfield Fire Department</span>
+            <img class="scanner__qr" src="qr-fitness.svg" alt="">
+            <span class="scanner__paper-title">Physical Fitness</span>
+            <span class="scanner__paper-sub">Scan to record your workout</span>
+          </div>
+          <div class="scanner__view">
+            <span class="scanner__corner scanner__corner--tr"></span>
+            <span class="scanner__corner scanner__corner--bl"></span>
+          </div>
         </div>
-        <p class="scanner__hint">Point your camera at the QR or barcode posted with the activity.</p>
-        <button class="t-Button t-Button--primary" id="btn-scan" type="button" style="max-width:230px">
-          <i class="fa-solid fa-qrcode"></i> Simulate a scan
-        </button>
+        <div class="scanner__foot">
+          <p class="scanner__hint">Point your camera at the QR or barcode posted with the activity.</p>
+          <button class="t-Button t-Button--primary" id="btn-scan" type="button" style="max-width:230px">
+            <i class="fa-solid fa-qrcode"></i> Simulate a scan
+          </button>
+        </div>
       </section>
 
       <!-- ---- MORE: the app-level destinations that exist ---- -->
@@ -490,7 +506,7 @@
     // user (home-limited), none configured (home-empty). Only these touch the
     // mode, so stepping to any other node leaves the UX-tools switch alone.
     var HOME_MODES = { 'home': 'all', 'home-limited': 'limited', 'home-empty': 'none' };
-    if (window.APP && HOME_MODES[id]) { window.APP.setQuickLinksMode(HOME_MODES[id]); id = 'home'; }
+    if (window.APP && HOME_MODES[id]) { window.APP.setQuickLinksMode(HOME_MODES[id]); id = id === 'home-empty' ? 'record' : 'home'; }
     // "Log in with your agency" is the login screen with the SSO pane open;
     // the agency sign-in page is its own screen, opened for the demo agency.
     var agency = id === 'login-agency';
@@ -562,8 +578,8 @@
           step: 'Home', name: 'Limited Quick Links', state: 'home-limited',
           desc: 'Some departments restrict certain Record Completions activities to admins or supervisors. A firefighter still sees every Quick Link, but the ones they cannot use are grayed out with a lock; tapping one explains that their account lacks access and to ask a supervisor. Switch the demo user and the Quick Links mode from the UX tools dock.' },
         { id: 'home-empty', flow: 'main', x: 820, y: 320,
-          step: 'Home', name: 'No Quick Links yet', state: 'home-empty',
-          desc: 'Home for a department that has not configured any Quick Links. The same card and customer-named title, with the body replaced by an empty state: icon, "No Quick Links yet", one line of explanation, and the two actions that work without admin setup — Record a completion (primary) and Scan a QR code (secondary). Toggle it from the UX tools dock at the bottom of the page.' },
+          step: 'No Quick Links', name: 'No Home Tab', state: 'home-empty',
+          desc: 'A department with no Quick Links configured has no Home tab at all: sign-in lands straight on Record Completions, which keeps the tab bar (Record · Scan · Alerts · More) and loses its X since there is nowhere to leave to. Anything that would go Home (the notification prompt, "Go to Home" after a submit) goes to Record instead. Set Quick Links to None in the UX tools dock to see it.' },
         { id: 'record', flow: 'main', x: 1000, y: 60,
           step: 'Tab', name: 'Record: Activities', state: 'record',
           desc: 'The Activities view of the full-screen task. No app bar: the screen draws its own title row (X keeps the draft, Vector AI badge) and the tab bar hides while the flow is open. An Activities | Participants segmented control (with counts) replaces the old stepper: two views of one record, in any order; Cancel and Submit sit under both. Empty state offers Add Activities; RCA Quick Links land here with their activity already added.' },
@@ -661,8 +677,9 @@
      Review tooling only — NOT part of the product; developers strip this too.
        • User — switches the signed-in demo user (Jordan Lee the captain, Sam
          Rivera the firefighter) without a second login. ?user=firefighter
-       • Quick Links — cycles Home through All → Limited → Off
-         (APP.setQuickLinksMode). ?ql=limited / ?ql=off start the page there. -->
+       • Quick Links — cycles All → Limited → None (APP.setQuickLinksMode).
+         None removes the Home tab: sign-in lands on Record Completions.
+         ?ql=limited / ?ql=off start the page there. -->
 <script>
   (function () {
     var BTN_CSS = 'display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);' +
@@ -691,11 +708,11 @@
     document.addEventListener('ts:user', paintUser);
 
     // ── Quick Links mode ────────────────────────────────────────────────────
-    var qlBtn = mk('Cycle Quick Links: all live \u2192 some locked for this user \u2192 none configured');
+    var qlBtn = mk('Cycle Quick Links: all live \u2192 some locked for this user \u2192 none configured (no Home tab)');
     var MODES = ['all', 'limited', 'none'];
     var LOOK  = { all:     { label: 'All',     css: 'background:#16a34a;color:#fff;' },
                   limited: { label: 'Limited', css: 'background:#d97706;color:#fff;' },
-                  none:    { label: 'Off',     css: 'background:#52525b;color:#e4e4e7;' } };
+                  none:    { label: 'None',    css: 'background:#52525b;color:#e4e4e7;' } };
     function paintQl() {
       var m = window.APP ? window.APP.quickLinksMode() : 'all';
       qlBtn.innerHTML = 'Quick Links <span style="' + PILL + LOOK[m].css + '">' + LOOK[m].label + '</span>';

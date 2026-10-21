@@ -62,18 +62,15 @@
        'all'     every tile is live (default)
        'limited' the signed-in user lacks access to the supervisorOnly tiles:
                  they stay visible but grayed out, and a tap explains why
-       'none'    the department has not configured any Quick Links — the card
-                 keeps its title and shows the empty state below
+       'none'    the department has not configured any Quick Links — there is
+                 NO Home tab: sign-in lands on Record Completions (which keeps
+                 the tab bar and loses its X), and every route to Home goes to
+                 Record instead. See hasHome() / goTo().
      Driven by APP.setQuickLinksMode() and the flow map's home-* nodes. */
   var quickLinksMode = 'all';
+  function hasHome() { return quickLinksMode !== 'none'; }
   var QUICK_LINKS_LOCKED = {
     body:  'Your account doesn’t have access to record this activity. Ask your supervisor or training officer to record it for you.'
-  };
-  var QUICK_LINKS_EMPTY = {
-    title: 'No Quick Links yet',
-    body:  "Your department hasn't set up any Quick Links. You can still record completions and scan QR codes.",
-    record: 'Record a completion',
-    scan:   'Scan a QR code'
   };
 
   /* "More" tab. Only built features are listed — the below-the-line PRD
@@ -191,22 +188,9 @@
 
   function renderQuickLinks() {
     $('#ql-title').textContent = QUICK_LINKS.title;
-    if (quickLinksMode === 'none') {
-      // Same card, same customer-named title; the body swaps to the empty
-      // state. Record uses the same fresh-record path as the Record tab; Scan
-      // opens the viewfinder.
-      $('#ql-groups').innerHTML =
-        '<div class="ql-empty">' +
-        '<span class="ql-empty__icon" aria-hidden="true"><i class="fa-solid fa-grid-2"></i></span>' +
-        '<h3 class="ql-empty__title">' + QUICK_LINKS_EMPTY.title + '</h3>' +
-        '<p class="ql-empty__body">' + QUICK_LINKS_EMPTY.body + '</p>' +
-        '<button class="t-Button t-Button--primary" type="button" data-goto="record">' +
-        '<i class="fa-solid fa-clipboard-check"></i>' + QUICK_LINKS_EMPTY.record + '</button>' +
-        '<button class="t-Button t-Button--secondary ql-empty__scan" type="button" data-goto="scan">' +
-        '<i class="fa-solid fa-qrcode"></i>' + QUICK_LINKS_EMPTY.scan + '</button>' +
-        '</div>';
-      return;
-    }
+    // No Home tab without Quick Links (see hasHome); the tab bar, the task's X
+    // and the "Go to Home" buttons all key off this class.
+    app.classList.toggle('app--no-home', !hasHome());
     $('#ql-groups').innerHTML = QUICK_LINKS.groups.map(function (group) {
       var tiles = group.tiles.map(function (tile) {
         // Limited mode: supervisor-only tiles stay visible (the user can see
@@ -333,9 +317,11 @@
       if (!deviceId) setDevice('personal');
       showLoginPane();
     }
+    // No Quick Links → no Home tab: anything headed Home lands on Record.
+    if (id === 'home' && !hasHome()) id = 'record';
     // The pre-prompt has been answered. Shared devices skip it entirely, so a
     // tablet later switched to "Just me" still gets to see it.
-    if (id === 'home' && !isShared()) pushPromptSeen = true;
+    if (!outside && !isShared()) pushPromptSeen = true;
 
     var inApp = !outside;
     app.hidden = !inApp;
@@ -361,8 +347,10 @@
     document.querySelectorAll('.t-Tabs__tab').forEach(function (tab) {
       tab.classList.toggle('is-active', tab.dataset.tab === activeTab);
     });
-    // Full-screen tasks (Record Completions) hide the tab bar while open.
-    app.classList.toggle('app--task', !!SCREENS[id].task);
+    // Full-screen tasks (Record Completions) hide the tab bar while open —
+    // except when there is no Home tab: Record is then the landing screen and
+    // the only way to the other tabs, so the bar stays.
+    app.classList.toggle('app--task', !!SCREENS[id].task && hasHome());
     header.classList.toggle('is-none', !!SCREENS[id].noHeader);
     renderHeader(id);
 
@@ -800,11 +788,15 @@
     // Driven by the UX tools dock and the flow map's home / home-limited /
     // home-empty nodes.
     quickLinksMode: function () { return quickLinksMode; },
+    hasHome: hasHome,
     setQuickLinksMode: function (mode) {
       if (mode !== 'all' && mode !== 'limited' && mode !== 'none') return;
       if (mode === quickLinksMode) return;
       quickLinksMode = mode;
       renderQuickLinks();
+      // Re-run the current screen so the tab bar / task chrome follow the mode
+      // (and a Home that no longer exists becomes Record).
+      if (!app.hidden) goTo(currentScreen, { instant: true });
       document.dispatchEvent(new CustomEvent('ts:quicklinks', { detail: { mode: mode } }));
     }
   };

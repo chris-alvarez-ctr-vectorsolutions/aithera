@@ -312,7 +312,7 @@
     if (!draft.activities.length) {
       return '<div class="rc-hero"><h2 class="rc-hero__title">Activities</h2>' +
              '<button class="rc-pill" data-rc="add-activities" type="button"><i class="fa-solid fa-plus"></i> Add Activities</button>' +
-             '<p class="rc-hero__hint">Pick the trainings you ran. Quick Links on Home add one for you.</p></div>';
+             '<p class="rc-hero__hint">Pick the trainings you ran.' + (window.APP && !window.APP.hasHome() ? '' : ' Quick Links on Home add one for you.') + '</p></div>';
     }
     return '<div class="rc-hero rc-hero--list">' +
            '<div class="rc-hero__bar"><h2 class="rc-hero__title">Activities</h2>' +

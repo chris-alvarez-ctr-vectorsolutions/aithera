@@ -76,11 +76,15 @@
 - (2026-10-21) **Prototype only:** the Quick Links switch in the UX tools dock now cycles All → Limited → Off, and the User switch flips between Jordan Lee (captain) and Sam Rivera (firefighter). `?ql=limited` / `?user=firefighter` in the URL start the page that way.
 
 ## home-empty
-- (2026-10-21) **Why it exists:** Quick Links are admin-configured, so a department that has not set any up still needs a Home to land on. Same card, same customer-named title; only the card body changes.
-- (2026-10-21) **Content:** an accent-tinted icon disc (grid icon), "No Quick Links yet", one line — "Your department hasn't set up any Quick Links. You can still record completions and scan QR codes." — then two full-width buttons: **Record a completion** (primary) and **Scan a QR code** (secondary, navy outline).
-- (2026-10-21) **Actions reuse existing routes:** Record a completion opens a fresh Record Completions task (same as the Record tab); Scan a QR code opens the scanner tab. No new flows.
-- (2026-10-21) **Condition:** show it when the department's Quick Links card has zero tiles across all groups. The brand bar, tab bar and alerts are unchanged.
-- (2026-10-21) **Prototype only:** the Quick Links switch in the UX tools dock (All → Limited → Off) and the `?ql=off` URL flag are review tooling, not product.
+- (2026-10-21, later) **Decision: no Home tab at all when a department has no Quick Links.** Feedback on the empty state was to drop it. Instead the Home tab is removed from the tab bar and sign-in lands directly on **Record Completions**. Condition: the department's Quick Links card has zero tiles across all groups.
+- (2026-10-21) **Record becomes the landing screen, so it keeps the tab bar** (Record · Scan · Alerts · More) — it is the only way to reach the other tabs — and its X is hidden, because there is nowhere to leave to. Cancel still discards the draft and stays on Record. Everything else about the task is unchanged.
+- (2026-10-21) **Every route to Home goes to Record instead:** the notification pre-prompt's buttons, and "Go to Home" on the confirmation screens (that button is simply hidden there; "Record more" / "Record another" remain).
+- (2026-10-21) ~~"No Quick Links yet" empty state inside the Quick Links card with Record a completion / Scan a QR code buttons.~~ Superseded by the decision above; removed from the mock.
+- (2026-10-21) **Prototype only:** set the Quick Links switch in the UX tools dock to **None** (or `?ql=off` in the URL) to see it.
+
+## scan
+- (2026-10-21) **Staged camera feed instead of a scanning animation.** The viewfinder shows a printed sheet taped to a painted cinder-block gym wall: the department name, the Physical Fitness QR code, "Physical Fitness — Scan to record your workout". The red corner brackets are the app's framing guide over the feed. The old sweeping red line is gone.
+- (2026-10-21) **The code in the mock is a stand-in** (`ver1/qr-fitness.svg`, not scannable). "Simulate a scan" still resolves to the Physical Fitness self-assign; in production the camera resolves whatever code it sees.
 
 ## more
 - (2026-10-21) **Account row shows name + department only.** The role/title ("Company Officer") was dropped from the account row and from Profile: title data is not available at launch.
