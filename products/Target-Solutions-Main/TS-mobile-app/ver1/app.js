@@ -368,8 +368,45 @@
 
     var active = $('#screen-' + id);
     if (active) active.scrollTop = 0;
+    setWhoMini(false);   // a new screen starts at the top, so the strip is open
   }
   window.goTo = goTo;   // consumed by the Design Toolbox flow map
+
+  /* ---------------------------------------------------------------------------
+     Identity strip collapses with the scroll (shared devices)
+     ---------------------------------------------------------------------------
+     The full strip (avatar, name, Switch) is tall. Once the user scrolls down
+     it shrinks to a one-line ribbon that still says who is signed in; pulling
+     back up, reaching the top, or tapping the ribbon opens it again. Every
+     scroller in the app (.screen, .js-scroll) reports through one capture-
+     phase listener, with the last position kept per element so direction can
+     be read.
+     ------------------------------------------------------------------------ */
+  var whoLastY = new WeakMap();
+  var whoSettle = 0;   // ignore scroll events until this time (see below)
+  function setWhoMini(on) {
+    on = !!on;
+    if (who.classList.contains('who--mini') === on) return;
+    who.classList.toggle('who--mini', on);
+    // Changing the strip's height resizes the scroller beneath it, and the
+    // browser may clamp that scroller's position in response — which fires a
+    // scroll event that would read as "the user pulled up" and reopen the
+    // strip, forever. So after every toggle, scroll events are ignored for the
+    // length of the height transition (only the last position is recorded).
+    whoSettle = Date.now() + 320;
+  }
+  $('.device-screen').addEventListener('scroll', function (e) {
+    var el = e.target;
+    if (!el.classList || !(el.classList.contains('screen') || el.classList.contains('js-scroll'))) return;
+    if (!isShared()) return;
+    var y = el.scrollTop, last = whoLastY.get(el) || 0;
+    whoLastY.set(el, y);
+    if (Date.now() < whoSettle) return;                 // our own layout change
+    if (y <= 8)                      setWhoMini(false); // at the top: always open
+    else if (y > last + 4 && y > 24) setWhoMini(true);  // scrolling down: collapse
+    else if (y < last - 4)           setWhoMini(false); // pulling back up: open
+  }, true);
+  who.addEventListener('click', function () { if (who.classList.contains('who--mini')) setWhoMini(false); });
 
   /* ---------------------------------------------------------------------------
      Face ID
