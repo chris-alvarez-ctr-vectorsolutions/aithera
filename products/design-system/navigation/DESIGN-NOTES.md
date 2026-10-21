@@ -1,5 +1,14 @@
 # Vector navigation shell · design notes
 
+## Changelog · 2026-10-20 (V5: Winpak replaces Georgia-Pacific as the sample tenant)
+
+- **Tenant brand is now Winpak.** `--brand-bar` is `#007454`, lifted from the Winpak wordmark
+  (the mark's brighter green is `#0c9448`). Brand on paints the `vwc-topnav` bar that green and
+  shows the Winpak logo in the five side-nav logo slots; Brand off is unchanged.
+- **Logo as a PNG, not a symbol.** Winpak's artwork came as a JPG on white, so it is knocked out
+  to `winpak-logo.png` (478×45, crisp at 2x in the 218px slot) and placed with an `<img>` in
+  each slot. The Georgia-Pacific SVG symbol is gone.
+
 ## Changelog · 2026-10-16 (V5: the tenant brand on the top-nav bar)
 
 - **New `v5-tenant-brand.html`.** A copy of V4 (the design system shell EHS ships) that carries
