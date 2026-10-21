@@ -219,10 +219,53 @@
     });
   }
 
+  /* Course list: one row per course, shared by the Courses page and the Overview so they never drift.
+     Column labels and the bar legend are said once; each row's bar is the course report's Learner
+     performance bar. A linked row opens the report; its weakest-area link goes to Performance by section. */
+  function courseSeg(key, n, label, total) {
+    return n ? '<span class="seg-' + key + '" style="flex:' + n + ' 1 0" title="' + label + ': ' + n + ' of ' + total + '"></span>' : '';
+  }
+  function courseRow(c) {
+    var B = window.BBP, NONE = '<span class="cl-none">—</span>';
+    var comp = B.pct(c.completed, c.assigned), demo = c.demo == null ? null : B.pct(c.demo, c.completed);
+    var name = c.href ? '<a class="cl-link" href="' + c.href + '">' + esc(c.name) + '</a>' : esc(c.name);
+    var when = c.closed
+      ? 'Ended ' + c.ended + (c.open ? ' · ' + c.open + ' did not finish' : ' · everyone finished')
+      : 'Due ' + c.due + ' · <b>' + c.open + ' still to go</b>';
+    var bar = demo == null
+      ? courseSeg('done', c.completed, 'Finished', c.assigned) + courseSeg('open', c.open, 'Not finished', c.assigned)
+      : courseSeg('strong', c.strong, 'Doing well', c.assigned) + courseSeg('ontrack', c.ontrack, 'On track', c.assigned) +
+        courseSeg('support', c.support, 'Needs support', c.assigned) + courseSeg('open', c.open, 'Not finished', c.assigned);
+    var label = demo == null
+      ? c.completed + ' finished, ' + c.open + ' not finished'
+      : c.strong + ' doing well, ' + c.ontrack + ' on track, ' + c.support + ' need support, ' + c.open + ' not finished';
+    // Weakest area = most people still at Practice Needed, worded like its Performance by section row.
+    var weak = c.gap
+      ? '<b>' + esc(c.gap.name) + '</b><small>' + (100 - c.gap.after) + '% at Good or better' + (c.early ? ' so far' : '') + '</small>'
+      : NONE;
+    if (c.gap && c.href) weak = '<a class="cl-weak-link" href="' + c.href + '#bySection">' + weak + '</a>';
+    return '<div class="cl-row' + (c.href ? ' is-link' : '') + '" role="listitem">' +
+      '<span class="cl-course"><span class="ci ' + (c.adaptive ? 'ci-blue' : 'ci-gray') + '" role="img" aria-label="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '" title="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '"><i class="fa-solid ' + (c.adaptive ? 'fa-route' : 'fa-list-ol') + '"></i></span>' +
+        '<span><span class="cl-name">' + name + '</span><small>' + when + '</small></span></span>' +
+      '<span class="cl-results"><span class="pg-bar" role="img" aria-label="' + label + ', of ' + c.assigned + ' enrolled">' + bar + '</span>' +
+        '<small><b>' + comp + '% finished</b> · ' + c.completed + ' of ' + c.assigned + '</small></span>' +
+      '<span class="num cl-demo"><span class="cl-k">Showed competency</span>' + (demo == null ? '<span class="cl-only">Completion only</span>' : '<b>' + demo + '%</b>') + '</span>' +
+      '<span class="num cl-sup"><span class="cl-k">Need support</span>' + (c.support == null ? NONE : '<b' + (c.support ? ' class="warn"' : '') + '>' + c.support + '</b>') + '</span>' +
+      '<span class="cl-weak"><span class="cl-k">Weakest area</span>' + weak + '</span>' +
+      '<span class="cl-go">' + (c.href ? '<i class="fa-solid fa-chevron-right"></i>' : '') + '</span></div>';
+  }
+  function courseList(list) {
+    var std = list.some(function (c) { return c.demo == null; });
+    return '<div class="cl-row cl-headrow" aria-hidden="true"><span>Course</span><span>Results</span><span class="num">Showed competency</span><span class="num">Need support</span><span>Weakest area</span><span></span></div>' +
+      '<div role="list">' + list.map(courseRow).join('') + '</div>' +
+      '<div class="cl-legend"><span><i class="seg-strong"></i>Doing well</span><span><i class="seg-ontrack"></i>On track</span><span><i class="seg-support"></i>Needs support</span>' +
+        (std ? '<span><i class="seg-done"></i>Finished (standard course)</span>' : '') + '<span><i class="seg-open"></i>Not finished</span></div>';
+  }
+
   window.Admin = {
     placePop: place, esc: esc, initials: initials, head: head, wirePops: wirePops, info: info,
     getScope: getScope, setScope: setScope, scopeButton: scopeButton,
     dots: dots, pathTag: pathTag, statusChip: statusChip, learnerHref: learnerHref, learnerProfileHref: learnerProfileHref,
-    learnerRow: learnerRow, wireRows: wireRows
+    learnerRow: learnerRow, wireRows: wireRows, courseList: courseList
   };
 })();

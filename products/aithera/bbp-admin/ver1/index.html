@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=58" />
+    <link rel="stylesheet" href="admin.css?v=61" />
 </head>
 <body>
     <div id="head"></div>
@@ -20,26 +20,25 @@
         <!-- The headline: did the training work, across every adaptive course? -->
         <section class="rp-card hero" aria-label="Outcome achievement" id="hero"></section>
 
-        <!-- Org-wide numbers across every active course; the trend rides inside the second tile -->
-        <section class="rp-kpis rp-kpis--3" id="kpis" aria-label="Key figures"></section>
+        <!-- Two org-wide numbers built the same way: label, number, what it counts, the same bar the
+             Courses list and course report use, then one line about what to do next.
+             Need support rides in the competency tile: they are the finishers who did not show it. -->
+        <section class="rp-kpis rp-kpis--2" id="kpis" aria-label="Key figures"></section>
 
         <!-- Attention lives inside each course: if someone needs help, it is in the context of a course -->
-        <section class="rp-card" aria-label="Active courses">
+        <section class="rp-card cl cl--embed" aria-label="Active courses">
             <div class="rp-card-head">
-                <div><h2>Active courses</h2><p class="rp-card-sub" style="margin:2px 0 0">Soonest due first</p></div>
+                <div><h2>Active courses</h2><p class="rp-card-sub" id="courseSub" style="margin:2px 0 0"></p></div>
                 <a href="courses.html" class="card-link">All courses <i class="fa-solid fa-arrow-right"></i></a>
             </div>
+            <!-- Same rows as the Courses page (Admin.courseList), capped to the soonest due -->
             <div id="courseRows"></div>
-            <div class="dual-legend">
-                <span><i style="background:#7fb8e6"></i> Finished</span>
-                <span><i style="background:var(--rp-primary)"></i> Showed competency (of those who finished)</span>
-            </div>
         </section>
 
     </main>
 
     <script src="data.js?v=15"></script>
-    <script src="admin-ui.js?v=10"></script>
+    <script src="admin-ui.js?v=11"></script>
     <script>
 
       (function () {
@@ -95,31 +94,32 @@
         A.wirePops();
 
         /* ---- Key figures ---- */
-        var spark = '<svg class="spark" viewBox="0 0 120 28" preserveAspectRatio="none" role="img" aria-label="Rising over the last three weeks"><polygon class="area" points="0,28 0,28 24,23.6 48,18.4 72,13.2 96,9.6 120,7 120,28"/><polyline points="0,28 24,23.6 48,18.4 72,13.2 96,9.6 120,7"/><circle cx="120" cy="7" r="3"/></svg>';
-        var finBar = '<span class="tile-meter" role="img" aria-label="' + B.pct(totC, totA) + ' percent finished"><span style="width:' + B.pct(totC, totA) + '%"></span></span>';
+        var adS = 0, adT = 0;
+        courses.forEach(function (c) { if (c.adaptive) { adS += c.strong; adT += c.ontrack; } });
+        function seg(key, n, label, total) {
+          return n ? '<span class="seg-' + key + '" style="flex:' + n + ' 1 0" title="' + label + ': ' + n + ' of ' + total + '"></span>' : '';
+        }
+        function kpi(o) {
+          return '<div class="rp-card tile kt"><span class="tile-label">' + o.label + '</span>' +
+            '<span class="tile-value">' + o.value + '<small>%</small></span><span class="kt-sub">' + o.sub + '</span>' +
+            '<span class="pg-bar" role="img" aria-label="' + o.aria + '">' + o.bar + '</span>' +
+            '<span class="kt-foot"><span>' + o.foot + '</span>' + (o.link || '') + '</span></div>';
+        }
         document.getElementById('kpis').innerHTML =
-          tile('Finished', B.pct(totC, totA) + '<small>%</small>', totC + ' of ' + totA + ' assignments · ' + courses.length + ' courses', '', finBar +
-            '<span class="tile-foot"><i class="fa-regular fa-clock"></i> Next due <b>' + soon.due + '</b> · ' + E(soon.name) + '</span>') +
-          tile('Showed competency', B.pct(adD, adC) + '<small>%</small>', adD + ' of ' + adC + ' who finished adaptive courses', '', spark) +
-          '<a class="rp-card tile tile--link" href="learners.html?f=support"><span class="tile-label">Need support</span><span class="tile-value">' + sup + '<small> people</small></span><span class="tile-delta flat">still working on a key area</span><span class="tile-foot tile-foot--link">See who <i class="fa-solid fa-arrow-right"></i></span></a>';
+          kpi({ label: 'Finished', value: B.pct(totC, totA), sub: totC + ' of ' + totA + ' assignments · ' + courses.length + ' courses',
+                bar: seg('done', totC, 'Finished', totA) + seg('open', totA - totC, 'Not finished', totA),
+                aria: totC + ' finished, ' + (totA - totC) + ' not finished',
+                foot: '<i class="fa-regular fa-clock"></i>Next due <b>' + soon.due + '</b> · ' + E(soon.name) }) +
+          kpi({ label: 'Showed competency', value: B.pct(adD, adC), sub: adD + ' of ' + adC + ' who finished adaptive courses',
+                bar: seg('strong', adS, 'Doing well', adC) + seg('ontrack', adT, 'On track', adC) + seg('support', sup, 'Needs support', adC),
+                aria: adS + ' doing well, ' + adT + ' on track, ' + sup + ' need support',
+                foot: '<i class="fa-solid fa-flag"></i><b>' + sup + ' need support</b> · still working on a key area',
+                link: '<a class="card-link" href="learners.html?f=support">See who <i class="fa-solid fa-arrow-right"></i></a>' });
 
-        /* ---- Active courses ---- */
-        function bar(kind, v, title) {
-          return '<span class="dbar"><span class="dbar-track"><span class="dbar-fill ' + kind + '" style="width:' + v + '%"></span></span><span class="dbar-val" title="' + title + '"><b>' + v + '%</b></span></span>';
-        }
-        function chip(n, label, cls, href) {
-          if (!n) return '';
-          var inner = '<b>' + n + '</b> ' + label;
-          return href ? '<a class="att-chip ' + cls + '" href="' + href + '">' + inner + '</a>' : '<span class="att-chip ' + cls + '">' + inner + '</span>';
-        }
-        document.getElementById('courseRows').innerHTML = courses.map(function (c) {
-          var urgent = c.days <= 21 ? ' urgent' : '', href = c.id === 'bbp' ? 'course-report.html' : null;
-          var ico = '<span class="ci ' + (c.adaptive ? 'ci-blue' : 'ci-gray') + '" role="img" aria-label="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '" title="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '"><i class="fa-solid ' + (c.adaptive ? 'fa-route' : 'fa-list-ol') + '"></i></span>';
-          return '<div class="course-row"><span class="dual-name">' + ico + '<span>' + (href ? '<a href="' + href + '">' + E(c.name) + '</a>' : E(c.name)) + '<span class="due' + urgent + '">Due ' + c.due + ' · ' + c.days + ' days</span></span></span>' +
-            '<span class="dual-bars">' + bar('comp', B.pct(c.completed, c.assigned), 'Finished') +
-              (c.demo == null ? '<span class="dbar-note" title="Standard courses report completion only"><i class="fa-solid fa-circle-info"></i>Completion only</span>' : bar('demo', B.pct(c.demo, c.completed), 'Showed competency, as a share of those who finished')) + '</span>' +
-            '<span class="course-att">' + (chip(c.support, 'need support', 'warn', href ? href + '?people=support' : '') + chip(c.open, 'not finished', 'mut', href ? href + '?people=open' : '') || '<span class="att-none">Nothing needs attention</span>') + '</span></div>';
-        }).join('');
+        /* ---- Active courses: the Courses page list, soonest due first, capped so it scales ---- */
+        var MAX_COURSES = 5;
+        document.getElementById('courseRows').innerHTML = A.courseList(courses.slice(0, MAX_COURSES).map(function (c) { c.href = c.id === 'bbp' ? 'course-report.html' : null; return c; }));
+        document.getElementById('courseSub').textContent = 'Soonest due first' + (courses.length > MAX_COURSES ? ' · ' + MAX_COURSES + ' of ' + courses.length : '');
       })();
 
     </script>
