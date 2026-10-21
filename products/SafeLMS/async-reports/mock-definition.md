@@ -1,7 +1,7 @@
 # Mock Definition — Async Reports (SafeLMS)
 
 **Stage**: Ready for dev
-**Mock**: ver1/index.html (handed off) · ver2/index.html (post-handoff change, not handed off yet)
+**Mock**: ver1/index.html (V1, handed off) · ver2/index.html ("Beta Feedback", post-handoff change, not handed off yet)
 **Version**: V1
 **PRD source**: none on file
 **Reviewed**: not run. This handoff predates the PRD-reconciliation step.
@@ -82,4 +82,4 @@ in the download. V2 adds the following:
 |---|---|---|---|---|
 | 2026-06-08 | Handed off to dev | V1 | n/a (first build) | yes |
 | 2026-10-21 | Folded into the versioned structure: the design moved from `index.html` to `ver1/index.html`, and the feature root is now the version loader. No design change. Added the `DEV-HANDOFF` marker to `dev_handoff.html`. | V1 | n/a (dev build content unchanged) | not needed |
-| 2026-10-21 | **Beta feedback: Report Log parameters.** Added auto-generated, renameable report names, a Date Range column, an expandable Report settings row, and View Report restoring the run's filters. Spun off as **V2**. V1 and its dev build are unchanged. | V2 | no (V2 not handed off yet) | not yet |
+| 2026-10-21 | **Beta feedback: Report Log parameters.** Added auto-generated, renameable report names, a Date Range column, an expandable Report settings row, and View Report restoring the run's filters. Spun off as **V2, labeled "Beta Feedback"** in the version switcher. V1 and its dev build are unchanged. | V2 | no (V2 not handed off yet) | not yet |
