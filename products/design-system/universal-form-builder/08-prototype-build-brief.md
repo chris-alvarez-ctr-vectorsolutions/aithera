@@ -1,6 +1,8 @@
 # Form Builder: prototype build brief
 
-**Status:** Draft v1 · **Date:** 2026-10-21 · **Prototype:** [`prototype/`](prototype/) (versioned feature; design work in `prototype/ver1/index.html`)
+**Status:** Passes 1–5 built, reviewable · **Updated:** 2026-10-21 · **Prototype:** [`prototype/`](prototype/) (versioned feature; design work in `prototype/ver1/index.html`)
+
+> **Build status.** Passes 1–5 are built and verified in Chrome; every surface has a flow-map scene with a deep link. **Pass 6 (the EHS profile) is on hold** by decision on 2026-10-21: EHS stays an inferred profile in this brief until its code dive. The walkthrough script below is ready to run with Check It and Evaluations.
 
 ## Purpose
 
@@ -115,15 +117,53 @@ Each pass ends in a review. The flow map gains a node per surface so every scene
 | **3** | Rules panel (when → then) · Rule outcomes from the profile · Extensions at every attachment point · Injected-question extension · Plain-language rule summary on a question | Failure actions, ticket/notify config forms | Declarative rules, extension registry |
 | **4** | Live preview per respondent and device · Test run · Quality checks (placeholder labels, empty options, broken rules, min > max) · Optional content review | — | Reference renderer |
 | **5** | Publish: lock warnings, blast radius from publish impact, propagation policy · Versions and supersede · "Keep history / new series" on a material edit · Maintain: where used, archive | Draft/publish, blast-radius dialog | Identity vs. version, hold-and-notify |
-| **6** | EHS profile over the same shell · Flow map complete · Walkthrough script | — | Lookup, locked fields, spawned forms |
+| **6** | EHS profile over the same shell · Flow map complete · Walkthrough script | — | Lookup, locked fields, spawned forms. **EHS on hold (2026-10-21).** Flow map and script done without it |
 
-## Walkthrough script (outline)
+## Walkthrough script
 
-One path per product, each ending at Publish, using the same shell:
+Thirty minutes, two profiles, the same shell. Each step names the flow-map scene (🗺 in the toolbox dock, or `#fm=<scene>` on the URL) so a reviewer can jump straight to it.
 
-1. **Evaluations:** open the Forms library → create an Evaluation form from the Danielson template → add a Reflection question and set who answers → attach TS Tags → preview as evaluator, then as evaluee → quality checks flag an empty option → publish; the lock warning names Type and sharing; the blast radius lists two plans.
-2. **Check It:** switch profile → the same library now says Checklists → open Apparatus Morning Check → edit the pump block; the publish dialog shows the 14 checklists it reaches → add a nested SCBA step → a fail on a step opens the ticket outcome → preview on a phone → publish.
-3. **The contrast:** edit a shared block in each product and show the two propagation policies side by side.
+### Part 1: Evaluations (12 min)
+
+| # | Scene | Do | Say |
+|---|---|---|---|
+| 1 | `library-ev` | Open the Forms library. Point at the status column. | One library per product: forms, templates, form sections, scales. Statuses are Evaluations' own, including Superseded and Publish-Restricted. Code-confirmed. |
+| 2 | `setup-ev` | Click New form. Pick Evaluation, leave Mode on Normal, choose "The evaluee" as who can start it. Cancel. | Setup is Kind + Mode + Template (P2). Mode locks after publish and the dialog says so before you pick. "Normal follows the initiator" is why who-can-start-it sits here. |
+| 3 | `builder-ev` | Open Classroom Observation. Expand Domain 3. | Canvas + inspector, whole form visible. Danielson domains are linked form sections: edit once in the library, every form follows. The pinned timer and the injected JAC question show where delivery puts them. |
+| 4 | `question-ev` | Select Teacher reflection. Open Who answers. Try to pick Read Only on a signature (disabled). | Who answers is a relationship to the record, not a role. The allowed matrix per mechanism is the engine's. |
+| 5 | `preview-ev` | Preview as the evaluee, then switch to Evaluator. Switch to Phone. | Reference renderer (P1): what the definition expresses, not Evaluations' delivery. Locked questions make the subtype model visible. |
+| 6 | `testrun-ev` | Test run the Walk-through. Rate two look-fors; watch completion. | Completion is derived from the definition: required answers, signatures under the lock mode, the sharing gate. The builder never computes status; the product does, from this data. |
+| 7 | `rule-ev` | Open the rule on a look-for. Add "open a growth plan". Cancel. | One rules model everywhere. Outcomes are registered by the product: Evaluations offers course recommendation and growth plan; Check It will offer tickets. |
+| 8 | `quality-ev` → `publish-first-ev` | Show the coaching log's three errors, then open Publish on the self-assessment. | Quality gate blocks publish. First publish lists what locks. Publish-Restricted is an availability option. |
+| 9 | `publish-block-ev` → `pending-ev` | Publish Domain 3. Open Classroom Observation. | Propagation is a profile policy (P3): Evaluations holds, so the form shows a notice and keeps its version until someone republishes. |
+
+### Part 2: Check It (12 min)
+
+| # | Scene | Do | Say |
+|---|---|---|---|
+| 10 | `library-ci` | Switch the profile to Check It. | Same shell, different words: checklists, steps, content blocks. Nothing reloaded. |
+| 11 | `builder-ci` | Open Apparatus Morning Check. | Local steps interleave with linked content blocks. This is the prototype's reading of the PRD, not the PRD's: the PRD says questions live only in blocks. Decision needed. |
+| 12 | `picker-ci` | Add step → Measure → Count vs. par. Cancel. | Mechanism + preset. Pass/Fail, Count vs. par and Nested check are Check It presets of shared mechanisms. |
+| 13 | `blockpicker-ci` → `blockeditor-ci` | Add a content block; note the disabled single-use one. Open SCBA Readiness in the library. | Sealed blocks, multi-use rule, block-level instructions with images (Q40), blast-radius note reading the auto-follow policy. |
+| 14 | `repeat-ci` | Select the per-bottle Repeat. | Per-asset answers are a Repeat whose rows come from Check It's asset registry: the SCBA case without product fields in the core (07, trap 2). |
+| 15 | `question-ci` → `rule-ci` | Select the nested ladders step, then open its rule. | Nested check with look-back as a Check It dimension. Fail → create a ticket with Check It's own ticket settings (07, trap 1). |
+| 16 | `preview-ci` | Test run on a phone. Fail the first step. | Required comment, "this failure will: create a ticket", submit gated with Go-to-it blockers. |
+| 17 | `identity-ci` | Show the reworded bay-door step. Pick Keep history. | A material edit asks: same question or a new series (P4, PRD Q7). Labels never carry identity. |
+| 18 | `publish-ci` → `json-ci` | Open Publish, then View definition. | Blast radius from Check It's publish-impact extension: seven deployments. The JSON is the schema-v1 contract both products consume. |
+
+### Part 3: the contrast (5 min)
+
+| # | Scene | Do | Say |
+|---|---|---|---|
+| 19 | `blockeditor-ci` → `blockeditor-ev` | Publish a block in each profile. | Same action, two policies: Check It auto-follows, Evaluations holds. That difference lives in the profile, not the core. |
+| 20 | `rulespanel-ci` | Open the rules panel. | Rules travel with blocks; the panel shows them once per block with the placement count. |
+
+### What to collect from reviewers
+
+- Which of P1–P8 they would decide differently, and why.
+- Whether the Check It profile's local-steps reading (step 11) is acceptable to Check It product.
+- Anything in either profile that is wrong for that product. The confidence tags say what is code-confirmed and what is a guess.
+- Vocabulary that still reads as the other product's.
 
 ## Confidence tags in the prototype
 

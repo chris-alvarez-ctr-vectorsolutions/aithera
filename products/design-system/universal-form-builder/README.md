@@ -28,7 +28,8 @@ Several Vector products each build their own form, checklist or question editor.
 | 01 | [Evaluations analysis](01-evaluations-analysis.md) | Evaluation forms, PD event forms, and **EV+ authoring confirmed against code** (§1a) |
 | 02 | [Check It analysis](02-check-it-analysis.md) | Checklist Management and the sandbox prototype |
 | 04 | [EHS analysis](04-ehs-analysis.md) | Incident, Corrective Action, Observation and JSA forms |
-| 08 | **[Prototype build brief](08-prototype-build-brief.md)** | Decisions and modelling assumptions (P1–P8) for the clickable prototype in [`prototype/`](prototype/), the three product profiles as data, seed forms, the six build passes and the walkthrough script |
+| 08 | **[Prototype build brief](08-prototype-build-brief.md)** | Decisions and modelling assumptions (P1–P8), the product profiles as data, seed forms, the build passes and the **30-minute walkthrough script** for the clickable prototype |
+| — | **[Form Builder Prototype](prototype/index.html)** (page) | The shared authoring shell as Check It and Evaluations via a profile switch. Passes 1–5 built: library, setup, canvas + inspector, blocks, rules, preview and test run, quality, review, publish, versions. EHS profile on hold |
 | — | **[EV+ research questions](research/ev-plus-research-questions.md)** | What engineering pulls, what only EV+ users can answer, and what to pull first and then validate with users. Participants, method and timing |
 
 ## Key points
@@ -57,7 +58,8 @@ Everything inferred is listed in the [code-dive brief](05-code-dive-brief.md). P
 
 - [ ] Review the journey maps, 03 and the mechanisms page with Evaluations, Check It and EHS product owners.
 - [ ] Run the code dive for Check It and EHS, and finish the open Evaluations items ([05](05-code-dive-brief.md)).
-- [ ] Build the Form Builder prototype pass by pass ([08](08-prototype-build-brief.md)); walkthrough first, then it becomes the research stimulus.
+- [x] Build the Form Builder prototype, passes 1–5 ([08](08-prototype-build-brief.md)). Pass 6 (EHS profile) on hold.
+- [ ] Run the walkthrough (script in 08) with Check It and Evaluations product owners; collect decisions on P1–P8 and the local-steps reading.
 - [ ] Run the EV+ user research ([research/](research/ev-plus-research-questions.md)): send the data pulls with the code-dive items, recruit, sessions in November, readout before the Q1 adoption decision.
 - [ ] Decide the open questions in 03 §10, starting with form setup and structure (Kind vs. Template).
 - [ ] Define the Form Builder experience stage by stage, starting with the library and form creation.
