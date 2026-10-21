@@ -6,6 +6,58 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-20) Flow 3 uses the compare pop-up
+
+- **[DONE]** Flow 3 and version 4 swapped (designer call): **Flow 3** now has the pop-up, and
+  the in-table drawer moved to version 4, **Embedded table version**.
+- **[DONE]** Instead of the › chevron and the "Currently on your site" drawer,
+  every row that has a record on the site gets an **ⓘ** in the far-right column. It opens a
+  **Compare with your site** pop-up: one line per field, the value **From your file** next to
+  the value **Currently on your site**. A username that matches two site users shows two site
+  columns. Fields only the site has (Status, Deactivated on, Location, Email) show "—" for the
+  file. No highlighting of what differs. Close with ✕, Close, Escape, or a click outside.
+- **[DONE]** Which rows get an ⓘ and which fields it shows follow the catalog's
+  "Columns in view details modal" column (Confluence PMC 29424549907, v35). "No modal" rows have
+  no ⓘ.
+- **[DONE]** The Userbrain test copy (`usertest/safelms-bulk-upload/`) is rebuilt from this
+  version (Flow 3). It starts on Employees, uses the realistic file names and has no toolbox, as before.
+  `new_hires_2027.csv` stays **warnings only**: its name-change and possible-duplicate warnings
+  (Blocked now) are swapped for a group not on the site and "very few positions on your site",
+  next to the existing new location, plus 2 reactivated users whose ⓘ opens the pop-up.
+  `staff_update_october.csv` is still the blocked file.
+
+## (2026-10-20) Duplicates are Blocked; › rows show what's on your site; no Row column
+
+- **[DONE]** The whole "Duplicate & identity detection" group is **Blocked** now (designer call;
+  the Confluence catalog still says WARNING): `duplicate_email_in_upload`, `duplicate_user_in_system`,
+  `non_identical_username`, `potential_duplicate_user`, `duplicate_external_unique_id_in_upload`,
+  `duplicate_external_unique_id_in_system`, `non_identical_external_unique_id`,
+  `potential_duplicate_user_external_unique_id`. A duplicate person is an error, not a value the
+  upload overwrites. Each one has a "To fix it, … then upload again." line instead of "If you import".
+  `duplicate_user_in_system`'s message changed to match: "Some usernames in this file belong to
+  someone with a different name on your site." (was "Some users' names will change on your site.").
+- **PENDING** Same-name checks (`non_identical_*`, `potential_duplicate_user*`) now block two
+  different people who happen to share a name. Confirm with PM how an admin gets those through.
+- **[DONE]** The "After import" box is gone. A row whose details contradict the site has a ›
+  chevron. Opening it adds **Currently on your site** under the row: the site's username, first
+  name and last name (plus the conflicting column, e.g. email or External Unique ID) in the same
+  columns, with the values that differ in red. When one username matches two site users, both
+  show. Rows with no site conflict (in-file duplicates, skipped rows, new accounts) have no
+  chevron. Data: `site` on each catalog entry.
+- **[DONE]** Follow-up (same day): the chevron sits in the far-right column; no ⓘ / details
+  sentence next to "Currently on your site"; no "Open a row to see what's on your site now."
+  hint; no "Have a question about this? Raise an issue ticket." line under blocked rows.
+- **[DONE]** Follow-up: no highlighting of the values that differ. We may only be able to pull
+  the site's record, not compare it field by field. The opened row's "Currently on your site" is
+  now a drawer: a tinted blue band with a 4px blue accent bar on the left and a solid
+  "CURRENTLY ON YOUR SITE" tag. The site's values sit in the same columns as the file's row
+  above (which turns bold and white while open), so they still compare by eye.
+- **[DONE]** No Row column in the tables on Review or the failed-run page. The CSV download
+  keeps it so admins can find the row in their file.
+- **[DONE]** Sample files: "Warnings only" now raises skipped rows and a new location (its name
+  change is Blocked now); the duplicates file is "Blocked · duplicates"; the failed automated run
+  that stopped on warnings raises skipped rows, an early begin date and a new location.
+
 ## (2026-10-20) Blocked first everywhere; warnings ranked one by one
 
 - **[DONE]** Review, the CSV and the failed-run page list **Blocked** first, then every
