@@ -21,7 +21,9 @@
     selfAssign: { title: 'Self Assign',
                   body: 'This is a Self Assign Quick Link. It would open the Self Assign workflow for “{name}” in the app — falling back to the mobile browser, already signed in, if an in-app launch is not possible.' },
     file:       { title: 'File Center',
-                  body: 'This is a File Center Quick Link. It would open “{name}” in the app, or hand off to the mobile browser depending on the file type.' },
+                  body: 'This is a File Center Quick Link. It would open “{name}” in the app’s viewer, or offer it as a download, depending on the file type.' },
+    folder:     { title: 'File Center',
+                  body: 'This is a File Center Quick Link. It would open the “{name}” folder in the app’s File Center.' },
     url:        { title: 'External Link',
                   body: '“{name}” is an external URL. It would open in your default mobile browser with no authentication required.' }
   };
@@ -52,7 +54,8 @@
         { name: 'Offshore Basics',         color: '#F7D3DE', ink: 'dark',  icon: 'fa-life-ring',          launch: 'rca' },
         { name: 'Sprinkler Systems',       color: '#FBE0C6', ink: 'dark',  icon: 'fa-sprinkler-ceiling',  launch: 'rca' },
         { name: 'Dumpster Fires',          color: '#FBD3B4', ink: 'dark',  icon: 'fa-dumpster-fire',      launch: 'rca', supervisorOnly: true },
-        { name: 'Wildland Policy',         color: '#FBEFC0', ink: 'dark',  icon: 'fa-file-pdf',           launch: 'file' },
+        { name: 'Wildland Policy',         color: '#FBEFC0', ink: 'dark',  icon: 'fa-file-pdf',           launch: 'file',   target: 'wildland' },
+        { name: 'Imported Resources',      color: '#FDE3B5', ink: 'dark',  icon: 'fa-folder-open',        launch: 'folder', target: 'imported' },
         { name: 'State Training Portal',   color: '#D3EBD0', ink: 'dark',  icon: 'fa-graduation-cap',     launch: 'url' }
       ]}
     ]
@@ -76,6 +79,9 @@
   /* "More" tab. Only built features are listed — the below-the-line PRD
      features are deliberately absent rather than shown as "coming soon". */
   var MORE_PRIMARY = [
+    { icon: 'fa-folder-open', title: 'File Center',
+      sub: 'Department documents and links',
+      action: function () { if (window.FC) window.FC.openRoot('more'); } },
     { icon: 'fa-arrow-up-right-from-square', title: 'Open Web Platform',
       sub: 'Full TargetSolutions in your browser',
       sheet: { title: 'Web Browser Shortcut',
@@ -120,7 +126,13 @@
     more:          { tab: 'more',   title: 'More' },
     notifications: { tab: 'notifications', title: 'Alerts' },   // its own tab, with the unread count
     profile:       { tab: 'more',   title: 'Profile',               back: 'more' }, // reached from the account row in More
-    privacy:       { tab: 'more',   title: 'Privacy Policy',        back: 'more' }  // small link at the foot of More
+    privacy:       { tab: 'more',   title: 'Privacy Policy',        back: 'more' }, // small link at the foot of More
+    /* File Center (files.js). The browse screen sets its own title (folder
+       name) and tab (Home when opened by a Quick Link, More otherwise) via
+       data-title / data-tab; its back button exits to the screen it was
+       opened from. The viewer is a full-screen task with its own dark bar. */
+    files:         { tab: 'more',   title: 'File Center', backFn: function () { if (window.FC) window.FC.back(); } },
+    'file-view':   { tab: 'more',   title: 'File', task: true, noHeader: true }
   };
 
   /* Two demo users, switched from the UX tools dock (no second login needed).
@@ -199,7 +211,8 @@
         return '<button class="ql-tile' + (locked ? ' ql-tile--locked' : '') + '" type="button" data-ink="' + tile.ink + '"' +
                ' style="--tile:' + tile.color + '"' +
                (locked ? ' data-locked="true" aria-disabled="true"' : '') +
-               ' data-launch="' + tile.launch + '" data-name="' + tile.name + '">' +
+               ' data-launch="' + tile.launch + '" data-name="' + tile.name + '"' +
+               (tile.target ? ' data-target="' + tile.target + '"' : '') + '>' +
                (locked ? '<i class="fa-solid fa-lock ql-tile__lock" aria-hidden="true"></i>' : '') +
                '<i class="fa-solid ' + tile.icon + '"></i><span>' + tile.name + '</span></button>';
       }).join('');
@@ -246,9 +259,12 @@
     // confirmation: "Self Assign" after a self-assign, "Record Completions" after a group).
     var screenEl = $('#screen-' + id);
     var title = (screenEl && screenEl.dataset.title) || meta.title || '';
+    // `back` navigates to a screen; `backFn` lets a screen own its back
+    // behavior (the File Center returns to whichever screen opened it).
+    var backAttr = meta.backFn ? 'data-back-fn="' + id + '"' : meta.back ? 'data-goto="' + meta.back + '"' : '';
     header.innerHTML =
-      (meta.back
-        ? '<button class="app-header__btn" data-goto="' + meta.back + '" type="button" ' +
+      (backAttr
+        ? '<button class="app-header__btn" ' + backAttr + ' type="button" ' +
           'aria-label="Back"><i class="fa-solid fa-arrow-left"></i></button>'
         : '') +
       '<span class="app-header__title">' + title + '</span>';
@@ -310,7 +326,8 @@
     statusBar.classList.toggle('status-bar--light', id === 'prompt' || id === 'sso');
     // On a shared device the status bar stays navy so it and the identity strip
     // read as one block of system chrome above the (brand-colored) app.
-    statusBar.classList.toggle('status-bar--brand', !outside && !isShared());
+    statusBar.classList.toggle('status-bar--brand', !outside && !isShared() && id !== 'file-view');
+    statusBar.classList.toggle('status-bar--dark', id === 'file-view');   // the viewer's navy bar runs up through the status bar
 
     if (id === 'login') {   // deep links land here with defaults
       if (!regionId) regionId = 'us';
@@ -343,7 +360,8 @@
     document.querySelectorAll('.screen, .scanner').forEach(function (el) {
       el.classList.toggle('is-active', el.id === 'screen-' + id);
     });
-    var activeTab = SCREENS[id].tab;
+    var activeEl = $('#screen-' + id);
+    var activeTab = (activeEl && activeEl.dataset.tab) || SCREENS[id].tab;   // data-tab: the File Center follows where it was opened from
     document.querySelectorAll('.t-Tabs__tab').forEach(function (tab) {
       tab.classList.toggle('is-active', tab.dataset.tab === activeTab);
     });
@@ -629,14 +647,22 @@
     // Header X on a full-screen task: leave, keeping the draft.
     if (e.target.closest('[data-task-leave]')) { if (window.RC) window.RC.leave(false); return; }
 
+    // Header back on a screen that owns its back behavior (see SCREENS.backFn)
+    var bf = e.target.closest('[data-back-fn]');
+    if (bf) { var bm = SCREENS[bf.dataset.backFn]; if (bm && bm.backFn) bm.backFn(); return; }
+
     // Quick Link tile. RCA tiles open Record Completions with that activity
     // already added; Self Assign tiles open the single-activity self-assign form
-    // for the signed-in user; the other launch types still explain themselves in a sheet.
+    // for the signed-in user; File Center tiles open their folder or file;
+    // external URLs still explain themselves in a sheet.
     var tile = e.target.closest('.ql-tile');
     if (tile) {
       if (tile.dataset.locked) { openSheet(tile.dataset.name, QUICK_LINKS_LOCKED.body); return; }
       if (tile.dataset.launch === 'rca' && window.RC) { window.RC.openWith(tile.dataset.name); return; }
       if (tile.dataset.launch === 'selfAssign' && window.RC) { window.RC.openSelf(tile.dataset.name); return; }
+      // File Center tiles land on their target: a folder listing, or the file itself
+      if (tile.dataset.launch === 'folder' && window.FC) { window.FC.openFolder(tile.dataset.target, 'home'); return; }
+      if (tile.dataset.launch === 'file'   && window.FC) { window.FC.openFile(tile.dataset.target, 'home'); return; }
       var spec = LAUNCH[tile.dataset.launch];
       openSheet(spec.title, spec.body.replace('{name}', tile.dataset.name));
       return;
@@ -646,8 +672,9 @@
     var row = e.target.closest('[data-more]');
     if (row) {
       var item = MORE_PRIMARY.filter(function (i) { return i.title === row.dataset.more; })[0];
-      if (item && item.sheet) { openSheet(item.sheet.title, item.sheet.body); return; }
-      if (item && item.goto)  { goTo(item.goto); return; }
+      if (item && item.sheet)  { openSheet(item.sheet.title, item.sheet.body); return; }
+      if (item && item.goto)   { goTo(item.goto); return; }
+      if (item && item.action) { item.action(); return; }
     }
 
     // Switches (the Face ID opt-in) toggle their own state.
@@ -784,6 +811,7 @@
     showIdleWarning: showIdleWarning,
     setDevice: setDevice,
     openSso: openSso,
+    openSheet: openSheet,   // files.js reuses the "this would launch X" sheet for links
     // Quick Links mode: 'all' | 'limited' | 'none' (see quickLinksMode above).
     // Driven by the UX tools dock and the flow map's home / home-limited /
     // home-empty nodes.
