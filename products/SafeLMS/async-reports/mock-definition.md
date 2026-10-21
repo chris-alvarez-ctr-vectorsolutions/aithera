@@ -33,10 +33,17 @@ in the download. V2 adds the following:
 
 - **Report name.** On Run Report, the run is saved to the Report Log under a
   name generated from its filters (for example "Graduate Students · RespectEdu
-  for Graduate Students"). The admin can rename it while it generates (under
-  the loading message) or later in the log (the pencil on the row). Saving the
-  name blank brings back the auto-generated name. The report type shows under
-  the name.
+  for Graduate Students"). The generating banner says so by name. The admin can
+  rename it later in the log (the pencil on the row). Saving the name blank
+  brings back the auto-generated name. The report type shows under the name.
+- **Generating state matches the live build.** The spinner is replaced by the
+  light-blue banner from the current product ("Your report request has been
+  saved to the Report Log … and is currently generating.") with Email Me The
+  Report and a dismiss ✕, above the generated row at 0 results.
+- **Email Me The Report asks for a title.** The button opens a small modal with
+  a Report title field already filled in with the auto-generated name. Email Me
+  saves the title as the run's name and requests the email. The button then
+  reads "Email Request Sent", and the toast names the report.
 - **Date Range column.** All four async reports (Compliance by Employee,
   Completions by Employee, Completions by Time, Training Compliance) take a date
   range.
@@ -82,4 +89,5 @@ in the download. V2 adds the following:
 |---|---|---|---|---|
 | 2026-06-08 | Handed off to dev | V1 | n/a (first build) | yes |
 | 2026-10-21 | Folded into the versioned structure: the design moved from `index.html` to `ver1/index.html`, and the feature root is now the version loader. No design change. Added the `DEV-HANDOFF` marker to `dev_handoff.html`. | V1 | n/a (dev build content unchanged) | not needed |
+| 2026-10-21 | Labeled V2 "Beta Feedback" in the version switcher. Generating state now matches the live build's banner, and Email Me The Report opens a title modal prefilled with the auto-generated name (inline rename in the banner removed). | V2 | no (V2 not handed off yet) | not yet |
 | 2026-10-21 | **Beta feedback: Report Log parameters.** Added auto-generated, renameable report names, a Date Range column, an expandable Report settings row, and View Report restoring the run's filters. Spun off as **V2, labeled "Beta Feedback"** in the version switcher. V1 and its dev build are unchanged. | V2 | no (V2 not handed off yet) | not yet |
