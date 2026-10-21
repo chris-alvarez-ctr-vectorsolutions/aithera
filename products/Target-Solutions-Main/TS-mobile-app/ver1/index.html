@@ -109,7 +109,7 @@
             <span class="region-btn__icon" aria-hidden="true"><i class="fa-solid fa-mobile-screen-button"></i></span>
             <span class="region-btn__text">
               <span class="region-btn__label">Just me</span>
-              <span class="region-btn__sub">My own phone or tablet</span>
+              <span class="region-btn__sub">My own phone or tablet — stays signed in</span>
             </span>
             <i class="fa-solid fa-chevron-right region-btn__chev" aria-hidden="true"></i>
           </button>
@@ -126,8 +126,9 @@
     </section>
 
     <!-- ================================================================
-         LOGIN — Initial App Foundation. Happy path only, per direction:
-         no SSO, merged-auth toggle or error states in this iteration.
+         LOGIN — Initial App Foundation. Username/password, plus "Log in
+         with your agency" (SSO via the agency's site path). No forgot-
+         password flow in Phase 1.
          ================================================================ -->
     <section class="login" id="screen-login">
       <div class="login__brand">
@@ -166,7 +167,7 @@
              Prototype rule: a blank username or password fails. -->
         <div class="login__error" id="login-error" role="alert" hidden>
           <p class="login__error-text"><i class="fa-solid fa-circle-exclamation"></i>
-            <span>That username and password didn’t work. Try again, or reset your password below.</span></p>
+            <span>That username and password didn’t work. Check them and try again.</span></p>
           <button class="login__hint" id="btn-wrong-country" type="button">
             <span class="login__hint-flag" id="login-hint-flag" aria-hidden="true"></span>
             <span class="login__hint-main"><strong>Signing in to <span id="login-hint-name"></span>.</strong>
@@ -187,13 +188,32 @@
         </div>
 
         <button class="t-Button t-Button--primary" id="btn-login" type="button">Log In</button>
-        <button class="t-Button t-Button--ghost" type="button" style="color:#a8b6c8">Forgot your password?</button>
+        <!-- Phase 1 has no forgot-password flow; SSO takes its place. -->
+        <button class="t-Button t-Button--ghost" id="btn-login-agency" type="button" style="color:#a8b6c8">
+          <i class="fa-solid fa-building-shield"></i> Log in with your agency
+        </button>
         <!-- Shared devices only: say up front what is different about this sign-in. -->
         <p class="login__note" id="login-shared-note" hidden>
           <i class="fa-solid fa-users"></i>
-          <span>Shared device: signed out after <strong id="login-idle-label"></strong> of inactivity.
-          No Face ID or saved passwords.</span>
+          <span>Shared device: after <strong id="login-idle-label"></strong> without activity you’ll be
+          asked to confirm it’s still you. No Face ID or saved passwords.</span>
         </p>
+      </div>
+
+      <!-- Pane C — Log in with your agency (SSO). One field: the site path the
+           administrator hands out. Continue opens the agency's own sign-in page,
+           embedded in the app (the sso screen below). -->
+      <div class="t-YStack" id="login-agency" hidden style="gap:var(--space-4)">
+        <p class="login__lead">Enter the site path your administrator gave you. You’ll sign in through your agency.</p>
+        <div class="t-Fieldset">
+          <label class="t-Label" for="agency-path" style="color:#fff">Agency site path</label>
+          <input class="t-Input" id="agency-path" type="text" placeholder="e.g. springfd"
+                 autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="off">
+          <!-- Only ever shows an error; there is no helper line under the field. -->
+          <span class="login__help is-error" id="agency-help" hidden></span>
+        </div>
+        <button class="t-Button t-Button--primary" id="btn-agency" type="button">Continue</button>
+        <button class="t-Button t-Button--ghost" id="btn-agency-back" type="button" style="color:#a8b6c8">Use username and password instead</button>
       </div>
 
       <!-- Pane B — Face ID sign-in, shown once the user has opted in -->
@@ -205,6 +225,40 @@
         <p class="faceid-status" id="faceid-status">Tap to sign in with Face ID</p>
         <button class="t-Button t-Button--ghost" id="btn-use-password" type="button"
                 style="color:#a8b6c8">Use password instead</button>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         AGENCY SSO — the embedded sign-in that Continue on "Log in with
+         your agency" opens. Faked here as a generic identity-provider page
+         inside an in-app browser sheet (Cancel · lock · domain), branded
+         with the agency the site path resolves to. Signing in lands in the
+         app exactly like a username/password sign-in.
+         ================================================================ -->
+    <section class="sso" id="screen-sso">
+      <div class="sso__bar">
+        <button class="sso__cancel" id="btn-sso-cancel" type="button">Cancel</button>
+        <span class="sso__url"><i class="fa-solid fa-lock"></i> <span id="sso-domain"></span></span>
+        <span class="sso__spacer" aria-hidden="true"></span>
+      </div>
+      <div class="sso__page">
+        <div class="sso__org">
+          <span class="sso__org-mark" aria-hidden="true"><i class="fa-solid fa-building-shield"></i></span>
+          <span class="sso__org-name" id="sso-org"></span>
+        </div>
+        <h1 class="sso__title">Sign in</h1>
+        <p class="sso__sub">Use your <strong id="sso-org2"></strong> account to continue to TargetSolutions.</p>
+        <div class="t-Fieldset">
+          <label class="t-Label" for="sso-user">Email or username</label>
+          <input class="t-Input" id="sso-user" type="text" autocomplete="username" autocapitalize="none">
+        </div>
+        <div class="t-Fieldset">
+          <label class="t-Label" for="sso-pass">Password</label>
+          <input class="t-Input" id="sso-pass" type="password" autocomplete="current-password">
+        </div>
+        <label class="sso__remember"><input type="checkbox" checked> Keep me signed in</label>
+        <button class="t-Button sso__submit" id="btn-sso-login" type="button">Sign in</button>
+        <p class="sso__foot"><i class="fa-solid fa-shield-check"></i> Protected by your agency’s single sign-on.</p>
       </div>
     </section>
 
@@ -308,9 +362,35 @@
       <!-- ---- MORE: the app-level destinations that exist ---- -->
       <section class="screen" id="screen-more">
         <div class="screen__body">
-          <!-- Account row → Profile (name, role, department, log out) -->
+          <!-- Account row → Profile (name, department, log out) -->
           <div class="t-Card" id="more-account"></div>
           <div class="t-Card"><div id="more-primary"></div></div>
+          <!-- Small legal link, deliberately quiet: it is required, not a destination. -->
+          <p class="more-legal"><button class="more-legal__link" data-goto="privacy" type="button">Privacy Policy</button></p>
+        </div>
+      </section>
+
+      <!-- ---- PRIVACY POLICY — boilerplate, reached from the foot of More ---- -->
+      <section class="screen" id="screen-privacy">
+        <div class="screen__body">
+          <div class="t-Card"><div class="t-Card__body legal">
+            <p class="legal__meta">Last updated October 2026</p>
+            <h2 class="t-H3">Privacy Policy</h2>
+            <p>This Privacy Policy describes how Vector Solutions (“we”, “us”) collects, uses and shares information when you use the TargetSolutions mobile application (the “App”). The App is provided to you through your agency or department, which controls your account and the training records associated with it.</p>
+            <h3 class="t-H4">Information we collect</h3>
+            <p>When you sign in, we receive the account details your agency has set up for you, such as your name, username and department. As you use the App we collect the training completions, assignments and credentials you record or view, along with the date and time of those actions.</p>
+            <p>We also collect device information, including device type, operating system version and a device identifier, so the App can remember your country, device type and sign-in preferences and send notifications you have opted in to.</p>
+            <h3 class="t-H4">How we use it</h3>
+            <p>We use this information to operate the App, to keep your agency’s training records accurate, to send the notifications you have turned on, to secure your account, and to improve the App. We do not sell your personal information.</p>
+            <h3 class="t-H4">Sharing</h3>
+            <p>Your records are shared with your agency, which is the controller of that data. We share information with service providers who help us run the App under contractual confidentiality obligations, and when required by law.</p>
+            <h3 class="t-H4">Shared devices</h3>
+            <p>On a device marked as shared, the App shows who is signed in and asks for confirmation after a period of inactivity. Face ID and saved passwords are turned off on shared devices. Sign out when you hand the device to someone else.</p>
+            <h3 class="t-H4">Your choices</h3>
+            <p>You can turn notifications on or off in your device settings, and change your sign-in preferences from the login screen. To access, correct or delete your records, contact your agency administrator.</p>
+            <h3 class="t-H4">Contact</h3>
+            <p>Questions about this policy can be sent to privacy@vectorsolutions.com.</p>
+          </div></div>
         </div>
       </section>
 
@@ -328,26 +408,17 @@
       <!-- ---- PROFILE (Initial App Foundation) ---- -->
       <section class="screen" id="screen-profile">
         <div class="screen__body">
-          <div class="t-Card"><div class="t-Card__body t-YStack" style="align-items:center;gap:var(--space-3);text-align:center">
-            <div class="t-Avatar t-Avatar--lg">JL</div>
-            <div>
-              <h2 class="t-H3">Jordan Lee</h2>
-              <p class="t-SizableText">Company Officer</p>
-            </div>
-            <hr class="t-Separator" style="width:100%">
-            <div>
-              <p class="t-Label">Department</p>
-              <p class="t-H4" style="margin-top:var(--space-1)">Springfield Fire Department</p>
-            </div>
-          </div></div>
+          <!-- Name + department only (no title: that data is not available at
+               launch). Rendered by app.js so the demo user can be switched. -->
+          <div class="t-Card" id="profile-card"></div>
           <!-- Shared devices only: the rules that apply to this sign-in -->
           <div class="t-Card" id="profile-shared" hidden><div class="t-Card__body shared-note">
             <i class="fa-solid fa-users"></i>
             <div>
               <p class="shared-note__title">Shared station device</p>
-              <p class="shared-note__body">Anyone at the station can sign in here. You are signed out
-              automatically after <strong class="idle-label"></strong> without activity, and whenever the
-              app is closed. Face ID and saved passwords are off.</p>
+              <p class="shared-note__body">Anyone at the station can sign in here. After
+              <strong class="idle-label"></strong> without activity the app asks whether it’s still you
+              before continuing. Face ID and saved passwords are off.</p>
             </div>
           </div></div>
           <button class="t-Button t-Button--danger" id="btn-logout" type="button">
@@ -380,9 +451,10 @@
       </div>
     </div>
 
-    <!-- Shared-device inactivity warning ("Still there?"), rendered by app.js.
-         Reuses the Record Completions dialog styling. -->
-    <div class="rc-dialog__overlay" id="idle-dialog" role="alertdialog" aria-labelledby="idle-title"></div>
+    <!-- Shared-device inactivity check: the full-screen "Welcome back" (continue
+         as the same person, or sign in as someone else). Rendered by app.js;
+         sits above the identity strip and every screen. -->
+    <div class="idle-lock" id="idle-lock" role="dialog" aria-labelledby="idle-title"></div>
 
     <!-- ---- Record Completions overlays (rendered by record.js) ---- -->
     <!-- Activity / participant picker: a full-screen sheet, the mobile take on
@@ -414,11 +486,21 @@
     var requested = id;
     if (window.APP) window.APP.setDevice(SHARED[id] ? 'shared' : 'personal');
     if (SHARED[id]) id = SHARED[id];
-    // Home has two states: Quick Links configured (home) or not (home-empty).
-    // Only these two touch the flag, so stepping to any other node leaves the
-    // UX-tools toggle where the designer put it.
-    if (window.APP && (id === 'home' || id === 'home-empty')) window.APP.setQuickLinks(id === 'home');
-    if (id === 'home-empty') id = 'home';
+    // Home has three states — Quick Links all live (home), some locked for this
+    // user (home-limited), none configured (home-empty). Only these touch the
+    // mode, so stepping to any other node leaves the UX-tools switch alone.
+    var HOME_MODES = { 'home': 'all', 'home-limited': 'limited', 'home-empty': 'none' };
+    if (window.APP && HOME_MODES[id]) { window.APP.setQuickLinksMode(HOME_MODES[id]); id = 'home'; }
+    // "Log in with your agency" is the login screen with the SSO pane open;
+    // the agency sign-in page is its own screen, opened for the demo agency.
+    var agency = id === 'login-agency';
+    if (agency) id = 'login';
+    if (id === 'login-sso') {
+      if (window.RC) window.RC.applyState('login');
+      if (window.APP) window.APP.openSso('springfd');
+      if (!opts.instant) window.scrollTo(0, 0);
+      return;
+    }
     // Every state goes through record.js when it is loaded: Record Completions
     // and self-assign states set up their own draft data so the thumbnails show
     // real, filled-in screens, and any other state first drops a self-assign
@@ -426,6 +508,7 @@
     if (window.RC) window.RC.applyState(id);
     else if (window.goTo) window.goTo(id, { instant: true });
     if (requested === 'idle' && window.APP) window.APP.showIdleWarning();
+    if (agency) document.getElementById('btn-login-agency').click();
     if (!opts.instant) window.scrollTo(0, 0);
   }
   window.applyFlowState = applyFlowState;
@@ -462,13 +545,22 @@
           desc: 'Second one-tap setup step: "Just me" or "My station or crew". A station tablet declares itself shared once, by whoever sets it up — not every person at every login. Remembered like the country; the login form shows the choice with a Change link.' },
         { id: 'login', flow: 'onboarding', x: 400, y: 180,
           step: 'Sign in', name: 'Log In', state: 'login',
-          desc: 'Username/password login (SSO and merged auth deferred). Shows the remembered country and device type, each with a Change link. A failed attempt (blank field in the prototype) shows the error plus a "Signing in to United States — if your department is in Canada, switch" nudge, since the two countries are separate databases.' },
+          desc: 'Username/password login. Shows the remembered country and device type, each with a Change link. No forgot-password in Phase 1 — the link under Log In is "Log in with your agency" (SSO). A failed attempt (blank field in the prototype) shows the error plus a "Signing in to United States — if your department is in Canada, switch" nudge, since the two countries are separate databases.' },
+        { id: 'login-agency', flow: 'onboarding', x: 400, y: 320,
+          step: 'Sign in', name: 'Log In With Your Agency', state: 'login-agency',
+          desc: 'SSO path. The form swaps to one field: the agency site path the administrator hands out. Continue opens the agency\u2019s sign-in page inside the app. "Use username and password instead" goes back.' },
+        { id: 'login-sso', flow: 'onboarding', x: 570, y: 320,
+          step: 'Sign in', name: 'Agency Sign-In', state: 'login-sso',
+          desc: 'The agency\u2019s own identity-provider page, embedded in an in-app browser sheet (Cancel \u00b7 lock \u00b7 domain). Faked here as a generic SSO login branded with the agency the site path resolves to. Sign in lands in the app like any other sign-in; Cancel returns to the site-path field.' },
         { id: 'prompt', flow: 'onboarding', x: 570, y: 180,
           step: 'First launch', name: 'Notification Opt-In', state: 'prompt',
           desc: 'The custom pre-prompt the PRD requires before the native OS dialog. Personal devices only — a shared device declared itself in setup and skips straight to Home.' },
         { id: 'home', flow: 'main', x: 820, y: 180,
           step: 'Home', name: 'Quick Links', state: 'home',
           desc: 'Home shows Quick Links only, under a brand bar (department name, --brand colour) that scrolls away with the page. One customer-named card with customer-named group sub-headers and admin-ordered, admin-colored tiles.' },
+        { id: 'home-limited', flow: 'main', x: 820, y: 440,
+          step: 'Home', name: 'Limited Quick Links', state: 'home-limited',
+          desc: 'Some departments restrict certain Record Completions activities to admins or supervisors. A firefighter still sees every Quick Link, but the ones they cannot use are grayed out with a lock; tapping one explains that their account lacks access and to ask a supervisor. Switch the demo user and the Quick Links mode from the UX tools dock.' },
         { id: 'home-empty', flow: 'main', x: 820, y: 320,
           step: 'Home', name: 'No Quick Links yet', state: 'home-empty',
           desc: 'Home for a department that has not configured any Quick Links. The same card and customer-named title, with the body replaced by an empty state: icon, "No Quick Links yet", one line of explanation, and the two actions that work without admin setup — Record a completion (primary) and Scan a QR code (secondary). Toggle it from the UX tools dock at the bottom of the page.' },
@@ -510,23 +602,29 @@
           desc: 'Its own tab, with the unread count as a badge, so alerts are reachable from every screen. Read-only feed across the four in-scope types; preferences stay in the web platform. Tapping one deep-links out to the browser.' },
         { id: 'profile', flow: 'main', x: 1200, y: 300,
           step: 'Detail', name: 'Profile', state: 'profile',
-          desc: 'Reached from the account row at the top of More (the header no longer carries an avatar). Name, role, department and log out — the barebones Phase 1 profile the PRD calls for. On a shared device it also states the sign-out rules.' },
+          desc: 'Reached from the account row at the top of More (the header no longer carries an avatar). Name, department and log out — no title/role, that data is not available at launch. On a shared device it also states the inactivity rule.' },
+        { id: 'privacy', flow: 'main', x: 1200, y: 415,
+          step: 'Detail', name: 'Privacy Policy', state: 'privacy',
+          desc: 'Boilerplate privacy policy, reached from a small link at the foot of More. Plain readable text in a card; the real policy text comes from Legal.' },
         { id: 'login-shared', flow: 'shared', x: 60, y: 620,
           step: 'Sign in', name: 'Log In (shared)', state: 'login-shared',
-          desc: 'Same form, stricter: no Face ID opt-in, username never prefilled, and a note stating the inactivity sign-out. The device pill reads "Shared station device".' },
+          desc: 'Same form, stricter: no Face ID opt-in, username never prefilled, and a note stating the inactivity check. The device pill reads "Shared station device".' },
         { id: 'home-shared', flow: 'shared', x: 260, y: 620,
           step: 'In the app', name: 'Identity Strip', state: 'home-shared',
           desc: 'A navy "Signed in as Jordan Lee · Not you? Switch" strip pinned between the status bar and the app, above every screen including the Record task. Switch signs out to a cleared login form. The push pre-prompt is skipped on shared devices.' },
         { id: 'record-shared', flow: 'shared', x: 460, y: 620,
-          step: 'Harm moment', name: 'Recording as…', state: 'record-shared',
-          desc: 'The Participants step repeats the identity ("Recording as Jordan Lee · Not you?") right where a completion is about to be filed under the wrong person. Signing out from here discards the draft so it never carries over to the next user.' },
+          step: 'Recording', name: 'Participants (shared)', state: 'record-shared',
+          desc: 'The Participants view on a shared device. The identity strip pinned above the task is the only "who is this" cue — the extra "Recording as Jordan Lee · Not you?" line was removed as redundant. Signing out from the strip discards the draft so it never carries over to the next user.' },
         { id: 'idle', flow: 'shared', x: 660, y: 620,
-          step: 'Timeout', name: 'Still There?', state: 'idle',
-          desc: 'After the inactivity limit a warning counts down, then signs out. The real limit is a product/security decision (copy says 15 minutes); the prototype fires after 45 s so it can be seen.' }
+          step: 'After 1 h idle', name: 'Welcome Back', state: 'idle',
+          desc: 'No automatic sign-out: a rig iPad is picked up at the start of a 12-hour shift and must not kick the captain out mid-shift. After an hour without touches a full-screen "Welcome back" asks who is holding the device — Continue as Jordan Lee (straight back to where they were, nothing lost) or Sign in to a different account. No countdown. The prototype fires after 45 s so it can be seen.' }
       ],
       edges: [
         ['region', 'device'],
         ['device', 'login'],
+        ['login', 'login-agency'],
+        ['login-agency', 'login-sso'],
+        ['login-sso', 'prompt'],
         ['login-shared', 'home-shared'],
         ['home-shared', 'record-shared'],
         ['home-shared', 'idle'],
@@ -535,6 +633,7 @@
         ['home', 'record'],
         ['home-empty', 'record'],
         ['home-empty', 'scan'],
+        ['home-limited', 'record'],
         ['record', 'record-picker'],
         ['record-picker', 'record-form'],
         ['record-form', 'record-voice'],
@@ -547,7 +646,8 @@
         ['home', 'scan'],
         ['home', 'more'],
         ['home', 'notifications'],
-        ['more', 'profile']
+        ['more', 'profile'],
+        ['more', 'privacy']
       ]
     }
   };
@@ -559,37 +659,67 @@
 
 <!-- ── UX tools: prototype switches docked into the toolbox pill ─────────────
      Review tooling only — NOT part of the product; developers strip this too.
-     "Quick Links" flips Home between the configured card and the "No Quick
-     Links yet" empty state (APP.setQuickLinks). ?ql=off in the URL starts the
-     page in the empty state. -->
+       • User — switches the signed-in demo user (Jordan Lee the captain, Sam
+         Rivera the firefighter) without a second login. ?user=firefighter
+       • Quick Links — cycles Home through All → Limited → Off
+         (APP.setQuickLinksMode). ?ql=limited / ?ql=off start the page there. -->
 <script>
   (function () {
-    var btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'ux-tool';
-    btn.title = 'Toggle whether this department has Quick Links configured';
-    btn.style.cssText = 'display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);' +
+    var BTN_CSS = 'display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);' +
       'color:#e4e4e7;border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:7px 11px;' +
       'font:700 13px/1 "Open Sans",system-ui,sans-serif;cursor:pointer;white-space:nowrap;';
-    function paint() {
-      var on = window.APP ? window.APP.hasQuickLinks() : true;
-      btn.innerHTML = 'Quick Links <span style="display:inline-block;min-width:28px;text-align:center;padding:3px 6px;border-radius:999px;' +
-        (on ? 'background:#16a34a;color:#fff;' : 'background:#52525b;color:#e4e4e7;') + '">' + (on ? 'On' : 'Off') + '</span>';
-      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    var PILL = 'display:inline-block;min-width:28px;text-align:center;padding:3px 7px;border-radius:999px;';
+    function mk(title) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'ux-tool'; b.title = title; b.style.cssText = BTN_CSS;
+      return b;
     }
-    btn.addEventListener('click', function () {
+
+    // ── User ────────────────────────────────────────────────────────────────
+    var userBtn = mk('Switch the signed-in demo user');
+    var ORDER = ['captain', 'firefighter'];
+    function paintUser() {
+      var u = window.APP ? window.APP.user : null;
+      userBtn.innerHTML = '<span style="color:#a1a1aa">User</span> ' +
+        '<span style="' + PILL + 'background:#2563eb;color:#fff;">' + (u ? u.name + ' \u00b7 ' + u.role : '\u2014') + '</span>';
+    }
+    userBtn.addEventListener('click', function () {
       if (!window.APP) return;
-      window.APP.setQuickLinks(!window.APP.hasQuickLinks());
+      var next = ORDER[(ORDER.indexOf(window.APP.userId()) + 1) % ORDER.length];
+      window.APP.setUser(next);
+    });
+    document.addEventListener('ts:user', paintUser);
+
+    // ── Quick Links mode ────────────────────────────────────────────────────
+    var qlBtn = mk('Cycle Quick Links: all live \u2192 some locked for this user \u2192 none configured');
+    var MODES = ['all', 'limited', 'none'];
+    var LOOK  = { all:     { label: 'All',     css: 'background:#16a34a;color:#fff;' },
+                  limited: { label: 'Limited', css: 'background:#d97706;color:#fff;' },
+                  none:    { label: 'Off',     css: 'background:#52525b;color:#e4e4e7;' } };
+    function paintQl() {
+      var m = window.APP ? window.APP.quickLinksMode() : 'all';
+      qlBtn.innerHTML = 'Quick Links <span style="' + PILL + LOOK[m].css + '">' + LOOK[m].label + '</span>';
+    }
+    qlBtn.addEventListener('click', function () {
+      if (!window.APP) return;
+      var next = MODES[(MODES.indexOf(window.APP.quickLinksMode()) + 1) % MODES.length];
+      window.APP.setQuickLinksMode(next);
       if (window.goTo) window.goTo('home');   // show the change where it lives
     });
-    document.addEventListener('ts:quicklinks', paint);
-    if (/[?&]ql=off\b/.test(location.search) && window.APP) window.APP.setQuickLinks(false);
-    paint();
+    document.addEventListener('ts:quicklinks', paintQl);
 
-    // Dock into the toolbox pill; it may mount a beat after this script runs.
+    // (?user= / ?ql= URL flags are applied in app.js init, before the flow map boots.)
+    paintUser(); paintQl();
+
+    // One group so the two switches stay side by side in the pill. Dock into
+    // the toolbox; it may mount a beat after this script runs.
+    var group = document.createElement('span');
+    group.id = 'ux-tools';
+    group.style.cssText = 'display:inline-flex;align-items:center;gap:6px;';
+    group.appendChild(userBtn); group.appendChild(qlBtn);
     var tries = 0;
     (function dock() {
-      if (window.ToolboxDock && typeof window.ToolboxDock.add === 'function') { window.ToolboxDock.add(btn); return; }
+      if (window.ToolboxDock && typeof window.ToolboxDock.add === 'function') { window.ToolboxDock.add(group); return; }
       if (tries++ < 10) setTimeout(dock, 200);
     })();
   })();

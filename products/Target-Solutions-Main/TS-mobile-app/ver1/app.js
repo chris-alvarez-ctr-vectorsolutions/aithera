@@ -29,38 +29,46 @@
   /* Quick Links: ONE customer-named card, holding customer-named group
      sub-headers, each with its own ordered tiles. Tile color is admin-chosen,
      so `ink` sets label/icon contrast per tile ('light' = white on a saturated
-     fill, 'dark' = navy on a pale fill). */
+     fill, 'dark' = navy on a pale fill). `supervisorOnly` marks activities some
+     departments restrict to admins/supervisors: in the "limited" Quick Links
+     mode a firefighter sees them grayed out and gets a message on tap. */
   var QUICK_LINKS = {
     title: 'Quick Links',
     groups: [
       { title: 'Station-based Trainings', tiles: [
         { name: 'EMT Basics',              color: '#F2B72A', ink: 'dark',  icon: 'fa-kit-medical',        launch: 'rca' },
-        { name: 'Extinguisher Training',   color: '#C62E5B', ink: 'light', icon: 'fa-fire-extinguisher',  launch: 'rca' },
+        { name: 'Extinguisher Training',   color: '#C62E5B', ink: 'light', icon: 'fa-fire-extinguisher',  launch: 'rca', supervisorOnly: true },
         { name: 'Fire Basics',             color: '#E8402A', ink: 'light', icon: 'fa-fire',               launch: 'rca' },
         { name: 'Firewalls',               color: '#6B2C91', ink: 'light', icon: 'fa-fire-flame-curved',  launch: 'rca' },
-        { name: 'Hydrant Training',        color: '#2F3A9E', ink: 'light', icon: 'fa-fire-hydrant',       launch: 'rca' },
+        { name: 'Hydrant Training',        color: '#2F3A9E', ink: 'light', icon: 'fa-fire-hydrant',       launch: 'rca', supervisorOnly: true },
         { name: 'Sprinkler System Basics', color: '#1668D6', ink: 'light', icon: 'fa-sprinkler-ceiling',  launch: 'rca' },
-        { name: 'Vehicle Stabilization',   color: '#0F7B9C', ink: 'light', icon: 'fa-car-burst',          launch: 'rca' },
+        { name: 'Vehicle Stabilization',   color: '#0F7B9C', ink: 'light', icon: 'fa-car-burst',          launch: 'rca', supervisorOnly: true },
         { name: 'Physical Fitness',        color: '#C3D934', ink: 'dark',  icon: 'fa-dumbbell',           launch: 'selfAssign' }
       ]},
       { title: 'Field-based Trainings', tiles: [
-        { name: 'Facilities Training',     color: '#C5DDF5', ink: 'dark',  icon: 'fa-building',           launch: 'rca' },
+        { name: 'Facilities Training',     color: '#C5DDF5', ink: 'dark',  icon: 'fa-building',           launch: 'rca', supervisorOnly: true },
         { name: 'Harbor Familiar\u00ADization', /* soft hyphen: breaks cleanly in a narrow tile */ color: '#CBD5F5', ink: 'dark',  icon: 'fa-ship',               launch: 'rca' },
-        { name: 'Ladder Training',         color: '#DCCFF0', ink: 'dark',  icon: 'fa-truck-ladder',       launch: 'rca' },
+        { name: 'Ladder Training',         color: '#DCCFF0', ink: 'dark',  icon: 'fa-truck-ladder',       launch: 'rca', supervisorOnly: true },
         { name: 'Offshore Basics',         color: '#F7D3DE', ink: 'dark',  icon: 'fa-life-ring',          launch: 'rca' },
         { name: 'Sprinkler Systems',       color: '#FBE0C6', ink: 'dark',  icon: 'fa-sprinkler-ceiling',  launch: 'rca' },
-        { name: 'Dumpster Fires',          color: '#FBD3B4', ink: 'dark',  icon: 'fa-dumpster-fire',      launch: 'rca' },
+        { name: 'Dumpster Fires',          color: '#FBD3B4', ink: 'dark',  icon: 'fa-dumpster-fire',      launch: 'rca', supervisorOnly: true },
         { name: 'Wildland Policy',         color: '#FBEFC0', ink: 'dark',  icon: 'fa-file-pdf',           launch: 'file' },
         { name: 'State Training Portal',   color: '#D3EBD0', ink: 'dark',  icon: 'fa-graduation-cap',     launch: 'url' }
       ]}
     ]
   };
 
-  /* Empty state for a department that has not configured any Quick Links yet.
-     Home still has to land somewhere, so the card keeps its title and offers
-     the two things that work without admin setup: Record and Scan. Toggled
-     from the UX tools dock (bottom of the page) via APP.setQuickLinks(). */
-  var quickLinksConfigured = true;
+  /* Quick Links mode — a UX-tools switch (bottom of the page), not product:
+       'all'     every tile is live (default)
+       'limited' the signed-in user lacks access to the supervisorOnly tiles:
+                 they stay visible but grayed out, and a tap explains why
+       'none'    the department has not configured any Quick Links — the card
+                 keeps its title and shows the empty state below
+     Driven by APP.setQuickLinksMode() and the flow map's home-* nodes. */
+  var quickLinksMode = 'all';
+  var QUICK_LINKS_LOCKED = {
+    body:  'Your account doesn’t have access to record this activity. Ask your supervisor or training officer to record it for you.'
+  };
   var QUICK_LINKS_EMPTY = {
     title: 'No Quick Links yet',
     body:  "Your department hasn't set up any Quick Links. You can still record completions and scan QR codes.",
@@ -114,11 +122,19 @@
     scan:          { tab: 'scan',   title: 'Scan' },
     more:          { tab: 'more',   title: 'More' },
     notifications: { tab: 'notifications', title: 'Alerts' },   // its own tab, with the unread count
-    profile:       { tab: 'more',   title: 'Profile',               back: 'more' }  // reached from the account row in More
+    profile:       { tab: 'more',   title: 'Profile',               back: 'more' }, // reached from the account row in More
+    privacy:       { tab: 'more',   title: 'Privacy Policy',        back: 'more' }  // small link at the foot of More
   };
 
-  /* The signed-in user — shown on the account row in More and on Profile. */
-  var USER = { initials: 'JL', name: 'Jordan Lee', role: 'Company Officer', department: 'Springfield Fire Department' };
+  /* Two demo users, switched from the UX tools dock (no second login needed).
+     `role` is NOT shown anywhere in the app — title data is not available at
+     launch — it only labels the dock button. The firefighter exists to demo
+     the "limited" Quick Links mode and the shared-device "Welcome back" screen. */
+  var USERS = {
+    captain:     { id: 'captain',     initials: 'JL', name: 'Jordan Lee', role: 'Captain',     username: 'j.lee',    department: 'Springfield Fire Department' },
+    firefighter: { id: 'firefighter', initials: 'SR', name: 'Sam Rivera', role: 'Firefighter', username: 's.rivera', department: 'Springfield Fire Department' }
+  };
+  var USER = USERS.captain;
 
   /* Shared-device mode (station tablets, rig iPads). Chosen once on first launch,
      right after the country, and remembered on the device the same way. It is a
@@ -128,15 +144,20 @@
        • no Face ID opt-in and no prefilled username on the login form
        • the push pre-prompt is skipped (alerts are personal; the device is not)
        • an identity strip above every in-app screen, with a Switch action
-       • an inactivity sign-out, with a "Still there?" warning first
-       • any Record Completions draft is thrown away on sign-out */
+       • after an hour idle, a "Welcome back" screen: continue as the same
+         person (nothing lost) or sign in as someone else — no auto sign-out,
+         because a rig iPad is picked up at the start of a 12-hour shift and
+         must not kick the captain out mid-shift
+       • any Record Completions draft is thrown away on sign-out
+     Personal devices ("Just me") have no timer at all: they stay signed in for
+     weeks, like any other app on the phone. */
   var DEVICES = { personal: { name: 'Just me',               icon: 'fa-mobile-screen-button' },
                   shared:   { name: 'Shared station device', icon: 'fa-users' } };
   var deviceId = null;
-  /* Inactivity rule for shared devices. The real numbers are a product/security
-     decision — the on-screen copy says 15 minutes — but the prototype fires
-     after 45 s so reviewers can see the warning without waiting. */
-  var IDLE = { afterMs: 45000, warnMs: 15000, label: '15 minutes' };
+  /* Inactivity rule for shared devices. After `label` of no touches the app
+     shows the "Welcome back" screen instead of signing out. The prototype fires
+     after 45 s so reviewers can see it without waiting. */
+  var IDLE = { afterMs: 45000, label: '1 hour' };
 
   /* ===========================================================================
      ELEMENTS
@@ -170,7 +191,7 @@
 
   function renderQuickLinks() {
     $('#ql-title').textContent = QUICK_LINKS.title;
-    if (!quickLinksConfigured) {
+    if (quickLinksMode === 'none') {
       // Same card, same customer-named title; the body swaps to the empty
       // state. Record uses the same fresh-record path as the Record tab; Scan
       // opens the viewfinder.
@@ -188,9 +209,14 @@
     }
     $('#ql-groups').innerHTML = QUICK_LINKS.groups.map(function (group) {
       var tiles = group.tiles.map(function (tile) {
-        return '<button class="ql-tile" type="button" data-ink="' + tile.ink + '"' +
+        // Limited mode: supervisor-only tiles stay visible (the user can see
+        // what exists) but are grayed out, carry a lock, and explain on tap.
+        var locked = quickLinksMode === 'limited' && tile.supervisorOnly;
+        return '<button class="ql-tile' + (locked ? ' ql-tile--locked' : '') + '" type="button" data-ink="' + tile.ink + '"' +
                ' style="--tile:' + tile.color + '"' +
+               (locked ? ' data-locked="true" aria-disabled="true"' : '') +
                ' data-launch="' + tile.launch + '" data-name="' + tile.name + '">' +
+               (locked ? '<i class="fa-solid fa-lock ql-tile__lock" aria-hidden="true"></i>' : '') +
                '<i class="fa-solid ' + tile.icon + '"></i><span>' + tile.name + '</span></button>';
       }).join('');
       return '<div class="ql-group">' +
@@ -251,8 +277,30 @@
       '<button class="more-account" data-goto="profile" type="button">' +
       '<span class="t-Avatar t-Avatar--md">' + USER.initials + '</span>' +
       '<span class="more-account__main"><span class="more-account__name">' + USER.name + '</span>' +
-      '<span class="more-account__sub">' + USER.role + ' \u00b7 ' + USER.department + '</span></span>' +
+      '<span class="more-account__sub">' + USER.department + '</span></span>' +
       '<i class="fa-solid fa-chevron-right t-ListItem__after"></i></button>';
+  }
+
+  /* Profile card: name and department only — no title/role, that data is not
+     available at launch. */
+  function renderProfile() {
+    $('#profile-card').innerHTML =
+      '<div class="t-Card__body t-YStack" style="align-items:center;gap:var(--space-3);text-align:center">' +
+      '<div class="t-Avatar t-Avatar--lg">' + USER.initials + '</div>' +
+      '<h2 class="t-H3">' + USER.name + '</h2>' +
+      '<hr class="t-Separator" style="width:100%">' +
+      '<div><p class="t-Label">Department</p>' +
+      '<p class="t-H4" style="margin-top:var(--space-1)">' + USER.department + '</p></div></div>';
+  }
+
+  /* Switch the signed-in demo user (UX tools dock). Re-renders everything that
+     names the person; the screen the reviewer is on stays put. */
+  function setUser(id) {
+    if (!USERS[id] || USERS[id] === USER) return;
+    USER = USERS[id];
+    renderAccount(); renderProfile(); renderWho(); renderQuickLinks();
+    if (!isShared()) $('#username').value = USER.username;
+    document.dispatchEvent(new CustomEvent('ts:user', { detail: { id: id } }));
   }
 
   /* Unread count on the Alerts tab */
@@ -269,12 +317,13 @@
     opts = opts || {};
 
     // Screens that live outside the tabbed shell
-    var outside = id === 'region' || id === 'device' || id === 'login' || id === 'prompt';
+    var outside = id === 'region' || id === 'device' || id === 'login' || id === 'sso' || id === 'prompt';
     region.classList.toggle('is-active', id === 'region');
     device.classList.toggle('is-active', id === 'device');
     login.classList.toggle('is-active', id === 'login');
+    sso.classList.toggle('is-active', id === 'sso');
     prompt.classList.toggle('is-active', id === 'prompt');
-    statusBar.classList.toggle('status-bar--light', id === 'prompt');
+    statusBar.classList.toggle('status-bar--light', id === 'prompt' || id === 'sso');
     // On a shared device the status bar stays navy so it and the identity strip
     // read as one block of system chrome above the (brand-colored) app.
     statusBar.classList.toggle('status-bar--brand', !outside && !isShared());
@@ -338,13 +387,84 @@
     var faceId = faceIdEnabled && !shared;
     $('#login-password').hidden = faceId;
     $('#login-faceid').hidden   = !faceId;
+    $('#login-agency').hidden   = true;
     $('.faceid-optin').hidden   = shared;
     $('#login-shared-note').hidden = !shared;
-    $('#username').value = shared ? '' : 'j.lee';
+    $('#username').value = shared ? '' : USER.username;
     $('#password').value = shared ? '' : 'password';
     clearLoginError();
     resetFaceScan();
+    resetAgencyPane();
   }
+
+  /* ---------------------------------------------------------------------------
+     Log in with your agency (SSO)
+     ---------------------------------------------------------------------------
+     Phase 1 has no forgot-password flow, but it does have SSO. The link under
+     Log In swaps the form for one field: the agency's site path, handed out by
+     the administrator. Continue opens the agency's own sign-in page embedded
+     in the app (the `sso` screen) — faked here as a generic identity-provider
+     login branded with the agency the path resolves to.
+     ------------------------------------------------------------------------ */
+  /* Site path → agency name. Unknown paths just show the path itself. */
+  var AGENCIES = { springfd: 'Springfield Fire Department', springpd: 'Springfield Police Department' };
+  var sso = $('#screen-sso');
+  function resetAgencyPane() {
+    var input = $('#agency-path');
+    input.value = ''; input.classList.remove('is-invalid');
+    $('#agency-help').hidden = true;
+    $('#btn-agency').disabled = false;
+    $('#btn-agency').innerHTML = 'Continue';
+  }
+  function openSso(path) {
+    var org = AGENCIES[path] || path;
+    $('#sso-domain').textContent = 'login.' + path + '.gov';
+    $('#sso-org').textContent = org;
+    $('#sso-org2').textContent = org;
+    $('#sso-user').value = ''; $('#sso-pass').value = '';
+    $('#btn-sso-login').disabled = false;
+    $('#btn-sso-login').innerHTML = 'Sign in';
+    goTo('sso');
+  }
+  $('#btn-sso-login').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Signing in\u2026';
+    setTimeout(signIn, 900);
+  });
+  // Cancel goes back to the site-path field, not all the way to the password form.
+  $('#btn-sso-cancel').addEventListener('click', function () {
+    goTo('login');
+    $('#btn-login-agency').click();
+  });
+  $('#btn-login-agency').addEventListener('click', function () {
+    $('#login-password').hidden = true;
+    $('#login-faceid').hidden = true;
+    $('#login-agency').hidden = false;
+    resetAgencyPane();
+    $('#agency-path').focus();
+  });
+  $('#btn-agency-back').addEventListener('click', showLoginPane);
+  $('#agency-path').addEventListener('input', function () {
+    this.classList.remove('is-invalid');
+    $('#agency-help').hidden = true;
+  });
+  $('#agency-path').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#btn-agency').click(); });
+  $('#btn-agency').addEventListener('click', function () {
+    var path = $('#agency-path').value.trim().toLowerCase();
+    if (!path) {
+      $('#agency-path').classList.add('is-invalid');
+      $('#agency-help').textContent = 'Enter your agency\u2019s site path.';
+      $('#agency-help').hidden = false;
+      $('#agency-path').focus();
+      return;
+    }
+    // Brief "opening" beat, then the agency's sign-in page.
+    var btn = $('#btn-agency');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Opening ' + path + '\u2026';
+    setTimeout(function () { openSso(path); }, 700);
+  });
 
   /* ---------------------------------------------------------------------------
      Failed sign-in
@@ -391,8 +511,7 @@
     if (window.RC && window.RC.reset) window.RC.reset();
   }
 
-  /* Identity strip + the shared-device notes. The user is static mock data, so
-     this only needs to run once. */
+  /* Identity strip + the shared-device notes. Re-run when the demo user changes. */
   function renderWho() {
     $('#who-avatar').textContent = USER.initials;
     $('#who-name').textContent   = USER.name;
@@ -400,8 +519,8 @@
     document.querySelectorAll('.idle-label').forEach(function (el) { el.textContent = IDLE.label; });
   }
 
-  /* Sign out from anywhere: Profile → Log Out, the strip's Switch, "Not you?"
-     in Record Completions, or the inactivity timer. On a shared device the
+  /* Sign out from anywhere: Profile → Log Out, the strip's Switch, or "Sign in
+     to a different account" on the Welcome back screen. On a shared device the
      Record Completions draft is discarded too — it must never carry over to the
      next person who picks up the tablet. */
   function signOut() {
@@ -412,49 +531,45 @@
   }
 
   /* ---------------------------------------------------------------------------
-     Inactivity sign-out (shared devices only)
+     Inactivity check (shared devices only)
      ---------------------------------------------------------------------------
      Any touch or key press inside the phone resets the clock. When it runs out
-     a "Still there?" warning counts down; "I'm still here" restarts the clock,
-     anything else signs out.
+     the app does NOT sign out — a rig iPad is picked up at the start of a
+     12-hour shift and the captain must not be kicked out mid-shift. Instead a
+     full-screen "Welcome back" asks who is holding the device: continue as the
+     same person (straight back to where they were, nothing lost) or sign in
+     as someone else. There is no countdown; the screen waits.
      ------------------------------------------------------------------------ */
-  var idleTimer = null, idleTick = null;
+  var idleTimer = null;
   function idleStart() { idleStop(); idleTimer = setTimeout(showIdleWarning, IDLE.afterMs); }
   function idleStop()  { clearTimeout(idleTimer); idleTimer = null; }
 
   function showIdleWarning() {
     idleStop();
-    var left = Math.round(IDLE.warnMs / 1000);
-    var dlg = $('#idle-dialog');
-    dlg.innerHTML =
-      '<div class="rc-dialog">' +
-      '<h3 class="t-H3" id="idle-title">Still there, ' + USER.name.split(' ')[0] + '?</h3>' +
-      '<p class="t-Paragraph">This is a shared device. To keep your account private you will be signed out in ' +
-      '<strong id="idle-count">' + left + '</strong> seconds.</p>' +
-      '<div class="rc-dialog__actions">' +
-      '<button class="t-Button t-Button--ghost" data-idle="out" type="button">Sign out now</button>' +
-      '<button class="t-Button t-Button--primary" data-idle="stay" type="button">I’m still here</button>' +
-      '</div></div>';
-    dlg.classList.add('is-open');
-    clearInterval(idleTick);
-    idleTick = setInterval(function () {
-      left -= 1;
-      $('#idle-count').textContent = left;
-      if (left <= 0) signOut();
-    }, 1000);
+    var first = USER.name.split(' ')[0];
+    $('#idle-lock').innerHTML =
+      '<div class="idle-lock__card">' +
+      '<span class="t-Avatar t-Avatar--lg idle-lock__avatar" aria-hidden="true">' + USER.initials + '</span>' +
+      '<h2 class="idle-lock__title" id="idle-title">Welcome back</h2>' +
+      '<p class="idle-lock__body">This shared device has been idle for over ' + IDLE.label +
+      '. Confirm who\u2019s using it before continuing.</p>' +
+      '<button class="t-Button t-Button--primary idle-lock__continue" data-idle="stay" type="button">' +
+      '<i class="fa-solid fa-arrow-right-to-bracket"></i> Continue as ' + USER.name + '</button>' +
+      '<button class="t-Button t-Button--secondary idle-lock__alt" data-idle="out" type="button">' +
+      '<i class="fa-solid fa-user-group"></i> Sign in to a different account</button>' +
+      '<p class="idle-lock__hint">Continuing picks up right where ' + first + ' left off \u2014 nothing is lost.</p>' +
+      '</div>';
+    $('#idle-lock').classList.add('is-open');
   }
-  function closeIdleWarning() {
-    clearInterval(idleTick); idleTick = null;
-    $('#idle-dialog').classList.remove('is-open');
-  }
-  $('#idle-dialog').addEventListener('click', function (e) {
+  function closeIdleWarning() { $('#idle-lock').classList.remove('is-open'); }
+  $('#idle-lock').addEventListener('click', function (e) {
     var btn = e.target.closest('[data-idle]');
     if (!btn) return;
     closeIdleWarning();
-    if (btn.dataset.idle === 'out') signOut(); else idleStart();
+    if (btn.dataset.idle === 'out') signOut(); else idleStart();   // continue: app untouched
   });
-  // Activity resets the clock — but only while it is running. Once the warning
-  // is up, only its two buttons count.
+  // Activity resets the clock — but only while it is running. Once the
+  // Welcome back screen is up, only its two buttons count.
   ['pointerdown', 'keydown'].forEach(function (ev) {
     $('.device-screen').addEventListener(ev, function () { if (idleTimer) idleStart(); }, true);
   });
@@ -494,6 +609,7 @@
     // for the signed-in user; the other launch types still explain themselves in a sheet.
     var tile = e.target.closest('.ql-tile');
     if (tile) {
+      if (tile.dataset.locked) { openSheet(tile.dataset.name, QUICK_LINKS_LOCKED.body); return; }
       if (tile.dataset.launch === 'rca' && window.RC) { window.RC.openWith(tile.dataset.name); return; }
       if (tile.dataset.launch === 'selfAssign' && window.RC) { window.RC.openSelf(tile.dataset.name); return; }
       var spec = LAUNCH[tile.dataset.launch];
@@ -626,6 +742,7 @@
   renderQuickLinks();
   renderMore();
   renderAccount();
+  renderProfile();
   renderWho();
   unreadCount = renderNotifications();
   renderTabBadge();
@@ -633,22 +750,33 @@
   /* Shared-device hooks for record.js (the "Recording as" line, draft reset on
      sign-out) and the Design Toolbox flow map (shared-state thumbnails). */
   window.APP = {
-    user: USER,
+    get user() { return USER; },   // live — the dock can switch demo users
+    users: USERS,
+    userId: function () { return USER.id; },
+    setUser: setUser,
     isShared: isShared,
     signOut: signOut,
     showIdleWarning: showIdleWarning,
     setDevice: setDevice,
-    // Quick Links configured? false renders the "No Quick Links yet" state on
-    // Home. Driven by the UX tools dock toggle and the flow map's home-empty node.
-    hasQuickLinks: function () { return quickLinksConfigured; },
-    setQuickLinks: function (on) {
-      on = !!on;
-      if (on === quickLinksConfigured) return;
-      quickLinksConfigured = on;
+    openSso: openSso,
+    // Quick Links mode: 'all' | 'limited' | 'none' (see quickLinksMode above).
+    // Driven by the UX tools dock and the flow map's home / home-limited /
+    // home-empty nodes.
+    quickLinksMode: function () { return quickLinksMode; },
+    setQuickLinksMode: function (mode) {
+      if (mode !== 'all' && mode !== 'limited' && mode !== 'none') return;
+      if (mode === quickLinksMode) return;
+      quickLinksMode = mode;
       renderQuickLinks();
-      document.dispatchEvent(new CustomEvent('ts:quicklinks', { detail: { configured: on } }));
+      document.dispatchEvent(new CustomEvent('ts:quicklinks', { detail: { mode: mode } }));
     }
   };
+
+  // UX-tools URL flags (?user=firefighter, ?ql=limited|off) are applied here,
+  // before the flow map's #fm= boot, so a deep link renders the right person.
+  var qs = location.search;
+  var um = qs.match(/[?&]user=(captain|firefighter)\b/);  if (um) window.APP.setUser(um[1]);
+  var qm = qs.match(/[?&]ql=(all|limited|off|none)\b/);   if (qm) window.APP.setQuickLinksMode(qm[1] === 'off' ? 'none' : qm[1]);
 
   // First launch asks for the country, then the device type; later launches remember both.
   goTo(regionId ? (deviceId ? 'login' : 'device') : 'region');
