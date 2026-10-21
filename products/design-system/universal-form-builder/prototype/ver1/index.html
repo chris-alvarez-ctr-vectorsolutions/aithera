@@ -387,6 +387,7 @@
   .fb-levelrow .fb-level-desc { grid-column: 1 / -1; }
   .fb-levelrow .fb-level-flags { grid-column: 1 / -1; display: flex; gap: 12px; flex-wrap: wrap; font-size: 11.5px; }
   .fb-levelcard { border: 1px solid var(--fb-line); border-radius: 6px; padding: 8px; background: var(--fb-zebra); display: flex; flex-direction: column; gap: 6px; }
+  .fb-levelcard vaadin-text-field, .fb-levelcard vaadin-number-field { width: 100%; min-width: 0; }
   .fb-levelcard-head { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--fb-ink-500); }
   .fb-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
   .fb-inline-add { appearance: none; background: none; border: 0; padding: 2px 0; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--lumo-primary-text-color, #0271ce); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; }
@@ -460,6 +461,32 @@
   .fb-toast { background: #18181b; color: #fff; font-size: 13px; font-weight: 500; padding: 10px 16px; border-radius: 999px; box-shadow: var(--lumo-box-shadow-m, 0 2px 6px -1px #1c375a29, 0 8px 24px -4px #1c324f61); display: flex; align-items: center; gap: 9px; }
 
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  /* ---- Pass 2: repeat children, link legend, block editor, block picker ---- */
+  .fb-repeat { display: flex; flex-direction: column; }
+  .fb-repeat-children { margin: 0 0 4px 62px; padding: 4px 8px 6px 10px; border-left: 3px solid #0e7490; background: #f0fdff; border-radius: 0 6px 6px 0; }
+  .fb-repeat-children .fb-item { padding: 5px 8px; }
+  .fb-repeat-children .fb-item-num { display: none; }
+  .fb-repeat-children .fb-grip { display: none; }
+  .fb-repeat-children .fb-mech-tile { width: 24px; height: 24px; font-size: 11px; }
+  .fb-repeat-label { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #0e7490; padding: 2px 8px 4px; display: flex; align-items: center; gap: 6px; }
+  .fb-repeat-label .fb-inline-add { margin-left: auto; font-size: 12px; }
+  .fb-legend { display: flex; gap: 12px; align-items: center; font-size: 11.5px; color: var(--fb-ink-500); margin-left: 6px; }
+  .fb-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .fb-blockhead-note { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--fb-ink-700); background: var(--lumo-warning-color-10pct, #ffcc001a); border: 1px solid var(--lumo-warning-color, #e0782e); border-radius: 6px; padding: 8px 11px; margin-bottom: 12px; }
+  .fb-blockhead-note i { color: var(--lumo-warning-text-color, #995211); }
+  .fb-bpicker { display: flex; flex-direction: column; gap: 10px; min-width: min(720px, 84vw); }
+  .fb-bpicker-list { display: flex; flex-direction: column; gap: 6px; max-height: 56vh; overflow-y: auto; }
+  .fb-bpicker-group { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fb-ink-500); padding: 8px 2px 2px; }
+  .fb-bpicker-row { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid var(--fb-line); border-radius: 7px; background: var(--fb-card-bg); cursor: pointer; font: inherit; text-align: left; width: 100%; }
+  .fb-bpicker-row:hover:not(:disabled) { border-color: var(--fb-accent); background: var(--lumo-primary-color-10pct, #0271ce1a); }
+  .fb-bpicker-row:disabled { opacity: .5; cursor: not-allowed; }
+  .fb-bpicker-row .fb-block-tile { width: 32px; height: 32px; }
+  .fb-bpicker-row b { font-size: 13.5px; display: block; }
+  .fb-bpicker-row span { font-size: 11.5px; color: var(--fb-ink-500); }
+  .fb-bpicker-row .fb-chips { margin-left: auto; }
+  .fb-imglist { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fb-imglist .fb-chip { padding: 5px 8px; }
 </style>
 </head>
 <body>
@@ -1281,12 +1308,14 @@ const state = {
   formId: null,             // open form
   sel: null,                // { kind:'form' } | { kind:'section', id } | { kind:'item', sectionId, id } | { kind:'block', sectionId, instanceId }
   dirty: false,
-  openStages: {}            // inspector stage open/closed, remembered per kind
+  openStages: {},           // inspector stage open/closed, remembered per kind
+  editing: { type: 'form' }, // form | block — what the builder is showing
+  returnTo: null            // where Back goes from a block editor opened from a form
 };
 const P  = () => PROFILES[state.profile];
 const V  = k => P().vocab[k] || k;
 const lib = () => LIB[state.profile];
-const currentForm = () => lib().forms.find(f => f.id === state.formId) || null;
+const currentForm = () => state.editing.type === 'block' ? blockAsForm(state.editing.id) : (lib().forms.find(f => f.id === state.formId) || null);
 const blockById = id => lib().blocks.find(b => b.id === id);
 const scaleById = id => (lib().scales || []).find(s => s.id === id);
 const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
@@ -1541,7 +1570,7 @@ function renderLibrary() {
       document.getElementById('libSearch').value = ''; document.getElementById('libStatus').value = ''; document.getElementById('libKind').value = '';
       renderLibraryGrid();
     });
-    document.getElementById('btnCreate').addEventListener('click', () => openSetupDialog());
+    document.getElementById('btnCreate').addEventListener('click', () => { if (state.libTab === 'blocks') openNewBlockDialog(); else if (state.libTab === 'scales') openScaleDialog(null); else openSetupDialog(); });
   }
   renderLibraryPanel();
 }
@@ -1562,7 +1591,7 @@ function renderLibraryPanel() {
   const create = document.getElementById('btnCreate');
   const lbl = { forms: V('create'), templates: 'New ' + V('template'), blocks: 'New ' + V('block'), scales: 'New scale' }[state.libTab];
   document.getElementById('btnCreateLabel').textContent = lbl;
-  create.style.display = isForms ? '' : 'none';   // pass 2: block and scale creation
+  create.style.display = state.libTab === 'templates' ? 'none' : '';
   renderLibraryGrid();
 }
 function statusBadge(s) { const m = STATUS_META[s] || STATUS_META.draft; return badge(m.theme, m.label); }
@@ -1627,13 +1656,13 @@ function renderLibraryGrid() {
     const it = e.detail.value; if (!it) return;
     grid.activeItem = null;
     if (state.libTab === 'forms') openForm(it.id);
-    else if (state.libTab === 'blocks') toast('Pass 2: ' + V('Block') + ' editor', 'fa-circle-info');
-    else if (state.libTab === 'scales') toast('Pass 2: scale editor', 'fa-circle-info');
+    else if (state.libTab === 'blocks') openBlock(it.id);
+    else if (state.libTab === 'scales') openScaleDialog(it.id);
   };
   grid.addEventListener('active-item-changed', grid._h);
 }
 function openForm(id) {
-  state.formId = id; state.sel = { kind: 'form' };
+  state.formId = id; state.sel = { kind: 'form' }; state.editing = { type: 'form' }; state.returnTo = null;
   setView('builder');
 }
 
@@ -1751,13 +1780,19 @@ function markDirty() { state.dirty = true; const f = currentForm(); if (f) f.met
 
 function renderBuilder() {
   const f = currentForm(); if (!f) { setView('library'); return; }
-  document.getElementById('backLabel').textContent = V('forms');
-  document.getElementById('structureLabel').textContent = 'Content';
+  const rt = state.returnTo && lib().forms.find(x => x.id === state.returnTo.formId);
+  document.getElementById('backLabel').textContent = rt ? rt.name : f.isBlock ? V('blocks') : V('forms');
+  document.getElementById('structureLabel').textContent = f.isBlock ? cap(V('questions')) + ' in this ' + V('block') : 'Content';
   document.getElementById('addSectionLabel').textContent = 'Add ' + V('section');
+  document.getElementById('btnAddSection').style.display = f.isBlock ? 'none' : '';
+  document.getElementById('btnExpandAll').style.display = f.isBlock ? 'none' : '';
+  document.getElementById('btnCollapseAll').style.display = f.isBlock ? 'none' : '';
+  renderLinkLegend(f);
   renderBuilderHead(); renderCanvas(); renderInspector();
 }
 function renderBuilderHead() {
   const f = currentForm(); if (!f) return;
+  if (f.isBlock) return renderBlockHead(f);
   document.getElementById('bTitle').textContent = f.name || 'Untitled';
   const st = document.getElementById('bStatus'); st.innerHTML = ''; st.appendChild(statusBadge(f.status));
   const kd = document.getElementById('bKind'); kd.innerHTML = ''; kd.appendChild(badge('badge contrast', kindLabel(f.kind)));
@@ -1784,7 +1819,7 @@ function renderSection(f, s, si) {
   const card = el('div', { class: 'fb-section' + (s.collapsed ? ' is-collapsed' : '') + (selected ? ' is-selected' : ''), 'data-id': s.id });
   const nItems = s.items.length;
   const head = el('div', { class: 'fb-section-head' }, [
-    el('span', { class: 'fb-section-ord', text: String(si + 1) }),
+    f.isBlock ? el('span', { class: 'fb-block-tile' }, [icon('fa-cubes')]) : el('span', { class: 'fb-section-ord', text: String(si + 1) }),
     el('span', { class: 'fb-section-name', text: s.title || 'Untitled ' + V('section'), onclick: () => select({ kind: 'section', id: s.id }) }),
     el('span', { class: 'fb-section-meta', text: nItems + ' item' + (nItems === 1 ? '' : 's') + (s.layout === 2 ? ' · 2 columns' : '') + (s.locked ? ' · locked' : '') }),
     s.locked ? el('span', { class: 'fb-sealed', title: 'Locked system fields: the product owns these' }, [icon('fa-lock')]) : null
@@ -1799,7 +1834,7 @@ function renderSection(f, s, si) {
       { label: 'Delete ' + V('section'), icon: 'fa-trash', danger: true, run: () => confirmDialog({ title: 'Delete "' + s.title + '"?', bodyHtml: '<p>Its ' + nItems + ' item' + (nItems === 1 ? '' : 's') + ' go with it. Linked ' + escHtml(V('blocks')).toLowerCase() + ' are untouched.</p>', confirmLabel: 'Delete', danger: true, onConfirm: () => { f.sections.splice(si, 1); if (selected) state.sel = { kind: 'form' }; markDirty(); renderCanvas(); renderInspector(); } }) }
     ])
   ]);
-  head.appendChild(acts);
+  if (!f.isBlock) head.appendChild(acts);
   card.appendChild(head);
   const body = el('div', { class: 'fb-section-body' });
   if (s.help) body.appendChild(el('div', { class: 'fb-section-help', text: s.help }));
@@ -1810,12 +1845,10 @@ function renderSection(f, s, si) {
     lane.appendChild(gap(s, ii + 1));
   });
   if (!s.items.length) lane.appendChild(el('div', { class: 'fb-help', style: 'padding:6px 0 4px 32px', text: 'Empty ' + V('section') + '. Add a ' + V('question') + ' below.' }));
-  const add = el('div', { class: 'fb-lane-add' }, [
-    textBtn('Add ' + V('question'), 'tertiary', () => openPicker(s.id)),
-    textBtn('Add ' + V('block'), 'tertiary', () => toast('Pass 2: ' + V('block') + ' picker and link states', 'fa-circle-info'))
-  ]);
+  const add = el('div', { class: 'fb-lane-add' }, [ textBtn('Add ' + V('question'), 'tertiary', () => openPicker(s.id)) ]);
+  if (!f.isBlock) add.appendChild(textBtn('Add ' + V('block'), 'tertiary', () => openBlockPicker(s.id)));
   add.firstChild.insertBefore(icon('fa-plus'), add.firstChild.firstChild); add.firstChild.firstChild.style.marginRight = '6px';
-  add.lastChild.insertBefore(icon('fa-cubes'), add.lastChild.firstChild); add.lastChild.firstChild.style.marginRight = '6px';
+  if (!f.isBlock) { add.lastChild.insertBefore(icon('fa-cubes'), add.lastChild.firstChild); add.lastChild.firstChild.style.marginRight = '6px'; }
   lane.appendChild(add);
   body.appendChild(lane);
   card.appendChild(body);
@@ -1953,6 +1986,7 @@ function renderItemRow(f, s, q, ii) {
   ]);
   row.appendChild(main);
   row.appendChild(el('div', { class: 'fb-item-acts' }, [ rowMenu(itemMenu(f, s, ii)) ]));
+  if (q.mechanism === 'repeat') return el('div', { class: 'fb-repeat' }, [ row, renderRepeatChildren(f, s, q) ]);
   return row;
 }
 function questionNumber(f, s, ii) {
@@ -1968,7 +2002,7 @@ function itemMenu(f, s, ii) {
     { label: 'Move to ' + V('section') + '…', icon: 'fa-arrow-right-to-bracket', disabled: f.sections.length < 2, run: () => moveToSection(s.id, ii) },
     { sep: true },
     it.type === 'block'
-      ? { label: 'Break link', icon: 'fa-link-slash', run: () => toast('Pass 2: link-state ladder (template → block → unique)', 'fa-circle-info') }
+      ? { label: it.linkState === 'unique' ? 'Already unlinked' : 'Break link', icon: 'fa-link-slash', disabled: it.linkState === 'unique', run: () => breakLink(s, ii) }
       : { label: 'Duplicate', icon: 'fa-copy', run: () => { const c = JSON.parse(JSON.stringify(it)); c.id = uid('q'); c.identity = c.id; s.items.splice(ii + 1, 0, c); markDirty(); renderCanvas(); } },
     { label: it.type === 'block' ? 'Remove from ' + V('section') : 'Delete', icon: 'fa-trash', danger: true, run: () => {
         const name = it.type === 'block' ? blockById(it.blockId).name : (it.title || 'this ' + V('question'));
@@ -2007,13 +2041,21 @@ function renderBlockRow(f, s, inst, ii) {
   return card;
 }
 function select(sel) { state.sel = sel; renderCanvas(); renderInspector(); }
+/* Resolve a selection to its question: top-level, or inline in a Repeat. */
+function findQ(f, sel) {
+  const s = f.sections.find(x => x.id === sel.sectionId); if (!s) return null;
+  if (sel.parentId) { const par = s.items.find(x => x.id === sel.parentId); return par && par.config.items.find(x => x.id === sel.id) || null; }
+  return s.items.find(x => x.id === sel.id) || null;
+}
 
 /* ---- Add-question picker: mechanism → preset, filtered by profile --------- */
-function openPicker(secId, atIndex) {
+function openPicker(secId, atIndex, parentId) {
   const p = P(); const dlg = document.getElementById('dlgPicker');
-  const mechs = MECH_ORDER.filter(m => p.mechanisms.includes(m));
+  /* Inside a Repeat only plain question mechanisms are offered: structure
+     cannot nest inside a row, and a display row has nothing to repeat. */
+  const mechs = MECH_ORDER.filter(m => p.mechanisms.includes(m) && (!parentId || MECHANISMS[m].group === 'question'));
   let active = mechs.includes('choice') ? 'choice' : mechs[0];
-  dlg.headerTitle = 'Add a ' + V('question');
+  dlg.headerTitle = parentId ? 'Add an inline ' + V('question') + ' to the Repeat' : 'Add a ' + V('question');
   dlg.renderer = root => {
     root.innerHTML = '';
     const wrap = el('div', { class: 'fb-picker' });
@@ -2029,8 +2071,8 @@ function openPicker(secId, atIndex) {
       const presets = p.presets.filter(x => x.mechanism === active);
       detail.appendChild(el('div', { class: 'fb-label', text: presets.length ? p.name + ' presets' : 'No presets: configure it yourself' }));
       const grid = el('div', { class: 'fb-preset-grid' });
-      presets.forEach(pr => grid.appendChild(el('button', { type: 'button', class: 'fb-preset-card', onclick: () => { dlg.opened = false; addQuestion(secId, active, pr.id, atIndex); } }, [ el('b', { text: pr.label }), el('span', { text: pr.desc || '' }), confTag(pr.conf || 'design') ])));
-      grid.appendChild(el('button', { type: 'button', class: 'fb-preset-card', style: 'border-style:dashed', onclick: () => { dlg.opened = false; addQuestion(secId, active, null, atIndex); } }, [ el('b', { text: 'Plain ' + m.name.toLowerCase() }), el('span', { text: 'Core defaults. Every dimension is open.' }) ]));
+      presets.forEach(pr => grid.appendChild(el('button', { type: 'button', class: 'fb-preset-card', onclick: () => { dlg.opened = false; addQuestion(secId, active, pr.id, atIndex, parentId); } }, [ el('b', { text: pr.label }), el('span', { text: pr.desc || '' }), confTag(pr.conf || 'design') ])));
+      grid.appendChild(el('button', { type: 'button', class: 'fb-preset-card', style: 'border-style:dashed', onclick: () => { dlg.opened = false; addQuestion(secId, active, null, atIndex, parentId); } }, [ el('b', { text: 'Plain ' + m.name.toLowerCase() }), el('span', { text: 'Core defaults. Every dimension is open.' }) ]));
       detail.appendChild(grid);
     };
     groups.forEach(([g, label]) => {
@@ -2047,17 +2089,23 @@ function openPicker(secId, atIndex) {
   dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('span', { class: 'fb-help', text: 'Mechanisms are shared; presets are ' + p.name + '’s. Hidden mechanisms are off in this profile.' }), el('div', { class: 'right' }, [textBtn('Cancel', 'secondary', () => { dlg.opened = false; })]) ])); };
   dlg.opened = true;
 }
-function addQuestion(secId, mechanism, presetId, atIndex) {
+function addQuestion(secId, mechanism, presetId, atIndex, parentId) {
   const f = currentForm(); const s = f.sections.find(x => x.id === secId);
   const q = mkQ(state.profile, mechanism, presetId, '', {});
+  if (parentId) { const par = s.items.find(x => x.id === parentId); par.config.items.push(q); markDirty(); state.sel = { kind: 'item', sectionId: s.id, id: q.id, parentId }; renderCanvas(); renderInspector(true); return; }
   if (atIndex == null) s.items.push(q); else s.items.splice(atIndex, 0, q);
   markDirty(); state.sel = { kind: 'item', sectionId: s.id, id: q.id };
   renderCanvas(); renderInspector(true);
 }
 
 /* Header actions */
-document.getElementById('btnBack').addEventListener('click', () => setView('library'));
-document.getElementById('btnBack').addEventListener('keydown', e => { if (e.key === 'Enter') setView('library'); });
+function goBack() {
+  if (state.returnTo) { const r = state.returnTo; state.editing = { type: 'form' }; state.formId = r.formId; state.sel = r.sel || { kind: 'form' }; state.returnTo = null; setView('builder'); return; }
+  if (state.editing.type === 'block') { state.editing = { type: 'form' }; state.libTab = 'blocks'; }
+  setView('library');
+}
+document.getElementById('btnBack').addEventListener('click', goBack);
+document.getElementById('btnBack').addEventListener('keydown', e => { if (e.key === 'Enter') goBack(); });
 document.getElementById('btnAddSection').addEventListener('click', () => { const f = currentForm(); const s = mkSection('New ' + V('section'), []); f.sections.push(s); markDirty(); state.sel = { kind: 'section', id: s.id }; renderCanvas(); renderInspector(true); });
 document.getElementById('btnExpandAll').addEventListener('click', () => { currentForm().sections.forEach(s => { s.collapsed = false; s.items.forEach(it => { if (it.type === 'block') it.expanded = true; }); }); renderCanvas(); });
 document.getElementById('btnCollapseAll').addEventListener('click', () => { currentForm().sections.forEach(s => { s.collapsed = true; }); renderCanvas(); });
@@ -2090,7 +2138,7 @@ function renderInspector(focusTitle) {
   if (sel.kind === 'form') return renderFormInspector(host, f);
   if (sel.kind === 'section') { const s = f.sections.find(x => x.id === sel.id); if (!s) { state.sel = { kind: 'form' }; return renderInspector(); } return renderSectionInspector(host, f, s); }
   if (sel.kind === 'block') { const s = f.sections.find(x => x.id === sel.sectionId); const inst = s && s.items.find(x => x.instanceId === sel.instanceId); if (!inst) { state.sel = { kind: 'form' }; return renderInspector(); } return renderBlockInspector(host, f, s, inst); }
-  const s = f.sections.find(x => x.id === sel.sectionId); const q = s && s.items.find(x => x.id === sel.id);
+  const s = f.sections.find(x => x.id === sel.sectionId); const q = s && findQ(f, sel);
   if (!q) { state.sel = { kind: 'form' }; return renderInspector(); }
   renderQuestionInspector(host, f, s, q, focusTitle);
 }
@@ -2104,6 +2152,7 @@ function onChange() { markDirty(); renderCanvas(); }
 /* ---- Form settings ---------------------------------------------------- */
 function renderFormInspector(host, f) {
   const p = P();
+  if (f.isBlock) return renderBlockLibInspector(host, f.block);
   host.appendChild(inspHead(V('Form') + ' settings', f.name));
   const body = el('div', { class: 'fb-insp-body' });
   body.appendChild(stage('f-identity', 'Identity', [
@@ -2196,7 +2245,8 @@ function renderBlockInspector(host, f, s, inst) {
     vText({ label: 'Context label', value: inst.contextLabel, placeholder: 'e.g. Driver front', helper: 'Lets one ' + V('block') + ' appear more than once with different labels.', onchange: v => { inst.contextLabel = v; onChange(); } }),
     field('Link state', el('div', { class: 'fb-help', html: '<span class="fb-linkdot" data-s="' + inst.linkState + '"></span> ' + { template: 'Linked to the template: the template owns its content.', block: 'Linked: edits to the ' + escHtml(V('block')) + ' reach this ' + escHtml(V('form')) + ' on publish.', unique: 'Unlinked copy: edits here stay here.' }[inst.linkState] }), 'Break the link from the row menu (pass 2: the full ladder).'),
     el('div', { class: 'fb-help', html: '<b>' + b.items.length + '</b> ' + escHtml(V('questions')) + ' · v' + b.version + ' · used by ' + b.usedBy + ' ' + escHtml(V('form')) + 's · ' + (b.multiUse ? 'multi-use' : 'single use') }),
-    textBtn('Edit ' + V('block') + ' in the library', 'secondary', () => toast('Pass 2: ' + V('block') + ' editor', 'fa-circle-info'))
+    textBtn('Edit ' + V('block') + ' in the library', 'secondary', () => openBlock(b.id, { formId: f.id, sel: state.sel })),
+    inst.linkState !== 'unique' ? textBtn('Break link…', 'tertiary', () => breakLink(s, s.items.indexOf(inst))) : null
   ], { conf: 'design' }));
   host.appendChild(body);
 }
@@ -2447,8 +2497,8 @@ const MECH_INSPECTORS = {
     if (c.source === 'subjects') nodes.push(vSelect({ label: 'Subject type', items: types.length ? types : [{ id: 'subject', label: 'Subject' }], value: c.sourceType || (types[0] && types[0].id), onchange: v => { c.sourceType = v; onChange(); } }));
     nodes.push(el('div', { class: 'fb-row' }, [ vNumber({ label: 'At least', value: c.min, min: 0, onchange: v => { c.min = Number(v) || 0; onChange(); } }), vNumber({ label: 'At most', value: c.max, placeholder: 'No limit', onchange: v => { c.max = v === '' ? null : Number(v); onChange(); } }) ]));
     nodes.push(field('Presentation', segmented([{ value: 'list', label: 'List' }, { value: 'grid', label: 'Grid' }], c.presentation, v => { c.presentation = v; onChange(); }, { full: true }), 'A grid is how the EHS observation matrix renders (P5).'));
-    nodes.push(field('Inline ' + V('questions'), el('div', { class: 'fb-optlist' }, c.items.map(it => el('div', { class: 'fb-block-step' }, [ el('span', { class: 'fb-mech-tile', 'data-m': it.mechanism }, [icon(MECHANISMS[it.mechanism].icon)]), el('span', { class: 'fb-block-step-t', text: it.title }), el('span', { class: 'fb-block-step-s', text: presetLabel(it) }) ]))), c.items.length ? 'Asked once per row.' : 'None yet.'));
-    nodes.push(el('button', { type: 'button', class: 'fb-inline-add', onclick: () => toast('Pass 2: edit the inline ' + V('questions') + ' of a Repeat', 'fa-circle-info') }, [icon('fa-plus'), 'Add inline ' + V('question')]));
+    nodes.push(field('Inline ' + V('questions'), el('div', { class: 'fb-optlist' }, c.items.map(it => el('div', { class: 'fb-block-step', style: 'cursor:pointer', onclick: () => select({ kind: 'item', sectionId: s.id, id: it.id, parentId: q.id }) }, [ el('span', { class: 'fb-mech-tile', 'data-m': it.mechanism }, [icon(MECHANISMS[it.mechanism].icon)]), el('span', { class: 'fb-block-step-t', text: it.title || 'Untitled' }), el('span', { class: 'fb-block-step-s', text: presetLabel(it) }) ]))), c.items.length ? 'Asked once per row. Click one to edit it.' : 'None yet.'));
+    nodes.push(el('button', { type: 'button', class: 'fb-inline-add', onclick: () => openPicker(s.id, null, q.id) }, [icon('fa-plus'), 'Add inline ' + V('question')]));
     return nodes;
   },
   nested: (q, f) => {
@@ -2462,7 +2512,10 @@ const MECH_INSPECTORS = {
       if ((c.lookBack || 'skip') === 'skip') nodes.push(vNumber({ label: 'Window (days)', value: c.lookBackDays || 30, min: 1, onchange: v => { c.lookBackDays = Number(v) || 30; onChange(); } }));
       nodes.push(vNumber({ label: 'Minimum passing', value: c.minPassing, placeholder: 'All', onchange: v => { c.minPassing = v === '' ? null : Number(v); onChange(); } }));
     }
-    nodes.push(field('Record', segmented([{ value: 'fold', label: 'Folds into this record' }, { value: 'separate', label: 'Separate record' }], c.record, v => { c.record = v; onChange(); }, { full: true }), 'Check It folds a nested check in; EHS creates a linked child record.'));
+    const tgt = c.targetId && lib().forms.find(x => x.id === c.targetId);
+    if (tgt) nodes.push(el('div', { class: 'fb-ext-group' }, [ el('div', { class: 'fb-ext-group-title' }, [icon('fa-diagram-subtask'), 'What will be asked']), el('div', { class: 'fb-help', html: '<b>' + escHtml(tgt.name) + '</b> v' + (tgt.liveVersion || tgt.version) + ' · ' + tgt.sections.length + ' ' + escHtml(V('section')) + 's · ' + countItems(tgt) + ' ' + escHtml(V('questions')) + '. Declared here, so the definition says what this ' + escHtml(V('form')) + ' asks (OPEN-QUESTIONS #1, reading a).' }), textBtn('Open "' + tgt.name + '"', 'tertiary', () => { state.returnTo = { formId: f.id, sel: state.sel }; state.formId = tgt.id; state.editing = { type: 'form' }; state.sel = { kind: 'form' }; setView('builder'); }) ]));
+    nodes.push(field('Record', segmented([{ value: 'fold', label: 'Folds into this record' }, { value: 'separate', label: 'Separate record' }], c.record, v => { c.record = v; onChange(); renderInspector(); }, { full: true }), 'Check It folds a nested check in; EHS creates a linked child record.'));
+    if (c.record === 'separate' && tgt) nodes.push(vMulti({ label: 'Inherited fields', items: tgt.sections.flatMap(x => x.items).filter(x => x.type !== 'block' && x.mechanism !== 'display').map(x => ({ id: x.id, label: x.title })), value: c.inherit || [], onchange: v => { c.inherit = v; onChange(); }, helper: 'Prefilled on the child record from this one (EHS: Originating Type, Division, Facility).' }));
     nodes.push(field('Trigger', segmented([{ value: 'always', label: 'Always' }, { value: 'rule', label: 'By rule' }], c.trigger, v => { c.trigger = v; onChange(); }, { full: true }), 'By rule: an answer opens it (pass 3).'));
     return nodes;
   },
@@ -2477,6 +2530,253 @@ const MECH_INSPECTORS = {
   }
 };
 </script>
+<script>
+/* ======================================================================
+   PASS 2 — block library + picker, link-state ladder, Repeat inline
+   questions, scale editor
+   ====================================================================== */
+
+/* A block edited in the library is a one-section pseudo-form, so the canvas,
+   rows, picker and inspector all work on it unchanged. */
+const _blockForms = {};
+function blockAsForm(id) {
+  const b = blockById(id); if (!b) return null;
+  if (!_blockForms[id] || _blockForms[id].block !== b) {
+    _blockForms[id] = { id: 'block:' + b.id, isBlock: true, block: b, product: b.product, name: b.name, status: b.status, version: b.version, kind: null,
+      sections: [ { id: 'blk-' + b.id, title: b.name, help: '', layout: 1, collapsed: false, locked: false, items: b.items } ], meta: b.meta || { modified: '2026-10-21', usedBy: [] } };
+  }
+  const pf = _blockForms[id]; pf.name = b.name; pf.sections[0].title = b.name; pf.sections[0].items = b.items; pf.status = b.status; pf.version = b.version;
+  return pf;
+}
+function openBlock(id, returnTo) {
+  state.editing = { type: 'block', id }; state.returnTo = returnTo || null; state.sel = { kind: 'form' };
+  setView('builder');
+}
+function usedByForms(b) { return lib().forms.filter(f => f.sections.some(s => s.items.some(it => it.type === 'block' && it.blockId === b.id))); }
+function renderBlockHead(pf) {
+  const b = pf.block;
+  document.getElementById('bTitle').textContent = b.name || 'Untitled ' + V('block');
+  const st = document.getElementById('bStatus'); st.innerHTML = ''; st.appendChild(statusBadge(b.status));
+  const kd = document.getElementById('bKind'); kd.innerHTML = ''; kd.appendChild(badge('badge contrast', cap(V('block')) + (b.category ? ' · ' + b.category : '')));
+  const meta = document.getElementById('bMeta'); meta.innerHTML = '';
+  const uses = usedByForms(b);
+  meta.appendChild(el('span', {}, [icon('fa-code-branch'), 'v' + b.version + (state.dirty ? ' · unsaved changes' : '')]));
+  meta.appendChild(el('span', { title: uses.map(f => f.name).join('\n') }, [icon('fa-link'), 'Used by ' + b.usedBy + ' ' + V('form') + (b.usedBy === 1 ? '' : 's')]));
+  meta.appendChild(el('span', {}, [icon(b.multiUse ? 'fa-clone' : 'fa-square'), b.multiUse ? 'Multi-use' : 'Single use per ' + V('form')]));
+}
+function renderLinkLegend(f) {
+  let lg = document.getElementById('linkLegend');
+  if (!lg) { lg = el('div', { class: 'fb-legend', id: 'linkLegend' }); document.querySelector('.fb-subhead h2').after(lg); }
+  lg.innerHTML = '';
+  if (f.isBlock) {
+    const uses = usedByForms(f.block);
+    let note = document.getElementById('blockHeadNote');
+    if (!note) { note = el('div', { class: 'fb-blockhead-note', id: 'blockHeadNote' }); document.getElementById('structure').before(note); }
+    note.innerHTML = '';
+    note.appendChild(icon('fa-triangle-exclamation'));
+    note.appendChild(el('span', { html: 'Shared ' + escHtml(V('block')) + '. Publishing a change reaches <b>' + uses.length + ' ' + escHtml(V('form')) + (uses.length === 1 ? '' : 's') + '</b>' + (uses.length ? ': ' + uses.map(x => escHtml(x.name)).join(', ') : '') + '. ' + (P().propagation === 'auto' ? 'They follow automatically.' : 'They are held until each is republished.') }));
+    return;
+  }
+  const note = document.getElementById('blockHeadNote'); if (note) note.remove();
+  [['template', 'Template-linked'], ['block', 'Linked'], ['unique', 'Unlinked copy']].forEach(([k, l]) => lg.appendChild(el('span', {}, [el('span', { class: 'fb-linkdot', 'data-s': k }), l])));
+}
+
+/* ---- Block library inspector (name, category, description, multi-use,
+   block-level instructions with images: Q40) ------------------------------ */
+function renderBlockLibInspector(host, b) {
+  host.appendChild(inspHead(cap(V('block')), b.name));
+  const body = el('div', { class: 'fb-insp-body' });
+  const cats = [...new Set(lib().blocks.map(x => x.category).filter(Boolean))];
+  body.appendChild(stage('bl-main', cap(V('block')), [
+    vText({ label: 'Name', value: b.name, onchange: v => { b.name = v; markDirty(); renderBuilderHead(); renderCrumbs(); renderCanvas(); } }),
+    vSelect({ label: 'Category', items: cats.map(c => ({ id: c, label: c })), value: b.category || cats[0], onchange: v => { b.category = v; markDirty(); renderBuilderHead(); } , helper: 'Filters where the ' + V('block') + ' is offered in the picker.' }),
+    vArea({ label: 'Description', value: b.description, rows: 2, onchange: v => { b.description = v; markDirty(); } }),
+    switchRow({ label: 'Multi-use', help: 'Can be placed more than once in one ' + V('form') + ', each with its own context label.', checked: b.multiUse, onchange: v => { b.multiUse = v; markDirty(); renderBuilderHead(); } })
+  ], { conf: 'design' }));
+  const ins = b.instructions || { text: '', images: [] };
+  const imgs = el('div', { class: 'fb-imglist' });
+  const drawImgs = () => { imgs.innerHTML = ''; (ins.images || []).forEach((im, i) => imgs.appendChild(el('span', { class: 'fb-chip' }, [icon('fa-image'), im, iconBtn('fa-xmark', 'Remove image', () => { ins.images.splice(i, 1); markDirty(); drawImgs(); })]))); };
+  drawImgs();
+  body.appendChild(stage('bl-instr', 'Instructions for the whole ' + V('block'), [
+    vArea({ label: 'Text', value: ins.text, rows: 3, placeholder: 'For all the ' + V('questions') + ' below…', onchange: v => { b.instructions = ins; ins.text = v; markDirty(); renderCanvas(); } }),
+    field('Images', imgs),
+    el('button', { type: 'button', class: 'fb-inline-add', onclick: () => { b.instructions = ins; ins.images = ins.images || []; ins.images.push('Image ' + (ins.images.length + 1)); markDirty(); drawImgs(); } }, [icon('fa-plus'), 'Add image']),
+    el('div', { class: 'fb-help', text: 'Shown above the first ' + V('question') + ' wherever the ' + V('block') + ' is placed (Q40).' })
+  ], { open: !!(ins.text || (ins.images || []).length), conf: 'design' }));
+  const uses = usedByForms(b);
+  body.appendChild(stage('bl-uses', 'Where it is used', [
+    uses.length ? el('div', { class: 'fb-optlist' }, uses.map(f => el('div', { class: 'fb-block-step' }, [icon('fa-file-lines'), el('span', { class: 'fb-block-step-t', text: f.name }), el('span', { class: 'fb-block-step-s', text: f.sections.flatMap(x => x.items).filter(it => it.type === 'block' && it.blockId === b.id).map(it => it.linkState).join(', ') })]))) : el('div', { class: 'fb-help', text: 'Not placed in any ' + V('form') + ' yet.' }),
+    el('div', { class: 'fb-help', text: 'Publish impact comes from the product (layer 3). Pass 5 shows it in the publish dialog.' })
+  ], { open: false, note: uses.length + ' ' + V('form') + (uses.length === 1 ? '' : 's') }));
+  host.appendChild(body);
+}
+
+/* ---- New block ------------------------------------------------------- */
+function openNewBlockDialog() {
+  const dlg = document.getElementById('dlgConfirm');
+  const d = { name: '', category: (lib().blocks[0] || {}).category || 'General', description: '', multiUse: true };
+  let nameField;
+  dlg.headerTitle = 'New ' + V('block');
+  dlg.renderer = root => {
+    root.innerHTML = '';
+    const cats = [...new Set(lib().blocks.map(x => x.category).filter(Boolean))];
+    nameField = vText({ label: 'Name', value: d.name, onchange: v => { d.name = v; } });
+    root.appendChild(el('div', { class: 'fb-dialog fb-dialog--sm' }, [
+      el('div', { class: 'fb-field' }, [nameField]),
+      el('div', { class: 'fb-field' }, [vSelect({ label: 'Category', items: cats.map(c => ({ id: c, label: c })), value: d.category, onchange: v => { d.category = v; } })]),
+      el('div', { class: 'fb-field' }, [vArea({ label: 'Description', value: '', rows: 2, onchange: v => { d.description = v; } })]),
+      switchRow({ label: 'Multi-use', help: 'Can be placed more than once in one ' + V('form') + '.', checked: true, onchange: v => { d.multiUse = v; } })
+    ]));
+  };
+  dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('div', { class: 'right' }, [ textBtn('Cancel', 'secondary', () => { dlg.opened = false; }), textBtn('Create ' + V('block'), 'primary', () => {
+    if (!d.name.trim()) { nameField.invalid = true; nameField.errorMessage = 'Give it a name'; return; }
+    const b = { id: uid('b'), product: state.profile, name: d.name.trim(), category: d.category, description: d.description, multiUse: d.multiUse, status: 'draft', version: 1, usedBy: 0, items: [] };
+    lib().blocks.unshift(b); dlg.opened = false; toast(cap(V('block')) + ' created as a draft'); openBlock(b.id);
+  }) ]) ])); };
+  dlg.opened = true;
+}
+
+/* ---- Block picker: search, grouped by category, multi-use rule ----------- */
+function openBlockPicker(secId) {
+  const f = currentForm(); const dlg = document.getElementById('dlgPicker');
+  let q = '';
+  dlg.headerTitle = 'Add a ' + V('block');
+  dlg.renderer = root => {
+    root.innerHTML = '';
+    const wrap = el('div', { class: 'fb-bpicker' });
+    const search = vText({ placeholder: 'Search ' + V('blocks').toLowerCase(), clear: true, onchange: v => { q = (v || '').toLowerCase(); draw(); } });
+    const list = el('div', { class: 'fb-bpicker-list' });
+    const placedIds = f.sections.flatMap(s => s.items).filter(it => it.type === 'block').map(it => it.blockId);
+    const draw = () => {
+      list.innerHTML = '';
+      const blocks = lib().blocks.filter(b => b.status !== 'archived' && (!q || b.name.toLowerCase().includes(q) || (b.description || '').toLowerCase().includes(q)));
+      const cats = [...new Set(blocks.map(b => b.category || 'Other'))];
+      if (!blocks.length) list.appendChild(el('div', { class: 'fb-help', text: 'No ' + V('blocks').toLowerCase() + ' match.' }));
+      cats.forEach(c => {
+        list.appendChild(el('div', { class: 'fb-bpicker-group', text: c }));
+        blocks.filter(b => (b.category || 'Other') === c).forEach(b => {
+          const already = placedIds.includes(b.id);
+          const blocked = already && !b.multiUse;
+          const row = el('button', { type: 'button', class: 'fb-bpicker-row', title: blocked ? 'Single-use: already in this ' + V('form') : '' }, [
+            el('span', { class: 'fb-block-tile' }, [icon('fa-cubes')]),
+            el('div', {}, [ el('b', { text: b.name }), el('span', { text: (b.description || '') }) ]),
+            el('div', { class: 'fb-chips' }, [
+              el('span', { class: 'fb-chip', text: b.items.length + ' ' + V('questions') }),
+              el('span', { class: 'fb-chip', text: 'v' + b.version + ' · used by ' + b.usedBy }),
+              b.multiUse ? el('span', { class: 'fb-chip' }, [icon('fa-clone'), 'multi-use']) : null,
+              b.status === 'draft' ? badge('badge contrast', 'Draft') : null,
+              already ? el('span', { class: 'fb-chip is-who', text: blocked ? 'already placed' : 'placed · add again' }) : null
+            ])
+          ]);
+          if (blocked) row.disabled = true;
+          row.addEventListener('click', () => { dlg.opened = false; placeBlock(secId, b.id, already); });
+          list.appendChild(row);
+        });
+      });
+    };
+    draw();
+    wrap.appendChild(search); wrap.appendChild(list);
+    wrap.appendChild(el('div', { class: 'fb-help', html: 'A placed ' + escHtml(V('block')) + ' is <b>sealed</b>: its ' + escHtml(V('questions')) + ' are edited in the library and the change reaches every ' + escHtml(V('form')) + ' using it. Need something local? <a href="#" id="bpCustom">Add custom ' + escHtml(V('questions')) + ' instead</a>.' }));
+    wrap.querySelector('#bpCustom').addEventListener('click', e => { e.preventDefault(); dlg.opened = false; openPicker(secId); });
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('div', { class: 'right' }, [ textBtn('New ' + V('block') + '…', 'tertiary', () => { dlg.opened = false; openNewBlockDialog(); }), textBtn('Cancel', 'secondary', () => { dlg.opened = false; }) ]) ])); };
+  dlg.opened = true;
+}
+function placeBlock(secId, blockId, again) {
+  const f = currentForm(); const s = f.sections.find(x => x.id === secId); const b = blockById(blockId);
+  const inst = mkBlockRef(blockId, again ? 'Second placement' : '', 'block', false);
+  s.items.push(inst); b.usedBy += again ? 0 : 1;
+  markDirty(); state.sel = { kind: 'block', sectionId: s.id, instanceId: inst.instanceId };
+  renderCanvas(); renderInspector();
+  toast(b.name + ' added' + (again ? ' again. Give it a context label.' : ''));
+}
+
+/* ---- Link-state ladder: template → block → unique (ported) --------------
+   Each rung asks for confirmation. The last rung EXPLODES the block: its
+   questions are deep-copied into the section as local questions, each
+   carrying the block's instructions as details, so nothing is silently
+   lost and nothing propagates in afterwards. */
+function breakLink(s, ii) {
+  const inst = s.items[ii]; const b = blockById(inst.blockId);
+  if (inst.linkState === 'template') {
+    confirmDialog({ title: 'Unlink from the template?', bodyHtml: '<p><b>' + escHtml(b.name) + '</b> stops following the template. It stays linked to the ' + escHtml(V('block')) + ' itself, so edits in the library still reach this ' + escHtml(V('form')) + '.</p><p class="fb-help">Next rung: break the ' + escHtml(V('block')) + ' link to get editable local copies.</p>', confirmLabel: 'Unlink from template', danger: true,
+      onConfirm: () => { inst.linkState = 'block'; markDirty(); renderCanvas(); renderInspector(); toast('Now linked to the ' + V('block') + ', not the template'); } });
+    return;
+  }
+  if (inst.linkState === 'block') {
+    confirmDialog({ title: 'Break the link and copy ' + b.items.length + ' ' + V('questions') + '?', bodyHtml: '<p>The ' + escHtml(V('block')) + ' is replaced by <b>local copies</b> of its ' + escHtml(V('questions')) + '. You can edit, reorder, move or delete each one. Nothing from the library propagates in afterwards.</p><p class="fb-help">The ' + escHtml(V('block')) + ' itself and every other ' + escHtml(V('form')) + ' using it are untouched. Copied ' + escHtml(V('questions')) + ' start a new identity series.</p>', confirmLabel: 'Break link and copy', danger: true,
+      onConfirm: () => {
+        const copies = b.items.map(q => { const c = JSON.parse(JSON.stringify(q)); c.id = uid('q'); c.identity = c.id; if (b.instructions && b.instructions.text) c.details = (b.instructions.text + (c.details ? '\n\n' + c.details : '')); if (inst.contextLabel) c.title = c.title + ' (' + inst.contextLabel + ')'; return c; });
+        s.items.splice(ii, 1, ...copies); b.usedBy = Math.max(0, b.usedBy - 1);
+        state.sel = { kind: 'item', sectionId: s.id, id: copies[0].id };
+        markDirty(); renderCanvas(); renderInspector(); toast(b.items.length + ' local ' + V('questions') + ' copied from ' + b.name);
+      } });
+  }
+}
+
+/* ---- Repeat: inline questions rendered under the row ---------------------- */
+function renderRepeatChildren(f, s, q) {
+  const host = el('div', { class: 'fb-repeat-children' });
+  const t = (P().extensions.dataSources.assetTypes || []).find(a => a.id === q.config.sourceType);
+  host.appendChild(el('div', { class: 'fb-repeat-label' }, [ icon('fa-layer-group'), 'Asked once per ' + (q.config.source === 'subjects' ? (t ? t.label.toLowerCase() : 'subject') : 'row'),
+    el('button', { type: 'button', class: 'fb-inline-add', onclick: e => { e.stopPropagation(); openPicker(s.id, null, q.id); } }, [icon('fa-plus'), 'Add inline ' + V('question')]) ]));
+  if (!q.config.items.length) host.appendChild(el('div', { class: 'fb-help', style: 'padding:2px 8px 4px', text: 'No inline ' + V('questions') + ' yet.' }));
+  q.config.items.forEach((c, ci) => {
+    const selected = state.sel && state.sel.kind === 'item' && state.sel.id === c.id;
+    const row = el('div', { class: 'fb-item' + (selected ? ' is-selected' : ''), 'data-item': c.id, tabindex: '0', role: 'button' });
+    row.addEventListener('click', e => { e.stopPropagation(); select({ kind: 'item', sectionId: s.id, id: c.id, parentId: q.id }); });
+    row.appendChild(el('span', { class: 'fb-mech-tile', 'data-m': c.mechanism }, [icon(MECHANISMS[c.mechanism].icon)]));
+    row.appendChild(el('div', { class: 'fb-item-main' }, [ el('div', { class: 'fb-item-title' + (c.title ? '' : ' is-placeholder'), text: c.title || 'Untitled ' + V('question') }), el('div', { class: 'fb-item-summary', text: summaryFor(c) }), el('div', { class: 'fb-chips' }, itemChips(c)) ]));
+    row.appendChild(el('div', { class: 'fb-item-acts' }, [ rowMenu([
+      { label: 'Move up', icon: 'fa-arrow-up', disabled: ci === 0, run: () => { q.config.items.splice(ci - 1, 0, q.config.items.splice(ci, 1)[0]); markDirty(); renderCanvas(); } },
+      { label: 'Move down', icon: 'fa-arrow-down', disabled: ci === q.config.items.length - 1, run: () => { q.config.items.splice(ci + 1, 0, q.config.items.splice(ci, 1)[0]); markDirty(); renderCanvas(); } },
+      { sep: true },
+      { label: 'Move out of the Repeat', icon: 'fa-arrow-up-right-from-square', run: () => { q.config.items.splice(ci, 1); s.items.splice(s.items.indexOf(q) + 1, 0, c); markDirty(); state.sel = { kind: 'item', sectionId: s.id, id: c.id }; renderCanvas(); renderInspector(); } },
+      { label: 'Delete', icon: 'fa-trash', danger: true, run: () => { q.config.items.splice(ci, 1); if (selected) state.sel = { kind: 'item', sectionId: s.id, id: q.id }; markDirty(); renderCanvas(); renderInspector(); } }
+    ]) ]));
+    host.appendChild(row);
+  });
+  return host;
+}
+
+/* ---- Scale editor (library → Scales) --------------------------------------- */
+function openScaleDialog(id) {
+  const existing = id && scaleById(id);
+  const sc = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('sc'), name: '', colors: ['#d83e38', '#e0782e', '#0271ce', '#158444'], levels: [1, 2, 3, 4].map(v => ({ value: v, title: '', description: '', excludeAvg: false, requireDuration: false })) };
+  const dlg = document.getElementById('dlgConfirm');
+  const uses = existing ? lib().forms.concat(lib().blocks).flatMap(c => (c.sections ? c.sections.flatMap(x => x.items) : c.items)).filter(it => it.mechanism === 'scale' && it.config.scaleRef === sc.id && it.config.linked).length : 0;
+  dlg.headerTitle = existing ? 'Edit scale' : 'New scale';
+  dlg.renderer = root => {
+    root.innerHTML = '';
+    const wrap = el('div', { class: 'fb-dialog' });
+    wrap.appendChild(el('div', { class: 'fb-field' }, [vText({ label: 'Name', value: sc.name, placeholder: 'e.g. Danielson 4-level', onchange: v => { sc.name = v; } })]));
+    if (uses) wrap.appendChild(el('div', { class: 'fb-lock-note' }, [icon('fa-link'), uses + ' linked question' + (uses === 1 ? '' : 's') + ' will change with this scale. Copied questions will not.']));
+    const host = el('div', { class: 'fb-optlist' });
+    const build = () => {
+      host.innerHTML = '';
+      sc.levels.forEach((l, i) => host.appendChild(el('div', { class: 'fb-levelcard' }, [ el('div', { class: 'fb-levelrow' }, [
+        vNumber({ value: l.value, placeholder: 'val', onchange: v => { l.value = Number(v); } }),
+        vText({ value: l.title, placeholder: 'Title (128)', maxlength: 128, onchange: v => { l.title = v; } }),
+        el('div', { style: 'display:flex;gap:4px;align-items:center' }, [ el('input', { type: 'color', value: sc.colors[i] || '#cccccc', title: 'Colour', style: 'width:30px;height:28px;border:0;padding:0;background:none', oninput: e => { sc.colors[i] = e.target.value; } }), iconBtn('fa-xmark', 'Remove level', () => { if (sc.levels.length <= 2) return toast('A scale needs at least two levels', 'fa-circle-info'); sc.levels.splice(i, 1); sc.colors.splice(i, 1); build(); }) ]),
+        el('div', { class: 'fb-level-desc' }, [vText({ value: l.description, placeholder: 'Description (4,000)', onchange: v => { l.description = v; } })]),
+        el('div', { class: 'fb-level-flags' }, [ vCheck({ label: 'Exclude from averages', checked: l.excludeAvg, onchange: v => { l.excludeAvg = v; } }), vCheck({ label: 'Require duration', checked: l.requireDuration, onchange: v => { l.requireDuration = v; } }) ])
+      ]) ])));
+    };
+    build();
+    wrap.appendChild(field('Levels (' + sc.levels.length + ' of 8)', host, 'Per-level value, title, description, colour, exclude from averages, require duration (FB-M-06).'));
+    wrap.appendChild(el('button', { type: 'button', class: 'fb-inline-add', onclick: () => { if (sc.levels.length >= 8) return toast('Up to 8 levels', 'fa-circle-info'); sc.levels.push({ value: sc.levels.length + 1, title: '', description: '', excludeAvg: false, requireDuration: false }); sc.colors.push('#999999'); build(); } }, [icon('fa-plus'), 'Add level']));
+    root.appendChild(wrap);
+  };
+  dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('div', { class: 'right' }, [ textBtn('Cancel', 'secondary', () => { dlg.opened = false; }), textBtn(existing ? 'Save scale' : 'Create scale', 'primary', () => {
+    if (!sc.name.trim()) return toast('Give the scale a name', 'fa-circle-info');
+    if (existing) Object.assign(existing, sc); else lib().scales.push(sc);
+    dlg.opened = false; toast(existing ? 'Scale saved. ' + uses + ' linked question' + (uses === 1 ? '' : 's') + ' updated.' : 'Scale created'); renderLibraryGrid();
+  }) ]) ])); };
+  dlg.opened = true;
+}
+</script>
+
 <!-- ── Design Toolbox: Flow Map ───────────────────────────────────────────
      One node per surface of pass 1, each with a deep link (#fm=<state>) so
      the walkthrough can land on any scene. Later passes add nodes. -->
@@ -2484,7 +2784,9 @@ const MECH_INSPECTORS = {
   // 1) State driver — put the page into the screen for node `id`.
   function applyFlowState(id, opts) {
     opts = opts || {};
-    const go = (profile, fn) => { if (state.profile !== profile) { state.profile = profile; renderShell(); } fn(); };
+    document.querySelectorAll('vaadin-dialog').forEach(d => { d.opened = false; });
+    const firstOf = (sec, pred) => sec.items.find(pred);
+    const go = (profile, fn) => { if (state.profile !== profile) { state.profile = profile; renderShell(); } if (!/^(blockeditor|repeat)-/.test(id)) state.editing = { type: 'form' }; fn(); };
     switch (id) {
       case 'library-ci': go('checkit', () => { state.libTab = 'forms'; setView('library'); }); break;
       case 'library-ev': go('evaluations', () => { state.libTab = 'forms'; setView('library'); }); break;
@@ -2493,11 +2795,16 @@ const MECH_INSPECTORS = {
       case 'setup-ev': go('evaluations', () => { state.libTab = 'forms'; setView('library'); setTimeout(() => openSetupDialog(), 60); }); break;
       case 'builder-ci': go('checkit', () => { state.formId = 'apparatus-morning'; state.sel = { kind: 'form' }; setView('builder'); }); break;
       case 'builder-ev': go('evaluations', () => { state.formId = 'classroom-observation'; state.sel = { kind: 'form' }; setView('builder'); }); break;
-      case 'question-ev': go('evaluations', () => { state.formId = 'classroom-observation'; const f = currentForm(); const s = f.sections[2]; state.sel = { kind: 'item', sectionId: s.id, id: s.items[0].id }; setView('builder'); }); break;
-      case 'question-ci': go('checkit', () => { state.formId = 'apparatus-morning'; const f = currentForm(); const s = f.sections[0]; state.sel = { kind: 'item', sectionId: s.id, id: s.items[4].id }; setView('builder'); }); break;
-      case 'block-ci': go('checkit', () => { state.formId = 'apparatus-morning'; const f = currentForm(); const s = f.sections[1]; state.sel = { kind: 'block', sectionId: s.id, instanceId: s.items[0].instanceId }; setView('builder'); }); break;
+      case 'question-ev': go('evaluations', () => { state.formId = 'classroom-observation'; const f = currentForm(); const s = f.sections[2]; const q = firstOf(s, x => x.mechanism === 'text') || s.items[0]; state.sel = { kind: 'item', sectionId: s.id, id: q.id }; setView('builder'); }); break;
+      case 'question-ci': go('checkit', () => { state.formId = 'apparatus-morning'; const f = currentForm(); const s = f.sections[0]; const q = firstOf(s, x => x.mechanism === 'nested') || s.items[0]; state.sel = { kind: 'item', sectionId: s.id, id: q.id }; setView('builder'); }); break;
+      case 'block-ci': go('checkit', () => { state.formId = 'apparatus-morning'; const f = currentForm(); const s = f.sections[1]; const b = firstOf(s, x => x.type === 'block'); state.sel = b ? { kind: 'block', sectionId: s.id, instanceId: b.instanceId } : { kind: 'form' }; setView('builder'); }); break;
       case 'picker-ev': go('evaluations', () => { state.formId = 'classroom-observation'; state.sel = { kind: 'form' }; setView('builder'); setTimeout(() => openPicker(currentForm().sections[2].id), 60); }); break;
       case 'picker-ci': go('checkit', () => { state.formId = 'apparatus-morning'; state.sel = { kind: 'form' }; setView('builder'); setTimeout(() => openPicker(currentForm().sections[0].id), 60); }); break;
+      case 'blockpicker-ci': go('checkit', () => { state.editing = { type: 'form' }; state.formId = 'apparatus-morning'; state.sel = { kind: 'form' }; setView('builder'); setTimeout(() => openBlockPicker(currentForm().sections[1].id), 60); }); break;
+      case 'blockeditor-ci': go('checkit', () => { openBlock('scba-readiness'); }); break;
+      case 'repeat-ci': go('checkit', () => { openBlock('scba-readiness'); const pf = currentForm(); const rep = pf.sections[0].items.find(x => x.mechanism === 'repeat'); state.sel = { kind: 'item', sectionId: pf.sections[0].id, id: rep.id }; renderCanvas(); renderInspector(); }); break;
+      case 'blockeditor-ev': go('evaluations', () => { openBlock('d3'); }); break;
+      case 'scale-ev': go('evaluations', () => { state.editing = { type: 'form' }; state.libTab = 'scales'; setView('library'); setTimeout(() => openScaleDialog('danielson4'), 60); }); break;
       default: go('checkit', () => { state.libTab = 'forms'; setView('library'); }); break;
     }
     if (!opts.instant) window.scrollTo(0, 0);
@@ -2530,15 +2837,20 @@ const MECH_INSPECTORS = {
         { id: 'question-ci', flow: 'ci', x: 660, y: 110, step: '3', name: 'Step inspector: nested check', state: 'question-ci', desc: 'Nested mechanism with Check It’s look-back and minimum-passing settings as profile dimensions.' },
         { id: 'block-ci', flow: 'ci', x: 960, y: 110, step: '4', name: 'Content block in place', state: 'block-ci', desc: 'A sealed block instance with its link state and context label.' },
         { id: 'picker-ci', flow: 'ci', x: 1260, y: 110, step: '5', name: 'Add step: presets', state: 'picker-ci', desc: 'Mechanism → preset, filtered by the Check It profile. Pass/Fail, Count vs. par, Nested check…' },
+        { id: 'blockpicker-ci', flow: 'ci', x: 360, y: 200, step: '6', name: 'Add content block: picker', state: 'blockpicker-ci', desc: 'Search, grouped by category; single-use blocks already placed are disabled; "add custom steps instead" escape.' },
+        { id: 'blockeditor-ci', flow: 'ci', x: 660, y: 200, step: '7', name: 'Content block editor: SCBA Readiness', state: 'blockeditor-ci', desc: 'The same canvas editing a block: block-level instructions with images (Q40), multi-use, where it is used, blast-radius note.' },
+        { id: 'repeat-ci', flow: 'ci', x: 960, y: 200, step: '8', name: 'Repeat: answer per bottle', state: 'repeat-ci', desc: 'Repeat rows come from a product data source (SCBA bottles); inline questions edited in place. The 07 trap #2 fix.' },
         { id: 'library-ev', flow: 'ev', entry: true, x: 60,  y: 410, step: '1', name: 'Forms library', state: 'library-ev', desc: 'Same shell, Evaluations vocabulary: forms, form sections, scales. Statuses incl. Superseded and Publish-Restricted.' },
         { id: 'setup-ev', flow: 'ev', x: 360, y: 410, step: '2', name: 'New form: setup', state: 'setup-ev', desc: 'Kind + Mode + Template (P2) and who can start it. Mode locks after publish, said up front.' },
         { id: 'builder-ev', flow: 'ev', x: 660, y: 410, step: '3', name: 'Builder: Classroom Observation', state: 'builder-ev', desc: 'Danielson domains as linked blocks; form settings grouped, conditional, with lock warnings and extension chips.' },
         { id: 'question-ev', flow: 'ev', x: 960, y: 410, step: '4', name: 'Question inspector: who answers', state: 'question-ev', desc: 'Relationship-based who-answers with the per-mechanism allowed matrix (code-confirmed).' },
-        { id: 'picker-ev', flow: 'ev', x: 1260, y: 410, step: '5', name: 'Add question: presets', state: 'picker-ev', desc: 'The same mechanisms wearing Evaluations presets: Rating Scale, Choose One, Signature (non-locking)…' }
+        { id: 'picker-ev', flow: 'ev', x: 1260, y: 410, step: '5', name: 'Add question: presets', state: 'picker-ev', desc: 'The same mechanisms wearing Evaluations presets: Rating Scale, Choose One, Signature (non-locking)…' },
+        { id: 'blockeditor-ev', flow: 'ev', x: 660, y: 500, step: '6', name: 'Form section editor: Domain 3', state: 'blockeditor-ev', desc: 'A Danielson domain as a linked form section. Editing it reaches four forms; Evaluations holds them until republished (P3).' },
+        { id: 'scale-ev', flow: 'ev', x: 960, y: 500, step: '7', name: 'Scale editor: Danielson 4-level', state: 'scale-ev', desc: 'Named scales in the library: up to 8 levels with value, title, description, colour, exclude-from-averages, require-duration. Linked questions follow.' }
       ],
       edges: [
-        ['library-ci', 'builder-ci'], ['builder-ci', 'question-ci'], ['builder-ci', 'block-ci'], ['builder-ci', 'picker-ci'],
-        ['library-ev', 'setup-ev'], ['setup-ev', 'builder-ev'], ['builder-ev', 'question-ev'], ['builder-ev', 'picker-ev']
+        ['library-ci', 'builder-ci'], ['builder-ci', 'question-ci'], ['builder-ci', 'block-ci'], ['builder-ci', 'picker-ci'], ['builder-ci', 'blockpicker-ci'], ['block-ci', 'blockeditor-ci'], ['blockeditor-ci', 'repeat-ci'],
+        ['library-ev', 'setup-ev'], ['setup-ev', 'builder-ev'], ['builder-ev', 'question-ev'], ['builder-ev', 'picker-ev'], ['builder-ev', 'blockeditor-ev'], ['library-ev', 'scale-ev']
       ]
     }
   };
