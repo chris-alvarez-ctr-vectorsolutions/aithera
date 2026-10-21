@@ -35,6 +35,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:4601',
   'http://127.0.0.1:4601',
   'https://vectorlearning.github.io',
+  // Dev team's LMS environments, which embed the player in an iframe.
+  'https://training.develop.us-east-2.vsp-nonprod.com',
+  'https://training.test3.us-east-2.vsp-nonprod.com',
+  'https://training.staging.us-east-2.vsp-nonprod.com',
+  'https://training.vectorsolutions.com',
 ];
 
 function corsHeaders(origin) {
@@ -80,24 +85,31 @@ export default {
     }
 
     // ---- Forward to the Anthropic Messages API ----
-    const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': env.ANTHROPIC_API_KEY, // the Cloudflare secret — set via dashboard or `wrangler secret put`
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: body.model,
-        max_tokens: Math.min(Number(body.max_tokens) || 1200, MAX_TOKENS_CAP),
-        system: body.system,
-        messages: body.messages,
-      }),
-    });
+    // Wrapped so a network failure still returns CORS headers — without them
+    // the browser reports any Worker crash as a misleading "CORS error".
+    let upstream, text;
+    try {
+      upstream = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.ANTHROPIC_API_KEY, // the Cloudflare secret — set via dashboard or `wrangler secret put`
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: body.model,
+          max_tokens: Math.min(Number(body.max_tokens) || 1200, MAX_TOKENS_CAP),
+          system: body.system,
+          messages: body.messages,
+        }),
+      });
+      text = await upstream.text();
+    } catch (err) {
+      return json({ error: 'Upstream request failed', detail: String(err) }, 502, origin);
+    }
 
     // Pass the Anthropic response straight through (status + JSON body),
     // adding CORS headers so the browser is allowed to read it.
-    const text = await upstream.text();
     return new Response(text, {
       status: upstream.status,
       headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },

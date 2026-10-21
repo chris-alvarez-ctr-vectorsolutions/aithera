@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Scale Platform UI Functionality — V3: separate admin and end-user dashboards
+<!-- Mobile UI Enhancements — V3: separate admin and end-user dashboards
      (SCHED-25068; parent SCHED-24852). Mobile-first landing page. MODE='separate' in the script.
      PRESENTING: phone frame + brief on wide screens; full-bleed at ≤520px. -->
 <html lang="en">
@@ -7,7 +7,7 @@
     <meta charset="UTF-8">
     <!-- No maximum-scale: pinch-zoom stays available on phones (SCHED-25064 "add ability to zoom") -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scale Platform UI — V3 Dashboards</title>
+    <title>Mobile UI Enhancements — V3 Dashboards</title>
     <script
     type="module"
     src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js">
@@ -172,6 +172,9 @@
   .qa button:hover { box-shadow: 0 0 0 2px var(--lumo-primary-color-50pct); }
   .qa i { font-size: 22px; color: var(--lumo-primary-text-color); }
   .qa .tag { font-size: 11px; }
+  /* Admin quick actions are split into two labelled groups: Manage (crew tools) and Mine (own tasks) */
+  .qa-lbl { margin: 14px 2px 6px; font-size: 13px; font-weight: 600; color: var(--lumo-secondary-text-color); }
+  .qa-lbl:first-of-type { margin-top: 0; }
 
   .glance { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 12px; }
   .glance div { text-align: center; line-height: 1.2; padding: 8px 2px; border-radius: var(--lumo-border-radius-m); background: var(--lumo-contrast-5pct); }
@@ -238,23 +241,20 @@
 
   <aside class="brief" aria-label="About this version">
     <div class="kicker">V3 · SCHED-25068</div>
-    <h1>Separate dashboards for admins and end users</h1>
-    <p class="lede">Both open on your own shift and who you're on with. Then the priorities split. <b>Admins</b> see what needs action: sick calls, time-off and trade approvals, shift bids, then today's staffing. <b>End users</b> see their own tasks: request time off, call in sick, my hours, shift bidding, trades.</p>
+    <h1>Separate admin and end-user dashboards</h1>
+    <p class="lede">Both open on your own shift. Admins get crew tools and approvals; end users get their own tasks.</p>
     <h2>View as</h2>
     <div class="viewas"><vwc-toggle-button-group id="roleToggle" selected="admin"><vwc-toggle-button value="admin">Admin</vwc-toggle-button><vwc-toggle-button value="eu">End user</vwc-toggle-button></vwc-toggle-button-group></div>
     <h2>Try it</h2>
     <ul>
-      <li>Admin: <b>Approve</b> Taylor's time off. The card confirms in place.</li>
-      <li>End user: <b>Accept</b> the callback. It joins your upcoming shifts.</li>
-      <li>End user: <b>Edit</b> hides or reorders sections. The end-user home is the only customizable one.</li>
+      <li>Admin: <b>Approve</b> Taylor&rsquo;s time off.</li>
+      <li>End user: <b>Accept</b> the callback.</li>
+      <li>End user: <b>Edit</b> hides or reorders sections.</li>
     </ul>
-    <h2>Compare with V3.1</h2>
-    <p class="lede" style="margin:0">V3.1 builds only the admin dashboard and hides admin tasks for end users. Fewer screens to build, but a thinner end-user home.</p>
+    <p class="lede" style="margin:14px 0 0">Compare with <b>V3.1</b>: one dashboard, admin items hidden.</p>
+
     <h2>Links</h2>
-    <div class="links">
-      <a href="https://lmsportal.atlassian.net/browse/SCHED-25068" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25068</a>
-      <a href="https://scheduling-enduser-console.lovable.app" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i>Lovable</a>
-    </div>
+    <div class="links"><a href="https://lmsportal.atlassian.net/browse/SCHED-25068" target="_blank" rel="noopener"><i class="fa-solid fa-ticket"></i>SCHED-25068</a></div>
   </aside>
 
   <!-- ── Phone ── -->
@@ -335,11 +335,17 @@
     ],
     admin: [
       { id: 'fill', icon: 'fa-user-plus', l: 'Fill open slots', tag: ['error', '5'], admin: true },
-      { id: 'pto', icon: 'fa-umbrella-beach', l: 'Add time off' },
       { id: 'callback', icon: 'fa-phone-volume', l: 'Post callback', admin: true },
       { id: 'bulk', icon: 'fa-rotate-right', l: 'Bulk change', admin: true },
       { id: 'msg', icon: 'fa-comment-dots', l: 'Message crew', admin: true },
+      { id: 'addpto', icon: 'fa-calendar-plus', l: 'Add time off' },
       { id: 'sched', icon: 'fa-calendar-days', l: 'CrewScheduler' }
+    ],
+    /* Admins work shifts too: their own tasks, same as the end-user grid */
+    adminMine: [
+      { id: 'pto', icon: 'fa-umbrella-beach', l: 'Request time off' },
+      { id: 'sick', icon: 'fa-head-side-cough', l: 'Call in sick' },
+      { id: 'hours', icon: 'fa-user-clock', l: 'My hours', tag: ['error', 'Due Fri'] }
     ]
   };
   const UPCOMING = {
@@ -350,7 +356,7 @@
   const MSG = {
     pto: 'Opens Request time off', sick: 'Opens Call in sick for your next shift', hours: 'Opens Electronic Timecard',
     bid: 'Opens Shift bidding', trade: 'Opens Trade a shift', sched: 'Opens CrewScheduler (V1 / V2)',
-    fill: 'Opens open slots to fill', callback: 'Opens Post callback', bulk: 'Opens Bulk Change', msg: 'Opens Message crew'
+    fill: 'Opens open slots to fill', addpto: 'Opens Add time off for a crew member', callback: 'Opens Post callback', bulk: 'Opens Bulk Change', msg: 'Opens Message crew'
   };
 
   /* ══════════ STATE ══════════ */
@@ -385,8 +391,15 @@
     if (!html.trim()) return '';
     return `<section><div class="sec-hd"><h2>${title} ${live ? `<span theme="badge error primary pill">${live}</span>` : ''}</h2></div><div class="card">${html}</div></section>`;
   }
+  function qaButtons(list, hiddenFn) {
+    return list.map(a => `<button class="${hiddenFn(a) ? 'hid' : ''}" data-act="qa" data-id="${a.id}"><i class="fa-solid ${a.icon}"></i><span>${esc(a.l)}</span>${a.tag ? `<span class="tag" theme="badge ${a.tag[0]} pill">${esc(a.tag[1])}</span>` : ''}</button>`).join('');
+  }
   function actionsHTML(list, hiddenFn) {
-    return `<section><div class="sec-hd"><h2>Quick actions</h2></div><div class="qa">${list.map(a => `<button class="${hiddenFn(a) ? 'hid' : ''}" data-act="qa" data-id="${a.id}"><i class="fa-solid ${a.icon}"></i><span>${esc(a.l)}</span>${a.tag ? `<span class="tag" theme="badge ${a.tag[0]} pill">${esc(a.tag[1])}</span>` : ''}</button>`).join('')}</div></section>`;
+    return `<section><div class="sec-hd"><h2>Quick actions</h2></div><div class="qa">${qaButtons(list, hiddenFn)}</div></section>`;
+  }
+  /* Admin: two labelled groups. groups = [[label, list], …] */
+  function actionGroupsHTML(groups) {
+    return `<section><div class="sec-hd"><h2>Quick actions</h2></div>${groups.map(([l, list]) => `<h3 class="qa-lbl">${esc(l)}</h3><div class="qa">${qaButtons(list, () => false)}</div>`).join('')}</section>`;
   }
   function upcomingHTML(role) {
     const list = UPCOMING[role].slice();
@@ -418,11 +431,12 @@
     return `<div class="greet-row"><div class="greet"><h1>Good morning, ${esc(p.first)}</h1><p>${esc(p.title)}</p></div>
       ${editable ? '<vaadin-button theme="tertiary" data-act="customize"><i class="fa-solid fa-pen" slot="prefix"></i>Edit</vaadin-button>' : ''}</div>`;
   }
-  /* V3 · Admin: act fast — what needs me, then the day's staffing */
+  /* V3 · Admin: act fast — quick actions (crew tools + my own), what needs me, then the day's staffing */
   function adminDashboard() {
     const p = PEOPLE.admin;
-    return greetHTML(p) + heroHTML(p) + respondHTML(ITEMS.filter(i => i.who === 'admin'), 'Needs your action', () => false)
-      + glanceHTML(false) + actionsHTML(QA.admin, () => false) + upcomingHTML('admin');
+    return greetHTML(p) + heroHTML(p) + actionGroupsHTML([['Manage', QA.admin], ['Mine', QA.adminMine]])
+      + respondHTML(ITEMS.filter(i => i.who === 'admin'), 'Needs your action', () => false)
+      + glanceHTML(false) + upcomingHTML('admin');
   }
   /* V3 · End user: my shift, then the things I do myself */
   function euDashboard() {
@@ -550,14 +564,14 @@
 
   window.TOOLBOX_CONFIG = {
     flowMap: {
-      title: 'Scale Platform UI · V3 Separate dashboards — Flow Map',
+      title: 'Mobile UI Enhancements · V3 Separate dashboards — Flow Map',
       applyState: 'applyFlowState',
       canvas: { w: 1220, h: 700 },
       flows: [
         { id: 'adm', name: 'Admin', pill: 'A', color: '#c9b8f0', lane: { x: 20, y: 20, w: 1180, h: 320 }, labelXY: { x: 40, y: 40 } },
         { id: 'eu', name: 'End user', pill: 'B', color: '#b8e0f0', lane: { x: 20, y: 360, w: 1180, h: 320 }, labelXY: { x: 40, y: 380 } }
       ],
-      nodes: [{"id": "admin", "flow": "adm", "entry": true, "x": 60, "y": 120, "step": "Entry", "name": "Admin dashboard", "state": "admin", "desc": "Own shift + crew, Needs your action (sick call, approvals, bids), today at a glance, admin quick actions."}, {"id": "adminDone", "flow": "adm", "x": 340, "y": 120, "step": "Step 2", "name": "Request approved", "state": "adminDone", "desc": "Approval confirms in place."}, {"id": "eu", "flow": "eu", "x": 60, "y": 460, "step": "Entry", "name": "End-user dashboard", "state": "eu", "desc": "Next shift + crew, quick actions (time off, sick, hours, bidding, trade), responses, hours, upcoming, time off."}, {"id": "euAccepted", "flow": "eu", "x": 340, "y": 460, "step": "Step 2", "name": "Callback accepted", "state": "euAccepted", "desc": "Shows up in Upcoming tagged New."}, {"id": "details", "flow": "eu", "x": 620, "y": 460, "step": "Step 2", "name": "Shift details", "state": "details", "desc": "Full crew and shift actions."}],
+      nodes: [{"id": "admin", "flow": "adm", "entry": true, "x": 60, "y": 120, "step": "Entry", "name": "Admin dashboard", "state": "admin", "desc": "Own shift + crew, quick actions (Manage: crew tools; Mine: own time off, sick, hours), Needs your action, today at a glance."}, {"id": "adminDone", "flow": "adm", "x": 340, "y": 120, "step": "Step 2", "name": "Request approved", "state": "adminDone", "desc": "Approval confirms in place."}, {"id": "eu", "flow": "eu", "x": 60, "y": 460, "step": "Entry", "name": "End-user dashboard", "state": "eu", "desc": "Next shift + crew, quick actions (time off, sick, hours, bidding, trade), responses, hours, upcoming, time off."}, {"id": "euAccepted", "flow": "eu", "x": 340, "y": 460, "step": "Step 2", "name": "Callback accepted", "state": "euAccepted", "desc": "Shows up in Upcoming tagged New."}, {"id": "details", "flow": "eu", "x": 620, "y": 460, "step": "Step 2", "name": "Shift details", "state": "details", "desc": "Full crew and shift actions."}],
       edges: [["admin", "adminDone"], ["eu", "euAccepted"], ["eu", "details"]]
     }
   };

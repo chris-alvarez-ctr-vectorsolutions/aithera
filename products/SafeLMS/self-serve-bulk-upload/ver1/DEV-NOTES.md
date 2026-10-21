@@ -6,6 +6,54 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
 [PRD - Self-Serve Bulk User Upload](https://lmsportal.atlassian.net/wiki/spaces/PMC/pages/29342662678/PRD+-+Self-Serve+Bulk+User+Upload)
 (SAFELMS-32693). Items marked **PENDING** are still open threads.
 
+## (2026-10-20) Duplicates are Blocked; › rows show what's on your site; no Row column
+
+- **[DONE]** The whole "Duplicate & identity detection" group is **Blocked** now (designer call;
+  the Confluence catalog still says WARNING): `duplicate_email_in_upload`, `duplicate_user_in_system`,
+  `non_identical_username`, `potential_duplicate_user`, `duplicate_external_unique_id_in_upload`,
+  `duplicate_external_unique_id_in_system`, `non_identical_external_unique_id`,
+  `potential_duplicate_user_external_unique_id`. A duplicate person is an error, not a value the
+  upload overwrites. Each one has a "To fix it, … then upload again." line instead of "If you import".
+  `duplicate_user_in_system`'s message changed to match: "Some usernames in this file belong to
+  someone with a different name on your site." (was "Some users' names will change on your site.").
+- **PENDING** Same-name checks (`non_identical_*`, `potential_duplicate_user*`) now block two
+  different people who happen to share a name. Confirm with PM how an admin gets those through.
+- **[DONE]** The "After import" box is gone. A row whose details contradict the site has a ›
+  chevron. Opening it adds **Currently on your site** under the row: the site's username, first
+  name and last name (plus the conflicting column, e.g. email or External Unique ID) in the same
+  columns, with the values that differ in red. When one username matches two site users, both
+  show. Rows with no site conflict (in-file duplicates, skipped rows, new accounts) have no
+  chevron. Data: `site` on each catalog entry.
+- **[DONE]** Follow-up (same day): the chevron sits in the far-right column; no ⓘ / details
+  sentence next to "Currently on your site"; no "Open a row to see what's on your site now."
+  hint; no "Have a question about this? Raise an issue ticket." line under blocked rows.
+- **[DONE]** Follow-up: no highlighting of the values that differ. We may only be able to pull
+  the site's record, not compare it field by field. The opened row's "Currently on your site" is
+  now a drawer: a tinted blue band with a 4px blue accent bar on the left and a solid
+  "CURRENTLY ON YOUR SITE" tag. The site's values sit in the same columns as the file's row
+  above (which turns bold and white while open), so they still compare by eye.
+- **[DONE]** No Row column in the tables on Review or the failed-run page. The CSV download
+  keeps it so admins can find the row in their file.
+- **[DONE]** Sample files: "Warnings only" now raises skipped rows and a new location (its name
+  change is Blocked now); the duplicates file is "Blocked · duplicates"; the failed automated run
+  that stopped on warnings raises skipped rows, an early begin date and a new location.
+
+## (2026-10-20) Blocked first everywhere; warnings ranked one by one
+
+- **[DONE]** Review, the CSV and the failed-run page list **Blocked** first, then every
+  **Warning** in a fixed rank, then **Info**. `WARN_WEIGHT` (three coarse buckets) is replaced
+  by `WARN_ORDER`, one entry per warning key. Top to bottom: the wrong file ("None of / Very
+  few of the users / positions / locations…"), then training records or sign-in that could land
+  on the wrong user (name or ID changes on the site, password changes, likely duplicate accounts,
+  shared emails and IDs), then rows or values left out (skipped rows, custom field values), then
+  location/position renames and code conflicts, then pre-1940 dates. The mildest come last: the
+  file adds a new location, group or user (`missing_bldg`, `missing_pos`, `missing_person`).
+  Blocked and Info keep catalog order.
+- **[DONE]** Sample-file picker lists the files with the most issues first: copy review (every
+  message), duplicate accounts, unreadable dates, warnings only, clean.
+- **[DONE]** Flow map: the three Blocked review branches sit on the top row; Info → Confirm →
+  Done moved to the row below.
+
 ## (2026-10-09) Condensed alert copy; "From your file" captions
 
 - **[DONE]** **Every title and View details line condensed** (all 44 catalog messages). The
@@ -360,7 +408,7 @@ Running record of PRD decisions and client/PM feedback as they land. Source PRD:
   (deactivations, jobs removed, "none of these match" file checks) → wrong/duplicate accounts,
   password changes, skipped rows, "only a few match" → other warnings (dates, codes, columns) →
   info. Ties keep catalog order. The copy-review file uses the same order now (was catalog order).
-  Weights live in `WARN_WEIGHT` / `severity()`.
+  Weights live in `WARN_WEIGHT` / `severity()` (replaced by `WARN_ORDER` on 2026-10-20).
 - **[DONE]** "Download current data (.csv)" on the Review side panel (a snapshot of the site
   before the import), "Data before this import" on Import complete, and "Data before this
   upload" on a completed run's log page.

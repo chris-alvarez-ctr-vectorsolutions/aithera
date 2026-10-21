@@ -2882,33 +2882,52 @@
     standard: { icon: MODES.standard.icon, label: MODES.standard.name },
     listen:   { icon: MODES.listen.icon, label: MODES.listen.name }
   };
-  function modeLabel(k, pref) {
-    if (!pref) return k === 'listen' ? 'Start Listen mode' : 'Use Classic mode';
-    return (k === pref ? 'Continue in ' : 'Switch to ') + MODES[k].name;
+  // "How do you prefer to learn?" (2026-10-20, DLE alignment): the learner's
+  // answer sets the modality. Listening = Listen mode; Watching and Reading are
+  // Classic mode with the video or the article as the default carrier
+  // (sh-modality, the key every beat's modalityDefault reads). The saved
+  // MODE preference stays listen | standard; a saved Classic learner also
+  // keeps which of the two (sh-format-pref).
+  var FORMAT_PREF_KEY = 'sh-format-pref';
+  function formatPref() {
+    try { var v = localStorage.getItem(FORMAT_PREF_KEY); return v === 'video' || v === 'article' ? v : null; }
+    catch (e) { return null; }
+  }
+  function setFormatPref(v) {
+    try { if (v) localStorage.setItem(FORMAT_PREF_KEY, v); else localStorage.removeItem(FORMAT_PREF_KEY); } catch (e) {}
+  }
+  var OFFER = [
+    { key: 'video',   name: 'Watching',  icon: 'fa-circle-play', sub: 'Videos with questions after each.' },
+    { key: 'listen',  name: 'Listening', icon: 'fa-headphones',  sub: 'An audio podcast with questions at the end.' },
+    { key: 'article', name: 'Reading',   icon: 'fa-file-lines',  sub: 'Articles with questions after each.' }
+  ];
+  // The offer key a saved preference stands for, or null.
+  function offerPref() {
+    var m = modePref();
+    return m === 'listen' ? 'listen' : m === 'standard' ? (formatPref() || 'video') : null;
   }
   function PODOFFER_CONTENT() {
-    var pref = modePref();
+    var pref = offerPref();
     return '<main class="ll-object po-object"><div class="po">' +
-      '<div class="po-top">' +
-        '<h1 class="po-head">Which mode do you prefer?</h1>' +
-        '<button class="po-how-btn" type="button" id="poHelp" aria-expanded="false" aria-controls="poDesc-listen poDesc-standard">' +
-          '<i class="fa-solid fa-circle-info" aria-hidden="true"></i>Help me choose</button>' +
-      '</div>' +
-      '<div class="po-opts" role="radiogroup" aria-label="How do you want to take this module?">' +
-        ['listen', 'standard'].map(function (k) {
-          var m = MODES[k];
+      '<h1 class="po-head">How do you prefer to learn?</h1>' +
+      '<div class="po-opts" role="radiogroup" aria-label="How do you prefer to learn?">' +
+        OFFER.map(function (o) {
+          var k = o.key;
           // The visual is a quiet picture of the experience's shape: one long
-          // listen then a short quiz, versus four watch-then-answer pairs.
+          // listen then a short quiz, versus three watch/read-then-answer pairs.
           var vis = k === 'listen'
             ? '<span class="po-wave" data-wave></span><span class="po-kz"></span>'
-            : '<span class="po-pair"><i class="w"></i><i class="k"></i></span>'.repeat(4);
-          // A div, not a button, so the cards can hold richer content. Each
-          // description stays hidden until "Help me choose" is pressed.
+            : '<span class="po-pair"><i class="w"></i><i class="k"></i></span>'.repeat(3);
+          // Three tall cards side by side, each with its description showing. A
+          // div, not a button, so each can hold richer content.
           return '<div class="po-opt" tabindex="0" role="radio" aria-checked="false" data-pick="' + k + '">' +
-            '<span class="po-radio" aria-hidden="true"></span>' +
-            '<span class="po-txt"><b>' + esc(m.name) +
-              (k === pref ? '<span class="po-tag">Your preference</span>' : '') + '</b>' +
-              '<small id="poDesc-' + k + '" hidden>' + esc(m.sub()) + '</small></span>' +
+            '<span class="po-opt-top">' +
+              '<span class="po-ico"><i class="fa-solid ' + o.icon + '" aria-hidden="true"></i></span>' +
+              '<span class="po-radio" aria-hidden="true"></span>' +
+            '</span>' +
+            '<span class="po-txt"><b>' + esc(o.name) + '</b>' +
+              (k === pref ? '<span class="po-tag">Your preference</span>' : '') +
+              '<small>' + esc(o.sub) + '</small></span>' +
             '<span class="po-vis' + (k === 'listen' ? '' : ' po-vis--std') + '" aria-hidden="true">' + vis + '</span>' +
           '</div>';
         }).join('') +
@@ -2922,7 +2941,7 @@
   function podofferInit(ctx) {
     ctx.setCoachSay('');
     ctx.floatClose();
-    var pref = modePref();
+    var pref = offerPref();
     var opts = [].slice.call(document.querySelectorAll('.po-opt'));
     var save = document.getElementById('poSave'), box = document.getElementById('poSaveBox');
     var saveLabel = document.getElementById('poSaveLabel');
@@ -2939,10 +2958,11 @@
     drawWave();
     window.addEventListener('resize', drawWave);
 
-    // Commit the pick for this module: which path runs, and (for Listen
-    // mode) the frozen cut.
+    // Commit the pick for this module: which path runs, which carrier the
+    // Classic beats open on, and (for Listen mode) the frozen cut.
     function commit(k) {
       var pod = k === 'listen';
+      if (!pod) { try { sessionStorage.setItem('sh-modality', k); } catch (e) {} }
       var was = readCourse().podpath;
       // A fresh choice (or a changed one) starts the listen from the top.
       if (!was || !!was.podcast !== pod) { saveResult('podpos', null); saveResult('podcast', null); }
@@ -2960,7 +2980,6 @@
       save.hidden = !offer;
       box.checked = false;
       saveLabel.textContent = 'Save preference';
-      setModePref(pref);          // an unchecked box never changes what was saved
       ctx.enableNext();
     }
     opts.forEach(function (b) { b.addEventListener('click', function () { pick(b.dataset.pick); }); });
@@ -2970,22 +2989,20 @@
         e.preventDefault(); pick(b.dataset.pick);
       });
     });
-    box.addEventListener('change', function () { setModePref(box.checked ? picked : pref); });
+    // An unchecked box never changes what was saved; a checked one saves the
+    // mode and, for Classic, which format.
+    box.addEventListener('change', function () {
+      if (!box.checked) return;
+      setModePref(picked === 'listen' ? 'listen' : 'standard');
+      if (picked !== 'listen') setFormatPref(picked);
+    });
 
     // Back from later in the module: this run's own pick wins. Otherwise the
     // saved preference is preselected, so Continue carries straight on.
     var chosen = readCourse().podpath;
-    if (chosen) pick(chosen.podcast ? 'listen' : 'standard');
+    if (chosen) pick(chosen.podcast ? 'listen' : (modalityId() === 'article' ? 'article' : 'video'));
     else if (pref) pick(pref);
     else ctx.disableNext();
-
-    // "Help me choose" shows or hides the description on both cards at once.
-    var help = document.getElementById('poHelp');
-    help.addEventListener('click', function () {
-      var open = help.getAttribute('aria-expanded') !== 'true';
-      help.setAttribute('aria-expanded', open ? 'true' : 'false');
-      [].slice.call(document.querySelectorAll('.po-txt small')).forEach(function (d) { d.hidden = !open; });
-    });
   }
 
   // ---- The player --------------------------------------------------------------

@@ -4,7 +4,8 @@
    ------------------------------------------------------------------------
    Two views:
      · home  — Dashboards tab (management table / card grid) + AI access tab
-     · build — two-pane canvas + Agency Intelligence (the docked, text-only chat)
+     · build — three panes: Agency Intelligence (the docked, text-only chat),
+               Parameters (every control of the widget builder), the canvas
 
    All the data and decision logic lives in agency-intel-page-data.js
    (window.AGENCY_INTEL) and agency-intel-ai-data.js (window.AGENCY_INTEL_AI), ported
@@ -61,7 +62,10 @@
       a: null, b: null, corrViz: 'scatter',
       ideas: [],
       tableIds: [], tableHeading: '',
-      textHeading: '', textBody: ''
+      textHeading: '', textBody: '',
+      // provenance: src.<field> is 'chat' | 'you'; sugg is the chat's last fill;
+      // chatSpec keeps the extras a chat-built spec carried (scope, width…)
+      src: {}, sugg: null, chatSpec: null, rendered: 0, showChanged: false
     };
   }
 
@@ -1193,9 +1197,22 @@
     if (msg.role === 'user') {
       return '<div class="cpv-user"><div class="bubble">' + esc(msg.text) + '</div></div>';
     }
+    // A hand edit in Parameters is a one-line system note, never an agent reply.
+    if (msg.role === 'note') {
+      return '<div class="cpv-note"><span class="cpv-note-ic"><i class="fa-regular fa-user" aria-hidden="true"></i></span><span>' +
+        agencyIntelBubble(msg.text) + '</span></div>';
+    }
     return '<div class="cpv-ai">' + agencyIntelMark(26) +
       '<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:8px">' +
       '<div class="bubble">' + agencyIntelBubble(msg.text) + '</div>' +
+      // Charts never land in the thread: the rich-response slot is a reference
+      // card, and pressing it brings the draft on the canvas into view.
+      (msg.render
+        ? '<button type="button" class="cpv-ref" data-cpv-focus-draft="1">' +
+          '<span class="cpv-ref-ic">' + micon('add_chart', { size: 15, fill: 1 }) + '</span>' +
+          '<span class="cpv-ref-t"><b>Rendered on the canvas</b><small>' + esc(msg.render) + '</small></span>' +
+          micon('arrow_forward', { size: 15 }) + '</button>'
+        : '') +
       (msg.added
         ? '<div class="cpv-added">' + micon('add_chart', { size: 14, fill: 1 }) +
           ' Added “' + esc(msg.added) + '” to the canvas</div>'
@@ -1279,168 +1296,199 @@
   }
 
   /* =====================================================================
-     BUILD VIEW — WIDGET BUILDER (empty canvas)
+     BUILD VIEW — PARAMETERS PANE (the widget builder)
+     ---------------------------------------------------------------------
+     The build view is three panes after the reusable AI chat component's
+     "Full" preset: Agency Intelligence (chat) · Parameters · the canvas.
+
+       · Parameters holds EVERY control that defines the widget being built:
+         metric, chart type, the parameters of that chart, and the one action
+         that commits it (Add to dashboard). Advanced (v2 flag) lives here too.
+       · The canvas only previews. The widget in progress renders there as a
+         DRAFT card, in place, exactly where it will land — never inside the
+         Parameters pane and never in the chat.
+       · Parameters are the chat's working memory made visible. When Agency
+         Intelligence fills them, each value carries a chat mark; a value the
+         person sets by hand carries a person mark and writes a one-line note
+         into the thread instead of an agent reply. Once the chat has filled
+         them, "What changed" counts the hand edits and "Reset to suggestion"
+         puts the chat's fill back.
      ===================================================================== */
 
+  // The widget in progress, as the canvas should draw it — or null when there
+  // is nothing to draw yet. Covers every builder path, not just Simple.
   function builderPreviewWidget() {
     var b = state.builder;
     if (b.tab === 'simple') {
-      // Both answers are required: the chart type is no longer pre-filled, so
-      // until step 2 is answered there is nothing to draw.
       if (!b.metric || !b.viz) return null;
-      return { id: 'preview', metricId: b.metric, viz: b.viz,
-               include: b.include.length ? b.include : undefined, state: 'live' };
+      return Object.assign({}, b.chatSpec || {}, {
+        id: 'preview', kind: 'metric', metricId: b.metric, viz: b.viz,
+        include: b.include.length ? b.include : undefined, state: 'live'
+      });
     }
-    if (b.a && b.b && b.a !== b.b && CC.sharedBarLabels([b.a, b.b]).length >= 3) {
-      return { id: 'preview', metricIds: [b.a, b.b], viz: b.corrViz, state: 'live' };
+    if (b.mode === 'correlate') {
+      if (b.a && b.b && b.a !== b.b && CC.sharedBarLabels([b.a, b.b]).length >= 3) {
+        return { id: 'preview', kind: 'correlation', metricIds: [b.a, b.b], viz: b.corrViz, state: 'live' };
+      }
+      return null;
+    }
+    if (b.mode === 'table') {
+      return b.tableIds.length
+        ? { id: 'preview', kind: 'metrics_table', viz: 'metrics_table', metricIds: b.tableIds,
+            heading: b.tableHeading || 'Summary table', state: 'live' }
+        : null;
+    }
+    if (b.mode === 'text') {
+      return (b.textHeading.trim() || b.textBody.trim())
+        ? { id: 'preview', kind: 'text', viz: 'text', w: 12, heading: b.textHeading.trim(), body: b.textBody.trim(), state: 'live' }
+        : null;
     }
     return null;
   }
 
+  // One line for the "Rendered on the canvas" card in the thread.
+  function draftSummary() {
+    var w = builderPreviewWidget(); if (!w) return '';
+    var viz = CC.VIZ_TYPES.find(function (t) { return t.id === w.viz; });
+    return (viz ? viz.label : CP.widgetTitle(w)) + ' · ' + CP.widgetTitle(w) + ' · v' + state.builder.rendered;
+  }
+
+  /* ---- provenance ---- */
+  function provMark(src) {
+    if (src === 'chat') return '<span class="cp-prov chat" role="img" aria-label="Set by Agency Intelligence" title="Set by Agency Intelligence">' + micon('auto_awesome', { size: 13, fill: 1 }) + '</span>';
+    if (src === 'you') return '<span class="cp-prov you" role="img" aria-label="You set this" title="You set this"><i class="fa-regular fa-user" aria-hidden="true"></i></span>';
+    return '';
+  }
+  function sameList(a, b) { return (a || []).slice().sort().join('|') === (b || []).slice().sort().join('|'); }
+  // Which Simple parameters differ from the chat's last fill.
+  function changedFields() {
+    var b = state.builder, s = b.sugg; if (!s) return [];
+    var out = [];
+    if (b.metric !== s.metric) out.push('metric');
+    if (b.viz !== s.viz) out.push('viz');
+    if (!sameList(b.include, s.include)) out.push('include');
+    return out;
+  }
+  // A hand edit: mark it as the person's, bump the preview version, and — once
+  // the chat has a suggestion in play — log one line in the thread.
+  function youSet(field, text) {
+    var b = state.builder;
+    b.src[field] = 'you';
+    b.rendered += 1;
+    if (b.sugg) state.thread.push({ role: 'note', text: text + ' · preview v' + b.rendered });
+  }
+  // The chat filled the builder from a widget spec.
+  function fillBuilderFromChat(spec) {
+    var b = freshBuilder();
+    b.chatSpec = spec;
+    if (spec.metricIds && spec.metricIds.length >= 2 && CP.advancedBuilderEnabled()) {
+      b.tab = 'advanced'; b.mode = 'correlate'; b.a = spec.metricIds[0]; b.b = spec.metricIds[1];
+      b.corrViz = ['scatter', 'pair', 'line'].indexOf(spec.viz) > -1 ? spec.viz : 'scatter';
+    } else {
+      b.metric = spec.metricId || (spec.metricIds || [])[0] || null;
+      b.viz = CC.VIZ_TYPES.some(function (t) { return t.id === spec.viz; }) ? spec.viz : (CC.DEFAULT_VIZ[b.metric] || 'bar');
+      b.include = spec.include ? spec.include.slice() : [];
+    }
+    b.src = { metric: 'chat', viz: 'chat', include: 'chat' };
+    b.rendered = (state.builder.rendered || 0) + 1;
+    b.sugg = { metric: b.metric, viz: b.viz, include: b.include.slice() };
+    state.builder = b;
+  }
+  function resetToSuggestion() {
+    var b = state.builder, s = b.sugg; if (!s) return;
+    b.metric = s.metric; b.viz = s.viz; b.include = s.include.slice();
+    b.src = { metric: 'chat', viz: 'chat', include: 'chat' };
+    b.showChanged = false; b.rendered += 1;
+    state.thread.push({ role: 'note', text: 'Reset to the suggestion · preview v' + b.rendered });
+  }
+
+  /* ---- Simple: the cards ---- */
+  function card(cls, title, o, body) {
+    var changed = state.builder.showChanged && o.field && changedFields().indexOf(o.field) > -1;
+    return '<div class="cp-pcard ' + cls + (changed ? ' is-changed' : '') + '">' +
+      '<div class="cp-pcard-h"><span class="t">' + title + '</span>' +
+      (o.req ? '<span class="cp-req">Required</span>' : '') +
+      '<span class="sp"></span>' + (o.right || '') + '</div>' + body + '</div>';
+  }
+
   function metricPickerHtml() {
-    var byCat = {}, cats = [];
+    var b = state.builder, byCat = {}, cats = [];
     CC.AVAILABLE_METRICS.forEach(function (m) {
       if (!byCat[m.category]) { byCat[m.category] = []; cats.push(m.category); }
       byCat[m.category].push(m);
     });
-    return cats.map(function (cat) {
-      return '<div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;' +
-        'color:var(--ink-400);margin-bottom:6px">' + esc(cat) + '</div>' +
-        '<div style="display:flex;flex-direction:column;gap:5px">' +
+    return '<div class="cp-prows" role="radiogroup" aria-label="Metric">' + cats.map(function (cat) {
+      return '<div class="cp-pgroup">' + esc(cat) + '</div>' +
         byCat[cat].map(function (m) {
-          var on = state.builder.metric === m.id;
-          return '<button class="cp-metric-btn' + (on ? ' is-on' : '') + '" data-b-metric="' + KX.attr(m.id) + '">' +
+          var on = b.metric === m.id;
+          return '<button class="cp-prow' + (on ? ' is-on' : '') + '" role="radio" aria-checked="' + on + '" data-b-metric="' + KX.attr(m.id) + '">' +
             '<span class="ic">' + micon(m.icon, { size: 14, fill: 1 }) + '</span>' +
-            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(m.label) + '</span>' +
-            (on ? '<span style="margin-left:auto">' + micon('check', { size: 15, color: 'var(--amber-600)' }) + '</span>' : '') +
-            '</button>';
-        }).join('') + '</div></div>';
-    }).join('');
+            '<span class="lbl">' + esc(m.label) + '</span>' +
+            (on ? provMark(b.src.metric) : '') + '</button>';
+        }).join('');
+    }).join('') + '</div>';
+  }
+
+  function vizPickerHtml() {
+    var b = state.builder, locked = !b.metric;
+    var rec = b.metric ? CC.VIZ_TYPES.find(function (t) { return t.id === (CC.DEFAULT_VIZ[b.metric] || 'kpi'); }) : null;
+    return '<div class="cp-seg2" role="group" aria-label="Show as">' +
+      CC.VIZ_TYPES.map(function (t) {
+        return '<button type="button" data-b-viz="' + KX.attr(t.id) + '" aria-pressed="' + (b.viz === t.id) + '"' +
+          (locked ? ' disabled' : '') + ' title="' + KX.attr(t.hint) + '">' + micon(t.icon, { size: 14 }) + esc(t.label) + '</button>';
+      }).join('') + '</div>' +
+      (locked
+        ? '<p class="cp-phint">Pick a metric first.</p>'
+        : (!b.viz && rec
+          // The recommendation stays a suggestion the person accepts, never a
+          // choice made for them — the artboard's ghosted "Suggested" row.
+          ? '<div class="cp-sugg">' + micon('auto_awesome', { size: 13, fill: 1 }) +
+            '<span><b>Suggested:</b> ' + esc(rec.label) + ' for this metric</span>' +
+            '<button type="button" data-b-viz="' + KX.attr(rec.id) + '" class="cp-sugg-accept">Accept</button></div>'
+          : ''));
   }
 
   function paramPanelHtml() {
     var b = state.builder;
-    // No range question here: the widget inherits the DASHBOARD's window.
-    // What the panel does is state which window that will be, so nobody
-    // builds a chart expecting a period they never chose — or, for a
-    // countdown metric, that it reports forward and ignores that window.
+    if (!b.metric || !b.viz) return '';
+    // No range question here: the widget inherits the DASHBOARD's window. The
+    // card says which window that will be, so nobody builds a chart expecting
+    // a period they never chose — or, for a countdown metric, that it reports
+    // forward and ignores that window.
     var supportsRange = CP.widgetSupportsRange({ viz: b.viz, metricId: b.metric });
     var horizon = CP.widgetHorizon({ viz: b.viz, metricId: b.metric });
     var cats = CC.metricCategories(b.metric, b.viz);
-    if (!supportsRange && !cats) return '';
     var allOn = !b.include || !b.include.length;
-    var lbl = 'font-size:10.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--ink-400);margin-bottom:6px';
-    return '<div class="cp-param-panel">' +
-      '<div class="cp-step"><span class="n">3</span><span class="t">Set parameters</span></div>' +
-      '<div style="display:flex;flex-direction:column;gap:14px">' +
-      (supportsRange
-        ? '<div><div style="' + lbl + '">Date range</div>' +
-          '<div class="cp-range-note">' +
-          micon(horizon ? 'event_upcoming' : 'calendar_today',
-                { size: 15, color: 'var(--ink-400)' }) +
-          '<span>' + (horizon
-            ? '<b>' + esc(CP.rangeLabel(horizon)) + '</b> — this metric reports forward on a ' +
-              'fixed window and is not affected by the dashboard date range.'
-            : 'Set on the dashboard, not the widget. This will follow the dashboard\'s ' +
-              'window — currently <b>' + esc(CP.rangeLabel(currentRange(active() || {}))) + '</b> — ' +
-              'along with every other widget on it.') +
-          '</span></div></div>'
-        : '') +
-      (cats
-        ? '<div><div style="' + lbl + ';display:flex;align-items:center;gap:8px">' +
-          '<span>' + esc(cats.name) + ' shown</span>' +
-          (!allOn ? '<button data-b-cats-all style="margin-left:auto;background:none;border:none;' +
-            'color:var(--lumo-primary-text-color);font-size:10.5px;font-weight:700;cursor:pointer;' +
-            'font-family:inherit;text-transform:none">Select all</button>' : '') +
-          '</div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
-          cats.values.map(function (v) {
+    var range = supportsRange
+      ? card('range', 'Time range', { right: '<span class="cp-inh">' + micon(horizon ? 'event_upcoming' : 'link', { size: 13 }) + (horizon ? 'Fixed window' : 'Inherited') + '</span>' },
+          '<div class="cp-inh-box"><span class="v">' + esc(horizon ? CP.rangeLabel(horizon) : CP.rangeLabel(currentRange(active() || {}))) + '</span>' +
+          '<span class="r">' + (horizon
+            ? 'This metric reports forward on a fixed window and ignores the dashboard range.'
+            : 'From the dashboard, so every widget shares it. <button type="button" class="cp-plink" data-b-range-open>Change it in the build bar</button>') + '</span></div>')
+      : '';
+    var catCard = cats
+      ? card('cats', esc(cats.name) + ' shown', { field: 'include', right: (!allOn ? '<button type="button" class="cp-plink" data-b-cats-all>Select all</button>' : '') + provMark(b.src.include) },
+          '<div class="cp-catchips">' + cats.values.map(function (v) {
             var on = allOn || b.include.indexOf(v) !== -1;
-            return '<button class="cp-cat-chip' + (on ? ' is-on' : '') + '" data-b-cat="' + KX.attr(v) + '">' +
-              (on ? micon('check', { size: 13 }) : '') + ' ' + esc(v) + '</button>';
+            return '<button type="button" class="cp-cat-chip' + (on ? ' is-on' : '') + '" data-b-cat="' + KX.attr(v) + '" aria-pressed="' + on + '">' +
+              (on ? micon('check', { size: 13 }) : '') + esc(v) + '</button>';
           }).join('') + '</div>' +
-          (!allOn ? '<div style="font-size:11px;color:var(--ink-500);margin-top:7px">Showing ' +
-            b.include.length + ' of ' + cats.values.length + '.</div>' : '') +
-          '</div>'
-        : '') +
-      '</div></div>';
+          (!allOn ? '<p class="cp-phint">Showing ' + b.include.length + ' of ' + cats.values.length + '.</p>' : ''))
+      : '';
+    return range + catCard;
   }
 
-  function widgetPreviewHtml(w) {
-    return '<div style="background:var(--surface-1);border:1px solid var(--ink-100);border-radius:12px;' +
-      'box-shadow:var(--elev-1);padding:14px">' +
-      '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
-      '<span class="cpw-icon">' + micon(CP.widgetIcon(w), { size: 14, fill: 1 }) + '</span>' +
-      '<span class="cpw-title">' + esc(CP.widgetTitle(w)) + '</span>' +
-      '<span style="margin-left:auto;display:flex;gap:6px;flex-shrink:0">' +
-      CP.widgetSources(w).map(function (s) { return KX.srcChip(s); }).join('') + '</span></div>' +
-      KXCanvas.widgetBody(w) + '</div>';
-  }
-
-  /* The guided path: one step at a time, in order. Each step is answered
-     before the next one exists — pick a metric, THEN choose a chart type,
-     THEN tune the parameters. Showing 2 and 3 together (which is what
-     happened while the chart type was pre-filled on metric pick) made the
-     numbering decorative: three labelled steps, two of which arrived at once
-     and one of which was already answered. */
-  function simpleBuilderHtml() {
+  function simpleBodyHtml() {
     var b = state.builder;
-    var preview = builderPreviewWidget();
-    // The old pre-fill, demoted to a hint. The recommendation is still worth
-    // saying — it is just no longer said by silently choosing for you.
-    var rec = b.metric ? CC.VIZ_TYPES.find(function (t) {
-      return t.id === (CC.DEFAULT_VIZ[b.metric] || 'kpi');
-    }) : null;
-    // Shared shell for the two "nothing here yet" panels, so the right column
-    // holds its shape as the steps unfold instead of jumping.
-    function waiting(icon, title, body) {
-      return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;' +
-        'min-height:220px;gap:10px;border:1px dashed var(--ink-200);border-radius:14px;padding:24px;color:var(--ink-500)">' +
-        micon(icon, { size: 30, color: 'var(--ink-300)' }) +
-        '<div style="font-size:13.5px;font-weight:600;color:var(--ink-600)">' + esc(title) + '</div>' +
-        '<div style="font-size:12.5px;line-height:1.5;max-width:280px">' + body + '</div></div>';
-    }
-    return '<div style="display:grid;grid-template-columns:minmax(0, 0.85fr) minmax(0, 1.15fr);gap:20px;align-items:start">' +
-      '<div><div class="cp-step"><span class="n">1</span><span class="t">Pick a metric</span></div>' +
-      // No inner scroller. A 340px box with its own scrollbar cut the list off
-      // mid-category and gave no sign there were more metrics below it — the
-      // Compliance and Scheduling groups were simply invisible unless you
-      // happened to scroll inside a region that did not look scrollable. The
-      // full list renders instead and the page (or the dialog) scrolls.
-      '<div style="display:flex;flex-direction:column;gap:12px">' +
-      metricPickerHtml() + '</div></div>' +
-      '<div>' +
-      // STEP 1 unanswered — nothing but the prompt to answer it.
-      (!b.metric
-        ? waiting('bar_chart', 'Pick a metric to chart it',
-            'Choose one on the left and you\'ll pick how to show it next.')
-        // STEP 2 — the chart type. Appears the moment a metric is chosen.
-        : '<div class="cp-step"><span class="n">2</span><span class="t">Choose a chart type</span></div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
-          CC.VIZ_TYPES.map(function (t) {
-            return '<button class="cp-chip' + (b.viz === t.id ? ' is-on' : '') + '" data-b-viz="' + KX.attr(t.id) +
-              '" title="' + KX.attr(t.hint) + '">' + micon(t.icon, { size: 14 }) + ' ' + esc(t.label) + '</button>';
-          }).join('') + '</div>' +
-          // STEP 3 and everything downstream of it wait on step 2's answer.
-          (!b.viz
-            ? '<div style="margin-top:14px">' +
-              waiting('tune', 'Choose how to show it',
-                (rec ? 'For this metric we\'d suggest <b>' + esc(rec.label) + '</b>. ' : '') +
-                'Pick a chart type to preview it and set its parameters.') +
-              '</div>'
-            : paramPanelHtml() +
-              (preview ? '<div style="margin-top:14px">' + widgetPreviewHtml(preview) + '</div>' : '') +
-              '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
-              '<vaadin-button theme="primary" id="cpBAdd">' + micon('add', { size: 16 }) +
-              '<span class="kx-btn-label">Add to dashboard</span></vaadin-button>' +
-              '<span style="font-size:12px;color:var(--ink-500)">You can fine-tune all of this later, too.</span></div>')
-      ) + '</div></div>';
+    return card('metric', 'Metric', { req: true, field: 'metric' }, metricPickerHtml()) +
+      card('viz', 'Show as', { req: true, field: 'viz', right: b.viz ? provMark(b.src.viz) : '' }, vizPickerHtml()) +
+      paramPanelHtml() +
+      '<p class="cp-pask">or <button type="button" id="cpBAskFocus">just ask Agency Intelligence →</button></p>';
   }
 
+  /* ---- Advanced (v2): correlate, table, commentary, ideas ---- */
   function correlationBuilderHtml() {
     var b = state.builder;
-    // Only offer pairings that actually share a categorical axis — two metrics
-    // reported on different breakdowns have no common ground to plot against.
     var ids = CC.AVAILABLE_METRICS.map(function (m) { return m.id; });
     var pairable = ids.filter(function (id) {
       return ids.some(function (o) { return o !== id && CC.metricsCorrelatable([id, o]); });
@@ -1451,7 +1499,6 @@
     var picked = b.a && b.b && b.a !== b.b;
     var shared = picked ? CC.sharedBarLabels([b.a, b.b]) : [];
     var ready = picked && shared.length >= 3;
-    var preview = builderPreviewWidget();
     var suggestions = CC.CORRELATION_SUGGESTIONS.filter(function (s) { return CC.metricsCorrelatable(s.metricIds); });
     var CORR_VIZ = [
       { id: 'scatter', label: 'Scatter + trend', icon: 'scatter_plot' },
@@ -1459,187 +1506,99 @@
       { id: 'line', label: 'Dual line', icon: 'show_chart' }
     ];
     var axLbl = 'font-size:10.5px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--ink-400);margin-bottom:5px;display:block';
-
-    return '<div>' +
-      '<div style="font-size:13px;font-weight:700;color:var(--ink-800);margin-bottom:3px">Correlate two metrics</div>' +
-      '<div style="font-size:12.5px;color:var(--ink-500);margin-bottom:14px;line-height:1.5">' +
-      'Plot one metric against another to see how they relate. The first is the X axis, the second is the Y axis — ' +
-      'only measures that break down the same way can be paired.</div>' +
-      '<div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap">' +
-      '<div style="flex:1;min-width:180px"><label style="' + axLbl + '">X axis</label>' +
-      '<vaadin-select theme="outlined" id="cpCorrA" style="width:100%"></vaadin-select></div>' +
-      '<span style="font-size:12px;font-weight:700;color:var(--ink-400);padding-bottom:9px">vs</span>' +
-      '<div style="flex:1;min-width:180px"><label style="' + axLbl + '">Y axis</label>' +
-      '<vaadin-select theme="outlined" id="cpCorrB" style="width:100%"></vaadin-select></div></div>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">' +
-      suggestions.slice(0, 6).map(function (s) {
-        return '<button data-b-sugg="' + KX.attr(s.id) + '" title="' + KX.attr(s.hint) + '" ' +
-          'style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;' +
-          'background:var(--surface-1);border:1px solid var(--ink-200);color:var(--ink-600);font-size:11.5px;' +
-          'font-weight:600;cursor:pointer;font-family:inherit">' +
-          micon('auto_awesome', { size: 12 }) + ' ' + esc(s.title) + '</button>';
-      }).join('') + '</div>' +
-      (picked && !ready
-        ? '<div style="display:flex;gap:9px;align-items:flex-start;margin-top:14px;padding:12px 14px;' +
-          'border-radius:11px;background:var(--amber-50);border:1px solid var(--amber-200)">' +
-          micon('info', { size: 16, fill: 1, color: 'var(--amber-700)' }) +
-          '<span style="font-size:12.5px;color:var(--ink-800);line-height:1.5">These two don\'t share a breakdown — ' +
-          'they\'re reported on different axes, so there\'s nothing to plot them against. Pick a pair that breaks ' +
-          'down the same way, or use one of the suggestions above.</span></div>'
-        : '') +
+    return '<p class="cp-pintro">Plot one metric against another. The first is the X axis, the second the Y axis — only measures that break down the same way can be paired.</p>' +
+      card('corr', 'Metrics', { req: true },
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<div><label style="' + axLbl + '">X axis</label><vaadin-select theme="outlined" id="cpCorrA" style="width:100%"></vaadin-select></div>' +
+        '<div><label style="' + axLbl + '">Y axis</label><vaadin-select theme="outlined" id="cpCorrB" style="width:100%"></vaadin-select></div></div>' +
+        '<div class="cp-catchips" style="margin-top:10px">' + suggestions.slice(0, 6).map(function (s) {
+          return '<button type="button" class="cp-cat-chip" data-b-sugg="' + KX.attr(s.id) + '" title="' + KX.attr(s.hint) + '">' +
+            micon('auto_awesome', { size: 12 }) + esc(s.title) + '</button>';
+        }).join('') + '</div>' +
+        (picked && !ready
+          ? '<div class="cp-pwarn">' + micon('info', { size: 15, fill: 1 }) +
+            '<span>These two don\'t share a breakdown, so there\'s nothing to plot them against. Pick a pair that breaks down the same way, or use a suggestion.</span></div>'
+          : '')) +
       (ready
-        ? '<div style="margin-top:14px">' +
-          '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">' +
-          CORR_VIZ.map(function (t) {
-            return '<button class="cp-chip' + (b.corrViz === t.id ? ' is-on' : '') + '" data-b-corrviz="' +
-              KX.attr(t.id) + '">' + micon(t.icon, { size: 14 }) + ' ' + esc(t.label) + '</button>';
-          }).join('') + '</div>' +
-          (preview ? widgetPreviewHtml(preview) : '') +
-          '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBAddCorr">' +
-          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add correlation</span></vaadin-button></div>' +
-          '</div>'
+        ? card('corrviz', 'Show as', { req: true }, '<div class="cp-seg2">' + CORR_VIZ.map(function (t) {
+            return '<button type="button" data-b-corrviz="' + KX.attr(t.id) + '" aria-pressed="' + (b.corrViz === t.id) + '">' +
+              micon(t.icon, { size: 14 }) + esc(t.label) + '</button>';
+          }).join('') + '</div>')
         : '') +
       '<input type="hidden" id="cpCorrCompat" value="' + KX.attr(compatible.join(',')) + '">' +
-      '<input type="hidden" id="cpCorrPairable" value="' + KX.attr(pairable.join(',')) + '">' +
-      '</div>';
+      '<input type="hidden" id="cpCorrPairable" value="' + KX.attr(pairable.join(',')) + '">';
   }
 
   function ideasBuilderHtml() {
     var ideas = CP.IDEA_PROMPTS || [];
-    return '<div>' +
-      '<div style="font-size:13px;font-weight:700;color:var(--ink-800);margin-bottom:3px">Start from an idea</div>' +
-      '<div style="font-size:12.5px;color:var(--ink-500);margin-bottom:14px;line-height:1.5">' +
-      'Pick as many as you want — Agency Intelligence builds them all onto the canvas at once.</div>' +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
-      ideas.map(function (idea) {
+    return '<p class="cp-pintro">Pick as many as you want — Agency Intelligence builds them all onto the canvas at once.</p>' +
+      '<div class="cp-ideas">' + ideas.map(function (idea) {
         var on = state.builder.ideas.indexOf(idea.id) !== -1;
-        return '<button class="cp-idea' + (on ? ' is-on' : '') + '" data-b-idea="' + KX.attr(idea.id) + '">' +
+        return '<button type="button" class="cp-idea' + (on ? ' is-on' : '') + '" data-b-idea="' + KX.attr(idea.id) + '" aria-pressed="' + on + '">' +
           '<span class="box">' + (on ? micon('check', { size: 15 }) : '') + '</span>' +
-          '<span style="flex:1;min-width:0">' +
-          '<span style="display:flex;align-items:center;gap:7px">' +
-          '<span style="width:26px;height:26px;border-radius:7px;background:var(--amber-100);color:var(--amber-700);' +
-          'display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">' +
-          micon(idea.icon, { size: 15, fill: 1 }) + '</span>' +
-          '<span style="font-size:13.5px;font-weight:600;color:var(--ink-900);line-height:1.35">' +
-          esc(idea.prompt) + '</span></span></span></button>';
-      }).join('') + '</div>' +
-      (state.builder.ideas.length
-        ? '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBGenerate">' +
-          micon('auto_awesome', { size: 16 }) + '<span class="kx-btn-label">Build ' +
-          state.builder.ideas.length + ' widget' + (state.builder.ideas.length === 1 ? '' : 's') +
-          '</span></vaadin-button></div>'
-        : '') +
-      '</div>';
+          '<span class="ico">' + micon(idea.icon, { size: 15, fill: 1 }) + '</span>' +
+          '<span class="txt">' + esc(idea.prompt) + '</span></button>';
+      }).join('') + '</div>';
   }
 
-  // ---- ADVANCED · summary table: several metrics, one compact table ----
-  // The block that lets a dashboard read as a report instead of a wall of charts.
   function metricsTableBuilderHtml() {
-    var b = state.builder;
-    var cats = [];
-    var byCat = {};
+    var b = state.builder, cats = [], byCat = {};
     CC.AVAILABLE_METRICS.forEach(function (m) {
       if (!byCat[m.category]) { byCat[m.category] = []; cats.push(m.category); }
       byCat[m.category].push(m);
     });
-    var preview = b.tableIds.length
-      ? { id: 'preview', kind: 'metrics_table', viz: 'metrics_table', metricIds: b.tableIds,
-          heading: b.tableHeading || 'Summary table', state: 'live' }
-      : null;
-
-    return '<div>' +
-      '<div style="font-size:13px;font-weight:700;color:var(--ink-800);margin-bottom:3px">Summary table</div>' +
-      '<div style="font-size:12.5px;color:var(--ink-500);margin-bottom:14px;line-height:1.5">' +
-      'Pick the measures that belong in one at-a-glance table. Each becomes a row with its current value, ' +
-      'its change and a plain status word.</div>' +
-      '<input class="cp-b-field" id="cpBTableHeading" style="margin-bottom:12px" ' +
-      'placeholder="Table heading — e.g. Readiness at a glance" value="' + KX.attr(b.tableHeading) + '">' +
-      '<div style="max-height:210px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px">' +
-      cats.map(function (cat) {
-        return '<div><div style="font-size:10.5px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;' +
-          'color:var(--ink-400);margin-bottom:6px">' + esc(cat) + '</div>' +
-          '<div style="display:flex;flex-wrap:wrap;gap:6px">' +
-          byCat[cat].map(function (m) {
-            var on = b.tableIds.indexOf(m.id) !== -1;
-            return '<button class="cp-cat-chip' + (on ? ' is-on' : '') + '" data-b-tmetric="' + KX.attr(m.id) + '">' +
-              micon(on ? 'check' : m.icon, { size: 13, fill: on ? 0 : 1 }) + ' ' + esc(m.label) + '</button>';
-          }).join('') + '</div></div>';
-      }).join('') + '</div>' +
-      (preview
-        ? '<div style="margin-top:16px">' + widgetPreviewHtml(preview) +
-          '<div style="margin-top:14px"><vaadin-button theme="primary" id="cpBAddTable">' +
-          micon('add', { size: 16 }) + '<span class="kx-btn-label">Add summary table</span></vaadin-button></div>' +
-          '</div>'
-        : '') +
-      '</div>';
+    return '<p class="cp-pintro">Pick the measures that belong in one at-a-glance table. Each becomes a row with its current value, its change and a plain status word.</p>' +
+      card('theading', 'Heading', {}, '<input class="cp-b-field" id="cpBTableHeading" placeholder="e.g. Readiness at a glance" value="' + KX.attr(b.tableHeading) + '">') +
+      card('tmetrics', 'Measures', { req: true, right: '<span class="cp-pcount">' + b.tableIds.length + ' selected</span>' },
+        cats.map(function (cat) {
+          return '<div class="cp-pgroup">' + esc(cat) + '</div><div class="cp-catchips" style="margin-bottom:8px">' +
+            byCat[cat].map(function (m) {
+              var on = b.tableIds.indexOf(m.id) !== -1;
+              return '<button type="button" class="cp-cat-chip' + (on ? ' is-on' : '') + '" data-b-tmetric="' + KX.attr(m.id) + '" aria-pressed="' + on + '">' +
+                micon(on ? 'check' : m.icon, { size: 13, fill: on ? 0 : 1 }) + esc(m.label) + '</button>';
+            }).join('') + '</div>';
+        }).join(''));
   }
 
-  // ---- ADVANCED · written commentary ----
   function textBlockBuilderHtml() {
     var b = state.builder;
-    var ready = !!(b.textHeading.trim() || b.textBody.trim());
-    return '<div>' +
-      '<div style="font-size:13px;font-weight:700;color:var(--ink-800);margin-bottom:3px">Written commentary</div>' +
-      '<div style="font-size:12.5px;color:var(--ink-500);margin-bottom:14px;line-height:1.5">' +
-      'Your own words alongside the numbers — what happened, why it matters, what you\'re asking for. ' +
-      'This is what turns a dashboard into a report someone reads.</div>' +
-      '<div style="display:flex;flex-direction:column;gap:10px">' +
-      '<input class="cp-b-field" id="cpBTextHeading" style="font-size:14px;font-weight:600" ' +
-      'placeholder="Section heading — e.g. What we\'re asking the council for" value="' +
-      KX.attr(b.textHeading) + '">' +
-      '<textarea class="cp-b-field" id="cpBTextBody" rows="6" placeholder="Write the commentary…">' +
-      esc(b.textBody) + '</textarea></div>' +
-      '<div style="display:flex;align-items:center;gap:12px;margin-top:14px">' +
-      '<vaadin-button theme="primary" id="cpBAddText"' + (ready ? '' : ' disabled') + '>' +
-      micon('add', { size: 16 }) + '<span class="kx-btn-label">Add text block</span></vaadin-button>' +
-      '<span style="font-size:12px;color:var(--ink-500)">You can keep editing it right on the canvas.</span></div>' +
-      '</div>';
+    return '<p class="cp-pintro">Your own words alongside the numbers — what happened, why it matters, what you\'re asking for.</p>' +
+      card('text', 'Commentary', { req: true },
+        '<div style="display:flex;flex-direction:column;gap:10px">' +
+        '<input class="cp-b-field" id="cpBTextHeading" style="font-weight:600" placeholder="Section heading — e.g. What we\'re asking the council for" value="' + KX.attr(b.textHeading) + '">' +
+        '<textarea class="cp-b-field" id="cpBTextBody" rows="7" placeholder="Write the commentary…">' + esc(b.textBody) + '</textarea></div>' +
+        '<p class="cp-phint">You can keep editing it right on the canvas.</p>');
   }
 
-  // ---- ADVANCED · open-ended chooser: correlate, table, commentary, ideas,
-  //      or hand the whole thing to Agency Intelligence in the chat dock.
-  function advancedBuilderHtml() {
+  var ADV_OPTIONS = [
+    { id: 'correlate', icon: 'scatter_plot', title: 'Correlate metrics', desc: 'Plot two metrics against each other, with a trend line.' },
+    { id: 'table', icon: 'table_chart', title: 'Summary table', desc: 'Several measures in one compact table.' },
+    { id: 'text', icon: 'notes', title: 'Written commentary', desc: 'A heading and prose block beside the numbers.' },
+    { id: 'ideas', icon: 'auto_awesome', title: 'Start from an idea', desc: 'Ready-made questions Agency Intelligence can chart in one click.' },
+    { id: 'ask', icon: 'forum', title: 'Describe it to Agency Intelligence', desc: 'Ask in your own words and let it fill the parameters.' }
+  ];
+  function advancedBodyHtml() {
     var b = state.builder;
-    var OPTIONS = [
-      { id: 'correlate', icon: 'scatter_plot', title: 'Correlate metrics',
-        desc: 'Plot two metrics against each other to see how they relate, with a trend line.' },
-      { id: 'table', icon: 'table_chart', title: 'Summary table',
-        desc: 'Several measures in one compact table — value, change and status per row.' },
-      { id: 'text', icon: 'notes', title: 'Written commentary',
-        desc: 'A heading and prose block, so the numbers arrive with your read on them.' },
-      { id: 'ideas', icon: 'auto_awesome', title: 'Start from an idea',
-        desc: 'Pick from ready-made questions Agency Intelligence can chart in one click.' },
-      { id: 'ask', icon: 'forum', title: 'Describe it to Agency Intelligence',
-        desc: 'Ask in your own words and let Agency Intelligence build it on the canvas.' }
-    ];
-
     if (!b.mode) {
-      return '<div class="cp-adv-list">' +
-        OPTIONS.map(function (o) {
-          return '<button class="cp-adv-opt" data-b-mode="' + o.id + '">' +
-            '<span class="ico">' + micon(o.icon, { size: 20, fill: 1 }) + '</span>' +
-            '<span class="txt"><span class="t">' + esc(o.title) + '</span>' +
-            '<span class="d">' + esc(o.desc) + '</span></span>' +
-            '<span class="chev">' + micon('chevron_right', { size: 20 }) + '</span></button>';
-        }).join('') + '</div>';
+      return '<div class="cp-adv-list">' + ADV_OPTIONS.map(function (o) {
+        return '<button type="button" class="cp-adv-opt" data-b-mode="' + o.id + '">' +
+          '<span class="ico">' + micon(o.icon, { size: 18, fill: 1 }) + '</span>' +
+          '<span class="txt"><span class="t">' + esc(o.title) + '</span><span class="d">' + esc(o.desc) + '</span></span>' +
+          '<span class="chev">' + micon('chevron_right', { size: 18 }) + '</span></button>';
+      }).join('') + '</div>';
     }
-
-    return '<div><button class="cp-adv-back" data-b-mode-back="1">' +
-      micon('arrow_back', { size: 14 }) + ' All options</button>' +
+    var opt = ADV_OPTIONS.find(function (o) { return o.id === b.mode; });
+    return '<button type="button" class="cp-adv-back" data-b-mode-back="1">' + micon('arrow_back', { size: 14 }) + ' All options</button>' +
+      '<div class="cp-ptitle">' + esc(opt ? opt.title : '') + '</div>' +
       (b.mode === 'correlate' ? correlationBuilderHtml()
         : b.mode === 'table' ? metricsTableBuilderHtml()
         : b.mode === 'text' ? textBlockBuilderHtml()
-        : ideasBuilderHtml()) +
-      '</div>';
+        : ideasBuilderHtml());
   }
 
   // "Describe it to Agency Intelligence" / "just ask" — hand the job to the
-  // chat dock instead of a form. Closes the Add-widget dialog if it's open and
-  // expands the dock, so the caret always lands somewhere visible.
+  // chat pane. Expands it if collapsed, so the caret lands somewhere visible.
   function focusChat() {
-    Array.prototype.forEach.call(document.querySelectorAll('vaadin-dialog'), function (d) {
-      if (d.opened) d.opened = false;
-    });
     if (state.collapsed) { state.collapsed = false; render(); }
     setTimeout(function () {
       var ta = document.getElementById('cpvDraft');
@@ -1647,51 +1606,66 @@
     }, 60);
   }
 
-  // Shell with Simple / Advanced tabs. `modal` drops the big header and the
-  // "just ask" footer — those belong to the empty state, not the dialog.
-  //
-  // The Advanced tab is v2 (CP.advancedBuilderEnabled). With the flag off the
-  // pill is not rendered at all rather than shown disabled: a one-option
-  // segmented control is a control that cannot be used, and it would sit
-  // directly above a step numbered "1", reading as a step of its own.
-  function widgetBuilderHtml(modal) {
+  // The pane's one committing action, by builder path. Keeps the ids the
+  // click handlers already listen for.
+  function paramsFooterHtml() {
+    var b = state.builder, w = builderPreviewWidget();
+    var btn = function (id, label, ok, icon) {
+      return '<vaadin-button theme="primary" id="' + id + '"' + (ok ? '' : ' disabled') + '>' +
+        micon(icon || 'add', { size: 16 }) + '<span class="kx-btn-label">' + label + '</span></vaadin-button>';
+    };
+    var action, hint;
+    if (b.tab === 'simple') { action = btn('cpBAdd', 'Add to dashboard', !!w); hint = w ? 'Previewed on the canvas. You can fine-tune it later, too.' : 'Pick a metric and a chart type to preview it.'; }
+    else if (b.mode === 'correlate') { action = btn('cpBAddCorr', 'Add correlation', !!w); hint = w ? 'Previewed on the canvas.' : 'Pick two metrics that share a breakdown.'; }
+    else if (b.mode === 'table') { action = btn('cpBAddTable', 'Add summary table', !!w); hint = w ? 'Previewed on the canvas.' : 'Pick at least one measure.'; }
+    else if (b.mode === 'text') { action = btn('cpBAddText', 'Add text block', !!w); hint = w ? 'Previewed on the canvas.' : 'Write a heading or some commentary.'; }
+    else if (b.mode === 'ideas') { var n = b.ideas.length; action = btn('cpBGenerate', 'Build ' + (n || '') + ' widget' + (n === 1 ? '' : 's'), n > 0, 'auto_awesome'); hint = n ? 'They land on the canvas as each query resolves.' : 'Pick one or more ideas.'; }
+    else return '';
+    return '<div class="cp-params-foot">' + action + '<span class="cp-phint" style="margin:0">' + hint + '</span></div>';
+  }
+
+  // The whole middle pane.
+  function paramsPaneHtml() {
     var b = state.builder;
     var advanced = CP.advancedBuilderEnabled();
     if (!advanced) b.tab = 'simple';
-    var TABS = [
-      { id: 'simple', label: 'Simple', icon: 'tune' },
-      { id: 'advanced', label: 'Advanced', icon: 'insights' }
-    ];
-    var subtitle = b.tab === 'simple'
-      ? 'Pick one metric and choose how to show it.'
-      : 'Correlate metrics, build a summary table, write commentary, or ask Agency Intelligence.';
-
-    return '<div class="cp-builder' + (modal ? ' is-modal' : '') + '">' +
-      (modal ? '' : '<div class="cp-builder-head">' + agencyIntelMark(52) +
-        '<h2>Let’s build your first widget</h2></div>') +
-      // With no pill to explain and a dialog header already carrying a
-      // subtitle, the modal would otherwise print two sub-lines in a row.
-      (advanced || !modal
-        ? '<div class="cp-builder-tabs">' +
-          (advanced
-            ? '<div class="cp-builder-modes">' +
-              TABS.map(function (t) {
-                return '<button data-b-tab="' + t.id + '" style="display:inline-flex;align-items:center;gap:6px;' +
-                  'padding:7px 18px;border-radius:var(--radius-pill);border:none;cursor:pointer;font-size:12.5px;font-weight:600;' +
-                  'font-family:inherit;background:' + (b.tab === t.id ? 'var(--surface-1)' : 'transparent') + ';color:' +
-                  (b.tab === t.id ? 'var(--ink-900)' : 'var(--ink-500)') + ';box-shadow:' +
-                  (b.tab === t.id ? 'var(--elev-1)' : 'none') + '">' +
-                  micon(t.icon, { size: 15 }) + ' ' + esc(t.label) + '</button>';
-              }).join('') + '</div>'
-            : '') +
-          '<div class="cp-builder-sub">' + esc(subtitle) + '</div></div>'
-        : '') +
-      (b.tab === 'simple' ? simpleBuilderHtml() : advancedBuilderHtml()) +
-      (modal ? '' : '<div class="cp-builder-foot">or <button id="cpBAskFocus">' +
-        'just ask Agency Intelligence →</button></div>') +
-      '</div>';
+    var changed = b.sugg ? changedFields().length : 0;
+    var started = !!(b.metric || b.viz || b.mode || b.a || b.tableIds.length || b.ideas.length || b.textHeading || b.textBody || b.sugg);
+    var tools = started ? '<button type="button" class="cp-plink" id="cpBStartOver" title="Clear the widget in progress">Start over</button>' : '';
+    if (changed) tools += '<span class="cp-vsep"></span>';
+    if (changed) {
+      tools = '<button type="button" class="cp-plink" id="cpBResetSugg">Reset to suggestion</button><span class="cp-vsep"></span>' +
+        '<button type="button" class="cp-plink" id="cpBWhatChanged" aria-pressed="' + !!b.showChanged + '">What changed<span class="cp-cnt">' + changed + '</span></button>';
+    }
+    var pill = advanced
+      ? '<div class="cp-modes cp-params-modes">' + [['simple', 'Simple', 'tune'], ['advanced', 'Advanced', 'insights']].map(function (t) {
+          return '<button type="button" data-b-tab="' + t[0] + '" class="' + (b.tab === t[0] ? 'is-on' : '') + '">' + micon(t[2], { size: 14 }) + ' ' + t[1] + '</button>';
+        }).join('') + '</div>'
+      : '';
+    return '<section class="cp-params" aria-label="Parameters">' +
+      '<div class="cp-params-h"><span class="t">Parameters</span><span class="sp"></span>' + tools + '</div>' +
+      (pill ? '<div class="cp-params-pill">' + pill + '</div>' : '') +
+      '<div class="cp-params-body" id="cpParamsBody">' + (b.tab === 'simple' ? simpleBodyHtml() : advancedBodyHtml()) + '</div>' +
+      paramsFooterHtml() +
+      '</section>';
   }
 
+  // Kept for the flow map and the Add-widget tile: there is no dialog any more.
+  // Starting a widget means a fresh Parameters pane with the focus in it.
+  function openAddWidgetDialog() {
+    advertiseFlow('add-widget');
+    state.builder = freshBuilder();
+    state.focusParams = true;
+    render();
+  }
+
+  // The draft widget on the canvas: the real card renderer, read-only, with a
+  // badge so it reads as "not on the dashboard yet".
+  function draftCardHtml(w) {
+    var html = KXCanvas.widgetCard(w, { editable: false });
+    return html.replace('class="cpw-card', 'class="cpw-card is-draft').replace('data-widget-id="preview"', 'data-draft="1"')
+      .replace(/>/, '><span class="cpw-draft-badge" aria-label="Draft, not on the dashboard yet">Draft</span>');
+  }
   /* =====================================================================
      BUILD VIEW SHELL
      ===================================================================== */
@@ -1770,8 +1744,10 @@
             micon('edit', { size: 15, color: 'var(--ink-300)' }) + '</button>') +
       '<div style="margin-left:auto;display:flex;align-items:center;gap:8px">' +
       // The dashboard's one date range. Sits ahead of the save/publish cluster
-      // because it scopes what you are LOOKING at, where those act on it.
-      (widgets.length && !locked ? dashRangeControl(d) : '') +
+      // because it scopes what you are LOOKING at, where those act on it. It is
+      // there from the first moment of a new dashboard: the widget being built
+      // inherits it, so Parameters points here before anything has been added.
+      (!locked ? dashRangeControl(d) : '') +
       (widgets.length && !locked
         ? '<span class="cp-saved" id="cpSavedChip" title="Last auto-saved">' +
           (state.saving
@@ -1836,9 +1812,18 @@
           : '') + '</div></div></div>'
       : '';
 
+    // The widget in progress previews ON the canvas, in place, as a draft
+    // card. Nothing to build yet and nothing built: a quiet empty canvas that
+    // points at the two ways to start.
+    var draft = (!locked && state.mode === 'edit') ? builderPreviewWidget() : null;
     var canvas;
     if (state.mode === 'report') canvas = reportPreviewHtml(d);
-    else if (!widgets.length) canvas = '<div class="cp-canvas-empty">' + widgetBuilderHtml() + '</div>';
+    else if (!widgets.length && !draft) {
+      canvas = '<div class="cp-canvas-empty">' + agencyIntelMark(44) +
+        '<h2>Nothing on the canvas yet</h2>' +
+        '<p>Pick a metric in <b>Parameters</b>, or ask <b>Agency Intelligence</b> for what you want to see. ' +
+        'The widget previews here, in place, before you add it.</p></div>';
+    }
     else {
       canvas =
         // Instructions the cards point at with aria-describedby, plus the region
@@ -1859,17 +1844,22 @@
             total: widgets.length
           });
         }).join('') +
+        // The draft sits where the widget will land — after the last card.
+        (draft ? draftCardHtml(draft) : '') +
         // The add affordance is a tile INSIDE the grid, not a small button under
         // it. As a real grid item, CSS auto-placement drops it beside the last
         // card when that row still has room and below it when it doesn't — so
-        // "where the next widget goes" is always shown at widget scale.
-        (!locked ? addWidgetTile() : '') + '</div>';
+        // "where the next widget goes" is always shown at widget scale. While a
+        // draft is in progress it IS the next widget, so the tile steps aside.
+        (!locked && !draft ? addWidgetTile() : '') + '</div>';
     }
 
+    // DOM order is canvas · parameters · chat; .dock-left reverses it so the
+    // chat sits on the left, Parameters beside it, the canvas taking the rest.
     return '<div class="cp-build">' + bar + previewBanner +
-      '<div class="cp-panes' + (DEFAULTS.chatDock === 'left' ? ' dock-left' : '') + '">' +
+      '<div class="cp-panes' + (DEFAULTS.chatDock === 'left' ? ' dock-left' : '') + (locked ? ' is-locked' : '') + '">' +
       '<div class="cp-canvas">' + canvas + '</div>' +
-      (locked ? '' : agencyIntelPanel()) +
+      (locked ? '' : paramsPaneHtml() + agencyIntelPanel()) +
       '</div></div>';
   }
 
@@ -1878,16 +1868,16 @@
   // dialog it opens — are unchanged. Deliberately NOT a .cpw-card: the drag,
   // resize, keyboard-reorder and select handlers all key off that class and
   // would otherwise try to treat this tile as a widget.
+  // A ghost slot, not a button that opens anything: Parameters is always live,
+  // so this only shows WHERE the next widget lands and becomes the draft card
+  // the moment one is in progress. Clicking it puts the focus in Parameters.
   function addWidgetTile() {
     return '<button type="button" class="cpw-add" id="cpAddWidget" ' +
-      'aria-label="Add a widget to this dashboard">' +
-      '<span class="cpw-add-mark" aria-hidden="true">' + micon('add', { size: 24 }) + '</span>' +
-      '<span class="cpw-add-title">Add widget</span>' +
-      '<span class="cpw-add-sub">' +
-      (CP.advancedBuilderEnabled()
-        ? 'Chart a metric, build a table, or ask Agency Intelligence to draft one'
-        : 'Chart a metric and choose how it shows on this dashboard') +
-      '</span></button>';
+      'aria-label="Next widget lands here — set it up in Parameters">' +
+      '<span class="cpw-add-title">Next widget lands here</span>' +
+      '<span class="cpw-add-sub">Set it up in Parameters' +
+      (CP.advancedBuilderEnabled() ? ' — a metric, a table, or an idea — ' : ', ') +
+      'or ask Agency Intelligence.</span></button>';
   }
 
   /* =====================================================================
@@ -2185,6 +2175,15 @@
         });
         resolveWidgetSoon(targetId, 'live');
         pushAgencyIntel({ text: resp.text });
+      } else if (resp.kind === 'widget' && state.mode === 'edit' && resp.widget.kind !== 'summary') {
+        // The chat fills Parameters and the draft renders on the canvas; the
+        // person adds it when it looks right. Nothing lands on the dashboard
+        // from a sentence alone.
+        fillBuilderFromChat(resp.widget);
+        pushAgencyIntel({
+          text: resp.text + ' It\u2019s set up in **Parameters** and previewed on the canvas \u2014 change anything there or here, then Add to dashboard.',
+          render: draftSummary()
+        });
       } else if (resp.kind === 'widget' || resp.kind === 'nodata') {
         var w = Object.assign({}, resp.widget, { state: resp.kind === 'nodata' ? 'nodata' : 'loading' });
         setWidgets(function (ws) { return ws.concat([w]); });
@@ -2205,6 +2204,8 @@
     state.thread.push({ role: 'user', text: 'Add ' + title });
     state.thread.push({ role: 'agency-intel', text: 'Added “' + title + '”. Want to tweak it, or add another?' });
     resolveWidgetSoon(w.id, 'live');
+    // The draft has landed: Parameters starts fresh and the Add tile returns.
+    state.builder = freshBuilder();
     render();
   }
 
@@ -2491,18 +2492,31 @@
      ===================================================================== */
 
   function render() {
+    // Every click re-renders #root wholesale, which would throw the Parameters
+    // pane back to its top and drop focus to <body>. Remember where the pane
+    // was scrolled and which builder control had focus, and put both back.
+    var keepScroll = {};
+    ['cpParamsBody', 'cpvThread'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) keepScroll[id] = el.scrollTop;
+    });
+    var ae = document.activeElement, keepFocus = null;
+    if (ae && ae.closest && ae.closest('.cp-params')) {
+      var attrs = ['data-b-viz', 'data-b-metric', 'data-b-cat', 'data-b-tab', 'data-b-mode', 'data-b-tmetric', 'data-b-idea', 'data-b-corrviz', 'data-b-sugg', 'id'];
+      for (var ai = 0; ai < attrs.length && !keepFocus; ai++) {
+        var av = ae.getAttribute(attrs[ai]);
+        if (av) keepFocus = attrs[ai] === 'id' ? '#' + CSS.escape(av) : '.cp-params [' + attrs[ai] + '="' + CSS.escape(av) + '"]';
+      }
+    }
+    state.keepParams = { scroll: keepScroll, focus: keepFocus };
+
     document.getElementById('root').innerHTML =
       '<div class="kx-app"><div class="kx-shell"><div class="kx-main kx-main--wide">' +
       '<main class="kx-content">' +
       (state.view === 'build' ? buildHtml() : homeHtml()) +
       '</main></div></div></div>';
 
-    // The "Add widget" builder lives in a dialog overlay outside #root, so it
-    // needs its own re-render pass whenever builder state changes.
-    var host = document.getElementById('cpAddWidgetHost');
-    if (host && host.isConnected) host.innerHTML = widgetBuilderHtml(true);
-
-    // Both passes above re-created Vector components, which in Safari come back
+    // The pass above re-created Vector components, which in Safari come back
     // unthemed unless the theme stylesheet is re-announced — see KX.reapplyTheme.
     KX.reapplyTheme();
 
@@ -2621,9 +2635,38 @@
       });
     }
 
+    // Put the Parameters pane back where it was (see render()).
+    if (state.keepParams) {
+      var kp = state.keepParams; state.keepParams = null;
+      Object.keys(kp.scroll).forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && id !== 'cpvThread') el.scrollTop = kp.scroll[id];
+      });
+      if (kp.focus) {
+        var back = document.querySelector(kp.focus);
+        if (back && !state.focusParams && !state.refocus) back.focus({ preventScroll: true });
+      }
+    }
+
     // Keep the transcript pinned to the newest turn.
     var thread = document.getElementById('cpvThread');
     if (thread) thread.scrollTop = thread.scrollHeight;
+
+    // Add widget: a fresh Parameters pane, with the focus in it.
+    if (state.focusParams) {
+      state.focusParams = false;
+      var pane = document.querySelector('.cp-params');
+      var first = pane && pane.querySelector('[data-b-metric], [data-b-mode]');
+      if (pane) pane.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      if (first) first.focus({ preventScroll: true });
+    }
+    // Builder text fields re-render the canvas draft on every keystroke; put
+    // the caret back where it was.
+    if (state.refocus) {
+      var rf = state.refocus; state.refocus = null;
+      var fld = document.getElementById(rf.id);
+      if (fld) { fld.focus({ preventScroll: true }); try { fld.setSelectionRange(rf.pos, rf.pos); } catch (err) { /* not selectable */ } }
+    }
 
     // Data Explorer prompt — restore the in-progress question after a re-render.
     var exq = document.getElementById('exQuery');
@@ -2712,7 +2755,7 @@
     var g = gridEl();
     if (!g) return null;
     return Array.prototype.map.call(
-      g.querySelectorAll('.cpw-card[data-widget-id]'),
+      g.querySelectorAll('.cpw-card[data-widget-id]:not(.is-draft)'),
       function (c) { return c.getAttribute('data-widget-id'); }
     );
   }
@@ -3331,10 +3374,25 @@
         return;
       }
       if (e.target.closest('#cpAddWidget')) {
-        // Reuse the builder in a dialog once the canvas already has widgets.
+        // A fresh Parameters pane, focused — there is no dialog any more.
         openAddWidgetDialog();
         return;
       }
+      if (e.target.closest('[data-cpv-focus-draft]')) {
+        var dc = document.querySelector('.cpw-card.is-draft');
+        if (dc) { dc.scrollIntoView({ block: 'center', behavior: 'smooth' }); dc.classList.remove('is-flash'); void dc.offsetWidth; dc.classList.add('is-flash'); }
+        return;
+      }
+      if (e.target.closest('#cpBResetSugg')) { resetToSuggestion(); render(); return; }
+      if (e.target.closest('#cpBStartOver')) { state.builder = freshBuilder(); state.focusParams = true; render(); return; }
+      if (e.target.closest('[data-b-range-open]')) {
+        // Open the dashboard's range menu in the build bar and bring it into view.
+        state.dashRangeOpen = true; render();
+        var rb = document.querySelector('[data-dash-range]');
+        if (rb) { rb.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); rb.focus({ preventScroll: true }); }
+        return;
+      }
+      if (e.target.closest('#cpBWhatChanged')) { state.builder.showChanged = !state.builder.showChanged; render(); return; }
 
       /* ---- Agency Intelligence ---- */
       if (e.target.closest('#cpvSend')) { agencyIntelSend(); return; }
@@ -3476,7 +3534,10 @@
       var bm = e.target.closest('[data-b-metric]');
       if (bm) {
         var mid = bm.getAttribute('data-b-metric');
+        if (state.builder.metric === mid) return;
         state.builder.metric = mid;
+        var mm = CC.metricById(mid);
+        youSet('metric', 'You switched the metric to **' + (mm ? mm.label : mid) + '**');
         // Deliberately NOT pre-filled with CC.DEFAULT_VIZ any more. Picking a
         // metric used to answer step 2 for you, which meant steps 2 AND 3
         // appeared together and the chart type read as already decided. The
@@ -3488,7 +3549,13 @@
         return;
       }
       var bv = e.target.closest('[data-b-viz]');
-      if (bv) { state.builder.viz = bv.getAttribute('data-b-viz'); state.builder.include = []; render(); return; }
+      if (bv) {
+        if (bv.disabled || state.builder.viz === bv.getAttribute('data-b-viz')) return;
+        state.builder.viz = bv.getAttribute('data-b-viz'); state.builder.include = [];
+        var vt = CC.VIZ_TYPES.find(function (t) { return t.id === state.builder.viz; });
+        youSet('viz', 'You switched to **' + (vt ? vt.label : state.builder.viz) + '**');
+        render(); return;
+      }
       var bc = e.target.closest('[data-b-cat]');
       if (bc) {
         var cats = CC.metricCategories(state.builder.metric, state.builder.viz);
@@ -3499,15 +3566,15 @@
         if (bi === -1) base.push(v); else base.splice(bi, 1);
         if (!base.length) return;                                 // never allow an empty chart
         state.builder.include = base.length === cats.values.length ? [] : base;
+        youSet('include', 'You ' + (bi === -1 ? 'turned on' : 'turned off') + ' **' + v + '**');
         render();
         return;
       }
-      if (e.target.closest('[data-b-cats-all]')) { state.builder.include = []; render(); return; }
+      if (e.target.closest('[data-b-cats-all]')) { state.builder.include = []; youSet('include', 'You selected every category'); render(); return; }
       if (e.target.closest('#cpBAdd')) {
-        addWidget({
-          metricId: state.builder.metric, viz: state.builder.viz,
-          include: state.builder.include.length ? state.builder.include : undefined
-        });
+        var pw = builderPreviewWidget(); if (!pw) return;
+        var spec = Object.assign({}, pw); delete spec.id; delete spec.state;
+        addWidget(spec);
         return;
       }
       var bs = e.target.closest('[data-b-sugg]');
@@ -3565,7 +3632,7 @@
       if (e.target.closest('#cpBGenerate')) { generateIdeas(state.builder.ideas.slice()); return; }
 
       /* ---- select a widget by clicking it ---- */
-      var card = e.target.closest('.cpw-card');
+      var card = e.target.closest('.cpw-card:not(.is-draft)');
       if (card && state.mode === 'edit') {
         var cid = card.getAttribute('data-widget-id');
         state.selectedId = state.selectedId === cid ? null : cid;
@@ -3595,18 +3662,15 @@
       // stays put. Anything that depends on them is patched in place below.
       if (e.target.id === 'cpBTableHeading') {
         state.builder.tableHeading = e.target.value;
-        var pv = document.querySelector('.cp-builder .cpw-title');
-        if (pv) pv.textContent = state.builder.tableHeading.trim() || 'Summary table';
+        state.refocus = { id: e.target.id, pos: e.target.selectionStart };
+        render();
         return;
       }
       if (e.target.id === 'cpBTextHeading' || e.target.id === 'cpBTextBody') {
         if (e.target.id === 'cpBTextHeading') state.builder.textHeading = e.target.value;
         else state.builder.textBody = e.target.value;
-        var addText = document.getElementById('cpBAddText');
-        if (addText) {
-          if (state.builder.textHeading.trim() || state.builder.textBody.trim()) addText.removeAttribute('disabled');
-          else addText.setAttribute('disabled', '');
-        }
+        state.refocus = { id: e.target.id, pos: e.target.selectionStart };
+        render();
         return;
       }
       if (e.target.id === 'cpvDraft') {
@@ -3716,37 +3780,6 @@
   }
 
   // "Add widget" once the canvas is populated — the same builder, in a dialog.
-  function openAddWidgetDialog() {
-    advertiseFlow('add-widget');
-    state.builder = freshBuilder();
-    KX.openDialog({
-      title: 'Add a widget',
-      // The Advanced half of this sentence only makes sense while that tab is
-      // on the pill; with the v1 flag it would promise a route that isn't there.
-      subtitle: CP.advancedBuilderEnabled()
-        ? 'Chart one metric, or go Advanced — correlate, tabulate, write, or ask.'
-        : 'Chart one metric — pick it, choose how to show it, then set the parameters.',
-      icon: 'add_chart',
-      accent: 'var(--amber-500)',
-      // Wider than the usual dialog: the builder is a two-column layout whose
-      // left column is the full metric list and whose right column carries a
-      // live widget preview at something close to canvas scale. At 860px the
-      // chart-type chips wrapped to three rows and the preview read as a
-      // thumbnail rather than a widget.
-      width: '1080px',
-      body: '<div id="cpAddWidgetHost">' + widgetBuilderHtml(true) + '</div>',
-      onMount: function (body, dlg) {
-        // The builder's own Add buttons close the dialog once a widget lands.
-        body.addEventListener('click', function (e) {
-          if (e.target.closest('#cpBAdd') || e.target.closest('#cpBAddCorr') ||
-              e.target.closest('#cpBGenerate') || e.target.closest('#cpBAddTable') ||
-              e.target.closest('#cpBAddText')) {
-            setTimeout(function () { dlg.opened = false; }, 0);
-          }
-        });
-      }
-    });
-  }
 
   /* =====================================================================
      BOOT
