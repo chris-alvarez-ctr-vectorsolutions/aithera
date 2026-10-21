@@ -543,18 +543,29 @@
   /* Opened row + its drawer: Vector's lightest blue (themes: --vwc-color-picton-blue-50) */
   .log-row.is-open, .log-row.is-open:hover { background: var(--vwc-color-picton-blue-50, #ECF8FD); }
   .log-row.is-open td { border-bottom-color: transparent; }
+  /* Whole row opens report settings (Export / View Report cells excepted) */
+  .log-row td { cursor: pointer; }
+  .log-row td.log-export-cell, .log-row td.log-view-cell { cursor: default; }
 
-  /* Report name (bold) with the report type underneath */
+  /* Report name (bold). The rename pencil takes no space of its own: it sits
+     over the end of the name, fading the text under it, and only shows on
+     row hover or keyboard focus. --row-bg matches the row so the fade blends. */
+  .log-row { --row-bg: #fff; }
+  .log-row:hover { --row-bg: var(--hair-2); }
+  .log-row.is-open { --row-bg: var(--vwc-color-picton-blue-50, #ECF8FD); }
   .log-name-cell { min-width: 220px; }
-  .log-name { display: flex; align-items: center; gap: 4px; }
+  .log-name { position: relative; }
   .log-name .nm { font-weight: 600; color: var(--ink); line-height: 1.4; }
   .log-rename {
-    flex-shrink: 0; width: 26px; height: 26px; border: 0; border-radius: 6px;
-    background: transparent; color: var(--muted-2); cursor: pointer;
-    display: grid; place-items: center; opacity: 0; transition: opacity .12s, background .12s;
+    position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
+    height: 28px; padding: 0 4px 0 22px; border: 0; cursor: pointer;
+    background: linear-gradient(to right, transparent, var(--row-bg) 18px);
+    color: var(--muted); display: flex; align-items: center;
+    opacity: 0; transition: opacity .12s;
   }
+  .log-rename svg { padding: 6px; box-sizing: content-box; border-radius: 6px; transition: background .12s, color .12s; }
   .log-row:hover .log-rename, .log-rename:focus-visible { opacity: 1; }
-  .log-rename:hover { background: #E4E9F2; color: var(--blue-primary); }
+  .log-rename:hover svg, .log-rename:focus-visible svg { background: #E4E9F2; color: var(--blue-primary); }
   /* Rename: the field takes the cell's full width, Save / Cancel sit below it */
 
   /* One value per cell — no secondary lines of copy. With 10 columns, cells
@@ -646,9 +657,46 @@
 
   /* Report Log toolbar: search + filters */
   .log-toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; }
-  .log-toolbar .log-search { width: 340px; max-width: 100%; }
-  .log-toolbar .log-search svg { color: var(--muted); }
-  .log-toolbar .log-filter { width: 210px; }
+  /* Pill search — white, blue outline, magnifier on the right (live SafeLMS look) */
+  .log-search {
+    display: flex; align-items: center; gap: 8px;
+    width: 320px; max-width: 100%; height: 40px; padding: 0 16px 0 20px;
+    background: #fff; border: 2px solid #2D6BF4; border-radius: 999px; cursor: text;
+  }
+  .log-search input {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+    font-family: inherit; font-size: 15px; color: #24323F;
+  }
+  .log-search input::placeholder { color: #5B799D; }
+  .log-search svg { flex-shrink: 0; color: #8EA8C0; }
+  .log-search:focus-within { box-shadow: 0 0 0 3px rgba(45,107,244,.18); }
+  /* Filter buttons — white, slate outline, "Label  Value ⌄" */
+  .log-filter { position: relative; }
+  .log-filter-btn {
+    display: inline-flex; align-items: center; gap: 12px; height: 40px; padding: 0 14px 0 16px;
+    background: #fff; border: 1px solid #7893B5; border-radius: 6px; cursor: pointer;
+    font-family: inherit; font-size: 15px; color: #364C61; white-space: nowrap;
+  }
+  .log-filter-btn .v { font-weight: 700; color: #1F2D3D; }
+  .log-filter-btn .caret { color: #8EA8C0; margin-left: 2px; transition: transform .15s; }
+  .log-filter.open .log-filter-btn .caret { transform: rotate(180deg); }
+  .log-filter-btn:hover { border-color: #4F6E95; }
+  .log-filter-btn:focus-visible { outline: 2px solid #2D6BF4; outline-offset: 2px; }
+  .log-filter-pop {
+    display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 45; min-width: 100%;
+    background: #fff; border: 1px solid var(--hair); border-radius: 10px; padding: 6px;
+    box-shadow: 0 12px 30px rgba(16,24,40,.18), 0 0 0 1px rgba(0,0,0,.04);
+  }
+  .log-filter.open .log-filter-pop { display: block; }
+  .log-filter-opt {
+    display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 12px;
+    border: 0; border-radius: 6px; background: transparent; cursor: pointer; text-align: left;
+    font-family: inherit; font-size: 14px; color: #364C61; white-space: nowrap;
+  }
+  .log-filter-opt:hover { background: var(--hair-2); }
+  .log-filter-opt .chk { width: 14px; color: var(--blue-primary); visibility: hidden; }
+  .log-filter-opt[aria-selected="true"] { font-weight: 700; color: #1F2D3D; }
+  .log-filter-opt[aria-selected="true"] .chk { visibility: visible; }
   .log-count { margin-left: auto; font-size: 13px; color: var(--muted); }
   .log-empty { padding: 36px 20px; text-align: center; color: #364153; display: grid; gap: 10px; justify-items: center; }
   .log-clear-btn {
@@ -666,6 +714,11 @@
   .modal .sm-meta { font-size: 13px; color: var(--muted); margin-bottom: 20px; }
   .modal .param-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .modal.modal-md .footer { justify-content: flex-end; }
+  .modal.modal-md .actions { align-items: center; }
+  /* Export in the pop-up: match the footer buttons; the format menu opens upward */
+  .modal #settings-export .log-export-btn { padding: 8px 16px; font-size: 13px; border-radius: 6px; }
+  .modal #settings-export .export-pop { top: auto; bottom: calc(100% + 6px); }
+  .modal.modal-md { overflow: visible; }
 
   /* Email Me The Report — small title modal */
   .modal.modal-sm { width: 500px; padding: 26px 28px 22px; }
@@ -1244,11 +1297,20 @@ Results</div>
     <div id="report-log-panel" style="display:none; padding:20px 24px 32px; flex:1; overflow-y:auto;" data-file="products/SafeLMS/async-reports/ver2/index.html" data-line="959">
       <!-- V2: search + filters (the pencil banner that sat here is removed) -->
       <div class="log-toolbar">
-        <vaadin-text-field theme="outlined" id="log-search" class="log-search" placeholder="Search by name, type, person or setting" clear-button-visible aria-label="Search the Report Log">
-          <svg slot="prefix" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
-        </vaadin-text-field>
-        <vaadin-select theme="outlined" id="log-type-filter" class="log-filter" aria-label="Report type"></vaadin-select>
-        <vaadin-select theme="outlined" id="log-status-filter" class="log-filter" aria-label="Status"></vaadin-select>
+        <!-- Matches the live SafeLMS controls: pill search (icon right) and
+             "Label  Value ⌄" filter buttons. Custom markup, like the report filters. -->
+        <label class="log-search">
+          <input type="search" id="log-search" placeholder="Search for a report..." aria-label="Search the Report Log" autocomplete="off">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>
+        </label>
+        <div class="log-filter" data-filter="type">
+          <button class="log-filter-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="k">Report type</span><span class="v">All</span><svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="log-filter-pop" role="listbox" aria-label="Report type"></div>
+        </div>
+        <div class="log-filter" data-filter="status">
+          <button class="log-filter-btn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="k">Status</span><span class="v">All</span><svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></button>
+          <div class="log-filter-pop" role="listbox" aria-label="Status"></div>
+        </div>
         <span class="log-count" id="log-count" aria-live="polite"></span>
       </div>
       <div class="log-card" data-file="products/SafeLMS/async-reports/ver2/index.html" data-line="960">
@@ -1465,6 +1527,7 @@ Results</div>
     <div class="footer">
       <div class="actions">
         <button class="btn-ghost" id="settings-done" type="button">Close</button>
+        <span id="settings-export"></span>
         <button class="btn-primary" id="settings-view" type="button">View Report</button>
       </div>
     </div>
@@ -2031,7 +2094,7 @@ Results</div>
       const name = `<div class="log-name"><span class="nm">${esc(rowName(r))}</span>
              <button class="log-rename" type="button" data-rename="${r.id}" aria-label="Rename ${esc(rowName(r))}" title="Rename">${ICON_PENCIL}</button>
            </div>`;
-      const row = `<tr class="log-row${open ? ' is-open' : ''}">
+      const row = `<tr class="log-row${open ? ' is-open' : ''}" data-row="${r.id}">
           <td class="log-chev-cell">${r.settings === 'modal'
             ? `<button class="log-expand log-info" type="button" data-settings="${r.id}" aria-label="Report settings" title="Report settings">${ICON_INFO}</button>`
             : `<button class="log-expand" type="button" data-expand="${r.id}" aria-expanded="${open}" aria-label="${open ? 'Hide' : 'Show'} report settings">${ICON_CHEV}</button>`}</td>
@@ -2075,7 +2138,17 @@ Results</div>
   const logBody = document.getElementById('log-tbody');
   logBody.addEventListener('click', e => {
     const t = e.target.closest('[data-expand],[data-settings],[data-rename],[data-view],[data-clear-filters],.log-export-btn');
-    if (!t) return;
+    if (!t) {
+      // The whole row opens its report settings: drawer rows toggle the drawer,
+      // the bottom three open the pop-up. Export and View Report keep their own clicks.
+      const tr = e.target.closest('tr.log-row');
+      if (!tr || e.target.closest('.log-export-cell, .log-view-cell')) return;
+      const r = findRow(tr.dataset.row);
+      if (!r) return;
+      if (r.settings === 'modal') openSettingsModal(r.id);
+      else { logOpen.has(r.id) ? logOpen.delete(r.id) : logOpen.add(r.id); renderLog(); }
+      return;
+    }
     if (t.matches('.log-export-btn')) {
       // "Export Report" format dropdowns (CSV / Excel)
       const menu = t.closest('.export-menu');
@@ -2111,17 +2184,51 @@ Results</div>
                  ...PARAM_LABELS.map(([k]) => k === 'range' ? '' : pval(r.params, k))].join(' ').toLowerCase();
     return q.split(/\s+/).every(t => hay.includes(t));
   }
-  initSelect('log-type-filter', [['all', 'All report types'], ...Object.entries(LOG_REPORT_TYPES)], 'all');
-  initSelect('log-status-filter', [['all', 'All statuses'], ['in-progress', 'In Progress'], ['ready', 'Ready to Download']], 'all');
-  document.getElementById('log-search').addEventListener('value-changed', e => { logFilter.q = e.detail.value || ''; renderLog(); });
-  document.getElementById('log-type-filter').addEventListener('value-changed', e => { logFilter.type = e.detail.value || 'all'; renderLog(); });
-  document.getElementById('log-status-filter').addEventListener('value-changed', e => { logFilter.status = e.detail.value || 'all'; renderLog(); });
+  const FILTER_OPTIONS = {
+    type: [['all', 'All'], ...Object.entries(LOG_REPORT_TYPES)],
+    status: [['all', 'All'], ['in-progress', 'In Progress'], ['ready', 'Ready to Download']]
+  };
+  const ICON_CHECK = '<svg class="chk" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  function setLogFilter(key, value) {
+    logFilter[key] = value;
+    const wrap = document.querySelector(`.log-filter[data-filter="${key}"]`);
+    const opts = FILTER_OPTIONS[key];
+    wrap.querySelector('.v').textContent = (opts.find(o => o[0] === value) || opts[0])[1];
+    wrap.querySelector('.log-filter-pop').innerHTML = opts.map(([v, l]) =>
+      `<button class="log-filter-opt" type="button" role="option" data-value="${v}" aria-selected="${v === value}">${ICON_CHECK}${l}</button>`).join('');
+    renderLog();
+  }
+  function closeLogFilterMenus() {
+    document.querySelectorAll('.log-filter.open').forEach(f => {
+      f.classList.remove('open');
+      f.querySelector('.log-filter-btn').setAttribute('aria-expanded', 'false');
+    });
+  }
+  document.querySelectorAll('.log-filter').forEach(f => {
+    f.querySelector('.log-filter-btn').addEventListener('click', e => {
+      e.stopPropagation();
+      const wasOpen = f.classList.contains('open');
+      closeLogFilterMenus();
+      if (!wasOpen) { f.classList.add('open'); f.querySelector('.log-filter-btn').setAttribute('aria-expanded', 'true'); }
+    });
+    f.querySelector('.log-filter-pop').addEventListener('click', e => {
+      const o = e.target.closest('.log-filter-opt');
+      if (!o) return;
+      e.stopPropagation();
+      closeLogFilterMenus();
+      setLogFilter(f.dataset.filter, o.dataset.value);
+    });
+  });
+  document.addEventListener('click', closeLogFilterMenus);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLogFilterMenus(); });
+  document.getElementById('log-search').addEventListener('input', e => { logFilter.q = e.target.value; renderLog(); });
+  setLogFilter('type', 'all');     // build each filter menu
+  setLogFilter('status', 'all');
   function clearLogFilters() {
     document.getElementById('log-search').value = '';
-    document.getElementById('log-type-filter').value = 'all';
-    document.getElementById('log-status-filter').value = 'all';
-    Object.assign(logFilter, { q: '', type: 'all', status: 'all' });
-    renderLog();
+    logFilter.q = '';
+    setLogFilter('type', 'all');
+    setLogFilter('status', 'all');
   }
 
   /* Report settings pop-up (bottom three rows) */
@@ -2135,6 +2242,9 @@ Results</div>
       ? `${LOG_REPORT_TYPES[r.tab]} · Generated ${r.generated} by ${r.by}` : `${LOG_REPORT_TYPES[r.tab]} · In progress · ${r.by}`;
     document.getElementById('settings-grid').innerHTML = paramItems(r);
     document.getElementById('settings-view').style.display = r.status === 'ready' ? '' : 'none';
+    // Same export control as the row: format menu (Excel / CSV) or a single export
+    document.getElementById('settings-export').innerHTML = r.status !== 'ready' ? ''
+      : r.exportMenu ? EXPORT_MENU : '<button class="log-export-btn" type="button">Export Report</button>';
     document.getElementById('settings-modal').classList.add('open');
     requestAnimationFrame(() => document.getElementById('settings-done').focus());
   }
@@ -2148,7 +2258,13 @@ Results</div>
     closeSettingsModal();
     viewSavedReport(id);
   });
-  document.getElementById('settings-modal').addEventListener('click', e => { if (e.target.id === 'settings-modal') closeSettingsModal(); });
+  document.getElementById('settings-modal').addEventListener('click', e => {
+    if (e.target.id === 'settings-modal') return closeSettingsModal();
+    const btn = e.target.closest('#settings-export .export-menu .log-export-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    btn.closest('.export-menu').classList.toggle('open');
+  });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && document.getElementById('settings-modal').classList.contains('open')) closeSettingsModal();
   });
@@ -2667,6 +2783,8 @@ Results</div>
       case 'n13': // Search + filters — log narrowed by a search term
         fmOpenLog();
         document.getElementById('log-search').value = 'graduate';
+        logFilter.q = 'graduate';
+        renderLog();
         break;
       case 'n10': // Saved report opened — filters restored to the run's settings
         viewSavedReport('r2');
@@ -2718,8 +2836,8 @@ Results</div>
         { id: 'n3', flow: 'run',   x: 1080, y: 130, step: 'Branch', name: 'Email requested', state: 'n3', match: ['Completions by Employee'], desc: 'After Email Me (matching the live build): the blue banner is replaced in place by a white confirmation banner with a green accent and check, "We\'ll email you when <report title> is ready.", and a dismiss ✕. The report keeps generating.' },
         { id: 'n4', flow: 'run',   x: 1440, y: 130, step: 'Result', name: 'Report ready', state: 'n4', match: ['Compliance by Employee'], desc: 'Generation finishes: the results table renders under the generated-at row, Refresh, result count, and pager.' },
         { id: 'n5', flow: 'log',   x: 360,  y: 510, step: 'View',   name: 'Report Log', state: 'n5', match: ['Report Log'], desc: 'Opened from the Report Log button in the blue header. V2: search + Report type and Status filters on top (pencil banner removed), then one value per column: Report name (defaults to report type + run number, renameable), Report type, Date range, Generated, Generated by, Status, Export, View Report.' },
-        { id: 'n8', flow: 'log',   x: 720,  y: 510, step: 'Option A', name: 'Settings drawer', state: 'n8', match: ['Report Log'], desc: 'The chevron expands a row (lightest-blue drawer) listing every parameter the report ran with. Values the admin changed are bold; defaults are gray.' },
-        { id: 'n12', flow: 'log',  x: 1080, y: 510, step: 'Option B', name: 'Settings pop-up', state: 'n12', match: ['Report Log'], desc: 'Tried on the bottom three rows: an info button opens a Report settings modal with the same parameter grid, the name, type, and generated date/person, plus Close and View Report.' },
+        { id: 'n8', flow: 'log',   x: 720,  y: 510, step: 'Option A', name: 'Settings drawer', state: 'n8', match: ['Report Log'], desc: 'Clicking anywhere on the row (except Export and View Report) or its chevron expands a lightest-blue drawer listing every parameter the report ran with. Values the admin changed are bold; defaults are gray.' },
+        { id: 'n12', flow: 'log',  x: 1080, y: 510, step: 'Option B', name: 'Settings pop-up', state: 'n12', match: ['Report Log'], desc: 'Tried on the bottom three rows: clicking the row or its info button opens a Report settings modal with the same parameter grid, the name, type, and generated date/person, plus Close, Export Report (same Excel / CSV menu as the row, opening upward) and View Report.' },
         { id: 'n13', flow: 'log',  x: 1440, y: 510, step: 'Find',   name: 'Search & filter', state: 'n13', match: ['Report Log'], desc: 'Search matches the report name, default name, type, date range, generated date, person, and every setting value. Report type and Status filters narrow further; the count reads X of Y reports, and no matches shows a Clear search and filters link.' },
         { id: 'n9', flow: 'log',   x: 1800, y: 510, step: 'Branch', name: 'Rename a report', state: 'n9', match: ['Report Log'], desc: 'The pencil on a row (shown on hover/focus) opens a small Rename Report modal with the current name selected. Save or Enter keeps it, Cancel / ✕ / Esc backs out, and saving it blank brings back the default name (report type + run number).' },
         { id: 'n10', flow: 'log',  x: 2160, y: 510, step: 'Result', name: 'Saved report opened', state: 'n10', match: ['Compliance by Employee'], desc: 'View Report opens the report with the filters and date range set to what the run used (changed filters highlighted), under a From the Report Log header with the name and a Back to Report Log button.' },
