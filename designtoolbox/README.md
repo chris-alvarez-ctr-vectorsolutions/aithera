@@ -37,7 +37,11 @@ simply doesn't appear — the comment widget still does.
 
 **Dismissing during a review.** The dock has two controls at its right end. The
 **chevron** minimizes it to a small "Tools" handle you can click to bring it
-back. The **×** dismisses the review tooling outright — the pill, the "Tools"
+back. The handle tucks into the **nearest corner** of the window so it stays
+out of the design: from the default bottom-center spot it goes to the
+lower-left; if the pill was dragged elsewhere, it goes to whichever corner is
+closest. Dragging the minimized handle snaps it to the nearest corner too, and
+the pill then opens in that corner. The **×** dismisses the review tooling outright — the pill, the "Tools"
 handle, the comment pins and panels, and the flow map all disappear, so the
 design can be presented or screenshotted clean. Dismissal lasts for that page
 view only: **reload and the tools are back.** Nothing is stored, so a dismissed
