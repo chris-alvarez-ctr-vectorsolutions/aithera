@@ -11,17 +11,36 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=53" />
+    <link rel="stylesheet" href="admin.css?v=58" />
 </head>
 <body>
     <div id="head"></div>
     <main class="rp-main">
 
-        <div class="course-grid" id="courseGrid"></div>
+        <!-- Active vs past: the same segmented control the course report uses for Outcomes / Pacing -->
+        <div class="cc-toolbar">
+            <span class="sec-toggle" role="group" aria-label="Show courses">
+                <button type="button" class="on" data-when="active" aria-pressed="true">Active <span class="tg-n" id="nActive"></span></button>
+                <button type="button" data-when="past" aria-pressed="false">Past <span class="tg-n" id="nPast"></span></button>
+            </span>
+            <span class="cc-toolbar-note" id="gridNote"></span>
+        </div>
+        <!-- One list, not a grid of cards: column labels and the bar legend are said once, every row compares
+             like with like, and it scales to any number of courses. The bar is the report's Learner performance bar. -->
+        <section class="rp-card cl" aria-label="Courses">
+            <div class="cl-row cl-headrow" aria-hidden="true">
+                <span>Course</span><span>Results</span><span class="num">Showed competency</span><span class="num">Need support</span><span>Weakest area</span><span></span>
+            </div>
+            <div id="courseList" role="list"></div>
+            <div class="cl-legend">
+                <span><i class="seg-strong"></i>Doing well</span><span><i class="seg-ontrack"></i>On track</span><span><i class="seg-support"></i>Needs support</span>
+                <span><i class="seg-done"></i>Finished (standard course)</span><span><i class="seg-open"></i>Not finished</span>
+            </div>
+        </section>
 
     </main>
 
-    <script src="data.js?v=14"></script>
+    <script src="data.js?v=15"></script>
     <script src="admin-ui.js?v=10"></script>
     <script>
 
@@ -30,55 +49,52 @@
         var scope = A.getScope(), t = B.stats(scope), n = B.headcount(scope);
         A.head({ active: 'courses', title: 'Courses', scope: true });
         A.wirePops();
-        // Each card is a small copy of the course report's Learner performance card: same bar, same group names,
-        // same phrase for the headline, so clicking in shows the same picture at full size.
-        var courses = B.courseSummary(scope).map(function (c) {
-          c.href = c.id === 'bbp' ? 'course-report.html' : null;
-          return c;
-        });
+        var active = B.courseSummary(scope).map(function (c) { c.href = c.id === 'bbp' ? 'course-report.html' : null; return c; });
+        var past = B.pastCourseSummary(scope);
         function seg(key, n, label, total) {
           return n ? '<span class="seg-' + key + '" style="flex:' + n + ' 1 0" title="' + label + ': ' + n + ' of ' + total + '"></span>' : '';
         }
-        document.getElementById('courseGrid').innerHTML = courses.map(function (c) {
+        var NONE = '<span class="cl-none">—</span>';
+        function row(c) {
           var comp = B.pct(c.completed, c.assigned), demo = c.demo == null ? null : B.pct(c.demo, c.completed);
-          var title = c.href ? '<a class="cc-link" href="' + c.href + '">' + c.name + '</a>' : c.name;
-          // Status reads like the report's strip: open with people still to go, or everyone done.
-          var status = c.open
-            ? '<span class="st-badge live"><i></i> Open</span><span class="cc-status-txt"><b>' + c.open + ' still to go</b> · Due ' + c.due + '</span>'
-            : '<span class="st-badge closed"><i class="fa-solid fa-check"></i> All finished</span><span class="cc-status-txt">Due ' + c.due + '</span>';
-          var bar, groups, hero;
-          if (demo == null) {
-            // Standard courses report completion only: finished and not finished.
-            hero = '<span class="cc-hero">' + comp + '%<small>finished</small></span>';
-            bar = seg('done', c.completed, 'Finished', c.assigned) + seg('open', c.open, 'Not finished', c.assigned);
-            groups = '<span class="cc-g"><i class="cc-k seg-done"></i><b>' + c.completed + '</b> Finished</span>' +
-                     '<span class="cc-g"><i class="cc-k seg-open"></i><b>' + c.open + '</b> Not finished</span>';
-          } else {
-            hero = '<span class="cc-hero">' + demo + '%<small>of finishers showed competency</small></span>';
-            bar = seg('strong', c.strong, 'Doing well', c.assigned) + seg('ontrack', c.ontrack, 'On track', c.assigned) +
-                  seg('support', c.support, 'Needs support', c.assigned) + seg('open', c.open, 'Not finished', c.assigned);
-            groups = '<span class="cc-g good"><i class="cc-k seg-strong"></i><b>' + c.strong + '</b> Doing well</span>' +
-                     '<span class="cc-g ontrack"><i class="cc-k seg-ontrack"></i><b>' + c.ontrack + '</b> On track</span>' +
-                     '<span class="cc-g warn"><i class="cc-k seg-support"></i><b>' + c.support + '</b> Needs support</span>' +
-                     '<span class="cc-g mut"><i class="cc-k seg-open"></i><b>' + c.open + '</b> Not finished</span>';
-          }
-          // Weakest area = the one with the most people still at Practice Needed, worded like its By section row (Good or better) and linked to it.
+          var name = c.href ? '<a class="cl-link" href="' + c.href + '">' + A.esc(c.name) + '</a>' : A.esc(c.name);
+          var when = c.closed
+            ? 'Ended ' + c.ended + (c.open ? ' · ' + c.open + ' did not finish' : ' · everyone finished')
+            : 'Due ' + c.due + ' · <b>' + c.open + ' still to go</b>';
+          var bar = demo == null
+            ? seg('done', c.completed, 'Finished', c.assigned) + seg('open', c.open, 'Not finished', c.assigned)
+            : seg('strong', c.strong, 'Doing well', c.assigned) + seg('ontrack', c.ontrack, 'On track', c.assigned) +
+              seg('support', c.support, 'Needs support', c.assigned) + seg('open', c.open, 'Not finished', c.assigned);
+          var label = demo == null
+            ? c.completed + ' finished, ' + c.open + ' not finished'
+            : c.strong + ' doing well, ' + c.ontrack + ' on track, ' + c.support + ' need support, ' + c.open + ' not finished';
+          // Weakest area = most people still at Practice Needed, worded like its Performance by section row and linked to it.
           var weak = c.gap
-            ? 'Weakest area' + (c.early ? ' so far' : '') + ': <b>' + c.gap.name + '</b> · ' + (100 - c.gap.before) + '% → ' + (100 - c.gap.after) + '% at Good or better'
-            : 'A standard course reports completion only.';
-          weak = '<i class="fa-solid ' + (c.gap ? 'fa-magnifying-glass-chart' : 'fa-circle-info') + '"></i>' + weak;
-          var foot = c.gap && c.href ? '<a class="cc-gap cc-gap-link" href="' + c.href + '#bySection">' + weak + ' <i class="fa-solid fa-arrow-right cc-go"></i></a>' : '<p class="cc-gap">' + weak + '</p>';
-          return '<div class="rp-card course-card' + (c.href ? ' is-link' : '') + '">' +
-            '<div class="cc-head"><span class="ci ' + (c.adaptive ? 'ci-blue' : 'ci-gray') + '" role="img" aria-label="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '" title="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '"><i class="fa-solid ' + (c.adaptive ? 'fa-route' : 'fa-list-ol') + '"></i></span><h2>' + title + '</h2></div>' +
-            '<div class="cc-status">' + status + '</div>' +
-            hero +
-            '<p class="cc-sum">' + comp + '% finished · ' + c.completed + ' of ' + c.assigned + '</p>' +
-            '<div class="pg-bar cc-bar" role="img" aria-label="' + (demo == null
-              ? c.completed + ' finished, ' + c.open + ' not finished'
-              : c.strong + ' doing well, ' + c.ontrack + ' on track, ' + c.support + ' needs support, ' + c.open + ' not finished') + ', of ' + c.assigned + ' enrolled">' + bar + '</div>' +
-            '<div class="cc-groups">' + groups + '</div>' +
-            foot + '</div>';
-        }).join('');
+            ? '<b>' + A.esc(c.gap.name) + '</b><small>' + (100 - c.gap.after) + '% at Good or better' + (c.early ? ' so far' : '') + '</small>'
+            : NONE;
+          if (c.gap && c.href) weak = '<a class="cl-weak-link" href="' + c.href + '#bySection">' + weak + '</a>';
+          return '<div class="cl-row' + (c.href ? ' is-link' : '') + '" role="listitem">' +
+            '<span class="cl-course"><span class="ci ' + (c.adaptive ? 'ci-blue' : 'ci-gray') + '" role="img" aria-label="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '" title="' + (c.adaptive ? 'Adaptive course' : 'Standard course') + '"><i class="fa-solid ' + (c.adaptive ? 'fa-route' : 'fa-list-ol') + '"></i></span>' +
+              '<span><span class="cl-name">' + name + '</span><small>' + when + '</small></span></span>' +
+            '<span class="cl-results"><span class="pg-bar" role="img" aria-label="' + label + ', of ' + c.assigned + ' enrolled">' + bar + '</span>' +
+              '<small><b>' + comp + '% finished</b> · ' + c.completed + ' of ' + c.assigned + '</small></span>' +
+            '<span class="num cl-demo"><span class="cl-k">Showed competency</span>' + (demo == null ? '<span class="cl-only">Completion only</span>' : '<b>' + demo + '%</b>') + '</span>' +
+            '<span class="num cl-sup"><span class="cl-k">Need support</span>' + (c.support == null ? NONE : '<b' + (c.support ? ' class="warn"' : '') + '>' + c.support + '</b>') + '</span>' +
+            '<span class="cl-weak"><span class="cl-k">Weakest area</span>' + weak + '</span>' +
+            '<span class="cl-go">' + (c.href ? '<i class="fa-solid fa-chevron-right"></i>' : '') + '</span></div>';
+        }
+        document.getElementById('nActive').textContent = active.length;
+        document.getElementById('nPast').textContent = past.length;
+        function draw(when) {
+          var list = when === 'past' ? past : active;
+          document.getElementById('courseList').innerHTML = list.map(row).join('');
+          document.getElementById('gridNote').textContent = when === 'past'
+            ? 'Closed assignments, most recent first. Numbers are final.'
+            : 'Open assignments, soonest due first.';
+          document.querySelectorAll('[data-when]').forEach(function (b) { var on = b.dataset.when === when; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+        }
+        document.querySelectorAll('[data-when]').forEach(function (b) { b.addEventListener('click', function () { draw(b.dataset.when); }); });
+        draw(new URLSearchParams(location.search).get('show') === 'past' ? 'past' : 'active');
       })();
 
     </script>

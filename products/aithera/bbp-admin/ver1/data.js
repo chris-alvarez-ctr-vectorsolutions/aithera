@@ -512,6 +512,30 @@
     });
   }
 
+  /* Past assignments: closed, so every number is final and "open" means did not finish. Kept apart from
+     COURSES so the learner pages, the Overview and assign stay on what is running now. Representative data. */
+  var PAST_COURSES = [
+    { id: 'hear', name: 'Hearing Conservation', ended: 'Sep 30', adaptive: true,  share: 100, fin: 96, demo: 79,
+      areas: [{ name: 'Noise sources', before: 27, after: 6 }, { name: 'Choosing protection', before: 31, after: 9 }, { name: 'Fit and wear time', before: 38, after: 13 }] },
+    { id: 'ladr', name: 'Ladder Safety',        ended: 'Aug 29', adaptive: false, share: 60,  fin: 91 },
+    { id: 'conf', name: 'Confined Space Entry', ended: 'Jul 31', adaptive: true,  share: 25,  fin: 100, demo: 84,
+      areas: [{ name: 'Permit steps', before: 22, after: 5 }, { name: 'Air testing', before: 35, after: 11 }, { name: 'Rescue plan', before: 29, after: 8 }] }
+  ];
+  function pastCourseSummary(scopeId) {
+    var n = headcount(scopeId);
+    return PAST_COURSES.map(function (c) {
+      var assigned = Math.round(n * c.share / 100), completed = Math.round(assigned * c.fin / 100);
+      var o = { id: c.id, name: c.name, ended: c.ended, closed: true, adaptive: c.adaptive, assigned: assigned, completed: completed, open: assigned - completed,
+        demo: null, support: null, strong: null, ontrack: null };
+      if (c.adaptive) {
+        o.demo = Math.round(completed * c.demo / 100); o.support = completed - o.demo;
+        o.strong = Math.min(o.demo, Math.round(completed * 0.36)); o.ontrack = o.demo - o.strong;
+        o.areas = c.areas; o.gap = c.areas.slice().sort(function (x, y) { return y.after - x.after; })[0];
+      }
+      return o;
+    });
+  }
+
   /* Where someone stands, from what they can demonstrate at the end of the
      course. Deliberately NOT based on speed, route or number of tries: skipping
      ahead is how someone got there, and extra practice is the engine working,
@@ -554,7 +578,7 @@
     BEHAVIORS: BEHAVIORS, AREAS: AREAS, BAND: BAND,
     node: node, pathTo: pathTo, leaves: leaves, headcount: headcount, levelName: levelName,
     liveCfg: liveCfg, saveCfg: saveCfg, resetCfg: resetCfg, effective: effective,
-    stats: stats, pct: pct, whereNow: whereNow, standing: standing, standingReason: standingReason, GROUP_DWELL: GROUP_DWELL, MODULE: MODULE, catalog: catalog, credit: credit, creditCohort: creditCohort, PROOF_RATE: PROOF_RATE, LEARNERS: LEARNERS, COURSES: COURSES, learnerCourses: learnerCourses, SECTIONS: SECTIONS, areaOutcomes: areaOutcomes, courseSummary: courseSummary, inScope: inScope, steps: steps,
+    stats: stats, pct: pct, whereNow: whereNow, standing: standing, standingReason: standingReason, GROUP_DWELL: GROUP_DWELL, MODULE: MODULE, catalog: catalog, credit: credit, creditCohort: creditCohort, PROOF_RATE: PROOF_RATE, LEARNERS: LEARNERS, COURSES: COURSES, learnerCourses: learnerCourses, SECTIONS: SECTIONS, areaOutcomes: areaOutcomes, courseSummary: courseSummary, pastCourseSummary: pastCourseSummary, inScope: inScope, steps: steps,
     load: load, save: save, setSector: function (k) { save('bbp.sector', k); }
   };
 })();

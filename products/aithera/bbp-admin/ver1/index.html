@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
     <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
     <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
-    <link rel="stylesheet" href="admin.css?v=53" />
+    <link rel="stylesheet" href="admin.css?v=58" />
 </head>
 <body>
     <div id="head"></div>
@@ -38,7 +38,7 @@
 
     </main>
 
-    <script src="data.js?v=14"></script>
+    <script src="data.js?v=15"></script>
     <script src="admin-ui.js?v=10"></script>
     <script>
 
@@ -74,13 +74,24 @@
                              : '<div class="dm-val"><b>' + c.before + '% → ' + c.after + '%</b><em>+' + (c.after - c.before) + ' pts</em></div>';
           return '<div class="dm-row"><div class="dm-name"><h3>' + (c.id === 'bbp' ? '<a href="course-report.html">' + E(c.name) + '</a>' : E(c.name)) + '</h3><small>' + c.completed + ' of ' + c.assigned + ' finished</small></div>' + track + val + '</div>';
         }
+        // Scales to any number of courses: only the lowest-scoring few get a row (they need attention first),
+        // courses with too few finishers to score share one line, and the full list lives on the Courses page.
+        var MAX_ROWS = 5;
+        var shown = live.slice().sort(function (a, b) { return a.after - b.after; }).slice(0, MAX_ROWS);
+        var early = scored.filter(function (c) { return live.indexOf(c) < 0; });
+        // Always a count, never a list of names: it has to read the same at 2 courses or 40. The threshold lives in the tip.
+        var earlyTxt = !early.length ? '' : early.length + (early.length === 1 ? ' course' : ' courses') + ' not scored yet ' +
+          A.info('<p>A course is scored once at least 8 people have finished it. Until then, a few results would swing the number too much.</p>', 'Why some courses are not scored yet');
+        var heroFoot = '<div class="hero-rows-foot"><span>' + (earlyTxt ? '<i class="fa-regular fa-hourglass-half"></i>' + earlyTxt : '') + '</span>' +
+          '<a class="card-link" href="courses.html">See all ' + courses.length + ' courses <i class="fa-solid fa-arrow-right"></i></a></div>';
         document.getElementById('hero').innerHTML =
           '<div class="hero-main"><span class="tile-label">Outcome achievement ' + A.info('<p><b>Of everything people were measured on</b> in adaptive courses, the share at <b>Good or better</b> now, compared with where they started (the opening questions).</p><p>Weighted by who has finished. Courses with only a few finishers are shown but not counted yet. Standard courses report completion only, so they are not scored here.</p>', 'How outcome achievement is measured') + '</span>' +
             '<span class="hero-n">' + after + '<small>%</small></span>' +
             '<span class="hero-s">of skill areas at <b>Good or better</b> after training</span>' +
             '<span class="hero-lift"><i class="fa-solid fa-arrow-trend-up"></i> +' + (after - before) + ' pts from ' + before + '% at the start</span>' +
             '<small class="hero-f">' + live.length + ' adaptive courses · ' + w + ' finishers counted</small></div>' +
-          '<div class="hero-rows"><div class="dm-head"><span></span><div class="dm-axis-lbl"><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>' + scored.map(row).join('') + '</div>';
+          '<div class="hero-rows"><div class="dm-head"><span class="dm-head-l">' + (live.length > MAX_ROWS ? 'Lowest ' + MAX_ROWS + ' of ' + live.length : 'Lowest first') + '</span><div class="dm-axis-lbl"><span>50%</span><span>75%</span><span>100%</span></div><span></span></div>' +
+            shown.map(row).join('') + heroFoot + '</div>';
         A.wirePops();
 
         /* ---- Key figures ---- */
