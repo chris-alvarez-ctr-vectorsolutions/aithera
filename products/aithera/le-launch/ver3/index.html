@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assign a course — Learning Engine</title>
+
+    <!-- Vector Web Components (core v1.22.3 / themes v1.9.3, the versions cached in context/) -->
+    <script type="module" src="https://cdn.vsp-prod.com/web-components/@vector-web-components/core/v1.22.3/core.iife.js"></script>
+    <script src="https://cdn.vsp-prod.com/web-components/@vector-web-components/themes/v1.9.3/styles.js"></script>
+    <link rel="stylesheet" href="https://cdn.vsp-prod.com/web-components/@vector-web-components/assets/v1.0.0/fonts/open-sans/v43/open-sans.css" />
+    <!-- Self-hosted Font Awesome Pro (repo root is four levels up from verN/) -->
+    <link rel="stylesheet" href="../../../../assets/fontawesome/css/all.min.css" />
+    <!-- The admin pages' stylesheet, so this reads as the same product; then this page's additions -->
+    <link rel="stylesheet" href="../../bbp-admin/ver1/admin.css?v=61" />
+    <link rel="stylesheet" href="launch.css?v=7" />
+</head>
+<body>
+
+    <!-- ============================================================
+         V3 answers the "Settings and assignment" section of the dev team's
+         UX guide (Learning Engine Admin Preview & Settings): how an admin
+         configures the engine and assigns an adaptive course. Here the
+         settings live PER ASSIGNMENT; the larger admin prototype
+         (bbp-admin) explores org-wide defaults with per-assignment overrides.
+         It drives the live Learning Engine prototype, nothing else.
+         ============================================================ -->
+    <header class="rp-head">
+        <div class="rp-top">
+            <div class="rp-brand"><i class="fa-solid fa-layer-group"></i> Vector Training <small>· Learning Engine</small></div>
+            <span class="rp-chip env-chip" id="envChip"><i class="fa-solid fa-flask"></i> Prototype</span>
+        </div>
+        <div class="rp-page">
+            <div class="rp-head-row"><h1>Assign a course</h1></div>
+            <div class="rp-head-sub">Set up a learner for testing. These settings apply to this assignment only.</div>
+        </div>
+    </header>
+
+    <main class="rp-main">
+        <div class="wiz-layout">
+
+            <!-- ==== Left column: four steps, checkout-style. One open at a time;
+                 finished ones fold to a summary line; later ones wait their turn. ==== -->
+            <div class="steps" id="steps">
+
+                <!-- 1. Course -->
+                <section class="rp-card step" data-step="course" aria-labelledby="hCourse">
+                    <button type="button" class="step-head" aria-expanded="false">
+                        <span class="step-num">1</span>
+                        <span><h2 id="hCourse">Course</h2><span class="step-sum"></span></span>
+                        <span class="step-edit">Edit</span>
+                    </button>
+                    <div class="step-body">
+                        <p class="rp-card-sub">Same as assigning any course. Adaptive courses add one step: how it adapts.</p>
+                        <!-- A dropdown, since the list will grow. The rail already shows the chosen course, so nothing repeats it here. -->
+                        <vaadin-select theme="outlined" id="courseSel" label="Course" class="course-sel"></vaadin-select>
+                        <div class="step-foot"><vaadin-button theme="primary" class="step-next">Continue</vaadin-button></div>
+                    </div>
+                </section>
+
+                <!-- 2. The learner: who they are, and the ID their progress is saved under -->
+                <section class="rp-card step" data-step="who" aria-labelledby="hWho">
+                    <button type="button" class="step-head" aria-expanded="false">
+                        <span class="step-num">2</span>
+                        <span><h2 id="hWho">Learner</h2><span class="step-sum"></span></span>
+                        <span class="step-edit">Edit</span>
+                    </button>
+                    <div class="step-body">
+                        <p class="rp-card-sub">The course shapes its examples and wording around these. Leave any of them unset to see the general version.</p>
+                        <div class="field-grid">
+                            <vaadin-text-field theme="outlined" id="learnerName" label="Learner name" helper-text="Shows that the course fills in names. No need to change it." class="span-2"></vaadin-text-field>
+                            <vaadin-select theme="outlined" id="sector" label="Sector"></vaadin-select>
+                            <vaadin-select theme="outlined" id="subsector" label="Sub-sector"></vaadin-select>
+                            <vaadin-select theme="outlined" id="role" label="Role"></vaadin-select>
+                            <vaadin-select theme="outlined" id="language" label="Language"></vaadin-select>
+                            <div class="fmt-field span-2">
+                                <span class="lbl" id="fmtLbl">Preferred format</span>
+                                <span class="persona" id="format" role="radiogroup" aria-labelledby="fmtLbl"></span>
+                                <p class="field-note" style="margin:8px 0 0">They can change this again during the opening check (listen mode).</p>
+                            </div>
+                        </div>
+                        <div class="step-foot"><vaadin-button theme="primary" class="step-next">Continue</vaadin-button></div>
+                    </div>
+                </section>
+
+                <!-- 3. Adaptive behavior: the two the engine lets you switch, worded as on the admin Settings page.
+                     The note underneath is the "what will LE do" answer, in one line. -->
+                <section class="rp-card step" data-step="adapt" aria-labelledby="hAdapt">
+                    <button type="button" class="step-head" aria-expanded="false">
+                        <span class="step-num">3</span>
+                        <span><h2 id="hAdapt">How it adapts</h2><span class="step-sum"></span></span>
+                        <span class="step-edit">Edit</span>
+                    </button>
+                    <div class="step-body">
+                        <p class="rp-card-sub">Leave both on for testing. Turning them off shows the course as everyone takes it.</p>
+                        <div id="adaptRows"></div>
+                        <div class="callout" id="adaptNote"></div>
+                        <div class="step-foot"><vaadin-button theme="primary" class="step-next">Continue</vaadin-button></div>
+                    </div>
+                </section>
+
+                <!-- 4. Options for the people testing. Nothing here changes what the learner is taught. -->
+                <section class="rp-card step tools-card" data-step="tools" aria-labelledby="hTools">
+                    <button type="button" class="step-head" aria-expanded="false">
+                        <span class="step-num">4</span>
+                        <span><h2 id="hTools">Testing options (advanced)</h2><span class="step-sum"></span></span>
+                        <span class="step-edit">Edit</span>
+                    </button>
+                    <div class="step-body">
+                        <p class="rp-card-sub">For the people testing. The defaults are fine; none of these change what the learner is taught.</p>
+                        <div class="field-grid">
+                            <!-- WIP preview = the engine's working content (its default). Live = published only; some courses aren't live yet. -->
+                            <vaadin-select theme="outlined" id="content" label="Content" helper-text="Use WIP preview. Live only has courses that have been published."></vaadin-select>
+                            <div class="id-row">
+                                <vaadin-text-field theme="outlined" id="identity" label="Learner ID" helper-text="A temporary ID that lets you resume later. You can ignore it."></vaadin-text-field>
+                                <vaadin-button theme="secondary" id="newId" aria-label="New learner ID" title="New learner ID"><i class="fa-solid fa-rotate"></i></vaadin-button>
+                            </div>
+                            <vaadin-select theme="outlined" id="coordinator" label="Course coordinator" helper-text="Shows that the course fills in its contact. No need to change it." class="span-2"></vaadin-select>
+                        </div>
+                        <div id="toolRows" style="margin-top:6px"></div>
+                        <div id="toolsIssue"></div>
+                        <div class="step-foot"><vaadin-button theme="primary" class="step-next">Done</vaadin-button></div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ==== Right rail: the order summary. The button unlocks when every step is done. ==== -->
+            <aside class="rp-card wiz-rail" aria-label="Assignment summary">
+                <h3>You’re assigning</h3>
+                <div id="rail"></div>
+                <div id="railCallout" aria-live="polite"></div>
+                <div class="rail-actions">
+                    <vaadin-button theme="primary" id="launch"><i class="fa-solid fa-play" style="margin-right:8px"></i>Assign and start</vaadin-button>
+                    <vaadin-button theme="tertiary" id="copyLink"><i class="fa-solid fa-link" style="margin-right:7px"></i>Copy setup link</vaadin-button>
+                    <span class="copied" id="copied" hidden role="status">Link copied. Each person who opens it gets their own learner ID.</span>
+                </div>
+                <ul class="rail-progress" id="progress" aria-label="Steps"></ul>
+                <p class="rail-note" id="railNote"></p>
+            </aside>
+
+        </div>
+    </main>
+
+<script>
+/* ============================================================================
+   Assign a course (V3).
+
+   Two ways this page can start the course, picked automatically on load:
+   - DIRECT: served from the engine's own site, so /api/v1 answers. Loads the
+     real course list and creates the assignment itself (POST /api/v1/goals),
+     then goes to /learn/<goal_id>. Same calls the current launch page makes.
+   - HANDOFF: served anywhere else (GitHub Pages, a laptop). The engine doesn't
+     accept calls from other sites, so the button opens the engine's current
+     launch page with these choices filled in through its URL, ready to confirm.
+
+   Content: WIP preview by default (the engine's working content, sent as
+   preview:true, same default as its own launch page). Live is only published
+   courses; Bloodborne Pathogens isn't live yet, so it needs WIP preview.
+   Field help text quotes the dev team's notes on what each option does.
+
+   Steps: Course → Learner → How it adapts → Testing options. Each has sensible
+   defaults, so finishing a step is one click on Continue. The button is off until
+   all four are done. A setup link (one that names a course) arrives with every
+   step done and a fresh learner ID, so each tester who opens it is one click from
+   starting their own run.
+
+   The course list below is a copy of /api/v1/composites?preview=true taken
+   2026-10-23, with "Step In" renamed "Placeholder course": it's a stand-in, and
+   the dev team will fill real course names in from the engine. In DIRECT mode it's replaced by the live list.
+   ========================================================================== */
+var ENGINE = 'https://dle-prototype-learning-engine.develop.us-east-2.vsp-nonprod.com';
+
+var SNAPSHOT = [
+  { composite_id: '896656a5-e2ca-5802-9fc7-90759ffdf5c7', title: 'Placeholder course', description: null,
+    modules: [{ module_id: '720a163f-b9c8-5d0d-8a00-0f6f2e633304', title: 'Placeholder module' }],
+    vocabulary: { sectors: ['commercial', 'edu'], subsectors: [], subsectors_by_sector: {},
+      roles: ['employee', 'supervisor', 'teacher'], roles_by_sector: { commercial: ['employee', 'supervisor'], edu: ['employee', 'supervisor', 'teacher'] },
+      roles_by_subsector: {}, languages: ['en', 'es'], modalities: ['video', 'audio', 'text'] }, has_active: true },
+  { composite_id: '36682e45-6bb1-5eee-a739-a7345792b747', title: 'Bloodborne Pathogens (RVCT-303B)',
+    description: 'The recomposed Bloodborne Pathogens course (RVCT-303B). This load carries Module 4, Contain the Sharp, only.',
+    modules: [{ module_id: '4ac420ec-1cf0-5208-baa7-bfe901ea8306', title: 'Contain the Sharp' }],
+    vocabulary: { sectors: ['Commercial AEC', 'Education', 'Manufacturing', 'Public Sector'],
+      subsectors: ['EMS', 'chemical', 'construction', 'fire', 'industrial', 'law enforcement'],
+      subsectors_by_sector: { 'Commercial AEC': ['construction'], Manufacturing: ['chemical', 'industrial'], 'Public Sector': ['EMS', 'fire', 'law enforcement'] },
+      roles: ['administrator', 'architect', 'engineer', 'teacher'],
+      roles_by_sector: { 'Commercial AEC': ['architect', 'engineer'], Education: ['administrator', 'teacher'], Manufacturing: [], 'Public Sector': [] },
+      roles_by_subsector: { EMS: [], chemical: [], construction: [], fire: [], industrial: [], 'law enforcement': [] },
+      languages: ['en', 'es'], modalities: ['video', 'audio', 'text'] }, has_active: false }
+];
+
+// The engine's two coordinator presets (keys and contact details as the engine defines them).
+var COORDINATORS = {
+  default:  { name: 'Course Coordinator', title: null, email: 'coordinator@example.com' },
+  test_one: { name: 'Test Coordinator One', title: 'Safety Manager', email: 'test.one@example.com' }
+};
+
+var STEPS = ['course', 'who', 'adapt', 'tools'];
+var STEP_NAME = { course: 'Course', who: 'Learner', adapt: 'How it adapts', tools: 'Testing options (advanced)' };
+
+/* ---- Display names for the engine's raw values. Anything unlisted is shown with a capital first letter. ---- */
+var NICE = { edu: 'Education', commercial: 'Commercial', en: 'English', es: 'Español', video: 'Video', audio: 'Audio', text: 'Reading' };
+var FMT_ICON = { video: 'fa-circle-play', audio: 'fa-headphones', text: 'fa-book-open' };
+function nice(v) { return v == null ? '' : (NICE[v] || (v.charAt(0).toUpperCase() + v.slice(1))); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function $(id) { return document.getElementById(id); }
+function newIdentity() {
+  var a = 'abcdefghijklmnopqrstuvwxyz0123456789', b = new Uint8Array(8), s = '';
+  crypto.getRandomValues(b); b.forEach(function (n) { s += a[n % a.length]; });
+  return 'tester-' + s;
+}
+function isBbp(c) { return /bloodborne/i.test(c.title); }
+// Bloodborne Pathogens gets its own icon; every other course (names come from the engine) gets a generic one.
+function courseIcon(c) { return '<span class="ci ' + (isBbp(c) ? 'ci-blue' : 'ci-gray') + '"><i class="fa-solid ' + (isBbp(c) ? 'fa-droplet' : 'fa-book-open') + '"></i></span>'; }
+
+/* ---- The vocabulary cascade, same rules as the engine's launch page ----
+   sub-sectors depend on sector; roles depend on sub-sector, else sector, else the full list. */
+function subsectorsFor(v, sector) { return sector == null ? [] : ((v.subsectors_by_sector || {})[sector] || []); }
+function rolesFor(v, sector, sub) {
+  var bySub = sub != null && v.roles_by_subsector ? v.roles_by_subsector[sub] : undefined;
+  if (bySub) return bySub;
+  return sector == null ? v.roles : (v.roles_by_sector[sector] || v.roles);
+}
+function keep(list, val) { return val != null && list.indexOf(val) >= 0 ? val : null; }
+
+/* ---- State ---- */
+var st = {
+  mode: 'direct',          // 'direct' | 'handoff' (see top of script)
+  courses: SNAPSHOT,
+  preview: true,           // true = WIP preview, false = Live
+  course: SNAPSHOT[1].composite_id,
+  sector: null, subsector: null, role: null, language: 'en', modality: 'video',
+  testOut: true, testUp: true, demoMode: true, debugPanel: true,
+  learnerName: 'Learner X', coordinator: 'default', identity: newIdentity(),
+  step: 'course', done: {},  // which step is open (null = none), and which are finished
+  busy: false, error: null
+};
+function cur() { return st.courses.filter(function (c) { return c.composite_id === st.course; })[0] || st.courses[0]; }
+function notLive(c) { return !st.preview && c.has_active === false; }
+function allDone() { return STEPS.every(function (s) { return st.done[s]; }); }
+
+/* Pre-fill from this page's own URL, using the engine's parameter names, so links work both ways.
+   A setup link names a course and leaves out the ID, so every step counts as done and
+   whoever opens it gets their own learner ID (set above). */
+(function prefill() {
+  var q = new URLSearchParams(location.search);
+  function str(k) { var v = q.get(k); return v === null ? undefined : (v === '' ? null : v); }
+  if (q.get('identity')) st.identity = q.get('identity');
+  if (q.get('composite')) st.course = q.get('composite');
+  if (q.get('name') !== null) st.learnerName = q.get('name');
+  ['sector', 'subsector', 'role', 'language', 'modality'].forEach(function (k) { var v = str(k); if (v !== undefined) st[k] = v; });
+  if (q.get('test_out') !== null) st.testOut = q.get('test_out') === 'true';
+  if (q.get('test_up') !== null) st.testUp = q.get('test_up') === 'true';
+  if (q.get('debug_panel') !== null) st.debugPanel = /^(true|1)$/.test(q.get('debug_panel'));
+  if (q.get('demo_mode') !== null) st.demoMode = /^(true|1)$/.test(q.get('demo_mode'));
+  if (q.get('content') === 'live') st.preview = false;
+  if (q.get('coordinator') && COORDINATORS[q.get('coordinator')]) st.coordinator = q.get('coordinator');
+  if (q.get('composite')) { STEPS.forEach(function (s) { st.done[s] = true; }); st.step = null; }
+})();
+
+/* Keep every dependent choice valid for the selected course. */
+function normalize() {
+  var v = cur().vocabulary;
+  st.course = cur().composite_id;
+  st.sector = keep(v.sectors, st.sector);
+  st.subsector = keep(subsectorsFor(v, st.sector), st.subsector);
+  st.role = keep(rolesFor(v, st.sector, st.subsector), st.role);
+  st.language = keep(v.languages, st.language) || v.languages[0] || null;
+  st.modality = keep(v.modalities, st.modality) || v.modalities[0] || null;
+}
+
+/* What stops a step from being finished, if anything. */
+function issue(step) {
+  if (step !== 'tools') return null;
+  if (notLive(cur())) return { msg: '<b>' + esc(cur().title) + ' isn’t live yet.</b>Set Content to WIP preview to start it.', field: 'content' };
+  if (!st.identity.trim()) return { msg: '<b>Add a learner ID.</b>Any text works. The <i class="fa-solid fa-rotate"></i> button makes a fresh one.', field: 'identity' };
+  return null;
+}
+
+/* One-line summaries shown on a finished step and in the rail. */
+function summary(step) {
+  var c = cur();
+  if (step === 'course') return c.title;
+  if (step === 'who') {
+    var where = [st.role, st.subsector, st.sector].filter(Boolean).map(nice).join(', ') || 'No sector or role';
+    return (st.learnerName.trim() || 'No name') + ' · ' + where + ' · ' + nice(st.language) + ', ' + nice(st.modality);
+  }
+  if (step === 'adapt') {
+    var a = [st.testOut ? 'Skips what they know' : null, st.testUp ? 'Harder questions' : null].filter(Boolean);
+    return a.length ? a.join(', ') : 'Off. Everyone gets the same course.';
+  }
+  var tools = [st.debugPanel ? 'Debug panel' : null, st.demoMode ? 'Demo mode' : null].filter(Boolean);
+  return (st.preview ? 'WIP preview' : 'Live') + ' · ' + st.identity + (tools.length ? ' · ' + tools.join(', ') : '');
+}
+
+/* ============================================================================
+   Rendering
+   ========================================================================== */
+function callout(cls, icon, html, id) {
+  return '<div class="callout ' + cls + '"' + (id ? ' id="' + id + '"' : '') + '><i class="fa-solid ' + icon + '"></i><div>' + html + '</div></div>';
+}
+
+function drawSteps() {
+  var reached = true;   // a step is reachable once every step before it is done
+  STEPS.forEach(function (s) {
+    var el = document.querySelector('.step[data-step="' + s + '"]');
+    var open = st.step === s, done = !!st.done[s];
+    el.classList.toggle('open', open);
+    el.classList.toggle('done', done);
+    el.classList.toggle('locked', !open && !done && !reached);
+    el.querySelector('.step-head').setAttribute('aria-expanded', String(open));
+    el.querySelector('.step-head').disabled = !open && !done && !reached;
+    el.querySelector('.step-num').innerHTML = done && !open ? '<i class="fa-solid fa-check"></i>' : String(STEPS.indexOf(s) + 1);
+    el.querySelector('.step-sum').textContent = done && !open ? summary(s) : '';
+    // Editing a finished step: say where Continue goes.
+    var next = el.querySelector('.step-next');
+    if (next) next.textContent = s === 'tools' ? 'Done' : (done && STEPS.slice(STEPS.indexOf(s) + 1).every(function (x) { return st.done[x]; }) ? 'Save' : 'Continue');
+    if (!done) reached = false;
+  });
+  var ti = issue('tools');
+  $('toolsIssue').innerHTML = ti ? callout('warn', 'fa-circle-info', ti.msg, 'issue-tools') : '';
+}
+
+function drawCourses() {
+  var c = cur();
+  $('courseSel').items = st.courses.map(function (x) { return { label: x.title, value: x.composite_id }; });
+  $('courseSel').value = c.composite_id;
+}
+
+/* vaadin-select takes an items array; '' is the "Not set" choice. */
+function setSelect(el, list, value, noneLabel) {
+  var items = (noneLabel ? [{ label: noneLabel, value: '' }] : []).concat(list.map(function (v) { return { label: nice(v), value: v }; }));
+  el.items = items;
+  el.placeholder = noneLabel || '';        // Vaadin shows the placeholder, not the '' item's label, when nothing is picked
+  el.value = value == null ? '' : value;
+}
+
+function drawWho() {
+  var v = cur().vocabulary, subs = subsectorsFor(v, st.sector), roles = rolesFor(v, st.sector, st.subsector);
+  setSelect($('sector'), v.sectors, st.sector, 'Not set');
+  // Sub-sector only exists for some courses and sectors; hide it rather than show an empty list.
+  $('subsector').hidden = !(v.subsectors || []).length;
+  setSelect($('subsector'), subs, st.subsector, st.sector == null ? 'Pick a sector first' : (subs.length ? 'Not set' : 'None for this sector'));
+  $('subsector').disabled = !subs.length;
+  setSelect($('role'), roles, st.role, roles.length ? 'Not set' : 'None for this sector');
+  $('role').disabled = !roles.length;
+  setSelect($('language'), v.languages, st.language);
+  $('learnerName').value = st.learnerName;
+
+  $('format').innerHTML = v.modalities.map(function (m) {
+    return '<button type="button" role="radio" aria-checked="' + (m === st.modality) + '" data-m="' + m + '"><i class="fa-solid ' + (FMT_ICON[m] || 'fa-circle') + '"></i>' + esc(nice(m)) + '</button>';
+  }).join('');
+  document.querySelectorAll('#format button').forEach(function (b) {
+    b.addEventListener('click', function () { st.modality = b.dataset.m; drawWho(); drawRail(); });
+  });
+}
+
+/* One setting row, in the admin Settings page's shape: icon, plain label + help, switch on the right.
+   The engine's own name for it sits underneath in small mono type, so devs can map it. */
+function setRow(key, icon, label, help, devKey, on) {
+  return '<div class="set-row"><span class="set-ico"><i class="fa-solid ' + icon + '"></i></span>' +
+    '<div class="set-main"><h3>' + label + '</h3>' + (help ? '<p>' + help + '</p>' : '') + '<span class="dev-key">' + devKey + '</span></div>' +
+    '<div class="set-ctl"><vwc-switch data-key="' + key + '" accessible-name="' + esc(label) + '"' + (on ? ' checked' : '') + '></vwc-switch></div></div>';
+}
+/* What the engine will do with these switches, in one line. Both are triggered by the
+   opening questions, so that's how a tester sees them work. */
+function drawAdaptNote() {
+  $('adaptNote').innerHTML = (st.testOut || st.testUp)
+    ? '<i class="fa-solid fa-lightbulb"></i><div><b>To see it adapt,</b> answer the opening questions correctly. Miss them to see the standard route.</div>'
+    : '<i class="fa-solid fa-circle-info"></i><div><b>Both off:</b> this learner takes every lesson at the standard level, whatever they answer at the start.</div>';
+}
+function drawSwitches() {
+  // Labels and help text match the admin Settings page (bbp-admin data.js BEHAVIORS) word for word.
+  $('adaptRows').innerHTML =
+    setRow('testOut', 'fa-forward', 'Let people skip what they already know',
+      'If someone answers the opening questions correctly, they skip that lesson. It still counts as covered on their record.', 'test_out', st.testOut) +
+    setRow('testUp', 'fa-arrow-trend-up', 'Give stronger learners harder questions',
+      'People who are clearly ahead get tougher scenarios instead of the standard ones.', 'test_up', st.testUp);
+  $('toolRows').innerHTML =
+    setRow('debugPanel', 'fa-bug', 'Debug panel', 'Opens a small panel showing which version of the content you’re on and why it was picked.', 'debug_panel', st.debugPanel) +
+    setRow('demoMode', 'fa-forward-fast', 'Demo mode', 'Lets you fast-forward through the videos.', 'demo_mode', st.demoMode);
+  document.querySelectorAll('vwc-switch[data-key]').forEach(function (sw) {
+    sw.addEventListener('checked-change', function () { st[sw.dataset.key] = !!sw.checked; drawAdaptNote(); drawRail(); });
+  });
+  drawAdaptNote();
+}
+
+function drawTools() {
+  $('content').items = [{ label: 'WIP preview', value: 'wip' }, { label: 'Live', value: 'live' }];
+  $('content').value = st.preview ? 'wip' : 'live';
+  $('identity').value = st.identity;
+  $('coordinator').items = Object.keys(COORDINATORS).map(function (k) {
+    var c = COORDINATORS[k]; return { label: c.title ? c.name + ' (' + c.title + ')' : c.name, value: k };
+  });
+  $('coordinator').value = st.coordinator;
+}
+
+/* The rail is the order summary: a row fills in as each step is finished. */
+function railRow(k, step, v) {
+  return '<div class="rail-row"><span>' + k + '</span><div>' + (st.done[step] ? v : '<span class="tbd">Step ' + (STEPS.indexOf(step) + 1) + '</span>') + '</div></div>';
+}
+function drawRail() {
+  var c = cur();
+  var who = [st.role, st.subsector, st.sector].filter(Boolean).map(nice).join(' · ') || 'No sector or role set';
+  $('rail').innerHTML =
+    '<div class="rail-course">' + courseIcon(c) +
+      '<span><b>' + esc(c.title) + '</b><small>Adaptive · ' + c.modules.length + (c.modules.length === 1 ? ' module' : ' modules') + '</small></span></div>' +
+    railRow('Learner', 'who', esc(st.learnerName.trim() || 'No name')) +
+    railRow('Role', 'who', esc(who)) +
+    railRow('Language', 'who', esc(nice(st.language)) + '<small>' + esc(nice(st.modality)) + ' preferred</small>') +
+    railRow('Adapts', 'adapt', esc(summary('adapt'))) +
+    railRow('Testing', 'tools', (st.preview ? 'WIP preview' : 'Live') + '<small class="mono">' + esc(st.identity || '—') + '</small>' +
+      '<small>' + esc([st.debugPanel ? 'Debug panel' : null, st.demoMode ? 'Demo mode' : null].filter(Boolean).join(', ') || 'No testing tools') + '</small>');
+
+  $('railCallout').innerHTML = st.error ? callout('warn rail-callout', 'fa-triangle-exclamation', '<b>' + esc(st.error.message) + '</b>' +
+    (st.error.los && st.error.los.length ? '<ul>' + st.error.los.map(function (l) { return '<li>' + esc(l.title) + '</li>'; }).join('') + '</ul>' : '')) : '';
+
+  // The button waits for every step, like a checkout's Place order.
+  var ready = allDone(), n = STEPS.filter(function (s) { return st.done[s]; }).length;
+  $('launch').disabled = st.busy || !ready;
+  $('launch').innerHTML = st.busy ? 'Starting…' : '<i class="fa-solid fa-play" style="margin-right:8px"></i>Assign and start';
+  $('copyLink').disabled = !ready;
+  $('progress').hidden = ready;
+  $('progress').innerHTML = STEPS.map(function (s) {
+    var cls = st.done[s] ? 'done' : (st.step === s ? 'cur' : '');
+    return '<li class="' + cls + '"><i class="fa-' + (st.done[s] ? 'solid fa-circle-check' : 'regular fa-circle') + '"></i>' + STEP_NAME[s] + '</li>';
+  }).join('');
+  $('progress').setAttribute('aria-label', n + ' of ' + STEPS.length + ' steps done');
+  $('railNote').innerHTML = !ready ? 'Finish each step to assign.'
+    : st.mode === 'direct' ? '<i class="fa-solid fa-circle-check"></i>Starts the course for this learner right here. Copy setup link to set up more testers the same way.'
+    : '<i class="fa-solid fa-arrow-up-right-from-square"></i>Opens the engine’s launch page in a new tab with these choices filled in. Learner name, coordinator and demo mode aren’t carried over yet.';
+}
+
+function draw() { normalize(); drawSteps(); drawCourses(); drawWho(); drawSwitches(); drawTools(); drawRail(); }
+
+/* ---- Moving between steps ---- */
+function openStep(s, scroll) {
+  st.step = s; drawSteps(); drawRail();
+  if (scroll && s) {
+    var el = document.querySelector('.step[data-step="' + s + '"]');
+    var top = el.getBoundingClientRect().top + window.scrollY - 16;
+    window.scrollTo({ top: top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+}
+function finishStep(s) {
+  if (issue(s)) {   // don't silently do nothing: point at the fix
+    var m = $('issue-' + s); if (m) { m.classList.remove('flash'); void m.offsetWidth; m.classList.add('flash'); }
+    var f = issue(s).field; if (f) $(f).focus();
+    return;
+  }
+  st.done[s] = true;
+  var next = STEPS.filter(function (x) { return !st.done[x]; })[0] || null;
+  openStep(next, true);
+  if (!next) $('launch').focus();
+}
+document.querySelectorAll('.step').forEach(function (el) {
+  var s = el.dataset.step;
+  el.querySelector('.step-head').addEventListener('click', function () {
+    if (st.step === s) { if (st.done[s]) openStep(null); return; }   // fold a finished step back up
+    if (st.done[s] || !el.classList.contains('locked')) openStep(s);
+  });
+  el.querySelector('.step-next').addEventListener('click', function () { finishStep(s); });
+});
+
+/* ============================================================================
+   Starting the course
+   ========================================================================== */
+// The request body, in the engine's field names (same shape as its own launch page sends).
+// preview:true = WIP preview, the engine's working content.
+function body() {
+  return {
+    identity: st.identity.trim(), composite_id: st.course,
+    sector: st.sector, subsector: st.subsector, role: st.role, language: st.language,
+    test_out: st.testOut, test_up: st.testUp, preferred_modality: st.modality,
+    learner_name: st.learnerName.trim() || null, coordinator: COORDINATORS[st.coordinator],
+    demo_mode: st.demoMode, debug_panel: st.debugPanel, preview: st.preview
+  };
+}
+function choiceParams() {
+  var q = new URLSearchParams({ composite: st.course });
+  ['sector', 'subsector', 'role', 'language', 'modality'].forEach(function (k) { if (st[k] != null) q.set(k, st[k]); });
+  q.set('test_out', String(st.testOut)); q.set('test_up', String(st.testUp)); q.set('debug_panel', String(st.debugPanel));
+  return q;
+}
+// A link to the engine's launch page with everything its URL understands.
+function engineLink() {
+  var q = choiceParams(); q.set('identity', st.identity.trim());
+  return ENGINE + '/?' + q.toString();
+}
+// A setup link back to THIS page: same choices, but no learner ID, so each person gets their own.
+function selfLink() {
+  var q = choiceParams(), mine = new URL(location.href);
+  q.set('name', st.learnerName); q.set('demo_mode', String(st.demoMode)); q.set('coordinator', st.coordinator);
+  if (!st.preview) q.set('content', 'live');
+  mine.search = q.toString(); mine.hash = ''; return mine.toString();
+}
+
+function api(path, opts) {
+  opts = opts || {};
+  return fetch('/api/v1' + path, { method: opts.method || 'GET', headers: opts.body ? { 'Content-Type': 'application/json' } : {}, body: opts.body ? JSON.stringify(opts.body) : undefined })
+    .then(function (r) {
+      if (r.ok) return r.status === 204 ? null : r.json();
+      return r.json().catch(function () { return null; }).then(function (b) {
+        var d = b && b.detail && typeof b.detail === 'object' ? b.detail : null;
+        throw { message: d && d.message ? d.message : 'The engine couldn’t start this (error ' + r.status + ').', los: d ? d.learning_objects : null };
+      });
+    });
+}
+
+function launch() {
+  if (!allDone()) return;
+  // A setup link can arrive with a choice that no longer works: reopen that step.
+  var bad = STEPS.filter(function (s) { return issue(s); })[0];
+  if (bad) { st.done[bad] = false; openStep(bad, true); return; }
+  if (st.mode === 'handoff') { window.open(engineLink(), '_blank', 'noopener'); return; }
+  st.busy = true; st.error = null; drawRail();
+  // On Live, an ID with a run in progress picks it back up ("lets you resume later"). WIP preview always starts fresh, as on the engine's page.
+  var existing = st.preview ? Promise.resolve([])
+    : api('/goals?' + new URLSearchParams({ identity: st.identity.trim(), composite_id: st.course }).toString());
+  existing.then(function (list) {
+      var active = (list || []).filter(function (g) { return g.status === 'active'; })[0];
+      return active || api('/goals', { method: 'POST', body: body() });
+    })
+    .then(function (g) { location.href = '/learn/' + g.goal_id; })
+    .catch(function (e) {
+      st.busy = false;
+      st.error = e && e.message ? e : { message: 'Couldn’t reach the engine. Check your connection and try again.' };
+      drawRail();
+    });
+}
+
+/* ============================================================================
+   Wiring
+   ========================================================================== */
+$('sector').addEventListener('change', function (e) {
+  st.sector = e.target.value || null;
+  var v = cur().vocabulary, roles;
+  st.subsector = keep(subsectorsFor(v, st.sector), st.subsector);
+  roles = rolesFor(v, st.sector, st.subsector);
+  st.role = st.sector == null ? null : (keep(roles, st.role) || roles[0] || null);   // engine picks the first role for a new sector
+  drawWho(); drawRail();
+});
+$('subsector').addEventListener('change', function (e) {
+  st.subsector = e.target.value || null;
+  var roles = rolesFor(cur().vocabulary, st.sector, st.subsector);
+  st.role = keep(roles, st.role) || roles[0] || null;
+  drawWho(); drawRail();
+});
+$('role').addEventListener('change', function (e) { st.role = e.target.value || null; drawRail(); });
+$('language').addEventListener('change', function (e) { st.language = e.target.value || null; drawRail(); });
+$('courseSel').addEventListener('change', function (e) {
+  if (!e.target.value || e.target.value === st.course) return;
+  st.course = e.target.value; st.error = null;
+  normalize(); draw();
+});
+$('content').addEventListener('change', function (e) { st.preview = e.target.value !== 'live'; st.error = null; loadCourses(); });
+$('coordinator').addEventListener('change', function (e) { st.coordinator = e.target.value || 'default'; drawRail(); });
+$('learnerName').addEventListener('input', function (e) { st.learnerName = e.target.value; drawRail(); });
+$('identity').addEventListener('input', function (e) { st.identity = e.target.value; drawSteps(); drawRail(); });
+$('newId').addEventListener('click', function () { st.identity = newIdentity(); $('identity').value = st.identity; drawSteps(); drawRail(); });
+$('launch').addEventListener('click', launch);
+$('copyLink').addEventListener('click', function () {
+  var done = function () { $('copied').hidden = false; setTimeout(function () { $('copied').hidden = true; }, 2600); };
+  if (navigator.clipboard) navigator.clipboard.writeText(selfLink()).then(done, function () { prompt('Copy this link', selfLink()); });
+  else prompt('Copy this link', selfLink());
+});
+
+/* Course list: the engine's own when we're on its site, otherwise the snapshot. */
+function loadCourses() {
+  if (st.mode === 'handoff') { draw(); return Promise.resolve(); }
+  return api(st.preview ? '/composites?preview=true' : '/composites').then(function (list) {
+    if (!Array.isArray(list) || !list.length) throw new Error('empty');
+    st.courses = list; draw();
+  }).catch(function () { st.mode = 'handoff'; st.courses = SNAPSHOT; draw(); });
+}
+
+// Only try the API when there's a chance it's ours (not file://, not the design site).
+if (!/^https?:$/.test(location.protocol) || /github\.io$|^localhost$|^127\.0\.0\.1$/.test(location.hostname)) st.mode = 'handoff';
+customElements.whenDefined('vaadin-select').then(function () {
+  loadCourses().then(function () { if (st.mode === 'handoff') $('envChip').title = 'Starts the course on ' + ENGINE; });
+});
+</script>
+
+<!-- ── Design Toolbox: Flow Map ─────────────────────────────────────────────
+     The four steps, then what happens when you assign. -->
+<script>
+  function applyFlowState(id, opts) {
+    opts = opts || {};
+    st.error = null; st.done = {};
+    var i = STEPS.indexOf(id);
+    if (i >= 0) {                      // a step: everything before it done, it open
+      STEPS.slice(0, i).forEach(function (s) { st.done[s] = true; });
+      st.step = id;
+    } else {
+      STEPS.forEach(function (s) { st.done[s] = true; });
+      st.step = null;
+      if (id === 'error') st.error = { message: 'Some of this course’s content isn’t ready yet.', los: [{ title: 'Contain the Sharp: place the sharp in the container' }] };
+    }
+    if (typeof draw === 'function') draw();
+    if (!opts.instant) window.scrollTo(0, 0);
+  }
+  window.applyFlowState = applyFlowState;
+
+  function bootFromHash() {
+    var m = (location.hash || '').match(/fm=([\w-]+)/);
+    if (m) { try { applyFlowState(decodeURIComponent(m[1]), { instant: true }); } catch (e) {} }
+  }
+  customElements.whenDefined('vaadin-select').then(bootFromHash);
+  window.addEventListener('hashchange', bootFromHash);
+
+  window.TOOLBOX_CONFIG = {
+    flowMap: {
+      title: 'Assign a course (V3) — Flow Map',
+      applyState: 'applyFlowState',
+      canvas: { w: 1240, h: 460 },
+      flows: [
+        { id: 'steps', name: 'Steps', pill: 'A', color: '#c9b8f0',
+          lane: { x: 20, y: 20, w: 1200, h: 200 }, labelXY: { x: 40, y: 40 } },
+        { id: 'after', name: 'Assign', pill: 'B', color: '#b8d8f0',
+          lane: { x: 20, y: 240, w: 1200, h: 200 }, labelXY: { x: 40, y: 260 } }
+      ],
+      nodes: [
+        { id: 'course', flow: 'steps', entry: true, x: 60,  y: 80, step: '1', name: 'Course', state: 'course',
+          desc: 'Pick the adaptive course. Assign and start is locked until all four steps are done.' },
+        { id: 'who',    flow: 'steps', x: 360, y: 80, step: '2', name: 'Learner', state: 'who',
+          desc: 'Name, sector, sub-sector, role, language and preferred format.' },
+        { id: 'adapt',  flow: 'steps', x: 660, y: 80, step: '3', name: 'How it adapts', state: 'adapt',
+          desc: 'The two behaviors the engine lets you switch, plus a one-line note on how to see them work.' },
+        { id: 'tools',  flow: 'steps', x: 960, y: 80, step: '4', name: 'Testing options', state: 'tools',
+          desc: 'Content (WIP preview by default), learner ID, course coordinator, debug panel, demo mode. The defaults are fine. Done unlocks Assign and start.' },
+        { id: 'ready',  flow: 'after', x: 360, y: 300, step: '5', name: 'Ready to assign', state: 'ready',
+          desc: 'Every step folded to a summary line. A setup link lands here directly, with a fresh learner ID.' },
+        { id: 'error',  flow: 'after', x: 760, y: 300, step: '!', name: 'Engine refused', state: 'error',
+          desc: 'The engine’s 422 message and the learning objects it names, shown in the rail.' }
+      ],
+      edges: [['course', 'who'], ['who', 'adapt'], ['adapt', 'tools'], ['tools', 'ready'], ['ready', 'error']]
+    }
+  };
+</script>
+<script src="../../../../designtoolbox/toolbox.js?v=1.4.0"></script>
+</body>
+</html>
