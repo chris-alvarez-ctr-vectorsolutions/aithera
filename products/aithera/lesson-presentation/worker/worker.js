@@ -35,13 +35,8 @@ const ALLOWED_ORIGINS = [
   'http://localhost:4601',
   'http://127.0.0.1:4601',
   'https://vectorlearning.github.io',
-  // Dev team's LMS environments, which embed the player in an iframe.
-  'https://training.develop.us-east-2.vsp-nonprod.com',
-  'https://training.test3.us-east-2.vsp-nonprod.com',
-  'https://training.staging.us-east-2.vsp-nonprod.com',
-  'https://training.vectorsolutions.com',
-  // Dev team's CDN origins (dev/test1–3, staging, prod), which they report
-  // as the page origin for the iframe integration.
+  // Dev team's CDN origins (dev/test1–3, staging, prod). The LMS embeds the
+  // player in an iframe served from the CDN, so this is the page's origin.
   'https://cdn.develop.vsp-nonprod.com',
   'https://cdn.staging.vsp-nonprod.com',
   'https://cdn.vsp-prod.com',
