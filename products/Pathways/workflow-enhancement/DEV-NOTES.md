@@ -1,5 +1,7 @@
 # Workflow Enhancement: Dev notes
 
+Two versions: **V1 Admin** holds every admin piece (#3–4 tracking + bulk signing, #5–6 edit signers, #7 start or schedule, with 7.5). **V2 Business Partner** is the same table from the partner's side.
+
 Decisions from the PRD review call with Marivette Castree, Bob Peacock, Amrapali Sapkale and Sameer Mohanty.
 **Guiding rule from the call:** anything the PRD doesn't call out as changing keeps today's behavior, even where the mock looks different. If a mock detail conflicts with today's product and isn't in the PRD, build today's version and flag it.
 
@@ -21,3 +23,7 @@ Decisions from the PRD review call with Marivette Castree, Bob Peacock, Amrapali
 - **Approve / Reject:** same two options customers get today (not "Do not approve"). Reject requires a comment, as it does today.
 - **Signature:** ink (drawn) signature, as today. Typed signatures are out of scope because signatures display across the product.
 - **Bulk confirmation:** the "my signature applies to each of them" checkbox only appears when signing more than one form. A single form signs as today.
+
+## mine
+- **Business partner view (V2):** partners see only forms they sign, for students placed with them, and only after a form has been sent out (no Sending out or Start workflow). Same statuses, View + Sign and bulk signing as V1. No admin actions: no dashboard tile, Resend email, Edit signers, Start/schedule or District column.
+- **Partner portal shell is a placeholder:** we don't have a screenshot of the live partner portal yet, so V2's left nav is a stand-in. Whether partners sign in at all (vs. only the email + no-login page Bob described) is still open with Marivette.
