@@ -1248,7 +1248,8 @@
     }
   }
 
-  window.RC = { openWith: openWith, openSelf: openSelf, applyState: applyState, leave: leave, cancel: cancel, reset: reset, rerender: render };
+  window.RC = { openWith: openWith, openSelf: openSelf, applyState: applyState, leave: leave, cancel: cancel, reset: reset, rerender: render,
+                isSelf: function () { return draft.mode === 'self'; } };   // app.js: a self-assign may use the Record screen without Record access
 
   /* ===========================================================================
      INIT
