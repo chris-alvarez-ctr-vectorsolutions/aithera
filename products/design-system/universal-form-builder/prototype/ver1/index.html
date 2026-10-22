@@ -282,7 +282,6 @@
   .fb-block-name { font-size: 13.5px; font-weight: 600; }
   .fb-block-meta { font-size: 11.5px; color: var(--fb-ink-500); display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
   .fb-linkdot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .fb-linkdot[data-s="template"] { background: #6d28d9; }
   .fb-linkdot[data-s="block"]    { background: var(--fb-accent); }
   .fb-linkdot[data-s="unique"]   { background: var(--fb-ink-500); }
   .fb-block-steps { padding: 2px 10px 8px 50px; display: none; }
@@ -728,7 +727,7 @@
                 <vwc-icon slot="suffix" path="M9.5,3A6.5,6.5 0 0,1 16,9.5C16,11.11 15.41,12.59 14.44,13.73L14.71,14H15.5L20.5,19L19,20.5L14,15.5V14.71L13.73,14.44C12.59,15.41 11.11,16 9.5,16A6.5,6.5 0 0,1 3,9.5A6.5,6.5 0 0,1 9.5,3M9.5,5C7,5 5,7 5,9.5C5,12 7,14 9.5,14C12,14 14,12 14,9.5C14,7 12,5 9.5,5Z"></vwc-icon>
               </vaadin-text-field>
               <vaadin-select theme="outlined" label="Status" id="libStatus" style="width:170px"></vaadin-select>
-              <vaadin-select theme="outlined" label="" id="libKind" style="width:190px"></vaadin-select>
+              <vaadin-select theme="outlined" label="" id="libSetup" style="width:190px"></vaadin-select>
             </div>
             <div class="fb-filters-right">
               <vaadin-button theme="tertiary" id="libClear">Clear filters</vaadin-button>
@@ -739,7 +738,7 @@
           <div class="fb-empty" id="libEmpty" style="display:none">
             <i class="fa-solid fa-folder-open" aria-hidden="true"></i>
             <h3>Nothing matches these filters</h3>
-            <p>Clear a filter, or create one from scratch, from a template, or by copying.</p>
+            <p>Clear a filter, or create one from scratch, by copying, or from blocks.</p>
           </div>
         </div>
       </section>
@@ -752,7 +751,7 @@
             <div class="fb-editor-titleline">
               <h1 class="fb-title fb-title--editor" id="bTitle">Untitled</h1>
               <span id="bStatus"></span>
-              <span id="bKind"></span>
+              <span id="bSetup"></span>
             </div>
             <div class="fb-editor-meta" id="bMeta"></div>
           </div>
@@ -940,19 +939,19 @@ const PROFILES = {
       form: 'checklist', forms: 'Checklists', Form: 'Checklist',
       section: 'section', question: 'step', Question: 'Step', questions: 'steps',
       block: 'content block', blocks: 'Content blocks', Block: 'Content block',
-      template: 'template', templates: 'Templates',
       library: 'Checklist Library', create: 'New checklist', edit: 'Edit checklist',
       respondent: 'performer', publish: 'Publish', draft: 'Draft',
-      librarySub: 'Author checklists from reusable content blocks, then deploy them to apparatus, stations and equipment on their own schedules.',
-      kindLabel: 'Checklist type', subjectLabel: 'Checked entity'
+      librarySub: 'Author checklists from reusable content blocks, then deploy them to apparatus, stations and equipment on their own schedules.'
     },
-    kinds: [
-      { id: 'apparatus', label: 'Apparatus check',          subject: 'Apparatus' },
-      { id: 'station',   label: 'Station check',            subject: 'Station' },
-      { id: 'equipment', label: 'Equipment check',          subject: 'Equipment item' },
-      { id: 'capital',   label: 'Capital equipment check',  subject: 'Capital equipment' }
+    /* Setup values (P2): the fields this product asks for when a checklist
+       is created. Checklist type is filter metadata only; the deployment
+       decides what actually gets checked. */
+    setup: [
+      { id: 'checklistType', label: 'Checklist type', control: 'select', filter: true, conf: 'design',
+        help: 'For filtering. The deployment decides what gets checked.',
+        options: [ { id: 'apparatus', label: 'Apparatus check' }, { id: 'station', label: 'Station check' },
+                   { id: 'equipment', label: 'Equipment check' }, { id: 'capital', label: 'Capital equipment check' } ] }
     ],
-    modes: ['normal'],
     initiators: [{ id: 'performer', label: 'The performer', help: 'Whoever starts the check answers every step.' }],
     mechanisms: ['display','choice','measure','text','attest','evidence','repeat','nested'],
     /* Who answers is a single respondent in Check It; the stage is hidden
@@ -1038,18 +1037,24 @@ const PROFILES = {
       form: 'form', forms: 'Forms', Form: 'Form',
       section: 'section', question: 'question', Question: 'Question', questions: 'questions',
       block: 'form section', blocks: 'Form sections', Block: 'Form section',
-      template: 'template', templates: 'Templates',
       library: 'Forms', create: 'New form', edit: 'Edit form',
       respondent: 'evaluator', publish: 'Publish', draft: 'Draft',
-      librarySub: 'Build evaluation, coaching and activity-tracking forms. Published forms are attached to plans and filled by evaluators and evaluees.',
-      kindLabel: 'Use for', subjectLabel: 'Evaluee'
+      librarySub: 'Build evaluation, coaching and activity-tracking forms. Published forms are attached to plans and filled by evaluators and evaluees.'
     },
-    kinds: [
-      { id: 'evaluation', label: 'Evaluation',        subject: 'Evaluee' },
-      { id: 'coaching',   label: 'Coaching',          subject: 'Coachee' },
-      { id: 'activity',   label: 'Activity Tracking', subject: 'Participant' }
+    /* Setup values (P2): EV+'s Use For and Type, declared by the product.
+       An option's `answeredBy` is a profile rule the core applies to the
+       whole form: Read-Only means no one answers, Computed means the system
+       does. The core never needs a name for Type. */
+    setup: [
+      { id: 'useFor', label: 'Use for', control: 'select', filter: true, conf: 'code',
+        help: 'Plan pickers filter by it. Only Evaluation forms work on mobile.',
+        options: [ { id: 'evaluation', label: 'Evaluation' }, { id: 'coaching', label: 'Coaching' }, { id: 'activity', label: 'Activity Tracking' } ] },
+      { id: 'type', label: 'Type', control: 'radio', locks: true, conf: 'code',
+        options: [
+          { id: 'normal',   label: 'Normal',    help: 'People answer the questions they are permitted to record.' },
+          { id: 'readOnly', label: 'Read-Only', help: 'Fully view-only: nothing can be edited, and leaving discards the instance.', answeredBy: 'none' },
+          { id: 'computed', label: 'Computed',  help: 'Answers are calculated, not entered.', answeredBy: 'system' } ] }
     ],
-    modes: ['normal', 'readOnly', 'computed'],
     initiators: [
       { id: 'evaluator', label: 'An evaluator', help: '"Normal" questions belong to whoever starts the form.' },
       { id: 'evaluee',   label: 'The evaluee',  help: 'Self-assessment: the evaluee starts it, so Normal questions are theirs.' },
@@ -1136,20 +1141,20 @@ const PROFILES = {
       form: [
         { id: 'observation', label: 'Observation form', control: 'switch', group: 'Evaluations settings', conf: 'code',
           help: 'Classifies the instance for observation reporting and the mobile API. Turned on automatically by Elapsed-Time Recording.',
-          when: f => f.mode !== 'computed' },
+          when: f => f.setup.type === 'normal' },
         { id: 'allowPrivate', label: 'Allow privacy control', control: 'switch', group: 'Evaluations settings', conf: 'code',
-          help: 'Owner-only On/Off toggle in the header. Private hides the form from the evaluee.', when: f => f.mode !== 'computed' },
+          help: 'Owner-only On/Off toggle in the header. Private hides the form from the evaluee.', when: f => f.setup.type === 'normal' },
         { id: 'allowNameEdit', label: 'Allow form name editing', control: 'switch', group: 'Evaluations settings', conf: 'code',
-          help: 'Inline rename, subject to signature locks.', when: f => f.mode !== 'computed' },
+          help: 'Inline rename, subject to signature locks.', when: f => f.setup.type === 'normal' },
         { id: 'passAll', label: 'Allow "Pass All"', control: 'switch', group: 'Evaluations settings', conf: 'code',
-          help: 'Owner-only Pass All / Clear All for Pass/Fail questions.', when: f => f.mode !== 'computed' },
+          help: 'Owner-only Pass All / Clear All for Pass/Fail questions.', when: f => f.setup.type === 'normal' },
         { id: 'restrictSelfEval', label: 'Prevent use for self-evaluation', control: 'switch', group: 'Evaluations settings', conf: 'code',
-          help: 'Enforced in the picker: the form is hidden when user = subject. Evaluation forms only.', when: f => f.kind === 'evaluation' },
+          help: 'Enforced in the picker: the form is hidden when user = subject. Evaluation forms only.', when: f => f.setup.useFor === 'evaluation' },
         { id: 'sharingBehavior', label: 'Sharing behavior', control: 'select', group: 'Evaluations settings', conf: 'code', locks: true,
           options: [{ id: 'author', label: 'Author can share' }, { id: 'any', label: 'Any evaluator can share' }, { id: 'disabled', label: 'Sharing disabled' }],
-          help: 'Locked after publish.', when: f => f.mode !== 'computed' },
+          help: 'Locked after publish.', when: f => f.setup.type === 'normal' },
         { id: 'completionRequireSharing', label: 'Required for form completion', control: 'switch', group: 'Evaluations settings', conf: 'code', locks: true,
-          help: 'The form cannot reach Completed until it is shared.', when: f => f.mode !== 'computed' && f.productSettings.sharingBehavior !== 'disabled' },
+          help: 'The form cannot reach Completed until it is shared.', when: f => f.setup.type === 'normal' && f.productSettings.sharingBehavior !== 'disabled' },
         { id: 'californiaJac', label: 'California JAC code', control: 'text', group: 'JAC codes', conf: 'code', metadata: true,
           help: 'Admin metadata only: code + duration. Never entered at fill-in.', when: f => f.features.californiaJac },
         { id: 'calfireJac', label: 'CalFire JAC codes', control: 'multiselect', group: 'JAC codes', conf: 'code', injects: true,
@@ -1189,11 +1194,17 @@ const STATUS_META = {
   publishRestricted: { label: 'Publish-Restricted', theme: 'badge primary' },
   archived:          { label: 'Archived',           theme: 'badge contrast' }
 };
-const MODE_META = {
-  normal:   { label: 'Normal',    help: 'The respondent enters answers.' },
-  readOnly: { label: 'Read-only', help: 'Fully view-only. Leaving discards the instance.' },
-  computed: { label: 'Computed',  help: 'Answers are auto-calculated. Hides seven settings.' }
-};
+/* Setup values (P2). The profile declares the fields; a form stores its own
+   choices in `f.setup`. The core reads them only through these helpers. */
+const setupFields = p => (p && p.setup) || [];
+function setupDefaults(p) { const o = {}; setupFields(p).forEach(s => { o[s.id] = s.options[0].id; }); return o; }
+function setupOption(f, s) { return s.options.find(o => o.id === (f.setup || {})[s.id]) || s.options[0]; }
+/* The one field a product marks as its library filter (Checklist type, Use for). */
+const filterField = p => setupFields(p).find(s => s.filter);
+function filterLabel(f) { const s = filterField(PROFILES[f.product]); return s ? setupOption(f, s).label : ''; }
+/* Who answers for the whole form, when a setup value says so (EV's Read-Only
+   and Computed). null means each question's own who-answers applies. */
+function formAnsweredBy(f) { let r = null; setupFields(PROFILES[f.product]).forEach(s => { const o = setupOption(f, s); if (o.answeredBy) r = o.answeredBy; }); return r; }
 const LOCK_META = {
   signer: { label: 'Signature locks the signer',           help: 'Each signer may sign once their own required questions are answered.' },
   all:    { label: 'First signature locks all questions',   help: 'Signing allowed only when every required question is answered.' },
@@ -1262,12 +1273,13 @@ function mkBlockRef(blockId, contextLabel, linkState, expanded) {
 function mkForm(profileId, o) {
   const f = Object.assign({
     schemaVersion: 1, id: uid('f'), product: profileId, version: 1, liveVersion: null, status: 'draft',
-    kind: PROFILES[profileId].kinds[0].id, mode: 'normal', initiator: PROFILES[profileId].initiators[0].id,
+    initiator: PROFILES[profileId].initiators[0].id,
     name: 'Untitled', description: '', folder: '', signing: { lockMode: 'signer' }, timer: { on: false, max: 180, editable: true },
     productSettings: {}, features: { tsIntegration: true, calfireJac: true, californiaJac: false },
     sections: [], rules: [], references: { scales: [], blocks: [] },
     meta: { createdBy: 'A. Smith', modified: '2026-10-21', usedBy: [], origin: 'scratch' }, history: []
   }, o);
+  f.setup = Object.assign(setupDefaults(PROFILES[profileId]), o.setup || {});
   /* Seed a publish history and remember each published question's title so a
      material edit can be told from a typo fix (P4). */
   if (f.status !== 'draft' && !f.history.length) { const live = f.liveVersion || f.version; for (let v = 1; v <= live; v++) f.history.push({ version: v, at: '2026-0' + Math.min(9, 3 + v) + '-1' + v, by: f.meta.createdBy, note: v === 1 ? 'First publish' : 'Republished', superseded: v < live }); }
@@ -1331,16 +1343,16 @@ const BLOCKS_CI = [
 ];
 
 const FORMS_CI = [
-  mkForm(CI, { id: 'apparatus-morning', name: 'Apparatus Morning Check', kind: 'apparatus', status: 'published', version: 5, liveVersion: 5,
+  mkForm(CI, { id: 'apparatus-morning', name: 'Apparatus Morning Check', setup: { checklistType: 'apparatus' }, status: 'published', version: 5, liveVersion: 5,
     description: 'Daily readiness check for every in-service rig.',
     productSettings: { appliesToStatuses: ['inservice'], defaultCadence: 'daily', aiEnabled: true, nestable: false },
-    meta: { createdBy: 'A. Smith', modified: '2026-10-19', usedBy: ['E-7', 'E-12', 'L-3', 'BR-1', 'M-4', 'STA-1', 'STA-2'], origin: 'template', lastRun: 'Today, 06:14' },
+    meta: { createdBy: 'A. Smith', modified: '2026-10-19', usedBy: ['E-7', 'E-12', 'L-3', 'BR-1', 'M-4', 'STA-1', 'STA-2'], origin: 'blocks', lastRun: 'Today, 06:14' },
     sections: [
       mkSection('Exterior & Running Gear', [
         pf('Walkaround complete, no new damage', { outcomes: ['ticket'] }),
-        mkBlockRef('wheels-tires', 'Driver front', 'template'),
-        mkBlockRef('wheels-tires', 'Driver rear', 'template'),
-        mkBlockRef('fluid-levels', '', 'template'),
+        mkBlockRef('wheels-tires', 'Driver front'),
+        mkBlockRef('wheels-tires', 'Driver rear'),
+        mkBlockRef('fluid-levels', ''),
         mkQ(CI, 'nested', 'nestedcheck', 'Ladders carried on this apparatus', { config: { targetId: 'ladder-inspection', subjectType: 'ladder', lookBack: 'skip', lookBackDays: 30, minPassing: null }, outcomes: ['ticket'] }),
         pf('Bay door fully retracted before roll-out', { outcomes: ['notify'], identity: 'q-baydoor' }),
         pf('Apron clear of equipment', { required: false })
@@ -1350,7 +1362,7 @@ const FORMS_CI = [
         mkBlockRef('fluid-levels', 'Compartment stock', 'block')
       ])
     ] }),
-  mkForm(CI, { id: 'scba-bottle-check', name: 'SCBA Bottle Check', kind: 'equipment', status: 'published', version: 2, liveVersion: 2,
+  mkForm(CI, { id: 'scba-bottle-check', name: 'SCBA Bottle Check', setup: { checklistType: 'equipment' }, status: 'published', version: 2, liveVersion: 2,
     description: 'Runs once per bottle inside a parent check. Never deployed on its own.',
     productSettings: { appliesToStatuses: ['inservice', 'oos'], defaultCadence: 'daily', aiEnabled: true, nestable: true },
     meta: { createdBy: 'A. Smith', modified: '2026-09-30', usedBy: ['Nested in 2 checklists'], origin: 'blocks' },
@@ -1365,7 +1377,7 @@ const FORMS_CI = [
         pf('PASS alarm sounds on test', { outcomes: ['oos'] })
       ])
     ] }),
-  mkForm(CI, { id: 'ladder-inspection', name: 'Ground Ladder Inspection', kind: 'equipment', status: 'published', version: 3, liveVersion: 3,
+  mkForm(CI, { id: 'ladder-inspection', name: 'Ground Ladder Inspection', setup: { checklistType: 'equipment' }, status: 'published', version: 3, liveVersion: 3,
     description: 'Monthly NFPA 1932 visual inspection per ladder.',
     productSettings: { appliesToStatuses: ['inservice'], defaultCadence: 'monthly', aiEnabled: false, nestable: true },
     meta: { createdBy: 'R. Alvarez', modified: '2026-08-14', usedBy: ['Nested in 1 checklist', '14 ladders'], origin: 'scratch' },
@@ -1375,7 +1387,7 @@ const FORMS_CI = [
       pf('Halyard and pulleys serviceable', { outcomes: ['ticket'] }),
       mkQ(CI, 'text', 'freetext', 'Notes', { required: false })
     ]) ] }),
-  mkForm(CI, { id: 'station-weekly', name: 'Station Weekly Facility Check', kind: 'station', status: 'draft', version: 1, liveVersion: null,
+  mkForm(CI, { id: 'station-weekly', name: 'Station Weekly Facility Check', setup: { checklistType: 'station' }, status: 'draft', version: 1, liveVersion: null,
     description: 'Generators, bay doors, exit lighting and the kitchen suppression system.',
     productSettings: { appliesToStatuses: ['inservice', 'oos'], defaultCadence: 'weekly', aiEnabled: true, nestable: false },
     meta: { createdBy: 'A. Smith', modified: '2026-10-20', usedBy: [], origin: 'scratch' },
@@ -1386,7 +1398,7 @@ const FORMS_CI = [
     ]), mkSection('Kitchen', [
       pf('Hood suppression tag current', { outcomes: ['ticket'], capture: { evidence: { mode: 'required' } } })
     ]) ] }),
-  mkForm(CI, { id: 'hydrant-annual', name: 'Hydrant Annual Flow Test', kind: 'capital', status: 'archived', version: 4, liveVersion: null,
+  mkForm(CI, { id: 'hydrant-annual', name: 'Hydrant Annual Flow Test', setup: { checklistType: 'capital' }, status: 'archived', version: 4, liveVersion: null,
     description: 'Superseded by the water-department shared check.',
     productSettings: { appliesToStatuses: ['inservice'], defaultCadence: 'annual', aiEnabled: false, nestable: false },
     meta: { createdBy: 'R. Alvarez', modified: '2026-03-02', usedBy: [], origin: 'scratch' },
@@ -1429,12 +1441,12 @@ const BLOCKS_EV = [
 ];
 
 const FORMS_EV = [
-  mkForm(EV, { id: 'classroom-observation', name: 'Classroom Observation (Danielson)', kind: 'evaluation', status: 'published', version: 3, liveVersion: 2,
+  mkForm(EV, { id: 'classroom-observation', name: 'Classroom Observation (Danielson)', setup: { useFor: 'evaluation' }, status: 'published', version: 3, liveVersion: 2,
     initiator: 'evaluator', description: 'Formal observation against the Danielson framework, with a reflection and two signatures.',
     folder: 'Teacher evaluation', signing: { lockMode: 'signer' }, timer: { on: true, max: 180, editable: true },
     productSettings: { observation: true, allowPrivate: true, allowNameEdit: false, passAll: false, restrictSelfEval: true,
       sharingBehavior: 'author', completionRequireSharing: true, calfireJac: ['CF-101', 'CF-212'], calfireJacRequired: true, tsTags: ['ts-4411', 'ts-4420'] },
-    meta: { createdBy: 'M. Chen', modified: '2026-10-18', usedBy: ['Plan: 2026–27 Probationary', 'Plan: 2026–27 Tenured', '212 instances'], origin: 'template' },
+    meta: { createdBy: 'M. Chen', modified: '2026-10-18', usedBy: ['Plan: 2026–27 Probationary', 'Plan: 2026–27 Tenured', '212 instances'], origin: 'copy' },
     sections: [
       mkSection('Before you begin', [
         mkQ(EV, 'display', 'instructions', 'How to use this form', { details: 'Rate each component on the 4-level scale. A Developing rating requires a duration. Share the form with the teacher before the post-conference.' })
@@ -1452,7 +1464,7 @@ const FORMS_EV = [
         mkQ(EV, 'attest', 'sigNoLock', 'Teacher acknowledgement', { who: 'subject', config: { style: 'drawn', locking: false, notify: true, todo: true, statement: 'I have received a copy of this observation.' } })
       ])
     ] }),
-  mkForm(EV, { id: 'walkthrough-10', name: '10-Minute Walk-through', kind: 'evaluation', status: 'published', version: 4, liveVersion: 4,
+  mkForm(EV, { id: 'walkthrough-10', name: '10-Minute Walk-through', setup: { useFor: 'evaluation' }, status: 'published', version: 4, liveVersion: 4,
     description: 'Short, unannounced visit. Observed / not observed on six look-fors.', folder: 'Teacher evaluation',
     productSettings: { observation: true, allowPrivate: false, allowNameEdit: true, passAll: false, restrictSelfEval: true, sharingBehavior: 'any', completionRequireSharing: false, tsTags: ['ts-4411'] },
     meta: { createdBy: 'M. Chen', modified: '2026-09-02', usedBy: ['Plan: 2026–27 Tenured', '1,480 instances'], origin: 'copy' },
@@ -1465,7 +1477,7 @@ const FORMS_EV = [
         mkQ(EV, 'text', 'textEntry', 'One thing to celebrate', { required: false })
       ])
     ] }),
-  mkForm(EV, { id: 'self-assessment', name: 'Mid-year Self-Assessment', kind: 'evaluation', status: 'published', version: 2, liveVersion: 2,
+  mkForm(EV, { id: 'self-assessment', name: 'Mid-year Self-Assessment', setup: { useFor: 'evaluation' }, status: 'published', version: 2, liveVersion: 2,
     initiator: 'evaluee', description: 'Started by the teacher. Normal questions belong to the evaluee; the evaluator adds a response.', folder: 'Teacher evaluation',
     productSettings: { observation: false, allowPrivate: false, allowNameEdit: false, passAll: false, restrictSelfEval: false, sharingBehavior: 'author', completionRequireSharing: true },
     meta: { createdBy: 'M. Chen', modified: '2026-10-01', usedBy: ['Plan: 2026–27 Probationary', '96 instances'], origin: 'scratch' },
@@ -1475,7 +1487,7 @@ const FORMS_EV = [
       mkQ(EV, 'text', 'textEntry', 'Evaluator response', { who: 'participants-record-exsubject', required: false }),
       mkQ(EV, 'attest', 'sigLock', 'Teacher signature', { who: 'initiator' })
     ]) ] }),
-  mkForm(EV, { id: 'coaching-log', name: 'Coaching Conversation Log', kind: 'coaching', status: 'draft', version: 1, liveVersion: null,
+  mkForm(EV, { id: 'coaching-log', name: 'Coaching Conversation Log', setup: { useFor: 'coaching' }, status: 'draft', version: 1, liveVersion: null,
     description: 'A scripted coaching conversation with a timed segment.', folder: 'Coaching',
     productSettings: { observation: false, allowPrivate: true, sharingBehavior: 'author', completionRequireSharing: false },
     meta: { createdBy: 'A. Smith', modified: '2026-10-20', usedBy: [], origin: 'scratch' },
@@ -1487,12 +1499,12 @@ const FORMS_EV = [
       mkQ(EV, 'measure', null, '', { config: { format: 'number', unit: 'min', min: 30, max: 10 } })
     ]) ],
     review: { required: true, state: 'none', reviewer: 'J. Patel', note: '' } }),
-  mkForm(EV, { id: 'summative-2025', name: 'End-of-Year Summative (2025–26)', kind: 'evaluation', status: 'superseded', version: 6, liveVersion: null,
+  mkForm(EV, { id: 'summative-2025', name: 'End-of-Year Summative (2025–26)', setup: { useFor: 'evaluation' }, status: 'superseded', version: 6, liveVersion: null,
     description: 'Replaced by the 2026–27 summative. Completed instances still render this version.', folder: 'Teacher evaluation',
     productSettings: { observation: false, sharingBehavior: 'author', completionRequireSharing: true },
     meta: { createdBy: 'M. Chen', modified: '2026-06-30', usedBy: ['418 instances'], origin: 'copy' },
     sections: [ mkSection('Summary', [ mkQ(EV, 'scale', 'rating', 'Overall rating', { config: { scaleRef: 'danielson4', linked: false } }) ]) ] }),
-  mkForm(EV, { id: 'probationary-obs', name: 'Probationary Observation', kind: 'evaluation', status: 'publishRestricted', version: 1, liveVersion: 1,
+  mkForm(EV, { id: 'probationary-obs', name: 'Probationary Observation', setup: { useFor: 'evaluation' }, status: 'publishRestricted', version: 1, liveVersion: 1,
     description: 'Fillable only by users on the evaluator and evaluee access lists.', folder: 'Teacher evaluation',
     productSettings: { observation: true, sharingBehavior: 'author', completionRequireSharing: true },
     meta: { createdBy: 'M. Chen', modified: '2026-08-20', usedBy: ['Plan: 2026–27 Probationary'], origin: 'copy' },
@@ -1503,20 +1515,6 @@ const LIB = {
   checkit:     { forms: FORMS_CI, blocks: BLOCKS_CI, scales: [] },
   evaluations: { forms: FORMS_EV, blocks: BLOCKS_EV, scales: PROFILES.evaluations.scales }
 };
-/* Templates are published forms flagged as starting content (P2: Template is
-   editable content, not a kind). */
-const TEMPLATES = {
-  checkit: [
-    { id: 't-nfpa1911', name: 'NFPA 1911 Apparatus Daily', desc: 'Department copy of the standard daily apparatus check.', kind: 'apparatus', sections: 4, items: 31 },
-    { id: 't-nfpa1851', name: 'NFPA 1851 PPE Inspection', desc: 'Routine PPE inspection. Departments hold 1,143 copies of this one today.', kind: 'equipment', sections: 3, items: 18 },
-    { id: 't-station', name: 'Station Facility Weekly', desc: 'Generators, doors, suppression, exit lighting.', kind: 'station', sections: 3, items: 12 }
-  ],
-  evaluations: [
-    { id: 't-danielson', name: 'Danielson Formal Observation', desc: 'Domains 1–3 as linked form sections, reflection, two signatures.', kind: 'evaluation', sections: 3, items: 15 },
-    { id: 't-marzano', name: 'Marzano Focused Observation', desc: 'Four domains on the 4-level scale.', kind: 'evaluation', sections: 4, items: 23 },
-    { id: 't-coaching', name: 'Coaching Cycle Log', desc: 'Pre-conference, observation script, debrief.', kind: 'coaching', sections: 3, items: 9 }
-  ]
-};
 </script>
 <script>
 /* ======================================================================
@@ -1525,7 +1523,7 @@ const TEMPLATES = {
 const state = {
   profile: 'checkit',       // which product's profile the shell is wearing
   view: 'library',          // library | builder
-  libTab: 'forms',          // forms | templates | blocks | scales
+  libTab: 'forms',          // forms | blocks | scales
   formId: null,             // open form
   sel: null,                // { kind:'form' } | { kind:'section', id } | { kind:'item', sectionId, id } | { kind:'block', sectionId, instanceId }
   dirty: false,
@@ -1754,16 +1752,15 @@ function setView(v) {
 }
 
 /* ======================================================================
-   LIBRARY — forms, templates, blocks, scales (one library per product, P6)
+   LIBRARY — forms, blocks, scales (one library per product, P6)
    ====================================================================== */
 const LIB_TABS = () => {
   const t = [ { id: 'forms', label: V('forms'), count: lib().forms.length },
-              { id: 'templates', label: V('templates'), count: TEMPLATES[state.profile].length },
               { id: 'blocks', label: V('blocks'), count: lib().blocks.length } ];
   if (P().mechanisms.includes('scale')) t.push({ id: 'scales', label: 'Scales', count: lib().scales.length });
   return t;
 };
-let libFilters = { q: '', status: '', kind: '' };
+let libFilters = { q: '', status: '', setup: '' };
 let libTabsBound = false;
 
 function renderLibrary() {
@@ -1787,8 +1784,8 @@ function renderLibrary() {
     });
     document.getElementById('libSearch').addEventListener('value-changed', e => { libFilters.q = e.detail.value || ''; renderLibraryGrid(); });
     document.getElementById('libClear').addEventListener('click', () => {
-      libFilters = { q: '', status: '', kind: '' };
-      document.getElementById('libSearch').value = ''; document.getElementById('libStatus').value = ''; document.getElementById('libKind').value = '';
+      libFilters = { q: '', status: '', setup: '' };
+      document.getElementById('libSearch').value = ''; document.getElementById('libStatus').value = ''; document.getElementById('libSetup').value = '';
       renderLibraryGrid();
     });
     document.getElementById('btnCreate').addEventListener('click', () => { if (state.libTab === 'blocks') openNewBlockDialog(); else if (state.libTab === 'scales') openScaleDialog(null); else openSetupDialog(); });
@@ -1802,21 +1799,23 @@ function renderLibraryPanel() {
   st.value = libFilters.status;
   st.onchange = null;
   st.removeEventListener('value-changed', st._h); st._h = e => { if ((e.detail.value || '') === libFilters.status) return; libFilters.status = e.detail.value || ''; renderLibraryGrid(); }; st.addEventListener('value-changed', st._h);
-  const kd = document.getElementById('libKind');
-  kd.label = V('kindLabel');
-  kd.items = [{ label: 'Any', value: '' }].concat(p.kinds.map(k => ({ label: k.label, value: k.id })));
-  kd.value = libFilters.kind;
-  kd.removeEventListener('value-changed', kd._h); kd._h = e => { if ((e.detail.value || '') === libFilters.kind) return; libFilters.kind = e.detail.value || ''; renderLibraryGrid(); }; kd.addEventListener('value-changed', kd._h);
+  /* The product's filter field (Checklist type, Use for) is filter metadata
+     the library can sort forms by. */
+  const ff = filterField(p);
+  const kd = document.getElementById('libSetup');
+  if (ff) {
+    kd.label = ff.label;
+    kd.items = [{ label: 'Any', value: '' }].concat(ff.options.map(o => ({ label: o.label, value: o.id })));
+    kd.value = libFilters.setup;
+    kd.removeEventListener('value-changed', kd._h); kd._h = e => { if ((e.detail.value || '') === libFilters.setup) return; libFilters.setup = e.detail.value || ''; renderLibraryGrid(); }; kd.addEventListener('value-changed', kd._h);
+  }
   const isForms = state.libTab === 'forms';
-  st.style.display = isForms ? '' : 'none'; kd.style.display = isForms ? '' : 'none';
-  const create = document.getElementById('btnCreate');
-  const lbl = { forms: V('create'), templates: 'New ' + V('template'), blocks: 'New ' + V('block'), scales: 'New scale' }[state.libTab];
+  st.style.display = isForms ? '' : 'none'; kd.style.display = isForms && ff ? '' : 'none';
+  const lbl = { forms: V('create'), blocks: 'New ' + V('block'), scales: 'New scale' }[state.libTab];
   document.getElementById('btnCreateLabel').textContent = lbl;
-  create.style.display = state.libTab === 'templates' ? 'none' : '';
   renderLibraryGrid();
 }
 function statusBadge(s) { const m = STATUS_META[s] || STATUS_META.draft; return badge(m.theme, m.label); }
-function kindLabel(id) { const k = P().kinds.find(k => k.id === id); return k ? k.label : id; }
 function countItems(form) {
   let n = 0;
   form.sections.forEach(s => s.items.forEach(it => { if (it.type === 'block') { const b = blockById(it.blockId); n += b ? b.items.length : 0; } else n += 1; }));
@@ -1830,24 +1829,15 @@ function renderLibraryGrid() {
   const q = libFilters.q.trim().toLowerCase();
   const textCol = (header, fn, width) => { const c = el('vaadin-grid-column', { header, 'auto-width': true, flex: width == null ? 1 : width }); c.renderer = (root, _c, m) => { root.innerHTML = ''; const v = fn(m.item); root.appendChild(typeof v === 'string' ? document.createTextNode(v) : v); }; return c; };
   if (state.libTab === 'forms') {
-    rows = lib().forms.filter(f => (!q || f.name.toLowerCase().includes(q) || (f.description || '').toLowerCase().includes(q)) && (!libFilters.status || f.status === libFilters.status) && (!libFilters.kind || f.kind === libFilters.kind));
+    rows = lib().forms.filter(f => (!q || f.name.toLowerCase().includes(q) || (f.description || '').toLowerCase().includes(q)) && (!libFilters.status || f.status === libFilters.status) && (!libFilters.setup || (filterField(P()) && f.setup[filterField(P()).id] === libFilters.setup)));
     cols = [
       textCol('Name', f => el('div', {}, [ el('div', { class: 'fb-cell-main', text: f.name }), el('div', { class: 'fb-cell-sub', text: f.description || '' }) ]), 3),
-      textCol(V('kindLabel'), f => kindLabel(f.kind)),
+      filterField(P()) ? textCol(filterField(P()).label, f => filterLabel(f)) : null,
       textCol('Status', f => { const w = el('div', { style: 'display:flex;gap:6px;align-items:center;flex-wrap:wrap' }, [statusBadge(f.status)]); if (f.status === 'published' && f.liveVersion && f.version > f.liveVersion) w.appendChild(el('span', { class: 'fb-cell-sub', text: 'draft v' + f.version })); return w; }),
       textCol('Version', f => f.status === 'published' ? 'v' + (f.liveVersion || f.version) : 'v' + f.version, 0),
       textCol(cap(V('questions')), f => String(countItems(f)), 0),
       textCol('Used by', f => el('div', { class: 'fb-cell-sub', text: (f.meta.usedBy || []).length ? f.meta.usedBy.join(' · ') : '—' }), 2),
       textCol('Modified', f => f.meta.modified, 0)
-    ];
-  } else if (state.libTab === 'templates') {
-    rows = TEMPLATES[state.profile].filter(t => !q || t.name.toLowerCase().includes(q));
-    cols = [
-      textCol('Template', t => el('div', {}, [ el('div', { class: 'fb-cell-main', text: t.name }), el('div', { class: 'fb-cell-sub', text: t.desc }) ]), 3),
-      textCol(V('kindLabel'), t => kindLabel(t.kind)),
-      textCol('Sections', t => String(t.sections), 0),
-      textCol(cap(V('questions')), t => String(t.items), 0),
-      textCol('', t => textBtn('Use template', 'tertiary', () => openSetupDialog({ start: 'template', templateId: t.id, name: t.name, kind: t.kind })), 0)
     ];
   } else if (state.libTab === 'blocks') {
     rows = lib().blocks.filter(b => !q || b.name.toLowerCase().includes(q));
@@ -1868,7 +1858,7 @@ function renderLibraryGrid() {
       textCol('Used by', s => { let n = 0; lib().forms.concat(lib().blocks).forEach(c => (c.sections ? c.sections.flatMap(x => x.items) : c.items).forEach(it => { if (it.mechanism === 'scale' && it.config.scaleRef === s.id) n++; })); return n + ' questions'; })
     ];
   }
-  cols.forEach(c => grid.appendChild(c));
+  cols.filter(Boolean).forEach(c => grid.appendChild(c));
   grid.items = rows;
   empty.style.display = rows.length ? 'none' : '';
   grid.style.display = rows.length ? '' : 'none';
@@ -1888,33 +1878,76 @@ function openForm(id) {
 }
 
 /* ======================================================================
-   SETUP — Kind + Mode + Template (P2), initiator, product settings
+   SETUP — starting content, the product's setup values (P2), initiator
    ====================================================================== */
-function openSetupDialog(prefill) {
+/* One setup field from the profile: a select or a radio group. The help
+   under a radio group follows the chosen option. */
+function setupControl(s, value, onPick, opts) {
+  const o = opts || {};
+  if (s.control === 'radio') {
+    const helpEl = el('div', { class: 'fb-help' });
+    const setHelp = v => { const opt = s.options.find(x => x.id === v) || s.options[0]; helpEl.textContent = (s.locks ? 'Locks after publish. ' : '') + (opt.help || ''); };
+    if (o.inspector) {
+      const seg = segmented(s.options.map(x => ({ value: x.id, label: x.label, help: x.help })), value, onPick, { full: true, locked: o.locked });
+      setHelp(value);
+      return field(s.label, seg, helpEl.textContent, o.locked ? lockIcon() : null);
+    }
+    const rg = el('vaadin-radio-group', { label: s.label });
+    s.options.forEach(x => rg.appendChild(el('vaadin-radio-button', { value: x.id, label: x.label })));
+    rg.value = value; setHelp(value);
+    rg.addEventListener('value-changed', e => { const v = e.detail.value; if (v && v !== value) { value = v; setHelp(v); onPick(v); } });
+    return el('div', {}, [rg, helpEl]);
+  }
+  return vSelect({ label: s.label, items: s.options.map(x => ({ id: x.id, label: x.label })), value, helper: s.help, disabled: o.locked, onchange: onPick });
+}
+function openSetupDialog() {
   const p = P();
-  const draft = { name: (prefill && prefill.name && prefill.start === 'template') ? '' : '', kind: (prefill && prefill.kind) || p.kinds[0].id, mode: 'normal',
-                  initiator: p.initiators[0].id, start: (prefill && prefill.start) || 'blank', templateId: prefill && prefill.templateId, copyId: null, description: '', folder: '' };
+  const draft = { name: '', setup: setupDefaults(p), initiator: p.initiators[0].id, start: 'blank', copyId: null, blockIds: [], description: '', folder: '' };
   const dlg = document.getElementById('dlgSetup');
   dlg.headerTitle = V('create');
   let nameField;
   dlg.renderer = root => {
     root.innerHTML = '';
     const wrap = el('div', { class: 'fb-dialog' });
-    /* Start from: blank, template, or copy. Templates are editable starting
-       content (P2) and copies are how most forms begin today (EV, CI). */
+    /* Start from: blank, a copy, or blocks from the library. Copies are how
+       most forms begin today (EV, CI); Check It also starts from blocks.
+       Templates are parked until blocks and templates are worked out
+       together (2026-10-22). */
+    const publishedBlocks = lib().blocks.filter(b => b.status === 'published');
     const starts = [
       { id: 'blank', icon: 'fa-file', label: 'Blank', desc: 'Start with one empty section.' },
-      { id: 'template', icon: 'fa-file-lines', label: 'From a template', desc: TEMPLATES[state.profile].length + ' available' },
-      { id: 'copy', icon: 'fa-copy', label: 'Copy an existing ' + V('form'), desc: 'Starts as a draft of its own.' }
+      { id: 'copy', icon: 'fa-copy', label: 'Copy an existing ' + V('form'), desc: 'Starts as a draft of its own.' },
+      { id: 'blocks', icon: 'fa-cubes', label: 'From ' + V('blocks').toLowerCase(), desc: publishedBlocks.length + ' published, stay linked' }
     ];
     const startRow = el('div', { class: 'fb-start-opts' });
     const sourceHost = el('div');
+    const setupHost = el('div', { class: 'fb-dialog-grid' });
+    /* A copy carries its source's setup values and initiator; they stay
+       editable because the copy is a new draft. */
+    const takeFromSource = () => { const src = lib().forms.find(f => f.id === draft.copyId); if (!src) return; draft.setup = Object.assign(setupDefaults(p), src.setup); draft.initiator = src.initiator; renderSetup(); };
     const renderSource = () => {
       sourceHost.innerHTML = '';
-      if (draft.start === 'template') sourceHost.appendChild(vSelect({ label: V('template'), items: TEMPLATES[state.profile].map(t => ({ id: t.id, label: t.name })), value: draft.templateId || TEMPLATES[state.profile][0].id, onchange: v => { draft.templateId = v; } }));
-      if (draft.start === 'copy') sourceHost.appendChild(vSelect({ label: 'Copy from', items: lib().forms.map(f => ({ id: f.id, label: f.name })), value: draft.copyId || lib().forms[0].id, onchange: v => { draft.copyId = v; } }));
-      if (draft.start === 'template' && !draft.templateId) draft.templateId = TEMPLATES[state.profile][0].id;
-      if (draft.start === 'copy' && !draft.copyId) draft.copyId = lib().forms[0].id;
+      if (draft.start === 'copy') {
+        if (!draft.copyId) { draft.copyId = lib().forms[0].id; takeFromSource(); }
+        sourceHost.appendChild(vSelect({ label: 'Copy from', items: lib().forms.map(f => ({ id: f.id, label: f.name })), value: draft.copyId, onchange: v => { draft.copyId = v; takeFromSource(); },
+          helper: 'Starts with the same ' + setupFields(p).map(s => s.label).join(' and ') + '.' }));
+      }
+      if (draft.start === 'blocks') {
+        const list = el('div', { class: 'fb-checkrow', style: 'flex-direction:column;gap:2px' }, publishedBlocks.map(b => vCheck({ label: b.name + ' · ' + b.items.length + ' ' + V('questions'), checked: draft.blockIds.includes(b.id),
+          onchange: v => { draft.blockIds = v ? draft.blockIds.concat(b.id) : draft.blockIds.filter(x => x !== b.id); } })));
+        sourceHost.appendChild(field(cap(V('blocks')), list, 'Placed in order in the first ' + V('section') + ', linked: edits in the library reach this ' + V('form') + '.'));
+      }
+    };
+    const renderSetup = () => {
+      setupHost.innerHTML = '';
+      setupFields(p).forEach(s => setupHost.appendChild(setupControl(s, draft.setup[s.id], v => { draft.setup[s.id] = v; })));
+      if (p.initiators.length > 1) {
+        const rg = el('vaadin-radio-group', { label: 'Who can start it' });
+        p.initiators.forEach(i => rg.appendChild(el('vaadin-radio-button', { value: i.id, label: i.label })));
+        rg.value = draft.initiator;
+        rg.addEventListener('value-changed', e => { if (e.detail.value && e.detail.value !== draft.initiator) draft.initiator = e.detail.value; });
+        setupHost.appendChild(el('div', {}, [rg, el('div', { class: 'fb-help', text: '"Normal" questions belong to whoever starts the ' + V('form') + '.' })]));
+      }
     };
     starts.forEach(s => {
       const b = el('button', { type: 'button', class: 'fb-start-opt' + (draft.start === s.id ? ' active' : '') }, [ icon(s.icon), el('b', { text: s.label }), el('span', { text: s.desc }) ]);
@@ -1922,36 +1955,19 @@ function openSetupDialog(prefill) {
       startRow.appendChild(b);
     });
     renderSource();
+    renderSetup();
     wrap.appendChild(field('Start from', startRow));
     wrap.appendChild(sourceHost);
 
     const grid = el('div', { class: 'fb-dialog-grid' });
     nameField = vText({ label: 'Name', value: draft.name, placeholder: 'e.g. ' + (lib().forms[0] ? lib().forms[0].name : ''), onchange: v => { draft.name = v; } });
     grid.appendChild(el('div', { class: 'wide' }, [nameField]));
-    /* Kind: the product's form type. Brings the subject and the product
-       settings with it (P2). */
-    grid.appendChild(vSelect({ label: V('kindLabel'), items: p.kinds.map(k => ({ id: k.id, label: k.label })), value: draft.kind, onchange: v => { draft.kind = v; },
-      helper: V('subjectLabel') + ': ' + (p.kinds.find(k => k.id === draft.kind) || {}).subject }));
-    grid.appendChild(vText({ label: 'Folder', value: draft.folder, placeholder: 'Optional', onchange: v => { draft.folder = v; } }));
-    /* Mode (core) only where the profile offers more than one; it locks after
-       publish, which the help says up front rather than at publish time. */
-    if (p.modes.length > 1) {
-      const rg = el('vaadin-radio-group', { label: 'Mode' });
-      p.modes.forEach(m => rg.appendChild(el('vaadin-radio-button', { value: m, label: MODE_META[m].label })));
-      rg.value = draft.mode;
-      rg.addEventListener('value-changed', e => { if (e.detail.value && e.detail.value !== draft.mode) draft.mode = e.detail.value; });
-      grid.appendChild(el('div', {}, [rg, el('div', { class: 'fb-help', html: 'Locks after publish. ' + escHtml(MODE_META[draft.mode].help) })]));
-    }
-    if (p.initiators.length > 1) {
-      const rg = el('vaadin-radio-group', { label: 'Who can start it' });
-      p.initiators.forEach(i => rg.appendChild(el('vaadin-radio-button', { value: i.id, label: i.label })));
-      rg.value = draft.initiator;
-      rg.addEventListener('value-changed', e => { if (e.detail.value && e.detail.value !== draft.initiator) draft.initiator = e.detail.value; });
-      grid.appendChild(el('div', {}, [rg, el('div', { class: 'fb-help', text: '"Normal" questions belong to whoever starts the ' + V('form') + '.' })]));
-    }
+    /* Setup values: the fields this product's profile declares (P2). */
+    grid.appendChild(el('div', { class: 'wide' }, [setupHost]));
+    grid.appendChild(el('div', { class: 'wide' }, [vText({ label: 'Folder', value: draft.folder, placeholder: 'Optional', onchange: v => { draft.folder = v; } })]));
     grid.appendChild(el('div', { class: 'wide' }, [vArea({ label: 'Description', value: draft.description, rows: 2, onchange: v => { draft.description = v; } })]));
     wrap.appendChild(grid);
-    wrap.appendChild(el('div', { class: 'fb-help', html: 'Product settings (' + escHtml(p.name) + ') are set in the builder, in the ' + escHtml(V('Form')) + ' settings panel. The ' + escHtml(V('form')) + ' starts as a draft and cannot be assigned until it is published.' }));
+    wrap.appendChild(el('div', { class: 'fb-help', html: 'Other ' + escHtml(p.name) + ' settings are in the builder, in the ' + escHtml(V('Form')) + ' settings panel. The ' + escHtml(V('form')) + ' starts as a draft and cannot be assigned until it is published.' }));
     root.appendChild(wrap);
   };
   dlg.footerRenderer = root => {
@@ -1960,6 +1976,7 @@ function openSetupDialog(prefill) {
       textBtn('Cancel', 'secondary', () => { dlg.opened = false; }),
       textBtn('Create ' + V('form'), 'primary', () => {
         if (!draft.name.trim()) { nameField.invalid = true; nameField.errorMessage = 'Give it a name'; nameField.focus(); return; }
+        if (draft.start === 'blocks' && !draft.blockIds.length) { toast('Pick at least one ' + V('block'), 'fa-circle-exclamation'); return; }
         dlg.opened = false; createForm(draft);
       })
     ]) ]));
@@ -1974,20 +1991,12 @@ function createForm(d) {
     f = JSON.parse(JSON.stringify(src)); f.id = uid('f'); f.version = 1; f.liveVersion = null; f.status = 'draft'; f.meta.usedBy = []; f.meta.origin = 'copy'; f.meta.sourceId = src.id;
     f.sections.forEach(s => { s.id = uid('s'); s.items.forEach(it => { if (it.type === 'block') it.instanceId = uid('i'); else { it.id = uid('q'); it.identity = it.id; } }); });
   } else {
-    f = mkForm(state.profile, { sections: [ mkSection(d.start === 'template' ? 'Section 1' : 'Section 1', []) ], meta: { createdBy: 'A. Smith', modified: '2026-10-21', usedBy: [], origin: d.start } });
-    if (d.start === 'template') {
-      const t = TEMPLATES[state.profile].find(t => t.id === d.templateId);
-      f.meta.sourceTemplateId = t.id;
-      /* The prototype seeds template content lightly: one section with two
-         rows, so the template path shows content arriving. */
-      f.sections = [ mkSection('From template: ' + t.name, [
-        mkQ(state.profile, 'display', p.presets.find(x => x.mechanism === 'display').id, 'Template instructions', { details: t.desc }),
-        state.profile === 'checkit' ? mkQ(CI, 'choice', 'passfail', 'First template step') : mkQ(EV, 'scale', 'rating', 'First template question')
-      ]) ];
-    }
+    const items = d.start === 'blocks' ? d.blockIds.map(id => mkBlockRef(id, '')) : [];
+    f = mkForm(state.profile, { sections: [ mkSection('Section 1', items) ], meta: { createdBy: 'A. Smith', modified: '2026-10-21', usedBy: [], origin: d.start } });
+    if (d.start === 'blocks') d.blockIds.forEach(id => { const b = blockById(id); if (b) b.usedBy = (b.usedBy || 0) + 1; });
   }
-  f.name = d.name.trim(); f.kind = d.kind; f.mode = d.mode; f.initiator = d.initiator; f.description = d.description; f.folder = d.folder;
-  if (!d.copyId) p.extensions.form.forEach(x => { if (f.productSettings[x.id] === undefined) f.productSettings[x.id] = x.control === 'switch' ? false : x.control === 'checkset' || x.control === 'multiselect' ? [] : x.options ? x.options[0].id : ''; });
+  f.name = d.name.trim(); f.setup = Object.assign(setupDefaults(p), d.setup); f.initiator = d.initiator; f.description = d.description; f.folder = d.folder;
+  if (d.start !== 'copy') p.extensions.form.forEach(x => { if (f.productSettings[x.id] === undefined) f.productSettings[x.id] = x.control === 'switch' ? false : x.control === 'checkset' || x.control === 'multiselect' ? [] : x.options ? x.options[0].id : ''; });
   lib().forms.unshift(f);
   toast(V('Form') + ' created as a draft');
   openForm(f.id);
@@ -2016,11 +2025,11 @@ function renderBuilderHead() {
   if (f.isBlock) return renderBlockHead(f);
   document.getElementById('bTitle').textContent = f.name || 'Untitled';
   const st = document.getElementById('bStatus'); st.innerHTML = ''; st.appendChild(statusBadge(f.status));
-  const kd = document.getElementById('bKind'); kd.innerHTML = ''; kd.appendChild(badge('badge contrast', kindLabel(f.kind)));
+  const kd = document.getElementById('bSetup'); kd.innerHTML = ''; if (filterLabel(f)) kd.appendChild(badge('badge contrast', filterLabel(f)));
   const meta = document.getElementById('bMeta'); meta.innerHTML = '';
   const verText = f.status === 'published' ? (f.version > (f.liveVersion || 0) ? 'Draft v' + f.version + ' of live v' + f.liveVersion : 'Live v' + f.version) : 'Draft v' + f.version;
   meta.appendChild(el('span', {}, [icon('fa-code-branch'), verText + (state.dirty ? ' · unsaved changes' : '')]));
-  if (P().modes.length > 1) meta.appendChild(el('span', {}, [icon('fa-sliders'), 'Mode: ' + MODE_META[f.mode].label]));
+  setupFields(P()).filter(s => !s.filter).forEach(s => meta.appendChild(el('span', {}, [icon('fa-sliders'), s.label + ': ' + setupOption(f, s).label])));
   meta.appendChild(el('span', {}, [icon('fa-user-pen'), 'Started by ' + ((P().initiators.find(i => i.id === f.initiator) || {}).label || '').toLowerCase()]));
   if (f.meta.usedBy && f.meta.usedBy.length) meta.appendChild(el('span', { title: f.meta.usedBy.join('\n') }, [icon('fa-link'), 'Used by ' + f.meta.usedBy.length]));
   meta.appendChild(el('span', {}, [icon('fa-clock'), 'Modified ' + f.meta.modified]));
@@ -2255,7 +2264,7 @@ function renderBlockRow(f, s, inst, ii) {
   row.appendChild(el('span', { class: 'fb-grip' }, [icon('fa-grip-vertical')]));
   row.appendChild(el('span', { class: 'fb-block-tile' }, [icon('fa-cubes')]));
   const meta = el('div', { class: 'fb-block-meta' }, [
-    el('span', {}, [el('span', { class: 'fb-linkdot', 'data-s': inst.linkState }), ' ' + cap(V('block')) + ' · ' + { template: 'linked to template', block: 'linked', unique: 'unlinked copy' }[inst.linkState]]),
+    el('span', {}, [el('span', { class: 'fb-linkdot', 'data-s': inst.linkState }), ' ' + cap(V('block')) + ' · ' + { block: 'linked', unique: 'unlinked copy' }[inst.linkState]]),
     el('span', { text: 'v' + b.version + ' · ' + b.items.length + ' ' + V('questions') + ' · used by ' + b.usedBy }),
     el('span', { class: 'fb-sealed' }, [icon('fa-lock'), 'sealed: edit in ' + V('blocks')])
   ]);
@@ -2395,16 +2404,15 @@ function renderFormInspector(host, f) {
     vArea({ label: 'Description', value: f.description, rows: 2, onchange: v => { f.description = v; markDirty(); } }),
     vText({ label: 'Folder', value: f.folder, placeholder: 'Optional', onchange: v => { f.folder = v; markDirty(); } })
   ]));
+  /* Setup values (P2): the product's own fields, drawn from its profile. */
   const setup = [];
-  setup.push(vSelect({ label: V('kindLabel'), items: p.kinds.map(k => ({ id: k.id, label: k.label })), value: f.kind, onchange: v => { f.kind = v; markDirty(); renderBuilderHead(); renderInspector(); },
-    helper: V('subjectLabel') + ': ' + ((p.kinds.find(k => k.id === f.kind) || {}).subject || '') }));
-  if (p.modes.length > 1) {
-    const locked = f.status !== 'draft';
-    setup.push(field('Mode', segmented(p.modes.map(m => ({ value: m, label: MODE_META[m].label, help: MODE_META[m].help })), f.mode, v => { f.mode = v; markDirty(); renderBuilderHead(); renderInspector(); }, { full: true, locked }), MODE_META[f.mode].help, lockIcon()));
-    if (locked) setup.push(el('div', { class: 'fb-lock-note' }, [icon('fa-lock'), 'Mode locked: this ' + V('form') + ' has been published.']));
-  }
+  setupFields(p).forEach(sf => {
+    const locked = sf.locks && f.status !== 'draft';
+    setup.push(setupControl(sf, f.setup[sf.id], v => { f.setup[sf.id] = v; markDirty(); renderBuilderHead(); renderInspector(); }, { inspector: sf.control === 'radio', locked }));
+    if (locked) setup.push(el('div', { class: 'fb-lock-note' }, [icon('fa-lock'), sf.label + ' locked: this ' + V('form') + ' has been published.']));
+  });
   if (p.initiators.length > 1) setup.push(vSelect({ label: 'Who can start it', items: p.initiators.map(i => ({ id: i.id, label: i.label })), value: f.initiator, onchange: v => { f.initiator = v; markDirty(); renderBuilderHead(); }, helper: (p.initiators.find(i => i.id === f.initiator) || {}).help }));
-  body.appendChild(stage('f-setup', 'Setup', setup, { conf: p.id === 'evaluations' ? 'code' : 'design', note: 'Kind · Mode · Initiator' }));
+  body.appendChild(stage('f-setup', 'Setup', setup, { conf: p.id === 'evaluations' ? 'code' : 'design', note: setupFields(p).map(sf => sf.label).concat(p.initiators.length > 1 ? ['Who can start it'] : []).join(' · ') }));
 
   if (p.signing.show) {
     const sig = [ field('Signature behavior', segmented(p.signing.lockModes.map(m => ({ value: m, label: { signer: 'Signer', all: 'All', prior: 'Prior' }[m], help: LOCK_META[m].label })), f.signing.lockMode, v => { f.signing.lockMode = v; markDirty(); renderInspector(); }, { full: true }), LOCK_META[f.signing.lockMode].label + '. ' + LOCK_META[f.signing.lockMode].help),
@@ -2487,7 +2495,7 @@ function renderBlockInspector(host, f, s, inst) {
   const body = el('div', { class: 'fb-insp-body' });
   body.appendChild(stage('b-main', 'Placement', [
     vText({ label: 'Context label', value: inst.contextLabel, placeholder: 'e.g. Driver front', helper: 'Lets one ' + V('block') + ' appear more than once with different labels.', onchange: v => { inst.contextLabel = v; onChange(); } }),
-    field('Link state', el('div', { class: 'fb-help', html: '<span class="fb-linkdot" data-s="' + inst.linkState + '"></span> ' + { template: 'Linked to the template: the template owns its content.', block: 'Linked: edits to the ' + escHtml(V('block')) + ' reach this ' + escHtml(V('form')) + ' on publish.', unique: 'Unlinked copy: edits here stay here.' }[inst.linkState] }), 'Break the link from the row menu (pass 2: the full ladder).'),
+    field('Link state', el('div', { class: 'fb-help', html: '<span class="fb-linkdot" data-s="' + inst.linkState + '"></span> ' + { block: 'Linked: edits to the ' + escHtml(V('block')) + ' reach this ' + escHtml(V('form')) + ' on publish.', unique: 'Unlinked copy: edits here stay here.' }[inst.linkState] }), 'Break the link from the row menu (pass 2: the full ladder).'),
     el('div', { class: 'fb-help', html: '<b>' + b.items.length + '</b> ' + escHtml(V('questions')) + ' · v' + b.version + ' · used by ' + b.usedBy + ' ' + escHtml(V('form')) + 's · ' + (b.multiUse ? 'multi-use' : 'single use') }),
     textBtn('Edit ' + V('block') + ' in the library', 'secondary', () => openBlock(b.id, { formId: f.id, sel: state.sel })),
     inst.linkState !== 'unique' ? textBtn('Break link…', 'tertiary', () => breakLink(s, s.items.indexOf(inst))) : null
@@ -2781,7 +2789,7 @@ const _blockForms = {};
 function blockAsForm(id) {
   const b = blockById(id); if (!b) return null;
   if (!_blockForms[id] || _blockForms[id].block !== b) {
-    _blockForms[id] = { id: 'block:' + b.id, isBlock: true, block: b, product: b.product, name: b.name, status: b.status, version: b.version, kind: null,
+    _blockForms[id] = { id: 'block:' + b.id, isBlock: true, block: b, product: b.product, name: b.name, status: b.status, version: b.version, setup: setupDefaults(PROFILES[b.product]),
       sections: [ { id: 'blk-' + b.id, title: b.name, help: '', layout: 1, collapsed: false, locked: false, items: b.items } ], meta: b.meta || { modified: '2026-10-21', usedBy: [] } };
   }
   const pf = _blockForms[id]; pf.name = b.name; pf.sections[0].title = b.name; pf.sections[0].items = b.items; pf.status = b.status; pf.version = b.version;
@@ -2799,7 +2807,7 @@ function renderBlockHead(pf) {
   document.getElementById('btnPublish').disabled = b.status === 'archived';
   document.getElementById('bTitle').textContent = b.name || 'Untitled ' + V('block');
   const st = document.getElementById('bStatus'); st.innerHTML = ''; st.appendChild(statusBadge(b.status));
-  const kd = document.getElementById('bKind'); kd.innerHTML = ''; kd.appendChild(badge('badge contrast', cap(V('block')) + (b.category ? ' · ' + b.category : '')));
+  const kd = document.getElementById('bSetup'); kd.innerHTML = ''; kd.appendChild(badge('badge contrast', cap(V('block')) + (b.category ? ' · ' + b.category : '')));
   const meta = document.getElementById('bMeta'); meta.innerHTML = '';
   const uses = usedByForms(b);
   meta.appendChild(el('span', {}, [icon('fa-code-branch'), 'v' + b.version + (state.dirty ? ' · unsaved changes' : '')]));
@@ -2820,7 +2828,7 @@ function renderLinkLegend(f) {
     return;
   }
   const note = document.getElementById('blockHeadNote'); if (note) note.remove();
-  [['template', 'Template-linked'], ['block', 'Linked'], ['unique', 'Unlinked copy']].forEach(([k, l]) => lg.appendChild(el('span', {}, [el('span', { class: 'fb-linkdot', 'data-s': k }), l])));
+  [['block', 'Linked'], ['unique', 'Unlinked copy']].forEach(([k, l]) => lg.appendChild(el('span', {}, [el('span', { class: 'fb-linkdot', 'data-s': k }), l])));
 }
 
 /* ---- Block library inspector (name, category, description, multi-use,
@@ -2934,18 +2942,13 @@ function placeBlock(secId, blockId, again) {
   toast(b.name + ' added' + (again ? ' again. Give it a context label.' : ''));
 }
 
-/* ---- Link-state ladder: template → block → unique (ported) --------------
-   Each rung asks for confirmation. The last rung EXPLODES the block: its
+/* ---- Link-state ladder: block → local copies (ported) -------------------
+   Breaking asks for confirmation, then EXPLODES the block: its
    questions are deep-copied into the section as local questions, each
    carrying the block's instructions as details, so nothing is silently
    lost and nothing propagates in afterwards. */
 function breakLink(s, ii) {
   const inst = s.items[ii]; const b = blockById(inst.blockId);
-  if (inst.linkState === 'template') {
-    confirmDialog({ title: 'Unlink from the template?', bodyHtml: '<p><b>' + escHtml(b.name) + '</b> stops following the template. It stays linked to the ' + escHtml(V('block')) + ' itself, so edits in the library still reach this ' + escHtml(V('form')) + '.</p><p class="fb-help">Next rung: break the ' + escHtml(V('block')) + ' link to get editable local copies.</p>', confirmLabel: 'Unlink from template', danger: true,
-      onConfirm: () => { inst.linkState = 'block'; markDirty(); renderCanvas(); renderInspector(); toast('Now linked to the ' + V('block') + ', not the template'); } });
-    return;
-  }
   if (inst.linkState === 'block') {
     confirmDialog({ title: 'Break the link and copy ' + b.items.length + ' ' + V('questions') + '?', bodyHtml: '<p>The ' + escHtml(V('block')) + ' is replaced by <b>local copies</b> of its ' + escHtml(V('questions')) + '. You can edit, reorder, move or delete each one. Nothing from the library propagates in afterwards.</p><p class="fb-help">The ' + escHtml(V('block')) + ' itself and every other ' + escHtml(V('form')) + ' using it are untouched. Copied ' + escHtml(V('questions')) + ' start a new identity series.</p>', confirmLabel: 'Break link and copy', danger: true,
       onConfirm: () => {
@@ -3409,9 +3412,12 @@ function renderPreview(f) {
   const ctx = { f, resp, eff, p, blockers };
 
   const head = el('div', { class: 'pv-head' }, [ el('h1', { text: f.name }) ]);
-  const sub = el('div', { class: 'pv-sub' }, [ el('span', { text: kindLabel(f.kind) }), el('span', { text: 'Viewing as: ' + resp.label }) ]);
-  if (p.modes.length > 1) sub.appendChild(el('span', { text: 'Mode: ' + MODE_META[f.mode].label }));
-  if (f.mode === 'readOnly') sub.appendChild(el('span', { class: 'pv-ro', text: 'Read-only: nothing here can be edited.' }));
+  const sub = el('div', { class: 'pv-sub' }, [ el('span', { text: filterLabel(f) }), el('span', { text: 'Viewing as: ' + resp.label }) ]);
+  setupFields(p).filter(s => !s.filter).forEach(s => sub.appendChild(el('span', { text: s.label + ': ' + setupOption(f, s).label })));
+  /* A setup value can decide who answers for the whole form (EV's Read-Only
+     and Computed). The renderer follows the rule, not the product's word. */
+  const whole = formAnsweredBy(f);
+  if (whole) sub.appendChild(el('span', { class: 'pv-ro', text: whole === 'none' ? 'Nothing here can be edited.' : 'Answers are calculated, not entered.' }));
   head.appendChild(sub);
   if (f.description) head.appendChild(el('p', { class: 'pv-q-details', text: f.description }));
   host.appendChild(head);
@@ -3486,7 +3492,7 @@ function renderPvQuestion(q, ctx) {
   if (q.mechanism === 'timer') return null;
 
   const isContainer = q.mechanism === 'repeat' || q.mechanism === 'nested';
-  const canAnswer = f.mode !== 'readOnly' && (isContainer || (q.answeredBy.relation !== 'none' && q.answeredBy.relation !== 'system' && resp.can.includes(q.answeredBy.relation)));
+  const canAnswer = !formAnsweredBy(f) && (isContainer || (q.answeredBy.relation !== 'none' && q.answeredBy.relation !== 'system' && resp.can.includes(q.answeredBy.relation)));
   const interactive = preview.test && canAnswer;
   const required = (q.required || eff.required.has(q.id)) && q.mechanism !== 'repeat' && q.mechanism !== 'nested';
   const selfEff = eff.self[q.id] || new Set();
@@ -3689,11 +3695,12 @@ function reviewStage(f) {
    ====================================================================== */
 const CAPABILITIES = [ { id: 'authorBlocks', label: 'Author ' + 'blocks' }, { id: 'authorForms', label: 'Author forms' }, { id: 'publish', label: 'Publish' }, { id: 'assign', label: 'Assign' } ];
 
-/* What locks after publish, from the core (mode, timer) and from extensions
-   that declare `locks` (FB-V-06). Only meaningful on a first publish. */
+/* What locks after publish: setup values and extensions that declare
+   `locks`, plus the core timer (FB-V-06). Only meaningful on a first
+   publish. Whether anything should lock is open, pending research. */
 function lockingSettings(f) {
   const p = P(); const out = [];
-  if (p.modes.length > 1) out.push({ label: 'Mode', value: MODE_META[f.mode].label });
+  setupFields(p).filter(s => s.locks).forEach(s => out.push({ label: s.label, value: setupOption(f, s).label }));
   if (p.timer.show) out.push({ label: 'Elapsed-Time Recording', value: f.timer.on ? 'On' : 'Off' });
   p.extensions.form.filter(x => x.locks && (!x.when || x.when(f))).forEach(x => { const v = f.productSettings[x.id]; out.push({ label: x.label, value: x.control === 'switch' ? (v ? 'On' : 'Off') : x.options ? ((x.options.find(o => o.id === v) || {}).label || '—') : String(v || '—') }); });
   return out;
@@ -3841,7 +3848,7 @@ function renderMoreMenu(f) {
   host.appendChild(rowMenu([
     { label: 'Where it is used', icon: 'fa-link', run: () => openWhereUsed(f) },
     { label: 'View definition (JSON)', icon: 'fa-code', run: () => openDefinitionJson(f) },
-    { label: 'Duplicate', icon: 'fa-copy', disabled: f.isBlock, run: () => { createForm({ name: f.name + ' (copy)', kind: f.kind, mode: f.mode, initiator: f.initiator, description: f.description, folder: f.folder, start: 'copy', copyId: f.id }); } },
+    { label: 'Duplicate', icon: 'fa-copy', disabled: f.isBlock, run: () => { createForm({ name: f.name + ' (copy)', setup: f.setup, initiator: f.initiator, description: f.description, folder: f.folder, start: 'copy', copyId: f.id }); } },
     { sep: true },
     isArchived ? { label: 'Restore', icon: 'fa-rotate-left', run: () => { if (f.isBlock) f.block.status = 'draft'; else f.status = 'draft'; renderBuilderHead(); renderInspector(); toast('Restored as a draft'); } }
                : { label: 'Archive', icon: 'fa-box-archive', danger: true, run: () => openArchive(f) }
@@ -3869,14 +3876,21 @@ function openArchive(f) {
    fields so what is shown is the definition, not the prototype's state. */
 function definitionOf(f) {
   const strip = (k, v) => (k === 'publishedTitle' || k === 'identityChoice' || k === 'collapsed' || k === 'expanded' || k === 'isBlock' || k === 'block' || k === 'pendingBlockUpdates' || k === 'review') ? undefined : v;
-  const src = f.isBlock ? { schemaVersion: 1, kind: 'block', id: f.block.id, product: f.block.product, version: f.block.version, status: f.block.status, name: f.block.name, category: f.block.category, multiUse: f.block.multiUse, instructions: f.block.instructions, items: f.block.items } : f;
-  return JSON.stringify(src, strip, 2);
+  const src = f.isBlock ? { schemaVersion: 1, definition: 'block', id: f.block.id, product: f.block.product, version: f.block.version, status: f.block.status, name: f.block.name, category: f.block.category, multiUse: f.block.multiUse, instructions: f.block.instructions, items: f.block.items } : f;
+  return JSON.stringify(f.isBlock ? src : withProductPart(src), strip, 2);
+}
+/* The product's part of the definition (P2): its setup values and other
+   form-level settings, stored and versioned with the form but interpreted
+   only by the product. */
+function withProductPart(f) {
+  const { schemaVersion, id, version, status, product, setup, productSettings, ...rest } = f;
+  return Object.assign({ schemaVersion, id, version, status, product: { id: product, setup: Object.assign({}, setup, productSettings) } }, rest);
 }
 function openDefinitionJson(f) {
   const dlg = document.getElementById('dlgPicker');
   dlg.headerTitle = 'Definition: ' + f.name + ' (schema v1)';
   dlg.renderer = root => { root.innerHTML = ''; const json = definitionOf(f); const hl = escHtml(json).replace(/"([^"]+)":/g, '<span class="k">"$1"</span>:').replace(/: "([^"]*)"/g, ': <span class="s">"$1"</span>').replace(/: (-?\d+(\.\d+)?)/g, ': <span class="n">$1</span>').replace(/: (true|false|null)/g, ': <span class="b">$1</span>'); root.appendChild(el('div', { class: 'fb-json', html: hl })); };
-  dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('span', { class: 'fb-help', text: 'What products consume after Publish: id + version + kind + mode, sections, questions with identity, rules, references, extensions (03 §8). Answers and records are product-owned.' }), el('div', { class: 'right' }, [ textBtn('Copy', 'tertiary', () => { navigator.clipboard && navigator.clipboard.writeText(definitionOf(f)); toast('Copied'); }), textBtn('Close', 'secondary', () => { dlg.opened = false; }) ]) ])); };
+  dlg.footerRenderer = root => { root.innerHTML = ''; root.appendChild(el('div', { class: 'fb-dialog-foot' }, [ el('span', { class: 'fb-help', text: 'What products consume after Publish: id + version, the product’s setup values, sections, questions with identity, rules, references, extensions (03 §8). Answers and records are product-owned.' }), el('div', { class: 'right' }, [ textBtn('Copy', 'tertiary', () => { navigator.clipboard && navigator.clipboard.writeText(definitionOf(f)); toast('Copied'); }), textBtn('Close', 'secondary', () => { dlg.opened = false; }) ]) ])); };
   dlg.opened = true;
 }
 </script>
@@ -3951,7 +3965,7 @@ function openDefinitionJson(f) {
         { id: 'ev', name: 'Evaluations profile', pill: 'B', color: '#c9ddf5', lane: { x: 20, y: 320, w: 1460, h: 280 }, labelXY: { x: 40, y: 340 } }
       ],
       nodes: [
-        { id: 'library-ci', flow: 'ci', entry: true, x: 60,  y: 110, step: '1', name: 'Checklist Library', state: 'library-ci', desc: 'One library per product: checklists, templates, content blocks. Check It vocabulary throughout.' },
+        { id: 'library-ci', flow: 'ci', entry: true, x: 60,  y: 110, step: '1', name: 'Checklist Library', state: 'library-ci', desc: 'One library per product: checklists and content blocks, filterable by checklist type. Check It vocabulary throughout.' },
         { id: 'builder-ci', flow: 'ci', x: 360, y: 110, step: '2', name: 'Builder: Apparatus Morning Check', state: 'builder-ci', desc: 'Canvas + inspector. Local steps interleave with linked content blocks (seen in design).' },
         { id: 'question-ci', flow: 'ci', x: 660, y: 110, step: '3', name: 'Step inspector: nested check', state: 'question-ci', desc: 'Nested mechanism with Check It’s look-back and minimum-passing settings as profile dimensions.' },
         { id: 'block-ci', flow: 'ci', x: 960, y: 110, step: '4', name: 'Content block in place', state: 'block-ci', desc: 'A sealed block instance with its link state and context label.' },
@@ -3966,7 +3980,7 @@ function openDefinitionJson(f) {
         { id: 'publish-ci', flow: 'ci', x: 660, y: 20, step: '13', name: 'Publish: blast radius', state: 'publish-ci', desc: 'Quality gate, version note (completed records stay bound), the deployments and parents it reaches from Check It’s publish-impact extension, and the four capabilities (Q19).' },
         { id: 'json-ci', flow: 'ci', x: 960, y: 20, step: '14', name: 'The definition (schema v1)', state: 'json-ci', desc: 'What Check It consumes after Publish: the FormDefinition from 03 §8 with identity, rules, references and extensions. For the technical reviewers.' },
         { id: 'library-ev', flow: 'ev', entry: true, x: 60,  y: 410, step: '1', name: 'Forms library', state: 'library-ev', desc: 'Same shell, Evaluations vocabulary: forms, form sections, scales. Statuses incl. Superseded and Publish-Restricted.' },
-        { id: 'setup-ev', flow: 'ev', x: 360, y: 410, step: '2', name: 'New form: setup', state: 'setup-ev', desc: 'Kind + Mode + Template (P2) and who can start it. Mode locks after publish, said up front.' },
+        { id: 'setup-ev', flow: 'ev', x: 360, y: 410, step: '2', name: 'New form: setup', state: 'setup-ev', desc: 'Start from blank, a copy or blocks, then the product’s setup values (P2): Use for and Type, plus who can start it. Type locks after publish, said up front.' },
         { id: 'builder-ev', flow: 'ev', x: 660, y: 410, step: '3', name: 'Builder: Classroom Observation', state: 'builder-ev', desc: 'Danielson domains as linked blocks; form settings grouped, conditional, with lock warnings and extension chips.' },
         { id: 'question-ev', flow: 'ev', x: 960, y: 410, step: '4', name: 'Question inspector: who answers', state: 'question-ev', desc: 'Relationship-based who-answers with the per-mechanism allowed matrix (code-confirmed).' },
         { id: 'picker-ev', flow: 'ev', x: 1260, y: 410, step: '5', name: 'Add question: presets', state: 'picker-ev', desc: 'The same mechanisms wearing Evaluations presets: Rating Scale, Choose One, Signature (non-locking)…' },
@@ -3976,7 +3990,7 @@ function openDefinitionJson(f) {
         { id: 'preview-ev', flow: 'ev', x: 60, y: 500, step: '9', name: 'Preview as the evaluee', state: 'preview-ev', desc: 'Who-answers made visible: Normal questions are locked for the evaluee, Reflection is open, the pinned timer and injected JAC question show where they land.' },
         { id: 'testrun-ev', flow: 'ev', x: 360, y: 500, step: '10', name: 'Test run on a tablet', state: 'testrun-ev', desc: 'Rate a look-for, watch the computed average, complete: Created → Shared → Submitted → Completed derived from the definition (03 §6).' },
         { id: 'quality-ev', flow: 'ev', x: 360, y: 320, step: '11', name: 'Quality checks + review', state: 'quality-ev', desc: 'The coaching log has an empty option, an untitled question and min > max; content review is on and can be requested. Errors will block publish in pass 5.' },
-        { id: 'publish-first-ev', flow: 'ev', x: 660, y: 320, step: '12', name: 'First publish: lock warnings', state: 'publish-first-ev', desc: 'Mode, Elapsed-Time, Sharing behavior and Required-for-completion lock after publish, said before the click (FB-A-10). Publish-Restricted as an availability option.' },
+        { id: 'publish-first-ev', flow: 'ev', x: 660, y: 320, step: '12', name: 'First publish: lock warnings', state: 'publish-first-ev', desc: 'Type, Elapsed-Time, Sharing behavior and Required-for-completion lock after publish, said before the click (FB-A-10). Publish-Restricted as an availability option.' },
         { id: 'publish-ev', flow: 'ev', x: 960, y: 320, step: '13', name: 'Republish: v3 supersedes v2', state: 'publish-ev', desc: 'A draft of a published form goes live; v2 becomes superseded, instances stay on their version, plans reference id + version.' },
         { id: 'publish-block-ev', flow: 'ev', x: 1260, y: 320, step: '14', name: 'Publish a form section: hold policy', state: 'publish-block-ev', desc: 'Domain 3 reaches two forms. Evaluations holds: each shows a notice and keeps its version until republished (P3).' },
         { id: 'pending-ev', flow: 'ev', x: 1260, y: 410, step: '15', name: 'Newer section available', state: 'pending-ev', desc: 'The held notice on Classroom Observation with Review changes / Republish, and the Versions stage showing live v2 beside draft v3.' }

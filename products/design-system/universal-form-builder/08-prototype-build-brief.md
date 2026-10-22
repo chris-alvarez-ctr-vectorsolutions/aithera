@@ -1,6 +1,6 @@
 # Form Builder: prototype build brief
 
-**Status:** Passes 1–5 built, reviewable · **Updated:** 2026-10-21 · **Prototype:** [`prototype/`](prototype/) (versioned feature; design work in `prototype/ver1/index.html`)
+**Status:** Passes 1–5 built, reviewable; P1–P8 under review · **Updated:** 2026-10-22 · **Prototype:** [`prototype/`](prototype/) (versioned feature; design work in `prototype/ver1/index.html`)
 
 > **Build status.** Passes 1–5 are built and verified in Chrome; every surface has a flow-map scene with a deep link. **Pass 6 (the EHS profile) is on hold** by decision on 2026-10-21: EHS stays an inferred profile in this brief until its code dive. The walkthrough script below is ready to run with Check It and Evaluations.
 
@@ -22,13 +22,23 @@ Open questions from 03 §10 resolved as prototype assumptions. Each is tagged so
 | # | Assumption | Replaces | Confidence |
 |---|---|---|---|
 | P1 | **Preview is a reference renderer owned by the Form Builder.** Products may substitute their own later | 03 Q1 | Proposal |
-| P2 | **Setup = Kind + Mode + Template.** Kind comes from the profile and brings subject type, relationships, settings and locked fields. Mode (Normal / Read-only / Computed) is core. Template is editable starting content | 03 Q5 | Proposal, EV code-grounded |
+| P2 | **Setup = starting content + the product's setup values + who can start it.** The profile declares each product's setup fields and the rules between them; the form stores its values. There is no Kind or Mode in the core. Starting content is blank, a copy, or blocks. Templates are parked | 03 Q5 | **Decided 2026-10-22**, EV code-grounded |
 | P3 | **Propagation policy is a profile setting.** Check It: a block publish updates every checklist using it. Evaluations: held, with a notice on affected forms until each is republished | PRD block publish vs. EV mid-year change | Proposal |
 | P4 | **Question identity is separate from the per-version question ID.** A material edit asks "keep history" or "start a new series"; reports key on identity | FB-V-04 as Should | Proposal; PRD Q7 provisional |
 | P5 | **Location and rich text are dimensions**, on Evidence and Text. **The observation matrix is a Repeat rendered as a grid** | 03 Q2–Q4 | Proposal |
 | P6 | **Libraries are tenant-scoped per product.** No cross-product sharing of blocks, scales or tags | 03 Q6 | Proposal |
 | P7 | **No scoring.** Values and exclude-from-averages are authored; nothing is computed in the prototype | 03 Q7 | Deferred |
 | P8 | **Per-question Timer folds into Timer scopes**: form, section, block, Repeat row, or a single question | 03 Q8 | Proposal |
+
+### P2, decided 2026-10-22
+
+- **Profile and setup values replace Kind.** The **profile** is the product's map: which mechanisms and presets are on, its vocabulary, its settings, and the rules between them. It is registered once. **Setup values** are one form's choices against that map, saved and versioned on the form. "Kind" meant a different thing in each product (a product category in EV, the subject in Check It, a record type in EHS), so it was never a shared concept.
+- **Check It's Checklist type is filter metadata only.** The deployment decides what gets checked, and no presets follow from the type. EV's **Use for** is a setup value that pickers filter by and one rule reads (Prevent self-evaluation applies to Evaluation forms only).
+- **EV's Type (Normal / Read-Only / Computed) is an EV setup value.** EV keeps its own word. The profile declares what each option does: Read-Only means no one answers, Computed means the system answers, and both hide seven settings. The core only needs the who-answers options "no one" and "system". Run-time behaviour (leaving a Read-Only form discards it, only Normal works on mobile) stays in EV's delivery.
+- **Who owns what.** The product owns its forms list, the New action and the setup step. The builder edits within the profile and evaluates the profile's rules itself, so authoring never waits on the product. The product supplies live lists (tags, asset types) when a picker opens and checks the form at publish. The published form goes to a shared store and the product reads it by ID + version. Where that store lives is still an engineering decision ([07](07-check-it-technical-brief.md) #1).
+- **Products filter forms by their own fields.** The shared store or the library has to support filtering on product setup values, or each product keeps its own index. Engineering decision.
+- **Templates are parked.** They were cut from the Check It initiative, and EV starts forms by copying. The open question is how reusable blocks (mini templates) and full-form templates work together. If templates return, the starting instinct is linked by default, with the link broken by the author. Research question C10.
+- **Not decided here.** Locking settings after publish is open pending research; EV+ may move to "locked, editable only with an audit trail" (research C5, and P3/P4). Locked system fields are an EHS need only and wait with the EHS profile.
 
 ## Architecture of the prototype
 
@@ -38,7 +48,7 @@ Everything the builder edits is the definition schema from 03 §8, held in memor
 PROFILE (per product, data)            REGISTRIES (shared, code)
   mechanisms on/off + dimensions          mechanisms[15]: config, inspector, defaults,
   presets                                   validation, allowed answerers, canvas
-  kinds (+ locked system fields)            summary, preview
+  setup fields + their rules                summary, preview
   vocabulary                              extensions: 7 attachment points
   relationships + permission levels       rules: when → then (show/hide/require/
   propagation policy                        fail/outcome/set label)
@@ -60,11 +70,10 @@ A **profile switch** in the toolbox dock swaps the whole experience between Chec
 | Layer | Contents |
 |---|---|
 | Vocabulary | checklist, section, step, content block, deployment, perform, publish |
-| Kinds | Apparatus check, Station check, Equipment check, Capital equipment check. Subject = the entity type |
+| Setup values | Checklist type: Apparatus, Station, Equipment, Capital equipment. Filter metadata only; the deployment decides what gets checked |
 | Mechanisms on | Display, Choice, Measure, Text, Attest, Evidence (as capture), Repeat (per asset), Nested |
 | Presets | **Pass/Fail step** (binary Choice, Fail means fails, comment required on fail, Yes/No relabel), **Complete/Incomplete** (binary, no fail meaning), **Select** (single, fail-marked options, "Other" requires comment), **Numeric** (Measure with accepted range → fail), **Count vs. par** (Measure, under par → fail), **Signature** (Attest, drawn) |
 | Who answers | Initiator only (the performer). Not shown in the inspector |
-| Mode | Normal only |
 | Propagation | Auto-follow on block publish |
 | Extensions | Form: applies-to statuses, default cadence, AI voice, eligible for nesting. Question: asset type for per-asset answers. Data source: asset registry. Rule outcomes: out of service, create ticket, notify. Publish impact: deployments using the version |
 | Lifecycle | Draft → Published → Archived; version pinning; blast radius |
@@ -74,11 +83,10 @@ A **profile switch** in the toolbox dock swaps the whole experience between Chec
 | Layer | Contents |
 |---|---|
 | Vocabulary | form, section, question, rubric domain (block), plan, evaluator, evaluee |
-| Kinds | Evaluation, Coaching, Activity Tracking. Subject = the evaluee |
+| Setup values | Use for: Evaluation, Coaching, Activity Tracking (pickers filter by it). Type: Normal / Read-Only / Computed, locks after publish; Read-Only and Computed set who answers for the whole form and hide seven settings |
 | Mechanisms on | Display, Scale, Choice, Text, Measure (Duration), Date & time, Attest, Calculate, Script, Evidence, Timer, Repeat (not in use), Nested (growth plan, proposal) |
 | Presets | **Rating Scale** 2–8 levels with value, title, description, exclude from averages, require duration; named frameworks (Danielson 4-level). **Pass/Fail** as binary Choice with values and Critical. **Choose One / Choose Any** with dropdown or 1–4 columns, "Other" text, tag per option |
 | Who answers | Initiator (Normal), subject (Reflection), participants by permission: View (Third Party), Record except subject (Any Evaluator), Record incl. subject (Anyone), no one (Read Only), system (Auto, Computed Only). Per-mechanism allowed matrix from the subtype PDF |
-| Mode | Normal / Read-only / Computed; locks after publish |
 | Signing | Lock mode: signer / first locks all / locks prior. Notify when ready, show on to-do |
 | Propagation | Hold and notify |
 | Extensions | Form: Observation flag, privacy, name editing, Pass All, self-evaluation restriction, sharing behaviour + required for completion, JAC codes (CalFire injects a question), TS Tags (metadata, live catalogue). Question: pre-defined tags. Option: tag. Answer: optional tags, Paragraph Bank. Publish impact: plans and instances |
@@ -89,7 +97,7 @@ A **profile switch** in the toolbox dock swaps the whole experience between Chec
 | Layer | Contents |
 |---|---|
 | Vocabulary | form, section, field, record, custom field |
-| Kinds | Incident, Corrective Action, Observation, JSA, each with locked system fields (Division, Facility, dates, Status) |
+| Setup values | Form type: Incident, Corrective Action, Observation, JSA, each with locked system fields (Division, Facility, dates, Status). Locked system fields are EHS-only and wait with this profile |
 | Mechanisms on | Display, Scale (severity, probability), Choice, Text (AI assist), Measure (number, currency), Date & time, Lookup (org hierarchy cascade, asset with auto-fill), Evidence (incl. location), Attest (drawn, signing-as role), Calculate (risk matrix, tallies), Repeat (JSA steps, observation grid), Nested (corrective action, spawned forms) |
 | Who answers | Initiator; escalation roles as an extension |
 | Extensions | Data sources: org hierarchy, people, assets, risk matrix. Rule outcome: create corrective action / follow-on form. Form: additional features bar |
@@ -112,8 +120,8 @@ Each pass ends in a review. The flow map gains a node per surface so every scene
 
 | Pass | Surfaces | Reused from Check It | New |
 |---|---|---|---|
-| **1** | Library (forms, templates, blocks, scales) · Create and setup (Kind, Mode, initiator, name) · Builder canvas + inspector with every mechanism on the profile · Profile switch | Canvas layout, staged inspector, dialog scaffolding | Mechanism registry, profile vocabulary, who-answers control, settings grouped and conditional |
-| **2** | Block library and picker · Link states template → block → unique · Drag + keyboard reorder · Repeat and Nested items · Context labels on repeated blocks | Picker, ladder, overflow menu, explodeBlock | Repeat row source; Nested target + fold-in vs. separate |
+| **1** | Library (forms, blocks, scales) · Create and setup (starting content, setup values, initiator, name) · Builder canvas + inspector with every mechanism on the profile · Profile switch | Canvas layout, staged inspector, dialog scaffolding | Mechanism registry, profile vocabulary, who-answers control, settings grouped and conditional |
+| **2** | Block library and picker · Link states block → unique · Drag + keyboard reorder · Repeat and Nested items · Context labels on repeated blocks | Picker, ladder, overflow menu, explodeBlock | Repeat row source; Nested target + fold-in vs. separate |
 | **3** | Rules panel (when → then) · Rule outcomes from the profile · Extensions at every attachment point · Injected-question extension · Plain-language rule summary on a question | Failure actions, ticket/notify config forms | Declarative rules, extension registry |
 | **4** | Live preview per respondent and device · Test run · Quality checks (placeholder labels, empty options, broken rules, min > max) · Optional content review | — | Reference renderer |
 | **5** | Publish: lock warnings, blast radius from publish impact, propagation policy · Versions and supersede · "Keep history / new series" on a material edit · Maintain: where used, archive | Draft/publish, blast-radius dialog | Identity vs. version, hold-and-notify |
@@ -127,8 +135,8 @@ Thirty minutes, two profiles, the same shell. Each step names the flow-map scene
 
 | # | Scene | Do | Say |
 |---|---|---|---|
-| 1 | `library-ev` | Open the Forms library. Point at the status column. | One library per product: forms, templates, form sections, scales. Statuses are Evaluations' own, including Superseded and Publish-Restricted. Code-confirmed. |
-| 2 | `setup-ev` | Click New form. Pick Evaluation, leave Mode on Normal, choose "The evaluee" as who can start it. Cancel. | Setup is Kind + Mode + Template (P2). Mode locks after publish and the dialog says so before you pick. "Normal follows the initiator" is why who-can-start-it sits here. |
+| 1 | `library-ev` | Open the Forms library. Point at the status column. | One library per product: forms, form sections, scales, filterable by Use for. Statuses are Evaluations' own, including Superseded and Publish-Restricted. Code-confirmed. |
+| 2 | `setup-ev` | Click New form. Try Copy, then From form sections. Leave Use for on Evaluation and Type on Normal, choose "The evaluee" as who can start it. Cancel. | The product owns this step; the fields come from its profile (P2). Use for and Type are EV's own setup values, not core concepts. Type locks after publish and the dialog says so before you pick. "Normal follows the initiator" is why who-can-start-it sits here. |
 | 3 | `builder-ev` | Open Classroom Observation. Expand Domain 3. | Canvas + inspector, whole form visible. Danielson domains are linked form sections: edit once in the library, every form follows. The pinned timer and the injected JAC question show where delivery puts them. |
 | 4 | `question-ev` | Select Teacher reflection. Open Who answers. Try to pick Read Only on a signature (disabled). | Who answers is a relationship to the record, not a role. The allowed matrix per mechanism is the engine's. |
 | 5 | `preview-ev` | Preview as the evaluee, then switch to Evaluator. Switch to Phone. | Reference renderer (P1): what the definition expresses, not Evaluations' delivery. Locked questions make the subtype model visible. |
@@ -171,9 +179,10 @@ Every surface and seed value carries one of: **Code-confirmed** (EV settings, su
 
 ## Not in the prototype
 
-- Assignment, scheduling, deployment, delivery (D2). The hand-off is shown as the publish result: ID + version + kind + mode.
+- Assignment, scheduling, deployment, delivery (D2). The hand-off is shown as the publish result: ID + version + the product's setup values.
 - Scoring (P7), offline, mobile authoring, permissions enforcement (the four capabilities are named in the publish dialog, not enforced).
 - Migration from legacy forms.
+- Templates (parked 2026-10-22, see P2).
 
 ## Folder layout
 

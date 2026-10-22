@@ -16,7 +16,7 @@ Check It is the first product to build the Form Builder: the shared form-authori
 | # | Decision | Why it's expensive to change later | Proposal |
 |---|---|---|---|
 | 1 | **Where the Form Builder lives** (code + storage) | Authoring code or definitions inside Check It's codebase or database have to be extracted when Evaluations adopts | A separate module/package and a definition store that is shared, or schema-compatible. Check It consumes it the way Evaluations will |
-| 2 | **Definition schema** | A Check It-shaped schema forces Evaluations to migrate or fork | Start from 03 §8. Include fields Check It won't use yet as optional (`answeredBy`, option `value` / `excludeFromAverages`, form `mode`, `signing.lockMode`, `extensions`). Version the schema from v1 |
+| 2 | **Definition schema** | A Check It-shaped schema forces Evaluations to migrate or fork | Start from 03 §8. Include fields Check It won't use yet as optional (`answeredBy`, option `value` / `excludeFromAverages`, `signing.lockMode`, `extensions`), plus the `product.setup` slot for each product's setup values. Version the schema from v1 |
 | 3 | **Core vs. extension boundary** | Check It concepts in the core (assets, tickets, statuses) have to be pulled out later | The placement table below |
 | 4 | **Extension contract** | Hard-wired integrations mean custom code for every product | A real contract from day one, with Check It as its first user (four extensions below) |
 | 5 | **Delivery reads the published definition** | A Check It-specific compiled runtime format creates two vocabularies; the sandbox prototype already hit this | Check It's run engine reads the published definition directly |
@@ -39,7 +39,7 @@ Check It is the first product to build the Form Builder: the shared form-authori
 
 **Profile:** Check It configuration of the core.
 - Presets: Pass/Fail step with a required comment on fail, Yes/No relabeling, Complete/Incomplete, Count vs. par
-- Checklist types (kinds)
+- Checklist type as a setup value (filter metadata only; the deployment decides what gets checked)
 - Block domains
 - Vocabulary (checklist, step, block)
 

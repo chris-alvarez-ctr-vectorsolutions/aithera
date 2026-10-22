@@ -1,6 +1,6 @@
 # Form Builder: shared core vs. product
 
-**Status:** Draft v1 for review · **Updated:** 2026-10-14
+**Status:** Draft v1.1 for review (setup decided) · **Updated:** 2026-10-22
 
 This document answers one question for engineering and product owners: **what does the shared Form Builder own, and what does each product supply?** It is the companion to [03](03-synthesis-and-requirements.md) §4–§6.
 
@@ -18,22 +18,21 @@ This document answers one question for engineering and product owners: **what do
 │    questions · integration sync                                      │
 ├──────────────────────────────────────────────────────────────────────┤
 │ 2. PRODUCT PROFILE (configuration of the shared core)                │
-│    Which mechanisms and settings are on · presets · kinds (+ locked  │
-│    system fields) · vocabulary · answerer relationships and          │
+│    Which mechanisms and settings are on · presets · setup fields and │
+│    the rules between them · vocabulary · answerer relationships and  │
 │    permission levels · default values                                │
 ├──────────────────────────────────────────────────────────────────────┤
 │ 1. SHARED CORE (the Form Builder)                                    │
 │    Mechanisms + dimensions · structure (sections, blocks, Repeat,    │
-│    Nested, Timer) · rules model · form mode · who-answers model ·    │
-│    signing model · lifecycle + versions · authoring experience ·     │
-│    definition schema                                                 │
+│    Nested, Timer) · rules model · who-answers model · signing model  │
+│    · lifecycle + versions · authoring experience · definition schema │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
 | Layer | Owned by | Changes when | What it contains |
 |---|---|---|---|
-| **1. Shared core** | Form Builder team | Rarely; affects every product | The mechanisms and their customization dimensions; structure; rules; form mode; the who-answers *model* (relationships + permission levels); the signing *model* (locking modes); lifecycle and versions; the authoring UI; the definition schema |
-| **2. Product profile** | Each product, as **configuration** | When a product changes what its authors can do | Which mechanisms, dimensions and settings are on; **presets** (named versions of a mechanism); **kinds** with their locked system fields and defaults; **vocabulary**; the product's **relationships and permission levels** for who answers |
+| **1. Shared core** | Form Builder team | Rarely; affects every product | The mechanisms and their customization dimensions; structure; rules; the who-answers *model* (relationships + permission levels); the signing *model* (locking modes); lifecycle and versions; the authoring UI; the definition schema |
+| **2. Product profile** | Each product, as **configuration** | When a product changes what its authors can do | Which mechanisms, dimensions and settings are on; **presets** (named versions of a mechanism); **setup fields** and the rules between them (each form stores its own **setup values**, [08](08-prototype-build-brief.md) P2); **vocabulary**; the product's **relationships and permission levels** for who answers |
 | **3. Product extensions** | Each product, as **integrations** | When a product system changes | Settings whose **options or meaning live in the product**: tags, statuses, codes, org data, assets; rule outcomes; publish impact; metadata-only fields; injected questions; integration sync |
 | **4. Product-owned** | Each product | Independently | Everything after Publish: assignment, scheduling, rendering, completion status, signing workflow, records, reporting, sync |
 
@@ -93,7 +92,7 @@ This is the model working today. It shows that **cross-product integration is an
 | Part | Layer | Why |
 |---|---|---|
 | Nested mechanism (separate linked record, inherited fields) | 1 Core | Relationships between forms are shared structure |
-| "Corrective Action" kind with locked system fields (Originating Type, ID, Division, Facility) | 2 Profile | A product kind |
+| "Corrective Action" form type with locked system fields (Originating Type, ID, Division, Facility) | 2 Profile | A product setup value. Locked system fields are EHS-only and wait with the EHS profile |
 | Responsible party, escalation levels | 3 Extension (escalation role) + 4 Product (notifications) | People and escalation belong to EHS |
 
 ### F. Signature locking
@@ -107,9 +106,9 @@ This is the model working today. It shows that **cross-product integration is an
 
 | Product | Profile (layer 2) | Extensions (layer 3) |
 |---|---|---|
-| **Evaluations** | Kinds (Evaluation, Coaching, Activity Tracking); scale presets; relationships (author, evaluee) + permission levels (View, Record); vocabulary | Tags (question and option), TS Tags, JAC codes, Observation flag, privacy, sharing behaviour, name editing, self-evaluation restriction, course-recommendation outcome, publish impact (plans, instances) |
-| **Check It** | Kinds (checklist types); presets (Pass/Fail step, Count vs. par); vocabulary (checklist, step, block); relationships (performer) | Applies-to statuses, cadence, asset types, ticket / out-of-service / notify outcomes, publish impact (deployments) |
-| **EHS** | Kinds (Incident, Corrective Action, Observation, JSA) with locked system fields; risk-matrix preset; vocabulary | Org hierarchy, people, assets, additional features, create-CA / follow-on-form outcomes, escalation roles, publish impact (records) |
+| **Evaluations** | Setup values (Use for: Evaluation, Coaching, Activity Tracking; Type: Normal, Read-Only, Computed); scale presets; relationships (author, evaluee) + permission levels (View, Record); vocabulary | Tags (question and option), TS Tags, JAC codes, Observation flag, privacy, sharing behaviour, name editing, self-evaluation restriction, course-recommendation outcome, publish impact (plans, instances) |
+| **Check It** | Setup values (Checklist type, filter metadata only); presets (Pass/Fail step, Count vs. par); vocabulary (checklist, step, block); relationships (performer) | Applies-to statuses, cadence, asset types, ticket / out-of-service / notify outcomes, publish impact (deployments) |
+| **EHS** | Setup values (form type: Incident, Corrective Action, Observation, JSA) with locked system fields; risk-matrix preset; vocabulary | Org hierarchy, people, assets, additional features, create-CA / follow-on-form outcomes, escalation roles, publish impact (records) |
 
 ## Open points
 - **Who builds extensions:** each product team, against a published extension contract? Or the Form Builder team, from product specs?

@@ -41,8 +41,8 @@ Both are reconciled against the TeachPoint form engine. **This section overrides
 ### Form settings
 | # | Setting | Values (stored field) | Notes | Form Builder model (03) |
 |---|---|---|---|---|
-| 1 | **Use For (Feature)** | Evaluation (0, default), Coaching (1), Activity Tracking (3). `Both` (2) and `PD Tracking` (4) exist in the model but can't be selected (`feature_type`) | Pickers filter by feature. Only Evaluation forms work on mobile | **Kind** |
-| 2 | **Type** | Normal (0), Read-Only (1), Computed (2) (`type`) | **Locked after publish.** Read-Only = fully view-only; leaving discards the instance. Computed = answers auto-calculated. Read-Only and Computed hide settings 3–7, 9 and 10. Only Normal works on mobile | **Form mode** (new) |
+| 1 | **Use For (Feature)** | Evaluation (0, default), Coaching (1), Activity Tracking (3). `Both` (2) and `PD Tracking` (4) exist in the model but can't be selected (`feature_type`) | Pickers filter by feature. Only Evaluation forms work on mobile | **Setup value** (EV profile) |
+| 2 | **Type** | Normal (0), Read-Only (1), Computed (2) (`type`) | **Locked after publish.** Read-Only = fully view-only; leaving discards the instance. Computed = answers auto-calculated. Read-Only and Computed hide settings 3–7, 9 and 10. Only Normal works on mobile | **Setup value** (EV profile); Read-Only and Computed set who answers for the whole form |
 | 3 | Include Elapsed-Time Recording | on/off (`rec_elapsed`) | A form-level Start/Stop bar; H:M:S editable; has a maximum; force-stopped when the form closes; never blocks completion. Turning it on also turns on #4. **Locked after publish.** **Separate from the per-question Timer type** | **Timer**, scope = form |
 | 4 | Observation Form | on/off (`observation`) | Classifies the instance for observation reporting and the mobile API. Doesn't change answering | EV extension (form metadata) |
 | 5 | Allow Privacy Control | on/off (`allow_private`) | Owner-only On/Off toggle in the header. Private hides the form from the evaluee and suppresses notifications. Stored value is inverted | EV extension (form) |
