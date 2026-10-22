@@ -40,6 +40,11 @@ const ALLOWED_ORIGINS = [
   'https://training.test3.us-east-2.vsp-nonprod.com',
   'https://training.staging.us-east-2.vsp-nonprod.com',
   'https://training.vectorsolutions.com',
+  // Dev team's CDN origins (dev/test1–3, staging, prod), which they report
+  // as the page origin for the iframe integration.
+  'https://cdn.develop.vsp-nonprod.com',
+  'https://cdn.staging.vsp-nonprod.com',
+  'https://cdn.vsp-prod.com',
 ];
 
 function corsHeaders(origin) {
